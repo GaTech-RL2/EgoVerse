@@ -31,6 +31,8 @@ import pickle
 import time
 import egomimic
 
+from collections import OrderedDict
+
 class PreemptionHandler(Callback):
     def __init__(self):
         super().__init__()
@@ -74,12 +76,14 @@ def init_dataset(config, dataset_path, type, alternate_valid_path=None):
     # load basic metadata from training file
     # print("\n============= Loaded Environment Metadata =============")
     # env_meta = FileUtils.get_env_metadata_from_dataset(dataset_path=config.train.data)
-    shape_meta = FileUtils.get_shape_metadata_from_dataset(
-        dataset_path=dataset_path,
-        all_obs_keys=config.all_obs_keys,
-        verbose=True,
-        ac_key=config.train.ac_key,
-    )
+    # breakpoint()
+    # shape_meta = FileUtils.get_shape_metadata_from_dataset(
+    #     dataset_path=dataset_path,
+    #     all_obs_keys=config.all_obs_keys,
+    #     verbose=True,
+    #     ac_key=config.train.ac_key,
+    # )
+    shape_meta = {'ac_dim': 7, 'all_shapes': OrderedDict([('front_img_1', [3, 480, 640]), ('joint_positions', [7]), ('right_wrist_img', [3, 480, 640])]), 'all_obs_keys': ['front_img_1', 'joint_positions', 'right_wrist_img'], 'use_images': True, 'use_depths': False}
 
     # if type(env_meta) is list:
     #     env_metas = env_meta
@@ -309,12 +313,14 @@ def train(config, ckpt_path=None):
 
     # dict is picklable, so pass that to model, then create robomimic config inside model
     dataset_path = os.path.expanduser(config.train.data)
-    shape_meta = FileUtils.get_shape_metadata_from_dataset(
-        dataset_path=dataset_path,
-        all_obs_keys=config.all_obs_keys,
-        verbose=True,
-        ac_key=config.train.ac_key,
-    )
+    # shape_meta = FileUtils.get_shape_metadata_from_dataset(
+    #     dataset_path=dataset_path,
+    #     all_obs_keys=config.all_obs_keys,
+    #     verbose=True,
+    #     ac_key=config.train.ac_key,
+    # )
+    shape_meta = {'ac_dim': 7, 'all_shapes': OrderedDict([('front_img_1', [3, 480, 640]), ('joint_positions', [7]), ('right_wrist_img', [3, 480, 640])]), 'all_obs_keys': ['front_img_1', 'joint_positions', 'right_wrist_img'], 'use_images': True, 'use_depths': False}
+
     model = ModelWrapper(config.dump(), shape_meta, datamodule)
     print("\n============= Model Summary =============")
     print(model)  # print model summary

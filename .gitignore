@@ -22,3 +22,6 @@ egomimic/v_3.png
 egomimic/scripts/masking/overlays/
 debug_ims/*
 egomimic/scripts/aloha_process/datasetFig
+egomimic/outputs
+outputs/
+logs/

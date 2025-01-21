@@ -25,6 +25,8 @@ from egomimic.utils.dataset import PlaydataSequenceDataset
 from robomimic.envs.env_base import EnvBase
 from robomimic.envs.wrappers import EnvWrapper
 
+from rldb.utils import RLDBDataset
+
 import egomimic
 from egomimic.algo import RolloutPolicy
 
@@ -109,23 +111,23 @@ def load_data_for_training(config, obs_keys, type, dataset_path=None):
 
     # load the dataset into memory
     if config.experiment.validate:
-        assert (train_filter_by_attribute is not None) and (
-            valid_filter_by_attribute is not None
-        ), (
-            "did not specify filter keys corresponding to train and valid split in dataset"
-            " - please fill config.train.hdf5_filter_key and config.train.hdf5_validation_filter_key"
-        )
-        train_demo_keys = FileUtils.get_demos_for_filter_key(
-            hdf5_path=dataset_path,
-            filter_key=train_filter_by_attribute,
-        )
-        valid_demo_keys = FileUtils.get_demos_for_filter_key(
-            hdf5_path=dataset_path,
-            filter_key=valid_filter_by_attribute,
-        )
-        assert set(train_demo_keys).isdisjoint(set(valid_demo_keys)), (
-            "training demonstrations overlap with " "validation demonstrations!"
-        )
+        # assert (train_filter_by_attribute is not None) and (
+        #     valid_filter_by_attribute is not None
+        # ), (
+        #     "did not specify filter keys corresponding to train and valid split in dataset"
+        #     " - please fill config.train.hdf5_filter_key and config.train.hdf5_validation_filter_key"
+        # )
+        # train_demo_keys = FileUtils.get_demos_for_filter_key(
+        #     hdf5_path=dataset_path,
+        #     filter_key=train_filter_by_attribute,
+        # )
+        # valid_demo_keys = FileUtils.get_demos_for_filter_key(
+        #     hdf5_path=dataset_path,
+        #     filter_key=valid_filter_by_attribute,
+        # )
+        # assert set(train_demo_keys).isdisjoint(set(valid_demo_keys)), (
+        #     "training demonstrations overlap with " "validation demonstrations!"
+        # )
         train_dataset = dataset_factory(
             config,
             obs_keys,
@@ -177,33 +179,37 @@ def dataset_factory(config, obs_keys, type, filter_by_attribute=None, dataset_pa
     Returns:
         dataset (PlaydataSequenceDataset instance): dataset object
     """
-    if dataset_path is None:
-        dataset_path = config.train.data
+    if "hdf5" in dataset_path:
+        if dataset_path is None:
+            dataset_path = config.train.data
 
-    ds_kwargs = dict(
-        hdf5_path=dataset_path,
-        obs_keys=obs_keys,
-        dataset_keys=config.train.dataset_keys,
-        goal_obs_gap=config.algo.playdata.goal_image_range,
-        load_next_obs=config.train.hdf5_load_next_obs,  # whether to load next observations (s') from dataset
-        frame_stack=config.train.frame_stack,
-        seq_length=config.train.seq_length,
-        pad_frame_stack=config.train.pad_frame_stack,
-        pad_seq_length=config.train.pad_seq_length,
-        get_pad_mask=True,
-        goal_mode=config.train.goal_mode,
-        hdf5_cache_mode=config.train.hdf5_cache_mode,
-        hdf5_use_swmr=config.train.hdf5_use_swmr,
-        hdf5_normalize_obs=config.train.hdf5_normalize_obs,
-        filter_by_attribute=filter_by_attribute,
-        type=type,
-        ac_key=config.train.ac_key,
-        prestacked_actions=config.train.prestacked_actions,
-        hdf5_normalize_actions=config.train.hdf5_normalize_actions
-    )
-    dataset = PlaydataSequenceDataset(**ds_kwargs)
+        ds_kwargs = dict(
+            hdf5_path=dataset_path,
+            obs_keys=obs_keys,
+            dataset_keys=config.train.dataset_keys,
+            goal_obs_gap=config.algo.playdata.goal_image_range,
+            load_next_obs=config.train.hdf5_load_next_obs,  # whether to load next observations (s') from dataset
+            frame_stack=config.train.frame_stack,
+            seq_length=config.train.seq_length,
+            pad_frame_stack=config.train.pad_frame_stack,
+            pad_seq_length=config.train.pad_seq_length,
+            get_pad_mask=True,
+            goal_mode=config.train.goal_mode,
+            hdf5_cache_mode=config.train.hdf5_cache_mode,
+            hdf5_use_swmr=config.train.hdf5_use_swmr,
+            hdf5_normalize_obs=config.train.hdf5_normalize_obs,
+            filter_by_attribute=filter_by_attribute,
+            type=type,
+            ac_key=config.train.ac_key,
+            prestacked_actions=config.train.prestacked_actions,
+            hdf5_normalize_actions=config.train.hdf5_normalize_actions
+        )
+        dataset = PlaydataSequenceDataset(**ds_kwargs)    
 
-    return dataset
+        return dataset
+    else:
+        dataset = RLDBDataset(dataset_path)
+        return dataset
 
 
 def run_rollout(

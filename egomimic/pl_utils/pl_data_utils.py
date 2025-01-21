@@ -1,9 +1,28 @@
-from torch.utils.data import DataLoader
-from pytorch_lightning import LightningDataModule
+from torch.utils.data import DataLoader, random_split
+from lightning import LightningDataModule
 from egomimic.utils.egomimicUtils import nds
 import json
 from egomimic.configs import config_factory
 import os
+from rldb.utils import RLDBDataset
+from termcolor import cprint
+
+class RLDBModule(LightningDataModule):
+    def __init__(self, dataset, dataloader_kwargs):
+        super().__init__()
+        self.dataset1 = dataset
+        self.dataloader_kwargs = dataloader_kwargs
+
+        # self.train_dataset, self.val_dataset = random_split(self.dataset1, [0.8, 0.2])
+        self.train_dataset, self.val_dataset = self.dataset1, self.dataset1
+        cprint(f"Warning: RLDBModule is using the same dataset for train and val", "yellow")
+
+    
+    def train_dataloader(self):
+        return DataLoader(self.train_dataset, shuffle=True, **self.dataloader_kwargs)
+
+    def val_dataloader(self):
+        return DataLoader(self.val_dataset, shuffle=False, **self.dataloader_kwargs)
 
 
 class DualDataModuleWrapper(LightningDataModule):

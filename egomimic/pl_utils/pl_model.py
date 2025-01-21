@@ -6,7 +6,7 @@ import psutil
 import robomimic.utils.obs_utils as ObsUtils
 import robomimic.utils.tensor_utils as TensorUtils
 import torch
-from pytorch_lightning import LightningModule
+from lightning import LightningModule
 import robomimic.utils.obs_utils as ObsUtils
 from robomimic.algo.algo import PolicyAlgo
 import egomimic.utils.val_utils as ValUtils
@@ -16,14 +16,16 @@ from egomimic.algo import algo_factory
 import robomimic.utils.file_utils as FileUtils
 from egomimic.configs import config_factory
 import json
-
+from typing import Any, Dict, Tuple
+import torchvision.io as tvio
+from lightning.pytorch.utilities import rank_zero_only
 
 class ModelWrapper(LightningModule):
     """
     Wrapper class around robomimic models to ensure compatibility with Pytorch Lightning.
     """
 
-    def __init__(self, config_json, shape_meta, datamodule):
+    def __init__(self, robomimic_model, optimizer, scheduler, train_cfg, datamodule=None):
         """
         Args:
             model (PolicyAlgo): robomimic model to wrap.
@@ -31,15 +33,7 @@ class ModelWrapper(LightningModule):
         super().__init__()
         self.save_hyperparameters(ignore=["datamodule"])
 
-        config = json_to_config(config_json)
-        model = algo_factory(
-            algo_name=config.algo_name,
-            config=config,
-            obs_key_shapes=shape_meta["all_shapes"],
-            ac_dim=shape_meta["ac_dim"],
-            device="cuda",  # default to cpu, pl will move to gpu
-        )
-        self.model = model
+        self.model = robomimic_model
         self.nets = (
             self.model.nets
         )  # to ensure the lightning module has access to the model's parameters
@@ -53,9 +47,22 @@ class ModelWrapper(LightningModule):
         self.datamodule = datamodule
         self.dual_dl = isinstance(datamodule, DualDataModuleWrapper)
 
+        self.train_cfg = train_cfg
+
+        self.val_image_buffer, self.val_counter = [], 0
         # TODO __init__ should take the config, and init the model here.  Then save_hyperparameters will just save the config rather than the model
+    
+    def root_dir(self):
+        return self.trainer.default_root_dir
+
+    def video_dir(self):
+        return os.path.join(self.root_dir(), "videos")
 
     def training_step(self, batch, batch_idx):
+        print("INSIDE ON TRAIN STEP")
+
+        if self.datamodule is None:
+            raise ValueError("Cannot train if datamodule is none, make sure to pass hydra.utils.instantiate(cfg.model, data_module=datamodule)")
         DUAL_DL = isinstance(batch, list)
         # plt.imsave("debug/front_img_1.png", batch[0]["obs"]["front_img_1"][0, 0].cpu().numpy())
 
@@ -67,11 +74,11 @@ class ModelWrapper(LightningModule):
             batch = [batch]
         ac_keys = (
             [
-                self.model.global_config.train.ac_key,
-                self.model.global_config.train.ac_key_hand,
+                self.model.ac_key,
+                self.model.ac_key_hand,
             ]
             if self.dual_dl
-            else [self.model.global_config.train.ac_key]
+            else [self.model.ac_key]
         )
         norm_dicts = (
             [
@@ -79,16 +86,12 @@ class ModelWrapper(LightningModule):
                 self.datamodule.train_dataset2.get_obs_normalization_stats()
             ]
             if self.dual_dl
-            else [self.datamodule.train_dataset.get_obs_normalization_stats()]
+            else [self.datamodule.dataset1.get_obs_normalization_stats()]
         )
         for batch, ac_key, norm_dict in zip(batch, ac_keys, norm_dicts):
-            # batch["obs"] = ObsUtils.process_obs_dict(batch["obs"])
-            info = PolicyAlgo.train_on_batch(
-                self.model, batch, self.current_epoch, validate=False
-            )
-            batch = self.model.process_batch_for_training(batch, ac_key)
-            batch = self.model.postprocess_batch_for_training(batch, norm_dict, normalize_actions=self.model.global_config.train.hdf5_normalize_actions)
-            predictions = self.model._forward_training(batch)
+            batch = self.model.process_batch_for_training(batch)
+            # batch = self.model.postprocess_batch_for_training(batch, norm_dict, normalize_actions=self.train_cfg.normalize_actions)
+            predictions = self.model.forward_training(batch)
             losses = self.model._compute_losses(predictions, batch)
             loss_dicts.append(losses)
 
@@ -99,6 +102,7 @@ class ModelWrapper(LightningModule):
                 torch.stack([loss_dict[key] for loss_dict in loss_dicts])
             )
 
+        info = {}
         info["losses"] = TensorUtils.detach(losses)
         self.step_log_all_train.append(self.model.log_info(info))
 
@@ -112,24 +116,69 @@ class ModelWrapper(LightningModule):
         # breakpoint()
         return losses["action_loss"]
 
-    def configure_optimizers(self):
-        if self.model.lr_schedulers["policy"]:
-            lr_scheduler_dict = {
-                "scheduler": self.model.lr_schedulers["policy"],
-                "interval": "step",
-                "frequency": 1,
-            }
-            return {
-                "optimizer": self.model.optimizers["policy"],
-                "lr_scheduler": lr_scheduler_dict,
-            }
-        else:
-            return {
-                "optimizer": self.model.optimizers["policy"],
-            }
+    @rank_zero_only
+    def on_validation_start(self):
+        print("INSIDE ON VALIDATION START")
+        # make the video directory for this epoch
+        os.makedirs(os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}"), exist_ok=True)
 
-    # def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
-    #     optimizer.zero_grad(optimizer_idx)
+    @rank_zero_only
+    def validation_step(self, batch, batch_idx):
+        """
+        Run a validation step on the batch, and save that batch of images into the val_image_buffer.  Once the buffer hits 1000 images, save that as a 30fps video using torchvision.io.write_video.  
+        """
+        print("INSIDE VAL STEP")
+
+        batch = self.model.process_batch_for_training(batch)
+        metrics, images = self.model.forward_eval_logging(batch)
+        
+        self.val_image_buffer.extend(torch.from_numpy(images))
+        if len(self.val_image_buffer) >= 1000:
+            frames = torch.stack(self.val_image_buffer)
+            path = os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}/validation_video_{self.val_counter}.mp4")
+            tvio.write_video(path, frames, fps=30)
+            self.val_image_buffer.clear()
+        
+            self.val_counter += 1
+        
+        print("Validation Step: ", metrics)
+        
+        self.log_dict(metrics)
+    
+    @rank_zero_only
+    def on_validation_end(self):
+        if len(self.val_image_buffer) != 0:
+            frames = torch.stack(self.val_image_buffer)
+            path = os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}/validation_video_{self.val_counter}.mp4")
+            tvio.write_video(path, frames, fps=30)
+        
+        self.val_counter = 0
+        self.val_image_buffer = []
+        
+
+    def configure_optimizers(self) -> Dict[str, Any]:
+        """Choose what optimizers and learning-rate schedulers to use in your optimization.
+        Normally you'd need one. But in the case of GANs or similar you might have multiple.
+
+        Examples:
+            https://lightning.ai/docs/pytorch/latest/common/lightning_module.html#configure-optimizers
+
+        :return: A dict containing the configured optimizers and learning-rate schedulers to be used for training.
+        """
+        optimizer = self.hparams.optimizer(params=self.trainer.model.parameters())
+        if self.hparams.scheduler is not None:
+            scheduler = self.hparams.scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": scheduler
+                # "lr_scheduler": {
+                #     "scheduler": scheduler,
+                #     "monitor": "val/loss",
+                #     "interval": "epoch",
+                #     "frequency": 1,
+                # },
+            }
+        return {"optimizer": optimizer}
 
     def custom_eval(self, video_dir):
         self.eval()
@@ -139,7 +188,7 @@ class ModelWrapper(LightningModule):
                 self.model,
                 self.datamodule.val_dataloader_1(),
                 video_dir,
-                ac_key=self.model.global_config.train.ac_key,
+                ac_key=self.model.ac_key,
             )  # save vid only once every video_freq epochs
 
         return valid_step_log
@@ -153,52 +202,11 @@ class ModelWrapper(LightningModule):
                     log[k] = []
                 log[k].append(self.step_log_all_train[i][k])
         log_all = dict((k, float(np.mean(v))) for k, v in log.items())
-        for k in self.model.optimizers:
-            for i, param_group in enumerate(self.model.optimizers[k].param_groups):
-                log_all["Optimizer/{}{}_lr".format(k, i)] = param_group["lr"]
+        for i, param_group in enumerate(self.optimizers().param_groups):
+            log_all[f"Optimizer/param_group_{i}_lr"] = param_group["lr"]
         for k, v in log_all.items():
             self.log("Train/" + k, v, sync_dist=True)
         self.step_log_all_train = []
-
-        val_freq = self.model.global_config.experiment.validation_freq
-        video_freq = self.model.global_config.experiment.save.video_freq
-
-        if self.current_epoch % val_freq == 0 and self.current_epoch != 0:
-            if self.global_rank == 0:
-                # Perform custom validation
-
-                with torch.no_grad():
-                    self.eval()
-                    self.zero_grad()
-                    pass_vid = (
-                        os.path.join(self.trainer.default_root_dir, "videos")
-                        if self.current_epoch % video_freq == 0
-                        else None
-                    )
-                    valid_step_log = ValUtils.evaluate_high_level_policy(
-                        self.model,
-                        self.datamodule.val_dataloader_1(),
-                        pass_vid,
-                        max_samples=self.model.global_config.experiment.validation_max_samples,
-                        ac_key=self.model.global_config.train.ac_key,
-                        type="robot",
-                    )  # save vid only once every video_freq epochs
-
-                    if self.dual_dl:
-                        valid_step_log_2 = ValUtils.evaluate_high_level_policy(
-                            self.model,
-                            self.datamodule.val_dataloader_2(),
-                            pass_vid,
-                            max_samples=self.model.global_config.experiment.validation_max_samples,
-                            ac_key=self.model.global_config.train.ac_key_hand,
-                            type="hand",
-                        )  # save vid only once every video_freq epochs
-                    self.train()
-                for k, v in valid_step_log.items():
-                    self.log("Valid/" + k, v, sync_dist=False)
-                if self.dual_dl:
-                    for k, v in valid_step_log_2.items():
-                        self.log("Valid/" + k, v, sync_dist=False)
 
         # Finally, log memory usage in MB
         process = psutil.Process(os.getpid())
@@ -208,24 +216,3 @@ class ModelWrapper(LightningModule):
         self.log("System/RAM Usage (GB)", mem_usage, sync_dist=True)
 
         return super().on_train_epoch_start()
-
-    def lr_scheduler_step(self, scheduler, optimizer_idx):
-        if False and self.model.lr_warmup:
-            # lr warmup schedule taken from Gato paper
-            # update params
-            initial_lr = 0
-            target_lr = self.model.optim_params["policy"]["learning_rate"]["initial"]
-            # manually warm up lr without a scheduler
-            schedule_iterations = 10000
-            if self.global_step < schedule_iterations:
-                for pg in self.optimizers().param_groups:
-                    pg["lr"] = (
-                        initial_lr
-                        + (target_lr - initial_lr)
-                        * self.global_step
-                        / schedule_iterations
-                    )
-            else:
-                scheduler.step(self.global_step - schedule_iterations)
-        else:
-            scheduler.step(self.global_step)

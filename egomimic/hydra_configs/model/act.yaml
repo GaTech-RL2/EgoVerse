@@ -1,0 +1,64 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.act.ACT
+  data_schematic: ${data.dataset.data_schematic}
+  camera_transforms:
+    _target_: egomimic.utils.egomimicUtils.CameraTransforms
+    intrinsics_key: "base"
+    extrinsics_key: "ariaJul29"
+  backbones: # Directly instantiate the backbones, there must be same number of backbones as there are cam_keys
+    - _target_: robomimic.models.base_nets.ResNet18Conv
+      pretrained: true
+      input_coord_conv: false
+    - _target_: robomimic.models.base_nets.ResNet18Conv
+      pretrained: true
+      input_coord_conv: false
+  
+  chunk_size: 100
+  kl_weight: 20
+  image_augs:
+    _target_: torchvision.transforms.ColorJitter
+    brightness: 0.1
+    contrast: 0.1
+    saturation: 0.1
+    hue: 0.05
+
+  transformer:
+    _target_: egomimic.models.act_nets.Transformer
+    d: 512 # hidden_dim
+    h: 8 # num_heads
+    d_ff: 3200 # dim_feedforward
+    num_layers: 7
+    dropout: 0.1
+
+  style_encoder:
+    _target_: egomimic.models.act_nets.StyleEncoder
+    act_len: ${model.robomimic_model.chunk_size}
+    hidden_dim: ${model.robomimic_model.transformer.d}
+    latent_dim: 32
+    h: ${model.robomimic_model.transformer.h}
+    d_ff: ${model.robomimic_model.transformer.d_ff}
+    num_layers: 4
+    dropout: 0.1
+
+  latent_dim: ${model.robomimic_model.style_encoder.latent_dim}
+  # a_dim (dynamic)
+  # state_dim (dynamic)
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5e-5
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1
+
+train_cfg:
+  normalize_actions: false
+  normalize_obs: false
+  validation_max_samples: 15000
+  validation_freq: 200
+  video_save_freq: 200

@@ -9,6 +9,7 @@ import egomimic
 import os
 import torchvision.transforms.v2.functional as TVTF
 import scipy
+from numbers import Number
 
 REALSENSE_INTRINSICS = np.array(
     [[616.0, 0.0, 313.4, 0.0], [0.0, 615.7, 236.7, 0.0], [0.0, 0.0, 1.0, 0.0]]
@@ -67,6 +68,56 @@ EXTRINSICS = {
 
 }
 
+INTRINSICS = {
+    "base": ARIA_INTRINSICS
+}
+
+class CameraTransforms:
+    def __init__(self, intrinsics_key, extrinsics_key):
+        self.intrinsics = INTRINSICS[intrinsics_key]
+        self.extrinsics = EXTRINSICS[extrinsics_key]
+
+
+def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both"):
+    """
+    args:
+        im: (H, W, C)
+        type: "joints" or "xyz"
+        color: ex) "Purples", "Blues", "Greens"
+        actions: (N, 6) or (N, 3) if type is "xyz" or (N, 7) or (N, 14) if type is "joints"
+        extrinsics: dict with keys "left" and "right" with values (4, 4)
+        intrinsics: (3, 4)
+        arm: "both", "left", "right"
+    returns
+        im: (H, W, C)
+    """
+    aloha_fk = AlohaFK()
+    if type == "joints": 
+        if arm == "both":
+            right_actions = aloha_fk.fk(actions[:, 7:13])
+            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            left_actions = aloha_fk.fk(actions[:, :6])
+            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
+            actions_drawable = np.concatenate((left_actions_drawable, right_actions_drawable), axis=0)
+        elif arm == "right":
+            right_actions = aloha_fk.fk(actions[:, :6])
+            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            actions_drawable = right_actions_drawable
+        elif arm == "left":
+            left_actions = aloha_fk.fk(actions[:, :6])
+            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
+            actions_drawable = left_actions_drawable
+    else:
+        actions = actions.reshape(-1, 3)
+        actions_drawable = actions
+    
+    actions_drawable = cam_frame_to_cam_pixels(actions_drawable, intrinsics)
+    im = draw_dot_on_frame(
+        im, actions_drawable, show=False, palette=color
+    )
+
+    return im
+
 
 def is_key(x):
     return hasattr(x, "keys") and callable(x.keys)
@@ -88,6 +139,8 @@ def nds(nested_ds, tab_level=0):
         print("list of len: ", len(nested_ds))
     elif nested_ds is None:
         print("None")
+    elif isinstance(nested_ds, Number):
+        print("Number: ", nested_ds)
     else:
         # print('\t' * (tab_level), end='')
         print(nested_ds.shape)

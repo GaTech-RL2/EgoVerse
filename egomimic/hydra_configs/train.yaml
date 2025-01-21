@@ -1,0 +1,49 @@
+defaults:
+  - model: act
+  - paths: default
+  - trainer: ddp
+  - debug: null
+  - logger: wandb
+  - override hydra/launcher: submitit
+  - _self_
+
+name: test
+description: test
+ckpt_path: null
+train: true
+eval: false
+
+hydra:
+  run:
+    # Dir should be experiment_name/description_{timestamp}
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+data:
+  _target_: egomimic.pl_utils.pl_data_utils.RLDBModule
+  dataset:
+    _target_: rldb.utils.RLDBDataset
+    parquet_path: /coc/flash9/skareer6/Projects/RLDB/rldb/export/oboo_robot
+
+  dataloader_kwargs:
+    batch_size: 32
+    num_workers: 10
+
+data_schematic: # Dynamically fill in these shapes from the dataset
+  _target_: rldb.utils.DataSchematic
+  schematic_dict:
+    camera_keys:
+      front_img_1_line: null
+      right_wrist_img: null
+    proprio_keys:
+      joint_positions: null
+    action_keys:
+      actions_joints_act: null
+    metadata_keys:
+      demo_number: null
+      _index: null

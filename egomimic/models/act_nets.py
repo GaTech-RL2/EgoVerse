@@ -123,7 +123,7 @@ class StyleEncoder(nn.Module):
 
         self.pos_encoding = PositionalEncoding(hidden_dim)
 
-        self.encoder_norm = nn.LayerNorm(hidden_dim)
+        # self.encoder_norm = nn.LayerNorm(hidden_dim)
     
     def forward(self, qpos, actions):
         '''

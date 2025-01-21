@@ -112,3 +112,18 @@ pip install -e .
 cd EgoMimic/egomimic
 python scripts/evaluation/eval_real --eval-path <path to>EgoPlay/trained_models_highlevel/<your model folder>/models/<your ckpt>.ckpt
 ```
+
+## Hydra Comands
+Base ACT: `python egomimic/trainHydra.py`
+
+Debug (run on a comppute node )
+`python egomimic/trainHydra.py trainer=debug logger=debug`
+
+Submitit (Run this in sky1/sky2)
+`python egomimic/trainHydra.py -m launch_params.gpus_per_node=<gpus per node> launch_params.nodes=<nodes>`
+
+
+
+might need to fork hydra_submitit_launcher
+
+`/coc/flash9/skareer6/miniconda3/envs/emimic/lib/python3.10/site-packages/hydra_plugins/hydra_submitit_launcher/submitit_launcher`

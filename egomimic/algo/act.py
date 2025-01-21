@@ -27,25 +27,14 @@ import egomimic.models.policy_nets as PolicyNets
 import robomimic.utils.tensor_utils as TensorUtils
 import robomimic.utils.obs_utils as ObsUtils
 
+from egomimic.utils.egomimicUtils import draw_actions
+
+from torchmetrics import MeanSquaredError
+
+import numpy as np
+import hydra
+
 import json
-
-
-@register_algo_factory_func("act")
-def algo_config_to_class(algo_config):
-    """
-    Maps algo config to the BC algo class to instantiate, along with additional algo kwargs.
-
-    Args:
-        algo_config (Config instance): algo config
-
-    Returns:
-        algo_class: subclass of Algo
-        algo_kwargs (dict): dictionary of additional kwargs to pass to algorithm
-    """
-    algo_class, algo_kwargs = ACT, {}
-
-    return algo_class, algo_kwargs
-
 
 class ACTModel(nn.Module):
     '''
@@ -84,7 +73,7 @@ class ACTModel(nn.Module):
         self.encoder = encoder
         hidden_dim = transformer.d
 
-        self.is_pad_head = nn.Linear(hidden_dim, 1)
+        # self.is_pad_head = nn.Linear(hidden_dim, 1)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
         self.num_channels = num_channels
@@ -98,7 +87,7 @@ class ACTModel(nn.Module):
             self.backbones = None
 
         ## ACTSP
-        self.cls_embed = nn.Embedding(1, hidden_dim)
+        # self.cls_embed = nn.Embedding(1, hidden_dim)
 
         self.latent_out_proj = nn.Linear(
             self.latent_dim, hidden_dim
@@ -134,11 +123,11 @@ class ACTModel(nn.Module):
     
     def _forward(self, qpos, actions, image, encoder_action_proj=None, encoder_joint_proj=None, transformer_input_proj=None, action_head=None, camera_names=None, env_state=None, is_pad=None, aux_action_head=None):
         '''
-        qpos: batch, qpos_dim
-        image: batch, num_cam, channel, height, width
-        env_state: None
-        actions: batch, seq, action_dim
-
+        args:
+            qpos: (batch, qpos_dim)
+            actions: (batch, seq, action_dim)
+            image: (batch, camera_number, channel, height, width)
+            env_state: None
         '''
 
         is_training = actions is not None
@@ -191,7 +180,8 @@ class ACTModel(nn.Module):
         hs_queries = self.transformer(src, tgt) # [B, tgt, hidden_dim]
 
         action_pred = action_head(hs_queries)  # [B, num_queries, action_dim]
-        is_pad_pred = self.is_pad_head(hs_queries)  # [B, num_queries, 1]
+        # is_pad_pred = self.is_pad_head(hs_queries)  # [B, num_queries, 1]
+        is_pad_pred = None
 
         # aux action head for 2 head output
         if aux_action_head:
@@ -201,10 +191,66 @@ class ACTModel(nn.Module):
         return action_pred, is_pad_pred, [mu, logvar]
 
         
-class ACT(BC_VAE):
+class ACT():
     """
     BC training with a VAE policy.
+    # TODO: Add type checking on these params
     """
+
+    def __init__(
+        self,
+        data_schematic,
+        camera_transforms,
+        chunk_size,
+        backbones,
+        kl_weight,
+        image_augs,
+        transformer,
+        style_encoder,
+        latent_dim,
+    ):
+        self.data_schematic = data_schematic
+        self.camera_transforms = camera_transforms
+        self.camera_keys = data_schematic.keys_of_type("camera_keys")
+        self.proprio_keys = data_schematic.keys_of_type("proprio_keys")
+        if len(data_schematic.keys_of_type("action_keys")) > 1:
+            raise ValueError("ACT should only have one action key")
+        self.ac_key = data_schematic.keys_of_type("action_keys")[0]
+        self.obs_keys = self.proprio_keys + self.camera_keys
+
+        self.chunk_size = chunk_size
+
+
+        self.kl_weight = kl_weight
+        self.image_augs = image_augs
+
+        self.backbones = backbones
+        if len(backbones) != len(self.camera_keys):
+            raise ValueError(f"Number of backbones ({len(backbones)}) doesn't match number of camera_keys ({len(self.camera_keys)}) ")
+
+        num_channels = backbones[0].output_shape(data_schematic.key_shape(self.camera_keys[0]))[0]
+        a_dim = data_schematic.key_shape(self.ac_key)[-1]
+        
+        if len(self.proprio_keys) > 1:
+            raise ValueError(f"Current implementation only supports one proprio_key but got proprio_keys={self.proprio_keys}")
+        state_dim = data_schematic.key_shape(self.proprio_keys[0])[-1]
+
+        model = ACTModel(
+            backbones=backbones,
+            transformer=transformer,
+            encoder=style_encoder,
+            latent_dim=latent_dim,
+            a_dim=a_dim,
+            state_dim=state_dim,
+            num_queries=chunk_size,
+            camera_names=self.camera_keys,
+            num_channels=num_channels,
+
+        )
+        self.nets = nn.ModuleDict()
+        self.nets["policy"] = model
+
+        
 
     def build_model_opt(self, policy_config):
         """
@@ -337,10 +383,10 @@ class ACT(BC_VAE):
             hue=(rand_kwargs.hue_min, rand_kwargs.hue_max)
         )
 
-    def process_batch_for_training(self, batch):
-        assert False, "Must pass in ac_key for this class"
+    # def process_batch_for_training(self, batch):
+    #     assert False, "Must pass in ac_key for this class"
 
-    def process_batch_for_training(self, batch, ac_key):
+    def process_batch_for_training(self, batch):
         """
         Processes input batch from a data loader to filter out
         relevant information and prepare the batch for training.
@@ -351,33 +397,40 @@ class ACT(BC_VAE):
             input_batch (dict): processed and filtered batch that
                 will be used for training
         """
+        # input_batch = dict()
+        # input_batch["obs"] = {
+        #     k: batch["obs"][k][:, 0, :]
+        #     for k in batch["obs"]
+        #     if k != "pad_mask" and k != "type"
+        # }
+        # input_batch["obs"]["pad_mask"] = batch["obs"]["pad_mask"]
+        # input_batch["goal_obs"] = batch.get(
+        #     "goal_obs", None
+        # )  # goals may not be present
+        # if ac_key in batch:
+        #     input_batch[ac_key] = batch[ac_key]
 
-        input_batch = dict()
-        input_batch["obs"] = {
-            k: batch["obs"][k][:, 0, :]
-            for k in batch["obs"]
-            if k != "pad_mask" and k != "type"
-        }
-        input_batch["obs"]["pad_mask"] = batch["obs"]["pad_mask"]
-        input_batch["goal_obs"] = batch.get(
-            "goal_obs", None
-        )  # goals may not be present
-        if ac_key in batch:
-            input_batch[ac_key] = batch[ac_key]
-
-        if "type" in batch:
-            input_batch["type"] = batch["type"]
+        # if "type" in batch:
+        #     input_batch["type"] = batch["type"]
 
         # we move to device first before float conversion because image observation modalities will be uint8 -
         # this minimizes the amount of data transferred to GPU
-        return TensorUtils.to_float(TensorUtils.to_device(input_batch, self.device))
+        # input_batch = batch
+        # return TensorUtils.to_float(TensorUtils.to_device(input_batch, self.device))
 
-    def train_on_batch(self, batch, epoch, validate=False):
-        """
-        Update from superclass to set categorical temperature, for categorcal VAEs.
-        """
+        # TODO implement normalization here itself.
 
-        return super().train_on_batch(batch, epoch, validate=validate)
+        return batch
+
+    # def postprocess_batch_for_training(self, batch, normalize_actions):
+    #     return batch
+
+    # def train_on_batch(self, batch, epoch, validate=False):
+    #     """
+    #     Update from superclass to set categorical temperature, for categorcal VAEs.
+    #     """
+
+    #     return super().train_on_batch(batch, epoch, validate=validate)
 
     def _modality_check(self, batch):
         """
@@ -394,16 +447,17 @@ class ACT(BC_VAE):
         return modality
 
     def _robomimic_to_act_data(self, batch, cam_keys, proprio_keys):
-        qpos = [batch["obs"][k] for k in proprio_keys]
+        qpos = [batch[k] for k in proprio_keys]
         qpos = torch.cat(qpos, axis=1)
+        qpos = qpos[:, 0, :]
 
         images = []
 
         if len(cam_keys) > 0:
             for cam_name in cam_keys:
-                image = batch["obs"][cam_name]
+                image = batch[cam_name]
                 if self.nets.training:
-                    image = self.color_jitter(image)
+                    image = self.image_augs(image)
                 image = image.unsqueeze(axis=1)
                 images.append(image)
             images = torch.cat(images, axis=1)
@@ -413,14 +467,14 @@ class ACT(BC_VAE):
         env_state = torch.zeros([qpos.shape[0], 10]).cuda()  # this is not used
 
         actions = batch[self.ac_key] if self.ac_key in batch else None
-        is_pad = batch["obs"]["pad_mask"] == 0  # from 1.0 or 0 to False and True
+        is_pad = batch["pad_mask"] == 0  # from 1.0 or 0 to False and True
         is_pad = is_pad.squeeze(dim=-1)
         B, T = is_pad.shape
         assert T == self.chunk_size
 
         return qpos, images, env_state, actions, is_pad
 
-    def _forward_training(self, batch):
+    def forward_training(self, batch):
         """
         Internal helper function for BC algo class. Compute forward pass
         and return network outputs in @predictions dict.
@@ -479,6 +533,65 @@ class ACT(BC_VAE):
 
         return predictions
 
+    def forward_eval_logging(self, batch):
+        """
+        Called by pl_model to generate a dictionary of metrics and an image visualization
+        Args:
+            batch (dict):
+                front_img_1_line: torch.Size([32, 3, 480, 640])
+                right_wrist_img: torch.Size([32, 3, 480, 640])
+                joint_positions: torch.Size([32, 1, 7])
+                actions_joints_act: torch.Size([32, 100, 7])
+                demo_number: torch.Size([32])
+                _index: torch.Size([32])
+                pad_mask: torch.Size([32, 100, 1])
+        Returns:
+            metrics (dict):
+                metricname: value (float)
+            image: (B, 3, H, W)
+        """
+        preds = self.forward_eval(batch, None)
+        metrics = {}
+        mse = MeanSquaredError()
+        for ac_key in self.data_schematic.keys_of_type("action_keys"):
+            if len(preds[ac_key].shape) != 3:
+                raise ValueError("predictions should be (B, Seq, D)")
+            metrics[f"Valid/{ac_key}_paired_mse_avg"] = mse(preds[ac_key].cpu(), batch[ac_key].cpu())
+            metrics[f"Valid/{ac_key}_final_mse_avg"] = mse(preds[ac_key][:, -1].cpu(), batch[ac_key][:, -1].cpu())
+        
+        ims = self._visualize_preds(preds, batch)
+
+        return metrics, ims
+
+    def _visualize_preds(self, preds, batch):
+        """
+        Helper function to visualize predictions on top of images
+        Args:
+            preds (dict): {ac_key: torch.Tensor (B, Seq, D)}
+            batch (dict): {ac_key: torch.Tensor (B, Seq, D), front_img_1: torch.Tensor (B, 3, H, W)}
+        Returns:
+            ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
+        """
+        ims = (batch[self.data_schematic.viz_img_key()].cpu().numpy().transpose((0, 2, 3, 1)) * 255).astype(np.uint8)
+        preds = preds[self.data_schematic.action_keys()[0]]
+        gt = batch[self.data_schematic.action_keys()[0]]
+
+        for b in range(ims.shape[0]):
+            if preds.shape[-1] == 7 or preds.shape[-1] == 14:
+                ac_type = "joints"
+            elif preds.shape[-1] == 6 or preds.shape[-1] == 12:
+                ac_type = "xyz"
+            else:
+                raise ValueError(f"Unknown action type with shape {preds.shape}")
+
+            arm = "right" if preds.shape[-1] == 7 or preds.shape[-1] == 6 else "both"
+            ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
+
+            ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
+
+        return ims
+
+
     def get_action(self, obs_dict, goal_dict=None):
         raise NotImplementedError("Not in use, but reference forward_eval if you want to use this.")
 
@@ -519,7 +632,7 @@ class ACT(BC_VAE):
         Returns:
             loss_log (dict): name -> summary statistic
         """
-        log = PolicyAlgo.log_info(self, info)
+        log = OrderedDict()
         log["Loss"] = info["losses"]["action_loss"].item()
         log["KL_Loss"] = info["losses"]["kl_loss"].item()
         log["Reconstruction_Loss"] = info["losses"]["recons_loss"].item()
@@ -542,90 +655,3 @@ class ACT(BC_VAE):
 
         return total_kld, dimension_wise_kld, mean_kld
 
-
-class TestModel:
-    def __init__(self, config_path):
-        ext_cfg = self.load_config(config_path)
-        config = config_factory(ext_cfg["algo_name"])
-
-        with config.values_unlocked():
-            config.update(ext_cfg)
-
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-        ac_dim = 7  # Action dimension
-        obs_key_shapes = {
-            'joint_positions': (7,),
-            'front_img_1': (3, 480, 640),
-            'right_wrist_img': (3, 480, 640),
-        }
-
-        self.act_algo = ACT(
-            algo_config=config.algo,  # Use the appropriate section from the config object
-            obs_config=config.observation,
-            global_config=config,
-            obs_key_shapes=obs_key_shapes,
-            ac_dim=ac_dim,
-            device=device,
-        )
-
-        self.act_algo.train_config = config.train
-
-        # Create networks
-        self.act_algo._create_networks()
-
-    def load_config(self, config_path):
-        """Load the config from a JSON file."""
-        with open(config_path, 'r') as f:
-            return json.load(f)
-
-    def run_test(self):
-        batch_size = 2
-        seq_length = self.act_algo.train_config.seq_length  # Access via the config object
-
-        # Create a dummy batch
-        dummy_batch = {
-            'obs': {
-                'joint_positions': torch.randn(batch_size, seq_length, *self.act_algo.obs_key_shapes['joint_positions']),
-                'front_img_1': torch.randint(0, 256, (batch_size, seq_length, *self.act_algo.obs_key_shapes['front_img_1']), dtype=torch.uint8),
-                'right_wrist_img': torch.randint(0, 256, (batch_size, seq_length, *self.act_algo.obs_key_shapes['right_wrist_img']), dtype=torch.uint8),
-                'pad_mask': torch.ones(batch_size, seq_length, 1),
-            },
-            'actions_joints_act': torch.randn(batch_size, seq_length, self.act_algo.ac_dim),
-        }
-
-        # Process the batch for training
-        batch = self.act_algo.process_batch_for_training(dummy_batch, 'actions_joints_act')
-
-        print("Processed Batch:", batch)
-
-        # Move batch to device
-        batch = self.to_device(batch, self.act_algo.device)
-
-        # Ensure the model is in training mode
-        self.act_algo.nets['policy'].train()
-
-        # Perform forward pass for training
-        predictions = self.act_algo._forward_training(batch)
-
-        # Compute losses
-        losses = self.act_algo._compute_losses(predictions, batch)
-
-        print("Predictions:")
-        for key, value in predictions.items():
-            print(f"{key}: {value}")
-
-        print("\nLosses:")
-        for key, value in losses.items():
-            print(f"{key}: {value.item() if isinstance(value, torch.Tensor) else value}")
-
-    def to_device(self, batch, device):
-        """Utility function to move data to the specified device."""
-        if isinstance(batch, dict):
-            return {k: self.to_device(v, device) for k, v in batch.items()}
-        elif isinstance(batch, list):
-            return [self.to_device(v, device) for v in batch]
-        elif isinstance(batch, torch.Tensor):
-            return batch.to(device)
-        else:
-            return batch
