@@ -21,11 +21,17 @@ train_datasets:
 
 valid_datasets:
   dataset1:
-    <<: ${train_datasets.dataset1}
-    mode: "valid"     
+    _target_: rldb.utils.RLDBDataset
+    repo_id: ${train_datasets.dataset1.repo_id}
+    root: ${train_datasets.dataset1.root}
+    local_files_only: ${train_datasets.dataset1.local_files_only}
+    mode: "valid"
 
   dataset2:
-    <<: ${train_datasets.dataset2}
+    _target_: rldb.utils.RLDBDataset
+    repo_id: ${train_datasets.dataset2.repo_id}
+    root: ${train_datasets.dataset2.root}
+    local_files_only: ${train_datasets.dataset2.local_files_only}
     mode: "valid"
 
 train_dataloader_params:

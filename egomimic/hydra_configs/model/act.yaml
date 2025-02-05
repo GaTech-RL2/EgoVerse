@@ -1,7 +1,7 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.act.ACT
-  data_schematic: ${data.dataset.data_schematic}
+  data_schematic: ${data.data_schematic_dict}
   camera_transforms:
     _target_: egomimic.utils.egomimicUtils.CameraTransforms
     intrinsics_key: "base"

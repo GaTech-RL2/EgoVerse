@@ -1,11 +1,11 @@
-    defaults:
+defaults:
   - model: act
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - override hydra/launcher: submitit
   - data: multi_data
+  - override hydra/launcher: submitit
   - _self_
 
 name: test
