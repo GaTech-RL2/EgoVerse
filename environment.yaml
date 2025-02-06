@@ -41,3 +41,7 @@ dependencies:
     - getdaft
     - pandas
     - overrides
+    - zarr
+    - tabulate
+    - transformers
+    - timm

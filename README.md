@@ -19,8 +19,9 @@ This repository contains the data processing and training code for EgoMimic - Bo
 
 ## Installation
 
+# Conda
 ```
-git clone --recursive git@github.com:SimarKareer/EgoMimic.git
+git clone --recursive git@github.com:GaTech-RL2/EgoMimic-dev.git
 cd EgoMimic
 conda env create -f environment.yaml
 pip install projectaria-tools'[all]'
@@ -28,6 +29,18 @@ pip install -e external/robomimic
 pip install -e external/rldb
 pip install -e external/rldb/external/lerobot
 pip install -e .
+```
+# UV
+```
+git clone --recursive git@github.com:GaTech-RL2/EgoMimic-dev.git
+cd EgoMimic
+uv venv emimic --python 3.10
+source emimic/bin/activate
+uv pip install -r pyproject.toml
+uv pip install -e external/robomimic
+uv pip install -e external/rldb
+uv pip install -e external/rldb/external/lerobot
+uv pip install -e .
 ```
 
 Set `git config --global submodule.recurse true` if you want `git pull` to automatically update the submodule as well.
