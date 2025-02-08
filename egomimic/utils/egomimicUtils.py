@@ -13,6 +13,8 @@ from numbers import Number
 from enum import Enum
 import torch.nn as nn
 import einops
+import pandas as pd
+import pyarrow.parquet as pq
 
 STD_SCALE = 0.02
 
@@ -138,6 +140,46 @@ def is_key(x):
 def is_listy(x):
     return isinstance(x, list)
 
+def nds_pq(file_path):
+    """
+    Open a .parquet file and explore its structure, including nested datasets.
+    """
+    try:
+        parquet_file = pq.ParquetFile(file_path)
+        print(f"File Schema:\n{parquet_file.schema}\n")
+
+        df = pd.read_parquet(file_path)
+
+        print(f"Headers (Columns): {list(df.columns)}")
+        print(f"Shape (Rows, Columns): {df.shape}")
+
+        nested_columns = []
+        for column in df.columns:
+            # Check for nested data
+            if isinstance(df[column].iloc[0], (dict, list)):
+                nested_columns.append(column)
+
+        if nested_columns:
+            print(f"Nested Headers: {nested_columns}")
+        else:
+            print("No nested headers found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+nested_ds_pq = nds_pq
+nds_parquet = nds_pq
+nested_ds_parquet = nds_pq
+
+def str2bool(value):
+    if isinstance(value, bool):
+        return value
+    value = value.lower()
+    if value in ("yes", "true", "t", "y", "1"):
+        return True
+    if value in ("no", "false", "f", "n", "0"):
+        return False
+    raise argparse.ArgumentTypeError("Boolean value expected.")
 
 def nds(nested_ds, tab_level=0):
     """
