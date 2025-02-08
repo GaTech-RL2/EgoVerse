@@ -1,5 +1,4 @@
 # EgoVerse: Egocentric Data for Robot Learning from Around the World
-![Teaser](./assets/teaser.jpg)
 
 This repository contains the data processing and training code for EgoVerse and a refactored pipeline for training multi-embodiment BC policies and rolling them out.
 
