@@ -12,15 +12,10 @@ class Algo:
         Args:
             batch (dict): dictionary with torch.Tensors sampled
                 from a data loader
+
         Returns:
-            batch (dict): processed batch of form
-                front_img_1 torch.Size([32, 3, 480, 640])
-                right_wrist_img: torch.Size([32, 3, 480, 640])
-                joint_positions: torch.Size([32, 1, 7])
-                actions_joints_act: torch.Size([32, 100, 7])
-                demo_number: torch.Size([32])
-                _index: torch.Size([32])
-                pad_mask: torch.Size([32, 100, 1])
+            batch (dict) : processed dict of batches of form
+            <embodiment_id> : {<dataset_keys> torch.Tensor}
         """
         raise NotImplementedError("Must implement process_batch_for_training in subclass")
     

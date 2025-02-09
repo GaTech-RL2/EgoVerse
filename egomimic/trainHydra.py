@@ -15,6 +15,8 @@ from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper, get_metric_value
 
+from egomimic.scripts.evaluation import Eval
+
 import numpy as np
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -105,8 +107,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
     
     if cfg.get("eval"):
+        eval : Eval = hydra.utils.instantiate(cfg.eval_class, config=cfg.model, ckpt_path=cfg.get("ckpt_path"))
         log.info("Starting evaluation!")
-        raise ValueError("Evaluation not implemented yet!")
+        eval.perfom_eval()
 
     train_metrics = trainer.callback_metrics
 

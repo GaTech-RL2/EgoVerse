@@ -14,6 +14,12 @@ ckpt_path: null
 train: true
 eval: false
 
+eval_class:
+  _target_ : egomimic.scripts.evaluation.Eve
+  mode: real
+  arm: both
+  eval_path: "./logs/eval/${name}_${now:%Y-%m-%d_%H-%M-%S}"
+
 hydra:
   run:
     # Dir should be experiment_name/description_{timestamp}
