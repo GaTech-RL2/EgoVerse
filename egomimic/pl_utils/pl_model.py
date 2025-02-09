@@ -83,8 +83,9 @@ class ModelWrapper(LightningModule):
         metrics, images_dict = self.model.forward_eval_logging(batch)
 
         ## images is now a dict
-        
-        for key, images in images_dict:
+        for key, images in images_dict.items():
+            if key not in self.val_image_buffer or self.val_image_buffer[key] is None:
+                self.val_image_buffer[key] = []
             self.val_image_buffer[key].extend(torch.from_numpy(images))
             if len(self.val_image_buffer[key]) >= 1000:
                 frames = torch.stack(self.val_image_buffer[key])

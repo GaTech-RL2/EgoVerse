@@ -744,7 +744,7 @@ class HPT(Algo):
             B, S, _ = processed_batch[embodiment_id][ac_key].shape
             device = processed_batch[embodiment_id][ac_key].device
             processed_batch[embodiment_id]["pad_mask"]  = torch.ones(B, S, 1, device=device)
-            processed_batch[embodiment_id] = self.data_schematic.normalize_data(processed_batch, embodiment_id)
+            processed_batch = self.data_schematic.normalize_data(processed_batch, embodiment_id)
 
         return processed_batch
 
@@ -765,7 +765,7 @@ class HPT(Algo):
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            data = self._robomimic_to_hpt_data(_batch[embodiment_id], cam_keys, proprio_keys, lang_keys, ac_key)
+            data = self._robomimic_to_hpt_data(_batch, cam_keys, proprio_keys, lang_keys, ac_key)
             embodiment_name = get_embodiment(embodiment_id).lower()
             hpt_batch = {
                 "domain" : embodiment_name, # readability on config side
@@ -774,7 +774,7 @@ class HPT(Algo):
 
             loss = self.nets["policy"].compute_loss(hpt_batch)
 
-            predictions[f"{embodiment_name}_{ac_key}"] = _batch[embodiment_id][ac_key]
+            predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
         
         return predictions
@@ -792,12 +792,12 @@ class HPT(Algo):
         """
         unnorm_preds = {}
 
-        for embodiment_id, _batch in batch:
+        for embodiment_id, _batch in batch.items():
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            data = self._robomimic_to_hpt_data(_batch[embodiment_id], cam_keys, proprio_keys, lang_keys, ac_key)
+            data = self._robomimic_to_hpt_data(_batch, cam_keys, proprio_keys, lang_keys, ac_key)
 
             embodiment_name = get_embodiment(embodiment_id).lower()
             hpt_batch = {
@@ -810,7 +810,7 @@ class HPT(Algo):
             predictions[ac_key] = actions
 
             unnorm_actions = self.data_schematic.unnormalize_data(predictions, embodiment_id)
-            unnorm_preds[f"{embodiment_name}_{ac_key}"] = unnorm_actions
+            unnorm_preds[f"{embodiment_name}_{ac_key}"] = unnorm_actions[ac_key]
         
         return unnorm_preds
 
@@ -827,22 +827,21 @@ class HPT(Algo):
             image: (B, 3, H, W)
         """
         preds = self.forward_eval(batch)
-
         metrics = {}
         images_dict = {}
         mse = MeanSquaredError()
 
-        for embodiment_id, _batch in batch:
-            _batch = self.data_schematic.unnormalize_data(batch, embodiment_id)
+        for embodiment_id, _batch in batch.items():
+            _batch = self.data_schematic.unnormalize_data(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
             ac_key = self.ac_keys[embodiment_id]
             metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(
-                                                                            preds[f"{embodiment_name}_{ac_key}"].cpu(), 
-                                                                            _batch[embodiment_id][ac_key].cpu()
+                                                                            (preds[f"{embodiment_name}_{ac_key}"]).cpu(), 
+                                                                            _batch[ac_key].cpu()
                                                                             )
             metrics[f"Valid/{embodiment_name}_{ac_key}_final_mse_avg"] = mse(
-                                                                            preds[f"{embodiment_name}_{ac_key}"][:, -1].cpu(), 
-                                                                            _batch[embodiment_id][ac_key][:, -1].cpu()
+                                                                            (preds[f"{embodiment_name}_{ac_key}"][:, -1]).cpu(), 
+                                                                            _batch[ac_key][:, -1].cpu()
                                                                             )
 
             ims = self.visualize_preds(preds, _batch)
@@ -860,7 +859,7 @@ class HPT(Algo):
         Returns:
             ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
         """
-        embodiment_id = batch["embodiment"].item()
+        embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
         ac_key = self.ac_keys[embodiment_id]
 

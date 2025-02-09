@@ -22,7 +22,7 @@ hydra:
     dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
 launch_params:
-  gpus_per_node: 4
+  gpus_per_node: 1
   nodes: 1
 
 data_schematic: # Dynamically fill in these shapes from the dataset
