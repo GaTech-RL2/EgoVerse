@@ -22,6 +22,7 @@ git clone --recursive git@github.com:GaTech-RL2/EgoMimic-dev.git
 cd EgoMimic
 conda env create -f environment.yaml
 pip install projectaria-tools'[all]'
+pip install imageio[ffmpeg]
 pip install -e external/robomimic
 pip install -e external/rldb
 pip install -e external/rldb/external/lerobot
@@ -35,6 +36,7 @@ git clone --recursive git@github.com:GaTech-RL2/EgoMimic-dev.git
 cd EgoMimic
 uv pip install -r pyproject.toml
 uv pip install projectaria-tools'[all]'
+uv pip install imageio[ffmpeg]
 uv pip install -e external/robomimic
 uv pip install -e external/rldb
 uv pip install -e external/rldb/external/lerobot
