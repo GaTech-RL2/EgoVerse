@@ -4,7 +4,7 @@ robomimic_model:
   data_schematic: _${data.dataset.data_schematic}
   camera_transforms:
     _target_: egomimic.utils.egomimicUtils.CameraTransforms
-    intrinsics_key: "base"
+    intrinsics_key: "base" # change to base_half if using half res 
     extrinsics_key: "ariaJul29"
   
   trunk:
