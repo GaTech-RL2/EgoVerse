@@ -15,7 +15,7 @@ from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper, get_metric_value
 
-from egomimic.scripts.evaluation import Eval
+from egomimic.scripts.evaluation.eval import Eval
 
 import numpy as np
 log = RankedLogger(__name__, rank_zero_only=True)
