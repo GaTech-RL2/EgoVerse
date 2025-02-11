@@ -445,7 +445,7 @@ class AriaVRSExtractor:
         return images
 
     @staticmethod
-    def get_ee_pose(mps_reader,  : np.array, arm : str, stream_timestamps_ns : dict, no_rot=True, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT):
+    def get_ee_pose(mps_reader, transform : np.array, arm : str, stream_timestamps_ns : dict, no_rot=True, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT):
         """
         Get EE Pose from VRS
         Parameters
