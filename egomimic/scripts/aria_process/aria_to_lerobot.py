@@ -344,7 +344,7 @@ class AriaVRSExtractor:
             if np.any(rotated_actions_t):
                 actions.append(rotated_actions_t)
 
-        actions = np.array(transform_actions(actions))
+        actions = transform_actions(np.array(actions))
 
         if not prestack:
             actions = actions[:, 1, :]
