@@ -11,7 +11,11 @@ TASK_NAME_ARIA/
 │   ├── demoN.vrs
 │   ├── demoN.vrs.json
 ```
-This will process your aria data into RLDB parquet format
+Run Aria Machine Perception Services
+```
+aria_mps single -i <path/to/vrs/directory>
+```
+After the MPS successfully completes. This will process your aria data into RLDB parquet format
 ```
 python aria_process/aria_to_lerobot.py \
     --raw-path <path/to/rawAria> \
