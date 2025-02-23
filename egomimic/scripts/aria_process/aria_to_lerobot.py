@@ -945,7 +945,7 @@ def argument_parse():
     parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
     parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
     parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
-    parser.add_argument("--image-compressed", type=str2bool, default=True, help="Set to True if the images are compressed.")
+    parser.add_argument("--image-compressed", type=str2bool, default=False, help="Set to True if the images are compressed.")
     parser.add_argument("--video-encoding", type=str2bool, default=True, help="Set to True to encode images as videos.")
     parser.add_argument("--prestack", type=str2bool, default=True, help="Set to True to precompute action chunks.")
 

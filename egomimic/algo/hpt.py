@@ -895,7 +895,7 @@ class HPT(Algo):
             losses (dict): dictionary of losses computed over the batch
                 loss_key_name: torch.Tensor (1)
         """
-        total_action_loss = torch.Tensor(0).to(self.device)
+        total_action_loss = torch.tensor(0.0, device=self.device)
         loss_dict = OrderedDict()
         for embodiment_id, _batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
