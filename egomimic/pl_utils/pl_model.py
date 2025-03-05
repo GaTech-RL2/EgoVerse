@@ -50,7 +50,6 @@ class ModelWrapper(LightningModule):
     def training_step(self, batch, batch_idx):
         self.train()
         loss_dicts = []
-
         batch = self.model.process_batch_for_training(batch)
         predictions = self.model.forward_training(batch)
         losses = self.model.compute_losses(predictions, batch)
@@ -64,6 +63,8 @@ class ModelWrapper(LightningModule):
             )
 
         info = {}
+        grad_norm = torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=float('inf'))
+        info["policy_grad_norms"] = grad_norm.item()
         info["losses"] = TensorUtils.detach(losses)
         self.step_log_all_train.append(self.model.log_info(info))
 
