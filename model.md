@@ -2,7 +2,7 @@
 
 ### Step 1 - Registering a new embodiment
 
-For each new embodiment navigate to `external/rldb/rldb/utils.py`](./external/rldb/rldb/utils.py). (Note, that since rldb is a submodule the navigation link here won't work :<)
+For each new embodiment navigate to `external/rldb/rldb/utils.py`](./external/rldb/rldb/utils.py). (Note that since rldb is a submodule, the navigation link here won't work :<)
 
 In the `Embodiment` Enum:
 
