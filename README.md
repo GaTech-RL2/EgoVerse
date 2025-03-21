@@ -21,11 +21,10 @@ This repository contains the data processing and training code for EgoVerse and 
 git clone --recursive git@github.com:GaTech-RL2/EgoMimic-dev.git
 cd EgoMimic
 conda env create -f environment.yaml
+conda activate emimic
 pip install projectaria-tools'[all]'
-pip install -e external/robomimic
 pip install -e external/rldb
 pip install -e external/rldb/external/lerobot
-mv pyproject.toml pyproject.bak
 pip install -e .
 ```
 # UV
@@ -34,12 +33,9 @@ uv venv emimic --python 3.10
 source emimic/bin/activate
 git clone --recursive git@github.com:GaTech-RL2/EgoMimic-dev.git
 cd EgoMimic
-uv pip install -r pyproject.toml
-uv pip install projectaria-tools'[all]'
-uv pip install -e external/robomimic
+uv pip install -r requirements.txt
 uv pip install -e external/rldb
 uv pip install -e external/rldb/external/lerobot
-mv pyproject.toml pyproject.bak
 uv pip install -e .
 ```
 
@@ -65,6 +61,9 @@ Submitit (Run this on slurm)
 
 Eval (add your own rollout class in [``egomimic/evaluation``](./egomimic/evaluation/) and update [``egomimic/hydra_configs/train.yaml``](./egomimic/hydra_configs/train.yaml))
 `python egomimic/trainHydra.py train=false eval=true`
+
+## Add your embodiment
+See [``model.md``](./model.md)
 
 ## Submitit modification
 Tip: after you launch via submitit, you'll notice that the command won't finish executing.  If you want it to end the command after you launch a job, edit the following file

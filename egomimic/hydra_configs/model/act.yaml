@@ -6,13 +6,13 @@ robomimic_model:
     intrinsics_key: "base" # change to base_half if using half res images
     extrinsics_key: "ariaJul29"
   backbones: # Directly instantiate the backbones, there must be same number of backbones as there are cam_keys
-    - _target_: robomimic.models.base_nets.ResNet18Conv
+    - _target_: egomimic.models.act_nets.ResNet18Conv
       pretrained: true
       input_coord_conv: false
-    - _target_: robomimic.models.base_nets.ResNet18Conv
+    - _target_: egomimic.models.act_nets.ResNet18Conv
       pretrained: true
       input_coord_conv: false
-    - _target_: robomimic.models.base_nets.ResNet18Conv
+    - _target_: egomimic.models.act_nets.ResNet18Conv
       pretrained: true
       input_coord_conv: false
   

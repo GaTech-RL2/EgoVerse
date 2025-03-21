@@ -11,7 +11,6 @@ import torchvision.transforms as transforms
 
 from egomimic.utils.egomimicUtils import nds
 import matplotlib.pyplot as plt
-import robomimic.utils.obs_utils as ObsUtils
 
 from egomimic.algo.algo import Algo
 
