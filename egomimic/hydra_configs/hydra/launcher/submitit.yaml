@@ -13,6 +13,6 @@ tasks_per_node: ${launch_params.gpus_per_node}      # Use variable for tasks per
 gres: "gpu:a40:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}" # GPU type and count
 qos: "short"                                        # Slurm QoS
 timeout_min: 2880                                   # Timeout in minutes (48 hours)
-exclude: "dave,robby,baymax,crushinator,trublu"     # Nodes to exclude
+exclude: "protocol, puma"     # Nodes to exclude
 additional_parameters:
   requeue: true

@@ -1,6 +1,3 @@
-[submodule "external/robomimic"]
-	path = external/robomimic
-	url = https://github.com/SimarKareer/robomimic
 [submodule "external/rldb"]
 	path = external/rldb
 	url = git@github.com:GaTech-RL2/rldb.git

@@ -10,6 +10,7 @@ import numpy as np
 import einops
 from torchmetrics import MeanSquaredError
 
+import torch.amp as amp
 
 from egomimic.models.hpt_nets import *
 from egomimic.algo.algo import Algo
@@ -20,7 +21,6 @@ from rldb.utils import get_embodiment_id, get_embodiment
 from egomimic.utils.egomimicUtils import nds
 from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table, EinOpsRearrange, download_from_huggingface, STD_SCALE
 import matplotlib.pyplot as plt
-import robomimic.utils.obs_utils as ObsUtils
 
 import numpy as np
 
@@ -104,7 +104,7 @@ class HPTModel(nn.Module):
         self.observation_horizon = observation_horizon
         self.action_horizon = action_horizon
         self.token_postprocessing = token_postprocessing
-        self.modalities_tokens = {}
+        # self.modalities_tokens = {}
         self.action_tokens = None
         self.stem_spec = {}
         self.head_spec = {}
@@ -113,7 +113,9 @@ class HPTModel(nn.Module):
 
         self.shared_keys = []
 
-        self.auxiliary_key = None
+        self.auxiliary_ac_keys = None
+        self.shared_action = False
+        self.device = None
 
     def init_encoder(self, modality, encoder_spec):
         """
@@ -148,11 +150,7 @@ class HPTModel(nn.Module):
             self.stems[stem_name] = stem_spec[modality]
             if hasattr(self.stems[stem_name], 'init_cross_attn'):
                 self.stems[stem_name].init_cross_attn(stem_spec[modality].specs.cross_attn)
-
-            self.modalities_tokens[modality] = nn.Parameter(
-                torch.randn(1, 1, stem_spec[modality].specs.cross_attn.modality_embed_dim) * STD_SCALE
-            )
-
+                
     def init_domain_head(self, domain_name, head_spec):
         """
         Initialize the head (prediction module) for a given domain.
@@ -176,7 +174,6 @@ class HPTModel(nn.Module):
         """
         self.stems = nn.ModuleDict(self.stems)
         self.heads = nn.ModuleDict(self.heads)
-        self.modalities_tokens = nn.ParameterDict(self.modalities_tokens)
         self.apply(self._init_weights)
 
         # Shared action tokens
@@ -322,10 +319,9 @@ class HPTModel(nn.Module):
         dict
             Updated data dictionary with preprocessed state information.
         """
-        if "state" in data:
-            data["state"] = data["state"][:, :, None]
-        if f"state_{self.auxiliary_key}" in data:
-            data[f"state_{self.auxiliary_key}"] = data[f"state_{self.auxiliary_key}"][:, :, None]
+        for key in data: 
+            if "state" in key:
+                data[key] = data[key][:, :, None]
         return data
 
     def stem_process(self, domain, data):
@@ -348,10 +344,9 @@ class HPTModel(nn.Module):
         """
         feats = []
         feat_dict = {}
-        for modality in (list(self.modalities[domain]) + self.shared_keys):
+        for modality in (self.modalities.get(domain,[]) + self.shared_keys):
             if modality not in data:
                 continue
-
             if modality in self.shared_keys:
                 domain = "shared"
 
@@ -470,13 +465,28 @@ class HPTModel(nn.Module):
         """
         self.train_mode = True
         domain, data = batch["domain"], batch["data"]
+        
+        scaler = amp.GradScaler()
+        
+        with amp.autocast(device_type=self.device.type):
+            features = self.forward_features(domain, data)
+            action_loss = torch.tensor(0.0, device=self.device)
+            shared_action_loss = torch.tensor(0.0, device=self.device)
+            auxiliary_action_loss = torch.tensor(0.0, device=self.device)
 
-        features = self.forward_features(domain, data)
-
-        if f"state_{self.auxiliary_key}" in data:
-            domain = f"{domain}_{self.auxiliary_key}"
-
-        return self.heads[domain].compute_loss(features, data)
+            if domain in self.heads:
+                action_loss += self.heads[domain].compute_loss(features, data)
+            
+            if self.shared_action:
+                shared_action_loss = self.heads["shared"].compute_loss(features, data)
+                
+            if domain in self.auxiliary_ac_keys:
+                for key in self.auxiliary_ac_keys[domain]:
+                    data["action"] = data[key]
+                    auxiliary_action_loss += self.heads[f"{domain}_{key}"].compute_loss(features, data)
+            
+            total_loss = action_loss + shared_action_loss + auxiliary_action_loss
+        return total_loss
 
     def forward(self, domain, data):
         """
@@ -495,11 +505,18 @@ class HPTModel(nn.Module):
             The predicted action output.
         """
         features = self.forward_features(domain, data)
-
-        if f"state_{self.auxiliary_key}" in data:
-            domain = f"{domain}_{self.auxiliary_key}"
-
-        action = self.heads[domain](features)
+        action = {}
+        
+        if domain in self.heads:
+            action[domain] = self.heads[domain](features)
+        
+        if self.shared_action:
+            action["shared"] = self.heads["shared"](features)
+            
+        if domain in self.auxiliary_ac_keys:
+            for key in self.auxiliary_ac_keys[domain]:
+                action[key] = self.heads[f"{domain}_{key}"](features)
+    
         return action
 
     def save(self, checkpoint_path="./.checkpoints/hpt/full/"):
@@ -616,8 +633,7 @@ class HPT(Algo):
         shared_obs_keys: list = None,
         encoder_specs: dict = None,
         domains: list = None,
-        auxiliary_domains: list = [],
-        auxiliary_key: str = "",
+        auxiliary_ac_keys: dict = {},
         # ---------------------------
         # Pretrained
         # ---------------------------
@@ -645,35 +661,35 @@ class HPT(Algo):
         self.pretrained_checkpoint = pretrained_checkpoint
         
         self.domains = domains.copy()
-        self.auxiliary_domains = auxiliary_domains.copy()
-        self.auxiliary_key = auxiliary_key
+        self.auxiliary_ac_keys = auxiliary_ac_keys.copy()
+        self.shared_ac_key = kwargs.get("shared_ac_key", None)
 
         model = HPTModel(**trunk)
-        model.auxiliary_key = self.auxiliary_key
-
-        # self.camera_keys = data_schematic.keys_of_type("camera_keys")
-        # self.proprio_keys = data_schematic.keys_of_type("proprio_keys")
-        # self.lang_keys = data_schematic.keys_of_type("lang_keys")
-
-        # self.proprio_keys = [key for key in self.proprio_keys if key not in self.lang_keys]
-        # self.obs_keys = self.proprio_keys + self.camera_keys + self.lang_keys
+        model.auxiliary_ac_keys = self.auxiliary_ac_keys
 
         self.multitask = kwargs.get("multitask", False)
         self.device = kwargs.get("device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        model.device = self.device
 
-        if self.pretrained:
-            model.load_pretrained(self.pretrained_checkpoint)
-
-        for domain in self.domains:
-            model.init_domain_stem(domain, self.stem_specs[domain])
-            model.init_domain_head(domain, self.head_specs[domain])
-        
         if self.shared_obs_keys is not None:
             model.init_domain_stem("shared", self.shared_stem_specs)
             model.shared_keys = self.shared_obs_keys
+        
+        for domain in self.domains:
+            if self.stem_specs[domain]:
+                model.init_domain_stem(domain, self.stem_specs[domain])
+            if self.head_specs[domain]:
+                model.init_domain_head(domain, self.head_specs[domain])
 
-        for domain in self.auxiliary_domains:
+        if self.shared_ac_key is not None:
+            domain = "shared"
+            model.shared_action = True
             model.init_domain_head(domain, self.head_specs[domain])
+        
+        for domain, key_list in self.auxiliary_ac_keys.items():
+            for key in key_list:
+                domain = f"{domain}_{key}"
+                model.init_domain_head(domain, self.head_specs[domain])
         
         for modality, encoder_cfg in self.encoders.items():
             model.init_encoder(modality, encoder_cfg)
@@ -765,18 +781,17 @@ class HPT(Algo):
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            data = self._robomimic_to_hpt_data(_batch, cam_keys, proprio_keys, lang_keys, ac_key)
             embodiment_name = get_embodiment(embodiment_id).lower()
+            aux_ac_keys = self.auxiliary_ac_keys.get(embodiment_name, [])
+            data = self._robomimic_to_hpt_data(_batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys)
             hpt_batch = {
                 "domain" : embodiment_name, # readability on config side
                 "data" : data
             }
-
             loss = self.nets["policy"].compute_loss(hpt_batch)
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
-        
         return predictions
 
     @override     
@@ -791,15 +806,14 @@ class HPT(Algo):
             unnorm_preds (dict): {<embodiment_name>_<ac_key>: torch.Tensor (B, Seq, D)}
         """
         unnorm_preds = {}
-
         for embodiment_id, _batch in batch.items():
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            data = self._robomimic_to_hpt_data(_batch, cam_keys, proprio_keys, lang_keys, ac_key)
-
             embodiment_name = get_embodiment(embodiment_id).lower()
+            aux_ac_keys = self.auxiliary_ac_keys.get(embodiment_name, [])
+            data = self._robomimic_to_hpt_data(_batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys)
             hpt_batch = {
                 "domain" : embodiment_name, # readability on config side
                 "data" : data
@@ -807,10 +821,17 @@ class HPT(Algo):
 
             actions = self.nets["policy"].forward(hpt_batch["domain"], hpt_batch["data"])
             predictions = OrderedDict()
-            predictions[ac_key] = actions
-
+            for key in actions:
+                if key == embodiment_name:
+                    predictions[ac_key] = actions[embodiment_name]
+                if key == "shared":
+                    predictions[self.shared_ac_key] = actions[key]
+                else:
+                    predictions[key] = actions[key]
+            
             unnorm_actions = self.data_schematic.unnormalize_data(predictions, embodiment_id)
-            unnorm_preds[f"{embodiment_name}_{ac_key}"] = unnorm_actions[ac_key]
+            for key in unnorm_actions:
+                unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
         
         return unnorm_preds
 
@@ -843,7 +864,30 @@ class HPT(Algo):
                                                                             (preds[f"{embodiment_name}_{ac_key}"][:, -1]).cpu(), 
                                                                             _batch[ac_key][:, -1].cpu()
                                                                             )
-
+            if embodiment_name in self.auxiliary_ac_keys:
+                for aux_key in self.auxiliary_ac_keys[embodiment_name]:
+                    pred_key = f"{embodiment_name}_{aux_key}"
+                    if pred_key in preds:
+                        metrics[f"Valid/{pred_key}_paired_mse_avg"] = mse(
+                            preds[pred_key].cpu(), 
+                            _batch[aux_key].cpu()
+                        )
+                        metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
+                            preds[pred_key][:, -1].cpu(), 
+                            _batch[aux_key][:, -1].cpu()
+                        )
+                        
+            if self.shared_ac_key and f"{embodiment_name}_{self.shared_ac_key}" in preds:
+                pred_key = f"{embodiment_name}_{self.shared_ac_key}"
+                metrics[f"Valid/{pred_key}_paired_mse_avg"] = mse(
+                    preds[pred_key].cpu(), 
+                    _batch[self.shared_ac_key].cpu()
+                )
+                metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
+                    preds[pred_key][:, -1].cpu(), 
+                    _batch[self.shared_ac_key][:, -1].cpu()
+                )
+            
             ims = self.visualize_preds(preds, _batch)
             images_dict[embodiment_id] = ims
 
@@ -878,7 +922,6 @@ class HPT(Algo):
 
             arm = "right" if preds.shape[-1] == 7 or preds.shape[-1] == 3 else "both"
             ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
-
             ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
 
         return ims
@@ -926,7 +969,7 @@ class HPT(Algo):
             log["Policy_Grad_Norms"] = info["policy_grad_norms"]
         return log
 
-    def _robomimic_to_hpt_data(self, batch, cam_keys, proprio_keys, lang_keys, ac_key):
+    def _robomimic_to_hpt_data(self, batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys=[]):
         """
         helper method that returns data in the format required for the HPT model
         """
@@ -934,7 +977,7 @@ class HPT(Algo):
 
         for key in proprio_keys:
             if key in batch: 
-                data["state"] = batch[key].unsqueeze(1)
+                data[f"state_{key}"] = batch[key].unsqueeze(1)
         
         for key in cam_keys:
             if key in batch:
@@ -954,6 +997,11 @@ class HPT(Algo):
         data["pad_mask"] = batch["pad_mask"]
         data["embodiment"] = batch["embodiment"]
 
-        data["action"] = batch[ac_key]
-
+        for aux_ac_key in aux_ac_keys:
+            data[aux_ac_key] = batch[aux_ac_key]
+        
+        if self.shared_ac_key:
+            data["action"] = batch[self.shared_ac_key]
+        else:
+            data["action"] = batch[ac_key]
         return data

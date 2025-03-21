@@ -16,6 +16,7 @@ import einops
 import pandas as pd
 import pyarrow.parquet as pq
 import huggingface_hub
+import math
 
 STD_SCALE = 0.02
 
@@ -68,6 +69,17 @@ EXTRINSICS = {
        [-0.03847589,  0.6431122 ,  0.76480475, -0.24081715],
        [ 0.        ,  0.        ,  0.        ,  1.        ]])
     },
+    "ariaMar4": {
+        "left": np.array([[ 0.17238669, -0.87525225,  0.45190301,  0.17410326],
+       [ 0.98220447,  0.11801606, -0.14610472,  0.16975309],
+       [ 0.07454667,  0.46904766,  0.88002107, -0.14999786],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+
+       "right": np.array([[-0.01705736, -0.76701011,  0.64140825,  0.1040253 ],
+       [ 0.99936749,  0.00694131,  0.03487736, -0.31958691],
+       [-0.0312035 ,  0.64159747,  0.76640657, -0.14678789],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    },
 }
 
 INTRINSICS = {
@@ -84,15 +96,21 @@ class CameraTransforms:
 def get_sinusoid_encoding_table(position_start, position_end, d_hid):
     """Sinusoid position encoding table"""
 
-    # TODO: make it with torch instead of numpy
-    def get_position_angle_vec(position):
-        return [position / np.power(10000, 2 * (hid_j // 2) / d_hid) for hid_j in range(d_hid)]
+    # Create position tensor
+    positions = torch.arange(position_start, position_end, dtype=torch.float32)
 
-    sinusoid_table = np.array([get_position_angle_vec(pos_i) for pos_i in range(position_start, position_end)])
-    sinusoid_table[:, 0::2] = np.sin(sinusoid_table[:, 0::2])  # dim 2i
-    sinusoid_table[:, 1::2] = np.cos(sinusoid_table[:, 1::2])  # dim 2i+1
+    # Create division term for angles
+    div_term = torch.exp(torch.arange(0, d_hid, 2).float() * (-math.log(10000.0) / d_hid))
 
-    return torch.FloatTensor(sinusoid_table).unsqueeze(0)
+    # Create empty table
+    sinusoid_table = torch.zeros((position_end - position_start, d_hid))
+
+    # Fill even indices with sin and odd indices with cos
+    sinusoid_table[:, 0::2] = torch.sin(positions.unsqueeze(1) * div_term)
+    sinusoid_table[:, 1::2] = torch.cos(positions.unsqueeze(1) * div_term[:d_hid//2])
+
+    return sinusoid_table.unsqueeze(0)
+
 
 class EinOpsRearrange(nn.Module):
     def __init__(self, rearrange_expr: str, **kwargs) -> None:

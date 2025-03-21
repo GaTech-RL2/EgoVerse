@@ -2,7 +2,6 @@
 *.pyc
 egomimic.egg-info/
 *.hdf5
-*.txt
 *.out.*
 egomimic/debug
 trained_models_highlevel/
@@ -27,3 +26,4 @@ outputs/
 logs/
 emimic/
 emimic.egg-info/
+pyproject.bak
