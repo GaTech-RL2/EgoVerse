@@ -41,7 +41,7 @@ assert OUTPUT_LEFT_KEYPOINTS[-1] < OUTPUT_RIGHT_EEF[0]
 OUTPUT_RIGHT_KEYPOINTS = np.arange(40, 40 + 3 * len(RETARGETTING_INDICES))
 assert OUTPUT_RIGHT_KEYPOINTS[-1] < OUTPUT_LEFT_EEF[0]
 
-def cmd_dict_from_128dim(action):
+def cmd_dict_from_128dim(action, finger_tip_only):
     left_wrist_mat = np.eye(4)
     left_wrist_mat[0:3, 3] = action[OUTPUT_LEFT_EEF[0:3]]
     left_wrist_mat[0:3, 0:3] = rotation_6d_to_matrix(torch.tensor(action[OUTPUT_LEFT_EEF[3:]]).unsqueeze(0)).numpy()
@@ -60,6 +60,10 @@ def cmd_dict_from_128dim(action):
     head_mat[0:3, 3] = action[OUTPUT_HEAD_EEF[0:3]]
     head_rmat = rotation_6d_to_matrix(torch.tensor(action[OUTPUT_HEAD_EEF[3:]]).unsqueeze(0)).squeeze().numpy()
     head_mat[0:3, 0:3] = head_rmat
+
+    if finger_tip_only:
+        left_hand_keypoints = left_hand_keypoints[RETARGETTING_INDICES]
+        right_hand_keypoints = right_hand_keypoints[RETARGETTING_INDICES]
 
     return {
         'left_wrist_mat': left_wrist_mat,
@@ -120,58 +124,100 @@ class UCSDHDFExtractor:
             right_images = np.array(right_images)
 
             # TODO(roger): there are constant H1 state and action offsets. Do we need a way to compensate?
-            # TODO(roger): currently only save wrist eef poses
-            state_list = []
+            # TODO(roger): follows Aria convention to represent rotations as normals
+            state_dict = {
+                "ee_pose": [],
+                "ucsd_h1.left_wrist_6d_rot": [],
+                "ucsd_h1.right_wrist_6d_rot": [],
+                "ucsd_h1.left_hand_kpts": [],
+                "ucsd_h1.right_hand_kpts": []
+            }
+
             for state in f["observation.state"]:
-                cur_cmd_dict = cmd_dict_from_128dim(state)
+                cur_cmd_dict = cmd_dict_from_128dim(state, finger_tip_only=True)
+                # Translation
                 cur_state = np.array([
                     cur_cmd_dict["left_wrist_mat"][0:3, 3],
                     cur_cmd_dict["right_wrist_mat"][0:3, 3]
                 ]).flatten()
-                state_list.append(cur_state)
-            state_arr = np.array(state_list)
+                state_dict["ee_pose"].append(cur_state)
+                # Left hand keypoints
+                state_dict["ucsd_h1.left_hand_kpts"].append(cur_cmd_dict["left_hand_kpts"].flatten())
+                # Right hand keypoints
+                state_dict["ucsd_h1.right_hand_kpts"].append(cur_cmd_dict["right_hand_kpts"].flatten())
+                # Left wrist 6d rot
+                state_dict["ucsd_h1.left_wrist_6d_rot"].append(state[OUTPUT_LEFT_EEF[3:]])
+                # Right wrist 6d rot
+                state_dict["ucsd_h1.right_wrist_6d_rot"].append(state[OUTPUT_RIGHT_EEF[3:]])
 
-            action_list = []
+            action_dict = {
+                "actions_cartesian": [],
+                "actions.ucsd_h1.left_hand_kpts": [],
+                "actions.ucsd_h1.right_hand_kpts": [],
+                "actions.ucsd_h1.left_wrist_6d_rot": [],
+                "actions.ucsd_h1.right_wrist_6d_rot": [],
+                "actions.ucsd_h1.head_6d_rot": []
+            }
             for action in f["action"]:
-                cur_cmd_dict = cmd_dict_from_128dim(action)
+                cur_cmd_dict = cmd_dict_from_128dim(action, finger_tip_only=True)
+                # Translation
                 cur_action = np.array([
                     cur_cmd_dict["left_wrist_mat"][0:3, 3],
                     cur_cmd_dict["right_wrist_mat"][0:3, 3]
                 ]).flatten()
-                action_list.append(cur_action)
-            action_arr = np.array(action_list)
+                action_dict["actions_cartesian"].append(cur_action)
+                # Left hand keypoints
+                action_dict["actions.ucsd_h1.left_hand_kpts"].append(cur_cmd_dict["left_hand_kpts"].flatten())
+                # Right hand keypoints
+                action_dict["actions.ucsd_h1.right_hand_kpts"].append(cur_cmd_dict["right_hand_kpts"].flatten())
+                # Left wrist 6d rot
+                action_dict["actions.ucsd_h1.left_wrist_6d_rot"].append(action[OUTPUT_LEFT_EEF[3:]])
+                # Right wrist 6d rot
+                action_dict["actions.ucsd_h1.right_wrist_6d_rot"].append(action[OUTPUT_RIGHT_EEF[3:]])
+                # Head 6d rot
+                action_dict["actions.ucsd_h1.head_6d_rot"].append(action[OUTPUT_HEAD_EEF[3:]])
+        
+        for k in state_dict.keys():
+            state_dict[k] = np.array(state_dict[k])
+        for k in action_dict.keys():
+            action_dict[k] = np.array(action_dict[k])
         
         if True:
             # TODO: temporary solution to match axes direction.
             # Better way is to fix rotations + reference frames to be consistent with Aria.
-            state_arr = -1 * state_arr
-            action_arr = -1 * action_arr
+            state_dict["ee_pose"] = -1 * state_dict["ee_pose"]
+            action_dict["actions_cartesian"] = -1 * action_dict["actions_cartesian"]
         
         if prestack:
-            actions = []
+            new_action_dict = {}
             sample_chunk_size = int(CHUNK_LENGTH_ACT / H1_HUMAN_SLOW_DOWN_FACTOR)
-            for i in range(0, action_arr.shape[0]):
-                if i + sample_chunk_size > action_arr.shape[0]:
-                    # Copy the last action to fill the chunk
-                    copy_size = i + sample_chunk_size - action_arr.shape[0]
-                    first_action_chunk = action_arr[i:i+sample_chunk_size]
-                    second_action_chunk = action_arr[-1] * np.ones((copy_size, action_arr.shape[1]))
-                    action_chunk = np.concatenate((first_action_chunk, second_action_chunk), axis=0)
-                    actions.append(action_chunk)
-                else:
-                    actions.append(action_arr[i:i+sample_chunk_size])
-            actions = np.array(actions)
+            for k in action_dict.keys():
+                actions = []
+                for i in range(0, action_dict[k].shape[0]):
+                    if i + sample_chunk_size > action_dict[k].shape[0]:
+                        # Copy the last action to fill the chunk
+                        copy_size = i + sample_chunk_size - action_dict[k].shape[0]
+                        first_action_chunk = action_dict[k][i:i+sample_chunk_size]
+                        second_action_chunk = action_dict[k][-1] * np.ones((copy_size, action_dict[k].shape[1]))
+                        action_chunk = np.concatenate((first_action_chunk, second_action_chunk), axis=0)
+                        actions.append(action_chunk)
+                    else:
+                        actions.append(action_dict[k][i:i+sample_chunk_size])
+                actions = np.array(actions)
+                new_action_dict[k] = actions
         else:
-            actions = action_arr
+            actions = action_dict["actions_cartesian"]
         
-        episode_feats["observations"][f"state.ee_pose"] = state_arr
+        for state_key in state_dict.keys():
+            episode_feats["observations"][f"state.{state_key}"] = state_dict[state_key]
+        
+        for action_key in action_dict.keys():
+            episode_feats[f"{action_key}"] = new_action_dict[action_key]
+
         episode_feats["observations"][f"images.front_img_1"] = left_images.transpose((0, 3, 1, 2))
         episode_feats["observations"][f"images.front_img_2"] = right_images.transpose((0, 3, 1, 2))
-        episode_feats["actions_cartesian"] = actions
 
         num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
-
-        import pdb; pdb.set_trace()
 
         value = EMBODIMENT.UCSD_H1_BIMANUAL.value
 
