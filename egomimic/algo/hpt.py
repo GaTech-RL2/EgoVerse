@@ -688,8 +688,8 @@ class HPT(Algo):
         
         for domain, key_list in self.auxiliary_ac_keys.items():
             for key in key_list:
-                domain = f"{domain}_{key}"
-                model.init_domain_head(domain, self.head_specs[domain])
+                domain_key = f"{domain}_{key}"
+                model.init_domain_head(domain_key, self.head_specs[domain_key])
         
         for modality, encoder_cfg in self.encoders.items():
             model.init_encoder(modality, encoder_cfg)
