@@ -16,7 +16,10 @@ from egomimic.utils.egomimicUtils import (
     cam_frame_to_cam_pixels,
     INTRINSICS,
     interpolate_keys,
-    interpolate_arr
+    interpolate_arr,
+    interpolate_arr_euler,
+    transform_to_pose,
+    pose_to_transform
 )
 
 from projectaria_tools.core.calibration import CameraCalibration, DeviceCalibration
@@ -35,6 +38,9 @@ from aria_utils import (
     build_camera_matrix,
     undistort_to_linear,
     slam_to_rgb,
+    compute_coordinate_frame,
+    transform_coordinates,
+    coordinate_frame_to_ypr
 )
 
 from rldb.utils import EMBODIMENT
@@ -61,29 +67,96 @@ ROTATION_MATRIX = np.array([[0, 1, 0],
                             [-1, 0, 0], 
                             [0, 0, 1]])
 
-def transform_ee_pose(ee_pose):
-    if ee_pose.shape[1] == 3:
-        ee_pose[:, 0] *= -1  # Multiply x by -1
-        ee_pose[:, 1] *= -1  # Multiply y by -1
-    elif ee_pose.shape[1] == 6:
-        ee_pose[:, 0] *= -1  # Multiply x by -1 for first set
-        ee_pose[:, 1] *= -1  # Multiply y by -1 for first set
-        ee_pose[:, 3] *= -1  # Multiply x by -1 for second set
-        ee_pose[:, 4] *= -1  # Multiply y by -1 for second set
 
-    return ee_pose
+#NOTE: Replaced by transform ee_pose
+# def transform_actions(actions):
+#     if actions.shape[-1] == 3:
+#         actions[..., 0] *= -1  # Multiply x by -1
+#         actions[..., 1] *= -1  # Multiply y by -1
+#     elif actions.shape[-1] == 6:
+#         actions[..., 0] *= -1  # Multiply x by -1 for first set
+#         actions[..., 1] *= -1  # Multiply y by -1 for first set
+#         actions[..., 3] *= -1  # Multiply x by -1 for second set
+#         actions[..., 4] *= -1  # Multiply y by -1 for second set
+#     return actions
+
+def compute_camera_relative_pose(pose, cam_t_inv, cam_offset):
+    """
+    pose (6,) : np.array
+        x y z y p r
+    cam_t_inv (4, 4) : np.array
+        camera intrinsics inverse of timestep t
+    cam_offset (4, 4) : np.array
+        camera intrinsics of offset
+        
+    returns pose_t (6,) : np.array
+        future pose in camera t frame x y z y p r
+    """
+    T_offset_pose = pose_to_transform(pose)
+    undo_rotation = np.eye(4)
+    undo_rotation[:3, :3] = ROTATION_MATRIX
     
-def transform_actions(actions):
-    if actions.shape[-1] == 3:
-        actions[..., 0] *= -1  # Multiply x by -1
-        actions[..., 1] *= -1  # Multiply y by -1
-    elif actions.shape[-1] == 6:
-        actions[..., 0] *= -1  # Multiply x by -1 for first set
-        actions[..., 1] *= -1  # Multiply y by -1 for first set
-        actions[..., 3] *= -1  # Multiply x by -1 for second set
-        actions[..., 4] *= -1  # Multiply y by -1 for second set
-    return actions
+    T_unrotated = undo_rotation @ T_offset_pose
+    T_world = np.dot(cam_offset, T_unrotated)
+    T_camera = np.dot(cam_t_inv, T_world)
+    
+    redo_rotation = np.eye(4)
+    redo_rotation[:3, :3] = ROTATION_MATRIX.T
+    T_final = redo_rotation @ T_camera
+    
+    pose_t = transform_to_pose(T_final)
+    return pose_t
 
+def get_hand_pose_in_camera_frame(hand_data, cam_t_inv, cam_offset, transform):
+    """
+    Process a single hand's data to compute the 6-dof pose in the camera-t frame.
+
+    Args:
+        hand_data: hand data from mps:
+            - palm_position_device
+            - wrist_position_device
+            - wrist_and_palm_normal_device.palm_normal_device
+        cam_t_inv (np.ndarray): Inverse transformation matrix for the camera at timestep t.
+        cam_offset (np.ndarray): Transformation matrix for the camera offset.
+        transform: The transform used in transform_coordinates.
+        
+    Returns:
+        np.ndarray: 6-dof pose (translation + Euler angles) in the camera-t frame.
+                    Returns np.full(6, 1e9) if the palm position is not detected.
+    """
+    if not np.any(hand_data.palm_position_device):
+        return np.full(6, 1e9)
+    
+    palm_pose = hand_data.palm_position_device
+    wrist_pose = hand_data.wrist_position_device
+    palm_normal = hand_data.wrist_and_palm_normal_device.palm_normal_device
+
+    if hand_data.confidence < 0:
+        pose_offset = np.full(6, 1e9)
+        return pose_offset
+    
+    x_axis, y_axis, z_axis = compute_coordinate_frame(
+        palm_pose=palm_pose,
+        wrist_pose=wrist_pose,
+        palm_normal=palm_normal
+    )
+    
+    palm_pose, x, y, z = transform_coordinates(
+        palm_pose=palm_pose,
+        x_axis=x_axis,
+        y_axis=y_axis,
+        z_axis=z_axis,
+        transform=transform
+    )
+    
+    palm_euler = coordinate_frame_to_ypr(x, y, z)
+    pose_offset = np.concatenate((palm_pose, palm_euler), axis=None)
+    
+    pose_offset_in_camera_t = compute_camera_relative_pose(
+        pose_offset, cam_t_inv=cam_t_inv, cam_offset=cam_offset
+    )    
+    return pose_offset_in_camera_t
+    
 class AriaVRSExtractor:
     TAGS = ["aria", "robotics", "vrs"]
 
@@ -153,7 +226,7 @@ class AriaVRSExtractor:
         mps_data_paths = mps_data_paths_provider.get_data_paths()
         mps_reader = mps.MpsDataProvider(mps_data_paths)
 
-        transform = slam_to_rgb(vrs_reader)
+        transform = slam_to_rgb(vrs_reader).to_matrix()
         episode_feats["observations"] = dict()
 
         # ee_pose
@@ -171,21 +244,18 @@ class AriaVRSExtractor:
         #TODO: this will be useful for the future - when we add other camera modalities
         camera_key = AriaVRSExtractor.get_cameras("front_img_1")[0]
 
-        # numpy images (B, H, W, C)
         images = AriaVRSExtractor.get_images(
                                             vrs_reader=vrs_reader,
                                             stream_ids=stream_ids,
                                             stream_timestamps_ns=stream_timestamps_ns                              
                                             )
 
-        if low_res:
-            resized_image_list = []
-            for image in images:
-                resized_image = cv2.resize(image, (320, 240), interpolation=cv2.INTER_LINEAR)
-                resized_image_list.append(resized_image)
-            images = np.array(resized_image_list)
+        images = torch.from_numpy(images).permute(0, 3, 1, 2).float()
 
-        images = images.transpose((0, 3, 1, 2))
+        if low_res:
+            images = F.interpolate(images, size=(240, 320), mode='bilinear', align_corners=False)
+        
+        images = images.byte().numpy()
 
         # actions
         actions = AriaVRSExtractor.get_action(
@@ -197,8 +267,11 @@ class AriaVRSExtractor:
                                                 arm=arm,
                                                 prestack=prestack
                                             )
-
-        actions, pose, images = AriaVRSExtractor.clean_data(actions=actions, pose=pose, images=images)
+        
+        print(f"[DEBUG] LENGTH BEFORE CLEANING: {len(actions)}")
+        actions, pose, images = AriaVRSExtractor.clean_data(actions=actions, pose=pose, images=images, arm=arm)
+        # actions, pose, images = AriaVRSExtractor.clean_data_projection(actions=actions, pose=pose, images=images, arm=arm)
+        print(f"[DEBUG] LENGTH AFTER CLEANING: {len(actions)}")
 
         episode_feats["observations"][f"state.{state_key}"] = pose
         episode_feats["observations"][f"images.{camera_key}"] = images
@@ -217,7 +290,7 @@ class AriaVRSExtractor:
         return episode_feats
 
     @staticmethod
-    def get_action(pose : np.array, mps_reader, vrs_reader, stream_timestamps_ns : dict, transform : np.array, arm : str, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT, prestack=False, no_rot=True):
+    def get_action(pose : np.array, mps_reader, vrs_reader, stream_timestamps_ns : dict, transform : np.array, arm : str, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT, prestack=False, no_rot=False):
         """
         Calculates actions using stable reference frames
         Parameters
@@ -260,15 +333,9 @@ class AriaVRSExtractor:
             
             for offset in range(HORIZON):
                 sample_timestamp_ns = stream_timestamps_ns["rgb"][int(t + offset * STEP)]
-                wrist_and_palm_pose = mps_reader.get_wrist_and_palm_pose(
+                wrist_and_palm_pose_offset = mps_reader.get_wrist_and_palm_pose(
                     sample_timestamp_ns, time_query_closest
                 )
-                right_palm = (
-                    transform @ wrist_and_palm_pose.right_hand.palm_position_device
-                ).T
-                left_palm = (
-                    transform @ wrist_and_palm_pose.left_hand.palm_position_device
-                ).T
 
                 head_pose_offset = mps_reader.get_closed_loop_pose(
                     sample_timestamp_ns, time_query_closest
@@ -276,88 +343,69 @@ class AriaVRSExtractor:
                 camera_matrix_offset = build_camera_matrix(
                     vrs_reader, head_pose_offset
                 )
-
                 if arm == "right":
-                    if np.any(right_palm):
-                        right_palm_hom = np.append(right_palm, 1)
-                        hand_world = np.dot(
-                            camera_matrix_offset, right_palm_hom
-                        )
-                        hand_in_camera_t_frame = np.dot(
-                            camera_t_inv, hand_world
-                        )
-                        actions_t.append(hand_in_camera_t_frame[:3])
-                    else:
-                        actions_t.append(np.zeros_like(right_palm))
+                    right_pose_in_camera_t = get_hand_pose_in_camera_frame(
+                        wrist_and_palm_pose_offset.right_hand, 
+                        cam_t_inv=camera_t_inv, 
+                        cam_offset=camera_matrix_offset, 
+                        transform=transform
+                    )
+                    actions_t.append(right_pose_in_camera_t)
                 elif arm == "left":
-                    if np.any(left_palm):
-                        left_palm_hom = np.append(left_palm, 1)
-                        hand_world = np.dot(
-                            camera_matrix_offset, left_palm_hom
-                        )
-                        hand_in_camera_t_frame = np.dot(
-                            camera_t_inv, hand_world
-                        )
-                        actions_t.append(hand_in_camera_t_frame[:3])
-                    else:
-                        actions_t.append(np.zeros_like(left_palm))
+                    left_pose_in_camera_t = get_hand_pose_in_camera_frame(
+                        wrist_and_palm_pose_offset.left_hand, 
+                        cam_t_inv=camera_t_inv, 
+                        cam_offset=camera_matrix_offset, 
+                        transform=transform
+                    )
+                    actions_t.append(left_pose_in_camera_t)
                 elif arm == "both":
-                    if np.any(right_palm) or np.any(left_palm):
-                        right_palm_hom = np.append(right_palm, 1)
-                        hand_world_r = np.dot(
-                            camera_matrix_offset, right_palm_hom
-                        )
-                        hand_in_camera_t_frame_r = np.dot(
-                            camera_t_inv, hand_world_r
-                        )
-
-                        left_palm_hom = np.append(left_palm, 1)
-                        hand_world_l = np.dot(
-                            camera_matrix_offset, left_palm_hom
-                        )
-                        hand_in_camera_t_frame_l = np.dot(
-                            camera_t_inv, hand_world_l
-                        )
-                        actions_t.append(
-                            np.concatenate(
-                                (
-                                    hand_in_camera_t_frame_l[:3],
-                                    hand_in_camera_t_frame_r[:3],
-                                ),
-                            axis=None,
-                            )
-                        )
-                    else:
-                        actions_t.append(np.zeros_like(6))
-
+                    # Process left hand first.
+                    left_pose_in_camera_t = get_hand_pose_in_camera_frame(
+                        wrist_and_palm_pose_offset.left_hand, 
+                        cam_t_inv=camera_t_inv, 
+                        cam_offset=camera_matrix_offset, 
+                        transform=transform
+                    )
+                    
+                    # Process right hand.
+                    right_pose_in_camera_t = get_hand_pose_in_camera_frame(
+                        wrist_and_palm_pose_offset.right_hand, 
+                        cam_t_inv=camera_t_inv, 
+                        cam_offset=camera_matrix_offset, 
+                        transform=transform
+                    )
+                    combined_pose = np.concatenate([left_pose_in_camera_t, right_pose_in_camera_t], axis=None)
+                    actions_t.append(combined_pose)
+                                    
             actions_t = np.array(actions_t)
+            actions.append(actions_t)
 
-            if actions_t.shape[-1] ==  6:
-                actions_t_l = actions_t[:, :3]
-                actions_t_r = actions_t[:, 3:]
-                actions_t_rot_l = np.dot(actions_t_l, ROTATION_MATRIX.T)
-                actions_t_rot_r = np.dot(actions_t_r, ROTATION_MATRIX.T)
-                rotated_actions_t = np.concatenate(
-                    (actions_t_rot_l, actions_t_rot_r), axis=1
-                )
-
-            else:
-                rotated_actions_t = np.dot(actions_t, ROTATION_MATRIX.T)
+        actions = np.array(actions)
+        
+        if arm == "both":
+            actions_left = actions[..., :6]
+            actions_right = actions[..., 6:]
+            actions_left = interpolate_arr_euler(actions_left, CHUNK_LENGTH_ACT)
+            actions_right = interpolate_arr_euler(actions_right, CHUNK_LENGTH_ACT)
+            actions = np.concatenate((actions_left, actions_right), axis=-1)
+        else:
+            actions = interpolate_arr_euler(actions, CHUNK_LENGTH_ACT)
             
-            if np.any(rotated_actions_t):
-                actions.append(rotated_actions_t)
-
-        actions = transform_actions(np.array(actions))
-
         if not prestack:
             actions = actions[:, 1, :]
         
-        actions = interpolate_arr(actions, CHUNK_LENGTH_ACT)
-
+        if no_rot:
+            if arm == "both":
+                actions_left = actions[..., :3]
+                actions_right = actions[..., 6:9]
+                actions = np.concatenate((actions_left, actions_right), axis=-1)
+            else:
+                actions = actions[..., :3]
         return actions
 
     @staticmethod
-    def clean_data(actions, pose, images, CHUNK_LENGTH=CHUNK_LENGTH_ACT):
+    def clean_data(actions, pose, images, arm):
         """
         Clean data
         Parameters
@@ -370,8 +418,45 @@ class AriaVRSExtractor:
         actions, pose, images : tuple of np.array
             cleaned data
         """
-        ac_dim = actions.shape[-1]
-        actions_flat = actions.copy().reshape((-1, 3))
+        bad_data_mask = np.any(pose >= 1e8, axis=1)
+
+        actions = actions[~bad_data_mask]
+        pose = pose[~bad_data_mask]
+        images = images[~bad_data_mask]
+        
+        bad_data_mask = np.any(actions >= 1e8, axis=(1,2))
+        
+        actions = actions[~bad_data_mask]
+        pose = pose[~bad_data_mask]
+        images = images[~bad_data_mask]
+
+        return actions, pose, images
+    
+    @staticmethod
+    def clean_data_projection(actions, pose, images, arm, CHUNK_LENGTH=CHUNK_LENGTH_ACT):
+        """
+        Clean data
+        Parameters
+        ----------
+        actions : np.array
+        pose : np.array
+        images : np.array
+        Returns
+        -------
+        actions, pose, images : tuple of np.array
+            cleaned data
+        """
+        actions_copy = actions.copy()
+        if arm == "both":
+            actions_left = actions_copy[..., :3]
+            actions_right = actions_copy[..., 6:9]
+            actions_copy = np.concatenate((actions_left, actions_right), axis=-1)
+        else:
+            actions_copy = actions_copy[..., :3]
+        
+        ac_dim = actions_copy.shape[-1]
+        actions_flat = actions_copy.reshape(-1, 3)
+        
         N, C, H, W = images.shape
 
         if H == 480:
@@ -385,19 +470,19 @@ class AriaVRSExtractor:
         if ac_dim == 3:
             bad_data_mask = (
                 (px[:, :, 0] < 0)
-                | (px[:, :, 0] > (W*2))
+                | (px[:, :, 0] > (W))
                 | (px[:, :, 1] < 0)
-                | (px[:, :, 1] > (H*2))
+                | (px[:, :, 1] > (H))
             )
         elif ac_dim == 6:
             BUFFER = 0
             bad_data_mask = (
                 (px[:, :, 0] < 0 - BUFFER)
-                | (px[:, :, 0] > (W*2) + BUFFER)
+                | (px[:, :, 0] > (W) + BUFFER)
                 | (px[:, :, 1] < 0)
                 # | (px[:, :, 1] > 480 + BUFFER)
                 | (px[:, :, 3] < 0 - BUFFER)
-                | (px[:, :, 3] > (H*2) + BUFFER)
+                | (px[:, :, 3] > (H) + BUFFER)
                 | (px[:, :, 4] < 0)
                 # | (px[:, :, 4] > 480 + BUFFER)
             )
@@ -463,7 +548,7 @@ class AriaVRSExtractor:
         return images
 
     @staticmethod
-    def get_ee_pose(mps_reader, transform : np.array, arm : str, stream_timestamps_ns : dict, no_rot=True, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT):
+    def get_ee_pose(mps_reader, transform : np.array, arm : str, stream_timestamps_ns : dict, no_rot=False, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT):
         """
         Get EE Pose from VRS
         Parameters
@@ -495,38 +580,95 @@ class AriaVRSExtractor:
             wrist_and_palm_pose_t = mps_reader.get_wrist_and_palm_pose(
                 query_timestamp, time_query_closest
             )
-
+            right_confidence = wrist_and_palm_pose_t.right_hand.confidence
+            left_confidence = wrist_and_palm_pose_t.left_hand.confidence
             if arm == "right":
-                ee_pose_obs_t_rot = (
-                    transform
-                    @ wrist_and_palm_pose_t.right_hand.palm_position_device
-                ).T
-                ee_pose_obs_t = np.dot(ee_pose_obs_t_rot, ROTATION_MATRIX.T)
+                ee_pose_obs_t = np.full(6, 1e9)
+                if not right_confidence < 0:
+                    right_palm_pose = wrist_and_palm_pose_t.right_hand.palm_position_device
+                    right_wrist_pose = wrist_and_palm_pose_t.right_hand.wrist_position_device
+                    right_palm_normal = wrist_and_palm_pose_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
+                    
+                    right_coordinates = compute_coordinate_frame(palm_pose=right_palm_pose, 
+                                                                    wrist_pose=right_wrist_pose, 
+                                                                    palm_normal=right_palm_normal)
+                    right_x_axis, right_y_axis, right_z_axis = right_coordinates
+                    right_palm_pose, right_x, right_y, right_z = transform_coordinates(palm_pose=right_palm_pose, 
+                                                                                        x_axis=right_x_axis, 
+                                                                                        y_axis=right_y_axis, 
+                                                                                        z_axis=right_z_axis, 
+                                                                                        transform=transform)
+                    right_palm_euler = coordinate_frame_to_ypr(right_x, right_y, right_z)
+                    ee_pose_obs_t = np.concatenate((right_palm_pose, right_palm_euler), axis=None)
             elif arm == "left":
-                ee_pose_obs_t_rot = (
-                    transform @ wrist_and_palm_pose_t.left_hand.palm_position_device
-                ).T
-                ee_pose_obs_t = np.dot(ee_pose_obs_t_rot, ROTATION_MATRIX.T)
+                ee_pose_obs_t = np.full(6, 1e9)
+                if not left_confidence < 0:
+                    left_palm_pose = wrist_and_palm_pose_t.left_hand.palm_position_device
+                    left_wrist_pose = wrist_and_palm_pose_t.left_hand.wrist_position_device
+                    left_palm_normal = wrist_and_palm_pose_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
+                    
+                    left_coordinates = compute_coordinate_frame(palm_pose=left_palm_pose, 
+                                                                    wrist_pose=left_wrist_pose, 
+                                                                    palm_normal=left_palm_normal)
+                    left_x_axis, left_y_axis, left_z_axis = left_coordinates
+                    left_palm_pose, left_x, left_y, left_z = transform_coordinates(palm_pose=left_palm_pose, 
+                                                                                        x_axis=left_x_axis, 
+                                                                                        y_axis=left_y_axis, 
+                                                                                        z_axis=left_z_axis, 
+                                                                                        transform=transform)
+                    
+                    left_palm_euler = coordinate_frame_to_ypr(left_x, left_y, left_z)
+                    ee_pose_obs_t = np.concatenate((left_palm_pose, left_palm_euler), axis=None)
             elif arm == "both":
-                pose_l = (
-                    transform @ wrist_and_palm_pose_t.left_hand.palm_position_device
-                ).T
-                pose_r = (
-                    transform
-                    @ wrist_and_palm_pose_t.right_hand.palm_position_device
-                ).T
+                left_obs_t = np.full(6, 1e9)
+                if not left_confidence < 0:
+                    left_palm_pose = wrist_and_palm_pose_t.left_hand.palm_position_device
+                    left_wrist_pose = wrist_and_palm_pose_t.left_hand.wrist_position_device
+                    left_palm_normal = wrist_and_palm_pose_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
+                    
+                    left_coordinates = compute_coordinate_frame(palm_pose=left_palm_pose, 
+                                                                    wrist_pose=left_wrist_pose, 
+                                                                    palm_normal=left_palm_normal)
+                    left_x_axis, left_y_axis, left_z_axis = left_coordinates
+                    left_palm_pose, left_x, left_y, left_z = transform_coordinates(palm_pose=left_palm_pose, 
+                                                                                        x_axis=left_x_axis, 
+                                                                                        y_axis=left_y_axis, 
+                                                                                        z_axis=left_z_axis, 
+                                                                                        transform=transform)
+                    
+                    left_palm_euler = coordinate_frame_to_ypr(left_x, left_y, left_z)
+                    left_obs_t = np.concatenate((left_palm_pose, left_palm_euler), axis=None)
+                
+                right_obs_t = np.full(6, 1e9)
+                if not right_confidence < 0:
+                    right_palm_pose = wrist_and_palm_pose_t.right_hand.palm_position_device
+                    right_wrist_pose = wrist_and_palm_pose_t.right_hand.wrist_position_device
+                    right_palm_normal = wrist_and_palm_pose_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
+                    
+                    right_coordinates = compute_coordinate_frame(palm_pose=right_palm_pose, 
+                                                                    wrist_pose=right_wrist_pose, 
+                                                                    palm_normal=right_palm_normal)
+                    right_x_axis, right_y_axis, right_z_axis = right_coordinates
+                    right_palm_pose, right_x, right_y, right_z = transform_coordinates(palm_pose=right_palm_pose, 
+                                                                                        x_axis=right_x_axis, 
+                                                                                        y_axis=right_y_axis, 
+                                                                                        z_axis=right_z_axis, 
+                                                                                        transform=transform)
+                    
+                    right_palm_euler = coordinate_frame_to_ypr(right_x, right_y, right_z)
+                    right_obs_t = np.concatenate((right_palm_pose, right_palm_euler), axis=None)
 
-                pose_l_rot = np.dot(pose_l, ROTATION_MATRIX.T)
-                pose_r_rot = np.dot(pose_r, ROTATION_MATRIX.T)
-
-                ee_pose_obs_t = np.concatenate(
-                    (pose_l_rot, pose_r_rot), axis=None
-                )  ## left, right -> [x, y, z, x, y, z]
-
+                ee_pose_obs_t = np.concatenate((left_obs_t, right_obs_t), axis=None)
+            
             ee_pose.append(np.ravel(ee_pose_obs_t))
         ee_pose = np.array(ee_pose)
-        ee_pose = transform_ee_pose(ee_pose)
-
+        if no_rot:
+            if arm == "both":
+                ee_pose_left = ee_pose[..., :3]
+                ee_pose_right = ee_pose[..., 6:9]
+                ee_pose = np.concatenate((ee_pose_left, ee_pose_right), axis=-1)
+            else:
+                ee_pose = ee_pose[..., :3]
         return ee_pose
 
     @staticmethod
@@ -645,7 +787,6 @@ class AriaVRSExtractor:
         """
         features = {}
         metadata = {}
-
         for key, value in episode_feats.items():
             if isinstance(value, dict):  # Handle nested dictionaries recursively
                 nested_features, nested_metadata = AriaVRSExtractor.define_features(value, image_compressed, encode_as_video)
@@ -694,7 +835,6 @@ class AriaVRSExtractor:
                 }
 
         return features, metadata
-
 
 class DatasetConverter:
     """
@@ -781,7 +921,7 @@ class DatasetConverter:
             self.episode_list = self.episode_list[:2]
 
         processed_episode = AriaVRSExtractor.process_episode(
-            episode_path=self.episode_list[0],
+            episode_path=self.episode_list[-1],
             arm=self.arm,
             prestack=self.prestack,
         )
@@ -945,12 +1085,12 @@ def argument_parse():
     parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
     parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
     parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
-    parser.add_argument("--image-compressed", type=str2bool, default=False, help="Set to True if the images are compressed.")
+    parser.add_argument("--image-compressed", type=str2bool, default=True, help="Set to True if the images are compressed.")
     parser.add_argument("--video-encoding", type=str2bool, default=True, help="Set to True to encode images as videos.")
     parser.add_argument("--prestack", type=str2bool, default=True, help="Set to True to precompute action chunks.")
 
     # Performance tuning arguments
-    parser.add_argument("--nproc", type=int, default=12, help="Number of image writer processes.")
+    parser.add_argument("--nproc", type=int, default=8, help="Number of image writer processes.")
     parser.add_argument("--nthreads", type=int, default=2, help="Number of image writer threads.")
 
     # Debugging and output configuration
