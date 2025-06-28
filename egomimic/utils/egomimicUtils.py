@@ -17,6 +17,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import huggingface_hub
 import math
+import argparse
 
 STD_SCALE = 0.02
 
@@ -136,6 +137,56 @@ def download_from_huggingface(huggingface_repo_id: str):
 
     folder = huggingface_hub.snapshot_download(huggingface_repo_id)
     return folder
+
+def fmt(v):
+    # Convert to flat list of floats no matter the input shape/type
+    if isinstance(v, torch.Tensor):
+        v = v.flatten().tolist()
+    elif isinstance(v, np.ndarray):
+        v = v.flatten().tolist()
+    return ", ".join(f"{f:.2f}" for f in v)
+
+def draw_rotation_text(
+    image: np.ndarray,
+    gt_rot: torch.Tensor,
+    pred_rot: torch.Tensor,
+    position: tuple = (340, 20),
+    font_scale: float = 0.45,
+    color: tuple = (255, 255, 255),
+    thickness: int = 1,
+) -> np.ndarray:
+    """
+    Draws ground truth and predicted rotation vectors on an image.
+
+    Args:
+        image (np.ndarray): Image of shape (H, W, 3) in uint8 format.
+        gt_rot (torch.Tensor): Rotation vector, shape (3,) or (6,) (dual arm).
+        pred_rot (torch.Tensor): Same shape as gt_rot.
+        position (tuple): Top-left corner (x, y) for drawing text.
+        font_scale (float): Font size.
+        color (tuple): Text color (B, G, R).
+        thickness (int): Line thickness.
+
+    Returns:
+        image (np.ndarray): Annotated image.
+    """
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    x, y = position
+
+    image = np.ascontiguousarray(image.copy())
+
+    if gt_rot.shape[-1] == 3:
+        image = cv2.putText(image, f"GT rot:    [{fmt(gt_rot)}]", (x, y), font, font_scale, color, thickness)
+        image = cv2.putText(image, f"Pred rot:  [{fmt(pred_rot)}]", (x, y + 20), font, font_scale, color, thickness)
+    elif gt_rot.shape[-1] == 6:
+        image = cv2.putText(image, f"L GT rot:  [{fmt(gt_rot[0:3])}]", (x, y), font, font_scale, color, thickness)
+        image = cv2.putText(image, f"L Pred rot:[{fmt(pred_rot[0:3])}]", (x, y + 20), font, font_scale, color, thickness)
+        image = cv2.putText(image, f"R GT rot:  [{fmt(gt_rot[3:6])}]", (x, y + 40), font, font_scale, color, thickness)
+        image = cv2.putText(image, f"R Pred rot:[{fmt(pred_rot[3:6])}]", (x, y + 60), font, font_scale, color, thickness)
+    else:
+        raise ValueError(f"Unsupported rotation shape: {gt_rot.shape}")
+
+    return image
 
 def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both"):
     """
@@ -268,6 +319,45 @@ def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
     ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
 
+def ee_orientation_to_cam_frame(ee_orientation_base, T_cam_base):
+    """
+    ee_orientation_base: (N, 3, 3) rotation matrices representing orientations in the base frame.
+    T_cam_base: (4, 4) transformation matrix from base to camera.
+    returns ee_orientation_cam: (N, 3, 3) orientations in the camera frame, and Euler Angles (yaw, pitch, roll) - (N, 3)
+    """
+    T_base_cam = np.linalg.inv(T_cam_base)  # Inverse transformation
+    # Transform orientations
+    R_cam_base = T_base_cam[:3, :3]  # Extract rotation matrix from transformation
+    ee_orientation_cam = np.array([R_cam_base @ R for R in ee_orientation_base.cpu().numpy()])  # Loop over each orientation
+    ## get yaw, pitch, roll
+    batched_ypr = batched_rotation_matrices_to_euler_angles(torch.tensor(ee_orientation_cam))
+    return ee_orientation_cam, batched_ypr
+
+def batched_rotation_matrices_to_euler_angles(batch_R):
+    """
+    Convert batched rotation matrices to Euler angles (ZYX order).
+    Parameters:
+        batch_R (torch.Tensor): A batched tensor of shape [batch_size, 3, 3]
+    Returns:
+        torch.Tensor: A tensor of Euler angles of shape [batch_size, 3] (yaw, pitch, roll)
+    """
+    # Reshape the tensor to merge batch and sequence dimensions for processing
+    batch_size, _, _ = batch_R.shape
+    is_torch_tensor = isinstance(batch_R, torch.Tensor)
+    if is_torch_tensor:
+        # PyTorch reshape
+        reshaped_R = batch_R.view(-1, 3, 3).cpu().numpy()
+    else:
+        # NumPy reshape
+        reshaped_R = batch_R.reshape(-1, 3, 3)
+    # reshaped_R = batch_R.view(-1, 3, 3).cpu().numpy()
+    # Use scipy's Rotation to convert rotation matrices to Euler angles
+    rotation_objects = R.from_matrix(reshaped_R)
+    euler_angles = rotation_objects.as_euler('zyx', degrees=False)  # Shape [batch_size * seq_len, 3]
+    # Convert back to torch and reshape to original batch dimensions
+    euler_angles = torch.tensor(euler_angles, device=batch_R.device)
+    euler_angles = euler_angles.view(batch_size, 3)
+    return euler_angles
 
 def pose_transform(a_pose, T_a_b):
     """
@@ -573,3 +663,108 @@ def interpolate_keys(obs, keys, seq_length):
                 obs[k] = interp(np.linspace(0, 1, seq_length))
             except:
                 raise ValueError(f"Interpolation failed for key: {k} with shape{k.shape}")
+
+
+def ypr_to_matrix(ypr):
+    """Convert yaw-pitch-roll (zyx) to rotation matrix. ypr: (..., 3) → (..., 3, 3)"""
+    yaw, pitch, roll = ypr.unbind(-1)
+
+    cy = torch.cos(yaw)
+    sy = torch.sin(yaw)
+    cp = torch.cos(pitch)
+    sp = torch.sin(pitch)
+    cr = torch.cos(roll)
+    sr = torch.sin(roll)
+
+    # Build rotation matrix (Z-Y-X / yaw-pitch-roll)
+    Rz = torch.stack([
+        torch.stack([cy, -sy, torch.zeros_like(yaw)], dim=-1),
+        torch.stack([sy,  cy, torch.zeros_like(yaw)], dim=-1),
+        torch.stack([torch.zeros_like(yaw), torch.zeros_like(yaw), torch.ones_like(yaw)], dim=-1)
+    ], dim=-2)
+
+    Ry = torch.stack([
+        torch.stack([cp, torch.zeros_like(pitch), sp], dim=-1),
+        torch.stack([torch.zeros_like(pitch), torch.ones_like(pitch), torch.zeros_like(pitch)], dim=-1),
+        torch.stack([-sp, torch.zeros_like(pitch), cp], dim=-1)
+    ], dim=-2)
+
+    Rx = torch.stack([
+        torch.stack([torch.ones_like(roll), torch.zeros_like(roll), torch.zeros_like(roll)], dim=-1),
+        torch.stack([torch.zeros_like(roll), cr, -sr], dim=-1),
+        torch.stack([torch.zeros_like(roll), sr,  cr], dim=-1)
+    ], dim=-2)
+
+    return Rz @ Ry @ Rx
+
+
+def matrix_to_ypr(R):
+    """Convert rotation matrix to yaw-pitch-roll (zyx). R: (..., 3, 3) → (..., 3)"""
+    # Safe conversion for all angles
+    pitch = torch.asin(-R[..., 2, 0])
+    cos_pitch = torch.cos(pitch)
+
+    yaw = torch.atan2(R[..., 1, 0] / cos_pitch, R[..., 0, 0] / cos_pitch)
+    roll = torch.atan2(R[..., 2, 1] / cos_pitch, R[..., 2, 2] / cos_pitch)
+
+    return torch.stack([yaw, pitch, roll], dim=-1)
+
+
+def convert_to_cam_frame(pose_base: torch.Tensor, T_cam_base: torch.Tensor):
+    """
+    pose_base: (B, T, 6) — [x, y, z, yaw, pitch, roll] in base frame
+    T_cam_base: (4, 4) — camera-to-base transform (same for all B)
+
+    Returns:
+    pose_cam: (B, T, 6) — in camera frame
+    """
+    B, T, _ = pose_base.shape
+    device = pose_base.device
+
+    # Positions
+    pos_base = pose_base[..., :3]  # (B, T, 3)
+    ypr_base = pose_base[..., 3:]  # (B, T, 3)
+
+    # Homogeneous transform
+    ones = torch.ones((B, T, 1), device=device, dtype=pose_base.dtype)
+    pos_homo = torch.cat([pos_base, ones], dim=-1)  # (B, T, 4)
+
+    T_base_cam = torch.linalg.inv(T_cam_base).to(device)  # (4, 4)
+    pos_cam_homo = torch.einsum("ij,btj->bti", T_base_cam.float(), pos_homo.float())  # (B, T, 4)
+    pos_cam = pos_cam_homo[..., :3]  # (B, T, 3)
+
+    # Orientation
+    R_base = ypr_to_matrix(ypr_base)  # (B, T, 3, 3)
+    R_cam_base = T_base_cam[:3, :3]   # (3, 3)
+
+    R_cam = torch.einsum("ij,btjk->btik", R_cam_base.float(), R_base.float())  # (B, T, 3, 3)
+    ypr_cam = matrix_to_ypr(R_cam)  # (B, T, 3)
+
+    return torch.cat([pos_cam, ypr_cam], dim=-1)  # (B, T, 6)
+
+def transform_matrix_to_pose(mat: torch.Tensor) -> torch.Tensor:
+    """
+    Convert a (B, T, 4, 4) homogeneous transform matrix to (B, T, 6) [xyz + ypr]
+
+    Args:
+        mat: (B, T, 4, 4) torch tensor — full transform matrix
+
+    Returns:
+        pose: (B, T, 6) — xyz + yaw-pitch-roll
+    """
+    assert mat.shape[-2:] == (4, 4), "Input must be (B, T, 4, 4)"
+    B, T = mat.shape[:2]
+    device = mat.device
+
+    # Translation part: (B, T, 3)
+    xyz = mat[..., :3, 3]
+
+    # Rotation matrix: (B, T, 3, 3)
+    R = mat[..., :3, :3]
+
+    # Convert to yaw-pitch-roll: (B, T, 3)
+    ypr = matrix_to_ypr(R)
+
+    # Return pose: (B, T, 6)
+    return torch.cat([xyz, ypr], dim=-1)
+

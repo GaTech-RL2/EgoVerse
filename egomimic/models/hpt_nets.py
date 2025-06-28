@@ -37,6 +37,7 @@ from functools import partial
 from transformers import T5Tokenizer, T5Model, AutoTokenizer
 from transformers import CLIPTextModel, CLIPVisionModel # TODO: add CLIP
 
+from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table
 
 ## Taken directly from hpt/models/transformer with no modifications
 class CrossAttention(nn.Module):
@@ -323,6 +324,7 @@ class SimpleTransformer(nn.Module):
         Output
         - x: data of shape N x L x D (or L x N x D depending on the attention implementation)
         """
+        block_outputs = []
         if self.pre_transformer_layer:
             tokens = self.pre_transformer_layer(tokens)
         if use_checkpoint and checkpoint_blk_ids is None:
@@ -334,9 +336,10 @@ class SimpleTransformer(nn.Module):
                 tokens = checkpoint.checkpoint(blk, tokens, attn_mask, use_reentrant=False)
             else:
                 tokens = blk(tokens, attn_mask=attn_mask)
+            block_outputs.append(tokens)
         if self.post_transformer_layer:
             tokens = self.post_transformer_layer(tokens)
-        return tokens
+        return tokens, block_outputs
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -692,6 +695,7 @@ def vit_base_patch16(checkpoint_path="output/mae_pretrain_vit_base.pth", **kwarg
 # --------------------------------------------------------
 
 LOSS = partial(F.smooth_l1_loss, beta=0.05)
+LOSS_MSE = partial(F.mse_loss)
 
 class PolicyHead(nn.Module):
     """ Abstract class for policy head."""
@@ -714,10 +718,34 @@ class PolicyHead(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
+
     def compute_loss(self, x: torch.Tensor, data: dict):
-        self.target_action = data["action"]
-        self.pred_action = self(x).view(self.target_action.shape)
-        return LOSS(self.pred_action, self.target_action)
+        """
+        Compute smooth L1 loss between predicted and target actions,
+        slicing as needed if their dimensions differ.
+
+        Args:
+            x (torch.Tensor): Transformer outputs used to predict actions.
+            data (dict): Contains:
+                - 'action': ground-truth action tensor of shape (B, T, D_target)
+        
+        Returns:
+            torch.Tensor: Scalar loss
+        """
+        target_action = data["action"]
+        B, T = target_action.shape[:2]
+
+        pred_action = self(x).view(B, T, -1)
+                
+        D_pred = pred_action.shape[-1]
+        D_target = target_action.shape[-1]
+
+        D_common = min(D_pred, D_target)
+        pred_action = pred_action[..., :D_common]
+        target_action = target_action[..., :D_common]
+        
+
+        return LOSS(pred_action, target_action)
 
 
 class MLPPolicyHead(PolicyHead):
@@ -764,46 +792,102 @@ class MLPPolicyHead(PolicyHead):
         y = self.net(x)
         return y
 
-class TransformerDecoder(PolicyHead):
-    def __init__(
-        self,
+class TransformerDecoderBlock(nn.Module):
+    def __init__(self,
         input_dim: int = 10,
-        output_dim: int = 10,
-        crossattn_modality_dropout: float = 0.1,
-        crossattn_heads: int = 8,
-        crossattn_dim_head: int = 64,
-        action_horizon: int = 4,
+        num_heads: int = 8,
+        dim_head: int = 64,
+        dropout: float = 0.1
     ) -> None:
-        """
-        Transformer decoder similar to ACT or Detr head.
-        This version uses cross attention and does not require retraining the trunk.
-        """
         super().__init__()
-        token_num = action_horizon
-        self.tokens = nn.Parameter(
-            torch.randn(1, token_num, output_dim) * INIT_CONST
+        
+        self.self_attention = Attention(
+            dim=input_dim,
+            num_heads=num_heads,
+            qkv_bias=True,
+            attn_drop=dropout,
+            proj_drop=dropout
         )
-
+        
         self.cross_attention = CrossAttention(
             input_dim,
-            heads=crossattn_heads,
-            dim_head=crossattn_dim_head,
-            dropout=crossattn_modality_dropout,
+            heads=num_heads,
+            dim_head=dim_head,
+            dropout=dropout,
         )
-        embed_dim = crossattn_dim_head * crossattn_heads
-        self.mlp = nn.Sequential(nn.Linear(input_dim, embed_dim), nn.SiLU(), nn.Linear(embed_dim, output_dim))
+        
+        self.mlp = nn.Sequential(nn.Linear(input_dim, input_dim), nn.SiLU(), nn.Linear(input_dim, input_dim))
+        self.norm1 = nn.LayerNorm(input_dim)
+        self.norm2 = nn.LayerNorm(input_dim)
+        self.norm3 = nn.LayerNorm(input_dim)
+    
+    def forward(self, tokens, context):
+        query = self.self_attention(self.norm1(tokens))
+        query = tokens + query
+        
+        out = self.cross_attention(self.norm2(query), context) 
+        out = query + out
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-        x: (B, token_len, input_dim)
-        """
-        context = self.mlp(x)
-        context = context.reshape(context.shape[0], -1, context.shape[-1])
-        # Replicating tokens for each item in the batch and computing cross-attention
-        queries = self.tokens.repeat(len(context), 1, 1)
-        out = self.cross_attention(queries, context).view(len(x), -1)
-        return out
+        mlp_out = self.mlp(self.norm3(out))
+        tokens = mlp_out + out
+        return tokens
+        
+class MultiBlockTransformerDecoder(PolicyHead):
+    def __init__(
+        self,
+        input_dim: int = 128,
+        output_dim: int = 10,
+        action_horizon: int = 16,
+        latent_token_len: int = 8,
+        num_heads: int = 8,
+        dim_head: int = 64,
+        dropout: float = 0.1,
+        num_layers: int = 4,
+        final_norm: bool = False,
+    ):
+        super().__init__()
+        self.tokens = nn.Parameter(torch.randn(1, action_horizon, input_dim) * INIT_CONST)
+        self.pos_token = nn.Parameter(get_sinusoid_encoding_table(0, action_horizon, input_dim))
+        self.pos_context = nn.Parameter(get_sinusoid_encoding_table(0, latent_token_len, input_dim))
+    
+        self.context_norm = nn.LayerNorm(input_dim)
+        
+        self.out_proj = nn.Sequential(
+            nn.Linear(input_dim, input_dim),
+            nn.SiLU(),
+            nn.Linear(input_dim, output_dim),
+        )
+        
+        self.blocks = nn.ModuleList([
+            TransformerDecoderBlock(
+                input_dim=input_dim,
+                num_heads=num_heads,
+                dim_head=dim_head,
+                dropout=dropout
+            )
+            for _ in range(num_layers)
+        ])
+        
+        self.final_norm = final_norm
+        if self.final_norm:
+            self.last_layer_norm = nn.LayerNorm(input_dim)
+
+        total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        print(f"[MultiBlockTransformerDecoder] Total trainable parameters: {total_params / 1e6:.2f}M")
+
+    def forward(self, x):
+        B = x.shape[0]
+        tokens = self.tokens.expand(B, -1, -1) + self.pos_token.expand(B, -1, -1)
+        context = self.context_norm(x + self.pos_context.expand(B, -1, -1))
+        
+        for block in self.blocks:
+            tokens = block(tokens, context)
+        
+        if self.final_norm:
+            tokens = self.last_layer_norm(tokens)
+        
+        return self.out_proj(tokens)
+    
 
 class T5TokenizerWrapper:
     """Wrapper class for T5Tokenizer to prepare inputs for T5Encoder"""
@@ -849,29 +933,6 @@ class T5TokenizerWrapper:
             "attention_mask": encoded["attention_mask"]
         }
 
-
 class L2Norm(nn.Module):
     def forward(self, x):
         return F.normalize(x, p=2, dim=-1)
-
-class TemperatureWeightedAttention(nn.Module):
-    def __init__(self, feature_dim, temperature=1.0):
-        super(TemperatureWeightedAttention, self).__init__()
-        self.temperature = temperature
-        self.proj_query = nn.Linear(feature_dim, feature_dim, device="cuda")
-        self.proj_key = nn.Linear(feature_dim, feature_dim, device="cuda")
-        self.proj_value = nn.Linear(feature_dim, feature_dim, device="cuda")
-    
-    def forward(self, key, query):
-        query = self.proj_query(query)
-        key = self.proj_key(key)
-        value = self.proj_value(key)
-
-        scores = torch.bmm(query, key.transpose(1, 2))
-        scores = scores / self.temperature
-
-        attn_weights = F.softmax(scores, dim=1)
-
-        attended_feats = torch.bmm(attn_weights, value)
-
-        return attended_feats, attn_weights

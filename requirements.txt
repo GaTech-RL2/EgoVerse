@@ -1,6 +1,6 @@
 torch==2.6.0
 torchvision==0.21.0
-projectaria-tools[all]
+projectaria-tools[all]==1.5.7
 pyyaml
 matplotlib
 packaging
@@ -36,3 +36,5 @@ tabulate
 transformers
 timm
 abc
+geomloss
+tslearn
