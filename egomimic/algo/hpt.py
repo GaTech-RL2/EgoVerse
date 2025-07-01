@@ -858,7 +858,8 @@ class HPT(Algo):
                 if self.dtw:
                     model.init_dtw()
             self.temperature = kwargs.get("temperature", 1.0)
-
+        
+        self.ac_keys = kwargs.get("ac_keys", {})
 
         for embodiment in self.domains:
             embodiment_id = get_embodiment_id(embodiment)
@@ -866,7 +867,7 @@ class HPT(Algo):
             self.proprio_keys[embodiment_id] = []
             self.lang_keys[embodiment_id] = []
             for key in data_schematic.keys_of_type("action_keys"):
-                if data_schematic.is_key_with_embodiment(key, embodiment_id):
+                if data_schematic.is_key_with_embodiment(key, embodiment_id) and key == self.ac_keys[embodiment]:
                     self.ac_keys[embodiment_id] = key
             for key in data_schematic.keys_of_type("camera_keys"):
                 if data_schematic.is_key_with_embodiment(key, embodiment_id):
@@ -1098,7 +1099,7 @@ class HPT(Algo):
             if f"{embodiment_name}_{key}" in predictions:
                 preds = predictions[f"{embodiment_name}_{key}"]
                 gt = batch[key]
-            
+
                 if self.is_6dof and ac_key == "actions_cartesian":
                     gt, gt_rot = self._extract_xyz(gt)
                     preds, preds_rot = self._extract_xyz(preds)
@@ -1115,7 +1116,7 @@ class HPT(Algo):
                     ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
                     ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
                     
-                    if self.is_6dof and gt_rot is not None and preds_rot is not None:
+                    if self.is_6dof and ac_key == "actions_cartesian":
                         ims[b] = draw_rotation_text(ims[b], gt_rot[b][0], preds_rot[b][0], position=(340, 20))
         return ims
     

@@ -35,16 +35,16 @@ launch_params:
 data_schematic: # Dynamically fill in these shapes from the dataset
   _target_: rldb.utils.DataSchematic
   schematic_dict:
-    eve_bimanual:
+    eve_right_arm:
       front_img_1: #batch key
         key_type: camera_keys # key type
         lerobot_key: observations.images.front_img_1 # dataset key
-      right_wrist_img:
-        key_type: camera_keys
-        lerobot_key: observations.images.right_wrist_img
       left_wrist_img:
         key_type: camera_keys
         lerobot_key: observations.images.left_wrist_img
+      right_wrist_img:
+        key_type: camera_keys
+        lerobot_key: observations.images.right_wrist_img
       ee_pose:
         key_type: proprio_keys
         lerobot_key: observations.state.ee_pose
@@ -60,7 +60,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
-    aria_bimanual:
+    aria_right_arm:
       front_img_1:
         key_type: camera_keys
         lerobot_key: observations.images.front_img_1
@@ -74,7 +74,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
   viz_img_key: 
-    eve_bimanual:
+    eve_right_arm:
       front_img_1
-    aria_bimanual:
+    aria_right_arm:
       front_img_1

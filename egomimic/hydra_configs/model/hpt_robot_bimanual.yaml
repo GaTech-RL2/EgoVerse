@@ -7,6 +7,9 @@ robomimic_model:
     intrinsics_key: "base" # change to base_half if using half res 
     extrinsics_key: "ariaJun7"
   
+  ac_keys:
+    eve_bimanual: "actions_joints"
+
   trunk:
     embed_dim: 512
     num_blocks: 16

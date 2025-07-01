@@ -5,8 +5,11 @@ robomimic_model:
   camera_transforms:
     _target_: egomimic.utils.egomimicUtils.CameraTransforms
     intrinsics_key: "base" # change to base_half if using half res 
-    extrinsics_key: "ariaMar4"
+    extrinsics_key: "ariaJun7"
   
+  ac_keys:
+    eve_right_arm: "actions_joints"
+    
   trunk:
     embed_dim: 512
     num_blocks: 16
@@ -23,7 +26,7 @@ robomimic_model:
   pretrained: false
   pretrained_checkpoint: "" # TODO
 
-  domains: ["eve_right_arm", "aria_right_arm"]
+  domains: ["eve_right_arm"]
   shared_obs_keys: ["front_img_1"]
 
   shared_stem_specs:
@@ -42,21 +45,6 @@ robomimic_model:
           modality_embed_dim: 512
   
   stem_specs:
-    aria_right_arm:
-      state_ee_pose:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 3
-        output_dim: 512
-        widths: [512]
-        specs:
-          random_horizon_masking: false
-          cross_attn:
-            crossattn_latent: 16
-            crossattn_heads: 8
-            crossattn_dim_head: 64
-            crossattn_modality_dropout: 0.1
-            modality_embed_dim: 512
-    
     eve_right_arm:
       state_joint_positions:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
@@ -71,6 +59,7 @@ robomimic_model:
             crossattn_dim_head: 64
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 512
+            
       right_wrist_img:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
         input_dim: 512
@@ -86,13 +75,6 @@ robomimic_model:
             modality_embed_dim: 512
 
   head_specs:
-    aria_right_arm:
-      _target_: egomimic.models.hpt_nets.MLPPolicyHead
-      input_dim: 512
-      output_dim: 3
-      widths: [256, 512]
-      tanh_end: false
-      dropout: true
     eve_right_arm:
       _target_: egomimic.models.hpt_nets.MLPPolicyHead
       input_dim: 512

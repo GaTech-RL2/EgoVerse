@@ -1,0 +1,53 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  dataset1:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      robotA:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "motionA"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_put_cup_on_saucer/lerobot_6dof"
+        local_files_only: true
+        mode: train
+    embodiment: "eve_bimanual"
+  dataset2:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      humanA:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "egoverse_diverse"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/put_cup_on_saucer/lerobot_6dof"
+        local_files_only: true
+        mode: train
+    embodiment: "aria_bimanual"
+valid_datasets:
+  dataset1:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      robotA:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "motionA"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_put_cup_on_saucer/lerobot_6dof"
+        local_files_only: true
+        mode: valid
+    embodiment: "eve_bimanual"
+  dataset2:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      humanA:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "egoverse_diverse"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/put_cup_on_saucer/lerobot_6dof"
+        local_files_only: true
+        mode: valid
+    embodiment: "aria_bimanual"
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8

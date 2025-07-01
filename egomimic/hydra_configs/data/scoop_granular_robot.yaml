@@ -6,16 +6,16 @@ train_datasets:
       motionA:
         _target_: rldb.utils.RLDBDataset
         repo_id: "motionA"
-        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_put_cup_on_saucer/lerobot_6dof"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_scoop_granular/lerobot_6dof"
         local_files_only: true
-        mode: train
-    embodiment: "eve_bimanual"
+        mode: total
+    embodiment: "eve_right_arm"
 
 valid_datasets:
   dataset1:
     _target_: rldb.utils.RLDBDataset
-    repo_id: "eve_top_left"
-    root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_put_cup_on_saucer/lerobot_6dof"
+    repo_id: "eve"
+    root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_scoop_granular/lerobot_6dof"
     local_files_only: true
     mode: valid
 
