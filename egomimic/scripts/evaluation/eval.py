@@ -1,17 +1,16 @@
 import os
-import datetime
+from datetime import datetime
 class Eval:
     """
     Base class for all evaluation. Using this you can easily adopt your BC rollout pipeline
     """
-    def __init__(self, eval_path, model):
+    def __init__(self, eval_path):
         """
         config (DictConfig) : model config that would be used to instantiate the model
         ckpt_path (str) : model checkpoint path to instantiate the model
         """
-        self.model = model
         eval_dir = os.path.join(eval_path, 'eval')
-        class_path = os.path.join(eval_dir, self.__class__.__name__.lower())
+        class_path = os.path.join(eval_dir, self.__class__.__name__)
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         self.eval_path = os.path.join(class_path, timestamp)
 

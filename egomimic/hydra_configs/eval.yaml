@@ -1,4 +1,7 @@
-ckpt_path: null
-multirun_path: null
+defaults:
+  - eval: eve_eval
+ckpt_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/0/checkpoints/epoch_epoch=1999.ckpt"
+multirun_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/multirun.yaml"
+eval_path: "eval/"
 datasets: null # null (no dataset), multirun (multirun dataset), provided (specify dataset with key)
-eval: # some class
+debug: false

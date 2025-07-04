@@ -27,3 +27,5 @@ logs/
 emimic/
 emimic.egg-info/
 pyproject.bak
+pull.sh
+eval/

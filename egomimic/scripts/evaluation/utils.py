@@ -1,4 +1,13 @@
 import numpy as np
+import matplotlib.pyplot as plt
+
+def save_image(image, path):
+    if image.dtype != np.uint8:
+        image = (image * 255).astype(np.uint8)
+    plt.imshow(image)
+    plt.axis('off')
+    plt.savefig(path, bbox_inches='tight', pad_inches=0)
+    plt.close()
 
 class TemporalAgg:
     def __init__(self):

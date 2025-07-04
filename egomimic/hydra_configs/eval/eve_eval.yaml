@@ -1,6 +1,7 @@
-__target__: egomimic.scripts.evaluation.eve_eval.EveEval
+_target_: egomimic.scripts.evaluation.eve_eval.EveEval
 eval_path: ${eval_path}
-ckpt_path:
+ckpt_path: ${ckpt_path}
 arm: "right"
 query_frequency: 50
 num_rollouts: 50
+debug: ${debug}

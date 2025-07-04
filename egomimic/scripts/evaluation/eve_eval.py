@@ -4,7 +4,6 @@ import time
 import os
 
 import torch
-import robomimic.utils.obs_utils as ObsUtils
 from torchvision.utils import save_image
 import cv2
 from interbotix_common_modules.common_robot.robot import (
@@ -30,13 +29,28 @@ from egomimic.utils.egomimicUtils import (
 from eve.robot_utils import move_grippers, move_arms  # requires EgoMimic-eve
 from eve.real_env import make_real_env  # requires EgoMimic-eve
 
-from egomimic.utils.realUtils import *
+# from egomimic.utils.realUtils import *
+
+from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
+
+from egomimic.utils.egomimicUtils import (
+    cam_frame_to_cam_pixels,
+    draw_dot_on_frame,
+    general_unnorm,
+    miniviewer,
+    nds,
+    ARIA_INTRINSICS,
+    EXTRINSICS,
+    ee_pose_to_cam_frame,
+    AlohaFK,
+    draw_actions
+)
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
 
 CURR_INTRINSICS = ARIA_INTRINSICS
-CURR_EXTRINSICS = EXTRINSICS["ariaJul29R"]
+CURR_EXTRINSICS = EXTRINSICS["ariaJun7"]
 TEMPORAL_AGG = False
 
 from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
@@ -44,12 +58,12 @@ from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from egomimic.scripts.evaluation.eval import Eval
-from egomimic.scripts.evaluation.utils import TemporalAgg
+from egomimic.scripts.evaluation.utils import TemporalAgg, save_image
 
 from egomimic.utils.pylogger import RankedLogger
 log = RankedLogger(__name__, rank_zero_only=True)
 
-class (Eval):
+class EveEval(Eval):
     def __init__(
         self,
         eval_path,
@@ -60,17 +74,18 @@ class (Eval):
         debug=False,
         **kwargs
     ):
-        super().__init__(eval_path, debug, **kwargs)
+        super().__init__(eval_path, **kwargs)
 
         log.info(f"Instantiating model from checkpoint<{ckpt_path}>")
         self.model = ModelWrapper.load_from_checkpoint(ckpt_path)
         self.arm = arm
         self.query_frequency = query_frequency
         self.num_rollouts = num_rollouts
+        self.debug = debug
         
         self.plot_pred_freq = kwargs.get("plot_pred_freq", None)
-        if self.data_schematic is None:
-            raise ValueError("Data schematic is needed to be passed in.")
+        # if self.data_schematic is None:
+        #     raise ValueError("Data schematic is needed to be passed in.")
         self.model.eval()
         node = create_interbotix_global_node('aloha')
         self.env = make_real_env(node, active_arms=self.arm, setup_robots=True)
@@ -78,7 +93,7 @@ class (Eval):
         robot_startup(node)
 
         if not os.path.exists(self.eval_path) and self.debug:
-            os.mkdir(self.eval_path)
+            os.makedirs(self.eval_path)
 
         if self.arm == "right":
             self.embodiment_name = "eve_right_arm"
@@ -96,41 +111,39 @@ class (Eval):
         obs = batch
         processed_batch = {}
         qpos = np.array(obs["qpos"])
-        qpos = torch.from_numpy(qpos).float().unsqueeze(0).to(device)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        qpos = torch.from_numpy(qpos).float().unsqueeze(0).to(self.device)
 
         data = {
             "front_img_1" : (
                 torch.from_numpy(
-                obs["images"]["cam_high"][None, None, :]
-            )).to(torch.uint8) / 255.0,
+                obs["images"]["cam_high"][None, :]
+            )).permute(0,3,1,2).to(torch.uint8) / 255.0,
+            "pad_mask": torch.ones((1, 100, 1)).to(self.device).bool(),
+
         }
 
         if self.arm == "right":
-            data["right_wrist_img"] = torch.from_numpy(obs["images"]["cam_right_wrist"][None, None, :]).to(torch.uint8) / 255.0
+            data["right_wrist_img"] = torch.from_numpy(obs["images"]["cam_right_wrist"][None, :]).permute(0,3,1,2).to(torch.uint8) / 255.0
             data["joint_positions"] =  qpos[..., 7:].reshape((1, 1, -1))
-            data["embodiment"] = torch.Tensor([self.embodiment_id], dtype=torch.int64)
-            processed_batch[self.embodiment_id] = data
-            processed_batch = self.model.model.data_schematic.normalize_data(processed_batch, self.embodiment_id)
         elif self.arm == "left":
-            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, None, :]).to(torch.uint8) / 255.0
-            data["joint_positions"] = qpos[..., :7]
-            data["embodiment"] = torch.Tensor([self.embodiment_id], dtype=torch.int64)
-            processed_batch[self.embodiment_id] = data
-            processed_batch = self.model.model.data_schematic.normalize_data(processed_batch, self.embodiment_id)
+            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, :]).permute(0,3,1,2).to(torch.uint8) / 255.0
+            data["joint_positions"] = qpos[..., :7].reshape((1, 1, -1))
         elif self.arm == "both":
-            data["right_wrist_img"] = torch.from_numpy(obs["images"]["cam_right_wrist"][None, None, :]).to(torch.uint8) / 255.0
-            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, None, :]).to(torch.uint8) / 255.0
+            data["right_wrist_img"] = torch.from_numpy(obs["images"]["cam_right_wrist"][None, :]).permute(0,3,1,2).to(torch.uint8) / 255.0
+            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, :]).permute(0,3,1,2).to(torch.uint8) / 255.0
             data["joint_positions"] = qpos[..., :].reshape((1, 1, -1))
-            data["embodiment"] = torch.Tensor([self.embodiment_id], dtype=torch.int64)
-            processed_batch[self.embodiment_id] = data
-            processed_batch = self.model.model.data_schematic.normalize_data(processed_batch, self.embodiment_id)
-
+        data["embodiment"] = torch.tensor([self.embodiment_id], dtype=torch.int64)
+        data["actions_joints"] = torch.zeros_like(data["joint_positions"])
+        processed_batch[self.embodiment_id] = data
+        for key, val in data.items():
+            data[key] = val.to(self.device)
+        processed_batch[self.embodiment_id] = self.model.model.data_schematic.normalize_data(processed_batch[self.embodiment_id], self.embodiment_id)
+    
         return processed_batch
     
     def run_eval(self):
-        device = torch.device("cuda")
-        self.model.to(device)
+        self.device = torch.device("cuda")
+        self.model.to(self.device)
         aloha_fk = AlohaFK()
         qpos_t, actions_t = [], []
 
@@ -140,7 +153,7 @@ class (Eval):
         ts = self.env.reset()
         t0 = time.time()
 
-        for rollout_id in self.num_rollouts:
+        for rollout_id in range(self.num_rollouts):
             with torch.inference_mode():
                 rollout_images = []
                 for t in range(1000):
@@ -150,7 +163,7 @@ class (Eval):
                     inference_t = time.time()
 
                     if t % self.query_frequency == 0:
-                        batch = self.process_batch_for_eval(obs).to(device)
+                        batch = self.process_batch_for_eval(obs)
                         preds = self.model.model.forward_eval(batch)
                         
                         ac_key = self.model.model.ac_keys[self.embodiment_id]
@@ -161,6 +174,20 @@ class (Eval):
                             actions = TA.smoothed_action()[None, :]
 
                         print(f"Inference time: {time.time() - inference_t}")
+                        if self.debug:
+                            breakpoint()
+                            data_dict = batch[self.embodiment_id]
+                            im = data_dict['front_img_1'].squeeze(0).permute(1, 2, 0).cpu().numpy()
+                            if im.dtype != np.uint8:
+                                im = (im * 255).astype(np.uint8)
+                            pred_type = "joints"
+                            color = "Purples"
+                            viz_actions = preds[f'{self.embodiment_name}_actions_joints'].squeeze(0).cpu().numpy()
+                            viz_actions = viz_actions[:100, :]
+                            extrinsics = self.model.model.camera_transforms.extrinsics
+                            intrinsics = self.model.model.camera_transforms.intrinsics
+                            drawn_im = draw_actions(im, pred_type, color, viz_actions, extrinsics, intrinsics, self.arm)
+                            save_image(drawn_im, os.path.join(self.eval_path, f'image_{t}.png'))
 
                     raw_action = actions[:, t % self.query_frequency]
                     raw_action = raw_action[0]

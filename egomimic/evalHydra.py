@@ -59,18 +59,14 @@ def eval(cfg: DictConfig):
             data_schematic.infer_shapes_from_batch(dataset[0])
             data_schematic.infer_norm_from_dataset(dataset)
     
-    log.info(f"Instantiating model from checkpoint<{cfg.ckpt_path}>")
-    model = ModelWrapper.load_from_checkpoint(cfg.ckpt_path)
-
-    eval : Eval = hydra.utils.instantiate(cfg.eval)
-    eval.model = model
+    eval = hydra.utils.instantiate(cfg.eval)
     eval.datamodule = datamodule
     eval.data_schematic = data_schematic # unsure if this is necessary to pass in
 
     log.info("Starting evaluation!")
-    eval.perfom_eval()
+    eval.run_eval()
 
-@hydra.main(version_base="1.3", config_path="./hydra_configs", config_name="train.yaml")
+@hydra.main(version_base="1.3", config_path="./hydra_configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> Optional[float]:
     """Main entry point for training.
 
@@ -82,13 +78,15 @@ def main(cfg: DictConfig) -> Optional[float]:
     
     extras(cfg)
 
-    if cfg.multirun_path is None:
+    if 'multirun_path' not in cfg:
         raise ValueError("Multirun path is required.")
     if not os.path.exists(cfg.multirun_path):
         raise FileNotFoundError(f"Cannot locate multirun.yaml at {cfg.multirun_path}")
 
     multi_cfg = OmegaConf.load(cfg.multirun_path)
-    cfg.multirun_cfg = copy.deepcopy(multi_cfg)
+    OmegaConf.set_struct(cfg, False)
+    cfg["multirun_cfg"] = copy.deepcopy(multi_cfg)
+    OmegaConf.set_struct(cfg, True)
     
     print(OmegaConf.to_yaml(cfg))
     

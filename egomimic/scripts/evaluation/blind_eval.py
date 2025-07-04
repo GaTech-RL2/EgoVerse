@@ -42,7 +42,7 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 
 CURR_INTRINSICS = ARIA_INTRINSICS
-CURR_EXTRINSICS = EXTRINSICS["ariaJul29R"]
+CURR_EXTRINSICS = EXTRINSICS["ariaJun7"]
 TEMPORAL_AGG = False
 
 from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
