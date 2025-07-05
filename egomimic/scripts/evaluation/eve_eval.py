@@ -43,7 +43,7 @@ from egomimic.utils.egomimicUtils import (
     EXTRINSICS,
     ee_pose_to_cam_frame,
     AlohaFK,
-    draw_actions
+    draw_actions,
 )
 
 from omegaconf import DictConfig, OmegaConf
@@ -58,7 +58,7 @@ from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from egomimic.scripts.evaluation.eval import Eval
-from egomimic.scripts.evaluation.utils import TemporalAgg, save_image
+from egomimic.scripts.evaluation.utils import TemporalAgg, save_image, transformation_matrix_to_pose, batched_euler_to_rot_matrix
 
 from egomimic.utils.pylogger import RankedLogger
 log = RankedLogger(__name__, rank_zero_only=True)
@@ -82,6 +82,7 @@ class EveEval(Eval):
         self.query_frequency = query_frequency
         self.num_rollouts = num_rollouts
         self.debug = debug
+        self.cartesian = True
         
         self.plot_pred_freq = kwargs.get("plot_pred_freq", None)
         # if self.data_schematic is None:
@@ -141,6 +142,46 @@ class EveEval(Eval):
     
         return processed_batch
     
+    def solve_ik(self, actions_cartesian, current_joint_positions, arm="right"):
+        """
+        for each arm, right or left for extrinsics (works for batch and unbatched)
+        """
+        breakpoint()
+        actions_cartesian = actions_cartesian
+        actions_gripper = actions_cartesian[..., -1]
+        actions_pos = actions_cartesian[..., :3]
+        actions_ypr = actions_cartesian[..., 3:6]
+        actions_rotmat = batched_euler_to_rot_matrix(actions_ypr)
+        extrinsics = torch.from_numpy(self.model.model.camera_transforms.extrinsics[arm]).to(actions_cartesian.device).float()
+        batch_shape = actions_cartesian.shape[:-1]
+        T = torch.zeros(*batch_shape, 4, 4, device=actions_cartesian.device)
+        T[..., :3, :3] = actions_rotmat
+        T[..., :3, 3] = actions_pos
+        T[..., 3, 3] = 1.0
+
+        T_base = extrinsics @ T
+        
+        # actions_rotmat = T_base[..., :3, :3]
+        # wxyz -> xyzw
+
+        # actions_quat = matrix_to_quaternion(actions_rotmat)
+        # actions_quat = torch.cat([actions_quat[..., 1:], actions_quat[..., :1]], dim=-1)
+
+        actions = []
+        for b in range(T_base.shape[0]):
+            actions.append(transformation_matrix_to_pose(T_base[b].cpu().numpy()))
+
+        actions = np.stack(actions)
+
+        actions_pos = actions[..., :3]
+        actions_quat = actions[..., 3:]
+        target_joint_positions = self.ik.solve(target_pos=actions_pos, 
+                                               target_orientation=actions_quat, 
+                                               target_gripper=actions_gripper.cpu().numpy(),
+                                               current_joints=current_joint_positions)
+        
+        return target_joint_positions[None, :, :]
+    
     def run_eval(self):
         self.device = torch.device("cuda")
         self.model.to(self.device)
@@ -168,6 +209,24 @@ class EveEval(Eval):
                         
                         ac_key = self.model.model.ac_keys[self.embodiment_id]
                         actions = preds[f"{self.embodiment_name}_{ac_key}"].cpu().numpy()
+                        if self.cartesian:
+                            if self.arm == "right":
+                                qpos = torch.from_numpy(np.array(obs["qpos"])).float().to(self.device)
+                                current_joint_positions = qpos[7:]
+                                actions = self.solve_ik(actions, current_joint_positions, "right")
+                            elif self.arm == "left":
+                                qpos = torch.from_numpy(np.array(obs["qpos"])).float().to(self.device)
+                                current_joint_positions = qpos[:7]
+                                actions = self.solve_ik(actions, current_joint_positions, "left")
+                            else:
+                                qpos = torch.from_numpy(np.array(obs["qpos"])).float().to(self.device)
+                                actions_left = actions[..., :7]
+                                actions_right = actions[..., 7:]
+                                current_joint_left = qpos[:7]
+                                current_joint_right = qpos[7:]
+                                solved_left = self.solve_ik(actions_left, current_joint_left, "left")
+                                solved_right = self.solve_ik(actions_right, current_joint_right, "right")
+                                actions = np.concatenate([solved_left, solved_right], axis=-1)
 
                         if TEMPORAL_AGG:
                             TA.add_action(actions[0])

@@ -1,5 +1,9 @@
+import torch
+
 import numpy as np
 import matplotlib.pyplot as plt
+
+from scipy.spatial.transform import Rotation
 
 def save_image(image, path):
     if image.dtype != np.uint8:
@@ -8,6 +12,55 @@ def save_image(image, path):
     plt.axis('off')
     plt.savefig(path, bbox_inches='tight', pad_inches=0)
     plt.close()
+
+def transformation_matrix_to_pose(T):
+    R = T[:3, :3]
+    p = T[:3, 3]
+    rotation_quaternion = Rotation.from_matrix(R).as_quat()
+    pose_array = np.concatenate((p, rotation_quaternion))
+    return pose_array
+
+def batched_euler_to_rot_matrix(actions_ypr: torch.Tensor) -> torch.Tensor:
+    """
+    Convert batched Euler angles (yaw-pitch-roll) to rotation matrices.
+
+    Args:
+        actions_ypr (torch.Tensor): shape (B, 3) in radians as (yaw, pitch, roll).
+
+    Returns:
+        torch.Tensor: shape (B, 3, 3) rotation matrices, where each matrix is
+                    R = Rz(yaw) · Ry(pitch) · Rx(roll).
+    """
+    yaw, pitch, roll = actions_ypr.unbind(-1)
+
+    cy, sy = torch.cos(yaw), torch.sin(yaw)
+    cp, sp = torch.cos(pitch), torch.sin(pitch)
+    cr, sr = torch.cos(roll), torch.sin(roll)
+
+    # First column
+    r00 = cy * cp
+    r10 = sy * cp
+    r20 = -sp
+
+    # Second column
+    r01 = cy * sp * sr - sy * cr
+    r11 = sy * sp * sr + cy * cr
+    r21 = cp * sr
+
+    # Third column
+    r02 = cy * sp * cr + sy * sr
+    r12 = sy * sp * cr - cy * sr
+    r22 = cp * cr
+
+    row0 = torch.stack([r00, r01, r02], dim=-1)
+    row1 = torch.stack([r10, r11, r12], dim=-1)
+    row2 = torch.stack([r20, r21, r22], dim=-1)
+
+    if row0.ndim == 2:              # batched case (B,3)
+        rot_mats = torch.stack([row0, row1, row2], dim=-2)
+    else:                           # single vector case (3,)
+        rot_mats = torch.stack([row0, row1, row2], dim=0)
+    return rot_mats
 
 class TemporalAgg:
     def __init__(self):

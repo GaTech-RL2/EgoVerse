@@ -64,6 +64,7 @@ def eval(cfg: DictConfig):
     eval.data_schematic = data_schematic # unsure if this is necessary to pass in
 
     log.info("Starting evaluation!")
+    breakpoint()
     eval.run_eval()
 
 @hydra.main(version_base="1.3", config_path="./hydra_configs", config_name="eval.yaml")
@@ -78,15 +79,16 @@ def main(cfg: DictConfig) -> Optional[float]:
     
     extras(cfg)
 
-    if 'multirun_path' not in cfg:
-        raise ValueError("Multirun path is required.")
-    if not os.path.exists(cfg.multirun_path):
-        raise FileNotFoundError(f"Cannot locate multirun.yaml at {cfg.multirun_path}")
+    # if 'multirun_path' not in cfg:
+    #     raise ValueError("Multirun path is required.")
+    # if not os.path.exists(cfg.multirun_path):
+    #     raise FileNotFoundError(f"Cannot locate multirun.yaml at {cfg.multirun_path}")
 
-    multi_cfg = OmegaConf.load(cfg.multirun_path)
-    OmegaConf.set_struct(cfg, False)
-    cfg["multirun_cfg"] = copy.deepcopy(multi_cfg)
-    OmegaConf.set_struct(cfg, True)
+    if 'multirun_cfg' in cfg:
+        multi_cfg = OmegaConf.load(cfg.multirun_path)
+        OmegaConf.set_struct(cfg, False)
+        cfg["multirun_cfg"] = copy.deepcopy(multi_cfg)
+        OmegaConf.set_struct(cfg, True)
     
     print(OmegaConf.to_yaml(cfg))
     

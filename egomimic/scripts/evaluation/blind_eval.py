@@ -42,7 +42,7 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 
 CURR_INTRINSICS = ARIA_INTRINSICS
-CURR_EXTRINSICS = EXTRINSICS["ariaJun7"]
+CURR_EXTRINSICS = EXTRINSICS["ariaJul29R"]
 TEMPORAL_AGG = False
 
 from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
@@ -78,9 +78,10 @@ class BlindEval(Eval):
         if (self.blind_eval_name is not None) ^ (self.blind_eval_path is not None):
             raise ValueError("Can only either use existing blind eval with (blind_eval_path) or create new blind eval (use blind_eval_name).")
         
-        self.properties = ['ckpt_path', 'arm', 'frequency']
+        self.properties = ['ckpt_path', 'arm', 'frequency', 'cartesian']
         eval_dir = Path(self.eval_path).parent
         self.blind_eval_path = os.path.join(eval_dir, self.blind_eval_name)
+        os.makedirs(self.blind_eval_path, exist_ok=True)
 
         if self.models:
             rows = []
@@ -88,24 +89,24 @@ class BlindEval(Eval):
             letters = list(string.ascii_uppercase[:num_models])
             random.shuffle(letters)
             for i, (key, value) in enumerate(self.models.items()):
-                rows = [value[prop] for prop in self.properties]
-                rows.append(letters[i])
+                row = [value[prop] for prop in self.properties] + [letters[i]]
+                rows.append(row)
             self.properties.append('blind_id')
             self.model_df = pd.DataFrame(rows, columns=self.properties)
             self.model_df.to_pickle(os.path.join(self.blind_eval_path, 'info.pkl'))
-            self.result_df = pd.DataFrame(rows, columns=['episode_id', 'blind_id', 'success'])
+            self.result_df = pd.DataFrame([], columns=['episode_id', 'blind_id', 'success'])
             self.result_df.to_csv(os.path.join(self.blind_eval_path, 'results.csv'))
-
+            breakpoint()
         else:
             self.df = pd.read_pickle(os.path.join(self.blind_eval_path, 'info.pkl'))
             self.result_df = pd.read_csv(os.path.join(self.blind_eval_path, 'results.csv')) 
     
     def ckpt_from_blind_id(self, blind_id):
         row = self.model_df[self.model_df['blind_id'] == blind_id]
-        return row['ckpt_path']
+        return row['ckpt_path'].iloc[0]
     
     def blind_ids(self):
-        return self.model_df.columns.unique()
+        return self.model_df["blind_id"].unique()
 
     def select_models_episode(self):
         options_list = self.df['name']
@@ -140,36 +141,34 @@ class BlindEval(Eval):
         obs = batch
         processed_batch = {}
         qpos = np.array(obs["qpos"])
-        qpos = torch.from_numpy(qpos).float().unsqueeze(0).to(device)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        qpos = torch.from_numpy(qpos).float().unsqueeze(0).to(self.device)
 
         data = {
             "front_img_1" : (
                 torch.from_numpy(
-                obs["images"]["cam_high"][None, None, :]
-            )).to(torch.uint8) / 255.0,
+                obs["images"]["cam_high"][None, :]
+            )).permute(0,3,1,2).to(torch.uint8) / 255.0,
+            "pad_mask": torch.ones((1, 100, 1)).to(self.device).bool(),
+
         }
 
         if self.arm == "right":
-            data["right_wrist_img"] = torch.from_numpy(obs["images"]["cam_right_wrist"][None, None, :]).to(torch.uint8) / 255.0
+            data["right_wrist_img"] = torch.from_numpy(obs["images"]["cam_right_wrist"][None, :]).permute(0,3,1,2).to(torch.uint8) / 255.0
             data["joint_positions"] =  qpos[..., 7:].reshape((1, 1, -1))
-            data["embodiment"] = torch.Tensor([self.embodiment_id], dtype=torch.int64)
-            processed_batch[self.embodiment_id] = data
-            processed_batch = self.model.model.data_schematic.normalize_data(processed_batch, self.embodiment_id)
         elif self.arm == "left":
-            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, None, :]).to(torch.uint8) / 255.0
-            data["joint_positions"] = qpos[..., :7]
-            data["embodiment"] = torch.Tensor([self.embodiment_id], dtype=torch.int64)
-            processed_batch[self.embodiment_id] = data
-            processed_batch = self.model.model.data_schematic.normalize_data(processed_batch, self.embodiment_id)
+            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, :]).permute(0,3,1,2).to(torch.uint8) / 255.0
+            data["joint_positions"] = qpos[..., :7].reshape((1, 1, -1))
         elif self.arm == "both":
-            data["right_wrist_img"] = torch.from_numpy(obs["images"]["cam_right_wrist"][None, None, :]).to(torch.uint8) / 255.0
-            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, None, :]).to(torch.uint8) / 255.0
+            data["right_wrist_img"] = torch.from_numpy(obs["images"]["cam_right_wrist"][None, :]).permute(0,3,1,2).to(torch.uint8) / 255.0
+            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, :]).permute(0,3,1,2).to(torch.uint8) / 255.0
             data["joint_positions"] = qpos[..., :].reshape((1, 1, -1))
-            data["embodiment"] = torch.Tensor([self.embodiment_id], dtype=torch.int64)
-            processed_batch[self.embodiment_id] = data
-            processed_batch = self.model.model.data_schematic.normalize_data(processed_batch, self.embodiment_id)
-
+        data["embodiment"] = torch.tensor([self.embodiment_id], dtype=torch.int64)
+        data["actions_joints"] = torch.zeros_like(data["joint_positions"])
+        processed_batch[self.embodiment_id] = data
+        for key, val in data.items():
+            data[key] = val.to(self.device)
+        processed_batch[self.embodiment_id] = self.model.model.data_schematic.normalize_data(processed_batch[self.embodiment_id], self.embodiment_id)
+    
         return processed_batch
     
     def run_eval(self):
@@ -232,9 +231,9 @@ class BlindEval(Eval):
                             print("Enter a valid input\n")
                         
             if keep_rollout:
-                success = input("enter the success: ")
-                row = {}
-                self.result_df = pd.concat
+                score = input("enter the score: ")
+                row = {'blind_id': self.cur_blind_id, 'rollout_id': self.cur_rollout_id, 'score': score}
+                self.result_df = pd.concat([self.result_df, pd.DataFrame(row)], ignore_index=True)
 
             log.info("Moving Robot")
 

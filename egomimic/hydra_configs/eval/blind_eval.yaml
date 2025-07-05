@@ -1,0 +1,16 @@
+_target_: egomimic.scripts.evaluation.blind_eval.BlindEval
+num_rollouts:
+blind_eval_name: 'test1'
+rollout_time: 1000
+models:
+  model1:
+    ckpt_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/0/checkpoints/epoch_epoch=1999.ckpt"
+    arm: "right"
+    query_frequency: 25
+    cartesian: false
+  model2:
+    ckpt_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/0/checkpoints/epoch_epoch=1999.ckpt"
+    arm: "right"
+    query_frequency: 25
+    cartesian: false
+  

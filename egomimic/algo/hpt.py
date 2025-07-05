@@ -1219,6 +1219,7 @@ class HPT(Algo):
         for aux_ac_key in aux_ac_keys:
             data[aux_ac_key] = batch[aux_ac_key]
         
+        breakpoint()
         if self.shared_ac_key:
             data["action"] = batch[self.shared_ac_key]
         else:

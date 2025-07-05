@@ -1,7 +1,10 @@
 defaults:
-  - eval: eve_eval
-ckpt_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/0/checkpoints/epoch_epoch=1999.ckpt"
-multirun_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/multirun.yaml"
+  - eval: blind_eval
+# ckpt_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/0/checkpoints/epoch_epoch=1999.ckpt"
+# ckpt_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-29_21-47-33/0/checkpoints/epoch_epoch=999.ckpt"
+# multirun_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/multirun.yaml"
+# multirun_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-29_21-47-33/multirun.yaml"
 eval_path: "eval/"
 datasets: null # null (no dataset), multirun (multirun dataset), provided (specify dataset with key)
-debug: false
+debug: true
+cartesian: true
