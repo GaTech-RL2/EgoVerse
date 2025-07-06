@@ -35,4 +35,5 @@ zarr
 tabulate
 transformers
 timm
-abc
+boto3
+ray
