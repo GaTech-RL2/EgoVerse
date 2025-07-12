@@ -2,7 +2,6 @@ defaults:
   - hpt_cotrain_enc_dec_base
 
 robomimic_model:
-  domains: ["eve_bimanual", "aria_bimanual"]
   diffusion: true 
   head_specs:
     shared: null

@@ -32,6 +32,7 @@ class MeanFlowPolicy(DenoisingPolicy):
         super().__init__(model, action_horizon, infer_ac_dims, num_inference_steps, **kwargs)
         self.time_dist = kwargs.get("time_dist", "lognorm")
         self.flow_ratio = kwargs.get("flow_ratio", 0.25)
+        self.adaptive_loss = kwargs.get("adaptive_loss", False)
         if self.num_inference_steps != 1:
             cprint(
                 "WARNING: MeanFlowPolicy is recommended with single step inference. Please use single step inference",
@@ -119,10 +120,13 @@ class MeanFlowPolicy(DenoisingPolicy):
         L = sg(w) * ||pred - target||^2
         where w = 1 / (||.||^2 + c)^p
         """
-        delta = pred - target
-        l2sq = (delta ** 2).sum(dim=(1, 2))  # (B,)
+        if self.adaptive_loss:
+            delta = pred - target
+            l2sq = (delta ** 2).sum(dim=(1, 2))  # (B,)
 
-        weights = 1.0 / (l2sq + c) ** p
-        loss = weights.detach() * l2sq
+            weights = 1.0 / (l2sq + c) ** p
+            loss = weights.detach() * l2sq
 
-        return loss.mean()
+            return loss.mean()
+        else:
+            return super().loss_fn()

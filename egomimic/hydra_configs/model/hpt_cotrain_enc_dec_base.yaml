@@ -7,8 +7,8 @@ robomimic_model:
     intrinsics_key: "base" # change to base_half if using half res 
     extrinsics_key: "ariaJun7"
   ac_keys:
-    eve_bimanual: "actions_cartesian"
-    aria_bimanual: "actions_joints"
+    aria_bimanual: "actions_cartesian"
+    eve_bimanual: "actions_joints"
   # auxiliary_ac_keys:
   #   eve_bimanual: ["actions_joints"]
   6dof: true

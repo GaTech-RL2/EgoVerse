@@ -1,5 +1,5 @@
 defaults:
-  - model: hpt_cotrain_transformer_shared
+  - model: hpt_cotrain_bimanual
   - paths: default
   - trainer: ddp
   - debug: null
@@ -36,7 +36,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
   _target_: rldb.utils.DataSchematic
   norm_mode: minmax
   schematic_dict:
-    eve_right_arm:
+    eve_bimanual:
       front_img_1: #batch key
         key_type: camera_keys # key type
         lerobot_key: observations.images.front_img_1 # dataset key
@@ -61,7 +61,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
-    aria_right_arm:
+    aria_bimanual:
       front_img_1:
         key_type: camera_keys
         lerobot_key: observations.images.front_img_1
@@ -75,7 +75,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
   viz_img_key: 
-    eve_right_arm:
+    eve_bimanual:
       front_img_1
-    aria_right_arm:
+    aria_bimanual:
       front_img_1
