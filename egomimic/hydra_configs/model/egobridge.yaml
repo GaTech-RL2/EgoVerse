@@ -1,0 +1,15 @@
+defaults:
+  - hpt_cotrain_enc_dec
+
+robomimic_model:
+  ot: true
+  ot_6dof: false
+  freeze_repr: false
+  #freeze_depth: 13
+  warm_start_steps: 0
+  ot_warm_start_steps: 0
+  temperature: 0.7
+  supervised: true
+  dtw: true
+  lambd: 0.5
+  depth: 13

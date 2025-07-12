@@ -35,5 +35,8 @@ zarr
 tabulate
 transformers
 timm
+abc
+geomloss
+tslearn
 boto3
 ray

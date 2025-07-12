@@ -54,7 +54,7 @@ class Algo:
         """
         raise NotImplementedError("Must implement forward_eval_logging in subclass")
 
-    def visualize_preds(self, preds, batch):
+    def visualize_preds(self, predictions, batch):
         """
         Helper function to visualize predictions on top of images
         Args:

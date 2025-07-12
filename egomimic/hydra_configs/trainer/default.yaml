@@ -9,7 +9,7 @@ accelerator: cpu
 devices: 1
 
 # mixed precision for extra speed-up
-# precision: 16
+precision: bf16
 limit_train_batches: 100
 limit_val_batches: 1000
 # perform a validation loop every N training epochs

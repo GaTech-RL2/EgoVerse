@@ -10,7 +10,7 @@ import numpy as np
 import einops
 from torchmetrics import MeanSquaredError
 
-import torch.amp as amp
+# import torch.amp as amp
 
 from egomimic.models.hpt_nets import *
 from egomimic.algo.algo import Algo
@@ -20,13 +20,16 @@ from rldb.utils import get_embodiment_id, get_embodiment
 
 from egomimic.utils.egomimicUtils import nds
 from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table, EinOpsRearrange, download_from_huggingface, STD_SCALE
-import matplotlib.pyplot as plt
+from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text
 
 import numpy as np
 
 from overrides import override
 
 from egomimic.algo.algo import Algo
+
+from geomloss import SamplesLoss
+from tslearn.metrics import SoftDTWLossPyTorch
 
 class HPTModel(nn.Module):
     """
@@ -116,7 +119,12 @@ class HPTModel(nn.Module):
         self.auxiliary_ac_keys = None
         self.shared_action = False
         self.device = None
-
+        
+        self.ot_6dof = False
+        self.use_dtw = False
+        self.depth = None
+        self.lambd = None
+        
     def init_encoder(self, modality, encoder_spec):
         """
         Initialize an encoder for the specified modality.
@@ -271,7 +279,7 @@ class HPTModel(nn.Module):
 
         if self.token_postprocessing == "action_token":
             action_tokens = self.action_tokens.repeat(len(tokens), 1, 1)
-            tokens = torch.cat([tokens, action_tokens], dim=-2)
+            tokens = torch.cat([action_tokens, tokens], dim=-2)
 
         position_tokens = self.get_position_embedding(tokens, self.embed_dim)
         return tokens + position_tokens
@@ -293,7 +301,7 @@ class HPTModel(nn.Module):
         if self.token_postprocessing == "mean":
             return trunk_tokens.mean(dim=1)
         elif self.token_postprocessing == "action_token":
-            return trunk_tokens[:, -self.action_horizon:]
+            return trunk_tokens[:, :self.action_horizon]
         elif self.token_postprocessing == "max":
             return trunk_tokens.max(dim=1)[0]
         elif self.token_postprocessing == "last":
@@ -377,7 +385,23 @@ class HPTModel(nn.Module):
             feat_dict[modality] = stem_token
 
         return feats, feat_dict
+    
+    def resume_from_depth(self, block_outputs, depth):
+        """
+        Detach at trunk depth and resume trunk forward pass.
+        Gradients will only flow from depth upward.
+        """
+        cut_tokens = block_outputs[depth - 1].detach()
 
+        blocks = self.trunk["trunk"].blocks
+        for blk in list(blocks)[depth:]:
+            cut_tokens = blk(cut_tokens, attn_mask=None)
+
+        if self.trunk["trunk"].post_transformer_layer is not None:
+            cut_tokens = self.trunk["trunk"].post_transformer_layer(cut_tokens)
+
+        return self.postprocess_tokens(cut_tokens)
+    
     def get_visual_embeds(self, domain, data, modality):
         """
         Compute visual embeddings for a given modality from the input data.
@@ -445,10 +469,120 @@ class HPTModel(nn.Module):
         trunk_tokens = self.preprocess_tokens(domain, stem_tokens)
 
         if not self.no_trunk:
-            trunk_tokens = self.trunk["trunk"](trunk_tokens)
+            trunk_tokens, block_outputs = self.trunk["trunk"](trunk_tokens)
 
-        return self.postprocess_tokens(trunk_tokens)
+        proc_tokens = self.postprocess_tokens(trunk_tokens)
+        return proc_tokens, block_outputs
+    
+    def init_dtw(self):
+        self.dtw =  SoftDTWLossPyTorch(gamma=0.1)
+        self.use_dtw = True
+    
+    def compute_ot_loss(self, batch1, batch2, supervised=False):
+        # with amp.autocast(enabled=False, device_type=self.device.type):
+        depth = self.depth
+        embodiment1 = batch1["domain"]
+        embodiment2 = batch2["domain"]
+        
+        features1, block_outputs1 = self.forward_features(embodiment1, batch1["data"])
+        features2, block_outputs2 = self.forward_features(embodiment2, batch2["data"])
+        
+        tokens1 = block_outputs1[depth].permute(1, 0, 2) # B, S1, D
+        tokens2 = block_outputs2[depth].permute(1, 0, 2) # B, S2, D
+        
+        tokens1 = tokens1[:, :self.action_horizon]
+        tokens2 = tokens2[:, :self.action_horizon]
+        
+        assert tokens1.shape[1] == tokens2.shape[1], "input tokens must be of the same sequence length"
+        
+        emb1_actions = batch1["data"]["action"]
+        emb2_actions = batch2["data"]["action"]
+        
+        min_dim = min(emb1_actions.shape[-1], emb2_actions.shape[-1])
+        
+        emb1_actions = emb1_actions[..., :min_dim]
+        emb2_actions = emb2_actions[..., :min_dim]
+        
+        ot_loss, avg_feature_dist = self.compute_ot(tokens1, tokens2, emb1_actions, emb2_actions, supervised=supervised, lambd=self.lambd)
+        return ot_loss, avg_feature_dist
 
+    def make_custom_cost(self, scaling_mask):
+        def custom_cost(x, y):
+            cost = 0.5 * (((x.unsqueeze(1) - y.unsqueeze(0)) ** 2).sum(dim=-1))
+            return cost * scaling_mask
+        return custom_cost
+        
+    def compute_ot(self, tokens1, tokens2, emb1_actions, emb2_actions, supervised, lambd):
+
+        tokens1 = tokens1.reshape(tokens1.shape[0], -1)
+        tokens2 = tokens2.reshape(tokens1.shape[0], -1)
+        
+        if not supervised:
+            ot_loss_fn = SamplesLoss("sinkhorn", p=2, blur=0.05, truncate=18)
+            ot_loss = ot_loss_fn(tokens2, tokens1)
+            avg_feature_dist = torch.norm(tokens2 - tokens1, dim=-1).mean()
+            return ot_loss, avg_feature_dist
+        else:
+            B = tokens1.shape[0]
+            if not self.ot_6dof:
+                emb1_actions = emb1_actions[..., :3]
+                emb2_actions = emb2_actions[..., :3]
+            if self.use_dtw:
+                emb2_delta = emb2_actions
+                emb1_delta = emb1_actions
+                emb2_expand = emb2_delta.unsqueeze(1).expand(B, B, -1, -1)
+                emb1_expand = emb1_delta.unsqueeze(0).expand(B, B, -1, -1)
+                pairwise_dist = self.dtw(
+                    emb2_expand.reshape(B * B, *emb2_actions.shape[1:]),
+                    emb1_expand.reshape(B * B, *emb1_actions.shape[1:])
+                ).view(B, B)
+            else:
+                emb2_expand = emb2_actions.unsqueeze(1)  # (B, 1, T, D)
+                emb1_expand = emb1_actions.unsqueeze(0)  # (1, B, T, D)
+                pairwise_dist = ((emb2_expand - emb1_expand) ** 2).mean(dim=(2,3))  # (B, B) #changed
+
+            labels = torch.argmin(pairwise_dist, dim=1)
+            W = torch.ones(B, B).to(self.device)
+            W[torch.arange(B), labels] = lambd
+            
+            custom_cost_fn = self.make_custom_cost(W)
+            
+            ot_loss_fn = SamplesLoss(loss="sinkhorn", p=2, blur=0.05, cost=custom_cost_fn, truncate=18)
+
+            ot_loss = ot_loss_fn(tokens2, tokens1)
+            avg_feature_dist = torch.norm(tokens2 - tokens1, dim=-1).mean()
+            return ot_loss, avg_feature_dist
+    
+    def compute_loss_depth(self, batch, depth):
+        """
+        Compute BC loss but restrict gradient flow to trunk blocks from `depth` upward.
+        """
+        self.train_mode = True
+        domain, data = batch["domain"], batch["data"]
+
+        # with amp.autocast(device_type=self.device.type):
+        _, block_outputs = self.forward_features(domain, data)
+        features = self.resume_from_depth(block_outputs, depth)
+        action_loss = torch.tensor(0.0, device=self.device)
+        shared_action_loss = torch.tensor(0.0, device=self.device)
+        auxiliary_action_loss = torch.tensor(0.0, device=self.device)
+
+        if domain in self.heads:
+            action_loss += self.heads[domain].compute_loss(features, data)
+
+        if self.shared_action:
+            shared_action_loss += self.heads["shared"].compute_loss(features, data)
+
+        if domain in self.auxiliary_ac_keys:
+            for key in self.auxiliary_ac_keys[domain]:
+                if f"{domain}_{key}" in self.heads:
+                    data["action"] = data[key]
+                    auxiliary_action_loss += self.heads[f"{domain}_{key}"].compute_loss(features, data)
+
+        total_loss = action_loss + shared_action_loss + auxiliary_action_loss
+
+        return total_loss
+    
     def compute_loss(self, batch):
         """
         Compute the loss for a given batch of training data.
@@ -466,26 +600,25 @@ class HPTModel(nn.Module):
         self.train_mode = True
         domain, data = batch["domain"], batch["data"]
         
-        scaler = amp.GradScaler()
+        # scaler = amp.GradScaler()
+        # with amp.autocast(device_type=self.device.type):
+        features, block_outputs = self.forward_features(domain, data)
+        action_loss = torch.tensor(0.0, device=self.device)
+        shared_action_loss = torch.tensor(0.0, device=self.device)
+        auxiliary_action_loss = torch.tensor(0.0, device=self.device)
+        if domain in self.heads:
+            action_loss += self.heads[domain].compute_loss(features, data)
         
-        with amp.autocast(device_type=self.device.type):
-            features = self.forward_features(domain, data)
-            action_loss = torch.tensor(0.0, device=self.device)
-            shared_action_loss = torch.tensor(0.0, device=self.device)
-            auxiliary_action_loss = torch.tensor(0.0, device=self.device)
-
-            if domain in self.heads:
-                action_loss += self.heads[domain].compute_loss(features, data)
+        if self.shared_action:
+            shared_action_loss = self.heads["shared"].compute_loss(features, data)
             
-            if self.shared_action:
-                shared_action_loss = self.heads["shared"].compute_loss(features, data)
-                
-            if domain in self.auxiliary_ac_keys:
-                for key in self.auxiliary_ac_keys[domain]:
+        if domain in self.auxiliary_ac_keys:
+            for key in self.auxiliary_ac_keys[domain]:
+                if f"{domain}_{key}" in self.heads:
                     data["action"] = data[key]
                     auxiliary_action_loss += self.heads[f"{domain}_{key}"].compute_loss(features, data)
-            
-            total_loss = action_loss + shared_action_loss + auxiliary_action_loss
+        
+        total_loss = action_loss + shared_action_loss + auxiliary_action_loss
         return total_loss
 
     def forward(self, domain, data):
@@ -504,7 +637,7 @@ class HPTModel(nn.Module):
         torch.Tensor
             The predicted action output.
         """
-        features = self.forward_features(domain, data)
+        features, block_outputs = self.forward_features(domain, data)
         action = {}
         
         if domain in self.heads:
@@ -515,8 +648,9 @@ class HPTModel(nn.Module):
             
         if domain in self.auxiliary_ac_keys:
             for key in self.auxiliary_ac_keys[domain]:
-                action[key] = self.heads[f"{domain}_{key}"](features)
-    
+                if f"{domain}_{key}" in self.heads:
+                    action[key] = self.heads[f"{domain}_{key}"](features)
+
         return action
 
     def save(self, checkpoint_path="./.checkpoints/hpt/full/"):
@@ -663,6 +797,7 @@ class HPT(Algo):
         self.domains = domains.copy()
         self.auxiliary_ac_keys = auxiliary_ac_keys.copy()
         self.shared_ac_key = kwargs.get("shared_ac_key", None)
+        self.is_6dof = kwargs.get("6dof", False)
 
         model = HPTModel(**trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
@@ -670,7 +805,10 @@ class HPT(Algo):
         self.multitask = kwargs.get("multitask", False)
         self.device = kwargs.get("device", torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         model.device = self.device
-
+        
+        if self.pretrained:
+            model.load_pretrained(self.pretrained_checkpoint)
+            
         if self.shared_obs_keys is not None:
             model.init_domain_stem("shared", self.shared_stem_specs)
             model.shared_keys = self.shared_obs_keys
@@ -696,13 +834,32 @@ class HPT(Algo):
         
         model.finalize_modules()
 
-        # self.robot_id = get_embodiment_id(self.domains[0])
-        # self.hand_id = get_embodiment_id(self.domains[1])
-
         self.ac_keys = {}
         self.camera_keys = {}
         self.proprio_keys = {}
         self.lang_keys = {}
+        
+        self.ot = kwargs.get("ot", False)
+        self.freeze_repr = kwargs.get("freeze_repr", False)
+        self.depth = kwargs.get("depth", 8)
+        self.freeze_depth = kwargs.get("freeze_depth", 8)
+        model.depth = self.depth
+        
+        if self.ot:
+            self.ot_warm_start_steps = kwargs.get("ot_warm_start_steps", 0)
+            self.ot_6dof = kwargs.get("ot_6dof", False)
+            model.ot_6dof = self.ot_6dof
+            self.warm_start_steps = kwargs.get("warm_start_steps", 30000)
+            self.supervised = kwargs.get("supervised", False)
+            if self.supervised:
+                self.lambd = kwargs.get("lambda", 0.5)
+                model.lambd = self.lambd
+                self.dtw = kwargs.get("dtw", False)
+                if self.dtw:
+                    model.init_dtw()
+            self.temperature = kwargs.get("temperature", 1.0)
+        
+        self.ac_keys = kwargs.get("ac_keys", {})
 
         for embodiment in self.domains:
             embodiment_id = get_embodiment_id(embodiment)
@@ -710,7 +867,7 @@ class HPT(Algo):
             self.proprio_keys[embodiment_id] = []
             self.lang_keys[embodiment_id] = []
             for key in data_schematic.keys_of_type("action_keys"):
-                if data_schematic.is_key_with_embodiment(key, embodiment_id):
+                if data_schematic.is_key_with_embodiment(key, embodiment_id) and key == self.ac_keys[embodiment]:
                     self.ac_keys[embodiment_id] = key
             for key in data_schematic.keys_of_type("camera_keys"):
                 if data_schematic.is_key_with_embodiment(key, embodiment_id):
@@ -721,9 +878,14 @@ class HPT(Algo):
             for key in data_schematic.keys_of_type("lang_keys"):
                 if data_schematic.is_key_with_embodiment(key, embodiment_id):
                     self.lang_keys[embodiment_id].append(key)
-            
+        
+        model.finalize_modules()
+
         self.nets["policy"] = model
         self.nets = self.nets.float().to(self.device)
+        
+        self.training_step = 0
+
 
     @override
     def process_batch_for_training(self, batch):
@@ -764,6 +926,7 @@ class HPT(Algo):
 
         return processed_batch
 
+
     @override
     def forward_training(self, batch):
         """
@@ -776,6 +939,8 @@ class HPT(Algo):
         """
 
         predictions = OrderedDict()
+        hpt_batches = {}
+        self.training_step += 1
         for embodiment_id, _batch in batch.items():
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
@@ -788,10 +953,21 @@ class HPT(Algo):
                 "domain" : embodiment_name, # readability on config side
                 "data" : data
             }
-            loss = self.nets["policy"].compute_loss(hpt_batch)
+            hpt_batches[embodiment_id] = self._clone_batch(hpt_batch)
+            
+            if self.freeze_repr:
+                loss = self.nets["policy"].compute_loss_depth(hpt_batch, depth=self.freeze_depth)
+            else:
+                loss = self.nets["policy"].compute_loss(hpt_batch)
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
+        
+        if self.ot:
+            ot_loss, avg_feat_distance = self._forward_ot(hpt_batches, get_embodiment_id(self.domains[0]), get_embodiment_id(self.domains[1]))
+            predictions[f"ot_loss"] = ot_loss
+            predictions["avg_feature_distance"] = avg_feat_distance
+            
         return predictions
 
     @override     
@@ -821,20 +997,31 @@ class HPT(Algo):
 
             actions = self.nets["policy"].forward(hpt_batch["domain"], hpt_batch["data"])
             predictions = OrderedDict()
+            
             for key in actions:
                 if key == embodiment_name:
-                    predictions[ac_key] = actions[embodiment_name]
-                if key == "shared":
-                    predictions[self.shared_ac_key] = actions[key]
+                    pred = actions[embodiment_name]
+                    ref = _batch[ac_key]
+                    name = ac_key
+                elif key == "shared":
+                    pred = actions[key]
+                    ref = _batch[self.shared_ac_key]
+                    name = self.shared_ac_key
                 else:
-                    predictions[key] = actions[key]
+                    pred = actions[key]
+                    ref = _batch[key]
+                    name = key
+
+                B, T, D = ref.shape
+                pred = pred[:, :T, :D]
+                predictions[name] = pred
             
             unnorm_actions = self.data_schematic.unnormalize_data(predictions, embodiment_id)
             for key in unnorm_actions:
                 unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
         
         return unnorm_preds
-
+    
     @override
     def forward_eval_logging(self, batch):
         """
@@ -851,19 +1038,19 @@ class HPT(Algo):
         metrics = {}
         images_dict = {}
         mse = MeanSquaredError()
-
         for embodiment_id, _batch in batch.items():
             _batch = self.data_schematic.unnormalize_data(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
             ac_key = self.ac_keys[embodiment_id]
-            metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(
-                                                                            (preds[f"{embodiment_name}_{ac_key}"]).cpu(), 
-                                                                            _batch[ac_key].cpu()
-                                                                            )
-            metrics[f"Valid/{embodiment_name}_{ac_key}_final_mse_avg"] = mse(
-                                                                            (preds[f"{embodiment_name}_{ac_key}"][:, -1]).cpu(), 
-                                                                            _batch[ac_key][:, -1].cpu()
-                                                                            )
+            if f"{embodiment_name}_{ac_key}" in preds:
+                metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(
+                                                                                (preds[f"{embodiment_name}_{ac_key}"]).cpu(), 
+                                                                                _batch[ac_key].cpu()
+                                                                                )
+                metrics[f"Valid/{embodiment_name}_{ac_key}_final_mse_avg"] = mse(
+                                                                                (preds[f"{embodiment_name}_{ac_key}"][:, -1]).cpu(), 
+                                                                                _batch[ac_key][:, -1].cpu()
+                                                                                )
             if embodiment_name in self.auxiliary_ac_keys:
                 for aux_key in self.auxiliary_ac_keys[embodiment_name]:
                     pred_key = f"{embodiment_name}_{aux_key}"
@@ -892,13 +1079,12 @@ class HPT(Algo):
             images_dict[embodiment_id] = ims
 
         return metrics, images_dict
-
     @override
-    def visualize_preds(self, preds, batch):
+    def visualize_preds(self, predictions, batch):
         """
         Helper function to visualize predictions on top of images
         Args:
-            preds (dict): {ac_key: torch.Tensor (B, Seq, D)}
+            predictions (dict): {ac_key: torch.Tensor (B, Seq, D)}
             batch (dict): {ac_key: torch.Tensor (B, Seq, D), front_img_1: torch.Tensor (B, 3, H, W), embodiment: torch.Tensor (1)}
         Returns:
             ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
@@ -906,26 +1092,35 @@ class HPT(Algo):
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
         ac_key = self.ac_keys[embodiment_id]
-
+        
         viz_img_key = self.data_schematic.viz_img_key()[embodiment_id]
         ims = (batch[viz_img_key].cpu().numpy().transpose((0, 2, 3, 1)) * 255).astype(np.uint8)
-        preds = preds[f"{embodiment_name}_{ac_key}"]
-        gt = batch[ac_key]
+        for key in batch:
+            if f"{embodiment_name}_{key}" in predictions:
+                preds = predictions[f"{embodiment_name}_{key}"]
+                gt = batch[key]
 
-        for b in range(ims.shape[0]):
-            if preds.shape[-1] == 7 or preds.shape[-1] == 14:
-                ac_type = "joints"
-            elif preds.shape[-1] == 3 or preds.shape[-1] == 6:
-                ac_type = "xyz"
-            else:
-                raise ValueError(f"Unknown action type with shape {preds.shape}")
+                if self.is_6dof and ac_key == "actions_cartesian":
+                    gt, gt_rot = self._extract_xyz(gt)
+                    preds, preds_rot = self._extract_xyz(preds)
+                
+                for b in range(ims.shape[0]):
+                    if preds.shape[-1] == 7 or preds.shape[-1] == 14:
+                        ac_type = "joints"
+                    elif preds.shape[-1] == 3 or preds.shape[-1] == 6:
+                        ac_type = "xyz"
+                    else:
+                        raise ValueError(f"Unknown action type with shape {preds.shape}")
 
-            arm = "right" if preds.shape[-1] == 7 or preds.shape[-1] == 3 else "both"
-            ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
-            ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
-
+                    arm = "right" if preds.shape[-1] == 7 or preds.shape[-1] == 3 else "both"
+                    ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
+                    ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
+                    
+                    if self.is_6dof and ac_key == "actions_cartesian":
+                        ims[b] = draw_rotation_text(ims[b], gt_rot[b][0], preds_rot[b][0], position=(340, 20))
         return ims
-
+    
+    
     @override
     def compute_losses(self, predictions, batch):
         """
@@ -940,15 +1135,29 @@ class HPT(Algo):
         """
         total_action_loss = torch.tensor(0.0, device=self.device)
         loss_dict = OrderedDict()
+
+        if self.ot:
+            bc_weight = 1.0 if self.training_step >= self.warm_start_steps else 0.0
+            ot_weight = 1.0 if self.training_step >= self.ot_warm_start_steps else 0.0
+        else:
+            bc_weight = 1.0
+
         for embodiment_id, _batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
-            total_action_loss += predictions[f"{embodiment_name}_loss"]
-            loss_dict[f"{embodiment_name}_loss"] = predictions[f"{embodiment_name}_loss"]
-        
-        loss_dict["action_loss"] = total_action_loss
+            bc_loss = predictions[f"{embodiment_name}_loss"]
+            scaled_bc_loss = bc_weight * bc_loss
+            total_action_loss += scaled_bc_loss
+            loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
 
+        if self.ot:
+            loss_dict["ot_loss"] = predictions["ot_loss"]
+            loss_dict["avg_feature_distance"] = predictions["avg_feature_distance"]
+            total_action_loss += ot_weight * self.temperature * predictions["ot_loss"]
+
+        loss_dict["action_loss"] = total_action_loss
         return loss_dict
-    
+
+        
     @override
     def log_info(self, info):
         """
@@ -968,6 +1177,15 @@ class HPT(Algo):
         if "policy_grad_norms" in info:
             log["Policy_Grad_Norms"] = info["policy_grad_norms"]
         return log
+    
+    def _forward_ot(self, batch, embodiment1_id, embodiment2_id):
+        hpt_batch_1 = batch[embodiment1_id]
+        hpt_batch_2 = batch[embodiment2_id]
+
+        return self.nets["policy"].compute_ot_loss(hpt_batch_1, 
+                                                    hpt_batch_2,
+                                                    supervised=self.supervised,
+                                                    )
 
     def _robomimic_to_hpt_data(self, batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys=[]):
         """
@@ -994,9 +1212,10 @@ class HPT(Algo):
             if key in batch:
                 data[key] = batch[key]
         
+        data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]
         data["embodiment"] = batch["embodiment"]
-
+        
         for aux_ac_key in aux_ac_keys:
             data[aux_ac_key] = batch[aux_ac_key]
         
@@ -1005,3 +1224,45 @@ class HPT(Algo):
         else:
             data["action"] = batch[ac_key]
         return data
+
+    def _clone_batch(self, batch):
+        """ Recursively clones all tensors inside a nested dictionary. """
+        if isinstance(batch, dict):
+            return {key: self._clone_batch(val) for key, val in batch.items()}
+        elif isinstance(batch, torch.Tensor):
+            return batch.clone()
+        else:
+            return batch  # Return as is for non-tensor types
+        
+    def _extract_xyz(self, x):
+        """
+        Extract xyz (3D position) and rotation from 6DoF or 6DoF+gripper actions.
+
+        Supports:
+        - 6: 6DoF (single arm)
+        - 7: 6DoF + gripper (single arm)
+        - 12: 2 arms × 6DoF
+        - 14: 2 arms × (6DoF + gripper)
+
+        Returns:
+            xyz: Tensor with only xyz per arm (shape: ..., 3) or (..., 6) for dual-arm.
+            rot: Tensor with only rotation per arm (shape: ..., 3) or (..., 6) for dual-arm.
+        """
+        if x.shape[-1] == 6:
+            return x[..., :3], x[..., 3:6]
+        elif x.shape[-1] == 7:
+            return x[..., :3], x[..., 3:6]
+        elif x.shape[-1] == 12:
+            xyz_right = x[..., :3]
+            rot_right = x[..., 3:6]
+            xyz_left = x[..., 6:9]
+            rot_left = x[..., 9:12]
+            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat([rot_right, rot_left], dim=-1)
+        elif x.shape[-1] == 14:
+            xyz_right = x[..., :3]
+            rot_right = x[..., 3:6]
+            xyz_left = x[..., 7:10]
+            rot_left = x[..., 10:13]
+            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat([rot_right, rot_left], dim=-1)
+        else:
+            raise ValueError(f"Unexpected shape for 6DoF input: {x.shape}")

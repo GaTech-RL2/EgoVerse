@@ -1,0 +1,55 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  dataset1:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      robotA:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "robotA"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_scoop_granular/lerobot_6dof"
+        local_files_only: true
+        mode: total
+    embodiment: "eve_right_arm"
+  dataset2:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      humanA:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "egoverse_diverse"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/scoop_granular/lerobot_6dof"
+        local_files_only: true
+        mode: train
+    embodiment: "aria_right_arm"
+
+valid_datasets:
+  dataset1:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      robotA:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "robotA"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_scoop_granular/lerobot_6dof"
+        local_files_only: true
+        mode: valid
+    embodiment: "eve_right_arm"
+  dataset2:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      humanA:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "egoverse_diverse"
+        root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/scoop_granular/lerobot_6dof"
+        local_files_only: true
+        mode: valid
+    embodiment: "aria_right_arm"
+    
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8

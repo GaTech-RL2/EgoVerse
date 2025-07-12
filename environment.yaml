@@ -45,3 +45,5 @@ dependencies:
     - tabulate
     - transformers
     - timm
+    - tslearn
+    - geomloss

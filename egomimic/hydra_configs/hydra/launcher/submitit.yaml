@@ -5,12 +5,12 @@ _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 
 # Slurm configuration
 name: ${hydra.job.name}                             # Default job name
-partition: "hoffman-lab"                            # Slurm partition (e.g., 'gpu' or 'compute')
-account: "hoffman-lab"                              # Slurm account (e.g., 'my_account')
-cpus_per_task: 13                                   # Number of CPUs per task
+partition: "rl2-lab"                            # Slurm partition (e.g., 'gpu' or 'compute')
+account: "rl2-lab"                              # Slurm account (e.g., 'my_account')
+cpus_per_task: 12                                   # Number of CPUs per task
 nodes: ${launch_params.nodes}                       # Number of nodes
 tasks_per_node: ${launch_params.gpus_per_node}      # Use variable for tasks per node
-gres: "gpu:a40:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}" # GPU type and count
+gres: "gpu:l40s:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}" # GPU type and count
 qos: "short"                                        # Slurm QoS
 timeout_min: 2880                                   # Timeout in minutes (48 hours)
 exclude: "protocol, puma"     # Nodes to exclude
