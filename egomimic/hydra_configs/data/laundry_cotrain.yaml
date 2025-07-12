@@ -8,7 +8,7 @@ train_datasets:
         repo_id: "blue"
         root: "/coc/cedarp-dxu345-0/datasets/RLDB/NEW_DATA/aria_eve_laundry_0608/lerobot_6dof"
         local_files_only: true
-        mode: "total"
+        mode: "train"
     embodiment: "eve_bimanual"
   dataset2:
     _target_: rldb.utils.MultiRLDBDataset
@@ -29,11 +29,15 @@ train_datasets:
 
 valid_datasets:
   dataset1:
-    _target_: rldb.utils.RLDBDataset
-    repo_id: "motiongen"
-    root: "/coc/cedarp-dxu345-0/datasets/EgoBridge/eve_fold_shorts/lerobot_6dof"
-    local_files_only: true
-    mode: total
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      main:
+        _target_: rldb.utils.RLDBDataset
+        repo_id: "blue"
+        root: "/coc/cedarp-dxu345-0/datasets/RLDB/NEW_DATA/aria_eve_laundry_0608/lerobot_6dof"
+        local_files_only: true
+        mode: "valid"
+    embodiment: "eve_bimanual"
   dataset2:
     _target_: rldb.utils.MultiRLDBDataset
     datasets:
@@ -42,7 +46,7 @@ valid_datasets:
         repo_id: "motionA"
         root: "/coc/cedarp-dxu345-0/datasets/RLDB/NEW_DATA/aria_hand_laundry_0408/aria_hand_laundry/lerobot_6dof"
         local_files_only: true
-        mode: "train"
+        mode: "valid"
       motionB_human:
         _target_: rldb.utils.RLDBDataset
         repo_id: "motionB"
