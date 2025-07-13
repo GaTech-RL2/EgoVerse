@@ -34,10 +34,7 @@ class DenoisingPolicy(nn.Module):
 
         self.padding = kwargs.get("padding", None)
         self.pooling = kwargs.get("pooling", None)
-        self.human_6dof = kwargs.get("human_6dof", False)
-        self.robot_cartesian = kwargs.get("robot_cartesian", False)
         self.model_type = kwargs.get("model_type", None)
-        self.robot_domain = kwargs.get("robot_domain", None)
 
         if not infer_ac_dims:
             raise ValueError("infer_ac_dims must be a non-empty dict")
@@ -85,45 +82,9 @@ class DenoisingPolicy(nn.Module):
 
     def loss_fn(self, pred, target):
         """
-        Computes loss depending on target shape and flags.
+        Computes loss, function to override for stuff like adaptive loss weighting
         """
-        if target.shape[-1] == 6:
-            loss = F.smooth_l1_loss(pred[..., :3], target[..., :3])
-            if self.human_6dof:
-                loss += F.smooth_l1_loss(pred[..., 3:6], target[..., 3:6])
-            return loss
-
-        elif target.shape[-1] == 12:
-            loss = (
-                F.smooth_l1_loss(pred[..., :3], target[..., :3]) +
-                F.smooth_l1_loss(pred[..., 6:9], target[..., 6:9])
-            )
-            if self.human_6dof:
-                loss += (
-                    F.smooth_l1_loss(pred[..., 3:6], target[..., 3:6]) +
-                    F.smooth_l1_loss(pred[..., 9:12], target[..., 9:12])
-                )
-            return loss
-
-        elif self.robot_cartesian:
-            xyz1, ypr1, grip1 = pred[..., :3], pred[..., 3:6], pred[..., 6]
-            xyz1_gt, ypr1_gt, grip1_gt = target[..., :3], target[..., 3:6], target[..., 6]
-            loss = (
-                F.smooth_l1_loss(xyz1, xyz1_gt) +
-                0.5 * F.mse_loss(ypr1, ypr1_gt) +
-                F.smooth_l1_loss(grip1, grip1_gt)
-            )
-            if target.shape[-1] == 14:
-                xyz2, ypr2, grip2 = pred[..., 7:10], pred[..., 10:13], pred[..., 13]
-                xyz2_gt, ypr2_gt, grip2_gt = target[..., 7:10], target[..., 10:13], target[..., 13]
-                loss += (
-                    F.smooth_l1_loss(xyz2, xyz2_gt) +
-                    0.5 * F.mse_loss(ypr2, ypr2_gt) +
-                    F.smooth_l1_loss(grip2, grip2_gt)
-                )
-            return loss
-
-        return F.smooth_l1_loss(pred, target)
+        return F.mse_loss(pred, target)
 
     def preprocess_compute_loss(self, global_cond, data):
         if self.pooling == "mean":

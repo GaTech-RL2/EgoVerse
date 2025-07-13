@@ -10,7 +10,6 @@ robomimic_model:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
-      human_6dof: true
       pooling: "flatten"
       time_dist: "beta"
       infer_ac_dims:
@@ -30,7 +29,6 @@ robomimic_model:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
-      human_6dof: false
       pooling: "flatten"
       time_dist: "beta"
       infer_ac_dims:

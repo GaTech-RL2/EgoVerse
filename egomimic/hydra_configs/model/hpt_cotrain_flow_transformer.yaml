@@ -10,8 +10,7 @@ robomimic_model:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
-      human_6dof: true
-      pooling: "flatten"
+      pooling: null
       time_dist: "beta"
       infer_ac_dims:
         aria_bimanual: 12
@@ -19,7 +18,7 @@ robomimic_model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
-        hidden_dim: 256
+        hidden_dim: 128
         act_dim: 12
         act_seq: 100
         n_heads: 4
@@ -31,8 +30,7 @@ robomimic_model:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
-      human_6dof: false
-      pooling: "flatten"
+      pooling: null
       time_dist: "beta"
       infer_ac_dims:
         eve_bimanual: 14
@@ -40,12 +38,12 @@ robomimic_model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
-        hidden_dim: 256
+        hidden_dim: 128
         act_dim: 14
         act_seq: 100
         n_heads: 4
         dropout: 0.1
-        mlp_layers: 4
+        mlp_layers: 4 
         mlp_ratio: 4
         
 optimizer:

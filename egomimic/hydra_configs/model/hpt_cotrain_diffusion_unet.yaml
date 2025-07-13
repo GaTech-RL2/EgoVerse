@@ -12,8 +12,6 @@ robomimic_model:
         aria_bimanual: 12
       action_horizon: 100
       pooling: "flatten"
-      cond_mode: null
-      human_6dof: true
       num_inference_steps: 100
       model:
         _target_:  egomimic.models.denoising_nets.ConditionalUnet1D
@@ -43,8 +41,6 @@ robomimic_model:
         eve_bimanual: 14
       action_horizon: 100
       pooling: "flatten"
-      cond_mode: null
-      human_6dof: false
       num_inference_steps: 100
       model:
         _target_:  egomimic.models.denoising_nets.ConditionalUnet1D
