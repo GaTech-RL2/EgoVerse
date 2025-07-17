@@ -38,7 +38,7 @@ def lerobot_job(
 
         private   = False,
         license   = "apache-2.0",
-        nproc     = 4,
+        nproc     = 10,
         nthreads  = 2,
         debug     = False,
     )

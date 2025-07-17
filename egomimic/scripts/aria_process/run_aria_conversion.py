@@ -90,7 +90,7 @@ def append_status(row: dict):
             str(LOCAL_STATUS), "rldb", "processed/vrs_conversion_status.csv")
 
 # ───────────────── Ray task ────────────────────────────────────
-@ray.remote(num_cpus=18, memory=32 * 1024 ** 3)
+@ray.remote(num_cpus=24, memory=48 * 1024 ** 3)
 def convert_one(vrs: str, jsonf: str, mps_dir: str,
                 out_dir: str, arm: str) -> tuple[str, int]:
     """Return (output_dataset_path, total_frames).  −1 on failure."""
