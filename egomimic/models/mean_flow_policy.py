@@ -66,7 +66,8 @@ class MeanFlowPolicy(DenoisingPolicy):
     def step(self, x_t, r, t, global_cond):
         delta_t = (t - r).view(-1, 1, 1)
         u = self.model(x_t, (r, t), global_cond)
-        return x_t + delta_t * u
+        return x_t - delta_t * u
+
 
     @override
     def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
