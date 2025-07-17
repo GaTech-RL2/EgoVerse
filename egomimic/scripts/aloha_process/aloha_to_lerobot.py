@@ -14,7 +14,8 @@ from egomimic.utils.egomimicUtils import (
     ee_pose_to_cam_frame,
     EXTRINSICS,
     AlohaFK,
-    str2bool
+    str2bool,
+    ee_orientation_to_cam_frame,
 )
 
 from rldb.utils import EMBODIMENT
@@ -71,7 +72,7 @@ def sample_interval_points(arr, POINT_GAP=POINT_GAP_ACT, CHUNK_LENGTH=CHUNK_LENG
     sampled_points = arr[:, indices, :]
     return sampled_points
 
-def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None):
+def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot=False):
     """
     pose: (T, ACTION_DIM)
     arm: left, right, both arms of the robot
@@ -87,31 +88,77 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None):
         joint_left_end = 7
         joint_right_start = 7
         joint_right_end = 14
-        fk_left_positions = aloha_fk.fk(pose[:, joint_left_start:joint_left_end - 1])
-        fk_right_positions = aloha_fk.fk(pose[:, joint_right_start:joint_right_end - 1])
     else:
         if arm == "left":
             joint_start = 0
             joint_end = 7
         elif arm == "right":
             joint_start = 7
-            joint_end = 14    
-        fk_positions = aloha_fk.fk(pose[:, joint_start:joint_end - 1])
-    
-    
-    if arm == "both":
-        fk_left_positions = ee_pose_to_cam_frame(
-            fk_left_positions, left_extrinsics
-        )
-        fk_right_positions = ee_pose_to_cam_frame(
-            fk_right_positions, right_extrinsics
-        )
-        fk_positions = np.concatenate([fk_left_positions, fk_right_positions], axis=1)
+            joint_end = 14   
+
+    if no_rot:
+        if arm == "both":
+            fk_left_positions = aloha_fk.fk_xyz(pose[:, joint_left_start:joint_left_end - 1])
+            fk_right_positions = aloha_fk.fk_xyz(pose[:, joint_right_start:joint_right_end - 1])
+            fk_left_positions = ee_pose_to_cam_frame(
+                fk_left_positions, left_extrinsics
+            )
+            fk_right_positions = ee_pose_to_cam_frame(
+                fk_right_positions, right_extrinsics
+            )
+            fk_positions = np.concatenate([fk_left_positions, fk_right_positions], axis=1)
+        else:
+            fk_positions = aloha_fk.fk_xyz(pose[:, joint_start:joint_end - 1])
+            extrinsics = left_extrinsics if arm == "left" else right_extrinsics   
+            fk_positions = ee_pose_to_cam_frame(
+                fk_positions, extrinsics
+            )
+
     else:
-        extrinsics = left_extrinsics if arm == "left" else right_extrinsics   
-        fk_positions = ee_pose_to_cam_frame(
-            fk_positions, extrinsics
-        )
+        if arm == "both":
+            fk_left = aloha_fk.fk(pose[:, joint_left_start:joint_left_end - 1])
+            fk_right = aloha_fk.fk(pose[:, joint_right_start:joint_right_end - 1])
+
+            fk_left_positions = fk_left[:, :3, 3]
+            fk_left_orientations = fk_left[:, :3, :3]
+            fk_right_positions = fk_right[:, :3, 3]
+            fk_right_orientations = fk_right[:, :3, :3]
+            
+            left_gripper = pose[:, joint_left_end - 1].reshape(-1, 1)
+            right_gripper = pose[:, joint_right_end - 1].reshape(-1, 1)
+
+            fk_left_positions = ee_pose_to_cam_frame(
+                fk_left_positions, left_extrinsics
+            )
+            fk_right_positions = ee_pose_to_cam_frame(
+                fk_right_positions, right_extrinsics
+            )
+
+            fk_left_orientations, fk_left_ypr = ee_orientation_to_cam_frame(
+            fk_left_orientations, left_extrinsics
+            )
+
+            fk_right_orientations, fk_right_ypr = ee_orientation_to_cam_frame(
+            fk_right_orientations, right_extrinsics
+            )
+
+            fk_positions = np.concatenate([fk_left_positions, fk_left_ypr, left_gripper, fk_right_positions, fk_right_ypr, right_gripper], axis=1)
+        
+        else:
+            fk = aloha_fk.fk(pose[:, joint_start:joint_end - 1])
+
+            fk_positions = fk[:, :3, 3]
+            fk_orientations = fk[:, :3, :3]
+            
+            gripper  = pose[:, joint_end - 1].reshape(-1, 1)
+
+            extrinsics = left_extrinsics if arm == "left" else right_extrinsics   
+            fk_positions = ee_pose_to_cam_frame(
+                fk_positions, extrinsics
+            )
+            fk_orientations, fk_ypr = ee_orientation_to_cam_frame(fk_orientations, extrinsics)
+
+            fk_positions = np.concatenate([fk_positions, fk_ypr, gripper], axis=1)
 
     return fk_positions
 
@@ -119,7 +166,7 @@ class AlohaHD5Extractor:
     TAGS = ["eve", "robotics", "hdf5"]
 
     @staticmethod
-    def process_episode(episode_path, arm, extrinsics, prestack=False, low_res=False):
+    def process_episode(episode_path, arm, extrinsics, prestack=False, low_res=False, no_rot=False):
         """
         Extracts all feature keys from a given episode and returns as a dictionary
         Parameters
@@ -161,6 +208,16 @@ class AlohaHD5Extractor:
             extrinsics = extrinsics["right"]
             right_extrinsics = extrinsics
             
+        if arm == "left":
+            joint_start = 0
+            joint_end = 7
+        elif arm == "right":
+            joint_start = 7
+            joint_end = 14
+        elif arm == "both":
+            joint_start = 0
+            joint_end = 14
+            
         episode_feats = dict()
         
         #TODO: benchmarking only, remove for release
@@ -193,7 +250,8 @@ class AlohaHD5Extractor:
                                                                 episode_feats["observations"][f"state.joint_positions"],
                                                                 arm,
                                                                 left_extrinsics=left_extrinsics,
-                                                                right_extrinsics=right_extrinsics
+                                                                right_extrinsics=right_extrinsics,
+                                                                no_rot=no_rot
                                                                 )
 
 
@@ -205,13 +263,17 @@ class AlohaHD5Extractor:
                                                     POINT_GAP=POINT_GAP_ACT,
                                                     CHUNK_LENGTH=CHUNK_LENGTH_ACT,
                                                     left_extrinsics=left_extrinsics,
-                                                    right_extrinsics=right_extrinsics
+                                                    right_extrinsics=right_extrinsics,
+                                                    no_rot=no_rot
                                                     )
 
             episode_feats["actions_joints"] = joint_actions
             episode_feats["actions_cartesian"] = cartesian_actions
+                        
+            episode_feats["observations"][f"state.joint_positions"] = episode_feats["observations"][f"state.joint_positions"][:, joint_start : joint_end]
             
             num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
+            
             if arm == "right":
                 value = EMBODIMENT.EVE_RIGHT_ARM.value
             elif arm == "left":
@@ -228,7 +290,7 @@ class AlohaHD5Extractor:
         return episode_feats
 
     @staticmethod
-    def get_action(actions : np.array, arm : str, prestack=False, POINT_GAP=2, CHUNK_LENGTH=100, left_extrinsics=None, right_extrinsics=None, no_rot=True):
+    def get_action(actions : np.array, arm : str, prestack=False, POINT_GAP=2, CHUNK_LENGTH=100, left_extrinsics=None, right_extrinsics=None, no_rot=False):
         """
         Uses FK to calculate ee pose from joints 
         Parameters
@@ -247,6 +309,8 @@ class AlohaHD5Extractor:
             camera extrinsics
         right_extrinsics :
             camera_extrinsics
+        no_rot: bool
+            calculate full 6dof trajectory or not
         Returns
         -------
         actions : tuple of np.array
@@ -254,8 +318,6 @@ class AlohaHD5Extractor:
         """
 
         joint_actions = actions
-
-        fk = AlohaFK()
 
         if arm == "left":
             joint_start = 0
@@ -266,27 +328,8 @@ class AlohaHD5Extractor:
         elif arm == "both":
             joint_start = 0
             joint_end = 14
-
-            #Needed for forward kinematics
-            joint_left_start = 0
-            joint_left_end = 7
-            joint_right_start = 7
-            joint_right_end = 14
-
         
-        cartesian_actions = joint_to_pose(pose=joint_actions, arm=arm, left_extrinsics=left_extrinsics, right_extrinsics=right_extrinsics)
-
-        if no_rot:
-            if arm == "both":
-                num_positions = cartesian_actions.shape[1] // 2 
-                cartesian_left = cartesian_actions[:, :num_positions]
-                cartesian_right = cartesian_actions[:, num_positions:]
-                cartesian_actions = np.concatenate(
-                    [cartesian_left[:, :3], cartesian_right[:, :3]], axis=1
-                )
-            else:
-                cartesian_actions = cartesian_actions[:, :3]
-
+        cartesian_actions = joint_to_pose(pose=joint_actions, arm=arm, left_extrinsics=left_extrinsics, right_extrinsics=right_extrinsics, no_rot=no_rot)
 
         joint_actions = joint_actions[:, joint_start : joint_end]
 
@@ -301,7 +344,7 @@ class AlohaHD5Extractor:
         
 
     @staticmethod
-    def get_ee_pose(qpos : np.array, arm : str, left_extrinsics=None, right_extrinsics=None, no_rot=True):
+    def get_ee_pose(qpos : np.array, arm : str, left_extrinsics=None, right_extrinsics=None, no_rot=False):
         """
         Uses FK to calculate ee pose from joints 
         Parameters
@@ -314,24 +357,16 @@ class AlohaHD5Extractor:
             camera extrinsics
         right_extrinsics :
             camera_extrinsics
+        no_rot : bool
+            calculate full 6dof pose or not
         Returns
         -------
         ee_pose : np.array
             ee_pose SE{3}
         """
         
-        fk_positions = joint_to_pose(qpos, arm, left_extrinsics, right_extrinsics)
-        ee_pose = fk_positions
-        if no_rot:
-            if arm == "both":
-                num_positions = fk_positions.shape[1] // 2 
-                fk_left_positions = fk_positions[:, :num_positions]
-                fk_right_positions = fk_positions[:, num_positions:]
-                ee_pose = np.concatenate(
-                    [fk_left_positions[:, :3], fk_right_positions[:, :3]], axis=1
-                )
-            else:
-                ee_pose = fk_positions[:, :3]
+        ee_pose = joint_to_pose(qpos, arm, left_extrinsics, right_extrinsics, no_rot=no_rot)
+
         return ee_pose
         
 
@@ -808,7 +843,7 @@ def argument_parse():
     # Optional arguments
     parser.add_argument("--description", type=str, default="Aloha recorded dataset.", help="Description of the dataset.")
     parser.add_argument("--arm", type=str, choices=["left", "right", "both"], default="both", help="Specify the arm for processing.")
-    parser.add_argument("--extrinsics-key", type=str, default="ariaJul29", help="Key to look up camera extrinsics.")
+    parser.add_argument("--extrinsics-key", type=str, default="ariaJun7", help="Key to look up camera extrinsics.")
     parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
     parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
     parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
