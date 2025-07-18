@@ -575,25 +575,72 @@ class ConditionalClassifier1D(nn.Module):
 
 class AdaptiveLayerNorm(nn.Module):
     def __init__(self, cond_dim, hidden_dim, n_layers, shift=True):
+        """
+        Args:
+            cond_dim (int): Flattened conditioning dim (D1)
+            hidden_dim (int): Token dim (D)
+            n_layers (int): Number of transformer layers
+            shift (bool): Whether to output shift along with scale
+        """
         super().__init__()
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
-        self.cond_dim = cond_dim
-        layers = [nn.Linear(cond_dim, hidden_dim), nn.SiLU()]
-        for i in range(n_layers - 1):
-            layers += [nn.Linear(hidden_dim, hidden_dim), nn.SiLU()]
-        output_dim = hidden_dim * 2 if shift else hidden_dim
         self.shift = shift
-        layers.append(nn.Linear(hidden_dim, output_dim))
-        self.mlp = nn.Sequential(*layers)
-            
-    def forward(self, x, t, cond, time_table):
-        cond = cond.unsqueeze(1) + time_table[t]
-        out = self.mlp(cond)
+
+        self.cond_proj = nn.Sequential(
+            nn.LayerNorm(cond_dim),
+            nn.Linear(cond_dim, hidden_dim),
+            nn.SiLU(),
+        )
+
+        out_dim = hidden_dim * n_layers * (2 if shift else 1)
+
+        self.mlp = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, 4 * hidden_dim),
+            nn.SiLU(),
+            nn.Linear(4 * hidden_dim, out_dim)
+        )
+
+        nn.init.zeros_(self.mlp[-1].weight)
+        nn.init.zeros_(self.mlp[-1].bias)
+
+    def forward(self, x, timestep, cond, layer_idx):
+        """
+        Args:
+            x        : (B, T, D)
+            timestep : (B, T, D)
+            cond     : (B, cond_dim)
+            layer_idx : int in [0, n_layers)
+
+        Returns:
+            x_modulated: (B, T, D)
+        """
+        B, T, D = x.shape
+        assert timestep.shape == x.shape, "timestep and x must have same shape"
+        assert cond.shape[0] == B
+
+        cond_proj = self.cond_proj(cond)  # (B, D)
+        cond_proj = cond_proj[:, None, :].expand(B, T, D)  # (B, T, D)
+
+        h = timestep + cond_proj  # (B, T, D)
+
+        mod = self.mlp(h)  # (B, T, n_layers * D * [1 or 2])
+
         if self.shift:
-            return x * (1 + out[...,:self.hidden_dim]) + out[...,self.hidden_dim:]
+            mod = mod.view(B, T, self.n_layers, 2, D)
+            shift = mod[:, :, layer_idx, 0, :]  # (B, T, D)
+            scale = mod[:, :, layer_idx, 1, :]  # (B, T, D)
         else:
-            return x * (1 + out)
+            mod = mod.view(B, T, self.n_layers, D)
+            shift = None
+            scale = mod[:, :, layer_idx, :]     # (B, T, D)
+
+        x_norm = F.layer_norm(x, (D,), eps=1e-5)
+        x_mod = x_norm * (1 + scale)
+        if self.shift:
+            x_mod = x_mod + shift
+        return x_mod
 
 class DiTBlock(nn.Module):
     def __init__(
@@ -608,40 +655,60 @@ class DiTBlock(nn.Module):
     ):
         super().__init__()
         self.hidden_dim = hidden_dim
+
         self.ln1 = nn.LayerNorm(hidden_dim)
         self.aln1 = AdaptiveLayerNorm(cond_dim, hidden_dim, ad_nlayers)
+
         self.mha = nn.MultiheadAttention(
             embed_dim=hidden_dim,
             num_heads=n_heads,
             dropout=dropout,
             batch_first=True
         )
-        self.alns1 = AdaptiveLayerNorm(cond_dim, hidden_dim, ad_nlayers, False)
+
+        self.alns1 = AdaptiveLayerNorm(cond_dim, hidden_dim, ad_nlayers, shift=False)
+
         self.ln2 = nn.LayerNorm(hidden_dim)
         self.aln2 = AdaptiveLayerNorm(cond_dim, hidden_dim, ad_nlayers)
+
         mlp_dim_size = int(hidden_dim * mlp_ratio)
-        layers = [nn.Linear(hidden_dim, mlp_dim_size), nn.GELU()]
-        for i in range(mlp_layers - 1):
-            layers.append(nn.Linear(mlp_dim_size, mlp_dim_size))
-            layers.append(nn.GELU())
-        layers.append(nn.Linear(mlp_dim_size, hidden_dim))
-        self.mlp = nn.Sequential(*layers)
+        mlp_layers_list = [nn.Linear(hidden_dim, mlp_dim_size), nn.GELU()]
+        for _ in range(mlp_layers - 1):
+            mlp_layers_list.append(nn.Linear(mlp_dim_size, mlp_dim_size))
+            mlp_layers_list.append(nn.GELU())
+        mlp_layers_list.append(nn.Linear(mlp_dim_size, hidden_dim))
+        self.mlp = nn.Sequential(*mlp_layers_list)
+
         self.alns2 = AdaptiveLayerNorm(cond_dim, hidden_dim, ad_nlayers)
 
-    def forward(self, x, t, cond, timestep_table):
+    def forward(self, x, cond, timestep, layer_idx):
+        """
+        Args:
+            x         : (B, T, D)
+            cond      : (B, cond_dim)
+            timestep  : (B, T, D)
+            layer_idx : int, required
+        """
+        B, T, D = x.shape
+        assert timestep.shape == x.shape
+        assert cond.shape[0] == B
+        assert layer_idx is not None
+
         res = x
         x = self.ln1(x)
-        x = self.aln1(x, t, cond, timestep_table)
-        (x, _) = self.mha(x, x, x)
-        x = self.alns1(x, t, cond, timestep_table)
+        x = self.aln1(x, timestep, cond, layer_idx)
+        x, _ = self.mha(x, x, x)
+        x = self.alns1(x, timestep, cond, layer_idx)
         x = x + res
+
         res = x
         x = self.ln2(x)
-        x = self.aln2(x, t, cond, timestep_table)
+        x = self.aln2(x, timestep, cond, layer_idx)
         x = self.mlp(x)
-        x = self.alns2(x, t, cond, timestep_table) + res
+        x = self.alns2(x, timestep, cond, layer_idx) + res
+
         return x
-    
+
 class CrossBlock(nn.Module):
     def __init__(
         self,
@@ -782,6 +849,74 @@ class CrossTransformerCfg2(nn.Module):
         x = self.proj_d(hid_tkns)
         return x
 
+class DiffusionTransformer(nn.Module):
+    def __init__(
+        self,
+        nblocks,
+        cond_dim,
+        hidden_dim,
+        act_dim,
+        act_seq,
+        n_heads,
+        dropout,
+        mlp_layers,
+        mlp_ratio,
+        **kwargs
+    ):
+        super().__init__()
+        self.cond_dim = cond_dim
+        self.hidden_dim = hidden_dim
+        self.nblocks = nblocks
+        self.n_heads = n_heads
+        self.dropout = dropout
+        self.mlp_layers = mlp_layers
+        self.mlp_ratio = mlp_ratio
+        self.pos_emb = nn.Parameter(torch.zeros(1, act_seq, hidden_dim))
+        self.mean_flow = kwargs.get("mean_flow", False)            
+
+        self.proj_u = nn.Linear(act_dim, hidden_dim)
+        self.proj_d = nn.Linear(hidden_dim, act_dim)
+
+        self.time_mlp = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim * 2),
+            nn.SiLU(),
+            nn.Linear(hidden_dim * 2, hidden_dim)
+        )
+        
+        self.layers = nn.ModuleList([
+            DiTBlock(
+                cond_dim=cond_dim,
+                hidden_dim=hidden_dim,
+                n_heads=n_heads,
+                dropout=dropout,
+                mlp_layers=mlp_layers,
+                mlp_ratio=mlp_ratio,
+                ad_nlayers=kwargs.get("ad_nlayers", nblocks),
+            )
+            for _ in range(nblocks)
+        ])
+
+    def forward(self, x, timesteps, cond):
+        hid_tokens = self.proj_u(x) + self.pos_emb  # (B, T, hidden_dim)
+
+        if self.mean_flow:
+            r, t = timesteps
+            r_emb = posemb_sincos(r, self.hidden_dim, 4e-3, 4.0)
+            t_emb = posemb_sincos(t, self.hidden_dim, 4e-3, 4.0)
+        else:
+            t = timesteps
+            t_emb = posemb_sincos(t, self.hidden_dim, 4e-3, 4.0)
+            r_emb = torch.zeros_like(t_emb)
+
+        time_feat = self.time_mlp(r_emb) + self.time_mlp(t_emb)
+        time_embed = time_feat.unsqueeze(1).expand(hid_tokens.shape[0], hid_tokens.shape[1], -1)
+
+        for i, layer in enumerate(self.layers):
+            hid_tokens = layer(hid_tokens, cond, time_embed, layer_idx=i)
+
+        return self.proj_d(hid_tokens)
+
+
 class CrossTransformerProj(nn.Module):
     def __init__(
         self,
@@ -855,3 +990,4 @@ class CrossTransformerProj(nn.Module):
                 hid_tkns = self.h_mlp_d(hid_tkns)
             x = self.proj_d_human(hid_tkns)
         return x
+    

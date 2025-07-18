@@ -68,7 +68,6 @@ class MeanFlowPolicy(DenoisingPolicy):
         u = self.model(x_t, (r, t), global_cond)
         return x_t - delta_t * u
 
-
     @override
     def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
         B = noise.shape[0]
