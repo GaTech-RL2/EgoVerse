@@ -4,8 +4,8 @@ train_datasets:
     _target_: rldb.utils.RLDBDataset
     # Uncomment or adjust paths as needed:
     # parquet_path: /coc/flash9/skareer6/Projects/RLDB/rldb/export/oboo_robot
-    repo_id: "rpuns/eve_laundry_rl2"
-    root: "/coc/cedarp-dxu345-0/datasets/RLDB/robomimic_eve_laundry_debug/lerobot_debug"
+    repo_id: "eth-scene1-colorstoy-greybowl-1_processed"
+    root: "/mnt/jim/EGOMIM/data/objInBowl/eth-scene1-colorstoy-greybowl-1_processed"
     local_files_only: true
     mode: "train"
 
@@ -13,23 +13,23 @@ train_datasets:
     _target_: rldb.utils.RLDBDataset
     # Uncomment or adjust paths as needed:
     # parquet_path: /coc/flash9/skareer6/Projects/RLDB/rldb/export/oboo_robot
-    repo_id: "rpuns/aria_laundry_rl2"
-    root: "/coc/cedarp-dxu345-0/datasets/RLDB/aria_hand_laundry_debug/lerobot_debug"
+    repo_id: "eth-scene1-bluetoy-purplebowl-1_processed"
+    root: "/mnt/jim/EGOMIM/data/objInBowl/eth-scene1-bluetoy-purplebowl-1_processed"
     local_files_only: true
     mode: "train"
 
 valid_datasets:
   dataset1:
     _target_: rldb.utils.RLDBDataset
-    repo_id: "rpuns/eve_laundry_rl2"
-    root: "/coc/cedarp-dxu345-0/datasets/RLDB/robomimic_eve_laundry_debug/lerobot_debug"
+    repo_id: "eth-scene1-browntoy-purplebowl-1_processed"
+    root: "/mnt/jim/EGOMIM/data/objInBowl/eth-scene1-browntoy-purplebowl-1_processed"
     local_files_only: true
     mode: "valid"
 
   dataset2:
     _target_: rldb.utils.RLDBDataset
-    repo_id: "rpuns/aria_laundry_rl2"
-    root: "/coc/cedarp-dxu345-0/datasets/RLDB/aria_hand_laundry_debug/lerobot_debug"
+    repo_id: "eth-scene1-greentoy-purplebowl-1_processed"
+    root: "/mnt/jim/EGOMIM/data/objInBowl/eth-scene1-greentoy-purplebowl-1_processed"
     local_files_only: true
     mode: "valid"
 
