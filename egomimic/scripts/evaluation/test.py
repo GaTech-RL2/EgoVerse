@@ -16,13 +16,15 @@ from omegaconf import DictConfig, OmegaConf
 
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper
-from egomimic.utils.egomimicUtils import AlohaFK, transformation_matrix_to_6dof, AlohaIK
+from egomimic.utils.egomimicUtils import *
 
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from egomimic.scripts.evaluation.eval import Eval
 
 from egomimic.scripts.evaluation.utils import TemporalAgg, save_image, transformation_matrix_to_pose, batched_euler_to_rot_matrix
+
+from egomimic.scripts.evaluation.test2 import cam_cartesian_to_base_quat, rollout_ee_pose_offline, init_pybullet, print_joint_info
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -66,6 +68,16 @@ def eval(cfg: DictConfig):
             data_schematic.infer_shapes_from_batch(dataset[0])
             data_schematic.infer_norm_from_dataset(dataset)
     
+    
+    root = args.dataset
+    repo_id = "rpuns/test"
+    
+    urdf_path = os.path.join(
+            os.path.dirname(egomimic.__file__), "resources/aloha_vx300s.urdf"
+        )   
+    robot_id = init_pybullet(urdf_path)
+    print_joint_info(robot_id)
+    
     eval = hydra.utils.instantiate(cfg.eval)
     eval.datamodule = datamodule
     eval.data_schematic = data_schematic # unsure if this is necessary to pass in
@@ -73,132 +85,49 @@ def eval(cfg: DictConfig):
     repo_id = "rpuns/test"
     episodes = [0]  
     dataset = RLDBDataset(repo_id=repo_id, root=dataset_path, local_files_only=True, episodes=episodes, mode="sample")
-    joints_act = torch.stack([
+    joint_positions = torch.stack([
             sample["actions_joints"][0] for sample in dataset
     ])
-    cartesians_act = torch.stack([
+    cartesians = torch.stack([
         sample["actions_cartesian"][0] for sample in dataset
     ])
-    fk = AlohaFK()
-    ik = AlohaIK()
-    left_fk = fk.fk(joints_act[:, :6])
-    right_fk = fk.fk(joints_act[:, 7: 13])
-    right_fk_ee_pose = np.zeros((right_fk.shape[0], 7))
-    left_fk_ee_pose= np.zeros((left_fk.shape[0], 7))
-    for i, r in enumerate(right_fk):
-        right_fk_ee_pose[i] = transformation_matrix_to_pose(r)
-    for i, l in enumerate(left_fk):
-        left_fk_ee_pose[i] = transformation_matrix_to_pose(l)
-    # cartesians_act = []
-    # for i in range(left_fk.shape[0]):
-    #     left_pose = transformation_matrix_to_6dof(left_fk[i].cpu().numpy())
-    #     right_pose = transformation_matrix_to_6dof(right_fk[i].cpu().numpy())
-        # both_pose = torch.from_numpy(np.concatenate([left_pose,[joints_act[i][6]], right_pose, [joints_act[i][13]]], axis=0))
-    #     cartesians_act.append(both_pose)
-    # cartesians_act = torch.stack(cartesians_act)
+    extrinsics = EXTRINSICS['ariaJun7']
+    aloha_fk = AlohaFK()
+    left_out = aloha_fk.fk(joint_positions[..., :6]).numpy()
+    right_out = aloha_fk.fk(joint_positions[..., 7:13]).numpy()
+    # right_fk_ee_pose = np.zeros((right_out.shape[0], 7))
+    # left_fk_ee_pose = np.zeros((left_out.shape[0], 7))
+    # for i, r in enumerate(right_out):
+    #     right_fk_ee_pose[i] = transformation_matrix_to_pose(r)
+    # for i, l in enumerate(left_out):
+    #     left_fk_ee_pose[i] = transformation_matrix_to_pose(l)
+    
+    cartesians_left = cartesians[..., :6]
+    cartesians_right = cartesians[..., 7:]
+    
+    left_fk_ee_pose = cam_cartesian_to_base_quat(cartesians_left, extrinsics['left'])
+    right_fk_ee_pose = cam_cartesian_to_base_quat(cartesians_right, extrinsics['right'])
 
-    perms = list(itertools.permutations((0, 1, 2, 3)))
-    results = []  # (perm, rms_err, per_joint_mean, elapsed)
-
-    for perm in [perms[0]]:
-        solved_actions = []
-        t0 = time.time()
-        left_xyz = []
-        left_quat = []
-        left_cur_joints = []
-        for i in range(cartesians_act.shape[0]):
-            # qpos = joints_act[i].to(eval.model.device)
-    #         qpos = np.array([0.00000000e+00,
-    #    -9.41864252e-01,  1.11520410e+00,  1.53398083e-03, -3.11398119e-01,
-    #    -1.07378662e-02, -3.08226784e-01, 0.00000000e+00,
-    #    -9.41864252e-01,  1.11520410e+00,  1.53398083e-03, -3.11398119e-01,
-    #    -1.07378662e-02, -3.08226784e-01])
-            load_np = np.load('qpos.npy')
-            qpos = load_np[0, 7:]
-            # qpos = np.concatenate([load_np[0, 7:], load_np[0, 7:]], axis=0)
-
-            # act_left = transformation_matrix_to_pose(left_fk[i].cpu().numpy())
-            # act_right = transformation_matrix_to_pose(right_fk[i].cpu().numpy())
-            act_left = left_fk_ee_pose[i]
-            act_right = right_fk_ee_pose[i]
-            act_left_xyz = act_left[:3]
-            act_left_quat = act_left[3:]
-            # act_left_quat = act_left_quat[list(perm)]
-
-            act_right_xyz = act_right[:3]
-            act_right_quat = act_right[3:]
-            # act_right_quat = act_right_quat[list(perm)]
-            current_joints = qpos[:6].tolist() + [0, 0.02239, -0.02239]
-            current_joints[0] += math.pi/2
-            sol_left = ik.solve(act_left_xyz[np.newaxis, :], act_left_quat[np.newaxis, :], qpos[:7])
-            sol_right = ik.solve(act_right_xyz[np.newaxis, :], act_right_quat[np.newaxis, :], qpos[:7])
-            sol_left = np.concatenate([sol_left.squeeze(0), [joints_act[i,6]]])
-            sol_right = np.concatenate([sol_right.squeeze(0), [joints_act[i, 13]]])
-            left_xyz.append(act_left_xyz)
-            left_quat.append(act_left_quat)
-            left_cur_joints.append(current_joints)
-            # act_left  = cartesians_act[i, :7].unsqueeze(0).to(eval.model.device)
-            # act_right = cartesians_act[i, 7:].unsqueeze(0).to(eval.model.device)
-            # cur_left, cur_right = qpos[:7], qpos[7:]
-
-            # sol_left  = eval.solve_ik(act_left,  cur_left,  permutation=perm, arm="left")
-            # sol_right = eval.solve_ik(act_right, cur_right, permutation=perm, arm="right")
-            # sol_left = ik.solve(act_left[:3], act_left[3:6], cur_left)
-            solved_actions.append(np.concatenate([sol_left, sol_right], axis=-1))
-        left_xyz = np.array(left_xyz)
-        left_quat = np.array(left_quat)
-        current_joints = np.array(current_joints)
-        breakpoint()
-        elapsed = time.time() - t0
-        left_pos_errs, left_ang_errs = [], []
-        right_pos_errs, right_ang_errs = [], []
-
-        for i, sol in enumerate(solved_actions):
-            # original FK 4×4
-            orig_L = left_fk[i].cpu().numpy()
-            orig_R = right_fk[i].cpu().numpy()
-            # reconstructed FK from your IK solution
-            recon_L = fk.fk(torch.from_numpy(sol[:6]).unsqueeze(0).float()).cpu().numpy()[0]
-            recon_R = fk.fk(torch.from_numpy(sol[7:13]).unsqueeze(0).float()).cpu().numpy()[0]
-
-            # convert to [x,y,z,qx,qy,qz,qw]
-            pL, qL = transformation_matrix_to_pose(orig_L)[:3], transformation_matrix_to_pose(orig_L)[3:]
-            pLr, qLr = transformation_matrix_to_pose(recon_L)[:3], transformation_matrix_to_pose(recon_L)[3:]
-            pR, qR = transformation_matrix_to_pose(orig_R)[:3], transformation_matrix_to_pose(orig_R)[3:]
-            pRr, qRr = transformation_matrix_to_pose(recon_R)[:3], transformation_matrix_to_pose(recon_R)[3:]
-
-            # position error (Euclidean)
-            left_pos_errs .append(np.linalg.norm(pL  - pLr))
-            right_pos_errs.append(np.linalg.norm(pR  - pRr))
-
-            # orientation error (angle between quaternions)
-            def ang_err(a, b):
-                a, b = a/np.linalg.norm(a), b/np.linalg.norm(b)
-                return 2 * np.arccos(np.clip(abs(np.dot(a, b)), -1, 1))
-            left_ang_errs .append(ang_err(qL,  qLr))
-            right_ang_errs.append(ang_err(qR,  qRr))
-
-        # aggregate
-        mean_L_pos = np.mean(left_pos_errs)
-        mean_L_ang = np.mean(left_ang_errs)
-        mean_R_pos = np.mean(right_pos_errs)
-        mean_R_ang = np.mean(right_ang_errs)
-
-        # include in your results tuple or just print:
-        print(f"EE errors — left: pos {mean_L_pos:.4f} m, ang {mean_L_ang:.4f} rad; "
-            f"right: pos {mean_R_pos:.4f} m, ang {mean_R_ang:.4f} rad")
-        # sort best→worst by RMS error
-    # results.sort(key=lambda x: x[1])
-
-    # print("Permutation ranking (best to worst):")
-    # for rank, (perm, rms, pj_mean, t) in enumerate(results, 1):
-    #     print(f"{rank:>2}. perm={perm}  RMS={rms:.6f}  time={t:.3f}s")
-    #     print("    per‑joint mean diff:", np.array2string(pj_mean, precision=4, separator=', '))
-        
-    # best_perm = results[0][0]
-    # print("\nBest permutation:", best_perm)
+    joint_positions_reconstructed = rollout_ee_pose_offline(robot_id, left_fk_ee_pose, right_fk_ee_pose, joint_positions)
+    ###
     breakpoint()
+    joint_positions_reconstructed = np.stack(joint_positions_reconstructed).astype(np.float32)
+    right_reconstructed_ee_pose = aloha_fk.fk(joint_positions_reconstructed[..., 7:13])
+    left_reconstructed_ee_pose = aloha_fk.fk(joint_positions_reconstructed[..., :6])
 
+    tensor_left_out = torch.from_numpy(left_out).float()
+    tensor_right_out = torch.from_numpy(right_out).float()
+
+    left_diff = tensor_left_out - left_reconstructed_ee_pose
+    right_diff = tensor_right_out - right_reconstructed_ee_pose
+
+    print(f'Left diff mean: {left_diff.mean(dim=0)}')
+    print(f'Left diff std: {left_diff.std(dim=0)}')
+    print(f'Right diff mean: {right_diff.mean(dim=0)}')
+    print(f'Right diff std: {right_diff.std(dim=0)}')
+
+p.disconnect()
+    
 @hydra.main(version_base="1.3", config_path="../../hydra_configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> Optional[float]:
     """Main entry point for training.

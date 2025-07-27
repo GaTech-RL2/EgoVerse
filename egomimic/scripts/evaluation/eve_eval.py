@@ -47,6 +47,8 @@ from egomimic.utils.egomimicUtils import (
     draw_actions,
 )
 
+from egomimic.scripts.evaluation.test2 import *
+
 from omegaconf import DictConfig, OmegaConf
 import hydra
 
@@ -152,49 +154,8 @@ class EveEval(Eval):
         """
         for each arm, right or left for extrinsics (works for batch and unbatched)
         """
-        # breakpoint()
-        actions_gripper = actions_cartesian[..., -1].unsqueeze(-1)
-        actions_pos = actions_cartesian[..., :3]
-        actions_ypr = actions_cartesian[..., 3:6]
-        actions_ypr = actions_ypr[..., list(permutation)]
-        actions_rotmat = batched_euler_to_rot_matrix(actions_ypr)
-        extrinsics = torch.from_numpy(self.model.model.camera_transforms.extrinsics[arm]).to(actions_cartesian.device).float()
-        batch_shape = actions_cartesian.shape[:-1]
-        T = torch.zeros(*batch_shape, 4, 4, device=actions_cartesian.device)
-        T[..., :3, :3] = actions_rotmat
-        T[..., :3, 3] = actions_pos
-        T[..., 3, 3] = 1.0
-
-        T_base = T
-        T_base = extrinsics @ T # Should we multiply from base frame to cam frame?
         
-        # actions_rotmat = T_base[..., :3, :3]
-        # wxyz -> xyzw
-
-        # actions_quat = matrix_to_quaternion(actions_rotmat)
-        # actions_quat = torch.cat([actions_quat[..., 1:], actions_quat[..., :1]], dim=-1)
-
-        if T_base.dim() == 3:
-            T_base = T_base.unsqueeze(1) # add the T dim
-        if actions_gripper.dim() == 2:
-            actions_gripper = actions_gripper.unsqueeze(0)
-        actions = []
-        for b in range(T_base.shape[0]):
-            actions.append(transformation_matrix_to_pose(T_base[b].cpu().numpy()))
-
-        actions = np.stack(actions)
-
-        actions_pos = actions[..., :3]
-        actions_quat = actions[..., 3:]
-        target_joint_positions_l = []
-        for i in range(batch_shape[0]):
-            target_joint_positions = self.ik.solve(target_pos=actions_pos[i], 
-                                                target_orientation=actions_quat[i], 
-                                                current_joints=current_joint_positions)
-            target_joint_positions_l.append(target_joint_positions)
-        actions_joint_positions = np.stack(target_joint_positions_l)
-        actions_joint_positions = np.concatenate((actions_joint_positions, actions_gripper.cpu().numpy()), axis=-1)
-        return actions_joint_positions
+        
     
     def run_eval(self):
         self.device = torch.device("cuda")
