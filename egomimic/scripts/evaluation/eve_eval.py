@@ -6,13 +6,13 @@ import os
 import torch
 from torchvision.utils import save_image
 import cv2
-from interbotix_common_modules.common_robot.robot import (
-    create_interbotix_global_node,
-    robot_shutdown,
-    robot_startup,
-)
+# from interbotix_common_modules.common_robot.robot import (
+#     create_interbotix_global_node,
+#     robot_shutdown,
+#     robot_startup,
+# )
 
-from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
+# from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
 
 from egomimic.utils.egomimicUtils import (
     cam_frame_to_cam_pixels,
@@ -27,12 +27,12 @@ from egomimic.utils.egomimicUtils import (
     AlohaIK
 )
 
-from eve.robot_utils import move_grippers, move_arms  # requires EgoMimic-eve
-from eve.real_env import make_real_env  # requires EgoMimic-eve
+# from eve.robot_utils import move_grippers, move_arms  # requires EgoMimic-eve
+# from eve.real_env import make_real_env  # requires EgoMimic-eve
 
-# from egomimic.utils.realUtils import *
+# # from egomimic.utils.realUtils import *
 
-from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
+# from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
 
 from egomimic.utils.egomimicUtils import (
     cam_frame_to_cam_pixels,
@@ -93,10 +93,10 @@ class EveEval(Eval):
         # if self.data_schematic is None:
         #     raise ValueError("Data schematic is needed to be passed in.")
         self.model.eval()
-        node = create_interbotix_global_node('aloha')
-        self.env = make_real_env(node, active_arms=self.arm, setup_robots=True)
+        # node = create_interbotix_global_node('aloha')
+        # self.env = make_real_env(node, active_arms=self.arm, setup_robots=True)
 
-        robot_startup(node)
+        # robot_startup(node)
 
         if not os.path.exists(self.eval_path) and self.debug:
             os.makedirs(self.eval_path)
@@ -112,6 +112,16 @@ class EveEval(Eval):
             self.embodiment_id = get_embodiment_id(self.embodiment_name)
         else:
             raise ValueError("Invalid arm inputted")
+        
+        self.repo_id = "rpuns/test"
+        
+        self.urdf_path = os.path.join(
+            os.path.dirname(egomimic.__file__), "resources/aloha_vx300s.urdf"
+        )
+        
+        self.aloha_fk = AlohaFK()
+        self.robot_id = init_pybullet(self.urdf_path)
+
 
     def process_batch_for_eval(self, batch):
         obs = batch
@@ -150,12 +160,19 @@ class EveEval(Eval):
     
         return processed_batch
     
-    def solve_ik(self, actions_cartesian, current_joint_positions, permutation=(0, 1, 2), arm="right"):
+    def solve_ik(self, cartesians, joint_positions, arm="right"):
         """
         for each arm, right or left for extrinsics (works for batch and unbatched)
         """
+        cartesians = cartesians[..., :6]
+        gripper = cartesians[..., [7]]
+        fk_ee_pose = cam_cartesian_to_base_quat(cartesians, extrinsics[arm])
         
-        
+        joint_positions_reconstructed = rollout_ee_pose_arm(self.robot_id, fk_ee_pose, joint_positions)
+
+        joint_positions_reconstructed = np.stack(joint_positions_reconstructed).astype(np.float32)
+        joint_positions_reconstructed = np.concatenate([joint_positions_reconstructed, gripper], axis=-1)
+        return joint_positions_reconstructed
     
     def run_eval(self):
         self.device = torch.device("cuda")
@@ -263,4 +280,66 @@ class EveEval(Eval):
                 )  # open
                 move_arms([self.env.follower_bot_left, self.env.follower_bot_right], [START_ARM_POSE[:6]]*2, moving_time=1.0)
         return
-        
+    
+    def run_eval_offline(self):
+        self.device = torch.device("cuda")
+        self.model.to(self.device)
+        aloha_fk = AlohaFK()
+        qpos_t, actions_t = [], []
+
+        if TEMPORAL_AGG:
+            TA = TemporalAgg()
+
+        trainloader = self.datamodule.val_dataloader()
+        for i, batch in enumerate(trainloader):
+            with torch.inference_mode():
+                # batch = self.process_batch_for_eval(obs)
+                proc_batch = self.model.process_batch_for_training(batch)
+                preds = self.model.model.forward_eval(proc_batch)
+                
+                ac_key = self.model.model.ac_keys[self.embodiment_id]
+                actions = preds[f"{self.embodiment_name}_{ac_key}"]
+                breakpoint() # figure out current pos from training data
+                if self.cartesian:
+                    if self.arm == "right":
+                        qpos = torch.from_numpy(np.array(obs["qpos"])).float().to(self.device)
+                        current_joint_positions = qpos[7:]
+                        actions = self.solve_ik(actions, current_joint_positions, "right")
+                    elif self.arm == "left":
+                        qpos = torch.from_numpy(np.array(obs["qpos"])).float().to(self.device)
+                        current_joint_positions = qpos[:7]
+                        actions = self.solve_ik(actions, current_joint_positions, "left")
+                    else:
+                        qpos = torch.from_numpy(np.array(obs["qpos"])).float().to(self.device)
+                        actions_left = actions[..., :7]
+                        actions_right = actions[..., 7:]
+                        current_joint_left = qpos[:7]
+                        current_joint_right = qpos[7:]
+                        solved_left = self.solve_ik(actions_left, current_joint_left, "left")
+                        solved_right = self.solve_ik(actions_right, current_joint_right, "right")
+                        actions = np.concatenate([solved_left, solved_right], axis=-1)
+                else:
+                    actions = actions.cpu().numpy()
+
+                if TEMPORAL_AGG:
+                    TA.add_action(actions[0])
+                    actions = TA.smoothed_action()[None, :]
+
+                breakpoint()
+                for j in range(32):
+                    data_dict = batch[self.embodiment_id]
+                    im = data_dict['front_img_1'][j]# from batch somehow
+                    if im.dtype != np.uint8:
+                        im = (im * 255).astype(np.uint8)
+                    pred_type = None
+                    if self.cartesian:
+                        pred_type = "joints"
+                    else:
+                        pred_type = "xyz" # haven't test debug in cartesian mode
+                    color = "Purples"
+                    viz_actions = actions
+                    extrinsics = self.model.model.camera_transforms.extrinsics
+                    intrinsics = self.model.model.camera_transforms.intrinsics
+                    drawn_im = draw_actions(im, pred_type, color, viz_actions, extrinsics, intrinsics, self.arm)
+                    save_image(drawn_im, os.path.join(self.eval_path, f'image_{i * 32 + j}.png'))
+        return

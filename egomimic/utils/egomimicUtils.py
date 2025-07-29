@@ -220,8 +220,10 @@ def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both"):
             left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
             actions_drawable = left_actions_drawable
     else:
-        actions = actions.reshape(-1, 3)
-        actions_drawable = actions
+        right_actions = actions[:, 7:13]
+        left_actions = actions[:, :6]
+        right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+        left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
     
     actions_drawable = cam_frame_to_cam_pixels(actions_drawable, intrinsics)
     im = draw_dot_on_frame(

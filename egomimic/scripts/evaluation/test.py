@@ -69,7 +69,6 @@ def eval(cfg: DictConfig):
             data_schematic.infer_norm_from_dataset(dataset)
     
     
-    root = args.dataset
     repo_id = "rpuns/test"
     
     urdf_path = os.path.join(
@@ -126,7 +125,7 @@ def eval(cfg: DictConfig):
     print(f'Right diff mean: {right_diff.mean(dim=0)}')
     print(f'Right diff std: {right_diff.std(dim=0)}')
 
-p.disconnect()
+    p.disconnect()
     
 @hydra.main(version_base="1.3", config_path="../../hydra_configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> Optional[float]:

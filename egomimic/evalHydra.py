@@ -64,7 +64,7 @@ def eval(cfg: DictConfig):
     eval.data_schematic = data_schematic # unsure if this is necessary to pass in
 
     log.info("Starting evaluation!")
-    eval.run_eval()
+    eval.run_eval_offline()
 
 @hydra.main(version_base="1.3", config_path="./hydra_configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> Optional[float]:
