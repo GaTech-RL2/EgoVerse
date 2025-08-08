@@ -68,6 +68,7 @@ def eval(cfg: DictConfig):
 
     log.info("Starting evaluation!")
     eval.run_eval()
+    return None, None
 
 @hydra.main(version_base="1.3", config_path="./hydra_configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> Optional[float]:

@@ -4,15 +4,19 @@ class Eval:
     """
     Base class for all evaluation. Using this you can easily adopt your BC rollout pipeline
     """
-    def __init__(self, eval_path):
+    def __init__(self, eval_path, **kwargs):
         """
         config (DictConfig) : model config that would be used to instantiate the model
         ckpt_path (str) : model checkpoint path to instantiate the model
         """
+        eval_name = kwargs.get("eval_name", None)
         eval_dir = os.path.join(eval_path, 'eval')
         class_path = os.path.join(eval_dir, self.__class__.__name__)
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.eval_path = os.path.join(class_path, timestamp)
+        if eval_name is not None:
+            self.eval_path = os.path.join(class_path, eval_name)
+        else:
+            self.eval_path = os.path.join(class_path, timestamp)
         os.makedirs(self.eval_path, exist_ok=True)
 
         self.datamodule = None

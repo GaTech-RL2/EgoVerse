@@ -1,6 +1,6 @@
 defaults:
   - paths: default                    
-  - eval: blind_eval
+  - eval: video_eval
 # ckpt_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-30_15-25-01/0/checkpoints/epoch_epoch=1999.ckpt"
 # ckpt_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-29_21-47-33/0/checkpoints/epoch_epoch=999.ckpt"
 ckpt_path: "/coc/flash7/rpunamiya6/Projects/EgoVerse/logs/egobridge_shorts/baseline_paper_no_2025-07-26_11-56-41/0/checkpoints/epoch_epoch=599.ckpt"
@@ -8,5 +8,6 @@ ckpt_path: "/coc/flash7/rpunamiya6/Projects/EgoVerse/logs/egobridge_shorts/basel
 # multirun_path: "logs/cotrain_scoop_granular_everse/scoop_granular_hpt_original_joints_2025-06-29_21-47-33/multirun.yaml"
 multirun_cfg: "/coc/flash7/rpunamiya6/Projects/EgoVerse/logs/egobridge_shorts/baseline_paper_no_2025-07-26_11-56-41/multirun.yaml"
 eval_path: "eval/"
+eval_name: "test_blind"
 datasets: "multirun" # null (no dataset), multirun (multirun dataset), provided (specify dataset with key)
 debug: false
