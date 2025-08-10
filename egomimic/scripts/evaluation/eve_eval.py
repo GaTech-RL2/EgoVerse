@@ -8,13 +8,13 @@ import torch
 from torchvision.utils import save_image
 import torchvision.io as tvio
 import cv2
-# from interbotix_common_modules.common_robot.robot import (
-#     create_interbotix_global_node,
-#     robot_shutdown,
-#     robot_startup,
-# )
+from interbotix_common_modules.common_robot.robot import (
+    create_interbotix_global_node,
+    robot_shutdown,
+    robot_startup,
+)
 
-# from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
+from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
 
 from egomimic.utils.egomimicUtils import (
     cam_frame_to_cam_pixels,
@@ -29,12 +29,12 @@ from egomimic.utils.egomimicUtils import (
     AlohaIK
 )
 
-# from eve.robot_utils import move_grippers, move_arms  # requires EgoMimic-eve
-# from eve.real_env import make_real_env  # requires EgoMimic-eve
+from eve.robot_utils import move_grippers, move_arms  # requires EgoMimic-eve
+from eve.real_env import make_real_env  # requires EgoMimic-eve
 
-# # from egomimic.utils.realUtils import *
+# from egomimic.utils.realUtils import *
 
-# from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
+from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
 
 from egomimic.utils.egomimicUtils import (
     cam_frame_to_cam_pixels,
@@ -47,9 +47,13 @@ from egomimic.utils.egomimicUtils import (
     ee_pose_to_cam_frame,
     AlohaFK,
     draw_actions,
+    TemporalAgg,
+    save_image,
+    init_pybullet,
+    cam_cartesian_to_base_quat,
+    rollout_ee_pose_arm
 )
 
-from egomimic.scripts.evaluation.test2 import *
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
@@ -60,13 +64,15 @@ TEMPORAL_AGG = False
 
 from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
 
+import egomimic
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from egomimic.scripts.evaluation.eval import Eval
-from egomimic.scripts.evaluation.utils import TemporalAgg, save_image, transformation_matrix_to_pose, batched_euler_to_rot_matrix
 
 from egomimic.utils.pylogger import RankedLogger
 log = RankedLogger(__name__, rank_zero_only=True)
+
+extrinsics = EXTRINSICS['ariaJun7']
 
 class EveEval(Eval):
     def __init__(
@@ -82,6 +88,7 @@ class EveEval(Eval):
     ):
         super().__init__(eval_path)
 
+        self.ckpt_path = ckpt_path
         log.info(f"Instantiating model from checkpoint<{ckpt_path}>")
         self.model = ModelWrapper.load_from_checkpoint(ckpt_path)
         self.embodiment_name = embodiment_name
@@ -275,61 +282,4 @@ class EveEval(Eval):
                     [self.env.follower_bot_left, self.env.follower_bot_right], [FOLLOWER_GRIPPER_JOINT_OPEN]*2, moving_time=0.5
                 )  # open
                 move_arms([self.env.follower_bot_left, self.env.follower_bot_right], [START_ARM_POSE[:6]]*2, moving_time=1.0)
-        return
-        
-    def run_eval_video(self):
-        self.device = torch.device("cuda")
-        self.model.to(self.device)
-        aloha_fk = AlohaFK()
-        qpos_t, actions_t = [], []
-        start_time = time.time()
-        if TEMPORAL_AGG:
-            TA = TemporalAgg()
-        imgs = []
-        trainloader = self.datamodule.val_dataloader()
-        for i, batch in enumerate(trainloader):
-            with torch.inference_mode():
-                # batch = self.process_batch_for_eval(obs)
-                proc_batch = self.model.model.process_batch_for_training(batch[0])
-                self.batch_to_device(proc_batch, self.device)
-                preds = self.model.model.forward_eval(proc_batch)
-                ac_key = self.model.model.ac_keys[self.embodiment_id]
-                actions = preds[f"{self.embodiment_name}_{ac_key}"]
-                # if not self.cartesian:
-                #     if actions.shape[-1] == 7:
-                #         actions = self.aloha_fk.fk(actions)
-                #     else:
-                #         left_actions = self.aloha.fk(actions[..., :6])
-                #         right_actions = self.aloha.fk(actions[..., 7:13])
-                #         actions = torch.cat([left_actions, actions[..., [6]], right_actions, actions[..., [13]]], dim=-1)
-                actions = actions.cpu().numpy()
-
-                if TEMPORAL_AGG:
-                    TA.add_action(actions[0])
-                    actions = TA.smoothed_action()[None, :]
-                data_dict = proc_batch[self.embodiment_id]
-                cur_imgs = data_dict['front_img_1'].cpu().numpy()
-                for j in range(cur_imgs.shape[0]):
-                    im = cur_imgs[j]
-                    im = np.transpose(im, (1, 2, 0))
-                    if im.dtype != np.uint8:
-                        im = (im * 255).astype(np.uint8)
-                    pred_type = None
-                    if not self.cartesian:
-                        pred_type = "joints"
-                    else:
-                        pred_type = "xyz" # haven't test debug in cartesian mode
-                    color = "Purples"
-                    viz_actions = actions[j]
-                    extrinsics = self.model.model.camera_transforms.extrinsics
-                    intrinsics = self.model.model.camera_transforms.intrinsics
-                    drawn_im = draw_actions(im, pred_type, color, viz_actions, extrinsics, intrinsics, self.arm)
-                    imgs.append(torch.from_numpy(drawn_im))
-        imgs = torch.stack(imgs)
-        breakpoint()
-        video_path = os.path.join(self.eval_path, "eval_video.mp4")
-        tvio.write_video(video_path, imgs, fps=30, video_codec="h264")
-        end_time = time.time()
-        elapsed = end_time - start_time
-        print(f"Took {elapsed:.2f} seconds")
         return

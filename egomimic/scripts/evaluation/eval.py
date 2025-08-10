@@ -1,5 +1,7 @@
 import os
 from datetime import datetime
+from egomimic.pl_utils.pl_model import ModelWrapper
+
 class Eval:
     """
     Base class for all evaluation. Using this you can easily adopt your BC rollout pipeline
@@ -21,7 +23,19 @@ class Eval:
 
         self.datamodule = None
         self.data_schematic = None
-        
+    
+    def __getstate__(self):
+        """Called when pickling: Exclude the model and save only metadata."""
+        state = self.__dict__.copy()
+        state["model"] = None
+        return state
+
+    def __setstate__(self, state):
+        """Called when unpickling: Restore state and reload model if needed."""
+        self.__dict__.update(state)  # Restore all attributes
+        if hasattr(self, "ckpt_path") and self.ckpt_path:
+            self.model = ModelWrapper.load_from_checkpoint(self.ckpt_path)
+    
     def process_batch_for_eval(self, batch):
         """
         Processes input data from simulation environment or robot data

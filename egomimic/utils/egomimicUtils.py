@@ -20,6 +20,7 @@ import math
 import argparse
 import pybullet as p
 import pybullet_data
+from scipy.spatial.transform import Rotation as R
 
 STD_SCALE = 0.02
 
@@ -189,6 +190,137 @@ def draw_rotation_text(
         raise ValueError(f"Unsupported rotation shape: {gt_rot.shape}")
 
     return image
+
+def save_image(image, path):
+    if image.dtype != np.uint8:
+        image = (image * 255).astype(np.uint8)
+    plt.imshow(image)
+    plt.axis('off')
+    plt.savefig(path, bbox_inches='tight', pad_inches=0)
+    plt.close()
+
+def init_pybullet(urdf_path, GUI=False):
+    if GUI:
+        p.connect(p.GUI)
+    else:
+        p.connect(p.DIRECT)
+    p.setAdditionalSearchPath(pybullet_data.getDataPath())
+    robot_id = p.loadURDF(urdf_path, basePosition=[0, 0, 0], useFixedBase=True)
+    p.setGravity(0, 0, 9.81)
+    return robot_id
+
+def print_joint_info(robot_id):
+    num_joints = p.getNumJoints(robot_id)
+    print(f"Number of Joints: {num_joints}")
+    
+    for i in range(num_joints):
+        joint_info = p.getJointInfo(robot_id, i)
+        joint_index = joint_info[0]
+        joint_name = joint_info[1].decode('utf-8')
+        link_name = joint_info[12].decode('utf-8')
+        joint_type = joint_info[2]
+        print(f"Joint Index: {joint_index}, Joint Name: {joint_name}, Link Type: {link_name}, Joint Type: {joint_type_dict[joint_type]}")
+        
+def rollout_ee_pose_arm(robot_id, ee_pose, qpos_dataset):
+  target_qpos_list = []
+  for t, pose in enumerate(ee_pose):
+    qpos = np.asarray(qpos_dataset[t])
+
+    qpos_arm = qpos[:6].tolist() + [0, 0.02239, -0.02239]
+    qpos_arm[0] += math.pi / 2
+
+    target_pos = pose[:3]
+    target_orientation = pose[3:]
+
+    joint_angles = p.calculateInverseKinematics(
+      robot_id,
+      endEffectorLinkIndex=12,
+      targetPosition=target_pos,
+      targetOrientation=target_orientation,
+      currentPositions=qpos_arm,
+      maxNumIterations=100,
+      residualThreshold=0.001,
+    )
+
+    joint_angles = list(joint_angles)
+    target_qpos = np.asarray(joint_angles[:7])
+    target_qpos[0] -= math.pi / 2
+
+    target_qpos_list.append(target_qpos)
+
+  return target_qpos_list
+
+def ee_pose_to_base_frame(ee_pose_cam, T_cam_base):
+    """
+    ee_pose_cam: (N, 3)
+    T_cam_base: (4, 4)  # transform from *camera to base* (same as in your code)
+    returns ee_pose_base: (N, 3)
+    """
+    N = ee_pose_cam.shape[0]
+    ee_pose_cam_h = np.concatenate([ee_pose_cam, np.ones((N, 1))], axis=1)  # (N,4)
+    ee_pose_base_h = (T_cam_base @ ee_pose_cam_h.T).T                       # (N,4)
+    return ee_pose_base_h[:, :3]
+
+def cam_cartesian_to_base_quat(cartesians_6dof, T_cam_base, euler_order='zyx', quat_format='xyzw'):
+    T = cartesians_6dof.shape[0]
+    pos_cam = cartesians_6dof[:, :3]                   # (T,3)
+    ang_cam = cartesians_6dof[:, 3:6]                   # (T,3)
+
+    pos_base = ee_pose_to_base_frame(pos_cam, T_cam_base)
+    
+    R_cam_batch = R.from_euler(euler_order, ang_cam, degrees=False).as_matrix()   # (T,3,3)
+    R_base_cam  = T_cam_base[..., :3, :3]                                              # (3,3)
+    R_base_batch = np.einsum('ij,tjk->tik', R_base_cam, R_cam_batch)   
+    
+    quat_xyzw = R.from_matrix(R_base_batch).as_quat()                             # (T,4) x,y,z,w
+    if quat_format == 'wxyz':
+        quat_wxyz = np.concatenate([quat_xyzw[:, 3:4], quat_xyzw[:, :3]], axis=1)
+        quat_out = quat_wxyz
+    else:  # 'xyzw'
+        quat_out = quat_xyzw
+
+    return np.concatenate([pos_base, quat_out], axis=1)
+
+class TemporalAgg:
+    def __init__(self):
+        self.recent_actions = []
+    
+    def add_action(self, action):
+        """
+            actions: (100, 7) tensor
+        """
+        self.recent_actions.append(action)
+        if len(self.recent_actions) > 4:
+            del self.recent_actions[0]
+
+    def smoothed_action(self):
+        """
+            returns smooth action (100, 7)
+        """
+        mask = []
+        count = 0
+
+        shifted_actions = []
+        # breakpoint()
+
+        for ac in self.recent_actions[::-1]:
+            basic_mask = np.zeros(100)
+            basic_mask[:100-count] = 1
+            mask.append(basic_mask)
+            shifted_ac = ac[count:]
+            shifted_ac = np.concatenate([shifted_ac, np.zeros((count, 7))], axis=0)
+            shifted_actions.append(shifted_ac)
+            count += 25
+
+        mask = mask[::-1]
+        mask = ~(np.array(mask).astype(bool))
+        recent_actions = shifted_actions[::-1]
+        recent_actions = np.array(recent_actions)
+        # breakpoint()
+        mask = np.repeat(mask[:, :, None], 7, axis=2)
+        smoothed_action = np.ma.array(recent_actions, mask=mask).mean(axis=0)
+
+        return smoothed_action
 
 def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both"):
     """

@@ -25,6 +25,7 @@ from egomimic.utils.egomimicUtils import (
     EXTRINSICS,
     ee_pose_to_cam_frame,
     AlohaFK,
+    TemporalAgg
 )
 
 from omegaconf import DictConfig, OmegaConf
@@ -39,7 +40,6 @@ from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from egomimic.scripts.evaluation.eval import Eval
-from egomimic.scripts.evaluation.utils import TemporalAgg
 
 from egomimic.utils.pylogger import RankedLogger
 log = RankedLogger(__name__, rank_zero_only=True)
@@ -135,17 +135,13 @@ class BlindEval(Eval):
                 print("Episode id must be a positive integer.")
     
     def run_eval(self):
-        # add datamodule for VideoEval
-        # for model_name in self.models:
-        #     self.models[model_name].datamodule = self.datamodule
-        #     self.models[model_name].data_schematic = self.data_schematic
-
         if TEMPORAL_AGG:
             TA = TemporalAgg()
 
         while True:
             self.select_models_episode()
-            breakpoint()
+            if hasattr(self.cur_eval, "datamodule") and self.cur_eval.datamodule is None:
+                self.cur_eval.datamodule = self.datamodule
             proc = Process(target=self.cur_eval.run_eval())
             proc.start()
             print("Interrupt rollout with any keyboard keys") #needed to be added on the actual laptop

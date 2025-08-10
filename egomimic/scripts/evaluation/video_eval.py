@@ -46,9 +46,12 @@ from egomimic.utils.egomimicUtils import (
     ee_pose_to_cam_frame,
     AlohaFK,
     draw_actions,
+    TemporalAgg,
+    init_pybullet,
+    cam_cartesian_to_base_quat,
+    rollout_ee_pose_arm
 )
 
-from egomimic.scripts.evaluation.test2 import *
 
 from omegaconf import DictConfig, OmegaConf
 import hydra
@@ -59,14 +62,15 @@ TEMPORAL_AGG = False
 
 from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
 
+import egomimic
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from egomimic.scripts.evaluation.eval import Eval
-from egomimic.scripts.evaluation.utils import TemporalAgg, save_image, transformation_matrix_to_pose, batched_euler_to_rot_matrix
 
 from egomimic.utils.pylogger import RankedLogger
 log = RankedLogger(__name__, rank_zero_only=True)
 
+extrinsics = EXTRINSICS['ariaJun7']
 class VideoEval(Eval):
     def __init__(
         self,
@@ -77,7 +81,7 @@ class VideoEval(Eval):
         **kwargs
     ):
         super().__init__(eval_path)
-
+        self.ckpt_path = ckpt_path
         log.info(f"Instantiating model from checkpoint<{ckpt_path}>")
         self.model = ModelWrapper.load_from_checkpoint(ckpt_path)
         self.embodiment_name = embodiment_name
