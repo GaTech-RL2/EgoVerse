@@ -35,7 +35,7 @@ from timm.models.vision_transformer import VisionTransformer
 from functools import partial
 
 from transformers import T5Tokenizer, T5Model, AutoTokenizer
-from transformers import CLIPVisionModelWithProjection
+from transformers import CLIPVisionModel
 
 from transformers import AutoImageProcessor, AutoModel
 
@@ -574,7 +574,11 @@ class DinoV3(PolicyStem):
             model_type 
         )
         self.freeze_backbone = freeze_backbone
-        self.proj = nn.Linear(self.model.config.hidden_size, output_dim)
+        
+        if "conv" in model_type:
+            self.proj = nn.Linear(self.model.config.hidden_sizes[-1], output_dim)
+        else:
+            self.proj = nn.Linear(self.model.config.hidden_size, output_dim)
         if self.freeze_backbone:
             for p in self.model.parameters():
                 p.requires_grad = False
@@ -594,7 +598,6 @@ class DinoV3(PolicyStem):
         x = x.view(B * T * N, C, H, W)
         
         outputs = self.model(pixel_values=x)
-                
         outputs = outputs.last_hidden_state
         outputs = self.proj(outputs)
         
@@ -610,9 +613,9 @@ class CLIP(PolicyStem):
     ) -> None:
         super().__init__(**kwargs)
         
-        self.model = CLIPVisionModelWithProjection.from_pretrained(model_type)
+        self.model = CLIPVisionModel.from_pretrained(model_type)
         self.freeze_backbone = freeze_backbone
-        self.proj = nn.Linear(self.model.config.projection_dim, output_dim)
+        self.proj = nn.Linear(self.model.config.hidden_size, output_dim)
         
         if self.freeze_backbone:
             for p in self.model.parameters():
@@ -634,9 +637,10 @@ class CLIP(PolicyStem):
         
         outputs = self.model(pixel_values=x)
 
-        outputs = outputs.image_embeds
+        outputs = outputs.pooler_output
         outputs = self.proj(outputs)
-        outputs = outputs.view(B, T * N, -1)
+        outputs = outputs.view(B, T*N, -1)
+        
         return outputs
     
 class ResNet(PolicyStem):
@@ -707,7 +711,6 @@ class ResNet(PolicyStem):
         # concat along time
         feat = feat.view(B, feat.shape[1], -1).transpose(1, 2)
         feat = self.proj(feat)
-        breakpoint()
         return feat
 
 
