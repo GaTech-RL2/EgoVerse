@@ -362,7 +362,7 @@ class HPTModel(nn.Module):
             stem = self.stems[f"{domain}_{modality}"]
             if modality in self.encoders:
                 data[modality] = self.encoders[modality](data[modality])
-
+            
             data_shape = data[modality].shape
             data_horizon = data_shape[1]
             horizon = data_horizon
