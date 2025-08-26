@@ -584,6 +584,8 @@ class DinoV3(PolicyStem):
                 p.requires_grad = False
             
             self.model.eval()
+        else:
+            self.model.train()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -622,6 +624,9 @@ class CLIP(PolicyStem):
                 p.requires_grad = False
             
             self.model.eval()
+            
+        else:
+            self.model.train()
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

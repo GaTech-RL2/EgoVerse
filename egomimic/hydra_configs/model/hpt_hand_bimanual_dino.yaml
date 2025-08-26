@@ -89,6 +89,7 @@ robomimic_model:
       _target_: egomimic.models.hpt_nets.DinoV3
       output_dim: 256
       model_type: "facebook/dinov3-vitb16-pretrain-lvd1689m"
+      freeze_backbone: false
 
   train_image_augs:
     _target_: torchvision.transforms.Compose
