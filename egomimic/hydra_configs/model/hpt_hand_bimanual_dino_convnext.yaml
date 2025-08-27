@@ -19,7 +19,7 @@ robomimic_model:
     num_heads: 8
     token_postprocessing: "action_token"
     observation_horizon: 1
-    action_horizon: 100
+    action_horizon: 8
     no_trunk: false
     use_domain_embedding: true
     drop_path: 0.1
@@ -88,8 +88,7 @@ robomimic_model:
     front_img_1:
       _target_: egomimic.models.hpt_nets.DinoV3
       output_dim: 256
-      model_type: "facebook/dinov3-convnext-tiny-pretrain-lvd1689m"
-      freeze_backbone: false
+      model_type: "facebook/dinov3-convnext-base-pretrain-lvd1689m"
 
   train_image_augs:
     _target_: torchvision.transforms.Compose

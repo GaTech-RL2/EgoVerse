@@ -15,11 +15,11 @@ robomimic_model:
 
   trunk:
     embed_dim: 256
-    num_blocks: 16
+    num_blocks: 32
     num_heads: 8
     token_postprocessing: "action_token"
     observation_horizon: 1
-    action_horizon: 100
+    action_horizon: 16
     no_trunk: false
     use_domain_embedding: true
     drop_path: 0.1
