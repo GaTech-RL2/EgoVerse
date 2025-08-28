@@ -2,44 +2,45 @@ defaults:
   - hpt_cotrain_enc_dec_base
 
 robomimic_model:
-  domains: ["eve_bimanual", "aria_bimanual"]
+  # domains: ["aria_right_arm", "eve_right_arm"]
+  domains: ["aria_right_arm", "faive"]
   diffusion: true 
   head_specs:
     shared: null
-    aria_bimanual: 
+    aria_right_arm: 
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        aria_bimanual: 12
+        aria_right_arm: 6
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 12
+        act_dim: 6
         act_seq: 100
         n_heads: 4
         dropout: 0.1
         mlp_layers: 4
         mlp_ratio: 4
 
-    eve_bimanual: 
+    faive: 
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        eve_bimanual: 14
+        faive: 7
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 14
+        act_dim: 7
         act_seq: 100
         n_heads: 4
         dropout: 0.1

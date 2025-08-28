@@ -1,5 +1,5 @@
 defaults:
-  - model: hpt_cotrain_bimanual
+  - model: hpt_cotrain_flow_transformer
   - paths: default
   - trainer: ddp
   - debug: null
@@ -87,10 +87,33 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+    # eve_right_arm:
+    faive:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: observations.images.aria_rgb_cam
+      ee_pose:
+        key_type: proprio_keys
+        lerobot_key: observations.state.cartesian_arm
+      joint_positions:
+        key_type: proprio_keys
+        lerobot_key: observations.state.joints_hand
+      actions_cartesian:
+        key_type: action_keys
+        lerobot_key: actions_cartesian
+      actions_joints:
+        key_type: action_keys
+        lerobot_key: actions_joints
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
   viz_img_key: 
     # eve_bimanual:
     #   front_img_1
     # aria_bimanual:
     #   front_img_1
     aria_right_arm:
+      front_img_1
+    # eve_right_arm:
+    faive:
       front_img_1

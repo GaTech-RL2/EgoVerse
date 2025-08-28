@@ -5,7 +5,7 @@ train_datasets:
     # Uncomment or adjust paths as needed:
     # parquet_path: /coc/flash9/skareer6/Projects/RLDB/rldb/export/oboo_robot
     repo_id: "eth-scene1-colorstoy-greybowl-1_processed"
-    root: "/mnt/jim/EGOMIM/data/objInBowl/eth-scene1-colorstoy-greybowl-1_processed"
+    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-colorstoy-greybowl-1_processed"
     local_files_only: true
     mode: "train"
 
@@ -14,7 +14,14 @@ train_datasets:
     # Uncomment or adjust paths as needed:
     # parquet_path: /coc/flash9/skareer6/Projects/RLDB/rldb/export/oboo_robot
     repo_id: "eth-scene1-bluetoy-purplebowl-1_processed"
-    root: "/mnt/jim/EGOMIM/data/objInBowl/eth-scene1-bluetoy-purplebowl-1_processed"
+    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-bluetoy-purplebowl-1_processed"
+    local_files_only: true
+    mode: "train"
+
+  dataset3:
+    _target_: rldb.utils.RLDBDataset
+    repo_id: "eth-TEST-faive"
+    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/TEST_faive"
     local_files_only: true
     mode: "train"
 
@@ -22,14 +29,14 @@ valid_datasets:
   dataset1:
     _target_: rldb.utils.RLDBDataset
     repo_id: "eth-scene1-browntoy-purplebowl-1_processed"
-    root: "/mnt/jim/EGOMIM/data/objInBowl/eth-scene1-browntoy-purplebowl-1_processed"
+    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-browntoy-purplebowl-1_processed"
     local_files_only: true
     mode: "valid"
 
   dataset2:
     _target_: rldb.utils.RLDBDataset
     repo_id: "eth-scene1-greentoy-purplebowl-1_processed"
-    root: "/mnt/jim/EGOMIM/data/objInBowl/eth-scene1-greentoy-purplebowl-1_processed"
+    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-greentoy-purplebowl-1_processed"
     local_files_only: true
     mode: "valid"
 
@@ -38,6 +45,9 @@ train_dataloader_params:
     batch_size: 32
     num_workers: 10
   dataset2:
+    batch_size: 32
+    num_workers: 10
+  dataset3:
     batch_size: 32
     num_workers: 10
 

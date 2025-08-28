@@ -7,10 +7,10 @@ wandb:
   offline: False
   id: "${name}_${description}_${now:%Y-%m-%d_%H-%M-%S}" # pass correct id to resume experiment!
   anonymous: null # enable anonymous logging
-  project: "egomim_onboard"
+  project: "objInBowl"
   log_model: False # upload lightning ckpts
   prefix: "" # a string to put at the beginning of metric keys
-  entity: "amadeuss" # set to name of your wandb team
+  entity: "EgoMimic" # set to name of your wandb team
   group: ""
   tags: []
   job_type: ""
