@@ -14,7 +14,7 @@ from egomimic.models.hpt_nets import *
 from egomimic.algo.algo import Algo
 from egomimic.utils.egomimicUtils import draw_actions
 
-from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table, EinOpsRearrange, download_from_huggingface, STD_SCALE
+from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table, frechet_gaussian_over_time, EinOpsRearrange, download_from_huggingface, STD_SCALE
 from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text
 
 import numpy as np
@@ -1067,6 +1067,11 @@ class HPT(Algo):
                                                                                 (preds[f"{embodiment_name}_{ac_key}"][:, -1]).cpu(), 
                                                                                 _batch[ac_key][:, -1].cpu()
                                                                                 )
+                fd = frechet_gaussian_over_time(preds[f"{embodiment_name}_{ac_key}"], _batch[ac_key])
+                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_avg"] = fd.mean().item()
+                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_min"] = fd.min().item()
+                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_max"] = fd.max().item()
+                
             if embodiment_name in self.auxiliary_ac_keys:
                 for aux_key in self.auxiliary_ac_keys[embodiment_name]:
                     pred_key = f"{embodiment_name}_{aux_key}"
@@ -1079,6 +1084,10 @@ class HPT(Algo):
                             preds[pred_key][:, -1].cpu(), 
                             _batch[aux_key][:, -1].cpu()
                         )
+                        fd = frechet_gaussian_over_time(preds[pred_key], _batch[aux_key])
+                        metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
+                        metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
+                        metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
                         
             if self.shared_ac_key and f"{embodiment_name}_{self.shared_ac_key}" in preds:
                 pred_key = f"{embodiment_name}_{self.shared_ac_key}"
@@ -1090,6 +1099,10 @@ class HPT(Algo):
                     preds[pred_key][:, -1].cpu(), 
                     _batch[self.shared_ac_key][:, -1].cpu()
                 )
+                fd = frechet_gaussian_over_time(preds[pred_key], _batch[self.shared_ac_key])
+                metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
+                metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
+                metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
             
             ims = self.visualize_preds(preds, _batch)
             images_dict[embodiment_id] = ims
