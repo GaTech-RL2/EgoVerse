@@ -5,7 +5,7 @@ defaults:
   - debug: null
   - logger: wandb
   - data: multi_data
-  - callbacks: null
+  - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
 
@@ -74,7 +74,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
     #   embodiment:
     #     key_type: metadata_keys
     #     lerobot_key: metadata.embodiment
-    aria_right_arm:
+    aria_bimanual:
       front_img_1:
         key_type: camera_keys
         lerobot_key: observations.images.front_img_1
@@ -87,14 +87,13 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
-    # eve_right_arm:
-    faive:
+    eve_bimanual:
       front_img_1:
         key_type: camera_keys
         lerobot_key: observations.images.aria_rgb_cam
       ee_pose:
         key_type: proprio_keys
-        lerobot_key: observations.state.cartesian_arm
+        lerobot_key: observations.state.ee_pose
       joint_positions:
         key_type: proprio_keys
         lerobot_key: observations.state.joints_hand
@@ -108,12 +107,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
   viz_img_key: 
-    # eve_bimanual:
-    #   front_img_1
-    # aria_bimanual:
-    #   front_img_1
-    aria_right_arm:
+    aria_bimanual:
       front_img_1
-    # eve_right_arm:
-    faive:
+    eve_bimanual:
       front_img_1

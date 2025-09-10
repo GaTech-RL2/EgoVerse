@@ -3,44 +3,44 @@ defaults:
 
 robomimic_model:
   # domains: ["aria_right_arm", "eve_right_arm"]
-  domains: ["aria_right_arm", "faive"]
+  domains: ["aria_bimanual", "eve_bimanual"]
   diffusion: true 
   head_specs:
     shared: null
-    aria_right_arm: 
+    aria_bimanual: 
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        aria_right_arm: 6
+        aria_bimanual: 12
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 6
+        act_dim: 12
         act_seq: 100
         n_heads: 4
         dropout: 0.1
         mlp_layers: 4
         mlp_ratio: 4
 
-    faive: 
+    eve_bimanual: 
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        faive: 7
+        eve_bimanual: 12
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 7
+        act_dim: 12
         act_seq: 100
         n_heads: 4
         dropout: 0.1

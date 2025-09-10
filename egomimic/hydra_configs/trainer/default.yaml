@@ -2,8 +2,8 @@ _target_: lightning.pytorch.trainer.Trainer
 
 default_root_dir: ${paths.output_dir}
 
-max_epochs: 2000
-min_epochs: 2000
+max_epochs: 5
+min_epochs: 1
 
 accelerator: cpu
 devices: 1
