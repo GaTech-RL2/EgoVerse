@@ -149,7 +149,6 @@ def main(cfg: DictConfig) -> Optional[float]:
 
     print(OmegaConf.to_yaml(cfg))
 
-    #cfg = OmegaConf.resolve(cfg)
 
     # train the model
     metric_dict, _ = train(cfg)

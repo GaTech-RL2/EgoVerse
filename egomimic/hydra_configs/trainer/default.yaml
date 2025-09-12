@@ -13,7 +13,7 @@ precision: bf16
 limit_train_batches: 100
 limit_val_batches: 1000
 # perform a validation loop every N training epochs
-check_val_every_n_epoch: 200
+check_val_every_n_epoch: 2
 
 # set True to to ensure deterministic results
 # makes training slower but gives more reproducibility than just setting seeds
