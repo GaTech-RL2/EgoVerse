@@ -14,7 +14,7 @@ train_datasets:
     # Uncomment or adjust paths as needed:
     # parquet_path: /coc/flash9/skareer6/Projects/RLDB/rldb/export/oboo_robot
     repo_id: "cup_lerobot_DEBUG"
-    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/cupOnSAUZZ/cup_lerobot_DEBUG"
+    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/cupOnSAUZZ/cup_lerobot"
     local_files_only: true
     mode: "train"
 

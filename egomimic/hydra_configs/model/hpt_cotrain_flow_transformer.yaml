@@ -46,6 +46,26 @@ robomimic_model:
         dropout: 0.1
         mlp_layers: 4 
         mlp_ratio: 4
+
+    eve_bimanual_actions_joints:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 100
+      num_inference_steps: 50
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        eve_bimanual_actions_joints: 34
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 34
+        act_seq: 100
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
         
 optimizer:
   _target_: torch.optim.AdamW
