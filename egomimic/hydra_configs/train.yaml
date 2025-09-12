@@ -1,10 +1,10 @@
 defaults:
-  - model: hpt_cotrain_bimanual
+  - model: hpt_hand_bimanual_resnet
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: multi_data
+  - data: aria_new_scene_benchmark_2_4lab.yaml
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
