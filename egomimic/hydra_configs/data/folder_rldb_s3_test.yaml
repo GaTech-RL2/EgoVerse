@@ -7,22 +7,23 @@ train_datasets:
       test:
         _target_: rldb.utils.S3RLDBDataset
         bucket_name: "rldb"
-        prefix: #
-        filters: ["Xu"]
-        embodiment: aria_bimanual
+        task: "fold_cloth/"
+        lab: "eth"
+        scene: "scene_10"
         mode: train
-        local_files_only: true
-    embodiment: aria_bimanual
+        local_files_only: True
+        fresh_download: True
 
 valid_datasets:
   dataset1:
     _target_: rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
-    prefix: #
-    filters: ["Xu"]
-    embodiment: aria_bimanual
+    task: "fold_cloth/"
+    lab: "eth"
+    scene: "scene_10"
     mode: valid
-    local_files_only: true
+    local_files_only: True
+    fresh_download: True
 
 train_dataloader_params:
   dataset1:
