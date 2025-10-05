@@ -12,9 +12,11 @@ from torchmetrics import MeanSquaredError
 
 from egomimic.models.hpt_nets import *
 from egomimic.algo.algo import Algo
-from egomimic.utils.egomimicUtils import draw_actions
 
 from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text
+
+from egomimic.utils.action_utils import *
+import egomimic.utils.memory_utils as memutils
 
 import numpy as np
 
@@ -22,11 +24,13 @@ from overrides import override
 
 from egomimic.algo.algo import Algo
 
-from rldb.utils import get_embodiment_id, get_embodiment
+from egomimic.rldb.utils import get_embodiment_id, get_embodiment, EMBODIMENT
 
 from termcolor import cprint
 
 import os
+
+from hydra.utils import instantiate
 
 import openpi
 import openpi.models.pi0_config
@@ -36,7 +40,17 @@ import openpi.training.config as _config
 import openpi.training.data_loader as _data
 
 import openpi.models_pytorch.preprocessing_pytorch as _preprocessing
+from egomimic.models.preprocess_pi_obs import (
+    _SimpleObservation,
+    _ensure_bchw,
+    _to_minus1_1,
+    _concat_proprio,
+    _empty_lang_placeholders,
+    _mask_from_batch,
+    _fill_missing_images,
+)
 
+import time
 import safetensors
 
 class PI(Algo):
@@ -46,6 +60,7 @@ class PI(Algo):
         self,
         data_schematic,
         camera_transforms,
+        domains,
         # ---------------------------
         # Image augmentations
         # ---------------------------
@@ -57,6 +72,7 @@ class PI(Algo):
         config,
         # ---------------------------
         ac_keys,
+        action_converters,
         **kwargs
     ):
         self.nets = nn.ModuleDict()
@@ -65,15 +81,60 @@ class PI(Algo):
         self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
         self.eval_image_augs = eval_image_augs
+        if "image_resolution" in kwargs:
+            self.image_resolution = kwargs["image_resolution"]
+        self.pi_cam_keys = kwargs.get("pi_cam_keys", ["base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb"])
         self.config = config
         
         self.ac_keys = ac_keys
+        
+        self.domains = domains
         
         local_rank = int(os.environ.get("LOCAL_RANK", os.environ.get("RANK", "0")))
         self.device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
         if torch.cuda.is_available():
             torch.cuda.set_device(self.device)
         
+        self.camera_keys = {}
+        self.proprio_keys = {}
+        self.lang_keys = {}
+        
+        for embodiment in self.domains:
+            embodiment_id = get_embodiment_id(embodiment)
+            self.camera_keys[embodiment_id] = []
+            self.proprio_keys[embodiment_id] = []
+            self.lang_keys[embodiment_id] = []
+            for key in data_schematic.keys_of_type("action_keys"):
+                if data_schematic.is_key_with_embodiment(key, embodiment_id) and key == self.ac_keys[embodiment]:
+                    self.ac_keys[embodiment_id] = key
+            for key in data_schematic.keys_of_type("camera_keys"):
+                if data_schematic.is_key_with_embodiment(key, embodiment_id):
+                    self.camera_keys[embodiment_id].append(key)
+            for key in data_schematic.keys_of_type("proprio_keys"):
+                if data_schematic.is_key_with_embodiment(key, embodiment_id):
+                    self.proprio_keys[embodiment_id].append(key)
+            for key in data_schematic.keys_of_type("lang_keys"):
+                if data_schematic.is_key_with_embodiment(key, embodiment_id):
+                    self.lang_keys[embodiment_id].append(key)
+        
+        self.num_steps = getattr(self.config, "num_sampling_steps", 10)
+        self.is_6dof = kwargs.get("is_6dof", True)
+        
+        self.action_converters = action_converters
+        
+        self.action_registry = ConverterRegistry()
+        
+        arcfg = self.action_converters  
+        default_ac_key = getattr(arcfg, "ac_key", "actions_cartesian")
+
+        for emb_name, conv_obj in arcfg.rules.items():
+            emb_id = get_embodiment_id(emb_name)
+            self.action_registry.register(emb_id, self.ac_keys[emb_id], conv_obj)
+
+        fb_obj = arcfg.fallback
+        self.action_registry.register("*", default_ac_key, fb_obj)
+        self.action_registry.register("*", "*", fb_obj)
+            
         model_cfg = openpi.models.pi0_config.Pi0Config(
             dtype=self.config.pytorch_training_precision,
             action_dim=self.config.model.action_dim,
@@ -107,7 +168,6 @@ class PI(Algo):
         processed_batch = {}
         
         for embodiment_id, _batch in batch.items():
-            breakpoint()
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
                 key_name = self.data_schematic.lerobot_key_to_keyname(key, embodiment_id)
@@ -135,12 +195,31 @@ class PI(Algo):
         Returns:
             predictions (dict): {ac_key: torch.Tensor (B, Seq, D), loss_key_name: torch.Tensor (1)}
         """
-
+        # self.nets["policy"].train()
         predictions = OrderedDict()
+        for embodiment_id, _batch in batch.items():
+            cam_keys = self.camera_keys[embodiment_id]
+            proprio_keys = self.proprio_keys[embodiment_id]
+            lang_keys = self.lang_keys[embodiment_id]
+            ac_key = self.ac_keys[embodiment_id]
+            embodiment_name = get_embodiment(embodiment_id).lower()
+            processed_obs, action = self._robomimic_to_pi_data(_batch, self.pi_cam_keys, proprio_keys, lang_keys, ac_key, embodiment_name)
 
+            losses = self.nets["policy"].forward(processed_obs, action)
+            
+            if isinstance(losses, list | tuple):
+                losses = torch.stack(losses)
+            elif not isinstance(losses, torch.Tensor):
+                losses = torch.tensor(losses, device=device, dtype=torch.float32)
+
+            loss = losses.mean()
+
+            predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
+            predictions[f"{embodiment_name}_loss"] = loss
+        
         return predictions
 
-    @override     
+    @override
     def forward_eval(self, batch):
         """
         Compute forward pass and return network outputs in @predictions dict.
@@ -152,8 +231,38 @@ class PI(Algo):
             unnorm_preds (dict): {<embodiment_name>_<ac_key>: torch.Tensor (B, Seq, D)}
         """
         unnorm_preds = {}
+        with torch.no_grad():
+            for embodiment_id, _batch in batch.items():
+                cam_keys = self.camera_keys[embodiment_id]
+                proprio_keys = self.proprio_keys[embodiment_id]
+                lang_keys = self.lang_keys[embodiment_id]
+                ac_key = self.ac_keys[embodiment_id]
+                embodiment_name = get_embodiment(embodiment_id).lower()
+                processed_obs, action = self._robomimic_to_pi_data(_batch, self.pi_cam_keys, proprio_keys, lang_keys, ac_key, embodiment_name)
+                
+                pred_actions = self.nets["policy"].sample_actions(
+                        device=self.device,
+                        observation=processed_obs,
+                        noise=None,
+                        num_steps=self.num_steps,
+                    )
+
+                predictions = OrderedDict()
+                ref = _batch[ac_key]
+                B, T, D = ref.shape
+                
+                converter = self.action_registry.get(embodiment_id, ac_key)
+                pred_actions_orig = converter.from32(pred_actions)
+                
+                pred = pred_actions_orig[:, :T, :D]
+                predictions[ac_key] = pred
+
+                unnorm_actions = self.data_schematic.unnormalize_data(predictions, embodiment_id)
+                for key in unnorm_actions:
+                    unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
+
         return unnorm_preds
-    
+        
     @override
     def forward_eval_logging(self, batch):
         """
@@ -169,6 +278,25 @@ class PI(Algo):
         preds = self.forward_eval(batch)
         metrics = {}
         images_dict = {}
+        mse = MeanSquaredError()
+        for embodiment_id, _batch in batch.items():
+            _batch = self.data_schematic.unnormalize_data(_batch, embodiment_id)
+            embodiment_name = get_embodiment(embodiment_id).lower()
+            ac_key = self.ac_keys[embodiment_id]
+            pred_key = f"{embodiment_name}_{ac_key}"
+            if pred_key in preds:
+                
+                metrics[f"Valid/{pred_key}_paired_mse_avg"] = mse(
+                    preds[pred_key].cpu(),
+                    _batch[ac_key].cpu()
+                )
+                metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
+                    preds[pred_key][:, -1].cpu(),
+                    _batch[ac_key][:, -1].cpu()
+                )
+                
+            ims = self.visualize_preds(preds, _batch)
+            images_dict[embodiment_id] = ims
         return metrics, images_dict
     
     @override
@@ -180,8 +308,38 @@ class PI(Algo):
             batch (dict): {ac_key: torch.Tensor (B, Seq, D), front_img_1: torch.Tensor (B, 3, H, W), embodiment: torch.Tensor (1)}
         Returns:
             ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
-        """
-        ims = {}
+        """        
+        embodiment_id = batch["embodiment"][0].item()
+        embodiment_name = get_embodiment(embodiment_id).lower()
+        ac_key = self.ac_keys[embodiment_id]
+        
+        viz_img_key = self.data_schematic.viz_img_key()[embodiment_id]
+        ims = (batch[viz_img_key].cpu().numpy().transpose((0, 2, 3, 1)) * 255).astype(np.uint8)
+        
+        for key in batch:
+            if f"{embodiment_name}_{key}" in predictions:
+                preds = predictions[f"{embodiment_name}_{key}"]
+                gt = batch[key]
+                
+                if self.is_6dof and ac_key == "actions_cartesian":
+                    gt, gt_rot = self._extract_xyz(gt)
+                    preds, preds_rot = self._extract_xyz(preds)
+                
+                for b in range(ims.shape[0]):
+                    if preds.shape[-1] == 7 or preds.shape[-1] == 14:
+                        ac_type = "joints"
+                    elif preds.shape[-1] == 3 or preds.shape[-1] == 6:
+                        ac_type = "xyz"
+                    else:
+                        raise ValueError(f"Unknown action type with shape {preds.shape}")
+
+                    arm = "right" if preds.shape[-1] == 7 or preds.shape[-1] == 3 else "both"
+                    ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
+                    ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
+                    
+                    if self.is_6dof and ac_key == "actions_cartesian":
+                        ims[b] = draw_rotation_text(ims[b], gt_rot[b][0], preds_rot[b][0], position=(340, 20))
+                        
         return ims
     
     
@@ -197,9 +355,17 @@ class PI(Algo):
             losses (dict): dictionary of losses computed over the batch
                 loss_key_name: torch.Tensor (1)
         """
-        total_action_loss = torch.tensor(0.0, device=self.device)
         loss_dict = OrderedDict()
+        total_action_loss = torch.tensor(0.0, device=self.device)
+
+        for embodiment_id, _batch in batch.items():
+            embodiment_name = get_embodiment(embodiment_id).lower()
+            bc_loss = predictions[f"{embodiment_name}_loss"]
+            total_action_loss += bc_loss
+            loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
+
         loss_dict["action_loss"] = total_action_loss
+
         return loss_dict
 
         
@@ -222,20 +388,68 @@ class PI(Algo):
         if "policy_grad_norms" in info:
             log["Policy_Grad_Norms"] = info["policy_grad_norms"]
         return log
+    
+    def _robomimic_to_pi_data(self, batch, cam_keys, proprio_keys, lang_keys, ac_key, embodiment):
+        """
+        """
+        if ac_key not in batch:
+            raise KeyError(f"Missing action key '{ac_key}' in batch")
 
-    def _robomimic_to_pi_data(self, batch, cam_keys, proprio_keys, lang_keys, ac_key):
-        data = {}
-        data["action"] = batch[ac_key]
-        for key in cam_keys:
-            if key in batch:
-                _data = batch[key]
-                if not torch.all(_data == 0):
-                    if self.nets.training and key in self.encoders:
-                        _data = self.train_image_augs(_data)
-                    elif self.eval_image_augs and key in self.encoders:
-                        _data = self.eval_image_augs(_data)
-
+        action = batch[ac_key]
         
+        device = action.device
+        
+        present_flags = {k: (k in batch and isinstance(batch[k], torch.Tensor) and batch[k].ndim == 4)
+                        for k in cam_keys}
+        
+        emb_id = get_embodiment_id(embodiment)           # embodiment is a name string
+        converter = self.action_registry.get(emb_id, ac_key)
+        action32 = converter.to32(action)
+        
+        raw_images = _fill_missing_images(batch, cam_keys, device)
+
+        # ---- Images (dict[str, Tensor]) ----
+        images = {}
+        for k in cam_keys:
+            # keep your loop style, but pull from raw_images (always present)
+            img = _ensure_bchw(raw_images[k])   # ensure BCHW
+            img = _to_minus1_1(img)             # normalize to [-1, 1]
+            images[k] = img
+
+        if not images:
+            raise ValueError("No camera tensors found for the provided cam_keys.")
+
+        # ---- Proprio -> state [B, D] ----
+        state = _concat_proprio(batch, proprio_keys, device)
+        if state.numel() == 0:
+            B = next(iter(images.values())).shape[0]
+            state = torch.zeros(B, 0, device=device)
+        else:
+            B = state.shape[0]
+
+        # ---- Masks for duplicated images + empty language fields ----
+        image_masks = {
+            k: (torch.ones(B, dtype=torch.bool, device=device) if present_flags[k]
+                else torch.zeros(B, dtype=torch.bool, device=device))
+            for k in images.keys()
+        }
+        
+        tokenized_prompt, tokenized_prompt_mask, token_ar_mask, token_loss_mask = _empty_lang_placeholders(B, device)
+
+        # ---- Wrap into simple observation (helpers) ----
+        observation = _SimpleObservation(
+            images=images,
+            image_masks=image_masks,
+            state=state,
+            tokenized_prompt=tokenized_prompt,
+            tokenized_prompt_mask=tokenized_prompt_mask,
+            token_ar_mask=token_ar_mask,
+            token_loss_mask=token_loss_mask,
+        )
+
+        # Do NOT call _preprocessing here; the PI model does it internally.
+        return observation, action32
+
     def _clone_batch(self, batch):
         """ Recursively clones all tensors inside a nested dictionary. """
         if isinstance(batch, dict):
@@ -244,7 +458,7 @@ class PI(Algo):
             return batch.clone()
         else:
             return batch  # Return as is for non-tensor types
-        
+    
     def _extract_xyz(self, x):
         """
         Extract xyz (3D position) and rotation from 6DoF or 6DoF+gripper actions.

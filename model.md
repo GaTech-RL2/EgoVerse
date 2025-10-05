@@ -27,7 +27,7 @@ Navigate to [`./egomimic/hydra_configs/train.yaml`](./egomimic/hydra_configs/tra
 
 ```yaml
 data_schematic: # Dynamically fill in these shapes from the dataset
-  _target_: rldb.utils.DataSchematic
+  _target_: egomimic.rldb.utils.DataSchematic
   schematic_dict:
     eve_right_arm:
       front_img_1: #batch key
@@ -69,7 +69,7 @@ Modify this to your new embodiment. Note that the name of the embodiment should 
 
 ```yaml
 data_schematic:
-  _target_: rldb.utils.DataSchematic
+  _target_: egomimic.rldb.utils.DataSchematic
   schematic_dict:
     my_new_embodiment:
       front_img_1: #batch key - This corresponds to what you want the key to be called in the batch

@@ -7,7 +7,7 @@ train_datasets:
         _target_: rldb.utils.FolderRLDBDataset
         folder_path: /coc/cedarp-dxu345-0/datasets/egoverse/put_cup_on_saucer_egoverse/put_cup_on_saucer_rl2
         embodiment: aria_bimanual
-        mode: total
+        mode: train
         local_files_only: true
     embodiment: aria_bimanual
 
@@ -19,16 +19,16 @@ valid_datasets:
         _target_: rldb.utils.FolderRLDBDataset
         folder_path: /coc/cedarp-dxu345-0/datasets/egoverse/put_cup_on_saucer_egoverse/put_cup_on_saucer_song
         embodiment: aria_bimanual
-        mode: total
+        mode: valid
         local_files_only: true
     embodiment: "aria_bimanual"
 
 train_dataloader_params:
   dataset1:
-    batch_size: 32
+    batch_size: 2
     num_workers: 10
 
 valid_dataloader_params:
   dataset1:
-    batch_size: 32
+    batch_size: 2
     num_workers: 10
