@@ -1,0 +1,67 @@
+running egg_info
+creating ../build/eva/eva.egg-info
+writing ../build/eva/eva.egg-info/PKG-INFO
+writing dependency_links to ../build/eva/eva.egg-info/dependency_links.txt
+writing entry points to ../build/eva/eva.egg-info/entry_points.txt
+writing requirements to ../build/eva/eva.egg-info/requires.txt
+writing top-level names to ../build/eva/eva.egg-info/top_level.txt
+writing manifest file '../build/eva/eva.egg-info/SOURCES.txt'
+reading manifest file '../build/eva/eva.egg-info/SOURCES.txt'
+writing manifest file '../build/eva/eva.egg-info/SOURCES.txt'
+running build
+running build_py
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+copying eva/real_env.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+copying eva/eva_ik.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+copying eva/robot_node.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+copying eva/vr_controller.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+copying eva/stream_aria_ros.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+copying eva/__init__.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+copying eva/data_collection_node.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+copying eva/replay_node.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva
+running install
+running install_lib
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+copying /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva/real_env.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+copying /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva/eva_ik.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+copying /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva/robot_node.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+copying /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva/vr_controller.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+copying /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva/stream_aria_ros.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+copying /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva/__init__.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+copying /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva/data_collection_node.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+copying /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/build/lib/eva/replay_node.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva
+byte-compiling /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva/real_env.py to real_env.cpython-310.pyc
+byte-compiling /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva/eva_ik.py to eva_ik.cpython-310.pyc
+byte-compiling /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva/robot_node.py to robot_node.cpython-310.pyc
+byte-compiling /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva/vr_controller.py to vr_controller.cpython-310.pyc
+byte-compiling /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva/stream_aria_ros.py to stream_aria_ros.cpython-310.pyc
+byte-compiling /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva/__init__.py to __init__.cpython-310.pyc
+byte-compiling /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva/data_collection_node.py to data_collection_node.cpython-310.pyc
+byte-compiling /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva/replay_node.py to replay_node.cpython-310.pyc
+running install_data
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/ament_index
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/ament_index/resource_index
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/ament_index/resource_index/packages
+copying resources/eva -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/ament_index/resource_index/packages
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/launch
+copying launch/aria_realsense.launch.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/launch
+copying launch/eva_bringup.launch.py -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/launch
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/config
+copying config/rs_cam.yaml -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/config
+copying config/topics.yaml -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/config
+copying config/configs.yaml -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/config
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/config/task_config
+copying config/task_config/test_task.yaml -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/config/task_config
+creating /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva/hardware
+copying package.xml -> /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/share/eva
+running install_egg_info
+Copying ../build/eva/eva.egg-info to /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/python3.10/site-packages/eva-0.0.0-py3.10.egg-info
+running install_scripts
+Installing data_collection_node script to /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/eva
+Installing eva_ik script to /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/eva
+Installing robot_node script to /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/eva
+Installing stream_aria_ros script to /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/eva
+Installing vr_controller script to /home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/install/eva/lib/eva
+writing list of installed files to '/home/rl2-bonjour/EgoVerse_New/EgoVerse/Robot/Eva/build/eva/install.log'

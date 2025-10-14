@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>eva</name>
+  <version>0.0.0</version>
+  <description>Clean ROS2 package for Eva teleop and data capture (no changes to originals)</description>
+  <maintainer email="user@example.com">Eva User</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>realsense2_camera</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>pyyaml</exec_depend>
+
+  <!-- External libraries these nodes expect at runtime -->
+  <exec_depend>projectaria_tools</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
+
+

@@ -1,0 +1,7 @@
+urdf: /home/rl2-bonjour/Eva_Clean/EgoVerse-Eva/resources/ARX_Model/X5A/urdf/X5A.urdf
+topic_prefix_out: eva_ik
+ik_rate: 50.0
+interfaces:
+  left: can1
+  right: can2
+ts_offset: 0.4

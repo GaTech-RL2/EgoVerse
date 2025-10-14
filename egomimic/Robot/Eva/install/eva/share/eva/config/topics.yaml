@@ -1,0 +1,52 @@
+vr_prefix: "/vr"
+ik_prefix: "/eva_ik"
+robot_prefix: "/eva"
+
+cameras:
+  aria: 
+    topic: "/cam_high"
+    enabled: true
+    encoding: "rgb8"
+    width: 640
+    height: 480
+  realsense_left:
+    topic: "/cam_left/camera/color/image_rect_raw"
+    enabled: true
+    encoding: "rgb8"
+    width: 640
+    height: 480
+  realsense_right:
+    topic: "/cam_right/camera/color/image_rect_raw"
+    enabled: true
+    encoding: "rgb8"
+    width: 640
+    height: 480
+
+arms:
+  r:
+    robot_joint_topic: "/eva/r/joints"
+    ik_joint_topic: "/eva_ik/r/joint_state"
+    ik_ee_topic: "/eva_ik/r/target_ee_pose"
+    enabled: true
+  l:
+    robot_joint_topic: "/eva/l/joints"
+    ik_joint_topic: "/eva_ik/l/joint_state"
+    ik_ee_topic: "/eva_ik/l/target_ee_pose"
+    enabled: true
+
+# ik:
+#   r:
+#     topic: ""
+#     enabled: true
+#   l:
+#     topic: ""
+#     enabled: true
+# vr:
+#   topic: ""
+
+# Booleans derived from VR buttons
+save_demo_topic: "/vr/save_demo"
+delete_demo_topic: "/vr/delete_demo"
+button_a_topic: "/vr/button_a"
+
+

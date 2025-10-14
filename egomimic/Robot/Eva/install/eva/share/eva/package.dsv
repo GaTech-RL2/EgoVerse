@@ -1,0 +1,6 @@
+source;share/eva/hook/pythonpath.ps1
+source;share/eva/hook/pythonpath.dsv
+source;share/eva/hook/pythonpath.sh
+source;share/eva/hook/ament_prefix_path.ps1
+source;share/eva/hook/ament_prefix_path.dsv
+source;share/eva/hook/ament_prefix_path.sh

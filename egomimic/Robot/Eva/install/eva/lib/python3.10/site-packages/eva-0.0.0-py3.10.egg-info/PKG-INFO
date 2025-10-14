@@ -1,0 +1,14 @@
+Metadata-Version: 2.1
+Name: eva
+Version: 0.0.0
+Summary: ROS2 nodes and launches mirroring existing Eva stack (no modifications to originals).
+Home-page: UNKNOWN
+Author: Eva
+Author-email: user@example.com
+Maintainer: Eva
+Maintainer-email: user@example.com
+License: BSD
+Platform: UNKNOWN
+
+UNKNOWN
+
