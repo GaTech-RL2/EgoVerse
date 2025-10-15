@@ -1,0 +1,37 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  dataset1:
+    _target_: rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    mode: train
+    embodiment: "ARIA_BIMANUAL"
+    filters: 
+      lab: "eth"
+      scene: "scene_10"
+      task: "fold_cloth/"
+    local_files_only: True
+    fresh_download: False
+
+valid_datasets:
+  dataset1:
+    _target_: rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    mode: valid
+    embodiment: "ARIA_BIMANUAL"
+    filters: 
+      lab: "eth"
+      scene: "scene_10"
+      task: "fold_cloth/"
+    local_files_only: True
+    fresh_download: False
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
