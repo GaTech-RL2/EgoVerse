@@ -24,6 +24,8 @@ from rldb.utils import DataSchematic
 
 import os
 
+torch.set_float32_matmul_precision("high")  # or "medium"
+
 # DEBUG
 # os.environ["HYDRA_FULL_ERROR"] = '1'
 

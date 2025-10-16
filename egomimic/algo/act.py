@@ -395,10 +395,21 @@ class ACT(Algo):
                 ac_type = "joints"
             elif preds.shape[-1] == 3 or preds.shape[-1] == 6:
                 ac_type = "xyz"
+            elif preds.shape[-1] == 34:
+                # Handle 34D action space - likely high-dimensional joint space or multi-robot setup
+                # For visualization, we'll treat this as a joint-based action
+                ac_type = "joints"
             else:
-                raise ValueError(f"Unknown action type with shape {preds.shape}")
+                # For unknown action dimensions, skip visualization instead of crashing
+                print(f"Warning: Unknown action type with shape {preds.shape}, skipping visualization")
+                continue
 
-            arm = "right" if preds.shape[-1] == 7 or preds.shape[-1] == 3 else "both"
+            if preds.shape[-1] == 7 or preds.shape[-1] == 3:
+                arm = "right"
+            elif preds.shape[-1] == 34:
+                arm = "both"  # Assume both arms or complex multi-robot setup
+            else:
+                arm = "both"
             ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
 
             ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)

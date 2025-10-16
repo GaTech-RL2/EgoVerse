@@ -18,6 +18,7 @@ import pyarrow.parquet as pq
 import huggingface_hub
 import math
 import argparse
+from scipy.spatial.transform import Rotation as R
 
 STD_SCALE = 0.02
 
@@ -25,7 +26,7 @@ ARIA_INTRINSICS = np.array(
     [
         [133.25430222 * 2, 0.0, 320, 0],
         [0.0, 133.25430222 * 2, 240, 0],
-        [0.0, 0.0, 1.0, 0],
+        [0.0, 0.0, 1.0, 0]
     ]
 )
 
@@ -91,6 +92,26 @@ EXTRINSICS = {
        [ 0.14357562,  0.67977239,  0.71923261, -0.36191491],
        [ 0.        ,  0.        ,  0.        ,  1.        ]])
     },
+    "ethSep18": {
+        "aria_to_base_1": np.array([[ 4.16025427e-05, -4.99073078e-01,  8.66559901e-01,  1.99337047e-01],
+        [-9.70235037e-01,  2.09830483e-01,  1.20893096e-01,  3.46029684e-01],
+        [-2.42165172e-01, -8.40771807e-01, -4.84209457e-01,  4.38189772e-01],
+        [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]]),
+        "aria_to_base_2": np.array([[ 0.02933941, -0.83227828,  0.55358113,  0.17515134],
+        [-0.99642232,  0.01956109,  0.0822187 ,  0.34649483],
+        [-0.07925749, -0.55401284, -0.82872675,  0.46895363],
+        [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    },
+    "ethOct14": {
+        "left_cam": np.array([[-0.02199727, -0.80581615,  0.59175708,  0.20403467],
+                                [-0.99905014,  0.03998766,  0.01731508, -0.25486327],
+                                [-0.03761575, -0.59081411, -0.80593036,  0.43379187],
+                                [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+        "right_cam": np.array([[ 0.02933941, -0.83227828,  0.55358113,  0.17515134],
+                                [-0.99642232,  0.01956109,  0.0822187 ,  0.34649483],
+                                [-0.07925749, -0.55401284, -0.82872675,  0.46895363],
+                                [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    }
 }
 
 INTRINSICS = {
@@ -201,25 +222,57 @@ def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both"):
     returns
         im: (H, W, C)
     """
+    left_extrinsics = extrinsics["left_cam"]
+    right_extrinsics = extrinsics["right_cam"] # aria_to_base_2 is only for right arm
     aloha_fk = AlohaFK()
     if type == "joints": 
         if arm == "both":
             right_actions = aloha_fk.fk(actions[:, 7:13])
-            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            right_actions_drawable = ee_pose_to_cam_frame(right_actions, right_extrinsics)
             left_actions = aloha_fk.fk(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
+            left_actions_drawable = ee_pose_to_cam_frame(left_actions, left_extrinsics)
             actions_drawable = np.concatenate((left_actions_drawable, right_actions_drawable), axis=0)
         elif arm == "right":
             right_actions = aloha_fk.fk(actions[:, :6])
-            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            right_actions_drawable = ee_pose_to_cam_frame(right_actions, right_extrinsics)
             actions_drawable = right_actions_drawable
         elif arm == "left":
             left_actions = aloha_fk.fk(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
+            left_actions_drawable = ee_pose_to_cam_frame(left_actions, left_extrinsics)
             actions_drawable = left_actions_drawable
     else:
-        actions = actions.reshape(-1, 3)
-        actions_drawable = actions
+        # draw left and right arm separately
+        if arm == "right":
+            if actions.ndim == 1:
+                actions = actions.reshape(1, -1)
+            right_actions = actions[:, :3]
+            right_actions_drawable = ee_pose_to_cam_frame(right_actions, right_extrinsics)
+            actions_drawable = right_actions_drawable
+        elif arm == "both":
+            if actions.ndim == 1:
+                actions = actions.reshape(1, -1)
+            left_actions = actions[:, :3]
+            right_actions = actions[:, 3:6]
+            actions_drawable = np.concatenate((left_actions, right_actions), axis=0)
+
+            base_frame = True # TODO: add this to the config
+            if base_frame:
+                left_extrinsics = np.linalg.inv(left_extrinsics) # Need to use T_cam_base, base2cam
+                right_extrinsics = np.linalg.inv(right_extrinsics) # Need to use T_cam_base, base2cam
+
+                left_actions_drawable = ee_pose_to_cam_frame(left_actions, left_extrinsics)
+                right_actions_drawable = ee_pose_to_cam_frame(right_actions, right_extrinsics)
+                actions_drawable = np.concatenate((left_actions_drawable, right_actions_drawable), axis=0)
+        else:
+            raise NotImplementedError(f"Arm {arm} not implemented")
+        # left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics)
+        # right_actions_drawable = ee_pose_to_cam_frame(right_actions, right_extrinsics)
+
+        # actions = actions.reshape(-1, 3)
+        # actions_drawable = actions
+
+        # actions_drawable = np.concatenate((left_actions, right_actions), axis=0)
+        # actions_drawable = actions_drawable
     
     actions_drawable = cam_frame_to_cam_pixels(actions_drawable, intrinsics)
     im = draw_dot_on_frame(
@@ -316,7 +369,7 @@ def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
     N, _ = ee_pose_base.shape
     ee_pose_base = np.concatenate([ee_pose_base, np.ones((N, 1))], axis=1)
 
-    ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
+    ee_pose_grip_cam = T_cam_base @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
 
 def ee_orientation_to_cam_frame(ee_orientation_base, T_cam_base):
@@ -457,14 +510,10 @@ def cam_frame_to_cam_pixels(ee_pose_cam, intrinsics):
     """
     N, _ = ee_pose_cam.shape
     ee_pose_cam = np.concatenate([ee_pose_cam, np.ones((N, 1))], axis=1)
-    # print("3d pos in cam frame: ", ee_pose_cam)
 
-    # print("intrinsics: ", intrinsics.shape, ee_pose_cam.shape)
-    px_val = intrinsics @ ee_pose_cam.T
-    px_val = px_val / px_val[2, :]
-    # print("2d pos cam frame: ", px_val)
-
-    return px_val.T
+    points_2d_homo = np.dot(intrinsics, ee_pose_cam.T)
+    points_2d = points_2d_homo[:2] / points_2d_homo[2:3]
+    return points_2d.T
 
 
 def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=5):
@@ -478,10 +527,14 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
         pixel_vals = [pixel_vals]
 
     # get purples color palette, and color the circles accordingly
-    color_palette = plt.get_cmap(palette)
-    color_palette = color_palette(np.linspace(0, 1, len(pixel_vals)))
-    color_palette = (color_palette[:, :3] * 255).astype(np.uint8)
-    color_palette = color_palette.tolist()
+    # if value is "red" then make everything bright red
+    if palette == "red":
+        color_palette = [(255, 0, 0)] * len(pixel_vals)
+    else:
+        color_palette = plt.get_cmap(palette)
+        color_palette = color_palette(np.linspace(0, 1, len(pixel_vals)))
+        color_palette = (color_palette[:, :3] * 255).astype(np.uint8)
+        color_palette = color_palette.tolist()
 
     for i, pixel_val in enumerate(pixel_vals):
         try:
@@ -498,6 +551,83 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
             plt.imshow(frame)
             plt.show()
 
+    return frame
+
+
+def draw_coordinate_frame_3d(frame, origin_3d, intrinsics, axis_length=0.1, line_thickness=3):
+    """
+    Draw a 3D coordinate frame (X, Y, Z axes) on the image.
+    
+    Args:
+        frame: Image frame (H, W, C)
+        origin_3d: 3D origin point in camera frame (3,) - where to place the coordinate frame
+        intrinsics: Camera intrinsics (3, 4) or (3, 3)
+        axis_length: Length of axes in meters
+        line_thickness: Thickness of the drawn lines
+        
+    Returns:
+        frame: Image with coordinate frame drawn
+    """
+    frame = frame.copy()
+    
+    # Define axis directions in 3D (in camera coordinate system)
+    axes_3d = np.array([
+        [axis_length, 0, 0],  # X-axis (Red)
+        [0, axis_length, 0],  # Y-axis (Green)  
+        [0, 0, axis_length]   # Z-axis (Blue)
+    ])
+    
+    # Add axes to origin
+    axes_endpoints_3d = origin_3d.reshape(1, 3) + axes_3d  # (3, 3)
+    origin_3d = origin_3d.reshape(1, 3)  # (1, 3)
+    
+    # Project to 2D using the same projection as cam_frame_to_cam_pixels
+    if intrinsics.shape[1] == 4:  # (3, 4) intrinsics
+        # Project origin
+        origin_homo = np.concatenate([origin_3d, np.ones((1, 1))], axis=1)  # (1, 4)
+        origin_2d_homo = intrinsics @ origin_homo.T  # (3, 1)
+        origin_2d = (origin_2d_homo[:2] / origin_2d_homo[2:3]).T  # (1, 2)
+        
+        # Project axes endpoints
+        axes_homo = np.concatenate([axes_endpoints_3d, np.ones((3, 1))], axis=1)  # (3, 4)
+        axes_2d_homo = intrinsics @ axes_homo.T  # (3, 3)
+        axes_2d = (axes_2d_homo[:2] / axes_2d_homo[2:3]).T  # (3, 2)
+    else:  # (3, 3) intrinsics
+        # Project origin
+        origin_2d_homo = intrinsics @ origin_3d.T  # (3, 1)
+        origin_2d = (origin_2d_homo[:2] / origin_2d_homo[2:3]).T  # (1, 2)
+        
+        # Project axes endpoints
+        axes_2d_homo = intrinsics @ axes_endpoints_3d.T  # (3, 3)
+        axes_2d = (axes_2d_homo[:2] / axes_2d_homo[2:3]).T  # (3, 2)
+    
+    # Colors for X, Y, Z axes (BGR format for OpenCV)
+    colors = [(0, 0, 255), (0, 255, 0), (255, 0, 0)]  # Red, Green, Blue
+    axis_labels = ['X', 'Y', 'Z']
+    
+    h, w = frame.shape[:2]
+    origin_2d_int = origin_2d[0].astype(int)
+    
+    # Check if origin is in frame
+    if 0 <= origin_2d_int[0] < w and 0 <= origin_2d_int[1] < h:
+        # Draw each axis
+        for i, (axis_2d, color, label) in enumerate(zip(axes_2d, colors, axis_labels)):
+            axis_2d_int = axis_2d.astype(int)
+            
+            # Check if endpoint is reasonable (not too far out of frame)
+            if (-w < axis_2d_int[0] < 2*w and -h < axis_2d_int[1] < 2*h):
+                # Draw arrow line
+                cv2.arrowedLine(frame, 
+                               tuple(origin_2d_int), 
+                               tuple(axis_2d_int), 
+                               color, line_thickness, tipLength=0.3)
+                
+                # Add axis label
+                label_pos = axis_2d_int + np.array([5, 5])  # Offset label slightly
+                if 0 <= label_pos[0] < w and 0 <= label_pos[1] < h:
+                    cv2.putText(frame, label, tuple(label_pos), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+    
     return frame
 
 

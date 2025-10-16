@@ -15,7 +15,7 @@ from egomimic.algo.algo import Algo
 from egomimic.utils.egomimicUtils import draw_actions
 
 from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table, EinOpsRearrange, download_from_huggingface, STD_SCALE
-from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text
+from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text, draw_coordinate_frame_3d
 
 import numpy as np
 
@@ -1115,25 +1115,56 @@ class HPT(Algo):
             if f"{embodiment_name}_{key}" in predictions:
                 preds = predictions[f"{embodiment_name}_{key}"]
                 gt = batch[key]
+                # ee_pose = batch['ee_pose'] # (B, 6) visualize these too
+                cartesian_arm = batch['cartesian_arm'] # (B, 6)
 
-                if self.is_6dof and ac_key == "actions_cartesian":
+                if self.is_6dof and key == "actions_cartesian":
                     gt, gt_rot = self._extract_xyz(gt)
                     preds, preds_rot = self._extract_xyz(preds)
                 
+                    # If we are using ee_frame, where gt and preds are deltas in ee frame, need to add the offset to gt and preds
+                    ee_frame = True
+                    if ee_frame:
+                        # cartesian arm is (B, 14), xyz quat xyz quat, just take :3 and then 6:9
+                        print(f"cartesian_arm: {cartesian_arm.shape}")
+                        cartesian_arm = torch.cat([cartesian_arm[:, :3], cartesian_arm[:, 7:10]], dim=-1) # (B, 6)
+                        print(f"cartesian_arm: {cartesian_arm.shape}")
+                        cartesian_arm = cartesian_arm.unsqueeze(1) # (B, 1, 6)
+                        gt = gt + cartesian_arm
+                        preds = preds + cartesian_arm
+
                 for b in range(ims.shape[0]):
                     if preds.shape[-1] == 7 or preds.shape[-1] == 14:
                         ac_type = "joints"
                     elif preds.shape[-1] == 3 or preds.shape[-1] == 6:
                         ac_type = "xyz"
                     else:
-                        raise ValueError(f"Unknown action type with shape {preds.shape}")
+                        # raise ValueError(f"Unknown action type with shape {preds.shape}")
+                        print(f"Unknown action type with shape {preds.shape}, skipping visualization")
+                        continue
 
                     arm = "right" if preds.shape[-1] == 7 or preds.shape[-1] == 3 else "both"
+                    
+
+
+                    # visualize the observations instead
+                    # ims[b] = draw_actions(ims[b], ac_type, "red", ee_pose[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
                     ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
                     ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
                     
-                    if self.is_6dof and ac_key == "actions_cartesian":
+                    if self.is_6dof and key == "actions_cartesian":
                         ims[b] = draw_rotation_text(ims[b], gt_rot[b][0], preds_rot[b][0], position=(340, 20))
+                    
+                    # Draw 3D coordinate frame to show the coordinate system
+                    # Place it at a fixed location in front of the camera
+                    coordinate_frame_origin = np.array([0.0, 0.0, 0.5])  # 50cm in front of camera
+                    ims[b] = draw_coordinate_frame_3d(
+                        ims[b], 
+                        coordinate_frame_origin, 
+                        self.camera_transforms.intrinsics, 
+                        axis_length=0.1,  # 10cm axes
+                        line_thickness=2
+                    )
         return ims
     
     
