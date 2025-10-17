@@ -10,8 +10,8 @@ train_datasets:
       lab: "eth"
       scene: "scene_10"
       task: "fold_cloth/"
+      recording: "recording_1"
     local_files_only: True
-    fresh_download: False
 
 valid_datasets:
   dataset1:
@@ -23,8 +23,8 @@ valid_datasets:
       lab: "eth"
       scene: "scene_10"
       task: "fold_cloth/"
+      recording: "recording_1"
     local_files_only: True
-    fresh_download: False
 
 train_dataloader_params:
   dataset1:
