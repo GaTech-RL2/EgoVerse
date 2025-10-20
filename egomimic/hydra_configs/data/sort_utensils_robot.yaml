@@ -9,12 +9,17 @@ train_datasets:
         root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_sort_utensils/lerobot_6dof_1"
         local_files_only: true
         mode: train
+        use_task_string: true
+        task_string: put the utensils in the drawer
       setB:
         _target_: rldb.utils.RLDBDataset
         repo_id: "setB"
         root: "/nethome/rpunamiya6/cedar-dx/datasets/egoverse/eve_sort_utensils/lerobot_6dof_2"
         local_files_only: true
         mode: train
+        use_task_string: true
+        task_string: put the utensils in the drawer
+
     embodiment: "eve_left_arm"
 
 valid_datasets:

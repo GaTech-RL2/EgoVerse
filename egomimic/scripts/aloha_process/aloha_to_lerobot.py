@@ -35,7 +35,7 @@ from enum import Enum
 os.environ["HF_HOME"] = "/storage/cedar/cedar0/cedarp-dxu345-0/rpunamiya6/.cache/huggingface"
 
 DATASET_KEY_MAPPINGS = {
-    "qpos" : "joint_positions",
+    "joint_positions" : "joint_positions",
     "cam_high" : "front_img_1",
     "cam_right_wrist" : "right_wrist_img",
     "cam_left_wrist" : "left_wrist_img"
@@ -418,10 +418,10 @@ class AlohaHD5Extractor:
         ------
         ValueError
             If the episode_list is empty.
-            If any HDF5 file is missing required keys '/action' or '/observations/qpos'.
-            If the '/action' or '/observations/qpos' keys do not have 2 dimensions.
-            If the number of frames in '/action' and '/observations/qpos' keys do not match.
-            If the number of frames in '/observations/images/{camera}' does not match the number of frames in '/action' and '/observations/qpos'.
+            If any HDF5 file is missing required keys '/action' or '/observations/joint_positions'.
+            If the '/action' or '/observations/joint_positions' keys do not have 2 dimensions.
+            If the number of frames in '/action' and '/observations/joint_positions' keys do not match.
+            If the number of frames in '/observations/images/{camera}' does not match the number of frames in '/action' and '/observations/joint_positions'.
             If the dimensions of images do not match the expected dimensions based on the image_compressed flag.
             If uncompressed images do not have the expected (h, w, c) format.
         """
@@ -430,23 +430,23 @@ class AlohaHD5Extractor:
             raise ValueError("No hdf5 files found in the raw directory. Make sure they are named 'episode_*.hdf5'")
         for episode_path in episode_list:
             with h5py.File(episode_path, "r") as data:
-                if not all(key in data for key in ["/action", "/observations/qpos"]):
+                if not all(key in data for key in ["/action", "/observations/joint_positions"]):
                     raise ValueError(
-                        "Missing required keys in the hdf5 file. Make sure the keys '/action' and '/observations/qpos' are present."
+                        "Missing required keys in the hdf5 file. Make sure the keys '/action' and '/observations/joint_positions' are present."
                     )
 
-                if not data["/action"].ndim == data["/observations/qpos"].ndim == 2:
-                    raise ValueError("The '/action' and '/observations/qpos' keys should have both 2 dimensions.")
+                if not data["/action"].ndim == data["/observations/joint_positions"].ndim == 2:
+                    raise ValueError("The '/action' and '/observations/joint_positions' keys should have both 2 dimensions.")
 
-                if (num_frames := data["/action"].shape[0]) != data["/observations/qpos"].shape[0]:
+                if (num_frames := data["/action"].shape[0]) != data["/observations/joint_positions"].shape[0]:
                     raise ValueError(
-                        "The '/action' and '/observations/qpos' keys should have the same number of frames."
+                        "The '/action' and '/observations/joint_positions' keys should have the same number of frames."
                     )
 
                 for camera in AlohaHD5Extractor.get_cameras(data):
                     if num_frames != data[f"/observations/images/{camera}"].shape[0]:
                         raise ValueError(
-                            f"The number of frames in '/observations/images/{camera}' should be the same as in '/action' and '/observations/qpos' keys."
+                            f"The number of frames in '/observations/images/{camera}' should be the same as in '/action' and '/observations/joint_positions' keys."
                         )
 
                     expected_dims = 2 if image_compressed else 4
@@ -682,7 +682,7 @@ class DatasetConverter:
 
         extrinsics = EXTRINSICS[self.extrinsics_key]
         processed_episode = AlohaHD5Extractor.process_episode(
-            episode_path=self.episode_list[0],
+            episode_path=self.episode_list[-1],
             arm=self.arm,
             extrinsics=extrinsics,
             prestack=self.prestack,
@@ -843,7 +843,7 @@ def argument_parse():
     # Optional arguments
     parser.add_argument("--description", type=str, default="Aloha recorded dataset.", help="Description of the dataset.")
     parser.add_argument("--arm", type=str, choices=["left", "right", "both"], default="both", help="Specify the arm for processing.")
-    parser.add_argument("--extrinsics-key", type=str, default="ariaJun7", help="Key to look up camera extrinsics.")
+    parser.add_argument("--extrinsics-key", type=str, default="ariaOct18_arx", help="Key to look up camera extrinsics.")
     parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
     parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
     parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
