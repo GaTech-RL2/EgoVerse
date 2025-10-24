@@ -19,3 +19,4 @@ echo '[ -s /etc/profile.d/nvm.sh ] && . /etc/profile.d/nvm.sh' \
 
 
 # really important fix here
+# some edits to setup_nvm
