@@ -7,7 +7,8 @@
 
     (Replace serial with your serial number)
 
-2. Build docker container: docker build -t robot-env:latest .
+2. Build docker container: 
+    docker build -t robot-env:latest .
 3. Start CAN: 
     sudo slcand -o -f -s8 /dev/eva_right_can can1 && sudo ifconfig can1 up
     sudo slcand -o -f -s8 /dev/eva_left_can can2 && sudo ifconfig can2 up

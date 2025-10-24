@@ -1,7 +1,0 @@
-[console_scripts]
-data_collection_node = eva.data_collection_node:main
-eva_ik = eva.eva_ik:main
-robot_node = eva.robot_node:main
-stream_aria_ros = eva.stream_aria_ros:main
-vr_controller = eva.vr_controller:main
-
