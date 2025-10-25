@@ -1,3 +1,6 @@
 [submodule "external/rldb"]
 	path = external/rldb
-	url = https://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@github.com/GaTech-RL2/rldb.git
+	url = git@github.com:GaTech-RL2/rldb.git
+[submodule "external/oculus_reader"]
+	path = external/oculus_reader
+	url = https://github.com/rail-berkeley/oculus_reader.git

@@ -1,0 +1,32 @@
+vr_prefix: "/vr"
+ik_prefix: "/eva_ik"
+robot_prefix: "/eva"
+
+arms:
+  r:
+    robot_joint_topic: "/eva/r/joints"
+    ik_joint_topic: "/eva_ik/r/joint_state"
+    ik_ee_topic: "/eva_ik/r/target_ee_pose"
+    enabled: true
+  l:
+    robot_joint_topic: "/eva/l/joints"
+    ik_joint_topic: "/eva_ik/l/joint_state"
+    ik_ee_topic: "/eva_ik/l/target_ee_pose"
+    enabled: true
+
+# ik:
+#   r:
+#     topic: ""
+#     enabled: true
+#   l:
+#     topic: ""
+#     enabled: true
+# vr:
+#   topic: ""
+
+# Booleans derived from VR buttons
+save_demo_topic: "/vr/save_demo"
+delete_demo_topic: "/vr/delete_demo"
+button_a_topic: "/vr/button_a"
+
+
