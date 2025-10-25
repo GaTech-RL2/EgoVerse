@@ -46,15 +46,15 @@ RUN pip install external/oculus_reader
 
 RUN bash -c "source /opt/ros/humble/setup.bash"
 
-RUN micromamba create -y -f /home/robot/robot_ws/egomimic/Robot/Eva/Stanford-Repo/conda_environments/py310_environment.yaml -n arx-py310 && \ 
+RUN micromamba create -y -f /home/robot/robot_ws/egomimic/robot/eva/stanford_repo/conda_environments/py310_environment.yaml -n arx-py310 && \ 
     micromamba clean --all --yes 
 
 SHELL ["micromamba", "run", "-n", "arx-py310", "/bin/bash", "-c"] 
 
-WORKDIR /home/robot/robot_ws/egomimic/Robot/Eva/Stanford-Repo 
+WORKDIR /home/robot/robot_ws/egomimic/robot/eva/stanford_repo 
 RUN mkdir build && cd build && cmake .. -DCMAKE_PREFIX_PATH=/opt/ros/humble -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ && make -j
 
-WORKDIR /home/robot/robot_ws/egomimic/Robot/Eva/Stanford-Repo/python
+WORKDIR /home/robot/robot_ws/egomimic/robot/eva/stanford_repo/python
 RUN mkdir /opt/ros/humble/lib/python3.10/site-packages/arx5
 RUN cp arx5_interface.cpython-310-x86_64-linux-gnu.so /opt/ros/humble/lib/python3.10/site-packages/arx5/arx5_interface.cpython-310-x86_64-linux-gnu.so
 
