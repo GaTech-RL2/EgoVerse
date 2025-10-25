@@ -41,3 +41,5 @@ psycopg
 ray
 geomloss
 tslearn
+sqlalchemy
+psycopg[binary]
