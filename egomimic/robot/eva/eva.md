@@ -15,13 +15,21 @@
 4. Run docker container: 
     docker run -it --privileged --network host --device /dev/eva_left_can --device /dev/eva_right_can -v=/dev/eva_left_can:/dev/eva_left_can -v=/dev/eva_right_can:/dev/eva_right_can robot-env:latest
 5. Configure ROS: 
-    cd /home/robot/robot_ws/egomimic/Robot/Eva/eva_ws
+    cd /home/robot/robot_ws/egomimic/robot/eva/eva_ws
     sudo colcon build
     source /opt/ros/humble/setup.bash
     source install/setup.bash
 6. Launch Eva: 
-    cd /home/robot/robot_ws/egomimic/Robot/Eva/
+    cd /home/robot/robot_ws/egomimic/robot/eva/
     bash teleop.sh
+        OR
+        export LD_LIBRARY_PATH=/root/.local/share/mamba/envs/arx-py310/lib:$LD_LIBRARY_PATH
+        cd /home/robot/robot_ws/egomimic/robot/eva/eva_ws/
+        source /opt/ros/humble/setup.bash
+        source install/setup.bash
+
+        ros2 launch eva eva_bringup.launch.py arm:=both
+
 
 
 Notes:

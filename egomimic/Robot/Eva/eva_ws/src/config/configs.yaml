@@ -1,7 +1,0 @@
-urdf: /home/robot/robot_ws/egomimic/Robot/Eva/eva_ws/src/resources/ARX_Model/X5A/urdf/X5A.urdf
-topic_prefix_out: eva_ik
-ik_rate: 50.0
-interfaces:
-  left: can2
-  right: can1
-ts_offset: 0.4
