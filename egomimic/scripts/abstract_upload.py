@@ -4,7 +4,7 @@ import tempfile
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from pathlib import Path
-
+from egomimic.utils.aws.aws_sql import TableRow
 import boto3
 
 
@@ -22,9 +22,11 @@ class UploadTemplate(ABC):
         self.directory_prompted = False
         self.local_dir = None
         
-        # Metadata configuration
+        # Metadata configuration - get keys from TableRow to ensure schema consistency
+        # Get metadata keys from TableRow fields (excluding auto-populated ones)
         self.metadata_keys = [
-            "operator", "lab", "task", "robot_name", "task_description", "scene", "objects"
+            field for field in TableRow.__dataclass_fields__.keys() 
+            if field not in ["episode_hash", "embodiment", "num_frames", "processed_path", "mp4_path", "is_eval", "eval_score", "eval_success"]
         ]
         
         # Auto-fill functionality
@@ -98,9 +100,10 @@ class UploadTemplate(ABC):
             self.batch_metadata_asked = True
             print(f"\nFound {len(self.file_paths)} files to upload.")
             
+            # Create dynamic prompt based on TableRow fields
+            field_names = ", ".join(self.metadata_keys)
             batch_prompt = (
-                "Do all files share the same metadata "
-                "(operator, lab, task, robot_name, task_description, scene, objects)? (y/N): "
+                f"Do all files share the same metadata ({field_names})? (y/N): "
             )
             response = input(batch_prompt)
             
@@ -110,7 +113,11 @@ class UploadTemplate(ABC):
                 print("Enter metadata that will be applied to ALL files:")
                 print("=" * 60)
                 
-                self.batch_metadata = {"embodiment": self.embodiment}
+                # Initialize batch metadata from TableRow structure
+                self.batch_metadata = {
+                    "embodiment": self.embodiment,
+                    "episode_hash": "",  # Will be set per file
+                }
                 
                 for key in self.metadata_keys:
                     value = self._collect_metadata_value(key)
@@ -130,6 +137,10 @@ class UploadTemplate(ABC):
             print(f"\nProcessing file: {file_path.name} (using batch metadata)")
         else:
             # Collect individual metadata for this file
+            submitted_metadata = {
+                "embodiment": self.embodiment,
+                "episode_hash": "",  # Will be set below
+            }
 
             print(f"\nFile: {file_path.name}")
             print("-" * 50)
@@ -156,7 +167,7 @@ class UploadTemplate(ABC):
             timestamp_ms = int(stats.st_ctime * 1000)
 
         file_timestamp = str(timestamp_ms)
-        submitted_metadata["episode_hash"] = file_timestamp
+        submitted_metadata["episode_hash"] = timestamp_ms  # Use int for episode_hash
         submitted_metadata["embodiment"] = self.embodiment
 
         json_metadata = json.dumps(submitted_metadata)
@@ -195,12 +206,12 @@ class UploadTemplate(ABC):
                 return previous_value
             
             if value:
-                # Special handling for objects - convert to list
+                # Special handling for objects - return as list for JSON
                 if key == "objects":
-                    # Split by comma and clean up each item
+                    # Split by comma and clean up each item to create a list
                     objects_list = [item.strip() for item in value.split(",") if item.strip()]
                     if not objects_list:
-                        print("Error: objects list cannot be empty. Please enter at least one object.")
+                        print("Error: objects cannot be empty. Please enter at least one object.")
                         continue
                     return objects_list
                 else:
