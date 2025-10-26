@@ -1,5 +1,8 @@
+import json
+import os
 from dataclasses import asdict, dataclass
 
+import boto3
 from sqlalchemy import (
     MetaData,
     Table,
@@ -15,7 +18,7 @@ from sqlalchemy.exc import IntegrityError
 
 @dataclass
 class TableRow:
-    episode_hash: int
+    episode_hash: str
     operator: str
     lab: str
     task: str
@@ -27,20 +30,35 @@ class TableRow:
     objects: str = ""
     processed_path: str = ""  # Updateable
     mp4_path: str = ""  # Updateable
+    is_deleted: bool = False
     is_eval: bool = False
     eval_score: float = -1
     eval_success: bool = True
 
 
 def create_default_engine():
-    HOST = "lowuse-pg.cxkes66cc93x.us-east-1.rds.amazonaws.com"
-    DBNAME = "appdb"
-    USER = "appuser"
-    PASSWORD = "APPUSER_STRONG_PW"
+    # Try to get credentials from Secrets Manager if SECRETS_ARN is set
+    SECRETS_ARN = os.environ.get("SECRETS_ARN")
+    if SECRETS_ARN:
+        secrets = boto3.client("secretsmanager")
+        sec = secrets.get_secret_value(SecretId=SECRETS_ARN)["SecretString"]
+        cfg = json.loads(sec)
+        HOST = cfg.get("host", cfg.get("HOST"))
+        DBNAME = cfg.get("dbname", cfg.get("DBNAME", "appdb"))
+        USER = cfg.get("username", cfg.get("user", cfg.get("USER")))
+        PASSWORD = cfg.get("password", cfg.get("PASSWORD"))
+        PORT = cfg.get("port", 5432)
+    else:
+        # Fallback to hardcoded values for local testing
+        HOST = "lowuse-pg-east2.claua8sacyu5.us-east-2.rds.amazonaws.com"
+        DBNAME = "appdb"
+        USER = "appuser"
+        PASSWORD = "APPUSER_STRONG_PW"
+        PORT = 5432
 
     # --- 1) connect via SQLAlchemy ---
     engine = create_engine(
-        f"postgresql+psycopg://{USER}:{PASSWORD}@{HOST}:5432/{DBNAME}?sslmode=require",
+        f"postgresql+psycopg://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require",
         pool_pre_ping=True,
     )
 

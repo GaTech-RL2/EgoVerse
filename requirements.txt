@@ -1,6 +1,6 @@
 torch==2.6.0
 torchvision==0.21.0
-projectaria-tools[all]==1.5.7
+projectaria-tools[all]==1.6.0
 pyyaml
 matplotlib
 packaging
@@ -28,7 +28,6 @@ pytorch-kinematics
 lightning
 positional-encodings[pytorch]
 argparse
-getdaft
 pandas
 overrides
 zarr
@@ -36,6 +35,9 @@ tabulate
 transformers
 timm
 boto3
+cloudpathlib
+sqlalchemy
+psycopg
 ray
 geomloss
 tslearn
