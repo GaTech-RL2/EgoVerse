@@ -2,8 +2,8 @@
 """
 run_aria_conversion_sql.py – SQL-backed driver (no CSV/S3)
 
-• Walks /mnt/raw for bundles: {name}.vrs, {name}.vrs.json, mps_{name}_vrs/
-• name == episode_hash (int) – row must already exist in app.episodes; otherwise skipped
+• Walks /mnt/raw for bundles: {name}.vrs, {name}.json OR {name}.vrs.json, mps_{name}_vrs/
+• name == episode_hash (TEXT in DB) – row must already exist in app.episodes; otherwise skipped
 • Uses Ray to run conversions with absolute symlinks in per-job tmp dirs
 • On success, updates app.episodes.processed_path and num_frames
 • Passes SQL task_description into the converter as `description`
@@ -54,18 +54,26 @@ def ensure_path_ready(p: str | Path, retries: int = 30) -> bool:
 def iter_vrs_bundles(root: Path) -> Iterator[Tuple[Path, Path, Path]]:
     """
     Yield tuples (vrs_file, json_file, mps_dir) for every valid bundle in `root`.
+
+    Accept either:
+      • {name}.vrs + {name}.json + mps_{name}_vrs/
+      • {name}.vrs + {name}.vrs.json + mps_{name}_vrs/
+    All three must be in the SAME directory.
     """
     for vrs in sorted(root.glob("*.vrs")):
-        name = vrs.stem
-        jsonf = root / f"{name}.vrs.json"
+        name   = vrs.stem
+        json1  = root / f"{name}.json"
+        json2  = root / f"{name}.vrs.json"
+        jsonf  = json1 if json1.exists() else (json2 if json2.exists() else None)
         mpsdir = root / f"mps_{name}_vrs"
-        if jsonf.exists() and mpsdir.is_dir():
+        if jsonf is not None and mpsdir.is_dir():
             yield vrs, jsonf, mpsdir
 
 
 def infer_arm_from_row(row: TableRow) -> str:
     """
     Infer arm from SQL row.embodiment (e.g., 'aria_left', 'aria_right', 'aria_bimanual').
+    Falls back to 'bimanual'.
     """
     emb = (row.embodiment or "").lower()
     if "left" in emb:
@@ -74,7 +82,7 @@ def infer_arm_from_row(row: TableRow) -> str:
         return "right"
     if "bimanual" in emb or "bi" in emb:
         return "bimanual"
-    return "bimanual"  # fallback
+    return "bimanual"
 
 
 # --- Ray task ----------------------------------------------------------------
@@ -153,19 +161,17 @@ def launch(dry: bool = False, skip_if_done: bool = False):
     for vrs, jsonf, mps in iter_vrs_bundles(RAW_ROOT):
         name = vrs.stem
 
-        try:
-            episode_hash = int(name)
-        except Exception:
-            print(f"[SKIP] {name}: filename is not a numeric episode_hash")
-            continue
+        # IMPORTANT: episode_hash is TEXT in DB; do not cast to int
+        episode_key = name  # string key matching DB column type
 
-        row = episode_hash_to_table_row(engine, episode_hash)
+        row = episode_hash_to_table_row(engine, episode_key)
         if row is None:
             print(f"[SKIP] {name}: no matching row in SQL (app.episodes)")
             continue
 
-        if skip_if_done and (row.processed_path or "").strip():
-            print(f"[SKIP] {name}: already has processed_path")
+        processed_path = (row.processed_path or "").strip()
+        if skip_if_done and len(processed_path) > 0:
+            print(f"[SKIP] {name}: already has processed_path='{processed_path}'")
             continue
 
         arm = infer_arm_from_row(row)
@@ -186,7 +192,7 @@ def launch(dry: bool = False, skip_if_done: bool = False):
             arm,
             description,
         )
-        pending[ref] = (episode_hash, dataset_name)
+        pending[ref] = (episode_key, dataset_name)
 
     if dry or not pending:
         return
@@ -196,11 +202,11 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         done_refs, _ = ray.wait(list(pending), num_returns=1)
         ref = done_refs[0]
         ds_path, frames = ray.get(ref)
-        episode_hash, _dataset_name = pending.pop(ref)
+        episode_key, _dataset_name = pending.pop(ref)
 
-        row = episode_hash_to_table_row(engine, episode_hash)
+        row = episode_hash_to_table_row(engine, episode_key)
         if row is None:
-            print(f"[WARN] Episode {episode_hash}: row disappeared before update?")
+            print(f"[WARN] Episode {episode_key}: row disappeared before update?")
             continue
 
         row.processed_path = ds_path or ""
@@ -209,11 +215,11 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         try:
             update_episode(engine, row)
             print(
-                f"[OK] Updated SQL for {episode_hash}: "
+                f"[OK] Updated SQL for {episode_key}: "
                 f"processed_path={row.processed_path}, num_frames={row.num_frames}"
             )
         except Exception as e:
-            print(f"[ERR] SQL update failed for {episode_hash}: {e}")
+            print(f"[ERR] SQL update failed for {episode_key}: {e}")
 
 
 # --- CLI ---------------------------------------------------------------------
