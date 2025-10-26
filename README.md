@@ -40,7 +40,7 @@ uv venv emimic --python 3.10
 source emimic/bin/activate
 git clone --recursive git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
-uv pip install -r requirements.txt
+uv pip sync requirements.txt
 uv pip install -e external/rldb
 uv pip install -e external/rldb/external/lerobot
 uv pip install -e .

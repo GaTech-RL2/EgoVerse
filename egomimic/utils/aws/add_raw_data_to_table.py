@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import boto3
 import cloudpathlib
 import psycopg
+
 from egomimic.utils.aws.aws_sql import (
     TableRow,
     add_episode,
@@ -193,6 +194,6 @@ def lambda_handler(event, context):
     }
 
 
-# Local testing
-if __name__ == "__main__":
-    lambda_handler({}, None)
+# # Local testing
+# if __name__ == "__main__":
+#     lambda_handler({}, None)
