@@ -5,3 +5,24 @@ interfaces:
   left: can2
   right: can1
 ts_offset: 0.4
+
+gripper_width: 0.8
+
+cameras:
+  cam_high: 
+    enabled: true
+    encoding: "rgb8"
+    width: 640
+    height: 480
+  cam_left_wrist:
+    enabled: true
+    encoding: "rgb8"
+    serial_number: 10101
+    width: 640
+    height: 480
+  cam_right_wrist:
+    enabled: true
+    encoding: "rgb8"
+    serial_number: 11001
+    width: 640
+    height: 480
