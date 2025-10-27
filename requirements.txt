@@ -1,6 +1,6 @@
 torch==2.6.0
 torchvision==0.21.0
-projectaria-tools[all]==1.5.7
+projectaria-tools[all]==1.6.0
 pyyaml
 matplotlib
 packaging
