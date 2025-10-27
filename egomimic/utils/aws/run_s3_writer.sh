@@ -12,12 +12,12 @@ if [ -f "$ENV_FILE" ]; then
   . "$ENV_FILE"
   set +a
 else
-  echo "[$(date)] ERROR: Env file $ENV_FILE not found!" >> "$LOG_FILE"
+  echo "[$(date)] ERROR: Env file $ENV_FILE not found!" > "$LOG_FILE"
   exit 1
 fi
 
 # Sanity check — optional
-echo "[$(date)] Running add_raw_data_to_table.py with SECRETS_ARN=$SECRETS_ARN" >> "$LOG_FILE"
+echo "[$(date)] Running add_raw_data_to_table.py with SECRETS_ARN=$SECRETS_ARN" > "$LOG_FILE"
 
 # Run the Python job
 /usr/bin/python3 "$PY_SCRIPT" >> "$LOG_FILE" 2>&1
