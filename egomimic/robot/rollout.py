@@ -28,35 +28,18 @@ EMBODIMENT_MAP = {
 }
 
 
-class Policy(ABC):
-    def __init__(self, arm, frequency):
-        self.ri = None
-        self.frequency = frequency
-        if arm == "both":
-            self.ri = DualARXInterface(arm)
-        else:
-            self.ri = SingleARXInterface(arm)
-        self.breakout = None
-
-    def rollout_episode(self):
-        try:
-            with RateLoop(frequency=self.frequency) as loop:
-                for i in loop:
-                    self.rollout_step(i)
-                    if self.breakout:
-                        break
-        except KeyboardInterrupt:
-            print("Keyboard interrupted episode")
+class Rollout(ABC):
+    def __init__(self):
+        pass
 
     @abstractmethod
     def rollout_step(self, i):
         pass
 
 
-class ReplayPolicy(Policy):
-    def __init__(self, arm, frequency, dataset_path):
-        super().__init__(arm, frequency)
-        self.arm = arm
+class ReplayRollout(Rollout):
+    def __init__(self, dataset_path):
+        super().__init__()
         self.dataset_path = dataset_path
         if not os.path.isfile(self.dataset_path):
             raise FileNotFoundError(f"HDF5 not found: {self.dataset_path}")
@@ -67,26 +50,23 @@ class ReplayPolicy(Policy):
         if i < self.actions.shape[0]:
             self.ri.set_joint(self.actions[i])
         else:
-            print("This dataset has been completely ran")
-            self.breakout = True
+            return None
 
 
-class EgoPolicy(Policy):
-    def __init__(
-        self, arm, frequency, query_frequency, policy_path, embodiment_id, cartesian
-    ):
-        super().__init__(arm, frequency)
+class PolicyRollout(Rollout):
+
+    def __init__(self, arm, policy_path, query_frequency):
+        super().__init__()
         self.policy = ModelWrapper.load_from_checkpoint(policy_path)
-        self.embodiment_id = embodiment_id
+        self.query_frequency = query_frequency
+        self.embodiment_id = EMBODIMENT_MAP[arm]
         self.embodiment_name = get_embodiment(self.embodiment_id)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.query_frequency = query_frequency
-        self.cartesian = cartesian
 
-    def rollout_step(self, i):
+    def rollout_step(self, i, obs):
         if i % self.query_frequency == 0:
             start_infer_t = time.time()
-            batch = self.process_obs_for_policy()
+            batch = self.process_obs_for_policy(obs)
             preds = self.policy.model.forward_eval(batch)
             ac_key = self.policy.model.ac_keys[self.embodiment_id]
             actions = preds[f"{self.embodiment_name.lower()}_{ac_key}"]
@@ -95,13 +75,9 @@ class EgoPolicy(Policy):
 
         # TODO check gripper if we are using 0 to 0.08 or 0 to 1
         act_i = i % self.query_frequency
-        if self.cartesian:
-            self.ri.set_pose(self.actions[act_i])
-        else:
-            self.ri.set_joint(self.actions[act_i])
+        return self.actions[act_i]
 
-    def process_obs_for_policy(self):
-        obs = self.ri.get_obs()
+    def process_obs_for_policy(self, obs):
 
         data = {
             "front_img_1": (torch.from_numpy(obs["front_img_1"][None, :]))
@@ -162,25 +138,49 @@ class EgoPolicy(Policy):
         return processed_batch
 
 
-def main(args):
-    policy = None
-    embodiment_id = EMBODIMENT_MAP[args.arm]
-    if args.policy_path is not None:
-        policy = EgoPolicy(
-            arm=args.arm,
-            frequency=args.frequency,
-            query_frequency=args.query_frequency,
-            policy_path=args.policy_path,
-            embodiment_id=embodiment_id,
-            cartesian=args.cartesian,
+def main(
+    arm,
+    frequency,
+    cartesian,
+    query_frequency=None,
+    policy_path=None,
+    dataset_path=None,
+):
+    ri = None
+    if arm == "both":
+        ri = DualARXInterface(arm)
+    else:
+        ri = SingleARXInterface(arm)
+
+    rollout_type = "replay" if policy_path is None else "policy"
+    if rollout_type == "policy":
+        policy = PolicyRollout(
+            arm=arm, policy_path=policy_path, query_frequency=query_frequency
+        )
+    elif rollout_type == "replay":
+        policy = ReplayRollout(
+            dataset_path=dataset_path,
         )
     else:
-        policy = ReplayPolicy(
-            arm=args.arm,
-            frequency=args.frequency,
-            dataset_path=args.dataset_path,
-        )
-    policy.rollout_episode()
+        raise RuntimeError("Invalid rollout type")
+
+    with RateLoop(frequency=frequency, verbose=True) as loop:
+        for i in loop:
+            actions = None
+            if rollout_type == "policy":
+                obs = ri.get_obs()
+                actions = policy.rollout_step(i, obs)
+            elif rollout_type == "replay":
+                actions = policy.rollout_step(i)
+            # not sure if I need throw exception here
+
+            if actions is None:
+                print("Finish rollout")
+                break
+            if cartesian:
+                ri.set_pose(actions)
+            else:
+                ri.set_joint(actions)
 
 
 if __name__ == "__main__":
@@ -216,4 +216,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    main(args)
+    main(
+        arm=args.arm,
+        frequency=args.frequency,
+        query_frequency=args.query_frequency,
+        policy_path=args.policy_path,
+        dataset_path=args.dataset_path,
+        cartesian=args.cartesian,
+    )
