@@ -32,7 +32,7 @@ pip install -e .
 
 if uv not installed
 ```
-curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/coc/flash9/skareer6" sh
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/path/to/flash/storage" sh
 ```
 
 ```
@@ -40,7 +40,7 @@ uv venv emimic --python 3.10
 source emimic/bin/activate
 git clone --recursive git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
-uv pip sync requirements.txt
+uv pip install -r requirements.txt
 uv pip install -e external/rldb
 uv pip install -e external/rldb/external/lerobot
 uv pip install -e .

@@ -14,7 +14,7 @@ It will prompt for "access key".  Get this on aws console IAM > Security Credent
 ```bash
 sh egomimic/utils/aws/create_rds.sh
 sh egomimic/utils/aws/create_rds_user.sh
-sh egomimic/utils/aws/create_schema.s
+sh egomimic/utils/aws/create_schema.sh
 ```
 
 ## RDS Table Schema

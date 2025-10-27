@@ -9,6 +9,8 @@ DBNAME="appdb"
 USER="appuser"
 PASSWORD="APPUSER_STRONG_PW"
 PORT=5432
+BUCKET="rldb"
+KEY_PREFIX=""
 
 echo "=== Setting up Secrets Manager Secret for RDS ==="
 
@@ -66,5 +68,17 @@ SECRET_ARN=$(aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --reg
 echo ""
 echo "Secret ARN: $SECRET_ARN"
 echo ""
-echo "You can now use this ARN in the Lambda environment variable SECRETS_ARN"
 
+# Write env file
+ENV_FILE="$HOME/.egoverse_env"
+cat > "$ENV_FILE" <<EOF
+SECRETS_ARN=$SECRET_ARN
+BUCKET=$BUCKET
+KEY_PREFIX=$KEY_PREFIX
+AWS_DEFAULT_REGION=$REGION
+EOF
+
+chmod 600 "$ENV_FILE"
+echo "✅ Wrote environment variables to $ENV_FILE"
+echo "Contents:"
+cat "$ENV_FILE"

@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 import boto3
 import cloudpathlib
 import psycopg
-
 from egomimic.utils.aws.aws_sql import (
     TableRow,
     add_episode,
@@ -170,7 +169,7 @@ def lambda_handler(event, context):
 
     engine = create_default_engine()
     episodes_data = episode_table_to_df(engine)
-    current_episodes = set(episode["episode_hash"] for episode in episodes_data)
+    current_episodes = set(episodes_data["episode_hash"])
 
     raw_aria_episodes = _get_raw_aria_episodes(all_files)
     raw_aria_episodes = filter_raw_episodes(raw_aria_episodes, current_episodes)
@@ -194,6 +193,6 @@ def lambda_handler(event, context):
     }
 
 
-# # Local testing
-# if __name__ == "__main__":
-#     lambda_handler({}, None)
+# Local testing
+if __name__ == "__main__":
+    lambda_handler({}, None)

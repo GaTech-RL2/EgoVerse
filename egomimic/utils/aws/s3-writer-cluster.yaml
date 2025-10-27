@@ -1,0 +1,104 @@
+# ───────────────── s3-writer-cluster.yaml ─────────────────
+cluster_name: s3-writer-cluster
+
+provider:
+  type: aws
+  region: us-east-2
+  cache_stopped_nodes: false
+
+auth:
+  ssh_user: ubuntu
+  ssh_private_key: ~/.ssh/ryan-mac.pem   # <-- replace with your actual private key path
+
+max_workers: 0
+idle_timeout_minutes: 10
+
+available_node_types:
+  head_node:
+    node_config:
+      InstanceType: t3.xlarge
+      ImageId: ami-0def8bb9d7dcec6d0
+      KeyName: ryan-mac
+      SubnetId: subnet-02fbc81414d827515
+      SecurityGroupIds: [sg-01cabcd4f45211888]
+      IamInstanceProfile:
+        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 50 }
+    resources: { CPU: 4 }
+    min_workers: 0
+    max_workers: 0
+
+head_node_type: head_node
+
+# ───────── PACKAGES + MOUNTS ─────────────────────────────
+initialization_commands:
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get update -yq
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3 unzip
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
+  - sudo pip3 install --no-input --upgrade ray boto3
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
+  - sudo pip3 install --no-input sqlalchemy
+  - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"
+  - sudo pip3 install --no-input --force-reinstall cloudpathlib
+  - curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+  - sudo unzip -qq /tmp/awscliv2.zip -d /tmp
+  - sudo /tmp/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update -yq || true
+
+setup_commands:
+  - sudo mkdir -p /mnt/raw /mnt/processed
+
+  - |
+      if mountpoint -q /mnt/raw; then
+        echo "/mnt/raw already mounted"
+      else
+        sudo s3fs rldb:/raw_v2/aria /mnt/raw \
+          -o ro \
+          -o url=https://s3.us-east-2.amazonaws.com \
+          -o iam_role=auto \
+          -o allow_other \
+          -o umask=000 \
+          -o nonempty
+      fi
+
+  - |
+      if mountpoint -q /mnt/processed; then
+        echo "/mnt/processed already mounted"
+      else
+        sudo s3fs rldb:/processed_v2/aria /mnt/processed \
+          -o url=https://s3.us-east-2.amazonaws.com \
+          -o iam_role=auto \
+          -o allow_other \
+          -o umask=000 \
+          -o use_path_request_style \
+          -o multipart_size=64 \
+          -o parallel_count=20 \
+          -o del_cache \
+          -o complement_stat \
+          -o nonempty
+      fi
+
+  - |
+      git -C ~/EgoVerse fetch origin main --quiet || true
+      git -C ~/EgoVerse checkout main -q || true
+      git -C ~/EgoVerse pull --quiet || true
+      git -C ~/EgoVerse submodule update --init --recursive --quiet || true
+
+  # ───── Setup AWS secret + env file ─────
+  - |
+      echo "Running setup_secret.sh..."
+      chmod +x ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+      bash ~/EgoVerse/egomimic/utils/aws/setup_secret.sh || true
+
+  # ───── Make run_s3_writer.sh executable ─────
+  - |
+      chmod +x ~/EgoVerse/egomimic/utils/aws/run_s3_writer.sh
+
+  # ───── Install hourly cron for run_s3_writer.sh ─────
+  - |
+      (crontab -l 2>/dev/null | grep -v run_s3_writer.sh ; \
+       echo 'CRON_TZ=America/New_York'; \
+       echo '0 * * * * /home/ubuntu/EgoVerse/egomimic/utils/aws/run_s3_writer.sh >> /home/ubuntu/s3_writer.log 2>&1') \
+       | crontab - || true
+  - crontab -l || true
