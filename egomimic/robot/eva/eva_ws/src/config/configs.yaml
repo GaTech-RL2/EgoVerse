@@ -26,3 +26,7 @@ cameras:
     serial_number: 11001
     width: 640
     height: 480
+
+realsense:
+  left: 218622279810
+  right: 230322277025
