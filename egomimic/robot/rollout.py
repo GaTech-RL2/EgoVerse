@@ -44,11 +44,11 @@ class ReplayRollout(Rollout):
         if not os.path.isfile(self.dataset_path):
             raise FileNotFoundError(f"HDF5 not found: {self.dataset_path}")
         with h5py.File(self.dataset_path, "r") as f:
-            self.action = np.asarray(f["action"][...], dtype=np.float32)
+            self.actions = np.asarray(f["action"][...], dtype=np.float32)
 
     def rollout_step(self, i):
         if i < self.actions.shape[0]:
-            self.ri.set_joint(self.actions[i])
+            return self.actions[i]
         else:
             return None
 
@@ -57,9 +57,10 @@ class PolicyRollout(Rollout):
 
     def __init__(self, arm, policy_path, query_frequency):
         super().__init__()
+        self.arm = arm
         self.policy = ModelWrapper.load_from_checkpoint(policy_path)
         self.query_frequency = query_frequency
-        self.embodiment_id = EMBODIMENT_MAP[arm]
+        self.embodiment_id = EMBODIMENT_MAP[self.arm]
         self.embodiment_name = get_embodiment(self.embodiment_id)
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -105,13 +106,13 @@ class PolicyRollout(Rollout):
 
         elif self.arm == "both":
             data["right_wrist_img"] = (
-                torch.from_numpy(obs["cam_right_wrist"][None, :])
+                torch.from_numpy(obs["right_wrist_img"][None, :])
                 .permute(0, 3, 1, 2)
                 .to(torch.uint8)
                 / 255.0
             )
             data["left_wrist_img"] = (
-                torch.from_numpy(obs["cam_left_wrist"][None, :])
+                torch.from_numpy(obs["left_wrist_img"][None, :])
                 .permute(0, 3, 1, 2)
                 .to(torch.uint8)
                 / 255.0

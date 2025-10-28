@@ -39,6 +39,8 @@ ROTATION_SCALE = 1.0  # Scale factor for rotation deltas
 POS_DEAD_ZONE = 0.002  # meters
 ROT_DEAD_ZONE_RAD = np.deg2rad(0.8)  # radians
 
+YPR_OFFSET = [0, 0, 0]
+
 # Trigger thresholds for engagement detection
 TRIGGER_ON_THRESHOLD = 0.8
 TRIGGER_OFF_THRESHOLD = 0.2
@@ -56,11 +58,11 @@ MAX_DEMO_LENGTH = 10000  # Maximum number of steps per demo
 # ------------------------- Helper Functions -------------------------
 
 
-def normalize_quat_wxyz(q: np.ndarray) -> np.ndarray:
-    """Normalize quaternion in WXYZ format."""
+def normalize_quat_xyzw(q: np.ndarray) -> np.ndarray:
+    """Normalize quaternion in XYZW format."""
     q = np.asarray(q, dtype=np.float64)
     n = float(np.linalg.norm(q))
-    return q / n if n > 0 else np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
+    return q / n if n > 0 else np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float64)
 
 
 def quat_xyzw_to_wxyz(qxyzw: np.ndarray) -> np.ndarray:
@@ -102,6 +104,7 @@ def controller_to_internal(pos_xyz: np.ndarray, q_wxyz: np.ndarray):
     Convert controller coordinates to internal robot frame.
 
     Applies fixed coordinate transformations as defined in vr_controller.py.
+    pos : xyz, quat: xyzw
     """
     A = np.array(
         [[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]], dtype=np.float64
@@ -112,7 +115,7 @@ def controller_to_internal(pos_xyz: np.ndarray, q_wxyz: np.ndarray):
     R_c = R.from_quat(quat_wxyz_to_xyzw(q_wxyz)).as_matrix()
     pos_i = M @ pos_xyz
     R_i = M @ R_c @ M.T
-    q_i = quat_xyzw_to_wxyz(R.from_matrix(R_i).as_quat())
+    q_i = R.from_matrix(R_i).as_quat()
     return pos_i, q_i
 
 
@@ -175,9 +178,9 @@ def compute_delta_pose(
     target_quat = target_side_data["quat"]
 
     delta_pos = target_pos - cur_pos
-    delta_rot = R.from_quat(target_quat) * R.from_quat(cur_quat)
+    delta_rot = R.from_quat(target_quat) * R.from_quat(cur_quat).inv()
 
-    return delta_pos * POSITION_SCALE, delta_rot
+    return delta_pos * POSITION_SCALE, delta_rot.as_quat()
 
 
 # ------------------------- VR Interface Class -------------------------
@@ -238,8 +241,23 @@ class VRInterface:
         r_pos_raw, r_quat_raw = pose_from_T(np.asarray(Tr))
         l_pos_cur, l_quat_cur = controller_to_internal(l_pos_raw, l_quat_raw)
         r_pos_cur, r_quat_cur = controller_to_internal(r_pos_raw, r_quat_raw)
-        l_quat_cur = normalize_quat_wxyz(l_quat_cur)
-        r_quat_cur = normalize_quat_wxyz(r_quat_cur)
+        l_quat_cur = normalize_quat_xyzw(l_quat_cur)
+        r_quat_cur = normalize_quat_xyzw(r_quat_cur)
+
+        # Apply ypr offset
+        zero = np.zeros(3)
+        _, l_quat_cur = apply_delta_pose(
+            l_pos_cur,
+            l_quat_cur,
+            zero,
+            R.from_euler("ZYX", YPR_OFFSET, degrees=False).as_quat(),
+        )
+        _, r_quat_cur = apply_delta_pose(
+            r_pos_cur,
+            r_quat_cur,
+            zero,
+            R.from_euler("ZYX", YPR_OFFSET, degrees=False).as_quat(),
+        )
 
         # Extract button/trigger values
         trig_l = get_analog(buttons, ["leftTrig", "LT", "trigger_l"], 0.0)
@@ -306,7 +324,7 @@ def save_demo(demo_data: dict, demo_dir: Path):
             data = np.array([act[key] for act in demo_data["actions"]])
             action_grp.create_dataset(key, data=data)
 
-    print(f"Demo saved successfully!")
+    print("Demo saved successfully!")
 
 
 # ------------------------- Main Entry Point -------------------------
@@ -336,6 +354,12 @@ def collect_demo(
 
     # Initialize robot interfaces (one per arm)
     robot_interface = Robot_Interface(arm=arms_to_collect)
+
+    arms_list = []
+    if arms_to_collect == "both" or arms_to_collect == "right":
+        arms_list.append("right")
+    if arms_to_collect == "both" or arms_to_collect == "left":
+        arms_list.append("left")
 
     print("Homing robots...")
     robot_interface.set_home()
@@ -387,19 +411,22 @@ def collect_demo(
 
                 # TODO: implement control logic
 
-                for arm in arms_to_collect:
-                    rb_pos, rb_quat_xyzw = robot_interface.get_pose()
+                for arm in arms_list:
+                    rb_pos, rb_R = robot_interface.get_pose()
+                    rb_quat_xyzw = rb_R.as_quat()
                     rb_joint = robot_interface.get_joint()
                     gripper_pos = rb_joint[6]
                     if prev_vr_data is not None:
                         delta_pos, delta_quat_xyzw = compute_delta_pose(
-                            arm, vr_data, prev_vr_data[arm]["pos"], rb_quat_xyzw
+                            arm, vr_data, prev_vr_data[arm]["pos"], rb_R
                         )
 
-                    # can limit angle and pos change speed here also (Ask Danfei is it appropriate to have it here and robot_interface)
-                    cmd_pos, cmd_quat = apply_delta_pose(
-                        rb_pos, rb_quat_xyzw, delta_pos, delta_quat_xyzw
-                    )
+                        # can limit angle and pos change speed here also (Ask Danfei is it appropriate to have it here and robot_interface)
+                        cmd_pos, cmd_quat = apply_delta_pose(
+                            rb_pos, rb_quat_xyzw, delta_pos, delta_quat_xyzw
+                        )
+                    else:
+                        cmd_pos, cmd_quat = robot_interface.get_pose()
 
                     # gripper
                     vr_index = vr_data[arm]["index"]
@@ -427,10 +454,13 @@ def collect_demo(
 
                 # Print status every second
                 if i % int(frequency) == 0:
-                    print(
-                        f"Step {i}, Demo length: {len(demo_data['observations'])}, "
-                        f"Engaged: R={vr.r_engaged}, L={vr.l_engaged}"
-                    )
+                    # print(
+                    #     f"Step {i}, Demo length: {len(demo_data['observations'])}, "
+                    #     f"Engaged: R={vr.r_engaged}, L={vr.l_engaged}"
+                    # )
+                    r_pos = vr_data["right"]["pos"]
+                    l_pos = vr_data["left"]["pos"]
+                    print(f"r pos {r_pos}, l pos {l_pos}")  # need this for debug
 
                 # Auto-save if demo gets too long
                 if len(demo_data["observations"]) >= MAX_DEMO_LENGTH:
