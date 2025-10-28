@@ -127,11 +127,11 @@ def get_hand_pose_in_camera_frame(hand_data, cam_t_inv, cam_offset, transform):
         np.ndarray: 6-dof pose (translation + Euler angles) in the camera-t frame.
                     Returns np.full(6, 1e9) if the palm position is not detected.
     """
-    if not np.any(hand_data.palm_position_device):
+    if hand_data is None or not np.any(hand_data.get_palm_position_device()):
         return np.full(6, 1e9)
     
-    palm_pose = hand_data.palm_position_device
-    wrist_pose = hand_data.wrist_position_device
+    palm_pose = hand_data.get_palm_position_device()
+    wrist_pose = hand_data.get_wrist_position_device()
     palm_normal = hand_data.wrist_and_palm_normal_device.palm_normal_device
 
     if hand_data.confidence < 0:
@@ -336,12 +336,18 @@ class AriaVRSExtractor:
             camera_t_inv = np.linalg.inv(camera_matrix)
             
             actions_t = []
-            
+                        
             for offset in range(HORIZON):
                 sample_timestamp_ns = stream_timestamps_ns["rgb"][int(t + offset * STEP)]
                 hand_tracking_result_offset = get_nearest_hand_tracking_result(
                     hand_tracking_results, sample_timestamp_ns
                 )
+                
+                if hand_tracking_result_offset is None:
+                    left_hand, right_hand = None, None
+                else:
+                    left_hand = hand_tracking_result_offset.left_hand
+                    right_hand = hand_tracking_result_offset.right_hand
 
                 head_pose_offset = mps_reader.get_closed_loop_pose(
                     sample_timestamp_ns, time_query_closest
@@ -351,7 +357,7 @@ class AriaVRSExtractor:
                 )
                 if arm == "right":
                     right_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        hand_tracking_result_offset.right_hand, 
+                        right_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -359,16 +365,16 @@ class AriaVRSExtractor:
                     actions_t.append(right_pose_in_camera_t)
                 elif arm == "left":
                     left_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        hand_tracking_result_offset.left_hand, 
+                        left_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
                     )
                     actions_t.append(left_pose_in_camera_t)
-                elif arm == "both":
-                    # Process left hand first.
+                elif arm == "bimanual":
+                    # Process left hand.
                     left_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        hand_tracking_result_offset.left_hand, 
+                        left_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -376,7 +382,7 @@ class AriaVRSExtractor:
                     
                     # Process right hand.
                     right_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        hand_tracking_result_offset.right_hand, 
+                        right_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -389,7 +395,7 @@ class AriaVRSExtractor:
 
         actions = np.array(actions)
         
-        if arm == "both":
+        if arm == "bimanual":
             actions_left = actions[..., :6]
             actions_right = actions[..., 6:]
             actions_left = interpolate_arr_euler(actions_left, CHUNK_LENGTH_ACT)
@@ -402,7 +408,7 @@ class AriaVRSExtractor:
             actions = actions[:, 1, :]
         
         if no_rot:
-            if arm == "both":
+            if arm == "bimanual":
                 actions_left = actions[..., :3]
                 actions_right = actions[..., 6:9]
                 actions = np.concatenate((actions_left, actions_right), axis=-1)
@@ -453,7 +459,7 @@ class AriaVRSExtractor:
             cleaned data
         """
         actions_copy = actions.copy()
-        if arm == "both":
+        if arm == "bimanual":
             actions_left = actions_copy[..., :3]
             actions_right = actions_copy[..., 6:9]
             actions_copy = np.concatenate((actions_left, actions_right), axis=-1)
@@ -586,13 +592,13 @@ class AriaVRSExtractor:
             hand_tracking_result_t = get_nearest_hand_tracking_result(
                 hand_tracking_results, query_timestamp
             )
-            right_confidence = hand_tracking_result_t.right_hand.confidence
-            left_confidence = hand_tracking_result_t.left_hand.confidence
+            right_confidence = getattr(getattr(hand_tracking_result_t, "right_hand", None), "confidence", -1)
+            left_confidence  = getattr(getattr(hand_tracking_result_t, "left_hand",  None), "confidence", -1)
             if arm == "right":
                 ee_pose_obs_t = np.full(6, 1e9)
                 if not right_confidence < 0:
-                    right_palm_pose = hand_tracking_result_t.right_hand.palm_position_device
-                    right_wrist_pose = hand_tracking_result_t.right_hand.wrist_position_device
+                    right_palm_pose = hand_tracking_result_t.right_hand.get_palm_position_device()
+                    right_wrist_pose = hand_tracking_result_t.right_hand.get_wrist_position_device()
                     right_palm_normal = hand_tracking_result_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     right_coordinates = compute_coordinate_frame(palm_pose=right_palm_pose, 
@@ -609,8 +615,8 @@ class AriaVRSExtractor:
             elif arm == "left":
                 ee_pose_obs_t = np.full(6, 1e9)
                 if not left_confidence < 0:
-                    left_palm_pose = hand_tracking_result_t.left_hand.palm_position_device
-                    left_wrist_pose = hand_tracking_result_t.left_hand.wrist_position_device
+                    left_palm_pose = hand_tracking_result_t.left_hand.get_palm_position_device()
+                    left_wrist_pose = hand_tracking_result_t.left_hand.get_wrist_position_device()
                     left_palm_normal = hand_tracking_result_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     left_coordinates = compute_coordinate_frame(palm_pose=left_palm_pose, 
@@ -625,11 +631,11 @@ class AriaVRSExtractor:
                     
                     left_palm_euler = coordinate_frame_to_ypr(left_x, left_y, left_z)
                     ee_pose_obs_t = np.concatenate((left_palm_pose, left_palm_euler), axis=None)
-            elif arm == "both":
+            elif arm == "bimanual":
                 left_obs_t = np.full(6, 1e9)
                 if not left_confidence < 0:
-                    left_palm_pose = hand_tracking_result_t.left_hand.palm_position_device
-                    left_wrist_pose = hand_tracking_result_t.left_hand.wrist_position_device
+                    left_palm_pose = hand_tracking_result_t.left_hand.get_palm_position_device()
+                    left_wrist_pose = hand_tracking_result_t.left_hand.get_wrist_position_device()
                     left_palm_normal = hand_tracking_result_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     left_coordinates = compute_coordinate_frame(palm_pose=left_palm_pose, 
@@ -647,8 +653,8 @@ class AriaVRSExtractor:
                 
                 right_obs_t = np.full(6, 1e9)
                 if not right_confidence < 0:
-                    right_palm_pose = hand_tracking_result_t.right_hand.palm_position_device
-                    right_wrist_pose = hand_tracking_result_t.right_hand.wrist_position_device
+                    right_palm_pose = hand_tracking_result_t.right_hand.get_palm_position_device()
+                    right_wrist_pose = hand_tracking_result_t.right_hand.get_wrist_position_device()
                     right_palm_normal = hand_tracking_result_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     right_coordinates = compute_coordinate_frame(palm_pose=right_palm_pose, 
@@ -670,7 +676,7 @@ class AriaVRSExtractor:
             ee_pose.append(np.ravel(ee_pose_obs_t))
         ee_pose = np.array(ee_pose)
         if no_rot:
-            if arm == "both":
+            if arm == "bimanual":
                 ee_pose_left = ee_pose[..., :3]
                 ee_pose_right = ee_pose[..., 6:9]
                 ee_pose = np.concatenate((ee_pose_left, ee_pose_right), axis=-1)
@@ -730,7 +736,7 @@ class AriaVRSExtractor:
         image_compressed : bool
             Flag indicating whether the images are stored in a compressed format.
         arm : str
-            The arm to process (e.g., 'left', 'right', or 'both').
+            The arm to process (e.g., 'left', 'right', or 'bimanual').
         prestack : bool, optional
             Whether to precompute action chunks, by default False.
 
@@ -855,7 +861,7 @@ class DatasetConverter:
     fps : int
         Frames per second for the dataset.
     arm : str, optional
-        The arm to process (e.g., 'left', 'right', or 'both'), by default "".
+        The arm to process (e.g., 'left', 'right', or 'bimanual'), by default "".
     encode_as_videos : bool, optional
         Whether to encode images as videos, by default True.
     image_compressed : bool, optional
@@ -934,7 +940,7 @@ class DatasetConverter:
             prestack=self.prestack,
         )
 
-        if self.arm == "both":
+        if self.arm == "bimanual":
             self.robot_type = "aria_bimanual"
         elif self.arm == "right":
             self.robot_type = "aria_right_arm"
@@ -1089,7 +1095,7 @@ def argument_parse():
 
     # Optional arguments
     parser.add_argument("--description", type=str, default="Aria recorded dataset.", help="Description of the dataset.")
-    parser.add_argument("--arm", type=str, choices=["left", "right", "both"], default="both", help="Specify the arm for processing.")
+    parser.add_argument("--arm", type=str, choices=["left", "right", "bimanual"], default="bimanual", help="Specify the arm for processing.")
     parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
     parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
     parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
