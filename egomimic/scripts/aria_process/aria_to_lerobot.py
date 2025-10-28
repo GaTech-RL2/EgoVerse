@@ -340,7 +340,7 @@ class AriaVRSExtractor:
             for offset in range(HORIZON):
                 sample_timestamp_ns = stream_timestamps_ns["rgb"][int(t + offset * STEP)]
                 hand_tracking_result_offset = get_nearest_hand_tracking_result(
-                    hand_tracking_results, query_timestamp_ns
+                    hand_tracking_results, sample_timestamp_ns
                 )
 
                 head_pose_offset = mps_reader.get_closed_loop_pose(
@@ -584,7 +584,7 @@ class AriaVRSExtractor:
         for t in range(frame_length - int(HORIZON * STEP)):
             query_timestamp = stream_timestamps_ns["rgb"][t]
             hand_tracking_result_t = get_nearest_hand_tracking_result(
-                hand_tracking_results, query_timestamp_ns
+                hand_tracking_results, query_timestamp
             )
             right_confidence = hand_tracking_result_t.right_hand.confidence
             left_confidence = hand_tracking_result_t.left_hand.confidence
