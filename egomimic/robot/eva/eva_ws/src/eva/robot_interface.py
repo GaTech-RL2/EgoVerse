@@ -9,8 +9,9 @@ from scipy.spatial.transform import Rotation as R
 from abc import ABC, abstractmethod
 from stream_aria import AriaRecorder
 from stream_d405 import RealSenseRecorder
+from egomimic.robot.kinematics import EvaKinematicsSolver
 
-from egomimic.robot.eva.kinematics import EvaKinematicsSolver
+# from egomimic.robot.eva.kinematics import EvaKinematicsSolver
 
 
 class Robot_Interface(ABC):
@@ -196,6 +197,7 @@ class SingleARXInterface(Robot_Interface):
 
         self.controller.set_joint_cmd(requested)
 
+    #x,y,z,y,p,r
     def set_pose(self, pose):
         if pose.shape != (7,):
             raise ValueError(
@@ -208,7 +210,7 @@ class SingleARXInterface(Robot_Interface):
     def get_obs(self):
         obs = {}
         obs["joint_positions"] = self.get_joints()
-        obs["ee_pose"] = self.get_pose(quat=False)
+        obs["ee_pose"] = self.get_pose()
 
         # camera logic
         obs["front_img_1"] = self.aria_recorder.get_image()
@@ -217,7 +219,6 @@ class SingleARXInterface(Robot_Interface):
             obs["right_wrist_img"] = self.rs_recorder.get_image()
         elif self.arm == "left":
             obs["left_wrist_img"] = self.rs_recorder.get_image()
-
         return obs
 
     # removed static since can't figure out how to create ik when robot_urdf is not static
@@ -228,7 +229,7 @@ class SingleARXInterface(Robot_Interface):
             )
         pos_xyz = ee_pose[:3]
         quat_xyzw = R.from_euler(
-            "xyz", ee_pose[3:6], degrees=False
+            "ZYX", ee_pose[3:6], degrees=False
         ).as_quat()  # scipy output xyzw
         arm_joints = self.kinematics_solver.inverse_kinematics(pos_xyz, quat_xyzw, self.get_joints())
         return arm_joints
@@ -250,22 +251,17 @@ class SingleARXInterface(Robot_Interface):
         )
         return joints
 
-    def get_pose(self, quat: bool):
+    def get_pose(self):
         """
 
         Returns:
            xyz: np.array, quat: np.array (xyzw)
         """
         joints = self.get_joints()
-        pos, quat = self.kinematics_solver.forward_kinematics(joints)
+        pos, quat = self.kinematics_solver.forward_kinematics(joints)        
+        rot = R.from_quat(quat)
 
-        if not quat:
-            ypr = R.from_quat(quat).as_euler("zyx", degrees=False)
-            ee_pose = np.concatenate([pos, ypr])
-        else:
-            ee_pose = np.concatenate([pos, quat])
-
-        return ee_pose
+        return pos, rot
 
     def set_home(self):
         self.controller.reset_to_home()

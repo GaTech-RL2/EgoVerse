@@ -6,7 +6,6 @@ import aria.sdk as aria
 import cv2
 import numpy as np
 
-from aria_utils import update_iptables
 from projectaria_tools.core.sensor_data import ImageDataRecord
 from projectaria_tools.core import calibration
 
