@@ -8,7 +8,7 @@ provider:
 
 auth:
   ssh_user: ubuntu
-  ssh_private_key: ~/.ssh/your-key.pem
+  ssh_private_key: put your ssh key .pem
 
 max_workers: 50
 idle_timeout_minutes: 10
@@ -18,7 +18,7 @@ available_node_types:
     node_config:
       InstanceType: t3.xlarge
       ImageId: ami-0def8bb9d7dcec6d0
-      KeyName: ryan-mac
+      KeyName: your-key
       SubnetId: subnet-02fbc81414d827515
       SecurityGroupIds: [sg-01cabcd4f45211888]
       IamInstanceProfile:
@@ -34,7 +34,7 @@ available_node_types:
     node_config:
       InstanceType: c5.18xlarge
       ImageId: ami-0def8bb9d7dcec6d0
-      KeyName: ryan-mac
+      KeyName: your-key
       SubnetId: subnet-02fbc81414d827515
       SecurityGroupIds: [sg-01cabcd4f45211888]
       IamInstanceProfile:
@@ -50,13 +50,14 @@ head_node_type: head_node
 
 # ───────── PACKAGES + MOUNTS ─────────────────────────────
 initialization_commands:
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get update -yq
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq \
-      python3-pip python3-dev git fuse3 s3fs libpq-dev libgl1 libsm6 libxext6
-  - sudo pip3 install --no-input --upgrade pip setuptools wheel
-  - sudo pip3 install --no-input --upgrade ray boto3 sqlalchemy "psycopg[binary]"
-  - sudo pip3 install --no-input projectaria-tools==1.6.0 --break-system-packages
-
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing -yq
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
+  - sudo pip3 install --no-input --upgrade ray boto3
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
+  - sudo pip3 install --no-input sqlalchemy
+  - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"
+  - pip3 install -U projectaria-tools
 
 setup_commands:
   - sudo mkdir -p /mnt/raw /mnt/processed
@@ -100,6 +101,6 @@ setup_commands:
   - |
       (crontab -l 2>/dev/null | grep -v run_aria_conversion.py ; \
        echo 'CRON_TZ=America/New_York'; \
-       echo '0 18 * * * /usr/bin/python3 ~/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion.py >> ~/aria_conversion.log 2>&1') \
+       echo '0 22 * * * /usr/bin/python3 ~/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion.py --skip-if-done >> ~/aria_conversion.log 2>&1') \
        | crontab - || true
   - crontab -l || true
