@@ -51,12 +51,12 @@ head_node_type: head_node
 # ───────── PACKAGES + MOUNTS ─────────────────────────────
 initialization_commands:
   - sudo DEBIAN_FRONTEND=noninteractive apt-get update -yq
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
-  - sudo pip3 install --no-input --upgrade ray boto3
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
-  - sudo pip3 install --no-input sqlalchemy
-  - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq \
+      python3-pip python3-dev git fuse3 s3fs libpq-dev libgl1 libsm6 libxext6
+  - sudo pip3 install --no-input --upgrade pip setuptools wheel
+  - sudo pip3 install --no-input --upgrade ray boto3 sqlalchemy "psycopg[binary]"
+  - sudo pip3 install --no-input projectaria-tools==1.6.0 --break-system-packages
+
 
 setup_commands:
   - sudo mkdir -p /mnt/raw /mnt/processed

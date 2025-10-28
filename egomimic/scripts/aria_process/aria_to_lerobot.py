@@ -26,6 +26,9 @@ from projectaria_tools.core.calibration import CameraCalibration, DeviceCalibrat
 from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
 
 from projectaria_tools.core import data_provider, mps
+
+from projectaria_tools.core.mps.utils import get_nearest_hand_tracking_result
+
 from projectaria_tools.core.mps.utils import (
     filter_points_from_confidence,
     get_gaze_vector_reprojection,
@@ -194,15 +197,16 @@ class AriaVRSExtractor:
 
         mps_sample_path = os.path.join(root_dir, ("mps_" + episode_path.stem + "_vrs"))
 
-        wrist_and_palm_poses_path = os.path.join(
-        mps_sample_path, "hand_tracking", "wrist_and_palm_poses.csv"
+        hand_tracking_results_path = os.path.join(
+        mps_sample_path, "hand_tracking", "hand_tracking_results.csv"
         )
         
         vrs_reader = data_provider.create_vrs_data_provider(str(episode_path))
-
-        wrist_and_palm_poses = mps.hand_tracking.read_wrist_and_palm_poses(
-            wrist_and_palm_poses_path
+        
+        hand_tracking_results = mps.hand_tracking.read_hand_tracking_results(
+            hand_tracking_results_path
         )
+
         device_calibration = vrs_reader.get_device_calibration()
 
         time_domain: TimeDomain = TimeDomain.DEVICE_TIME
@@ -237,7 +241,8 @@ class AriaVRSExtractor:
                                             mps_reader=mps_reader,
                                             transform=transform,
                                             arm=arm,
-                                            stream_timestamps_ns=stream_timestamps_ns
+                                            stream_timestamps_ns=stream_timestamps_ns,
+                                            hand_tracking_results=hand_tracking_results
                                             )
 
         # rgb_camera
@@ -265,7 +270,8 @@ class AriaVRSExtractor:
                                                 stream_timestamps_ns=stream_timestamps_ns,
                                                 transform=transform,
                                                 arm=arm,
-                                                prestack=prestack
+                                                prestack=prestack,
+                                                hand_tracking_results=hand_tracking_results
                                             )
         
         print(f"[DEBUG] LENGTH BEFORE CLEANING: {len(actions)}")
@@ -290,7 +296,7 @@ class AriaVRSExtractor:
         return episode_feats
 
     @staticmethod
-    def get_action(pose : np.array, mps_reader, vrs_reader, stream_timestamps_ns : dict, transform : np.array, arm : str, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT, prestack=False, no_rot=False):
+    def get_action(pose : np.array, mps_reader, vrs_reader, stream_timestamps_ns : dict, transform : np.array, arm : str, hand_tracking_results, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT, prestack=False, no_rot=False):
         """
         Calculates actions using stable reference frames
         Parameters
@@ -333,8 +339,8 @@ class AriaVRSExtractor:
             
             for offset in range(HORIZON):
                 sample_timestamp_ns = stream_timestamps_ns["rgb"][int(t + offset * STEP)]
-                wrist_and_palm_pose_offset = mps_reader.get_wrist_and_palm_pose(
-                    sample_timestamp_ns, time_query_closest
+                hand_tracking_result_offset = get_nearest_hand_tracking_result(
+                    hand_tracking_results, query_timestamp_ns
                 )
 
                 head_pose_offset = mps_reader.get_closed_loop_pose(
@@ -345,7 +351,7 @@ class AriaVRSExtractor:
                 )
                 if arm == "right":
                     right_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        wrist_and_palm_pose_offset.right_hand, 
+                        hand_tracking_result_offset.right_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -353,7 +359,7 @@ class AriaVRSExtractor:
                     actions_t.append(right_pose_in_camera_t)
                 elif arm == "left":
                     left_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        wrist_and_palm_pose_offset.left_hand, 
+                        hand_tracking_result_offset.left_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -362,7 +368,7 @@ class AriaVRSExtractor:
                 elif arm == "both":
                     # Process left hand first.
                     left_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        wrist_and_palm_pose_offset.left_hand, 
+                        hand_tracking_result_offset.left_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -370,7 +376,7 @@ class AriaVRSExtractor:
                     
                     # Process right hand.
                     right_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        wrist_and_palm_pose_offset.right_hand, 
+                        hand_tracking_result_offset.right_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -548,7 +554,7 @@ class AriaVRSExtractor:
         return images
 
     @staticmethod
-    def get_ee_pose(mps_reader, transform : np.array, arm : str, stream_timestamps_ns : dict, no_rot=False, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT):
+    def get_ee_pose(mps_reader, transform : np.array, arm : str, stream_timestamps_ns : dict, hand_tracking_results, no_rot=False, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT):
         """
         Get EE Pose from VRS
         Parameters
@@ -577,17 +583,17 @@ class AriaVRSExtractor:
 
         for t in range(frame_length - int(HORIZON * STEP)):
             query_timestamp = stream_timestamps_ns["rgb"][t]
-            wrist_and_palm_pose_t = mps_reader.get_wrist_and_palm_pose(
-                query_timestamp, time_query_closest
+            hand_tracking_result_t = get_nearest_hand_tracking_result(
+                hand_tracking_results, query_timestamp_ns
             )
-            right_confidence = wrist_and_palm_pose_t.right_hand.confidence
-            left_confidence = wrist_and_palm_pose_t.left_hand.confidence
+            right_confidence = hand_tracking_result_t.right_hand.confidence
+            left_confidence = hand_tracking_result_t.left_hand.confidence
             if arm == "right":
                 ee_pose_obs_t = np.full(6, 1e9)
                 if not right_confidence < 0:
-                    right_palm_pose = wrist_and_palm_pose_t.right_hand.palm_position_device
-                    right_wrist_pose = wrist_and_palm_pose_t.right_hand.wrist_position_device
-                    right_palm_normal = wrist_and_palm_pose_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
+                    right_palm_pose = hand_tracking_result_t.right_hand.palm_position_device
+                    right_wrist_pose = hand_tracking_result_t.right_hand.wrist_position_device
+                    right_palm_normal = hand_tracking_result_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     right_coordinates = compute_coordinate_frame(palm_pose=right_palm_pose, 
                                                                     wrist_pose=right_wrist_pose, 
@@ -603,9 +609,9 @@ class AriaVRSExtractor:
             elif arm == "left":
                 ee_pose_obs_t = np.full(6, 1e9)
                 if not left_confidence < 0:
-                    left_palm_pose = wrist_and_palm_pose_t.left_hand.palm_position_device
-                    left_wrist_pose = wrist_and_palm_pose_t.left_hand.wrist_position_device
-                    left_palm_normal = wrist_and_palm_pose_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
+                    left_palm_pose = hand_tracking_result_t.left_hand.palm_position_device
+                    left_wrist_pose = hand_tracking_result_t.left_hand.wrist_position_device
+                    left_palm_normal = hand_tracking_result_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     left_coordinates = compute_coordinate_frame(palm_pose=left_palm_pose, 
                                                                     wrist_pose=left_wrist_pose, 
@@ -622,9 +628,9 @@ class AriaVRSExtractor:
             elif arm == "both":
                 left_obs_t = np.full(6, 1e9)
                 if not left_confidence < 0:
-                    left_palm_pose = wrist_and_palm_pose_t.left_hand.palm_position_device
-                    left_wrist_pose = wrist_and_palm_pose_t.left_hand.wrist_position_device
-                    left_palm_normal = wrist_and_palm_pose_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
+                    left_palm_pose = hand_tracking_result_t.left_hand.palm_position_device
+                    left_wrist_pose = hand_tracking_result_t.left_hand.wrist_position_device
+                    left_palm_normal = hand_tracking_result_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     left_coordinates = compute_coordinate_frame(palm_pose=left_palm_pose, 
                                                                     wrist_pose=left_wrist_pose, 
@@ -641,9 +647,9 @@ class AriaVRSExtractor:
                 
                 right_obs_t = np.full(6, 1e9)
                 if not right_confidence < 0:
-                    right_palm_pose = wrist_and_palm_pose_t.right_hand.palm_position_device
-                    right_wrist_pose = wrist_and_palm_pose_t.right_hand.wrist_position_device
-                    right_palm_normal = wrist_and_palm_pose_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
+                    right_palm_pose = hand_tracking_result_t.right_hand.palm_position_device
+                    right_wrist_pose = hand_tracking_result_t.right_hand.wrist_position_device
+                    right_palm_normal = hand_tracking_result_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     right_coordinates = compute_coordinate_frame(palm_pose=right_palm_pose, 
                                                                     wrist_pose=right_wrist_pose, 
