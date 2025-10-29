@@ -46,6 +46,17 @@ from aria_utils import (
     coordinate_frame_to_ypr
 )
 
+from ucsd_aria_utils import (
+    transform_hand_keypoints_world_to_local,
+    transform_hand_keypoints_local_to_world,
+    ARIA_FINGERTIP_INDICES,
+    ARIA_LEFT_HAND_TO_H1_LEFT_HAND,
+    ARIA_RIGHT_HAND_TO_H1_RIGHT_HAND,
+    Z_FRONT_TO_Z_UP,
+    ARIA_SLAM_TO_CENTER_LEN,
+    fk_cmd_dict2policy
+)
+
 from rldb.utils import EMBODIMENT
 
 import time
@@ -127,7 +138,7 @@ def get_hand_pose_in_camera_frame(hand_data, cam_t_inv, cam_offset, transform):
         np.ndarray: 6-dof pose (translation + Euler angles) in the camera-t frame.
                     Returns np.full(6, 1e9) if the palm position is not detected.
     """
-    if hand_data is None or not np.any(hand_data.get_palm_position_device()):
+    if hand_data is None or (not np.any(hand_data.palm_position_device)):
         return np.full(6, 1e9)
     
     palm_pose = hand_data.get_palm_position_device()
@@ -244,6 +255,29 @@ class AriaVRSExtractor:
                                             stream_timestamps_ns=stream_timestamps_ns,
                                             hand_tracking_results=hand_tracking_results
                                             )
+        
+        # human_policy actions
+        hp_human_actions = AriaVRSExtractor.get_human_policy_action(
+            pose=pose,
+            mps_reader=mps_reader,
+            mps_sample_path=mps_sample_path,
+            vrs_reader=vrs_reader,
+            stream_timestamps_ns=stream_timestamps_ns,
+            transform=transform,
+            arm=arm
+        )
+
+        # actions
+        actions = AriaVRSExtractor.get_action(
+                                                pose=pose,
+                                                mps_reader=mps_reader,
+                                                vrs_reader=vrs_reader,
+                                                stream_timestamps_ns=stream_timestamps_ns,
+                                                transform=transform,
+                                                arm=arm,
+                                                prestack=prestack,
+                                                hand_tracking_results=hand_tracking_results
+                                            )
 
         # rgb_camera
         #TODO: this will be useful for the future - when we add other camera modalities
@@ -261,27 +295,21 @@ class AriaVRSExtractor:
             images = F.interpolate(images, size=(240, 320), mode='bilinear', align_corners=False)
         
         images = images.byte().numpy()
-
-        # actions
-        actions = AriaVRSExtractor.get_action(
-                                                pose=pose,
-                                                mps_reader=mps_reader,
-                                                vrs_reader=vrs_reader,
-                                                stream_timestamps_ns=stream_timestamps_ns,
-                                                transform=transform,
-                                                arm=arm,
-                                                prestack=prestack,
-                                                hand_tracking_results=hand_tracking_results
-                                            )
         
         print(f"[DEBUG] LENGTH BEFORE CLEANING: {len(actions)}")
-        actions, pose, images = AriaVRSExtractor.clean_data(actions=actions, pose=pose, images=images, arm=arm)
+        actions, pose, images, hp_human_actions = AriaVRSExtractor.clean_data(actions=actions, pose=pose, images=images, arm=arm, human_actions=hp_human_actions)
         # actions, pose, images = AriaVRSExtractor.clean_data_projection(actions=actions, pose=pose, images=images, arm=arm)
         print(f"[DEBUG] LENGTH AFTER CLEANING: {len(actions)}")
 
+        hp_human_states = np.zeros_like(hp_human_actions)
+        hp_human_states[1:] = hp_human_actions[:-1]
+        hp_human_states[0] = hp_human_actions[0]
+
         episode_feats["observations"][f"state.{state_key}"] = pose
         episode_feats["observations"][f"images.{camera_key}"] = images
+        episode_feats["observations"][f"state.hp_human_states"] = hp_human_states
         episode_feats["actions_cartesian"] = actions
+        episode_feats["actions_hp_human_actions"] = hp_human_actions
 
         num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
         if arm == "right":
@@ -294,6 +322,184 @@ class AriaVRSExtractor:
         episode_feats["metadata.embodiment"] = np.full((num_timesteps, 1), value, dtype=np.int32)
 
         return episode_feats
+    
+    @staticmethod
+    def get_human_policy_action(pose : np.array, mps_reader, mps_sample_path : str, vrs_reader, stream_timestamps_ns : dict, transform : np.array, arm : str, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT, prestack=False, no_rot=False):
+        """
+        Calculates actions using stable reference frames
+        Parameters
+        ----------
+        """
+        closed_loop_trajectory = os.path.join(
+            mps_sample_path, "slam", "closed_loop_trajectory.csv"
+        )
+        mps_trajectory = mps.read_closed_loop_trajectory(closed_loop_trajectory)
+        mps_trajectory_ns_timestamp_arr = np.zeros(len(mps_trajectory), dtype=np.uint64)
+
+        init_rotation_world_device = mps_trajectory[0].transform_world_device.rotation().to_matrix() @ Z_FRONT_TO_Z_UP
+
+        for i in range(len(mps_trajectory)):
+            mps_trajectory_ns_timestamp_arr[i] = mps_trajectory[i].tracking_timestamp.total_seconds() * 1e9
+
+        frame_length = len(stream_timestamps_ns["rgb"])
+        actions = []
+
+        time_domain: TimeDomain = TimeDomain.DEVICE_TIME
+        time_query_closest: TimeQueryOptions = TimeQueryOptions.CLOSEST
+
+        head_mat_list = []
+        left_wrist_mat_list = []
+        right_wrist_mat_list = []
+        left_hand_keypoints_list = []
+        right_hand_keypoints_list = []
+
+        for t in range(frame_length - int(HORIZON * STEP)):
+            query_timestamp = stream_timestamps_ns["rgb"][t]
+            frame_hand_tracking_result = mps_reader.get_hand_tracking_result(
+                query_timestamp, time_query_closest
+            )
+            
+            # Get head pose from trajectory
+            timestamp_abs_offset = np.abs(mps_trajectory_ns_timestamp_arr - query_timestamp)
+            closest_idx = np.argmin(timestamp_abs_offset)
+            # timestamp_abs_offset is in nanoseconds
+            if timestamp_abs_offset[closest_idx] > 0.1 * 1e9:
+                print("Frame {} has large MPS/VRS timestamp offset.".format(t))
+                # continue
+            
+            rotation_world_device = mps_trajectory[closest_idx].transform_world_device.rotation().to_matrix() @ Z_FRONT_TO_Z_UP
+            translation_world_device = mps_trajectory[closest_idx].transform_world_device.translation()
+
+            # Translate head poses so that they are w.r.t. to the initial head pose
+            rotation_world_device = init_rotation_world_device.T @ rotation_world_device
+            # TODO(roger): for the current version, we mask the translation of the head pose
+            translation_world_device = np.zeros_like(translation_world_device)
+            
+            # Create head transformation matrix
+            head_mat = np.eye(4)
+            head_mat[:3, :3] = rotation_world_device
+            head_mat[:3, 3] = translation_world_device
+            
+            # Get hand landmarks
+            left_landmarks = frame_hand_tracking_result.left_hand.landmark_positions_device if frame_hand_tracking_result.left_hand else []
+            right_landmarks = frame_hand_tracking_result.right_hand.landmark_positions_device if frame_hand_tracking_result.right_hand else []
+            
+            # Convert to numpy arrays for easier handling
+            left_array = np.array([landmark for landmark in left_landmarks]) if left_landmarks else np.full((21, 3), np.nan)
+            right_array = np.array([landmark for landmark in right_landmarks]) if right_landmarks else np.full((21, 3), np.nan)
+
+            # Convert to x-front, y-right, z-up coordinate system\
+            LEFT_HAND_AVAILABLE = not np.any(np.isnan(left_array))
+            RIGHT_HAND_AVAILABLE = not np.any(np.isnan(right_array))
+
+            # Apply same transformations to left_hand_wrist_pose
+            # Create coordinate transformation matrix: [z, y, -x] mapping
+            coord_transform = np.eye(4)
+            coord_transform[:3, :3] = np.array([
+                [0, 0, 1],   # new x = old z
+                [0, 1, 0],   # new y = old y  
+                [-1, 0, 0]   # new z = -old x
+            ])
+            
+            # Create rotation matrix
+            rotation_transform = np.eye(4)
+            rotation_transform[:3, :3] = rotation_world_device.T
+
+            if LEFT_HAND_AVAILABLE:
+                left_array = left_array[:, [2, 1, 0]] * [1, 1, -1]
+                # Before process: coordinate is relative to camera-rgb on the left side of the glass
+                left_array[:, 1] += ARIA_SLAM_TO_CENTER_LEN
+                # Apply rotation to align with world coordinate system
+                left_array = left_array @ rotation_world_device.T
+                
+                left_hand_wrist_pose = coord_transform @ frame_hand_tracking_result.left_hand.transform_device_wrist.to_matrix()
+                left_hand_wrist_pose[1, 3] += ARIA_SLAM_TO_CENTER_LEN
+                left_hand_wrist_pose = left_hand_wrist_pose.T @ rotation_transform
+                left_hand_wrist_pose = left_hand_wrist_pose.T
+            else:
+                left_array = np.full((21, 3), np.nan)
+                left_hand_wrist_pose = np.full((4, 4), np.nan)
+            
+            if RIGHT_HAND_AVAILABLE:
+                right_array = right_array[:, [2, 1, 0]] * [1, 1, -1]
+                # Before process: coordinate is relative to camera-rgb on the right side of the glass
+                right_array[:, 1] += ARIA_SLAM_TO_CENTER_LEN
+                # Apply rotation to align with world coordinate system
+                right_array = right_array @ rotation_world_device.T
+
+                right_hand_wrist_pose = coord_transform @ frame_hand_tracking_result.right_hand.transform_device_wrist.to_matrix()
+                right_hand_wrist_pose[1, 3] += ARIA_SLAM_TO_CENTER_LEN
+                right_hand_wrist_pose = right_hand_wrist_pose.T @ rotation_transform
+                right_hand_wrist_pose = right_hand_wrist_pose.T
+            else:
+                right_array = np.full((21, 3), np.nan)
+                right_hand_wrist_pose = np.full((4, 4), np.nan)
+            
+            # Aggregate lists
+            head_mat_list.append(head_mat)
+            left_wrist_mat_list.append(left_hand_wrist_pose)
+            right_wrist_mat_list.append(right_hand_wrist_pose)
+            left_hand_keypoints_list.append(left_array)
+            right_hand_keypoints_list.append(right_array)
+            
+        fk_cmd_dict = {
+            "head_mat": np.array(head_mat_list),  # (N, 4, 4)
+            "rel_left_wrist_mat": np.array(left_wrist_mat_list),  # (N, 4, 4)
+            "rel_right_wrist_mat": np.array(right_wrist_mat_list),  # (N, 4, 4)
+            "rel_left_hand_keypoints": [],
+            "rel_right_hand_keypoints": []
+        }
+
+        # NOTE(roger, 2025-6): Data from Aria has 21 keypoints
+        # https://facebookresearch.github.io/projectaria_tools/docs/data_formats/mps/hand_tracking
+        aria_left_hand_keypoints = np.array(left_hand_keypoints_list)  # (N, 21, 3)
+        aria_right_hand_keypoints = np.array(right_hand_keypoints_list)  # (N, 21, 3)
+
+        episode_frame_cnt = len(head_mat_list)
+
+        # Handling transformations
+        for frame_idx in range(episode_frame_cnt):
+            # Transform from world to local wrist frame
+            aria_left_hand_keypoints[frame_idx, :, :] = transform_hand_keypoints_world_to_local(
+                aria_left_hand_keypoints[frame_idx, :, :],
+                fk_cmd_dict["rel_left_wrist_mat"][frame_idx]
+            )
+            aria_right_hand_keypoints[frame_idx, :, :] = transform_hand_keypoints_world_to_local(
+                aria_right_hand_keypoints[frame_idx, :, :],
+                fk_cmd_dict["rel_right_wrist_mat"][frame_idx]
+            )
+
+        rel_left_hand_keypoints = aria_left_hand_keypoints[:, ARIA_FINGERTIP_INDICES, :]
+        rel_right_hand_keypoints = aria_right_hand_keypoints[:, ARIA_FINGERTIP_INDICES, :]
+
+        fk_cmd_dict["rel_left_hand_keypoints"] = rel_left_hand_keypoints
+        fk_cmd_dict["rel_right_hand_keypoints"] = rel_right_hand_keypoints
+
+        # Handling rotation convetnions. Make it consistent to H1 in pinnochio
+        for frame_idx in range(episode_frame_cnt):
+            left_wrist_mat = fk_cmd_dict['rel_left_wrist_mat'][frame_idx]
+            left_fk_rot = left_wrist_mat[:3, :3] @ ARIA_LEFT_HAND_TO_H1_LEFT_HAND
+            fk_cmd_dict['rel_left_wrist_mat'][frame_idx][:3, :3] = left_fk_rot
+
+            # Left finger keypoints
+            left_finger_keypoints_n3 = fk_cmd_dict['rel_left_hand_keypoints'][frame_idx]
+            left_finger_keypoints_n3 = left_finger_keypoints_n3 @ ARIA_LEFT_HAND_TO_H1_LEFT_HAND
+            fk_cmd_dict['rel_left_hand_keypoints'][frame_idx] = left_finger_keypoints_n3
+            
+            # Change rotation for right hand
+            right_wrist_mat = fk_cmd_dict['rel_right_wrist_mat'][frame_idx]
+            right_fk_rot = right_wrist_mat[:3, :3] @ ARIA_RIGHT_HAND_TO_H1_RIGHT_HAND
+            fk_cmd_dict['rel_right_wrist_mat'][frame_idx][:3, :3] = right_fk_rot
+
+            # Right finger keypoints
+            right_finger_keypoints_n3 = fk_cmd_dict['rel_right_hand_keypoints'][frame_idx]
+            right_finger_keypoints_n3 = right_finger_keypoints_n3 @ ARIA_RIGHT_HAND_TO_H1_RIGHT_HAND
+            fk_cmd_dict['rel_right_hand_keypoints'][frame_idx] = right_finger_keypoints_n3
+
+        human_actions = fk_cmd_dict2policy(fk_cmd_dict, episode_frame_cnt)
+
+        return human_actions
+
 
     
     @staticmethod
@@ -418,7 +624,7 @@ class AriaVRSExtractor:
         return actions
 
     @staticmethod
-    def clean_data(actions, pose, images, arm):
+    def clean_data(actions, pose, images, arm, human_actions):
         """
         Clean data
         Parameters
@@ -431,19 +637,20 @@ class AriaVRSExtractor:
         actions, pose, images : tuple of np.array
             cleaned data
         """
-        bad_data_mask = np.any(pose >= 1e8, axis=1)
+        bad_pose_data_mask = np.any(pose >= 1e8, axis=1)
+        bad_actions_data_mask = np.any(actions >= 1e8, axis=(1,2))
+        bad_human_actions_data_mask = np.isnan(human_actions).any(axis=1)
+
+        assert (bad_pose_data_mask == bad_human_actions_data_mask).all(), "inconsistent visibility"
+
+        bad_data_mask = bad_pose_data_mask | bad_actions_data_mask | bad_human_actions_data_mask
 
         actions = actions[~bad_data_mask]
         pose = pose[~bad_data_mask]
         images = images[~bad_data_mask]
-        
-        bad_data_mask = np.any(actions >= 1e8, axis=(1,2))
-        
-        actions = actions[~bad_data_mask]
-        pose = pose[~bad_data_mask]
-        images = images[~bad_data_mask]
+        human_actions = human_actions[~bad_data_mask]
 
-        return actions, pose, images
+        return actions, pose, images, human_actions
     
     @staticmethod
     def clean_data_projection(actions, pose, images, arm, CHUNK_LENGTH=CHUNK_LENGTH_ACT):
@@ -811,6 +1018,7 @@ class AriaVRSExtractor:
                 if "images" in key:
                     dtype = "video" if encode_as_video else "image"
                     if image_compressed:
+                        assert len(value[0].shape) == 1
                         decompressed_sample = cv2.imdecode(value[0], 1)
                         shape = (decompressed_sample.shape[1], decompressed_sample.shape[0], decompressed_sample.shape[2])
                     else:
