@@ -25,7 +25,7 @@ from robot_utils import RateLoop
 
 # Add path to robot_interface
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
-from robot_interface import Robot_Interface
+from robot_interface import SingleARXInterface
 
 
 # ------------------------- Configuration -------------------------
@@ -58,6 +58,18 @@ MAX_DEMO_LENGTH = 10000  # Maximum number of steps per demo
 # ------------------------- Helper Functions -------------------------
 
 
+def safe_rot3_from_T(T, ortho_tol=1e-3, det_tol=1e-3):
+    Rm = np.asarray(T, dtype=float)[:3, :3]
+    if Rm.shape != (3, 3) or not np.all(np.isfinite(Rm)):
+        return np.eye(3)
+    det = np.linalg.det(Rm)
+    if det <= 0 or abs(det - 1.0) > det_tol:
+        return np.eye(3)
+    if np.linalg.norm(Rm.T @ Rm - np.eye(3), ord="fro") > ortho_tol:
+        return np.eye(3)
+    return Rm
+
+
 def normalize_quat_xyzw(q: np.ndarray) -> np.ndarray:
     """Normalize quaternion in XYZW format."""
     q = np.asarray(q, dtype=np.float64)
@@ -78,7 +90,8 @@ def quat_wxyz_to_xyzw(qwxyz: np.ndarray) -> np.ndarray:
 def pose_from_T(T: np.ndarray):
     """Extract position and quaternion (WXYZ) from transformation matrix."""
     pos = T[:3, 3].astype(np.float64)
-    q_xyzw = R.from_matrix(T[:3, :3]).as_quat()
+    rot_mat = safe_rot3_from_T(T[:3, :3])
+    q_xyzw = R.from_matrix(rot_mat).as_quat()
     q_wxyz = quat_xyzw_to_wxyz(q_xyzw)
     return pos, q_wxyz
 
@@ -245,19 +258,19 @@ class VRInterface:
         r_quat_cur = normalize_quat_xyzw(r_quat_cur)
 
         # Apply ypr offset
-        zero = np.zeros(3)
-        _, l_quat_cur = apply_delta_pose(
-            l_pos_cur,
-            l_quat_cur,
-            zero,
-            R.from_euler("ZYX", YPR_OFFSET, degrees=False).as_quat(),
-        )
-        _, r_quat_cur = apply_delta_pose(
-            r_pos_cur,
-            r_quat_cur,
-            zero,
-            R.from_euler("ZYX", YPR_OFFSET, degrees=False).as_quat(),
-        )
+        # zero = np.zeros(3)
+        # _, l_quat_cur = apply_delta_pose(
+        #     l_pos_cur,
+        #     l_quat_cur,
+        #     zero,
+        #     R.from_euler("ZYX", YPR_OFFSET, degrees=False).as_quat(),
+        # )
+        # _, r_quat_cur = apply_delta_pose(
+        #     r_pos_cur,
+        #     r_quat_cur,
+        #     zero,
+        #     R.from_euler("ZYX", YPR_OFFSET, degrees=False).as_quat(),
+        # )
 
         # Extract button/trigger values
         trig_l = get_analog(buttons, ["leftTrig", "LT", "trigger_l"], 0.0)
@@ -353,7 +366,7 @@ def collect_demo(
     prev_vr_data = None
 
     # Initialize robot interfaces (one per arm)
-    robot_interface = Robot_Interface(arm=arms_to_collect)
+    robot_interface = SingleARXInterface(arm=arms_to_collect)
 
     arms_list = []
     if arms_to_collect == "both" or arms_to_collect == "right":
@@ -381,15 +394,19 @@ def collect_demo(
     print("  - Press X to DISCARD current demo")
     print("  - Press Ctrl+C to exit")
     print("=" * 60 + "\n")
-
+    cmd_pos = None
     try:
-        with RateLoop(frequency=frequency, verbose=True) as loop:
+        with RateLoop(frequency=frequency, verbose=False) as loop:
             for i in loop:
                 # Read VR controller
                 vr_data = vr.read_vr_controller()
                 if vr_data is None:
-                    raise RuntimeError("Failed to read VR controller")
+                    print("Not reading vr data using prev")
+                    vr_data = prev_vr_data
 
+                if vr_data is None:
+                    print("VR data is None")
+                    continue
                 # Check for recording control buttons
                 if vr_data["buttons"]["B"]:
                     save_demo(demo_data, demo_path)
@@ -412,63 +429,73 @@ def collect_demo(
                 # TODO: implement control logic
 
                 for arm in arms_list:
-                    rb_pos, rb_R = robot_interface.get_pose()
-                    rb_quat_xyzw = rb_R.as_quat()
-                    rb_joint = robot_interface.get_joint()
-                    gripper_pos = rb_joint[6]
-                    if prev_vr_data is not None:
-                        delta_pos, delta_quat_xyzw = compute_delta_pose(
-                            arm, vr_data, prev_vr_data[arm]["pos"], rb_R
+                    if (arm == "left" and vr.l_engaged) or (
+                        arm == "right" and vr.r_engaged
+                    ):
+                        rb_pos, rb_R = robot_interface.get_pose()
+                        rb_quat_xyzw = rb_R.as_quat()
+                        rb_joint = robot_interface.get_joints()
+                        gripper_pos = rb_joint[6]
+                        if prev_vr_data is not None and vr_data is not None:
+                            delta_pos, delta_quat_xyzw = compute_delta_pose(
+                                arm, vr_data, prev_vr_data[arm]["pos"], rb_R.as_quat()
+                            )
+                            delta_pos *= 3
+
+                            # can limit angle and pos change speed here also (Ask Danfei is it appropriate to have it here and robot_interface)
+                            # if np.linalg.norm(delta_pos) < POS_DEAD_ZONE:
+                            #     delta_pos[:] = 0.0
+                            # delta_pos[:] = 0.0
+
+                            cmd_pos, cmd_quat = apply_delta_pose(
+                                rb_pos, rb_quat_xyzw, delta_pos, delta_quat_xyzw
+                            )
+                        else:
+                            cmd_pos, cmd_R = robot_interface.get_pose()
+                            cmd_quat = cmd_R.as_quat()
+
+                        # gripper
+                        vr_index = vr_data[arm]["index"]
+                        gripper_delta = GRIPPER_VEL / frequency
+                        if vr_index:
+                            # close gripper
+                            gripper_delta *= -1
+
+                        # joint limit can also be done here
+                        gripper_pos = np.clip(
+                            gripper_pos + gripper_delta,
+                            GRIPPER_CLOSE_VALUE,
+                            GRIPPER_OPEN_VALUE,
                         )
+                        cmd_ypr = R.from_quat(cmd_quat).as_euler("ZYX", degrees=False)
 
-                        # can limit angle and pos change speed here also (Ask Danfei is it appropriate to have it here and robot_interface)
-                        cmd_pos, cmd_quat = apply_delta_pose(
-                            rb_pos, rb_quat_xyzw, delta_pos, delta_quat_xyzw
-                        )
-                    else:
-                        cmd_pos, cmd_quat = robot_interface.get_pose()
+                        eepose_cmd = np.concatenate([cmd_pos, cmd_ypr, [gripper_pos]])
 
-                    # gripper
-                    vr_index = vr_data[arm]["index"]
-                    gripper_delta = GRIPPER_VEL / frequency
-                    if vr_index:
-                        # close gripper
-                        gripper_delta *= -1
-
-                    # joint limit can also be done here
-                    gripper_pos = np.clip(
-                        gripper_pos + gripper_delta,
-                        GRIPPER_CLOSE_VALUE,
-                        GRIPPER_OPEN_VALUE,
-                    )
-                    cmd_ypr = R.from_quat(cmd_quat).as_euler("ZYX", degrees=False)
-                    eepose_cmd = np.concatenate([cmd_pos, cmd_ypr, gripper_pos])
-
-                    # VELOCITY_LIMIT can be done in the interface
-                    if arm == "right" and vr.r_engaged:
-                        robot_interface.set_pose(eepose_cmd)
-                    if arm == "left" and vr.l_engaged:
+                        # VELOCITY_LIMIT can be done in the interface
                         robot_interface.set_pose(eepose_cmd)
 
-                prev_vr_data = vr_data
+                if vr_data is not None:
+                    prev_vr_data = vr_data
 
                 # Print status every second
-                if i % int(frequency) == 0:
+                if i % int(frequency / 8) == 0:
                     # print(
                     #     f"Step {i}, Demo length: {len(demo_data['observations'])}, "
                     #     f"Engaged: R={vr.r_engaged}, L={vr.l_engaged}"
                     # )
-                    r_pos = vr_data["right"]["pos"]
-                    l_pos = vr_data["left"]["pos"]
-                    print(f"r pos {r_pos}, l pos {l_pos}")  # need this for debug
+                    pass
+                    # print(f"Cmd pos {cmd_pos}")
+                    # r_pos = vr_data["right"]["pos"]
+                    # l_pos = vr_data["left"]["pos"]
+                    # print(f"r pos {r_pos}, l pos {}")  # need this for debug
 
                 # Auto-save if demo gets too long
-                if len(demo_data["observations"]) >= MAX_DEMO_LENGTH:
-                    print(
-                        f"Demo reached max length ({MAX_DEMO_LENGTH}), auto-saving..."
-                    )
-                    save_demo(demo_data, demo_path)
-                    demo_data = {"observations": [], "actions": []}
+                # if len(demo_data["observations"]) >= MAX_DEMO_LENGTH:
+                #     print(
+                #         f"Demo reached max length ({MAX_DEMO_LENGTH}), auto-saving..."
+                #     )
+                #     save_demo(demo_data, demo_path)
+                #     demo_data = {"observations": [], "actions": []}
 
     except KeyboardInterrupt:
         print("\n\nStopping demo collection...")
@@ -503,7 +530,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     collect_demo(
-        arms=args.arms,
+        arms_to_collect=args.arms,
         frequency=args.frequency,
         demo_dir=args.demo_dir,
     )
