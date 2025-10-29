@@ -1,0 +1,101 @@
+cluster_name: mps-ray-cluster
+
+provider:
+  type: aws
+  region: us-east-2
+  cache_stopped_nodes: false
+
+auth:
+  ssh_user: ubuntu
+  ssh_private_key: add/your/ssh.pem
+
+max_workers: 15
+idle_timeout_minutes: 10
+
+available_node_types:
+  head_node:
+    node_config:
+      InstanceType: t3.xlarge
+      ImageId: ami-0def8bb9d7dcec6d0
+      KeyName: your_ssh_key_name
+      SubnetId: subnet-02fbc81414d827515
+      SecurityGroupIds: [sg-01cabcd4f45211888]
+      IamInstanceProfile:
+        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 50 }
+    resources: { CPU: 4 }
+    min_workers: 0
+    max_workers: 0
+  
+  worker_node:
+    node_config:
+      KeyName: your_ssh_key_name                    # EC2 key-pair name
+      InstanceType: t3a.2xlarge
+      ImageId: ami-0def8bb9d7dcec6d0
+      SubnetId: subnet-02fbc81414d827515
+      SecurityGroupIds: [sg-01cabcd4f45211888]
+      IamInstanceProfile:
+        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: 50 }
+    resources:
+      CPU: 8
+      memory: 34359738368
+    min_workers: 0
+    max_workers: 15
+
+head_node_type: head_node
+
+initialization_commands:
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3 curl wget
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get update -yq
+  - curl -O https://bootstrap.pypa.io/get-pip.py
+  - sudo DEBIAN_FRONTEND=noninteractive python3 get-pip.py || true
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
+  - python3 -m pip install -U ray boto3 Pillow --quiet
+  - aria_mps --help >/dev/null 2>&1 && echo "✅ aria_mps CLI detected" || echo "⚠️ aria_mps CLI not found"
+  - sudo apt-get autoremove -yq
+  - sudo apt-get clean -yq
+
+setup_commands:
+  - sudo mkdir -p /mnt/raw
+  - |
+      if mountpoint -q /mnt/raw; then
+        echo "/mnt/raw already mounted"
+      else
+        sudo s3fs rldb:/raw_v2/aria /mnt/raw \
+          -o url=https://s3.us-east-2.amazonaws.com \
+          -o iam_role=auto \
+          -o allow_other \
+          -o uid=$(id -u ubuntu) -o gid=$(id -g ubuntu) \
+          -o umask=000 \
+          -o use_path_request_style \
+          -o multipart_size=64 \
+          -o parallel_count=20 \
+          -o del_cache \
+          -o complement_stat \
+          -o nonempty
+      fi
+  - |
+      echo "running write-delete test..."
+      echo "test123" > /mnt/raw/__write_delete_test.txt
+      if rm /mnt/raw/__write_delete_test.txt; then
+        echo "✅ write-delete test passed"
+      else
+        echo "❌ write-delete test failed"
+      fi
+  - |
+      git -C ~/EgoVerse fetch origin main --quiet || true
+      git -C ~/EgoVerse checkout main -q || true
+      git -C ~/EgoVerse pull --quiet || true
+      git -C ~/EgoVerse submodule update --init --recursive --quiet || true
+
+  - |
+      (crontab -l 2>/dev/null | grep -v run_daily_mps_v2.py ; \
+       echo 'CRON_TZ=America/New_York'; \
+       echo '0 22 * * * /usr/bin/python3 ~/EgoVerse/egomimic/scripts/mps_process/run_daily_mps_v2.py >> ~/daily_mps.log 2>&1') \
+       | crontab - || true
+  - crontab -l || true

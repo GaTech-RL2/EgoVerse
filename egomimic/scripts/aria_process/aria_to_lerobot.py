@@ -26,6 +26,9 @@ from projectaria_tools.core.calibration import CameraCalibration, DeviceCalibrat
 from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
 
 from projectaria_tools.core import data_provider, mps
+
+from projectaria_tools.core.mps.utils import get_nearest_hand_tracking_result
+
 from projectaria_tools.core.mps.utils import (
     filter_points_from_confidence,
     get_gaze_vector_reprojection,
@@ -67,11 +70,11 @@ from scipy.spatial.transform import Rotation as R
 
 
 ## CHANGE THIS TO YOUR DESIRED CACHE FOR HF
-os.environ["HF_HOME"] = "/storage/cedar/cedar0/cedarp-dxu345-0/rpunamiya6/.cache/huggingface"
+os.environ["HF_HOME"] = "~/.cache/huggingface"
 
 HORIZON_DEFAULT = 10
 STEP_DEFAULT = 3.0
-EPISODE_LENGTH = 1000
+EPISODE_LENGTH = 100
 CHUNK_LENGTH_ACT = 100
 
 ROTATION_MATRIX = np.array([[0, 1, 0], 
@@ -138,8 +141,8 @@ def get_hand_pose_in_camera_frame(hand_data, cam_t_inv, cam_offset, transform):
     if hand_data is None or (not np.any(hand_data.palm_position_device)):
         return np.full(6, 1e9)
     
-    palm_pose = hand_data.palm_position_device
-    wrist_pose = hand_data.wrist_position_device
+    palm_pose = hand_data.get_palm_position_device()
+    wrist_pose = hand_data.get_wrist_position_device()
     palm_normal = hand_data.wrist_and_palm_normal_device.palm_normal_device
 
     if hand_data.confidence < 0:
@@ -205,15 +208,16 @@ class AriaVRSExtractor:
 
         mps_sample_path = os.path.join(root_dir, ("mps_" + episode_path.stem + "_vrs"))
 
-        wrist_and_palm_poses_path = os.path.join(
-        mps_sample_path, "hand_tracking", "wrist_and_palm_poses.csv"
+        hand_tracking_results_path = os.path.join(
+        mps_sample_path, "hand_tracking", "hand_tracking_results.csv"
         )
         
         vrs_reader = data_provider.create_vrs_data_provider(str(episode_path))
-
-        wrist_and_palm_poses = mps.hand_tracking.read_wrist_and_palm_poses(
-            wrist_and_palm_poses_path
+        
+        hand_tracking_results = mps.hand_tracking.read_hand_tracking_results(
+            hand_tracking_results_path
         )
+
         device_calibration = vrs_reader.get_device_calibration()
 
         time_domain: TimeDomain = TimeDomain.DEVICE_TIME
@@ -248,7 +252,8 @@ class AriaVRSExtractor:
                                             mps_reader=mps_reader,
                                             transform=transform,
                                             arm=arm,
-                                            stream_timestamps_ns=stream_timestamps_ns
+                                            stream_timestamps_ns=stream_timestamps_ns,
+                                            hand_tracking_results=hand_tracking_results
                                             )
         
         # human_policy actions
@@ -270,7 +275,8 @@ class AriaVRSExtractor:
                                                 stream_timestamps_ns=stream_timestamps_ns,
                                                 transform=transform,
                                                 arm=arm,
-                                                prestack=prestack
+                                                prestack=prestack,
+                                                hand_tracking_results=hand_tracking_results
                                             )
 
         # rgb_camera
@@ -495,8 +501,9 @@ class AriaVRSExtractor:
         return human_actions
 
 
+    
     @staticmethod
-    def get_action(pose : np.array, mps_reader, vrs_reader, stream_timestamps_ns : dict, transform : np.array, arm : str, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT, prestack=False, no_rot=False):
+    def get_action(pose : np.array, mps_reader, vrs_reader, stream_timestamps_ns : dict, transform : np.array, arm : str, hand_tracking_results, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT, prestack=False, no_rot=False):
         """
         Calculates actions using stable reference frames
         Parameters
@@ -536,12 +543,18 @@ class AriaVRSExtractor:
             camera_t_inv = np.linalg.inv(camera_matrix)
             
             actions_t = []
-            
+                        
             for offset in range(HORIZON):
                 sample_timestamp_ns = stream_timestamps_ns["rgb"][int(t + offset * STEP)]
-                wrist_and_palm_pose_offset = mps_reader.get_wrist_and_palm_pose(
-                    sample_timestamp_ns, time_query_closest
+                hand_tracking_result_offset = get_nearest_hand_tracking_result(
+                    hand_tracking_results, sample_timestamp_ns
                 )
+                
+                if hand_tracking_result_offset is None:
+                    left_hand, right_hand = None, None
+                else:
+                    left_hand = hand_tracking_result_offset.left_hand
+                    right_hand = hand_tracking_result_offset.right_hand
 
                 head_pose_offset = mps_reader.get_closed_loop_pose(
                     sample_timestamp_ns, time_query_closest
@@ -551,7 +564,7 @@ class AriaVRSExtractor:
                 )
                 if arm == "right":
                     right_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        wrist_and_palm_pose_offset.right_hand, 
+                        right_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -559,16 +572,16 @@ class AriaVRSExtractor:
                     actions_t.append(right_pose_in_camera_t)
                 elif arm == "left":
                     left_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        wrist_and_palm_pose_offset.left_hand, 
+                        left_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
                     )
                     actions_t.append(left_pose_in_camera_t)
-                elif arm == "both":
-                    # Process left hand first.
+                elif arm == "bimanual":
+                    # Process left hand.
                     left_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        wrist_and_palm_pose_offset.left_hand, 
+                        left_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -576,7 +589,7 @@ class AriaVRSExtractor:
                     
                     # Process right hand.
                     right_pose_in_camera_t = get_hand_pose_in_camera_frame(
-                        wrist_and_palm_pose_offset.right_hand, 
+                        right_hand, 
                         cam_t_inv=camera_t_inv, 
                         cam_offset=camera_matrix_offset, 
                         transform=transform
@@ -589,7 +602,7 @@ class AriaVRSExtractor:
 
         actions = np.array(actions)
         
-        if arm == "both":
+        if arm == "bimanual":
             actions_left = actions[..., :6]
             actions_right = actions[..., 6:]
             actions_left = interpolate_arr_euler(actions_left, CHUNK_LENGTH_ACT)
@@ -602,7 +615,7 @@ class AriaVRSExtractor:
             actions = actions[:, 1, :]
         
         if no_rot:
-            if arm == "both":
+            if arm == "bimanual":
                 actions_left = actions[..., :3]
                 actions_right = actions[..., 6:9]
                 actions = np.concatenate((actions_left, actions_right), axis=-1)
@@ -654,7 +667,7 @@ class AriaVRSExtractor:
             cleaned data
         """
         actions_copy = actions.copy()
-        if arm == "both":
+        if arm == "bimanual":
             actions_left = actions_copy[..., :3]
             actions_right = actions_copy[..., 6:9]
             actions_copy = np.concatenate((actions_left, actions_right), axis=-1)
@@ -755,7 +768,7 @@ class AriaVRSExtractor:
         return images
 
     @staticmethod
-    def get_ee_pose(mps_reader, transform : np.array, arm : str, stream_timestamps_ns : dict, no_rot=False, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT):
+    def get_ee_pose(mps_reader, transform : np.array, arm : str, stream_timestamps_ns : dict, hand_tracking_results, no_rot=False, HORIZON=HORIZON_DEFAULT, STEP=STEP_DEFAULT):
         """
         Get EE Pose from VRS
         Parameters
@@ -784,25 +797,17 @@ class AriaVRSExtractor:
 
         for t in range(frame_length - int(HORIZON * STEP)):
             query_timestamp = stream_timestamps_ns["rgb"][t]
-            wrist_and_palm_pose_t = mps_reader.get_wrist_and_palm_pose(
-                query_timestamp, time_query_closest
+            hand_tracking_result_t = get_nearest_hand_tracking_result(
+                hand_tracking_results, query_timestamp
             )
-            if wrist_and_palm_pose_t.right_hand is not None:
-                right_confidence = wrist_and_palm_pose_t.right_hand.confidence
-            else:
-                right_confidence = -1
-            
-            if wrist_and_palm_pose_t.left_hand is not None:
-                left_confidence = wrist_and_palm_pose_t.left_hand.confidence
-            else:
-                left_confidence = -1
-            
+            right_confidence = getattr(getattr(hand_tracking_result_t, "right_hand", None), "confidence", -1)
+            left_confidence  = getattr(getattr(hand_tracking_result_t, "left_hand",  None), "confidence", -1)
             if arm == "right":
                 ee_pose_obs_t = np.full(6, 1e9)
                 if not right_confidence < 0:
-                    right_palm_pose = wrist_and_palm_pose_t.right_hand.palm_position_device
-                    right_wrist_pose = wrist_and_palm_pose_t.right_hand.wrist_position_device
-                    right_palm_normal = wrist_and_palm_pose_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
+                    right_palm_pose = hand_tracking_result_t.right_hand.get_palm_position_device()
+                    right_wrist_pose = hand_tracking_result_t.right_hand.get_wrist_position_device()
+                    right_palm_normal = hand_tracking_result_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     right_coordinates = compute_coordinate_frame(palm_pose=right_palm_pose, 
                                                                     wrist_pose=right_wrist_pose, 
@@ -818,9 +823,9 @@ class AriaVRSExtractor:
             elif arm == "left":
                 ee_pose_obs_t = np.full(6, 1e9)
                 if not left_confidence < 0:
-                    left_palm_pose = wrist_and_palm_pose_t.left_hand.palm_position_device
-                    left_wrist_pose = wrist_and_palm_pose_t.left_hand.wrist_position_device
-                    left_palm_normal = wrist_and_palm_pose_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
+                    left_palm_pose = hand_tracking_result_t.left_hand.get_palm_position_device()
+                    left_wrist_pose = hand_tracking_result_t.left_hand.get_wrist_position_device()
+                    left_palm_normal = hand_tracking_result_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     left_coordinates = compute_coordinate_frame(palm_pose=left_palm_pose, 
                                                                     wrist_pose=left_wrist_pose, 
@@ -834,12 +839,12 @@ class AriaVRSExtractor:
                     
                     left_palm_euler = coordinate_frame_to_ypr(left_x, left_y, left_z)
                     ee_pose_obs_t = np.concatenate((left_palm_pose, left_palm_euler), axis=None)
-            elif arm == "both":
+            elif arm == "bimanual":
                 left_obs_t = np.full(6, 1e9)
                 if not left_confidence < 0:
-                    left_palm_pose = wrist_and_palm_pose_t.left_hand.palm_position_device
-                    left_wrist_pose = wrist_and_palm_pose_t.left_hand.wrist_position_device
-                    left_palm_normal = wrist_and_palm_pose_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
+                    left_palm_pose = hand_tracking_result_t.left_hand.get_palm_position_device()
+                    left_wrist_pose = hand_tracking_result_t.left_hand.get_wrist_position_device()
+                    left_palm_normal = hand_tracking_result_t.left_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     left_coordinates = compute_coordinate_frame(palm_pose=left_palm_pose, 
                                                                     wrist_pose=left_wrist_pose, 
@@ -856,9 +861,9 @@ class AriaVRSExtractor:
                 
                 right_obs_t = np.full(6, 1e9)
                 if not right_confidence < 0:
-                    right_palm_pose = wrist_and_palm_pose_t.right_hand.palm_position_device
-                    right_wrist_pose = wrist_and_palm_pose_t.right_hand.wrist_position_device
-                    right_palm_normal = wrist_and_palm_pose_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
+                    right_palm_pose = hand_tracking_result_t.right_hand.get_palm_position_device()
+                    right_wrist_pose = hand_tracking_result_t.right_hand.get_wrist_position_device()
+                    right_palm_normal = hand_tracking_result_t.right_hand.wrist_and_palm_normal_device.palm_normal_device
                     
                     right_coordinates = compute_coordinate_frame(palm_pose=right_palm_pose, 
                                                                     wrist_pose=right_wrist_pose, 
@@ -874,11 +879,12 @@ class AriaVRSExtractor:
                     right_obs_t = np.concatenate((right_palm_pose, right_palm_euler), axis=None)
 
                 ee_pose_obs_t = np.concatenate((left_obs_t, right_obs_t), axis=None)
-            
+            else:
+                print(f"[WARNING]: INCORRECT ARM PROVIDED : {arm}")
             ee_pose.append(np.ravel(ee_pose_obs_t))
         ee_pose = np.array(ee_pose)
         if no_rot:
-            if arm == "both":
+            if arm == "bimanual":
                 ee_pose_left = ee_pose[..., :3]
                 ee_pose_right = ee_pose[..., 6:9]
                 ee_pose = np.concatenate((ee_pose_left, ee_pose_right), axis=-1)
@@ -938,7 +944,7 @@ class AriaVRSExtractor:
         image_compressed : bool
             Flag indicating whether the images are stored in a compressed format.
         arm : str
-            The arm to process (e.g., 'left', 'right', or 'both').
+            The arm to process (e.g., 'left', 'right', or 'bimanual').
         prestack : bool, optional
             Whether to precompute action chunks, by default False.
 
@@ -1064,7 +1070,7 @@ class DatasetConverter:
     fps : int
         Frames per second for the dataset.
     arm : str, optional
-        The arm to process (e.g., 'left', 'right', or 'both'), by default "".
+        The arm to process (e.g., 'left', 'right', or 'bimanual'), by default "".
     encode_as_videos : bool, optional
         Whether to encode images as videos, by default True.
     image_compressed : bool, optional
@@ -1130,6 +1136,8 @@ class DatasetConverter:
         self.logger.info(f"#writer processes: {self.image_writer_processes}")
         self.logger.info(f"#writer threads: {self.image_writer_threads}")
 
+        self._mp4_path = None     # set from main() if --save-mp4
+        self._mp4_writer = None   # lazy-initialized in extract_episode()
         self.episode_list = list(self.raw_path.glob("*.vrs"))
         self.buffer = []
 
@@ -1137,12 +1145,12 @@ class DatasetConverter:
             self.episode_list = self.episode_list[:2]
 
         processed_episode = AriaVRSExtractor.process_episode(
-            episode_path=self.episode_list[-1],
+            episode_path=self.episode_list[0],
             arm=self.arm,
             prestack=self.prestack,
         )
 
-        if self.arm == "both":
+        if self.arm == "bimanual":
             self.robot_type = "aria_bimanual"
         elif self.arm == "right":
             self.robot_type = "aria_right_arm"
@@ -1156,6 +1164,38 @@ class DatasetConverter:
         )
 
         self.logger.info(f"Dataset Features: {self.features}")
+    
+    def save_preview_mp4(self, frames: list[dict], output_path: Path, fps: int, image_compressed: bool):
+        """
+        Save a single half-resolution MP4 from a list of frame dicts.
+        Each frame dict must contain 'observations.images.front_img_1' -> torch.Tensor (C,H,W) uint8.
+        """
+        img_key = "observations.images.front_img_1"
+        imgs = [f[img_key] for f in frames if img_key in f]
+        if not imgs:
+            print(f"[MP4] No frames with key '{img_key}' found — skipping video save.")
+            return
+
+        C, H, W = imgs[0].shape
+        size = (W // 2, H // 2)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(str(output_path), fourcc, fps, size)
+
+        for chw in imgs:
+            np_chw = chw.detach().cpu().numpy()        # (C,H,W)
+            if np_chw.shape[0] == 1:
+                np_chw = np.repeat(np_chw, 3, axis=0)  # grayscale → 3-ch
+            np_hwc = np.transpose(np_chw, (1, 2, 0))   # CHW → HWC
+            # If images were decoded with cv2 (compressed), they're already BGR;
+            # otherwise convert RGB→BGR for OpenCV.
+            if not image_compressed:
+                np_hwc = cv2.cvtColor(np_hwc, cv2.COLOR_RGB2BGR)
+            np_hwc = cv2.resize(np_hwc, size)
+            writer.write(np_hwc)
+
+        writer.release()
+        print(f"[MP4] Saved half-res preview to {output_path}")
 
     def extract_episode(self, episode_path, task_description: str = ""):
         """
@@ -1178,6 +1218,12 @@ class DatasetConverter:
             arm=self.arm,
             prestack=self.prestack
         )
+        
+        if self._mp4_path is not None:
+            ep_stem = Path(episode_path).stem
+            mp4_path = self._mp4_path / f"{ep_stem}_video.mp4"
+            self.save_preview_mp4(frames, mp4_path, self.fps, self.image_compressed)
+
 
         for i, frame in enumerate(frames):
             self.buffer.append(frame)
@@ -1271,6 +1317,7 @@ class DatasetConverter:
             shutil.rmtree(output_dir / name)
 
         output_dir = output_dir / name
+        self._out_base = Path(output_dir)
 
         self.dataset = LeRobotDataset.create(
             repo_id=self.dataset_repo_id,
@@ -1297,7 +1344,7 @@ def argument_parse():
 
     # Optional arguments
     parser.add_argument("--description", type=str, default="Aria recorded dataset.", help="Description of the dataset.")
-    parser.add_argument("--arm", type=str, choices=["left", "right", "both"], default="both", help="Specify the arm for processing.")
+    parser.add_argument("--arm", type=str, choices=["left", "right", "bimanual"], default="bimanual", help="Specify the arm for processing.")
     parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
     parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
     parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
@@ -1312,12 +1359,11 @@ def argument_parse():
     # Debugging and output configuration
     parser.add_argument("--output-dir", type=Path, default=Path(LEROBOT_HOME), help="Directory where the processed dataset will be stored. Defaults to LEROBOT_HOME.")
     parser.add_argument("--debug", action="store_true", help="Store only 2 episodes for debug purposes.")
+    
+    parser.add_argument("--save-mp4", type=str2bool, default=True,
+                        help="If True, save a single half-resolution MP4 with all frames across episodes.")
 
-    # SLURM-related arguments
-    parser.add_argument("--overcap", type=str2bool, default=False, help="Flag to indicate if the job should run in the 'overcap' partition.")
-    parser.add_argument("--gpus-per-node", type=int, default=1, help="Number of GPUs per node.")
-    parser.add_argument("--num-nodes", type=int, default=1, help="Number of cluster nodes.")
-    parser.add_argument("--partition", type=str, default="hoffman-lab", help="SLURM partition/account.")
+
 
     args = parser.parse_args()
 
@@ -1353,7 +1399,8 @@ def main(args):
 
     # Initialize the dataset
     converter.init_lerobot_dataset(output_dir=args.output_dir, name=Path(args.name))
-
+    if args.save_mp4:
+        converter._mp4_path = converter._out_base
     # Extract episodes
     converter.extract_episodes(episode_description=args.description)
 

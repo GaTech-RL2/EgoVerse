@@ -104,24 +104,28 @@ for vrs_file in vrs_files:
     rec = metadata["recording_number"]
     new_name_base = f"{task_name}_{lab}_{scene}_recording_{rec}"
 
-    renamed_vrs = folder_path / f"{new_name_base}.vrs"
-    renamed_json = folder_path / f"{new_name_base}.vrs.json"
-    metadata_csv = folder_path / f"{new_name_base}_meta.csv"
+    s3_vrs_key  = f"raw/{task_name}/{new_name_base}.vrs"
+    s3_json_key = f"raw/{task_name}/{new_name_base}.vrs.json"
+    s3_meta_key = f"raw/{task_name}/{new_name_base}_meta.csv"
 
-    os.rename(vrs_file, renamed_vrs)
-    print(f"Renamed {vrs_file} to {renamed_vrs}")
-    os.rename(json_file, renamed_json)
-    print(f"Renamed {json_file} to {renamed_json}")
+    # os.rename(vrs_file, renamed_vrs)
+    # print(f"Renamed {vrs_file} to {renamed_vrs}")
+    # os.rename(json_file, renamed_json)
+    # print(f"Renamed {json_file} to {renamed_json}")
+    metadata_csv = folder_path / f"{new_name_base}_meta.csv"
     pd.DataFrame([metadata]).to_csv(metadata_csv, index=False)
     print(f"Saved metadata to {metadata_csv}")
 
-    upload_queue.extend([renamed_vrs, renamed_json, metadata_csv])
+    # instead of: upload_queue.extend([renamed_vrs, renamed_json, metadata_csv])
+    upload_queue.append({"original_path": str(vrs_file),    "s3_key": s3_vrs_key})
+    upload_queue.append({"original_path": str(json_file),   "s3_key": s3_json_key})
+    upload_queue.append({"original_path": str(metadata_csv),"s3_key": s3_meta_key})
+
 
 # Upload to S3
 print("\nUploading all processed files to S3...")
-for file_path in upload_queue:
-    s3_path = f"raw/{task_name}/{file_path.name}"
-    print(f"Uploading {file_path.name} to s3://{bucket_name}/{s3_path}")
-    s3.upload_file(str(file_path), bucket_name, s3_path)
+for item in upload_queue:
+    print(f"Uploading {Path(item['original_path']).name} to s3://{bucket_name}/{item['s3_key']}")
+    s3.upload_file(item["original_path"], bucket_name, item["s3_key"])
 
 messagebox.showinfo("Done", "All VRS files processed and uploaded.")

@@ -28,7 +28,6 @@ pytorch-kinematics
 lightning
 positional-encodings[pytorch]
 argparse
-getdaft
 pandas
 overrides
 zarr
@@ -36,6 +35,11 @@ tabulate
 transformers
 timm
 boto3
+cloudpathlib
+sqlalchemy
+psycopg
 ray
 geomloss
 tslearn
+sqlalchemy
+psycopg[binary]
