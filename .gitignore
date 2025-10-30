@@ -27,3 +27,7 @@ logs/
 emimic/
 emimic.egg-info/
 pyproject.bak
+
+egomimic/robot/eva/eva_ws/build/*
+egomimic/robot/eva/eva_ws/install/*
+egomimic/robot/eva/eva_ws/log/*
