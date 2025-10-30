@@ -138,7 +138,7 @@ def get_hand_pose_in_camera_frame(hand_data, cam_t_inv, cam_offset, transform):
         np.ndarray: 6-dof pose (translation + Euler angles) in the camera-t frame.
                     Returns np.full(6, 1e9) if the palm position is not detected.
     """
-    if hand_data is None or (not np.any(hand_data.palm_position_device)):
+    if hand_data is None or (not np.any(hand_data.get_palm_position_device())):
         return np.full(6, 1e9)
     
     palm_pose = hand_data.get_palm_position_device()
