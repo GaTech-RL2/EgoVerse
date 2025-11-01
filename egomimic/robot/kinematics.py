@@ -1,9 +1,11 @@
 """
-Generic kinematics solver and Eva-specific implementation.
+Generic kinematics solver.
 """
 
+from pyexpat import model
 from typing import List, Tuple, Optional
 import numpy as np
+from sklearn import base
 import pybullet as p
 import pybullet_data
 import os
@@ -12,441 +14,227 @@ import tempfile
 from scipy.spatial.transform import Rotation as R
 from pathlib import Path
 
+import mink
+import mujoco
+MINK_AVAILABLE = True
 
-class KinematicsSolver:
+
+class MinkKinematicsSolver:
     """
-    Generic kinematics solver using PyBullet.
-
+    Kinematics solver using mink (MuJoCo-based IK).
+    
+    This solver provides a similar interface to KinematicsSolver but uses
+    mink's optimization-based IK.
+    
     Args:
         urdf_path: Path to the URDF file
-        end_effector_link_index: Index of the end-effector link
-        base_position: Base position of the robot [x, y, z]
-        base_orientation_euler: Base orientation in Euler angles [roll, pitch, yaw]
-        gui: Whether to show PyBullet GUI
+        base_link_name: Name of the base link in the urdf
+        eef_link_name: Name of the end-effector link/site
+        num_joints: Number of joints to control
+        joint_names: List of joint names to control (in order)
+        eef_frame_type: Type of end-effector frame ("site" or "body")
+        velocity_limits: Optional dict of joint velocity limits
+        solver: QP solver to use ("daqp", "quadprog", "proxqp", etc.)
     """
-
+    
     def __init__(
         self,
         urdf_path: str,
-        end_effector_link_index: int,
-        base_position: List[float] = [0, 0, 0],
-        base_orientation_euler: List[float] = [0, 0, 0],
-        gui: bool = False,
+        base_link_name: str,
+        eef_link_name: str,
+        num_joints: int,
+        joint_names: List[str],
+        eef_frame_type: str = "site",
+        velocity_limits: Optional[dict] = None,
+        solver: str = "daqp",
+        max_iterations: int = 100,
+        position_tolerance: float = 1e-3,
+        orientation_tolerance: float = 1e-3,
     ):
-        self.urdf_path = urdf_path
-        self.end_effector_link_index = end_effector_link_index
-        self.base_position = base_position
-        self.base_orientation_euler = base_orientation_euler
-
-        # Initialize PyBullet
-        self.robot_id = self._init_pybullet(gui)
-
-    def _init_pybullet(self, gui: bool) -> int:
-        """Initialize PyBullet physics engine and load the robot."""
-        if gui:
-            p.connect(p.GUI)
-        else:
-            p.connect(p.DIRECT)
-        p.setAdditionalSearchPath(pybullet_data.getDataPath())
-
-        # Convert Euler to quaternion (PyBullet uses XYZW format)
-        base_quat_xyzw = p.getQuaternionFromEuler(self.base_orientation_euler)
-
-        # Resolve URDF path
-        urdf_path = self._resolve_urdf_path(self.urdf_path)
-
-        # Load robot
-        robot_id = p.loadURDF(
-            urdf_path,
-            basePosition=self.base_position,
-            baseOrientation=base_quat_xyzw,
-            useFixedBase=True,
+        if not MINK_AVAILABLE:
+            raise ImportError("mink and mujoco are required for MinkKinematicsSolver. Install with: pip install mink")
+        
+        self.num_joints = num_joints
+        self.joint_names = joint_names
+        self.eef_link_name = eef_link_name
+        self.eef_frame_type = eef_frame_type
+        self.solver = solver
+        self.max_iterations = max_iterations
+        self.position_tolerance = position_tolerance
+        self.orientation_tolerance = orientation_tolerance
+        
+        # Convert URDF to MuJoCo XML or load directly
+        self.urdf_path = self._resolve_urdf_path(urdf_path)
+        
+        # Load MuJoCo model
+        try:
+            self.model = mujoco.MjModel.from_xml_path(self.urdf_path)
+        except:
+            # If direct loading fails, try creating a scene XML
+            self.model = self._create_mujoco_model_from_urdf(urdf_path)
+        
+        self.data = mujoco.MjData(self.model)
+        
+        # Get joint indices
+        self.dof_ids = np.array([self.model.joint(name).id for name in joint_names])
+        
+        # Set up velocity limits
+        if velocity_limits is None:
+            velocity_limits = {name: 0.5 for name in joint_names}
+        self.velocity_limits = velocity_limits
+        
+        # Create mink configuration
+        self.configuration = mink.Configuration(self.model)
+        
+        # Define IK tasks
+        # Position cost is higher because position errors are typically in meters (0.001-0.1m)
+        # while orientation errors are in radians (0.001-0.1 rad), so we need to balance them
+        # Using higher position cost to prioritize position convergence
+        self.ee_task = mink.FrameTask(
+            frame_name=eef_link_name,
+            frame_type=eef_frame_type,
+            position_cost=10.0,  # Increased to prioritize position convergence
+            orientation_cost=1.0,
+            lm_damping=0.1,  # Reduced from 1.0 to allow faster convergence
         )
-        p.setGravity(0, 0, -9.81)
-
-        return robot_id
-
+        
+        self.posture_task = mink.PostureTask(self.model, cost=1e-3)
+        
+        self.tasks = [self.ee_task, self.posture_task]
+        
+        # Define limits
+        self.limits = [
+            mink.ConfigurationLimit(model=self.model),
+            mink.VelocityLimit(self.model, velocity_limits),
+        ]
+    
     def _resolve_urdf_path(self, urdf_path: str) -> str:
-        """
-        Resolve URDF path, handling package:// URIs if present.
-
-        Args:
-            urdf_path: Path to URDF file (can contain package:// URIs)
-
-        Returns:
-            Resolved absolute path to URDF file
-        """
-        # Make path absolute
+        """Resolve URDF path, handling package:// URIs if present."""
         if not os.path.isabs(urdf_path):
             urdf_path = os.path.abspath(urdf_path)
-
+        
         if not os.path.exists(urdf_path):
             raise FileNotFoundError(f"URDF path does not exist: {urdf_path}")
-
-        # Add model root to PyBullet search path
-        model_root_dir = os.path.abspath(
-            os.path.join(os.path.dirname(urdf_path), os.pardir)
-        )
-        p.setAdditionalSearchPath(model_root_dir)
-
-        # Handle package:// URIs by replacing them with absolute paths
-        try:
-            with open(urdf_path, "r", encoding="utf-8") as f:
-                urdf_text = f.read()
-
-            if "package://" in urdf_text:
-                # Replace package:// URIs with absolute paths
-                # Extract package name and replace with model root
-                # e.g., "package://X5A/meshes/..." becomes "[model_root_dir]/meshes/..."
-                urdf_text = re.sub(r"package://[^/]+/", model_root_dir + "/", urdf_text)
-
-                # Write to temporary file
-                tmp = tempfile.NamedTemporaryFile(
-                    delete=False, suffix=".urdf", mode="w"
-                )
-                tmp.write(urdf_text)
-                tmp.flush()
-                tmp.close()
-                return tmp.name
-        except Exception:
-            pass
-
+        
         return urdf_path
-
-    def get_joint_positions(self, num_joints: int = None) -> np.ndarray:
+    
+    def _create_mujoco_model_from_urdf(self, urdf_path: str):
+        """Create a MuJoCo model from URDF (simplified version)."""
+        # For now, just try to load the URDF directly
+        # In production, you might need to convert URDF to MJCF
+        raise NotImplementedError(
+            "Direct URDF loading failed. Please provide a MuJoCo XML file or implement URDF conversion."
+        )
+    
+    def ik(self, pos_xyz, rot_mat, cur_jnts, dt=0.05):
         """
-        Get current joint positions from the PyBullet simulation.
-
+        Inverse kinematics using mink.
+        
         Args:
-            num_joints: Number of joints to retrieve. If None, retrieves all joints.
-
-        Returns:
-            Array of current joint positions (radians)
+            pos_xyz: numpy array of xyz position (3,)
+            rot_mat: 3x3 rotation matrix in numpy
+            cur_jnts: numpy array of current joint values (num_joints,)
+            dt: time step for integration (default 0.05 for faster convergence)
+        
+        Return:
+            solved_jnts: numpy array of joint values (num_joints,) or None if no solution
         """
-        total_joints = p.getNumJoints(self.robot_id)
-        if num_joints is None:
-            num_joints = total_joints
+        # Convert rotation matrix to quaternion (w, x, y, z)
+        scipy_rot = R.from_matrix(rot_mat)
+        quat_xyzw = scipy_rot.as_quat()  # Returns [x, y, z, w]
+        quat_wxyz = np.array([quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]])
+        
+        # Set target pose
+        target_transform = mink.SE3.from_rotation_and_translation(
+            mink.SO3(quat_wxyz),
+            pos_xyz
+        )
+        self.ee_task.set_target(target_transform)
+        
+        # Initialize configuration from current joints
+        # Reset entire configuration first to avoid stale values
+        mujoco.mj_resetData(self.model, self.data)
+        self.data.qpos[self.dof_ids] = cur_jnts[:self.num_joints]
+        mujoco.mj_forward(self.model, self.data)
+        self.configuration.update(self.data.qpos)
+        
+        # Update posture task to bias towards current configuration
+        self.posture_task.set_target_from_configuration(self.configuration)
+        
+        # Adaptive damping: start with lower damping for faster convergence,
+        # increase if we're close to target to avoid overshoot
+        best_solution = None
+        best_error = float('inf')
+        
+        # Solve IK iteratively
+        for i in range(self.max_iterations):
+            # Use adaptive damping: lower when far, higher when close
+            current_err = self.ee_task.compute_error(self.configuration)
+            current_pos_err = np.linalg.norm(current_err[:3])
+            current_ori_err = np.linalg.norm(current_err[3:])
+            total_error = current_pos_err + current_ori_err
+            
+            # Track best solution
+            if total_error < best_error:
+                best_error = total_error
+                best_solution = self.configuration.q[self.dof_ids].copy()
+            
+            # Adaptive damping: lower when far from target, higher when close
+            if total_error > 0.01:
+                damping = 1e-4  # Lower damping for faster convergence when far
+            else:
+                damping = 1e-3  # Higher damping when close to avoid overshoot
+            
+            vel = mink.solve_ik(
+                self.configuration,
+                self.tasks,
+                dt,
+                self.solver,
+                limits=self.limits,
+                damping=damping,
+            )
+            self.configuration.integrate_inplace(vel, dt)
+            
+            # Check convergence
+            if current_pos_err < self.position_tolerance and current_ori_err < self.orientation_tolerance:
+                # Converged successfully
+                return self.configuration.q[self.dof_ids]
+        
+        # Return best solution found (even if not fully converged)
+        if best_solution is not None:
+            return best_solution
+        return self.configuration.q[self.dof_ids]
+    
+    def fk(self, jnts):
+        """
+        Forward Kinematics using MuJoCo.
+        
+        Args:
+            jnts: numpy array of joint values (num_joints,)
+        
+        Return:
+            pos: xyz position (numpy array)
+            rot: scipy Rotation object
+        """
+        # Set joint positions
+        self.data.qpos[self.dof_ids] = jnts[:self.num_joints]
+        
+        # Compute forward kinematics
+        mujoco.mj_forward(self.model, self.data)
+        
+        # Get end-effector pose
+        if self.eef_frame_type == "site":
+            site_id = self.model.site(self.eef_link_name).id
+            pos = self.data.site_xpos[site_id].copy()
+            rot_mat = self.data.site_xmat[site_id].reshape(3, 3).copy()
+        elif self.eef_frame_type == "body":
+            body_id = self.model.body(self.eef_link_name).id
+            pos = self.data.xpos[body_id].copy()
+            rot_mat = self.data.xmat[body_id].reshape(3, 3).copy()
         else:
-            num_joints = min(num_joints, total_joints)
-
-        joint_positions = []
-        for j_idx in range(num_joints):
-            joint_state = p.getJointState(self.robot_id, j_idx)
-            joint_positions.append(joint_state[0])  # Position is first element
-
-        return np.array(joint_positions, dtype=np.float64)
-
-    def set_joint_positions(self, joint_positions: List[float]) -> None:
-        """
-        Set current joint positions in the PyBullet simulation.
-        This syncs the simulation state with the real robot.
-
-        Args:
-            joint_positions: Joint positions to set (radians)
-        """
-        num_joints = p.getNumJoints(self.robot_id)
-        for j_idx in range(min(len(joint_positions), num_joints)):
-            p.resetJointState(self.robot_id, j_idx, float(joint_positions[j_idx]))
-
-    def forward_kinematics(
-        self, joint_positions: List[float]
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Compute forward kinematics for given joint positions.
-
-        Args:
-            joint_positions: Joint positions (radians)
-
-        Returns:
-            Tuple of (position, quaternion_xyzw) of the end-effector
-        """
-        # Save current joint states
-        # num_joints = p.getNumJoints(self.robot_id)
-        # saved_states = []
-        # for j_idx in range(num_joints):
-        #     saved_states.append(p.getJointState(self.robot_id, j_idx)[0])
-
-        # # Set new joint positions
-        # for j_idx in range(min(len(joint_positions), num_joints)):
-        #     p.resetJointState(self.robot_id, j_idx, float(joint_positions[j_idx]))
-
-        # # Compute forward kinematics
-        # link_state = p.getLinkState(
-        #     self.robot_id,
-        #     self.end_effector_link_index,
-        #     computeForwardKinematics=True
-        # )
-        # position = np.array(link_state[4], dtype=np.float64)  # World position
-        # quaternion_xyzw = np.array(link_state[5], dtype=np.float64)  # World orientation
-
-        # # Restore original joint states
-        # for j_idx in range(num_joints):
-        #     p.resetJointState(self.robot_id, j_idx, float(saved_states[j_idx]))
-
-        # return position, quaternion_xyzw
-        ls = p.getLinkState(
-            self.robot_id, self.end_effector_link_index, computeForwardKinematics=True
-        )
-        pos = np.array(ls[4], dtype=np.float64)
-        quat_xyzw = np.array(ls[5], dtype=np.float64)
-        return pos, quat_xyzw
-
-    def _set_joints(self, joints6: List[float]) -> None:
-        for j_idx in range(min(6, p.getNumJoints(self.robot_id))):
-            p.resetJointState(self.robot_id, j_idx, float(joints6[j_idx]))
-
-    def _get_fk_current(self) -> Tuple[np.ndarray, np.ndarray]:
-        ls = p.getLinkState(
-            self.robot_id, self.end_effector_link_index, computeForwardKinematics=True
-        )
-        pos = np.array(ls[4], dtype=np.float64)
-        quat_xyzw = np.array(ls[5], dtype=np.float64)
-        return pos, quat_xyzw
-
-    def fk_at_joints(self, joints6: List[float]) -> Tuple[np.ndarray, np.ndarray]:
-        """FK for given joints (restore the original state after)."""
-        # snapshot current
-        saved = []
-        for j_idx in range(min(6, p.getNumJoints(self.robot_id))):
-            saved.append(p.getJointState(self.robot_id, j_idx)[0])
-
-        # compute FK
-        self._set_joints(joints6)
-        pos, quat = self._get_fk_current()
-
-        # restore
-        for j_idx in range(min(6, p.getNumJoints(self.robot_id))):
-            p.resetJointState(self.robot_id, j_idx, float(saved[j_idx]))
-
-        return pos, quat
-
-    def inverse_kinematics(
-        self,
-        target_position: np.ndarray,
-        target_orientation_xyzw: np.ndarray,
-        current_joint_positions: List[float],
-        max_iterations: int = 100,
-        residual_threshold: float = 0.002,
-        position_tolerance: float = 0.01,  # 1cm
-        orientation_tolerance: float = 0.1,  # ~5.7 degrees
-    ) -> Optional[np.ndarray]:
-        """
-        Solve inverse kinematics for target end-effector pose.
-
-        Args:
-            target_position: Target position [x, y, z]
-            target_orientation_xyzw: Target orientation as quaternion [x, y, z, w]
-            current_joint_positions: Current joint positions (used as seed for IK)
-            max_iterations: Maximum number of IK iterations
-            residual_threshold: Convergence threshold for PyBullet IK solver
-            position_tolerance: Position error threshold for verification (meters)
-            orientation_tolerance: Orientation error threshold for verification (radians)
-
-        Returns:
-            Joint positions that achieve the target pose, or None if verification fails
-
-        Note:
-            residual_threshold tells PyBullet when to stop if converged, but PyBullet
-            will still return a solution even if max_iterations is reached without
-            convergence.
-        """
-        # Normalize quaternion
-        quat = np.asarray(target_orientation_xyzw, dtype=np.float64)
-        quat_norm = np.linalg.norm(quat)
-        if not (0.999 <= quat_norm <= 1.001):
-            quat = quat / max(quat_norm, 1e-9)
-
-        # Compute inverse kinematics
-        joint_positions = p.calculateInverseKinematics(
-            self.robot_id,
-            endEffectorLinkIndex=self.end_effector_link_index,
-            targetPosition=target_position.tolist(),
-            targetOrientation=quat.tolist(),
-            currentPositions=current_joint_positions,
-            maxNumIterations=max_iterations,
-            residualThreshold=residual_threshold,
-        )
-
-        joint_positions_array = np.array(joint_positions, dtype=np.float64)
-        return joint_positions_array
-
-
-class EvaKinematicsSolver(KinematicsSolver):
-    """
-    Eva-specific kinematics solver.
-
-    This solver adds Eva-specific configurations and handles the dual gripper joints.
-    """
-
-    # Eva-specific constants
-    END_EFFECTOR_LINK_INDEX = 5  # Link index for Eva's end-effector
-    NUM_ARM_JOINTS = 6  # Eva has 6 arm joints
-
-    def __init__(
-        self,
-        urdf_path: str,
-        base_position: List[float] = [0, 0, 0],
-        base_orientation_euler: List[float] = [0, 0, 0],
-        gui: bool = False,
-    ):
-        """
-        Initialize Eva kinematics solver.
-
-        Args:
-            urdf_path: Path to Eva's URDF file
-            base_position: Base position of the robot [x, y, z]
-            base_orientation_euler: Base orientation in Euler angles [roll, pitch, yaw]
-            gui: Whether to show PyBullet GUI
-        """
-        super().__init__(
-            urdf_path=urdf_path,
-            end_effector_link_index=self.END_EFFECTOR_LINK_INDEX,
-            base_position=base_position,
-            base_orientation_euler=base_orientation_euler,
-            gui=gui,
-        )
-
-        self.urdf_path = urdf_path
-        self.base_transform = None
-
-    def forward_kinematics(
-        self, joint_positions: List[float]
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        arm_joint_positions = joint_positions[: self.NUM_ARM_JOINTS]
-        return super().forward_kinematics(arm_joint_positions)
-
-    def inverse_kinematics(
-        self,
-        target_position: np.ndarray,
-        target_orientation_xyzw: np.ndarray,
-        current_joint_positions: List[float],
-        max_iterations: int = 100,
-        residual_threshold: float = 0.002,
-        position_tolerance: float = 0.01,  # 1cm
-        orientation_tolerance: float = 0.1,  # ~5.7 degrees
-    ) -> Optional[np.ndarray]:
-        """
-        Solve inverse kinematics for Eva robot.
-
-        This extends the base IK solver with Eva-specific joint damping
-        and gripper joint handling.
-
-        Args:
-            target_position: Target position [x, y, z]
-            target_orientation_xyzw: Target orientation as quaternion [x, y, z, w]
-            current_joint_positions: Current joint positions (at least 6 arm joints)
-            max_iterations: Maximum number of IK iterations
-            residual_threshold: Convergence threshold for PyBullet IK solver
-            position_tolerance: Position error threshold for verification (meters)
-            orientation_tolerance: Orientation error threshold for verification (radians)
-
-        Returns:
-            Joint positions (6 arm joints only) that achieve the target pose, or None if verification fails
-
-        Note:
-            residual_threshold tells PyBullet when to stop if converged, but PyBullet
-            will still return a solution even if max_iterations is reached without
-            convergence.
-        """
-        # Normalize quaternion
-        quat = np.asarray(target_orientation_xyzw, dtype=np.float64)
-        quat_norm = np.linalg.norm(quat)
-        if not (0.999 <= quat_norm <= 1.001):
-            quat = quat / max(quat_norm, 1e-9)
-
-        # Eva has dual gripper joints at indices 6 and 7
-        # Provide current positions for all joints including gripper
-        current_positions_full = list(
-            current_joint_positions[: self.NUM_ARM_JOINTS]
-        ) + [0.02239, -0.02239]
-
-        # Compute inverse kinematics
-        joint_positions = p.calculateInverseKinematics(
-            self.robot_id,
-            endEffectorLinkIndex=self.end_effector_link_index,
-            targetPosition=target_position.tolist(),
-            targetOrientation=quat.tolist(),
-            currentPositions=current_positions_full,
-            maxNumIterations=max_iterations,
-            residualThreshold=residual_threshold,
-        )
-
-        # Return only the arm joints (first 6)
-        arm_joints = np.array(
-            list(joint_positions)[: self.NUM_ARM_JOINTS], dtype=np.float64
-        )
-        return arm_joints
-
-    def get_joint_positions(self) -> np.ndarray:
-        """
-        Get current arm joint positions (excludes gripper joints).
-
-        Returns:
-            Array of 6 arm joint positions (radians)
-        """
-        return super().get_joint_positions(num_joints=self.NUM_ARM_JOINTS)
-
-    def set_joint_positions(self, joint_positions: List[float]) -> None:
-        """
-        Set current arm joint positions in the PyBullet simulation.
-        This syncs the simulation state with the real Eva robot.
-        Gripper joints are set to default open position.
-
-        Args:
-            joint_positions: 6 arm joint positions to set (radians)
-        """
-        # Set arm joints
-        for j_idx in range(min(len(joint_positions), self.NUM_ARM_JOINTS)):
-            p.resetJointState(self.robot_id, j_idx, float(joint_positions[j_idx]))
-
-        # Set gripper joints to default open position (indices 6 and 7)
-        if p.getNumJoints(self.robot_id) > 6:
-            p.resetJointState(self.robot_id, 6, 0.02239)  # Right gripper finger
-            p.resetJointState(self.robot_id, 7, -0.02239)  # Left gripper finger
-
-
-def example_eva_kinematics():
-    """Example showing how to use the Eva kinematics solver."""
-
-    # Path to Eva's URDF (adjust as needed)
-    urdf_path = "eva/eva_ws/src/resources/ARX_Model/X5A/urdf/X5A.urdf"
-
-    # Create Eva kinematics solver
-    solver = EvaKinematicsSolver(
-        urdf_path=urdf_path,
-        gui=False,  # Set to True to visualize in PyBullet GUI
-    )
-
-    position, quaternion_xyzw = solver.forward_kinematics(solver.get_joint_positions())
-
-    # Define a target pose (slightly offset from home)
-    target_position = position + np.array([0.4, 0.0, 0.0])  # Move 10cm in X and Z
-    target_orientation = quaternion_xyzw  # Keep same orientation
-
-    print(f"Target position: {target_position}")
-
-    # Solve IK with verification enabled (default)
-    solution_joints = solver.inverse_kinematics(
-        target_position=target_position,
-        target_orientation_xyzw=target_orientation,
-        current_joint_positions=solver.get_joint_positions(),
-        max_iterations=100,
-        residual_threshold=0.002,
-        position_tolerance=0.01,  # 10mm tolerance
-        orientation_tolerance=0.1,  # ~5.7 degrees tolerance
-    )
-
-    # Verify with FK
-    achieved_pos, achieved_quat = solver.forward_kinematics(solution_joints)
-    error = achieved_pos - target_position
-    print(f"Achieved position: {achieved_pos}")
-    # per-dimension error
-    print(f"X error: {error[0]*1000:.2f}mm")
-    print(f"Y error: {error[1]*1000:.2f}mm")
-    print(f"Z error: {error[2]*1000:.2f}mm")
-
-
-if __name__ == "__main__":
-    # Run Eva example
-    # Note: Update the URDF path before running
-    example_eva_kinematics()
+            raise ValueError(f"Unknown frame type: {self.eef_frame_type}")
+        
+        # Convert to scipy Rotation
+        rot = R.from_matrix(rot_mat)
+        
+        return pos, rot

@@ -2,31 +2,30 @@ urdf: /home/robot/robot_ws/egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A
 topic_prefix_out: eva_ik
 ik_rate: 50.0
 interfaces:
-  left: can2
-  right: can1
+  left: can1
+  right: can2
 ts_offset: 0.4
 
 gripper_width: 0.8
 
 cameras:
-  cam_high: 
+  front_img_1: 
+    type: "aria"
     enabled: true
     encoding: "rgb8"
     width: 640
     height: 480
-  cam_left_wrist:
+  left_wrist_img:
+    type: "d405"
     enabled: true
     encoding: "rgb8"
-    serial_number: 10101
+    serial_number: 218622279810
     width: 640
     height: 480
-  cam_right_wrist:
-    enabled: true
+  right_wrist_img:
+    type: "d405"
+    enabled: false
     encoding: "rgb8"
-    serial_number: 11001
+    serial_number: 230322277025
     width: 640
     height: 480
-
-realsense:
-  left: 218622279810
-  right: 230322277025

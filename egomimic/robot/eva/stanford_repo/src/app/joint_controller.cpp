@@ -33,7 +33,7 @@ void Arx5JointController::set_joint_cmd(JointState new_cmd)
     {
         // If the new timestamp is close enough (<1ms) to the current time
         // Will override the entire interpolator object
-        logger_->warn("new command at set joint cmg {:.3f}", new_cmd.gripper_pos);
+        // logger_->warn("new command at set joint cmg {:.3f}", new_cmd.gripper_pos);
 
         interpolator_.init_fixed(new_cmd);
     }

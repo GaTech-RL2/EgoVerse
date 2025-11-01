@@ -1,3 +1,6 @@
+import sys
+import atexit
+import signal
 from typing import Optional
 import threading
 import time
@@ -75,11 +78,20 @@ class RealSenseRecorder:
         for _ in range(max(0, warmup_frames)):
             self._wait_for_color_frame(timeout_ms=2000)
 
-        # Start background polling to keep latest frame updated
         self._running = True
         self._thread = threading.Thread(target=self._capture_loop, daemon=True)
         self._thread.start()
+        
+        atexit.register(self.stop)
 
+        self._install_signal_handlers()
+
+    def _install_signal_handlers(self) -> None:
+        def handler(signum, frame):
+            self.stop()
+            sys.exit(0)
+        signal.signal(signal.SIGINT, handler)
+        signal.signal(signal.SIGTERM, handler)
     def _wait_for_color_frame(self, timeout_ms: int = 5000) -> Optional[np.ndarray]:
         """
         Internal helper: wait for frameset, extract color np.ndarray (BGR).
@@ -140,6 +152,12 @@ class RealSenseRecorder:
             self._pipeline.stop()
         except Exception:
             pass
+    
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
 
 
 if __name__ == "__main__":
@@ -155,6 +173,7 @@ if __name__ == "__main__":
         out_dir = "./test_wrist_img"
         frame_idx = 0
         os.makedirs(out_dir, exist_ok=True)
+        breakpoint()
         test_wrist_cam = RealSenseRecorder(serials[0])
         with RateLoop(frequency=50, max_iterations=500, verbose=True) as loop:
             for i in loop:

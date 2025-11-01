@@ -14,7 +14,10 @@ Add this into your .bashrc:
     alias setup_eva_right='sudo slcand -o -f -s8 /dev/eva_right_can can1 && sudo ifconfig can1 up'
     alias setup_eva_left='sudo slcand -o -f -s8 /dev/eva_left_can can2 && sudo ifconfig can2 up'
     alias run_eva='docker run -it --privileged --network host --device /dev/eva_left_can --device /dev/eva_right_can -v=/dev/eva_left_can:/dev/eva_left_can -v=/dev/eva_right_can:/dev/eva_right_can -v /dev/bus/usb:/dev/bus/usb --device /dev/video0 --device /dev/video1 --device /dev/video2 --device /dev/video3 -v /dev/aria_usb:/dev/aria_usb robot-env:latest'
+    alias can-left='sudo pkill slcand; sudo ip link delete can1 2>/dev/null; sudo slcand -o -f -s8 /dev/eva_left_can can1 && sudo ifconfig can1 up'
+    alias can-right='sudo pkill slcand; sudo ip link delete can2 2>/dev/null; sudo slcand -o -f -s8 /dev/eva_right_can can2 && sudo ifconfig can2 up'
 
+docker run -it --network host   --device /dev/eva_left_can   --device /dev/eva_right_can   --device /dev/video0   --device /dev/video1   --device /dev/video2   --device /dev/video3   --device /dev/video4   --device /dev/video5   --device /dev/bus/usb/002/054:/dev/bus/usb/002/054   --device /dev/bus/usb/001/012:/dev/bus/usb/001/012   -v /dev/aria_usb:/dev/aria_usb   robot-env:latest
 
 # Docker Build
 <em> ** Only needs to be done when you have modified the codebase and want the changes reflected in docker ** </em>

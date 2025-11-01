@@ -25,8 +25,6 @@ class OculusReader:
         print_FPS=False,
         run=True,
     ):
-        print("Herrreeeeeeee----------------------")
-
         self.running = False
         self.last_transforms = {}
         self.last_buttons = {}

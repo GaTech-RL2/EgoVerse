@@ -2,21 +2,24 @@ import os
 import time
 import h5py
 import torch
+import sys
 import numpy as np
 
 from abc import ABC, abstractmethod
 
-from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
+from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from robot_utils import RateLoop
-from eva.eva_ws.src.eva.robot_interface import *
-from eva.eva_ws.src.eva.stream_aria import AriaRecorder
-from eva.eva_ws.src.eva.stream_d405 import RealSenseRecorder
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
+from robot_interface import *
+# from stream_aria import AriaRecorder
+# from stream_d405 import RealSenseRecorder
 
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
-QUERY_FREQUENCY = 10
+QUERY_FREQUENCY = 20
 
 RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
@@ -38,13 +41,16 @@ class Rollout(ABC):
 
 
 class ReplayRollout(Rollout):
-    def __init__(self, dataset_path):
+    def __init__(self, dataset_path, cartesian):
         super().__init__()
         self.dataset_path = dataset_path
         if not os.path.isfile(self.dataset_path):
             raise FileNotFoundError(f"HDF5 not found: {self.dataset_path}")
         with h5py.File(self.dataset_path, "r") as f:
-            self.actions = np.asarray(f["action"][...], dtype=np.float32)
+            if cartesian:
+                self.actions = np.asarray(f["action"][...], dtype=np.float32)
+            else:
+                self.actions = np.asarray(f["observations"]["joint_positions"][...], dtype=np.float32)
 
     def rollout_step(self, i):
         if i < self.actions.shape[0]:
@@ -140,7 +146,7 @@ class PolicyRollout(Rollout):
 
 
 def main(
-    arm,
+    arms,
     frequency,
     cartesian,
     query_frequency=None,
@@ -148,10 +154,13 @@ def main(
     dataset_path=None,
 ):
     ri = None
-    if arm == "both":
-        ri = DualARXInterface(arm)
+    if arms == "both":
+        arms_list = ["right", "left"]
+    elif arms == "right":
+        arms_list = ["right"]
     else:
-        ri = SingleARXInterface(arm)
+        arms_list = ["left"]
+    ri = ARXInterface(arms=arms_list)
 
     rollout_type = "replay" if policy_path is None else "policy"
     if rollout_type == "policy":
@@ -160,11 +169,13 @@ def main(
         )
     elif rollout_type == "replay":
         policy = ReplayRollout(
-            dataset_path=dataset_path,
+            dataset_path=dataset_path, cartesian=cartesian
         )
     else:
         raise RuntimeError("Invalid rollout type")
 
+    print(f"Cartesian value {cartesian}")
+    ri.set_home()
     with RateLoop(frequency=frequency, verbose=True) as loop:
         for i in loop:
             actions = None
@@ -178,10 +189,15 @@ def main(
             if actions is None:
                 print("Finish rollout")
                 break
-            if cartesian:
-                ri.set_pose(actions)
-            else:
-                ri.set_joint(actions)
+            for arm in arms_list:
+                arm_offset = 0
+                if arm == "right":
+                    arm_offset = 7
+                arm_action = actions[arm_offset: arm_offset + 7]
+                if cartesian:
+                    ri.set_pose(arm_action, arm)
+                else:
+                    ri.set_joints(arm_action, arm)
 
 
 if __name__ == "__main__":
@@ -189,7 +205,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Rollout robot model.")
     parser.add_argument(
-        "--arm",
+        "--arms",
         type=str,
         default="right",
         choices=["left", "right", "both"],
@@ -218,7 +234,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     main(
-        arm=args.arm,
+        arms=args.arms,
         frequency=args.frequency,
         query_frequency=args.query_frequency,
         policy_path=args.policy_path,
