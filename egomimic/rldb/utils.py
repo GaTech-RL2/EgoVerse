@@ -1,0 +1,927 @@
+import ast
+import logging
+import os
+import random
+import shutil
+from datetime import datetime, timezone
+from enum import Enum
+from multiprocessing.dummy import connection
+from pathlib import Path
+from unittest import result
+
+import boto3
+import numpy as np
+import pandas as pd
+import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.dataset as ds
+import torch
+from datasets import DatasetDict, concatenate_datasets
+from lerobot.common.datasets.lerobot_dataset import (
+    LeRobotDataset,
+    LeRobotDatasetMetadata,
+)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Float,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    text,
+)
+from torch.utils.data import Subset
+
+from egomimic.utils.aws.aws_sql import (
+    TableRow,
+    add_episode,
+    create_default_engine,
+    delete_all_episodes,
+    delete_episodes,
+    episode_hash_to_table_row,
+    episode_table_to_df,
+    update_episode,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# NOTE: To add a new key register, embodiment here. I hope Nadun, Vaibhav you guys have a more principled way of doing this thanks :) - R
+class EMBODIMENT(Enum):
+    EVE_RIGHT_ARM = 0
+    EVE_LEFT_ARM = 1
+    EVE_BIMANUAL = 2
+    ARIA_RIGHT_ARM = 3
+    ARIA_LEFT_ARM = 4
+    ARIA_BIMANUAL = 5
+
+
+SEED = 42
+
+EMBODIMENT_ID_TO_KEY = {
+    member.value: key for key, member in EMBODIMENT.__members__.items()
+}
+
+
+def get_embodiment(index):
+    return EMBODIMENT_ID_TO_KEY.get(index, None)
+
+
+def get_embodiment_id(embodiment_name):
+    embodiment_name = embodiment_name.upper()
+    return EMBODIMENT[embodiment_name].value
+
+
+def nds(nested_ds, tab_level=0):
+    """
+    Print the structure of a nested dataset.
+    nested_ds: a series of nested dictionaries and iterables.  If a dictionary, print the key and recurse on the value.  If a list, print the length of the list and recurse on just the first index.  For other types, just print the shape.
+    """
+
+    def is_key(x):
+        return hasattr(x, "keys") and callable(x.keys)
+
+    def is_listy(x):
+        return isinstance(x, list)
+
+    # print('--' * tab_level, end='')
+    if is_key(nested_ds):
+        print("dict with keys: ", nested_ds.keys())
+    elif is_listy(nested_ds):
+        print("list of len: ", len(nested_ds))
+    elif nested_ds is None:
+        print("None")
+    else:
+        # print('\t' * (tab_level), end='')
+        print(nested_ds.shape)
+
+    if is_key(nested_ds):
+        for key, value in nested_ds.items():
+            print("\t" * (tab_level), end="")
+            print(f"{key}: ", end="")
+            nds(value, tab_level + 1)
+    elif isinstance(nested_ds, list):
+        print("\t" * tab_level, end="")
+        print("Index[0]", end="")
+        nds(nested_ds[0], tab_level + 1)
+
+
+class RLDBDataset(LeRobotDataset):
+    def __init__(
+        self,
+        repo_id,
+        root,
+        local_files_only=False,
+        episodes=None,
+        percent=0.1,
+        mode="train",
+        valid_ratio: float = 0.2,
+        **kwargs,
+    ):
+        dataset_meta = LeRobotDatasetMetadata(
+            repo_id=repo_id, root=root, local_files_only=local_files_only
+        )
+        dataset_meta._update_splits(valid_ratio=valid_ratio)
+
+        dataset_splits = dataset_meta.info["splits"]
+        train_indices = dataset_splits["train"]
+
+        self.embodiment = get_embodiment_id(dataset_meta.robot_type)
+        self.sampled_indices = None
+
+        self.use_task_string = kwargs.get("use_task_string", False)
+        if self.use_task_string:
+            self.task_string = kwargs.get("task_string", "")
+
+        if mode == "train":
+            super().__init__(
+                repo_id=repo_id,
+                root=root,
+                local_files_only=local_files_only,
+                episodes=train_indices,
+            )
+
+        elif mode == "valid":
+            assert "valid" in dataset_splits, (
+                "Validation split not found in dataset_splits. "
+                f"Please include a 'valid' key by updating your dataset metadata in {dataset_meta.root}.info.json ."
+            )
+            valid_indices = dataset_splits["valid"]
+            super().__init__(
+                repo_id=repo_id,
+                root=root,
+                local_files_only=local_files_only,
+                episodes=valid_indices,
+            )
+
+        elif mode == "sample" and episodes is not None:
+            super().__init__(
+                repo_id=repo_id,
+                root=root,
+                local_files_only=local_files_only,
+                episodes=episodes,
+            )
+
+        elif mode == "percent" and percent is not None:
+            assert 0 < percent <= 1, "Percent should be a value between 0 and 1."
+
+            # Load full dataset first
+            super().__init__(
+                repo_id=repo_id,
+                root=root,
+                local_files_only=local_files_only,
+                episodes=train_indices,
+            )
+
+            # Sample a percentage of frames
+            total_frames = len(self)
+            num_sampled_frames = int(percent * total_frames)
+            self.sampled_indices = sorted(
+                random.sample(range(total_frames), num_sampled_frames)
+            )
+
+        else:
+            super().__init__(
+                repo_id=repo_id, root=root, local_files_only=local_files_only
+            )
+
+    def __len__(self):
+        """Return the total number of sampled frames if in 'percent' mode, otherwise the full dataset size."""
+        if self.sampled_indices is not None:
+            return len(self.sampled_indices)
+        return super().__len__()
+
+    def __getitem__(self, idx):
+        """Fetch frames based on sampled indices in 'percent' mode, otherwise default to full dataset."""
+        if self.sampled_indices is not None:
+            idx = self.sampled_indices[idx]  # Map index to sampled frames
+        item = super().__getitem__(idx)
+
+        if self.use_task_string:
+            item["high_level_language_prompt"] = self.task_string
+
+        return item
+
+
+# TODO(Ryan) : Override individual dataset valid ratios and train modes
+
+
+class MultiRLDBDataset(torch.utils.data.Dataset):
+    def __init__(self, datasets, embodiment, key_map=None):
+        self.datasets = datasets
+        self.key_map = key_map
+
+        self.embodiment = get_embodiment_id(embodiment)
+        for dataset_name, dataset in self.datasets.items():
+            assert dataset.embodiment == self.embodiment, (
+                f"Dataset {dataset_name} has embodiment {dataset.embodiment}, expected {self.embodiment}."
+            )
+
+        self.index_map = []
+        for dataset_name, dataset in self.datasets.items():
+            for local_idx in range(len(dataset)):
+                self.index_map.append((dataset_name, local_idx))
+
+        self.hf_dataset = self._merge_hf_datasets()
+
+        super().__init__()
+
+    def __getitem__(self, idx):
+        dataset_name, local_idx = self.index_map[idx]
+        data = self.datasets[dataset_name][local_idx]
+
+        if self.key_map and dataset_name in self.key_map:
+            key_map = self.key_map[dataset_name]
+            data = {key_map.get(k, k): v for k, v in data.items()}
+
+        return data
+
+    def __len__(self):
+        return len(self.index_map)
+
+    def _merge_hf_datasets(self):
+        """
+        Merge hf_dataset from multiple RLDBDataset instances while remapping keys.
+
+        Returns:
+            A unified Hugging Face Dataset object.
+        """
+        dataset_list = []
+
+        for dataset_name, sub_dataset in self.datasets.items():
+            hf_dataset = sub_dataset.hf_dataset  # This is a Hugging Face Dataset
+
+            # Apply key mapping if available
+            if self.key_map and dataset_name in self.key_map:
+                key_map = self.key_map[dataset_name]
+                hf_dataset = hf_dataset.rename_columns(key_map)
+
+            dataset_list.append(hf_dataset)
+
+        merged_dataset = concatenate_datasets(dataset_list)
+
+        return merged_dataset
+
+
+# TODO: add S3 mode where it directly downloads dataset folder from S3
+class FolderRLDBDataset(MultiRLDBDataset):
+    def __init__(
+        self,
+        folder_path,
+        embodiment,
+        mode="train",
+        percent=0.1,
+        local_files_only=True,
+        key_map=None,
+        valid_ratio=0.2,
+        **kwargs,
+    ):
+        folder_path = Path(folder_path)
+        assert folder_path.is_dir(), f"{folder_path} is not a valid directory."
+        assert mode in ["train", "valid", "percent", "total"], f"Invalid mode: {mode}"
+        assert embodiment is not None, "embodiment should not be None"
+
+        datasets = {}
+        skipped = []
+
+        subdirs = sorted([p for p in folder_path.iterdir() if p.is_dir()])
+        logger.info(
+            f"Found {len(subdirs)} subfolders. Attempting to load valid RLDB datasets..."
+        )
+
+        for subdir in subdirs:
+            info_json = subdir / "meta" / "info.json"
+            if not info_json.exists():
+                logger.warning(f"Skipping {subdir.name}: missing meta/info.json")
+                skipped.append(subdir.name)
+                continue
+
+            try:
+                repo_id = subdir.name
+                dataset = RLDBDataset(
+                    repo_id=repo_id,
+                    root=subdir,
+                    local_files_only=local_files_only,
+                    mode=mode,
+                    percent=percent,
+                    valid_ratio=valid_ratio,
+                    **kwargs,
+                )
+                if dataset.embodiment != get_embodiment_id(embodiment):
+                    logger.warning(
+                        f"Skipping {repo_id}: embodiment mismatch {dataset.embodiment} != {embodiment}"
+                    )
+                    skipped.append(repo_id)
+                    continue
+
+                datasets[repo_id] = dataset
+                logger.info(f"Loaded: {repo_id}")
+
+            except Exception as e:
+                logger.error(f"Failed to load {subdir.name}: {e}")
+                skipped.append(subdir.name)
+        assert len(datasets) > 0, "No valid RLDB datasets found!"
+
+        key_map_per_dataset = (
+            {repo_id: key_map for repo_id in datasets} if key_map else None
+        )
+
+        super().__init__(
+            datasets=datasets,
+            embodiment=embodiment,
+            key_map=key_map_per_dataset,
+        )
+
+        if skipped:
+            logger.warning(f"Skipped {len(skipped)} datasets: {skipped}")
+
+
+class S3RLDBDataset(MultiRLDBDataset):
+    """
+    A dataset class that downloads datasets from AWS S3 and instantiates them as RLDBDataset objects
+
+    Args:
+        embodiment (str): The embodiment type (e.g., "EVE_RIGHT_ARM", "ARIA_BIMANUAL").
+        mode (str): Dataset mode - "train", "valid".
+        bucket_name (str): AWS S3 bucket name containing the datasets.
+        main_prefix (str): S3 prefix path to datasets.
+        percent (float): fraction of data to use.
+        local_files_only (bool): Whether to use only local files.
+        key_map (dict): Optional mapping to rename dataset keys.
+        valid_ratio (float): Validation split ratio for train/valid split
+        temp_root (str): Absolute path for temporary download storage.
+                        e.g.: "/coc/cedarp-dxu345-0/datasets/egoverse"
+        filters (dict): Filtering criteria for S3 datasets. e.g.,:
+                       {"task": "fold_cloth/", "lab": "eth", "scene": "scene_10", "recording": "recording_1"}
+                       Only datasets matching ALL non-empty filter values will be loaded.
+
+    Example:
+        # Download and load fold_cloth datasets from ETH lab, scene_10, recording_1
+        dataset = S3RLDBDataset(
+            embodiment="EVE_RIGHT_ARM",
+            mode="train",
+            filters={"task": "fold_cloth/", "lab": "eth", "scene": "scene_10", "recording": "recording_1"}
+        )
+    """
+
+    def __init__(
+        self,
+        embodiment,
+        mode,
+        bucket_name="rldb",
+        main_prefix="processed_v2",
+        percent=0.1,
+        local_files_only=True,
+        key_map=None,
+        valid_ratio=0.2,
+        temp_root="/coc/cedarp-dxu345-0/datasets/egoverse",  # "/coc/flash7/scratch/rldb_temp"
+        filters={},
+    ):
+        temp_root += "/S3_rldb_data"
+        filters["embodiment"] = embodiment
+
+        if temp_root[0] != "/":
+            temp_root = "/" + temp_root
+        temp_root = Path(temp_root)
+
+        if temp_root.is_dir():
+            logger.info(f"Using existing temp_root directory: {temp_root}")
+        if not temp_root.is_dir():
+            temp_root.mkdir()
+
+        datasets = {}
+        skipped = []
+
+        filtered_paths = self._get_processed_path(filters)
+
+        s3_prefix = f"{main_prefix}/{embodiment.strip('/')}/"
+
+        logger.info(
+            f"Syncing S3 datasets with filters {filters} to local directory {temp_root}..."
+        )
+        logger.info(f"S3 prefix being used: {s3_prefix}")
+
+        self._sync_s3_to_local(
+            bucket_name=bucket_name,
+            s3_paths=filtered_paths,
+            local_dir=temp_root,
+            s3_subfolders=["data/chunk-000/", "meta/"],
+        )
+
+        search_path = temp_root
+
+        valid_collection_names = set()
+        for fp, hashes in filtered_paths:
+            fmt = "%Y-%m-%d-%H-%M-%S-%f"
+            dt = datetime.strptime(hashes, fmt).replace(tzinfo=timezone.utc)
+            milliseconds = int(dt.timestamp() * 1000)
+            valid_collection_names.add(str(milliseconds))
+
+        for collection_path in sorted(search_path.iterdir()):
+            if not collection_path.is_dir():
+                continue
+
+            if collection_path.name not in valid_collection_names:
+                logger.warning(
+                    f"Skipping {collection_path.name}: not in filtered S3 paths"
+                )
+                skipped.append(collection_path.name)
+                continue
+
+            try:
+                repo_id = collection_path.name
+                dataset = RLDBDataset(
+                    repo_id=repo_id,
+                    root=collection_path,
+                    local_files_only=local_files_only,
+                    mode=mode,
+                    percent=percent,
+                    valid_ratio=valid_ratio,
+                )
+
+                if dataset.embodiment != get_embodiment_id(embodiment):
+                    logger.warning(
+                        f"Skipping {repo_id}: embodiment mismatch {dataset.embodiment} != {embodiment}"
+                    )
+                    skipped.append(repo_id)
+                    continue
+
+                datasets[repo_id] = dataset
+
+            except Exception as e:
+                logger.error(f"Failed to load {repo_id} as RLDBDataset: {e}")
+                skipped.append(repo_id)
+
+        assert datasets, "No valid RLDB datasets found! Check your S3 path and filters."
+
+        key_map_per_dataset = (
+            {repo_id: key_map for repo_id in datasets} if key_map else None
+        )
+
+        super().__init__(
+            datasets=datasets,
+            embodiment=embodiment,
+            key_map=key_map_per_dataset,
+        )
+
+        if skipped:
+            logger.warning(f"Skipped {len(skipped)} datasets: {skipped}")
+
+    @staticmethod
+    def _get_processed_path(filters):
+        engine = create_default_engine()
+        df = episode_table_to_df(engine)
+
+        series = pd.Series(filters)
+
+        output = df.loc[
+            (df[list(filters)] == series).all(axis=1),
+            ["processed_path", "episode_hash"],
+        ]
+        skipped = df[df["processed_path"].isnull()]["episode_hash"].tolist()
+        print(f"Skipped {len(skipped)} episodes with null processed_path: {skipped}")
+        output = output[~output["episode_hash"].isin(skipped)]
+
+        paths = list(output.itertuples(index=False, name=None))
+        print(f"Paths: {paths}")
+        return paths
+
+    @staticmethod
+    def _download_files(bucket_name, s3_prefix, local_dir):
+        """
+        Downloads all files from a specific S3 prefix to a local directory.
+
+        This method lists all objects under the given S3 prefix and downloads
+        each file to the local directory, preserving just the filename (not
+        the full S3 path structure).
+
+        Args:
+            bucket_name (str): The AWS S3 bucket name
+            s3_prefix (str): The S3 prefix path to download from (e.g., "processed/fold_cloth/dataset1/meta/")
+            local_dir (Path): The local directory to save files to
+        """
+        s3 = boto3.client("s3")
+
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=s3_prefix)
+        objects = response.get("Contents", [])
+
+        if not objects:
+            logger.warning(f"No objects found for prefix: {s3_prefix}")
+            return
+
+        for obj in objects:
+            key = obj["Key"]
+
+            if key.endswith("/"):
+                logger.debug(f"Skipping directory: {key}")
+                continue
+
+            if key == s3_prefix or key == s3_prefix.rstrip("/"):
+                logger.debug(f"Skipping prefix path: {key}")
+                continue
+
+            try:
+                local_file_path = local_dir / Path(key).name
+                s3.download_file(bucket_name, key, str(local_file_path))
+                logger.debug(f"Successfully downloaded: {key}")
+            except Exception as e:
+                logger.error(f"Failed to download {key}: {e}")
+
+    @staticmethod
+    def _sync_s3_to_local(bucket_name, s3_paths, local_dir, s3_subfolders):
+        """
+        Syncs datasets from S3 to local storage with optional filtering.
+
+        Args:
+            bucket_name (str): AWS S3 bucket name
+            prefix (str): S3 prefix to search under (e.g., "processed/fold_cloth/")
+            local_dir (Path): Local directory to download to
+            s3_subfolders (list): Subfolders to download for each dataset (e.g., ["data/chunk-000/", "meta/"])
+            filters (dict): Additional filtering criteria beyond task
+        """
+        skipped = []
+        s3 = boto3.client("s3")
+
+        for folder, hashes in s3_paths:
+            folder = folder.lstrip("rldb:/")
+
+            response = s3.list_objects_v2(
+                Bucket=bucket_name, Prefix=f"{folder}/meta/info.json"
+            )
+
+            if "Contents" not in response or not response["Contents"]:
+                logger.warning(f"Skipping {folder}: missing /meta/info.json")
+                skipped.append(folder)
+                continue
+
+            fmt = "%Y-%m-%d-%H-%M-%S-%f"
+            dt = datetime.strptime(hashes, fmt).replace(tzinfo=timezone.utc)
+            milliseconds = int(dt.timestamp() * 1000)
+            collection_path = local_dir / str(milliseconds)
+
+            for s3sub in s3_subfolders:
+                if s3sub.startswith("/"):
+                    s3sub = s3sub[1:]
+                if not s3sub.endswith("/"):
+                    s3sub = s3sub + "/"
+
+                localsub = collection_path / s3sub.rstrip("/")
+                s3_full_path = folder.rstrip("/") + "/" + s3sub
+
+                localsub.mkdir(parents=True, exist_ok=True)
+                print(f"Created local directory: {localsub}")
+
+                if not any(localsub.iterdir()):
+                    print(f"Downloading from S3 path: {s3_full_path}")
+                    S3RLDBDataset._download_files(bucket_name, s3_full_path, localsub)
+                    logger.info(
+                        f"Downloaded data files from {s3_full_path} to {localsub}"
+                    )
+                else:
+                    logger.info(
+                        f"Data files already exist at {localsub}, skipping download"
+                    )
+
+        if skipped:
+            logger.warning(f"Skipped {len(skipped)} S3 prefixes during sync: {skipped}")
+
+
+class DataSchematic(object):
+    def __init__(self, schematic_dict, viz_img_key, norm_mode="zscore"):
+        """
+        Initialize with a schematic dictionary and create a DataFrame.
+
+        Args:
+            schematic_dict:
+                {embodiment_name}:
+                    front_img_1_line:
+                        key_type: camera_keys
+                        lerobot_key: observations.images.cam_high
+                    right_wrist_img:
+                        key_type: camera_keys
+                        lerobot_key: observations.images.right_wrist
+                    joint_positions:
+                        key_type: proprio_keys
+                        lerobot_key: observations.qpos
+                    actions_joints_act:
+                        key_type: action_keys
+                        lerobot_key: actions.joints_act
+                    .
+                    .
+                    .
+                    .
+
+        Attributes:
+            df (pd.DataFrame): Columns include 'key_name', 'key_type', and 'shape', 'embodiment'.
+        """
+
+        rows = []
+        self.embodiments = set()
+
+        for embodiment, schematic in schematic_dict.items():
+            embodiment_id = get_embodiment_id(embodiment)
+            self.embodiments.add(embodiment_id)
+            for key_name, key_info in schematic.items():
+                rows.append(
+                    {
+                        "key_name": key_name,
+                        "key_type": key_info["key_type"],
+                        "lerobot_key": key_info["lerobot_key"],
+                        "shape": None,
+                        "embodiment": embodiment_id,
+                    }
+                )
+
+        self.df = pd.DataFrame(rows)
+        self._viz_img_key = {get_embodiment_id(k): v for k, v in viz_img_key.items()}
+        self.shapes_infered = False
+        self.norm_mode = norm_mode
+        self.norm_stats = {emb: {} for emb in self.embodiments}
+
+    def lerobot_key_to_keyname(self, lerobot_key, embodiment):
+        """
+        Get the key name from the Lerobot key.
+
+        Args:
+            lerobot_key (str): Lerobot key, e.g., "observations.images.cam_high".
+            embodiment (int): int id corresponding to embodiment
+
+
+        Returns:
+            str: Key name, e.g., "front_img_1_line".
+        """
+        df_filtered = self.df[
+            (self.df["lerobot_key"] == lerobot_key)
+            & (self.df["embodiment"] == embodiment)
+        ]
+
+        if df_filtered.empty:
+            return None
+        return df_filtered["key_name"].item()
+
+    def keyname_to_lerobot_key(self, key_name, embodiment):
+        """
+        Get the Lerobot key from the key name.
+
+        Args:
+            key_name (str): Key name, e.g., "front_img_1_line".
+            embodiment (int): int id corresponding to embodiment
+
+        Returns:
+            str: Lerobot key, e.g., "observations.images.cam_high".
+        """
+        df_filtered = self.df[
+            (self.df["key_name"] == key_name) & (self.df["embodiment"] == embodiment)
+        ]
+
+        if df_filtered.empty:
+            return None
+        return df_filtered["lerobot_key"].item()
+
+    def infer_shapes_from_batch(self, batch):
+        """
+        Update shapes in the DataFrame based on a batch.
+
+        Args:
+            batch (dict): Maps key names (str) to tensors with shapes, e.g.,
+                {"key": tensor of shape (3, 480, 640, 3)}.
+
+        Updates:
+            The 'shape' column in the DataFrame is updated to match the inferred shapes (stored as tuples).
+        """
+        embodiment_id = int(batch["metadata.embodiment"])
+        for key, tensor in batch.items():
+            if hasattr(tensor, "shape"):
+                shape = tuple(tensor.shape)
+            elif isinstance(tensor, int):
+                shape = (1,)
+            else:
+                shape = None
+            key = self.lerobot_key_to_keyname(key, embodiment_id)
+            if key in self.df["key_name"].values:
+                self.df.loc[self.df["key_name"] == key, "shape"] = str(shape)
+
+        self.shapes_infered = True
+
+    def infer_norm_from_dataset(self, dataset):
+        """
+        dataset: huggingface dataset backed by pyarrow
+        returns: dictionary of means and stds for proprio and action keys
+            {
+                embodiment_id: {
+                    key_name: {
+                        mean: np.array (feature_dim),
+                        std: np.array (feature_dim),
+                    },
+                }
+        """
+        norm_columns = []
+
+        embodiment = dataset.embodiment
+
+        norm_columns.extend(self.keys_of_type("proprio_keys"))
+        norm_columns.extend(self.keys_of_type("action_keys"))
+
+        for column in norm_columns:
+            if self.is_key_with_embodiment(column, embodiment):
+                column_name = self.keyname_to_lerobot_key(column, embodiment)
+                column_data = np.array(
+                    dataset.hf_dataset._data[column_name].to_pylist()
+                )
+                if len(column_data.shape) != 2 and len(column_data.shape) != 3:
+                    raise ValueError(
+                        f"Column {column} has shape {column_data.shape}, expected 2 (num_examples_in_dataset, feature_dim) or 3 (num_examples_in_dataset, sequence_length, feature_dim)"
+                    )
+
+                self.norm_stats[embodiment][column] = {
+                    "mean": torch.from_numpy(np.mean(column_data, axis=0)).float(),
+                    "std": torch.from_numpy(np.std(column_data, axis=0)).float(),
+                    "min": torch.from_numpy(np.min(column_data, axis=0)).float(),
+                    "max": torch.from_numpy(np.max(column_data, axis=0)).float(),
+                    "median": torch.from_numpy(np.median(column_data, axis=0)).float(),
+                    "quantile_1": torch.from_numpy(
+                        np.percentile(column_data, 1, axis=0)
+                    ).float(),
+                    "quantile_99": torch.from_numpy(
+                        np.percentile(column_data, 99, axis=0)
+                    ).float(),
+                }
+
+    def viz_img_key(self):
+        """
+        Get the key that should be used for offline visualization
+        """
+        return self._viz_img_key
+
+    def all_keys(self):
+        """
+        Get all key names.
+
+        Returns:
+            list: Key names (str).
+        """
+        return self.df["key_name"].tolist()
+
+    def is_key_with_embodiment(self, key_name, embodiment):
+        """
+        Check if a key_name exists with a given embodiment
+
+        Args:
+            key_name (str): name of key, e.g. actions_joints
+            embodiment (int): integer id of embodiment
+
+        Returns:
+            bool: if the key exists.
+        """
+        return (
+            (self.df["key_name"] == key_name) & (self.df["embodiment"] == embodiment)
+        ).any()
+
+    def keys_of_type(self, key_type):
+        """
+        Get keys of a specific type.
+
+        Args:
+            key_type (str): Type of keys, e.g., "camera_keys", "proprio_keys", "action_keys", "metadata_keys".
+
+        Returns:
+            list: Key names (str) of the given type.
+        """
+        return self.df[self.df["key_type"] == key_type]["key_name"].tolist()
+
+    def action_keys(self):
+        return self.keys_of_type("action_keys")
+
+    def key_shape(self, key, embodiment):
+        """
+        Get the shape of a specific key.
+
+        Args:
+            key (str): Name of the key.
+            embodiment (int): integer id of embodiment
+
+        Returns:
+            tuple or None: Shape as a tuple, or None if not found.
+        """
+        if key not in self.df["key_name"].values:
+            raise ValueError(f"Keyname '{key}' is not in the schematic")
+
+        df_filtered = self.df[
+            (self.df["key_name"] == key) & (self.df["embodiment"] == embodiment)
+        ]
+
+        if df_filtered.empty:
+            raise ValueError(f"Keyname '{key}' with embodiment {embodiment} not found.")
+
+        shape = df_filtered["shape"].item()
+        return ast.literal_eval(shape)
+
+    def normalize_data(self, data, embodiment):
+        """
+        Normalize data using the stored normalization statistics.
+
+        Args:
+            data (dict): Maps key names to tensors.
+                joint_positions: tensor of shape (B, S, 7)
+            embodiment (int): Id of the embodiment.
+
+        Returns:
+            dict: Maps key names to normalized tensors.
+        """
+        if self.norm_stats is None:
+            raise ValueError(
+                "Normalization statistics not set. Call infer_norm_from_dataset() first."
+            )
+
+        norm_data = {}
+        for key, tensor in data.items():
+            if key in self.keys_of_type("proprio_keys") or key in self.keys_of_type(
+                "action_keys"
+            ):
+                if (
+                    embodiment not in self.norm_stats
+                    or key not in self.norm_stats[embodiment]
+                ):
+                    raise ValueError(
+                        f"Missing normalization stats for key {key} and embodiment {embodiment}."
+                    )
+
+                stats = self.norm_stats[embodiment][key]
+                if self.norm_mode == "zscore":
+                    mean = stats["mean"].to(tensor.device)
+                    std = stats["std"].to(tensor.device)
+                    norm_data[key] = (tensor - mean) / (std + 1e-6)
+                elif self.norm_mode == "minmax":
+                    min = stats["min"].to(tensor.device)
+                    max = stats["max"].to(tensor.device)
+                    ndata = (tensor - min) / (max - min + 1e-6)
+                    norm_data[key] = 2.0 * ndata - 1.0
+                elif self.norm_mode == "quantile":
+                    quantile_1 = stats["quantile_1"].to(tensor.device)
+                    quantile_99 = stats["quantile_99"].to(tensor.device)
+                    ndata = (tensor - quantile_1) / (quantile_99 - quantile_1 + 1e-6)
+                    norm_data[key] = 2.0 * ndata - 1.0
+                else:
+                    raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+            else:
+                norm_data[key] = tensor
+
+        return norm_data
+
+    def unnormalize_data(self, data, embodiment):
+        """
+        Unnormalize data using the stored normalization statistics.
+
+        Args:
+            data (dict): Maps key names to tensors.
+                joint_positions: tensor of shape (B, S, 7)
+            embodiment (int): Id of the embodiment.
+
+        Returns:
+            dict: Maps key names to denormalized tensors.
+        """
+        if self.norm_stats is None:
+            raise ValueError(
+                "Normalization statistics not set. Call infer_norm_from_dataset() first."
+            )
+
+        denorm_data = {}
+        for key, tensor in data.items():
+            if key in self.keys_of_type("proprio_keys") or key in self.keys_of_type(
+                "action_keys"
+            ):
+                if (
+                    embodiment not in self.norm_stats
+                    or key not in self.norm_stats[embodiment]
+                ):
+                    raise ValueError(
+                        f"Missing normalization stats for key {key} and embodiment {embodiment}."
+                    )
+
+                stats = self.norm_stats[embodiment][key]
+                if self.norm_mode == "zscore":
+                    mean = stats["mean"].to(tensor.device)
+                    std = stats["std"].to(tensor.device)
+                    denorm_data[key] = tensor * (std + 1e-6) + mean
+
+                elif self.norm_mode == "minmax":
+                    min_val = stats["min"].to(tensor.device)
+                    max_val = stats["max"].to(tensor.device)
+                    denorm_data[key] = (tensor + 1) * 0.5 * (
+                        max_val - min_val + 1e-6
+                    ) + min_val
+
+                elif self.norm_mode == "quantile":
+                    quantile_1 = stats["quantile_1"].to(tensor.device)
+                    quantile_99 = stats["quantile_99"].to(tensor.device)
+                    denorm_data[key] = (tensor + 1) * 0.5 * (
+                        quantile_99 - quantile_1 + 1e-6
+                    ) + quantile_1
+
+                else:
+                    raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+            else:
+                denorm_data[key] = tensor
+
+        return denorm_data
