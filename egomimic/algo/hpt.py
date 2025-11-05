@@ -23,7 +23,7 @@ from overrides import override
 
 from egomimic.algo.algo import Algo
 
-from rldb.utils import get_embodiment_id, get_embodiment
+from egomimic.rldb.utils import get_embodiment_id, get_embodiment
 
 from termcolor import cprint
 

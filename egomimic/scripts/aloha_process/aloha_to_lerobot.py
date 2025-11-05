@@ -18,7 +18,7 @@ from egomimic.utils.egomimicUtils import (
     ee_orientation_to_cam_frame,
 )
 
-from rldb.utils import EMBODIMENT
+from egomimic.rldb.utils import EMBODIMENT
 
 import time
 

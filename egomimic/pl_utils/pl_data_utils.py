@@ -4,7 +4,7 @@ from lightning import LightningDataModule
 from egomimic.utils.egomimicUtils import nds
 import json
 import os
-from rldb.utils import RLDBDataset
+from egomimic.rldb.utils import RLDBDataset
 from termcolor import cprint
 
 class RLDBModule(LightningDataModule):

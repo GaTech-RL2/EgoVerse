@@ -20,7 +20,7 @@ from egomimic.scripts.evaluation.eval import Eval
 import numpy as np
 log = RankedLogger(__name__, rank_zero_only=True)
 
-from rldb.utils import DataSchematic
+from egomimic.rldb.utils import DataSchematic
 
 import os
 

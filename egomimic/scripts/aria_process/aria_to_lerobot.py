@@ -46,7 +46,7 @@ from aria_utils import (
     coordinate_frame_to_ypr
 )
 
-from rldb.utils import EMBODIMENT
+from egomimic.rldb.utils import EMBODIMENT
 
 import time
 

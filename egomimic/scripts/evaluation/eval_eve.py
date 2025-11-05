@@ -39,7 +39,7 @@ CURR_INTRINSICS = ARIA_INTRINSICS
 CURR_EXTRINSICS = EXTRINSICS["ariaJul29R"]
 TEMPORAL_AGG = False
 
-from rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
+from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
 
 from egomimic.evaluation.eval import Eval
 

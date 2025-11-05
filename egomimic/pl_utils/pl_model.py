@@ -11,7 +11,7 @@ from egomimic.pl_utils.pl_data_utils import DualDataModuleWrapper, RLDBModule
 from typing import Any, Dict
 import torchvision.io as tvio
 from lightning.pytorch.utilities import rank_zero_only
-from rldb.utils import get_embodiment
+from egomimic.rldb.utils import get_embodiment
 
 class ModelWrapper(LightningModule):
     """
