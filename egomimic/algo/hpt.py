@@ -30,6 +30,8 @@ from termcolor import cprint
 from geomloss import SamplesLoss
 from tslearn.metrics import SoftDTWLossPyTorch
 
+import math
+
 class HPTModel(nn.Module):
     """
     Heterogenous Pretrained Transformer (HPT) implementation based on the HPT paper, with additional modifications.
@@ -861,6 +863,8 @@ class HPT(Algo):
         self.freeze_depth = kwargs.get("freeze_depth", 8)
         model.depth = self.depth
         
+        self.rkl_samples = kwargs.get("reverse_kl_samples", 4)
+        
         if self.ot:
             self.ot_warm_start_steps = kwargs.get("ot_warm_start_steps", 0)
             self.ot_6dof = kwargs.get("ot_6dof", False)
@@ -1104,10 +1108,46 @@ class HPT(Algo):
                 metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
             
+            if self.rkl_samples and self.rkl_samples > 1:
+                hpt_batch = {
+                    "domain": embodiment_name,
+                    "data": self._robomimic_to_hpt_data(
+                        batch[embodiment_id],
+                        self.camera_keys[embodiment_id],
+                        self.proprio_keys[embodiment_id],
+                        self.lang_keys[embodiment_id],
+                        ac_key,
+                        self.auxiliary_ac_keys.get(embodiment_name, []),
+                    ),
+                }
+                rkl_targets = []
+                
+                if f"{embodiment_name}_{ac_key}" in preds:
+                    rkl_targets.append((f"{embodiment_name}_{ac_key}", _batch[ac_key].to(self.device), embodiment_name))
+                    
+                if embodiment_name in self.auxiliary_ac_keys:
+                    for aux_key in self.auxiliary_ac_keys[embodiment_name]:
+                        aux_pred_key = f"{embodiment_name}_{aux_key}"
+                        if aux_pred_key in preds:
+                            rkl_targets.append((aux_pred_key, _batch[aux_key].to(self.device), aux_key))
+                
+                if self.shared_ac_key:
+                    shared_pred_key = f"{embodiment_name}_{self.shared_ac_key}"
+                    if shared_pred_key in preds:
+                        rkl_targets.append((shared_pred_key, _batch[self.shared_ac_key].to(self.device), "shared"))
+
+                M = int(self.rkl_samples)
+                for pred_key_name, gt_tensor, head_key in rkl_targets:
+                    samples = self._collect_policy_samples(
+                        hpt_batch, ref=gt_tensor, key_name=head_key, M=M
+                    )
+                    rkl = self._reverse_kl_from_samples(samples, gt_tensor)
+                    metrics[f"Valid/{pred_key_name}_reverse_kl_M{M}"] = rkl.item()
+                
             ims = self.visualize_preds(preds, _batch)
             images_dict[embodiment_id] = ims
-
         return metrics, images_dict
+    
     @override
     def visualize_preds(self, predictions, batch):
         """
@@ -1207,6 +1247,45 @@ class HPT(Algo):
             log["Policy_Grad_Norms"] = info["policy_grad_norms"]
         return log
     
+    @torch.no_grad()
+    def _collect_policy_samples(self, hpt_batch, ref, key_name, M):
+        """
+        Collect policy samples for Reverse KL loss
+        """
+        B, T, D = ref.shape
+        samples = []
+        was_training = self.nets.training
+        self.nets.eval()
+        for _ in range(M):
+            out = self.nets["policy"].forward(hpt_batch["domain"], self._clone_batch(hpt_batch["data"]))
+            if key_name in out:
+                pred = out[key_name]
+            else:
+                pred = out[hpt_batch["domain"]]
+                
+            pred = pred[:, :T, :D]
+            samples.append(pred.unsqueeze(0))
+        if was_training:
+            self.nets.train()
+        return torch.cat(samples, dim=0)
+    
+    def _reverse_kl_from_samples(self, pred_samples, targets):
+        M, B, T, D = pred_samples.shape
+        BT = B*T
+        const = -0.5 * D * math.log(2.0 * math.pi)
+        
+        A = pred_samples.permute(1, 2, 0, 3).reshape(BT, M, D)
+        MU = targets.reshape(BT, 1, D)
+        
+        d2 = torch.cdist(A, A)**2                              # (BT,M,M)
+        log_q_each = torch.logsumexp(const - 0.5*d2, dim=-1) - math.log(M)  # (BT,M)
+        
+        d2p = ((A - MU)**2).sum(dim=-1)                        # (BT,M)
+        log_p_each = const - 0.5*d2p
+        
+        rkl_each = (log_q_each - log_p_each).mean(dim=-1)      # (BT,)
+        return rkl_each.mean()
+            
     def _forward_ot(self, batch, embodiment1_id, embodiment2_id):
         hpt_batch_1 = batch[embodiment1_id]
         hpt_batch_2 = batch[embodiment2_id]
