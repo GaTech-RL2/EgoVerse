@@ -49,9 +49,9 @@ logger = logging.getLogger(__name__)
 
 # NOTE: To add a new key register, embodiment here. I hope Nadun, Vaibhav you guys have a more principled way of doing this thanks :) - R
 class EMBODIMENT(Enum):
-    EVE_RIGHT_ARM = 0
-    EVE_LEFT_ARM = 1
-    EVE_BIMANUAL = 2
+    EVA_RIGHT_ARM = 0
+    EVA_LEFT_ARM = 1
+    EVA_BIMANUAL = 2
     ARIA_RIGHT_ARM = 3
     ARIA_LEFT_ARM = 4
     ARIA_BIMANUAL = 5

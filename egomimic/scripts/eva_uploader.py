@@ -4,7 +4,7 @@ from pathlib import Path
 from abstract_upload import Uploader
 
 
-def eve_uploader():
+def eva_uploader():
 
     def collect_files(local_dir):
         """
@@ -19,16 +19,16 @@ def eve_uploader():
         return hdf5_files
 
     uploader = Uploader(
-        embodiment="eve", 
+        embodiment="eva", 
         datatype=".hdf5",
-        collect_files=collect_files
+        collect_files=collect_filesev
     )
 
     return uploader
 
 
 def main():
-    uploader = eve_uploader()
+    uploader = eva_uploader()
     asyncio.run(uploader.run())
 
 
