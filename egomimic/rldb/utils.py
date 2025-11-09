@@ -55,6 +55,9 @@ class EMBODIMENT(Enum):
     ARIA_RIGHT_ARM = 3
     ARIA_LEFT_ARM = 4
     ARIA_BIMANUAL = 5
+    EVE_RIGHT_ARM = 6
+    EVE_LEFT_ARM = 7
+    EVE_BIMANUAL = 8
 
 
 SEED = 42

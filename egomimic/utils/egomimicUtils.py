@@ -91,6 +91,16 @@ EXTRINSICS = {
        [ 0.14357562,  0.67977239,  0.71923261, -0.36191491],
        [ 0.        ,  0.        ,  0.        ,  1.        ]])
     },
+    "ariaOct18_arx": {
+        "right" : np.array([[ 0.92889757,  0.36039153, -0.08524815,  0.30147348],
+       [-0.32558192,  0.68501478, -0.65172936,  0.06826981],
+       [-0.1764815 ,  0.63314508,  0.75364554,  0.61726764],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+        "left" : np.array([[ 0.67106869,  0.09057156,  0.73584211,  0.37354573],
+       [ 0.01770855,  0.99026867, -0.13803754,  0.22691753],
+       [-0.74118367,  0.10566337,  0.66293441,  0.72137284],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    }
 }
 
 INTRINSICS = {
@@ -448,8 +458,7 @@ def batched_rotation_matrices_to_euler_angles(batch_R):
         # NumPy reshape
         reshaped_R = batch_R.reshape(-1, 3, 3)
     # reshaped_R = batch_R.view(-1, 3, 3).cpu().numpy()
-    # Use scipy's Rotation to convert rotation matrices to Euler angles
-    rotation_objects = R.from_matrix(reshaped_R)
+    rotation_objects = Rotation.from_matrix(reshaped_R)
     euler_angles = rotation_objects.as_euler('zyx', degrees=False)  # Shape [batch_size * seq_len, 3]
     # Convert back to torch and reshape to original batch dimensions
     euler_angles = torch.tensor(euler_angles, device=batch_R.device)
@@ -698,7 +707,7 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
 class AlohaFK:
     def __init__(self):
         urdf_path = os.path.join(
-            os.path.dirname(egomimic.__file__), "resources/model.urdf"
+            os.path.dirname(egomimic.__file__), "resources/model_aloha.urdf"
         )
         self.chain = pk.build_serial_chain_from_urdf(
             open(urdf_path).read(), "vx300s/ee_gripper_link"
