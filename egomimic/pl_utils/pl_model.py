@@ -8,6 +8,7 @@ import torch
 from lightning import LightningModule
 from egomimic.utils.egomimicUtils import nds
 from egomimic.pl_utils.pl_data_utils import DualDataModuleWrapper, RLDBModule
+from egomimic.model_wrap import polciy_wrapper
 from typing import Any, Dict
 import torchvision.io as tvio
 from lightning.pytorch.utilities import rank_zero_only
@@ -80,7 +81,25 @@ class ModelWrapper(LightningModule):
         """
         Run a validation step on the batch, and save that batch of images into the val_image_buffer.  Once the buffer hits 1000 images, save that as a 30fps video using torchvision.io.write_video.  
         """
+        ## jit trace
+        my_policy_wrapper = polciy_wrapper(self.model.nets['policy'], self.model.data_schematic.norm_stats[6])
+        my_policy_wrapper.policy.eval().to('cuda') 
+
+        batch_trace = {k: v[0:1] for k, v in batch[6].items()}
+        traced_path = os.path.join('/xiongyi/EgoVerse/trace_test', f"epoch_{self.trainer.current_epoch}", f'policy_traced.pt')
+        if not os.path.exists(traced_path):
+            os.makedirs(os.path.dirname(traced_path), exist_ok=True)
+            traced_policy = torch.jit.trace(my_policy_wrapper, batch_trace, strict=False)
+            traced_policy.save(traced_path)
+            del traced_policy
+        
+        # loaded_policy = torch.jit.load(traced_path)
+        # torch.random.manual_seed(0)
+        # jit_output = loaded_policy(batch_trace)
+
+        self.model.nets['policy'].eval()
         batch = self.model.process_batch_for_training(batch)
+        torch.random.manual_seed(0)
         metrics, images_dict = self.model.forward_eval_logging(batch)
 
         ## images is now a dict
