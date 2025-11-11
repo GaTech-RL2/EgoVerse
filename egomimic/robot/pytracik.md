@@ -9,6 +9,7 @@ git clone https://github.com/chenhaox/pytracik.git pytracik-temp
 rm -rf pytracik-temp/.git
 mv pytracik-temp ./pytracik
 cd pytracik
+uv pip install -r requirements.txt / pip install -r requirements.txt
 ```
 
 ## 2. Install dependencies inside your conda environment
