@@ -1076,7 +1076,7 @@ class DatasetConverter:
         C, H, W = imgs[0].shape
         size = (W // 2, H // 2)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        fourcc = cv2.VideoWriter_fourcc(*"H264")
         writer = cv2.VideoWriter(str(output_path), fourcc, fps, size)
 
         for chw in imgs:
