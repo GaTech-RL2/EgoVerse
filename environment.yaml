@@ -49,3 +49,4 @@ dependencies:
     - geomloss
     - sqlalchemy
     - psycopg[binary]
+    - mink

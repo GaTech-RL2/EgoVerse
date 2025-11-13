@@ -22,6 +22,7 @@ opencv-python==4.7.0.72
 dm-control==1.0.8
 mujoco
 mujoco-py==2.1.2.14
+mink
 submitit
 arm_pytorch_utilities
 pytorch-kinematics

@@ -17,7 +17,7 @@ from egomimic.utils.egomimicUtils import (
     ee_orientation_to_cam_frame,
 )
 
-from egomimic.robot.eva.eva_kinematics import EvaKinematicsSolver
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver as EvaKinematicsSolver
 from egomimic.rldb.utils import EMBODIMENT
 
 from typing import Union
@@ -28,6 +28,8 @@ import time
 import numpy as np
 
 import torch
+import subprocess
+import shutil
 import torch.nn.functional as F
 
 from scipy.spatial.transform import Rotation as R
@@ -35,7 +37,7 @@ from scipy.spatial.transform import Rotation as R
 from enum import Enum
 
 ## CHANGE THIS TO YOUR DESIRED CACHE FOR HF
-os.environ["HF_HOME"] = "/storage/cedar/cedar0/cedarp-dxu345-0/rpunamiya6/.cache/huggingface"
+os.environ["HF_HOME"] = "/coc/flash7/rpunamiya6/.cache/huggingface"
 
 DATASET_KEY_MAPPINGS = {
     "joint_positions" : "joint_positions",
@@ -44,7 +46,7 @@ DATASET_KEY_MAPPINGS = {
     "left_wrist_img" : "left_wrist_img"
 }
 
-EVA_URDF_PATH = os.path.join(os.path.dirname(egomimic.__file__), "resources/model_arx.urdf")
+EVA_XML_PATH = os.path.join(os.path.dirname(egomimic.__file__), "resources/model_x5.xml")
 
 POINT_GAP_ACT = 2
 CHUNK_LENGTH_ACT = 100
@@ -121,7 +123,7 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
     left_extrinsics: the left camera extrinsics
     right_extrinsics: the right camera extrinsics
     """
-    eva_fk = EvaKinematicsSolver(EVA_URDF_PATH)
+    eva_fk = EvaKinematicsSolver(model_path=str(EVA_XML_PATH))
 
     if arm == "both":
         joint_start = 0
@@ -196,8 +198,8 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
 
     return fk_positions
 
-class AlohaHD5Extractor:
-    TAGS = ["eve", "robotics", "hdf5"]
+class EvaHD5Extractor:
+    TAGS = ["eva", "robotics", "hdf5"]
 
     @staticmethod
     def process_episode(episode_path, arm, extrinsics, prestack=False, low_res=False, no_rot=False):
@@ -259,11 +261,11 @@ class AlohaHD5Extractor:
 
         with h5py.File(episode_path, "r") as episode:
             # rgb camera
-            logging.info(f"[AlohaHD5Extractor] Reading HDF5 file: {episode_path}")
+            logging.info(f"[EvaHD5Extractor] Reading HDF5 file: {episode_path}")
 
             episode_feats["observations"] = dict()
 
-            for camera in AlohaHD5Extractor.get_cameras(episode):
+            for camera in EvaHD5Extractor.get_cameras(episode):
                 images = torch.from_numpy(episode["observations"]["images"][camera][:]).permute(0, 3, 1, 2).float()
 
                 if low_res:
@@ -275,12 +277,12 @@ class AlohaHD5Extractor:
                 episode_feats["observations"][f"images.{mapped_key}"] = images
             
             # state
-            for state in AlohaHD5Extractor.get_state(episode):
+            for state in EvaHD5Extractor.get_state(episode):
                 mapped_key = DATASET_KEY_MAPPINGS.get(state, state)
                 episode_feats["observations"][f"state.{mapped_key}"] = episode["observations"][state][:]
             
             # ee_pose
-            episode_feats["observations"][f"state.ee_pose"] = AlohaHD5Extractor.get_ee_pose(
+            episode_feats["observations"][f"state.ee_pose"] = EvaHD5Extractor.get_ee_pose(
                                                                 episode_feats["observations"][f"state.joint_positions"],
                                                                 arm,
                                                                 left_extrinsics=left_extrinsics,
@@ -290,7 +292,7 @@ class AlohaHD5Extractor:
 
 
             # actions
-            joint_actions, cartesian_actions = AlohaHD5Extractor.get_action(
+            joint_actions, cartesian_actions = EvaHD5Extractor.get_action(
                                                     episode["action"][:],
                                                     arm=arm,
                                                     prestack=prestack,
@@ -319,7 +321,7 @@ class AlohaHD5Extractor:
 
         #TODO: benchmarking only, remove for release
         elapsed_time = time.time() - t0
-        logging.info(f"[AlohaHD5Extractor] Finished processing episode at {episode_path} in {elapsed_time:.2f} sec")
+        logging.info(f"[EvaHD5Extractor] Finished processing episode at {episode_path} in {elapsed_time:.2f} sec")
 
         return episode_feats
 
@@ -477,7 +479,7 @@ class AlohaHD5Extractor:
                         "The '/action' and '/observations/joint_positions' keys should have the same number of frames."
                     )
 
-                for camera in AlohaHD5Extractor.get_cameras(data):
+                for camera in EvaHD5Extractor.get_cameras(data):
                     if num_frames != data[f"/observations/images/{camera}"].shape[0]:
                         raise ValueError(
                             f"The number of frames in '/observations/images/{camera}' should be the same as in '/action' and '/observations/joint_positions' keys."
@@ -521,7 +523,7 @@ class AlohaHD5Extractor:
             List of frames, where each frame is a dictionary mapping feature identifiers to tensors.
         """
         frames = []
-        episode_feats = AlohaHD5Extractor.process_episode(
+        episode_feats = EvaHD5Extractor.process_episode(
             episode_path, arm=arm, extrinsics=extrinsics, prestack=prestack
         )
         num_frames = next(iter(episode_feats["observations"].values())).shape[0]
@@ -544,7 +546,7 @@ class AlohaHD5Extractor:
                     elif isinstance(value, torch.Tensor):
                         frame[feature_id] = value[frame_idx]
                     else:
-                        logging.warning(f"[AlohaHD5Extractor] Could not add dataset key at {feature_id} due to unsupported type. Skipping ...")
+                        logging.warning(f"[EvaHD5Extractor] Could not add dataset key at {feature_id} due to unsupported type. Skipping ...")
                         continue
 
             frames.append(frame)
@@ -579,7 +581,7 @@ class AlohaHD5Extractor:
 
         for key, value in episode_feats.items():
             if isinstance(value, dict):  # Handle nested dictionaries recursively
-                nested_features, nested_metadata = AlohaHD5Extractor.define_features(value, image_compressed, encode_as_video)
+                nested_features, nested_metadata = EvaHD5Extractor.define_features(value, image_compressed, encode_as_video)
                 features.update({f"{key}.{nested_key}": nested_value for nested_key, nested_value in nested_features.items()})
                 features.update({f"{key}.{nested_key}": nested_value for nested_key, nested_value in nested_metadata.items()})
             elif isinstance(value, np.ndarray):
@@ -687,6 +689,8 @@ class DatasetConverter:
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
+        
+        self._mp4_path = None
 
         # Add console handler
         console_handler = logging.StreamHandler()
@@ -695,8 +699,8 @@ class DatasetConverter:
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
 
-        self.logger.info(f"{'-'*10} Aloha HD5 -> Lerobot Converter {'-'*10}")
-        self.logger.info(f"Processing Aloha HD5 dataset from {self.raw_path}")
+        self.logger.info(f"{'-'*10} Eva HD5 -> Lerobot Converter {'-'*10}")
+        self.logger.info(f"Processing Eva HD5 dataset from {self.raw_path}")
         self.logger.info(f"Dataset will be stored in {self.dataset_repo_id}")
         self.logger.info(f"FPS: {self.fps}")
         self.logger.info(f"Arm: {self.arm}")
@@ -712,10 +716,10 @@ class DatasetConverter:
         if debug:
             self.episode_list = self.episode_list[:2]
 
-        AlohaHD5Extractor.check_format(self.episode_list, image_compressed=self.image_compressed)
+        EvaHD5Extractor.check_format(self.episode_list, image_compressed=self.image_compressed)
 
         extrinsics = EXTRINSICS[self.extrinsics_key]
-        processed_episode = AlohaHD5Extractor.process_episode(
+        processed_episode = EvaHD5Extractor.process_episode(
             episode_path=self.episode_list[0],
             arm=self.arm,
             extrinsics=extrinsics,
@@ -729,28 +733,153 @@ class DatasetConverter:
         elif self.arm == "left":
             self.robot_type = "eve_left_arm"          
         
-        self.features, metadata = AlohaHD5Extractor.define_features(
+        self.features, metadata = EvaHD5Extractor.define_features(
             processed_episode,
             image_compressed=self.image_compressed,
             encode_as_video=self.encode_as_videos,
         )
 
         self.logger.info(f"Dataset Features: {self.features}")
+    
+    def save_preview_mp4(self, frames: list[dict], output_path: Path, fps: int, image_compressed: bool):
+        """
+        Save a half-resolution, web-compatible MP4 (H.264, yuv420p).
 
+        Strategy:
+        1. Try torchvision.io.write_video (H.264 via FFmpeg libs, no CLI).
+        2. If that fails, fall back to ffmpeg CLI via subprocess.
+        3. If both fail, raise a RuntimeError.
 
+        Expects each frame dict to contain:
+            'observations.images.front_img_1' -> torch.Tensor (C,H,W), uint8, BGR.
+        """
+        img_key = "observations.images.front_img_1"
+        imgs = [f[img_key] for f in frames if img_key in f]
+        if not imgs:
+            print(f"[MP4] No frames with key '{img_key}' found — skipping video save.")
+            return
+
+        # Assume imgs[0] is (C,H,W)
+        C, H, W = imgs[0].shape
+
+        # Compute half-res (force even dims for yuv420p)
+        outW, outH = W // 2, H // 2
+        if outW % 2:
+            outW -= 1
+        if outH % 2:
+            outH -= 1
+        if outW <= 0 or outH <= 0:
+            raise ValueError(f"[MP4] Invalid output size: {outW}x{outH}")
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # -----------------------------
+        # Build resized RGB frames once
+        # -----------------------------
+        rgb_frames = []
+        for chw in imgs:
+            # chw: (C,H,W) uint8, BGR from cv2.imdecode earlier
+            t = chw.detach().cpu()
+            if t.dtype != torch.uint8:
+                t = t.to(torch.uint8)
+
+            # If grayscale, repeat to 3 channels
+            if t.shape[0] == 1:
+                t = t.repeat(3, 1, 1)
+
+            # Resize to (outH, outW)
+            t_resized = F.interpolate(
+                t.unsqueeze(0),              # (1,C,H,W)
+                size=(outH, outW),
+                mode="bilinear",
+                align_corners=False,
+            ).squeeze(0)                    # (C,outH,outW)
+
+            # BGR -> RGB, then (H,W,C)
+            t_resized = t_resized[[2, 1, 0], ...]      # (3,H,W) RGB
+            hwc = t_resized.permute(1, 2, 0).contiguous()  # (H,W,3), uint8
+            rgb_frames.append(hwc)
+
+        video_tensor = torch.stack(rgb_frames, dim=0)  # (T, H, W, 3) uint8
+
+        # -----------------------------
+        # 1) Try torchvision.write_video
+        # -----------------------------
+        try:
+            from torchvision.io import write_video
+
+            write_video(
+                filename=str(output_path),
+                video_array=video_tensor,
+                fps=float(fps),
+                video_codec="libx264",  # H.264, web-compatible
+                options={"crf": "23", "preset": "veryfast"},
+            )
+            print(f"[MP4] Saved web-compatible H.264 preview via torchvision to {output_path}")
+            return
+        except Exception as e:
+            print(f"[MP4] torchvision.io.write_video failed ({e}); trying ffmpeg CLI fallback...")
+
+        # -----------------------------
+        # 2) Fallback: ffmpeg CLI (libx264)
+        # -----------------------------
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is None:
+            raise RuntimeError(
+                "[MP4] Could not write web-compatible MP4:\n"
+                "  - torchvision.io.write_video is unavailable or failed\n"
+                "  - `ffmpeg` CLI not found on PATH\n"
+                "Install either torchvision with video support or ffmpeg+libx264."
+            )
+
+        # For ffmpeg rawvideo, we need BGR24 frames of shape (outH, outW, 3)
+        # We can convert our RGB hwc tensors back to BGR numpy.
+        cmd = [
+            ffmpeg, "-y",
+            "-f", "rawvideo",
+            "-vcodec", "rawvideo",
+            "-pix_fmt", "bgr24",
+            "-s", f"{outW}x{outH}",
+            "-r", str(fps),
+            "-i", "-",                # stdin
+            "-an",
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-profile:v", "baseline",
+            "-level", "3.0",
+            "-movflags", "+faststart",
+            "-preset", "veryfast",
+            "-crf", "23",
+            str(output_path),
+        ]
+
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            for hwc_rgb in rgb_frames:
+                # hwc_rgb: (H,W,3), RGB uint8
+                np_rgb = hwc_rgb.numpy()
+                # RGB -> BGR
+                np_bgr = np_rgb[..., ::-1]
+                proc.stdin.write(np_bgr.tobytes())
+        finally:
+            if proc.stdin:
+                proc.stdin.flush()
+                proc.stdin.close()
+
+        ret = proc.wait()
+        if ret != 0:
+            stderr = proc.stderr.read().decode(errors="ignore") if proc.stderr else ""
+            raise RuntimeError(f"[MP4] ffmpeg/libx264 encoding failed (exit {ret}).\n{stderr}")
+
+        print(f"[MP4] Saved web-compatible H.264 preview via ffmpeg CLI to {output_path}")
+        
     def extract_episode(self, episode_path, task_description: str = ""):
-        """
-        Extracts frames from an episode and saves them to the dataset.
-        Parameters
-        ----------
-        episode_path : str
-            The path to the episode file.
-        task_description : str, optional
-            A description of the task associated with the episode (default is an empty string).
-        Returns
-        -------
-        None
-        """
         extrinsics = EXTRINSICS[self.extrinsics_key]
 
         frames = AlohaHD5Extractor.extract_episode_frames(
@@ -762,13 +891,17 @@ class DatasetConverter:
             prestack=self.prestack,
         )
 
-        
+        if self._mp4_path is not None:
+            ep_stem = Path(episode_path).stem
+            mp4_path = self._mp4_path / f"{ep_stem}_video.mp4"
+            self.save_preview_mp4(frames, mp4_path, self.fps, self.image_compressed)
+
         for frame in frames:
             self.dataset.add_frame(frame)
-        
+
         self.logger.info(f"Saving Episode with Description: {task_description} ...")
         self.dataset.save_episode(task=task_description)
-
+        
     def extract_episodes(self, episode_description: str = ""):
         """
         Extracts episodes from the episode list and processes them.
@@ -865,7 +998,7 @@ class DatasetConverter:
 
 
 def argument_parse():
-    parser = argparse.ArgumentParser(description="Convert Aloha HD5 dataset to LeRobot-Robomimic hybrid and push to Hugging Face hub.")
+    parser = argparse.ArgumentParser(description="Convert Eva HD5 dataset to LeRobot-Robomimic hybrid and push to Hugging Face hub.")
 
     # Required arguments
     parser.add_argument("--name", type=str, required=True, help="Name for dataset")
@@ -875,7 +1008,7 @@ def argument_parse():
     
 
     # Optional arguments
-    parser.add_argument("--description", type=str, default="Aloha recorded dataset.", help="Description of the dataset.")
+    parser.add_argument("--description", type=str, default="Eva recorded dataset.", help="Description of the dataset.")
     parser.add_argument("--arm", type=str, choices=["left", "right", "both"], default="both", help="Specify the arm for processing.")
     parser.add_argument("--extrinsics-key", type=str, default="ariaOct18_arx", help="Key to look up camera extrinsics.")
     parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
@@ -899,13 +1032,20 @@ def argument_parse():
     parser.add_argument("--num-nodes", type=int, default=1, help="Number of cluster nodes.")
     parser.add_argument("--partition", type=str, default="hoffman-lab", help="SLURM partition/account.")
 
+    parser.add_argument(
+        "--save-mp4",
+        type=str2bool,
+        default=True,
+        help="If True, save one web-compatible MP4 per episode using front_img_1.",
+    )
+
     args = parser.parse_args()
 
     return args
 
 def main(args):
     """
-    Convert Aloha HD5 dataset and push to Hugging Face hub.
+    Convert Eva HD5 dataset and push to Hugging Face hub.
 
     Parameters
     ----------
@@ -941,7 +1081,7 @@ def main(args):
     # Push the dataset to the Hugging Face Hub, if specified
     if args.push:
         converter.push_dataset_to_hub(
-            dataset_tags=AlohaHD5Extractor.TAGS,
+            dataset_tags=EvaHD5Extractor.TAGS,
             private=args.private,
             push_videos=args.video_encoding,
             license=args.license,
