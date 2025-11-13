@@ -12,8 +12,10 @@ import numpy as np
 from pathlib import Path
 from scipy.spatial.transform import Rotation as R
 
-from egomimic.robot.eva_kinematics import EvaKinematicsSolver, EvaMinkKinematicsSolver
-
+from egomimic.robot.eva.eva_kinematics import EvaTracKinematicsSolver, EvaMinkKinematicsSolver
+import os
+import egomimic
+EVA_XML_PATH = os.path.join(os.path.dirname(egomimic.__file__), "resources/model_x5.xml")
 
 # -------------------- Helpers (robust to Rotation vs ndarray) --------------------
 
@@ -39,7 +41,7 @@ def _rot_geodesic(a, b):
 def test_eva_mink_ik():
     """Test Eva mink IK solver."""
     # Path to MuJoCo XML scene (you'll need to create this)
-    xml_path = Path(__file__).parent / "x5_scene_mod.xml"
+    xml_path = Path(EVA_XML_PATH)
 
     if not xml_path.exists():
         print(f"Error: Scene file not found at {xml_path}")
@@ -53,7 +55,7 @@ def test_eva_mink_ik():
     # Initialize solver
     print("\n1. Initializing solver...")
     solver = EvaMinkKinematicsSolver(
-        urdf_path=str(xml_path),
+        model_path=str(xml_path),
         eef_link_name="tcp_match_trac",
         eef_frame_type="site",
         max_iterations=100,
@@ -142,7 +144,7 @@ def test_eva_mink_ik():
 def compare_solvers():
     """Compare TracIK solver vs Mink solver and quantify FK/IK/cross gaps."""
     urdf_path = Path(__file__).parent.parent / "eva" / "stanford_repo" / "models" / "X5.urdf"
-    xml_path = Path(__file__).parent / "x5_scene_mod.xml"
+    xml_path = Path(EVA_XML_PATH)
     if not urdf_path.exists() or not xml_path.exists():
         print("Error: URDF or XML file not found")
         print(f"  URDF: {urdf_path.exists()} @ {urdf_path}")
@@ -157,7 +159,7 @@ def compare_solvers():
     print("\nInitializing solvers...")
     trac_solver = EvaKinematicsSolver(str(urdf_path))
     mink_solver = EvaMinkKinematicsSolver(
-        urdf_path=str(xml_path),
+        model_path=str(xml_path),
         eef_link_name="tcp_match_trac",
         eef_frame_type="site",
         max_iterations=100,
@@ -698,6 +700,6 @@ def run_gap_diagnostics(trac_solver, mink_solver, R_off, t_off, seed=2):
 
 
 if __name__ == "__main__":
-    # test_eva_mink_ik()
+    test_eva_mink_ik()
     # Uncomment to compare solvers:
-    compare_solvers()
+    # compare_solvers()

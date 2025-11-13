@@ -1,5 +1,5 @@
 <mujoco model="x5_scene">
-  <compiler angle="radian" meshdir="stanford_repo/models/meshes" autolimits="true"/>
+  <compiler angle="radian" meshdir="../robot/eva/stanford_repo/models/meshes" autolimits="true"/>
 
   <option timestep="0.002" integrator="implicitfast"/>
 

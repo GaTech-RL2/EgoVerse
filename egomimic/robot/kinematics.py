@@ -6,18 +6,116 @@ from pyexpat import model
 from typing import List, Tuple, Optional
 import numpy as np
 from sklearn import base
-import pybullet as p
-import pybullet_data
 import os
 import re
 import tempfile
 from scipy.spatial.transform import Rotation as R
 from pathlib import Path
 
+try:
+    from trac_ik import TracIK
+    _HAS_TRACIK = True
+except ImportError:
+    _HAS_TRACIK = False
+
 import mink
 import mujoco
-MINK_AVAILABLE = True
 
+class TracKinematicsSolver:
+    """
+    Generic kinematics solver using PyTracik
+
+    Args:
+        urdf_path: Path to the URDF file
+        base_link_name: Name of the base link in the urdf
+        ee_link_name: Name of the link you are solving for
+    """
+
+    def __init__(
+        self,
+        urdf_path: str,
+        base_link_name: str,
+        eef_link_name: str,
+        num_joints: int
+    ):
+        if not _HAS_TRACIK:
+            raise ImportError(
+                "trac_ik module not found. Install it from pytracik"
+                "or use MinkKinematicsSolver instead."
+            )
+            
+        self.num_joints = num_joints
+        self.urdf_path = self._resolve_urdf_path(urdf_path)
+        self.solver = self.kinematics_solver = TracIK(base_link_name=base_link_name,
+                                tip_link_name=eef_link_name,
+                                urdf_path=self.urdf_path, )
+
+    
+
+    def _resolve_urdf_path(self, urdf_path: str) -> str:
+        """
+        Resolve URDF path, handling package:// URIs if present.
+        """
+        # Make path absolute
+        if not os.path.isabs(urdf_path):
+            urdf_path = os.path.abspath(urdf_path)
+
+        if not os.path.exists(urdf_path):
+            raise FileNotFoundError(f"URDF path does not exist: {urdf_path}")
+
+        # Directory where the original URDF sits
+        model_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(urdf_path)))
+        print(f"Model root path is {model_root_dir}")
+
+        try:
+            with open(urdf_path, "r", encoding="utf-8") as f:
+                urdf_text = f.read()
+
+            if "package://" in urdf_text:
+                # Replace every package://<pkg_name>/... with model_root_dir/...
+                # This is a cheap fallback when you don't have ROS package paths
+                def _replace_pkg(match: re.Match) -> str:
+                # match.group() is like "package://X5A/"
+                    return model_root_dir + "/"
+
+                urdf_text = re.sub(r"package://[^/]+/", _replace_pkg, urdf_text)
+
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".urdf", mode="w")
+                tmp.write(urdf_text)
+                tmp.flush()
+                tmp.close()
+                return tmp.name
+        except Exception:
+        # If anything goes wrong, just return the original path
+             return urdf_path
+
+        return urdf_path
+    
+    def ik(self, pos_xyz, rot_mat, cur_jnts):
+        """
+        Inverse kinematics
+        
+        Args:
+            pos_xyz: numpy array of xyz
+            rot_mat: 3x3 rotation matrix in numpy
+            cur_jnts: numpy array of length num_joints
+        
+        Return:
+            solved_jnts: numpy array of length num_joints
+        """
+        return self.kinematics_solver.ik(pos_xyz, rot_mat, seed_jnt_values=cur_jnts[:self.num_joints])
+    
+    def fk(self, jnts):
+        """
+        Forward Kinematics
+        
+        Args:
+            jnts: numpy array of length num_joints
+        
+        Return:
+            pos: xyz, rot: Scipy rotation matrix
+        """
+        return self.kinematics_solver.fk(jnts[:self.num_joints])
 
 class MinkKinematicsSolver:
     """
@@ -27,7 +125,7 @@ class MinkKinematicsSolver:
     mink's optimization-based IK.
     
     Args:
-        urdf_path: Path to the URDF file
+        model_path: Path to the URDF/XML file
         base_link_name: Name of the base link in the urdf
         eef_link_name: Name of the end-effector link/site
         num_joints: Number of joints to control
@@ -39,7 +137,7 @@ class MinkKinematicsSolver:
     
     def __init__(
         self,
-        urdf_path: str,
+        model_path: str,
         base_link_name: str,
         eef_link_name: str,
         num_joints: int,
@@ -51,9 +149,6 @@ class MinkKinematicsSolver:
         position_tolerance: float = 1e-3,
         orientation_tolerance: float = 1e-3,
     ):
-        if not MINK_AVAILABLE:
-            raise ImportError("mink and mujoco are required for MinkKinematicsSolver. Install with: pip install mink")
-        
         self.num_joints = num_joints
         self.joint_names = joint_names
         self.eef_link_name = eef_link_name
@@ -64,14 +159,14 @@ class MinkKinematicsSolver:
         self.orientation_tolerance = orientation_tolerance
         
         # Convert URDF to MuJoCo XML or load directly
-        self.urdf_path = self._resolve_urdf_path(urdf_path)
+        self.model_path = self._resolve_model_path(model_path)
         
         # Load MuJoCo model
         try:
-            self.model = mujoco.MjModel.from_xml_path(self.urdf_path)
+            self.model = mujoco.MjModel.from_xml_path(self.model_path)
         except:
             # If direct loading fails, try creating a scene XML
-            self.model = self._create_mujoco_model_from_urdf(urdf_path)
+            self.model = self._create_mujoco_model_from_urdf(model_path)
         
         self.data = mujoco.MjData(self.model)
         
@@ -108,17 +203,17 @@ class MinkKinematicsSolver:
             mink.VelocityLimit(self.model, velocity_limits),
         ]
     
-    def _resolve_urdf_path(self, urdf_path: str) -> str:
+    def _resolve_model_path(self, model_path: str) -> str:
         """Resolve URDF path, handling package:// URIs if present."""
-        if not os.path.isabs(urdf_path):
-            urdf_path = os.path.abspath(urdf_path)
+        if not os.path.isabs(model_path):
+            model_path = os.path.abspath(model_path)
         
-        if not os.path.exists(urdf_path):
-            raise FileNotFoundError(f"URDF path does not exist: {urdf_path}")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"URDF path does not exist: {model_path}")
         
-        return urdf_path
+        return model_path
     
-    def _create_mujoco_model_from_urdf(self, urdf_path: str):
+    def _create_mujoco_model_from_urdf(self, model_path: str):
         """Create a MuJoCo model from URDF (simplified version)."""
         # For now, just try to load the URDF directly
         # In production, you might need to convert URDF to MJCF

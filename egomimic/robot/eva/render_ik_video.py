@@ -17,6 +17,9 @@ import argparse
 from scipy.spatial.transform import Rotation as R
 import imageio
 from tqdm import tqdm
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
+import egomimic
+EVA_XML_PATH = os.path.join(os.path.dirname(egomimic.__file__), "resources/model_x5.xml")
 
 
 def interpolate_trajectory(start_joints, end_joints, num_steps=50):
@@ -87,9 +90,8 @@ def solve_ik_trajectory(xml_path, targets, verbose=True):
     Returns list of joint configurations.
     """
     # Import here to avoid circular import issues
-    from egomimic.robot.eva_kinematics import EvaMinkKinematicsSolver
-    
-    solver = EvaMinkKinematicsSolver(urdf_path=str(xml_path))
+
+    solver = EvaMinkKinematicsSolver(model_path=str(xml_path))
     
     # Home configuration
     home_joints = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
@@ -200,8 +202,7 @@ def create_demo_video(
     """Create a demo video with predefined movements."""
     
     # Load model to get home position
-    from egomimic.robot.eva_kinematics import EvaMinkKinematicsSolver
-    solver = EvaMinkKinematicsSolver(urdf_path=str(xml_path))
+    solver = EvaMinkKinematicsSolver(model_path=str(xml_path))
     home_joints = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     home_pos, home_rot = solver.fk(home_joints)
     
@@ -274,7 +275,7 @@ def main():
     args = parser.parse_args()
     
     # Get absolute path
-    xml_path = Path(__file__).parent / args.xml
+    xml_path = Path(EVA_XML_PATH)
     
     if not xml_path.exists():
         print(f"Error: Scene file not found: {xml_path}")

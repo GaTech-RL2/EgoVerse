@@ -50,8 +50,8 @@ from scipy.spatial.transform import Rotation as R
 
 # Initialize solver (requires MuJoCo XML file)
 solver = EvaMinkKinematicsSolver(
-    urdf_path="path/to/x5_scene_mod.xml",
-    eef_link_name="gripper",
+    model_path="path/to/model_x5.xml",
+    eef_link_name="tcp_match_trac",
     eef_frame_type="site"
 )
 

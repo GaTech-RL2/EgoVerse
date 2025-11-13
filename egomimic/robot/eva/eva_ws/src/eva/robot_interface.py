@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation as R
 from abc import ABC, abstractmethod
 from stream_aria import AriaRecorder, update_iptables
 from stream_d405 import RealSenseRecorder
-from egomimic.robot.eva_kinematics import EvaMinkKinematicsSolver
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
 
 class Robot_Interface(ABC):
@@ -86,7 +86,7 @@ class ARXInterface(Robot_Interface):
         self.controller = dict()
         self._create_controllers(self.cfg)
         self.__create_cam_recorders(self.cfg['cameras'])
-        self.kinematics_solver = EvaMinkKinematicsSolver(urdf_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml", eef_link_name="tcp_match_trac")
+        self.kinematics_solver = EvaMinkKinematicsSolver(model_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml")
         
     def _create_controllers(self, cfg):
         interfaces_cfg = cfg.get("interfaces", {})

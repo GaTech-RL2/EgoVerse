@@ -27,7 +27,7 @@ from robot_utils import RateLoop
 # Add path to robot_interface
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 from robot_interface import ARXInterface
-from egomimic.robot.eva_kinematics import EvaMinkKinematicsSolver
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
 
 # ------------------------- Configuration -------------------------
@@ -473,7 +473,7 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
     data_dict["/action"] = np.array(demo_data["cmd_joint_actions"]) 
     
 
-    kinematics_solver = EvaMinkKinematicsSolver(urdf_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml", eef_link_name="tcp_match_trac")
+    kinematics_solver = EvaMinkKinematicsSolver(model_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml")
     robot_ee_pose = []
     for i in range(len(demo_data["robot_joint_actions"])):
         robot_joint_action = demo_data["robot_joint_actions"][i]

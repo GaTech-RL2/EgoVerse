@@ -1,4 +1,32 @@
-from egomimic.robot.kinematics import MinkKinematicsSolver
+from egomimic.robot.kinematics import TracKinematicsSolver, MinkKinematicsSolver
+import numpy as np
+
+class EvaTracKinematicsSolver(TracKinematicsSolver):
+    """
+    Eva-specific kinematics solver using TracIK.
+
+    This solver adds Eva-specific configurations and handles the dual gripper joints.
+    """
+
+    def __init__(
+        self,
+        urdf_path: str,
+    ):
+        """
+        Initialize Eva kinematics solver.
+
+        Args:
+            urdf_path: Path to Eva's URDF file
+        """
+        super().__init__(
+            urdf_path=urdf_path,
+            base_link_name="base_link",
+            eef_link_name="link6",
+            num_joints=6
+        )
+
+        self.urdf_path = urdf_path
+        self.base_transform = None
 
 class EvaMinkKinematicsSolver(MinkKinematicsSolver):
     """
@@ -30,8 +58,8 @@ class EvaMinkKinematicsSolver(MinkKinematicsSolver):
     
     def __init__(
         self,
-        urdf_path: str,
-        eef_link_name: str = "gripper",
+        model_path: str,
+        eef_link_name: str = "tcp_match_trac",
         eef_frame_type: str = "site",
         velocity_limits: dict = None,
         solver: str = "daqp",
@@ -43,7 +71,7 @@ class EvaMinkKinematicsSolver(MinkKinematicsSolver):
         Initialize Eva mink kinematics solver.
         
         Args:
-            urdf_path: Path to Eva's URDF/XML file (should be MuJoCo XML format)
+            model_path: Path to Eva's URDF/XML file (should be MuJoCo XML format)
             eef_link_name: Name of end-effector frame (default: "gripper")
             eef_frame_type: Type of frame - "site" or "body" (default: "site")
             velocity_limits: Optional dict of joint velocity limits
@@ -56,7 +84,7 @@ class EvaMinkKinematicsSolver(MinkKinematicsSolver):
             velocity_limits = self.DEFAULT_VELOCITY_LIMITS.copy()
         
         super().__init__(
-            urdf_path=urdf_path,
+            model_path=model_path,
             base_link_name="base_link",
             eef_link_name=eef_link_name,
             num_joints=6,
@@ -69,7 +97,7 @@ class EvaMinkKinematicsSolver(MinkKinematicsSolver):
             orientation_tolerance=orientation_tolerance,
         )
         
-        self.urdf_path = urdf_path
+        self.model_path = model_path
         self.base_transform = None
     
     def set_base_transform(self, transform):
