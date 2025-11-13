@@ -365,7 +365,13 @@ def check_timestamps_sync(
     This check is to make sure that each timestamps is separated to the next by 1/fps +/- tolerance to
     account for possible numerical error.
     """
-    timestamps = torch.stack(hf_dataset["timestamp"])
+    
+    ts = hf_dataset["timestamp"]
+    if isinstance(ts, torch.Tensor):
+        timestamps = ts
+    else:
+        timestamps = torch.as_tensor(ts)
+
     diffs = torch.diff(timestamps)
     within_tolerance = torch.abs(diffs - 1 / fps) <= tolerance_s
 
