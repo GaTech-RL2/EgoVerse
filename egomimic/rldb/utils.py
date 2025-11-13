@@ -55,8 +55,10 @@ class EMBODIMENT(Enum):
     ARIA_RIGHT_ARM = 3
     ARIA_LEFT_ARM = 4
     ARIA_BIMANUAL = 5
-
-
+    EVA_RIGHT_ARM = 6
+    EVA_LEFT_ARM = 7
+    EVA_BIMANUAL = 8
+    
 SEED = 42
 
 EMBODIMENT_ID_TO_KEY = {
