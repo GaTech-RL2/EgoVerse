@@ -6,6 +6,7 @@ import threading
 import time
 import numpy as np
 import cv2
+
 try:
     import pyrealsense2 as rs
 except ImportError as e:
@@ -81,7 +82,7 @@ class RealSenseRecorder:
         self._running = True
         self._thread = threading.Thread(target=self._capture_loop, daemon=True)
         self._thread.start()
-        
+
         atexit.register(self.stop)
 
         self._install_signal_handlers()
@@ -90,8 +91,10 @@ class RealSenseRecorder:
         def handler(signum, frame):
             self.stop()
             sys.exit(0)
+
         signal.signal(signal.SIGINT, handler)
         signal.signal(signal.SIGTERM, handler)
+
     def _wait_for_color_frame(self, timeout_ms: int = 5000) -> Optional[np.ndarray]:
         """
         Internal helper: wait for frameset, extract color np.ndarray (BGR).
@@ -152,7 +155,7 @@ class RealSenseRecorder:
             self._pipeline.stop()
         except Exception:
             pass
-    
+
     def __enter__(self):
         return self
 
@@ -161,7 +164,6 @@ class RealSenseRecorder:
 
 
 if __name__ == "__main__":
-
     serials = list_connected_serials()
     if not serials:
         print("No RealSense devices found.")
@@ -170,6 +172,7 @@ if __name__ == "__main__":
         # Just stream the first image for testing purpos
         import os
         from egomimic.robot.robot_utils import RateLoop
+
         out_dir = "./test_wrist_img"
         frame_idx = 0
         os.makedirs(out_dir, exist_ok=True)
@@ -181,5 +184,7 @@ if __name__ == "__main__":
                 if raw_bgr is None:
                     continue
                 if raw_bgr is not None:
-                    cv2.imwrite(os.path.join(out_dir, f"frame_{frame_idx:06d}.png"), raw_bgr)
+                    cv2.imwrite(
+                        os.path.join(out_dir, f"frame_{frame_idx:06d}.png"), raw_bgr
+                    )
                     frame_idx += 1

@@ -65,6 +65,7 @@ interval = 4 # Interval between runs
 retries = 3 # Number of times to retry a failed upload
 """
 
+
 def ensure_token_and_config():
     """Ensure ProjectAria token and mps.ini exist on the local node (head & workers)."""
     projectaria_dir = Path.home() / ".projectaria"
@@ -77,6 +78,7 @@ def ensure_token_and_config():
     ini_path = projectaria_dir / "mps.ini"
     ini_path.write_text(MPS_INI_CONTENT)
 
+
 def prepare_tmp_on_raw():
     """Force temp files to /mnt/raw/.tmp to avoid cross-device rename/copy metadata issues."""
     tmp = RAW_ROOT / ".tmp"
@@ -87,6 +89,7 @@ def prepare_tmp_on_raw():
     # Best-effort: disable preserving file times in stdlib paths that honor it (Py 3.12+)
     os.environ["PYTHONPRESERVEFILETIMES"] = "0"
 
+
 def discover_input_dir() -> str:
     """Return the single input directory: /mnt/raw/aria (error if missing)."""
     if not RAW_ROOT.exists():
@@ -94,6 +97,7 @@ def discover_input_dir() -> str:
     if not ARIA_DIR.exists() or not ARIA_DIR.is_dir():
         raise RuntimeError(f"{ARIA_DIR} does not exist or is not a directory")
     return str(ARIA_DIR)
+
 
 @ray.remote
 def run_mps_on_dir(folder: str) -> dict:
@@ -113,6 +117,7 @@ def run_mps_on_dir(folder: str) -> dict:
             "trace": traceback.format_exc(limit=3),
         }
 
+
 def launch_job(input_dir: str) -> None:
     print(f"Launching MPS on {input_dir} …")
     fut = run_mps_on_dir.remote(input_dir)
@@ -124,6 +129,7 @@ def launch_job(input_dir: str) -> None:
     else:
         print(f"[{ts}] ✗ {res['folder']} :: {res['err']}")
         print(res["trace"])
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -157,6 +163,7 @@ def main() -> None:
 
     # Launch MPS job
     launch_job(input_dir)
+
 
 if __name__ == "__main__":
     main()

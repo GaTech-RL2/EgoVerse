@@ -28,17 +28,22 @@ from pathlib import Path
 
 import psutil
 
+
 # We ported a number of existing datasets ourselves, use this to see the list:
 # print("List of available datasets:")
 # pprint(lerobot.available_datasets)
 def monitor_memory():
     """Monitor memory usage of the current process."""
     process = psutil.Process()
-    return process.memory_info().rss / (1024 ** 2)  # Convert bytes to MB
+    return process.memory_info().rss / (1024**2)  # Convert bytes to MB
+
 
 # You can also browse through the datasets created/ported by the community on the hub using the hub api:
 hub_api = HfApi()
-repo_ids = [info.id for info in hub_api.list_datasets(task_categories="robotics", tags=["LeRobot"])]
+repo_ids = [
+    info.id
+    for info in hub_api.list_datasets(task_categories="robotics", tags=["LeRobot"])
+]
 pprint(repo_ids)
 
 # Or simply explore them in your web browser directly at:
@@ -59,7 +64,6 @@ print(f"Dataset loading time: {end_time - start_time:.2f} seconds")
 
 print(f"Number of episodes selected: {dataset.num_episodes}")
 print(f"Number of frames selected: {dataset.num_frames}")
-
 
 
 # dataset = LeRobotDatasetV2.from_huggingface_hub("moojink/aloha1_20250115_scoop_xxx_into_bowl_45_demos_25_hz")
@@ -193,5 +197,7 @@ final_memory = monitor_memory()
 print(f"Memory after processing 100 batches: {final_memory:.2f} MB")
 print(f"Loading time for 100 batches at batch size {batch_size}: {t1:.2f} seconds")
 
-print(f"Average memory usage per batch: {sum(batch_memory_usage) / len(batch_memory_usage):.2f} MB")
+print(
+    f"Average memory usage per batch: {sum(batch_memory_usage) / len(batch_memory_usage):.2f} MB"
+)
 print(f"Peak memory usage during batch loading: {max(batch_memory_usage):.2f} MB")

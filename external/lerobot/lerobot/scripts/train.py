@@ -314,7 +314,7 @@ def train(cfg: DictConfig, out_dir: str | None = None, job_name: str | None = No
     if isinstance(offline_dataset, MultiLeRobotDataset):
         logging.info(
             "Multiple datasets were provided. Applied the following index mapping to the provided datasets: "
-            f"{pformat(offline_dataset.repo_id_to_index , indent=2)}"
+            f"{pformat(offline_dataset.repo_id_to_index, indent=2)}"
         )
 
     # Create environment used for evaluating checkpoints during training on simulation data.

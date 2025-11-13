@@ -50,7 +50,9 @@ class ReplayRollout(Rollout):
             if cartesian:
                 self.actions = np.asarray(f["action"][...], dtype=np.float32)
             else:
-                self.actions = np.asarray(f["observations"]["joint_positions"][...], dtype=np.float32)
+                self.actions = np.asarray(
+                    f["observations"]["joint_positions"][...], dtype=np.float32
+                )
 
     def rollout_step(self, i):
         if i < self.actions.shape[0]:
@@ -60,7 +62,6 @@ class ReplayRollout(Rollout):
 
 
 class PolicyRollout(Rollout):
-
     def __init__(self, arm, policy_path, query_frequency):
         super().__init__()
         self.arm = arm
@@ -78,14 +79,13 @@ class PolicyRollout(Rollout):
             ac_key = self.policy.model.ac_keys[self.embodiment_id]
             actions = preds[f"{self.embodiment_name.lower()}_{ac_key}"]
             self.actions = actions.detach().cpu().numpy().squeeze()
-            print(f"Inference time: {((time.time() - start_infer_t))}s")
+            print(f"Inference time: {(time.time() - start_infer_t)}s")
 
         # TODO check gripper if we are using 0 to 0.08 or 0 to 1
         act_i = i % self.query_frequency
         return self.actions[act_i]
 
     def process_obs_for_policy(self, obs):
-
         data = {
             "front_img_1": (torch.from_numpy(obs["front_img_1"][None, :]))
             .permute(0, 3, 1, 2)
@@ -168,9 +168,7 @@ def main(
             arm=arm, policy_path=policy_path, query_frequency=query_frequency
         )
     elif rollout_type == "replay":
-        policy = ReplayRollout(
-            dataset_path=dataset_path, cartesian=cartesian
-        )
+        policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
     else:
         raise RuntimeError("Invalid rollout type")
 
@@ -193,7 +191,7 @@ def main(
                 arm_offset = 0
                 if arm == "right":
                     arm_offset = 7
-                arm_action = actions[arm_offset: arm_offset + 7]
+                arm_action = actions[arm_offset : arm_offset + 7]
                 if cartesian:
                     ri.set_pose(arm_action, arm)
                 else:

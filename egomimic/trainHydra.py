@@ -8,6 +8,7 @@ from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 import signal
 from omegaconf import DictConfig, OmegaConf
+
 OmegaConf.register_new_resolver("eval", eval)
 
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
@@ -18,6 +19,7 @@ from egomimic.utils.utils import extras, task_wrapper, get_metric_value
 from egomimic.scripts.evaluation.eval import Eval
 
 import numpy as np
+
 log = RankedLogger(__name__, rank_zero_only=True)
 
 from egomimic.rldb.utils import DataSchematic
@@ -26,6 +28,7 @@ import os
 
 # DEBUG
 # os.environ["HYDRA_FULL_ERROR"] = '1'
+
 
 @task_wrapper
 def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -41,7 +44,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
-    
+
     log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
     data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
 
@@ -59,8 +62,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert "MultiDataModuleWrapper" in cfg.data._target_ , "cfg.data._target_ must be 'MultiDataModuleWrapper'"
-    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets)
+    assert "MultiDataModuleWrapper" in cfg.data._target_, (
+        "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    )
+    datamodule: LightningDataModule = hydra.utils.instantiate(
+        cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
+    )
 
     # TODO: deprecate shape inference in favor of LeRobotDatasetMetadata
     # NOTE: We assume that each dataset is of a unique embodiment. Multi-task datasets should be wrapped around TODO: MultiRLDBDataset
@@ -69,10 +76,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         data_schematic.infer_shapes_from_batch(dataset[0])
         data_schematic.infer_norm_from_dataset(dataset)
-    
-    #NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
+
+    # NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
     log.info(f"Instantiating model <{cfg.model._target_}>")
-    model: LightningModule = hydra.utils.instantiate(cfg.model, robomimic_model={"data_schematic": data_schematic})
+    model: LightningModule = hydra.utils.instantiate(
+        cfg.model, robomimic_model={"data_schematic": data_schematic}
+    )
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
@@ -83,9 +92,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     plugins = []
     if os.environ.get("SLURM_JOB_ID"):
-        plugins.append(SLURMEnvironment(requeue_signal=[signal.SIGUSR1, signal.SIGUSR2]))
+        plugins.append(
+            SLURMEnvironment(requeue_signal=[signal.SIGUSR1, signal.SIGUSR2])
+        )
         print("SLURM REQUEUE ENABLED")
-    trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=logger)
+    trainer: Trainer = hydra.utils.instantiate(
+        cfg.trainer, callbacks=callbacks, logger=logger
+    )
 
     object_dict = {
         "cfg": cfg,
@@ -100,19 +113,26 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
 
-    if os.environ.get("SLURM_JOB_ID") and os.environ.get("SLURM_RESTART_COUNT", "0") != "0":
-        last_ckpt_path = os.path.join(trainer.default_root_dir, "checkpoints", "last.ckpt")
+    if (
+        os.environ.get("SLURM_JOB_ID")
+        and os.environ.get("SLURM_RESTART_COUNT", "0") != "0"
+    ):
+        last_ckpt_path = os.path.join(
+            trainer.default_root_dir, "checkpoints", "last.ckpt"
+        )
         log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
         cfg.ckpt_path = last_ckpt_path
-        
+
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
     if cfg.get("train"):
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
-    
+
     if cfg.get("eval"):
-        eval : Eval = hydra.utils.instantiate(cfg.eval_class, config=cfg.model, ckpt_path=cfg.get("ckpt_path"))
+        eval: Eval = hydra.utils.instantiate(
+            cfg.eval_class, config=cfg.model, ckpt_path=cfg.get("ckpt_path")
+        )
         log.info("Starting evaluation!")
         eval.perfom_eval()
 
@@ -130,7 +150,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # test_metrics = trainer.callback_metrics
 
     # merge train and test metrics
-    test_metrics={} # my stub
+    test_metrics = {}  # my stub
     metric_dict = {**train_metrics, **test_metrics}
 
     return metric_dict, object_dict
@@ -149,7 +169,7 @@ def main(cfg: DictConfig) -> Optional[float]:
 
     print(OmegaConf.to_yaml(cfg))
 
-    #cfg = OmegaConf.resolve(cfg)
+    # cfg = OmegaConf.resolve(cfg)
 
     # train the model
     metric_dict, _ = train(cfg)

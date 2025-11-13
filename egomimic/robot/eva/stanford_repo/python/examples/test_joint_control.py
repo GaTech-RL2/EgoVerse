@@ -24,7 +24,6 @@ def easeInOutQuad(t):
 @click.argument("model")  # ARX arm model: X5 or L5
 @click.argument("interface")  # can bus name (can0 etc.)
 def main(model: str, interface: str):
-
     # To initialize robot with different configurations,
     # you can create RobotConfig and ControllerConfig by yourself and modify based on it
     robot_config = arx5.RobotConfigFactory.get_instance().get_config(model)

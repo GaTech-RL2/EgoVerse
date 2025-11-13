@@ -74,6 +74,7 @@ CODEBASE_VERSION = "v2.0"
 LEROBOT_HOME = Path(os.getenv("LEROBOT_HOME", "~/.cache/huggingface/lerobot")).expanduser()
 SEED = 42
 
+
 class LeRobotDatasetMetadata:
     def __init__(
         self,
@@ -217,7 +218,9 @@ class LeRobotDatasetMetadata:
         task_index = self.task_to_task_index.get(task, None)
         return task_index if task_index is not None else self.total_tasks
 
-    def save_episode(self, episode_index: int, episode_length: int, task: str, task_index: int, valid_ratio: float = 0.2) -> None:
+    def save_episode(
+        self, episode_index: int, episode_length: int, task: str, task_index: int, valid_ratio: float = 0.2
+    ) -> None:
         self.info["total_episodes"] += 1
         self.info["total_frames"] += episode_length
 
@@ -263,7 +266,7 @@ class LeRobotDatasetMetadata:
             valid_ratio (float): Fraction of episodes to assign to the validation set.
         """
         total_episodes = self.info.get("total_episodes", 0)
-        
+
         if total_episodes == 0:
             return  # No episodes to split
 
@@ -273,12 +276,9 @@ class LeRobotDatasetMetadata:
         random.shuffle(all_indices)
 
         valid_size = max(1, min(int(valid_ratio * total_episodes), total_episodes - 1))
-        
+
         # Assign indices to train and valid splits
-        self.info["splits"] = {
-            "train": all_indices[valid_size:],
-            "valid": all_indices[:valid_size]
-        }
+        self.info["splits"] = {"train": all_indices[valid_size:], "valid": all_indices[:valid_size]}
 
     def write_video_info(self) -> None:
         """
@@ -767,7 +767,13 @@ class LeRobotDataset(torch.utils.data.Dataset):
 
         self.episode_buffer["size"] += 1
 
-    def save_episode(self, task: str, encode_videos: bool = True, episode_data: dict | None = None, valid_ratio : float = 0.2) -> None:
+    def save_episode(
+        self,
+        task: str,
+        encode_videos: bool = True,
+        episode_data: dict | None = None,
+        valid_ratio: float = 0.2,
+    ) -> None:
         """
         This will save to disk the current episode in self.episode_buffer. Note that since it affects files on
         disk, it sets self.consolidated to False to ensure proper consolidation later on before uploading to

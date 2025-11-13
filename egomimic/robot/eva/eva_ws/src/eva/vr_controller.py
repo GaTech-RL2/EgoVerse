@@ -434,7 +434,6 @@ class VrPublisher(Node):
                     "r", np.zeros(3), np.array([1.0, 0.0, 0.0, 0.0])
                 )
             else:
-
                 if new_r_pressed:
                     self.r_abs_t = r_pos_cur
                     self.r_abs_q = r_quat_cur

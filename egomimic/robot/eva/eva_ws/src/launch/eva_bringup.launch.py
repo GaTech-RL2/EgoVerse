@@ -64,9 +64,9 @@ def generate_launch_description() -> LaunchDescription:
     )
     # All configuration is loaded from the eva package configs.yaml
 
-    return LaunchDescription([
-        arm_arg,
-        OpaqueFunction(function=_setup),
-    ])
-
-
+    return LaunchDescription(
+        [
+            arm_arg,
+            OpaqueFunction(function=_setup),
+        ]
+    )

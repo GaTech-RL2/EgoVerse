@@ -2,6 +2,7 @@ class Algo:
     """
     Base class for all algorithms.  These functions are expected by Pytorch Lightning trainer (pl_model.py)
     """
+
     def __init__(self):
         pass
 
@@ -17,8 +18,10 @@ class Algo:
             batch (dict) : processed dict of batches of form
             <embodiment_id> : {<dataset_keys> torch.Tensor}
         """
-        raise NotImplementedError("Must implement process_batch_for_training in subclass")
-    
+        raise NotImplementedError(
+            "Must implement process_batch_for_training in subclass"
+        )
+
     def forward_training(self, batch):
         """
         One iteration of training.  Compute forward pass and compute losses.  Return predictions dictionary.  ACT also calculates loss here.

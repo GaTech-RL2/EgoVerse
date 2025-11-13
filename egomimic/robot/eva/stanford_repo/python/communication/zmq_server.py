@@ -49,6 +49,7 @@ class Arx5Server:
         self.no_cmd_timeout = no_cmd_timeout
         self.is_reset_to_home = False
         self.last_eef_cmd: npt.NDArray[np.float64] | None = None
+
     def run(self):
         print(f"Arx5ZmqServer is running on {self.zmq_ip}:{self.zmq_port}")
         while True:
@@ -62,7 +63,6 @@ class Arx5Server:
                             self.model, self.interface
                         )
                 else:
-
                     if self.arx5_cartesian_controller is not None:
                         print(
                             f"Timeout: No command received for {self.no_cmd_timeout} sec. ARX5 arm is reset to home position."
@@ -136,7 +136,7 @@ class Arx5Server:
                         )
                         continue
                     self.last_eef_cmd = target_ee_pose.copy()
-                    
+
                     if msg["data"]["gripper_pos"] is not None:
                         target_gripper_pos = cast(float, msg["data"]["gripper_pos"])
                     else:
@@ -189,7 +189,9 @@ class Arx5Server:
                         "cmd": "RESET_TO_HOME",
                         "data": "OK",
                     }
-                    self.last_eef_cmd = self.arx5_cartesian_controller.get_eef_cmd().pose_6d().copy()
+                    self.last_eef_cmd = (
+                        self.arx5_cartesian_controller.get_eef_cmd().pose_6d().copy()
+                    )
                     self.socket.send_pyobj(reply_msg)
                     self.is_reset_to_home = True
                 elif msg["cmd"] == "SET_TO_DAMPING":

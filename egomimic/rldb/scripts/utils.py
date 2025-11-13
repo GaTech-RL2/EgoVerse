@@ -1,8 +1,10 @@
 """
 useful functions and features
 """
+
 import pandas as pd
 import pyarrow.parquet as pq
+
 
 def nds_pq(file_path):
     """
@@ -13,7 +15,7 @@ def nds_pq(file_path):
         print(f"File Schema:\n{parquet_file.schema}\n")
 
         df = pd.read_parquet(file_path)
-        
+
         print(f"Headers (Columns): {list(df.columns)}")
         print(f"Shape (Rows, Columns): {df.shape}")
 
@@ -35,6 +37,7 @@ nested_ds_pq = nds_pq
 nds_parquet = nds_pq
 nested_ds_parquet = nds_pq
 
+
 def str2bool(value):
     if isinstance(value, bool):
         return value
@@ -44,7 +47,6 @@ def str2bool(value):
     if value in ("no", "false", "f", "n", "0"):
         return False
     raise argparse.ArgumentTypeError("Boolean value expected.")
-
 
 
 def is_key(x):

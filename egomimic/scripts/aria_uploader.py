@@ -4,7 +4,6 @@ from abstract_upload import Uploader
 
 
 def aria_uploader():
-
     def collect_files(local_dir):
         """
         Discover VRS files with their corresponding JSON companion files.

@@ -35,9 +35,10 @@ from timm.models.vision_transformer import VisionTransformer
 from functools import partial
 
 from transformers import T5Tokenizer, T5Model, AutoTokenizer
-from transformers import CLIPTextModel, CLIPVisionModel # TODO: add CLIP
+from transformers import CLIPTextModel, CLIPVisionModel  # TODO: add CLIP
 
 from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table
+
 
 ## Taken directly from hpt/models/transformer with no modifications
 class CrossAttention(nn.Module):
@@ -51,7 +52,9 @@ class CrossAttention(nn.Module):
         dropout (float, optional): The dropout probability. Defaults to 0.0.
     """
 
-    def __init__(self, query_dim: int, heads: int = 8, dim_head: int = 64, dropout: float = 0.0):
+    def __init__(
+        self, query_dim: int, heads: int = 8, dim_head: int = 64, dropout: float = 0.0
+    ):
         super().__init__()
         inner_dim = dim_head * heads
         context_dim = query_dim
@@ -64,8 +67,12 @@ class CrossAttention(nn.Module):
 
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor, context: torch.Tensor, 
-                mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        context: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """
         Forward pass of the CrossAttention module.
 
@@ -132,7 +139,11 @@ class Attention(nn.Module):
 
     def forward(self, x):
         B, N, C = x.shape
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        qkv = (
+            self.qkv(x)
+            .reshape(B, N, 3, self.num_heads, C // self.num_heads)
+            .permute(2, 0, 3, 1, 4)
+        )
         q, k, v = (
             qkv[0],
             qkv[1],
@@ -184,6 +195,7 @@ class MLP(nn.Module):
         x = self.drop(x)
         return x
 
+
 class BlockWithMasking(nn.Module):
     def __init__(
         self,
@@ -199,9 +211,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(
-            attn_target, nn.Module
-        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
+        assert not isinstance(attn_target, nn.Module), (
+            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
+        )
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -243,16 +255,22 @@ class BlockWithMasking(nn.Module):
             x = x + self.drop_path(self.attn(self.norm_1(x), attn_mask))
             x = x + self.drop_path(self.mlp(self.norm_2(x)))
         else:
-            x = x + self.drop_path(self.attn(self.norm_1(x), attn_mask)) * self.layer_scale_gamma1
+            x = (
+                x
+                + self.drop_path(self.attn(self.norm_1(x), attn_mask))
+                * self.layer_scale_gamma1
+            )
             x = x + self.drop_path(self.mlp(self.norm_2(x))) * self.layer_scale_gamma2
         return x
 
 
 _LAYER_NORM = partial(nn.LayerNorm, eps=1e-6)
 
+
 class MultiheadAttention(nn.MultiheadAttention):
     def forward(self, x: torch.Tensor, attn_mask: torch.Tensor):
         return super().forward(x, x, x, need_weights=False, attn_mask=attn_mask)[0]
+
 
 class SimpleTransformer(nn.Module):
     def __init__(
@@ -268,7 +286,9 @@ class SimpleTransformer(nn.Module):
         norm_layer: Callable = _LAYER_NORM,
         mlp_ratio: int = 4,
         ffn_dropout_rate: float = 0.0,
-        layer_scale_type: Optional[str] = None,  # from cait; possible values are None, "per_channel", "scalar"
+        layer_scale_type: Optional[
+            str
+        ] = None,  # from cait; possible values are None, "per_channel", "scalar"
         layer_scale_init_value: float = 1e-4,  # from cait; float
         weight_init_style: str = "pytorch",  # possible values jax or pytorch
     ):
@@ -288,7 +308,7 @@ class SimpleTransformer(nn.Module):
             dpr = [drop_path_rate for i in range(num_blocks)]
         else:
             raise ValueError(f"Unknown drop_path_type: {drop_path_type}")
-        
+
         self.blocks = nn.Sequential(
             *[
                 block(
@@ -328,12 +348,18 @@ class SimpleTransformer(nn.Module):
         if self.pre_transformer_layer:
             tokens = self.pre_transformer_layer(tokens)
         if use_checkpoint and checkpoint_blk_ids is None:
-            checkpoint_blk_ids = [blk_id for blk_id in range(len(self.blocks)) if blk_id % checkpoint_every_n == 0]
+            checkpoint_blk_ids = [
+                blk_id
+                for blk_id in range(len(self.blocks))
+                if blk_id % checkpoint_every_n == 0
+            ]
         if checkpoint_blk_ids:
             checkpoint_blk_ids = set(checkpoint_blk_ids)
         for blk_id, blk in enumerate(self.blocks):
             if use_checkpoint and blk_id in checkpoint_blk_ids:
-                tokens = checkpoint.checkpoint(blk, tokens, attn_mask, use_reentrant=False)
+                tokens = checkpoint.checkpoint(
+                    blk, tokens, attn_mask, use_reentrant=False
+                )
             else:
                 tokens = blk(tokens, attn_mask=attn_mask)
             block_outputs.append(tokens)
@@ -361,12 +387,14 @@ class SimpleTransformer(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
+
 # --------------------------------------------------------
 # Policy stem from hpt/models/policy_stem.py
 # Changelog:
-# 
+#
 # --------------------------------------------------------
 INIT_CONST = 0.02
+
 
 class PolicyStem(nn.Module):
     """policy stem"""
@@ -376,7 +404,7 @@ class PolicyStem(nn.Module):
         self.specs = kwargs.get("specs")
 
     def init_cross_attn(self, stem_spec):
-        """ initialize cross attention module and the learnable tokens """
+        """initialize cross attention module and the learnable tokens"""
         token_num = stem_spec.crossattn_latent
         self.tokens = nn.Parameter(
             torch.randn(1, token_num, stem_spec.modality_embed_dim) * INIT_CONST
@@ -397,7 +425,7 @@ class PolicyStem(nn.Module):
         for param in self.parameters():
             param.requires_grad = True
 
-    def save(self, path : str):
+    def save(self, path: str):
         torch.save(self.state_dict(), path)
 
     @property
@@ -430,46 +458,56 @@ class PolicyStem(nn.Module):
         """
         # Initial reshape to adapt to token dimensions
         # (32, 3, 1, 49, 128)
-        stem_feat = self(x)  
-        stem_feat = stem_feat.reshape(stem_feat.shape[0], -1, stem_feat.shape[-1])  # (32, 147, 128)
+        stem_feat = self(x)
+        stem_feat = stem_feat.reshape(
+            stem_feat.shape[0], -1, stem_feat.shape[-1]
+        )  # (32, 147, 128)
         # Replicating tokens for each item in the batch and computing cross-attention
         stem_tokens = self.tokens.repeat(len(stem_feat), 1, 1)  # (32, 16, 128)
         stem_tokens = self.cross_attention(stem_tokens, stem_feat)  # (32, 16, 128)
         return stem_tokens
 
+
 class STPolicyStem(nn.Module):
-    """Policy Stem that tokenizes different modalities into the same latent space. 
+    """Policy Stem that tokenizes different modalities into the same latent space.
     This version implements the spatial temporal version.
     It uses conv2D to handle 1-dimension features [B, T, L, D]
     It uses conv3D to handle 1-dimension features [B, T, H, W, D]
     # https://github.com/DAMO-NLP-SG/VideoLLaMA2/blob/main/videollama2/model/projector.py
     """
+
     def __init__(self, dimension=2, **kwargs):
         super().__init__(**kwargs)
 
-
     def init(self, stem_spec, modality):
-        """ initialize cross attention module and the learnable tokens """
+        """initialize cross attention module and the learnable tokens"""
         downsample_tokens = getattr(stem_spec.crossattn_latent, modality)
         stem_modality_spec = getattr(stem_spec, modality)
 
         if stem_modality_spec.conv_dimension == 2:
             self.conv_dim = stem_modality_spec.conv_dimension
             dim_token = downsample_tokens
-            self.conv = nn.Sequential(nn.Conv1d(
-                in_channels=stem_modality_spec.input_dim,
-                out_channels=stem_modality_spec.output_dim,
-                kernel_size=stem_modality_spec.filter_size,
-                stride=1,
-                padding=stem_modality_spec.hidden_dim_tokens) ** (1./3))
-            self.conv = nn.Sequential(nn.Conv3d(
-                in_channels=stem_modality_spec.input_dim,
-                out_channels=stem_modality_spec.output_dim,
-                kernel_size=stem_modality_spec.filter_size,
-                stride=1,
-                padding=stem_modality_spec.filter_size // 2,
-                bias=True
-            ), nn.SiLU())
+            self.conv = nn.Sequential(
+                nn.Conv1d(
+                    in_channels=stem_modality_spec.input_dim,
+                    out_channels=stem_modality_spec.output_dim,
+                    kernel_size=stem_modality_spec.filter_size,
+                    stride=1,
+                    padding=stem_modality_spec.hidden_dim_tokens,
+                )
+                ** (1.0 / 3)
+            )
+            self.conv = nn.Sequential(
+                nn.Conv3d(
+                    in_channels=stem_modality_spec.input_dim,
+                    out_channels=stem_modality_spec.output_dim,
+                    kernel_size=stem_modality_spec.filter_size,
+                    stride=1,
+                    padding=stem_modality_spec.filter_size // 2,
+                    bias=True,
+                ),
+                nn.SiLU(),
+            )
             self.pool = nn.AdaptiveAvgPool3d((dim_token, dim_token, dim_token))
 
     def compute_latent(self, x):
@@ -480,16 +518,21 @@ class STPolicyStem(nn.Module):
             Average over the number of instances.
         """
         B, T, I, *_ = x.shape
-        x = rearrange(x, 'B T I ... D -> (B I) D T ...')
+        x = rearrange(x, "B T I ... D -> (B I) D T ...")
 
         if self.conv_dim == 3:
             # assume fixed width and height
-            x = rearrange(x, 'B D T (W1 W2) -> B D T W1 W2', 
-                          W1=int(x.shape[-1] ** (1/2)),  W2=int(x.shape[-1] ** (1/2)))
+            x = rearrange(
+                x,
+                "B D T (W1 W2) -> B D T W1 W2",
+                W1=int(x.shape[-1] ** (1 / 2)),
+                W2=int(x.shape[-1] ** (1 / 2)),
+            )
         out = self.conv(x)
         out = self.pool(out)
-        out = rearrange(out, '(B I) D ... -> B I (...) D', B=B, I=I).mean(dim=1)
+        out = rearrange(out, "(B I) D ... -> B I (...) D", B=B, I=I).mean(dim=1)
         return out
+
 
 class AttentivePooling(nn.Module):
     """attentive pooling with cross attention"""
@@ -503,11 +546,12 @@ class AttentivePooling(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
-    def forward(self, x : torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         # [B, L, D]
         tokens = self.token.repeat(len(x), 1, 1)
         x = self.cross_attention(tokens, x)
         return x
+
 
 class MLPPolicyStem(PolicyStem):
     def __init__(
@@ -536,17 +580,19 @@ class MLPPolicyStem(PolicyStem):
         self.net = nn.Sequential(*modules)
         self.num_of_copy = num_of_copy
         if self.num_of_copy > 1:
-            self.net = nn.ModuleList([nn.Sequential(*modules) for _ in range(num_of_copy)])
+            self.net = nn.ModuleList(
+                [nn.Sequential(*modules) for _ in range(num_of_copy)]
+            )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Performs a forward pass of the model.
         Args:
-            x: Image tensor with shape [B, T, N, 3, H, W] representing the batch size, 
+            x: Image tensor with shape [B, T, N, 3, H, W] representing the batch size,
             horizon, instance (e.g. num of views)
         Returns:
-            Flatten tensor with shape [B, M, 512]     
-        """        
+            Flatten tensor with shape [B, M, 512]
+        """
         if self.num_of_copy > 1:
             out = []
             iter_num = min(self.num_of_copy, x.shape[1])
@@ -558,7 +604,7 @@ class MLPPolicyStem(PolicyStem):
         else:
             y = self.net(x)
         return y
-    
+
 
 class ResNet(PolicyStem):
     def __init__(
@@ -570,7 +616,7 @@ class ResNet(PolicyStem):
         freeze_backbone: bool = False,
         **kwargs,
     ) -> None:
-        """ResNet Encoder for Images"""  
+        """ResNet Encoder for Images"""
         super().__init__(**kwargs)
         pretrained_model = getattr(torchvision.models, resnet_model)(weights=weights)
 
@@ -580,7 +626,10 @@ class ResNet(PolicyStem):
 
         if num_of_copy > 1:
             self.net = nn.ModuleList(
-                [nn.Sequential(*list(pretrained_model.children())[:-2]) for _ in range(num_of_copy)]
+                [
+                    nn.Sequential(*list(pretrained_model.children())[:-2])
+                    for _ in range(num_of_copy)
+                ]
             )
         self.input = input
         self.out_dim = output_dim
@@ -606,10 +655,10 @@ class ResNet(PolicyStem):
         """
         Performs a forward pass of the model.
         Args:
-            x: Image tensor with shape [B, T, N, 3, H, W] representing the batch size, 
+            x: Image tensor with shape [B, T, N, 3, H, W] representing the batch size,
             horizon, instance (e.g. num of views)
         Returns:
-            Flatten tensor with shape [B, M, 512]     
+            Flatten tensor with shape [B, M, 512]
         """
         B, *_, H, W = x.shape
         x = x.view(len(x), -1, 3, H, W)
@@ -632,20 +681,16 @@ class ResNet(PolicyStem):
 
 
 class T5Encoder(PolicyStem):
-    def __init__(
-        self,
-        per_token=True,
-        **kwargs
-    ) -> None:
+    def __init__(self, per_token=True, **kwargs) -> None:
         """T5 Encoder that expects pre-tokenized inputs
-        
+
         Args:
             per_token (bool): If True, return per-token embeddings. If False, return mean-pooled embeddings
         """
         super().__init__(**kwargs)
         self.per_token = per_token
         self.encoder = T5Model.from_pretrained("t5-base").encoder
-    
+
     def forward(self, tokenized_input: dict) -> torch.Tensor:
         """
         Args:
@@ -662,15 +707,16 @@ class T5Encoder(PolicyStem):
         output = self.encoder(
             input_ids=tokenized_input["lang_input_ids"].to(self.device),
             attention_mask=tokenized_input["lang_attention_mask"].to(self.device),
-            return_dict=True
+            return_dict=True,
         )
-        
-        torch.cuda.empty_cache() # empty cache to save memory
+
+        torch.cuda.empty_cache()  # empty cache to save memory
         if self.per_token:
             return output.last_hidden_state[:, 0].detach().unsqueeze(1)
         else:
             emb = output.last_hidden_state.mean(dim=1).detach().unsqueeze(1)
             return emb
+
 
 def vit_base_patch16(checkpoint_path="output/mae_pretrain_vit_base.pth", **kwargs):
     # load pretrained weights to initialize vit model
@@ -688,17 +734,19 @@ def vit_base_patch16(checkpoint_path="output/mae_pretrain_vit_base.pth", **kwarg
     model.load_state_dict(torch.load(checkpoint_path)["model"], strict=False)
     return model
 
+
 # --------------------------------------------------------
 # Standard Policy head from hpt/models/policy_head.py
 # Changelog:
-# 
+#
 # --------------------------------------------------------
 
 LOSS = partial(F.smooth_l1_loss, beta=0.05)
 LOSS_MSE = partial(F.mse_loss)
 
+
 class PolicyHead(nn.Module):
-    """ Abstract class for policy head."""
+    """Abstract class for policy head."""
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -711,13 +759,12 @@ class PolicyHead(nn.Module):
         for param in self.parameters():
             param.requires_grad = True
 
-    def save(self, path : str):
+    def save(self, path: str):
         torch.save(self.state_dict(), path)
 
     @property
     def device(self):
         return next(self.parameters()).device
-
 
     def compute_loss(self, x: torch.Tensor, data: dict):
         """
@@ -728,7 +775,7 @@ class PolicyHead(nn.Module):
             x (torch.Tensor): Transformer outputs used to predict actions.
             data (dict): Contains:
                 - 'action': ground-truth action tensor of shape (B, T, D_target)
-        
+
         Returns:
             torch.Tensor: Scalar loss
         """
@@ -736,14 +783,13 @@ class PolicyHead(nn.Module):
         B, T = target_action.shape[:2]
 
         pred_action = self(x).view(B, T, -1)
-                
+
         D_pred = pred_action.shape[-1]
         D_target = target_action.shape[-1]
 
         D_common = min(D_pred, D_target)
         pred_action = pred_action[..., :D_common]
         target_action = target_action[..., :D_common]
-        
 
         return LOSS(pred_action, target_action)
 
@@ -792,46 +838,51 @@ class MLPPolicyHead(PolicyHead):
         y = self.net(x)
         return y
 
+
 class TransformerDecoderBlock(nn.Module):
-    def __init__(self,
+    def __init__(
+        self,
         input_dim: int = 10,
         num_heads: int = 8,
         dim_head: int = 64,
-        dropout: float = 0.1
+        dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        
+
         self.self_attention = Attention(
             dim=input_dim,
             num_heads=num_heads,
             qkv_bias=True,
             attn_drop=dropout,
-            proj_drop=dropout
+            proj_drop=dropout,
         )
-        
+
         self.cross_attention = CrossAttention(
             input_dim,
             heads=num_heads,
             dim_head=dim_head,
             dropout=dropout,
         )
-        
-        self.mlp = nn.Sequential(nn.Linear(input_dim, input_dim), nn.SiLU(), nn.Linear(input_dim, input_dim))
+
+        self.mlp = nn.Sequential(
+            nn.Linear(input_dim, input_dim), nn.SiLU(), nn.Linear(input_dim, input_dim)
+        )
         self.norm1 = nn.LayerNorm(input_dim)
         self.norm2 = nn.LayerNorm(input_dim)
         self.norm3 = nn.LayerNorm(input_dim)
-    
+
     def forward(self, tokens, context):
         query = self.self_attention(self.norm1(tokens))
         query = tokens + query
-        
-        out = self.cross_attention(self.norm2(query), context) 
+
+        out = self.cross_attention(self.norm2(query), context)
         out = query + out
 
         mlp_out = self.mlp(self.norm3(out))
         tokens = mlp_out + out
         return tokens
-        
+
+
 class MultiBlockTransformerDecoder(PolicyHead):
     def __init__(
         self,
@@ -846,70 +897,80 @@ class MultiBlockTransformerDecoder(PolicyHead):
         final_norm: bool = False,
     ):
         super().__init__()
-        self.tokens = nn.Parameter(torch.randn(1, action_horizon, input_dim) * INIT_CONST)
-        self.pos_token = nn.Parameter(get_sinusoid_encoding_table(0, action_horizon, input_dim))
-        self.pos_context = nn.Parameter(get_sinusoid_encoding_table(0, latent_token_len, input_dim))
-    
+        self.tokens = nn.Parameter(
+            torch.randn(1, action_horizon, input_dim) * INIT_CONST
+        )
+        self.pos_token = nn.Parameter(
+            get_sinusoid_encoding_table(0, action_horizon, input_dim)
+        )
+        self.pos_context = nn.Parameter(
+            get_sinusoid_encoding_table(0, latent_token_len, input_dim)
+        )
+
         self.context_norm = nn.LayerNorm(input_dim)
-        
+
         self.out_proj = nn.Sequential(
             nn.Linear(input_dim, input_dim),
             nn.SiLU(),
             nn.Linear(input_dim, output_dim),
         )
-        
-        self.blocks = nn.ModuleList([
-            TransformerDecoderBlock(
-                input_dim=input_dim,
-                num_heads=num_heads,
-                dim_head=dim_head,
-                dropout=dropout
-            )
-            for _ in range(num_layers)
-        ])
-        
+
+        self.blocks = nn.ModuleList(
+            [
+                TransformerDecoderBlock(
+                    input_dim=input_dim,
+                    num_heads=num_heads,
+                    dim_head=dim_head,
+                    dropout=dropout,
+                )
+                for _ in range(num_layers)
+            ]
+        )
+
         self.final_norm = final_norm
         if self.final_norm:
             self.last_layer_norm = nn.LayerNorm(input_dim)
 
         total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-        print(f"[MultiBlockTransformerDecoder] Total trainable parameters: {total_params / 1e6:.2f}M")
+        print(
+            f"[MultiBlockTransformerDecoder] Total trainable parameters: {total_params / 1e6:.2f}M"
+        )
 
     def forward(self, x):
         B = x.shape[0]
         tokens = self.tokens.expand(B, -1, -1) + self.pos_token.expand(B, -1, -1)
         context = self.context_norm(x + self.pos_context.expand(B, -1, -1))
-        
+
         for block in self.blocks:
             tokens = block(tokens, context)
-        
+
         if self.final_norm:
             tokens = self.last_layer_norm(tokens)
-        
+
         return self.out_proj(tokens)
-    
+
 
 class T5TokenizerWrapper:
     """Wrapper class for T5Tokenizer to prepare inputs for T5Encoder"""
-    
+
     def __init__(self, model_name: str = "t5-base", max_length: int = 512):
         """
         Initialize T5 tokenizer wrapper.
-        
+
         Args:
             model_name (str): Name of the T5 model to use for tokenization
             max_length (int): Maximum sequence length for tokenization
         """
         self.tokenizer = T5Tokenizer.from_pretrained(model_name)
         self.max_length = max_length
-        
+
     def __call__(self, text: Union[str, List[str]]) -> dict:
         """
         Tokenize input text(s) and prepare for T5Encoder.
-        
+
         Args:
             text: Either a single string or list of strings to tokenize
-            
+
         Returns:
             dict: Dictionary containing:
                 - input_ids: torch.Tensor [B, L]
@@ -918,20 +979,21 @@ class T5TokenizerWrapper:
         # Handle single string input
         if isinstance(text, str):
             text = [text]
-            
+
         # Tokenize with padding and truncation
         encoded = self.tokenizer(
             text,
             padding=True,
             truncation=True,
             max_length=self.max_length,
-            return_tensors="pt"
+            return_tensors="pt",
         )
-        
+
         return {
             "input_ids": encoded["input_ids"],
-            "attention_mask": encoded["attention_mask"]
+            "attention_mask": encoded["attention_mask"],
         }
+
 
 class L2Norm(nn.Module):
     def forward(self, x):

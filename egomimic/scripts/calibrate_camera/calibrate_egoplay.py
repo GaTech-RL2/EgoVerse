@@ -12,7 +12,7 @@ from tqdm import tqdm
 from egomimic.utils.egomimicUtils import (
     # WIDE_LENS_ROBOT_LEFT_K,
     # WIDE_LENS_ROBOT_LEFT_D,
-    ARIA_INTRINSICS
+    ARIA_INTRINSICS,
 )
 
 from scipy.spatial.transform import Rotation as Rot
@@ -83,7 +83,6 @@ def main():
         demo = calib[key]
         T, H, W, _ = demo["obs/front_img_1"].shape
         for t in tqdm(range(T)):
-
             img = demo["obs/front_img_1"][t]
             # img = cv2.undistort(
             #     img, WIDE_LENS_ROBOT_LEFT_K[:, :3], WIDE_LENS_ROBOT_LEFT_D

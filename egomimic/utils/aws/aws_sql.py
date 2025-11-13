@@ -139,11 +139,13 @@ def delete_episodes(engine, episode_hashes: list[int]):
         )
     return True
 
+
 def delete_all_episodes(engine):
     episodes_tbl = _episodes_table(engine)
     with engine.begin() as conn:
         conn.execute(delete(episodes_tbl))
     return True
+
 
 def episode_table_to_df(engine):
     """

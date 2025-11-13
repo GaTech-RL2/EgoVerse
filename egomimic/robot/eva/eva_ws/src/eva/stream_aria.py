@@ -7,7 +7,6 @@ import cv2
 import numpy as np
 
 
-
 from projectaria_tools.core.sensor_data import ImageDataRecord
 from projectaria_tools.core import calibration
 
@@ -40,10 +39,13 @@ def undistort(raw_image, rgb_calib):
     warped_calib = calibration.get_linear_camera_calibration(
         480, 640, 133.25430222 * 2, "camera-rgb"
     )
-    unwarped_img = calibration.distort_by_calibration(raw_image, warped_calib, rgb_calib)
+    unwarped_img = calibration.distort_by_calibration(
+        raw_image, warped_calib, rgb_calib
+    )
     warped_rot = np.rot90(unwarped_img, k=3)
 
     return warped_rot
+
 
 class AriaRecorder:
     """
@@ -60,8 +62,12 @@ class AriaRecorder:
         def on_image_received(self, image: np.array, record: ImageDataRecord):
             self.rgb_image = image
 
-    def __init__(self, profile_name: str = "profile15", interface: aria.StreamingInterface = aria.StreamingInterface.Usb, use_security: bool = True):
-        
+    def __init__(
+        self,
+        profile_name: str = "profile15",
+        interface: aria.StreamingInterface = aria.StreamingInterface.Usb,
+        use_security: bool = True,
+    ):
         self._profile_name = profile_name
         self._interface = interface
         self._use_security = use_security
@@ -73,12 +79,11 @@ class AriaRecorder:
         self._rgb_calib = None
 
     def start(self) -> None:
-
         aria.Level = 4
         self._device_client = aria.DeviceClient()
         client_config = aria.DeviceClientConfig()
         self._device_client.set_client_config(client_config)
-        
+
         print("BEGINNING STREAM")
         device = self._device_client.connect()
 
@@ -92,13 +97,20 @@ class AriaRecorder:
 
         streaming_config.security_options.use_ephemeral_certs = self._use_security
         self._streaming_manager.streaming_config = streaming_config
-        
-        if self._streaming_manager.streaming_state.value != aria.StreamingState.NotStarted and self._streaming_manager.streaming_state.value != aria.StreamingState.Stopped:
+
+        if (
+            self._streaming_manager.streaming_state.value
+            != aria.StreamingState.NotStarted
+            and self._streaming_manager.streaming_state.value
+            != aria.StreamingState.Stopped
+        ):
             print("Stopping an existing streaming session.")
             try:
                 self._streaming_manager.stop_streaming()
             except:
-                print(f"Aria Streaming State: {self._streaming_manager.streaming_state}")
+                print(
+                    f"Aria Streaming State: {self._streaming_manager.streaming_state}"
+                )
 
         self._streaming_manager.start_streaming()
 
@@ -113,16 +125,16 @@ class AriaRecorder:
         self._device = device
 
         sensors_calib_json = self._streaming_manager.sensors_calibration()
-        sensors_calib = calibration.device_calibration_from_json_string(sensors_calib_json)
+        sensors_calib = calibration.device_calibration_from_json_string(
+            sensors_calib_json
+        )
         rgb_calib = sensors_calib.get_camera_calib("camera-rgb")
         self._rgb_calib = rgb_calib
 
     def get_image(self, convert_to_rgb: bool = True) -> np.ndarray:
-
         image_bgr = self._observer.rgb_image
 
         if self._rgb_calib is not None and image_bgr is not None:
-
             image_bgr = undistort(image_bgr, self._rgb_calib)
 
             if convert_to_rgb:
@@ -182,18 +194,20 @@ parser.add_argument(
 )
 
 if __name__ == "__main__":
-    '''
+    """
     Testing rate-controllerd image saving with aria
-    '''
+    """
     args = parser.parse_args()
     if args.update_iptables and sys.platform.startswith("linux"):
         update_iptables()
 
-    with AriaRecorder(profile_name=args.profile_name, use_security=not args.insecure) as recorder:
-
+    with AriaRecorder(
+        profile_name=args.profile_name, use_security=not args.insecure
+    ) as recorder:
         out_dir = "./front_cam_1"
         import os
         from egomimic.robot.robot_utils import RateLoop
+
         os.makedirs(out_dir, exist_ok=True)
         frame_idx = 0
         with RateLoop(frequency=50, max_iterations=500, verbose=True) as loop:
@@ -202,7 +216,7 @@ if __name__ == "__main__":
                 if raw_bgr is None:
                     continue
                 if raw_bgr is not None:
-                    cv2.imwrite(os.path.join(out_dir, f"frame_{frame_idx:06d}.png"), raw_bgr)
+                    cv2.imwrite(
+                        os.path.join(out_dir, f"frame_{frame_idx:06d}.png"), raw_bgr
+                    )
                     frame_idx += 1
-            
-

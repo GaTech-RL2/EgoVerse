@@ -5,6 +5,7 @@ from typing import Tuple
 
 from egomimic.models.denoising_nets import ConditionalUnet1D
 
+
 class DenoisingPolicy(nn.Module):
     """
     Template class for a diffusion-based policy head.
@@ -44,7 +45,9 @@ class DenoisingPolicy(nn.Module):
                 print(f"[warn] {name} has requires_grad=False")
 
         total_params = sum(p.numel() for p in self.model.parameters())
-        print(f"[{self.__class__.__name__}] Total trainable parameters: {total_params / 1e6:.2f}M")
+        print(
+            f"[{self.__class__.__name__}] Total trainable parameters: {total_params / 1e6:.2f}M"
+        )
 
     def preprocess_sampling(self, global_cond, embodiment_name, generator=None):
         if self.pooling == "mean":
@@ -53,7 +56,11 @@ class DenoisingPolicy(nn.Module):
             global_cond = global_cond.reshape(global_cond.shape[0], -1)
 
         noise = torch.randn(
-            (len(global_cond), self.action_horizon, self.infer_ac_dims[embodiment_name]),
+            (
+                len(global_cond),
+                self.action_horizon,
+                self.infer_ac_dims[embodiment_name],
+            ),
             dtype=global_cond.dtype,
             device=global_cond.device,
             generator=generator,
@@ -67,7 +74,9 @@ class DenoisingPolicy(nn.Module):
         raise NotImplementedError
 
     def sample_action(self, global_cond, embodiment_name, generator=None):
-        noise, global_cond = self.preprocess_sampling(global_cond, embodiment_name, generator)
+        noise, global_cond = self.preprocess_sampling(
+            global_cond, embodiment_name, generator
+        )
         return self.inference(noise, global_cond, generator)
 
     def forward(self, global_cond):
@@ -105,7 +114,9 @@ class DenoisingPolicy(nn.Module):
                 if actions.shape[-1] == 6:
                     actions = torch.cat((actions, padding), dim=-1)
                 else:  # 12
-                    actions = torch.cat((actions[..., :6], padding, actions[..., 6:], padding), dim=-1)
+                    actions = torch.cat(
+                        (actions[..., :6], padding, actions[..., 6:], padding), dim=-1
+                    )
 
         return actions, global_cond
 

@@ -23,8 +23,9 @@ import numpy as np
 
 from overrides import override
 
+
 class ACTModel(nn.Module):
-    '''
+    """
     ACT Model closely following DETRVAE from ACT but using standard torch.nn components
 
     backbones : visual backbone per cam input
@@ -35,18 +36,19 @@ class ACTModel(nn.Module):
     state_dim : proprio dim
     num_queries : predicted action dim
     camera_names : list of camera inputs
-    '''
+    """
+
     def __init__(
-            self,
-            backbones,
-            transformer,
-            encoder,
-            latent_dim,
-            a_dim,
-            state_dim,
-            num_queries,
-            camera_names,
-            num_channels,
+        self,
+        backbones,
+        transformer,
+        encoder,
+        latent_dim,
+        a_dim,
+        state_dim,
+        num_queries,
+        camera_names,
+        num_channels,
     ):
         super(ACTModel, self).__init__()
 
@@ -66,9 +68,7 @@ class ACTModel(nn.Module):
         self.num_channels = num_channels
 
         if backbones is not None:
-            self.input_proj = nn.Conv2d(
-                self.num_channels, hidden_dim, kernel_size=1
-            )
+            self.input_proj = nn.Conv2d(self.num_channels, hidden_dim, kernel_size=1)
             self.backbones = nn.ModuleList(backbones)
         else:
             self.backbones = None
@@ -79,43 +79,54 @@ class ACTModel(nn.Module):
         self.latent_out_proj = nn.Linear(
             self.latent_dim, hidden_dim
         )  # project latent sample to embedding
-        self.additional_pos_embed = nn.Embedding(
-            2, hidden_dim
-        )
+        self.additional_pos_embed = nn.Embedding(2, hidden_dim)
 
         self.encoder_action_proj = nn.Linear(
-                self.action_dim, hidden_dim
-            )  # project robot action to embedding
-        
+            self.action_dim, hidden_dim
+        )  # project robot action to embedding
+
         self.encoder_joint_proj = nn.Linear(
-                self.state_dim, hidden_dim
-            )  # project robot qpos to embedding
+            self.state_dim, hidden_dim
+        )  # project robot qpos to embedding
 
         self.transformer_input_proj = nn.Linear(self.state_dim, hidden_dim)
 
         self.action_head = nn.Linear(hidden_dim, self.action_dim)
-    
+
     def forward(self, qpos, actions, image, is_pad=None, env_state=None):
         return self._forward(
-                qpos=qpos,
-                actions=actions,
-                image=image,
-                encoder_action_proj=self.encoder_action_proj,
-                encoder_joint_proj=self.encoder_joint_proj,
-                transformer_input_proj=self.transformer_input_proj,
-                action_head=self.action_head,
-                camera_names=self.camera_names,
-                is_pad=is_pad,
+            qpos=qpos,
+            actions=actions,
+            image=image,
+            encoder_action_proj=self.encoder_action_proj,
+            encoder_joint_proj=self.encoder_joint_proj,
+            transformer_input_proj=self.transformer_input_proj,
+            action_head=self.action_head,
+            camera_names=self.camera_names,
+            is_pad=is_pad,
         )
-    
-    def _forward(self, qpos, actions, image, encoder_action_proj=None, encoder_joint_proj=None, transformer_input_proj=None, action_head=None, camera_names=None, env_state=None, is_pad=None, aux_action_head=None):
-        '''
+
+    def _forward(
+        self,
+        qpos,
+        actions,
+        image,
+        encoder_action_proj=None,
+        encoder_joint_proj=None,
+        transformer_input_proj=None,
+        action_head=None,
+        camera_names=None,
+        env_state=None,
+        is_pad=None,
+        aux_action_head=None,
+    ):
+        """
         args:
             qpos: (batch, qpos_dim)
             actions: (batch, seq, action_dim)
             image: (batch, camera_number, channel, height, width)
             env_state: None
-        '''
+        """
 
         is_training = actions is not None
         batch_size = qpos.size(0)
@@ -144,27 +155,30 @@ class ACTModel(nn.Module):
         src = torch.cat(all_cam_features, dim=-1)  # [B, hidden_dim, H, W * num_cameras]
 
         batch_size, hidden_dim, height, width = src.shape
-        src = src.flatten(2).permute(0, 2, 1)  # [B, S, hidden_dim], S = H * W * num_cameras]
+        src = src.flatten(2).permute(
+            0, 2, 1
+        )  # [B, S, hidden_dim], S = H * W * num_cameras]
 
         proprio_input = transformer_input_proj(qpos).unsqueeze(1)  # [B, 1, hidden_dim]
         latent_input = latent_input.unsqueeze(1)  # [B, 1, hidden_dim]
 
-        query_embed = self.query_embed.weight.unsqueeze(0).repeat(batch_size, 1, 1)  # [B, num_queries, hidden_dim]
+        query_embed = self.query_embed.weight.unsqueeze(0).repeat(
+            batch_size, 1, 1
+        )  # [B, num_queries, hidden_dim]
 
-        tgt = query_embed # tgt = torch.zeros_like(query_embed) + query_embed. ACT passes zeros to decoder
-        
+        tgt = query_embed  # tgt = torch.zeros_like(query_embed) + query_embed. ACT passes zeros to decoder
+
         src = torch.cat(
-            [latent_input,
-            proprio_input,
-            src],
-            axis=1
-        ) # [B, S + 2, hidden_dim]
-        
-        # Learnable additional pos embed for latent input, proprio input
-        additional_pos_embed = self.additional_pos_embed.weight.unsqueeze(0).repeat(batch_size, 1, 1) #[B, 2, hidden_dim]
-        src[:, :2, :] += additional_pos_embed 
+            [latent_input, proprio_input, src], axis=1
+        )  # [B, S + 2, hidden_dim]
 
-        hs_queries = self.transformer(src, tgt) # [B, tgt, hidden_dim]
+        # Learnable additional pos embed for latent input, proprio input
+        additional_pos_embed = self.additional_pos_embed.weight.unsqueeze(0).repeat(
+            batch_size, 1, 1
+        )  # [B, 2, hidden_dim]
+        src[:, :2, :] += additional_pos_embed
+
+        hs_queries = self.transformer(src, tgt)  # [B, tgt, hidden_dim]
 
         action_pred = action_head(hs_queries)  # [B, num_queries, action_dim]
         # is_pad_pred = self.is_pad_head(hs_queries)  # [B, num_queries, 1]
@@ -177,7 +191,7 @@ class ACTModel(nn.Module):
 
         return action_pred, is_pad_pred, [mu, logvar]
 
-        
+
 class ACT(Algo):
     """
     BC training with a VAE policy.
@@ -201,7 +215,7 @@ class ACT(Algo):
 
         if len(data_schematic.embodiments) > 1:
             raise ValueError("ACT should only have 1 embodiment")
-        
+
         self.embodiment_id = list(data_schematic.embodiments)[0]
         self.data_schematic = data_schematic
         self.camera_transforms = camera_transforms
@@ -220,19 +234,28 @@ class ACT(Algo):
 
         self.backbones = backbones
         if len(backbones) != len(self.camera_keys):
-            raise ValueError(f"Number of backbones ({len(backbones)}) doesn't match number of camera_keys ({len(self.camera_keys)}) ")
+            raise ValueError(
+                f"Number of backbones ({len(backbones)}) doesn't match number of camera_keys ({len(self.camera_keys)}) "
+            )
 
-        num_channels = backbones[0].output_shape(self.data_schematic.key_shape(self.camera_keys[0], self.embodiment_id))[0]
+        num_channels = backbones[0].output_shape(
+            self.data_schematic.key_shape(self.camera_keys[0], self.embodiment_id)
+        )[0]
         a_dim = self.data_schematic.key_shape(self.ac_key, self.embodiment_id)[-1]
-        
+
         if len(self.proprio_keys) > 1:
-            raise ValueError(f"Current implementation only supports one proprio_key but got proprio_keys={self.proprio_keys}")
-        state_dim = self.data_schematic.key_shape(self.proprio_keys[0], self.embodiment_id)[-1]
+            raise ValueError(
+                f"Current implementation only supports one proprio_key but got proprio_keys={self.proprio_keys}"
+            )
+        state_dim = self.data_schematic.key_shape(
+            self.proprio_keys[0], self.embodiment_id
+        )[-1]
 
         if len(self.data_schematic.norm_stats.keys()) != 1:
-            raise ValueError("ACT expects only single embodiment to be in dataset, instead found embodiment keys: ", self.data_schematic.norm_stats.keys())
-        
-
+            raise ValueError(
+                "ACT expects only single embodiment to be in dataset, instead found embodiment keys: ",
+                self.data_schematic.norm_stats.keys(),
+            )
 
         model = ACTModel(
             backbones=backbones,
@@ -244,7 +267,6 @@ class ACT(Algo):
             num_queries=chunk_size,
             camera_names=self.camera_keys,
             num_channels=num_channels,
-
         )
         self.nets = nn.ModuleDict()
         self.nets["policy"] = model
@@ -268,26 +290,32 @@ class ACT(Algo):
                 pad_mask: torch.Size([32, 100, 1])
         """
         processed_batch = {}
-        
+
         batch = batch[next(iter(batch))]
         for key, value in batch.items():
-            key_name = self.data_schematic.lerobot_key_to_keyname(key, self.embodiment_id)
+            key_name = self.data_schematic.lerobot_key_to_keyname(
+                key, self.embodiment_id
+            )
             if key_name is not None:
                 processed_batch[key_name] = value
-        
+
         if len(processed_batch[self.ac_key][0].shape) != 2:
             raise ValueError("Action shape is not 2")
-        
+
         B, S, _ = processed_batch[self.ac_key].shape
         device = processed_batch[self.ac_key].device
-        processed_batch["pad_mask"]  = torch.ones(B, S, 1, device=device)
+        processed_batch["pad_mask"] = torch.ones(B, S, 1, device=device)
 
-        processed_batch = self.data_schematic.normalize_data(processed_batch, self.embodiment_id)
+        processed_batch = self.data_schematic.normalize_data(
+            processed_batch, self.embodiment_id
+        )
 
-        processed_batch["joint_positions"] = processed_batch["joint_positions"][:, None, :]
+        processed_batch["joint_positions"] = processed_batch["joint_positions"][
+            :, None, :
+        ]
 
         return processed_batch
-    
+
     @override
     def forward_training(self, batch):
         """
@@ -342,8 +370,10 @@ class ACT(Algo):
 
         predictions = OrderedDict()
         predictions[self.ac_key] = a_hat
-        
-        unnorm_preds = self.data_schematic.unnormalize_data(predictions, self.embodiment_id)
+
+        unnorm_preds = self.data_schematic.unnormalize_data(
+            predictions, self.embodiment_id
+        )
 
         return unnorm_preds
 
@@ -369,10 +399,14 @@ class ACT(Algo):
         for ac_key in self.data_schematic.keys_of_type("action_keys"):
             if len(preds[ac_key].shape) != 3:
                 raise ValueError("predictions should be (B, Seq, D)")
-            metrics[f"Valid/{ac_key}_paired_mse_avg"] = mse(preds[ac_key].cpu(), batch[ac_key].cpu())
-            metrics[f"Valid/{ac_key}_final_mse_avg"] = mse(preds[ac_key][:, -1].cpu(), batch[ac_key][:, -1].cpu())
-        
-        ims = {self.embodiment_id : self.visualize_preds(preds, batch)}
+            metrics[f"Valid/{ac_key}_paired_mse_avg"] = mse(
+                preds[ac_key].cpu(), batch[ac_key].cpu()
+            )
+            metrics[f"Valid/{ac_key}_final_mse_avg"] = mse(
+                preds[ac_key][:, -1].cpu(), batch[ac_key][:, -1].cpu()
+            )
+
+        ims = {self.embodiment_id: self.visualize_preds(preds, batch)}
 
         return metrics, ims
 
@@ -386,7 +420,13 @@ class ACT(Algo):
         Returns:
             ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
         """
-        ims = (batch[self.data_schematic.viz_img_key()[self.embodiment_id]].cpu().numpy().transpose((0, 2, 3, 1)) * 255).astype(np.uint8)
+        ims = (
+            batch[self.data_schematic.viz_img_key()[self.embodiment_id]]
+            .cpu()
+            .numpy()
+            .transpose((0, 2, 3, 1))
+            * 255
+        ).astype(np.uint8)
         preds = preds[self.data_schematic.action_keys()[0]]
         gt = batch[self.data_schematic.action_keys()[0]]
 
@@ -399,9 +439,25 @@ class ACT(Algo):
                 raise ValueError(f"Unknown action type with shape {preds.shape}")
 
             arm = "right" if preds.shape[-1] == 7 or preds.shape[-1] == 3 else "both"
-            ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
+            ims[b] = draw_actions(
+                ims[b],
+                ac_type,
+                "Purples",
+                preds[b].cpu().numpy(),
+                self.camera_transforms.extrinsics,
+                self.camera_transforms.intrinsics,
+                arm=arm,
+            )
 
-            ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm)
+            ims[b] = draw_actions(
+                ims[b],
+                ac_type,
+                "Greens",
+                gt[b].cpu().numpy(),
+                self.camera_transforms.extrinsics,
+                self.camera_transforms.intrinsics,
+                arm=arm,
+            )
 
         return ims
 

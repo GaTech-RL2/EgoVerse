@@ -44,15 +44,17 @@ from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
 from egomimic.evaluation.eval import Eval
 
 from egomimic.utils.pylogger import RankedLogger
+
 log = RankedLogger(__name__, rank_zero_only=True)
+
 
 class TemporalAgg:
     def __init__(self):
         self.recent_actions = []
-    
+
     def add_action(self, action):
         """
-            actions: (100, 7) tensor
+        actions: (100, 7) tensor
         """
         self.recent_actions.append(action)
         if len(self.recent_actions) > 4:
@@ -60,7 +62,7 @@ class TemporalAgg:
 
     def smoothed_action(self):
         """
-            returns smooth action (100, 7)
+        returns smooth action (100, 7)
         """
         mask = []
         count = 0
@@ -70,7 +72,7 @@ class TemporalAgg:
 
         for ac in self.recent_actions[::-1]:
             basic_mask = np.zeros(100)
-            basic_mask[:100-count] = 1
+            basic_mask[: 100 - count] = 1
             mask.append(basic_mask)
             shifted_ac = ac[count:]
             shifted_ac = np.concatenate([shifted_ac, np.zeros((count, 7))], axis=0)
@@ -96,6 +98,7 @@ class TemporalAgg:
 
         return smoothed_action
 
+
 class Eve(Eval):
     def __init__(self, config, ckpt_path, mode, arm, eval_path, debug=True):
         super().__init__(config, ckpt_path)
@@ -110,7 +113,7 @@ class Eve(Eval):
 
         log.info("Instantiated model!")
 
-        node = create_interbotix_global_node('aloha')
+        node = create_interbotix_global_node("aloha")
         self.env = make_real_env(node, active_arms=self.arm, setup_robots=True)
 
         self.data_schematic = self.model.model.data_schematic
@@ -135,41 +138,50 @@ class Eve(Eval):
 
         data = {
             "right_wrist_img": (
-                    torch.from_numpy(obs["images"]["cam_right_wrist"][None, None, :])
-                ).to(torch.uint8) / 255.0,
-            "front_img_1" : (
-                torch.from_numpy(
-                obs["images"]["cam_high"][None, None, :]
-            )).to(torch.uint8) / 255.0,
+                torch.from_numpy(obs["images"]["cam_right_wrist"][None, None, :])
+            ).to(torch.uint8)
+            / 255.0,
+            "front_img_1": (
+                torch.from_numpy(obs["images"]["cam_high"][None, None, :])
+            ).to(torch.uint8)
+            / 255.0,
             "pad_mask": torch.ones((1, 100, 1)).to(device).bool(),
             "joint_positions": qpos[..., 7:].reshape((1, 1, -1)),
         }
 
         if self.arm == "right":
-            data["joint_positions"] =  qpos[..., 7:].reshape((1, 1, -1))
-            embodiment_id = get_embodiment_id('eve_right_arm')
+            data["joint_positions"] = qpos[..., 7:].reshape((1, 1, -1))
+            embodiment_id = get_embodiment_id("eve_right_arm")
             data["embodiment"] = torch.Tensor([embodiment_id], dtype=torch.int64)
             processed_batch[embodiment_id] = data
-            processed_batch = self.model.model.data_schematic.normalize_data(processed_batch, embodiment_id)
+            processed_batch = self.model.model.data_schematic.normalize_data(
+                processed_batch, embodiment_id
+            )
 
         elif self.arm == "both":
-            data["left_wrist_img"] = torch.from_numpy(obs["images"]["cam_left_wrist"][None, None, :]).to(torch.uint8) / 255.0
+            data["left_wrist_img"] = (
+                torch.from_numpy(obs["images"]["cam_left_wrist"][None, None, :]).to(
+                    torch.uint8
+                )
+                / 255.0
+            )
             data["joint_positions"] = qpos[..., :].reshape((1, 1, -1))
-            embodiment_id = get_embodiment_id('eve_bimanual')
+            embodiment_id = get_embodiment_id("eve_bimanual")
             data["embodiment"] = torch.Tensor([embodiment_id], dtype=torch.int64)
             processed_batch[embodiment_id] = data
-            processed_batch = self.model.model.data_schematic.normalize_data(processed_batch, embodiment_id)
+            processed_batch = self.model.model.data_schematic.normalize_data(
+                processed_batch, embodiment_id
+            )
 
         return processed_batch
 
     def perfom_eval(self):
-        """
-        """
-        if self.mode == "real" : 
+        """ """
+        if self.mode == "real":
             self.eval_real(self.model.model, self.env, self.rollout_dir, self.arm)
-        else: 
+        else:
             raise ValueError("Sim evaluation is not set up for this robot")
-    
+
     def eval_real(self, model, env, rollout_dir, arm):
         device = torch.device("cuda")
         aloha_fk = AlohaFK()
@@ -188,7 +200,7 @@ class Eve(Eval):
             with torch.inference_mode():
                 rollout_images = []
                 for t in range(1000):
-                    time.sleep(max(0, DT*2 - (time.time() - t0)))
+                    time.sleep(max(0, DT * 2 - (time.time() - t0)))
                     t0 = time.time()
                     obs = ts.observation
                     inference_t = time.time()
@@ -210,7 +222,6 @@ class Eve(Eval):
                             TA.add_action(actions[0])
                             actions = TA.smoothed_action()[None, :]
 
-
                         print(f"Inference time: {time.time() - inference_t}")
 
                     raw_action = actions[:, t % query_frequency]
@@ -219,7 +230,7 @@ class Eve(Eval):
 
                     if self.arm == "right":
                         target_qpos = np.concatenate([np.zeros(7), target_qpos])
-                    
+
                     ts = env.step(target_qpos)
                     qpos_t.append(ts.observation["qpos"])
                     actions_t.append(target_qpos)
@@ -229,26 +240,25 @@ class Eve(Eval):
 
             if self.arm == "right":
                 move_grippers(
-                [env.follower_bot_right], [FOLLOWER_GRIPPER_JOINT_OPEN], moving_time=0.5
+                    [env.follower_bot_right],
+                    [FOLLOWER_GRIPPER_JOINT_OPEN],
+                    moving_time=0.5,
                 )  # open
-                move_arms([env.follower_bot_right], [START_ARM_POSE[:6]], moving_time=1.0)
-            
+                move_arms(
+                    [env.follower_bot_right], [START_ARM_POSE[:6]], moving_time=1.0
+                )
+
             elif self.arm == "both":
                 move_grippers(
-                    [env.follower_bot_left, env.follower_bot_right], [FOLLOWER_GRIPPER_JOINT_OPEN]*2, moving_time=0.5
+                    [env.follower_bot_left, env.follower_bot_right],
+                    [FOLLOWER_GRIPPER_JOINT_OPEN] * 2,
+                    moving_time=0.5,
                 )  # open
-                move_arms([env.follower_bot_left, env.follower_bot_right], [START_ARM_POSE[:6]]*2, moving_time=1.0)
-            
+                move_arms(
+                    [env.follower_bot_left, env.follower_bot_right],
+                    [START_ARM_POSE[:6]] * 2,
+                    moving_time=1.0,
+                )
+
             time.sleep(12.0)
         return
-
-
-
-
-
-
-
-
-    
-
-

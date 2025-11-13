@@ -387,7 +387,6 @@ class EvaIKNode(Node):
         return new.tolist()
 
     def _reset_anchor_to_current_fk(self):
-
         # Re-anchor VR target to current EE pose and clear delta accumulators
         cur_pos_world, cur_quat_world = self.ik.fk_at_joints(self.current_joints)
         self.vr_anchor_pos_world = cur_pos_world.copy()
@@ -513,7 +512,6 @@ class EvaIKNode(Node):
                     f"[DIAG] {phase} from FK(HOME): self.tgt_pos_world={self.tgt_pos_world.tolist()}"
                 )
         else:
-
             # Need a pose stamp for timing/sync; otherwise do nothing
             if self.pose_r is None:
                 return
@@ -532,7 +530,6 @@ class EvaIKNode(Node):
 
             # Apply per-frame delta from topic (already t vs t-1)
             if self.delta_r is not None and self.engaged:
-
                 # Gripper control
                 target = None
                 gripper_delta_limit = self.gripper_vel * dt_real

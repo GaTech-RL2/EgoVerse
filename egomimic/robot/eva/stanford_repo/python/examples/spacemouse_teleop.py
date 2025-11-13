@@ -24,7 +24,6 @@ import click
 
 
 def start_teleop_recording(controller: Arx5CartesianController):
-
     ori_speed = 1.5
     pos_speed = 0.8
     gripper_speed = 0.04
@@ -91,7 +90,6 @@ def start_teleop_recording(controller: Arx5CartesianController):
             start_time = time.monotonic()
             loop_cnt = 0
             while True:
-
                 print(
                     f"Time elapsed: {time.monotonic() - start_time:.03f}s",
                     end="\r",
@@ -160,7 +158,6 @@ def start_teleop_recording(controller: Arx5CartesianController):
 @click.argument("model")  # ARX arm model: X5 or L5
 @click.argument("interface")  # can bus name (can0 etc.)
 def main(model: str, interface: str):
-
     robot_config = RobotConfigFactory.get_instance().get_config(model)
     controller_config = ControllerConfigFactory.get_instance().get_config(
         "cartesian_controller", robot_config.joint_dof

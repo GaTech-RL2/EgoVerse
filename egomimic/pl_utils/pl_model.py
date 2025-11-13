@@ -13,6 +13,7 @@ import torchvision.io as tvio
 from lightning.pytorch.utilities import rank_zero_only
 from egomimic.rldb.utils import get_embodiment
 
+
 class ModelWrapper(LightningModule):
     """
     Wrapper class around robomimic models to ensure compatibility with Pytorch Lightning.
@@ -39,14 +40,14 @@ class ModelWrapper(LightningModule):
 
         self.val_image_buffer, self.val_counter = {}, {}
         # TODO __init__ should take the config, and init the model here.  Then save_hyperparameters will just save the config rather than the model
-    
+
     def root_dir(self):
         return self.trainer.default_root_dir
 
     def video_dir(self):
         return os.path.join(self.root_dir(), "videos")
 
-    #batch is now a dict, handle on model side
+    # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
         self.train()
         loss_dicts = []
@@ -63,7 +64,9 @@ class ModelWrapper(LightningModule):
             )
 
         info = {}
-        grad_norm = torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=float('inf'))
+        grad_norm = torch.nn.utils.clip_grad_norm_(
+            self.parameters(), max_norm=float("inf")
+        )
         info["policy_grad_norms"] = grad_norm.item()
         info["losses"] = TensorUtils.detach(losses)
         self.step_log_all_train.append(self.model.log_info(info))
@@ -73,44 +76,70 @@ class ModelWrapper(LightningModule):
     @rank_zero_only
     def on_validation_start(self):
         # make the video directory for this epoch
-        os.makedirs(os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}"), exist_ok=True)
+        os.makedirs(
+            os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}"),
+            exist_ok=True,
+        )
 
     @rank_zero_only
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """
-        Run a validation step on the batch, and save that batch of images into the val_image_buffer.  Once the buffer hits 1000 images, save that as a 30fps video using torchvision.io.write_video.  
+        Run a validation step on the batch, and save that batch of images into the val_image_buffer.  Once the buffer hits 1000 images, save that as a 30fps video using torchvision.io.write_video.
         """
         batch = self.model.process_batch_for_training(batch)
         metrics, images_dict = self.model.forward_eval_logging(batch)
 
         ## images is now a dict
         for key, images in images_dict.items():
-            os.makedirs(os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}", str(get_embodiment(key))), exist_ok=True)
+            os.makedirs(
+                os.path.join(
+                    self.video_dir(),
+                    f"epoch_{self.trainer.current_epoch}",
+                    str(get_embodiment(key)),
+                ),
+                exist_ok=True,
+            )
             if key not in self.val_image_buffer or self.val_image_buffer[key] is None:
                 self.val_image_buffer[key] = []
                 self.val_counter[key] = 0
             self.val_image_buffer[key].extend(torch.from_numpy(images))
             if len(self.val_image_buffer[key]) >= 1000:
                 frames = torch.stack(self.val_image_buffer[key])
-                path = os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}", str(get_embodiment(key)), f"validation_video_{self.val_counter[key]}.mp4")
+                path = os.path.join(
+                    self.video_dir(),
+                    f"epoch_{self.trainer.current_epoch}",
+                    str(get_embodiment(key)),
+                    f"validation_video_{self.val_counter[key]}.mp4",
+                )
                 tvio.write_video(path, frames, fps=30, video_codec="h264")
                 self.val_image_buffer[key].clear()
                 self.val_counter[key] += 1
-        
+
         self.log_dict(metrics)
-    
+
     @rank_zero_only
     def on_validation_end(self):
         for key, buffer in self.val_image_buffer.items():
-            os.makedirs(os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}", str(get_embodiment(key))), exist_ok=True)
+            os.makedirs(
+                os.path.join(
+                    self.video_dir(),
+                    f"epoch_{self.trainer.current_epoch}",
+                    str(get_embodiment(key)),
+                ),
+                exist_ok=True,
+            )
             if len(buffer) != 0:
                 frames = torch.stack(buffer)
-                path = os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}", str(get_embodiment(key)), f"validation_video_{self.val_counter[key]}.mp4")
+                path = os.path.join(
+                    self.video_dir(),
+                    f"epoch_{self.trainer.current_epoch}",
+                    str(get_embodiment(key)),
+                    f"validation_video_{self.val_counter[key]}.mp4",
+                )
                 tvio.write_video(path, frames, fps=30, video_codec="h264")
-            
+
             self.val_counter[key] = 0
             self.val_image_buffer[key] = []
-        
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
@@ -126,7 +155,7 @@ class ModelWrapper(LightningModule):
             scheduler = self.hparams.scheduler(optimizer=optimizer)
             return {
                 "optimizer": optimizer,
-                "lr_scheduler": scheduler
+                "lr_scheduler": scheduler,
                 # "lr_scheduler": {
                 #     "scheduler": scheduler,
                 #     "monitor": "val/loss",

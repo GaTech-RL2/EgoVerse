@@ -295,9 +295,9 @@ class SharedMemoryQueue:
         data_end = end - start
         for key, value in data.items():
             arr: np.ndarray = self.shared_arrays[key].get()
-            assert (
-                arr.dtype == value.dtype
-            ), f"Inconsistent data types: {arr.dtype} != {value.dtype}"
+            assert arr.dtype == value.dtype, (
+                f"Inconsistent data types: {arr.dtype} != {value.dtype}"
+            )
             arr[start:end] = value[data_start:data_end]
 
         remainder = list_len - (end - start)
@@ -309,9 +309,9 @@ class SharedMemoryQueue:
             data_end = list_len
             for key, value in data.items():
                 arr: np.ndarray = self.shared_arrays[key].get()
-                assert (
-                    arr.dtype == value.dtype
-                ), f"Inconsistent data types: {arr.dtype} != {value.dtype}"
+                assert arr.dtype == value.dtype, (
+                    f"Inconsistent data types: {arr.dtype} != {value.dtype}"
+                )
                 arr[start:end] = value[data_start:data_end]
 
     def _allocate_empty(self, k=None):

@@ -17,9 +17,11 @@ import numpy as np
 @click.argument("master_interface")  # can bus name (can0 etc.)
 @click.argument("slave_model")  # ARX arm model: X5 or L5
 @click.argument("slave_interface")  # can bus name (can0 etc.)
-def main(master_model: str, master_interface: str, slave_model: str, slave_interface: str):
+def main(
+    master_model: str, master_interface: str, slave_model: str, slave_interface: str
+):
     np.set_printoptions(precision=3, suppress=True)
-    assert(master_interface != slave_interface)
+    assert master_interface != slave_interface
 
     master = arx5.Arx5JointController(master_model, master_interface)
     slave = arx5.Arx5JointController(slave_model, slave_interface)
@@ -39,12 +41,12 @@ def main(master_model: str, master_interface: str, slave_model: str, slave_inter
             slave_joint_cmd = arx5.JointState(robot_config.joint_dof)
             slave_joint_cmd.pos()[:] = master_joint_state.pos()
             slave_joint_cmd.gripper_pos = master_joint_state.gripper_pos
-            
+
             # If you want to decrease the delay of teleoperation , you can uncomment the following line
             # This will partially include the velocity to the command, and you will need to pass these velocities
             # into the policy layout
-            # slave_joint_cmd.vel()[:] = master_joint_state.vel()* 0.3 
-            
+            # slave_joint_cmd.vel()[:] = master_joint_state.vel()* 0.3
+
             slave.set_joint_cmd(slave_joint_cmd)
             time.sleep(controller_config.controller_dt)
     except KeyboardInterrupt:
@@ -52,10 +54,6 @@ def main(master_model: str, master_interface: str, slave_model: str, slave_inter
         slave.reset_to_home()
         master.reset_to_home()
         print("Arms reset to home position. Exiting.")
-
-
-    
-
 
 
 main()

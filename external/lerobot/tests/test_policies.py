@@ -138,9 +138,9 @@ def test_policy(env_name, policy_name, extra_overrides):
     dataset = make_dataset(cfg)
     policy = make_policy(hydra_cfg=cfg, dataset_stats=dataset.meta.stats)
     # Check that the policy follows the required protocol.
-    assert isinstance(
-        policy, Policy
-    ), f"The policy does not follow the required protocol. Please see {Policy.__module__}.{Policy.__name__}."
+    assert isinstance(policy, Policy), (
+        f"The policy does not follow the required protocol. Please see {Policy.__module__}.{Policy.__name__}."
+    )
     assert isinstance(policy, torch.nn.Module)
     assert isinstance(policy, PyTorchModelHubMixin)
 
@@ -166,9 +166,9 @@ def test_policy(env_name, policy_name, extra_overrides):
     batch_ = deepcopy(batch)
     policy.forward(batch)
     assert set(batch) == set(batch_), "Batch keys are not the same after a forward pass."
-    assert all(
-        torch.equal(batch[k], batch_[k]) for k in batch
-    ), "Batch values are not the same after a forward pass."
+    assert all(torch.equal(batch[k], batch_[k]) for k in batch), (
+        "Batch values are not the same after a forward pass."
+    )
 
     # reset the policy and environment
     policy.reset()
@@ -184,12 +184,12 @@ def test_policy(env_name, policy_name, extra_overrides):
     observation_ = deepcopy(observation)
     with torch.inference_mode():
         action = policy.select_action(observation).cpu().numpy()
-    assert set(observation) == set(
-        observation_
-    ), "Observation batch keys are not the same after a forward pass."
-    assert all(
-        torch.equal(observation[k], observation_[k]) for k in observation
-    ), "Observation batch values are not the same after a forward pass."
+    assert set(observation) == set(observation_), (
+        "Observation batch keys are not the same after a forward pass."
+    )
+    assert all(torch.equal(observation[k], observation_[k]) for k in observation), (
+        "Observation batch values are not the same after a forward pass."
+    )
 
     # Test step through policy
     env.step(action)

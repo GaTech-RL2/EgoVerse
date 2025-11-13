@@ -1,11 +1,12 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from typing import Optional, Callable, Any 
+from typing import Optional, Callable, Any
 from torch.distributions import Normal
 import math
 from torchvision import models as vision_models
 import abc
+
 
 class PositionalEncoding(nn.Module):
     """
@@ -50,25 +51,29 @@ class PositionalEncoding(nn.Module):
         pe[:, :, 0::2] = torch.sin(position.unsqueeze(-1) * div_term)
         pe[:, :, 1::2] = torch.cos(position.unsqueeze(-1) * div_term)
         return pe.detach()
+
+
 """
 ================================================
 Visual Backbone Networks
 ================================================
 """
 
+
 class Module(torch.nn.Module):
     """
     Base class for networks. The only difference from torch.nn.Module is that it
     requires implementing @output_shape.
     """
+
     @abc.abstractmethod
     def output_shape(self, input_shape=None):
         """
-        Function to compute output shape from inputs to this module. 
+        Function to compute output shape from inputs to this module.
 
         Args:
             input_shape (iterable of int): shape of input. Does not include batch dimension.
-                Some modules may not need this argument, if their output does not depend 
+                Some modules may not need this argument, if their output does not depend
                 on the size of the input, or if they assume fixed size input.
 
         Returns:
@@ -76,21 +81,23 @@ class Module(torch.nn.Module):
         """
         raise NotImplementedError
 
+
 class ConvBase(Module):
     """
     Base class for ConvNets.
     """
+
     def __init__(self):
         super(ConvBase, self).__init__()
 
     # dirty hack - re-implement to pass the buck onto subclasses from ABC parent
     def output_shape(self, input_shape):
         """
-        Function to compute output shape from inputs to this module. 
+        Function to compute output shape from inputs to this module.
 
         Args:
             input_shape (iterable of int): shape of input. Does not include batch dimension.
-                Some modules may not need this argument, if their output does not depend 
+                Some modules may not need this argument, if their output does not depend
                 on the size of the input, or if they assume fixed size input.
 
         Returns:
@@ -101,10 +108,15 @@ class ConvBase(Module):
     def forward(self, inputs):
         x = self.nets(inputs)
         if list(self.output_shape(list(inputs.shape)[1:])) != list(x.shape)[1:]:
-            raise ValueError('Size mismatch: expect size %s, but got size %s' % (
-                str(self.output_shape(list(inputs.shape)[1:])), str(list(x.shape)[1:]))
+            raise ValueError(
+                "Size mismatch: expect size %s, but got size %s"
+                % (
+                    str(self.output_shape(list(inputs.shape)[1:])),
+                    str(list(x.shape)[1:]),
+                )
             )
         return x
+
 
 class CoordConv2d(nn.Conv2d, Module):
     """
@@ -114,6 +126,7 @@ class CoordConv2d(nn.Conv2d, Module):
     https://arxiv.org/abs/1807.03247
     (e.g. adds 2 channels per input feature map corresponding to (x, y) location on map)
     """
+
     def __init__(
         self,
         in_channels,
@@ -124,8 +137,8 @@ class CoordConv2d(nn.Conv2d, Module):
         dilation=1,
         groups=1,
         bias=True,
-        padding_mode='zeros',
-        coord_encoding='position',
+        padding_mode="zeros",
+        coord_encoding="position",
     ):
         """
         Args:
@@ -141,13 +154,17 @@ class CoordConv2d(nn.Conv2d, Module):
             coord_encoding: type of coordinate encoding. currently only 'position' is implemented
         """
 
-        assert(coord_encoding in ['position'])
+        assert coord_encoding in ["position"]
         self.coord_encoding = coord_encoding
-        if coord_encoding == 'position':
+        if coord_encoding == "position":
             in_channels += 2  # two extra channel for positional encoding
             self._position_enc = None  # position encoding
         else:
-            raise Exception("CoordConv2d: coord encoding {} not implemented".format(self.coord_encoding))
+            raise Exception(
+                "CoordConv2d: coord encoding {} not implemented".format(
+                    self.coord_encoding
+                )
+            )
         nn.Conv2d.__init__(
             self,
             in_channels=in_channels,
@@ -158,16 +175,16 @@ class CoordConv2d(nn.Conv2d, Module):
             dilation=dilation,
             groups=groups,
             bias=bias,
-            padding_mode=padding_mode
+            padding_mode=padding_mode,
         )
 
     def output_shape(self, input_shape):
         """
-        Function to compute output shape from inputs to this module. 
+        Function to compute output shape from inputs to this module.
 
         Args:
             input_shape (iterable of int): shape of input. Does not include batch dimension.
-                Some modules may not need this argument, if their output does not depend 
+                Some modules may not need this argument, if their output does not depend
                 on the size of the input, or if they assume fixed size input.
 
         Returns:
@@ -179,7 +196,7 @@ class CoordConv2d(nn.Conv2d, Module):
 
     def forward(self, input):
         b, c, h, w = input.shape
-        if self.coord_encoding == 'position':
+        if self.coord_encoding == "position":
             if self._position_enc is None:
                 pos_y, pos_x = torch.meshgrid(torch.arange(h), torch.arange(w))
                 pos_y = pos_y.float().to(input.device) / float(h)
@@ -189,10 +206,12 @@ class CoordConv2d(nn.Conv2d, Module):
             input = torch.cat((input, pos_enc), dim=1)
         return super(CoordConv2d, self).forward(input)
 
+
 class ResNet18Conv(ConvBase):
     """
     A ResNet18 block that can be used to process input images.
     """
+
     def __init__(
         self,
         input_channel=3,
@@ -210,15 +229,18 @@ class ResNet18Conv(ConvBase):
         """
         super(ResNet18Conv, self).__init__()
         if pretrained:
-            net = vision_models.resnet18(weights='IMAGENET1K_V1')
+            net = vision_models.resnet18(weights="IMAGENET1K_V1")
         else:
             net = vision_models.resnet18(weights=None)
 
-
         if input_coord_conv:
-            net.conv1 = CoordConv2d(input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            net.conv1 = CoordConv2d(
+                input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False
+            )
         elif input_channel != 3:
-            net.conv1 = nn.Conv2d(input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            net.conv1 = nn.Conv2d(
+                input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False
+            )
 
         # cut the last fc layer
         self._input_coord_conv = input_coord_conv
@@ -227,29 +249,32 @@ class ResNet18Conv(ConvBase):
 
     def output_shape(self, input_shape):
         """
-        Function to compute output shape from inputs to this module. 
+        Function to compute output shape from inputs to this module.
 
         Args:
             input_shape (iterable of int): shape of input. Does not include batch dimension.
-                Some modules may not need this argument, if their output does not depend 
+                Some modules may not need this argument, if their output does not depend
                 on the size of the input, or if they assume fixed size input.
 
         Returns:
             out_shape ([int]): list of integers corresponding to output shape
         """
-        assert(len(input_shape) == 3)
-        out_h = int(math.ceil(input_shape[1] / 32.))
-        out_w = int(math.ceil(input_shape[2] / 32.))
+        assert len(input_shape) == 3
+        out_h = int(math.ceil(input_shape[1] / 32.0))
+        out_w = int(math.ceil(input_shape[2] / 32.0))
         return [512, out_h, out_w]
 
     def __repr__(self):
         """Pretty print network."""
-        header = '{}'.format(str(self.__class__.__name__))
-        return header + '(input_channel={}, input_coord_conv={})'.format(self._input_channel, self._input_coord_conv)
+        header = "{}".format(str(self.__class__.__name__))
+        return header + "(input_channel={}, input_coord_conv={})".format(
+            self._input_channel, self._input_coord_conv
+        )
+
 
 class Transformer(nn.Module):
-    '''
-    Basic transformer implementation using torch.nn. Also added option for custom pos embeddings. 
+    """
+    Basic transformer implementation using torch.nn. Also added option for custom pos embeddings.
     Made to be as basic as possible but also flexible to be put into ACT.
 
         d: hidden dimension
@@ -262,18 +287,19 @@ class Transformer(nn.Module):
         tgt_vocab_size: size of target vocabulary
         pos_encoding_class : nn.Module class defining custom pos encoding
 
-    '''
+    """
+
     def __init__(
         self,
-        d : int,
-        h : int,
-        d_ff : int,
-        num_layers : int,
-        dropout : float = 0.1,
+        d: int,
+        h: int,
+        d_ff: int,
+        num_layers: int,
+        dropout: float = 0.1,
         src_vocab_size: Optional[int] = None,
         tgt_vocab_size: Optional[int] = None,
         pos_encoding_class: Optional[Callable[..., nn.Module]] = None,
-        **pos_encoding_kwargs: Any  # Additional arguments for the custom encoding class
+        **pos_encoding_kwargs: Any,  # Additional arguments for the custom encoding class
     ):
         super(Transformer, self).__init__()
 
@@ -288,7 +314,7 @@ class Transformer(nn.Module):
         else:
             self.src_pos_encoding = PositionalEncoding(d)
             self.tgt_pos_encoding = PositionalEncoding(d)
-        
+
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d, nhead=h, dim_feedforward=d_ff, dropout=dropout, batch_first=True
         )
@@ -300,7 +326,6 @@ class Transformer(nn.Module):
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
 
-        
         self.fc = nn.Linear(d, tgt_vocab_size) if tgt_vocab_size else None
         self.dropout = nn.Dropout(dropout)
 
@@ -313,17 +338,26 @@ class Transformer(nn.Module):
         if self.tgt_embed:
             tgt = self.tgt_embed(tgt)
 
-
         src = src.transpose(0, 1)  # [sequence_length, batch_size, hidden_dim]
-        src_position_indices = torch.arange(src.size(0), device=src.device).unsqueeze(1).expand(-1, src.size(1))  # [sequence_length, batch_size]
-        src_pos = self.src_pos_encoding(src_position_indices)  # [sequence_length, batch_size, hidden_dim]
-        src = src + src_pos 
+        src_position_indices = (
+            torch.arange(src.size(0), device=src.device)
+            .unsqueeze(1)
+            .expand(-1, src.size(1))
+        )  # [sequence_length, batch_size]
+        src_pos = self.src_pos_encoding(
+            src_position_indices
+        )  # [sequence_length, batch_size, hidden_dim]
+        src = src + src_pos
         src = src.transpose(0, 1)
 
         tgt = tgt.transpose(0, 1)  # [T, B, hidden_dim]
-        tgt_position_indices = torch.arange(tgt.size(0), device=tgt.device).unsqueeze(1).expand(-1, tgt.size(1))  # [sequence_length, batch_size]
+        tgt_position_indices = (
+            torch.arange(tgt.size(0), device=tgt.device)
+            .unsqueeze(1)
+            .expand(-1, tgt.size(1))
+        )  # [sequence_length, batch_size]
         tgt_pos = self.tgt_pos_encoding(tgt_position_indices)
-        tgt = tgt + tgt_pos 
+        tgt = tgt + tgt_pos
         tgt = tgt.transpose(0, 1)  # [B, T, hidden_dim]
 
         src = self.dropout(src)
@@ -338,6 +372,7 @@ class Transformer(nn.Module):
             dec = self.fc(dec)
 
         return dec
+
 
 class StyleEncoder(nn.Module):
     def __init__(
@@ -359,30 +394,34 @@ class StyleEncoder(nn.Module):
             d_model=hidden_dim, nhead=h, dim_feedforward=d_ff, dropout=dropout
         )
         self.encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-    
+
         self.cls_embedding = nn.Parameter(torch.rand(1, hidden_dim))
         self.latent_projection = nn.Linear(hidden_dim, latent_dim * 2)
 
         self.pos_encoding = PositionalEncoding(hidden_dim)
 
         # self.encoder_norm = nn.LayerNorm(hidden_dim)
-    
+
     def forward(self, qpos, actions):
-        '''
+        """
         qpos: linear projection of qpos
         actions: linear projection of actions
-        '''
+        """
         bsz = qpos.shape[0]
         qpos = qpos.unsqueeze(1)  # [bsz, 1, hidden_dim]
 
-        cls = self.cls_embedding.unsqueeze(0).expand(bsz, -1, -1)  # [bsz, 1, hidden_dim]
+        cls = self.cls_embedding.unsqueeze(0).expand(
+            bsz, -1, -1
+        )  # [bsz, 1, hidden_dim]
 
         x = torch.cat([cls, qpos, actions], dim=1)  # [bsz, act_len + 2, hidden_dim]
         assert x.shape == (bsz, self.act_len + 2, self.hidden_dim)
 
-        pos_indices = torch.arange(x.size(1), device=x.device).unsqueeze(0).expand(bsz, -1)  # [bsz, act_len + 2]
+        pos_indices = (
+            torch.arange(x.size(1), device=x.device).unsqueeze(0).expand(bsz, -1)
+        )  # [bsz, act_len + 2]
         pos_embedded = self.pos_encoding(pos_indices)  # [bsz, act_len + 2, hidden_dim]
-        
+
         x = x + pos_embedded
 
         x = x.transpose(0, 1)  # [act_len + 2, bsz, hidden_dim]
@@ -394,9 +433,8 @@ class StyleEncoder(nn.Module):
         x = x[0]  # [bsz, hidden_dim]
 
         x = self.latent_projection(x)  # [bsz, latent_dim * 2]
-        mu = x[:, self.latent_dim : ]
+        mu = x[:, self.latent_dim :]
         logvar = x[:, : self.latent_dim]
         dist = Normal(mu, (logvar / 2).exp())  # Create Normal distribution
 
         return dist
-

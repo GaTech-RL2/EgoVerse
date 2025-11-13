@@ -7,6 +7,7 @@ python scripts/aloha_hd5.py --raw-path ~/data/ --dataset-repo-id <hf-username>/<
 
 If you wish to submit the dataset to the hub, you can do so by setting up the hf cli https://huggingface.co/docs/huggingface_hub/en/guides/cli and setting --push=true
 """
+
 """
 CLOTHESFOLDING SMALL : /coc/flash9/datasets/Egoplay/SMALLCLOTHFOLD_ROBOTWA/ROBOTWA_FULL/rawAloha
 """
@@ -22,6 +23,7 @@ import h5py
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 import torch
 from scripts.ryan_utils import str2bool
+
 
 class AlohaHD5Extractor:
     TAGS = ["aloha", "robotics", "hdf5"]
@@ -42,11 +44,15 @@ class AlohaHD5Extractor:
             A list of keys corresponding to RGB cameras in the dataset.
         """
 
-        rgb_cameras = [key for key in hdf5_data["/observations/images"] if "depth" not in key]
+        rgb_cameras = [
+            key for key in hdf5_data["/observations/images"] if "depth" not in key
+        ]
         return rgb_cameras
 
     @staticmethod
-    def check_format(episode_list: list[str] | list[Path], image_compressed: bool = True):
+    def check_format(
+        episode_list: list[str] | list[Path], image_compressed: bool = True
+    ):
         """
         Check the format of the given list of HDF5 files.
         Parameters
@@ -68,7 +74,9 @@ class AlohaHD5Extractor:
         """
 
         if not episode_list:
-            raise ValueError("No hdf5 files found in the raw directory. Make sure they are named 'episode_*.hdf5'")
+            raise ValueError(
+                "No hdf5 files found in the raw directory. Make sure they are named 'episode_*.hdf5'"
+            )
         for episode_path in episode_list:
             with h5py.File(episode_path, "r") as data:
                 if not all(key in data for key in ["/action", "/observations/qpos"]):
@@ -77,9 +85,13 @@ class AlohaHD5Extractor:
                     )
 
                 if not data["/action"].ndim == data["/observations/qpos"].ndim == 2:
-                    raise ValueError("The '/action' and '/observations/qpos' keys should have both 2 dimensions.")
+                    raise ValueError(
+                        "The '/action' and '/observations/qpos' keys should have both 2 dimensions."
+                    )
 
-                if (num_frames := data["/action"].shape[0]) != data["/observations/qpos"].shape[0]:
+                if (num_frames := data["/action"].shape[0]) != data[
+                    "/observations/qpos"
+                ].shape[0]:
                     raise ValueError(
                         "The '/action' and '/observations/qpos' keys should have the same number of frames."
                     )
@@ -98,7 +110,9 @@ class AlohaHD5Extractor:
                     if not image_compressed:
                         b, h, w, c = data[f"/observations/images/{camera}"].shape
                         if not c < h and c < w:
-                            raise ValueError(f"Expect (h,w,c) image format but ({h=},{w=},{c=}) provided.")
+                            raise ValueError(
+                                f"Expect (h,w,c) image format but ({h=},{w=},{c=}) provided."
+                            )
 
     @staticmethod
     def extract_episode_frames(
@@ -134,13 +148,17 @@ class AlohaHD5Extractor:
                         )
                         frame[feature_id] = torch.from_numpy(image.transpose(2, 0, 1))
                     else:
-                        frame[feature_id] = torch.from_numpy(file[feature_name_hd5][frame_idx])
+                        frame[feature_id] = torch.from_numpy(
+                            file[feature_name_hd5][frame_idx]
+                        )
                 frames.append(frame)
         return frames
 
     @staticmethod
     def define_features(
-        hdf5_file_path: Path, image_compressed: bool = True, encode_as_video: bool = True
+        hdf5_file_path: Path,
+        image_compressed: bool = True,
+        encode_as_video: bool = True,
     ) -> dict[str, dict]:
         """
         Define features from an HDF5 file.
@@ -166,7 +184,11 @@ class AlohaHD5Extractor:
         # Open the HDF5 file
         with h5py.File(hdf5_file_path, "r") as hdf5_file:
             # Collect all dataset names in the HDF5 file
-            hdf5_file.visititems(lambda name, obj: topics.append(name) if isinstance(obj, h5py.Dataset) else None)
+            hdf5_file.visititems(
+                lambda name, obj: topics.append(name)
+                if isinstance(obj, h5py.Dataset)
+                else None
+            )
 
             # Iterate over each topic to define its features
             for topic in topics:
@@ -175,7 +197,9 @@ class AlohaHD5Extractor:
                     sample = hdf5_file[topic][0]
                     features[topic.replace("/", ".")] = {
                         "dtype": "video" if encode_as_video else "image",
-                        "shape": cv2.imdecode(hdf5_file[topic][0], 1).transpose(2, 0, 1).shape
+                        "shape": cv2.imdecode(hdf5_file[topic][0], 1)
+                        .transpose(2, 0, 1)
+                        .shape
                         if image_compressed
                         else sample.shape,
                         "names": [
@@ -192,7 +216,9 @@ class AlohaHD5Extractor:
                     features[topic.replace("/", ".")] = {
                         "dtype": str(hdf5_file[topic][0].dtype),
                         "shape": (topic_shape := hdf5_file[topic][0].shape),
-                        "names": [f"{topic.split('/')[-1]}_{k}" for k in range(topic_shape[0])],
+                        "names": [
+                            f"{topic.split('/')[-1]}_{k}" for k in range(topic_shape[0])
+                        ],
                     }
         # Return the defined features
         return features
@@ -261,7 +287,7 @@ class DatasetConverter:
         console_handler.setFormatter(formatter)
         self.logger.addHandler(console_handler)
 
-        self.logger.info(f"{'-'*10} Aloha HD5 -> Lerobot Converter {'-'*10}")
+        self.logger.info(f"{'-' * 10} Aloha HD5 -> Lerobot Converter {'-' * 10}")
         self.logger.info(f"Processing Aloha HD5 dataset from {self.raw_path}")
         self.logger.info(f"Dataset will be stored in {self.dataset_repo_id}")
         self.logger.info(f"FPS: {self.fps}")
@@ -272,7 +298,9 @@ class DatasetConverter:
         self.logger.info(f"#writer threads: {self.image_writer_threads}")
 
         self.episode_list = list(self.raw_path.glob("episode_*.hdf5"))
-        AlohaHD5Extractor.check_format(self.episode_list, image_compressed=self.image_compressed)
+        AlohaHD5Extractor.check_format(
+            self.episode_list, image_compressed=self.image_compressed
+        )
         self.features = AlohaHD5Extractor.define_features(
             self.episode_list[0],
             image_compressed=self.image_compressed,
@@ -293,7 +321,9 @@ class DatasetConverter:
         None
         """
 
-        for frame in AlohaHD5Extractor.extract_episode_frames(episode_path, self.features, self.image_compressed):
+        for frame in AlohaHD5Extractor.extract_episode_frames(
+            episode_path, self.features, self.image_compressed
+        ):
             self.dataset.add_frame(frame)
         self.logger.info(f"Saving Episode with Description: {task_description} ...")
         self.dataset.save_episode(task=task_description)
@@ -347,7 +377,9 @@ class DatasetConverter:
         None
         """
 
-        self.logger.info(f"Pushing dataset to Hugging Face Hub. ID: {self.dataset_repo_id} ...")
+        self.logger.info(
+            f"Pushing dataset to Hugging Face Hub. ID: {self.dataset_repo_id} ..."
+        )
         self.dataset.push_to_hub(
             tags=dataset_tags,
             license=license,
@@ -374,7 +406,7 @@ class DatasetConverter:
         # Clean the cache if the dataset already exists
         if os.path.exists(output_dir / name):
             shutil.rmtree(output_dir / name)
-        
+
         output_dir = output_dir / name
 
         self.dataset = LeRobotDataset.create(
@@ -384,24 +416,39 @@ class DatasetConverter:
             features=self.features,
             image_writer_threads=self.image_writer_threads,
             image_writer_processes=self.image_writer_processes,
-            root=output_dir
+            root=output_dir,
         )
 
         return self.dataset
 
 
 def argument_parse():
-    parser = argparse.ArgumentParser(description="Convert Aloha HD5 dataset and push to Hugging Face hub.")
-    
+    parser = argparse.ArgumentParser(
+        description="Convert Aloha HD5 dataset and push to Hugging Face hub."
+    )
+
     parser.add_argument("--name", type=str, required=True, help="Name for dataset")
 
-    parser.add_argument("--raw-path", type=Path, required=True, help="Directory containing the raw hdf5 files.")
     parser.add_argument(
-        "--dataset-repo-id", type=str, required=True, help="Repository ID where the dataset will be stored."
+        "--raw-path",
+        type=Path,
+        required=True,
+        help="Directory containing the raw hdf5 files.",
     )
-    parser.add_argument("--fps", type=int, required=True, help="Frames per second for the dataset.")
     parser.add_argument(
-        "--description", type=str, help="Description of the dataset.", default="Aloha recorded dataset."
+        "--dataset-repo-id",
+        type=str,
+        required=True,
+        help="Repository ID where the dataset will be stored.",
+    )
+    parser.add_argument(
+        "--fps", type=int, required=True, help="Frames per second for the dataset."
+    )
+    parser.add_argument(
+        "--description",
+        type=str,
+        help="Description of the dataset.",
+        default="Aloha recorded dataset.",
     )
 
     parser.add_argument(
@@ -411,34 +458,69 @@ def argument_parse():
         default="aloha-stationary",
         help="Type of robot.",
     )
-    parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
-    parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
-    parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
     parser.add_argument(
-        "--image-compressed", type=str2bool, default=True, help="Set to True if the images are compressed."
+        "--private",
+        type=str2bool,
+        default=False,
+        help="Set to True to make the dataset private.",
     )
-    parser.add_argument("--video-encoding", type=str2bool, default=True, help="Set to True to encode images as videos.")
+    parser.add_argument(
+        "--push",
+        type=str2bool,
+        default=True,
+        help="Set to True to push videos to the hub.",
+    )
+    parser.add_argument(
+        "--license", type=str, default="apache-2.0", help="License for the dataset."
+    )
+    parser.add_argument(
+        "--image-compressed",
+        type=str2bool,
+        default=True,
+        help="Set to True if the images are compressed.",
+    )
+    parser.add_argument(
+        "--video-encoding",
+        type=str2bool,
+        default=True,
+        help="Set to True to encode images as videos.",
+    )
 
-    parser.add_argument("--nproc", type=int, default=10, help="Number of image writer processes.")
-    parser.add_argument("--nthreads", type=int, default=5, help="Number of image writer threads.")
-    
+    parser.add_argument(
+        "--nproc", type=int, default=10, help="Number of image writer processes."
+    )
+    parser.add_argument(
+        "--nthreads", type=int, default=5, help="Number of image writer threads."
+    )
+
     ### Ryan - slurm args
-    parser.add_argument("--overcap", type=str2bool, default=False, help="Flag to indicate if the job should run in the 'overcap' partition.")
-    parser.add_argument("--gpus-per-node", type=int, default=1, help="Number of A40 GPUs")
-    parser.add_argument("--num_nodes", type=int, default=1, help="Number of cluster nodes")
-    parser.add_argument("--partition", type=str, default="hoffman-lab", help="slurm partition/account")
+    parser.add_argument(
+        "--overcap",
+        type=str2bool,
+        default=False,
+        help="Flag to indicate if the job should run in the 'overcap' partition.",
+    )
+    parser.add_argument(
+        "--gpus-per-node", type=int, default=1, help="Number of A40 GPUs"
+    )
+    parser.add_argument(
+        "--num_nodes", type=int, default=1, help="Number of cluster nodes"
+    )
+    parser.add_argument(
+        "--partition", type=str, default="hoffman-lab", help="slurm partition/account"
+    )
     ### Ryan
     parser.add_argument(
-        "--output-dir", 
-        type=Path, 
-        default=Path(LEROBOT_HOME), 
-        help="Directory where the processed dataset will be stored. Defaults to LEROBOT_HOME."
+        "--output-dir",
+        type=Path,
+        default=Path(LEROBOT_HOME),
+        help="Directory where the processed dataset will be stored. Defaults to LEROBOT_HOME.",
     )
-
 
     args = parser.parse_args()
 
     return args
+
 
 def main(args):
     """
@@ -492,7 +574,10 @@ def main(args):
 
     if args.push:
         converter.push_dataset_to_hub(
-            dataset_tags=AlohaHD5Extractor.TAGS, private=args.private, push_videos=True, license=args.license
+            dataset_tags=AlohaHD5Extractor.TAGS,
+            private=args.private,
+            push_videos=True,
+            license=args.license,
         )
 
 

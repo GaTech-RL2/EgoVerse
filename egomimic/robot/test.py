@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
-rot = R.random()   
+rot = R.random()
 rpy = rot.as_euler("XYZ", degrees=False)
 ypr = rot.as_euler("ZYX", degrees=False)
 

@@ -41,9 +41,9 @@ ROTATION_SCALE = 1.0  # Scale factor for rotation deltas
 POS_DEAD_ZONE = 0.002  # meters
 ROT_DEAD_ZONE_RAD = np.deg2rad(0.8)  # radians
 
-R_YPR_OFFSET = [0,0,0]
+R_YPR_OFFSET = [0, 0, 0]
 L_YPR_OFFSET = [0, 1, 0]
-YPR_VEL = [1.5, 1.5, 1.5] # rad/s
+YPR_VEL = [1.5, 1.5, 1.5]  # rad/s
 YPR_RANGE = [2, 2, 2]
 
 # Trigger thresholds for engagement detection
@@ -63,12 +63,15 @@ MAX_DEMO_LENGTH = 10000  # Maximum number of steps per demo
 
 # ------------------------- Helper Functions -------------------------
 
+
 def se3_to_xyzxyzw(se3):
     """Convert SE(3) transformation matrix (4x4) to position and quaternion."""
-    rot = se3[:3,:3]
+    rot = se3[:3, :3]
     xyzw = R.from_matrix(rot).as_quat()
     xyz = se3[:3, 3]
     return xyz, xyzw
+
+
 def xyzxyzw_to_se3(xyz, xyzw):
     """
     Convert position (xyz) and quaternion (xyzw) to SE(3) 4x4 transformation matrix.
@@ -78,30 +81,32 @@ def xyzxyzw_to_se3(xyz, xyzw):
     T[:3, 3] = xyz
     return T
 
+
 def flip_roll_only(R_i, up=np.array([0.0, 0.0, 1.0]), add_pi=True):
-  # body axes from R_i (columns)
-  x = R_i[:, 0]
-  y = R_i[:, 1]
-  if abs(x @ up) > 0.99:
-    up = np.array([0.0, 1.0, 0.0])
+    # body axes from R_i (columns)
+    x = R_i[:, 0]
+    y = R_i[:, 1]
+    if abs(x @ up) > 0.99:
+        up = np.array([0.0, 1.0, 0.0])
 
-  y0 = up - (up @ x) * x
-  y0 /= np.linalg.norm(y0)
-  z0 = np.cross(x, y0)
+    y0 = up - (up @ x) * x
+    y0 /= np.linalg.norm(y0)
+    z0 = np.cross(x, y0)
 
-  c = y @ y0
-  s = y @ z0
-  y_flipped = c * y0 - s * z0
-  z_flipped = np.cross(x, y_flipped)
+    c = y @ y0
+    s = y @ z0
+    y_flipped = c * y0 - s * z0
+    z_flipped = np.cross(x, y_flipped)
 
-  R_out = np.column_stack([x, y_flipped, z_flipped])
+    R_out = np.column_stack([x, y_flipped, z_flipped])
 
-  if add_pi:
-    # 180° about body X (roll): leaves x col, flips y/z cols
-    R_out = R_out @ np.diag([1.0, -1.0, -1.0])
-    # equivalently: R_out[:, 1:] *= -1
+    if add_pi:
+        # 180° about body X (roll): leaves x col, flips y/z cols
+        R_out = R_out @ np.diag([1.0, -1.0, -1.0])
+        # equivalently: R_out[:, 1:] *= -1
 
-  return R_out
+    return R_out
+
 
 def safe_rot3_from_T(T, ortho_tol=1e-3, det_tol=1e-3):
     Rm = np.asarray(T, dtype=float)[:3, :3]
@@ -121,24 +126,24 @@ def normalize_quat_xyzw(q: np.ndarray) -> np.ndarray:
     n = float(np.linalg.norm(q))
     return q / n if n > 0 else np.array([0.0, 0.0, 0.0, 1.0], dtype=np.float64)
 
+
 def clip_ypr(ypr, clipped_bound) -> np.ndarray:
     ypr_range = np.array(clipped_bound)
     clipped_ypr = np.clip(np.array(ypr), -ypr_range, ypr_range)
     return clipped_ypr
 
 
-def limit_delta_quat_by_rate(delta_quat_xyzw: np.ndarray,
-                             max_rate_rad_s: float,
-                             dt: float) -> np.ndarray:
+def limit_delta_quat_by_rate(
+    delta_quat_xyzw: np.ndarray, max_rate_rad_s: float, dt: float
+) -> np.ndarray:
     # Limit the angular magnitude of the delta quaternion to max_rate * dt
-    R_delta = R.from_quat(delta_quat_xyzw)        # xyzw
-    rotvec = R_delta.as_rotvec()                  # axis * angle
+    R_delta = R.from_quat(delta_quat_xyzw)  # xyzw
+    rotvec = R_delta.as_rotvec()  # axis * angle
     angle = np.linalg.norm(rotvec)
     max_angle = max_rate_rad_s * dt
     if angle > max_angle and angle > 1e-12:
         rotvec = rotvec * (max_angle / angle)
-    return R.from_rotvec(rotvec).as_quat()        # xyzw
-
+    return R.from_rotvec(rotvec).as_quat()  # xyzw
 
 
 def quat_xyzw_to_wxyz(qxyzw: np.ndarray) -> np.ndarray:
@@ -342,23 +347,18 @@ class VRInterface:
         if not transforms:
             return None
 
-        
         # Extract button/trigger values
         trig_l = get_analog(buttons, ["leftTrig", "LT", "trigger_l"], 0.0)
         trig_r = get_analog(buttons, ["rightTrig", "RT", "trigger_r"], 0.0)
-        idx_l = get_analog(
-            buttons, ["leftGrip", "LG", "grip_l"], trig_l
-        )
-        idx_r = get_analog(
-            buttons, ["rightGrip", "RG", "grip_r"], trig_r
-        )
+        idx_l = get_analog(buttons, ["leftGrip", "LG", "grip_l"], trig_l)
+        idx_r = get_analog(buttons, ["rightGrip", "RG", "grip_r"], trig_r)
 
         # Get buttons
         btn_a = bool(buttons.get("A", False))
         btn_b = bool(buttons.get("B", False))
         btn_x = bool(buttons.get("X", False))
         btn_y = bool(buttons.get("Y", False))
-        
+
         Tl = transforms.get("l", None)
         Tr = transforms.get("r", None)
         if Tl is None or Tr is None:
@@ -371,12 +371,12 @@ class VRInterface:
         r_pos_cur, r_quat_cur = controller_to_internal(r_pos_raw, r_quat_raw)
         l_quat_cur = normalize_quat_xyzw(l_quat_cur)
         r_quat_cur = normalize_quat_xyzw(r_quat_cur)
-        
+
         # l_quat_cur = R.from_matrix(flip_roll_only(R.from_quat(l_quat_cur).as_matrix())).as_quat()
         # r_quat_cur = R.from_matrix(flip_roll_only(R.from_quat(r_quat_cur).as_matrix())).as_quat()
         # l_quat_cur = normalize_quat_xyzw(l_quat_cur)
         # r_quat_cur = normalize_quat_xyzw(r_quat_cur)
-         
+
         # Apply ypr offset
         zero = np.zeros(3)
         _, l_quat_cur = apply_delta_pose(
@@ -414,12 +414,7 @@ class VRInterface:
                     "trigger": trig_r,
                     "index": idx_r,
                 },
-                "buttons": {
-                    "A": btn_a,
-                    "B": btn_b,
-                    "X": btn_x,
-                    "Y": btn_y
-                }
+                "buttons": {"A": btn_a, "B": btn_b, "X": btn_x, "Y": btn_y},
             }
         else:
             # Return position and quaternion format
@@ -436,12 +431,7 @@ class VRInterface:
                     "trigger": trig_r,
                     "index": idx_r,
                 },
-                "buttons": {
-                    "A": btn_a,
-                    "B": btn_b,
-                    "X": btn_x,
-                    "Y": btn_y
-                },
+                "buttons": {"A": btn_a, "B": btn_b, "X": btn_x, "Y": btn_y},
             }
 
 
@@ -454,6 +444,7 @@ def reset_data(demo_data: dict):
     demo_data["cmd_eepose_actions"] = []
     demo_data["obs"] = []
 
+
 def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
     data_dict = dict()
     """Save demo to HDF5 file."""
@@ -461,19 +452,25 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
 
     for cam_name in cam_names:
         image_list = []
-        for i in range(len(demo_data['obs'])):
+        for i in range(len(demo_data["obs"])):
             image_list.append(demo_data["obs"][i][cam_name])
         data_dict[f"/observations/images/{cam_name}"] = np.array(image_list)
-    print(f"Saving demo with {len(demo_data['cmd_eepose_actions'])} steps to {filename}")
+    print(
+        f"Saving demo with {len(demo_data['cmd_eepose_actions'])} steps to {filename}"
+    )
     data_dict["/observations/joints"] = np.array(demo_data["robot_joint_actions"])
-    data_dict["/observations/joint_positions"] = np.array(demo_data["robot_joint_actions"])
+    data_dict["/observations/joint_positions"] = np.array(
+        demo_data["robot_joint_actions"]
+    )
     # data_dict["/observations/qjointvel"] = joint_vels
     data_dict["/actions/eepose"] = np.array(demo_data["cmd_eepose_actions"])
     data_dict["/actions/joints"] = np.array(demo_data["cmd_joint_actions"])
-    data_dict["/action"] = np.array(demo_data["cmd_joint_actions"]) 
-    
+    data_dict["/action"] = np.array(demo_data["cmd_joint_actions"])
 
-    kinematics_solver = EvaMinkKinematicsSolver(urdf_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml", eef_link_name="tcp_match_trac")
+    kinematics_solver = EvaMinkKinematicsSolver(
+        urdf_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml",
+        eef_link_name="tcp_match_trac",
+    )
     robot_ee_pose = []
     for i in range(len(demo_data["robot_joint_actions"])):
         robot_joint_action = demo_data["robot_joint_actions"][i]
@@ -492,8 +489,12 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
         else:
             right_ee_xyz = np.zeros(3)
             right_ee_ypr = np.zeros(3)
-        left_ee_pose = np.concatenate([left_ee_xyz, left_ee_ypr, [robot_joint_action[6]]])
-        right_ee_pose = np.concatenate([right_ee_xyz, right_ee_ypr, [robot_joint_action[13]]])
+        left_ee_pose = np.concatenate(
+            [left_ee_xyz, left_ee_ypr, [robot_joint_action[6]]]
+        )
+        right_ee_pose = np.concatenate(
+            [right_ee_xyz, right_ee_ypr, [robot_joint_action[13]]]
+        )
         robot_ee_pose.append(np.concatenate([left_ee_pose, right_ee_pose]))
 
     data_dict["/observations/eepose"] = np.array(robot_ee_pose)
@@ -522,9 +523,7 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
         for name, array in data_dict.items():
             root[name][...] = array
 
-    print(
-        f"Saving: {(time.time() - t0):.1f} secs"
-    )
+    print(f"Saving: {(time.time() - t0):.1f} secs")
     return True
 
 
@@ -580,7 +579,7 @@ def collect_demo(
     cmd_joints = dict()
     gripper_pos = dict()
     collecting_data = False
-    vr_frame_zero_se3 = dict() 
+    vr_frame_zero_se3 = dict()
     robot_frame_zero_se3 = dict()
     vr_neutral_frame_delta = dict()
     for arm in arms_list:
@@ -612,28 +611,35 @@ def collect_demo(
 
                 # Check for recording control buttons
                 if vr_data["buttons"]["B"]:
-                    if prev_vr_data is not None and prev_vr_data["buttons"]["B"] == False:
+                    if (
+                        prev_vr_data is not None
+                        and prev_vr_data["buttons"]["B"] == False
+                    ):
                         if collecting_data is True:
                             collecting_data = False
                             save_demo(demo_data, demo_dir, episode_id, camera_names)
                             break
                         else:
                             robot_interface.set_home()
-                            print("Start Collecting Data ------------------------------")
+                            print(
+                                "Start Collecting Data ------------------------------"
+                            )
                             collecting_data = True
                             reset_data(demo_data)
 
-
                 # x to create the neutral frame transformations
-                if vr_data["buttons"]["X"] and prev_vr_data is not None and prev_vr_data["buttons"]["X"] == False:
+                if (
+                    vr_data["buttons"]["X"]
+                    and prev_vr_data is not None
+                    and prev_vr_data["buttons"]["X"] == False
+                ):
                     print("Deleting Data -----------------------------------")
                     # collecting_data = False
                     reset_data(demo_data)
                     # print("set vr neutral arm pose")
                     # for arm in arms_list:
                     #     vr_neutral_frame_delta[arm] = vr_data[arm]["T"]
-                        
-                
+
                 # kill the arm
                 if vr_data["buttons"]["A"]:
                     break
@@ -645,15 +651,9 @@ def collect_demo(
                     prev_vr_data = None
 
                 # Update engagement states
-                vr.update_engagement(
-                    vr_data["right"]["index"],
-                    "right"
-                )
-                vr.update_engagement(
-                    vr_data["left"]["index"],
-                    "left"
-                )
-                
+                vr.update_engagement(vr_data["right"]["index"], "right")
+                vr.update_engagement(vr_data["left"]["index"], "left")
+
                 cmd_joint_action = np.zeros(14)
                 robot_joint_action = np.zeros(14)
                 cmd_eepose_action = np.zeros(14)
@@ -661,21 +661,36 @@ def collect_demo(
                     if (arm == "left" and vr.l_engaged) or (
                         arm == "right" and vr.r_engaged
                     ):
-                        rb_se3 = robot_interface.get_pose(arm, se3=True) # TODO need to fix the logic for double arm
+                        rb_se3 = robot_interface.get_pose(
+                            arm, se3=True
+                        )  # TODO need to fix the logic for double arm
                         # print(f"rb_pos {R.from_matrix(rb_rot).as_euler('ZYX', degrees=False)}")
 
-                        if (arm == "right" and vr.r_up_edge) or (arm == "left" and vr.l_up_edge):
+                        if (arm == "right" and vr.r_up_edge) or (
+                            arm == "left" and vr.l_up_edge
+                        ):
                             # Store VR and robot frames as 4x4 numpy arrays (ensure float64 for numerical stability)
-                            vr_frame_zero_se3[arm] = np.asarray(vr_data[arm]["T"], dtype=np.float64)
-                            robot_frame_zero_se3[arm] = np.asarray(rb_se3, dtype=np.float64)
+                            vr_frame_zero_se3[arm] = np.asarray(
+                                vr_data[arm]["T"], dtype=np.float64
+                            )
+                            robot_frame_zero_se3[arm] = np.asarray(
+                                rb_se3, dtype=np.float64
+                            )
 
-                        if prev_vr_data is not None and vr_data is not None and arm in vr_frame_zero_se3 and "T" in vr_data[arm]:
+                        if (
+                            prev_vr_data is not None
+                            and vr_data is not None
+                            and arm in vr_frame_zero_se3
+                            and "T" in vr_data[arm]
+                        ):
                             # Compute relative transformation: delta_T = T_vr_zero^-1 @ T_vr_current
                             # This gives the transformation from vr_zero frame to vr_current frame
                             vr_zero_inv = np.linalg.inv(vr_frame_zero_se3[arm])
-                            vr_current_T = np.asarray(vr_data[arm]["T"], dtype=np.float64)
+                            vr_current_T = np.asarray(
+                                vr_data[arm]["T"], dtype=np.float64
+                            )
                             delta_T = vr_zero_inv @ vr_current_T
-                            
+
                             # Apply neutral frame calibration: compute motion relative to neutral frame
                             # The neutral frame is a reference pose (set with X button) that acts as "rest" position
                             # if arm in vr_neutral_frame_delta and not np.allclose(vr_neutral_frame_delta[arm], np.eye(4)):
@@ -688,7 +703,7 @@ def collect_demo(
                             #     delta_neutral_T = delta_T
                             # print("delta_T vs delta_neutral_T difference (should be zero if neutral not set):")
                             # print(np.abs(delta_T - delta_neutral_T))
-                            
+
                             # Apply relative transformation to robot zero frame
                             # This maps the VR relative motion to the robot's coordinate frame
                             cmd_T = robot_frame_zero_se3[arm] @ delta_T
@@ -698,45 +713,63 @@ def collect_demo(
                             cmd_T = rb_se3
 
                         vr_trigger = vr_data[arm]["trigger"] * (GRIPPER_WIDTH)
-                        gripper_pos[arm] = GRIPPER_OPEN_VALUE - vr_trigger # limit velocity and torque in the robot interface
+                        gripper_pos[arm] = (
+                            GRIPPER_OPEN_VALUE - vr_trigger
+                        )  # limit velocity and torque in the robot interface
 
                         cmd_pos[arm], cmd_quat[arm] = se3_to_xyzxyzw(cmd_T)
-                        cmd_ypr = R.from_quat(cmd_quat[arm]).as_euler("ZYX", degrees=False)
+                        cmd_ypr = R.from_quat(cmd_quat[arm]).as_euler(
+                            "ZYX", degrees=False
+                        )
 
                         eepose_cmd = np.concatenate([cmd_pos[arm], cmd_ypr])
                         # print(f"eepose: {eepose_cmd}")
-                        solved_joints  = robot_interface.solve_ik(eepose_cmd[:6], arm)
+                        solved_joints = robot_interface.solve_ik(eepose_cmd[:6], arm)
                         if solved_joints is not None:
                             cmd_joints[arm] = solved_joints
                             # normalize gripper values
-                            gripper_norm_val = (gripper_pos[arm] - GRIPPER_CLOSE_VALUE) / GRIPPER_WIDTH
-                            cmd_joints[arm] = np.concatenate([cmd_joints[arm], [gripper_norm_val]])
-                        
+                            gripper_norm_val = (
+                                gripper_pos[arm] - GRIPPER_CLOSE_VALUE
+                            ) / GRIPPER_WIDTH
+                            cmd_joints[arm] = np.concatenate(
+                                [cmd_joints[arm], [gripper_norm_val]]
+                            )
 
                         # VELOCITY_LIMIT can be done in the interface
                         robot_interface.set_joints(cmd_joints[arm], arm)
-                    
+
                         if collecting_data:
                             arm_offset = 0
                             if arm == "right":
                                 arm_offset = 7
                             if arm in cmd_pos and arm in cmd_quat:
-                                
-                                cmd_eepose_action[arm_offset: arm_offset + 3] = cmd_pos[arm] 
-                                cmd_eepose_action[arm_offset +3: arm_offset + 6] = R.from_quat(cmd_quat[arm]).as_euler("ZYX", degrees=False) # ypr convention
+                                cmd_eepose_action[arm_offset : arm_offset + 3] = (
+                                    cmd_pos[arm]
+                                )
+                                cmd_eepose_action[arm_offset + 3 : arm_offset + 6] = (
+                                    R.from_quat(cmd_quat[arm]).as_euler(
+                                        "ZYX", degrees=False
+                                    )
+                                )  # ypr convention
                                 cmd_eepose_action[arm_offset + 6] = gripper_pos[arm]
-                            
+
                             if arm in cmd_joints:
-                                cmd_joint_action[arm_offset: arm_offset + 7] = cmd_joints[arm]
-                            
-                            robot_joint_action[arm_offset: arm_offset + 7] = robot_interface.get_joints(arm)
+                                cmd_joint_action[arm_offset : arm_offset + 7] = (
+                                    cmd_joints[arm]
+                                )
+
+                            robot_joint_action[arm_offset : arm_offset + 7] = (
+                                robot_interface.get_joints(arm)
+                            )
 
                         if collecting_data:
                             obs = robot_interface.get_obs()
 
                             obs_copy = {}
                             for key, val in obs.items():
-                                obs_copy[key] = None if val is None else val.copy()  # NumPy copy
+                                obs_copy[key] = (
+                                    None if val is None else val.copy()
+                                )  # NumPy copy
                             demo_data["obs"].append(obs_copy)
                             demo_data["cmd_joint_actions"].append(cmd_joint_action)
                             demo_data["robot_joint_actions"].append(robot_joint_action)

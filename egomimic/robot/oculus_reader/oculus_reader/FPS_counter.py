@@ -13,7 +13,7 @@ class FPSCounter:
 
     def getAndPrintFPS(self, print_fps=True):
         current_time = time.time()
-        self.time_between_calls.append(1.0/(current_time - self.last_time + 1e-9))
+        self.time_between_calls.append(1.0 / (current_time - self.last_time + 1e-9))
         if len(self.time_between_calls) > self.elements_for_mean:
             self.time_between_calls.pop(0)
         self.last_time = current_time

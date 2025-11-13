@@ -18,7 +18,6 @@ import click
 
 
 def start_keyboard_teleop(controller: Arx5CartesianController):
-
     ori_speed = 1.0
     pos_speed = 0.4
     gripper_speed = 0.04

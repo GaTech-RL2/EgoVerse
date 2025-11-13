@@ -12,7 +12,7 @@ def publish_transform(transform, name):
     t = geometry_msgs.msg.TransformStamped()
 
     t.header.stamp = rospy.Time.now()
-    t.header.frame_id = 'world'
+    t.header.frame_id = "world"
     t.child_frame_id = name
     t.transform.translation.x = translation[0]
     t.transform.translation.y = translation[1]
@@ -29,18 +29,19 @@ def publish_transform(transform, name):
 
 def main():
     oculus_reader = OculusReader()
-    rospy.init_node('oculus_reader')
+    rospy.init_node("oculus_reader")
 
     while not rospy.is_shutdown():
         rospy.sleep(1)
         transformations, buttons = oculus_reader.get_transformations_and_buttons()
-        if 'r' not in transformations:
+        if "r" not in transformations:
             continue
 
-        right_controller_pose = transformations['r']
-        publish_transform(right_controller_pose, 'oculus')
-        print('transformations', transformations)
-        print('buttons', buttons)
+        right_controller_pose = transformations["r"]
+        publish_transform(right_controller_pose, "oculus")
+        print("transformations", transformations)
+        print("buttons", buttons)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

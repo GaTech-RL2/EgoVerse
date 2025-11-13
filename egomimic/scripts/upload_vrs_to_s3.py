@@ -36,7 +36,10 @@ if task_name in task_map_df["task"].values:
     arm = task_map_df.loc[task_map_df["task"] == task_name, "arm"].iloc[0]
     print(f"Found arm '{arm}' for task '{task_name}' in task_map.csv.")
 else:
-    arm = simpledialog.askstring("Arm Type", f"Task '{task_name}' not in task_map.csv. Enter arm type (e.g., left, right):")
+    arm = simpledialog.askstring(
+        "Arm Type",
+        f"Task '{task_name}' not in task_map.csv. Enter arm type (e.g., left, right):",
+    )
     if not arm:
         raise ValueError("Arm type is required for new tasks.")
     new_row = pd.DataFrame([{"task": task_name, "arm": arm}])
@@ -52,7 +55,9 @@ if not folder_path:
 folder_path = Path(folder_path)
 
 # Ask for custom metadata fields
-custom_keys_str = simpledialog.askstring("Custom Metadata", "Enter additional metadata keys (comma-separated):")
+custom_keys_str = simpledialog.askstring(
+    "Custom Metadata", "Enter additional metadata keys (comma-separated):"
+)
 custom_keys = [k.strip() for k in custom_keys_str.split(",")] if custom_keys_str else []
 
 # Default metadata fields
@@ -90,7 +95,9 @@ for vrs_file in vrs_files:
         e.grid(row=idx, column=1)
         entries[key] = e
 
-    tk.Button(metadata_window, text="Submit", command=submit_and_close).grid(row=len(all_keys), columnspan=2)
+    tk.Button(metadata_window, text="Submit", command=submit_and_close).grid(
+        row=len(all_keys), columnspan=2
+    )
 
     metadata_window.mainloop()
     metadata_window.destroy()
@@ -104,7 +111,7 @@ for vrs_file in vrs_files:
     rec = metadata["recording_number"]
     new_name_base = f"{task_name}_{lab}_{scene}_recording_{rec}"
 
-    s3_vrs_key  = f"raw/{task_name}/{new_name_base}.vrs"
+    s3_vrs_key = f"raw/{task_name}/{new_name_base}.vrs"
     s3_json_key = f"raw/{task_name}/{new_name_base}.vrs.json"
     s3_meta_key = f"raw/{task_name}/{new_name_base}_meta.csv"
 
@@ -117,15 +124,17 @@ for vrs_file in vrs_files:
     print(f"Saved metadata to {metadata_csv}")
 
     # instead of: upload_queue.extend([renamed_vrs, renamed_json, metadata_csv])
-    upload_queue.append({"original_path": str(vrs_file),    "s3_key": s3_vrs_key})
-    upload_queue.append({"original_path": str(json_file),   "s3_key": s3_json_key})
-    upload_queue.append({"original_path": str(metadata_csv),"s3_key": s3_meta_key})
+    upload_queue.append({"original_path": str(vrs_file), "s3_key": s3_vrs_key})
+    upload_queue.append({"original_path": str(json_file), "s3_key": s3_json_key})
+    upload_queue.append({"original_path": str(metadata_csv), "s3_key": s3_meta_key})
 
 
 # Upload to S3
 print("\nUploading all processed files to S3...")
 for item in upload_queue:
-    print(f"Uploading {Path(item['original_path']).name} to s3://{bucket_name}/{item['s3_key']}")
+    print(
+        f"Uploading {Path(item['original_path']).name} to s3://{bucket_name}/{item['s3_key']}"
+    )
     s3.upload_file(item["original_path"], bucket_name, item["s3_key"])
 
 messagebox.showinfo("Done", "All VRS files processed and uploaded.")

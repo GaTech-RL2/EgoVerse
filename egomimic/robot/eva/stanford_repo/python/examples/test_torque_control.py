@@ -25,7 +25,6 @@ def easeInOutQuad(t):
 @click.argument("interface")  # can bus name (can0 etc.)
 @click.option("--urdf_path", "-u", default="../models/arx5.urdf", help="URDF file path")
 def main(model: str, interface: str, urdf_path: str):
-
     # To initialize robot with different configurations,
     # you can create RobotConfig and ControllerConfig by yourself and modify based on it
     robot_config = arx5.RobotConfigFactory.get_instance().get_config(model)
@@ -33,7 +32,7 @@ def main(model: str, interface: str, urdf_path: str):
         "joint_controller", robot_config.joint_dof
     )
     controller_config.gravity_compensation = False
-    
+
     # Modify the default configuration here
     # controller_config.controller_dt = 0.01 # etc.
 
@@ -57,13 +56,12 @@ def main(model: str, interface: str, urdf_path: str):
     arx5_joint_controller.set_log_level(arx5.LogLevel.INFO)
     robot_config = arx5_joint_controller.get_robot_config()
 
-
     arx5_joint_controller.reset_to_home()
     gain = arx5_joint_controller.get_gain()
     gain.kd()[:] *= 0.0
     gain.kp()[:] *= 0.0
-    arx5_joint_controller.set_gain(gain) 
-    
+    arx5_joint_controller.set_gain(gain)
+
     target_joint_poses = np.array([1.0, 2.0, 2.0, 1.5, 1.5, -1.57])
 
     step_num = 1500
@@ -85,12 +83,12 @@ def main(model: str, interface: str, urdf_path: str):
 
             joint_cmd = arx5_joint_controller.get_joint_cmd()
 
-
             print(f"{arm_dof_torque[0]:.05f}, {joint_cmd.torque()[0]:.05f}")
 
     except KeyboardInterrupt:
         print("\nKeyboard interrupt detected. Resetting arms to home position...")
         arx5_joint_controller.reset_to_home()
         print("Arms reset to home position. Exiting.")
+
 
 main()

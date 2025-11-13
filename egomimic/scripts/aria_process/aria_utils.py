@@ -8,9 +8,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 
-ROTATION_MATRIX = np.array([[0, 1, 0], 
-                            [-1, 0, 0], 
-                            [0, 0, 1]])
+ROTATION_MATRIX = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
+
 
 def build_camera_matrix(provider, pose_t):
     T_world_device = pose_t.transform_world_device
@@ -82,8 +81,8 @@ def split_train_val_from_hdf5(hdf5_path, val_ratio):
 
 def slam_to_rgb(provider):
     """
-        Get slam camera to rgb camera transform
-        provider: vrs data provider
+    Get slam camera to rgb camera transform
+    provider: vrs data provider
     """
     device_calibration = provider.get_device_calibration()
 
@@ -111,17 +110,19 @@ def slam_to_rgb(provider):
 
     return transform
 
+
 def compute_coordinate_frame(palm_pose, wrist_pose, palm_normal):
     x_axis = wrist_pose - palm_pose
     x_axis = np.ravel(x_axis) / np.linalg.norm(x_axis)
     z_axis = np.ravel(palm_normal) / np.linalg.norm(palm_normal)
     y_axis = np.cross(x_axis, z_axis)
     y_axis = np.ravel(y_axis) / np.linalg.norm(y_axis)
-    
+
     x_axis = np.cross(z_axis, y_axis)
     x_axis = np.ravel(x_axis) / np.linalg.norm(x_axis)
-    
-    return -1*x_axis, y_axis, z_axis
+
+    return -1 * x_axis, y_axis, z_axis
+
 
 def transform_coordinates(palm_pose, x_axis, y_axis, z_axis, transform):
     palm_pose_h = np.append(palm_pose, 1)
@@ -141,13 +142,14 @@ def transform_coordinates(palm_pose, x_axis, y_axis, z_axis, transform):
     final_x_axis = rot_T @ transformed_x_axis
     final_y_axis = rot_T @ transformed_y_axis
     final_z_axis = rot_T @ transformed_z_axis
-    
+
     return final_palm_pose, final_x_axis, final_y_axis, final_z_axis
+
 
 def coordinate_frame_to_ypr(x_axis, y_axis, z_axis):
     rot_matrix = np.column_stack([x_axis, y_axis, z_axis])
     rotation = R.from_matrix(rot_matrix)
-    euler_ypr = rotation.as_euler('zyx', degrees=False)
+    euler_ypr = rotation.as_euler("zyx", degrees=False)
     if np.isnan(euler_ypr).any():
         euler_ypr = np.zeros_like(euler_ypr)
     return euler_ypr

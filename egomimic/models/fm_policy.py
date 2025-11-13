@@ -6,6 +6,7 @@ from egomimic.models.denoising_policy import DenoisingPolicy
 
 from overrides import override
 
+
 class FMPolicy(DenoisingPolicy):
     """
     A diffusion-based policy head.
@@ -27,7 +28,9 @@ class FMPolicy(DenoisingPolicy):
         num_inference_steps=None,
         **kwargs,
     ):
-        super().__init__(model, action_horizon, infer_ac_dims, num_inference_steps, **kwargs)
+        super().__init__(
+            model, action_horizon, infer_ac_dims, num_inference_steps, **kwargs
+        )
         self.time_dist = kwargs.get("time_dist", "beta")
 
     def step(self, x_t, t, global_cond):
@@ -35,37 +38,35 @@ class FMPolicy(DenoisingPolicy):
             t = torch.tensor([t], device=global_cond.device)
         v_t = self.model(x_t, t, global_cond)
         return x_t + self.dt * v_t, t + self.dt
-    
+
     @override
     def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
         self.dt = -1.0 / self.num_inference_steps
         x_t = noise
         time = torch.ones((len(global_cond)), device=global_cond.device)
-        while time[0] >= -self.dt/2:
-            x_t , time = self.step(x_t, time, global_cond)
+        while time[0] >= -self.dt / 2:
+            x_t, time = self.step(x_t, time, global_cond)
         return x_t
-    
+
     @override
     def predict(self, actions, global_cond) -> Tuple[torch.Tensor, torch.Tensor]:
         noise = torch.randn(actions.shape, device=actions.device)
-        batch_shape = (actions.shape[0], )
+        batch_shape = (actions.shape[0],)
         if self.time_dist == "beta":
             a, b = 1.5, 1.0
             time = torch.distributions.Beta(a, b).sample(batch_shape).to(actions.device)
         elif self.time_dist == "uniform":
-            time = torch.distributions.Uniform(0, 1).sample(batch_shape).to(actions.device)
+            time = (
+                torch.distributions.Uniform(0, 1).sample(batch_shape).to(actions.device)
+            )
         time = time * 0.999 + 0.001
 
         time_expanded = time.unsqueeze(-1).unsqueeze(-1)
         x_t = time_expanded * noise + (1 - time_expanded) * actions
         u_t = noise - actions
 
-        v_t = self.model(x_t , time, global_cond)
-        
+        v_t = self.model(x_t, time, global_cond)
+
         target = u_t
         pred = v_t
         return pred, target
-
-        
-        
-        

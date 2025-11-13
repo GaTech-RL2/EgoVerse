@@ -7,12 +7,23 @@ import os
 from egomimic.rldb.utils import RLDBDataset
 from termcolor import cprint
 
+
 class RLDBModule(LightningDataModule):
     """
     Deprecated and is not supported by trainHydra.py
     """
-    def __init__(self, train_dataset, valid_dataset, train_dataloader_kwargs, valid_dataloader_kwargs):
-        cprint("RLDBModule is deprecated and is not supported by trainHydra.py. Use MultiDataModuleWrapper instead", "red")
+
+    def __init__(
+        self,
+        train_dataset,
+        valid_dataset,
+        train_dataloader_kwargs,
+        valid_dataloader_kwargs,
+    ):
+        cprint(
+            "RLDBModule is deprecated and is not supported by trainHydra.py. Use MultiDataModuleWrapper instead",
+            "red",
+        )
 
         super().__init__()
         self.train_dataloader_kwargs = train_dataloader_kwargs
@@ -21,10 +32,15 @@ class RLDBModule(LightningDataModule):
         self.valid_dataset = valid_dataset
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, shuffle=True, **self.train_dataloader_kwargs)
+        return DataLoader(
+            self.train_dataset, shuffle=True, **self.train_dataloader_kwargs
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, shuffle=False, **self.valid_dataloader_kwargs)
+        return DataLoader(
+            self.val_dataset, shuffle=False, **self.valid_dataloader_kwargs
+        )
+
 
 class MultiDataModuleWrapper(LightningDataModule):
     """
@@ -32,14 +48,14 @@ class MultiDataModuleWrapper(LightningDataModule):
 
     Uses hydra to instantiate DataLoader objects and then wraps them in a combined loader
     """
+
     def __init__(
         self,
         train_datasets: dict,
         valid_datasets: dict,
-        train_dataloader_params : dict,
-        valid_dataloader_params : dict,
+        train_dataloader_params: dict,
+        valid_dataloader_params: dict,
     ):
-
         super().__init__()
         self.train_datasets = train_datasets
         self.valid_datasets = valid_datasets
@@ -50,17 +66,22 @@ class MultiDataModuleWrapper(LightningDataModule):
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name, {})
-            iterables[dataset.embodiment] = DataLoader(dataset, shuffle=True, **dataset_params)
-        
-        return CombinedLoader(iterables, 'max_size_cycle')
-    
+            iterables[dataset.embodiment] = DataLoader(
+                dataset, shuffle=True, **dataset_params
+            )
+
+        return CombinedLoader(iterables, "max_size_cycle")
+
     def val_dataloader(self):
         iterables = dict()
         for dataset_name, dataset in self.valid_datasets.items():
             dataset_params = self.valid_dataloader_params.get(dataset_name, {})
-            iterables[dataset.embodiment] = DataLoader(dataset, shuffle=False, **dataset_params)
-        
-        return CombinedLoader(iterables, 'max_size_cycle')
+            iterables[dataset.embodiment] = DataLoader(
+                dataset, shuffle=False, **dataset_params
+            )
+
+        return CombinedLoader(iterables, "max_size_cycle")
+
 
 class DualDataModuleWrapper(LightningDataModule):
     """
@@ -84,7 +105,10 @@ class DualDataModuleWrapper(LightningDataModule):
         Args:
             data_module_fn (function): function that returns a LightningDataModule
         """
-        cprint("DualDataModuleWrapper is deprecated and is not supported by trainHydra.py. Use MultiDataModuleWrapper instead", "red")
+        cprint(
+            "DualDataModuleWrapper is deprecated and is not supported by trainHydra.py. Use MultiDataModuleWrapper instead",
+            "red",
+        )
 
         super().__init__()
         self.train_dataset1 = train_dataset1
@@ -102,7 +126,7 @@ class DualDataModuleWrapper(LightningDataModule):
             dataset=self.train_dataset2, **self.train_dataloader_params
         )
         return [new_dataloader1, new_dataloader2]
-    
+
     ## to change embodiment sampling freq, just change the batch_size
     def val_dataloader(self):
         new_dataloader1 = DataLoader(

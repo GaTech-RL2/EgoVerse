@@ -3,12 +3,7 @@ import numpy as np
 import argparse
 import os
 from tqdm import tqdm
-from egomimic.utils.egomimicUtils import (
-    nds,
-    ee_pose_to_cam_frame,
-    EXTRINSICS,
-    AlohaFK
-)
+from egomimic.utils.egomimicUtils import nds, ee_pose_to_cam_frame, EXTRINSICS, AlohaFK
 import pytorch_kinematics as pk
 import torch
 
@@ -56,12 +51,12 @@ def get_future_points(arr, POINT_GAP=15, FUTURE_POINTS_COUNT=10):
     """
     T, ACTION_DIM = arr.shape
     result = np.zeros((T, FUTURE_POINTS_COUNT, ACTION_DIM))
-    
+
     for t in range(T):
         future_indices = np.arange(t, t + POINT_GAP * (FUTURE_POINTS_COUNT), POINT_GAP)
         future_indices = np.clip(future_indices, 0, T - 1)
         result[t] = arr[future_indices]
-    
+
     return result
 
 
@@ -90,17 +85,12 @@ if __name__ == "__main__":
         choices=["hand", "robot"],  # Restrict to only 'hand' or 'robot'
         help="Choose which data-type - hand or robot",
     )
-    parser.add_argument(
-        "--prestack",
-        action="store_true"
-    )
+    parser.add_argument("--prestack", action="store_true")
 
     args = parser.parse_args()
 
     chain = pk.build_serial_chain_from_urdf(
-        open(
-            "/home/rl2-bonjour/EgoPlay/EgoPlay/egomimic/resources/model.urdf"
-        ).read(),
+        open("/home/rl2-bonjour/EgoPlay/EgoPlay/egomimic/resources/model.urdf").read(),
         "vx300s/ee_gripper_link",
     )
 
@@ -151,15 +141,24 @@ if __name__ == "__main__":
                 #     chunks=(1, 480, 640, 3),
                 # )
                 demo_i_obs_group.create_dataset(
-                    "joint_positions", data=aloha_hdf5["observations"]["qpos"][:, joint_start:joint_end]
+                    "joint_positions",
+                    data=aloha_hdf5["observations"]["qpos"][:, joint_start:joint_end],
                 )
-                fk_pos, fk_rot = pk.matrix_to_pos_rot(chain.forward_kinematics(
-                    torch.from_numpy(aloha_hdf5["observations"]["qpos"][:, joint_start:joint_end-1]),
-                    end_only=True,
-                ).get_matrix())
+                fk_pos, fk_rot = pk.matrix_to_pos_rot(
+                    chain.forward_kinematics(
+                        torch.from_numpy(
+                            aloha_hdf5["observations"]["qpos"][
+                                :, joint_start : joint_end - 1
+                            ]
+                        ),
+                        end_only=True,
+                    ).get_matrix()
+                )
                 fk_positions = torch.cat([fk_pos, fk_rot], dim=1)
 
-                demo_i_obs_group.create_dataset("ee_pose_robot_frame", data=fk_positions)
+                demo_i_obs_group.create_dataset(
+                    "ee_pose_robot_frame", data=fk_positions
+                )
 
                 # fk_positions = ee_pose_to_cam_frame(
                 #     fk_positions, EXTRINSICS[args.extrinsics]
@@ -178,10 +177,12 @@ if __name__ == "__main__":
                 # actions_joints
                 joint_actions = aloha_hdf5["action"][:, joint_start:joint_end]
                 if args.prestack:
-                    joint_actions = get_future_points(joint_actions, POINT_GAP=POINT_GAP, FUTURE_POINTS_COUNT=FUTURE_POINTS_COUNT)
-                demo_i_group.create_dataset(
-                    "actions_joints", data=joint_actions
-                )
+                    joint_actions = get_future_points(
+                        joint_actions,
+                        POINT_GAP=POINT_GAP,
+                        FUTURE_POINTS_COUNT=FUTURE_POINTS_COUNT,
+                    )
+                demo_i_group.create_dataset("actions_joints", data=joint_actions)
 
                 # actions_xyz
                 # fk_positions = chain.forward_kinematics(
@@ -191,7 +192,11 @@ if __name__ == "__main__":
                 #     fk_positions, EXTRINSICS[args.extrinsics]
                 # )[:, :3]
                 if args.prestack:
-                    fk_positions = get_future_points(fk_positions, POINT_GAP=POINT_GAP, FUTURE_POINTS_COUNT=FUTURE_POINTS_COUNT)
+                    fk_positions = get_future_points(
+                        fk_positions,
+                        POINT_GAP=POINT_GAP,
+                        FUTURE_POINTS_COUNT=FUTURE_POINTS_COUNT,
+                    )
                 demo_i_group.create_dataset("actions_xyz", data=fk_positions)
 
                 # print(chain.forward_kinematics(torch.from_numpy(aloha_hdf5["observations"]["qpos"][10, 7:13])[None, :], end_only=True).get_matrix()[:, :3, 3])

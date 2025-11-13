@@ -14,7 +14,6 @@ from egomimic.robot.eva_kinematics import EvaMinkKinematicsSolver
 
 
 class Robot_Interface(ABC):
-
     def __init__(self):
         self.cfg = {}
         try:
@@ -41,7 +40,9 @@ class Robot_Interface(ABC):
     def __get_config(self, cfg):
         # share = get_package_share_directory("eva")
         # cfg_path = os.path.join(share, "config", "configs.yaml")
-        cfg_path = '/home/robot/robot_ws/egomimic/robot/eva/eva_ws/src/config/configs.yaml'
+        cfg_path = (
+            "/home/robot/robot_ws/egomimic/robot/eva/eva_ws/src/config/configs.yaml"
+        )
         with open(cfg_path, "r") as f:
             cfg = yaml.safe_load(f) or {}
         return cfg
@@ -78,6 +79,7 @@ class Robot_Interface(ABC):
     def set_home(self):
         pass
 
+
 class ARXInterface(Robot_Interface):
     def __init__(self, arms):
         super().__init__()
@@ -85,9 +87,12 @@ class ARXInterface(Robot_Interface):
         self.arms = arms
         self.controller = dict()
         self._create_controllers(self.cfg)
-        self.__create_cam_recorders(self.cfg['cameras'])
-        self.kinematics_solver = EvaMinkKinematicsSolver(urdf_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml", eef_link_name="tcp_match_trac")
-        
+        self.__create_cam_recorders(self.cfg["cameras"])
+        self.kinematics_solver = EvaMinkKinematicsSolver(
+            urdf_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml",
+            eef_link_name="tcp_match_trac",
+        )
+
     def _create_controllers(self, cfg):
         interfaces_cfg = cfg.get("interfaces", {})
         for arm in self.arms:
@@ -98,12 +103,19 @@ class ARXInterface(Robot_Interface):
                 default_iface = "can1"
                 selected_interface = interfaces_cfg.get("left", default_iface)
 
-            self.controller[arm] = Arx5JointController(self.robot_config, self.controller_config, selected_interface)
+            self.controller[arm] = Arx5JointController(
+                self.robot_config, self.controller_config, selected_interface
+            )
             self.controller[arm].reset_to_home()
 
             gain = self.controller[arm].get_gain()
 
-            kp = np.array([6.225, 17.225, 18.225, 14.225, 8.225, 6.225], dtype=np.float64) * 0.8
+            kp = (
+                np.array(
+                    [6.225, 17.225, 18.225, 14.225, 8.225, 6.225], dtype=np.float64
+                )
+                * 0.8
+            )
             kd = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.float64) * 1
             # zeros = np.zeros(6)
             # kp = zeros
@@ -121,12 +133,11 @@ class ARXInterface(Robot_Interface):
 
             # self.engaged = True
 
-            
             # self.gripper_width = self.cfg.get("gripper_width", None)
 
             # if self.gripper_width is None:
             #     raise RuntimeError("Gripper value not initialized in config.yaml")
-    
+
     def __create_cam_recorders(self, cameras_cfg):
         self.recorders = dict()
         for name, cam_cfg in cameras_cfg.items():
@@ -134,13 +145,14 @@ class ARXInterface(Robot_Interface):
                 continue
             cam_type = cam_cfg["type"]
             if cam_type == "aria":
-                self.recorders[name] = AriaRecorder(profile_name="profile15", use_security=True)
+                self.recorders[name] = AriaRecorder(
+                    profile_name="profile15", use_security=True
+                )
                 self.recorders[name].start()
             elif cam_type == "d405":
                 self.recorders[name] = RealSenseRecorder(str(cam_cfg["serial_number"]))
             else:
                 raise ValueError("Invalid value in the config")
-        
 
     def set_joints(self, desired_position, arm):
         """
@@ -155,7 +167,6 @@ class ARXInterface(Robot_Interface):
 
         gripper_cmd = desired_position[6]
         desired_position = desired_position[:6]
-
 
         velocity = np.zeros_like(desired_position) + 0.1
         torque = np.zeros_like(desired_position) + 0.1
@@ -179,7 +190,7 @@ class ARXInterface(Robot_Interface):
 
         self.controller[arm].set_joint_cmd(requested)
 
-    #x,y,z,y,p,r
+    # x,y,z,y,p,r
     def set_pose(self, pose, arm):
         if pose.shape != (7,):
             raise ValueError(
@@ -197,7 +208,7 @@ class ARXInterface(Robot_Interface):
             arm_offset = 0
             if arm == "right":
                 arm_offset = 7
-            joint_positions[arm_offset: arm_offset + 7] = self.get_joints(arm)
+            joint_positions[arm_offset : arm_offset + 7] = self.get_joints(arm)
         obs["joint_positions"] = joint_positions
 
         # camera logic
@@ -222,7 +233,9 @@ class ARXInterface(Robot_Interface):
         #     "XYZ", ee_pose[3:6], degrees=False
         # )
         # breakpoint()
-        arm_joints = self.kinematics_solver.ik(pos_xyz, rot_mat, cur_jnts=self.get_joints(arm)[:6])
+        arm_joints = self.kinematics_solver.ik(
+            pos_xyz, rot_mat, cur_jnts=self.get_joints(arm)[:6]
+        )
         return arm_joints
 
     def get_joints(self, arm):
@@ -258,10 +271,11 @@ class ARXInterface(Robot_Interface):
             return T
 
         return pos, rot
-    
+
     def set_home(self):
         for arm in self.arms:
             self.controller[arm].reset_to_home()
+
 
 if __name__ == "__main__":
     # Run Eva example
