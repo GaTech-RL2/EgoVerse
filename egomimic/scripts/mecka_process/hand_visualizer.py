@@ -3,9 +3,6 @@
 Visualize LeRobot Dataset with Proper Camera Projection
 
 Uses camera intrinsics to properly project 3D hand keypoints to 2D image pixels.
-Displays all 21 MANO hand keypoints with skeleton connections.
-
-Based on projection methods from /mecka/ppp-lib/hands_visualizer_projected_standalone.py
 """
 
 import sys
