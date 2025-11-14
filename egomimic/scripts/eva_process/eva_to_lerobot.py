@@ -318,7 +318,6 @@ class EvaHD5Extractor:
             episode_feats["observations"][f"state.joint_positions"] = episode_feats["observations"][f"state.joint_positions"][:, joint_start : joint_end]
             
             num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
-            
             if arm == "right":
                 value = EMBODIMENT.EVA_RIGHT_ARM.value
             elif arm == "left":
@@ -736,11 +735,11 @@ class DatasetConverter:
         )
 
         if self.arm == "both":
-            self.robot_type = "eve_bimanual"
+            self.robot_type = "eva_bimanual"
         elif self.arm == "right":
-            self.robot_type = "eve_right_arm"
+            self.robot_type = "eva_right_arm"
         elif self.arm == "left":
-            self.robot_type = "eve_left_arm"          
+            self.robot_type = "eva_left_arm"          
         
         self.features, metadata = EvaHD5Extractor.define_features(
             processed_episode,
