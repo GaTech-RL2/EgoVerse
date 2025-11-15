@@ -41,8 +41,30 @@ ROTATION_SCALE = 1.0  # Scale factor for rotation deltas
 POS_DEAD_ZONE = 0.002  # meters
 ROT_DEAD_ZONE_RAD = np.deg2rad(0.8)  # radians
 
-R_YPR_OFFSET = [0, 0, 0]
-L_YPR_OFFSET = [0, 1, 0]
+# R_YPR_OFFSET = [0, 1, 0]
+# L_YPR_OFFSET = [0, 1, 0]
+
+R_YPR_OFFSET = np.array(
+    [
+        [0.66509066, -0.16738938, 0.72776041],
+        [0.22521625, 0.97413813, 0.0182356],
+        [-0.71199161, 0.15177514, 0.68558898],
+    ],
+    dtype=np.float64,
+)
+
+L_YPR_OFFSET = np.array(
+    [
+        [0.6785254459380761, 0.036920397978411894, 0.7336484876476287],
+        [-0.05616599291181174, 0.9984199955834385, 0.0017010759532792748],
+        [-0.7324265153957544, -0.04236031907675143, 0.6795270435479006],
+    ],
+    dtype=np.float64,
+)
+
+
+NEUTRAL_ROT_OFFSET_R = np.eye(3)
+NEUTRAL_ROT_OFFSET_L = np.eye(3)
 YPR_VEL = [1.5, 1.5, 1.5]  # rad/s
 YPR_RANGE = [2, 2, 2]
 
@@ -52,7 +74,7 @@ TRIGGER_OFF_THRESHOLD = 0.2
 
 # Gripper thresholds
 GRIPPER_OPEN_VALUE = 0.08
-GRIPPER_CLOSE_VALUE = -0.015
+GRIPPER_CLOSE_VALUE = -0.018
 GRIPPER_WIDTH = GRIPPER_OPEN_VALUE - GRIPPER_CLOSE_VALUE
 GRIPPER_VEL = 1  # m/s gripper width is normally around 0.08m
 
@@ -340,6 +362,7 @@ class VRInterface:
     def read_vr_controller(self, se3=False):
         """Read VR controller state and return parsed data."""
         sample = self.device.get_transformations_and_buttons()
+        # print(f"sample: {sample}")
         if not sample:
             return None
 
@@ -372,25 +395,34 @@ class VRInterface:
         l_quat_cur = normalize_quat_xyzw(l_quat_cur)
         r_quat_cur = normalize_quat_xyzw(r_quat_cur)
 
+        R_l_cur = R.from_quat(l_quat_cur).as_matrix()
+        R_r_cur = R.from_quat(r_quat_cur).as_matrix()
+
+        R_l_new = L_YPR_OFFSET @ R_l_cur
+        R_r_new = R_YPR_OFFSET @ R_r_cur
+
+        l_quat_cur = normalize_quat_xyzw(R.from_matrix(R_l_new).as_quat())
+        r_quat_cur = normalize_quat_xyzw(R.from_matrix(R_r_new).as_quat())
+
         # l_quat_cur = R.from_matrix(flip_roll_only(R.from_quat(l_quat_cur).as_matrix())).as_quat()
         # r_quat_cur = R.from_matrix(flip_roll_only(R.from_quat(r_quat_cur).as_matrix())).as_quat()
         # l_quat_cur = normalize_quat_xyzw(l_quat_cur)
         # r_quat_cur = normalize_quat_xyzw(r_quat_cur)
 
         # Apply ypr offset
-        zero = np.zeros(3)
-        _, l_quat_cur = apply_delta_pose(
-            l_pos_cur,
-            l_quat_cur,
-            zero,
-            R.from_euler("ZYX", L_YPR_OFFSET, degrees=False).as_quat(),
-        )
-        _, r_quat_cur = apply_delta_pose(
-            r_pos_cur,
-            r_quat_cur,
-            zero,
-            R.from_euler("ZYX", R_YPR_OFFSET, degrees=False).as_quat(),
-        )
+        # zero = np.zeros(3)
+        # _, l_quat_cur = apply_delta_pose(
+        #     l_pos_cur,
+        #     l_quat_cur,
+        #     zero,
+        #     R.from_euler("ZYX", L_YPR_OFFSET, degrees=False).as_quat(),
+        # )
+        # _, r_quat_cur = apply_delta_pose(
+        #     r_pos_cur,
+        #     r_quat_cur,
+        #     zero,
+        #     R.from_euler("ZYX", R_YPR_OFFSET, degrees=False).as_quat(),
+        # )
         # print(R.from_quat(l_quat_cur).as_euler("ZYX", degrees=False))
 
         # eul = R.from_quat(r_quat_cur).as_euler("ZYX", degrees=False)  # [yaw, pitch, roll]
@@ -468,7 +500,7 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
     data_dict["/action"] = np.array(demo_data["cmd_joint_actions"])
 
     kinematics_solver = EvaMinkKinematicsSolver(
-        model_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml"
+        model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
     )
     robot_ee_pose = []
     for i in range(len(demo_data["robot_joint_actions"])):
@@ -603,6 +635,7 @@ def collect_demo(
             for i in loop:
                 # Read VR controller (get raw transformation matrices)
                 vr_data = vr.read_vr_controller(se3=True)
+                # print(f"vr_data: {vr_data}")
                 if vr_data is None:
                     # print("Not reading vr data using prev")
                     vr_data = prev_vr_data
@@ -711,10 +744,12 @@ def collect_demo(
                         else:
                             cmd_T = rb_se3
 
-                        vr_trigger = vr_data[arm]["trigger"] * (GRIPPER_WIDTH)
-                        gripper_pos[arm] = (
-                            GRIPPER_OPEN_VALUE - vr_trigger
-                        )  # limit velocity and torque in the robot interface
+                        gripper_pos[arm] = GRIPPER_OPEN_VALUE - vr_data[arm][
+                            "trigger"
+                        ] * (GRIPPER_WIDTH)
+                        # limit velocity and torque in the robot interface
+
+                        # print(f"gripper_pos: {gripper_pos[arm]}")
 
                         cmd_pos[arm], cmd_quat[arm] = se3_to_xyzxyzw(cmd_T)
                         cmd_ypr = R.from_quat(cmd_quat[arm]).as_euler(
@@ -727,11 +762,8 @@ def collect_demo(
                         if solved_joints is not None:
                             cmd_joints[arm] = solved_joints
                             # normalize gripper values
-                            gripper_norm_val = (
-                                gripper_pos[arm] - GRIPPER_CLOSE_VALUE
-                            ) / GRIPPER_WIDTH
                             cmd_joints[arm] = np.concatenate(
-                                [cmd_joints[arm], [gripper_norm_val]]
+                                [cmd_joints[arm], [gripper_pos[arm]]]
                             )
 
                         # VELOCITY_LIMIT can be done in the interface
@@ -750,7 +782,9 @@ def collect_demo(
                                         "ZYX", degrees=False
                                     )
                                 )  # ypr convention
-                                cmd_eepose_action[arm_offset + 6] = gripper_pos[arm]
+                                cmd_eepose_action[arm_offset + 6] = (
+                                    gripper_pos[arm] - GRIPPER_CLOSE_VALUE
+                                ) / GRIPPER_WIDTH
 
                             if arm in cmd_joints:
                                 cmd_joint_action[arm_offset : arm_offset + 7] = (
@@ -798,10 +832,41 @@ if __name__ == "__main__":
         help="Control loop frequency in Hz",
     )
     parser.add_argument(
-        "--demo-dir", type=str, default=DEMO_DIR, help="Directory to save demos"
+        "--demo-dir",
+        type=str,
+        default=DEMO_DIR,
+        help="Directory to save demos",
+    )
+    parser.add_argument(
+        "--calibrate",
+        action="store_true",
+        help="Run VR controller orientation calibration before teleop",
     )
 
     args = parser.parse_args()
+
+    if args.calibrate:
+        # Import here to avoid dependency if user never calibrates
+        from egomimic.robot.calibrate_utils import (
+            calibrate_right_controller,
+            calibrate_left_controller,
+        )
+
+        print("Running VR controller calibration...")
+        # Override globals based on which arms are used
+        if args.arms in ("right", "both"):
+            print("\nCalibrating RIGHT controller...")
+            R_off_right = calibrate_right_controller()
+            # overwrite module-level constant
+            R_YPR_OFFSET = R_off_right
+
+        if args.arms in ("left", "both"):
+            print("\nCalibrating LEFT controller...")
+            R_off_left = calibrate_left_controller()
+            # overwrite module-level constant
+            L_YPR_OFFSET = R_off_left
+
+        print("Calibration finished. Using updated offsets for this run.\n")
 
     collect_demo(
         arms_to_collect=args.arms,

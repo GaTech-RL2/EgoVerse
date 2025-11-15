@@ -2,6 +2,7 @@ from collections.abc import Sequence
 import torch.nn.functional as F
 import torch
 
+
 def _slerp(q0, q1, t):
     """
     Spherical linear interpolation between two quaternion sequences.
@@ -17,8 +18,8 @@ def _slerp(q0, q1, t):
     q1 = torch.where(dot < 0.0, -q1, q1)
     dot = (q0 * q1).sum(dim=-1, keepdim=True).clamp(-1.0, 1.0)
 
-    theta = torch.acos(dot)        # (..., 1)
-    sin_theta = torch.sin(theta)   # (..., 1)
+    theta = torch.acos(dot)  # (..., 1)
+    sin_theta = torch.sin(theta)  # (..., 1)
 
     small = sin_theta.abs() < 1e-6
 
@@ -32,6 +33,7 @@ def _slerp(q0, q1, t):
 
     out = w0 * q0 + w1 * q1
     return F.normalize(out, dim=-1)
+
 
 def _ypr_to_quat(ypr):
     """
@@ -57,6 +59,7 @@ def _ypr_to_quat(ypr):
 
     quat = torch.stack([w, x, y, z], dim=-1)
     return F.normalize(quat, dim=-1)
+
 
 def _quat_to_ypr(quat):
     """

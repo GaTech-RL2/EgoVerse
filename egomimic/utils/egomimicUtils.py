@@ -130,14 +130,22 @@ EXTRINSICS = {
         ),
     },
     "ariaOct18_arx": {
-        "right" : np.array([[ 0.92889757,  0.36039153, -0.08524815,  0.30147348],
-       [-0.32558192,  0.68501478, -0.65172936,  0.06826981],
-       [-0.1764815 ,  0.63314508,  0.75364554,  0.61726764],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
-        "left" : np.array([[ 0.67106869,  0.09057156,  0.73584211,  0.37354573],
-       [ 0.01770855,  0.99026867, -0.13803754,  0.22691753],
-       [-0.74118367,  0.10566337,  0.66293441,  0.72137284],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+        "right": np.array(
+            [
+                [0.92889757, 0.36039153, -0.08524815, 0.30147348],
+                [-0.32558192, 0.68501478, -0.65172936, 0.06826981],
+                [-0.1764815, 0.63314508, 0.75364554, 0.61726764],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+        "left": np.array(
+            [
+                [0.67106869, 0.09057156, 0.73584211, 0.37354573],
+                [0.01770855, 0.99026867, -0.13803754, 0.22691753],
+                [-0.74118367, 0.10566337, 0.66293441, 0.72137284],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
     },
     "x5Nov15_2": {
         "right": np.array(
@@ -148,10 +156,14 @@ EXTRINSICS = {
                 [0.0, 0.0, 0.0, 1.0],
             ]
         ),
-       "left": np. array([[-0.03286194, -0.79989118,  0.59924469,  0.03464527],
-       [-0.9994423 ,  0.02274144, -0.02445234, -0.25152234],
-       [ 0.00593152, -0.59971404, -0.80019241,  0.5092148 ],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+        "left": np.array(
+            [
+                [-0.03286194, -0.79989118, 0.59924469, 0.03464527],
+                [-0.9994423, 0.02274144, -0.02445234, -0.25152234],
+                [0.00593152, -0.59971404, -0.80019241, 0.5092148],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
     },
     "x5Nov18_3": {
         "right": np.array(
@@ -162,22 +174,33 @@ EXTRINSICS = {
                 [0.0, 0.0, 0.0, 1.0],
             ]
         ),
-        "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
-       [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
-       [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+        "left": np.array(
+            [
+                [0.01329544, -0.71757193, 0.69635749, -0.04409191],
+                [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+                [0.02504862, -0.69596148, -0.7176421, 0.57323278],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
     },
-
-    "x5Dec10_2":{
-        "right": np.array([[-0.15646281, -0.96797376,  0.19633183,  0.06895977],
-       [-0.73576918,  0.24684158,  0.63064487,  0.41755406],
-       [-0.65891055, -0.04578243, -0.75082679,  0.78698655],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
-        "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
-       [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
-       [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]])
-    }
+    "x5Dec10_2": {
+        "right": np.array(
+            [
+                [-0.15646281, -0.96797376, 0.19633183, 0.06895977],
+                [-0.73576918, 0.24684158, 0.63064487, 0.41755406],
+                [-0.65891055, -0.04578243, -0.75082679, 0.78698655],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+        "left": np.array(
+            [
+                [0.01329544, -0.71757193, 0.69635749, -0.04409191],
+                [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+                [0.02504862, -0.69596148, -0.7176421, 0.57323278],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+    },
 }
 
 INTRINSICS = {"base": ARIA_INTRINSICS, "base_half": ARIA_INTRINSICS_HALF}
@@ -209,25 +232,6 @@ def get_sinusoid_encoding_table(position_start, position_end, d_hid):
     sinusoid_table[:, 1::2] = torch.cos(positions.unsqueeze(1) * div_term[: d_hid // 2])
 
     return sinusoid_table.unsqueeze(0)
-
-
-def reverse_kl_from_samples(pred_samples, targets):
-    M, B, T, D = pred_samples.shape
-
-    TD = T * D
-    const = -0.5 * TD * math.log(2.0 * math.pi)
-
-    A = pred_samples.permute(1, 0, 2, 3).reshape(B, M, TD)  # (B,M,TD)
-    MU = targets.reshape(B, 1, TD)  # (B,1,TD)
-
-    d2 = torch.cdist(A, A).pow(2)  # (B,M,M)
-    log_q_each = torch.logsumexp(const - 0.5 * d2, dim=-1) - math.log(M)  # (B,M)
-
-    d2p = ((A - MU) ** 2).sum(dim=-1)  # (B,M)
-    log_p_each = const - 0.5 * d2p  # (B,M)
-
-    rkl_each = (log_q_each - log_p_each).mean(dim=-1)  # (B,)
-    return rkl_each.mean()
 
 
 def frechet_gaussian_over_time(
@@ -430,7 +434,10 @@ def draw_rotation_text(
 
     return image
 
-def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None):
+
+def draw_actions(
+    im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None
+):
     """
     args:
         im: (H, W, C)
@@ -445,20 +452,30 @@ def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", k
     """
     if type == "joints" and kinematics_solver is None:
         raise ValueError("kinematics_solver is required for joints actions")
-    if type == "joints": 
+    if type == "joints":
         if arm == "both":
             right_actions = kinematics_solver.fk_pos(actions[:, 7:13])
-            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            right_actions_drawable = ee_pose_to_cam_frame(
+                right_actions, extrinsics["right"]
+            )
             left_actions = kinematics_solver.fk_pos(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
-            actions_drawable = np.concatenate((left_actions_drawable, right_actions_drawable), axis=0)
+            left_actions_drawable = ee_pose_to_cam_frame(
+                left_actions, extrinsics["left"]
+            )
+            actions_drawable = np.concatenate(
+                (left_actions_drawable, right_actions_drawable), axis=0
+            )
         elif arm == "right":
             right_actions = kinematics_solver.fk_pos(actions[:, 7:13])
-            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            right_actions_drawable = ee_pose_to_cam_frame(
+                right_actions, extrinsics["right"]
+            )
             actions_drawable = right_actions_drawable
         elif arm == "left":
             left_actions = kinematics_solver.fk_pos(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
+            left_actions_drawable = ee_pose_to_cam_frame(
+                left_actions, extrinsics["left"]
+            )
             actions_drawable = left_actions_drawable
     else:
         actions = actions.reshape(-1, 3)
@@ -563,6 +580,7 @@ def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
     ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
 
+
 def base_frame_to_cam_frame(base_frame, T_cam_base):
     """
     base_frame: (N, 6) (x, y, z, yaw, pitch, roll)
@@ -572,13 +590,14 @@ def base_frame_to_cam_frame(base_frame, T_cam_base):
     """
     N, _ = base_frame.shape
     se3 = np.zeros((N, 4, 4))
-    se3[:, :3, :3] = Rotation.from_euler('zyx', base_frame[:, 3:6]).as_matrix()
+    se3[:, :3, :3] = Rotation.from_euler("zyx", base_frame[:, 3:6]).as_matrix()
     se3[:, :3, 3] = base_frame[:, :3]
     se3[:, 3, 3] = 1
     cam_frame = np.linalg.inv(T_cam_base) @ se3
     xyz = cam_frame[:, :3, 3]
-    ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler('zyx', degrees=False)
+    ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler("zyx", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
+
 
 def cam_frame_to_base_frame(cam_frame, T_cam_base):
     """
@@ -589,13 +608,14 @@ def cam_frame_to_base_frame(cam_frame, T_cam_base):
     """
     N, _ = cam_frame.shape
     se3 = np.zeros((N, 4, 4))
-    se3[:, :3, :3] = Rotation.from_euler('zyx', cam_frame[:, 3:6]).as_matrix()
+    se3[:, :3, :3] = Rotation.from_euler("zyx", cam_frame[:, 3:6]).as_matrix()
     se3[:, :3, 3] = cam_frame[:, :3]
     se3[:, 3, 3] = 1
     base_frame = T_cam_base @ se3
     xyz = base_frame[:, :3, 3]
-    ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler('zyx', degrees=False)
+    ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler("zyx", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
+
 
 def ee_orientation_to_cam_frame(ee_orientation_base, T_cam_base):
     """
@@ -636,7 +656,9 @@ def batched_rotation_matrices_to_euler_angles(batch_R):
     # reshaped_R = batch_R.view(-1, 3, 3).cpu().numpy()
     # Use scipy's Rotation to convert rotation matrices to Euler angles
     rotation_objects = Rotation.from_matrix(reshaped_R)
-    euler_angles = rotation_objects.as_euler('zyx', degrees=False)  # Shape [batch_size * seq_len, 3]
+    euler_angles = rotation_objects.as_euler(
+        "zyx", degrees=False
+    )  # Shape [batch_size * seq_len, 3]
     # Convert back to torch and reshape to original batch dimensions
     euler_angles = torch.tensor(euler_angles, device=batch_R.device)
     euler_angles = euler_angles.view(batch_size, 3)
@@ -840,6 +862,7 @@ def transformation_matrix_to_pose(T):
     pose_array = np.concatenate((p, rotation_quaternion))
     return pose_array
 
+
 def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     """
     Interpolate 6DoF poses (translation + Euler angles in radians),
@@ -848,9 +871,9 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     v: (B, T, 6) or (B, T, 7)
         [x, y, z, yaw, pitch, roll, (optional) gripper]
     """
-    assert (
-        v.ndim == 3 and v.shape[2] in (6, 7)
-    ), "Input v must be of shape (B, T, 6) or (B, T, 7)"
+    assert v.ndim == 3 and v.shape[2] in (6, 7), (
+        "Input v must be of shape (B, T, 6) or (B, T, 7)"
+    )
     B, T, D = v.shape
 
     new_time = np.linspace(0, 1, seq_length)
@@ -865,8 +888,8 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
             outputs.append(np.full((seq_length, D), 1e9))
             continue
 
-        trans_seq = seq[:, :3]      # x, y, z
-        rot_seq = seq[:, 3:6]       # yaw, pitch, roll
+        trans_seq = seq[:, :3]  # x, y, z
+        rot_seq = seq[:, 3:6]  # yaw, pitch, roll
 
         # Avoid discontinuities in angle interpolation
         rot_seq_unwrapped = np.unwrap(rot_seq, axis=0)
@@ -879,7 +902,7 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
         )
 
         trans_interp = trans_interp_func(new_time)  # (seq_length, 3)
-        rot_interp = rot_interp_func(new_time)      # (seq_length, 3)
+        rot_interp = rot_interp_func(new_time)  # (seq_length, 3)
 
         # Wrap back to [-pi, pi)
         rot_interp = (rot_interp + np.pi) % (2 * np.pi) - np.pi
@@ -892,13 +915,12 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
                 old_time, grip_seq, axis=0, kind="linear"
             )
             grip_interp = grip_interp_func(new_time)  # (seq_length, 1)
-            out_seq = np.concatenate(
-                [trans_interp, rot_interp, grip_interp], axis=-1
-            )
+            out_seq = np.concatenate([trans_interp, rot_interp, grip_interp], axis=-1)
 
         outputs.append(out_seq)
 
     return np.stack(outputs, axis=0)  # (B, seq_length, D)
+
 
 class AlohaFK:
     def __init__(self, robot="arx"):
@@ -910,14 +932,14 @@ class AlohaFK:
                 open(urdf_path).read(), "vx300s/ee_gripper_link"
             )
         elif robot == "arx":
-            urdf_path = Path(os.path.join(
-                os.path.dirname(egomimic.__file__), "resources/model_arx.urdf"
-            ))
-            xml_bytes = urdf_path.read_bytes()
-                
-            self.chain = pk.build_serial_chain_from_urdf(
-                xml_bytes, "link6"
+            urdf_path = Path(
+                os.path.join(
+                    os.path.dirname(egomimic.__file__), "resources/model_arx.urdf"
+                )
             )
+            xml_bytes = urdf_path.read_bytes()
+
+            self.chain = pk.build_serial_chain_from_urdf(xml_bytes, "link6")
 
     def fk(self, qpos):
         if isinstance(qpos, np.ndarray):

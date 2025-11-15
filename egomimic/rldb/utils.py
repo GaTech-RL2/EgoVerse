@@ -52,6 +52,7 @@ import torch.nn.functional as F
 from egomimic.rldb.data_utils import *
 import traceback
 
+
 # NOTE: To add a new key register, embodiment here. I hope Nadun, Vaibhav you guys have a more principled way of doing this thanks :) - R
 class EMBODIMENT(Enum):
     EVE_RIGHT_ARM = 0
@@ -70,6 +71,7 @@ SEED = 42
 EMBODIMENT_ID_TO_KEY = {
     member.value: key for key, member in EMBODIMENT.__members__.items()
 }
+
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     """
@@ -100,6 +102,7 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
+
 
 def get_embodiment(index):
     return EMBODIMENT_ID_TO_KEY.get(index, None)
@@ -174,15 +177,19 @@ class RLDBDataset(LeRobotDataset):
         self.slow_down_factor = float(kwargs.get("slow_down_factor", 1.0))
         raw_keys = kwargs.get("slow_down_ac_keys", None)
         raw_rot_specs = kwargs.get("slow_down_rot_specs", None)
-        
+
         if raw_rot_specs is None:
             self.slow_down_rot_specs = {}
         else:
             self.slow_down_rot_specs = dict(raw_rot_specs)
-            
+
         for k, v in self.slow_down_rot_specs.items():
             # v should be a 2-tuple-like: (rot_type, index_ranges)
-            if not (isinstance(v, Sequence) and not isinstance(v, (str, bytes)) and len(v) == 2):
+            if not (
+                isinstance(v, Sequence)
+                and not isinstance(v, (str, bytes))
+                and len(v) == 2
+            ):
                 raise ValueError(
                     f"slow_down_rot_specs['{k}'] must be (rot_type, index_ranges), got {type(v)} with value {v}"
                 )
@@ -194,17 +201,23 @@ class RLDBDataset(LeRobotDataset):
                     f"Rotation type for key '{k}' must be 'quat_wxyz' or 'ypr', got {rot_type}"
                 )
 
-            if not (isinstance(ranges, Sequence) and not isinstance(ranges, (str, bytes))):
+            if not (
+                isinstance(ranges, Sequence) and not isinstance(ranges, (str, bytes))
+            ):
                 raise ValueError(
                     f"Index ranges for slow_down_rot_specs['{k}'] must be a sequence of (start, end) pairs, got {type(ranges)}"
                 )
 
             for pair in ranges:
-                if not (isinstance(pair, Sequence) and not isinstance(pair, (str, bytes)) and len(pair) == 2):
+                if not (
+                    isinstance(pair, Sequence)
+                    and not isinstance(pair, (str, bytes))
+                    and len(pair) == 2
+                ):
                     raise ValueError(
                         f"Each index range for slow_down_rot_specs['{k}'] must be a (start, end) sequence, got {pair}"
                     )
-        
+
         if raw_keys is None:
             self.slow_down_ac_keys = []
         elif isinstance(raw_keys, str):
@@ -217,7 +230,7 @@ class RLDBDataset(LeRobotDataset):
             raise ValueError(
                 f"slow_down_ac_keys must be str, sequence, or None; got {type(raw_keys)}"
             )
-        
+
         if mode == "train":
             super().__init__(
                 repo_id=repo_id,
@@ -334,7 +347,7 @@ class RLDBDataset(LeRobotDataset):
         if rot_spec is not None:
             rot_type, index_ranges = rot_spec
 
-            for (start, end) in index_ranges:
+            for start, end in index_ranges:
                 if not (0 <= start < end <= D):
                     raise ValueError(
                         f"Invalid rotation slice [{start}:{end}] for seq with D={D}"
@@ -357,17 +370,17 @@ class RLDBDataset(LeRobotDataset):
                             f"ypr slice must have length 3, got {k} for slice [{start}:{end}]"
                         )
                     # ypr -> quat -> slerp -> ypr
-                    quat_short = _ypr_to_quat(rot_short)                # (S_short, 4)
+                    quat_short = _ypr_to_quat(rot_short)  # (S_short, 4)
                     quat_interp = _slow_down_slerp_quat(quat_short, S)  # (S, 4)
-                    ypr_interp = _quat_to_ypr(quat_interp)              # (S, 3)
+                    ypr_interp = _quat_to_ypr(quat_interp)  # (S, 3)
                     out[:, start:end] = ypr_interp
                 else:
                     raise ValueError(f"Unknown rotation type: {rot_type}")
 
         return out
-        
+
+
 class MultiRLDBDataset(torch.utils.data.Dataset):
-    
     def __init__(self, datasets, embodiment, key_map=None):
         self.datasets = datasets
         self.key_map = key_map
@@ -588,7 +601,7 @@ class S3RLDBDataset(MultiRLDBDataset):
                 )
                 skipped.append(collection_path.name)
                 continue
-                    
+
             try:
                 repo_id = collection_path.name
                 dataset = RLDBDataset(
@@ -614,7 +627,7 @@ class S3RLDBDataset(MultiRLDBDataset):
                 logger.error(f"Failed to load {repo_id} as RLDBDataset: {e}")
                 skipped.append(repo_id)
         assert datasets, "No valid RLDB datasets found! Check your S3 path and filters."
-        
+
         self.train_collections, self.valid_collections = split_dataset_names(
             datasets.keys(), valid_ratio=valid_ratio, seed=SEED
         )
@@ -652,7 +665,7 @@ class S3RLDBDataset(MultiRLDBDataset):
 
         if skipped:
             logger.warning(f"Skipped {len(skipped)} datasets: {skipped}")
-            
+
     @staticmethod
     def _get_processed_path(filters):
         engine = create_default_engine()

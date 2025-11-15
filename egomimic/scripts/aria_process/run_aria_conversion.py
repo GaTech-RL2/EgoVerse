@@ -205,7 +205,7 @@ def launch(dry: bool = False, skip_if_done: bool = False):
     pending: dict = {}
 
     benchmark_rows = []
-    
+
     for vrs, jsonf, mps in iter_vrs_bundles(RAW_ROOT):
         name = vrs.stem
 
@@ -271,7 +271,7 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         episode_key, _dataset_name, start_time = pending.pop(ref)
 
         duration_sec = time.time() - start_time
-        
+
         row = episode_hash_to_table_row(engine, episode_key)
         if row is None:
             print(f"[WARN] Episode {episode_key}: row disappeared before update?")
@@ -292,7 +292,7 @@ def launch(dry: bool = False, skip_if_done: bool = False):
                 f"[OK] Updated SQL for {episode_key}: "
                 f"processed_path={row.processed_path}, num_frames={row.num_frames}"
             )
-            
+
             ## timing bench
             if row.num_frames > 0 and row.processed_path:
                 benchmark_rows.append(
@@ -309,7 +309,7 @@ def launch(dry: bool = False, skip_if_done: bool = False):
                     f"processed_path={row.processed_path} "
                     f"duration_sec={duration_sec:.2f}"
                 )
-                
+
         except Exception as e:
             print(f"[ERR] SQL update failed for {episode_key}: {e}")
 
@@ -330,9 +330,12 @@ def launch(dry: bool = False, skip_if_done: bool = False):
                     writer.writeheader()
                 for bench_row in benchmark_rows:
                     writer.writerow(bench_row)
-            print(f"[BENCH] wrote {len(benchmark_rows)} entries → {timing_file.resolve()}")
+            print(
+                f"[BENCH] wrote {len(benchmark_rows)} entries → {timing_file.resolve()}"
+            )
         except Exception as e:
             print(f"[ERR] Failed to write benchmark CSV {timing_file}: {e}")
+
 
 # --- CLI ---------------------------------------------------------------------
 def main():
