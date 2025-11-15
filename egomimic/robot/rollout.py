@@ -4,30 +4,56 @@ import h5py
 import torch
 import sys
 import numpy as np
-
+import cv2
 from abc import ABC, abstractmethod
 
-from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
+from egomimic.rldb.utils import (
+    EMBODIMENT,
+    get_embodiment,
+    get_embodiment_id,
+    RLDBDataset,
+)
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from robot_utils import RateLoop
+from egomimic.utils.egomimicUtils import (
+    CameraTransforms,
+    draw_actions,
+    cam_frame_to_base_frame,
+    ee_pose_to_cam_frame,
+    base_frame_to_cam_frame,
+)
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 from robot_interface import *
+
+
 # from stream_aria import AriaRecorder
 # from stream_d405 import RealSenseRecorder
+def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
+    if actions.shape[-1] == 7 or actions.shape[-1] == 14:
+        ac_type = "joints"
+    elif actions.shape[-1] == 3 or actions.shape[-1] == 6:
+        ac_type = "xyz"
+    else:
+        raise ValueError(f"Unknown action type with shape {actions.shape}")
+
+    ims = draw_actions(
+        ims, ac_type, "Purples", actions, extrinsics, intrinsics, arm=arm
+    )
+
+    return ims
+
 
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
-QUERY_FREQUENCY = 20
-
-RIGHT_CAM_SERIAL = ""
-LEFT_CAM_SERIAL = ""
+QUERY_FREQUENCY = 30
 
 EMBODIMENT_MAP = {
-    "both": 2,
-    "left": 1,
-    "right": 0,
+    "both": 8,
+    "left": 7,
+    "right": 6,
 }
 
 
@@ -48,7 +74,7 @@ class ReplayRollout(Rollout):
             raise FileNotFoundError(f"HDF5 not found: {self.dataset_path}")
         with h5py.File(self.dataset_path, "r") as f:
             if cartesian:
-                self.actions = np.asarray(f["action"][...], dtype=np.float32)
+                self.actions = np.asarray(f["actions"]["eepose"][...], dtype=np.float32)
             else:
                 self.actions = np.asarray(
                     f["observations"]["joint_positions"][...], dtype=np.float32
@@ -61,15 +87,75 @@ class ReplayRollout(Rollout):
             return None
 
 
+# TODO: Work with all types of arms
+class ReplayRolloutLerobot(Rollout):
+    def __init__(
+        self,
+        dataset_path,
+        repo_id,
+        cartesian,
+        extrinsics_key,
+        episodes=[1],
+        arm="right",
+    ):
+        super().__init__()
+        self.dataset_path = dataset_path
+        self.cartesian = cartesian
+        self.extrinsics = CameraTransforms(
+            intrinsics_key="base", extrinsics_key=extrinsics_key
+        ).extrinsics
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.debug_actions = None
+        self.arm = arm
+
+        dataset = RLDBDataset(
+            repo_id=repo_id,
+            root=dataset_path,
+            local_files_only=True,
+            episodes=episodes,
+            mode="sample",
+        )
+        data_loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False)
+        self.iter = iter(data_loader)
+        self.data_loader = data_loader
+        self.i = 0
+        self.actions_key = "actions_cartesian" if cartesian else "actions_joints"
+        self.actions = np.empty((0, 7), dtype=np.float32)
+
+    def rollout_step(self, i):
+        while i >= self.i:
+            batch = next(self.iter)
+            cur_actions = (
+                batch[self.actions_key].cpu().numpy()[:, 0, :]
+            )  # (B, N, 7) -> (B, 7)
+            if self.cartesian:
+                gripper_pose = (
+                    cur_actions[:, 6:7] * 0.08
+                )  # TODO: make this in robot config
+                cur_actions = cam_frame_to_base_frame(
+                    cur_actions, self.extrinsics[self.arm]
+                )
+                cur_actions = np.concatenate([cur_actions, gripper_pose], axis=1)
+
+            self.actions = np.concatenate([self.actions, cur_actions], axis=0)
+            self.i += cur_actions.shape[0]
+        return self.actions[i]
+
+
 class PolicyRollout(Rollout):
-    def __init__(self, arm, policy_path, query_frequency):
+    def __init__(self, arm, policy_path, query_frequency, cartesian, extrinsics_key):
         super().__init__()
         self.arm = arm
         self.policy = ModelWrapper.load_from_checkpoint(policy_path)
         self.query_frequency = query_frequency
+        self.cartesian = cartesian
         self.embodiment_id = EMBODIMENT_MAP[self.arm]
         self.embodiment_name = get_embodiment(self.embodiment_id)
+        self.extrinsics = CameraTransforms(
+            intrinsics_key="base", extrinsics_key=extrinsics_key
+        ).extrinsics
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.debug_actions = None
 
     def rollout_step(self, i, obs):
         if i % self.query_frequency == 0:
@@ -79,6 +165,17 @@ class PolicyRollout(Rollout):
             ac_key = self.policy.model.ac_keys[self.embodiment_id]
             actions = preds[f"{self.embodiment_name.lower()}_{ac_key}"]
             self.actions = actions.detach().cpu().numpy().squeeze()
+            self.debug_actions = self.actions.copy()
+            if self.cartesian:
+                transformed_6dof = cam_frame_to_base_frame(
+                    self.actions[:, :6].copy(), self.extrinsics[self.arm]
+                )
+                # Preserve gripper if present (7th value)
+                if self.actions.shape[1] == 7:
+                    self.actions = np.hstack([transformed_6dof, self.actions[:, 6:7]])
+                else:
+                    self.actions = transformed_6dof
+
             print(f"Inference time: {(time.time() - start_infer_t)}s")
 
         # TODO check gripper if we are using 0 to 0.08 or 0 to 1
@@ -101,6 +198,7 @@ class PolicyRollout(Rollout):
                 .to(torch.uint8)
                 / 255.0
             )
+            joint_positions = obs["joint_positions"][7:]
 
         elif self.arm == "left":
             data["left_wrist_img"] = (
@@ -109,6 +207,7 @@ class PolicyRollout(Rollout):
                 .to(torch.uint8)
                 / 255.0
             )
+            joint_positions = obs["joint_positions"][:7]
 
         elif self.arm == "both":
             data["right_wrist_img"] = (
@@ -123,7 +222,8 @@ class PolicyRollout(Rollout):
                 .to(torch.uint8)
                 / 255.0
             )
-        data["joint_positions"] = torch.from_numpy(obs["joint_positions"]).reshape(
+            joint_positions = obs["joint_positions"]
+        data["joint_positions"] = torch.from_numpy(joint_positions).reshape(
             (1, 1, -1)
         )  # arm joint logic already implemented in robot interface
         data["embodiment"] = torch.tensor([self.embodiment_id], dtype=torch.int64)
@@ -152,6 +252,9 @@ def main(
     query_frequency=None,
     policy_path=None,
     dataset_path=None,
+    repo_id=None,
+    episodes=[1],
+    debug=False,
 ):
     ri = None
     if arms == "both":
@@ -162,40 +265,111 @@ def main(
         arms_list = ["left"]
     ri = ARXInterface(arms=arms_list)
 
-    rollout_type = "replay" if policy_path is None else "policy"
-    if rollout_type == "policy":
-        policy = PolicyRollout(
-            arm=arm, policy_path=policy_path, query_frequency=query_frequency
+    if policy_path is None and dataset_path is not None and repo_id is not None:
+        rollout_type = "replay_lerobot"
+        policy = ReplayRolloutLerobot(
+            dataset_path=dataset_path,
+            repo_id=repo_id,
+            cartesian=cartesian,
+            extrinsics_key="x5Nov18_3",
+            episodes=episodes,
+            arm=arms,
         )
-    elif rollout_type == "replay":
+    elif policy_path is not None:
+        rollout_type = "policy"
+        policy = PolicyRollout(
+            arm=arms,
+            policy_path=policy_path,
+            query_frequency=query_frequency,
+            cartesian=cartesian,
+            extrinsics_key="x5Nov18_3",
+        )
+    elif dataset_path is not None:
+        rollout_type = "replay"
         policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
-    else:
-        raise RuntimeError("Invalid rollout type")
 
     print(f"Cartesian value {cartesian}")
     ri.set_home()
-    with RateLoop(frequency=frequency, verbose=True) as loop:
-        for i in loop:
-            actions = None
-            if rollout_type == "policy":
-                obs = ri.get_obs()
-                actions = policy.rollout_step(i, obs)
-            elif rollout_type == "replay":
-                actions = policy.rollout_step(i)
-            # not sure if I need throw exception here
 
-            if actions is None:
-                print("Finish rollout")
-                break
-            for arm in arms_list:
-                arm_offset = 0
-                if arm == "right":
-                    arm_offset = 7
-                arm_action = actions[arm_offset : arm_offset + 7]
-                if cartesian:
-                    ri.set_pose(arm_action, arm)
+    camera_transforms = CameraTransforms(
+        intrinsics_key="base", extrinsics_key="x5Nov18_3"
+    )
+    kinematics_solver = EvaMinkKinematicsSolver(
+        model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
+    )
+    try:
+        with RateLoop(frequency=frequency, verbose=True) as loop:
+            for i in loop:
+                actions = None
+                if rollout_type == "policy":
+                    obs = ri.get_obs()
+                    actions = policy.rollout_step(i, obs)
+                elif rollout_type == "replay":
+                    actions = policy.rollout_step(i)
+                elif rollout_type == "replay_lerobot":
+                    actions = policy.rollout_step(i)
                 else:
-                    ri.set_joints(arm_action, arm)
+                    raise ValueError(f"Invalid rollout type: {rollout_type}")
+
+                if actions is None:
+                    print("Finish rollout")
+                    break
+
+                if debug and rollout_type == "policy":
+                    os.makedirs("debug", exist_ok=True)
+                    if isinstance(obs["front_img_1"], torch.Tensor):
+                        if obs["front_img_1"].dim() == 4:  # (B, C, H, W)
+                            img = obs["front_img_1"][0].permute(1, 2, 0).cpu().numpy()
+                        elif obs["front_img_1"].dim() == 3:  # (C, H, W)
+                            img = obs["front_img_1"].permute(1, 2, 0).cpu().numpy()
+                        else:  # (H, W, C)
+                            img = obs["front_img_1"].cpu().numpy()
+                    else:
+                        img = obs["front_img_1"]
+                        if img.ndim == 3 and img.shape[0] == 3:  # (C, H, W)
+                            img = img.transpose(1, 2, 0)
+                    img = img.astype(np.uint8)
+
+                    for arm in arms_list:
+                        arm_offset = 0
+                        if arm == "right":
+                            arm_offset = 7
+                        arm_action = actions[arm_offset : arm_offset + 7]
+
+                        if cartesian:
+                            action_xyz = policy.debug_actions[:, :3]
+                        else:
+                            jnts = policy.actions[:, :7]
+                            actions_xyz = np.zeros((jnts.shape[0], 3))
+                            for i in range(action_xyz.shape[0]):
+                                pos, rot = kinematics_solver.fk(jnts[i][:6])
+                                actions_xyz[i] = pos
+                            # TODO fk later
+
+                        im_viz = visualize_actions(
+                            img,
+                            action_xyz,
+                            camera_transforms.extrinsics,
+                            camera_transforms.intrinsics,
+                            arm=arm,
+                        )
+                        cv2.imwrite(
+                            f"debug/debug_{arm}_{i}.png",
+                            cv2.cvtColor(im_viz, cv2.COLOR_RGB2BGR),
+                        )
+
+                for arm in arms_list:
+                    arm_offset = 0
+                    if arm == "right":
+                        arm_offset = 7
+                    arm_action = actions[arm_offset : arm_offset + 7]
+                    if cartesian:
+                        ri.set_pose(arm_action, arm)
+                    else:
+                        ri.set_joints(arm_action, arm)
+    except KeyboardInterrupt:
+        print("KeyboardInterrupt detected, exiting rollout.")
+        return
 
 
 if __name__ == "__main__":
@@ -217,17 +391,25 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--query_frequency",
-        type=float,
+        type=int,
         default=QUERY_FREQUENCY,
         help="Frames which model does inference",
     )
     parser.add_argument("--policy-path", type=str, help="policy checkpoint path")
     parser.add_argument("--dataset-path", type=str, help="dataset path for replay")
+    parser.add_argument("--repo-id", type=str, help="repo id for replay")
+    parser.add_argument("--episodes", type=int, nargs="+", help="episodes to replay")
     parser.add_argument(
         "--cartesian",
         action="store_true",
         help="control in cartesian space instead of joint space",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="enable debug visualization of actions on images",
+    )
+    parser.add_argument("--robot-config", type=str, help="path to robot config")
 
     args = parser.parse_args()
 
@@ -237,5 +419,8 @@ if __name__ == "__main__":
         query_frequency=args.query_frequency,
         policy_path=args.policy_path,
         dataset_path=args.dataset_path,
+        repo_id=args.repo_id,
+        episodes=args.episodes,
         cartesian=args.cartesian,
+        debug=args.debug,
     )

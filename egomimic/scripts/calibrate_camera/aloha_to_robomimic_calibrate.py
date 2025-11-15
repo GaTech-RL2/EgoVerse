@@ -1,3 +1,6 @@
+# Example
+# python3 aloha_to_robomimic_calibrate.py --dataset /home/robot/robot_ws/egomimic/robot/calibration_demos/left --arm left --extrinsics left --out /home/robot/robot_ws/egomimic/robot/calibration_demos/left_proc/test2.hdf5 --data-type robot
+
 import h5py
 import numpy as np
 import argparse
@@ -61,7 +64,9 @@ def get_future_points(arr, POINT_GAP=15, FUTURE_POINTS_COUNT=10):
 
 
 def is_valid_path(path):
-    return not os.path.isdir(path) and "episode" in path and ".hdf5" in path
+    return not os.path.isdir(path) and (
+        ("episode" in path or "demo" in path) and ".hdf5" in path
+    )
 
 
 if __name__ == "__main__":
@@ -89,10 +94,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    chain = pk.build_serial_chain_from_urdf(
-        open("/home/rl2-bonjour/EgoPlay/EgoPlay/egomimic/resources/model.urdf").read(),
-        "vx300s/ee_gripper_link",
-    )
+    # chain = pk.build_serial_chain_from_urdf(
+    #     open("/home/rl2-bonjour/EgoPlay/EgoPlay/egomimic/resources/model.urdf").read(),
+    #     "vx300s/ee_gripper_link",
+    # )
 
     # before converting everything, check it all at least opens
     for file in tqdm(os.listdir(args.dataset)):
@@ -130,7 +135,7 @@ if __name__ == "__main__":
                 # obs
                 demo_i_obs_group.create_dataset(
                     "front_img_1",
-                    data=aloha_hdf5["observations"]["images"]["cam_high"],
+                    data=aloha_hdf5["observations"]["images"]["front_img_1"],
                     dtype="uint8",
                     chunks=(1, 480, 640, 3),
                 )
@@ -142,19 +147,22 @@ if __name__ == "__main__":
                 # )
                 demo_i_obs_group.create_dataset(
                     "joint_positions",
-                    data=aloha_hdf5["observations"]["qpos"][:, joint_start:joint_end],
+                    data=aloha_hdf5["observations"]["joints"][:, joint_start:joint_end],
                 )
-                fk_pos, fk_rot = pk.matrix_to_pos_rot(
-                    chain.forward_kinematics(
-                        torch.from_numpy(
-                            aloha_hdf5["observations"]["qpos"][
-                                :, joint_start : joint_end - 1
-                            ]
-                        ),
-                        end_only=True,
-                    ).get_matrix()
-                )
-                fk_positions = torch.cat([fk_pos, fk_rot], dim=1)
+                # fk_pos, fk_rot = pk.matrix_to_pos_rot(
+                #     chain.forward_kinematics(
+                #         torch.from_numpy(
+                #             aloha_hdf5["observations"]["qpos"][
+                #                 :, joint_start : joint_end - 1
+                #             ]
+                #         ),
+                #         end_only=True,
+                #     ).get_matrix()
+                # )
+                # fk_positions = torch.cat([fk_pos, fk_rot], dim=1)
+                fk_positions = aloha_hdf5["observations"]["eepose"][
+                    :, joint_start:joint_end
+                ]
 
                 demo_i_obs_group.create_dataset(
                     "ee_pose_robot_frame", data=fk_positions

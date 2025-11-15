@@ -17,7 +17,9 @@ from pathlib import Path
 import ray
 
 RAW_ROOT = Path("/mnt/raw")
-ARIA_DIR = RAW_ROOT  # currently /mnt/raw; change to RAW_ROOT / "aria" if you add that subdir
+ARIA_DIR = (
+    RAW_ROOT  # currently /mnt/raw; change to RAW_ROOT / "aria" if you add that subdir
+)
 
 MPS_INI_CONTENT = """[DEFAULT]
 log_dir = /tmp/logs/projectaria/mps/ # Path to log directory
@@ -145,14 +147,18 @@ def run_mps_batches(vrs_files: list[str], chunk_size: int = 16) -> dict:
     try:
         for idx, batch in enumerate(batches, start=1):
             ts = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"[{ts}] Starting batch {idx}/{total_batches} with {len(batch)} files")
+            print(
+                f"[{ts}] Starting batch {idx}/{total_batches} with {len(batch)} files"
+            )
 
             # Build aria_mps command with username/password + batch inputs
             cmd = [
                 "aria_mps",
                 "single",
-                "--username", "georgiat_p4u7t9",
-                "--password", "georgiat0001",
+                "--username",
+                "georgiat_p4u7t9",
+                "--password",
+                "georgiat0001",
             ]
             for f in batch:
                 cmd.extend(["--input", f])

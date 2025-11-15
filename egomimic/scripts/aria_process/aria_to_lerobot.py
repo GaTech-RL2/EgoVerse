@@ -1059,13 +1059,14 @@ class DatasetConverter:
         )
 
         self.logger.info(f"Dataset Features: {self.features}")
-    
 
-    def save_preview_mp4(self, frames: list[dict], output_path: Path, fps: int, image_compressed: bool):
+    def save_preview_mp4(
+        self, frames: list[dict], output_path: Path, fps: int, image_compressed: bool
+    ):
         """
         Save a single half-resolution, web-compatible MP4 using H.264 (libx264).
         No fallbacks. Requires `ffmpeg` with libx264 on PATH.
-    
+
         Each frame dict must contain:
             'observations.images.front_img_1' -> torch.Tensor (C,H,W) uint8
         """
@@ -1074,49 +1075,69 @@ class DatasetConverter:
         if not imgs:
             print(f"[MP4] No frames with key '{img_key}' found — skipping video save.")
             return
-    
+
         # Compute half-res (force even dims for yuv420p)
         C, H, W = imgs[0].shape
         outW, outH = W // 2, H // 2
-        if outW % 2: outW -= 1
-        if outH % 2: outH -= 1
+        if outW % 2:
+            outW -= 1
+        if outH % 2:
+            outH -= 1
         if outW <= 0 or outH <= 0:
             raise ValueError(f"[MP4] Invalid output size: {outW}x{outH}")
-    
+
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
         ffmpeg = shutil.which("ffmpeg")
         if ffmpeg is None:
-            raise RuntimeError("[MP4] `ffmpeg` not found on PATH. Install ffmpeg with libx264 enabled.")
-    
+            raise RuntimeError(
+                "[MP4] `ffmpeg` not found on PATH. Install ffmpeg with libx264 enabled."
+            )
+
         # Pipe raw BGR frames to ffmpeg → H.264 MP4 (baseline@3.0, yuv420p, +faststart)
         cmd = [
-            ffmpeg, "-y",
-            "-f", "rawvideo",
-            "-vcodec", "rawvideo",
-            "-pix_fmt", "bgr24",
-            "-s", f"{outW}x{outH}",
-            "-r", str(fps),
-            "-i", "-",                # stdin
+            ffmpeg,
+            "-y",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "bgr24",
+            "-s",
+            f"{outW}x{outH}",
+            "-r",
+            str(fps),
+            "-i",
+            "-",  # stdin
             "-an",
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-profile:v", "baseline",
-            "-level", "3.0",
-            "-movflags", "+faststart",
-            "-preset", "veryfast",
-            "-crf", "23",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-profile:v",
+            "baseline",
+            "-level",
+            "3.0",
+            "-movflags",
+            "+faststart",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "23",
             str(output_path),
         ]
-    
-        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        proc = subprocess.Popen(
+            cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
         try:
             for chw in imgs:
                 np_chw = chw.detach().cpu().numpy()
                 if np_chw.shape[0] == 1:
-                    np_chw = np.repeat(np_chw, 3, axis=0)   # gray → 3ch
-                frame = np.transpose(np_chw, (1, 2, 0))      # HWC
+                    np_chw = np.repeat(np_chw, 3, axis=0)  # gray → 3ch
+                frame = np.transpose(np_chw, (1, 2, 0))  # HWC
                 if not image_compressed:
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 frame = cv2.resize(frame, (outW, outH), interpolation=cv2.INTER_AREA)
@@ -1127,14 +1148,16 @@ class DatasetConverter:
             if proc.stdin:
                 proc.stdin.flush()
                 proc.stdin.close()
-    
+
         ret = proc.wait()
         if ret != 0:
             stderr = proc.stderr.read().decode(errors="ignore") if proc.stderr else ""
-            raise RuntimeError(f"[MP4] ffmpeg/libx264 encoding failed (exit {ret}).\n{stderr}")
-    
+            raise RuntimeError(
+                f"[MP4] ffmpeg/libx264 encoding failed (exit {ret}).\n{stderr}"
+            )
+
         print(f"[MP4] Saved web-compatible H.264 preview to {output_path}")
-        
+
     def extract_episode(self, episode_path, task_description: str = ""):
         """
         Extracts frames from an episode and saves them to the dataset.

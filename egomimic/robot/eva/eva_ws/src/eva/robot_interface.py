@@ -21,15 +21,12 @@ class Robot_Interface(ABC):
         except Exception as e:
             print(f"Failed to load configs.yaml: {e}")
 
-        # self.arm = arm
-
         model = self.cfg.get("model", "X5")
         self.robot_urdf = self.cfg.get("urdf", None)
 
         self.robot_config = arx5.RobotConfigFactory.get_instance().get_config(model)
         if self.robot_urdf:
             self.robot_config.urdf_path = self.robot_urdf
-            # Match X5A URDF link names
         self.robot_config.base_link_name = "base_link"
         self.robot_config.eef_link_name = "link6"
 
@@ -38,8 +35,6 @@ class Robot_Interface(ABC):
         )
 
     def __get_config(self, cfg):
-        # share = get_package_share_directory("eva")
-        # cfg_path = os.path.join(share, "config", "configs.yaml")
         cfg_path = (
             "/home/robot/robot_ws/egomimic/robot/eva/eva_ws/src/config/configs.yaml"
         )
@@ -89,7 +84,7 @@ class ARXInterface(Robot_Interface):
         self._create_controllers(self.cfg)
         self.__create_cam_recorders(self.cfg["cameras"])
         self.kinematics_solver = EvaMinkKinematicsSolver(
-            model_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml"
+            model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
         )
 
     def _create_controllers(self, cfg):
@@ -109,16 +104,14 @@ class ARXInterface(Robot_Interface):
 
             gain = self.controller[arm].get_gain()
 
-            kp = (
-                np.array(
-                    [6.225, 17.225, 18.225, 14.225, 8.225, 6.225], dtype=np.float64
+            kp = self.cfg.get("kp", None)
+            kd = self.cfg.get("kd", None)
+            if kp is None or kd is None:
+                raise RuntimeError(
+                    "Both kp and kd must be specified in the config file."
                 )
-                * 0.8
-            )
-            kd = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.float64) * 1
-            # zeros = np.zeros(6)
-            # kp = zeros
-            # kd = zeros
+            kp = np.array(kp, dtype=np.float64)
+            kd = np.array(kd, dtype=np.float64) * 0.6
             gain.kp()[:] = kp
             gain.kd()[:] = kd
             gain.gripper_kp = 1.0
@@ -128,14 +121,15 @@ class ARXInterface(Robot_Interface):
 
             self.controller[arm].set_gain(gain)
 
-            self.gripper_offset = 0.000
+            self.gripper_open_value = self.cfg.get("gripper_open_value", None)
+            self.gripper_close_value = self.cfg.get("gripper_close_value", None)
 
-            # self.engaged = True
+            if self.gripper_close_value is None or self.gripper_open_value is None:
+                raise RuntimeError(
+                    "Gripper open/close values must be initialized in config.yaml (gripper_open_value and gripper_close_value or gripper_min)"
+                )
 
-            # self.gripper_width = self.cfg.get("gripper_width", None)
-
-            # if self.gripper_width is None:
-            #     raise RuntimeError("Gripper value not initialized in config.yaml")
+            self.gripper_width = self.gripper_open_value - self.gripper_close_value
 
     def __create_cam_recorders(self, cameras_cfg):
         self.recorders = dict()
@@ -152,6 +146,16 @@ class ARXInterface(Robot_Interface):
                 self.recorders[name] = RealSenseRecorder(str(cam_cfg["serial_number"]))
             else:
                 raise ValueError("Invalid value in the config")
+
+    def norm_gripper_to_real_gripper(self, norm_gripper_val):
+        norm_gripper_val = max(0.0, min(1.0, norm_gripper_val))
+        return norm_gripper_val * self.gripper_width + self.gripper_close_value
+
+    def real_gripper_to_norm_gripper(self, real_gripper_val):
+        norm_gripper_val = (
+            real_gripper_val - self.gripper_close_value
+        ) / self.gripper_width
+        return max(0.0, min(1.0, norm_gripper_val))
 
     def set_joints(self, desired_position, arm):
         """
@@ -170,7 +174,6 @@ class ARXInterface(Robot_Interface):
         velocity = np.zeros_like(desired_position) + 0.1
         torque = np.zeros_like(desired_position) + 0.1
 
-        # you need to set the timestamp this way since timestamp tells controller interpolator what the target it should reach at absolute timestamps
         cur_joint_state = self.controller[arm].get_joint_state()
         current_ts = getattr(cur_joint_state, "timestamp", 0.0)
         self.timestamp = current_ts + self.ts_offset
@@ -182,14 +185,12 @@ class ARXInterface(Robot_Interface):
             float(self.timestamp),
         )
 
-        # print(f"gripper val: {gripper_cmd}")
-        requested.gripper_pos = float(gripper_cmd)
+        requested.gripper_pos = self.norm_gripper_to_real_gripper(float(gripper_cmd))
         requested.gripper_vel = 0.1
         requested.gripper_torque = 0.2
 
         self.controller[arm].set_joint_cmd(requested)
 
-    # x,y,z,y,p,r
     def set_pose(self, pose, arm):
         if pose.shape != (7,):
             raise ValueError(
@@ -203,35 +204,35 @@ class ARXInterface(Robot_Interface):
     def get_obs(self):
         obs = {}
         joint_positions = np.zeros(14)
+        ee_poses = np.zeros(14)
         for arm in self.arms:
             arm_offset = 0
             if arm == "right":
                 arm_offset = 7
             joint_positions[arm_offset : arm_offset + 7] = self.get_joints(arm)
+            xyz, rot = self.get_pose(arm, se3=False)
+            ee_poses[arm_offset : arm_offset + 7] = np.concatenate(
+                [
+                    xyz,
+                    rot.as_euler("ZYX", degrees=False),
+                    [joint_positions[arm_offset + 6]],
+                ]
+            )
         obs["joint_positions"] = joint_positions
+        obs["ee_poses"] = ee_poses
 
         # camera logic
         for name, recorder in self.recorders.items():
             obs[name] = recorder.get_image()
         return obs
 
-    # removed static since can't figure out how to create ik when robot_urdf is not static
-    # take in ypr
     def solve_ik(self, ee_pose, arm):
         if ee_pose.shape != (6,):
             raise ValueError(
                 "For Eva, target position must be of shape (6,) for single arm"
             )
         pos_xyz = ee_pose[:3]
-        # ypr_euler = ee_pose[3:6]
-        # ypr_euler[[0,2]] = ypr_euler[[2,0]]
-        rot_mat = R.from_euler(
-            "ZYX", ee_pose[3:6], degrees=False
-        ).as_matrix()  # scipy output xyzw
-        # rot_mat2 = R.from_euler(
-        #     "XYZ", ee_pose[3:6], degrees=False
-        # )
-        # breakpoint()
+        rot_mat = R.from_euler("ZYX", ee_pose[3:6], degrees=False).as_matrix()
         arm_joints = self.kinematics_solver.ik(
             pos_xyz, rot_mat, cur_jnts=self.get_joints(arm)[:6]
         )
@@ -241,6 +242,7 @@ class ARXInterface(Robot_Interface):
         joints = self.controller[arm].get_joint_state()
         arm_joints = joints.pos()
         gripper = getattr(joints, "gripper_pos", 0.0)
+        gripper = self.real_gripper_to_norm_gripper(float(gripper))
         joints = np.array(
             [
                 arm_joints[0],
@@ -271,14 +273,16 @@ class ARXInterface(Robot_Interface):
 
         return pos, rot
 
+    def get_pose_6d(self, arm):
+        pos, rot = self.get_pose(arm, se3=False)
+        return np.concatenate([pos, rot.as_euler("ZYX", degrees=False)])
+
     def set_home(self):
         for arm in self.arms:
             self.controller[arm].reset_to_home()
 
 
 if __name__ == "__main__":
-    # Run Eva example
-    # Note: Update the URDF path before running
     ri = ARXInterface(arms=["left"])
     joints = ri.get_joints("left")
     breakpoint()

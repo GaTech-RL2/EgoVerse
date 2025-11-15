@@ -54,10 +54,11 @@ EVA_XML_PATH = os.path.join(
     os.path.dirname(egomimic.__file__), "resources/model_x5.xml"
 )
 
-HORIZON_BASE = 45   # horizon in real timesteps
+HORIZON_BASE = 45  # horizon in real timesteps
 CHUNK_LENGTH_BASE = 100  # number of interpolated points per chunk
 
 Array2D = Union[np.ndarray, torch.Tensor]
+
 
 def _to_numpy(x):
     """Convert torch / numpy / anything array-like to np.ndarray."""
@@ -66,6 +67,7 @@ def _to_numpy(x):
     if isinstance(x, torch.Tensor):
         return x.detach().cpu().numpy()
     return np.asarray(x)
+
 
 def _as_rotation(x):
     """Return a scipy Rotation from either Rotation or 3x3 ndarray."""
@@ -119,6 +121,7 @@ def fk_SE3(
         out[i, :3, 3] = torch.as_tensor(pos, dtype=dtype, device=device)
     return out
 
+
 def build_future_windows(arr: np.ndarray, horizon: int) -> np.ndarray:
     arr = np.asarray(arr)
     T, D = arr.shape
@@ -129,6 +132,7 @@ def build_future_windows(arr: np.ndarray, horizon: int) -> np.ndarray:
         out[t, :length, :] = arr[t:end]
         out[t, length:, :] = arr[end - 1]
     return out
+
 
 def prestack_with_mode(
     arr: np.ndarray,
@@ -141,6 +145,7 @@ def prestack_with_mode(
         return interpolate_arr_euler(windows, chunk_length)
     else:
         return interpolate_arr(windows, chunk_length)
+
 
 def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot=False):
     """
@@ -174,11 +179,13 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
             fk_right_positions = fk_xyz(
                 pose[:, joint_right_start : joint_right_end - 1], eva_fk
             )
-            
+
             fk_left_positions = _to_numpy(fk_left_positions)
             fk_right_positions = _to_numpy(fk_right_positions)
 
-            base_fk_positions = np.concatenate([fk_left_positions, fk_right_positions], axis=1)
+            base_fk_positions = np.concatenate(
+                [fk_left_positions, fk_right_positions], axis=1
+            )
 
             fk_left_positions = ee_pose_to_cam_frame(fk_left_positions, left_extrinsics)
             fk_right_positions = ee_pose_to_cam_frame(
@@ -190,9 +197,9 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
         else:
             fk_positions = fk_xyz(pose[:, joint_start : joint_end - 1], eva_fk)
             extrinsics = left_extrinsics if arm == "left" else right_extrinsics
-            
+
             base_fk_positions = fk_positions
-            
+
             fk_positions = ee_pose_to_cam_frame(fk_positions, extrinsics)
 
     else:
@@ -207,10 +214,13 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
 
             left_gripper = pose[:, joint_left_end - 1].reshape(-1, 1)
             right_gripper = pose[:, joint_right_end - 1].reshape(-1, 1)
-            
-            
-            left_ypr_base = R.from_matrix(fk_left_orientations).as_euler("zyx", degrees=False)
-            right_ypr_base = R.from_matrix(fk_right_orientations).as_euler("zyx", degrees=False)
+
+            left_ypr_base = R.from_matrix(fk_left_orientations).as_euler(
+                "zyx", degrees=False
+            )
+            right_ypr_base = R.from_matrix(fk_right_orientations).as_euler(
+                "zyx", degrees=False
+            )
 
             base_fk_positions = np.concatenate(
                 [
@@ -255,9 +265,11 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
             fk_orientations = fk[:, :3, :3]
 
             gripper = pose[:, joint_end - 1].reshape(-1, 1)
-            
+
             ypr_base = R.from_matrix(fk_orientations).as_euler("zyx", degrees=False)
-            base_fk_positions = np.concatenate([fk_positions, ypr_base, gripper], axis=1)
+            base_fk_positions = np.concatenate(
+                [fk_positions, ypr_base, gripper], axis=1
+            )
 
             extrinsics = left_extrinsics if arm == "left" else right_extrinsics
             fk_positions = ee_pose_to_cam_frame(fk_positions, extrinsics)
@@ -377,15 +389,17 @@ class EvaHD5Extractor:
             )
 
             # actions
-            joint_actions, cartesian_actions, base_cartesian_actions = EvaHD5Extractor.get_action(
-                episode["action"][:],
-                arm=arm,
-                prestack=prestack,
-                HORIZON=HORIZON_BASE,
-                CHUNK_LENGTH=CHUNK_LENGTH_BASE,
-                left_extrinsics=left_extrinsics,
-                right_extrinsics=right_extrinsics,
-                no_rot=no_rot,
+            joint_actions, cartesian_actions, base_cartesian_actions = (
+                EvaHD5Extractor.get_action(
+                    episode["action"][:],
+                    arm=arm,
+                    prestack=prestack,
+                    HORIZON=HORIZON_BASE,
+                    CHUNK_LENGTH=CHUNK_LENGTH_BASE,
+                    left_extrinsics=left_extrinsics,
+                    right_extrinsics=right_extrinsics,
+                    no_rot=no_rot,
+                )
             )
 
             episode_feats["actions_joints"] = joint_actions
@@ -397,7 +411,7 @@ class EvaHD5Extractor:
                 arm=arm,
                 ref_index=0,
             )
-            
+
             episode_feats["observations"][f"state.joint_positions"] = episode_feats[
                 "observations"
             ][f"state.joint_positions"][:, joint_start:joint_end]
@@ -502,9 +516,7 @@ class EvaHD5Extractor:
                 base_cartesian_actions = np.concatenate(
                     [left_base, right_base], axis=-1
                 )
-                cartesian_actions = np.concatenate(
-                    [left_cam, right_cam], axis=-1
-                )
+                cartesian_actions = np.concatenate([left_cam, right_cam], axis=-1)
             else:
                 base_cartesian_actions = prestack_with_mode(
                     base_np,
@@ -520,14 +532,13 @@ class EvaHD5Extractor:
                 )
 
         return (joint_actions, cartesian_actions, base_cartesian_actions)
-    
+
     @staticmethod
     def get_eef_action(
         actions_cartesian_base: np.ndarray,
         arm: str,
         ref_index: int = 0,
     ) -> np.ndarray:
-        
         if arm == "both":
             left_base = actions_cartesian_base[..., :7]
             right_base = actions_cartesian_base[..., 7:14]
@@ -539,43 +550,45 @@ class EvaHD5Extractor:
                 right_base, arm="right", ref_index=ref_index
             )
             return np.concatenate([left_rel, right_rel], axis=-1)
-        
+
         N, S, D = actions_cartesian_base.shape
 
-        p = actions_cartesian_base[..., :3]     # (N, S, 3)
+        p = actions_cartesian_base[..., :3]  # (N, S, 3)
         ypr = actions_cartesian_base[..., 3:6]  # (N, S, 3)
-        g = actions_cartesian_base[..., 6:7]    # (N, S, 1)
-        
+        g = actions_cartesian_base[..., 6:7]  # (N, S, 1)
+
         T = p.shape[0]
-        
-        ypr_flat = ypr.reshape(-1, 3)               # (N*S, 3)
+
+        ypr_flat = ypr.reshape(-1, 3)  # (N*S, 3)
         R_flat = R.from_euler("zyx", ypr_flat, degrees=False).as_matrix()  # (N*S, 3, 3)
-        R_seq = R_flat.reshape(N, S, 3, 3)          # (N, S, 3, 3)
+        R_seq = R_flat.reshape(N, S, 3, 3)  # (N, S, 3, 3)
 
         T_seq = np.zeros((N, S, 4, 4), dtype=np.float32)
         T_seq[..., :3, :3] = R_seq
         T_seq[..., :3, 3] = p
         T_seq[..., 3, 3] = 1.0
 
-        T0 = T_seq[:, ref_index, :, :]          # (N, 4, 4)
-        T0_inv = np.linalg.inv(T0)              # (N, 4, 4)
-            
-        T_rel = T0_inv[:, None, :, :] @ T_seq   # (N, S, 4, 4)
-        
-        p_rel = T_rel[..., :3, 3]          # (T, 3)
-        R_rel = T_rel[..., :3, :3]         # (T, 3, 3)
-        
-        R_rel_flat = R_rel.reshape(-1, 3, 3)    # (N*S, 3, 3)
-        ypr_rel_flat = R.from_matrix(R_rel_flat).as_euler("zyx", degrees=False)  # (N*S, 3)
-        ypr_rel = ypr_rel_flat.reshape(N, S, 3) # (N, S, 3)
-        
+        T0 = T_seq[:, ref_index, :, :]  # (N, 4, 4)
+        T0_inv = np.linalg.inv(T0)  # (N, 4, 4)
+
+        T_rel = T0_inv[:, None, :, :] @ T_seq  # (N, S, 4, 4)
+
+        p_rel = T_rel[..., :3, 3]  # (T, 3)
+        R_rel = T_rel[..., :3, :3]  # (T, 3, 3)
+
+        R_rel_flat = R_rel.reshape(-1, 3, 3)  # (N*S, 3, 3)
+        ypr_rel_flat = R.from_matrix(R_rel_flat).as_euler(
+            "zyx", degrees=False
+        )  # (N*S, 3)
+        ypr_rel = ypr_rel_flat.reshape(N, S, 3)  # (N, S, 3)
+
         actions_rel = np.empty_like(actions_cartesian_base)
         actions_rel[..., :3] = p_rel
         actions_rel[..., 3:6] = ypr_rel
         actions_rel[..., 6:7] = g  # keep gripper as-is
 
         return actions_rel
-    
+
     @staticmethod
     def get_ee_pose(
         qpos: np.array,
@@ -677,7 +690,11 @@ class EvaHD5Extractor:
         for episode_path in episode_list:
             with h5py.File(episode_path, "r") as data:
                 # Check for required keys - h5py requires checking without leading slash or using get()
-                if "action" not in data or "observations" not in data or "joint_positions" not in data["observations"]:
+                if (
+                    "action" not in data
+                    or "observations" not in data
+                    or "joint_positions" not in data["observations"]
+                ):
                     raise ValueError(
                         "Missing required keys in the hdf5 file. Make sure the keys '/action' and '/observations/joint_positions' are present."
                     )
@@ -1297,15 +1314,58 @@ def argument_parse():
     )
 
     # Optional arguments
-    parser.add_argument("--description", type=str, default="Eva recorded dataset.", help="Description of the dataset.")
-    parser.add_argument("--arm", type=str, choices=["left", "right", "both"], default="both", help="Specify the arm for processing.")
-    parser.add_argument("--extrinsics-key", type=str, default="x5Dec10_2", help="Key to look up camera extrinsics.")
-    parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
-    parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
-    parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
-    parser.add_argument("--image-compressed", type=str2bool, default=True, help="Set to True if the images are compressed.")
-    parser.add_argument("--video-encoding", type=str2bool, default=True, help="Set to True to encode images as videos.")
-    parser.add_argument("--prestack", type=str2bool, default=True, help="Set to True to precompute action chunks.")
+    parser.add_argument(
+        "--description",
+        type=str,
+        default="Eva recorded dataset.",
+        help="Description of the dataset.",
+    )
+    parser.add_argument(
+        "--arm",
+        type=str,
+        choices=["left", "right", "both"],
+        default="both",
+        help="Specify the arm for processing.",
+    )
+    parser.add_argument(
+        "--extrinsics-key",
+        type=str,
+        default="x5Dec10_2",
+        help="Key to look up camera extrinsics.",
+    )
+    parser.add_argument(
+        "--private",
+        type=str2bool,
+        default=False,
+        help="Set to True to make the dataset private.",
+    )
+    parser.add_argument(
+        "--push",
+        type=str2bool,
+        default=True,
+        help="Set to True to push videos to the hub.",
+    )
+    parser.add_argument(
+        "--license", type=str, default="apache-2.0", help="License for the dataset."
+    )
+    parser.add_argument(
+        "--image-compressed",
+        type=str2bool,
+        default=True,
+        help="Set to True if the images are compressed.",
+    )
+    parser.add_argument(
+        "--video-encoding",
+        type=str2bool,
+        default=True,
+        help="Set to True to encode images as videos.",
+    )
+    parser.add_argument(
+        "--prestack",
+        type=str2bool,
+        default=True,
+        help="Set to True to precompute action chunks.",
+    )
 
     # Performance tuning arguments
     parser.add_argument(
