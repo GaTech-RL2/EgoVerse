@@ -20,7 +20,7 @@ def lerobot_job(
         name=dataset_name,
         raw_path=raw_path,
         dataset_repo_id=f"rpuns/{dataset_name}",
-        fps=50,
+        fps=30,
         arm=arm,
         extrinsics_key=extrinsics_key,
         description=description,

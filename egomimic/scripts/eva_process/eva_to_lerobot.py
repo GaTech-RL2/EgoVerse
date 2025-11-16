@@ -39,7 +39,7 @@ from scipy.spatial.transform import Rotation as R
 from enum import Enum
 
 ## CHANGE THIS TO YOUR DESIRED CACHE FOR HF
-os.environ["HF_HOME"] = "/coc/flash7/rpunamiya6/.cache/huggingface"
+os.environ["HF_HOME"] = "~/.cache/huggingface"
 
 DATASET_KEY_MAPPINGS = {
     "joint_positions": "joint_positions",
