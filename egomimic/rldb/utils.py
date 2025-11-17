@@ -382,7 +382,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         filters={},
     ):
         temp_root += "/S3_rldb_data"
-        filters["embodiment"] = embodiment
+        filters["robot_name"] = embodiment
 
         if temp_root[0] != "/":
             temp_root = "/" + temp_root
