@@ -334,7 +334,7 @@ def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both"):
             right_actions = actions[:, 3:6]
             actions_drawable = np.concatenate((left_actions, right_actions), axis=0)
 
-            base_frame = True # TODO: add this to the config
+            base_frame = False # TODO: add this to the config
             if base_frame:
                 left_extrinsics = np.linalg.inv(left_extrinsics) # Need to use T_cam_base, base2cam
                 right_extrinsics = np.linalg.inv(right_extrinsics) # Need to use T_cam_base, base2cam

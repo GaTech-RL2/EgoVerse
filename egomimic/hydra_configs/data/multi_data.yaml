@@ -57,7 +57,7 @@ train_datasets:
     repo_id: "objCont"
     # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
     # root: "${oc.env:TMPDIR}/cup_camframe" # remember to just directly use the folder
-    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/cupOnSAUZZ/release/cup_on_saucer_eeframe/cup_lerobot"
+    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/cupOnSAUZZ/release/cup_on_saucer_camframe/cup_lerobot"
     local_files_only: true
     mode: "train"
 
@@ -115,7 +115,7 @@ valid_datasets:
     repo_id: "objCont"
     # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
     # root: "${oc.env:TMPDIR}/cup_camframe"
-    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/cupOnSAUZZ/release/cup_on_saucer_eeframe/cup_lerobot"
+    root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/cupOnSAUZZ/release/cup_on_saucer_camframe/cup_lerobot"
     local_files_only: true
     mode: "valid"
 

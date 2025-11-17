@@ -1,16 +1,16 @@
 defaults:
   - model: hpt_cotrain_flow_transformer
   - paths: default
-  - trainer: ddp
+  - trainer: ddp 
   - debug: null
-  - logger: wandb
+  - logger: wandb 
   - data: multi_data
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
 
-name: cup_eeframe
-description: cup_eeframe
+name: cup_camframe
+description: cup_camframe
 ckpt_path: null
 train: true
 eval: false

@@ -1136,7 +1136,7 @@ class HPT(Algo):
                     preds, preds_rot = self._extract_xyz(preds)
                 
                     # If we are using ee_frame, where gt and preds are deltas in ee frame, need to add the offset to gt and preds
-                    ee_frame = True
+                    ee_frame = False
                     if ee_frame:
                         # cartesian arm is (B, 14), xyz quat xyz quat, just take :3 and then 6:9
                         print(f"cartesian_arm: {cartesian_arm.shape}")
