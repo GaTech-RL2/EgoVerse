@@ -15,6 +15,8 @@ from egomimic.utils.egomimicUtils import (
     EXTRINSICS,
     str2bool,
     ee_orientation_to_cam_frame,
+    base_frame_to_cam_frame,
+    cam_frame_to_base_frame,
 )
 
 from egomimic.robot.eva.eva_kinematics import (
@@ -562,9 +564,8 @@ class EvaHD5Extractor:
             )
         for episode_path in episode_list:
             with h5py.File(episode_path, "r") as data:
-                if not all(
-                    key in data for key in ["/action", "/observations/joint_positions"]
-                ):
+                # Check for required keys - h5py requires checking without leading slash or using get()
+                if "action" not in data or "observations" not in data or "joint_positions" not in data["observations"]:
                     raise ValueError(
                         "Missing required keys in the hdf5 file. Make sure the keys '/action' and '/observations/joint_positions' are present."
                     )
@@ -1184,58 +1185,15 @@ def argument_parse():
     )
 
     # Optional arguments
-    parser.add_argument(
-        "--description",
-        type=str,
-        default="Eva recorded dataset.",
-        help="Description of the dataset.",
-    )
-    parser.add_argument(
-        "--arm",
-        type=str,
-        choices=["left", "right", "both"],
-        default="both",
-        help="Specify the arm for processing.",
-    )
-    parser.add_argument(
-        "--extrinsics-key",
-        type=str,
-        default="ariaOct18_arx",
-        help="Key to look up camera extrinsics.",
-    )
-    parser.add_argument(
-        "--private",
-        type=str2bool,
-        default=False,
-        help="Set to True to make the dataset private.",
-    )
-    parser.add_argument(
-        "--push",
-        type=str2bool,
-        default=True,
-        help="Set to True to push videos to the hub.",
-    )
-    parser.add_argument(
-        "--license", type=str, default="apache-2.0", help="License for the dataset."
-    )
-    parser.add_argument(
-        "--image-compressed",
-        type=str2bool,
-        default=True,
-        help="Set to True if the images are compressed.",
-    )
-    parser.add_argument(
-        "--video-encoding",
-        type=str2bool,
-        default=True,
-        help="Set to True to encode images as videos.",
-    )
-    parser.add_argument(
-        "--prestack",
-        type=str2bool,
-        default=True,
-        help="Set to True to precompute action chunks.",
-    )
+    parser.add_argument("--description", type=str, default="Eva recorded dataset.", help="Description of the dataset.")
+    parser.add_argument("--arm", type=str, choices=["left", "right", "both"], default="both", help="Specify the arm for processing.")
+    parser.add_argument("--extrinsics-key", type=str, default="x5Nov18_3", help="Key to look up camera extrinsics.")
+    parser.add_argument("--private", type=str2bool, default=False, help="Set to True to make the dataset private.")
+    parser.add_argument("--push", type=str2bool, default=True, help="Set to True to push videos to the hub.")
+    parser.add_argument("--license", type=str, default="apache-2.0", help="License for the dataset.")
+    parser.add_argument("--image-compressed", type=str2bool, default=True, help="Set to True if the images are compressed.")
+    parser.add_argument("--video-encoding", type=str2bool, default=True, help="Set to True to encode images as videos.")
+    parser.add_argument("--prestack", type=str2bool, default=True, help="Set to True to precompute action chunks.")
 
     # Performance tuning arguments
     parser.add_argument(

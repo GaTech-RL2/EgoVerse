@@ -65,7 +65,7 @@ class EvaMinkKinematicsSolver(MinkKinematicsSolver):
         eef_frame_type: str = "site",
         velocity_limits: dict = None,
         solver: str = "daqp",
-        max_iterations: int = 20,
+        max_iterations: int = 100,
         position_tolerance: float = 1e-3,
         orientation_tolerance: float = 1e-3,
     ):

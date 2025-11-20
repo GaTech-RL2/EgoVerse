@@ -18,6 +18,7 @@ import pyarrow.parquet as pq
 import huggingface_hub
 import math
 import argparse
+from pathlib import Path
 
 STD_SCALE = 0.02
 
@@ -129,6 +130,16 @@ EXTRINSICS = {
         ),
     },
     "ariaOct18_arx": {
+        "right" : np.array([[ 0.92889757,  0.36039153, -0.08524815,  0.30147348],
+       [-0.32558192,  0.68501478, -0.65172936,  0.06826981],
+       [-0.1764815 ,  0.63314508,  0.75364554,  0.61726764],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+        "left" : np.array([[ 0.67106869,  0.09057156,  0.73584211,  0.37354573],
+       [ 0.01770855,  0.99026867, -0.13803754,  0.22691753],
+       [-0.74118367,  0.10566337,  0.66293441,  0.72137284],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    },
+    "x5Nov15_2": {
         "right": np.array(
             [
                 [0.92889757, 0.36039153, -0.08524815, 0.30147348],
@@ -137,15 +148,25 @@ EXTRINSICS = {
                 [0.0, 0.0, 0.0, 1.0],
             ]
         ),
-        "left": np.array(
+       "left": np. array([[-0.03286194, -0.79989118,  0.59924469,  0.03464527],
+       [-0.9994423 ,  0.02274144, -0.02445234, -0.25152234],
+       [ 0.00593152, -0.59971404, -0.80019241,  0.5092148 ],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+    },
+    "x5Nov18_3": {
+        "right": np.array(
             [
-                [0.67106869, 0.09057156, 0.73584211, 0.37354573],
-                [0.01770855, 0.99026867, -0.13803754, 0.22691753],
-                [-0.74118367, 0.10566337, 0.66293441, 0.72137284],
+                [0.92889757, 0.36039153, -0.08524815, 0.30147348],
+                [-0.32558192, 0.68501478, -0.65172936, 0.06826981],
+                [-0.1764815, 0.63314508, 0.75364554, 0.61726764],
                 [0.0, 0.0, 0.0, 1.0],
             ]
         ),
-    },
+        "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
+       [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+       [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    }
 }
 
 INTRINSICS = {"base": ARIA_INTRINSICS, "base_half": ARIA_INTRINSICS_HALF}
@@ -398,8 +419,7 @@ def draw_rotation_text(
 
     return image
 
-
-def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both"):
+def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None):
     """
     args:
         im: (H, W, C)
@@ -412,31 +432,22 @@ def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both"):
     returns
         im: (H, W, C)
     """
-    aloha_fk = AlohaFK()
-    if type == "joints":
+    if type == "joints" and kinematics_solver is None:
+        raise ValueError("kinematics_solver is required for joints actions")
+    if type == "joints": 
         if arm == "both":
-            right_actions = aloha_fk.fk(actions[:, 7:13])
-            right_actions_drawable = ee_pose_to_cam_frame(
-                right_actions, extrinsics["right"]
-            )
-            left_actions = aloha_fk.fk(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(
-                left_actions, extrinsics["left"]
-            )
-            actions_drawable = np.concatenate(
-                (left_actions_drawable, right_actions_drawable), axis=0
-            )
+            right_actions = kinematics_solver.fk_pos(actions[:, 7:13])
+            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            left_actions = kinematics_solver.fk_pos(actions[:, :6])
+            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
+            actions_drawable = np.concatenate((left_actions_drawable, right_actions_drawable), axis=0)
         elif arm == "right":
-            right_actions = aloha_fk.fk(actions[:, :6])
-            right_actions_drawable = ee_pose_to_cam_frame(
-                right_actions, extrinsics["right"]
-            )
+            right_actions = kinematics_solver.fk_pos(actions[:, :6])
+            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
             actions_drawable = right_actions_drawable
         elif arm == "left":
-            left_actions = aloha_fk.fk(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(
-                left_actions, extrinsics["left"]
-            )
+            left_actions = kinematics_solver.fk_pos(actions[:, :6])
+            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
             actions_drawable = left_actions_drawable
     else:
         actions = actions.reshape(-1, 3)
@@ -541,6 +552,39 @@ def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
     ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
 
+def base_frame_to_cam_frame(base_frame, T_cam_base):
+    """
+    base_frame: (N, 6) (x, y, z, yaw, pitch, roll)
+    T_cam_base: (4, 4)
+
+    returns cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
+    """
+    N, _ = base_frame.shape
+    se3 = np.zeros((N, 4, 4))
+    se3[:, :3, :3] = Rotation.from_euler('zyx', base_frame[:, 3:6]).as_matrix()
+    se3[:, :3, 3] = base_frame[:, :3]
+    se3[:, 3, 3] = 1
+    cam_frame = np.linalg.inv(T_cam_base) @ se3
+    xyz = cam_frame[:, :3, 3]
+    ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler('zyx', degrees=False)
+    return np.concatenate([xyz, ypr], axis=1)
+
+def cam_frame_to_base_frame(cam_frame, T_cam_base):
+    """
+    cam_frame: (N, 6) (x, y, z, yaw, pitch, roll)
+    T_cam_base: (4, 4)
+
+    returns base_frame: (N, 6) (x, y, z, yaw, pitch, roll)
+    """
+    N, _ = cam_frame.shape
+    se3 = np.zeros((N, 4, 4))
+    se3[:, :3, :3] = Rotation.from_euler('zyx', cam_frame[:, 3:6]).as_matrix()
+    se3[:, :3, 3] = cam_frame[:, :3]
+    se3[:, 3, 3] = 1
+    base_frame = T_cam_base @ se3
+    xyz = base_frame[:, :3, 3]
+    ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler('zyx', degrees=False)
+    return np.concatenate([xyz, ypr], axis=1)
 
 def ee_orientation_to_cam_frame(ee_orientation_base, T_cam_base):
     """
@@ -580,10 +624,8 @@ def batched_rotation_matrices_to_euler_angles(batch_R):
         reshaped_R = batch_R.reshape(-1, 3, 3)
     # reshaped_R = batch_R.view(-1, 3, 3).cpu().numpy()
     # Use scipy's Rotation to convert rotation matrices to Euler angles
-    rotation_objects = Rotation.from_matrix(reshaped_R)
-    euler_angles = rotation_objects.as_euler(
-        "zyx", degrees=False
-    )  # Shape [batch_size * seq_len, 3]
+    rotation_objects = R.from_matrix(reshaped_R)
+    euler_angles = rotation_objects.as_euler('zyx', degrees=False)  # Shape [batch_size * seq_len, 3]
     # Convert back to torch and reshape to original batch dimensions
     euler_angles = torch.tensor(euler_angles, device=batch_R.device)
     euler_angles = euler_angles.view(batch_size, 3)
@@ -837,13 +879,23 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
 
 
 class AlohaFK:
-    def __init__(self):
-        urdf_path = os.path.join(
-            os.path.dirname(egomimic.__file__), "resources/model_aloha.urdf"
-        )
-        self.chain = pk.build_serial_chain_from_urdf(
-            open(urdf_path).read(), "vx300s/ee_gripper_link"
-        )
+    def __init__(self, robot="arx"):
+        if robot == "aloha":
+            urdf_path = os.path.join(
+                os.path.dirname(egomimic.__file__), "resources/model_eve.urdf"
+            )
+            self.chain = pk.build_serial_chain_from_urdf(
+                open(urdf_path).read(), "vx300s/ee_gripper_link"
+            )
+        elif robot == "arx":
+            urdf_path = Path(os.path.join(
+                os.path.dirname(egomimic.__file__), "resources/model_arx.urdf"
+            ))
+            xml_bytes = urdf_path.read_bytes()
+                
+            self.chain = pk.build_serial_chain_from_urdf(
+                xml_bytes, "link6"
+            )
 
     def fk(self, qpos):
         if isinstance(qpos, np.ndarray):

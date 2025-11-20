@@ -5,16 +5,13 @@ robomimic_model:
   camera_transforms:
     _target_: egomimic.utils.egomimicUtils.CameraTransforms
     intrinsics_key: "base" # change to base_half if using half res
-    extrinsics_key: "x5Nov15_2"
+    extrinsics_key: "x5Nov18_3"
 
   diffusion: false
-  6dof: false
-  kinematics_solver:
-    _target_: egomimic.robot.eva.eva_kinematics.EvaMinkKinematicsSolver
-    model_path: /nethome/paphiwetsa3/flash/projects/EgoVerse/egomimic/resources/model_x5.xml
+  6dof: true
 
   ac_keys:
-    eva_left_arm: "actions_joints"
+    eva_left_arm: "actions_cartesian"
 
   trunk:
     embed_dim: 256

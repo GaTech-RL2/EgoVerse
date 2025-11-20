@@ -12,7 +12,6 @@ from torchmetrics import MeanSquaredError
 
 from egomimic.models.hpt_nets import *
 from egomimic.algo.algo import Algo
-from egomimic.utils.egomimicUtils import draw_actions
 
 from egomimic.utils.egomimicUtils import (
     get_sinusoid_encoding_table,
@@ -843,6 +842,7 @@ class HPT(Algo):
         self.auxiliary_ac_keys = auxiliary_ac_keys.copy()
         self.shared_ac_key = kwargs.get("shared_ac_key", None)
         self.is_6dof = kwargs.get("6dof", False)
+        self.kinematics_solver = kwargs.get("kinematics_solver", None)
 
         model = HPTModel(**trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
@@ -1060,7 +1060,7 @@ class HPT(Algo):
         unnorm_preds = {}
         for embodiment_id, _batch in batch.items():
             cam_keys = self.camera_keys[embodiment_id]
-            proprio_keys = self.proprio_keys[embodiment_id]
+            proprio_keys = self.proprio_keys[embodiment_id] 
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
             embodiment_name = get_embodiment(embodiment_id).lower()
@@ -1274,30 +1274,18 @@ class HPT(Algo):
                             f"Unknown action type with shape {preds.shape}"
                         )
 
-                    arm = (
-                        "right"
-                        if preds.shape[-1] == 7 or preds.shape[-1] == 3
-                        else "both"
-                    )
-                    ims[b] = draw_actions(
-                        ims[b],
-                        ac_type,
-                        "Purples",
-                        preds[b].cpu().numpy(),
-                        self.camera_transforms.extrinsics,
-                        self.camera_transforms.intrinsics,
-                        arm=arm,
-                    )
-                    ims[b] = draw_actions(
-                        ims[b],
-                        ac_type,
-                        "Greens",
-                        gt[b].cpu().numpy(),
-                        self.camera_transforms.extrinsics,
-                        self.camera_transforms.intrinsics,
-                        arm=arm,
-                    )
-
+                    # Determine arm from embodiment name, not action shape
+                    if "bimanual" in embodiment_name:
+                        arm = "both"
+                    elif "left" in embodiment_name:
+                        arm = "left"
+                    elif "right" in embodiment_name:
+                        arm = "right"
+                    else:
+                        raise ValueError(f"Unknown embodiment name: {embodiment_name}")
+                    ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm, kinematics_solver=self.kinematics_solver)
+                    ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm, kinematics_solver=self.kinematics_solver)
+                    
                     if self.is_6dof and ac_key == "actions_cartesian":
                         ims[b] = draw_rotation_text(
                             ims[b], gt_rot[b][0], preds_rot[b][0], position=(340, 20)
