@@ -21,6 +21,8 @@ import sys
 import torch
 from scipy.spatial.transform import Rotation
 
+from egomimic.rldb.utils import EMBODIMENT
+
 sys.path.insert(0, str(Path(__file__).parent / "lerobot"))
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
@@ -252,6 +254,7 @@ class MeckaExtractor:
             fps = 30
             timestamps = np.arange(num_frames) / fps
             frame_indices = np.arange(num_frames)
+            embodiment = np.array([EMBODIMENT.MECKA_BIMANUAL.value] * num_frames, dtype=np.int32)
 
             ee_pose_cam = MeckaExtractor._compute_camera_relative_poses(
                 hand_poses_world, camera_transforms
@@ -270,6 +273,13 @@ class MeckaExtractor:
 
             actions_head_cartesian_world = MeckaExtractor._extract_head_poses(camera_transforms)
 
+            if arm == "both":
+                enum = EMBODIMENT.MECKA_BIMANUAL
+            elif arm == "left":
+                enum = EMBODIMENT.MECKA_LEFT_ARM
+            else:
+                enum = EMBODIMENT.MECKA_RIGHT_ARM
+
             episode_feats = {
                 "observations": {
                     "state.ee_pose_cam": ee_pose_cam,
@@ -278,6 +288,7 @@ class MeckaExtractor:
                 "actions_ee_cartesian_cam": actions_ee_cartesian_cam,
                 "actions_ee_keypoints_world": actions_ee_keypoints_world,
                 "actions_head_cartesian_world": actions_head_cartesian_world,
+                "metadata.embodiment": embodiment,
                 "timestamp": timestamps,
                 "frame_index": frame_indices,
                 "annotations": annotations_df,
@@ -521,12 +532,18 @@ class MeckaExtractor:
                 "dtype": "float32",
                 "shape": (10,),
                 "names": ["head_pose_10d"]
+            }, 
+            "metadata.embodiment": {
+                "dtype": "int32",
+                "shape": (1,),
+                "names": ["dim_0"]
             }
+
         }
 
         episode_meta = episode_feats["episode_meta"]
         metadata = {
-            "robot_type": "human_hands",
+            "robot_type": "MECKA_BIMANUAL", # TODO: make dynamic based on arm
             "fps": 30,
             "episode_id": episode_meta["id"],
             "user_id": episode_meta.get("user_id"),
@@ -577,11 +594,23 @@ class MeckaExtractor:
                 episode_feats["actions_head_cartesian_world"][t]
             ).float()
 
+            frame_dict["metadata.embodiment"] = float(episode_feats["metadata.embodiment"][t])
+
+
+            # # include per-frame embodiment metadata if present
+            # emb = episode_feats.get("metadata.embodiment")
+            # if emb is not None and len(emb) > 0:
+            #     try:
+            #         val = int(emb[t])
+            #     except Exception:
+            #         val = int(np.asarray(emb)[t])
+            #     frame_dict["metadata.embodiment"] = torch.tensor([val], dtype=torch.int32)
+
             frame_dict["timestamp"] = float(episode_feats["timestamp"][t])
 
             frames.append(frame_dict)
 
-        return frames
+        return frames   
 
 
 class MeckaDatasetConverter:
@@ -604,6 +633,15 @@ class MeckaDatasetConverter:
         self.prestack = prestack
         self.video_encoding = video_encoding
         self.output_dir = None
+
+        if arm == "both":
+            robotype = EMBODIMENT.MECKA_BIMANUAL
+        elif arm == "left":
+            robotype = EMBODIMENT.MECKA_LEFT_ARM
+        else:
+            robotype = EMBODIMENT.MECKA_RIGHT_ARM
+        
+        self.robot_type = robotype.name
 
         logger.info("Processing episode to extract features...")
         self.episode_feats = MeckaExtractor.process_episode(
@@ -630,7 +668,7 @@ class MeckaDatasetConverter:
             repo_id=self.repo_id,
             fps=30,
             root=output_dir,
-            robot_type="human_hands",
+            robot_type= self.robot_type,
             features=self.features,
             use_videos=self.video_encoding
         )
