@@ -194,6 +194,6 @@ def lambda_handler(event, context):
     }
 
 
-# # Local testing
-# if __name__ == "__main__":
-#     lambda_handler({}, None)
+# Local testing
+if __name__ == "__main__":
+    lambda_handler({}, None)
