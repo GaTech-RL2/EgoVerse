@@ -59,6 +59,13 @@ CHUNK_LENGTH_ACT = 100
 
 Array2D = Union[np.ndarray, torch.Tensor]
 
+def _to_numpy(x):
+    """Convert torch / numpy / anything array-like to np.ndarray."""
+    if isinstance(x, np.ndarray):
+        return x
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu().numpy()
+    return np.asarray(x)
 
 def _as_rotation(x):
     """Return a scipy Rotation from either Rotation or 3x3 ndarray."""
@@ -175,6 +182,12 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
             fk_right_positions = fk_xyz(
                 pose[:, joint_right_start : joint_right_end - 1], eva_fk
             )
+            
+            fk_left_positions = _to_numpy(fk_left_positions)
+            fk_right_positions = _to_numpy(fk_right_positions)
+
+            base_fk_positions = np.concatenate([fk_left_positions, fk_right_positions], axis=1)
+
             fk_left_positions = ee_pose_to_cam_frame(fk_left_positions, left_extrinsics)
             fk_right_positions = ee_pose_to_cam_frame(
                 fk_right_positions, right_extrinsics
@@ -185,6 +198,9 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
         else:
             fk_positions = fk_xyz(pose[:, joint_start : joint_end - 1], eva_fk)
             extrinsics = left_extrinsics if arm == "left" else right_extrinsics
+            
+            base_fk_positions = fk_positions
+            
             fk_positions = ee_pose_to_cam_frame(fk_positions, extrinsics)
 
     else:
@@ -199,6 +215,22 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
 
             left_gripper = pose[:, joint_left_end - 1].reshape(-1, 1)
             right_gripper = pose[:, joint_right_end - 1].reshape(-1, 1)
+            
+            
+            left_ypr_base = R.from_matrix(fk_left_orientations).as_euler("zyx", degrees=False)
+            right_ypr_base = R.from_matrix(fk_right_orientations).as_euler("zyx", degrees=False)
+
+            base_fk_positions = np.concatenate(
+                [
+                    fk_left_positions,
+                    left_ypr_base,
+                    left_gripper,
+                    fk_right_positions,
+                    right_ypr_base,
+                    right_gripper,
+                ],
+                axis=1,
+            )
 
             fk_left_positions = ee_pose_to_cam_frame(fk_left_positions, left_extrinsics)
             fk_right_positions = ee_pose_to_cam_frame(
@@ -231,6 +263,9 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
             fk_orientations = fk[:, :3, :3]
 
             gripper = pose[:, joint_end - 1].reshape(-1, 1)
+            
+            ypr_base = R.from_matrix(fk_orientations).as_euler("zyx", degrees=False)
+            base_fk_positions = np.concatenate([fk_positions, ypr_base, gripper], axis=1)
 
             extrinsics = left_extrinsics if arm == "left" else right_extrinsics
             fk_positions = ee_pose_to_cam_frame(fk_positions, extrinsics)
@@ -240,7 +275,7 @@ def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot
 
             fk_positions = np.concatenate([fk_positions, fk_ypr, gripper], axis=1)
 
-    return fk_positions
+    return fk_positions, base_fk_positions
 
 
 class EvaHD5Extractor:
@@ -350,7 +385,7 @@ class EvaHD5Extractor:
             )
 
             # actions
-            joint_actions, cartesian_actions = EvaHD5Extractor.get_action(
+            joint_actions, cartesian_actions, base_cartesian_actions = EvaHD5Extractor.get_action(
                 episode["action"][:],
                 arm=arm,
                 prestack=prestack,
@@ -363,7 +398,14 @@ class EvaHD5Extractor:
 
             episode_feats["actions_joints"] = joint_actions
             episode_feats["actions_cartesian"] = cartesian_actions
+            episode_feats["actions_base_cartesian"] = base_cartesian_actions
 
+            episode_feats["actions_eef_cartesian"] = EvaHD5Extractor.get_eef_action(
+                actions_cartesian_base=base_cartesian_actions,
+                arm=arm,
+                ref_index=0,
+            )
+            
             episode_feats["observations"][f"state.joint_positions"] = episode_feats[
                 "observations"
             ][f"state.joint_positions"][:, joint_start:joint_end]
@@ -437,7 +479,7 @@ class EvaHD5Extractor:
             joint_start = 0
             joint_end = 14
 
-        cartesian_actions = joint_to_pose(
+        cartesian_actions, base_cartesian_actions = joint_to_pose(
             pose=joint_actions,
             arm=arm,
             left_extrinsics=left_extrinsics,
@@ -460,10 +502,70 @@ class EvaHD5Extractor:
             cartesian_actions_sampled = sample_interval_points(
                 cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
             )
+            base_cartesian_actions = get_future_points(
+                base_cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
+            )
+            base_cartesian_actions_sampled = sample_interval_points(
+                base_cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
+            )
 
-        # TODO: fix saving the sampled
-        return (joint_actions, cartesian_actions)
+        return (joint_actions, cartesian_actions, base_cartesian_actions)
+    
+    @staticmethod
+    def get_eef_action(
+        actions_cartesian_base: np.ndarray,
+        arm: str,
+        ref_index: int = 0,
+    ) -> np.ndarray:
+        
+        if arm == "both":
+            left_base = actions_cartesian_base[..., :7]
+            right_base = actions_cartesian_base[..., 7:14]
 
+            left_rel = EvaHD5Extractor.get_eef_action(
+                left_base, arm="left", ref_index=ref_index
+            )
+            right_rel = EvaHD5Extractor.get_eef_action(
+                right_base, arm="right", ref_index=ref_index
+            )
+            return np.concatenate([left_rel, right_rel], axis=1)
+        
+        N, S, D = actions_cartesian_base.shape
+
+        p = actions_cartesian_base[..., :3]     # (N, S, 3)
+        ypr = actions_cartesian_base[..., 3:6]  # (N, S, 3)
+        g = actions_cartesian_base[..., 6:7]    # (N, S, 1)
+        
+        T = p.shape[0]
+        
+        ypr_flat = ypr.reshape(-1, 3)               # (N*S, 3)
+        R_flat = R.from_euler("zyx", ypr_flat, degrees=False).as_matrix()  # (N*S, 3, 3)
+        R_seq = R_flat.reshape(N, S, 3, 3)          # (N, S, 3, 3)
+
+        T_seq = np.zeros((N, S, 4, 4), dtype=np.float32)
+        T_seq[..., :3, :3] = R_seq
+        T_seq[..., :3, 3] = p
+        T_seq[..., 3, 3] = 1.0
+
+        T0 = T_seq[:, ref_index, :, :]          # (N, 4, 4)
+        T0_inv = np.linalg.inv(T0)              # (N, 4, 4)
+            
+        T_rel = T0_inv[:, None, :, :] @ T_seq   # (N, S, 4, 4)
+        
+        p_rel = T_rel[..., :3, 3]          # (T, 3)
+        R_rel = T_rel[..., :3, :3]         # (T, 3, 3)
+        
+        R_rel_flat = R_rel.reshape(-1, 3, 3)    # (N*S, 3, 3)
+        ypr_rel_flat = R.from_matrix(R_rel_flat).as_euler("zyx", degrees=False)  # (N*S, 3)
+        ypr_rel = ypr_rel_flat.reshape(N, S, 3) # (N, S, 3)
+        
+        actions_rel = np.empty_like(actions_cartesian_base)
+        actions_rel[..., :3] = p_rel
+        actions_rel[..., 3:6] = ypr_rel
+        actions_rel[..., 6:7] = g  # keep gripper as-is
+
+        return actions_rel
+    
     @staticmethod
     def get_ee_pose(
         qpos: np.array,
@@ -492,7 +594,7 @@ class EvaHD5Extractor:
             ee_pose SE{3}
         """
 
-        ee_pose = joint_to_pose(
+        ee_pose, _ = joint_to_pose(
             qpos, arm, left_extrinsics, right_extrinsics, no_rot=no_rot
         )
 
