@@ -15,8 +15,8 @@ from egomimic.utils.egomimicUtils import (
     EXTRINSICS,
     str2bool,
     ee_orientation_to_cam_frame,
-    base_frame_to_cam_frame,
-    cam_frame_to_base_frame,
+    interpolate_arr,
+    interpolate_arr_euler,
 )
 
 from egomimic.robot.eva.eva_kinematics import (
@@ -54,8 +54,8 @@ EVA_XML_PATH = os.path.join(
     os.path.dirname(egomimic.__file__), "resources/model_x5.xml"
 )
 
-POINT_GAP_ACT = 2
-CHUNK_LENGTH_ACT = 100
+HORIZON_BASE = 45   # horizon in real timesteps
+CHUNK_LENGTH_BASE = 100  # number of interpolated points per chunk
 
 Array2D = Union[np.ndarray, torch.Tensor]
 
@@ -119,36 +119,28 @@ def fk_SE3(
         out[i, :3, 3] = torch.as_tensor(pos, dtype=dtype, device=device)
     return out
 
-
-def get_future_points(arr, POINT_GAP=POINT_GAP_ACT, CHUNK_LENGTH=CHUNK_LENGTH_ACT):
-    """
-    arr: (T, ACTION_DIM)
-    POINT_GAP: how many timesteps to skip
-    CHUNK_LENGTH: how many future points to collect
-    given an array arr, prepack the future points into each timestep.  return an array of size (T, CHUNK_LENGTH, ACTION_DIM).  If there are not enough future points, pad with the last point.
-    do it purely vectorized
-    """
-    T, ACTION_DIM = arr.shape
-    result = np.zeros((T, CHUNK_LENGTH, ACTION_DIM))
-
+def build_future_windows(arr: np.ndarray, horizon: int) -> np.ndarray:
+    arr = np.asarray(arr)
+    T, D = arr.shape
+    out = np.empty((T, horizon, D), dtype=arr.dtype)
     for t in range(T):
-        future_indices = np.arange(t, t + POINT_GAP * (CHUNK_LENGTH), POINT_GAP)
-        future_indices = np.clip(future_indices, 0, T - 1)
-        result[t] = arr[future_indices]
-    return result
+        end = min(t + horizon, T)
+        length = end - t
+        out[t, :length, :] = arr[t:end]
+        out[t, length:, :] = arr[end - 1]
+    return out
 
-
-def sample_interval_points(arr, POINT_GAP=POINT_GAP_ACT, CHUNK_LENGTH=CHUNK_LENGTH_ACT):
-    """
-    arr: (T, ACTION_DIM)
-    Returns an array of points sampled at intervals of POINT_GAP * CHUNK_LENGTH.
-    """
-    num_samples, T, ACTION_DIM = arr.shape
-    interval = T / 10
-    indices = np.arange(0, T, interval).astype(int)
-    sampled_points = arr[:, indices, :]
-    return sampled_points
-
+def prestack_with_mode(
+    arr: np.ndarray,
+    horizon: int,
+    chunk_length: int,
+    mode: str = "linear",
+) -> np.ndarray:
+    windows = build_future_windows(arr, horizon)
+    if mode == "euler":
+        return interpolate_arr_euler(windows, chunk_length)
+    else:
+        return interpolate_arr(windows, chunk_length)
 
 def joint_to_pose(pose, arm, left_extrinsics=None, right_extrinsics=None, no_rot=False):
     """
@@ -389,8 +381,8 @@ class EvaHD5Extractor:
                 episode["action"][:],
                 arm=arm,
                 prestack=prestack,
-                POINT_GAP=POINT_GAP_ACT,
-                CHUNK_LENGTH=CHUNK_LENGTH_ACT,
+                HORIZON=HORIZON_BASE,
+                CHUNK_LENGTH=CHUNK_LENGTH_BASE,
                 left_extrinsics=left_extrinsics,
                 right_extrinsics=right_extrinsics,
                 no_rot=no_rot,
@@ -434,39 +426,13 @@ class EvaHD5Extractor:
     def get_action(
         actions: np.array,
         arm: str,
-        prestack=False,
-        POINT_GAP=2,
-        CHUNK_LENGTH=100,
+        prestack: bool = False,
+        HORIZON: int = HORIZON_BASE,
+        CHUNK_LENGTH: int = CHUNK_LENGTH_BASE,
         left_extrinsics=None,
         right_extrinsics=None,
-        no_rot=False,
+        no_rot: bool = False,
     ):
-        """
-        Uses FK to calculate ee pose from joints
-        Parameters
-        ----------
-        pose : np.array
-            array containing joint actions
-        arm : str
-            arm to convert data for
-        prestack : bool
-            whether or not to precompute action chunks
-        POINT_GAP : int
-            interpolation for timesteps
-        CHUNK_LENGTH : int
-            action chunk length
-        left_extrinsics :
-            camera extrinsics
-        right_extrinsics :
-            camera_extrinsics
-        no_rot: bool
-            calculate full 6dof trajectory or not
-        Returns
-        -------
-        actions : tuple of np.array
-            (joint actions, cartesian actions)
-        """
-
         joint_actions = actions
 
         if arm == "left":
@@ -490,24 +456,68 @@ class EvaHD5Extractor:
         joint_actions = joint_actions[:, joint_start:joint_end]
 
         if prestack:
-            joint_actions = get_future_points(
-                joint_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
+            horizon = HORIZON
+
+            joint_actions = prestack_with_mode(
+                np.asarray(joint_actions),
+                horizon=horizon,
+                chunk_length=CHUNK_LENGTH,
+                mode="linear",
             )
-            joint_actions_sampled = sample_interval_points(
-                joint_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
-            )
-            cartesian_actions = get_future_points(
-                cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
-            )
-            cartesian_actions_sampled = sample_interval_points(
-                cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
-            )
-            base_cartesian_actions = get_future_points(
-                base_cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
-            )
-            base_cartesian_actions_sampled = sample_interval_points(
-                base_cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
-            )
+
+            cart_np = np.asarray(cartesian_actions)
+            base_np = np.asarray(base_cartesian_actions)
+
+            if arm == "both":
+                left_base = base_np[:, :7]
+                right_base = base_np[:, 7:14]
+                left_cam = cart_np[:, :7]
+                right_cam = cart_np[:, 7:14]
+
+                left_base = prestack_with_mode(
+                    left_base,
+                    horizon=horizon,
+                    chunk_length=CHUNK_LENGTH,
+                    mode="euler",
+                )
+                right_base = prestack_with_mode(
+                    right_base,
+                    horizon=horizon,
+                    chunk_length=CHUNK_LENGTH,
+                    mode="euler",
+                )
+                left_cam = prestack_with_mode(
+                    left_cam,
+                    horizon=horizon,
+                    chunk_length=CHUNK_LENGTH,
+                    mode="euler",
+                )
+                right_cam = prestack_with_mode(
+                    right_cam,
+                    horizon=horizon,
+                    chunk_length=CHUNK_LENGTH,
+                    mode="euler",
+                )
+
+                base_cartesian_actions = np.concatenate(
+                    [left_base, right_base], axis=-1
+                )
+                cartesian_actions = np.concatenate(
+                    [left_cam, right_cam], axis=-1
+                )
+            else:
+                base_cartesian_actions = prestack_with_mode(
+                    base_np,
+                    horizon=horizon,
+                    chunk_length=CHUNK_LENGTH,
+                    mode="euler",
+                )
+                cartesian_actions = prestack_with_mode(
+                    cart_np,
+                    horizon=horizon,
+                    chunk_length=CHUNK_LENGTH,
+                    mode="euler",
+                )
 
         return (joint_actions, cartesian_actions, base_cartesian_actions)
     
@@ -528,7 +538,7 @@ class EvaHD5Extractor:
             right_rel = EvaHD5Extractor.get_eef_action(
                 right_base, arm="right", ref_index=ref_index
             )
-            return np.concatenate([left_rel, right_rel], axis=1)
+            return np.concatenate([left_rel, right_rel], axis=-1)
         
         N, S, D = actions_cartesian_base.shape
 

@@ -829,31 +829,33 @@ def transformation_matrix_to_pose(T):
     pose_array = np.concatenate((p, rotation_quaternion))
     return pose_array
 
-
 def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     """
-    Interpolate 6DoF poses (translation + Euler angles in radians) along the time axis.
-    If any values in a sequence are >= 1e9 (used as a NaN sentinel), skip interpolation and return filled value.
-    """
-    assert v.ndim == 3 and v.shape[2] == 6, "Input v must be of shape (B, T, 6)"
-    B, T, _ = v.shape
+    Interpolate 6DoF poses (translation + Euler angles in radians),
+    optionally with a 7th gripper dimension, along the time axis.
 
-    translations_interp = []
-    rotations_interp = []
+    v: (B, T, 6) or (B, T, 7)
+        [x, y, z, yaw, pitch, roll, (optional) gripper]
+    """
+    assert (
+        v.ndim == 3 and v.shape[2] in (6, 7)
+    ), "Input v must be of shape (B, T, 6) or (B, T, 7)"
+    B, T, D = v.shape
 
     new_time = np.linspace(0, 1, seq_length)
     old_time = np.linspace(0, 1, T)
 
+    outputs = []
+
     for i in range(B):
-        seq = v[i]
+        seq = v[i]  # (T, D)
+
         if np.any(seq >= 1e8):
-            # Invalid sequence — fill with dummy values
-            translations_interp.append(np.full((seq_length, 3), 1e9))
-            rotations_interp.append(np.full((seq_length, 3), 1e9))
+            outputs.append(np.full((seq_length, D), 1e9))
             continue
 
-        trans_seq = seq[:, :3]
-        rot_seq = seq[:, 3:]
+        trans_seq = seq[:, :3]      # x, y, z
+        rot_seq = seq[:, 3:6]       # yaw, pitch, roll
 
         # Avoid discontinuities in angle interpolation
         rot_seq_unwrapped = np.unwrap(rot_seq, axis=0)
@@ -865,18 +867,27 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
             old_time, rot_seq_unwrapped, axis=0, kind="linear"
         )
 
-        trans_interp = trans_interp_func(new_time)
-        rot_interp = rot_interp_func(new_time)
+        trans_interp = trans_interp_func(new_time)  # (seq_length, 3)
+        rot_interp = rot_interp_func(new_time)      # (seq_length, 3)
+
+        # Wrap back to [-pi, pi)
         rot_interp = (rot_interp + np.pi) % (2 * np.pi) - np.pi
 
-        translations_interp.append(trans_interp)
-        rotations_interp.append(rot_interp)
+        if D == 6:
+            out_seq = np.concatenate([trans_interp, rot_interp], axis=-1)
+        else:
+            grip_seq = seq[:, 6:7]  # (T, 1)
+            grip_interp_func = scipy.interpolate.interp1d(
+                old_time, grip_seq, axis=0, kind="linear"
+            )
+            grip_interp = grip_interp_func(new_time)  # (seq_length, 1)
+            out_seq = np.concatenate(
+                [trans_interp, rot_interp, grip_interp], axis=-1
+            )
 
-    translations_interp = np.array(translations_interp)
-    rotations_interp = np.array(rotations_interp)
+        outputs.append(out_seq)
 
-    return np.concatenate([translations_interp, rotations_interp], axis=-1)
-
+    return np.stack(outputs, axis=0)  # (B, seq_length, D)
 
 class AlohaFK:
     def __init__(self, robot="arx"):
