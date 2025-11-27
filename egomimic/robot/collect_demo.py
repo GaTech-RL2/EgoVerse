@@ -104,31 +104,6 @@ def xyzxyzw_to_se3(xyz, xyzw):
     return T
 
 
-def flip_roll_only(R_i, up=np.array([0.0, 0.0, 1.0]), add_pi=True):
-    # body axes from R_i (columns)
-    x = R_i[:, 0]
-    y = R_i[:, 1]
-    if abs(x @ up) > 0.99:
-        up = np.array([0.0, 1.0, 0.0])
-
-    y0 = up - (up @ x) * x
-    y0 /= np.linalg.norm(y0)
-    z0 = np.cross(x, y0)
-
-    c = y @ y0
-    s = y @ z0
-    y_flipped = c * y0 - s * z0
-    z_flipped = np.cross(x, y_flipped)
-
-    R_out = np.column_stack([x, y_flipped, z_flipped])
-
-    if add_pi:
-        # 180° about body X (roll): leaves x col, flips y/z cols
-        R_out = R_out @ np.diag([1.0, -1.0, -1.0])
-        # equivalently: R_out[:, 1:] *= -1
-
-    return R_out
-
 
 def safe_rot3_from_T(T, ortho_tol=1e-3, det_tol=1e-3):
     Rm = np.asarray(T, dtype=float)[:3, :3]
@@ -566,6 +541,7 @@ def collect_demo(
     frequency: float = DEFAULT_FREQUENCY,
     demo_dir: str = DEMO_DIR,
     recording: bool = True,
+    auto_episode_start: int = None,
 ):
     """
     Collect demonstrations using VR controller.
@@ -615,7 +591,6 @@ def collect_demo(
     vr_neutral_frame_delta = dict()
     for arm in arms_list:
         vr_neutral_frame_delta[arm] = np.eye(4)
-    episode_id = 0
     print("Waiting for incoming images ----------------")
     all_cam_images_in = False
     with RateLoop(frequency=frequency, verbose=False) as loop:
@@ -628,9 +603,15 @@ def collect_demo(
             if all_cam_images_in is True:
                 break
     print("All cameras are ready --------------")
+    
+    auto_episode_id = auto_episode_start
+    
     while True:
-        episode_id = input("Input the episode id: ")
-        print(f"Set episode id to {episode_id} teleop enabled")
+        if auto_episode_id is None:
+            episode_id = input("Input the episode id: ")
+        else:
+            episode_id = auto_episode_id
+            print(f"Set episode id to {episode_id} teleop enabled")
         with RateLoop(frequency=frequency, verbose=False) as loop:
             for i in loop:
                 # Read VR controller (get raw transformation matrices)
@@ -650,6 +631,8 @@ def collect_demo(
                         if collecting_data is True:
                             collecting_data = False
                             save_demo(demo_data, demo_dir, episode_id, camera_names)
+                            if auto_episode_id is not None:
+                                auto_episode_id += 1
                             break
                         else:
                             robot_interface.set_home()
@@ -722,25 +705,8 @@ def collect_demo(
                                 vr_data[arm]["T"], dtype=np.float64
                             )
                             delta_T = vr_zero_inv @ vr_current_T
-
-                            # Apply neutral frame calibration: compute motion relative to neutral frame
-                            # The neutral frame is a reference pose (set with X button) that acts as "rest" position
-                            # if arm in vr_neutral_frame_delta and not np.allclose(vr_neutral_frame_delta[arm], np.eye(4)):
-                            #     # Neutral frame is set, compute transformation from neutral to current
-                            #     # delta_neutral_T = T_neutral^-1 @ T_current
-                            #     neutral_inv = np.linalg.inv(vr_neutral_frame_delta[arm])
-                            #     delta_neutral_T = neutral_inv @ vr_current_T
-                            # else:
-                            #     # No neutral frame set, use regular delta (motion from zero frame)
-                            #     delta_neutral_T = delta_T
-                            # print("delta_T vs delta_neutral_T difference (should be zero if neutral not set):")
-                            # print(np.abs(delta_T - delta_neutral_T))
-
-                            # Apply relative transformation to robot zero frame
-                            # This maps the VR relative motion to the robot's coordinate frame
                             cmd_T = robot_frame_zero_se3[arm] @ delta_T
-                            # print(R.from_quat(delta_quat_xyzw).as_euler("ZYX", degrees=False))
-                            # print(R.from_quat(cmd_quat[arm]).as_euler("ZYX", degrees=False))
+
                         else:
                             cmd_T = rb_se3
 
@@ -758,7 +724,12 @@ def collect_demo(
 
                         eepose_cmd = np.concatenate([cmd_pos[arm], cmd_ypr])
                         # print(f"eepose: {eepose_cmd}")
-                        solved_joints = robot_interface.solve_ik(eepose_cmd[:6], arm)
+                        try:
+                            solved_joints = robot_interface.solve_ik(eepose_cmd[:6], arm)
+                        except Exception as e:
+                            print(f"[WARN] IK failed for arm {arm}: {e}")
+                            # Skip commanding this arm for this iteration; wait for next VR input
+                            continue
                         if solved_joints is not None:
                             cmd_joints[arm] = solved_joints
                             # normalize gripper values
@@ -842,6 +813,39 @@ if __name__ == "__main__":
         action="store_true",
         help="Run VR controller orientation calibration before teleop",
     )
+  parser = argparse.ArgumentParser(
+    description="Collect robot demonstrations using VR controller"
+  )
+  parser.add_argument(
+    "--arms",
+    type=str,
+    default="right",
+    choices=["left", "right", "both"],
+    help="Which arm(s) to control",
+  )
+  parser.add_argument(
+    "--frequency",
+    type=float,
+    default=DEFAULT_FREQUENCY,
+    help="Control loop frequency in Hz",
+  )
+  parser.add_argument(
+    "--demo-dir",
+    type=str,
+    default=DEMO_DIR,
+    help="Directory to save demos",
+  )
+  parser.add_argument(
+    "--calibrate",
+    action="store_true",
+    help="Run VR controller orientation calibration before teleop",
+  )
+  parser.add_argument(
+    "--auto-episode-start",
+    type=int,
+    default=None,
+    help="If set, start at this episode id and auto-increment on each recording",
+  )
 
     args = parser.parse_args()
 
@@ -873,3 +877,9 @@ if __name__ == "__main__":
         frequency=args.frequency,
         demo_dir=args.demo_dir,
     )
+  collect_demo(
+    arms_to_collect=args.arms,
+    frequency=args.frequency,
+    demo_dir=args.demo_dir,
+    auto_episode_start=args.auto_episode_start,
+  )
