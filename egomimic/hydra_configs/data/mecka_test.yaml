@@ -2,18 +2,20 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
   dataset1:
-    _target_: rldb.utils.FolderRLDBDataset
+    _target_: rldb.utils.RLDBDataset
+    repo_id: "mecka_test"
     mode: train
     embodiment: "mecka_bimanual"
-    folder_path: "/coc/flash7/acheluva3/EgoVerse"
+    root: "/coc/flash7/acheluva3/EgoVerse/mecka_demo"
     local_files_only: True
 
 valid_datasets:
   dataset1:
-    _target_: rldb.utils.FolderRLDBDataset
+    _target_: rldb.utils.RLDBDataset
+    repo_id: "mecka_test"
     mode: valid
     embodiment: "mecka_bimanual"
-    folder_path: "/coc/flash7/acheluva3/EgoVerse"
+    root: "/coc/flash7/acheluva3/EgoVerse/mecka_demo"
     local_files_only: True
 
 train_dataloader_params:
