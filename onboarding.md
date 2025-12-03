@@ -62,3 +62,6 @@ For the **Object in Bowl** task:
 ## 🎉 You're All Set!
 
 By completing these steps, you should be well-equipped to navigate and contribute to the **EgoVerse** codebase. Welcome aboard!
+
+
+## Graphite Instructions
