@@ -33,7 +33,7 @@ pandas
 overrides
 zarr
 tabulate
-transformers
+transformers==4.57.3
 timm
 boto3
 cloudpathlib

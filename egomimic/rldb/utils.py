@@ -50,6 +50,7 @@ logger = logging.getLogger(__name__)
 import torch.nn.functional as F
 
 from egomimic.rldb.data_utils import *
+import traceback
 
 # NOTE: To add a new key register, embodiment here. I hope Nadun, Vaibhav you guys have a more principled way of doing this thanks :) - R
 class EMBODIMENT(Enum):
@@ -70,6 +71,35 @@ EMBODIMENT_ID_TO_KEY = {
     member.value: key for key, member in EMBODIMENT.__members__.items()
 }
 
+def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
+    """
+    Split a list of dataset names into train/valid sets.
+
+    Args:
+        dataset_names (Iterable[str])
+        valid_ratio (float): fraction of datasets to put in valid.
+        seed (int): for deterministic shuffling.
+
+    Returns:
+        train_set (set[str]), valid_set (set[str])
+    """
+    names = sorted(dataset_names)
+    if not names:
+        return set(), set()
+
+    rng = random.Random(seed)
+    rng.shuffle(names)
+
+    if not (0.0 <= valid_ratio <= 1.0):
+        raise ValueError(f"valid_ratio must be in [0,1], got {valid_ratio}")
+
+    n_valid = int(len(names) * valid_ratio)
+    if valid_ratio > 0.0:
+        n_valid = max(1, n_valid)
+
+    valid = set(names[:n_valid])
+    train = set(names[n_valid:])
+    return train, valid
 
 def get_embodiment(index):
     return EMBODIMENT_ID_TO_KEY.get(index, None)
@@ -565,7 +595,7 @@ class S3RLDBDataset(MultiRLDBDataset):
                     repo_id=repo_id,
                     root=collection_path,
                     local_files_only=local_files_only,
-                    mode=mode,
+                    mode="total",
                     percent=percent,
                     valid_ratio=valid_ratio,
                     **kwargs,
@@ -583,8 +613,32 @@ class S3RLDBDataset(MultiRLDBDataset):
             except Exception as e:
                 logger.error(f"Failed to load {repo_id} as RLDBDataset: {e}")
                 skipped.append(repo_id)
-
         assert datasets, "No valid RLDB datasets found! Check your S3 path and filters."
+        
+        self.train_collections, self.valid_collections = split_dataset_names(
+            datasets.keys(), valid_ratio=valid_ratio, seed=SEED
+        )
+
+        if mode == "train":
+            chosen = self.train_collections
+        elif mode == "valid":
+            chosen = self.valid_collections
+        elif mode == "total":
+            chosen = set(datasets.keys())
+        elif mode == "percent":
+            all_names = sorted(datasets.keys())
+            rng = random.Random(SEED)
+            rng.shuffle(all_names)
+
+            n_keep = int(len(all_names) * percent)
+            if percent > 0.0:
+                n_keep = max(1, n_keep)
+            chosen = set(all_names[:n_keep])
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+        datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
+        assert datasets, "No datasets left after applying mode split."
 
         key_map_per_dataset = (
             {repo_id: key_map for repo_id in datasets} if key_map else None
@@ -598,7 +652,7 @@ class S3RLDBDataset(MultiRLDBDataset):
 
         if skipped:
             logger.warning(f"Skipped {len(skipped)} datasets: {skipped}")
-
+            
     @staticmethod
     def _get_processed_path(filters):
         engine = create_default_engine()
