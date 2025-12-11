@@ -66,7 +66,7 @@ Once the container appears in Cursor / VS Code, attach a terminal to it and run:
 ```bash
 cd /home/robot/robot_ws
 wsbuild
-cd ..
+cd ../..
 ```
 
 ---

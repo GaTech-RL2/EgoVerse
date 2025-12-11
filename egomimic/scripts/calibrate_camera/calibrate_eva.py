@@ -20,6 +20,85 @@ import matplotlib.pyplot as plt
 from rpl_vision_utils.utils.apriltag_detector import AprilTagDetector
 
 
+def _set_axes_equal(ax):
+  xlim = ax.get_xlim3d()
+  ylim = ax.get_ylim3d()
+  zlim = ax.get_zlim3d()
+  xmid = 0.5 * (xlim[0] + xlim[1])
+  ymid = 0.5 * (ylim[0] + ylim[1])
+  zmid = 0.5 * (zlim[0] + zlim[1])
+  r = 0.5 * max(xlim[1] - xlim[0], ylim[1] - ylim[0], zlim[1] - zlim[0])
+  ax.set_xlim3d([xmid - r, xmid + r])
+  ax.set_ylim3d([ymid - r, ymid + r])
+  ax.set_zlim3d([zmid - r, zmid + r])
+
+def plot_poses_multi_views(
+  positions,  # (N,3)
+  rotmats,    # (N,3,3) base->gripper
+  out_dir,
+  step=15,
+  axis_len=0.05,
+):
+  import os
+  import numpy as np
+  import matplotlib.pyplot as plt
+
+  os.makedirs(out_dir, exist_ok=True)
+
+  views = [
+    ("xy_top", 90, -90),     # looking down +Z
+    ("xz_side", 0, 0),       # looking along +Y -> see XZ plane
+    ("yz_side", 0, 90),      # looking along +X -> see YZ plane
+    ("corner_1", 30, 45),
+    ("corner_2", 30, 135),
+    ("corner_3", 30, 225),
+    ("corner_4", 30, 315),
+    ("corner_low", -30, 45),
+  ]
+
+  P = positions
+  N = P.shape[0]
+  idx = np.arange(0, N, max(1, step))
+
+  for name, elev, azim in views:
+    fig = plt.figure(figsize=(9, 7))
+    ax = fig.add_subplot(111, projection="3d")
+
+    ax.scatter(P[:, 0], P[:, 1], P[:, 2], s=4)
+
+    # orientation vectors (gripper axes in base frame)
+    # columns of R are the x,y,z axes of gripper expressed in base coords
+    for i in idx:
+      x, y, z = P[i]
+      R = rotmats[i]
+      ux, uy, uz = R[:, 0]
+      vx, vy, vz = R[:, 1]
+      wx, wy, wz = R[:, 2]
+      ax.quiver(x, y, z, ux, uy, uz, length=axis_len, normalize=True)
+      ax.quiver(x, y, z, vx, vy, vz, length=axis_len, normalize=True)
+      ax.quiver(x, y, z, wx, wy, wz, length=axis_len, normalize=True)
+
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
+    ax.set_zlabel("z (m)")
+    ax.view_init(elev=elev, azim=azim)
+    _set_axes_equal(ax)
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, f"{name}.png"), dpi=200)
+    plt.close(fig)
+
+  # Also save 2D projections for quick inspection
+  fig = plt.figure(figsize=(12, 4))
+  ax1 = fig.add_subplot(131)
+  ax2 = fig.add_subplot(132)
+  ax3 = fig.add_subplot(133)
+  ax1.scatter(P[:, 0], P[:, 1], s=4); ax1.set_title("XY"); ax1.set_xlabel("x"); ax1.set_ylabel("y"); ax1.axis("equal")
+  ax2.scatter(P[:, 0], P[:, 2], s=4); ax2.set_title("XZ"); ax2.set_xlabel("x"); ax2.set_ylabel("z"); ax2.axis("equal")
+  ax3.scatter(P[:, 1], P[:, 2], s=4); ax3.set_title("YZ"); ax3.set_xlabel("y"); ax3.set_ylabel("z"); ax3.axis("equal")
+  fig.tight_layout()
+  fig.savefig(os.path.join(out_dir, "projections_xy_xz_yz.png"), dpi=200)
+  plt.close(fig)
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -31,6 +110,8 @@ def parse_args():
     parser.add_argument("--debug", action="store_true")
 
     parser.add_argument("--store-matrix", action="store_true")
+    
+    parser.add_argument("--visualize-detect", action="store_true")
 
     return parser.parse_args()
 
@@ -107,6 +188,8 @@ def main():
     t_base2gripper_list = []
     R_target2cam_list = []
     t_target2cam_list = []
+    base_pose = []
+    base_angle = []
     calib = calib["data"]
     count = 0
     missed_count = 0
@@ -123,7 +206,7 @@ def main():
                 img,
                 intrinsics=intrinsics["color"],
                 # tag_size=0.0958)
-                tag_size=0.1,
+                tag_size=0.2,
             )
 
             if len(detect_result) != 1:
@@ -135,14 +218,14 @@ def main():
 
             bounding_box_corners = detect_result[0].corners
             # draw bounding box on img and save
-            # if args.debug:
-            #     os.makedirs("calibration_imgs", exist_ok=True)
-            #     img = april_detector.vis_tag(img)
-            #     plt.imsave(f"calibration_imgs/{t}_detection.png", img)
+            if args.debug:
+                os.makedirs("calibration_imgs", exist_ok=True)
+                img = april_detector.vis_tag(img)
+                plt.imsave(f"calibration_imgs/{t}_detection.png", img)
 
             # Optional: Reprojection check to validate intrinsics / tag size
             proj, resid = reproject_tag_corners(
-                detect_result[0], intrinsics["color"], tag_size=0.1
+                detect_result[0], intrinsics["color"], tag_size=0.2
             )
             if args.debug:
                 print(
@@ -174,6 +257,8 @@ def main():
             pos = pose[0:3]
             # Orientation stored as [yaw, pitch, roll] (radians); ignore gripper at pose[6]
             angles_ypr = pose[3:6]
+            base_pose.append(pos)
+            base_angle.append(angles_ypr)
             # Use ZYX (yaw, pitch, roll) convention
             rot = Rot.from_euler("ZYX", angles_ypr, degrees=False)
 
@@ -189,10 +274,14 @@ def main():
             #     print("Detected: ", pose_t, T.quat2axisangle(T.mat2quat(detect_result[0].pose_R)))
 
             t_target2cam_list.append(pose_t)
+            
 
     print(f"==========Using {count} images================")
     print(f"==========Missed {missed_count} images================")
 
+    if args.visualize_debug:
+        
+    
     for method in [
         cv2.CALIB_HAND_EYE_TSAI,
         cv2.CALIB_HAND_EYE_PARK,

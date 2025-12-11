@@ -186,66 +186,80 @@ class PolicyRollout(Rollout):
         return self.actions[act_i]
 
     def process_obs_for_policy(self, obs):
+        # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
+        front = torch.from_numpy(obs["front_img_1"][None, ...])        # [1, H, W, 3]
+        front = front[..., [2, 1, 0]]                                  # BGR -> RGB
+        front = front.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
+
         data = {
-            "front_img_1": (torch.from_numpy(obs["front_img_1"][None, :]))
-            .permute(0, 3, 1, 2)
-            .to(torch.uint8)
-            / 255.0,
-            "pad_mask": torch.ones((1, 100, 1)).to(self.device).bool(),
+            "front_img_1": front,
+            "pad_mask": torch.ones((1, 100, 1), device=self.device, dtype=torch.bool),
         }
-        # check dim since it seems to take in a batch
+
         if self.arm == "right":
-            data["right_wrist_img"] = (
-                torch.from_numpy(obs["right_wrist_img"][None, :])
-                .permute(0, 3, 1, 2)
-                .to(torch.uint8)
+            right = torch.from_numpy(obs["right_wrist_img"][None, ...])  # [1, H, W, 3] BGR
+            right = right[..., [2, 1, 0]]                                # BGR -> RGB
+            right = (
+                right.permute(0, 3, 1, 2)
+                .to(self.device, dtype=torch.float32)
                 / 255.0
             )
+            data["right_wrist_img"] = right
             joint_positions = obs["joint_positions"][7:]
 
         elif self.arm == "left":
-            data["left_wrist_img"] = (
-                torch.from_numpy(obs["left_wrist_img"][None, :])
-                .permute(0, 3, 1, 2)
-                .to(torch.uint8)
+            left = torch.from_numpy(obs["left_wrist_img"][None, ...])    # [1, H, W, 3] BGR
+            left = left[..., [2, 1, 0]]                                  # BGR -> RGB
+            left = (
+                left.permute(0, 3, 1, 2)
+                .to(self.device, dtype=torch.float32)
                 / 255.0
             )
+            data["left_wrist_img"] = left
             joint_positions = obs["joint_positions"][:7]
 
         elif self.arm == "both":
-            data["right_wrist_img"] = (
-                torch.from_numpy(obs["right_wrist_img"][None, :])
-                .permute(0, 3, 1, 2)
-                .to(torch.uint8)
+            right = torch.from_numpy(obs["right_wrist_img"][None, ...])
+            right = right[..., [2, 1, 0]]
+            right = (
+                right.permute(0, 3, 1, 2)
+                .to(self.device, dtype=torch.float32)
                 / 255.0
             )
-            data["left_wrist_img"] = (
-                torch.from_numpy(obs["left_wrist_img"][None, :])
-                .permute(0, 3, 1, 2)
-                .to(torch.uint8)
+            left = torch.from_numpy(obs["left_wrist_img"][None, ...])
+            left = left[..., [2, 1, 0]]
+            left = (
+                left.permute(0, 3, 1, 2)
+                .to(self.device, dtype=torch.float32)
                 / 255.0
             )
+            data["right_wrist_img"] = right
+            data["left_wrist_img"] = left
             joint_positions = obs["joint_positions"]
-        data["joint_positions"] = torch.from_numpy(joint_positions).reshape(
-            (1, 1, -1)
-        )  # arm joint logic already implemented in robot interface
+
+        data["joint_positions"] = torch.from_numpy(joint_positions).reshape(1, 1, -1)
         data["embodiment"] = torch.tensor([self.embodiment_id], dtype=torch.int64)
+
         if not self.cartesian:
             data["actions_joints"] = torch.zeros_like(data["joint_positions"])
         else:
             data["actions_cartesian"] = torch.zeros_like(data["joint_positions"])
 
-        processed_batch = {}
-        processed_batch[self.embodiment_id] = data
+        processed_batch = {self.embodiment_id: data}
+
+        # move non-image tensors to device and float32 (images already are)
         for key, val in data.items():
-            data[key] = val.to(self.device, dtype=torch.float32)
+            if key not in ("front_img_1", "right_wrist_img", "left_wrist_img"):
+                data[key] = val.to(self.device, dtype=torch.float32)
+
         processed_batch[self.embodiment_id] = (
             self.policy.model.data_schematic.normalize_data(
-                processed_batch[self.embodiment_id], self.embodiment_id
+            processed_batch[self.embodiment_id], self.embodiment_id
             )
         )
 
         return processed_batch
+
 
 
 def main(
