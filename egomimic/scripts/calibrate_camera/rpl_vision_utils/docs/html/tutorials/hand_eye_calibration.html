@@ -1,0 +1,424 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Hand Eye Calibration &#8212; rpl-vision-utils 0.1.0 documentation</title>
+    
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=1999514e3f237ded88cf" rel="stylesheet">
+
+    
+  <link rel="stylesheet"
+    href="../_static/vendor/fontawesome/5.13.0/css/all.min.css">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-solid-900.woff2">
+  <link rel="preload" as="font" type="font/woff2" crossorigin
+    href="../_static/vendor/fontawesome/5.13.0/webfonts/fa-brands-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" href="../_static/styles/sphinx-book-theme.css?digest=62ba249389abaaa9ffc34bf36a076bdc1d65ee18" type="text/css" />
+    
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf">
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/scripts/sphinx-book-theme.js?digest=f31d14ad54b65d19161ba51d4ffff3a77ae00456"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="&lt;no title&gt;" href="3d_reconstruction.html" />
+    <link rel="prev" title="&lt;no title&gt;" href="3d_vision_101.html" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="docsearch:language" content="None">
+    
+
+    <!-- Google Analytics -->
+    
+  </head>
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="60">
+<!-- Checkboxes to toggle the left sidebar -->
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle navigation sidebar">
+<label class="overlay overlay-navbar" for="__navigation">
+    <div class="visually-hidden">Toggle navigation sidebar</div>
+</label>
+<!-- Checkboxes to toggle the in-page toc -->
+<input type="checkbox" class="sidebar-toggle" name="__page-toc" id="__page-toc" aria-label="Toggle in-page Table of Contents">
+<label class="overlay overlay-pagetoc" for="__page-toc">
+    <div class="visually-hidden">Toggle in-page Table of Contents</div>
+</label>
+<!-- Headers at the top -->
+<div class="announcement header-item noprint"></div>
+<div class="header header-item noprint"></div>
+
+    
+    <div class="container-fluid" id="banner"></div>
+
+    
+
+    <div class="container-xl">
+      <div class="row">
+          
+<!-- Sidebar -->
+<div class="bd-sidebar noprint" id="site-navigation">
+    <div class="bd-sidebar__content">
+        <div class="bd-sidebar__top"><div class="navbar-brand-box">
+    <a class="navbar-brand text-wrap" href="../index.html">
+      
+      
+      
+      <h1 class="site-logo" id="site-title">rpl-vision-utils 0.1.0 documentation</h1>
+      
+    </a>
+</div><form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+  <i class="icon fas fa-search"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" >
+</form><nav class="bd-links" id="bd-docs-nav" aria-label="Main">
+    <div class="bd-toc-item active">
+        <p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Getting Started
+ </span>
+</p>
+<ul class="nav bd-sidenav">
+ <li class="toctree-l1">
+  <a class="reference internal" href="../installation/camera_installation.html">
+   Camera Installation
+  </a>
+ </li>
+</ul>
+<p aria-level="2" class="caption" role="heading">
+ <span class="caption-text">
+  Tutorials
+ </span>
+</p>
+<ul class="current nav bd-sidenav">
+ <li class="toctree-l1 current active">
+  <a class="current reference internal" href="#">
+   Hand Eye Calibration
+  </a>
+ </li>
+</ul>
+
+    </div>
+</nav></div>
+        <div class="bd-sidebar__bottom">
+             <!-- To handle the deprecated key -->
+            
+            <div class="navbar_extra_footer">
+            Theme by the <a href="https://ebp.jupyterbook.org">Executable Book Project</a>
+            </div>
+            
+        </div>
+    </div>
+    <div id="rtd-footer-container"></div>
+</div>
+
+
+          
+
+
+          
+<!-- A tiny helper pixel to detect if we've scrolled -->
+<div class="sbt-scroll-pixel-helper"></div>
+<!-- Main content -->
+<div class="col py-0 content-container">
+    
+    <div class="header-article row sticky-top noprint">
+        
+
+
+
+<div class="col py-1 d-flex header-article-main">
+    <div class="header-article__left">
+        
+        <label for="__navigation"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="right"
+title="Toggle navigation"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-bars"></i>
+  </span>
+
+</label>
+
+        
+    </div>
+    <div class="header-article__right">
+<button onclick="toggleFullScreen()"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="bottom"
+title="Fullscreen mode"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-expand"></i>
+  </span>
+
+</button>
+
+<div class="menu-dropdown menu-dropdown-download-buttons">
+  <button class="headerbtn menu-dropdown__trigger"
+      aria-label="Download this page">
+      <i class="fas fa-download"></i>
+  </button>
+  <div class="menu-dropdown__content">
+    <ul>
+      <li>
+        <a href="../_sources/tutorials/hand_eye_calibration.md.txt"
+   class="headerbtn"
+   data-toggle="tooltip"
+data-placement="left"
+title="Download source file"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file"></i>
+  </span>
+<span class="headerbtn__text-container">.md</span>
+</a>
+
+      </li>
+      
+      <li>
+        
+<button onclick="printPdf(this)"
+  class="headerbtn"
+  data-toggle="tooltip"
+data-placement="left"
+title="Print to PDF"
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-file-pdf"></i>
+  </span>
+<span class="headerbtn__text-container">.pdf</span>
+</button>
+
+      </li>
+      
+    </ul>
+  </div>
+</div>
+<label for="__page-toc"
+  class="headerbtn headerbtn-page-toc"
+  
+>
+  
+
+<span class="headerbtn__icon-container">
+  <i class="fas fa-list"></i>
+  </span>
+
+</label>
+
+    </div>
+</div>
+
+<!-- Table of contents -->
+<div class="col-md-3 bd-toc show noprint">
+    <div class="tocsection onthispage pt-5 pb-3">
+        <i class="fas fa-list"></i> Contents
+    </div>
+    <nav id="bd-toc-nav" aria-label="Page">
+        <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#apriltag-detection">
+   AprilTag Detection
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#eye-to-hand-calibration">
+   Eye-to-Hand Calibration
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#eye-in-hand-calibration">
+   Eye-in-Hand Calibration.
+  </a>
+ </li>
+</ul>
+
+    </nav>
+</div>
+    </div>
+    <div class="article row">
+        <div class="col pl-md-3 pl-lg-5 content-container">
+            <!-- Table of contents that is only displayed when printing the page -->
+            <div id="jb-print-docs-body" class="onlyprint">
+                <h1>Hand Eye Calibration</h1>
+                <!-- Table of contents -->
+                <div id="print-main-content">
+                    <div id="jb-print-toc">
+                        
+                        <div>
+                            <h2> Contents </h2>
+                        </div>
+                        <nav aria-label="Page">
+                            <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#apriltag-detection">
+   AprilTag Detection
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#eye-to-hand-calibration">
+   Eye-to-Hand Calibration
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#eye-in-hand-calibration">
+   Eye-in-Hand Calibration.
+  </a>
+ </li>
+</ul>
+
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <main id="main-content" role="main">
+                
+              <div>
+                
+  <section id="hand-eye-calibration">
+<h1>Hand Eye Calibration<a class="headerlink" href="#hand-eye-calibration" title="Permalink to this headline">#</a></h1>
+<p>Here we explain how hand-eye calibration is done in
+<code class="docutils literal notranslate"><span class="pre">rpl_vision_utils</span></code>. The calibration part needs to accompany our robot
+infra package <code class="docutils literal notranslate"><span class="pre">gprs</span></code>, and the apriltag package (<code class="docutils literal notranslate"><span class="pre">pupil-apriltags</span></code> for
+python binding).</p>
+<p>This approach is heavily based on the <code class="docutils literal notranslate"><span class="pre">calibrateHandEye</span></code> method in
+<code class="docutils literal notranslate"><span class="pre">OpenCV</span></code>.</p>
+<section id="apriltag-detection">
+<h2>AprilTag Detection<a class="headerlink" href="#apriltag-detection" title="Permalink to this headline">#</a></h2>
+<p>AprilTag detection is a crucial part for camera extrinsics
+calibration. While other markers are also applicable, we haven’t
+developed that part yet.</p>
+<p>The detection is done by <code class="docutils literal notranslate"><span class="pre">AprilTagDetector</span></code> class, which is
+essentially a wrapper over functions from <code class="docutils literal notranslate"><span class="pre">pupil-arpiltags</span></code>. You first
+create an object of the class:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">april_detector</span> <span class="o">=</span> <span class="n">AprilTagDetector</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Then given an image (<code class="docutils literal notranslate"><span class="pre">img</span></code>) and its intrinsics (<code class="docutils literal notranslate"><span class="pre">intrinsics</span></code>), along with the measured side
+length (<code class="docutils literal notranslate"><span class="pre">tag_size</span></code>), we can obtain the detection_result:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">detect_result</span> <span class="o">=</span> <span class="n">april_detector</span><span class="o">.</span><span class="n">detect</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">intrinsics</span><span class="o">=</span><span class="n">intrinsics</span><span class="p">,</span> <span class="n">tag_size</span><span class="o">=</span><span class="n">tag_size</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">detect_result</span></code> is a list of detected results. In our case, we are
+only interested in using one tag, so make sure the detection contains
+only one tag!</p>
+<p>Then the pose of the tag in the camera frame can be obtained through
+<code class="docutils literal notranslate"><span class="pre">pose_R</span></code> and <code class="docutils literal notranslate"><span class="pre">pose_t</span></code> of each detection. If the estimation result does
+not seem reasonable, it might be due to wrong intrinsics value.</p>
+<p>Here is an example of apriltag detection.</p>
+<p><a href="../_images/apriltag.png"><img src="../_images/apriltag.png" alt="drawing" width="300" style="margin-left:auto; margin-right:auto; display:block; text-align:center;"/></a>
+<br>
+<br>
+<a href="../_images/apriltag_detection.png"><img src="../_images/apriltag_detection.png" alt="drawing" width="300" style="margin-left:auto; margin-right:auto; display:block; text-align:center;"/></a></p>
+</section>
+<section id="eye-to-hand-calibration">
+<h2>Eye-to-Hand Calibration<a class="headerlink" href="#eye-to-hand-calibration" title="Permalink to this headline">#</a></h2>
+<p>This is to calibrate the fixed-base camera. This assumes that a marker
+mount is attached to the robot’s end-effector, and the marker is
+default to be AprilTag in our lab. In this example, I am using an
+AprilTag with size of 6cm from the “t36h11” family.</p>
+<p><b>Step 1: Record robot joints</b></p>
+<p>Run the script:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">python</span> <span class="n">camera_calibration</span><span class="o">/</span><span class="n">record_robot_joints</span><span class="o">.</span><span class="n">py</span>
+</pre></div>
+</div>
+<p>The robot will run with OSC controller, with low-impedance value. In
+that case, it’s easy to move the arm around and record the desired
+joint values. For recording, press the grasping button of
+SpaceMouse. When you want to finish the process, press the other
+button of SpaceMouse which will terminate the process and let you
+decide 1) whether or not save the recorded joints, and 2) specify the
+file name to record the joints.</p>
+<p>In order to see which joints are good for detecting tags, we suggest
+opening up the visualization of camera:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python scripts/run_camera_node.py --camera-type k4a 
+                                  --camera-id <span class="m">0</span> 
+                                  --no-depth --eval --visualization
+</pre></div>
+</div>
+<p><b>Step 2: Replay robot joints and compute the extrinsics</b> (the transformation
+of camera from the robot base frame).</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python camera_calibration/fixed_base_calibration.py
+</pre></div>
+</div>
+<p>There are two useful options for running this script. One is
+<code class="docutils literal notranslate"><span class="pre">--use-saved-images</span></code>, which will use the previously recorded images
+without actually running the robot. Another one is <code class="docutils literal notranslate"><span class="pre">--debug</span></code>, which
+will show some detailed information of the calibration process.</p>
+<p><b> Step 3: Saved config file</b></p>
+<p>The calibrated value will be saved into the file <code class="docutils literal notranslate"><span class="pre">camera_{ID}_extrinsics.json</span></code> in the default folder <code class="docutils literal notranslate"><span class="pre">~/.rpl_vision_utils/calibration</span></code>.</p>
+</section>
+<section id="eye-in-hand-calibration">
+<h2>Eye-in-Hand Calibration.<a class="headerlink" href="#eye-in-hand-calibration" title="Permalink to this headline">#</a></h2>
+</section>
+</section>
+
+
+              </div>
+              
+            </main>
+            <footer class="footer-article noprint">
+                
+    <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+    <a class='left-prev' id="prev-link" href="3d_vision_101.html" title="previous page">
+        <i class="fas fa-angle-left"></i>
+        <div class="prev-next-info">
+            <p class="prev-next-subtitle">previous</p>
+            <p class="prev-next-title">&lt;no title&gt;</p>
+        </div>
+    </a>
+    <a class='right-next' id="next-link" href="3d_reconstruction.html" title="next page">
+    <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">&lt;no title&gt;</p>
+    </div>
+    <i class="fas fa-angle-right"></i>
+    </a>
+</div>
+            </footer>
+        </div>
+    </div>
+    <div class="footer-content row">
+        <footer class="col footer"><p>
+  
+    By Yifeng Zhu, Zhenyu Jiang, Yuke Zhu<br/>
+  
+      &copy; Copyright 2022, Yifeng Zhu, Zhenyu Jiang, Yuke Zhu.<br/>
+</p>
+        </footer>
+    </div>
+    
+</div>
+
+
+      </div>
+    </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/pydata-sphinx-theme.js?digest=1999514e3f237ded88cf"></script>
+
+
+  </body>
+</html>

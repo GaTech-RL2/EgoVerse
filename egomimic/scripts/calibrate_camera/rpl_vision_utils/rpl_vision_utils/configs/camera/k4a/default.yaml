@@ -1,0 +1,8 @@
+
+fps: 30
+color:
+  color_resolution: pyk4a.ColorResolution.RES_720P,
+  color_format: pyk4a.ImageFormat.COLOR_BGRA32
+
+depth:
+  depth_mode: pyk4a.DepthMode.WFOV_2X2BINNED

@@ -62,11 +62,19 @@ def get_future_points(arr, POINT_GAP=15, FUTURE_POINTS_COUNT=10):
 
     return result
 
-
 def is_valid_path(path):
-    return not os.path.isdir(path) and (
-        ("episode" in path or "demo" in path) and ".hdf5" in path
-    )
+    if os.path.isdir(path):
+        return False
+    if not path.endswith(".hdf5"):
+        return False
+
+    # Only treat as raw Aloha if it has the expected top-level keys
+    try:
+        with h5py.File(path, "r") as f:
+            keys = set(f.keys())
+            return "observations" in keys and "action" in keys
+    except OSError:
+        return False
 
 
 if __name__ == "__main__":
@@ -199,13 +207,14 @@ if __name__ == "__main__":
                 # fk_positions = ee_pose_to_cam_frame(
                 #     fk_positions, EXTRINSICS[args.extrinsics]
                 # )[:, :3]
+                ee_pose_actions = aloha_hdf5["actions"]["eepose"]
                 if args.prestack:
                     fk_positions = get_future_points(
                         fk_positions,
                         POINT_GAP=POINT_GAP,
                         FUTURE_POINTS_COUNT=FUTURE_POINTS_COUNT,
                     )
-                demo_i_group.create_dataset("actions_xyz", data=fk_positions)
+                demo_i_group.create_dataset("actions_xyz", data=ee_pose_actions)
 
                 # print(chain.forward_kinematics(torch.from_numpy(aloha_hdf5["observations"]["qpos"][10, 7:13])[None, :], end_only=True).get_matrix()[:, :3, 3])
                 # print(convert_qpos_to_eef(aloha_hdf5["observations"]["qpos"][10, 7:13]))

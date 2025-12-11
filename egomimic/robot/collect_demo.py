@@ -460,7 +460,11 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
     for cam_name in cam_names:
         image_list = []
         for i in range(len(demo_data["obs"])):
-            image_list.append(demo_data["obs"][i][cam_name])
+            img = demo_data["obs"][i][cam_name]
+            if img is None:
+                continue
+            img_rgb = img[..., ::-1]
+            image_list.append(img_rgb)
         data_dict[f"/observations/images/{cam_name}"] = np.array(image_list)
     print(
         f"Saving demo with {len(demo_data['cmd_eepose_actions'])} steps to {filename}"
