@@ -6,7 +6,6 @@ train_datasets:
     bucket_name: "rldb"
     mode: train
     embodiment: "eva_right_arm"
-    temp_root: "/coc/flash7/rpunamiya6/Projects/local_egoverse"
     filters: 
       task: "object in container"
     local_files_only: True
@@ -25,7 +24,6 @@ valid_datasets:
     bucket_name: "rldb"
     mode: valid
     embodiment: "eva_right_arm"
-    temp_root: "/coc/flash7/rpunamiya6/Projects/local_egoverse"
     filters: 
       task: "object in container"
     local_files_only: True

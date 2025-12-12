@@ -2,54 +2,42 @@ defaults:
   - hpt_cotrain_enc_dec_base
 
 robomimic_model:
-  domains: ["eve_bimanual", "aria_bimanual"]
-  diffusion: true 
-  head_specs:
-    shared: null
-    aria_bimanual: 
-      _target_: egomimic.models.fm_policy.FMPolicy
-      action_horizon: 100
-      num_inference_steps: 50
-      pooling: null
-      time_dist: "beta"
-      infer_ac_dims:
-        aria_bimanual: 12
-      model:
-        _target_: egomimic.models.denoising_nets.CrossTransformer
-        nblocks: 6
-        cond_dim: 256
-        hidden_dim: 128
-        act_dim: 12
-        act_seq: 100
-        n_heads: 4
-        dropout: 0.1
-        mlp_layers: 4
-        mlp_ratio: 4
+  ac_keys:
+    eva_right_arm: "actions_cartesian"
+    aria_right_arm: "actions_cartesian"
+  shared_ac_key: "actions_cartesian"
 
-    eve_bimanual: 
+  6dof: true
+
+  head_specs:
+    aria_right_arm: null
+    eva_right_arm: null
+    shared:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
+      padding: "zero"
       time_dist: "beta"
       infer_ac_dims:
-        eve_bimanual: 14
+        eva_right_arm: 7
+        aria_right_arm: 7
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 14
+        act_dim: 7
         act_seq: 100
         n_heads: 4
         dropout: 0.1
         mlp_layers: 4 
         mlp_ratio: 4
-        
+
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
-  lr: 3e-4
+  lr: 1e-4
   weight_decay: 0.0001
 
 scheduler:

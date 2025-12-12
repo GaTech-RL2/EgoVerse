@@ -2,7 +2,7 @@ defaults:
   - hpt_cotrain_enc_dec_base
 
 robomimic_model:
-  domains: ["eve_bimanual", "aria_bimanual"]
+  domains: ["eva_bimanual", "aria_bimanual"]
   diffusion: true 
   head_specs:
     shared: null
@@ -10,40 +10,42 @@ robomimic_model:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
-      pooling: "flatten"
+      pooling: null
       time_dist: "beta"
       infer_ac_dims:
         aria_bimanual: 12
       model:
-        _target_:  egomimic.models.denoising_nets.ConditionalUnet1D
-        input_dim: 12
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
         cond_dim: 256
-        ac_latent_seq: 8
-        diffusion_step_embed_dim: 256
-        down_dims: [64, 128, 256]
-        kernel_size: 3
-        n_groups: 8
-        cond_predict_scale: True
+        hidden_dim: 128
+        act_dim: 12
+        act_seq: 100
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
 
-    eve_bimanual: 
+    eva_bimanual: 
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
-      pooling: "flatten"
+      pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        eve_bimanual: 14
+        eva_bimanual: 14
       model:
-        _target_:  egomimic.models.denoising_nets.ConditionalUnet1D
-        input_dim: 14
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
         cond_dim: 256
-        ac_latent_seq: 8
-        diffusion_step_embed_dim: 256
-        down_dims: [64, 128, 256]
-        kernel_size: 3
-        n_groups: 8
-        cond_predict_scale: True
-
+        hidden_dim: 128
+        act_dim: 14
+        act_seq: 100
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4 
+        mlp_ratio: 4
+        
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true

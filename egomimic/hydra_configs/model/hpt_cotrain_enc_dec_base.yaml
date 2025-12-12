@@ -8,9 +8,8 @@ robomimic_model:
     extrinsics_key: "ariaJun7"
   ac_keys:
     aria_bimanual: "actions_cartesian"
-    eve_bimanual: "actions_joints"
-  # auxiliary_ac_keys:
-  #   eve_bimanual: ["actions_joints"]
+    eva_bimanual: "actions_joints"
+
   6dof: true
   trunk:
     embed_dim: 256
@@ -27,7 +26,7 @@ robomimic_model:
   multitask: false
   pretrained: false
   pretrained_checkpoint: null
-  domains: ["eve_bimanual", "aria_bimanual"]
+  domains: ["eva_bimanual", "aria_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
   shared_stem_specs:
@@ -61,7 +60,7 @@ robomimic_model:
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 256
     
-    eve_bimanual:
+    eva_bimanual:
       state_joint_positions:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
         input_dim: 14
@@ -113,7 +112,7 @@ robomimic_model:
       dropout: 0.1
       num_layers: 8
       final_norm: true
-    eve_bimanual:
+    eva_bimanual:
       _target_: egomimic.models.hpt_nets.MultiBlockTransformerDecoder
       input_dim: 256
       output_dim: 14

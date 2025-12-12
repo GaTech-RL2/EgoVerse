@@ -1,8 +1,0 @@
-defaults:
-  - hpt_cotrain_enc_dec_base
-
-scheduler:
-  _target_: torch.optim.lr_scheduler.LinearLR
-  _partial_: true
-  start_factor: 1
-  end_factor: 1
