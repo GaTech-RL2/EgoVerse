@@ -1124,7 +1124,7 @@ class HPT(Algo):
             _batch = self.data_schematic.unnormalize_data(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
             ac_key = self.ac_keys[embodiment_id]
-            if f"{embodiment_name}_{ac_key}" in preds:
+            if f"{embodiment_name}_{ac_key}" in preds and ac_key != self.shared_ac_key:
                 metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(
                     (preds[f"{embodiment_name}_{ac_key}"]).cpu(), _batch[ac_key].cpu()
                 )
@@ -1197,7 +1197,7 @@ class HPT(Algo):
                 }
                 rkl_targets = []
 
-                if f"{embodiment_name}_{ac_key}" in preds:
+                if f"{embodiment_name}_{ac_key}" in preds and ac_key != self.shared_ac_key:
                     rkl_targets.append(
                         (
                             f"{embodiment_name}_{ac_key}",
