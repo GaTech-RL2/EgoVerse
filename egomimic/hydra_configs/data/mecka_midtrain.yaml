@@ -2,22 +2,23 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
   dataset1:
-    _target_: egomimic.rldb.utils.S3RLDBDataset
+    _target_: rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
+    main_prefix: "mecka"
     mode: train
-    embodiment: "eva_right_arm"
+    embodiment: "mecka_bimanual"
     filters: 
-      task: "object in container"
+      lab: "mecka"
     local_files_only: True
 
 valid_datasets:
   dataset1:
-    _target_: egomimic.rldb.utils.S3RLDBDataset
+    _target_: rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
     mode: valid
-    embodiment: "eva_right_arm"
+    embodiment: "mecka_bimanual"
     filters: 
-      task: "object in container"
+      lab: "mecka"
     local_files_only: True
 
 train_dataloader_params:

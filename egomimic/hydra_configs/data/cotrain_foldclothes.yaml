@@ -5,9 +5,17 @@ train_datasets:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
     mode: train
-    embodiment: "eva_right_arm"
+    embodiment: "eva_bimanual"
     filters: 
-      task: "object in container"
+      task: "fold clothes"
+    local_files_only: True
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    mode: train
+    embodiment: "aria_bimanual"
+    filters: 
+      task: "fold clothes"
     local_files_only: True
 
 valid_datasets:
@@ -15,9 +23,17 @@ valid_datasets:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
     mode: valid
-    embodiment: "eva_right_arm"
+    embodiment: "eva_bimanual"
+    filters:
+      task: "fold clothes"
+    local_files_only: True
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    mode: valid
+    embodiment: "aria_bimanual"
     filters: 
-      task: "object in container"
+      task: "fold clothes"
     local_files_only: True
 
 train_dataloader_params:

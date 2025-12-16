@@ -6,7 +6,7 @@ train_datasets:
     repo_id: "mecka_test"
     mode: train
     embodiment: "mecka_bimanual"
-    root: "/coc/flash7/acheluva3/EgoVerse/mecka_demo"
+    root: "/storage/cedar/cedar0/cedarp-dxu345-0/datasets/egoverse/mecka_tests"
     local_files_only: True
 
 valid_datasets:
@@ -15,15 +15,15 @@ valid_datasets:
     repo_id: "mecka_test"
     mode: valid
     embodiment: "mecka_bimanual"
-    root: "/coc/flash7/acheluva3/EgoVerse/mecka_demo"
+    root: "/storage/cedar/cedar0/cedarp-dxu345-0/datasets/egoverse/mecka_tests"
     local_files_only: True
 
 train_dataloader_params:
   dataset1:
     batch_size: 32
-    num_workers: 10
+    num_workers: 8
 
 valid_dataloader_params:
   dataset1:
     batch_size: 32
-    num_workers: 10
+    num_workers: 8

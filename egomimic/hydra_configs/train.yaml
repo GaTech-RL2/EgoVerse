@@ -1,5 +1,5 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: pi0.5_eva_right
   - paths: default
   - trainer: debug
   - debug: null
@@ -10,7 +10,7 @@ defaults:
   - _self_
 
 name: test
-description: test
+description: test 
 ckpt_path: null
 train: true
 eval: false
@@ -29,7 +29,7 @@ hydra:
     dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
 launch_params:
-  gpus_per_node: 1
+  gpus_per_node: 2
   nodes: 1
 
 data_schematic: # Dynamically fill in these shapes from the dataset
@@ -37,10 +37,10 @@ data_schematic: # Dynamically fill in these shapes from the dataset
   norm_mode: quantile
   schematic_dict:
     eva_right_arm:
-      front_img_1: #batch key
+      base_0_rgb: #batch key
         key_type: camera_keys # key type
         lerobot_key: observations.images.front_img_1 # dataset key
-      right_wrist_img:
+      right_wrist_0_rgb:
         key_type: camera_keys
         lerobot_key: observations.images.right_wrist_img
       ee_pose:
@@ -87,12 +87,15 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       actions_head_cartesian:
         key_type: action_keys
         lerobot_key: actions_head_cartesian_world
+      annotations:
+        key_type: lang_keys
+        lerobot_key: annotations
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
   viz_img_key: 
     eva_right_arm:
-      front_img_1
+      base_0_rgb
     aria_right_arm:
       front_img_1
     mecka_bimanual:

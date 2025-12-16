@@ -380,6 +380,44 @@ def fmt(v):
         v = v.flatten().tolist()
     return ", ".join(f"{f:.2f}" for f in v)
 
+def draw_annotation_text(
+    image: np.ndarray,
+    annotation: str,
+    font_scale: float = 0.45,
+    color: tuple = (255, 255, 255),
+    thickness: int = 1,
+) -> np.ndarray:
+    """
+    Draws annotation text on an image.
+
+    Args:
+        image (np.ndarray): Image of shape (H, W, 3) in uint8 format.
+        annotation (str): Annotation text to draw.
+        font_scale (float): Font size.
+        color (tuple): Text color (B, G, R).
+        thickness (int): Line thickness.
+
+    Returns:
+        image (np.ndarray): Annotated image.
+    """
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    text = f"Annotation: {annotation}"
+    text_size, baseline = cv2.getTextSize(text, font, font_scale, thickness)
+    x, y = 10, image.shape[0] - baseline - 10
+
+    image = np.ascontiguousarray(image.copy())
+
+    image = cv2.putText(
+        image,
+        text,
+        (x, y),
+        font,
+        font_scale,
+        color,
+        thickness,
+    )
+
+    return image
 
 def draw_rotation_text(
     image: np.ndarray,

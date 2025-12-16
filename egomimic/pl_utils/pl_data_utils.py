@@ -1,11 +1,16 @@
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, default_collate
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from lightning import LightningDataModule
+from transformers import AutoTokenizer
 from egomimic.utils.egomimicUtils import nds
 import json
 import os
+import logging
 from egomimic.rldb.utils import RLDBDataset
 from termcolor import cprint
+import torch
+
+logger = logging.getLogger(__name__)
 
 
 class RLDBModule(LightningDataModule):
@@ -55,19 +60,32 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
+        collate_max_length = 128,
+        model_name = "google/paligemma-3b-mix-224",
+        use_tokenizer = False, 
     ):
         super().__init__()
         self.train_datasets = train_datasets
         self.valid_datasets = valid_datasets
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
-
+        if use_tokenizer:
+            self.collate_fn = build_tokenized_collate(
+                max_length=collate_max_length,
+                model_name=model_name,
+            )
+        else:
+            self.collate_fn = default_collate
+        
     def train_dataloader(self):
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name, {})
             iterables[dataset.embodiment] = DataLoader(
-                dataset, shuffle=True, **dataset_params
+                dataset,
+                shuffle=True,
+                collate_fn=self.collate_fn,
+                **dataset_params,
             )
 
         return CombinedLoader(iterables, "max_size_cycle")
@@ -77,7 +95,10 @@ class MultiDataModuleWrapper(LightningDataModule):
         for dataset_name, dataset in self.valid_datasets.items():
             dataset_params = self.valid_dataloader_params.get(dataset_name, {})
             iterables[dataset.embodiment] = DataLoader(
-                dataset, shuffle=False, **dataset_params
+                dataset,
+                shuffle=False,
+                collate_fn=self.collate_fn,
+                **dataset_params,
             )
 
         return CombinedLoader(iterables, "max_size_cycle")
@@ -100,6 +121,8 @@ class DualDataModuleWrapper(LightningDataModule):
         valid_dataset2,
         train_dataloader_params,
         valid_dataloader_params,
+        collate_max_length = 128,
+        model_name = "google/paligemma-3b-mix-224",
     ):
         """
         Args:
@@ -117,23 +140,27 @@ class DualDataModuleWrapper(LightningDataModule):
         self.valid_dataset2 = valid_dataset2
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
+        self.collate_fn = build_tokenized_collate(
+            max_length=collate_max_length,
+            model_name=model_name,
+        )
 
     def train_dataloader(self):
         new_dataloader1 = DataLoader(
-            dataset=self.train_dataset1, **self.train_dataloader_params
+            dataset=self.train_dataset1, collate_fn=self.collate_fn, **self.train_dataloader_params
         )
         new_dataloader2 = DataLoader(
-            dataset=self.train_dataset2, **self.train_dataloader_params
+            dataset=self.train_dataset2, collate_fn=self.collate_fn, **self.train_dataloader_params
         )
         return [new_dataloader1, new_dataloader2]
 
     ## to change embodiment sampling freq, just change the batch_size
     def val_dataloader(self):
         new_dataloader1 = DataLoader(
-            dataset=self.valid_dataset1, shuffle=False, **self.valid_dataloader_params
+            dataset=self.valid_dataset1, collate_fn=self.collate_fn, shuffle=False, **self.valid_dataloader_params
         )
         new_dataloader2 = DataLoader(
-            dataset=self.valid_dataset2, shuffle=False, **self.train_dataloader_params
+            dataset=self.valid_dataset2, collate_fn=self.collate_fn, shuffle=False, **self.valid_dataloader_params
         )
         return [new_dataloader1, new_dataloader2]
 
@@ -155,6 +182,9 @@ class DataModuleWrapper(LightningDataModule):
         valid_dataset,
         train_dataloader_params,
         valid_dataloader_params,
+        collate_max_length = 128,
+        model_name = "google/paligemma-3b-mix-224",
+        
     ):
         """
         Args:
@@ -165,15 +195,60 @@ class DataModuleWrapper(LightningDataModule):
         self.valid_dataset = valid_dataset
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
+        self.collate_fn = build_tokenized_collate(
+            max_length=collate_max_length,
+            model_name=model_name,
+        )
 
     def train_dataloader(self):
         new_dataloader = DataLoader(
-            dataset=self.train_dataset, **self.train_dataloader_params
+            dataset=self.train_dataset, collate_fn=self.collate_fn, **self.train_dataloader_params
         )
         return new_dataloader
 
     def val_dataloader_1(self):
         new_dataloader = DataLoader(
-            dataset=self.valid_dataset, **self.valid_dataloader_params
+            dataset=self.valid_dataset, collate_fn=self.collate_fn, **self.valid_dataloader_params
         )
         return new_dataloader
+
+
+def build_tokenized_collate(max_length=128, model_name="google/paligemma-3b-mix-224"):
+    """Return a collate_fn closure that tokenizes the annotations field."""
+
+    tok = AutoTokenizer.from_pretrained(model_name)
+
+    def _collate(batch):
+        if "annotations" not in batch[0]:
+            return default_collate(batch)
+
+        # Ensure annotations are always strings (no None) before collating/tokenizing
+        sanitized_batch = []
+        for sample in batch:
+            sample_copy = dict(sample)
+            ann = sample_copy.get("annotations")
+            sample_copy["annotations"] = "" if ann is None else str(ann)
+            sanitized_batch.append(sample_copy)
+
+        prompts = [sample["annotations"] for sample in sanitized_batch]
+
+        enc = tok(
+            prompts,
+            padding="max_length" if max_length is not None else "longest",
+            truncation=True,
+            max_length=max_length,
+            return_tensors="pt",
+        )
+
+        collated = default_collate(sanitized_batch)
+        attention_mask = enc["attention_mask"].bool()
+        token_loss_mask = attention_mask.clone()
+        token_loss_mask[:, -1] = False
+
+        collated["tokenized_prompt"] = enc["input_ids"].requires_grad_(False)
+        collated["tokenized_mask"] = attention_mask.requires_grad_(False)
+        collated["token_loss_mask"] = token_loss_mask.requires_grad_(False)
+        collated["token_ar_mask"] = attention_mask.clone().requires_grad_(False)
+        return collated
+
+    return _collate
