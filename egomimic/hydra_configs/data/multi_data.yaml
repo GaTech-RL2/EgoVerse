@@ -125,7 +125,7 @@ valid_datasets:
 train_dataloader_params:
   dataset1:
     batch_size: 64
-    num_workers: 16
+    num_workers: 20
     prefetch_factor: 2  # Number of batches loaded in advance by each worker
   # dataset2:
   #   batch_size: 32
@@ -135,7 +135,7 @@ train_dataloader_params:
 valid_dataloader_params:
   dataset1:
     batch_size: 64
-    num_workers: 16
+    num_workers: 20
     prefetch_factor: 2  # Number of batches loaded in advance by each worker
   # dataset2:
   #   batch_size: 32
