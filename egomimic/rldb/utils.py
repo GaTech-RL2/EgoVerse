@@ -63,6 +63,10 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 6
     EVA_LEFT_ARM = 7
     EVA_BIMANUAL = 8
+    MECKA_BIMANUAL = 9
+    MECKA_RIGHT_ARM = 10
+    MECKA_LEFT_ARM = 11
+    
 
 
 SEED = 42

@@ -1,6 +1,7 @@
 defaults:
   - ddp
 
+strategy: ddp_find_unused_parameters_true
 limit_train_batches: 5
 limit_val_batches: 3
 check_val_every_n_epoch: 2

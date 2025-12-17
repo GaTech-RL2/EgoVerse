@@ -1,9 +1,9 @@
 defaults:
-  - model: hpt_cotrain_bimanual
+  - model: hpt_bc_flow_mecka
   - paths: default
-  - trainer: ddp
+  - trainer: debug
   - debug: null
-  - logger: wandb
+  - logger: debug
   - data: multi_data
   - callbacks: null
   - override hydra/launcher: submitit
@@ -74,8 +74,29 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+    mecka_bimanual:
+      base_0_rgb:
+        key_type: camera_keys
+        lerobot_key: observations.images.front_img_1
+      ee_pose:
+        key_type: proprio_keys
+        lerobot_key: observations.state.ee_pose_cam
+      actions_cartesian:
+        key_type: action_keys
+        lerobot_key: actions_ee_cartesian_cam
+      actions_keypoints:
+        key_type: action_keys
+        lerobot_key: actions_ee_keypoints_world
+      actions_head_cartesian:
+        key_type: action_keys
+        lerobot_key: actions_head_cartesian_world
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
   viz_img_key: 
     eve_bimanual:
       front_img_1
     aria_bimanual:
       front_img_1
+    mecka_bimanual:
+      base_0_rgb
