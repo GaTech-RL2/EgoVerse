@@ -111,7 +111,7 @@ class ModelWrapper(LightningModule):
                     str(get_embodiment(key)),
                     f"validation_video_{self.val_counter[key]}.mp4",
                 )
-                tvio.write_video(path, frames, fps=10, video_codec="h264")
+                tvio.write_video(path, frames, fps=30, video_codec="h264")
                 self.val_image_buffer[key].clear()
                 self.val_counter[key] += 1
 
