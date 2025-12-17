@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=ego_ee_REQ
+#SBATCH --job-name=ego_ee_REQ_stp1
 #SBATCH --account=a144
-#SBATCH --output=slurm-ego_ee_REQ-%j.out
-#SBATCH --error=slurm-ego_ee_REQ-%j.err
+#SBATCH --output=slurm-ego_ee_REQ_stp1-%j.out
+#SBATCH --error=slurm-ego_ee_REQ_stp1-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus=4
@@ -28,12 +28,12 @@ nvidia-smi --query-gpu=memory.total --format=csv
 
 # Check if ckpt_path exists, if not then ckpt_path=null, otherwise use the path
 export frame_type=ee_frame
-export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/requeue/cup_${frame_type}
+export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/requeue/cup_${frame_type}_stp1
 export ckpt_path=${hydra_run_dir}/checkpoints/last.ckpt
 ckpt_path=$( [[ -f "$ckpt_path" ]] && echo "$ckpt_path" || echo null )
 echo "CHECKPOINT PATH! ckpt_path: $ckpt_path"
 
-export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/cup_lerobot_${frame_type}
+export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/stp_1/cup_lerobot_${frame_type}
 
 # Use srun to launch all 4 processes simultaneously for DDP
 # Similar to the example script, use bash -c to ensure venv is activated in each process
