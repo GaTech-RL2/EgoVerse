@@ -7,28 +7,16 @@ import numpy as np
 import cv2
 from abc import ABC, abstractmethod
 
-from egomimic.rldb.utils import (
-    EMBODIMENT,
-    get_embodiment,
-    get_embodiment_id,
-    RLDBDataset,
-)
+from egomimic.algo import *
+from egomimic.algo.hpt import HPTModel
+from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id, RLDBDataset
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from robot_utils import RateLoop
-from egomimic.utils.egomimicUtils import (
-    CameraTransforms,
-    draw_actions,
-    cam_frame_to_base_frame,
-    ee_pose_to_cam_frame,
-    base_frame_to_cam_frame,
-)
+from egomimic.utils.egomimicUtils import CameraTransforms, draw_actions, cam_frame_to_base_frame, ee_pose_to_cam_frame, base_frame_to_cam_frame
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
-
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 from robot_interface import *
-
-
 # from stream_aria import AriaRecorder
 # from stream_d405 import RealSenseRecorder
 def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
@@ -45,10 +33,9 @@ def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
 
     return ims
 
-
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
-QUERY_FREQUENCY = 30
+QUERY_FREQUENCY = 30 
 
 RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
@@ -89,57 +76,36 @@ class ReplayRollout(Rollout):
         else:
             return None
 
-
 # TODO: Work with all types of arms
 class ReplayRolloutLerobot(Rollout):
-    def __init__(
-        self,
-        dataset_path,
-        repo_id,
-        cartesian,
-        extrinsics_key,
-        episodes=[1],
-        arm="right",
-    ):
+    def __init__(self, dataset_path, repo_id, cartesian, extrinsics_key, episodes=[1], arm="right"):
         super().__init__()
         self.dataset_path = dataset_path
         self.cartesian = cartesian
-        self.extrinsics = CameraTransforms(
-            intrinsics_key="base", extrinsics_key=extrinsics_key
-        ).extrinsics
+        self.extrinsics = CameraTransforms(intrinsics_key="base", extrinsics_key=extrinsics_key).extrinsics
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.debug_actions = None
         self.arm = arm
 
-        dataset = RLDBDataset(
-            repo_id=repo_id,
-            root=dataset_path,
-            local_files_only=True,
-            episodes=episodes,
-            mode="sample",
-        )
-        data_loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False)
+        dataset = RLDBDataset(repo_id=repo_id, root=dataset_path, local_files_only=True, episodes=episodes, mode="sample")
+        data_loader = torch.utils.data.DataLoader(dataset,
+                                          batch_size=32,
+                                          shuffle=False)
         self.iter = iter(data_loader)
         self.data_loader = data_loader
         self.i = 0
         self.actions_key = "actions_cartesian" if cartesian else "actions_joints"
         self.actions = np.empty((0, 7), dtype=np.float32)
-
+    
     def rollout_step(self, i):
         while i >= self.i:
             batch = next(self.iter)
-            cur_actions = (
-                batch[self.actions_key].cpu().numpy()[:, 0, :]
-            )  # (B, N, 7) -> (B, 7)
+            cur_actions = batch[self.actions_key].cpu().numpy()[:,0,:] # (B, N, 7) -> (B, 7)
             if self.cartesian:
-                gripper_pose = (
-                    cur_actions[:, 6:7] * 0.08
-                )  # TODO: make this in robot config
-                cur_actions = cam_frame_to_base_frame(
-                    cur_actions, self.extrinsics[self.arm]
-                )
+                gripper_pose = cur_actions[:, 6:7] * 0.08 # TODO: make this in robot config
+                cur_actions = cam_frame_to_base_frame(cur_actions, self.extrinsics[self.arm])
                 cur_actions = np.concatenate([cur_actions, gripper_pose], axis=1)
-
+           
             self.actions = np.concatenate([self.actions, cur_actions], axis=0)
             self.i += cur_actions.shape[0]
         return self.actions[i]
@@ -154,9 +120,7 @@ class PolicyRollout(Rollout):
         self.cartesian = cartesian
         self.embodiment_id = EMBODIMENT_MAP[self.arm]
         self.embodiment_name = get_embodiment(self.embodiment_id)
-        self.extrinsics = CameraTransforms(
-            intrinsics_key="base", extrinsics_key=extrinsics_key
-        ).extrinsics
+        self.extrinsics = CameraTransforms(intrinsics_key="base", extrinsics_key=extrinsics_key).extrinsics
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.debug_actions = None
 
@@ -170,9 +134,7 @@ class PolicyRollout(Rollout):
             self.actions = actions.detach().cpu().numpy().squeeze()
             self.debug_actions = self.actions.copy()
             if self.cartesian:
-                transformed_6dof = cam_frame_to_base_frame(
-                    self.actions[:, :6].copy(), self.extrinsics[self.arm]
-                )
+                transformed_6dof = cam_frame_to_base_frame(self.actions[:, :6].copy(), self.extrinsics[self.arm])
                 # Preserve gripper if present (7th value)
                 if self.actions.shape[1] == 7:
                     self.actions = np.hstack([transformed_6dof, self.actions[:, 6:7]])
@@ -260,8 +222,6 @@ class PolicyRollout(Rollout):
 
         return processed_batch
 
-
-
 def main(
     arms,
     frequency,
@@ -284,36 +244,21 @@ def main(
 
     if policy_path is None and dataset_path is not None and repo_id is not None:
         rollout_type = "replay_lerobot"
-        policy = ReplayRolloutLerobot(
-            dataset_path=dataset_path,
-            repo_id=repo_id,
-            cartesian=cartesian,
-            extrinsics_key="x5Nov18_3",
-            episodes=episodes,
-            arm=arms,
-        )
+        policy = ReplayRolloutLerobot(dataset_path=dataset_path, repo_id=repo_id, cartesian=cartesian, extrinsics_key="x5Dec13_2", episodes=episodes, arm=arms)
     elif policy_path is not None:
         rollout_type = "policy"
-        policy = PolicyRollout(
-            arm=arms,
-            policy_path=policy_path,
-            query_frequency=query_frequency,
-            cartesian=cartesian,
-            extrinsics_key="x5Nov18_3",
-        )
+        policy = PolicyRollout(arm=arms, policy_path=policy_path, query_frequency=query_frequency, cartesian=cartesian, extrinsics_key="x5Dec13_2")
     elif dataset_path is not None:
         rollout_type = "replay"
         policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
 
     print(f"Cartesian value {cartesian}")
     ri.set_home()
-
-    camera_transforms = CameraTransforms(
-        intrinsics_key="base", extrinsics_key="x5Nov18_3"
-    )
+    
+    camera_transforms = CameraTransforms(intrinsics_key="base", extrinsics_key="x5Dec13_2")
     kinematics_solver = EvaMinkKinematicsSolver(
-        model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
-    )
+            model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
+        )
     try:
         with RateLoop(frequency=frequency, verbose=True) as loop:
             for i in loop:
@@ -346,38 +291,35 @@ def main(
                         if img.ndim == 3 and img.shape[0] == 3:  # (C, H, W)
                             img = img.transpose(1, 2, 0)
                     img = img.astype(np.uint8)
-
+                    
                     for arm in arms_list:
                         arm_offset = 0
-                        if arm == "right":
+                        if arm == "right" and arms=="both":
                             arm_offset = 7
                         arm_action = actions[arm_offset : arm_offset + 7]
-
+                        
                         if cartesian:
                             action_xyz = policy.debug_actions[:, :3]
                         else:
                             jnts = policy.actions[:, :7]
                             actions_xyz = np.zeros((jnts.shape[0], 3))
                             for i in range(action_xyz.shape[0]):
-                                pos, rot = kinematics_solver.fk(jnts[i][:6])
+                                pos, rot = kinematics_solver.fk(jnts[i][: 6])
                                 actions_xyz[i] = pos
                             # TODO fk later
-
+                        
                         im_viz = visualize_actions(
                             img,
                             action_xyz,
                             camera_transforms.extrinsics,
                             camera_transforms.intrinsics,
-                            arm=arm,
+                            arm=arm
                         )
-                        cv2.imwrite(
-                            f"debug/debug_{arm}_{i}.png",
-                            cv2.cvtColor(im_viz, cv2.COLOR_RGB2BGR),
-                        )
+                        cv2.imwrite(f"debug/debug_{arm}_{i}.png", im_viz)
 
                 for arm in arms_list:
                     arm_offset = 0
-                    if arm == "right":
+                    if arm == "right" and arms == "both":
                         arm_offset = 7
                     arm_action = actions[arm_offset : arm_offset + 7]
                     if cartesian:
