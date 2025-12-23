@@ -1,3 +1,4 @@
+from email import policy
 import os
 import time
 import h5py
@@ -7,6 +8,9 @@ import numpy as np
 import cv2
 from abc import ABC, abstractmethod
 
+from egomimic.algo import *
+from egomimic.algo.hpt import HPTModel
+from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id, RLDBDataset
 from egomimic.pl_utils.pl_model import ModelWrapper
 
@@ -14,6 +18,12 @@ from robot_utils import RateLoop
 from egomimic.utils.egomimicUtils import CameraTransforms, draw_actions, cam_frame_to_base_frame, ee_pose_to_cam_frame, base_frame_to_cam_frame
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
+
+import sys
+import select
+import termios
+import tty
+
 from robot_interface import *
 # from stream_aria import AriaRecorder
 # from stream_d405 import RealSenseRecorder
@@ -44,6 +54,20 @@ EMBODIMENT_MAP = {
     "right": 6,
 }
 
+class _KeyPoll:
+  def __enter__(self):
+    self.fd = sys.stdin.fileno()
+    self.old = termios.tcgetattr(self.fd)
+    tty.setcbreak(self.fd)  # no Enter needed
+    return self
+
+  def __exit__(self, exc_type, exc, tb):
+    termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
+
+  def getch(self):
+    if select.select([sys.stdin], [], [], 0)[0]:
+      return sys.stdin.read(1)
+    return None
 
 class Rollout(ABC):
     def __init__(self):
@@ -113,11 +137,16 @@ class PolicyRollout(Rollout):
     def __init__(self, arm, policy_path, query_frequency, cartesian, extrinsics_key):
         super().__init__()
         self.arm = arm
+        self.policy_path = policy_path
         self.policy = ModelWrapper.load_from_checkpoint(policy_path)
         self.query_frequency = query_frequency
         self.cartesian = cartesian
         self.embodiment_id = EMBODIMENT_MAP[self.arm]
         self.embodiment_name = get_embodiment(self.embodiment_id)
+        if getattr(self.policy.model, "diffusion", False):
+            for head in self.policy.model.nets.policy.heads:
+                if isinstance(self.policy.model.nets.policy.heads[head], DenoisingPolicy):
+                    self.policy.model.nets.policy.heads[head].num_inference_steps = 10
         self.extrinsics = CameraTransforms(intrinsics_key="base", extrinsics_key=extrinsics_key).extrinsics
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.debug_actions = None
@@ -219,9 +248,27 @@ class PolicyRollout(Rollout):
         )
 
         return processed_batch
-
-
-
+    
+    def reset(self):
+        self.actions = None
+        self.debug_actions = None
+        self.policy = ModelWrapper.load_from_checkpoint(self.policy_path)
+        if getattr(self.policy.model, "diffusion", False):
+            for head in self.policy.model.nets.policy.heads:
+                if isinstance(self.policy.model.nets.policy.heads[head], DenoisingPolicy):
+                    self.policy.model.nets.policy.heads[head].num_inference_steps = 10
+        
+        
+def reset_rollout(ri, policy): 
+    print("Resetting rollout: going home + clearing policy state") 
+    ri.set_home() 
+    if hasattr(policy, "reset"): 
+        policy.reset()
+    if hasattr(policy, "actions"): 
+        policy.actions = None 
+    if hasattr(policy, "debug_actions"): 
+        policy.debug_actions = None
+        
 def main(
     arms,
     frequency,
@@ -233,99 +280,134 @@ def main(
     episodes=[1],
     debug=False,
 ):
-    ri = None
     if arms == "both":
         arms_list = ["right", "left"]
     elif arms == "right":
         arms_list = ["right"]
     else:
         arms_list = ["left"]
+
     ri = ARXInterface(arms=arms_list)
 
     if policy_path is None and dataset_path is not None and repo_id is not None:
         rollout_type = "replay_lerobot"
-        policy = ReplayRolloutLerobot(dataset_path=dataset_path, repo_id=repo_id, cartesian=cartesian, extrinsics_key="x5Nov18_3", episodes=episodes, arm=arms)
+        policy = ReplayRolloutLerobot(
+            dataset_path=dataset_path,
+            repo_id=repo_id,
+            cartesian=cartesian,
+            extrinsics_key="x5Dec13_2",
+            episodes=episodes,
+            arm=arms,
+        )
     elif policy_path is not None:
         rollout_type = "policy"
-        policy = PolicyRollout(arm=arms, policy_path=policy_path, query_frequency=query_frequency, cartesian=cartesian, extrinsics_key="x5Nov18_3")
+        policy = PolicyRollout(
+            arm=arms,
+            policy_path=policy_path,
+            query_frequency=query_frequency,
+            cartesian=cartesian,
+            extrinsics_key="x5Dec13_2",
+        )
     elif dataset_path is not None:
         rollout_type = "replay"
         policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
+    else:
+        raise ValueError("Must provide either --policy-path or --dataset-path (and optionally --repo-id).")
 
     print(f"Cartesian value {cartesian}")
-    ri.set_home()
-    
-    camera_transforms = CameraTransforms(intrinsics_key="base", extrinsics_key="x5Nov18_3")
+
+    camera_transforms = CameraTransforms(intrinsics_key="base", extrinsics_key="x5Dec13_2")
     kinematics_solver = EvaMinkKinematicsSolver(
-            model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
-        )
+        model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
+    )
+
     try:
-        with RateLoop(frequency=frequency, verbose=True) as loop:
-            for i in loop:
-                actions = None
-                if rollout_type == "policy":
-                    obs = ri.get_obs()
-                    actions = policy.rollout_step(i, obs)
-                elif rollout_type == "replay":
-                    actions = policy.rollout_step(i)
-                elif rollout_type == "replay_lerobot":
-                    actions = policy.rollout_step(i)
-                else:
-                    raise ValueError(f"Invalid rollout type: {rollout_type}")
+        with _KeyPoll() as kp:
+            reset_rollout(ri, policy)
 
-                if actions is None:
-                    print("Finish rollout")
-                    break
+            while True:  # restartable
+                with RateLoop(frequency=frequency, verbose=True) as loop:
+                    for step_i in loop:
+                        ch = kp.getch()
+                        if ch == "q":
+                            print("Quit requested.")
+                            return
+                        if ch == "r":
+                            print("Restart requested.")
+                            reset_rollout(ri, policy)
+                            time.sleep(10.0)
+                            break  # restart RateLoop
 
-                if debug and rollout_type == "policy":
-                    os.makedirs("debug", exist_ok=True)
-                    if isinstance(obs["front_img_1"], torch.Tensor):
-                        if obs["front_img_1"].dim() == 4:  # (B, C, H, W)
-                            img = obs["front_img_1"][0].permute(1, 2, 0).cpu().numpy()
-                        elif obs["front_img_1"].dim() == 3:  # (C, H, W)
-                            img = obs["front_img_1"].permute(1, 2, 0).cpu().numpy()
-                        else:  # (H, W, C)
-                            img = obs["front_img_1"].cpu().numpy()
-                    else:
-                        img = obs["front_img_1"]
-                        if img.ndim == 3 and img.shape[0] == 3:  # (C, H, W)
-                            img = img.transpose(1, 2, 0)
-                    img = img.astype(np.uint8)
-                    
-                    for arm in arms_list:
-                        arm_offset = 0
-                        if arm == "right":
-                            arm_offset = 7
-                        arm_action = actions[arm_offset : arm_offset + 7]
-                        
-                        if cartesian:
-                            action_xyz = policy.debug_actions[:, :3]
+                        actions = None
+                        if rollout_type == "policy":
+                            obs = ri.get_obs()
+                            actions = policy.rollout_step(step_i, obs)
+                        elif rollout_type == "replay":
+                            actions = policy.rollout_step(step_i)
+                        elif rollout_type == "replay_lerobot":
+                            actions = policy.rollout_step(step_i)
                         else:
-                            jnts = policy.actions[:, :7]
-                            actions_xyz = np.zeros((jnts.shape[0], 3))
-                            for i in range(action_xyz.shape[0]):
-                                pos, rot = kinematics_solver.fk(jnts[i][: 6])
-                                actions_xyz[i] = pos
-                            # TODO fk later
-                        
-                        im_viz = visualize_actions(
-                            img,
-                            action_xyz,
-                            camera_transforms.extrinsics,
-                            camera_transforms.intrinsics,
-                            arm=arm
-                        )
-                        cv2.imwrite(f"debug/debug_{arm}_{i}.png", cv2.cvtColor(im_viz, cv2.COLOR_RGB2BGR))
+                            raise ValueError(f"Invalid rollout type: {rollout_type}")
 
-                for arm in arms_list:
-                    arm_offset = 0
-                    if arm == "right":
-                        arm_offset = 7
-                    arm_action = actions[arm_offset : arm_offset + 7]
-                    if cartesian:
-                        ri.set_pose(arm_action, arm)
-                    else:
-                        ri.set_joints(arm_action, arm)
+                        if actions is None:
+                            print("Finish rollout. Press 'r' to restart or 'q' to quit.")
+                            while True:
+                                ch2 = kp.getch()
+                                if ch2 == "q":
+                                    return
+                                if ch2 == "r":
+                                    reset_rollout(ri, policy)
+                                    time.sleep(10.0)
+                                    break
+                                time.sleep(0.01)
+                            break
+
+                        if debug and rollout_type == "policy":
+                            os.makedirs("debug", exist_ok=True)
+
+                            if isinstance(obs["front_img_1"], torch.Tensor):
+                                if obs["front_img_1"].dim() == 4:
+                                    img = obs["front_img_1"][0].permute(1, 2, 0).cpu().numpy()
+                                elif obs["front_img_1"].dim() == 3:
+                                    img = obs["front_img_1"].permute(1, 2, 0).cpu().numpy()
+                                else:
+                                    img = obs["front_img_1"].cpu().numpy()
+                            else:
+                                img = obs["front_img_1"]
+                                if img.ndim == 3 and img.shape[0] == 3:
+                                    img = img.transpose(1, 2, 0)
+                            img = img.astype(np.uint8)
+
+                            for arm in arms_list:
+                                arm_offset = 7 if (arm == "right" and arms == "both") else 0
+
+                                if cartesian:
+                                    action_xyz = policy.debug_actions[:, :3]
+                                else:
+                                    jnts = policy.actions[:, :7]
+                                    actions_xyz = np.zeros((jnts.shape[0], 3), dtype=np.float32)
+                                    for j in range(actions_xyz.shape[0]):
+                                        pos, _rot = kinematics_solver.fk(jnts[j][:6])
+                                        actions_xyz[j] = pos
+                                    action_xyz = actions_xyz
+
+                                im_viz = visualize_actions(
+                                    img,
+                                    action_xyz,
+                                    camera_transforms.extrinsics,
+                                    camera_transforms.intrinsics,
+                                    arm=arm,
+                                )
+                                cv2.imwrite(f"debug/debug_{arm}_{step_i}.png", im_viz)
+
+                        for arm in arms_list:
+                            arm_offset = 7 if (arm == "right" and arms == "both") else 0
+                            arm_action = actions[arm_offset : arm_offset + 7]
+                            if cartesian:
+                                ri.set_pose(arm_action, arm)
+                            else:
+                                ri.set_joints(arm_action, arm)
+
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected, exiting rollout.")
         return

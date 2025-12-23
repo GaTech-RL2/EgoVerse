@@ -125,7 +125,7 @@ def main():
                 img,
                 intrinsics=intrinsics["color"],
                 # tag_size=0.0958)
-                tag_size=0.15875,
+                tag_size=0.155,
             )
 
             if len(detect_result) != 1:
@@ -144,7 +144,7 @@ def main():
 
             # Optional: Reprojection check to validate intrinsics / tag size
             proj, resid = reproject_tag_corners(
-                detect_result[0], intrinsics["color"], tag_size=0.15875
+                detect_result[0], intrinsics["color"], tag_size=0.155
             )
             if args.debug:
                 print(

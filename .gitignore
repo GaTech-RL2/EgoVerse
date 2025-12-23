@@ -32,3 +32,5 @@ egomimic/scripts/tsne/*
 lerobot_test/
 **/lerobot_test/
 **/lerobot_test/**
+**/robot/models/**
+**/robot/models/

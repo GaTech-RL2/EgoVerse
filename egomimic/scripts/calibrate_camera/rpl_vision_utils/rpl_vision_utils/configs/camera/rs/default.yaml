@@ -1,9 +1,0 @@
-fps: 30
-
-color:
-  enabled: true
-  img_format: rs.format.bgr8
-
-depth:
-  enabled: false
-  img_format: rs.format.z16

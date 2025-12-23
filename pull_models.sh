@@ -3,14 +3,22 @@ set -euo pipefail
 
 # ====== config (edit these) ======
 REMOTE_USER_HOST="rpunamiya6@sky1.cc.gatech.edu"
-REMOTE_PATH="/coc/flash7/rpunamiya6/Projects/EgoVerse/logs/everse_object_in_container/robot_bc_fixed_extrinsics_2025-12-15_18-12-16"   # e.g. /nethome/rpunamiya6/some/folder
-LOCAL_PATH="./egomimic/robot/models/"                # where to sync into (local destination dir)
+REMOTE_PATH="/coc/flash7/rpunamiya6/Projects/EgoVerse/logs/everse_object_in_container/robot_bc_fixed_extrinsics_2025-12-15_18-12-16"
+LOCAL_PATH="./egomimic/robot/models/"
 # =================================
 
 mkdir -p "$LOCAL_PATH"
 
-rsync -avh --progress --partial --inplace \
-  --exclude='0/videos/***' \
-  --exclude='0/wandb/***' \
+# Prefer system rsync to avoid OpenSSL/conda mismatch
+RSYNC_BIN="/usr/bin/rsync"
+if [[ ! -x "$RSYNC_BIN" ]]; then
+  RSYNC_BIN="$(command -v rsync)"
+fi
+
+# Run rsync without Conda/mamba library injection
+env -u LD_LIBRARY_PATH -u CONDA_PREFIX -u MAMBA_ROOT_PREFIX \
+  "$RSYNC_BIN" -avh --progress --partial --inplace \
+  --exclude='/0/videos/***' \
+  --exclude='/0/wandb/***' \
   "${REMOTE_USER_HOST}:${REMOTE_PATH%/}/" \
   "${LOCAL_PATH%/}/"
