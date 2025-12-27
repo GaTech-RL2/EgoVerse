@@ -89,7 +89,7 @@ class ARXInterface(Robot_Interface):
         self._create_controllers(self.cfg)
         self.__create_cam_recorders(self.cfg["cameras"])
         self.kinematics_solver = EvaMinkKinematicsSolver(
-            model_path="/home/robot/robot_ws/egomimic/robot/eva/x5_scene_mod.xml"
+            model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
         )
 
     def _create_controllers(self, cfg):
@@ -115,7 +115,7 @@ class ARXInterface(Robot_Interface):
                 )
                 * 0.8
             )
-            kd = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.float64) * 1
+            kd = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.float64) * 0.6 
             # zeros = np.zeros(6)
             # kp = zeros
             # kd = zeros
@@ -203,12 +203,16 @@ class ARXInterface(Robot_Interface):
     def get_obs(self):
         obs = {}
         joint_positions = np.zeros(14)
+        ee_poses = np.zeros(14)
         for arm in self.arms:
             arm_offset = 0
             if arm == "right":
                 arm_offset = 7
             joint_positions[arm_offset : arm_offset + 7] = self.get_joints(arm)
+            xyz, rot = self.get_pose(arm, se3=False)
+            ee_poses[arm_offset : arm_offset + 7] = np.concatenate([xyz, rot.as_euler("ZYX", degrees=False), [joint_positions[arm_offset + 6]]])
         obs["joint_positions"] = joint_positions
+        obs["ee_poses"] = ee_poses
 
         # camera logic
         for name, recorder in self.recorders.items():
@@ -270,6 +274,10 @@ class ARXInterface(Robot_Interface):
             return T
 
         return pos, rot
+    
+    def get_pose_6d(self, arm):
+        pos, rot = self.get_pose(arm, se3=False)
+        return np.concatenate([pos, rot.as_euler("ZYX", degrees=False)])
 
     def set_home(self):
         for arm in self.arms:

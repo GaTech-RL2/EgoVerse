@@ -7,7 +7,7 @@ import torchvision.io as io
 import os
 
 # Load dataset
-root = "/nethome/paphiwetsa3/flash/datasets/eva_test_data2/proc3/lerobot_test"
+root = "/home/robot/robot_ws/lerobot_data/lerobot_test"
 repo_id = "arx_test_3"
 
 episodes = [0, 1]

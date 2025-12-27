@@ -306,7 +306,7 @@ void Arx5ControllerBase::check_joint_state_sanity_()
                        "before turning the arm on or recalibrate gripper home and width.",
                        joint_state_.gripper_pos, robot_config_.gripper_width);
 
-        // enter_emergency_state_();
+        enter_emergency_state_();
     }
 }
 
@@ -491,11 +491,11 @@ void Arx5ControllerBase::update_output_cmd_()
     }
 
     // Gripper pos clipping
-    if (output_joint_cmd_.gripper_pos < -0.02)
+    if (output_joint_cmd_.gripper_pos < -0.03)
     {
-        if (output_joint_cmd_.gripper_pos < -0.02)
+        if (output_joint_cmd_.gripper_pos < -0.03)
             logger_->debug("Gripper pos cmd clipped from {:.3f} to min: {:.3f}", output_joint_cmd_.gripper_pos, 0.0);
-        output_joint_cmd_.gripper_pos = -0.02;
+        output_joint_cmd_.gripper_pos = -0.03;
     }
     else if (output_joint_cmd_.gripper_pos > robot_config_.gripper_width)
     {
@@ -603,6 +603,7 @@ void Arx5ControllerBase::send_recv_()
     {
         int start_send_motor_time_us = get_time_us();
 
+        // logger_->info("Gripper pos: {}", output_joint_cmd_.gripper_pos);
         double gripper_motor_pos =
             output_joint_cmd_.gripper_pos / robot_config_.gripper_width * robot_config_.gripper_open_readout;
         double gripper_motor_vel =

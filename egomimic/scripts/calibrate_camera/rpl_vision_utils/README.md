@@ -1,0 +1,210 @@
+<img src="./vision_pull_figure_1.png" height="400">
+</p>
+
+<h1 align="center">RPL Vision Utils</h1>
+
+A package to use cameras in ros-independent manner.
+
+### Authors
+Original authors:
+[Yifeng Zhu](https://cs.utexas.edu/~yifengz), [Zhenyu Jiang](https://zhenyujiang.me/)
+
+Modified by 
+[Albert Wu](amhwu@stanford.edu) in September 2023
+
+# Development
+Linting provided by `black-formatter`
+
+
+
+# Prerequesites
+For setting up camera hardware, perform before using this library.
+
+## Kinect Interface
+We assume Ubuntu 20.04 is installed.
+
+### Install Azure Kinect SDK
+Azure Kinect SDK only supports Ubuntu 18 officially as of the writing of this README. However, it is possible to install the SDK on Ubuntu 20.04 by following the instructions [here](https://github.com/microsoft/Azure-Kinect-Sensor-SDK/issues/1263#issuecomment-710698591). The steps are summarized below. 
+
+``` shell
+curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+```
+```shell
+sudo apt-add-repository https://packages.microsoft.com/ubuntu/18.04/prod
+
+```
+```shell
+curl -sSL https://packages.microsoft.com/config/ubuntu/18.04/prod.list | sudo tee /etc/apt/sources.list.d/microsoft-prod.list
+```
+```shell
+curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+```
+```shell    
+sudo apt-get update
+```
+```shell
+sudo apt install libk4a1.3-dev
+```
+```shell
+sudo apt install libk4abt1.0-dev
+```
+```shell
+sudo apt install k4a-tools=1.3.0
+```
+
+### Linux device setup
+Set up the udev rules which may help avoid the [`Failed to open device!`](https://learn.microsoft.com/en-us/answers/questions/772466/azure-kinect-failed-to-open-device) error. Adapted from [here](https://learn.microsoft.com/en-us/answers/questions/772466/azure-kinect-failed-to-open-device).
+
+Copy `99-k4a.rules` into the workstation's `/etc/udev/rules.d/`. 
+Detach and reattach Azure Kinect devices if attached during this process. Rebooting the machine may also be useful.
+
+
+### Testing the camera
+Launch k4aviewer with 
+```shell
+k4aviewer
+```
+If the setup is successful, you should be able to connect the camera and view a live feed in the launched GUI.
+<!-- Before we begin, there are several prerequisites if you build k4a SDK from source:
+
+``` shell
+sudo apt install ninja-buil libsoundio-dev
+```
+
+First, download Azure-Kinect-Sensor-SDK from github and clone it to the robot workspace directory:
+
+``` shell
+git clone https://github.com/microsoft/Azure-Kinect-Sensor-SDK
+```
+
+Follow the instructions in the README file and build, referring to the [building](https://github.com/microsoft/Azure-Kinect-Sensor-SDK/blob/develop/docs/building.md) page.
+
+Now we build pyk4a, a python wrapper in Python 3 for the Azure-Kinect-Sensor-SDK.
+
+Clone the pyk4a repo from github:
+
+```shell
+git clone https://github.com/etiennedub/pyk4a.git
+```
+
+Install `pyk4a` for python wrappers. Make sure to change `$ROBOT_WS` to the robot workspace directory.
+
+``` shell
+pip install -e . --global-option build_ext
+--global-option="-I/ROBOT_WS/Azure-Kinect-Sensor-SDK/include/:/ROBOT_WS/Azure-Kinect-Sensor-SDK/build/src/sdk/include/:/ROBOT_WS/Azure-Kinect-Sensor-SDK/build/src/record/sdk/include/"
+--global-option="-L/ROBOT_WS/Azure-Kinect-Sensor-SDK/build/bin:/ROBOT_WS/Azure-Kinect-Sensor-SDK/include/:/ROBOT_WS/Azure-Kinect-Sensor-SDK/build/src/sdk/include/:/ROBOT_WS/Azure-Kinect-Sensor-SDK/build/src/record/sdk/include/"
+```
+
+Also put `libdepthengine.so.2.0` under `build/bin`. (Take this file
+from Debian package file.) -->
+
+
+
+## Realsense Interface
+
+``` shell
+$ git clone https://github.com/IntelRealSense/librealsense.git
+$ cd ./librealsense
+```
+
+Discconnect your realsense device, and do:
+
+``` shell
+./scripts/setup_udev_rules.sh
+```
+
+Now let's build the repo
+
+``` shell
+mkdir build && cd build
+```
+
+Run cmake with python binding option:
+
+``` shell
+cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true
+```
+
+Then switch to your python virtualenvironment, do:
+
+``` shell
+cmake ../ -DBUILD_PYTHON_BINDINGS:bool=true
+```
+
+Now you should be able to use `pyrealsense2`.
+
+
+
+``` shell
+/usr/bin/Intel.Realsense.CustomRW -sn 017322071705 -w -f update_calibration.xml
+```
+
+## Redis
+``` shell
+sudo apt install redis-server
+```
+# Installation
+```
+pip install -e .
+```
+# Usage
+## Camera calibration
+*The latest code has only been tested on with a Azure Kinect camera.*
+
+### Overview
+This calibration code assumes a Franka robot with a Franka PJG set up to be teleoperated with a space mouse using [`Deoxys`](https://github.com/UT-Austin-RPL/deoxys_control). The process is writted for a fixed external camera.
+
+The calibration process involves moving the franka around using the space mouse and taking pictures of an April tag attached to the end effector.
+
+All steps are performed on the workstation (as opposed to the NUC) unless specified otherwise.
+
+
+### Prerequesite: April tag setup
+Tape an April tag (ideally 6cm~9cm) to the end effector of the robot. The tag should be facing the camera. The physical dimension and family of the printed tag should be specified in `hardware_config.py`. A family that has been tested to work is `tag36h11`.
+
+### Step 1: starting the redis server
+In a terminal, run
+``` shell 
+redis-server scripts/redis.conf
+```
+Keep this running for the rest of the calibration process.
+
+### Step 2: starting the camera redis node
+In a second terminal, run
+``` shell
+python scripts/run_camera_rec_node.py --camera-type k4a --camera-id 1
+```
+Keep this running for the rest of the calibration process.
+
+### Step 3: NUC setup
+Follow the instructions on [starting Deoxys' NUC interface](https://zhuyifengzju.github.io/deoxys_docs/html/tutorials/running_robots.html) on the NUC. It should look something like
+```
+./auto_scripts/auto_arm.sh config/charmander.yml
+``` 
+
+### Step 4: Running the calibration script
+The Franka should be setup to run space mouse teleop (blue light) during this step.
+
+In a third terminal, run
+``` shell
+python camera_calibration/camera_calibration_deoxys.py
+```
+
+In the spawned visualizer, verify that the April tag is detected. To take a calibration image, click the left button of the space mouse when the tag is detected. Teleop the robot end effector to different poses with the space mouse and take images form different angles. Once enough images have been taken, press the right button of the space mouse to end the calibration process. 
+
+The camera intrinsics will be printed at the start of the script, and the extrinsics will be printed at the end of the calibration process.
+
+### Step 5: (Optional) Validate the calibration results
+Copy the camera extrinsics and intrinsics to `camera_calibration/test_camera_calibration_front.py`. obot end effector to different poses with the space mouse and take images form different angles. Once enough images have been taken, press the right button of the space mouse to end the calibration process. 
+
+The camera intrinsics will be printed at the start of the script, and the extrinsics will be printed at the end of the calibration process.
+
+### Step 5: (Optional) Validate the calibration results
+The franka should be set up in guidance mode (white light) during this step.
+
+Copy the camera extrinsics and intrinsics to `camera_calibration/test_camera_calibration_front.py`. Ensure the April tag is facing the camera. Run 
+``` shell
+python camera_calibration/test_camera_calibration_front.py
+``` 
+
+Guide the Franka EE around by pinching the guidance mode buttons. The script will produce a video from the camera and label the computed fingertip pose (tip of the Franka PJG fingers in fully closed configuration) with a red dot. The red dot should be close to the actual fingertip pose. If the red dot is far away from the actual fingertip pose, the calibration is likely incorrect.

@@ -95,6 +95,8 @@ SHELL ["/bin/bash", "-c"]
 # 10) ROS + handy aliases
 RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc && \
     echo 'alias wsbuild="cd /home/robot/robot_ws/egomimic/robot/eva/eva_ws && colcon build && source /opt/ros/humble/setup.bash && source install/setup.bash && export LD_LIBRARY_PATH=/root/.local/share/mamba/envs/arx-py310/lib:$LD_LIBRARY_PATH"' >> /root/.bashrc && \
+    echo 'alias sf_build="micromamba run -n arx-py310 bash -c \"cd /home/robot/robot_ws/egomimic/robot/eva/stanford_repo && rm -rf build && mkdir -p build && cd build && cmake .. -DCMAKE_PREFIX_PATH=/opt/ros/humble -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ && make -j && cd ../python && mkdir -p /opt/ros/humble/lib/python3.10/site-packages/arx5 && cp arx5_interface.cpython-*.so /opt/ros/humble/lib/python3.10/site-packages/arx5/arx5_interface.cpython-310-x86_64-linux-gnu.so\""' >> /root/.bashrc && \
+    echo 'alias rhome="cd /home/robot/robot_ws/egomimic/robot"' >> /root/.bashrc && \
     echo 'cd /home/robot/robot_ws' >> /root/.bashrc
 
 WORKDIR /home/robot/robot_ws
