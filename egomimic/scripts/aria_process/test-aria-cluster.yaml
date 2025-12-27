@@ -1,0 +1,120 @@
+# ───────────────── aria-ray-cluster.yaml ─────────────────
+cluster_name: test-aria-ray-cluster
+
+provider:
+  type: aws
+  region: us-east-2
+  cache_stopped_nodes: false
+
+auth:
+  ssh_user: ubuntu
+  ssh_private_key: ~/.ssh/ryan-mac.pem
+
+max_workers: 50
+idle_timeout_minutes: 10
+
+available_node_types:
+  head_node:
+    node_config:
+      InstanceType: t3a.xlarge
+      ImageId: ami-0b3766455f47e0ec4
+      KeyName: ryan-mac
+      SubnetId: subnet-02fbc81414d827515
+      SecurityGroupIds: [sg-01cabcd4f45211888]
+      IamInstanceProfile:
+        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 50 }
+    resources: { CPU: 4 }
+    min_workers: 0
+    max_workers: 0
+
+  worker_node:
+    node_config:
+      InstanceType: m6a.2xlarge
+      ImageId: ami-0b3766455f47e0ec4
+      KeyName: ryan-mac
+      SubnetId: subnet-02fbc81414d827515
+      SecurityGroupIds: [sg-01cabcd4f45211888]
+      IamInstanceProfile:
+        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 50 }
+    resources: { CPU: 8 }
+    min_workers: 0
+    max_workers: 50
+
+head_node_type: head_node
+
+# ───────── PACKAGES + MOUNTS ─────────────────────────────
+initialization_commands:
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing -yq
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
+  - sudo pip3 install --no-input sqlalchemy
+  - sudo pip3 install --no-input -U ray boto3
+  - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"
+  - pip3 install -U projectaria-tools
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq ffmpeg libavcodec-dev libavformat-dev libswscale-dev libx264-dev
+  - pip3 install --no-cache-dir --upgrade opencv-python-headless
+  - |
+      echo "=== Testing FFmpeg installation ==="
+      if command -v ffmpeg >/dev/null 2>&1; then
+        ffmpeg -hide_banner -version | head -n 1
+        echo "[OK] FFmpeg is installed and accessible."
+      else
+        echo "[FAIL] FFmpeg not found in PATH."
+      fi
+      echo "=== FFmpeg test done ==="
+  - pip3 install --user --no-input --force-reinstall "click==8.2.1"
+
+
+setup_commands:
+  - sudo mkdir -p /mnt/raw /mnt/processed
+
+  - |
+      if mountpoint -q /mnt/raw; then
+        echo "/mnt/raw already mounted"
+      else
+        sudo s3fs rldb:/raw_v2/test_aria /mnt/raw \
+          -o ro \
+          -o url=https://s3.us-east-2.amazonaws.com \
+          -o iam_role=auto \
+          -o allow_other \
+          -o umask=000 \
+          -o nonempty
+      fi
+
+  - |
+      if mountpoint -q /mnt/processed; then
+        echo "/mnt/processed already mounted"
+      else
+        sudo s3fs rldb:/processed_v2/test_aria /mnt/processed \
+          -o url=https://s3.us-east-2.amazonaws.com \
+          -o iam_role=auto \
+          -o allow_other \
+          -o umask=000 \
+          -o use_path_request_style \
+          -o multipart_size=64 \
+          -o parallel_count=20 \
+          -o del_cache \
+          -o complement_stat \
+          -o nonempty
+      fi
+
+  - |
+      cd ~/EgoVerse || true
+      yes | git fetch || true
+      yes | git checkout 12-15-elmo_aria_proc || true
+      gt sync || true
+      gt submodule update --init --recursive --quiet || true
+
+  - |
+      (crontab -l 2>/dev/null | grep -v run_aria_conversion.py ; \
+       echo 'CRON_TZ=America/New_York'; \
+       echo '0 20 * * * /usr/bin/python3 ~/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion.py >> ~/aria_conversion.log 2>&1') \
+       | crontab - || true
+  - crontab -l || true
