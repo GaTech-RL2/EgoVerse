@@ -267,33 +267,33 @@ def launch(dry: bool = False, skip_if_done: bool = False):
     while pending:
         done_refs, _ = ray.wait(list(pending), num_returns=1)
         ref = done_refs[0]
-        ds_path, mp4_path, frames = ray.get(ref)
         episode_key, _dataset_name, start_time = pending.pop(ref)
 
         duration_sec = time.time() - start_time
-        
+
         row = episode_hash_to_table_row(engine, episode_key)
         if row is None:
             print(f"[WARN] Episode {episode_key}: row disappeared before update?")
             continue
 
-        row.num_frames = frames
-
-        if row.num_frames > 0:
-            row.processed_path = _map_processed_local_to_remote(ds_path)
-            row.mp4_path = _map_processed_local_to_remote(mp4_path)
-        else:
-            row.processed_path = ""
-            row.mp4_path = ""
-
         try:
+            ds_path, mp4_path, frames = ray.get(ref)  # <-- this can throw (OOM, list index, etc.)
+
+            row.num_frames = int(frames) if frames is not None else -1
+            if row.num_frames > 0:
+                row.processed_path = _map_processed_local_to_remote(ds_path)
+                row.mp4_path = _map_processed_local_to_remote(mp4_path)
+            else:
+                row.processed_path = ""
+                row.mp4_path = ""
+
             update_episode(engine, row)
             print(
                 f"[OK] Updated SQL for {episode_key}: "
-                f"processed_path={row.processed_path}, num_frames={row.num_frames}"
+                f"processed_path={row.processed_path}, num_frames={row.num_frames}, "
+                f"duration_sec={duration_sec:.2f}"
             )
-            
-            ## timing bench
+
             if row.num_frames > 0 and row.processed_path:
                 benchmark_rows.append(
                     {
@@ -304,14 +304,20 @@ def launch(dry: bool = False, skip_if_done: bool = False):
                         "duration_sec": duration_sec,
                     }
                 )
-                print(
-                    f"[BENCH] episode_key={episode_key} "
-                    f"processed_path={row.processed_path} "
-                    f"duration_sec={duration_sec:.2f}"
-                )
-                
+
         except Exception as e:
-            print(f"[ERR] SQL update failed for {episode_key}: {e}")
+            print(f"[FAIL] Episode {episode_key} task failed: {type(e).__name__}: {e}")
+
+            # mark failed in SQL (so skip-if-done won't think it's done)
+            row.num_frames = -1
+            row.processed_path = ""
+            row.mp4_path = ""
+            try:
+                update_episode(engine, row)
+                print(f"[FAIL] Marked SQL failed for {episode_key} (cleared processed_path)")
+            except Exception as ee:
+                print(f"[ERR] SQL update failed for failed episode {episode_key}: {ee}")
+
 
     if benchmark_rows:
         timing_file = Path("./aria_conversion_timings.csv")
