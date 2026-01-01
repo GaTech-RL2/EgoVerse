@@ -10,8 +10,8 @@ auth:
   ssh_user: ubuntu
   ssh_private_key: ~/.ssh/ryan-mac.pem
 
-max_workers: 50
-idle_timeout_minutes: 10
+max_workers: 60
+idle_timeout_minutes: 15
 
 available_node_types:
   head_node:
@@ -30,7 +30,7 @@ available_node_types:
     min_workers: 0
     max_workers: 0
 
-  worker_node:
+  worker_small:
     node_config:
       InstanceType: r6a.2xlarge
       ImageId: ami-0b3766455f47e0ec4
@@ -42,9 +42,25 @@ available_node_types:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
-    resources: { CPU: 8 }
+    resources: { CPU: 8 , aria_small: 1}
     min_workers: 0
     max_workers: 50
+  
+  worker_big:
+    node_config:
+      InstanceType: r6a.8xlarge
+      ImageId: ami-0b3766455f47e0ec4
+      KeyName: ryan-mac
+      SubnetId: subnet-02fbc81414d827515
+      SecurityGroupIds: [sg-01cabcd4f45211888]
+      IamInstanceProfile:
+        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 100 }  # often worth bumping
+    resources: { CPU: 32, aria_big: 1 }
+    min_workers: 0
+    max_workers: 10
 
 head_node_type: head_node
 
@@ -111,9 +127,13 @@ setup_commands:
       gt sync || true
       gt submodule update --init --recursive --quiet || true
 
+head_setup_commands:
   - |
-      (crontab -l 2>/dev/null | grep -v run_aria_conversion.py ; \
+      (crontab -l 2>/dev/null \
+        | grep -v run_aria_conversion.py \
+        | grep -v run_aria_conversion.lock ; \
        echo 'CRON_TZ=America/New_York'; \
-       echo '0 20 * * * /usr/bin/python3 ~/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion.py --skip-if-done >> ~/aria_conversion.log 2>&1') \
+       echo '0 20 * * * flock -n /tmp/run_aria_conversion.lock /usr/bin/python3 ~/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion.py --skip-if-done >> ~/aria_conversion.log 2>&1') \
        | crontab - || true
+
   - crontab -l || true
