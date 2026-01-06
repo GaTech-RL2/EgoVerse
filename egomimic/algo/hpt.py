@@ -1281,8 +1281,8 @@ class HPT(Algo):
                         ac_type = "joints"
                     elif preds.shape[-1] == 3 or preds.shape[-1] == 6:
                         ac_type = "xyz"
-                    elif preds.shape[-1] == 34:
-                        # Handle 34D action space - likely high-dimensional joint space or multi-robot setup
+                    elif preds.shape[-1] == 34 or preds.shape[-1] == 17:
+                        # Handle 34D or 17D action space - likely high-dimensional joint space or multi-robot setup
                         ac_type = "hand_joints"
                         # skip drawing
                         continue
