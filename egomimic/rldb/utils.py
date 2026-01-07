@@ -47,10 +47,13 @@ from egomimic.utils.aws.aws_sql import (
 
 logger = logging.getLogger(__name__)
 
+logging.getLogger("huggingface_hub._snapshot_download").setLevel(logging.ERROR)
+
 import torch.nn.functional as F
 
 from egomimic.rldb.data_utils import *
 import traceback
+import time
 
 # NOTE: To add a new key register, embodiment here. I hope Nadun, Vaibhav you guys have a more principled way of doing this thanks :) - R
 class EMBODIMENT(Enum):
@@ -758,7 +761,7 @@ class S3RLDBDataset(MultiRLDBDataset):
                 s3_full_path = folder.rstrip("/") + "/" + s3sub
 
                 localsub.mkdir(parents=True, exist_ok=True)
-                print(f"Created local directory: {localsub}")
+                # print(f"Created local directory: {localsub}")
 
                 if not any(localsub.iterdir()):
                     print(f"Downloading from S3 path: {s3_full_path}")
@@ -766,10 +769,7 @@ class S3RLDBDataset(MultiRLDBDataset):
                     logger.info(
                         f"Downloaded data files from {s3_full_path} to {localsub}"
                     )
-                else:
-                    logger.info(
-                        f"Data files already exist at {localsub}, skipping download"
-                    )
+
 
         if skipped:
             logger.warning(f"Skipped {len(skipped)} S3 prefixes during sync: {skipped}")
@@ -896,13 +896,6 @@ class DataSchematic(object):
         """
         dataset: huggingface dataset backed by pyarrow
         returns: dictionary of means and stds for proprio and action keys
-            {
-                embodiment_id: {
-                    key_name: {
-                        mean: np.array (feature_dim),
-                        std: np.array (feature_dim),
-                    },
-                }
         """
         norm_columns = []
 
@@ -911,30 +904,50 @@ class DataSchematic(object):
         norm_columns.extend(self.keys_of_type("proprio_keys"))
         norm_columns.extend(self.keys_of_type("action_keys"))
 
-        for column in norm_columns:
-            if self.is_key_with_embodiment(column, embodiment):
-                column_name = self.keyname_to_lerobot_key(column, embodiment)
-                column_data = np.array(
-                    dataset.hf_dataset._data[column_name].to_pylist()
-                )
-                if len(column_data.shape) != 2 and len(column_data.shape) != 3:
-                    raise ValueError(
-                        f"Column {column} has shape {column_data.shape}, expected 2 (num_examples_in_dataset, feature_dim) or 3 (num_examples_in_dataset, sequence_length, feature_dim)"
-                    )
+        logger.info(
+            f"[NormStats] Starting norm inference for embodiment={embodiment}, "
+            f"{len(norm_columns)} columns"
+        )
 
-                self.norm_stats[embodiment][column] = {
-                    "mean": torch.from_numpy(np.mean(column_data, axis=0)).float(),
-                    "std": torch.from_numpy(np.std(column_data, axis=0)).float(),
-                    "min": torch.from_numpy(np.min(column_data, axis=0)).float(),
-                    "max": torch.from_numpy(np.max(column_data, axis=0)).float(),
-                    "median": torch.from_numpy(np.median(column_data, axis=0)).float(),
-                    "quantile_1": torch.from_numpy(
-                        np.percentile(column_data, 1, axis=0)
-                    ).float(),
-                    "quantile_99": torch.from_numpy(
-                        np.percentile(column_data, 99, axis=0)
-                    ).float(),
-                }
+        for column in norm_columns:
+            if not self.is_key_with_embodiment(column, embodiment):
+                continue
+
+            column_name = self.keyname_to_lerobot_key(column, embodiment)
+            logger.info(f"[NormStats] Processing column={column_name}")
+
+            # Arrow → NumPy (fast path, preserves shape)
+            column_data = (
+                dataset.hf_dataset
+                .with_format("numpy", columns=[column_name])[:][column_name]
+            )
+
+            if column_data.ndim not in (2, 3):
+                raise ValueError(
+                    f"Column {column} has shape {column_data.shape}, "
+                    "expected 2 or 3 dims"
+                )
+
+            mean = np.mean(column_data, axis=0)
+            std = np.std(column_data, axis=0)
+            minv = np.min(column_data, axis=0)
+            maxv = np.max(column_data, axis=0)
+            median = np.median(column_data, axis=0)
+            q1 = np.percentile(column_data, 1, axis=0)
+            q99 = np.percentile(column_data, 99, axis=0)
+
+            self.norm_stats[embodiment][column] = {
+                "mean": torch.from_numpy(mean).float(),
+                "std": torch.from_numpy(std).float(),
+                "min": torch.from_numpy(minv).float(),
+                "max": torch.from_numpy(maxv).float(),
+                "median": torch.from_numpy(median).float(),
+                "quantile_1": torch.from_numpy(q1).float(),
+                "quantile_99": torch.from_numpy(q99).float(),
+            }
+
+        logger.info("[NormStats] Finished norm inference")
+
 
     def viz_img_key(self):
         """
