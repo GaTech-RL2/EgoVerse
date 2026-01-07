@@ -51,11 +51,10 @@ logging.getLogger("huggingface_hub._snapshot_download").setLevel(logging.ERROR)
 
 import torch.nn.functional as F
 
-from egomimic.rldb.data_utils import *
+from egomimic.rldb.data_utils import _ypr_to_quat, _slerp, _quat_to_ypr, _slow_down_slerp_quat
 import traceback
 import time
 
-# NOTE: To add a new key register, embodiment here. I hope Nadun, Vaibhav you guys have a more principled way of doing this thanks :) - R
 class EMBODIMENT(Enum):
     EVE_RIGHT_ARM = 0
     EVE_LEFT_ARM = 1
@@ -69,8 +68,6 @@ class EMBODIMENT(Enum):
     MECKA_BIMANUAL = 9
     MECKA_RIGHT_ARM = 10
     MECKA_LEFT_ARM = 11
-    
-
 
 SEED = 42
 
@@ -295,7 +292,8 @@ class RLDBDataset(LeRobotDataset):
         if self.slow_down_ac_keys and self.slow_down_factor > 1.0:
             for key in self.slow_down_ac_keys:
                 if key in item:
-                    item[key] = self._slow_down_sequence(item[key])
+                    rot_spec = self.slow_down_rot_specs.get(key, None)
+                    item[key] = self._slow_down_sequence(item[key], rot_spec=rot_spec)
         return item
 
     def _slow_down_sequence(self, seq, rot_spec=None):
