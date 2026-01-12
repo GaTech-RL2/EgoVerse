@@ -50,10 +50,12 @@ head_node_type: head_node
 
 # ───────── PACKAGES + MOUNTS ─────────────────────────────
 initialization_commands:
+  - sudo rm -f /etc/apt/sources.list.d/nodesource.list /etc/apt/sources.list.d/nodesource.list.save || true
   - sudo DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing -yq
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
+  - sudo pip3 install --no-input -U "ray[default]"
   - sudo pip3 install --no-input sqlalchemy
   - sudo pip3 install --no-input -U ray boto3
   - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"

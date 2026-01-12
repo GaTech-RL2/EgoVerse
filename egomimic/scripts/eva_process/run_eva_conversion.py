@@ -240,9 +240,11 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         if row.num_frames > 0:
             row.processed_path = _map_processed_local_to_remote(ds_path)
             row.mp4_path = _map_processed_local_to_remote(mp4_path)
+            row.processing_error = ""
         else:
             row.processed_path = ""
             row.mp4_path = ""
+            row.processing_error = "Zero Frames"
 
         try:
             update_episode(engine, row)

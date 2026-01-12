@@ -13,14 +13,17 @@ run_aria_conversion_sql.py – SQL-backed driver (no CSV/S3)
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import shutil
+import sys
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Tuple
+from tqdm import tqdm
 
 import ray
 from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
@@ -49,6 +52,12 @@ PROCESSED_LOCAL_ROOT = Path(
 PROCESSED_REMOTE_PREFIX = os.environ.get(
     "PROCESSED_REMOTE_PREFIX", "rldb:/processed_v2/aria"
 ).rstrip("/")
+LOG_ROOT = Path(
+    os.environ.get(
+        "ARIA_CONVERSION_LOG_ROOT",
+        str(PROCESSED_LOCAL_ROOT / "aria_conversion_logs"),
+    )
+).resolve()
 
 
 # --- Utilities ---------------------------------------------------------------
@@ -96,7 +105,7 @@ def iter_vrs_bundles(root: Path) -> Iterator[Tuple[Path, Path, Path]]:
         mpsdir = root / f"mps_{name}_vrs"
 
         # Require all four to exist
-        if mpsdir.is_dir():
+        if mpsdir.is_dir() and (mpsdir / "hand_tracking").is_dir() and (mpsdir / "slam").is_dir():
             yield vrs, jsonf, mpsdir
 
 
@@ -129,6 +138,24 @@ def _is_oom_exception(e: Exception) -> bool:
     s = str(e).lower()
     return ("outofmemory" in s) or ("out of memory" in s) or ("oom" in s)
 
+
+class _Tee:
+    def __init__(self, *streams):
+        self._streams = streams
+
+    def write(self, data: str) -> int:
+        for s in self._streams:
+            s.write(data)
+            s.flush()
+        return len(data)
+
+    def flush(self) -> None:
+        for s in self._streams:
+            s.flush()
+
+    def isatty(self) -> bool:
+        return False
+
 # --- Ray task ----------------------------------------------------------------
 def convert_one_bundle_impl(
     vrs: str,
@@ -147,65 +174,72 @@ def convert_one_bundle_impl(
       • total_frames: -1 if unknown/failure
     """
     stem = Path(vrs).stem
+    LOG_ROOT.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_ROOT / f"{stem}-{uuid.uuid4().hex[:8]}.log"
 
     tmp_dir = Path.home() / "temp_mps_processing" / f"{stem}-{uuid.uuid4().hex[:6]}"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
-    targets = [
-        Path(vrs).resolve(strict=True),
-        Path(jsonf).resolve(strict=True),
-        Path(mps_dir).resolve(strict=True),
-    ]
+    with log_path.open("a", encoding="utf-8") as log_fh:
+        tee_out = _Tee(sys.stdout, log_fh)
+        tee_err = _Tee(sys.stderr, log_fh)
+        with contextlib.redirect_stdout(tee_out), contextlib.redirect_stderr(tee_err):
+            print(f"[LOG] {stem}: {log_path}", flush=True)
+            targets = [
+                Path(vrs).resolve(strict=True),
+                Path(jsonf).resolve(strict=True),
+                Path(mps_dir).resolve(strict=True),
+            ]
 
-    for t in targets:
-        if not ensure_path_ready(t):
-            print(f"[ERR] missing {t}", flush=True)
-            shutil.rmtree(tmp_dir, ignore_errors=True)
-            return "", "", -1
-        link = tmp_dir / t.name
-        try:
-            os.symlink(t, link, target_is_directory=t.is_dir())
-        except FileExistsError:
-            pass
+            for t in targets:
+                if not ensure_path_ready(t):
+                    print(f"[ERR] missing {t}", flush=True)
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+                    return "", "", -1
+                link = tmp_dir / t.name
+                try:
+                    os.symlink(t, link, target_is_directory=t.is_dir())
+                except FileExistsError:
+                    pass
 
-    ds_parent = Path(out_dir)
-    ds_parent.mkdir(parents=True, exist_ok=True)
-    ds_path = ds_parent / dataset_name
+            ds_parent = Path(out_dir)
+            ds_parent.mkdir(parents=True, exist_ok=True)
+            ds_path = ds_parent / dataset_name
 
-    try:
-        print(f"[INFO] Converting: {stem} → {ds_path} (arm={arm})", flush=True)
-        lerobot_job(
-            raw_path=str(tmp_dir),
-            output_dir=str(ds_parent),
-            dataset_name=dataset_name,
-            arm=arm,
-            description=description or "",
-        )
-
-        frames = -1
-        info = ds_path / "meta/info.json"
-        if info.exists():
             try:
-                meta = json.loads(info.read_text())
-                frames = int(meta.get("total_frames", -1))
-            except Exception:
+                print(f"[INFO] Converting: {stem} → {ds_path} (arm={arm})", flush=True)
+                lerobot_job(
+                    raw_path=str(tmp_dir),
+                    output_dir=str(ds_parent),
+                    dataset_name=dataset_name,
+                    arm=arm,
+                    description=description or "",
+                )
+
                 frames = -1
+                info = ds_path / "meta/info.json"
+                if info.exists():
+                    try:
+                        meta = json.loads(info.read_text())
+                        frames = int(meta.get("total_frames", -1))
+                    except Exception:
+                        frames = -1
 
-        candidate = ds_parent / f"{stem}_video.mp4"
-        if candidate.exists():
-            mp4_str = str(candidate)
-        else:
-            matches = list(ds_path.glob(f"*{stem}*_video.mp4"))
-            mp4_str = str(matches[0]) if matches else ""
+                candidate = ds_parent / f"{stem}_video.mp4"
+                if candidate.exists():
+                    mp4_str = str(candidate)
+                else:
+                    matches = list(ds_path.glob(f"*{stem}*_video.mp4"))
+                    mp4_str = str(matches[0]) if matches else ""
 
-        return str(ds_path), mp4_str, frames
+                return str(ds_path), mp4_str, frames
 
-    except Exception as e:
-        err_msg = f"[FAIL] {stem}: {e}\n{traceback.format_exc()}"
-        print(err_msg, flush=True)
-        return str(ds_path), "", -1
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+            except Exception as e:
+                err_msg = f"[FAIL] {stem}: {e}\n{traceback.format_exc()}"
+                print(err_msg, flush=True)
+                return str(ds_path), "", -1
+            finally:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
 
 @ray.remote(num_cpus=8, resources={"aria_small": 1})
 def convert_one_bundle_small(*args, **kwargs):
@@ -242,6 +276,12 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         if skip_if_done and len(processed_path) > 0:
             print(f"[SKIP] {name}: already has processed_path='{processed_path}'", flush=True)
             continue
+        
+        if row.processing_error != "":
+            print("f[INFO] skipping {name} due to prior processing error: {row.processing_error}", flush=True)
+            continue
+        
+        print(f"[INFO] processing {name}: episode_key={episode_key}", flush=True)
 
         arm = infer_arm_from_row(row)
         dataset_name = f"{name}_processed"
@@ -311,9 +351,11 @@ def launch(dry: bool = False, skip_if_done: bool = False):
             if row.num_frames > 0:
                 row.processed_path = _map_processed_local_to_remote(ds_path)
                 row.mp4_path = _map_processed_local_to_remote(mp4_path)
+                row.processing_error = ""
             else:
                 row.processed_path = ""
                 row.mp4_path = ""
+                row.processing_error = "Zero Frames"
 
             update_episode(engine, row)
             print(
@@ -360,6 +402,7 @@ def launch(dry: bool = False, skip_if_done: bool = False):
             row.num_frames = -1
             row.processed_path = ""
             row.mp4_path = ""
+            row.processing_error = f"{type(e).__name__}: {e}"
             try:
                 update_episode(engine, row)
                 print(
