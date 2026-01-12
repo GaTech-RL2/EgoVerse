@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# set -euo pipefail
 
 # ====== config (edit these) ======
-REMOTE_USER_HOST="rpunamiya6@sky1.cc.gatech.edu"
-REMOTE_PATH="/coc/flash7/rpunamiya6/Projects/EgoVerse/logs/everse_cup_on_saucer"
-LOCAL_PATH="./egomimic/robot/models/put_cup_on_saucer"
+REMOTE_USER_HOST="acheluva3@sky2.cc.gatech.edu"
+REMOTE_PATH="/coc/cedarp-dxu345-0/acheluva3/EgoVerse/logs/trained/cotrain_objcont_ft_pi_8/object in container cotrain finetune pi 8 gpu_2026-01-10_05-24-38/0/checkpoints"
+LOCAL_PATH="./egomimic/robot/models/pi_cotrain_objcont"
 # =================================
 
 mkdir -p "$LOCAL_PATH"

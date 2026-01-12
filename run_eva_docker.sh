@@ -90,7 +90,7 @@ echo "  ${RS_DEVICE_ARGS[*]}"
 echo "  -v /dev/aria_usb:/dev/aria_usb"
 echo
 
-docker run -it --network host \
+docker run -it --gpus all --network host \
   "${CAN_DEVICES[@]}" \
   "${VIDEO_DEVICES[@]}" \
   "${RS_DEVICE_ARGS[@]}" \
