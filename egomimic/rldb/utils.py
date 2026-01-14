@@ -556,6 +556,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         if not temp_root.is_dir():
             temp_root.mkdir()
 
+        logger.info(f"Filters: {filters}")
         datasets = {}
         skipped = []
         filtered_paths = self._get_processed_path(filters)
@@ -577,11 +578,8 @@ class S3RLDBDataset(MultiRLDBDataset):
         search_path = temp_root
 
         valid_collection_names = set()
-        for fp, hashes in filtered_paths:
-            fmt = "%Y-%m-%d-%H-%M-%S-%f"
-            dt = datetime.strptime(hashes, fmt).replace(tzinfo=timezone.utc)
-            milliseconds = int(dt.timestamp() * 1000)
-            valid_collection_names.add(str(milliseconds))
+        for _, hashes in filtered_paths:
+            valid_collection_names.add(hashes)
 
         for collection_path in sorted(search_path.iterdir()):
             if not collection_path.is_dir():
@@ -669,11 +667,11 @@ class S3RLDBDataset(MultiRLDBDataset):
             ["processed_path", "episode_hash"],
         ]
         skipped = df[df["processed_path"].isnull()]["episode_hash"].tolist()
-        print(f"Skipped {len(skipped)} episodes with null processed_path: {skipped}")
+        logger.info(f"Skipped {len(skipped)} episodes with null processed_path: {skipped}")
         output = output[~output["episode_hash"].isin(skipped)]
 
         paths = list(output.itertuples(index=False, name=None))
-        print(f"Paths: {paths}")
+        logger.info(f"Paths: {paths}")
         return paths
 
     @staticmethod
@@ -736,7 +734,7 @@ class S3RLDBDataset(MultiRLDBDataset):
             folder = folder.lstrip("rldb:/")
 
             response = s3.list_objects_v2(
-                Bucket=bucket_name, Prefix=f"{folder}/meta/info.json"
+                Bucket=bucket_name, Prefix=f"{folder.rstrip('/')}/meta/info.json"
             )
 
             if "Contents" not in response or not response["Contents"]:
@@ -744,10 +742,7 @@ class S3RLDBDataset(MultiRLDBDataset):
                 skipped.append(folder)
                 continue
 
-            fmt = "%Y-%m-%d-%H-%M-%S-%f"
-            dt = datetime.strptime(hashes, fmt).replace(tzinfo=timezone.utc)
-            milliseconds = int(dt.timestamp() * 1000)
-            collection_path = local_dir / str(milliseconds)
+            collection_path = local_dir / hashes
 
             for s3sub in s3_subfolders:
                 if s3sub.startswith("/"):
