@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=T_utensils_50hz
+#SBATCH --job-name=T_ut_50hz
 #SBATCH --account=a144
-#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/utensils/slurm-utensilstrain-%j.out
-#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/utensils/slurm-utensilstrain-%j.err
+#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/utensils_correct_extrinsics/slurm-utensilstrain-%j.out
+#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/utensils_correct_extrinsics/slurm-utensilstrain-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4
@@ -60,7 +60,7 @@ export debug=false
 ###############################################################
 
 ##################### MAYBE CHANGE THIS PATH #####################
-export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/${UTENSILS_EXP}/${task}/${task}_${frame_type}
+export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/${UTENSILS_EXP}/correct_extrinsics/${task}/${task}_${frame_type}
 export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release_2_0/50hz/${UTENSILS_EXP}/${task}_lerobot_${frame_type}
 # export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/debug_2_0/${task}_lerobot_${frame_type}_1_debug
 ##################################################################
