@@ -19,7 +19,7 @@ robomimic_model:
 
   trunk:
     embed_dim: 256
-    num_blocks: 64
+    num_blocks: 16
     num_heads: 8
     token_postprocessing: "action_token"
     observation_horizon: 1
