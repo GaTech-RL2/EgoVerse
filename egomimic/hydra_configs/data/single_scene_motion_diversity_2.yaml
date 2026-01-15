@@ -11,24 +11,296 @@ valid_datasets:
         embodiment: "aria_bimanual"
         local_files_only: True
         temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
-        filters: {operator: "Mengying", lab: "rl2", scene: "1", task: "fold clothes"}
+        filters: {episode_hash: '2025-10-15-20-30-56-000000'}
+      op1_scene1_ep2: 
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: valid
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-15-20-26-47-000000'}
+    
 
     embodiment: "aria_bimanual"
+
 
 train_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.MultiRLDBDataset
     datasets:
-      op1_scene1: 
+
+      # Aniketh 
+      op1_scene1_ep1: 
         _target_: egomimic.rldb.utils.S3RLDBDataset
         bucket_name: "rldb"
         mode: total
         embodiment: "aria_bimanual"
         local_files_only: True
         temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
-        filters: {operator: "Aniketh", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
-        percent: 1
-  
+        filters: {episode_hash: '2025-10-29-21-54-36-225000'}
+      op1_scene1_ep2: 
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-224000'}
+
+      op1_scene1_ep3:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-223000'}
+
+      op1_scene1_ep4: 
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-222000'}
+
+      op1_scene1_ep5:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-221000'}
+
+      op1_scene1_ep6:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-220000'}
+      op1_scene1_ep7:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-218000'}
+      op1_scene1_ep8:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-217000'}
+
+      op1_scene1_ep9:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-216000'}
+      op1_scene1_ep10:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-215000'}   
+      op1_scene1_ep11:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-214000'}
+      op1_scene1_ep12:  
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-29-21-54-36-213000'}
+
+
+      # Yangcen InDomain
+      op2_scene1_ep1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-46-01-008000'}
+
+      op2_scene1_ep2:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-45-49-666000'}
+
+      op2_scene1_ep3:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-45-39-225000'}
+      
+      op2_scene1_ep4: 
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-45-28-189000'}
+
+      op2_scene1_ep5:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-45-16-874000'} 
+      op2_scene1_ep6:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-45-05-802000'}
+      op2_scene1_ep7: 
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-44-54-740000'}
+      op2_scene1_ep8:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-44-42-734000'}    
+      op2_scene1_ep9:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-44-32-256000'}
+      op2_scene1_ep10:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-44-13-107000'}
+
+      op2_scene1_ep11:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-44-01-887000'}
+      op2_scene1_ep12:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-43-50-452000'}     
+      op2_scene1_ep13:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-43-39-136000'}   
+      op2_scene1_ep14:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-43-27-927000'} 
+      op2_scene1_ep15:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-43-16-784000'}   
+      op2_scene1_ep16:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-43-05-138000'} 
+      op2_scene1_ep17:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-42-55-986000'}
+      op2_scene1_ep18:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-42-44-315000'}   
+      op2_scene1_ep19:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-42-32-639000'} 
+      op2_scene1_ep20:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2026-01-06-03-42-21-085000'} 
+
     embodiment: "aria_bimanual"
     
 train_dataloader_params:

@@ -1,7 +1,7 @@
 defaults:
   - model: hpt_bc_flow_aria
   - paths: default
-  - trainer: debug
+  - trainer: ddp
   - debug: null
   - logger: wandb
   - data: eva_bc_s3
@@ -9,8 +9,8 @@ defaults:
   - override hydra/launcher: submitit
   - _self_
 
-name: test
-description: test
+name: 0115_val_liqian
+description: nan
 ckpt_path: null
 train: true
 eval: false
