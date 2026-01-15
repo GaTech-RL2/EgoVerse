@@ -1,3 +1,4 @@
+# test
 import argparse
 import logging
 import os
@@ -9,6 +10,8 @@ import cv2
 import h5py
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 import torch
+import gc
+import ctypes
 from egomimic.utils.egomimicUtils import (
     nds,
     ee_pose_to_cam_frame,
@@ -21,6 +24,9 @@ from egomimic.utils.egomimicUtils import (
 
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 from egomimic.rldb.utils import EMBODIMENT
+
+from egomimic.utils.memory_utils import mem_section
+from egomimic.utils.data_utils import downsample_hwc_uint8_in_chunks
 
 from typing import Union
 import egomimic
@@ -554,7 +560,7 @@ class EvaHD5Extractor:
 
     @staticmethod
     def process_episode(
-        episode_path, arm, extrinsics, prestack=False, low_res=False, no_rot=False
+        episode_path, arm, extrinsics, prestack=False, low_res=False, no_rot=False, benchmark=False
     ):
         """
         Extracts all feature keys from a given episode and returns as a dictionary
@@ -628,11 +634,11 @@ class EvaHD5Extractor:
                 )
 
                 if low_res:
-                    images = F.interpolate(
-                        images, size=(240, 320), mode="bilinear", align_corners=False
-                    )
+                    images = downsample_hwc_uint8_in_chunks(images, out_hw=(240, 320), chunk=256)
 
-                images = images.byte().numpy()
+
+                with mem_section("get_images.list_to_numpy_array", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                    images = images.byte().numpy()
 
                 mapped_key = DATASET_KEY_MAPPINGS.get(camera, camera)
                 episode_feats["observations"][f"images.{mapped_key}"] = images
@@ -665,6 +671,7 @@ class EvaHD5Extractor:
                 left_extrinsics=left_extrinsics,
                 right_extrinsics=right_extrinsics,
                 no_rot=no_rot,
+                benchmark=benchmark,
             )
             # dbg = print_fk_eepose_diffs(
             #     base_cartesian_actions,
@@ -720,6 +727,7 @@ class EvaHD5Extractor:
         left_extrinsics=None,
         right_extrinsics=None,
         no_rot: bool = False,
+        benchmark: bool = False,
     ):
         joint_actions = actions
 
@@ -753,8 +761,9 @@ class EvaHD5Extractor:
                 mode="linear",
             )
 
-            cart_np = np.asarray(cartesian_actions)
-            base_np = np.asarray(base_cartesian_actions)
+            with mem_section("get_action.list_to_numpy", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                cart_np = np.asarray(cartesian_actions)
+                base_np = np.asarray(base_cartesian_actions)
 
             if arm == "both":
                 left_base = base_np[:, :7]
@@ -762,50 +771,56 @@ class EvaHD5Extractor:
                 left_cam = cart_np[:, :7]
                 right_cam = cart_np[:, 7:14]
 
-                left_base = prestack_with_mode(
-                    left_base,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-                right_base = prestack_with_mode(
-                    right_base,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-                left_cam = prestack_with_mode(
-                    left_cam,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-                right_cam = prestack_with_mode(
-                    right_cam,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
+                with mem_section("get_action.interpolate_left", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                    left_base = prestack_with_mode(
+                        left_base,
+                        horizon=horizon,
+                        chunk_length=CHUNK_LENGTH,
+                        mode="euler",
+                    )
+                with mem_section("get_action.interpolate_right", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                    right_base = prestack_with_mode(
+                        right_base,
+                        horizon=horizon,
+                        chunk_length=CHUNK_LENGTH,
+                        mode="euler",
+                    )
+                with mem_section("get_action.interpolate_left", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                    left_cam = prestack_with_mode(
+                        left_cam,
+                        horizon=horizon,
+                        chunk_length=CHUNK_LENGTH,
+                        mode="euler",
+                    )
+                with mem_section("get_action.interpolate_right", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                    right_cam = prestack_with_mode(
+                        right_cam,
+                        horizon=horizon,
+                        chunk_length=CHUNK_LENGTH,
+                        mode="euler",
+                    )
 
-                base_cartesian_actions = np.concatenate(
-                    [left_base, right_base], axis=-1
-                )
-                cartesian_actions = np.concatenate(
-                    [left_cam, right_cam], axis=-1
-                )
+                with mem_section("get_action.concatenate_bimanual", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                    base_cartesian_actions = np.concatenate(
+                        [left_base, right_base], axis=-1
+                    )
+                    cartesian_actions = np.concatenate(
+                        [left_cam, right_cam], axis=-1
+                    )
             else:
-                base_cartesian_actions = prestack_with_mode(
-                    base_np,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-                cartesian_actions = prestack_with_mode(
-                    cart_np,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
+                with mem_section("get_action.interpolate_single", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                    base_cartesian_actions = prestack_with_mode(
+                        base_np,
+                        horizon=horizon,
+                        chunk_length=CHUNK_LENGTH,
+                        mode="euler",
+                    )
+                    cartesian_actions = prestack_with_mode(
+                        cart_np,
+                        horizon=horizon,
+                        chunk_length=CHUNK_LENGTH,
+                        mode="euler",
+                    )
 
         return (joint_actions, cartesian_actions, base_cartesian_actions)
     
@@ -1012,6 +1027,7 @@ class EvaHD5Extractor:
         arm: str,
         extrinsics: dict,
         prestack: bool = False,
+        benchmark: bool = False,
     ) -> list[dict[str, torch.Tensor]]:
         """
         Extract frames from an episode by processing it and using the feature dictionary.
@@ -1038,36 +1054,39 @@ class EvaHD5Extractor:
         """
         frames = []
         episode_feats = EvaHD5Extractor.process_episode(
-            episode_path, arm=arm, extrinsics=extrinsics, prestack=prestack
+            episode_path, arm=arm, extrinsics=extrinsics, prestack=prestack, benchmark=benchmark
         )
-        num_frames = next(iter(episode_feats["observations"].values())).shape[0]
-        for frame_idx in range(num_frames):
-            frame = {}
-            for feature_id, feature_info in features.items():
-                if "observations" in feature_id:
-                    value = episode_feats["observations"][feature_id.split(".", 1)[-1]]
-                else:
-                    value = episode_feats.get(feature_id, None)
-                if value is None:
-                    break
-                if value is not None:
-                    if isinstance(value, np.ndarray):
-                        if "images" in feature_id and image_compressed:
-                            decompressed_image = cv2.imdecode(value[frame_idx], 1)
-                            frame[feature_id] = torch.from_numpy(
-                                decompressed_image.transpose(2, 0, 1)
-                            )
-                        else:
-                            frame[feature_id] = torch.from_numpy(value[frame_idx])
-                    elif isinstance(value, torch.Tensor):
-                        frame[feature_id] = value[frame_idx]
+        try:
+            num_frames = next(iter(episode_feats["observations"].values())).shape[0]
+            for frame_idx in range(num_frames):
+                frame = {}
+                for feature_id, feature_info in features.items():
+                    if "observations" in feature_id:
+                        value = episode_feats["observations"][feature_id.split(".", 1)[-1]]
                     else:
-                        logging.warning(
-                            f"[EvaHD5Extractor] Could not add dataset key at {feature_id} due to unsupported type. Skipping ..."
-                        )
-                        continue
+                        value = episode_feats.get(feature_id, None)
+                    if value is None:
+                        break
+                    if value is not None:
+                        if isinstance(value, np.ndarray):
+                            if "images" in feature_id and image_compressed:
+                                decompressed_image = cv2.imdecode(value[frame_idx], 1)
+                                frame[feature_id] = torch.from_numpy(
+                                    decompressed_image.transpose(2, 0, 1)
+                                )
+                            else:
+                                frame[feature_id] = torch.from_numpy(value[frame_idx])
+                        elif isinstance(value, torch.Tensor):
+                            frame[feature_id] = value[frame_idx]
+                        else:
+                            logging.warning(
+                                f"[EvaHD5Extractor] Could not add dataset key at {feature_id} due to unsupported type. Skipping ..."
+                            )
+                            continue
 
-            frames.append(frame)
+                frames.append(frame)
+        finally:
+            del episode_feats
         return frames
 
     @staticmethod
@@ -1210,6 +1229,7 @@ class DatasetConverter:
         image_writer_threads: int = 0,
         prestack: bool = False,
         debug: bool = False,
+        benchmark: bool = False,
     ):
         self.raw_path = raw_path if isinstance(raw_path, Path) else Path(raw_path)
         self.dataset_repo_id = dataset_repo_id
@@ -1221,6 +1241,9 @@ class DatasetConverter:
         self.image_writer_processes = image_writer_processes
         self.encode_as_videos = encode_as_videos
         self.prestack = prestack
+        self.benchmark = benchmark
+        if self.benchmark:
+            print(f"Benchmark mode enabled. This will plot the RAM usage of each section.")
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
@@ -1256,12 +1279,14 @@ class DatasetConverter:
         )
 
         extrinsics = EXTRINSICS[self.extrinsics_key]
-        processed_episode = EvaHD5Extractor.process_episode(
-            episode_path=self.episode_list[0],
-            arm=self.arm,
-            extrinsics=extrinsics,
-            prestack=self.prestack,
-        )
+        with mem_section("process_episode", sample_interval_s=0.025, plot=True, enabled=self.benchmark):
+            processed_episode = EvaHD5Extractor.process_episode(
+                episode_path=self.episode_list[0],
+                arm=self.arm,
+                extrinsics=extrinsics,
+                prestack=self.prestack,
+                benchmark=self.benchmark,
+            )
 
         if self.arm == "both":
             self.robot_type = "eva_bimanual"
@@ -1270,11 +1295,12 @@ class DatasetConverter:
         elif self.arm == "left":
             self.robot_type = "eva_left_arm"
 
-        self.features, metadata = EvaHD5Extractor.define_features(
-            processed_episode,
-            image_compressed=self.image_compressed,
-            encode_as_video=self.encode_as_videos,
-        )
+        with mem_section("define_features", enabled=self.benchmark):
+            self.features, metadata = EvaHD5Extractor.define_features(
+                processed_episode,
+                image_compressed=self.image_compressed,
+                encode_as_video=self.encode_as_videos,
+            )
 
         self.logger.info(f"Dataset Features: {self.features}")
 
@@ -1448,6 +1474,7 @@ class DatasetConverter:
             arm=self.arm,
             extrinsics=extrinsics,
             prestack=self.prestack,
+            benchmark=self.benchmark,
         )
 
         if self._mp4_path is not None:
@@ -1477,13 +1504,14 @@ class DatasetConverter:
         After processing all episodes, the dataset is consolidated.
         """
 
-        for episode_path in self.episode_list:
-            try:
-                self.extract_episode(episode_path, task_description=episode_description)
-            except Exception as e:
-                self.logger.error(f"Error processing episode {episode_path}: {e}")
-                traceback.print_exc()
-                continue
+        with mem_section("extract_episodes", enabled=self.benchmark):
+            for episode_path in self.episode_list:
+                try:
+                    self.extract_episode(episode_path, task_description=episode_description)
+                except Exception as e:
+                    self.logger.error(f"Error processing episode {episode_path}: {e}")
+                    traceback.print_exc()
+                    continue
 
         t0 = time.time()
         self.dataset.consolidate()
@@ -1619,6 +1647,12 @@ def argument_parse():
         help="If True, save one web-compatible MP4 per episode using front_img_1.",
     )
 
+    parser.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Run benchmark mode. Which include printing out the peak RAM usage of each section.",
+    )
+
     args = parser.parse_args()
 
     return args
@@ -1651,12 +1685,15 @@ def main(args):
         image_writer_threads=args.nthreads,
         prestack=args.prestack,
         debug=args.debug,
+        benchmark=args.benchmark,
     )
 
     # Initialize the dataset
     converter.init_lerobot_dataset(output_dir=args.output_dir, name=Path(args.name))
     if args.save_mp4:
         converter._mp4_path = converter._out_base
+    gc.collect()
+    ctypes.CDLL("libc.so.6").malloc_trim(0)
     # Extract episodes
     converter.extract_episodes(episode_description=args.description)
 
