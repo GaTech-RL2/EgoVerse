@@ -1,0 +1,188 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+valid_datasets:
+  dataset1: 
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      op1_scene1_ep1: 
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: valid
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {episode_hash: '2025-10-15-20-30-56-000000'}
+
+    embodiment: "aria_bimanual"
+
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      op1_scene1: 
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Aniketh", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 0.0625
+
+      op2_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Jenny", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 0.125
+
+      op3_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Baoyu", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 0.25
+
+
+
+      op4_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Lawrence", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 0.25
+
+      op5_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Ryan", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 0.5
+
+      op6_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Pranav", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 0.5
+
+      op7_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Elmo", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 0.5
+
+      op8_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Yangcen", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 0.5
+
+      op9_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True      
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Zhenyang", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 1.0
+
+      op10_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Woolchul", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 1.0
+      op11_scene1:    
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Shuo", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 1.0
+      op12_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Mengying", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 1.0
+      op13_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Xinchen", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 1.0
+      op14_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Rohan", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 1.0
+      op15_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "David", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 1.0
+      op16_scene1:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Vaibhav", lab: "rl2", scene: "1", task: "fold clothes", robot_name: "aria_bimanual"}
+        percent: 1.0
+  
+    embodiment: "aria_bimanual"
+    
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
