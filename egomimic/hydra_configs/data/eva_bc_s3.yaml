@@ -4,10 +4,12 @@ train_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
+    debug_no_threadpool: True
+    temp_root: "/coc/flash7/scratch/egoverseS3Dataset"
     mode: train
     embodiment: "eva_bimanual"
     cache_root: "/coc/flash7/rpunamiya6/.cache"
-    filters: 
+    filters:
       task: "fold clothes"
     local_files_only: True
 
@@ -15,19 +17,21 @@ valid_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
+    debug_no_threadpool: True
+    temp_root: "/coc/flash7/scratch/egoverseS3Dataset"
     mode: valid
     embodiment: "eva_bimanual"
     cache_root: "/coc/flash7/rpunamiya6/.cache"
-    filters: 
+    filters:
       task: "fold clothes"
     local_files_only: True
 
 train_dataloader_params:
   dataset1:
-    batch_size: 32
+    batch_size: 2
     num_workers: 10
 
 valid_dataloader_params:
   dataset1:
-    batch_size: 32
+    batch_size: 2
     num_workers: 10

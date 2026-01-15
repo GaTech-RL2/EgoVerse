@@ -1,7 +1,11 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: pi0.5
   - paths: default
+<<<<<<< HEAD
   - trainer: ddp
+=======
+  - trainer: ddp_pi
+>>>>>>> 0c62af2 (debug pi rollout offline)
   - debug: null
   - logger: wandb
   - data: eva_bc_s3

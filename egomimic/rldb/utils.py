@@ -9,6 +9,7 @@ from enum import Enum
 from multiprocessing.dummy import connection
 from pathlib import Path
 from unittest import result
+from tqdm import tqdm
 
 
 import boto3
@@ -580,7 +581,8 @@ class FolderRLDBDataset(MultiRLDBDataset):
             f"Found {len(subdirs)} subfolders. Attempting to load valid RLDB datasets..."
         )
 
-        for subdir in subdirs:
+        print("Creating subdatasets from folder...")
+        for subdir in tqdm(subdirs):
             info_json = subdir / "meta" / "info.json"
             if not info_json.exists():
                 logger.warning(f"Skipping {subdir.name}: missing meta/info.json")
@@ -679,6 +681,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         filters={},
         **kwargs,
     ):
+        logger.info("Instantiating S3RLDBDataset...")
         temp_root += "/S3_rldb_data"
         filters["robot_name"] = embodiment
         filters["is_deleted"] = False

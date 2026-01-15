@@ -541,6 +541,13 @@ if __name__ == "__main__":
         help="enable debug visualization of actions on images",
     )
 
+    parser.add_argument(
+        "--offline-debug",
+        type=str,
+        default=None,
+        help="path to processed lerobot dataset for offline debugging",
+    )
+
     args = parser.parse_args()
     episodes = args.episodes if args.episodes is not None else [0]
 

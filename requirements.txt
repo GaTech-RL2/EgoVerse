@@ -49,5 +49,5 @@ typing_extensions
 pyarrow==19.0.1
 simplejpeg
 prettytable
-datasets==4.0.0
+datasets==4.1.1
 s5cmd
