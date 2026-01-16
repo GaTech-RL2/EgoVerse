@@ -50,7 +50,7 @@ PROCESSED_LOCAL_ROOT = Path(
     os.environ.get("PROCESSED_LOCAL_ROOT", "/mnt/processed")
 ).resolve()
 PROCESSED_REMOTE_PREFIX = os.environ.get(
-    "PROCESSED_REMOTE_PREFIX", "rldb:/processed_v2/aria"
+    "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/aria"
 ).rstrip("/")
 LOG_ROOT = Path(
     os.environ.get(
