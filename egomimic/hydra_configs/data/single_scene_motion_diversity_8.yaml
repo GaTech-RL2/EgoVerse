@@ -239,7 +239,7 @@ train_datasets:
         local_files_only: True
         temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
         filters: {episode_hash: '2025-10-12-19-17-44-000000'}
-  
+
       # Nadun
       op7_scene1_ep1:
         _target_: egomimic.rldb.utils.S3RLDBDataset
@@ -312,7 +312,7 @@ train_datasets:
         embodiment: "aria_bimanual"
         local_files_only: True
         temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
-        filters: {episode_hash: '2025-10-29-22-01-54-606000'}
+        filters: {episode_hash: '2025-10-29-22-01-54-603000'}
 
     embodiment: "aria_bimanual"
     
