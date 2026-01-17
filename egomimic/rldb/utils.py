@@ -52,8 +52,9 @@ logging.getLogger("huggingface_hub._snapshot_download").setLevel(logging.ERROR)
 import torch.nn.functional as F
 
 from egomimic.rldb.data_utils import _ypr_to_quat, _slerp, _quat_to_ypr, _slow_down_slerp_quat
-import traceback
-import time
+import subprocess
+from urllib.parse import urlparse
+from collections import defaultdict
 
 class EMBODIMENT(Enum):
     EVE_RIGHT_ARM = 0
@@ -540,12 +541,13 @@ class S3RLDBDataset(MultiRLDBDataset):
         local_files_only=True,
         key_map=None,
         valid_ratio=0.2,
-        temp_root="/coc/cedarp-dxu345-0/datasets/egoverse",  # "/coc/flash7/scratch/rldb_temp"
+        temp_root="/coc/flash7/scratch/egoverseS3Dataset",  # "/coc/flash7/scratch/rldb_temp"
         filters={},
         **kwargs,
     ):
         temp_root += "/S3_rldb_data"
         filters["robot_name"] = embodiment
+        filters["is_deleted"] = False
 
         if temp_root[0] != "/":
             temp_root = "/" + temp_root
@@ -559,20 +561,11 @@ class S3RLDBDataset(MultiRLDBDataset):
         logger.info(f"Filters: {filters}")
         datasets = {}
         skipped = []
-        filtered_paths = self._get_processed_path(filters)
-
-        s3_prefix = f"{main_prefix}/{embodiment.strip('/')}/"
-
-        logger.info(
-            f"Syncing S3 datasets with filters {filters} to local directory {temp_root}..."
-        )
-        logger.info(f"S3 prefix being used: {s3_prefix}")
-
-        self._sync_s3_to_local(
+        
+        filtered_paths = self.sync_from_filters(
             bucket_name=bucket_name,
-            s3_paths=filtered_paths,
+            filters=filters,
             local_dir=temp_root,
-            s3_subfolders=["data/chunk-000/", "meta/"],
         )
 
         search_path = temp_root
@@ -715,59 +708,81 @@ class S3RLDBDataset(MultiRLDBDataset):
             except Exception as e:
                 logger.error(f"Failed to download {key}: {e}")
 
-    @staticmethod
-    def _sync_s3_to_local(bucket_name, s3_paths, local_dir, s3_subfolders):
+    @classmethod
+    def _sync_s3_to_local(cls, bucket_name, s3_paths, local_dir):
+        if not s3_paths:
+            return
+
+        folders = []
+        for folder, _ in s3_paths:
+            if folder.startswith("s3://"):
+                folder = urlparse(folder).path.lstrip("/")
+            else:
+                folder = folder.lstrip("/")
+            if not folder.endswith("/"):
+                folder += "/"
+            folders.append(folder)
+
+        groups = defaultdict(list)
+        for f in folders:
+            episode_dir = f.rstrip("/")                    # processed_v2/eva/<hash>
+            episode_parent = os.path.dirname(episode_dir)  # processed_v2/eva
+            root_prefix = episode_parent + "/"             # processed_v2/eva/
+            groups[root_prefix].append(f)
+
+        for root_prefix, group_folders in groups.items():
+            include_args = []
+            for f in group_folders:
+                rel = f[len(root_prefix):]                # <hash>/
+                include_args += ["--include", f"{rel}*"]   # <hash>/*
+            
+            cmd = [
+                "aws", "s3", "sync",
+                f"s3://{bucket_name}/{root_prefix}",
+                str(local_dir),
+                "--exclude", "*",
+                "--only-show-errors",
+            ] + include_args
+
+            subprocess.run(cmd, check=True)
+    
+    @classmethod
+    def sync_from_filters(
+        cls,
+        *,
+        bucket_name: str,
+        filters: dict,
+        local_dir: Path,
+    ):
         """
-        Syncs datasets from S3 to local storage with optional filtering.
+        Public API:
+        - resolves episodes from DB using filters
+        - runs a single aws s3 sync with includes
+        - downloads into local_dir
 
-        Args:
-            bucket_name (str): AWS S3 bucket name
-            prefix (str): S3 prefix to search under (e.g., "processed/fold_cloth/")
-            local_dir (Path): Local directory to download to
-            s3_subfolders (list): Subfolders to download for each dataset (e.g., ["data/chunk-000/", "meta/"])
-            filters (dict): Additional filtering criteria beyond task
+        Returns:
+            List[(processed_path, episode_hash)]
         """
-        skipped = []
-        s3 = boto3.client("s3")
 
-        for folder, hashes in s3_paths:
-            folder = folder.lstrip("rldb:/")
+        # 1) Resolve episodes from DB
+        filtered_paths = cls._get_processed_path(filters)
+        if not filtered_paths:
+            logger.warning("No episodes matched filters.")
+            return []
 
-            response = s3.list_objects_v2(
-                Bucket=bucket_name, Prefix=f"{folder.rstrip('/')}/meta/info.json"
-            )
+        # 2) Logging
+        logger.info(
+            f"Syncing S3 datasets with filters {filters} to local directory {local_dir}..."
+        )
 
-            if "Contents" not in response or not response["Contents"]:
-                logger.warning(f"Skipping {folder}: missing /meta/info.json")
-                skipped.append(folder)
-                continue
+        # 3) Sync
+        cls._sync_s3_to_local(
+            bucket_name=bucket_name,
+            s3_paths=filtered_paths,
+            local_dir=local_dir,
+        )
 
-            collection_path = local_dir / hashes
-
-            for s3sub in s3_subfolders:
-                if s3sub.startswith("/"):
-                    s3sub = s3sub[1:]
-                if not s3sub.endswith("/"):
-                    s3sub = s3sub + "/"
-
-                localsub = collection_path / s3sub.rstrip("/")
-                s3_full_path = folder.rstrip("/") + "/" + s3sub
-
-                localsub.mkdir(parents=True, exist_ok=True)
-                # print(f"Created local directory: {localsub}")
-
-                if not any(localsub.iterdir()):
-                    print(f"Downloading from S3 path: {s3_full_path}")
-                    S3RLDBDataset._download_files(bucket_name, s3_full_path, localsub)
-                    logger.info(
-                        f"Downloaded data files from {s3_full_path} to {localsub}"
-                    )
-
-
-        if skipped:
-            logger.warning(f"Skipped {len(skipped)} S3 prefixes during sync: {skipped}")
-
-
+        return filtered_paths
 class DataSchematic(object):
     def __init__(self, schematic_dict, viz_img_key, norm_mode="zscore"):
         """
