@@ -10,13 +10,13 @@ auth:
   ssh_user: ubuntu
   ssh_private_key: ~/.ssh/ryan-mac.pem
 
-max_workers: 50
-idle_timeout_minutes: 10
+max_workers: 60
+idle_timeout_minutes: 5
 
 available_node_types:
   head_node:
     node_config:
-      InstanceType: t3a.xlarge
+      InstanceType: t3a.2xlarge
       ImageId: ami-0b3766455f47e0ec4
       KeyName: ryan-mac
       SubnetId: subnet-02fbc81414d827515
@@ -30,9 +30,9 @@ available_node_types:
     min_workers: 0
     max_workers: 0
 
-  worker_node:
+  worker_small:
     node_config:
-      InstanceType: m6a.2xlarge
+      InstanceType: r6a.2xlarge
       ImageId: ami-0b3766455f47e0ec4
       KeyName: ryan-mac
       SubnetId: subnet-02fbc81414d827515
@@ -42,9 +42,25 @@ available_node_types:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
-    resources: { CPU: 8 }
+    resources: { CPU: 8 , aria_small: 1}
     min_workers: 0
     max_workers: 50
+  
+  worker_big:
+    node_config:
+      InstanceType: r6a.8xlarge
+      ImageId: ami-0b3766455f47e0ec4
+      KeyName: ryan-mac
+      SubnetId: subnet-02fbc81414d827515
+      SecurityGroupIds: [sg-01cabcd4f45211888]
+      IamInstanceProfile:
+        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 100 }  # often worth bumping
+    resources: { CPU: 32, aria_big: 1 }
+    min_workers: 0
+    max_workers: 10
 
 head_node_type: head_node
 
@@ -54,6 +70,7 @@ initialization_commands:
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
+  - sudo pip3 install --no-input -U "ray[default]"
   - sudo pip3 install --no-input sqlalchemy
   - sudo pip3 install --no-input -U ray boto3
   - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"
@@ -107,14 +124,9 @@ setup_commands:
 
   - |
       cd ~/EgoVerse || true
-      yes | git fetch || true
-      yes | git checkout 12-15-elmo_aria_proc || true
+      gt checkout main || true
       gt sync || true
       gt submodule update --init --recursive --quiet || true
 
-  - |
-      (crontab -l 2>/dev/null | grep -v run_aria_conversion.py ; \
-       echo 'CRON_TZ=America/New_York'; \
-       echo '0 20 * * * /usr/bin/python3 ~/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion.py >> ~/aria_conversion.log 2>&1') \
-       | crontab - || true
-  - crontab -l || true
+# Ray startup commands - configure GCS to detect dead/stale nodes faster
+# ray start --head --dashboard-host=0.0.0.0 --dashboard-port=8265 --include-dashboard=true
