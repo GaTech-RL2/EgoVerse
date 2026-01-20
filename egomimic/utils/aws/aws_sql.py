@@ -14,7 +14,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.exc import IntegrityError
-
+from datetime import datetime, timezone
 
 @dataclass
 class TableRow:
@@ -165,3 +165,12 @@ def episode_table_to_df(engine):
         else:
             print("No rows found in table 'episodes'.")
             return df
+
+def episode_hash_to_timestamp_ms(timestamp_str):
+    """
+    Convert a string like "2026-01-12-03-47-29-664000" to UTC epoch milliseconds.
+    """
+    dt = datetime.strptime(timestamp_str, "%Y-%m-%d-%H-%M-%S-%f").replace(
+        tzinfo=timezone.utc
+    )
+    return int(dt.timestamp() * 1000)

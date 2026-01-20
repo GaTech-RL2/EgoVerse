@@ -99,6 +99,6 @@ setup_commands:
   - |
       (crontab -l 2>/dev/null | grep -v run_s3_writer.sh ; \
        echo 'CRON_TZ=America/New_York'; \
-       echo '0 * * * * /home/ubuntu/EgoVerse/egomimic/utils/aws/run_s3_writer.sh > /home/ubuntu/s3_writer.log 2>&1') \
+       echo '*/30 * * * * flock -n /tmp/run_s3_writer.lock /home/ubuntu/EgoVerse/egomimic/utils/aws/run_s3_writer.sh > /home/ubuntu/s3_writer.log 2>&1') \
        | crontab - || true
   - crontab -l || true
