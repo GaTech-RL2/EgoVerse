@@ -55,6 +55,8 @@ from egomimic.rldb.data_utils import _ypr_to_quat, _slerp, _quat_to_ypr, _slow_d
 import subprocess
 from urllib.parse import urlparse
 from collections import defaultdict
+import time
+import uuid
 
 class EMBODIMENT(Enum):
     EVE_RIGHT_ARM = 0
@@ -709,42 +711,74 @@ class S3RLDBDataset(MultiRLDBDataset):
                 logger.error(f"Failed to download {key}: {e}")
 
     @classmethod
-    def _sync_s3_to_local(cls, bucket_name, s3_paths, local_dir):
+    def _sync_s3_to_local(cls, bucket_name, s3_paths, local_dir: Path):
         if not s3_paths:
             return
 
-        folders = []
-        for folder, _ in s3_paths:
-            if folder.startswith("s3://"):
-                folder = urlparse(folder).path.lstrip("/")
+        # 0) Skip episodes already present locally
+        to_sync = []
+        already = []
+        for processed_path, episode_hash in s3_paths:
+            if cls._episode_already_present(local_dir, episode_hash):
+                already.append(episode_hash)
             else:
-                folder = folder.lstrip("/")
-            if not folder.endswith("/"):
-                folder += "/"
-            folders.append(folder)
+                to_sync.append((processed_path, episode_hash))
 
-        groups = defaultdict(list)
-        for f in folders:
-            episode_dir = f.rstrip("/")                    # processed_v2/eva/<hash>
-            episode_parent = os.path.dirname(episode_dir)  # processed_v2/eva
-            root_prefix = episode_parent + "/"             # processed_v2/eva/
-            groups[root_prefix].append(f)
+        if already:
+            logger.info("Skipping %d episodes already present locally.", len(already))
 
-        for root_prefix, group_folders in groups.items():
-            include_args = []
-            for f in group_folders:
-                rel = f[len(root_prefix):]                # <hash>/
-                include_args += ["--include", f"{rel}*"]   # <hash>/*
-            
-            cmd = [
-                "aws", "s3", "sync",
-                f"s3://{bucket_name}/{root_prefix}",
-                str(local_dir),
-                "--exclude", "*",
-                "--only-show-errors",
-            ] + include_args
+        if not to_sync:
+            logger.info("Nothing to sync from S3 (all episodes already present).")
+            return
 
+        # 1) Build s5cmd batch script (one line per episode)
+        local_dir.mkdir(parents=True, exist_ok=True)
+        batch_path = f"./logs/_s5cmd_sync_{int(time.time())}_{os.getpid()}_{uuid.uuid4().hex}.txt"
+        batch_path = Path(batch_path)
+
+        lines = []
+        for processed_path, episode_hash in to_sync:
+            # processed_path like: s3://rldb/processed_v2/eva/<hash>/
+            if processed_path.startswith("s3://"):
+                src_prefix = processed_path.rstrip("/") + "/*"
+            else:
+                src_prefix = f"s3://{bucket_name}/{processed_path.lstrip('/').rstrip('/')}" + "/*"
+
+            # Destination is the root local_dir; s5cmd will preserve <hash>/... under it
+            dst = local_dir / episode_hash
+            lines.append(f'sync "{src_prefix}" "{str(dst)}/"')
+
+        try:
+            batch_path.write_text("\n".join(lines) + "\n")
+
+            cmd = ["s5cmd", "--log", "error", "run", str(batch_path)]
+            logger.info("Running s5cmd batch (%d lines): %s", len(lines), " ".join(cmd))
             subprocess.run(cmd, check=True)
+
+        finally:
+            try:
+                batch_path.unlink(missing_ok=True)
+            except Exception as e:
+                logger.warning("Failed to delete batch file %s: %s", batch_path, e)
+                
+    @classmethod
+    def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:
+        ep = local_dir / episode_hash
+        meta = ep / "meta"
+        chunk0 = ep / "data" / "chunk-000"
+
+        if not meta.is_dir() or not chunk0.is_dir():
+            return False
+
+        try:
+            if not any(meta.iterdir()):
+                return False
+            if not any(chunk0.iterdir()):
+                return False
+        except FileNotFoundError:
+            return False
+
+        return True
     
     @classmethod
     def sync_from_filters(

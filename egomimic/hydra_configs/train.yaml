@@ -5,7 +5,7 @@ defaults:
   - debug: null
   - logger: wandb
   - data: eva_bc_s3
-  - callbacks: null
+  - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
 

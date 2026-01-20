@@ -50,3 +50,4 @@ pyarrow==19.0.1
 simplejpeg
 prettytable
 datasets==4.0.0
+s5cmd
