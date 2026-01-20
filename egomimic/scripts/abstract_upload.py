@@ -34,6 +34,7 @@ class Uploader:
                 "num_frames",
                 "processed_path",
                 "mp4_path",
+                "processing_error",
                 "is_eval",
                 "eval_score",
                 "eval_success",

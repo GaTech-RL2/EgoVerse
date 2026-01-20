@@ -1,19 +1,21 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
-    dataset1:
-      _target_: egomimic.rldb.utils.S3RLDBDataset
-      bucket_name: "rldb"
-      mode: train
-      embodiment: "eva_right_arm"
-      filters: 
-        task: "object in container"
-      local_files_only: True
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    temp_root: "/coc/flash7/rpunamiya6/Projects/local_egoverse"
+    mode: train
+    embodiment: "eva_right_arm"
+    filters: 
+      task: "object in container"
+    local_files_only: True
 
 valid_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
+    temp_root: "/coc/flash7/rpunamiya6/Projects/local_egoverse"
     mode: valid
     embodiment: "eva_right_arm"
     filters: 

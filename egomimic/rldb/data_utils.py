@@ -2,6 +2,19 @@ from collections.abc import Sequence
 import torch.nn.functional as F
 import torch
 
+def _slow_down_slerp_quat(quat_short: torch.Tensor, S: int) -> torch.Tensor:
+    # quat_short: (S0,4), output: (S,4)
+    S0 = quat_short.shape[0]
+    if S0 == 1:
+        return torch.nn.functional.normalize(quat_short, dim=-1).expand(S, 4).clone()
+
+    pos = torch.linspace(0, S0 - 1, steps=S, device=quat_short.device)
+    i0 = pos.floor().long()
+    i1 = (i0 + 1).clamp(max=S0 - 1)
+    t = (pos - i0.float()).unsqueeze(-1)   # (S,1)
+
+    return _slerp(quat_short[i0], quat_short[i1], t)
+
 def _slerp(q0, q1, t):
     """
     Spherical linear interpolation between two quaternion sequences.

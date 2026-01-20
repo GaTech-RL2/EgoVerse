@@ -40,6 +40,7 @@ def lerobot_job(
         nproc=16,
         nthreads=2,
         debug=False,
+        benchmark=False
     )
 
     aria_main(args)

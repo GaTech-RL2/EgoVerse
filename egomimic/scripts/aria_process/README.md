@@ -80,3 +80,10 @@ This terminates **all head + worker EC2 instances** and cleans up security group
 Use `--yes` to skip confirmation.
 
 ---
+
+## Crontab commands
+```
+CRON_TZ=America/New_York
+# 0 20 * * * flock -n /tmp/run_aria_conversion.lock /usr/bin/python3 ~/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion.py --skip-if-done >> ~/aria_conversion.log 2>&1
+*/10 * * * * flock -n /tmp/ray_worker_gaurdrails.lock /usr/bin/python3 /home/ubuntu/EgoVerse/egomimic/utils/aws/budget_guardrails/ray_worker_gaurdrails.py >> /home/ubuntu/ray_worker_gaurdrails.log 2>&1
+```

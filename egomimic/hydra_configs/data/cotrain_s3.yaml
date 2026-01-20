@@ -11,11 +11,15 @@ train_datasets:
     local_files_only: True
 
   dataset2:
-    _target_: egomimic.rldb.utils.RLDBDataset
-    repo_id: "rpuns/oboo_indomain"
-    root: "/coc/flash7/rpunamiya6/Projects/object_in_container_indomain/lerobot_6dof"
-    local_files_only: True
-    mode: train
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      indomain:
+        _target_: egomimic.rldb.utils.RLDBDataset
+        repo_id: "rpuns/oboo_indomain"
+        root: "/coc/flash7/rpunamiya6/Projects/object_in_container_indomain/lerobot_6dof"
+        local_files_only: True
+        mode: train
+        embodiment: "aria_right_arm"
     embodiment: "aria_right_arm"
 
 valid_datasets:

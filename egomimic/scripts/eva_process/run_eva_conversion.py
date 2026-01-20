@@ -26,7 +26,7 @@ from egomimic.utils.aws.aws_sql import (
 RAW_ROOT = Path("/mnt/raw")
 PROCESSED_ROOT = Path("/mnt/processed")
 PROCESSED_LOCAL_ROOT = Path(os.environ.get("PROCESSED_LOCAL_ROOT", "/mnt/processed")).resolve()
-PROCESSED_REMOTE_PREFIX = os.environ.get("PROCESSED_REMOTE_PREFIX", "rldb:/processed_v2/eva").rstrip("/")
+PROCESSED_REMOTE_PREFIX = os.environ.get("PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/eva").rstrip("/")
 
 DEFAULT_EXTRINSICS_KEY = "x5Dec13_2"
 
@@ -98,10 +98,10 @@ def _load_episode_key(name: str) -> str | None:
             "%Y-%m-%d-%H-%M-%S-%f"
         )
     except Exception:
-        return name
+        return None
 
 
-@ray.remote(num_cpus=8)
+@ray.remote(num_cpus=12)
 def convert_one_bundle(
     data_h5: str,
     out_dir: str,
@@ -193,7 +193,7 @@ def launch(dry: bool = False, skip_if_done: bool = False):
             continue
 
         arm = infer_arm_from_robot_name(getattr(row, "robot_name", None))
-        dataset_name = f"{name}_processed"
+        dataset_name = episode_key
         out_dir = PROCESSED_ROOT
         description = row.task_description or ""
 
@@ -240,9 +240,11 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         if row.num_frames > 0:
             row.processed_path = _map_processed_local_to_remote(ds_path)
             row.mp4_path = _map_processed_local_to_remote(mp4_path)
+            row.processing_error = ""
         else:
             row.processed_path = ""
             row.mp4_path = ""
+            row.processing_error = "Zero Frames"
 
         try:
             update_episode(engine, row)

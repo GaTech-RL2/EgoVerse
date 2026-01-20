@@ -4,11 +4,13 @@ import os
 from pathlib import Path
 import shutil
 import traceback
+from typing import Any
 from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME
 import cv2
 import h5py
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 import torch
+import gc, ctypes
 from enum import Enum
 
 from egomimic.utils.egomimicUtils import (
@@ -57,6 +59,151 @@ import torch.nn.functional as F
 
 from scipy.spatial.transform import Rotation as R
 import subprocess
+import re
+import threading
+from contextlib import contextmanager
+import psutil
+
+_root = psutil.Process(os.getpid())
+
+def _proc_rss_mb(p: psutil.Process) -> float:
+    return p.memory_info().rss / (1024 ** 2)
+
+def cgroup_memory_peak_mb() -> float | None:
+    # cgroup v2
+    candidates = [
+        "/sys/fs/cgroup/memory.peak",
+        "/sys/fs/cgroup/memory.max_usage_in_bytes",  # older v1
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            try:
+                with open(p, "r") as f:
+                    return int(f.read().strip()) / (1024 ** 2)
+            except (OSError, ValueError):
+                pass
+    return None
+
+
+def _read_smaps_rollup_kb(pid: int) -> dict[str, int]:
+    out = {}
+    path = f"/proc/{pid}/smaps_rollup"
+    with open(path, "r") as f:
+        for line in f:
+            if ":" not in line:
+                continue
+            k, v = line.split(":", 1)
+            v = v.strip().split()
+            if len(v) >= 2 and v[1] == "kB":
+                out[k] = int(v[0])
+    return out
+
+def tree_pss_mb() -> float:
+    procs = [_root]
+    try:
+        procs += _root.children(recursive=True)
+    except psutil.Error:
+        pass
+
+    total_kb = 0
+    for p in procs:
+        try:
+            d = _read_smaps_rollup_kb(p.pid)
+            if "Pss" in d:
+                total_kb += d["Pss"]
+            else:
+                # fallback
+                total_kb += p.memory_info().rss // 1024
+        except Exception:
+            pass
+    return total_kb / 1024.0
+
+def tree_mem_mb(include_children: bool = True, use_uss: bool = True) -> float:
+    root = psutil.Process(os.getpid())
+    procs = [root]
+    if include_children:
+        try:
+            procs += root.children(recursive=True)
+        except Exception:
+            pass
+
+    total = 0
+    for p in procs:
+        try:
+            if use_uss and hasattr(p, "memory_full_info"):
+                total += p.memory_full_info().uss
+            else:
+                total += p.memory_info().rss
+        except Exception:
+            pass
+    return total / (1024 ** 2)
+
+class _Sampler:
+    def __init__(self, interval_s: float = 0.025):
+        self.interval_s = interval_s
+        self.ts = []
+        self.mbs = []
+        self._stop = threading.Event()
+        self._t = None
+        self._errored = False
+
+    def start(self):
+        self._t = threading.Thread(target=self._run, daemon=True)
+        self._t.start()
+
+    def _run(self):
+        t0 = time.time()
+        while not self._stop.is_set():
+            t = time.time() - t0
+            try:
+                mb = tree_pss_mb()
+            except Exception:
+                self._errored = True
+                time.sleep(self.interval_s)
+                continue
+            self.ts.append(t)
+            self.mbs.append(mb)
+            time.sleep(self.interval_s)
+
+    def stop(self):
+        self._stop.set()
+        if self._t is not None:
+            self._t.join()
+
+
+@contextmanager
+def mem_section(name: str, sample_interval_s: float = 0.2, plot: bool = True, enabled: bool = False):
+    if not enabled:
+        yield
+        return
+
+    start = tree_pss_mb()
+    sampler = _Sampler(interval_s=sample_interval_s)
+    sampler.start()
+    t0 = time.time()
+    try:
+        yield
+    finally:
+        sampler.stop()
+        end = tree_pss_mb()
+        dt = time.time() - t0
+
+        peak = max(sampler.mbs) if sampler.mbs else end
+        print(f"[{name}] end={end:.2f} MB  delta={end-start:+.2f} MB  peak={peak:.2f} MB  time={dt:.2f}s")
+
+        if plot and sampler.mbs and sampler.ts:
+            import matplotlib.pyplot as plt
+            n = min(len(sampler.ts), len(sampler.mbs))
+            if n > 1:
+                plt.plot(sampler.ts[:n], sampler.mbs[:n])
+                plt.xlabel("time (s)")
+                plt.ylabel("tree RSS (MB)")
+                plt.tight_layout()
+                plt.savefig(f"{_safe_name(name)}.png", dpi=150)
+                plt.close()
+
+def _safe_name(s: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9._-]+", "_", s).strip("_")
 
 ## CHANGE THIS TO YOUR DESIRED CACHE FOR HF
 os.environ["HF_HOME"] = "~/.cache/huggingface"
@@ -81,6 +228,26 @@ ROTATION_MATRIX = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
 #         actions[..., 4] *= -1  # Multiply y by -1 for second set
 #     return actions
 
+def downsample_hwc_uint8_in_chunks(
+  images: np.ndarray,  # (T,H,W,3) uint8
+  out_hw=(240, 320),
+  chunk: int = 256,
+) -> np.ndarray:
+    assert images.dtype == np.uint8 and images.ndim == 4 and images.shape[-1] == 3
+    T, H, W, C = images.shape
+    outH, outW = out_hw
+
+    out = np.empty((T, outH, outW, 3), dtype=np.uint8)
+
+    for s in range(0, T, chunk):
+        e = min(s + chunk, T)
+        x = torch.from_numpy(images[s:e]).permute(0, 3, 1, 2).to(torch.float32) / 255.0  # (B,3,H,W)
+        x = F.interpolate(x, size=(outH, outW), mode="bilinear", align_corners=False)
+        x = (x * 255.0).clamp(0, 255).to(torch.uint8)  # (B,3,outH,outW)
+        out[s:e] = x.permute(0, 2, 3, 1).cpu().numpy()
+        del x
+
+    return out
 
 def compute_camera_relative_pose(pose, cam_t_inv, cam_offset):
     """
@@ -163,7 +330,7 @@ class AriaVRSExtractor:
     TAGS = ["aria", "robotics", "vrs"]
 
     @staticmethod
-    def process_episode(episode_path, arm, prestack=False, low_res=False):
+    def process_episode(episode_path, arm, prestack=False, low_res=False, benchmark=False):
         """
         Extracts all feature keys from a given episode and returns as a dictionary
         Parameters
@@ -252,16 +419,23 @@ class AriaVRSExtractor:
             vrs_reader=vrs_reader,
             stream_ids=stream_ids,
             stream_timestamps_ns=stream_timestamps_ns,
+            benchmark=benchmark,
         )
 
-        images = torch.from_numpy(images).permute(0, 3, 1, 2).float()
-
         if low_res:
-            images = F.interpolate(
-                images, size=(240, 320), mode="bilinear", align_corners=False
-            )
+            images = downsample_hwc_uint8_in_chunks(images, out_hw=(240, 320), chunk=256)
+            
+        # with mem_section("process_episode.torch_from_numpy_permute", sample_interval_s=0.1, plot=False):
+        #     images = torch.from_numpy(images).permute(0, 3, 1, 2).float()
 
-        images = images.byte().numpy()
+        # if low_res:
+        #     with mem_section("process_episode.interpolate", sample_interval_s=0.1, plot=False):
+        #         images = F.interpolate(
+        #             images, size=(240, 320), mode="bilinear", align_corners=False
+        #         )
+
+        # with mem_section("process_episode.byte_numpy", sample_interval_s=0.1, plot=False):
+        #     images = images.byte().numpy()
 
         # actions
         actions = AriaVRSExtractor.get_action(
@@ -273,6 +447,7 @@ class AriaVRSExtractor:
             arm=arm,
             prestack=prestack,
             hand_tracking_results=hand_tracking_results,
+            benchmark=benchmark,
         )
 
         print(f"[DEBUG] LENGTH BEFORE CLEANING: {len(actions)}")
@@ -313,6 +488,7 @@ class AriaVRSExtractor:
         STEP=STEP_DEFAULT,
         prestack=False,
         no_rot=False,
+        benchmark=False,
     ):
         """
         Calculates actions using stable reference frames
@@ -412,16 +588,21 @@ class AriaVRSExtractor:
             actions_t = np.array(actions_t)
             actions.append(actions_t)
 
-        actions = np.array(actions)
+        with mem_section("get_action.list_to_numpy", sample_interval_s=0.1, plot=False, enabled=benchmark):
+            actions = np.array(actions)
 
         if arm == "bimanual":
             actions_left = actions[..., :6]
             actions_right = actions[..., 6:]
-            actions_left = interpolate_arr_euler(actions_left, CHUNK_LENGTH_ACT)
-            actions_right = interpolate_arr_euler(actions_right, CHUNK_LENGTH_ACT)
-            actions = np.concatenate((actions_left, actions_right), axis=-1)
+            with mem_section("get_action.interpolate_left", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                actions_left = interpolate_arr_euler(actions_left, CHUNK_LENGTH_ACT)
+            with mem_section("get_action.interpolate_right", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                actions_right = interpolate_arr_euler(actions_right, CHUNK_LENGTH_ACT)
+            with mem_section("get_action.concatenate_bimanual", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                actions = np.concatenate((actions_left, actions_right), axis=-1)
         else:
-            actions = interpolate_arr_euler(actions, CHUNK_LENGTH_ACT)
+            with mem_section("get_action.interpolate_single", sample_interval_s=0.1, plot=False, enabled=benchmark):
+                actions = interpolate_arr_euler(actions, CHUNK_LENGTH_ACT)
 
         if not prestack:
             actions = actions[:, 1, :]
@@ -540,6 +721,7 @@ class AriaVRSExtractor:
         stream_timestamps_ns: dict,
         HORIZON=HORIZON_DEFAULT,
         STEP=STEP_DEFAULT,
+        benchmark=False,
     ):
         """
         Get RGB Image from VRS
@@ -578,7 +760,8 @@ class AriaVRSExtractor:
 
             images.append(image_t)
 
-        images = np.array(images)
+        with mem_section("get_images.list_to_numpy_array", sample_interval_s=0.1, plot=False, enabled=benchmark):
+            images = np.array(images)
         return images
 
     @staticmethod
@@ -797,70 +980,64 @@ class AriaVRSExtractor:
         states = [state_key]
         return states
 
-    # TODO don't touch this and just modify previous methods
     @staticmethod
-    def extract_episode_frames(
+    def iter_episode_frames(
         episode_path: str | Path,
         features: dict[str, dict],
         image_compressed: bool,
         arm: str,
         prestack: bool = False,
-    ) -> list[dict[str, torch.Tensor]]:
-        """
-        Extract frames from an episode by processing it and using the feature dictionary.
-
-        Parameters
-        ----------
-        episode_path : str or Path
-            Path to the HDF5 file containing the episode data.
-        features : dict of str to dict
-            Dictionary where keys are feature identifiers and values are dictionaries with feature details.
-        image_compressed : bool
-            Flag indicating whether the images are stored in a compressed format.
-        arm : str
-            The arm to process (e.g., 'left', 'right', or 'bimanual').
-        prestack : bool, optional
-            Whether to precompute action chunks, by default False.
-
-        Returns
-        -------
-        list[dict[str, torch.Tensor]]
-            List of frames, where each frame is a dictionary mapping feature identifiers to tensors.
-        """
-        frames = []
+        benchmark: bool = False,
+    ):
         episode_feats = AriaVRSExtractor.process_episode(
-            episode_path, arm=arm, prestack=prestack
+            episode_path, arm=arm, prestack=prestack, benchmark=benchmark
         )
-        num_frames = next(iter(episode_feats["observations"].values())).shape[0]
-        for frame_idx in range(num_frames):
-            frame = {}
-            for feature_id, feature_info in features.items():
-                if "observations" in feature_id:
-                    value = episode_feats["observations"][feature_id.split(".", 1)[-1]]
-                else:
-                    value = episode_feats.get(feature_id, None)
-                if value is None:
-                    break
-                if value is not None:
+        try:
+            num_frames = next(iter(episode_feats["observations"].values())).shape[0]
+
+            for frame_idx in range(num_frames):
+                frame = {}
+
+                for feature_id, _info in features.items():
+                    if feature_id.startswith("observations."):
+                        key = feature_id.split(".", 1)[-1]  # "images.front_img_1" / "state.ee_pose"
+                        value = episode_feats["observations"].get(key, None)
+                    else:
+                        value = episode_feats.get(feature_id, None)
+
+                    if value is None:
+                        frame = None
+                        break
+
                     if isinstance(value, np.ndarray):
-                        if "images" in feature_id and image_compressed:
-                            decompressed_image = cv2.imdecode(value[frame_idx], 1)
-                            frame[feature_id] = torch.from_numpy(
-                                decompressed_image.transpose(2, 0, 1)
-                            )
+                        if "images" in feature_id:
+                            if image_compressed:
+                                img = cv2.imdecode(value[frame_idx], 1)  # HWC BGR uint8
+                                frame[feature_id] = (
+                                    torch.from_numpy(img)
+                                    .permute(2, 0, 1)
+                                    .contiguous()
+                                )  # CHW uint8
+                            else:
+                                frame[feature_id] = (
+                                    torch.from_numpy(value[frame_idx])
+                                    .permute(2, 0, 1)
+                                    .contiguous()
+                                )  # HWC -> CHW
                         else:
                             frame[feature_id] = torch.from_numpy(value[frame_idx])
                     elif isinstance(value, torch.Tensor):
                         frame[feature_id] = value[frame_idx]
                     else:
-                        logging.warning(
-                            f"[AriaVRSExtractor] Could not add dataset key at {feature_id} due to unsupported type. Skipping ..."
-                        )
-                        continue
+                        frame = None
+                        break
 
-            frames.append(frame)
-        return frames
+                if frame is not None:
+                    yield frame
+        finally:
+            del episode_feats
 
+    
     @staticmethod
     def define_features(
         episode_feats: dict, image_compressed: bool = True, encode_as_video: bool = True
@@ -999,6 +1176,7 @@ class DatasetConverter:
         image_writer_threads: int = 0,
         prestack: bool = False,
         debug: bool = False,
+        benchmark: bool = False,
     ):
         self.raw_path = raw_path if isinstance(raw_path, Path) else Path(raw_path)
         self.dataset_repo_id = dataset_repo_id
@@ -1009,6 +1187,9 @@ class DatasetConverter:
         self.image_writer_processes = image_writer_processes
         self.encode_as_videos = encode_as_videos
         self.prestack = prestack
+        self.benchmark = benchmark
+        if self.benchmark:
+            print(f"Benchmark mode enabled. This will plot the RAM usage of each section.")
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
@@ -1039,11 +1220,13 @@ class DatasetConverter:
         if debug:
             self.episode_list = self.episode_list[:2]
 
-        processed_episode = AriaVRSExtractor.process_episode(
-            episode_path=self.episode_list[0],
-            arm=self.arm,
-            prestack=self.prestack,
-        )
+        with mem_section("process_episode", sample_interval_s=0.025, plot=True, enabled=self.benchmark):
+            processed_episode = AriaVRSExtractor.process_episode(
+                episode_path=self.episode_list[0],
+                arm=self.arm,
+                prestack=self.prestack,
+                benchmark=self.benchmark,
+            )
 
         if self.arm == "bimanual":
             self.robot_type = "aria_bimanual"
@@ -1052,16 +1235,17 @@ class DatasetConverter:
         elif self.arm == "left":
             self.robot_type = "aria_left_arm"
 
-        self.features, metadata = AriaVRSExtractor.define_features(
-            processed_episode,
-            image_compressed=self.image_compressed,
-            encode_as_video=self.encode_as_videos,
-        )
+        with mem_section("define_features", enabled=self.benchmark):
+            self.features, metadata = AriaVRSExtractor.define_features(
+                processed_episode,
+                image_compressed=self.image_compressed,
+                encode_as_video=self.encode_as_videos,
+            )
 
         self.logger.info(f"Dataset Features: {self.features}")
     
 
-    def save_preview_mp4(self, frames: list[dict], output_path: Path, fps: int, image_compressed: bool):
+    def save_preview_mp4(self, image_frames: list[dict], output_path: Path, fps: int, image_compressed: bool):
         """
         Save a single half-resolution, web-compatible MP4 using H.264 (libx264).
         No fallbacks. Requires `ffmpeg` with libx264 on PATH.
@@ -1069,11 +1253,8 @@ class DatasetConverter:
         Each frame dict must contain:
             'observations.images.front_img_1' -> torch.Tensor (C,H,W) uint8
         """
-        img_key = "observations.images.front_img_1"
-        imgs = [f[img_key] for f in frames if img_key in f]
-        if not imgs:
-            print(f"[MP4] No frames with key '{img_key}' found — skipping video save.")
-            return
+        
+        imgs = image_frames
     
         # Compute half-res (force even dims for yuv420p)
         C, H, W = imgs[0].shape
@@ -1082,58 +1263,132 @@ class DatasetConverter:
         if outH % 2: outH -= 1
         if outW <= 0 or outH <= 0:
             raise ValueError(f"[MP4] Invalid output size: {outW}x{outH}")
-    
+
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
     
+        rgb_frames = []
+        for chw in imgs:
+            # chw: (C,H,W) uint8, BGR from cv2.imdecode earlier
+            t = chw.detach().cpu()
+            if t.dtype != torch.uint8:
+                t = t.to(torch.uint8)
+
+            # If grayscale, repeat to 3 channels
+            if t.shape[0] == 1:
+                t = t.repeat(3, 1, 1)
+
+            # Resize to (outH, outW)
+            t_resized = F.interpolate(
+                t.unsqueeze(0),  # (1,C,H,W)
+                size=(outH, outW),
+                mode="bilinear",
+                align_corners=False,
+            ).squeeze(0)  # (C,outH,outW)
+
+            # BGR -> RGB, then (H,W,C)
+            hwc = t_resized.permute(1, 2, 0).contiguous()  # (H,W,3), uint8
+            rgb_frames.append(hwc)
+
+        video_tensor = torch.stack(rgb_frames, dim=0)  # (T, H, W, 3) uint8
+
+        # -----------------------------
+        # 1) Try torchvision.write_video
+        # -----------------------------
+        try:
+            from torchvision.io import write_video
+
+            write_video(
+                filename=str(output_path),
+                video_array=video_tensor,
+                fps=float(fps),
+                video_codec="libx264",  # H.264, web-compatible
+                options={"crf": "23", "preset": "veryfast"},
+            )
+            print(
+                f"[MP4] Saved web-compatible H.264 preview via torchvision to {output_path}"
+            )
+            return
+        except Exception as e:
+            print(
+                f"[MP4] torchvision.io.write_video failed ({e}); trying ffmpeg CLI fallback..."
+            )
+
+        # -----------------------------
+        # 2) Fallback: ffmpeg CLI (libx264)
+        # -----------------------------
         ffmpeg = shutil.which("ffmpeg")
         if ffmpeg is None:
-            raise RuntimeError("[MP4] `ffmpeg` not found on PATH. Install ffmpeg with libx264 enabled.")
-    
-        # Pipe raw BGR frames to ffmpeg → H.264 MP4 (baseline@3.0, yuv420p, +faststart)
+            raise RuntimeError(
+                "[MP4] Could not write web-compatible MP4:\n"
+                "  - torchvision.io.write_video is unavailable or failed\n"
+                "  - `ffmpeg` CLI not found on PATH\n"
+                "Install either torchvision with video support or ffmpeg+libx264."
+            )
+
+        # For ffmpeg rawvideo, we need BGR24 frames of shape (outH, outW, 3)
+        # We can convert our RGB hwc tensors back to BGR numpy.
         cmd = [
-            ffmpeg, "-y",
-            "-f", "rawvideo",
-            "-vcodec", "rawvideo",
-            "-pix_fmt", "bgr24",
-            "-s", f"{outW}x{outH}",
-            "-r", str(fps),
-            "-i", "-",                # stdin
+            ffmpeg,
+            "-y",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "bgr24",
+            "-s",
+            f"{outW}x{outH}",
+            "-r",
+            str(fps),
+            "-i",
+            "-",  # stdin
             "-an",
-            "-c:v", "libx264",
-            "-pix_fmt", "yuv420p",
-            "-profile:v", "baseline",
-            "-level", "3.0",
-            "-movflags", "+faststart",
-            "-preset", "veryfast",
-            "-crf", "23",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-profile:v",
+            "baseline",
+            "-level",
+            "3.0",
+            "-movflags",
+            "+faststart",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "23",
             str(output_path),
         ]
-    
-        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
         try:
-            for chw in imgs:
-                np_chw = chw.detach().cpu().numpy()
-                if np_chw.shape[0] == 1:
-                    np_chw = np.repeat(np_chw, 3, axis=0)   # gray → 3ch
-                frame = np.transpose(np_chw, (1, 2, 0))      # HWC
-                if not image_compressed:
-                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                frame = cv2.resize(frame, (outW, outH), interpolation=cv2.INTER_AREA)
-                if frame.dtype != np.uint8:
-                    frame = frame.astype(np.uint8, copy=False)
-                proc.stdin.write(frame.tobytes())
+            for hwc_rgb in rgb_frames:
+                # hwc_rgb: (H,W,3), RGB uint8
+                np_rgb = hwc_rgb.numpy()
+                # RGB -> BGR
+                np_bgr = np_rgb[..., ::-1]
+                proc.stdin.write(np_bgr.tobytes())
         finally:
             if proc.stdin:
                 proc.stdin.flush()
                 proc.stdin.close()
-    
+
         ret = proc.wait()
         if ret != 0:
             stderr = proc.stderr.read().decode(errors="ignore") if proc.stderr else ""
-            raise RuntimeError(f"[MP4] ffmpeg/libx264 encoding failed (exit {ret}).\n{stderr}")
-    
-        print(f"[MP4] Saved web-compatible H.264 preview to {output_path}")
+            raise RuntimeError(
+                f"[MP4] ffmpeg/libx264 encoding failed (exit {ret}).\n{stderr}"
+            )
+
+        print(
+            f"[MP4] Saved web-compatible H.264 preview via ffmpeg CLI to {output_path}"
+        )
         
     def extract_episode(self, episode_path, task_description: str = ""):
         """
@@ -1148,30 +1403,26 @@ class DatasetConverter:
         -------
         None
         """
-
-        frames = AriaVRSExtractor.extract_episode_frames(
-            episode_path,
-            features=self.features,
-            image_compressed=self.image_compressed,
-            arm=self.arm,
-            prestack=self.prestack,
-        )
-
-        if self._mp4_path is not None:
-            ep_stem = Path(episode_path).stem
-            mp4_path = self._mp4_path / f"{ep_stem}_video.mp4"
-            self.save_preview_mp4(frames, mp4_path, self.fps, self.image_compressed)
-
-        for i, frame in enumerate(frames):
+        image_frames = []
+        for i, frame in enumerate(AriaVRSExtractor.iter_episode_frames(episode_path, self.features, self.image_compressed, self.arm, self.prestack, self.benchmark)):
             self.buffer.append(frame)
+            if self._mp4_path is not None:
+                image = frame["observations.images.front_img_1"]
+                image_frames.append(image)
 
             if len(self.buffer) == EPISODE_LENGTH:
+                
                 for f in self.buffer:
                     self.dataset.add_frame(f)
-
+                
+                
                 self.logger.info(f"Saving Episode after {i + 1} frames...")
                 self.dataset.save_episode(task=task_description)
                 self.buffer.clear()
+        if self._mp4_path is not None:
+            ep_stem = Path(episode_path).stem
+            mp4_path = self._mp4_path / f"{ep_stem}_video.mp4"
+            self.save_preview_mp4(image_frames, mp4_path, self.fps, self.image_compressed)
 
     def extract_episodes(self, episode_description: str = ""):
         """
@@ -1189,13 +1440,15 @@ class DatasetConverter:
         After processing all episodes, the dataset is consolidated.
         """
 
-        for episode_path in self.episode_list:
-            try:
-                self.extract_episode(episode_path, task_description=episode_description)
-            except Exception as e:
-                self.logger.error(f"Error processing episode {episode_path}: {e}")
-                traceback.print_exc()
-                continue
+        with mem_section("extract_episodes", enabled=self.benchmark):
+            for episode_path in self.episode_list:
+                try:
+                    self.extract_episode(episode_path, task_description=episode_description)
+                except Exception as e:
+                    self.logger.error(f"Error processing episode {episode_path}: {e}")
+                    traceback.print_exc()
+                    continue
+        
 
         self.buffer.clear()
         t0 = time.time()
@@ -1283,7 +1536,7 @@ def argument_parse():
         "--raw-path",
         type=Path,
         required=True,
-        help="Directory containing the raw HDF5 files.",
+        help="Directory containing the vrs, vrs_json, and the processed mps folder.",
     )
     parser.add_argument(
         "--dataset-repo-id",
@@ -1318,7 +1571,7 @@ def argument_parse():
     parser.add_argument(
         "--push",
         type=str2bool,
-        default=True,
+        default=False,
         help="Set to True to push videos to the hub.",
     )
     parser.add_argument(
@@ -1327,13 +1580,13 @@ def argument_parse():
     parser.add_argument(
         "--image-compressed",
         type=str2bool,
-        default=True,
+        default=False,
         help="Set to True if the images are compressed.",
     )
     parser.add_argument(
         "--video-encoding",
         type=str2bool,
-        default=True,
+        default=False,
         help="Set to True to encode images as videos.",
     )
     parser.add_argument(
@@ -1369,6 +1622,12 @@ def argument_parse():
         help="If True, save a single half-resolution MP4 with all frames across episodes.",
     )
 
+    parser.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Run benchmark mode. Which include printing out the peak RAM usage of each section.",
+    )
+
     args = parser.parse_args()
 
     return args
@@ -1400,12 +1659,15 @@ def main(args):
         image_writer_threads=args.nthreads,
         prestack=args.prestack,
         debug=args.debug,
+        benchmark=args.benchmark,
     )
 
     # Initialize the dataset
     converter.init_lerobot_dataset(output_dir=args.output_dir, name=Path(args.name))
     if args.save_mp4:
         converter._mp4_path = converter._out_base
+    gc.collect()
+    ctypes.CDLL("libc.so.6").malloc_trim(0)
     # Extract episodes
     converter.extract_episodes(episode_description=args.description)
 

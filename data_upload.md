@@ -20,21 +20,11 @@ Default region name [None]: us-east-2
 Default output format [None]:
 ```
 
-To test that this works, you can run.
-```
-aws s3 mv example.txt s3://rldb/raw/example<yourname>.txt 
-```
+# Data Uploading
+Embodiment specific uploaders inherit from [``abstract_upload.py``](./egomimic/scripts/abstract_upload.py), which handles the key logic of generating an episode hash + collecting user specified metadata, then uploading to aws.  We have embodiemnt specific uploaders which inherit from this
+- [``eva_uploader.py``](./egomimic/scripts/eva_uploader.py)
+- [``aria_uploader.py``](./egomimic/scripts/aria_uploader.py)
 
-Our standard will be
-for objInBowl, the vrs should be named
-`<lab-name>-scene<id>-<toy-color>toy-<bowl-color>bowl-<number>.vrs`
-
-for smallShirtFold, the vrs should be named
-`<lab-name>-scene<id>-<shirt-color>shirt-<number>.vrs`
-
-Task Name list
-- objInBowl
-- smallShirtFold
 
 Lab Name List
 - rl2

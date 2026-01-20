@@ -24,7 +24,7 @@ cameras:
     height: 480
   right_wrist_img:
     type: "d405"
-    enabled: false
+    enabled: true
     encoding: "rgb8"
     serial_number: 230322277025
     width: 640

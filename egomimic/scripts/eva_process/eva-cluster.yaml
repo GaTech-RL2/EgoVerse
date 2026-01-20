@@ -16,7 +16,7 @@ idle_timeout_minutes: 10
 available_node_types:
   head_node:
     node_config:
-      InstanceType: c5.xlarge
+      InstanceType: t3a.2xlarge
       ImageId: ami-0b3766455f47e0ec4
       KeyName: ryan-mac # put your own ssh key here  
       SubnetId: subnet-02fbc81414d827515
@@ -50,10 +50,12 @@ head_node_type: head_node
 
 # ───────── PACKAGES + MOUNTS ─────────────────────────────
 initialization_commands:
+  - sudo rm -f /etc/apt/sources.list.d/nodesource.list /etc/apt/sources.list.d/nodesource.list.save || true
   - sudo DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing -yq
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
+  - sudo pip3 install --no-input -U "ray[default]"
   - sudo pip3 install --no-input sqlalchemy
   - sudo pip3 install --no-input -U ray boto3
   - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"
@@ -112,8 +114,12 @@ setup_commands:
       gt submodule update --init --recursive --quiet || true
 
   - |
-      (crontab -l 2>/dev/null | grep -v run_eva_conversion.py ; \
+      (crontab -l 2>/dev/null \
+       | grep -v run_eva_conversion.py \
+       | grep -v ray_worker_gaurdrails.py \
+       | grep -v ray_worker_gaurdrails.lock ; \
        echo 'CRON_TZ=America/New_York'; \
-       echo '0 22 * * * /usr/bin/python3 ~/EgoVerse/egomimic/scripts/eva_process/run_eva_conversion.py --skip-if-done >> ~/eva_conversion.log 2>&1') \
+       echo '0 22 * * * flock -n /tmp/run_eva_conversion.lock /usr/bin/python3 ~/EgoVerse/egomimic/scripts/eva_process/run_eva_conversion.py --skip-if-done >> ~/eva_conversion_$(date +\%Y-\%m-\%d-\%H-\%M-\%S).log 2>&1'; \
+       echo '*/10 * * * * flock -n /tmp/ray_worker_gaurdrails.lock /usr/bin/python3 /home/ubuntu/EgoVerse/egomimic/utils/aws/budget_guardrails/ray_worker_gaurdrails.py >> /home/ubuntu/ray_worker_gaurdrails.log 2>&1') \
        | crontab - || true
   - crontab -l || true

@@ -29,6 +29,7 @@ class TableRow:
     scene: str = ""
     objects: str = ""
     processed_path: str = ""  # Updateable
+    processing_error: str = ""  # Updateable
     mp4_path: str = ""  # Updateable
     is_deleted: bool = False
     is_eval: bool = False

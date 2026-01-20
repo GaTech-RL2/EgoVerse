@@ -3,16 +3,16 @@ defaults:
 
 _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 
-name: ${hydra.job.name}
-account: "gts-dxu345-rl2"
-qos: "inferno"
-timeout_min: 2880
-
-cpus_per_task: 8
-nodes: 1
-tasks_per_node: 1
-gres: "gpu:h200:1"
-
+# Slurm configuration
+name: ${hydra.job.name}                             # Default job name
+partition: "rl2-lab"                            # Slurm partition (e.g., 'gpu' or 'compute')
+account: "rl2-lab"                              # Slurm account (e.g., 'my_account')
+cpus_per_task: 12                                   # Number of CPUs per task
+nodes: ${launch_params.nodes}                       # Number of nodes
+tasks_per_node: ${launch_params.gpus_per_node}      # Use variable for tasks per node
+gres: "gpu:l40s:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}" # GPU type and count
+qos: "short"                                        # Slurm QoS
+timeout_min: 2880                                   # Timeout in minutes (48 hours)
+exclude: "protocol, puma"     # Nodes to exclude
 additional_parameters:
-  constraint: "rhel9"
   requeue: true

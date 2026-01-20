@@ -38,6 +38,22 @@ ARIA_INTRINSICS_HALF = np.array(
     ]
 )
 
+w0, h0 = float(1920), float(1080)
+fx0, fy0 = float(752.4707352849115), float(753.0015979987369)
+cx0, cy0 = float(961.8249427694457),  float(553.245895705989)
+k1 = float(0.053237960122440905)
+k2 = float(-0.030832938752312588)
+p1 = float(0.007216253952233802)
+p2 = float(0.0002335266971733548)
+
+sx = 640 / w0
+sy = 360 / h0
+fx, fy = fx0 * sx, fy0 * sy
+cx, cy = cx0 * sx, cy0 * sy
+
+MECKA_INTRINSICS = np.array([[fx, 0.0, cx, 0],
+              [0.0, fy, cy, 0],
+              [0.0, 0.0, 1.0, 0]], dtype=np.float64)
 
 # Cam to base extrinsics
 EXTRINSICS = {
@@ -167,6 +183,32 @@ EXTRINSICS = {
        [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
        [ 0.        ,  0.        ,  0.        ,  1.        ]])
     },
+
+    "x5Dec10_2":{
+        "right": np.array([[-0.15646281, -0.96797376,  0.19633183,  0.06895977],
+       [-0.73576918,  0.24684158,  0.63064487,  0.41755406],
+       [-0.65891055, -0.04578243, -0.75082679,  0.78698655],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+        "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
+       [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+       [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    },
+    
+    "x5Dec10_2":{
+        "right": np.array([[-0.15646281, -0.96797376,  0.19633183,  0.06895977],
+       [-0.73576918,  0.24684158,  0.63064487,  0.41755406],
+       [-0.65891055, -0.04578243, -0.75082679,  0.78698655],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+        "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
+       [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+       [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
+       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    },
+    "mecka": {
+        "left": np.eye(4),
+        "right": np.eye(4),
+    },
     "x5Dec13_2": {
             "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
            [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
@@ -179,7 +221,7 @@ EXTRINSICS = {
     }
 }
 
-INTRINSICS = {"base": ARIA_INTRINSICS, "base_half": ARIA_INTRINSICS_HALF}
+INTRINSICS = {"base": ARIA_INTRINSICS, "base_half": ARIA_INTRINSICS_HALF, "mecka": MECKA_INTRINSICS}
 
 
 class CameraTransforms:
@@ -571,12 +613,12 @@ def base_frame_to_cam_frame(base_frame, T_cam_base):
     """
     N, _ = base_frame.shape
     se3 = np.zeros((N, 4, 4))
-    se3[:, :3, :3] = Rotation.from_euler('zyx', base_frame[:, 3:6]).as_matrix()
+    se3[:, :3, :3] = Rotation.from_euler('ZYX', base_frame[:, 3:6]).as_matrix()
     se3[:, :3, 3] = base_frame[:, :3]
     se3[:, 3, 3] = 1
     cam_frame = np.linalg.inv(T_cam_base) @ se3
     xyz = cam_frame[:, :3, 3]
-    ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler('zyx', degrees=False)
+    ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler('ZYX', degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
 def cam_frame_to_base_frame(cam_frame, T_cam_base):
@@ -588,12 +630,12 @@ def cam_frame_to_base_frame(cam_frame, T_cam_base):
     """
     N, _ = cam_frame.shape
     se3 = np.zeros((N, 4, 4))
-    se3[:, :3, :3] = Rotation.from_euler('zyx', cam_frame[:, 3:6]).as_matrix()
+    se3[:, :3, :3] = Rotation.from_euler('ZYX', cam_frame[:, 3:6]).as_matrix()
     se3[:, :3, 3] = cam_frame[:, :3]
     se3[:, 3, 3] = 1
     base_frame = T_cam_base @ se3
     xyz = base_frame[:, :3, 3]
-    ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler('zyx', degrees=False)
+    ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler('ZYX', degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
 
 def ee_orientation_to_cam_frame(ee_orientation_base, T_cam_base):
@@ -635,7 +677,7 @@ def batched_rotation_matrices_to_euler_angles(batch_R):
     # reshaped_R = batch_R.view(-1, 3, 3).cpu().numpy()
     # Use scipy's Rotation to convert rotation matrices to Euler angles
     rotation_objects = Rotation.from_matrix(reshaped_R)
-    euler_angles = rotation_objects.as_euler('zyx', degrees=False)  # Shape [batch_size * seq_len, 3]
+    euler_angles = rotation_objects.as_euler('ZYX', degrees=False)  # Shape [batch_size * seq_len, 3]
     # Convert back to torch and reshape to original batch dimensions
     euler_angles = torch.tensor(euler_angles, device=batch_R.device)
     euler_angles = euler_angles.view(batch_size, 3)
@@ -1033,7 +1075,7 @@ def interpolate_keys(obs, keys, seq_length):
 
 
 def ypr_to_matrix(ypr):
-    """Convert yaw-pitch-roll (zyx) to rotation matrix. ypr: (..., 3) → (..., 3, 3)"""
+    """Convert yaw-pitch-roll (ZYX) to rotation matrix. ypr: (..., 3) → (..., 3, 3)"""
     yaw, pitch, roll = ypr.unbind(-1)
 
     cy = torch.cos(yaw)
@@ -1088,7 +1130,7 @@ def ypr_to_matrix(ypr):
 
 
 def matrix_to_ypr(R):
-    """Convert rotation matrix to yaw-pitch-roll (zyx). R: (..., 3, 3) → (..., 3)"""
+    """Convert rotation matrix to yaw-pitch-roll (ZYX). R: (..., 3, 3) → (..., 3)"""
     # Safe conversion for all angles
     pitch = torch.asin(-R[..., 2, 0])
     cos_pitch = torch.cos(pitch)

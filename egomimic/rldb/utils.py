@@ -48,12 +48,15 @@ from egomimic.utils.aws.aws_sql import (
 
 logger = logging.getLogger(__name__)
 
+logging.getLogger("huggingface_hub._snapshot_download").setLevel(logging.ERROR)
+
 import torch.nn.functional as F
 
-from egomimic.rldb.data_utils import *
-import traceback
+from egomimic.rldb.data_utils import _ypr_to_quat, _slerp, _quat_to_ypr, _slow_down_slerp_quat
+import subprocess
+from urllib.parse import urlparse
+from collections import defaultdict
 
-# NOTE: To add a new key register, embodiment here. I hope Nadun, Vaibhav you guys have a more principled way of doing this thanks :) - R
 class EMBODIMENT(Enum):
     EVE_RIGHT_ARM = 0
     EVE_LEFT_ARM = 1
@@ -64,7 +67,9 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 6
     EVA_LEFT_ARM = 7
     EVA_BIMANUAL = 8
-
+    MECKA_BIMANUAL = 9
+    MECKA_RIGHT_ARM = 10
+    MECKA_LEFT_ARM = 11
 
 SEED = 42
 
@@ -289,7 +294,8 @@ class RLDBDataset(LeRobotDataset):
         if self.slow_down_ac_keys and self.slow_down_factor > 1.0:
             for key in self.slow_down_ac_keys:
                 if key in item:
-                    item[key] = self._slow_down_sequence(item[key])
+                    rot_spec = self.slow_down_rot_specs.get(key, None)
+                    item[key] = self._slow_down_sequence(item[key], rot_spec=rot_spec)
         return item
 
     def _slow_down_sequence(self, seq, rot_spec=None):
@@ -536,12 +542,13 @@ class S3RLDBDataset(MultiRLDBDataset):
         local_files_only=True,
         key_map=None,
         valid_ratio=0.2,
-        temp_root="/coc/cedarp-dxu345-0/datasets/egoverse",  # "/coc/flash7/scratch/rldb_temp"
+        temp_root="/coc/flash7/scratch/egoverseS3Dataset",  # "/coc/flash7/scratch/rldb_temp"
         filters={},
         **kwargs,
     ):
         temp_root += "/S3_rldb_data"
         filters["robot_name"] = embodiment
+        filters["is_deleted"] = False
 
         if temp_root[0] != "/":
             temp_root = "/" + temp_root
@@ -552,32 +559,21 @@ class S3RLDBDataset(MultiRLDBDataset):
         if not temp_root.is_dir():
             temp_root.mkdir()
 
+        logger.info(f"Filters: {filters}")
         datasets = {}
         skipped = []
-        filtered_paths = self._get_processed_path(filters)
-
-        s3_prefix = f"{main_prefix}/{embodiment.strip('/')}/"
-
-        logger.info(
-            f"Syncing S3 datasets with filters {filters} to local directory {temp_root}..."
-        )
-        logger.info(f"S3 prefix being used: {s3_prefix}")
-
-        self._sync_s3_to_local(
+        
+        filtered_paths = self.sync_from_filters(
             bucket_name=bucket_name,
-            s3_paths=filtered_paths,
+            filters=filters,
             local_dir=temp_root,
-            s3_subfolders=["data/chunk-000/", "meta/"],
         )
 
         search_path = temp_root
 
         valid_collection_names = set()
-        for fp, hashes in filtered_paths:
-            fmt = "%Y-%m-%d-%H-%M-%S-%f"
-            dt = datetime.strptime(hashes, fmt).replace(tzinfo=timezone.utc)
-            milliseconds = int(dt.timestamp() * 1000)
-            valid_collection_names.add(str(milliseconds))
+        for _, hashes in filtered_paths:
+            valid_collection_names.add(hashes)
 
         for collection_path in sorted(search_path.iterdir()):
             if not collection_path.is_dir():
@@ -674,7 +670,7 @@ class S3RLDBDataset(MultiRLDBDataset):
             ["processed_path", "episode_hash"],
         ]
         skipped = df[df["processed_path"].isnull()]["episode_hash"].tolist()
-        print(f"Skipped {len(skipped)} episodes with null processed_path: {skipped}")
+        logger.info(f"Skipped {len(skipped)} episodes with null processed_path: {skipped}")
         output = output[~output["episode_hash"].isin(skipped)]
         
         if recordings is not None:
@@ -684,6 +680,7 @@ class S3RLDBDataset(MultiRLDBDataset):
             output = output[:recordings]
 
         paths = list(output.itertuples(index=False, name=None))
+<<<<<<< HEAD
         cprint(f"Found {len(paths)} S3 paths matching filters {filters}", "yellow")
         print(f"Paths: {paths}")
         
@@ -695,6 +692,9 @@ class S3RLDBDataset(MultiRLDBDataset):
         #         f.write(f"{p}\n")
         #     f.write("\n")
         
+=======
+        logger.info(f"Paths: {paths}")
+>>>>>>> 4ff3fd6458be283254c6103621feb429c5e371c8
         return paths
 
     @staticmethod
@@ -738,65 +738,81 @@ class S3RLDBDataset(MultiRLDBDataset):
             except Exception as e:
                 logger.error(f"Failed to download {key}: {e}")
 
-    @staticmethod
-    def _sync_s3_to_local(bucket_name, s3_paths, local_dir, s3_subfolders):
+    @classmethod
+    def _sync_s3_to_local(cls, bucket_name, s3_paths, local_dir):
+        if not s3_paths:
+            return
+
+        folders = []
+        for folder, _ in s3_paths:
+            if folder.startswith("s3://"):
+                folder = urlparse(folder).path.lstrip("/")
+            else:
+                folder = folder.lstrip("/")
+            if not folder.endswith("/"):
+                folder += "/"
+            folders.append(folder)
+
+        groups = defaultdict(list)
+        for f in folders:
+            episode_dir = f.rstrip("/")                    # processed_v2/eva/<hash>
+            episode_parent = os.path.dirname(episode_dir)  # processed_v2/eva
+            root_prefix = episode_parent + "/"             # processed_v2/eva/
+            groups[root_prefix].append(f)
+
+        for root_prefix, group_folders in groups.items():
+            include_args = []
+            for f in group_folders:
+                rel = f[len(root_prefix):]                # <hash>/
+                include_args += ["--include", f"{rel}*"]   # <hash>/*
+            
+            cmd = [
+                "aws", "s3", "sync",
+                f"s3://{bucket_name}/{root_prefix}",
+                str(local_dir),
+                "--exclude", "*",
+                "--only-show-errors",
+            ] + include_args
+
+            subprocess.run(cmd, check=True)
+    
+    @classmethod
+    def sync_from_filters(
+        cls,
+        *,
+        bucket_name: str,
+        filters: dict,
+        local_dir: Path,
+    ):
         """
-        Syncs datasets from S3 to local storage with optional filtering.
+        Public API:
+        - resolves episodes from DB using filters
+        - runs a single aws s3 sync with includes
+        - downloads into local_dir
 
-        Args:
-            bucket_name (str): AWS S3 bucket name
-            prefix (str): S3 prefix to search under (e.g., "processed/fold_cloth/")
-            local_dir (Path): Local directory to download to
-            s3_subfolders (list): Subfolders to download for each dataset (e.g., ["data/chunk-000/", "meta/"])
-            filters (dict): Additional filtering criteria beyond task
+        Returns:
+            List[(processed_path, episode_hash)]
         """
-        skipped = []
-        s3 = boto3.client("s3")
 
-        for folder, hashes in s3_paths:
-            folder = folder.lstrip("rldb:/")
+        # 1) Resolve episodes from DB
+        filtered_paths = cls._get_processed_path(filters)
+        if not filtered_paths:
+            logger.warning("No episodes matched filters.")
+            return []
 
-            response = s3.list_objects_v2(
-                Bucket=bucket_name, Prefix=f"{folder}/meta/info.json"
-            )
+        # 2) Logging
+        logger.info(
+            f"Syncing S3 datasets with filters {filters} to local directory {local_dir}..."
+        )
 
-            if "Contents" not in response or not response["Contents"]:
-                logger.warning(f"Skipping {folder}: missing /meta/info.json")
-                skipped.append(folder)
-                continue
+        # 3) Sync
+        cls._sync_s3_to_local(
+            bucket_name=bucket_name,
+            s3_paths=filtered_paths,
+            local_dir=local_dir,
+        )
 
-            fmt = "%Y-%m-%d-%H-%M-%S-%f"
-            dt = datetime.strptime(hashes, fmt).replace(tzinfo=timezone.utc)
-            milliseconds = int(dt.timestamp() * 1000)
-            collection_path = local_dir / str(milliseconds)
-
-            for s3sub in s3_subfolders:
-                if s3sub.startswith("/"):
-                    s3sub = s3sub[1:]
-                if not s3sub.endswith("/"):
-                    s3sub = s3sub + "/"
-
-                localsub = collection_path / s3sub.rstrip("/")
-                s3_full_path = folder.rstrip("/") + "/" + s3sub
-
-                localsub.mkdir(parents=True, exist_ok=True)
-                print(f"Created local directory: {localsub}")
-
-                if not any(localsub.iterdir()):
-                    print(f"Downloading from S3 path: {s3_full_path}")
-                    S3RLDBDataset._download_files(bucket_name, s3_full_path, localsub)
-                    logger.info(
-                        f"Downloaded data files from {s3_full_path} to {localsub}"
-                    )
-                else:
-                    logger.info(
-                        f"Data files already exist at {localsub}, skipping download"
-                    )
-
-        if skipped:
-            logger.warning(f"Skipped {len(skipped)} S3 prefixes during sync: {skipped}")
-
-
+        return filtered_paths
 class DataSchematic(object):
     def __init__(self, schematic_dict, viz_img_key, norm_mode="zscore"):
         """
@@ -918,13 +934,6 @@ class DataSchematic(object):
         """
         dataset: huggingface dataset backed by pyarrow
         returns: dictionary of means and stds for proprio and action keys
-            {
-                embodiment_id: {
-                    key_name: {
-                        mean: np.array (feature_dim),
-                        std: np.array (feature_dim),
-                    },
-                }
         """
         norm_columns = []
 
@@ -933,30 +942,50 @@ class DataSchematic(object):
         norm_columns.extend(self.keys_of_type("proprio_keys"))
         norm_columns.extend(self.keys_of_type("action_keys"))
 
-        for column in norm_columns:
-            if self.is_key_with_embodiment(column, embodiment):
-                column_name = self.keyname_to_lerobot_key(column, embodiment)
-                column_data = np.array(
-                    dataset.hf_dataset._data[column_name].to_pylist()
-                )
-                if len(column_data.shape) != 2 and len(column_data.shape) != 3:
-                    raise ValueError(
-                        f"Column {column} has shape {column_data.shape}, expected 2 (num_examples_in_dataset, feature_dim) or 3 (num_examples_in_dataset, sequence_length, feature_dim)"
-                    )
+        logger.info(
+            f"[NormStats] Starting norm inference for embodiment={embodiment}, "
+            f"{len(norm_columns)} columns"
+        )
 
-                self.norm_stats[embodiment][column] = {
-                    "mean": torch.from_numpy(np.mean(column_data, axis=0)).float(),
-                    "std": torch.from_numpy(np.std(column_data, axis=0)).float(),
-                    "min": torch.from_numpy(np.min(column_data, axis=0)).float(),
-                    "max": torch.from_numpy(np.max(column_data, axis=0)).float(),
-                    "median": torch.from_numpy(np.median(column_data, axis=0)).float(),
-                    "quantile_1": torch.from_numpy(
-                        np.percentile(column_data, 1, axis=0)
-                    ).float(),
-                    "quantile_99": torch.from_numpy(
-                        np.percentile(column_data, 99, axis=0)
-                    ).float(),
-                }
+        for column in norm_columns:
+            if not self.is_key_with_embodiment(column, embodiment):
+                continue
+
+            column_name = self.keyname_to_lerobot_key(column, embodiment)
+            logger.info(f"[NormStats] Processing column={column_name}")
+
+            # Arrow → NumPy (fast path, preserves shape)
+            column_data = (
+                dataset.hf_dataset
+                .with_format("numpy", columns=[column_name])[:][column_name]
+            )
+
+            if column_data.ndim not in (2, 3):
+                raise ValueError(
+                    f"Column {column} has shape {column_data.shape}, "
+                    "expected 2 or 3 dims"
+                )
+
+            mean = np.mean(column_data, axis=0)
+            std = np.std(column_data, axis=0)
+            minv = np.min(column_data, axis=0)
+            maxv = np.max(column_data, axis=0)
+            median = np.median(column_data, axis=0)
+            q1 = np.percentile(column_data, 1, axis=0)
+            q99 = np.percentile(column_data, 99, axis=0)
+
+            self.norm_stats[embodiment][column] = {
+                "mean": torch.from_numpy(mean).float(),
+                "std": torch.from_numpy(std).float(),
+                "min": torch.from_numpy(minv).float(),
+                "max": torch.from_numpy(maxv).float(),
+                "median": torch.from_numpy(median).float(),
+                "quantile_1": torch.from_numpy(q1).float(),
+                "quantile_99": torch.from_numpy(q99).float(),
+            }
+
+        logger.info("[NormStats] Finished norm inference")
+
 
     def viz_img_key(self):
         """

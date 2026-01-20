@@ -12,8 +12,7 @@ This repository contains the data processing and training code for EgoVerse and 
 - [``egomimic/trainHydra.py``](./egomimic/trainHydra.py): Main training script, powered by Pytorch Lightning and Hydra (DDP enabled)
 - [``data_processing.md``](./data_processing.md): Instructions to process your own data, both Aria Human data and teleoperated robot data.
 - [``egomimic/evaluation``](./egomimic/evaluation/): Evaluation scripts
-- [``egoverse.md``](./egoverse.md): Instructions to upload data to S3 bucket
-- [``vrs_upload.md``](./vrs_upload.md): Instructions to use a GUI to add metadata, rename and upload VRS files in a directory to S3 bucket
+- [``data_upload.md``](./data_upload.md): Instructions to upload data (any type) to S3 bucket
 
 ## Installation
 
@@ -56,8 +55,24 @@ See [``data_processing.md``](./data_processing.md)
 See [``training_aws.md``](./training_aws.md)
 
 ## Hydra Comands
+### Quick start
+If you want to quickly train a robot BC policy using the default Hydra configuration on Eva robot data, simply run:
+
 `python egomimic/trainHydra.py`
 
+Important:
+The default EVA BC config pulls data from S3 to a local scratch directory where the path is set to my local path
+Before running, open:
+
+`EgoVerse/egomimic/hydra_configs/data/eva_bc_s3.yaml`
+
+and modify:
+
+`temp_root: /path/to/where/you/want/s3/data/stored`
+
+to point to a local disk location with sufficient space for caching the downloaded dataset.
+
+### Additional Options
 Debug (run on a compute node )
 `python egomimic/trainHydra.py trainer=debug logger=debug`
 
