@@ -191,6 +191,10 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         if skip_if_done and len(processed_path) > 0:
             print(f"[SKIP] {name}: already has processed_path='{processed_path}'")
             continue
+        
+        if row.is_deleted:
+            print(f"[SKIP] {name}: episode marked as deleted in SQL")
+            continue
 
         arm = infer_arm_from_robot_name(getattr(row, "robot_name", None))
         dataset_name = episode_key

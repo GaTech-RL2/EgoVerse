@@ -280,6 +280,10 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         if row.processing_error != "":
             print("f[INFO] skipping {name} due to prior processing error: {row.processing_error}", flush=True)
             continue
+
+        if row.is_deleted:
+            print(f"[SKIP] {name}: episode marked as deleted in SQL", flush=True)
+            continue
         
         print(f"[INFO] processing {name}: episode_key={episode_key}", flush=True)
 
