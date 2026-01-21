@@ -43,8 +43,11 @@ import cv2
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import io
+from PIL import Image
 import pyarrow.parquet as pq
 from scipy.spatial.transform import Rotation as R
+from datasets import Dataset, Features, Image as ImageFeature
 from tqdm import tqdm
 
 from sfsEgoverseUtils import (
@@ -395,8 +398,8 @@ class EgoverseDatasetWriter:
             'observations.state.ee_pose_cam': [],
         }
         self.next_index = 0
-        #assuming that we don't need kinematics so setting accordingly. I'm not sure what this should actually be
-        self.metadata_embodiment = 6
+        # SCALE_BIMANUAL embodiment ID from EMBODIMENT enum
+        self.metadata_embodiment = 12
     
     def process_and_write_episode(self, frames: List[FrameData], intrinsics: Dict[str, float], source_info: Dict[str, Any]) -> int:
         valid_frames = len(frames) - ACTION_CHUNK_LENGTH
@@ -505,9 +508,12 @@ class EgoverseDatasetWriter:
         if frame_t.image is None:
             return None
         
-        # Normalize image to 0-1 range for proper visualization
-        image_normalized = frame_t.image.astype(np.float32) / 255.0
-        image_chw = np.transpose(image_normalized, (2, 0, 1))
+        # Encode image to PNG bytes
+        with io.BytesIO() as buf:
+            img_pil = Image.fromarray(frame_t.image)
+            img_pil = img_pil.resize((640, 480))
+            img_pil.save(buf, format='PNG')
+            image_bytes = buf.getvalue()
         timestamp_s = frame_t.timestamp_us/ 1000000
         
         # Filter frames with too many invalid values
@@ -518,7 +524,7 @@ class EgoverseDatasetWriter:
             'actions_ee_cartesian_cam': actions_ee_cartesian.astype(np.float32),
             'actions_ee_keypoints_world': actions_ee_keypoints.astype(np.float32),
             'actions_head_cartesian_world': actions_head.astype(np.float32),
-            'observations.images.front_img_1': image_chw.astype(np.float32),
+            'observations.images.front_img_1': {'bytes': image_bytes},
             'observations.state.ee_pose_cam': obs_ee_pose.astype(np.float32),
             'timestamp': timestamp_s,
             'frame_index': int(frame_t.frame_index),
@@ -535,19 +541,21 @@ class EgoverseDatasetWriter:
             row['metadata.embodiment'] = int(self.metadata_embodiment)
             self.next_index += 1
         
-        # Build PyArrow arrays directly to properly handle nested arrays
-        arrays = {}
+        # Use Hugging Face Datasets to write parquet with proper Image feature metadata
+        data_dict = {}
         for key in rows[0].keys():
-            # Convert to list immediately to avoid shared memory issues
             if isinstance(rows[0][key], np.ndarray):
-                values = [row[key].tolist() for row in rows]
-                arrays[key] = pa.array(values)
+                data_dict[key] = [row[key].tolist() for row in rows]
             else:
-                values = [row[key] for row in rows]
-                arrays[key] = pa.array(values)
-        
-        table = pa.table(arrays)
-        pq.write_table(table, filepath)
+                data_dict[key] = [row[key] for row in rows]
+
+        ds = Dataset.from_dict(data_dict)
+
+        # Cast image column to Image feature 
+        if 'observations.images.front_img_1' in ds.column_names:
+            ds = ds.cast_column('observations.images.front_img_1', ImageFeature())
+
+        ds.to_parquet(filepath)
         print(f"Wrote {len(rows)} frames to {filepath}")
     
     def _write_annotations_csv(self, episode_idx: int, frames: List[FrameData]):
@@ -600,8 +608,8 @@ class EgoverseDatasetWriter:
             valid_split = [train_split[-1]]
             train_split = train_split[:-1]
 
-        image_height = int(intrinsics.get('height', 1200)) if intrinsics else 1200
-        image_width = int(intrinsics.get('width', 1920)) if intrinsics else 1920
+        image_height = 480
+        image_width = 640
 
         feature_spec = {
             'observations.images.front_img_1': {
@@ -663,7 +671,7 @@ class EgoverseDatasetWriter:
 
         info = {
             'codebase_version': 'v2.0',
-            'robot_type': 'aria_bimanual',
+            'robot_type': 'scale_bimanual',
             'total_episodes': len(self.episodes),
             'total_frames': total_frames,
             'total_tasks': len(self.tasks),

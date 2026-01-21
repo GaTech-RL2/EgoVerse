@@ -72,7 +72,7 @@ robomimic_model:
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        mecka_bimanual: 12
+        scale_bimanual: 12
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
