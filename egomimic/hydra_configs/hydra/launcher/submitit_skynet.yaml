@@ -1,0 +1,19 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+name: ${hydra.job.name}
+partition: "rl2-lab"
+account: "rl2-lab"
+# Override nodes via: hydra.launcher.nodes=<num_nodes>
+nodes: 1
+cpus_per_task: 15
+# Override via: hydra.launcher.tasks_per_node=<num_gpus>
+tasks_per_node: 4
+qos: "short"
+timeout_min: 2880
+
+additional_parameters:
+  requeue: true
+  gpus-per-node: "a40:1"

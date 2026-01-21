@@ -1,6 +1,7 @@
 import ast
 import logging
 import os
+from pprint import pprint
 import random
 import shutil
 from datetime import datetime, timezone
@@ -291,13 +292,69 @@ class RLDBDataset(LeRobotDataset):
 
         if self.use_task_string:
             item["high_level_language_prompt"] = self.task_string
-
+            
         if self.slow_down_ac_keys and self.slow_down_factor > 1.0:
             for key in self.slow_down_ac_keys:
                 if key in item:
-                    rot_spec = self.slow_down_rot_specs.get(key, None)
-                    item[key] = self._slow_down_sequence(item[key], rot_spec=rot_spec)
-        return item
+                    item[key] = self._slow_down_sequence(item[key])
+
+        ep_idx = int(item["episode_index"])
+
+        frame = self.sampled_indices[idx] if self.sampled_indices is not None else idx
+        frame_item = self.hf_dataset[frame]
+
+        # Check if annotations directory exists before trying to load annotations
+        annotation_path = Path(self.root) / "annotations"
+        if not annotation_path.is_dir():
+            # No annotations available, set empty and return early
+            frame_item["annotations"] = ""
+            return frame_item
+
+        # Load annotations only if they exist
+        annotations = AnnotationLoader(root=self.root)
+        df = annotations.df
+
+        current_ts = float(frame_item["timestamp"])
+        fps = float(self.fps)
+        frame_duration = 1 / fps
+
+        # Use frame start time for annotation lookup to avoid missing boundary annotations
+        frame_time = current_ts
+        # print(f"Frame {frame}, ts={current_ts}, duration={frame_duration}, episode {ep_idx}")
+
+        df_episode = df.loc[df["idx"].astype(int) == ep_idx]
+
+        if df_episode.empty:
+            logger.debug("No annotations for episode %s", ep_idx)
+            frame_item["annotations"] = ""
+            return frame_item
+        
+        # print(df_episode.head())
+
+        frame_annotations = df_episode[
+            (df_episode["start_time"] <= frame_time)
+            & (df_episode["end_time"] >= frame_time)
+        ]
+        
+        if frame_annotations.empty:
+            next_ann = df_episode[df_episode["start_time"] > frame_time]
+            if next_ann.empty:
+                annotation = df_episode.tail(1)["Labels"].iloc[0]
+                frame_item["annotations"] = annotation
+                return frame_item
+            else:
+                next_pos = df_episode.index.get_loc(next_ann.index[0])
+                prev_pos = next_pos - 1
+                if prev_pos >= 0:
+                    annotation = df_episode.iloc[prev_pos]["Labels"]
+                else:
+                    annotation = ""
+                frame_item["annotations"] = annotation
+                return frame_item
+        else:
+            annotation = frame_annotations["Labels"].iloc[0]
+            frame_item["annotations"] = annotation
+            return frame_item
 
     def _slow_down_sequence(self, seq, rot_spec=None):
         """
@@ -373,7 +430,36 @@ class RLDBDataset(LeRobotDataset):
                     raise ValueError(f"Unknown rotation type: {rot_type}")
 
         return out
+
+
+class AnnotationLoader:
+    df = None
+
+    def __init__(self, root):
+        root = Path(root)
+        self.annotation_path = root / "annotations"
+
+        if not self.annotation_path.is_dir():
+            raise ValueError(
+                f"Annotation {self.annotation_path} path does not exist."
+            )
+
+        self.df = self.load_annotations()
+
+    def load_annotations(self):
+        frames = []
+        for file in sorted(self.annotation_path.iterdir()):
+            if not file.is_file():
+                continue
+
+            temp_df = pd.read_csv(file)
+            parts = file.name.split("_")
+            temp_df["idx"] = parts[1]
+            frames.append(temp_df)
+
+        return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
         
+
 class MultiRLDBDataset(torch.utils.data.Dataset):
     
     def __init__(self, datasets, embodiment, key_map=None):
@@ -476,9 +562,12 @@ class FolderRLDBDataset(MultiRLDBDataset):
                     valid_ratio=valid_ratio,
                     **kwargs,
                 )
-                if dataset.embodiment != get_embodiment_id(embodiment):
+                expected_embodiment_id = get_embodiment_id(embodiment)
+                if dataset.embodiment != expected_embodiment_id:
+                    dataset_emb_name = EMBODIMENT_ID_TO_KEY.get(dataset.embodiment, f"unknown({dataset.embodiment})")
+                    expected_emb_name = EMBODIMENT_ID_TO_KEY.get(expected_embodiment_id, f"unknown({expected_embodiment_id})")
                     logger.warning(
-                        f"Skipping {repo_id}: embodiment mismatch {dataset.embodiment} != {embodiment}"
+                        f"Skipping {repo_id}: embodiment mismatch {dataset_emb_name} ({dataset.embodiment}) != {expected_emb_name} ({expected_embodiment_id})"
                     )
                     skipped.append(repo_id)
                     continue
@@ -599,9 +688,12 @@ class S3RLDBDataset(MultiRLDBDataset):
                     **kwargs,
                 )
 
-                if dataset.embodiment != get_embodiment_id(embodiment):
+                expected_embodiment_id = get_embodiment_id(embodiment)
+                if dataset.embodiment != expected_embodiment_id:
+                    dataset_emb_name = EMBODIMENT_ID_TO_KEY.get(dataset.embodiment, f"unknown({dataset.embodiment})")
+                    expected_emb_name = EMBODIMENT_ID_TO_KEY.get(expected_embodiment_id, f"unknown({expected_embodiment_id})")
                     logger.warning(
-                        f"Skipping {repo_id}: embodiment mismatch {dataset.embodiment} != {embodiment}"
+                        f"Skipping {repo_id}: embodiment mismatch {dataset_emb_name} ({dataset.embodiment}) != {expected_emb_name} ({expected_embodiment_id})"
                     )
                     skipped.append(repo_id)
                     continue
@@ -703,12 +795,26 @@ class S3RLDBDataset(MultiRLDBDataset):
                 logger.debug(f"Skipping prefix path: {key}")
                 continue
 
+            local_file_path = local_dir / Path(key).name
+            
+            # Check if file already exists and is not empty, solves race condition of multiple processes downloading the same file
             try:
-                local_file_path = local_dir / Path(key).name
+                if local_file_path.exists() and local_file_path.stat().st_size > 0:
+                    logger.debug(f"File already exists, skipping: {key} -> {local_file_path}")
+                    continue
+                
                 s3.download_file(bucket_name, key, str(local_file_path))
                 logger.debug(f"Successfully downloaded: {key}")
+            except FileNotFoundError as e:
+                if local_file_path.exists() and local_file_path.stat().st_size > 0:
+                    logger.debug(f"File downloaded by another process, skipping: {key}")
+                else:
+                    logger.error(f"Failed to download {key}: {e}")
             except Exception as e:
-                logger.error(f"Failed to download {key}: {e}")
+                if local_file_path.exists() and local_file_path.stat().st_size > 0:
+                    logger.debug(f"File downloaded by another process after error: {key}")
+                else:
+                    logger.error(f"Failed to download {key}: {e}")
 
     @classmethod
     def _sync_s3_to_local(cls, bucket_name, s3_paths, local_dir: Path):
@@ -1168,3 +1274,6 @@ class DataSchematic(object):
                 denorm_data[key] = tensor
 
         return denorm_data
+
+
+    

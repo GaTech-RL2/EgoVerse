@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import logging
 
 import torch
 import torch.nn as nn
@@ -10,10 +11,16 @@ import numpy as np
 import einops
 from torchmetrics import MeanSquaredError
 
+logger = logging.getLogger(__name__)
+# Ensure logger propagates to root logger and has appropriate level
+# Child loggers inherit from parent, but we explicitly set level to ensure INFO messages appear
+logger.setLevel(logging.INFO)
+logger.propagate = True  # Explicitly enable propagation (default, but ensures it works)
+
 from egomimic.models.hpt_nets import *
 from egomimic.algo.algo import Algo
 
-from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text
+from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text, draw_annotation_text
 
 from egomimic.utils.action_utils import *
 import egomimic.utils.memory_utils as memutils
@@ -89,12 +96,9 @@ class PI(Algo):
         self.ac_keys = ac_keys
         
         self.domains = domains
-        
-        local_rank = int(os.environ.get("LOCAL_RANK", os.environ.get("RANK", "0")))
-        self.device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
-        if torch.cuda.is_available():
-            torch.cuda.set_device(self.device)
-        
+
+        self.device = None
+
         self.camera_keys = {}
         self.proprio_keys = {}
         self.lang_keys = {}
@@ -134,7 +138,8 @@ class PI(Algo):
         fb_obj = arcfg.fallback
         self.action_registry.register("*", default_ac_key, fb_obj)
         self.action_registry.register("*", "*", fb_obj)
-            
+
+        # Create the model
         model_cfg = openpi.models.pi0_config.Pi0Config(
             dtype=self.config.pytorch_training_precision,
             action_dim=self.config.model.action_dim,
@@ -144,8 +149,9 @@ class PI(Algo):
             action_expert_variant=getattr(self.config.model, "action_expert_variant", "gemma_300m"),
             pi05=getattr(config.model, "pi05", False),
         )
-        self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg).to(self.device)
-        
+
+        self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg)
+       
         if self.config.pytorch_weight_path is not None:
             model_path = os.path.join(self.config.pytorch_weight_path, "model.safetensors")
             safetensors.torch.load_model(
@@ -153,6 +159,7 @@ class PI(Algo):
             )
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
+
 
     @override
     def process_batch_for_training(self, batch):
@@ -173,6 +180,11 @@ class PI(Algo):
                 key_name = self.data_schematic.lerobot_key_to_keyname(key, embodiment_id)
                 if key_name is not None:
                     processed_batch[embodiment_id][key_name] = value
+
+            # Carry through language tokenization tensors produced by collate_fn
+            for tk in ("tokenized_prompt", "tokenized_mask", "token_loss_mask", "token_ar_mask"):
+                if tk in _batch:
+                    processed_batch[embodiment_id][tk] = _batch[tk]
             
             ac_key = self.ac_keys[embodiment_id]
             if len(processed_batch[embodiment_id][ac_key].shape) != 3:
@@ -180,8 +192,15 @@ class PI(Algo):
             
             B, S, _ = processed_batch[embodiment_id][ac_key].shape
             device = processed_batch[embodiment_id][ac_key].device
-            processed_batch[embodiment_id]["pad_mask"]  = torch.ones(B, S, 1, device=device)
+            processed_batch[embodiment_id]["pad_mask"] = torch.ones(B, S, 1, device=device)
             processed_batch[embodiment_id] = self.data_schematic.normalize_data(processed_batch[embodiment_id], embodiment_id)
+        
+        if not processed_batch:
+            raise ValueError(
+                f"No valid embodiments found in batch. Batch contained: {list(batch.keys())}, "
+                f"but ac_keys only has: {list(self.ac_keys.keys())}"
+            )
+        
         return processed_batch
 
 
@@ -210,7 +229,7 @@ class PI(Algo):
             if isinstance(losses, list | tuple):
                 losses = torch.stack(losses)
             elif not isinstance(losses, torch.Tensor):
-                losses = torch.tensor(losses, device=device, dtype=torch.float32)
+                losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
 
             loss = losses.mean()
 
@@ -339,7 +358,11 @@ class PI(Algo):
                     
                     if self.is_6dof and ac_key == "actions_cartesian":
                         ims[b] = draw_rotation_text(ims[b], gt_rot[b][0], preds_rot[b][0], position=(340, 20))
-                        
+                    
+                    if "annotations" in batch:
+                        annotation = batch["annotations"][b]
+                        ims[b] = draw_annotation_text(ims[b], annotation)
+                    
         return ims
     
     
@@ -356,11 +379,13 @@ class PI(Algo):
                 loss_key_name: torch.Tensor (1)
         """
         loss_dict = OrderedDict()
-        total_action_loss = torch.tensor(0.0, device=self.device)
+        total_action_loss = None
 
         for embodiment_id, _batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
             bc_loss = predictions[f"{embodiment_name}_loss"]
+            if total_action_loss is None:
+                total_action_loss = torch.tensor(0.0, device=bc_loss.device)
             total_action_loss += bc_loss
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
 
@@ -434,7 +459,14 @@ class PI(Algo):
             for k in images.keys()
         }
         
-        tokenized_prompt, tokenized_prompt_mask, token_ar_mask, token_loss_mask = _empty_lang_placeholders(B, device)
+        if not lang_keys:
+            tokenized_prompt, tokenized_prompt_mask, token_ar_mask, token_loss_mask = _empty_lang_placeholders(B, device)
+            
+        else: 
+            tokenized_prompt = batch["tokenized_prompt"].to(device)
+            tokenized_prompt_mask = batch["tokenized_mask"].to(device)
+            token_ar_mask = batch["token_ar_mask"].to(device)
+            token_loss_mask = batch["token_loss_mask"].to(device)
 
         # ---- Wrap into simple observation (helpers) ----
         observation = _SimpleObservation(
