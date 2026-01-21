@@ -100,7 +100,7 @@ python /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/egomimic/trai
     name=${task}_${frame_type} \
     description=${task}_${frame_type} \
     chosen_frame=${frame_type} \
-    ckpt_path=$ckpt_path \
+    ckpt_path=${ckpt_path} \
     hydra.run.dir=$hydra_run_dir \
     trainer.num_nodes=$SLURM_NNODES \
     data.train_datasets.dataset1.root=$dataset_root \
