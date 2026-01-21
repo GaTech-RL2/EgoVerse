@@ -19,6 +19,8 @@ import pyarrow.compute as pc
 import pyarrow.dataset as ds
 import torch
 from datasets import DatasetDict, concatenate_datasets
+from datasets import config as ds_cfg
+import huggingface_hub
 from lerobot.common.datasets.lerobot_dataset import (
     LeRobotDataset,
     LeRobotDatasetMetadata,
@@ -51,10 +53,17 @@ from egomimic.utils.aws.aws_sql import (
 
 logger = logging.getLogger(__name__)
 
+<<<<<<< HEAD
 from datasets.utils.logging import disable_progress_bar
 
 disable_progress_bar()
 logging.getLogger("datasets").setLevel(logging.ERROR)
+=======
+# from datasets.utils.logging import disable_progress_bar
+
+# disable_progress_bar()
+# logging.getLogger("datasets").setLevel(logging.ERROR)
+>>>>>>> 4e00291 (added cuz lerobot is sussy)
 
 logging.getLogger("huggingface_hub._snapshot_download").setLevel(logging.ERROR)
 
@@ -67,9 +76,8 @@ from egomimic.rldb.data_utils import (
     _slow_down_slerp_quat,
 )
 import subprocess
-from urllib.parse import urlparse
-from collections import defaultdict
 import time
+from time import perf_counter
 import uuid
 from tqdm import tqdm
 
@@ -327,7 +335,7 @@ class RLDBDataset(LeRobotDataset):
 
         if self.use_task_string:
             item["high_level_language_prompt"] = self.task_string
-            
+
         if self.slow_down_ac_keys and self.slow_down_factor > 1.0:
             for key in self.slow_down_ac_keys:
                 if key in item:
@@ -363,14 +371,14 @@ class RLDBDataset(LeRobotDataset):
             logger.debug("No annotations for episode %s", ep_idx)
             frame_item["annotations"] = ""
             return frame_item
-        
+
         # print(df_episode.head())
 
         frame_annotations = df_episode[
             (df_episode["start_time"] <= frame_time)
             & (df_episode["end_time"] >= frame_time)
         ]
-        
+
         if frame_annotations.empty:
             next_ann = df_episode[df_episode["start_time"] > frame_time]
             if next_ann.empty:
@@ -477,9 +485,7 @@ class AnnotationLoader:
         self.annotation_path = root / "annotations"
 
         if not self.annotation_path.is_dir():
-            raise ValueError(
-                f"Annotation {self.annotation_path} path does not exist."
-            )
+            raise ValueError(f"Annotation {self.annotation_path} path does not exist.")
 
         self.df = self.load_annotations()
 
@@ -495,7 +501,7 @@ class AnnotationLoader:
             frames.append(temp_df)
 
         return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
-        
+
 
 class MultiRLDBDataset(torch.utils.data.Dataset):
     def __init__(self, datasets, embodiment, key_map=None):
@@ -601,8 +607,12 @@ class FolderRLDBDataset(MultiRLDBDataset):
                 )
                 expected_embodiment_id = get_embodiment_id(embodiment)
                 if dataset.embodiment != expected_embodiment_id:
-                    dataset_emb_name = EMBODIMENT_ID_TO_KEY.get(dataset.embodiment, f"unknown({dataset.embodiment})")
-                    expected_emb_name = EMBODIMENT_ID_TO_KEY.get(expected_embodiment_id, f"unknown({expected_embodiment_id})")
+                    dataset_emb_name = EMBODIMENT_ID_TO_KEY.get(
+                        dataset.embodiment, f"unknown({dataset.embodiment})"
+                    )
+                    expected_emb_name = EMBODIMENT_ID_TO_KEY.get(
+                        expected_embodiment_id, f"unknown({expected_embodiment_id})"
+                    )
                     logger.warning(
                         f"Skipping {repo_id}: embodiment mismatch {dataset_emb_name} ({dataset.embodiment}) != {expected_emb_name} ({expected_embodiment_id})"
                     )
@@ -682,6 +692,15 @@ class S3RLDBDataset(MultiRLDBDataset):
 
         os.environ["HF_HOME"] = cache_root
         os.environ["HF_DATASETS_CACHE"] = f"{cache_root}/datasets"
+
+        print("SETTING HF_HOME =", os.environ.get("HF_HOME"))
+        print("SETTING HF_DATASETS_CACHE =", os.environ.get("HF_DATASETS_CACHE"))
+
+        ds_cfg.HF_DATASETS_CACHE = os.environ["HF_DATASETS_CACHE"]
+        huggingface_hub.constants.HF_HOME = os.environ["HF_HOME"]
+
+        assert os.environ["HF_HOME"] == cache_root
+        assert os.environ["HF_DATASETS_CACHE"] == f"{cache_root}/datasets"
 
         if temp_root[0] != "/":
             temp_root = "/" + temp_root
@@ -939,13 +958,15 @@ class S3RLDBDataset(MultiRLDBDataset):
                 continue
 
             local_file_path = local_dir / Path(key).name
-            
+
             # Check if file already exists and is not empty, solves race condition of multiple processes downloading the same file
             try:
                 if local_file_path.exists() and local_file_path.stat().st_size > 0:
-                    logger.debug(f"File already exists, skipping: {key} -> {local_file_path}")
+                    logger.debug(
+                        f"File already exists, skipping: {key} -> {local_file_path}"
+                    )
                     continue
-                
+
                 s3.download_file(bucket_name, key, str(local_file_path))
                 logger.debug(f"Successfully downloaded: {key}")
             except FileNotFoundError as e:
@@ -955,7 +976,9 @@ class S3RLDBDataset(MultiRLDBDataset):
                     logger.error(f"Failed to download {key}: {e}")
             except Exception as e:
                 if local_file_path.exists() and local_file_path.stat().st_size > 0:
-                    logger.debug(f"File downloaded by another process after error: {key}")
+                    logger.debug(
+                        f"File downloaded by another process after error: {key}"
+                    )
                 else:
                     logger.error(f"Failed to download {key}: {e}")
 
@@ -1148,6 +1171,7 @@ class DataSchematic(object):
 
         if df_filtered.empty:
             return None
+
         return df_filtered["key_name"].item()
 
     def keyname_to_lerobot_key(self, key_name, embodiment):
@@ -1441,6 +1465,3 @@ class DataSchematic(object):
                 denorm_data[key] = tensor
 
         return denorm_data
-
-
-    
