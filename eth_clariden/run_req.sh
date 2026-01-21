@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=T_cup_50hz_1
+#SBATCH --job-name=debug_dump_begin
 #SBATCH --account=a144
-#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup/slurm-cup-%j.out
-#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup/slurm-cup-%j.err
+#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/DEBUG_799/cup/slurm-cup-%j.out
+#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/DEBUG_799/cup/slurm-cup-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4
-#SBATCH --time=10:00:00
-#SBATCH --partition=normal
+#SBATCH --time=00:30:00
+#SBATCH --partition=debug
 #SBATCH --environment=/users/jiaqchen/.edf/faive2lerobot.toml
 #SBATCH --requeue
 #SBATCH --signal=USR1@600
@@ -66,7 +66,7 @@ export debug=false
 ###############################################################
 
 ##################### MAYBE CHANGE THIS PATH #####################
-export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/${EXPERIMENT}/${task}/${task}_${frame_type}
+export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/DEBUG_799/${EXPERIMENT}/${task}/${task}_${frame_type}
 export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release_2_0/50hz/${EXPERIMENT}/${task}_lerobot_${frame_type}
 # export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/debug_2_0/${task}_lerobot_${frame_type}_1_debug
 ##################################################################
@@ -80,8 +80,9 @@ else
 fi
 
 export config_name=train_eth_${arm}
-export ckpt_path=${hydra_run_dir}/checkpoints/last.ckpt
-ckpt_path=$( [[ -f "$ckpt_path" ]] && echo "$ckpt_path" || echo null )
+# export ckpt_path=${hydra_run_dir}/checkpoints/last.ckpt
+export ckpt_path='/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/pg2_cl75_clout100/cup/cup_base_frame/checkpoints/epoch_epoch=799.ckpt'
+ckpt_path=$( [[ -f "$ckpt_path" ]] && echo "\\\"$ckpt_path\\\"" || echo null )
 echo "CHECKPOINT PATH! ckpt_path: $ckpt_path"
 
 if [ "$CL_OUT" = "None" ]; then
@@ -101,14 +102,14 @@ python /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/egomimic/trai
     description=${task}_${frame_type} \
     chosen_frame=${frame_type} \
     ckpt_path=${ckpt_path} \
-    hydra.run.dir=$hydra_run_dir \
-    trainer.num_nodes=$SLURM_NNODES \
-    data.train_datasets.dataset1.root=$dataset_root \
-    data.valid_datasets.dataset1.root=$dataset_root \
-    model.robomimic_model.head_specs.eve_${arm}.action_horizon=$CL_param \
-    model.robomimic_model.head_specs.eve_${arm}.model.act_seq=$CL_param \
-    model.robomimic_model.head_specs.eve_${arm}_actions_joints.action_horizon=$CL_param \
-    model.robomimic_model.head_specs.eve_${arm}_actions_joints.model.act_seq=$CL_param \
+    hydra.run.dir=${hydra_run_dir} \
+    trainer.num_nodes=${SLURM_NNODES} \
+    data.train_datasets.dataset1.root=${dataset_root} \
+    data.valid_datasets.dataset1.root=${dataset_root} \
+    model.robomimic_model.head_specs.eve_${arm}.action_horizon=${CL_param} \
+    model.robomimic_model.head_specs.eve_${arm}.model.act_seq=${CL_param} \
+    model.robomimic_model.head_specs.eve_${arm}_actions_joints.action_horizon=${CL_param} \
+    model.robomimic_model.head_specs.eve_${arm}_actions_joints.model.act_seq=${CL_param} \
     $@
 "
 srun bash -lc "$CMD"
