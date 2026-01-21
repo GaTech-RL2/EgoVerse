@@ -9,6 +9,8 @@ robomimic_model:
   ac_keys:
     aria_right_arm: "actions_cartesian"
     eva_right_arm: "actions_joints"
+  
+  reverse_kl_samples: 8
 
   6dof: true
   trunk:
