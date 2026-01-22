@@ -4,7 +4,7 @@ run_aria_conversion_sql.py – SQL-backed driver (no CSV/S3)
 
 • Walks S3 for bundles: {name}.vrs, {name}.json , mps_{name}_vrs/
 • name == episode_hash (TEXT in DB) – row must already exist in app.episodes; otherwise skipped
-• Uses Ray to run conversions with absolute symlinks in per-job tmp dirs
+• Uses Ray to run conversions with per-job tmp dirs
 • On success, updates app.episodes.processed_path and num_frames
 • Passes SQL task_description into the converter as `description`
 • Determines arm automatically from SQL (left, right, or bimanual)
@@ -46,23 +46,21 @@ from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_hash_to_table_row,
     update_episode,
+    episode_table_to_df
 )
 
 # --- Paths -------------------------------------------------------------------
-RAW_REMOTE_PREFIX = os.environ.get("RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/test_aria").rstrip("/")
+RAW_REMOTE_PREFIX = os.environ.get("RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/aria").rstrip("/")
 PROCESSED_ROOT = Path("/home/ubuntu/processed")
 PROCESSED_LOCAL_ROOT = Path(
     os.environ.get("PROCESSED_LOCAL_ROOT", "/home/ubuntu/processed")
 ).resolve()
 PROCESSED_REMOTE_PREFIX = os.environ.get(
-    "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/test_aria"
+    "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/aria"
 ).rstrip(
     "/"
-)  # TODO switch back to aria instead of test_aria
+)
 BUCKET = os.environ.get("BUCKET", "rldb")
-DATA_KEY = os.environ.get(
-    "DATA_KEY", "raw_v2/test_aria"
-)  # TODO switch back to aria instead of test_aria
 
 LOG_ROOT = Path(
     os.environ.get(
@@ -73,8 +71,12 @@ LOG_ROOT = Path(
 
 
 # --- Utilities ---------------------------------------------------------------
-def ensure_path_ready(p: str | Path, retries: int = 30) -> bool:
-    p = Path(p)
+def ensure_path_ready(p: str | Path | S3Path, retries: int = 30) -> bool:
+    if isinstance(p, str):
+        if p.startswith("s3://"):
+            p = S3Path(p)
+        else:
+            p = Path(p)
     for _ in range(retries):
         try:
             if p.exists():
@@ -117,12 +119,10 @@ def _parse_s3_uri(uri: str, *, default_bucket: str | None = None) -> tuple[str, 
     return default_bucket, uri.strip("/")
 
 
-def iter_vrs_bundles(root_s3: str) -> Iterator[Tuple[Path, Path, Path]]:
+def iter_vrs_bundles(root_s3: str) -> Iterator[Tuple[S3Path, S3Path, S3Path]]:
     """
-    root_s3: like "s3://rldb/raw_v2/test_aria/"
-
-    Returns pathlib.Path objects (string-wrapped S3 URIs) so existing code that
-    expects Path keeps working. NOTE: these Paths are NOT local filesystem paths.
+    root_s3: like "s3://rldb/raw_v2/aria/"
+    Returns S3Path objects (cloudpathlib), not local filesystem paths.
     """
     root = S3Path(root_s3)
 
@@ -135,15 +135,84 @@ def iter_vrs_bundles(root_s3: str) -> Iterator[Tuple[Path, Path, Path]]:
             continue
 
         if (
-        mpsdir.exists()
-        and mpsdir.is_dir()
-        and (mpsdir / "hand_tracking").exists()
-        and (mpsdir / "hand_tracking").is_dir()
-        and (mpsdir / "slam").exists()
-        and (mpsdir / "slam").is_dir()
+            mpsdir.exists()
+            and mpsdir.is_dir()
+            and (mpsdir / "hand_tracking").exists()
+            and (mpsdir / "hand_tracking").is_dir()
+            and (mpsdir / "slam").exists()
+            and (mpsdir / "slam").is_dir()
         ):
-            yield Path(str(vrs)), Path(str(jsonf)), Path(str(mpsdir))
+            yield vrs, jsonf, mpsdir
 
+def iter_vrs_bundles_fast(root_s3: str) -> Iterator[Tuple[S3Path, S3Path, S3Path]]:
+    """
+    root_s3: like "s3://rldb/raw_v2/aria/"
+    Returns S3Path objects (cloudpathlib), not local filesystem paths.
+
+    Uses a single `root.walk(...)` traversal and avoids per-path `.exists()` / `.is_dir()`.
+    """
+    root = S3Path(root_s3)
+
+    vrs_by_name: dict[str, S3Path] = {}
+    has_json: set[str] = set()
+    has_hand: set[str] = set()
+    has_slam: set[str] = set()
+
+    # Prefer topdown so we can prune recursion aggressively (don’t enumerate huge mps trees).
+    try:
+        walker = root.walk(topdown=True)  # cloudpathlib often mirrors os.walk
+        can_prune = True
+    except TypeError:
+        walker = root.walk()
+        can_prune = False  # can’t reliably prune, but still single API surface
+
+    for dirpath, dirnames, filenames in walker:
+        # Figure out depth relative to `root`
+        try:
+            rel = dirpath.relative_to(root)
+            rel_str = rel.as_posix()
+            rel_parts = () if rel_str in (".", "") else rel.parts
+        except Exception:
+            rel_parts = ()
+
+        depth = len(rel_parts)
+
+        if depth == 0:
+            # Root-level files: *.vrs and *.json
+            for fn in filenames:
+                if fn.endswith(".vrs"):
+                    name = fn[:-4]
+                    vrs_by_name[name] = dirpath / fn
+                elif fn.endswith(".json"):
+                    has_json.add(fn[:-5])
+
+            # Only descend into potential mps dirs
+            if can_prune:
+                dirnames[:] = [d for d in dirnames if d.startswith("mps_") and d.endswith("_vrs")]
+
+        elif depth == 1:
+            # We’re inside something like mps_{name}_vrs/
+            d0 = rel_parts[0]
+            if d0.startswith("mps_") and d0.endswith("_vrs"):
+                name = d0[len("mps_") : -len("_vrs")]
+                # If these prefixes exist (i.e., have objects under them), they should appear as dirnames.
+                if "hand_tracking" in dirnames:
+                    has_hand.add(name)
+                if "slam" in dirnames:
+                    has_slam.add(name)
+
+            # We don’t need to enumerate anything deeper.
+            if can_prune:
+                dirnames[:] = []
+
+        else:
+            if can_prune:
+                dirnames[:] = []
+
+    # Match original ordering: sort by vrs filename
+    for name in sorted(vrs_by_name, key=lambda n: vrs_by_name[n].name):
+        if name in has_json and name in has_hand and name in has_slam:
+            yield vrs_by_name[name], root / f"{name}.json", root / f"mps_{name}_vrs"
 
 def infer_arm_from_row(row: TableRow) -> str:
     """
@@ -201,9 +270,9 @@ class _Tee:
 
 # --- Ray task ----------------------------------------------------------------
 def convert_one_bundle_impl(
-    vrs: str,
-    jsonf: str,
-    mps_dir: str,
+    vrs: str | S3Path,
+    jsonf: str | S3Path,
+    mps_dir: str | S3Path,
     out_dir: str,
     s3_processed_dir: str,
     dataset_name: str,
@@ -211,14 +280,18 @@ def convert_one_bundle_impl(
     description: str,
 ) -> tuple[str, str, int]:
     """
-    Perform symlink-based conversion for a single episode.
+    Perform conversion for a single episode.
     Returns (ds_path, mp4_path, total_frames).
       • ds_path: dataset folder path
       • mp4_path: per-episode MP4 ('' if not created)
       • total_frames: -1 if unknown/failure
     """
+    vrs = S3Path(vrs) if isinstance(vrs, str) else vrs
+    jsonf = S3Path(jsonf) if isinstance(jsonf, str) else jsonf
+    mps_dir = S3Path(mps_dir) if isinstance(mps_dir, str) else mps_dir
+
     s3 = boto3.client("s3")
-    stem = Path(vrs).stem
+    stem = vrs.stem
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
     log_path = LOG_ROOT / f"{stem}-{uuid.uuid4().hex[:8]}.log"
 
@@ -231,10 +304,13 @@ def convert_one_bundle_impl(
         with contextlib.redirect_stdout(tee_out), contextlib.redirect_stderr(tee_err):
             print(f"[LOG] {stem}: {log_path}", flush=True)
             targets = [
-                Path(vrs).resolve(strict=True),
-                Path(jsonf).resolve(strict=True),
-                Path(mps_dir).resolve(strict=True),
+                vrs,
+                jsonf,
+                mps_dir,
             ]
+
+            raw_bucket, raw_prefix = _parse_s3_uri(RAW_REMOTE_PREFIX, default_bucket=BUCKET)
+            raw_root = S3Path(RAW_REMOTE_PREFIX)
 
             for t in targets:
                 if not ensure_path_ready(t):
@@ -242,24 +318,19 @@ def convert_one_bundle_impl(
                     shutil.rmtree(tmp_dir, ignore_errors=True)
                     return "", "", -1
                 link = tmp_dir / t.name
-                rel = t.relative_to(RAW_ROOT)
-                t_key = f"{DATA_KEY.rstrip('/')}/{rel.as_posix()}"
+                # `t` is an S3Path; compute relative key under RAW_REMOTE_PREFIX.
+                rel = t.relative_to(raw_root).as_posix()
+                t_key = f"{raw_prefix.rstrip('/')}/{rel}".strip("/")
 
                 try:
                     if t.is_dir():
-                        s3_sync_to_local(BUCKET, t_key, str(link))
+                        s3_sync_to_local(raw_bucket, t_key, str(link))
                     else:
-                        s3.download_file(BUCKET, t_key, str(link))
+                        s3.download_file(raw_bucket, t_key, str(link))
                 except Exception as e:
                     print(f"[ERR] aws copy failed for {t}: {e}", flush=True)
                     shutil.rmtree(tmp_dir, ignore_errors=True)
                     return "", "", -1
-                print()
-            # TODO remove this
-            # List the contents of the temporary directory to show the download was successful
-            print(f"[INFO] Listing {tmp_dir} contents after S3 download:", flush=True)
-            for item in tmp_dir.iterdir():
-                print(f"  {item}", flush=True)
 
             ds_parent = Path(out_dir)
             ds_parent.mkdir(parents=True, exist_ok=True)
@@ -304,10 +375,10 @@ def convert_one_bundle_impl(
                             try:
                                 s3.upload_file(str(mp4_path), out_bucket, mp4_s3_key)
                             except Exception as e:
-                                print(f"[ERR] Failed to upload mp4 {mp4_path} to S3: {e}", flush=True)
+                                raise Exception(f"Failed to upload mp4 {mp4_path} to S3: {e}")
                 except Exception as e:
                     print(f"[ERR] Failed to upload {ds_path} to S3: {e}", flush=True)
-                #TODO delete local directory
+                    return "", "", -2
                     
                 return str(ds_path), mp4_str, frames
 
@@ -316,9 +387,7 @@ def convert_one_bundle_impl(
                 print(err_msg, flush=True)
                 return str(ds_path), "", -1
             finally:
-                # shutil.rmtree(tmp_dir, ignore_errors=True)
-                #TODO delete local directory
-                pass
+                shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 @ray.remote(num_cpus=8, resources={"aria_small": 1})
@@ -342,11 +411,20 @@ def launch(
 
     benchmark_rows = []
 
-    for vrs, jsonf, mps in iter_vrs_bundles(RAW_ROOT):
+    df = episode_table_to_df(engine)
+
+    for vrs, jsonf, mps in iter_vrs_bundles_fast(RAW_REMOTE_PREFIX):
         name = vrs.stem
 
         # IMPORTANT: episode_hash is TEXT in DB; do not cast to int
         episode_key = _load_episode_hash(name)
+        row = df[df["episode_hash"] == episode_key]
+        if len(row) == 1:
+            row = row.iloc[0]
+        elif len(row) > 1:
+            print("[WARNING] Duplicate episode hash")
+        else:
+            row = None
 
         if not episode_key:
             print(f"[SKIP] {name}: could not parse episode_hash from stem", flush=True)
@@ -359,7 +437,6 @@ def launch(
             )
             continue
 
-        row = episode_hash_to_table_row(engine, episode_key)
         if row is None:
             print(f"[SKIP] {name}: no matching row in SQL (app.episodes)", flush=True)
             continue
@@ -461,10 +538,18 @@ def launch(
                 row.processed_path = _map_processed_local_to_remote(ds_path)
                 row.mp4_path = _map_processed_local_to_remote(mp4_path)
                 row.processing_error = ""
-            else:
+            elif row.num_frames == -2:
+                row.processed_path = ""
+                row.mp4_path = ""
+                row.processing_error = "Upload Failed"
+            elif row.num_frames == -1:
                 row.processed_path = ""
                 row.mp4_path = ""
                 row.processing_error = "Zero Frames"
+            else:
+                row.processed_path = ""
+                row.mp4_path = ""
+                row.processing_error = "Conversion Failed Unhandled Error"
 
             update_episode(engine, row)
             print(
@@ -511,7 +596,7 @@ def launch(
             row.num_frames = -1
             row.processed_path = ""
             row.mp4_path = ""
-            # row.processing_error = f"{type(e).__name__}: {e}" #TODO undo this
+            row.processing_error = f"{type(e).__name__}: {e}"
             try:
                 update_episode(engine, row)
                 print(
