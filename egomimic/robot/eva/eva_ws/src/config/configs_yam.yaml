@@ -26,6 +26,11 @@ vr_teleop:
   max_delta_pos: 0.01       # meters/tick (0.01 = 30cm/s)
   max_delta_rot_deg: 5.0    # degrees/tick (5.0 = 150deg/s)
 
+# Resolution to save images at in HDF5 (resized with bicubic interpolation)
+save_resolution:
+  width: 320
+  height: 240
+
 # Camera configuration
 # Only D405 cameras - no Aria glasses
 # cameras:
@@ -75,19 +80,19 @@ cameras:
     encoding: "rgb8"
     # serial_number: 335122272652
     serial_number: 820512070183
-    width: 320
-    height: 240
+    width: 640
+    height: 480
   left_wrist_img:
     type: "d405"
     enabled: true
     encoding: "rgb8"
     serial_number: 335122271707
-    width: 320
-    height: 240
+    width: 640
+    height: 480
   right_wrist_img:
     type: "d405"
     enabled: true
     encoding: "rgb8"
     serial_number: 335122270835
-    width: 320
-    height: 240
+    width: 640
+    height: 480

@@ -96,6 +96,7 @@ class ARXInterface(Robot_Interface):
         self.controller = dict()
         self._create_controllers(self.cfg)
         self._create_cam_recorders(self.cfg["cameras"])
+        self.save_resolution = self.cfg["save_resolution"]
         self.kinematics_solver = EvaMinkKinematicsSolver(
             model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
         )
@@ -147,6 +148,7 @@ class ARXInterface(Robot_Interface):
 
     def _create_cam_recorders(self, cameras_cfg):
         self.recorders = dict()
+        self.camera_config = cameras_cfg  # Store camera config for later use
         for name, cam_cfg in cameras_cfg.items():
             if not cam_cfg["enabled"]:
                 continue
@@ -161,7 +163,11 @@ class ARXInterface(Robot_Interface):
             elif cam_type == "d405":
                 # Import RealSense only when d405 camera is configured
                 from stream_d405 import RealSenseRecorder
-                self.recorders[name] = RealSenseRecorder(str(cam_cfg["serial_number"]))
+                self.recorders[name] = RealSenseRecorder(
+                    str(cam_cfg["serial_number"]),
+                    width=cam_cfg["width"],
+                    height=cam_cfg["height"],
+                )
             else:
                 raise ValueError(f"Unknown camera type '{cam_type}' in config")
 
@@ -423,10 +429,12 @@ class YAMInterface:
                 site_name="grasp_site",
             )
         
-        # Initialize camera recorders
+        # Initialize camera recorders and load save_resolution from config
         self.recorders = {}
         if cameras_cfg:
             self._create_cam_recorders(cameras_cfg)
+            # Still need to load save_resolution from config file
+            self._load_save_resolution()
         else:
             self._load_default_camera_config()
         
@@ -453,6 +461,22 @@ class YAMInterface:
         print(f"\nHome position: {np.array2string(self.HOME_POSITION, precision=3)}")
         print("="*60 + "\n")
     
+    def _load_save_resolution(self):
+        """Load save_resolution from default YAML config file."""
+        config_paths = [
+            "/home/robot/robot_ws/egomimic/robot/eva/eva_ws/src/config/configs_yam.yaml",
+            os.path.expanduser("~/robot_ws/egomimic/robot/eva/eva_ws/src/config/configs_yam.yaml"),
+        ]
+        
+        for cfg_path in config_paths:
+            if os.path.exists(cfg_path):
+                with open(cfg_path, "r") as f:
+                    cfg = yaml.safe_load(f) or {}
+                self.save_resolution = cfg["save_resolution"]
+                return
+        
+        raise FileNotFoundError(f"[YAMInterface] No config found in paths: {config_paths}")
+    
     def _load_default_camera_config(self):
         """Load camera configuration from default YAML config file."""
         config_paths = [
@@ -462,20 +486,20 @@ class YAMInterface:
         
         for cfg_path in config_paths:
             if os.path.exists(cfg_path):
-                try:
-                    with open(cfg_path, "r") as f:
-                        cfg = yaml.safe_load(f) or {}
-                    if "cameras" in cfg:
-                        self._create_cam_recorders(cfg["cameras"])
-                        print(f"[YAMInterface] Loaded camera config from {cfg_path}")
-                        return
-                except Exception as e:
-                    print(f"[YAMInterface] Warning: Failed to load camera config from {cfg_path}: {e}")
+                with open(cfg_path, "r") as f:
+                    cfg = yaml.safe_load(f) or {}
+                if "cameras" not in cfg:
+                    raise ValueError(f"[YAMInterface] No 'cameras' section in config: {cfg_path}")
+                self._create_cam_recorders(cfg["cameras"])
+                self.save_resolution = cfg["save_resolution"]
+                print(f"[YAMInterface] Loaded camera config from {cfg_path}")
+                return
         
-        print("[YAMInterface] No camera config found, running without cameras")
+        raise FileNotFoundError(f"[YAMInterface] No camera config found in paths: {config_paths}")
     
     def _create_cam_recorders(self, cameras_cfg: dict):
         """Create camera recorders based on config - imports only what's needed."""
+        self.camera_config = cameras_cfg  # Store camera config for later use
         for name, cam_cfg in cameras_cfg.items():
             if not cam_cfg.get("enabled", False):
                 continue
@@ -493,9 +517,11 @@ class YAMInterface:
             elif cam_type == "d405":
                 # Import RealSense only when d405 camera is configured
                 from stream_d405 import RealSenseRecorder
-                serial = str(cam_cfg.get("serial_number", ""))
-                self.recorders[name] = RealSenseRecorder(serial)
-                print(f"[YAMInterface] Started RealSense D405 camera: {name} (serial: {serial})")
+                serial = str(cam_cfg["serial_number"])
+                width = cam_cfg["width"]
+                height = cam_cfg["height"]
+                self.recorders[name] = RealSenseRecorder(serial, width=width, height=height)
+                print(f"[YAMInterface] Started RealSense D405 camera: {name} (serial: {serial}, {width}x{height})")
             else:
                 raise ValueError(f"Unknown camera type '{cam_type}' for {name}")
     

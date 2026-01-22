@@ -12,6 +12,7 @@ import sys
 import time
 import numpy as np
 import copy
+import cv2
 import h5py
 from pathlib import Path
 from datetime import datetime
@@ -524,8 +525,13 @@ def reset_data(demo_data: dict):
     demo_data["obs"] = []
 
 
-def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names, robot_type: str = "arx", yam_gripper_type: str = "linear_4310"):
-    """Save demo to HDF5 file."""
+def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names, robot_type: str = "arx", yam_gripper_type: str = "linear_4310", save_resolution: dict = None):
+    """Save demo to HDF5 file.
+    
+    Args:
+        save_resolution: Optional dict with 'width' and 'height' keys to resize images before saving.
+                        Uses bicubic interpolation. If None, images are saved at original resolution.
+    """
     data_dict = dict()
     filename = demo_dir / f"demo_{episode_id}.hdf5"
 
@@ -536,6 +542,11 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names, robot_type:
             if img is None:
                 continue
             img_rgb = img[..., ::-1]
+            # Resize if save_resolution is specified
+            if save_resolution is not None:
+                target_w = save_resolution["width"]
+                target_h = save_resolution["height"]
+                img_rgb = cv2.resize(img_rgb, (target_w, target_h), interpolation=cv2.INTER_CUBIC)
             image_list.append(img_rgb)
         data_dict[f"/observations/images/{cam_name}"] = np.array(image_list)
     print(
@@ -630,11 +641,18 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names, robot_type:
         obs = root.create_group("observations")
         image = obs.create_group("images")
         for cam_name in cam_names:
+            # Get image dimensions from actual data
+            img_data = data_dict.get(f"/observations/images/{cam_name}")
+            if img_data is not None and len(img_data) > 0:
+                img_height, img_width = img_data.shape[1], img_data.shape[2]
+            else:
+                # Fallback to default dimensions if no data
+                img_height, img_width = 480, 640
             _ = image.create_dataset(
                 cam_name,
-                (max_timesteps, 480, 640, 3),
+                (max_timesteps, img_height, img_width, 3),
                 dtype="uint8",
-                chunks=(1, 480, 640, 3),
+                chunks=(1, img_height, img_width, 3),
             )
         _ = obs.create_dataset("joints", (max_timesteps, 14))
         # _ = obs.create_dataset("qjointvel", (max_timesteps, 16))
@@ -808,7 +826,8 @@ def collect_demo(
                     ):
                         if collecting_data is True:
                             collecting_data = False
-                            save_demo(demo_data, demo_dir, episode_id, camera_names, robot_type=robot_type, yam_gripper_type=yam_gripper_type)
+                            save_resolution = getattr(robot_interface, 'save_resolution', None)
+                            save_demo(demo_data, demo_dir, episode_id, camera_names, robot_type=robot_type, yam_gripper_type=yam_gripper_type, save_resolution=save_resolution)
                             if auto_episode_id is not None:
                                 auto_episode_id += 1
                             break
