@@ -866,6 +866,30 @@ class S3RLDBDataset(MultiRLDBDataset):
                 kwargs=kwargs,
             )
 
+        # Debugging aid: optionally run dataset loading sequentially to make hangs reproducible
+        # and stack traces easier to interpret.
+        # Enable with: RLDB_LOAD_SEQUENTIAL=1
+        # for p in tqdm(all_paths, total=len(all_paths), desc="Loading RLDBDataset (sequential)"):
+        #     repo_id, ds_obj, reason, err = cls._load_rldb_dataset_one(**_submit_arg(p))
+
+        #     if ds_obj is not None:
+        #         datasets[repo_id] = ds_obj
+        #         continue
+
+        #     if reason == "not_a_dir":
+        #         continue
+
+        #     skipped.append(repo_id)
+
+        #     if reason == "not_in_filtered_paths":
+        #         logger.warning(f"Skipping {repo_id}: not in filtered S3 paths")
+        #     elif reason and reason.startswith("embodiment_mismatch"):
+        #         logger.warning(f"Skipping {repo_id}: {reason}")
+        #     else:
+        #         logger.error(f"Failed to load {repo_id} as RLDBDataset:\n{err}")
+
+        # return datasets, skipped
+
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futures = [
                 ex.submit(cls._load_rldb_dataset_one, **_submit_arg(p))

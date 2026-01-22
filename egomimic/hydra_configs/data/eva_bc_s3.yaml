@@ -6,11 +6,11 @@ train_datasets:
     bucket_name: "rldb"
     debug_no_threadpool: True
     temp_root: "/coc/flash7/scratch/egoverseS3Dataset"
-    mode: train
-    embodiment: "eva_bimanual"
-    cache_root: "/coc/flash7/rpunamiya6/.cache"
+    mode: total
+    embodiment: "eva_right_arm"
     filters:
-      task: "fold clothes"
+      task: "object in container"
+      episode_hash: "2025-11-27-03-39-50-378000"
     local_files_only: True
 
 valid_datasets:
@@ -19,11 +19,11 @@ valid_datasets:
     bucket_name: "rldb"
     debug_no_threadpool: True
     temp_root: "/coc/flash7/scratch/egoverseS3Dataset"
-    mode: valid
-    embodiment: "eva_bimanual"
-    cache_root: "/coc/flash7/rpunamiya6/.cache"
+    mode: total
+    embodiment: "eva_right_arm"
     filters:
-      task: "fold clothes"
+      task: "object in container"
+      episode_hash: "2025-11-27-03-39-50-378000"
     local_files_only: True
 
 train_dataloader_params:

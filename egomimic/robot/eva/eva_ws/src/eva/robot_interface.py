@@ -8,6 +8,7 @@ import numpy as np
 import pytorch_kinematics as pk
 from scipy.spatial.transform import Rotation as R
 from abc import ABC, abstractmethod
+from egomimic.rldb.utils import RLDBDataset
 from stream_aria import AriaRecorder, update_iptables
 from stream_d405 import RealSenseRecorder
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
@@ -286,12 +287,17 @@ class ARXInterface(Robot_Interface):
 
 
 class dummyArxInterface(Robot_Interface):
-    def __init__(self, arms):
+    def __init__(self, arms, dataset_path=None):
         # Skip Robot_Interface config loading to keep this fully local/offline.
         self.arms = arms
         self.recorders = {}
         self._joint_positions = {arm: np.zeros(7, dtype=np.float64) for arm in arms}
         self._ee_pose = {arm: np.zeros(7, dtype=np.float64) for arm in arms}
+        self.dataset_path = dataset_path
+        self.dataset = None
+        if self.dataset_path is not None:
+            self.dataset = RLDBDataset(repo_id="test_dataset", root=self.dataset_path, local_files_only=True, episodes=[0], mode="train", embodiment="eva_bimanual")
+            self.iter = iter(self.dataset)
 
     def _create_controllers(self, cfg):
         return None
@@ -315,21 +321,37 @@ class dummyArxInterface(Robot_Interface):
         return joints
 
     def get_obs(self):
-        obs = {}
-        joint_positions = np.zeros(14, dtype=np.float64)
-        ee_poses = np.zeros(14, dtype=np.float64)
-        for arm in self.arms:
-            arm_offset = 0
-            if arm == "right":
-                arm_offset = 7
-            joint_positions[arm_offset : arm_offset + 7] = self.get_joints(arm)
-            xyz, rot = self.get_pose(arm, se3=False)
-            ee_poses[arm_offset : arm_offset + 7] = np.concatenate(
-                [xyz, rot.as_euler("ZYX", degrees=False), [joint_positions[arm_offset + 6]]]
-            )
-        obs["joint_positions"] = joint_positions
-        obs["ee_poses"] = ee_poses
-        return obs
+        if self.dataset is not None:
+            data = next(self.iter) #TODO from dataschematic instead of hardcoding
+            front_image_key = "observations.images.front_img_1"
+            right_wrist_image_key = "observations.images.right_wrist_img"
+            front_ims = (data[front_image_key].permute(0, 2, 3, 1).cpu().numpy() * 255.0).astype(np.uint8)
+            right_wrist_ims = (data[right_wrist_image_key].permute(0, 2, 3, 1).cpu().numpy() * 255.0).astype(np.uint8)
+            ee_pose = data["observations.state.ee_pose"].cpu().numpy()
+            joint_positions = data["observations.state.joint_positions"].cpu().numpy()
+            obs = {
+                "front_img_1": front_ims,
+                "right_wrist_img": right_wrist_ims,
+                "ee_pose": ee_pose,
+                "joint_positions": joint_positions,
+            }
+            return obs
+        else:
+            obs = {}
+            joint_positions = np.zeros(14, dtype=np.float64)
+            ee_poses = np.zeros(14, dtype=np.float64)
+            for arm in self.arms:
+                arm_offset = 0
+                if arm == "right":
+                    arm_offset = 7
+                joint_positions[arm_offset : arm_offset + 7] = self.get_joints(arm)
+                xyz, rot = self.get_pose(arm, se3=False)
+                ee_poses[arm_offset : arm_offset + 7] = np.concatenate(
+                    [xyz, rot.as_euler("ZYX", degrees=False), [joint_positions[arm_offset + 6]]]
+                )
+            obs["joint_positions"] = joint_positions
+            obs["ee_poses"] = ee_poses
+            return obs
 
     def solve_ik(self, ee_pose, arm):
         if ee_pose.shape != (6,):

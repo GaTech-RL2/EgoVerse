@@ -4,23 +4,23 @@ robomimic_model:
   data_schematic: _${data.dataset.data_schematic}
   camera_transforms:
     _target_: egomimic.utils.egomimicUtils.CameraTransforms
-    intrinsics_key: "base" # change to base_half if using half res 
+    intrinsics_key: "base" # change to base_half if using half res
     extrinsics_key: "ariaJun7"
   ac_keys:
-    aria_bimanual: "actions_cartesian"
-  domains: ["aria_bimanual"]
+    eva_right_arm: "actions_cartesian"
+  domains: ["eva_right_arm"]
 
   action_converters:
     rules:
-      ARIA_BIMANUAL:
-        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+      eva_right_arm:
+        _target_: egomimic.utils.action_utils.RobotRightCartesianEuler
     # optional fallback if no match is found
     fallback:
       _target_: egomimic.utils.action_utils.BaseActionConverter
-      
-  config:      
+
+  config:
     pytorch_training_precision: bfloat16
-    pytorch_weight_path: /storage/home/hcoda1/5/rpunamiya6/cedar-dx/rpunamiya6/Projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
+    pytorch_weight_path: /coc/cedarp-dxu345-0/acheluva3/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
     model:
       pi05: true
       action_dim: 32
