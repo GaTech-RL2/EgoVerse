@@ -1,0 +1,93 @@
+# YAM Robot Configuration
+# 
+# This configuration is for YAM robot teleoperation with D405 cameras.
+# No Aria glasses - only RealSense D405 wrist cameras.
+#
+# To use this config, either:
+# 1. Copy this file to configs.yaml
+# 2. Or modify the config loading code to use this file directly
+
+# YAM robot doesn't use URDF - it uses MuJoCo XML from i2rt library
+# The model is determined by gripper_type in YAMInterface
+
+# CAN interfaces for YAM arms
+# Change these to match your hardware setup
+interfaces:
+  left: can_left
+  right: can_right
+
+topic_prefix_out: eva_ik
+ik_rate: 50.0
+ts_offset: 0.4
+gripper_width: 0.8
+
+# VR teleop velocity limits (per tick at 30Hz). 0 = disabled.
+vr_teleop:
+  max_delta_pos: 0.01       # meters/tick (0.01 = 30cm/s)
+  max_delta_rot_deg: 5.0    # degrees/tick (5.0 = 150deg/s)
+
+# Camera configuration
+# Only D405 cameras - no Aria glasses
+# cameras:
+#   # Front camera (external view) - optional
+#   # Uncomment and add serial number if you have a front-facing camera
+#   front_cam:
+#     type: "aria"
+#     enabled: false
+#     encoding: "rgb8"
+#     serial_number: YOUR_SERIAL_HERE
+#     width: 640
+#     height: 480
+
+#   # Left wrist camera
+#   left_wrist_img:
+#     type: "d405"
+#     enabled: true
+#     encoding: "rgb8"
+#     serial_number: 218622279810  # Update with your camera's serial
+#     width: 640
+#     height: 480
+
+#   # Right wrist camera
+#   right_wrist_img:
+#     type: "d405"
+#     enabled: true
+#     encoding: "rgb8"
+#     serial_number: 230322277025  # Update with your camera's serial
+#     width: 640
+#     height: 480
+
+#   # Placeholder for future Zed camera support
+#   # zed_front:
+#   #   type: "zed"
+#   #   enabled: false
+#   #   model: "zed_x_mini"  # or "zed_x"
+#   #   serial_number: YOUR_SERIAL_HERE
+#   #   resolution: "HD720"
+#   #   fps: 30
+
+
+
+cameras:
+  front_img_1: 
+    type: "d405"
+    enabled: true
+    encoding: "rgb8"
+    # serial_number: 335122272652
+    serial_number: 820512070183
+    width: 320
+    height: 240
+  left_wrist_img:
+    type: "d405"
+    enabled: true
+    encoding: "rgb8"
+    serial_number: 335122271707
+    width: 320
+    height: 240
+  right_wrist_img:
+    type: "d405"
+    enabled: true
+    encoding: "rgb8"
+    serial_number: 335122270835
+    width: 320
+    height: 240

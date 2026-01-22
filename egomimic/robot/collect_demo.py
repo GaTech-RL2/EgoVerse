@@ -26,8 +26,13 @@ from robot_utils import RateLoop
 
 # Add path to robot_interface
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
-from robot_interface import ARXInterface
+from robot_interface import ARXInterface, YAMInterface
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
+
+# Add i2rt to path for YAM kinematics in save_demo
+sys.path.insert(0, os.path.expanduser("~/i2rt"))
+from i2rt.robots.kinematics import Kinematics as I2RTKinematics
+from i2rt.robots.utils import GripperType
 
 
 # ------------------------- Configuration -------------------------
@@ -36,6 +41,14 @@ from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 DEFAULT_FREQUENCY = 30.0  # Hz
 POSITION_SCALE = 1.0  # Scale factor for position deltas
 ROTATION_SCALE = 1.0  # Scale factor for rotation deltas
+
+# Velocity limits (per tick) - 0 = disabled
+DEFAULT_MAX_DELTA_POS = 0.0  # meters/tick
+DEFAULT_MAX_DELTA_ROT_DEG = 0.0  # degrees/tick
+
+# Headset orientation correction (when headset cameras face user instead of away)
+# This flips X and Z axes to correct for 180° rotation around Y (vertical) axis
+HEADSET_FLIPPED = True  # Set True if headset is worn backwards (cameras facing user)
 
 # Dead-zone thresholds (to filter out jitter)
 POS_DEAD_ZONE = 0.002  # meters
@@ -66,11 +79,16 @@ YPR_RANGE = [2, 2, 2]
 TRIGGER_ON_THRESHOLD = 0.8
 TRIGGER_OFF_THRESHOLD = 0.2
 
-# Gripper thresholds
+# Gripper thresholds for ARX robot
 GRIPPER_OPEN_VALUE = 0.08
 GRIPPER_CLOSE_VALUE = -0.018
 GRIPPER_WIDTH = GRIPPER_OPEN_VALUE - GRIPPER_CLOSE_VALUE
 GRIPPER_VEL = 1  # m/s gripper width is normally around 0.08m
+
+# Gripper thresholds for YAM robot (normalized 0-1)
+YAM_GRIPPER_OPEN_VALUE = 1.0   # fully open
+YAM_GRIPPER_CLOSE_VALUE = 0.0  # fully closed
+YAM_GRIPPER_WIDTH = YAM_GRIPPER_OPEN_VALUE - YAM_GRIPPER_CLOSE_VALUE
 
 # Demo recording
 DEMO_DIR = "./demos"
@@ -78,6 +96,41 @@ MAX_DEMO_LENGTH = 10000  # Maximum number of steps per demo
 
 
 # ------------------------- Helper Functions -------------------------
+
+
+def load_velocity_limits_from_config():
+    """Load velocity limits from configs_yam.yaml."""
+    import yaml
+    config_paths = [
+        os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/config/configs_yam.yaml"),
+        "/home/robot/robot_ws/egomimic/robot/eva/eva_ws/src/config/configs_yam.yaml",
+    ]
+    for cfg_path in config_paths:
+        if os.path.exists(cfg_path):
+            try:
+                with open(cfg_path, "r") as f:
+                    vr_cfg = (yaml.safe_load(f) or {}).get("vr_teleop", {})
+                return vr_cfg.get("max_delta_pos", DEFAULT_MAX_DELTA_POS), \
+                       np.deg2rad(vr_cfg.get("max_delta_rot_deg", DEFAULT_MAX_DELTA_ROT_DEG))
+            except Exception:
+                pass
+    return DEFAULT_MAX_DELTA_POS, np.deg2rad(DEFAULT_MAX_DELTA_ROT_DEG)
+
+
+def clamp_delta_pos(dpos: np.ndarray, max_delta: float) -> np.ndarray:
+    """Clamp position delta magnitude. Returns original if max_delta <= 0."""
+    if max_delta <= 0:
+        return dpos
+    norm = np.linalg.norm(dpos)
+    return dpos if (norm <= max_delta or norm < 1e-9) else dpos * (max_delta / norm)
+
+
+def clamp_delta_rot(rotvec: np.ndarray, max_rad: float) -> np.ndarray:
+    """Clamp rotation vector angle. Returns original if max_rad <= 0."""
+    if max_rad <= 0:
+        return rotvec
+    angle = np.linalg.norm(rotvec)
+    return rotvec if (angle <= max_rad or angle < 1e-9) else (rotvec / angle) * max_rad
 
 
 def se3_to_xyzxyzw(se3):
@@ -471,9 +524,9 @@ def reset_data(demo_data: dict):
     demo_data["obs"] = []
 
 
-def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
-    data_dict = dict()
+def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names, robot_type: str = "arx", yam_gripper_type: str = "linear_4310"):
     """Save demo to HDF5 file."""
+    data_dict = dict()
     filename = demo_dir / f"demo_{episode_id}.hdf5"
 
     for cam_name in cam_names:
@@ -493,13 +546,46 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
         demo_data["robot_joint_actions"]
     )
     # data_dict["/observations/qjointvel"] = joint_vels
-    data_dict["/actions/eepose"] = np.array(demo_data["cmd_eepose_actions"])
+    
+    # Process cmd_eepose_actions to create different rotation representations
+    # Original format: xyz(3) + ypr(3) + gripper(1) per arm = 14 total
+    cmd_eepose_ypr = np.array(demo_data["cmd_eepose_actions"])
+    
+    # Batch convert YPR to rotation matrices for both arms
+    left_rot_mats = R.from_euler("ZYX", cmd_eepose_ypr[:, 3:6]).as_matrix()
+    right_rot_mats = R.from_euler("ZYX", cmd_eepose_ypr[:, 10:13]).as_matrix()
+    
+    # 6D rotation: first two columns of rotation matrix, flattened
+    left_rot_6d = left_rot_mats[:, :, :2].reshape(-1, 6)
+    right_rot_6d = right_rot_mats[:, :, :2].reshape(-1, 6)
+    
+    # Build eepose_6drot: xyz(3) + rot6d(6) + gripper(1) per arm = 20 total
+    cmd_eepose_6drot = np.column_stack([
+        cmd_eepose_ypr[:, 0:3], left_rot_6d, cmd_eepose_ypr[:, 6:7],
+        cmd_eepose_ypr[:, 7:10], right_rot_6d, cmd_eepose_ypr[:, 13:14],
+    ])
+    
+    # Full rotation matrices: (N, 2, 3, 3)
+    cmd_rot_3x3 = np.stack([left_rot_mats, right_rot_mats], axis=1)
+    
+    data_dict["/actions/eepose_ypr"] = cmd_eepose_ypr
+    data_dict["/actions/eepose_6drot"] = cmd_eepose_6drot
+    data_dict["/actions/rot_3x3"] = cmd_rot_3x3
     data_dict["/actions/joints"] = np.array(demo_data["cmd_joint_actions"])
     data_dict["/action"] = np.array(demo_data["cmd_joint_actions"])
 
-    kinematics_solver = EvaMinkKinematicsSolver(
-        model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
-    )
+    # Create kinematics solver based on robot type
+    if robot_type == "arx":
+        kinematics_solver = EvaMinkKinematicsSolver(
+            model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
+        )
+    elif robot_type == "yam":
+        gripper_type_enum = GripperType.from_string_name(yam_gripper_type)
+        model_path = gripper_type_enum.get_xml_path()
+        kinematics_solver = I2RTKinematics(xml_path=model_path, site_name="grasp_site")
+    else:
+        raise ValueError(f"Unknown robot type: {robot_type}")
+    
     robot_ee_pose = []
     for i in range(len(demo_data["robot_joint_actions"])):
         robot_joint_action = demo_data["robot_joint_actions"][i]
@@ -507,14 +593,24 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
         right_joints = robot_joint_action[7:]
         # check if left is not 0 array
         if not np.allclose(left_joints, 0):
-            left_ee_xyz, left_ee_rot = kinematics_solver.fk(left_joints)
-            left_ee_ypr = left_ee_rot.as_euler("ZYX", degrees=False)
+            if robot_type == "arx":
+                left_ee_xyz, left_ee_rot = kinematics_solver.fk(left_joints)
+                left_ee_ypr = left_ee_rot.as_euler("ZYX", degrees=False)
+            else:  # yam
+                T = kinematics_solver.fk(left_joints[:6])
+                left_ee_xyz = T[:3, 3]
+                left_ee_ypr = R.from_matrix(T[:3, :3]).as_euler("ZYX", degrees=False)
         else:
             left_ee_xyz = np.zeros(3)
             left_ee_ypr = np.zeros(3)
         if not np.allclose(right_joints, 0):
-            right_ee_xyz, right_ee_rot = kinematics_solver.fk(right_joints)
-            right_ee_ypr = right_ee_rot.as_euler("ZYX", degrees=False)
+            if robot_type == "arx":
+                right_ee_xyz, right_ee_rot = kinematics_solver.fk(right_joints)
+                right_ee_ypr = right_ee_rot.as_euler("ZYX", degrees=False)
+            else:  # yam
+                T = kinematics_solver.fk(right_joints[:6])
+                right_ee_xyz = T[:3, 3]
+                right_ee_ypr = R.from_matrix(T[:3, :3]).as_euler("ZYX", degrees=False)
         else:
             right_ee_xyz = np.zeros(3)
             right_ee_ypr = np.zeros(3)
@@ -545,7 +641,9 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
         _ = obs.create_dataset("eepose", (max_timesteps, 14))
         _ = obs.create_dataset("joint_positions", (max_timesteps, 14))
         _ = root.create_group("actions")
-        _ = root["actions"].create_dataset("eepose", (max_timesteps, 14))
+        _ = root["actions"].create_dataset("eepose_ypr", (max_timesteps, 14))
+        _ = root["actions"].create_dataset("eepose_6drot", (max_timesteps, 20))
+        _ = root["actions"].create_dataset("rot_3x3", (max_timesteps, 2, 3, 3))
         _ = root["actions"].create_dataset("joints", (max_timesteps, 14))
         _ = root.create_dataset("action", (max_timesteps, 14))
 
@@ -565,6 +663,14 @@ def collect_demo(
     demo_dir: str = DEMO_DIR,
     recording: bool = True,
     auto_episode_start: int = None,
+    robot_type: str = "arx",
+    yam_gripper_type: str = "linear_4310",
+    yam_interfaces: dict = None,
+    dry_run: bool = False,
+    position_scale: float = POSITION_SCALE,
+    rotation_scale: float = ROTATION_SCALE,
+    max_delta_pos: float = None,
+    max_delta_rot_deg: float = None,
 ):
     """
     Collect demonstrations using VR controller.
@@ -573,7 +679,26 @@ def collect_demo(
         arms: Which arm(s) to control ("left", "right", or "both")
         frequency: Control loop frequency in Hz
         demo_dir: Directory to save demos
+        robot_type: Robot type to use ("arx" for ARX X5, "yam" for I2RT YAM)
+        yam_gripper_type: Gripper type for YAM robot (only used if robot_type="yam")
+        yam_interfaces: CAN interface mapping for YAM robot {"left": "can0", "right": "can1"}
+        dry_run: If True, don't actuate robot - just log VR commands
+        position_scale: Scale factor for VR position deltas
+        rotation_scale: Scale factor for VR rotation deltas
+        max_delta_pos: Max position change per tick in meters (None = load from config, 0 = disabled)
+        max_delta_rot_deg: Max rotation change per tick in degrees (None = load from config, 0 = disabled)
     """
+    # Load velocity limits from config if not specified
+    if max_delta_pos is None or max_delta_rot_deg is None:
+        cfg_pos, cfg_rot_rad = load_velocity_limits_from_config()
+        max_delta_pos = cfg_pos if max_delta_pos is None else max_delta_pos
+        max_delta_rot_rad = cfg_rot_rad if max_delta_rot_deg is None else np.deg2rad(max_delta_rot_deg)
+    else:
+        max_delta_rot_rad = np.deg2rad(max_delta_rot_deg)
+    
+    if max_delta_pos > 0 or max_delta_rot_rad > 0:
+        print(f"[VelocityLimit] pos={max_delta_pos:.4f}m/tick, rot={np.rad2deg(max_delta_rot_rad):.2f}deg/tick")
+    
     # Setup demo directory
     demo_dir = Path(demo_dir)
     demo_dir.mkdir(exist_ok=True, parents=True)
@@ -581,9 +706,11 @@ def collect_demo(
     # Initialize VR interface
     vr = VRInterface()
     prev_vr_data = None
+    
+    # Track previous commanded SE3 for velocity limiting
+    prev_cmd_T = {}
 
     # Initialize robot interfaces (one per arm)
-    # robot_interface = SingleARXInterface(arm=arms_to_collect)
     if arms_to_collect == "both":
         arms = ["right", "left"]
     elif arms_to_collect == "right":
@@ -592,7 +719,36 @@ def collect_demo(
         arms = ["left"]
     else:
         raise ValueError("Invalid arm values inputted.")
-    robot_interface = ARXInterface(arms=arms)
+    
+    # Select robot interface based on type
+    if robot_type == "arx":
+        if dry_run:
+            print("ARX robot does not support dry run mode - use YAM robot for dry run testing")
+            print("Proceeding anyway (will fail if ARX hardware not connected)")
+        print("Using ARX robot interface")
+        robot_interface = ARXInterface(arms=arms)
+        # ARX uses raw gripper values
+        gripper_open = GRIPPER_OPEN_VALUE
+        gripper_close = GRIPPER_CLOSE_VALUE
+        gripper_width = GRIPPER_WIDTH
+    elif robot_type == "yam":
+        print("Using YAM robot interface")
+        gripper_type_enum = GripperType.from_string_name(yam_gripper_type)
+        robot_interface = YAMInterface(
+            arms=arms,
+            gripper_type=gripper_type_enum,
+            interfaces=yam_interfaces,
+            zero_gravity_mode=False,  # Hold position on startup for safety
+            dry_run=dry_run,
+        )
+        # Print detailed config for YAM
+        robot_interface.print_config()
+        # YAM uses normalized gripper values (0-1)
+        gripper_open = YAM_GRIPPER_OPEN_VALUE
+        gripper_close = YAM_GRIPPER_CLOSE_VALUE
+        gripper_width = YAM_GRIPPER_WIDTH
+    else:
+        raise ValueError(f"Unknown robot type: {robot_type}. Use 'arx' or 'yam'.")
 
     arms_list = []
     if arms_to_collect == "both" or arms_to_collect == "right":
@@ -635,13 +791,12 @@ def collect_demo(
         else:
             episode_id = auto_episode_id
             print(f"Set episode id to {episode_id} teleop enabled")
+        
         with RateLoop(frequency=frequency, verbose=False) as loop:
             for i in loop:
                 # Read VR controller (get raw transformation matrices)
                 vr_data = vr.read_vr_controller(se3=True)
-                # print(f"vr_data: {vr_data}")
                 if vr_data is None:
-                    # print("Not reading vr data using prev")
                     vr_data = prev_vr_data
                     continue
 
@@ -653,7 +808,7 @@ def collect_demo(
                     ):
                         if collecting_data is True:
                             collecting_data = False
-                            save_demo(demo_data, demo_dir, episode_id, camera_names)
+                            save_demo(demo_data, demo_dir, episode_id, camera_names, robot_type=robot_type, yam_gripper_type=yam_gripper_type)
                             if auto_episode_id is not None:
                                 auto_episode_id += 1
                             break
@@ -691,18 +846,22 @@ def collect_demo(
                 # Update engagement states
                 vr.update_engagement(vr_data["right"]["index"], "right")
                 vr.update_engagement(vr_data["left"]["index"], "left")
+                
+                # Clear velocity limit tracking when grip released
+                if vr.r_down_edge and "right" in prev_cmd_T:
+                    del prev_cmd_T["right"]
+                if vr.l_down_edge and "left" in prev_cmd_T:
+                    del prev_cmd_T["left"]
 
                 cmd_joint_action = np.zeros(14)
                 robot_joint_action = np.zeros(14)
                 cmd_eepose_action = np.zeros(14)
+                
                 for arm in arms_list:
                     if (arm == "left" and vr.l_engaged) or (
                         arm == "right" and vr.r_engaged
                     ):
-                        rb_se3 = robot_interface.get_pose(
-                            arm, se3=True
-                        )  # TODO need to fix the logic for double arm
-                        # print(f"rb_pos {R.from_matrix(rb_rot).as_euler('ZYX', degrees=False)}")
+                        rb_se3 = robot_interface.get_pose(arm, se3=True)
 
                         if (arm == "right" and vr.r_up_edge) or (
                             arm == "left" and vr.l_up_edge
@@ -728,12 +887,53 @@ def collect_demo(
                                 vr_data[arm]["T"], dtype=np.float64
                             )
                             delta_T = vr_zero_inv @ vr_current_T
-                            cmd_T = robot_frame_zero_se3[arm] @ delta_T
+                            
+                            # Apply headset flip correction if headset is worn backwards
+                            # (cameras facing user instead of away)
+                            if HEADSET_FLIPPED:
+                                # 180° rotation around Y axis: flip X and Z for both position and rotation
+                                # Position: negate X and Z
+                                delta_T[0, 3] = -delta_T[0, 3]  # flip X
+                                delta_T[2, 3] = -delta_T[2, 3]  # flip Z
+                                
+                                # Rotation: apply 180° Y rotation to the rotation matrix
+                                # R_corrected = R_180_y @ R_delta @ R_180_y.T
+                                R_180_y = np.array([[-1, 0, 0], [0, 1, 0], [0, 0, -1]], dtype=np.float64)
+                                delta_T[:3, :3] = R_180_y @ delta_T[:3, :3] @ R_180_y.T
+                            
+                            # Apply position and rotation scaling to the delta transformation
+                            # Scale translation (position)
+                            delta_T[:3, 3] *= position_scale
+                            
+                            # Scale rotation (convert to axis-angle, scale angle, convert back)
+                            if rotation_scale != 1.0:
+                                delta_rot = R.from_matrix(delta_T[:3, :3])
+                                rotvec = delta_rot.as_rotvec()
+                                scaled_rotvec = rotvec * rotation_scale
+                                delta_T[:3, :3] = R.from_rotvec(scaled_rotvec).as_matrix()
+                            
+                            cmd_T_raw = robot_frame_zero_se3[arm] @ delta_T
 
                         else:
-                            cmd_T = rb_se3
+                            cmd_T_raw = rb_se3
 
-                        gripper_pos[arm] = GRIPPER_OPEN_VALUE -vr_data[arm]["trigger"] * (GRIPPER_WIDTH)
+                        # Apply velocity limiting
+                        if arm in prev_cmd_T and (max_delta_pos > 0 or max_delta_rot_rad > 0):
+                            prev_T = prev_cmd_T[arm]
+                            # Clamp position and rotation deltas
+                            clamped_pos = clamp_delta_pos(cmd_T_raw[:3, 3] - prev_T[:3, 3], max_delta_pos)
+                            R_prev = R.from_matrix(prev_T[:3, :3])
+                            R_delta = R.from_matrix(cmd_T_raw[:3, :3]) * R_prev.inv()
+                            clamped_rotvec = clamp_delta_rot(R_delta.as_rotvec(), max_delta_rot_rad)
+                            # Build velocity-limited cmd_T
+                            cmd_T = np.eye(4, dtype=np.float64)
+                            cmd_T[:3, 3] = prev_T[:3, 3] + clamped_pos
+                            cmd_T[:3, :3] = (R.from_rotvec(clamped_rotvec) * R_prev).as_matrix()
+                        else:
+                            cmd_T = cmd_T_raw
+                        prev_cmd_T[arm] = cmd_T.copy()
+
+                        gripper_pos[arm] = gripper_open - vr_data[arm]["trigger"] * gripper_width
                         # limit velocity and torque in the robot interface
 
                         # print(f"gripper_pos: {gripper_pos[arm]}")
@@ -744,7 +944,7 @@ def collect_demo(
                         )
 
                         eepose_cmd = np.concatenate([cmd_pos[arm], cmd_ypr])
-                        # print(f"eepose: {eepose_cmd}")
+                        
                         try:
                             solved_joints = robot_interface.solve_ik(eepose_cmd[:6], arm)
                         except Exception as e:
@@ -758,7 +958,6 @@ def collect_demo(
                                 [cmd_joints[arm], [gripper_pos[arm]]]
                             )
 
-                        # VELOCITY_LIMIT can be done in the interface
                         robot_interface.set_joints(cmd_joints[arm], arm)
 
                         if collecting_data:
@@ -774,7 +973,8 @@ def collect_demo(
                                         "ZYX", degrees=False
                                     )
                                 )  # ypr convention
-                                cmd_eepose_action[arm_offset + 6] = (gripper_pos[arm] - GRIPPER_CLOSE_VALUE) / GRIPPER_WIDTH
+                                # Normalize gripper value to 0-1 for saved data
+                                cmd_eepose_action[arm_offset + 6] = (gripper_pos[arm] - gripper_close) / gripper_width
 
                             if arm in cmd_joints:
                                 cmd_joint_action[arm_offset : arm_offset + 7] = (
@@ -838,8 +1038,86 @@ if __name__ == "__main__":
     default=None,
     help="If set, start at this episode id and auto-increment on each recording",
   )
+  parser.add_argument(
+    "--robot-type",
+    type=str,
+    default="arx",
+    choices=["arx", "yam"],
+    help="Robot type to use: 'arx' for ARX X5, 'yam' for I2RT YAM",
+  )
+  parser.add_argument(
+    "--yam-gripper-type",
+    type=str,
+    default="linear_4310",
+    choices=["crank_4310", "linear_3507", "linear_4310", "yam_teaching_handle", "no_gripper"],
+    help="Gripper type for YAM robot (only used if --robot-type=yam)",
+  )
+  parser.add_argument(
+    "--yam-left-can",
+    type=str,
+    default="can0",
+    help="CAN interface for YAM left arm (only used if --robot-type=yam)",
+  )
+  parser.add_argument(
+    "--yam-right-can",
+    type=str,
+    default="can1",
+    help="CAN interface for YAM right arm (only used if --robot-type=yam)",
+  )
+  parser.add_argument(
+    "--dry-run",
+    action="store_true",
+    help="Dry run mode: simulate VR teleop without actuating the robot",
+  )
+  parser.add_argument(
+    "--position-scale",
+    type=float,
+    default=POSITION_SCALE,
+    help=f"Scale factor for VR position deltas (default: {POSITION_SCALE})",
+  )
+  parser.add_argument(
+    "--rotation-scale",
+    type=float,
+    default=ROTATION_SCALE,
+    help=f"Scale factor for VR rotation deltas (default: {ROTATION_SCALE})",
+  )
+  parser.add_argument(
+    "--headset-flipped",
+    action="store_true",
+    default=HEADSET_FLIPPED,
+    help="Enable if headset is worn backwards (cameras facing user). Flips X/Z axes.",
+  )
+  parser.add_argument(
+    "--no-headset-flipped",
+    action="store_true",
+    help="Disable headset flip correction (normal headset orientation)",
+  )
 
   args = parser.parse_args()
+  
+  # Handle headset flip flag
+  if args.no_headset_flipped:
+    HEADSET_FLIPPED = False
+  else:
+    HEADSET_FLIPPED = args.headset_flipped
+  
+  # Print configuration summary
+  print("\n" + "="*60)
+  print("TELEOP CONFIGURATION")
+  print("="*60)
+  print(f"Robot type:       {args.robot_type}")
+  print(f"Arms:             {args.arms}")
+  print(f"Frequency:        {args.frequency} Hz")
+  print(f"Demo directory:   {args.demo_dir}")
+  print(f"Position scale:   {args.position_scale}")
+  print(f"Rotation scale:   {args.rotation_scale}")
+  print(f"Headset flipped:  {HEADSET_FLIPPED}")
+  print(f"Dry run:          {args.dry_run}")
+  if args.robot_type == "yam":
+    print(f"YAM gripper type: {args.yam_gripper_type}")
+    print(f"YAM left CAN:     {args.yam_left_can}")
+    print(f"YAM right CAN:    {args.yam_right_can}")
+  print("="*60 + "\n")
 
   if args.calibrate:
     # Import here to avoid dependency if user never calibrates
@@ -864,9 +1142,25 @@ if __name__ == "__main__":
 
     print("Calibration finished. Using updated offsets for this run.\n")
 
+  # Build YAM interface mapping if using YAM robot
+  yam_interfaces = None
+  if args.robot_type == "yam":
+    yam_interfaces = {
+      "left": args.yam_left_can,
+      "right": args.yam_right_can,
+    }
+    print(f"YAM CAN interfaces: {yam_interfaces}")
+    print(f"YAM gripper type: {args.yam_gripper_type}")
+
   collect_demo(
     arms_to_collect=args.arms,
     frequency=args.frequency,
     demo_dir=args.demo_dir,
     auto_episode_start=args.auto_episode_start,
+    robot_type=args.robot_type,
+    yam_gripper_type=args.yam_gripper_type,
+    yam_interfaces=yam_interfaces,
+    dry_run=args.dry_run,
+    position_scale=args.position_scale,
+    rotation_scale=args.rotation_scale,
   )

@@ -14,13 +14,16 @@ echo "Mode: ${mode}"
 CAN_DEVICES=()
 case "${mode}" in
   left)
-    CAN_DEVICES+=(--device /dev/eva_left_can)
+    # CAN_DEVICES+=(--device /dev/eva_left_can)
+    CAN_DEVICES+=(--device /dev/can_left)
     ;;
   right)
-    CAN_DEVICES+=(--device /dev/eva_right_can)
+    # CAN_DEVICES+=(--device /dev/eva_right_can)
+    CAN_DEVICES+=(--device /dev/can_right)
     ;;
   both)
-    CAN_DEVICES+=(--device /dev/eva_left_can --device /dev/eva_right_can)
+    # CAN_DEVICES+=(--device /dev/eva_left_can --device /dev/eva_right_can)
+    CAN_DEVICES+=(--device /dev/can_left --device /dev/can_right)
     ;;
 esac
 echo "Using CAN devices: ${CAN_DEVICES[*]}"

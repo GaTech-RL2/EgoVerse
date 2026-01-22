@@ -1,0 +1,125 @@
+# Simplified Dockerfile for YAM robot teleoperation
+# This is a lightweight image without ROS, ARX SDK, or Aria dependencies
+#
+# Usage:
+#   docker build -f Dockerfile.yam -t egoverse-yam .
+#   ./run_yam_docker.sh
+#
+# The EgoVerse code is mounted as a volume for easy development
+
+FROM dustynv/l4t-pytorch:r36.4.0
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+# Build arguments for user creation (match host user for volume permissions)
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USERNAME=robot
+
+# ==============================================================================
+# Layer 1: System dependencies (rarely changes - good for caching)
+# ==============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    can-utils \
+    iproute2 \
+    libusb-1.0-0 \
+    libusb-1.0-0-dev \
+    usbutils \
+    udev \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libegl1 \
+    libglfw3-dev \
+    libssl-dev \
+    pkg-config \
+    libgtk-3-dev \
+    android-tools-adb \
+    curl \
+    nano \
+    procps \
+    sudo \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# ==============================================================================
+# Layer 2: Create non-root user (for proper volume permissions)
+# ==============================================================================
+# Create plugdev group for USB/ADB device access (Oculus Quest)
+RUN groupadd -f plugdev \
+    && groupadd -g ${GROUP_ID} ${USERNAME} || true \
+    && useradd -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash ${USERNAME} \
+    && usermod -aG plugdev ${USERNAME} \
+    && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Create workspace directories
+RUN mkdir -p /home/${USERNAME}/robot_ws /home/${USERNAME}/i2rt /home/${USERNAME}/demos \
+    && chown -R ${USERNAME}:${USERNAME} /home/${USERNAME}
+
+# Add udev rules for Oculus/Meta Quest USB access (ADB)
+RUN echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2833", MODE="0666", GROUP="plugdev"' > /etc/udev/rules.d/51-oculus.rules \
+    && echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2d40", MODE="0666", GROUP="plugdev"' >> /etc/udev/rules.d/51-oculus.rules
+
+# ==============================================================================
+# Layer 3: Python requirements (changes occasionally)
+# ==============================================================================
+WORKDIR /home/${USERNAME}
+
+# Copy requirements first for better caching
+COPY --chown=${USERNAME}:${USERNAME} requirements_yam.txt /tmp/requirements_yam.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r /tmp/requirements_yam.txt
+
+# Build librealsense from source with Python bindings
+ARG LIBREALSENSE_VERSION=v2.56.5
+RUN git clone --depth 1 --branch ${LIBREALSENSE_VERSION} https://github.com/IntelRealSense/librealsense.git /tmp/librealsense \
+    && cd /tmp/librealsense \
+    && mkdir build && cd build \
+    && cmake .. \
+        -DBUILD_EXAMPLES=true \
+        -DBUILD_GRAPHICAL_EXAMPLES=true \
+        -DBUILD_PYTHON_BINDINGS:bool=true \
+        -DPYTHON_EXECUTABLE=$(which python3) \
+        -DCMAKE_BUILD_TYPE=Release \
+    && make -j$(nproc) \
+    && make install \
+    && rm -rf /tmp/librealsense
+
+# ==============================================================================
+# Layer 4: i2rt library (changes rarely)
+# ==============================================================================
+RUN usermod -aG video ${USERNAME}
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+
+# Clone and install i2rt library
+RUN git clone https://github.com/i2rt-robotics/i2rt.git /home/${USERNAME}/i2rt \
+    && pip install --no-cache-dir -e /home/${USERNAME}/i2rt
+
+# ==============================================================================
+# Layer 5: Environment setup
+# ==============================================================================
+
+# Set up Python path for i2rt
+ENV PYTHONPATH="/home/robot/i2rt:/home/robot/robot_ws"
+
+# ==============================================================================
+# Shell configuration and aliases
+# ==============================================================================
+RUN echo 'export PYTHONPATH=/home/robot/i2rt:/home/robot/robot_ws:$PYTHONPATH' >> ~/.bashrc \
+    && echo 'alias rhome="cd /home/robot/robot_ws/egomimic/robot"' >> ~/.bashrc \
+    && echo 'alias teleop="cd /home/robot/robot_ws/egomimic/robot && python collect_demo.py --robot-type yam"' >> ~/.bashrc \
+    && echo 'cd /home/robot/robot_ws' >> ~/.bashrc
+
+WORKDIR /home/${USERNAME}/robot_ws
+
+# Default command
+CMD ["/bin/bash"]
