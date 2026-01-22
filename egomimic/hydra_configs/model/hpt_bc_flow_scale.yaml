@@ -3,9 +3,10 @@ robomimic_model:
   _target_: egomimic.algo.hpt.HPT
   data_schematic: _${data.dataset.data_schematic}
   camera_transforms:
-    _target_: egomimic.utils.egomimicUtils.CameraTransforms
-    intrinsics_key: "scale" # change to base_half if using half res 
-    extrinsics_key: "scale"
+    scale_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "scale" # change to base_half if using half res
+      extrinsics_key: "scale"
   
   diffusion: true 
   6dof: true

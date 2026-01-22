@@ -20,7 +20,7 @@ dataset = RLDBDataset(
     local_files_only= True,
     episodes = episodes,
     mode="sample",
-    tolerance_s=2e-3,
+    tolerance_s=2e-2,
     )
 
 image_key = "observations.images.front_img_1"
@@ -80,7 +80,8 @@ prevdata = None
 for i, data in enumerate(data_loader):
     if i % every_n_batches != 0:
         continue
-        
+
+    print(data["annotations"])
     print(f"\nBatch {i} (frame {i}):")
     print(f"  Images equal to previous: {torch.equal(data[image_key], prevdata[image_key]) if prevdata is not None else 'First batch'}")
     
@@ -101,7 +102,7 @@ for i, data in enumerate(data_loader):
     #print(actions_key)
     #print(actions[:10, :])
     #print(actions[:, :3].shape)
-    ims_viz = visualize_actions(ims, actions[:, :30], camera_transforms.extrinsics, camera_transforms.intrinsics)
+    ims_viz = visualize_actions(ims, actions[:, :], camera_transforms.extrinsics, camera_transforms.intrinsics)
     
     # Check visualized image
     print(f"  After viz first pixel: {ims_viz[0, 0, 0, :]}")

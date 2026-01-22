@@ -58,6 +58,7 @@ from sfsEgoverseUtils import (
     get_posepath,
     get_intrinsics,
 )
+from egomimic.utils.egomimicUtils import interpolate_arr, interpolate_arr_euler
 
 # Constants
 MANO_LABELS = [
@@ -71,6 +72,7 @@ MANO_LABELS = [
 
 PALM_INDICES = [0, 5, 9, 13, 17]  # wrist + finger bases
 ACTION_CHUNK_LENGTH = 100
+ACTION_INTERPOLATION_WINDOW = 30
 SUB_EPISODE_LENGTH = 300
 INVALID_VALUE = 1e9
 NUM_KEYPOINTS = 21
@@ -386,8 +388,10 @@ class EgoverseDatasetWriter:
         
         self.data_dir = self.output_dir / "data" / "chunk-000"
         self.meta_dir = self.output_dir / "meta"
+        self.anno_dir = self.output_dir / "annotations"
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.meta_dir.mkdir(parents=True, exist_ok=True)
+        self.anno_dir.mkdir(parents=True, exist_ok=True)
         
         self.episodes = []
         self.tasks = []
@@ -402,7 +406,7 @@ class EgoverseDatasetWriter:
         self.metadata_embodiment = 12
     
     def process_and_write_episode(self, frames: List[FrameData], intrinsics: Dict[str, float], source_info: Dict[str, Any]) -> int:
-        valid_frames = len(frames) - ACTION_CHUNK_LENGTH
+        valid_frames = len(frames) - ACTION_INTERPOLATION_WINDOW
         if valid_frames <= 0:
             print("Warning: Not enough frames for action chunks")
             return 0
@@ -456,19 +460,24 @@ class EgoverseDatasetWriter:
         task_index = len(self.tasks)
         self.tasks.append({'task_index': task_index, 'task': task_desc})
         return task_index
-    
+
     def _create_parquet_row(self, frames: List[FrameData], t: int, task_index: int) -> Optional[Dict[str, Any]]:
         frame_t = frames[t]
         camera_pose_t = frame_t.camera_pose
+        base_window = ACTION_INTERPOLATION_WINDOW
         
         # Filter out frames with "Inactive Time" in collector_issue
         if frame_t.collector_issue is not None and frame_t.collector_issue.get('issue_type') == 'Inactive Time':
             #print("found")
             return None
+
+        if t + base_window > len(frames):
+            return None
         
         # Actions: EE Cartesian in Camera Frame (100, 12)
-        actions_ee_cartesian = []
-        for offset in range(ACTION_CHUNK_LENGTH):
+        left_cartesian_seq = []
+        right_cartesian_seq = []
+        for offset in range(base_window):
             frame_offset = frames[t + offset]
             
             left_pose = (PoseComputer.world_to_camera_frame(
@@ -481,19 +490,27 @@ class EgoverseDatasetWriter:
                 camera_pose_t, frame_offset.camera_pose
             ) if frame_offset.hand_keypoints.right is not None else np.full(6, INVALID_VALUE))
             
-            actions_ee_cartesian.append(np.concatenate([left_pose, right_pose]))
-        
-        actions_ee_cartesian = np.array(actions_ee_cartesian)
+            left_cartesian_seq.append(left_pose)
+            right_cartesian_seq.append(right_pose)
+
+        left_cartesian_seq = np.array(left_cartesian_seq)
+        right_cartesian_seq = np.array(right_cartesian_seq)
+
+        # Interpolate 30 → 100 using egomimic utils
+        left_interp = interpolate_arr_euler(left_cartesian_seq[None, :, :], ACTION_CHUNK_LENGTH)[0]
+        right_interp = interpolate_arr_euler(right_cartesian_seq[None, :, :], ACTION_CHUNK_LENGTH)[0]
+        actions_ee_cartesian = np.concatenate([left_interp, right_interp], axis=-1)
         
         # Actions: EE Keypoints in World Frame (100, 126)
-        actions_ee_keypoints = []
-        for offset in range(ACTION_CHUNK_LENGTH):
+        actions_ee_keypoints_base = []
+        for offset in range(base_window):
             frame_offset = frames[t + offset]
             left_kps = frame_offset.hand_keypoints.left.flatten() if frame_offset.hand_keypoints.left is not None else np.full(63, INVALID_VALUE)
             right_kps = frame_offset.hand_keypoints.right.flatten() if frame_offset.hand_keypoints.right is not None else np.full(63, INVALID_VALUE)
-            actions_ee_keypoints.append(np.concatenate([left_kps, right_kps]))
-        
-        actions_ee_keypoints = np.array(actions_ee_keypoints)
+            actions_ee_keypoints_base.append(np.concatenate([left_kps, right_kps]))
+
+        actions_ee_keypoints_base = np.array(actions_ee_keypoints_base)
+        actions_ee_keypoints = interpolate_arr(actions_ee_keypoints_base[None, :, :], ACTION_CHUNK_LENGTH)[0]
         
         # Actions: Head Cartesian in World Frame (10,)
         actions_head = np.concatenate([
@@ -501,10 +518,7 @@ class EgoverseDatasetWriter:
             camera_pose_t.get_euler_ypr(),
             camera_pose_t.quaternion
         ])
-        
-        # Observations
-        obs_ee_pose = actions_ee_cartesian[0]
-        
+                
         if frame_t.image is None:
             return None
         
@@ -520,6 +534,11 @@ class EgoverseDatasetWriter:
         if np.sum(actions_ee_cartesian >= INVALID_VALUE - 1) > actions_ee_cartesian.size * 0.5:
             return None
         
+        actions_ee_cartesian = np.where(actions_ee_cartesian >= INVALID_VALUE - 1, 0.0, actions_ee_cartesian)
+        actions_ee_keypoints = np.where(actions_ee_keypoints >= INVALID_VALUE - 1, 0.0, actions_ee_keypoints)
+
+        # Observations
+        obs_ee_pose = actions_ee_cartesian[0]
         return {
             'actions_ee_cartesian_cam': actions_ee_cartesian.astype(np.float32),
             'actions_ee_keypoints_world': actions_ee_keypoints.astype(np.float32),
@@ -559,23 +578,32 @@ class EgoverseDatasetWriter:
         print(f"Wrote {len(rows)} frames to {filepath}")
     
     def _write_annotations_csv(self, episode_idx: int, frames: List[FrameData]):
-        filepath = self.data_dir / f"episode_{episode_idx:06d}_annotations.csv"
+        filepath = self.anno_dir / f"episode_{episode_idx:06d}_annotations.csv"
         
         rows = []
-        for i, frame in enumerate(frames):
-            row = {
-                'frame_index': i,
-                'timestamp_ns': frame.timestamp_us * 1000,
-                'subgoal_type': frame.subgoal.get('subgoal_type', '') if frame.subgoal else '',
-                'subgoal_text': frame.subgoal.get('text', '') if frame.subgoal else '',
-                'mistake': frame.subgoal.get('mistake', '') if frame.subgoal else '',
-                'navigation': frame.subgoal.get('navigation', '') if frame.subgoal else '',
-                'other_subgoal': frame.subgoal.get('other_subgoal', '') if frame.subgoal else '',
-                'collector_issue': frame.collector_issue.get('issue_type', '') if frame.collector_issue else '',
-            }
-            rows.append(row)
+        current_label: Optional[str] = None
+        start_ts: Optional[float] = None
+        end_ts: Optional[float] = None
+
+        for frame in frames:
+            label = frame.subgoal.get('text', '') if frame.subgoal else ''
+            label = label if label else None
+            ts = frame.timestamp_us / 1_000_000
+
+            if label != current_label:
+                if current_label is not None and start_ts is not None and end_ts is not None:
+                    rows.append({'Labels': current_label, 'start_time': start_ts, 'end_time': end_ts})
+                current_label = label
+                start_ts = ts if label is not None else None
+                end_ts = None
+
+            if label is not None:
+                end_ts = ts
+
+        if current_label is not None and start_ts is not None and end_ts is not None:
+            rows.append({'Labels': current_label, 'start_time': start_ts, 'end_time': end_ts})
         
-        pd.DataFrame(rows).to_csv(filepath, index=False)
+        pd.DataFrame(rows, columns=['Labels', 'start_time', 'end_time']).to_csv(filepath, index=False)
     
     def _accumulate_stats(self, rows: List[Dict[str, Any]]):
         for row in rows:

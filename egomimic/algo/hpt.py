@@ -21,8 +21,7 @@ from egomimic.utils.egomimicUtils import (
     download_from_huggingface,
     STD_SCALE,
 )
-from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text
-
+from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text, draw_annotation_text
 import numpy as np
 
 from overrides import override
@@ -1311,6 +1310,10 @@ class HPT(Algo):
                         ims[b] = draw_rotation_text(
                             ims[b], gt_rot[b][0], preds_rot[b][0], position=(340, 20)
                         )
+                    if "annotations" in batch:
+                        #print(batch["annotations"])
+                        annotation = batch["annotations"][b]
+                        ims[b] = draw_annotation_text(ims[b], annotation)
         return ims
 
     @override

@@ -193,7 +193,7 @@ class RLDBDataset(LeRobotDataset):
         percent=0.1,
         mode="train",
         valid_ratio: float = 0.2,
-        tolerance_s: float = 5e-2,
+        tolerance_s: float = 5e-1,
         **kwargs,
     ):
         dataset_meta = LeRobotDatasetMetadata(
@@ -878,6 +878,14 @@ class S3RLDBDataset(MultiRLDBDataset):
             logger.info("Debug mode: limiting to 10 datasets.")
             valid_collection_names = set(list(valid_collection_names)[:10])
 
+        filtered_out = [p.name for p in all_paths if p.name not in valid_collection_names]
+        if filtered_out:
+            logger.warning(
+                "Skipping %d collections not in filtered S3 paths. Example: %s",
+                len(filtered_out),
+                filtered_out[:20],
+            )
+
         def _submit_arg(p: Path):
             return dict(
                 collection_path=p,
@@ -906,16 +914,26 @@ class S3RLDBDataset(MultiRLDBDataset):
                     continue
 
                 if reason == "not_a_dir":
+                    logger.warning("Skipping %s: not a directory", repo_id)
+                    skipped.append(repo_id)
                     continue
 
                 skipped.append(repo_id)
 
-                # if reason == "not_in_filtered_paths":
-                #     logger.warning(f"Skipping {repo_id}: not in filtered S3 paths")
-                # elif reason and reason.startswith("embodiment_mismatch"):
-                #     logger.warning(f"Skipping {repo_id}: {reason}")
-                # else:
-                #     logger.error(f"Failed to load {repo_id} as RLDBDataset:\n{err}")
+                if reason == "not_in_filtered_paths":
+                    logger.warning(f"Skipping {repo_id}: not in filtered S3 paths")
+                elif reason and reason.startswith("embodiment_mismatch"):
+                    logger.warning(f"Skipping {repo_id}: {reason}")
+                else:
+                    logger.error(f"Failed to load {repo_id} as RLDBDataset:\n{err}")
+                if reason == "exception":
+                    logger.error(
+                        "Skipping %s: exception while loading RLDBDataset.\n%s",
+                        repo_id,
+                        err,
+                    )
+                else:
+                    logger.warning("Skipping %s: %s", repo_id, reason)
 
         return datasets, skipped
 

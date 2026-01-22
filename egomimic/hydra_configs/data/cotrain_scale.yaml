@@ -1,0 +1,60 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: train
+    embodiment: scale_bimanual
+    temp_root: "/coc/flash7/agao81/EgoVerse/scale_obj_container"
+    cache_root: "/coc/flash7/agao81/.cache"
+    filters:
+      task: Put Object in Container
+    local_files_only: true
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: train
+    embodiment: eva_right_arm
+    temp_root: "/coc/flash7/agao81/EgoVerse/eva_obj_container"
+    cache_root: "/coc/flash7/agao81/.cache"
+    filters:
+      task: object_in_container
+    local_files_only: true
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: valid
+    embodiment: scale_bimanual
+    temp_root: "/coc/flash7/agao81/EgoVerse/scale_obj_container"
+    cache_root: "/coc/flash7/agao81/.cache"
+    filters:
+      task: Put Object in Container
+    local_files_only: true
+
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: valid
+    embodiment: eva_right_arm
+    temp_root: "/coc/flash7/agao81/EgoVerse/eva_obj_container"
+    cache_root: "/coc/flash7/agao81/.cache"
+    filters:
+      task: object_in_container
+    local_files_only: true
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+  dataset2:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+  dataset2:
+    batch_size: 32
+    num_workers: 10

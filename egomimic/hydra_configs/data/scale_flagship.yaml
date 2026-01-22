@@ -7,9 +7,7 @@ train_datasets:
     embodiment: scale_bimanual
     filters:
       task: Folding Clothes
-      episode_hash: 6949f02003842aa02e7d6b38
     local_files_only: true
-    valid_ratio: 0.0
 
 
 valid_datasets:
@@ -20,11 +18,7 @@ valid_datasets:
     embodiment: scale_bimanual
     filters:
       task: Folding Clothes
-      episode_hash: 6949f02003842aa02e7d6b38
-      #697a905bda7b91acaf3f1e43
     local_files_only: true
-    valid_ratio: 1.0
-
 train_dataloader_params:
   dataset1:
     batch_size: 64

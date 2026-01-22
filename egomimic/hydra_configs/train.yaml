@@ -112,6 +112,9 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+      annotations:
+        key_type: metadata_keys
+        lerobot_key: annotations
   viz_img_key: 
     eva_bimanual:
       front_img_1

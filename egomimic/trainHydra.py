@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
@@ -44,6 +45,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
+
+    # This is to ensure that all ranks are initialized before training starts.
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    if world_size > 1 and not torch.distributed.is_initialized():
+        torch.distributed.init_process_group(
+            backend="nccl" if torch.cuda.is_available() else "gloo",
+            init_method="env://",
+            timeout=timedelta(hours=2),
+        )
 
     log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
     data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
@@ -124,6 +134,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         cfg.ckpt_path = last_ckpt_path
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
+
+    # Wait for all ranks to reach here (e.g. finish norm inference). Timeout 1 hour; raises if not synced.
+    if torch.distributed.is_initialized():
+        torch.distributed.barrier()
 
     if cfg.get("train"):
         log.info("Starting training!")
