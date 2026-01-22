@@ -336,8 +336,7 @@ class PolicyRollout(Rollout):
         if getattr(self.policy.model, "diffusion", False):
             for head in self.policy.model.nets.policy.heads:
                 if isinstance(self.policy.model.nets.policy.heads[head], DenoisingPolicy):
-                    self.policy.model.nets.policy.heads[head].num_inference_steps = 10
-        
+                    self.policy.model.nets.policy.heads[head].num_inference_steps = 10 
         
 def reset_rollout(ri, policy): 
     print("Resetting rollout: going home + clearing policy state") 
@@ -539,6 +538,13 @@ if __name__ == "__main__":
         "--debug",
         action="store_true",
         help="enable debug visualization of actions on images",
+    )
+
+    parser.add_argument(
+        "--offline-debug",
+        type=str,
+        default=None,
+        help="path to processed lerobot dataset for offline debugging",
     )
 
     args = parser.parse_args()

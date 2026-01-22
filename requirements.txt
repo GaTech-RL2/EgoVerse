@@ -46,8 +46,9 @@ sqlalchemy
 psycopg[binary]
 boto3
 typing_extensions
-pyarrow==19.0.1
+pyarrow #TODO remove version restriction
 simplejpeg
 prettytable
-datasets==4.0.0
+datasets==4.1.1
 s5cmd
+pytest

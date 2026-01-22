@@ -1,7 +1,11 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: pi0.5
   - paths: default
+<<<<<<< HEAD
   - trainer: ddp
+=======
+  - trainer: ddp_pi
+>>>>>>> 0c62af2 (debug pi rollout offline)
   - debug: null
   - logger: wandb
   - data: eva_bc_s3
@@ -16,7 +20,7 @@ train: true
 eval: false
 
 eval_class:
-  _target_ : egomimic.scripts.evaluation.Eve
+  _target_: egomimic.scripts.evaluation.Eve
   mode: real
   arm: both
   eval_path: "./logs/eval/${name}_${now:%Y-%m-%d_%H-%M-%S}"
@@ -36,11 +40,16 @@ data_schematic: # Dynamically fill in these shapes from the dataset
   _target_: egomimic.rldb.utils.DataSchematic
   norm_mode: quantile
   schematic_dict:
+<<<<<<< HEAD
     eva_bimanual:
       front_img_1: #batch key
+=======
+    eva_right_arm:
+      base_0_rgb: #batch key
+>>>>>>> 2a51d0f (fix pi training run debug launch + dummy rollout with dataset added)
         key_type: camera_keys # key type
         lerobot_key: observations.images.front_img_1 # dataset key
-      right_wrist_img:
+      right_wrist_0_rgb:
         key_type: camera_keys
         lerobot_key: observations.images.right_wrist_img
       left_wrist_img:
@@ -93,6 +102,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+<<<<<<< HEAD
   viz_img_key: 
     eva_bimanual:
       front_img_1
@@ -100,3 +110,9 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       front_img_1
     mecka_bimanual:
       base_0_rgb
+=======
+  viz_img_key:
+    eva_right_arm: base_0_rgb
+    aria_right_arm: front_img_1
+    mecka_bimanual: base_0_rgb
+>>>>>>> 2a51d0f (fix pi training run debug launch + dummy rollout with dataset added)

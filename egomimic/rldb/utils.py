@@ -9,6 +9,7 @@ from enum import Enum
 from multiprocessing.dummy import connection
 from pathlib import Path
 from unittest import result
+from tqdm import tqdm
 
 
 import boto3
@@ -580,7 +581,8 @@ class FolderRLDBDataset(MultiRLDBDataset):
             f"Found {len(subdirs)} subfolders. Attempting to load valid RLDB datasets..."
         )
 
-        for subdir in subdirs:
+        print("Creating subdatasets from folder...")
+        for subdir in tqdm(subdirs):
             info_json = subdir / "meta" / "info.json"
             if not info_json.exists():
                 logger.warning(f"Skipping {subdir.name}: missing meta/info.json")
@@ -679,6 +681,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         filters={},
         **kwargs,
     ):
+        logger.info("Instantiating S3RLDBDataset...")
         temp_root += "/S3_rldb_data"
         filters["robot_name"] = embodiment
         filters["is_deleted"] = False
@@ -862,6 +865,30 @@ class S3RLDBDataset(MultiRLDBDataset):
                 valid_ratio=valid_ratio,
                 kwargs=kwargs,
             )
+
+        # Debugging aid: optionally run dataset loading sequentially to make hangs reproducible
+        # and stack traces easier to interpret.
+        # Enable with: RLDB_LOAD_SEQUENTIAL=1
+        # for p in tqdm(all_paths, total=len(all_paths), desc="Loading RLDBDataset (sequential)"):
+        #     repo_id, ds_obj, reason, err = cls._load_rldb_dataset_one(**_submit_arg(p))
+
+        #     if ds_obj is not None:
+        #         datasets[repo_id] = ds_obj
+        #         continue
+
+        #     if reason == "not_a_dir":
+        #         continue
+
+        #     skipped.append(repo_id)
+
+        #     if reason == "not_in_filtered_paths":
+        #         logger.warning(f"Skipping {repo_id}: not in filtered S3 paths")
+        #     elif reason and reason.startswith("embodiment_mismatch"):
+        #         logger.warning(f"Skipping {repo_id}: {reason}")
+        #     else:
+        #         logger.error(f"Failed to load {repo_id} as RLDBDataset:\n{err}")
+
+        # return datasets, skipped
 
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futures = [
