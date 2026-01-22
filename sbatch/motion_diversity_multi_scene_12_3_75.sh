@@ -2,7 +2,7 @@
 #SBATCH --job-name=motion_diversity_multi_scene_12_3_75
 #SBATCH --output=sbatch_logs/motion_diversity_multi_scene_12_3_75.out
 #SBATCH --error=sbatch_logs/motion_diversity_multi_scene_12_3_75.err
-#SBATCH --partition="rl2-lab"
+#SBATCH --partition="overcap"
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=12

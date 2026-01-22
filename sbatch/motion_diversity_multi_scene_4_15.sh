@@ -6,7 +6,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=12
-#SBATCH --gpus-per-node="l40s:1"
+#SBATCH --gpus-per-node="a40:1"
 #SBATCH --qos="short"
 #SBATCH --exclude="clippy"
 
