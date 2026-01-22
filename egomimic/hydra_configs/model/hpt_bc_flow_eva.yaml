@@ -11,7 +11,7 @@ robomimic_model:
   6dof: true
 
   ac_keys:
-    eva_right_arm: "actions_cartesian"
+    eva_bimanual: "actions_cartesian"
 
   kinematics_solver:
     _target_: egomimic.robot.eva.eva_kinematics.EvaMinkKinematicsSolver
@@ -34,7 +34,7 @@ robomimic_model:
   pretrained_checkpoint: "" # TODO
   reverse_kl_samples: 8
   
-  domains: ["eva_right_arm"]
+  domains: ["eva_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
   shared_stem_specs:
@@ -53,7 +53,20 @@ robomimic_model:
           modality_embed_dim: 256
           
   stem_specs:
-    eva_right_arm:
+    eva_bimanual:
+      left_wrist_img:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
       right_wrist_img:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
         input_dim: 256
@@ -69,7 +82,7 @@ robomimic_model:
             modality_embed_dim: 256
       state_joint_positions:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 7
+        input_dim: 14
         output_dim: 256
         widths: [256]
         specs:
@@ -82,20 +95,20 @@ robomimic_model:
             modality_embed_dim: 256
 
   head_specs:
-    eva_right_arm: 
+    eva_bimanual: 
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        eva_right_arm: 7
+        eva_bimanual: 14
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 7
+        act_dim: 14
         act_seq: 100
         n_heads: 4
         dropout: 0.1
@@ -107,6 +120,9 @@ robomimic_model:
       _target_: egomimic.models.hpt_nets.ResNet
       output_dim: 256
     right_wrist_img:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 256
+    left_wrist_img:
       _target_: egomimic.models.hpt_nets.ResNet
       output_dim: 256
 

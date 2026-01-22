@@ -1,7 +1,7 @@
 defaults:
   - model: hpt_bc_flow_eva
   - paths: default
-  - trainer: debug
+  - trainer: ddp
   - debug: null
   - logger: wandb
   - data: eva_bc_s3
@@ -36,13 +36,16 @@ data_schematic: # Dynamically fill in these shapes from the dataset
   _target_: egomimic.rldb.utils.DataSchematic
   norm_mode: quantile
   schematic_dict:
-    eva_right_arm:
+    eva_bimanual:
       front_img_1: #batch key
         key_type: camera_keys # key type
         lerobot_key: observations.images.front_img_1 # dataset key
       right_wrist_img:
         key_type: camera_keys
         lerobot_key: observations.images.right_wrist_img
+      left_wrist_img:
+        key_type: camera_keys
+        lerobot_key: observations.images.left_wrist_img
       ee_pose:
         key_type: proprio_keys
         lerobot_key: observations.state.ee_pose
@@ -58,7 +61,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
-    aria_right_arm:
+    aria_bimanual:
       front_img_1:
         key_type: camera_keys
         lerobot_key: observations.images.front_img_1
@@ -91,9 +94,9 @@ data_schematic: # Dynamically fill in these shapes from the dataset
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
   viz_img_key: 
-    eva_right_arm:
+    eva_bimanual:
       front_img_1
-    aria_right_arm:
+    aria_bimanual:
       front_img_1
     mecka_bimanual:
       base_0_rgb

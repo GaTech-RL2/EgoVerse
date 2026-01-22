@@ -7,7 +7,7 @@ wandb:
   offline: False
   id: "${name}_${description}_${now:%Y-%m-%d_%H-%M-%S}" # pass correct id to resume experiment!
   anonymous: null # enable anonymous logging
-  project: "everse_object_in_container"
+  project: "everse_flagship"
   log_model: False # upload lightning ckpts
   prefix: "" # a string to put at the beginning of metric keys
   entity: "rl2-group" # set to name of your wandb team

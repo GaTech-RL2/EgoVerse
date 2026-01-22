@@ -3,16 +3,16 @@ defaults:
 
 robomimic_model:
   ac_keys:
-    eva_right_arm: "actions_cartesian"
-    aria_right_arm: "actions_cartesian"
+    eva_bimanual: "actions_cartesian"
+    aria_bimanual: "actions_cartesian"
   shared_ac_key: "actions_cartesian"
 
   6dof: true
   diffusion: true
   
   head_specs:
-    aria_right_arm: null
-    eva_right_arm: null
+    aria_bimanual: null
+    eva_bimanual: null
     shared:
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
@@ -21,14 +21,14 @@ robomimic_model:
       padding: "zero"
       time_dist: "beta"
       infer_ac_dims:
-        eva_right_arm: 7
-        aria_right_arm: 7
+        eva_bimanual: 14
+        aria_bimanual: 14
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 7
+        act_dim: 14
         act_seq: 100
         n_heads: 4
         dropout: 0.1

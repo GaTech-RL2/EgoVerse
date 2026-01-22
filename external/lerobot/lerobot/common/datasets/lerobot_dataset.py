@@ -31,7 +31,7 @@ import numpy as np
 import PIL.Image
 import torch
 import torch.utils
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from huggingface_hub import create_repo, snapshot_download, upload_folder
 
 
@@ -585,21 +585,20 @@ class LeRobotDataset(torch.utils.data.Dataset):
 
         self.pull_from_repo(allow_patterns=files, ignore_patterns=ignore_patterns)
 
-    def load_hf_dataset(self) -> Dataset:
+    def load_hf_dataset(self) -> datasets.Dataset:
+        """hf_dataset contains all the observations, states, actions, rewards, etc."""
         if self.episodes is None:
-            data_dir = self.root / "data"
-            files = []
-            for chunk in sorted(data_dir.glob("chunk-*")):
-                files.extend(sorted(chunk.glob("*.parquet")))
-            if not files:
-                raise FileNotFoundError(f"No parquet files found under {data_dir}")
-            files = [str(p) for p in files]
+            path = str(self.root / "data")
+            hf_dataset = load_dataset("parquet", data_dir=path, split="train")
         else:
             files = [str(self.root / self.meta.get_data_file_path(ep_idx)) for ep_idx in self.episodes]
+            hf_dataset = load_dataset("parquet", data_files=files, split="train")
 
-        hf_dataset = Dataset.from_parquet(files)
+        # TODO(aliberts): hf_dataset.set_format("torch")
         hf_dataset = hf_dataset.with_format("arrow")
+
         hf_dataset.set_transform(hf_transform_to_torch)
+
         return hf_dataset
 
     @property
