@@ -1060,7 +1060,7 @@ class HPT(Algo):
         unnorm_preds = {}
         for embodiment_id, _batch in batch.items():
             cam_keys = self.camera_keys[embodiment_id]
-            proprio_keys = self.proprio_keys[embodiment_id] 
+            proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
             embodiment_name = get_embodiment(embodiment_id).lower()
@@ -1197,7 +1197,10 @@ class HPT(Algo):
                 }
                 rkl_targets = []
 
-                if f"{embodiment_name}_{ac_key}" in preds and ac_key != self.shared_ac_key:
+                if (
+                    f"{embodiment_name}_{ac_key}" in preds
+                    and ac_key != self.shared_ac_key
+                ):
                     rkl_targets.append(
                         (
                             f"{embodiment_name}_{ac_key}",
@@ -1283,9 +1286,27 @@ class HPT(Algo):
                         arm = "right"
                     else:
                         raise ValueError(f"Unknown embodiment name: {embodiment_name}")
-                    ims[b] = draw_actions(ims[b], ac_type, "Purples", preds[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm, kinematics_solver=self.kinematics_solver)
-                    ims[b] = draw_actions(ims[b], ac_type, "Greens", gt[b].cpu().numpy(), self.camera_transforms.extrinsics, self.camera_transforms.intrinsics, arm=arm, kinematics_solver=self.kinematics_solver)
-                    
+                    ims[b] = draw_actions(
+                        ims[b],
+                        ac_type,
+                        "Purples",
+                        preds[b].cpu().numpy(),
+                        self.camera_transforms[embodiment_name].extrinsics,
+                        self.camera_transforms[embodiment_name].intrinsics,
+                        arm=arm,
+                        kinematics_solver=self.kinematics_solver,
+                    )
+                    ims[b] = draw_actions(
+                        ims[b],
+                        ac_type,
+                        "Greens",
+                        gt[b].cpu().numpy(),
+                        self.camera_transforms[embodiment_name].extrinsics,
+                        self.camera_transforms[embodiment_name].intrinsics,
+                        arm=arm,
+                        kinematics_solver=self.kinematics_solver,
+                    )
+
                     if self.is_6dof and ac_key == "actions_cartesian":
                         ims[b] = draw_rotation_text(
                             ims[b], gt_rot[b][0], preds_rot[b][0], position=(340, 20)
