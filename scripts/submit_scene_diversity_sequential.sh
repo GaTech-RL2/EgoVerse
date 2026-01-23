@@ -1,11 +1,12 @@
 #!/bin/bash
 # Script to submit scene_diversity_16 jobs sequentially with 30 seconds delay between each
+# Updated for organized sbatch structure: sbatch/scene_diversity/
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-# SBATCH files are in sbatch/ directory at the project root
+# SBATCH files are in sbatch/scene_diversity/ subdirectory at the project root
 PROJECT_ROOT="$( cd "${SCRIPT_DIR}/.." && pwd )"
-SBATCH_DIR="${PROJECT_ROOT}/sbatch"
+SBATCH_DIR="${PROJECT_ROOT}/sbatch/scene_diversity"
 
 # Array of scene_diversity_16 files (in order from 60 to 3.75 minutes)
 declare -a sbatch_files=(
@@ -31,7 +32,7 @@ fail_count=0
 # Submit each job with delay
 for sbatch_file in "${sbatch_files[@]}"; do
     ((job_num++))
-    file_path="${SBATCH_DIR}/scene_diversity/${sbatch_file}"
+    file_path="${SBATCH_DIR}/${sbatch_file}"
     
     if [ ! -f "$file_path" ]; then
         echo "[$job_num/${#sbatch_files[@]}] WARNING: File not found: ${file_path}"
