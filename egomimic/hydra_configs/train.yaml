@@ -75,7 +75,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
     mecka_bimanual:
-      base_0_rgb:
+      front_img_1:
         key_type: camera_keys
         lerobot_key: observations.images.front_img_1
       ee_pose:
@@ -99,4 +99,4 @@ data_schematic: # Dynamically fill in these shapes from the dataset
     aria_bimanual:
       front_img_1
     mecka_bimanual:
-      base_0_rgb
+      front_img_1

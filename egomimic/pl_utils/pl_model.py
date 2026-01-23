@@ -90,19 +90,22 @@ class ModelWrapper(LightningModule):
 
         if self.loss_ema is None:
             self.loss_ema = loss_val
-        else:
-            self.loss_ema = (
-                self.loss_ema_decay * self.loss_ema
-                + (1.0 - self.loss_ema_decay) * loss_val
-            )
+            return loss
 
-        if loss_val > self.loss_spike_factor * self.loss_ema:
+        prev_ema = self.loss_ema
+        if loss_val > self.loss_spike_factor * prev_ema:
             if self.global_rank == 0:
                 print(
                     f"[SKIP] Loss spike at batch {batch_idx}: "
-                    f"{loss_val.item():.4f} (EMA {self.loss_ema.item():.4f})",
+                    f"{loss_val.item():.4f} (EMA {prev_ema.item():.4f})",
                     flush=True,
                 )
+            return None
+
+        self.loss_ema = (
+            self.loss_ema_decay * self.loss_ema + (1.0 - self.loss_ema_decay) * loss_val
+        )
+
         return loss
 
     def on_validation_start(self):
