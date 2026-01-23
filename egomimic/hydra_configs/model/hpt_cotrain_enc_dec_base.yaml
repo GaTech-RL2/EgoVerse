@@ -7,8 +7,8 @@ robomimic_model:
     intrinsics_key: "base" # change to base_half if using half res 
     extrinsics_key: "x5Dec13_2"
   ac_keys:
-    aria_right_arm: "actions_cartesian"
-    eva_right_arm: "actions_joints"
+    aria_bimanual: "actions_cartesian"
+    eva_bimanual: "actions_joints"
 
   6dof: true
   trunk:
@@ -26,7 +26,7 @@ robomimic_model:
   multitask: false
   pretrained: false
   pretrained_checkpoint: null
-  domains: ["eva_right_arm", "aria_right_arm"]
+  domains: ["eva_bimanual", "aria_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
   shared_stem_specs:
@@ -45,10 +45,10 @@ robomimic_model:
           modality_embed_dim: 256
   
   stem_specs:
-    aria_right_arm:
+    aria_bimanual:
       state_ee_pose:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 6
+        input_dim: 12
         output_dim: 256
         widths: [256]
         specs:
@@ -60,10 +60,10 @@ robomimic_model:
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 256
     
-    eva_right_arm:
+    eva_bimanual:
       state_joint_positions:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 7
+        input_dim: 14
         output_dim: 256
         widths: [256]
         specs:
@@ -87,24 +87,24 @@ robomimic_model:
             crossattn_dim_head: 64
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 256
-      # left_wrist_img:
-      #   _target_: egomimic.models.hpt_nets.MLPPolicyStem
-      #   input_dim: 256
-      #   output_dim: 256
-      #   widths: [256]
-      #   specs:
-      #     random_horizon_masking: false
-      #     cross_attn:
-      #       crossattn_latent: 16
-      #       crossattn_heads: 8
-      #       crossattn_dim_head: 64
-      #       crossattn_modality_dropout: 0.1
-      #       modality_embed_dim: 256
+      left_wrist_img:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
   head_specs:
-    aria_right_arm:
+    aria_bimanual:
       _target_: egomimic.models.hpt_nets.MultiBlockTransformerDecoder
       input_dim: 256
-      output_dim: 6
+      output_dim: 12
       action_horizon: 100
       latent_token_len: 8
       num_heads: 8
@@ -112,7 +112,7 @@ robomimic_model:
       dropout: 0.1
       num_layers: 8
       final_norm: true
-    eva_right_arm:
+    eva_bimanual:
       _target_: egomimic.models.hpt_nets.MultiBlockTransformerDecoder
       input_dim: 256
       output_dim: 7
@@ -135,10 +135,10 @@ robomimic_model:
       _target_: egomimic.models.hpt_nets.ResNet
       output_dim: 256
       num_of_copy: 1
-    # left_wrist_img:
-    #   _target_: egomimic.models.hpt_nets.ResNet
-    #   output_dim: 256
-    #   num_of_copy: 1
+    left_wrist_img:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 256
+      num_of_copy: 1
 
   train_image_augs:
     _target_: torchvision.transforms.Compose

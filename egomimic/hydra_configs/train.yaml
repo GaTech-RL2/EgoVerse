@@ -1,15 +1,15 @@
 defaults:
-  - model: hpt_bc_flow_aria
+  - model: hpt_bc_flow_eva
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva_bc_s3
+  - data: single_scene_fold_clothes_eva_only
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
 
-name: 0115_val_liqian
+name: 0117_cotrain_eva_aria
 description: nan
 ckpt_path: null
 train: true
