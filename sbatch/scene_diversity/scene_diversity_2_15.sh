@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=scene_diversity_1_30
-#SBATCH --output=sbatch_logs/scene_diversity_1_30.out
-#SBATCH --error=sbatch_logs/scene_diversity_1_30.err
+#SBATCH --job-name=scene_diversity_2_15
+#SBATCH --output=sbatch_logs/scene_diversity_2_15.out
+#SBATCH --error=sbatch_logs/scene_diversity_2_15.err
 #SBATCH --partition="hoffman-lab"
 #SBATCH --account="hoffman-lab"
 #SBATCH --nodes=1
@@ -23,7 +23,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 python egomimic/trainHydra.py \
     --config-name=train.yaml \
-    data=scene_diversity_1_30 \
+    data=scene_diversity/scene_diversity_2_15 \
     logger.wandb.project=everse_scenes_diveristy_fold_clothes \
     name=fold-clothes \
-    description=scenes-1-time-30
+    description=scenes-2-time-15

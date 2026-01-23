@@ -41,7 +41,7 @@ def main() -> None:
     repo_root = egomimic_root.parent
     sys.path.insert(0, str(repo_root))
     default_config_path = egomimic_root / "hydra_configs"
-    default_data_cfg = default_config_path / "data" / "single_scene_fold_clothes_eva_only.yaml"
+    default_data_cfg = default_config_path / "data" / "single_scene" / "single_scene_fold_clothes_eva_only.yaml"
     default_train_cfg = default_config_path / "train.yaml"
     default_output = scripts_dir / "frozen_front_img_1_stride60.txt"
 

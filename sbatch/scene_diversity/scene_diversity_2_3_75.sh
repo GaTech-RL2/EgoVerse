@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=scene_diversity_16_30
-#SBATCH --output=sbatch_logs/scene_diversity_16_30.out
-#SBATCH --error=sbatch_logs/scene_diversity_16_30.err
-#SBATCH --partition="rl2-lab"
-#SBATCH --account="rl2-lab"
+#SBATCH --job-name=scene_diversity_2_3_75
+#SBATCH --output=sbatch_logs/scene_diversity_2_3_75.out
+#SBATCH --error=sbatch_logs/scene_diversity_2_3_75.err
+#SBATCH --partition="hoffman-lab"
+#SBATCH --account="hoffman-lab"
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=12
-#SBATCH --gpus-per-node="l40s:1"
+#SBATCH --gpus-per-node="a40:1"
 #SBATCH --qos="short"
 #SBATCH --exclude="clippy"
 
@@ -23,7 +23,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 python egomimic/trainHydra.py \
     --config-name=train.yaml \
-    data=scene_diversity_16_30 \
+    data=scene_diversity/scene_diversity_2_3_75 \
     logger.wandb.project=everse_scenes_diveristy_fold_clothes \
     name=fold-clothes \
-    description=scenes-16-time-30
+    description=scenes-2-time-3_75

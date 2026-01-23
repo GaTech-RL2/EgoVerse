@@ -4,7 +4,7 @@ defaults:
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: single_scene_fold_clothes_eva_only
+  - data: single_scene/single_scene_fold_clothes_eva_only
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_

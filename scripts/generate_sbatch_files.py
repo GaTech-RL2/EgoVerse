@@ -2,7 +2,7 @@
 """Generate SBATCH files for all scene diversity configs."""
 
 # Read template
-with open('sbatch/scene_diversity_8_60.sh', 'r') as f:
+with open('sbatch/scene_diversity/scene_diversity_8_60.sh', 'r') as f:
     template = f.read()
 
 # Configurations
@@ -45,7 +45,7 @@ for num_scenes, minutes_per_scene, description in configs:
     # Ensure partition is hoffman-lab (in case template was updated)
     content = content.replace('"rl2-lab"', '"hoffman-lab"')
     
-    filename = f'sbatch/{job_name}.sh'
+    filename = f'sbatch/scene_diversity/{job_name}.sh'
     with open(filename, 'w') as f:
         f.write(content)
     

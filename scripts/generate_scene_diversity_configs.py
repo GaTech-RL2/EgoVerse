@@ -5,7 +5,7 @@ import yaml
 import re
 
 # Read base config
-with open('egomimic/hydra_configs/data/scene_diversity_8_60.yaml', 'r') as f:
+with open('egomimic/hydra_configs/data/scene_diversity/scene_diversity_8_60.yaml', 'r') as f:
     base = yaml.safe_load(f)
 
 base_datasets = base['train_datasets']['dataset1']['datasets']
@@ -34,7 +34,7 @@ def create_config_file(num_scenes, minutes_per_scene, num_operators):
     
     # Format filename
     time_str = str(minutes_per_scene).replace('.', '_')
-    filename = f'egomimic/hydra_configs/data/scene_diversity_{num_scenes}_{time_str}.yaml'
+    filename = f'egomimic/hydra_configs/data/scene_diversity/scene_diversity_{num_scenes}_{time_str}.yaml'
     
     # Write file with proper formatting matching base file
     with open(filename, 'w') as f:

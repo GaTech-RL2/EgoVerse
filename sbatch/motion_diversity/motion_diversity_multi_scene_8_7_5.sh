@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=motion_diversity_multi_scene_4_15
-#SBATCH --output=sbatch_logs/motion_diversity_multi_scene_4_15.out
-#SBATCH --error=sbatch_logs/motion_diversity_multi_scene_4_15.err
-#SBATCH --partition="rl2-lab"
+#SBATCH --job-name=motion_diversity_multi_scene_8_7_5
+#SBATCH --output=sbatch_logs/motion_diversity_multi_scene_8_7_5.out
+#SBATCH --error=sbatch_logs/motion_diversity_multi_scene_8_7_5.err
+#SBATCH --partition="overcap"
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=12
@@ -22,7 +22,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 python egomimic/trainHydra.py \
     --config-name=train.yaml \
-    data=motion_diversity_multi_scene_4_15 \
+    data=motion_diversity/motion_diversity_multi_scene_8_7_5 \
     logger.wandb.project=everse_motion_diversity_multi_scene_fold_clothes \
     name=fold-clothes \
-    description=operator-4-time-15
+    description=operator-8-time-7_5

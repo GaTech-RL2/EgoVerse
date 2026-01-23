@@ -31,7 +31,7 @@ fail_count=0
 # Submit each job with delay
 for sbatch_file in "${sbatch_files[@]}"; do
     ((job_num++))
-    file_path="${SBATCH_DIR}/${sbatch_file}"
+    file_path="${SBATCH_DIR}/scene_diversity/${sbatch_file}"
     
     if [ ! -f "$file_path" ]; then
         echo "[$job_num/${#sbatch_files[@]}] WARNING: File not found: ${file_path}"

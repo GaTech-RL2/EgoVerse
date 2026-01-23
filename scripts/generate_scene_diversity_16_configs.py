@@ -6,7 +6,7 @@ import re
 from collections import defaultdict
 
 # Read base config
-with open('egomimic/hydra_configs/data/scene_diversity_16_60.yaml', 'r') as f:
+with open('egomimic/hydra_configs/data/scene_diversity/scene_diversity_16_60.yaml', 'r') as f:
     base = yaml.safe_load(f)
 
 base_datasets = base['train_datasets']['dataset1']['datasets']
@@ -80,7 +80,7 @@ def create_config_file(minutes_per_scene, num_entries_per_scene):
     
     # Format filename
     time_str = str(minutes_per_scene).replace('.', '_')
-    filename = f'egomimic/hydra_configs/data/scene_diversity_16_{time_str}.yaml'
+    filename = f'egomimic/hydra_configs/data/scene_diversity/scene_diversity_16_{time_str}.yaml'
     
     # Group datasets by scene for proper formatting
     scenes_dict = defaultdict(lambda: defaultdict(list))

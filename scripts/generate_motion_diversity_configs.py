@@ -246,7 +246,7 @@ def main():
         df = df.drop('Total')
     
     # Output directory
-    output_dir = Path('egomimic/hydra_configs/data')
+    output_dir = Path('egomimic/hydra_configs/data/motion_diversity')
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Generate all 3 config files
