@@ -660,7 +660,7 @@ class YAMInterface:
         self, 
         ee_pose: np.ndarray, 
         arm: str,
-        damping: float = 1e-3,
+        damping: float = 1e-4,
         max_iters: int = 500,
         pos_threshold: float = 1e-3,
         ori_threshold: float = 1e-3,
