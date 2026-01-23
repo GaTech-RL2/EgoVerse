@@ -4,22 +4,22 @@ train_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
-    temp_root: "/coc/flash7/rpunamiya6/Projects/local_egoverse"
     mode: train
-    embodiment: "eva_right_arm"
+    embodiment: "eva_bimanual"
+    cache_root: "/coc/flash7/rpunamiya6/.cache"
     filters: 
-      task: "object in container"
+      task: "fold clothes"
     local_files_only: True
 
 valid_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
-    temp_root: "/coc/flash7/rpunamiya6/Projects/local_egoverse"
     mode: valid
-    embodiment: "eva_right_arm"
+    embodiment: "eva_bimanual"
+    cache_root: "/coc/flash7/rpunamiya6/.cache"
     filters: 
-      task: "object in container"
+      task: "fold clothes"
     local_files_only: True
 
 train_dataloader_params:

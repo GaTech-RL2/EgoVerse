@@ -9,6 +9,8 @@ robomimic_model:
   ac_keys:
     aria_bimanual: "actions_cartesian"
     eva_bimanual: "actions_joints"
+  
+  reverse_kl_samples: 8
 
   6dof: true
   trunk:
@@ -115,7 +117,7 @@ robomimic_model:
     eva_bimanual:
       _target_: egomimic.models.hpt_nets.MultiBlockTransformerDecoder
       input_dim: 256
-      output_dim: 7
+      output_dim: 14
       action_horizon: 100
       latent_token_len: 8
       num_heads: 8

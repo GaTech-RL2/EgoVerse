@@ -2,7 +2,6 @@ import os
 from collections import OrderedDict
 
 import numpy as np
-import psutil
 import egomimic.utils.tensor_utils as TensorUtils
 import torch
 from lightning import LightningModule
@@ -12,6 +11,7 @@ from typing import Any, Dict
 import torchvision.io as tvio
 from lightning.pytorch.utilities import rank_zero_only
 from egomimic.rldb.utils import get_embodiment
+import egomimic.utils.memory_utils as memutils
 
 
 class ModelWrapper(LightningModule):
@@ -39,6 +39,7 @@ class ModelWrapper(LightningModule):
         self.step_log_all_valid = []
 
         self.val_image_buffer, self.val_counter = {}, {}
+        self.epoch_memory_stats = []  # Store memory stats per epoch
         # TODO __init__ should take the config, and init the model here.  Then save_hyperparameters will just save the config rather than the model
 
     def root_dir(self):
@@ -73,13 +74,14 @@ class ModelWrapper(LightningModule):
 
         return losses["action_loss"]
 
-    @rank_zero_only
     def on_validation_start(self):
-        # make the video directory for this epoch
-        os.makedirs(
-            os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}"),
-            exist_ok=True,
-        )
+        self.model.device = self.device
+        
+        if self.trainer.is_global_zero:
+            os.makedirs(
+                os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}"),
+                exist_ok=True,
+            )
 
     @rank_zero_only
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
@@ -165,6 +167,10 @@ class ModelWrapper(LightningModule):
             }
         return {"optimizer": optimizer}
 
+    
+    def on_fit_start(self):
+        self.model.device = self.device
+
     def on_train_epoch_start(self):
         # flatten and take the mean of the metrics
         log = {}
@@ -179,12 +185,5 @@ class ModelWrapper(LightningModule):
         for k, v in log_all.items():
             self.log("Train/" + k, v, sync_dist=True)
         self.step_log_all_train = []
-
-        # Finally, log memory usage in MB
-        process = psutil.Process(os.getpid())
-        mem_usage = process.memory_info().rss / int(1e9)
-        print("\nEpoch {} Memory Usage: {} GB\n".format(self.current_epoch, mem_usage))
-        # self.log('epoch', self.trainer.current_epoch)
-        self.log("System/RAM Usage (GB)", mem_usage, sync_dist=True)
 
         return super().on_train_epoch_start()

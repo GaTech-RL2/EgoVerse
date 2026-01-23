@@ -677,6 +677,7 @@ class MeckaDatasetConverter:
         self.video_encoding = video_encoding
         self.local_data_dir = Path(local_data_dir) if local_data_dir is not None else None
         self.output_dir = None
+        self._mp4_path = None
 
         if arm == "both":
             robotype = EMBODIMENT.MECKA_BIMANUAL
@@ -737,8 +738,11 @@ class MeckaDatasetConverter:
 
         logger.info(f"Processing {len(frames)} frames in sub-episodes of {EPISODE_LENGTH}")
 
+        mp4_frames = []
         sub_episode_idx = 0
         for t, frame in enumerate(frames):
+            if self._mp4_path is not None and "observations.images.front_img_1" in frame:
+                mp4_frames.append(frame["observations.images.front_img_1"])
             self.buffer.append(frame)
 
             if len(self.buffer) == EPISODE_LENGTH:
@@ -766,6 +770,10 @@ class MeckaDatasetConverter:
             self._save_annotations(sub_episode_idx)
 
             self.buffer.clear()
+
+        if self._mp4_path is not None and mp4_frames:
+            episode_id = self.episode_feats["episode_meta"].get("id", "unknown")
+            self.save_preview_mp4(mp4_frames, self._mp4_path / f"{episode_id}_video.mp4")
 
     def _save_annotations(self, sub_episode_idx: int):
         """
@@ -798,6 +806,75 @@ class MeckaDatasetConverter:
         annotations_path.parent.mkdir(parents=True, exist_ok=True)
         filtered_annotations.to_csv(annotations_path, index=False)
         logger.info(f"Saved annotations: {annotations_path}")
+
+    def save_preview_mp4(self, image_frames: list, output_path: Path, fps: int = 30):
+        """Save a half-resolution H.264 MP4 preview."""
+        import subprocess
+        import torch.nn.functional as F
+
+        if not image_frames:
+            return
+
+        C, H, W = image_frames[0].shape
+        outW, outH = (W // 2) & ~1, (H // 2) & ~1
+        if outW <= 0 or outH <= 0:
+            raise ValueError(f"Invalid output size: {outW}x{outH}")
+
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        rgb_frames = []
+        for chw in image_frames:
+            t = chw.detach().cpu()
+            if t.dtype != torch.uint8:
+                t = t.to(torch.uint8)
+            if t.shape[0] == 1:
+                t = t.repeat(3, 1, 1)
+            t_resized = F.interpolate(
+                t.unsqueeze(0).float(),
+                size=(outH, outW),
+                mode="bilinear",
+                align_corners=False,
+            ).squeeze(0).to(torch.uint8)
+            rgb_frames.append(t_resized.permute(1, 2, 0).contiguous())
+
+        video_tensor = torch.stack(rgb_frames, dim=0)
+
+        try:
+            from torchvision.io import write_video
+            write_video(
+                filename=str(output_path),
+                video_array=video_tensor,
+                fps=float(fps),
+                video_codec="libx264",
+                options={"crf": "23", "preset": "veryfast"},
+            )
+            logger.info(f"Saved MP4: {output_path}")
+            return
+        except Exception as e:
+            logger.warning(f"torchvision failed ({e}), trying ffmpeg...")
+
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is None:
+            raise RuntimeError("Neither torchvision nor ffmpeg available")
+
+        cmd = [
+            ffmpeg, "-y",
+            "-f", "rawvideo", "-vcodec", "rawvideo", "-pix_fmt", "bgr24",
+            "-s", f"{outW}x{outH}", "-r", str(fps), "-i", "-", "-an",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-profile:v", "baseline", "-level", "3.0",
+            "-movflags", "+faststart", "-preset", "veryfast", "-crf", "23",
+            str(output_path),
+        ]
+
+        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        for hwc in rgb_frames:
+            proc.stdin.write(hwc.numpy()[..., ::-1].tobytes())
+        proc.stdin.close()
+        if proc.wait() != 0:
+            raise RuntimeError(f"ffmpeg failed: {proc.stderr.read().decode()}")
+        logger.info(f"Saved MP4: {output_path}")
 
     def consolidate(self):
         """Consolidate dataset and update metadata."""
@@ -847,6 +924,7 @@ def main():
     parser.add_argument("--no-prestack", action="store_true", help="Disable action prestacking")
     parser.add_argument("--video-encoding", action="store_true", help="Encode images as video. Default is to embed in parquet.")
     parser.add_argument("--local-data-dir", type=str, default=None, help="Path to directory containing pre-downloaded episode files (video.mp4 or <id>_video.mp4, hands.csv, egomotion.txt, frames.csv, annotations.csv). If set, downloads are skipped.")
+    parser.add_argument("--save-mp4", action="store_true", help="Save half-res H.264 preview MP4")
 
     args = parser.parse_args()
 
@@ -864,6 +942,8 @@ def main():
             video_encoding=args.video_encoding,
             local_data_dir=args.local_data_dir,
         )
+        if args.save_mp4:
+            converter._mp4_path = Path(args.output_dir)
 
         converter.init_lerobot_dataset(args.output_dir)
 

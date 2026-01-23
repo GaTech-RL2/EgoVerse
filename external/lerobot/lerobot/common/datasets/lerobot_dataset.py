@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+
 # Copyright 2024 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,15 +22,18 @@ from pathlib import Path
 from typing import Callable
 import random
 
+
 from pyarrow.dataset import dataset
+
 
 import datasets
 import numpy as np
 import PIL.Image
 import torch
 import torch.utils
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
 from huggingface_hub import create_repo, snapshot_download, upload_folder
+
 
 from lerobot.common.datasets.compute_stats import aggregate_stats, compute_stats
 from lerobot.common.datasets.image_writer import AsyncImageWriter, write_image
@@ -69,9 +73,10 @@ from lerobot.common.datasets.video_utils import (
 )
 from lerobot.common.robot_devices.robots.utils import Robot
 
+
 # For maintainers, see lerobot/common/datasets/push_dataset_to_hub/CODEBASE_VERSION.md
 CODEBASE_VERSION = "v2.0"
-LEROBOT_HOME = Path(os.getenv("LEROBOT_HOME", "~/.cache/huggingface/lerobot")).expanduser()
+LEROBOT_HOME = Path(os.environ.get("HF_HOME", "~/.cache/huggingface")).expanduser() / "lerobot"
 SEED = 42
 
 
@@ -261,6 +266,7 @@ class LeRobotDatasetMetadata:
         """
         Updates `self.info["splits"]` with episode indices.
 
+
         Args:
             seed (int): Seed for reproducibility.
             valid_ratio (float): Fraction of episodes to assign to the validation set.
@@ -362,11 +368,13 @@ class LeRobotDataset(torch.utils.data.Dataset):
         """
         2 modes are available for instantiating this class, depending on 2 different use cases:
 
+
         1. Your dataset already exists:
             - On your local disk in the 'root' folder. This is typically the case when you recorded your
               dataset locally and you may or may not have pushed it to the hub yet. Instantiating this class
               with 'root' will load your dataset directly from disk. This can happen while you're offline (no
               internet connection), in that case, use local_files_only=True.
+
 
             - On the Hugging Face Hub at the address https://huggingface.co/datasets/{repo_id} and not on
               your local disk in the 'root' folder. Instantiating this class with this 'repo_id' will download
@@ -376,9 +384,13 @@ class LeRobotDataset(torch.utils.data.Dataset):
               lerobot/common/datasets/v2/convert_dataset_v1_to_v2.py.
 
 
+
+
         2. Your dataset doesn't already exists (either on local disk or on the Hub): you can create an empty
            LeRobotDataset with the 'create' classmethod. This can be used for recording a dataset or port an
            existing dataset to the LeRobotDataset format.
+
+
 
 
         In terms of files, LeRobotDataset encapsulates 3 main things:
@@ -389,6 +401,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
                   task-conditionned training.
             - hf_dataset (from datasets.Dataset), which will read any values from parquet files.
             - videos (optional) from which frames are loaded to be synchronous with data from parquet files.
+
 
         A typical LeRobotDataset looks like this from its root path:
         .
@@ -424,12 +437,14 @@ class LeRobotDataset(torch.utils.data.Dataset):
             ├── chunk-001
             └── ...
 
+
         Note that this file-based structure is designed to be as versatile as possible. The files are split by
         episodes which allows a more granular control over which episodes one wants to use and download. The
         structure of the dataset is entirely described in the info.json file, which can be easily downloaded
         or viewed directly on the hub before downloading any actual data. The type of files used are very
         simple and do not need complex tools to be read, it only uses .parquet, .json and .mp4 files (and .md
         for the README).
+
 
         Args:
             repo_id (str): This is the repo id that will be used to fetch the dataset. Locally, the dataset
@@ -779,6 +794,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
         disk, it sets self.consolidated to False to ensure proper consolidation later on before uploading to
         the hub.
 
+
         Use 'encode_videos' if you want to encode videos during the saving of this episode. Otherwise,
         you can do it later with dataset.consolidate(). This is to give more flexibility on when to spend
         time for video encoding.
@@ -1005,6 +1021,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
 class MultiLeRobotDataset(torch.utils.data.Dataset):
     """A dataset consisting of multiple underlying `LeRobotDataset`s.
 
+
     The underlying `LeRobotDataset`s are effectively concatenated, and this class adopts much of the API
     structure of `LeRobotDataset`.
     """
@@ -1070,6 +1087,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
     def repo_id_to_index(self):
         """Return a mapping from dataset repo_id to a dataset index automatically created by this class.
 
+
         This index is incorporated as a data key in the dictionary returned by `__getitem__`.
         """
         return {repo_id: i for i, repo_id in enumerate(self.repo_ids)}
@@ -1083,6 +1101,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
     def fps(self) -> int:
         """Frames per second used during data collection.
 
+
         NOTE: Fow now, this relies on a check in __init__ to make sure all sub-datasets have the same info.
         """
         return self._datasets[0].meta.info["fps"]
@@ -1091,7 +1110,9 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
     def video(self) -> bool:
         """Returns True if this dataset loads video frames from mp4 files.
 
+
         Returns False if it only loads images from png files.
+
 
         NOTE: Fow now, this relies on a check in __init__ to make sure all sub-datasets have the same info.
         """
@@ -1116,6 +1137,7 @@ class MultiLeRobotDataset(torch.utils.data.Dataset):
     @property
     def video_frame_keys(self) -> list[str]:
         """Keys to access video frames that requires to be decoded into images.
+
 
         Note: It is empty if the dataset contains images only,
         or equal to `self.cameras` if the dataset contains videos only,

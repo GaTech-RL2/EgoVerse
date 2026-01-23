@@ -47,6 +47,9 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       right_wrist_img:
         key_type: camera_keys
         lerobot_key: observations.images.right_wrist_img
+      left_wrist_img:
+        key_type: camera_keys
+        lerobot_key: observations.images.left_wrist_img
       ee_pose:
         key_type: proprio_keys
         lerobot_key: observations.state.ee_pose
