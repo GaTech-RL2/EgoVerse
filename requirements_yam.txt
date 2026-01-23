@@ -37,6 +37,11 @@ python-can>=4.0.0
 # Evdev for gamepad/controller input (used by i2rt)
 evdev>=1.7.0
 
+# ZeroMQ for low-latency streaming to inference server
+pyzmq>=25.0.0
+msgpack>=1.0.0
+msgpack-numpy>=0.4.8
+
 # Note: i2rt library is installed separately via:
 #   git clone https://github.com/i2rt-robotics/i2rt.git
 #   pip install -e i2rt/
