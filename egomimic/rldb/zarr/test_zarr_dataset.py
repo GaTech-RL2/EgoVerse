@@ -98,13 +98,13 @@ def create_mock_zarr_dataset(root: Path, num_episodes: int = 3, frames_per_episo
         states = np.random.randn(frames_per_episode, 14).astype(np.float32)
 
         # Write arrays
-        store.create_dataset("timestamp", data=timestamps)
-        store.create_dataset("frame_index", data=frame_indices)
-        store.create_dataset("episode_index", data=episode_indices)
-        store.create_dataset("index", data=indices)
-        store.create_dataset("task_index", data=task_indices)
-        store.create_dataset("action", data=actions)
-        store.create_dataset("observation.state", data=states)
+        store.create_dataset("timestamp", shape=timestamps.shape, data=timestamps)
+        store.create_dataset("frame_index", shape=frame_indices.shape, data=frame_indices)
+        store.create_dataset("episode_index", shape=episode_indices.shape, data=episode_indices)
+        store.create_dataset("index", shape=indices.shape, data=indices)
+        store.create_dataset("task_index", shape=task_indices.shape, data=task_indices)
+        store.create_dataset("action", shape=actions.shape, data=actions)
+        store.create_dataset("observation.state", shape=states.shape, data=states)
 
         global_idx += frames_per_episode
 
