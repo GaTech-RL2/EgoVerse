@@ -416,12 +416,12 @@ class ZarrDataset(torch.utils.data.Dataset):
             self._num_frames = int(self.episode_data_index["to"][-1]) if len(self.episode_data_index["to"]) > 0 else 0
         else:
             # Filter to only selected episodes
+            # Note: episode_data_index only contains entries for episodes matching the filter
             indices = []
-            for i, ep_idx in enumerate(sorted(self._episode_paths.keys())):
-                if ep_idx in self.episodes:
-                    start = int(self.episode_data_index["from"][i])
-                    end = int(self.episode_data_index["to"][i])
-                    indices.extend(range(start, end))
+            for i in range(len(self.episode_data_index["from"])):
+                start = int(self.episode_data_index["from"][i])
+                end = int(self.episode_data_index["to"][i])
+                indices.extend(range(start, end))
             self._frame_indices = indices
             self._num_frames = len(indices)
 
