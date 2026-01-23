@@ -111,6 +111,8 @@ class DWMYAMClient:
         gripper_type: str,
         can_interfaces: dict,
         dry_run: bool,
+        velocity_limit: float = None,
+        wait_for_server: bool = False,
     ):
         """Initialize YAM client.
         
@@ -123,12 +125,16 @@ class DWMYAMClient:
             gripper_type: Gripper type string
             can_interfaces: CAN interface mapping {"left": "can0", "right": "can1"}
             dry_run: If True, simulate robot without actual hardware
+            velocity_limit: Maximum joint velocity in rad/s. If None, no velocity limit is applied.
+            wait_for_server: If True, wait indefinitely for the server to become available.
         """
         self.server_addr = server_addr
         self.arms = arms
         self.query_freq = query_freq
         self.timeout_ms = timeout_ms
         self.dry_run = dry_run
+        self.velocity_limit = velocity_limit
+        self.wait_for_server = wait_for_server
         
         # Setup extrinsics
         if extrinsics_key not in EXTRINSICS:
@@ -141,7 +147,19 @@ class DWMYAMClient:
         else:
             self.arms_list = [arms]
         
-        # Initialize robot interface
+        # Setup ZMQ connection FIRST (before robot to avoid motor timeout during connection)
+        print(f"Connecting to inference server: {server_addr}")
+        self.ctx = zmq.Context()
+        self.sock = self.ctx.socket(zmq.REQ)
+        self.sock.setsockopt(zmq.RCVTIMEO, timeout_ms)
+        self.sock.setsockopt(zmq.SNDTIMEO, timeout_ms)
+        self.sock.setsockopt(zmq.LINGER, 0)
+        self.sock.connect(server_addr)
+        
+        # Test connection (with retry if wait_for_server is enabled)
+        self._connect_with_retry()
+        
+        # Initialize robot interface AFTER ZMQ is ready
         print(f"Initializing YAM robot interface...")
         gripper_enum = GripperType.from_string_name(gripper_type)
         self.robot = YAMInterface(
@@ -151,22 +169,51 @@ class DWMYAMClient:
             zero_gravity_mode=False,
             dry_run=dry_run,
         )
-        
-        # Setup ZMQ connection
-        print(f"Connecting to inference server: {server_addr}")
-        self.ctx = zmq.Context()
-        self.sock = self.ctx.socket(zmq.REQ)
-        self.sock.setsockopt(zmq.RCVTIMEO, timeout_ms)
-        self.sock.setsockopt(zmq.SNDTIMEO, timeout_ms)
-        self.sock.setsockopt(zmq.LINGER, 0)
-        self.sock.connect(server_addr)
-        
-        # Test connection
-        self._ping()
+
+        time.sleep(2)
         
         # Action buffer
         self.actions = None
         
+    def _connect_with_retry(self):
+        """Connect to server, optionally waiting indefinitely if wait_for_server is enabled."""
+        retry_interval = 2.0  # seconds between retries
+        attempt = 0
+        
+        while True:
+            attempt += 1
+            try:
+                self._ping()
+                return  # Success
+            except zmq.error.Again:
+                # Timeout - server not responding
+                if not self.wait_for_server:
+                    raise RuntimeError(
+                        f"Server not responding at {self.server_addr}. "
+                        "Use --wait-for-server to wait indefinitely."
+                    )
+                print(f"Server not available (attempt {attempt}), retrying in {retry_interval}s...")
+                # Reset socket for retry (ZMQ REQ socket can get stuck after timeout)
+                self.sock.close()
+                self.sock = self.ctx.socket(zmq.REQ)
+                self.sock.setsockopt(zmq.RCVTIMEO, self.timeout_ms)
+                self.sock.setsockopt(zmq.SNDTIMEO, self.timeout_ms)
+                self.sock.setsockopt(zmq.LINGER, 0)
+                self.sock.connect(self.server_addr)
+                time.sleep(retry_interval)
+            except Exception as e:
+                if not self.wait_for_server:
+                    raise
+                print(f"Connection error (attempt {attempt}): {e}, retrying in {retry_interval}s...")
+                # Reset socket for retry
+                self.sock.close()
+                self.sock = self.ctx.socket(zmq.REQ)
+                self.sock.setsockopt(zmq.RCVTIMEO, self.timeout_ms)
+                self.sock.setsockopt(zmq.SNDTIMEO, self.timeout_ms)
+                self.sock.setsockopt(zmq.LINGER, 0)
+                self.sock.connect(self.server_addr)
+                time.sleep(retry_interval)
+    
     def _ping(self):
         """Test server connection."""
         self.sock.send(msgpack.packb({'cmd': 'ping'}, use_bin_type=True))
@@ -254,6 +301,7 @@ class DWMYAMClient:
         
         # Request new actions at query frequency
         if i % self.query_freq == 0:
+            print(f"{obs=}")
             actions_ypr = self._request_actions(obs, i)
             self.actions = self._transform_actions(actions_ypr)
         
@@ -273,7 +321,7 @@ class DWMYAMClient:
             if self.arms != "both" and arm == "right":
                 arm_offset = 0
             arm_action = action[arm_offset:arm_offset + 7]
-            self.robot.set_pose(arm_action, arm)
+            self.robot.set_pose(arm_action, arm, velocity_limit=self.velocity_limit)
         
         return True
     
@@ -350,6 +398,14 @@ def main():
     parser.add_argument("--dry-run", action="store_true",
                         help="Simulate robot without actual hardware")
     
+    # Safety
+    parser.add_argument("--velocity-limit", type=float, default=None,
+                        help="Maximum joint velocity limit in rad/s. If not specified, no limit is applied.")
+    
+    # Connection
+    parser.add_argument("--wait-for-server", action="store_true",
+                        help="Wait indefinitely for the inference server to become available")
+    
     args = parser.parse_args()
     
     # Print configuration
@@ -363,6 +419,8 @@ def main():
     print(f"Query frequency: {args.query_frequency}")
     print(f"Extrinsics:      {args.extrinsics}")
     print(f"Dry run:         {args.dry_run}")
+    print(f"Velocity limit:  {args.velocity_limit} rad/s" if args.velocity_limit else "Velocity limit:  None (unlimited)")
+    print(f"Wait for server: {args.wait_for_server}")
     print("=" * 60)
     
     # Initialize client
@@ -377,6 +435,8 @@ def main():
         gripper_type=args.gripper_type,
         can_interfaces=can_interfaces,
         dry_run=args.dry_run,
+        velocity_limit=args.velocity_limit,
+        wait_for_server=args.wait_for_server,
     )
     
     # Initialize rate controller

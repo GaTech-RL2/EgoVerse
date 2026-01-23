@@ -1,0 +1,40 @@
+# Minimal requirements for YAM robot teleoperation
+# This file contains only the dependencies needed for:
+# - YAM robot control via i2rt library
+# - D405 camera streaming
+# - VR controller (Oculus Quest) input
+# - Demo recording and saving
+
+# Core scientific computing
+h5py>=3.8.0
+
+# Image processing (headless for Docker)
+opencv-python-headless>=4.7.0
+
+# Configuration
+pyyaml>=6.0
+
+# RealSense D405 camera support
+pyrealsense2>=2.50.0
+
+# Oculus Quest VR controller (via ADB)
+pure-python-adb
+
+# MuJoCo for kinematics (used by i2rt)
+mujoco>=3.0.0
+
+# Inverse kinematics
+mink>=0.1.0
+
+# Machine learning utilities
+scikit-learn>=1.2.0
+
+# CAN bus communication (used by i2rt)
+python-can>=4.0.0
+
+# Evdev for gamepad/controller input (used by i2rt)
+evdev>=1.7.0
+
+# Note: i2rt library is installed separately via:
+#   git clone https://github.com/i2rt-robotics/i2rt.git
+#   pip install -e i2rt/

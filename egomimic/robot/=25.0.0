@@ -1,0 +1,2 @@
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: pyzmq in /home/robot/.local/lib/python3.10/site-packages (27.1.0)

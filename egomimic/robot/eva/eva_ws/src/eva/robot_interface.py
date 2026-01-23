@@ -9,6 +9,7 @@ Imports are deferred to class instantiation based on robot_type and camera confi
 
 import os
 import sys
+import time
 import yaml
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -399,6 +400,9 @@ class YAMInterface:
         for arm in arms:
             self._simulated_joints[arm] = self.HOME_POSITION.copy()
         
+        # Track last command time for velocity limiting (per arm)
+        self._last_cmd_time = {}
+        
         # Initialize robot controllers (one per arm)
         self.robot = {}
         self.kinematics = {}
@@ -534,8 +538,15 @@ class YAMInterface:
                 return False
         return True
     
-    def set_joints(self, desired_position: np.ndarray, arm: str):
-        """Command joint positions for a specific arm."""
+    def set_joints(self, desired_position: np.ndarray, arm: str, velocity_limit: float = None):
+        """Command joint positions for a specific arm.
+        
+        Args:
+            desired_position: (7,) array of 6 joint positions + gripper value
+            arm: Arm name ("left" or "right")
+            velocity_limit: Maximum joint velocity in rad/s. If None, no velocity limit is applied.
+                           The limit is applied to joints only (not gripper).
+        """
         if desired_position.shape != (7,):
             raise ValueError(
                 f"For YAM, desired position must be of shape (7,), got {desired_position.shape}"
@@ -545,11 +556,37 @@ class YAMInterface:
             print(f"[YAMInterface] WARNING: Skipping command due to joint limit violation")
             return
         
+        # Apply velocity limiting if specified
+        cmd_position = desired_position.copy()
+        if velocity_limit is not None:
+            current_time = time.time()
+            
+            # Compute dt from last command (default to 1/30s if first command)
+            if arm in self._last_cmd_time:
+                dt = current_time - self._last_cmd_time[arm]
+                # Clamp dt to reasonable range to handle pauses/delays
+                dt = np.clip(dt, 0.001, 0.1)
+            else:
+                dt = 1.0 / 30.0  # Default assumption: 30Hz control
+            
+            self._last_cmd_time[arm] = current_time
+            
+            # Get current joint positions
+            current_joints = self.get_joints(arm)
+            
+            # Compute max change per step for joints (not gripper)
+            max_delta = velocity_limit * dt
+            
+            # Clip the joint delta (first 6 values, not gripper)
+            delta = cmd_position[:6] - current_joints[:6]
+            clipped_delta = np.clip(delta, -max_delta, max_delta)
+            cmd_position[:6] = current_joints[:6] + clipped_delta
+        
         if self.dry_run:
-            print(f"[YAMInterface] DRY RUN: set_joints({arm}) = {np.array2string(desired_position, precision=3)}")
-            self._simulated_joints[arm] = desired_position.copy()
+            print(f"[YAMInterface] DRY RUN: set_joints({arm}) = {np.array2string(cmd_position, precision=3)}, velocity_limit={velocity_limit}")
+            self._simulated_joints[arm] = cmd_position.copy()
         else:
-            self.robot[arm].command_joint_pos(desired_position)
+            self.robot[arm].command_joint_pos(cmd_position)
     
     def get_joints(self, arm: str) -> np.ndarray:
         """Get current joint positions for a specific arm."""
@@ -557,8 +594,17 @@ class YAMInterface:
             return self._simulated_joints[arm].copy()
         return self.robot[arm].get_joint_pos()
     
-    def set_pose(self, pose: np.ndarray, arm: str) -> np.ndarray:
-        """Command end-effector pose using inverse kinematics."""
+    def set_pose(self, pose: np.ndarray, arm: str, velocity_limit: float = None) -> np.ndarray:
+        """Command end-effector pose using inverse kinematics.
+        
+        Args:
+            pose: (7,) array of [x, y, z, yaw, pitch, roll, gripper]
+            arm: Arm name ("left" or "right")
+            velocity_limit: Maximum joint velocity in rad/s. If None, no velocity limit is applied.
+            
+        Returns:
+            joints: (7,) array of joint positions that were commanded
+        """
         if pose.shape != (7,):
             raise ValueError(
                 f"For YAM, target pose must be of shape (7,), got {pose.shape}"
@@ -569,7 +615,7 @@ class YAMInterface:
             raise RuntimeError(f"IK failed for arm {arm}")
         
         joints = np.concatenate([arm_joints, [pose[6]]])
-        self.set_joints(joints, arm)
+        self.set_joints(joints, arm, velocity_limit=velocity_limit)
         return joints
     
     def solve_ik(self, ee_pose: np.ndarray, arm: str) -> np.ndarray:

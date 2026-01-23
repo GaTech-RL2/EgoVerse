@@ -73,10 +73,10 @@ RUN echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2833", MODE="0666", GROUP="plugdev"
 WORKDIR /home/${USERNAME}
 
 # Copy requirements first for better caching
-COPY --chown=${USERNAME}:${USERNAME} requirements_yam.txt /tmp/requirements_yam.txt
+COPY --chown=${USERNAME}:${USERNAME} requirements_yam_l4t.txt /tmp/requirements_yam_l4t.txt
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r /tmp/requirements_yam.txt
+RUN pip install --no-cache-dir -r /tmp/requirements_yam_l4t.txt
 
 # Build librealsense from source with Python bindings
 ARG LIBREALSENSE_VERSION=v2.56.5
