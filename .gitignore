@@ -29,8 +29,13 @@ emimic.egg-info/
 pyproject.bak
 egomimic/algo/pi_checkpoints/*
 egomimic/scripts/tsne/*
+<<<<<<< HEAD
+sbatch_logs/*
+results/
+=======
 lerobot_test/
 **/lerobot_test/
 **/lerobot_test/**
 **/robot/models/**
 **/robot/models/
+>>>>>>> 4ff3fd6458be283254c6103621feb429c5e371c8

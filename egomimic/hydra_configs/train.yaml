@@ -1,5 +1,5 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: hpt_bc_flow_aria
   - paths: default
   - trainer: ddp
   - debug: null
@@ -9,7 +9,11 @@ defaults:
   - override hydra/launcher: submitit
   - _self_
 
+<<<<<<< HEAD
 name: 0117_cotrain_eva_aria
+=======
+name: 0115_val_liqian
+>>>>>>> 0b7a8fe084d2c97a32b17e80d0e8625dcfc46857
 description: nan
 ckpt_path: null
 train: true

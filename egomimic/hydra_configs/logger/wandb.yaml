@@ -7,7 +7,11 @@ wandb:
   offline: False
   id: "${name}_${description}_${now:%Y-%m-%d_%H-%M-%S}" # pass correct id to resume experiment!
   anonymous: null # enable anonymous logging
+<<<<<<< HEAD
   project: "everse_single_scene_motion_diversity"
+=======
+  project: "everse_motion_diversity_multi_scene_fold_clothes"
+>>>>>>> 0b7a8fe084d2c97a32b17e80d0e8625dcfc46857
   log_model: False # upload lightning ckpts
   prefix: "" # a string to put at the beginning of metric keys
   entity: "rl2-group" # set to name of your wandb team

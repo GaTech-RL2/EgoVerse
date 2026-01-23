@@ -5,7 +5,7 @@ _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 
 # Slurm configuration
 name: ${hydra.job.name}                             # Default job name
-partition: "rl2-lab"                            # Slurm partition (e.g., 'gpu' or 'compute')
+partition: "overcap"                            # Slurm partition (e.g., 'gpu' or 'compute')
 account: "rl2-lab"                              # Slurm account (e.g., 'my_account')
 cpus_per_task: 12                                   # Number of CPUs per task
 nodes: ${launch_params.nodes}                       # Number of nodes

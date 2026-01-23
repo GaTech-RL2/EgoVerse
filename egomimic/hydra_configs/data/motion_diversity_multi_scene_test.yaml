@@ -1,0 +1,48 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# df columns: 
+# ['episode_hash', 'operator', 'lab', 'num_frames', 'task',
+# 'task_description', 'scene', 'objects', 'processed_path', 'mp4_path',
+# 'is_deleted', 'embodiment', 'robot_name', 'is_eval', 'eval_score',
+# 'eval_success']
+
+valid_datasets:
+  op1_scene1_ep1: { _target_: egomimic.rldb.utils.S3RLDBDataset, bucket_name: "rldb", mode: total, embodiment: "aria_bimanual", local_files_only: True, 
+              temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_diversity",
+              filters: {operator: "Elmo", lab: "rl2", scene: "1", task: "fold clothes", episode_hash: '2025-10-12-01-38-27-674000'} }
+  # op1_scene1_ep2: { _target_: egomimic.rldb.utils.S3RLDBDataset, bucket_name: "rldb", mode: total, embodiment: "aria_bimanual", local_files_only: True, 
+  #             temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_diversity",
+  #             filters: {operator: "Elmo", lab: "rl2", scene: "1", task: "fold clothes", episode_hash: '2025-11-11-22-46-39-752000'} }
+
+valid_dataloader_params:
+  op1_scene1:
+    batch_size: 32
+    num_workers: 10
+  op1_scene1_ep2:
+    batch_size: 32
+    num_workers: 10
+
+
+# 8 Operators, 3.75 min / scene, 8 scenes
+# Operator: [Elmo, Zhenyang, Xinchen, David, 
+#            Shuo, Rohan, Vaibhav, Mengying,
+#            Aniketh, Jenny, Baoyu, Pranav]
+
+train_datasets:
+  op1_scene1_ep1: 
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    mode: total
+    embodiment: "aria_bimanual"
+    local_files_only: True
+    temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_diversity"
+    filters: {operator: "Aniketh", lab: "rl2", scene: "1", task: "fold clothes"}
+  
+
+train_dataloader_params:
+  op1_scene1_ep1:
+    batch_size: 32
+    num_workers: 10
+
+
+

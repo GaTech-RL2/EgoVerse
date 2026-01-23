@@ -8,6 +8,7 @@ from enum import Enum
 from multiprocessing.dummy import connection
 from pathlib import Path
 from unittest import result
+from termcolor import cprint
 
 import boto3
 import numpy as np
@@ -653,6 +654,15 @@ class S3RLDBDataset(MultiRLDBDataset):
             
     @staticmethod
     def _get_processed_path(filters):
+        if "recordings" in filters:
+            if filters["recordings"] is None:
+                recordings = None
+            else:
+                recordings = int(filters["recordings"])
+            del filters["recordings"]
+        else:
+            recordings = None
+
         engine = create_default_engine()
         df = episode_table_to_df(engine)
         series = pd.Series(filters)
@@ -664,6 +674,12 @@ class S3RLDBDataset(MultiRLDBDataset):
         skipped = df[df["processed_path"].isnull()]["episode_hash"].tolist()
         logger.info(f"Skipped {len(skipped)} episodes with null processed_path: {skipped}")
         output = output[~output["episode_hash"].isin(skipped)]
+        
+        if recordings is not None:
+            assert recordings <= len(output), (
+                f"Requested {recordings} recordings, but only {len(output)} available."
+            )
+            output = output[:recordings]
 
         paths = list(output.itertuples(index=False, name=None))
         logger.info(f"Paths: {paths}")
