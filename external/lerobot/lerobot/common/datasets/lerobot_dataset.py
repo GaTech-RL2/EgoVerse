@@ -609,7 +609,7 @@ class LeRobotDataset(torch.utils.data.Dataset):
     @property
     def num_frames(self) -> int:
         """Number of frames in selected episodes."""
-        return len(self.hf_dataset) if self.hf_dataset is not None else self.meta.total_frames
+        return len(self.hf_dataset) - 1 if self.hf_dataset is not None else (self.meta.total_frames - 1)
 
     @property
     def num_episodes(self) -> int:
