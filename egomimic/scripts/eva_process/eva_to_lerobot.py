@@ -674,7 +674,8 @@ class EvaHD5Extractor:
             #     skip_first=1,
             #     max_rows=500,   # set huge if you truly want “all”
             # )
-            assert_fk_matches_eepose(base_cartesian_actions, episode["actions"]["eepose"][:], arm=arm)
+            if "actions" in episode and "eepose" in episode["actions"]:
+                assert_fk_matches_eepose(base_cartesian_actions, episode["actions"]["eepose"][:], arm=arm)
 
             episode_feats["actions_joints"] = joint_actions
             episode_feats["actions_cartesian"] = cartesian_actions
