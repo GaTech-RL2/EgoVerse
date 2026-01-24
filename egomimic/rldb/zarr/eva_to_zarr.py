@@ -6,16 +6,17 @@ expected by ZarrDataset, maintaining compatibility with the LeRobotDataset API.
 
 Directory structure created:
     dataset_root/
-    ├── meta/
-    │   ├── info.json
-    │   ├── stats.json (optional)
-    │   └── tasks.jsonl (optional)
-    └── data/
-        └── episode_{ep_idx}.zarr/
-            ├── observation.images.{cam}  (JPEG-XL compressed)
-            ├── observation.state
-            ├── actions_joints
-            └── ...
+    └── episode_{ep_idx}.zarr/
+        ├── metadata.json
+        ├── observation.images.{cam}  (JPEG-XL compressed)
+        ├── observation.state
+        ├── actions_joints
+        └── ...
+
+Each episode is self-contained with its own metadata, enabling:
+- Independent episode uploads to S3
+- Parallel processing without global coordination
+- Easy episode-level data management
 """
 
 import argparse
@@ -78,9 +79,9 @@ class HDF5ToZarrConverter:
         arm: str = "both",
         extrinsics_key: str = "x5Dec13_2",
         image_compressed: bool = True,
-        jxl_quality: int = 90,
+        jxl_quality: int = 50,
         prestack: bool = False,
-        chunk_size_mb: float = 16.0,
+        chunk_size_mb: float = 2.0,
         debug: bool = False,
     ):
         self.raw_path = Path(raw_path)
@@ -126,19 +127,12 @@ class HDF5ToZarrConverter:
         else:
             self.robot_type = "eva"
 
-        # Create output directories
-        self.meta_dir = self.output_path / "meta"
-        self.data_dir = self.output_path / "data"
+        # Create output directory
+        self.output_path.mkdir(parents=True, exist_ok=True)
 
-        self.meta_dir.mkdir(parents=True, exist_ok=True)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-
-        # Episode metadata
+        # Episode metadata (for summary logging)
         self.episodes_data = []
-        self.tasks_data = {}
         self.total_frames = 0
-        self.features = {}
-        self.image_shapes = {}  # Track original image shapes for features
 
         self.logger.info(f"{'-' * 10} HDF5 to Zarr Converter {'-' * 10}")
         self.logger.info(f"Input: {self.raw_path}")
@@ -150,25 +144,33 @@ class HDF5ToZarrConverter:
     def _write_zarr_episode(
         self,
         episode_path: Path,
+        episode_idx: int,
+        num_frames: int,
         frames_data: dict[str, list],
         image_data: dict[str, list[bytes]],
+        image_shapes: dict[str, tuple],
+        task: str = "",
     ):
-        """Write episode frames to a Zarr store."""
+        """Write episode frames and metadata to a Zarr store."""
         store = zarr.open(str(episode_path), mode="w")
 
-        num_frames = len(next(iter(frames_data.values()))) if frames_data else len(next(iter(image_data.values())))
-
-        # Write numeric arrays
+        # Write numeric arrays with target chunk size
         for key, values in frames_data.items():
             arr = np.stack(values, axis=0)
-            # Calculate chunk size based on target MB
+            # Calculate frames per chunk based on target MB
             bytes_per_frame = arr[0].nbytes
-            frames_per_chunk = max(1, self.chunk_size_bytes // bytes_per_frame)
+            if bytes_per_frame > 0:
+                frames_per_chunk = max(1, self.chunk_size_bytes // bytes_per_frame)
+            else:
+                frames_per_chunk = num_frames
+            # Cap to episode length, but ensure chunk fills target size
             frames_per_chunk = min(frames_per_chunk, num_frames)
+            # Chunk shape: (frames, ...) - keep other dimensions intact
+            chunk_shape = (frames_per_chunk,) + arr.shape[1:]
             store.create_array(
                 key,
                 data=arr,
-                chunks=(frames_per_chunk, *arr.shape[1:]),
+                chunks=chunk_shape,
             )
 
         # Write compressed images as variable-length byte arrays
@@ -183,6 +185,28 @@ class HDF5ToZarrConverter:
                     chunks=(1,),  # One image per chunk for efficient random access
                 )
                 arr[:] = compressed_frames
+
+        # Build features dict for this episode
+        features = {}
+        for key, shape in image_shapes.items():
+            features[key] = {
+                "dtype": "jxl",
+                "shape": list(shape),
+                "names": ["height", "width", "channel"],
+            }
+
+        # Write per-episode metadata
+        metadata = {
+            "episode_index": episode_idx,
+            "fps": self.fps,
+            "robot_type": self.robot_type,
+            "total_frames": num_frames,
+            "task": task,
+            "features": features,
+        }
+
+        with open(episode_path / "metadata.json", "w") as f:
+            json.dump(metadata, f, indent=2)
 
         self.logger.info(f"Wrote {num_frames} frames to {episode_path}")
 
@@ -204,8 +228,8 @@ class HDF5ToZarrConverter:
             no_rot=False,
         )
 
-        # Episode zarr path
-        episode_zarr_path = self.data_dir / f"episode_{episode_idx:06d}.zarr"
+        # Episode zarr path (directly under output_path)
+        episode_zarr_path = self.output_path / f"episode_{episode_idx:06d}.zarr"
 
         # Get number of frames
         num_frames = next(iter(episode_feats["observations"].values())).shape[0]
@@ -216,10 +240,11 @@ class HDF5ToZarrConverter:
         # Prepare data dictionaries
         frames_data = {}
         image_data = {}
+        image_shapes = {}  # Track shapes for this episode
 
         # Extract frame-by-frame data
         for frame_idx in range(num_frames):
-            if frame_idx % 50 == 0:
+            if frame_idx % 25 == 0:
                 self.logger.info(f"  Frame {frame_idx}/{num_frames}")
             for obs_key, obs_value in episode_feats["observations"].items():
                 full_key = f"observation.{obs_key}"
@@ -239,8 +264,8 @@ class HDF5ToZarrConverter:
                         img_rgb = np.transpose(img_raw, (1, 2, 0))
 
                     # Track shape for features (on first frame)
-                    if full_key not in self.image_shapes:
-                        self.image_shapes[full_key] = img_rgb.shape
+                    if full_key not in image_shapes:
+                        image_shapes[full_key] = img_rgb.shape
 
                     # Compress with JPEG-XL
                     compressed = encode_jxl(img_rgb, quality=self.jxl_quality)
@@ -258,22 +283,23 @@ class HDF5ToZarrConverter:
                         frames_data[action_key] = []
                     frames_data[action_key].append(episode_feats[action_key][frame_idx])
 
-        # Write zarr episode
-        self._write_zarr_episode(episode_zarr_path, frames_data=frames_data, image_data=image_data)
+        # Write zarr episode with metadata
+        self._write_zarr_episode(
+            episode_zarr_path,
+            episode_idx=episode_idx,
+            num_frames=num_frames,
+            frames_data=frames_data,
+            image_data=image_data,
+            image_shapes=image_shapes,
+            task=task,
+        )
 
-        # Update global metadata
+        # Update summary metadata
         self.episodes_data.append({
             "episode_index": episode_idx,
             "length": num_frames,
             "task": task,
         })
-
-        # Track tasks
-        if task:
-            if task not in self.tasks_data:
-                task_index = len(self.tasks_data)
-                self.tasks_data[task] = task_index
-
         self.total_frames += num_frames
 
         elapsed = time.time() - t0
@@ -290,48 +316,7 @@ class HDF5ToZarrConverter:
                 traceback.print_exc()
                 continue
 
-        # Write global metadata
-        self._write_metadata()
-
-    def _write_metadata(self):
-        """Write global metadata files."""
-        if not self.episodes_data:
-            self.logger.warning("No episodes were converted successfully, skipping metadata write")
-            return
-
-        # Build features dict
-        features = {}
-
-        # Add image features
-        for key, shape in self.image_shapes.items():
-            features[key] = {
-                "dtype": "jxl",  # Indicate JPEG-XL compressed
-                "shape": list(shape),
-                "names": ["height", "width", "channel"],
-            }
-
-        # Write info.json
-        info = {
-            "fps": self.fps,
-            "robot_type": self.robot_type,
-            "total_episodes": len(self.episodes_data),
-            "total_frames": self.total_frames,
-            "total_tasks": len(self.tasks_data),
-            "features": features,
-        }
-
-        with open(self.meta_dir / "info.json", "w") as f:
-            json.dump(info, f, indent=2)
-
-        # Write tasks.jsonl
-        if self.tasks_data:
-            with open(self.meta_dir / "tasks.jsonl", "w") as f:
-                for task, task_index in self.tasks_data.items():
-                    f.write(json.dumps({"task_index": task_index, "task": task}) + "\n")
-
-        self.logger.info(f"Wrote metadata to {self.meta_dir}")
-        self.logger.info(f"Total episodes: {len(self.episodes_data)}")
-        self.logger.info(f"Total frames: {self.total_frames}")
+        self.logger.info(f"Conversion complete: {len(self.episodes_data)} episodes, {self.total_frames} total frames")
 
 
 def parse_args():
@@ -401,8 +386,8 @@ def parse_args():
     parser.add_argument(
         "--chunk-size-mb",
         type=float,
-        default=16.0,
-        help="Target chunk size in MB for numeric arrays (default: 16)",
+        default=2.0,
+        help="Target chunk size in MB for numeric arrays (default: 2)",
     )
     parser.add_argument(
         "--debug",

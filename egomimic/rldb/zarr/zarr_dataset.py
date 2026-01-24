@@ -4,18 +4,20 @@ ZarrDataset implementation for EgoVerse.
 Mirrors the LeRobotDataset API while reading data from Zarr arrays
 instead of parquet/HF datasets.
 
-Directory structure:
+Directory structure (per-episode metadata):
     dataset_root/
-    ├── meta/
-    │   ├── info.json
-    │   ├── stats.json (optional)
-    │   └── tasks.jsonl (optional)
-    └── data/
-        └── episode_{ep_idx}.zarr/
-            ├── observation.images.{cam}  (JPEG-XL compressed)
-            ├── observation.state
-            ├── actions_joints
-            └── ...
+    └── episode_{ep_idx}.zarr/
+        ├── meta/
+        │   └── info.json
+        ├── observation.images.{cam}  (JPEG-XL compressed)
+        ├── observation.state
+        ├── actions_joints
+        └── ...
+
+Each episode is self-contained with its own metadata, enabling:
+- Independent episode uploads to S3
+- Parallel processing without global coordination
+- Easy episode-level data management
 
 Note: timestamp, frame_index, and episode_index are computed on-the-fly
 rather than stored, since they can be derived from the episode path and array index.
@@ -79,11 +81,72 @@ def decode_jxl(data) -> np.ndarray:
 
 
 def load_info(local_dir: Path) -> dict:
-    """Load info.json and convert shape lists to tuples."""
-    info = load_json(local_dir / INFO_PATH)
+    """Load info.json and convert shape lists to tuples.
+
+    Supports both legacy global metadata and per-episode metadata structures.
+    """
+    # Try legacy global metadata first
+    global_info_path = local_dir / INFO_PATH
+    if global_info_path.exists():
+        info = load_json(global_info_path)
+        for ft in info.get("features", {}).values():
+            if "shape" in ft:
+                ft["shape"] = tuple(ft["shape"])
+        return info
+
+    # Fall back to per-episode metadata - aggregate from first episode
+    return load_info_from_episodes(local_dir)
+
+
+def load_info_from_episodes(local_dir: Path) -> dict:
+    """Load and aggregate info from per-episode metadata."""
+    import json
+
+    # Find episode directories
+    episode_dirs = sorted([
+        p for p in local_dir.iterdir()
+        if p.is_dir() and p.name.startswith("episode_") and p.name.endswith(".zarr")
+    ])
+
+    if not episode_dirs:
+        return {"fps": 30, "features": {}, "total_episodes": 0, "total_frames": 0}
+
+    # Load info from first episode for common fields
+    first_ep_metadata_path = episode_dirs[0] / "metadata.json"
+    if first_ep_metadata_path.exists():
+        with open(first_ep_metadata_path, "r") as f:
+            base_info = json.load(f)
+    else:
+        base_info = {}
+
+    # Aggregate totals across all episodes
+    total_frames = 0
+    tasks = set()
+
+    for ep_dir in episode_dirs:
+        ep_metadata_path = ep_dir / "metadata.json"
+        if ep_metadata_path.exists():
+            with open(ep_metadata_path, "r") as f:
+                ep_info = json.load(f)
+                total_frames += ep_info.get("total_frames", 0)
+                if ep_info.get("task"):
+                    tasks.add(ep_info["task"])
+
+    # Build aggregated info
+    info = {
+        "fps": base_info.get("fps", 30),
+        "robot_type": base_info.get("robot_type"),
+        "features": base_info.get("features", {}),
+        "total_episodes": len(episode_dirs),
+        "total_frames": total_frames,
+        "total_tasks": len(tasks),
+    }
+
+    # Convert shape lists to tuples
     for ft in info.get("features", {}).values():
         if "shape" in ft:
             ft["shape"] = tuple(ft["shape"])
+
     return info
 
 
@@ -299,13 +362,28 @@ class ZarrDataset(torch.utils.data.Dataset):
             self.delta_indices = get_delta_indices(self.delta_timestamps, self.fps)
 
     def _discover_episodes(self) -> None:
-        """Find all episode zarr stores in data/."""
+        """Find all episode zarr stores.
+
+        Supports both layouts:
+        - New: episodes directly in root (episode_*.zarr/)
+        - Legacy: episodes in data/ subdirectory (data/episode_*.zarr/)
+        """
+        # Try new layout first (episodes directly in root)
+        search_dir = self.root
+
+        # Check if using legacy layout (data/ subdirectory)
         data_dir = self.root / "data"
-        if not data_dir.exists():
-            logger.warning(f"Data directory not found: {data_dir}")
+        if data_dir.exists() and any(
+            p.name.startswith("episode_") and p.name.endswith(".zarr")
+            for p in data_dir.iterdir() if p.is_dir()
+        ):
+            search_dir = data_dir
+
+        if not search_dir.exists():
+            logger.warning(f"Episode directory not found: {search_dir}")
             return
 
-        for ep_path in sorted(data_dir.iterdir()):
+        for ep_path in sorted(search_dir.iterdir()):
             if not ep_path.is_dir():
                 continue
             # Parse episode index from folder name: episode_{ep_idx}.zarr
