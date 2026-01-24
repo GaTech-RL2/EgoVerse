@@ -414,6 +414,15 @@ class YAMInterface:
         # Track last command time for velocity limiting (per arm)
         self._last_cmd_time = {}
         
+        # Initialize camera recorders and load save_resolution from config
+        self.recorders = {}
+        if cameras_cfg:
+            self._create_cam_recorders(cameras_cfg)
+            # Still need to load save_resolution from config file
+            self._load_save_resolution()
+        else:
+            self._load_default_camera_config()
+
         # Initialize robot controllers (one per arm)
         self.robot = {}
         self.kinematics = {}
@@ -443,15 +452,6 @@ class YAMInterface:
                 xml_path=model_path,
                 site_name="grasp_site",
             )
-        
-        # Initialize camera recorders and load save_resolution from config
-        self.recorders = {}
-        if cameras_cfg:
-            self._create_cam_recorders(cameras_cfg)
-            # Still need to load save_resolution from config file
-            self._load_save_resolution()
-        else:
-            self._load_default_camera_config()
         
         print(f"[YAMInterface] Initialized with arms: {self.arms}")
         if self.dry_run:

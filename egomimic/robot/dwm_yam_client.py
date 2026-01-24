@@ -144,8 +144,6 @@ class DWMYAMClient:
         server_addr: str,
         arms: str,
         query_freq: int,
-        extrinsics_key: str,
-        apply_extrinsics: bool,
         timeout_ms: int,
         gripper_type: str,
         can_interfaces: dict,
@@ -183,15 +181,9 @@ class DWMYAMClient:
         self.dry_run = dry_run
         self.velocity_limit = velocity_limit
         self.wait_for_server = wait_for_server
-        self.apply_extrinsics = apply_extrinsics
-        
-        # Setup extrinsics (only if actions are in camera frame)
-        if self.apply_extrinsics:
-            if extrinsics_key not in EXTRINSICS:
-                raise ValueError(f"Unknown extrinsics_key: {extrinsics_key}")
-            self.extrinsics = EXTRINSICS[extrinsics_key]
-        else:
-            self.extrinsics = None
+        self.zero_action_threshold = zero_action_threshold
+        self.action_horizon = action_horizon
+        self._zero_arms = {}
         
         # Determine arm list
         if arms == "both":
@@ -334,28 +326,13 @@ class DWMYAMClient:
             actions_ypr: (H, 14) array in YPR format for robot execution,
                          where H = min(T, action_horizon) if action_horizon is set, else T
         """
-        if not self.apply_extrinsics:
-            if not hasattr(self, "_logged_no_transform"):
-                print("Skipping camera-to-base transform; actions assumed base frame (matches collect_demo).")
-                self._logged_no_transform = True
-            return actions_ypr
 
-        if self.arms == "both":
-            left = actions_ypr[:, :7]
-            right = actions_ypr[:, 7:14]
-            
-            left_6d = cam_to_base_frame(left[:, :6], self.extrinsics["left"])
-            right_6d = cam_to_base_frame(right[:, :6], self.extrinsics["right"])
-            
-            left_out = np.hstack([left_6d, left[:, 6:7]])
-            right_out = np.hstack([right_6d, right[:, 6:7]])
-            
-            return np.hstack([left_out, right_out])
-        else:
-            raise ValueError(
-                f"Unknown action dimension {action_dim}. Expected 14 (ypr) or 20 (6drot)"
-            )
-        
+        action_dim = raw_actions.shape[1]
+        if action_dim == 20:
+            actions_ypr = convert_6drot_to_ypr(raw_actions)
+        elif action_dim == 14:
+            actions_ypr = raw_actions
+
         # Slice to action_horizon if specified
         if self.action_horizon is not None:
             original_len = actions_ypr.shape[0]
@@ -578,12 +555,6 @@ def main():
     parser.add_argument("--timeout-ms", type=int, default=5000,
                         help="Server request timeout in milliseconds")
     
-    # Camera configuration  
-    parser.add_argument("--extrinsics", type=str, default="x5Dec13_2",
-                        help="Camera extrinsics configuration key")
-    parser.add_argument("--apply-extrinsics", action="store_true",
-                        help="Transform actions from camera frame to base frame")
-    
     # Debug
     parser.add_argument("--dry-run", action="store_true",
                         help="Connect to real robot for proprioception but do NOT execute actions (robot will be homed)")
@@ -618,8 +589,6 @@ def main():
     print(f"Gripper type:    {args.gripper_type}")
     print(f"Frequency:       {args.frequency} Hz")
     print(f"Query frequency: {args.query_frequency}")
-    print(f"Extrinsics:      {args.extrinsics}")
-    print(f"Apply extrinsics:{args.apply_extrinsics}")
     print(f"Dry run:         {args.dry_run}")
     print(f"Velocity limit:  {args.velocity_limit} rad/s" if args.velocity_limit else "Velocity limit:  None (unlimited)")
     print(f"Wait for server: {args.wait_for_server}")
@@ -634,8 +603,6 @@ def main():
         server_addr=args.server,
         arms=args.arms,
         query_freq=args.query_frequency,
-        extrinsics_key=args.extrinsics,
-        apply_extrinsics=args.apply_extrinsics,
         timeout_ms=args.timeout_ms,
         gripper_type=args.gripper_type,
         can_interfaces=can_interfaces,
