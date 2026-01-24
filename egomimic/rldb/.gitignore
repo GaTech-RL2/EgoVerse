@@ -1,5 +1,7 @@
 benchmark_files/
+meta/
 *.egg-info
 *.parquet
 *.pyc
 *.hdf5
+*.zarr
