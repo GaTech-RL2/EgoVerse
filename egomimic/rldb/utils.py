@@ -70,7 +70,7 @@ from egomimic.rldb.data_utils import (
 )
 import subprocess
 import time
-from time import perf_counter
+import tempfile
 import uuid
 from tqdm import tqdm
 
@@ -998,8 +998,12 @@ class S3RLDBDataset(MultiRLDBDataset):
 
         # 1) Build s5cmd batch script (one line per episode)
         local_dir.mkdir(parents=True, exist_ok=True)
-        batch_path = f"./logs/_s5cmd_sync_{int(time.time())}_{os.getpid()}_{uuid.uuid4().hex}.txt"
-        batch_path = Path(batch_path)
+        with tempfile.NamedTemporaryFile(
+            prefix="_s5cmd_sync_",
+            suffix=".txt",
+            delete=False,
+        ) as tmp_file:
+            batch_path = Path(tmp_file.name)
 
         lines = []
         for processed_path, episode_hash in to_sync:
@@ -1458,3 +1462,5 @@ class DataSchematic(object):
                 denorm_data[key] = tensor
 
         return denorm_data
+
+

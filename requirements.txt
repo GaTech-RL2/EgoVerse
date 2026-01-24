@@ -46,7 +46,7 @@ sqlalchemy
 psycopg[binary]
 boto3
 typing_extensions
-pyarrow==19.0.1
+pyarrow
 simplejpeg
 prettytable
 datasets==4.0.0
