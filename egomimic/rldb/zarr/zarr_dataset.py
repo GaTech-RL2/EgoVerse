@@ -8,34 +8,28 @@ Directory structure:
     dataset_root/
     ├── meta/
     │   ├── info.json
-    │   ├── stats.json
-    │   ├── episodes.jsonl
-    │   └── tasks.jsonl
-    ├── data/
-    │   └── episode_{ep_idx}/
-    │       ├── meta/
-    │       │   └── episode_info.json
-    │       └── chunk-{chunk_idx}.zarr/
-    │           ├── timestamp
-    │           ├── frame_index
-    │           ├── action
-    │           ├── observation.state
-    │           └── ...
-    └── videos/
-        └── episode_{ep_idx}/
-            └── observation.images.{cam}/
-                └── chunk-{chunk_idx}.mp4
+    │   ├── stats.json (optional)
+    │   └── tasks.jsonl (optional)
+    └── data/
+        └── episode_{ep_idx}.zarr/
+            ├── observation.images.{cam}  (JPEG-XL compressed)
+            ├── observation.state
+            ├── actions_joints
+            └── ...
+
+Note: timestamp, frame_index, and episode_index are computed on-the-fly
+rather than stored, since they can be derived from the episode path and array index.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import random
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Callable
+from typing import Callable
 
+import imagecodecs
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -45,7 +39,6 @@ from lerobot.common.datasets.utils import (
     INFO_PATH,
     STATS_PATH,
     TASKS_PATH,
-    EPISODES_PATH,
     get_delta_indices,
     check_delta_timestamps,
     load_json,
@@ -53,7 +46,6 @@ from lerobot.common.datasets.utils import (
     flatten_dict,
     unflatten_dict,
 )
-from lerobot.common.datasets.video_utils import decode_video_frames_torchvision
 
 from egomimic.rldb.data_utils import (
     _ypr_to_quat,
@@ -64,6 +56,26 @@ from egomimic.rldb.data_utils import (
 logger = logging.getLogger(__name__)
 
 SEED = 42
+
+
+def decode_jxl(data) -> np.ndarray:
+    """Decode JPEG-XL image to numpy array.
+
+    Args:
+        data: Compressed image bytes (with padding byte from encoder),
+              may be wrapped in numpy array from zarr
+
+    Returns:
+        RGB image array of shape (H, W, C) with dtype uint8
+    """
+    # Extract bytes from numpy array wrapper (zarr VariableLengthBytes returns 0-dim array)
+    while isinstance(data, np.ndarray) and data.ndim == 0:
+        data = data.item()
+
+    # Strip padding byte added by encoder to prevent null-byte stripping
+    if data and data[-1:] == b'\x01':
+        data = data[:-1]
+    return imagecodecs.jpegxl_decode(data)
 
 
 def load_info(local_dir: Path) -> dict:
@@ -94,14 +106,6 @@ def load_tasks(local_dir: Path) -> dict:
     return {item["task_index"]: item["task"] for item in sorted(tasks, key=lambda x: x["task_index"])}
 
 
-def load_episodes(local_dir: Path) -> list[dict]:
-    """Load episodes.jsonl."""
-    episodes_path = local_dir / EPISODES_PATH
-    if not episodes_path.exists():
-        return []
-    return load_jsonlines(episodes_path)
-
-
 class ZarrDatasetMetadata:
     """
     Metadata handler for ZarrDataset.
@@ -122,7 +126,6 @@ class ZarrDatasetMetadata:
         self.info = load_info(self.root)
         self.stats = load_stats(self.root)
         self.tasks = load_tasks(self.root)
-        self.episodes = load_episodes(self.root)
 
     @property
     def robot_type(self) -> str | None:
@@ -141,18 +144,13 @@ class ZarrDatasetMetadata:
 
     @property
     def image_keys(self) -> list[str]:
-        """Keys to access visual modalities stored as images."""
-        return [key for key, ft in self.features.items() if ft.get("dtype") == "image"]
-
-    @property
-    def video_keys(self) -> list[str]:
-        """Keys to access visual modalities stored as videos."""
-        return [key for key, ft in self.features.items() if ft.get("dtype") == "video"]
+        """Keys to access visual modalities stored as JPEG-XL compressed images."""
+        return [key for key, ft in self.features.items() if ft.get("dtype") == "jxl"]
 
     @property
     def camera_keys(self) -> list[str]:
-        """Keys to access visual modalities (regardless of storage method)."""
-        return [key for key, ft in self.features.items() if ft.get("dtype") in ["video", "image"]]
+        """Keys to access visual modalities."""
+        return [key for key, ft in self.features.items() if ft.get("dtype") == "jxl"]
 
     @property
     def names(self) -> dict[str, list | dict]:
@@ -167,7 +165,7 @@ class ZarrDatasetMetadata:
     @property
     def total_episodes(self) -> int:
         """Total number of episodes available."""
-        return self.info.get("total_episodes", len(self.episodes))
+        return self.info.get("total_episodes", 0)
 
     @property
     def total_frames(self) -> int:
@@ -190,11 +188,6 @@ class ZarrDatasetMetadata:
         return self.info.get("chunks_size", 1000)
 
     @property
-    def video_path(self) -> str | None:
-        """Formattable string for the video files."""
-        return self.info.get("video_path")
-
-    @property
     def task_to_task_index(self) -> dict:
         return {task: task_idx for task_idx, task in self.tasks.items()}
 
@@ -206,11 +199,6 @@ class ZarrDatasetMetadata:
     def get_episode_chunk(self, ep_index: int) -> int:
         """Get the chunk index for an episode."""
         return ep_index // self.chunks_size
-
-    def get_video_file_path(self, ep_index: int, vid_key: str, chunk_idx: int = 0) -> Path:
-        """Get path to video file for an episode."""
-        # videos/episode_{ep_idx}/observation.images.{cam}/chunk-{chunk_idx}.mp4
-        return Path(f"videos/episode_{ep_index:06d}/{vid_key}/chunk-{chunk_idx:03d}.mp4")
 
     def _update_splits(self, seed: int = SEED, valid_ratio: float = 0.2) -> None:
         """Updates self.info['splits'] with episode indices."""
@@ -255,7 +243,7 @@ class ZarrDatasetView:
         return len(self._zarr_dataset)
 
     def __getitem__(self, idx):
-        """Get item without video loading (for compatibility)."""
+        """Get item (for compatibility with hf_dataset interface)."""
         return self._zarr_dataset._get_zarr_item(idx)
 
     def select(self, indices: list[int]) -> list[dict]:
@@ -278,7 +266,6 @@ class ZarrDataset(torch.utils.data.Dataset):
         delta_timestamps: dict[list[float]] | None = None,
         tolerance_s: float = 1e-4,
         local_files_only: bool = True,
-        video_backend: str | None = None,
     ):
         super().__init__()
         self.repo_id = repo_id
@@ -287,17 +274,15 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.delta_timestamps = delta_timestamps
         self.episodes = episodes
         self.tolerance_s = tolerance_s
-        self.video_backend = video_backend or "pyav"
         self.local_files_only = local_files_only
         self.delta_indices = None
 
         # Load metadata
         self.meta = ZarrDatasetMetadata(repo_id, self.root, local_files_only)
 
-        # Discover episodes and chunks
+        # Discover episodes
         self._episode_paths: dict[int, Path] = {}
-        self._episode_chunks: dict[int, list[int]] = {}
-        self._chunk_stores: dict[tuple[int, int], zarr.Group] = {}
+        self._episode_stores: dict[int, zarr.Group] = {}
         self._discover_episodes()
 
         # Build episode data index (global frame -> episode/chunk/local mapping)
@@ -314,85 +299,60 @@ class ZarrDataset(torch.utils.data.Dataset):
             self.delta_indices = get_delta_indices(self.delta_timestamps, self.fps)
 
     def _discover_episodes(self) -> None:
-        """Find all episode folders in data/."""
+        """Find all episode zarr stores in data/."""
         data_dir = self.root / "data"
         if not data_dir.exists():
             logger.warning(f"Data directory not found: {data_dir}")
             return
 
-        for ep_dir in sorted(data_dir.iterdir()):
-            if not ep_dir.is_dir():
+        for ep_path in sorted(data_dir.iterdir()):
+            if not ep_path.is_dir():
                 continue
-            # Parse episode index from folder name: episode_{ep_idx}
-            name = ep_dir.name
-            if not name.startswith("episode_"):
+            # Parse episode index from folder name: episode_{ep_idx}.zarr
+            name = ep_path.name
+            if not name.startswith("episode_") or not name.endswith(".zarr"):
                 continue
             try:
-                ep_idx = int(name.replace("episode_", ""))
+                ep_idx = int(name.replace("episode_", "").replace(".zarr", ""))
             except ValueError:
                 continue
 
-            self._episode_paths[ep_idx] = ep_dir
-            self._episode_chunks[ep_idx] = self._discover_chunks(ep_idx)
+            self._episode_paths[ep_idx] = ep_path
 
-    def _discover_chunks(self, ep_idx: int) -> list[int]:
-        """Find all chunk Zarr stores within an episode."""
-        ep_dir = self._episode_paths.get(ep_idx)
-        if ep_dir is None:
-            return []
+    def _get_episode_store(self, ep_idx: int) -> zarr.Group | None:
+        """Open/cache episode Zarr store on demand."""
+        if ep_idx in self._episode_stores:
+            return self._episode_stores[ep_idx]
 
-        chunks = []
-        for item in sorted(ep_dir.iterdir()):
-            # Look for chunk-{idx}.zarr directories
-            name = item.name
-            if not name.startswith("chunk-") or not name.endswith(".zarr"):
-                continue
-            try:
-                chunk_idx = int(name.replace("chunk-", "").replace(".zarr", ""))
-                chunks.append(chunk_idx)
-            except ValueError:
-                continue
-
-        return sorted(chunks)
-
-    def _get_chunk_store(self, ep_idx: int, chunk_idx: int) -> zarr.Group | None:
-        """Open/cache chunk Zarr store on demand."""
-        key = (ep_idx, chunk_idx)
-        if key in self._chunk_stores:
-            return self._chunk_stores[key]
-
-        ep_dir = self._episode_paths.get(ep_idx)
-        if ep_dir is None:
+        ep_path = self._episode_paths.get(ep_idx)
+        if ep_path is None:
             return None
 
-        chunk_path = ep_dir / f"chunk-{chunk_idx:03d}.zarr"
-        if not chunk_path.exists():
+        if not ep_path.exists():
             return None
 
-        store = zarr.open(str(chunk_path), mode="r")
-        self._chunk_stores[key] = store
+        store = zarr.open(str(ep_path), mode="r")
+        self._episode_stores[ep_idx] = store
         return store
 
     def _build_episode_data_index(self) -> dict[str, torch.Tensor]:
         """Build from/to indices for each episode."""
-        # Get episode lengths from metadata or by scanning chunks
         episode_lengths = {}
 
         for ep_idx in sorted(self._episode_paths.keys()):
             if self.episodes is not None and ep_idx not in self.episodes:
                 continue
 
-            # Try to get length from metadata
-            if ep_idx < len(self.meta.episodes):
-                episode_lengths[ep_idx] = self.meta.episodes[ep_idx].get("length", 0)
+            # Calculate length from zarr store (use first available array)
+            store = self._get_episode_store(ep_idx)
+            if store is not None:
+                keys = list(store.keys())
+                if keys:
+                    episode_lengths[ep_idx] = store[keys[0]].shape[0]
+                else:
+                    episode_lengths[ep_idx] = 0
             else:
-                # Calculate from chunks
-                total_len = 0
-                for chunk_idx in self._episode_chunks.get(ep_idx, []):
-                    store = self._get_chunk_store(ep_idx, chunk_idx)
-                    if store is not None and "timestamp" in store:
-                        total_len += store["timestamp"].shape[0]
-                episode_lengths[ep_idx] = total_len
+                episode_lengths[ep_idx] = 0
 
         # Build cumulative indices
         from_indices = []
@@ -425,8 +385,8 @@ class ZarrDataset(torch.utils.data.Dataset):
             self._frame_indices = indices
             self._num_frames = len(indices)
 
-    def _global_idx_to_episode_chunk_local(self, global_idx: int) -> tuple[int, int, int]:
-        """Map global frame index to (episode_idx, chunk_idx, local_idx)."""
+    def _global_idx_to_episode_local(self, global_idx: int) -> tuple[int, int]:
+        """Map global frame index to (episode_idx, local_idx)."""
         # Find which episode this frame belongs to
         ep_list = sorted(self._episode_paths.keys())
         if self.episodes is not None:
@@ -437,21 +397,8 @@ class ZarrDataset(torch.utils.data.Dataset):
             ep_end = int(self.episode_data_index["to"][i])
 
             if ep_start <= global_idx < ep_end:
-                # Found the episode, now find the chunk
-                local_in_episode = global_idx - ep_start
-                cumulative = 0
-
-                for chunk_idx in self._episode_chunks.get(ep_idx, []):
-                    store = self._get_chunk_store(ep_idx, chunk_idx)
-                    if store is None:
-                        continue
-                    chunk_len = store["timestamp"].shape[0]
-
-                    if cumulative + chunk_len > local_in_episode:
-                        local_in_chunk = local_in_episode - cumulative
-                        return ep_idx, chunk_idx, local_in_chunk
-
-                    cumulative += chunk_len
+                local_idx = global_idx - ep_start
+                return ep_idx, local_idx
 
         raise IndexError(f"Global index {global_idx} out of range")
 
@@ -477,25 +424,34 @@ class ZarrDataset(torch.utils.data.Dataset):
         return ZarrDatasetView(self)
 
     def _get_zarr_item(self, idx: int) -> dict:
-        """Get a single frame from Zarr (without video loading)."""
+        """Get a single frame from Zarr."""
         global_idx = self._frame_indices[idx] if self._frame_indices else idx
-        ep_idx, chunk_idx, local_idx = self._global_idx_to_episode_chunk_local(global_idx)
+        ep_idx, local_idx = self._global_idx_to_episode_local(global_idx)
 
-        store = self._get_chunk_store(ep_idx, chunk_idx)
+        store = self._get_episode_store(ep_idx)
         if store is None:
-            raise ValueError(f"Could not load chunk store for episode {ep_idx}, chunk {chunk_idx}")
+            raise ValueError(f"Could not load store for episode {ep_idx}")
 
         item = {}
         for key in store.keys():
-            if key in self.meta.camera_keys:
-                continue  # Skip video keys
             arr = store[key]
-            if local_idx < arr.shape[0]:
+            if local_idx >= arr.shape[0]:
+                continue
+
+            if key in self.meta.camera_keys:
+                # Decode JPEG-XL compressed image
+                compressed_bytes = arr[local_idx]
+                img_np = decode_jxl(compressed_bytes)  # (H, W, C) uint8
+                # Convert to (C, H, W) float tensor normalized to [0, 1]
+                img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
+                item[key] = img_tensor
+            else:
                 item[key] = torch.from_numpy(np.array(arr[local_idx]))
 
-        # Add episode_index if not in data
-        if "episode_index" not in item:
-            item["episode_index"] = torch.tensor(ep_idx)
+        # Compute metadata fields on-the-fly
+        item["episode_index"] = torch.tensor(ep_idx)
+        item["frame_index"] = torch.tensor(local_idx)
+        item["timestamp"] = torch.tensor(local_idx / self.fps, dtype=torch.float32)
 
         return item
 
@@ -532,104 +488,153 @@ class ZarrDataset(torch.utils.data.Dataset):
         return query_indices, padding
 
     def _query_zarr_data(self, query_indices: dict[str, list[int]]) -> dict:
-        """Query Zarr arrays for multiple indices."""
+        """Query Zarr arrays for multiple indices with optimized batch reads."""
         result = {}
         for key, q_indices in query_indices.items():
             if key in self.meta.camera_keys:
                 continue
 
-            frames = []
-            for q_idx in q_indices:
-                item = self._get_zarr_item(q_idx) if self._frame_indices is None else self._get_zarr_item_by_global(q_idx)
-                if key in item:
-                    frames.append(item[key])
+            if not q_indices:
+                continue
 
-            if frames:
-                result[key] = torch.stack(frames)
+            # Group indices by episode for batch reads
+            # groups: {ep_idx: [(local_idx, output_position), ...]}
+            groups: dict[int, list[tuple[int, int]]] = {}
+            for out_pos, q_idx in enumerate(q_indices):
+                ep_idx, local_idx = self._global_idx_to_episode_local(q_idx)
+                if ep_idx not in groups:
+                    groups[ep_idx] = []
+                groups[ep_idx].append((local_idx, out_pos))
+
+            # Get sample shape from first available store
+            first_ep_idx = next(iter(groups.keys()))
+            sample_store = self._get_episode_store(first_ep_idx)
+            if sample_store is None or key not in sample_store:
+                continue
+
+            sample_shape = sample_store[key].shape[1:]  # Shape excluding time dimension
+
+            # Pre-allocate output tensor
+            frames = torch.empty((len(q_indices), *sample_shape), dtype=torch.float32)
+
+            # Batch read from each episode
+            for ep_idx, idx_pairs in groups.items():
+                store = self._get_episode_store(ep_idx)
+                if store is None or key not in store:
+                    continue
+
+                local_indices = [p[0] for p in idx_pairs]
+                out_positions = [p[1] for p in idx_pairs]
+
+                # Sort by local index to check contiguity
+                sorted_pairs = sorted(zip(local_indices, out_positions), key=lambda x: x[0])
+                sorted_local = [p[0] for p in sorted_pairs]
+                sorted_out = [p[1] for p in sorted_pairs]
+
+                # Check if indices are contiguous
+                is_contiguous = (
+                    len(sorted_local) > 1 and
+                    sorted_local == list(range(sorted_local[0], sorted_local[0] + len(sorted_local)))
+                )
+
+                arr = store[key]
+                if is_contiguous:
+                    # Single slice read - much faster for contiguous data
+                    start_idx = sorted_local[0]
+                    end_idx = sorted_local[-1] + 1
+                    if end_idx <= arr.shape[0]:
+                        data = torch.from_numpy(np.array(arr[start_idx:end_idx]))
+                        for i, out_pos in enumerate(sorted_out):
+                            frames[out_pos] = data[i]
+                else:
+                    # Non-contiguous: use individual reads (rare case at episode boundaries)
+                    for local_idx, out_pos in zip(local_indices, out_positions):
+                        if local_idx < arr.shape[0]:
+                            frames[out_pos] = torch.from_numpy(np.array(arr[local_idx]))
+
+            result[key] = frames
 
         return result
 
     def _get_zarr_item_by_global(self, global_idx: int) -> dict:
         """Get item by global index (not filtered index)."""
-        ep_idx, chunk_idx, local_idx = self._global_idx_to_episode_chunk_local(global_idx)
+        ep_idx, local_idx = self._global_idx_to_episode_local(global_idx)
 
-        store = self._get_chunk_store(ep_idx, chunk_idx)
+        store = self._get_episode_store(ep_idx)
         if store is None:
             return {}
 
         item = {}
         for key in store.keys():
-            if key in self.meta.camera_keys:
-                continue
             arr = store[key]
-            if local_idx < arr.shape[0]:
+            if local_idx >= arr.shape[0]:
+                continue
+
+            if key in self.meta.camera_keys:
+                # Decode JPEG-XL compressed image
+                compressed_bytes = arr[local_idx]
+                img_np = decode_jxl(compressed_bytes)  # (H, W, C) uint8
+                img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
+                item[key] = img_tensor
+            else:
                 item[key] = torch.from_numpy(np.array(arr[local_idx]))
 
-        if "episode_index" not in item:
-            item["episode_index"] = torch.tensor(ep_idx)
+        # Compute metadata fields on-the-fly
+        item["episode_index"] = torch.tensor(ep_idx)
+        item["frame_index"] = torch.tensor(local_idx)
+        item["timestamp"] = torch.tensor(local_idx / self.fps, dtype=torch.float32)
 
         return item
 
-    def _get_query_timestamps(
-        self,
-        current_ts: float,
-        query_indices: dict[str, list[int]] | None = None,
-    ) -> dict[str, list[float]]:
-        """Get timestamps for video frame queries."""
-        query_timestamps = {}
-        for key in self.meta.video_keys:
-            if query_indices is not None and key in query_indices:
-                timestamps = []
-                for q_idx in query_indices[key]:
-                    item = self._get_zarr_item_by_global(q_idx)
-                    if "timestamp" in item:
-                        timestamps.append(float(item["timestamp"]))
-                    else:
-                        timestamps.append(current_ts)
-                query_timestamps[key] = timestamps
-            else:
-                query_timestamps[key] = [current_ts]
-
-        return query_timestamps
-
-    def _query_videos(self, query_timestamps: dict[str, list[float]], ep_idx: int) -> dict:
-        """Decode video frames."""
-        item = {}
-        for vid_key, query_ts in query_timestamps.items():
-            # Find which chunk(s) contain these timestamps
-            # For now, assume chunk 0 (can be extended for multi-chunk support)
-            video_path = self.root / self.meta.get_video_file_path(ep_idx, vid_key, chunk_idx=0)
-
-            if not video_path.exists():
-                logger.warning(f"Video file not found: {video_path}")
+    def _query_images(self, query_indices: dict[str, list[int]]) -> dict:
+        """Query JPEG-XL images from Zarr for multiple indices."""
+        result = {}
+        for key in self.meta.camera_keys:
+            if key not in query_indices:
                 continue
 
-            frames = decode_video_frames_torchvision(
-                video_path, query_ts, self.tolerance_s, self.video_backend
-            )
-            item[vid_key] = frames.squeeze(0)
+            q_indices = query_indices[key]
+            if not q_indices:
+                continue
 
-        return item
+            frames_list = []
+            for q_idx in q_indices:
+                ep_idx, local_idx = self._global_idx_to_episode_local(q_idx)
+                store = self._get_episode_store(ep_idx)
+                if store is None or key not in store:
+                    continue
+
+                arr = store[key]
+                if local_idx < arr.shape[0]:
+                    compressed_bytes = arr[local_idx]
+                    img_np = decode_jxl(compressed_bytes)
+                    img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
+                    frames_list.append(img_tensor)
+
+            if frames_list:
+                result[key] = torch.stack(frames_list, dim=0)
+
+        return result
 
     def __getitem__(self, idx) -> dict:
         """Get a single frame with all features."""
         item = self._get_zarr_item(idx)
-        ep_idx = int(item["episode_index"])
 
         query_indices = None
         if self.delta_indices is not None:
+            ep_idx = int(item["episode_index"])
             query_indices, padding = self._get_query_indices(idx, ep_idx)
+
+            # Query non-image data
             query_result = self._query_zarr_data(query_indices)
             item = {**item, **padding}
             for key, val in query_result.items():
                 item[key] = val
 
-        # Load videos
-        if len(self.meta.video_keys) > 0:
-            current_ts = float(item["timestamp"]) if "timestamp" in item else 0.0
-            query_timestamps = self._get_query_timestamps(current_ts, query_indices)
-            video_frames = self._query_videos(query_timestamps, ep_idx)
-            item = {**video_frames, **item}
+            # Query images if delta_timestamps includes camera keys
+            image_result = self._query_images(query_indices)
+            for key, val in image_result.items():
+                item[key] = val
 
         # Apply image transforms
         if self.image_transforms is not None:
@@ -820,6 +825,9 @@ class RLDBZarrDataset(ZarrDataset):
             idx = self.sampled_indices[idx]
 
         item = super().__getitem__(idx)
+
+        # Add embodiment (computed from robot_type, not stored per-frame)
+        item["metadata.embodiment"] = torch.tensor(self.embodiment)
 
         # Inject task string
         if self.use_task_string:
