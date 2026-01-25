@@ -7,7 +7,7 @@ expected by ZarrDataset, maintaining compatibility with the LeRobotDataset API.
 Directory structure created:
     dataset_root/
     └── episode_{ep_idx}.zarr/
-        ├── metadata.json
+        ├── .zattrs (metadata)
         ├── observation.images.{cam}  (JPEG-XL compressed)
         ├── observation.state
         ├── actions_joints
@@ -82,6 +82,7 @@ class HDF5ToZarrConverter:
         jxl_quality: int = 50,
         prestack: bool = False,
         chunk_size_mb: float = 2.0,
+        chunk_timesteps: int | None = None,
         debug: bool = False,
     ):
         self.raw_path = Path(raw_path)
@@ -95,6 +96,7 @@ class HDF5ToZarrConverter:
         self.prestack = prestack
         self.chunk_size_mb = chunk_size_mb
         self.chunk_size_bytes = int(chunk_size_mb * 1024 * 1024)
+        self.chunk_timesteps = chunk_timesteps
         self.debug = debug
 
         # Setup logging
@@ -139,7 +141,10 @@ class HDF5ToZarrConverter:
         self.logger.info(f"Output: {self.output_path}")
         self.logger.info(f"Episodes to process: {len(self.episode_list)}")
         self.logger.info(f"JPEG-XL quality: {self.jxl_quality}")
-        self.logger.info(f"Chunk size: {self.chunk_size_mb} MB")
+        if self.chunk_timesteps is not None:
+            self.logger.info(f"Chunk size: {self.chunk_timesteps} timesteps")
+        else:
+            self.logger.info(f"Chunk size: {self.chunk_size_mb} MB")
 
     def _write_zarr_episode(
         self,
@@ -157,14 +162,20 @@ class HDF5ToZarrConverter:
         # Write numeric arrays with target chunk size
         for key, values in frames_data.items():
             arr = np.stack(values, axis=0)
-            # Calculate frames per chunk based on target MB
-            bytes_per_frame = arr[0].nbytes
-            if bytes_per_frame > 0:
-                frames_per_chunk = max(1, self.chunk_size_bytes // bytes_per_frame)
+            # Calculate frames per chunk
+            if self.chunk_timesteps is not None:
+                # Use explicit timestep-based chunking
+                frames_per_chunk = self.chunk_timesteps
             else:
-                frames_per_chunk = num_frames
-            # Cap to episode length, but ensure chunk fills target size
+                # Calculate frames per chunk based on target MB
+                bytes_per_frame = arr[0].nbytes
+                if bytes_per_frame > 0:
+                    frames_per_chunk = max(1, self.chunk_size_bytes // bytes_per_frame)
+                else:
+                    frames_per_chunk = num_frames
+            # Cap to episode length
             frames_per_chunk = min(frames_per_chunk, num_frames)
+            frames_per_chunk = max(1, frames_per_chunk)
             # Chunk shape: (frames, ...) - keep other dimensions intact
             chunk_shape = (frames_per_chunk,) + arr.shape[1:]
             store.create_array(
@@ -195,8 +206,7 @@ class HDF5ToZarrConverter:
                 "names": ["height", "width", "channel"],
             }
 
-        # Write per-episode metadata
-        metadata = {
+        info = {
             "episode_index": episode_idx,
             "fps": self.fps,
             "robot_type": self.robot_type,
@@ -205,8 +215,8 @@ class HDF5ToZarrConverter:
             "features": features,
         }
 
-        with open(episode_path / "metadata.json", "w") as f:
-            json.dump(metadata, f, indent=2)
+        # Attach metadata to zarr group attrs (Zarr v3-compatible)
+        store.attrs.update(info)
 
         self.logger.info(f"Wrote {num_frames} frames to {episode_path}")
 
@@ -337,7 +347,7 @@ def parse_args():
     parser.add_argument(
         "--dataset-repo-id",
         type=str,
-        required=True,
+        default=0,
         help="Dataset repository ID",
     )
     parser.add_argument(
@@ -390,6 +400,12 @@ def parse_args():
         help="Target chunk size in MB for numeric arrays (default: 2)",
     )
     parser.add_argument(
+        "--chunk-timesteps",
+        type=int,
+        default=None,
+        help="Number of timesteps per chunk (overrides --chunk-size-mb if specified)",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Process only first 2 episodes",
@@ -412,6 +428,7 @@ def main():
         jxl_quality=args.jxl_quality,
         prestack=args.prestack,
         chunk_size_mb=args.chunk_size_mb,
+        chunk_timesteps=args.chunk_timesteps,
         debug=args.debug,
     )
 
