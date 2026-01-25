@@ -2,8 +2,8 @@
 #SBATCH --job-name=scene_diversity_cotrain_4_30
 #SBATCH --output=sbatch_logs/scene_diversity_cotrain_4_30.out
 #SBATCH --error=sbatch_logs/scene_diversity_cotrain_4_30.err
-#SBATCH --partition="hoffman-lab"
-#SBATCH --account="hoffman-lab"
+#SBATCH --partition="overcap"
+#SBATCH --account="rl2-lab"
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=12

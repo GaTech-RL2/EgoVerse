@@ -163,3 +163,4 @@ for num_scenes, minutes_per_scene, num_operators in configs:
     create_config_file(num_scenes, minutes_per_scene, num_operators)
 
 print('\nAll config files created!')
+

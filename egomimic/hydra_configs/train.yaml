@@ -24,9 +24,9 @@ eval_class:
 hydra:
   run:
     # Dir should be experiment_name/description_{timestamp}
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    dir: /coc/cedarp-dxu345-0/bli678/EgoVerse/logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
   sweep:
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    dir: /coc/cedarp-dxu345-0/bli678/EgoVerse/logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
 launch_params:
   gpus_per_node: 1

@@ -7,15 +7,12 @@ valid_datasets:
       eva:
         _target_: egomimic.rldb.utils.S3RLDBDataset
         bucket_name: rldb
-        mode: valid
+        mode: total
         embodiment: eva_bimanual
         local_files_only: true
-        temp_root: /coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene
+        temp_root: /coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_diversity
         filters:
-          operator: Ryan
-          lab: rl2
-          scene: '1'
-          task: fold clothes
+          episode_hash: 2026-01-22-19-05-51-870000
     embodiment: eva_bimanual
 
 train_datasets:
@@ -2162,7 +2159,7 @@ train_datasets:
       eva:
         _target_: egomimic.rldb.utils.S3RLDBDataset
         bucket_name: rldb
-        mode: total
+        mode: train
         embodiment: eva_bimanual
         local_files_only: true
         temp_root: /coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene
