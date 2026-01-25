@@ -7,8 +7,6 @@ instead of parquet/HF datasets.
 Directory structure (per-episode metadata):
     dataset_root/
     └── episode_{ep_idx}.zarr/
-        ├── meta/
-        │   └── info.json
         ├── observation.images.{cam}  (JPEG-XL compressed)
         ├── observation.state
         ├── actions_joints
@@ -18,9 +16,6 @@ Each episode is self-contained with its own metadata, enabling:
 - Independent episode uploads to S3
 - Parallel processing without global coordination
 - Easy episode-level data management
-
-Note: timestamp, frame_index, and episode_index are computed on-the-fly
-rather than stored, since they can be derived from the episode path and array index.
 """
 
 from __future__ import annotations
@@ -112,25 +107,36 @@ def load_info_from_episodes(local_dir: Path) -> dict:
         return {"fps": 30, "features": {}, "total_episodes": 0, "total_frames": 0}
 
     # Load info from first episode for common fields
-    first_ep_metadata_path = episode_dirs[0] / "metadata.json"
-    if first_ep_metadata_path.exists():
-        with open(first_ep_metadata_path, "r") as f:
+    base_info = {}
+    first_ep_zarr_json = episode_dirs[0] / "zarr.json"
+    first_ep_info_path = episode_dirs[0] / "meta" / "info.json"
+    if first_ep_zarr_json.exists():
+        with open(first_ep_zarr_json, "r") as f:
+            base_info = json.load(f).get("attributes", {})
+    elif first_ep_info_path.exists():
+        with open(first_ep_info_path, "r") as f:
             base_info = json.load(f)
-    else:
-        base_info = {}
 
     # Aggregate totals across all episodes
     total_frames = 0
     tasks = set()
 
     for ep_dir in episode_dirs:
-        ep_metadata_path = ep_dir / "metadata.json"
-        if ep_metadata_path.exists():
-            with open(ep_metadata_path, "r") as f:
+        ep_zarr_json = ep_dir / "zarr.json"
+        ep_info_path = ep_dir / "meta" / "info.json"
+        if ep_zarr_json.exists():
+            with open(ep_zarr_json, "r") as f:
+                ep_info = json.load(f).get("attributes", {})
+        elif ep_info_path.exists():
+            with open(ep_info_path, "r") as f:
                 ep_info = json.load(f)
-                total_frames += ep_info.get("total_frames", 0)
-                if ep_info.get("task"):
-                    tasks.add(ep_info["task"])
+        else:
+            ep_info = {}
+
+        if ep_info:
+            total_frames += ep_info.get("total_frames", 0)
+            if ep_info.get("task"):
+                tasks.add(ep_info["task"])
 
     # Build aggregated info
     info = {
@@ -351,6 +357,12 @@ class ZarrDataset(torch.utils.data.Dataset):
         # Build episode data index (global frame -> episode/chunk/local mapping)
         self.episode_data_index = self._build_episode_data_index()
 
+        # Build cached lookup structures for O(log n) episode lookup
+        self._ep_list: list[int] = []
+        self._ep_bounds: dict[int, tuple[int, int]] = {}
+        self._ep_ends: torch.Tensor = torch.empty(0, dtype=torch.long)
+        self._build_lookup_cache()
+
         # Build frame index for episode filtering
         self._frame_indices: list[int] | None = None
         self._num_frames: int = 0
@@ -409,7 +421,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         if not ep_path.exists():
             return None
 
-        store = zarr.open(str(ep_path), mode="r")
+        store = zarr.open_group(str(ep_path), mode="r")
         self._episode_stores[ep_idx] = store
         return store
 
@@ -424,7 +436,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             # Calculate length from zarr store (use first available array)
             store = self._get_episode_store(ep_idx)
             if store is not None:
-                keys = list(store.keys())
+                keys = list(store.array_keys())
                 if keys:
                     episode_lengths[ep_idx] = store[keys[0]].shape[0]
                 else:
@@ -447,6 +459,31 @@ class ZarrDataset(torch.utils.data.Dataset):
             "to": torch.LongTensor(to_indices),
         }
 
+    def _build_lookup_cache(self) -> None:
+        """Build cached structures for O(log n) episode lookup.
+
+        Creates:
+            _ep_list: Sorted list of episode indices (filtered if self.episodes is set)
+            _ep_bounds: Dict mapping ep_idx -> (ep_start, ep_end) for quick bounds lookup
+            _ep_ends: Tensor of cumulative end indices for binary search with searchsorted
+        """
+        # Build sorted episode list (filtered if needed)
+        ep_list = sorted(self._episode_paths.keys())
+        if self.episodes is not None:
+            ep_list = [e for e in ep_list if e in self.episodes]
+        self._ep_list = ep_list
+
+        # Build bounds dict and ends tensor
+        self._ep_bounds = {}
+        ends = []
+        for i, ep_idx in enumerate(self._ep_list):
+            ep_start = int(self.episode_data_index["from"][i])
+            ep_end = int(self.episode_data_index["to"][i])
+            self._ep_bounds[ep_idx] = (ep_start, ep_end)
+            ends.append(ep_end)
+
+        self._ep_ends = torch.tensor(ends, dtype=torch.long) if ends else torch.empty(0, dtype=torch.long)
+
     def _build_frame_index(self) -> None:
         """Build mapping from dataset index to global frame index."""
         if self.episodes is None:
@@ -464,21 +501,25 @@ class ZarrDataset(torch.utils.data.Dataset):
             self._num_frames = len(indices)
 
     def _global_idx_to_episode_local(self, global_idx: int) -> tuple[int, int]:
-        """Map global frame index to (episode_idx, local_idx)."""
-        # Find which episode this frame belongs to
-        ep_list = sorted(self._episode_paths.keys())
-        if self.episodes is not None:
-            ep_list = [e for e in ep_list if e in self.episodes]
+        """Map global frame index to (episode_idx, local_idx).
 
-        for i, ep_idx in enumerate(ep_list):
-            ep_start = int(self.episode_data_index["from"][i])
-            ep_end = int(self.episode_data_index["to"][i])
+        Uses binary search via torch.searchsorted for O(log n) lookup instead of O(n) linear scan.
+        """
+        if len(self._ep_ends) == 0:
+            raise IndexError(f"Global index {global_idx} out of range (no episodes)")
 
-            if ep_start <= global_idx < ep_end:
-                local_idx = global_idx - ep_start
-                return ep_idx, local_idx
+        # Binary search: find the first episode where ep_end > global_idx
+        # searchsorted with side="right" finds insertion point after equal values
+        ep_list_idx = torch.searchsorted(self._ep_ends, global_idx, side="right").item()
 
-        raise IndexError(f"Global index {global_idx} out of range")
+        if ep_list_idx >= len(self._ep_list):
+            raise IndexError(f"Global index {global_idx} out of range")
+
+        ep_idx = self._ep_list[ep_list_idx]
+        ep_start = int(self.episode_data_index["from"][ep_list_idx])
+        local_idx = global_idx - ep_start
+
+        return ep_idx, local_idx
 
     @property
     def fps(self) -> int:
@@ -511,12 +552,20 @@ class ZarrDataset(torch.utils.data.Dataset):
             raise ValueError(f"Could not load store for episode {ep_idx}")
 
         item = {}
-        for key in store.keys():
+        for key in store.array_keys():
             arr = store[key]
+            if not hasattr(arr, "dtype") or not hasattr(arr, "shape"):
+                # Skip non-array nodes (e.g., metadata groups)
+                continue
             if local_idx >= arr.shape[0]:
                 continue
 
-            if key in self.meta.camera_keys:
+            is_image_key = key in self.meta.camera_keys
+            if not is_image_key and key.startswith("observation.images.") and arr.dtype.kind == "O":
+                # Fallback: treat variable-length byte arrays as images even if metadata is missing
+                is_image_key = True
+
+            if is_image_key:
                 # Decode JPEG-XL compressed image
                 compressed_bytes = arr[local_idx]
                 img_np = decode_jxl(compressed_bytes)  # (H, W, C) uint8
@@ -524,7 +573,12 @@ class ZarrDataset(torch.utils.data.Dataset):
                 img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
                 item[key] = img_tensor
             else:
-                item[key] = torch.from_numpy(np.array(arr[local_idx]))
+                if arr.dtype.kind == "O":
+                    raise TypeError(
+                        f"Unsupported object dtype for key '{key}'. "
+                        "If this is an image array, add it to meta/info.json features with dtype='jxl'."
+                    )
+                item[key] = torch.as_tensor(arr[local_idx])
 
         # Compute metadata fields on-the-fly
         item["episode_index"] = torch.tensor(ep_idx)
@@ -538,19 +592,8 @@ class ZarrDataset(torch.utils.data.Dataset):
 
     def _get_query_indices(self, idx: int, ep_idx: int) -> tuple[dict[str, list[int]], dict[str, torch.Tensor]]:
         """Get indices for delta_timestamps queries."""
-        # Find episode bounds in our filtered dataset
-        ep_list = sorted(self._episode_paths.keys())
-        if self.episodes is not None:
-            ep_list = [e for e in ep_list if e in self.episodes]
-
-        try:
-            ep_list_idx = ep_list.index(ep_idx)
-        except ValueError:
-            ep_list_idx = 0
-
-        ep_start = int(self.episode_data_index["from"][ep_list_idx])
-        ep_end = int(self.episode_data_index["to"][ep_list_idx])
-
+        # Use cached episode bounds for O(1) lookup instead of O(n) recomputation
+        ep_start, ep_end = self._ep_bounds[ep_idx]
         global_idx = self._frame_indices[idx] if self._frame_indices else idx
 
         query_indices = {
@@ -590,6 +633,12 @@ class ZarrDataset(torch.utils.data.Dataset):
             if sample_store is None or key not in sample_store:
                 continue
 
+            if sample_store[key].dtype.kind == "O":
+                raise TypeError(
+                    f"Unsupported object dtype for key '{key}'. "
+                    "If this is an image array, add it to meta/info.json features with dtype='jxl'."
+                )
+
             sample_shape = sample_store[key].shape[1:]  # Shape excluding time dimension
 
             # Pre-allocate output tensor
@@ -621,14 +670,14 @@ class ZarrDataset(torch.utils.data.Dataset):
                     start_idx = sorted_local[0]
                     end_idx = sorted_local[-1] + 1
                     if end_idx <= arr.shape[0]:
-                        data = torch.from_numpy(np.array(arr[start_idx:end_idx]))
+                        data = torch.as_tensor(arr[start_idx:end_idx])
                         for i, out_pos in enumerate(sorted_out):
                             frames[out_pos] = data[i]
                 else:
                     # Non-contiguous: use individual reads (rare case at episode boundaries)
                     for local_idx, out_pos in zip(local_indices, out_positions):
                         if local_idx < arr.shape[0]:
-                            frames[out_pos] = torch.from_numpy(np.array(arr[local_idx]))
+                            frames[out_pos] = torch.as_tensor(arr[local_idx])
 
             result[key] = frames
 
@@ -643,19 +692,30 @@ class ZarrDataset(torch.utils.data.Dataset):
             return {}
 
         item = {}
-        for key in store.keys():
+        for key in store.array_keys():
             arr = store[key]
+            if not hasattr(arr, "dtype") or not hasattr(arr, "shape"):
+                continue
             if local_idx >= arr.shape[0]:
                 continue
 
-            if key in self.meta.camera_keys:
+            is_image_key = key in self.meta.camera_keys
+            if not is_image_key and key.startswith("observation.images.") and arr.dtype.kind == "O":
+                is_image_key = True
+
+            if is_image_key:
                 # Decode JPEG-XL compressed image
                 compressed_bytes = arr[local_idx]
                 img_np = decode_jxl(compressed_bytes)  # (H, W, C) uint8
                 img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
                 item[key] = img_tensor
             else:
-                item[key] = torch.from_numpy(np.array(arr[local_idx]))
+                if arr.dtype.kind == "O":
+                    raise TypeError(
+                        f"Unsupported object dtype for key '{key}'. "
+                        "If this is an image array, add it to meta/info.json features with dtype='jxl'."
+                    )
+                item[key] = torch.as_tensor(arr[local_idx])
 
         # Compute metadata fields on-the-fly
         item["episode_index"] = torch.tensor(ep_idx)
@@ -667,6 +727,7 @@ class ZarrDataset(torch.utils.data.Dataset):
     def _query_images(self, query_indices: dict[str, list[int]]) -> dict:
         """Query JPEG-XL images from Zarr for multiple indices."""
         result = {}
+
         for key in self.meta.camera_keys:
             if key not in query_indices:
                 continue
@@ -681,7 +742,6 @@ class ZarrDataset(torch.utils.data.Dataset):
                 store = self._get_episode_store(ep_idx)
                 if store is None or key not in store:
                     continue
-
                 arr = store[key]
                 if local_idx < arr.shape[0]:
                     compressed_bytes = arr[local_idx]
@@ -984,7 +1044,7 @@ class RLDBZarrDataset(ZarrDataset):
 
         return out
 
-    def _load_annotations(self, item: dict, idx: int) -> dict:
+    def _load_annotations(self, item: dict, _idx: int) -> dict:
         """Load annotations from CSV if available."""
         # Check if annotations directory exists
         annotation_path = Path(self.root) / "annotations"
@@ -1001,10 +1061,7 @@ class RLDBZarrDataset(ZarrDataset):
             df = annotations.df
 
             ep_idx = int(item.get("episode_index", 0))
-            current_ts = float(item.get("timestamp", 0))
-            fps = float(self.fps)
-
-            frame_time = current_ts
+            frame_time = float(item.get("timestamp", 0))
             df_episode = df.loc[df["idx"].astype(int) == ep_idx]
 
             if df_episode.empty:
