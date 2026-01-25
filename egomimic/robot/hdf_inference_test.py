@@ -53,6 +53,10 @@ except ImportError:
 def _reconstruct_rot_from_6d(rot6d: np.ndarray) -> np.ndarray:
     """Reconstruct rotation matrices from 6D representation.
 
+    The 6D vector is stored as a row-major flatten of the first two
+    columns of the rotation matrix (as saved by collect_demo.py):
+    [R00, R01, R10, R11, R20, R21].
+
     Args:
         rot6d: (T, 6) array of first two rotation matrix columns.
 
@@ -60,8 +64,9 @@ def _reconstruct_rot_from_6d(rot6d: np.ndarray) -> np.ndarray:
         R: (T, 3, 3) rotation matrices.
     """
     eps = 1e-8
-    c1 = rot6d[:, 0:3]
-    c2 = rot6d[:, 3:6]
+    rot_cols = rot6d.reshape(-1, 3, 2)
+    c1 = rot_cols[:, :, 0]
+    c2 = rot_cols[:, :, 1]
     c1n = c1 / (np.linalg.norm(c1, axis=-1, keepdims=True) + eps)
     proj = np.sum(c2 * c1n, axis=-1, keepdims=True) * c1n
     c2o = c2 - proj

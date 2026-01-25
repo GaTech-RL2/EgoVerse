@@ -70,7 +70,11 @@ def download_s3_checkpoint(s3_path: str) -> str:
 # =============================================================================
 
 def reconstruct_rot_from_6d(rot6d: torch.Tensor) -> torch.Tensor:
-    """Reconstruct rotation matrix from 6D representation (first two columns).
+    """Reconstruct rotation matrix from 6D representation.
+    
+    The 6D vector is stored as a row-major flatten of the first two
+    columns of the rotation matrix (as saved by collect_demo.py):
+    [R00, R01, R10, R11, R20, R21].
     
     Args:
         rot6d: (B, T, 6) tensor containing flattened first two columns of rotation matrix
@@ -79,8 +83,9 @@ def reconstruct_rot_from_6d(rot6d: torch.Tensor) -> torch.Tensor:
         R: (B, T, 3, 3) rotation matrix
     """
     B, T, _ = rot6d.shape
-    c1 = rot6d[..., 0:3]  # (B, T, 3)
-    c2 = rot6d[..., 3:6]  # (B, T, 3)
+    rot_cols = rot6d.reshape(B, T, 3, 2)
+    c1 = rot_cols[..., :, 0]  # (B, T, 3)
+    c2 = rot_cols[..., :, 1]  # (B, T, 3)
     
     eps = 1e-8
     # Normalize c1
