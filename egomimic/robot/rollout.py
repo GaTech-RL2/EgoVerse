@@ -4,9 +4,13 @@ import h5py
 import torch
 import sys
 import numpy as np
+from scipy.spatial.transform import Rotation as R
 import cv2
+import pickle
+from pathlib import Path
 from abc import ABC, abstractmethod
 
+import egomimic
 from egomimic.algo import *
 from egomimic.algo.hpt import HPTModel
 from egomimic.models.denoising_policy import DenoisingPolicy
@@ -14,7 +18,7 @@ from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id, R
 from egomimic.pl_utils.pl_model import ModelWrapper
 
 from robot_utils import RateLoop
-from egomimic.utils.egomimicUtils import CameraTransforms, draw_actions, cam_frame_to_base_frame, ee_pose_to_cam_frame, base_frame_to_cam_frame, interpolate_arr, interpolate_arr_euler
+from egomimic.utils.egomimicUtils import CameraTransforms, draw_actions, cam_frame_to_base_frame, ee_pose_to_cam_frame, base_frame_to_cam_frame, interpolate_arr, interpolate_arr_euler, ee_orientation_to_cam_frame
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 
@@ -23,7 +27,9 @@ import select
 import termios
 import tty
 
-from robot_interface import *
+from typing import Any, Dict, List, Optional, Tuple
+Array2D = Any
+
 # from stream_aria import AriaRecorder
 # from stream_d405 import RealSenseRecorder
 def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
@@ -52,6 +58,56 @@ EMBODIMENT_MAP = {
     "left": 7,
     "right": 6,
 }
+
+def _to_picklable(x):
+    # best-effort conversion to make obs/batch serializable
+    if isinstance(x, torch.Tensor):
+        return x.detach().cpu()
+    if isinstance(x, np.ndarray):
+        return x
+    if isinstance(x, dict):
+        return {k: _to_picklable(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        t = [_to_picklable(v) for v in x]
+        return type(x)(t)
+    return x
+
+def _dump_pickle(path: Path, obj) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = str(path) + ".tmp"
+    with open(tmp, "wb") as f:
+        pickle.dump(obj, f, protocol=pickle.HIGHEST_PROTOCOL)
+    os.replace(tmp, str(path))
+
+def _as_matrix(x):
+    """Return a 3x3 ndarray from either Rotation or 3x3 ndarray."""
+    return x.as_matrix() if isinstance(x, R) else np.asarray(x, dtype=float)
+
+
+def _row_to_numpy(x: Array2D, i: int) -> np.ndarray:
+    """Get i-th row as numpy array (handles torch or numpy input)."""
+    if isinstance(x, np.ndarray):
+        return x[i]
+    return x[i].detach().cpu().numpy()
+
+def fk_SE3(
+    joints_2d: Array2D, eva_fk: EvaMinkKinematicsSolver, *, dtype=torch.float32, device=None
+) -> torch.Tensor:
+    """
+    Eva FK full SE(3) for a sequence of joint vectors.
+    Returns torch.Tensor of shape (T, 4, 4) with bottom-right set to 1.
+    Downstream can keep using fk[:, :3, 3] and fk[:, :3, :3].
+    """
+    T = joints_2d.shape[0]
+    out = torch.zeros((T, 4, 4), dtype=dtype, device=device)
+    out[:, 3, 3] = 1.0
+    for i in range(T):
+        q = _row_to_numpy(joints_2d, i)
+        pos, R_obj = eva_fk.fk(q)  # numpy: (3,), (3,3)
+        Rm = _as_matrix(R_obj)
+        out[i, :3, :3] = torch.as_tensor(Rm, dtype=dtype, device=device)
+        out[i, :3, 3] = torch.as_tensor(pos, dtype=dtype, device=device)
+    return out
 
 class _KeyPoll:
   def __enter__(self):
@@ -117,6 +173,7 @@ class ReplayRolloutLerobot(Rollout):
         self.i = 0
         self.actions_key = "actions_cartesian" if cartesian else "actions_joints"
         self.actions = None
+
 	
     def rollout_step(self, i):
         while i >= self.i:
@@ -179,9 +236,15 @@ class PolicyRollout(Rollout):
         super().__init__()
         self.arm = arm
         self.policy_path = policy_path
-        self.policy = ModelWrapper.load_from_checkpoint(policy_path)
+        self.policy = ModelWrapper.load_from_checkpoint(policy_path, weights_only=False)
+        self.data_schematic = self.policy.model.data_schematic
         self.query_frequency = query_frequency
         self.cartesian = cartesian
+        EVA_XML_PATH = os.path.join(
+            os.path.dirname(egomimic.__file__), "resources/model_x5.xml"
+        )
+        self.EVA_FK = EvaMinkKinematicsSolver(model_path=str(EVA_XML_PATH))
+            
         self.embodiment_id = EMBODIMENT_MAP[self.arm]
         self.embodiment_name = get_embodiment(self.embodiment_id)
         if getattr(self.policy.model, "diffusion", False):
@@ -192,6 +255,9 @@ class PolicyRollout(Rollout):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
+
+        self._dump_dir = Path("debug/policy_io")
+        self._dump_i = 0
         
     def _downsample_chunk(self, chunk: np.ndarray, target_len: int) -> np.ndarray:
         if target_len is None or target_len <= 0 or chunk.shape[0] == target_len:
@@ -216,6 +282,7 @@ class PolicyRollout(Rollout):
         if i % self.query_frequency == 0:
             start_infer_t = time.time()
             batch = self.process_obs_for_policy(obs)
+            breakpoint()
             preds = self.policy.model.forward_eval(batch)
             ac_key = self.policy.model.ac_keys[self.embodiment_id]
             actions = preds[f"{self.embodiment_name.lower()}_{ac_key}"]
@@ -255,40 +322,83 @@ class PolicyRollout(Rollout):
         return self.actions[act_i]
 
     def process_obs_for_policy(self, obs):
+        dump_i = self._dump_i
+        self._dump_i += 1
+        
+        _dump_pickle(self._dump_dir / f"{dump_i:06d}_obs.pkl", _to_picklable(obs))
+
         # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
         front = torch.from_numpy(obs["front_img_1"][None, ...])        # [1, H, W, 3]
         front = front[..., [2, 1, 0]]                                  # BGR -> RGB
         front = front.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
 
         data = {
-            "front_img_1": front,
+            "observations.images.front_img_1": front,
             "pad_mask": torch.ones((1, 100, 1), device=self.device, dtype=torch.bool),
         }
 
         if self.arm == "right":
             right = torch.from_numpy(obs["right_wrist_img"][None, ...])  # [1, H, W, 3] BGR
+            if right.ndim == 3:
+                right = right[None, ...]
             right = right[..., [2, 1, 0]]                                # BGR -> RGB
             right = (
                 right.permute(0, 3, 1, 2)
                 .to(self.device, dtype=torch.float32)
                 / 255.0
             )
-            data["right_wrist_img"] = right
+            data["observations.images.right_wrist_img"] = right
             joint_positions = obs["joint_positions"][7:]
+            fk = fk_SE3(
+                torch.from_numpy(joint_positions[None, :]).to(torch.float32),
+                self.EVA_FK,
+                dtype=torch.float32,
+                device=self.device,
+            )
+            fk_positions = fk[:, :3, 3]
+            fk_orientations = fk[:, :3, :3]
+                        
+            extrinsics = self.extrinsics[self.arm]
+            fk_positions = ee_pose_to_cam_frame(fk_positions.cpu().numpy(), extrinsics)
+            fk_orientations, fk_ypr = ee_orientation_to_cam_frame(
+                fk_orientations, extrinsics
+            )
+            ee_pose = np.concatenate([fk_positions[0], fk_ypr[0], np.array([joint_positions[-1]])], axis=0)
 
         elif self.arm == "left":
             left = torch.from_numpy(obs["left_wrist_img"][None, ...])    # [1, H, W, 3] BGR
+            if left.ndim == 3:
+                left = left[None, ...]
             left = left[..., [2, 1, 0]]                                  # BGR -> RGB
             left = (
                 left.permute(0, 3, 1, 2)
                 .to(self.device, dtype=torch.float32)
                 / 255.0
             )
-            data["left_wrist_img"] = left
+            data["observations.images.left_wrist_img"] = left
             joint_positions = obs["joint_positions"][:7]
+            
+            fk = fk_SE3(
+                torch.from_numpy(joint_positions[None, :]).to(torch.float32),
+                self.EVA_FK,
+                dtype=torch.float32,
+                device=self.device,
+            )
+            fk_positions = fk[:, :3, 3]
+            fk_orientations = fk[:, :3, :3]
+                        
+            extrinsics = self.extrinsics[self.arm]
+            fk_positions = ee_pose_to_cam_frame(fk_positions.cpu().numpy(), extrinsics)
+            fk_orientations, fk_ypr = ee_orientation_to_cam_frame(
+                fk_orientations, extrinsics
+            )
+
+            ee_pose = np.concatenate([fk_positions[0], fk_ypr[0], np.array([joint_positions[-1]])], axis=0)
 
         elif self.arm == "both":
             right = torch.from_numpy(obs["right_wrist_img"][None, ...])
+            if right.ndim == 3:
+                right = right[None, ...]
             right = right[..., [2, 1, 0]]
             right = (
                 right.permute(0, 3, 1, 2)
@@ -296,48 +406,96 @@ class PolicyRollout(Rollout):
                 / 255.0
             )
             left = torch.from_numpy(obs["left_wrist_img"][None, ...])
+            if left.ndim == 3:
+                left = left[None, ...]
             left = left[..., [2, 1, 0]]
             left = (
                 left.permute(0, 3, 1, 2)
                 .to(self.device, dtype=torch.float32)
                 / 255.0
             )
-            data["right_wrist_img"] = right
-            data["left_wrist_img"] = left
+            data["observations.images.right_wrist_img"] = right
+            data["observations.images.left_wrist_img"] = left
             joint_positions = obs["joint_positions"]
+            
+            left_joint = joint_positions[:7]
+            right_joint = joint_positions[7:]
 
-        data["joint_positions"] = torch.from_numpy(joint_positions).reshape(1, 1, -1)
+            # FK for left
+            fk_left = fk_SE3(
+                torch.from_numpy(left_joint[None, :]).to(torch.float32),
+                self.EVA_FK,
+                dtype=torch.float32,
+                device=self.device,
+            )
+            fk_pos_left = fk_left[:, :3, 3]
+            fk_rot_left = fk_left[:, :3, :3]
+            extr_left = self.extrinsics["left"]
+            fk_pos_left = ee_pose_to_cam_frame(fk_pos_left.cpu().numpy(), extr_left)
+            fk_rot_left, fk_ypr_left = ee_orientation_to_cam_frame(fk_rot_left, extr_left)
+            ee_pose_left = np.concatenate([fk_pos_left[0], fk_ypr_left[0], np.array([left_joint[-1]])], axis=0)
+
+            # FK for right
+            fk_right = fk_SE3(
+                torch.from_numpy(right_joint[None, :]).to(torch.float32),
+                self.EVA_FK,
+                dtype=torch.float32,
+                device=self.device,
+            )
+            fk_pos_right = fk_right[:, :3, 3]
+            fk_rot_right = fk_right[:, :3, :3]
+            extr_right = self.extrinsics["right"]
+            fk_pos_right = ee_pose_to_cam_frame(fk_pos_right.cpu().numpy(), extr_right)
+            fk_rot_right, fk_ypr_right = ee_orientation_to_cam_frame(fk_rot_right, extr_right)
+            ee_pose_right = np.concatenate([fk_pos_right[0], fk_ypr_right[0], np.array([right_joint[-1]])], axis=0)
+
+            # concatenate both arm ee_poses
+            ee_pose = np.concatenate([ee_pose_left, ee_pose_right], axis=0)
+
+        data["observations.state.joint_positions"] = torch.from_numpy(joint_positions).reshape(1, -1)
         data["embodiment"] = torch.tensor([self.embodiment_id], dtype=torch.int64)
+        data["observations.state.ee_pose"] = torch.from_numpy(ee_pose).reshape(1, -1)
 
         if not self.cartesian:
-            data["actions_joints"] = torch.zeros_like(data["joint_positions"])
+            data["actions_joints"] = torch.zeros_like(data["observations.state.joint_positions"]).reshape(1, 1, -1)
         else:
-            data["actions_cartesian"] = torch.zeros_like(data["joint_positions"])
+            data["actions_cartesian"] = torch.zeros_like(data["observations.state.joint_positions"]).reshape(1, 1, -1)
 
-        processed_batch = {self.embodiment_id: data}
-
+        # processed_batch = {self.embodiment_id: data}
+        processed_batch = {self.embodiment_id: {}}
         # move non-image tensors to device and float32 (images already are)
         for key, val in data.items():
             if key not in ("front_img_1", "right_wrist_img", "left_wrist_img"):
                 data[key] = val.to(self.device, dtype=torch.float32)
+        
+        for key, val in data.items():
+            batch_key = self.policy.model.data_schematic.lerobot_key_to_keyname(key, self.embodiment_id)
+            processed_batch[self.embodiment_id][batch_key] = val
+            # print(f"Key: {key}, batch_key: {batch_key}, shape: {val.shape}")            
 
+        processed_batch[self.embodiment_id]["pad_mask"] = data["pad_mask"]
+        processed_batch[self.embodiment_id]["embodiment"] = data["embodiment"]
         processed_batch[self.embodiment_id] = (
             self.policy.model.data_schematic.normalize_data(
             processed_batch[self.embodiment_id], self.embodiment_id
             )
         )
-
+        
+        _dump_pickle(
+            self._dump_dir / f"{dump_i:06d}_batch.pkl",
+            _to_picklable(processed_batch),
+        )
         return processed_batch
+
     
     def reset(self):
         self.actions = None
         self.debug_actions = None
-        self.policy = ModelWrapper.load_from_checkpoint(self.policy_path)
+        self.policy = ModelWrapper.load_from_checkpoint(self.policy_path, weights_only=False)
         if getattr(self.policy.model, "diffusion", False):
             for head in self.policy.model.nets.policy.heads:
                 if isinstance(self.policy.model.nets.policy.heads[head], DenoisingPolicy):
-                    self.policy.model.nets.policy.heads[head].num_inference_steps = 10
-        
+                    self.policy.model.nets.policy.heads[head].num_inference_steps = 10 
         
 def reset_rollout(ri, policy): 
     print("Resetting rollout: going home + clearing policy state") 
@@ -360,6 +518,7 @@ def main(
     episodes=[0],
     debug=False,
     resampled_action_len=None,
+    offline_debug=False,
 ):
     if arms == "both":
         arms_list = ["right", "left"]
@@ -367,8 +526,6 @@ def main(
         arms_list = ["right"]
     else:
         arms_list = ["left"]
-
-    ri = ARXInterface(arms=arms_list)
 
     if policy_path is None and dataset_path is not None and repo_id is not None:
         rollout_type = "replay_lerobot"
@@ -388,20 +545,32 @@ def main(
             query_frequency=query_frequency,
             cartesian=cartesian,
             extrinsics_key="x5Dec13_2",
-            resampled_action_len=resampled_action_len
+            resampled_action_len=resampled_action_len,
         )
     elif dataset_path is not None:
         rollout_type = "replay"
         policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
     else:
         raise ValueError("Must provide either --policy-path or --dataset-path (and optionally --repo-id).")
+    
+    if offline_debug is not None:
+        from dummy_robot_interface import dummyArxInterface
+        if hasattr(policy, "data_schematic"):
+            data_schematic = policy.data_schematic
+        else:
+            data_schematic = None
+        ri = dummyArxInterface(arms=arms_list, embodiment_id=policy.embodiment_id, dataset_path=dataset_path, data_schematic=data_schematic)
+    else:
+        from arx_robot_interface import ARXInterface
+        ri = ARXInterface(arms=arms_list)
 
     print(f"Cartesian value {cartesian}")
 
     camera_transforms = CameraTransforms(intrinsics_key="base", extrinsics_key="x5Dec13_2")
-    kinematics_solver = EvaMinkKinematicsSolver(
-        model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
-    )
+    if debug and not cartesian:
+        kinematics_solver = EvaMinkKinematicsSolver(
+            model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
+        )
 
     try:
         with _KeyPoll() as kp:
@@ -480,7 +649,9 @@ def main(
                                     camera_transforms.intrinsics,
                                     arm=arm,
                                 )
+                                print(f"Save debug image to debug/debug_{arm}_{step_i}.png")
                                 cv2.imwrite(f"debug/debug_{arm}_{step_i}.png", im_viz)
+                                breakpoint()
 
                         for arm in arms_list:
                             arm_offset = 7 if (arm == "right" and arms == "both") else 0
@@ -541,6 +712,12 @@ if __name__ == "__main__":
         help="enable debug visualization of actions on images",
     )
 
+    parser.add_argument(
+        "--offline-debug",
+        action="store_true",
+        help="enable offline debugging",
+    )
+
     args = parser.parse_args()
     episodes = args.episodes if args.episodes is not None else [0]
 
@@ -555,5 +732,6 @@ if __name__ == "__main__":
         episodes=episodes,
         cartesian=args.cartesian,
         debug=args.debug,
-        resampled_action_len=args.resampled_action_len
+        resampled_action_len=args.resampled_action_len,
+        offline_debug=args.offline_debug,
     )
