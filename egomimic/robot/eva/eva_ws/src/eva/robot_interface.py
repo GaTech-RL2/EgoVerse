@@ -771,8 +771,8 @@ class YAMInterface:
     def set_home(self):
         """Move all arms to home position."""
         for arm in self.arms:
-            # home_position = self.HOME_POSITION if arm == 'right' else self.HOME_POSITION_ABOVE
-            home_position = self.HOME_POSITION
+            home_position = self.HOME_POSITION if arm == 'right' else self.HOME_POSITION_ABOVE
+            # home_position = self.HOME_POSITION
             if self.dry_run:
                 print(f"[YAMInterface] DRY RUN: Would move {arm} arm to home position: {home_position}")
                 self._simulated_joints[arm] = home_position.copy()
