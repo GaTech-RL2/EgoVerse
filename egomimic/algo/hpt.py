@@ -1450,7 +1450,8 @@ class HPT(Algo):
         else:
             return batch  # Return as is for non-tensor types
 
-    def _extract_xyz(self, x):
+    @staticmethod
+    def _extract_xyz(x):
         """
         Extract xyz (3D position) and rotation from 6DoF or 6DoF+gripper actions.
 

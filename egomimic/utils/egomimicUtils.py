@@ -227,7 +227,7 @@ INTRINSICS = {"base": ARIA_INTRINSICS, "base_half": ARIA_INTRINSICS_HALF, "mecka
 class CameraTransforms:
     def __init__(self, intrinsics_key, extrinsics_key):
         self.intrinsics = INTRINSICS[intrinsics_key]
-        self.extrinsics = EXTRINSICS[extrinsics_key]
+        self.extrinsics = EXTRINSICS.get(extrinsics_key, None)
 
 
 ## HPT Utils
@@ -512,7 +512,7 @@ def draw_rotation_text(
 def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None):
     """
     args:
-        im: (H, W, C)
+        im: (H, W, C) in [0, 255]
         type: "joints" or "xyz"
         color: ex) "Purples", "Blues", "Greens"
         actions: (N, 6) or (N, 3) if type is "xyz" or (N, 7) or (N, 14) if type is "joints"
