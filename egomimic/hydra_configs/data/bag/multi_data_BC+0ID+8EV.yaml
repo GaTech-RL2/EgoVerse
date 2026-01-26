@@ -1,0 +1,137 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  dataset1:
+    _target_: rldb.utils.RLDBDataset
+    repo_id: "bag" # Not sure if this value is used anywhere because it's not set
+    # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
+    # root: "${oc.env:TMPDIR}/cup_camframe" # remember to just directly use the folder
+    root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release_2_0/50hz/"
+    local_files_only: true
+    mode: "train"
+
+  dataset2:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      # indomain:
+      #   _target_: egomimic.rldb.utils.S3RLDBDataset
+      #   bucket_name: "rldb"
+      #   mode: train
+      #   embodiment: "aria_bimanual"
+      #   filters: 
+      #     task: "put cup on saucer indomain"
+      #   local_files_only: True
+      everse_rl2:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: train
+        embodiment: "aria_bimanual"
+        filters: 
+          task: "bag_groceries"
+          lab: "rl2"
+          operator: "rl2"
+        local_files_only: True
+      everse_song:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: train
+        embodiment: "aria_bimanual"
+        filters: 
+          task: "cup on saucer"
+          lab: "song"
+        local_files_only: True
+      everse_wang:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: train
+        embodiment: "aria_bimanual"
+        filters: 
+          task: "cup on saucer"
+          lab: "wang"
+        local_files_only: True
+      everse_eth:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: train
+        embodiment: "aria_bimanual"
+        filters: 
+          task: "cup on saucer"
+          lab: "eth"
+        local_files_only: True
+    embodiment: "aria_bimanual"
+
+valid_datasets:
+  dataset1:
+    _target_: rldb.utils.RLDBDataset
+    repo_id: "cup" # Not sure if this value is used anywhere because it's not set
+    # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
+    # root: "${oc.env:TMPDIR}/cup_camframe" # remember to just directly use the folder
+    root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/cup_lerobot_base_frame"
+    local_files_only: true
+    mode: "valid"
+
+  dataset2:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      # indomain:
+      #   _target_: egomimic.rldb.utils.S3RLDBDataset
+      #   bucket_name: "rldb"
+      #   mode: valid
+      #   embodiment: "aria_bimanual"
+      #   filters: 
+      #     task: "put cup on saucer indomain"
+      #   local_files_only: True
+      everse_rl2:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: valid
+        embodiment: "aria_bimanual"
+        filters: 
+          task: "cup on saucer"
+          lab: "rl2"
+          operator: "rl2"
+        local_files_only: True
+      everse_song:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: valid
+        embodiment: "aria_bimanual"
+        filters: 
+          task: "cup on saucer"
+          lab: "song"
+        local_files_only: True
+      everse_wang:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: valid
+        embodiment: "aria_bimanual"
+        filters: 
+          task: "cup on saucer"
+          lab: "wang"
+        local_files_only: True
+      everse_eth:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: valid
+        embodiment: "aria_bimanual"
+        filters: 
+          task: "cup on saucer"
+          lab: "eth"
+        local_files_only: True
+    embodiment: "aria_bimanual"
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 64
+    num_workers: 20
+  dataset2:
+    batch_size: 64
+    num_workers: 20
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 64
+    num_workers: 20
+  dataset2:
+    batch_size: 64
+    num_workers: 20
