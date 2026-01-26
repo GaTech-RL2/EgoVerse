@@ -1,0 +1,54 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: train
+    embodiment: eva_right_arm
+    filters:
+      task: object in container
+    local_files_only: true
+
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: train
+    embodiment: aria_right_arm
+    filters:
+      task: object in container
+    local_files_only: true
+    
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: valid
+    embodiment: eva_right_arm
+    filters:
+      task: object in container
+    local_files_only: true
+
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: valid
+    embodiment: aria_right_arm
+    filters:
+      task: object in container
+    local_files_only: true
+    
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8
+  dataset2:
+    batch_size: 32
+    num_workers: 8
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8
+  dataset2:
+    batch_size: 32
+    num_workers: 8
