@@ -1346,7 +1346,7 @@ class HPT(Algo):
             loss_dict["avg_feature_distance"] = predictions["avg_feature_distance"]
             total_action_loss += ot_weight * self.temperature * predictions["ot_loss"]
 
-        loss_dict["action_loss"] = total_action_loss
+        loss_dict["action_loss"] = total_action_loss / len(self.domains)
         return loss_dict
 
     @override
@@ -1365,8 +1365,6 @@ class HPT(Algo):
         log["Loss"] = info["losses"]["action_loss"].item()
         for loss_key, loss in info["losses"].items():
             log[loss_key] = loss.item()
-        if "policy_grad_norms" in info:
-            log["Policy_Grad_Norms"] = info["policy_grad_norms"]
         return log
 
     @torch.no_grad()

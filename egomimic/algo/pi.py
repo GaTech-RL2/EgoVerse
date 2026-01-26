@@ -389,7 +389,8 @@ class PI(Algo):
             total_action_loss += bc_loss
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
 
-        loss_dict["action_loss"] = total_action_loss
+        # in the case we put all embodiments in one batch, get rid of this norm.
+        loss_dict["action_loss"] = total_action_loss / len(self.domains) 
 
         return loss_dict
 

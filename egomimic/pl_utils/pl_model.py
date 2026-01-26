@@ -1,5 +1,6 @@
 import os
-from collections import OrderedDict
+import random
+from collections import OrderedDict, deque
 
 import numpy as np
 import egomimic.utils.tensor_utils as TensorUtils
@@ -19,6 +20,13 @@ class ModelWrapper(LightningModule):
     Wrapper class around robomimic models to ensure compatibility with Pytorch Lightning.
     """
 
+    debug_loss_spike = False
+    debug_loss_spike_factor = 1000.0
+    debug_loss_spike_prob = 0.03
+    grad_norm_mad_scale = 3.0
+    grad_norm_mad_min_count = 100
+    grad_norm_mad_window = 200
+
     def __init__(self, robomimic_model, optimizer, scheduler):
         """
         Args:
@@ -35,8 +43,7 @@ class ModelWrapper(LightningModule):
             self.params = self.model.nets["policy"].params
         except:
             pass
-        self.step_log_all_train = []
-        self.step_log_all_valid = []
+        self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
 
         self.val_image_buffer, self.val_counter = {}, {}
         self.epoch_memory_stats = []  # Store memory stats per epoch
@@ -64,9 +71,24 @@ class ModelWrapper(LightningModule):
                 torch.stack([loss_dict[key] for loss_dict in loss_dicts])
             )
 
+        if (
+            self.debug_loss_spike
+            and random.random() < self.debug_loss_spike_prob
+            and self.global_step > 100
+        ):
+            losses["action_loss"] = losses["action_loss"] * self.debug_loss_spike_factor
+            if self.trainer.is_global_zero:
+                print(
+                    "[LOSS_SPIKE] "
+                    f"step={self.global_step} "
+                    f"factor={self.debug_loss_spike_factor}",
+                    flush=True,
+                )
+
         info = {}
         info["losses"] = TensorUtils.detach(losses)
-        self.step_log_all_train.append(self.model.log_info(info))
+        for k, v in self.model.log_info(info).items():
+            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
 
         return losses["action_loss"]
 
@@ -74,15 +96,45 @@ class ModelWrapper(LightningModule):
         grad_norm = torch.nn.utils.clip_grad_norm_(
             self.parameters(), max_norm=float("inf")
         )
-        info = {"policy_grad_norms_raw": float(grad_norm)}
-        self.step_log_all_train.append(self.model.log_info(info))
+        grad_norm_val = float(grad_norm)
+        info = {"policy_grad_norms_raw": grad_norm_val}
+
+        if len(self.grad_norm_history) >= self.grad_norm_mad_min_count:
+            values = np.array(self.grad_norm_history, dtype=np.float32)
+            median = float(np.median(values))
+            mad = float(np.median(np.abs(values - median)))
+            if mad > 0.0:
+                threshold = median + self.grad_norm_mad_scale * mad
+                info["policy_grad_norms_mad_threshold"] = threshold
+                info["policy_grad_norms_mad_flag"] = float(grad_norm_val > threshold)
+                if grad_norm_val > threshold:
+                    torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=median)
+                    if self.trainer.is_global_zero:
+                        print(
+                            "[GRAD_NORM_SPIKE] "
+                            f"step={self.global_step} "
+                            f"grad_norm={grad_norm_val:.4f} "
+                            f"median={median:.4f} "
+                            f"mad={mad:.4f} "
+                            f"threshold={threshold:.4f}",
+                            flush=True,
+                        )
+
+        self.grad_norm_history.append(grad_norm_val)
+        for k, v in info.items():
+            self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer):
         grad_norm = torch.nn.utils.clip_grad_norm_(
             self.parameters(), max_norm=float("inf")
         )
-        info = {"policy_grad_norms_clipped": float(grad_norm)}
-        self.step_log_all_train.append(self.model.log_info(info))
+        self.log(
+            "Train/policy_grad_norms_clipped",
+            float(grad_norm),
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+        )
 
     def on_validation_start(self):
         self.model.device = self.device
@@ -191,18 +243,8 @@ class ModelWrapper(LightningModule):
         self.model.device = self.device
 
     def on_train_epoch_start(self):
-        # flatten and take the mean of the metrics
-        log = {}
-        for i in range(len(self.step_log_all_train)):
-            for k in self.step_log_all_train[i]:
-                if k not in log:
-                    log[k] = []
-                log[k].append(self.step_log_all_train[i][k])
-        log_all = dict((k, float(np.mean(v))) for k, v in log.items())
+        log_all = {}
         for i, param_group in enumerate(self.optimizers().param_groups):
             log_all[f"Optimizer/param_group_{i}_lr"] = param_group["lr"]
-        for k, v in log_all.items():
-            self.log("Train/" + k, v, sync_dist=True)
-        self.step_log_all_train = []
 
         return super().on_train_epoch_start()
