@@ -40,10 +40,6 @@ class ModelWrapper(LightningModule):
 
         self.val_image_buffer, self.val_counter = {}, {}
         self.epoch_memory_stats = []  # Store memory stats per epoch
-
-        self.loss_ema = None
-        self.loss_ema_decay = 0.99
-        self.loss_spike_factor = 1.5
         # TODO __init__ should take the config, and init the model here.  Then save_hyperparameters will just save the config rather than the model
 
     def root_dir(self):
@@ -51,15 +47,6 @@ class ModelWrapper(LightningModule):
 
     def video_dir(self):
         return os.path.join(self.root_dir(), "videos")
-
-    def _sync_skip(self, skip: bool, device: torch.device) -> bool:
-        if torch.distributed.is_available() and torch.distributed.is_initialized():
-            t = torch.tensor(int(skip), device=device)
-            torch.distributed.all_reduce(
-                t, op=torch.distributed.ReduceOp.MAX
-            )  # any rank => all skip
-            return bool(t.item())
-        return skip
 
     # batch is now a dict, handle on model side
     def training_step(self, batch, batch_idx):
@@ -78,42 +65,24 @@ class ModelWrapper(LightningModule):
             )
 
         info = {}
-        grad_norm = torch.nn.utils.clip_grad_norm_(
-            self.parameters(), max_norm=float("inf")
-        )
-        info["policy_grad_norms"] = grad_norm.item()
         info["losses"] = TensorUtils.detach(losses)
         self.step_log_all_train.append(self.model.log_info(info))
 
-        loss = losses["action_loss"]
-        loss_val = loss.detach()
+        return losses["action_loss"]
 
-        # init EMA
-        if self.loss_ema is None:
-            self.loss_ema = loss_val
-            return loss
-
-        prev_ema = self.loss_ema
-
-        local_spike = (loss_val > self.loss_spike_factor * prev_ema).item()
-
-        skip = self._sync_skip(local_spike, device=loss.device)
-
-        if skip:
-            if self.trainer.is_global_zero and local_spike:
-                print(
-                    f"[SKIP] Loss spike at batch {batch_idx}: "
-                    f"{loss_val.item():.4f} (EMA {prev_ema.item():.4f})",
-                    flush=True,
-                )
-            return loss * 0.0  # zero update, safe in DDP
-
-        # update EMA only if not skipping
-        self.loss_ema = (
-            self.loss_ema_decay * self.loss_ema + (1.0 - self.loss_ema_decay) * loss_val
+    def on_after_backward(self):
+        grad_norm = torch.nn.utils.clip_grad_norm_(
+            self.parameters(), max_norm=float("inf")
         )
+        info = {"policy_grad_norms_raw": float(grad_norm)}
+        self.step_log_all_train.append(self.model.log_info(info))
 
-        return loss
+    def on_before_optimizer_step(self, optimizer):
+        grad_norm = torch.nn.utils.clip_grad_norm_(
+            self.parameters(), max_norm=float("inf")
+        )
+        info = {"policy_grad_norms_clipped": float(grad_norm)}
+        self.step_log_all_train.append(self.model.log_info(info))
 
     def on_validation_start(self):
         self.model.device = self.device
