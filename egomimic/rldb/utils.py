@@ -1,84 +1,50 @@
 import ast
 import logging
 import os
-from pprint import pprint
 import random
-import shutil
+import subprocess
+import tempfile
+import traceback
 import psutil
 
 from datetime import datetime, timezone
 from enum import Enum
-from multiprocessing.dummy import connection
 from pathlib import Path
-from unittest import result
-
+from typing import Sequence, Dict, Set, Tuple, Optional
 
 import boto3
 import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.compute as pc
-import pyarrow.dataset as ds
+import psutil
 import torch
-from datasets import DatasetDict, concatenate_datasets
-from datasets import config as ds_cfg
-import huggingface_hub
-from lerobot.common.datasets.lerobot_dataset import (
-    LeRobotDataset,
-    LeRobotDatasetMetadata,
-)
-from sqlalchemy import (
-    Boolean,
-    Column,
-    Float,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    text,
-)
-from torch.utils.data import Subset
-from collections.abc import Sequence
-
-
-from egomimic.utils.aws.aws_sql import (
-    TableRow,
-    add_episode,
-    create_default_engine,
-    delete_all_episodes,
-    delete_episodes,
-    episode_hash_to_table_row,
-    episode_table_to_df,
-    update_episode,
-)
-
-
-logger = logging.getLogger(__name__)
-
-from datasets.utils.logging import disable_progress_bar
-
-disable_progress_bar()
-logging.getLogger("datasets").setLevel(logging.ERROR)
-
-logging.getLogger("huggingface_hub._snapshot_download").setLevel(logging.ERROR)
-
 import torch.nn.functional as F
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
 
+import huggingface_hub
+import datasets.config as ds_cfg
+from datasets import DatasetDict, concatenate_datasets
+from datasets.utils.logging import disable_progress_bar
+from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
+
+# Local EgoMimic Imports
+from egomimic.utils.aws.aws_sql import (
+    create_default_engine,
+    episode_table_to_df,
+)
 from egomimic.rldb.data_utils import (
     _ypr_to_quat,
     _slerp,
     _quat_to_ypr,
     _slow_down_slerp_quat,
 )
-import subprocess
-import time
-import tempfile
-import uuid
-from tqdm import tqdm
 
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import traceback
+# Logging Setup
+logger = logging.getLogger(__name__)
+disable_progress_bar()
+logging.getLogger("datasets").setLevel(logging.ERROR)
+logging.getLogger("huggingface_hub._snapshot_download").setLevel(logging.ERROR)
 
 
 class EMBODIMENT(Enum):
@@ -191,7 +157,9 @@ class RLDBDataset(LeRobotDataset):
         mode="train",
         valid_ratio: float = 0.2,
         **kwargs,
-    ):
+    ):  
+
+        
         dataset_meta = LeRobotDatasetMetadata(
             repo_id=repo_id, root=root, local_files_only=local_files_only
         )
@@ -644,34 +612,41 @@ class FolderRLDBDataset(MultiRLDBDataset):
             logger.warning(f"Skipped {len(skipped)} datasets: {skipped}")
 
 
+def _fmt_bytes(n: int) -> str:
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024:
+            return f"{n:.2f}{unit}"
+        n /= 1024
+    return f"{n:.2f}PB"
+
+
+def _log_mem(tag: str):
+    """
+    Logs CPU + (optional) CUDA memory.
+    No side effects, safe in DDP / threads.
+    """
+    try:
+        mi = _PROCESS.memory_info()
+        msg = (
+            f"[MEM] {tag} | "
+            f"RSS={_fmt_bytes(mi.rss)} | "
+            f"VMS={_fmt_bytes(mi.vms)}"
+        )
+
+        if torch.cuda.is_available():
+            msg += (
+                f" | CUDA_alloc={_fmt_bytes(torch.cuda.memory_allocated())}"
+                f" | CUDA_reserved={_fmt_bytes(torch.cuda.memory_reserved())}"
+            )
+
+        logger.info(msg)
+    except Exception as e:
+        logger.warning(f"[MEM] failed at {tag}: {e}")
+
+
 class S3RLDBDataset(MultiRLDBDataset):
     """
     A dataset class that downloads datasets from AWS S3 and instantiates them as RLDBDataset objects
-
-
-    Args:
-        embodiment (str): The embodiment type (e.g., "EVE_RIGHT_ARM", "ARIA_BIMANUAL").
-        mode (str): Dataset mode - "train", "valid".
-        bucket_name (str): AWS S3 bucket name containing the datasets.
-        main_prefix (str): S3 prefix path to datasets.
-        percent (float): fraction of data to use.
-        local_files_only (bool): Whether to use only local files.
-        key_map (dict): Optional mapping to rename dataset keys.
-        valid_ratio (float): Validation split ratio for train/valid split
-        temp_root (str): Absolute path for temporary download storage.
-                        e.g.: "/coc/cedarp-dxu345-0/datasets/egoverse"
-        filters (dict): Filtering criteria for S3 datasets. e.g.,:
-                       {"task": "fold_cloth/", "lab": "eth", "scene": "scene_10", "recording": "recording_1"}
-                       Only datasets matching ALL non-empty filter values will be loaded.
-
-
-    Example:
-        # Download and load fold_cloth datasets from ETH lab, scene_10, recording_1
-        dataset = S3RLDBDataset(
-            embodiment="EVE_RIGHT_ARM",
-            mode="train",
-            filters={"task": "fold_cloth/", "lab": "eth", "scene": "scene_10", "recording": "recording_1"}
-        )
     """
 
     def __init__(
@@ -684,12 +659,14 @@ class S3RLDBDataset(MultiRLDBDataset):
         local_files_only=True,
         key_map=None,
         valid_ratio=0.2,
-        temp_root="/coc/flash7/scratch/egoverseS3Dataset",  # "/coc/flash7/scratch/rldb_temp"
+        temp_root="/coc/flash7/scratch/egoverseS3Dataset",
         cache_root="/coc/flash7/scratch/.cache",
         filters={},
         debug=False,
         **kwargs,
     ):
+        _log_mem("init:start")
+
         temp_root += "/S3_rldb_data"
         filters["robot_name"] = embodiment
         filters["is_deleted"] = False
@@ -697,14 +674,8 @@ class S3RLDBDataset(MultiRLDBDataset):
         os.environ["HF_HOME"] = cache_root
         os.environ["HF_DATASETS_CACHE"] = f"{cache_root}/datasets"
 
-        print("SETTING HF_HOME =", os.environ.get("HF_HOME"))
-        print("SETTING HF_DATASETS_CACHE =", os.environ.get("HF_DATASETS_CACHE"))
-
         ds_cfg.HF_DATASETS_CACHE = os.environ["HF_DATASETS_CACHE"]
         huggingface_hub.constants.HF_HOME = os.environ["HF_HOME"]
-
-        assert os.environ["HF_HOME"] == cache_root
-        assert os.environ["HF_DATASETS_CACHE"] == f"{cache_root}/datasets"
 
         if temp_root[0] != "/":
             temp_root = "/" + temp_root
@@ -712,12 +683,12 @@ class S3RLDBDataset(MultiRLDBDataset):
 
         if temp_root.is_dir():
             logger.info(f"Using existing temp_root directory: {temp_root}")
-        if not temp_root.is_dir():
+        else:
             temp_root.mkdir()
 
         logger.info(f"Filters: {filters}")
-        datasets = {}
-        skipped = []
+
+        _log_mem("init:before_sync")
 
         filtered_paths = self.sync_from_filters(
             bucket_name=bucket_name,
@@ -725,14 +696,20 @@ class S3RLDBDataset(MultiRLDBDataset):
             local_dir=temp_root,
         )
 
+        _log_mem("init:after_sync")
+
         search_path = temp_root
 
-        valid_collection_names = set()
-        for _, hashes in filtered_paths:
-            valid_collection_names.add(hashes)
+        valid_collection_names = {h for _, h in filtered_paths}
 
         max_workers = int(os.environ.get("RLDB_LOAD_WORKERS", "10"))
 
+        _log_mem("init:before_parallel_load")
+
+        if mode in ["train", "valid", "percent"]:
+            mode = "total"
+        
+        datasets = {}
         datasets, skipped = self._load_rldb_datasets_parallel(
             search_path=search_path,
             embodiment=embodiment,
@@ -744,6 +721,8 @@ class S3RLDBDataset(MultiRLDBDataset):
             debug=debug,
             kwargs=kwargs,
         )
+
+        _log_mem("init:after_parallel_load")
 
         assert datasets, "No valid RLDB datasets found! Check your S3 path and filters."
 
@@ -761,10 +740,7 @@ class S3RLDBDataset(MultiRLDBDataset):
             all_names = sorted(datasets.keys())
             rng = random.Random(SEED)
             rng.shuffle(all_names)
-
-            n_keep = int(len(all_names) * percent)
-            if percent > 0.0:
-                n_keep = max(1, n_keep)
+            n_keep = max(1, int(len(all_names) * percent)) if percent > 0 else 0
             chosen = set(all_names[:n_keep])
         else:
             raise ValueError(f"Unknown mode: {mode}")
@@ -783,7 +759,9 @@ class S3RLDBDataset(MultiRLDBDataset):
         )
 
         if skipped:
-            logger.warning(f"Skipped {len(skipped)} datasets: {skipped}")
+            logger.warning(f"Skipped {len(skipped)}")
+
+        _log_mem("init:done")
 
     @classmethod
     def _load_rldb_dataset_one(
@@ -796,13 +774,6 @@ class S3RLDBDataset(MultiRLDBDataset):
         valid_ratio: float,
         kwargs: dict,
     ):
-        """
-        Attempt to construct one RLDBDataset from a local folder.
-
-
-        Returns:
-            (repo_id, dataset_or_None, skip_reason_or_None, err_str_or_None)
-        """
         repo_id = collection_path.name
 
         if not collection_path.is_dir():
@@ -821,12 +792,7 @@ class S3RLDBDataset(MultiRLDBDataset):
 
             expected = get_embodiment_id(embodiment)
             if ds_obj.embodiment != expected:
-                return (
-                    repo_id,
-                    None,
-                    f"embodiment_mismatch {ds_obj.embodiment} != {expected}",
-                    None,
-                )
+                return repo_id, None, f"embodiment_mismatch {ds_obj.embodiment} != {expected}", None
 
             return repo_id, ds_obj, None, None
 
@@ -846,17 +812,12 @@ class S3RLDBDataset(MultiRLDBDataset):
         max_workers: int,
         debug: bool = False,
         kwargs: dict,
+        batch_size: int = 10,
     ):
-        """
-        Parallelize RLDBDataset instantiation over folders in search_path.
+        _log_mem("parallel_load:start")
 
-
-        Returns:
-            datasets: dict[str, RLDBDataset]
-            skipped: list[str]
-        """
-        all_paths = sorted(search_path.iterdir())
         max_workers = max(1, int(max_workers))
+        process = psutil.Process()
 
         datasets: dict[str, RLDBDataset] = {}
         skipped: list[str] = []
@@ -875,36 +836,101 @@ class S3RLDBDataset(MultiRLDBDataset):
                 kwargs=kwargs,
             )
 
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futures = [
-                ex.submit(cls._load_rldb_dataset_one, **_submit_arg(p))
-                for p in all_paths if p.name in valid_collection_names
-            ]
+        def get_memory():
+            mi = process.memory_info()
+            return mi.rss, mi.vms
 
-            for fut in tqdm(
-                as_completed(futures),
-                total=len(futures),
-                desc="Loading RLDBDataset",
-            ):
-                repo_id, ds_obj, reason, err = fut.result()
+        # ------------------------------------------------------------
+        # Pre-filter valid dataset paths
+        # ------------------------------------------------------------
+        valid_paths = [
+            search_path / name
+            for name in valid_collection_names
+            if (search_path / name).is_dir()
+        ]
+        total = len(valid_paths)
 
-                if ds_obj is not None:
-                    datasets[repo_id] = ds_obj
-                    continue
+        logger.info(
+            f"Starting parallel RLDB load: "
+            f"{total} datasets | workers={max_workers} | batch_size={batch_size}"
+        )
 
-                if reason == "not_a_dir":
-                    continue
+        # Hard safety cap (prevents unrecoverable thread failures)
+        vm_total = psutil.virtual_memory().total
+        VMS_ABORT_FRAC = 0.90
 
-                skipped.append(repo_id)
+        with tqdm(total=total, desc="Loading RLDBDataset") as dataset_bar, \
+            tqdm(
+                total=1,
+                bar_format="RSS Mem: {bar} {n:.1f}MB",
+                position=1,
+                leave=True,
+            ) as rss_bar, \
+            tqdm(
+                total=1,
+                bar_format="VMS Mem: {bar} {n:.1f}MB",
+                position=2,
+                leave=True,
+            ) as vms_bar:
 
-                # if reason == "not_in_filtered_paths":
-                #     logger.warning(f"Skipping {repo_id}: not in filtered S3 paths")
-                # elif reason and reason.startswith("embodiment_mismatch"):
-                #     logger.warning(f"Skipping {repo_id}: {reason}")
-                # else:
-                #     logger.error(f"Failed to load {repo_id} as RLDBDataset:\n{err}")
+            # ------------------------------------------------------------
+            # SINGLE executor reused for entire load
+            # ------------------------------------------------------------
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                in_flight = set()
+                path_iter = iter(valid_paths)
 
+                def submit_one(p: Path):
+                    return executor.submit(
+                        cls._load_rldb_dataset_one,
+                        **_submit_arg(p),
+                    )
+
+                # Prime the pipeline
+                try:
+                    for _ in range(min(batch_size, total)):
+                        in_flight.add(submit_one(next(path_iter)))
+                except StopIteration:
+                    pass
+
+                while in_flight:
+                    done, in_flight = concurrent.futures.wait(
+                        in_flight,
+                        return_when=concurrent.futures.FIRST_COMPLETED,
+                    )
+
+                    for fut in done:
+                        repo_id, ds_obj, reason, err = fut.result()
+
+                        if ds_obj is not None:
+                            datasets[repo_id] = ds_obj
+                        else:
+                            if reason != "not_a_dir":
+                                skipped.append(repo_id)
+                                if err:
+                                    logger.debug(f"[SKIP] {repo_id}: {err}")
+
+                        dataset_bar.update(1)
+
+                        # Submit next task if available
+                        try:
+                            in_flight.add(submit_one(next(path_iter)))
+                        except StopIteration:
+                            pass
+
+                    # ----------------------------------------------------
+                    # Memory monitoring & safety check
+                    # ----------------------------------------------------
+                    rss, vms = get_memory()
+                    rss_bar.n = rss / 1e6
+                    vms_bar.n = vms / 1e6
+                    rss_bar.refresh()
+                    vms_bar.refresh()
+
+
+        _log_mem("parallel_load:end")
         return datasets, skipped
+
 
     @staticmethod
     def _get_processed_path(filters):
@@ -916,134 +942,57 @@ class S3RLDBDataset(MultiRLDBDataset):
             (df[list(filters)] == series).all(axis=1),
             ["processed_path", "episode_hash"],
         ]
+
         skipped = df[df["processed_path"].isnull()]["episode_hash"].tolist()
-        logger.info(
-            f"Skipped {len(skipped)} episodes with null processed_path: {skipped}"
-        )
+        # logger.info(f"Skipped {len(skipped)} episodes with null processed_path: {skipped}")
+
         output = output[~output["episode_hash"].isin(skipped)]
-
         paths = list(output.itertuples(index=False, name=None))
-        logger.info(f"Paths: {paths}")
+
+        # logger.info(f"Paths: {paths}")
         return paths
-
-    @staticmethod
-    def _download_files(bucket_name, s3_prefix, local_dir):
-        """
-        Downloads all files from a specific S3 prefix to a local directory.
-
-
-        This method lists all objects under the given S3 prefix and downloads
-        each file to the local directory, preserving just the filename (not
-        the full S3 path structure).
-
-
-        Args:
-            bucket_name (str): The AWS S3 bucket name
-            s3_prefix (str): The S3 prefix path to download from (e.g., "processed/fold_cloth/dataset1/meta/")
-            local_dir (Path): The local directory to save files to
-        """
-        s3 = boto3.client("s3")
-
-        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=s3_prefix)
-        objects = response.get("Contents", [])
-
-        if not objects:
-            logger.warning(f"No objects found for prefix: {s3_prefix}")
-            return
-
-        for obj in objects:
-            key = obj["Key"]
-
-            if key.endswith("/"):
-                logger.debug(f"Skipping directory: {key}")
-                continue
-
-            if key == s3_prefix or key == s3_prefix.rstrip("/"):
-                logger.debug(f"Skipping prefix path: {key}")
-                continue
-
-            local_file_path = local_dir / Path(key).name
-
-            # Check if file already exists and is not empty, solves race condition of multiple processes downloading the same file
-            try:
-                if local_file_path.exists() and local_file_path.stat().st_size > 0:
-                    logger.debug(
-                        f"File already exists, skipping: {key} -> {local_file_path}"
-                    )
-                    continue
-
-                s3.download_file(bucket_name, key, str(local_file_path))
-                logger.debug(f"Successfully downloaded: {key}")
-            except FileNotFoundError as e:
-                if local_file_path.exists() and local_file_path.stat().st_size > 0:
-                    logger.debug(f"File downloaded by another process, skipping: {key}")
-                else:
-                    logger.error(f"Failed to download {key}: {e}")
-            except Exception as e:
-                if local_file_path.exists() and local_file_path.stat().st_size > 0:
-                    logger.debug(
-                        f"File downloaded by another process after error: {key}"
-                    )
-                else:
-                    logger.error(f"Failed to download {key}: {e}")
 
     @classmethod
     def _sync_s3_to_local(cls, bucket_name, s3_paths, local_dir: Path):
+        _log_mem("s3_sync:start")
+
         if not s3_paths:
             return
 
-        # 0) Skip episodes already present locally
         to_sync = []
-        already = []
         for processed_path, episode_hash in s3_paths:
-            if cls._episode_already_present(local_dir, episode_hash):
-                already.append(episode_hash)
-            else:
+            if not cls._episode_already_present(local_dir, episode_hash):
                 to_sync.append((processed_path, episode_hash))
 
-        if already:
-            logger.info("Skipping %d episodes already present locally.", len(already))
-
         if not to_sync:
-            logger.info("Nothing to sync from S3 (all episodes already present).")
+            logger.info("Nothing to sync from S3.")
             return
 
-        # 1) Build s5cmd batch script (one line per episode)
         local_dir.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(
-            prefix="_s5cmd_sync_",
-            suffix=".txt",
-            delete=False,
-        ) as tmp_file:
-            batch_path = Path(tmp_file.name)
+
+        with tempfile.NamedTemporaryFile(prefix="_s5cmd_sync_", suffix=".txt", delete=False) as f:
+            batch_path = Path(f.name)
 
         lines = []
         for processed_path, episode_hash in to_sync:
-            # processed_path like: s3://rldb/processed_v2/eva/<hash>/
             if processed_path.startswith("s3://"):
-                src_prefix = processed_path.rstrip("/") + "/*"
+                src = processed_path.rstrip("/") + "/*"
             else:
-                src_prefix = (
-                    f"s3://{bucket_name}/{processed_path.lstrip('/').rstrip('/')}"
-                    + "/*"
-                )
+                src = f"s3://{bucket_name}/{processed_path.lstrip('/').rstrip('/')}" + "/*"
 
-            # Destination is the root local_dir; s5cmd will preserve <hash>/... under it
             dst = local_dir / episode_hash
-            lines.append(f'sync "{src_prefix}" "{str(dst)}/"')
+            lines.append(f'sync "{src}" "{dst}/"')
+
+        batch_path.write_text("\n".join(lines) + "\n")
+
+        _log_mem("s3_sync:before_s5cmd")
+        subprocess.run(["s5cmd", "run", str(batch_path)], check=True)
+        _log_mem("s3_sync:after_s5cmd")
 
         try:
-            batch_path.write_text("\n".join(lines) + "\n")
-
-            cmd = ["s5cmd", "run", str(batch_path)]
-            logger.info("Running s5cmd batch (%d lines): %s", len(lines), " ".join(cmd))
-            subprocess.run(cmd, check=True) # check ts 
-
-        finally:
-            try:
-                batch_path.unlink(missing_ok=True)
-            except Exception as e:
-                logger.warning("Failed to delete batch file %s: %s", batch_path, e)
+            batch_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     @classmethod
     def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:
@@ -1072,35 +1021,22 @@ class S3RLDBDataset(MultiRLDBDataset):
         filters: dict,
         local_dir: Path,
     ):
-        """
-        Public API:
-        - resolves episodes from DB using filters
-        - runs a single aws s3 sync with includes
-        - downloads into local_dir
+        _log_mem("sync_from_filters:start")
 
-
-        Returns:
-            List[(processed_path, episode_hash)]
-        """
-
-        # 1) Resolve episodes from DB
         filtered_paths = cls._get_processed_path(filters)
         if not filtered_paths:
             logger.warning("No episodes matched filters.")
             return []
 
-        # 2) Logging
-        logger.info(
-            f"Syncing S3 datasets with filters {filters} to local directory {local_dir}..."
-        )
+        logger.info(f"Syncing S3 datasets with filters {filters} to {local_dir}")
 
-        # 3) Sync
         cls._sync_s3_to_local(
             bucket_name=bucket_name,
             s3_paths=filtered_paths,
             local_dir=local_dir,
         )
 
+        _log_mem("sync_from_filters:end")
         return filtered_paths
 
 
