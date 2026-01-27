@@ -7,8 +7,8 @@ expected by ZarrDataset, maintaining compatibility with the LeRobotDataset API.
 Directory structure created:
     dataset_root/
     └── episode_{ep_idx}.zarr/
-        ├── .zattrs (metadata)
-        ├── observation.images.{cam}  (JPEG-XL compressed)
+        ├── zarr.json (metadata)
+        ├── observation.images.{cam}
         ├── observation.state
         ├── actions_joints
         └── ...
@@ -26,9 +26,7 @@ import time
 from pathlib import Path
 
 import cv2
-import imagecodecs
 import numpy as np
-import warnings
 import zarr
 from zarr.core.dtype import VariableLengthBytes
 
@@ -39,32 +37,6 @@ from egomimic.scripts.eva_process.eva_to_lerobot import (
 from egomimic.utils.egomimicUtils import str2bool
 
 logger = logging.getLogger(__name__)
-
-
-def encode_jxl(image: np.ndarray, quality: int = 90) -> bytes:
-    """Encode image to JPEG-XL format.
-
-    Args:
-        image: RGB image array of shape (H, W, C) with dtype uint8
-        quality: Compression quality (0-100), higher is better quality
-
-    Returns:
-        Compressed image bytes with padding byte to prevent null-byte stripping
-    """
-    # Add padding byte (0x01) to prevent zarr VariableLengthBytes from stripping trailing nulls
-    return imagecodecs.jpegxl_encode(image, level=quality) + b'\x01'
-
-
-def decode_jxl(data: bytes) -> np.ndarray:
-    """Decode JPEG-XL image to numpy array.
-
-    Args:
-        data: Compressed image bytes
-
-    Returns:
-        RGB image array of shape (H, W, C) with dtype uint8
-    """
-    return imagecodecs.jpegxl_decode(data)
 
 
 class HDF5ToZarrConverter:
@@ -79,7 +51,7 @@ class HDF5ToZarrConverter:
         arm: str = "both",
         extrinsics_key: str = "x5Dec13_2",
         image_compressed: bool = True,
-        jxl_quality: int = 50,
+        jpeg_quality: int = 95,
         prestack: bool = False,
         chunk_size_mb: float = 2.0,
         chunk_timesteps: int | None = None,
@@ -92,7 +64,7 @@ class HDF5ToZarrConverter:
         self.arm = arm
         self.extrinsics_key = extrinsics_key
         self.image_compressed = image_compressed
-        self.jxl_quality = jxl_quality
+        self.jpeg_quality = jpeg_quality
         self.prestack = prestack
         self.chunk_size_mb = chunk_size_mb
         self.chunk_size_bytes = int(chunk_size_mb * 1024 * 1024)
@@ -140,7 +112,7 @@ class HDF5ToZarrConverter:
         self.logger.info(f"Input: {self.raw_path}")
         self.logger.info(f"Output: {self.output_path}")
         self.logger.info(f"Episodes to process: {len(self.episode_list)}")
-        self.logger.info(f"JPEG-XL quality: {self.jxl_quality}")
+        self.logger.info(f"JPEG quality: {self.jpeg_quality}")
         if self.chunk_timesteps is not None:
             self.logger.info(f"Chunk size: {self.chunk_timesteps} timesteps")
         else:
@@ -152,14 +124,15 @@ class HDF5ToZarrConverter:
         episode_idx: int,
         num_frames: int,
         frames_data: dict[str, list],
-        image_data: dict[str, list[bytes]],
+        image_data: dict[str, list[np.ndarray]],
         image_shapes: dict[str, tuple],
         task: str = "",
     ):
         """Write episode frames and metadata to a Zarr store."""
-        store = zarr.open(str(episode_path), mode="w")
+        # Use zarr v3 stores for new datasets
+        store = zarr.open(str(episode_path), mode="w", zarr_format=3)
 
-        # Write numeric arrays with target chunk size
+        # Write numeric arrays with target chunk size, all chunks in one shard
         for key, values in frames_data.items():
             arr = np.stack(values, axis=0)
             # Calculate frames per chunk
@@ -178,30 +151,44 @@ class HDF5ToZarrConverter:
             frames_per_chunk = max(1, frames_per_chunk)
             # Chunk shape: (frames, ...) - keep other dimensions intact
             chunk_shape = (frames_per_chunk,) + arr.shape[1:]
+            # Shard shape: entire array in one shard
+            shard_shape = arr.shape
             store.create_array(
                 key,
                 data=arr,
                 chunks=chunk_shape,
+                shards=shard_shape,
             )
 
-        # Write compressed images as variable-length byte arrays
-        with warnings.catch_warnings():
-            # Suppress unstable spec warning for VariableLengthBytes
-            warnings.filterwarnings("ignore", message=".*does not have a Zarr V3 specification.*")
-            for key, compressed_frames in image_data.items():
-                arr = store.create_array(
-                    key,
-                    shape=(len(compressed_frames),),
-                    dtype=VariableLengthBytes(),
-                    chunks=(1,),  # One image per chunk for efficient random access
-                )
-                arr[:] = compressed_frames
+        # Write images as JPEG compressed bytes, all chunks in one shard
+        jpeg_params = [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
+        for key, image_frames in image_data.items():
+            encoded = np.empty((len(image_frames),), dtype=object)
+            for i, img in enumerate(image_frames):
+                # Convert RGB to BGR for OpenCV encoding
+                img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                success, jpeg_bytes = cv2.imencode(".jpg", img_bgr, jpeg_params)
+                if not success:
+                    raise RuntimeError(f"Failed to encode image {i} for key {key}")
+                encoded[i] = jpeg_bytes.tobytes()
+            # Chunk per image for efficient random access, all in one shard
+            chunk_shape = (1,)
+            shard_shape = encoded.shape  # All frames in one shard file
+            # zarr v3 forbids passing both data and dtype; create then assign
+            store.create_array(
+                key,
+                shape=encoded.shape,
+                chunks=chunk_shape,
+                shards=shard_shape,
+                dtype=VariableLengthBytes(),
+            )
+            store[key][:] = encoded
 
         # Build features dict for this episode
         features = {}
         for key, shape in image_shapes.items():
             features[key] = {
-                "dtype": "jxl",
+                "dtype": "jpeg",
                 "shape": list(shape),
                 "names": ["height", "width", "channel"],
             }
@@ -254,13 +241,13 @@ class HDF5ToZarrConverter:
 
         # Extract frame-by-frame data
         for frame_idx in range(num_frames):
-            if frame_idx % 25 == 0:
+            if frame_idx % 100 == 0:
                 self.logger.info(f"  Frame {frame_idx}/{num_frames}")
             for obs_key, obs_value in episode_feats["observations"].items():
                 full_key = f"observation.{obs_key}"
 
                 if "images" in obs_key:
-                    # Compress image with JPEG-XL
+                    # Store raw image (JPEG codec handles compression)
                     if full_key not in image_data:
                         image_data[full_key] = []
 
@@ -270,16 +257,15 @@ class HDF5ToZarrConverter:
                         img_rgb = cv2.imdecode(img_raw, cv2.IMREAD_COLOR)
                         img_rgb = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
                     else:
-                        # EvaHD5Extractor returns (C, H, W), convert to (H, W, C) for encoding
+                        # EvaHD5Extractor returns (C, H, W), convert to (H, W, C)
                         img_rgb = np.transpose(img_raw, (1, 2, 0))
 
                     # Track shape for features (on first frame)
                     if full_key not in image_shapes:
                         image_shapes[full_key] = img_rgb.shape
 
-                    # Compress with JPEG-XL
-                    compressed = encode_jxl(img_rgb, quality=self.jxl_quality)
-                    image_data[full_key].append(compressed)
+                    # Store raw image array (JPEG codec compresses on write)
+                    image_data[full_key].append(img_rgb)
                 else:
                     # Store state data
                     if full_key not in frames_data:
@@ -376,10 +362,10 @@ def parse_args():
         help="Whether images in HDF5 are compressed",
     )
     parser.add_argument(
-        "--jxl-quality",
+        "--jpeg-quality",
         type=int,
-        default=50,
-        help="JPEG-XL compression quality (0-100)",
+        default=85,
+        help="JPEG quality (0-100, higher is better quality)",
     )
     parser.add_argument(
         "--prestack",
@@ -425,7 +411,7 @@ def main():
         arm=args.arm,
         extrinsics_key=args.extrinsics_key,
         image_compressed=args.image_compressed,
-        jxl_quality=args.jxl_quality,
+        jpeg_quality=args.jpeg_quality,
         prestack=args.prestack,
         chunk_size_mb=args.chunk_size_mb,
         chunk_timesteps=args.chunk_timesteps,
