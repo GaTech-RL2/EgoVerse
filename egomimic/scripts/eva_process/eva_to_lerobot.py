@@ -816,7 +816,20 @@ class EvaHD5Extractor:
         arm: str,
         ref_index: int = 0,
     ) -> np.ndarray:
-        
+        """Compute relative EEF actions from base-frame Cartesian actions.
+
+        Supports both prestacked (N, S, D) and non-prestacked (N, D) inputs.
+        For prestacked: each row has S future actions, relative to ref_index action.
+        For non-prestacked: computes relative pose from previous frame (or identity for first).
+
+        Args:
+            actions_cartesian_base: Shape (N, S, D) or (N, D) where D=7 per arm (xyz + ypr + gripper)
+            arm: "left", "right", or "both"
+            ref_index: Reference index for relative transform (only used for prestacked)
+
+        Returns:
+            Relative actions with same shape as input
+        """
         if arm == "both":
             left_base = actions_cartesian_base[..., :7]
             right_base = actions_cartesian_base[..., 7:14]
@@ -828,15 +841,19 @@ class EvaHD5Extractor:
                 right_base, arm="right", ref_index=ref_index
             )
             return np.concatenate([left_rel, right_rel], axis=-1)
-        
+
+        # Handle both 2D (N, D) and 3D (N, S, D) inputs
+        is_2d = actions_cartesian_base.ndim == 2
+        if is_2d:
+            # Add sequence dimension: (N, D) -> (N, 1, D)
+            actions_cartesian_base = actions_cartesian_base[:, np.newaxis, :]
+
         N, S, D = actions_cartesian_base.shape
 
         p = actions_cartesian_base[..., :3]     # (N, S, 3)
         ypr = actions_cartesian_base[..., 3:6]  # (N, S, 3)
         g = actions_cartesian_base[..., 6:7]    # (N, S, 1)
-        
-        T = p.shape[0]
-        
+
         ypr_flat = ypr.reshape(-1, 3)               # (N*S, 3)
         R_flat = R.from_euler("ZYX", ypr_flat, degrees=False).as_matrix()  # (N*S, 3, 3)
         R_seq = R_flat.reshape(N, S, 3, 3)          # (N, S, 3, 3)
@@ -848,20 +865,24 @@ class EvaHD5Extractor:
 
         T0 = T_seq[:, ref_index, :, :]          # (N, 4, 4)
         T0_inv = np.linalg.inv(T0)              # (N, 4, 4)
-            
+
         T_rel = T0_inv[:, None, :, :] @ T_seq   # (N, S, 4, 4)
-        
-        p_rel = T_rel[..., :3, 3]          # (T, 3)
-        R_rel = T_rel[..., :3, :3]         # (T, 3, 3)
-        
+
+        p_rel = T_rel[..., :3, 3]          # (N, S, 3)
+        R_rel = T_rel[..., :3, :3]         # (N, S, 3, 3)
+
         R_rel_flat = R_rel.reshape(-1, 3, 3)    # (N*S, 3, 3)
         ypr_rel_flat = R.from_matrix(R_rel_flat).as_euler("ZYX", degrees=False)  # (N*S, 3)
         ypr_rel = ypr_rel_flat.reshape(N, S, 3) # (N, S, 3)
-        
+
         actions_rel = np.empty_like(actions_cartesian_base)
         actions_rel[..., :3] = p_rel
         actions_rel[..., 3:6] = ypr_rel
         actions_rel[..., 6:7] = g  # keep gripper as-is
+
+        # Remove sequence dimension if input was 2D
+        if is_2d:
+            actions_rel = actions_rel[:, 0, :]  # (N, 1, D) -> (N, D)
 
         return actions_rel
     
