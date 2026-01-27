@@ -155,6 +155,12 @@ class DWMYAMClient:
         ik_error_threshold: float = None,
         skip_small_delta: float = None,
         monitor_latency: bool = False,
+        can_init_retries: int = 1,
+        can_init_retry_delay_s: float = 0.5,
+        can_wait_ready_s: float = 0.0,
+        can_debug: bool = False,
+        enable_cameras: bool = True,
+        read_all_arms: bool = True,
     ):
         """Initialize YAM client.
         
@@ -179,6 +185,12 @@ class DWMYAMClient:
             skip_small_delta: If set, skip arm execution when target xyz is within this distance
                              of current pose (meters). Avoids wasting IK on "hold position" actions.
             monitor_latency: If True, track and report camera latency statistics.
+            can_init_retries: Number of retries for CAN init per arm (default 1).
+            can_init_retry_delay_s: Delay between CAN init retries in seconds (default 0.5).
+            can_wait_ready_s: Seconds to wait for CAN interface to appear and be up (default 0).
+            can_debug: If True, print CAN interface diagnostics during init.
+            enable_cameras: If False, skip camera initialization entirely.
+            read_all_arms: If True, read proprioception from both arms even if controlling one.
         """
         self.server_addr = server_addr
         self.arms = arms
@@ -190,6 +202,12 @@ class DWMYAMClient:
         self.zero_action_threshold = zero_action_threshold
         self.skip_small_delta = skip_small_delta
         self.monitor_latency = monitor_latency
+        self.can_init_retries = can_init_retries
+        self.can_init_retry_delay_s = can_init_retry_delay_s
+        self.can_wait_ready_s = can_wait_ready_s
+        self.can_debug = can_debug
+        self.enable_cameras = enable_cameras
+        self.read_all_arms = read_all_arms
         self._zero_arms = {}
         self._skipped_arms = {}  # Track which arms are being skipped due to small delta
         self._ik_fail_count = {"left": 0, "right": 0}  # Consecutive IK failures per arm
@@ -230,7 +248,12 @@ class DWMYAMClient:
             dry_run=False,  # Always use real robot for proprioception
             max_ik_iters=max_ik_iters,
             ik_error_threshold=ik_error_threshold,
-            read_all_arms=True,  # Always read proprioception from both arms
+            read_all_arms=read_all_arms,
+            can_init_retries=can_init_retries,
+            can_init_retry_delay_s=can_init_retry_delay_s,
+            can_wait_ready_s=can_wait_ready_s,
+            can_debug=can_debug,
+            enable_cameras=enable_cameras,
         )
         
         if dry_run:
@@ -659,6 +682,18 @@ def main():
                         help="CAN interface for left arm")
     parser.add_argument("--right-can", type=str, default="can1",
                         help="CAN interface for right arm")
+    parser.add_argument("--can-init-retries", type=int, default=1,
+                        help="Number of CAN init retries per arm (default: 1)")
+    parser.add_argument("--can-init-retry-delay", type=float, default=0.5,
+                        help="Delay between CAN init retries in seconds (default: 0.5)")
+    parser.add_argument("--can-wait-ready-s", type=float, default=0.0,
+                        help="Seconds to wait for CAN interface to appear and be up (default: 0)")
+    parser.add_argument("--can-debug", action="store_true",
+                        help="Print CAN interface diagnostics during init")
+    parser.add_argument("--no-cameras", action="store_true",
+                        help="Disable camera initialization (proprioception only)")
+    parser.add_argument("--read-controlled-only", action="store_true",
+                        help="Only read controlled arm(s); do not read the other arm")
     
     # Control parameters
     parser.add_argument("--frequency", type=float, default=30.0,
@@ -715,6 +750,7 @@ def main():
     print(f"Server:            {args.server}")
     print(f"Arms:              {args.arms}")
     print(f"Gripper type:      {args.gripper_type}")
+    print(f"CAN interfaces:    left={args.left_can}, right={args.right_can}")
     print(f"Frequency:         {args.frequency} Hz")
     print(f"Execution horizon: {args.execution_horizon} actions")
     print(f"Dry run:           {args.dry_run}")
@@ -725,6 +761,11 @@ def main():
     print(f"IK error thresh:   {args.ik_error_threshold}m" if args.ik_error_threshold else "IK error thresh:   None (no rejection)")
     print(f"Skip small delta:  {args.skip_small_delta}m" if args.skip_small_delta else "Skip small delta:  None (always execute)")
     print(f"Monitor latency:   {args.monitor_latency}")
+    print(f"CAN init retries:  {args.can_init_retries} (delay {args.can_init_retry_delay}s)")
+    print(f"CAN wait ready:    {args.can_wait_ready_s}s")
+    print(f"CAN debug:         {args.can_debug}")
+    print(f"Cameras enabled:   {not args.no_cameras}")
+    print(f"Read all arms:     {not args.read_controlled_only}")
     print("=" * 60)
     
     # Initialize client
@@ -745,6 +786,12 @@ def main():
         ik_error_threshold=args.ik_error_threshold,
         skip_small_delta=args.skip_small_delta,
         monitor_latency=args.monitor_latency,
+        can_init_retries=args.can_init_retries,
+        can_init_retry_delay_s=args.can_init_retry_delay,
+        can_wait_ready_s=args.can_wait_ready_s,
+        can_debug=args.can_debug,
+        enable_cameras=not args.no_cameras,
+        read_all_arms=not args.read_controlled_only,
     )
     
     # Initialize rate controller

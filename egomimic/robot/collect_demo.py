@@ -1115,7 +1115,8 @@ if __name__ == "__main__":
   )
 
   args = parser.parse_args()
-  
+  raise ValueError("Use Collect Demo 2 instead")
+
   # Handle headset flip flag
   if args.no_headset_flipped:
     HEADSET_FLIPPED = False

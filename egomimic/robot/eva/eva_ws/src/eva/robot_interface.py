@@ -10,6 +10,8 @@ Imports are deferred to class instantiation based on robot_type and camera confi
 import os
 import sys
 import time
+import shutil
+import subprocess
 import yaml
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -373,6 +375,11 @@ class YAMInterface:
         max_ik_iters: int = 500,
         ik_error_threshold: float = None,
         read_all_arms: bool = False,
+        enable_cameras: bool = True,
+        can_init_retries: int = 1,
+        can_init_retry_delay_s: float = 0.5,
+        can_wait_ready_s: float = 0.0,
+        can_debug: bool = False,
     ):
         """
         Initialize YAM robot interface.
@@ -390,6 +397,11 @@ class YAMInterface:
                                When rejected, the arm command is skipped entirely.
             read_all_arms: If True, initialize both arms for reading proprioception even if only
                           controlling one arm. The non-controlled arm will be in zero-gravity mode.
+            enable_cameras: If False, skip camera initialization entirely.
+            can_init_retries: Number of times to retry CAN initialization per arm (default 1).
+            can_init_retry_delay_s: Delay between CAN init retries in seconds (default 0.5).
+            can_wait_ready_s: Seconds to wait for CAN interface to appear and be up (default 0).
+            can_debug: If True, print CAN interface diagnostics during init.
         """
         # Import i2rt dependencies when this class is used
         sys.path.insert(0, os.path.expanduser("~/i2rt"))
@@ -409,6 +421,12 @@ class YAMInterface:
         self.max_ik_iters = max_ik_iters
         self.ik_error_threshold = ik_error_threshold
         self.read_all_arms = read_all_arms
+        self.enable_cameras = enable_cameras
+        self.can_init_retries = max(1, int(can_init_retries))
+        self.can_init_retry_delay_s = max(0.0, float(can_init_retry_delay_s))
+        self.can_wait_ready_s = max(0.0, float(can_wait_ready_s))
+        self.can_debug = bool(can_debug)
+        self._can_wait_poll_s = 0.2
         
         # Determine which arms to read from (for proprioception)
         if read_all_arms:
@@ -434,8 +452,17 @@ class YAMInterface:
         
         # Initialize camera recorders and load save_resolution from config
         self.recorders = {}
-        if cameras_cfg:
-            self._create_cam_recorders(cameras_cfg)
+        self.camera_config = {}
+        if not self.enable_cameras:
+            try:
+                self._load_save_resolution()
+            except Exception as exc:
+                self.save_resolution = None
+                print(f"[YAMInterface] Cameras disabled; save_resolution not loaded: {exc}")
+            print("[YAMInterface] Cameras disabled - skipping camera initialization.")
+        elif cameras_cfg is not None:
+            if cameras_cfg:
+                self._create_cam_recorders(cameras_cfg)
             # Still need to load save_resolution from config file
             self._load_save_resolution()
         else:
@@ -465,10 +492,11 @@ class YAMInterface:
             else:
                 mode_str = "CONTROL" if is_control_arm else "READ-ONLY (zero-gravity)"
                 print(f"[YAMInterface] Initializing {arm} arm on {channel} [{mode_str}]")
-                self.robot[arm] = get_yam_robot(
+                self.robot[arm] = self._init_arm_with_retries(
+                    arm=arm,
                     channel=channel,
-                    gripper_type=self.gripper_type,
-                    zero_gravity_mode=arm_zero_gravity,
+                    arm_zero_gravity=arm_zero_gravity,
+                    attempt_label=mode_str,
                 )
             
             print(f"[YAMInterface] Using model: {model_path}")
@@ -566,6 +594,135 @@ class YAMInterface:
                 print(f"[YAMInterface] Started RealSense D405 camera: {name} (serial: {serial}, {width}x{height})")
             else:
                 raise ValueError(f"Unknown camera type '{cam_type}' for {name}")
+
+    def _read_sysfs_value(self, path: str):
+        try:
+            with open(path, "r") as f:
+                return f.read().strip()
+        except Exception:
+            return None
+
+    def _collect_can_status(self, interface: str) -> dict:
+        base_path = f"/sys/class/net/{interface}"
+        status = {
+            "interface": interface,
+            "exists": os.path.exists(base_path),
+            "operstate": None,
+            "flags": None,
+            "is_up": None,
+            "type": None,
+            "mtu": None,
+            "rx_errors": None,
+            "tx_errors": None,
+            "rx_dropped": None,
+            "tx_dropped": None,
+        }
+
+        if not status["exists"]:
+            return status
+
+        status["operstate"] = self._read_sysfs_value(os.path.join(base_path, "operstate"))
+        status["flags"] = self._read_sysfs_value(os.path.join(base_path, "flags"))
+        status["type"] = self._read_sysfs_value(os.path.join(base_path, "type"))
+        status["mtu"] = self._read_sysfs_value(os.path.join(base_path, "mtu"))
+
+        if status["flags"] is not None:
+            try:
+                flags_int = int(status["flags"], 0)
+                status["is_up"] = bool(flags_int & 0x1)
+            except Exception:
+                status["is_up"] = None
+
+        stats_path = os.path.join(base_path, "statistics")
+        status["rx_errors"] = self._read_sysfs_value(os.path.join(stats_path, "rx_errors"))
+        status["tx_errors"] = self._read_sysfs_value(os.path.join(stats_path, "tx_errors"))
+        status["rx_dropped"] = self._read_sysfs_value(os.path.join(stats_path, "rx_dropped"))
+        status["tx_dropped"] = self._read_sysfs_value(os.path.join(stats_path, "tx_dropped"))
+
+        return status
+
+    def _get_ip_link_details(self, interface: str):
+        if shutil.which("ip") is None:
+            return None
+        try:
+            result = subprocess.run(
+                ["ip", "-details", "-statistics", "link", "show", "dev", interface],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0:
+                return None
+            return result.stdout.strip()
+        except Exception:
+            return None
+
+    def _format_can_status(self, status: dict) -> str:
+        parts = [f"exists={status.get('exists')}"]
+        if status.get("exists"):
+            if status.get("is_up") is not None:
+                parts.append(f"up={status.get('is_up')}")
+            if status.get("operstate"):
+                parts.append(f"operstate={status.get('operstate')}")
+            if status.get("type"):
+                parts.append(f"type={status.get('type')}")
+            if status.get("mtu"):
+                parts.append(f"mtu={status.get('mtu')}")
+            if status.get("rx_errors") is not None:
+                parts.append(f"rx_err={status.get('rx_errors')}")
+            if status.get("tx_errors") is not None:
+                parts.append(f"tx_err={status.get('tx_errors')}")
+        return ", ".join(parts)
+
+    def _print_can_diagnostics(self, interface: str, prefix: str, verbose: bool = False):
+        status = self._collect_can_status(interface)
+        print(f"{prefix} {interface}: {self._format_can_status(status)}")
+
+        if not verbose:
+            return
+
+        ip_details = self._get_ip_link_details(interface)
+        if ip_details:
+            for line in ip_details.splitlines():
+                print(f"{prefix} {line}")
+
+    def _wait_for_can_ready(self, interface: str, timeout_s: float) -> bool:
+        if timeout_s <= 0:
+            return True
+        start = time.time()
+        while (time.time() - start) < timeout_s:
+            status = self._collect_can_status(interface)
+            if status.get("exists") and status.get("is_up") is True:
+                return True
+            time.sleep(self._can_wait_poll_s)
+        return False
+
+    def _init_arm_with_retries(self, arm: str, channel: str, arm_zero_gravity: bool, attempt_label: str):
+        ready = self._wait_for_can_ready(channel, self.can_wait_ready_s)
+        if not ready:
+            print(f"[YAMInterface] CAN {channel} not ready after {self.can_wait_ready_s:.1f}s")
+            self._print_can_diagnostics(channel, "[YAMInterface]", verbose=self.can_debug)
+
+        for attempt in range(1, self.can_init_retries + 1):
+            if self.can_debug:
+                self._print_can_diagnostics(channel, "[YAMInterface]", verbose=False)
+
+            try:
+                return self._get_yam_robot(
+                    channel=channel,
+                    gripper_type=self.gripper_type,
+                    zero_gravity_mode=arm_zero_gravity,
+                )
+            except Exception as exc:
+                print(
+                    f"[YAMInterface] CAN init failed for {arm} on {channel} "
+                    f"(attempt {attempt}/{self.can_init_retries}) [{attempt_label}]: {exc}"
+                )
+                self._print_can_diagnostics(channel, "[YAMInterface]", verbose=True)
+                if attempt < self.can_init_retries:
+                    time.sleep(self.can_init_retry_delay_s)
+                else:
+                    raise
     
     def _check_joint_limits(self, joints: np.ndarray, arm: str, tolerance: float = 0.01) -> bool:
         """Check if joint positions are within safe limits.
@@ -687,7 +844,7 @@ class YAMInterface:
         self, 
         ee_pose: np.ndarray, 
         arm: str,
-        damping: float = 1e-3,
+        damping: float = 1e-2,
         max_iters: int = None,
         pos_threshold: float = 1e-3,
         ori_threshold: float = 1e-3,
@@ -866,9 +1023,9 @@ class YAMInterface:
         Note: Only moves arms in self.control_arms. Read-only arms (when read_all_arms=True)
         are in zero-gravity mode and are not homed.
         """
-        for arm in self.control_arms:
-            # home_position = self.HOME_POSITION if arm == 'right' else self.HOME_POSITION_ABOVE
-            home_position = self.HOME_POSITION
+        for arm in self.read_arms:
+            home_position = self.HOME_POSITION if arm == 'right' else self.HOME_POSITION_ABOVE
+            # home_position = self.HOME_POSITION
             if self.dry_run:
                 print(f"[YAMInterface] DRY RUN: Would move {arm} arm to home position: {home_position}")
                 self._simulated_joints[arm] = home_position.copy()
