@@ -53,6 +53,7 @@ class HDF5ToZarrConverter:
         image_compressed: bool = True,
         jpeg_quality: int = 95,
         prestack: bool = False,
+        dynamic_chunking: bool = False,
         chunk_size_mb: float = 2.0,
         chunk_timesteps: int | None = None,
         debug: bool = False,

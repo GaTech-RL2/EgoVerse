@@ -96,32 +96,35 @@ def benchmark_dataloader(
     # Benchmark
     print(f"  Benchmarking {benchmark_batches} batches (batch_size={batch_size}, workers={num_workers}, prefetch={prefetch_factor})...")
     samples_processed = 0
-    start = time.perf_counter()
+    data_loading_time = 0.0
     progress_step = max(1, benchmark_batches // 10)
 
     for i in range(benchmark_batches):
+        # Measure only data loading time
+        batch_start = time.perf_counter()
         try:
             batch = next(batch_iter)
         except StopIteration:
             batch_iter = iter(dataloader)
             batch = next(batch_iter)
+        batch_end = time.perf_counter()
+        data_loading_time += (batch_end - batch_start)
 
         # Count actual samples in batch (last batch may be smaller)
         batch_samples = _infer_batch_size(batch)
         samples_processed += batch_samples
+
+        # Simulate forward/backward pass
+        time.sleep(0.5)
+
         if (i + 1) % progress_step == 0 or (i + 1) == benchmark_batches:
             print(f"    Progress: {i + 1}/{benchmark_batches} ({(i + 1) / benchmark_batches:.0%})")
 
-    end = time.perf_counter()
-    total_time = end - start
+    total_time = data_loading_time
 
     throughput = samples_processed / total_time if total_time > 0 else 0
     batches_per_sec = benchmark_batches / total_time if total_time > 0 else 0
     avg_time_per_batch = total_time / benchmark_batches if benchmark_batches > 0 else 0
-
-    # Data bottleneck: fraction of a 0.5s train loop spent on data loading
-    train_loop_time = 0.5  # Simulated train step time (forward + backward + optimizer)
-    data_bottleneck = avg_time_per_batch / train_loop_time
 
     return {
         "throughput_samples_sec": throughput,
@@ -129,7 +132,6 @@ def benchmark_dataloader(
         "samples_processed": samples_processed,
         "total_time_sec": total_time,
         "avg_time_per_batch": avg_time_per_batch,
-        "data_bottleneck": data_bottleneck,
     }
 
 
@@ -209,10 +211,9 @@ def run_benchmarks(
     )
     print(f"  Throughput: {dataloader_results['throughput_samples_sec']:.1f} samples/sec")
     print(f"  Batches/sec: {dataloader_results['batches_per_sec']:.1f}")
-    print(f"  Avg time/batch: {dataloader_results['avg_time_per_batch']*1000:.1f}ms")
-    print(f"  Data bottleneck (fraction of 0.5s train loop): {dataloader_results['data_bottleneck']*100:.1f}%")
+    print(f"  Avg data loading time/batch: {dataloader_results['avg_time_per_batch']*1000:.1f}ms")
     print(
-        f"  Total time: {dataloader_results['total_time_sec']:.2f}s "
+        f"  Total data loading time: {dataloader_results['total_time_sec']:.2f}s "
         f"for {dataloader_results['samples_processed']} samples"
     )
 
@@ -252,15 +253,11 @@ def print_side_by_side(results: list[dict]) -> None:
             f"{left['dataloader']['batches_per_sec']:.1f} vs {right['dataloader']['batches_per_sec']:.1f}"
         )
         print(
-            "  Avg time/batch (ms): "
+            "  Avg data loading time/batch (ms): "
             f"{left['dataloader']['avg_time_per_batch']*1000:.1f} vs {right['dataloader']['avg_time_per_batch']*1000:.1f}"
         )
         print(
-            "  Data bottleneck (0.5s train loop): "
-            f"{left['dataloader']['data_bottleneck']*100:.1f}% vs {right['dataloader']['data_bottleneck']*100:.1f}%"
-        )
-        print(
-            "  Total time (s): "
+            "  Total data loading time (s): "
             f"{left['dataloader']['total_time_sec']:.2f} vs {right['dataloader']['total_time_sec']:.2f}"
         )
 
@@ -337,6 +334,25 @@ def main():
         default=None,
         help="Limit number of episode folders to load (for debugging)",
     )
+    parser.add_argument(
+        "--dynamic-chunks",
+        action="store_true",
+        help="Enable dynamic action chunking (load action sequences at runtime). "
+             "Use this when benchmarking datasets with prestack=False.",
+    )
+    parser.add_argument(
+        "--action-horizon",
+        type=int,
+        default=45,
+        help="Number of future action timesteps to load when --dynamic-chunks is enabled (default: 45)",
+    )
+    parser.add_argument(
+        "--action-keys",
+        type=str,
+        nargs="+",
+        default=["actions_joints"],
+        help="Action keys to apply dynamic chunking to (default: actions_joints)",
+    )
 
     args = parser.parse_args()
 
@@ -345,6 +361,12 @@ def main():
         print("\nNOTE: --skip-images enabled")
         print("  - Zarr: truly skips image loading (no I/O, no decode)")
         print("  - LeRobot: still decodes video frames, then drops them (no skip_keys support)")
+
+    if args.dynamic_chunks:
+        print("\nNOTE: --dynamic-chunks enabled")
+        print(f"  - Loading {args.action_horizon} future actions per sample")
+        print(f"  - Action keys: {', '.join(args.action_keys)}")
+        print("  - This simulates runtime action chunking for prestack=False datasets")
 
     zarr_path = Path(args.zarr_path).resolve()
     lerobot_path = Path(args.lerobot_path).resolve()
@@ -362,6 +384,28 @@ def main():
         zarr_episodes = list(range(args.max_episodes))
         print(f"\nNOTE: --max-episodes={args.max_episodes} (loading limited episodes for debugging)")
 
+    # Configure temporal windowing for dynamic chunks
+    delta_timestamps = None
+    if args.dynamic_chunks:
+        # Get FPS from dataset metadata for accurate time offsets
+        from egomimic.rldb.zarr.zarr_dataset import ZarrDatasetMetadata
+        meta = ZarrDatasetMetadata(repo_id=zarr_path.name, root=zarr_path)
+        fps = meta.fps if hasattr(meta, 'fps') else 30
+
+        # Build delta_timestamps dict for action keys
+        # Load actions from current frame (t=0) to future frames
+        delta_timestamps = {}
+        for action_key in args.action_keys:
+            # Create time offsets: [0.0, 1/fps, 2/fps, ..., (horizon-1)/fps]
+            time_offsets = [i / fps for i in range(args.action_horizon)]
+            delta_timestamps[action_key] = time_offsets
+
+        print(f"\nDynamic chunks configuration:")
+        print(f"  Action horizon: {args.action_horizon} timesteps")
+        print(f"  Action keys: {args.action_keys}")
+        print(f"  FPS: {fps}")
+        print(f"  Time offsets: {len(time_offsets)} points over {time_offsets[-1]:.2f}s")
+
     print("\nLoading Zarr dataset...")
     zarr_init_start = time.perf_counter()
     zarr_dataset = ZarrDataset(
@@ -370,6 +414,7 @@ def main():
         profile=args.profile_zarr,
         skip_keys=zarr_skip_keys,
         episodes=zarr_episodes,
+        delta_timestamps=delta_timestamps,
     )
     zarr_init_time = time.perf_counter() - zarr_init_start
     print(f"  Initialization time: {zarr_init_time:.3f}s")
