@@ -41,6 +41,23 @@ def _infer_batch_size(batch) -> int:
     return 0
 
 
+class DropKeysDataset(Dataset):
+    """Wrapper dataset that removes keys from dict samples."""
+
+    def __init__(self, base: Dataset, drop_predicate):
+        self.base = base
+        self.drop_predicate = drop_predicate
+
+    def __len__(self):
+        return len(self.base)
+
+    def __getitem__(self, idx):
+        item = self.base[idx]
+        if not isinstance(item, dict):
+            return item
+        return {k: v for k, v in item.items() if not self.drop_predicate(k)}
+
+
 def benchmark_dataloader(
     dataset: Dataset,
     num_samples: int,
@@ -100,16 +117,23 @@ def benchmark_dataloader(
 
     throughput = samples_processed / total_time if total_time > 0 else 0
     batches_per_sec = benchmark_batches / total_time if total_time > 0 else 0
+    avg_time_per_batch = total_time / benchmark_batches if benchmark_batches > 0 else 0
+
+    # Data bottleneck: fraction of a 0.5s train loop spent on data loading
+    train_loop_time = 0.5  # Simulated train step time (forward + backward + optimizer)
+    data_bottleneck = avg_time_per_batch / train_loop_time
 
     return {
         "throughput_samples_sec": throughput,
         "batches_per_sec": batches_per_sec,
         "samples_processed": samples_processed,
         "total_time_sec": total_time,
+        "avg_time_per_batch": avg_time_per_batch,
+        "data_bottleneck": data_bottleneck,
     }
 
 
-def build_lerobot_dataset(root: Path) -> tuple[Dataset, str]:
+def build_lerobot_dataset(root: Path, max_episodes: int | None = None) -> tuple[Dataset, str]:
     """Load a LeRobot dataset from a root, supporting per-episode subdirs."""
     from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
@@ -132,6 +156,10 @@ def build_lerobot_dataset(root: Path) -> tuple[Dataset, str]:
         raise FileNotFoundError(
             f"Could not find meta/info.json in {root} or any immediate subdirectories."
         )
+
+    # Limit episodes if requested
+    if max_episodes is not None:
+        episode_dirs = episode_dirs[:max_episodes]
 
     datasets = []
     for episode_dir in episode_dirs:
@@ -181,6 +209,8 @@ def run_benchmarks(
     )
     print(f"  Throughput: {dataloader_results['throughput_samples_sec']:.1f} samples/sec")
     print(f"  Batches/sec: {dataloader_results['batches_per_sec']:.1f}")
+    print(f"  Avg time/batch: {dataloader_results['avg_time_per_batch']*1000:.1f}ms")
+    print(f"  Data bottleneck (fraction of 0.5s train loop): {dataloader_results['data_bottleneck']*100:.1f}%")
     print(
         f"  Total time: {dataloader_results['total_time_sec']:.2f}s "
         f"for {dataloader_results['samples_processed']} samples"
@@ -204,6 +234,12 @@ def print_side_by_side(results: list[dict]) -> None:
     print("")
     print(f"Total frames: {left['total_frames']} vs {right['total_frames']}")
 
+    left_init = left.get("init_time_sec")
+    right_init = right.get("init_time_sec")
+    if left_init is not None and right_init is not None:
+        speedup = right_init / left_init if left_init > 0 else float("inf")
+        print(f"Initialization time (s): {left_init:.3f} vs {right_init:.3f} ({speedup:.1f}x)")
+
     if left["dataloader"] and right["dataloader"]:
         print("DataLoader:")
         print(
@@ -214,6 +250,14 @@ def print_side_by_side(results: list[dict]) -> None:
         print(
             "  Batches/sec: "
             f"{left['dataloader']['batches_per_sec']:.1f} vs {right['dataloader']['batches_per_sec']:.1f}"
+        )
+        print(
+            "  Avg time/batch (ms): "
+            f"{left['dataloader']['avg_time_per_batch']*1000:.1f} vs {right['dataloader']['avg_time_per_batch']*1000:.1f}"
+        )
+        print(
+            "  Data bottleneck (0.5s train loop): "
+            f"{left['dataloader']['data_bottleneck']*100:.1f}% vs {right['dataloader']['data_bottleneck']*100:.1f}%"
         )
         print(
             "  Total time (s): "
@@ -244,8 +288,8 @@ def main():
     parser.add_argument(
         "--num-samples",
         type=int,
-        default=1000,
-        help="Number of samples to load via DataLoader (default: 1000)",
+        default=10000,
+        help="Number of samples to load via DataLoader (default: 10000)",
     )
     parser.add_argument(
         "--batch-size",
@@ -256,8 +300,8 @@ def main():
     parser.add_argument(
         "--num-workers",
         type=int,
-        default=4,
-        help="DataLoader workers (default: 4)",
+        default=10,
+        help="DataLoader workers (default: 10)",
     )
     parser.add_argument(
         "--prefetch-factor",
@@ -271,48 +315,131 @@ def main():
         default=10,
         help="Warmup iterations before timing (default: 10)",
     )
+    parser.add_argument(
+        "--skip-images",
+        action="store_true",
+        help="Drop image keys from samples to avoid decode overhead",
+    )
+    parser.add_argument(
+        "--profile-zarr",
+        action="store_true",
+        help="Profile Zarr __getitem__ time breakdown in-process (num_workers=0)",
+    )
+    parser.add_argument(
+        "--profile-samples",
+        type=int,
+        default=200,
+        help="Number of samples to profile for Zarr breakdown (default: 200)",
+    )
+    parser.add_argument(
+        "--max-episodes",
+        type=int,
+        default=None,
+        help="Limit number of episode folders to load (for debugging)",
+    )
 
     args = parser.parse_args()
 
     print("=== Zarr vs LeRobot Forward Pass Benchmark ===")
+    if args.skip_images:
+        print("\nNOTE: --skip-images enabled")
+        print("  - Zarr: truly skips image loading (no I/O, no decode)")
+        print("  - LeRobot: still decodes video frames, then drops them (no skip_keys support)")
 
     zarr_path = Path(args.zarr_path).resolve()
     lerobot_path = Path(args.lerobot_path).resolve()
 
+    # Determine which keys to skip for Zarr (need to peek at metadata first)
+    zarr_skip_keys: set[str] | None = None
+    if args.skip_images:
+        from egomimic.rldb.zarr.zarr_dataset import ZarrDatasetMetadata
+        meta = ZarrDatasetMetadata(repo_id=zarr_path.name, root=zarr_path)
+        zarr_skip_keys = set(meta.camera_keys)
+
+    # Determine episodes to load if max_episodes is set
+    zarr_episodes = None
+    if args.max_episodes is not None:
+        zarr_episodes = list(range(args.max_episodes))
+        print(f"\nNOTE: --max-episodes={args.max_episodes} (loading limited episodes for debugging)")
+
     print("\nLoading Zarr dataset...")
+    zarr_init_start = time.perf_counter()
     zarr_dataset = ZarrDataset(
         repo_id=zarr_path.name,
         root=zarr_path,
+        profile=args.profile_zarr,
+        skip_keys=zarr_skip_keys,
+        episodes=zarr_episodes,
     )
+    zarr_init_time = time.perf_counter() - zarr_init_start
+    print(f"  Initialization time: {zarr_init_time:.3f}s")
 
     print("\nLoading LeRobot dataset...")
-    lerobot_dataset, lerobot_name = build_lerobot_dataset(lerobot_path)
+    lerobot_init_start = time.perf_counter()
+    lerobot_dataset, lerobot_name = build_lerobot_dataset(lerobot_path, max_episodes=args.max_episodes)
+    lerobot_init_time = time.perf_counter() - lerobot_init_start
+    print(f"  Initialization time: {lerobot_init_time:.3f}s")
+
+    if args.skip_images:
+        lerobot_dataset = DropKeysDataset(
+            lerobot_dataset,
+            drop_predicate=lambda k: k.startswith("observation.images."),
+        )
+
+    if args.profile_zarr:
+        num_profile = min(args.profile_samples, len(zarr_dataset))
+        print(f"\nProfiling Zarr __getitem__ on {num_profile} samples (num_workers=0)...")
+        zarr_dataset.reset_profile()
+        start = time.perf_counter()
+        for i in range(num_profile):
+            _ = zarr_dataset[i]
+        elapsed = time.perf_counter() - start
+        profile = zarr_dataset.get_profile_summary()
+        totals = profile.get("totals", {})
+        counts = profile.get("counts", {})
+        total_getitem = totals.get("getitem_total_sec", 0.0)
+        print(f"  Total wall time: {elapsed:.3f}s")
+        print(f"  __getitem__ total: {total_getitem:.3f}s over {counts.get('getitem_count', 0)} samples")
+        if total_getitem > 0:
+            def pct(val: float) -> float:
+                return 100.0 * val / total_getitem
+
+            for key in [
+                "zarr_read_sec",
+                "image_decode_sec",
+                "image_to_tensor_sec",
+                "non_image_to_tensor_sec",
+                "open_store_sec",
+            ]:
+                if key in totals:
+                    print(f"  {key}: {totals[key]:.3f}s ({pct(totals[key]):.1f}%)")
 
     results = []
-    results.append(
-        run_benchmarks(
-            name=f"Zarr ({zarr_path})",
-            dataset=zarr_dataset,
-            num_samples=args.num_samples,
-            batch_size=args.batch_size,
-            num_workers=args.num_workers,
-            warmup=args.warmup,
-            prefetch_factor=args.prefetch_factor,
-            collate_fn=safe_collate,
-        )
+    zarr_result = run_benchmarks(
+        name=f"Zarr ({zarr_path})",
+        dataset=zarr_dataset,
+        num_samples=args.num_samples,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        warmup=args.warmup,
+        prefetch_factor=args.prefetch_factor,
+        collate_fn=safe_collate,
     )
-    results.append(
-        run_benchmarks(
-            name=lerobot_name,
-            dataset=lerobot_dataset,
-            num_samples=args.num_samples,
-            batch_size=args.batch_size,
-            num_workers=args.num_workers,
-            warmup=args.warmup,
-            prefetch_factor=args.prefetch_factor,
-            collate_fn=None,
-        )
+    zarr_result["init_time_sec"] = zarr_init_time
+    results.append(zarr_result)
+
+    lerobot_result = run_benchmarks(
+        name=lerobot_name,
+        dataset=lerobot_dataset,
+        num_samples=args.num_samples,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        warmup=args.warmup,
+        prefetch_factor=args.prefetch_factor,
+        collate_fn=None,
     )
+    lerobot_result["init_time_sec"] = lerobot_init_time
+    results.append(lerobot_result)
 
     print_side_by_side(results)
 

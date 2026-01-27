@@ -7,7 +7,7 @@ instead of parquet/HF datasets.
 Directory structure (per-episode metadata):
     dataset_root/
     └── episode_{ep_idx}.zarr/
-        ├── observation.images.{cam}  (JPEG-XL compressed)
+        ├── observation.images.{cam}  (JPEG compressed)
         ├── observation.state
         ├── actions_joints
         └── ...
@@ -21,12 +21,14 @@ Each episode is self-contained with its own metadata, enabling:
 from __future__ import annotations
 
 import logging
+import os
 import random
+import time
 from functools import cached_property
 from pathlib import Path
 from typing import Callable
 
-import imagecodecs
+import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -55,12 +57,33 @@ logger = logging.getLogger(__name__)
 SEED = 42
 
 
-def decode_jxl(data) -> np.ndarray:
-    """Decode JPEG-XL image to numpy array.
+class ZarrProfiler:
+    """Lightweight profiler for ZarrDataset hot paths."""
+
+    def __init__(self) -> None:
+        self.totals: dict[str, float] = {}
+        self.counts: dict[str, int] = {}
+
+    def add(self, key: str, value: float, count: int = 1) -> None:
+        self.totals[key] = self.totals.get(key, 0.0) + value
+        self.counts[key] = self.counts.get(key, 0) + count
+
+    def inc(self, key: str, count: int = 1) -> None:
+        self.counts[key] = self.counts.get(key, 0) + count
+
+    def reset(self) -> None:
+        self.totals.clear()
+        self.counts.clear()
+
+    def summary(self) -> dict[str, dict[str, float | int]]:
+        return {"totals": dict(self.totals), "counts": dict(self.counts)}
+
+
+def decode_jpeg(data) -> np.ndarray:
+    """Decode JPEG image to numpy array using OpenCV.
 
     Args:
-        data: Compressed image bytes (with padding byte from encoder),
-              may be wrapped in numpy array from zarr
+        data: Compressed JPEG bytes, may be wrapped in numpy array from zarr
 
     Returns:
         RGB image array of shape (H, W, C) with dtype uint8
@@ -69,10 +92,17 @@ def decode_jxl(data) -> np.ndarray:
     while isinstance(data, np.ndarray) and data.ndim == 0:
         data = data.item()
 
-    # Strip padding byte added by encoder to prevent null-byte stripping
-    if data and data[-1:] == b'\x01':
-        data = data[:-1]
-    return imagecodecs.jpegxl_decode(data)
+    # Convert bytes to numpy array for OpenCV
+    if isinstance(data, bytes):
+        data = np.frombuffer(data, dtype=np.uint8)
+
+    # Decode with OpenCV (returns BGR)
+    img_bgr = cv2.imdecode(data, cv2.IMREAD_COLOR)
+    if img_bgr is None:
+        raise ValueError("Failed to decode JPEG image")
+
+    # Convert BGR to RGB
+    return cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
 
 def load_info(local_dir: Path) -> dict:
@@ -213,13 +243,13 @@ class ZarrDatasetMetadata:
 
     @property
     def image_keys(self) -> list[str]:
-        """Keys to access visual modalities stored as JPEG-XL compressed images."""
-        return [key for key, ft in self.features.items() if ft.get("dtype") == "jxl"]
+        """Keys to access visual modalities stored as compressed images."""
+        return [key for key, ft in self.features.items() if ft.get("dtype") == "jpeg"]
 
     @property
     def camera_keys(self) -> list[str]:
         """Keys to access visual modalities."""
-        return [key for key, ft in self.features.items() if ft.get("dtype") == "jxl"]
+        return [key for key, ft in self.features.items() if ft.get("dtype") == "jpeg"]
 
     @property
     def names(self) -> dict[str, list | dict]:
@@ -335,6 +365,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         delta_timestamps: dict[list[float]] | None = None,
         tolerance_s: float = 1e-4,
         local_files_only: bool = True,
+        profile: bool | None = None,
+        skip_keys: set[str] | list[str] | None = None,
     ):
         super().__init__()
         self.repo_id = repo_id
@@ -345,6 +377,10 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.tolerance_s = tolerance_s
         self.local_files_only = local_files_only
         self.delta_indices = None
+        self.skip_keys: set[str] = set(skip_keys) if skip_keys else set()
+        if profile is None:
+            profile = os.getenv("EGOMIMIC_ZARR_PROFILE", "0") == "1"
+        self._profiler = ZarrProfiler() if profile else None
 
         # Load metadata
         self.meta = ZarrDatasetMetadata(repo_id, self.root, local_files_only)
@@ -421,7 +457,11 @@ class ZarrDataset(torch.utils.data.Dataset):
         if not ep_path.exists():
             return None
 
+        start = time.perf_counter() if self._profiler else None
         store = zarr.open_group(str(ep_path), mode="r")
+        if self._profiler and start is not None:
+            self._profiler.add("open_store_sec", time.perf_counter() - start)
+            self._profiler.inc("open_store_count")
         self._episode_stores[ep_idx] = store
         return store
 
@@ -544,6 +584,7 @@ class ZarrDataset(torch.utils.data.Dataset):
 
     def _get_zarr_item(self, idx: int) -> dict:
         """Get a single frame from Zarr."""
+        start_total = time.perf_counter() if self._profiler else None
         global_idx = self._frame_indices[idx] if self._frame_indices else idx
         ep_idx, local_idx = self._global_idx_to_episode_local(global_idx)
 
@@ -553,6 +594,10 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         item = {}
         for key in store.array_keys():
+            # Skip keys that are explicitly excluded
+            if key in self.skip_keys:
+                continue
+
             arr = store[key]
             if not hasattr(arr, "dtype") or not hasattr(arr, "shape"):
                 # Skip non-array nodes (e.g., metadata groups)
@@ -561,29 +606,62 @@ class ZarrDataset(torch.utils.data.Dataset):
                 continue
 
             is_image_key = key in self.meta.camera_keys
-            if not is_image_key and key.startswith("observation.images.") and arr.dtype.kind == "O":
+            is_encoded_bytes = arr.dtype.kind == "O"  # Variable-length bytes = JPEG compressed images
+            if not is_image_key and key.startswith("observation.images.") and is_encoded_bytes:
                 # Fallback: treat variable-length byte arrays as images even if metadata is missing
                 is_image_key = True
 
             if is_image_key:
-                # Decode JPEG-XL compressed image
-                compressed_bytes = arr[local_idx]
-                img_np = decode_jxl(compressed_bytes)  # (H, W, C) uint8
+                read_start = time.perf_counter() if self._profiler else None
+                raw_data = arr[local_idx]
+                if self._profiler and read_start is not None:
+                    self._profiler.add("zarr_read_sec", time.perf_counter() - read_start)
+                    self._profiler.inc("image_read_count")
+
+                if is_encoded_bytes:
+                    # Encoded bytes: decode JPEG
+                    decode_start = time.perf_counter() if self._profiler else None
+                    img_np = decode_jpeg(raw_data)  # (H, W, C) uint8
+                    if self._profiler and decode_start is not None:
+                        self._profiler.add("image_decode_sec", time.perf_counter() - decode_start)
+                        self._profiler.inc("image_decode_count")
+                else:
+                    # Raw uint8 array stored directly
+                    img_np = raw_data
+
                 # Convert to (C, H, W) float tensor normalized to [0, 1]
+                convert_start = time.perf_counter() if self._profiler else None
                 img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
+                if self._profiler and convert_start is not None:
+                    self._profiler.add("image_to_tensor_sec", time.perf_counter() - convert_start)
+                    self._profiler.inc("image_tensor_count")
                 item[key] = img_tensor
             else:
                 if arr.dtype.kind == "O":
                     raise TypeError(
                         f"Unsupported object dtype for key '{key}'. "
-                        "If this is an image array, add it to meta/info.json features with dtype='jxl'."
+                        "If this is an image array, add it to meta/info.json features with dtype='jpeg'."
                     )
-                item[key] = torch.as_tensor(arr[local_idx])
+                read_start = time.perf_counter() if self._profiler else None
+                data = arr[local_idx]
+                if self._profiler and read_start is not None:
+                    self._profiler.add("zarr_read_sec", time.perf_counter() - read_start)
+                    self._profiler.inc("non_image_read_count")
+
+                convert_start = time.perf_counter() if self._profiler else None
+                item[key] = torch.as_tensor(data)
+                if self._profiler and convert_start is not None:
+                    self._profiler.add("non_image_to_tensor_sec", time.perf_counter() - convert_start)
+                    self._profiler.inc("non_image_tensor_count")
 
         # Compute metadata fields on-the-fly
         item["episode_index"] = torch.tensor(ep_idx)
         item["frame_index"] = torch.tensor(local_idx)
         item["timestamp"] = torch.tensor(local_idx / self.fps, dtype=torch.float32)
+
+        if self._profiler and start_total is not None:
+            self._profiler.add("getitem_total_sec", time.perf_counter() - start_total)
+            self._profiler.inc("getitem_count")
 
         return item
 
@@ -612,6 +690,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         """Query Zarr arrays for multiple indices with optimized batch reads."""
         result = {}
         for key, q_indices in query_indices.items():
+            if key in self.skip_keys:
+                continue
             if key in self.meta.camera_keys:
                 continue
 
@@ -636,7 +716,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             if sample_store[key].dtype.kind == "O":
                 raise TypeError(
                     f"Unsupported object dtype for key '{key}'. "
-                    "If this is an image array, add it to meta/info.json features with dtype='jxl'."
+                    "If this is an image array, add it to meta/info.json features with dtype='jpeg'."
                 )
 
             sample_shape = sample_store[key].shape[1:]  # Shape excluding time dimension
@@ -693,6 +773,10 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         item = {}
         for key in store.array_keys():
+            # Skip keys that are explicitly excluded
+            if key in self.skip_keys:
+                continue
+
             arr = store[key]
             if not hasattr(arr, "dtype") or not hasattr(arr, "shape"):
                 continue
@@ -700,20 +784,23 @@ class ZarrDataset(torch.utils.data.Dataset):
                 continue
 
             is_image_key = key in self.meta.camera_keys
-            if not is_image_key and key.startswith("observation.images.") and arr.dtype.kind == "O":
+            is_encoded_bytes = arr.dtype.kind == "O"
+            if not is_image_key and key.startswith("observation.images.") and is_encoded_bytes:
                 is_image_key = True
 
             if is_image_key:
-                # Decode JPEG-XL compressed image
-                compressed_bytes = arr[local_idx]
-                img_np = decode_jxl(compressed_bytes)  # (H, W, C) uint8
+                raw_data = arr[local_idx]
+                if is_encoded_bytes:
+                    img_np = decode_jpeg(raw_data)  # (H, W, C) uint8
+                else:
+                    img_np = raw_data
                 img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
                 item[key] = img_tensor
             else:
                 if arr.dtype.kind == "O":
                     raise TypeError(
                         f"Unsupported object dtype for key '{key}'. "
-                        "If this is an image array, add it to meta/info.json features with dtype='jxl'."
+                        "If this is an image array, add it to meta/info.json features with dtype='jpeg'."
                     )
                 item[key] = torch.as_tensor(arr[local_idx])
 
@@ -725,10 +812,12 @@ class ZarrDataset(torch.utils.data.Dataset):
         return item
 
     def _query_images(self, query_indices: dict[str, list[int]]) -> dict:
-        """Query JPEG-XL images from Zarr for multiple indices."""
+        """Query images from Zarr for multiple indices."""
         result = {}
 
         for key in self.meta.camera_keys:
+            if key in self.skip_keys:
+                continue
             if key not in query_indices:
                 continue
 
@@ -744,8 +833,11 @@ class ZarrDataset(torch.utils.data.Dataset):
                     continue
                 arr = store[key]
                 if local_idx < arr.shape[0]:
-                    compressed_bytes = arr[local_idx]
-                    img_np = decode_jxl(compressed_bytes)
+                    raw_data = arr[local_idx]
+                    if arr.dtype.kind == "O":
+                        img_np = decode_jpeg(raw_data)
+                    else:
+                        img_np = raw_data
                     img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
                     frames_list.append(img_tensor)
 
@@ -792,6 +884,15 @@ class ZarrDataset(torch.utils.data.Dataset):
             f"    Features: '{feature_keys}',\n"
             "}})"
         )
+
+    def reset_profile(self) -> None:
+        if self._profiler is not None:
+            self._profiler.reset()
+
+    def get_profile_summary(self) -> dict[str, dict[str, float | int]]:
+        if self._profiler is None:
+            return {}
+        return self._profiler.summary()
 
 
 # Import EMBODIMENT enum and helper functions
