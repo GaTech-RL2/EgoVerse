@@ -7,8 +7,8 @@ instead of parquet/HF datasets.
 Directory structure (per-episode metadata):
     dataset_root/
     └── episode_{ep_idx}.zarr/
-        ├── observation.images.{cam}  (JPEG compressed)
-        ├── observation.state
+        ├── observations.images.{cam}  (JPEG compressed)
+        ├── observations.state
         ├── actions_joints
         └── ...
 
@@ -465,6 +465,22 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._episode_stores[ep_idx] = store
         return store
 
+    def _get_all_array_keys(self, store: zarr.Group, prefix: str = "") -> list[str]:
+        """Recursively get all array keys from a zarr group, including nested arrays.
+
+        In zarr v3, dotted paths create nested groups. This method traverses the
+        hierarchy to find all arrays, returning their full dotted paths.
+        """
+        keys = []
+        for name, item in store.members():
+            full_key = f"{prefix}.{name}" if prefix else name
+            if isinstance(item, zarr.Array):
+                keys.append(full_key)
+            elif isinstance(item, zarr.Group):
+                # Recursively search nested groups
+                keys.extend(self._get_all_array_keys(item, full_key))
+        return keys
+
     def _build_episode_data_index(self) -> dict[str, torch.Tensor]:
         """Build from/to indices for each episode."""
         episode_lengths = {}
@@ -476,7 +492,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             # Calculate length from zarr store (use first available array)
             store = self._get_episode_store(ep_idx)
             if store is not None:
-                keys = list(store.array_keys())
+                keys = self._get_all_array_keys(store)
                 if keys:
                     episode_lengths[ep_idx] = store[keys[0]].shape[0]
                 else:
@@ -593,7 +609,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             raise ValueError(f"Could not load store for episode {ep_idx}")
 
         item = {}
-        for key in store.array_keys():
+        for key in self._get_all_array_keys(store):
             # Skip keys that are explicitly excluded
             if key in self.skip_keys:
                 continue
@@ -607,7 +623,7 @@ class ZarrDataset(torch.utils.data.Dataset):
 
             is_image_key = key in self.meta.camera_keys
             is_encoded_bytes = arr.dtype.kind == "O"  # Variable-length bytes = JPEG compressed images
-            if not is_image_key and key.startswith("observation.images.") and is_encoded_bytes:
+            if not is_image_key and key.startswith("observations.images.") and is_encoded_bytes:
                 # Fallback: treat variable-length byte arrays as images even if metadata is missing
                 is_image_key = True
 
@@ -685,6 +701,113 @@ class ZarrDataset(torch.utils.data.Dataset):
             for key, delta_idx in self.delta_indices.items()
         }
         return query_indices, padding
+
+    def _query_zarr_data_same_episode(
+        self,
+        ep_idx: int,
+        local_idx: int,
+        ep_length: int,
+    ) -> dict[str, torch.Tensor]:
+        """Optimized query for action chunks within a single episode.
+
+        Fast path that avoids per-index episode lookups and uses contiguous slice reads.
+        Action chunks never cross episodes - if fewer than horizon actions remain,
+        the last action is repeated to fill the chunk.
+
+        Args:
+            ep_idx: Episode index
+            local_idx: Local frame index within episode
+            ep_length: Total frames in this episode
+
+        Returns:
+            Dict mapping key -> tensor of shape (horizon, feature_dim)
+        """
+        store = self._get_episode_store(ep_idx)
+        if store is None:
+            return {}
+
+        result = {}
+        profiler = self._profiler
+
+        for key, delta_idx in self.delta_indices.items():
+            if key in self.skip_keys:
+                continue
+            if key in self.meta.camera_keys:
+                continue
+            if key not in store:
+                continue
+
+            arr = store[key]
+            if arr.dtype.kind == "O":
+                raise TypeError(
+                    f"Unsupported object dtype for key '{key}'. "
+                    "If this is an image array, add it to meta/info.json features with dtype='jpeg'."
+                )
+
+            horizon = len(delta_idx)
+            sample_shape = arr.shape[1:]
+
+            # Compute the range of local indices we need
+            # delta_idx contains frame offsets like [0, 1, 2, ..., horizon-1]
+            first_delta = delta_idx[0]
+            last_delta = delta_idx[-1]
+
+            # Clamp to episode bounds (actions never cross episodes)
+            start_local = max(0, local_idx + first_delta)
+            end_local = min(ep_length, local_idx + last_delta + 1)
+
+            # Read contiguous slice from zarr (single I/O operation)
+            read_start = time.perf_counter() if profiler else None
+            if start_local < end_local and end_local <= arr.shape[0]:
+                data = arr[start_local:end_local]
+                data_tensor = torch.as_tensor(data)
+            else:
+                # Edge case: no valid data
+                data_tensor = torch.zeros((0, *sample_shape), dtype=torch.float32)
+            if profiler and read_start is not None:
+                profiler.add("zarr_read_sec", time.perf_counter() - read_start)
+                profiler.inc("action_chunk_read_count")
+
+            # Fast path: if all indices are valid and contiguous, just use the slice directly
+            first_target = local_idx + first_delta
+            last_target = local_idx + last_delta
+            all_valid = first_target >= 0 and last_target < ep_length
+
+            convert_start = time.perf_counter() if profiler else None
+            if all_valid and data_tensor.shape[0] == horizon:
+                # Perfect case: slice matches exactly what we need
+                frames = data_tensor.float() if data_tensor.dtype != torch.float32 else data_tensor
+            else:
+                # Build output tensor with padding for out-of-bounds indices
+                frames = torch.empty((horizon, *sample_shape), dtype=torch.float32)
+
+                # Vectorized fill for valid range
+                valid_start_delta = max(0, -first_target)  # How many to skip at start
+                valid_end_delta = min(horizon, ep_length - first_target)  # Where to stop
+
+                if valid_end_delta > valid_start_delta:
+                    valid_count = valid_end_delta - valid_start_delta
+                    # The slice in data_tensor starts at max(0, first_target) - start_local = 0
+                    # when first_target >= 0, else at -first_target offset
+                    src_start = max(0, first_target) - start_local
+                    src_end = src_start + valid_count
+                    if src_end <= data_tensor.shape[0]:
+                        frames[valid_start_delta:valid_end_delta] = data_tensor[src_start:src_end]
+
+                # Pad before episode start with first valid action
+                if valid_start_delta > 0 and data_tensor.shape[0] > 0:
+                    frames[:valid_start_delta] = data_tensor[0]
+
+                # Pad after episode end with last valid action
+                if valid_end_delta < horizon and data_tensor.shape[0] > 0:
+                    frames[valid_end_delta:] = data_tensor[-1]
+
+            if profiler and convert_start is not None:
+                profiler.add("non_image_to_tensor_sec", time.perf_counter() - convert_start)
+
+            result[key] = frames
+
+        return result
 
     def _query_zarr_data(self, query_indices: dict[str, list[int]]) -> dict:
         """Query Zarr arrays for multiple indices with optimized batch reads."""
@@ -772,7 +895,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             return {}
 
         item = {}
-        for key in store.array_keys():
+        for key in self._get_all_array_keys(store):
             # Skip keys that are explicitly excluded
             if key in self.skip_keys:
                 continue
@@ -785,7 +908,7 @@ class ZarrDataset(torch.utils.data.Dataset):
 
             is_image_key = key in self.meta.camera_keys
             is_encoded_bytes = arr.dtype.kind == "O"
-            if not is_image_key and key.startswith("observation.images.") and is_encoded_bytes:
+            if not is_image_key and key.startswith("observations.images.") and is_encoded_bytes:
                 is_image_key = True
 
             if is_image_key:
@@ -850,21 +973,41 @@ class ZarrDataset(torch.utils.data.Dataset):
         """Get a single frame with all features."""
         item = self._get_zarr_item(idx)
 
-        query_indices = None
         if self.delta_indices is not None:
             ep_idx = int(item["episode_index"])
-            query_indices, padding = self._get_query_indices(idx, ep_idx)
+            local_idx = int(item["frame_index"])
 
-            # Query non-image data
-            query_result = self._query_zarr_data(query_indices)
-            item = {**item, **padding}
+            # Get episode length for bounds checking
+            ep_start, ep_end = self._ep_bounds[ep_idx]
+            ep_length = ep_end - ep_start
+
+            # Fast path: query all action data with single contiguous reads per key
+            # Actions never cross episodes - out-of-bounds indices repeat last action
+            query_result = self._query_zarr_data_same_episode(ep_idx, local_idx, ep_length)
             for key, val in query_result.items():
                 item[key] = val
 
+            # Compute padding masks for keys that were queried
+            for key, delta_idx in self.delta_indices.items():
+                if key in self.skip_keys or key in self.meta.camera_keys:
+                    continue
+                # Padding mask: True where we had to pad (out of episode bounds)
+                item[f"{key}_is_pad"] = torch.BoolTensor(
+                    [(local_idx + delta < 0) or (local_idx + delta >= ep_length)
+                     for delta in delta_idx]
+                )
+
             # Query images if delta_timestamps includes camera keys
-            image_result = self._query_images(query_indices)
-            for key, val in image_result.items():
-                item[key] = val
+            # (images use the slower path since they're typically not chunked)
+            has_image_deltas = any(
+                key in self.meta.camera_keys
+                for key in self.delta_indices.keys()
+            )
+            if has_image_deltas:
+                query_indices, _ = self._get_query_indices(idx, ep_idx)
+                image_result = self._query_images(query_indices)
+                for key, val in image_result.items():
+                    item[key] = val
 
         # Apply image transforms
         if self.image_transforms is not None:
