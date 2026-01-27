@@ -8,8 +8,8 @@ Directory structure created:
     dataset_root/
     └── episode_{ep_idx}.zarr/
         ├── zarr.json (metadata)
-        ├── observation.images.{cam}
-        ├── observation.state
+        ├── observations.images.{cam}
+        ├── observations.state
         ├── actions_joints
         └── ...
 
@@ -53,9 +53,9 @@ class HDF5ToZarrConverter:
         image_compressed: bool = True,
         jpeg_quality: int = 95,
         prestack: bool = False,
-        dynamic_chunking: bool = False,
         chunk_size_mb: float = 2.0,
         chunk_timesteps: int | None = None,
+        disable_sharding: bool = False,
         debug: bool = False,
     ):
         self.raw_path = Path(raw_path)
@@ -70,6 +70,7 @@ class HDF5ToZarrConverter:
         self.chunk_size_mb = chunk_size_mb
         self.chunk_size_bytes = int(chunk_size_mb * 1024 * 1024)
         self.chunk_timesteps = chunk_timesteps
+        self.disable_sharding = disable_sharding
         self.debug = debug
 
         # Setup logging
@@ -133,7 +134,7 @@ class HDF5ToZarrConverter:
         # Use zarr v3 stores for new datasets
         store = zarr.open(str(episode_path), mode="w", zarr_format=3)
 
-        # Write numeric arrays with target chunk size, all chunks in one shard
+        # Write numeric arrays with target chunk size
         for key, values in frames_data.items():
             arr = np.stack(values, axis=0)
             # Calculate frames per chunk
@@ -150,18 +151,35 @@ class HDF5ToZarrConverter:
             # Cap to episode length
             frames_per_chunk = min(frames_per_chunk, num_frames)
             frames_per_chunk = max(1, frames_per_chunk)
+            # Pad array length so shard size is divisible by chunk size
+            if not self.disable_sharding and num_frames % frames_per_chunk != 0:
+                padded_frames = ((num_frames + frames_per_chunk - 1) // frames_per_chunk) * frames_per_chunk
+                pad_len = padded_frames - num_frames
+                pad_shape = (pad_len,) + arr.shape[1:]
+                arr = np.concatenate([arr, np.zeros(pad_shape, dtype=arr.dtype)], axis=0)
+                if self.debug:
+                    self.logger.info(
+                        f"Padded {key} from {num_frames} to {padded_frames} frames for sharding"
+                    )
             # Chunk shape: (frames, ...) - keep other dimensions intact
             chunk_shape = (frames_per_chunk,) + arr.shape[1:]
-            # Shard shape: entire array in one shard
-            shard_shape = arr.shape
-            store.create_array(
-                key,
-                data=arr,
-                chunks=chunk_shape,
-                shards=shard_shape,
-            )
+            if self.disable_sharding:
+                store.create_array(
+                    key,
+                    data=arr,
+                    chunks=chunk_shape,
+                )
+            else:
+                # Shard shape: entire array in one shard
+                shard_shape = arr.shape
+                store.create_array(
+                    key,
+                    data=arr,
+                    chunks=chunk_shape,
+                    shards=shard_shape,
+                )
 
-        # Write images as JPEG compressed bytes, all chunks in one shard
+        # Write images as JPEG compressed bytes
         jpeg_params = [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
         for key, image_frames in image_data.items():
             encoded = np.empty((len(image_frames),), dtype=object)
@@ -172,17 +190,25 @@ class HDF5ToZarrConverter:
                 if not success:
                     raise RuntimeError(f"Failed to encode image {i} for key {key}")
                 encoded[i] = jpeg_bytes.tobytes()
-            # Chunk per image for efficient random access, all in one shard
+            # Chunk per image for efficient random access
             chunk_shape = (1,)
-            shard_shape = encoded.shape  # All frames in one shard file
             # zarr v3 forbids passing both data and dtype; create then assign
-            store.create_array(
-                key,
-                shape=encoded.shape,
-                chunks=chunk_shape,
-                shards=shard_shape,
-                dtype=VariableLengthBytes(),
-            )
+            if self.disable_sharding:
+                store.create_array(
+                    key,
+                    shape=encoded.shape,
+                    chunks=chunk_shape,
+                    dtype=VariableLengthBytes(),
+                )
+            else:
+                shard_shape = encoded.shape  # All frames in one shard file
+                store.create_array(
+                    key,
+                    shape=encoded.shape,
+                    chunks=chunk_shape,
+                    shards=shard_shape,
+                    dtype=VariableLengthBytes(),
+                )
             store[key][:] = encoded
 
         # Build features dict for this episode
@@ -245,7 +271,7 @@ class HDF5ToZarrConverter:
             if frame_idx % 100 == 0:
                 self.logger.info(f"  Frame {frame_idx}/{num_frames}")
             for obs_key, obs_value in episode_feats["observations"].items():
-                full_key = f"observation.{obs_key}"
+                full_key = f"observations.{obs_key}"
 
                 if "images" in obs_key:
                     # Store raw image (JPEG codec handles compression)
@@ -393,6 +419,11 @@ def parse_args():
         help="Number of timesteps per chunk (overrides --chunk-size-mb if specified)",
     )
     parser.add_argument(
+        "--disable-sharding",
+        action="store_true",
+        help="Disable zarr sharding",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Process only first 2 episodes",
@@ -416,6 +447,7 @@ def main():
         prestack=args.prestack,
         chunk_size_mb=args.chunk_size_mb,
         chunk_timesteps=args.chunk_timesteps,
+        disable_sharding=args.disable_sharding,
         debug=args.debug,
     )
 
