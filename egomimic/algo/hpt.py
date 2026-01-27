@@ -974,12 +974,12 @@ class HPT(Algo):
                 pad_mask: torch.Size([32, 100, 1])
                 embodiment: torch.Size([])
         """
-        # ETH [DEBUG] dumping the entire batch into a .pkl file ONCE during current epoch
-        # put in same location as checkpoints
-        if self.training_step == 1:
-            from hydra.core.hydra_config import HydraConfig
-            with open(os.path.join(HydraConfig.get().runtime.output_dir, f"process_batch_for_training_batch_{self.training_step}.pkl"), "wb") as f:
-                pickle.dump(batch, f)
+        # # ETH [DEBUG] dumping the entire batch into a .pkl file ONCE during current epoch
+        # # put in same location as checkpoints
+        # if self.training_step == 1:
+        #     from hydra.core.hydra_config import HydraConfig
+        #     with open(os.path.join(HydraConfig.get().runtime.output_dir, f"process_batch_for_training_batch_{self.training_step}.pkl"), "wb") as f:
+        #         pickle.dump(batch, f)
 
         processed_batch = {}
         
@@ -1045,12 +1045,12 @@ class HPT(Algo):
         self.training_step += 1
         for embodiment_id, _batch in batch.items():
 
-            # ETH [DEBUG] dumping the entire batch into a .pkl file ONCE during current epoch
-            # put in same location as checkpoints
-            if self.training_step == 1:
-                from hydra.core.hydra_config import HydraConfig
-                with open(os.path.join(HydraConfig.get().runtime.output_dir, f"batch_{self.training_step}.pkl"), "wb") as f:
-                    pickle.dump(_batch, f)
+            # # ETH [DEBUG] dumping the entire batch into a .pkl file ONCE during current epoch
+            # # put in same location as checkpoints
+            # if self.training_step == 1:
+            #     from hydra.core.hydra_config import HydraConfig
+            #     with open(os.path.join(HydraConfig.get().runtime.output_dir, f"batch_{self.training_step}.pkl"), "wb") as f:
+            #         pickle.dump(_batch, f)
 
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
@@ -1077,22 +1077,22 @@ class HPT(Algo):
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
 
-            # ETH [DEBUG] dumping the entire batch into a .pkl file ONCE during current epoch
-            # put in same location as checkpoints
-            if self.training_step == 1:
-                from hydra.core.hydra_config import HydraConfig
-                with open(os.path.join(HydraConfig.get().runtime.output_dir, f"hpt_batch_input_{self.training_step}.pkl"), "wb") as f:
-                    pickle.dump(hpt_batch, f)
+            # # ETH [DEBUG] dumping the entire batch into a .pkl file ONCE during current epoch
+            # # put in same location as checkpoints
+            # if self.training_step == 1:
+            #     from hydra.core.hydra_config import HydraConfig
+            #     with open(os.path.join(HydraConfig.get().runtime.output_dir, f"hpt_batch_input_{self.training_step}.pkl"), "wb") as f:
+            #         pickle.dump(hpt_batch, f)
 
-            # ETH [DEBUG] dump all action predictions (including auxiliary) on step 1
-            # NOTE: Must use hpt_batches (cloned before compute_loss) because compute_loss() modifies data in-place
-            if self.training_step == 1:
-                with torch.no_grad():
-                    cloned_batch = hpt_batches[embodiment_id]
-                    actions = self.nets["policy"].forward(cloned_batch["domain"], cloned_batch["data"])
-                    from hydra.core.hydra_config import HydraConfig
-                    with open(os.path.join(HydraConfig.get().runtime.output_dir, f"predictions_{embodiment_name}.pkl"), "wb") as f:
-                        pickle.dump(actions, f)
+            # # ETH [DEBUG] dump all action predictions (including auxiliary) on step 1
+            # # NOTE: Must use hpt_batches (cloned before compute_loss) because compute_loss() modifies data in-place
+            # if self.training_step == 1:
+            #     with torch.no_grad():
+            #         cloned_batch = hpt_batches[embodiment_id]
+            #         actions = self.nets["policy"].forward(cloned_batch["domain"], cloned_batch["data"])
+            #         from hydra.core.hydra_config import HydraConfig
+            #         with open(os.path.join(HydraConfig.get().runtime.output_dir, f"predictions_{embodiment_name}.pkl"), "wb") as f:
+            #             pickle.dump(actions, f)
 
         if self.ot:
             ot_loss, avg_feat_distance = self._forward_ot(
