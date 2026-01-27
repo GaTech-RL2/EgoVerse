@@ -1,5 +1,6 @@
-torch==2.6.0
-torchvision==0.21.0
+torch==2.5.1
+torchvision==0.20.1
+numpy<2.4
 projectaria-tools[all]==2.0.0
 pyyaml
 matplotlib

@@ -17,6 +17,7 @@ from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper, get_metric_value
 
 from egomimic.scripts.evaluation.eval import Eval
+from egomimic.pl_utils.pl_model import ModelWrapper
 
 import numpy as np
 
@@ -72,7 +73,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     # TODO: deprecate shape inference in favor of LeRobotDatasetMetadata
     # NOTE: We assume that each dataset is of a unique embodiment. Multi-task datasets should be wrapped around TODO: MultiRLDBDataset
 
-    for dataset_name, dataset in datamodule.train_datasets.items():
+    # For shape inference, use train_datasets if available, otherwise use valid_datasets (for validation-only mode)
+    datasets_for_shape_inference = datamodule.train_datasets if datamodule.train_datasets else datamodule.valid_datasets
+    
+    for dataset_name, dataset in datasets_for_shape_inference.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         data_schematic.infer_shapes_from_batch(dataset[0])
         data_schematic.infer_norm_from_dataset(dataset)
@@ -136,6 +140,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Starting evaluation!")
         eval.perfom_eval()
 
+    if cfg.get("validate"):
+        log.info("Starting validation only!")
+        if cfg.get("ckpt_path"):
+            log.info(f"Loading model from checkpoint: {cfg.ckpt_path}")
+            model = ModelWrapper.load_from_checkpoint(cfg.ckpt_path)
+            model.eval()
+        trainer.validate(model=model, datamodule=datamodule)
+
     train_metrics = trainer.callback_metrics
 
     # if cfg.get("test"):
@@ -173,7 +185,6 @@ def main(cfg: DictConfig) -> Optional[float]:
 
     # train the model
     metric_dict, _ = train(cfg)
-
     # # safely retrieve metric value for hydra-based hyperparameter optimization
     # metric_value = get_metric_value(
     #     metric_dict=metric_dict, metric_name=cfg.get("optimized_metric")

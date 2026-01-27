@@ -1,0 +1,39 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+valid_datasets:
+  dataset1: 
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      op1_scene1_ep1: 
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: valid
+        embodiment: "aria_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Jenny", lab: "rl2", scene: "1", task: "cup on saucer"}
+        percent: 0.1
+
+    embodiment: "aria_bimanual"
+
+
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+
+      op1_scene1_ep1: { _target_: egomimic.rldb.utils.S3RLDBDataset, bucket_name: "rldb", mode: valid, embodiment: "aria_bimanual", local_files_only: True, 
+              temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene",
+              filters: {operator: "Jenny", lab: "rl2", scene: "1", task: "cup on saucer"},
+              percent: 1 }
+    embodiment: "aria_bimanual"
+    
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10

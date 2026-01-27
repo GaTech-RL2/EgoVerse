@@ -1,0 +1,42 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      eva:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: valid
+        embodiment: "eva_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Ryan", lab: "rl2", scene: "1", task: "fold clothes"}
+
+    embodiment: "eva_bimanual"
+
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      eva:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: total
+        embodiment: "eva_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Ryan", lab: "rl2", scene: "1", task: "fold clothes"}
+
+    embodiment: "eva_bimanual"
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+

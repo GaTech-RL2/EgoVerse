@@ -1,7 +1,7 @@
 defaults:
   - default
 
-strategy: ddp
+strategy: ddp_find_unused_parameters_true
 
 accelerator: gpu
 devices: ${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}

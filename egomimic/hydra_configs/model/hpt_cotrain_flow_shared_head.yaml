@@ -38,7 +38,7 @@ robomimic_model:
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
-  lr: 1e-4
+  lr: 1e-4 #5e-5
   weight_decay: 0.0001
 
 scheduler:

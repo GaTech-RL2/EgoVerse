@@ -1,19 +1,20 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: hpt_bc_flow_aria
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva_bc_s3
+  - data: single_scene/single_scene_fold_clothes_eva_only
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
 
-name: test
-description: test
+name: 0117_cotrain_eva_aria
+description: nan
 ckpt_path: null
 train: true
 eval: false
+validate: false
 
 eval_class:
   _target_ : egomimic.scripts.evaluation.Eve
@@ -24,9 +25,9 @@ eval_class:
 hydra:
   run:
     # Dir should be experiment_name/description_{timestamp}
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    dir: /coc/cedarp-dxu345-0/bli678/EgoVerse/logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
   sweep:
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    dir: /coc/cedarp-dxu345-0/bli678/EgoVerse/logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
 launch_params:
   gpus_per_node: 1
