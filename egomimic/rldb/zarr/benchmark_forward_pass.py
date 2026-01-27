@@ -10,7 +10,6 @@ import argparse
 import time
 from pathlib import Path
 
-import torch
 from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torch.utils.data._utils.collate import default_collate
 
@@ -66,6 +65,7 @@ def benchmark_dataloader(
     warmup: int,
     prefetch_factor: int = 2,
     collate_fn=None,
+    simulated_compute_sec: float = 0.0,
 ) -> dict:
     """Benchmark DataLoader throughput with shuffling."""
     dataloader = DataLoader(
@@ -94,44 +94,40 @@ def benchmark_dataloader(
             _ = next(batch_iter)
 
     # Benchmark
-    print(f"  Benchmarking {benchmark_batches} batches (batch_size={batch_size}, workers={num_workers}, prefetch={prefetch_factor})...")
+    compute_info = f", simulated_compute={simulated_compute_sec}s" if simulated_compute_sec > 0 else ""
+    print(f"  Benchmarking {benchmark_batches} batches (batch_size={batch_size}, workers={num_workers}, prefetch={prefetch_factor}{compute_info})...")
     samples_processed = 0
-    data_loading_time = 0.0
     progress_step = max(1, benchmark_batches // 10)
 
+    total_start = time.perf_counter()
     for i in range(benchmark_batches):
-        # Measure only data loading time
-        batch_start = time.perf_counter()
         try:
             batch = next(batch_iter)
         except StopIteration:
             batch_iter = iter(dataloader)
             batch = next(batch_iter)
-        batch_end = time.perf_counter()
-        data_loading_time += (batch_end - batch_start)
 
         # Count actual samples in batch (last batch may be smaller)
         batch_samples = _infer_batch_size(batch)
         samples_processed += batch_samples
 
-        # Simulate forward/backward pass
-        time.sleep(0.5)
+        # Simulate forward/backward pass (allows prefetching to overlap)
+        if simulated_compute_sec > 0:
+            time.sleep(simulated_compute_sec)
 
         if (i + 1) % progress_step == 0 or (i + 1) == benchmark_batches:
             print(f"    Progress: {i + 1}/{benchmark_batches} ({(i + 1) / benchmark_batches:.0%})")
+    total_elapsed = time.perf_counter() - total_start
 
-    total_time = data_loading_time
-
-    throughput = samples_processed / total_time if total_time > 0 else 0
-    batches_per_sec = benchmark_batches / total_time if total_time > 0 else 0
-    avg_time_per_batch = total_time / benchmark_batches if benchmark_batches > 0 else 0
+    batches_per_sec = benchmark_batches / total_elapsed if total_elapsed > 0 else 0
+    avg_time_per_batch = total_elapsed / benchmark_batches if benchmark_batches > 0 else 0
 
     return {
-        "throughput_samples_sec": throughput,
         "batches_per_sec": batches_per_sec,
         "samples_processed": samples_processed,
-        "total_time_sec": total_time,
         "avg_time_per_batch": avg_time_per_batch,
+        "total_elapsed_sec": total_elapsed,
+        "simulated_compute_sec": simulated_compute_sec,
     }
 
 
@@ -184,6 +180,7 @@ def run_benchmarks(
     warmup: int,
     prefetch_factor: int,
     collate_fn,
+    simulated_compute_sec: float = 0.0,
 ) -> dict:
     """Run dataloader benchmark and return results for side-by-side comparison."""
     total_frames = len(dataset)
@@ -199,7 +196,6 @@ def run_benchmarks(
 
     num_samples = min(num_samples, total_frames)
 
-    print(f"\nDataLoader (batch={batch_size}, workers={num_workers}, prefetch={prefetch_factor}):")
     dataloader_results = benchmark_dataloader(
         dataset,
         num_samples=num_samples,
@@ -208,13 +204,7 @@ def run_benchmarks(
         warmup=warmup,
         prefetch_factor=prefetch_factor,
         collate_fn=collate_fn,
-    )
-    print(f"  Throughput: {dataloader_results['throughput_samples_sec']:.1f} samples/sec")
-    print(f"  Batches/sec: {dataloader_results['batches_per_sec']:.1f}")
-    print(f"  Avg data loading time/batch: {dataloader_results['avg_time_per_batch']*1000:.1f}ms")
-    print(
-        f"  Total data loading time: {dataloader_results['total_time_sec']:.2f}s "
-        f"for {dataloader_results['samples_processed']} samples"
+        simulated_compute_sec=simulated_compute_sec,
     )
 
     return {
@@ -224,42 +214,43 @@ def run_benchmarks(
     }
 
 
-def print_side_by_side(results: list[dict]) -> None:
-    """Print a compact side-by-side summary for two datasets."""
-    if len(results) != 2:
+def print_results_table(results: list[dict]) -> None:
+    """Print benchmark results in a table format."""
+    if not results:
         return
-    left, right = results
-    print("\n=== Side-by-side summary ===")
-    print(f"Left:  {left['name']}")
-    print(f"Right: {right['name']}")
-    print("")
-    print(f"Total frames: {left['total_frames']} vs {right['total_frames']}")
 
-    left_init = left.get("init_time_sec")
-    right_init = right.get("init_time_sec")
-    if left_init is not None and right_init is not None:
-        speedup = right_init / left_init if left_init > 0 else float("inf")
-        print(f"Initialization time (s): {left_init:.3f} vs {right_init:.3f} ({speedup:.1f}x)")
+    # Filter out results with no dataloader data
+    valid_results = [r for r in results if r.get("dataloader")]
+    if not valid_results:
+        return
 
-    if left["dataloader"] and right["dataloader"]:
-        print("DataLoader:")
-        print(
-            "  Throughput (samples/sec): "
-            f"{left['dataloader']['throughput_samples_sec']:.1f} vs "
-            f"{right['dataloader']['throughput_samples_sec']:.1f}"
-        )
-        print(
-            "  Batches/sec: "
-            f"{left['dataloader']['batches_per_sec']:.1f} vs {right['dataloader']['batches_per_sec']:.1f}"
-        )
-        print(
-            "  Avg data loading time/batch (ms): "
-            f"{left['dataloader']['avg_time_per_batch']*1000:.1f} vs {right['dataloader']['avg_time_per_batch']*1000:.1f}"
-        )
-        print(
-            "  Total data loading time (s): "
-            f"{left['dataloader']['total_time_sec']:.2f} vs {right['dataloader']['total_time_sec']:.2f}"
-        )
+    # Build table data
+    headers = ["Metric"] + ["Zarr" if "Zarr" in r["name"] else "LeRobot" for r in valid_results]
+    rows = []
+
+    # Total frames
+    rows.append(["Total frames"] + [f"{r['total_frames']:,}" for r in valid_results])
+
+    # Init time
+    if all(r.get("init_time_sec") is not None for r in valid_results):
+        rows.append(["Init time (s)"] + [f"{r['init_time_sec']:.3f}" for r in valid_results])
+
+    # Dataloader metrics
+    rows.append(["Batches/sec"] + [f"{r['dataloader']['batches_per_sec']:.1f}" for r in valid_results])
+    rows.append(["Avg time/batch (ms)"] + [f"{r['dataloader']['avg_time_per_batch']*1000:.1f}" for r in valid_results])
+    rows.append(["Total time (s)"] + [f"{r['dataloader']['total_elapsed_sec']:.2f}" for r in valid_results])
+    rows.append(["Samples processed"] + [f"{r['dataloader']['samples_processed']:,}" for r in valid_results])
+
+    # Calculate column widths
+    col_widths = [max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))]
+
+    # Print table
+    print("\n" + "=" * (sum(col_widths) + 3 * len(col_widths) + 1))
+    print("| " + " | ".join(h.ljust(col_widths[i]) for i, h in enumerate(headers)) + " |")
+    print("|" + "|".join("-" * (w + 2) for w in col_widths) + "|")
+    for row in rows:
+        print("| " + " | ".join(str(v).rjust(col_widths[i]) for i, v in enumerate(row)) + " |")
+    print("=" * (sum(col_widths) + 3 * len(col_widths) + 1))
 
 
 def main():
@@ -267,7 +258,7 @@ def main():
         description="Benchmark Zarr vs LeRobot data loading speed for forward pass simulation"
     )
 
-    # Dataset sources (both required for side-by-side)
+    # Dataset sources
     parser.add_argument(
         "--zarr-path",
         type=str,
@@ -277,8 +268,13 @@ def main():
     parser.add_argument(
         "--lerobot-path",
         type=str,
-        required=True,
+        default=None,
         help="Path to a local LeRobot dataset root (e.g., /path/to/dataset)",
+    )
+    parser.add_argument(
+        "--skip-lerobot",
+        action="store_true",
+        help="Skip LeRobot dataset loading and benchmarking (Zarr only)",
     )
 
     # Benchmark parameters
@@ -305,6 +301,13 @@ def main():
         type=int,
         default=2,
         help="DataLoader prefetch factor (default: 2)",
+    )
+    parser.add_argument(
+    "--simulated-compute",
+    type=float,
+    default=0.5,
+    help="Simulated forward/backward pass time in seconds per batch (default: 0.0). "
+            "Use this to test whether data loading can keep up with GPU compute.",
     )
     parser.add_argument(
         "--warmup",
@@ -350,13 +353,20 @@ def main():
         "--action-keys",
         type=str,
         nargs="+",
-        default=["actions_joints"],
+        default=["actions_base_cartesian", "actions_cartesian", "actions_eef_cartesian", "actions_joints"],
         help="Action keys to apply dynamic chunking to (default: actions_joints)",
     )
 
     args = parser.parse_args()
 
-    print("=== Zarr vs LeRobot Forward Pass Benchmark ===")
+    # Validate arguments
+    if not args.skip_lerobot and args.lerobot_path is None:
+        parser.error("--lerobot-path is required unless --skip-lerobot is specified")
+
+    if args.skip_lerobot:
+        print("=== Zarr Forward Pass Benchmark ===")
+    else:
+        print("=== Zarr vs LeRobot Forward Pass Benchmark ===")
     if args.skip_images:
         print("\nNOTE: --skip-images enabled")
         print("  - Zarr: truly skips image loading (no I/O, no decode)")
@@ -369,7 +379,7 @@ def main():
         print("  - This simulates runtime action chunking for prestack=False datasets")
 
     zarr_path = Path(args.zarr_path).resolve()
-    lerobot_path = Path(args.lerobot_path).resolve()
+    lerobot_path = Path(args.lerobot_path).resolve() if args.lerobot_path else None
 
     # Determine which keys to skip for Zarr (need to peek at metadata first)
     zarr_skip_keys: set[str] | None = None
@@ -419,17 +429,21 @@ def main():
     zarr_init_time = time.perf_counter() - zarr_init_start
     print(f"  Initialization time: {zarr_init_time:.3f}s")
 
-    print("\nLoading LeRobot dataset...")
-    lerobot_init_start = time.perf_counter()
-    lerobot_dataset, lerobot_name = build_lerobot_dataset(lerobot_path, max_episodes=args.max_episodes)
-    lerobot_init_time = time.perf_counter() - lerobot_init_start
-    print(f"  Initialization time: {lerobot_init_time:.3f}s")
+    lerobot_dataset = None
+    lerobot_name = None
+    lerobot_init_time = None
+    if not args.skip_lerobot:
+        print("\nLoading LeRobot dataset...")
+        lerobot_init_start = time.perf_counter()
+        lerobot_dataset, lerobot_name = build_lerobot_dataset(lerobot_path, max_episodes=args.max_episodes)
+        lerobot_init_time = time.perf_counter() - lerobot_init_start
+        print(f"  Initialization time: {lerobot_init_time:.3f}s")
 
-    if args.skip_images:
-        lerobot_dataset = DropKeysDataset(
-            lerobot_dataset,
-            drop_predicate=lambda k: k.startswith("observation.images."),
-        )
+        if args.skip_images:
+            lerobot_dataset = DropKeysDataset(
+                lerobot_dataset,
+                drop_predicate=lambda k: k.startswith("observation.images."),
+            )
 
     if args.profile_zarr:
         num_profile = min(args.profile_samples, len(zarr_dataset))
@@ -469,25 +483,27 @@ def main():
         warmup=args.warmup,
         prefetch_factor=args.prefetch_factor,
         collate_fn=safe_collate,
+        simulated_compute_sec=args.simulated_compute,
     )
     zarr_result["init_time_sec"] = zarr_init_time
     results.append(zarr_result)
 
-    lerobot_result = run_benchmarks(
-        name=lerobot_name,
-        dataset=lerobot_dataset,
-        num_samples=args.num_samples,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        warmup=args.warmup,
-        prefetch_factor=args.prefetch_factor,
-        collate_fn=None,
-    )
-    lerobot_result["init_time_sec"] = lerobot_init_time
-    results.append(lerobot_result)
+    if not args.skip_lerobot:
+        lerobot_result = run_benchmarks(
+            name=lerobot_name,
+            dataset=lerobot_dataset,
+            num_samples=args.num_samples,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            warmup=args.warmup,
+            prefetch_factor=args.prefetch_factor,
+            collate_fn=None,
+            simulated_compute_sec=args.simulated_compute,
+        )
+        lerobot_result["init_time_sec"] = lerobot_init_time
+        results.append(lerobot_result)
 
-    print_side_by_side(results)
-
+    print_results_table(results)
     print("\n=== Benchmark Complete ===")
 
 
