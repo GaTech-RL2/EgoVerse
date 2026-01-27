@@ -859,7 +859,6 @@ class S3RLDBDataset(MultiRLDBDataset):
             return dict(
                 collection_path=p,
                 embodiment=embodiment,
-                valid_collection_names=valid_collection_names,
                 local_files_only=local_files_only,
                 percent=percent,
                 valid_ratio=valid_ratio,
