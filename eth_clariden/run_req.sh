@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=T_cup_BC_250
+#SBATCH --job-name=T_cup_BC_quat
 #SBATCH --account=a144
-#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup_BC/slurm-cup-%j.out
-#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup_BC/slurm-cup-%j.err
+#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup_BC_quat/slurm-cup-%j.out
+#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup_BC_quat/slurm-cup-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4
@@ -21,11 +21,11 @@ echo $PG # POINT_GAP_ACT
 echo $CL # CHUNK_LENGTH_ACT, need to change action horizon
 echo $CL_OUT # CHUNK_LENGTH_ACT_OUT, need to change action horizon
 if [ "$CL_OUT" = "None" ]; then
-    export EXPERIMENT=pg${PG}_cl${CL}
+    export PG_CL_EXPERIMENT=pg${PG}_cl${CL}
 else
-    export EXPERIMENT=pg${PG}_cl${CL}_clout${CL_OUT}
+    export PG_CL_EXPERIMENT=pg${PG}_cl${CL}_clout${CL_OUT}
 fi
-echo $EXPERIMENT
+echo $PG_CL_EXPERIMENT
 
 # The sbatch script is executed by only one node.
 echo "[sbatch-master] running on $(hostname)"
@@ -63,10 +63,59 @@ export task=cup
 export frame_type=base_frame
 export arm=bimanual # right_arm, left_arm, bimanual
 export debug=false
+
+export quat=true
+export actions_for_qpos=false
+export delta=false
+# Set ee_pose_dim based on arm type and quat
+if [ "$arm" = "bimanual" ]; then
+    if [ "$quat" = "true" ]; then
+        export ee_pose_dim=14
+    else
+        export ee_pose_dim=12
+    fi
+else
+    if [ "$quat" = "true" ]; then
+        export ee_pose_dim=7
+    else
+        export ee_pose_dim=6
+    fi
+fi
+export joint_dim=34
+
+# Build description from enabled flags
+description=""
+[ "$quat" = "true" ] && description="${description}quat_"
+[ "$actions_for_qpos" = "true" ] && description="${description}actions_for_qpos_"
+[ "$delta" = "true" ] && description="${description}delta_"
+# Remove trailing underscore, or set default if empty
+description=${description%_}
+[ -z "$description" ] && description="default"
+export description
 ###############################################################
 
+
+################ HASHING FOR WANDB RUN ID #####################
+# Use SLURM_JOB_ID as wandb run ID so requeued jobs resume the same run
+export WANDB_RUN_ID=${task}_${frame_type}_${description}_${PG_CL_EXPERIMENT}_${arm}_${SLURM_JOB_ID}
+echo "WANDB_RUN_ID: $WANDB_RUN_ID"
+###############################################################
+
+
 ##################### MAYBE CHANGE THIS PATH #####################
-export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/${EXPERIMENT}/${task}/${task}_${frame_type}
+# Define an EXPERIMENT name that is a combination of PG_CL_EXPERIMENT and flags for quat, actions_for_qpos, and delta
+# if quat, then _quat, if actions_for_qpos, then _actions_for_qpos, if delta, then _delta. and they are mutually exclusive
+if [ "$quat" = "true" ]; then
+    export EXPERIMENT=${PG_CL_EXPERIMENT}_quat
+fi
+if [ "$actions_for_qpos" = "true" ]; then
+    export EXPERIMENT=${PG_CL_EXPERIMENT}_afq
+fi
+if [ "$delta" = "true" ]; then
+    export EXPERIMENT=${PG_CL_EXPERIMENT}_delta
+fi
+
+export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/DEBUG_cup250/${EXPERIMENT}/${task}/${task}_${frame_type}
 export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release_2_0/50hz/${EXPERIMENT}/${task}_lerobot_${frame_type}
 # export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/debug_2_0/${task}_lerobot_${frame_type}_1_debug
 ##################################################################
@@ -102,6 +151,7 @@ python /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/egomimic/trai
     description=${task}_${frame_type} \
     chosen_frame=${frame_type} \
     ckpt_path=${ckpt_path} \
+    wandb_run_id=${WANDB_RUN_ID} \
     hydra.run.dir=${hydra_run_dir} \
     trainer.num_nodes=${SLURM_NNODES} \
     data.train_datasets.dataset1.root=${dataset_root} \
@@ -110,6 +160,14 @@ python /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/egomimic/trai
     model.robomimic_model.head_specs.eve_${arm}.model.act_seq=${CL_param} \
     model.robomimic_model.head_specs.eve_${arm}_actions_joints.action_horizon=${CL_param} \
     model.robomimic_model.head_specs.eve_${arm}_actions_joints.model.act_seq=${CL_param} \
+    model.robomimic_model.stem_specs.eve_${arm}.state_ee_pose.input_dim=${ee_pose_dim} \
+    model.robomimic_model.stem_specs.eve_${arm}.state_joint_positions.input_dim=${joint_dim} \
+    model.robomimic_model.head_specs.eve_${arm}.infer_ac_dims.eve_${arm}=${ee_pose_dim} \
+    model.robomimic_model.head_specs.eve_${arm}.model.act_dim=${ee_pose_dim} \
+    model.robomimic_model.head_specs.eve_${arm}_actions_joints.infer_ac_dims.eve_${arm}=${joint_dim} \
+    model.robomimic_model.head_specs.eve_${arm}_actions_joints.model.act_dim=${joint_dim} \
+    model.robomimic_model.use_quat=${quat} \
+    model.robomimic_model.use_delta=${delta} \
     $@
 "
 srun bash -lc "$CMD"
