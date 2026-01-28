@@ -10,6 +10,8 @@ import argparse
 import time
 from pathlib import Path
 
+import torch
+from torch.profiler import profile, ProfilerActivity
 from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torch.utils.data._utils.collate import default_collate
 
@@ -66,6 +68,8 @@ def benchmark_dataloader(
     prefetch_factor: int = 2,
     collate_fn=None,
     simulated_compute_sec: float = 0.0,
+    pytorch_profile: bool = False,
+    profile_output: str | None = None,
 ) -> dict:
     """Benchmark DataLoader throughput with shuffling."""
     dataloader = DataLoader(
@@ -98,35 +102,65 @@ def benchmark_dataloader(
     print(f"  Benchmarking {benchmark_batches} batches (batch_size={batch_size}, workers={num_workers}, prefetch={prefetch_factor}{compute_info})...")
     samples_processed = 0
     progress_step = max(1, benchmark_batches // 10)
+    total_loading_time = 0.0
+    profiler_result = None
+
+    def run_benchmark_loop():
+        nonlocal samples_processed, total_loading_time, batch_iter
+        for i in range(benchmark_batches):
+            load_start = time.perf_counter()
+            try:
+                batch = next(batch_iter)
+            except StopIteration:
+                batch_iter = iter(dataloader)
+                batch = next(batch_iter)
+            total_loading_time += time.perf_counter() - load_start
+
+            # Count actual samples in batch (last batch may be smaller)
+            batch_samples = _infer_batch_size(batch)
+            samples_processed += batch_samples
+
+            # Simulate forward/backward pass (allows prefetching to overlap)
+            if simulated_compute_sec > 0:
+                time.sleep(simulated_compute_sec)
+
+            if (i + 1) % progress_step == 0 or (i + 1) == benchmark_batches:
+                print(f"    Progress: {i + 1}/{benchmark_batches} ({(i + 1) / benchmark_batches:.0%})")
 
     total_start = time.perf_counter()
-    for i in range(benchmark_batches):
-        try:
-            batch = next(batch_iter)
-        except StopIteration:
-            batch_iter = iter(dataloader)
-            batch = next(batch_iter)
-
-        # Count actual samples in batch (last batch may be smaller)
-        batch_samples = _infer_batch_size(batch)
-        samples_processed += batch_samples
-
-        # Simulate forward/backward pass (allows prefetching to overlap)
-        if simulated_compute_sec > 0:
-            time.sleep(simulated_compute_sec)
-
-        if (i + 1) % progress_step == 0 or (i + 1) == benchmark_batches:
-            print(f"    Progress: {i + 1}/{benchmark_batches} ({(i + 1) / benchmark_batches:.0%})")
+    if pytorch_profile:
+        with profile(
+            activities=[ProfilerActivity.CPU],
+            record_shapes=True,
+            profile_memory=True,
+            with_stack=True,
+        ) as prof:
+            run_benchmark_loop()
+        profiler_result = prof
+        print("\n  PyTorch Profiler Summary (top 20 by CPU time):")
+        print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))
+        if profile_output:
+            prof.export_chrome_trace(profile_output)
+            print(f"  Trace saved to: {profile_output}")
+    else:
+        run_benchmark_loop()
     total_elapsed = time.perf_counter() - total_start
 
     batches_per_sec = benchmark_batches / total_elapsed if total_elapsed > 0 else 0
-    avg_time_per_batch = total_elapsed / benchmark_batches if benchmark_batches > 0 else 0
+    avg_loading_time_per_batch = total_loading_time / benchmark_batches if benchmark_batches > 0 else 0
+
+    # Actual overhead: how much longer did training take vs pure compute?
+    expected_compute_time = simulated_compute_sec * benchmark_batches
+    actual_overhead = total_elapsed - expected_compute_time
+    avg_overhead_per_batch = actual_overhead / benchmark_batches if benchmark_batches > 0 else 0
 
     return {
         "batches_per_sec": batches_per_sec,
         "samples_processed": samples_processed,
-        "avg_time_per_batch": avg_time_per_batch,
+        "avg_loading_time_per_batch": avg_loading_time_per_batch,
+        "avg_overhead_per_batch": avg_overhead_per_batch,
         "total_elapsed_sec": total_elapsed,
+        "total_loading_time_sec": total_loading_time,
         "simulated_compute_sec": simulated_compute_sec,
     }
 
@@ -181,6 +215,8 @@ def run_benchmarks(
     prefetch_factor: int,
     collate_fn,
     simulated_compute_sec: float = 0.0,
+    pytorch_profile: bool = False,
+    profile_output: str | None = None,
 ) -> dict:
     """Run dataloader benchmark and return results for side-by-side comparison."""
     total_frames = len(dataset)
@@ -205,6 +241,8 @@ def run_benchmarks(
         prefetch_factor=prefetch_factor,
         collate_fn=collate_fn,
         simulated_compute_sec=simulated_compute_sec,
+        pytorch_profile=pytorch_profile,
+        profile_output=profile_output,
     )
 
     return {
@@ -237,7 +275,8 @@ def print_results_table(results: list[dict]) -> None:
 
     # Dataloader metrics
     rows.append(["Batches/sec"] + [f"{r['dataloader']['batches_per_sec']:.1f}" for r in valid_results])
-    rows.append(["Avg time/batch (ms)"] + [f"{r['dataloader']['avg_time_per_batch']*1000:.1f}" for r in valid_results])
+    rows.append(["Avg load time/batch (ms)"] + [f"{r['dataloader']['avg_loading_time_per_batch']*1000:.1f}" for r in valid_results])
+    rows.append(["Avg overhead/batch (ms)"] + [f"{r['dataloader']['avg_overhead_per_batch']*1000:.1f}" for r in valid_results])
     rows.append(["Total time (s)"] + [f"{r['dataloader']['total_elapsed_sec']:.2f}" for r in valid_results])
     rows.append(["Samples processed"] + [f"{r['dataloader']['samples_processed']:,}" for r in valid_results])
 
@@ -355,6 +394,17 @@ def main():
         nargs="+",
         default=["actions_base_cartesian", "actions_cartesian", "actions_eef_cartesian", "actions_joints"],
         help="Action keys to apply dynamic chunking to",
+    )
+    parser.add_argument(
+        "--pytorch-profile",
+        action="store_true",
+        help="Use PyTorch profiler for detailed performance breakdown",
+    )
+    parser.add_argument(
+        "--profile-output",
+        type=str,
+        default=None,
+        help="Path to save PyTorch profiler trace (for Chrome trace viewer)",
     )
 
     args = parser.parse_args()
@@ -484,6 +534,8 @@ def main():
         prefetch_factor=args.prefetch_factor,
         collate_fn=safe_collate,
         simulated_compute_sec=args.simulated_compute,
+        pytorch_profile=args.pytorch_profile,
+        profile_output=args.profile_output,
     )
     zarr_result["init_time_sec"] = zarr_init_time
     results.append(zarr_result)
