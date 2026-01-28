@@ -1,0 +1,41 @@
+# Mecka dataset configuration using Zarr backend
+#
+# This is a drop-in replacement for mecka_test.yaml that uses ZarrDataset
+# instead of LeRobot-based RLDBDataset.
+#
+# Key differences from LeRobot:
+# - Uses Zarr storage with JPEG compression
+# - Actions are computed on-the-fly (not prestacked)
+# - Annotations stored inside Zarr (not separate CSVs)
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.zarr_utils.RLDBZarrDataset
+    zarr_root: ${paths.data_dir}/mecka_zarr  # Override with actual path
+    mode: train
+    valid_ratio: 0.2
+    chunk_size: 100  # Action chunk size for on-the-fly computation
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.zarr_utils.RLDBZarrDataset
+    zarr_root: ${paths.data_dir}/mecka_zarr
+    mode: valid
+    valid_ratio: 0.2
+    chunk_size: 100
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+    pin_memory: true
+    prefetch_factor: 2
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+    pin_memory: true
+    prefetch_factor: 2
