@@ -84,19 +84,34 @@ def decode_lerobot_images(
     key: str,
     lerobot_info: dict,
     lerobot_path: Path,
+    episode_idx: int = 0,
 ) -> np.ndarray:
     """Decode LeRobot image column into (N, H, W, C) uint8 when needed."""
+    feature = lerobot_info.get("features", {}).get(key, {})
+    dtype = feature.get("dtype", "")
+
+    # LeRobot v2: Check for video file in videos/ directory
+    if dtype == "video":
+        # Try standard LeRobot v2 video path pattern
+        video_path = feature.get("video_path", f"videos/{key}/episode_{{episode_index:06d}}.mp4")
+        video_file = lerobot_path / video_path.format(episode_index=episode_idx)
+        if video_file.exists():
+            return decode_video_file(video_file)
+        # Also try without the leading videos/ in case of different structure
+        alt_video_file = lerobot_path / "videos" / key / f"episode_{episode_idx:06d}.mp4"
+        if alt_video_file.exists():
+            return decode_video_file(alt_video_file)
+
     if lerobot_images.ndim == 1:
         sample = lerobot_images[0]
-        feature = lerobot_info.get("features", {}).get(key, {})
-        dtype = feature.get("dtype", "")
 
         if isinstance(sample, dict):
             if "data" in sample and "metadata" in sample:
                 return decode_video(sample["data"], sample["metadata"])
             if "path" in sample:
                 candidate = lerobot_path / sample["path"]
-                return decode_video_file(candidate)
+                if candidate.exists():
+                    return decode_video_file(candidate)
 
         if isinstance(sample, (list, tuple)) and len(sample) == 2:
             data, metadata = sample
@@ -112,7 +127,11 @@ def decode_lerobot_images(
             # Fall back to JPEG decode if video metadata isn't available.
             return decode_jpeg_array(lerobot_images)
 
-        return decode_jpeg_array(lerobot_images)
+        # Check if it's actually bytes data
+        if isinstance(sample, (bytes, bytearray)):
+            return decode_jpeg_array(lerobot_images)
+
+        raise ValueError(f"Cannot decode images for key {key}: sample type={type(sample)}, dtype={dtype}")
 
     if lerobot_images.ndim == 4 and lerobot_images.shape[1] in [1, 3]:
         return np.transpose(lerobot_images, (0, 2, 3, 1))
@@ -219,6 +238,39 @@ def compare_arrays(
             result["mean_diff"] = float(np.mean(diff))
             result["num_mismatches"] = int(np.sum(~np.isclose(arr1_float, arr2_float, atol=atol, rtol=rtol)))
             result["total_elements"] = int(arr1.size)
+
+            # Debug: find where max diff occurs
+            max_idx = np.unravel_index(np.argmax(diff), diff.shape)
+            result["max_diff_index"] = list(max_idx)
+            result["zarr_value_at_max"] = float(arr1_float[max_idx])
+            result["lerobot_value_at_max"] = float(arr2_float[max_idx])
+
+            # Check first few elements
+            result["zarr_first_5"] = arr1_float.flat[:5].tolist()
+            result["lerobot_first_5"] = arr2_float.flat[:5].tolist()
+
+            # For angle-containing arrays, check if difference is due to euler representation
+            if "cartesian" in key or "ee_pose" in key:
+                # Check dimensions 3,4,5 (yaw, pitch, roll) - compare rotations properly
+                from scipy.spatial.transform import Rotation as R
+                try:
+                    # Get first frame's angles
+                    if arr1_float.ndim == 3:  # prestacked (T, S, D)
+                        z_angles = arr1_float[0, 0, 3:6]
+                        l_angles = arr2_float[0, 0, 3:6]
+                    else:  # (T, D)
+                        z_angles = arr1_float[0, 3:6]
+                        l_angles = arr2_float[0, 3:6]
+
+                    # Convert to rotation matrices and compare
+                    R_zarr = R.from_euler("ZYX", z_angles).as_matrix()
+                    R_lerobot = R.from_euler("ZYX", l_angles).as_matrix()
+                    rot_diff = np.abs(R_zarr - R_lerobot).max()
+                    result["rotation_matrix_diff_frame0"] = float(rot_diff)
+                    result["zarr_euler_frame0"] = z_angles.tolist()
+                    result["lerobot_euler_frame0"] = l_angles.tolist()
+                except Exception as e:
+                    result["rotation_check_error"] = str(e)
     else:
         # For non-numeric (e.g., object arrays with bytes), check equality
         result["match"] = np.array_equal(arr1, arr2)
@@ -232,6 +284,7 @@ def compare_images(
     key: str,
     lerobot_info: dict,
     lerobot_path: Path,
+    episode_idx: int = 0,
     jpeg_quality_tolerance: int = 10,
 ) -> dict:
     """Compare JPEG-encoded Zarr images with LeRobot images.
@@ -253,7 +306,7 @@ def compare_images(
 
     # Decode or reshape LeRobot images if needed
     try:
-        lerobot_images = decode_lerobot_images(lerobot_images, key, lerobot_info, lerobot_path)
+        lerobot_images = decode_lerobot_images(lerobot_images, key, lerobot_info, lerobot_path, episode_idx)
     except Exception as e:
         result["error"] = f"Failed to decode LeRobot images: {e}"
         return result
@@ -324,7 +377,7 @@ def compare_zarr_with_lerobot(
         lerobot_arr = lerobot_data[key]
 
         if "images" in key:
-            comparison = compare_images(zarr_arr, lerobot_arr, key, lerobot_info, lerobot_path)
+            comparison = compare_images(zarr_arr, lerobot_arr, key, lerobot_info, lerobot_path, episode_idx)
         else:
             comparison = compare_arrays(zarr_arr, lerobot_arr, key)
 
