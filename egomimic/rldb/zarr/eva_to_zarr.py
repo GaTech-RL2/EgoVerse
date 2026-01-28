@@ -83,7 +83,7 @@ class HDF5ToZarrConverter:
         self.logger.addHandler(console_handler)
 
         # Get episode list
-        self.episode_list = sorted(self.raw_path.glob("*.hdf5"))
+        self.episode_list = list(self.raw_path.glob("*.hdf5"))
         if debug:
             self.episode_list = self.episode_list[:2]
 

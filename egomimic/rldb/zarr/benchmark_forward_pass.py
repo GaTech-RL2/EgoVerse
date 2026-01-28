@@ -328,8 +328,8 @@ def main():
     parser.add_argument(
         "--profile-samples",
         type=int,
-        default=200,
-        help="Number of samples to profile for Zarr breakdown (default: 200)",
+        default=100,
+        help="Number of samples to profile for Zarr breakdown",
     )
     parser.add_argument(
         "--max-episodes",
@@ -346,15 +346,15 @@ def main():
     parser.add_argument(
         "--action-horizon",
         type=int,
-        default=45,
-        help="Number of future action timesteps to load when --dynamic-chunks is enabled (default: 45)",
+        default=100,
+        help="Number of future action timesteps to load when --dynamic-chunks is enabled",
     )
     parser.add_argument(
         "--action-keys",
         type=str,
         nargs="+",
         default=["actions_base_cartesian", "actions_cartesian", "actions_eef_cartesian", "actions_joints"],
-        help="Action keys to apply dynamic chunking to (default: actions_joints)",
+        help="Action keys to apply dynamic chunking to",
     )
 
     args = parser.parse_args()
