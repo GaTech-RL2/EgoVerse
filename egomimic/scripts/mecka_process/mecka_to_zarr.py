@@ -7,7 +7,7 @@ class and can be used as a drop-in replacement for LeRobot datasets.
 
 Features:
 - JPEG-compressed images (quality 85)
-- Raw actions (NOT prestacked) - chunking computed on-the-fly during training
+- Prestacked actions (T, 100, 12) for fast training I/O
 - Self-contained annotations inside Zarr
 - Compatible with existing DataSchematic and training pipeline
 
@@ -51,8 +51,8 @@ class ZarrDatasetWriter:
     │       ├── .zattrs                   # Episode metadata
     │       ├── rgb/front_img_1/          # (T, H, W, 3), JPEG compressed
     │       ├── state/ee_pose_cam/        # (T, 12)
-    │       ├── actions/ee_cartesian_cam/ # (T, 12) - NOT prestacked
-    │       ├── keypoints/hand_keypoints_world/ # (T, 126)
+    │       ├── actions/ee_cartesian_cam/ # (T, 100, 12) - PRESTACKED
+    │       ├── keypoints/hand_keypoints_world/ # (T, 100, 126) - PRESTACKED
     │       ├── head/pose_world/          # (T, 10)
     │       └── annotations/              # label_id, start_frame, end_frame
     └── meta/
@@ -223,57 +223,50 @@ class ZarrDatasetWriter:
 
     def _write_actions(self, ep_group: zarr.Group, episode_feats: dict):
         """
-        Write actions WITHOUT prestacking.
+        Write prestacked actions (T, chunk_size, action_dim).
 
-        The original mecka_to_lerobot stores (T, 100, 12) prestacked actions.
-        We store only (T, 12) raw actions and compute chunks on-the-fly during training.
+        Prestacking avoids expensive on-the-fly I/O during training.
+        Each frame stores the next 100 actions for action chunking.
         """
-        # Get raw actions from the first timestep's chunk (they're the same)
-        # Or extract from prestacked if that's what we have
-        prestacked = episode_feats.get("actions_ee_cartesian_cam")
+        actions = episode_feats.get("actions_ee_cartesian_cam")
 
-        if prestacked is not None and len(prestacked.shape) == 3:
-            # Extract raw actions from prestacked: take first timestep of each chunk
-            # actions[t, 0, :] = action at time t
-            actions = prestacked[:, 0, :]  # (T, 12)
-        else:
-            # Already raw actions
-            actions = prestacked
+        if actions is None:
+            return
 
-        T, D = actions.shape
+        if len(actions.shape) != 3:
+            raise ValueError(f"Expected prestacked actions (T, chunk_size, dim), got {actions.shape}")
+
+        T, chunk_size, D = actions.shape
 
         actions_group = ep_group.create_group("actions")
         arr = actions_group.create_dataset(
             "ee_cartesian_cam",
             data=actions.astype(np.float32),
-            chunks=(min(256, T), D),
+            chunks=(1, chunk_size, D),  # Per-frame chunks for random access
             compressor=numcodecs.Zstd(level=3),
         )
-        logger.debug(f"Wrote actions: {actions.shape} (raw, not prestacked)")
+        logger.debug(f"Wrote actions: {actions.shape} (prestacked)")
 
     def _write_keypoints(self, ep_group: zarr.Group, episode_feats: dict):
-        """Write hand keypoints (world frame)."""
-        prestacked = episode_feats.get("actions_ee_keypoints_world")
-
-        if prestacked is not None and len(prestacked.shape) == 3:
-            # Extract raw keypoints from prestacked
-            keypoints = prestacked[:, 0, :]  # (T, 126)
-        else:
-            keypoints = prestacked
+        """Write prestacked hand keypoints (T, chunk_size, 126)."""
+        keypoints = episode_feats.get("actions_ee_keypoints_world")
 
         if keypoints is None:
             return
 
-        T, D = keypoints.shape
+        if len(keypoints.shape) != 3:
+            raise ValueError(f"Expected prestacked keypoints (T, chunk_size, dim), got {keypoints.shape}")
+
+        T, chunk_size, D = keypoints.shape
 
         kp_group = ep_group.create_group("keypoints")
         arr = kp_group.create_dataset(
             "hand_keypoints_world",
             data=keypoints.astype(np.float32),
-            chunks=(min(256, T), D),
+            chunks=(1, chunk_size, D),  # Per-frame chunks for random access
             compressor=numcodecs.Zstd(level=3),
         )
-        logger.debug(f"Wrote keypoints: {keypoints.shape}")
+        logger.debug(f"Wrote keypoints: {keypoints.shape} (prestacked)")
 
     def _write_head_pose(self, ep_group: zarr.Group, episode_feats: dict):
         """Write head pose (world frame)."""
@@ -324,24 +317,27 @@ class ZarrDatasetWriter:
         logger.debug(f"Wrote {len(label_ids)} annotations with {len(labels)} unique labels")
 
     def _accumulate_stats(self, episode_feats: dict):
-        """Accumulate statistics for normalization."""
+        """Accumulate statistics for normalization.
+
+        For prestacked arrays, we use the first timestep of each chunk
+        (the current action at time t) for computing statistics.
+        """
         # State
         state = episode_feats["observations"]["state.ee_pose_cam"]
         self.stats_accumulator.update("observations.state.ee_pose_cam", state)
 
-        # Actions (raw, not prestacked)
-        prestacked = episode_feats.get("actions_ee_cartesian_cam")
-        if prestacked is not None:
-            actions = prestacked[:, 0, :] if len(prestacked.shape) == 3 else prestacked
-            self.stats_accumulator.update("actions_ee_cartesian_cam", actions)
+        # Actions (prestacked) - use first action in each chunk for stats
+        actions = episode_feats.get("actions_ee_cartesian_cam")
+        if actions is not None and len(actions.shape) == 3:
+            # (T, chunk_size, D) -> (T, D) for stats computation
+            self.stats_accumulator.update("actions_ee_cartesian_cam", actions[:, 0, :])
 
-        # Keypoints
+        # Keypoints (prestacked)
         keypoints = episode_feats.get("actions_ee_keypoints_world")
-        if keypoints is not None:
-            kp = keypoints[:, 0, :] if len(keypoints.shape) == 3 else keypoints
-            self.stats_accumulator.update("actions_ee_keypoints_world", kp)
+        if keypoints is not None and len(keypoints.shape) == 3:
+            self.stats_accumulator.update("actions_ee_keypoints_world", keypoints[:, 0, :])
 
-        # Head pose
+        # Head pose (not prestacked)
         head = episode_feats.get("actions_head_cartesian_world")
         if head is not None:
             self.stats_accumulator.update("actions_head_cartesian_world", head)
@@ -367,7 +363,7 @@ class ZarrDatasetWriter:
             "features": {
                 "observations.images.front_img_1": {
                     "dtype": "uint8",
-                    "shape": [3, H, W],  # CHW for PyTorch
+                    "shape": [3, H, W],
                     "compression": "jpeg",
                     "quality": self.jpeg_quality,
                 },
@@ -377,12 +373,11 @@ class ZarrDatasetWriter:
                 },
                 "actions_ee_cartesian_cam": {
                     "dtype": "float32",
-                    "shape": [12],  # Raw, not prestacked
-                    "note": "Chunking computed on-the-fly during training",
+                    "shape": [CHUNK_SIZE, 12],
                 },
                 "actions_ee_keypoints_world": {
                     "dtype": "float32",
-                    "shape": [126],
+                    "shape": [CHUNK_SIZE, 126],
                 },
                 "actions_head_cartesian_world": {
                     "dtype": "float32",

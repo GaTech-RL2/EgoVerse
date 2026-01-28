@@ -5,9 +5,9 @@ Comprehensive test suite for Zarr dataset system.
 Tests:
 1. SimplejpegCodec encode/decode
 2. Zarr array with JPEG compression
-3. Full dataset creation
+3. Full dataset creation with prestacked actions
 4. ZarrDataset loading and __getitem__
-5. On-the-fly action chunking
+5. Prestacked action loading
 6. RLDBZarrDataset train/valid splits
 7. DataLoader multi-worker support
 8. ZarrHFShim for normalization compatibility
@@ -145,13 +145,14 @@ def test_zarr_array_jpeg():
 
 
 def create_synthetic_dataset(output_path: Path, num_episodes: int = 2, frames_per_ep: int = 30):
-    """Create synthetic Zarr dataset for testing."""
+    """Create synthetic Zarr dataset for testing with prestacked actions."""
     import zarr
     import numcodecs
     from egomimic.rldb.zarr_utils import SimplejpegCodec, EMBODIMENT
 
     H, W = 360, 640
     T = frames_per_ep
+    CHUNK_SIZE = 100
 
     store = zarr.open(str(output_path), mode='w')
     store.attrs.update({
@@ -186,19 +187,37 @@ def create_synthetic_dataset(output_path: Path, num_episodes: int = 2, frames_pe
         for t in range(T):
             img_arr[t] = np.random.randint(0, 256, (H, W, 3), dtype=np.uint8)
 
-        # State/actions (raw, not prestacked)
+        # State (T, 12)
         ep.create_group('state').create_dataset(
             'ee_pose_cam', data=np.random.randn(T, 12).astype(np.float32),
             chunks=(256, 12), compressor=zstd
         )
+
+        # Prestacked actions (T, 100, 12)
+        actions_raw = np.random.randn(T, 12).astype(np.float32)
+        actions_prestacked = np.zeros((T, CHUNK_SIZE, 12), dtype=np.float32)
+        for t in range(T):
+            for c in range(CHUNK_SIZE):
+                src_idx = min(t + c, T - 1)
+                actions_prestacked[t, c] = actions_raw[src_idx]
         ep.create_group('actions').create_dataset(
-            'ee_cartesian_cam', data=np.random.randn(T, 12).astype(np.float32),
-            chunks=(256, 12), compressor=zstd
+            'ee_cartesian_cam', data=actions_prestacked,
+            chunks=(1, CHUNK_SIZE, 12), compressor=zstd
         )
+
+        # Prestacked keypoints (T, 100, 126)
+        kp_raw = np.random.randn(T, 126).astype(np.float32)
+        kp_prestacked = np.zeros((T, CHUNK_SIZE, 126), dtype=np.float32)
+        for t in range(T):
+            for c in range(CHUNK_SIZE):
+                src_idx = min(t + c, T - 1)
+                kp_prestacked[t, c] = kp_raw[src_idx]
         ep.create_group('keypoints').create_dataset(
-            'hand_keypoints_world', data=np.random.randn(T, 126).astype(np.float32),
-            chunks=(256, 126), compressor=zstd
+            'hand_keypoints_world', data=kp_prestacked,
+            chunks=(1, CHUNK_SIZE, 126), compressor=zstd
         )
+
+        # Head pose (T, 10)
         ep.create_group('head').create_dataset(
             'pose_world', data=np.random.randn(T, 10).astype(np.float32),
             chunks=(256, 10), compressor=zstd
@@ -272,12 +291,12 @@ def test_dataset_loading(zarr_path: Path):
     return True
 
 
-def test_action_chunking(zarr_path: Path):
-    """Test on-the-fly action chunking."""
+def test_prestacked_actions(zarr_path: Path):
+    """Test prestacked action loading."""
     from egomimic.rldb.zarr_utils import ZarrDataset
 
     logger.info("=" * 50)
-    logger.info("TEST: Action Chunking")
+    logger.info("TEST: Prestacked Actions")
     logger.info("=" * 50)
 
     ds = ZarrDataset(zarr_path, chunk_size=100)
@@ -288,12 +307,16 @@ def test_action_chunking(zarr_path: Path):
         chunk = item['actions_ee_cartesian_cam']
         assert chunk.shape == (100, 12), f"idx={idx}: {chunk.shape}"
 
-    # Verify padding at end
+    # Verify padding at end (last frames should have identical trailing rows)
     last = ds[len(ds)-1]
     chunk = last['actions_ee_cartesian_cam'].numpy()
-    # Last rows should be identical (padded)
     unique = len(np.unique(chunk[-5:], axis=0))
     logger.info(f"  Last 5 rows unique: {unique} (1 = correctly padded)")
+
+    # Verify keypoints also prestacked
+    kp = last['actions_ee_keypoints_world']
+    assert kp.shape == (100, 126), f"Keypoints shape: {kp.shape}"
+    logger.info(f"  Keypoints shape: {kp.shape}")
 
     logger.info("  [PASS]")
     return True
@@ -418,7 +441,7 @@ def run_all_tests(zarr_path: Path = None):
             cleanup = True
 
         results['loading'] = test_dataset_loading(zarr_path)
-        results['chunking'] = test_action_chunking(zarr_path)
+        results['prestacked'] = test_prestacked_actions(zarr_path)
         results['rldb_splits'] = test_rldb_zarr_dataset(zarr_path)
         results['dataloader'] = test_dataloader(zarr_path)
         results['hf_shim'] = test_hf_shim(zarr_path)

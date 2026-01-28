@@ -4,7 +4,7 @@ Zarr-based dataset utilities for EgoVerse.
 This module provides a drop-in replacement for LeRobot-based datasets using Zarr
 as the storage backend. Key features:
 - JPEG-compressed images with per-frame random access
-- On-the-fly action chunking (no 100x storage blowup)
+- Prestacked actions (T, 100, 12) for fast training I/O
 - Self-contained annotations
 - Compatible with existing DataSchematic and training pipeline
 """
@@ -380,37 +380,18 @@ class ZarrDataset(torch.utils.data.Dataset):
         """Get episode group from zarr store (cached)."""
         return self.store[f"episodes/{episode_hash}"]
 
-    def _get_action_chunk(
-        self, actions: zarr.Array, t: int, chunk_size: Optional[int] = None
-    ) -> np.ndarray:
+    def _load_prestacked(self, arr: zarr.Array, t: int) -> np.ndarray:
         """
-        Compute action chunk on-the-fly (vectorized).
+        Load prestacked action chunk directly.
 
         Args:
-            actions: Zarr array of shape (T, action_dim)
+            arr: Zarr array of shape (T, chunk_size, action_dim)
             t: Current timestep
-            chunk_size: Override chunk size (default: self.chunk_size)
 
         Returns:
             Action chunk of shape (chunk_size, action_dim)
         """
-        if chunk_size is None:
-            chunk_size = self.chunk_size
-
-        T = actions.shape[0]
-        end_t = min(t + chunk_size, T)
-
-        # Load only needed frames
-        chunk = actions[t:end_t]  # (actual_len, action_dim)
-
-        # Pad if near episode end
-        if len(chunk) < chunk_size:
-            pad_len = chunk_size - len(chunk)
-            last_frame = chunk[-1:]  # (1, action_dim)
-            padding = np.repeat(last_frame, pad_len, axis=0)
-            chunk = np.concatenate([chunk, padding], axis=0)
-
-        return chunk.astype(np.float32)
+        return arr[t].astype(np.float32)
 
     def _load_image(self, ep_group: zarr.Group, local_idx: int, key: str = "rgb/front_img_1") -> torch.Tensor:
         """Load and convert image to tensor."""
@@ -489,15 +470,15 @@ class ZarrDataset(torch.utils.data.Dataset):
         except KeyError:
             pass
 
-        # Compute action chunks on-the-fly
+        # Load prestacked action chunks
         try:
-            actions = self._get_action_chunk(ep["actions/ee_cartesian_cam"], local_idx)
+            actions = self._load_prestacked(ep["actions/ee_cartesian_cam"], local_idx)
             item["actions_ee_cartesian_cam"] = torch.from_numpy(actions).float()
         except KeyError:
             pass
 
         try:
-            keypoints = self._get_action_chunk(ep["keypoints/hand_keypoints_world"], local_idx)
+            keypoints = self._load_prestacked(ep["keypoints/hand_keypoints_world"], local_idx)
             item["actions_ee_keypoints_world"] = torch.from_numpy(keypoints).float()
         except KeyError:
             pass
