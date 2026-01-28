@@ -2,7 +2,7 @@ import pandas as pd
 import csv
 
 # Read the CSV file
-csv_file = 'results/diversity_fold_clothes_hashes.csv'
+csv_file = './results/cup_on_saucer_data_completeness_hashes.csv'
 df = pd.read_csv(csv_file, index_col=0)
 
 # Remove the "Total" row if it exists
@@ -29,10 +29,6 @@ for operator_idx, operator_row in enumerate(df.iterrows(), start=1):
     if operator_idx > 1:
         yaml_content.append("")
     
-    # Add comment with operator name
-    operator_comment = operator_name.replace('Operator ', '').replace('(', '# ').replace(')', '')
-    yaml_content.append(f"      {operator_comment}")
-    
     first_scene_in_operator = True
     for scene_num in range(1, 17):
         scenario_col = f'Scenario {scene_num}'
@@ -58,7 +54,7 @@ for operator_idx, operator_row in enumerate(df.iterrows(), start=1):
                 yaml_content.append('        mode: total')
                 yaml_content.append('        embodiment: "aria_bimanual"')
                 yaml_content.append("        local_files_only: True")
-                yaml_content.append('        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_diversity"')
+                yaml_content.append('        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_diversity_cup_on_saucer"')
                 yaml_content.append(f"        filters: {{episode_hash: '{hash_val}'}}")
 
 yaml_content.append("")
@@ -75,7 +71,7 @@ yaml_content.append("    batch_size: 32")
 yaml_content.append("    num_workers: 10")
 
 # Write to file
-output_file = 'egomimic/hydra_configs/data/diversity_fold_clothes_all.yaml'
+output_file = 'egomimic/hydra_configs/data/diversity_cup_on_saucer_all.yaml'
 with open(output_file, 'w') as f:
     f.write('\n'.join(yaml_content))
 
