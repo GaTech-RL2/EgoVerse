@@ -320,8 +320,8 @@ def main():
     parser.add_argument(
         "--num-samples",
         type=int,
-        default=10000,
-        help="Number of samples to load via DataLoader (default: 10000)",
+        default=5000,
+        help="Number of samples to load via DataLoader (default: 5000)",
     )
     parser.add_argument(
         "--batch-size",
@@ -344,7 +344,7 @@ def main():
     parser.add_argument(
     "--simulated-compute",
     type=float,
-    default=0.5,
+    default=0.0,
     help="Simulated forward/backward pass time in seconds per batch (default: 0.0). "
             "Use this to test whether data loading can keep up with GPU compute.",
     )
@@ -392,7 +392,7 @@ def main():
         "--action-keys",
         type=str,
         nargs="+",
-        default=["actions_base_cartesian", "actions_cartesian", "actions_eef_cartesian", "actions_joints"],
+        default=["actions_base_cartesian", "actions_joints"],
         help="Action keys to apply dynamic chunking to",
     )
     parser.add_argument(

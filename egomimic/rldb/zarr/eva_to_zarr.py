@@ -234,6 +234,13 @@ class HDF5ToZarrConverter:
 
         self.logger.info(f"Wrote {num_frames} frames to {episode_path}")
 
+    def _find_next_episode_index(self, start_idx: int) -> int:
+        """Find the next available episode index, starting from start_idx."""
+        idx = start_idx
+        while (self.output_path / f"episode_{idx:06d}.zarr").exists():
+            idx += 1
+        return idx
+
     def convert_episode(self, episode_path: Path, episode_idx: int, task: str = ""):
         """Convert a single HDF5 episode to Zarr format."""
         self.logger.info(f"Converting episode {episode_idx}: {episode_path}")
@@ -253,7 +260,11 @@ class HDF5ToZarrConverter:
         )
 
         # Episode zarr path (directly under output_path)
-        episode_zarr_path = self.output_path / f"episode_{episode_idx:06d}.zarr"
+        # If episode already exists, find the next available index
+        actual_idx = self._find_next_episode_index(episode_idx)
+        if actual_idx != episode_idx:
+            self.logger.info(f"Episode {episode_idx} already exists, using index {actual_idx} instead")
+        episode_zarr_path = self.output_path / f"episode_{actual_idx:06d}.zarr"
 
         # Get number of frames
         num_frames = next(iter(episode_feats["observations"].values())).shape[0]
@@ -309,7 +320,7 @@ class HDF5ToZarrConverter:
         # Write zarr episode with metadata
         self._write_zarr_episode(
             episode_zarr_path,
-            episode_idx=episode_idx,
+            episode_idx=actual_idx,
             num_frames=num_frames,
             frames_data=frames_data,
             image_data=image_data,
@@ -319,14 +330,14 @@ class HDF5ToZarrConverter:
 
         # Update summary metadata
         self.episodes_data.append({
-            "episode_index": episode_idx,
+            "episode_index": actual_idx,
             "length": num_frames,
             "task": task,
         })
         self.total_frames += num_frames
 
         elapsed = time.time() - t0
-        self.logger.info(f"Converted episode {episode_idx} in {elapsed:.2f}s ({num_frames} frames)")
+        self.logger.info(f"Converted episode {actual_idx} in {elapsed:.2f}s ({num_frames} frames)")
 
     def convert_all(self, task_description: str = ""):
         """Convert all episodes."""
