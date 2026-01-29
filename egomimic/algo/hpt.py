@@ -1354,7 +1354,7 @@ class HPT(Algo):
                     
                     # Handle ee_frame delta offset
                     ee_frame = self.chosen_frame == "ee_frame"
-                    if ee_frame:
+                    if ee_frame or self.use_delta:
                         # cartesian arm is (B, 7) or (B, 14) with quat, just take xyz positions
                         if cartesian_arm.shape[-1] == 7:
                             cartesian_arm_xyz = cartesian_arm[:, :3]  # (B, 3)
