@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=T_cup_BC_quat
+#SBATCH --job-name=T_cup_BC_split
 #SBATCH --account=a144
-#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup_BC_quat/slurm-cup-%j.out
-#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup_BC_quat/slurm-cup-%j.err
+#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup_BC_split/slurm-cup-%j.out
+#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/cup_BC_split/slurm-cup-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-node=4
-#SBATCH --time=10:00:00
+#SBATCH --time=5:00:00
 #SBATCH --partition=normal
 #SBATCH --environment=/users/jiaqchen/.edf/faive2lerobot.toml
 #SBATCH --requeue
@@ -64,7 +64,7 @@ export frame_type=base_frame
 export arm=bimanual # right_arm, left_arm, bimanual
 export debug=false
 
-export quat=true
+export quat=false
 export actions_for_qpos=false
 export delta=false
 # Set ee_pose_dim based on arm type and quat
@@ -102,20 +102,21 @@ echo "WANDB_RUN_ID: $WANDB_RUN_ID"
 ###############################################################
 
 
-##################### MAYBE CHANGE THIS PATH #####################
 # Define an EXPERIMENT name that is a combination of PG_CL_EXPERIMENT and flags for quat, actions_for_qpos, and delta
 # if quat, then _quat, if actions_for_qpos, then _actions_for_qpos, if delta, then _delta. and they are mutually exclusive
 if [ "$quat" = "true" ]; then
     export EXPERIMENT=${PG_CL_EXPERIMENT}_quat
-fi
-if [ "$actions_for_qpos" = "true" ]; then
+elif [ "$actions_for_qpos" = "true" ]; then
     export EXPERIMENT=${PG_CL_EXPERIMENT}_afq
-fi
-if [ "$delta" = "true" ]; then
+elif [ "$delta" = "true" ]; then
     export EXPERIMENT=${PG_CL_EXPERIMENT}_delta
+else
+    export EXPERIMENT=${PG_CL_EXPERIMENT}
 fi
 
-export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/${EXPERIMENT}/${task}/${task}_${frame_type}
+
+##################### MAYBE CHANGE THIS PATH #####################
+export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/${EXPERIMENT}_recheck_split/${task}/${task}_${frame_type}
 export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release_2_0/50hz/${EXPERIMENT}/${task}_lerobot_${frame_type}
 # export dataset_root=/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/debug_2_0/${task}_lerobot_${frame_type}_1_debug
 ##################################################################
