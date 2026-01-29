@@ -8,6 +8,10 @@ Reads:
 
 Writes:
 - a large PNG scatter plot to the data directory
+
+Plot config notes:
+- `plot_background_color`: figure/axes background (e.g. "#ecdbc7"). Empty/None disables.
+- `plot_background_alpha`: optional float in [0,1] (defaults to 1.0).
 """
 
 import argparse
@@ -17,6 +21,7 @@ import re
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgba
 import numpy as np
 import pandas as pd
 import zarr
@@ -136,14 +141,125 @@ def _apply_sample_every_k(
 ) -> tuple[pd.DataFrame, np.ndarray]:
     if sample_every_k <= 1:
         return meta_df, y
+    before = len(meta_df)
     meta_df = meta_df.iloc[::sample_every_k].reset_index(drop=True)
     y = y[::sample_every_k]
     print(
         "[INFO] sample_every_k={} kept {} / {} rows".format(
-            sample_every_k, len(meta_df), len(y) * sample_every_k
+            sample_every_k, len(meta_df), before
         )
     )
     return meta_df, y
+
+
+def _load_plot_config(*, plot_config_json: str, plot_config_file: str) -> dict:
+    """
+    Load a plotting config dict.
+
+    Supported schema (both forms accepted):
+    - {"label_col": "robot_name",
+       "label_col_name": [{"eva_bimanual": {"color": "#...", "legend_name": "Robot"}}, ...]}
+    - {"label_col": "robot_name",
+       "label_col_name": {"eva_bimanual": {"color": "#...", "legend_name": "Robot"}, ...}}
+    """
+    cfg: dict = {}
+    if plot_config_json:
+        cfg = json.loads(plot_config_json)
+        if not isinstance(cfg, dict):
+            raise TypeError("--plot-config-json must be a JSON object (dict)")
+        return cfg
+    if plot_config_file:
+        p = Path(plot_config_file)
+        cfg = json.loads(p.read_text())
+        if not isinstance(cfg, dict):
+            raise TypeError("--plot-config-file must point to a JSON file containing an object (dict)")
+        return cfg
+    return {}
+
+
+def _normalize_label_styles(plot_cfg: dict) -> tuple[list[str], dict[str, dict]]:
+    """
+    Returns (ordered_label_values, label_value->style_dict).
+    """
+    label_col_name = plot_cfg.get("label_col_name", None)
+    if not label_col_name:
+        return [], {}
+
+    if isinstance(label_col_name, dict):
+        ordered = list(label_col_name.keys())
+        styles = label_col_name
+    elif isinstance(label_col_name, list):
+        ordered = []
+        styles = {}
+        for entry in label_col_name:
+            if not isinstance(entry, dict) or len(entry) != 1:
+                raise TypeError(
+                    "plot_config['label_col_name'] entries must be dicts with a single key, got: {}".format(
+                        entry
+                    )
+                )
+            (k, v), = entry.items()
+            ordered.append(str(k))
+            styles[str(k)] = v if isinstance(v, dict) else {}
+    else:
+        raise TypeError(
+            "plot_config['label_col_name'] must be a dict or list, got: {}".format(type(label_col_name))
+        )
+    return ordered, {str(k): (v if isinstance(v, dict) else {}) for k, v in styles.items()}
+
+
+def _build_colors_and_legend(
+    labels: np.ndarray,
+    *,
+    ordered_styles: list[str],
+    style_map: dict[str, dict],
+) -> tuple[np.ndarray, list[plt.Line2D], list[str]]:
+    """
+    Returns (per_point_rgba Nx4, legend_handles, legend_names).
+
+    - Labels listed in ordered_styles get their provided colors (if any) and legend names (if any).
+    - Remaining labels get colors from tab20.
+    - Legend order: ordered_styles first (if present in data), then remaining in first-seen order.
+    """
+    labels = labels.astype(str)
+    present = set(labels.tolist())
+    ordered_present = [v for v in ordered_styles if v in present]
+
+    # Stable "first seen" order for labels not in ordered_styles
+    remainder = []
+    seen = set(ordered_present)
+    for v in labels.tolist():
+        if v in present and v not in seen:
+            seen.add(v)
+            remainder.append(v)
+
+    # Assign colors
+    label_to_rgba: dict[str, tuple[float, float, float, float]] = {}
+    for v in ordered_present:
+        style = style_map.get(v, {})
+        if "color" in style and style["color"]:
+            label_to_rgba[v] = to_rgba(style["color"])
+        else:
+            # fallback color if not provided
+            label_to_rgba[v] = to_rgba("#4a4e69")
+
+    if remainder:
+        cmap = plt.get_cmap("tab20", max(1, len(remainder)))
+        for i, v in enumerate(remainder):
+            label_to_rgba[v] = cmap(i)
+
+    point_colors = np.asarray([label_to_rgba[v] for v in labels], dtype=float)
+
+    # Legend labels (names)
+    legend_order = ordered_present + remainder
+    legend_names = []
+    handles = []
+    for v in legend_order:
+        style = style_map.get(v, {})
+        legend_names.append(str(style.get("legend_name", v)))
+        handles.append(plt.Line2D([0], [0], marker="o", linestyle="", color=label_to_rgba[v], markersize=12))
+
+    return point_colors, handles, legend_names
 
 
 def _safe_filename(s: str, *, max_len: int = 120) -> str:
@@ -159,6 +275,29 @@ def _safe_filename(s: str, *, max_len: int = 120) -> str:
     if len(s) > max_len:
         s = s[:max_len].rstrip("._-")
     return s
+
+
+def _apply_plot_background(*, fig: plt.Figure, ax: plt.Axes, plot_cfg: dict) -> None:
+    """
+    Apply a plot background (figure + axes facecolor) from plot_cfg.
+    """
+    bg = plot_cfg.get("plot_background_color", None)
+    if bg is None:
+        return
+    bg = str(bg).strip()
+    if not bg:
+        return
+
+    alpha = plot_cfg.get("plot_background_alpha", 1.0)
+    try:
+        alpha = float(alpha)
+    except Exception:
+        alpha = 1.0
+    alpha = float(np.clip(alpha, 0.0, 1.0))
+
+    rgba = to_rgba(bg, alpha=alpha)
+    fig.patch.set_facecolor(rgba)
+    ax.set_facecolor(rgba)
 
 
 def main():
@@ -228,12 +367,52 @@ def main():
         help="Path to a JSON file containing a list of dicts (same format as --omit-configs-json).",
     )
     ap.add_argument(
+        "--plot-config-json",
+        type=str,
+        default="",
+        help=(
+            "JSON object configuring label styles (colors/legend names). "
+            "If provided, overrides the in-script default mapping."
+        ),
+    )
+    ap.add_argument(
+        "--plot-config-file",
+        type=str,
+        default="",
+        help="Path to a JSON file containing a plotting config object (same as --plot-config-json).",
+    )
+    ap.add_argument(
         "--sample-every-k",
         type=int,
         default=1,
         help="Keep every k-th datapoint (applied after omit filters). Use 1 to disable.",
     )
     args = ap.parse_args()
+
+    default_plot_config = {
+        "label_col": args.label_col,
+        "plot_background_color": "#FFFFFF",
+        "label_col_name": [
+            {"eva_bimanual": {
+                "color": "#009e73",
+                "legend_name": "Robot"
+            }},
+            {"aria_bimanual": {
+                "color": "#2462a3",
+                "legend_name": "EgoVerse-A"
+            }},
+            {"mecka_bimanual": {
+                "color": "#e5a423",
+                "legend_name": "EgoVerse-I"
+            }}
+        ]
+    }
+
+    plot_cfg = default_plot_config | _load_plot_config(
+        plot_config_json=args.plot_config_json,
+        plot_config_file=args.plot_config_file,
+    )
+    label_col = plot_cfg.get("label_col", args.label_col)
 
     manifest_path = Path(args.manifest)
     manifest = json.loads(manifest_path.read_text())
@@ -247,7 +426,7 @@ def main():
     meta_path = Path(manifest["metadata_parquet"])
 
     meta_df = pd.read_parquet(meta_path)
-    label_col = _pick_label_column(meta_df, args.label_col)
+    label_col = _pick_label_column(meta_df, label_col)
 
     root = zarr.open_group(str(zarr_path), mode="r")
     reduce_name = args.reduce_name if args.reduce_name else f"{args.reduce_method}_2d"
@@ -276,17 +455,17 @@ def main():
     meta_df, y = _apply_sample_every_k(meta_df, y, sample_every_k=args.sample_every_k)
 
     labels = meta_df[label_col].astype(str).fillna("unknown").to_numpy()
-    uniq_labels, label_codes = np.unique(labels, return_inverse=True)
-
-    # Build a categorical colormap with enough distinct colors
-    cmap = plt.get_cmap("tab20", max(1, len(uniq_labels)))
+    ordered_styles, style_map = _normalize_label_styles(plot_cfg)
+    point_colors, legend_handles, legend_names = _build_colors_and_legend(
+        labels, ordered_styles=ordered_styles, style_map=style_map
+    )
 
     fig, ax = plt.subplots(figsize=tuple(args.figsize), dpi=args.dpi)
+    _apply_plot_background(fig=fig, ax=ax, plot_cfg=plot_cfg)
     ax.scatter(
         y[:, 0],
         y[:, 1],
-        c=label_codes,
-        cmap=cmap,
+        c=point_colors,
         s=args.point_size,
         alpha=args.alpha,
         linewidths=0,
@@ -302,18 +481,14 @@ def main():
     ax.grid(False)
 
     # Legend (label key): place at top, horizontal layout (figure-level for tighter spacing)
-    handles = [
-        plt.Line2D([0], [0], marker="o", linestyle="", color=cmap(i), markersize=6)
-        for i in range(len(uniq_labels))
-    ]
-    ncol = min(max(1, len(uniq_labels)), 10)
+    ncol = min(max(1, len(legend_names)), 10)
     fig.legend(
-        handles,
-        uniq_labels.tolist(),
+        legend_handles,
+        legend_names,
         loc="upper center",
         bbox_to_anchor=(0.5, 0.96),
         frameon=False,
-        fontsize=16,
+        fontsize=24,
         ncol=ncol,
         borderaxespad=0.0,
         columnspacing=1.0,
@@ -331,7 +506,7 @@ def main():
             safe_label = label_col.replace("/", "_").replace(".", "_")
             out_path = manifest_path.parent / f"tsne_by_{safe_label}.png"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_path, bbox_inches="tight")
+    fig.savefig(out_path, bbox_inches="tight", facecolor=fig.get_facecolor())
     print("[DONE] wrote", out_path)
 
 

@@ -1,0 +1,14 @@
+python egomimic/scripts/visualization_process/visualization.py \
+  --title "omit robot data" \
+  --omit-configs-json '[{"robot_name":"eva_bimanual"}]' \
+  --label-col scene
+
+python egomimic/scripts/visualization_process/visualization.py \
+  --reduce-method umap \
+  --label-col robot_name \
+  --title "UMAP" \
+  --manifest "/nethome/paphiwetsa3/flash/projects/EgoVerse/egomimic/scripts/visualization_process/fold_clothes_aria_eva_mecka/manifest.json"
+
+python egomimic/scripts/visualization_process/dim_reduce.py \
+  --manifest "/nethome/paphiwetsa3/flash/projects/EgoVerse/egomimic/scripts/visualization_process/fold_clothes_aria_eva_mecka/manifest.json" \
+  --method umap

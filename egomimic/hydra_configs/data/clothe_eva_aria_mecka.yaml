@@ -55,8 +55,7 @@ train_datasets:
   mecka_flagship:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: rldb
-    mode: train
-    valid_ratio: 0.5
+    mode: total
     embodiment: mecka_bimanual
     filters:
       task: fold_clothes
@@ -64,8 +63,7 @@ train_datasets:
   mecka_freeform:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: rldb
-    mode: train
-    valid_ratio: 0.5
+    mode: total
     embodiment: mecka_bimanual
     filters:
       task: folding_clothes
