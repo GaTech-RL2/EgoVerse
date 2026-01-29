@@ -26,9 +26,9 @@ valid_datasets:
 train_dataloader_params:
   dataset1:
     batch_size: 64  # Global 512 / 8 GPUs = 64 per GPU
-    num_workers: 8
+    num_workers: 24
 
 valid_dataloader_params:
   dataset1:
     batch_size: 64
-    num_workers: 8
+    num_workers: 24

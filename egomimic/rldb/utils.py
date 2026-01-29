@@ -26,7 +26,10 @@ import huggingface_hub
 import datasets.config as ds_cfg
 from datasets import DatasetDict, concatenate_datasets
 from datasets.utils.logging import disable_progress_bar
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset, LeRobotDatasetMetadata
+from lerobot.common.datasets.lerobot_dataset import (
+    LeRobotDataset,
+    LeRobotDatasetMetadata,
+)
 
 # Local EgoMimic Imports
 from egomimic.utils.aws.aws_sql import (
@@ -202,8 +205,7 @@ class RLDBDataset(LeRobotDataset):
                 )
 
             if not (
-                isinstance(ranges, Sequence) and not isinstance(
-                    ranges, (str, bytes))
+                isinstance(ranges, Sequence) and not isinstance(ranges, (str, bytes))
             ):
                 raise ValueError(
                     f"Index ranges for slow_down_rot_specs['{k}'] must be a sequence of (start, end) pairs, got {type(ranges)}"
@@ -239,7 +241,6 @@ class RLDBDataset(LeRobotDataset):
         else:
             self.annotations = None
             self.annotation_df = None
-    
 
         if mode == "train":
             super().__init__(
@@ -320,15 +321,14 @@ class RLDBDataset(LeRobotDataset):
 
         frame_item = self.hf_dataset[frame_idx]
         frame_time = float(frame_item["timestamp"])
-        
+
         if self._get_frame_annotation is not None:
             frame_item["annotations"] = self._get_frame_annotation(
-            episode_idx=ep_idx,
-            frame_time=frame_time,
-        )
+                episode_idx=ep_idx,
+                frame_time=frame_time,
+            )
 
         return frame_item
-
 
     def _get_frame_annotation(
         self,
@@ -369,7 +369,6 @@ class RLDBDataset(LeRobotDataset):
             return df_episode.iloc[prev_pos]["Labels"]
 
         return ""
-
 
     def _slow_down_sequence(self, seq, rot_spec=None):
         """
@@ -440,8 +439,7 @@ class RLDBDataset(LeRobotDataset):
                         )
                     # ypr -> quat -> slerp -> ypr
                     quat_short = _ypr_to_quat(rot_short)  # (S_short, 4)
-                    quat_interp = _slow_down_slerp_quat(
-                        quat_short, S)  # (S, 4)
+                    quat_interp = _slow_down_slerp_quat(quat_short, S)  # (S, 4)
                     ypr_interp = _quat_to_ypr(quat_interp)  # (S, 3)
                     out[:, start:end] = ypr_interp
                 else:
@@ -458,8 +456,7 @@ class AnnotationLoader:
         self.annotation_path = root / "annotations"
 
         if not self.annotation_path.is_dir():
-            raise ValueError(
-                f"Annotation {self.annotation_path} path does not exist.")
+            raise ValueError(f"Annotation {self.annotation_path} path does not exist.")
 
         self.df = self.load_annotations()
 
@@ -550,8 +547,7 @@ class FolderRLDBDataset(MultiRLDBDataset):
     ):
         folder_path = Path(folder_path)
         assert folder_path.is_dir(), f"{folder_path} is not a valid directory."
-        assert mode in ["train", "valid", "percent",
-                        "total"], f"Invalid mode: {mode}"
+        assert mode in ["train", "valid", "percent", "total"], f"Invalid mode: {mode}"
         assert embodiment is not None, "embodiment should not be None"
 
         datasets = {}
@@ -565,8 +561,7 @@ class FolderRLDBDataset(MultiRLDBDataset):
         for subdir in subdirs:
             info_json = subdir / "meta" / "info.json"
             if not info_json.exists():
-                logger.warning(
-                    f"Skipping {subdir.name}: missing meta/info.json")
+                logger.warning(f"Skipping {subdir.name}: missing meta/info.json")
                 skipped.append(subdir.name)
                 continue
 
@@ -616,7 +611,9 @@ class FolderRLDBDataset(MultiRLDBDataset):
         if skipped:
             logger.warning(f"Skipped {len(skipped)} datasets: {skipped}")
 
+
 _PROCESS = psutil.Process()
+
 
 def _fmt_bytes(n: float) -> str:
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -625,15 +622,12 @@ def _fmt_bytes(n: float) -> str:
         n /= 1024
     return f"{n:.2f}PB"
 
+
 def _log_mem(tag: str):
     """Logs CPU + (optional) CUDA memory safely."""
     try:
         mi = _PROCESS.memory_info()
-        msg = (
-            f"[MEM] {tag} | "
-            f"RSS={_fmt_bytes(mi.rss)} | "
-            f"VMS={_fmt_bytes(mi.vms)}"
-        )
+        msg = f"[MEM] {tag} | RSS={_fmt_bytes(mi.rss)} | VMS={_fmt_bytes(mi.vms)}"
 
         if torch.cuda.is_available():
             msg += (
@@ -644,6 +638,7 @@ def _log_mem(tag: str):
     except Exception as e:
         logger.warning(f"[MEM] failed at {tag}: {e}")
 
+
 class S3RLDBDataset(MultiRLDBDataset):
     def __init__(
         self,
@@ -653,7 +648,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         bucket_name="rldb",
         main_prefix="processed_v2",
         sample_percent=1.0,  # Samples % of total available collection paths
-        percent=1.0,         # Samples % of frames within each loaded RLDBDataset
+        percent=1.0,  # Samples % of frames within each loaded RLDBDataset
         local_files_only=True,
         key_map=None,
         valid_ratio=0.2,
@@ -664,7 +659,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         **kwargs,
     ):
         _log_mem("init:start")
-        temp_root += "/S3_rldb_data" 
+        temp_root += "/S3_rldb_data"
         filters = filters or {}
         filters["robot_name"] = embodiment
         filters["is_deleted"] = False
@@ -683,15 +678,19 @@ class S3RLDBDataset(MultiRLDBDataset):
         # ------------------------------------------------------------
         _log_mem("init:query_metadata")
         all_filtered_paths = self._get_processed_path(filters)
-        
+
         if not all_filtered_paths:
             raise ValueError(f"No episodes matched filters: {filters}")
 
         # Deterministic shuffle for disjoint train/valid splits
         random.Random(6).shuffle(all_filtered_paths)
-        
+
         # Apply sample_percent to the list of paths
-        total_to_sample = max(1, int(len(all_filtered_paths) * sample_percent)) if sample_percent > 0 else 0
+        total_to_sample = (
+            max(1, int(len(all_filtered_paths) * sample_percent))
+            if sample_percent > 0
+            else 0
+        )
         sampled_paths = all_filtered_paths[:total_to_sample]
 
         # Split into disjoint subsets
@@ -713,8 +712,10 @@ class S3RLDBDataset(MultiRLDBDataset):
         # 2. Sync ONLY the required paths from S3
         # ------------------------------------------------------------
         _log_mem("init:before_sync")
-        logger.info(f"Syncing {len(paths_to_process)} sampled episodes for mode '{mode}' to {temp_root_path}")
-        
+        logger.info(
+            f"Syncing {len(paths_to_process)} sampled episodes for mode '{mode}' to {temp_root_path}"
+        )
+
         self._sync_s3_to_local(
             bucket_name=bucket_name,
             s3_paths=paths_to_process,
@@ -726,7 +727,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         # 3. Parallel Load
         # ------------------------------------------------------------
         valid_collection_names = {h for _, h in paths_to_process}
-        max_workers = int(os.environ.get("RLDB_LOAD_WORKERS", "10"))
+        max_workers = int(os.environ.get("RLDB_LOAD_WORKERS", "24"))
 
         _log_mem("init:before_parallel_load")
         datasets, skipped = self._load_rldb_datasets_parallel(
@@ -734,7 +735,7 @@ class S3RLDBDataset(MultiRLDBDataset):
             embodiment=embodiment,
             valid_collection_names=valid_collection_names,
             local_files_only=local_files_only,
-            percent=percent, # Frame-level sampling
+            percent=percent,  # Frame-level sampling
             valid_ratio=valid_ratio,
             max_workers=max_workers,
             debug=debug,
@@ -789,7 +790,12 @@ class S3RLDBDataset(MultiRLDBDataset):
 
             expected = get_embodiment_id(embodiment)
             if ds_obj.embodiment != expected:
-                return repo_id, None, "embodiment_mismatch", f"{ds_obj.embodiment} != {expected}"
+                return (
+                    repo_id,
+                    None,
+                    "embodiment_mismatch",
+                    f"{ds_obj.embodiment} != {expected}",
+                )
 
             return repo_id, ds_obj, None, None
         except Exception as e:
@@ -819,19 +825,27 @@ class S3RLDBDataset(MultiRLDBDataset):
             valid_collection_names = set(list(valid_collection_names)[:10])
 
         valid_paths = [
-            search_path / name for name in valid_collection_names 
+            search_path / name
+            for name in valid_collection_names
             if (search_path / name).is_dir()
         ]
         total = len(valid_paths)
         datasets: dict[str, RLDBDataset] = {}
         skipped: list[str] = []
 
-        logger.info(f"Starting parallel RLDB load: {total} datasets | workers={max_workers}")
+        logger.info(
+            f"Starting parallel RLDB load: {total} datasets | workers={max_workers}"
+        )
 
-        with tqdm(total=total, desc="Loading RLDBDataset") as dataset_bar, \
-             tqdm(total=1, bar_format="RSS Mem: {bar} {n:.1f}MB", position=1, leave=True) as rss_bar, \
-             tqdm(total=1, bar_format="VMS Mem: {bar} {n:.1f}MB", position=2, leave=True) as vms_bar:
-
+        with (
+            tqdm(total=total, desc="Loading RLDBDataset") as dataset_bar,
+            tqdm(
+                total=1, bar_format="RSS Mem: {bar} {n:.1f}MB", position=1, leave=True
+            ) as rss_bar,
+            tqdm(
+                total=1, bar_format="VMS Mem: {bar} {n:.1f}MB", position=2, leave=True
+            ) as vms_bar,
+        ):
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 in_flight = set()
                 path_iter = iter(valid_paths)
@@ -866,7 +880,8 @@ class S3RLDBDataset(MultiRLDBDataset):
                             datasets[repo_id] = ds_obj
                         elif reason != "not_a_dir":
                             skipped.append(repo_id)
-                            if err: logger.debug(f"[SKIP] {repo_id}: {err}")
+                            if err:
+                                logger.debug(f"[SKIP] {repo_id}: {err}")
 
                         dataset_bar.update(1)
 
@@ -889,27 +904,39 @@ class S3RLDBDataset(MultiRLDBDataset):
         engine = create_default_engine()
         df = episode_table_to_df(engine)
         series = pd.Series(filters)
-        
+
         mask = (df[list(filters)] == series).all(axis=1)
-        output = df.loc[mask, ["processed_path", "episode_hash"]].dropna(subset=["processed_path"])
+        output = df.loc[mask, ["processed_path", "episode_hash"]].dropna(
+            subset=["processed_path"]
+        )
         return list(output.itertuples(index=False, name=None))
-    
+
     @classmethod
     def _sync_s3_to_local(cls, bucket_name, s3_paths, local_dir: Path):
         _log_mem("s3_sync:start")
-        to_sync = [p for p in s3_paths if not cls._episode_already_present(local_dir, p[1])]
+        to_sync = [
+            p for p in s3_paths if not cls._episode_already_present(local_dir, p[1])
+        ]
         if not to_sync:
             logger.info("Nothing to sync from S3.")
             return
 
         local_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Create the full batch file as before for maximum s5cmd efficiency
-        with tempfile.NamedTemporaryFile(prefix="_s5cmd_", suffix=".txt", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            prefix="_s5cmd_", suffix=".txt", delete=False
+        ) as f:
             lines = []
             for src_path, episode_hash in to_sync:
-                src = src_path if src_path.startswith("s3://") else f"s3://{bucket_name}/{src_path.lstrip('/')}"
-                lines.append(f'sync "{src.rstrip("/")}/*" "{local_dir / episode_hash}/"')
+                src = (
+                    src_path
+                    if src_path.startswith("s3://")
+                    else f"s3://{bucket_name}/{src_path.lstrip('/')}"
+                )
+                lines.append(
+                    f'sync "{src.rstrip("/")}/*" "{local_dir / episode_hash}/"'
+                )
             f.write("\n".join(lines).encode())
             batch_path = Path(f.name)
 
@@ -923,7 +950,7 @@ class S3RLDBDataset(MultiRLDBDataset):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1
+                bufsize=1,
             )
 
             # We look for the completion of a folder/sync operation in the logs
@@ -963,9 +990,12 @@ class S3RLDBDataset(MultiRLDBDataset):
             return []
 
         logger.info(f"Syncing S3 datasets with filters {filters} to {local_dir}")
-        cls._sync_s3_to_local(bucket_name=bucket_name, s3_paths=filtered_paths, local_dir=local_dir)
+        cls._sync_s3_to_local(
+            bucket_name=bucket_name, s3_paths=filtered_paths, local_dir=local_dir
+        )
         _log_mem("sync_from_filters:end")
         return filtered_paths
+
 
 class DataSchematic(object):
     def __init__(self, schematic_dict, viz_img_key, norm_mode="zscore"):
@@ -1016,8 +1046,7 @@ class DataSchematic(object):
                 )
 
         self.df = pd.DataFrame(rows)
-        self._viz_img_key = {get_embodiment_id(
-            k): v for k, v in viz_img_key.items()}
+        self._viz_img_key = {get_embodiment_id(k): v for k, v in viz_img_key.items()}
         self.shapes_infered = False
         self.norm_mode = norm_mode
         self.norm_stats = {emb: {} for emb in self.embodiments}
@@ -1061,8 +1090,7 @@ class DataSchematic(object):
             str: Lerobot key, e.g., "observations.images.cam_high".
         """
         df_filtered = self.df[
-            (self.df["key_name"] == key_name) & (
-                self.df["embodiment"] == embodiment)
+            (self.df["key_name"] == key_name) & (self.df["embodiment"] == embodiment)
         ]
 
         if df_filtered.empty:
@@ -1118,8 +1146,7 @@ class DataSchematic(object):
                 continue
 
             memory_usage = psutil.Process().memory_info().rss / (1024**2)
-            logger.info(
-                f"Memory usage before column processing: {memory_usage:.2f} MB")
+            logger.info(f"Memory usage before column processing: {memory_usage:.2f} MB")
 
             memory_usage = psutil.Process().memory_info().rss / (1024**2)
             logger.info(f"Memory usage before column processing: {memory_usage:.2f} MB")
@@ -1136,8 +1163,7 @@ class DataSchematic(object):
             logger.info(f"Memory usage before mean calculation: {memory_usage:.2f} MB")
 
             memory_usage = psutil.Process().memory_info().rss / (1024**2)
-            logger.info(
-                f"Memory usage before mean calculation: {memory_usage:.2f} MB")
+            logger.info(f"Memory usage before mean calculation: {memory_usage:.2f} MB")
 
             if column_data.ndim not in (2, 3):
                 raise ValueError(
@@ -1195,8 +1221,7 @@ class DataSchematic(object):
             bool: if the key exists.
         """
         return (
-            (self.df["key_name"] == key_name) & (
-                self.df["embodiment"] == embodiment)
+            (self.df["key_name"] == key_name) & (self.df["embodiment"] == embodiment)
         ).any()
 
     def keys_of_type(self, key_type):
@@ -1233,13 +1258,11 @@ class DataSchematic(object):
             raise ValueError(f"Keyname '{key}' is not in the schematic")
 
         df_filtered = self.df[
-            (self.df["key_name"] == key) & (
-                self.df["embodiment"] == embodiment)
+            (self.df["key_name"] == key) & (self.df["embodiment"] == embodiment)
         ]
 
         if df_filtered.empty:
-            raise ValueError(
-                f"Keyname '{key}' with embodiment {embodiment} not found.")
+            raise ValueError(f"Keyname '{key}' with embodiment {embodiment} not found.")
 
         shape = df_filtered["shape"].item()
         return ast.literal_eval(shape)
@@ -1289,12 +1312,10 @@ class DataSchematic(object):
                 elif self.norm_mode == "quantile":
                     quantile_1 = stats["quantile_1"].to(tensor.device)
                     quantile_99 = stats["quantile_99"].to(tensor.device)
-                    ndata = (tensor - quantile_1) / \
-                        (quantile_99 - quantile_1 + 1e-6)
+                    ndata = (tensor - quantile_1) / (quantile_99 - quantile_1 + 1e-6)
                     norm_data[key] = 2.0 * ndata - 1.0
                 else:
-                    raise ValueError(
-                        f"Invalid normalization mode: {self.norm_mode}")
+                    raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
             else:
                 norm_data[key] = tensor
 
@@ -1353,8 +1374,7 @@ class DataSchematic(object):
                     ) + quantile_1
 
                 else:
-                    raise ValueError(
-                        f"Invalid normalization mode: {self.norm_mode}")
+                    raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
             else:
                 denorm_data[key] = tensor
 
