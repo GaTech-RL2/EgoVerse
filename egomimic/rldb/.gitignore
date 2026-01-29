@@ -5,3 +5,4 @@ meta/
 *.pyc
 *.hdf5
 *.zarr
+*.csv
