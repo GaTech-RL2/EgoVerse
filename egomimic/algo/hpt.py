@@ -135,6 +135,7 @@ class HPTModel(nn.Module):
 
         self.diffusion = None
 
+
     def init_encoder(self, modality, encoder_spec):
         """
         Initialize an encoder for the specified modality.
@@ -683,7 +684,9 @@ class HPTModel(nn.Module):
         if self.diffusion:
             features = (features, domain)
 
+        self.trunk_features = dict()
         if domain in self.heads:
+            self.trunk_features[domain] = features
             action[domain] = self.heads[domain](features)
 
         if self.shared_action:

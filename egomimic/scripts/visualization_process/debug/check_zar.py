@@ -7,7 +7,7 @@ import zarr
 
 def main():
     # Default to the outputs produced by `process_image.py`
-    data_dir = Path("egomimic/scripts/visualization_process/fold_clothes_aria_eva")
+    data_dir = Path("egomimic/scripts/visualization_process/data2")
     manifest_path = data_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
 
@@ -25,14 +25,13 @@ def main():
     for col in ("global_index", "episode_hash"):
         print("[INFO] has {} = {}".format(col, col in meta_df.columns))
     if len(meta_df) > 0:
-        first_row = meta_df.iloc[100].to_dict()
+        first_row = meta_df.iloc[30].to_dict()
         breakpoint()
         print("[INFO] metadata[0] keys =", sorted(list(first_row.keys()))[:40], "...")
         print("[INFO] metadata[0] =", first_row)
 
     # Load embeddings zarr for first image key
-    first_key = manifest["image_keys"][0]
-    zarr_path = Path(manifest["embeddings"][first_key])
+    zarr_path = Path(manifest["embeddings"]["cond"])
     root = zarr.open_group(str(zarr_path), mode="r")
     arr = root["embeddings"]
     print("[INFO] zarr_path     =", zarr_path)
