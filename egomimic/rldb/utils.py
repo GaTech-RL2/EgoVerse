@@ -659,7 +659,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         valid_ratio=0.2,
         temp_root="/storage/project/r-dxu345-0/shared/egoverse_datasets/S3_rldb_data/S3_rldb_data",  # "/coc/flash7/scratch/rldb_temp"
         cache_root="/storage/project/r-dxu345-0/shared/.cache",
-        filters=None,
+        filters={},
         debug=False,
         **kwargs,
     ):

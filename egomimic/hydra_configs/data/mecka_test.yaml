@@ -3,24 +3,26 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
   dataset1:
     _target_: rldb.utils.S3RLDBDataset
+    _target_: rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
     mode: train
     local_mode: True
     embodiment: "mecka_bimanual"
     filters:
-      task: "fold_clothes"
+      task: "organizing_tools"
     local_files_only: True
 
 
 valid_datasets:
   dataset1:
     _target_: rldb.utils.S3RLDBDataset
+    _target_: rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
     mode: valid
     local_mode: True
     embodiment: "mecka_bimanual"
     filters:
-      task: "fold_clothes"
+      task: "organizing_tools"
     local_files_only: True
 
 

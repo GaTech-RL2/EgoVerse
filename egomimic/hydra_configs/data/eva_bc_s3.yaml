@@ -8,7 +8,7 @@ train_datasets:
     embodiment: "eva_bimanual"
     cache_root: "/coc/flash7/scratch/.cache/"
     filters: 
-      task: "fold clothes"
+      task: "object in container"
     local_files_only: True
     debug: False
 
@@ -20,16 +20,16 @@ valid_datasets:
     embodiment: "eva_bimanual"
     cache_root: "/coc/flash7/scratch/.cache/"
     filters: 
-      task: "fold clothes"
+      task: "object in container"
     local_files_only: True
     debug: False
 
 train_dataloader_params:
   dataset1:
     batch_size: 32
-    num_workers: 10
+    num_workers: 6
 
 valid_dataloader_params:
   dataset1:
     batch_size: 32
-    num_workers: 10
+    num_workers: 6

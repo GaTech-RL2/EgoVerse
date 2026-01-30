@@ -3,25 +3,18 @@ robomimic_model:
   _target_: egomimic.algo.pi.PI
   data_schematic: _${data.dataset.data_schematic}
   camera_transforms:
-    eva_right_arm:
+    mecka_bimanual:
       _target_: egomimic.utils.egomimicUtils.CameraTransforms
-      intrinsics_key: "base" # change to base_half if using half res 
-      extrinsics_key: "x5Dec13_2"
-    aria_right_arm:
-      _target_: egomimic.utils.egomimicUtils.CameraTransforms
-      intrinsics_key: "base" # change to base_half if using half res 
-      extrinsics_key: "ariaJun7"
+      intrinsics_key: "mecka" # change to base_half if using half res 
+      extrinsics_key: "mecka"
   ac_keys:
-    eva_right_arm: "actions_cartesian"
-    aria_right_arm: "actions_cartesian"
-  domains: ["eva_right_arm", "aria_right_arm"]
+    mecka_bimanual: "actions_cartesian"
+  domains: ["mecka_bimanual"]
 
   action_converters:
     rules:
-      EVA_RIGHT_ARM:
-        _target_: egomimic.utils.action_utils.RobotRightCartesianEuler
-      ARIA_RIGHT_ARM:
-        _target_: egomimic.utils.action_utils.HumanRightCartesianEuler
+      MECKA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
     # optional fallback if no match is found
     fallback:
       _target_: egomimic.utils.action_utils.BaseActionConverter
