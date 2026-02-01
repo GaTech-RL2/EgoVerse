@@ -593,6 +593,13 @@ class HPTModel(nn.Module):
     def compute_loss_depth(self, batch, depth):
         """
         Compute BC loss but restrict gradient flow to trunk blocks from `depth` upward.
+        
+        Returns
+        -------
+        dict
+            Dictionary containing individual head losses, aggregated losses, and total loss.
+            Keys: "{domain}_head_loss", "shared_head_loss", "{domain}_{key}_head_loss",
+                  "action_loss", "shared_action_loss", "auxiliary_action_loss", "total"
         """
         self.train_mode = True
         domain, data = batch["domain"], batch["data"]
@@ -600,27 +607,36 @@ class HPTModel(nn.Module):
         # with amp.autocast(device_type=self.device.type):
         _, block_outputs = self.forward_features(domain, data)
         features = self.resume_from_depth(block_outputs, depth)
+        
+        loss_dict = {}
         action_loss = torch.tensor(0.0, device=self.device)
         shared_action_loss = torch.tensor(0.0, device=self.device)
         auxiliary_action_loss = torch.tensor(0.0, device=self.device)
 
         if domain in self.heads:
-            action_loss += self.heads[domain].compute_loss(features, data)
+            head_loss = self.heads[domain].compute_loss(features, data)
+            loss_dict[f"{domain}_head_loss"] = head_loss
+            action_loss = action_loss + head_loss
 
         if self.shared_action:
-            shared_action_loss += self.heads["shared"].compute_loss(features, data)
+            head_loss = self.heads["shared"].compute_loss(features, data)
+            loss_dict["shared_head_loss"] = head_loss
+            shared_action_loss = head_loss
 
         if domain in self.auxiliary_ac_keys:
             for key in self.auxiliary_ac_keys[domain]:
                 if f"{domain}_{key}" in self.heads:
                     data["action"] = data[key]
-                    auxiliary_action_loss += self.heads[f"{domain}_{key}"].compute_loss(
-                        features, data
-                    )
+                    head_loss = self.heads[f"{domain}_{key}"].compute_loss(features, data)
+                    loss_dict[f"{domain}_{key}_head_loss"] = head_loss
+                    auxiliary_action_loss = auxiliary_action_loss + head_loss
 
-        total_loss = action_loss + shared_action_loss + auxiliary_action_loss
-
-        return total_loss
+        # Add aggregated losses
+        loss_dict["action_loss"] = action_loss
+        loss_dict["shared_action_loss"] = shared_action_loss
+        loss_dict["auxiliary_action_loss"] = auxiliary_action_loss
+        loss_dict["total"] = action_loss + shared_action_loss + auxiliary_action_loss
+        return loss_dict
 
     def compute_loss(self, batch):
         """
@@ -633,8 +649,10 @@ class HPTModel(nn.Module):
 
         Returns
         -------
-        torch.Tensor
-            The computed loss value.
+        dict
+            Dictionary containing individual head losses, aggregated losses, and total loss.
+            Keys: "{domain}_head_loss", "shared_head_loss", "{domain}_{key}_head_loss",
+                  "action_loss", "shared_action_loss", "auxiliary_action_loss", "total"
         """
         self.train_mode = True
         domain, data = batch["domain"], batch["data"]
@@ -642,25 +660,36 @@ class HPTModel(nn.Module):
         # scaler = amp.GradScaler()
         # with amp.autocast(device_type=self.device.type):
         features, block_outputs = self.forward_features(domain, data)
+        
+        loss_dict = {}
         action_loss = torch.tensor(0.0, device=self.device)
         shared_action_loss = torch.tensor(0.0, device=self.device)
         auxiliary_action_loss = torch.tensor(0.0, device=self.device)
+        
         if domain in self.heads:
-            action_loss += self.heads[domain].compute_loss(features, data)
+            head_loss = self.heads[domain].compute_loss(features, data)
+            loss_dict[f"{domain}_head_loss"] = head_loss
+            action_loss = action_loss + head_loss
 
         if self.shared_action:
-            shared_action_loss = self.heads["shared"].compute_loss(features, data)
+            head_loss = self.heads["shared"].compute_loss(features, data)
+            loss_dict["shared_head_loss"] = head_loss
+            shared_action_loss = head_loss
 
         if domain in self.auxiliary_ac_keys:
             for key in self.auxiliary_ac_keys[domain]:
                 if f"{domain}_{key}" in self.heads:
                     data["action"] = data[key]
-                    auxiliary_action_loss += self.heads[f"{domain}_{key}"].compute_loss(
-                        features, data
-                    )
+                    head_loss = self.heads[f"{domain}_{key}"].compute_loss(features, data)
+                    loss_dict[f"{domain}_{key}_head_loss"] = head_loss
+                    auxiliary_action_loss = auxiliary_action_loss + head_loss
 
-        total_loss = action_loss + shared_action_loss + auxiliary_action_loss
-        return total_loss
+        # Add aggregated losses
+        loss_dict["action_loss"] = action_loss
+        loss_dict["shared_action_loss"] = shared_action_loss
+        loss_dict["auxiliary_action_loss"] = auxiliary_action_loss
+        loss_dict["total"] = action_loss + shared_action_loss + auxiliary_action_loss
+        return loss_dict
 
     def forward(self, domain, data):
         """
@@ -1068,14 +1097,19 @@ class HPT(Algo):
             hpt_batches[embodiment_id] = self._clone_batch(hpt_batch)
 
             if self.freeze_repr:
-                loss = self.nets["policy"].compute_loss_depth(
+                loss_dict = self.nets["policy"].compute_loss_depth(
                     hpt_batch, depth=self.freeze_depth
                 )
             else:
-                loss = self.nets["policy"].compute_loss(hpt_batch)
+                loss_dict = self.nets["policy"].compute_loss(hpt_batch)
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
-            predictions[f"{embodiment_name}_loss"] = loss
+            predictions[f"{embodiment_name}_loss"] = loss_dict["total"]
+            
+            # Pass individual head losses for logging
+            for loss_key, loss_val in loss_dict.items():
+                if loss_key != "total":
+                    predictions[f"{embodiment_name}_{loss_key}"] = loss_val
 
             # # ETH [DEBUG] dumping the entire batch into a .pkl file ONCE during current epoch
             # # put in same location as checkpoints
@@ -1465,6 +1499,11 @@ class HPT(Algo):
             scaled_bc_loss = bc_weight * bc_loss
             total_action_loss += scaled_bc_loss
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
+            
+            # Add individual head losses for logging
+            for key in predictions:
+                if key.startswith(f"{embodiment_name}_") and key.endswith("_head_loss"):
+                    loss_dict[key] = predictions[key]
 
         if self.ot:
             loss_dict["ot_loss"] = predictions["ot_loss"]
