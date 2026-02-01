@@ -14,10 +14,15 @@
 
 # Parse command-line arguments
 export debug=false
+export skip_preflight=false
 while [[ $# -gt 0 ]]; do
     case $1 in
         --debug)
             export debug=true
+            shift
+            ;;
+        --skip-preflight)
+            export skip_preflight=true
             shift
             ;;
         *)
@@ -180,6 +185,65 @@ if [ "$CL_OUT" = "None" ]; then
 else
     export CL_param=${CL_OUT}
 fi
+
+##################### PREFLIGHT CHECKLIST #####################
+if [ "$skip_preflight" = false ]; then
+    echo ""
+    echo "============================================================"
+    echo "                  PREFLIGHT CHECKLIST"
+    echo "============================================================"
+    echo "Script: $(basename $0)"
+    echo "------------------------------------------------------------"
+
+    # Checkpoint status
+    echo ""
+    echo "[CHECKPOINT]"
+    if [ "$ckpt_path" = "null" ]; then
+        echo "  Status: FRESH START (no checkpoint found)"
+    elif [ "$ckpt_path" != "\\\"${default_ckpt_path}\\\"" ]; then
+        echo "  Status: CUSTOM CHECKPOINT"
+        echo "  Path: ${ckpt_path}"
+    else
+        echo "  Status: RESUMING from last.ckpt"
+        echo "  Path: ${default_ckpt_path}"
+    fi
+
+    # WandB status
+    echo ""
+    echo "[WANDB]"
+    echo "  Run ID: ${WANDB_RUN_ID}"
+    if [ "$job_id_for_wandb" = "$SLURM_JOB_ID" ]; then
+        echo "  Mode: NEW RUN (using SLURM_JOB_ID)"
+    else
+        echo "  Mode: RESUME (continuing job ${job_id_for_wandb})"
+    fi
+
+    # Debug mode
+    echo ""
+    echo "[MODE]"
+    echo "  Debug: $([ "$debug" = true ] && echo 'ENABLED' || echo 'DISABLED')"
+    echo "  Trainer: ${trainer}"
+    echo "  Logger: ${logger}"
+
+    # Experiment params
+    echo ""
+    echo "[EXPERIMENT]"
+    echo "  Task: ${task}"
+    echo "  Arm: ${arm}"
+    echo "  PG=${PG}, CL=${CL}, CL_OUT=${CL_OUT:-None}"
+    echo "  Experiment: ${EXPERIMENT}"
+
+    # Paths
+    echo ""
+    echo "[PATHS]"
+    echo "  Hydra Dir: ${hydra_run_dir}"
+    echo "  Config: ${config_name}"
+
+    echo ""
+    echo "============================================================"
+    echo ""
+fi
+###############################################################
 
 CMD="
 source /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/eth_clariden/clariden.sh

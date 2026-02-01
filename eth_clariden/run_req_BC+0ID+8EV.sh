@@ -12,6 +12,21 @@
 #SBATCH --requeue
 #SBATCH --signal=USR1@600
 
+# Parse command-line arguments
+export skip_preflight=false
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --skip-preflight)
+            export skip_preflight=true
+            shift
+            ;;
+        *)
+            # Pass unknown arguments through
+            shift
+            ;;
+    esac
+done
+
 # Stop the script if a command fails or if an undefined variable is used
 set -eo pipefail
 
@@ -94,6 +109,57 @@ if [ "$CL_OUT" = "None" ]; then
 else
     export CL_param=${CL_OUT}
 fi
+
+##################### PREFLIGHT CHECKLIST #####################
+if [ "$skip_preflight" = false ]; then
+    echo ""
+    echo "============================================================"
+    echo "                  PREFLIGHT CHECKLIST"
+    echo "============================================================"
+    echo "Script: $(basename $0)"
+    echo "------------------------------------------------------------"
+
+    # Checkpoint status
+    echo ""
+    echo "[CHECKPOINT]"
+    if [ "$ckpt_path" = "null" ]; then
+        echo "  Status: FRESH START (no checkpoint found)"
+    else
+        echo "  Status: RESUMING from last.ckpt"
+        echo "  Path: ${hydra_run_dir}/checkpoints/last.ckpt"
+    fi
+
+    # WandB status (this script doesn't set WANDB_RUN_ID explicitly)
+    echo ""
+    echo "[WANDB]"
+    echo "  Mode: Uses default hydra wandb config"
+
+    # Debug mode
+    echo ""
+    echo "[MODE]"
+    echo "  Debug: $([ "$debug" = true ] && echo 'ENABLED' || echo 'DISABLED')"
+    echo "  Trainer: ${trainer}"
+    echo "  Logger: ${logger}"
+
+    # Experiment params
+    echo ""
+    echo "[EXPERIMENT]"
+    echo "  Task: ${task}"
+    echo "  Arm: ${arm}"
+    echo "  PG=${PG}, CL=${CL}, CL_OUT=${CL_OUT:-None}"
+    echo "  Experiment: ${EXPERIMENT}"
+
+    # Paths
+    echo ""
+    echo "[PATHS]"
+    echo "  Hydra Dir: ${hydra_run_dir}"
+    echo "  Config: ${config_name}"
+
+    echo ""
+    echo "============================================================"
+    echo ""
+fi
+###############################################################
 
 CMD="
 source /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/eth_clariden/clariden.sh

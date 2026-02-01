@@ -1,41 +1,18 @@
 #!/bin/bash
-#SBATCH --job-name=T_cup_BC+2ID+2EVeth
-#SBATCH --account=a144
-#SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/BC+2ID+2EVeth/cup/slurm-cup-%j.out
-#SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_slurm_out_v2/50hz/BC+2ID+2EVeth/cup/slurm-cup-%j.err
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --gpus-per-node=4
-#SBATCH --time=10:00:00
-#SBATCH --partition=normal
-#SBATCH --environment=/users/jiaqchen/.edf/faive2lerobot.toml
-#SBATCH --requeue
-#SBATCH --signal=USR1@600
-
-# Parse command-line arguments
-export debug=false
-export new_wandb=false
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --debug)
-            export debug=true
-            shift
-            ;;
-        --new-wandb)
-            export new_wandb=true
-            shift
-            ;;
-        *)
-            # Pass unknown arguments through
-            shift
-            ;;
-    esac
-done
+# Common functions and logic for all cup training scripts
+# This file is sourced by the variant-specific run_*.sh scripts
 
 # Stop the script if a command fails or if an undefined variable is used
 set -eo pipefail
 
 ulimit -c 0
+
+# Validate required variables from variant config
+: "${VARIANT:?VARIANT must be set}"
+: "${DATA_CONFIG:?DATA_CONFIG must be set}"
+: "${CONFIG_SUFFIX:?CONFIG_SUFFIX must be set (use _BC or _BC_aria)}"
+: "${SBATCH_TIME:?SBATCH_TIME must be set}"
+: "${RLDB_WORKERS:?RLDB_WORKERS must be set}"
 
 echo $PG # POINT_GAP_ACT
 echo $CL # CHUNK_LENGTH_ACT, need to change action horizon
@@ -57,14 +34,14 @@ echo "[sbatch-master] SLURM_NODEID: $SLURM_NODEID"
 echo "[sbatch-master] define some env vars that will be passed to the compute nodes"
 
 # The defined environment vars will be shared with the other compute nodes.
-export MASTER_ADDR=$(scontrol show hostname "$SLURM_NODELIST" | head -n1)  
+export MASTER_ADDR=$(scontrol show hostname "$SLURM_NODELIST" | head -n1)
 export MASTER_PORT=12345   # Choose an unused port
 export WORLD_SIZE=$(( SLURM_NNODES * SLURM_NTASKS_PER_NODE ))
 export NCCL_NET="AWS Libfabric"
 
 # Speed up dataset loading
-export RLDB_LOAD_WORKERS=32                # Parallel dataset loading threads (default 10)
-export HF_HUB_DISABLE_PROGRESS_BARS=1      # Disable progress bars
+export RLDB_LOAD_WORKERS=${RLDB_WORKERS}
+export HF_HUB_DISABLE_PROGRESS_BARS=1
 
 # Print job information
 echo "Job started at: $(date)"
@@ -80,7 +57,7 @@ nvidia-smi --query-gpu=memory.total --format=csv
 export task=cup
 export frame_type=base_frame
 export arm=bimanual # right_arm, left_arm, bimanual
-# debug is set via --debug flag at the top
+# debug is set via --debug flag in the variant script
 
 export quat=false
 export actions_for_qpos=false
@@ -113,7 +90,6 @@ description=${description%_}
 [ -z "$description" ] && description="default"
 export description
 
-
 # Define an EXPERIMENT name that is a combination of PG_CL_EXPERIMENT and flags for quat, actions_for_qpos, and delta
 if [ "$quat" = "true" ]; then
     export EXPERIMENT=${PG_CL_EXPERIMENT}_quat
@@ -133,18 +109,16 @@ else
     export logger=wandb
 fi
 
-
-##################### MAYBE CHANGE THIS PATH #####################
+##################### PATHS #####################
 if [ "$debug" = true ]; then
     export debug_folder='DEBUG/'
 else
     export debug_folder=''
 fi
-export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/${debug_folder}BC+2ID+2EVeth${RESTART}/${EXPERIMENT}/${task}/${task}_${frame_type}
-##################################################################
+export hydra_run_dir=/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/${debug_folder}${VARIANT}${RESTART}/${EXPERIMENT}/${task}/${task}_${frame_type}
+##################################################
 
-
-export config_name=train_eth_${arm}_BC_aria
+export config_name=train_eth_${arm}${CONFIG_SUFFIX}
 
 ########################## CHECKPOINT PATH & RESUME VALIDATION #####################
 # Default checkpoint path
@@ -154,7 +128,7 @@ export ckpt_path=${default_ckpt_path}
 # export ckpt_path='/iopsstor/scratch/cscs/jiaqchen/egomim_out/multi_node_v2/50hz/pg1_cl75_clout100_recheck_split/cup/cup_base_frame/checkpoints/epoch_epoch=499.ckpt'
 
 # If using non-default checkpoint, require RESUME_JOB_ID for W&B continuity (unless --new-wandb flag is set)
-if [ "$new_wandb" = true ]; then
+if [ "${new_wandb:-false}" = true ]; then
     job_id_for_wandb=$SLURM_JOB_ID
     echo "Using --new-wandb flag, forcing new W&B run with SLURM_JOB_ID: $SLURM_JOB_ID"
 elif [ "$ckpt_path" != "$default_ckpt_path" ]; then
@@ -177,16 +151,79 @@ echo "CHECKPOINT PATH! ckpt_path: $ckpt_path"
 
 ################ WANDB RUN ID #####################
 # Use job_id_for_wandb (either SLURM_JOB_ID or RESUME_JOB_ID) for W&B run continuity
-export WANDB_RUN_ID=${task}_${frame_type}_${description}_BC+2ID+2EVeth_${PG_CL_EXPERIMENT}_${arm}_${job_id_for_wandb}
+# WANDB_VARIANT_TAG is set by the variant script (empty for BC, "BC+1ID_" for BC+1ID, etc.)
+export WANDB_RUN_ID=${task}_${frame_type}_${description}_${WANDB_VARIANT_TAG}${PG_CL_EXPERIMENT}_${arm}_${job_id_for_wandb}
 echo "WANDB_RUN_ID: $WANDB_RUN_ID"
 ###############################################################
-
 
 if [ "$CL_OUT" = "None" ]; then
     export CL_param=${CL}
 else
     export CL_param=${CL_OUT}
 fi
+
+##################### PREFLIGHT CHECKLIST #####################
+if [ "${skip_preflight:-false}" = false ]; then
+    echo ""
+    echo "============================================================"
+    echo "                  PREFLIGHT CHECKLIST"
+    echo "============================================================"
+    echo "Script: $(basename $0)"
+    echo "Variant: ${VARIANT}"
+    echo "------------------------------------------------------------"
+
+    # Checkpoint status
+    echo ""
+    echo "[CHECKPOINT]"
+    if [ "$ckpt_path" = "null" ]; then
+        echo "  Status: FRESH START (no checkpoint found)"
+    elif [ "$ckpt_path" != "\\\"${default_ckpt_path}\\\"" ]; then
+        echo "  Status: CUSTOM CHECKPOINT"
+        echo "  Path: ${ckpt_path}"
+    else
+        echo "  Status: RESUMING from last.ckpt"
+        echo "  Path: ${default_ckpt_path}"
+    fi
+
+    # WandB status
+    echo ""
+    echo "[WANDB]"
+    echo "  Run ID: ${WANDB_RUN_ID}"
+    if [ "${new_wandb:-false}" = true ]; then
+        echo "  Mode: NEW RUN (--new-wandb flag)"
+    elif [ "$job_id_for_wandb" = "$SLURM_JOB_ID" ]; then
+        echo "  Mode: NEW RUN (using SLURM_JOB_ID)"
+    else
+        echo "  Mode: RESUME (continuing job ${job_id_for_wandb})"
+    fi
+
+    # Debug mode
+    echo ""
+    echo "[MODE]"
+    echo "  Debug: $([ "$debug" = true ] && echo 'ENABLED' || echo 'DISABLED')"
+    echo "  Trainer: ${trainer}"
+    echo "  Logger: ${logger}"
+
+    # Experiment params
+    echo ""
+    echo "[EXPERIMENT]"
+    echo "  Task: ${task}"
+    echo "  Arm: ${arm}"
+    echo "  PG=${PG}, CL=${CL}, CL_OUT=${CL_OUT:-None}"
+    echo "  Experiment: ${EXPERIMENT}"
+
+    # Paths
+    echo ""
+    echo "[PATHS]"
+    echo "  Hydra Dir: ${hydra_run_dir}"
+    echo "  Config: ${config_name}"
+    echo "  Data: ${DATA_CONFIG}"
+
+    echo ""
+    echo "============================================================"
+    echo ""
+fi
+###############################################################
 
 CMD="
 source /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/eth_clariden/clariden.sh
@@ -196,7 +233,7 @@ python /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/egomimic/trai
     --config-name=${config_name} \
     trainer=${trainer} \
     logger=${logger} \
-    data=cup/multi_data_BC+2ID+2EVeth \
+    data=${DATA_CONFIG} \
     name=${task}_${frame_type} \
     description=${task}_${frame_type} \
     chosen_frame=${frame_type} \
@@ -216,7 +253,7 @@ python /capstor/store/cscs/swissai/a144/jiaqchen/egoverse/EgoVerse/egomimic/trai
     model.robomimic_model.head_specs.eve_${arm}_actions_joints.model.act_dim=${joint_dim} \
     model.robomimic_model.use_quat=${quat} \
     model.robomimic_model.use_delta=${delta} \
-    $@
+    \$@
 "
 srun bash -lc "$CMD"
 
