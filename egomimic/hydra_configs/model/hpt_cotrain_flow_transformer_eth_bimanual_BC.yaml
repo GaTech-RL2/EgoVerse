@@ -1,5 +1,5 @@
 defaults:
-  - hpt_cotrain_enc_dec_base_eth_bimanual
+  - hpt_cotrain_enc_dec_base_eth_bimanual_BC
 
 robomimic_model:
   domains: ["eve_bimanual"]
