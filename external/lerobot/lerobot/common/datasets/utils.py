@@ -366,13 +366,23 @@ def check_timestamps_sync(
     account for possible numerical error.
     """
 
-    ts = hf_dataset["timestamp"]
-    if isinstance(ts, torch.Tensor):
-        timestamps = ts
-    else:
-        timestamps = torch.as_tensor(ts)
+    def _col_to_tensor(col: Any) -> torch.Tensor:
+        if isinstance(col, torch.Tensor):
+            return torch.tensor(col)
+        
+        try:
+            return torch.as_tensor(col.to_pylist())
+        except AttributeError:
+            return torch.tensor(list(col))
+        
 
-    diffs = torch.diff(timestamps)
+    ts = _col_to_tensor(hf_dataset["timestamp"])
+    # if isinstance(ts, torch.Tensor):
+    #     timestamps = ts
+    # else:
+    #     timestamps = torch.as_tensor(ts)
+
+    diffs = torch.diff(ts)
     within_tolerance = torch.abs(diffs - 1 / fps) <= tolerance_s
 
     # We mask differences between the timestamp at the end of an episode

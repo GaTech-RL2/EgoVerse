@@ -87,17 +87,24 @@ class LeRobotDatasetMetadata:
         root: str | Path | None = None,
         local_files_only: bool = False,
     ):
+        print(f"DEBUG: LeRobotDatasetMetadata init, repo_id: {repo_id}, root: {root}, local_files_only: {local_files_only}", flush=True)
         self.repo_id = repo_id
         self.root = Path(root) if root is not None else LEROBOT_HOME / repo_id
         self.local_files_only = local_files_only
 
         # Load metadata
+        print(f"DEBUG: LeRobotDatasetMetadata load metadata, root: {self.root}", flush=True)
         (self.root / "meta").mkdir(exist_ok=True, parents=True)
         self.pull_from_repo(allow_patterns="meta/")
+        print(f"DEBUG: LeRobotDatasetMetadata load metadata done", flush=True)
         self.info = load_info(self.root)
+        print(f"DEBUG: LeRobotDatasetMetadata load info done", flush=True)
         self.stats = load_stats(self.root)
+        print(f"DEBUG: LeRobotDatasetMetadata load stats done", flush=True)
         self.tasks = load_tasks(self.root)
+        print(f"DEBUG: LeRobotDatasetMetadata load tasks done", flush=True)
         self.episodes = load_episodes(self.root)
+        print(f"DEBUG: LeRobotDatasetMetadata load episodes done", flush=True)
 
     def pull_from_repo(
         self,
