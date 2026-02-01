@@ -36,3 +36,4 @@ lerobot_test/
 **/lerobot_test/**
 **/robot/models/**
 **/robot/models/
+*aws_env.sh
