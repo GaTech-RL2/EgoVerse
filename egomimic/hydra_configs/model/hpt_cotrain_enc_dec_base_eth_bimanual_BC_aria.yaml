@@ -11,6 +11,7 @@ robomimic_model:
   chosen_frame: ${chosen_frame}
   ac_keys:
     eve_bimanual: "actions_cartesian"
+    aria_bimanual: "actions_cartesian"
   auxiliary_ac_keys:
     eve_bimanual: ["actions_joints"]
   6dof: true
@@ -29,7 +30,7 @@ robomimic_model:
   multitask: false
   pretrained: false
   pretrained_checkpoint: null
-  domains: ["eve_bimanual"]
+  domains: ["eve_bimanual", "aria_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
   shared_stem_specs:
@@ -75,6 +76,20 @@ robomimic_model:
             crossattn_dim_head: 64
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 256
+    aria_bimanual:
+      state_ee_pose:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 12
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
 
   encoder_specs:
     front_img_1:
@@ -105,4 +120,3 @@ optimizer:
   _partial_: true
   lr: 5e-5
   weight_decay: 0.0001
-
