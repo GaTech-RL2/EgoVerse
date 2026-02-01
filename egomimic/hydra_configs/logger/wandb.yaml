@@ -8,11 +8,7 @@ wandb:
   # id: "${name}_${description}_${wandb_run_id}" # deterministic hash from run_req.sh for experiment grouping
   id: "${wandb_run_id}" # deterministic hash from run_req.sh for experiment grouping
   anonymous: null # enable anonymous logging
-<<<<<<< HEAD
   project: "objInBowl"
-=======
-  project: "everse_flagship"
->>>>>>> main
   log_model: False # upload lightning ckpts
   prefix: "" # a string to put at the beginning of metric keys
   entity: "EgoMimic" # set to name of your wandb team

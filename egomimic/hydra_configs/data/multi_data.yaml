@@ -7,37 +7,37 @@ train_datasets:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-bluetoy-purplebowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-bluetoy-purplebowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "train"
   #     eth-scene1-browntoy-purplebowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-browntoy-purplebowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-browntoy-purplebowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "train"
   #     eth-scene1-colorstoy-greybowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-colorstoy-greybowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-colorstoy-greybowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "train"
   #     eth-scene1-greentoy-purplebowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-greentoy-purplebowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-greentoy-purplebowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "train"
   #     eth-scene1-yellowtoy-greybowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-yellowtoy-greybowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-yellowtoy-greybowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "train"
   #     eth-scene1-yellowtoy-whitebowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-yellowtoy-whitebowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-yellowtoy-whitebowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "train"
   #   embodiment: "aria_right_arm"
 
@@ -49,17 +49,16 @@ train_datasets:
   #   # parquet_path: /coc/flash9/skareer6/Projects/RLDB/rldb/export/oboo_robot
   #   repo_id: "human_blue_toy_purple_bowl"
   #   root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-bluetoy-purplebowl-1_processed"
-  #   local_files_only: true
+  #   local_files_only: True
   #   mode: "train"
 
   dataset1:
     _target_: rldb.utils.RLDBDataset
-    repo_id: "cupSauz"
     # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
     # root: "${oc.env:TMPDIR}/cup_camframe" # remember to just directly use the folder
     # root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/debug/cup_lerobot_ee_frame"
     root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/cup_lerobot_ee_frame"
-    local_files_only: true
+    local_files_only: True
     mode: "train"
 
   # dataset2:
@@ -76,37 +75,37 @@ valid_datasets:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-bluetoy-purplebowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-bluetoy-purplebowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "valid"
   #     eth-scene1-browntoy-purplebowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-browntoy-purplebowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-browntoy-purplebowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "valid"
   #     eth-scene1-colorstoy-greybowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-colorstoy-greybowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-colorstoy-greybowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "valid"
   #     eth-scene1-greentoy-purplebowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-greentoy-purplebowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-greentoy-purplebowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "valid"
   #     eth-scene1-yellowtoy-greybowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-yellowtoy-greybowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-yellowtoy-greybowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "valid"
   #     eth-scene1-yellowtoy-whitebowl-1_processed:
   #       _target_: rldb.utils.RLDBDataset
   #       repo_id: "eth-scene1-yellowtoy-whitebowl-1_processed"
   #       root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-yellowtoy-whitebowl-1_processed"
-  #       local_files_only: true
+  #       local_files_only: True
   #       mode: "valid"
   #   embodiment: "aria_right_arm"
 
@@ -114,25 +113,24 @@ valid_datasets:
   #   _target_: rldb.utils.RLDBDataset
   #   repo_id: "human_blue_toy_purple_bowl"
   #   root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/eth-scene1-bluetoy-purplebowl-1_processed"
-  #   local_files_only: true
+  #   local_files_only: True
   #   mode: "valid"
 
   dataset1:
     _target_: rldb.utils.RLDBDataset
-    repo_id: "cupSauz"
     # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
     # root: "${oc.env:TMPDIR}/cup_camframe"
     # root: "/capstor/store/cscs/swissai/a144/jiaqchen/data/EGOMIM/eth_lerobot/release/cup_lerobot_base_frame"
     # root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/debug/cup_lerobot_ee_frame"
     root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/cup_lerobot_ee_frame"
-    local_files_only: true
+    local_files_only: True
     mode: "valid"
 
 train_dataloader_params:
   dataset1:
-    batch_size: 64
+    batch_size: 32
     num_workers: 20
-    prefetch_factor: 2  # Number of batches loaded in advance by each worker
+    prefetch_factor: 4  # Number of batches loaded in advance by each worker
   # dataset2:
   #   batch_size: 32
   #   num_workers: 10
@@ -140,9 +138,9 @@ train_dataloader_params:
 
 valid_dataloader_params:
   dataset1:
-    batch_size: 64
+    batch_size: 32
     num_workers: 20
-    prefetch_factor: 2  # Number of batches loaded in advance by each worker
+    prefetch_factor: 4  # Number of batches loaded in advance by each worker
   # dataset2:
   #   batch_size: 32
   #   num_workers: 10

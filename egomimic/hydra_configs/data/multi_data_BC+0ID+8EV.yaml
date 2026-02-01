@@ -3,11 +3,10 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
   dataset1:
     _target_: rldb.utils.RLDBDataset
-    repo_id: "cup" # Not sure if this value is used anywhere because it's not set
     # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
     # root: "${oc.env:TMPDIR}/cup_camframe" # remember to just directly use the folder
     root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/cup_lerobot_base_frame"
-    local_files_only: true
+    local_files_only: True
     mode: "train"
 
   dataset2:
@@ -63,11 +62,10 @@ train_datasets:
 valid_datasets:
   dataset1:
     _target_: rldb.utils.RLDBDataset
-    repo_id: "cup" # Not sure if this value is used anywhere because it's not set
     # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
     # root: "${oc.env:TMPDIR}/cup_camframe" # remember to just directly use the folder
     root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/cup_lerobot_base_frame"
-    local_files_only: true
+    local_files_only: True
     mode: "valid"
 
   dataset2:
@@ -122,16 +120,20 @@ valid_datasets:
 
 train_dataloader_params:
   dataset1:
-    batch_size: 64
+    batch_size: 32
     num_workers: 20
+    prefetch_factor: 4
   dataset2:
-    batch_size: 64
+    batch_size: 32
     num_workers: 20
+    prefetch_factor: 4
 
 valid_dataloader_params:
   dataset1:
-    batch_size: 64
+    batch_size: 32
     num_workers: 20
+    prefetch_factor: 4
   dataset2:
-    batch_size: 64
+    batch_size: 32
     num_workers: 20
+    prefetch_factor: 4
