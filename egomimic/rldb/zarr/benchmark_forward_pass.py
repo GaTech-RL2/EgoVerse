@@ -77,10 +77,9 @@ def benchmark_dataloader(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True,
+        # pin_memory=True,
         collate_fn=collate_fn,
         prefetch_factor=prefetch_factor if num_workers > 0 else None,
-        persistent_workers=num_workers > 0,
     )
 
     # Calculate iterations needed
@@ -103,7 +102,6 @@ def benchmark_dataloader(
     samples_processed = 0
     progress_step = max(1, benchmark_batches // 10)
     total_loading_time = 0.0
-    profiler_result = None
 
     def run_benchmark_loop():
         nonlocal samples_processed, total_loading_time, batch_iter
@@ -136,7 +134,6 @@ def benchmark_dataloader(
             with_stack=True,
         ) as prof:
             run_benchmark_loop()
-        profiler_result = prof
         print("\n  PyTorch Profiler Summary (top 20 by CPU time):")
         print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=20))
         if profile_output:
@@ -293,6 +290,10 @@ def print_results_table(results: list[dict]) -> None:
 
 
 def main():
+    # Check multiprocessing context
+    import torch.multiprocessing as mp
+    print(f"Multiprocessing start method: {mp.get_start_method()}")
+
     parser = argparse.ArgumentParser(
         description="Benchmark Zarr vs LeRobot data loading speed for forward pass simulation"
     )
@@ -503,25 +504,45 @@ def main():
         for i in range(num_profile):
             _ = zarr_dataset[i]
         elapsed = time.perf_counter() - start
-        profile = zarr_dataset.get_profile_summary()
-        totals = profile.get("totals", {})
-        counts = profile.get("counts", {})
-        total_getitem = totals.get("getitem_total_sec", 0.0)
-        print(f"  Total wall time: {elapsed:.3f}s")
-        print(f"  __getitem__ total: {total_getitem:.3f}s over {counts.get('getitem_count', 0)} samples")
-        if total_getitem > 0:
-            def pct(val: float) -> float:
-                return 100.0 * val / total_getitem
 
-            for key in [
-                "zarr_read_sec",
-                "image_decode_sec",
-                "image_to_tensor_sec",
-                "non_image_to_tensor_sec",
-                "open_store_sec",
-            ]:
-                if key in totals:
-                    print(f"  {key}: {totals[key]:.3f}s ({pct(totals[key]):.1f}%)")
+        print(f"\n  Total wall time: {elapsed:.3f}s ({num_profile} samples)")
+        print(f"  Avg per sample: {elapsed/num_profile*1000:.2f}ms")
+
+        # Use the detailed profiler print method
+        if hasattr(zarr_dataset, '_profiler') and zarr_dataset._profiler is not None:
+            zarr_dataset._profiler.print_summary(elapsed)
+
+        # Test parallel loading to detect NFS contention
+        print("\n" + "=" * 70)
+        print("PARALLEL LOADING TEST (detecting I/O contention)")
+        print("=" * 70)
+        import random
+        from concurrent.futures import ThreadPoolExecutor
+        import multiprocessing as mp
+
+        test_indices = random.sample(range(len(zarr_dataset)), min(100, len(zarr_dataset)))
+
+        # Sequential baseline
+        start = time.perf_counter()
+        for idx in test_indices[:50]:
+            _ = zarr_dataset[idx]
+        seq_time = time.perf_counter() - start
+        print(f"\nSequential (50 samples): {seq_time:.3f}s ({seq_time/50*1000:.1f}ms/sample)")
+
+        # Threaded (will show GIL contention)
+        def load_sample(idx):
+            return zarr_dataset[idx]
+
+        for n_threads in [2, 4, 8]:
+            start = time.perf_counter()
+            with ThreadPoolExecutor(max_workers=n_threads) as ex:
+                list(ex.map(load_sample, test_indices[:50]))
+            threaded_time = time.perf_counter() - start
+            speedup = seq_time / threaded_time
+            print(f"Threaded ({n_threads} workers, 50 samples): {threaded_time:.3f}s ({threaded_time/50*1000:.1f}ms/sample) - {speedup:.1f}x vs sequential")
+
+        print("\nIf speedup << num_workers, there's I/O contention (NFS serialization)")
+        print("=" * 70)
 
     results = []
     zarr_result = run_benchmarks(

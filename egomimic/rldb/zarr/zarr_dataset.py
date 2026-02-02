@@ -58,25 +58,85 @@ SEED = 42
 
 
 class ZarrProfiler:
-    """Lightweight profiler for ZarrDataset hot paths."""
+    """Detailed profiler for ZarrDataset hot paths."""
 
     def __init__(self) -> None:
         self.totals: dict[str, float] = {}
         self.counts: dict[str, int] = {}
+        self.mins: dict[str, float] = {}
+        self.maxs: dict[str, float] = {}
+        self._timers: dict[str, float] = {}  # Active timers by key
 
     def add(self, key: str, value: float, count: int = 1) -> None:
         self.totals[key] = self.totals.get(key, 0.0) + value
         self.counts[key] = self.counts.get(key, 0) + count
+        if key not in self.mins or value < self.mins[key]:
+            self.mins[key] = value
+        if key not in self.maxs or value > self.maxs[key]:
+            self.maxs[key] = value
 
     def inc(self, key: str, count: int = 1) -> None:
         self.counts[key] = self.counts.get(key, 0) + count
 
+    def start(self, key: str) -> None:
+        """Start timing a section (key-based, not stack-based)."""
+        self._timers[key] = time.perf_counter()
+
+    def stop(self, key: str) -> float:
+        """Stop timing a section and record it."""
+        if key not in self._timers:
+            return 0.0
+        elapsed = time.perf_counter() - self._timers.pop(key)
+        self.add(key, elapsed)
+        return elapsed
+
     def reset(self) -> None:
         self.totals.clear()
         self.counts.clear()
+        self.mins.clear()
+        self.maxs.clear()
+        self._timers.clear()
 
     def summary(self) -> dict[str, dict[str, float | int]]:
-        return {"totals": dict(self.totals), "counts": dict(self.counts)}
+        return {
+            "totals": dict(self.totals),
+            "counts": dict(self.counts),
+            "mins": dict(self.mins),
+            "maxs": dict(self.maxs),
+        }
+
+    def print_summary(self, total_time: float | None = None) -> None:
+        """Print a detailed summary of profiling results."""
+        if not self.totals:
+            print("No profiling data collected.")
+            return
+
+        print("\n" + "=" * 70)
+        print("ZARR PROFILER DETAILED SUMMARY")
+        print("=" * 70)
+
+        # Sort by total time descending
+        sorted_keys = sorted(self.totals.keys(), key=lambda k: self.totals[k], reverse=True)
+
+        # Calculate reference total (getitem_total or provided)
+        ref_total = total_time or self.totals.get("0_getitem_total", sum(self.totals.values()))
+
+        print(f"\n{'Operation':<40} {'Total':>10} {'Count':>8} {'Avg':>10} {'Min':>10} {'Max':>10} {'%':>6}")
+        print("-" * 94)
+
+        for key in sorted_keys:
+            total = self.totals[key]
+            count = self.counts.get(key, 1)
+            avg = total / count if count > 0 else 0
+            min_val = self.mins.get(key, 0)
+            max_val = self.maxs.get(key, 0)
+            pct = 100 * total / ref_total if ref_total > 0 else 0
+
+            print(f"{key:<40} {total:>9.3f}s {count:>8} {avg*1000:>9.2f}ms {min_val*1000:>9.2f}ms {max_val*1000:>9.2f}ms {pct:>5.1f}%")
+
+        print("-" * 94)
+        print(f"{'Reference total':<40} {ref_total:>9.3f}s")
+        print("=" * 70)
 
 
 def decode_jpeg(data) -> np.ndarray:
@@ -388,6 +448,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         # Discover episodes
         self._episode_paths: dict[int, Path] = {}
         self._episode_stores: dict[int, zarr.Group] = {}
+        self._episode_array_keys: dict[int, list[str]] = {}  # Cache for array keys per episode
+        self._episode_arrays: dict[int, dict[str, zarr.Array]] = {}  # Cache for array objects
+        self._init_pid = os.getpid()  # Track PID to detect fork
         self._discover_episodes()
 
         # Build episode data index (global frame -> episode/chunk/local mapping)
@@ -409,12 +472,17 @@ class ZarrDataset(torch.utils.data.Dataset):
             check_delta_timestamps(self.delta_timestamps, self.fps, self.tolerance_s)
             self.delta_indices = get_delta_indices(self.delta_timestamps, self.fps)
 
-    def _discover_episodes(self) -> None:
+    def _discover_episodes(self, preload_stores: bool = True) -> None:
         """Find all episode zarr stores.
 
-        Supports both layouts:
-        - New: episodes directly in root (episode_*.zarr/)
-        - Legacy: episodes in data/ subdirectory (data/episode_*.zarr/)
+        Supports multiple layouts:
+        - DirectoryStore: episode_*.zarr/ directories
+        - ZipStore: episode_*.zarr.zip files
+        - Legacy: episodes in data/ subdirectory
+
+        Args:
+            preload_stores: If True, open all stores upfront to avoid NFS latency
+                           in worker processes. Set False for very large datasets.
         """
         # Try new layout first (episodes directly in root)
         search_dir = self.root
@@ -422,8 +490,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         # Check if using legacy layout (data/ subdirectory)
         data_dir = self.root / "data"
         if data_dir.exists() and any(
-            p.name.startswith("episode_") and p.name.endswith(".zarr")
-            for p in data_dir.iterdir() if p.is_dir()
+            (p.name.startswith("episode_") and (p.name.endswith(".zarr") or p.name.endswith(".zarr.zip")))
+            for p in data_dir.iterdir()
         ):
             search_dir = data_dir
 
@@ -432,21 +500,52 @@ class ZarrDataset(torch.utils.data.Dataset):
             return
 
         for ep_path in sorted(search_dir.iterdir()):
-            if not ep_path.is_dir():
-                continue
-            # Parse episode index from folder name: episode_{ep_idx}.zarr
             name = ep_path.name
-            if not name.startswith("episode_") or not name.endswith(".zarr"):
-                continue
-            try:
-                ep_idx = int(name.replace("episode_", "").replace(".zarr", ""))
-            except ValueError:
-                continue
 
-            self._episode_paths[ep_idx] = ep_path
+            # Support ZipStore: episode_*.zarr.zip
+            if name.startswith("episode_") and name.endswith(".zarr.zip"):
+                try:
+                    ep_idx = int(name.replace("episode_", "").replace(".zarr.zip", ""))
+                    self._episode_paths[ep_idx] = ep_path
+                except ValueError:
+                    continue
+
+            # Support DirectoryStore: episode_*.zarr/
+            elif ep_path.is_dir() and name.startswith("episode_") and name.endswith(".zarr"):
+                try:
+                    ep_idx = int(name.replace("episode_", "").replace(".zarr", ""))
+                    self._episode_paths[ep_idx] = ep_path
+                except ValueError:
+                    continue
+
+        # Pre-open DirectoryStores to reduce NFS latency (workers inherit via fork)
+        # ZipStores are NOT pre-opened - they're not fork-safe and must be opened fresh per worker
+        if preload_stores:
+            has_zipstores = any(
+                str(p).endswith(".zarr.zip") for p in self._episode_paths.values()
+            )
+            if not has_zipstores:
+                for ep_idx in self._episode_paths:
+                    if self.episodes is None or ep_idx in self.episodes:
+                        self._get_episode_store(ep_idx)
 
     def _get_episode_store(self, ep_idx: int) -> zarr.Group | None:
-        """Open/cache episode Zarr store on demand."""
+        """Open/cache episode Zarr store on demand.
+
+        Supports both DirectoryStore (.zarr/) and ZipStore (.zarr.zip).
+
+        IMPORTANT: ZipStore file handles are not safe to share across forked
+        processes. We detect fork by PID change and clear the cache.
+        """
+        # Detect if we're in a forked worker - must re-open stores
+        current_pid = os.getpid()
+        if hasattr(self, "_init_pid") and current_pid != self._init_pid:
+            # We're in a forked worker - clear inherited stores (they're corrupted)
+            self._episode_stores = {}
+            self._episode_array_keys = {}
+            self._episode_arrays = {}
+            self._init_pid = current_pid  # Update so we don't clear again
+
         if ep_idx in self._episode_stores:
             return self._episode_stores[ep_idx]
 
@@ -458,12 +557,44 @@ class ZarrDataset(torch.utils.data.Dataset):
             return None
 
         start = time.perf_counter() if self._profiler else None
-        store = zarr.open_group(str(ep_path), mode="r")
+
+        # Check if this is a ZipStore
+        if ep_path.suffix == ".zip" or str(ep_path).endswith(".zarr.zip"):
+            store = self._open_zipstore(ep_path)
+        else:
+            store = zarr.open_group(str(ep_path), mode="r")
+
         if self._profiler and start is not None:
             self._profiler.add("open_store_sec", time.perf_counter() - start)
             self._profiler.inc("open_store_count")
         self._episode_stores[ep_idx] = store
         return store
+
+    def _open_zipstore(self, path: Path) -> zarr.Group:
+        """Open a ZipStore, handling zarr v2/v3 API differences."""
+        # Try different zarr APIs for ZipStore
+        errors = []
+
+        # Method 1: zarr.storage.ZipStore (zarr v3)
+        try:
+            from zarr.storage import ZipStore
+            return zarr.open_group(store=ZipStore(str(path), mode="r"), mode="r")
+        except Exception as e:
+            errors.append(f"zarr.storage.ZipStore: {e}")
+
+        # Method 2: zarr.ZipStore (zarr v2)
+        try:
+            return zarr.open_group(store=zarr.ZipStore(str(path), mode="r"), mode="r")
+        except Exception as e:
+            errors.append(f"zarr.ZipStore: {e}")
+
+        # Method 3: Direct path (may work in some versions)
+        try:
+            return zarr.open_group(str(path), mode="r")
+        except Exception as e:
+            errors.append(f"direct path: {e}")
+
+        raise RuntimeError(f"Failed to open ZipStore at {path}. Tried:\n" + "\n".join(errors))
 
     def _get_all_array_keys(self, store: zarr.Group, prefix: str = "") -> list[str]:
         """Recursively get all array keys from a zarr group, including nested arrays.
@@ -481,6 +612,24 @@ class ZarrDataset(torch.utils.data.Dataset):
                 keys.extend(self._get_all_array_keys(item, full_key))
         return keys
 
+    def _get_cached_array_keys(self, ep_idx: int, store: zarr.Group) -> list[str]:
+        """Get array keys for an episode, using cache to avoid repeated hierarchy walks."""
+        if ep_idx not in self._episode_array_keys:
+            self._episode_array_keys[ep_idx] = self._get_all_array_keys(store)
+        return self._episode_array_keys[ep_idx]
+
+    def _get_cached_array(self, ep_idx: int, store: zarr.Group, key: str) -> zarr.Array | None:
+        """Get array object from cache to avoid repeated metadata reads."""
+        if ep_idx not in self._episode_arrays:
+            self._episode_arrays[ep_idx] = {}
+
+        if key not in self._episode_arrays[ep_idx]:
+            try:
+                self._episode_arrays[ep_idx][key] = store[key]
+            except KeyError:
+                return None
+        return self._episode_arrays[ep_idx][key]
+
     def _build_episode_data_index(self) -> dict[str, torch.Tensor]:
         """Build from/to indices for each episode."""
         episode_lengths = {}
@@ -490,11 +639,13 @@ class ZarrDataset(torch.utils.data.Dataset):
                 continue
 
             # Calculate length from zarr store (use first available array)
+            # This also populates the key cache for later use
             store = self._get_episode_store(ep_idx)
             if store is not None:
-                keys = self._get_all_array_keys(store)
+                keys = self._get_cached_array_keys(ep_idx, store)
                 if keys:
-                    episode_lengths[ep_idx] = store[keys[0]].shape[0]
+                    arr = self._get_cached_array(ep_idx, store, keys[0])
+                    episode_lengths[ep_idx] = arr.shape[0] if arr is not None else 0
                 else:
                     episode_lengths[ep_idx] = 0
             else:
@@ -599,58 +750,87 @@ class ZarrDataset(torch.utils.data.Dataset):
         return ZarrDatasetView(self)
 
     def _get_zarr_item(self, idx: int) -> dict:
-        """Get a single frame from Zarr."""
-        start_total = time.perf_counter() if self._profiler else None
+        """Get a single frame from Zarr with detailed profiling."""
+        prof = self._profiler
+        start_total = time.perf_counter() if prof else None
+
+        # Step 1: Index resolution
+        if prof:
+            prof.start("1_index_resolution")
         global_idx = self._frame_indices[idx] if self._frame_indices else idx
         ep_idx, local_idx = self._global_idx_to_episode_local(global_idx)
+        if prof:
+            prof.stop("1_index_resolution")
 
+        # Step 2: Get/open store
+        if prof:
+            prof.start("2_get_store")
         store = self._get_episode_store(ep_idx)
+        if prof:
+            prof.stop("2_get_store")
         if store is None:
             raise ValueError(f"Could not load store for episode {ep_idx}")
 
+        # Step 3: Enumerate array keys (cached to avoid repeated hierarchy walks)
+        if prof:
+            prof.start("3_enumerate_keys")
+        array_keys = self._get_cached_array_keys(ep_idx, store)
+        if prof:
+            prof.stop("3_enumerate_keys")
+            prof.inc("array_keys_count", len(array_keys))
+
         item = {}
-        for key in self._get_all_array_keys(store):
+        for key in array_keys:
             # Skip keys that are explicitly excluded
             if key in self.skip_keys:
+                if prof:
+                    prof.inc("skipped_keys_count")
                 continue
 
-            arr = store[key]
-            if not hasattr(arr, "dtype") or not hasattr(arr, "shape"):
-                # Skip non-array nodes (e.g., metadata groups)
+            # Step 4a: Access array object (cached to avoid repeated metadata reads)
+            if prof:
+                prof.start("4a_array_access")
+            arr = self._get_cached_array(ep_idx, store, key)
+            if prof:
+                prof.stop("4a_array_access")
+
+            if arr is None or not hasattr(arr, "dtype") or not hasattr(arr, "shape"):
                 continue
             if local_idx >= arr.shape[0]:
                 continue
 
             is_image_key = key in self.meta.camera_keys
-            is_encoded_bytes = arr.dtype.kind == "O"  # Variable-length bytes = JPEG compressed images
+            is_encoded_bytes = arr.dtype.kind == "O"
             if not is_image_key and key.startswith("observations.images.") and is_encoded_bytes:
-                # Fallback: treat variable-length byte arrays as images even if metadata is missing
                 is_image_key = True
 
             if is_image_key:
-                read_start = time.perf_counter() if self._profiler else None
+                # Step 4b: Read image data from zarr
+                if prof:
+                    prof.start("4b_image_zarr_read")
                 raw_data = arr[local_idx]
-                if self._profiler and read_start is not None:
-                    self._profiler.add("zarr_read_sec", time.perf_counter() - read_start)
-                    self._profiler.inc("image_read_count")
+                if prof:
+                    prof.stop("4b_image_zarr_read")
+                    prof.inc("image_read_count")
 
                 if is_encoded_bytes:
-                    # Encoded bytes: decode JPEG
-                    decode_start = time.perf_counter() if self._profiler else None
-                    img_np = decode_jpeg(raw_data)  # (H, W, C) uint8
-                    if self._profiler and decode_start is not None:
-                        self._profiler.add("image_decode_sec", time.perf_counter() - decode_start)
-                        self._profiler.inc("image_decode_count")
+                    # Step 4c: JPEG decode
+                    if prof:
+                        prof.start("4c_jpeg_decode")
+                    img_np = decode_jpeg(raw_data)
+                    if prof:
+                        prof.stop("4c_jpeg_decode")
+                        prof.inc("jpeg_decode_count")
                 else:
-                    # Raw uint8 array stored directly
                     img_np = raw_data
 
-                # Convert to (C, H, W) float tensor normalized to [0, 1]
-                convert_start = time.perf_counter() if self._profiler else None
-                img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
-                if self._profiler and convert_start is not None:
-                    self._profiler.add("image_to_tensor_sec", time.perf_counter() - convert_start)
-                    self._profiler.inc("image_tensor_count")
+                # Step 4d: Image to tensor conversion
+                if prof:
+                    prof.start("4d_image_to_tensor")
+                img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).to(torch.float32).div_(255.0)
+                if prof:
+                    prof.stop("4d_image_to_tensor")
+                    prof.inc("image_tensor_count")
                 item[key] = img_tensor
             else:
                 if arr.dtype.kind == "O":
@@ -658,26 +838,34 @@ class ZarrDataset(torch.utils.data.Dataset):
                         f"Unsupported object dtype for key '{key}'. "
                         "If this is an image array, add it to meta/info.json features with dtype='jpeg'."
                     )
-                read_start = time.perf_counter() if self._profiler else None
+                # Step 4e: Read non-image data from zarr
+                if prof:
+                    prof.start("4e_nonimage_zarr_read")
                 data = arr[local_idx]
-                if self._profiler and read_start is not None:
-                    self._profiler.add("zarr_read_sec", time.perf_counter() - read_start)
-                    self._profiler.inc("non_image_read_count")
+                if prof:
+                    prof.stop("4e_nonimage_zarr_read")
+                    prof.inc("nonimage_read_count")
 
-                convert_start = time.perf_counter() if self._profiler else None
+                # Step 4f: Non-image to tensor conversion
+                if prof:
+                    prof.start("4f_nonimage_to_tensor")
                 item[key] = torch.as_tensor(data)
-                if self._profiler and convert_start is not None:
-                    self._profiler.add("non_image_to_tensor_sec", time.perf_counter() - convert_start)
-                    self._profiler.inc("non_image_tensor_count")
+                if prof:
+                    prof.stop("4f_nonimage_to_tensor")
+                    prof.inc("nonimage_tensor_count")
 
-        # Compute metadata fields on-the-fly
+        # Step 5: Compute metadata fields
+        if prof:
+            prof.start("5_compute_metadata")
         item["episode_index"] = torch.tensor(ep_idx)
         item["frame_index"] = torch.tensor(local_idx)
         item["timestamp"] = torch.tensor(local_idx / self.fps, dtype=torch.float32)
+        if prof:
+            prof.stop("5_compute_metadata")
 
-        if self._profiler and start_total is not None:
-            self._profiler.add("getitem_total_sec", time.perf_counter() - start_total)
-            self._profiler.inc("getitem_count")
+        if prof and start_total is not None:
+            prof.add("0_getitem_total", time.perf_counter() - start_total)
+            prof.inc("getitem_count")
 
         return item
 
@@ -722,22 +910,33 @@ class ZarrDataset(torch.utils.data.Dataset):
         Returns:
             Dict mapping key -> tensor of shape (horizon, feature_dim)
         """
+        prof = self._profiler
+
+        if prof:
+            prof.start("6a_chunk_get_store")
         store = self._get_episode_store(ep_idx)
+        if prof:
+            prof.stop("6a_chunk_get_store")
         if store is None:
             return {}
 
         result = {}
-        profiler = self._profiler
 
         for key, delta_idx in self.delta_indices.items():
             if key in self.skip_keys:
                 continue
             if key in self.meta.camera_keys:
                 continue
-            if key not in store:
+
+            if prof:
+                prof.start("6b_chunk_array_access")
+            arr = self._get_cached_array(ep_idx, store, key)
+            if prof:
+                prof.stop("6b_chunk_array_access")
+
+            if arr is None:
                 continue
 
-            arr = store[key]
             if arr.dtype.kind == "O":
                 raise TypeError(
                     f"Unsupported object dtype for key '{key}'. "
@@ -748,7 +947,6 @@ class ZarrDataset(torch.utils.data.Dataset):
             sample_shape = arr.shape[1:]
 
             # Compute the range of local indices we need
-            # delta_idx contains frame offsets like [0, 1, 2, ..., horizon-1]
             first_delta = delta_idx[0]
             last_delta = delta_idx[-1]
 
@@ -757,23 +955,24 @@ class ZarrDataset(torch.utils.data.Dataset):
             end_local = min(ep_length, local_idx + last_delta + 1)
 
             # Read contiguous slice from zarr (single I/O operation)
-            read_start = time.perf_counter() if profiler else None
+            if prof:
+                prof.start("6c_chunk_zarr_read")
             if start_local < end_local and end_local <= arr.shape[0]:
                 data = arr[start_local:end_local]
                 data_tensor = torch.as_tensor(data)
             else:
-                # Edge case: no valid data
                 data_tensor = torch.zeros((0, *sample_shape), dtype=torch.float32)
-            if profiler and read_start is not None:
-                profiler.add("zarr_read_sec", time.perf_counter() - read_start)
-                profiler.inc("action_chunk_read_count")
+            if prof:
+                prof.stop("6c_chunk_zarr_read")
+                prof.inc("action_chunk_read_count")
 
             # Fast path: if all indices are valid and contiguous, just use the slice directly
             first_target = local_idx + first_delta
             last_target = local_idx + last_delta
             all_valid = first_target >= 0 and last_target < ep_length
 
-            convert_start = time.perf_counter() if profiler else None
+            if prof:
+                prof.start("6d_chunk_tensor_process")
             if all_valid and data_tensor.shape[0] == horizon:
                 # Perfect case: slice matches exactly what we need
                 frames = data_tensor.float() if data_tensor.dtype != torch.float32 else data_tensor
@@ -787,8 +986,6 @@ class ZarrDataset(torch.utils.data.Dataset):
 
                 if valid_end_delta > valid_start_delta:
                     valid_count = valid_end_delta - valid_start_delta
-                    # The slice in data_tensor starts at max(0, first_target) - start_local = 0
-                    # when first_target >= 0, else at -first_target offset
                     src_start = max(0, first_target) - start_local
                     src_end = src_start + valid_count
                     if src_end <= data_tensor.shape[0]:
@@ -802,8 +999,8 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if valid_end_delta < horizon and data_tensor.shape[0] > 0:
                     frames[valid_end_delta:] = data_tensor[-1]
 
-            if profiler and convert_start is not None:
-                profiler.add("non_image_to_tensor_sec", time.perf_counter() - convert_start)
+            if prof:
+                prof.stop("6d_chunk_tensor_process")
 
             result[key] = frames
 
@@ -833,16 +1030,17 @@ class ZarrDataset(torch.utils.data.Dataset):
             # Get sample shape from first available store
             first_ep_idx = next(iter(groups.keys()))
             sample_store = self._get_episode_store(first_ep_idx)
-            if sample_store is None or key not in sample_store:
+            sample_arr = self._get_cached_array(first_ep_idx, sample_store, key) if sample_store else None
+            if sample_arr is None:
                 continue
 
-            if sample_store[key].dtype.kind == "O":
+            if sample_arr.dtype.kind == "O":
                 raise TypeError(
                     f"Unsupported object dtype for key '{key}'. "
                     "If this is an image array, add it to meta/info.json features with dtype='jpeg'."
                 )
 
-            sample_shape = sample_store[key].shape[1:]  # Shape excluding time dimension
+            sample_shape = sample_arr.shape[1:]  # Shape excluding time dimension
 
             # Pre-allocate output tensor
             frames = torch.empty((len(q_indices), *sample_shape), dtype=torch.float32)
@@ -850,7 +1048,8 @@ class ZarrDataset(torch.utils.data.Dataset):
             # Batch read from each episode
             for ep_idx, idx_pairs in groups.items():
                 store = self._get_episode_store(ep_idx)
-                if store is None or key not in store:
+                arr = self._get_cached_array(ep_idx, store, key) if store else None
+                if arr is None:
                     continue
 
                 local_indices = [p[0] for p in idx_pairs]
@@ -866,8 +1065,6 @@ class ZarrDataset(torch.utils.data.Dataset):
                     len(sorted_local) > 1 and
                     sorted_local == list(range(sorted_local[0], sorted_local[0] + len(sorted_local)))
                 )
-
-                arr = store[key]
                 if is_contiguous:
                     # Single slice read - much faster for contiguous data
                     start_idx = sorted_local[0]
@@ -895,13 +1092,13 @@ class ZarrDataset(torch.utils.data.Dataset):
             return {}
 
         item = {}
-        for key in self._get_all_array_keys(store):
+        for key in self._get_cached_array_keys(ep_idx, store):
             # Skip keys that are explicitly excluded
             if key in self.skip_keys:
                 continue
 
-            arr = store[key]
-            if not hasattr(arr, "dtype") or not hasattr(arr, "shape"):
+            arr = self._get_cached_array(ep_idx, store, key)
+            if arr is None or not hasattr(arr, "dtype") or not hasattr(arr, "shape"):
                 continue
             if local_idx >= arr.shape[0]:
                 continue
@@ -917,7 +1114,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                     img_np = decode_jpeg(raw_data)  # (H, W, C) uint8
                 else:
                     img_np = raw_data
-                img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
+                img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).to(torch.float32).div_(255.0)
                 item[key] = img_tensor
             else:
                 if arr.dtype.kind == "O":
@@ -952,16 +1149,16 @@ class ZarrDataset(torch.utils.data.Dataset):
             for q_idx in q_indices:
                 ep_idx, local_idx = self._global_idx_to_episode_local(q_idx)
                 store = self._get_episode_store(ep_idx)
-                if store is None or key not in store:
+                arr = self._get_cached_array(ep_idx, store, key) if store else None
+                if arr is None:
                     continue
-                arr = store[key]
                 if local_idx < arr.shape[0]:
                     raw_data = arr[local_idx]
                     if arr.dtype.kind == "O":
                         img_np = decode_jpeg(raw_data)
                     else:
                         img_np = raw_data
-                    img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).float() / 255.0
+                    img_tensor = torch.from_numpy(img_np).permute(2, 0, 1).to(torch.float32).div_(255.0)
                     frames_list.append(img_tensor)
 
             if frames_list:
@@ -1027,6 +1224,31 @@ class ZarrDataset(torch.utils.data.Dataset):
             f"    Features: '{feature_keys}',\n"
             "}})"
         )
+
+    def __getstate__(self):
+        """Prepare state for pickling (multiprocessing workers).
+
+        IMPORTANT: ZipStore objects are NOT safe to share between processes.
+        Each worker must open its own ZipStore instances.
+        """
+        state = self.__dict__.copy()
+        # Clear cached stores - workers must open their own
+        # This is critical for ZipStore which is not fork-safe
+        state["_episode_stores"] = {}
+        state["_episode_array_keys"] = {}
+        state["_episode_arrays"] = {}
+        # Clear profiler - not needed in workers
+        state["_profiler"] = None
+        # Mark that we're in a worker process
+        state["_is_worker"] = True
+        return state
+
+    def __setstate__(self, state):
+        """Restore state after unpickling."""
+        self.__dict__.update(state)
+        self._episode_stores = {}
+        self._episode_array_keys = {}
+        self._episode_arrays = {}
 
     def reset_profile(self) -> None:
         if self._profiler is not None:

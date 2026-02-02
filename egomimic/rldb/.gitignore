@@ -6,3 +6,4 @@ meta/
 *.hdf5
 *.zarr
 *.csv
+*.zip
