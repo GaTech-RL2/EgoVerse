@@ -1,0 +1,13 @@
+  dataset2:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      eva:
+        _target_: egomimic.rldb.utils.S3RLDBDataset
+        bucket_name: "rldb"
+        mode: train
+        embodiment: "eva_bimanual"
+        local_files_only: True
+        temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
+        filters: {operator: "Ryan", lab: "rl2", scene: "1", task: "fold clothes"}
+
+    embodiment: "eva_bimanual"

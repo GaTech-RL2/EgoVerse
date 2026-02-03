@@ -245,7 +245,7 @@ train_datasets:
       eva:
         _target_: egomimic.rldb.utils.S3RLDBDataset
         bucket_name: "rldb"
-        mode: total
+        mode: train
         embodiment: "eva_bimanual"
         local_files_only: True
         temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse/offline_eval_single_scene"
