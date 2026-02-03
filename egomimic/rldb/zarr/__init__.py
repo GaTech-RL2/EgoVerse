@@ -2,16 +2,10 @@
 Zarr-based dataset implementations for EgoVerse.
 """
 
-from egomimic.rldb.zarr.zarr_dataset import (
-    ZarrDataset,
-    ZarrDatasetMetadata,
-    ZarrDatasetView,
-    RLDBZarrDataset,
+from egomimic.rldb.zarr.zarr_episode import (
+    ZarrEpisode,
 )
 
 __all__ = [
-    "ZarrDataset",
-    "ZarrDatasetMetadata",
-    "ZarrDatasetView",
-    "RLDBZarrDataset",
+    "ZarrEpisode",
 ]

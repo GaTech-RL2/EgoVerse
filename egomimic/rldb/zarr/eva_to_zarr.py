@@ -232,6 +232,9 @@ class HDF5ToZarrConverter:
         # Attach metadata to zarr group attrs (Zarr v3-compatible)
         store.attrs.update(info)
 
+        # Consolidate metadata for faster loading
+        zarr.consolidate_metadata(str(episode_path))
+
         self.logger.info(f"Wrote {num_frames} frames to {episode_path}")
 
     def _find_next_episode_index(self, start_idx: int) -> int:

@@ -16,7 +16,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torch.utils.data._utils.collate import default_collate
 
 # Local imports
-from egomimic.rldb.zarr.zarr_dataset import ZarrDataset
+from egomimic.rldb.zarr.zarr_episode import ZarrDataset
 
 
 def safe_collate(batch: list[dict]) -> dict:
@@ -435,7 +435,7 @@ def main():
     # Determine which keys to skip for Zarr (need to peek at metadata first)
     zarr_skip_keys: set[str] | None = None
     if args.skip_images:
-        from egomimic.rldb.zarr.zarr_dataset import ZarrDatasetMetadata
+        from egomimic.rldb.zarr.zarr_episode import ZarrDatasetMetadata
         meta = ZarrDatasetMetadata(repo_id=zarr_path.name, root=zarr_path)
         zarr_skip_keys = set(meta.camera_keys)
 
@@ -449,7 +449,7 @@ def main():
     delta_timestamps = None
     if args.dynamic_chunks:
         # Get FPS from dataset metadata for accurate time offsets
-        from egomimic.rldb.zarr.zarr_dataset import ZarrDatasetMetadata
+        from egomimic.rldb.zarr.zarr_episode import ZarrDatasetMetadata
         meta = ZarrDatasetMetadata(repo_id=zarr_path.name, root=zarr_path)
         fps = meta.fps if hasattr(meta, 'fps') else 30
 
