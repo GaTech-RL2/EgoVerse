@@ -1,181 +1,184 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Example usage of ZarrWriter for creating Zarr v3 episode stores.
+Convert HDF5 episodes to Zarr format using ZarrWriter.
 
-This demonstrates the main use cases:
-1. Basic writing with separate numeric and image data
-2. One-shot convenience method with auto-detection
-3. Incremental writing for step-by-step episode building
+This module provides a simple utility for converting HDF5 episode files
+to the Zarr v3 format compatible with ZarrEpisode reader.
+
+Usage:
+    # Convert a single episode
+    python zarr_writer_usage.py --hdf5-path /path/to/episode.hdf5 --output-dir /output/zarr --episode-index 0
+
+    # Convert all episodes in a directory
+    python zarr_writer_usage.py --hdf5-dir /path/to/episodes --output-dir /output/zarr
 """
 
-import numpy as np
+import argparse
+import h5py
 from pathlib import Path
 from egomimic.rldb.zarr import ZarrWriter, ZarrEpisode
 
 
-def example_basic_writing():
-    """Example 1: Basic writing with explicit data separation."""
+def convert_hdf5_to_zarr(hdf5_path: str | Path, zarr_episode_path: str | Path):
+    """
+    Convert an HDF5 episode file to Zarr format.
+
+    Args:
+        hdf5_path: Path to the input HDF5 file
+        zarr_episode_path: Output path for the Zarr episode (e.g., /data/episode_000000.zarr)
+
+    Returns:
+        Path to created Zarr episode
+
+    Example:
+        >>> convert_hdf5_to_zarr(
+        ...     hdf5_path="/data/episodes/episode_000000.hdf5",
+        ...     zarr_episode_path="/data/zarr_episodes/episode_000000.zarr",
+        ... )
+    """
     print("\n" + "=" * 60)
-    print("Example 1: Basic Writing")
+    print(f"Converting HDF5 to Zarr: {hdf5_path}")
     print("=" * 60)
 
-    # Create test data
-    numeric_data = {
-        "observations.state": np.random.randn(100, 10),
-        "actions_joints": np.random.randn(100, 7),
-    }
-    image_data = {
-        "observations.images.cam1": np.random.randint(0, 255, (100, 480, 640, 3), dtype=np.uint8),
-    }
+    hdf5_path = Path(hdf5_path)
+    if not hdf5_path.exists():
+        print(f"Error: HDF5 file not found at {hdf5_path}")
+        return None
 
-    # Write episode
-    writer = ZarrWriter(
-        root_path="/tmp/zarr_examples",
-        episode_index=0,
-        total_frames=100,
-        fps=30,
-        robot_type="eva_bimanual",
-        task="pick_and_place",
-        jpeg_quality=95,
-    )
-    writer.write(numeric_data=numeric_data, image_data=image_data)
+    with h5py.File(hdf5_path, "r") as f:
+        # Read all datasets from HDF5
+        all_data = {}
 
-    print(f"Created episode at: {writer.episode_path}")
+        def collect_datasets(name, obj):
+            """Recursively collect all datasets from HDF5 file."""
+            if isinstance(obj, h5py.Dataset):
+                # Convert HDF5 path separators to dots for Zarr keys
+                key = name.replace("/", ".")
+                all_data[key] = obj[:]
+                print(f"  Found dataset: {name} -> shape {obj.shape}")
 
-    # Read back with ZarrEpisode
-    episode = ZarrEpisode(writer.episode_path)
-    print(f"Episode has {len(episode)} frames")
+        f.visititems(collect_datasets)
+
+        # Extract metadata from HDF5 attributes
+        metadata = {
+            "fps": f.attrs.get("fps", 30),
+            "robot_type": f.attrs.get("robot_type", ""),
+            "task": f.attrs.get("task", ""),
+        }
+
+        # Write to Zarr (images are auto-detected as 4D arrays with shape T×H×W×3)
+        zarr_path = ZarrWriter.create_and_write(
+            data=all_data,
+            episode_path=zarr_episode_path,
+            fps=metadata["fps"],
+            robot_type=metadata["robot_type"],
+            task=metadata["task"],
+        )
+
+    print(f"\nSuccessfully converted to: {zarr_path}")
+
+    # Verify the conversion
+    episode = ZarrEpisode(zarr_path)
+    print(f"Zarr episode has {len(episode)} frames")
     print(f"Available keys: {episode.keys}")
 
-
-def example_convenience_method():
-    """Example 2: One-shot convenience method with auto-detection."""
-    print("\n" + "=" * 60)
-    print("Example 2: Convenience Method")
-    print("=" * 60)
-
-    # Combined data - images will be auto-detected
-    all_data = {
-        "observations.state": np.random.randn(50, 10),
-        "observations.images.cam1": np.random.randint(0, 255, (50, 480, 640, 3), dtype=np.uint8),
-        "observations.images.cam2": np.random.randint(0, 255, (50, 240, 320, 3), dtype=np.uint8),
-        "actions": np.random.randn(50, 7),
-    }
-
-    # One-shot write
-    path = ZarrWriter.create_and_write(
-        data=all_data,
-        root_path="/tmp/zarr_examples",
-        episode_index=1,
-        auto_detect_images=True,  # Automatically detect 4D arrays with shape (..., H, W, 3)
-        fps=30,
-        robot_type="eva_bimanual",
-        task="bimanual_assembly",
-        jpeg_quality=90,
-    )
-
-    print(f"Created episode at: {path}")
-
-    episode = ZarrEpisode(path)
-    print(f"Episode has {len(episode)} frames")
-    print(f"Available keys: {episode.keys}")
-
-
-def example_incremental_writing():
-    """Example 3: Incremental writing for step-by-step building."""
-    print("\n" + "=" * 60)
-    print("Example 3: Incremental Writing")
-    print("=" * 60)
-
-    # Create writer
-    writer = ZarrWriter(
-        episode_path="/tmp/zarr_examples/episode_000002.zarr",
-        episode_index=2,
-        total_frames=30,
-        fps=30,
-        robot_type="eva_bimanual",
-        task="drawer_opening",
-    )
-
-    # Write arrays one at a time
-    writer.write_incremental("observations.state", np.random.randn(30, 10), is_image=False)
-    writer.write_incremental("actions", np.random.randn(30, 7), is_image=False)
-    writer.write_incremental(
-        "observations.images.cam1",
-        np.random.randint(0, 255, (30, 480, 640, 3), dtype=np.uint8),
-        is_image=True,
-    )
-
-    # Must call finalize after all incremental writes
-    writer.finalize(metadata_override={"custom_field": "custom_value"})
-
-    print(f"Created episode at: {writer.episode_path}")
-
-    episode = ZarrEpisode(writer.episode_path)
-    print(f"Episode has {len(episode)} frames")
-    print(f"Available keys: {episode.keys}")
-    print(f"Metadata: {episode.metadata}")
-
-
-def example_custom_chunking():
-    """Example 4: Custom chunking and sharding settings."""
-    print("\n" + "=" * 60)
-    print("Example 4: Custom Chunking")
-    print("=" * 60)
-
-    numeric_data = {
-        "observations.state": np.random.randn(100, 10),
-    }
-
-    # Explicit timestep-based chunking
-    writer1 = ZarrWriter(
-        root_path="/tmp/zarr_examples",
-        episode_index=3,
-        total_frames=100,
-        chunk_timesteps=10,  # Exactly 10 timesteps per chunk
-        enable_sharding=True,
-    )
-    writer1.write(numeric_data=numeric_data)
-    print(f"Created episode with chunk_timesteps=10 at: {writer1.episode_path}")
-
-    # Size-based chunking (default)
-    writer2 = ZarrWriter(
-        root_path="/tmp/zarr_examples",
-        episode_index=4,
-        total_frames=100,
-        chunk_size_mb=1.0,  # Target ~1MB per chunk
-        enable_sharding=True,
-    )
-    writer2.write(numeric_data=numeric_data)
-    print(f"Created episode with chunk_size_mb=1.0 at: {writer2.episode_path}")
-
-    # Without sharding (more chunks stored separately)
-    writer3 = ZarrWriter(
-        root_path="/tmp/zarr_examples",
-        episode_index=5,
-        total_frames=100,
-        enable_sharding=False,  # Each chunk as separate file
-    )
-    writer3.write(numeric_data=numeric_data)
-    print(f"Created episode without sharding at: {writer3.episode_path}")
+    return zarr_path
 
 
 def main():
-    """Run all examples."""
-    print("\n" + "#" * 60)
-    print("# ZarrWriter Usage Examples")
-    print("#" * 60)
+    """Main entry point for command-line usage."""
+    parser = argparse.ArgumentParser(
+        description="Convert HDF5 episodes to Zarr format",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Convert a single episode
+  %(prog)s --hdf5-path /data/episode_000000.hdf5 --output-dir /data/zarr
 
-    example_basic_writing()
-    example_convenience_method()
-    example_incremental_writing()
-    example_custom_chunking()
+  # Convert all episodes in a directory
+  %(prog)s --hdf5-dir /data/episodes --output-dir /data/zarr
+
+Expected HDF5 structure:
+  /observations/state          -> (T, state_dim)
+  /observations/images/camera  -> (T, H, W, 3) for images
+  /action                      -> (T, action_dim)
+  attributes: fps, robot_type, task
+
+Image arrays (4D with shape T×H×W×3) will be automatically detected and JPEG-compressed.
+        """
+    )
+
+    # Input arguments
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--hdf5-path",
+        type=Path,
+        help="Path to a single HDF5 episode file to convert"
+    )
+    group.add_argument(
+        "--hdf5-dir",
+        type=Path,
+        help="Directory containing HDF5 episode files (*.hdf5) to convert"
+    )
+
+    # Output arguments
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        required=True,
+        help="Output directory for Zarr episodes"
+    )
+
+    args = parser.parse_args()
+
+    # Create output directory
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Convert single file or batch
+    if args.hdf5_path:
+        # Single file conversion
+        if not args.hdf5_path.exists():
+            print(f"Error: HDF5 file not found at {args.hdf5_path}")
+            return 1
+
+        # Generate output path with same base name
+        zarr_filename = args.hdf5_path.stem + ".zarr"
+        zarr_episode_path = args.output_dir / zarr_filename
+
+        convert_hdf5_to_zarr(
+            hdf5_path=args.hdf5_path,
+            zarr_episode_path=zarr_episode_path,
+        )
+
+    else:
+        # Batch conversion
+        if not args.hdf5_dir.exists():
+            print(f"Error: Directory not found at {args.hdf5_dir}")
+            return 1
+
+        hdf5_files = sorted(args.hdf5_dir.glob("*.hdf5"))
+        if not hdf5_files:
+            print(f"Error: No HDF5 files found in {args.hdf5_dir}")
+            return 1
+
+        print(f"\nFound {len(hdf5_files)} HDF5 files to convert")
+
+        for hdf5_path in hdf5_files:
+            # Generate output path with same base name
+            zarr_filename = hdf5_path.stem + ".zarr"
+            zarr_episode_path = args.output_dir / zarr_filename
+
+            convert_hdf5_to_zarr(
+                hdf5_path=hdf5_path,
+                zarr_episode_path=zarr_episode_path,
+            )
 
     print("\n" + "=" * 60)
-    print("All examples completed successfully!")
+    print("Conversion completed successfully!")
     print("=" * 60 + "\n")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    exit(main())
