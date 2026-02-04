@@ -25,8 +25,8 @@ import logging
 import time
 from pathlib import Path
 
-import cv2
 import numpy as np
+import simplejpeg
 import zarr
 from zarr.core.dtype import VariableLengthBytes
 
@@ -180,16 +180,12 @@ class HDF5ToZarrConverter:
                 )
 
         # Write images as JPEG compressed bytes
-        jpeg_params = [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
         for key, image_frames in image_data.items():
             encoded = np.empty((len(image_frames),), dtype=object)
             for i, img in enumerate(image_frames):
-                # Convert RGB to BGR for OpenCV encoding
-                img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-                success, jpeg_bytes = cv2.imencode(".jpg", img_bgr, jpeg_params)
-                if not success:
-                    raise RuntimeError(f"Failed to encode image {i} for key {key}")
-                encoded[i] = jpeg_bytes.tobytes()
+                # Encode RGB image directly with simplejpeg
+                jpeg_bytes = simplejpeg.encode_jpeg(img, quality=self.jpeg_quality, colorspace='RGB')
+                encoded[i] = jpeg_bytes
             # Chunk per image for efficient random access
             chunk_shape = (1,)
             # zarr v3 forbids passing both data and dtype; create then assign
@@ -220,6 +216,9 @@ class HDF5ToZarrConverter:
                 "names": ["height", "width", "channel"],
             }
 
+        # Collect all keys stored in the zarr episode
+        all_keys = list(frames_data.keys()) + list(image_data.keys())
+
         info = {
             "episode_index": episode_idx,
             "fps": self.fps,
@@ -227,6 +226,7 @@ class HDF5ToZarrConverter:
             "total_frames": num_frames,
             "task": task,
             "features": features,
+            "keys": all_keys,
         }
 
         # Attach metadata to zarr group attrs (Zarr v3-compatible)
@@ -294,9 +294,8 @@ class HDF5ToZarrConverter:
 
                     img_raw = obs_value[frame_idx]
                     if self.image_compressed:
-                        # Decompress from JPEG/PNG first
-                        img_rgb = cv2.imdecode(img_raw, cv2.IMREAD_COLOR)
-                        img_rgb = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2RGB)
+                        # Decompress from JPEG/PNG using simplejpeg
+                        img_rgb = simplejpeg.decode_jpeg(img_raw, colorspace='RGB')
                     else:
                         # EvaHD5Extractor returns (C, H, W), convert to (H, W, C)
                         img_rgb = np.transpose(img_raw, (1, 2, 0))
