@@ -57,6 +57,7 @@ train_datasets:
     # root: "/cluster/work/cvg/jiaqchen/EGOMIM/data/objInBowl/objectInContainer"
     # root: "${oc.env:TMPDIR}/cup_camframe" # remember to just directly use the folder
     # root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/debug/cup_lerobot_ee_frame"
+    repo_id: "maple_lerobot_base_frame"
     root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/cup_lerobot_ee_frame"
     local_files_only: True
     mode: "train"
@@ -122,6 +123,7 @@ valid_datasets:
     # root: "${oc.env:TMPDIR}/cup_camframe"
     # root: "/capstor/store/cscs/swissai/a144/jiaqchen/data/EGOMIM/eth_lerobot/release/cup_lerobot_base_frame"
     # root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/debug/cup_lerobot_ee_frame"
+    repo_id: "maple_lerobot_base_frame_val"
     root: "/iopsstor/scratch/cscs/jiaqchen/data/EGOMIM/srl_data/output/release/cup_lerobot_ee_frame"
     local_files_only: True
     mode: "valid"
