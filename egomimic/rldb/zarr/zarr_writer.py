@@ -27,10 +27,11 @@ class ZarrWriter:
     def __init__(
         self,
         episode_path: str | Path,
+        robot_type: str = "",
         total_frames: int | None = None,
         fps: int = 30,
-        robot_type: str = "",
         task: str = "",
+        language_annotations: list[tuple[str, int, int]] | None = None,
         chunk_timesteps: int = 100,
         enable_sharding: bool = True,
     ):
@@ -39,10 +40,11 @@ class ZarrWriter:
 
         Args:
             episode_path: Path to episode .zarr directory.
+            robot_type: Robot type identifier (e.g., "eva_bimanual").
             total_frames: Total number of frames. If None, will be inferred from data.
             fps: Frames per second for playback (default: 30).
-            robot_type: Robot type identifier (e.g., "eva_bimanual").
             task: Task description.
+            language_annotations: List of (text, start_idx, end_idx) tuples describing language annotations.
             chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
             enable_sharding: Enable Zarr sharding for better cloud performance (default: True).
         """
@@ -53,6 +55,7 @@ class ZarrWriter:
         self.fps = fps
         self.robot_type = robot_type
         self.task = task
+        self.language_annotations = language_annotations or []
         self.chunk_timesteps = chunk_timesteps
         self.enable_sharding = enable_sharding
 
@@ -125,6 +128,10 @@ class ZarrWriter:
         for key, arr in image_data.items():
             self._write_image_array(store, key, arr, padded_frames)
 
+        # Write language annotations if provided
+        if self.language_annotations:
+            self._write_language_annotations(store, self.language_annotations)
+
         # Build and attach metadata
         metadata = self._build_metadata(metadata_override)
         store.attrs.update(metadata)
@@ -140,6 +147,10 @@ class ZarrWriter:
             padded_frames: Target frame count after padding (for sharding alignment).
         """
         num_frames = len(arr)
+
+        # Store original shape and dtype before padding for metadata
+        original_shape = arr.shape[1:]  # Shape excluding time dimension
+        dtype_str = str(arr.dtype)
 
         # Pad array if needed
         if padded_frames > num_frames:
@@ -169,6 +180,14 @@ class ZarrWriter:
                 data=arr,
                 chunks=chunk_shape,
             )
+
+        # Track shape and dtype for metadata
+        dimension_names = [f"dim_{i}" for i in range(len(original_shape))]
+        self._features[key] = {
+            "dtype": dtype_str,
+            "shape": list(original_shape),
+            "names": dimension_names,
+        }
 
     def _write_image_array(self, store: zarr.Group, key: str, image_arr: np.ndarray, padded_frames: int) -> None:
         """
@@ -232,6 +251,40 @@ class ZarrWriter:
             "names": ["height", "width", "channel"],
         }
 
+    def _write_language_annotations(
+        self, store: zarr.Group, annotations: list[tuple[str, int, int]]
+    ) -> None:
+        """
+        Write language annotations as a structured Zarr array.
+
+        Args:
+            store: Zarr group to write to.
+            annotations: List of (text, start_idx, end_idx) tuples.
+        """
+        # Convert to structured numpy array
+        dtype = [("text", object), ("start_idx", np.int32), ("end_idx", np.int32)]
+        arr = np.array(annotations, dtype=dtype)
+
+        # Create Zarr array with VariableLengthBytes for text field
+        zarr_dtype = np.dtype(
+            [("text", VariableLengthBytes()), ("start_idx", np.int32), ("end_idx", np.int32)]
+        )
+
+        # Store as a single structured array
+        store.create_array(
+            "language_annotations",
+            shape=arr.shape,
+            dtype=zarr_dtype,
+        )
+        store["language_annotations"][:] = arr
+
+        # Track in features
+        self._features["language_annotations"] = {
+            "dtype": "structured",
+            "shape": [len(annotations)],
+            "names": ["text", "start_idx", "end_idx"],
+        }
+
     def _build_metadata(self, metadata_override: dict[str, Any] | None = None) -> dict[str, Any]:
         """
         Build episode metadata dictionary.
@@ -243,9 +296,9 @@ class ZarrWriter:
             Metadata dictionary.
         """
         metadata = {
-            "fps": self.fps,
             "robot_type": self.robot_type,
             "total_frames": self.total_frames,
+            "fps": self.fps,
             "task": self.task,
             "features": self._features,
         }
@@ -258,47 +311,51 @@ class ZarrWriter:
 
     @staticmethod
     def create_and_write(
-        data: dict[str, np.ndarray],
         episode_path: str | Path,
-        fps: int = 30,
+        numeric_data: dict[str, np.ndarray] | None = None,
+        image_data: dict[str, np.ndarray] | None = None,
         robot_type: str = "",
+        fps: int = 30,
         task: str = "",
+        language_annotations: list[tuple[str, int, int]] | None = None,
         chunk_timesteps: int = 100,
         enable_sharding: bool = True,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
         """
-        Convenience method: create writer, separate data, and write in one call.
-
-        Automatically detects image arrays (4D with shape T×H×W×3) and separates
-        them from numeric arrays.
+        Convenience method: create writer and write in one call.
 
         Args:
-            data: Combined dictionary of all arrays.
             episode_path: Path to episode .zarr directory.
-            fps: Frames per second (default: 30).
+            numeric_data: Dictionary of numeric arrays (state, actions, etc.).
+            image_data: Dictionary of image arrays with shape (T, H, W, 3).
             robot_type: Robot type identifier.
+            fps: Frames per second (default: 30).
             task: Task description.
+            language_annotations: List of (text, start_idx, end_idx) tuples describing language annotations.
             chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
             enable_sharding: Enable Zarr sharding (default: True).
             metadata_override: Optional metadata overrides.
 
         Returns:
             Path to created episode.
-        """
-        # Auto-detect image arrays (4D with shape T×H×W×3)
-        image_keys = {k for k, arr in data.items() if arr.ndim == 4 and arr.shape[-1] == 3}
 
-        # Separate data
-        numeric_data = {k: v for k, v in data.items() if k not in image_keys}
-        image_data = {k: v for k, v in data.items() if k in image_keys}
+        Raises:
+            ValueError: If neither numeric_data nor image_data are provided.
+        """
+        # Validate we have at least some data
+        if not numeric_data and not image_data:
+            raise ValueError(
+                "Must provide at least one of: 'numeric_data' or 'image_data'"
+            )
 
         # Create writer
         writer = ZarrWriter(
             episode_path=episode_path,
-            fps=fps,
             robot_type=robot_type,
+            fps=fps,
             task=task,
+            language_annotations=language_annotations,
             chunk_timesteps=chunk_timesteps,
             enable_sharding=enable_sharding,
         )

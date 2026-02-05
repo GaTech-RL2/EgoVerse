@@ -61,7 +61,12 @@ class ZarrEpisode:
         result = {}
         for key, (start, end) in keys_with_ranges.items():
             arr = self._store[key]
-            data = arr[start:end] if end is not None else arr[start]
+            if end is not None:
+                data = arr[start:end]
+            else:
+                # Single frame read - use slicing to avoid 0D array issues with VariableLengthBytes
+                # arr[start:start+1] gives us a 1D array, then [0] extracts the actual object
+                data = arr[start:start+1][0]
             result[key] = data
 
         return result
