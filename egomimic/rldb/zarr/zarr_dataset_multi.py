@@ -39,6 +39,8 @@ import boto3
 import subprocess
 import tempfile
 import tqdm
+from datasets import DatasetDict, concatenate_datasets
+from enum import Enum
 
 from sqlalchemy import (
     Boolean,
@@ -83,8 +85,66 @@ from egomimic.rldb.data_utils import (
 
 logger = logging.getLogger(__name__)
 
-SEED = 42
+class EMBODIMENT(Enum):
+    EVE_RIGHT_ARM = 0
+    EVE_LEFT_ARM = 1
+    EVE_BIMANUAL = 2
+    ARIA_RIGHT_ARM = 3
+    ARIA_LEFT_ARM = 4
+    ARIA_BIMANUAL = 5
+    EVA_RIGHT_ARM = 6
+    EVA_LEFT_ARM = 7
+    EVA_BIMANUAL = 8
+    MECKA_BIMANUAL = 9
+    MECKA_RIGHT_ARM = 10
+    MECKA_LEFT_ARM = 11
 
+
+SEED = 42
+EMBODIMENT_ID_TO_KEY = {
+    member.value: key for key, member in EMBODIMENT.__members__.items()
+}
+
+def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
+    """
+    Split a list of dataset names into train/valid sets.
+
+
+    Args:
+        dataset_names (Iterable[str])
+        valid_ratio (float): fraction of datasets to put in valid.
+        seed (int): for deterministic shuffling.
+
+
+    Returns:
+        train_set (set[str]), valid_set (set[str])
+    """
+    names = sorted(dataset_names)
+    if not names:
+        return set(), set()
+
+    rng = random.Random(seed)
+    rng.shuffle(names)
+
+    if not (0.0 <= valid_ratio <= 1.0):
+        raise ValueError(f"valid_ratio must be in [0,1], got {valid_ratio}")
+
+    n_valid = int(len(names) * valid_ratio)
+    if valid_ratio > 0.0:
+        n_valid = max(1, n_valid)
+
+    valid = set(names[:n_valid])
+    train = set(names[n_valid:])
+    return train, valid
+
+
+def get_embodiment(index):
+    return EMBODIMENT_ID_TO_KEY.get(index, None)
+
+
+def get_embodiment_id(embodiment_name):
+    embodiment_name = embodiment_name.upper()
+    return EMBODIMENT[embodiment_name].value
 
 
 
@@ -95,7 +155,7 @@ class EpisodeResolver:
     """
     def __init__(
         self,
-        folder_path = "/coc/flash7/scratch/egoverseS3Dataset",
+        folder_path,
         bucket_name="rldb",
         main_prefix="processed_v2",
     ):
@@ -116,160 +176,91 @@ class EpisodeResolver:
         """
         
         if sync_from_s3:
-            temp_root = self.folder_path + "/S3_rldb_data"
             filters["robot_name"] = embodiment
             filters["is_deleted"] = False
-            
-            if temp_root[0] != "/":   
-                temp_root = "/" + temp_root
-            
-            temp_root = Path(temp_root)
-
-            if temp_root.is_dir():
-                logger.info(f"Using existing temp_root directory: {temp_root}")
-            if not temp_root.is_dir():
-                temp_root.mkdir()
+      
+            if self.folder_path.is_dir():
+                logger.info(f"Using existing directory: {self.folder_path}")
+            if not self.folder_path.is_dir():
+                self.folder_path.mkdir()
 
             logger.info(f"Filters: {filters}")
+
             datasets = {}
             skipped = []
             filtered_paths = self.sync_from_filters(
                 bucket_name= self.bucket_name,
                 filters=filters,
-                local_dir=temp_root,
+                local_dir=self.folder_path,
             )
-            search_path = temp_root
-
-            valid_collection_names = set()
-            for _, hashes in filtered_paths:
-                valid_collection_names.add(hashes)
-            max_workers = int(os.environ.get("RLDB_LOAD_WORKERS", "10"))
-            datasets = self._load_zarr_dataset_parallel(
-                search_path = search_path, 
-                valid_collection_names = valid_collection_names,
-                max_workers=max_workers,
-            )
-            return datasets
-
         else:
-            paths = self._get_processed_path(filters)
-            valid_collection_names = set()
-            for processed_path, episode_hash in paths:
-                valid_collection_names.add(episode_hash)
-            if not valid_collection_names:
-                raise ValueError(
-                    "No valid collection names from _get_processed_path: "
-                    "filters matched no episodes in the SQL table."
-                )
-            max_workers = int(os.environ.get("RLDB_LOAD_WORKERS", "10"))
-            datasets = self._load_zarr_dataset_parallel(
-                search_path = search_path, 
-                valid_collection_names = valid_collection_names,
-                max_workers=max_workers,
+            filtered_paths = self._get_filtered_paths(filters)
+
+        valid_hashes = set()
+        for _, hashes in filtered_paths:
+            valid_hashes.add(hashes)
+        if not valid_hashes:
+            raise ValueError(
+                "No valid collection names from _get_filtered_paths: "
+                "filters matched no episodes in the SQL table."
             )
-            return datasets
+
+        datasets = self._load_zarr_datasets(
+            search_path = self.folder_path, 
+            valid_hashes = valid_hashes,
+        )
+
+        return datasets
 
     @classmethod
-    def _load_zarr_dataset_one(
-        cls,
-        *,
-        collection_path: Path,
-        valid_collection_names: set[str],
-    ):
+    def _load_zarr_datasets(cls, *, search_path: Path, valid_hashes: set[str]):
+        
         """
-        Attempt to construct one RLDBDataset from a local folder.
+        Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
+        are present in the valid_hashes set.
 
+        Args:
+            folder_path (Path): The root folder containing candidate dataset subfolders.
+            valid_hashes (set[str]): Set of valid dataset hashes (names) to load.
 
         Returns:
-            (repo_id, dataset_or_None, skip_reason_or_None, err_str_or_None)
-        """
-        repo_id = collection_path.name
-
-        if not collection_path.is_dir():
-            return repo_id, None, "not_a_dir", None
-
-        if repo_id not in valid_collection_names:
-            return repo_id, None, "not_in_filtered_paths", None
-
-        try:
-            ds_obj = ZarrDataset(collection_path)
-
-            #Have not added embodiment logic yet    
-            # expected = get_embodiment_id(embodiment)
-            # if ds_obj.embodiment != expected:
-            #     return (
-            #         repo_id,
-            #         None,
-            #         f"embodiment_mismatch {ds_obj.embodiment} != {expected}",
-            #         None,
-            #     )
-
-            return repo_id, ds_obj, None, None
-
-        except Exception as e:
-            return repo_id, None, "exception", f"{e}\n{traceback.format_exc()}"
-
-    @classmethod
-    def _load_zarr_datasets_parallel(
-        cls,
-        *,
-        search_path: Path,
-        valid_collection_names: set[str],
-        max_workers: int,
-    ):
-        """
-        Parallelize RLDBDataset instantiation over folders in search_path.
-
-
-        Returns:
-            datasets: dict[str, RLDBDataset]
-            skipped: list[str]
+            dict[str, ZarrDataset]: a dictionary mapping string keys to constructed zarr datasets from valid filters.
         """
         all_paths = sorted(search_path.iterdir())
-        max_workers = max(1, int(max_workers))
-
-        datasets: dict[str, RLDBDataset] = {}
+        datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
-
-        def _submit_arg(p: Path):
-            return dict(
-                collection_path=p,
-                valid_collection_names=valid_collection_names,
-            )
-
-        with ThreadPoolExecutor(max_workers=max_workers) as ex:
-            futures = [
-                ex.submit(cls._load_zarr_dataset_one, **_submit_arg(p))
-                for p in all_paths
-            ]
-
-            for fut in tqdm(
-                as_completed(futures),
-                total=len(futures),
-                desc="Loading RLDBDataset",
-            ):
-                repo_id, ds_obj, reason, err = fut.result()
-
-                if ds_obj is not None:
-                    datasets[repo_id] = ds_obj
-                    continue
-
-                if reason == "not_a_dir":
-                    continue
-
-                skipped.append(repo_id)
-
-                if reason == "not_in_filtered_paths":
-                    logger.warning(f"Skipping {repo_id}: not in filtered S3 paths")
-                elif reason and reason.startswith("embodiment_mismatch"):
-                    logger.warning(f"Skipping {repo_id}: {reason}")
-                else:
-                    logger.error(f"Failed to load {repo_id} as RLDBDataset:\n{err}")
-
+        for p in all_paths:
+            if not p.is_dir():
+                logger.info(f"{p} is not a valid directory")
+                skipped.append(p.name)
+                continue
+            if p.name not in valid_hashes:
+                logger.info(f"{p} is not in the list of filtered paths") 
+                skipped.append(p.name)
+                continue     
+            try:
+                ds_obj = ZarrDataset(p)
+                datasets[p.name] = ds_obj
+            except Exception as e:
+                logger.error(f"Failed to load dataset at {p}: {e}")
+                skipped.append(p.name)
+            
         return datasets, skipped
 
     @staticmethod
-    def _get_processed_path(filters):
+    def _get_filtered_paths(filters):
+        """
+        Filters episodes from the SQL episode table according to the criteria specified in `filters`
+        and returns a list of (processed_path, episode_hash) tuples for episodes that match and have
+        a non-null processed_path.
+
+        Args:
+            filters (dict): Dictionary of filter key-value pairs to apply on the episode table.
+
+        Returns:
+            list[tuple[str, str]]: List of tuples, each containing (processed_path, episode_hash)
+                                   for episodes passing the filter criteria.
+        """
         engine = create_default_engine()
         df = episode_table_to_df(engine)
         series = pd.Series(filters)
@@ -288,64 +279,6 @@ class EpisodeResolver:
         logger.info(f"Paths: {paths}")
         return paths
 
-    @staticmethod
-    def _download_files(bucket_name, s3_prefix, local_dir):
-        """
-        Downloads all files from a specific S3 prefix to a local directory.
-        """
-
-    def decode_jpeg(data) -> np.ndarray:
-        """Decode JPEG image to numpy array using OpenCV.
-
-        Args:
-            bucket_name (str): The AWS S3 bucket name
-            s3_prefix (str): The S3 prefix path to download from (e.g., "processed/fold_cloth/dataset1/meta/")
-            local_dir (Path): The local directory to save files to
-        """
-        s3 = boto3.client("s3")
-
-        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=s3_prefix)
-        objects = response.get("Contents", [])
-
-        if not objects:
-            logger.warning(f"No objects found for prefix: {s3_prefix}")
-            return
-
-        for obj in objects:
-            key = obj["Key"]
-
-            if key.endswith("/"):
-                logger.debug(f"Skipping directory: {key}")
-                continue
-
-            if key == s3_prefix or key == s3_prefix.rstrip("/"):
-                logger.debug(f"Skipping prefix path: {key}")
-                continue
-
-            local_file_path = local_dir / Path(key).name
-
-            # Check if file already exists and is not empty, solves race condition of multiple processes downloading the same file
-            try:
-                if local_file_path.exists() and local_file_path.stat().st_size > 0:
-                    logger.debug(
-                        f"File already exists, skipping: {key} -> {local_file_path}"
-                    )
-                    continue
-
-                s3.download_file(bucket_name, key, str(local_file_path))
-                logger.debug(f"Successfully downloaded: {key}")
-            except FileNotFoundError as e:
-                if local_file_path.exists() and local_file_path.stat().st_size > 0:
-                    logger.debug(f"File downloaded by another process, skipping: {key}")
-                else:
-                    logger.error(f"Failed to download {key}: {e}")
-            except Exception as e:
-                if local_file_path.exists() and local_file_path.stat().st_size > 0:
-                    logger.debug(
-                        f"File downloaded by another process after error: {key}"
-                    )
-                else:
-                    logger.error(f"Failed to download {key}: {e}")
 
     @classmethod
     def _sync_s3_to_local(cls, bucket_name, s3_paths, local_dir: Path):
@@ -405,21 +338,15 @@ class EpisodeResolver:
             except Exception as e:
                 logger.warning("Failed to delete batch file %s: %s", batch_path, e)
 
+
+    """
+    TODO: add more robust logic when the full folder logic is fleshed out
+    """
     @classmethod
     def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:
         ep = local_dir / episode_hash
-        meta = ep / "meta"
-        chunk0 = ep / "data" / "chunk-000"
 
-        if not meta.is_dir() or not chunk0.is_dir():
-            return False
-
-        try:
-            if not any(meta.iterdir()):
-                return False
-            if not any(chunk0.iterdir()):
-                return False
-        except FileNotFoundError:
+        if not ep.isdir():
             return False
 
         return True
@@ -444,7 +371,7 @@ class EpisodeResolver:
         """
 
         # 1) Resolve episodes from DB
-        filtered_paths = cls._get_processed_path(filters)
+        filtered_paths = cls._get_filtered_paths(filters)
         if not filtered_paths:
             logger.warning("No episodes matched filters.")
             return []
@@ -464,16 +391,28 @@ class EpisodeResolver:
         return filtered_paths
 
 
-class MultiZarrDataset(torch.utils.data.Dataset):
+class MultiDataset(torch.utils.data.Dataset):
     """
-    Self wrapping MultiZarr Dataset, can wrap zarr or multi dataset. 
+    Self wrapping MultiDataset, can wrap zarr or multi dataset. 
     note: I am not adding embodiments yet because to match would require something beyond current zarr dataset lazy loading
     """
-    def __init__(self, datasets, key_map=None):
+    def __init__(self, 
+        datasets,
+        embodiment,
+        mode="train",
+        percent=0.1,
+        key_map=None,
+        valid_ratio=0.2,
+        **kwargs,):
         """
         Args:
-            datasets: either multi or zarr datasets, can mix and match
-            key_map (dict, optional): Mapping from source dataset keys to unified keys, if remapping is needed.
+            datasets (dict): Dictionary mapping unique dataset hashes (str) to dataset objects. Datasets can be individual Zarr datasets or other multi-datasets; mixing different types is supported.
+            embodiment (str or int): The embodiment type or ID associated with all datasets (e.g., robot name or numeric ID).
+            mode (str, optional): Split mode to use (e.g., "train", "valid"). Defaults to "train".
+            percent (float, optional): Fraction of the dataset to use from each underlying dataset. Defaults to 0.1.
+            key_map (dict, optional): If provided, a dictionary of per-dataset key mapping dicts for remapping source dataset keys to unified keys. Keyed by dataset hash.
+            valid_ratio (float, optional): Validation split ratio for datasets that support a train/valid split.
+            **kwargs: Additional keyword arguments passed to underlying dataset constructors if needed.
         """
         self.datasets = datasets
         self.key_map = key_map
@@ -482,6 +421,39 @@ class MultiZarrDataset(torch.utils.data.Dataset):
         for dataset_name, dataset in self.datasets.items():
             for local_idx in range(len(dataset)):
                 self.index_map.append((dataset_name, local_idx))
+
+        #self.zarr_dataset = self._merge_datasets()
+        self.train_collections, self.valid_collections = split_dataset_names(
+            datasets.keys(), valid_ratio=valid_ratio, seed=SEED
+        )
+
+        if mode == "train":
+            chosen = self.train_collections
+        elif mode == "valid":
+            chosen = self.valid_collections
+        elif mode == "total":
+            chosen = set(datasets.keys())
+        elif mode == "percent":
+            all_names = sorted(datasets.keys())
+            rng = random.Random(SEED)
+            rng.shuffle(all_names)
+
+            n_keep = int(len(all_names) * percent)
+            if percent > 0.0:
+                n_keep = max(1, n_keep)
+            chosen = set(all_names[:n_keep])
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+        datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
+        assert datasets, "No datasets left after applying mode split."
+
+        self.key_map = (
+            {repo_id: key_map for repo_id in datasets} if key_map else None
+        )
+
+
+        super().__init__()
 
     def __len__(self) -> int:
         return len(self.index_map)
@@ -497,6 +469,27 @@ class MultiZarrDataset(torch.utils.data.Dataset):
 
         return data
 
+    def _merge_datasets(self):
+        """
+        Merge zarrdatasets from multiple RLDBDataset instances while remapping keys.
+
+
+        Returns:
+            A unified MultiDataset
+        """
+        dataset_list = []
+
+        for dataset_name, sub_dataset in self.datasets.items():
+            # Apply key mapping if available
+            if self.key_map and dataset_name in self.key_map:
+                key_map = self.key_map[dataset_name]
+                sub_dataset = sub_dataset.rename_columns(key_map)
+
+            dataset_list.append(sub_dataset)
+
+        merged_dataset = concatenate_datasets(dataset_list)
+
+        return merged_dataset
 
 
 class ZarrDataset(torch.utils.data.Dataset):
@@ -510,32 +503,101 @@ class ZarrDataset(torch.utils.data.Dataset):
             episode_path: just a path to the designated zarr episode
         """
         self.episode_path = Episode_path
+        self.metadata = None
         # should probably initialize embodiment here but I'm just lazy loading path and don't want to read yet
         super().__init__()
 
+    def init_episode(self):
+        """
+        inits the zarr episode and all the metadata associated, as well as total_frames for len
+        """
+        self.episode_reader = ZarrEpisode(self.episode_path)
+        self.metadata = self.episode_reader.metadata
+        self.total_frames = self.metadata["total_frames"]
+        self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
 
     def __len__(self) -> int:
         if self.total_frames.exists():
             return self.total_frames
         else:
-            json_path = self.episode_path / "zarr.json"
-            if json_path.exists():
-                with open(json_path, "r") as f:
-                    ep_info = json.load(f).get("attributes", {})
-                    self.total_frames = ep_info.get("total_frames", 0)
-
+            self.init_episode()
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        episode_reader = ZarrEpisode(self.episode_path)
-        data = episode_reader.read(idx)
-        # Squeeze batch dim to single frame
-        out = {}
+        if not self.episode_rader.exists():
+            self.init_episode()
+        
+        self.keys_dict = {k: (idx, None) for k in self.episode_reader._collect_keys()}
+        data = self.episode_reader.read(self.keys_dict)
+        
+        # Convert all numpy arrays in data to torch tensors
         for k, v in data.items():
-            if isinstance(v, torch.Tensor) and v.dim() > 0 and v.shape[0] == 1:
-                out[k] = v[0]
-            else:
-                out[k] = v
-        return out
+            if isinstance(v, np.ndarray):
+                data[k] = torch.from_numpy(v)
+        return data
 
 
 
+class ZarrEpisode:
+    """
+    Lightweight wrapper around a single Zarr episode store.
+    Designed for efficient PyTorch DataLoader usage with direct store access.
+    """
+    __slots__ = (
+        "_path",
+        "_store",
+        "metadata",
+        "keys",
+    )
+    def __init__(self, path: str | Path):
+        """
+        Initialize ZarrEpisode wrapper.
+        Args:
+            path: Path to the .zarr episode directory
+        """
+        self._path = Path(path)
+        self._store = zarr.open_group(str(self._path), mode='r')
+        self.metadata = dict(self._store.attrs)
+        # self.keys = self._collect_keys()
+        self.keys = self.metadata["features"]
+    def read(self, keys_with_ranges: dict[str, tuple[int, int | None]]) -> dict[str, np.ndarray]:
+        """
+        Read data for specified keys, each with their own index or range.
+        Args:
+            keys_with_ranges: Dictionary mapping keys to (start, end) tuples.
+                - start: Starting frame index
+                - end: Ending frame index (exclusive). If None, reads single frame at start.
+        Returns:
+            Dictionary mapping keys to numpy arrays
+        Example:
+            >>> episode.read({
+            ...     "obs/image": (0, 10),      # Read frames 0-10
+            ...     "actions": (5, 15),        # Read frames 5-15
+            ...     "rewards": (20, None),     # Read single frame at index 20
+            ... })
+        """
+        result = {}
+        for key, (start, end) in keys_with_ranges.items():
+            arr = self._store[key]
+            data = arr[start:end] if end is not None else arr[start]
+            result[key] = data
+        return result
+    def _collect_keys(self) -> list[str]:
+        """
+        Collect all array keys from the store.
+        Returns:
+            List of array keys (flat structure with dot-separated names)
+        """
+        keys = []
+        for name in self._store.array_keys():
+            keys.append(name)
+        return keys
+    def __len__(self) -> int:
+        """
+        Get total number of frames in the episode.
+        Returns:
+            Number of frames
+        """
+        return self.metadata['total_frames']
+    def __repr__(self) -> str:
+        """String representation of the episode."""
+        return f"ZarrEpisode(path={self._path}, frames={len(self)})"
