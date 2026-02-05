@@ -1,22 +1,32 @@
 #!/usr/bin/env python3
 """
-Benchmark Zarr vs LeRobot data loading speed for forward pass simulation.
+Benchmark Zarr data loading speed for forward pass simulation.
+
+Uses ZarrDataset from zarr_dataset_multi.py for per-episode Zarr loading.
 
 Measures:
 1. DataLoader throughput: Shuffled DataLoader simulating training
+2. Per-sample loading breakdown with profiling
 """
 
 import argparse
 import time
 from pathlib import Path
 
+import psutil
 import torch
 from torch.profiler import profile, ProfilerActivity
 from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torch.utils.data._utils.collate import default_collate
 
 # Local imports
-from egomimic.rldb.zarr.zarr_dataset import ZarrDataset
+from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset, ZarrEpisode
+
+
+def get_memory_mb() -> float:
+    """Get current process memory usage in MB."""
+    process = psutil.Process()
+    return process.memory_info().rss / (1024 * 1024)
 
 
 def safe_collate(batch: list[dict]) -> dict:
@@ -42,23 +52,6 @@ def _infer_batch_size(batch) -> int:
     return 0
 
 
-class DropKeysDataset(Dataset):
-    """Wrapper dataset that removes keys from dict samples."""
-
-    def __init__(self, base: Dataset, drop_predicate):
-        self.base = base
-        self.drop_predicate = drop_predicate
-
-    def __len__(self):
-        return len(self.base)
-
-    def __getitem__(self, idx):
-        item = self.base[idx]
-        if not isinstance(item, dict):
-            return item
-        return {k: v for k, v in item.items() if not self.drop_predicate(k)}
-
-
 def benchmark_dataloader(
     dataset: Dataset,
     num_samples: int,
@@ -77,7 +70,6 @@ def benchmark_dataloader(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        # pin_memory=True,
         collate_fn=collate_fn,
         prefetch_factor=prefetch_factor if num_workers > 0 else None,
     )
@@ -96,15 +88,20 @@ def benchmark_dataloader(
             batch_iter = iter(dataloader)
             _ = next(batch_iter)
 
+    # Record memory before benchmark
+    memory_start_mb = get_memory_mb()
+
     # Benchmark
     compute_info = f", simulated_compute={simulated_compute_sec}s" if simulated_compute_sec > 0 else ""
     print(f"  Benchmarking {benchmark_batches} batches (batch_size={batch_size}, workers={num_workers}, prefetch={prefetch_factor}{compute_info})...")
     samples_processed = 0
     progress_step = max(1, benchmark_batches // 10)
     total_loading_time = 0.0
+    peak_memory_mb = memory_start_mb
+    memory_samples = []
 
     def run_benchmark_loop():
-        nonlocal samples_processed, total_loading_time, batch_iter
+        nonlocal samples_processed, total_loading_time, batch_iter, peak_memory_mb
         for i in range(benchmark_batches):
             load_start = time.perf_counter()
             try:
@@ -113,6 +110,12 @@ def benchmark_dataloader(
                 batch_iter = iter(dataloader)
                 batch = next(batch_iter)
             total_loading_time += time.perf_counter() - load_start
+
+            # Track memory usage
+            current_memory_mb = get_memory_mb()
+            peak_memory_mb = max(peak_memory_mb, current_memory_mb)
+            if i % max(1, benchmark_batches // 20) == 0:  # Sample memory periodically
+                memory_samples.append(current_memory_mb)
 
             # Count actual samples in batch (last batch may be smaller)
             batch_samples = _infer_batch_size(batch)
@@ -151,6 +154,11 @@ def benchmark_dataloader(
     actual_overhead = total_elapsed - expected_compute_time
     avg_overhead_per_batch = actual_overhead / benchmark_batches if benchmark_batches > 0 else 0
 
+    # Memory statistics
+    memory_end_mb = get_memory_mb()
+    memory_delta_mb = memory_end_mb - memory_start_mb
+    avg_memory_mb = sum(memory_samples) / len(memory_samples) if memory_samples else memory_end_mb
+
     return {
         "batches_per_sec": batches_per_sec,
         "samples_processed": samples_processed,
@@ -159,47 +167,12 @@ def benchmark_dataloader(
         "total_elapsed_sec": total_elapsed,
         "total_loading_time_sec": total_loading_time,
         "simulated_compute_sec": simulated_compute_sec,
+        "memory_start_mb": memory_start_mb,
+        "memory_end_mb": memory_end_mb,
+        "peak_memory_mb": peak_memory_mb,
+        "memory_delta_mb": memory_delta_mb,
+        "avg_memory_mb": avg_memory_mb,
     }
-
-
-def build_lerobot_dataset(root: Path, max_episodes: int | None = None) -> tuple[Dataset, str]:
-    """Load a LeRobot dataset from a root, supporting per-episode subdirs."""
-    from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-
-    root = root.resolve()
-    info_path = root / "meta" / "info.json"
-    if info_path.exists():
-        dataset = LeRobotDataset(
-            repo_id=root.name,
-            root=root,
-            local_files_only=True,
-        )
-        return dataset, f"LeRobot ({root})"
-
-    episode_dirs = [
-        path
-        for path in sorted(root.iterdir())
-        if path.is_dir() and (path / "meta" / "info.json").exists()
-    ]
-    if not episode_dirs:
-        raise FileNotFoundError(
-            f"Could not find meta/info.json in {root} or any immediate subdirectories."
-        )
-
-    # Limit episodes if requested
-    if max_episodes is not None:
-        episode_dirs = episode_dirs[:max_episodes]
-
-    datasets = []
-    for episode_dir in episode_dirs:
-        datasets.append(
-            LeRobotDataset(
-                repo_id=f"{root.name}/{episode_dir.name}",
-                root=episode_dir,
-                local_files_only=True,
-            )
-        )
-    return ConcatDataset(datasets), f"LeRobot ({root}/*, {len(datasets)} episodes)"
 
 
 def run_benchmarks(
@@ -260,7 +233,7 @@ def print_results_table(results: list[dict]) -> None:
         return
 
     # Build table data
-    headers = ["Metric"] + ["Zarr" if "Zarr" in r["name"] else "LeRobot" for r in valid_results]
+    headers = ["Metric"] + [r["name"] for r in valid_results]
     rows = []
 
     # Total frames
@@ -277,6 +250,13 @@ def print_results_table(results: list[dict]) -> None:
     rows.append(["Total time (s)"] + [f"{r['dataloader']['total_elapsed_sec']:.2f}" for r in valid_results])
     rows.append(["Samples processed"] + [f"{r['dataloader']['samples_processed']:,}" for r in valid_results])
 
+    # Memory metrics
+    rows.append(["Memory start (MB)"] + [f"{r['dataloader']['memory_start_mb']:.1f}" for r in valid_results])
+    rows.append(["Memory end (MB)"] + [f"{r['dataloader']['memory_end_mb']:.1f}" for r in valid_results])
+    rows.append(["Peak memory (MB)"] + [f"{r['dataloader']['peak_memory_mb']:.1f}" for r in valid_results])
+    rows.append(["Memory delta (MB)"] + [f"{r['dataloader']['memory_delta_mb']:+.1f}" for r in valid_results])
+    rows.append(["Avg memory (MB)"] + [f"{r['dataloader']['avg_memory_mb']:.1f}" for r in valid_results])
+
     # Calculate column widths
     col_widths = [max(len(str(row[i])) for row in [headers] + rows) for i in range(len(headers))]
 
@@ -289,32 +269,132 @@ def print_results_table(results: list[dict]) -> None:
     print("=" * (sum(col_widths) + 3 * len(col_widths) + 1))
 
 
+def build_zarr_dataset(
+    root: Path,
+    max_episodes: int | None = None,
+    action_horizon: int | None = None,
+) -> tuple[Dataset, str, int]:
+    """
+    Load Zarr dataset from root directory.
+
+    Supports two structures:
+    1. Single episode: root is a .zarr directory
+    2. Multiple episodes: root contains multiple .zarr directories
+
+    Args:
+        root: Path to dataset root
+        max_episodes: Maximum number of episodes to load (for debugging)
+        action_horizon: Number of future action timesteps to load per sample
+
+    Returns:
+        Tuple of (dataset, name, num_episodes)
+    """
+    root = root.resolve()
+
+    # Check if root itself is a .zarr episode
+    if root.suffix == ".zarr":
+        print(f"  Loading single episode: {root.name}")
+        dataset = ZarrDataset(str(root), action_horizon=action_horizon)
+        return dataset, f"Zarr ({root.name})", 1
+
+    # Look for .zarr episode directories
+    episode_dirs = sorted([
+        path for path in root.iterdir()
+        if path.is_dir() and path.suffix == ".zarr"
+    ])
+
+    if not episode_dirs:
+        raise FileNotFoundError(
+            f"No .zarr episode directories found in {root}"
+        )
+
+    # Limit episodes if requested
+    if max_episodes is not None:
+        episode_dirs = episode_dirs[:max_episodes]
+
+    print(f"  Found {len(episode_dirs)} episodes")
+
+    datasets = []
+    total_frames = 0
+    for i, episode_dir in enumerate(episode_dirs):
+        if (i + 1) % max(1, len(episode_dirs) // 10) == 0 or i == 0:
+            print(f"    Loading episode {i + 1}/{len(episode_dirs)}: {episode_dir.name}")
+        ds = ZarrDataset(str(episode_dir), action_horizon=action_horizon)
+        datasets.append(ds)
+        total_frames += len(ds)  # Triggers init_episode during loop with progress output
+
+    print(f"  Total frames: {total_frames:,}")
+    print(f"  Creating ConcatDataset...")
+    dataset = ConcatDataset(datasets)  # Now fast - lengths already cached
+    return dataset, f"Zarr ({root.name}, {len(datasets)} episodes)", len(datasets)
+
+
+def profile_single_episode(
+    episode_path: Path,
+    num_samples: int = 100,
+) -> None:
+    """Profile loading performance for a single episode."""
+    print(f"\n== Profiling Single Episode ==")
+    print(f"Episode: {episode_path.name}")
+
+    dataset = ZarrDataset(str(episode_path))
+    total_frames = len(dataset)
+    num_samples = min(num_samples, total_frames)
+
+    print(f"Total frames: {total_frames}")
+    print(f"Profiling {num_samples} samples...")
+
+    # Warmup
+    for i in range(min(10, num_samples)):
+        _ = dataset[i]
+
+    # Profile
+    times = []
+    for i in range(num_samples):
+        start = time.perf_counter()
+        _ = dataset[i]
+        elapsed = time.perf_counter() - start
+        times.append(elapsed)
+
+    times = sorted(times)
+    print(f"\nLoading time per sample:")
+    print(f"  Min:    {times[0]*1000:.2f}ms")
+    print(f"  Median: {times[len(times)//2]*1000:.2f}ms")
+    print(f"  Mean:   {sum(times)/len(times)*1000:.2f}ms")
+    print(f"  P95:    {times[int(len(times)*0.95)]*1000:.2f}ms")
+    print(f"  Max:    {times[-1]*1000:.2f}ms")
+
+
 def main():
     # Check multiprocessing context
     import torch.multiprocessing as mp
     print(f"Multiprocessing start method: {mp.get_start_method()}")
 
     parser = argparse.ArgumentParser(
-        description="Benchmark Zarr vs LeRobot data loading speed for forward pass simulation"
+        description="Benchmark Zarr data loading speed for forward pass simulation",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Benchmark single episode
+  %(prog)s --zarr-path /data/episode_000000.zarr
+
+  # Benchmark multiple episodes
+  %(prog)s --zarr-path /data/zarr_episodes --max-episodes 10
+
+  # Profile single episode
+  %(prog)s --zarr-path /data/episode_000000.zarr --profile-episode
+
+  # Benchmark with simulated compute
+  %(prog)s --zarr-path /data/zarr_episodes --simulated-compute 0.05
+        """
     )
 
-    # Dataset sources
+    # Dataset source
     parser.add_argument(
         "--zarr-path",
         type=str,
         required=True,
-        help="Path to local zarr dataset",
-    )
-    parser.add_argument(
-        "--lerobot-path",
-        type=str,
-        default=None,
-        help="Path to a local LeRobot dataset root (e.g., /path/to/dataset)",
-    )
-    parser.add_argument(
-        "--skip-lerobot",
-        action="store_true",
-        help="Skip LeRobot dataset loading and benchmarking (Zarr only)",
+        help="Path to Zarr dataset (single .zarr episode or directory containing episodes)",
     )
 
     # Benchmark parameters
@@ -343,11 +423,11 @@ def main():
         help="DataLoader prefetch factor (default: 2)",
     )
     parser.add_argument(
-    "--simulated-compute",
-    type=float,
-    default=0.0,
-    help="Simulated forward/backward pass time in seconds per batch (default: 0.0). "
-            "Use this to test whether data loading can keep up with GPU compute.",
+        "--simulated-compute",
+        type=float,
+        default=0.0,
+        help="Simulated forward/backward pass time in seconds per batch (default: 0.0). "
+             "Use this to test whether data loading can keep up with GPU compute.",
     )
     parser.add_argument(
         "--warmup",
@@ -356,45 +436,10 @@ def main():
         help="Warmup iterations before timing (default: 10)",
     )
     parser.add_argument(
-        "--skip-images",
-        action="store_true",
-        help="Drop image keys from samples to avoid decode overhead",
-    )
-    parser.add_argument(
-        "--profile-zarr",
-        action="store_true",
-        help="Profile Zarr __getitem__ time breakdown in-process (num_workers=0)",
-    )
-    parser.add_argument(
-        "--profile-samples",
-        type=int,
-        default=100,
-        help="Number of samples to profile for Zarr breakdown",
-    )
-    parser.add_argument(
         "--max-episodes",
         type=int,
         default=None,
-        help="Limit number of episode folders to load (for debugging)",
-    )
-    parser.add_argument(
-        "--dynamic-chunks",
-        action="store_true",
-        help="Enable dynamic action chunking (load action sequences at runtime). "
-             "Use this when benchmarking datasets with prestack=False.",
-    )
-    parser.add_argument(
-        "--action-horizon",
-        type=int,
-        default=100,
-        help="Number of future action timesteps to load when --dynamic-chunks is enabled",
-    )
-    parser.add_argument(
-        "--action-keys",
-        type=str,
-        nargs="+",
-        default=["actions_base_cartesian", "actions_joints"],
-        help="Action keys to apply dynamic chunking to",
+        help="Limit number of episode directories to load (for debugging)",
     )
     parser.add_argument(
         "--pytorch-profile",
@@ -407,146 +452,57 @@ def main():
         default=None,
         help="Path to save PyTorch profiler trace (for Chrome trace viewer)",
     )
+    parser.add_argument(
+        "--profile-episode",
+        action="store_true",
+        help="Profile single-episode loading performance (requires single .zarr path)",
+    )
+    parser.add_argument(
+        "--profile-samples",
+        type=int,
+        default=100,
+        help="Number of samples to profile for single-episode profiling",
+    )
+    parser.add_argument(
+        "--action-horizon",
+        type=int,
+        default=None,
+        help="Number of future action timesteps to load per sample (enables dynamic chunking)",
+    )
 
     args = parser.parse_args()
 
-    # Validate arguments
-    if not args.skip_lerobot and args.lerobot_path is None:
-        parser.error("--lerobot-path is required unless --skip-lerobot is specified")
+    # Display action chunking info if enabled
+    if args.action_horizon is not None:
+        print(f"NOTE: Action chunking enabled (horizon={args.action_horizon})")
+        print("  - actions_base_cartesian and actions_joints will be loaded as sequences")
+        print(f"  - Shape: (action_horizon={args.action_horizon}, action_dim)\n")
 
-    if args.skip_lerobot:
-        print("=== Zarr Forward Pass Benchmark ===")
-    else:
-        print("=== Zarr vs LeRobot Forward Pass Benchmark ===")
-    if args.skip_images:
-        print("\nNOTE: --skip-images enabled")
-        print("  - Zarr: truly skips image loading (no I/O, no decode)")
-        print("  - LeRobot: still decodes video frames, then drops them (no skip_keys support)")
-
-    if args.dynamic_chunks:
-        print("\nNOTE: --dynamic-chunks enabled")
-        print(f"  - Loading {args.action_horizon} future actions per sample")
-        print(f"  - Action keys: {', '.join(args.action_keys)}")
-        print("  - This simulates runtime action chunking for prestack=False datasets")
+    print("=== Zarr Forward Pass Benchmark ===\n")
 
     zarr_path = Path(args.zarr_path).resolve()
-    lerobot_path = Path(args.lerobot_path).resolve() if args.lerobot_path else None
 
-    # Determine which keys to skip for Zarr (need to peek at metadata first)
-    zarr_skip_keys: set[str] | None = None
-    if args.skip_images:
-        from egomimic.rldb.zarr.zarr_dataset import ZarrDatasetMetadata
-        meta = ZarrDatasetMetadata(repo_id=zarr_path.name, root=zarr_path)
-        zarr_skip_keys = set(meta.camera_keys)
+    # Profile single episode if requested
+    if args.profile_episode:
+        if not zarr_path.suffix == ".zarr":
+            parser.error("--profile-episode requires a single .zarr episode path")
+        profile_single_episode(zarr_path, num_samples=args.profile_samples)
+        return
 
-    # Determine episodes to load if max_episodes is set
-    zarr_episodes = None
-    if args.max_episodes is not None:
-        zarr_episodes = list(range(args.max_episodes))
-        print(f"\nNOTE: --max-episodes={args.max_episodes} (loading limited episodes for debugging)")
-
-    # Configure temporal windowing for dynamic chunks
-    delta_timestamps = None
-    if args.dynamic_chunks:
-        # Get FPS from dataset metadata for accurate time offsets
-        from egomimic.rldb.zarr.zarr_dataset import ZarrDatasetMetadata
-        meta = ZarrDatasetMetadata(repo_id=zarr_path.name, root=zarr_path)
-        fps = meta.fps if hasattr(meta, 'fps') else 30
-
-        # Build delta_timestamps dict for action keys
-        # Load actions from current frame (t=0) to future frames
-        delta_timestamps = {}
-        for action_key in args.action_keys:
-            # Create time offsets: [0.0, 1/fps, 2/fps, ..., (horizon-1)/fps]
-            time_offsets = [i / fps for i in range(args.action_horizon)]
-            delta_timestamps[action_key] = time_offsets
-
-        print(f"\nDynamic chunks configuration:")
-        print(f"  Action horizon: {args.action_horizon} timesteps")
-        print(f"  Action keys: {args.action_keys}")
-        print(f"  FPS: {fps}")
-        print(f"  Time offsets: {len(time_offsets)} points over {time_offsets[-1]:.2f}s")
-
-    print("\nLoading Zarr dataset...")
+    # Load dataset
+    print("Loading Zarr dataset...")
     zarr_init_start = time.perf_counter()
-    zarr_dataset = ZarrDataset(
-        repo_id=zarr_path.name,
-        root=zarr_path,
-        profile=args.profile_zarr,
-        skip_keys=zarr_skip_keys,
-        episodes=zarr_episodes,
-        delta_timestamps=delta_timestamps,
+    zarr_dataset, zarr_name, num_episodes = build_zarr_dataset(
+        zarr_path,
+        max_episodes=args.max_episodes,
+        action_horizon=args.action_horizon,
     )
     zarr_init_time = time.perf_counter() - zarr_init_start
     print(f"  Initialization time: {zarr_init_time:.3f}s")
 
-    lerobot_dataset = None
-    lerobot_name = None
-    lerobot_init_time = None
-    if not args.skip_lerobot:
-        print("\nLoading LeRobot dataset...")
-        lerobot_init_start = time.perf_counter()
-        lerobot_dataset, lerobot_name = build_lerobot_dataset(lerobot_path, max_episodes=args.max_episodes)
-        lerobot_init_time = time.perf_counter() - lerobot_init_start
-        print(f"  Initialization time: {lerobot_init_time:.3f}s")
-
-        if args.skip_images:
-            lerobot_dataset = DropKeysDataset(
-                lerobot_dataset,
-                drop_predicate=lambda k: k.startswith("observation.images."),
-            )
-
-    if args.profile_zarr:
-        num_profile = min(args.profile_samples, len(zarr_dataset))
-        print(f"\nProfiling Zarr __getitem__ on {num_profile} samples (num_workers=0)...")
-        zarr_dataset.reset_profile()
-        start = time.perf_counter()
-        for i in range(num_profile):
-            _ = zarr_dataset[i]
-        elapsed = time.perf_counter() - start
-
-        print(f"\n  Total wall time: {elapsed:.3f}s ({num_profile} samples)")
-        print(f"  Avg per sample: {elapsed/num_profile*1000:.2f}ms")
-
-        # Use the detailed profiler print method
-        if hasattr(zarr_dataset, '_profiler') and zarr_dataset._profiler is not None:
-            zarr_dataset._profiler.print_summary(elapsed)
-
-        # Test parallel loading to detect NFS contention
-        print("\n" + "=" * 70)
-        print("PARALLEL LOADING TEST (detecting I/O contention)")
-        print("=" * 70)
-        import random
-        from concurrent.futures import ThreadPoolExecutor
-        import multiprocessing as mp
-
-        test_indices = random.sample(range(len(zarr_dataset)), min(100, len(zarr_dataset)))
-
-        # Sequential baseline
-        start = time.perf_counter()
-        for idx in test_indices[:50]:
-            _ = zarr_dataset[idx]
-        seq_time = time.perf_counter() - start
-        print(f"\nSequential (50 samples): {seq_time:.3f}s ({seq_time/50*1000:.1f}ms/sample)")
-
-        # Threaded (will show GIL contention)
-        def load_sample(idx):
-            return zarr_dataset[idx]
-
-        for n_threads in [2, 4, 8]:
-            start = time.perf_counter()
-            with ThreadPoolExecutor(max_workers=n_threads) as ex:
-                list(ex.map(load_sample, test_indices[:50]))
-            threaded_time = time.perf_counter() - start
-            speedup = seq_time / threaded_time
-            print(f"Threaded ({n_threads} workers, 50 samples): {threaded_time:.3f}s ({threaded_time/50*1000:.1f}ms/sample) - {speedup:.1f}x vs sequential")
-
-        print("\nIf speedup << num_workers, there's I/O contention (NFS serialization)")
-        print("=" * 70)
-
-    results = []
-    zarr_result = run_benchmarks(
-        name=f"Zarr ({zarr_path})",
+    # Run benchmark
+    result = run_benchmarks(
+        name=zarr_name,
         dataset=zarr_dataset,
         num_samples=args.num_samples,
         batch_size=args.batch_size,
@@ -558,25 +514,9 @@ def main():
         pytorch_profile=args.pytorch_profile,
         profile_output=args.profile_output,
     )
-    zarr_result["init_time_sec"] = zarr_init_time
-    results.append(zarr_result)
+    result["init_time_sec"] = zarr_init_time
 
-    if not args.skip_lerobot:
-        lerobot_result = run_benchmarks(
-            name=lerobot_name,
-            dataset=lerobot_dataset,
-            num_samples=args.num_samples,
-            batch_size=args.batch_size,
-            num_workers=args.num_workers,
-            warmup=args.warmup,
-            prefetch_factor=args.prefetch_factor,
-            collate_fn=None,
-            simulated_compute_sec=args.simulated_compute,
-        )
-        lerobot_result["init_time_sec"] = lerobot_init_time
-        results.append(lerobot_result)
-
-    print_results_table(results)
+    print_results_table([result])
     print("\n=== Benchmark Complete ===")
 
 

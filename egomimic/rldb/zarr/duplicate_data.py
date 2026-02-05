@@ -11,6 +11,7 @@ Supports:
 
 import argparse
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -28,7 +29,10 @@ def detect_format(input_path: Path) -> tuple[str, Path]:
     input_path = Path(input_path)
 
     # Check for Zarr format
-    zarr_files = list(input_path.glob("episode_*.zarr"))
+    # Accept either a dataset directory containing *.zarr or a single .zarr episode dir.
+    if input_path.suffix == ".zarr" and input_path.is_dir():
+        return "zarr", input_path.parent
+    zarr_files = list(input_path.glob("*.zarr"))
     if zarr_files:
         return "zarr", input_path
 
@@ -48,7 +52,8 @@ def detect_format(input_path: Path) -> tuple[str, Path]:
 
     raise ValueError(
         f"Could not detect dataset format in {input_path}. "
-        "Expected either episode_*.zarr files or a directory with processed/meta/ and processed/data/."
+        "Expected either a .zarr episode directory, a directory with *.zarr files, "
+        "or a directory with processed/meta/ and processed/data/."
     )
 
 
@@ -61,9 +66,9 @@ def duplicate_zarr_episodes(
     import zarr
 
     # Find existing episodes
-    episode_files = sorted(input_path.glob("episode_*.zarr"))
+    episode_files = sorted(input_path.glob("*.zarr"))
     if not episode_files:
-        raise ValueError(f"No episode_*.zarr files found in {input_path}")
+        raise ValueError(f"No *.zarr directories found in {input_path}")
 
     num_original = len(episode_files)
     print(f"Found {num_original} original Zarr episodes")
@@ -79,11 +84,19 @@ def duplicate_zarr_episodes(
                 print(f"Copying {ep_file.name} to output...")
                 shutil.copytree(ep_file, dest)
 
+    # Decide naming strategy based on existing filenames
+    episode_name_pattern = re.compile(r"^episode_(\d+)\.zarr$")
+    all_episode_named = all(episode_name_pattern.match(p.name) for p in episode_files)
+
     # Create duplicates
     for dup_idx in range(num_duplicates):
         for orig_idx, orig_file in enumerate(episode_files):
-            new_idx = num_original * (dup_idx + 1) + orig_idx
-            new_name = f"episode_{new_idx:06d}.zarr"
+            if all_episode_named:
+                new_idx = num_original * (dup_idx + 1) + orig_idx
+                new_name = f"episode_{new_idx:06d}.zarr"
+            else:
+                stem = orig_file.name[:-5]  # strip ".zarr"
+                new_name = f"{stem}_dup{dup_idx + 1}.zarr"
             new_path = output_path / new_name
 
             if new_path.exists():
@@ -93,9 +106,10 @@ def duplicate_zarr_episodes(
             print(f"Creating {new_name} from {orig_file.name}...")
             shutil.copytree(orig_file, new_path)
 
-            # Update episode_index in metadata
-            store = zarr.open(str(new_path), mode="r+")
-            store.attrs["episode_index"] = new_idx
+            # Update episode_index in metadata only when using episode_*.zarr naming
+            if all_episode_named:
+                store = zarr.open(str(new_path), mode="r+")
+                store.attrs["episode_index"] = new_idx
 
     total_episodes = num_original * (num_duplicates + 1)
     print(f"\nDone! Total Zarr episodes: {total_episodes}")
@@ -173,8 +187,11 @@ def duplicate_episodes(
     if format is None:
         detected_format, dataset_root = detect_format(input_path)
         format = detected_format
+        # For Zarr, allow passing a single .zarr dir; use its parent as the dataset root.
+        if format == "zarr":
+            input_path = dataset_root
         # For LeRobot, use the detected parent directory
-        if format == "lerobot":
+        elif format == "lerobot":
             input_path = dataset_root
     else:
         # If format is forced, still need to find the right root for LeRobot

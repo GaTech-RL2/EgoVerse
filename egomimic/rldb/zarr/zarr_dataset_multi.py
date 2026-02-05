@@ -497,13 +497,20 @@ class ZarrDataset(torch.utils.data.Dataset):
     Base Zarr Dataset object, Just intializes as pass through to read from zarr episode
     """
 
-    def __init__(self, Episode_path:str):
+    def __init__(self, Episode_path: str, action_horizon: int | None = None):
         """
         Args:
             episode_path: just a path to the designated zarr episode
+            action_horizon: Number of future timesteps to load for action chunking.
+                If specified, actions_base_cartesian and actions_joints will be loaded
+                as sequences of shape (action_horizon, action_dim) instead of single frames.
+                If None, actions are loaded as single frames (action_dim,).
         """
         self.episode_path = Episode_path
         self.metadata = None
+        self.action_horizon = action_horizon
+        self.action_keys = {"actions_base_cartesian", "actions_joints"}
+        self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         # should probably initialize embodiment here but I'm just lazy loading path and don't want to read yet
         super().__init__()
 
@@ -516,19 +523,65 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.total_frames = self.metadata["total_frames"]
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
 
+        # Detect JPEG-encoded image keys from metadata
+        self._image_keys = self._detect_image_keys()
+
+    def _detect_image_keys(self) -> set[str]:
+        """
+        Detect which keys contain JPEG-encoded image data from metadata.
+
+        Returns:
+            Set of keys containing JPEG data
+        """
+        features = self.metadata.get("features", {})
+        return {key for key, info in features.items() if info.get("dtype") == "jpeg"}
+
     def __len__(self) -> int:
-        if self.total_frames.exists():
+        if hasattr(self, 'total_frames'):
             return self.total_frames
         else:
             self.init_episode()
+            return self.total_frames
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        if not self.episode_rader.exists():
+        if not hasattr(self, 'episode_reader'):
             self.init_episode()
-        
-        self.keys_dict = {k: (idx, None) for k in self.episode_reader._collect_keys()}
-        data = self.episode_reader.read(self.keys_dict)
-        
+
+        # Build keys_dict with ranges based on whether action chunking is enabled
+        keys_dict = {}
+        for k in self.episode_reader._collect_keys():
+            # Apply action horizon to action keys
+            if self.action_horizon is not None and k in self.action_keys:
+                # Load action sequence from idx to idx + action_horizon
+                end_idx = min(idx + self.action_horizon, self.total_frames)
+                keys_dict[k] = (idx, end_idx)
+            else:
+                # Load single frame
+                keys_dict[k] = (idx, None)
+
+        data = self.episode_reader.read(keys_dict)
+
+        # Pad action sequences to fixed length if needed
+        if self.action_horizon is not None:
+            for k in self.action_keys:
+                if k in data and isinstance(data[k], np.ndarray):
+                    seq_len = data[k].shape[0]
+                    if seq_len < self.action_horizon:
+                        # Pad by repeating the last frame
+                        pad_len = self.action_horizon - seq_len
+                        last_frame = data[k][-1:]  # Keep dims: (1, action_dim)
+                        padding = np.repeat(last_frame, pad_len, axis=0)
+                        data[k] = np.concatenate([data[k], padding], axis=0)
+
+        # Decode JPEG-encoded image data
+        import simplejpeg
+        for key in self._image_keys:
+            if key in data:
+                jpeg_bytes = data[key]
+                # Decode JPEG bytes to numpy array (H, W, 3)
+                decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace='RGB')
+                data[key] = decoded
+
         # Convert all numpy arrays in data to torch tensors
         for k, v in data.items():
             if isinstance(v, np.ndarray):
@@ -557,8 +610,8 @@ class ZarrEpisode:
         self._path = Path(path)
         self._store = zarr.open_group(str(self._path), mode='r')
         self.metadata = dict(self._store.attrs)
-        # self.keys = self._collect_keys()
         self.keys = self.metadata["features"]
+        
     def read(self, keys_with_ranges: dict[str, tuple[int, int | None]]) -> dict[str, np.ndarray]:
         """
         Read data for specified keys, each with their own index or range.
@@ -578,7 +631,12 @@ class ZarrEpisode:
         result = {}
         for key, (start, end) in keys_with_ranges.items():
             arr = self._store[key]
-            data = arr[start:end] if end is not None else arr[start]
+            if end is not None:
+                data = arr[start:end]
+            else:
+                # Single frame read - use slicing to avoid 0D array issues with VariableLengthBytes
+                # arr[start:start+1] gives us a 1D array, then [0] extracts the actual object
+                data = arr[start:start+1][0]
             result[key] = data
         return result
     def _collect_keys(self) -> list[str]:
