@@ -1357,7 +1357,7 @@ class HPT(Algo):
                 preds = predictions[f"{embodiment_name}_{key}"]
                 gt = batch[key]
                 # ee_pose = batch['ee_pose'] # (B, 6) visualize these too
-                cartesian_arm = batch['cartesian_arm'] # (B, 6) or (B, 7) if quat, or (B, 12/14) if bimanual
+                cartesian_arm = batch.get('cartesian_arm', None) # (B, 6) or (B, 7) if quat, or (B, 12/14) if bimanual
 
                 # Handle quaternion mode for cartesian actions
                 if self.use_quat and key == "actions_cartesian":
@@ -1386,7 +1386,7 @@ class HPT(Algo):
                     
                     # Handle ee_frame delta offset
                     ee_frame = self.chosen_frame == "ee_frame"
-                    if ee_frame or self.use_delta:
+                    if (ee_frame or self.use_delta) and cartesian_arm is not None:
                         # cartesian arm is (B, 7) or (B, 14) with quat, just take xyz positions
                         if cartesian_arm.shape[-1] == 7:
                             cartesian_arm_xyz = cartesian_arm[:, :3]  # (B, 3)
@@ -1404,7 +1404,7 @@ class HPT(Algo):
                 
                     # If we are using ee_frame, where gt and preds are deltas in ee frame, need to add the offset to gt and preds
                     ee_frame = self.chosen_frame == "ee_frame"
-                    if ee_frame:
+                    if ee_frame and cartesian_arm is not None:
                         # cartesian arm is (B, 14), xyz quat xyz quat, just take :3 and then 6:9
                         cartesian_arm = torch.cat([cartesian_arm[:, :3], cartesian_arm[:, 7:10]], dim=-1) # (B, 6)
                         cartesian_arm = cartesian_arm.unsqueeze(1) # (B, 1, 6)
