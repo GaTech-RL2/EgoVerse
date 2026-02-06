@@ -497,7 +497,11 @@ class ZarrDataset(torch.utils.data.Dataset):
     Base Zarr Dataset object, Just intializes as pass through to read from zarr episode
     """
 
-    def __init__(self, Episode_path: str, action_horizon: int | None = None):
+    def __init__(
+        self,
+        Episode_path: str,
+        action_horizon: int | None = None,
+    ):
         """
         Args:
             episode_path: just a path to the designated zarr episode
@@ -509,9 +513,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_path = Episode_path
         self.metadata = None
         self.action_horizon = action_horizon
-        self.action_keys = {"actions_base_cartesian", "actions_joints"}
+        self.action_keys = {"actions_cartesian", "actions_joints"}
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
-        # should probably initialize embodiment here but I'm just lazy loading path and don't want to read yet
+        self.init_episode()
         super().__init__()
 
     def init_episode(self):
@@ -522,6 +526,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
+        self.embodiment = int(get_embodiment_id(self.metadata["robot_type"]))
 
         # Detect JPEG-encoded image keys from metadata
         self._image_keys = self._detect_image_keys()
@@ -573,20 +578,29 @@ class ZarrDataset(torch.utils.data.Dataset):
                         padding = np.repeat(last_frame, pad_len, axis=0)
                         data[k] = np.concatenate([data[k], padding], axis=0)
 
-        # Decode JPEG-encoded image data
+        # Decode JPEG-encoded image data and normalize to [0, 1]
         import simplejpeg
         for key in self._image_keys:
             if key in data:
                 jpeg_bytes = data[key]
                 # Decode JPEG bytes to numpy array (H, W, 3)
                 decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace='RGB')
-                data[key] = decoded
+                data[key] = torch.from_numpy(np.transpose(decoded, (2, 0, 1))).to(torch.float32) / 255.0
+                   
+                
 
         # Convert all numpy arrays in data to torch tensors
         for k, v in data.items():
             if isinstance(v, np.ndarray):
-                data[k] = torch.from_numpy(v)
+                data[k] = torch.from_numpy(v).to(torch.float32)
+
+            
+        
+        # Add embodiment id
+        data["metadata.embodiment"] = self.embodiment
+
         return data
+
 
 
 
