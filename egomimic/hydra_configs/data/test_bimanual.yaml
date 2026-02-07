@@ -5,7 +5,7 @@ train_datasets:
     datasets:
       rl2_lab:
         _target_: rldb.utils.FolderRLDBDataset
-        folder_path: /coc/cedarp-dxu345-0/datasets/egoverse/put_cup_on_saucer_egoverse/put_cup_on_saucer_rl2
+        folder_path: /nethome/paphiwetsa3/flash/projects/EgoVerse/datasets
         embodiment: aria_bimanual
         mode: train
         local_files_only: true
@@ -17,8 +17,7 @@ valid_datasets:
     datasets:
       eth_lab:
         _target_: rldb.utils.FolderRLDBDataset
-        folder_path: /coc/cedarp-dxu345-0/datasets/egoverse/put_cup_on_saucer_egoverse/put_cup_on_saucer_song
-        embodiment: aria_bimanual
+        folder_path: /nethome/paphiwetsa3/flash/projects/EgoVerse/datasets
         mode: valid
         local_files_only: true
     embodiment: "aria_bimanual"

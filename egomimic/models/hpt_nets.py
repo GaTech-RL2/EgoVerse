@@ -34,6 +34,9 @@ from timm.models.vision_transformer import VisionTransformer
 
 from functools import partial
 
+from transformers import CLIPVisionModel
+from transformers import AutoImageProcessor, AutoModel
+
 from transformers import T5Tokenizer, T5Model, AutoTokenizer
 from transformers import CLIPTextModel, CLIPVisionModel  # TODO: add CLIP
 
@@ -605,6 +608,97 @@ class MLPPolicyStem(PolicyStem):
             y = self.net(x)
         return y
 
+
+class DinoV3(PolicyStem):
+    def __init__(
+        self,
+        output_dim,
+        model_type: str = "facebook/dinov3-vits16plus-pretrain-lvd1689m",
+        freeze_backbone: bool = True,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.model = AutoModel.from_pretrained(
+            model_type 
+        )
+        self.freeze_backbone = freeze_backbone
+        
+        if "conv" in model_type:
+            self.proj = nn.Linear(self.model.config.hidden_sizes[-1], output_dim)
+        else:
+            self.proj = nn.Linear(self.model.config.hidden_size, output_dim)
+            
+        if self.freeze_backbone:
+            for p in self.model.parameters():
+                p.requires_grad = False
+            
+            self.model.eval()
+        else:
+            # fix for ViT DinoV3 to prevent unused params error
+            for name, p in self.model.named_parameters():
+                if "mask_token" in name:
+                    p.requires_grad = False
+            self.model.train()
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Performs a forward pass of the model.
+        Args:
+            x: Image tensor with shape [B, T, N, 3, H, W] representing the batch size, 
+            horizon, instance (e.g. num of views)
+        Returns:
+            Flatten tensor with shape [B, M, 512]     
+        """        
+        B, T, N, C, H, W = x.shape
+        x = x.view(B * T * N, C, H, W)
+        
+        outputs = self.model(pixel_values=x)
+        outputs = outputs.last_hidden_state
+        outputs = self.proj(outputs)
+        
+        return outputs
+                
+class CLIP(PolicyStem):
+    def __init__(
+        self,
+        output_dim,
+        model_type: str = "openai/clip-vit-base-patch32",
+        freeze_backbone: bool = True,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        
+        self.model = CLIPVisionModel.from_pretrained(model_type)
+        self.freeze_backbone = freeze_backbone
+        self.proj = nn.Linear(self.model.config.hidden_size, output_dim)
+        
+        if self.freeze_backbone:
+            for p in self.model.parameters():
+                p.requires_grad = False
+            
+            self.model.eval()
+            
+        else:
+            self.model.train()
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Performs a forward pass of the model.
+        Args:
+            x: Image tensor with shape [B, T, N, 3, H, W] representing the batch size, 
+            horizon, instance (e.g. num of views)
+        Returns:
+            Flatten tensor with shape [B, M, 512]     
+        """        
+        B, T, N, C, H, W = x.shape
+        x = x.view(B * T * N, C, H, W)
+        
+        outputs = self.model(pixel_values=x)
+        outputs = outputs.pooler_output
+        outputs = self.proj(outputs)
+        outputs = outputs.view(B, T*N, -1)
+        
+        return outputs
+    
 
 class ResNet(PolicyStem):
     def __init__(

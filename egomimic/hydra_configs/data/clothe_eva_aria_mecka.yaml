@@ -1,0 +1,70 @@
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: eva_bimanual
+    filters:
+      task: fold clothes
+    local_files_only: true
+  indomain:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: aria_bimanual
+    filters:
+      task: fold_clothes_indomain
+    local_files_only: true
+  everse_rl2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: aria_bimanual
+    filters:
+      task: fold clothes
+      lab: rl2
+      operator: rl2
+    local_files_only: true
+  everse_song:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: aria_bimanual
+    filters:
+      task: fold clothes
+      lab: song
+    local_files_only: true
+  everse_wang:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: aria_bimanual
+    filters:
+      task: fold clothes
+      lab: wang
+    local_files_only: true
+  everse_eth:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: aria_bimanual
+    filters:
+      task: fold clothes
+      lab: eth
+    local_files_only: true
+  mecka_flagship:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: mecka_bimanual
+    filters:
+      task: fold_clothes
+    local_files_only: true
+  mecka_freeform:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: mecka_bimanual
+    filters:
+      task: folding_clothes
+    local_files_only: true

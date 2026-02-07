@@ -34,3 +34,5 @@ lerobot_test/
 **/lerobot_test/**
 **/robot/models/**
 **/robot/models/
+*parquet*
+*.zarr*

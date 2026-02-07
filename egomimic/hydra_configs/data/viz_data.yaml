@@ -1,0 +1,64 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: eva_bimanual
+    filters:
+      task: fold_clothes
+    local_files_only: true
+
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: aria_bimanual
+    filters:
+      task: fold_clothes
+    local_files_only: true
+
+  # dataset3:
+  #   _target_: egomimic.rldb.utils.S3RLDBDataset
+  #   bucket_name: rldb
+  #   mode: total
+  #   valid_ratio: 0.5
+  #   embodiment: mecka_bimanual
+  #   cache_root: "/coc/flash7/rpunamiya6/.cache"
+  #   filters:
+  #     task: fold_clothes
+  #   local_files_only: true
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: eva_bimanual
+    filters:
+      task: fold clothes
+    local_files_only: true
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: rldb
+    mode: total
+    embodiment: aria_bimanual
+    filters:
+      task: fold_clothes_indomain
+    local_files_only: true
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 256
+    num_workers: 10
+  dataset2:
+    batch_size: 256
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 256
+    num_workers: 10
+  dataset2:
+    batch_size: 256
+    num_workers: 10
