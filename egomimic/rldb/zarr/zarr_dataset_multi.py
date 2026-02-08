@@ -167,6 +167,7 @@ class EpisodeResolver:
         self,
         embodiment,
         sync_from_s3 = False,
+        action_horizon = 100,
         filters={},
     ) -> list[tuple[str, str]]:
         """
@@ -208,12 +209,13 @@ class EpisodeResolver:
         datasets = self._load_zarr_datasets(
             search_path = self.folder_path, 
             valid_hashes = valid_hashes,
+            action_horizon = action_horizon,
         )
 
         return datasets
 
     @classmethod
-    def _load_zarr_datasets(cls, *, search_path: Path, valid_hashes: set[str]):
+    def _load_zarr_datasets(cls, *, search_path: Path, valid_hashes: set[str], action_horizon = 100):
         
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
@@ -234,13 +236,16 @@ class EpisodeResolver:
                 logger.info(f"{p} is not a valid directory")
                 skipped.append(p.name)
                 continue
-            if p.name not in valid_hashes:
+            name = p.name
+            if name.endswith(".zarr"):
+                name = name[: -len(".zarr")]
+            if name not in valid_hashes:
                 logger.info(f"{p} is not in the list of filtered paths") 
                 skipped.append(p.name)
                 continue     
             try:
-                ds_obj = ZarrDataset(p)
-                datasets[p.name] = ds_obj
+                ds_obj = ZarrDataset(p, action_horizon=action_horizon)
+                datasets[name] = ds_obj
             except Exception as e:
                 logger.error(f"Failed to load dataset at {p}: {e}")
                 skipped.append(p.name)
@@ -344,12 +349,9 @@ class EpisodeResolver:
     """
     @classmethod
     def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:
-        ep = local_dir / episode_hash
-
-        if not ep.isdir():
-            return False
-
-        return True
+        direct = local_dir / episode_hash
+        if direct.is_dir():
+            return True
 
     @classmethod
     def sync_from_filters(
@@ -394,7 +396,7 @@ class EpisodeResolver:
 class MultiDataset(torch.utils.data.Dataset):
     """
     Self wrapping MultiDataset, can wrap zarr or multi dataset. 
-    note: I am not adding embodiments yet because to match would require something beyond current zarr dataset lazy loading
+
     """
     def __init__(self, 
         datasets,
@@ -416,6 +418,12 @@ class MultiDataset(torch.utils.data.Dataset):
         """
         self.datasets = datasets
         self.key_map = key_map
+
+        self.embodiment = get_embodiment_id(embodiment)
+        for dataset_name, dataset in self.datasets.items():
+            assert dataset.embodiment == self.embodiment, (
+                f"Dataset {dataset_name} has embodiment {dataset.embodiment}, expected {self.embodiment}."
+            )
 
         self.index_map = []
         for dataset_name, dataset in self.datasets.items():
@@ -490,6 +498,44 @@ class MultiDataset(torch.utils.data.Dataset):
         merged_dataset = concatenate_datasets(dataset_list)
 
         return merged_dataset
+    
+    @classmethod
+    def _from_resolver(cls, resolver: EpisodeResolver, embodiment, action_horizon = 100, **kwargs):
+        """
+        create a MultiDataset from an EpisodeResolver.
+
+        Args:
+            resolver (EpisodeResolver): The resolver instance to use for loading datasets.
+            embodiment: The embodiment identifier to use for resolving datasets.
+            **kwargs: Keyword args forwarded to resolver (e.g., filters,
+                sync_from_s3) and MultiDataset constructor (e.g., mode, percent,
+                key_map, valid_ratio).
+        Returns:
+            MultiDataset: The constructed multi-dataset.
+        """
+        if embodiment is None:
+            raise ValueError("embodiment is required to resolve datasets")
+
+        sync_from_s3 = kwargs.pop("sync_from_s3", False)
+        filters = kwargs.pop("filters", {}) or {}
+
+        resolved = resolver.resolve(
+            embodiment=embodiment,
+            sync_from_s3=sync_from_s3,
+            action_horizon=action_horizon,
+            filters=filters,
+        )
+
+        # resolver may return datasets or (datasets, skipped)
+        if isinstance(resolved, tuple):
+            datasets = resolved[0]
+        else:
+            datasets = resolved
+
+        if not datasets:
+            raise ValueError("No datasets were resolved from the provided filters")
+
+        return cls(datasets=datasets, embodiment=embodiment, **kwargs)
 
 
 class ZarrDataset(torch.utils.data.Dataset):
