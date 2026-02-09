@@ -1236,7 +1236,7 @@ class DataSchematic(object):
 
         self.shapes_infered = True
 
-    def infer_norm_from_dataset(self, dataset):
+    def infer_norm_from_dataset_lerobot(self, dataset):
         """
         dataset: huggingface dataset backed by pyarrow
         returns: dictionary of means and stds for proprio and action keys
@@ -1263,6 +1263,80 @@ class DataSchematic(object):
             column_data = dataset.hf_dataset.with_format(
                 "numpy", columns=[column_name]
             )[:][column_name]
+            if column_data.ndim not in (2, 3):
+                raise ValueError(
+                    f"Column {column} has shape {column_data.shape}, "
+                    "expected 2 or 3 dims"
+                )
+
+            mean = np.mean(column_data, axis=0)
+            std = np.std(column_data, axis=0)
+            minv = np.min(column_data, axis=0)
+            maxv = np.max(column_data, axis=0)
+            median = np.median(column_data, axis=0)
+            q1 = np.percentile(column_data, 1, axis=0)
+            q99 = np.percentile(column_data, 99, axis=0)
+
+            self.norm_stats[embodiment][column] = {
+                "mean": torch.from_numpy(mean).float(),
+                "std": torch.from_numpy(std).float(),
+                "min": torch.from_numpy(minv).float(),
+                "max": torch.from_numpy(maxv).float(),
+                "median": torch.from_numpy(median).float(),
+                "quantile_1": torch.from_numpy(q1).float(),
+                "quantile_99": torch.from_numpy(q99).float(),
+            }
+
+        logger.info("[NormStats] Finished norm inference")
+
+    def infer_norm_from_dataset(self, dataset):
+        """
+        dataset: huggingface dataset or zarr dataset
+        returns: dictionary of means and stds for proprio and action keys
+        """
+        norm_columns = []
+
+        embodiment = dataset.embodiment
+        if isinstance(embodiment, str):
+            embodiment = get_embodiment_id(embodiment)
+
+        norm_columns.extend(self.keys_of_type("proprio_keys"))
+        norm_columns.extend(self.keys_of_type("action_keys"))
+
+        logger.info(
+            f"[NormStats] Starting norm inference for embodiment={embodiment}, "
+            f"{len(norm_columns)} columns"
+        )
+
+        def get_zarr_data(ds, col):
+            if hasattr(ds, "episode_reader"):
+                # ZarrDataset
+                if col in ds.episode_reader._store:
+                    return ds.episode_reader._store[col][:]
+                return None
+            elif hasattr(ds, "datasets"):
+                # MultiDataset wrapper
+                data_list = []
+                for d in ds.datasets.values():
+                    res = get_zarr_data(d, col)
+                    if res is not None:
+                        data_list.append(res)
+                if data_list:
+                    return np.concatenate(data_list, axis=0)
+            return None
+
+        for column in norm_columns:
+            if not self.is_key_with_embodiment(column, embodiment):
+                continue
+            column_name = self.keyname_to_lerobot_key(column, embodiment)
+            logger.info(f"[NormStats] Processing column={column_name}")
+
+            column_data = get_zarr_data(dataset, column_name)
+
+            if column_data is None:
+                logger.warning(f"Skipping {column_name}, data not found given dataset type")
+                continue
+
             if column_data.ndim not in (2, 3):
                 raise ValueError(
                     f"Column {column} has shape {column_data.shape}, "
