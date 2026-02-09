@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from scipy.spatial.transform import Rotation as R
 
 from egomimic.rldb.utils import S3RLDBDataset
 from egomimic.rldb.zarr.action_chunk_transforms import (
@@ -50,6 +51,24 @@ ARIA_KEYS_TO_COMPARE = (
 )
 ARIA_IMAGE_KEYS = {"observations.images.front_img_1"}
 
+SCALE_LEROBOT_EPISODE_HASH = "697c1e6c0cac8cd3c4873844"
+SCALE_ZARR_EPISODE_PATH = Path(
+    "/nethome/agao81/flash/EgoVerse/external/scale/scripts/datasets/2026-02-20-18-52-08-062985/697c1e6c0cac8cd3c4873844_episode_000000.zarr"
+)
+SCALE_EMBODIMENT =  "scale_bimanual"
+SCALE_CACHE_ROOT = "/coc/flash7/scratch/.cache"
+SCALE_ACTION_HORIZON_REAL = 30
+SCALE_ACTION_CHUNK_LENGTH = 100
+SCALE_ACTION_STRIDE = 1
+# zarr_key -> lerobot_key mapping for comparison
+SCALE_KEY_MAP = {
+    "observations.images.front_img_1": "observations.images.front_img_1",
+    "actions_cartesian": "actions_ee_cartesian_cam",
+    "observations.state.ee_pose": "observations.state.ee_pose_cam",
+}
+SCALE_IMAGE_KEYS = {"observations.images.front_img_1"}
+SCALE_KEYPOINT_KEYS = ("left.obs_keypoints", "right.obs_keypoints")
+
 
 def _to_numpy(value):
     if isinstance(value, torch.Tensor):
@@ -57,6 +76,50 @@ def _to_numpy(value):
     if isinstance(value, np.ndarray):
         return value
     return value
+
+
+def _assert_scale_pose_equivalent(zarr_val: np.ndarray, lerobot_val: np.ndarray, key_name: str) -> None:
+    if zarr_val.shape[-1] != 12 or lerobot_val.shape[-1] != 12:
+        np.testing.assert_allclose(
+            zarr_val,
+            lerobot_val,
+            atol=1e-5,
+            err_msg=f"{key_name}: expected last dim 12 for pose comparison",
+        )
+        return
+
+    np.testing.assert_allclose(
+        zarr_val[..., :3],
+        lerobot_val[..., :3],
+        rtol=0.0,
+        atol=1e-4,
+        err_msg=f"{key_name}: left xyz mismatch",
+    )
+    np.testing.assert_allclose(
+        zarr_val[..., 6:9],
+        lerobot_val[..., 6:9],
+        rtol=0.0,
+        atol=1e-4,
+        err_msg=f"{key_name}: right xyz mismatch",
+    )
+
+    z_left = zarr_val[..., 3:6].reshape(-1, 3)
+    l_left = lerobot_val[..., 3:6].reshape(-1, 3)
+    z_right = zarr_val[..., 9:12].reshape(-1, 3)
+    l_right = lerobot_val[..., 9:12].reshape(-1, 3)
+
+    np.testing.assert_allclose(
+        R.from_euler("ZYX", z_left, degrees=False).as_matrix(),
+        R.from_euler("zyx", l_left, degrees=False).as_matrix(),
+        atol=1e-5,
+        err_msg=f"{key_name}: left YPR rotation mismatch",
+    )
+    np.testing.assert_allclose(
+        R.from_euler("ZYX", z_right, degrees=False).as_matrix(),
+        R.from_euler("zyx", l_right, degrees=False).as_matrix(),
+        atol=1e-5,
+        err_msg=f"{key_name}: right YPR rotation mismatch",
+    )
 
 
 def _check_equal_dict(left: dict, right: dict, path: str = "root") -> None:
@@ -288,3 +351,95 @@ def test_zarr_batch_matches_lerobot_batch_aria() -> None:
     }
 
     _check_equal_dict(non_image_lerobot, non_image_zarr)
+
+
+# ---------------------------------------------------------------------------
+# Scale bimanual helpers & test
+# ---------------------------------------------------------------------------
+
+
+def _build_zarr_dataset_scale() -> MultiDataset:
+    """Build a Scale zarr dataset with Aria-style head-frame transform."""
+    key_map = {
+        "observations.images.front_img_1": {"zarr_key": "images.front_1"},
+        "left.obs_ee_pose": {"zarr_key": "left.obs_ee_pose"},
+        "right.obs_ee_pose": {"zarr_key": "right.obs_ee_pose"},
+        "left.action_ee_pose": {
+            "zarr_key": "left.obs_ee_pose",
+            "horizon": SCALE_ACTION_HORIZON_REAL,
+        },
+        "right.action_ee_pose": {
+            "zarr_key": "right.obs_ee_pose",
+            "horizon": SCALE_ACTION_HORIZON_REAL,
+        },
+        "obs_head_pose": {"zarr_key": "obs_head_pose"},
+    }
+
+    transform_list = build_aria_bimanual_transform_list(
+        chunk_length=SCALE_ACTION_CHUNK_LENGTH,
+        stride=SCALE_ACTION_STRIDE,
+        left_action_world="left.action_ee_pose",
+        right_action_world="right.action_ee_pose",
+        target_world_is_quat=False,
+        actions_key="actions_cartesian",
+        obs_key="observations.state.ee_pose",
+    )
+
+    single_dataset = ZarrDataset(
+        Episode_path=SCALE_ZARR_EPISODE_PATH,
+        key_map=key_map,
+        transform_list=transform_list,
+    )
+    return MultiDataset(datasets={"single_episode": single_dataset}, mode="total")
+
+
+def _build_lerobot_dataset_scale() -> S3RLDBDataset:
+    return S3RLDBDataset(
+        filters={"episode_hash": SCALE_LEROBOT_EPISODE_HASH},
+        mode="total",
+        cache_root=SCALE_CACHE_ROOT,
+        embodiment=SCALE_EMBODIMENT,
+    )
+
+
+def test_zarr_batch_matches_lerobot_batch_scale() -> None:
+    if not SCALE_ZARR_EPISODE_PATH.exists():
+        pytest.skip(f"Scale zarr path not found: {SCALE_ZARR_EPISODE_PATH}")
+
+    zarr_batch = _first_batch(_build_zarr_dataset_scale())
+    lerobot_batch = _first_batch(_build_lerobot_dataset_scale())
+
+    # Check that expected keys exist in each batch (under their own names)
+    missing_zarr = [z for z in SCALE_KEY_MAP if z not in zarr_batch]
+    assert not missing_zarr, f"Zarr batch missing keys: {missing_zarr}"
+
+    missing_lr = [l for l in SCALE_KEY_MAP.values() if l not in lerobot_batch]
+    assert not missing_lr, f"Lerobot batch missing keys: {missing_lr}"
+
+    for zarr_key, lerobot_key in SCALE_KEY_MAP.items():
+        zarr_val = _to_numpy(zarr_batch[zarr_key])
+        lerobot_val = _to_numpy(lerobot_batch[lerobot_key])
+
+        if zarr_key in SCALE_IMAGE_KEYS:
+            assert isinstance(zarr_val, np.ndarray) and isinstance(lerobot_val, np.ndarray), (
+                f"{zarr_key}: expected arrays, got {type(zarr_val)} / {type(lerobot_val)}"
+            )
+            assert zarr_val.shape == lerobot_val.shape, (
+                f"{zarr_key}: image shape mismatch {zarr_val.shape} vs {lerobot_val.shape}"
+            )
+        else:
+            assert isinstance(zarr_val, np.ndarray) and isinstance(lerobot_val, np.ndarray), (
+                f"{zarr_key}->{lerobot_key}: expected arrays, got "
+                f"{type(zarr_val)} / {type(lerobot_val)}"
+            )
+            if zarr_key in {"actions_cartesian", "observations.state.ee_pose"}:
+                _assert_scale_pose_equivalent(
+                    zarr_val,
+                    lerobot_val,
+                    key_name=f"{zarr_key} (zarr) vs {lerobot_key} (lerobot)",
+                )
+            else:
+                np.testing.assert_allclose(
+                    zarr_val, lerobot_val, atol=1e-5,
+                    err_msg=f"{zarr_key} (zarr) vs {lerobot_key} (lerobot)",
+                )

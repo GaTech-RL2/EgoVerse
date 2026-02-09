@@ -34,3 +34,6 @@ lerobot_test/
 **/lerobot_test/**
 **/robot/models/**
 **/robot/models/
+external/scale/scripts/datasets
+_turbojpeg_lib/
+external/scale/scripts/scale_data/

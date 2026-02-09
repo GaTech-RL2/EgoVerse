@@ -152,13 +152,13 @@ class S3EpisodeResolver(EpisodeResolver):
 
     def resolve(
         self,
-        filters: dict = {},
-    ) -> list[tuple[str, str]]:
+        filters: dict | None = None,
+    ) -> dict[str, "ZarrDataset"]:
         """
-        Outputs a list of ZarrDatasets with relevant filters.
-        If sync_from_s3 is True, sync S3 paths to local_root before indexing.
-        If not True, assumes folders already exist locally.
+        Outputs a dict of ZarrDatasets with relevant filters.
+        Syncs S3 paths to local_root before indexing.
         """
+        filters = dict(filters) if filters is not None else {}
         filters["is_deleted"] = False
 
         if self.folder_path.is_dir():
@@ -189,7 +189,7 @@ class S3EpisodeResolver(EpisodeResolver):
         return datasets
     
     @staticmethod
-    def _get_filtered_paths(filters: dict = {}) -> list[tuple[str, str]]:
+    def _get_filtered_paths(filters: dict | None = None) -> list[tuple[str, str]]:
         """
         Filters episodes from the SQL episode table according to the criteria specified in `filters`
         and returns a list of (processed_path, episode_hash) tuples for episodes that match and have
@@ -202,6 +202,7 @@ class S3EpisodeResolver(EpisodeResolver):
             list[tuple[str, str]]: List of tuples, each containing (processed_path, episode_hash)
                                    for episodes passing the filter criteria.
         """
+        filters = dict(filters) if filters is not None else {}
         engine = create_default_engine()
         df = episode_table_to_df(engine)
         series = pd.Series(filters)
@@ -339,7 +340,11 @@ class LocalEpisodeResolver(EpisodeResolver):
                 continue
 
             if key == "robot_name":
-                meta_value = metadata.get("robot_name", metadata.get("robot_type"))
+                meta_value = (
+                    metadata.get("robot_name")
+                    or metadata.get("robot_type")
+                    or metadata.get("embodiment")
+                )
             elif key == "is_deleted":
                 meta_value = metadata.get("is_deleted", False)
             else:
@@ -381,15 +386,15 @@ class LocalEpisodeResolver(EpisodeResolver):
     def resolve(
         self,
         sync_from_s3=False,
-        filters={},
-    ) -> list[tuple[str, str]]:
+        filters: dict | None = None,
+    ) -> dict[str, "ZarrDataset"]:
         """
-        Outputs a list of ZarrDatasets with relevant filters from local data.
+        Outputs a dict of ZarrDatasets with relevant filters from local data.
         """
         if sync_from_s3:
             logger.warning("LocalEpisodeResolver does not sync from S3; ignoring sync_from_s3=True.")
 
-        filters = dict(filters or {})
+        filters = dict(filters) if filters is not None else {}
         filters.setdefault("is_deleted", False)
 
         filtered_paths = self._get_local_filtered_paths(self.folder_path, filters)
@@ -429,13 +434,6 @@ class MultiDataset(torch.utils.data.Dataset):
             valid_ratio (float, optional): Validation split ratio for datasets that support a train/valid split.
             **kwargs: Additional keyword arguments passed to underlying dataset constructors if needed.
         """
-        self.datasets = datasets
-
-        self.index_map = []
-        for dataset_name, dataset in self.datasets.items():
-            for local_idx in range(len(dataset)):
-                self.index_map.append((dataset_name, local_idx))
-
         self.train_collections, self.valid_collections = split_dataset_names(
             datasets.keys(), valid_ratio=valid_ratio, seed=SEED
         )
@@ -458,8 +456,13 @@ class MultiDataset(torch.utils.data.Dataset):
         else:
             raise ValueError(f"Unknown mode: {mode}")
 
-        datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
-        assert datasets, "No datasets left after applying mode split."
+        self.datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
+        assert self.datasets, "No datasets left after applying mode split."
+
+        self.index_map = []
+        for dataset_name, dataset in self.datasets.items():
+            for local_idx in range(len(dataset)):
+                self.index_map.append((dataset_name, local_idx))
 
         super().__init__()
 
@@ -492,10 +495,13 @@ class MultiDataset(torch.utils.data.Dataset):
         sync_from_s3 = kwargs.pop("sync_from_s3", False)
         filters = kwargs.pop("filters", {}) or {}
 
-        resolved = resolver.resolve(
-            sync_from_s3=sync_from_s3,
-            filters=filters,
-        )
+        if isinstance(resolver, LocalEpisodeResolver):
+            resolved = resolver.resolve(
+                sync_from_s3=sync_from_s3,
+                filters=filters,
+            )
+        else:
+            resolved = resolver.resolve(filters=filters)
 
 
         return cls(datasets=resolved, **kwargs)

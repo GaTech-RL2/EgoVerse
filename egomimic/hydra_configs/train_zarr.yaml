@@ -1,0 +1,33 @@
+defaults:
+  - model: hpt_bc_flow_aria
+  - paths: default
+  - trainer: ddp
+  - debug: null
+  - logger: wandb
+  - data: test_multi_zarr
+  - callbacks: checkpoints
+  - override hydra/launcher: submitit
+  - _self_
+
+name: test
+description: test
+ckpt_path: null
+train: true
+eval: false
+
+eval_class:
+  _target_: egomimic.scripts.evaluation.Eve
+  mode: real
+  arm: both
+  eval_path: "./logs/eval/${name}_${now:%Y-%m-%d_%H-%M-%S}"
+
+hydra:
+  run:
+    # Dir should be experiment_name/description_{timestamp}
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
