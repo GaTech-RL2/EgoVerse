@@ -7,7 +7,7 @@ from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 import signal
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, ListConfig
 
 OmegaConf.register_new_resolver("eval", eval)
 
@@ -22,12 +22,53 @@ import numpy as np
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-from egomimic.rldb.utils import DataSchematic
+from egomimic.rldb.zarr.utils import DataSchematic
 
 import os
 
 # DEBUG
 # os.environ["HYDRA_FULL_ERROR"] = '1'
+
+def create_data_schematic(zarr_data_cfg: DictConfig) -> DataSchematic:
+    schematic_dict = {}
+
+    def populate_key_map(cfg, target_key="key_map", key_map={}):
+        """
+        Populate key_map with the key_map configuration.
+        """
+        if isinstance(cfg, DictConfig):
+            if target_key in cfg:
+                for k, v in cfg[target_key].items():
+                    key_map[k] = v
+                return
+
+            for k in cfg.keys():
+                v = cfg.get(k)
+                populate_key_map(v, target_key, key_map)
+
+        elif isinstance(cfg, ListConfig):
+            for i, v in enumerate(cfg):
+                populate_key_map(v, target_key, key_map)
+    
+    for dataset_name in zarr_data_cfg.train_datasets:
+        dataset_cfg = zarr_data_cfg.train_datasets[dataset_name]
+        dataset_key_map = {}
+        populate_key_map(dataset_cfg, "key_map", dataset_key_map)
+        schematic_dict[dataset_name] = {
+            key: {
+                "key_type": value["key_type"],
+                "zarr_key": value["zarr_key"],
+            }
+            for key, value in dataset_key_map.items()
+        }
+    
+    viz_img_key = {
+        "eva_bimanual": "front_img_1",
+        "aria_bimanual": "front_img_1",
+        "mecka_bimanual": "front_img_1",
+        "scale_bimanual": "front_img_1",
+    } # TODO: figure out where to put viz keys
+    return DataSchematic(schematic_dict, viz_img_key, norm_mode="quantile")
 
 
 @task_wrapper
@@ -45,8 +86,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
 
-    log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
-    data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
+    # log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
+    
+    data_schematic: DataSchematic = create_data_schematic(cfg.data)
 
     # Modify dataset configs to include `data_schematic` dynamically at runtime
     train_datasets = {}
@@ -75,7 +117,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         data_schematic.infer_shapes_from_batch(dataset[0])
-        data_schematic.infer_norm_from_dataset(dataset)
+        data_schematic.infer_norm_from_dataset_zarr(dataset, dataset_name)
 
     # NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
     log.info(f"Instantiating model <{cfg.model._target_}>")

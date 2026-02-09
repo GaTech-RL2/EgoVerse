@@ -971,14 +971,12 @@ class HPT(Algo):
         """
         processed_batch = {}
 
-        for embodiment_id, _batch in batch.items():
+        for embodiment_name, _batch in batch.items():
+            embodiment_id = get_embodiment_id(embodiment_name)
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
-                key_name = self.data_schematic.lerobot_key_to_keyname(
-                    key, embodiment_id
-                )
-                if key_name is not None:
-                    processed_batch[embodiment_id][key_name] = value
+                if key is not None:
+                    processed_batch[embodiment_id][key] = value
 
             ac_key = self.ac_keys[embodiment_id]
             if len(processed_batch[embodiment_id][ac_key].shape) != 3:
@@ -991,6 +989,9 @@ class HPT(Algo):
             )
             processed_batch[embodiment_id] = self.data_schematic.normalize_data(
                 processed_batch[embodiment_id], embodiment_id
+            )
+            processed_batch[embodiment_id]["embodiment"] = torch.tensor(
+            [embodiment_id], device=self.device, dtype=torch.int64
             )
 
         return processed_batch
@@ -1009,12 +1010,12 @@ class HPT(Algo):
         predictions = OrderedDict()
         hpt_batches = {}
         self.training_step += 1
-        for embodiment_id, _batch in batch.items():
+        for embodiment_id, _batch in batch.items(): # TODO why don't we use batch with embodiment_name to keep things consistent
+            embodiment_name = get_embodiment(embodiment_id).lower()
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            embodiment_name = get_embodiment(embodiment_id).lower()
             aux_ac_keys = self.auxiliary_ac_keys.get(embodiment_name, [])
             data = self._robomimic_to_hpt_data(
                 _batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys
@@ -1059,11 +1060,11 @@ class HPT(Algo):
         """
         unnorm_preds = {}
         for embodiment_id, _batch in batch.items():
+            embodiment_name = get_embodiment(embodiment_id).lower()
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            embodiment_name = get_embodiment(embodiment_id).lower()
             aux_ac_keys = self.auxiliary_ac_keys.get(embodiment_name, [])
             data = self._robomimic_to_hpt_data(
                 _batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys
@@ -1250,6 +1251,7 @@ class HPT(Algo):
         Returns:
             ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
         """
+        
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
         ac_key = self.ac_keys[embodiment_id]

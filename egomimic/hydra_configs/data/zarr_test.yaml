@@ -1,0 +1,60 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.ZarrDataset
+    Episode_path: external/scale/scripts/datasets/2026-02-19-03-21-23-570038/697c1e6c0cac8cd3c4873844_episode_000000.zarr
+    key_map:
+      front_img_1:
+        key_type: camera_keys
+        zarr_key: observations.images.front_img_1
+      ee_pose:
+        key_type: proprio_keys
+        zarr_key: observations.state.ee_pose
+        horizon: 100
+      actions_cartesian:
+        key_type: action_keys
+        zarr_key: actions_ee_se3_world
+        horizon: 100
+      actions_keypoints:
+        key_type: action_keys
+        zarr_key: actions_keypoint_world
+        horizon: 100
+      actions_head_cartesian:
+        key_type: action_keys
+        zarr_key: actions_head_se3_world
+        horizon: 100
+valid_datasets:
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.ZarrDataset
+    Episode_path: external/scale/scripts/datasets/2026-02-19-03-21-23-570038/697c1e6c0cac8cd3c4873844_episode_000000.zarr
+    key_map:
+      front_img_1:
+        key_type: camera_keys
+        zarr_key: observations.images.front_img_1
+      ee_pose:
+        key_type: proprio_keys
+        zarr_key: observations.state.ee_pose
+        horizon: 100
+      actions_cartesian:
+        key_type: action_keys
+        zarr_key: actions_ee_se3_world
+        horizon: 100
+      actions_keypoints:
+        key_type: action_keys
+        zarr_key: actions_keypoint_world
+        horizon: 100
+      actions_head_cartesian:
+        key_type: action_keys
+        zarr_key: actions_head_se3_world
+        horizon: 100
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10

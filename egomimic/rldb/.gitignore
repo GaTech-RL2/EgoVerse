@@ -3,3 +3,5 @@ benchmark_files/
 *.parquet
 *.pyc
 *.hdf5
+*/lerobot
+*/zarr
