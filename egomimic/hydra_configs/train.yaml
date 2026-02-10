@@ -61,6 +61,9 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+      robot_name:
+        key_type: metadata_keys
+        lerobot_key: robot_name
     aria_bimanual:
       front_img_1:
         key_type: camera_keys
@@ -74,6 +77,9 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+      robot_name:
+        key_type: metadata_keys
+        lerobot_key: robot_name
     mecka_bimanual:
       front_img_1:
         key_type: camera_keys

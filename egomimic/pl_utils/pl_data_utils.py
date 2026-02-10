@@ -1,4 +1,4 @@
-from torch.utils.data import DataLoader, random_split, default_collate
+from torch.utils.data import DataLoader, random_split, default_collate, ConcatDataset
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from lightning import LightningDataModule
 from transformers import AutoTokenizer
@@ -81,7 +81,8 @@ class MultiDataModuleWrapper(LightningDataModule):
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name, {})
-            iterables[dataset.embodiment] = DataLoader(
+            iterables[dataset_name] = DataLoader(
+
                 dataset,
                 shuffle=True,
                 collate_fn=self.collate_fn,
@@ -94,7 +95,8 @@ class MultiDataModuleWrapper(LightningDataModule):
         iterables = dict()
         for dataset_name, dataset in self.valid_datasets.items():
             dataset_params = self.valid_dataloader_params.get(dataset_name, {})
-            iterables[dataset.embodiment] = DataLoader(
+            iterables[dataset_name] = DataLoader(
+
                 dataset,
                 shuffle=False,
                 collate_fn=self.collate_fn,

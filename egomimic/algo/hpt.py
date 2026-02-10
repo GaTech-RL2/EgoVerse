@@ -971,7 +971,9 @@ class HPT(Algo):
         """
         processed_batch = {}
 
-        for embodiment_id, _batch in batch.items():
+
+        for dataset_name, _batch in batch.items():
+            embodiment_id = _batch["robot_name"][0].item()
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
                 key_name = self.data_schematic.lerobot_key_to_keyname(
@@ -1250,7 +1252,7 @@ class HPT(Algo):
         Returns:
             ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
         """
-        embodiment_id = batch["embodiment"][0].item()
+        embodiment_id = batch["robot_name"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
         ac_key = self.ac_keys[embodiment_id]
 
@@ -1430,7 +1432,7 @@ class HPT(Algo):
 
         data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]
-        data["embodiment"] = batch["embodiment"]
+        data["embodiment"] = batch["robot_name"]
 
         for aux_ac_key in aux_ac_keys:
             data[aux_ac_key] = batch[aux_ac_key]

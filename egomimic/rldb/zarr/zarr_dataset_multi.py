@@ -429,8 +429,8 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         filtered_paths = self._get_local_filtered_paths(self.folder_path, filters)
 
-        valid_hashes = {hashes for _, hashes in filtered_paths}
-        if not valid_hashes:
+        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        if not valid_folder_names:
             raise ValueError(
                 "No valid collection names from local filtering: "
                 "filters matched no episodes in the local directory."
@@ -438,7 +438,7 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         datasets = self._load_zarr_datasets(
             search_path=self.folder_path,
-            valid_hashes=valid_hashes,
+            valid_folder_names=valid_folder_names,
             action_horizon=action_horizon,
         )
 
@@ -453,7 +453,6 @@ class MultiDataset(torch.utils.data.Dataset):
     """
     def __init__(self, 
         datasets,
-        embodiment,
         mode="train",
         percent=0.1,
         key_map=None,
@@ -471,12 +470,6 @@ class MultiDataset(torch.utils.data.Dataset):
         """
         self.datasets = datasets
         self.key_map = key_map
-
-        self.embodiment = get_embodiment_id(embodiment)
-        for dataset_name, dataset in self.datasets.items():
-            assert dataset.embodiment == self.embodiment, (
-                f"Dataset {dataset_name} has embodiment {dataset.embodiment}, expected {self.embodiment}."
-            )
 
         self.index_map = []
         for dataset_name, dataset in self.datasets.items():
@@ -526,7 +519,11 @@ class MultiDataset(torch.utils.data.Dataset):
         if self.key_map and dataset_name in self.key_map:
             key_map = self.key_map[dataset_name]
             data = {key_map.get(k, k): v for k, v in data.items()}
-
+        
+        robot_name = self.datasets[dataset_name].robot_name
+        data["metadata.robot_name"] = robot_name
+        data["embodiment"] = robot_name
+        data["robot_name"] = robot_name
         return data
     
     @classmethod
@@ -592,7 +589,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self.init_episode()
         self.action_transform = (
-            get_action_chunk_transform(self.embodiment)
+            get_action_chunk_transform(self.robot_name)
             if self.chunk_length is not None
             else None
         )
@@ -606,7 +603,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
-        self.embodiment = int(get_embodiment_id(self.metadata["robot_type"]))
+        self.robot_name = int(get_embodiment_id(self.metadata["robot_type"]))
 
         # Detect JPEG-encoded image keys from metadata
         self._image_keys = self._detect_image_keys()
@@ -683,8 +680,10 @@ class ZarrDataset(torch.utils.data.Dataset):
 
             
         
-        # Add embodiment id
-        data["metadata.embodiment"] = self.embodiment
+        # Add metadata
+        data["metadata.robot_name"] = self.robot_name
+        data["embodiment"] = self.robot_name
+        data["robot_name"] = self.robot_name
 
         return data
 

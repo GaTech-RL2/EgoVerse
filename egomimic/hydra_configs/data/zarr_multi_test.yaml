@@ -1,0 +1,37 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  dataset1:
+    _target_: rldb.zarr.MultiDataset
+    datasets:
+      dataset1:
+        _target_: egomimic.rldb.zarr.ZarrDataset
+        Episode_path: /coc/flash7/rco3/EgoVerse/egomimic/rldb/zarr/zarr/bimanual/1769461098408.zarr
+        action_horizon: 100
+      dataset2:
+        _target_: egomimic.rldb.zarr.ZarrDataset
+        Episode_path: /coc/flash7/rco3/EgoVerse/egomimic/rldb/zarr/zarr/bimanual/1769461098408.zarr
+        action_horizon: 100
+    mode: train
+valid_datasets:
+  dataset1:
+    _target_: rldb.zarr.MultiDataset
+    datasets:
+      dataset1:
+        _target_: egomimic.rldb.zarr.ZarrDataset
+        Episode_path: /coc/flash7/rco3/EgoVerse/egomimic/rldb/zarr/zarr/bimanual/1769461098408.zarr
+        action_horizon: 100
+      dataset2:
+        _target_: egomimic.rldb.zarr.ZarrDataset
+        Episode_path: /coc/flash7/rco3/EgoVerse/egomimic/rldb/zarr/zarr/bimanual/1769461098408.zarr
+        action_horizon: 100
+    mode: valid
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 2
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 2
+    num_workers: 10

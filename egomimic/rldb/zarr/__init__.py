@@ -7,8 +7,10 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
     MultiDataset,
     ZarrDataset,
     ZarrEpisode,
+    LocalEpisodeResolver,
+    S3EpisodeResolver,
 )
-from egomimic.rldb.zarr.zarr_writer import ZarrWriter
+#from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 __all__ = [
     "EpisodeResolver",
@@ -16,4 +18,6 @@ __all__ = [
     "ZarrDataset",
     "ZarrEpisode",
     "ZarrWriter",
+    "LocalEpisodeResolver",
+    "S3EpisodeResolver",
 ]

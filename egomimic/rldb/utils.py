@@ -1154,6 +1154,7 @@ class DataSchematic(object):
                         "lerobot_key": key_info["lerobot_key"],
                         "shape": None,
                         "embodiment": embodiment_id,
+                        "robot_name": embodiment_id,
                     }
                 )
 
@@ -1222,7 +1223,7 @@ class DataSchematic(object):
         Updates:
             The 'shape' column in the DataFrame is updated to match the inferred shapes (stored as tuples).
         """
-        embodiment_id = int(batch["metadata.embodiment"])
+        embodiment_id = int(batch["metadata.robot_name"])
         for key, tensor in batch.items():
             if hasattr(tensor, "shape"):
                 shape = tuple(tensor.shape)
@@ -1295,71 +1296,109 @@ class DataSchematic(object):
         returns: dictionary of means and stds for proprio and action keys
         """
         norm_columns = []
-
-        embodiment = dataset.embodiment
-        if isinstance(embodiment, str):
-            embodiment = get_embodiment_id(embodiment)
-
         norm_columns.extend(self.keys_of_type("proprio_keys"))
         norm_columns.extend(self.keys_of_type("action_keys"))
 
-        logger.info(
-            f"[NormStats] Starting norm inference for embodiment={embodiment}, "
-            f"{len(norm_columns)} columns"
-        )
+        def _normalize_embodiment(value):
+            if value is None:
+                return None
+            if isinstance(value, str):
+                return get_embodiment_id(value)
+            return int(value)
 
-        def get_zarr_data(ds, col):
+        def _collect_embodiments(ds):
+            embodiments = set()
+
+            if hasattr(ds, "robot_name"):
+                emb = _normalize_embodiment(ds.robot_name)
+                if emb is not None:
+                    embodiments.add(emb)
+
+            if hasattr(ds, "datasets"):
+                for sub_ds in ds.datasets.values():
+                    embodiments.update(_collect_embodiments(sub_ds))
+
+            if isinstance(ds, (list, tuple)):
+                for sub_ds in ds:
+                    embodiments.update(_collect_embodiments(sub_ds))
+
+            return embodiments
+
+        def get_zarr_data(ds, col, embodiment):
             if hasattr(ds, "episode_reader"):
                 # ZarrDataset
+                ds_emb = _normalize_embodiment(getattr(ds, "robot_name", None))
+                if ds_emb != embodiment:
+                    return None
                 if col in ds.episode_reader._store:
                     return ds.episode_reader._store[col][:]
                 return None
-            elif hasattr(ds, "datasets"):
+            if hasattr(ds, "datasets"):
                 # MultiDataset wrapper
                 data_list = []
                 for d in ds.datasets.values():
-                    res = get_zarr_data(d, col)
+                    res = get_zarr_data(d, col, embodiment)
+                    if res is not None:
+                        data_list.append(res)
+                if data_list:
+                    return np.concatenate(data_list, axis=0)
+            if isinstance(ds, (list, tuple)):
+                data_list = []
+                for d in ds:
+                    res = get_zarr_data(d, col, embodiment)
                     if res is not None:
                         data_list.append(res)
                 if data_list:
                     return np.concatenate(data_list, axis=0)
             return None
 
-        for column in norm_columns:
-            if not self.is_key_with_embodiment(column, embodiment):
-                continue
-            column_name = self.keyname_to_lerobot_key(column, embodiment)
-            logger.info(f"[NormStats] Processing column={column_name}")
+        embodiments = _collect_embodiments(dataset)
+        if not embodiments:
+            raise ValueError("Could not determine any embodiments from dataset to infer norms.")
 
-            column_data = get_zarr_data(dataset, column_name)
+        for embodiment in sorted(embodiments):
+            logger.info(
+                f"[NormStats] Starting norm inference for embodiment={embodiment}, "
+                f"{len(norm_columns)} columns"
+            )
 
-            if column_data is None:
-                logger.warning(f"Skipping {column_name}, data not found given dataset type")
-                continue
+            for column in norm_columns:
+                if not self.is_key_with_embodiment(column, embodiment):
+                    continue
+                column_name = self.keyname_to_lerobot_key(column, embodiment)
+                logger.info(f"[NormStats] Processing column={column_name}")
 
-            if column_data.ndim not in (2, 3):
-                raise ValueError(
-                    f"Column {column} has shape {column_data.shape}, "
-                    "expected 2 or 3 dims"
-                )
+                column_data = get_zarr_data(dataset, column_name, embodiment)
 
-            mean = np.mean(column_data, axis=0)
-            std = np.std(column_data, axis=0)
-            minv = np.min(column_data, axis=0)
-            maxv = np.max(column_data, axis=0)
-            median = np.median(column_data, axis=0)
-            q1 = np.percentile(column_data, 1, axis=0)
-            q99 = np.percentile(column_data, 99, axis=0)
+                if column_data is None:
+                    logger.warning(
+                        f"Skipping {column_name}, data not found for embodiment={embodiment}"
+                    )
+                    continue
 
-            self.norm_stats[embodiment][column] = {
-                "mean": torch.from_numpy(mean).float(),
-                "std": torch.from_numpy(std).float(),
-                "min": torch.from_numpy(minv).float(),
-                "max": torch.from_numpy(maxv).float(),
-                "median": torch.from_numpy(median).float(),
-                "quantile_1": torch.from_numpy(q1).float(),
-                "quantile_99": torch.from_numpy(q99).float(),
-            }
+                if column_data.ndim not in (2, 3):
+                    raise ValueError(
+                        f"Column {column} has shape {column_data.shape}, "
+                        "expected 2 or 3 dims"
+                    )
+
+                mean = np.mean(column_data, axis=0)
+                std = np.std(column_data, axis=0)
+                minv = np.min(column_data, axis=0)
+                maxv = np.max(column_data, axis=0)
+                median = np.median(column_data, axis=0)
+                q1 = np.percentile(column_data, 1, axis=0)
+                q99 = np.percentile(column_data, 99, axis=0)
+
+                self.norm_stats[embodiment][column] = {
+                    "mean": torch.from_numpy(mean).float(),
+                    "std": torch.from_numpy(std).float(),
+                    "min": torch.from_numpy(minv).float(),
+                    "max": torch.from_numpy(maxv).float(),
+                    "median": torch.from_numpy(median).float(),
+                    "quantile_1": torch.from_numpy(q1).float(),
+                    "quantile_99": torch.from_numpy(q99).float(),
+                }
 
         logger.info("[NormStats] Finished norm inference")
 

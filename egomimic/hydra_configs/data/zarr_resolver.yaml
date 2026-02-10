@@ -1,0 +1,40 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.zarr.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path:
+        _target_: pathlib.Path
+        _args_: [/coc/flash7/rco3/EgoVerse/egomimic/rldb/zarr/zarr/bimanual]
+    embodiment: "eva_bimanual"
+    mode: "train"
+    valid_ratio: 0.2
+    sync_from_s3: false
+    filters:
+      is_deleted: false
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.zarr.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: 
+        _target_: pathlib.Path
+        _args_: [/coc/flash7/rco3/EgoVerse/egomimic/rldb/zarr/zarr/bimanual]
+    embodiment: "eva_bimanual"
+    mode: "valid"
+    valid_ratio: 0.2
+    sync_from_s3: false
+    filters:
+      is_deleted: false
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 2
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 2
+    num_workers: 10
