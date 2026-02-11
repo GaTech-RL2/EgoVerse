@@ -1,15 +1,15 @@
 #!/bin/bash
 #SBATCH --job-name=robot_bc
-#SBATCH --output=sbatch_logs/robot_bc.out
-#SBATCH --error=sbatch_logs/robot_bc.err
-#SBATCH --partition="rl2-lab"
+#SBATCH --output=sbatch_logs/robot_bc_2.out
+#SBATCH --error=sbatch_logs/robot_bc_2.err
+#SBATCH --partition="overcap"
 #SBATCH --account="rl2-lab"
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=15
+#SBATCH --cpus-per-task=12
 #SBATCH --gpus-per-node="l40s:1"
 #SBATCH --qos="short"
-#SBATCH --exclude="clippy"
+#SBATCH --exclude="bishop"
 
 source /coc/flash7/bli678/Projects/EgoVerse/emimic/bin/activate
 

@@ -8,6 +8,7 @@ train_datasets:
     embodiment: "eva_bimanual"
     filters: 
       task: "cup_on_saucer"
+      scene: "1"
     local_files_only: True
 
 valid_datasets:
@@ -18,6 +19,7 @@ valid_datasets:
     embodiment: "eva_bimanual"
     filters: 
       task: "cup_on_saucer"
+      scene: "1"
     local_files_only: True
 
 train_dataloader_params:

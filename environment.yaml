@@ -9,6 +9,7 @@ dependencies:
   - torchvision=0.18.1
   - pytorch-cuda=12.1
   - cuda-toolkit=12.1
+  - numpy<2.0
   - pyyaml
   - pexpect
   - matplotlib

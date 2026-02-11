@@ -11,46 +11,23 @@ train_datasets:
       scene: "1"
     local_files_only: True
 
-  dataset2:
-    _target_: egomimic.rldb.utils.S3RLDBDataset
-    bucket_name: "rldb"
-    mode: train
-    embodiment: "aria_bimanual"
-    filters: 
-      task: "put cup on saucer indomain"
-    local_files_only: True
-
 valid_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
-    mode: valid
+    mode: train
     embodiment: "eva_bimanual"
     filters: 
       task: "cup_on_saucer"
       scene: "1"
-    local_files_only: True
-  
-  dataset2:
-    _target_: egomimic.rldb.utils.S3RLDBDataset
-    bucket_name: "rldb"
-    mode: valid
-    embodiment: "aria_bimanual"
-    filters: 
-      task: "put cup on saucer indomain"
     local_files_only: True
 
 train_dataloader_params:
   dataset1:
     batch_size: 32
     num_workers: 10
-  dataset2:
-    batch_size: 32
-    num_workers: 10
+
 valid_dataloader_params:
   dataset1:
-    batch_size: 32
-    num_workers: 10
-  dataset2:
     batch_size: 32
     num_workers: 10

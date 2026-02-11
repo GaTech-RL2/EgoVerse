@@ -685,7 +685,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         key_map=None,
         valid_ratio=0.2,
         temp_root="/coc/flash7/scratch/egowm/egoverseS3Dataset",  # "/coc/flash7/scratch/rldb_temp"
-        cache_root="/coc/flash7/scratch/.cache",
+        cache_root="/coc/flash7/scratch/egowm/.cache",  # "/coc/flash7/scratch/.cache"
         filters={},
         debug=False,
         **kwargs,

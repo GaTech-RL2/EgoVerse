@@ -35,3 +35,5 @@ lerobot_test/
 **/robot/models/**
 **/robot/models/
 sbatch_logs/*
+.vscode
+.cursor
