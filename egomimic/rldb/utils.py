@@ -684,7 +684,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         local_files_only=True,
         key_map=None,
         valid_ratio=0.2,
-        temp_root="/coc/flash7/scratch/egoverseS3Dataset/S3_rldb_data",  # "/coc/flash7/scratch/rldb_temp"
+        temp_root="/coc/flash7/scratch/egowm/egoverseS3Dataset",  # "/coc/flash7/scratch/rldb_temp"
         cache_root="/coc/flash7/scratch/.cache",
         filters={},
         debug=False,
@@ -1479,3 +1479,12 @@ class DataSchematic(object):
         return denorm_data
 
 
+if __name__ == "__main__":
+    dataset = S3RLDBDataset(
+        embodiment="eva_bimanual",
+        mode="total",
+        local_files_only=True,
+        temp_root='/coc/flash7/scratch/egowm/egoverseS3Dataset',
+        cache_root='/coc/flash7/scratch/egowm/.cache',
+        filters={"episode_hash": "2026-01-22-18-57-54-150000"}
+    )

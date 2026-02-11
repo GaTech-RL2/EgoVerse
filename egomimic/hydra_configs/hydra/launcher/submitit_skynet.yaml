@@ -16,4 +16,4 @@ timeout_min: 2880
 
 additional_parameters:
   requeue: true
-  gpus-per-node: "a40:1"
+  gpus-per-node: "l40s:1"

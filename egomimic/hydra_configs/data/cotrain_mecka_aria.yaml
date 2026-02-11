@@ -20,7 +20,6 @@ train_datasets:
       task: fold_clothes_indomain
     local_files_only: true
 
-
   dataset3:
     _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: rldb
@@ -52,7 +51,6 @@ valid_datasets:
     filters:
       task: fold_clothes_indomain
     local_files_only: true
-
 
   dataset3:
     _target_: egomimic.rldb.utils.S3RLDBDataset

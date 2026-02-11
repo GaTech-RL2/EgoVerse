@@ -34,3 +34,4 @@ lerobot_test/
 **/lerobot_test/**
 **/robot/models/**
 **/robot/models/
+sbatch_logs/*

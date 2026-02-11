@@ -6,11 +6,9 @@ train_datasets:
     bucket_name: "rldb"
     mode: train
     embodiment: "eva_bimanual"
-    cache_root: "/coc/flash7/scratch/.cache/"
     filters: 
-      task: "fold clothes"
+      task: "cup_on_saucer"
     local_files_only: True
-    debug: False
 
 valid_datasets:
   dataset1:
@@ -18,11 +16,9 @@ valid_datasets:
     bucket_name: "rldb"
     mode: valid
     embodiment: "eva_bimanual"
-    cache_root: "/coc/flash7/scratch/.cache/"
     filters: 
-      task: "fold clothes"
+      task: "cup_on_saucer"
     local_files_only: True
-    debug: False
 
 train_dataloader_params:
   dataset1:
