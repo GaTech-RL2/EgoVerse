@@ -399,8 +399,8 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         filtered_paths = self._get_local_filtered_paths(self.folder_path, filters)
 
-        valid_hashes = {hashes for _, hashes in filtered_paths}
-        if not valid_hashes:
+        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        if not valid_folder_names:
             raise ValueError(
                 "No valid collection names from local filtering: "
                 "filters matched no episodes in the local directory."
@@ -408,7 +408,7 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         datasets = self._load_zarr_datasets(
             search_path=self.folder_path,
-            valid_folder_names=valid_hashes
+            valid_folder_names=valid_folder_names
         )
 
         return datasets
@@ -473,6 +473,10 @@ class MultiDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         dataset_name, local_idx = self.index_map[idx]
         data = self.datasets[dataset_name][local_idx]
+
+        robot_name = self.datasets[dataset_name].embodiment
+        data["metadata.robot_name"] = robot_name
+        data["embodiment"] = robot_name
             
         return data
     
@@ -542,6 +546,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_reader = ZarrEpisode(self.episode_path)
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
+        self.embodiment = self.metadata["embodiment"]
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
 
         # Detect JPEG-encoded image keys from metadata
