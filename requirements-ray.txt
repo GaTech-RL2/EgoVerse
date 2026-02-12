@@ -9,3 +9,4 @@ opencv-python-headless
 click==8.2.1
 tqdm
 Pillow
+mediapy

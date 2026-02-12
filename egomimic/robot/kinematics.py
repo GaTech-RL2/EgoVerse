@@ -165,8 +165,12 @@ class MinkKinematicsSolver:
         # Load MuJoCo model
         try:
             self.model = mujoco.MjModel.from_xml_path(self.model_path)
-        except Exception:
+        except Exception as e:
             # If direct loading fails, try creating a scene XML
+            print(f"Loading from URDF: {self.model_path} failed")
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
             self.model = self._create_mujoco_model_from_urdf(model_path)
 
         self.data = mujoco.MjData(self.model)

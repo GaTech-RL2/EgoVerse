@@ -20,9 +20,11 @@ rsync_exclude:
   - "**/__pycache__/"
   - "*.pyc"
   - "logs/"
+  - "*.parquet"
+  - "**/pytracik/**"
 
-max_workers: 50
-idle_timeout_minutes: 10
+max_workers: 140
+idle_timeout_minutes: 5
 
 available_node_types:
   head_node:
@@ -30,6 +32,8 @@ available_node_types:
       InstanceType: t3a.2xlarge
       KeyName: rldb-base-pem
       ImageId: ami-08c4d70c31f91a5ac
+      IamInstanceProfile:
+        Arn: arn:aws:iam::556885871428:instance-profile/ray-autoscaler-v1
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
@@ -37,17 +41,33 @@ available_node_types:
     min_workers: 0
     max_workers: 0
 
-  worker_node:
+  worker_small:
     node_config:
-      InstanceType: c5.18xlarge
+      InstanceType: r6a.2xlarge
+      KeyName: rldb-base-pem
+      ImageId: ami-08c4d70c31f91a5ac
+      IamInstanceProfile:
+        Arn: arn:aws:iam::556885871428:instance-profile/ray-autoscaler-v1
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 150 }
+    resources: { CPU: 2, eva_small: 1 }
+    min_workers: 0
+    max_workers: 120
+
+  worker_big:
+    node_config:
+      InstanceType: r6a.8xlarge
+      IamInstanceProfile:
+        Arn: arn:aws:iam::556885871428:instance-profile/ray-autoscaler-v1
       KeyName: rldb-base-pem
       ImageId: ami-08c4d70c31f91a5ac
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
-          Ebs: { VolumeSize: 50 }
-    resources: { CPU: 72 }
+          Ebs: { VolumeSize: 200 } # often worth bumping
+    resources: { CPU: 8, eva_big: 1 }
     min_workers: 0
-    max_workers: 50
+    max_workers: 10
 
 head_node_type: head_node
 
@@ -60,79 +80,42 @@ initialization_commands:
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev awscli
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq ffmpeg libavcodec-dev libavformat-dev libswscale-dev libx264-dev
   - |
-      echo "=== Testing FFmpeg installation ==="
-      if command -v ffmpeg >/dev/null 2>&1; then
-        ffmpeg -hide_banner -version | head -n 1
-        echo "[OK] FFmpeg is installed and accessible."
-      else
-        echo "[FAIL] FFmpeg not found in PATH."
-      fi
-      echo "=== FFmpeg test done ==="
+    echo "=== Testing FFmpeg installation ==="
+    if command -v ffmpeg >/dev/null 2>&1; then
+      ffmpeg -hide_banner -version | head -n 1
+      echo "[OK] FFmpeg is installed and accessible."
+    else
+      echo "[FAIL] FFmpeg not found in PATH."
+    fi
+    echo "=== FFmpeg test done ==="
   - |
-      cd ~/EgoVerse
-      pip3 install --no-input -r requirements-ray.txt
-      pip3 install --no-input -e external/lerobot
-      pip3 install --no-input -e .
-
+    cd ~/EgoVerse
+    pip3 install --no-input -r requirements-ray.txt
+    pip3 install --no-input -e external/lerobot
+    pip3 install --no-input -e .
 
 setup_commands:
   - sudo mkdir -p /mnt/raw /mnt/processed
 
   - |
-      chmod +x ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
-      R2_SECRET_NAME=r2/rldb/credentials DB_SECRET_NAME=rds/appdb/appuser REGION=us-east-2 \
-        bash ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+    chmod +x ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+    R2_SECRET_NAME=r2/rldb/credentials DB_SECRET_NAME=rds/appdb/appuser REGION=us-east-2 \
+      bash ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
   - |
-      set -a
-      . /home/ubuntu/.egoverse_env
-      set +a
-      printf '%s:%s\n' "$R2_ACCESS_KEY_ID" "$R2_SECRET_ACCESS_KEY" | sudo tee /etc/passwd-s3fs >/dev/null
-      sudo chmod 600 /etc/passwd-s3fs
+    set -a
+    . /home/ubuntu/.egoverse_env
+    set +a
+    printf '%s:%s\n' "$R2_ACCESS_KEY_ID" "$R2_SECRET_ACCESS_KEY" | sudo tee /etc/passwd-s3fs >/dev/null
+    sudo chmod 600 /etc/passwd-s3fs
 
+head_setup_commands:
   - |
-      if mountpoint -q /mnt/raw; then
-        echo "/mnt/raw already mounted"
-      else
-        set -a
-        . /home/ubuntu/.egoverse_env
-        set +a
-        sudo s3fs rldb:/raw_v2/eva /mnt/raw \
-          -o ro \
-          -o url="$AWS_ENDPOINT_URL_S3" \
-          -o passwd_file=/etc/passwd-s3fs \
-          -o allow_other \
-          -o umask=000 \
-          -o use_path_request_style \
-          -o nonempty
-      fi
-
-  - |
-      if mountpoint -q /mnt/processed; then
-        echo "/mnt/processed already mounted"
-      else
-        set -a
-        . /home/ubuntu/.egoverse_env
-        set +a
-        sudo s3fs rldb:/processed_v2/eva /mnt/processed \
-          -o url="$AWS_ENDPOINT_URL_S3" \
-          -o passwd_file=/etc/passwd-s3fs \
-          -o allow_other \
-          -o umask=000 \
-          -o use_path_request_style \
-          -o multipart_size=64 \
-          -o parallel_count=20 \
-          -o del_cache \
-          -o complement_stat \
-          -o nonempty
-      fi
-
-  - |
-      (crontab -l 2>/dev/null \
-       | grep -v run_eva_conversion.py \
-       | grep -v ray_worker_gaurdrails.py \
-       | grep -v ray_worker_gaurdrails.lock ; \
-       echo 'CRON_TZ=America/New_York'; \
-       echo '0 22 * * * flock -n /tmp/run_eva_conversion.lock /bin/bash -lc "set -a; . /home/ubuntu/.egoverse_env; set +a; /usr/bin/python3 ~/EgoVerse/egomimic/scripts/eva_process/run_eva_conversion.py --skip-if-done" >> ~/eva_conversion_$(date +\%Y-\%m-\%d-\%H-\%M-\%S).log 2>&1'; \
-       echo '*/10 * * * * flock -n /tmp/ray_worker_gaurdrails.lock /usr/bin/python3 /home/ubuntu/EgoVerse/egomimic/utils/aws/budget_guardrails/ray_worker_gaurdrails.py >> /home/ubuntu/ray_worker_gaurdrails.log 2>&1') \
-       | crontab - || true
+    (crontab -l 2>/dev/null \
+     | grep -v run_eva_conversion.py \
+     | grep -v ray_worker_gaurdrails.py \
+     | grep -v ray_worker_gaurdrails.lock ; \
+     echo 'CRON_TZ=America/New_York'; \
+     echo '0 22 * * * flock -n /tmp/run_eva_conversion.lock /bin/bash -lc "set -a; . /home/ubuntu/.egoverse_env; set +a; /usr/bin/python3 ~/EgoVerse/egomimic/scripts/eva_process/run_eva_conversion.py --skip-if-done" >> ~/eva_conversion_$(date +\%Y-\%m-\%d-\%H-\%M-\%S).log 2>&1'; \
+     echo '*/10 * * * * flock -n /tmp/ray_worker_gaurdrails.lock /usr/bin/python3 /home/ubuntu/EgoVerse/egomimic/utils/aws/budget_guardrails/ray_worker_gaurdrails.py >> /home/ubuntu/ray_worker_gaurdrails.log 2>&1') \
+     | crontab - || true
   - crontab -l || true

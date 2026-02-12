@@ -1218,6 +1218,157 @@ class EvaHD5Extractor:
         return features, metadata
 
 
+def save_preview_mp4(
+    frames: list[dict], output_path: Path, fps: int, image_compressed: bool
+):
+    """
+    Save a half-resolution, web-compatible MP4 (H.264, yuv420p).
+
+    Strategy:
+    1. Try torchvision.io.write_video (H.264 via FFmpeg libs, no CLI).
+    2. If that fails, fall back to ffmpeg CLI via subprocess.
+    3. If both fail, raise a RuntimeError.
+
+    Expects each frame dict to contain:
+        'observations.images.front_img_1' -> torch.Tensor (C,H,W), uint8, BGR.
+    """
+    img_key = "observations.images.front_img_1"
+    imgs = [f[img_key] for f in frames if img_key in f]
+    if not imgs:
+        print(f"[MP4] No frames with key '{img_key}' found — skipping video save.")
+        return
+
+    # Assume imgs[0] is (C,H,W)
+    C, H, W = imgs[0].shape
+
+    # Compute half-res (force even dims for yuv420p)
+    outW, outH = W // 2, H // 2
+    if outW % 2:
+        outW -= 1
+    if outH % 2:
+        outH -= 1
+    if outW <= 0 or outH <= 0:
+        raise ValueError(f"[MP4] Invalid output size: {outW}x{outH}")
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Build resized RGB frames once
+    rgb_frames = []
+    for chw in imgs:
+        # chw: (C,H,W) uint8, BGR from cv2.imdecode earlier
+        t = chw.detach().cpu()
+        if t.dtype != torch.uint8:
+            t = t.to(torch.uint8)
+
+        # If grayscale, repeat to 3 channels
+        if t.shape[0] == 1:
+            t = t.repeat(3, 1, 1)
+
+        # Resize to (outH, outW)
+        t_resized = F.interpolate(
+            t.unsqueeze(0),  # (1,C,H,W)
+            size=(outH, outW),
+            mode="bilinear",
+            align_corners=False,
+        ).squeeze(0)  # (C,outH,outW)
+
+        hwc = t_resized.permute(1, 2, 0).contiguous()  # (H,W,3), uint8
+        rgb_frames.append(hwc)
+
+    video_tensor = torch.stack(rgb_frames, dim=0)  # (T, H, W, 3) uint8
+
+    # 1) Try torchvision.write_video
+    try:
+        from torchvision.io import write_video
+
+        write_video(
+            filename=str(output_path),
+            video_array=video_tensor,
+            fps=float(fps),
+            video_codec="libx264",  # H.264, web-compatible
+            options={"crf": "23", "preset": "veryfast"},
+        )
+        print(
+            f"[MP4] Saved web-compatible H.264 preview via torchvision to {output_path}"
+        )
+        return
+    except Exception as e:
+        print(
+            f"[MP4] torchvision.io.write_video failed ({e}); trying ffmpeg CLI fallback..."
+        )
+
+    # 2) Fallback: ffmpeg CLI (libx264)
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        raise RuntimeError(
+            "[MP4] Could not write web-compatible MP4:\n"
+            "  - torchvision.io.write_video is unavailable or failed\n"
+            "  - `ffmpeg` CLI not found on PATH\n"
+            "Install either torchvision with video support or ffmpeg+libx264."
+        )
+
+    # For ffmpeg rawvideo, we need BGR24 frames of shape (outH, outW, 3)
+    # We can convert our RGB hwc tensors back to BGR numpy.
+    cmd = [
+        ffmpeg,
+        "-y",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-pix_fmt",
+        "bgr24",
+        "-s",
+        f"{outW}x{outH}",
+        "-r",
+        str(fps),
+        "-i",
+        "-",  # stdin
+        "-an",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-profile:v",
+        "baseline",
+        "-level",
+        "3.0",
+        "-movflags",
+        "+faststart",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "23",
+        str(output_path),
+    ]
+
+    proc = subprocess.Popen(
+        cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    try:
+        for hwc_rgb in rgb_frames:
+            # hwc_rgb: (H,W,3), RGB uint8
+            np_rgb = hwc_rgb.numpy()
+            # RGB -> BGR
+            np_bgr = np_rgb[..., ::-1]
+            proc.stdin.write(np_bgr.tobytes())
+    finally:
+        if proc.stdin:
+            proc.stdin.flush()
+            proc.stdin.close()
+
+    ret = proc.wait()
+    if ret != 0:
+        stderr = proc.stderr.read().decode(errors="ignore") if proc.stderr else ""
+        raise RuntimeError(f"[MP4] ffmpeg/libx264 encoding failed (exit {ret}).\n{stderr}")
+
+    print(f"[MP4] Saved web-compatible H.264 preview via ffmpeg CLI to {output_path}")
+
+
 class DatasetConverter:
     """
     A class to convert datasets to Lerobot format.
@@ -1337,162 +1488,7 @@ class DatasetConverter:
     def save_preview_mp4(
         self, frames: list[dict], output_path: Path, fps: int, image_compressed: bool
     ):
-        """
-        Save a half-resolution, web-compatible MP4 (H.264, yuv420p).
-
-        Strategy:
-        1. Try torchvision.io.write_video (H.264 via FFmpeg libs, no CLI).
-        2. If that fails, fall back to ffmpeg CLI via subprocess.
-        3. If both fail, raise a RuntimeError.
-
-        Expects each frame dict to contain:
-            'observations.images.front_img_1' -> torch.Tensor (C,H,W), uint8, BGR.
-        """
-        img_key = "observations.images.front_img_1"
-        imgs = [f[img_key] for f in frames if img_key in f]
-        if not imgs:
-            print(f"[MP4] No frames with key '{img_key}' found — skipping video save.")
-            return
-
-        # Assume imgs[0] is (C,H,W)
-        C, H, W = imgs[0].shape
-
-        # Compute half-res (force even dims for yuv420p)
-        outW, outH = W // 2, H // 2
-        if outW % 2:
-            outW -= 1
-        if outH % 2:
-            outH -= 1
-        if outW <= 0 or outH <= 0:
-            raise ValueError(f"[MP4] Invalid output size: {outW}x{outH}")
-
-        output_path = Path(output_path)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # -----------------------------
-        # Build resized RGB frames once
-        # -----------------------------
-        rgb_frames = []
-        for chw in imgs:
-            # chw: (C,H,W) uint8, BGR from cv2.imdecode earlier
-            t = chw.detach().cpu()
-            if t.dtype != torch.uint8:
-                t = t.to(torch.uint8)
-
-            # If grayscale, repeat to 3 channels
-            if t.shape[0] == 1:
-                t = t.repeat(3, 1, 1)
-
-            # Resize to (outH, outW)
-            t_resized = F.interpolate(
-                t.unsqueeze(0),  # (1,C,H,W)
-                size=(outH, outW),
-                mode="bilinear",
-                align_corners=False,
-            ).squeeze(0)  # (C,outH,outW)
-
-            hwc = t_resized.permute(1, 2, 0).contiguous()  # (H,W,3), uint8
-            rgb_frames.append(hwc)
-
-        video_tensor = torch.stack(rgb_frames, dim=0)  # (T, H, W, 3) uint8
-
-        # -----------------------------
-        # 1) Try torchvision.write_video
-        # -----------------------------
-        try:
-            from torchvision.io import write_video
-
-            write_video(
-                filename=str(output_path),
-                video_array=video_tensor,
-                fps=float(fps),
-                video_codec="libx264",  # H.264, web-compatible
-                options={"crf": "23", "preset": "veryfast"},
-            )
-            print(
-                f"[MP4] Saved web-compatible H.264 preview via torchvision to {output_path}"
-            )
-            return
-        except Exception as e:
-            print(
-                f"[MP4] torchvision.io.write_video failed ({e}); trying ffmpeg CLI fallback..."
-            )
-
-        # -----------------------------
-        # 2) Fallback: ffmpeg CLI (libx264)
-        # -----------------------------
-        ffmpeg = shutil.which("ffmpeg")
-        if ffmpeg is None:
-            raise RuntimeError(
-                "[MP4] Could not write web-compatible MP4:\n"
-                "  - torchvision.io.write_video is unavailable or failed\n"
-                "  - `ffmpeg` CLI not found on PATH\n"
-                "Install either torchvision with video support or ffmpeg+libx264."
-            )
-
-        # For ffmpeg rawvideo, we need BGR24 frames of shape (outH, outW, 3)
-        # We can convert our RGB hwc tensors back to BGR numpy.
-        cmd = [
-            ffmpeg,
-            "-y",
-            "-f",
-            "rawvideo",
-            "-vcodec",
-            "rawvideo",
-            "-pix_fmt",
-            "bgr24",
-            "-s",
-            f"{outW}x{outH}",
-            "-r",
-            str(fps),
-            "-i",
-            "-",  # stdin
-            "-an",
-            "-c:v",
-            "libx264",
-            "-pix_fmt",
-            "yuv420p",
-            "-profile:v",
-            "baseline",
-            "-level",
-            "3.0",
-            "-movflags",
-            "+faststart",
-            "-preset",
-            "veryfast",
-            "-crf",
-            "23",
-            str(output_path),
-        ]
-
-        proc = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        try:
-            for hwc_rgb in rgb_frames:
-                # hwc_rgb: (H,W,3), RGB uint8
-                np_rgb = hwc_rgb.numpy()
-                # RGB -> BGR
-                np_bgr = np_rgb[..., ::-1]
-                proc.stdin.write(np_bgr.tobytes())
-        finally:
-            if proc.stdin:
-                proc.stdin.flush()
-                proc.stdin.close()
-
-        ret = proc.wait()
-        if ret != 0:
-            stderr = proc.stderr.read().decode(errors="ignore") if proc.stderr else ""
-            raise RuntimeError(
-                f"[MP4] ffmpeg/libx264 encoding failed (exit {ret}).\n{stderr}"
-            )
-
-        print(
-            f"[MP4] Saved web-compatible H.264 preview via ffmpeg CLI to {output_path}"
-        )
+        save_preview_mp4(frames, output_path, fps, image_compressed)
 
     def extract_episode(self, episode_path, task_description: str = ""):
         extrinsics = EXTRINSICS[self.extrinsics_key]

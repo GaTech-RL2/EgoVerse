@@ -673,6 +673,9 @@ def render_3d_traj_frames(
     plt.close(fig)
     return frames
 
+def xyzw_to_wxyz(xyzw):
+    return np.concatenate([xyzw[..., 3:4], xyzw[..., :3]], axis=-1)
+
 def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None):
     """
     args:
