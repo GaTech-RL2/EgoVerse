@@ -19,7 +19,7 @@ import ray
 from cloudpathlib import S3Path
 from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
 
-from eva_helper import lerobot_job, zarr_job
+from eva_helper import zarr_job
 
 from egomimic.utils.aws.aws_data_utils import (
     get_boto3_s3_client,
@@ -31,6 +31,7 @@ from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_hash_to_table_row,
     episode_table_to_df,
+    timestamp_ms_to_episode_hash,
     update_episode,
 )
 
@@ -187,7 +188,6 @@ def convert_one_bundle_impl(
     arm: str,
     description: str,
     extrinsics_key: str,
-    backend: str = "zarr",
 ) -> tuple[str, str, int]:
     s3_client = get_boto3_s3_client()
     hdf5_s3 = S3Path(data_h5_s3)
@@ -228,82 +228,53 @@ def convert_one_bundle_impl(
                     flush=True,
                 )
                 job_kwargs = dict(
-                    raw_path=str(tmp_dir),
+                    raw_path=str(local_hdf5),
                     output_dir=str(ds_parent),
                     dataset_name=dataset_name,
                     arm=arm,
                     description=description or "",
                     extrinsics_key=extrinsics_key,
                 )
-                if backend == "zarr":
-                    zarr_job(**job_kwargs)
-                else:
-                    lerobot_job(**job_kwargs)
+                zarr_path, mp4_path = zarr_job(**job_kwargs)
 
                 frames = -1
-                mp4_str = ""
-                path_for_sql = str(ds_path)
-                zarr_store_path = None
-                if backend == "zarr":
-                    zarr_store_path = ds_parent / f"{stem}.zarr"
-                    info = zarr_store_path / "zarr.json"
-                    print(f"[DEBUG] Zarr metadata path: {info}", flush=True)
-                    if info.exists():
-                        try:
-                            meta = json.loads(info.read_text())
-                            print(f"[DEBUG] Zarr metadata keys: {list(meta.keys())}", flush=True)
-                            frames = int(meta.get("attributes", {}).get("total_frames", -1))
-                        except Exception as e:
-                            print(f"[ERR] Failed to parse zarr metadata {info}: {e}", flush=True)
-                            frames = -1
-                    else:
-                        print(f"[ERR] Zarr metadata not found: {info}", flush=True)
-                    path_for_sql = f"{PROCESSED_REMOTE_PREFIX}/{stem}.zarr"
+                zarr_store_path = zarr_path
+                info = zarr_store_path / "zarr.json"
+                print(f"[DEBUG] Zarr metadata path: {info}", flush=True)
+                if info.exists():
+                    try:
+                        meta = json.loads(info.read_text())
+                        print(f"[DEBUG] Zarr metadata keys: {list(meta.keys())}", flush=True)
+                        frames = int(meta.get("attributes", {}).get("total_frames", -1))
+                    except Exception as e:
+                        print(f"[ERR] Failed to parse zarr metadata {info}: {e}", flush=True)
+                        frames = -1
                 else:
-                    info = ds_path / "meta/info.json"
-                    if info.exists():
-                        try:
-                            meta = json.loads(info.read_text())
-                            frames = int(meta.get("total_frames", -1))
-                        except Exception:
-                            frames = -1
-
-                mp4_candidates = list(ds_parent.glob(f"*{stem}*_video.mp4")) + list(
-                    ds_path.glob("**/*_video.mp4")
-                )
-                mp4_str = str(mp4_candidates[0]) if mp4_candidates else ""
+                    print(f"[ERR] Zarr metadata not found: {info}", flush=True)
+                path_for_sql = f"{PROCESSED_REMOTE_PREFIX}/{stem}.zarr"
 
                 try:
                     out_bucket, out_prefix = _parse_s3_uri(s3_processed_dir, default_bucket=BUCKET)
-                    if backend == "zarr" and zarr_store_path is not None:
-                        ds_s3_prefix = f"{out_prefix.rstrip('/')}/{stem}.zarr".strip("/")
-                        upload_dir_to_s3(str(zarr_store_path), out_bucket, prefix=ds_s3_prefix)
-                        shutil.rmtree(str(zarr_store_path), ignore_errors=True)
-                        print(f"[CLEANUP] Removed local zarr store: {zarr_store_path}", flush=True)
-                    else:
-                        ds_rel = ds_path.resolve().relative_to(PROCESSED_LOCAL_ROOT).as_posix()
-                        ds_s3_prefix = f"{out_prefix.rstrip('/')}/{ds_rel}".strip("/")
-                        upload_dir_to_s3(str(ds_path), out_bucket, prefix=ds_s3_prefix)
-                        shutil.rmtree(str(ds_path), ignore_errors=True)
-                        print(f"[CLEANUP] Removed local dataset dir: {ds_path}", flush=True)
-                    if mp4_str:
-                        mp4_obj = Path(mp4_str)
-                        if mp4_obj.exists():
-                            mp4_rel = mp4_obj.resolve().relative_to(PROCESSED_LOCAL_ROOT).as_posix()
-                            mp4_s3_key = f"{out_prefix.rstrip('/')}/{mp4_rel}".strip("/")
-                            s3_client.upload_file(str(mp4_obj), out_bucket, mp4_s3_key)
-                            mp4_obj.unlink(missing_ok=True)
-                            print(f"[CLEANUP] Removed local mp4: {mp4_obj}", flush=True)
+                    ds_s3_prefix = f"{out_prefix.rstrip('/')}/{dataset_name}.zarr".strip("/")
+                    upload_dir_to_s3(str(zarr_store_path), out_bucket, prefix=ds_s3_prefix)
+                    shutil.rmtree(str(zarr_store_path), ignore_errors=True)
+                    print(f"[CLEANUP] Removed local zarr store: {zarr_store_path}", flush=True)
+                    mp4_obj = Path(mp4_path)
+                    mp4_rel = mp4_obj.resolve().relative_to(PROCESSED_LOCAL_ROOT).as_posix()
+                    mp4_s3_key = f"{out_prefix.rstrip('/')}/{mp4_rel}".strip("/")
+                    s3_client.upload_file(str(mp4_obj), out_bucket, mp4_s3_key)
+                    mp4_obj.unlink(missing_ok=True)
+                    print(f"[CLEANUP] Removed local mp4: {mp4_obj}", flush=True)
                 except Exception as e:
-                    print(f"[ERR] Failed to upload {ds_path} to S3: {e}", flush=True)
-                    return path_for_sql, mp4_str, -2
+                    print(f"[ERR] Failed to upload {zarr_store_path} to S3: {e}", flush=True)
+                    return zarr_path, mp4_path, -2
 
-                return path_for_sql, mp4_str, frames
+                return zarr_path, mp4_path, frames
 
             except Exception as e:
                 err_msg = f"[FAIL] {stem}: {e}\n{traceback.format_exc()}"
                 print(err_msg, flush=True)
-                return path_for_sql, "", -1
+                return zarr_path, "", -1
             finally:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
 
@@ -321,7 +292,6 @@ def convert_one_bundle_big(*args, **kwargs):
 def launch(
     dry: bool = False,
     skip_if_done: bool = False,
-    backend: str = "zarr",
     episode_hashes: list[str] | None = None,
 ):
     engine = create_default_engine()
@@ -359,14 +329,10 @@ def launch(
             print(f"[SKIP] {name}: no matching row in SQL (app.episodes)", flush=True)
             continue
 
-        if backend == "zarr":
-            processed_path = (row.zarr_processed_path or "").strip()
-            processing_error = row.zarr_processing_error
-            path_field_name = "zarr_processed_path"
-        else:
-            processed_path = (row.processed_path or "").strip()
-            processing_error = row.processing_error
-            path_field_name = "processed_path"
+        processed_path = (row.zarr_processed_path or "").strip()
+        processing_error = row.zarr_processing_error
+        path_field_name = "zarr_processed_path"
+       
 
         if skip_if_done and len(processed_path) > 0:
             print(f"[SKIP] {name}: already has {path_field_name}='{processed_path}'", flush=True)
@@ -387,6 +353,7 @@ def launch(
 
         arm = infer_arm_from_robot_name(getattr(row, "robot_name", None))
         dataset_name = hdf5_s3.stem
+        dataset_name = timestamp_ms_to_episode_hash(name)
         out_dir = PROCESSED_LOCAL_ROOT
         s3out_dir = PROCESSED_REMOTE_PREFIX
         description = row.task_description or ""
@@ -394,14 +361,11 @@ def launch(
         if dry:
             ds_path = (PROCESSED_LOCAL_ROOT / dataset_name).resolve()
             mp4_candidate = PROCESSED_LOCAL_ROOT / f"{name}_video.mp4"
-            if backend == "zarr":
-                # Zarr stored flat under eva: prefix/<stem>.zarr
-                mapped_ds = f"{PROCESSED_REMOTE_PREFIX}/{name}.zarr"
-            else:
-                mapped_ds = _map_processed_local_to_remote(ds_path)
+            # Zarr stored flat under eva: prefix/<stem>.zarr
+            mapped_ds = f"{PROCESSED_REMOTE_PREFIX}/{name}.zarr"
             mapped_mp4 = _map_processed_local_to_remote(mp4_candidate)
-            path_field_name = "zarr_processed_path" if backend == "zarr" else "processed_path"
-            mp4_field_name = "zarr_mp4_path" if backend == "zarr" else "mp4_path"
+            path_field_name = "zarr_processed_path"
+            mp4_field_name = "zarr_mp4_path"
             print(
                 f"[DRY] {name}: arm={arm} | out_dir={out_dir}/{dataset_name}\n"
                 f"      desc-bytes={len(description.encode('utf-8'))}\n"
@@ -421,7 +385,6 @@ def launch(
             arm,
             description,
             extrinsics_key,
-            backend,
         )
 
         start_time = time.time()
@@ -432,7 +395,6 @@ def launch(
             "start_time": start_time,
             "size": "small",
             "args": args_tuple,
-            "backend": backend,
         }
 
     if dry or not pending:
@@ -454,54 +416,32 @@ def launch(
 
         try:
             ds_path, mp4_path, frames = ray.get(ref)
-            backend = info.get("backend", "zarr")
 
             row.num_frames = int(frames) if frames is not None else -1
-            if backend == "zarr":
-                mapped_ds = ds_path
-            else:
-                mapped_ds = _map_processed_local_to_remote(ds_path)
+            mapped_ds = _map_processed_local_to_remote(ds_path)
             mapped_mp4 = _map_processed_local_to_remote(mp4_path)
             
-            if backend == "zarr":
-                if row.num_frames > 0:
-                    row.zarr_processed_path = mapped_ds
-                    row.zarr_mp4_path = mapped_mp4
-                    row.zarr_processing_error = ""
-                elif row.num_frames == -2:
-                    row.zarr_processed_path = ""
-                    row.zarr_mp4_path = ""
-                    row.zarr_processing_error = "Upload Failed"
-                elif row.num_frames == -1:
-                    row.zarr_processed_path = ""
-                    row.zarr_mp4_path = ""
-                    row.zarr_processing_error = "Zero Frames"
-                else:
-                    row.zarr_processed_path = ""
-                    row.zarr_mp4_path = ""
-                    row.zarr_processing_error = "Conversion Failed Unhandled Error"
-                path_value = row.zarr_processed_path
+            if row.num_frames > 0:
+                row.zarr_processed_path = mapped_ds
+                row.zarr_mp4_path = mapped_mp4
+                row.zarr_processing_error = ""
+            elif row.num_frames == -2:
+                row.zarr_processed_path = ""
+                row.zarr_mp4_path = ""
+                row.zarr_processing_error = "Upload Failed"
+            elif row.num_frames == -1:
+                row.zarr_processed_path = ""
+                row.zarr_mp4_path = ""
+                row.zarr_processing_error = "Zero Frames"
             else:
-                if row.num_frames > 0:
-                    row.processed_path = mapped_ds
-                    row.mp4_path = mapped_mp4
-                    row.processing_error = ""
-                elif row.num_frames == -2:
-                    row.processed_path = ""
-                    row.mp4_path = ""
-                    row.processing_error = "Upload Failed"
-                elif row.num_frames == -1:
-                    row.processed_path = ""
-                    row.mp4_path = ""
-                    row.processing_error = "Zero Frames"
-                else:
-                    row.processed_path = ""
-                    row.mp4_path = ""
-                    row.processing_error = "Conversion Failed Unhandled Error"
-                path_value = row.processed_path
+                row.zarr_processed_path = ""
+                row.zarr_mp4_path = ""
+                row.zarr_processing_error = "Conversion Failed Unhandled Error"
+            path_value = row.zarr_processed_path
+           
 
             update_episode(engine, row)
-            path_field_name = "zarr_processed_path" if backend == "zarr" else "processed_path"
+            path_field_name = "zarr_processed_path"
             print(
                 f"[OK] Updated SQL for {episode_key}: "
                 f"{path_field_name}={path_value}, num_frames={row.num_frames}, "
@@ -510,7 +450,7 @@ def launch(
             )
 
             if row.num_frames > 0 and path_value:
-                mp4_val = row.zarr_mp4_path if backend == "zarr" else row.mp4_path
+                mp4_val = row.zarr_mp4_path
                 benchmark_rows.append(
                     {
                         "episode_key": episode_key,
@@ -522,7 +462,6 @@ def launch(
                 )
 
         except Exception as e:
-            backend = info.get("backend", "zarr")
             if _is_oom_exception(e) and info.get("size") == "small":
                 print(
                     f"[OOM] Episode {episode_key} failed on SMALL. Retrying on BIG...",
@@ -545,16 +484,11 @@ def launch(
 
             row.num_frames = -1
             error_msg = f"{type(e).__name__}: {e}"
-            path_field_name = "zarr_processed_path" if backend == "zarr" else "processed_path"
+            path_field_name = "zarr_processed_path"
             
-            if backend == "zarr":
-                row.zarr_mp4_path = ""
-                row.zarr_processed_path = ""
-                row.zarr_processing_error = error_msg
-            else:
-                row.mp4_path = ""
-                row.processed_path = ""
-                row.processing_error = error_msg
+            row.zarr_mp4_path = ""
+            row.zarr_processed_path = ""
+            row.zarr_processing_error = error_msg
             
             try:
                 update_episode(engine, row)
@@ -599,13 +533,6 @@ def main():
         help="Skip episodes that already have a processed_path in SQL",
     )
     p.add_argument(
-        "--backend",
-        type=str,
-        choices=["lerobot", "zarr"],
-        default="zarr",
-        help="Output backend: 'zarr' (default) or 'lerobot'",
-    )
-    p.add_argument(
         "--ray-address", default="auto", help="Ray cluster address (default: auto)"
     )
     p.add_argument(
@@ -648,7 +575,6 @@ def main():
     launch(
         dry=args.dry_run,
         skip_if_done=args.skip_if_done,
-        backend=args.backend,
         episode_hashes=args.episode_hashes,
     )
 

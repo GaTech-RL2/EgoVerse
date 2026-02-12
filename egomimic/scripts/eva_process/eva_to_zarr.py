@@ -293,28 +293,26 @@ def _build_example_annotations(
 # ---------------------------------------------------------------------------
 
 def convert_episode(
-    hdf5_path: Path,
-    zarr_episode_path: Path,
+    raw_path: Path,
+    output_dir: Path,
+    dataset_name: str,
     arm: str,
     extrinsics_key: str,
     fps: int,
     description: str = "",
-    mp4_dir: Path | None = None,
+    save_mp4: bool = False,
     chunk_timesteps: int = 100,
 
     example_annotations: bool = False,
-) -> Path:
+) -> tuple[Path, Path]:
     """Process one HDF5 file and write a .zarr episode.
 
     Returns the zarr episode path on success.
     """
-    hdf5_path = Path(hdf5_path)
-    zarr_episode_path = Path(zarr_episode_path)
-
     extrinsics = EXTRINSICS[extrinsics_key]
 
     episode_feats = EvaHD5Extractor.process_episode(
-        episode_path=hdf5_path,
+        episode_path=raw_path,
         arm=arm,
         extrinsics=extrinsics,
     )
@@ -330,8 +328,8 @@ def convert_episode(
         else []
     )
 
-    ZarrWriter.create_and_write(
-        episode_path=zarr_episode_path,
+    zarr_path = ZarrWriter.create_and_write(
+        episode_path=output_dir / f"{dataset_name}.zarr",
         numeric_data=numeric_data or None,
         image_data=image_data or None,
         embodiment=embodiment,
@@ -342,14 +340,15 @@ def convert_episode(
         enable_sharding=True,
     )
 
-    logger.info("Wrote zarr episode: %s", zarr_episode_path)
+    logger.info("Wrote zarr episode: %s", zarr_path)
 
     # Optional preview MP4
     front_key = "images.front_img_1"
     obs = episode_feats.get("observations") or {}
-    if mp4_dir is not None and front_key in obs:
+    mp4_path = None
+    if save_mp4 and front_key in obs:
         images_tchw = np.asarray(obs[front_key])
-        mp4_path = Path(mp4_dir) / f"{hdf5_path.stem}_video.mp4"
+        mp4_path = output_dir / f"{dataset_name}.mp4"
         try:
             logger.info("Saving preview MP4 to: %s", mp4_path)
             save_preview_mp4(images_tchw, mp4_path, fps)
@@ -359,7 +358,7 @@ def convert_episode(
                 "Failed to save preview MP4 at %s:\n%s", mp4_path, traceback.format_exc()
             )
 
-    return zarr_episode_path
+    return zarr_path, mp4_path
 
 
 # ---------------------------------------------------------------------------
@@ -374,41 +373,23 @@ def main(args) -> None:
     args : argparse.Namespace
         Parsed command-line arguments (same shape as eva_to_lerobot).
     """
-    raw_path = Path(args.raw_path)
-    output_base = Path(args.output_dir)
 
-    episode_list = sorted(raw_path.glob("*.hdf5"))
-    if not episode_list:
-        raise ValueError(f"No .hdf5 files found in {raw_path}")
-
-    EvaHD5Extractor.check_format(episode_list, image_compressed=getattr(args, "image_compressed", False))
-
-    mp4_dir = output_base if getattr(args, "save_mp4", False) else None
-    chunk_timesteps = getattr(args, "chunk_timesteps", 100)
-    example_annotations = getattr(
-        args,
-        "example_language_annotations",
-        getattr(args, "example_annotations", False),
-    )
-
-    for hdf5_path in episode_list:
-        stem = hdf5_path.stem
-        zarr_episode_path = output_base / f"{stem}.zarr"
-        try:
-            convert_episode(
-                hdf5_path=hdf5_path,
-                zarr_episode_path=zarr_episode_path,
-                arm=args.arm,
-                extrinsics_key=getattr(args, "extrinsics_key", "x5Dec13_2"),
-                fps=getattr(args, "fps", 30),
-                description=getattr(args, "description", ""),
-                mp4_dir=mp4_dir,
-                chunk_timesteps=chunk_timesteps,
-                example_annotations=example_annotations,
-            )
-        except Exception:
-            logger.error("Error converting %s:\n%s", hdf5_path, traceback.format_exc())
-            continue
+    try:
+        zarr_path, mp4_path = convert_episode(
+            raw_path=Path(args.raw_path),
+            output_dir=Path(args.output_dir),
+            dataset_name=args.dataset_name,
+            arm=args.arm,
+            extrinsics_key=getattr(args, "extrinsics_key", "x5Dec13_2"),
+            fps=getattr(args, "fps", 30),
+            description=getattr(args, "description", ""),
+            chunk_timesteps=getattr(args, "chunk_timesteps", 100),
+            save_mp4=args.save_mp4,
+        )
+        return zarr_path, mp4_path
+    except Exception:
+        logger.error("Error converting %s:\n%s", args.raw_path, traceback.format_exc())
+        return None, None
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +403,7 @@ def argument_parse():
     parser.add_argument("--raw-path", type=Path, required=True, help="Directory containing raw HDF5 files.")
     parser.add_argument("--fps", type=int, default=30, help="Frames per second.")
     parser.add_argument("--output-dir", type=Path, required=True, help="Root output directory.")
+    parser.add_argument("--dataset-name", type=str, required=True, help="Name for dataset.")
     parser.add_argument("--arm", type=str, choices=["left", "right", "both"], default="both")
     parser.add_argument("--extrinsics-key", type=str, default="x5Dec13_2")
     parser.add_argument("--image-compressed", type=str2bool, default=False)
