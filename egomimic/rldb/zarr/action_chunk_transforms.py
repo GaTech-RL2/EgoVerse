@@ -13,6 +13,7 @@ matching the behaviour of egomimicUtils.interpolate_arr_euler.
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import Literal
 
 import numpy as np
 from projectaria_tools.core.sophus import SE3

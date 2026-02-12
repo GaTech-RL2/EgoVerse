@@ -22,7 +22,7 @@ rsync_exclude:
   - "logs/"
   - "*.parquet"
 
-max_workers: 60
+max_workers: 140
 idle_timeout_minutes: 5
 
 available_node_types:
@@ -36,7 +36,7 @@ available_node_types:
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
-    resources: { CPU: 4 }
+    resources: { CPU: 8 }
     min_workers: 0
     max_workers: 0
 
@@ -49,10 +49,10 @@ available_node_types:
         Arn: arn:aws:iam::556885871428:instance-profile/ray-autoscaler-v1
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
-          Ebs: { VolumeSize: 50 }
-    resources: { CPU: 8, aria_small: 1 }
+          Ebs: { VolumeSize: 150 }
+    resources: { CPU: 2, aria_small: 1 }
     min_workers: 0
-    max_workers: 3
+    max_workers: 120 
 
   worker_big:
     node_config:
@@ -63,10 +63,10 @@ available_node_types:
       ImageId: ami-08c4d70c31f91a5ac
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
-          Ebs: { VolumeSize: 100 } # often worth bumping
-    resources: { CPU: 32, aria_big: 1 }
+          Ebs: { VolumeSize: 200 } # often worth bumping
+    resources: { CPU: 8, aria_big: 1 }
     min_workers: 0
-    max_workers: 0
+    max_workers: 7
 
 head_node_type: head_node
 
