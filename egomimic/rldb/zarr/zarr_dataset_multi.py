@@ -407,8 +407,7 @@ class LocalEpisodeResolver(EpisodeResolver):
             )
 
         datasets = self._load_zarr_datasets(
-            search_path=self.folder_path,
-            valid_folder_names=valid_folder_names
+            search_path=self.folder_path, valid_folder_names=valid_folder_names
         )
 
         return datasets
@@ -477,7 +476,7 @@ class MultiDataset(torch.utils.data.Dataset):
         robot_name = self.datasets[dataset_name].embodiment
         data["metadata.robot_name"] = robot_name
         data["embodiment"] = robot_name
-            
+
         return data
     
     @classmethod
@@ -507,7 +506,6 @@ class MultiDataset(torch.utils.data.Dataset):
         else:
             resolved = resolver.resolve(filters=filters)
 
-
         return cls(datasets=resolved, **kwargs)
 
 
@@ -531,7 +529,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.episode_path = Episode_path
         self.metadata = None
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
-        self._json_keys = None   # Lazy-loaded set of JSON-encoded keys
+        self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
         self.init_episode()
         
@@ -571,10 +569,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             Set of keys containing JSON payloads.
         """
         features = self.metadata.get("features", {})
-        return {
-            key for key, info in features.items()
-            if info.get("dtype") == "json"
-        }
+        return {key for key, info in features.items() if info.get("dtype") == "json"}
 
     @staticmethod
     def _decode_json_entry(value):
@@ -672,7 +667,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                     data[k] = [self._decode_json_entry(v) for v in data[k]]
                 else:
                     data[k] = self._decode_json_entry(data[k])
-                    
+
         # Convert all numpy arrays in data to torch tensors
 
         # TODO add the transform list code here

@@ -7,6 +7,27 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+import random
+import math
+import os
+
+from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset, MultiDataset
+
+
+def set_global_seed(seed: int = 42):
+
+    random.seed(seed)  # Python RNG
+    np.random.seed(seed)  # NumPy RNG
+    torch.manual_seed(seed)  # PyTorch CPU
+    torch.cuda.manual_seed(seed)  # PyTorch GPU
+    torch.cuda.manual_seed_all(seed)
+
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+
+set_global_seed(42)
+
+
 class DataSchematic(object):
     def __init__(self, schematic_dict, viz_img_key, norm_mode="zscore"):
         """
@@ -77,8 +98,7 @@ class DataSchematic(object):
             str: Key name, e.g., "front_img_1".
         """
         df_filtered = self.df[
-            (self.df["zarr_key"] == zarr_key)
-            & (self.df["embodiment"] == embodiment)
+            (self.df["zarr_key"] == zarr_key) & (self.df["embodiment"] == embodiment)
         ]
 
         if df_filtered.empty:
@@ -139,7 +159,9 @@ class DataSchematic(object):
         """
         norm_columns = []
 
-        embodiment = dataset_name # TODO may need to clean this up to make the code nicer
+        embodiment = (
+            dataset_name  # TODO may need to clean this up to make the code nicer
+        )
         if isinstance(embodiment, str):
             embodiment = get_embodiment_id(embodiment)
 
@@ -171,13 +193,17 @@ class DataSchematic(object):
         for column in norm_columns:
             if not self.is_key_with_embodiment(column, embodiment):
                 continue
-            column_name = self.keyname_to_zarr_key(column, embodiment) # zarr key for retrieval
+            column_name = self.keyname_to_zarr_key(
+                column, embodiment
+            )  # zarr key for retrieval
             logger.info(f"[NormStats] Processing column={column_name}")
 
             column_data = get_zarr_data(dataset, column_name)
 
             if column_data is None:
-                logger.warning(f"Skipping {column_name}, data not found given dataset type")
+                logger.warning(
+                    f"Skipping {column_name}, data not found given dataset type"
+                )
                 continue
 
             if column_data.ndim not in (2, 3):
@@ -394,3 +420,37 @@ class DataSchematic(object):
                 denorm_data[key] = tensor
 
         return denorm_data
+
+    @staticmethod
+    def _iter_leaf_datasets(ds):
+
+        if isinstance(ds, ZarrDataset):
+            yield ds
+        elif isinstance(ds, MultiDataset):
+            for child in ds.datasets.values():
+                yield from DataSchematic._iter_leaf_datasets(child)
+        else:
+            yield ds
+
+    @staticmethod
+    def _key_map_for_any(ds) -> dict:
+        km = getattr(ds, "key_map", None)
+        return km
+
+    @staticmethod
+    def dataset_raw_norm_keys(
+        ds,
+        key_types=("proprio_keys", "action_keys"),
+        extra_keys=(),
+        include_all_key_map_keys=False,
+    ) -> list[str]:
+        out = set(extra_keys)
+        for leaf in DataSchematic._iter_leaf_datasets(ds):
+            km = DataSchematic._key_map_for_any(leaf)
+            if include_all_key_map_keys:
+                out |= set(km.keys())
+            else:
+                for k, info in km.items():
+                    if info.get("key_type") in set(key_types):
+                        out.add(k)
+        return sorted(out)
