@@ -174,3 +174,16 @@ def episode_hash_to_timestamp_ms(timestamp_str):
         tzinfo=timezone.utc
     )
     return int(dt.timestamp() * 1000)
+
+
+def timestamp_ms_to_episode_hash(timestamp_ms):
+    """
+    Convert UTC epoch milliseconds like 1769460905119 to
+    "YYYY-MM-DD-HH-MM-SS-ffffff".
+    """
+    timestamp_ms = int(timestamp_ms)
+    seconds, milliseconds = divmod(timestamp_ms, 1000)
+    dt = datetime.fromtimestamp(seconds, tz=timezone.utc).replace(
+        microsecond=milliseconds * 1000
+    )
+    return dt.strftime("%Y-%m-%d-%H-%M-%S-%f")
