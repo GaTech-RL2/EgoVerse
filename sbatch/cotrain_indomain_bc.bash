@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=cotrain_indomain_bc
-#SBATCH --output=sbatch_logs/cotrain_indomain_bc.out
-#SBATCH --error=sbatch_logs/cotrain_indomain_bc.err
+#SBATCH --output=sbatch_logs/cotrain_indomain_bc_2.out
+#SBATCH --error=sbatch_logs/cotrain_indomain_bc_2.err
 #SBATCH --partition="rl2-lab"
 #SBATCH --account="rl2-lab"
 #SBATCH --nodes=1
@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gpus-per-node="l40s:1"
 #SBATCH --qos="short"
-#SBATCH --exclude="clippy"
+#SBATCH --exclude="bishop"
 
 source /coc/flash7/bli678/Projects/EgoVerse/emimic/bin/activate
 
@@ -27,5 +27,6 @@ python egomimic/trainHydra.py \
     model=hpt_cotrain_flow_shared_head \
     logger.wandb.project=egowm_cup_saucer \
     name=cup_saucer \
-    description=indomain_cotrain_hpt
+    description=indomain_cotrain_hpt \
+    ckpt_path="/coc/flash7/bli678/Projects/EgoVerse/logs/cup_saucer/indomain_cotrain_hpt_2026-02-11_00-10-33/checkpoints/last.ckpt"
 

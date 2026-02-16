@@ -2,7 +2,7 @@
 #SBATCH --job-name=robot_bc
 #SBATCH --output=sbatch_logs/robot_bc_2.out
 #SBATCH --error=sbatch_logs/robot_bc_2.err
-#SBATCH --partition="overcap"
+#SBATCH --partition="rl2-lab"
 #SBATCH --account="rl2-lab"
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -27,5 +27,6 @@ python egomimic/trainHydra.py \
     model=hpt_bc_flow_eva \
     logger.wandb.project=egowm_cup_saucer \
     name=cup_saucer \
-    description=robot_hpt
+    description=robot_hpt \
+    ckpt_path="/coc/flash7/bli678/Projects/EgoVerse/logs/cup_saucer/robot_hpt_2026-02-11_00-58-14/checkpoints/last.ckpt"
 
