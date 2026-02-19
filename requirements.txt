@@ -31,7 +31,7 @@ positional-encodings[pytorch]
 argparse
 pandas
 overrides
-zarr
+zarr==3.1.5
 tabulate
 transformers==4.57.3
 timm

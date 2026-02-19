@@ -1,0 +1,11 @@
+ray[default]
+boto3
+cloudpathlib[s3]
+sqlalchemy
+psycopg[binary]
+pandas
+projectaria-tools
+opencv-python-headless
+click==8.2.1
+tqdm
+Pillow

@@ -1,4 +1,5 @@
 # ───────────────── aria-ray-cluster.yaml ─────────────────
+# Launch with AWS_PROFILE=clusterv2 ray up egomimic/scripts/aria_process/test-aria-cluster.yaml
 cluster_name: test-aria-ray-cluster
 
 provider:
@@ -8,7 +9,17 @@ provider:
 
 auth:
   ssh_user: ubuntu
-  ssh_private_key: ~/.ssh/ryan-mac.pem
+  ssh_private_key: ~/.ssh/rldb-base-pem.pem
+
+file_mounts:
+  "/home/ubuntu/EgoVerse": "/coc/flash7/skareer6/EgoVerse"
+
+rsync_exclude:
+  - "emimic/"
+  - ".git/"
+  - "**/__pycache__/"
+  - "*.pyc"
+  - "logs/"
 
 max_workers: 60
 idle_timeout_minutes: 5
@@ -17,12 +28,8 @@ available_node_types:
   head_node:
     node_config:
       InstanceType: t3a.2xlarge
-      ImageId: ami-0b3766455f47e0ec4
-      KeyName: ryan-mac
-      SubnetId: subnet-02fbc81414d827515
-      SecurityGroupIds: [sg-01cabcd4f45211888]
-      IamInstanceProfile:
-        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      KeyName: rldb-base-pem
+      ImageId: ami-087b7d87e62c00ebf
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
@@ -33,12 +40,8 @@ available_node_types:
   worker_small:
     node_config:
       InstanceType: r6a.2xlarge
-      ImageId: ami-0b3766455f47e0ec4
-      KeyName: ryan-mac
-      SubnetId: subnet-02fbc81414d827515
-      SecurityGroupIds: [sg-01cabcd4f45211888]
-      IamInstanceProfile:
-        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      KeyName: rldb-base-pem
+      ImageId: ami-087b7d87e62c00ebf
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
@@ -49,12 +52,8 @@ available_node_types:
   worker_big:
     node_config:
       InstanceType: r6a.8xlarge
-      ImageId: ami-0b3766455f47e0ec4
-      KeyName: ryan-mac
-      SubnetId: subnet-02fbc81414d827515
-      SecurityGroupIds: [sg-01cabcd4f45211888]
-      IamInstanceProfile:
-        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      KeyName: rldb-base-pem
+      ImageId: ami-087b7d87e62c00ebf
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 100 }  # often worth bumping
@@ -68,16 +67,8 @@ head_node_type: head_node
 initialization_commands:
   - sudo DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing -yq
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3 awscli
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
-  - sudo pip3 install --no-input -U "ray[default]"
-  - sudo pip3 install --no-input sqlalchemy
-  - sudo pip3 install --no-input -U ray boto3
-  - sudo pip3 install --no-input -U "cloudpathlib[s3]"
-  - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"
-  - pip3 install -U projectaria-tools
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq ffmpeg libavcodec-dev libavformat-dev libswscale-dev libx264-dev
-  - pip3 install --no-cache-dir --upgrade opencv-python-headless
   - |
       echo "=== Testing FFmpeg installation ==="
       if command -v ffmpeg >/dev/null 2>&1; then
@@ -87,17 +78,20 @@ initialization_commands:
         echo "[FAIL] FFmpeg not found in PATH."
       fi
       echo "=== FFmpeg test done ==="
-  - pip3 install --user --no-input --force-reinstall "click==8.2.1"
+  - |
+      cd ~/EgoVerse
+      pip3 install --no-input -r requirements-ray.txt
+      pip3 install --no-input -e external/lerobot
+      pip3 install --no-input -e .
 
 
 setup_commands:
   - sudo mkdir -p /mnt/raw /mnt/processed
 
   - |
-      cd ~/EgoVerse || true
-      gt checkout main || true
-      gt sync || true
-      gt submodule update --init --recursive --quiet || true
+      chmod +x ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+      R2_SECRET_NAME=r2/rldb/credentials DB_SECRET_NAME=rds/appdb/appuser REGION=us-east-2 \
+        bash ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
 
 # Ray startup commands - configure GCS to detect dead/stale nodes faster
 # ray start --head --dashboard-host=0.0.0.0 --dashboard-port=8265 --include-dashboard=true
