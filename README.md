@@ -10,9 +10,9 @@ This repository contains the data processing and training code for EgoVerse and 
 - [``egomimic/algo``](./egomimic/algo): Algorithm code for EgoMimic, ACT and HPT
 - [``egomimic/hydra_configs``](./egomimic/hydra_configs): Train configs for each algorithm
 - [``egomimic/trainHydra.py``](./egomimic/trainHydra.py): Main training script, powered by Pytorch Lightning and Hydra (DDP enabled)
-- [``data_processing.md``](./data_processing.md): Instructions to process your own data, both Aria Human data and teleoperated robot data.
+- [``data_processing.md``](./docs/data_processing.md): Instructions to process your own data, both Aria Human data and teleoperated robot data.
 - [``egomimic/evaluation``](./egomimic/evaluation/): Evaluation scripts
-- [``data_upload.md``](./data_upload.md): Instructions to upload data (any type) to S3 bucket
+- [``data_upload.md``](./docs/data_upload.md): Instructions to upload data (any type) to S3 bucket
 
 ## Installation
 
@@ -49,10 +49,10 @@ Set your wandb project in ``egomimic/hydra_configs/logger/wandb.yaml``
 ## Quick Start
 ### Processing your own data for training
 ![Data Streams](./assets/train_data.png)
-See [``data_processing.md``](./data_processing.md)
+See [data_processing.md](./docs/data_processing.md)
 
 ### Pulling processed data for training from AWS
-See [``training_aws.md``](./training_aws.md)
+See [training_aws.md](./docs/training_aws.md)
 
 ## Hydra Comands
 ### Quick start
@@ -83,7 +83,7 @@ Eval (add your own rollout class in [``egomimic/evaluation``](./egomimic/evaluat
 `python egomimic/trainHydra.py train=false eval=true`
 
 ## Add your embodiment
-See [``model.md``](./model.md)
+See [model.md](./docs/model.md)
 
 ## Submitit modification
 Tip: after you launch via submitit, you'll notice that the command won't finish executing.  If you want it to end the command after you launch a job, edit the following file

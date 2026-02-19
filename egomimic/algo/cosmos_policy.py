@@ -396,12 +396,15 @@ class CosmosPolicy(Algo):
         
         predictions = OrderedDict()
         
+        # batch: dict_keys(['front_img_1', 'left_wrist_img', 'right_wrist_img', 
+        # 'joint_positions', 'ee_pose', 'actions_joints', 'actions_cartesian', 'embodiment', 'pad_mask'])
         for embodiment_id, _batch in batch.items():
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
             embodiment_name = get_embodiment(embodiment_id).lower()
+            import pdb; pdb.set_trace()
             
             # Transform to cosmos_policy format
             cosmos_batch = self._robomimic_to_cosmos_policy_data(
