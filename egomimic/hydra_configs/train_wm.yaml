@@ -55,28 +55,29 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       future_left_wrist_img:
         key_type: camera_keys
         lerobot_key: future.observations.images.left_wrist_img
+      
       ee_pose:
         key_type: proprio_keys
         lerobot_key: observations.state.ee_pose
-      joint_positions:
-        key_type: proprio_keys
-        lerobot_key: observations.state.joint_positions
+      # joint_positions:
+      #   key_type: proprio_keys
+      #   lerobot_key: observations.state.joint_positions
       future_ee_pose:
         key_type: proprio_keys
         lerobot_key: future.observations.state.ee_pose
-      future_joint_positions:
-        key_type: proprio_keys
-        lerobot_key: future.observations.state.joint_positions
+      # future_joint_positions:
+      #   key_type: proprio_keys
+      #   lerobot_key: future.observations.state.joint_positions
       
-      actions_joints:
-        key_type: action_keys
-        lerobot_key: actions_joints
+      # actions_joints:
+      #   key_type: action_keys
+      #   lerobot_key: actions_joints
       actions_cartesian:
         key_type: action_keys
         lerobot_key: actions_cartesian
-      future_actions_joints:
-        key_type: action_keys
-        lerobot_key: future.actions_joints
+      # future_actions_joints:
+      #   key_type: action_keys
+      #   lerobot_key: future.actions_joints
       future_actions_cartesian:
         key_type: action_keys
         lerobot_key: future.actions_cartesian

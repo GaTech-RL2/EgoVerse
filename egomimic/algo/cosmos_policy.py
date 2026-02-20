@@ -2,7 +2,6 @@ from collections import OrderedDict
 import copy
 import logging
 
-import future
 import torch
 import torch.nn as nn
 import numpy as np
@@ -10,6 +9,7 @@ from typing import Dict, Optional, Tuple
 from overrides import override
 from omegaconf import DictConfig, OmegaConf
 import importlib
+import pickle
 
 from egomimic.algo.algo import Algo
 from egomimic.rldb.utils import get_embodiment_id, get_embodiment
@@ -46,7 +46,9 @@ class CosmosPolicy(Algo):
         # Cosmos Policy specific params
         # ---------------------------
         model_config,
+        action_chunk: int = 25,
         use_proprio: bool = True,
+        use_values: bool = False,
         final_image_size: int = 224,
         num_duplicates_per_image: int = 4,
         normalize_images=False,
@@ -65,7 +67,9 @@ class CosmosPolicy(Algo):
         self.device = None
         
         # Cosmos Policy specific parameters
+        self.action_chunk = action_chunk
         self.use_proprio = use_proprio
+        self.use_values = use_values
         self.final_image_size = final_image_size
         self.num_duplicates_per_image = num_duplicates_per_image
         self.model_config = model_config
@@ -245,12 +249,38 @@ class CosmosPolicy(Algo):
         device = batch[ac_keys[0]].device
         B = batch[ac_keys[0]].shape[0]
         
-        # concatenation priprio and actions
-        curr_priprio = None
-        curr_actions = None
-        future_priprio = None
-        future_actions = None
+        # Concatenation priprio and actions
+        # Concatenate current proprio keys
+        curr_proprio_list = []
+        for proprio_key in proprio_keys:
+            if proprio_key in batch and "future" not in proprio_key.lower():
+                curr_proprio_list.append(batch[proprio_key])
+        if curr_proprio_list:
+            curr_priprios = torch.cat(curr_proprio_list, dim=-1)  # Concatenate along feature dimension
         
+        # Concatenate future proprio keys
+        future_proprio_list = []
+        for proprio_key in proprio_keys:
+            if proprio_key in batch and "future" in proprio_key.lower():
+                future_proprio_list.append(batch[proprio_key])
+        if future_proprio_list:
+            future_priprios = torch.cat(future_proprio_list, dim=-1)  # Concatenate along feature dimension
+        
+        # Concatenate current action keys
+        curr_action_list = []
+        for ac_key in ac_keys:
+            if ac_key in batch and "future" not in ac_key.lower():
+                curr_action_list.append(batch[ac_key])
+        if curr_action_list:
+            curr_actions = torch.cat(curr_action_list, dim=-1)  # Concatenate along feature dimension
+        
+        # Concatenate future action keys
+        future_action_list = []
+        for ac_key in ac_keys:
+            if ac_key in batch and "future" in ac_key.lower():
+                future_action_list.append(batch[ac_key])
+        if future_action_list:
+            future_actions = torch.cat(future_action_list, dim=-1)  # Concatenate along feature dimension
         
         
         # TODO: Currently processes only the first sample (batch_idx=0).
@@ -320,9 +350,10 @@ class CosmosPolicy(Algo):
         future_primary_img = _ensure_size(future_primary_img) if future_primary_img is not None else None
         future_left_wrist_img = _ensure_size(future_left_wrist_img) if future_left_wrist_img is not None else None
         future_right_wrist_img = _ensure_size(future_right_wrist_img) if future_right_wrist_img is not None else None
-
-        import pdb; pdb.set_trace()
         
+        # ---------------------------------------
+        # Injection video sequences
+        # ---------------------------------------
         # Build a list of unique frames (no per-frame duplication) and per-frame repeat counts
         # We'll preprocess the unique frames once (same aug params across the whole sequence),
         # then expand by repeat counts to produce the final sequence.
@@ -350,36 +381,174 @@ class CosmosPolicy(Algo):
         cum_frames += 1
         segment_idx += 1
         
-        # (2) # Add current proprio
-        # if self.use_proprio:
-            
-            
-            
-        #     proprio = episode_data["proprio"][relative_step_idx]
-        #     image = (
-        #         primary_current
-        #         if episode_data.get("is_lazy_jpeg", False)
-        #         else episode_data["images"][relative_step_idx]
-        #     )
-        #     # Proprio values will be injected into latent diffusion sequence later
-        #     # For now just add blank image
-        #     blank_proprio_image = np.zeros_like(
-        #         primary_current
-        #         if episode_data.get("is_lazy_jpeg", False)
-        #         else episode_data["images"][relative_step_idx]
-        #     )
-        #     current_proprio_latent_idx = segment_idx
-        #     frames.append(blank_proprio_image)
-        #     repeats.append(self.num_duplicates_per_image)
-        #     cum_frames += self.num_duplicates_per_image
-        #     segment_idx += 1
+        # (2) Add current proprio
+        if self.use_proprio:
+            proprio = curr_priprios[batch_idx].cpu().numpy()
+            blank_proprio_image = np.zeros_like(ref_image_for_shape)
+            current_proprio_latent_idx = segment_idx
+            frames.append(blank_proprio_image)
+            repeats.append(self.num_duplicates_per_image)
+            cum_frames += self.num_duplicates_per_image
+            segment_idx += 1
         
+        # (3) Add current left wrist image
+        if left_wrist_img is not None:
+            current_wrist_image_latent_idx = segment_idx
+            frames.append(left_wrist_img)
+            repeats.append(self.num_duplicates_per_image)
+            cum_frames += self.num_duplicates_per_image
+            segment_idx += 1
         
+        # (4) Add current right wrist image
+        if right_wrist_img is not None:
+            current_wrist_image2_latent_idx = segment_idx
+            frames.append(right_wrist_img)
+            repeats.append(self.num_duplicates_per_image)
+            cum_frames += self.num_duplicates_per_image
+            segment_idx += 1
         
+        # (5) Add current primary image
+        current_image_latent_idx = segment_idx
+        frames.append(primary_img)
+        repeats.append(self.num_duplicates_per_image)
+        cum_frames += self.num_duplicates_per_image
+        segment_idx += 1
         
+        # (6) Add blank image for action chunk
+        blank_action_image = np.zeros_like(ref_image_for_shape)
+        action_latent_idx = segment_idx
+        frames.append(blank_action_image)
+        repeats.append(self.num_duplicates_per_image)
+        cum_frames += self.num_duplicates_per_image
+        segment_idx += 1
         
+        # (7) Add future proprio
+        if self.use_proprio:
+            future_priprio = future_priprios[batch_idx].cpu().numpy()
+            blank_proprio_image = np.zeros_like(ref_image_for_shape)
+            future_proprio_latent_idx = segment_idx
+            frames.append(blank_proprio_image)
+            repeats.append(self.num_duplicates_per_image)
+            cum_frames += self.num_duplicates_per_image
+            segment_idx += 1
         
-        cosmos_batch = None
+        # (8) Add future left wrist image
+        if future_left_wrist_img is not None:
+            future_wrist_image_latent_idx = segment_idx
+            frames.append(future_left_wrist_img)
+            repeats.append(self.num_duplicates_per_image)
+            cum_frames += self.num_duplicates_per_image
+            segment_idx += 1
+        
+        # (9) Add future right wrist image
+        if future_right_wrist_img is not None:
+            future_wrist_image2_latent_idx = segment_idx
+            frames.append(future_right_wrist_img)
+            repeats.append(self.num_duplicates_per_image)
+            cum_frames += self.num_duplicates_per_image
+            segment_idx += 1
+        
+        # (10) Add future primary image
+        future_image_latent_idx = segment_idx
+        frames.append(future_primary_img)
+        repeats.append(self.num_duplicates_per_image)
+        cum_frames += self.num_duplicates_per_image
+        segment_idx += 1
+        
+        # (11) Add blank value image
+        if self.use_values:
+            value_image = np.zeros_like(ref_image_for_shape)
+            value_latent_idx = segment_idx
+            frames.append(value_image)
+            repeats.append(self.num_duplicates_per_image)
+            cum_frames += self.num_duplicates_per_image
+            segment_idx += 1
+        else:
+            value_latent_idx = -1
+        
+        # Sanity: segment indices must be within [0, len(frames)-1]
+        num_segments = len(frames)
+        for name, val in (
+            ("action_latent_idx", action_latent_idx),
+            ("value_latent_idx", value_latent_idx),
+            ("current_proprio_latent_idx", current_proprio_latent_idx if self.use_proprio else -1),
+            ("current_wrist_image_latent_idx", current_wrist_image_latent_idx),
+            ("current_wrist_image2_latent_idx", current_wrist_image2_latent_idx),
+            ("current_image_latent_idx", current_image_latent_idx),
+            ("future_proprio_latent_idx", future_proprio_latent_idx if self.use_proprio else -1),
+            ("future_wrist_image_latent_idx", future_wrist_image_latent_idx),
+            ("future_wrist_image2_latent_idx", future_wrist_image2_latent_idx),
+            ("future_image_latent_idx", future_image_latent_idx)
+        ):
+            if val != -1:
+                assert 0 <= val < num_segments, f"{name}={val} out of range for num_segments={num_segments}"
+        
+        # Concatenate unique frames and preprocess once
+        all_unique_images = np.stack(frames, axis=0) # (num_segments, H, W, C)
+        all_unique_images = preprocess_image(
+            all_unique_images,
+            final_image_size=self.final_image_size,
+            normalize_images=self.normalize_images,
+            use_image_aug=self.use_image_aug,
+            stronger_image_aug=self.use_stronger_image_aug,
+        )
+        
+        # Expand unique preprocessed images by repeat counts along time dimension
+        lengths = torch.as_tensor(repeats, dtype=torch.long, device=all_unique_images.device)
+        all_images = torch.repeat_interleave(all_unique_images, lengths, dim=1) # (n_segments, T_expanded, C, H, W)
+        # Sanity: expanded length matches repeats sum
+        assert all_images.shape[1] == int(lengths.sum().item()), "Expanded T does not match repeats sum"
+        
+        # ---------------------------------------
+        # Construct action and value function
+        # ---------------------------------------
+        curr_action_chunk = curr_actions[batch_idx][:self.action_chunk, :]  
+        future_action_chunk = future_actions[batch_idx][:self.action_chunk, :]
+        
+        value_function_return = float("-100")  # Just a placeholder
+        next_value_function_return = float("-100")
+        value_function_return = torch.tensor(value_function_return, dtype=torch.float32, device=device)
+        next_value_function_return = torch.tensor(next_value_function_return, dtype=torch.float32, device=device)
+        
+        # ---------------------------------------
+        # Construct text embeddings
+        # ---------------------------------------
+        #TODO: hard code for now
+        text_embeddings_path = '/coc/flash7/scratch/egowm/wmprocessedDataset/t5_embeddings.pkl'
+        with open(text_embeddings_path, 'rb') as f:
+            text_embeddings_dict = pickle.load(f)
+        command = next(iter(text_embeddings_dict))
+        t5_text_embeddings = text_embeddings_dict[command] # (1, 512, 1024)
+        
+        # ---------------------------------------
+        # Make final data
+        # ---------------------------------------
+        data = {
+            "video": all_images,  # (n_segments, T, C, H, W)
+            "actions": curr_action_chunk,  # (action_chunk, action_dim)
+            "t5_text_embeddings": torch.squeeze(t5_text_embeddings, dim=0),  # (512, 1024)
+            "t5_text_mask": torch.ones(512, dtype=torch.int64), # (512,)
+            "fps": 30, # Just set to some fixed value since we aren't generating videos anyway
+            "padding_mask": torch.zeros(1, self.final_image_size, self.final_image_size),
+            "image_size": self.final_image_size * torch.ones(4),
+            "proprio": proprio,
+            "future_proprio": future_priprio,
+            "value_function_return": value_function_return,
+            "next_action_chunk": future_action_chunk,
+            "next_value_function_return": next_value_function_return,
+            "action_latent_idx": action_latent_idx,
+            "value_latent_idx": value_latent_idx,
+            "current_proprio_latent_idx": current_proprio_latent_idx if self.use_proprio else -1,
+            "current_wrist_image_latent_idx": current_wrist_image_latent_idx,
+            "current_wrist_image2_latent_idx": current_wrist_image2_latent_idx,
+            "current_image_latent_idx": current_image_latent_idx,
+            "future_proprio_latent_idx": future_proprio_latent_idx if self.use_proprio else -1,
+            "future_wrist_image_latent_idx": future_wrist_image_latent_idx,
+            "future_wrist_image2_latent_idx": future_wrist_image2_latent_idx,
+            "future_image_latent_idx": future_image_latent_idx,
+        }
+        
+        cosmos_batch = data
         return cosmos_batch
     
     @override
@@ -416,16 +585,9 @@ class CosmosPolicy(Algo):
             )
             
             # Call cosmos_policy model training_step
-            if self.model is None:
-                # Placeholder: model not initialized
-                # In real implementation, this should call model.training_step()
-                logger.warning("CosmosPolicy model not initialized - using placeholder loss")
-                loss = torch.tensor(0.0, device=self.device)
-                output_batch = {}
-            else:
-                # Get current iteration (would need to track this)
-                iteration = getattr(self, "_current_iteration", 0)
-                output_batch, loss = self.model.training_step(cosmos_batch, iteration)
+            # Get current iteration (would need to track this)
+            iteration = getattr(self, "_current_iteration", 0)
+            output_batch, loss = self.model.training_step(cosmos_batch, iteration)
             
             for ac_key in ac_keys:
                 if ac_key in output_batch:
