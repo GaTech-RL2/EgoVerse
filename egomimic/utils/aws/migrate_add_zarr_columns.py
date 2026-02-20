@@ -19,6 +19,13 @@ DDL_STATEMENTS = (
         """,
     ),
     (
+        "zarr_mp4_path",
+        """
+        ALTER TABLE app.episodes
+        ADD COLUMN IF NOT EXISTS zarr_mp4_path TEXT NOT NULL DEFAULT ''
+        """,
+    ),
+    (
         "zarr_processing_error",
         """
         ALTER TABLE app.episodes
@@ -42,15 +49,19 @@ def main() -> int:
             FROM information_schema.columns
             WHERE table_schema='app'
               AND table_name='episodes'
-              AND column_name IN ('zarr_processed_path', 'zarr_processing_error')
+              AND column_name IN (
+                  'zarr_processed_path',
+                  'zarr_mp4_path',
+                  'zarr_processing_error'
+              )
             ORDER BY column_name
             """
         )
         with engine.connect() as conn:
             rows = conn.execute(verify_sql).all()
 
-        if len(rows) != 2:
-            print("ERROR: expected 2 zarr columns in app.episodes after migration.", file=sys.stderr)
+        if len(rows) != 3:
+            print("ERROR: expected 3 zarr columns in app.episodes after migration.", file=sys.stderr)
             for row in rows:
                 print(f"Found column: {row.column_name}", file=sys.stderr)
             return 1

@@ -34,6 +34,7 @@ class Uploader:
                 "num_frames",
                 "processed_path",
                 "zarr_processed_path",
+                "zarr_mp4_path",
                 "mp4_path",
                 "processing_error",
                 "zarr_processing_error",

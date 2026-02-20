@@ -30,6 +30,7 @@ class TableRow:
     objects: str = ""
     processed_path: str = ""  # Updateable
     zarr_processed_path: str = ""  # Updateable
+    zarr_mp4_path: str = ""  # Updateable
     processing_error: str = ""  # Updateable
     zarr_processing_error: str = ""  # Updateable
     mp4_path: str = ""  # Updateable
