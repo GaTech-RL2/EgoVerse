@@ -283,11 +283,6 @@ class CosmosPolicy(Algo):
             future_actions = torch.cat(future_action_list, dim=-1)  # Concatenate along feature dimension
         
         
-        # TODO: Currently processes only the first sample (batch_idx=0).
-        # For full batch processing, need to loop over all B samples and stack results.
-        # For now, process first sample only
-        batch_idx = 0
-        
         # Helper function to convert torch tensor (C, H, W) to numpy (H, W, C) uint8
         def tensor_to_numpy_uint8(img_tensor):
             """Convert torch tensor (C, H, W) to numpy (H, W, C) uint8."""
@@ -310,58 +305,25 @@ class CosmosPolicy(Algo):
                     img_np = np.repeat(img_np, 3, axis=-1)
             return img_np
         
-        # Extract images
-        # Find primary image (front_img_1 or first camera key)
-        primary_img = None
-        left_wrist_img = None
-        right_wrist_img = None
-        future_primary_img = None
-        future_left_wrist_img = None
-        future_right_wrist_img = None
-        
-        for cam_key in cam_keys:
-            if cam_key in batch:
-                img = batch[cam_key][batch_idx]  # (C, H, W)
-                if "front" in cam_key.lower():
-                    if "future" in cam_key.lower():
-                        future_primary_img = tensor_to_numpy_uint8(img)
-                    else:
-                        primary_img = tensor_to_numpy_uint8(img)
-                elif "left_wrist" in cam_key.lower():
-                    if "future" in cam_key.lower():
-                        future_left_wrist_img = tensor_to_numpy_uint8(img)
-                    else:
-                        left_wrist_img = tensor_to_numpy_uint8(img)
-                elif "right_wrist" in cam_key.lower():
-                    if "future" in cam_key.lower():
-                        future_right_wrist_img = tensor_to_numpy_uint8(img)
-                    else:
-                        right_wrist_img = tensor_to_numpy_uint8(img)
-        
         # Ensure frames are the expected size
         def _ensure_size(img: np.ndarray):
             if img.shape[0] != self.final_image_size or img.shape[1] != self.final_image_size:
                 return resize_images(np.expand_dims(img, axis=0), self.final_image_size).squeeze(0)
             return img
         
-        primary_img = _ensure_size(primary_img)
-        left_wrist_img = _ensure_size(left_wrist_img) if left_wrist_img is not None else None
-        right_wrist_img = _ensure_size(right_wrist_img) if right_wrist_img is not None else None
-        future_primary_img = _ensure_size(future_primary_img) if future_primary_img is not None else None
-        future_left_wrist_img = _ensure_size(future_left_wrist_img) if future_left_wrist_img is not None else None
-        future_right_wrist_img = _ensure_size(future_right_wrist_img) if future_right_wrist_img is not None else None
+        # ---------------------------------------
+        # Process all batch samples
+        # ---------------------------------------
+        # Lists to collect results for each batch sample
+        batch_videos = []
+        batch_actions = []
+        batch_future_actions = []
+        batch_proprios = []
+        batch_future_proprios = []
+        batch_value_returns = []
+        batch_next_value_returns = []
         
-        # ---------------------------------------
-        # Injection video sequences
-        # ---------------------------------------
-        # Build a list of unique frames (no per-frame duplication) and per-frame repeat counts
-        # We'll preprocess the unique frames once (same aug params across the whole sequence),
-        # then expand by repeat counts to produce the final sequence.
-        frames = []  # list of np.ndarray frames with shape (H, W, C)
-        repeats = []  # list of ints with how many times to repeat each frame in time dimension
-        cum_frames = 0  # cumulative final-frame count for expansion
-        segment_idx = 0  # logical segment index used for *_latent_idx
-        # Pre-initialize indices that will be filled as we append frames
+        # Latent indices (same for all batch samples, will be set in first iteration)
         action_latent_idx = -1
         value_latent_idx = -1
         current_proprio_latent_idx = -1
@@ -373,142 +335,228 @@ class CosmosPolicy(Algo):
         future_wrist_image2_latent_idx = -1
         future_image_latent_idx = -1
         
-        # (1) Add blank first input image (needed for the tokenizer)
-        ref_image_for_shape = copy.deepcopy(primary_img)
-        blank_first_input_frame = np.zeros_like(ref_image_for_shape)
-        frames.append(blank_first_input_frame)
-        repeats.append(1)
-        cum_frames += 1
-        segment_idx += 1
+        # Process each batch sample
+        for batch_idx in range(B):
+            # Extract images for this batch sample
+            primary_img = None
+            left_wrist_img = None
+            right_wrist_img = None
+            future_primary_img = None
+            future_left_wrist_img = None
+            future_right_wrist_img = None
+            
+            for cam_key in cam_keys:
+                if cam_key in batch:
+                    img = batch[cam_key][batch_idx]  # (C, H, W)
+                    if "front" in cam_key.lower():
+                        if "future" in cam_key.lower():
+                            future_primary_img = tensor_to_numpy_uint8(img)
+                        else:
+                            primary_img = tensor_to_numpy_uint8(img)
+                    elif "left_wrist" in cam_key.lower():
+                        if "future" in cam_key.lower():
+                            future_left_wrist_img = tensor_to_numpy_uint8(img)
+                        else:
+                            left_wrist_img = tensor_to_numpy_uint8(img)
+                    elif "right_wrist" in cam_key.lower():
+                        if "future" in cam_key.lower():
+                            future_right_wrist_img = tensor_to_numpy_uint8(img)
+                        else:
+                            right_wrist_img = tensor_to_numpy_uint8(img)
+            
+            # Ensure frames are the expected size
+            primary_img = _ensure_size(primary_img)
+            left_wrist_img = _ensure_size(left_wrist_img) if left_wrist_img is not None else None
+            right_wrist_img = _ensure_size(right_wrist_img) if right_wrist_img is not None else None
+            future_primary_img = _ensure_size(future_primary_img) if future_primary_img is not None else None
+            future_left_wrist_img = _ensure_size(future_left_wrist_img) if future_left_wrist_img is not None else None
+            future_right_wrist_img = _ensure_size(future_right_wrist_img) if future_right_wrist_img is not None else None
+            
+            # ---------------------------------------
+            # Injection video sequences
+            # ---------------------------------------
+            # Build a list of unique frames (no per-frame duplication) and per-frame repeat counts
+            # We'll preprocess the unique frames once (same aug params across the whole sequence),
+            # then expand by repeat counts to produce the final sequence.
+            frames = []  # list of np.ndarray frames with shape (H, W, C)
+            repeats = []  # list of ints with how many times to repeat each frame in time dimension
+            segment_idx = 0  # logical segment index used for *_latent_idx
+            # Reset indices for this batch sample (will be set to same values for all samples)
+            action_latent_idx_b = -1
+            value_latent_idx_b = -1
+            current_proprio_latent_idx_b = -1
+            current_wrist_image_latent_idx_b = -1
+            current_wrist_image2_latent_idx_b = -1
+            current_image_latent_idx_b = -1
+            future_proprio_latent_idx_b = -1
+            future_wrist_image_latent_idx_b = -1
+            future_wrist_image2_latent_idx_b = -1
+            future_image_latent_idx_b = -1
+            
+            # (1) Add blank first input image (needed for the tokenizer)
+            ref_image_for_shape = copy.deepcopy(primary_img)
+            blank_first_input_frame = np.zeros_like(ref_image_for_shape)
+            frames.append(blank_first_input_frame)
+            repeats.append(1)
+            segment_idx += 1
+            
+            # (2) Add current proprio
+            if self.use_proprio:
+                blank_proprio_image = np.zeros_like(ref_image_for_shape)
+                current_proprio_latent_idx_b = segment_idx
+                frames.append(blank_proprio_image)
+                repeats.append(self.num_duplicates_per_image)
+                segment_idx += 1
+            
+            # (3) Add current left wrist image
+            if left_wrist_img is not None:
+                current_wrist_image_latent_idx_b = segment_idx
+                frames.append(left_wrist_img)
+                repeats.append(self.num_duplicates_per_image)
+                segment_idx += 1
+            
+            # (4) Add current right wrist image
+            if right_wrist_img is not None:
+                current_wrist_image2_latent_idx_b = segment_idx
+                frames.append(right_wrist_img)
+                repeats.append(self.num_duplicates_per_image)
+                segment_idx += 1
+            
+            # (5) Add current primary image
+            current_image_latent_idx_b = segment_idx
+            frames.append(primary_img)
+            repeats.append(self.num_duplicates_per_image)
+            segment_idx += 1
+            
+            # (6) Add blank image for action chunk
+            blank_action_image = np.zeros_like(ref_image_for_shape)
+            action_latent_idx_b = segment_idx
+            frames.append(blank_action_image)
+            repeats.append(self.num_duplicates_per_image)
+            segment_idx += 1
+            
+            # (7) Add future proprio
+            if self.use_proprio:
+                blank_proprio_image = np.zeros_like(ref_image_for_shape)
+                future_proprio_latent_idx_b = segment_idx
+                frames.append(blank_proprio_image)
+                repeats.append(self.num_duplicates_per_image)
+                segment_idx += 1
+            
+            # (8) Add future left wrist image
+            if future_left_wrist_img is not None:
+                future_wrist_image_latent_idx_b = segment_idx
+                frames.append(future_left_wrist_img)
+                repeats.append(self.num_duplicates_per_image)
+                segment_idx += 1
+            
+            # (9) Add future right wrist image
+            if future_right_wrist_img is not None:
+                future_wrist_image2_latent_idx_b = segment_idx
+                frames.append(future_right_wrist_img)
+                repeats.append(self.num_duplicates_per_image)
+                segment_idx += 1
+            
+            # (10) Add future primary image
+            future_image_latent_idx_b = segment_idx
+            frames.append(future_primary_img)
+            repeats.append(self.num_duplicates_per_image)
+            segment_idx += 1
+            
+            # (11) Add blank value image
+            if self.use_values:
+                value_image = np.zeros_like(ref_image_for_shape)
+                value_latent_idx_b = segment_idx
+                frames.append(value_image)
+                repeats.append(self.num_duplicates_per_image)
+                segment_idx += 1
+            else:
+                value_latent_idx_b = -1
+            
+            # Store indices from first batch sample (they're the same for all)
+            if batch_idx == 0:
+                action_latent_idx = action_latent_idx_b
+                value_latent_idx = value_latent_idx_b
+                current_proprio_latent_idx = current_proprio_latent_idx_b
+                current_wrist_image_latent_idx = current_wrist_image_latent_idx_b
+                current_wrist_image2_latent_idx = current_wrist_image2_latent_idx_b
+                current_image_latent_idx = current_image_latent_idx_b
+                future_proprio_latent_idx = future_proprio_latent_idx_b
+                future_wrist_image_latent_idx = future_wrist_image_latent_idx_b
+                future_wrist_image2_latent_idx = future_wrist_image2_latent_idx_b
+                future_image_latent_idx = future_image_latent_idx_b
+            
+            # Sanity: segment indices must be within [0, len(frames)-1]
+            num_segments = len(frames)
+            for name, val in (
+                ("action_latent_idx", action_latent_idx_b),
+                ("value_latent_idx", value_latent_idx_b),
+                ("current_proprio_latent_idx", current_proprio_latent_idx_b if self.use_proprio else -1),
+                ("current_wrist_image_latent_idx", current_wrist_image_latent_idx_b),
+                ("current_wrist_image2_latent_idx", current_wrist_image2_latent_idx_b),
+                ("current_image_latent_idx", current_image_latent_idx_b),
+                ("future_proprio_latent_idx", future_proprio_latent_idx_b if self.use_proprio else -1),
+                ("future_wrist_image_latent_idx", future_wrist_image_latent_idx_b),
+                ("future_wrist_image2_latent_idx", future_wrist_image2_latent_idx_b),
+                ("future_image_latent_idx", future_image_latent_idx_b)
+            ):
+                if val != -1:
+                    assert 0 <= val < num_segments, f"{name}={val} out of range for num_segments={num_segments}"
+            
+            # Concatenate unique frames and preprocess once
+            all_unique_images = np.stack(frames, axis=0) # (num_segments, H, W, C)
+            all_unique_images = preprocess_image(
+                all_unique_images,
+                final_image_size=self.final_image_size,
+                normalize_images=self.normalize_images,
+                use_image_aug=self.use_image_aug,
+                stronger_image_aug=self.use_stronger_image_aug,
+            )
+            
+            # Expand unique preprocessed images by repeat counts along time dimension
+            # all_unique_images after preprocess_image: (C, num_segments, H, W)
+            lengths = torch.as_tensor(repeats, dtype=torch.long, device=all_unique_images.device)
+            all_images = torch.repeat_interleave(all_unique_images, lengths, dim=1)  # (C, T_total, H, W) where T_total = sum(repeats)
+            # Sanity: expanded length matches repeats sum
+            assert all_images.shape[1] == int(lengths.sum().item()), "Expanded T does not match repeats sum"
+            
+            # all_images is now (C, T_total, H, W), add batch dimension: (1, C, T_total, H, W)
+            all_images = all_images.unsqueeze(0)  # (1, C, T_total, H, W)
+            batch_videos.append(all_images)
+            
+            # Collect actions and proprio for this batch sample
+            curr_action_chunk = curr_actions[batch_idx][:self.action_chunk, :]  # (action_chunk, action_dim)
+            future_action_chunk = future_actions[batch_idx][:self.action_chunk, :]  # (action_chunk, action_dim)
+            batch_actions.append(curr_action_chunk)
+            batch_future_actions.append(future_action_chunk)
+            
+            if self.use_proprio:
+                proprio = curr_priprios[batch_idx].cpu().numpy()
+                future_priprio = future_priprios[batch_idx].cpu().numpy()
+                batch_proprios.append(torch.from_numpy(proprio).to(device))
+                batch_future_proprios.append(torch.from_numpy(future_priprio).to(device))
         
-        # (2) Add current proprio
+        # Stack all batch samples
+        # Video: stack (1, C, T, H, W) tensors -> (B, C, T, H, W)
+        all_videos = torch.cat(batch_videos, dim=0)  # (B, C, T, H, W)
+        
+        # Actions: stack (action_chunk, action_dim) tensors -> (B, action_chunk, action_dim)
+        all_actions = torch.stack(batch_actions, dim=0)  # (B, action_chunk, action_dim)
+        all_future_actions = torch.stack(batch_future_actions, dim=0)  # (B, action_chunk, action_dim)
+        
+        # Proprio: stack (proprio_dim,) tensors -> (B, proprio_dim)
         if self.use_proprio:
-            proprio = curr_priprios[batch_idx].cpu().numpy()
-            blank_proprio_image = np.zeros_like(ref_image_for_shape)
-            current_proprio_latent_idx = segment_idx
-            frames.append(blank_proprio_image)
-            repeats.append(self.num_duplicates_per_image)
-            cum_frames += self.num_duplicates_per_image
-            segment_idx += 1
-        
-        # (3) Add current left wrist image
-        if left_wrist_img is not None:
-            current_wrist_image_latent_idx = segment_idx
-            frames.append(left_wrist_img)
-            repeats.append(self.num_duplicates_per_image)
-            cum_frames += self.num_duplicates_per_image
-            segment_idx += 1
-        
-        # (4) Add current right wrist image
-        if right_wrist_img is not None:
-            current_wrist_image2_latent_idx = segment_idx
-            frames.append(right_wrist_img)
-            repeats.append(self.num_duplicates_per_image)
-            cum_frames += self.num_duplicates_per_image
-            segment_idx += 1
-        
-        # (5) Add current primary image
-        current_image_latent_idx = segment_idx
-        frames.append(primary_img)
-        repeats.append(self.num_duplicates_per_image)
-        cum_frames += self.num_duplicates_per_image
-        segment_idx += 1
-        
-        # (6) Add blank image for action chunk
-        blank_action_image = np.zeros_like(ref_image_for_shape)
-        action_latent_idx = segment_idx
-        frames.append(blank_action_image)
-        repeats.append(self.num_duplicates_per_image)
-        cum_frames += self.num_duplicates_per_image
-        segment_idx += 1
-        
-        # (7) Add future proprio
-        if self.use_proprio:
-            future_priprio = future_priprios[batch_idx].cpu().numpy()
-            blank_proprio_image = np.zeros_like(ref_image_for_shape)
-            future_proprio_latent_idx = segment_idx
-            frames.append(blank_proprio_image)
-            repeats.append(self.num_duplicates_per_image)
-            cum_frames += self.num_duplicates_per_image
-            segment_idx += 1
-        
-        # (8) Add future left wrist image
-        if future_left_wrist_img is not None:
-            future_wrist_image_latent_idx = segment_idx
-            frames.append(future_left_wrist_img)
-            repeats.append(self.num_duplicates_per_image)
-            cum_frames += self.num_duplicates_per_image
-            segment_idx += 1
-        
-        # (9) Add future right wrist image
-        if future_right_wrist_img is not None:
-            future_wrist_image2_latent_idx = segment_idx
-            frames.append(future_right_wrist_img)
-            repeats.append(self.num_duplicates_per_image)
-            cum_frames += self.num_duplicates_per_image
-            segment_idx += 1
-        
-        # (10) Add future primary image
-        future_image_latent_idx = segment_idx
-        frames.append(future_primary_img)
-        repeats.append(self.num_duplicates_per_image)
-        cum_frames += self.num_duplicates_per_image
-        segment_idx += 1
-        
-        # (11) Add blank value image
-        if self.use_values:
-            value_image = np.zeros_like(ref_image_for_shape)
-            value_latent_idx = segment_idx
-            frames.append(value_image)
-            repeats.append(self.num_duplicates_per_image)
-            cum_frames += self.num_duplicates_per_image
-            segment_idx += 1
+            all_proprios = torch.stack(batch_proprios, dim=0)  # (B, proprio_dim)
+            all_future_proprios = torch.stack(batch_future_proprios, dim=0)  # (B, proprio_dim)
         else:
-            value_latent_idx = -1
+            all_proprios = None
+            all_future_proprios = None
         
-        # Sanity: segment indices must be within [0, len(frames)-1]
-        num_segments = len(frames)
-        for name, val in (
-            ("action_latent_idx", action_latent_idx),
-            ("value_latent_idx", value_latent_idx),
-            ("current_proprio_latent_idx", current_proprio_latent_idx if self.use_proprio else -1),
-            ("current_wrist_image_latent_idx", current_wrist_image_latent_idx),
-            ("current_wrist_image2_latent_idx", current_wrist_image2_latent_idx),
-            ("current_image_latent_idx", current_image_latent_idx),
-            ("future_proprio_latent_idx", future_proprio_latent_idx if self.use_proprio else -1),
-            ("future_wrist_image_latent_idx", future_wrist_image_latent_idx),
-            ("future_wrist_image2_latent_idx", future_wrist_image2_latent_idx),
-            ("future_image_latent_idx", future_image_latent_idx)
-        ):
-            if val != -1:
-                assert 0 <= val < num_segments, f"{name}={val} out of range for num_segments={num_segments}"
-        
-        # Concatenate unique frames and preprocess once
-        all_unique_images = np.stack(frames, axis=0) # (num_segments, H, W, C)
-        all_unique_images = preprocess_image(
-            all_unique_images,
-            final_image_size=self.final_image_size,
-            normalize_images=self.normalize_images,
-            use_image_aug=self.use_image_aug,
-            stronger_image_aug=self.use_stronger_image_aug,
-        )
-        
-        # Expand unique preprocessed images by repeat counts along time dimension
-        lengths = torch.as_tensor(repeats, dtype=torch.long, device=all_unique_images.device)
-        all_images = torch.repeat_interleave(all_unique_images, lengths, dim=1) # (n_segments, T_expanded, C, H, W)
-        # Sanity: expanded length matches repeats sum
-        assert all_images.shape[1] == int(lengths.sum().item()), "Expanded T does not match repeats sum"
-        
-        # ---------------------------------------
-        # Construct action and value function
-        # ---------------------------------------
-        curr_action_chunk = curr_actions[batch_idx][:self.action_chunk, :]  
-        future_action_chunk = future_actions[batch_idx][:self.action_chunk, :]
-        
+        # Value function returns (placeholders)
         value_function_return = float("-100")  # Just a placeholder
         next_value_function_return = float("-100")
-        value_function_return = torch.tensor(value_function_return, dtype=torch.float32, device=device)
-        next_value_function_return = torch.tensor(next_value_function_return, dtype=torch.float32, device=device)
+        all_value_returns = torch.full((B,), value_function_return, dtype=torch.float32, device=device)
+        all_next_value_returns = torch.full((B,), next_value_function_return, dtype=torch.float32, device=device)
         
         # ---------------------------------------
         # Construct text embeddings
@@ -518,37 +566,51 @@ class CosmosPolicy(Algo):
         with open(text_embeddings_path, 'rb') as f:
             text_embeddings_dict = pickle.load(f)
         command = next(iter(text_embeddings_dict))
-        t5_text_embeddings = text_embeddings_dict[command] # (1, 512, 1024)
+        t5_text_embeddings = text_embeddings_dict[command]  # (1, 512, 1024)
+        # Broadcast to batch size: (1, 512, 1024) -> (B, 512, 1024)
+        t5_text_embeddings_batched = t5_text_embeddings.repeat(B, 1, 1).to(device)
+        
+        # Latent indices are the same for all batch samples (they're determined by the sequence structure)
+        # Convert to batched tensors
+        action_latent_idx_tensor = torch.full((B,), action_latent_idx, dtype=torch.int64, device=device)
+        value_latent_idx_tensor = torch.full((B,), value_latent_idx, dtype=torch.int64, device=device)
+        current_proprio_latent_idx_tensor = torch.full((B,), current_proprio_latent_idx if self.use_proprio else -1, dtype=torch.int64, device=device)
+        current_wrist_image_latent_idx_tensor = torch.full((B,), current_wrist_image_latent_idx, dtype=torch.int64, device=device)
+        current_wrist_image2_latent_idx_tensor = torch.full((B,), current_wrist_image2_latent_idx, dtype=torch.int64, device=device)
+        current_image_latent_idx_tensor = torch.full((B,), current_image_latent_idx, dtype=torch.int64, device=device)
+        future_proprio_latent_idx_tensor = torch.full((B,), future_proprio_latent_idx if self.use_proprio else -1, dtype=torch.int64, device=device)
+        future_wrist_image_latent_idx_tensor = torch.full((B,), future_wrist_image_latent_idx, dtype=torch.int64, device=device)
+        future_wrist_image2_latent_idx_tensor = torch.full((B,), future_wrist_image2_latent_idx, dtype=torch.int64, device=device)
+        future_image_latent_idx_tensor = torch.full((B,), future_image_latent_idx, dtype=torch.int64, device=device)
         
         # ---------------------------------------
         # Make final data
         # ---------------------------------------
-        data = {
-            "video": all_images,  # (n_segments, T, C, H, W)
-            "actions": curr_action_chunk,  # (action_chunk, action_dim)
-            "t5_text_embeddings": torch.squeeze(t5_text_embeddings, dim=0),  # (512, 1024)
-            "t5_text_mask": torch.ones(512, dtype=torch.int64), # (512,)
-            "fps": 30, # Just set to some fixed value since we aren't generating videos anyway
-            "padding_mask": torch.zeros(1, self.final_image_size, self.final_image_size),
-            "image_size": self.final_image_size * torch.ones(4),
-            "proprio": proprio,
-            "future_proprio": future_priprio,
-            "value_function_return": value_function_return,
-            "next_action_chunk": future_action_chunk,
-            "next_value_function_return": next_value_function_return,
-            "action_latent_idx": action_latent_idx,
-            "value_latent_idx": value_latent_idx,
-            "current_proprio_latent_idx": current_proprio_latent_idx if self.use_proprio else -1,
-            "current_wrist_image_latent_idx": current_wrist_image_latent_idx,
-            "current_wrist_image2_latent_idx": current_wrist_image2_latent_idx,
-            "current_image_latent_idx": current_image_latent_idx,
-            "future_proprio_latent_idx": future_proprio_latent_idx if self.use_proprio else -1,
-            "future_wrist_image_latent_idx": future_wrist_image_latent_idx,
-            "future_wrist_image2_latent_idx": future_wrist_image2_latent_idx,
-            "future_image_latent_idx": future_image_latent_idx,
+        cosmos_batch = {
+            "video": all_videos,  # (B, C, T, H, W)
+            "actions": all_actions,  # (B, action_chunk, action_dim)
+            "t5_text_embeddings": t5_text_embeddings_batched,  # (B, 512, 1024)
+            "t5_text_mask": torch.ones(B, 512, dtype=torch.int64, device=device),  # (B, 512)
+            "fps": torch.full((B,), 30, dtype=torch.float32, device=device),  # (B,)
+            "padding_mask": torch.zeros(B, 1, self.final_image_size, self.final_image_size, device=device),  # (B, 1, H, W)
+            "image_size": self.final_image_size * torch.ones(B, 4, device=device),  # (B, 4)
+            "proprio": all_proprios,  # (B, proprio_dim) or None
+            "future_proprio": all_future_proprios,  # (B, proprio_dim) or None
+            "value_function_return": all_value_returns,  # (B,)
+            "next_action_chunk": all_future_actions,  # (B, action_chunk, action_dim)
+            "next_value_function_return": all_next_value_returns,  # (B,)
+            "action_latent_idx": action_latent_idx_tensor,  # (B,)
+            "value_latent_idx": value_latent_idx_tensor,  # (B,)
+            "current_proprio_latent_idx": current_proprio_latent_idx_tensor,  # (B,)
+            "current_wrist_image_latent_idx": current_wrist_image_latent_idx_tensor,  # (B,)
+            "current_wrist_image2_latent_idx": current_wrist_image2_latent_idx_tensor,  # (B,)
+            "current_image_latent_idx": current_image_latent_idx_tensor,  # (B,)
+            "future_proprio_latent_idx": future_proprio_latent_idx_tensor,  # (B,)
+            "future_wrist_image_latent_idx": future_wrist_image_latent_idx_tensor,  # (B,)
+            "future_wrist_image2_latent_idx": future_wrist_image2_latent_idx_tensor,  # (B,)
+            "future_image_latent_idx": future_image_latent_idx_tensor,  # (B,)
         }
         
-        cosmos_batch = data
         return cosmos_batch
     
     @override

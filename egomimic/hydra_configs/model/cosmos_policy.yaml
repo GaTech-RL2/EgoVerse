@@ -13,7 +13,7 @@ robomimic_model:
   # Cosmos Policy specific parameters
   action_chunk: 25 # Should match the dataset config
   use_proprio: true  # Whether to use proprioception
-  use_values: false  # Whether to include value latents (not used in current training)
+  use_values: true  # Whether to include value latents (not used in current training)
   final_image_size: 224  # Target image size for cosmos_policy
   num_duplicates_per_image: 4 # Number of times to duplicate each image (so that each type of image fills 1 latent frame when encoded with the tokenizer)
   normalize_images: false  # Whether to normalize images to [0, 1] range; Cosmos Policy expects uint8 images in [0, 255]
