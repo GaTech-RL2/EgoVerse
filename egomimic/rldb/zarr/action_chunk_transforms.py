@@ -418,8 +418,11 @@ class ConcatKeys(Transform):
 # ---------------------------------------------------------------------------
 
 
-def build_eva_bimanual_transform_list(
+from typing import Literal
+
+def build_eva_transform_list(
     *,
+    which: Literal["left", "right", "both"] = "both",
     left_target_world: str = "left_extrinsics_pose",
     right_target_world: str = "right_extrinsics_pose",
     left_cmd_world: str = "left.cmd_ee_pose",
@@ -440,110 +443,131 @@ def build_eva_bimanual_transform_list(
     is_quat: bool = True,
 ) -> list[Transform]:
     """Canonical EVA bimanual transform pipeline used by tests and notebooks."""
+    use_left = which in ("left", "both")
+    use_right = which in ("right", "both")
+
     extrinsics = EXTRINSICS[extrinsics_key]
-    left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
-    right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
-    left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
-    right_extra_batch_key = {"right_extrinsics_pose": right_extrinsics_pose}
-    transform_list = [
-        ActionChunkCoordinateFrameTransform(
-            target_world=left_target_world,
-            chunk_world=left_cmd_world,
-            transformed_key_name=left_cmd_camframe,
-            extra_batch_key=left_extra_batch_key,
-            is_quat=is_quat,
-        ),
-        ActionChunkCoordinateFrameTransform(
-            target_world=right_target_world,
-            chunk_world=right_cmd_world,
-            transformed_key_name=right_cmd_camframe,
-            extra_batch_key=right_extra_batch_key,
-            is_quat=is_quat,
-        ),
-        PoseCoordinateFrameTransform(
-            target_world=left_target_world,
-            pose_world=left_obs_pose,
-            transformed_key_name=left_obs_pose,
-            is_quat=is_quat,
-        ),
-        PoseCoordinateFrameTransform(
-            target_world=right_target_world,
-            pose_world=right_obs_pose,
-            transformed_key_name=right_obs_pose,
-            is_quat=is_quat,
-        ),
-        InterpolatePose(
-            new_chunk_length=chunk_length,
-            action_key=left_cmd_camframe,
-            output_action_key=left_cmd_camframe,
-            stride=stride,
-            is_quat=is_quat,
-        ),
-        InterpolatePose(
-            new_chunk_length=chunk_length,
-            action_key=right_cmd_camframe,
-            output_action_key=right_cmd_camframe,
-            stride=stride,
-            is_quat=is_quat,
-        ),
-        InterpolateLinear(
-            new_chunk_length=chunk_length,
-            action_key=left_gripper,
-            output_action_key=left_gripper,
-            stride=stride,
-        ),
-        InterpolateLinear(
-            new_chunk_length=chunk_length,
-            action_key=right_gripper,
-            output_action_key=right_gripper,
-            stride=stride,
-        ),
-    ]
+    transform_list: list[Transform] = []
+
+    if use_left:
+        left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
+        left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
+
+        transform_list.extend(
+            [
+                ActionChunkCoordinateFrameTransform(
+                    target_world=left_target_world,
+                    chunk_world=left_cmd_world,
+                    transformed_key_name=left_cmd_camframe,
+                    extra_batch_key=left_extra_batch_key,
+                    is_quat=is_quat,
+                ),
+                PoseCoordinateFrameTransform(
+                    target_world=left_target_world,
+                    pose_world=left_obs_pose,
+                    transformed_key_name=left_obs_pose,
+                    is_quat=is_quat,
+                ),
+                InterpolatePose(
+                    new_chunk_length=chunk_length,
+                    action_key=left_cmd_camframe,
+                    output_action_key=left_cmd_camframe,
+                    stride=stride,
+                    is_quat=is_quat,
+                ),
+                InterpolateLinear(
+                    new_chunk_length=chunk_length,
+                    action_key=left_gripper,
+                    output_action_key=left_gripper,
+                    stride=stride,
+                ),
+            ]
+        )
+
+    if use_right:
+        right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
+        right_extra_batch_key = {"right_extrinsics_pose": right_extrinsics_pose}
+
+        transform_list.extend(
+            [
+                ActionChunkCoordinateFrameTransform(
+                    target_world=right_target_world,
+                    chunk_world=right_cmd_world,
+                    transformed_key_name=right_cmd_camframe,
+                    extra_batch_key=right_extra_batch_key,
+                    is_quat=is_quat,
+                ),
+                PoseCoordinateFrameTransform(
+                    target_world=right_target_world,
+                    pose_world=right_obs_pose,
+                    transformed_key_name=right_obs_pose,
+                    is_quat=is_quat,
+                ),
+                InterpolatePose(
+                    new_chunk_length=chunk_length,
+                    action_key=right_cmd_camframe,
+                    output_action_key=right_cmd_camframe,
+                    stride=stride,
+                    is_quat=is_quat,
+                ),
+                InterpolateLinear(
+                    new_chunk_length=chunk_length,
+                    action_key=right_gripper,
+                    output_action_key=right_gripper,
+                    stride=stride,
+                ),
+            ]
+        )
 
     if is_quat:
-        transform_list.append(
-            XYZWXYZ_to_XYZYPR(
-                keys=[left_cmd_camframe, right_cmd_camframe, left_obs_pose, right_obs_pose]
-            )
-        )
+        ypr_keys: list[str] = []
+        if use_left:
+            ypr_keys += [left_cmd_camframe, left_obs_pose]
+        if use_right:
+            ypr_keys += [right_cmd_camframe, right_obs_pose]
+        transform_list.append(XYZWXYZ_to_XYZYPR(keys=ypr_keys))
+
+    action_key_list: list[str] = []
+    if use_left:
+        action_key_list += [left_cmd_camframe, left_gripper]
+    if use_right:
+        action_key_list += [right_cmd_camframe, right_gripper]
+
+    obs_key_list: list[str] = []
+    if use_left:
+        obs_key_list += [left_obs_pose, left_obs_gripper]
+    if use_right:
+        obs_key_list += [right_obs_pose, right_obs_gripper]
 
     transform_list.extend(
         [
-        ConcatKeys(
-            key_list=[
-                left_cmd_camframe,
-                left_gripper,
-                right_cmd_camframe,
-                right_gripper,
-            ],
-            new_key_name=actions_key,
-            delete_old_keys=True,
-        ),
-        ConcatKeys(
-            key_list=[
-                left_obs_pose,
-                left_obs_gripper,
-                right_obs_pose,
-                right_obs_gripper,
-            ],
-            new_key_name=obs_key,
-            delete_old_keys=True,
-        ),
-        DeleteKeys(
-            keys_to_delete=[
-                left_cmd_world,
-                right_cmd_world,
-                left_target_world,
-                right_target_world,
-            ]
-        ),
+            ConcatKeys(
+                key_list=action_key_list,
+                new_key_name=actions_key,
+                delete_old_keys=True,
+            ),
+            ConcatKeys(
+                key_list=obs_key_list,
+                new_key_name=obs_key,
+                delete_old_keys=True,
+            ),
+            DeleteKeys(
+                keys_to_delete=[
+                    *([left_cmd_world, left_target_world] if use_left else []),
+                    *([right_cmd_world, right_target_world] if use_right else []),
+                ]
+            ),
         ]
     )
+
     return transform_list
 
 
-def build_aria_bimanual_transform_list(
+from typing import Literal
+
+def build_aria_transform_list(
     *,
+    which: Literal["left", "right", "both"] = "both",
     target_world: str = "obs_head_pose",
     target_world_ypr: str = "obs_head_pose_ypr",
     target_world_is_quat: bool = True,
@@ -567,86 +591,107 @@ def build_aria_bimanual_transform_list(
     from stacked observed ee poses (typically with a horizon on
     ``left/right.action_ee_pose`` mapped from ``left/right.obs_ee_pose``).
     """
-    keys_to_delete = list(
-        {
-            left_action_world,
-            right_action_world,
-            left_obs_pose,
-            right_obs_pose,
-        }
-    )
+    use_left = which in ("left", "both")
+    use_right = which in ("right", "both")
+
+    keys_to_delete = set()
+    if use_left:
+        keys_to_delete.update({left_action_world, left_obs_pose})
+    if use_right:
+        keys_to_delete.update({right_action_world, right_obs_pose})
+
     target_pose_key = target_world
     if delete_target_world:
-        keys_to_delete.append(target_world)
+        keys_to_delete.add(target_world)
         if target_world_is_quat:
-            keys_to_delete.append(target_world_ypr)
+            keys_to_delete.add(target_world_ypr)
 
-    transform_list: list[Transform] = [
-        ActionChunkCoordinateFrameTransform(
-            target_world=target_pose_key,
-            chunk_world=left_action_world,
-            transformed_key_name=left_action_headframe,
-            is_quat=target_world_is_quat,
-        ),
-        ActionChunkCoordinateFrameTransform(
-            target_world=target_pose_key,
-            chunk_world=right_action_world,
-            transformed_key_name=right_action_headframe,
-            is_quat=target_world_is_quat,
-        ),
-        PoseCoordinateFrameTransform(
-            target_world=target_pose_key,
-            pose_world=left_obs_pose,
-            transformed_key_name=left_obs_headframe,
-            is_quat=target_world_is_quat,
-        ),
-        PoseCoordinateFrameTransform(
-            target_world=target_pose_key,
-            pose_world=right_obs_pose,
-            transformed_key_name=right_obs_headframe,
-            is_quat=target_world_is_quat,
-        ),
-        InterpolatePose(
-            new_chunk_length=chunk_length,
-            action_key=left_action_headframe,
-            output_action_key=left_action_headframe,
-            stride=stride,
-            is_quat=target_world_is_quat,
-        ),
-        InterpolatePose(
-            new_chunk_length=chunk_length,
-            action_key=right_action_headframe,
-            output_action_key=right_action_headframe,
-            stride=stride,
-            is_quat=target_world_is_quat,
-        ),
-    ]
+    transform_list: list[Transform] = []
+
+    if use_left:
+        transform_list.extend(
+            [
+                ActionChunkCoordinateFrameTransform(
+                    target_world=target_pose_key,
+                    chunk_world=left_action_world,
+                    transformed_key_name=left_action_headframe,
+                    is_quat=target_world_is_quat,
+                ),
+                PoseCoordinateFrameTransform(
+                    target_world=target_pose_key,
+                    pose_world=left_obs_pose,
+                    transformed_key_name=left_obs_headframe,
+                    is_quat=target_world_is_quat,
+                ),
+                InterpolatePose(
+                    new_chunk_length=chunk_length,
+                    action_key=left_action_headframe,
+                    output_action_key=left_action_headframe,
+                    stride=stride,
+                    is_quat=target_world_is_quat,
+                ),
+            ]
+        )
+
+    if use_right:
+        transform_list.extend(
+            [
+                ActionChunkCoordinateFrameTransform(
+                    target_world=target_pose_key,
+                    chunk_world=right_action_world,
+                    transformed_key_name=right_action_headframe,
+                    is_quat=target_world_is_quat,
+                ),
+                PoseCoordinateFrameTransform(
+                    target_world=target_pose_key,
+                    pose_world=right_obs_pose,
+                    transformed_key_name=right_obs_headframe,
+                    is_quat=target_world_is_quat,
+                ),
+                InterpolatePose(
+                    new_chunk_length=chunk_length,
+                    action_key=right_action_headframe,
+                    output_action_key=right_action_headframe,
+                    stride=stride,
+                    is_quat=target_world_is_quat,
+                ),
+            ]
+        )
 
     if target_world_is_quat:
-        transform_list.append(
-            XYZWXYZ_to_XYZYPR(
-                keys=[
-                    left_action_headframe,
-                    right_action_headframe,
-                    left_obs_headframe,
-                    right_obs_headframe,
-                ]
-            )
-        )
+        ypr_keys: list[str] = []
+        if use_left:
+            ypr_keys += [left_action_headframe, left_obs_headframe]
+        if use_right:
+            ypr_keys += [right_action_headframe, right_obs_headframe]
+        transform_list.append(XYZWXYZ_to_XYZYPR(keys=ypr_keys))
+
+    action_key_list: list[str] = []
+    if use_left:
+        action_key_list.append(left_action_headframe)
+    if use_right:
+        action_key_list.append(right_action_headframe)
+
+    obs_key_list: list[str] = []
+    if use_left:
+        obs_key_list.append(left_obs_headframe)
+    if use_right:
+        obs_key_list.append(right_obs_headframe)
 
     transform_list.extend(
         [
             ConcatKeys(
-                key_list=[left_action_headframe, right_action_headframe],
+                key_list=action_key_list,
                 new_key_name=actions_key,
                 delete_old_keys=True,
             ),
             ConcatKeys(
-                key_list=[left_obs_headframe, right_obs_headframe],
+                key_list=obs_key_list,
                 new_key_name=obs_key,
                 delete_old_keys=True,
             ),
-            DeleteKeys(keys_to_delete=keys_to_delete),
+            DeleteKeys(keys_to_delete=list(keys_to_delete)),
         ]
     )
+
     return transform_list

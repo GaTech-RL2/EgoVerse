@@ -1,3 +1,4 @@
+import subprocess
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
@@ -519,6 +520,127 @@ def draw_rotation_text(
 
     return image
 
+def render_3d_traj_frames(
+    trajs,
+    labels=None,
+    idx=0,
+    stride=1,
+    mode="time",          # "time" or "rotate"
+    elev=20,
+    azim_start=0,
+    azim_end=360,
+    tail=None,
+    equal_axes=True,
+    figsize=(6, 6),
+    dpi=150,
+):
+    """
+    Render frames (as uint8 RGB images) for multiple 3D trajectories.
+
+    Args:
+        trajs: list of array-like, each shape (N, T, 3)
+        labels: list[str] legend labels, same length as trajs
+        idx: which chunk to render
+        stride: timestep stride
+        mode: "time" animates over timesteps; "rotate" rotates camera around full traj
+        elev/azim_start/azim_end: camera params
+        tail: in "time" mode, show only last `tail` points (int) or full history (None)
+        equal_axes: lock x/y/z ranges to be equal-ish
+        figsize, dpi: output frame size
+
+    Returns:
+        frames: list[np.ndarray] each shape (H, W, 3), dtype uint8 (RGB)
+    """
+    if not isinstance(trajs, (list, tuple)) or len(trajs) == 0:
+        raise ValueError("trajs must be a non-empty list of arrays shaped (N, T, 3).")
+
+    trajs_np = [np.asarray(a) for a in trajs]
+    base = trajs_np[0]
+    if base.ndim != 3 or base.shape[-1] != 3:
+        raise ValueError(f"Expected (N, T, 3). Got {base.shape}")
+
+    n, t, _ = base.shape
+    for k, a in enumerate(trajs_np):
+        if a.shape != base.shape:
+            raise ValueError(f"All trajs must share the same shape. traj0={base.shape}, traj{k}={a.shape}")
+
+    if not (0 <= idx < n):
+        raise IndexError(f"idx {idx} out of range for N={n}")
+
+    if labels is None:
+        labels = [f"traj{k}" for k in range(len(trajs_np))]
+    if len(labels) != len(trajs_np):
+        raise ValueError("labels must have the same length as trajs.")
+
+    if mode not in ("time", "rotate"):
+        raise ValueError('mode must be "time" or "rotate".')
+
+    ts = np.arange(0, t, stride)
+    t_len = len(ts)
+
+    fig = plt.figure(figsize=figsize, dpi=dpi)
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    ax.view_init(elev=elev, azim=azim_start)
+
+    # Fixed axis limits (prevents jitter)
+    if equal_axes:
+        all_pts = np.concatenate([a[idx, ts] for a in trajs_np], axis=0)
+        mins = all_pts.min(axis=0)
+        maxs = all_pts.max(axis=0)
+        center = (mins + maxs) / 2.0
+        span = (maxs - mins).max()
+        half = span / 2.0 if span > 0 else 1.0
+        ax.set_xlim(center[0] - half, center[0] + half)
+        ax.set_ylim(center[1] - half, center[1] + half)
+        ax.set_zlim(center[2] - half, center[2] + half)
+
+    # Create lines
+    lines = []
+    for lab in labels:
+        (ln,) = ax.plot([], [], [], label=lab)
+        lines.append(ln)
+    ax.legend()
+
+    # Precompute trajectories for rotate mode
+    if mode == "rotate":
+        full_xyz = [a[idx, ts] for a in trajs_np]
+        for ln, xyz in zip(lines, full_xyz):
+            x, y, z = xyz.T
+            ln.set_data(x, y)
+            ln.set_3d_properties(z)
+
+        n_frames = int(abs(azim_end - azim_start)) + 1 if azim_end != azim_start else 360
+        azims = np.linspace(azim_start, azim_end, n_frames)
+
+        def draw_frame(fi):
+            ax.view_init(elev=elev, azim=float(azims[fi]))
+
+    else:  # time mode
+        def draw_frame(fi):
+            end = fi + 1
+            start = 0 if tail is None else max(0, end - int(tail))
+            for ln, a in zip(lines, trajs_np):
+                seg = a[idx, ts[start:end]]
+                x, y, z = seg.T
+                ln.set_data(x, y)
+                ln.set_3d_properties(z)
+
+    # Render frames into RGB arrays
+    frames = []
+    canvas = fig.canvas
+    for fi in range((len(np.linspace(azim_start, azim_end, int(abs(azim_end - azim_start)) + 1)) if mode == "rotate" else t_len)):
+        draw_frame(fi)
+        canvas.draw()
+        rgba = np.asarray(canvas.buffer_rgba())
+        rgb = rgba[..., :3].copy()
+        frames.append(rgb)
+
+    plt.close(fig)
+    return frames
+
 def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None):
     """
     args:
@@ -705,6 +827,41 @@ def ee_orientation_to_cam_frame(ee_orientation_base, T_cam_base):
         torch.tensor(ee_orientation_cam)
     )
     return ee_orientation_cam, batched_ypr
+
+def prep_frame(frame: np.ndarray, H: int, W: int) -> np.ndarray | None:
+    if frame is None:
+        print("Frame is None")
+        return None
+
+    if frame.dtype != np.uint8:
+        frame = frame.astype(np.uint8, copy=False)
+
+    if frame.shape != (H, W, 3):
+        print(f"Frame shape {frame.shape} does not match expected shape {H}x{W}x3")
+        return None
+
+    frame = np.ascontiguousarray(frame)
+    return frame
+
+def start_ffmpeg_mp4(out_path: str, width: int, height: int, fps: int, pix_fmt: str = "rgb24"):
+    # pix_fmt: "rgb24" if frames are RGB uint8; use "bgr24" if OpenCV frames
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-f", "rawvideo",
+        "-vcodec", "rawvideo",
+        "-pix_fmt", pix_fmt,
+        "-s", f"{width}x{height}",
+        "-r", str(fps),
+        "-i", "pipe:0",
+        "-an",
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", "23",
+        "-pix_fmt", "yuv420p",  # best compatibility
+        out_path,
+    ]
+    return subprocess.Popen(cmd, stdin=subprocess.PIPE)
 
 
 def batched_rotation_matrices_to_euler_angles(batch_R):

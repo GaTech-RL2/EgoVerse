@@ -31,6 +31,8 @@ available_node_types:
       InstanceType: t3a.2xlarge
       KeyName: rldb-base-pem
       ImageId: ami-08c4d70c31f91a5ac
+      IamInstanceProfile: 
+        Arn: arn:aws:iam::556885871428:instance-profile/ray-autoscaler-v1
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
@@ -43,16 +45,20 @@ available_node_types:
       InstanceType: r6a.2xlarge
       KeyName: rldb-base-pem
       ImageId: ami-08c4d70c31f91a5ac
+      IamInstanceProfile: 
+        Arn: arn:aws:iam::556885871428:instance-profile/ray-autoscaler-v1
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
     resources: { CPU: 8, aria_small: 1 }
     min_workers: 0
-    max_workers: 50
+    max_workers: 3
 
   worker_big:
     node_config:
       InstanceType: r6a.8xlarge
+      IamInstanceProfile: 
+        Arn: arn:aws:iam::556885871428:instance-profile/ray-autoscaler-v1
       KeyName: rldb-base-pem
       ImageId: ami-08c4d70c31f91a5ac
       BlockDeviceMappings:
@@ -60,7 +66,7 @@ available_node_types:
           Ebs: { VolumeSize: 100 } # often worth bumping
     resources: { CPU: 32, aria_big: 1 }
     min_workers: 0
-    max_workers: 10
+    max_workers: 0
 
 head_node_type: head_node
 
