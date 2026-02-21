@@ -21,7 +21,10 @@ robomimic_model:
   use_stronger_image_aug: false  # Whether to use stronger image augmentations during training
 
   # Cosmos Policy model config
+  # When checkpoint_path is set and net is omitted, the default net is cosmos_v1_2B (MinimalV1LVGDiT / MiniTrainDIT 2B), aligned with cosmos-policy libero training and the 480p base checkpoint.
+  # Set use_mini_net: true for debug to use a small net (2 blocks, 1024 dim) and avoid OOM; checkpoint is not loaded.
   model_config:
+    checkpoint_path: "hf://nvidia/Cosmos-Predict2-2B-Video2World/model-480p-16fps.pt"
     conditioner:
       text:
         # IMPORTANT: We don't want any text dropout; otherwise, the model may fail to follow language
@@ -49,21 +52,9 @@ robomimic_model:
     resize_online: true
     resolution: "224"
     high_sigma_strategy: "none"
-    net:
-      dim: 1536
-      eps: 1e-06
-      ffn_dim: 8960
-      freq_dim: 256
-      in_dim: 36  # 16 (VAE channels) + 20 (image conditioning)
-      model_type: "i2v"
-      num_heads: 12
-      num_layers: 30
-      out_dim: 16
-      text_len: 512
-      cp_comm_type: "p2p"
-      sac_config:
-        mode: "block_wise"
-      attention_backend: "minimal_a2a"
+    # DiT timestep embedder expects float32; use_wan_fp32_strategy casts timesteps to float32 and enables fp32 autocast in the net
+    use_wan_fp32_strategy: true
+    use_mini_net: true # to use a small net (2 blocks, 1024 dim) and avoid OOM; checkpoint is not loaded.
 
   # Note: not used
   train_image_augs:

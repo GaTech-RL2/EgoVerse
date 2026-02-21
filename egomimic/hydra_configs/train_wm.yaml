@@ -85,15 +85,6 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
-      success:
-        key_type: metadata_keys
-        lerobot_key: metadata.success
-      command:
-        key_type: metadata_keys
-        lerobot_key: metadata.command
-      command_emb:
-        key_type: metadata_keys
-        lerobot_key: metadata.command_emb
     
     
     aria_bimanual:
@@ -118,15 +109,6 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
-      success:
-        key_type: metadata_keys
-        lerobot_key: metadata.success
-      command:
-        key_type: metadata_keys
-        lerobot_key: metadata.command
-      command_emb:
-        key_type: metadata_keys
-        lerobot_key: metadata.command_emb
     
     
     mecka_bimanual:
@@ -166,15 +148,6 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
-      success:
-        key_type: metadata_keys
-        lerobot_key: metadata.success
-      command:
-        key_type: metadata_keys
-        lerobot_key: metadata.command
-      command_emb:
-        key_type: metadata_keys
-        lerobot_key: metadata.command_emb
   
   
   viz_img_key: 

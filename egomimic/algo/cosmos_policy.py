@@ -21,14 +21,69 @@ from cosmos_policy.models.policy_video2world_model import (
 from cosmos_policy.modules.hybrid_edm_sde import HybridEDMSDE
 from cosmos_policy.tokenizers.wan2pt1 import Wan2pt1VAEInterface
 from cosmos_policy.config.conditioner.video2world_conditioner import Video2WorldConditioner
-from cosmos_policy._src.predict2.conditioner import TextAttr
+from cosmos_policy._src.predict2.conditioner import BooleanFlag, ReMapkey, TextAttr
 from cosmos_policy._src.predict2.models.text2world_model import EMAConfig
-from cosmos_policy._src.predict2.networks.wan2pt1 import WanModel
+from cosmos_policy._src.predict2.networks.minimal_v1_lvg_dit import MinimalV1LVGDiT
 from cosmos_policy._src.predict2.networks.minimal_v4_dit import SACConfig
 from cosmos_policy._src.imaginaire.lazy_config import LazyCall as L
+from cosmos_policy._src.imaginaire.utils.checkpoint_db import get_checkpoint_path
 from cosmos_policy.datasets.dataset_utils import preprocess_image, resize_images
 
 logger = logging.getLogger(__name__)
+
+# Default net spec for Cosmos-Predict2-2B checkpoint (cosmos_v1_2B / MinimalV1LVGDiT for policy).
+# Aligned with cosmos-policy libero / Stage-102. Used when checkpoint_path is set and net is omitted.
+DEFAULT_NET_FROM_CHECKPOINT = dict(
+    max_img_h=240,
+    max_img_w=240,
+    max_frames=128,
+    in_channels=16,
+    out_channels=16,
+    patch_spatial=2,
+    patch_temporal=1,
+    model_channels=2048,
+    num_blocks=28,
+    num_heads=16,
+    concat_padding_mask=True,
+    pos_emb_cls="rope3d",
+    pos_emb_learnable=True,
+    pos_emb_interpolation="crop",
+    use_adaln_lora=True,
+    adaln_lora_dim=256,
+    atten_backend="minimal_a2a",
+    extra_per_block_abs_pos_emb=False,
+    rope_h_extrapolation_ratio=3.0,
+    rope_w_extrapolation_ratio=3.0,
+    rope_t_extrapolation_ratio=1.0,
+    sac_config=dict(mode="predict2_2b_720"),
+)
+
+# Small net for debug runs (2 blocks, 1024 dim). Use with model_config.use_mini_net: true to avoid OOM.
+# Weights from a 2B checkpoint will not load into this net; use for pipeline/debug only.
+MINI_NET_FOR_DEBUG = dict(
+    max_img_h=240,
+    max_img_w=240,
+    max_frames=128,
+    in_channels=16,
+    out_channels=16,
+    patch_spatial=2,
+    patch_temporal=1,
+    model_channels=1024,
+    num_blocks=2,
+    num_heads=8,
+    concat_padding_mask=True,
+    pos_emb_cls="rope3d",
+    pos_emb_learnable=True,
+    pos_emb_interpolation="crop",
+    use_adaln_lora=True,
+    adaln_lora_dim=256,
+    atten_backend="minimal_a2a",
+    extra_per_block_abs_pos_emb=True,
+    rope_h_extrapolation_ratio=1.0,
+    rope_w_extrapolation_ratio=1.0,
+    rope_t_extrapolation_ratio=1.0,
+    sac_config=dict(mode="block_wise"),
+)
 
 
 class CosmosPolicy(Algo):
@@ -54,6 +109,9 @@ class CosmosPolicy(Algo):
         normalize_images=False,
         use_image_aug: bool = True,
         use_stronger_image_aug: bool = False,
+        demonstration_sampling_prob: float = 0.5,
+        p_world_model: float = 0.5,
+        return_value_function_returns: bool = False,
         **kwargs
     ):
         super().__init__()
@@ -76,6 +134,9 @@ class CosmosPolicy(Algo):
         self.normalize_images = normalize_images
         self.use_image_aug = use_image_aug
         self.use_stronger_image_aug = use_stronger_image_aug
+        self.demonstration_sampling_prob = demonstration_sampling_prob
+        self.p_world_model = p_world_model
+        self.return_value_function_returns = return_value_function_returns
         
         # Initialize camera, proprio, and language keys per embodiment
         self.ac_keys = {}
@@ -117,6 +178,10 @@ class CosmosPolicy(Algo):
         self.model = CosmosPolicyVideo2WorldModel(config=cosmos_config)
         self.nets["policy"] = self.model
         self.model_config = self.model.config if hasattr(self.model, 'config') else None
+
+        # Load checkpoint weights when checkpoint_path was set (same as cosmos-policy).
+        if getattr(self, "_checkpoint_path", None):
+            self._load_checkpoint_weights()
     
     
     def _initialize_model(self, device):
@@ -133,15 +198,25 @@ class CosmosPolicy(Algo):
         This method handles the conversion of nested config dictionaries to their proper types:
         - sde: dict -> L(HybridEDMSDE)(...) LazyCall
         - tokenizer: dict -> L(Wan2pt1VAEInterface)(...) LazyCall
-        - conditioner: dict -> L(Video2WorldConditioner)(...) LazyCall (with nested text -> L(TextAttr)(...))
+        - conditioner: dict -> L(Video2WorldConditioner)(...) LazyCall with fps, padding_mask, use_video_condition
+            (same as video_prediction_conditioner) and nested text -> L(TextAttr)(...) from config
         - ema: dict -> EMAConfig object
-        - net: dict -> L(WanModel)(...) LazyCall (with nested sac_config -> L(SACConfig)(...))
+        - net: dict -> L(MinimalV1LVGDiT)(...) LazyCall (with nested sac_config -> L(SACConfig)(...))
         
         Returns:
             CosmosPolicyVideo2WorldConfig: Properly configured config object with all nested
                 configs converted to the correct types
         """
         model_config_dict = OmegaConf.to_container(self.model_config, resolve=True)
+
+        # Pop checkpoint_path so it is not passed to CosmosPolicyVideo2WorldConfig; store for later loading.
+        self._checkpoint_path = model_config_dict.pop("checkpoint_path", None)
+        self._use_mini_net = model_config_dict.pop("use_mini_net", False)
+        if model_config_dict.get("net") is None or model_config_dict.get("net") == {}:
+            if self._use_mini_net:
+                model_config_dict["net"] = copy.deepcopy(MINI_NET_FOR_DEBUG)
+            elif self._checkpoint_path is not None:
+                model_config_dict["net"] = copy.deepcopy(DEFAULT_NET_FROM_CHECKPOINT)
         
         # Convert SDE config dict to LazyCall (required by config class)
         if "sde" in model_config_dict:
@@ -153,11 +228,32 @@ class CosmosPolicy(Algo):
             tokenizer_config = model_config_dict["tokenizer"]
             model_config_dict["tokenizer"] = L(Wan2pt1VAEInterface)(**tokenizer_config)
         
-        # Convert conditioner config dict to LazyCall (handle nested text config)
+        # Convert conditioner config dict to LazyCall. Align with cosmos-policy video_prediction_conditioner
+        # (fps, padding_mask, use_video_condition) so condition gets them from batch and DiT receives valid padding_mask.
         if "conditioner" in model_config_dict:
             conditioner_config = model_config_dict["conditioner"]
             if isinstance(conditioner_config, dict):
-                processed_conditioner = {}
+                # Start with shared defaults (same as VideoPredictionConditioner) so padding_mask/fps are in condition
+                processed_conditioner = {
+                    "fps": L(ReMapkey)(
+                        input_key="fps",
+                        output_key="fps",
+                        dropout_rate=0.0,
+                        dtype=None,
+                    ),
+                    "padding_mask": L(ReMapkey)(
+                        input_key="padding_mask",
+                        output_key="padding_mask",
+                        dropout_rate=0.0,
+                        dtype=None,
+                    ),
+                    "use_video_condition": L(BooleanFlag)(
+                        input_key="fps",
+                        output_key="use_video_condition",
+                        dropout_rate=0.2,
+                    ),
+                }
+                # Apply user overrides (e.g. text with dropout_rate=0.0)
                 for key, value in conditioner_config.items():
                     if key == "text":
                         text_config = {"input_key": ["t5_text_embeddings"], "use_empty_string": False}
@@ -182,14 +278,35 @@ class CosmosPolicy(Algo):
                         processed_net[key] = L(SACConfig)(**value)
                     else:
                         processed_net[key] = value
-                model_config_dict["net"] = L(WanModel)(**processed_net)
+                model_config_dict["net"] = L(MinimalV1LVGDiT)(**processed_net)
         
         # Filter out None values to use config class defaults
         filtered_config = {k: v for k, v in model_config_dict.items() if v is not None}
         cosmos_config = CosmosPolicyVideo2WorldConfig(**filtered_config)
         
         return cosmos_config
-    
+
+    def _load_checkpoint_weights(self):
+        """Load model weights from checkpoint_path (same resolution as cosmos-policy)."""
+        if getattr(self, "_use_mini_net", False):
+            logger.info("Skipping checkpoint load (use_mini_net=True); net is randomly initialized for debug.")
+            return
+        local_path = get_checkpoint_path(self._checkpoint_path)
+        logger.info("Loading Cosmos Policy checkpoint from %s", local_path)
+        ckpt = torch.load(local_path, map_location="cpu", weights_only=False)
+        if "model" in ckpt:
+            model_state = ckpt["model"]
+        elif "state_dict" in ckpt:
+            model_state = ckpt["state_dict"]
+        else:
+            model_state = ckpt
+        incompatible = self.model.load_state_dict(model_state, strict=False)
+        if incompatible is not None:
+            if incompatible.missing_keys:
+                logger.warning("Checkpoint missing keys (first 10): %s", incompatible.missing_keys[:10])
+            if incompatible.unexpected_keys:
+                logger.warning("Checkpoint unexpected keys (first 10): %s", incompatible.unexpected_keys[:10])
+        logger.info("Loaded checkpoint from %s", local_path)
     
     @override
     def process_batch_for_training(self, batch):
@@ -249,7 +366,57 @@ class CosmosPolicy(Algo):
         device = batch[ac_keys[0]].device
         B = batch[ac_keys[0]].shape[0]
         
+        # ---------------------------------------
+        # Generate random demo/rollout masks
+        # ---------------------------------------
+        # Generate rollout_data_mask: 0 for demo, 1 for rollout
+        # Randomly assign each sample as demo or rollout based on demonstration_sampling_prob
+        demo_rollout_rand = torch.rand(B, device=device)
+        rollout_data_mask = (demo_rollout_rand >= self.demonstration_sampling_prob).to(torch.int64)
+        
+        # Generate rollout_data_success_mask: 1 for success rollout, 0 for failure or demo
+        # For rollout samples, randomly assign success (1) or failure (0)
+        # For demo samples, set to 0
+        success_rand = torch.rand(B, device=device)
+        rollout_data_success_mask = (
+            (rollout_data_mask == 1) & (success_rand >= 0.5)
+        ).to(torch.int64)  # 50% success rate for rollouts
+        
+        # Generate world_model_sample_mask and value_function_sample_mask
+        # For rollout samples: randomly assign world model or value function based on p_world_model
+        # For demo samples: both masks set to 0
+        world_model_sample_mask = torch.zeros(B, dtype=torch.int64, device=device)
+        value_function_sample_mask = torch.zeros(B, dtype=torch.int64, device=device)
+        
+        if self.return_value_function_returns:
+            # For rollout samples, randomly assign world model or value function
+            rollout_indices = (rollout_data_mask == 1)
+            if rollout_indices.any():
+                world_model_rand = torch.rand(B, device=device)
+                world_model_mask = (world_model_rand < self.p_world_model)
+                world_model_sample_mask[rollout_indices] = (
+                    world_model_mask[rollout_indices]
+                ).to(torch.int64)
+                value_function_sample_mask[rollout_indices] = (
+                    (~world_model_mask)[rollout_indices]
+                ).to(torch.int64)
+        else:
+            # If not using value function returns, all rollout samples are world model samples
+            world_model_sample_mask = rollout_data_mask.clone()
+            value_function_sample_mask = torch.zeros(B, dtype=torch.int64, device=device)
+        
+        # Generate global_rollout_idx: -1 for demos, random indices for rollouts
+        global_rollout_idx = torch.full((B,), -1, dtype=torch.int64, device=device)
+        rollout_indices = (rollout_data_mask == 1)
+        if rollout_indices.any():
+            num_rollouts = rollout_indices.sum().item()
+            global_rollout_idx[rollout_indices] = torch.randint(
+                0, 10000, (num_rollouts,), device=device, dtype=torch.int64
+            )
+        
+        # ---------------------------------------
         # Concatenation priprio and actions
+        # ---------------------------------------
         # Concatenate current proprio keys
         curr_proprio_list = []
         for proprio_key in proprio_keys:
@@ -609,6 +776,11 @@ class CosmosPolicy(Algo):
             "future_wrist_image_latent_idx": future_wrist_image_latent_idx_tensor,  # (B,)
             "future_wrist_image2_latent_idx": future_wrist_image2_latent_idx_tensor,  # (B,)
             "future_image_latent_idx": future_image_latent_idx_tensor,  # (B,)
+            "rollout_data_mask": rollout_data_mask,  # (B,)
+            "rollout_data_success_mask": rollout_data_success_mask,  # (B,)
+            "world_model_sample_mask": world_model_sample_mask,  # (B,)
+            "value_function_sample_mask": value_function_sample_mask,  # (B,)
+            "global_rollout_idx": global_rollout_idx,  # (B,)
         }
         
         return cosmos_batch
@@ -647,7 +819,6 @@ class CosmosPolicy(Algo):
             )
             
             # Call cosmos_policy model training_step
-            # Get current iteration (would need to track this)
             iteration = getattr(self, "_current_iteration", 0)
             output_batch, loss = self.model.training_step(cosmos_batch, iteration)
             
@@ -655,8 +826,9 @@ class CosmosPolicy(Algo):
                 if ac_key in output_batch:
                     predictions[f"{embodiment_name}_{ac_key}"] = output_batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
-        
+            
         return predictions
+    
     
     @override
     def forward_eval(self, batch):
@@ -681,23 +853,18 @@ class CosmosPolicy(Algo):
                 cam_keys = self.camera_keys[embodiment_id]
                 proprio_keys = self.proprio_keys[embodiment_id]
                 lang_keys = self.lang_keys[embodiment_id]
-                ac_key = self.ac_keys[embodiment_id]
+                ac_keys = self.ac_keys[embodiment_id]
+                ac_key = ac_keys[0]  # single key for batch indexing
                 embodiment_name = get_embodiment(embodiment_id).lower()
                 
                 # Transform to cosmos_policy format
                 cosmos_batch = self._robomimic_to_cosmos_policy_data(
-                    _batch, cam_keys, proprio_keys, lang_keys, ac_key, embodiment_name
+                    _batch, cam_keys, proprio_keys, lang_keys, ac_keys, embodiment_name
                 )
                 
-                # Call cosmos_policy model inference
-                if self.model is None:
-                    logger.warning("CosmosPolicy model not initialized - using placeholder prediction")
-                    # Return original actions as placeholder
-                    pred_actions = _batch[ac_key]
-                else:
-                    # Use model's generate_samples_from_batch or similar method
-                    # This is a placeholder - actual implementation needs proper inference
-                    pred_actions = _batch[ac_key]  # Placeholder
+                # Call cosmos_policy model inference.
+                pred_actions = self.model.generate_samples_from_batch(cosmos_batch)
+                import pdb; pdb.set_trace()
                 
                 # Unnormalize predictions
                 pred_dict = {ac_key: pred_actions}
@@ -729,7 +896,7 @@ class CosmosPolicy(Algo):
         for embodiment_id, _batch in batch.items():
             _batch = self.data_schematic.unnormalize_data(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
-            ac_key = self.ac_keys[embodiment_id]
+            ac_key = self.ac_keys[embodiment_id][0]
             pred_key = f"{embodiment_name}_{ac_key}"
             
             if pred_key in preds:
@@ -762,7 +929,7 @@ class CosmosPolicy(Algo):
         # Get embodiment from batch
         embodiment_id = batch.get("embodiment", [0])[0].item() if "embodiment" in batch else 0
         embodiment_name = get_embodiment(embodiment_id).lower()
-        ac_key = self.ac_keys[embodiment_id]
+        ac_key = self.ac_keys[embodiment_id][0]
         
         # Get visualization image key
         viz_img_key = self.data_schematic.viz_img_key()[embodiment_id]
