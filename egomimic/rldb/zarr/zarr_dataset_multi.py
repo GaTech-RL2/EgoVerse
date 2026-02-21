@@ -24,6 +24,12 @@ import json
 import logging
 import os
 import random
+from pathlib import Path
+from tracemalloc import start
+import pandas as pd
+import numpy as np
+import torch
+import zarr
 import subprocess
 import tempfile
 from pathlib import Path
@@ -523,7 +529,7 @@ class MultiDataset(torch.utils.data.Dataset):
         return data
 
     @classmethod
-    def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
+    def _from_resolver(cls, resolver: EpisodeResolver, sync_from_s3: bool = False, filters: dict | None = None, **kwargs):
         """
         create a MultiDataset from an EpisodeResolver.
 
@@ -537,9 +543,6 @@ class MultiDataset(torch.utils.data.Dataset):
             MultiDataset: The constructed multi-dataset.
         """
         # TODO add key_map and transform pass to children
-
-        sync_from_s3 = kwargs.pop("sync_from_s3", False)
-        filters = kwargs.pop("filters", {}) or {}
 
         if isinstance(resolver, LocalEpisodeResolver):
             resolved = resolver.resolve(
