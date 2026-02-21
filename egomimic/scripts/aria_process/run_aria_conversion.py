@@ -25,16 +25,18 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterator, Tuple
+from tqdm import tqdm
+
+import ray
+from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
+
+from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client, load_env, s3_sync_to_local, upload_dir_to_s3, get_cloudpathlib_s3_client
 
 import boto3
 import ray
 
 # --- Conversion wrapper ------------------------------------------------------
-from aria_helper import lerobot_job
-from cloudpathlib import S3Path
-from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
-
-from egomimic.utils.aws.aws_data_utils import s3_sync_to_local, upload_dir_to_s3
+from aria_helper import zarr_job
 
 # --- SQL helpers --------------------------------------------------------------
 from egomimic.utils.aws.aws_sql import (
@@ -46,16 +48,16 @@ from egomimic.utils.aws.aws_sql import (
 )
 
 # --- Paths -------------------------------------------------------------------
-RAW_REMOTE_PREFIX = os.environ.get("RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/aria").rstrip(
-    "/"
-)
+RAW_REMOTE_PREFIX = os.environ.get("RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/test_aria/").rstrip("/")
 PROCESSED_ROOT = Path("/home/ubuntu/processed")
 PROCESSED_LOCAL_ROOT = Path(
     os.environ.get("PROCESSED_LOCAL_ROOT", "/home/ubuntu/processed")
 ).resolve()
 PROCESSED_REMOTE_PREFIX = os.environ.get(
-    "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/aria"
-).rstrip("/")
+    "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/test_aria/"
+).rstrip(
+    "/"
+)
 BUCKET = os.environ.get("BUCKET", "rldb")
 
 LOG_ROOT = Path(
@@ -65,12 +67,12 @@ LOG_ROOT = Path(
     )
 ).resolve()
 
-
 # --- Utilities ---------------------------------------------------------------
 def ensure_path_ready(p: str | Path | S3Path, retries: int = 30) -> bool:
     if isinstance(p, str):
         if p.startswith("s3://"):
-            p = S3Path(p)
+            s3_client = get_cloudpathlib_s3_client()
+            p = S3Path(p, client=s3_client)
         else:
             p = Path(p)
     for _ in range(retries):
@@ -122,7 +124,8 @@ def iter_vrs_bundles(root_s3: str) -> Iterator[Tuple[S3Path, S3Path, S3Path]]:
     root_s3: like "s3://rldb/raw_v2/aria/"
     Returns S3Path objects (cloudpathlib), not local filesystem paths.
     """
-    root = S3Path(root_s3)
+    s3_client = get_cloudpathlib_s3_client()
+    root = S3Path(root_s3, client=s3_client)
 
     for vrs in sorted(root.glob("*.vrs"), key=lambda p: p.name):
         name = vrs.stem
@@ -150,7 +153,8 @@ def iter_vrs_bundles_fast(root_s3: str) -> Iterator[Tuple[S3Path, S3Path, S3Path
 
     Uses a single `root.walk(...)` traversal and avoids per-path `.exists()` / `.is_dir()`.
     """
-    root = S3Path(root_s3)
+    s3_client = get_cloudpathlib_s3_client()
+    root = S3Path(root_s3, client=s3_client)
 
     vrs_by_name: dict[str, S3Path] = {}
     has_json: set[str] = set()
@@ -279,7 +283,6 @@ def convert_one_bundle_impl(
     s3_processed_dir: str,
     dataset_name: str,
     arm: str,
-    description: str,
 ) -> tuple[str, str, int]:
     """
     Perform conversion for a single episode.
@@ -288,11 +291,12 @@ def convert_one_bundle_impl(
       • mp4_path: per-episode MP4 ('' if not created)
       • total_frames: -1 if unknown/failure
     """
-    vrs = S3Path(vrs) if isinstance(vrs, str) else vrs
-    jsonf = S3Path(jsonf) if isinstance(jsonf, str) else jsonf
-    mps_dir = S3Path(mps_dir) if isinstance(mps_dir, str) else mps_dir
+    s3_client = get_cloudpathlib_s3_client()
+    boto3_client = get_boto3_s3_client()
+    vrs = S3Path(vrs, client=s3_client) if isinstance(vrs, str) else vrs
+    jsonf = S3Path(jsonf, client=s3_client) if isinstance(jsonf, str) else jsonf
+    mps_dir = S3Path(mps_dir, client=s3_client) if isinstance(mps_dir, str) else mps_dir
 
-    s3 = boto3.client("s3")
     stem = vrs.stem
     LOG_ROOT.mkdir(parents=True, exist_ok=True)
     log_path = LOG_ROOT / f"{stem}-{uuid.uuid4().hex[:8]}.log"
@@ -311,10 +315,8 @@ def convert_one_bundle_impl(
                 mps_dir,
             ]
 
-            raw_bucket, raw_prefix = _parse_s3_uri(
-                RAW_REMOTE_PREFIX, default_bucket=BUCKET
-            )
-            raw_root = S3Path(RAW_REMOTE_PREFIX)
+            raw_bucket, raw_prefix = _parse_s3_uri(RAW_REMOTE_PREFIX, default_bucket=BUCKET)
+            raw_root = S3Path(RAW_REMOTE_PREFIX, client=s3_client)
 
             for t in targets:
                 if not ensure_path_ready(t):
@@ -330,34 +332,40 @@ def convert_one_bundle_impl(
                     if t.is_dir():
                         s3_sync_to_local(raw_bucket, t_key, str(link))
                     else:
-                        s3.download_file(raw_bucket, t_key, str(link))
+                        boto3_client.download_file(raw_bucket, t_key, str(link))
                 except Exception as e:
                     print(f"[ERR] aws copy failed for {t}: {e}", flush=True)
                     shutil.rmtree(tmp_dir, ignore_errors=True)
                     return "", "", -1
 
+            # TODO remove dataset_name we no longer use it for path or anything
             ds_parent = Path(out_dir)
             ds_parent.mkdir(parents=True, exist_ok=True)
-            ds_path = ds_parent / dataset_name
+            ds_path = ds_parent / f"{stem}.zarr"
 
             try:
                 print(f"[INFO] Converting: {stem} → {ds_path} (arm={arm})", flush=True)
-                lerobot_job(
+                zarr_job(
                     raw_path=str(tmp_dir),
                     output_dir=str(ds_parent),
                     dataset_name=dataset_name,
                     arm=arm,
-                    description=description or "",
                 )
 
                 frames = -1
-                info = ds_path / "meta/info.json"
+                info = ds_parent / f"{stem}.zarr" / "zarr.json"
+                print(f"[DEBUG] Info path: {info}")
+                
                 if info.exists():
                     try:
                         meta = json.loads(info.read_text())
-                        frames = int(meta.get("total_frames", -1))
+                        print(f"[DEBUG] Meta: {meta}")
+                        frames = int(meta.get("attributes", {}).get("total_frames", -1))
                     except Exception:
+                        print(f"[ERR] Failed to load info: {e}")
                         frames = -1
+                else:
+                    print(f"[ERR] Info not found: {info}")
 
                 candidate = ds_parent / f"{stem}_video.mp4"
                 if candidate.exists():
@@ -387,13 +395,14 @@ def convert_one_bundle_impl(
                                 "/"
                             )
                             try:
-                                s3.upload_file(str(mp4_path), out_bucket, mp4_s3_key)
+                                boto3_client.upload_file(str(mp4_path), out_bucket, mp4_s3_key)
                             except Exception as e:
                                 raise Exception(
                                     f"Failed to upload mp4 {mp4_path} to S3: {e}"
                                 )
                 except Exception as e:
                     print(f"[ERR] Failed to upload {ds_path} to S3: {e}", flush=True)
+                    traceback.print_exc()
                     return "", "", -2
 
                 return str(ds_path), mp4_str, frames
@@ -457,17 +466,17 @@ def launch(
             print(f"[SKIP] {name}: no matching row in SQL (app.episodes)", flush=True)
             continue
 
-        processed_path = (row.processed_path or "").strip()
+        processed_path = (row.zarr_processed_path or "").strip()
         if skip_if_done and len(processed_path) > 0:
             print(
-                f"[SKIP] {name}: already has processed_path='{processed_path}'",
+                f"[SKIP] {name}: already has zarr_processed_path='{processed_path}'",
                 flush=True,
             )
             continue
 
-        if row.processing_error != "":
+        if row.zarr_processing_error != "":
             print(
-                f"[INFO] skipping episode hash: {row.episode_hash} due to processing error",
+                f"[INFO] skipping episode hash: {row.episode_hash} due to zarr processing error",
                 flush=True,
             )
             continue
@@ -482,8 +491,6 @@ def launch(
         dataset_name = episode_key
         out_dir = PROCESSED_ROOT
         s3out_dir = PROCESSED_REMOTE_PREFIX
-        description = row.task_description or ""
-
         if dry:
             ds_path = (PROCESSED_ROOT / dataset_name).resolve()
             stem = vrs.stem
@@ -494,10 +501,9 @@ def launch(
 
             print(
                 f"[DRY] {name}: arm={arm} | out_dir={out_dir}/{dataset_name}\n"
-                f"      desc='{description[:60]}'\n"
                 f"      would write to SQL:\n"
-                f"        processed_path={mapped_ds}\n"
-                f"        mp4_path={mapped_mp4}",
+                f"        zarr_processed_path={mapped_ds}\n"
+                f"        zarr_mp4_path={mapped_mp4}",
                 flush=True,
             )
             continue
@@ -510,7 +516,6 @@ def launch(
             str(s3out_dir),
             dataset_name,
             arm,
-            description,
         )
 
         start_time = time.time()
@@ -551,36 +556,36 @@ def launch(
 
             row.num_frames = int(frames) if frames is not None else -1
             if row.num_frames > 0:
-                row.processed_path = _map_processed_local_to_remote(ds_path)
-                row.mp4_path = _map_processed_local_to_remote(mp4_path)
-                row.processing_error = ""
+                row.zarr_processed_path = _map_processed_local_to_remote(ds_path)
+                row.zarr_mp4_path = _map_processed_local_to_remote(mp4_path)
+                row.zarr_processing_error = ""
             elif row.num_frames == -2:
-                row.processed_path = ""
-                row.mp4_path = ""
-                row.processing_error = "Upload Failed"
+                row.zarr_processed_path = ""
+                row.zarr_mp4_path = ""
+                row.zarr_processing_error = "Upload Failed"
             elif row.num_frames == -1:
-                row.processed_path = ""
-                row.mp4_path = ""
-                row.processing_error = "Zero Frames"
+                row.zarr_processed_path = ""
+                row.zarr_mp4_path = ""
+                row.zarr_processing_error = "Zero Frames"
             else:
-                row.processed_path = ""
-                row.mp4_path = ""
-                row.processing_error = "Conversion Failed Unhandled Error"
+                row.zarr_processed_path = ""
+                row.zarr_mp4_path = ""
+                row.zarr_processing_error = "Conversion Failed Unhandled Error"
 
             update_episode(engine, row)
             print(
                 f"[OK] Updated SQL for {episode_key}: "
-                f"processed_path={row.processed_path}, num_frames={row.num_frames}, "
+                f"zarr_processed_path={row.zarr_processed_path}, num_frames={row.num_frames}, "
                 f"duration_sec={duration_sec:.2f}",
                 flush=True,
             )
 
-            if row.num_frames > 0 and row.processed_path:
+            if row.num_frames > 0 and row.zarr_processed_path:
                 benchmark_rows.append(
                     {
                         "episode_key": episode_key,
-                        "processed_path": row.processed_path,
-                        "mp4_path": row.mp4_path,
+                        "processed_path": row.zarr_processed_path,
+                        "mp4_path": row.zarr_mp4_path,
                         "num_frames": row.num_frames,
                         "duration_sec": duration_sec,
                     }
@@ -610,13 +615,13 @@ def launch(
 
             # mark failed in SQL (so skip-if-done won't think it's done)
             row.num_frames = -1
-            row.processed_path = ""
-            row.mp4_path = ""
-            row.processing_error = f"{type(e).__name__}: {e}"
+            row.zarr_processed_path = ""
+            row.zarr_mp4_path = ""
+            row.zarr_processing_error = f"{type(e).__name__}: {e}"
             try:
                 update_episode(engine, row)
                 print(
-                    f"[FAIL] Marked SQL failed for {episode_key} (cleared processed_path)",
+                    f"[FAIL] Marked SQL failed for {episode_key} (cleared zarr_processed_path)",
                     flush=True,
                 )
             except Exception as ee:
@@ -657,7 +662,7 @@ def main():
     p.add_argument(
         "--skip-if-done",
         action="store_true",
-        help="Skip episodes that already have a processed_path in SQL",
+        help="Skip episodes that already have a zarr_processed_path in SQL",
     )
     p.add_argument(
         "--ray-address", default="auto", help="Ray cluster address (default: auto)"
@@ -671,6 +676,18 @@ def main():
     p.add_argument("--debug", action="store_true")
     args = p.parse_args()
 
+    env_vars = {}
+    load_env()
+    for k in [
+        "R2_ACCESS_KEY_ID",
+        "R2_SECRET_ACCESS_KEY",
+        "R2_SESSION_TOKEN",   # optional
+        "R2_ENDPOINT_URL",    # optional; include if your helper expects it
+    ]:
+        v = os.environ.get(k)
+        if v:
+            env_vars[k] = v
+    
     if args.debug:
         runtime_env = {
             "working_dir": "/home/ubuntu/EgoVerse",
@@ -685,8 +702,8 @@ def main():
             ],
         }
     else:
-        runtime_env = None
-
+        runtime_env = {}
+    runtime_env["env_vars"] = env_vars
     ray.init(address=args.ray_address, runtime_env=runtime_env)
     launch(
         dry=args.dry_run,

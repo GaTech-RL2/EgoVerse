@@ -27,11 +27,11 @@ def build_camera_matrix(provider, pose_t):
     return T_world_rgb_camera
 
 
-def undistort_to_linear(provider, stream_ids, raw_image, camera_label="rgb"):
+def undistort_to_linear(provider, stream_ids, raw_image, camera_label="rgb", height=480, width=640, focal_mult=2):
     camera_label = provider.get_label_from_stream_id(stream_ids[camera_label])
     calib = provider.get_device_calibration().get_camera_calib(camera_label)
     warped = calibration.get_linear_camera_calibration(
-        480, 640, 133.25430222 * 2, camera_label, calib.get_transform_device_camera()
+        height, width, 133.25430222 * focal_mult, camera_label, calib.get_transform_device_camera()
     )
     warped_image = calibration.distort_by_calibration(raw_image, warped, calib)
     warped_rot = np.rot90(warped_image, k=3)
@@ -106,8 +106,7 @@ def slam_to_rgb(provider):
 
     return transform
 
-
-def compute_coordinate_frame(palm_pose, wrist_pose, palm_normal):
+def compute_orientation_rotation_matrix(palm_pose, wrist_pose, palm_normal):
     x_axis = wrist_pose - palm_pose
     x_axis = np.ravel(x_axis) / np.linalg.norm(x_axis)
     z_axis = np.ravel(palm_normal) / np.linalg.norm(palm_normal)
@@ -117,30 +116,8 @@ def compute_coordinate_frame(palm_pose, wrist_pose, palm_normal):
     x_axis = np.cross(z_axis, y_axis)
     x_axis = np.ravel(x_axis) / np.linalg.norm(x_axis)
 
-    return -1 * x_axis, y_axis, z_axis
-
-
-def transform_coordinates(palm_pose, x_axis, y_axis, z_axis, transform):
-    palm_pose_h = np.append(palm_pose, 1)
-    x_axis_h = np.append(x_axis, 0)
-    y_axis_h = np.append(y_axis, 0)
-    z_axis_h = np.append(z_axis, 0)
-
-    # Apply SLAM-to-RGB transformation
-    transformed_palm_pose = (transform @ palm_pose_h)[:3]
-    transformed_x_axis = (transform @ x_axis_h)[:3]
-    transformed_y_axis = (transform @ y_axis_h)[:3]
-    transformed_z_axis = (transform @ z_axis_h)[:3]
-
-    # Apply additional rotation transpose
-    rot_T = ROTATION_MATRIX.T  # Compute the transpose
-    final_palm_pose = rot_T @ transformed_palm_pose
-    final_x_axis = rot_T @ transformed_x_axis
-    final_y_axis = rot_T @ transformed_y_axis
-    final_z_axis = rot_T @ transformed_z_axis
-
-    return final_palm_pose, final_x_axis, final_y_axis, final_z_axis
-
+    rot_matrix = np.column_stack([-1 * x_axis, y_axis, z_axis])
+    return rot_matrix
 
 def coordinate_frame_to_ypr(x_axis, y_axis, z_axis):
     rot_matrix = np.column_stack([x_axis, y_axis, z_axis])
