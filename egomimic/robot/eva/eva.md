@@ -61,6 +61,16 @@ From the repo root (or wherever `run_eva_docker.sh` lives):
 ./run_eva_docker.sh {left | right | both}
 ```
 
+If the script errors with "could not select device driver", then run the following commands on a host shell
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+```
+
 Once the container appears in Cursor / VS Code, attach a terminal to it and run:
 
 ```bash
@@ -203,3 +213,7 @@ After you are done collecting data:
 ```bash
 python3 eva_uploader.py
 ```
+
+## ROLLOUTS
+
+Note: Do not use env python

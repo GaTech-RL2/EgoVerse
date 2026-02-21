@@ -337,7 +337,7 @@ class PolicyRollout(Rollout):
         dump_i = self._dump_i
         self._dump_i += 1
         
-        _dump_pickle(self._dump_dir / f"{dump_i:06d}_obs.pkl", _to_picklable(obs))
+        # _dump_pickle(self._dump_dir / f"{dump_i:06d}_obs.pkl", _to_picklable(obs))
 
         # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
         front = torch.from_numpy(obs["front_img_1"][None, ...])        # [1, H, W, 3]
@@ -485,10 +485,10 @@ class PolicyRollout(Rollout):
             )
         )
         
-        _dump_pickle(
-            self._dump_dir / f"{dump_i:06d}_batch.pkl",
-            _to_picklable(processed_batch),
-        )
+        # _dump_pickle(
+        #     self._dump_dir / f"{dump_i:06d}_batch.pkl",
+        #     _to_picklable(processed_batch),
+        # )
         return processed_batch
 
     

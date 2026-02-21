@@ -1,5 +1,5 @@
-torch==2.6.0
-torchvision==0.21.0
+torch==2.5.0
+torchvision==0.20.0
 projectaria-tools[all]==2.0.0
 pyyaml
 matplotlib
@@ -19,8 +19,8 @@ rospkg
 einops
 av==12.0.0
 opencv-python==4.7.0.72
-dm-control==1.0.8
-mink
+# dm-control==1.0.8
+mink==0.0.13
 mujoco
 mujoco-py==2.1.2.14
 submitit
