@@ -6,7 +6,7 @@ train_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: /nethome/paphiwetsa3/flash/datasets/proc_zarr
       key_map:
-        front_img_1: #batch key
+        observations.images.front_img_1: #batch key
           key_type: camera_keys # key type
           zarr_key: front_img_1
         actions_cartesian:
@@ -24,7 +24,7 @@ valid_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: /nethome/paphiwetsa3/flash/datasets/proc_zarr
       key_map:
-        front_img_1: #batch key
+        observations.images.front_img_1: #batch key
           key_type: camera_keys # key type
           zarr_key: front_img_1
         actions_cartesian:

@@ -147,80 +147,127 @@ class DataSchematic(object):
                 shape = (1,)
             else:
                 shape = None
-            if key in self.df["key_name"].values:
-                self.df.loc[self.df["key_name"] == key, "shape"] = str(shape)
+            if key in self.df["zarr_key"].values:
+                self.df.loc[self.df["zarr_key"] == key, "shape"] = str(shape)
 
         self.shapes_infered = True
 
-    def infer_norm_from_dataset_zarr(self, dataset, dataset_name):
-        """
-        dataset: huggingface dataset or zarr dataset
-        returns: dictionary of means and stds for proprio and action keys
-        """
-        norm_columns = []
-
-        embodiment = (
-            dataset_name  # TODO may need to clean this up to make the code nicer
-        )
+    def infer_norm_from_dataset(
+        self,
+        dataset,
+        dataset_name,
+        sample_frac: float = 0.10,
+        seed: int = 42,
+        max_samples: int | None = None,
+        log_every: int = 200,
+        include_all_key_map_keys: bool = False,
+        extra_aux_keys=(),
+    ):
+        embodiment = dataset_name
         if isinstance(embodiment, str):
             embodiment = get_embodiment_id(embodiment)
 
-        norm_columns.extend(self.keys_of_type("proprio_keys"))
-        norm_columns.extend(self.keys_of_type("action_keys"))
+        norm_keys = []
+        norm_keys.extend(self.keys_of_type("proprio_keys"))
+        norm_keys.extend(self.keys_of_type("action_keys"))
+        norm_keys = [k for k in norm_keys if self.is_key_with_embodiment(k, embodiment)]
 
-        logger.info(
-            f"[NormStats] Starting norm inference for embodiment={embodiment}, "
-            f"{len(norm_columns)} columns"
+        if not norm_keys:
+            logger.warning(
+                f"[NormStats] No proprio/action keys for embodiment={embodiment}"
+            )
+            return
+
+        aux_keys = self.dataset_raw_norm_keys(
+            dataset,
+            key_types=("proprio_keys", "action_keys"),
+            extra_keys=extra_aux_keys,
+            include_all_key_map_keys=include_all_key_map_keys,
         )
 
-        def get_zarr_data(ds, col):
-            if hasattr(ds, "episode_reader"):
-                # ZarrDataset
-                if col in ds.episode_reader._store:
-                    return ds.episode_reader._store[col][:]
-                return None
-            elif hasattr(ds, "datasets"):
-                # MultiDataset wrapper
-                data_list = []
-                for d in ds.datasets.values():
-                    res = get_zarr_data(d, col)
-                    if res is not None:
-                        data_list.append(res)
-                if data_list:
-                    return np.concatenate(data_list, axis=0)
-            return None
+        if not aux_keys:
+            logger.warning(f"[NormStats] No aux keys found for dataset={type(dataset)}")
+            return
 
-        for column in norm_columns:
-            if not self.is_key_with_embodiment(column, embodiment):
+        def get_item_keys_from_any(ds, idx, keys):
+            if hasattr(ds, "get_item_keys"):
+                return ds.get_item_keys(idx, keys=keys)
+
+            if hasattr(ds, "datasets") and hasattr(ds, "index_map"):
+                dataset_name_, local_idx = ds.index_map[idx]
+                child = ds.datasets[dataset_name_]
+                if not hasattr(child, "get_item_keys"):
+                    raise RuntimeError(
+                        f"Child dataset {type(child)} has no get_item_keys"
+                    )
+                return child.get_item_keys(local_idx, keys=keys)
+
+            raise RuntimeError(f"Unsupported dataset type: {type(ds)}")
+
+        N = len(dataset)
+        if N <= 0:
+            raise ValueError("Dataset is empty")
+
+        n_samples = int(math.ceil(sample_frac * N))
+        n_samples = max(1, min(n_samples, N))
+        if max_samples is not None:
+            n_samples = min(n_samples, max_samples)
+
+        rng = random.Random(seed)
+        sample_indices = rng.sample(range(N), k=n_samples)
+
+        logger.info(f"[NormStats] embodiment={embodiment} norm_keys={norm_keys}")
+        logger.info(f"[NormStats] aux_keys={aux_keys}")
+        logger.info(
+            f"[NormStats] sampling {n_samples}/{N} (~{100 * sample_frac:.1f}%) indices"
+        )
+
+        collected = {k: [] for k in norm_keys}
+        expected_shapes = {}
+
+        for i, idx in enumerate(sample_indices, 1):
+            item = get_item_keys_from_any(dataset, idx, keys=aux_keys)
+            for k in norm_keys:
+                item_key = self.keyname_to_zarr_key(k, embodiment)
+                if item_key not in item:
+                    continue
+
+                x = item[item_key]
+                if isinstance(x, torch.Tensor):
+                    x = x.detach().cpu().numpy()
+                x = np.asarray(x)
+
+                if k not in expected_shapes:
+                    expected_shapes[k] = x.shape
+                else:
+                    if x.shape != expected_shapes[k]:
+                        raise ValueError(
+                            f"[NormStats] Shape mismatch for key '{k}': "
+                            f"expected {expected_shapes[k]}, got {x.shape}. "
+                            "Ensure padding/horizon is consistent."
+                        )
+
+                collected[k].append(x)
+
+            if log_every and (i % log_every == 0):
+                logger.info(f"[NormStats] processed {i}/{n_samples} samples")
+
+        for k in norm_keys:
+            if not collected[k]:
+                logger.warning(f"[NormStats] No data collected for key={k}")
                 continue
-            column_name = self.keyname_to_zarr_key(
-                column, embodiment
-            )  # zarr key for retrieval
-            logger.info(f"[NormStats] Processing column={column_name}")
 
-            column_data = get_zarr_data(dataset, column_name)
+            X = np.stack(collected[k], axis=0)
 
-            if column_data is None:
-                logger.warning(
-                    f"Skipping {column_name}, data not found given dataset type"
-                )
-                continue
+            mean = np.mean(X, axis=0)
+            std = np.std(X, axis=0)
+            minv = np.min(X, axis=0)
+            maxv = np.max(X, axis=0)
+            median = np.median(X, axis=0)
+            q1 = np.percentile(X, 1, axis=0)
+            q99 = np.percentile(X, 99, axis=0)
 
-            if column_data.ndim not in (2, 3):
-                raise ValueError(
-                    f"Column {column} has shape {column_data.shape}, "
-                    "expected 2 or 3 dims"
-                )
-
-            mean = np.mean(column_data, axis=0)
-            std = np.std(column_data, axis=0)
-            minv = np.min(column_data, axis=0)
-            maxv = np.max(column_data, axis=0)
-            median = np.median(column_data, axis=0)
-            q1 = np.percentile(column_data, 1, axis=0)
-            q99 = np.percentile(column_data, 99, axis=0)
-
-            self.norm_stats[embodiment][column] = {
+            self.norm_stats[embodiment][k] = {
                 "mean": torch.from_numpy(mean).float(),
                 "std": torch.from_numpy(std).float(),
                 "min": torch.from_numpy(minv).float(),
@@ -229,6 +276,10 @@ class DataSchematic(object):
                 "quantile_1": torch.from_numpy(q1).float(),
                 "quantile_99": torch.from_numpy(q99).float(),
             }
+
+            logger.info(
+                f"[NormStats] key={k} samples={X.shape[0]} stat_shape={mean.shape}"
+            )
 
         logger.info("[NormStats] Finished norm inference")
 

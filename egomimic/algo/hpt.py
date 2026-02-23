@@ -970,13 +970,13 @@ class HPT(Algo):
                 embodiment: torch.Size([])
         """
         processed_batch = {}
-
         for embodiment_name, _batch in batch.items():
             embodiment_id = get_embodiment_id(embodiment_name)
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
+                key_name = self.data_schematic.zarr_key_to_keyname(key, embodiment_id)
                 if key is not None:
-                    processed_batch[embodiment_id][key] = value
+                    processed_batch[embodiment_id][key_name] = value
 
             ac_key = self.ac_keys[embodiment_id]
             if len(processed_batch[embodiment_id][ac_key].shape) != 3:
@@ -987,11 +987,12 @@ class HPT(Algo):
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(
                 B, S, 1, device=device
             )
+
             processed_batch[embodiment_id] = self.data_schematic.normalize_data(
                 processed_batch[embodiment_id], embodiment_id
             )
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
-            [embodiment_id], device=self.device, dtype=torch.int64
+                [embodiment_id], device=self.device, dtype=torch.int64
             )
 
         return processed_batch
@@ -1010,7 +1011,10 @@ class HPT(Algo):
         predictions = OrderedDict()
         hpt_batches = {}
         self.training_step += 1
-        for embodiment_id, _batch in batch.items(): # TODO why don't we use batch with embodiment_name to keep things consistent
+        for (
+            embodiment_id,
+            _batch,
+        ) in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
@@ -1251,7 +1255,7 @@ class HPT(Algo):
         Returns:
             ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
         """
-        
+
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
         ac_key = self.ac_keys[embodiment_id]

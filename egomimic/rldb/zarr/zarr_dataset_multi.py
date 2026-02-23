@@ -32,6 +32,7 @@ import zarr
 import subprocess
 import tempfile
 from datasets import concatenate_datasets
+from typing import Iterable
 from enum import Enum
 import simplejpeg
 # from action_chunk_transforms import Transform
@@ -45,6 +46,7 @@ from egomimic.utils.aws.aws_sql import (
 logger = logging.getLogger(__name__)
 
 SEED = 42
+
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     """
@@ -75,11 +77,14 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
+
+
 class EpisodeResolver:
     """
     Base class for episode resolution utilities.
     Provides shared static/class helpers; subclasses implement resolve().
     """
+
     def __init__(
         self,
         folder_path: Path,
@@ -91,7 +96,6 @@ class EpisodeResolver:
         self.transform_list = transform_list
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
-        
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
         are present in the valid_folder_names set.
@@ -114,18 +118,20 @@ class EpisodeResolver:
             if name.endswith(".zarr"):
                 name = name[: -len(".zarr")]
             if name not in valid_folder_names:
-                logger.info(f"{p} is not in the list of filtered paths") 
+                logger.info(f"{p} is not in the list of filtered paths")
                 skipped.append(p.name)
-                continue     
+                continue
             try:
-                ds_obj = ZarrDataset(p, key_map=self.key_map, transform_list=self.transform_list)
+                ds_obj = ZarrDataset(
+                    p, key_map=self.key_map, transform_list=self.transform_list
+                )
                 datasets[name] = ds_obj
             except Exception as e:
                 logger.error(f"Failed to load dataset at {p}: {e}")
                 skipped.append(p.name)
-            
+
         return datasets
-    
+
     @classmethod
     def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:
         direct = local_dir / episode_hash
@@ -133,11 +139,11 @@ class EpisodeResolver:
             return True
 
 
-
 class S3EpisodeResolver(EpisodeResolver):
     """
     Resolves episodes via SQL table and optionally syncs from S3.
     """
+
     def __init__(
         self,
         folder_path: Path,
@@ -147,7 +153,7 @@ class S3EpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
     ):
         self.bucket_name = bucket_name
-        self.main_prefix = main_prefix  
+        self.main_prefix = main_prefix
         super().__init__(folder_path, key_map=key_map, transform_list=transform_list)
 
     def resolve(
@@ -187,7 +193,7 @@ class S3EpisodeResolver(EpisodeResolver):
         )
 
         return datasets
-    
+
     @staticmethod
     def _get_filtered_paths(filters: dict | None = None) -> list[tuple[str, str]]:
         """
@@ -221,9 +227,10 @@ class S3EpisodeResolver(EpisodeResolver):
         logger.info(f"Paths: {paths}")
         return paths
 
-
     @classmethod
-    def _sync_s3_to_local(cls, bucket_name: str, s3_paths: list[tuple[str, str]], local_dir: Path):
+    def _sync_s3_to_local(
+        cls, bucket_name: str, s3_paths: list[tuple[str, str]], local_dir: Path
+    ):
         if not s3_paths:
             return
 
@@ -319,10 +326,12 @@ class S3EpisodeResolver(EpisodeResolver):
 
         return filtered_paths
 
+
 class LocalEpisodeResolver(EpisodeResolver):
     """
     Resolves episodes from local Zarr stores, filtering via local metadata.
     """
+
     def __init__(
         self,
         folder_path: Path,
@@ -392,7 +401,9 @@ class LocalEpisodeResolver(EpisodeResolver):
         Outputs a dict of ZarrDatasets with relevant filters from local data.
         """
         if sync_from_s3:
-            logger.warning("LocalEpisodeResolver does not sync from S3; ignoring sync_from_s3=True.")
+            logger.warning(
+                "LocalEpisodeResolver does not sync from S3; ignoring sync_from_s3=True."
+            )
 
         filters = dict(filters) if filters is not None else {}
         filters.setdefault("is_deleted", False)
@@ -413,18 +424,20 @@ class LocalEpisodeResolver(EpisodeResolver):
         return datasets
 
 
-
 class MultiDataset(torch.utils.data.Dataset):
     """
-    Self wrapping MultiDataset, can wrap zarr or multi dataset. 
+    Self wrapping MultiDataset, can wrap zarr or multi dataset.
 
     """
-    def __init__(self, 
+
+    def __init__(
+        self,
         datasets,
         mode="train",
         percent=0.1,
         valid_ratio=0.2,
-        **kwargs,):
+        **kwargs,
+    ):
         """
         Args:
             datasets (dict): Dictionary mapping unique dataset hashes (str) to dataset objects. Datasets can be individual Zarr datasets or other multi-datasets; mixing different types is supported.
@@ -468,7 +481,6 @@ class MultiDataset(torch.utils.data.Dataset):
     def __len__(self) -> int:
         return len(self.index_map)
 
-
     def __getitem__(self, idx):
         dataset_name, local_idx = self.index_map[idx]
         data = self.datasets[dataset_name][local_idx]
@@ -478,7 +490,7 @@ class MultiDataset(torch.utils.data.Dataset):
         data["embodiment"] = robot_name
 
         return data
-    
+
     @classmethod
     def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
         """
@@ -532,7 +544,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
         self.init_episode()
-        
+
         self.key_map = key_map
         self.transform = transform_list
         super().__init__()
@@ -613,7 +625,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                 return str(ann.get("text", ""))
         return ""
 
-    def __len__(self) -> int:   
+    def __len__(self) -> int:
         return self.total_frames
 
     def _pad_sequences(self, data, horizon: int | None) -> dict:
@@ -651,7 +663,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                 read_interval = (idx, None)
             read_dict = {zarr_key: read_interval}
             raw_data = self.episode_reader.read(read_dict)
-            self._pad_sequences(raw_data, horizon) # should be able to pad images
+            self._pad_sequences(raw_data, horizon)  # should be able to pad images
             data[k] = raw_data[zarr_key]
 
             # Decode JPEG-encoded image data and normalize to [0, 1]
@@ -659,7 +671,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             if zarr_key in self._image_keys:
                 jpeg_bytes = data[k]
                 # Decode JPEG bytes to numpy array (H, W, 3)
-                decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace='RGB')
+                decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
                 # data[k] = torch.from_numpy(np.transpose(decoded, (2, 0, 1))).to(torch.float32) / 255.0
                 data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
             elif zarr_key in self._json_keys:
@@ -681,7 +693,70 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         return data
 
+    def get_item_keys(self, idx: int, keys) -> dict[str, torch.Tensor]:
+        requested = self._normalize_keys_arg(keys)
+        out = {}
 
+        for k in requested:
+            if k not in self.key_map:
+                raise KeyError(
+                    f"Unknown key '{k}'. Available keys: {list(self.key_map.keys())}"
+                )
+
+            zarr_key = self.key_map[k]["zarr_key"]
+            horizon = self.key_map[k].get("horizon", None)
+
+            if horizon is not None:
+                end_idx = min(idx + horizon, self.total_frames)
+                interval = (idx, end_idx)
+            else:
+                interval = (idx, None)
+
+            raw = self.episode_reader.read({zarr_key: interval})
+            self._pad_sequences(raw, horizon)
+            val = raw[zarr_key]
+
+            if zarr_key in self._image_keys:
+                if (
+                    isinstance(val, np.ndarray)
+                    and val.dtype == object
+                    and val.ndim == 1
+                ):
+                    decoded_seq = []
+                    for jpeg_bytes in val:
+                        img = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                        decoded_seq.append(np.transpose(img, (2, 0, 1)) / 255.0)
+                    val = np.stack(decoded_seq, axis=0)
+                else:
+                    img = simplejpeg.decode_jpeg(val, colorspace="RGB")
+                    val = np.transpose(img, (2, 0, 1)) / 255.0
+
+            out[k] = val
+
+        if self.transform:
+            for transform in self.transform or []:
+                out = transform.transform(out)
+
+        for k, v in out.items():
+            if isinstance(v, np.ndarray):
+                out[k] = torch.from_numpy(v).to(torch.float32)
+
+        return out
+
+    def _normalize_keys_arg(self, keys):
+        """
+        Normalize keys argument:
+          None -> all dataset keys
+          str  -> single key
+          Iterable[str] -> list of keys
+        """
+        if keys is None:
+            return list(self.key_map.keys())
+        if isinstance(keys, str):
+            return [keys]
+        if isinstance(keys, Iterable):
+            return list(keys)
+        raise TypeError(f"keys must be None, str, or iterable[str], got {type(keys)}")
 
 
 class ZarrEpisode:
@@ -689,12 +764,14 @@ class ZarrEpisode:
     Lightweight wrapper around a single Zarr episode store.
     Designed for efficient PyTorch DataLoader usage with direct store access.
     """
+
     __slots__ = (
         "_path",
         "_store",
         "metadata",
         "keys",
     )
+
     def __init__(self, path: str | Path):
         """
         Initialize ZarrEpisode wrapper.
@@ -702,11 +779,13 @@ class ZarrEpisode:
             path: Path to the .zarr episode directory
         """
         self._path = Path(path)
-        self._store = zarr.open_group(str(self._path), mode='r')
+        self._store = zarr.open_group(str(self._path), mode="r")
         self.metadata = dict(self._store.attrs)
         self.keys = self.metadata["features"]
-        
-    def read(self, keys_with_ranges: dict[str, tuple[int, int | None]]) -> dict[str, np.ndarray]:
+
+    def read(
+        self, keys_with_ranges: dict[str, tuple[int, int | None]]
+    ) -> dict[str, np.ndarray]:
         """
         Read data for specified keys, each with their own index or range.
         Args:
@@ -730,7 +809,7 @@ class ZarrEpisode:
             else:
                 # Single frame read - use slicing to avoid 0D array issues with VariableLengthBytes
                 # arr[start:start+1] gives us a 1D array, then [0] extracts the actual object
-                data = arr[start:start+1][0]
+                data = arr[start : start + 1][0]
             result[key] = data
         return result
 
@@ -743,21 +822,25 @@ class ZarrEpisode:
         if isinstance(self.keys, dict):
             return list(self.keys.keys())
         return list(self.keys)
+
     def __len__(self) -> int:
         """
         Get total number of frames in the episode.
         Returns:
             Number of frames
         """
-        return self.metadata['total_frames']
+        return self.metadata["total_frames"]
+
     def __repr__(self) -> str:
         """String representation of the episode."""
         return f"ZarrEpisode(path={self._path}, frames={len(self)})"
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     from omegaconf import OmegaConf
     import hydra
-    dataset_cfg_path = '/nethome/paphiwetsa3/flash/projects/EgoVerse/egomimic/hydra_configs/data/test_multi_zarr.yaml'
+
+    dataset_cfg_path = "/nethome/paphiwetsa3/flash/projects/EgoVerse/egomimic/hydra_configs/data/test_multi_zarr.yaml"
     # Using Hydra to load the dataset config
     dataset_cfg = OmegaConf.load(dataset_cfg_path)
     datamodule = hydra.utils.instantiate(dataset_cfg)
