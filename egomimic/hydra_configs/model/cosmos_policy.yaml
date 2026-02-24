@@ -19,6 +19,9 @@ robomimic_model:
   normalize_images: false  # Whether to normalize images to [0, 1] range; Cosmos Policy expects uint8 images in [0, 255]
   use_image_aug: true  # Whether to apply image augmentations during preprocessing
   use_stronger_image_aug: false  # Whether to use stronger image augmentations during training
+  # Value function returns
+  return_value_function_returns: true  # Set true to enable MC value targets for the value-function head
+  gamma: 0.998  # Discount factor for Monte-Carlo returns (same as ALOHA default)
   # Denoising steps during validation inference.
   # Full quality = 35 (default). Reduce (e.g., 5) for ~7× faster validation
   val_num_inference_steps: 5

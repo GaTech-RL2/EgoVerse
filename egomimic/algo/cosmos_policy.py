@@ -113,6 +113,7 @@ class CosmosPolicy(Algo):
         demonstration_sampling_prob: float = 0.5,
         p_world_model: float = 0.5,
         return_value_function_returns: bool = False,
+        gamma: float = 0.998,
         val_num_inference_steps: int = 35,
         debug: bool = False,
         **kwargs
@@ -140,6 +141,7 @@ class CosmosPolicy(Algo):
         self.demonstration_sampling_prob = demonstration_sampling_prob
         self.p_world_model = p_world_model
         self.return_value_function_returns = return_value_function_returns
+        self.gamma = gamma
         self.val_num_inference_steps = val_num_inference_steps
         
         self.debug = debug
@@ -735,11 +737,60 @@ class CosmosPolicy(Algo):
             all_proprios = None
             all_future_proprios = None
         
-        # Value function returns (placeholders)
-        value_function_return = float("-100")  # Just a placeholder
-        next_value_function_return = float("-100")
-        all_value_returns = torch.full((B,), value_function_return, dtype=torch.float32, device=device)
-        all_next_value_returns = torch.full((B,), next_value_function_return, dtype=torch.float32, device=device)
+        # Value function returns – Monte-Carlo discounted returns.
+        #
+        # When return_value_function_returns=True AND the batch contains episode_length
+        # and frame_index (added by S3RLDBDataset.__getitem__), we compute the scalar
+        # return on-the-fly for each sample, mirroring ALOHADataset's logic:
+        #   returns[t] = gamma^(T-1-t) * terminal_reward  (rescaled to [-1, 1])
+        #
+        # terminal_reward:
+        #   - demo (rollout_data_mask=0)          → 1.0  (all demos are successes)
+        #   - successful rollout (success_mask=1)  → 1.0
+        #   - failed rollout    (success_mask=0)   → 0.0  → return = -1 everywhere
+        #
+        # We compute the return at TWO timesteps:
+        #   value_function_return      → future_frame_idx = frame_index + action_chunk
+        #   next_value_function_return → next_future_frame_idx = frame_index + 2 * action_chunk
+        # Both are clamped to [0, episode_length - 1].
+        #
+        # Gamma uses ALOHA's default (0.998) which is also our config default.
+        _gamma = getattr(self, "gamma", 0.998)
+
+        def _mc_return(ep_len: int, future_t: int, terminal_reward: float) -> float:
+            """Return the rescaled Monte-Carlo return at timestep future_t."""
+            if ep_len <= 0 or future_t < 0:
+                return float("-100")
+            t = min(future_t, ep_len - 1)
+            raw = (_gamma ** (ep_len - 1 - t)) * terminal_reward
+            if terminal_reward > 0:
+                return float(2.0 * raw / terminal_reward - 1.0)  # rescale to [-1, 1]
+            return -1.0  # failure episode → -1 everywhere
+
+        if (
+            self.return_value_function_returns
+            and "frame_index" in batch
+            and "episode_length" in batch
+        ):
+            vf_returns, next_vf_returns = [], []
+            for b_i in range(B):
+                frame_idx = int(batch["frame_index"][b_i].item())
+                ep_len    = int(batch["episode_length"][b_i].item())
+                is_demo   = rollout_data_mask[b_i].item() == 0
+                is_succ   = rollout_data_success_mask[b_i].item() == 1
+                t_reward  = 1.0 if (is_demo or is_succ) else 0.0
+
+                future_t      = frame_idx + self.action_chunk
+                next_future_t = frame_idx + 2 * self.action_chunk
+
+                vf_returns.append(_mc_return(ep_len, future_t, t_reward))
+                next_vf_returns.append(_mc_return(ep_len, next_future_t, t_reward))
+
+            all_value_returns      = torch.tensor(vf_returns,      dtype=torch.float32, device=device)
+            all_next_value_returns = torch.tensor(next_vf_returns, dtype=torch.float32, device=device)
+        else:
+            all_value_returns      = torch.full((B,), float("-100"), dtype=torch.float32, device=device)
+            all_next_value_returns = torch.full((B,), float("-100"), dtype=torch.float32, device=device)
         
         # ---------------------------------------
         # Construct text embeddings

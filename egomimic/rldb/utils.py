@@ -1062,12 +1062,26 @@ class S3RLDBDataset(MultiRLDBDataset):
           rollout_data_success_mask  – 1 for successful rollout, else 0
           world_model_sample_mask    – 1 if this rollout sample trains the WM
           value_function_sample_mask – 1 if this rollout sample trains the VF
+          episode_length             – total frames in this episode (for MC returns)
         """
         item = super().__getitem__(idx)
 
         if self.is_rollout is None:
             # Non-CosmosPolicy dataset: leave batch untouched.
             return item
+
+        # Expose episode_length so that _robomimic_to_cosmos_policy_data can compute
+        # Monte-Carlo value-function returns without a pre-computed returns array.
+        dataset_name, _local_idx = self.index_map[idx]
+        sub_dataset = self.datasets[dataset_name]
+        ep_data_index = getattr(sub_dataset, "episode_data_index", None)
+        if ep_data_index is not None:
+            ep_idx = int(item.get("episode_index", 0))
+            ep_from = int(ep_data_index["from"][ep_idx].item())
+            ep_to   = int(ep_data_index["to"][ep_idx].item())
+            item["episode_length"] = ep_to - ep_from
+        else:
+            item["episode_length"] = 0
 
         item["rollout_data_mask"] = int(self.is_rollout)
         item["rollout_data_success_mask"] = int(self.is_rollout and self.success)
