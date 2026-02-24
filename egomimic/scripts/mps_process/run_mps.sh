@@ -7,6 +7,7 @@ export USER="ubuntu"
 
 # Cron PATH is minimal; include where aria_mps lives.
 export PATH="/home/ubuntu/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+PYTHON_BIN="/usr/bin/python3"
 
 echo "[$(date -Is)] run_mps.sh starting"
 echo "[$(date -Is)] PATH=$PATH"
@@ -28,7 +29,7 @@ LOCAL_DIR="/home/ubuntu/local"
 mkdir -p "$LOCAL_DIR"
 
 # --- Run ---
-python3 /home/ubuntu/EgoVerse/egomimic/scripts/mps_process/s3_parallel_processor.py \
+"$PYTHON_BIN" /home/ubuntu/EgoVerse/egomimic/scripts/mps_process/s3_parallel_processor.py \
   --bucket rldb \
   --s3-prefix raw_v2/aria \
   --local-dir "$LOCAL_DIR" \

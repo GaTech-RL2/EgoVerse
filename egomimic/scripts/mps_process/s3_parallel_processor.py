@@ -133,12 +133,32 @@ class Boto3Backend:
     All cleanup operations are LOCAL only.
     """
 
-    def __init__(self, bucket: str):
+    def __init__(
+        self,
+        bucket: str,
+        endpoint_url: Optional[str] = None,
+        access_key_id: Optional[str] = None,
+        secret_access_key: Optional[str] = None,
+        session_token: Optional[str] = None,
+    ):
         import boto3
         from boto3.s3.transfer import TransferConfig
+        from botocore.config import Config
 
         self.bucket = bucket
-        self.client = boto3.client("s3")
+        client_kwargs = {
+            "endpoint_url": endpoint_url or None,
+            "config": Config(s3={"addressing_style": "path"}),
+        }
+        if endpoint_url:
+            # R2 expects an S3 region alias such as "auto".
+            client_kwargs["region_name"] = "auto"
+        if access_key_id and secret_access_key:
+            client_kwargs["aws_access_key_id"] = access_key_id
+            client_kwargs["aws_secret_access_key"] = secret_access_key
+        if session_token:
+            client_kwargs["aws_session_token"] = session_token
+        self.client = boto3.client("s3", **client_kwargs)
         self.config = TransferConfig(
             multipart_threshold=8 * 1024 * 1024,
             max_concurrency=10,
@@ -1407,6 +1427,46 @@ Examples:
         default=None,
         help="Custom S3 path to recordings_status.json (e.g., 'path/to/recordings_status.json')",
     )
+    parser.add_argument(
+        "--endpoint-url",
+        type=str,
+        default=(
+            os.environ.get("R2_ENDPOINT_URL")
+            or os.environ.get("S3_ENDPOINT_URL")
+            or os.environ.get("AWS_ENDPOINT_URL_S3")
+        ),
+        help=(
+            "Optional S3 endpoint URL (for R2/custom S3). "
+            "Defaults to R2_ENDPOINT_URL/S3_ENDPOINT_URL/AWS_ENDPOINT_URL_S3."
+        ),
+    )
+    parser.add_argument(
+        "--access-key-id",
+        type=str,
+        default=(
+            os.environ.get("R2_ACCESS_KEY_ID")
+            or os.environ.get("AWS_ACCESS_KEY_ID")
+        ),
+        help="Optional S3 access key ID. Defaults to R2_ACCESS_KEY_ID/AWS_ACCESS_KEY_ID.",
+    )
+    parser.add_argument(
+        "--secret-access-key",
+        type=str,
+        default=(
+            os.environ.get("R2_SECRET_ACCESS_KEY")
+            or os.environ.get("AWS_SECRET_ACCESS_KEY")
+        ),
+        help="Optional S3 secret access key. Defaults to R2_SECRET_ACCESS_KEY/AWS_SECRET_ACCESS_KEY.",
+    )
+    parser.add_argument(
+        "--session-token",
+        type=str,
+        default=(
+            os.environ.get("R2_SESSION_TOKEN")
+            or os.environ.get("AWS_SESSION_TOKEN")
+        ),
+        help="Optional S3 session token. Defaults to R2_SESSION_TOKEN/AWS_SESSION_TOKEN.",
+    )
     args = parser.parse_args()
 
     # Get MPS credentials from environment
@@ -1418,7 +1478,15 @@ Examples:
 
     # Create boto3 backend
     logger.info(f"Connecting to S3 bucket: {args.bucket}")
-    backend = Boto3Backend(bucket=args.bucket)
+    if args.endpoint_url:
+        logger.info(f"Using custom S3 endpoint: {args.endpoint_url}")
+    backend = Boto3Backend(
+        bucket=args.bucket,
+        endpoint_url=args.endpoint_url,
+        access_key_id=args.access_key_id,
+        secret_access_key=args.secret_access_key,
+        session_token=args.session_token,
+    )
 
     # Step 1: Find all VRS files
     logger.info(f"Finding VRS files in s3://{args.bucket}/{args.s3_prefix}...")

@@ -54,7 +54,15 @@ head_node_type: head_node
 
 initialization_commands:
   - sudo DEBIAN_FRONTEND=noninteractive apt-get update -yq
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3 curl wget
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3 curl wget awscli
+  - |
+      cat <<'EOF' | sudo tee /usr/local/bin/aws >/dev/null
+      #!/usr/bin/env bash
+      export PYTHONNOUSERSITE=1
+      exec /usr/bin/aws "$@"
+      EOF
+      sudo chmod +x /usr/local/bin/aws
+      aws --version
   - |
       cd ~/EgoVerse
       pip3 install --no-input -r requirements-ray.txt
@@ -72,7 +80,7 @@ initialization_commands:
 setup_commands:
   - |
       chmod +x ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
-      R2_SECRET_NAME=r2/rldb/credentials DB_SECRET_NAME=rds/appdb/appuser REGION=us-east-2 \
+      PYTHONNOUSERSITE=1 R2_SECRET_NAME=r2/rldb/credentials DB_SECRET_NAME=rds/appdb/appuser REGION=us-east-2 \
         bash ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
 
   - |
