@@ -84,7 +84,12 @@ class RobomimicHD5Extractor:
             List of frames as dictionaries.
         """
         frames = []
-        num_frames = episode["actions_joints"].shape[0]
+        if "actions_joints" in episode:
+            action_key = "actions_joints"
+        else:
+            action_key = "actions"
+        num_frames = episode[action_key].shape[0]
+
         for frame_idx in range(num_frames):
             frame = {}
             for action_key in config["action_keys"]:
@@ -93,7 +98,9 @@ class RobomimicHD5Extractor:
             # TODO: don't hard code so much stupid shit
             for obs_key in config["obs_keys"]:
                 if obs_key in episode["obs"]:
-                    if "img" or "image" in obs_key and image_compressed:
+                    is_image_key = ("img" in obs_key) or ("image" in obs_key) or ("rgb" in obs_key)
+                    if is_image_key and image_compressed:
+                    # if "img" or "image" in obs_key and image_compressed:
                         image = episode["obs"][obs_key][frame_idx]
                         if encode_as_video:
                             frame[f"obs.{obs_key}"] = torch.from_numpy(
@@ -150,7 +157,10 @@ class RobomimicHD5Extractor:
             for topic in topics:
                 if topic not in allowed_keys:
                     continue
-                if "images" or "img" in topic.split("/"):
+
+                is_image_topic = ("images" in topic) or ("img" in topic) or ("image" in topic) or ("rgb" in topic)
+                if is_image_topic:
+                # if "images" or "img" in topic.split("/"):
                     sample = hdf5_file[topic][0]
                     features[topic.replace("/", ".")] = {
                         "dtype": "video" if encode_as_video else "image",
@@ -164,14 +174,19 @@ class RobomimicHD5Extractor:
                 elif "compress_len" in topic.split("/"):
                     continue
                 else:
+                    # print(f"topic is {topic}, shape is {hdf5_file[topic][0].shape}")
+                    # topic_count = hdf5_file[topic].shape[0]
                     features[topic.replace("/", ".")] = {
                         "dtype": str(hdf5_file[topic][0].dtype),
                         "shape": (topic_shape := hdf5_file[topic][0].shape),
                         "names": [
-                            f"{topic.split('/')[-1]}_{k}" for k in range(topic_shape[0])
+                            f"{topic.split('/')[-1]}"
                         ],
+                        # f"{topic.split('/')[-1]}_{k}" for k in range(topic_count)
                     }
 
+        print(features)
+        print("-------------------------------------------------------------------------------------------------------")
         return features
 
 

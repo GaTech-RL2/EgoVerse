@@ -23,6 +23,7 @@ debug_ims/*
 egomimic/scripts/aloha_process/datasetFig
 egomimic/outputs
 outputs/
+datasets/
 logs/
 emimic/
 emimic.egg-info/

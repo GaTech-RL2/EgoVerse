@@ -281,10 +281,12 @@ class LeRobotDatasetMetadata:
         random.seed(seed)
         random.shuffle(all_indices)
 
-        valid_size = max(1, min(int(valid_ratio * total_episodes), total_episodes - 1))
-
-        # Assign indices to train and valid splits
-        self.info["splits"] = {"train": all_indices[valid_size:], "valid": all_indices[:valid_size]}
+        # With a single episode, use it for both train and valid (same trajectory for train and eval).
+        if total_episodes == 1:
+            self.info["splits"] = {"train": all_indices.copy(), "valid": all_indices.copy()}
+        else:
+            valid_size = max(1, min(int(valid_ratio * total_episodes), total_episodes - 1))
+            self.info["splits"] = {"train": all_indices[valid_size:], "valid": all_indices[:valid_size]}
 
     def write_video_info(self) -> None:
         """

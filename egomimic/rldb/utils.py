@@ -94,6 +94,7 @@ class EMBODIMENT(Enum):
     MECKA_BIMANUAL = 9
     MECKA_RIGHT_ARM = 10
     MECKA_LEFT_ARM = 11
+    RBY1 = 12
 
 
 SEED = 42
@@ -357,6 +358,10 @@ class RLDBDataset(LeRobotDataset):
             frame_time=frame_time,
         )
 
+        # Ensure every batch has metadata.embodiment (required by DataSchematic); inject if missing.
+        if "metadata.embodiment" not in frame_item:
+            frame_item["metadata.embodiment"] = self.embodiment
+
         return frame_item
 
 
@@ -597,6 +602,28 @@ class FolderRLDBDataset(MultiRLDBDataset):
                 skipped.append(subdir.name)
                 continue
 
+            # Skip if the requested split has no episodes (avoids HF "Empty 'data_files'" downstream)
+            try:
+                meta = LeRobotDatasetMetadata(
+                    repo_id=subdir.name,
+                    root=subdir,
+                    local_files_only=local_files_only,
+                )
+                meta._update_splits(valid_ratio=valid_ratio)
+                splits = meta.info.get("splits", {})
+                split_key = "train" if mode in ("train", "percent") else mode
+                if mode != "total" and (split_key not in splits or len(splits[split_key]) == 0):
+                    logger.warning(
+                        f"Skipping {subdir.name}: empty '{mode}' split "
+                        f"(splits: train={len(splits.get('train', []))}, valid={len(splits.get('valid', []))})."
+                    )
+                    skipped.append(subdir.name)
+                    continue
+            except Exception as e:
+                logger.warning(f"Skipping {subdir.name}: could not read splits: {e}")
+                skipped.append(subdir.name)
+                continue
+
             try:
                 repo_id = subdir.name
                 dataset = RLDBDataset(
@@ -628,7 +655,10 @@ class FolderRLDBDataset(MultiRLDBDataset):
             except Exception as e:
                 logger.error(f"Failed to load {subdir.name}: {e}")
                 skipped.append(subdir.name)
-        assert len(datasets) > 0, "No valid RLDB datasets found!"
+        assert len(datasets) > 0, (
+            f"No valid RLDB datasets found for mode={mode}! "
+            "Check that each subfolder has meta/info.json and a non-empty split for this mode (splits.train / splits.valid)."
+        )
 
         key_map_per_dataset = (
             {repo_id: key_map for repo_id in datasets} if key_map else None

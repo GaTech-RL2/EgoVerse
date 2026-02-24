@@ -1,0 +1,34 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  dataset1:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      rl2_lab:
+        _target_: rldb.utils.FolderRLDBDataset
+        folder_path: /coc/flash7/zhenyang/EgoVerse/datasets
+        embodiment: rby1
+        mode: train   
+        local_files_only: true
+    embodiment: rby1
+
+valid_datasets:
+  dataset1:
+    _target_: rldb.utils.MultiRLDBDataset
+    datasets:
+      eth_lab:
+        _target_: rldb.utils.FolderRLDBDataset
+        folder_path: /coc/flash7/zhenyang/EgoVerse/datasets
+        embodiment: rby1
+        mode: valid
+        local_files_only: true
+    embodiment: "rby1"
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 2
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 2
+    num_workers: 10

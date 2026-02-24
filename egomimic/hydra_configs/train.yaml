@@ -4,7 +4,7 @@ defaults:
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva_bc_s3
+  - data: test_RBY1
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
@@ -61,6 +61,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+    
     aria_bimanual:
       front_img_1:
         key_type: camera_keys
@@ -74,6 +75,7 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+    
     mecka_bimanual:
       front_img_1:
         key_type: camera_keys
@@ -93,10 +95,33 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
+
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos
+      actions:
+        key_type: action_keys
+        lerobot_key: actions
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  
   viz_img_key: 
     eva_bimanual:
       front_img_1
     aria_bimanual:
       front_img_1
     mecka_bimanual:
+      front_img_1
+    rby1:
       front_img_1

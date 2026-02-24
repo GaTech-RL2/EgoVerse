@@ -1,0 +1,4 @@
+{
+    "action_keys": ["actions"],
+    "obs_keys": ["aria_image", "hand_left_qpos", "hand_right_qpos", "robot0_joint_pos"]
+}

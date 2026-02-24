@@ -44,6 +44,8 @@ def get_stats_einops_patterns(dataset, num_workers=0):
         if key in dataset.meta.camera_keys:
             # sanity check that images are channel first
             _, c, h, w = batch[key].shape
+            print(_, c, h, w)
+            print(f"key {key} is a camera key")
             assert c < h and c < w, f"expect channel first images, but instead {batch[key].shape}"
 
             # sanity check that images are float32 in range [0,1]
