@@ -134,6 +134,11 @@ def _xyzwxyz_to_matrix(xyzwxyz: np.ndarray) -> np.ndarray:
 
     mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
     quat_xyzw = xyzwxyz[:, [4, 5, 6, 3]]
+    # Replace zero-norm quaternions (e.g. from zero-padded chunk tails) with identity.
+    norms = np.linalg.norm(quat_xyzw, axis=-1, keepdims=True)
+    zero_mask = (norms == 0).squeeze(-1)
+    quat_xyzw = quat_xyzw.copy()
+    quat_xyzw[zero_mask] = [0.0, 0.0, 0.0, 1.0]
     mats[:, :3, :3] = R.from_quat(quat_xyzw).as_matrix()
     mats[:, :3, 3] = xyzwxyz[:, :3]
 
