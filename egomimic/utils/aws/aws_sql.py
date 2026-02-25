@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -15,6 +16,10 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.exc import IntegrityError
+
+logger = logging.getLogger(__name__)
+YELLOW = "\033[33m"
+RESET = "\033[0m"
 
 
 @dataclass
@@ -46,7 +51,12 @@ def create_default_engine():
     SECRETS_ARN = os.environ.get("SECRETS_ARN")
     if SECRETS_ARN:
         secrets = boto3.client("secretsmanager")
-        sec = secrets.get_secret_value(SecretId=SECRETS_ARN)["SecretString"]
+        try:
+            sec = secrets.get_secret_value(SecretId=SECRETS_ARN)["SecretString"]
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to retrieve secrets from {SECRETS_ARN}.  Did you run ./egomimic/utils/aws/setup_secret.sh ?: {e}"
+            ) from e
         cfg = json.loads(sec)
         HOST = cfg.get("host", cfg.get("HOST"))
         DBNAME = cfg.get("dbname", cfg.get("DBNAME", "appdb"))
@@ -54,7 +64,11 @@ def create_default_engine():
         PASSWORD = cfg.get("password", cfg.get("PASSWORD"))
         PORT = cfg.get("port", 5432)
     else:
-        print("Using hardcoded DB Credentials (ok for local testing)")
+        logger.warning(
+            "%sUsing hardcoded DB Credentials. Run ./egomimic/utils/aws/setup_secret.sh for better security!%s",
+            YELLOW,
+            RESET,
+        )
         # Fallback to hardcoded values for local testing
         HOST = "lowuse-pg-east2.cdc8824mase4.us-east-2.rds.amazonaws.com"
         DBNAME = "appdb"

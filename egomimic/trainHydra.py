@@ -11,6 +11,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
 from egomimic.scripts.evaluation.eval import Eval
+from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
@@ -39,6 +40,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     else:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
+    load_env()
     # log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
 
     data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)

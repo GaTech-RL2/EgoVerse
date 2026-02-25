@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import random
 import subprocess
 import tempfile
@@ -35,6 +36,7 @@ import torch
 import zarr
 
 # from action_chunk_transforms import Transform
+from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
@@ -145,7 +147,7 @@ class S3EpisodeResolver(EpisodeResolver):
         self,
         folder_path: Path,
         bucket_name: str = "rldb",
-        main_prefix: str = "processed_v2",
+        main_prefix: str = "processed_v3",
         key_map: dict | None = None,
         transform_list: list | None = None,
     ):
@@ -214,11 +216,14 @@ class S3EpisodeResolver(EpisodeResolver):
             (df[list(filters)] == series).all(axis=1),
             ["zarr_processed_path", "episode_hash"],
         ]
-        skipped = df[df["zarr_processed_path"].isnull()]["episode_hash"].tolist()
+        before_len = len(output)
+
+        output = output[
+            output["zarr_processed_path"].fillna("").astype(str).str.strip() != ""
+        ]
         logger.info(
-            f"Skipped {len(skipped)} episodes with null zarr_processed_path: {skipped}"
+            f"Skipped {before_len - len(output)} episodes with null zarr_processed_path: {output}"
         )
-        output = output[~output["episode_hash"].isin(skipped)]
 
         paths = list(output.itertuples(index=False, name=None))
         logger.info(f"Paths: {paths}")
@@ -274,7 +279,15 @@ class S3EpisodeResolver(EpisodeResolver):
         try:
             batch_path.write_text("\n".join(lines) + "\n")
 
-            cmd = ["s5cmd", "run", str(batch_path)]
+            load_env()
+            rl2_endpoint_url = os.environ.get("R2_ENDPOINT_URL")
+            access_key_id = os.environ["R2_ACCESS_KEY_ID"]
+            secret_access_key = os.environ["R2_SECRET_ACCESS_KEY"]
+            os.environ["AWS_ACCESS_KEY_ID"] = access_key_id
+            os.environ["AWS_SECRET_ACCESS_KEY"] = secret_access_key
+            os.environ["AWS_DEFAULT_REGION"] = "auto"
+            os.environ["AWS_REGION"] = "auto"
+            cmd = ["s5cmd", "--endpoint-url", rl2_endpoint_url, "run", str(batch_path)]
             logger.info("Running s5cmd batch (%d lines): %s", len(lines), " ".join(cmd))
             subprocess.run(cmd, check=True)
 
@@ -831,17 +844,3 @@ class ZarrEpisode:
     def __repr__(self) -> str:
         """String representation of the episode."""
         return f"ZarrEpisode(path={self._path}, frames={len(self)})"
-
-
-if __name__ == "__main__":
-    import hydra
-    from omegaconf import OmegaConf
-
-    dataset_cfg_path = "/nethome/paphiwetsa3/flash/projects/EgoVerse/egomimic/hydra_configs/data/test_multi_zarr.yaml"
-    # Using Hydra to load the dataset config
-    dataset_cfg = OmegaConf.load(dataset_cfg_path)
-    datamodule = hydra.utils.instantiate(dataset_cfg)
-    dl = datamodule.train_dataloader()
-    batch = next(iter(dl))
-
-    breakpoint()

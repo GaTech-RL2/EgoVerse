@@ -49,6 +49,15 @@ Set `git config --global submodule.recurse true` if you want `git pull` to autom
 Set your wandb project in ``egomimic/hydra_configs/logger/wandb.yaml``
 
 ## Quick Start
+
+### AWS Configure
+```
+aws configure
+<fill in credentials simar sent>
+./egomimic/utils/aws/setup_secret.sh
+```
+`setup_secret.sh` will allow your current env to download data from cloudflare.
+
 ### Processing your own data for training
 ![Data Streams](./assets/train_data.png)
 See [``data_processing.md``](./data_processing.md)

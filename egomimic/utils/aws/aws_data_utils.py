@@ -7,6 +7,20 @@ import boto3
 from boto3.s3.transfer import TransferConfig
 
 
+def load_env(path="~/.egoverse_env"):
+    p = Path(path).expanduser()
+    if not p.exists():
+        raise ValueError(
+            f"Env file {p} does not exist, run ./egomimic/utils/aws/setup_secret.sh"
+        )
+    for line in p.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        os.environ.setdefault(k, v.strip().strip("'").strip('"'))
+
+
 def s3_sync_to_local(bucket: str, key_prefix: str, local_dir: str | Path) -> None:
     """
     Rough equivalent of: aws s3 sync s3://bucket/key_prefix/ local_dir/
