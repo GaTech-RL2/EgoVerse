@@ -1,67 +1,45 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 train_datasets:
-  dataset1:
+  aria_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /nethome/paphiwetsa3/flash/datasets/test_zarr/
+      folder_path: /nethome/paphiwetsa3/flash/datasets/proc_zarr
       key_map:
         front_img_1: #batch key
           key_type: camera_keys # key type
-          zarr_key: observations.images.front_img_1 # dataset key
-        right_wrist_img:
-          key_type: camera_keys
-          zarr_key: observations.images.right_wrist_img
-        left_wrist_img:
-          key_type: camera_keys
-          zarr_key: observations.images.left_wrist_img
-        ee_pose:
-          key_type: proprio_keys
-          zarr_key: observations.state.ee_pose
-          horizon: 100
-        joint_positions:
-          key_type: proprio_keys
-          zarr_key: observations.state.joint_positions
-          horizon: 100
+          zarr_key: front_img_1
         actions_cartesian:
           key_type: action_keys
-          zarr_key: actions_cartesian
+          zarr_key: obs_ee_pose_6d
           horizon: 100
-    mode: total 
+        ee_pose:
+          key_type: proprio_keys
+          zarr_key: obs_ee_pose_6d
+    mode: total
 valid_datasets:
-  dataset1:
+  aria_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /nethome/paphiwetsa3/flash/datasets/test_zarr/
+      folder_path: /nethome/paphiwetsa3/flash/datasets/proc_zarr
       key_map:
         front_img_1: #batch key
           key_type: camera_keys # key type
-          zarr_key: observations.images.front_img_1 # dataset key
-        right_wrist_img:
-          key_type: camera_keys
-          zarr_key: observations.images.right_wrist_img
-        left_wrist_img:
-          key_type: camera_keys
-          zarr_key: observations.images.left_wrist_img
-        ee_pose:
-          key_type: proprio_keys
-          zarr_key: observations.state.ee_pose
-          horizon: 100
-        joint_positions:
-          key_type: proprio_keys
-          zarr_key: observations.state.joint_positions
-          horizon: 100
+          zarr_key: front_img_1
         actions_cartesian:
           key_type: action_keys
-          zarr_key: actions_cartesian
+          zarr_key: obs_ee_pose_6d
           horizon: 100
+        ee_pose:
+          key_type: proprio_keys
+          zarr_key: obs_ee_pose_6d
     mode: total
 train_dataloader_params:
-  dataset1:
-    batch_size: 2
+  aria_bimanual:
+    batch_size: 32
     num_workers: 10
 valid_dataloader_params:
-  dataset1:
-    batch_size: 2
+  aria_bimanual:
+    batch_size: 32
     num_workers: 10
