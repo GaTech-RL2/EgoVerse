@@ -4,7 +4,6 @@ import os
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-import boto3
 from sqlalchemy import (
     MetaData,
     Table,
