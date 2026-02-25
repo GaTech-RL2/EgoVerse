@@ -10,11 +10,10 @@ It also saves observations (images, robot states) and actions to a demo file.
 import os
 import sys
 import time
-import numpy as np
-import copy
-import h5py
 from pathlib import Path
-from datetime import datetime
+
+import h5py
+import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 # Add path to oculus_reader if needed
@@ -27,8 +26,8 @@ from robot_utils import RateLoop
 # Add path to robot_interface
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 from robot_interface import ARXInterface
-from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
 # ------------------------- Configuration -------------------------
 
@@ -844,8 +843,8 @@ if __name__ == "__main__":
   if args.calibrate:
     # Import here to avoid dependency if user never calibrates
     from egomimic.robot.calibrate_utils import (
-      calibrate_right_controller,
-      calibrate_left_controller,
+        calibrate_left_controller,
+        calibrate_right_controller,
     )
 
     print("Running VR controller calibration...")

@@ -3,6 +3,7 @@ import time
 from multiprocessing.managers import SharedMemoryManager
 
 import numpy as np
+from shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
 from spnav import (
     SpnavButtonEvent,
     SpnavMotionEvent,
@@ -10,8 +11,6 @@ from spnav import (
     spnav_open,
     spnav_poll_event,
 )
-
-from shared_memory.shared_memory_ring_buffer import SharedMemoryRingBuffer
 
 
 class Spacemouse(mp.Process):

@@ -1,7 +1,9 @@
-import os
-import json
-import requests
 import argparse
+import json
+import os
+
+import requests
+
 
 def download_files(data, output_dir, per_episode=False):
     os.makedirs(output_dir, exist_ok=True)

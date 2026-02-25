@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
@@ -160,7 +161,7 @@ def calibrate_controller(
   R_yaw = _collect_mean_rotation(
     dev,
     hand,
-    f"Step 3: From neutral again, rotate +90° YAW and hold.",
+    "Step 3: From neutral again, rotate +90° YAW and hold.",
     duration=duration,
   )
 
@@ -168,7 +169,7 @@ def calibrate_controller(
   R_roll = _collect_mean_rotation(
     dev,
     hand,
-    f"Step 4: From neutral again, rotate +90° ROLL CLOCKWISE (twist around forward axis) and hold.",
+    "Step 4: From neutral again, rotate +90° ROLL CLOCKWISE (twist around forward axis) and hold.",
     duration=duration,
   )
 

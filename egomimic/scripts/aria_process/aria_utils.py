@@ -1,12 +1,8 @@
-from projectaria_tools.core import data_provider, mps, calibration
-from projectaria_tools.core.stream_id import StreamId
-
-import os
-
 import h5py
 import numpy as np
+from projectaria_tools.core import calibration
+from projectaria_tools.core.stream_id import StreamId
 from scipy.spatial.transform import Rotation as R
-
 
 ROTATION_MATRIX = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
 

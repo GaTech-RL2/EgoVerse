@@ -14,13 +14,12 @@ import time
 from pathlib import Path
 
 import psutil
-import torch
-from torch.profiler import profile, ProfilerActivity
+from torch.profiler import ProfilerActivity, profile
 from torch.utils.data import ConcatDataset, DataLoader, Dataset
 from torch.utils.data._utils.collate import default_collate
 
 # Local imports
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset, ZarrEpisode
+from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
 
 
 def get_memory_mb() -> float:
@@ -324,7 +323,7 @@ def build_zarr_dataset(
         total_frames += len(ds)  # Triggers init_episode during loop with progress output
 
     print(f"  Total frames: {total_frames:,}")
-    print(f"  Creating ConcatDataset...")
+    print("  Creating ConcatDataset...")
     dataset = ConcatDataset(datasets)  # Now fast - lengths already cached
     return dataset, f"Zarr ({root.name}, {len(datasets)} episodes)", len(datasets)
 
@@ -334,7 +333,7 @@ def profile_single_episode(
     num_samples: int = 100,
 ) -> None:
     """Profile loading performance for a single episode."""
-    print(f"\n== Profiling Single Episode ==")
+    print("\n== Profiling Single Episode ==")
     print(f"Episode: {episode_path.name}")
 
     dataset = ZarrDataset(str(episode_path))
@@ -357,7 +356,7 @@ def profile_single_episode(
         times.append(elapsed)
 
     times = sorted(times)
-    print(f"\nLoading time per sample:")
+    print("\nLoading time per sample:")
     print(f"  Min:    {times[0]*1000:.2f}ms")
     print(f"  Median: {times[len(times)//2]*1000:.2f}ms")
     print(f"  Mean:   {sum(times)/len(times)*1000:.2f}ms")

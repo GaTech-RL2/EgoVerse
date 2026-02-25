@@ -1,11 +1,12 @@
-import sys
 import atexit
 import signal
-from typing import Optional
+import sys
 import threading
 import time
-import numpy as np
+from typing import Optional
+
 import cv2
+import numpy as np
 
 try:
     import pyrealsense2 as rs
@@ -171,6 +172,7 @@ if __name__ == "__main__":
         print("Connected devices:", serials)
         # Just stream the first image for testing purpos
         import os
+
         from egomimic.robot.robot_utils import RateLoop
 
         out_dir = "./test_wrist_img"

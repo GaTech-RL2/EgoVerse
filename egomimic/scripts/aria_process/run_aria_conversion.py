@@ -14,39 +14,35 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import csv
 import json
 import os
 import shutil
 import sys
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterator, Tuple
-from tqdm import tqdm
-
-import ray
-from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
-
-from egomimic.utils.aws.aws_data_utils import s3_sync_to_local, upload_dir_to_s3
 
 import boto3
-from cloudpathlib import S3Path
-
-import traceback
-
-import csv
+import ray
 
 # --- Conversion wrapper ------------------------------------------------------
 from aria_helper import lerobot_job
+from cloudpathlib import S3Path
+from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
+
+from egomimic.utils.aws.aws_data_utils import s3_sync_to_local, upload_dir_to_s3
 
 # --- SQL helpers --------------------------------------------------------------
 from egomimic.utils.aws.aws_sql import (
     TableRow,
     create_default_engine,
     episode_hash_to_table_row,
+    episode_table_to_df,
     update_episode,
-    episode_table_to_df
 )
 
 # --- Paths -------------------------------------------------------------------

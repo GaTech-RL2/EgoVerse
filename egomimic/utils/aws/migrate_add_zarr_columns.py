@@ -9,7 +9,6 @@ from sqlalchemy import text
 
 from egomimic.utils.aws.aws_sql import create_default_engine
 
-
 DDL_STATEMENTS = (
     (
         "zarr_processed_path",

@@ -1,30 +1,27 @@
+import signal
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
 import lightning as L
-import torch
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
-import signal
-from omegaconf import DictConfig, OmegaConf, ListConfig
+from omegaconf import DictConfig, OmegaConf
 
 OmegaConf.register_new_resolver("eval", eval)
 
+
+from egomimic.scripts.evaluation.eval import Eval
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
-from egomimic.utils.utils import extras, task_wrapper, get_metric_value
-
-from egomimic.scripts.evaluation.eval import Eval
-
-import numpy as np
+from egomimic.utils.utils import extras, task_wrapper
 
 log = RankedLogger(__name__, rank_zero_only=True)
 
-from egomimic.rldb.zarr.utils import DataSchematic
-
 import os
+
+from egomimic.rldb.zarr.utils import DataSchematic
 
 
 @task_wrapper

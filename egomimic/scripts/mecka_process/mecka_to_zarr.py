@@ -16,16 +16,13 @@ import traceback
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
-
 import cv2
 import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation
 
-
 from egomimic.rldb.utils import EMBODIMENT
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
-
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

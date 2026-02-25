@@ -6,18 +6,16 @@ Convert Mecka RL2 dataset to LeRobot format.
 import argparse
 import json
 import logging
-import os
-from pathlib import Path
 import shutil
-import traceback
-from typing import Dict, List, Optional, Tuple
-import urllib.request
+import sys
 import time
+import traceback
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
 import pandas as pd
-import sys
 import torch
 from scipy.spatial.transform import Rotation
 
@@ -810,6 +808,7 @@ class MeckaDatasetConverter:
     def save_preview_mp4(self, image_frames: list, output_path: Path, fps: int = 30):
         """Save a half-resolution H.264 MP4 preview."""
         import subprocess
+
         import torch.nn.functional as F
 
         if not image_frames:

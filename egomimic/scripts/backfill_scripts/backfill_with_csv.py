@@ -14,14 +14,12 @@ Features:
 """
 
 import argparse
+import os
+import textwrap
+from typing import Dict, List
+
 import boto3
 import botocore
-import os
-import sys
-import math
-import textwrap
-from datetime import datetime
-from typing import List, Dict, Tuple
 
 DEFAULT_PREVIEW_CHARS = 400
 VERBOSE = False

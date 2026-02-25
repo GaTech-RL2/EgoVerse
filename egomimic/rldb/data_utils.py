@@ -1,6 +1,6 @@
-from collections.abc import Sequence
-import torch.nn.functional as F
 import torch
+import torch.nn.functional as F
+
 
 def _slow_down_slerp_quat(quat_short: torch.Tensor, S: int) -> torch.Tensor:
     # quat_short: (S0,4), output: (S,4)

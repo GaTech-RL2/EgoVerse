@@ -1,15 +1,18 @@
-from queue import Queue
 import os
 import sys
+from queue import Queue
 
 import numpy as np
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 os.chdir(ROOT_DIR)
+import time
+from multiprocessing.managers import SharedMemoryManager
+
+import click
 from arx5_interface import (
     Arx5CartesianController,
-    ControllerConfig,
     ControllerConfigFactory,
     EEFState,
     Gain,
@@ -17,10 +20,6 @@ from arx5_interface import (
     RobotConfigFactory,
 )
 from peripherals.spacemouse_shared_memory import Spacemouse
-from multiprocessing.managers import SharedMemoryManager
-
-import time
-import click
 
 
 def start_teleop_recording(controller: Arx5CartesianController):
@@ -83,7 +82,7 @@ def start_teleop_recording(controller: Arx5CartesianController):
                 button_right = sm.is_button_pressed(1)
                 state = get_filtered_spacemouse_output(sm)
                 if state.any() or button_left or button_right:
-                    print(f"Start tracking!")
+                    print("Start tracking!")
                     break
                 eef_cmd = controller.get_eef_cmd()
                 prev_eef_cmd = eef_cmd
@@ -174,7 +173,7 @@ def main(model: str, interface: str):
     try:
         start_teleop_recording(controller)
     except KeyboardInterrupt:
-        print(f"Teleop recording is terminated. Resetting to home.")
+        print("Teleop recording is terminated. Resetting to home.")
         controller.reset_to_home()
         controller.set_to_damping()
 

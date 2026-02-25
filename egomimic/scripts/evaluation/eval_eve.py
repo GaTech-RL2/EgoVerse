@@ -1,48 +1,31 @@
-import argparse
-import numpy as np
-import time
 import os
+import time
 
+import hydra
+import numpy as np
 import torch
-import robomimic.utils.obs_utils as ObsUtils
-from torchvision.utils import save_image
-import cv2
+from egomimic.utils.realUtils import *
+from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
+from eve.real_env import make_real_env  # requires EgoMimic-eve
+from eve.robot_utils import move_arms, move_grippers  # requires EgoMimic-eve
 from interbotix_common_modules.common_robot.robot import (
     create_interbotix_global_node,
-    robot_shutdown,
     robot_startup,
 )
 
-from eve.constants import DT, FOLLOWER_GRIPPER_JOINT_OPEN, START_ARM_POSE
-
 from egomimic.utils.egomimicUtils import (
-    cam_frame_to_cam_pixels,
-    draw_dot_on_frame,
-    general_unnorm,
-    miniviewer,
-    nds,
     ARIA_INTRINSICS,
     EXTRINSICS,
-    ee_pose_to_cam_frame,
     AlohaFK,
 )
-
-from eve.robot_utils import move_grippers, move_arms  # requires EgoMimic-eve
-from eve.real_env import make_real_env  # requires EgoMimic-eve
-
-from egomimic.utils.realUtils import *
-
-from omegaconf import DictConfig, OmegaConf
-import hydra
 
 CURR_INTRINSICS = ARIA_INTRINSICS
 CURR_EXTRINSICS = EXTRINSICS["ariaJul29R"]
 TEMPORAL_AGG = False
 
-from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id
-
 from egomimic.evaluation.eval import Eval
 
+from egomimic.rldb.utils import get_embodiment_id
 from egomimic.utils.pylogger import RankedLogger
 
 log = RankedLogger(__name__, rank_zero_only=True)

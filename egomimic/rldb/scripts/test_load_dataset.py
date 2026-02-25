@@ -12,21 +12,15 @@ Features included in this script:
 The script ends with examples of how to batch process data using PyTorch's DataLoader.
 """
 
+# from lerobot.common.datasets.online_buffer import LeRobotDatasetV2
+import time
+from pathlib import Path
 from pprint import pprint
 
+import psutil
 import torch
 from huggingface_hub import HfApi
-
-import lerobot
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-
-# from lerobot.common.datasets.online_buffer import LeRobotDatasetV2
-
-import time
-
-from pathlib import Path
-
-import psutil
 
 
 # We ported a number of existing datasets ourselves, use this to see the list:

@@ -10,15 +10,17 @@ import sys
 os.environ["MUJOCO_GL"] = "osmesa"  # Use osmesa for headless rendering
 
 # Now we can import everything else
-import numpy as np
-from pathlib import Path
-import mujoco
 import argparse
-from scipy.spatial.transform import Rotation as R
+from pathlib import Path
+
 import imageio
+import mujoco
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
-from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
+
 import egomimic
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
 EVA_XML_PATH = os.path.join(
     os.path.dirname(egomimic.__file__), "resources/model_x5.xml"
@@ -133,7 +135,7 @@ def solve_ik_trajectory(xml_path, targets, verbose=True):
             current_joints = solution.copy()
         else:
             if verbose:
-                print(f"    Failed to converge, skipping")
+                print("    Failed to converge, skipping")
 
     # Return to home
     joint_trajectory.append(home_joints)
@@ -177,7 +179,7 @@ def create_video(
     print(f"  Total frames: {len(full_trajectory)}")
 
     # Render
-    print(f"\nRendering video...")
+    print("\nRendering video...")
     frames = render_trajectory_headless(
         model,
         full_trajectory,
@@ -189,7 +191,7 @@ def create_video(
     # Save video
     print(f"Saving video to {output_path}...")
     imageio.mimsave(output_path, frames, fps=fps)
-    print(f"[OK] Video saved successfully!")
+    print("[OK] Video saved successfully!")
 
     return output_path
 

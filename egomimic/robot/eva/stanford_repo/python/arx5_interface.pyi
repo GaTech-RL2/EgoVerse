@@ -1,7 +1,7 @@
 from typing import Tuple, overload
+
 import numpy as np
 import numpy.typing as npt
-from enum import Enum
 
 class MotorType:
     EC_A4310: "MotorType"

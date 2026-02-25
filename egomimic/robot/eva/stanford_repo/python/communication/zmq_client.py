@@ -1,10 +1,10 @@
-from typing import Any, Optional, Union, cast
-import zmq
-from enum import IntEnum, auto
-import numpy.typing as npt
-import numpy as np
 import sys
 import traceback
+from typing import Any, Union, cast
+
+import numpy as np
+import numpy.typing as npt
+import zmq
 
 
 def echo_exception():
@@ -154,7 +154,7 @@ class Arx5Client:
             f"Arx5Client is connected to {self.zmq_ip}:{self.zmq_port}. Fetching state..."
         )
         self.get_state()
-        print(f"Initial state fetched")
+        print("Initial state fetched")
 
     def send_recv(self, msg: dict[str, Any]):
         try:

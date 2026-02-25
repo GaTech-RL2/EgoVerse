@@ -1,8 +1,8 @@
-from reader import OculusReader
-from tf.transformations import quaternion_from_matrix
+import geometry_msgs.msg
 import rospy
 import tf2_ros
-import geometry_msgs.msg
+from reader import OculusReader
+from tf.transformations import quaternion_from_matrix
 
 
 def publish_transform(transform, name):

@@ -1,41 +1,17 @@
-from einops import rearrange, repeat, reduce
 from functools import partial
 from typing import Callable, List, Optional, Union
 
-import torchvision
-from torchvision import transforms
 import torch
 import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
-from timm.models.layers import DropPath, trunc_normal_
-from torch import nn, einsum
 import torch.nn.functional as F
-
-from timm.models.vision_transformer import VisionTransformer
-
-from functools import partial
-
-from transformers import T5Tokenizer, T5Model, AutoTokenizer
-
-from einops import rearrange, repeat, reduce
-from functools import partial
-from typing import Callable, List, Optional, Union
-
+import torch.utils.checkpoint as checkpoint
 import torchvision
-from torchvision import transforms
-import torch
-import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
+from einops import rearrange, repeat
 from timm.models.layers import DropPath, trunc_normal_
-from torch import nn, einsum
-import torch.nn.functional as F
-
 from timm.models.vision_transformer import VisionTransformer
-
-from functools import partial
-
-from transformers import T5Tokenizer, T5Model, AutoTokenizer
-from transformers import CLIPTextModel, CLIPVisionModel  # TODO: add CLIP
+from torch import einsum
+from torchvision import transforms
+from transformers import T5Model, T5Tokenizer
 
 from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table
 

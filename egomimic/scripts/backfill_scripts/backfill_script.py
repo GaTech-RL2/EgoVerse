@@ -20,21 +20,21 @@ Notes:
 
 # Ensure we're running under Python 3 (interactive prompt uses Python 3 semantics)
 import sys
+
 if sys.version_info[0] < 3:
     print("This script requires Python 3. Please run with 'python3 backfill_script.py ...'")
     sys.exit(1)
 
 import argparse
+import logging
+import math
 import os
 import sys
-import logging
-from typing import List, Tuple, Dict
 import textwrap
-import math
+from typing import Dict, List
 
 import boto3
 from botocore.exceptions import ClientError
-
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ def interactive_select(vrs_objects: List[Dict], key_map: Dict[str, Dict], bucket
         return out
 
     max_idx = len(vrs_objects)
-    help_msg = textwrap.dedent(f"""
+    help_msg = textwrap.dedent("""
     Commands:
       <nums>        Toggle selection by indices (e.g. 1,3-5)
       all           Select all

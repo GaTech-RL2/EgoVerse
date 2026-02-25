@@ -1,18 +1,16 @@
 # Example
 # python3 aloha_to_robomimic_calibrate.py --dataset /home/robot/robot_ws/egomimic/robot/calibration_demos/left --arm left --extrinsics left --out /home/robot/robot_ws/egomimic/robot/calibration_demos/left_proc/test2.hdf5 --data-type robot
 
-import h5py
-import numpy as np
 import argparse
-import os
-from tqdm import tqdm
-from egomimic.utils.egomimicUtils import nds, ee_pose_to_cam_frame, EXTRINSICS, AlohaFK
-import pytorch_kinematics as pk
-import torch
 
 # from modern_robotics import FKinSpace
 # from robomimic.scripts.split_train_val import split_train_val_from_hdf5
 import json
+import os
+
+import h5py
+import numpy as np
+from tqdm import tqdm
 
 """
 aloha_hdf5 has the following format

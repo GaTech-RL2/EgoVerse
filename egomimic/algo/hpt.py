@@ -1,42 +1,29 @@
 from collections import OrderedDict
+from functools import partial
 
+import einops
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import hydra
-from functools import partial
-from typing import List, Optional
-import numpy as np
-import einops
-from torchmetrics import MeanSquaredError
-
-from egomimic.models.hpt_nets import *
-from egomimic.algo.algo import Algo
-
-from egomimic.utils.egomimicUtils import (
-    get_sinusoid_encoding_table,
-    frechet_gaussian_over_time,
-    reverse_kl_from_samples,
-    EinOpsRearrange,
-    download_from_huggingface,
-    STD_SCALE,
-)
-from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text
-
-import numpy as np
-
-from overrides import override
-
-from egomimic.algo.algo import Algo
-
-from egomimic.rldb.utils import get_embodiment_id, get_embodiment
-
-from termcolor import cprint
-
 from geomloss import SamplesLoss
+from overrides import override
+from termcolor import cprint
+from torchmetrics import MeanSquaredError
 from tslearn.metrics import SoftDTWLossPyTorch
 
-import math
+from egomimic.algo.algo import Algo
+from egomimic.models.hpt_nets import *
+from egomimic.rldb.utils import get_embodiment, get_embodiment_id
+from egomimic.utils.egomimicUtils import (
+    STD_SCALE,
+    EinOpsRearrange,
+    download_from_huggingface,
+    draw_actions,
+    draw_rotation_text,
+    frechet_gaussian_over_time,
+    get_sinusoid_encoding_table,
+    reverse_kl_from_samples,
+)
 
 
 class HPTModel(nn.Module):
@@ -1046,7 +1033,7 @@ class HPT(Algo):
                 get_embodiment_id(self.domains[0]),
                 get_embodiment_id(self.domains[1]),
             )
-            predictions[f"ot_loss"] = ot_loss
+            predictions["ot_loss"] = ot_loss
             predictions["avg_feature_distance"] = avg_feat_distance
 
         return predictions

@@ -2,15 +2,13 @@
 Generic kinematics solver.
 """
 
-from pyexpat import model
-from typing import List, Tuple, Optional
-import numpy as np
-from sklearn import base
 import os
 import re
 import tempfile
+from typing import List, Optional
+
+import numpy as np
 from scipy.spatial.transform import Rotation as R
-from pathlib import Path
 
 try:
     from trac_ik import TracIK

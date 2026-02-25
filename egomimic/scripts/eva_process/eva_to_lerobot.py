@@ -1,43 +1,33 @@
 import argparse
+import errno
 import logging
 import os
-from pathlib import Path
 import shutil
+import subprocess
+import time
 import traceback
-from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME
+from pathlib import Path
+from typing import Union
+
 import cv2
 import h5py
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-import torch
-from egomimic.utils.egomimicUtils import (
-    nds,
-    ee_pose_to_cam_frame,
-    EXTRINSICS,
-    str2bool,
-    ee_orientation_to_cam_frame,
-    interpolate_arr,
-    interpolate_arr_euler,
-)
-
-from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
-from egomimic.rldb.utils import EMBODIMENT
-
-from typing import Union
-import egomimic
-
-import time
-
 import numpy as np
-
 import torch
-import subprocess
-import shutil
 import torch.nn.functional as F
-
+from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
 from scipy.spatial.transform import Rotation as R
 
-from enum import Enum
-import errno
+import egomimic
+from egomimic.rldb.utils import EMBODIMENT
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
+from egomimic.utils.egomimicUtils import (
+    EXTRINSICS,
+    ee_orientation_to_cam_frame,
+    ee_pose_to_cam_frame,
+    interpolate_arr,
+    interpolate_arr_euler,
+    str2bool,
+)
 
 ## CHANGE THIS TO YOUR DESIRED CACHE FOR HF
 os.environ["HF_HOME"] = "~/.cache/huggingface"
@@ -645,9 +635,9 @@ class EvaHD5Extractor:
                 ][state][:]
 
             # ee_pose
-            episode_feats["observations"][f"state.ee_pose"] = (
+            episode_feats["observations"]["state.ee_pose"] = (
                 EvaHD5Extractor.get_ee_pose(
-                    episode_feats["observations"][f"state.joint_positions"],
+                    episode_feats["observations"]["state.joint_positions"],
                     arm,
                     left_extrinsics=left_extrinsics,
                     right_extrinsics=right_extrinsics,
@@ -686,11 +676,11 @@ class EvaHD5Extractor:
                 ref_index=0,
             )
             
-            episode_feats["observations"][f"state.joint_positions"] = episode_feats[
+            episode_feats["observations"]["state.joint_positions"] = episode_feats[
                 "observations"
-            ][f"state.joint_positions"][:, joint_start:joint_end]
+            ]["state.joint_positions"][:, joint_start:joint_end]
 
-            num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
+            num_timesteps = episode_feats["observations"]["state.ee_pose"].shape[0]
             if arm == "right":
                 value = EMBODIMENT.EVA_RIGHT_ARM.value
             elif arm == "left":

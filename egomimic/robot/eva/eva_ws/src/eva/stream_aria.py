@@ -2,13 +2,10 @@ import argparse
 import sys
 
 import aria.sdk as aria
-
 import cv2
 import numpy as np
-
-
-from projectaria_tools.core.sensor_data import ImageDataRecord
 from projectaria_tools.core import calibration
+from projectaria_tools.core.sensor_data import ImageDataRecord
 
 
 def update_iptables() -> None:
@@ -206,6 +203,7 @@ if __name__ == "__main__":
     ) as recorder:
         out_dir = "./front_cam_1"
         import os
+
         from egomimic.robot.robot_utils import RateLoop
 
         os.makedirs(out_dir, exist_ok=True)

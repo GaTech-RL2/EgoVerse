@@ -1,6 +1,7 @@
-from pynput.keyboard import Key, KeyCode, Listener
 from collections import defaultdict
 from threading import Lock
+
+from pynput.keyboard import Key, KeyCode, Listener
 
 
 class KeystrokeCounter(Listener):

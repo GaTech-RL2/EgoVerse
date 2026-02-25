@@ -1,14 +1,9 @@
-from collections import OrderedDict
 import logging
+from collections import OrderedDict
 
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import hydra
-from functools import partial
-from typing import List, Optional
-import numpy as np
-import einops
 from torchmetrics import MeanSquaredError
 
 logger = logging.getLogger(__name__)
@@ -17,48 +12,32 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.propagate = True  # Explicitly enable propagation (default, but ensures it works)
 
-from egomimic.models.hpt_nets import *
-from egomimic.algo.algo import Algo
-
-from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text, draw_annotation_text
-
-from egomimic.utils.action_utils import *
-import egomimic.utils.memory_utils as memutils
-
-import numpy as np
-
-from overrides import override
-
-from egomimic.algo.algo import Algo
-
-from egomimic.rldb.utils import get_embodiment_id, get_embodiment, EMBODIMENT
-
-from termcolor import cprint
-
 import os
-
-from hydra.utils import instantiate
 
 import openpi
 import openpi.models.pi0_config
 import openpi.models_pytorch.pi0_pytorch
-import openpi.shared.normalize as _normalize
-import openpi.training.config as _config
-import openpi.training.data_loader as _data
+import safetensors
+from overrides import override
 
-import openpi.models_pytorch.preprocessing_pytorch as _preprocessing
+from egomimic.algo.algo import Algo
+from egomimic.models.hpt_nets import *
 from egomimic.models.preprocess_pi_obs import (
-    _SimpleObservation,
-    _ensure_bchw,
-    _to_minus1_1,
     _concat_proprio,
     _empty_lang_placeholders,
-    _mask_from_batch,
+    _ensure_bchw,
     _fill_missing_images,
+    _SimpleObservation,
+    _to_minus1_1,
+)
+from egomimic.rldb.utils import get_embodiment, get_embodiment_id
+from egomimic.utils.action_utils import *
+from egomimic.utils.egomimicUtils import (
+    draw_actions,
+    draw_annotation_text,
+    draw_rotation_text,
 )
 
-import time
-import safetensors
 
 class PI(Algo):
     """

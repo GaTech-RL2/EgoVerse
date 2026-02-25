@@ -1,5 +1,7 @@
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple
+
 import torch
+
 
 # ---------- registry that stores *objects* ----------
 class ConverterRegistry:

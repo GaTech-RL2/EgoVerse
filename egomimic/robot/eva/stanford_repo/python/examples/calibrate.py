@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+
 import click
 
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))

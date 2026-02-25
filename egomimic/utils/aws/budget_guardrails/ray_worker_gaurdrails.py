@@ -1,15 +1,12 @@
 import argparse
 import json
-import os
 import socket
 import subprocess
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 import boto3
-
 
 STATE_PATH = Path("/tmp/ray_worker_guardrails_state.json")
 

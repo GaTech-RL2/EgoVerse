@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 import argparse
-import os
 import shutil
 from pathlib import Path
 
 import h5py
-import numpy as np
 
 
 def iter_hdf5_files(root: Path, recursive: bool):

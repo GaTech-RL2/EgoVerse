@@ -3,12 +3,13 @@
 Visualize LeRobot Dataset with Camera Projection
 """
 
+import json
+import os
 import sys
 from pathlib import Path
-import numpy as np
+
 import cv2
-import os
-import json
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent / "lerobot"))
 
@@ -224,7 +225,7 @@ def main():
     print(f"✅ Dataset loaded: {len(dataset)} frames")
 
     intrinsics = load_camera_intrinsics("./lerobot_output")
-    print(f"\nCamera intrinsics:")
+    print("\nCamera intrinsics:")
     print(f"  Resolution: {intrinsics.get('w', 1920)}x{intrinsics.get('h', 1080)}")
     print(f"  Focal length: {intrinsics.get('fl_x', 756.0)} px")
     print(f"  Principal point: ({intrinsics.get('cx', 960.0)}, {intrinsics.get('cy', 540.0)})")
@@ -235,7 +236,7 @@ def main():
 
     sample_indices = [0, 100, 300, 500, 700, 900, 1100, 1300, 1452]
 
-    print(f"Generating visualizations...")
+    print("Generating visualizations...")
     for idx in sample_indices:
         output_path = os.path.join(output_dir, f"frame_{idx:04d}_projected.jpg")
         visualize_frame_with_hands(dataset, idx, intrinsics, output_path)

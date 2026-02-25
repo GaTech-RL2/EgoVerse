@@ -6,18 +6,16 @@ import json
 import os
 import shutil
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Tuple
 
 import ray
-import traceback
-
 from eva_helper import lerobot_job
 
 from egomimic.utils.aws.aws_sql import (
-    TableRow,
     create_default_engine,
     episode_hash_to_table_row,
     update_episode,

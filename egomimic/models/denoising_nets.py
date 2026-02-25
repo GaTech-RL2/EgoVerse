@@ -1,13 +1,11 @@
-import math
-
-from typing import Union
 import logging
+import math
+from typing import Union
+
+import einops
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import einops
 from einops.layers.torch import Rearrange
-import math
 
 logger = logging.getLogger(__name__)
 

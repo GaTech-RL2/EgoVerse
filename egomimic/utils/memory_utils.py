@@ -1,5 +1,12 @@
-import os, time, platform, resource, torch, psutil
+import os
+import platform
+import resource
+import time
+
 import numpy as np
+import psutil
+import torch
+
 
 def _fmt_bytes(n):
     for unit in ["B","KB","MB","GB"]:
@@ -102,7 +109,7 @@ def print_epoch_memory_summary(epoch_stats_list):
     # Final current memory stats
     final_stats = get_memory_summary()
     print("\n" + "-" * 80)
-    print(f"Final Memory (at training end):")
+    print("Final Memory (at training end):")
     print(f"  RSS: {final_stats['rss_gb']:.2f} GB")
     print(f"  GPU Allocated: {final_stats['cuda_alloc_gb']:.2f} GB")
     print(f"  GPU Reserved: {final_stats['cuda_reserved_gb']:.2f} GB")

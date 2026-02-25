@@ -12,8 +12,8 @@ import torch.nn.functional as F
 from scipy.spatial.transform import Rotation as R
 
 import egomimic
-from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 from egomimic.rldb.utils import EMBODIMENT
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 from egomimic.utils.egomimicUtils import (
     ee_orientation_to_cam_frame,
     ee_pose_to_cam_frame,
@@ -620,9 +620,9 @@ class EvaHD5Extractor:
                 ][state][:]
 
             # ee_pose
-            episode_feats["observations"][f"state.ee_pose"] = (
+            episode_feats["observations"]["state.ee_pose"] = (
                 EvaHD5Extractor.get_ee_pose(
-                    episode_feats["observations"][f"state.joint_positions"],
+                    episode_feats["observations"]["state.joint_positions"],
                     arm,
                     left_extrinsics=left_extrinsics,
                     right_extrinsics=right_extrinsics,
@@ -662,11 +662,11 @@ class EvaHD5Extractor:
                 ref_index=0,
             )
 
-            episode_feats["observations"][f"state.joint_positions"] = episode_feats[
+            episode_feats["observations"]["state.joint_positions"] = episode_feats[
                 "observations"
-            ][f"state.joint_positions"][:, joint_start:joint_end]
+            ]["state.joint_positions"][:, joint_start:joint_end]
 
-            num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
+            num_timesteps = episode_feats["observations"]["state.ee_pose"].shape[0]
             if arm == "right":
                 value = EMBODIMENT.EVA_RIGHT_ARM.value
             elif arm == "left":

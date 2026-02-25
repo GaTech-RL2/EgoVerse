@@ -1,9 +1,12 @@
-from egomimic.utils.aws.aws_sql import (
-    episode_table_to_df,
-    create_default_engine,
-)
-from tqdm import tqdm
 from pathlib import PurePosixPath
+
+from tqdm import tqdm
+
+from egomimic.utils.aws.aws_sql import (
+    create_default_engine,
+    episode_table_to_df,
+)
+
 
 def rename_processed_to_episode_hash(df, dry_run, max_workers=8, do_moves=True):
     """
@@ -16,10 +19,11 @@ def rename_processed_to_episode_hash(df, dry_run, max_workers=8, do_moves=True):
         dry_run: if True, only print what would be done
         max_workers: number of threads used for aws s3 mv commands
     """
-    import pandas as pd
     import subprocess
     from concurrent.futures import ThreadPoolExecutor, as_completed
+
     from sqlalchemy import MetaData, Table, bindparam, update
+
     from egomimic.utils.aws.aws_sql import create_default_engine
     def parse_s3_uri(uri):
         if uri is None:

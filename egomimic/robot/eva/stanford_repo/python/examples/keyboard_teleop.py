@@ -1,20 +1,17 @@
-import time
-from pynput import keyboard
-
-from queue import Queue
 import os
 import sys
+import time
+from queue import Queue
 
 import numpy as np
+from pynput import keyboard
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 os.chdir(ROOT_DIR)
-from arx5_interface import Arx5CartesianController, EEFState, Gain, LogLevel
-from multiprocessing.managers import SharedMemoryManager
 
-import time
 import click
+from arx5_interface import Arx5CartesianController, EEFState, Gain, LogLevel
 
 
 def start_keyboard_teleop(controller: Arx5CartesianController):
@@ -163,7 +160,7 @@ def main(model: str, interface: str):
     try:
         start_keyboard_teleop(controller)
     except KeyboardInterrupt:
-        print(f"Teleop recording is terminated. Resetting to home.")
+        print("Teleop recording is terminated. Resetting to home.")
         controller.reset_to_home()
         controller.set_to_damping()
 

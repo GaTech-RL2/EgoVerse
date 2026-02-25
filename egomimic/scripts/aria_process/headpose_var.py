@@ -1,9 +1,10 @@
-import numpy as np
 import os
-from scipy.spatial.transform import Rotation as R
+from concurrent.futures import ThreadPoolExecutor
+
+import numpy as np
 import pandas as pd
 import torch
-from concurrent.futures import ThreadPoolExecutor
+from scipy.spatial.transform import Rotation as R
 
 
 def headpose_var(csv_path):

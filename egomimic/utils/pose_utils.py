@@ -1,6 +1,8 @@
 import numpy as np
 from scipy.interpolate import interp1d
-from scipy.spatial.transform import Rotation as R, Slerp
+from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Slerp
+
 
 def xyzw_to_wxyz(xyzw):
     return np.concatenate([xyzw[..., 3:4], xyzw[..., :3]], axis=-1)

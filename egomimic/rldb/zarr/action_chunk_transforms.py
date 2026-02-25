@@ -11,21 +11,23 @@ matching the behaviour of egomimicUtils.interpolate_arr_euler.
 """
 
 from __future__ import annotations
+
 from abc import abstractmethod
 
 import numpy as np
 from projectaria_tools.core.sophus import SE3
 from scipy.spatial.transform import Rotation as R
 
+from egomimic.utils.egomimicUtils import EXTRINSICS
 from egomimic.utils.pose_utils import (
     _interpolate_euler,
+    _interpolate_linear,
     _interpolate_quat_wxyz,
     _matrix_to_xyzwxyz,
-    _interpolate_linear,
     _matrix_to_xyzypr,
     _xyzwxyz_to_matrix,
 )
-from egomimic.utils.egomimicUtils import EXTRINSICS
+
 # ---------------------------------------------------------------------------
 # Base Transform
 # ---------------------------------------------------------------------------

@@ -1,11 +1,12 @@
 # Description: Utility functions for compressing and decompressing video data.
+import contextlib
+import io
 import json
+import os
+
+import av
 import numpy as np
 import simplejpeg
-import io
-import av
-import contextlib
-import os
 
 
 # context manager to suppress AV library output

@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from abstract_upload import Uploader
+
 from egomimic.utils.aws.aws_sql import TableRow
 
 

@@ -17,9 +17,11 @@ Usage:
 
 import argparse
 from pathlib import Path
+
 import numpy as np
+
 from egomimic.rldb.zarr import ZarrWriter
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrEpisode, ZarrDataset
+from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset, ZarrEpisode
 from egomimic.scripts.eva_process.zarr_utils import EvaHD5Extractor
 from egomimic.utils.egomimicUtils import EXTRINSICS
 
@@ -145,7 +147,7 @@ def convert_hdf5_to_zarr(
     extrinsics = EXTRINSICS[extrinsics_key]
 
     # Process episode using EvaHD5Extractor
-    print(f"\nProcessing episode with EvaHD5Extractor...")
+    print("\nProcessing episode with EvaHD5Extractor...")
     episode_feats = EvaHD5Extractor.process_episode(
         episode_path=hdf5_path,
         arm=arm,
@@ -187,7 +189,7 @@ def convert_hdf5_to_zarr(
             numeric_data[key] = value
 
     print(f"\n{'='*60}")
-    print(f"Data Summary:")
+    print("Data Summary:")
     print(f"{'='*60}")
     print(f"Numeric data: {len(numeric_data)} arrays")
     for key, value in numeric_data.items():
@@ -211,7 +213,7 @@ def convert_hdf5_to_zarr(
 
     # Validate we have data to write
     if not numeric_data and not image_data:
-        print(f"\n❌ ERROR: No data to write! Both numeric_data and image_data are empty.")
+        print("\n❌ ERROR: No data to write! Both numeric_data and image_data are empty.")
         return None
 
     # Determine robot type from arm
@@ -284,7 +286,7 @@ def convert_hdf5_to_zarr(
         print(f"   Size: {total_size / (1024*1024):.2f} MB")
 
     # Verify the conversion
-    print(f"\nVerifying Zarr episode...")
+    print("\nVerifying Zarr episode...")
     try:
         episode = ZarrEpisode(zarr_path)
         print(f"  ✅ Total frames: {len(episode)}")
@@ -292,7 +294,7 @@ def convert_hdf5_to_zarr(
 
         # Sample first frame using ZarrDataset
         if len(episode) > 0:
-            print(f"\n  First frame sample:")
+            print("\n  First frame sample:")
             dataset = ZarrDataset(zarr_path)
             frame = dataset[0]
             for key, value in frame.items():

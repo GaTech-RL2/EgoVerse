@@ -1,7 +1,8 @@
-from typing import Dict, List, Union
 import numbers
-from queue import Empty, Full
 from multiprocessing.managers import SharedMemoryManager
+from queue import Empty, Full
+from typing import Dict, List, Union
+
 import numpy as np
 from shared_memory.shared_memory_util import ArraySpec, SharedAtomicCounter
 from shared_memory.shared_ndarray import SharedNDArray

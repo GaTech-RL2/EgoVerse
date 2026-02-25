@@ -1,5 +1,6 @@
 import torch
 
+
 class _SimpleObservation:
     """Minimal container matching the structure expected by preprocess_observation_pytorch."""
     def __init__(self, **kwargs):

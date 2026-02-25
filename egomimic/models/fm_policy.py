@@ -1,10 +1,10 @@
 from typing import Tuple
+
 import torch
+from overrides import override
 
 from egomimic.models.denoising_nets import ConditionalUnet1D
 from egomimic.models.denoising_policy import DenoisingPolicy
-
-from overrides import override
 
 
 class FMPolicy(DenoisingPolicy):

@@ -1,5 +1,4 @@
 import asyncio
-from pathlib import Path
 
 from abstract_upload import Uploader
 

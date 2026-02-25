@@ -19,25 +19,22 @@ Each episode is self-contained with its own metadata, enabling:
 """
 
 from __future__ import annotations
+
 import json
 import logging
 import random
-from pathlib import Path
-from tracemalloc import start
-from turtle import st
-import pandas as pd
-import numpy as np
-import torch
-import zarr
 import subprocess
 import tempfile
-from datasets import concatenate_datasets
+from pathlib import Path
 from typing import Iterable
-from enum import Enum
+
+import numpy as np
+import pandas as pd
 import simplejpeg
+import torch
+import zarr
+
 # from action_chunk_transforms import Transform
-
-
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
@@ -837,8 +834,8 @@ class ZarrEpisode:
 
 
 if __name__ == "__main__":
-    from omegaconf import OmegaConf
     import hydra
+    from omegaconf import OmegaConf
 
     dataset_cfg_path = "/nethome/paphiwetsa3/flash/projects/EgoVerse/egomimic/hydra_configs/data/test_multi_zarr.yaml"
     # Using Hydra to load the dataset config

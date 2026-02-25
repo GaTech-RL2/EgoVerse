@@ -1,9 +1,8 @@
 # Import required modules
-import cv2
-import numpy as np
-import os
 import glob
 
+import cv2
+import numpy as np
 
 # Define the dimensions of checkerboard
 CHECKERBOARD = (6, 9)

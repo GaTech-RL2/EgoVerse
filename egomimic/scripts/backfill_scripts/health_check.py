@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import argparse
 import csv
-import os
 import json
+import os
 import subprocess
 from pathlib import PurePosixPath
 
-from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
 from sqlalchemy import MetaData, Table, bindparam, update
+
+from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
 
 
 def parse_s3_uri(uri: str | None):

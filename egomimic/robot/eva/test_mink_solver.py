@@ -7,17 +7,17 @@ and compares TracIK vs Mink (MuJoCo) solvers to quantify FK/IK, cross gaps,
 and diagnose the remaining configuration-dependent residuals.
 """
 
+import os
 import time
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+import egomimic
 from egomimic.robot.eva.eva_kinematics import (
-    EvaTracKinematicsSolver,
     EvaMinkKinematicsSolver,
 )
-import os
-import egomimic
 
 EVA_XML_PATH = os.path.join(
     os.path.dirname(egomimic.__file__), "resources/model_x5.xml"
@@ -94,7 +94,7 @@ def test_eva_mink_ik():
     solution = solver.ik(target_pos, target_rot, home_joints)
 
     if solution is not None:
-        print(f"   [OK] IK converged!")
+        print("   [OK] IK converged!")
         print(f"   Solution joints: {solution}")
 
         # Verify with FK
@@ -126,7 +126,7 @@ def test_eva_mink_ik():
             error = np.linalg.norm(achieved_pos_i - target_pos_i)
             print(f"   [OK] Converged (error: {error:.6f} m)")
         else:
-            print(f"   [FAILED] Failed to converge")
+            print("   [FAILED] Failed to converge")
 
     # Test IK with retries
     print("\n5. Testing IK with retries...")
@@ -136,12 +136,12 @@ def test_eva_mink_ik():
     )
 
     if solution_retry is not None:
-        print(f"   [OK] IK with retries succeeded!")
+        print("   [OK] IK with retries succeeded!")
         achieved_pos_r, _ = solver.fk(solution_retry)
         error = np.linalg.norm(achieved_pos_r - difficult_target)
         print(f"   Position error: {error:.6f} m")
     else:
-        print(f"   [FAILED] IK with retries failed")
+        print("   [FAILED] IK with retries failed")
 
     print("\n" + "=" * 60)
     print("Testing completed!")

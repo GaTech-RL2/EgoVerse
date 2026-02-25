@@ -4,12 +4,13 @@ Zarr-based dataset implementations for EgoVerse.
 
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     EpisodeResolver,
+    LocalEpisodeResolver,
     MultiDataset,
+    S3EpisodeResolver,
     ZarrDataset,
     ZarrEpisode,
-    LocalEpisodeResolver,
-    S3EpisodeResolver,
 )
+
 #from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 __all__ = [

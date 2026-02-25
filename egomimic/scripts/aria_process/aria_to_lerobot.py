@@ -1,68 +1,47 @@
 import argparse
+import ctypes
+import gc
 import logging
 import os
-from pathlib import Path
+import re
 import shutil
-import traceback
-from typing import Any
-from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME
-import cv2
-import h5py
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-import torch
-import gc, ctypes
-from enum import Enum
-
-from egomimic.utils.egomimicUtils import (
-    str2bool,
-    cam_frame_to_cam_pixels,
-    INTRINSICS,
-    interpolate_keys,
-    interpolate_arr,
-    interpolate_arr_euler,
-    transform_to_pose,
-    pose_to_transform,
-)
-
-from projectaria_tools.core.calibration import CameraCalibration, DeviceCalibration
-from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
-
-from projectaria_tools.core import data_provider, mps
-
-from projectaria_tools.core.mps.utils import get_nearest_hand_tracking_result
-
-from projectaria_tools.core.mps.utils import (
-    filter_points_from_confidence,
-    get_gaze_vector_reprojection,
-    get_nearest_eye_gaze,
-    get_nearest_pose,
-)
-from projectaria_tools.core.stream_id import StreamId
-
-from aria_utils import (
-    build_camera_matrix,
-    undistort_to_linear,
-    slam_to_rgb,
-    compute_coordinate_frame,
-    transform_coordinates,
-    coordinate_frame_to_ypr,
-)
-
-from egomimic.rldb.utils import EMBODIMENT
-
+import subprocess
+import threading
 import time
+import traceback
+from contextlib import contextmanager
+from pathlib import Path
 
+import cv2
 import numpy as np
-
+import psutil
 import torch
 import torch.nn.functional as F
+from aria_utils import (
+    build_camera_matrix,
+    compute_coordinate_frame,
+    coordinate_frame_to_ypr,
+    slam_to_rgb,
+    transform_coordinates,
+    undistort_to_linear,
+)
+from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
+from projectaria_tools.core import data_provider, mps
+from projectaria_tools.core.mps.utils import (
+    get_nearest_hand_tracking_result,
+)
+from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
+from projectaria_tools.core.stream_id import StreamId
 
-from scipy.spatial.transform import Rotation as R
-import subprocess
-import re
-import threading
-from contextlib import contextmanager
-import psutil
+from egomimic.rldb.utils import EMBODIMENT
+from egomimic.utils.egomimicUtils import (
+    INTRINSICS,
+    cam_frame_to_cam_pixels,
+    interpolate_arr_euler,
+    pose_to_transform,
+    str2bool,
+    transform_to_pose,
+)
 
 _root = psutil.Process(os.getpid())
 
@@ -461,7 +440,7 @@ class AriaVRSExtractor:
         episode_feats["observations"][f"images.{camera_key}"] = images
         episode_feats["actions_cartesian"] = actions
 
-        num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
+        num_timesteps = episode_feats["observations"]["state.ee_pose"].shape[0]
         if arm == "right":
             value = EMBODIMENT.ARIA_RIGHT_ARM.value
         elif arm == "left":
@@ -1189,7 +1168,7 @@ class DatasetConverter:
         self.prestack = prestack
         self.benchmark = benchmark
         if self.benchmark:
-            print(f"Benchmark mode enabled. This will plot the RAM usage of each section.")
+            print("Benchmark mode enabled. This will plot the RAM usage of each section.")
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)

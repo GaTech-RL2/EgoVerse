@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 
 import boto3
 from sqlalchemy import (
@@ -14,7 +15,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
+
 
 @dataclass
 class TableRow:
