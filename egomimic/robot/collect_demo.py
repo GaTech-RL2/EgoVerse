@@ -529,6 +529,9 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
     data_dict["/observations/eepose"] = np.array(robot_ee_pose)
     t0 = time.time()
     max_timesteps = len(demo_data["cmd_eepose_actions"])
+    if max_timesteps == 0:
+        print(f"Skipping save: demo has 0 steps.")
+        return False
     with h5py.File(str(filename), "w", rdcc_nbytes=1024**2 * 2) as root:
         root.attrs["sim"] = False
         obs = root.create_group("observations")
@@ -577,6 +580,10 @@ def collect_demo(
     # Setup demo directory
     demo_dir = Path(demo_dir)
     demo_dir.mkdir(exist_ok=True, parents=True)
+    success_demo_dir = demo_dir / "success_demo"
+    failure_demo_dir = demo_dir / "failure_demo"
+    success_demo_dir.mkdir(exist_ok=True, parents=True)
+    failure_demo_dir.mkdir(exist_ok=True, parents=True)
 
     # Initialize VR interface
     vr = VRInterface()
@@ -653,7 +660,8 @@ def collect_demo(
                     ):
                         if collecting_data is True:
                             collecting_data = False
-                            save_demo(demo_data, demo_dir, episode_id, camera_names)
+                            print("Saving to success_demo -----------------------------------")
+                            save_demo(demo_data, success_demo_dir, episode_id, camera_names)
                             if auto_episode_id is not None:
                                 auto_episode_id += 1
                             break
@@ -665,15 +673,20 @@ def collect_demo(
                             collecting_data = True
                             reset_data(demo_data)
 
-                # x to create the neutral frame transformations
+                # x to save as failure demo
                 if (
                     vr_data["buttons"]["X"]
                     and prev_vr_data is not None
                     and prev_vr_data["buttons"]["X"] == False
                 ):
-                    print("Deleting Data -----------------------------------")
-                    # collecting_data = False
-                    reset_data(demo_data)
+                    print("Saving to failure_demo -----------------------------------")
+                    if collecting_data:
+                        collecting_data = False
+                        save_demo(demo_data, failure_demo_dir, episode_id, camera_names)
+                        if auto_episode_id is not None:
+                            auto_episode_id += 1
+                        break
+                    # reset_data(demo_data)
                     # print("set vr neutral arm pose")
                     # for arm in arms_list:
                     #     vr_neutral_frame_delta[arm] = vr_data[arm]["T"]
