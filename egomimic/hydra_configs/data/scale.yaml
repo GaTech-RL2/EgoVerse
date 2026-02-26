@@ -1,0 +1,36 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/scale
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+    filters:
+      episode_hash: "69199812208123403bbdb24f"
+    mode: total
+valid_datasets:
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/scale
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+    filters:
+      episode_hash: "69199812208123403bbdb24f"
+    mode: total
+train_dataloader_params:
+  scale_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  scale_bimanual:
+    batch_size: 32
+    num_workers: 10

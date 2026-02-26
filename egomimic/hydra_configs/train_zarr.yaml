@@ -1,10 +1,10 @@
 defaults:
   - model: hpt_bc_flow_eva
   - paths: default
-  - trainer: debug
+  - trainer: ddp
   - debug: null
-  - logger: debug
-  - data: eva_bc_zarr
+  - logger: wandb
+  - data: eva_resolver_zarr
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
@@ -81,16 +81,10 @@ data_schematic: # Dynamically fill in these shapes from the dataset
         zarr_key: observations.images.front_img_1
       ee_pose:
         key_type: proprio_keys
-        zarr_key: observations.state.ee_pose_cam
+        zarr_key: observations.state.ee_pose
       actions_cartesian:
         key_type: action_keys
-        zarr_key: actions_ee_cartesian_cam
-      actions_keypoints:
-        key_type: action_keys
-        zarr_key: actions_ee_keypoints_world
-      actions_head_cartesian:
-        key_type: action_keys
-        zarr_key: actions_head_cartesian_world
+        zarr_key: actions_cartesian
       embodiment:
         key_type: metadata_keys
         zarr_key: metadata.embodiment

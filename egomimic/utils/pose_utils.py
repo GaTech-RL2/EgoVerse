@@ -134,6 +134,7 @@ def _xyzwxyz_to_matrix(xyzwxyz: np.ndarray) -> np.ndarray:
 
     mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
     quat_xyzw = xyzwxyz[:, [4, 5, 6, 3]]
+
     mats[:, :3, :3] = R.from_quat(quat_xyzw).as_matrix()
     mats[:, :3, 3] = xyzwxyz[:, :3]
 

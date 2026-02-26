@@ -76,7 +76,11 @@ class MultiDataModuleWrapper(LightningDataModule):
     def train_dataloader(self):
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
-            dataset_params = self.train_dataloader_params.get(dataset_name, {})
+            dataset_params = self.train_dataloader_params.get(dataset_name)
+            if dataset_params is None or len(dataset_params) == 0:
+                raise ValueError(
+                    f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config train_dataloader_params."
+                )
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=True,
@@ -89,7 +93,11 @@ class MultiDataModuleWrapper(LightningDataModule):
     def val_dataloader(self):
         iterables = dict()
         for dataset_name, dataset in self.valid_datasets.items():
-            dataset_params = self.valid_dataloader_params.get(dataset_name, {})
+            dataset_params = self.valid_dataloader_params.get(dataset_name)
+            if dataset_params is None or len(dataset_params) == 0:
+                raise ValueError(
+                    f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config valid_dataloader_params."
+                )
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=False,
