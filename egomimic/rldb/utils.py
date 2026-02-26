@@ -1,105 +1,51 @@
 import ast
 import logging
 import os
-from pprint import pprint
 import random
-import shutil
-from datetime import datetime, timezone
-from enum import Enum
-from multiprocessing.dummy import connection
+import subprocess
+import tempfile
+import traceback
+from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from unittest import result
-
 
 import boto3
+import huggingface_hub
 import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.compute as pc
-import pyarrow.dataset as ds
 import torch
-from datasets import DatasetDict, concatenate_datasets
+import torch.nn.functional as F
+from datasets import concatenate_datasets
 from datasets import config as ds_cfg
-import huggingface_hub
+from datasets.utils.logging import disable_progress_bar
 from lerobot.common.datasets.lerobot_dataset import (
     LeRobotDataset,
     LeRobotDatasetMetadata,
 )
-from sqlalchemy import (
-    Boolean,
-    Column,
-    Float,
-    Integer,
-    MetaData,
-    String,
-    Table,
-    text,
+from tqdm import tqdm
+
+from egomimic.rldb.data_utils import (
+    _quat_to_ypr,
+    _slow_down_slerp_quat,
+    _ypr_to_quat,
 )
-from torch.utils.data import Subset
-from collections.abc import Sequence
-
-
+from egomimic.rldb.embodiment import (
+    EMBODIMENT_ID_TO_KEY,
+    get_embodiment_id,
+)
 from egomimic.utils.aws.aws_sql import (
-    TableRow,
-    add_episode,
     create_default_engine,
-    delete_all_episodes,
-    delete_episodes,
-    episode_hash_to_table_row,
     episode_table_to_df,
-    update_episode,
 )
-
 
 logger = logging.getLogger(__name__)
-
-from datasets.utils.logging import disable_progress_bar
 
 disable_progress_bar()
 logging.getLogger("datasets").setLevel(logging.ERROR)
 
 logging.getLogger("huggingface_hub._snapshot_download").setLevel(logging.ERROR)
 
-import torch.nn.functional as F
-
-from egomimic.rldb.data_utils import (
-    _ypr_to_quat,
-    _slerp,
-    _quat_to_ypr,
-    _slow_down_slerp_quat,
-)
-import subprocess
-import time
-import tempfile
-import uuid
-from tqdm import tqdm
-
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import traceback
-
-
-class EMBODIMENT(Enum):
-    EVE_RIGHT_ARM = 0
-    EVE_LEFT_ARM = 1
-    EVE_BIMANUAL = 2
-    ARIA_RIGHT_ARM = 3
-    ARIA_LEFT_ARM = 4
-    ARIA_BIMANUAL = 5
-    EVA_RIGHT_ARM = 6
-    EVA_LEFT_ARM = 7
-    EVA_BIMANUAL = 8
-    MECKA_BIMANUAL = 9
-    MECKA_RIGHT_ARM = 10
-    MECKA_LEFT_ARM = 11
-
-
 SEED = 42
-
-
-EMBODIMENT_ID_TO_KEY = {
-    member.value: key for key, member in EMBODIMENT.__members__.items()
-}
 
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
@@ -133,15 +79,6 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
-
-
-def get_embodiment(index):
-    return EMBODIMENT_ID_TO_KEY.get(index, None)
-
-
-def get_embodiment_id(embodiment_name):
-    embodiment_name = embodiment_name.upper()
-    return EMBODIMENT[embodiment_name].value
 
 
 def nds(nested_ds, tab_level=0):
@@ -262,6 +199,14 @@ class RLDBDataset(LeRobotDataset):
                 f"slow_down_ac_keys must be str, sequence, or None; got {type(raw_keys)}"
             )
 
+        annotation_path = Path(root) / "annotations"
+        if annotation_path.is_dir():
+            self.annotations = AnnotationLoader(root=root)
+            self.annotation_df = self.annotations.df
+        else:
+            self.annotations = None
+            self.annotation_df = None
+
         if mode == "train":
             super().__init__(
                 repo_id=repo_id,
@@ -335,62 +280,59 @@ class RLDBDataset(LeRobotDataset):
                     item[key] = self._slow_down_sequence(item[key])
 
         ep_idx = int(item["episode_index"])
+        frame_idx = (
+            self.sampled_indices[idx] if self.sampled_indices is not None else idx
+        )
 
-        frame = self.sampled_indices[idx] if self.sampled_indices is not None else idx
-        frame_item = self.hf_dataset[frame]
+        frame_item = self.hf_dataset[frame_idx]
+        frame_time = float(frame_item["timestamp"])
 
-        # Check if annotations directory exists before trying to load annotations
-        annotation_path = Path(self.root) / "annotations"
-        if not annotation_path.is_dir():
-            # No annotations available, set empty and return early
-            frame_item["annotations"] = ""
-            return frame_item
+        frame_item["annotations"] = self._get_frame_annotation(
+            episode_idx=ep_idx,
+            frame_time=frame_time,
+        )
 
-        # Load annotations only if they exist
-        annotations = AnnotationLoader(root=self.root)
-        df = annotations.df
+        return frame_item
 
-        current_ts = float(frame_item["timestamp"])
-        fps = float(self.fps)
-        frame_duration = 1 / fps
+    def _get_frame_annotation(
+        self,
+        episode_idx: int,
+        frame_time: float,
+    ) -> str:
+        """
+        Return the annotation string for a given episode index and timestamp.
+        Returns empty string if annotations are unavailable or no match is found.
+        """
+        if self.annotation_df is None:
+            return ""
 
-        # Use frame start time for annotation lookup to avoid missing boundary annotations
-        frame_time = current_ts
-        # print(f"Frame {frame}, ts={current_ts}, duration={frame_duration}, episode {ep_idx}")
-
-        df_episode = df.loc[df["idx"].astype(int) == ep_idx]
+        df_episode = self.annotation_df.loc[
+            self.annotation_df["idx"].astype(int) == episode_idx
+        ]
 
         if df_episode.empty:
-            logger.debug("No annotations for episode %s", ep_idx)
-            frame_item["annotations"] = ""
-            return frame_item
+            return ""
 
-        # print(df_episode.head())
-
-        frame_annotations = df_episode[
+        # Active annotation
+        active = df_episode[
             (df_episode["start_time"] <= frame_time)
             & (df_episode["end_time"] >= frame_time)
         ]
 
-        if frame_annotations.empty:
-            next_ann = df_episode[df_episode["start_time"] > frame_time]
-            if next_ann.empty:
-                annotation = df_episode.tail(1)["Labels"].iloc[0]
-                frame_item["annotations"] = annotation
-                return frame_item
-            else:
-                next_pos = df_episode.index.get_loc(next_ann.index[0])
-                prev_pos = next_pos - 1
-                if prev_pos >= 0:
-                    annotation = df_episode.iloc[prev_pos]["Labels"]
-                else:
-                    annotation = ""
-                frame_item["annotations"] = annotation
-                return frame_item
-        else:
-            annotation = frame_annotations["Labels"].iloc[0]
-            frame_item["annotations"] = annotation
-            return frame_item
+        if not active.empty:
+            return active["Labels"].iloc[0]
+
+        # Fallback: previous annotation
+        future = df_episode[df_episode["start_time"] > frame_time]
+        if future.empty:
+            return df_episode.tail(1)["Labels"].iloc[0]
+
+        next_pos = df_episode.index.get_loc(future.index[0])
+        prev_pos = next_pos - 1
+        if prev_pos >= 0:
+            return df_episode.iloc[prev_pos]["Labels"]
+
+        return ""
 
     def _slow_down_sequence(self, seq, rot_spec=None):
         """
@@ -503,9 +445,9 @@ class MultiRLDBDataset(torch.utils.data.Dataset):
 
         self.embodiment = get_embodiment_id(embodiment)
         for dataset_name, dataset in self.datasets.items():
-            assert dataset.embodiment == self.embodiment, (
-                f"Dataset {dataset_name} has embodiment {dataset.embodiment}, expected {self.embodiment}."
-            )
+            assert (
+                dataset.embodiment == self.embodiment
+            ), f"Dataset {dataset_name} has embodiment {dataset.embodiment}, expected {self.embodiment}."
 
         self.index_map = []
         for dataset_name, dataset in self.datasets.items():
@@ -674,13 +616,12 @@ class S3RLDBDataset(MultiRLDBDataset):
         local_files_only=True,
         key_map=None,
         valid_ratio=0.2,
-        temp_root="/coc/flash7/scratch/egoverseS3Dataset",  # "/coc/flash7/scratch/rldb_temp"
+        temp_root="/coc/flash7/scratch/egoverseS3Dataset/S3_rldb_data",  # "/coc/flash7/scratch/rldb_temp"
         cache_root="/coc/flash7/scratch/.cache",
         filters={},
         debug=False,
         **kwargs,
     ):
-        temp_root += "/S3_rldb_data"
         filters["robot_name"] = embodiment
         filters["is_deleted"] = False
 
@@ -700,12 +641,18 @@ class S3RLDBDataset(MultiRLDBDataset):
             temp_root = "/" + temp_root
         temp_root = Path(temp_root)
 
-        if temp_root.is_dir():
-            logger.info(f"Using existing temp_root directory: {temp_root}")
         if not temp_root.is_dir():
             temp_root.mkdir()
 
+        logger.info(f"Summary of S3RLDBDataset: {temp_root}")
+        logger.info(f"Bucket Name: {bucket_name}")
         logger.info(f"Filters: {filters}")
+        logger.info(f"Local Files Only: {local_files_only}")
+        logger.info(f"Percent: {percent}")
+        logger.info(f"Valid Ratio: {valid_ratio}")
+        logger.info(f"Debug: {debug}")
+        logger.info(f"kwargs: {kwargs}")
+
         datasets = {}
         skipped = []
 
@@ -868,7 +815,8 @@ class S3RLDBDataset(MultiRLDBDataset):
         with ThreadPoolExecutor(max_workers=max_workers) as ex:
             futures = [
                 ex.submit(cls._load_rldb_dataset_one, **_submit_arg(p))
-                for p in all_paths if p.name in valid_collection_names
+                for p in all_paths
+                if p.name in valid_collection_names
             ]
 
             for fut in tqdm(
@@ -887,12 +835,12 @@ class S3RLDBDataset(MultiRLDBDataset):
 
                 skipped.append(repo_id)
 
-                if reason == "not_in_filtered_paths":
-                    logger.warning(f"Skipping {repo_id}: not in filtered S3 paths")
-                elif reason and reason.startswith("embodiment_mismatch"):
-                    logger.warning(f"Skipping {repo_id}: {reason}")
-                else:
-                    logger.error(f"Failed to load {repo_id} as RLDBDataset:\n{err}")
+                # if reason == "not_in_filtered_paths":
+                #     logger.warning(f"Skipping {repo_id}: not in filtered S3 paths")
+                # elif reason and reason.startswith("embodiment_mismatch"):
+                #     logger.warning(f"Skipping {repo_id}: {reason}")
+                # else:
+                #     logger.error(f"Failed to load {repo_id} as RLDBDataset:\n{err}")
 
         return datasets, skipped
 
@@ -1221,7 +1169,7 @@ class DataSchematic(object):
 
         self.shapes_infered = True
 
-    def infer_norm_from_dataset(self, dataset):
+    def infer_norm_from_dataset_lerobot(self, dataset):
         """
         dataset: huggingface dataset backed by pyarrow
         returns: dictionary of means and stds for proprio and action keys
@@ -1241,7 +1189,6 @@ class DataSchematic(object):
         for column in norm_columns:
             if not self.is_key_with_embodiment(column, embodiment):
                 continue
-
             column_name = self.keyname_to_lerobot_key(column, embodiment)
             logger.info(f"[NormStats] Processing column={column_name}")
 
@@ -1249,6 +1196,81 @@ class DataSchematic(object):
             column_data = dataset.hf_dataset.with_format(
                 "numpy", columns=[column_name]
             )[:][column_name]
+            if column_data.ndim not in (2, 3):
+                raise ValueError(
+                    f"Column {column} has shape {column_data.shape}, "
+                    "expected 2 or 3 dims"
+                )
+
+            mean = np.mean(column_data, axis=0)
+            std = np.std(column_data, axis=0)
+            minv = np.min(column_data, axis=0)
+            maxv = np.max(column_data, axis=0)
+            median = np.median(column_data, axis=0)
+            q1 = np.percentile(column_data, 1, axis=0)
+            q99 = np.percentile(column_data, 99, axis=0)
+
+            self.norm_stats[embodiment][column] = {
+                "mean": torch.from_numpy(mean).float(),
+                "std": torch.from_numpy(std).float(),
+                "min": torch.from_numpy(minv).float(),
+                "max": torch.from_numpy(maxv).float(),
+                "median": torch.from_numpy(median).float(),
+                "quantile_1": torch.from_numpy(q1).float(),
+                "quantile_99": torch.from_numpy(q99).float(),
+            }
+
+        logger.info("[NormStats] Finished norm inference")
+
+    def infer_norm_from_dataset(self, dataset):
+        """
+        dataset: huggingface dataset or zarr dataset
+        returns: dictionary of means and stds for proprio and action keys
+        """
+        norm_columns = []
+
+        embodiment = dataset.embodiment
+        if isinstance(embodiment, str):
+            embodiment = get_embodiment_id(embodiment)
+
+        norm_columns.extend(self.keys_of_type("proprio_keys"))
+        norm_columns.extend(self.keys_of_type("action_keys"))
+
+        logger.info(
+            f"[NormStats] Starting norm inference for embodiment={embodiment}, "
+            f"{len(norm_columns)} columns"
+        )
+
+        def get_zarr_data(ds, col):
+            if hasattr(ds, "episode_reader"):
+                # ZarrDataset
+                if col in ds.episode_reader._store:
+                    return ds.episode_reader._store[col][:]
+                return None
+            elif hasattr(ds, "datasets"):
+                # MultiDataset wrapper
+                data_list = []
+                for d in ds.datasets.values():
+                    res = get_zarr_data(d, col)
+                    if res is not None:
+                        data_list.append(res)
+                if data_list:
+                    return np.concatenate(data_list, axis=0)
+            return None
+
+        for column in norm_columns:
+            if not self.is_key_with_embodiment(column, embodiment):
+                continue
+            column_name = self.keyname_to_lerobot_key(column, embodiment)
+            logger.info(f"[NormStats] Processing column={column_name}")
+
+            column_data = get_zarr_data(dataset, column_name)
+
+            if column_data is None:
+                logger.warning(
+                    f"Skipping {column_name}, data not found given dataset type"
+                )
+                continue
 
             if column_data.ndim not in (2, 3):
                 raise ValueError(
@@ -1464,5 +1486,3 @@ class DataSchematic(object):
                 denorm_data[key] = tensor
 
         return denorm_data
-
-

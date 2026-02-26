@@ -5,16 +5,16 @@ Uses a config file to generically instantiate the parquet files.
 """
 
 import argparse
+import json
 import logging
 import os
-from pathlib import Path
 import shutil
-import traceback
+from pathlib import Path
+
+import cv2
 import h5py
-import json
 import torch
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-from utils import str2bool
 
 
 class RobomimicHD5Extractor:

@@ -3,24 +3,42 @@
 Visualize LeRobot Dataset with Camera Projection
 """
 
+import json
+import os
 import sys
 from pathlib import Path
-import numpy as np
+
 import cv2
-import os
-import json
+import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent / "lerobot"))
 
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 
 HAND_CONNECTIONS = [
-    (0, 1), (1, 2), (2, 3), (3, 4),
-    (0, 5), (5, 6), (6, 7), (7, 8),
-    (0, 9), (9, 10), (10, 11), (11, 12),
-    (0, 13), (13, 14), (14, 15), (15, 16),
-    (0, 17), (17, 18), (18, 19), (19, 20),
-    (5, 9), (9, 13), (13, 17)
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+    (0, 5),
+    (5, 6),
+    (6, 7),
+    (7, 8),
+    (0, 9),
+    (9, 10),
+    (10, 11),
+    (11, 12),
+    (0, 13),
+    (13, 14),
+    (14, 15),
+    (15, 16),
+    (0, 17),
+    (17, 18),
+    (18, 19),
+    (19, 20),
+    (5, 9),
+    (9, 13),
+    (13, 17),
 ]
 
 LEFT_HAND_COLOR = (0, 255, 0)
@@ -40,7 +58,7 @@ def project_3d_to_2d(x, y, z, focal_length, cx, cy):
         (pixel_x, pixel_y): 2D pixel coordinates
     """
     if z <= 0:
-        return float('nan'), float('nan')
+        return float("nan"), float("nan")
 
     pixel_x = (x * focal_length) / z + cx
     pixel_y = (y * focal_length) / z + cy
@@ -64,8 +82,7 @@ def project_keypoints_to_2d(keypoints_3d, focal_length, cx, cy):
 
     for i, point_3d in enumerate(keypoints_3d):
         x, y = project_3d_to_2d(
-            point_3d[0], point_3d[1], point_3d[2],
-            focal_length, cx, cy
+            point_3d[0], point_3d[1], point_3d[2], focal_length, cx, cy
         )
         keypoints_2d[i] = [x, y]
 
@@ -86,16 +103,32 @@ def draw_hand_skeleton(img, keypoints_2d, color, img_width, img_height):
         start = keypoints_2d[start_idx]
         end = keypoints_2d[end_idx]
 
-        if (not (np.isnan(start[0]) or np.isnan(start[1]) or
-                 np.isnan(end[0]) or np.isnan(end[1])) and
-            0 <= start[0] < img_width and 0 <= start[1] < img_height and
-            0 <= end[0] < img_width and 0 <= end[1] < img_height):
-
-            cv2.line(img, (int(start[0]), int(start[1])),
-                    (int(end[0]), int(end[1])), color, 2)
+        if (
+            not (
+                np.isnan(start[0])
+                or np.isnan(start[1])
+                or np.isnan(end[0])
+                or np.isnan(end[1])
+            )
+            and 0 <= start[0] < img_width
+            and 0 <= start[1] < img_height
+            and 0 <= end[0] < img_width
+            and 0 <= end[1] < img_height
+        ):
+            cv2.line(
+                img,
+                (int(start[0]), int(start[1])),
+                (int(end[0]), int(end[1])),
+                color,
+                2,
+            )
 
     for i, (x, y) in enumerate(keypoints_2d):
-        if not (np.isnan(x) or np.isnan(y)) and 0 <= x < img_width and 0 <= y < img_height:
+        if (
+            not (np.isnan(x) or np.isnan(y))
+            and 0 <= x < img_width
+            and 0 <= y < img_height
+        ):
             radius = 8 if i == 0 else 5
             cv2.circle(img, (int(x), int(y)), radius, color, -1)
 
@@ -117,10 +150,10 @@ def load_camera_intrinsics(dataset_path):
             "fl_x": 756.0,
             "fl_y": 756.0,
             "cx": 960.0,
-            "cy": 540.0
+            "cy": 540.0,
         }
 
-    with open(info_path, 'r') as f:
+    with open(info_path, "r") as f:
         info = json.load(f)
 
     intrinsics = info.get("intrinsics", {})
@@ -133,7 +166,7 @@ def load_camera_intrinsics(dataset_path):
             "fl_x": 756.0,
             "fl_y": 756.0,
             "cx": 960.0,
-            "cy": 540.0
+            "cy": 540.0,
         }
 
     return intrinsics
@@ -190,17 +223,33 @@ def visualize_frame_with_hands(dataset, frame_idx, intrinsics, output_path=None)
     draw_hand_skeleton(img, left_hand_2d, LEFT_HAND_COLOR, img_width, img_height)
     draw_hand_skeleton(img, right_hand_2d, RIGHT_HAND_COLOR, img_width, img_height)
 
-    cv2.putText(img, f"Frame: {frame_idx}", (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 2)
+    cv2.putText(
+        img,
+        f"Frame: {frame_idx}",
+        (20, 40),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.2,
+        (0, 255, 255),
+        2,
+    )
 
-    cv2.putText(img, "Left Hand", (20, 80),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, LEFT_HAND_COLOR, 2)
+    cv2.putText(
+        img, "Left Hand", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, LEFT_HAND_COLOR, 2
+    )
 
-    cv2.putText(img, "Right Hand", (20, 110),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.8, RIGHT_HAND_COLOR, 2)
+    cv2.putText(
+        img, "Right Hand", (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.8, RIGHT_HAND_COLOR, 2
+    )
 
-    cv2.putText(img, "21 Hand Keypoints", (20, img_height - 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(
+        img,
+        "21 Hand Keypoints",
+        (20, img_height - 20),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (255, 255, 255),
+        2,
+    )
 
     if output_path:
         cv2.imwrite(output_path, img)
@@ -209,25 +258,25 @@ def visualize_frame_with_hands(dataset, frame_idx, intrinsics, output_path=None)
 
 
 def main():
-    print("="*60)
+    print("=" * 60)
     print("VISUALIZING DATASET WITH CAMERA PROJECTION")
-    print("="*60)
+    print("=" * 60)
     print()
 
     print("Loading dataset...")
     dataset = LeRobotDataset(
-        repo_id="folding_shirt",
-        root="./lerobot_output",
-        local_files_only=True
+        repo_id="folding_shirt", root="./lerobot_output", local_files_only=True
     )
 
     print(f"✅ Dataset loaded: {len(dataset)} frames")
 
     intrinsics = load_camera_intrinsics("./lerobot_output")
-    print(f"\nCamera intrinsics:")
+    print("\nCamera intrinsics:")
     print(f"  Resolution: {intrinsics.get('w', 1920)}x{intrinsics.get('h', 1080)}")
     print(f"  Focal length: {intrinsics.get('fl_x', 756.0)} px")
-    print(f"  Principal point: ({intrinsics.get('cx', 960.0)}, {intrinsics.get('cy', 540.0)})")
+    print(
+        f"  Principal point: ({intrinsics.get('cx', 960.0)}, {intrinsics.get('cy', 540.0)})"
+    )
     print()
 
     output_dir = "./visualization_projected"
@@ -235,16 +284,16 @@ def main():
 
     sample_indices = [0, 100, 300, 500, 700, 900, 1100, 1300, 1452]
 
-    print(f"Generating visualizations...")
+    print("Generating visualizations...")
     for idx in sample_indices:
         output_path = os.path.join(output_dir, f"frame_{idx:04d}_projected.jpg")
         visualize_frame_with_hands(dataset, idx, intrinsics, output_path)
         print(f"  ✓ Frame {idx} -> {output_path}")
 
     print()
-    print("="*60)
+    print("=" * 60)
     print("✅ DONE!")
-    print("="*60)
+    print("=" * 60)
     print(f"Visualizations saved to: {output_dir}/")
     print()
     print("Legend:")

@@ -1,84 +1,63 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Configuration
-REGION="us-east-2"
-SECRET_NAME="rds/appdb/appuser"
-HOST="lowuse-pg-east2.claua8sacyu5.us-east-2.rds.amazonaws.com"
-DBNAME="appdb"
-USER="appuser"
-PASSWORD="APPUSER_STRONG_PW"
-PORT=5432
-BUCKET="rldb"
-KEY_PREFIX=""
+# Configuration (override with environment variables as needed)
+REGION="${REGION:-us-east-2}"
+DB_SECRET_NAME="${DB_SECRET_NAME:-rds/appdb/appuser}"
+R2_SECRET_NAME="${R2_SECRET_NAME:-r2/rldb/credentials}"
+ENV_FILE="${ENV_FILE:-$HOME/.egoverse_env}"
+BUCKET="${BUCKET:-rldb}"
 
-echo "=== Setting up Secrets Manager Secret for RDS ==="
+echo "=== Bootstrapping EgoVerse env from Secrets Manager (read-only) ==="
+echo "Region: $REGION"
+echo "DB secret: $DB_SECRET_NAME"
+echo "R2 secret: $R2_SECRET_NAME"
 
-# Check if secret exists
-if aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$REGION" 2>/dev/null; then
-  echo "Secret already exists: $SECRET_NAME"
-  echo "Updating secret..."
-  
-  # Create the secret JSON
-  SECRET_JSON=$(cat <<EOF
-{
-  "host": "$HOST",
-  "port": $PORT,
-  "dbname": "$DBNAME",
-  "username": "$USER",
-  "password": "$PASSWORD"
-}
-EOF
-)
-  
-  aws secretsmanager update-secret \
-    --secret-id "$SECRET_NAME" \
-    --secret-string "$SECRET_JSON" \
+SECRET_ARN="$(
+  aws secretsmanager describe-secret \
+    --secret-id "$DB_SECRET_NAME" \
     --region "$REGION" \
-    > /dev/null
-  
-  echo "Secret updated successfully"
-else
-  echo "Creating new secret: $SECRET_NAME"
-  
-  # Create the secret JSON
-  SECRET_JSON=$(cat <<EOF
-{
-  "host": "$HOST",
-  "port": $PORT,
-  "dbname": "$DBNAME",
-  "username": "$USER",
-  "password": "$PASSWORD"
-}
-EOF
-)
-  
-  aws secretsmanager create-secret \
-    --name "$SECRET_NAME" \
-    --description "RDS credentials for appdb" \
-    --secret-string "$SECRET_JSON" \
+    --query 'ARN' \
+    --output text
+)"
+
+R2_SECRET_JSON="$(
+  aws secretsmanager get-secret-value \
+    --secret-id "$R2_SECRET_NAME" \
     --region "$REGION" \
-    > /dev/null
-  
-  echo "Secret created successfully"
-fi
+    --query 'SecretString' \
+    --output text
+)"
 
-# Get the ARN
-SECRET_ARN=$(aws secretsmanager describe-secret --secret-id "$SECRET_NAME" --region "$REGION" --query 'ARN' --output text)
-echo ""
-echo "Secret ARN: $SECRET_ARN"
-echo ""
+read -r R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3 < <(
+  R2_SECRET_JSON="$R2_SECRET_JSON" python3 - <<'PY'
+import json
+import os
+import sys
 
-# Write env file
-ENV_FILE="$HOME/.egoverse_env"
-cat > "$ENV_FILE" <<EOF
-SECRETS_ARN=$SECRET_ARN
-BUCKET=$BUCKET
-KEY_PREFIX=$KEY_PREFIX
-AWS_DEFAULT_REGION=$REGION
-EOF
+payload = json.loads(os.environ["R2_SECRET_JSON"])
+access = payload.get("access_key_id", "")
+secret = payload.get("secret_access_key", "")
+endpoint = payload.get("endpoint_url", "")
+
+if not access or not secret or not endpoint:
+    print("Missing required keys in R2 secret JSON.", file=sys.stderr)
+    sys.exit(1)
+
+print(access, secret, endpoint)
+PY
+)
+
+{
+  printf "SECRETS_ARN=%q\n" "$SECRET_ARN"
+  printf "R2_ACCESS_KEY_ID=%q\n" "$R2_ACCESS_KEY_ID"
+  printf "R2_SECRET_ACCESS_KEY=%q\n" "$R2_SECRET_ACCESS_KEY"
+  printf "AWS_ENDPOINT_URL_S3=%q\n" "$AWS_ENDPOINT_URL_S3"
+  printf "R2_ENDPOINT_URL=%q\n" "$AWS_ENDPOINT_URL_S3"
+  printf "S3_ENDPOINT_URL=%q\n" "$AWS_ENDPOINT_URL_S3"
+  printf "AWS_DEFAULT_REGION=%q\n" "$REGION"
+  printf "BUCKET=%q\n" "$BUCKET"
+} >"$ENV_FILE"
 
 chmod 600 "$ENV_FILE"
-echo "✅ Wrote environment variables to $ENV_FILE"
-echo "Contents:"
-cat "$ENV_FILE"
+echo "✅ Wrote runtime environment to $ENV_FILE"

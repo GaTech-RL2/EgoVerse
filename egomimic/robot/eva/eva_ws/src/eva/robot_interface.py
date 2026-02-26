@@ -1,15 +1,16 @@
-import arx5.arx5_interface as arx5
-from arx5.arx5_interface import Arx5JointController, JointState as ArxJointState, Gain
-from arx5.arx5_interface import Arx5CartesianController, EEFState, Gain, LogLevel
-from ament_index_python.packages import get_package_share_directory
-import os
-import yaml
-import numpy as np
-import pytorch_kinematics as pk
-from scipy.spatial.transform import Rotation as R
 from abc import ABC, abstractmethod
-from stream_aria import AriaRecorder, update_iptables
+
+import arx5.arx5_interface as arx5
+import numpy as np
+import yaml
+from arx5.arx5_interface import (
+    Arx5JointController,
+)
+from arx5.arx5_interface import JointState as ArxJointState
+from scipy.spatial.transform import Rotation as R
+from stream_aria import AriaRecorder
 from stream_d405 import RealSenseRecorder
+
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
 
@@ -115,7 +116,7 @@ class ARXInterface(Robot_Interface):
                 )
                 * 0.8
             )
-            kd = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.float64) * 0.6 
+            kd = np.array([2.0, 2.0, 2.0, 2.0, 2.0, 2.0], dtype=np.float64) * 0.6
             # zeros = np.zeros(6)
             # kp = zeros
             # kd = zeros
@@ -210,7 +211,13 @@ class ARXInterface(Robot_Interface):
                 arm_offset = 7
             joint_positions[arm_offset : arm_offset + 7] = self.get_joints(arm)
             xyz, rot = self.get_pose(arm, se3=False)
-            ee_poses[arm_offset : arm_offset + 7] = np.concatenate([xyz, rot.as_euler("ZYX", degrees=False), [joint_positions[arm_offset + 6]]])
+            ee_poses[arm_offset : arm_offset + 7] = np.concatenate(
+                [
+                    xyz,
+                    rot.as_euler("ZYX", degrees=False),
+                    [joint_positions[arm_offset + 6]],
+                ]
+            )
         obs["joint_positions"] = joint_positions
         obs["ee_poses"] = ee_poses
 
@@ -274,7 +281,7 @@ class ARXInterface(Robot_Interface):
             return T
 
         return pos, rot
-    
+
     def get_pose_6d(self, arm):
         pos, rot = self.get_pose(arm, se3=False)
         return np.concatenate([pos, rot.as_euler("ZYX", degrees=False)])

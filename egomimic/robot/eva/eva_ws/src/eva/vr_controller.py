@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 import time
 
-import rclpy
-from rclpy.node import Node
 import numpy as np
-from scipy.spatial.transform import Rotation as R
-
+import rclpy
 from geometry_msgs.msg import PoseStamped, Vector3
-from std_msgs.msg import Bool, Int8, Float32
 from oculus_reader import OculusReader
+from rclpy.node import Node
+from scipy.spatial.transform import Rotation as R
+from std_msgs.msg import Bool, Float32, Int8
 
 # ------------------------- config -------------------------
 

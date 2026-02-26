@@ -1,29 +1,38 @@
 import os
-import time
-import h5py
-import torch
 import sys
-import numpy as np
-import cv2
+import time
 from abc import ABC, abstractmethod
 
-from egomimic.algo import *
-from egomimic.algo.hpt import HPTModel
-from egomimic.models.denoising_policy import DenoisingPolicy
-from egomimic.rldb.utils import EMBODIMENT, get_embodiment, get_embodiment_id, RLDBDataset
-from egomimic.pl_utils.pl_model import ModelWrapper
-
+import cv2
+import h5py
+import numpy as np
+import torch
 from robot_utils import RateLoop
-from egomimic.utils.egomimicUtils import CameraTransforms, draw_actions, cam_frame_to_base_frame, ee_pose_to_cam_frame, base_frame_to_cam_frame, interpolate_arr, interpolate_arr_euler
+
+# from egomimic.algo import *
+from egomimic.models.denoising_policy import DenoisingPolicy
+from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.rldb.embodiment import get_embodiment
+from egomimic.rldb.utils import RLDBDataset
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
+from egomimic.utils.egomimicUtils import (
+    CameraTransforms,
+    cam_frame_to_base_frame,
+    draw_actions,
+    interpolate_arr,
+    interpolate_arr_euler,
+)
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 
-import sys
 import select
+import sys
 import termios
 import tty
 
-from robot_interface import *
+from robot_interface import ARXInterface
+
+
 # from stream_aria import AriaRecorder
 # from stream_d405 import RealSenseRecorder
 def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
@@ -40,9 +49,10 @@ def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
 
     return ims
 
+
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
-QUERY_FREQUENCY = 30 
+QUERY_FREQUENCY = 30
 
 RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
@@ -53,20 +63,22 @@ EMBODIMENT_MAP = {
     "right": 6,
 }
 
+
 class _KeyPoll:
-  def __enter__(self):
-    self.fd = sys.stdin.fileno()
-    self.old = termios.tcgetattr(self.fd)
-    tty.setcbreak(self.fd)  # no Enter needed
-    return self
+    def __enter__(self):
+        self.fd = sys.stdin.fileno()
+        self.old = termios.tcgetattr(self.fd)
+        tty.setcbreak(self.fd)  # no Enter needed
+        return self
 
-  def __exit__(self, exc_type, exc, tb):
-    termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
+    def __exit__(self, exc_type, exc, tb):
+        termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
 
-  def getch(self):
-    if select.select([sys.stdin], [], [], 0)[0]:
-      return sys.stdin.read(1)
-    return None
+    def getch(self):
+        if select.select([sys.stdin], [], [], 0)[0]:
+            return sys.stdin.read(1)
+        return None
+
 
 class Rollout(ABC):
     def __init__(self):
@@ -97,27 +109,42 @@ class ReplayRollout(Rollout):
         else:
             return None
 
+
 # TODO: Work with all types of arms
 class ReplayRolloutLerobot(Rollout):
-    def __init__(self, dataset_path, repo_id, cartesian, extrinsics_key, episodes=[1], arm="right"):
+    def __init__(
+        self,
+        dataset_path,
+        repo_id,
+        cartesian,
+        extrinsics_key,
+        episodes=[1],
+        arm="right",
+    ):
         super().__init__()
         self.dataset_path = dataset_path
         self.cartesian = cartesian
-        self.extrinsics = CameraTransforms(intrinsics_key="base", extrinsics_key=extrinsics_key).extrinsics
+        self.extrinsics = CameraTransforms(
+            intrinsics_key="base", extrinsics_key=extrinsics_key
+        ).extrinsics
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.debug_actions = None
         self.arm = arm
 
-        dataset = RLDBDataset(repo_id=repo_id, root=dataset_path, local_files_only=True, episodes=episodes, mode="sample")
-        data_loader = torch.utils.data.DataLoader(dataset,
-                                          batch_size=32,
-                                          shuffle=False)
+        dataset = RLDBDataset(
+            repo_id=repo_id,
+            root=dataset_path,
+            local_files_only=True,
+            episodes=episodes,
+            mode="sample",
+        )
+        data_loader = torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=False)
         self.iter = iter(data_loader)
         self.data_loader = data_loader
         self.i = 0
         self.actions_key = "actions_cartesian" if cartesian else "actions_joints"
         self.actions = None
-	
+
     def rollout_step(self, i):
         while i >= self.i:
             try:
@@ -126,7 +153,9 @@ class ReplayRolloutLerobot(Rollout):
                 self.iter = iter(self.data_loader)
                 batch = next(self.iter)
 
-            cur_actions = batch[self.actions_key].cpu().numpy()[:, 0, :]  # (B, 7) or (B, 14)
+            cur_actions = (
+                batch[self.actions_key].cpu().numpy()[:, 0, :]
+            )  # (B, 7) or (B, 14)
 
             if self.cartesian:
                 if self.arm == "both":
@@ -161,7 +190,7 @@ class ReplayRolloutLerobot(Rollout):
                 self.actions = np.concatenate([self.actions, cur_actions], axis=0)
 
             self.i += cur_actions.shape[0]
-        
+
         if self.actions is None:
             return None
         if i < 0 or i >= self.actions.shape[0]:
@@ -174,8 +203,17 @@ class ReplayRolloutLerobot(Rollout):
         self.actions = None
         self.debug_actions = None
 
+
 class PolicyRollout(Rollout):
-    def __init__(self, arm, policy_path, query_frequency, cartesian, extrinsics_key, resampled_action_len=None):
+    def __init__(
+        self,
+        arm,
+        policy_path,
+        query_frequency,
+        cartesian,
+        extrinsics_key,
+        resampled_action_len=None,
+    ):
         super().__init__()
         self.arm = arm
         self.policy_path = policy_path
@@ -186,13 +224,17 @@ class PolicyRollout(Rollout):
         self.embodiment_name = get_embodiment(self.embodiment_id)
         if getattr(self.policy.model, "diffusion", False):
             for head in self.policy.model.nets.policy.heads:
-                if isinstance(self.policy.model.nets.policy.heads[head], DenoisingPolicy):
+                if isinstance(
+                    self.policy.model.nets.policy.heads[head], DenoisingPolicy
+                ):
                     self.policy.model.nets.policy.heads[head].num_inference_steps = 10
-        self.extrinsics = CameraTransforms(intrinsics_key="base", extrinsics_key=extrinsics_key).extrinsics
+        self.extrinsics = CameraTransforms(
+            intrinsics_key="base", extrinsics_key=extrinsics_key
+        ).extrinsics
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
-        
+
     def _downsample_chunk(self, chunk: np.ndarray, target_len: int) -> np.ndarray:
         if target_len is None or target_len <= 0 or chunk.shape[0] == target_len:
             return chunk.astype(np.float32, copy=False)
@@ -211,7 +253,7 @@ class PolicyRollout(Rollout):
             out = interpolate_arr(chunk[None, ...], target_len)[0]
 
         return out.astype(np.float32, copy=False)
-    
+
     def rollout_step(self, i, obs):
         if i % self.query_frequency == 0:
             start_infer_t = time.time()
@@ -225,29 +267,43 @@ class PolicyRollout(Rollout):
                 if self.arm == "both":
                     left_actions = self.actions[:, :7]
                     right_actions = self.actions[:, 7:]
-                    transformed_left = cam_frame_to_base_frame(left_actions[:, :6].copy(), self.extrinsics["left"])
-                    transformed_right = cam_frame_to_base_frame(right_actions[:, :6].copy(), self.extrinsics["right"])
+                    transformed_left = cam_frame_to_base_frame(
+                        left_actions[:, :6].copy(), self.extrinsics["left"]
+                    )
+                    transformed_right = cam_frame_to_base_frame(
+                        right_actions[:, :6].copy(), self.extrinsics["right"]
+                    )
                     if left_actions.shape[1] == 7:
-                        left_actions = np.hstack([transformed_left, left_actions[:, 6:7]])
+                        left_actions = np.hstack(
+                            [transformed_left, left_actions[:, 6:7]]
+                        )
                     else:
                         left_actions = transformed_left
                     if right_actions.shape[1] == 7:
-                        right_actions = np.hstack([transformed_right, right_actions[:, 6:7]])
+                        right_actions = np.hstack(
+                            [transformed_right, right_actions[:, 6:7]]
+                        )
                     else:
                         right_actions = transformed_right
                     self.actions = np.hstack([left_actions, right_actions])
                 else:
-                    transformed_6dof = cam_frame_to_base_frame(self.actions[:, :6].copy(), self.extrinsics[self.arm])
+                    transformed_6dof = cam_frame_to_base_frame(
+                        self.actions[:, :6].copy(), self.extrinsics[self.arm]
+                    )
                     # Preserve gripper if present (7th value)
                     if self.actions.shape[1] == 7:
-                        self.actions = np.hstack([transformed_6dof, self.actions[:, 6:7]])
+                        self.actions = np.hstack(
+                            [transformed_6dof, self.actions[:, 6:7]]
+                        )
                     else:
                         self.actions = transformed_6dof
-                        
+
             if self.resampled_action_len is not None:
-                self.actions = self._downsample_chunk(self.actions, self.resampled_action_len)
+                self.actions = self._downsample_chunk(
+                    self.actions, self.resampled_action_len
+                )
                 self.debug_actions = self.actions.copy()
-                
+
             print(f"Inference time: {(time.time() - start_infer_t)}s")
 
         # TODO check gripper if we are using 0 to 0.08 or 0 to 1
@@ -256,8 +312,8 @@ class PolicyRollout(Rollout):
 
     def process_obs_for_policy(self, obs):
         # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
-        front = torch.from_numpy(obs["front_img_1"][None, ...])        # [1, H, W, 3]
-        front = front[..., [2, 1, 0]]                                  # BGR -> RGB
+        front = torch.from_numpy(obs["front_img_1"][None, ...])  # [1, H, W, 3]
+        front = front[..., [2, 1, 0]]  # BGR -> RGB
         front = front.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
 
         data = {
@@ -266,24 +322,22 @@ class PolicyRollout(Rollout):
         }
 
         if self.arm == "right":
-            right = torch.from_numpy(obs["right_wrist_img"][None, ...])  # [1, H, W, 3] BGR
-            right = right[..., [2, 1, 0]]                                # BGR -> RGB
+            right = torch.from_numpy(
+                obs["right_wrist_img"][None, ...]
+            )  # [1, H, W, 3] BGR
+            right = right[..., [2, 1, 0]]  # BGR -> RGB
             right = (
-                right.permute(0, 3, 1, 2)
-                .to(self.device, dtype=torch.float32)
-                / 255.0
+                right.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
             )
             data["right_wrist_img"] = right
             joint_positions = obs["joint_positions"][7:]
 
         elif self.arm == "left":
-            left = torch.from_numpy(obs["left_wrist_img"][None, ...])    # [1, H, W, 3] BGR
-            left = left[..., [2, 1, 0]]                                  # BGR -> RGB
-            left = (
-                left.permute(0, 3, 1, 2)
-                .to(self.device, dtype=torch.float32)
-                / 255.0
-            )
+            left = torch.from_numpy(
+                obs["left_wrist_img"][None, ...]
+            )  # [1, H, W, 3] BGR
+            left = left[..., [2, 1, 0]]  # BGR -> RGB
+            left = left.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
             data["left_wrist_img"] = left
             joint_positions = obs["joint_positions"][:7]
 
@@ -291,17 +345,11 @@ class PolicyRollout(Rollout):
             right = torch.from_numpy(obs["right_wrist_img"][None, ...])
             right = right[..., [2, 1, 0]]
             right = (
-                right.permute(0, 3, 1, 2)
-                .to(self.device, dtype=torch.float32)
-                / 255.0
+                right.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
             )
             left = torch.from_numpy(obs["left_wrist_img"][None, ...])
             left = left[..., [2, 1, 0]]
-            left = (
-                left.permute(0, 3, 1, 2)
-                .to(self.device, dtype=torch.float32)
-                / 255.0
-            )
+            left = left.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
             data["right_wrist_img"] = right
             data["left_wrist_img"] = left
             joint_positions = obs["joint_positions"]
@@ -323,32 +371,37 @@ class PolicyRollout(Rollout):
 
         processed_batch[self.embodiment_id] = (
             self.policy.model.data_schematic.normalize_data(
-            processed_batch[self.embodiment_id], self.embodiment_id
+                processed_batch[self.embodiment_id], self.embodiment_id
             )
         )
 
         return processed_batch
-    
+
     def reset(self):
         self.actions = None
         self.debug_actions = None
-        self.policy = ModelWrapper.load_from_checkpoint(self.policy_path, weights_only=False)
+        self.policy = ModelWrapper.load_from_checkpoint(
+            self.policy_path, weights_only=False
+        )
         if getattr(self.policy.model, "diffusion", False):
             for head in self.policy.model.nets.policy.heads:
-                if isinstance(self.policy.model.nets.policy.heads[head], DenoisingPolicy):
+                if isinstance(
+                    self.policy.model.nets.policy.heads[head], DenoisingPolicy
+                ):
                     self.policy.model.nets.policy.heads[head].num_inference_steps = 10
-        
-        
-def reset_rollout(ri, policy): 
-    print("Resetting rollout: going home + clearing policy state") 
-    ri.set_home() 
-    if hasattr(policy, "reset"): 
+
+
+def reset_rollout(ri, policy):
+    print("Resetting rollout: going home + clearing policy state")
+    ri.set_home()
+    if hasattr(policy, "reset"):
         policy.reset()
-    if hasattr(policy, "actions"): 
-        policy.actions = None 
-    if hasattr(policy, "debug_actions"): 
+    if hasattr(policy, "actions"):
+        policy.actions = None
+    if hasattr(policy, "debug_actions"):
         policy.debug_actions = None
-        
+
+
 def main(
     arms,
     frequency,
@@ -388,17 +441,21 @@ def main(
             query_frequency=query_frequency,
             cartesian=cartesian,
             extrinsics_key="x5Dec13_2",
-            resampled_action_len=resampled_action_len
+            resampled_action_len=resampled_action_len,
         )
     elif dataset_path is not None:
         rollout_type = "replay"
         policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
     else:
-        raise ValueError("Must provide either --policy-path or --dataset-path (and optionally --repo-id).")
+        raise ValueError(
+            "Must provide either --policy-path or --dataset-path (and optionally --repo-id)."
+        )
 
     print(f"Cartesian value {cartesian}")
 
-    camera_transforms = CameraTransforms(intrinsics_key="base", extrinsics_key="x5Dec13_2")
+    camera_transforms = CameraTransforms(
+        intrinsics_key="base", extrinsics_key="x5Dec13_2"
+    )
     kinematics_solver = EvaMinkKinematicsSolver(
         model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
     )
@@ -432,7 +489,9 @@ def main(
                             raise ValueError(f"Invalid rollout type: {rollout_type}")
 
                         if actions is None:
-                            print("Finish rollout. Press 'r' to restart or 'q' to quit.")
+                            print(
+                                "Finish rollout. Press 'r' to restart or 'q' to quit."
+                            )
                             while True:
                                 ch2 = kp.getch()
                                 if ch2 == "q":
@@ -449,9 +508,19 @@ def main(
 
                             if isinstance(obs["front_img_1"], torch.Tensor):
                                 if obs["front_img_1"].dim() == 4:
-                                    img = obs["front_img_1"][0].permute(1, 2, 0).cpu().numpy()
+                                    img = (
+                                        obs["front_img_1"][0]
+                                        .permute(1, 2, 0)
+                                        .cpu()
+                                        .numpy()
+                                    )
                                 elif obs["front_img_1"].dim() == 3:
-                                    img = obs["front_img_1"].permute(1, 2, 0).cpu().numpy()
+                                    img = (
+                                        obs["front_img_1"]
+                                        .permute(1, 2, 0)
+                                        .cpu()
+                                        .numpy()
+                                    )
                                 else:
                                     img = obs["front_img_1"].cpu().numpy()
                             else:
@@ -461,13 +530,17 @@ def main(
                             img = img.astype(np.uint8)
 
                             for arm in arms_list:
-                                arm_offset = 7 if (arm == "right" and arms == "both") else 0
+                                arm_offset = (
+                                    7 if (arm == "right" and arms == "both") else 0
+                                )
 
                                 if cartesian:
                                     action_xyz = policy.debug_actions[:, :3]
                                 else:
                                     jnts = policy.actions[:, :7]
-                                    actions_xyz = np.zeros((jnts.shape[0], 3), dtype=np.float32)
+                                    actions_xyz = np.zeros(
+                                        (jnts.shape[0], 3), dtype=np.float32
+                                    )
                                     for j in range(actions_xyz.shape[0]):
                                         pos, _rot = kinematics_solver.fk(jnts[j][:6])
                                         actions_xyz[j] = pos
@@ -527,14 +600,14 @@ if __name__ == "__main__":
         action="store_true",
         help="control in cartesian space instead of joint space",
     )
-    
+
     parser.add_argument(
         "--resampled-action-len",
         type=int,
         default=None,
         help="Resample each predicted action chunk to this length (e.g., 100 -> 45). Euler if --cartesian.",
     )
-    
+
     parser.add_argument(
         "--debug",
         action="store_true",
@@ -555,5 +628,5 @@ if __name__ == "__main__":
         episodes=episodes,
         cartesian=args.cartesian,
         debug=args.debug,
-        resampled_action_len=args.resampled_action_len
+        resampled_action_len=args.resampled_action_len,
     )

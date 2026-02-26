@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import argparse
 import csv
-import os
 import json
+import os
 import subprocess
 from pathlib import PurePosixPath
 
-from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
 from sqlalchemy import MetaData, Table, bindparam, update
+
+from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
 
 
 def parse_s3_uri(uri: str | None):
@@ -250,7 +251,9 @@ def main():
     engine = create_default_engine()
     df = episode_table_to_df(engine)
     required_by_bucket, skipped, rldb_paths = collect_required_prefixes(df)
-    print(f"Found {sum(len(v) for v in required_by_bucket.values())} prefixes to check.")
+    print(
+        f"Found {sum(len(v) for v in required_by_bucket.values())} prefixes to check."
+    )
     if skipped:
         print(f"Skipped {skipped} rows without a valid processed_path.")
     report_rldb_paths(rldb_paths)

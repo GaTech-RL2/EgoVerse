@@ -1,14 +1,10 @@
-from torch.utils.data import DataLoader, random_split, default_collate
-from lightning.pytorch.utilities.combined_loader import CombinedLoader
-from lightning import LightningDataModule
-from transformers import AutoTokenizer
-from egomimic.utils.egomimicUtils import nds
-import json
-import os
 import logging
-from egomimic.rldb.utils import RLDBDataset
+
+from lightning import LightningDataModule
+from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from termcolor import cprint
-import torch
+from torch.utils.data import DataLoader, default_collate
+from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +56,9 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
-        collate_max_length = 128,
-        model_name = "google/paligemma-3b-mix-224",
-        use_tokenizer = False, 
+        collate_max_length=128,
+        model_name="google/paligemma-3b-mix-224",
+        use_tokenizer=False,
     ):
         super().__init__()
         self.train_datasets = train_datasets
@@ -76,12 +72,12 @@ class MultiDataModuleWrapper(LightningDataModule):
             )
         else:
             self.collate_fn = default_collate
-        
+
     def train_dataloader(self):
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
             dataset_params = self.train_dataloader_params.get(dataset_name, {})
-            iterables[dataset.embodiment] = DataLoader(
+            iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=True,
                 collate_fn=self.collate_fn,
@@ -94,7 +90,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         iterables = dict()
         for dataset_name, dataset in self.valid_datasets.items():
             dataset_params = self.valid_dataloader_params.get(dataset_name, {})
-            iterables[dataset.embodiment] = DataLoader(
+            iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=False,
                 collate_fn=self.collate_fn,
@@ -121,8 +117,8 @@ class DualDataModuleWrapper(LightningDataModule):
         valid_dataset2,
         train_dataloader_params,
         valid_dataloader_params,
-        collate_max_length = 128,
-        model_name = "google/paligemma-3b-mix-224",
+        collate_max_length=128,
+        model_name="google/paligemma-3b-mix-224",
     ):
         """
         Args:
@@ -147,20 +143,30 @@ class DualDataModuleWrapper(LightningDataModule):
 
     def train_dataloader(self):
         new_dataloader1 = DataLoader(
-            dataset=self.train_dataset1, collate_fn=self.collate_fn, **self.train_dataloader_params
+            dataset=self.train_dataset1,
+            collate_fn=self.collate_fn,
+            **self.train_dataloader_params,
         )
         new_dataloader2 = DataLoader(
-            dataset=self.train_dataset2, collate_fn=self.collate_fn, **self.train_dataloader_params
+            dataset=self.train_dataset2,
+            collate_fn=self.collate_fn,
+            **self.train_dataloader_params,
         )
         return [new_dataloader1, new_dataloader2]
 
     ## to change embodiment sampling freq, just change the batch_size
     def val_dataloader(self):
         new_dataloader1 = DataLoader(
-            dataset=self.valid_dataset1, collate_fn=self.collate_fn, shuffle=False, **self.valid_dataloader_params
+            dataset=self.valid_dataset1,
+            collate_fn=self.collate_fn,
+            shuffle=False,
+            **self.valid_dataloader_params,
         )
         new_dataloader2 = DataLoader(
-            dataset=self.valid_dataset2, collate_fn=self.collate_fn, shuffle=False, **self.valid_dataloader_params
+            dataset=self.valid_dataset2,
+            collate_fn=self.collate_fn,
+            shuffle=False,
+            **self.valid_dataloader_params,
         )
         return [new_dataloader1, new_dataloader2]
 
@@ -182,9 +188,8 @@ class DataModuleWrapper(LightningDataModule):
         valid_dataset,
         train_dataloader_params,
         valid_dataloader_params,
-        collate_max_length = 128,
-        model_name = "google/paligemma-3b-mix-224",
-        
+        collate_max_length=128,
+        model_name="google/paligemma-3b-mix-224",
     ):
         """
         Args:
@@ -202,13 +207,17 @@ class DataModuleWrapper(LightningDataModule):
 
     def train_dataloader(self):
         new_dataloader = DataLoader(
-            dataset=self.train_dataset, collate_fn=self.collate_fn, **self.train_dataloader_params
+            dataset=self.train_dataset,
+            collate_fn=self.collate_fn,
+            **self.train_dataloader_params,
         )
         return new_dataloader
 
     def val_dataloader_1(self):
         new_dataloader = DataLoader(
-            dataset=self.valid_dataset, collate_fn=self.collate_fn, **self.valid_dataloader_params
+            dataset=self.valid_dataset,
+            collate_fn=self.collate_fn,
+            **self.valid_dataloader_params,
         )
         return new_dataloader
 

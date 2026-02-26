@@ -1,15 +1,17 @@
+import os
 import types
+
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
-from egomimic.utils.egomimicUtils import (
-    ee_pose_to_cam_pixels,
-    draw_dot_on_frame,
-)
-from einops import rearrange
-import cv2
 import torchvision.transforms.functional as TVF
-import matplotlib.pyplot as plt
-import os
+from einops import rearrange
+
+from egomimic.utils.egomimicUtils import (
+    draw_dot_on_frame,
+    ee_pose_to_cam_pixels,
+)
 
 
 def get_image(ts, camera_names, device):

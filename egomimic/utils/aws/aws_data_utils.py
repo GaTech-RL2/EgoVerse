@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 import os
+from pathlib import Path
+
 import boto3
 from boto3.s3.transfer import TransferConfig
 
@@ -45,7 +46,10 @@ def s3_sync_to_local(bucket: str, key_prefix: str, local_dir: str | Path) -> Non
 
             s3.download_file(bucket, key, str(dest), Config=config)
 
-def upload_dir_to_s3(local_dir: str, bucket: str, prefix: str = "", concurrency: int = 32):
+
+def upload_dir_to_s3(
+    local_dir: str, bucket: str, prefix: str = "", concurrency: int = 32
+):
     s3 = boto3.client("s3")
     cfg = TransferConfig(
         max_concurrency=concurrency,

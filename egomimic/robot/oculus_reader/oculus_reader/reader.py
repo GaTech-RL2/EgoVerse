@@ -1,11 +1,13 @@
-from oculus_reader.FPS_counter import FPSCounter
-from oculus_reader.buttons_parser import parse_buttons
-import numpy as np
+import os
+import sys
 import threading
 import time
-import os
+
+import numpy as np
 from ppadb.client import Client as AdbClient
-import sys
+
+from oculus_reader.buttons_parser import parse_buttons
+from oculus_reader.FPS_counter import FPSCounter
 
 
 def eprint(*args, **kwargs):

@@ -1,11 +1,11 @@
+import abc
+import math
+from typing import Any, Callable, Optional
+
 import torch
 from torch import nn
-import torch.nn.functional as F
-from typing import Optional, Callable, Any
 from torch.distributions import Normal
-import math
 from torchvision import models as vision_models
-import abc
 
 
 class PositionalEncoding(nn.Module):
@@ -330,7 +330,7 @@ class Transformer(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, src, tgt, auto_masks=False):
-        assert auto_masks == False, "Auto mask not supported"
+        assert not auto_masks, "Auto mask not supported"
         src_mask = tgt_mask = None
 
         if self.src_embed:

@@ -7,17 +7,16 @@ and compares TracIK vs Mink (MuJoCo) solvers to quantify FK/IK, cross gaps,
 and diagnose the remaining configuration-dependent residuals.
 """
 
-import time
-import numpy as np
+import os
 from pathlib import Path
+
+import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+import egomimic
 from egomimic.robot.eva.eva_kinematics import (
-    EvaTracKinematicsSolver,
     EvaMinkKinematicsSolver,
 )
-import os
-import egomimic
 
 EVA_XML_PATH = os.path.join(
     os.path.dirname(egomimic.__file__), "resources/model_x5.xml"
@@ -94,7 +93,7 @@ def test_eva_mink_ik():
     solution = solver.ik(target_pos, target_rot, home_joints)
 
     if solution is not None:
-        print(f"   [OK] IK converged!")
+        print("   [OK] IK converged!")
         print(f"   Solution joints: {solution}")
 
         # Verify with FK
@@ -126,7 +125,7 @@ def test_eva_mink_ik():
             error = np.linalg.norm(achieved_pos_i - target_pos_i)
             print(f"   [OK] Converged (error: {error:.6f} m)")
         else:
-            print(f"   [FAILED] Failed to converge")
+            print("   [FAILED] Failed to converge")
 
     # Test IK with retries
     print("\n5. Testing IK with retries...")
@@ -136,12 +135,12 @@ def test_eva_mink_ik():
     )
 
     if solution_retry is not None:
-        print(f"   [OK] IK with retries succeeded!")
+        print("   [OK] IK with retries succeeded!")
         achieved_pos_r, _ = solver.fk(solution_retry)
         error = np.linalg.norm(achieved_pos_r - difficult_target)
         print(f"   Position error: {error:.6f} m")
     else:
-        print(f"   [FAILED] IK with retries failed")
+        print("   [FAILED] IK with retries failed")
 
     print("\n" + "=" * 60)
     print("Testing completed!")
@@ -151,309 +150,309 @@ def test_eva_mink_ik():
 # -------------------- TracIK vs Mink comparison with FK/IK/CROSS metrics --------------------
 
 
-def compare_solvers():
-    """Compare TracIK solver vs Mink solver and quantify FK/IK/cross gaps."""
-    urdf_path = (
-        Path(__file__).parent.parent / "eva" / "stanford_repo" / "models" / "X5.urdf"
-    )
-    xml_path = Path(EVA_XML_PATH)
-    if not urdf_path.exists() or not xml_path.exists():
-        print("Error: URDF or XML file not found")
-        print(f"  URDF: {urdf_path.exists()} @ {urdf_path}")
-        print(f"  XML : {xml_path.exists()} @ {xml_path}")
-        return
+# def compare_solvers():
+#     """Compare TracIK solver vs Mink solver and quantify FK/IK/cross gaps."""
+#     urdf_path = (
+#         Path(__file__).parent.parent / "eva" / "stanford_repo" / "models" / "X5.urdf"
+#     )
+#     xml_path = Path(EVA_XML_PATH)
+#     if not urdf_path.exists() or not xml_path.exists():
+#         print("Error: URDF or XML file not found")
+#         print(f"  URDF: {urdf_path.exists()} @ {urdf_path}")
+#         print(f"  XML : {xml_path.exists()} @ {xml_path}")
+#         return
 
-    print("\n" + "=" * 60)
-    print("Comparing TracIK vs Mink Solver (with FK/IK/cross-gap metrics)")
-    print("=" * 60)
+#     print("\n" + "=" * 60)
+#     print("Comparing TracIK vs Mink Solver (with FK/IK/cross-gap metrics)")
+#     print("=" * 60)
 
-    # Initialize both solvers
-    print("\nInitializing solvers...")
-    trac_solver = EvaKinematicsSolver(str(urdf_path))
-    mink_solver = EvaMinkKinematicsSolver(
-        model_path=str(xml_path),
-        eef_link_name="tcp_match_trac",
-        eef_frame_type="site",
-        max_iterations=100,
-        position_tolerance=1e-3,
-        orientation_tolerance=1e-3,
-    )
-    print("[OK] Both solvers initialized")
+#     # Initialize both solvers
+#     print("\nInitializing solvers...")
+#     trac_solver = EvaKinematicsSolver(str(urdf_path))
+#     mink_solver = EvaMinkKinematicsSolver(
+#         model_path=str(xml_path),
+#         eef_link_name="tcp_match_trac",
+#         eef_frame_type="site",
+#         max_iterations=100,
+#         position_tolerance=1e-3,
+#         orientation_tolerance=1e-3,
+#     )
+#     print("[OK] Both solvers initialized")
 
-    # Test configuration
-    home_joints = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+#     # Test configuration
+#     home_joints = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
-    # ----------------------------------------------------------------------
-    # 1) FK GAP at the same joint config(s)
-    # ----------------------------------------------------------------------
-    print("\n[1] FK GAP @ home_joints")
-    pos_t, rot_t = trac_solver.fk(home_joints)
-    rot_t = _as_rotation(rot_t)
-    pos_m, rot_m = mink_solver.fk(home_joints)
-    rot_m = _as_rotation(rot_m)
+#     # ----------------------------------------------------------------------
+#     # 1) FK GAP at the same joint config(s)
+#     # ----------------------------------------------------------------------
+#     print("\n[1] FK GAP @ home_joints")
+#     pos_t, rot_t = trac_solver.fk(home_joints)
+#     rot_t = _as_rotation(rot_t)
+#     pos_m, rot_m = mink_solver.fk(home_joints)
+#     rot_m = _as_rotation(rot_m)
 
-    fk_pos_err = np.linalg.norm(pos_t - pos_m)
-    fk_rot_err = _rot_geodesic(rot_t, rot_m)
-    print(
-        f"   Trac FK @ home: pos={pos_t}, euler(deg)={rot_t.as_euler('xyz', degrees=True)}"
-    )
-    print(
-        f"   Mink FK @ home: pos={pos_m}, euler(deg)={rot_m.as_euler('xyz', degrees=True)}"
-    )
-    print(f"   FK position gap [m]: {fk_pos_err:.6e}")
-    print(f"   FK rotation gap [rad]: {fk_rot_err:.6e}")
+#     fk_pos_err = np.linalg.norm(pos_t - pos_m)
+#     fk_rot_err = _rot_geodesic(rot_t, rot_m)
+#     print(
+#         f"   Trac FK @ home: pos={pos_t}, euler(deg)={rot_t.as_euler('xyz', degrees=True)}"
+#     )
+#     print(
+#         f"   Mink FK @ home: pos={pos_m}, euler(deg)={rot_m.as_euler('xyz', degrees=True)}"
+#     )
+#     print(f"   FK position gap [m]: {fk_pos_err:.6e}")
+#     print(f"   FK rotation gap [rad]: {fk_rot_err:.6e}")
 
-    # ----------------------------------------------------------------------
-    # 2) IK GAP to a shared target (10 cm forward from TRAC FK pose)
-    # ----------------------------------------------------------------------
-    print("\n[2] IK GAP to a shared target (10 cm forward from Trac FK pose)")
-    target_pos = pos_t + np.array([0.1, 0.0, 0.0])
-    target_rot = rot_t  # keep orientation identical to Trac FK
+#     # ----------------------------------------------------------------------
+#     # 2) IK GAP to a shared target (10 cm forward from TRAC FK pose)
+#     # ----------------------------------------------------------------------
+#     print("\n[2] IK GAP to a shared target (10 cm forward from Trac FK pose)")
+#     target_pos = pos_t + np.array([0.1, 0.0, 0.0])
+#     target_rot = rot_t  # keep orientation identical to Trac FK
 
-    print(f"   Target position (TRAC-based): {target_pos}")
-    start = time.time()
-    trac_solution = trac_solver.ik(target_pos, _as_matrix(target_rot), home_joints)
-    trac_time = (time.time() - start) * 1000.0
+#     print(f"   Target position (TRAC-based): {target_pos}")
+#     start = time.time()
+#     trac_solution = trac_solver.ik(target_pos, _as_matrix(target_rot), home_joints)
+#     trac_time = (time.time() - start) * 1000.0
 
-    start = time.time()
-    mink_solution = mink_solver.ik(target_pos, _as_matrix(target_rot), home_joints)
-    mink_time = (time.time() - start) * 1000.0
+#     start = time.time()
+#     mink_solution = mink_solver.ik(target_pos, _as_matrix(target_rot), home_joints)
+#     mink_time = (time.time() - start) * 1000.0
 
-    print(f"   TracIK time: {trac_time:.2f} ms")
-    print(f"   Mink time:  {mink_time:.2f} ms")
+#     print(f"   TracIK time: {trac_time:.2f} ms")
+#     print(f"   Mink time:  {mink_time:.2f} ms")
 
-    if trac_solution is not None:
-        pA, rA = trac_solver.fk(trac_solution)
-        rA = _as_rotation(rA)
-        pos_errA = np.linalg.norm(pA - target_pos)
-        rot_errA = _rot_geodesic(rA, target_rot)
-        print(
-            f"   TracIK achieved pos: {pA} | pos_err={pos_errA:.6e} m | rot_err={rot_errA:.6e} rad"
-        )
-    else:
-        print("   TracIK failed on TRAC-based shared target")
+#     if trac_solution is not None:
+#         pA, rA = trac_solver.fk(trac_solution)
+#         rA = _as_rotation(rA)
+#         pos_errA = np.linalg.norm(pA - target_pos)
+#         rot_errA = _rot_geodesic(rA, target_rot)
+#         print(
+#             f"   TracIK achieved pos: {pA} | pos_err={pos_errA:.6e} m | rot_err={rot_errA:.6e} rad"
+#         )
+#     else:
+#         print("   TracIK failed on TRAC-based shared target")
 
-    if mink_solution is not None:
-        pB, rB = mink_solver.fk(mink_solution)
-        rB = _as_rotation(rB)
-        pos_errB = np.linalg.norm(pB - target_pos)
-        rot_errB = _rot_geodesic(rB, target_rot)
-        print(
-            f"   Mink achieved pos:  {pB} | pos_err={pos_errB:.6e} m | rot_err={rot_errB:.6e} rad"
-        )
-    else:
-        print("   Mink failed on TRAC-based shared target")
+#     if mink_solution is not None:
+#         pB, rB = mink_solver.fk(mink_solution)
+#         rB = _as_rotation(rB)
+#         pos_errB = np.linalg.norm(pB - target_pos)
+#         rot_errB = _rot_geodesic(rB, target_rot)
+#         print(
+#             f"   Mink achieved pos:  {pB} | pos_err={pos_errB:.6e} m | rot_err={rot_errB:.6e} rad"
+#         )
+#     else:
+#         print("   Mink failed on TRAC-based shared target")
 
-    if trac_solution is not None and mink_solution is not None:
-        jdelta = np.linalg.norm(trac_solution - mink_solution)
-        print(
-            f"   Joint-space Δ between solvers (TRAC-based target) [L2]: {jdelta:.6e}"
-        )
+#     if trac_solution is not None and mink_solution is not None:
+#         jdelta = np.linalg.norm(trac_solution - mink_solution)
+#         print(
+#             f"   Joint-space Δ between solvers (TRAC-based target) [L2]: {jdelta:.6e}"
+#         )
 
-    # ----------------------------------------------------------------------
-    # 2b) IK GAP to a shared target (10 cm forward from MINK FK pose)
-    # ----------------------------------------------------------------------
-    print("\n[2b] IK GAP to a shared target (10 cm forward from MINK FK pose)")
-    target_pos2 = pos_m + np.array([0.1, 0.0, 0.0])
-    target_rot2 = rot_m  # keep orientation identical to MINK FK
+#     # ----------------------------------------------------------------------
+#     # 2b) IK GAP to a shared target (10 cm forward from MINK FK pose)
+#     # ----------------------------------------------------------------------
+#     print("\n[2b] IK GAP to a shared target (10 cm forward from MINK FK pose)")
+#     target_pos2 = pos_m + np.array([0.1, 0.0, 0.0])
+#     target_rot2 = rot_m  # keep orientation identical to MINK FK
 
-    print(f"   Target position (MINK-based): {target_pos2}")
-    start = time.time()
-    trac_solution2 = trac_solver.ik(target_pos2, _as_matrix(target_rot2), home_joints)
-    trac_time2 = (time.time() - start) * 1000.0
+#     print(f"   Target position (MINK-based): {target_pos2}")
+#     start = time.time()
+#     trac_solution2 = trac_solver.ik(target_pos2, _as_matrix(target_rot2), home_joints)
+#     trac_time2 = (time.time() - start) * 1000.0
 
-    start = time.time()
-    mink_solution2 = mink_solver.ik(target_pos2, _as_matrix(target_rot2), home_joints)
-    mink_time2 = (time.time() - start) * 1000.0
+#     start = time.time()
+#     mink_solution2 = mink_solver.ik(target_pos2, _as_matrix(target_rot2), home_joints)
+#     mink_time2 = (time.time() - start) * 1000.0
 
-    print(f"   TracIK time: {trac_time2:.2f} ms")
-    print(f"   Mink time:  {mink_time2:.2f} ms")
+#     print(f"   TracIK time: {trac_time2:.2f} ms")
+#     print(f"   Mink time:  {mink_time2:.2f} ms")
 
-    if trac_solution2 is not None:
-        pA2, rA2 = trac_solver.fk(trac_solution2)
-        rA2 = _as_rotation(rA2)
-        pos_errA2 = np.linalg.norm(pA2 - target_pos2)
-        rot_errA2 = _rot_geodesic(rA2, target_rot2)
-        print(
-            f"   TracIK achieved pos: {pA2} | pos_err={pos_errA2:.6e} m | rot_err={rot_errA2:.6e} rad"
-        )
-    else:
-        print("   TracIK failed on MINK-based shared target")
+#     if trac_solution2 is not None:
+#         pA2, rA2 = trac_solver.fk(trac_solution2)
+#         rA2 = _as_rotation(rA2)
+#         pos_errA2 = np.linalg.norm(pA2 - target_pos2)
+#         rot_errA2 = _rot_geodesic(rA2, target_rot2)
+#         print(
+#             f"   TracIK achieved pos: {pA2} | pos_err={pos_errA2:.6e} m | rot_err={rot_errA2:.6e} rad"
+#         )
+#     else:
+#         print("   TracIK failed on MINK-based shared target")
 
-    if mink_solution2 is not None:
-        pB2, rB2 = mink_solver.fk(mink_solution2)
-        rB2 = _as_rotation(rB2)
-        pos_errB2 = np.linalg.norm(pB2 - target_pos2)
-        rot_errB2 = _rot_geodesic(rB2, target_rot2)
-        print(
-            f"   Mink achieved pos:  {pB2} | pos_err={pos_errB2:.6e} m | rot_err={rot_errB2:.6e} rad"
-        )
-    else:
-        print("   Mink failed on MINK-based shared target")
+#     if mink_solution2 is not None:
+#         pB2, rB2 = mink_solver.fk(mink_solution2)
+#         rB2 = _as_rotation(rB2)
+#         pos_errB2 = np.linalg.norm(pB2 - target_pos2)
+#         rot_errB2 = _rot_geodesic(rB2, target_rot2)
+#         print(
+#             f"   Mink achieved pos:  {pB2} | pos_err={pos_errB2:.6e} m | rot_err={rot_errB2:.6e} rad"
+#         )
+#     else:
+#         print("   Mink failed on MINK-based shared target")
 
-    if trac_solution2 is not None and mink_solution2 is not None:
-        jdelta2 = np.linalg.norm(trac_solution2 - mink_solution2)
-        print(
-            f"   Joint-space Δ between solvers (MINK-based target) [L2]: {jdelta2:.6e}"
-        )
+#     if trac_solution2 is not None and mink_solution2 is not None:
+#         jdelta2 = np.linalg.norm(trac_solution2 - mink_solution2)
+#         print(
+#             f"   Joint-space Δ between solvers (MINK-based target) [L2]: {jdelta2:.6e}"
+#         )
 
-    # ----------------------------------------------------------------------
-    # 3) CROSS-GAP: “FK of one” → “IK of the other” (both directions).
-    # ----------------------------------------------------------------------
-    print("\n[3] CROSS-GAP (targets from each solver’s FK, solved by the other)")
+#     # ----------------------------------------------------------------------
+#     # 3) CROSS-GAP: “FK of one” → “IK of the other” (both directions).
+#     # ----------------------------------------------------------------------
+#     print("\n[3] CROSS-GAP (targets from each solver’s FK, solved by the other)")
 
-    # 3a) Use TRAC FK pose as the target → solve with MINK
-    print("\n   [3a] TRAC FK pose as target → MINK IK")
-    trac_target_pos, trac_target_rot = pos_t, rot_t
-    mink_on_trac = mink_solver.ik(
-        trac_target_pos, _as_matrix(trac_target_rot), home_joints
-    )
-    if mink_on_trac is not None:
-        p_m_on_t, r_m_on_t = mink_solver.fk(mink_on_trac)
-        r_m_on_t = _as_rotation(r_m_on_t)
-        pos_err_mt = np.linalg.norm(p_m_on_t - trac_target_pos)
-        rot_err_mt = _rot_geodesic(r_m_on_t, trac_target_rot)
-        print(
-            f"      Mink→(Trac target) pos_err={pos_err_mt:.6e} m | rot_err={rot_err_mt:.6e} rad"
-        )
-    else:
-        print("      Mink failed to hit Trac FK pose")
+#     # 3a) Use TRAC FK pose as the target → solve with MINK
+#     print("\n   [3a] TRAC FK pose as target → MINK IK")
+#     trac_target_pos, trac_target_rot = pos_t, rot_t
+#     mink_on_trac = mink_solver.ik(
+#         trac_target_pos, _as_matrix(trac_target_rot), home_joints
+#     )
+#     if mink_on_trac is not None:
+#         p_m_on_t, r_m_on_t = mink_solver.fk(mink_on_trac)
+#         r_m_on_t = _as_rotation(r_m_on_t)
+#         pos_err_mt = np.linalg.norm(p_m_on_t - trac_target_pos)
+#         rot_err_mt = _rot_geodesic(r_m_on_t, trac_target_rot)
+#         print(
+#             f"      Mink→(Trac target) pos_err={pos_err_mt:.6e} m | rot_err={rot_err_mt:.6e} rad"
+#         )
+#     else:
+#         print("      Mink failed to hit Trac FK pose")
 
-    # 3b) Use MINK FK pose as the target → solve with TRAC
-    print("\n   [3b] MINK FK pose as target → TRAC IK")
-    mink_target_pos, mink_target_rot = pos_m, rot_m
-    trac_on_mink = trac_solver.ik(
-        mink_target_pos, _as_matrix(mink_target_rot), home_joints
-    )
-    if trac_on_mink is not None:
-        p_t_on_m, r_t_on_m = trac_solver.fk(trac_on_mink)
-        r_t_on_m = _as_rotation(r_t_on_m)
-        pos_err_tm = np.linalg.norm(p_t_on_m - mink_target_pos)
-        rot_err_tm = _rot_geodesic(r_t_on_m, mink_target_rot)
-        print(
-            f"      Trac→(Mink target) pos_err={pos_err_tm:.6e} m | rot_err={rot_err_tm:.6e} rad"
-        )
-    else:
-        print("      Trac failed to hit Mink FK pose")
+#     # 3b) Use MINK FK pose as the target → solve with TRAC
+#     print("\n   [3b] MINK FK pose as target → TRAC IK")
+#     mink_target_pos, mink_target_rot = pos_m, rot_m
+#     trac_on_mink = trac_solver.ik(
+#         mink_target_pos, _as_matrix(mink_target_rot), home_joints
+#     )
+#     if trac_on_mink is not None:
+#         p_t_on_m, r_t_on_m = trac_solver.fk(trac_on_mink)
+#         r_t_on_m = _as_rotation(r_t_on_m)
+#         pos_err_tm = np.linalg.norm(p_t_on_m - mink_target_pos)
+#         rot_err_tm = _rot_geodesic(r_t_on_m, mink_target_rot)
+#         print(
+#             f"      Trac→(Mink target) pos_err={pos_err_tm:.6e} m | rot_err={rot_err_tm:.6e} rad"
+#         )
+#     else:
+#         print("      Trac failed to hit Mink FK pose")
 
-    # ----------------------------------------------------------------------
-    # 4) Additional shared targets (from TRAC FK pose)
-    # ----------------------------------------------------------------------
-    print("\n[4] Additional shared targets (up/right/diagonal from TRAC FK pose)")
-    extra_targets = [
-        ("Move up", pos_t + np.array([0.0, 0.0, 0.1])),
-        ("Move right", pos_t + np.array([0.0, 0.1, 0.0])),
-        ("Move diagonal", pos_t + np.array([0.05, 0.05, 0.05])),
-    ]
+#     # ----------------------------------------------------------------------
+#     # 4) Additional shared targets (from TRAC FK pose)
+#     # ----------------------------------------------------------------------
+#     print("\n[4] Additional shared targets (up/right/diagonal from TRAC FK pose)")
+#     extra_targets = [
+#         ("Move up", pos_t + np.array([0.0, 0.0, 0.1])),
+#         ("Move right", pos_t + np.array([0.0, 0.1, 0.0])),
+#         ("Move diagonal", pos_t + np.array([0.05, 0.05, 0.05])),
+#     ]
 
-    for name, tpos in extra_targets:
-        print(f"\n   {name}: {tpos}")
-        tA = trac_solver.ik(tpos, _as_matrix(rot_t), home_joints)
-        tB = mink_solver.ik(tpos, _as_matrix(rot_t), home_joints)
+#     for name, tpos in extra_targets:
+#         print(f"\n   {name}: {tpos}")
+#         tA = trac_solver.ik(tpos, _as_matrix(rot_t), home_joints)
+#         tB = mink_solver.ik(tpos, _as_matrix(rot_t), home_joints)
 
-        if tA is not None:
-            pA, rA = trac_solver.fk(tA)
-            rA = _as_rotation(rA)
-            eposA = np.linalg.norm(pA - tpos)
-            erotA = _rot_geodesic(rA, rot_t)
-            print(
-                f"      Trac achieved pos_err={eposA:.6e} m | rot_err={erotA:.6e} rad"
-            )
-        else:
-            print("      Trac failed")
+#         if tA is not None:
+#             pA, rA = trac_solver.fk(tA)
+#             rA = _as_rotation(rA)
+#             eposA = np.linalg.norm(pA - tpos)
+#             erotA = _rot_geodesic(rA, rot_t)
+#             print(
+#                 f"      Trac achieved pos_err={eposA:.6e} m | rot_err={erotA:.6e} rad"
+#             )
+#         else:
+#             print("      Trac failed")
 
-        if tB is not None:
-            pB, rB = mink_solver.fk(tB)
-            rB = _as_rotation(rB)
-            eposB = np.linalg.norm(pB - tpos)
-            erotB = _rot_geodesic(rB, rot_t)
-            print(
-                f"      Mink achieved pos_err={eposB:.6e} m | rot_err={erotB:.6e} rad"
-            )
-        else:
-            print("      Mink failed")
+#         if tB is not None:
+#             pB, rB = mink_solver.fk(tB)
+#             rB = _as_rotation(rB)
+#             eposB = np.linalg.norm(pB - tpos)
+#             erotB = _rot_geodesic(rB, rot_t)
+#             print(
+#                 f"      Mink achieved pos_err={eposB:.6e} m | rot_err={erotB:.6e} rad"
+#             )
+#         else:
+#             print("      Mink failed")
 
-        if tA is not None and tB is not None:
-            jdelta = np.linalg.norm(tA - tB)
-            print(f"      Joint-space Δ (same target) [L2]: {jdelta:.6e}")
+#         if tA is not None and tB is not None:
+#             jdelta = np.linalg.norm(tA - tB)
+#             print(f"      Joint-space Δ (same target) [L2]: {jdelta:.6e}")
 
-    # ----------------------------------------------------------------------
-    # 4b) Additional shared targets (from MINK FK pose)  ← reverse sweep
-    # ----------------------------------------------------------------------
-    print("\n[4b] Additional shared targets (up/right/diagonal from MINK FK pose)")
-    extra_targets_mink = [
-        ("Move up", pos_m + np.array([0.0, 0.0, 0.1])),
-        ("Move right", pos_m + np.array([0.0, 0.1, 0.0])),
-        ("Move diagonal", pos_m + np.array([0.05, 0.05, 0.05])),
-    ]
+#     # ----------------------------------------------------------------------
+#     # 4b) Additional shared targets (from MINK FK pose)  ← reverse sweep
+#     # ----------------------------------------------------------------------
+#     print("\n[4b] Additional shared targets (up/right/diagonal from MINK FK pose)")
+#     extra_targets_mink = [
+#         ("Move up", pos_m + np.array([0.0, 0.0, 0.1])),
+#         ("Move right", pos_m + np.array([0.0, 0.1, 0.0])),
+#         ("Move diagonal", pos_m + np.array([0.05, 0.05, 0.05])),
+#     ]
 
-    for name, tpos in extra_targets_mink:
-        print(f"\n   {name}: {tpos}")
-        tA = trac_solver.ik(tpos, _as_matrix(rot_m), home_joints)
-        tB = mink_solver.ik(tpos, _as_matrix(rot_m), home_joints)
+#     for name, tpos in extra_targets_mink:
+#         print(f"\n   {name}: {tpos}")
+#         tA = trac_solver.ik(tpos, _as_matrix(rot_m), home_joints)
+#         tB = mink_solver.ik(tpos, _as_matrix(rot_m), home_joints)
 
-        if tA is not None:
-            pA, rA = trac_solver.fk(tA)
-            rA = _as_rotation(rA)
-            eposA = np.linalg.norm(pA - tpos)
-            erotA = _rot_geodesic(rA, rot_m)
-            print(
-                f"      Trac achieved pos_err={eposA:.6e} m | rot_err={erotA:.6e} rad"
-            )
-        else:
-            print("      Trac failed")
+#         if tA is not None:
+#             pA, rA = trac_solver.fk(tA)
+#             rA = _as_rotation(rA)
+#             eposA = np.linalg.norm(pA - tpos)
+#             erotA = _rot_geodesic(rA, rot_m)
+#             print(
+#                 f"      Trac achieved pos_err={eposA:.6e} m | rot_err={erotA:.6e} rad"
+#             )
+#         else:
+#             print("      Trac failed")
 
-        if tB is not None:
-            pB, rB = mink_solver.fk(tB)
-            rB = _as_rotation(rB)
-            eposB = np.linalg.norm(pB - tpos)
-            erotB = _rot_geodesic(rB, rot_m)
-            print(
-                f"      Mink achieved pos_err={eposB:.6e} m | rot_err={erotB:.6e} rad"
-            )
-        else:
-            print("      Mink failed")
+#         if tB is not None:
+#             pB, rB = mink_solver.fk(tB)
+#             rB = _as_rotation(rB)
+#             eposB = np.linalg.norm(pB - tpos)
+#             erotB = _rot_geodesic(rB, rot_m)
+#             print(
+#                 f"      Mink achieved pos_err={eposB:.6e} m | rot_err={erotB:.6e} rad"
+#             )
+#         else:
+#             print("      Mink failed")
 
-        if tA is not None and tB is not None:
-            jdelta = np.linalg.norm(tA - tB)
-            print(f"      Joint-space Δ (same target) [L2]: {jdelta:.6e}")
+#         if tA is not None and tB is not None:
+#             jdelta = np.linalg.norm(tA - tB)
+#             print(f"      Joint-space Δ (same target) [L2]: {jdelta:.6e}")
 
-    # ----------------------------------------------------------------------
-    # 5) Estimate a constant Trac→Mink SE(3) and validate it
-    # ----------------------------------------------------------------------
-    R_off, t_off = estimate_and_validate_offset(
-        trac_solver,
-        mink_solver,
-        pos_t,
-        rot_t,  # TRAC FK at home
-        pos_m,
-        rot_m,  # MINK FK at home
-        home_joints,
-    )
+#     # ----------------------------------------------------------------------
+#     # 5) Estimate a constant Trac→Mink SE(3) and validate it
+#     # ----------------------------------------------------------------------
+#     R_off, t_off = estimate_and_validate_offset(
+#         trac_solver,
+#         mink_solver,
+#         pos_t,
+#         rot_t,  # TRAC FK at home
+#         pos_m,
+#         rot_m,  # MINK FK at home
+#         home_joints,
+#     )
 
-    # ----------------------------------------------------------------------
-    # 6) Deep-dive diagnostics: variance, PCA, joint correlations, Jacobians
-    # ----------------------------------------------------------------------
-    run_gap_diagnostics(trac_solver, mink_solver, R_off, t_off, seed=3)
+#     # ----------------------------------------------------------------------
+#     # 6) Deep-dive diagnostics: variance, PCA, joint correlations, Jacobians
+#     # ----------------------------------------------------------------------
+#     run_gap_diagnostics(trac_solver, mink_solver, R_off, t_off, seed=3)
 
-    print("\n" + "=" * 60)
-    print("Summary / Reading the metrics")
-    print("=" * 60)
-    print(
-        "- FK GAP: pure forward mismatch at identical joints; near-constant bias ⇒ frame/site/tool offset."
-    )
-    print(
-        "- IK GAP ([2] TRAC-based, [2b] MINK-based): how close each gets to the same Cartesian target; compare joint Δ too."
-    )
-    print(
-        "- CROSS-GAP ([3]): using one solver’s FK as target for the other isolates frame/orientation convention differences."
-    )
-    print(
-        "- [4] and [4b]: directional consistency checks around each solver’s native FK pose."
-    )
-    print(
-        "- [5],[6]: estimate constant SE(3) and diagnose residual variance to find which joints/links cause the gap."
-    )
+#     print("\n" + "=" * 60)
+#     print("Summary / Reading the metrics")
+#     print("=" * 60)
+#     print(
+#         "- FK GAP: pure forward mismatch at identical joints; near-constant bias ⇒ frame/site/tool offset."
+#     )
+#     print(
+#         "- IK GAP ([2] TRAC-based, [2b] MINK-based): how close each gets to the same Cartesian target; compare joint Δ too."
+#     )
+#     print(
+#         "- CROSS-GAP ([3]): using one solver’s FK as target for the other isolates frame/orientation convention differences."
+#     )
+#     print(
+#         "- [4] and [4b]: directional consistency checks around each solver’s native FK pose."
+#     )
+#     print(
+#         "- [5],[6]: estimate constant SE(3) and diagnose residual variance to find which joints/links cause the gap."
+#     )
 
 
 # -------------------- SE(3) estimation + validation --------------------
@@ -764,7 +763,7 @@ def _fit_joint_zero_offsets_on_rot(trac_solver, mink_solver, Q):
     Linearize orientation residual in rotvec space: r ≈ J_rot * delta_q.
     Solve least squares for delta_q. Report pre/post orientation residual norms.
     """
-    dof = Q.shape[1]
+    _ = Q.shape[1]
     Rs = []
     Jall = []
     for q in Q:
@@ -805,15 +804,11 @@ def run_gap_diagnostics(trac_solver, mink_solver, R_off, t_off, seed=2):
     # Residuals pre- and post- SE3 compensation
     # Pre:
     dP_pre = pM - pT
-    dR_pre = np.array(
-        [(RT[i].inv() * RM[i]).as_rotvec() for i in range(len(Q))]
-    )  # (N,3)
+    _ = np.array([(RT[i].inv() * RM[i]).as_rotvec() for i in range(len(Q))])  # (N,3)
     # Post (apply Trac→Mink offset):
     pT_comp = R_off.apply(pT) + t_off
     dP_post = pM - pT_comp
-    dR_post = np.array(
-        [((R_off * RT[i]).inv() * RM[i]).as_rotvec() for i in range(len(Q))]
-    )
+    _ = np.array([((R_off * RT[i]).inv() * RM[i]).as_rotvec() for i in range(len(Q))])
 
     # Variance & PCA (position part)
     pre_var = dP_pre.var(axis=0)

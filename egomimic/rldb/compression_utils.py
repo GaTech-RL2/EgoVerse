@@ -1,11 +1,12 @@
 # Description: Utility functions for compressing and decompressing video data.
+import contextlib
+import io
 import json
+import os
+
+import av
 import numpy as np
 import simplejpeg
-import io
-import av
-import contextlib
-import os
 
 
 # context manager to suppress AV library output
@@ -100,11 +101,9 @@ def decode_video(compressed_data, metadata):
     """
     metadata = json.loads(metadata)
     method = metadata["method"]
-    shape = metadata["shape"]
 
     if method == "JPEG":
         lengths = metadata["lengths"]
-        quality = metadata.get("quality", 85)
 
         frames = []
         offset = 0
@@ -117,8 +116,6 @@ def decode_video(compressed_data, metadata):
         return np.stack(frames)
 
     elif method == "H265":
-        fps = metadata["fps"]
-
         container = av.open(io.BytesIO(compressed_data))
         stream = container.streams.video[0]
 

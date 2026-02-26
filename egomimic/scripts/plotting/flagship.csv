@@ -1,0 +1,27 @@
+,,,Co-train = 8h EgoVerse-Diverse + 2h in-domain,,,,,
+,,In-domain(20 rollouts),,New object (10 rollouts),,New object + new scene (10 rollouts),,
+Team,Task Name,Robot-Only (ID),Co-train (ID),Robot-Only (New Object),Co-train (New Object),Robot-Only (New Object + Scene),Co-train (New Object + Scene),Normalization
+GT,Object_in_container,0.425,0.51875,0.10625,0.35,0,0,1
+GT,Put_cup_on_saucer,0.3,0.45,0,0.2,0,0,1
+GT,Bag_groceries,0.25,0.375,0.25,0.3,0,0.05,1
+GT,Fold_clothes,0.5,0.8,0.6,0.6,0,0.4,1
+GT,Scoop_granular,,,,,,,1
+GT,Sort_utensils,,,,,,,1
+Stanford,Object_in_container,0.3,0.25,0.1,0.625,0,0.05,1
+Stanford,Put_cup_on_saucer,0.4,0.7,0.1,0.3,0,0.4,1
+Stanford,Bag_groceries,0.425,0.1,0.25,0.225,0.025,0.05,1
+Stanford,Fold_clothes,,,,,,,1
+Stanford,Scoop_granular,,,,,,,1
+Stanford,Sort_utensils,,,,,,,1
+UCSD,Object_in_container,0.45,0.45,0.2,0.475,0,0.075,1
+UCSD,Put_cup_on_saucer,0.2,0.25,0.2,0.3,0,0.05,1
+UCSD,Bag_groceries,0.3,0.4125,0.1,0.325,0.1,0.4,1
+UCSD,Fold_clothes,,,,,,,
+UCSD,Scoop_granular,,,,,,,
+UCSD,Sort_utensils,,,,,,,
+ETH,Object_in_container,,,,,,,
+ETH,Put_cup_on_saucer,,,,,,,
+ETH,Bag_groceries,,,,,,,
+ETH,Fold_clothes,,,,,,,
+ETH,Scoop_granular,,,,,,,
+ETH,Sort_utensils,,,,,,,

@@ -1,12 +1,11 @@
-import os
-
-folder_path = os.path.join(os.path.dirname(__file__))
-
-import numpy as np
-import cv2
 import argparse
-import json
+
+import cv2
 import h5py
+import matplotlib.pyplot as plt
+import numpy as np
+from rpl_vision_utils.utils.apriltag_detector import AprilTagDetector
+from scipy.spatial.transform import Rotation as Rot
 from tqdm import tqdm
 
 from egomimic.utils.egomimicUtils import (
@@ -14,10 +13,6 @@ from egomimic.utils.egomimicUtils import (
     # WIDE_LENS_ROBOT_LEFT_D,
     ARIA_INTRINSICS,
 )
-
-from scipy.spatial.transform import Rotation as Rot
-import matplotlib.pyplot as plt
-from rpl_vision_utils.utils.apriltag_detector import AprilTagDetector
 
 
 def parse_args():
@@ -102,7 +97,6 @@ def main():
 
                 continue
 
-            bounding_box_corners = detect_result[0].corners
             # draw bounding box on img and save
             if args.debug:
                 img = april_detector.vis_tag(img)

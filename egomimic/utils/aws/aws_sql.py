@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 
 import boto3
 from sqlalchemy import (
@@ -14,7 +15,7 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime, timezone
+
 
 @dataclass
 class TableRow:
@@ -29,7 +30,10 @@ class TableRow:
     scene: str = ""
     objects: str = ""
     processed_path: str = ""  # Updateable
+    zarr_processed_path: str = ""  # Updateable
+    zarr_mp4_path: str = ""  # Updateable
     processing_error: str = ""  # Updateable
+    zarr_processing_error: str = ""  # Updateable
     mp4_path: str = ""  # Updateable
     is_deleted: bool = False
     is_eval: bool = False
@@ -50,8 +54,9 @@ def create_default_engine():
         PASSWORD = cfg.get("password", cfg.get("PASSWORD"))
         PORT = cfg.get("port", 5432)
     else:
+        print("Using hardcoded DB Credentials (ok for local testing)")
         # Fallback to hardcoded values for local testing
-        HOST = "lowuse-pg-east2.claua8sacyu5.us-east-2.rds.amazonaws.com"
+        HOST = "lowuse-pg-east2.cdc8824mase4.us-east-2.rds.amazonaws.com"
         DBNAME = "appdb"
         USER = "appuser"
         PASSWORD = "APPUSER_STRONG_PW"
@@ -166,6 +171,7 @@ def episode_table_to_df(engine):
             print("No rows found in table 'episodes'.")
             return df
 
+
 def episode_hash_to_timestamp_ms(timestamp_str):
     """
     Convert a string like "2026-01-12-03-47-29-664000" to UTC epoch milliseconds.
@@ -174,3 +180,16 @@ def episode_hash_to_timestamp_ms(timestamp_str):
         tzinfo=timezone.utc
     )
     return int(dt.timestamp() * 1000)
+
+
+def timestamp_ms_to_episode_hash(timestamp_ms):
+    """
+    Convert UTC epoch milliseconds like 1769460905119 to
+    "YYYY-MM-DD-HH-MM-SS-ffffff".
+    """
+    timestamp_ms = int(timestamp_ms)
+    seconds, milliseconds = divmod(timestamp_ms, 1000)
+    dt = datetime.fromtimestamp(seconds, tz=timezone.utc).replace(
+        microsecond=milliseconds * 1000
+    )
+    return dt.strftime("%Y-%m-%d-%H-%M-%S-%f")

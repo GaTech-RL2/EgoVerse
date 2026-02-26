@@ -1,24 +1,25 @@
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-import torchvision.transforms.functional as TF
-import torch
-from scipy.spatial.transform import Rotation
-import pytorch_kinematics as pk
-import egomimic
+import argparse
+import math
 import os
-import torchvision.transforms.v2.functional as TVTF
-import scipy
 from numbers import Number
-from enum import Enum
-import torch.nn as nn
+from pathlib import Path
+
+import cv2
 import einops
+import huggingface_hub
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
-import huggingface_hub
-import math
-import argparse
-from pathlib import Path
+import pytorch_kinematics as pk
+import scipy
+import torch
+import torch.nn as nn
+import torchvision.transforms.functional as TF
+import torchvision.transforms.v2.functional as TVTF
+from scipy.spatial.transform import Rotation
+
+import egomimic
 
 STD_SCALE = 0.02
 
@@ -38,9 +39,13 @@ ARIA_INTRINSICS_HALF = np.array(
     ]
 )
 
+SCALE_INTRINSICS = np.array(
+    [[214.134, 0.0, 324.593, 0], [0.0, 256.968, 260.146, 0], [0.0, 0.0, 1.0, 0]]
+)
+
 w0, h0 = float(1920), float(1080)
 fx0, fy0 = float(752.4707352849115), float(753.0015979987369)
-cx0, cy0 = float(961.8249427694457),  float(553.245895705989)
+cx0, cy0 = float(961.8249427694457), float(553.245895705989)
 k1 = float(0.053237960122440905)
 k2 = float(-0.030832938752312588)
 p1 = float(0.007216253952233802)
@@ -51,9 +56,9 @@ sy = 360 / h0
 fx, fy = fx0 * sx, fy0 * sy
 cx, cy = cx0 * sx, cy0 * sy
 
-MECKA_INTRINSICS = np.array([[fx, 0.0, cx, 0],
-              [0.0, fy, cy, 0],
-              [0.0, 0.0, 1.0, 0]], dtype=np.float64)
+MECKA_INTRINSICS = np.array(
+    [[fx, 0.0, cx, 0], [0.0, fy, cy, 0], [0.0, 0.0, 1.0, 0]], dtype=np.float64
+)
 
 # Cam to base extrinsics
 EXTRINSICS = {
@@ -146,14 +151,22 @@ EXTRINSICS = {
         ),
     },
     "ariaOct18_arx": {
-        "right" : np.array([[ 0.92889757,  0.36039153, -0.08524815,  0.30147348],
-       [-0.32558192,  0.68501478, -0.65172936,  0.06826981],
-       [-0.1764815 ,  0.63314508,  0.75364554,  0.61726764],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
-        "left" : np.array([[ 0.67106869,  0.09057156,  0.73584211,  0.37354573],
-       [ 0.01770855,  0.99026867, -0.13803754,  0.22691753],
-       [-0.74118367,  0.10566337,  0.66293441,  0.72137284],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+        "right": np.array(
+            [
+                [0.92889757, 0.36039153, -0.08524815, 0.30147348],
+                [-0.32558192, 0.68501478, -0.65172936, 0.06826981],
+                [-0.1764815, 0.63314508, 0.75364554, 0.61726764],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+        "left": np.array(
+            [
+                [0.67106869, 0.09057156, 0.73584211, 0.37354573],
+                [0.01770855, 0.99026867, -0.13803754, 0.22691753],
+                [-0.74118367, 0.10566337, 0.66293441, 0.72137284],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
     },
     "x5Nov15_2": {
         "right": np.array(
@@ -164,10 +177,14 @@ EXTRINSICS = {
                 [0.0, 0.0, 0.0, 1.0],
             ]
         ),
-       "left": np. array([[-0.03286194, -0.79989118,  0.59924469,  0.03464527],
-       [-0.9994423 ,  0.02274144, -0.02445234, -0.25152234],
-       [ 0.00593152, -0.59971404, -0.80019241,  0.5092148 ],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
+        "left": np.array(
+            [
+                [-0.03286194, -0.79989118, 0.59924469, 0.03464527],
+                [-0.9994423, 0.02274144, -0.02445234, -0.25152234],
+                [0.00593152, -0.59971404, -0.80019241, 0.5092148],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
     },
     "x5Nov18_3": {
         "right": np.array(
@@ -178,50 +195,67 @@ EXTRINSICS = {
                 [0.0, 0.0, 0.0, 1.0],
             ]
         ),
-        "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
-       [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
-       [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+        "left": np.array(
+            [
+                [0.01329544, -0.71757193, 0.69635749, -0.04409191],
+                [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+                [0.02504862, -0.69596148, -0.7176421, 0.57323278],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
     },
-
-    "x5Dec10_2":{
-        "right": np.array([[-0.15646281, -0.96797376,  0.19633183,  0.06895977],
-       [-0.73576918,  0.24684158,  0.63064487,  0.41755406],
-       [-0.65891055, -0.04578243, -0.75082679,  0.78698655],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
-        "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
-       [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
-       [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]])
-    },
-    
-    "x5Dec10_2":{
-        "right": np.array([[-0.15646281, -0.96797376,  0.19633183,  0.06895977],
-       [-0.73576918,  0.24684158,  0.63064487,  0.41755406],
-       [-0.65891055, -0.04578243, -0.75082679,  0.78698655],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]]),
-        "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
-       [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
-       [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
-       [ 0.        ,  0.        ,  0.        ,  1.        ]])
+    "x5Dec10_2": {
+        "right": np.array(
+            [
+                [-0.15646281, -0.96797376, 0.19633183, 0.06895977],
+                [-0.73576918, 0.24684158, 0.63064487, 0.41755406],
+                [-0.65891055, -0.04578243, -0.75082679, 0.78698655],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+        "left": np.array(
+            [
+                [0.01329544, -0.71757193, 0.69635749, -0.04409191],
+                [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+                [0.02504862, -0.69596148, -0.7176421, 0.57323278],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
     },
     "mecka": {
         "left": np.eye(4),
         "right": np.eye(4),
     },
     "x5Dec13_2": {
-            "left": np.array([[ 0.01329544, -0.71757193,  0.69635749, -0.04409191],
-           [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
-           [ 0.02504862, -0.69596148, -0.7176421 ,  0.57323278],
-           [ 0.        ,  0.        ,  0.        ,  1.        ]]),
-            "right": np.array([[-0.04733948, -0.76631195,  0.64072222, -0.01998031],
-           [-0.9983006 ,  0.05811952, -0.00424732,  0.32539554],
-           [-0.0339837 , -0.63983444, -0.76776103,  0.64809634],
-           [ 0.        ,  0.        ,  0.        ,  1.        ]])
-    }
+        "left": np.array(
+            [
+                [0.01329544, -0.71757193, 0.69635749, -0.04409191],
+                [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+                [0.02504862, -0.69596148, -0.7176421, 0.57323278],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+        "right": np.array(
+            [
+                [-0.04733948, -0.76631195, 0.64072222, -0.01998031],
+                [-0.9983006, 0.05811952, -0.00424732, 0.32539554],
+                [-0.0339837, -0.63983444, -0.76776103, 0.64809634],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+    },
+    "scale": {
+        "left": np.eye(4),
+        "right": np.eye(4),
+    },
 }
 
-INTRINSICS = {"base": ARIA_INTRINSICS, "base_half": ARIA_INTRINSICS_HALF, "mecka": MECKA_INTRINSICS}
+INTRINSICS = {
+    "base": ARIA_INTRINSICS,
+    "base_half": ARIA_INTRINSICS_HALF,
+    "mecka": MECKA_INTRINSICS,
+    "scale": SCALE_INTRINSICS,
+}
 
 
 class CameraTransforms:
@@ -321,9 +355,9 @@ def frechet_gaussian_over_time(
         C1 = (Xc.transpose(1, 2) @ Xc) / (T - 1)
         C2 = (Yc.transpose(1, 2) @ Yc) / (T - 1)
 
-    I = torch.eye(D, device=X.device, dtype=X.dtype).expand(B, D, D)
-    C1 = C1 + eps * I
-    C2 = C2 + eps * I
+    eye = torch.eye(D, device=X.device, dtype=X.dtype).expand(B, D, D)
+    C1 = C1 + eps * eye
+    C2 = C2 + eps * eye
 
     # Symmetric sqrt via eigendecomp
     w2, V2 = torch.linalg.eigh(C2)
@@ -380,6 +414,7 @@ def fmt(v):
         v = v.flatten().tolist()
     return ", ".join(f"{f:.2f}" for f in v)
 
+
 def draw_annotation_text(
     image: np.ndarray,
     annotation: str,
@@ -418,6 +453,7 @@ def draw_annotation_text(
     )
 
     return image
+
 
 def draw_rotation_text(
     image: np.ndarray,
@@ -509,7 +545,10 @@ def draw_rotation_text(
 
     return image
 
-def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None):
+
+def draw_actions(
+    im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None
+):
     """
     args:
         im: (H, W, C)
@@ -524,20 +563,30 @@ def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", k
     """
     if type == "joints" and kinematics_solver is None:
         raise ValueError("kinematics_solver is required for joints actions")
-    if type == "joints": 
+    if type == "joints":
         if arm == "both":
             right_actions = kinematics_solver.fk_pos(actions[:, 7:13])
-            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            right_actions_drawable = ee_pose_to_cam_frame(
+                right_actions, extrinsics["right"]
+            )
             left_actions = kinematics_solver.fk_pos(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
-            actions_drawable = np.concatenate((left_actions_drawable, right_actions_drawable), axis=0)
+            left_actions_drawable = ee_pose_to_cam_frame(
+                left_actions, extrinsics["left"]
+            )
+            actions_drawable = np.concatenate(
+                (left_actions_drawable, right_actions_drawable), axis=0
+            )
         elif arm == "right":
             right_actions = kinematics_solver.fk_pos(actions[:, 7:13])
-            right_actions_drawable = ee_pose_to_cam_frame(right_actions, extrinsics["right"])
+            right_actions_drawable = ee_pose_to_cam_frame(
+                right_actions, extrinsics["right"]
+            )
             actions_drawable = right_actions_drawable
         elif arm == "left":
             left_actions = kinematics_solver.fk_pos(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(left_actions, extrinsics["left"])
+            left_actions_drawable = ee_pose_to_cam_frame(
+                left_actions, extrinsics["left"]
+            )
             actions_drawable = left_actions_drawable
     else:
         actions = actions.reshape(-1, 3)
@@ -614,9 +663,11 @@ def nds(nested_ds, tab_level=0):
         print("None")
     elif isinstance(nested_ds, Number):
         print("Number: ", nested_ds)
-    else:
+    elif isinstance(nested_ds, np.ndarray) or isinstance(nested_ds, torch.Tensor):
         # print('\t' * (tab_level), end='')
         print(nested_ds.shape)
+    else:
+        print("Type: ", type(nested_ds))
 
     if is_key(nested_ds):
         for key, value in nested_ds.items():
@@ -642,6 +693,7 @@ def ee_pose_to_cam_frame(ee_pose_base, T_cam_base):
     ee_pose_grip_cam = np.linalg.inv(T_cam_base) @ ee_pose_base.T
     return ee_pose_grip_cam.T[:, :3]
 
+
 def base_frame_to_cam_frame(base_frame, T_cam_base):
     """
     base_frame: (N, 6) (x, y, z, yaw, pitch, roll)
@@ -651,13 +703,14 @@ def base_frame_to_cam_frame(base_frame, T_cam_base):
     """
     N, _ = base_frame.shape
     se3 = np.zeros((N, 4, 4))
-    se3[:, :3, :3] = Rotation.from_euler('ZYX', base_frame[:, 3:6]).as_matrix()
+    se3[:, :3, :3] = Rotation.from_euler("ZYX", base_frame[:, 3:6]).as_matrix()
     se3[:, :3, 3] = base_frame[:, :3]
     se3[:, 3, 3] = 1
     cam_frame = np.linalg.inv(T_cam_base) @ se3
     xyz = cam_frame[:, :3, 3]
-    ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler('ZYX', degrees=False)
+    ypr = Rotation.from_matrix(cam_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
+
 
 def cam_frame_to_base_frame(cam_frame, T_cam_base):
     """
@@ -668,13 +721,14 @@ def cam_frame_to_base_frame(cam_frame, T_cam_base):
     """
     N, _ = cam_frame.shape
     se3 = np.zeros((N, 4, 4))
-    se3[:, :3, :3] = Rotation.from_euler('ZYX', cam_frame[:, 3:6]).as_matrix()
+    se3[:, :3, :3] = Rotation.from_euler("ZYX", cam_frame[:, 3:6]).as_matrix()
     se3[:, :3, 3] = cam_frame[:, :3]
     se3[:, 3, 3] = 1
     base_frame = T_cam_base @ se3
     xyz = base_frame[:, :3, 3]
-    ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler('ZYX', degrees=False)
+    ypr = Rotation.from_matrix(base_frame[:, :3, :3]).as_euler("ZYX", degrees=False)
     return np.concatenate([xyz, ypr], axis=1)
+
 
 def ee_orientation_to_cam_frame(ee_orientation_base, T_cam_base):
     """
@@ -715,7 +769,9 @@ def batched_rotation_matrices_to_euler_angles(batch_R):
     # reshaped_R = batch_R.view(-1, 3, 3).cpu().numpy()
     # Use scipy's Rotation to convert rotation matrices to Euler angles
     rotation_objects = Rotation.from_matrix(reshaped_R)
-    euler_angles = rotation_objects.as_euler('ZYX', degrees=False)  # Shape [batch_size * seq_len, 3]
+    euler_angles = rotation_objects.as_euler(
+        "ZYX", degrees=False
+    )  # Shape [batch_size * seq_len, 3]
     # Convert back to torch and reshape to original batch dimensions
     euler_angles = torch.tensor(euler_angles, device=batch_R.device)
     euler_angles = euler_angles.view(batch_size, 3)
@@ -856,7 +912,7 @@ def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=
                 color_palette[i],
                 -1,
             )
-        except:
+        except Exception:
             print("Got bad pixel_val: ", pixel_val)
         if show:
             plt.imshow(frame)
@@ -919,6 +975,7 @@ def transformation_matrix_to_pose(T):
     pose_array = np.concatenate((p, rotation_quaternion))
     return pose_array
 
+
 def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     """
     Interpolate 6DoF poses (translation + Euler angles in radians),
@@ -927,9 +984,9 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     v: (B, T, 6) or (B, T, 7)
         [x, y, z, yaw, pitch, roll, (optional) gripper]
     """
-    assert (
-        v.ndim == 3 and v.shape[2] in (6, 7)
-    ), "Input v must be of shape (B, T, 6) or (B, T, 7)"
+    assert v.ndim == 3 and v.shape[2] in (6, 7), (
+        "Input v must be of shape (B, T, 6) or (B, T, 7)"
+    )
     B, T, D = v.shape
 
     new_time = np.linspace(0, 1, seq_length)
@@ -944,8 +1001,8 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
             outputs.append(np.full((seq_length, D), 1e9))
             continue
 
-        trans_seq = seq[:, :3]      # x, y, z
-        rot_seq = seq[:, 3:6]       # yaw, pitch, roll
+        trans_seq = seq[:, :3]  # x, y, z
+        rot_seq = seq[:, 3:6]  # yaw, pitch, roll
 
         # Avoid discontinuities in angle interpolation
         rot_seq_unwrapped = np.unwrap(rot_seq, axis=0)
@@ -958,7 +1015,7 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
         )
 
         trans_interp = trans_interp_func(new_time)  # (seq_length, 3)
-        rot_interp = rot_interp_func(new_time)      # (seq_length, 3)
+        rot_interp = rot_interp_func(new_time)  # (seq_length, 3)
 
         # Wrap back to [-pi, pi)
         rot_interp = (rot_interp + np.pi) % (2 * np.pi) - np.pi
@@ -971,13 +1028,12 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
                 old_time, grip_seq, axis=0, kind="linear"
             )
             grip_interp = grip_interp_func(new_time)  # (seq_length, 1)
-            out_seq = np.concatenate(
-                [trans_interp, rot_interp, grip_interp], axis=-1
-            )
+            out_seq = np.concatenate([trans_interp, rot_interp, grip_interp], axis=-1)
 
         outputs.append(out_seq)
 
     return np.stack(outputs, axis=0)  # (B, seq_length, D)
+
 
 class AlohaFK:
     def __init__(self, robot="arx"):
@@ -989,14 +1045,14 @@ class AlohaFK:
                 open(urdf_path).read(), "vx300s/ee_gripper_link"
             )
         elif robot == "arx":
-            urdf_path = Path(os.path.join(
-                os.path.dirname(egomimic.__file__), "resources/model_arx.urdf"
-            ))
-            xml_bytes = urdf_path.read_bytes()
-                
-            self.chain = pk.build_serial_chain_from_urdf(
-                xml_bytes, "link6"
+            urdf_path = Path(
+                os.path.join(
+                    os.path.dirname(egomimic.__file__), "resources/model_arx.urdf"
+                )
             )
+            xml_bytes = urdf_path.read_bytes()
+
+            self.chain = pk.build_serial_chain_from_urdf(xml_bytes, "link6")
 
     def fk(self, qpos):
         if isinstance(qpos, np.ndarray):
@@ -1106,7 +1162,7 @@ def interpolate_keys(obs, keys, seq_length):
             interp = scipy.interpolate.interp1d(np.linspace(0, 1, L), v, axis=0)
             try:
                 obs[k] = interp(np.linspace(0, 1, seq_length))
-            except:
+            except Exception:
                 raise ValueError(
                     f"Interpolation failed for key: {k} with shape{k.shape}"
                 )
@@ -1228,7 +1284,6 @@ def transform_matrix_to_pose(mat: torch.Tensor) -> torch.Tensor:
     """
     assert mat.shape[-2:] == (4, 4), "Input must be (B, T, 4, 4)"
     B, T = mat.shape[:2]
-    device = mat.device
 
     # Translation part: (B, T, 3)
     xyz = mat[..., :3, 3]

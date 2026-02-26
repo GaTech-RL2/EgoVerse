@@ -1,18 +1,19 @@
-import sys
 import os
+import sys
+
 import numpy as np
 
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT_DIR)
 os.chdir(ROOT_DIR)
+import sys
 import time
+import traceback
 from typing import Any, cast
 
 import arx5_interface as arx5
-import zmq
 import click
-import sys
-import traceback
+import zmq
 
 
 def echo_exception():
@@ -58,7 +59,7 @@ class Arx5Server:
                 if self.socket in socks and socks[self.socket] == zmq.POLLIN:
                     msg: dict[str, Any] = self.socket.recv_pyobj()
                     if self.arx5_cartesian_controller is None:
-                        print(f"Reestablishing high level controller")
+                        print("Reestablishing high level controller")
                         self.arx5_cartesian_controller = arx5.Arx5CartesianController(
                             self.model, self.interface
                         )
@@ -75,7 +76,7 @@ class Arx5Server:
                     continue
             except KeyboardInterrupt:
                 break
-            except Exception as e:
+            except Exception:
                 exception_str = echo_exception()
                 print(f"Error: {exception_str}")
                 continue
@@ -183,7 +184,7 @@ class Arx5Server:
                     self.socket.send_pyobj(reply_msg)
                     self.is_reset_to_home = False
                 elif msg["cmd"] == "RESET_TO_HOME":
-                    print(f"Received RESET_TO_HOME message")
+                    print("Received RESET_TO_HOME message")
                     self.arx5_cartesian_controller.reset_to_home()
                     reply_msg = {
                         "cmd": "RESET_TO_HOME",
@@ -195,7 +196,7 @@ class Arx5Server:
                     self.socket.send_pyobj(reply_msg)
                     self.is_reset_to_home = True
                 elif msg["cmd"] == "SET_TO_DAMPING":
-                    print(f"Received SET_TO_DAMPING message")
+                    print("Received SET_TO_DAMPING message")
                     self.arx5_cartesian_controller.set_to_damping()
                     reply_msg = {
                         "cmd": "SET_TO_DAMPING",
@@ -204,7 +205,7 @@ class Arx5Server:
                     self.socket.send_pyobj(reply_msg)
                     self.is_reset_to_home = False
                 elif msg["cmd"] == "GET_GAIN":
-                    print(f"Received GET_GAIN message")
+                    print("Received GET_GAIN message")
                     gain = self.arx5_cartesian_controller.get_gain()
                     reply_msg = {
                         "cmd": "GET_GAIN",
@@ -236,7 +237,7 @@ class Arx5Server:
                     raise ValueError(f"Unknown message type: {msg['cmd']}")
             except KeyboardInterrupt:
                 break
-            except Exception as e:
+            except Exception:
                 exception_str = echo_exception()
                 self.socket.send_pyobj(
                     {"cmd": msg["cmd"], "data": f"ERROR: {exception_str}"}

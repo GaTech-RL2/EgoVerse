@@ -1,13 +1,11 @@
-import math
-
-from typing import Union
 import logging
+import math
+from typing import Union
+
+import einops
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import einops
 from einops.layers.torch import Rearrange
-import math
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +86,7 @@ class Conv1dBlock(nn.Module):
 def test():
     cb = Conv1dBlock(256, 128, kernel_size=3)
     x = torch.zeros((1, 256, 16))
-    o = cb(x)
+    cb(x)
 
 
 class SinusoidalPosEmb(nn.Module):
@@ -436,7 +434,6 @@ class ConditionalClassifier1D(nn.Module):
         local_cond_dim=None,
         global_cond_dim=None,
         diffusion_step_embed_dim=256,
-        ac_latent_seq=8,
         down_dims=[256, 512, 1024],
         kernel_size=3,
         n_groups=8,
@@ -446,103 +443,6 @@ class ConditionalClassifier1D(nn.Module):
         local conditioning and global conditioning scheme
         """
         super().__init__()
-        all_dims = [input_dim] + list(down_dims)
-        start_dim = down_dims[0]
-
-        dsed = diffusion_step_embed_dim
-        diffusion_step_encoder = nn.Sequential(
-            SinusoidalPosEmb(dsed),
-            nn.Linear(dsed, dsed * 4),
-            nn.Mish(),
-            nn.Linear(dsed * 4, dsed),
-        )
-        cond_dim = dsed * 2
-        self.proj_cond = nn.Linear(cond_dim * ac_latent_seq, dsed)
-
-        if global_cond_dim is not None:
-            cond_dim += global_cond_dim
-
-        self.resnet = ConditionalResidualBlock1D(
-            input_dim,
-            start_dim,
-            cond_dim=cond_dim,
-            kernel_size=kernel_size,
-            n_groups=n_groups,
-            cond_predict_scale=cond_predict_scale,
-        )
-
-        final_conv = nn.Sequential(
-            Conv1dBlock(start_dim, start_dim, kernel_size=kernel_size),
-            nn.Conv1d(start_dim, 1, 1),
-        )
-
-        self.diffusion_step_encoder = diffusion_step_encoder
-        self.final_conv = final_conv
-
-        logger.info(
-            "number of parameters: %e", sum(p.numel() for p in self.parameters())
-        )
-
-    def forward(
-        self,
-        sample: torch.Tensor,
-        timestep: Union[torch.Tensor, float, int],
-        *args,
-        local_cond=None,
-        global_cond=None,
-        **kwargs,
-    ):
-        """
-        sample: (B,T,input_dim)
-        timestep: (B,) or int, diffusion step
-        local_cond: (B,T,local_cond_dim)
-        global_cond: (B,global_cond_dim)
-        output: (B,T,input_dim)
-        """
-        sample = einops.rearrange(sample, "b h t -> b t h")
-
-        # 1. time
-        timesteps = timestep
-        if not torch.is_tensor(timesteps):
-            # TODO: this requires sync between CPU and GPU. So try to pass timesteps as tensors if you can
-            timesteps = torch.tensor(
-                [timesteps], dtype=torch.long, device=sample.device
-            )
-        elif torch.is_tensor(timesteps) and len(timesteps.shape) == 0:
-            timesteps = timesteps[None].to(sample.device)
-
-        # broadcast to batch dimension in a way that's compatible with ONNX/Core ML
-        timesteps = timesteps.expand(sample.shape[0])
-        global_feature = self.diffusion_step_encoder(timesteps)
-
-        if global_cond is not None:
-            # 512 + 39
-            global_feature = torch.cat([global_feature, global_cond], axis=-1)
-
-        x = self.resnet(sample, global_feature)
-        x = self.final_conv(x)
-
-        x = einops.rearrange(x, "b t h -> b h t")
-        return x
-
-
-class ConditionalClassifier1D(nn.Module):
-    def __init__(
-        self,
-        input_dim,
-        local_cond_dim=None,
-        global_cond_dim=None,
-        diffusion_step_embed_dim=256,
-        down_dims=[256, 512, 1024],
-        kernel_size=3,
-        n_groups=8,
-        cond_predict_scale=False,
-    ):
-        """
-        local conditioning and global conditioning scheme
-        """
-        super().__init__()
-        all_dims = [input_dim] + list(down_dims)
         start_dim = down_dims[0]
 
         dsed = diffusion_step_embed_dim

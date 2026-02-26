@@ -1,35 +1,26 @@
 import argparse
 import logging
 import os
-from pathlib import Path
 import shutil
+import time
 import traceback
-from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME
+from pathlib import Path
+
 import cv2
 import h5py
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-import torch
-from egomimic.utils.egomimicUtils import (
-    nds,
-    ee_pose_to_cam_frame,
-    EXTRINSICS,
-    AlohaFK,
-    str2bool,
-    ee_orientation_to_cam_frame,
-)
-
-from egomimic.rldb.utils import EMBODIMENT
-
-import time
-
 import numpy as np
-
 import torch
 import torch.nn.functional as F
+from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
 
-from scipy.spatial.transform import Rotation as R
-
-from enum import Enum
+from egomimic.rldb.embodiment import EMBODIMENT
+from egomimic.utils.egomimicUtils import (
+    EXTRINSICS,
+    AlohaFK,
+    ee_orientation_to_cam_frame,
+    ee_pose_to_cam_frame,
+    str2bool,
+)
 
 ## CHANGE THIS TO YOUR DESIRED CACHE FOR HF
 os.environ["HF_HOME"] = (
@@ -274,9 +265,9 @@ class AlohaHD5Extractor:
                 ][state][:]
 
             # ee_pose
-            episode_feats["observations"][f"state.ee_pose"] = (
+            episode_feats["observations"]["state.ee_pose"] = (
                 AlohaHD5Extractor.get_ee_pose(
-                    episode_feats["observations"][f"state.joint_positions"],
+                    episode_feats["observations"]["state.joint_positions"],
                     arm,
                     left_extrinsics=left_extrinsics,
                     right_extrinsics=right_extrinsics,
@@ -299,11 +290,11 @@ class AlohaHD5Extractor:
             episode_feats["actions_joints"] = joint_actions
             episode_feats["actions_cartesian"] = cartesian_actions
 
-            episode_feats["observations"][f"state.joint_positions"] = episode_feats[
+            episode_feats["observations"]["state.joint_positions"] = episode_feats[
                 "observations"
-            ][f"state.joint_positions"][:, joint_start:joint_end]
+            ]["state.joint_positions"][:, joint_start:joint_end]
 
-            num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
+            num_timesteps = episode_feats["observations"]["state.ee_pose"].shape[0]
 
             if arm == "right":
                 value = EMBODIMENT.EVE_RIGHT_ARM.value
@@ -387,13 +378,13 @@ class AlohaHD5Extractor:
             joint_actions = get_future_points(
                 joint_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
             )
-            joint_actions_sampled = sample_interval_points(
+            sample_interval_points(
                 joint_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
             )
             cartesian_actions = get_future_points(
                 cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
             )
-            cartesian_actions_sampled = sample_interval_points(
+            sample_interval_points(
                 cartesian_actions, POINT_GAP=POINT_GAP, CHUNK_LENGTH=CHUNK_LENGTH
             )
 

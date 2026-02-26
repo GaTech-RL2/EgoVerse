@@ -1,13 +1,12 @@
-import time
 import os
 import sys
+import time
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 os.chdir(ROOT_DIR)
 import arx5_interface as arx5
 import numpy as np
-
 
 joint_dof = 6
 robot_config = arx5.RobotConfigFactory.get_instance().get_config("X5")

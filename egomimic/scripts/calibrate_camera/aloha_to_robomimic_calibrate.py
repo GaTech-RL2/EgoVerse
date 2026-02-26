@@ -1,18 +1,16 @@
 # Example
 # python3 aloha_to_robomimic_calibrate.py --dataset /home/robot/robot_ws/egomimic/robot/calibration_demos/left --arm left --extrinsics left --out /home/robot/robot_ws/egomimic/robot/calibration_demos/left_proc/test2.hdf5 --data-type robot
 
-import h5py
-import numpy as np
 import argparse
-import os
-from tqdm import tqdm
-from egomimic.utils.egomimicUtils import nds, ee_pose_to_cam_frame, EXTRINSICS, AlohaFK
-import pytorch_kinematics as pk
-import torch
 
 # from modern_robotics import FKinSpace
 # from robomimic.scripts.split_train_val import split_train_val_from_hdf5
 import json
+import os
+
+import h5py
+import numpy as np
+from tqdm import tqdm
 
 """
 aloha_hdf5 has the following format
@@ -61,6 +59,7 @@ def get_future_points(arr, POINT_GAP=15, FUTURE_POINTS_COUNT=10):
         result[t] = arr[future_indices]
 
     return result
+
 
 def is_valid_path(path):
     if os.path.isdir(path):
@@ -168,7 +167,9 @@ if __name__ == "__main__":
                 #     ).get_matrix()
                 # )
                 # fk_positions = torch.cat([fk_pos, fk_rot], dim=1)
-                fk_positions = aloha_hdf5["observations"]["eepose"][:, joint_start:joint_end]
+                fk_positions = aloha_hdf5["observations"]["eepose"][
+                    :, joint_start:joint_end
+                ]
 
                 demo_i_obs_group.create_dataset(
                     "ee_pose_robot_frame", data=fk_positions

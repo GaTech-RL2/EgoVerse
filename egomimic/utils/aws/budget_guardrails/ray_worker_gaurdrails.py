@@ -1,15 +1,12 @@
 import argparse
 import json
-import os
 import socket
 import subprocess
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
 
 import boto3
-
 
 STATE_PATH = Path("/tmp/ray_worker_guardrails_state.json")
 
@@ -61,7 +58,11 @@ def _run_ray_list_nodes():
             nodes = _parse_nodes_output(output)
             if nodes:
                 return nodes
-        except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError) as exc:
+        except (
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+            json.JSONDecodeError,
+        ) as exc:
             last_error = exc
     raise RuntimeError(f"Unable to list Ray nodes: {last_error}")
 
@@ -199,7 +200,9 @@ def main():
     local_ip = identity["privateIp"]
 
     ec2 = boto3.client("ec2", region_name=region)
-    cluster_name = args.cluster_name or _get_head_cluster_name(ec2, identity["instanceId"])
+    cluster_name = args.cluster_name or _get_head_cluster_name(
+        ec2, identity["instanceId"]
+    )
 
     nodes = _load_nodes()
     now = datetime.now(timezone.utc)

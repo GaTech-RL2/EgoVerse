@@ -1,4 +1,5 @@
 # ───────────────── eva-ray-cluster.yaml ─────────────────
+# Launch with AWS_PROFILE=clusterv2 ray up egomimic/scripts/eva_process/eva-cluster.yaml
 cluster_name: eva-ray-cluster
 
 provider:
@@ -8,7 +9,17 @@ provider:
 
 auth:
   ssh_user: ubuntu
-  ssh_private_key: ~/.ssh/ryan-mac.pem # put your own ssh key here  
+  ssh_private_key: ~/.ssh/rldb-base-pem.pem
+
+file_mounts:
+  "/home/ubuntu/EgoVerse": "../EgoVerse"
+
+rsync_exclude:
+  - "emimic/"
+  - ".git/"
+  - "**/__pycache__/"
+  - "*.pyc"
+  - "logs/"
 
 max_workers: 50
 idle_timeout_minutes: 10
@@ -17,12 +28,8 @@ available_node_types:
   head_node:
     node_config:
       InstanceType: t3a.2xlarge
-      ImageId: ami-0b3766455f47e0ec4
-      KeyName: ryan-mac # put your own ssh key here  
-      SubnetId: subnet-02fbc81414d827515
-      SecurityGroupIds: [sg-01cabcd4f45211888]
-      IamInstanceProfile:
-        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      KeyName: rldb-base-pem
+      ImageId: ami-08c4d70c31f91a5ac
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
@@ -33,12 +40,8 @@ available_node_types:
   worker_node:
     node_config:
       InstanceType: c5.18xlarge
-      ImageId: ami-0b3766455f47e0ec4
-      KeyName: ryan-mac # put your own ssh key here  
-      SubnetId: subnet-02fbc81414d827515
-      SecurityGroupIds: [sg-01cabcd4f45211888]
-      IamInstanceProfile:
-        Arn: arn:aws:iam::654654140494:instance-profile/ray-mps-profile
+      KeyName: rldb-base-pem
+      ImageId: ami-08c4d70c31f91a5ac
       BlockDeviceMappings:
         - DeviceName: /dev/sda1
           Ebs: { VolumeSize: 50 }
@@ -54,14 +57,8 @@ initialization_commands:
   - sudo DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing -yq
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq s3fs
-  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
-  - sudo pip3 install --no-input -U "ray[default]"
-  - sudo pip3 install --no-input sqlalchemy
-  - sudo pip3 install --no-input -U ray boto3
-  - sudo pip3 install --no-input --force-reinstall "psycopg[binary]"
-  - pip3 install -U projectaria-tools
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev awscli
   - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq ffmpeg libavcodec-dev libavformat-dev libswscale-dev libx264-dev
-  - pip3 install --no-cache-dir --upgrade opencv-python-headless
   - |
       echo "=== Testing FFmpeg installation ==="
       if command -v ffmpeg >/dev/null 2>&1; then
@@ -71,22 +68,41 @@ initialization_commands:
         echo "[FAIL] FFmpeg not found in PATH."
       fi
       echo "=== FFmpeg test done ==="
-  - pip3 install --user --no-input --force-reinstall "click==8.2.1"
+  - |
+      cd ~/EgoVerse
+      pip3 install --no-input -r requirements-ray.txt
+      pip3 install --no-input -e external/lerobot
+      pip3 install --no-input -e .
 
 
 setup_commands:
   - sudo mkdir -p /mnt/raw /mnt/processed
 
   - |
+      chmod +x ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+      R2_SECRET_NAME=r2/rldb/credentials DB_SECRET_NAME=rds/appdb/appuser REGION=us-east-2 \
+        bash ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+  - |
+      set -a
+      . /home/ubuntu/.egoverse_env
+      set +a
+      printf '%s:%s\n' "$R2_ACCESS_KEY_ID" "$R2_SECRET_ACCESS_KEY" | sudo tee /etc/passwd-s3fs >/dev/null
+      sudo chmod 600 /etc/passwd-s3fs
+
+  - |
       if mountpoint -q /mnt/raw; then
         echo "/mnt/raw already mounted"
       else
+        set -a
+        . /home/ubuntu/.egoverse_env
+        set +a
         sudo s3fs rldb:/raw_v2/eva /mnt/raw \
           -o ro \
-          -o url=https://s3.us-east-2.amazonaws.com \
-          -o iam_role=auto \
+          -o url="$AWS_ENDPOINT_URL_S3" \
+          -o passwd_file=/etc/passwd-s3fs \
           -o allow_other \
           -o umask=000 \
+          -o use_path_request_style \
           -o nonempty
       fi
 
@@ -94,9 +110,12 @@ setup_commands:
       if mountpoint -q /mnt/processed; then
         echo "/mnt/processed already mounted"
       else
+        set -a
+        . /home/ubuntu/.egoverse_env
+        set +a
         sudo s3fs rldb:/processed_v2/eva /mnt/processed \
-          -o url=https://s3.us-east-2.amazonaws.com \
-          -o iam_role=auto \
+          -o url="$AWS_ENDPOINT_URL_S3" \
+          -o passwd_file=/etc/passwd-s3fs \
           -o allow_other \
           -o umask=000 \
           -o use_path_request_style \
@@ -108,18 +127,12 @@ setup_commands:
       fi
 
   - |
-      cd ~/EgoVerse || true
-      gt checkout main || true
-      gt sync || true
-      gt submodule update --init --recursive --quiet || true
-
-  - |
       (crontab -l 2>/dev/null \
        | grep -v run_eva_conversion.py \
        | grep -v ray_worker_gaurdrails.py \
        | grep -v ray_worker_gaurdrails.lock ; \
        echo 'CRON_TZ=America/New_York'; \
-       echo '0 22 * * * flock -n /tmp/run_eva_conversion.lock /usr/bin/python3 ~/EgoVerse/egomimic/scripts/eva_process/run_eva_conversion.py --skip-if-done >> ~/eva_conversion_$(date +\%Y-\%m-\%d-\%H-\%M-\%S).log 2>&1'; \
+       echo '0 22 * * * flock -n /tmp/run_eva_conversion.lock /bin/bash -lc "set -a; . /home/ubuntu/.egoverse_env; set +a; /usr/bin/python3 ~/EgoVerse/egomimic/scripts/eva_process/run_eva_conversion.py --skip-if-done" >> ~/eva_conversion_$(date +\%Y-\%m-\%d-\%H-\%M-\%S).log 2>&1'; \
        echo '*/10 * * * * flock -n /tmp/ray_worker_gaurdrails.lock /usr/bin/python3 /home/ubuntu/EgoVerse/egomimic/utils/aws/budget_guardrails/ray_worker_gaurdrails.py >> /home/ubuntu/ray_worker_gaurdrails.log 2>&1') \
        | crontab - || true
   - crontab -l || true

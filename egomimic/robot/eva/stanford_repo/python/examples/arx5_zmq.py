@@ -1,8 +1,8 @@
-from communication.zmq_client import Arx5Client, CTRL_DT
 import time
+
 import numpy as np
 import numpy.typing as npt
-
+from communication.zmq_client import CTRL_DT, Arx5Client
 
 client = Arx5Client(zmq_ip="127.0.0.1", zmq_port=8765)
 

@@ -1,12 +1,13 @@
+import asyncio
+import hashlib
 import json
 import os
-import hashlib
 import tempfile
-from datetime import datetime, timezone
 from pathlib import Path
-from egomimic.utils.aws.aws_sql import TableRow
+
 import boto3
-import asyncio
+
+from egomimic.utils.aws.aws_sql import TableRow
 
 
 class Uploader:
@@ -33,8 +34,11 @@ class Uploader:
                 "embodiment",
                 "num_frames",
                 "processed_path",
+                "zarr_processed_path",
+                "zarr_mp4_path",
                 "mp4_path",
                 "processing_error",
+                "zarr_processing_error",
                 "is_eval",
                 "eval_score",
                 "eval_success",
@@ -176,7 +180,7 @@ class Uploader:
 
         await asyncio.gather(*uploads)
 
-        print(f"\n✅ Upload completed successfully!")
+        print("\n✅ Upload completed successfully!")
         print(f"   📊 Processed {len(all_items)} file groups")
         print(f"   ☁️  Uploaded {len(uploads)} files to S3")
         print(f"   🎯 Destination: s3://{self.bucket_name}/{self.s3_base_prefix}")
@@ -258,7 +262,7 @@ class Uploader:
                 "episode_hash": "",  # Will be set below
             }
 
-            print(f"\n📝 METADATA COLLECTION")
+            print("\n📝 METADATA COLLECTION")
             print(f"File: {file_path.name}")
             print("-" * 50)
 

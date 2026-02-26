@@ -1,7 +1,8 @@
-import time
-import numpy as np
 import os
 import sys
+import time
+
+import numpy as np
 
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT_DIR)

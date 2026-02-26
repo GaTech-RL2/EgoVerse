@@ -1,11 +1,9 @@
 import numbers
 import time
 from multiprocessing.managers import SharedMemoryManager
-from queue import Empty
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 import numpy as np
-
 from shared_memory.shared_memory_util import (
     ArraySpec,
     SharedAtomicCounter,

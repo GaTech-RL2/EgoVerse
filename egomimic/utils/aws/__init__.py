@@ -1,5 +1,3 @@
 """
 egomimic.utils.aws package
 """
-
-

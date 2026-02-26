@@ -1,12 +1,11 @@
 # A collection of utility functions for the robot.
 
 
+import statistics
 import time
 import warnings
-from contextlib import contextmanager
-from typing import Optional, Iterator, Generator
 from collections import deque
-import statistics
+from typing import Optional
 
 
 class RateLoop:
@@ -64,7 +63,7 @@ class RateLoop:
         if self.verbose and self.iteration > 0:
             total_time = time.perf_counter() - self.start_time
             avg_freq = self.iteration / total_time
-            print(f"\nRateLoop Summary:")
+            print("\nRateLoop Summary:")
             print(f"  Total iterations: {self.iteration}")
             print(f"  Total time: {total_time:.3f}s")
             print(
@@ -146,5 +145,5 @@ if __name__ == "__main__":
             # Simulate some work with variable duration
             work_time = random.uniform(0.03, 0.06)
             time.sleep(work_time)
-            print(f".", end="", flush=True)
+            print(".", end="", flush=True)
     print()

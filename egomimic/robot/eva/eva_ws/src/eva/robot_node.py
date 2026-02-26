@@ -1,18 +1,16 @@
-from typing import Optional, List
-
 import os
-import yaml
-import numpy as np
 
+import arx5.arx5_interface as arx5
+import numpy as np
 import rclpy
+import yaml
+from ament_index_python.packages import get_package_share_directory
+from arx5.arx5_interface import Arx5JointController, Gain
+from arx5.arx5_interface import JointState as ArxJointState
 from rclpy.node import Node
 from rclpy.qos import QoSProfile
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Bool
-from ament_index_python.packages import get_package_share_directory
-
-import arx5.arx5_interface as arx5
-from arx5.arx5_interface import Arx5JointController, JointState as ArxJointState, Gain
 
 
 class IkToJointsNode(Node):

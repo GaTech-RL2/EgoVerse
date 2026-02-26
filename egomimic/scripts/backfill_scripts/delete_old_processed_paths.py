@@ -3,15 +3,10 @@ from datetime import datetime, timezone
 import boto3
 from botocore.exceptions import ClientError
 from sqlalchemy import MetaData, Table, update
+
 from egomimic.utils.aws.aws_sql import (
-    TableRow,
-    add_episode,
-    update_episode,
     create_default_engine,
-    episode_hash_to_table_row,
-    delete_episodes,
     episode_table_to_df,
-    delete_all_episodes,
 )
 
 
@@ -63,6 +58,7 @@ def main():
     # NOTE: Do not execute yet. To run:
     with engine.begin() as conn:
         conn.execute(clear_stmt)
+
 
 if __name__ == "__main__":
     main()

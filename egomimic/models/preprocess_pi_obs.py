@@ -1,11 +1,14 @@
 import torch
 
+
 class _SimpleObservation:
     """Minimal container matching the structure expected by preprocess_observation_pytorch."""
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
-            
+
+
 def _ensure_bchw(t: torch.Tensor) -> torch.Tensor:
     """Accept [B, C, H, W] or [B, H, W, C]; return [B, C, H, W]."""
     if t.ndim != 4:
@@ -16,9 +19,11 @@ def _ensure_bchw(t: torch.Tensor) -> torch.Tensor:
         return t.permute(0, 3, 1, 2).contiguous()
     return t
 
+
 def _bhwc(t_bchw: torch.Tensor) -> torch.Tensor:
     """Convert [B, C, H, W] -> [B, H, W, C]."""
     return t_bchw.permute(0, 2, 3, 1).contiguous()
+
 
 def _to_minus1_1(img: torch.Tensor) -> torch.Tensor:
     """Convert uint8 [0,255] or float [0,1] → float [-1,1]."""
@@ -29,11 +34,15 @@ def _to_minus1_1(img: torch.Tensor) -> torch.Tensor:
         img = torch.clamp(img, 0.0, 1.0)
     return img * 2.0 - 1.0
 
+
 def _mask_from_batch(B: int, device) -> torch.Tensor:
     """Default per-image mask (all True)."""
     return torch.ones(B, dtype=torch.bool, device=device)
 
-def _concat_proprio(batch: dict, proprio_keys: list[str], device: torch.device) -> torch.Tensor:
+
+def _concat_proprio(
+    batch: dict, proprio_keys: list[str], device: torch.device
+) -> torch.Tensor:
     """Concat all proprio tensors along last dim → [B, D] (D can be 0)."""
     parts = []
     for k in proprio_keys:
@@ -48,6 +57,7 @@ def _concat_proprio(batch: dict, proprio_keys: list[str], device: torch.device) 
         return torch.zeros(0, 0, device=device)
     return torch.cat(parts, dim=-1)
 
+
 def _empty_lang_placeholders(B: int, device: torch.device):
     """Empty language tensors with correct batch dim."""
     L = 0
@@ -55,16 +65,20 @@ def _empty_lang_placeholders(B: int, device: torch.device):
     mask = torch.zeros(B, L, dtype=torch.bool, device=device)
     return tok, mask, mask.clone(), mask.clone()
 
+
 def _mask_from_batch(B: int, device: torch.device) -> torch.Tensor:
     """Per-image mask [B] set to True."""
     return torch.ones(B, dtype=torch.bool, device=device)
 
-def _fill_missing_images(inputs: dict, required_keys: list[str], device: torch.device, default_hw=(224, 224)):
+
+def _fill_missing_images(
+    inputs: dict, required_keys: list[str], device: torch.device, default_hw=(224, 224)
+):
     """
     Ensures all required image keys exist in `inputs`.
     - Duplicates an existing image tensor if a required key is missing.
     - Infers shape (B, C, H, W) from the first present image; if none found, uses default_hw.
-    
+
     Args:
         inputs (dict): Dictionary of available tensors (e.g., batch from dataloader).
         required_keys (list[str]): Keys that must exist in the returned dict.
@@ -91,7 +105,9 @@ def _fill_missing_images(inputs: dict, required_keys: list[str], device: torch.d
                 break
 
     if seed_img is None:
-        raise ValueError("Cannot duplicate images; no valid image tensor found among required keys.")
+        raise ValueError(
+            "Cannot duplicate images; no valid image tensor found among required keys."
+        )
 
     # Fill or copy each key
     for k in required_keys:

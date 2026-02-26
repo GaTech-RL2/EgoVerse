@@ -1,73 +1,55 @@
 import argparse
+import ctypes
+import gc
 import logging
 import os
-from pathlib import Path
+import re
 import shutil
-import traceback
-from typing import Any
-from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME
-import cv2
-import h5py
-from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
-import torch
-import gc, ctypes
-from enum import Enum
-
-from egomimic.utils.egomimicUtils import (
-    str2bool,
-    cam_frame_to_cam_pixels,
-    INTRINSICS,
-    interpolate_keys,
-    interpolate_arr,
-    interpolate_arr_euler,
-    transform_to_pose,
-    pose_to_transform,
-)
-
-from projectaria_tools.core.calibration import CameraCalibration, DeviceCalibration
-from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
-
-from projectaria_tools.core import data_provider, mps
-
-from projectaria_tools.core.mps.utils import get_nearest_hand_tracking_result
-
-from projectaria_tools.core.mps.utils import (
-    filter_points_from_confidence,
-    get_gaze_vector_reprojection,
-    get_nearest_eye_gaze,
-    get_nearest_pose,
-)
-from projectaria_tools.core.stream_id import StreamId
-
-from aria_utils import (
-    build_camera_matrix,
-    undistort_to_linear,
-    slam_to_rgb,
-    compute_coordinate_frame,
-    transform_coordinates,
-    coordinate_frame_to_ypr,
-)
-
-from egomimic.rldb.utils import EMBODIMENT
-
+import subprocess
+import threading
 import time
+import traceback
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Dict, List
 
+import cv2
 import numpy as np
-
+import psutil
 import torch
 import torch.nn.functional as F
+from aria_utils import (
+    build_camera_matrix,
+    compute_coordinate_frame,
+    coordinate_frame_to_ypr,
+    slam_to_rgb,
+    transform_coordinates,
+    undistort_to_linear,
+)
+from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
+from projectaria_tools.core import data_provider, mps
+from projectaria_tools.core.mps.utils import (
+    get_nearest_hand_tracking_result,
+)
+from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
+from projectaria_tools.core.stream_id import StreamId
 
-from scipy.spatial.transform import Rotation as R
-import subprocess
-import re
-import threading
-from contextlib import contextmanager
-import psutil
+from egomimic.rldb.embodiment import EMBODIMENT
+from egomimic.utils.egomimicUtils import (
+    INTRINSICS,
+    cam_frame_to_cam_pixels,
+    interpolate_arr_euler,
+    pose_to_transform,
+    str2bool,
+    transform_to_pose,
+)
 
 _root = psutil.Process(os.getpid())
 
+
 def _proc_rss_mb(p: psutil.Process) -> float:
-    return p.memory_info().rss / (1024 ** 2)
+    return p.memory_info().rss / (1024**2)
+
 
 def cgroup_memory_peak_mb() -> float | None:
     # cgroup v2
@@ -79,7 +61,7 @@ def cgroup_memory_peak_mb() -> float | None:
         if os.path.exists(p):
             try:
                 with open(p, "r") as f:
-                    return int(f.read().strip()) / (1024 ** 2)
+                    return int(f.read().strip()) / (1024**2)
             except (OSError, ValueError):
                 pass
     return None
@@ -97,6 +79,7 @@ def _read_smaps_rollup_kb(pid: int) -> dict[str, int]:
             if len(v) >= 2 and v[1] == "kB":
                 out[k] = int(v[0])
     return out
+
 
 def tree_pss_mb() -> float:
     procs = [_root]
@@ -118,6 +101,7 @@ def tree_pss_mb() -> float:
             pass
     return total_kb / 1024.0
 
+
 def tree_mem_mb(include_children: bool = True, use_uss: bool = True) -> float:
     root = psutil.Process(os.getpid())
     procs = [root]
@@ -136,7 +120,8 @@ def tree_mem_mb(include_children: bool = True, use_uss: bool = True) -> float:
                 total += p.memory_info().rss
         except Exception:
             pass
-    return total / (1024 ** 2)
+    return total / (1024**2)
+
 
 class _Sampler:
     def __init__(self, interval_s: float = 0.025):
@@ -172,7 +157,9 @@ class _Sampler:
 
 
 @contextmanager
-def mem_section(name: str, sample_interval_s: float = 0.2, plot: bool = True, enabled: bool = False):
+def mem_section(
+    name: str, sample_interval_s: float = 0.2, plot: bool = True, enabled: bool = False
+):
     if not enabled:
         yield
         return
@@ -189,10 +176,13 @@ def mem_section(name: str, sample_interval_s: float = 0.2, plot: bool = True, en
         dt = time.time() - t0
 
         peak = max(sampler.mbs) if sampler.mbs else end
-        print(f"[{name}] end={end:.2f} MB  delta={end-start:+.2f} MB  peak={peak:.2f} MB  time={dt:.2f}s")
+        print(
+            f"[{name}] end={end:.2f} MB  delta={end - start:+.2f} MB  peak={peak:.2f} MB  time={dt:.2f}s"
+        )
 
         if plot and sampler.mbs and sampler.ts:
             import matplotlib.pyplot as plt
+
             n = min(len(sampler.ts), len(sampler.mbs))
             if n > 1:
                 plt.plot(sampler.ts[:n], sampler.mbs[:n])
@@ -202,8 +192,10 @@ def mem_section(name: str, sample_interval_s: float = 0.2, plot: bool = True, en
                 plt.savefig(f"{_safe_name(name)}.png", dpi=150)
                 plt.close()
 
+
 def _safe_name(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9._-]+", "_", s).strip("_")
+
 
 ## CHANGE THIS TO YOUR DESIRED CACHE FOR HF
 os.environ["HF_HOME"] = "~/.cache/huggingface"
@@ -228,10 +220,11 @@ ROTATION_MATRIX = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
 #         actions[..., 4] *= -1  # Multiply y by -1 for second set
 #     return actions
 
+
 def downsample_hwc_uint8_in_chunks(
-  images: np.ndarray,  # (T,H,W,3) uint8
-  out_hw=(240, 320),
-  chunk: int = 256,
+    images: np.ndarray,  # (T,H,W,3) uint8
+    out_hw=(240, 320),
+    chunk: int = 256,
 ) -> np.ndarray:
     assert images.dtype == np.uint8 and images.ndim == 4 and images.shape[-1] == 3
     T, H, W, C = images.shape
@@ -241,13 +234,16 @@ def downsample_hwc_uint8_in_chunks(
 
     for s in range(0, T, chunk):
         e = min(s + chunk, T)
-        x = torch.from_numpy(images[s:e]).permute(0, 3, 1, 2).to(torch.float32) / 255.0  # (B,3,H,W)
+        x = (
+            torch.from_numpy(images[s:e]).permute(0, 3, 1, 2).to(torch.float32) / 255.0
+        )  # (B,3,H,W)
         x = F.interpolate(x, size=(outH, outW), mode="bilinear", align_corners=False)
         x = (x * 255.0).clamp(0, 255).to(torch.uint8)  # (B,3,outH,outW)
         out[s:e] = x.permute(0, 2, 3, 1).cpu().numpy()
         del x
 
     return out
+
 
 def compute_camera_relative_pose(pose, cam_t_inv, cam_offset):
     """
@@ -330,7 +326,9 @@ class AriaVRSExtractor:
     TAGS = ["aria", "robotics", "vrs"]
 
     @staticmethod
-    def process_episode(episode_path, arm, prestack=False, low_res=False, benchmark=False):
+    def process_episode(
+        episode_path, arm, prestack=False, low_res=False, benchmark=False
+    ):
         """
         Extracts all feature keys from a given episode and returns as a dictionary
         Parameters
@@ -358,7 +356,6 @@ class AriaVRSExtractor:
         episode_feats = dict()
 
         # file setup and opening
-        filename = episode_path.name
         root_dir = episode_path.parent
 
         mps_sample_path = os.path.join(root_dir, ("mps_" + episode_path.stem + "_vrs"))
@@ -373,19 +370,12 @@ class AriaVRSExtractor:
             hand_tracking_results_path
         )
 
-        device_calibration = vrs_reader.get_device_calibration()
-
         time_domain: TimeDomain = TimeDomain.DEVICE_TIME
-        time_query_closest: TimeQueryOptions = TimeQueryOptions.CLOSEST
 
         stream_ids: Dict[str, StreamId] = {
             "rgb": StreamId("214-1"),
             "slam-left": StreamId("1201-1"),
             "slam-right": StreamId("1201-2"),
-        }
-        stream_labels: Dict[str, str] = {
-            key: vrs_reader.get_label_from_stream_id(stream_id)
-            for key, stream_id in stream_ids.items()
         }
         stream_timestamps_ns: Dict[str, List[int]] = {
             key: vrs_reader.get_timestamps_ns(stream_id, time_domain)
@@ -423,8 +413,10 @@ class AriaVRSExtractor:
         )
 
         if low_res:
-            images = downsample_hwc_uint8_in_chunks(images, out_hw=(240, 320), chunk=256)
-            
+            images = downsample_hwc_uint8_in_chunks(
+                images, out_hw=(240, 320), chunk=256
+            )
+
         # with mem_section("process_episode.torch_from_numpy_permute", sample_interval_s=0.1, plot=False):
         #     images = torch.from_numpy(images).permute(0, 3, 1, 2).float()
 
@@ -461,7 +453,7 @@ class AriaVRSExtractor:
         episode_feats["observations"][f"images.{camera_key}"] = images
         episode_feats["actions_cartesian"] = actions
 
-        num_timesteps = episode_feats["observations"][f"state.ee_pose"].shape[0]
+        num_timesteps = episode_feats["observations"]["state.ee_pose"].shape[0]
         if arm == "right":
             value = EMBODIMENT.ARIA_RIGHT_ARM.value
         elif arm == "left":
@@ -517,7 +509,6 @@ class AriaVRSExtractor:
         frame_length = len(stream_timestamps_ns["rgb"])
         actions = []
 
-        time_domain: TimeDomain = TimeDomain.DEVICE_TIME
         time_query_closest: TimeQueryOptions = TimeQueryOptions.CLOSEST
 
         for t in range(frame_length - int(HORIZON * STEP)):
@@ -588,20 +579,45 @@ class AriaVRSExtractor:
             actions_t = np.array(actions_t)
             actions.append(actions_t)
 
-        with mem_section("get_action.list_to_numpy", sample_interval_s=0.1, plot=False, enabled=benchmark):
+        with mem_section(
+            "get_action.list_to_numpy",
+            sample_interval_s=0.1,
+            plot=False,
+            enabled=benchmark,
+        ):
             actions = np.array(actions)
 
         if arm == "bimanual":
             actions_left = actions[..., :6]
             actions_right = actions[..., 6:]
-            with mem_section("get_action.interpolate_left", sample_interval_s=0.1, plot=False, enabled=benchmark):
+            with mem_section(
+                "get_action.interpolate_left",
+                sample_interval_s=0.1,
+                plot=False,
+                enabled=benchmark,
+            ):
                 actions_left = interpolate_arr_euler(actions_left, CHUNK_LENGTH_ACT)
-            with mem_section("get_action.interpolate_right", sample_interval_s=0.1, plot=False, enabled=benchmark):
+            with mem_section(
+                "get_action.interpolate_right",
+                sample_interval_s=0.1,
+                plot=False,
+                enabled=benchmark,
+            ):
                 actions_right = interpolate_arr_euler(actions_right, CHUNK_LENGTH_ACT)
-            with mem_section("get_action.concatenate_bimanual", sample_interval_s=0.1, plot=False, enabled=benchmark):
+            with mem_section(
+                "get_action.concatenate_bimanual",
+                sample_interval_s=0.1,
+                plot=False,
+                enabled=benchmark,
+            ):
                 actions = np.concatenate((actions_left, actions_right), axis=-1)
         else:
-            with mem_section("get_action.interpolate_single", sample_interval_s=0.1, plot=False, enabled=benchmark):
+            with mem_section(
+                "get_action.interpolate_single",
+                sample_interval_s=0.1,
+                plot=False,
+                enabled=benchmark,
+            ):
                 actions = interpolate_arr_euler(actions, CHUNK_LENGTH_ACT)
 
         if not prestack:
@@ -760,7 +776,12 @@ class AriaVRSExtractor:
 
             images.append(image_t)
 
-        with mem_section("get_images.list_to_numpy_array", sample_interval_s=0.1, plot=False, enabled=benchmark):
+        with mem_section(
+            "get_images.list_to_numpy_array",
+            sample_interval_s=0.1,
+            plot=False,
+            enabled=benchmark,
+        ):
             images = np.array(images)
         return images
 
@@ -797,9 +818,6 @@ class AriaVRSExtractor:
         """
         ee_pose = []
         frame_length = len(stream_timestamps_ns["rgb"])
-
-        time_domain = TimeDomain.DEVICE_TIME
-        time_query_closest = TimeQueryOptions.CLOSEST
 
         for t in range(frame_length - int(HORIZON * STEP)):
             query_timestamp = stream_timestamps_ns["rgb"][t]
@@ -1000,7 +1018,9 @@ class AriaVRSExtractor:
 
                 for feature_id, _info in features.items():
                     if feature_id.startswith("observations."):
-                        key = feature_id.split(".", 1)[-1]  # "images.front_img_1" / "state.ee_pose"
+                        key = feature_id.split(".", 1)[
+                            -1
+                        ]  # "images.front_img_1" / "state.ee_pose"
                         value = episode_feats["observations"].get(key, None)
                     else:
                         value = episode_feats.get(feature_id, None)
@@ -1014,9 +1034,7 @@ class AriaVRSExtractor:
                             if image_compressed:
                                 img = cv2.imdecode(value[frame_idx], 1)  # HWC BGR uint8
                                 frame[feature_id] = (
-                                    torch.from_numpy(img)
-                                    .permute(2, 0, 1)
-                                    .contiguous()
+                                    torch.from_numpy(img).permute(2, 0, 1).contiguous()
                                 )  # CHW uint8
                             else:
                                 frame[feature_id] = (
@@ -1037,7 +1055,6 @@ class AriaVRSExtractor:
         finally:
             del episode_feats
 
-    
     @staticmethod
     def define_features(
         episode_feats: dict, image_compressed: bool = True, encode_as_video: bool = True
@@ -1189,7 +1206,9 @@ class DatasetConverter:
         self.prestack = prestack
         self.benchmark = benchmark
         if self.benchmark:
-            print(f"Benchmark mode enabled. This will plot the RAM usage of each section.")
+            print(
+                "Benchmark mode enabled. This will plot the RAM usage of each section."
+            )
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
@@ -1220,7 +1239,12 @@ class DatasetConverter:
         if debug:
             self.episode_list = self.episode_list[:2]
 
-        with mem_section("process_episode", sample_interval_s=0.025, plot=True, enabled=self.benchmark):
+        with mem_section(
+            "process_episode",
+            sample_interval_s=0.025,
+            plot=True,
+            enabled=self.benchmark,
+        ):
             processed_episode = AriaVRSExtractor.process_episode(
                 episode_path=self.episode_list[0],
                 arm=self.arm,
@@ -1243,30 +1267,37 @@ class DatasetConverter:
             )
 
         self.logger.info(f"Dataset Features: {self.features}")
-    
 
-    def save_preview_mp4(self, image_frames: list[dict], output_path: Path, fps: int, image_compressed: bool):
+    def save_preview_mp4(
+        self,
+        image_frames: list[dict],
+        output_path: Path,
+        fps: int,
+        image_compressed: bool,
+    ):
         """
         Save a single half-resolution, web-compatible MP4 using H.264 (libx264).
         No fallbacks. Requires `ffmpeg` with libx264 on PATH.
-    
+
         Each frame dict must contain:
             'observations.images.front_img_1' -> torch.Tensor (C,H,W) uint8
         """
-        
+
         imgs = image_frames
-    
+
         # Compute half-res (force even dims for yuv420p)
         C, H, W = imgs[0].shape
         outW, outH = W // 2, H // 2
-        if outW % 2: outW -= 1
-        if outH % 2: outH -= 1
+        if outW % 2:
+            outW -= 1
+        if outH % 2:
+            outH -= 1
         if outW <= 0 or outH <= 0:
             raise ValueError(f"[MP4] Invalid output size: {outW}x{outH}")
 
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
         rgb_frames = []
         for chw in imgs:
             # chw: (C,H,W) uint8, BGR from cv2.imdecode earlier
@@ -1389,7 +1420,7 @@ class DatasetConverter:
         print(
             f"[MP4] Saved web-compatible H.264 preview via ffmpeg CLI to {output_path}"
         )
-        
+
     def extract_episode(self, episode_path, task_description: str = ""):
         """
         Extracts frames from an episode and saves them to the dataset.
@@ -1404,25 +1435,34 @@ class DatasetConverter:
         None
         """
         image_frames = []
-        for i, frame in enumerate(AriaVRSExtractor.iter_episode_frames(episode_path, self.features, self.image_compressed, self.arm, self.prestack, self.benchmark)):
+        for i, frame in enumerate(
+            AriaVRSExtractor.iter_episode_frames(
+                episode_path,
+                self.features,
+                self.image_compressed,
+                self.arm,
+                self.prestack,
+                self.benchmark,
+            )
+        ):
             self.buffer.append(frame)
             if self._mp4_path is not None:
                 image = frame["observations.images.front_img_1"]
                 image_frames.append(image)
 
             if len(self.buffer) == EPISODE_LENGTH:
-                
                 for f in self.buffer:
                     self.dataset.add_frame(f)
-                
-                
+
                 self.logger.info(f"Saving Episode after {i + 1} frames...")
                 self.dataset.save_episode(task=task_description)
                 self.buffer.clear()
         if self._mp4_path is not None:
             ep_stem = Path(episode_path).stem
             mp4_path = self._mp4_path / f"{ep_stem}_video.mp4"
-            self.save_preview_mp4(image_frames, mp4_path, self.fps, self.image_compressed)
+            self.save_preview_mp4(
+                image_frames, mp4_path, self.fps, self.image_compressed
+            )
 
     def extract_episodes(self, episode_description: str = ""):
         """
@@ -1443,12 +1483,13 @@ class DatasetConverter:
         with mem_section("extract_episodes", enabled=self.benchmark):
             for episode_path in self.episode_list:
                 try:
-                    self.extract_episode(episode_path, task_description=episode_description)
+                    self.extract_episode(
+                        episode_path, task_description=episode_description
+                    )
                 except Exception as e:
                     self.logger.error(f"Error processing episode {episode_path}: {e}")
                     traceback.print_exc()
                     continue
-        
 
         self.buffer.clear()
         t0 = time.time()

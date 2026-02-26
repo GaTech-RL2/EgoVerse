@@ -14,52 +14,48 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import csv
 import json
 import os
 import shutil
 import sys
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterator, Tuple
-from tqdm import tqdm
-
-import ray
-from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
-
-from egomimic.utils.aws.aws_data_utils import s3_sync_to_local, upload_dir_to_s3
 
 import boto3
-from cloudpathlib import S3Path
-
-import traceback
-
-import csv
+import ray
 
 # --- Conversion wrapper ------------------------------------------------------
 from aria_helper import lerobot_job
+from cloudpathlib import S3Path
+from ray.exceptions import OutOfMemoryError, RayTaskError, WorkerCrashedError
+
+from egomimic.utils.aws.aws_data_utils import s3_sync_to_local, upload_dir_to_s3
 
 # --- SQL helpers --------------------------------------------------------------
 from egomimic.utils.aws.aws_sql import (
     TableRow,
     create_default_engine,
     episode_hash_to_table_row,
+    episode_table_to_df,
     update_episode,
-    episode_table_to_df
 )
 
 # --- Paths -------------------------------------------------------------------
-RAW_REMOTE_PREFIX = os.environ.get("RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/aria").rstrip("/")
+RAW_REMOTE_PREFIX = os.environ.get("RAW_REMOTE_PREFIX", "s3://rldb/raw_v2/aria").rstrip(
+    "/"
+)
 PROCESSED_ROOT = Path("/home/ubuntu/processed")
 PROCESSED_LOCAL_ROOT = Path(
     os.environ.get("PROCESSED_LOCAL_ROOT", "/home/ubuntu/processed")
 ).resolve()
 PROCESSED_REMOTE_PREFIX = os.environ.get(
     "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/aria"
-).rstrip(
-    "/"
-)
+).rstrip("/")
 BUCKET = os.environ.get("BUCKET", "rldb")
 
 LOG_ROOT = Path(
@@ -115,7 +111,9 @@ def _parse_s3_uri(uri: str, *, default_bucket: str | None = None) -> tuple[str, 
         bucket, _, key_prefix = rest.partition("/")
         return bucket, key_prefix.strip("/")
     if default_bucket is None:
-        raise ValueError(f"Expected s3://... but got '{uri}' and no default_bucket provided")
+        raise ValueError(
+            f"Expected s3://... but got '{uri}' and no default_bucket provided"
+        )
     return default_bucket, uri.strip("/")
 
 
@@ -143,6 +141,7 @@ def iter_vrs_bundles(root_s3: str) -> Iterator[Tuple[S3Path, S3Path, S3Path]]:
             and (mpsdir / "slam").is_dir()
         ):
             yield vrs, jsonf, mpsdir
+
 
 def iter_vrs_bundles_fast(root_s3: str) -> Iterator[Tuple[S3Path, S3Path, S3Path]]:
     """
@@ -188,7 +187,9 @@ def iter_vrs_bundles_fast(root_s3: str) -> Iterator[Tuple[S3Path, S3Path, S3Path
 
             # Only descend into potential mps dirs
             if can_prune:
-                dirnames[:] = [d for d in dirnames if d.startswith("mps_") and d.endswith("_vrs")]
+                dirnames[:] = [
+                    d for d in dirnames if d.startswith("mps_") and d.endswith("_vrs")
+                ]
 
         elif depth == 1:
             # We’re inside something like mps_{name}_vrs/
@@ -213,6 +214,7 @@ def iter_vrs_bundles_fast(root_s3: str) -> Iterator[Tuple[S3Path, S3Path, S3Path
     for name in sorted(vrs_by_name, key=lambda n: vrs_by_name[n].name):
         if name in has_json and name in has_hand and name in has_slam:
             yield vrs_by_name[name], root / f"{name}.json", root / f"mps_{name}_vrs"
+
 
 def infer_arm_from_row(row: TableRow) -> str:
     """
@@ -309,7 +311,9 @@ def convert_one_bundle_impl(
                 mps_dir,
             ]
 
-            raw_bucket, raw_prefix = _parse_s3_uri(RAW_REMOTE_PREFIX, default_bucket=BUCKET)
+            raw_bucket, raw_prefix = _parse_s3_uri(
+                RAW_REMOTE_PREFIX, default_bucket=BUCKET
+            )
             raw_root = S3Path(RAW_REMOTE_PREFIX)
 
             for t in targets:
@@ -361,25 +365,37 @@ def convert_one_bundle_impl(
                 else:
                     matches = list(ds_path.glob(f"*{stem}*_video.mp4"))
                     mp4_str = str(matches[0]) if matches else ""
-                
+
                 try:
-                    out_bucket, out_prefix = _parse_s3_uri(s3_processed_dir, default_bucket=BUCKET)
-                    ds_rel = ds_path.resolve().relative_to(PROCESSED_LOCAL_ROOT).as_posix()
+                    out_bucket, out_prefix = _parse_s3_uri(
+                        s3_processed_dir, default_bucket=BUCKET
+                    )
+                    ds_rel = (
+                        ds_path.resolve().relative_to(PROCESSED_LOCAL_ROOT).as_posix()
+                    )
                     ds_s3_prefix = f"{out_prefix.rstrip('/')}/{ds_rel}".strip("/")
                     upload_dir_to_s3(str(ds_path), out_bucket, prefix=ds_s3_prefix)
                     if mp4_str:
                         mp4_path = Path(mp4_str)
                         if mp4_path.exists():
-                            mp4_rel = mp4_path.resolve().relative_to(PROCESSED_LOCAL_ROOT).as_posix()
-                            mp4_s3_key = f"{out_prefix.rstrip('/')}/{mp4_rel}".strip("/")
+                            mp4_rel = (
+                                mp4_path.resolve()
+                                .relative_to(PROCESSED_LOCAL_ROOT)
+                                .as_posix()
+                            )
+                            mp4_s3_key = f"{out_prefix.rstrip('/')}/{mp4_rel}".strip(
+                                "/"
+                            )
                             try:
                                 s3.upload_file(str(mp4_path), out_bucket, mp4_s3_key)
                             except Exception as e:
-                                raise Exception(f"Failed to upload mp4 {mp4_path} to S3: {e}")
+                                raise Exception(
+                                    f"Failed to upload mp4 {mp4_path} to S3: {e}"
+                                )
                 except Exception as e:
                     print(f"[ERR] Failed to upload {ds_path} to S3: {e}", flush=True)
                     return "", "", -2
-                    
+
                 return str(ds_path), mp4_str, frames
 
             except Exception as e:
@@ -587,7 +603,7 @@ def launch(
                 continue
 
             print(
-                f"[FAIL] Episode {episode_key} task failed ({info.get('size','?')}): "
+                f"[FAIL] Episode {episode_key} task failed ({info.get('size', '?')}): "
                 f"{type(e).__name__}: {e}",
                 flush=True,
             )
@@ -656,15 +672,18 @@ def main():
     args = p.parse_args()
 
     if args.debug:
-        runtime_env = {"working_dir": "/home/ubuntu/EgoVerse", "excludes": [
-      "**/.git/**",
-      "external/openpi/third_party/aloha/**",
-      "**/*.stl",
-      "**/*.pack",
-      "**/__pycache__/**",
-      "egomimic/robot/**",
-      "external/openpi/**"
-    ],}
+        runtime_env = {
+            "working_dir": "/home/ubuntu/EgoVerse",
+            "excludes": [
+                "**/.git/**",
+                "external/openpi/third_party/aloha/**",
+                "**/*.stl",
+                "**/*.pack",
+                "**/__pycache__/**",
+                "egomimic/robot/**",
+                "external/openpi/**",
+            ],
+        }
     else:
         runtime_env = None
 

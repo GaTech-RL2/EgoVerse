@@ -25,6 +25,7 @@ embodiment. Example:
   python3 egomimic/scripts/csv_uploader.py
 
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,6 +36,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from abstract_upload import Uploader
+
 from egomimic.utils.aws.aws_sql import TableRow
 
 
@@ -45,9 +47,17 @@ class CSVGroupUploader(Uploader):
     groups is a list of tuples: (vrs_path: Path, json_path: Optional[Path], csv_path: Path)
     """
 
-    def __init__(self, embodiment: str, datatype: str, csv_map: Dict[str, Dict], groups: List[Tuple[Path, Optional[Path], Path]]):
+    def __init__(
+        self,
+        embodiment: str,
+        datatype: str,
+        csv_map: Dict[str, Dict],
+        groups: List[Tuple[Path, Optional[Path], Path]],
+    ):
         # collect_files will be provided but we still pass a placeholder; we'll set local_dir externally
-        super().__init__(embodiment=embodiment, datatype=datatype, collect_files=lambda _: [])
+        super().__init__(
+            embodiment=embodiment, datatype=datatype, collect_files=lambda _: []
+        )
         self.csv_map = csv_map
         self.groups = groups
 
@@ -84,7 +94,7 @@ class CSVGroupUploader(Uploader):
             val = row.get(key) if row else None
 
             # Coerce types for a few well-known fields
-            if key == 'objects':
+            if key == "objects":
                 # Ensure objects is always a list
                 if isinstance(val, list):
                     submitted_metadata[key] = val
@@ -92,37 +102,41 @@ class CSVGroupUploader(Uploader):
                     submitted_metadata[key] = []
                 else:
                     # If a string slipped through, split on commas; otherwise wrap single value
-                    if isinstance(val, str) and ',' in val:
-                        submitted_metadata[key] = [v.strip() for v in val.split(',') if v.strip()]
+                    if isinstance(val, str) and "," in val:
+                        submitted_metadata[key] = [
+                            v.strip() for v in val.split(",") if v.strip()
+                        ]
                     else:
                         submitted_metadata[key] = [val] if val is not None else []
-            elif key in ('num_frames',):
+            elif key in ("num_frames",):
                 try:
                     submitted_metadata[key] = int(val) if val not in (None, "") else ""
                 except Exception:
                     submitted_metadata[key] = ""
-            elif key in ('eval_score',):
+            elif key in ("eval_score",):
                 try:
-                    submitted_metadata[key] = float(val) if val not in (None, "") else ""
+                    submitted_metadata[key] = (
+                        float(val) if val not in (None, "") else ""
+                    )
                 except Exception:
                     submitted_metadata[key] = ""
-            elif key in ('is_deleted', 'is_eval', 'eval_success'):
+            elif key in ("is_deleted", "is_eval", "eval_success"):
                 if val is None or val == "":
                     submitted_metadata[key] = ""
                 else:
                     v = str(val).strip().lower()
-                    submitted_metadata[key] = v in ('1', 'true', 'yes', 'y', 't')
+                    submitted_metadata[key] = v in ("1", "true", "yes", "y", "t")
             else:
                 submitted_metadata[key] = val if val is not None else ""
 
         # Ensure ALL TableRow fields are present in the metadata JSON (user requested)
         for fld in TableRow.__dataclass_fields__.keys():
             if fld not in submitted_metadata:
-                if fld == 'objects':
+                if fld == "objects":
                     submitted_metadata[fld] = []
-                elif fld == 'episode_hash':
+                elif fld == "episode_hash":
                     submitted_metadata[fld] = ""
-                elif fld == 'embodiment':
+                elif fld == "embodiment":
                     submitted_metadata[fld] = self.embodiment
                 else:
                     submitted_metadata[fld] = ""
@@ -138,13 +152,17 @@ class CSVGroupUploader(Uploader):
         submitted_metadata["task"] = "sort utensils"
 
         # Write JSON tempfile
-        metadata_tempfile = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.json')
+        metadata_tempfile = tempfile.NamedTemporaryFile(
+            delete=False, mode="w", suffix=".json"
+        )
         json.dump(submitted_metadata, metadata_tempfile, indent=2)
         metadata_tempfile.close()
         return Path(metadata_tempfile.name)
 
 
-def find_groups(root: Path) -> Tuple[Dict[str, Dict], List[Tuple[Path, Optional[Path], Path]]]:
+def find_groups(
+    root: Path,
+) -> Tuple[Dict[str, Dict], List[Tuple[Path, Optional[Path], Path]]]:
     """Scan root for *_meta.csv files and pair them with .vrs and .vrs.json files.
 
     Returns (csv_map, groups)
@@ -156,24 +174,30 @@ def find_groups(root: Path) -> Tuple[Dict[str, Dict], List[Tuple[Path, Optional[
 
     # alias map: map common CSV headers to TableRow fields
     alias_map = {
-        'collector': 'operator',
-        'clothes_info': 'objects',
-        'clothes': 'objects',
-        'scene_number': 'scene',
-        'recording_number': 'recording_number',
-        'arm': 'arm',
+        "collector": "operator",
+        "clothes_info": "objects",
+        "clothes": "objects",
+        "scene_number": "scene",
+        "recording_number": "recording_number",
+        "arm": "arm",
         # add more aliases here as needed
     }
 
-    for csv_path in sorted(root.rglob('*_meta.csv')):
+    for csv_path in sorted(root.rglob("*_meta.csv")):
         try:
-            with open(csv_path, newline='') as fh:
+            with open(csv_path, newline="") as fh:
                 reader = csv.DictReader(fh)
                 row = None
                 for r in reader:
                     # take first non-empty row
-                    if any((v is not None and str(v).strip() != "") for v in r.values()):
-                        row = {k.strip(): (v.strip() if isinstance(v, str) else v) for k, v in r.items() if k}
+                    if any(
+                        (v is not None and str(v).strip() != "") for v in r.values()
+                    ):
+                        row = {
+                            k.strip(): (v.strip() if isinstance(v, str) else v)
+                            for k, v in r.items()
+                            if k
+                        }
                         break
                 if row is None:
                     # empty csv; skip
@@ -184,17 +208,21 @@ def find_groups(root: Path) -> Tuple[Dict[str, Dict], List[Tuple[Path, Optional[
                     key = k.strip()
                     mapped = alias_map.get(key, key)
                     # normalize objects into a list immediately
-                    if mapped == 'objects':
+                    if mapped == "objects":
                         if v is None or (isinstance(v, str) and v.strip() == ""):
                             norm_row[mapped] = []
                         elif isinstance(v, list):
                             norm_row[mapped] = v
                         else:
                             # split on commas, but treat single token as single-item list
-                            if isinstance(v, str) and ',' in v:
-                                norm_row[mapped] = [x.strip() for x in v.split(',') if x.strip()]
+                            if isinstance(v, str) and "," in v:
+                                norm_row[mapped] = [
+                                    x.strip() for x in v.split(",") if x.strip()
+                                ]
                             else:
-                                norm_row[mapped] = [v.strip()] if isinstance(v, str) else [v]
+                                norm_row[mapped] = (
+                                    [v.strip()] if isinstance(v, str) else [v]
+                                )
                     else:
                         norm_row[mapped] = v
                 row = norm_row
@@ -203,7 +231,7 @@ def find_groups(root: Path) -> Tuple[Dict[str, Dict], List[Tuple[Path, Optional[
 
         # derive base name (remove trailing _meta)
         name = csv_path.stem
-        if name.endswith('_meta'):
+        if name.endswith("_meta"):
             base = name[:-5]
         else:
             # fallback: use stem
@@ -217,20 +245,20 @@ def find_groups(root: Path) -> Tuple[Dict[str, Dict], List[Tuple[Path, Optional[
                 mapped_row[k] = v
             else:
                 # common patterns mapping
-                if k == 'operator':
-                    mapped_row['operator'] = v
-                elif k == 'lab':
-                    mapped_row['lab'] = v
-                elif k == 'clothes_info' or k == 'clothes' or k == 'objects':
-                    mapped_row['objects'] = v
-                elif k == 'scene' or k == 'scene_number':
-                    mapped_row['scene'] = v
-                elif k == 'collector':
-                    mapped_row['operator'] = v
-                elif k == 'arm':
+                if k == "operator":
+                    mapped_row["operator"] = v
+                elif k == "lab":
+                    mapped_row["lab"] = v
+                elif k == "clothes_info" or k == "clothes" or k == "objects":
+                    mapped_row["objects"] = v
+                elif k == "scene" or k == "scene_number":
+                    mapped_row["scene"] = v
+                elif k == "collector":
+                    mapped_row["operator"] = v
+                elif k == "arm":
                     # include arm info in task_description (concise)
-                    prev = mapped_row.get('task_description', '')
-                    mapped_row['task_description'] = (prev + ' ' + str(v)).strip()
+                    prev = mapped_row.get("task_description", "")
+                    mapped_row["task_description"] = (prev + " " + str(v)).strip()
                 else:
                     # store unknowns as-is under their header name for potential use
                     mapped_row[k] = v
@@ -239,7 +267,7 @@ def find_groups(root: Path) -> Tuple[Dict[str, Dict], List[Tuple[Path, Optional[
 
         # find vrs file with same base (may have extension already). Search for files matching base.* with .vrs
         vrs_candidate = None
-        for ext in ('.vrs', '.VRS'):
+        for ext in (".vrs", ".VRS"):
             p = csv_path.with_name(base + ext)
             if p.exists():
                 vrs_candidate = p
@@ -247,16 +275,22 @@ def find_groups(root: Path) -> Tuple[Dict[str, Dict], List[Tuple[Path, Optional[
         if vrs_candidate is None:
             # try find any file that startswith base and endswith .vrs (case-insensitive)
             for p in csv_path.parent.iterdir():
-                if p.is_file() and p.suffix.lower() == '.vrs' and p.stem.startswith(base):
+                if (
+                    p.is_file()
+                    and p.suffix.lower() == ".vrs"
+                    and p.stem.startswith(base)
+                ):
                     vrs_candidate = p
                     break
 
         if vrs_candidate is None:
-            print(f"Skipping CSV {csv_path} — no matching .vrs file found for base '{base}'")
+            print(
+                f"Skipping CSV {csv_path} — no matching .vrs file found for base '{base}'"
+            )
             continue
 
         # expected json companion: <name>.vrs.json
-        json_candidate = vrs_candidate.with_suffix(vrs_candidate.suffix + '.json')
+        json_candidate = vrs_candidate.with_suffix(vrs_candidate.suffix + ".json")
         if not json_candidate.exists():
             # warn but still allow (user asked to upload vrs and json if present)
             json_candidate = None
@@ -276,16 +310,18 @@ def prompt_for(prompt: str, default: Optional[str] = None) -> str:
 
 
 def main():
-    print("CSV group uploader — finds per-recording *_meta.csv files and uploads the matching vrs/json files using CSV-provided metadata.")
+    print(
+        "CSV group uploader — finds per-recording *_meta.csv files and uploads the matching vrs/json files using CSV-provided metadata."
+    )
 
-    dirpath = prompt_for('Directory to scan for recordings (root)')
+    dirpath = prompt_for("Directory to scan for recordings (root)")
     root = Path(dirpath).expanduser().resolve()
     if not root.exists() or not root.is_dir():
         print(f"Directory not found: {root}")
         return
 
-    embodiment = prompt_for('Embodiment name (e.g. aria, eve)')
-    datatype = prompt_for('Main file extension (e.g. .vrs, .hdf5)', default='.vrs')
+    embodiment = prompt_for("Embodiment name (e.g. aria, eve)")
+    datatype = prompt_for("Main file extension (e.g. .vrs, .hdf5)", default=".vrs")
 
     print(f"Scanning {root} for *_meta.csv files...")
     csv_map, groups = find_groups(root)
@@ -295,7 +331,9 @@ def main():
 
     print(f"Found {len(groups)} recording group(s). Preparing uploader...")
 
-    uploader = CSVGroupUploader(embodiment=embodiment, datatype=datatype, csv_map=csv_map, groups=groups)
+    uploader = CSVGroupUploader(
+        embodiment=embodiment, datatype=datatype, csv_map=csv_map, groups=groups
+    )
     # set directory so uploader won't prompt for it
     uploader.local_dir = root
     uploader.directory_prompted = True
@@ -311,5 +349,5 @@ def main():
     asyncio.run(uploader.run())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

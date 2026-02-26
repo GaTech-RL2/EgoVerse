@@ -2,6 +2,8 @@
 useful functions and features
 """
 
+import argparse
+
 import pandas as pd
 import pyarrow.parquet as pq
 

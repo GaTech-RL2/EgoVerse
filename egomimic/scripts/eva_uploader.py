@@ -1,5 +1,4 @@
 import asyncio
-from pathlib import Path
 
 from abstract_upload import Uploader
 
@@ -18,9 +17,7 @@ def eva_uploader():
 
         return hdf5_files
 
-    uploader = Uploader(
-        embodiment="eva", datatype=".hdf5", collect_files=collect_files
-    )
+    uploader = Uploader(embodiment="eva", datatype=".hdf5", collect_files=collect_files)
 
     return uploader
 

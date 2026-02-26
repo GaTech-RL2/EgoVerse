@@ -79,7 +79,9 @@ def _ensure_lambda(lambda_client, lambda_name, role_arn, region, env, zip_bytes)
             Timeout=60,
             Environment={"Variables": env},
         )
-        return lambda_client.get_function(FunctionName=lambda_name)["Configuration"]["FunctionArn"]
+        return lambda_client.get_function(FunctionName=lambda_name)["Configuration"][
+            "FunctionArn"
+        ]
     except ClientError as exc:
         if exc.response["Error"]["Code"] != "ResourceNotFoundException":
             raise
@@ -162,7 +164,10 @@ def _ensure_budget(budgets, account_id, budget_name, limit, topic_arn, service_f
 
     budgets.update_budget(AccountId=account_id, NewBudget=budget)
     budgets.update_notification(
-        AccountId=account_id, BudgetName=budget_name, OldNotification=notification, NewNotification=notification
+        AccountId=account_id,
+        BudgetName=budget_name,
+        OldNotification=notification,
+        NewNotification=notification,
     )
     budgets.update_subscriber(
         AccountId=account_id,
@@ -177,7 +182,10 @@ def _delete_budget(budgets, account_id, budget_name):
     try:
         budgets.delete_budget(AccountId=account_id, BudgetName=budget_name)
     except ClientError as exc:
-        if exc.response["Error"]["Code"] not in {"NotFoundException", "ResourceNotFoundException"}:
+        if exc.response["Error"]["Code"] not in {
+            "NotFoundException",
+            "ResourceNotFoundException",
+        }:
             raise
 
 

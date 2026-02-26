@@ -1,0 +1,12 @@
+line-length = 88
+
+exclude = [
+  "external",
+  "egomimic/robot/eva/stanford_repo",
+  "*.ipynb",
+  "egomimic/robot/oculus_reader"
+]
+
+[lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

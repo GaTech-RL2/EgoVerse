@@ -4,7 +4,7 @@ import multiprocessing
 import multiprocessing.synchronize
 from multiprocessing.managers import SharedMemoryManager
 from multiprocessing.shared_memory import SharedMemory
-from typing import TYPE_CHECKING, Any, Generic, Optional, Tuple, TypeVar, Union
+from typing import Generic, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import numpy.typing as npt

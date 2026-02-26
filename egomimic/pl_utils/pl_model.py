@@ -1,18 +1,15 @@
 import os
 import random
 from collections import OrderedDict, deque
+from typing import Any, Dict
 
 import numpy as np
-import egomimic.utils.tensor_utils as TensorUtils
 import torch
-from lightning import LightningModule
-from egomimic.utils.egomimicUtils import nds
-from egomimic.pl_utils.pl_data_utils import DualDataModuleWrapper, RLDBModule
-from typing import Any, Dict
 import torchvision.io as tvio
-from lightning.pytorch.utilities import rank_zero_only
-from egomimic.rldb.utils import get_embodiment
-import egomimic.utils.memory_utils as memutils
+from lightning import LightningModule
+
+import egomimic.utils.tensor_utils as TensorUtils
+from egomimic.rldb.embodiment import get_embodiment
 
 
 class ModelWrapper(LightningModule):
@@ -41,7 +38,7 @@ class ModelWrapper(LightningModule):
         )  # to ensure the lightning module has access to the model's parameters
         try:
             self.params = self.model.nets["policy"].params
-        except:
+        except Exception:
             pass
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
 

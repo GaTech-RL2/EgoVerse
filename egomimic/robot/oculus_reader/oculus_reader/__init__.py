@@ -1,1 +1,1 @@
-from .reader import OculusReader
+from .reader import OculusReader as OculusReader

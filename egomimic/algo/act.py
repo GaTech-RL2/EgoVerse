@@ -4,24 +4,15 @@ Implementation of Action Chunking with Transformers (ACT).
 
 from collections import OrderedDict
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.transforms as transforms
-
-from egomimic.utils.egomimicUtils import nds
-import matplotlib.pyplot as plt
-
-from egomimic.algo.algo import Algo
-
-
-from egomimic.utils.egomimicUtils import draw_actions
-
+from overrides import override
 from torchmetrics import MeanSquaredError
 
-import numpy as np
-
-from overrides import override
+from egomimic.algo.algo import Algo
+from egomimic.utils.egomimicUtils import draw_actions
 
 
 class ACTModel(nn.Module):
@@ -427,7 +418,7 @@ class ACT(Algo):
             .transpose((0, 2, 3, 1))
             * 255
         ).astype(np.uint8)
-        preds = preds[self.data_schematic.action_keys()[0]]
+        preds = predictions[self.data_schematic.action_keys()[0]]
         gt = batch[self.data_schematic.action_keys()[0]]
 
         for b in range(ims.shape[0]):

@@ -1,41 +1,17 @@
-from einops import rearrange, repeat, reduce
 from functools import partial
 from typing import Callable, List, Optional, Union
 
-import torchvision
-from torchvision import transforms
 import torch
 import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
-from timm.models.layers import DropPath, trunc_normal_
-from torch import nn, einsum
 import torch.nn.functional as F
-
-from timm.models.vision_transformer import VisionTransformer
-
-from functools import partial
-
-from transformers import T5Tokenizer, T5Model, AutoTokenizer
-
-from einops import rearrange, repeat, reduce
-from functools import partial
-from typing import Callable, List, Optional, Union
-
+import torch.utils.checkpoint as checkpoint
 import torchvision
-from torchvision import transforms
-import torch
-import torch.nn as nn
-import torch.utils.checkpoint as checkpoint
+from einops import rearrange, repeat
 from timm.models.layers import DropPath, trunc_normal_
-from torch import nn, einsum
-import torch.nn.functional as F
-
 from timm.models.vision_transformer import VisionTransformer
-
-from functools import partial
-
-from transformers import T5Tokenizer, T5Model, AutoTokenizer
-from transformers import CLIPTextModel, CLIPVisionModel  # TODO: add CLIP
+from torch import einsum
+from torchvision import transforms
+from transformers import T5Model, T5Tokenizer
 
 from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table
 
@@ -517,7 +493,7 @@ class STPolicyStem(nn.Module):
             horizon, instance (e.g. num of views), number of features, and feature dimensions respectively.
             Average over the number of instances.
         """
-        B, T, I, *_ = x.shape
+        B, T, num_instances, *_ = x.shape
         x = rearrange(x, "B T I ... D -> (B I) D T ...")
 
         if self.conv_dim == 3:
@@ -530,7 +506,9 @@ class STPolicyStem(nn.Module):
             )
         out = self.conv(x)
         out = self.pool(out)
-        out = rearrange(out, "(B I) D ... -> B I (...) D", B=B, I=I).mean(dim=1)
+        out = rearrange(out, "(B I) D ... -> B I (...) D", B=B, I=num_instances).mean(
+            dim=1
+        )
         return out
 
 

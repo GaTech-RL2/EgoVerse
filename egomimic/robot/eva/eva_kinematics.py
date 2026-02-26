@@ -1,5 +1,6 @@
-from egomimic.robot.kinematics import TracKinematicsSolver, MinkKinematicsSolver
 import numpy as np
+
+from egomimic.robot.kinematics import MinkKinematicsSolver, TracKinematicsSolver
 
 
 class EvaTracKinematicsSolver(TracKinematicsSolver):
@@ -125,7 +126,6 @@ class EvaMinkKinematicsSolver(MinkKinematicsSolver):
         Returns:
             solved_jnts: Solution joint values or None if all retries fail
         """
-        import numpy as np
 
         # First try with current configuration
         result = self.ik(pos_xyz, rot_mat, cur_jnts, dt=dt)

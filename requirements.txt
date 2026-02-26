@@ -18,7 +18,7 @@ pyquaternion
 rospkg
 einops
 av==12.0.0
-opencv-python==4.7.0.72
+opencv-python
 dm-control==1.0.8
 mink
 mujoco
@@ -31,7 +31,7 @@ positional-encodings[pytorch]
 argparse
 pandas
 overrides
-zarr
+zarr==3.1.5
 tabulate
 transformers==4.57.3
 timm
@@ -51,3 +51,7 @@ simplejpeg
 prettytable
 datasets==4.0.0
 s5cmd
+mediapy
+pytest
+pre-commit
+ruff

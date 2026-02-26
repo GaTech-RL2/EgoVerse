@@ -6,18 +6,16 @@ import json
 import os
 import shutil
 import time
+import traceback
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator, Tuple
 
 import ray
-import traceback
-
 from eva_helper import lerobot_job
 
 from egomimic.utils.aws.aws_sql import (
-    TableRow,
     create_default_engine,
     episode_hash_to_table_row,
     update_episode,
@@ -25,8 +23,12 @@ from egomimic.utils.aws.aws_sql import (
 
 RAW_ROOT = Path("/mnt/raw")
 PROCESSED_ROOT = Path("/mnt/processed")
-PROCESSED_LOCAL_ROOT = Path(os.environ.get("PROCESSED_LOCAL_ROOT", "/mnt/processed")).resolve()
-PROCESSED_REMOTE_PREFIX = os.environ.get("PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/eva").rstrip("/")
+PROCESSED_LOCAL_ROOT = Path(
+    os.environ.get("PROCESSED_LOCAL_ROOT", "/mnt/processed")
+).resolve()
+PROCESSED_REMOTE_PREFIX = os.environ.get(
+    "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v2/eva"
+).rstrip("/")
 
 DEFAULT_EXTRINSICS_KEY = "x5Dec13_2"
 
@@ -51,7 +53,11 @@ def _map_processed_local_to_remote(p: str | Path) -> str:
         rel = p.relative_to(PROCESSED_LOCAL_ROOT)
     except Exception:
         return str(p)
-    return f"{PROCESSED_REMOTE_PREFIX}/{rel.as_posix()}" if PROCESSED_REMOTE_PREFIX else str(p)
+    return (
+        f"{PROCESSED_REMOTE_PREFIX}/{rel.as_posix()}"
+        if PROCESSED_REMOTE_PREFIX
+        else str(p)
+    )
 
 
 def _load_extrinsics_key_from_json(meta_json: Path) -> str:
@@ -191,7 +197,7 @@ def launch(dry: bool = False, skip_if_done: bool = False):
         if skip_if_done and len(processed_path) > 0:
             print(f"[SKIP] {name}: already has processed_path='{processed_path}'")
             continue
-        
+
         if row.is_deleted:
             print(f"[SKIP] {name}: episode marked as deleted in SQL")
             continue

@@ -6,22 +6,20 @@ Convert Mecka RL2 dataset to LeRobot format.
 import argparse
 import json
 import logging
-import os
-from pathlib import Path
 import shutil
-import traceback
-from typing import Dict, List, Optional, Tuple
-import urllib.request
+import sys
 import time
+import traceback
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
 import pandas as pd
-import sys
 import torch
 from scipy.spatial.transform import Rotation
 
-from egomimic.rldb.utils import EMBODIMENT
+from egomimic.rldb.embodiment import EMBODIMENT
 
 sys.path.insert(0, str(Path(__file__).parent / "lerobot"))
 
@@ -33,29 +31,48 @@ logger = logging.getLogger(__name__)
 EPISODE_LENGTH = 300
 CHUNK_SIZE = 100
 
+
 def download_with_retry(url, dest_path, max_retries=5):
     """Download file with retry logic for network connections."""
     import subprocess
 
     if Path(dest_path).exists():
         file_size = Path(dest_path).stat().st_size
-        logger.info(f"File {Path(dest_path).name} already exists ({file_size} bytes), skipping download")
+        logger.info(
+            f"File {Path(dest_path).name} already exists ({file_size} bytes), skipping download"
+        )
         return
 
     for attempt in range(max_retries):
         try:
-            logger.info(f"Downloading {Path(dest_path).name} (attempt {attempt + 1}/{max_retries})...")
+            logger.info(
+                f"Downloading {Path(dest_path).name} (attempt {attempt + 1}/{max_retries})..."
+            )
 
-            result = subprocess.run(
-                ['curl', '-L', '-C', '-', '--retry', '3', '--retry-delay', '2', '-o', str(dest_path), url],
+            subprocess.run(
+                [
+                    "curl",
+                    "-L",
+                    "-C",
+                    "-",
+                    "--retry",
+                    "3",
+                    "--retry-delay",
+                    "2",
+                    "-o",
+                    str(dest_path),
+                    url,
+                ],
                 check=True,
                 capture_output=True,
                 timeout=600,
-                text=True
+                text=True,
             )
 
             if Path(dest_path).exists() and Path(dest_path).stat().st_size > 0:
-                logger.info(f"Successfully downloaded {Path(dest_path).name} ({Path(dest_path).stat().st_size} bytes)")
+                logger.info(
+                    f"Successfully downloaded {Path(dest_path).name} ({Path(dest_path).stat().st_size} bytes)"
+                )
                 return
             else:
                 raise Exception("Download completed but file is empty or missing")
@@ -67,8 +84,11 @@ def download_with_retry(url, dest_path, max_retries=5):
                     Path(dest_path).unlink()
                 time.sleep(3)
             else:
-                logger.error(f"Failed to download {Path(dest_path).name} after {max_retries} attempts")
+                logger.error(
+                    f"Failed to download {Path(dest_path).name} after {max_retries} attempts"
+                )
                 raise
+
 
 # ROTATION_MATRIX = np.array([[1, 0, 0],
 #                             [0, 1, 0],
@@ -78,7 +98,7 @@ def download_with_retry(url, dest_path, max_retries=5):
 def pose_to_transform(pose: np.ndarray) -> np.ndarray:
     """Convert 6DOF pose [x, y, z, yaw, pitch, roll] to 4x4 transform matrix."""
     x, y, z, yaw, pitch, roll = pose
-    rotation = Rotation.from_euler('ZYX', [yaw, pitch, roll])
+    rotation = Rotation.from_euler("ZYX", [yaw, pitch, roll])
     T = np.eye(4)
     T[:3, :3] = rotation.as_matrix()
     T[:3, 3] = [x, y, z]
@@ -89,11 +109,13 @@ def transform_to_pose(T: np.ndarray) -> np.ndarray:
     """Convert 4x4 transform matrix to 6DOF pose [x, y, z, yaw, pitch, roll]."""
     x, y, z = T[:3, 3]
     rotation = Rotation.from_matrix(T[:3, :3])
-    yaw, pitch, roll = rotation.as_euler('ZYX')
+    yaw, pitch, roll = rotation.as_euler("ZYX")
     return np.array([x, y, z, yaw, pitch, roll])
 
 
-def compute_camera_relative_pose(pose: np.ndarray, cam_prev_inv: np.ndarray, cam_curr: np.ndarray) -> np.ndarray:
+def compute_camera_relative_pose(
+    pose: np.ndarray, cam_prev_inv: np.ndarray, cam_curr: np.ndarray
+) -> np.ndarray:
     """
     Transform pose from world frame to camera-t frame.
 
@@ -149,8 +171,8 @@ def compute_hand_pose_6dof(keypoints: np.ndarray) -> np.ndarray:
 
     try:
         rotation = Rotation.from_matrix(R)
-        yaw, pitch, roll = rotation.as_euler('zyx')
-    except:
+        yaw, pitch, roll = rotation.as_euler("zyx")
+    except Exception:
         yaw, pitch, roll = 0, 0, 0
 
     return np.concatenate([position, [yaw, pitch, roll]])
@@ -194,7 +216,7 @@ class MeckaExtractor:
         logger.info(f"Processing episode: {episode_json_path}")
 
         # Load episode metadata
-        with open(episode_json_path, 'r') as f:
+        with open(episode_json_path, "r") as f:
             data = json.load(f)
             # Handle both list and dict formats
             episode_meta = data[0] if isinstance(data, list) else data
@@ -226,9 +248,13 @@ class MeckaExtractor:
                 download_with_retry(episode_meta["urls"]["hands"], hands_path)
                 download_with_retry(episode_meta["urls"]["egomotion"], egomotion_path)
                 download_with_retry(episode_meta["urls"]["frames"], frames_path)
-                download_with_retry(episode_meta["urls"]["annotations"], annotations_path)
+                download_with_retry(
+                    episode_meta["urls"]["annotations"], annotations_path
+                )
             else:
-                logger.info(f"Loading data files from local directory: {local_data_dir}")
+                logger.info(
+                    f"Loading data files from local directory: {local_data_dir}"
+                )
                 hands_path = local_data_dir / "hands.csv"
                 egomotion_path = local_data_dir / "egomotion.txt"
                 frames_path = local_data_dir / "frames.csv"
@@ -246,7 +272,9 @@ class MeckaExtractor:
 
                 for p in [hands_path, egomotion_path, frames_path, annotations_path]:
                     if not p.exists():
-                        raise FileNotFoundError(f"Missing required file for local load: {p}")
+                        raise FileNotFoundError(
+                            f"Missing required file for local load: {p}"
+                        )
 
             hands_df = pd.read_csv(hands_path)
             egomotion = np.loadtxt(egomotion_path)
@@ -262,10 +290,12 @@ class MeckaExtractor:
             images = MeckaExtractor._extract_video_frames(video_path, len(frames_df))
 
             num_frames = min(len(images), len(frames_df), len(egomotion))
-            logger.info(f"Syncing to {num_frames} frames (video={len(images)}, frames_df={len(frames_df)}, egomotion={len(egomotion)})")
+            logger.info(
+                f"Syncing to {num_frames} frames (video={len(images)}, frames_df={len(frames_df)}, egomotion={len(egomotion)})"
+            )
 
             images = images[:num_frames]
-            
+
             # Downsample images to 640x360 (W x H)
             target_w, target_h = 640, 360
             downsampled_images = []
@@ -304,7 +334,9 @@ class MeckaExtractor:
                 actions_ee_cartesian_cam = ee_pose_cam
                 actions_ee_keypoints_world = hand_keypoints_world
 
-            actions_head_cartesian_world = MeckaExtractor._extract_head_poses(camera_transforms)
+            actions_head_cartesian_world = MeckaExtractor._extract_head_poses(
+                camera_transforms
+            )
 
             if arm == "both":
                 enum = EMBODIMENT.MECKA_BIMANUAL
@@ -318,7 +350,7 @@ class MeckaExtractor:
             episode_feats = {
                 "observations": {
                     "state.ee_pose_cam": ee_pose_cam,
-                    "images.front_img_1": images
+                    "images.front_img_1": images,
                 },
                 "actions_ee_cartesian_cam": actions_ee_cartesian_cam,
                 "actions_ee_keypoints_world": actions_ee_keypoints_world,
@@ -327,7 +359,7 @@ class MeckaExtractor:
                 "timestamp": timestamps,
                 "frame_index": frame_indices,
                 "annotations": annotations_df,
-                "episode_meta": episode_meta
+                "episode_meta": episode_meta,
             }
 
             logger.info(f"Extracted {len(frame_indices)} frames")
@@ -360,7 +392,9 @@ class MeckaExtractor:
         return transforms
 
     @staticmethod
-    def _extract_hand_data(hands_df: pd.DataFrame, frames_df: pd.DataFrame, arm: str) -> Tuple[np.ndarray, np.ndarray]:
+    def _extract_hand_data(
+        hands_df: pd.DataFrame, frames_df: pd.DataFrame, arm: str
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Extract hand poses and keypoints from hands CSV.
 
@@ -375,22 +409,24 @@ class MeckaExtractor:
         for frame_idx in range(num_frames):
             for hand_index in [0, 1]:
                 hand_data = hands_df[
-                    (hands_df['frame'] == frame_idx) &
-                    (hands_df['hand_index'] == hand_index)
-                ].sort_values('landmark_index')
+                    (hands_df["frame"] == frame_idx)
+                    & (hands_df["hand_index"] == hand_index)
+                ].sort_values("landmark_index")
 
                 if len(hand_data) == 21:
-                    kp = hand_data[['world_x', 'world_y', 'world_z']].values
+                    kp = hand_data[["world_x", "world_y", "world_z"]].values
                     hand_keypoints[frame_idx, hand_index] = kp
 
                     pose_6dof = compute_hand_pose_6dof(kp)
 
-                    #remapping axes
+                    # remapping axes
                     x, y, z = pose_6dof[0], pose_6dof[1], pose_6dof[2]
                     remapped_xyz = np.array([-y, -z, x], dtype=np.float64)
                     pose_6dof[:3] = remapped_xyz
 
-                    hand_poses[frame_idx, hand_index*6:(hand_index+1)*6] = pose_6dof
+                    hand_poses[frame_idx, hand_index * 6 : (hand_index + 1) * 6] = (
+                        pose_6dof
+                    )
 
         hand_keypoints_flat = hand_keypoints.reshape(num_frames, 126)
 
@@ -419,7 +455,9 @@ class MeckaExtractor:
         return np.array(frames)  # (T, H, W, 3)
 
     @staticmethod
-    def _compute_camera_relative_poses(hand_poses_world: np.ndarray, camera_transforms: List[np.ndarray]) -> np.ndarray:
+    def _compute_camera_relative_poses(
+        hand_poses_world: np.ndarray, camera_transforms: List[np.ndarray]
+    ) -> np.ndarray:
         """
         Compute current hand poses in camera frame.
 
@@ -435,12 +473,16 @@ class MeckaExtractor:
 
         for t in range(num_frames):
             cam_curr = camera_transforms[t]
-            cam_prev_inv = np.eye(4) if t == 0 else np.linalg.inv(camera_transforms[t - 1])
+            cam_prev_inv = (
+                np.eye(4) if t == 0 else np.linalg.inv(camera_transforms[t - 1])
+            )
 
             for hand_idx in range(2):
-                pose_world = hand_poses_world[t, hand_idx*6:(hand_idx+1)*6]
-                pose_cam = compute_camera_relative_pose(pose_world, cam_prev_inv, cam_curr)
-                ee_pose_cam[t, hand_idx*6:(hand_idx+1)*6] = pose_cam
+                pose_world = hand_poses_world[t, hand_idx * 6 : (hand_idx + 1) * 6]
+                pose_cam = compute_camera_relative_pose(
+                    pose_world, cam_prev_inv, cam_curr
+                )
+                ee_pose_cam[t, hand_idx * 6 : (hand_idx + 1) * 6] = pose_cam
 
         return ee_pose_cam
 
@@ -504,7 +546,7 @@ class MeckaExtractor:
             head_poses[t, :3] = T[:3, 3]
 
             R = Rotation.from_matrix(T[:3, :3])
-            yaw, pitch, roll = R.as_euler('ZYX')
+            yaw, pitch, roll = R.as_euler("ZYX")
             head_poses[t, 3:6] = [yaw, pitch, roll]
 
             quat = R.as_quat()
@@ -513,7 +555,9 @@ class MeckaExtractor:
         return head_poses
 
     @staticmethod
-    def _get_task_for_frame(frame_time: float, annotations_df: pd.DataFrame, episode_task: str) -> str:
+    def _get_task_for_frame(
+        frame_time: float, annotations_df: pd.DataFrame, episode_task: str
+    ) -> str:
         """
         Get the task label for a specific frame based on annotations.
 
@@ -526,13 +570,17 @@ class MeckaExtractor:
             Task label string for this frame
         """
         for _, row in annotations_df.iterrows():
-            if row['start_time'] <= frame_time <= row['end_time']:
-                return row['Labels']
+            if row["start_time"] <= frame_time <= row["end_time"]:
+                return row["Labels"]
 
         return episode_task
 
     @staticmethod
-    def define_features(episode_feats: dict, image_compressed: bool = False, encode_as_video: bool = True) -> Tuple[dict, dict]:
+    def define_features(
+        episode_feats: dict,
+        image_compressed: bool = False,
+        encode_as_video: bool = True,
+    ) -> Tuple[dict, dict]:
         """
         Define features dictionary for LeRobotDataset.create().
 
@@ -552,39 +600,38 @@ class MeckaExtractor:
             "observations.state.ee_pose_cam": {
                 "dtype": "float32",
                 "shape": (12,),
-                "names": ["dual_hand_6dof"]
+                "names": ["dual_hand_6dof"],
             },
             "observations.images.front_img_1": {
                 "dtype": "video" if encode_as_video else "image",
                 "shape": (C, H, W),
-                "names": ["channel", "height", "width"]
+                "names": ["channel", "height", "width"],
             },
             "actions_ee_cartesian_cam": {
                 "dtype": "prestacked_float32",
                 "shape": (CHUNK_SIZE, 12),
-                "names": ["chunk_size", "dual_hand_6dof"]
+                "names": ["chunk_size", "dual_hand_6dof"],
             },
             "actions_ee_keypoints_world": {
                 "dtype": "prestacked_float32",
                 "shape": (CHUNK_SIZE, 126),
-                "names": ["chunk_size", "dual_hand_keypoints"]
+                "names": ["chunk_size", "dual_hand_keypoints"],
             },
             "actions_head_cartesian_world": {
                 "dtype": "float32",
                 "shape": (10,),
-                "names": ["head_pose_10d"]
-            }, 
+                "names": ["head_pose_10d"],
+            },
             "metadata.embodiment": {
                 "dtype": "int32",
                 "shape": (1,),
-                "names": ["dim_0"]
-            }
-
+                "names": ["dim_0"],
+            },
         }
 
         episode_meta = episode_feats["episode_meta"]
         metadata = {
-            "robot_type": "MECKA_BIMANUAL", # TODO: make dynamic based on arm
+            "robot_type": "MECKA_BIMANUAL",  # TODO: make dynamic based on arm
             "fps": 30,
             "episode_id": episode_meta["id"],
             "user_id": episode_meta.get("user_id"),
@@ -592,13 +639,15 @@ class MeckaExtractor:
             "environment_id": episode_meta.get("environment_id"),
             "scene_id": episode_meta.get("scene_id"),
             "scene_desc": episode_meta.get("scene_desc"),
-            "objects": episode_meta.get("objects", [])
+            "objects": episode_meta.get("objects", []),
         }
 
         return features, metadata
 
     @staticmethod
-    def extract_episode_frames(episode_feats: dict, features: dict) -> List[Dict[str, torch.Tensor]]:
+    def extract_episode_frames(
+        episode_feats: dict, features: dict
+    ) -> List[Dict[str, torch.Tensor]]:
         """
         Convert episode features to list of frame dictionaries with torch tensors.
 
@@ -621,7 +670,7 @@ class MeckaExtractor:
 
             img = episode_feats["observations"]["images.front_img_1"][t]
             img = cv2.resize(img, (640, 360), interpolation=cv2.INTER_AREA)
-            
+
             img_tensor = torch.from_numpy(img).permute(2, 0, 1)
             frame_dict["observations.images.front_img_1"] = img_tensor
 
@@ -639,13 +688,15 @@ class MeckaExtractor:
 
             emb_arr = episode_feats.get("metadata.embodiment")
             emb_val = int(np.asarray(emb_arr)[t].item())
-            frame_dict["metadata.embodiment"] = torch.tensor([emb_val], dtype=torch.int32)
+            frame_dict["metadata.embodiment"] = torch.tensor(
+                [emb_val], dtype=torch.int32
+            )
 
             frame_dict["timestamp"] = float(episode_feats["timestamp"][t])
 
             frames.append(frame_dict)
 
-        return frames   
+        return frames
 
 
 class MeckaDatasetConverter:
@@ -675,7 +726,9 @@ class MeckaDatasetConverter:
         self.arm = arm
         self.prestack = prestack
         self.video_encoding = video_encoding
-        self.local_data_dir = Path(local_data_dir) if local_data_dir is not None else None
+        self.local_data_dir = (
+            Path(local_data_dir) if local_data_dir is not None else None
+        )
         self.output_dir = None
         self._mp4_path = None
 
@@ -685,7 +738,7 @@ class MeckaDatasetConverter:
             robotype = EMBODIMENT.MECKA_LEFT_ARM
         else:
             robotype = EMBODIMENT.MECKA_RIGHT_ARM
-        
+
         self.robot_type = robotype.name
 
         logger.info("Processing episode to extract features...")
@@ -696,7 +749,9 @@ class MeckaDatasetConverter:
             local_data_dir=self.local_data_dir,
         )
 
-        self.features, self.metadata = MeckaExtractor.define_features(self.episode_feats, encode_as_video=video_encoding)
+        self.features, self.metadata = MeckaExtractor.define_features(
+            self.episode_feats, encode_as_video=video_encoding
+        )
 
         self.dataset = None
         self.buffer = []
@@ -716,9 +771,9 @@ class MeckaDatasetConverter:
             repo_id=self.repo_id,
             fps=30,
             root=output_dir,
-            robot_type= self.robot_type,
+            robot_type=self.robot_type,
             features=self.features,
-            use_videos=self.video_encoding
+            use_videos=self.video_encoding,
         )
 
         logger.info("LeRobotDataset initialized successfully")
@@ -734,19 +789,28 @@ class MeckaDatasetConverter:
 
         self.task_description = task_description
 
-        frames = MeckaExtractor.extract_episode_frames(self.episode_feats, self.features)
+        frames = MeckaExtractor.extract_episode_frames(
+            self.episode_feats, self.features
+        )
 
-        logger.info(f"Processing {len(frames)} frames in sub-episodes of {EPISODE_LENGTH}")
+        logger.info(
+            f"Processing {len(frames)} frames in sub-episodes of {EPISODE_LENGTH}"
+        )
 
         mp4_frames = []
         sub_episode_idx = 0
         for t, frame in enumerate(frames):
-            if self._mp4_path is not None and "observations.images.front_img_1" in frame:
+            if (
+                self._mp4_path is not None
+                and "observations.images.front_img_1" in frame
+            ):
                 mp4_frames.append(frame["observations.images.front_img_1"])
             self.buffer.append(frame)
 
             if len(self.buffer) == EPISODE_LENGTH:
-                logger.info(f"Saving sub-episode {sub_episode_idx} ({len(self.buffer)} frames)")
+                logger.info(
+                    f"Saving sub-episode {sub_episode_idx} ({len(self.buffer)} frames)"
+                )
 
                 for i, f in enumerate(self.buffer):
                     f["timestamp"] = float(i / 30)
@@ -760,7 +824,9 @@ class MeckaDatasetConverter:
                 sub_episode_idx += 1
 
         if len(self.buffer) > 0:
-            logger.info(f"Saving final sub-episode {sub_episode_idx} ({len(self.buffer)} frames)")
+            logger.info(
+                f"Saving final sub-episode {sub_episode_idx} ({len(self.buffer)} frames)"
+            )
 
             for i, f in enumerate(self.buffer):
                 f["timestamp"] = float(i / 30)
@@ -773,7 +839,9 @@ class MeckaDatasetConverter:
 
         if self._mp4_path is not None and mp4_frames:
             episode_id = self.episode_feats["episode_meta"].get("id", "unknown")
-            self.save_preview_mp4(mp4_frames, self._mp4_path / f"{episode_id}_video.mp4")
+            self.save_preview_mp4(
+                mp4_frames, self._mp4_path / f"{episode_id}_video.mp4"
+            )
 
     def _save_annotations(self, sub_episode_idx: int):
         """
@@ -795,14 +863,22 @@ class MeckaDatasetConverter:
         end_time_s = timestamps[-1]
 
         filtered_annotations = annotations_df[
-            (annotations_df['end_time'] >= start_time_s) &
-            (annotations_df['start_time'] <= end_time_s)
+            (annotations_df["end_time"] >= start_time_s)
+            & (annotations_df["start_time"] <= end_time_s)
         ].copy()
 
-        filtered_annotations['start_time'] = (filtered_annotations['start_time'] - start_time_s).clip(lower=0)
-        filtered_annotations['end_time'] = (filtered_annotations['end_time'] - start_time_s).clip(upper=end_time_s - start_time_s)
+        filtered_annotations["start_time"] = (
+            filtered_annotations["start_time"] - start_time_s
+        ).clip(lower=0)
+        filtered_annotations["end_time"] = (
+            filtered_annotations["end_time"] - start_time_s
+        ).clip(upper=end_time_s - start_time_s)
 
-        annotations_path = Path(self.output_dir) / "annotations" / f"episode_{sub_episode_idx:06d}_annotations.csv"
+        annotations_path = (
+            Path(self.output_dir)
+            / "annotations"
+            / f"episode_{sub_episode_idx:06d}_annotations.csv"
+        )
         annotations_path.parent.mkdir(parents=True, exist_ok=True)
         filtered_annotations.to_csv(annotations_path, index=False)
         logger.info(f"Saved annotations: {annotations_path}")
@@ -810,6 +886,7 @@ class MeckaDatasetConverter:
     def save_preview_mp4(self, image_frames: list, output_path: Path, fps: int = 30):
         """Save a half-resolution H.264 MP4 preview."""
         import subprocess
+
         import torch.nn.functional as F
 
         if not image_frames:
@@ -830,18 +907,23 @@ class MeckaDatasetConverter:
                 t = t.to(torch.uint8)
             if t.shape[0] == 1:
                 t = t.repeat(3, 1, 1)
-            t_resized = F.interpolate(
-                t.unsqueeze(0).float(),
-                size=(outH, outW),
-                mode="bilinear",
-                align_corners=False,
-            ).squeeze(0).to(torch.uint8)
+            t_resized = (
+                F.interpolate(
+                    t.unsqueeze(0).float(),
+                    size=(outH, outW),
+                    mode="bilinear",
+                    align_corners=False,
+                )
+                .squeeze(0)
+                .to(torch.uint8)
+            )
             rgb_frames.append(t_resized.permute(1, 2, 0).contiguous())
 
         video_tensor = torch.stack(rgb_frames, dim=0)
 
         try:
             from torchvision.io import write_video
+
             write_video(
                 filename=str(output_path),
                 video_array=video_tensor,
@@ -859,12 +941,35 @@ class MeckaDatasetConverter:
             raise RuntimeError("Neither torchvision nor ffmpeg available")
 
         cmd = [
-            ffmpeg, "-y",
-            "-f", "rawvideo", "-vcodec", "rawvideo", "-pix_fmt", "bgr24",
-            "-s", f"{outW}x{outH}", "-r", str(fps), "-i", "-", "-an",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-profile:v", "baseline", "-level", "3.0",
-            "-movflags", "+faststart", "-preset", "veryfast", "-crf", "23",
+            ffmpeg,
+            "-y",
+            "-f",
+            "rawvideo",
+            "-vcodec",
+            "rawvideo",
+            "-pix_fmt",
+            "bgr24",
+            "-s",
+            f"{outW}x{outH}",
+            "-r",
+            str(fps),
+            "-i",
+            "-",
+            "-an",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-profile:v",
+            "baseline",
+            "-level",
+            "3.0",
+            "-movflags",
+            "+faststart",
+            "-preset",
+            "veryfast",
+            "-crf",
+            "23",
             str(output_path),
         ]
 
@@ -893,7 +998,7 @@ class MeckaDatasetConverter:
             logger.warning(f"info.json not found at {info_path}")
             return
 
-        with open(info_path, 'r') as f:
+        with open(info_path, "r") as f:
             info = json.load(f)
 
         episode_meta = self.episode_feats["episode_meta"]
@@ -905,10 +1010,10 @@ class MeckaDatasetConverter:
             "scene_id": episode_meta.get("scene_id"),
             "scene_desc": episode_meta.get("scene_desc"),
             "objects": episode_meta.get("objects", []),
-            "intrinsics": episode_meta.get("intrinsics", {})
+            "intrinsics": episode_meta.get("intrinsics", {}),
         }
 
-        with open(info_path, 'w') as f:
+        with open(info_path, "w") as f:
             json.dump(info, f, indent=2)
 
         logger.info("Added Mecka metadata to info.json")
@@ -917,14 +1022,36 @@ class MeckaDatasetConverter:
 def main():
     """Main conversion function."""
     parser = argparse.ArgumentParser(description="Convert Mecka RL2 to LeRobot format")
-    parser.add_argument("--episode-json", required=True, help="Path to episode JSON file")
-    parser.add_argument("--output-dir", required=True, help="Output directory for dataset")
+    parser.add_argument(
+        "--episode-json", required=True, help="Path to episode JSON file"
+    )
+    parser.add_argument(
+        "--output-dir", required=True, help="Output directory for dataset"
+    )
     parser.add_argument("--repo-id", default="mecka/demo", help="Dataset repo ID")
-    parser.add_argument("--arm", default="both", choices=["left", "right", "both"], help="Which arm(s) to include")
-    parser.add_argument("--no-prestack", action="store_true", help="Disable action prestacking")
-    parser.add_argument("--video-encoding", action="store_true", help="Encode images as video. Default is to embed in parquet.")
-    parser.add_argument("--local-data-dir", type=str, default=None, help="Path to directory containing pre-downloaded episode files (video.mp4 or <id>_video.mp4, hands.csv, egomotion.txt, frames.csv, annotations.csv). If set, downloads are skipped.")
-    parser.add_argument("--save-mp4", action="store_true", help="Save half-res H.264 preview MP4")
+    parser.add_argument(
+        "--arm",
+        default="both",
+        choices=["left", "right", "both"],
+        help="Which arm(s) to include",
+    )
+    parser.add_argument(
+        "--no-prestack", action="store_true", help="Disable action prestacking"
+    )
+    parser.add_argument(
+        "--video-encoding",
+        action="store_true",
+        help="Encode images as video. Default is to embed in parquet.",
+    )
+    parser.add_argument(
+        "--local-data-dir",
+        type=str,
+        default=None,
+        help="Path to directory containing pre-downloaded episode files (video.mp4 or <id>_video.mp4, hands.csv, egomotion.txt, frames.csv, annotations.csv). If set, downloads are skipped.",
+    )
+    parser.add_argument(
+        "--save-mp4", action="store_true", help="Save half-res H.264 preview MP4"
+    )
 
     args = parser.parse_args()
 

@@ -3,12 +3,19 @@
 run_aria_conversion.py  – ABSOLUTE-symlink edition
 """
 
-import argparse, csv, json, os, shutil, uuid, time
+import argparse
+import csv
+import json
+import os
+import shutil
+import time
+import uuid
 from pathlib import Path
-from filelock import FileLock
-import ray, boto3
 
+import boto3
+import ray
 from aria_helper import lerobot_job  # your wrapper around aria_to_lerobot
+from filelock import FileLock
 
 RAW_ROOT = Path("/mnt/raw")
 PROCESSED_ROOT = Path("/mnt/processed")
@@ -83,7 +90,6 @@ def append_status(row: dict):
             existing_fieldnames = set()
             rows = []
 
-        new_fields = set(row.keys()) - existing_fieldnames
         all_fields = list(existing_fieldnames.union(row.keys()))
 
         rows.append(row)

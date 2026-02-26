@@ -1,6 +1,6 @@
-from collections.abc import Sequence
-import torch.nn.functional as F
 import torch
+import torch.nn.functional as F
+
 
 def _slow_down_slerp_quat(quat_short: torch.Tensor, S: int) -> torch.Tensor:
     # quat_short: (S0,4), output: (S,4)
@@ -11,9 +11,10 @@ def _slow_down_slerp_quat(quat_short: torch.Tensor, S: int) -> torch.Tensor:
     pos = torch.linspace(0, S0 - 1, steps=S, device=quat_short.device)
     i0 = pos.floor().long()
     i1 = (i0 + 1).clamp(max=S0 - 1)
-    t = (pos - i0.float()).unsqueeze(-1)   # (S,1)
+    t = (pos - i0.float()).unsqueeze(-1)  # (S,1)
 
     return _slerp(quat_short[i0], quat_short[i1], t)
+
 
 def _slerp(q0, q1, t):
     """
@@ -30,8 +31,8 @@ def _slerp(q0, q1, t):
     q1 = torch.where(dot < 0.0, -q1, q1)
     dot = (q0 * q1).sum(dim=-1, keepdim=True).clamp(-1.0, 1.0)
 
-    theta = torch.acos(dot)        # (..., 1)
-    sin_theta = torch.sin(theta)   # (..., 1)
+    theta = torch.acos(dot)  # (..., 1)
+    sin_theta = torch.sin(theta)  # (..., 1)
 
     small = sin_theta.abs() < 1e-6
 
@@ -45,6 +46,7 @@ def _slerp(q0, q1, t):
 
     out = w0 * q0 + w1 * q1
     return F.normalize(out, dim=-1)
+
 
 def _ypr_to_quat(ypr):
     """
@@ -70,6 +72,7 @@ def _ypr_to_quat(ypr):
 
     quat = torch.stack([w, x, y, z], dim=-1)
     return F.normalize(quat, dim=-1)
+
 
 def _quat_to_ypr(quat):
     """

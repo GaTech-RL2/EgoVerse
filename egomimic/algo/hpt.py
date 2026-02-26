@@ -1,42 +1,30 @@
+import os
 from collections import OrderedDict
+from functools import partial
 
+import einops
+import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import hydra
-from functools import partial
-from typing import List, Optional
-import numpy as np
-import einops
-from torchmetrics import MeanSquaredError
-
-from egomimic.models.hpt_nets import *
-from egomimic.algo.algo import Algo
-
-from egomimic.utils.egomimicUtils import (
-    get_sinusoid_encoding_table,
-    frechet_gaussian_over_time,
-    reverse_kl_from_samples,
-    EinOpsRearrange,
-    download_from_huggingface,
-    STD_SCALE,
-)
-from egomimic.utils.egomimicUtils import draw_actions, draw_rotation_text
-
-import numpy as np
-
-from overrides import override
-
-from egomimic.algo.algo import Algo
-
-from egomimic.rldb.utils import get_embodiment_id, get_embodiment
-
-from termcolor import cprint
-
 from geomloss import SamplesLoss
+from overrides import override
+from termcolor import cprint
+from torchmetrics import MeanSquaredError
 from tslearn.metrics import SoftDTWLossPyTorch
 
-import math
+from egomimic.algo.algo import Algo
+from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
+from egomimic.rldb.embodiment import get_embodiment, get_embodiment_id
+from egomimic.utils.egomimicUtils import (
+    STD_SCALE,
+    EinOpsRearrange,
+    download_from_huggingface,
+    draw_actions,
+    draw_rotation_text,
+    frechet_gaussian_over_time,
+    get_sinusoid_encoding_table,
+    reverse_kl_from_samples,
+)
 
 
 class HPTModel(nn.Module):
@@ -514,9 +502,9 @@ class HPTModel(nn.Module):
         tokens1 = tokens1[:, : self.action_horizon]
         tokens2 = tokens2[:, : self.action_horizon]
 
-        assert tokens1.shape[1] == tokens2.shape[1], (
-            "input tokens must be of the same sequence length"
-        )
+        assert (
+            tokens1.shape[1] == tokens2.shape[1]
+        ), "input tokens must be of the same sequence length"
 
         emb1_actions = batch1["data"]["action"]
         emb2_actions = batch2["data"]["action"]
@@ -970,14 +958,12 @@ class HPT(Algo):
                 embodiment: torch.Size([])
         """
         processed_batch = {}
-
-        for embodiment_id, _batch in batch.items():
+        for embodiment_name, _batch in batch.items():
+            embodiment_id = get_embodiment_id(embodiment_name)
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
-                key_name = self.data_schematic.lerobot_key_to_keyname(
-                    key, embodiment_id
-                )
-                if key_name is not None:
+                key_name = self.data_schematic.zarr_key_to_keyname(key, embodiment_id)
+                if key is not None:
                     processed_batch[embodiment_id][key_name] = value
 
             ac_key = self.ac_keys[embodiment_id]
@@ -989,8 +975,12 @@ class HPT(Algo):
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(
                 B, S, 1, device=device
             )
+
             processed_batch[embodiment_id] = self.data_schematic.normalize_data(
                 processed_batch[embodiment_id], embodiment_id
+            )
+            processed_batch[embodiment_id]["embodiment"] = torch.tensor(
+                [embodiment_id], device=self.device, dtype=torch.int64
             )
 
         return processed_batch
@@ -1009,12 +999,15 @@ class HPT(Algo):
         predictions = OrderedDict()
         hpt_batches = {}
         self.training_step += 1
-        for embodiment_id, _batch in batch.items():
+        for (
+            embodiment_id,
+            _batch,
+        ) in batch.items():
+            embodiment_name = get_embodiment(embodiment_id).lower()
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            embodiment_name = get_embodiment(embodiment_id).lower()
             aux_ac_keys = self.auxiliary_ac_keys.get(embodiment_name, [])
             data = self._robomimic_to_hpt_data(
                 _batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys
@@ -1041,7 +1034,7 @@ class HPT(Algo):
                 get_embodiment_id(self.domains[0]),
                 get_embodiment_id(self.domains[1]),
             )
-            predictions[f"ot_loss"] = ot_loss
+            predictions["ot_loss"] = ot_loss
             predictions["avg_feature_distance"] = avg_feat_distance
 
         return predictions
@@ -1059,11 +1052,11 @@ class HPT(Algo):
         """
         unnorm_preds = {}
         for embodiment_id, _batch in batch.items():
+            embodiment_name = get_embodiment(embodiment_id).lower()
             cam_keys = self.camera_keys[embodiment_id]
             proprio_keys = self.proprio_keys[embodiment_id]
             lang_keys = self.lang_keys[embodiment_id]
             ac_key = self.ac_keys[embodiment_id]
-            embodiment_name = get_embodiment(embodiment_id).lower()
             aux_ac_keys = self.auxiliary_ac_keys.get(embodiment_name, [])
             data = self._robomimic_to_hpt_data(
                 _batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys
@@ -1250,6 +1243,7 @@ class HPT(Algo):
         Returns:
             ims (np.ndarray): (B, H, W, 3) - images with actions drawn on top
         """
+
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
         ac_key = self.ac_keys[embodiment_id]
@@ -1450,7 +1444,8 @@ class HPT(Algo):
         else:
             return batch  # Return as is for non-tensor types
 
-    def _extract_xyz(self, x):
+    @staticmethod
+    def _extract_xyz(x):
         """
         Extract xyz (3D position) and rotation from 6DoF or 6DoF+gripper actions.
 

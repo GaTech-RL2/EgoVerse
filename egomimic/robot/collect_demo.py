@@ -10,11 +10,10 @@ It also saves observations (images, robot states) and actions to a demo file.
 import os
 import sys
 import time
-import numpy as np
-import copy
-import h5py
 from pathlib import Path
-from datetime import datetime
+
+import h5py
+import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 # Add path to oculus_reader if needed
@@ -27,8 +26,8 @@ from robot_utils import RateLoop
 # Add path to robot_interface
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 from robot_interface import ARXInterface
-from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
+from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
 # ------------------------- Configuration -------------------------
 
@@ -44,17 +43,23 @@ ROT_DEAD_ZONE_RAD = np.deg2rad(0.8)  # radians
 # R_YPR_OFFSET = [0, 1, 0]
 # L_YPR_OFFSET = [0, 1, 0]
 
-R_YPR_OFFSET = np.array([
-  [ 0.66509066, -0.16738938,  0.72776041],
-  [ 0.22521625,  0.97413813,  0.0182356 ],
-  [-0.71199161,  0.15177514,  0.68558898],
-], dtype=np.float64)
+R_YPR_OFFSET = np.array(
+    [
+        [0.66509066, -0.16738938, 0.72776041],
+        [0.22521625, 0.97413813, 0.0182356],
+        [-0.71199161, 0.15177514, 0.68558898],
+    ],
+    dtype=np.float64,
+)
 
-L_YPR_OFFSET = np.array([
-  [0.6785254459380761, 0.036920397978411894, 0.7336484876476287],
-  [-0.05616599291181174, 0.9984199955834385, 0.0017010759532792748],
-  [-0.7324265153957544, -0.04236031907675143, 0.6795270435479006],
-], dtype=np.float64)
+L_YPR_OFFSET = np.array(
+    [
+        [0.6785254459380761, 0.036920397978411894, 0.7336484876476287],
+        [-0.05616599291181174, 0.9984199955834385, 0.0017010759532792748],
+        [-0.7324265153957544, -0.04236031907675143, 0.6795270435479006],
+    ],
+    dtype=np.float64,
+)
 
 
 NEUTRAL_ROT_OFFSET_R = np.eye(3)
@@ -388,7 +393,7 @@ class VRInterface:
         r_pos_cur, r_quat_cur = controller_to_internal(r_pos_raw, r_quat_raw)
         l_quat_cur = normalize_quat_xyzw(l_quat_cur)
         r_quat_cur = normalize_quat_xyzw(r_quat_cur)
-        
+
         R_l_cur = R.from_quat(l_quat_cur).as_matrix()
         R_r_cur = R.from_quat(r_quat_cur).as_matrix()
 
@@ -633,9 +638,9 @@ def collect_demo(
             if all_cam_images_in is True:
                 break
     print("All cameras are ready --------------")
-    
+
     auto_episode_id = auto_episode_start
-    
+
     while True:
         if auto_episode_id is None:
             episode_id = input("Input the episode id: ")
@@ -654,10 +659,7 @@ def collect_demo(
 
                 # Check for recording control buttons
                 if vr_data["buttons"]["B"]:
-                    if (
-                        prev_vr_data is not None
-                        and prev_vr_data["buttons"]["B"] == False
-                    ):
+                    if prev_vr_data is not None and not prev_vr_data["buttons"]["B"]:
                         if collecting_data is True:
                             collecting_data = False
                             print("Saving to success_demo -----------------------------------")
@@ -677,7 +679,7 @@ def collect_demo(
                 if (
                     vr_data["buttons"]["X"]
                     and prev_vr_data is not None
-                    and prev_vr_data["buttons"]["X"] == False
+                    and not prev_vr_data["buttons"]["X"]
                 ):
                     print("Saving to failure_demo -----------------------------------")
                     if collecting_data:
@@ -746,7 +748,9 @@ def collect_demo(
                         else:
                             cmd_T = rb_se3
 
-                        gripper_pos[arm] = GRIPPER_OPEN_VALUE -vr_data[arm]["trigger"] * (GRIPPER_WIDTH)
+                        gripper_pos[arm] = GRIPPER_OPEN_VALUE - vr_data[arm][
+                            "trigger"
+                        ] * (GRIPPER_WIDTH)
                         # limit velocity and torque in the robot interface
 
                         # print(f"gripper_pos: {gripper_pos[arm]}")
@@ -759,7 +763,9 @@ def collect_demo(
                         eepose_cmd = np.concatenate([cmd_pos[arm], cmd_ypr])
                         # print(f"eepose: {eepose_cmd}")
                         try:
-                            solved_joints = robot_interface.solve_ik(eepose_cmd[:6], arm)
+                            solved_joints = robot_interface.solve_ik(
+                                eepose_cmd[:6], arm
+                            )
                         except Exception as e:
                             print(f"[WARN] IK failed for arm {arm}: {e}")
                             # Skip commanding this arm for this iteration; wait for next VR input
@@ -787,7 +793,9 @@ def collect_demo(
                                         "ZYX", degrees=False
                                     )
                                 )  # ypr convention
-                                cmd_eepose_action[arm_offset + 6] = (gripper_pos[arm] - GRIPPER_CLOSE_VALUE) / GRIPPER_WIDTH
+                                cmd_eepose_action[arm_offset + 6] = (
+                                    gripper_pos[arm] - GRIPPER_CLOSE_VALUE
+                                ) / GRIPPER_WIDTH
 
                             if arm in cmd_joints:
                                 cmd_joint_action[arm_offset : arm_offset + 7] = (
@@ -816,70 +824,70 @@ def collect_demo(
 
 
 if __name__ == "__main__":
-  import argparse
+    import argparse
 
-  parser = argparse.ArgumentParser(
-    description="Collect robot demonstrations using VR controller"
-  )
-  parser.add_argument(
-    "--arms",
-    type=str,
-    default="right",
-    choices=["left", "right", "both"],
-    help="Which arm(s) to control",
-  )
-  parser.add_argument(
-    "--frequency",
-    type=float,
-    default=DEFAULT_FREQUENCY,
-    help="Control loop frequency in Hz",
-  )
-  parser.add_argument(
-    "--demo-dir",
-    type=str,
-    default=DEMO_DIR,
-    help="Directory to save demos",
-  )
-  parser.add_argument(
-    "--calibrate",
-    action="store_true",
-    help="Run VR controller orientation calibration before teleop",
-  )
-  parser.add_argument(
-    "--auto-episode-start",
-    type=int,
-    default=None,
-    help="If set, start at this episode id and auto-increment on each recording",
-  )
-
-  args = parser.parse_args()
-
-  if args.calibrate:
-    # Import here to avoid dependency if user never calibrates
-    from egomimic.robot.calibrate_utils import (
-      calibrate_right_controller,
-      calibrate_left_controller,
+    parser = argparse.ArgumentParser(
+        description="Collect robot demonstrations using VR controller"
+    )
+    parser.add_argument(
+        "--arms",
+        type=str,
+        default="right",
+        choices=["left", "right", "both"],
+        help="Which arm(s) to control",
+    )
+    parser.add_argument(
+        "--frequency",
+        type=float,
+        default=DEFAULT_FREQUENCY,
+        help="Control loop frequency in Hz",
+    )
+    parser.add_argument(
+        "--demo-dir",
+        type=str,
+        default=DEMO_DIR,
+        help="Directory to save demos",
+    )
+    parser.add_argument(
+        "--calibrate",
+        action="store_true",
+        help="Run VR controller orientation calibration before teleop",
+    )
+    parser.add_argument(
+        "--auto-episode-start",
+        type=int,
+        default=None,
+        help="If set, start at this episode id and auto-increment on each recording",
     )
 
-    print("Running VR controller calibration...")
-    # Override globals based on which arms are used
-    if args.arms in ("right", "both"):
-      print("\nCalibrating RIGHT controller...")
-      R_off_right = calibrate_right_controller()
-      # overwrite module-level constant
-      R_YPR_OFFSET = R_off_right
+    args = parser.parse_args()
 
-    if args.arms in ("left", "both"):
-      print("\nCalibrating LEFT controller...")
-      R_off_left = calibrate_left_controller()
-      # overwrite module-level constant
-      L_YPR_OFFSET = R_off_left
+    if args.calibrate:
+        # Import here to avoid dependency if user never calibrates
+        from egomimic.robot.calibrate_utils import (
+            calibrate_left_controller,
+            calibrate_right_controller,
+        )
 
-    print("Calibration finished. Using updated offsets for this run.\n")
+        print("Running VR controller calibration...")
+        # Override globals based on which arms are used
+        if args.arms in ("right", "both"):
+            print("\nCalibrating RIGHT controller...")
+            R_off_right = calibrate_right_controller()
+            # overwrite module-level constant
+            R_YPR_OFFSET = R_off_right
 
-  collect_demo(
-    arms_to_collect=args.arms,
-    frequency=args.frequency,
-    demo_dir=args.demo_dir,
-    auto_episode_start=args.auto_episode_start,
-  )
+        if args.arms in ("left", "both"):
+            print("\nCalibrating LEFT controller...")
+            R_off_left = calibrate_left_controller()
+            # overwrite module-level constant
+            L_YPR_OFFSET = R_off_left
+
+        print("Calibration finished. Using updated offsets for this run.\n")
+
+    collect_demo(
+        arms_to_collect=args.arms,
+        frequency=args.frequency,
+        demo_dir=args.demo_dir,
+        auto_episode_start=args.auto_episode_start,
+    )

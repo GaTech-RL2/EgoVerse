@@ -16,6 +16,23 @@ This repository contains the data processing and training code for EgoVerse and 
 
 ## Installation
 
+# UV
+
+if uv not installed
+```
+curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/path/to/flash/storage" sh
+```
+
+```
+git clone git@github.com:GaTech-RL2/EgoVerse.git
+cd EgoVerse
+uv venv emimic --python 3.11
+source emimic/bin/activate
+uv pip install -r requirements.txt
+uv pip install -e .
+uv run pre-commit install
+```
+
 # Conda
 ```
 git clone --recursive git@github.com:GaTech-RL2/EgoVerse.git
@@ -25,22 +42,7 @@ conda activate emimic
 pip install projectaria-tools'[all]'
 pip install -e external/lerobot
 pip install -e .
-```
-# UV
-
-if uv not installed
-```
-curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/path/to/flash/storage" sh
-```
-
-```
-uv venv emimic --python 3.11
-source emimic/bin/activate
-git clone git@github.com:GaTech-RL2/EgoVerse.git
-cd EgoVerse
-uv pip install -r requirements.txt
-uv pip install -e external/lerobot
-uv pip install -e .
+pre-commit install
 ```
 
 Set `git config --global submodule.recurse true` if you want `git pull` to automatically update the submodule as well.
@@ -51,14 +53,11 @@ Set your wandb project in ``egomimic/hydra_configs/logger/wandb.yaml``
 ![Data Streams](./assets/train_data.png)
 See [``data_processing.md``](./data_processing.md)
 
-### Pulling processed data for training from AWS
-See [``training_aws.md``](./training_aws.md)
-
 ## Hydra Comands
 ### Quick start
 If you want to quickly train a robot BC policy using the default Hydra configuration on Eva robot data, simply run:
 
-`python egomimic/trainHydra.py`
+`python egomimic/trainHydra.py --config-name train_zarr.yaml`
 
 Important:
 The default EVA BC config pulls data from S3 to a local scratch directory where the path is set to my local path

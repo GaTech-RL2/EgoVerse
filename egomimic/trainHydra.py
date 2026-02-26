@@ -1,33 +1,23 @@
+import os
+import signal
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
 import lightning as L
-import torch
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
-import signal
 from omegaconf import DictConfig, OmegaConf
 
-OmegaConf.register_new_resolver("eval", eval)
-
+from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
+from egomimic.scripts.evaluation.eval import Eval
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
-from egomimic.utils.utils import extras, task_wrapper, get_metric_value
+from egomimic.utils.utils import extras, task_wrapper
 
-from egomimic.scripts.evaluation.eval import Eval
-
-import numpy as np
-
+OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)
-
-from egomimic.rldb.utils import DataSchematic
-
-import os
-
-# DEBUG
-# os.environ["HYDRA_FULL_ERROR"] = '1'
 
 
 @task_wrapper
@@ -45,7 +35,12 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     if cfg.get("seed"):
         L.seed_everything(cfg.seed, workers=True)
 
-    log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
+        set_global_seed(cfg.seed)
+    else:
+        raise ValueError("Seed must be provided in cfg for reproducibility!")
+
+    # log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
+
     data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
 
     # Modify dataset configs to include `data_schematic` dynamically at runtime
@@ -62,9 +57,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         )
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    assert "MultiDataModuleWrapper" in cfg.data._target_, (
-        "cfg.data._target_ must be 'MultiDataModuleWrapper'"
-    )
+    assert (
+        "MultiDataModuleWrapper" in cfg.data._target_
+    ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
     )
@@ -75,7 +70,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         data_schematic.infer_shapes_from_batch(dataset[0])
-        data_schematic.infer_norm_from_dataset(dataset)
+        data_schematic.infer_norm_from_dataset(dataset, dataset_name)
 
     # NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
     log.info(f"Instantiating model <{cfg.model._target_}>")
@@ -156,7 +151,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     return metric_dict, object_dict
 
 
-@hydra.main(version_base="1.3", config_path="./hydra_configs", config_name="train.yaml")
+@hydra.main(
+    version_base="1.3", config_path="./hydra_configs", config_name="train_zarr.yaml"
+)
 def main(cfg: DictConfig) -> Optional[float]:
     """Main entry point for training.
 

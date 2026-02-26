@@ -1,4 +1,5 @@
-from egomimic.algo.act import ACT
-from egomimic.algo.hpt import HPT
+from egomimic.algo.act import ACT as ACT
+
 # from egomimic.algo.pi import PI
-from egomimic.algo.algo import Algo
+from egomimic.algo.algo import Algo as Algo
+from egomimic.algo.hpt import HPT as HPT

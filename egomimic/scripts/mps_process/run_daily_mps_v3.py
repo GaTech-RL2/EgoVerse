@@ -98,9 +98,12 @@ def run_mps_on_dir(folder: str) -> dict:
         cmd = [
             "aria_mps",
             "single",
-            "--username", USERNAME,
-            "--password", PASSWORD,
-            "-i", folder,
+            "--username",
+            USERNAME,
+            "--password",
+            PASSWORD,
+            "-i",
+            folder,
             "--no-ui",
             "--retry-failed",
         ]

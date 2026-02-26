@@ -1,14 +1,12 @@
 import argparse
+import subprocess
 import sys
 
 import aria.sdk as aria
-
 import cv2
 import numpy as np
-
-
-from projectaria_tools.core.sensor_data import ImageDataRecord
 from projectaria_tools.core import calibration
+from projectaria_tools.core.sensor_data import ImageDataRecord
 
 
 def update_iptables() -> None:
@@ -107,7 +105,7 @@ class AriaRecorder:
             print("Stopping an existing streaming session.")
             try:
                 self._streaming_manager.stop_streaming()
-            except:
+            except Exception:
                 print(
                     f"Aria Streaming State: {self._streaming_manager.streaming_state}"
                 )
@@ -206,6 +204,7 @@ if __name__ == "__main__":
     ) as recorder:
         out_dir = "./front_cam_1"
         import os
+
         from egomimic.robot.robot_utils import RateLoop
 
         os.makedirs(out_dir, exist_ok=True)
