@@ -273,12 +273,22 @@ class RLDBDataset(LeRobotDataset):
             self.annotations = None
             self.annotation_df = None
 
+        # Forward LeRobotDataset kwargs (e.g. delta_timestamps for action chunks).
+        # Do not pop from kwargs: FolderRLDBDataset reuses the same kwargs for each subfolder's
+        # RLDBDataset, so mutating would give delta_timestamps only to the first dataset.
+        lerobot_kwargs = {
+            k: kwargs[k]
+            for k in ("delta_timestamps", "tolerance_s", "image_transforms", "download_videos", "video_backend")
+            if k in kwargs
+        }
+
         if mode == "train":
             super().__init__(
                 repo_id=repo_id,
                 root=root,
                 local_files_only=local_files_only,
                 episodes=train_indices,
+                **lerobot_kwargs,
             )
 
         elif mode == "valid":
@@ -292,6 +302,7 @@ class RLDBDataset(LeRobotDataset):
                 root=root,
                 local_files_only=local_files_only,
                 episodes=valid_indices,
+                **lerobot_kwargs,
             )
 
         elif mode == "sample" and episodes is not None:
@@ -300,6 +311,7 @@ class RLDBDataset(LeRobotDataset):
                 root=root,
                 local_files_only=local_files_only,
                 episodes=episodes,
+                **lerobot_kwargs,
             )
 
         elif mode == "percent" and percent is not None:
@@ -311,6 +323,7 @@ class RLDBDataset(LeRobotDataset):
                 root=root,
                 local_files_only=local_files_only,
                 episodes=train_indices,
+                **lerobot_kwargs,
             )
 
             # Sample a percentage of frames
@@ -322,7 +335,7 @@ class RLDBDataset(LeRobotDataset):
 
         else:
             super().__init__(
-                repo_id=repo_id, root=root, local_files_only=local_files_only
+                repo_id=repo_id, root=root, local_files_only=local_files_only, **lerobot_kwargs
             )
 
     def __len__(self):
@@ -353,17 +366,19 @@ class RLDBDataset(LeRobotDataset):
         frame_item = self.hf_dataset[frame_idx]
         frame_time = float(frame_item["timestamp"])
 
-        frame_item["annotations"] = self._get_frame_annotation(
+        # Use item from super() (preserves delta_timestamps-stacked keys like actions); only add extras.
+        item["annotations"] = self._get_frame_annotation(
             episode_idx=ep_idx,
             frame_time=frame_time,
         )
+        if "metadata.embodiment" not in item:
+            item["metadata.embodiment"] = self.embodiment
 
         # Ensure every batch has metadata.embodiment (required by DataSchematic); inject if missing.
         if "metadata.embodiment" not in frame_item:
             frame_item["metadata.embodiment"] = self.embodiment
 
-        return frame_item
-
+        return item
 
 
     def _get_frame_annotation(

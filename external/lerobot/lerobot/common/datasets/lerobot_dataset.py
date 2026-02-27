@@ -661,11 +661,15 @@ class LeRobotDataset(torch.utils.data.Dataset):
         return query_timestamps
 
     def _query_hf_dataset(self, query_indices: dict[str, list[int]]) -> dict:
-        return {
-            key: torch.stack(self.hf_dataset.select(q_idx)[key])
-            for key, q_idx in query_indices.items()
-            if key not in self.meta.video_keys
-        }
+        result = {}
+        for key, q_idx in query_indices.items():
+            if key in self.meta.video_keys:
+                continue
+            col = self.hf_dataset.select(q_idx)[key]
+            # Column from HuggingFace Dataset is not a tuple of Tensors; convert each row to tensor then stack
+            tensors = [torch.as_tensor(x) for x in col]
+            result[key] = torch.stack(tensors)
+        return result
 
     def _query_videos(self, query_timestamps: dict[str, list[float]], ep_idx: int) -> dict:
         """Note: When using data workers (e.g. DataLoader with num_workers>0), do not call this function
