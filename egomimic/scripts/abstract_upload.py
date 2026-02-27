@@ -1,13 +1,13 @@
-import asyncio
-import hashlib
 import json
 import os
+import hashlib
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
-
-import boto3
-
 from egomimic.utils.aws.aws_sql import TableRow
+import boto3
+import asyncio
+from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
 
 
 class Uploader:
@@ -16,7 +16,7 @@ class Uploader:
 
         self.embodiment = embodiment
         self.datatype = datatype
-        self.s3 = boto3.client("s3")
+        self.s3 = get_boto3_s3_client()
         self.bucket_name = "rldb"
         self.s3_base_prefix = f"raw_v2/{embodiment}/"
 
@@ -180,7 +180,7 @@ class Uploader:
 
         await asyncio.gather(*uploads)
 
-        print("\n✅ Upload completed successfully!")
+        print(f"\n✅ Upload completed successfully!")
         print(f"   📊 Processed {len(all_items)} file groups")
         print(f"   ☁️  Uploaded {len(uploads)} files to S3")
         print(f"   🎯 Destination: s3://{self.bucket_name}/{self.s3_base_prefix}")
@@ -262,7 +262,7 @@ class Uploader:
                 "episode_hash": "",  # Will be set below
             }
 
-            print("\n📝 METADATA COLLECTION")
+            print(f"\n📝 METADATA COLLECTION")
             print(f"File: {file_path.name}")
             print("-" * 50)
 
@@ -373,7 +373,7 @@ class Uploader:
             file_path: Path to the local file to upload
             new_name: Optional new name for the file in S3 storage
         """
-        s3 = boto3.client("s3")
+        s3 = get_boto3_s3_client()
         s3_key = f"{self.s3_base_prefix}{new_name or Path(file_path).name}"
 
         print(
