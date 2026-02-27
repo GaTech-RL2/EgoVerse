@@ -1,4 +1,7 @@
+from abc import ABC
 from enum import Enum
+
+from egomimic.rldb.zarr.action_chunk_transforms import Transform
 
 
 class EMBODIMENT(Enum):
@@ -31,3 +34,22 @@ def get_embodiment(index):
 def get_embodiment_id(embodiment_name):
     embodiment_name = embodiment_name.upper()
     return EMBODIMENT[embodiment_name].value
+
+
+class Embodiment(ABC):
+    """Base embodiment class. An embodiment is responsible for defining the transform pipeline that converts between the raw data in the dataset and the canonical representation used by the model."""
+
+    @staticmethod
+    def get_transform_list() -> list[Transform]:
+        """Returns the list of transforms that convert between the raw data in the dataset and the canonical representation used by the model."""
+        raise NotImplementedError
+
+    @staticmethod
+    def viz_transformed_batch(batch):
+        """Visualizes a batch of transformed data."""
+        raise NotImplementedError
+
+    @staticmethod
+    def get_keymap():
+        """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
+        raise NotImplementedError
