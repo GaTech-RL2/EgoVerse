@@ -3,6 +3,8 @@
 egomimic.egg-info/
 *.hdf5
 *.out.*
+.cursor/
+.cursorrules
 egomimic/debug
 trained_models_highlevel/
 trained_models_lowlevel/
