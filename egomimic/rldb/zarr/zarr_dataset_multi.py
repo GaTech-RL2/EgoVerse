@@ -150,9 +150,11 @@ class S3EpisodeResolver(EpisodeResolver):
         main_prefix: str = "processed_v3",
         key_map: dict | None = None,
         transform_list: list | None = None,
+        debug: bool = False,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
+        self.debug = debug
         super().__init__(folder_path, key_map=key_map, transform_list=transform_list)
 
     def resolve(
@@ -177,6 +179,7 @@ class S3EpisodeResolver(EpisodeResolver):
             bucket_name=self.bucket_name,
             filters=filters,
             local_dir=self.folder_path,
+            debug=self.debug,
         )
 
         valid_hashes = {hashes for _, hashes in filtered_paths}
@@ -194,7 +197,9 @@ class S3EpisodeResolver(EpisodeResolver):
         return datasets
 
     @staticmethod
-    def _get_filtered_paths(filters: dict | None = None) -> list[tuple[str, str]]:
+    def _get_filtered_paths(
+        filters: dict | None = None, debug: bool = False
+    ) -> list[tuple[str, str]]:
         """
         Filters episodes from the SQL episode table according to the criteria specified in `filters`
         and returns a list of (zarr_processed_path, episode_hash) tuples for episodes that match and
@@ -217,6 +222,10 @@ class S3EpisodeResolver(EpisodeResolver):
             ["zarr_processed_path", "episode_hash"],
         ]
         before_len = len(output)
+
+        if debug:
+            logger.info("Debug mode: limiting to 10 datasets.")
+            output = output.head(10)
 
         output = output[
             output["zarr_processed_path"].fillna("").astype(str).str.strip() != ""
@@ -304,6 +313,7 @@ class S3EpisodeResolver(EpisodeResolver):
         bucket_name: str,
         filters: dict,
         local_dir: Path,
+        debug: bool = False,
     ):
         """
         Public API:
@@ -317,7 +327,7 @@ class S3EpisodeResolver(EpisodeResolver):
         """
 
         # 1) Resolve episodes from DB
-        filtered_paths = cls._get_filtered_paths(filters)
+        filtered_paths = cls._get_filtered_paths(filters, debug=debug)
         if not filtered_paths:
             logger.warning("No episodes matched filters.")
             return []
@@ -347,8 +357,10 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        debug=False,
     ):
         super().__init__(folder_path, key_map, transform_list)
+        self.debug = debug
 
     @staticmethod
     def _local_filters_match(metadata: dict, episode_hash: str, filters: dict) -> bool:
@@ -377,7 +389,9 @@ class LocalEpisodeResolver(EpisodeResolver):
         return True
 
     @classmethod
-    def _get_local_filtered_paths(cls, search_path: Path, filters: dict):
+    def _get_local_filtered_paths(
+        cls, search_path: Path, filters: dict, debug: bool = False
+    ):
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
             return []
@@ -399,6 +413,10 @@ class LocalEpisodeResolver(EpisodeResolver):
             if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
 
+        if debug:
+            logger.info("Debug mode: limiting to 10 datasets.")
+            filtered = filtered[:10]
+
         logger.info("Local filtered paths: %s", filtered)
         return filtered
 
@@ -418,9 +436,12 @@ class LocalEpisodeResolver(EpisodeResolver):
         filters = dict(filters) if filters is not None else {}
         filters.setdefault("is_deleted", False)
 
-        filtered_paths = self._get_local_filtered_paths(self.folder_path, filters)
+        filtered_paths = self._get_local_filtered_paths(
+            self.folder_path, filters, debug=self.debug
+        )
 
         valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        logger.info(f"Valid folder names: {valid_folder_names}")
         if not valid_folder_names:
             raise ValueError(
                 "No valid collection names from local filtering: "
@@ -695,7 +716,18 @@ class ZarrDataset(torch.utils.data.Dataset):
         # TODO add the transform list code here
         if self.transform:
             for transform in self.transform or []:
-                data = transform.transform(data)
+                try:
+                    data = transform.transform(data)
+                except Exception as e:
+                    logger.error(f"Error transforming data: {e}")
+                    logger.error(f"Data: {data}")
+                    logger.error(f"Transform: {transform}")
+                    logger.error(f"Error: {e}")
+                    if idx == 0:
+                        logger.error("Error in first frame")
+                        raise e
+                    else:
+                        return self.__getitem__(0)
 
         for k, v in data.items():
             if isinstance(v, np.ndarray):
@@ -745,7 +777,19 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         if self.transform:
             for transform in self.transform or []:
-                out = transform.transform(out)
+                try:
+                    out = transform.transform(out)
+                except Exception as e:
+                    logger.error(f"Error transforming data: {e}")
+                    # NOTE: avoid dumping full arrays into logs
+                    logger.error(f"Data keys: {list(out.keys())}")
+                    logger.error(f"Transform: {transform}")
+                    logger.error(f"Error: {e}")
+                    if idx == 0:
+                        logger.error("Error in first frame")
+                        raise e
+                    else:
+                        return self.get_item_keys(0, keys)
 
         for k, v in out.items():
             if isinstance(v, np.ndarray):
