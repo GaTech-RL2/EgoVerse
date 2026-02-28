@@ -26,12 +26,14 @@ class FMPolicy(DenoisingPolicy):
         action_horizon,
         infer_ac_dims,
         num_inference_steps=None,
+        encoder_map=None,
         **kwargs,
     ):
         super().__init__(
             model, action_horizon, infer_ac_dims, num_inference_steps, **kwargs
         )
         self.time_dist = kwargs.get("time_dist", "beta")
+        self.encoder_map = encoder_map
 
     def step(self, x_t, t, global_cond):
         if len(t.shape) != 1:

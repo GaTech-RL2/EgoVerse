@@ -1,0 +1,75 @@
+defaults:
+  - hpt_cotrain_enc_dec_base
+
+robomimic_model:
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+    aria_bimanual: "actions_cartesian"
+  shared_ac_key: "actions_cartesian"
+
+  6dof: true
+  diffusion: true
+
+  head_specs:
+    aria_bimanual: null
+    eva_bimanual: null
+    shared:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 100
+      num_inference_steps: 50
+      pooling: null
+      padding: "zero"
+      time_dist: "beta"
+      infer_ac_dims:
+        eva_bimanual: 14
+        aria_bimanual: 14
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 14
+        act_seq: 100
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+      latent_map:
+        eva_bimanual:
+          encoder:
+            _target_: egomimic.models.conv.temporal_enc_dec.SmallTemporalEncoder
+            action_dim: 14
+            hidden_dim: 128
+            activation: "gelu"
+            use_layernorm: false
+          decoder:
+            _target_: egomimic.models.conv.temporal_enc_dec.SmallTemporalDecoder
+            action_dim: 14
+            hidden_dim: 128
+            activation: "gelu"
+            use_layernorm: true
+        aria_keypoints:
+          encoder:
+            _target_: egomimic.models.conv.temporal_enc_dec.LargeTemporalEncoder
+            action_dim: 140
+            hidden_dim: 128
+            activation: "gelu"
+            use_layernorm: false
+          decoder:
+            _target_: egomimic.models.conv.temporal_enc_dec.LargeTemporalDecoder
+            action_dim: 140
+            hidden_dim: 128
+            activation: "gelu"
+            use_layernorm: true
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1e-5

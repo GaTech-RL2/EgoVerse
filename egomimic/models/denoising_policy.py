@@ -68,7 +68,7 @@ class DenoisingPolicy(nn.Module):
         )
         return noise, global_cond
 
-    def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
+    def inference(self, noise, global_cond, generator=None) -> torch.Tensor:  # pyright: ignore[reportUnusedParameter]
         """
         To be implemented in subclass: predict actions from noise and conditioning.
         """
@@ -78,13 +78,13 @@ class DenoisingPolicy(nn.Module):
         noise, global_cond = self.preprocess_sampling(
             global_cond, embodiment_name, generator
         )
-        return self.inference(noise, global_cond, generator)
+        return self.inference(noise, global_cond, generator, embodiment_name)
 
-    def forward(self, global_cond):
+    def forward(self, global_cond, embodiment_name):
         cond, embodiment = global_cond
-        return self.sample_action(cond, embodiment)
+        return self.sample_action(cond, embodiment, embodiment_name)
 
-    def predict(self, actions, global_cond) -> Tuple[torch.Tensor, torch.Tensor]:
+    def predict(self, actions, global_cond, embodiment_name) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         To be implemented in subclass: returns (prediction, target) given action input and conditioning.
         """
@@ -96,7 +96,7 @@ class DenoisingPolicy(nn.Module):
         """
         return F.mse_loss(pred, target)
 
-    def preprocess_compute_loss(self, global_cond, data):
+    def preprocess_compute_loss(self, global_cond, data, embodiment_name):
         if self.pooling == "mean":
             global_cond = global_cond.mean(dim=1)
         elif self.pooling == "flatten":
@@ -121,7 +121,7 @@ class DenoisingPolicy(nn.Module):
 
         return actions, global_cond
 
-    def compute_loss(self, global_cond, data):
-        actions, global_cond = self.preprocess_compute_loss(global_cond, data)
-        pred, target = self.predict(actions, global_cond)
+    def compute_loss(self, global_cond, data, embodiment_name):
+        actions, global_cond = self.preprocess_compute_loss(global_cond, data, embodiment_name)
+        pred, target = self.predict(actions, global_cond, embodiment_name)
         return self.loss_fn(pred, target)
