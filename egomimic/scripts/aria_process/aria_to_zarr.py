@@ -23,7 +23,6 @@ from aria_utils import (
     compute_orientation_rotation_matrix,
     slam_to_rgb,
     undistort_to_linear,
-    cpf_to_rgb
 )
 from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME
 from projectaria_tools.core import data_provider, mps
@@ -518,13 +517,16 @@ class AriaVRSExtractor:
         rgb_timestamps_ns = np.array(stream_timestamps_ns["rgb"])
 
         print(f"[DEBUG] LENGTH BEFORE CLEANING: {len(hand_cartesian_pose)}")
-        [hand_cartesian_pose, hand_keypoints_pose, head_pose], images, eye_gaze, rgb_timestamps_ns = (
-            AriaVRSExtractor.clean_data(
-                poses=[hand_cartesian_pose, hand_keypoints_pose, head_pose],
-                images=images,
-                eye_gaze=eye_gaze,
-                timestamps=rgb_timestamps_ns
-            )
+        (
+            [hand_cartesian_pose, hand_keypoints_pose, head_pose],
+            images,
+            eye_gaze,
+            rgb_timestamps_ns,
+        ) = AriaVRSExtractor.clean_data(
+            poses=[hand_cartesian_pose, hand_keypoints_pose, head_pose],
+            images=images,
+            eye_gaze=eye_gaze,
+            timestamps=rgb_timestamps_ns,
         )
         # actions, pose, images = AriaVRSExtractor.clean_data_projection(actions=actions, pose=pose, images=images, arm=arm)
         print(f"[DEBUG] LENGTH AFTER CLEANING: {len(hand_cartesian_pose)}")
@@ -1598,19 +1600,21 @@ class DatasetConverter:
             enable_sharding=False,
             task="",
         )
-        mp4_path = output_dir / f"{episode_name}.mp4"
-        W, H = 960, 720
-        p = start_ffmpeg_mp4(mp4_path, W, H, fps=30, pix_fmt="rgb24")
-        for video_images in AriaVRSExtractor.iter_images(
-            episode_path, chunk_length=256, height=H, width=W, focal_mult=3
-        ):
-            for image in video_images:
-                image = prep_frame(image, H, W)
-                if image is None:
-                    continue
-                p.stdin.write(image.tobytes())
-        p.stdin.close()
-        p.wait()
+        mp4_path = None
+        if self.save_mp4:
+            mp4_path = output_dir / f"{episode_name}.mp4"
+            W, H = 960, 720
+            p = start_ffmpeg_mp4(mp4_path, W, H, fps=30, pix_fmt="rgb24")
+            for video_images in AriaVRSExtractor.iter_images(
+                episode_path, chunk_length=256, height=H, width=W, focal_mult=3
+            ):
+                for image in video_images:
+                    image = prep_frame(image, H, W)
+                    if image is None:
+                        continue
+                    p.stdin.write(image.tobytes())
+            p.stdin.close()
+            p.wait()
         return zarr_path, mp4_path
 
     def extract_episodes(

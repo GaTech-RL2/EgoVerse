@@ -27,11 +27,23 @@ def build_camera_matrix(provider, pose_t):
     return T_world_rgb_camera
 
 
-def undistort_to_linear(provider, stream_ids, raw_image, camera_label="rgb", height=480, width=640, focal_mult=2):
+def undistort_to_linear(
+    provider,
+    stream_ids,
+    raw_image,
+    camera_label="rgb",
+    height=480,
+    width=640,
+    focal_mult=2,
+):
     camera_label = provider.get_label_from_stream_id(stream_ids[camera_label])
     calib = provider.get_device_calibration().get_camera_calib(camera_label)
     warped = calibration.get_linear_camera_calibration(
-        height, width, 133.25430222 * focal_mult, camera_label, calib.get_transform_device_camera()
+        height,
+        width,
+        133.25430222 * focal_mult,
+        camera_label,
+        calib.get_transform_device_camera(),
     )
     warped_image = calibration.distort_by_calibration(raw_image, warped, calib)
     warped_rot = np.rot90(warped_image, k=3)
@@ -106,6 +118,7 @@ def slam_to_rgb(provider):
 
     return transform
 
+
 def compute_orientation_rotation_matrix(palm_pose, wrist_pose, palm_normal):
     x_axis = wrist_pose - palm_pose
     x_axis = np.ravel(x_axis) / np.linalg.norm(x_axis)
@@ -119,6 +132,7 @@ def compute_orientation_rotation_matrix(palm_pose, wrist_pose, palm_normal):
     rot_matrix = np.column_stack([-1 * x_axis, y_axis, z_axis])
     return rot_matrix
 
+
 def coordinate_frame_to_ypr(x_axis, y_axis, z_axis):
     rot_matrix = np.column_stack([x_axis, y_axis, z_axis])
     rotation = R.from_matrix(rot_matrix)
@@ -126,6 +140,7 @@ def coordinate_frame_to_ypr(x_axis, y_axis, z_axis):
     if np.isnan(euler_ypr).any():
         euler_ypr = np.zeros_like(euler_ypr)
     return euler_ypr
+
 
 def cpf_to_rgb(provider):
     """
