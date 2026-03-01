@@ -93,6 +93,7 @@ class ReplayRollout(Rollout):
     def __init__(self, dataset_path, cartesian):
         super().__init__()
         self.dataset_path = dataset_path
+        self.cartesian = cartesian
         if not os.path.isfile(self.dataset_path):
             raise FileNotFoundError(f"HDF5 not found: {self.dataset_path}")
         with h5py.File(self.dataset_path, "r") as f:
@@ -104,10 +105,23 @@ class ReplayRollout(Rollout):
                 )
 
     def rollout_step(self, i):
-        if i < self.actions.shape[0]:
-            return self.actions[i]
-        else:
-            return None
+        try:
+            if i < self.actions.shape[0]:
+                return self.actions[i]
+            else:
+                return None
+        except:
+            print(f"{i} {self.actions}")
+            import pdb; pdb.set_trace()
+
+    def reset(self):
+        with h5py.File(self.dataset_path, "r") as f:
+            if self.cartesian:
+                self.actions = np.asarray(f["actions"]["eepose"][...], dtype=np.float32)
+            else:
+                self.actions = np.asarray(
+                    f["observations"]["joint_positions"][...], dtype=np.float32
+                )
 
 
 # TODO: Work with all types of arms
@@ -396,10 +410,11 @@ def reset_rollout(ri, policy):
     ri.set_home()
     if hasattr(policy, "reset"):
         policy.reset()
-    if hasattr(policy, "actions"):
-        policy.actions = None
-    if hasattr(policy, "debug_actions"):
-        policy.debug_actions = None
+    else:
+        if hasattr(policy, "actions"):
+            policy.actions = None
+        if hasattr(policy, "debug_actions"):
+            policy.debug_actions = None
 
 
 def main(

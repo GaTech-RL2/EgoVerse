@@ -710,6 +710,20 @@ def collect_demo(
                 cmd_joint_action = np.zeros(14)
                 robot_joint_action = np.zeros(14)
                 cmd_eepose_action = np.zeros(14)
+                
+                # initialize the cmd_joint_action, robot_joint_action, and cmd_eepose_action with the actual joints and eepose
+                for _arm in arms_list:
+                    _offset = 7 if _arm == "right" else 0
+                    _joints = robot_interface.get_joints(_arm)
+                    cmd_joint_action[_offset : _offset + 7] = _joints
+                    robot_joint_action[_offset : _offset + 7] = _joints
+                    
+                    _pose_6d = robot_interface.get_pose_6d(_arm)
+                    cmd_eepose_action[_offset : _offset + 6] = _pose_6d
+                    cmd_eepose_action[_offset + 6] = (
+                        _joints[6] - GRIPPER_CLOSE_VALUE
+                    ) / GRIPPER_WIDTH
+                
                 for arm in arms_list:
                     if (arm == "left" and vr.l_engaged) or (
                         arm == "right" and vr.r_engaged
@@ -818,6 +832,46 @@ def collect_demo(
                             demo_data["cmd_joint_actions"].append(cmd_joint_action)
                             demo_data["robot_joint_actions"].append(robot_joint_action)
                             demo_data["cmd_eepose_actions"].append(cmd_eepose_action)
+
+                    elif collecting_data:
+                        # Trigger released: fall back to last known values.
+                        # cmd_pos / cmd_quat / cmd_joints / gripper_pos are dicts
+                        # that persist between iterations, so they still hold the
+                        # most recent commanded pose from when the trigger was held.
+                        arm_offset = 7 if arm == "right" else 0
+                        if arm in cmd_pos and arm in cmd_quat:
+                            cmd_eepose_action[arm_offset : arm_offset + 3] = (
+                                cmd_pos[arm]
+                            )
+                            cmd_eepose_action[arm_offset + 3 : arm_offset + 6] = (
+                                R.from_quat(cmd_quat[arm]).as_euler(
+                                    "ZYX", degrees=False
+                                )
+                            )  # ypr convention
+                            cmd_eepose_action[arm_offset + 6] = (
+                                gripper_pos[arm] - GRIPPER_CLOSE_VALUE
+                            ) / GRIPPER_WIDTH
+
+                        if arm in cmd_joints:
+                            cmd_joint_action[arm_offset : arm_offset + 7] = (
+                                cmd_joints[arm]
+                            )
+
+                        robot_joint_action[arm_offset : arm_offset + 7] = (
+                            robot_interface.get_joints(arm)
+                        )
+
+                        obs = robot_interface.get_obs()
+
+                        obs_copy = {}
+                        for key, val in obs.items():
+                            obs_copy[key] = (
+                                None if val is None else val.copy()
+                            )  # NumPy copy
+                        demo_data["obs"].append(obs_copy)
+                        demo_data["cmd_joint_actions"].append(cmd_joint_action)
+                        demo_data["robot_joint_actions"].append(robot_joint_action)
+                        demo_data["cmd_eepose_actions"].append(cmd_eepose_action)
 
                 if vr_data is not None:
                     prev_vr_data = vr_data
