@@ -176,6 +176,10 @@ class SFSDataExtractor:
                         {"start_ts": start_ts, "end_ts": end_ts,
                          "error_type": error_type, "hand": hand}
                     )
+                # Promote clip-level "Hand Used" to demonstration metadata
+                if "Hand Used" in attr_dict and "Hand Used" not in self.demonstration_metadata:
+                    self.demonstration_metadata["Hand Used"] = attr_dict["Hand Used"]
+
                 self.text_annotations.append(
                     {"label": label, "text": text, "start_ts": start_ts,
                      "end_ts": end_ts, "attributes": attr_dict}

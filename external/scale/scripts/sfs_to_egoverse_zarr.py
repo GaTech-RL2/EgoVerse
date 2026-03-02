@@ -69,6 +69,12 @@ SUB_EPISODE_LENGTH = 300
 MIN_EPISODE_FRAMES = 10
 IMAGE_SIZE = (640, 480)  # (W, H) for cv2.resize
 
+HAND_USED_TO_EMBODIMENT = {
+    "Right": "scale_right_arm",
+    "Left": "scale_left_arm",
+    "Both": "scale_bimanual",
+}
+
 
 # ---------------------------------------------------------------------------
 # Video / image helpers
@@ -360,17 +366,27 @@ def interpolate_hand_gaps(
 # ---------------------------------------------------------------------------
 
 
-def _build_validity_mask(frames: list[FrameData], video_frame_count: int) -> np.ndarray:
+def _build_validity_mask(
+    frames: list[FrameData],
+    video_frame_count: int,
+    hand_used: str = "Both",
+) -> np.ndarray:
     """Boolean mask: True = frame is usable for training.
 
     Called AFTER interpolation.  Drop logic:
       - Inactive Time → always drop
       - Beyond video length → always drop
-      - Hand Tracking Error with keypoints still missing (long gap that
-        wasn't interpolated) → drop
-      - Missing keypoints WITHOUT tracking error → zero-fill, keep
-        (single-hand tasks)
+      - Hand Tracking Error with the *active* hand still missing after
+        interpolation → drop.  For single-hand tasks (hand_used="Left"
+        or "Right"), only errors on the active hand matter.
+      - Missing keypoints on the inactive hand → zero-fill, keep
     """
+    active_hands: set[str] = set()
+    if hand_used in ("Left", "Both"):
+        active_hands.add("Left")
+    if hand_used in ("Right", "Both"):
+        active_hands.add("Right")
+
     n = len(frames)
     mask = np.ones(n, dtype=bool)
     drop_reasons: dict[str, int] = {
@@ -392,21 +408,27 @@ def _build_validity_mask(frames: list[FrameData], video_frame_count: int) -> np.
             drop_reasons["beyond_video"] += 1
             continue
 
-        # Tracking-error frames whose keypoints weren't recovered by
-        # interpolation → drop (the gap was too long to trust).
+        # Tracking-error frames whose *active*-hand keypoints weren't
+        # recovered by interpolation → drop.
         if frame.hand_tracking_error is not None:
             err_hand = frame.hand_tracking_error.get("hand", "Both")
+            err_hands_set: set[str] = set()
+            if err_hand in ("Left", "Both"):
+                err_hands_set.add("Left")
+            if err_hand in ("Right", "Both"):
+                err_hands_set.add("Right")
+
             still_bad = False
-            if err_hand in ("Left", "Both") and frame.hand_keypoints.left is None:
-                still_bad = True
-            if err_hand in ("Right", "Both") and frame.hand_keypoints.right is None:
-                still_bad = True
+            for h in err_hands_set & active_hands:
+                kp = frame.hand_keypoints.left if h == "Left" else frame.hand_keypoints.right
+                if kp is None:
+                    still_bad = True
+                    break
             if still_bad:
                 mask[i] = False
                 drop_reasons["tracking_error_unfilled"] += 1
                 continue
 
-        # Remaining missing keypoints (no tracking error) → kept, zero-filled
         l_miss = frame.hand_keypoints.left is None
         r_miss = frame.hand_keypoints.right is None
         if l_miss and r_miss:
@@ -548,6 +570,14 @@ def convert_task_to_zarr(
 
     task_desc = _task_description(frames, extractor.demonstration_metadata)
 
+    # Detect handedness from annotation "Hand Used" attribute
+    hand_used = str(extractor.demonstration_metadata.get("Hand Used", "Both")).strip()
+    if hand_used not in ("Left", "Right", "Both"):
+        hand_used = "Both"
+    resolved_embodiment = HAND_USED_TO_EMBODIMENT.get(hand_used, robot_type)
+    if hand_used != "Both":
+        print(f"[{task_id}] Single-hand task: Hand Used={hand_used} -> {resolved_embodiment}")
+
     # Extract and scale intrinsics to output image resolution
     raw_intrinsics = get_intrinsics(
         load_scene(sfs_path), "left_rectified"
@@ -596,7 +626,7 @@ def convert_task_to_zarr(
     # ------------------------------------------------------------------
     # Build per-frame validity mask and find contiguous runs
     # ------------------------------------------------------------------
-    validity = _build_validity_mask(frames, video_frame_count)
+    validity = _build_validity_mask(frames, video_frame_count, hand_used=hand_used)
     runs = _contiguous_runs(validity, min_length=MIN_EPISODE_FRAMES)
     if not runs:
         raise ValueError(f"Task {task_id} has no valid contiguous runs after filtering")
@@ -712,7 +742,7 @@ def convert_task_to_zarr(
         lang_ann = _build_language_annotations(used_frames)
 
         episode_path = task_output_dir / f"{task_id}_episode_{written:06d}.zarr"
-        meta_override = {}
+        meta_override = {"hand_used": hand_used}
         if camera_intrinsics:
             meta_override["camera_intrinsics"] = camera_intrinsics
         ZarrWriter.create_and_write(
@@ -721,7 +751,7 @@ def convert_task_to_zarr(
             pre_encoded_image_data={
                 "images.front_1": (pre_encoded, image_shape),
             },
-            embodiment=robot_type,
+            embodiment=resolved_embodiment,
             fps=fps,
             task=task_desc,
             annotations=lang_ann if lang_ann else None,
