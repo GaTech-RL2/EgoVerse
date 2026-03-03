@@ -982,6 +982,13 @@ class HPT(Algo):
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
+            # TODO make this work with any fp type
+            for key, value in processed_batch[embodiment_id].items():
+                if isinstance(value, torch.Tensor):
+                    value = value.to(self.device)
+                    if value.is_floating_point():
+                        value = value.float()
+                    processed_batch[embodiment_id][key] = value
 
         return processed_batch
 

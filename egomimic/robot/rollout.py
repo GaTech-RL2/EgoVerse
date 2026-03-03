@@ -17,12 +17,12 @@ from egomimic.rldb.embodiment.eva import Eva
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 from egomimic.utils.egomimicUtils import (
     CameraTransforms,
-    base_frame_to_cam_frame,
     cam_frame_to_base_frame,
     draw_actions,
     interpolate_arr,
     interpolate_arr_euler,
 )
+from egomimic.utils.pose_utils import xyzw_to_wxyz
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 
@@ -238,6 +238,8 @@ class PolicyRollout(Rollout):
             intrinsics_key="base", extrinsics_key=extrinsics_key
         ).extrinsics
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.policy_device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.policy.to(self.policy_device)
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
         self.debug = debug
@@ -264,11 +266,29 @@ class PolicyRollout(Rollout):
     def rollout_step(self, i, obs):
         if i % self.query_frequency == 0:
             start_infer_t = time.time()
-            batch = self.process_obs_for_policy(obs)
-            preds = self.policy.model.forward_eval(batch)
-            ac_key = self.policy.model.ac_keys[self.embodiment_id]
-            actions = preds[f"{self.embodiment_name.lower()}_{ac_key}"]
-            self.actions = actions.detach().cpu().numpy().squeeze()
+            transform_list_batch = self.process_obs_for_transform_list(obs)
+            for transform in Eva.get_transform_list():
+                transform_list_batch = transform.transform(transform_list_batch)
+            for k, v in transform_list_batch.items():
+                if hasattr(v, "unsqueeze"):
+                    transform_list_batch[k] = v.unsqueeze(0)
+                elif isinstance(v, np.ndarray):
+                    transform_list_batch[k] = v[None, ...]
+            if self.arm == "both":
+                embodiment_name = "eva_bimanual"
+            elif self.arm == "right":
+                embodiment_name = "eva_right_arm"
+
+            elif self.arm == "left":
+                embodiment_name = "eva_left_arm"
+            batch = {
+                embodiment_name: transform_list_batch,
+            }
+            processed_batch = self.policy.model.process_batch_for_training(batch)
+            preds = self.policy.model.forward_eval(processed_batch)[
+                f"{embodiment_name}_actions_cartesian"
+            ]
+            self.actions = preds.detach().cpu().numpy().squeeze()
             self.debug_actions = self.actions.copy()
             if self.cartesian:
                 if self.arm == "both":
@@ -315,22 +335,23 @@ class PolicyRollout(Rollout):
 
             print(f"Inference time: {(time.time() - start_infer_t)}s")
 
-        # TODO check gripper if we are using 0 to 0.08 or 0 to 1
         act_i = i % self.query_frequency
         return self.actions[act_i]
 
-    def process_obs_for_policy(self, obs):
+    def process_obs_for_transform_list(self, obs):
         # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
         front = torch.from_numpy(obs["front_img_1"][None, ...])  # [1, H, W, 3]
         front = front[..., [2, 1, 0]]  # BGR -> RGB
         front = front.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
 
         data = {
-            "front_img_1": front,
+            "front_img_1": front.squeeze(),
             "pad_mask": torch.ones((1, 100, 1), device=self.device, dtype=torch.bool),
         }
 
-        if self.arm == "right":
+        eepose = obs["ee_poses"]
+
+        if self.arm in ["right", "both"]:
             right = torch.from_numpy(
                 obs["right_wrist_img"][None, ...]
             )  # [1, H, W, 3] BGR
@@ -338,79 +359,53 @@ class PolicyRollout(Rollout):
             right = (
                 right.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
             )
-            data["right_wrist_img"] = right
-            joint_positions = obs["joint_positions"][7:]
+            data["right_wrist_img"] = right.squeeze()
+            right_ee_pose = eepose[7:13]
+            right_ee_pose = ee_pose_to_rot_ee_frame(right_ee_pose)
+            right_ypr = right_ee_pose[..., 3:6]
+            right_xyzw = R.from_euler("ZYX", right_ypr).as_quat()
+            right_wxyz = xyzw_to_wxyz(right_xyzw)
+            right_xyzwxyz = np.concatenate([eepose[:3], right_wxyz], axis=-1)
+            data["right.obs_ee_pose"] = torch.from_numpy(right_xyzwxyz).reshape(-1)
+            data["right.obs_gripper"] = torch.from_numpy(eepose[13:14]).reshape(-1)
+            right_gripper = torch.from_numpy(eepose[13:14]).view(1, 1).repeat(45, 1)
+            data["right.gripper"] = right_gripper
+            # dummy command ee pose
+            right_cmd_ee_pose = torch.from_numpy(right_xyzwxyz).view(1, 7).repeat(45, 1)
+            data["right.cmd_ee_pose"] = right_cmd_ee_pose
 
-        elif self.arm == "left":
+        if self.arm in ["left", "both"]:
             left = torch.from_numpy(
                 obs["left_wrist_img"][None, ...]
             )  # [1, H, W, 3] BGR
             left = left[..., [2, 1, 0]]  # BGR -> RGB
             left = left.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
-            data["left_wrist_img"] = left
-            joint_positions = obs["joint_positions"][:7]
+            data["left_wrist_img"] = left.squeeze()
+            left_ee_pose = eepose[0:6]
+            left_ee_pose = ee_pose_to_rot_ee_frame(left_ee_pose)
+            left_ypr = left_ee_pose[..., 3:6]
+            left_xyzw = R.from_euler("ZYX", left_ypr).as_quat()
+            left_wxyz = xyzw_to_wxyz(left_xyzw)
+            left_xyzwxyz = np.concatenate([eepose[:3], left_wxyz], axis=-1)
+            data["left.obs_ee_pose"] = torch.from_numpy(left_xyzwxyz).reshape(-1)
+            data["left.obs_gripper"] = torch.from_numpy(eepose[6:7]).reshape(-1)
+            left_gripper = torch.from_numpy(eepose[6:7]).view(1, 1).repeat(45, 1)
+            data["left.gripper"] = left_gripper
+            # dummy command ee pose
+            left_cmd_ee_pose = torch.from_numpy(left_xyzwxyz).view(1, 7).repeat(45, 1)
+            data["left.cmd_ee_pose"] = left_cmd_ee_pose
 
-        elif self.arm == "both":
-            right = torch.from_numpy(obs["right_wrist_img"][None, ...])
-            right = right[..., [2, 1, 0]]
-            right = (
-                right.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
-            )
-            left = torch.from_numpy(obs["left_wrist_img"][None, ...])
-            left = left[..., [2, 1, 0]]
-            left = left.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
-            data["right_wrist_img"] = right
-            data["left_wrist_img"] = left
-            joint_positions = obs["joint_positions"]
+        if self.arm == "both":
+            data["embodiment"] = ["eva_bimanual"]
+            data["metadata.robot_name"] = ["eva_bimanual"]
+        elif self.arm == "right":
+            data["embodiment"] = ["eva_right_arm"]
+            data["metadata.robot_name"] = ["eva_right_arm"]
+        elif self.arm == "left":
+            data["embodiment"] = ["eva_left_arm"]
+            data["metadata.robot_name"] = ["eva_left_arm"]
 
-        joint_positions = torch.as_tensor(joint_positions)
-        data["embodiment"] = torch.tensor([self.embodiment_id], dtype=torch.int64)
-
-        if not self.cartesian:
-            data["actions_joints"] = torch.zeros_like(joint_positions.reshape(1, 1, -1))
-            data["joint_positions"] = torch.from_numpy(joint_positions).reshape(1, -1)
-        else:
-            data["actions_cartesian"] = torch.zeros_like(
-                joint_positions.reshape(1, 1, -1)
-            )
-            left_ee_pose = ee_pose_to_rot_ee_frame(obs["ee_poses"][:6])
-            right_ee_pose = ee_pose_to_rot_ee_frame(obs["ee_poses"][7:13])
-            left_ee_pose = base_frame_to_cam_frame(
-                left_ee_pose.reshape(1, -1), self.extrinsics["left"]
-            ).squeeze()
-            right_ee_pose = base_frame_to_cam_frame(
-                right_ee_pose.reshape(1, -1), self.extrinsics["right"]
-            ).squeeze()
-            obs["ee_poses"][:6] = left_ee_pose
-            obs["ee_poses"][7:13] = right_ee_pose
-            data["ee_pose"] = torch.from_numpy(obs["ee_poses"]).reshape(1, -1)
-
-            print(
-                f"left_gripper: {obs['ee_poses'][6:7]}, right_gripper: {obs['ee_poses'][13:14]}"
-            )
-            if self.arm == "both" and self.debug:
-                os.makedirs("debug", exist_ok=True)
-                viz_rot_ee_pose(
-                    obs["front_img_1"],
-                    obs["ee_poses"],
-                    action_image_path="debug/rot_ee_pose_action.png",
-                    rot_image_path="debug/rot_ee_pose_axes.png",
-                )
-
-        processed_batch = {self.embodiment_id: data}
-
-        # move non-image tensors to device and float32 (images already are)
-        for key, val in data.items():
-            if key not in ("front_img_1", "right_wrist_img", "left_wrist_img"):
-                data[key] = val.to(self.device, dtype=torch.float32)
-
-        processed_batch[self.embodiment_id] = (
-            self.policy.model.data_schematic.normalize_data(
-                processed_batch[self.embodiment_id], self.embodiment_id
-            )
-        )
-
-        return processed_batch
+        return data
 
     def reset(self):
         self.actions = None

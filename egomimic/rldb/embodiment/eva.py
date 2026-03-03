@@ -12,6 +12,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     InterpolateLinear,
     InterpolatePose,
     PoseCoordinateFrameTransform,
+    NumpyToTensor,
     Transform,
     XYZWXYZ_to_XYZYPR,
 )
@@ -243,6 +244,12 @@ def _build_eva_bimanual_transform_list(
                     right_cmd_world,
                     left_target_world,
                     right_target_world,
+                ]
+            ),
+            NumpyToTensor(
+                keys=[
+                    actions_key,
+                    obs_key,
                 ]
             ),
         ]

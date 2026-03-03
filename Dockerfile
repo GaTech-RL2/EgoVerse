@@ -31,6 +31,7 @@ RUN apt-get update && \
     procps \
     curl \
     file \
+    rsync \
     ca-certificates \
     lsof \
     usbutils \

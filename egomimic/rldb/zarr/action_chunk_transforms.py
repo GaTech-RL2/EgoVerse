@@ -17,6 +17,7 @@ from abc import abstractmethod
 import numpy as np
 from projectaria_tools.core.sophus import SE3
 from scipy.spatial.transform import Rotation as R
+import torch
 
 from egomimic.utils.pose_utils import (
     _interpolate_euler,
@@ -411,4 +412,22 @@ class ConcatKeys(Transform):
             for k in self.key_list:
                 batch.pop(k, None)
 
+        return batch
+
+# ---------------------------------------------------------------------------
+# Type Transforms
+# ---------------------------------------------------------------------------
+
+class NumpyToTensor(Transform):
+    def __init__(self, keys: list[str]):
+        self.keys = keys
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            if isinstance(batch[key], np.ndarray):
+                batch[key] = torch.from_numpy(batch[key])
+            elif isinstance(batch[key], torch.Tensor):
+                batch[key] = batch[key].clone()
+            else:
+                raise ValueError(f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}")
         return batch
