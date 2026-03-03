@@ -126,3 +126,15 @@ def coordinate_frame_to_ypr(x_axis, y_axis, z_axis):
     if np.isnan(euler_ypr).any():
         euler_ypr = np.zeros_like(euler_ypr)
     return euler_ypr
+
+def cpf_to_rgb(provider):
+    """
+    Get cpf (eye tracking origin) to rgb camera transform (rotated upright)
+    provider: vrs data provider
+    """
+    device_calibration = provider.get_device_calibration()
+    rgb_calibration = device_calibration.get_camera_calib("camera-rgb")
+    rgbprime_calibration = calibration.rotate_camera_calib_cw90deg(rgb_calibration)
+    T_device_cpf = device_calibration.get_transform_device_cpf()
+    T_device_rgb = rgbprime_calibration.get_transform_device_camera()
+    return T_device_rgb.inverse() @ T_device_cpf

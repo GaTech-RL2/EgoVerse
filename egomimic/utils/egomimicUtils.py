@@ -257,6 +257,15 @@ EXTRINSICS = {
     },
 }
 
+ARIA_T_RGB_CPF = np.array(
+        [
+            [-0.99989084,  0.01251132, -0.00786028,  0.05686918],
+            [-0.01132842, -0.99067146, -0.13580032,  0.00922798],
+            [-0.009486  , -0.13569645,  0.99070505, -0.01147902],
+            [0.0, 0.0, 0.0, 1.0]
+        ]
+    )
+
 INTRINSICS = {
     "base": ARIA_INTRINSICS,
     "base_half": ARIA_INTRINSICS_HALF,
@@ -1597,3 +1606,65 @@ def transform_matrix_to_pose(mat: torch.Tensor) -> torch.Tensor:
 
     # Return pose: (B, T, 6)
     return torch.cat([xyz, ypr], dim=-1)
+
+
+def get_vector_from_yaw_pitch(
+    yaw_rads: float,
+    pitch_rads: float,
+    depth: float | None = None,
+) -> np.ndarray:
+    """
+    Convert yaw / pitch angles into a 3D gaze vector in CPF coordinates.
+
+    Args:
+        yaw_rads: Yaw angle in radians.
+        pitch_rads: Pitch angle in radians.
+        depth: Optional gaze distance. If provided, returns a vector with this
+            magnitude. If None, returns a unit vector.
+
+    Returns:
+        np.ndarray: (3,) gaze vector in CPF coordinates.
+    """
+    z = 1.0
+    x = np.tan(yaw_rads) * z
+    y = np.tan(pitch_rads) * z
+
+    direction = np.array([x, y, z], dtype=np.float64)
+    norm = np.linalg.norm(direction)
+    if norm == 0:
+        raise ValueError("Zero-length direction vector")
+
+    unit_dir = direction / norm
+
+    if depth is None:
+        return unit_dir
+    else:
+        return unit_dir * depth
+    
+
+def get_gaze_endpoint(yaw_rads, pitch_rads, depth, T_cam_cpf):
+    """
+    Compute the 3D gaze endpoint in camera coordinates.
+
+    The gaze originates at the CPF origin, with direction defined by yaw/pitch,
+    and length set by depth. The endpoint is transformed from CPF to camera
+    frame using T_cam_cpf.
+
+    Args:
+        yaw_rads: Yaw angle in radians.
+        pitch_rads: Pitch angle in radians.
+        depth: Gaze vector magnitude.
+        T_cam_cpf: (4, 4) SE(3) homogeneous transform from CPF to camera frame.
+
+    Returns:
+        np.ndarray: (3,) gaze endpoint in camera coordinates.
+    """
+    gaze_vec_cpf = get_vector_from_yaw_pitch(yaw_rads, pitch_rads, depth)
+
+    T_cam_cpf = np.asarray(T_cam_cpf, dtype=np.float64)
+    if T_cam_cpf.shape != (4, 4):
+        raise ValueError(f"T_cam_cpf must be a 4x4 transform, got {T_cam_cpf.shape}")
+
+    endpoint_cpf_h = np.concatenate([gaze_vec_cpf, np.array([1.0], dtype=np.float64)])
+    endpoint_cam_h = T_cam_cpf @ endpoint_cpf_h
+    return endpoint_cam_h[:3]
