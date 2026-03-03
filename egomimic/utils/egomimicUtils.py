@@ -1,13 +1,5 @@
-import subprocess
-import numpy as np
-import cv2
-import matplotlib.pyplot as plt
-import torchvision.transforms.functional as TF
-import torch
-from scipy.spatial.transform import Rotation
-import pytorch_kinematics as pk
-import egomimic
 import os
+import subprocess
 from numbers import Number
 from pathlib import Path
 
@@ -258,13 +250,13 @@ EXTRINSICS = {
 }
 
 ARIA_T_RGB_CPF = np.array(
-        [
-            [-0.99989084,  0.01251132, -0.00786028,  0.05686918],
-            [-0.01132842, -0.99067146, -0.13580032,  0.00922798],
-            [-0.009486  , -0.13569645,  0.99070505, -0.01147902],
-            [0.0, 0.0, 0.0, 1.0]
-        ]
-    )
+    [
+        [-0.99989084, 0.01251132, -0.00786028, 0.05686918],
+        [-0.01132842, -0.99067146, -0.13580032, 0.00922798],
+        [-0.009486, -0.13569645, 0.99070505, -0.01147902],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
 
 INTRINSICS = {
     "base": ARIA_INTRINSICS,
@@ -561,12 +553,13 @@ def draw_rotation_text(
 
     return image
 
+
 def render_3d_traj_frames(
     trajs,
     labels=None,
     idx=0,
     stride=1,
-    mode="time",          # "time" or "rotate"
+    mode="time",  # "time" or "rotate"
     elev=20,
     azim_start=0,
     azim_end=360,
@@ -603,7 +596,9 @@ def render_3d_traj_frames(
     n, t, _ = base.shape
     for k, a in enumerate(trajs_np):
         if a.shape != base.shape:
-            raise ValueError(f"All trajs must share the same shape. traj0={base.shape}, traj{k}={a.shape}")
+            raise ValueError(
+                f"All trajs must share the same shape. traj0={base.shape}, traj{k}={a.shape}"
+            )
 
     if not (0 <= idx < n):
         raise IndexError(f"idx {idx} out of range for N={n}")
@@ -653,13 +648,16 @@ def render_3d_traj_frames(
             ln.set_data(x, y)
             ln.set_3d_properties(z)
 
-        n_frames = int(abs(azim_end - azim_start)) + 1 if azim_end != azim_start else 360
+        n_frames = (
+            int(abs(azim_end - azim_start)) + 1 if azim_end != azim_start else 360
+        )
         azims = np.linspace(azim_start, azim_end, n_frames)
 
         def draw_frame(fi):
             ax.view_init(elev=elev, azim=float(azims[fi]))
 
     else:  # time mode
+
         def draw_frame(fi):
             end = fi + 1
             start = 0 if tail is None else max(0, end - int(tail))
@@ -672,7 +670,13 @@ def render_3d_traj_frames(
     # Render frames into RGB arrays
     frames = []
     canvas = fig.canvas
-    for fi in range((len(np.linspace(azim_start, azim_end, int(abs(azim_end - azim_start)) + 1)) if mode == "rotate" else t_len)):
+    for fi in range(
+        (
+            len(np.linspace(azim_start, azim_end, int(abs(azim_end - azim_start)) + 1))
+            if mode == "rotate"
+            else t_len
+        )
+    ):
         draw_frame(fi)
         canvas.draw()
         rgba = np.asarray(canvas.buffer_rgba())
@@ -682,11 +686,12 @@ def render_3d_traj_frames(
     plt.close(fig)
     return frames
 
+
 def render_3d_traj_frames_NT3(
     trajs,
     labels=None,
     stride=1,
-    mode="time",          # "time" or "rotate"
+    mode="time",  # "time" or "rotate"
     elev=20,
     azim_start=0,
     azim_end=360,
@@ -730,7 +735,9 @@ def render_3d_traj_frames_NT3(
     n_frames, t_chunk, _ = base.shape
     for k, a in enumerate(trajs_np):
         if a.shape != base.shape:
-            raise ValueError(f"All trajs must share shape. traj0={base.shape}, traj{k}={a.shape}")
+            raise ValueError(
+                f"All trajs must share shape. traj0={base.shape}, traj{k}={a.shape}"
+            )
 
     if labels is None:
         labels = [f"traj{k}" for k in range(len(trajs_np))]
@@ -786,7 +793,9 @@ def render_3d_traj_frames_NT3(
         for ln, xyz in zip(lines, xyzs):
             set_line_from_xyz(ln, xyz)
 
-        n_frames_rot = int(abs(azim_end - azim_start)) + 1 if azim_end != azim_start else 360
+        n_frames_rot = (
+            int(abs(azim_end - azim_start)) + 1 if azim_end != azim_start else 360
+        )
         azims = np.linspace(azim_start, azim_end, n_frames_rot)
 
         def draw_frame(fi):
@@ -804,7 +813,7 @@ def render_3d_traj_frames_NT3(
             else:
                 start_f = max(0, fi + 1 - int(tail))
                 for ln, a in zip(lines, trajs_np):
-                    xyz = a[ns[start_f:fi + 1]].reshape(-1, 3)  # (tail*T, 3)
+                    xyz = a[ns[start_f : fi + 1]].reshape(-1, 3)  # (tail*T, 3)
                     set_line_from_xyz(ln, xyz)
 
         out_len = n_len
@@ -820,10 +829,14 @@ def render_3d_traj_frames_NT3(
     plt.close(fig)
     return frames
 
+
 def xyzw_to_wxyz(xyzw):
     return np.concatenate([xyzw[..., 3:4], xyzw[..., :3]], axis=-1)
 
-def draw_actions(im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None):
+
+def draw_actions(
+    im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None
+):
     """
     args:
         im: (H, W, C)
@@ -1023,6 +1036,7 @@ def ee_orientation_to_cam_frame(ee_orientation_base, T_cam_base):
     )
     return ee_orientation_cam, batched_ypr
 
+
 def prep_frame(frame: np.ndarray, H: int, W: int) -> np.ndarray | None:
     if frame is None:
         print("Frame is None")
@@ -1038,22 +1052,35 @@ def prep_frame(frame: np.ndarray, H: int, W: int) -> np.ndarray | None:
     frame = np.ascontiguousarray(frame)
     return frame
 
-def start_ffmpeg_mp4(out_path: str, width: int, height: int, fps: int, pix_fmt: str = "rgb24"):
+
+def start_ffmpeg_mp4(
+    out_path: str, width: int, height: int, fps: int, pix_fmt: str = "rgb24"
+):
     # pix_fmt: "rgb24" if frames are RGB uint8; use "bgr24" if OpenCV frames
     cmd = [
         "ffmpeg",
         "-y",
-        "-f", "rawvideo",
-        "-vcodec", "rawvideo",
-        "-pix_fmt", pix_fmt,
-        "-s", f"{width}x{height}",
-        "-r", str(fps),
-        "-i", "pipe:0",
+        "-f",
+        "rawvideo",
+        "-vcodec",
+        "rawvideo",
+        "-pix_fmt",
+        pix_fmt,
+        "-s",
+        f"{width}x{height}",
+        "-r",
+        str(fps),
+        "-i",
+        "pipe:0",
         "-an",
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "23",
-        "-pix_fmt", "yuv420p",  # best compatibility
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "23",
+        "-pix_fmt",
+        "yuv420p",  # best compatibility
         out_path,
     ]
     return subprocess.Popen(cmd, stdin=subprocess.PIPE)
@@ -1294,9 +1321,10 @@ def interpolate_arr_euler(v: np.ndarray, seq_length: int) -> np.ndarray:
     v: (B, T, 6) or (B, T, 7)
         [x, y, z, yaw, pitch, roll, (optional) gripper]
     """
-    assert v.ndim == 3 and v.shape[2] in (6, 7), (
-        "Input v must be of shape (B, T, 6) or (B, T, 7)"
-    )
+    assert v.ndim == 3 and v.shape[2] in (
+        6,
+        7,
+    ), "Input v must be of shape (B, T, 6) or (B, T, 7)"
     B, T, D = v.shape
 
     new_time = np.linspace(0, 1, seq_length)
@@ -1640,7 +1668,7 @@ def get_vector_from_yaw_pitch(
         return unit_dir
     else:
         return unit_dir * depth
-    
+
 
 def get_gaze_endpoint(yaw_rads, pitch_rads, depth, T_cam_cpf):
     """
