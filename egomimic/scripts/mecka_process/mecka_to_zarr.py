@@ -740,7 +740,6 @@ class MeckaDatasetConverter:
             fps=self.fps,
             embodiment=self.embodiment,
             task=self.task_description,
-            enable_sharding=False,  # Avoid zarr sharding codec ZeroDivisionError with certain array shapes
             metadata_override=self.mecka_metadata,
         )
         mp4_path = self.output_dir / f"{self.episode_meta['id']}.mp4"
