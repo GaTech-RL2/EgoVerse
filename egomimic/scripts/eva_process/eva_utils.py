@@ -577,9 +577,7 @@ class EvaHD5Extractor:
     TAGS = ["eva", "robotics", "hdf5"]
 
     @staticmethod
-    def process_episode(
-        episode_path, arm, extrinsics, prestack=False, low_res=False, no_rot=False
-    ):
+    def process_episode(episode_path, arm, extrinsics, low_res=False, no_rot=False):
         """
         Extracts all feature keys from a given episode and returns as a dictionary
         Parameters
@@ -590,8 +588,6 @@ class EvaHD5Extractor:
             String for which arm to add data for
         extrinsics : np.array
             camera extrinsic, It is a tuple of (left_extrinsics, right_extrinsics) if arm is both
-        prestack : bool
-            prestack the future actions or not
         Returns
         -------
         episode_feats : dict
@@ -684,9 +680,6 @@ class EvaHD5Extractor:
                 EvaHD5Extractor.get_action(
                     episode["action"][:],
                     arm=arm,
-                    prestack=prestack,
-                    HORIZON=HORIZON_BASE,
-                    CHUNK_LENGTH=CHUNK_LENGTH_BASE,
                     left_extrinsics=left_extrinsics,
                     right_extrinsics=right_extrinsics,
                     no_rot=no_rot,
@@ -708,12 +701,6 @@ class EvaHD5Extractor:
             episode_feats["actions_joints"] = joint_actions
             episode_feats["actions_cartesian"] = cartesian_actions
             episode_feats["actions_base_cartesian"] = base_cartesian_actions
-
-            episode_feats["actions_eef_cartesian"] = EvaHD5Extractor.get_eef_action(
-                actions_cartesian_base=base_cartesian_actions,
-                arm=arm,
-                ref_index=0,
-            )
 
             episode_feats["observations"]["state.joint_positions"] = episode_feats[
                 "observations"
@@ -743,9 +730,6 @@ class EvaHD5Extractor:
     def get_action(
         actions: np.array,
         arm: str,
-        prestack: bool = False,
-        HORIZON: int = HORIZON_BASE,
-        CHUNK_LENGTH: int = CHUNK_LENGTH_BASE,
         left_extrinsics=None,
         right_extrinsics=None,
         no_rot: bool = False,
@@ -772,147 +756,7 @@ class EvaHD5Extractor:
 
         joint_actions = joint_actions[:, joint_start:joint_end]
 
-        if prestack:
-            horizon = HORIZON
-
-            joint_actions = prestack_with_mode(
-                np.asarray(joint_actions),
-                horizon=horizon,
-                chunk_length=CHUNK_LENGTH,
-                mode="linear",
-            )
-
-            cart_np = np.asarray(cartesian_actions)
-            base_np = np.asarray(base_cartesian_actions)
-
-            if arm == "both":
-                left_base = base_np[:, :7]
-                right_base = base_np[:, 7:14]
-                left_cam = cart_np[:, :7]
-                right_cam = cart_np[:, 7:14]
-
-                left_base = prestack_with_mode(
-                    left_base,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-                right_base = prestack_with_mode(
-                    right_base,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-                left_cam = prestack_with_mode(
-                    left_cam,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-                right_cam = prestack_with_mode(
-                    right_cam,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-
-                base_cartesian_actions = np.concatenate(
-                    [left_base, right_base], axis=-1
-                )
-                cartesian_actions = np.concatenate([left_cam, right_cam], axis=-1)
-            else:
-                base_cartesian_actions = prestack_with_mode(
-                    base_np,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-                cartesian_actions = prestack_with_mode(
-                    cart_np,
-                    horizon=horizon,
-                    chunk_length=CHUNK_LENGTH,
-                    mode="euler",
-                )
-
         return (joint_actions, cartesian_actions, base_cartesian_actions)
-
-    @staticmethod
-    def get_eef_action(
-        actions_cartesian_base: np.ndarray,
-        arm: str,
-        ref_index: int = 0,
-    ) -> np.ndarray:
-        """Compute relative EEF actions from base-frame Cartesian actions.
-
-        Supports both prestacked (N, S, D) and non-prestacked (N, D) inputs.
-        For prestacked: each row has S future actions, relative to ref_index action.
-        For non-prestacked: computes relative pose from previous frame (or identity for first).
-
-        Args:
-            actions_cartesian_base: Shape (N, S, D) or (N, D) where D=7 per arm (xyz + ypr + gripper)
-            arm: "left", "right", or "both"
-            ref_index: Reference index for relative transform (only used for prestacked)
-
-        Returns:
-            Relative actions with same shape as input
-        """
-        if arm == "both":
-            left_base = actions_cartesian_base[..., :7]
-            right_base = actions_cartesian_base[..., 7:14]
-
-            left_rel = EvaHD5Extractor.get_eef_action(
-                left_base, arm="left", ref_index=ref_index
-            )
-            right_rel = EvaHD5Extractor.get_eef_action(
-                right_base, arm="right", ref_index=ref_index
-            )
-            return np.concatenate([left_rel, right_rel], axis=-1)
-
-        # Handle both 2D (N, D) and 3D (N, S, D) inputs
-        is_2d = actions_cartesian_base.ndim == 2
-        if is_2d:
-            # Add sequence dimension: (N, D) -> (N, 1, D)
-            actions_cartesian_base = actions_cartesian_base[:, np.newaxis, :]
-
-        N, S, D = actions_cartesian_base.shape
-
-        p = actions_cartesian_base[..., :3]  # (N, S, 3)
-        ypr = actions_cartesian_base[..., 3:6]  # (N, S, 3)
-        g = actions_cartesian_base[..., 6:7]  # (N, S, 1)
-
-        ypr_flat = ypr.reshape(-1, 3)  # (N*S, 3)
-        R_flat = R.from_euler("ZYX", ypr_flat, degrees=False).as_matrix()  # (N*S, 3, 3)
-        R_seq = R_flat.reshape(N, S, 3, 3)  # (N, S, 3, 3)
-
-        T_seq = np.zeros((N, S, 4, 4), dtype=np.float32)
-        T_seq[..., :3, :3] = R_seq
-        T_seq[..., :3, 3] = p
-        T_seq[..., 3, 3] = 1.0
-
-        T0 = T_seq[:, ref_index, :, :]  # (N, 4, 4)
-        T0_inv = np.linalg.inv(T0)  # (N, 4, 4)
-
-        T_rel = T0_inv[:, None, :, :] @ T_seq  # (N, S, 4, 4)
-
-        p_rel = T_rel[..., :3, 3]  # (N, S, 3)
-        R_rel = T_rel[..., :3, :3]  # (N, S, 3, 3)
-
-        R_rel_flat = R_rel.reshape(-1, 3, 3)  # (N*S, 3, 3)
-        ypr_rel_flat = R.from_matrix(R_rel_flat).as_euler(
-            "ZYX", degrees=False
-        )  # (N*S, 3)
-        ypr_rel = ypr_rel_flat.reshape(N, S, 3)  # (N, S, 3)
-
-        actions_rel = np.empty_like(actions_cartesian_base)
-        actions_rel[..., :3] = p_rel
-        actions_rel[..., 3:6] = ypr_rel
-        actions_rel[..., 6:7] = g  # keep gripper as-is
-
-        # Remove sequence dimension if input was 2D
-        if is_2d:
-            actions_rel = actions_rel[:, 0, :]  # (N, 1, D) -> (N, D)
-
-        return actions_rel
 
     @staticmethod
     def get_ee_pose(
@@ -1065,7 +909,6 @@ class EvaHD5Extractor:
         image_compressed: bool,
         arm: str,
         extrinsics: dict,
-        prestack: bool = False,
     ) -> list[dict[str, torch.Tensor]]:
         """
         Extract frames from an episode by processing it and using the feature dictionary.
@@ -1082,8 +925,6 @@ class EvaHD5Extractor:
             The arm to process (e.g., 'left', 'right', or 'both').
         extrinsics : dict
             Camera extrinsics for the episode.
-        prestack : bool, optional
-            Whether to precompute action chunks, by default False.
 
         Returns
         -------
@@ -1092,7 +933,7 @@ class EvaHD5Extractor:
         """
         frames = []
         episode_feats = EvaHD5Extractor.process_episode(
-            episode_path, arm=arm, extrinsics=extrinsics, prestack=prestack
+            episode_path, arm=arm, extrinsics=extrinsics
         )
         num_frames = next(iter(episode_feats["observations"].values())).shape[0]
         for frame_idx in range(num_frames):
@@ -1183,8 +1024,7 @@ class EvaHD5Extractor:
                     dim_names = ["channel", "height", "width"]
                 elif "actions" in key and len(value[0].shape) > 1:
                     shape = value[0].shape
-                    dim_names = ["chunk_length", "action_dim"]
-                    dtype = f"prestacked_{str(value.dtype)}"
+                    dim_names = ["action_dim"]
                 else:
                     shape = value[0].shape
                     dim_names = [f"dim_{i}" for i in range(len(shape))]
@@ -1197,8 +1037,7 @@ class EvaHD5Extractor:
                 dtype = str(value.dtype)
                 shape = tuple(value[0].size())
                 if "actions" in key and len(tuple(value[0].size())) > 1:
-                    dim_names = ["chunk_length", "action_dim"]
-                    dtype = f"prestacked_{str(value.dtype)}"
+                    dim_names = ["action_dim"]
                 else:
                     dim_names = [f"dim_{i}" for i in range(len(shape))]
                 dim_names = [f"dim_{i}" for i in range(len(shape))]
