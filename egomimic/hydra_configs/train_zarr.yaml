@@ -1,10 +1,10 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: hpt_bc_flow_scale
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva
+  - data: scale
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
