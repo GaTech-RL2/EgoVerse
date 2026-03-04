@@ -57,8 +57,10 @@ def _interpolate_quat_wxyz(seq: np.ndarray, chunk_length: int) -> np.ndarray:
     quat_xyzw = quat_wxyz[:, [1, 2, 3, 0]]
 
     norms = np.linalg.norm(quat_xyzw, axis=1, keepdims=True)
-    if np.any(norms <= 0):
-        raise ValueError("Found zero-norm quaternion in input sequence.")
+    zero_mask = (norms < 1e-6).squeeze(1)
+    if zero_mask.any():
+        quat_xyzw[zero_mask] = [0.0, 0.0, 0.0, 1.0]  # identity quaternion (xyzw)
+        norms[zero_mask] = 1.0
     quat_xyzw = quat_xyzw / norms
 
     # Enforce sign continuity to avoid long-path interpolation.
@@ -133,7 +135,10 @@ def _xyzwxyz_to_matrix(xyzwxyz: np.ndarray) -> np.ndarray:
     dtype = xyzwxyz.dtype if np.issubdtype(xyzwxyz.dtype, np.floating) else np.float64
 
     mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
-    quat_xyzw = xyzwxyz[:, [4, 5, 6, 3]]
+    quat_xyzw = xyzwxyz[:, [4, 5, 6, 3]].copy()
+    zero_mask = np.linalg.norm(quat_xyzw, axis=1) < 1e-6
+    if zero_mask.any():
+        quat_xyzw[zero_mask] = [0.0, 0.0, 0.0, 1.0]  # identity (xyzw)
 
     mats[:, :3, :3] = R.from_quat(quat_xyzw).as_matrix()
     mats[:, :3, 3] = xyzwxyz[:, :3]
