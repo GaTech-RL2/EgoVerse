@@ -5,18 +5,15 @@ This repository contains the data processing and training code for EgoVerse and 
 ---
 
 ## Structure
-- [``egomimic/scripts/aloha_process``](./egomimic/scripts/aloha_process/): Process raw aloha style data into a robomimic style hdf5 or compressed efficient RLDB parquet files, compatible for training here.
-- [``egomimic/scripts/aria_process``](./egomimic/scripts/aria_process/): Process human embodiment data from Aria Glasses into a robomimic style hdf5, or compressed efficient RLDB parquet files.
-- [``egomimic/algo``](./egomimic/algo): Algorithm code for EgoMimic, ACT and HPT
-- [``egomimic/hydra_configs``](./egomimic/hydra_configs): Train configs for each algorithm
 - [``egomimic/trainHydra.py``](./egomimic/trainHydra.py): Main training script, powered by Pytorch Lightning and Hydra (DDP enabled)
-- [``data_processing.md``](./data_processing.md): Instructions to process your own data, both Aria Human data and teleoperated robot data.
-- [``egomimic/evaluation``](./egomimic/evaluation/): Evaluation scripts
-- [``data_upload.md``](./data_upload.md): Instructions to upload data (any type) to S3 bucket
+- [``egomimic/hydra_configs``](./egomimic/hydra_configs): Train configs for each algorithm
+- [``egomimic/algo``](./egomimic/algo): Algorithm code for EgoMimic, ACT and HPT
+- [``egomimic/scripts/aloha_process``](./egomimic/scripts/aloha_process/): Process raw aloha hdf5 to zarr/lerobot
+- [``egomimic/scripts/aria_process``](./egomimic/scripts/aria_process/): Process aria vrs to zarr/lerobot
 
 ## Installation
 
-# UV
+### UV (Recommended)
 
 if uv not installed
 ```
@@ -33,7 +30,7 @@ uv pip install -e .
 uv run pre-commit install
 ```
 
-# Conda
+### Conda
 ```
 git clone --recursive git@github.com:GaTech-RL2/EgoVerse.git
 cd EgoVerse
@@ -45,11 +42,6 @@ pip install -e .
 pre-commit install
 ```
 
-Set `git config --global submodule.recurse true` if you want `git pull` to automatically update the submodule as well.
-Set your wandb project in ``egomimic/hydra_configs/logger/wandb.yaml``
-
-## Quick Start
-
 ### AWS Configure
 ```
 aws configure
@@ -58,45 +50,15 @@ aws configure
 ```
 `setup_secret.sh` will allow your current env to download data from cloudflare.
 
-### Processing your own data for training
-![Data Streams](./assets/train_data.png)
-See [``data_processing.md``](./data_processing.md)
 
-## Hydra Comands
-### Quick start
-If you want to quickly train a robot BC policy using the default Hydra configuration on Eva robot data, simply run:
-
-`python egomimic/trainHydra.py --config-name train_zarr.yaml`
-
-Important:
-The default EVA BC config pulls data from S3 to a local scratch directory where the path is set to my local path
-Before running, open:
-
-`EgoVerse/egomimic/hydra_configs/data/eva_bc_s3.yaml`
-
-and modify:
-
-`temp_root: /path/to/where/you/want/s3/data/stored`
-
-to point to a local disk location with sufficient space for caching the downloaded dataset.
-
-### Additional Options
-Debug (run on a compute node )
-`python egomimic/trainHydra.py trainer=debug logger=debug`
-
-Submitit (Run this on slurm)
-`python egomimic/trainHydra.py -m launch_params.gpus_per_node=<gpus per node> launch_params.nodes=<nodes> name=<name> description=<>`
-
-Eval (add your own rollout class in [``egomimic/evaluation``](./egomimic/evaluation/) and update [``egomimic/hydra_configs/train.yaml``](./egomimic/hydra_configs/train.yaml))
-`python egomimic/trainHydra.py train=false eval=true`
-
-## Add your embodiment
-See [``model.md``](./model.md)
+### Other Settings
+Set `git config --global submodule.recurse true` if you want `git pull` to automatically update the submodule as well.
+Set your wandb project in ``egomimic/hydra_configs/logger/wandb.yaml``
 
 ## Submitit modification
-Tip: after you launch via submitit, you'll notice that the command won't finish executing.  If you want it to end the command after you launch a job, edit the following file
+For the integrated hydra submitit plugin to work, make the following modification...
 
-`/path/to/your/miniconda3/envs/emimic/lib/python3.10/site-packages/hydra_plugins/hydra_submitit_launcher/submitit_launcher.py`
+`/path/to/your/venv/emimic/lib/python3.11/site-packages/hydra_plugins/hydra_submitit_launcher/submitit_launcher.py`
 
 Change line 144 to
 ```
@@ -110,3 +72,11 @@ class asyncLauncher:
 ```
 
 I wanted to package this change nicely, but the hydra package is built very weirdly.  I tried to pip install -e . locally but the plugins package doesn't install correctly.  I'll try to PR this change into the main repo
+
+
+## Quick Start Guide
+Basic training run (robot BC)...
+``` bash
+python trainHydra.py --config_name=train_zarr
+```
+For instructions on training see [``training.md``](./training.md)

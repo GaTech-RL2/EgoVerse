@@ -253,4 +253,4 @@ python trainHydra.py   --config_name=train_zarr   --data=aria   train.batch_size
 
 -   Always verify `folder_path` exists and has enough disk space.\
 -   Large datasets will auto-download from S3 if not present locally.\
--   For debugging small runs, filter by a single `episode_hash`.
+-   For debugging small runs, filter by a single `episode_hash`.  You can also set --logger=debug --trainer=debug to run fewer epochs.
