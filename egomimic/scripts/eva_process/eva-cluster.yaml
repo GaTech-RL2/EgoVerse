@@ -115,7 +115,7 @@ head_setup_commands:
      | grep -v ray_worker_gaurdrails.py \
      | grep -v ray_worker_gaurdrails.lock ; \
      echo 'CRON_TZ=America/New_York'; \
-     echo '0 22 * * * flock -n /tmp/run_eva_conversion.lock /bin/bash -lc "set -a; . /home/ubuntu/.egoverse_env; set +a; /usr/bin/python3 ~/EgoVerse/egomimic/scripts/eva_process/run_eva_conversion.py --skip-if-done" >> ~/eva_conversion_$(date +\%Y-\%m-\%d-\%H-\%M-\%S).log 2>&1'; \
+     echo '0 22 * * * flock -n /tmp/run_eva_conversion.lock /bin/bash -lc "set -a; . /home/ubuntu/.egoverse_env; set +a; /usr/bin/python3 ~/EgoVerse/egomimic/scripts/eva_process/run_eva_conversion.py --skip-if-done --debug" >> ~/eva_conversion_$(date +\%Y-\%m-\%d-\%H-\%M-\%S).log 2>&1'; \
      echo '*/10 * * * * flock -n /tmp/ray_worker_gaurdrails.lock /usr/bin/python3 /home/ubuntu/EgoVerse/egomimic/utils/aws/budget_guardrails/ray_worker_gaurdrails.py >> /home/ubuntu/ray_worker_gaurdrails.log 2>&1') \
      | crontab - || true
   - crontab -l || true
