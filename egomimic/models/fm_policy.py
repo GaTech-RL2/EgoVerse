@@ -24,30 +24,32 @@ class FMPolicy(DenoisingPolicy):
         self,
         model: ConditionalUnet1D,
         action_horizon,
-        infer_ac_dims,
         num_inference_steps=None,
-        encoder_map=None,
+        embodiment_specs=None,
         **kwargs,
     ):
         super().__init__(
-            model, action_horizon, infer_ac_dims, num_inference_steps, **kwargs
+            model, action_horizon, num_inference_steps, embodiment_specs, **kwargs
         )
         self.time_dist = kwargs.get("time_dist", "beta")
-        self.encoder_map = encoder_map
 
-    def step(self, x_t, t, global_cond):
+    def step(self, x_t, t, global_cond, embodiment_name):
+        if self.codec_enabled:
+            zx_t = self.embodiment_specs[embodiment_name]["encoder"](x_t)
         if len(t.shape) != 1:
             t = torch.tensor([t], device=global_cond.device)
-        v_t = self.model(x_t, t, global_cond)
+        zv_t = self.model(zx_t, t, global_cond)
+        if self.codec_enabled:
+            v_t = self.embodiment_specs[embodiment_name]["decoder"](zv_t)
         return x_t + self.dt * v_t, t + self.dt
 
     @override
-    def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
+    def inference(self, noise, global_cond, embodiment_name, generator=None) -> torch.Tensor:
         self.dt = -1.0 / self.num_inference_steps
         x_t = noise
         time = torch.ones((len(global_cond)), device=global_cond.device)
         while time[0] >= -self.dt / 2:
-            x_t, time = self.step(x_t, time, global_cond)
+            x_t, time = self.step(x_t, time, global_cond, embodiment_name)
         return x_t
 
     @override

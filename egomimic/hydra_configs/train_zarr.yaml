@@ -1,16 +1,16 @@
 defaults:
-  - model: hpt_bc_flow_eva
+  - model: hpt_cotrain_flow_shared_head_latent
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva
+  - data: eva_human_cotrain
   - callbacks: checkpoints
   - override hydra/launcher: submitit
   - _self_
 
-name: test
-description: test
+name: latent_flow
+description: latent_flow
 ckpt_path: null
 train: true
 eval: false
@@ -31,7 +31,6 @@ hydra:
 launch_params:
   gpus_per_node: 1
   nodes: 1
-
 
 data_schematic: # Dynamically fill in these shapes from the dataset
   _target_: egomimic.rldb.zarr.utils.DataSchematic
@@ -102,13 +101,9 @@ data_schematic: # Dynamically fill in these shapes from the dataset
         key_type: metadata_keys
         zarr_key: metadata.embodiment
   viz_img_key:
-    eva_bimanual:
-      front_img_1
-    aria_bimanual:
-      front_img_1
-    mecka_bimanual:
-      front_img_1
-    scale_bimanual:
-      front_img_1
+    eva_bimanual: front_img_1
+    aria_bimanual: front_img_1
+    mecka_bimanual: front_img_1
+    scale_bimanual: front_img_1
 
 seed: 42
