@@ -79,7 +79,7 @@ Visit https://partners.mecka.ai/egoverse to view our entire dataset in the web!
 
 To visualize data programatically see [``zarr_data_viz.ipynb``](./egomimic/scripts/tutorials/zarr_data_viz.ipynb)
 
-To programatically view the SQL table of all episodes + metadata see [``sql_tutorial.ipynb``](./egomimic/utils/aws/sql_tutorial.ipynb)
+To programatically view the SQL table of all episodes + metadata see [``sql_tutorial.ipynb``](./egomimic/scripts/tutorials//sql_tutorial.ipynb)
 
 ### Data Downloading
 While our training pipeline automatically downloads data, you can manually download data via [``sync_s3.py``](./egomimic/scripts/data_download/sync_s3.py)
@@ -87,7 +87,7 @@ While our training pipeline automatically downloads data, you can manually downl
 ### Training
 Basic training run (robot BC)...
 ``` bash
-python trainHydra.py --config_name=train_zarr
+python egomimic/trainHydra.py --config-name=train_zarr
 ```
 For full instructions on training see [``training.md``](./training.md)
 

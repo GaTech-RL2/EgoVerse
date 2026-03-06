@@ -117,7 +117,6 @@ class EpisodeResolver:
             if name.endswith(".zarr"):
                 name = name[: -len(".zarr")]
             if name not in valid_folder_names:
-                logger.info(f"{p} is not in the list of filtered paths")
                 skipped.append(p.name)
                 continue
             try:
