@@ -1,102 +1,96 @@
-defaults:
-  - model: hpt_bc_flow_eva
+  defaults:
+  - model: hpt_bc_flow_mecka_1B
   - paths: default
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva_bc_s3
+  - data: mecka_all
   - callbacks: checkpoints
-  - override hydra/launcher: submitit
+  - override hydra/launcher: submitit_slurm
   - _self_
 
-name: test
-description: test
-ckpt_path: null
-train: true
-eval: false
+  name: test
+  description: test
+  ckpt_path: null
+  train: true
+  eval: false
 
-eval_class:
-  _target_ : egomimic.scripts.evaluation.Eve
-  mode: real
-  arm: both
-  eval_path: "./logs/eval/${name}_${now:%Y-%m-%d_%H-%M-%S}"
+  eval_class:
+    _target_ : egomimic.scripts.evaluation.Eve
+    mode: real
+    arm: both
+    eval_path: "./logs/eval/${name}_${now:%Y-%m-%d_%H-%M-%S}"
 
-hydra:
-  run:
-    # Dir should be experiment_name/description_{timestamp}
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
-  sweep:
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+  hydra:
+    run:
+      # Dir should be experiment_name/description_{timestamp}
+      dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    sweep:
+      dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
-launch_params:
-  gpus_per_node: 1
-  nodes: 1
+  launch_params:
+    gpus_per_node: 2
+    nodes: 1
 
-data_schematic: # Dynamically fill in these shapes from the dataset
-  _target_: egomimic.rldb.utils.DataSchematic
-  norm_mode: quantile
-  schematic_dict:
-    eva_bimanual:
-      front_img_1: #batch key
-        key_type: camera_keys # key type
-        lerobot_key: observations.images.front_img_1 # dataset key
-      right_wrist_img:
-        key_type: camera_keys
-        lerobot_key: observations.images.right_wrist_img
-      left_wrist_img:
-        key_type: camera_keys
-        lerobot_key: observations.images.left_wrist_img
-      ee_pose:
-        key_type: proprio_keys
-        lerobot_key: observations.state.ee_pose
-      joint_positions:
-        key_type: proprio_keys
-        lerobot_key: observations.state.joint_positions
-      actions_joints:
-        key_type: action_keys
-        lerobot_key: actions_joints
-      actions_cartesian:
-        key_type: action_keys
-        lerobot_key: actions_cartesian
-      embodiment:
-        key_type: metadata_keys
-        lerobot_key: metadata.embodiment
-    aria_bimanual:
-      front_img_1:
-        key_type: camera_keys
-        lerobot_key: observations.images.front_img_1
-      ee_pose:
-        key_type: proprio_keys
-        lerobot_key: observations.state.ee_pose
-      actions_cartesian:
-        key_type: action_keys
-        lerobot_key: actions_cartesian
-      embodiment:
-        key_type: metadata_keys
-        lerobot_key: metadata.embodiment
-    mecka_bimanual:
-      front_img_1:
-        key_type: camera_keys
-        lerobot_key: observations.images.front_img_1
-      ee_pose:
-        key_type: proprio_keys
-        lerobot_key: observations.state.ee_pose_cam
-      actions_cartesian:
-        key_type: action_keys
-        lerobot_key: actions_ee_cartesian_cam
-      actions_keypoints:
-        key_type: action_keys
-        lerobot_key: actions_ee_keypoints_world
-      actions_head_cartesian:
-        key_type: action_keys
-        lerobot_key: actions_head_cartesian_world
-      embodiment:
-        key_type: metadata_keys
-        lerobot_key: metadata.embodiment
-  viz_img_key: 
-    eva_bimanual:
-      front_img_1
-    aria_bimanual:
-      front_img_1
-    mecka_bimanual:
-      front_img_1
+  data_schematic: # Dynamically fill in these shapes from the dataset
+    _target_: egomimic.rldb.utils.DataSchematic
+    norm_mode: quantile
+    schematic_dict:
+      eva_bimanual:
+        front_img_1: #batch key
+          key_type: camera_keys # key type
+          lerobot_key: observations.images.front_img_1 # dataset key
+        right_wrist_img:
+          key_type: camera_keys
+          lerobot_key: observations.images.right_wrist_img
+        left_wrist_img:
+          key_type: camera_keys
+          lerobot_key: observations.images.left_wrist_img
+        ee_pose:
+          key_type: proprio_keys
+          lerobot_key: observations.state.ee_pose
+        joint_positions:
+          key_type: proprio_keys
+          lerobot_key: observations.state.joint_positions
+        actions_joints:
+          key_type: action_keys
+          lerobot_key: actions_joints
+        actions_cartesian:
+          key_type: action_keys
+          lerobot_key: actions_cartesian
+        embodiment:
+          key_type: metadata_keys
+          lerobot_key: metadata.embodiment
+      aria_bimanual:
+        front_img_1:
+          key_type: camera_keys
+          lerobot_key: observations.images.front_img_1
+        ee_pose:
+          key_type: proprio_keys
+          lerobot_key: observations.state.ee_pose
+        actions_cartesian:
+          key_type: action_keys
+          lerobot_key: actions_cartesian
+        embodiment:
+          key_type: metadata_keys
+          lerobot_key: metadata.embodiment
+      mecka_bimanual:
+        front_img_1:
+          key_type: camera_keys
+          lerobot_key: observations.images.front_img_1
+        ee_pose:
+          key_type: proprio_keys
+          lerobot_key: observations.state.ee_pose_cam
+        actions_cartesian:
+          key_type: action_keys
+          lerobot_key: actions_ee_cartesian_cam
+        embodiment:
+          key_type: metadata_keys
+          lerobot_key: metadata.embodiment
+    viz_img_key: 
+      eva_bimanual:
+        front_img_1
+      aria_bimanual:
+        front_img_1
+      mecka_bimanual:
+        front_img_1

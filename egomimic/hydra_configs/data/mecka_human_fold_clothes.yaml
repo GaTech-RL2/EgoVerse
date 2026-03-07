@@ -2,41 +2,35 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
   dataset1:
-    _target_: rldb.utils.S3RLDBDataset
+    _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
+    main_prefix: "mecka"
     mode: train
-    local_mode: True
     embodiment: "mecka_bimanual"
-    filters:
-      task: "organizing_tools"
+    temp_root: "/coc/flash7/scratch/egoverseS3Dataset"
+    filters: 
+      lab: "mecka"
+      task: "fold_clothes"
     local_files_only: True
-
 
 valid_datasets:
   dataset1:
-    _target_: rldb.utils.S3RLDBDataset
+    _target_: egomimic.rldb.utils.S3RLDBDataset
     bucket_name: "rldb"
     mode: valid
-    local_mode: True
     embodiment: "mecka_bimanual"
-    filters:
-      task: "organizing_tools"
+    temp_root: "/coc/flash7/scratch/egoverseS3Dataset"        
+    filters: 
+      lab: "mecka"
+      task: "fold_clothes"
     local_files_only: True
-
-
 
 train_dataloader_params:
   dataset1:
-    batch_size: 32
+    batch_size: 64
     num_workers: 10
-  # dataset2:
-  #   batch_size: 32
-  #   num_workers: 10
 
 valid_dataloader_params:
   dataset1:
-    batch_size: 32
+    batch_size: 64
     num_workers: 10
-  # dataset2:
-  #   batch_size: 32
-  #   num_workers: 10

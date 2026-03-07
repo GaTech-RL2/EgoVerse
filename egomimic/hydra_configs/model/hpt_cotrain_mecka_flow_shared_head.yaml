@@ -53,7 +53,7 @@ robomimic_model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
-        hidden_dim: 128
+        hidden_dim: 256
         act_dim: 14
         act_seq: 100
         n_heads: 4
@@ -71,4 +71,4 @@ scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
   _partial_: true
   T_max: 1400
-  eta_min: 1e-5
+  eta_min: 5e-5

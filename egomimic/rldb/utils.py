@@ -650,6 +650,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         logger.info(f"Local Files Only: {local_files_only}")
         logger.info(f"Percent: {percent}")
         logger.info(f"Valid Ratio: {valid_ratio}")
+        logger.info(f"Mode: {mode}")
         logger.info(f"Debug: {debug}")
         logger.info(f"kwargs: {kwargs}")
 
@@ -669,11 +670,10 @@ class S3RLDBDataset(MultiRLDBDataset):
             valid_collection_names.add(hashes)
 
         max_workers = int(os.environ.get("RLDB_LOAD_WORKERS", "10"))
-
         datasets, skipped = self._load_rldb_datasets_parallel(
             search_path=search_path,
             embodiment=embodiment,
-            valid_collection_names=valid_collection_names,
+            collection_names=selected_collection_names,
             local_files_only=local_files_only,
             percent=percent,
             valid_ratio=valid_ratio,
@@ -683,31 +683,6 @@ class S3RLDBDataset(MultiRLDBDataset):
         )
 
         assert datasets, "No valid RLDB datasets found! Check your S3 path and filters."
-
-        self.train_collections, self.valid_collections = split_dataset_names(
-            datasets.keys(), valid_ratio=valid_ratio, seed=SEED
-        )
-
-        if mode == "train":
-            chosen = self.train_collections
-        elif mode == "valid":
-            chosen = self.valid_collections
-        elif mode == "total":
-            chosen = set(datasets.keys())
-        elif mode == "percent":
-            all_names = sorted(datasets.keys())
-            rng = random.Random(SEED)
-            rng.shuffle(all_names)
-
-            n_keep = int(len(all_names) * percent)
-            if percent > 0.0:
-                n_keep = max(1, n_keep)
-            chosen = set(all_names[:n_keep])
-        else:
-            raise ValueError(f"Unknown mode: {mode}")
-
-        datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
-        assert datasets, "No datasets left after applying mode split."
 
         key_map_per_dataset = (
             {repo_id: key_map for repo_id in datasets} if key_map else None
@@ -776,7 +751,7 @@ class S3RLDBDataset(MultiRLDBDataset):
         *,
         search_path: Path,
         embodiment: str,
-        valid_collection_names: set[str],
+        collection_names: set[str],
         local_files_only: bool,
         percent: float,
         valid_ratio: float,
@@ -800,7 +775,7 @@ class S3RLDBDataset(MultiRLDBDataset):
 
         if debug:
             logger.info("Debug mode: limiting to 10 datasets.")
-            valid_collection_names = set(list(valid_collection_names)[:10])
+            collection_names = set(list(collection_names)[:10])
 
         def _submit_arg(p: Path):
             return dict(

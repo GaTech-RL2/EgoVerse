@@ -3,16 +3,26 @@ robomimic_model:
   _target_: egomimic.algo.hpt.HPT
   data_schematic: _${data.dataset.data_schematic}
   camera_transforms:
+    aria_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "base" # change to base_half if using half res 
+      extrinsics_key: "ariaJun7"
+    eva_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "base" # change to base_half if using half res 
+      extrinsics_key: "x5Dec13_2"
     mecka_bimanual:
       _target_: egomimic.utils.egomimicUtils.CameraTransforms
       intrinsics_key: "mecka" # change to base_half if using half res 
       extrinsics_key: "mecka"
-    
+      
   diffusion: true 
   6dof: true
 
   ac_keys:
     mecka_bimanual: "actions_cartesian"
+    eva_bimanual: "actions_cartesian"
+    aria_bimanual: "actions_cartesian"
 
   trunk:
     embed_dim: 256
@@ -31,7 +41,7 @@ robomimic_model:
   pretrained_checkpoint: "" # TODO
   reverse_kl_samples: 8
   
-  domains: ["mecka_bimanual"]
+  domains: ["mecka_bimanual", "eva_bimanual", "aria_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
   shared_stem_specs:
@@ -112,11 +122,11 @@ robomimic_model:
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
-  lr: 1e-4
+  lr: 3e-4
   weight_decay: 0.0001
 
 scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
   _partial_: true
   T_max: 1400
-  eta_min: 5e-5
+  eta_min: 1e-5

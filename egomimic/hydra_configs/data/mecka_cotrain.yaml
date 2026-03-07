@@ -1,0 +1,50 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  # dataset1:
+  #   _target_: egomimic.rldb.utils.S3RLDBDataset
+  #   bucket_name: "rldb"
+  #   embodiment: "mecka_bimanual"
+  #   mode: train
+  #   filters: 
+  #     task: "potting_soil"
+  #   local_files_only: True
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    embodiment: "aria_right_arm"
+    mode: train
+    filters:
+      task: "object in container"
+      lab: "song"
+    local_files_only: True
+
+valid_datasets:
+  # dataset1:
+  #   _target_: egomimic.rldb.utils.S3RLDBDataset
+  #   bucket_name: "rldb"
+  #   embodiment: "mecka_bimanual"
+  #   mode: valid
+  #   filters: 
+  #     task: "potting_soil"
+  #   local_files_only: True
+  dataset2:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    embodiment: "aria_right_arm"
+    mode: valid
+    filters: 
+      task: "object in container"
+      lab: "song"
+    local_files_only: True
+
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 10

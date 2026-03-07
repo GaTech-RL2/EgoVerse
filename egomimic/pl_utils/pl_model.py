@@ -142,6 +142,14 @@ class ModelWrapper(LightningModule):
                 exist_ok=True,
             )
 
+
+    # def train_validation(self):
+    #     """
+    #     Run a validation step on the training data.
+    #     """
+    #     self.validation_step(self.train_dataloader(), 0)
+    #     self.on_validation_end() 
+
     def validation_step(self, batch, batch_idx, dataloader_idx=0):
         """
         Run a validation step on the batch, and save that batch of images into the val_image_buffer.  Once the buffer hits 1000 images, save that as a 30fps video using torchvision.io.write_video.
@@ -187,6 +195,7 @@ class ModelWrapper(LightningModule):
                 self.val_counter[key] += 1
 
         self.log_dict(metrics, sync_dist=True)
+        # self.train_validation()
 
     def on_validation_end(self):
         print(f"[ON_VALIDATION_END] rank={self.global_rank}", flush=True)

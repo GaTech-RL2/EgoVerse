@@ -1,0 +1,77 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset/
+      key_map:
+        observations.images.front_img_1: #batch key
+          key_type: camera_keys # key type
+          zarr_key: images.front_1
+        right.action_ee_pose:
+          key_type: action_keys
+          zarr_key: right.obs_ee_pose
+          horizon: 30
+        left.action_ee_pose:
+          key_type: action_keys
+          zarr_key: left.obs_ee_pose
+          horizon: 30
+        right.obs_ee_pose:
+          key_type: proprio_keys
+          zarr_key: right.obs_ee_pose
+        left.obs_ee_pose:
+          key_type: proprio_keys
+          zarr_key: left.obs_ee_pose
+        obs_head_pose:
+          zarr_key: obs_head_pose
+          key_type: proprio_keys
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human._build_aria_bimanual_transform_list
+        stride: 1
+    # filters:
+    #     episode_hash: ${eval:'__import__("egomimic.hydra_configs.data.parse", fromlist=["episode_hashes_from_sample"]).episode_hashes_from_sample()'}
+        # episode_hash: ["696a1e7a03b3bab4cd3d4ff9", "696b94c5c25b828c83107b3f"]
+    mode: train
+valid_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset/
+      key_map:
+        observations.images.front_img_1: #batch key
+          key_type: camera_keys # key type
+          zarr_key: images.front_1
+        right.action_ee_pose:
+          key_type: action_keys
+          zarr_key: right.obs_ee_pose
+          horizon: 30
+        left.action_ee_pose:
+          key_type: action_keys
+          zarr_key: left.obs_ee_pose
+          horizon: 30
+        right.obs_ee_pose:
+          key_type: proprio_keys
+          zarr_key: right.obs_ee_pose
+        left.obs_ee_pose:
+          key_type: proprio_keys
+          zarr_key: left.obs_ee_pose
+        obs_head_pose:
+          zarr_key: obs_head_pose
+          key_type: proprio_keys
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human._build_aria_bimanual_transform_list
+        stride: 1
+    # filters:
+    #     episode_hash: ${eval:'__import__("egomimic.hydra_configs.data.parse", fromlist=["episode_hashes_from_sample"]).episode_hashes_from_sample()'}
+        # episode_hash: ["696a1e7a03b3bab4cd3d4ff9", "696b94c5c25b828c83107b3f"]
+    mode: valid
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10

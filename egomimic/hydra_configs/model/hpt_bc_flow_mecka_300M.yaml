@@ -7,7 +7,7 @@ robomimic_model:
       _target_: egomimic.utils.egomimicUtils.CameraTransforms
       intrinsics_key: "mecka" # change to base_half if using half res 
       extrinsics_key: "mecka"
-    
+  
   diffusion: true 
   6dof: true
 
@@ -15,9 +15,9 @@ robomimic_model:
     mecka_bimanual: "actions_cartesian"
 
   trunk:
-    embed_dim: 256
-    num_blocks: 16
-    num_heads: 8
+    embed_dim: 840 # changed from 256  #84
+    num_blocks: 24 # changed from 16
+    num_heads: 10 # changed from 8
     token_postprocessing: "action_token"
     observation_horizon: 1
     action_horizon: 64
@@ -33,37 +33,37 @@ robomimic_model:
   
   domains: ["mecka_bimanual"]
   shared_obs_keys: ["front_img_1"]
-
+ 
   shared_stem_specs:
     front_img_1:
       _target_: egomimic.models.hpt_nets.MLPPolicyStem
-      input_dim: 256
-      output_dim: 256
-      widths: [256]
+      input_dim: 840 # changed from 512
+      output_dim: 840 #changed
+      widths: [840] # changed from 840
       specs:
         random_horizon_masking: false
         cross_attn:
-          crossattn_latent: 16
-          crossattn_heads: 8
-          crossattn_dim_head: 64
+          crossattn_latent: 18
+          crossattn_heads: 10
+          crossattn_dim_head: 140 # changed from 256
           crossattn_modality_dropout: 0.1
-          modality_embed_dim: 256
+          modality_embed_dim: 840 # changed from 840
   
   stem_specs:
     mecka_bimanual:
       state_ee_pose:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
         input_dim: 12
-        output_dim: 256
-        widths: [256]
+        output_dim: 840 # changed from 840
+        widths: [840] # changed from 840
         specs:
           random_horizon_masking: false
           cross_attn:
-            crossattn_latent: 16
-            crossattn_heads: 8
-            crossattn_dim_head: 64
+            crossattn_latent: 18
+            crossattn_heads: 10
+            crossattn_dim_head: 140 # changed from 256 changed from 1024
             crossattn_modality_dropout: 0.1
-            modality_embed_dim: 256
+            modality_embed_dim: 840 # changed from 840 changed from 1536
 
   head_specs:
     mecka_bimanual: 
@@ -77,19 +77,20 @@ robomimic_model:
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
-        cond_dim: 256
-        hidden_dim: 128
+        cond_dim: 840 # changed from 256 changed from 1536
+        hidden_dim: 320 #changed from 128
         act_dim: 12
         act_seq: 100
-        n_heads: 4
+        n_heads: 5 # changed from 4 changed from 16
         dropout: 0.1
-        mlp_layers: 4
-        mlp_ratio: 4
+        mlp_layers: 5 # edit num of mlp layers
+        mlp_ratio: 5
 
   encoder_specs:
     front_img_1:
       _target_: egomimic.models.hpt_nets.ResNet
-      output_dim: 256
+      output_dim: 840 # changed from 512 changed from 1536
+
 
   train_image_augs:
     _target_: torchvision.transforms.Compose
@@ -118,5 +119,5 @@ optimizer:
 scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
   _partial_: true
-  T_max: 1400
-  eta_min: 5e-5
+  T_max: 5500
+  eta_min: 1e-5

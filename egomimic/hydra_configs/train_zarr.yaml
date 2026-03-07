@@ -6,7 +6,7 @@ defaults:
   - logger: wandb
   - data: eva
   - callbacks: checkpoints
-  - override hydra/launcher: submitit
+  - override hydra/launcher: submitit_skynet
   - _self_
 
 name: test

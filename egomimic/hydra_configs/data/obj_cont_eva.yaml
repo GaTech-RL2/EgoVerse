@@ -1,0 +1,44 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+use_tokenizer: false
+
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse"
+    mode: train
+    embodiment: "eva_right_arm"
+    filters: 
+      lab: "rl2"
+      task: "object in container"
+      robot_name: "eva_right_arm"
+      # objects:
+      #   - "green bowl"
+      #   - "caprisun"
+    local_files_only: True
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.S3RLDBDataset
+    bucket_name: "rldb"
+    temp_root: "/coc/cedarp-dxu345-0/datasets/egoverse"
+    mode: valid
+    embodiment: "eva_right_arm"
+    filters: 
+      lab: "rl2"
+      task: "object in container"
+      robot_name: "eva_right_arm"
+      # objects:
+      #   - "green bowl"
+      #   - "caprisun"
+    local_files_only: True
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8
