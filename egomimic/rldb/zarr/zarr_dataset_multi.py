@@ -295,9 +295,39 @@ class S3EpisodeResolver(EpisodeResolver):
             os.environ["AWS_SECRET_ACCESS_KEY"] = secret_access_key
             os.environ["AWS_DEFAULT_REGION"] = "auto"
             os.environ["AWS_REGION"] = "auto"
-            cmd = ["s5cmd", "--endpoint-url", rl2_endpoint_url, "run", str(batch_path)]
-            logger.info("Running s5cmd batch (%d lines): %s", len(lines), " ".join(cmd))
-            subprocess.run(cmd, check=True)
+            cmd = [
+                "s5cmd",
+                "--endpoint-url",
+                rl2_endpoint_url,
+                "--numworkers",
+                str(numworkers),
+                "run",
+                str(batch_path),
+            ]
+            logger.info(
+                "Running s5cmd batch (%d episodes to sync, numworkers=%s): %s",
+                len(lines),
+                numworkers,
+                " ".join(cmd),
+            )
+            result = subprocess.run(
+                cmd,
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                err = (result.stderr or "").strip()
+                if err:
+                    logger.error("s5cmd stderr:\n%s", err)
+                raise subprocess.CalledProcessError(
+                    result.returncode, cmd, stderr=err or None
+                )
+
+            if result.stderr and result.stderr.strip():
+                logger.debug("s5cmd stderr:\n%s", result.stderr.strip())
 
         finally:
             try:
