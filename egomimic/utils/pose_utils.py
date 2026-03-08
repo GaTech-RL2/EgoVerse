@@ -139,3 +139,13 @@ def _xyzwxyz_to_matrix(xyzwxyz: np.ndarray) -> np.ndarray:
     mats[:, :3, 3] = xyzwxyz[:, :3]
 
     return mats
+
+
+def T_rot_orientation(T: np.ndarray, rot_orientation: np.ndarray) -> np.ndarray:
+    """
+    Permute the rotation matrix of a SE(3) transformation.
+    """
+    rot = T[:3, :3]
+    rot = rot @ rot_orientation
+    T[:3, :3] = rot
+    return T
