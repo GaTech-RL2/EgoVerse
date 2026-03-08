@@ -17,14 +17,20 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Sync EgoVerse data from S3/R2 to a local directory.")
-    parser.add_argument("--local-dir", type=str, required=True, help="Local directory to sync into.")
-    parser.add_argument("--workers", type=int, default=128, help="s5cmd parallel workers.")
+    parser = argparse.ArgumentParser(
+        description="Sync EgoVerse data from S3/R2 to a local directory."
+    )
+    parser.add_argument(
+        "--local-dir", type=str, required=True, help="Local directory to sync into."
+    )
+    parser.add_argument(
+        "--workers", type=int, default=128, help="s5cmd parallel workers."
+    )
     parser.add_argument(
         "--filters",
         type=str,
         required=True,
-        help='JSON dict of SQL filters, e.g. \'{"lab": "mecka"}\' or \'{"episode_hash": ["h1","h2"]}\'.',
+        help='JSON dict of SQL filters, e.g. \'{"lab": "mecka"}\' or \'{"episode_hash": "h1"}\'.',
     )
     args = parser.parse_args()
 

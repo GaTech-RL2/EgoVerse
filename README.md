@@ -84,6 +84,13 @@ To programatically view the SQL table of all episodes + metadata see [``sql_tuto
 ### Data Downloading
 While our training pipeline automatically downloads data, you can manually download data via [``sync_s3.py``](./egomimic/scripts/data_download/sync_s3.py)
 
+For example, to download all our flagship Aria fold clothes data...
+```
+python egomimic/scripts/data_download/sync_s3.py \
+     --local-dir <local director> \
+     --filters '{"embodiment":"aria", "task": "fold_clothes"}'
+```
+
 ### Training
 Basic training run (robot BC)...
 ``` bash
