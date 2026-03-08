@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import boto3
 from sqlalchemy import (
+    URL,
     MetaData,
     Table,
     create_engine,
@@ -16,6 +17,8 @@ from sqlalchemy import (
     update,
 )
 from sqlalchemy.exc import IntegrityError
+
+from egomimic.utils.aws.aws_data_utils import load_env
 
 logger = logging.getLogger(__name__)
 YELLOW = "\033[33m"
@@ -47,7 +50,11 @@ class TableRow:
 
 
 def create_default_engine():
-    # Try to get credentials from Secrets Manager if SECRETS_ARN is set
+    # Populate env from ~/.egoverse_env only when SECRETS_ARN is not already set.
+    if not os.environ.get("SECRETS_ARN"):
+        load_env()
+
+    # Try to get credentials from Secrets Manager if SECRETS_ARN is set.
     SECRETS_ARN = os.environ.get("SECRETS_ARN")
     if SECRETS_ARN:
         secrets = boto3.client("secretsmanager")
@@ -64,21 +71,21 @@ def create_default_engine():
         PASSWORD = cfg.get("password", cfg.get("PASSWORD"))
         PORT = cfg.get("port", 5432)
     else:
-        logger.warning(
-            "%sUsing hardcoded DB Credentials. Run ./egomimic/utils/aws/setup_secret.sh for better security!%s",
-            YELLOW,
-            RESET,
+        raise RuntimeError(
+            "SECRETS_ARN environment variable not set. Please run ./egomimic/utils/aws/setup_secret.sh."
         )
-        # Fallback to hardcoded values for local testing
-        HOST = "lowuse-pg-east2.cdc8824mase4.us-east-2.rds.amazonaws.com"
-        DBNAME = "appdb"
-        USER = "appuser"
-        PASSWORD = "APPUSER_STRONG_PW"
-        PORT = 5432
 
     # --- 1) connect via SQLAlchemy ---
     engine = create_engine(
-        f"postgresql+psycopg://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}?sslmode=require",
+        URL.create(
+            "postgresql+psycopg",
+            username=USER,
+            password=PASSWORD,
+            host=HOST,
+            port=PORT,
+            database=DBNAME,
+            query={"sslmode": "require"},
+        ),
         pool_pre_ping=True,
     )
 

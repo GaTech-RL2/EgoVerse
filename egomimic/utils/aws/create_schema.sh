@@ -4,7 +4,7 @@ DBPASS='STRONG_PASSWORD_HERE'
 
 psql "host=$HOST port=5432 user=$DBUSER password=$DBPASS dbname=postgres sslmode=require" <<'SQL'
 CREATE DATABASE appdb;
-CREATE USER appuser WITH PASSWORD 'APPUSER_STRONG_PW';
+CREATE USER appuser WITH PASSWORD 'APPUSER_PASSWORD_HERE';
 GRANT CONNECT ON DATABASE appdb TO appuser;
 \c appdb
 CREATE SCHEMA app AUTHORIZATION appuser;

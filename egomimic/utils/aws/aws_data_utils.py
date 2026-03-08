@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-import cloudpathlib
-from pathlib import Path
 import os
 from pathlib import Path
 
 import boto3
+import cloudpathlib
 from boto3.s3.transfer import TransferConfig
 from botocore.config import Config
+
+
+def _uses_r2_endpoint(endpoint_url: str | None) -> bool:
+    return bool(endpoint_url and "r2.cloudflarestorage.com" in endpoint_url)
+
 
 def load_env(path="~/.egoverse_env"):
     p = Path(path).expanduser()
@@ -21,10 +25,11 @@ def load_env(path="~/.egoverse_env"):
             continue
         k, v = line.split("=", 1)
         os.environ.setdefault(k.strip(), v.strip().strip("'").strip('"'))
-        
+
+
 def get_cloudpathlib_s3_client():
     load_env()
-    endpoint_url = "https://1beb594fb475d71c4420f7b693524e19.r2.cloudflarestorage.com"
+    endpoint_url = os.environ.get("R2_ENDPOINT_URL")
     r2_access_key_id = os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get(
         "AWS_ACCESS_KEY_ID"
     )
@@ -34,6 +39,8 @@ def get_cloudpathlib_s3_client():
     r2_session_token = os.environ.get("R2_SESSION_TOKEN") or os.environ.get(
         "AWS_SESSION_TOKEN"
     )
+    if _uses_r2_endpoint(endpoint_url):
+        r2_session_token = None
     s3_boto3_session = boto3.session.Session(
         region_name="auto",
         aws_access_key_id=r2_access_key_id,
@@ -42,21 +49,22 @@ def get_cloudpathlib_s3_client():
     )
 
     s3_client = cloudpathlib.S3Client(
-                endpoint_url=endpoint_url,
-                boto3_session=s3_boto3_session,
-            )
+        endpoint_url=endpoint_url,
+        boto3_session=s3_boto3_session,
+    )
     for key in (
-            "AWS_ACCESS_KEY_ID",
-            "AWS_SECRET_ACCESS_KEY",
-            "AWS_SESSION_TOKEN",
-            "AWS_SECURITY_TOKEN",
-        ):
-            os.environ.pop(key, None)
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AWS_SECURITY_TOKEN",
+    ):
+        os.environ.pop(key, None)
     return s3_client
+
 
 def get_boto3_s3_client():
     load_env()
-    endpoint_url = "https://1beb594fb475d71c4420f7b693524e19.r2.cloudflarestorage.com"
+    endpoint_url = os.environ.get("R2_ENDPOINT_URL")
     access_key_id = os.environ["R2_ACCESS_KEY_ID"]
     secret_access_key = os.environ["R2_SECRET_ACCESS_KEY"]
     s3 = boto3.client(
@@ -64,10 +72,11 @@ def get_boto3_s3_client():
         endpoint_url=endpoint_url,
         aws_access_key_id=access_key_id,
         aws_secret_access_key=secret_access_key,
-        region_name="auto",                 # R2 ignores region; "auto" is common
+        region_name="auto",  # R2 ignores region; "auto" is common
         config=Config(signature_version="s3v4"),
-        )
+    )
     return s3
+
 
 def s3_sync_to_local(bucket: str, key_prefix: str, local_dir: str | Path) -> None:
     """
@@ -108,7 +117,10 @@ def s3_sync_to_local(bucket: str, key_prefix: str, local_dir: str | Path) -> Non
 
             s3.download_file(bucket, key, str(dest), Config=config)
 
-def upload_dir_to_s3(local_dir: str, bucket: str, prefix: str = "", concurrency: int = 32):
+
+def upload_dir_to_s3(
+    local_dir: str, bucket: str, prefix: str = "", concurrency: int = 32
+):
     s3 = get_boto3_s3_client()
     cfg = TransferConfig(
         max_concurrency=concurrency,

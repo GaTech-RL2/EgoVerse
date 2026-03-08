@@ -6,7 +6,7 @@ MASTER_PASS="STRONG_PASSWORD_HERE"
 
 APP_DB="appdb"
 APP_USER="appuser"
-APP_PASS="APPUSER_STRONG_PW"
+APP_PASS="APPUSER_PASSWORD_HERE"
 
 # ---------- 1) allow appuser to create a schema in appdb (run as master) ----------
 PGPASSWORD="$MASTER_PASS" psql "host=$HOST port=5432 user=$MASTER_USER dbname=$APP_DB sslmode=require" -v ON_ERROR_STOP=1 <<'SQL'
