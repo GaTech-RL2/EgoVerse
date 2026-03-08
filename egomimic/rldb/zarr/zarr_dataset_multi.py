@@ -239,7 +239,11 @@ class S3EpisodeResolver(EpisodeResolver):
 
     @classmethod
     def _sync_s3_to_local(
-        cls, bucket_name: str, s3_paths: list[tuple[str, str]], local_dir: Path
+        cls,
+        bucket_name: str,
+        s3_paths: list[tuple[str, str]],
+        local_dir: Path,
+        numworkers: int = 10,
     ):
         if not s3_paths:
             return
@@ -289,15 +293,29 @@ class S3EpisodeResolver(EpisodeResolver):
 
             load_env()
             rl2_endpoint_url = os.environ.get("R2_ENDPOINT_URL")
-            access_key_id = os.environ["R2_ACCESS_KEY_ID"]
-            secret_access_key = os.environ["R2_SECRET_ACCESS_KEY"]
-            os.environ["AWS_ACCESS_KEY_ID"] = access_key_id
-            os.environ["AWS_SECRET_ACCESS_KEY"] = secret_access_key
-            os.environ["AWS_DEFAULT_REGION"] = "auto"
-            os.environ["AWS_REGION"] = "auto"
-            cmd = ["s5cmd", "--endpoint-url", rl2_endpoint_url, "run", str(batch_path)]
+            access_key_id = os.environ.get("R2_ACCESS_KEY_ID")
+            secret_access_key = os.environ.get("R2_SECRET_ACCESS_KEY")
+            if not all([rl2_endpoint_url, access_key_id, secret_access_key]):
+                raise ValueError(
+                    "R2 credentials missing. Ensure ~/.egoverse_env has "
+                    "R2_ENDPOINT_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY."
+                )
+            s5cmd_env = os.environ.copy()
+            s5cmd_env["AWS_ACCESS_KEY_ID"] = access_key_id
+            s5cmd_env["AWS_SECRET_ACCESS_KEY"] = secret_access_key
+            s5cmd_env["AWS_DEFAULT_REGION"] = "auto"
+            s5cmd_env["AWS_REGION"] = "auto"
+            cmd = [
+                "s5cmd",
+                "--endpoint-url",
+                rl2_endpoint_url,
+                "--numworkers",
+                str(numworkers),
+                "run",
+                str(batch_path),
+            ]
             logger.info("Running s5cmd batch (%d lines): %s", len(lines), " ".join(cmd))
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, env=s5cmd_env)
 
         finally:
             try:
@@ -312,6 +330,7 @@ class S3EpisodeResolver(EpisodeResolver):
         bucket_name: str,
         filters: dict,
         local_dir: Path,
+        numworkers: int = 10,
         debug: bool = False,
     ):
         """
@@ -320,6 +339,8 @@ class S3EpisodeResolver(EpisodeResolver):
         - runs a single aws s3 sync with includes
         - downloads into local_dir
 
+        Args:
+            numworkers: Number of parallel workers for s5cmd.
 
         Returns:
             List[(processed_path, episode_hash)]
@@ -341,6 +362,7 @@ class S3EpisodeResolver(EpisodeResolver):
             bucket_name=bucket_name,
             s3_paths=filtered_paths,
             local_dir=local_dir,
+            numworkers=numworkers,
         )
 
         return filtered_paths
