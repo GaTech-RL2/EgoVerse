@@ -71,6 +71,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
 
+    norm_stats_path = OmegaConf.select(cfg, "norm_stats_path", default=None)
+    if norm_stats_path:
+        log.info(f"Loading precomputed norm stats from {norm_stats_path}")
+        data_schematic.load_norm_from_cache(norm_stats_path)
+
     # Modify dataset configs to include `data_schematic` dynamically at runtime
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
@@ -111,14 +116,17 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
         instantiate_copy.resolver.key_map = km
         norm_dataset = hydra.utils.instantiate(instantiate_copy)
-        data_schematic.infer_norm_from_dataset(
-            norm_dataset,
-            dataset_name,
-            sample_frac=0.005,
-            benchmark_dir=os.path.join(
-                cfg.trainer.default_root_dir, "benchmark_stats.json"
-            ),
-        )
+        if not norm_stats_path:
+            data_schematic.infer_norm_from_dataset(
+                norm_dataset,
+                dataset_name,
+                sample_frac=0.005,
+                cache_dir=cfg.trainer.default_root_dir if cfg.get("cache_stats") else None,
+            )
+        else:
+            log.info(
+                f"Skipping norm inference for {dataset_name} (using precomputed stats)"
+            )
 
     # NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
     log.info(f"Instantiating model <{cfg.model._target_}>")

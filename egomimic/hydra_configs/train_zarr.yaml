@@ -112,3 +112,4 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       front_img_1
 
 seed: 42
+cache_stats: true
