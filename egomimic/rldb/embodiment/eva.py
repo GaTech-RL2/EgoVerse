@@ -32,8 +32,11 @@ class Eva(Embodiment):
     VIZ_IMAGE_KEY = "observations.images.front_img_1"
 
     @staticmethod
-    def get_transform_list() -> list[Transform]:
-        return _build_eva_bimanual_transform_list()
+    def get_transform_list(
+        arm_mode: Literal["bimanual", "left_arm", "right_arm"] = "bimanual",
+        **kwargs,
+    ) -> list[Transform]:
+        return _build_eva_bimanual_transform_list(arm_mode=arm_mode, **kwargs)
 
     @classmethod
     def viz_transformed_batch(cls, batch, mode=""):
@@ -76,8 +79,12 @@ class Eva(Embodiment):
         )
 
     @classmethod
-    def get_keymap(cls):
-        return {
+    def get_keymap(
+        cls, arm_mode: Literal["bimanual", "left_arm", "right_arm"] = "bimanual"
+    ):
+        """Return key_map for zarr loading. For single-arm modes, omits the other arm's keys so
+        datasets without right/left pose data load correctly."""
+        base = {
             cls.VIZ_IMAGE_KEY: {
                 "key_type": "camera_keys",
                 "zarr_key": "images.front_1",
@@ -127,6 +134,23 @@ class Eva(Embodiment):
                 "horizon": 45,
             },
         }
+        if arm_mode == "left_arm":
+            drop = {
+                "right.obs_ee_pose",
+                "right.obs_gripper",
+                "right.gripper",
+                "right.cmd_ee_pose",
+            }
+            return {k: v for k, v in base.items() if k not in drop}
+        if arm_mode == "right_arm":
+            drop = {
+                "left.obs_ee_pose",
+                "left.obs_gripper",
+                "left.gripper",
+                "left.cmd_ee_pose",
+            }
+            return {k: v for k, v in base.items() if k not in drop}
+        return base
 
 
 def _build_eva_bimanual_transform_list(
@@ -149,6 +173,7 @@ def _build_eva_bimanual_transform_list(
     stride: int = 1,
     extrinsics_key: str = "x5Dec13_2",
     is_quat: bool = True,
+    arm_mode: Literal["bimanual", "left_arm", "right_arm"] = "bimanual",
 ) -> list[Transform]:
     """Canonical EVA bimanual transform pipeline used by tests and notebooks."""
     extrinsics = EXTRINSICS[extrinsics_key]
@@ -158,7 +183,8 @@ def _build_eva_bimanual_transform_list(
     right_extra_batch_key = {"right_extrinsics_pose": right_extrinsics_pose}
 
     mode = "xyzwxyz" if is_quat else "xyzypr"
-    transform_list = [
+
+    action_transforms = [
         ActionChunkCoordinateFrameTransform(
             target_world=left_target_world,
             chunk_world=left_cmd_world,
@@ -173,6 +199,9 @@ def _build_eva_bimanual_transform_list(
             extra_batch_key=right_extra_batch_key,
             mode=mode,
         ),
+    ]
+
+    pose_transforms = [
         PoseCoordinateFrameTransform(
             target_world=left_target_world,
             pose_world=left_obs_pose,
@@ -185,6 +214,9 @@ def _build_eva_bimanual_transform_list(
             transformed_key_name=right_obs_pose,
             mode=mode,
         ),
+    ]
+
+    interpolate_transforms = [
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_cmd_camframe,
@@ -199,6 +231,9 @@ def _build_eva_bimanual_transform_list(
             stride=stride,
             mode=mode,
         ),
+    ]
+
+    gripper_transforms = [
         InterpolateLinear(
             new_chunk_length=chunk_length,
             action_key=left_gripper,
@@ -213,47 +248,71 @@ def _build_eva_bimanual_transform_list(
         ),
     ]
 
+    quat_keys = [left_cmd_camframe, left_obs_pose, right_cmd_camframe, right_obs_pose]
+    grip_cam_concat_keys = [
+        left_cmd_camframe,
+        left_gripper,
+        right_cmd_camframe,
+        right_gripper,
+    ]
+    obs_concat_keys = [
+        left_obs_pose,
+        left_obs_gripper,
+        right_obs_pose,
+        right_obs_gripper,
+    ]
+    delete_keys = [
+        left_cmd_world,
+        left_target_world,
+        right_cmd_world,
+        right_target_world,
+    ]
+
+    if arm_mode == "right_arm":
+        action_transforms = action_transforms[1:]
+        pose_transforms = pose_transforms[1:]
+        interpolate_transforms = interpolate_transforms[1:]
+        gripper_transforms = gripper_transforms[1:]
+        quat_keys = quat_keys[2:]
+        grip_cam_concat_keys = grip_cam_concat_keys[2:]
+        obs_concat_keys = obs_concat_keys[2:]
+        delete_keys = delete_keys[2:]
+    elif arm_mode == "left_arm":
+        action_transforms = action_transforms[:1]
+        pose_transforms = pose_transforms[:1]
+        interpolate_transforms = interpolate_transforms[:1]
+        gripper_transforms = gripper_transforms[:1]
+        quat_keys = quat_keys[:2]
+        grip_cam_concat_keys = grip_cam_concat_keys[:2]
+        obs_concat_keys = obs_concat_keys[:2]
+        delete_keys = delete_keys[:2]
+    elif arm_mode == "bimanual":
+        pass
+
+    transform_list = (
+        action_transforms
+        + pose_transforms
+        + interpolate_transforms
+        + gripper_transforms
+    )
+
     if is_quat:
-        transform_list.append(
-            XYZWXYZ_to_XYZYPR(
-                keys=[
-                    left_cmd_camframe,
-                    right_cmd_camframe,
-                    left_obs_pose,
-                    right_obs_pose,
-                ]
-            )
-        )
+        transform_list.append(XYZWXYZ_to_XYZYPR(keys=quat_keys))
 
     transform_list.extend(
         [
             ConcatKeys(
-                key_list=[
-                    left_cmd_camframe,
-                    left_gripper,
-                    right_cmd_camframe,
-                    right_gripper,
-                ],
+                key_list=grip_cam_concat_keys,
                 new_key_name=actions_key,
                 delete_old_keys=True,
             ),
             ConcatKeys(
-                key_list=[
-                    left_obs_pose,
-                    left_obs_gripper,
-                    right_obs_pose,
-                    right_obs_gripper,
-                ],
+                key_list=obs_concat_keys,
                 new_key_name=obs_key,
                 delete_old_keys=True,
             ),
             DeleteKeys(
-                keys_to_delete=[
-                    left_cmd_world,
-                    right_cmd_world,
-                    left_target_world,
-                    right_target_world,
-                ]
+                keys_to_delete=delete_keys,
             ),
             NumpyToTensor(
                 keys=[

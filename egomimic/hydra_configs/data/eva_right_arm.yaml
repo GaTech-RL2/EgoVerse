@@ -1,0 +1,41 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  eva_right_arm:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/egoverseS3DatasetTest/
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        arm_mode: right_arm
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        arm_mode: right_arm
+    filters:
+      robot_name: "eva_right_arm"
+    mode: total
+
+valid_datasets:
+  eva_right_arm:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/egoverseS3DatasetTest/
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        arm_mode: right_arm
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        arm_mode: right_arm
+    filters:
+      robot_name: "eva_right_arm"
+    mode: total
+
+train_dataloader_params:
+  eva_right_arm:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  eva_right_arm:
+    batch_size: 32
+    num_workers: 10

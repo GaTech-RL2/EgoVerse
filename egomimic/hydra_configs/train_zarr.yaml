@@ -6,7 +6,7 @@ defaults:
   - logger: wandb
   - data: eva
   - callbacks: checkpoints
-  - override hydra/launcher: submitit
+  - override hydra/launcher: submitit_skynet
   - _self_
 
 name: test
@@ -44,6 +44,50 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       right_wrist_img:
         key_type: camera_keys
         zarr_key: observations.images.right_wrist_img
+      left_wrist_img:
+        key_type: camera_keys
+        zarr_key: observations.images.left_wrist_img
+      ee_pose:
+        key_type: proprio_keys
+        zarr_key: observations.state.ee_pose
+      joint_positions:
+        key_type: proprio_keys
+        zarr_key: observations.state.joint_positions
+      actions_joints:
+        key_type: action_keys
+        zarr_key: actions_joints
+      actions_cartesian:
+        key_type: action_keys
+        zarr_key: actions_cartesian
+      embodiment:
+        key_type: metadata_keys
+        zarr_key: metadata.embodiment
+    eva_right_arm:
+      front_img_1: #batch key
+        key_type: camera_keys # key type
+        zarr_key: observations.images.front_img_1 # dataset key
+      right_wrist_img:
+        key_type: camera_keys
+        zarr_key: observations.images.right_wrist_img
+      ee_pose:
+        key_type: proprio_keys
+        zarr_key: observations.state.ee_pose
+      joint_positions:
+        key_type: proprio_keys
+        zarr_key: observations.state.joint_positions
+      actions_joints:
+        key_type: action_keys
+        zarr_key: actions_joints
+      actions_cartesian:
+        key_type: action_keys
+        zarr_key: actions_cartesian
+      embodiment:
+        key_type: metadata_keys
+        zarr_key: metadata.embodiment
+    eva_left_arm:
+      front_img_1: #batch key
+        key_type: camera_keys # key type
+        zarr_key: observations.images.front_img_1 # dataset key
       left_wrist_img:
         key_type: camera_keys
         zarr_key: observations.images.left_wrist_img
@@ -102,13 +146,11 @@ data_schematic: # Dynamically fill in these shapes from the dataset
         key_type: metadata_keys
         zarr_key: metadata.embodiment
   viz_img_key:
-    eva_bimanual:
-      front_img_1
-    aria_bimanual:
-      front_img_1
-    mecka_bimanual:
-      front_img_1
-    scale_bimanual:
-      front_img_1
+    eva_right_arm: front_img_1
+    eva_left_arm: front_img_1
+    eva_bimanual: front_img_1
+    aria_bimanual: front_img_1
+    mecka_bimanual: front_img_1
+    scale_bimanual: front_img_1
 
 seed: 42
