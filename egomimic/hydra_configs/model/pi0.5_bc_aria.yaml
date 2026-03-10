@@ -20,7 +20,7 @@ robomimic_model:
       
   config:      
     pytorch_training_precision: bfloat16
-    pytorch_weight_path: /storage/home/hcoda1/5/rpunamiya6/cedar-dx/rpunamiya6/Projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
+    pytorch_weight_path: /storage/project/r-dxu345-0/rco3/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
     model:
       pi05: true
       action_dim: 32
