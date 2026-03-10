@@ -86,19 +86,19 @@ class PI(Algo):
             self.camera_keys[embodiment_id] = []
             self.proprio_keys[embodiment_id] = []
             self.lang_keys[embodiment_id] = []
-            for key in data_schematic.keys_of_type("action_keys"):
+            for key in data_schematic.keys_of_type("action_keys", embodiment_id):
                 if (
                     data_schematic.is_key_with_embodiment(key, embodiment_id)
                     and key == self.ac_keys[embodiment]
                 ):
                     self.ac_keys[embodiment_id] = key
-            for key in data_schematic.keys_of_type("camera_keys"):
+            for key in data_schematic.keys_of_type("camera_keys", embodiment_id):
                 if data_schematic.is_key_with_embodiment(key, embodiment_id):
                     self.camera_keys[embodiment_id].append(key)
-            for key in data_schematic.keys_of_type("proprio_keys"):
+            for key in data_schematic.keys_of_type("proprio_keys", embodiment_id):
                 if data_schematic.is_key_with_embodiment(key, embodiment_id):
                     self.proprio_keys[embodiment_id].append(key)
-            for key in data_schematic.keys_of_type("lang_keys"):
+            for key in data_schematic.keys_of_type("lang_keys", embodiment_id):
                 if data_schematic.is_key_with_embodiment(key, embodiment_id):
                     self.lang_keys[embodiment_id].append(key)
 
@@ -165,12 +165,11 @@ class PI(Algo):
         """
         processed_batch = {}
 
-        for embodiment_id, _batch in batch.items():
+        for embodiment_name, _batch in batch.items():
+            embodiment_id = get_embodiment_id(embodiment_name)
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
-                key_name = self.data_schematic.lerobot_key_to_keyname(
-                    key, embodiment_id
-                )
+                key_name = self.data_schematic.zarr_key_to_keyname(key, embodiment_id)
                 if key_name is not None:
                     processed_batch[embodiment_id][key_name] = value
 
@@ -196,6 +195,13 @@ class PI(Algo):
             processed_batch[embodiment_id] = self.data_schematic.normalize_data(
                 processed_batch[embodiment_id], embodiment_id
             )
+            processed_batch[embodiment_id]["embodiment"] = torch.tensor(
+                [embodiment_id], device=device, dtype=torch.int64
+            )
+
+            for key, value in processed_batch[embodiment_id].items():
+                if isinstance(value, torch.Tensor) and value.dtype == torch.float64:
+                    processed_batch[embodiment_id][key] = value.float()
 
         if not processed_batch:
             raise ValueError(

@@ -115,7 +115,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         data_schematic.infer_norm_from_dataset(
             norm_dataset,
             dataset_name,
-            sample_frac=0.02,
+            sample_frac=cfg.norm_stat_fraction,
             benchmark_dir=os.path.join(
                 cfg.trainer.default_root_dir, "benchmark_stats.json"
             ),

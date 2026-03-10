@@ -224,12 +224,7 @@ class QuaternionPoseToYPR(Transform):
                 f"'{self.pose_key}'"
             )
         xyz = pose[:3]
-        quat = (
-            pose[3:7]
-            if np.linalg.norm(pose[3:7]) > 0
-            else np.array([0.0, 0.0, 0.0, 1.0])
-        )
-        ypr = R.from_quat(quat).as_euler("ZYX", degrees=False)
+        ypr = R.from_quat(pose[3:7]).as_euler("ZYX", degrees=False)
         batch[self.output_key] = np.concatenate([xyz, ypr], axis=0)
         return batch
 

@@ -10,21 +10,29 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
     filters:
-      episode_hash: "2025-12-26-18-07-46-296000"
-    mode: total
-  aria_bimanual:
+      task:
+        - "fold_clothes"
+      lab: "rl2"
+      robot_name: "eva_bimanual"
+      is_deleted: false
+    mode: train
+  scale_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/aria
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset/scale
       key_map:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
       transform_list:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
     filters:
-      episode_hash: "2025-09-20-17-47-54-000000"
-    mode: total
-valid_datasets:
+      task:
+        - "[flagship] Folding Clothes"
+      lab: "scale"
+      robot_name: "scale_bimanual"
+      is_deleted: false
+    mode: train
+  valid_datasets:
   eva_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
@@ -35,31 +43,40 @@ valid_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
     filters:
-      episode_hash: "2025-12-26-18-07-46-296000"
-    mode: total
-  aria_bimanual:
+      task:
+        - "fold_clothes"
+      lab: "rl2"
+      robot_name: "eva_bimanual"
+      is_deleted: false
+    mode: valid
+  scale_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/aria
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset/scale
       key_map:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
       transform_list:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
     filters:
-      episode_hash: "2025-09-20-17-47-54-000000"
-    mode: total
-train_dataloader_params:
+      task:
+        - "Folding Clothes"
+        - "[flagship] Folding Clothes"
+      lab: "scale"
+      robot_name: "scale_bimanual"
+      is_deleted: false
+    mode: valid
+  train_dataloader_params:
   eva_bimanual:
-    batch_size: 32
+    batch_size: 64
     num_workers: 10
-  aria_bimanual:
-    batch_size: 32
+  scale_bimanual:
+    batch_size: 64
     num_workers: 10
-valid_dataloader_params:
+  valid_dataloader_params:
   eva_bimanual:
-    batch_size: 32
+    batch_size: 64
     num_workers: 10
-  aria_bimanual:
-    batch_size: 32
+  scale_bimanual:
+    batch_size: 64
     num_workers: 10

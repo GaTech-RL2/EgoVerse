@@ -1,0 +1,64 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3Pi
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+    filters:
+      task: "fold_clothes"
+      robot_name: "mecka_bimanual"
+    mode: train
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3Pi
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+    filters:
+      task: "[flagship] Folding Clothes"
+      robot_name: "scale_bimanual"
+    mode: train
+valid_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3Pi
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+    filters:
+      task: "fold_clothes"
+      robot_name: "mecka_bimanual"
+    mode: valid
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3Pi
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+    filters:
+      task: "[flagship] Folding Clothes"
+      robot_name: "scale_bimanual"
+    mode: valid
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10

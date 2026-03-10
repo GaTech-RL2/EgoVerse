@@ -10,9 +10,9 @@ account: "rl2-lab"                              # Slurm account (e.g., 'my_accou
 cpus_per_task: 12                                   # Number of CPUs per task
 nodes: ${launch_params.nodes}                       # Number of nodes
 tasks_per_node: ${launch_params.gpus_per_node}      # Use variable for tasks per node
-gres: "gpu:l40s:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}" # GPU type and count
+gres: "gpu:a40:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}" # GPU type and count
 qos: "short"                                        # Slurm QoS
 timeout_min: 2880                                   # Timeout in minutes (48 hours)
-exclude: "protocol, puma, bishop"     # Nodes to exclude
+exclude: "protocol, puma"     # Nodes to exclude
 additional_parameters:
   requeue: true
