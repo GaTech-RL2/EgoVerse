@@ -167,10 +167,9 @@ def test_infer_norm_from_dataset_legacy_matches_current_on_dummy_dataset() -> No
             },
         }
     }
-    viz_img_key = {"eva_bimanual": "observations.images.front_img_1"}
 
-    legacy_schematic = _LegacyDataSchematic(schematic_dict, viz_img_key)
-    current_schematic = DataSchematic(schematic_dict, viz_img_key)
+    legacy_schematic = _LegacyDataSchematic(schematic_dict)
+    current_schematic = DataSchematic(schematic_dict)
 
     legacy_schematic.infer_norm_from_dataset_legacy(dataset)
     current_schematic.infer_norm_from_dataset(

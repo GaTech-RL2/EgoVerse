@@ -19,8 +19,10 @@ train_datasets:
       folder_path: /coc/flash7/scratch/egoverseDebugDatasets/aria
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: cartesian
     filters:
       episode_hash: "2025-09-20-17-47-54-000000"
     mode: total
@@ -44,8 +46,10 @@ valid_datasets:
       folder_path: /coc/flash7/scratch/egoverseDebugDatasets/aria
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: cartesian
     filters:
       episode_hash: "2025-09-20-17-47-54-000000"
     mode: total

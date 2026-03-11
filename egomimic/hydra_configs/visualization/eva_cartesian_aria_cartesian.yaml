@@ -1,0 +1,10 @@
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_cartesian_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_cartesian
+aria_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_cartesian_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_cartesian

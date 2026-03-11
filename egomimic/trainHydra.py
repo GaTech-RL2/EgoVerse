@@ -120,10 +120,16 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             ),
         )
 
+    viz_func = cfg.visualization
+    viz_func_dict = {}
+    for embodiment_name, embodiment_viz_func in viz_func.items():
+        viz_func_dict[embodiment_name] = hydra.utils.instantiate(embodiment_viz_func)
+
     # NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(
-        cfg.model, robomimic_model={"data_schematic": data_schematic}
+        cfg.model,
+        robomimic_model={"data_schematic": data_schematic, "viz_func": viz_func_dict},
     )
 
     _log_dataset_frame_counts(train_datasets, valid_datasets)

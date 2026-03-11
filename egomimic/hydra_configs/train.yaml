@@ -16,7 +16,7 @@ train: true
 eval: false
 
 eval_class:
-  _target_ : egomimic.scripts.evaluation.Eve
+  _target_: egomimic.scripts.evaluation.Eve
   mode: real
   arm: both
   eval_path: "./logs/eval/${name}_${now:%Y-%m-%d_%H-%M-%S}"
@@ -93,10 +93,3 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       embodiment:
         key_type: metadata_keys
         lerobot_key: metadata.embodiment
-  viz_img_key: 
-    eva_bimanual:
-      front_img_1
-    aria_bimanual:
-      front_img_1
-    mecka_bimanual:
-      front_img_1

@@ -74,19 +74,28 @@ class Eva(Embodiment):
         )
 
     @classmethod
-    def viz(cls, images, actions, mode=Literal["traj", "axes"], intrinsics_key=None):
+    def viz(
+        cls,
+        images,
+        actions,
+        mode=Literal["traj", "axes"],
+        intrinsics_key=None,
+        **kwargs,
+    ):
         intrinsics_key = intrinsics_key or cls.VIZ_INTRINSICS_KEY
         if mode == "traj":
             return _viz_traj(
                 images=images,
                 actions=actions,
                 intrinsics_key=intrinsics_key,
+                **kwargs,
             )
         if mode == "axes":
             return _viz_axes(
                 images=images,
                 actions=actions,
                 intrinsics_key=intrinsics_key,
+                **kwargs,
             )
         raise ValueError(
             f"Unsupported mode '{mode}'. Expected one of: " f"('traj', 'axes')."

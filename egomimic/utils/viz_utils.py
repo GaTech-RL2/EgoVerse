@@ -49,7 +49,11 @@ def _prepare_viz_image(img):
     return img
 
 
-def _viz_traj(images, actions, intrinsics_key, color="Reds"):
+def _viz_traj(images, actions, intrinsics_key, **kwargs):
+    color = kwargs.get("color", "Blues")
+    if not ColorPalette.is_valid(color):
+        raise ValueError(f"Invalid color palette: {color}")
+
     images = _prepare_viz_image(images)
     intrinsics = INTRINSICS[intrinsics_key]
     left_xyz, _, right_xyz, _ = _split_action_pose(actions)
@@ -75,7 +79,7 @@ def _viz_traj(images, actions, intrinsics_key, color="Reds"):
     return vis
 
 
-def _viz_axes(images, actions, intrinsics_key, axis_len_m=0.04):
+def _viz_axes(images, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
     images = _prepare_viz_image(images)
     intrinsics = INTRINSICS[intrinsics_key]
     left_xyz, left_ypr, right_xyz, right_ypr = _split_action_pose(actions)
@@ -109,7 +113,9 @@ def _viz_axes(images, actions, intrinsics_key, axis_len_m=0.04):
             )
         return frame
 
-    def _draw_rotation_at_anchor(frame, xyz_seq, ypr_seq, label, anchor_color):
+    def _draw_rotation_at_anchor(
+        frame, xyz_seq, ypr_seq, label, anchor_color, **kwargs
+    ):
         if len(xyz_seq) == 0 or len(ypr_seq) == 0:
             return frame
 
@@ -230,3 +236,7 @@ def _viz_keypoints(
             )
 
     return vis
+
+
+def save_image(image: np.ndarray, path: str) -> None:
+    cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))

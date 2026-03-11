@@ -1043,7 +1043,7 @@ class S3RLDBDataset(MultiRLDBDataset):
 
 
 class DataSchematic(object):
-    def __init__(self, schematic_dict, viz_img_key, norm_mode="zscore"):
+    def __init__(self, schematic_dict, norm_mode="zscore"):
         """
         Initialize with a schematic dictionary and create a DataFrame.
 
@@ -1091,7 +1091,6 @@ class DataSchematic(object):
                 )
 
         self.df = pd.DataFrame(rows)
-        self._viz_img_key = {get_embodiment_id(k): v for k, v in viz_img_key.items()}
         self.shapes_infered = False
         self.norm_mode = norm_mode
         self.norm_stats = {emb: {} for emb in self.embodiments}
@@ -1297,12 +1296,6 @@ class DataSchematic(object):
             }
 
         logger.info("[NormStats] Finished norm inference")
-
-    def viz_img_key(self):
-        """
-        Get the key that should be used for offline visualization
-        """
-        return self._viz_img_key
 
     def all_keys(self):
         """

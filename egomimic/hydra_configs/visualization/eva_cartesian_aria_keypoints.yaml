@@ -1,0 +1,14 @@
+eva_bimanual:
+  action_keys: actions_cartesian
+  viz_function:
+    _target_: egomimic.rldb.embodiment.eva.Eva.viz
+    _partial_: true
+    mode: traj
+    intrinsics_key: base_half
+aria_bimanual:
+  action_keys: actions_cartesian
+  viz_function:
+    _target_: egomimic.rldb.embodiment.human.Aria.viz
+    _partial_: true
+    mode: keypoints
+    intrinsics_key: base_half
