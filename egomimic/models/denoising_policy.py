@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from egomimic.models.denoising_nets import ConditionalUnet1D
+from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
 class DenoisingPolicy(nn.Module):
@@ -23,29 +24,59 @@ class DenoisingPolicy(nn.Module):
         self,
         model: ConditionalUnet1D,
         action_horizon: int,
-        infer_ac_dims: dict,
         num_inference_steps: int = None,
+        embodiment_specs: dict = None,
         **kwargs,
     ):
         super().__init__()
 
         self.model = model
         self.action_horizon = action_horizon
-        self.infer_ac_dims = infer_ac_dims
         self.num_inference_steps = num_inference_steps
+        self.embodiment_specs = embodiment_specs
+        self.codec_enabled = False
+
+        _codecs = {}
+        if embodiment_specs is not None:
+            for _emb_name, _spec in embodiment_specs.items():
+                if _spec.get("encoder") is not None:
+                    _codecs[f"{_emb_name}_encoder"] = _spec["encoder"]
+                if _spec.get("decoder") is not None:
+                    _codecs[f"{_emb_name}_decoder"] = _spec["decoder"]
+        if _codecs:
+            self.codecs = nn.ModuleDict(_codecs)
 
         self.padding = kwargs.get("padding", None)
         self.pooling = kwargs.get("pooling", None)
-        self.model_type = kwargs.get("model_type", None)
-
-        if not infer_ac_dims:
-            raise ValueError("infer_ac_dims must be a non-empty dict")
 
         for name, param in self.model.named_parameters():
             if not param.requires_grad:
                 print(f"[warn] {name} has requires_grad=False")
 
         total_params = sum(p.numel() for p in self.model.parameters())
+        if self.embodiment_specs is not None:
+            for embodiment_name, spec in self.embodiment_specs.items():
+                if spec.get("ac_dims") is None:
+                    raise ValueError(f"ac_dims must be specified for {embodiment_name}")
+            for embodiment_name, spec in self.embodiment_specs.items():
+                if spec.get("encoder") is not None:
+                    encoder_params = sum(
+                        p.numel() for p in spec["encoder"].parameters()
+                    )
+                    self.codec_enabled = True
+                if spec.get("decoder") is not None:
+                    decoder_params = sum(
+                        p.numel() for p in spec["decoder"].parameters()
+                    )
+                    self.codec_enabled = True
+                print(
+                    f"[{embodiment_name}] Encoder params: {encoder_params / 1e6:.2f}M"
+                )
+                print(
+                    f"[{embodiment_name}] Decoder params: {decoder_params / 1e6:.2f}M"
+                )
+                total_params += encoder_params + decoder_params
+
         print(
             f"[{self.__class__.__name__}] Total trainable parameters: {total_params / 1e6:.2f}M"
         )
@@ -60,7 +91,7 @@ class DenoisingPolicy(nn.Module):
             (
                 len(global_cond),
                 self.action_horizon,
-                self.infer_ac_dims[embodiment_name],
+                self.embodiment_specs[embodiment_name].get("ac_dims"),
             ),
             dtype=global_cond.dtype,
             device=global_cond.device,
@@ -68,7 +99,9 @@ class DenoisingPolicy(nn.Module):
         )
         return noise, global_cond
 
-    def inference(self, noise, global_cond, generator=None) -> torch.Tensor:
+    def inference(
+        self, noise, global_cond, embodiment_name, generator=None
+    ) -> torch.Tensor:  # pyright: ignore[reportUnusedParameter]
         """
         To be implemented in subclass: predict actions from noise and conditioning.
         """
@@ -78,13 +111,15 @@ class DenoisingPolicy(nn.Module):
         noise, global_cond = self.preprocess_sampling(
             global_cond, embodiment_name, generator
         )
-        return self.inference(noise, global_cond, generator)
+        return self.inference(noise, global_cond, embodiment_name, generator)
 
     def forward(self, global_cond):
-        cond, embodiment = global_cond
-        return self.sample_action(cond, embodiment)
+        cond, embodiment_name = global_cond
+        return self.sample_action(cond, embodiment_name)
 
-    def predict(self, actions, global_cond) -> Tuple[torch.Tensor, torch.Tensor]:
+    def predict(
+        self, actions, global_cond, embodiment_name
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         To be implemented in subclass: returns (prediction, target) given action input and conditioning.
         """
@@ -96,7 +131,7 @@ class DenoisingPolicy(nn.Module):
         """
         return F.mse_loss(pred, target)
 
-    def preprocess_compute_loss(self, global_cond, data):
+    def preprocess_compute_loss(self, global_cond, data, embodiment_name):
         if self.pooling == "mean":
             global_cond = global_cond.mean(dim=1)
         elif self.pooling == "flatten":
@@ -122,6 +157,9 @@ class DenoisingPolicy(nn.Module):
         return actions, global_cond
 
     def compute_loss(self, global_cond, data):
-        actions, global_cond = self.preprocess_compute_loss(global_cond, data)
-        pred, target = self.predict(actions, global_cond)
+        embodiment_name = get_embodiment(data["embodiment"][0].item()).lower()
+        actions, global_cond = self.preprocess_compute_loss(
+            global_cond, data, embodiment_name
+        )
+        pred, target = self.predict(actions, global_cond, embodiment_name)
         return self.loss_fn(pred, target)

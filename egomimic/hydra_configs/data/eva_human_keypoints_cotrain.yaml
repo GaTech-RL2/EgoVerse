@@ -10,7 +10,8 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
     filters:
-      episode_hash: "2025-12-26-18-07-46-296000"
+      robot_name: "eva_bimanual"
+      task: "fold_clothes"
     mode: total
   aria_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -19,12 +20,13 @@ train_datasets:
       folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/temp_train
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        mode: cartesian
+        mode: keypoints
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian
+        mode: keypoints
     filters:
-      episode_hash: "2025-09-20-17-47-54-000000"
+      robot_name: "aria_bimanual"
+      task: "fold_clothes_indomain"
     mode: total
 valid_datasets:
   eva_bimanual:
@@ -37,7 +39,8 @@ valid_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
     filters:
-      episode_hash: "2025-12-26-18-07-46-296000"
+      robot_name: "eva_bimanual"
+      task: "fold_clothes"
     mode: total
   aria_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -46,24 +49,25 @@ valid_datasets:
       folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/temp_train
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        mode: cartesian
+        mode: keypoints
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian
+        mode: keypoints
     filters:
-      episode_hash: "2025-09-20-17-47-54-000000"
+      robot_name: "aria_bimanual"
+      task: "fold_clothes_indomain"
     mode: total
 train_dataloader_params:
   eva_bimanual:
-    batch_size: 32
-    num_workers: 10
+    batch_size: 256
+    num_workers: 6
   aria_bimanual:
-    batch_size: 32
-    num_workers: 10
+    batch_size: 256
+    num_workers: 6
 valid_dataloader_params:
   eva_bimanual:
-    batch_size: 32
-    num_workers: 10
+    batch_size: 256
+    num_workers: 6
   aria_bimanual:
-    batch_size: 32
-    num_workers: 10
+    batch_size: 256
+    num_workers: 6

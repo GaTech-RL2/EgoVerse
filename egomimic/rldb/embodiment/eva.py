@@ -5,12 +5,14 @@ from typing import Literal
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
+    BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
     InterpolateLinear,
     InterpolatePose,
     NumpyToTensor,
     PoseCoordinateFrameTransform,
+    QuaternionPoseToYPR,
     SplitKeys,
     Transform,
     XYZWXYZ_to_XYZYPR,
@@ -34,16 +36,16 @@ class Eva(Embodiment):
 
     @staticmethod
     def get_transform_list(
-        mode: Literal["cartesian", "cartesian_wristframe"] = "cartesian",
+        mode: Literal[
+            "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
+        ] = "cartesian",
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_eva_bimanual_transform_list()
-        elif mode == "cartesian_wristframe":
-            return _build_eva_bimanual_eef_frame_transform_list()
-        else:
-            raise ValueError(
-                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'cartesian_wristframe'."
-            )
+        elif mode == "cartesian_wristframe_ypr":
+            return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
+        elif mode == "cartesian_wristframe_quat":
+            return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
 
     @classmethod
     def viz_transformed_batch(
@@ -169,16 +171,21 @@ def _build_eva_bimanual_revert_eef_frame_transform_list(
     right_obs_gripper: str = "right.obs_gripper",
     left_cmd_camframe: str = "left.cmd_ee_pose_camframe",
     right_cmd_camframe: str = "right.cmd_ee_pose_camframe",
+    is_quat: bool = True,
 ) -> list[Transform]:
     """Revert wrist-frame EVA actions back to camera frame for visualization."""
+    if is_quat:
+        pose_shape = 7
+    else:
+        pose_shape = 6
     transform_list = [
         # Extract obs camframe poses from the concatenated obs key
         SplitKeys(
             input_key=obs_key,
             output_key_list=[
-                (left_obs_camframe, 6),
+                (left_obs_camframe, pose_shape),
                 (left_obs_gripper, 1),
-                (right_obs_camframe, 6),
+                (right_obs_camframe, pose_shape),
                 (right_obs_gripper, 1),
             ],
         ),
@@ -186,9 +193,9 @@ def _build_eva_bimanual_revert_eef_frame_transform_list(
         SplitKeys(
             input_key=action_key,
             output_key_list=[
-                (left_cmd_wristframe, 6),
+                (left_cmd_wristframe, pose_shape),
                 (left_gripper, 1),
-                (right_cmd_wristframe, 6),
+                (right_cmd_wristframe, pose_shape),
                 (right_gripper, 1),
             ],
         ),
@@ -254,8 +261,6 @@ def _build_eva_bimanual_eef_frame_transform_list(
     left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
     right_extra_batch_key = {"right_extrinsics_pose": right_extrinsics_pose}
 
-    mode = "xyzwxyz" if is_quat else "xyzypr"
-
     # Step 1: transform cmd and obs into camera frame using extrinsics
     transform_list = [
         ActionChunkCoordinateFrameTransform(
@@ -263,40 +268,40 @@ def _build_eva_bimanual_eef_frame_transform_list(
             chunk_world=left_cmd_world,
             transformed_key_name=left_cmd_camframe,
             extra_batch_key=left_extra_batch_key,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         ActionChunkCoordinateFrameTransform(
             target_world=right_target_world,
             chunk_world=right_cmd_world,
             transformed_key_name=right_cmd_camframe,
             extra_batch_key=right_extra_batch_key,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
             target_world=left_target_world,
             pose_world=left_obs_pose,
             transformed_key_name=left_obs_camframe,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
             target_world=right_target_world,
             pose_world=right_obs_pose,
             transformed_key_name=right_obs_camframe,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_cmd_camframe,
             output_action_key=left_cmd_camframe,
             stride=stride,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=right_cmd_camframe,
             output_action_key=right_cmd_camframe,
             stride=stride,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         InterpolateLinear(
             new_chunk_length=chunk_length,
@@ -315,26 +320,36 @@ def _build_eva_bimanual_eef_frame_transform_list(
             target_world=left_obs_camframe,
             chunk_world=left_cmd_camframe,
             transformed_key_name=left_cmd_wristframe,
-            mode=mode,
+            mode="xyzwxyz",
         ),
         ActionChunkCoordinateFrameTransform(
             target_world=right_obs_camframe,
             chunk_world=right_cmd_camframe,
             transformed_key_name=right_cmd_wristframe,
-            mode=mode,
+            mode="xyzwxyz",
         ),
     ]
 
-    if is_quat:
-        transform_list.append(
-            XYZWXYZ_to_XYZYPR(
-                keys=[
-                    left_cmd_wristframe,
-                    right_cmd_wristframe,
-                    left_obs_camframe,
-                    right_obs_camframe,
-                ]
-            )
+    if not is_quat:
+        transform_list.extend(
+            [
+                BatchQuaternionPoseToYPR(
+                    pose_key=left_cmd_wristframe,
+                    output_key=left_cmd_wristframe,
+                ),
+                BatchQuaternionPoseToYPR(
+                    pose_key=right_cmd_wristframe,
+                    output_key=right_cmd_wristframe,
+                ),
+                QuaternionPoseToYPR(
+                    pose_key=left_obs_camframe,
+                    output_key=left_obs_camframe,
+                ),
+                QuaternionPoseToYPR(
+                    pose_key=right_obs_camframe,
+                    output_key=right_obs_camframe,
+                ),
+            ]
         )
 
     transform_list.extend(

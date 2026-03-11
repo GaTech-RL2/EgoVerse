@@ -359,7 +359,7 @@ class HPTModel(nn.Module):
         feat_dict = {}
         for modality in self.modalities.get(domain, []) + self.shared_keys:
             if modality not in data:
-                continue
+                raise ValueError(f"Modality {modality} not found in data")
             if modality in self.shared_keys:
                 domain = "shared"
 
@@ -829,7 +829,6 @@ class HPT(Algo):
         self.domains = domains.copy()
         self.auxiliary_ac_keys = auxiliary_ac_keys.copy()
         self.shared_ac_key = kwargs.get("shared_ac_key", None)
-        self.is_6dof = kwargs.get("6dof", False)
         self.kinematics_solver = kwargs.get("kinematics_solver", None)
 
         model = HPTModel(**trunk)
@@ -1282,13 +1281,16 @@ class HPT(Algo):
             embodiment_name = get_embodiment(embodiment_id).lower()
             bc_loss = predictions[f"{embodiment_name}_loss"]
             scaled_bc_loss = bc_weight * bc_loss
-            total_action_loss += scaled_bc_loss
+            total_action_loss = total_action_loss + scaled_bc_loss
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
 
         if self.ot:
             loss_dict["ot_loss"] = predictions["ot_loss"]
             loss_dict["avg_feature_distance"] = predictions["avg_feature_distance"]
-            total_action_loss += ot_weight * self.temperature * predictions["ot_loss"]
+            total_action_loss = (
+                total_action_loss
+                + ot_weight * self.temperature * predictions["ot_loss"]
+            )
 
         loss_dict["action_loss"] = total_action_loss / len(self.domains)
         return loss_dict
@@ -1372,7 +1374,6 @@ class HPT(Algo):
             if key in batch:
                 data[key] = batch[key]
 
-        data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]
         data["embodiment"] = batch["embodiment"]
 

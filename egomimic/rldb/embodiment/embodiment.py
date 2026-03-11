@@ -1,3 +1,4 @@
+import copy
 from abc import ABC
 from enum import Enum
 
@@ -59,13 +60,31 @@ class Embodiment(ABC):
         raise NotImplementedError
 
     @classmethod
-    def viz_cartesian_gt_preds(cls, predictions, batch, image_key, action_key):
+    def viz_gt_preds(
+        cls,
+        predictions,
+        batch,
+        image_key,
+        action_key,
+        transform_list=None,
+        mode="cartesian",
+        **kwargs,
+    ):
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
 
+        pred_actions = predictions[
+            f"{embodiment_name}_{action_key}"
+        ]  # TODO: make this work with groundtruth, clone batch and replace actions_keypoints with pred_actions
+        if transform_list is not None:
+            pred_batch = copy.deepcopy(batch)
+            pred_batch[action_key] = pred_actions
+            batch = cls.apply_transform(batch, transform_list)
+            pred_batch = cls.apply_transform(pred_batch, transform_list)
+            pred_actions = pred_batch[action_key]
+
         images = batch[image_key]
         actions = batch[action_key]
-        pred_actions = predictions[f"{embodiment_name}_{action_key}"]
         ims_list = []
         images = _to_numpy(images)
         actions = _to_numpy(actions)
@@ -74,8 +93,8 @@ class Embodiment(ABC):
             image = images[i]
             action = actions[i]
             pred_action = pred_actions[i]
-            ims = cls.viz(image, action, mode="traj", color="Reds")
-            ims = cls.viz(ims, pred_action, mode="traj", color="Greens")
+            ims = cls.viz(image, action, mode=mode, color="Reds", **kwargs)
+            ims = cls.viz(ims, pred_action, mode=mode, color="Greens", **kwargs)
             ims_list.append(ims)
         ims = np.stack(ims_list, axis=0)
         return ims
@@ -94,7 +113,7 @@ class Embodiment(ABC):
                 results = []
                 for i in range(batch_size):
                     sample = {
-                        k: (v[i].numpy() if isinstance(v, torch.Tensor) else v[i])
+                        k: (v[i].cpu().numpy() if isinstance(v, torch.Tensor) else v[i])
                         if isinstance(v, (np.ndarray, torch.Tensor))
                         else v
                         for k, v in batch.items()

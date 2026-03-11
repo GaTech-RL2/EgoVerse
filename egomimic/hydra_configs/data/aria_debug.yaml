@@ -1,0 +1,39 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  aria_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/aria
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        mode: keypoints
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: keypoints
+    filters:
+      episode_hash: "2025-11-27-23-44-43-234000"
+    mode: total
+valid_datasets:
+  aria_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/aria
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        mode: keypoints
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: keypoints
+    filters:
+      episode_hash: "2025-11-27-23-44-43-234000"
+    mode: total
+train_dataloader_params:
+  aria_bimanual:
+    batch_size: 64
+    num_workers: 10
+valid_dataloader_params:
+  aria_bimanual:
+    batch_size: 64
+    num_workers: 10

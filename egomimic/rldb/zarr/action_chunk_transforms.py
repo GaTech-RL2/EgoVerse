@@ -31,6 +31,8 @@ from egomimic.utils.pose_utils import (
     _xyz_to_matrix,
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
+    wxyz_to_xyzw,
+    xyzw_to_wxyz,
 )
 
 # ---------------------------------------------------------------------------
@@ -250,8 +252,72 @@ class QuaternionPoseToYPR(Transform):
                 f"'{self.pose_key}'"
             )
         xyz = pose[:3]
-        ypr = R.from_quat(pose[3:7]).as_euler("ZYX", degrees=False)
+        xyzw = wxyz_to_xyzw(pose[3:7])
+        ypr = R.from_quat(xyzw).as_euler("ZYX", degrees=False)
         batch[self.output_key] = np.concatenate([xyz, ypr], axis=0)
+        return batch
+
+
+class YPRToQuaternionPose(Transform):
+    """Convert a single pose from xyz + ypr to xyz + quat(x,y,z,w)."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.shape != (6,):
+            raise ValueError(
+                f"YPRToQuaternionPose expects shape (6,), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        xyz = pose[:3]
+        quat = R.from_euler("ZYX", pose[3:6], degrees=False).as_quat()  # (x,y,z,w)
+        quat = xyzw_to_wxyz(quat)
+        batch[self.output_key] = np.concatenate([xyz, quat], axis=0)
+        return batch
+
+
+class BatchQuaternionPoseToYPR(Transform):
+    """Convert a batch of poses from xyz + quat(x,y,z,w) to xyz + ypr."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.ndim != 2 or pose.shape[-1] != 7:
+            raise ValueError(
+                f"BatchQuaternionPoseToYPR expects shape (N, 7), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        xyz = pose[:, :3]
+        xyzw = wxyz_to_xyzw(pose[:, 3:7])
+        ypr = R.from_quat(xyzw).as_euler("ZYX", degrees=False)  # (N, 3)
+        batch[self.output_key] = np.concatenate([xyz, ypr], axis=1)
+        return batch
+
+
+class BatchYPRToQuaternionPose(Transform):
+    """Convert a batch of poses from xyz + ypr to xyz + quat(x,y,z,w)."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.ndim != 2 or pose.shape[-1] != 6:
+            raise ValueError(
+                f"BatchYPRToQuaternionPose expects shape (N, 6), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        xyz = pose[:, :3]
+        quat = R.from_euler("ZYX", pose[:, 3:6], degrees=False).as_quat()  # (N, 4)
+        quat = xyzw_to_wxyz(quat)
+        batch[self.output_key] = np.concatenate([xyz, quat], axis=1)
         return batch
 
 

@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import Literal
 
-import numpy as np
-
-from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
+from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
+    BatchQuaternionPoseToYPR,
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
     PoseCoordinateFrameTransform,
+    QuaternionPoseToYPR,
     Reshape,
     SplitKeys,
     Transform,
@@ -29,32 +29,6 @@ class Human(Embodiment):
     VIZ_INTRINSICS_KEY = "base"
     VIZ_IMAGE_KEY = "observations.images.front_img_1"
     ACTION_STRIDE = 3
-
-    @classmethod
-    def viz_keypoints_gt_preds(
-        cls, predictions, batch, image_key, action_key, transform_list=None, **kwargs
-    ):
-        if transform_list is not None:
-            batch = cls.apply_transform(batch, transform_list)
-        embodiment_id = batch["embodiment"][0].item()
-        embodiment_name = get_embodiment(embodiment_id).lower()
-
-        images = batch[image_key]
-        actions = batch[action_key]
-        pred_actions = predictions[f"{embodiment_name}_{action_key}"]
-        ims_list = []
-        images = _to_numpy(images)
-        actions = _to_numpy(actions)
-        pred_actions = _to_numpy(pred_actions)
-        for i in range(images.shape[0]):
-            image = images[i]
-            action = actions[i]
-            pred_action = pred_actions[i]
-            ims = cls.viz(image, action, mode="keypoints", color="Reds", **kwargs)
-            ims = cls.viz(ims, pred_action, mode="keypoints", color="Greens", **kwargs)
-            ims_list.append(ims)
-        ims = np.stack(ims_list, axis=0)
-        return ims
 
     @classmethod
     def viz_transformed_batch(
@@ -120,7 +94,6 @@ class Human(Embodiment):
             else:
                 colors = cls.FINGER_COLORS
                 dot_color = cls.DOT_COLOR
-
             return _viz_keypoints(
                 images=images,
                 actions=actions,
@@ -257,28 +230,38 @@ class Aria(Human):
     }
     FINGER_EDGE_RANGES = [
         ("thumb", 0, 3),
-        ("index", 3, 6),
-        ("middle", 6, 9),
-        ("ring", 9, 12),
-        ("pinky", 12, 15),
+        ("index", 3, 7),
+        ("middle", 7, 11),
+        ("ring", 11, 15),
+        ("pinky", 15, 19),
     ]
     DOT_COLOR = (255, 165, 0)
 
     @classmethod
     def get_transform_list(
-        cls, mode: Literal["cartesian", "keypoints_headframe", "keypoints_wristframe"]
+        cls,
+        mode: Literal[
+            "cartesian",
+            "keypoints_headframe",
+            "keypoints_wristframe_ypr",
+            "keypoints_wristframe_quat",
+        ],
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             )
-        elif mode == "keypoints":
+        elif mode == "keypoints_headframe":
             return _build_aria_keypoints_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             )
-        elif mode == "keypoints_wristframe":
+        elif mode == "keypoints_wristframe_ypr":
             return _build_aria_keypoints_eef_frame_transform_list(
-                stride=cls.ACTION_STRIDE
+                stride=cls.ACTION_STRIDE, is_quat=False
+            )
+        elif mode == "keypoints_wristframe_quat":
+            return _build_aria_keypoints_eef_frame_transform_list(
+                stride=cls.ACTION_STRIDE, is_quat=True
             )
         else:
             raise ValueError(
@@ -296,6 +279,7 @@ class Mecka(Human):
     ACTION_STRIDE = 1
 
 
+# this works for quat and ypr since actionChunkCoordinateFrameTransform works for both
 def _build_aria_keypoints_revert_eef_frame_transform_list(
     *,
     action_key: str = "actions_keypoints",
@@ -305,12 +289,23 @@ def _build_aria_keypoints_revert_eef_frame_transform_list(
     right_wrist_obs_headframe: str = "right.obs_wrist_pose_headframe",
     left_wrist_action_headframe: str = "left.action_wrist_pose_headframe",
     right_wrist_action_headframe: str = "right.action_wrist_pose_headframe",
+    left_wrist_action_wristframe: str = "left.action_wrist_pose_wristframe",
+    right_wrist_action_wristframe: str = "right.action_wrist_pose_wristframe",
+    left_keypoints_action_headframe: str = "left.action_keypoints_headframe",
+    right_keypoints_action_headframe: str = "right.action_keypoints_headframe",
+    is_quat: bool = True,
 ) -> list[Transform]:
+    if is_quat:
+        pose_shape = 7
+    else:
+        pose_shape = 6
     transform_list = [
         SplitKeys(
             input_key=action_key,
             output_key_list=[
+                (left_wrist_action_wristframe, pose_shape),
                 (left_keypoints_action_wristframe, 63),
+                (right_wrist_action_wristframe, pose_shape),
                 (right_keypoints_action_wristframe, 63),
             ],
         ),
@@ -327,31 +322,31 @@ def _build_aria_keypoints_revert_eef_frame_transform_list(
         ActionChunkCoordinateFrameTransform(
             target_world=left_wrist_obs_headframe,
             chunk_world=left_keypoints_action_wristframe,
-            transformed_key_name=left_wrist_action_headframe,
+            transformed_key_name=left_keypoints_action_headframe,
             mode="xyz",
             inverse=False,
         ),
         ActionChunkCoordinateFrameTransform(
             target_world=right_wrist_obs_headframe,
             chunk_world=right_keypoints_action_wristframe,
-            transformed_key_name=right_wrist_action_headframe,
+            transformed_key_name=right_keypoints_action_headframe,
             mode="xyz",
             inverse=False,
         ),
         Reshape(
-            input_key=left_wrist_action_headframe,
-            output_key=left_wrist_action_headframe,
+            input_key=left_keypoints_action_headframe,
+            output_key=left_keypoints_action_headframe,
             shape=(100, 63),
         ),
         Reshape(
-            input_key=right_wrist_action_headframe,
-            output_key=right_wrist_action_headframe,
+            input_key=right_keypoints_action_headframe,
+            output_key=right_keypoints_action_headframe,
             shape=(100, 63),
         ),
         ConcatKeys(
             key_list=[
-                left_wrist_action_headframe,
-                right_wrist_action_headframe,
+                left_keypoints_action_headframe,
+                right_keypoints_action_headframe,
             ],
             new_key_name=action_key,
             delete_old_keys=True,
@@ -390,6 +385,7 @@ def _build_aria_keypoints_eef_frame_transform_list(
     delete_target_world: bool = True,
     chunk_length: int = 100,
     stride: int = 3,
+    is_quat: bool = True,
 ) -> list[Transform]:
     transform_list = _build_aria_keypoints_bimanual_transform_list(
         target_world=target_world,
@@ -486,13 +482,48 @@ def _build_aria_keypoints_eef_frame_transform_list(
                 output_key=right_keypoints_obs_wristframe,
                 shape=(63,),
             ),
+            ActionChunkCoordinateFrameTransform(
+                target_world=left_wrist_obs_headframe,
+                chunk_world=left_wrist_action_headframe,
+                transformed_key_name=left_wrist_action_wristframe,
+                mode="xyzwxyz",
+            ),
+            ActionChunkCoordinateFrameTransform(
+                target_world=right_wrist_obs_headframe,
+                chunk_world=right_wrist_action_headframe,
+                transformed_key_name=right_wrist_action_wristframe,
+                mode="xyzwxyz",
+            ),
         ]
     )
+    if not is_quat:
+        transform_list.extend(
+            [
+                BatchQuaternionPoseToYPR(
+                    pose_key=left_wrist_action_wristframe,
+                    output_key=left_wrist_action_wristframe,
+                ),
+                BatchQuaternionPoseToYPR(
+                    pose_key=right_wrist_action_wristframe,
+                    output_key=right_wrist_action_wristframe,
+                ),
+                QuaternionPoseToYPR(
+                    pose_key=left_wrist_obs_headframe,
+                    output_key=left_wrist_obs_headframe,
+                ),
+                QuaternionPoseToYPR(
+                    pose_key=right_wrist_obs_headframe,
+                    output_key=right_wrist_obs_headframe,
+                ),
+            ]
+        )
     transform_list.extend(
         [
             ConcatKeys(
                 key_list=[
+                    left_wrist_action_wristframe,
                     left_keypoints_action_wristframe,
+                    right_wrist_action_wristframe,
                     right_keypoints_action_wristframe,
                 ],
                 new_key_name="actions_keypoints",

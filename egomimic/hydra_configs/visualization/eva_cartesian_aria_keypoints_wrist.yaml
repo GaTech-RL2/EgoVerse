@@ -1,0 +1,16 @@
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_eva_cart_aria_keypoints
+  transform_list:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+aria_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Aria.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_eva_cart_aria_keypoints
+  transform_list:
+    _target_: egomimic.rldb.embodiment.human._build_aria_keypoints_revert_eef_frame_transform_list
+    is_quat: false

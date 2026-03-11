@@ -24,10 +24,19 @@ class ModelWrapper(LightningModule):
     grad_norm_mad_min_count = 100
     grad_norm_mad_window = 200
 
-    def __init__(self, robomimic_model, optimizer, scheduler):
+    def __init__(
+        self,
+        robomimic_model,
+        optimizer,
+        scheduler,
+        enable_adaptive_grad_clip: bool = True,
+    ):
         """
         Args:
             model (PolicyAlgo): robomimic model to wrap.
+            enable_adaptive_grad_clip: if False, the MAD-based spike detection
+                and clipping in on_after_backward is skipped (grad norm is still
+                logged, just never clipped).
         """
         super().__init__()
         self.save_hyperparameters()
@@ -40,6 +49,7 @@ class ModelWrapper(LightningModule):
             self.params = self.model.nets["policy"].params
         except Exception:
             pass
+        self.enable_adaptive_grad_clip = enable_adaptive_grad_clip
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
 
         self.val_image_buffer, self.val_counter = {}, {}
@@ -96,7 +106,10 @@ class ModelWrapper(LightningModule):
         grad_norm_val = float(grad_norm)
         info = {"policy_grad_norms_raw": grad_norm_val}
 
-        if len(self.grad_norm_history) >= self.grad_norm_mad_min_count:
+        if (
+            self.enable_adaptive_grad_clip
+            and len(self.grad_norm_history) >= self.grad_norm_mad_min_count
+        ):
             values = np.array(self.grad_norm_history, dtype=np.float32)
             median = float(np.median(values))
             mad = float(np.median(np.abs(values - median)))

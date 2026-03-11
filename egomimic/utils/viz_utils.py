@@ -187,7 +187,12 @@ def _viz_keypoints(
     vis = images.copy()
     h, w = vis.shape[:2]
 
-    left_keypoints, right_keypoints = _split_keypoints(actions, wrist_in_data=False)
+    if actions.shape[-1] == 140:
+        left_xyz, left_wxyz, left_keypoints, right_xyz, right_wxyz, right_keypoints = (
+            _split_keypoints(actions, wrist_in_data=True)
+        )
+    else:
+        left_keypoints, right_keypoints = _split_keypoints(actions, wrist_in_data=False)
     keypoints = {}
     keypoints["left"] = left_keypoints.reshape(-1, 3)
     keypoints["right"] = right_keypoints.reshape(-1, 3)

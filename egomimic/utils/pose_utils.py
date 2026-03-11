@@ -8,6 +8,10 @@ def xyzw_to_wxyz(xyzw):
     return np.concatenate([xyzw[..., 3:4], xyzw[..., :3]], axis=-1)
 
 
+def wxyz_to_xyzw(wxyz):
+    return np.concatenate([wxyz[..., 1:4], wxyz[..., 0:1]], axis=-1)
+
+
 def _interpolate_euler(seq: np.ndarray, chunk_length: int) -> np.ndarray:
     """Euler-aware interpolation for a single (T, 6) or (T, 7) sequence."""
     T, D = seq.shape

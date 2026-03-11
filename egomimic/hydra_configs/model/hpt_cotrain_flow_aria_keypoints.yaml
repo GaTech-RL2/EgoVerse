@@ -1,0 +1,54 @@
+defaults:
+  - hpt_cotrain_keypoints_base
+
+robomimic_model:
+  ac_keys:
+    eva_bimanual: "actions_eva_cart_aria_keypoints"
+    aria_bimanual: "actions_eva_cart_aria_keypoints"
+  shared_ac_key: "actions_eva_cart_aria_keypoints"
+
+  6dof: true
+  diffusion: true
+
+  head_specs:
+    aria_bimanual: null
+    eva_bimanual: null
+    shared:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 100
+      num_inference_steps: 50
+      pooling: null
+      padding: "zero"
+      time_dist: "beta"
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 8
+        cond_dim: 256
+        hidden_dim: 256
+        act_dim: 256
+        act_seq: 32
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+      embodiment_specs:
+        aria_bimanual:
+          ac_dims: 140
+          encoder:
+            _target_: egomimic.models.codec.identity.Identity
+          decoder:
+            _target_: egomimic.models.codec.identity.Identity
+  stem_specs:
+    eva_bimanual: null
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1800
+  eta_min: 1e-5

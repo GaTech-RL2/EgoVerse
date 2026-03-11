@@ -1,6 +1,7 @@
 import copy
 import os
 import signal
+import subprocess
 from collections.abc import Mapping
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -114,7 +115,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         data_schematic.infer_norm_from_dataset(
             norm_dataset,
             dataset_name,
-            sample_frac=0.005,
+            sample_frac=cfg.norm_percentage,
+            num_workers=cfg.num_workers,
             benchmark_dir=os.path.join(
                 cfg.trainer.default_root_dir, "benchmark_stats.json"
             ),
@@ -216,6 +218,9 @@ def main(cfg: DictConfig) -> Optional[float]:
     :param cfg: DictConfig configuration composed by Hydra.
     :return: Optional[float] with optimized metric value.
     """
+    script = os.path.join(os.path.dirname(__file__), "utils/aws/setup_secret.sh")
+    subprocess.run(["bash", script], check=True)
+
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
     extras(cfg)
