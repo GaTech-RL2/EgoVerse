@@ -745,7 +745,37 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         return data
 
-    def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
+    def _get_fallback_idx(
+        self,
+        idx: int,
+        _fallback_origin: int | None,
+        _attempts: int | None,
+        log_prefix: str,
+    ) -> tuple[int, int, int]:
+        """
+        Compute next frame index for fallback when decode/transform fails.
+        Strategy: randomly sample a different index from the episode.
+        Returns (next_idx, origin, attempts). Raises RuntimeError if attempts exceed episode length.
+        """
+        origin = _fallback_origin if _fallback_origin is not None else idx
+        attempts = (_attempts or 0) + 1
+        if attempts >= self.total_frames:
+            raise RuntimeError(
+                f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
+            )
+        candidates = list(range(0, idx)) + list(range(idx + 1, self.total_frames))
+        next_idx = random.choice(candidates)
+        logger.warning(
+            f"{log_prefix} | attempt {attempts}, trying random idx {next_idx}"
+        )
+        return (next_idx, origin, attempts)
+
+    def __getitem__(
+        self,
+        idx: int,
+        _fallback_origin: int | None = None,
+        _attempts: int | None = None,
+    ) -> dict[str, torch.Tensor]:
         # Build keys_dict with ranges based on whether action chunking is enabled
         data = {}
         for k in self.key_map:
@@ -771,8 +801,15 @@ class ZarrDataset(torch.utils.data.Dataset):
             if zarr_key in self._image_keys:
                 jpeg_bytes = data[k]
                 # Decode JPEG bytes to numpy array (H, W, 3)
-                decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
-                # data[k] = torch.from_numpy(np.transpose(decoded, (2, 0, 1))).to(torch.float32) / 255.0
+                try:
+                    decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                except Exception:
+                    next_idx, origin, attempts = self._get_fallback_idx(
+                        idx, _fallback_origin, _attempts,
+                        f"JPEG decode failed ep={Path(self.episode_path).name} frame={idx} key={k}",
+                    )
+                    result = self.__getitem__(next_idx, _fallback_origin=origin, _attempts=attempts)
+                    return result
                 data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
             elif zarr_key in self._json_keys:
                 if isinstance(data[k], np.ndarray):
@@ -788,99 +825,18 @@ class ZarrDataset(torch.utils.data.Dataset):
                 try:
                     data = transform.transform(data)
                 except Exception as e:
-                    logger.error(f"Error transforming data: {e}")
-                    logger.error(f"Data: {data}")
-                    logger.error(f"Transform: {transform}")
-                    logger.error(f"Error: {e}")
-                    if idx == 0:
-                        logger.error("Error in first frame")
-                        raise e
-                    else:
-                        return self.__getitem__(0)
+                    next_idx, origin, attempts = self._get_fallback_idx(
+                        idx, _fallback_origin, _attempts,
+                        f"Transform failed ep={Path(self.episode_path).name} frame={idx} ({type(e).__name__}: {e})",
+                    )
+                    result = self.__getitem__(next_idx, _fallback_origin=origin, _attempts=attempts)
+                    return result
 
         for k, v in data.items():
             if isinstance(v, np.ndarray):
                 data[k] = torch.from_numpy(v).to(torch.float32)
 
         return data
-
-    def get_item_keys(self, idx: int, keys) -> dict[str, torch.Tensor]:
-        requested = self._normalize_keys_arg(keys)
-        out = {}
-
-        for k in requested:
-            if k not in self.key_map:
-                raise KeyError(
-                    f"Unknown key '{k}'. Available keys: {list(self.key_map.keys())}"
-                )
-
-            zarr_key = self.key_map[k]["zarr_key"]
-            horizon = self.key_map[k].get("horizon", None)
-
-            if horizon is not None:
-                end_idx = min(idx + horizon, self.total_frames)
-                interval = (idx, end_idx)
-            else:
-                interval = (idx, None)
-
-            raw = self.episode_reader.read({zarr_key: interval})
-            self._pad_sequences(raw, horizon)
-            val = raw[zarr_key]
-
-            if zarr_key in self._image_keys:
-                if (
-                    isinstance(val, np.ndarray)
-                    and val.dtype == object
-                    and val.ndim == 1
-                ):
-                    decoded_seq = []
-                    for jpeg_bytes in val:
-                        img = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
-                        decoded_seq.append(np.transpose(img, (2, 0, 1)) / 255.0)
-                    val = np.stack(decoded_seq, axis=0)
-                else:
-                    img = simplejpeg.decode_jpeg(val, colorspace="RGB")
-                    val = np.transpose(img, (2, 0, 1)) / 255.0
-
-            out[k] = val
-
-        if self.transform:
-            for transform in self.transform or []:
-                try:
-                    out = transform.transform(out)
-                except Exception as e:
-                    logger.error(f"Error transforming data: {e}")
-                    # NOTE: avoid dumping full arrays into logs
-                    logger.error(f"Data keys: {list(out.keys())}")
-                    logger.error(f"Transform: {transform}")
-                    logger.error(f"Error: {e}")
-                    if idx == 0:
-                        logger.error("Error in first frame")
-                        raise e
-                    else:
-                        return self.get_item_keys(0, keys)
-
-        for k, v in out.items():
-            if isinstance(v, np.ndarray):
-                out[k] = torch.from_numpy(v).to(torch.float32)
-
-        return out
-
-    def _normalize_keys_arg(self, keys):
-        """
-        Normalize keys argument:
-          None -> all dataset keys
-          str  -> single key
-          Iterable[str] -> list of keys
-        """
-        if keys is None:
-            return list(self.key_map.keys())
-        if isinstance(keys, str):
-            return [keys]
-        if isinstance(keys, Iterable):
-            return list(keys)
-        raise TypeError(f"keys must be None, str, or iterable[str], got {type(keys)}")
-
 
 class ZarrEpisode:
     """
