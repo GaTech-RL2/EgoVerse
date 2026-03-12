@@ -11,7 +11,7 @@ cpus_per_task: 8                                   # Number of CPUs per task (ma
 nodes: ${launch_params.nodes}                       # Number of nodes
 tasks_per_node: ${launch_params.gpus_per_node}      # Use variable for tasks per node
 gres: "gpu:h200:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}" # GPU type and count (h100 for H100 GPUs)
-qos: "short"                                        # Slurm QoS
+qos: "inferno"                                        # Slurm QoS
 mem_per_gpu: 250G
 timeout_min: 2880                                   # Timeout in minutes (48 hours)
 # exclude: "protocol, puma"     # Nodes to exclude

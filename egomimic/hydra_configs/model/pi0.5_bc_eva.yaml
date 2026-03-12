@@ -1,0 +1,56 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.pi.PI
+  data_schematic: _${data.dataset.data_schematic}
+  camera_transforms:
+    _target_: egomimic.utils.egomimicUtils.CameraTransforms
+    intrinsics_key: "base" # change to base_half if using half res 
+    extrinsics_key: "x5Dec13_2"
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+  domains: ["eva_bimanual"]
+
+  action_converters:
+    rules:
+      EVA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+    # optional fallback if no match is found
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter
+      
+  config:      
+    pytorch_training_precision: bfloat16
+    pytorch_weight_path: /storage/project/r-dxu345-0/rco3/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
+    model:
+      pi05: true
+      action_dim: 32
+      action_horizon: 100
+      max_token_len: 180
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: 224
+        interpolation: 3
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: 224
+        interpolation: 3
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5e-4
+  betas: [0.9, 0.999]
+  eps: 1e-8
+  weight_decay: 0.0
+
+scheduler:
+  _target_: transformers.get_cosine_schedule_with_warmup
+  _partial_: true
+  num_warmup_steps: 1000
+  num_training_steps: 100000
+  num_cycles: 0.5
