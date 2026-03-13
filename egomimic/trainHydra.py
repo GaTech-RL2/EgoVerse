@@ -13,6 +13,7 @@ from omegaconf import DictConfig, OmegaConf
 from tabulate import tabulate
 
 from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.scripts.evaluation.eval import Eval
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
@@ -45,6 +46,25 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
         intfmt=",",
     )
     log.info("Dataset frame counts:\n" + table)
+
+
+def _propagate_data_schematic_to_datasets(
+    data_schematic, train_datasets, valid_datasets
+):
+    """
+    Set the shared data schematic on all top-level datasets.
+    """
+    for split_name, split_datasets in [
+        ("train", train_datasets),
+        ("valid", valid_datasets),
+    ]:
+        for dataset_name, dataset in split_datasets.items():
+            if not isinstance(dataset, MultiDataset):
+                raise ValueError(
+                    f"{dataset_name} is not a MultiDataset. All top level datasets in data config should be MultiDataset"
+                )
+            log.info(f"Passing data_schematic to {split_name} dataset <{dataset_name}>")
+            dataset.set_data_schematic(data_schematic)
 
 
 @task_wrapper
@@ -121,6 +141,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             ),
         )
 
+    if cfg.reject_outliers:
+        # Propagate the shared data schematic to top-level MultiDatasets for bounds checks.
+        _propagate_data_schematic_to_datasets(
+            data_schematic,
+            train_datasets,
+            valid_datasets,
+        )
     viz_func = cfg.visualization
     viz_func_dict = {}
     for embodiment_name, embodiment_viz_func in viz_func.items():
@@ -209,7 +236,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
 
 @hydra.main(
-    version_base="1.3", config_path="./hydra_configs", config_name="train_zarr.yaml"
+    version_base="1.3", config_path="./hydra_configs", config_name="train_zarr_cartesian.yaml"
 )
 def main(cfg: DictConfig) -> Optional[float]:
     """Main entry point for training.

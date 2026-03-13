@@ -358,6 +358,97 @@ class Mecka(Human):
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             )
+    
+    @classmethod
+    def get_keymap(
+        cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False
+    ):
+        if mode == "cartesian":
+            key_map = {
+                cls.VIZ_IMAGE_KEY: {
+                    "key_type": "camera_keys",
+                    "zarr_key": "images.front_1",
+                },
+                "right.action_ee_pose": {
+                    "key_type": "action_keys",
+                    "zarr_key": "right.obs_ee_pose",
+                    "horizon": 30,
+                },
+                "left.action_ee_pose": {
+                    "key_type": "action_keys",
+                    "zarr_key": "left.obs_ee_pose",
+                    "horizon": 30,
+                },
+                "right.obs_ee_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_ee_pose",
+                },
+                "left.obs_ee_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_ee_pose",
+                },
+                "obs_head_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "obs_head_pose",
+                },
+            }
+        elif mode == "keypoints":
+            key_map = {
+                cls.VIZ_IMAGE_KEY: {
+                    "key_type": "camera_keys",
+                    "zarr_key": "images.front_1",
+                },
+                "left.action_keypoints": {
+                    "key_type": "action_keys",
+                    "zarr_key": "left.obs_keypoints",
+                    "horizon": 30,
+                },
+                "right.action_keypoints": {
+                    "key_type": "action_keys",
+                    "zarr_key": "right.obs_keypoints",
+                    "horizon": 30,
+                },
+                "left.action_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_wrist_pose",
+                    "horizon": 30,
+                },
+                "right.action_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_wrist_pose",
+                    "horizon": 30,
+                },
+                "left.obs_keypoints": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_keypoints",
+                },
+                "right.obs_keypoints": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_keypoints",
+                },
+                "left.obs_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_wrist_pose",
+                },
+                "right.obs_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_wrist_pose",
+                },
+                "obs_head_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "obs_head_pose",
+                },
+            }
+        else:
+            raise ValueError(
+                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints'."
+            )
+        if annotations:
+            key_map["annotations"] = {
+                "key_type": "annotation_keys",
+                "zarr_key": "annotations",
+            }
+        return key_map
 
 
 # this works for quat and ypr since actionChunkCoordinateFrameTransform works for both

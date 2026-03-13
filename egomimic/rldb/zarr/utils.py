@@ -219,27 +219,40 @@ class DataSchematic(object):
         logger.info(
             f"[NormStats] Starting to load data for norm inference with batch_size={batch_size} and num_workers={num_workers}"
         )
-        for batch in tqdm(loader):
-            if cur_num_samples >= n_samples:
-                break
+        with tqdm(total=n_samples, unit="sample") as pbar:
+            for batch in loader:
+                # check what emb you got
+                # then have a separate set of samples per embodiment, and calc norm stats separately
+                remaining = n_samples - cur_num_samples
+                if remaining <= 0:
+                    break
 
-            remaining = n_samples - cur_num_samples
-            take = min(
-                remaining, batch_size
-            )  # or batch[k].shape[0] if last batch varies
+                batch_len = None
+                for value in batch.values():
+                    if hasattr(value, "shape") and len(value.shape) > 0:
+                        batch_len = int(value.shape[0])
+                        break
 
-            for k in norm_keys:
-                batch_key = self.keyname_to_zarr_key(k, embodiment)
-                if batch_key is None:
-                    continue
-                if batch_key not in batch:
-                    continue
-                x = batch[batch_key][:take]
-                if hasattr(x, "detach"):
-                    x = x.detach().cpu().numpy()
-                collected[k].append(x)
+                if batch_len is None:
+                    raise ValueError(
+                        "[NormStats] Could not infer batch size from DataLoader batch"
+                    )
 
-            cur_num_samples += take
+                take = min(remaining, batch_len)
+
+                for k in norm_keys:
+                    batch_key = self.keyname_to_zarr_key(k, embodiment)
+                    if batch_key is None:
+                        continue
+                    if batch_key not in batch:
+                        continue
+                    x = batch[batch_key][:take]
+                    if hasattr(x, "detach"):
+                        x = x.detach().cpu().numpy()
+                    collected[k].append(x)
+
+                cur_num_samples += take
+                pbar.update(take)
 
         del_keys = []
         for k in norm_keys:
@@ -270,6 +283,8 @@ class DataSchematic(object):
             median = np.median(X, axis=0)
             q1 = np.percentile(X, 1, axis=0)
             q99 = np.percentile(X, 99, axis=0)
+            q0_01 = np.percentile(X, 0.01, axis=0)
+            q99_99 = np.percentile(X, 99.99, axis=0)
 
             self.norm_stats[embodiment][k] = {
                 "mean": torch.from_numpy(np.array(mean, dtype=np.float32)).float(),
@@ -280,6 +295,12 @@ class DataSchematic(object):
                 "quantile_1": torch.from_numpy(np.array(q1, dtype=np.float32)).float(),
                 "quantile_99": torch.from_numpy(
                     np.array(q99, dtype=np.float32)
+                ).float(),
+                "quantile_0_01": torch.from_numpy(
+                    np.array(q0_01, dtype=np.float32)
+                ).float(),
+                "quantile_99_99": torch.from_numpy(
+                    np.array(q99_99, dtype=np.float32)
                 ).float(),
             }
 
@@ -300,6 +321,12 @@ class DataSchematic(object):
                 quantile_99_path = os.path.join(
                     benchmark_dir, str(embodiment), k, "quantile_99.pt"
                 )
+                quantile_0_01_path = os.path.join(
+                    benchmark_dir, str(embodiment), k, "quantile_0_01.pt"
+                )
+                quantile_99_99_path = os.path.join(
+                    benchmark_dir, str(embodiment), k, "quantile_99_99.pt"
+                )
                 torch.save(self.norm_stats[embodiment][k]["mean"], mean_path)
                 torch.save(self.norm_stats[embodiment][k]["std"], std_path)
                 torch.save(self.norm_stats[embodiment][k]["min"], min_path)
@@ -310,6 +337,14 @@ class DataSchematic(object):
                 )
                 torch.save(
                     self.norm_stats[embodiment][k]["quantile_99"], quantile_99_path
+                )
+                torch.save(
+                    self.norm_stats[embodiment][k]["quantile_0_01"],
+                    quantile_0_01_path,
+                )
+                torch.save(
+                    self.norm_stats[embodiment][k]["quantile_99_99"],
+                    quantile_99_99_path,
                 )
                 if benchmark_stats["stats"].get(embodiment, None) is None:
                     benchmark_stats["stats"][embodiment] = {}
@@ -323,6 +358,8 @@ class DataSchematic(object):
                     "median": median_path,
                     "quantile_1": quantile_1_path,
                     "quantile_99": quantile_99_path,
+                    "quantile_0_01": quantile_0_01_path,
+                    "quantile_99_99": quantile_99_99_path,
                 }
 
             logger.info(
