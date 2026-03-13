@@ -148,7 +148,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             train_datasets,
             valid_datasets,
         )
-
     viz_func = cfg.visualization
     viz_func_dict = {}
     for embodiment_name, embodiment_viz_func in viz_func.items():

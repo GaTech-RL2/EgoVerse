@@ -35,9 +35,10 @@ import simplejpeg
 import torch
 import zarr
 
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -78,22 +79,6 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
-
-
-def get_fallback_idx(
-    idx: int,
-    candidates: Iterable[int],
-    _attempts: int | None,
-    max_attempts: int,
-    exhausted_error: str,
-) -> tuple[int, int]:
-    attempts = (_attempts or 0) + 1
-    valid_candidates = [
-        candidate_idx for candidate_idx in candidates if candidate_idx != idx
-    ]
-    if attempts >= max_attempts or not valid_candidates:
-        raise RuntimeError(exhausted_error)
-    return random.choice(valid_candidates), attempts
 
 
 def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
@@ -150,6 +135,22 @@ def _normalize_filter_row(
         normalized["robot_name"] = robot_name
 
     return normalized
+
+
+def get_fallback_idx(
+    idx: int,
+    candidates: Iterable[int],
+    _attempts: int | None,
+    max_attempts: int,
+    exhausted_error: str,
+) -> tuple[int, int]:
+    attempts = (_attempts or 0) + 1
+    valid_candidates = [
+        candidate_idx for candidate_idx in candidates if candidate_idx != idx
+    ]
+    if attempts >= max_attempts or not valid_candidates:
+        raise RuntimeError(exhausted_error)
+    return random.choice(valid_candidates), attempts
 
 
 class EpisodeResolver:
