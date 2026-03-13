@@ -12,6 +12,7 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf
 from tabulate import tabulate
 
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
 from egomimic.scripts.evaluation.eval import Eval
 from egomimic.utils.aws.aws_data_utils import load_env
@@ -114,11 +115,40 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         data_schematic.infer_norm_from_dataset(
             norm_dataset,
             dataset_name,
-            sample_frac=cfg.norm_stat_fraction,
+            sample_frac=0.02,
             benchmark_dir=os.path.join(
                 cfg.trainer.default_root_dir, "benchmark_stats.json"
             ),
         )
+
+    # Propagate norm stats to all zarrdatasets out of bounds check in getitem
+    # Have to remap keys to zarr keys for continuity
+    for split_name, split_datasets in [
+        ("train", train_datasets),
+        ("valid", valid_datasets),
+    ]:
+        for dataset_name, dataset in split_datasets.items():
+            embodiment_id = get_embodiment_id(dataset_name)
+            if (
+                embodiment_id in data_schematic.norm_stats
+                and data_schematic.norm_stats[embodiment_id]
+            ):
+                remapped = {}
+                for key_name, stats in data_schematic.norm_stats[embodiment_id].items():
+                    zarr_key = data_schematic.keyname_to_zarr_key(
+                        key_name, embodiment_id
+                    )
+                    if zarr_key is not None:
+                        remapped[zarr_key] = stats
+                log.info(
+                    f"Passing norm_stats to {split_name} dataset <{dataset_name}> (embodiment_id={embodiment_id}): "
+                    f"{list(remapped.keys())}"
+                )
+                dataset.set_norm_stats(remapped)
+            else:
+                log.warning(
+                    f"No norm_stats found for {split_name} dataset <{dataset_name}> (embodiment_id={embodiment_id}), skipping bounds filtering"
+                )
 
     # NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
     log.info(f"Instantiating model <{cfg.model._target_}>")
