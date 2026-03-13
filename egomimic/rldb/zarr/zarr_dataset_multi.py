@@ -37,6 +37,7 @@ import zarr
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -77,6 +78,22 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
+
+
+def get_fallback_idx(
+    idx: int,
+    candidates: Iterable[int],
+    _attempts: int | None,
+    max_attempts: int,
+    exhausted_error: str,
+) -> tuple[int, int]:
+    attempts = (_attempts or 0) + 1
+    valid_candidates = [
+        candidate_idx for candidate_idx in candidates if candidate_idx != idx
+    ]
+    if attempts >= max_attempts or not valid_candidates:
+        raise RuntimeError(exhausted_error)
+    return random.choice(valid_candidates), attempts
 
 
 def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
@@ -146,10 +163,12 @@ class EpisodeResolver:
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        norm_stats: dict | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
+        self.norm_stats = norm_stats
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
@@ -178,7 +197,10 @@ class EpisodeResolver:
                 continue
             try:
                 ds_obj = ZarrDataset(
-                    p, key_map=self.key_map, transform_list=self.transform_list
+                    p,
+                    key_map=self.key_map,
+                    transform_list=self.transform_list,
+                    norm_stats=self.norm_stats,
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -206,12 +228,18 @@ class S3EpisodeResolver(EpisodeResolver):
         main_prefix: str = "processed_v3",
         key_map: dict | None = None,
         transform_list: list | None = None,
+        norm_stats: dict | None = None,
         debug: bool = False,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
         self.debug = debug
-        super().__init__(folder_path, key_map=key_map, transform_list=transform_list)
+        super().__init__(
+            folder_path,
+            key_map=key_map,
+            transform_list=transform_list,
+            norm_stats=norm_stats,
+        )
 
     def resolve(
         self,
@@ -439,9 +467,10 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        norm_stats: dict | None = None,
         debug=False,
     ):
-        super().__init__(folder_path, key_map, transform_list)
+        super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
 
     @staticmethod
@@ -532,7 +561,7 @@ class MultiDataset(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        datasets,
+        datasets: dict[str, MultiDataset | ZarrDataset],
         mode="train",
         percent=0.1,
         valid_ratio=0.2,
@@ -572,24 +601,178 @@ class MultiDataset(torch.utils.data.Dataset):
         assert self.datasets, "No datasets left after applying mode split."
 
         self.index_map = []
+        self._global_indices_by_dataset: dict[str, list[int]] = {
+            dataset_name: [] for dataset_name in self.datasets
+        }
         for dataset_name, dataset in self.datasets.items():
             for local_idx in range(len(dataset)):
+                global_idx = len(self.index_map)
                 self.index_map.append((dataset_name, local_idx))
+                self._global_indices_by_dataset[dataset_name].append(global_idx)
+
+        self.data_schematic = None
+        self._warned_violations: set[str] = set()
 
         super().__init__()
 
     def __len__(self) -> int:
         return len(self.index_map)
 
-    def __getitem__(self, idx):
-        dataset_name, local_idx = self.index_map[idx]
-        data = self.datasets[dataset_name][local_idx]
+    @staticmethod
+    def _episode_name_for_dataset(dataset, dataset_name: str) -> str:
+        episode_path = getattr(dataset, "episode_path", None)
+        if episode_path is None:
+            return dataset_name
+        return Path(episode_path).name
 
-        robot_name = self.datasets[dataset_name].embodiment
-        data["metadata.robot_name"] = robot_name
-        data["embodiment"] = robot_name
+    def _check_bounds(
+        self, data: dict, dataset, idx: int, dataset_name: str
+    ) -> str | None:
+        if self.data_schematic is None:
+            return None
+
+        embodiment_id = data.get("embodiment")
+        if embodiment_id is None:
+            raise ValueError("data has no embodiment metadata")
+
+        norm_stats = self.data_schematic.norm_stats.get(embodiment_id, {})
+        if not norm_stats:
+            return None
+
+        episode_name = self._episode_name_for_dataset(dataset, dataset_name)
+
+        for key_name, stats in norm_stats.items():
+            zarr_key = self.data_schematic.keyname_to_zarr_key(key_name, embodiment_id)
+            if zarr_key is None or zarr_key not in data:
+                continue
+
+            v = data[zarr_key]
+            if isinstance(v, torch.Tensor):
+                arr = v.float()
+            elif isinstance(v, np.ndarray):
+                arr = torch.from_numpy(v).float()
+            else:
+                continue
+
+            q_low = stats.get(
+                "quantile_0_01",
+                stats.get("quantile_0_1", stats["quantile_1"]),
+            )
+            q_high = stats.get(
+                "quantile_99_99",
+                stats.get("quantile_99_9", stats["quantile_99"]),
+            )
+            if isinstance(q_low, np.ndarray):
+                q_low = torch.from_numpy(q_low).float()
+            if isinstance(q_high, np.ndarray):
+                q_high = torch.from_numpy(q_high).float()
+
+            q_low = q_low.to(arr.device).float()
+            q_high = q_high.to(arr.device).float()
+
+            try:
+                q_low = torch.broadcast_to(q_low, arr.shape)
+                q_high = torch.broadcast_to(q_high, arr.shape)
+            except RuntimeError:
+                logger.warning(
+                    "Skipping bounds check for ep=%s frame=%s key=%s due to incompatible shapes: value=%s q_low=%s q_high=%s",
+                    episode_name,
+                    idx,
+                    zarr_key,
+                    tuple(arr.shape),
+                    tuple(q_low.shape),
+                    tuple(q_high.shape),
+                )
+                continue
+
+            has_nan = torch.any(torch.isnan(arr))
+            has_inf = torch.any(torch.isinf(arr))
+            if has_nan or has_inf:
+                nan_mask = torch.isnan(arr)
+                inf_mask = torch.isinf(arr)
+                n_nan = nan_mask.sum().item()
+                n_inf = inf_mask.sum().item()
+                bad_mask = nan_mask | inf_mask
+                bad_indices = bad_mask.nonzero(as_tuple=False).tolist()
+                bad_values = arr[bad_mask].tolist()
+                prefix = (
+                    f"NaN/Inf violation ep={episode_name} "
+                    f"frame={idx} key={zarr_key}"
+                )
+                warn_key = f"nan_inf:{episode_name}:{zarr_key}"
+                if warn_key not in self._warned_violations:
+                    self._warned_violations.add(warn_key)
+                    logger.warning(
+                        f"{prefix} | n_nan={int(n_nan)} n_inf={int(n_inf)} "
+                        f"indices={bad_indices[:10]} values={[f'{v:.4f}' for v in bad_values[:10]]}"
+                    )
+                return prefix
+
+            below = arr < q_low
+            above = arr > q_high
+            if torch.any(below) or torch.any(above):
+                n_below = below.sum().item()
+                n_above = above.sum().item()
+                below_vals = arr[below].tolist()
+                above_vals = arr[above].tolist()
+                below_bounds = q_low[below].tolist()
+                above_bounds = q_high[above].tolist()
+                prefix = (
+                    f"Bounds violation ep={episode_name} " f"frame={idx} key={zarr_key}"
+                )
+                warn_key = f"bounds:{episode_name}:{zarr_key}"
+                if warn_key not in self._warned_violations:
+                    self._warned_violations.add(warn_key)
+                    logger.warning(
+                        f"{prefix} | "
+                        f"n_below={int(n_below)} below_vals={[f'{v:.4f}' for v in below_vals[:5]]} below_bound={[f'{b:.4f}' for b in below_bounds[:5]]} "
+                        f"n_above={int(n_above)} above_vals={[f'{v:.4f}' for v in above_vals[:5]]} above_bound={[f'{b:.4f}' for b in above_bounds[:5]]}"
+                    )
+                return prefix
+
+        return None
+
+    def __getitem__(self, idx, _attempts: int | None = None):
+        dataset_name, local_idx = self.index_map[idx]
+        dataset = self.datasets[dataset_name]
+        data = dataset[local_idx]
+
+        if isinstance(dataset, MultiDataset):
+            return data
+
+        violation = self._check_bounds(data, dataset, local_idx, dataset_name)
+        if violation is not None:
+            next_idx, attempts = get_fallback_idx(
+                idx=idx,
+                candidates=self._global_indices_by_dataset[dataset_name],
+                _attempts=_attempts,
+                max_attempts=len(self._global_indices_by_dataset[dataset_name]),
+                exhausted_error=(
+                    f"Entire dataset bad (no valid indices): dataset={dataset_name}"
+                ),
+            )
+            next_dataset_name, next_local_idx = self.index_map[next_idx]
+            logger.warning(
+                f"{violation} | attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
+            )
+            return self.__getitem__(next_idx, _attempts=attempts)
 
         return data
+
+    def set_data_schematic(self, data_schematic) -> None:
+        """
+        Set the data schematic used for top-level bounds checking.
+
+        When child datasets are themselves MultiDatasets, recursively assign the
+        same schematic so each wrapper can validate its own returned samples.
+        """
+        self.data_schematic = data_schematic
+        for ds in self.datasets.values():
+            if isinstance(ds, MultiDataset):
+                ds.set_data_schematic(data_schematic)
+        logger.info(
+            f"Set data_schematic on MultiDataset with {len(self.datasets)} child datasets"
+        )
 
     @classmethod
     def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
@@ -631,12 +814,17 @@ class ZarrDataset(torch.utils.data.Dataset):
         Episode_path: Path,
         key_map: dict,
         transform_list: list | None = None,
+        norm_stats: dict | None = None,
     ):
         """
         Args:
             episode_path: just a path to the designated zarr episode
             key_map: dict mapping from dataset keys to zarr keys and horizon info, e.g. {"obs/image/front": {"zarr_key": "observations.images.front", "horizon": 4}, ...}
             transform_list: list of Transform objects to apply to the data after loading, e.g. for action chunk transformations. Should be in order of application.
+            norm_stats: optional dict mapping dataset key names (same keys as key_map) to
+                {"quantile_1": tensor, "quantile_99": tensor} bounds. When provided, any
+                loaded sample whose values fall outside [quantile_1, quantile_99] for any
+                tracked key triggers the random index fallback.
         """
         self.episode_path = Episode_path
         self.metadata = None
@@ -647,6 +835,7 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         self.key_map = key_map
         self.transform = transform_list
+        self.norm_stats = norm_stats or {}
         super().__init__()
 
     def init_episode(self):
@@ -745,31 +934,6 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         return data
 
-    def _get_fallback_idx(
-        self,
-        idx: int,
-        _fallback_origin: int | None,
-        _attempts: int | None,
-        log_prefix: str,
-    ) -> tuple[int, int, int]:
-        """
-        Compute next frame index for fallback when decode/transform fails.
-        Strategy: randomly sample a different index from the episode.
-        Returns (next_idx, origin, attempts). Raises RuntimeError if attempts exceed episode length.
-        """
-        origin = _fallback_origin if _fallback_origin is not None else idx
-        attempts = (_attempts or 0) + 1
-        if attempts >= self.total_frames:
-            raise RuntimeError(
-                f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
-            )
-        candidates = list(range(0, idx)) + list(range(idx + 1, self.total_frames))
-        next_idx = random.choice(candidates)
-        logger.warning(
-            f"{log_prefix} | attempt {attempts}, trying random idx {next_idx}"
-        )
-        return (next_idx, origin, attempts)
-
     def __getitem__(
         self,
         idx: int,
@@ -804,11 +968,23 @@ class ZarrDataset(torch.utils.data.Dataset):
                 try:
                     decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
                 except Exception:
-                    next_idx, origin, attempts = self._get_fallback_idx(
-                        idx, _fallback_origin, _attempts,
-                        f"JPEG decode failed ep={Path(self.episode_path).name} frame={idx} key={k}",
+                    origin = _fallback_origin if _fallback_origin is not None else idx
+                    next_idx, attempts = get_fallback_idx(
+                        idx=idx,
+                        candidates=range(self.total_frames),
+                        _attempts=_attempts,
+                        max_attempts=self.total_frames,
+                        exhausted_error=(
+                            f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
+                        ),
                     )
-                    result = self.__getitem__(next_idx, _fallback_origin=origin, _attempts=attempts)
+                    logger.warning(
+                        f"JPEG decode failed ep={Path(self.episode_path).name} frame={idx} key={k} | "
+                        f"attempt {attempts}, trying random idx {next_idx}"
+                    )
+                    result = self.__getitem__(
+                        next_idx, _fallback_origin=origin, _attempts=attempts
+                    )
                     return result
                 data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
             elif zarr_key in self._json_keys:
@@ -825,18 +1001,33 @@ class ZarrDataset(torch.utils.data.Dataset):
                 try:
                     data = transform.transform(data)
                 except Exception as e:
-                    next_idx, origin, attempts = self._get_fallback_idx(
-                        idx, _fallback_origin, _attempts,
-                        f"Transform failed ep={Path(self.episode_path).name} frame={idx} ({type(e).__name__}: {e})",
+                    origin = _fallback_origin if _fallback_origin is not None else idx
+                    next_idx, attempts = get_fallback_idx(
+                        idx=idx,
+                        candidates=range(self.total_frames),
+                        _attempts=_attempts,
+                        max_attempts=self.total_frames,
+                        exhausted_error=(
+                            f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
+                        ),
                     )
-                    result = self.__getitem__(next_idx, _fallback_origin=origin, _attempts=attempts)
+                    logger.warning(
+                        f"Transform failed ep={Path(self.episode_path).name} frame={idx} ({type(e).__name__}: {e}) | "
+                        f"attempt {attempts}, trying random idx {next_idx}"
+                    )
+                    result = self.__getitem__(
+                        next_idx, _fallback_origin=origin, _attempts=attempts
+                    )
                     return result
 
         for k, v in data.items():
             if isinstance(v, np.ndarray):
                 data[k] = torch.from_numpy(v).to(torch.float32)
 
+        data["metadata.robot_name"] = get_embodiment_id(self.embodiment)
+        data["embodiment"] = get_embodiment_id(self.embodiment)
         return data
+
 
 class ZarrEpisode:
     """

@@ -39,3 +39,4 @@ launch_params:
   nodes: 1
 
 seed: 42
+reject_outliers: true
