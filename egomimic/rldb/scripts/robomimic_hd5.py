@@ -7,14 +7,56 @@ Uses a config file to generically instantiate the parquet files.
 import argparse
 import logging
 import os
+from itertools import groupby
 from pathlib import Path
 import shutil
 import traceback
+import cv2
 import h5py
 import json
 import torch
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
 from utils import str2bool
+
+
+def _h5_key_exists(group, key: str) -> bool:
+    """Check if key exists in h5py group. Supports nested paths like 'actions/joints'.
+    Uses step-by-step navigation since h5py's 'in' only checks direct children."""
+    parts = key.split("/")
+    current = group
+    for part in parts:
+        if part not in current:
+            return False
+        current = current[part]
+    return True
+
+
+def _h5_get(group, key: str):
+    """Get value from h5py group. Supports nested paths like 'actions/joints'.
+    Backward compatible with flat keys like 'actions' or 'actions_joints'."""
+    parts = key.split("/")
+    current = group
+    for part in parts:
+        current = current[part]
+    return current
+
+
+def _normalize_feature_key(key: str) -> str:
+    """Normalize key for LeRobot feature dict (replace / with .). Matches define_features output."""
+    return key.replace("/", ".")
+
+
+def _get_hdf5_paths(path: Path) -> list[Path]:
+    """Return HDF5 file path(s). If path is a directory, return all .hdf5/.h5 files in it."""
+    path = Path(path)
+    if path.is_file():
+        return [path]
+    if path.is_dir():
+        files = sorted(path.glob("*.hdf5")) + sorted(path.glob("*.h5"))
+        if not files:
+            raise ValueError(f"No HDF5 files found in directory: {path}")
+        return files
+    raise ValueError(f"Path does not exist or is not file/dir: {path}")
 
 
 class RobomimicHD5Extractor:
@@ -49,7 +91,7 @@ class RobomimicHD5Extractor:
 
             episode = data["data"][episode_key]
             for action_key in config["action_keys"]:
-                if action_key not in episode:
+                if not _h5_key_exists(episode, action_key):
                     raise ValueError(
                         f"Missing action key: {action_key} in {episode_key}"
                     )
@@ -59,7 +101,7 @@ class RobomimicHD5Extractor:
 
             obs = episode["obs"]
             for obs_key in config["obs_keys"]:
-                if obs_key not in obs:
+                if not _h5_key_exists(obs, obs_key):
                     raise ValueError(
                         f"Missing observation key: {obs_key} in {episode_key}"
                     )
@@ -84,34 +126,52 @@ class RobomimicHD5Extractor:
             List of frames as dictionaries.
         """
         frames = []
-        if "actions_joints" in episode:
-            action_key = "actions_joints"
-        else:
-            action_key = "actions"
-        num_frames = episode[action_key].shape[0]
+        # Use first existing action key for frame count (supports flat and nested paths)
+        num_frames = None
+        for action_key in config["action_keys"]:
+            if _h5_key_exists(episode, action_key):
+                num_frames = _h5_get(episode, action_key).shape[0]
+                break
+        if num_frames is None:
+            # Fallback for legacy flat keys
+            if _h5_key_exists(episode, "actions_joints"):
+                num_frames = _h5_get(episode, "actions_joints").shape[0]
+            elif _h5_key_exists(episode, "actions"):
+                num_frames = _h5_get(episode, "actions").shape[0]
+            else:
+                raise ValueError(
+                    f"No action key found in episode. Config action_keys: {config['action_keys']}"
+                )
 
         for frame_idx in range(num_frames):
             frame = {}
             for action_key in config["action_keys"]:
-                frame[action_key] = torch.from_numpy(episode[action_key][frame_idx])
+                if not _h5_key_exists(episode, action_key):
+                    continue
+                data = _h5_get(episode, action_key)
+                frame[_normalize_feature_key(action_key)] = torch.from_numpy(
+                    data[frame_idx]
+                )
 
             # TODO: don't hard code so much stupid shit
+            obs_group = episode["obs"]
             for obs_key in config["obs_keys"]:
-                if obs_key in episode["obs"]:
-                    is_image_key = ("img" in obs_key) or ("image" in obs_key) or ("rgb" in obs_key)
-                    if is_image_key and image_compressed:
-                    # if "img" or "image" in obs_key and image_compressed:
-                        image = episode["obs"][obs_key][frame_idx]
-                        if encode_as_video:
-                            frame[f"obs.{obs_key}"] = torch.from_numpy(
-                                cv2.imdecode(image, 1).transpose(2, 0, 1)
-                            )
-                        else:
-                            frame[f"obs.{obs_key}"] = torch.from_numpy(image)
-                    else:
-                        frame[f"obs.{obs_key}"] = torch.from_numpy(
-                            episode["obs"][obs_key][frame_idx]
+                if not _h5_key_exists(obs_group, obs_key):
+                    continue
+                obs_data = _h5_get(obs_group, obs_key)
+                is_image_key = ("img" in obs_key) or ("image" in obs_key) or ("rgb" in obs_key)
+                if is_image_key and image_compressed:
+                    image = obs_data[frame_idx]
+                    if encode_as_video:
+                        frame[f"obs.{_normalize_feature_key(obs_key)}"] = torch.from_numpy(
+                            cv2.imdecode(image, 1).transpose(2, 0, 1)
                         )
+                    else:
+                        frame[f"obs.{_normalize_feature_key(obs_key)}"] = torch.from_numpy(image)
+                else:
+                    frame[f"obs.{_normalize_feature_key(obs_key)}"] = torch.from_numpy(
+                        obs_data[frame_idx]
+                    )
             frames.append(frame)
         return frames
 
@@ -277,15 +337,24 @@ class DatasetConverter:
         )
         self.logger.info(json.dumps(self.config, indent=2))
 
-        with h5py.File(self.raw_path, "r") as data:
-            RobomimicHD5Extractor.check_format(data, self.config, ignore_episode_keys)
-            if ignore_episode_keys:
-                self.episode_keys = list(data["data"].keys())
-            else:
-                self.episode_keys = self.config["episode_keys"].copy()
+        self._hdf5_paths = _get_hdf5_paths(self.raw_path)
+        self.logger.info(f"Found {len(self._hdf5_paths)} HDF5 file(s) to process")
+
+        # Check format and collect (file_path, episode_key) for all episodes
+        self._episode_sources: list[tuple[Path, str]] = []
+        for hdf5_path in self._hdf5_paths:
+            with h5py.File(hdf5_path, "r") as data:
+                RobomimicHD5Extractor.check_format(data, self.config, ignore_episode_keys)
+                episode_keys = (
+                    list(data["data"].keys())
+                    if ignore_episode_keys
+                    else [k for k in self.config["episode_keys"] if k in data["data"]]
+                )
+                for ep_key in episode_keys:
+                    self._episode_sources.append((hdf5_path, ep_key))
 
         self.features = RobomimicHD5Extractor.define_features(
-            raw_path, self.config, self.image_compressed, self.encode_as_video
+            self._hdf5_paths[0], self.config, self.image_compressed, self.encode_as_video
         )
 
     def extract_episode(self, episode_key, episode, task_description=""):
@@ -321,15 +390,18 @@ class DatasetConverter:
         episode_description : dict, optional
             A dictionary of descriptions of the task to be passed to the extract_episode method (default is '').
         """
-
-        with h5py.File(self.raw_path, "r") as data:
-            for episode_key in self.episode_keys:
-                episode = data["data"][episode_key]
-                self.extract_episode(
-                    episode_key,
-                    episode,
-                    task_description=episode_description.get(episode_key, ""),
-                )
+        # Group by file path to avoid reopening the same file
+        for file_path, group in groupby(
+            self._episode_sources, key=lambda x: x[0]
+        ):
+            with h5py.File(file_path, "r") as data:
+                for _, episode_key in group:
+                    episode = data["data"][episode_key]
+                    self.extract_episode(
+                        episode_key,
+                        episode,
+                        task_description=episode_description.get(episode_key, ""),
+                    )
 
         self.dataset.consolidate()
 
@@ -409,7 +481,10 @@ def parse_arguments():
         "--name", type=str, required=True, help="Name to store dataset as"
     )
     parser.add_argument(
-        "--raw-path", type=Path, required=True, help="Path to the raw HDF5 dataset."
+        "--raw-path",
+        type=Path,
+        required=True,
+        help="Path to a single HDF5 file or directory containing .hdf5/.h5 files.",
     )
     parser.add_argument(
         "--dataset-repo-id", type=str, required=True, help="Hugging Face repository ID."
