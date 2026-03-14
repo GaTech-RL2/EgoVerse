@@ -738,12 +738,11 @@ class ZarrDataset(torch.utils.data.Dataset):
         if self.transform:
             for transform in self.transform or []:
                 try:
+                    # breakpoint()
                     data = transform.transform(data)
                 except Exception as e:
                     logger.error(f"Error transforming data: {e}")
-                    logger.error(f"Data: {data}")
                     logger.error(f"Transform: {transform}")
-                    logger.error(f"Error: {e}")
                     if idx == 0:
                         logger.error("Error in first frame")
                         raise e

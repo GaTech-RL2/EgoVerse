@@ -1,18 +1,27 @@
 from __future__ import annotations
 
-from egomimic.rldb.embodiment.embodiment import Embodiment
-from egomimic.rldb.embodiment.eva import (
-    _viz_batch_palm_axes,
-    _viz_batch_palm_traj,
-)
+from typing import Literal
+
+import numpy as np
+
+from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
     PoseCoordinateFrameTransform,
+    Reshape,
+    SplitKeys,
     Transform,
     XYZWXYZ_to_XYZYPR,
+)
+from egomimic.utils.type_utils import _to_numpy
+from egomimic.utils.viz_utils import (
+    ColorPalette,
+    _viz_axes,
+    _viz_keypoints,
+    _viz_traj,
 )
 
 
@@ -22,75 +31,259 @@ class Human(Embodiment):
     ACTION_STRIDE = 3
 
     @classmethod
-    def get_transform_list(cls) -> list[Transform]:
-        return _build_aria_bimanual_transform_list(stride=cls.ACTION_STRIDE)
+    def viz_keypoints_gt_preds(
+        cls, predictions, batch, image_key, action_key, transform_list=None, **kwargs
+    ):
+        if transform_list is not None:
+            batch = cls.apply_transform(batch, transform_list)
+        embodiment_id = batch["embodiment"][0].item()
+        embodiment_name = get_embodiment(embodiment_id).lower()
+
+        images = batch[image_key]
+        actions = batch[action_key]
+        pred_actions = predictions[f"{embodiment_name}_{action_key}"]
+        ims_list = []
+        images = _to_numpy(images)
+        actions = _to_numpy(actions)
+        pred_actions = _to_numpy(pred_actions)
+        for i in range(images.shape[0]):
+            image = images[i]
+            action = actions[i]
+            pred_action = pred_actions[i]
+            ims = cls.viz(image, action, mode="keypoints", color="Reds", **kwargs)
+            ims = cls.viz(ims, pred_action, mode="keypoints", color="Greens", **kwargs)
+            ims_list.append(ims)
+        ims = np.stack(ims_list, axis=0)
+        return ims
 
     @classmethod
-    def viz_transformed_batch(cls, batch, mode=""):
-        image_key = cls.VIZ_IMAGE_KEY
-        action_key = "actions_cartesian"
+    def viz_transformed_batch(
+        cls,
+        batch,
+        mode=Literal["traj", "axes", "keypoints"],
+        action_key="actions_cartesian",
+        image_key=None,
+        transform_list=None,
+        **kwargs,
+    ):
+        if transform_list is not None:
+            batch = cls.apply_transform(batch, transform_list)
+
+        image_key = image_key or cls.VIZ_IMAGE_KEY
+        action_key = action_key or "actions_cartesian"
         intrinsics_key = cls.VIZ_INTRINSICS_KEY
-        mode = (mode or "palm_traj").lower()
+        mode = (mode or "traj").lower()
+        images = _to_numpy(batch[image_key][0])
+        actions = _to_numpy(batch[action_key][0])
 
-        if mode == "palm_traj":
-            return _viz_batch_palm_traj(
-                batch=batch,
-                image_key=image_key,
-                action_key=action_key,
-                intrinsics_key=intrinsics_key,
-            )
-        if mode == "palm_axes":
-            return _viz_batch_palm_axes(
-                batch=batch,
-                image_key=image_key,
-                action_key=action_key,
-                intrinsics_key=intrinsics_key,
-            )
-        if mode == "keypoints":
-            raise NotImplementedError(
-                "mode='keypoints' is reserved and not implemented yet."
-            )
-
-        raise ValueError(
-            f"Unsupported mode '{mode}'. Expected one of: "
-            f"('palm_traj', 'palm_axes', 'keypoints')."
+        return cls.viz(
+            images=images,
+            actions=actions,
+            mode=mode,
+            intrinsics_key=intrinsics_key,
+            **kwargs,
         )
 
     @classmethod
-    def get_keymap(cls):
-        return {
-            cls.VIZ_IMAGE_KEY: {
-                "key_type": "camera_keys",
-                "zarr_key": "images.front_1",
-            },
-            "right.action_ee_pose": {
-                "key_type": "action_keys",
-                "zarr_key": "right.obs_ee_pose",
-                "horizon": 30,
-            },
-            "left.action_ee_pose": {
-                "key_type": "action_keys",
-                "zarr_key": "left.obs_ee_pose",
-                "horizon": 30,
-            },
-            "right.obs_ee_pose": {
-                "key_type": "proprio_keys",
-                "zarr_key": "right.obs_ee_pose",
-            },
-            "left.obs_ee_pose": {
-                "key_type": "proprio_keys",
-                "zarr_key": "left.obs_ee_pose",
-            },
-            "obs_head_pose": {
-                "key_type": "proprio_keys",
-                "zarr_key": "obs_head_pose",
-            },
-        }
+    def viz(
+        cls,
+        images,
+        actions,
+        mode=Literal["traj", "axes", "keypoints"],
+        intrinsics_key=None,
+        **kwargs,
+    ):
+        intrinsics_key = intrinsics_key or cls.VIZ_INTRINSICS_KEY
+        if mode == "traj":
+            return _viz_traj(
+                images=images,
+                actions=actions,
+                intrinsics_key=intrinsics_key,
+                **kwargs,
+            )
+        if mode == "axes":
+            return _viz_axes(
+                images=images,
+                actions=actions,
+                intrinsics_key=intrinsics_key,
+                **kwargs,
+            )
+        if mode == "keypoints":
+            color = kwargs.get("color", None)
+            if color is not None and ColorPalette.is_valid(color):
+                n = len(cls.FINGER_COLORS)
+                colors = {
+                    finger: ColorPalette.to_rgb(color, value=(i + 1) / (n + 1))
+                    for i, finger in enumerate(cls.FINGER_COLORS)
+                }
+                dot_color = ColorPalette.to_rgb(color, value=0.7)
+            else:
+                colors = cls.FINGER_COLORS
+                dot_color = cls.DOT_COLOR
+
+            return _viz_keypoints(
+                images=images,
+                actions=actions,
+                intrinsics_key=intrinsics_key,
+                edges=cls.FINGER_EDGES,
+                edge_ranges=cls.FINGER_EDGE_RANGES,
+                colors=colors,
+                dot_color=dot_color,
+                **kwargs,
+            )
+        raise ValueError(
+            f"Unsupported mode '{mode}'. Expected one of: "
+            f"('traj', 'axes', 'keypoints')."
+        )
+
+    @classmethod
+    def get_keymap(cls, mode: Literal["cartesian", "keypoints"]):
+        if mode == "cartesian":
+            key_map = {
+                cls.VIZ_IMAGE_KEY: {
+                    "key_type": "camera_keys",
+                    "zarr_key": "images.front_1",
+                },
+                "right.action_ee_pose": {
+                    "key_type": "action_keys",
+                    "zarr_key": "right.obs_ee_pose",
+                    "horizon": 30,
+                },
+                "left.action_ee_pose": {
+                    "key_type": "action_keys",
+                    "zarr_key": "left.obs_ee_pose",
+                    "horizon": 30,
+                },
+                "right.obs_ee_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_ee_pose",
+                },
+                "left.obs_ee_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_ee_pose",
+                },
+                "obs_head_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "obs_head_pose",
+                },
+            }
+        elif mode == "keypoints":
+            key_map = {
+                cls.VIZ_IMAGE_KEY: {
+                    "key_type": "camera_keys",
+                    "zarr_key": "images.front_1",
+                },
+                "left.action_keypoints": {
+                    "key_type": "action_keys",
+                    "zarr_key": "left.obs_keypoints",
+                    "horizon": 30,
+                },
+                "right.action_keypoints": {
+                    "key_type": "action_keys",
+                    "zarr_key": "right.obs_keypoints",
+                    "horizon": 30,
+                },
+                "left.action_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_wrist_pose",
+                    "horizon": 30,
+                },
+                "right.action_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_wrist_pose",
+                    "horizon": 30,
+                },
+                "left.obs_keypoints": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_keypoints",
+                },
+                "right.obs_keypoints": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_keypoints",
+                },
+                "left.obs_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_wrist_pose",
+                },
+                "right.obs_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_wrist_pose",
+                },
+                "obs_head_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "obs_head_pose",
+                },
+            }
+        else:
+            raise ValueError(
+                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints'."
+            )
+        return key_map
 
 
 class Aria(Human):
     VIZ_INTRINSICS_KEY = "base"
     ACTION_STRIDE = 3
+    FINGER_EDGES = [
+        (
+            5,
+            6,
+        ),
+        (6, 7),
+        (7, 0),  # thumb
+        (5, 8),
+        (8, 9),
+        (9, 10),
+        (9, 1),  # index
+        (5, 11),
+        (11, 12),
+        (12, 13),
+        (13, 2),  # middle
+        (5, 14),
+        (14, 15),
+        (15, 16),
+        (16, 3),  # ring
+        (5, 17),
+        (17, 18),
+        (18, 19),
+        (19, 4),  # pinky
+    ]
+    FINGER_COLORS = {
+        "thumb": (255, 100, 100),  # red
+        "index": (100, 255, 100),  # green
+        "middle": (100, 100, 255),  # blue
+        "ring": (255, 255, 100),  # yellow
+        "pinky": (255, 100, 255),  # magenta
+    }
+    FINGER_EDGE_RANGES = [
+        ("thumb", 0, 3),
+        ("index", 3, 6),
+        ("middle", 6, 9),
+        ("ring", 9, 12),
+        ("pinky", 12, 15),
+    ]
+    DOT_COLOR = (255, 165, 0)
+
+    @classmethod
+    def get_transform_list(
+        cls, mode: Literal["cartesian", "keypoints_headframe", "keypoints_wristframe"]
+    ) -> list[Transform]:
+        if mode == "cartesian":
+            return _build_aria_cartesian_bimanual_transform_list(
+                stride=cls.ACTION_STRIDE
+            )
+        elif mode == "keypoints":
+            return _build_aria_keypoints_bimanual_transform_list(
+                stride=cls.ACTION_STRIDE
+            )
+        elif mode == "keypoints_wristframe":
+            return _build_aria_keypoints_eef_frame_transform_list(
+                stride=cls.ACTION_STRIDE
+            )
+        else:
+            raise ValueError(
+                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints', 'keypoints_wristframe'."
+            )
 
 
 class Scale(Human):
@@ -103,7 +296,428 @@ class Mecka(Human):
     ACTION_STRIDE = 1
 
 
-def _build_aria_bimanual_transform_list(
+def _build_aria_keypoints_revert_eef_frame_transform_list(
+    *,
+    action_key: str = "actions_keypoints",
+    left_keypoints_action_wristframe: str = "left.action_keypoints_wristframe",
+    right_keypoints_action_wristframe: str = "right.action_keypoints_wristframe",
+    left_wrist_obs_headframe: str = "left.obs_wrist_pose_headframe",
+    right_wrist_obs_headframe: str = "right.obs_wrist_pose_headframe",
+    left_wrist_action_headframe: str = "left.action_wrist_pose_headframe",
+    right_wrist_action_headframe: str = "right.action_wrist_pose_headframe",
+) -> list[Transform]:
+    transform_list = [
+        SplitKeys(
+            input_key=action_key,
+            output_key_list=[
+                (left_keypoints_action_wristframe, 63),
+                (right_keypoints_action_wristframe, 63),
+            ],
+        ),
+        Reshape(
+            input_key=left_keypoints_action_wristframe,
+            output_key=left_keypoints_action_wristframe,
+            shape=(100, 21, 3),
+        ),
+        Reshape(
+            input_key=right_keypoints_action_wristframe,
+            output_key=right_keypoints_action_wristframe,
+            shape=(100, 21, 3),
+        ),
+        ActionChunkCoordinateFrameTransform(
+            target_world=left_wrist_obs_headframe,
+            chunk_world=left_keypoints_action_wristframe,
+            transformed_key_name=left_wrist_action_headframe,
+            mode="xyz",
+            inverse=False,
+        ),
+        ActionChunkCoordinateFrameTransform(
+            target_world=right_wrist_obs_headframe,
+            chunk_world=right_keypoints_action_wristframe,
+            transformed_key_name=right_wrist_action_headframe,
+            mode="xyz",
+            inverse=False,
+        ),
+        Reshape(
+            input_key=left_wrist_action_headframe,
+            output_key=left_wrist_action_headframe,
+            shape=(100, 63),
+        ),
+        Reshape(
+            input_key=right_wrist_action_headframe,
+            output_key=right_wrist_action_headframe,
+            shape=(100, 63),
+        ),
+        ConcatKeys(
+            key_list=[
+                left_wrist_action_headframe,
+                right_wrist_action_headframe,
+            ],
+            new_key_name=action_key,
+            delete_old_keys=True,
+        ),
+    ]
+    return transform_list
+
+
+def _build_aria_keypoints_eef_frame_transform_list(
+    *,
+    target_world: str = "obs_head_pose",
+    target_world_ypr: str = "obs_head_pose_ypr",
+    target_world_is_quat: bool = True,
+    left_keypoints_action_world: str = "left.action_keypoints",
+    right_keypoints_action_world: str = "right.action_keypoints",
+    left_keypoints_obs_pose: str = "left.obs_keypoints",
+    right_keypoints_obs_pose: str = "right.obs_keypoints",
+    left_keypoints_action_headframe: str = "left.action_keypoints_headframe",
+    right_keypoints_action_headframe: str = "right.action_keypoints_headframe",
+    left_keypoints_obs_headframe: str = "left.obs_keypoints_headframe",
+    right_keypoints_obs_headframe: str = "right.obs_keypoints_headframe",
+    left_wrist_action_world: str = "left.action_wrist_pose",
+    right_wrist_action_world: str = "right.action_wrist_pose",
+    left_keypoints_action_wristframe: str = "left.action_keypoints_wristframe",
+    right_keypoints_action_wristframe: str = "right.action_keypoints_wristframe",
+    left_wrist_action_wristframe: str = "left.action_wrist_pose_wristframe",
+    right_wrist_action_wristframe: str = "right.action_wrist_pose_wristframe",
+    left_wrist_obs_pose: str = "left.obs_wrist_pose",
+    right_wrist_obs_pose: str = "right.obs_wrist_pose",
+    left_wrist_action_headframe: str = "left.action_wrist_pose_headframe",
+    right_wrist_action_headframe: str = "right.action_wrist_pose_headframe",
+    left_wrist_obs_headframe: str = "left.obs_wrist_pose_headframe",
+    right_wrist_obs_headframe: str = "right.obs_wrist_pose_headframe",
+    left_keypoints_obs_wristframe: str = "left.obs_keypoints_wristframe",
+    right_keypoints_obs_wristframe: str = "right.obs_keypoints_wristframe",
+    delete_target_world: bool = True,
+    chunk_length: int = 100,
+    stride: int = 3,
+) -> list[Transform]:
+    transform_list = _build_aria_keypoints_bimanual_transform_list(
+        target_world=target_world,
+        target_world_ypr=target_world_ypr,
+        target_world_is_quat=target_world_is_quat,
+        delete_target_world=delete_target_world,
+        chunk_length=chunk_length,
+        stride=stride,
+        concat_keys=False,
+    )
+    delete_keys = [
+        left_keypoints_action_world,
+        right_keypoints_action_world,
+        left_keypoints_obs_pose,
+        right_keypoints_obs_pose,
+        left_wrist_action_world,
+        right_wrist_action_world,
+        left_wrist_obs_pose,
+        right_wrist_obs_pose,
+        left_keypoints_action_headframe,
+        right_keypoints_action_headframe,
+        left_keypoints_obs_headframe,
+        right_keypoints_obs_headframe,
+        left_wrist_action_headframe,
+        right_wrist_action_headframe,
+    ]
+    if delete_target_world:
+        delete_keys.append(target_world)
+        if target_world_is_quat:
+            delete_keys.append(target_world_ypr)
+    transform_list.extend(
+        [
+            Reshape(
+                input_key=left_keypoints_action_headframe,
+                output_key=left_keypoints_action_headframe,
+                shape=(chunk_length, 21, 3),
+            ),
+            Reshape(
+                input_key=right_keypoints_action_headframe,
+                output_key=right_keypoints_action_headframe,
+                shape=(chunk_length, 21, 3),
+            ),
+            ActionChunkCoordinateFrameTransform(
+                target_world=left_wrist_obs_headframe,
+                chunk_world=left_keypoints_action_headframe,
+                transformed_key_name=left_keypoints_action_wristframe,
+                mode="xyz",
+            ),
+            ActionChunkCoordinateFrameTransform(
+                target_world=right_wrist_obs_headframe,
+                chunk_world=right_keypoints_action_headframe,
+                transformed_key_name=right_keypoints_action_wristframe,
+                mode="xyz",
+            ),
+            Reshape(
+                input_key=left_keypoints_action_wristframe,
+                output_key=left_keypoints_action_wristframe,
+                shape=(chunk_length, 63),
+            ),
+            Reshape(
+                input_key=right_keypoints_action_wristframe,
+                output_key=right_keypoints_action_wristframe,
+                shape=(chunk_length, 63),
+            ),
+            Reshape(
+                input_key=left_keypoints_obs_headframe,
+                output_key=left_keypoints_obs_headframe,
+                shape=(21, 3),
+            ),
+            Reshape(
+                input_key=right_keypoints_obs_headframe,
+                output_key=right_keypoints_obs_headframe,
+                shape=(21, 3),
+            ),
+            PoseCoordinateFrameTransform(
+                target_world=left_wrist_obs_headframe,
+                pose_world=left_keypoints_obs_headframe,
+                transformed_key_name=left_keypoints_obs_wristframe,
+                mode="xyz",
+            ),
+            PoseCoordinateFrameTransform(
+                target_world=right_wrist_obs_headframe,
+                pose_world=right_keypoints_obs_headframe,
+                transformed_key_name=right_keypoints_obs_wristframe,
+                mode="xyz",
+            ),
+            Reshape(
+                input_key=left_keypoints_obs_wristframe,
+                output_key=left_keypoints_obs_wristframe,
+                shape=(63,),
+            ),
+            Reshape(
+                input_key=right_keypoints_obs_wristframe,
+                output_key=right_keypoints_obs_wristframe,
+                shape=(63,),
+            ),
+        ]
+    )
+    transform_list.extend(
+        [
+            ConcatKeys(
+                key_list=[
+                    left_keypoints_action_wristframe,
+                    right_keypoints_action_wristframe,
+                ],
+                new_key_name="actions_keypoints",
+                delete_old_keys=True,
+            ),
+            ConcatKeys(
+                key_list=[
+                    left_keypoints_obs_wristframe,
+                    right_keypoints_obs_wristframe,
+                ],
+                new_key_name="observations.state.keypoints",
+                delete_old_keys=True,
+            ),
+            ConcatKeys(
+                key_list=[
+                    left_wrist_obs_headframe,
+                    right_wrist_obs_headframe,
+                ],
+                new_key_name="observations.state.wrist_pose",
+                delete_old_keys=False,
+            ),
+            DeleteKeys(keys_to_delete=delete_keys),
+        ]
+    )
+    return transform_list
+
+
+def _build_aria_keypoints_bimanual_transform_list(
+    *,
+    target_world: str = "obs_head_pose",
+    target_world_ypr: str = "obs_head_pose_ypr",
+    target_world_is_quat: bool = True,
+    left_keypoints_action_world: str = "left.action_keypoints",
+    right_keypoints_action_world: str = "right.action_keypoints",
+    left_keypoints_obs_pose: str = "left.obs_keypoints",
+    right_keypoints_obs_pose: str = "right.obs_keypoints",
+    left_keypoints_action_headframe: str = "left.action_keypoints_headframe",
+    right_keypoints_action_headframe: str = "right.action_keypoints_headframe",
+    left_keypoints_obs_headframe: str = "left.obs_keypoints_headframe",
+    right_keypoints_obs_headframe: str = "right.obs_keypoints_headframe",
+    left_wrist_action_world: str = "left.action_wrist_pose",
+    right_wrist_action_world: str = "right.action_wrist_pose",
+    left_wrist_obs_pose: str = "left.obs_wrist_pose",
+    right_wrist_obs_pose: str = "right.obs_wrist_pose",
+    left_wrist_action_headframe: str = "left.action_wrist_pose_headframe",
+    right_wrist_action_headframe: str = "right.action_wrist_pose_headframe",
+    left_wrist_obs_headframe: str = "left.obs_wrist_pose_headframe",
+    right_wrist_obs_headframe: str = "right.obs_wrist_pose_headframe",
+    delete_target_world: bool = True,
+    chunk_length: int = 100,
+    stride: int = 3,
+    concat_keys: bool = True,
+) -> list[Transform]:
+    keys_to_delete = list(
+        {
+            left_keypoints_action_world,
+            right_keypoints_action_world,
+            left_keypoints_obs_pose,
+            right_keypoints_obs_pose,
+            left_wrist_action_world,
+            right_wrist_action_world,
+            left_wrist_obs_pose,
+            right_wrist_obs_pose,
+            left_keypoints_action_headframe,
+            right_keypoints_action_headframe,
+            left_keypoints_obs_headframe,
+            right_keypoints_obs_headframe,
+            left_wrist_action_headframe,
+            right_wrist_action_headframe,
+            left_wrist_obs_headframe,
+            right_wrist_obs_headframe,
+        }
+    )
+    if delete_target_world:
+        keys_to_delete.append(target_world)
+        if target_world_is_quat:
+            keys_to_delete.append(target_world_ypr)
+    transform_list: list[Transform] = [
+        Reshape(
+            input_key=left_keypoints_action_world,
+            output_key=left_keypoints_action_world,
+            shape=(30, 21, 3),
+        ),
+        Reshape(
+            input_key=right_keypoints_action_world,
+            output_key=right_keypoints_action_world,
+            shape=(30, 21, 3),
+        ),
+        ActionChunkCoordinateFrameTransform(
+            target_world=target_world,
+            chunk_world=left_keypoints_action_world,
+            transformed_key_name=left_keypoints_action_headframe,
+            mode="xyz",
+        ),
+        ActionChunkCoordinateFrameTransform(
+            target_world=target_world,
+            chunk_world=right_keypoints_action_world,
+            transformed_key_name=right_keypoints_action_headframe,
+            mode="xyz",
+        ),
+        Reshape(
+            input_key=left_keypoints_obs_pose,
+            output_key=left_keypoints_obs_pose,
+            shape=(21, 3),
+        ),
+        Reshape(
+            input_key=right_keypoints_obs_pose,
+            output_key=right_keypoints_obs_pose,
+            shape=(21, 3),
+        ),
+        PoseCoordinateFrameTransform(
+            target_world=target_world,
+            pose_world=left_keypoints_obs_pose,
+            transformed_key_name=left_keypoints_obs_headframe,
+            mode="xyz",
+        ),
+        PoseCoordinateFrameTransform(
+            target_world=target_world,
+            pose_world=right_keypoints_obs_pose,
+            transformed_key_name=right_keypoints_obs_headframe,
+            mode="xyz",
+        ),
+        Reshape(
+            input_key=left_keypoints_obs_headframe,
+            output_key=left_keypoints_obs_headframe,
+            shape=(63,),
+        ),
+        Reshape(
+            input_key=right_keypoints_obs_headframe,
+            output_key=right_keypoints_obs_headframe,
+            shape=(63,),
+        ),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=left_keypoints_action_headframe,
+            output_action_key=left_keypoints_action_headframe,
+            stride=stride,
+            mode="xyz",
+        ),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=right_keypoints_action_headframe,
+            output_action_key=right_keypoints_action_headframe,
+            stride=stride,
+            mode="xyz",
+        ),
+        Reshape(
+            input_key=left_keypoints_action_headframe,
+            output_key=left_keypoints_action_headframe,
+            shape=(chunk_length, 63),
+        ),
+        Reshape(
+            input_key=right_keypoints_action_headframe,
+            output_key=right_keypoints_action_headframe,
+            shape=(chunk_length, 63),
+        ),
+        ActionChunkCoordinateFrameTransform(
+            target_world=target_world,
+            chunk_world=left_wrist_action_world,
+            transformed_key_name=left_wrist_action_headframe,
+            mode="xyzwxyz",
+        ),
+        ActionChunkCoordinateFrameTransform(
+            target_world=target_world,
+            chunk_world=right_wrist_action_world,
+            transformed_key_name=right_wrist_action_headframe,
+            mode="xyzwxyz",
+        ),
+        PoseCoordinateFrameTransform(
+            target_world=target_world,
+            pose_world=left_wrist_obs_pose,
+            transformed_key_name=left_wrist_obs_headframe,
+            mode="xyzwxyz",
+        ),
+        PoseCoordinateFrameTransform(
+            target_world=target_world,
+            pose_world=right_wrist_obs_pose,
+            transformed_key_name=right_wrist_obs_headframe,
+            mode="xyzwxyz",
+        ),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=left_wrist_action_headframe,
+            output_action_key=left_wrist_action_headframe,
+            stride=stride,
+            mode="xyzwxyz",
+        ),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=right_wrist_action_headframe,
+            output_action_key=right_wrist_action_headframe,
+            stride=stride,
+            mode="xyzwxyz",
+        ),
+    ]
+    if concat_keys:
+        transform_list.extend(
+            [
+                ConcatKeys(
+                    key_list=[
+                        left_wrist_action_headframe,
+                        left_keypoints_action_headframe,
+                        right_wrist_action_headframe,
+                        right_keypoints_action_headframe,
+                    ],
+                    new_key_name="actions_keypoints",
+                    delete_old_keys=True,
+                ),
+                ConcatKeys(
+                    key_list=[
+                        left_wrist_obs_headframe,
+                        left_keypoints_obs_headframe,
+                        right_wrist_obs_headframe,
+                        right_keypoints_obs_headframe,
+                    ],
+                    new_key_name="observations.state.keypoints",
+                    delete_old_keys=True,
+                ),
+                DeleteKeys(keys_to_delete=keys_to_delete),
+            ]
+        )
+    return transform_list
+
+
+def _build_aria_cartesian_bimanual_transform_list(
     *,
     target_world: str = "obs_head_pose",
     target_world_ypr: str = "obs_head_pose_ypr",
@@ -147,39 +761,39 @@ def _build_aria_bimanual_transform_list(
             target_world=target_pose_key,
             chunk_world=left_action_world,
             transformed_key_name=left_action_headframe,
-            is_quat=target_world_is_quat,
+            mode="xyzwxyz",
         ),
         ActionChunkCoordinateFrameTransform(
             target_world=target_pose_key,
             chunk_world=right_action_world,
             transformed_key_name=right_action_headframe,
-            is_quat=target_world_is_quat,
+            mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
             target_world=target_pose_key,
             pose_world=left_obs_pose,
             transformed_key_name=left_obs_headframe,
-            is_quat=target_world_is_quat,
+            mode="xyzwxyz",
         ),
         PoseCoordinateFrameTransform(
             target_world=target_pose_key,
             pose_world=right_obs_pose,
             transformed_key_name=right_obs_headframe,
-            is_quat=target_world_is_quat,
+            mode="xyzwxyz",
         ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_action_headframe,
             output_action_key=left_action_headframe,
             stride=stride,
-            is_quat=target_world_is_quat,
+            mode="xyzwxyz",
         ),
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=right_action_headframe,
             output_action_key=right_action_headframe,
             stride=stride,
-            is_quat=target_world_is_quat,
+            mode="xyzwxyz",
         ),
     ]
 

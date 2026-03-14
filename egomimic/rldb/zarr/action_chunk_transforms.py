@@ -13,19 +13,24 @@ matching the behaviour of egomimicUtils.interpolate_arr_euler.
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import Literal
 
 import numpy as np
+import torch
 from projectaria_tools.core.sophus import SE3
 from scipy.spatial.transform import Rotation as R
-import torch
 
 from egomimic.utils.pose_utils import (
     _interpolate_euler,
     _interpolate_linear,
     _interpolate_quat_wxyz,
+    _interpolate_xyz,
+    _matrix_to_xyz,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
+    _xyz_to_matrix,
     _xyzwxyz_to_matrix,
+    _xyzypr_to_matrix,
 )
 
 # ---------------------------------------------------------------------------
@@ -56,7 +61,7 @@ class InterpolatePose(Transform):
         action_key: str,
         output_action_key: str,
         stride: int = 1,
-        is_quat: bool = False,
+        mode: Literal["xyzwxyz", "xyzypr"] = "xyzwxyz",
     ):
         if stride <= 0:
             raise ValueError(f"stride must be positive, got {stride}")
@@ -64,12 +69,12 @@ class InterpolatePose(Transform):
         self.action_key = action_key
         self.output_action_key = output_action_key
         self.stride = int(stride)
-        self.is_quat = is_quat
+        self.mode = mode
 
     def transform(self, batch: dict) -> dict:
         actions = np.asarray(batch[self.action_key])
         actions = actions[:: self.stride]
-        if self.is_quat:
+        if self.mode == "xyzwxyz":
             if actions.ndim != 2 or actions.shape[-1] != 7:
                 raise ValueError(
                     f"InterpolatePose expects (T, 7) when is_quat=True, got "
@@ -78,13 +83,22 @@ class InterpolatePose(Transform):
             batch[self.output_action_key] = _interpolate_quat_wxyz(
                 actions, self.new_chunk_length
             )
-        else:
+        elif self.mode == "xyzypr":
             if actions.ndim != 2 or actions.shape[-1] != 6:
                 raise ValueError(
                     f"InterpolatePose expects (T, 6), got {actions.shape} for key "
                     f"'{self.action_key}'"
                 )
             batch[self.output_action_key] = _interpolate_euler(
+                actions, self.new_chunk_length
+            )
+        else:
+            if actions.shape[-1] != 3:
+                raise ValueError(
+                    f"InterpolatePose expects (T, 3) or (T, K, 3), got {actions.shape} for key "
+                    f"'{self.action_key}'"
+                )
+            batch[self.output_action_key] = _interpolate_xyz(
                 actions, self.new_chunk_length
             )
         return batch
@@ -126,27 +140,6 @@ class InterpolateLinear(Transform):
 # ---------------------------------------------------------------------------
 
 
-def _xyzypr_to_matrix(xyzypr: np.ndarray) -> np.ndarray:
-    """
-    args:
-        xyzypr: (B, 6) np.array of [[x, y, z, yaw, pitch, roll]]
-    returns:
-        (B, 4, 4) array of SE3 transformation matrices
-    """
-    if xyzypr.ndim != 2 or xyzypr.shape[-1] != 6:
-        raise ValueError(f"Expected (B, 6) array, got shape {xyzypr.shape}")
-
-    B = xyzypr.shape[0]
-    dtype = xyzypr.dtype if np.issubdtype(xyzypr.dtype, np.floating) else np.float64
-
-    mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
-    # Input is [yaw, pitch, roll], so use ZYX order (Rz @ Ry @ Rx).
-    mats[:, :3, :3] = R.from_euler("ZYX", xyzypr[:, 3:6], degrees=False).as_matrix()
-    mats[:, :3, 3] = xyzypr[:, :3]
-
-    return mats
-
-
 class ActionChunkCoordinateFrameTransform(Transform):
     def __init__(
         self,
@@ -154,7 +147,8 @@ class ActionChunkCoordinateFrameTransform(Transform):
         chunk_world: str,
         transformed_key_name: str,
         extra_batch_key: dict = None,
-        is_quat: bool = False,
+        mode: Literal["xyz", "xyzwxyz", "xyzypr"] = "xyzwxyz",
+        inverse: bool = True,
     ):
         """
         args:
@@ -167,7 +161,8 @@ class ActionChunkCoordinateFrameTransform(Transform):
         self.chunk_world = chunk_world
         self.transformed_key_name = transformed_key_name
         self.extra_batch_key = extra_batch_key
-        self.is_quat = is_quat
+        self.mode = mode
+        self.inverse = inverse
 
     def transform(self, batch):
         """
@@ -183,25 +178,56 @@ class ActionChunkCoordinateFrameTransform(Transform):
                 if is_quat=False: (T, 6) xyz + ypr
                 if is_quat=True: (T, 7) xyz + quat(wxyz)
         """
+        # flatten to (T, D)
+        # target world is head pose, chunk world is keypoints
         batch.update(self.extra_batch_key or {})
         target_world = np.asarray(batch[self.target_world])
         chunk_world = np.asarray(batch[self.chunk_world])
-        to_matrix_fn = _xyzwxyz_to_matrix if self.is_quat else _xyzypr_to_matrix
+        chunk_world_shape = None
 
+        if chunk_world.ndim > 2:
+            chunk_world_shape = chunk_world.shape
+            chunk_world = chunk_world.reshape(-1, chunk_world_shape[-1])
+
+        to_matrix_fn = None
+        if self.mode == "xyzwxyz":
+            to_matrix_fn = _xyzwxyz_to_matrix
+        elif self.mode == "xyzypr":
+            to_matrix_fn = _xyzypr_to_matrix
+        elif self.mode == "xyz":
+            to_matrix_fn = _xyz_to_matrix
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")
+
+        target_world_to_matrix_fn = (
+            _xyzwxyz_to_matrix if target_world.shape[-1] == 7 else _xyzypr_to_matrix
+        )
         # Convert to SE3 for transformation
-        target_se3 = SE3.from_matrix(to_matrix_fn(target_world[None, :])[0])  # (4, 4)
+        target_se3 = SE3.from_matrix(
+            target_world_to_matrix_fn(target_world[None, :])[0]
+        )  # (4, 4)
         chunk_se3 = SE3.from_matrix(to_matrix_fn(chunk_world))  # (T, 4, 4)
 
         # Compute relative transform and apply to chunk
-        chunk_in_target_frame = target_se3.inverse() @ chunk_se3
+        if self.inverse:
+            chunk_in_target_frame = target_se3.inverse() @ chunk_se3
+        else:
+            chunk_in_target_frame = target_se3 @ chunk_se3
         chunk_mats = chunk_in_target_frame.to_matrix()
         if chunk_mats.ndim == 2:
             chunk_mats = chunk_mats[None, ...]
-        chunk_in_target_frame = (
-            _matrix_to_xyzwxyz(chunk_mats)
-            if self.is_quat
-            else _matrix_to_xyzypr(chunk_mats)
-        )
+
+        if self.mode == "xyzwxyz":
+            chunk_in_target_frame = _matrix_to_xyzwxyz(chunk_mats)
+        elif self.mode == "xyzypr":
+            chunk_in_target_frame = _matrix_to_xyzypr(chunk_mats)
+        elif self.mode == "xyz":
+            chunk_in_target_frame = _matrix_to_xyz(chunk_mats)
+        else:
+            raise ValueError(f"Invalid mode: {self.mode}")
+
+        if chunk_world_shape is not None:
+            chunk_in_target_frame = chunk_in_target_frame.reshape(*chunk_world_shape)
 
         # Store transformed chunk back in batch
         batch[self.transformed_key_name] = chunk_in_target_frame
@@ -237,27 +263,21 @@ class PoseCoordinateFrameTransform(Transform):
         target_world: str,
         pose_world: str,
         transformed_key_name: str,
-        is_quat: bool = False,
+        mode: Literal["xyzwxyz", "xyzypr", "xyz"] = "xyzwxyz",
     ):
         self.target_world = target_world
         self.pose_world = pose_world
         self.transformed_key_name = transformed_key_name
-        self.is_quat = is_quat
+        self.mode = mode
         self._chunk_transform = ActionChunkCoordinateFrameTransform(
             target_world=target_world,
             chunk_world=pose_world,
             transformed_key_name=transformed_key_name,
-            is_quat=is_quat,
+            mode=mode,
         )
 
     def transform(self, batch: dict) -> dict:
         pose_world = np.asarray(batch[self.pose_world])
-        expected_shape = (7,) if self.is_quat else (6,)
-        if pose_world.shape != expected_shape:
-            raise ValueError(
-                f"Expected pose_world shape {expected_shape}, got {pose_world.shape}"
-            )
-
         transformed = self._chunk_transform.transform(
             {
                 self.target_world: batch[self.target_world],
@@ -390,6 +410,17 @@ class CartesianWithGripperCoordinateTransform(Transform):
 # ---------------------------------------------------------------------------
 # Shape Transforms
 # ---------------------------------------------------------------------------
+class SplitKeys(Transform):
+    def __init__(self, input_key: str, output_key_list: list[(str, int)]):
+        self.input_key = input_key
+        self.output_key_list = list(output_key_list)
+
+    def transform(self, batch: dict) -> dict:
+        prev_end = 0
+        for key, size in self.output_key_list:
+            batch[key] = batch[self.input_key][..., prev_end : prev_end + size]
+            prev_end += size
+        return batch
 
 
 class ConcatKeys(Transform):
@@ -414,9 +445,22 @@ class ConcatKeys(Transform):
 
         return batch
 
+
+class Reshape(Transform):
+    def __init__(self, input_key: str, output_key: str, shape: tuple):
+        self.input_key = input_key
+        self.output_key = output_key
+        self.shape = shape
+
+    def transform(self, batch: dict) -> dict:
+        batch[self.output_key] = batch[self.input_key].reshape(*self.shape)
+        return batch
+
+
 # ---------------------------------------------------------------------------
 # Type Transforms
 # ---------------------------------------------------------------------------
+
 
 class NumpyToTensor(Transform):
     def __init__(self, keys: list[str]):
@@ -429,5 +473,7 @@ class NumpyToTensor(Transform):
             elif isinstance(batch[key], torch.Tensor):
                 batch[key] = batch[key].clone()
             else:
-                raise ValueError(f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}")
+                raise ValueError(
+                    f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
+                )
         return batch

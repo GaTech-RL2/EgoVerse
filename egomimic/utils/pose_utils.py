@@ -80,6 +80,14 @@ def _interpolate_quat_wxyz(seq: np.ndarray, chunk_length: int) -> np.ndarray:
     )
 
 
+def _interpolate_xyz(seq: np.ndarray, chunk_length: int) -> np.ndarray:
+    """Linear interpolation for arbitrary (T, 3) arrays or (T, K, 3) arrays."""
+    T = seq.shape[0]
+    old_time = np.linspace(0, 1, T)
+    new_time = np.linspace(0, 1, chunk_length)
+    return interp1d(old_time, seq, axis=0, kind="linear")(new_time)
+
+
 def _matrix_to_xyzypr(mats: np.ndarray) -> np.ndarray:
     """
     args:
@@ -97,6 +105,24 @@ def _matrix_to_xyzypr(mats: np.ndarray) -> np.ndarray:
     ypr = R.from_matrix(mats[:, :3, :3]).as_euler("ZYX", degrees=False)
 
     return np.concatenate([xyz, ypr], axis=-1).astype(dtype, copy=False)
+
+
+def _xyzypr_to_matrix(xyzypr: np.ndarray) -> np.ndarray:
+    """
+    args:
+        xyzypr: (B, 6) np.array of [[x, y, z, yaw, pitch, roll]]
+    returns:
+        (B, 4, 4) array of SE3 transformation matrices
+    """
+    if xyzypr.ndim != 2 or xyzypr.shape[-1] != 6:
+        raise ValueError(f"Expected (B, 6) array, got shape {xyzypr.shape}")
+    B = xyzypr.shape[0]
+    dtype = xyzypr.dtype if np.issubdtype(xyzypr.dtype, np.floating) else np.float64
+
+    mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
+    mats[:, :3, :3] = R.from_euler("ZYX", xyzypr[:, 3:6], degrees=False).as_matrix()
+    mats[:, :3, 3] = xyzypr[:, :3]
+    return mats
 
 
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:
@@ -139,3 +165,73 @@ def _xyzwxyz_to_matrix(xyzwxyz: np.ndarray) -> np.ndarray:
     mats[:, :3, 3] = xyzwxyz[:, :3]
 
     return mats
+
+
+def _xyz_to_matrix(xyz: np.ndarray) -> np.ndarray:
+    """
+    args:
+        xyz: (B, 3) np.array of [[x, y, z]]
+    returns:
+        (B, 4, 4) array of SE3 transformation matrices
+    """
+    if xyz.ndim != 2 or xyz.shape[-1] != 3:
+        raise ValueError(f"Expected (B, 3) array, got shape {xyz.shape}")
+    B = xyz.shape[0]
+    dtype = xyz.dtype if np.issubdtype(xyz.dtype, np.floating) else np.float64
+    mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
+    mats[:, :3, 3] = xyz
+    return mats
+
+
+def _matrix_to_xyz(mats: np.ndarray) -> np.ndarray:
+    """
+    args:
+        mats: (B, 4, 4) array of SE3 transformation matrices
+    returns:
+        (B, 3) np.array of [[x, y, z]]
+    """
+    if mats.ndim != 3 or mats.shape[-2:] != (4, 4):
+        raise ValueError(f"Expected (B, 4, 4) array, got shape {mats.shape}")
+    mats = np.asarray(mats)
+    dtype = mats.dtype if np.issubdtype(mats.dtype, np.floating) else np.float64
+    return mats[:, :3, 3].astype(dtype, copy=False)
+
+
+def _split_action_pose(actions):
+    # 14D layout: [L xyz ypr g, R xyz ypr g]
+    # 12D layout: [L xyz ypr, R xyz ypr]
+    if actions.shape[-1] == 14:
+        left_xyz = actions[..., :3]
+        left_ypr = actions[..., 3:6]
+        right_xyz = actions[..., 7:10]
+        right_ypr = actions[..., 10:13]
+    elif actions.shape[-1] == 12:
+        left_xyz = actions[..., :3]
+        left_ypr = actions[..., 3:6]
+        right_xyz = actions[..., 6:9]
+        right_ypr = actions[..., 9:12]
+    else:
+        raise ValueError(f"Unsupported action dim {actions.shape[-1]}")
+    return left_xyz, left_ypr, right_xyz, right_ypr
+
+
+def _split_keypoints(keypoints, wrist_in_data: bool = False):
+    if wrist_in_data:
+        left_xyz = keypoints[..., :3]
+        left_wxyz = keypoints[..., 3:7]
+        left_keypoints = keypoints[..., 7:70]
+        right_xyz = keypoints[..., 70:73]
+        right_wxyz = keypoints[..., 73:77]
+        right_keypoints = keypoints[..., 77:140]
+        return (
+            left_xyz,
+            left_wxyz,
+            left_keypoints,
+            right_xyz,
+            right_wxyz,
+            right_keypoints,
+        )
+    else:
+        left_keypoints = keypoints[..., :63]
+        right_keypoints = keypoints[..., 63:]
+        return left_keypoints, right_keypoints
