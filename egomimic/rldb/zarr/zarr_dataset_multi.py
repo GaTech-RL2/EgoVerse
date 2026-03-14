@@ -488,6 +488,7 @@ class MultiDataset(torch.utils.data.Dataset):
         mode="train",
         percent=0.1,
         valid_ratio=0.2,
+        weight: float = 1.0,
         **kwargs,
     ):
         """
@@ -496,8 +497,11 @@ class MultiDataset(torch.utils.data.Dataset):
             mode (str, optional): Split mode to use (e.g., "train", "valid"). Defaults to "train".
             percent (float, optional): Fraction of the dataset to use from each underlying dataset. Defaults to 0.1.
             valid_ratio (float, optional): Validation split ratio for datasets that support a train/valid split.
+            weight (float, optional): This dataset's sampling weight relative to its siblings when nested inside another MultiDataset. Defaults to 1.0 (even weighting).
             **kwargs: Additional keyword arguments passed to underlying dataset constructors if needed.
         """
+        self.weight = weight
+
         self.train_collections, self.valid_collections = split_dataset_names(
             datasets.keys(), valid_ratio=valid_ratio, seed=SEED
         )
@@ -530,6 +534,56 @@ class MultiDataset(torch.utils.data.Dataset):
 
         super().__init__()
 
+    def _get_sample_weights(self) -> list[float]:
+        """
+        Compute per-sample weights aligned with self.index_map, resolving
+        weights recursively through nested MultiDatasets.
+
+        Returns:
+            List of float weights, one per entry in self.index_map, in the
+            same order as the index_map.
+        """
+        sample_weights: list[float] = []
+
+        for dataset in self.datasets.values():
+            if isinstance(dataset, MultiDataset):
+                inner = np.array(dataset._get_sample_weights(), dtype=float)
+                child_w = dataset.weight
+            else:
+                inner = np.ones(len(dataset), dtype=float)
+                child_w = 1.0
+
+            inner_sum = inner.sum()
+            if inner_sum > 0:
+                inner = inner / inner_sum  # normalize to sum-to-1 within child
+            inner = inner * child_w
+
+            sample_weights.extend(inner.tolist())
+
+        return sample_weights
+
+    def _generate_train_sampler(
+        self,
+        replacement: bool = True,
+    ) -> torch.utils.data.WeightedRandomSampler:
+        """
+        Build a WeightedRandomSampler whose per-sample probabilities reflect
+        the dataset weights assigned at construction time, resolved recursively
+        through any nested MultiDatasets.
+
+        Args:
+            replacement: Whether to sample with replacement. Defaults to True.
+
+        Returns:
+            A torch.utils.data.WeightedRandomSampler instance.
+        """
+        weights = self._get_sample_weights()
+        return torch.utils.data.WeightedRandomSampler(
+            weights=weights,
+            num_samples=len(self),
+            replacement=replacement,
+        )
+
     def __len__(self) -> int:
         return len(self.index_map)
 
@@ -544,13 +598,13 @@ class MultiDataset(torch.utils.data.Dataset):
         return data
 
     @classmethod
-    def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
+    def _from_resolver(cls, resolver: EpisodeResolver, weight: float = 1.0, **kwargs):
         """
         create a MultiDataset from an EpisodeResolver.
 
         Args:
             resolver (EpisodeResolver): The resolver instance to use for loading datasets.
-            embodiment: The embodiment identifier to use for resolving datasets.
+            weight (float, optional): Sampling weight for this dataset relative to its siblings when nested inside another MultiDataset. Defaults to 1.0.
             **kwargs: Keyword args forwarded to resolver (e.g., filters,
                 sync_from_s3) and MultiDataset constructor (e.g., mode, percent,
                 key_map, valid_ratio).
@@ -570,7 +624,7 @@ class MultiDataset(torch.utils.data.Dataset):
         else:
             resolved = resolver.resolve(filters=filters)
 
-        return cls(datasets=resolved, **kwargs)
+        return cls(datasets=resolved, weight=weight, **kwargs)
 
 
 class ZarrDataset(torch.utils.data.Dataset):
