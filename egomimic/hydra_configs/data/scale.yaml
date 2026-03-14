@@ -5,32 +5,42 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/scale
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset/scale
       key_map:
         _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
     filters:
-      episode_hash: "69199812208123403bbdb24f"
-    mode: total
+      task:
+        - "[flagship] Folding Clothes"
+        - "Folding Clothes"
+      lab: "scale"
+      robot_name: "scale_bimanual"
+      is_deleted: false
+    mode: train
 valid_datasets:
   scale_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/scale
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset/scale
       key_map:
         _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
     filters:
-      episode_hash: "69199812208123403bbdb24f"
-    mode: total
+      task:
+        - "Folding Clothes"
+        - "[flagship] Folding Clothes"
+      lab: "scale"
+      robot_name: "scale_bimanual"
+      is_deleted: false
+    mode: valid
 train_dataloader_params:
   scale_bimanual:
-    batch_size: 32
+    batch_size: 64
     num_workers: 10
 valid_dataloader_params:
   scale_bimanual:
-    batch_size: 32
+    batch_size: 64
     num_workers: 10

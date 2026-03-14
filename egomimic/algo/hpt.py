@@ -1,3 +1,4 @@
+import logging
 import os
 from collections import OrderedDict
 from functools import partial
@@ -25,6 +26,8 @@ from egomimic.utils.egomimicUtils import (
     get_sinusoid_encoding_table,
     reverse_kl_from_samples,
 )
+
+_log = logging.getLogger(__name__)
 
 
 class HPTModel(nn.Module):
@@ -979,6 +982,21 @@ class HPT(Algo):
             processed_batch[embodiment_id] = self.data_schematic.normalize_data(
                 processed_batch[embodiment_id], embodiment_id
             )
+
+            norm_actions = processed_batch[embodiment_id][ac_key]
+            bad_batch_mask = norm_actions.abs().amax(dim=(-1, -2)) > 5
+            if bad_batch_mask.any():
+                demo_numbers = processed_batch[embodiment_id].get("demo_number")
+                indices = processed_batch[embodiment_id].get("_index")
+                for i in bad_batch_mask.nonzero(as_tuple=True)[0].tolist():
+                    ep = demo_numbers[i].item() if demo_numbers is not None else "?"
+                    idx = indices[i].item() if indices is not None else "?"
+                    max_val = norm_actions[i].abs().amax().item()
+                    _log.warning(
+                        f"Post-normalization action value out of range (max={max_val:.3f} > 5) "
+                        f"| episode={ep}, episode_index={idx}"
+                    )
+
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
