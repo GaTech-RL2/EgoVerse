@@ -27,7 +27,7 @@ import random
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -36,6 +36,7 @@ import torch
 import zarr
 
 # from action_chunk_transforms import Transform
+from egomimic.rldb.filters import DatasetFilter
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -76,6 +77,62 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     valid = set(names[:n_valid])
     train = set(names[n_valid:])
     return train, valid
+
+
+def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
+    if filters is None:
+        return DatasetFilter()
+    if isinstance(filters, DatasetFilter):
+        return filters
+    raise TypeError(
+        "filters must be a DatasetFilter or None in the zarr resolver path. "
+        "Plain dict filters are no longer supported."
+    )
+
+
+def _is_missing_filter_value(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value == ""
+
+    try:
+        missing = pd.isna(value)
+    except Exception:
+        return False
+
+    return isinstance(missing, (bool, np.bool_)) and bool(missing)
+
+
+def _first_present(*values: object) -> object | None:
+    for value in values:
+        if not _is_missing_filter_value(value):
+            return value
+    return None
+
+
+def _normalize_filter_row(
+    row: Mapping[str, Any],
+    *,
+    episode_hash: str | None = None,
+) -> dict[str, Any]:
+    normalized = dict(row)
+    normalized["episode_hash"] = (
+        episode_hash if episode_hash is not None else normalized.get("episode_hash")
+    )
+
+    if _is_missing_filter_value(normalized.get("is_deleted")):
+        normalized["is_deleted"] = False
+
+    robot_name = _first_present(
+        normalized.get("robot_name"),
+        normalized.get("robot_type"),
+        normalized.get("embodiment"),
+    )
+    if robot_name is not None:
+        normalized["robot_name"] = robot_name
+
+    return normalized
 
 
 class EpisodeResolver:
@@ -158,19 +215,18 @@ class S3EpisodeResolver(EpisodeResolver):
 
     def resolve(
         self,
-        filters: dict | None = None,
+        filters: DatasetFilter | None = None,
     ) -> dict[str, "ZarrDataset"]:
         """
         Outputs a dict of ZarrDatasets with relevant filters.
         Syncs S3 paths to local_root before indexing.
         """
-        filters = dict(filters) if filters is not None else {}
-        filters["is_deleted"] = False
+        filters = _ensure_dataset_filter(filters)
 
         if self.folder_path.is_dir():
             logger.info(f"Using existing directory: {self.folder_path}")
         if not self.folder_path.is_dir():
-            self.folder_path.mkdir()
+            self.folder_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Filters: {filters}")
 
@@ -197,7 +253,7 @@ class S3EpisodeResolver(EpisodeResolver):
 
     @staticmethod
     def _get_filtered_paths(
-        filters: dict | None = None, debug: bool = False
+        filters: DatasetFilter | None = None, debug: bool = False
     ) -> list[tuple[str, str]]:
         """
         Filters episodes from the SQL episode table according to the criteria specified in `filters`
@@ -205,21 +261,25 @@ class S3EpisodeResolver(EpisodeResolver):
         have a non-null zarr_processed_path.
 
         Args:
-            filters (dict): Dictionary of filter key-value pairs to apply on the episode table.
+            filters (DatasetFilter | None): Filter object applied row-by-row to the
+                episode table.
 
         Returns:
             list[tuple[str, str]]: List of tuples, each containing (zarr_processed_path, episode_hash)
                                    for episodes passing the filter criteria.
         """
-        filters = dict(filters) if filters is not None else {}
+        filters = _ensure_dataset_filter(filters)
         engine = create_default_engine()
         df = episode_table_to_df(engine)
-        series = pd.Series(filters)
+        if df.empty:
+            logger.info("Episode table is empty.")
+            return []
 
-        output = df.loc[
-            (df[list(filters)] == series).all(axis=1),
-            ["zarr_processed_path", "episode_hash"],
-        ]
+        mask = df.apply(
+            lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
+            axis=1,
+        )
+        output = df.loc[mask, ["zarr_processed_path", "episode_hash"]]
         before_len = len(output)
 
         if debug:
@@ -328,7 +388,7 @@ class S3EpisodeResolver(EpisodeResolver):
         cls,
         *,
         bucket_name: str,
-        filters: dict,
+        filters: DatasetFilter | None = None,
         local_dir: Path,
         numworkers: int = 10,
         debug: bool = False,
@@ -345,6 +405,7 @@ class S3EpisodeResolver(EpisodeResolver):
         Returns:
             List[(processed_path, episode_hash)]
         """
+        filters = _ensure_dataset_filter(filters)
 
         # 1) Resolve episodes from DB
         filtered_paths = cls._get_filtered_paths(filters, debug=debug)
@@ -384,35 +445,23 @@ class LocalEpisodeResolver(EpisodeResolver):
         self.debug = debug
 
     @staticmethod
-    def _local_filters_match(metadata: dict, episode_hash: str, filters: dict) -> bool:
-        for key, value in filters.items():
-            if key == "episode_hash":
-                if episode_hash != value:
-                    return False
-                continue
-
-            if key == "robot_name":
-                meta_value = (
-                    metadata.get("robot_name")
-                    or metadata.get("robot_type")
-                    or metadata.get("embodiment")
-                )
-            elif key == "is_deleted":
-                meta_value = metadata.get("is_deleted", False)
-            else:
-                meta_value = metadata.get(key)
-
-            if meta_value is None:
-                return False
-            if meta_value != value:
-                return False
-
-        return True
+    def _local_filters_match(
+        metadata: dict,
+        episode_hash: str,
+        filters: DatasetFilter,
+    ) -> bool:
+        return filters.matches(
+            _normalize_filter_row(metadata, episode_hash=episode_hash)
+        )
 
     @classmethod
     def _get_local_filtered_paths(
-        cls, search_path: Path, filters: dict, debug: bool = False
+        cls,
+        search_path: Path,
+        filters: DatasetFilter | None = None,
+        debug: bool = False,
     ):
+        filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
             return []
@@ -444,7 +493,7 @@ class LocalEpisodeResolver(EpisodeResolver):
     def resolve(
         self,
         sync_from_s3=False,
-        filters: dict | None = None,
+        filters: DatasetFilter | None = None,
     ) -> dict[str, "ZarrDataset"]:
         """
         Outputs a dict of ZarrDatasets with relevant filters from local data.
@@ -454,8 +503,7 @@ class LocalEpisodeResolver(EpisodeResolver):
                 "LocalEpisodeResolver does not sync from S3; ignoring sync_from_s3=True."
             )
 
-        filters = dict(filters) if filters is not None else {}
-        filters.setdefault("is_deleted", False)
+        filters = _ensure_dataset_filter(filters)
 
         filtered_paths = self._get_local_filtered_paths(
             self.folder_path, filters, debug=self.debug
@@ -560,7 +608,7 @@ class MultiDataset(torch.utils.data.Dataset):
         # TODO add key_map and transform pass to children
 
         sync_from_s3 = kwargs.pop("sync_from_s3", False)
-        filters = kwargs.pop("filters", {}) or {}
+        filters = kwargs.pop("filters", None)
 
         if isinstance(resolver, LocalEpisodeResolver):
             resolved = resolver.resolve(

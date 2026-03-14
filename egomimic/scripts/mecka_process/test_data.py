@@ -24,8 +24,8 @@ import numpy as np
 import zarr
 from tqdm import tqdm
 
+from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr import LocalEpisodeResolver
-
 
 # ── per-episode worker ────────────────────────────────────────────────────────
 
@@ -46,20 +46,23 @@ def _scan_episode(ep_path: Path, episode_hash: str) -> dict:
             # Skip non-numeric or 1-D-only (annotations, jpeg stores)
             if arr.ndim < 2 or not np.issubdtype(arr.dtype, np.number):
                 continue
-            data: np.ndarray = arr[:]          # read whole array once
+            data: np.ndarray = arr[:]  # read whole array once
             T = data.shape[0]
-            flat = data.reshape(T, -1)         # (T, features)
+            flat = data.reshape(T, -1)  # (T, features)
             zero_mask = (flat == 0).all(axis=1)
             bad = np.where(zero_mask)[0].tolist()
             if bad:
                 zero_rows[key] = bad
 
-        return {"episode_hash": eh, "total_frames": total_frames,
-                "zero_rows": zero_rows, "error": None}
+        return {
+            "episode_hash": eh,
+            "total_frames": total_frames,
+            "zero_rows": zero_rows,
+            "error": None,
+        }
 
     except Exception as e:
-        return {"episode_hash": eh, "total_frames": 0,
-                "zero_rows": {}, "error": str(e)}
+        return {"episode_hash": eh, "total_frames": 0, "zero_rows": {}, "error": str(e)}
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
@@ -101,7 +104,10 @@ def main() -> int:
 
     # Use the resolver to enumerate only valid, readable zarr stores.
     print("Resolving valid episodes...")
-    raw = LocalEpisodeResolver._get_local_filtered_paths(dataset_root, filters={})
+    raw = LocalEpisodeResolver._get_local_filtered_paths(
+        dataset_root,
+        filters=DatasetFilter(),
+    )
     # raw is a list of (path_str, episode_hash)
     if not raw:
         print("No valid zarr episodes found.")
@@ -182,7 +188,9 @@ def main() -> int:
             keys_str = ", ".join(zero_rows.keys())
             print(f"  {eh}")
             print(f"    keys   : {keys_str}")
-            print(f"    frames : {len(all_bad)}  {all_bad[:20]}{'...' if len(all_bad) > 20 else ''}")
+            print(
+                f"    frames : {len(all_bad)}  {all_bad[:20]}{'...' if len(all_bad) > 20 else ''}"
+            )
     print("=" * 60)
 
     return 1 if (results_with_zeros or scan_errors) else 0

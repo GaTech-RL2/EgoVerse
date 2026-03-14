@@ -87,8 +87,8 @@ While our training pipeline automatically downloads data, you can manually downl
 For example, to download all our flagship Aria fold clothes data...
 ```
 python egomimic/scripts/data_download/sync_s3.py \
-     --local-dir <local director> \
-     --filters '{"embodiment":"aria", "task": "fold_clothes"}'
+     --local-dir <local directory> \
+     --filters aria-fold-clothes
 ```
 
 ### Training
