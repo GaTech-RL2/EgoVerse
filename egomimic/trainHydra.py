@@ -99,26 +99,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         data_schematic.infer_shapes_from_batch(dataset[0])
-        # instantiate norm datasets which is same as dataset but with keymap without the image keys
-        instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
-        keymap_cfg = instantiate_copy.resolver.key_map
-        km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
 
-        km = {
-            k: v
-            for k, v in km.items()
-            if not (isinstance(v, Mapping) and v.get("key_type") == "camera_keys")
-        }
+        benchmark_dir = os.path.join(cfg.trainer.default_root_dir, "benchmark_stats.json")
 
-        instantiate_copy.resolver.key_map = km
-        norm_dataset = hydra.utils.instantiate(instantiate_copy)
-        data_schematic.infer_norm_from_dataset(
-            norm_dataset,
+        data_schematic.infer_norm_from_episodes(
+            dataset,
             dataset_name,
-            sample_frac=cfg.norm_stat_fraction,
-            benchmark_dir=os.path.join(
-                cfg.trainer.default_root_dir, "benchmark_stats.json"
-            ),
+            benchmark_dir=benchmark_dir,
         )
 
     # Propagate norm stats to all zarrdatasets out of bounds check in getitem

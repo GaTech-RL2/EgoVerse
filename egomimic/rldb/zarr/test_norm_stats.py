@@ -1,7 +1,10 @@
 import logging
+import tempfile
+from pathlib import Path
 
 import numpy as np
 import torch
+import zarr
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.zarr.utils import DataSchematic
@@ -210,3 +213,124 @@ def test_infer_norm_from_dataset_legacy_matches_current_on_dummy_dataset() -> No
             torch.testing.assert_close(
                 legacy_stats[stat_name], current_stats[stat_name]
             )
+
+
+def _create_zarr_episode(path: Path, data: dict[str, np.ndarray], total_frames: int):
+    """Write a minimal zarr episode to disk."""
+    store = zarr.open_group(str(path), mode="w")
+    store.attrs["total_frames"] = total_frames
+    for key, arr in data.items():
+        store.create_array(key, data=arr, chunks=arr.shape)
+
+
+class _FakeZarrDataset:
+    """Mimics ZarrDataset with episode_path attribute."""
+
+    def __init__(self, episode_path: Path):
+        self.episode_path = episode_path
+
+
+class _FakeMultiDataset:
+    """Mimics MultiDataset with .datasets dict and __getitem__/__len__."""
+
+    def __init__(self, episode_paths: list[Path], all_data: dict[str, np.ndarray]):
+        self.datasets = {
+            f"ep_{i}": _FakeZarrDataset(p) for i, p in enumerate(episode_paths)
+        }
+        self._all_data = all_data
+        self._n = all_data[next(iter(all_data))].shape[0]
+
+    def __len__(self):
+        return self._n
+
+    def __getitem__(self, idx):
+        return {k: v[idx] for k, v in self._all_data.items()}
+
+
+def test_infer_norm_from_episodes_matches_dataloader() -> None:
+    """Bulk zarr reader should produce identical stats to the DataLoader path."""
+    rng = np.random.RandomState(42)
+    n_episodes = 5
+    frames_per_ep = 40
+    total = n_episodes * frames_per_ep
+
+    ee_all = rng.randn(total, 14).astype(np.float32)
+    actions_all = rng.randn(total, 14).astype(np.float32)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ep_paths = []
+        for i in range(n_episodes):
+            s, e = i * frames_per_ep, (i + 1) * frames_per_ep
+            ep_path = Path(tmpdir) / f"episode_{i:03d}.zarr"
+            _create_zarr_episode(
+                ep_path,
+                {
+                    "observations.state.ee_pose": ee_all[s:e],
+                    "actions_cartesian": actions_all[s:e],
+                },
+                total_frames=frames_per_ep,
+            )
+            ep_paths.append(ep_path)
+
+        concat_data = {
+            "observations.state.ee_pose": ee_all,
+            "actions_cartesian": actions_all,
+        }
+        dataset = _FakeMultiDataset(ep_paths, concat_data)
+
+        schematic_dict = {
+            "eva_bimanual": {
+                "observations.state.ee_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "observations.state.ee_pose",
+                },
+                "actions_cartesian": {
+                    "key_type": "action_keys",
+                    "zarr_key": "actions_cartesian",
+                },
+            }
+        }
+        viz_img_key = {"eva_bimanual": "observations.images.front_img_1"}
+
+        bulk_schematic = DataSchematic(schematic_dict, viz_img_key)
+        loader_schematic = DataSchematic(schematic_dict, viz_img_key)
+
+        bulk_schematic.infer_norm_from_episodes(dataset, "eva_bimanual")
+
+        loader_schematic.infer_norm_from_dataset(
+            dataset,
+            "eva_bimanual",
+            sample_frac=1.0,
+            seed=0,
+            batch_size=total,
+            num_workers=0,
+        )
+
+        embodiment_id = get_embodiment_id("eva_bimanual")
+        expected = {
+            "observations.state.ee_pose": _expected_stats(ee_all),
+            "actions_cartesian": _expected_stats(actions_all),
+        }
+
+        for key, exp in expected.items():
+            bulk_stats = bulk_schematic.norm_stats[embodiment_id][key]
+            loader_stats = loader_schematic.norm_stats[embodiment_id][key]
+
+            for stat_name, expected_value in exp.items():
+                torch.testing.assert_close(
+                    bulk_stats[stat_name],
+                    expected_value,
+                    msg=f"Bulk vs expected mismatch: {key}.{stat_name}",
+                )
+                torch.testing.assert_close(
+                    loader_stats[stat_name],
+                    expected_value,
+                    msg=f"Loader vs expected mismatch: {key}.{stat_name}",
+                )
+                torch.testing.assert_close(
+                    bulk_stats[stat_name],
+                    loader_stats[stat_name],
+                    msg=f"Bulk vs loader mismatch: {key}.{stat_name}",
+                )
+
+    print("PASSED: infer_norm_from_episodes matches infer_norm_from_dataset")

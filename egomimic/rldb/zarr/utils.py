@@ -151,6 +151,125 @@ class DataSchematic(object):
 
         self.shapes_infered = True
 
+    def infer_norm_from_episodes(
+        self,
+        dataset,
+        dataset_name,
+        benchmark_dir: str | None = None,
+    ):
+        """Fast norm stats via bulk zarr reads (bypasses DataLoader entirely).
+
+        Reads each episode's arrays in one shot instead of per-frame random access.
+        ~60s for 819K frames vs ~80min with DataLoader.
+        """
+        import zarr
+
+        embodiment = dataset_name
+        if isinstance(embodiment, str):
+            embodiment = get_embodiment_id(embodiment)
+
+        norm_keys = []
+        norm_keys.extend(self.keys_of_type("proprio_keys", embodiment))
+        norm_keys.extend(self.keys_of_type("action_keys", embodiment))
+        if not norm_keys:
+            logger.warning(f"[NormStats] No proprio/action keys for embodiment={embodiment}")
+            return
+
+        zarr_key_map = {}
+        for k in norm_keys:
+            zk = self.keyname_to_zarr_key(k, embodiment)
+            if zk is not None:
+                zarr_key_map[k] = zk
+
+        ep_paths = []
+        if hasattr(dataset, "datasets"):
+            for ds in dataset.datasets.values():
+                if hasattr(ds, "episode_path"):
+                    ep_paths.append(ds.episode_path)
+        if not ep_paths:
+            logger.warning("[NormStats] No episode paths found, falling back to DataLoader")
+            self.infer_norm_from_dataset(dataset, dataset_name, benchmark_dir=benchmark_dir)
+            return
+
+        logger.info(f"[NormStats] embodiment={embodiment} norm_keys={norm_keys}")
+        logger.info(f"[NormStats] bulk-reading {len(ep_paths)} episodes (100% coverage)")
+
+        collected = {k: [] for k in zarr_key_map}
+        t_load = time.time()
+        for ep_path in tqdm(ep_paths, desc="[NormStats] reading episodes"):
+            store = zarr.open_group(str(ep_path), mode="r")
+            n_frames = int(dict(store.attrs).get("total_frames", store[next(iter(zarr_key_map.values()))].shape[0]))
+            for key_name, zarr_key in zarr_key_map.items():
+                arr = store[zarr_key][:n_frames]
+                collected[key_name].append(arr)
+
+        loading_time = time.time() - t_load
+        logger.info(f"[NormStats] bulk read done in {loading_time:.1f}s")
+
+        benchmark_stats = None
+        if benchmark_dir is not None:
+            os.makedirs(benchmark_dir, exist_ok=True)
+            benchmark_file = os.path.join(benchmark_dir, "benchmark.json")
+            benchmark_stats = {"loading_time": loading_time, "stats": {}}
+
+        t_compute = time.time()
+        total_frames = 0
+        for k in list(collected.keys()):
+            if not collected[k]:
+                del collected[k]
+                continue
+            collected[k] = np.concatenate(collected[k], axis=0)
+            X = collected[k]
+            if total_frames == 0:
+                total_frames = X.shape[0]
+
+            mean = np.mean(X, axis=0)
+            std = np.std(X, axis=0)
+            minv = np.min(X, axis=0)
+            maxv = np.max(X, axis=0)
+            median = np.median(X, axis=0)
+            q1 = np.percentile(X, 1, axis=0)
+            q99 = np.percentile(X, 99, axis=0)
+
+            self.norm_stats[embodiment][k] = {
+                "mean": torch.from_numpy(np.array(mean, dtype=np.float32)).float(),
+                "std": torch.from_numpy(np.array(std, dtype=np.float32)).float(),
+                "min": torch.from_numpy(np.array(minv, dtype=np.float32)).float(),
+                "max": torch.from_numpy(np.array(maxv, dtype=np.float32)).float(),
+                "median": torch.from_numpy(np.array(median, dtype=np.float32)).float(),
+                "quantile_1": torch.from_numpy(np.array(q1, dtype=np.float32)).float(),
+                "quantile_99": torch.from_numpy(np.array(q99, dtype=np.float32)).float(),
+            }
+
+            if benchmark_stats is not None:
+                stat_dir = os.path.join(benchmark_dir, str(embodiment), k)
+                os.makedirs(stat_dir, exist_ok=True)
+                for stat_name in ["mean", "std", "min", "max", "median", "quantile_1", "quantile_99"]:
+                    pt_path = os.path.join(stat_dir, f"{stat_name}.pt")
+                    torch.save(self.norm_stats[embodiment][k][stat_name], pt_path)
+                if benchmark_stats["stats"].get(embodiment) is None:
+                    benchmark_stats["stats"][embodiment] = {}
+                benchmark_stats["stats"][embodiment][k] = {
+                    s: os.path.join(stat_dir, f"{s}.pt")
+                    for s in ["mean", "std", "min", "max", "median", "quantile_1", "quantile_99"]
+                }
+
+            logger.info(f"[NormStats] key={k} samples={X.shape[0]} stat_shape={mean.shape}")
+            del collected[k]
+
+        computing_time = time.time() - t_compute
+        if benchmark_stats is not None:
+            benchmark_stats["computing_time"] = computing_time
+            benchmark_stats["frames"] = total_frames
+            with open(benchmark_file, "w") as f:
+                json.dump(benchmark_stats, f, indent=4)
+
+        logger.info(
+            f"[NormStats] Finished norm inference, "
+            f"episodes={len(ep_paths)} frames={total_frames} "
+            f"loading_time={loading_time:.2f}s computing_time={computing_time:.2f}s"
+        )
+
     def infer_norm_from_dataset(
         self,
         dataset,
@@ -158,7 +277,7 @@ class DataSchematic(object):
         sample_frac: float = 0.10,
         seed: int = 42,
         max_samples: int | None = None,
-        batch_size: int = 512,
+        batch_size: int = 4096,
         num_workers: int = 10,
         benchmark_dir: str | None = None,
     ):
@@ -191,13 +310,16 @@ class DataSchematic(object):
             )
             return
 
-        loader = torch.utils.data.DataLoader(
-            dataset,
+        dl_kwargs = dict(
             batch_size=batch_size,
             num_workers=num_workers,
             shuffle=True,
             generator=torch.Generator().manual_seed(seed),
         )
+        if num_workers > 0:
+            dl_kwargs["prefetch_factor"] = 4
+            dl_kwargs["persistent_workers"] = True
+        loader = torch.utils.data.DataLoader(dataset, **dl_kwargs)
 
         N = len(dataset)
         if N <= 0:
