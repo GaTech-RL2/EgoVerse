@@ -151,6 +151,197 @@ class DataSchematic(object):
 
         self.shapes_infered = True
 
+    def infer_norm_from_episodes(
+        self,
+        dataset,
+        dataset_name,
+        sample_frac: float = 1.0,
+        seed: int = 42,
+        max_samples: int | None = None,
+        max_episodes: int | None = None,
+        benchmark_dir: str | None = None,
+    ):
+        """Infer norm stats via bulk zarr reads with optional deterministic subsampling."""
+        import zarr
+
+        embodiment = dataset_name
+        if isinstance(embodiment, str):
+            embodiment = get_embodiment_id(embodiment)
+
+        norm_keys = []
+        norm_keys.extend(self.keys_of_type("proprio_keys", embodiment))
+        norm_keys.extend(self.keys_of_type("action_keys", embodiment))
+        if len(norm_keys) == 0:
+            logger.warning(
+                f"[NormStats] No proprio/action keys for embodiment={embodiment}"
+            )
+            return
+
+        zarr_key_map = {}
+        for k in norm_keys:
+            zk = self.keyname_to_zarr_key(k, embodiment)
+            if zk is not None:
+                zarr_key_map[k] = zk
+        if len(zarr_key_map) == 0:
+            logger.warning(
+                f"[NormStats] No zarr keys resolved for embodiment={embodiment}"
+            )
+            return
+
+        ep_paths = []
+        if hasattr(dataset, "datasets"):
+            for ds in dataset.datasets.values():
+                if hasattr(ds, "episode_path"):
+                    ep_paths.append(ds.episode_path)
+        if len(ep_paths) == 0:
+            raise ValueError(
+                "infer_norm_from_episodes requires a dataset with episode_path entries"
+            )
+        ep_paths = list(ep_paths)
+
+        rng = np.random.RandomState(seed)
+        if max_episodes is not None:
+            if max_episodes <= 0:
+                raise ValueError("max_episodes must be > 0 when provided")
+            if max_episodes < len(ep_paths):
+                selected = rng.choice(len(ep_paths), size=max_episodes, replace=False)
+                selected = np.sort(selected)
+                ep_paths = [ep_paths[i] for i in selected]
+
+        logger.info(f"[NormStats] embodiment={embodiment} norm_keys={norm_keys}")
+        logger.info(
+            f"[NormStats] bulk-reading {len(ep_paths)} episodes "
+            f"(sample_frac={sample_frac}, max_samples={max_samples})"
+        )
+
+        collected = {k: [] for k in zarr_key_map}
+        loading_start_time = time.time()
+        for ep_path in tqdm(ep_paths, desc="[NormStats] reading episodes"):
+            store = zarr.open_group(str(ep_path), mode="r")
+            first_key = next(iter(zarr_key_map.values()))
+            n_frames = int(
+                dict(store.attrs).get("total_frames", store[first_key].shape[0])
+            )
+            for key_name, zarr_key in zarr_key_map.items():
+                arr = store[zarr_key][:n_frames]
+                collected[key_name].append(arr)
+
+        loading_time = time.time() - loading_start_time
+        logger.info(f"[NormStats] bulk read done in {loading_time:.1f}s")
+
+        total_frames_available = 0
+        for k in list(collected.keys()):
+            if len(collected[k]) == 0:
+                del collected[k]
+                continue
+            collected[k] = np.concatenate(collected[k], axis=0)
+            if total_frames_available == 0:
+                total_frames_available = collected[k].shape[0]
+
+        if total_frames_available <= 0:
+            raise ValueError("No frames available for norm inference")
+
+        n_samples = int(math.ceil(sample_frac * total_frames_available))
+        n_samples = max(1, min(n_samples, total_frames_available))
+        if max_samples is not None:
+            n_samples = min(n_samples, max_samples)
+
+        if n_samples < total_frames_available:
+            sample_idx = np.sort(
+                rng.choice(total_frames_available, size=n_samples, replace=False)
+            )
+            for k in list(collected.keys()):
+                collected[k] = collected[k][sample_idx]
+
+        logger.info(
+            f"[NormStats] sampling {n_samples}/{total_frames_available} "
+            f"(~{100 * n_samples / total_frames_available:.1f}%) frames"
+        )
+
+        benchmark_stats = None
+        if benchmark_dir is not None:
+            os.makedirs(benchmark_dir, exist_ok=True)
+            benchmark_file = os.path.join(benchmark_dir, "benchmark.json")
+            benchmark_stats = {"loading_time": loading_time, "stats": {}}
+
+        computing_start_time = time.time()
+        total_frames = n_samples
+        for k in list(collected.keys()):
+            X = collected[k]
+
+            mean = np.mean(X, axis=0)
+            std = np.std(X, axis=0)
+            minv = np.min(X, axis=0)
+            maxv = np.max(X, axis=0)
+            median = np.median(X, axis=0)
+            q1 = np.percentile(X, 1, axis=0)
+            q99 = np.percentile(X, 99, axis=0)
+
+            self.norm_stats[embodiment][k] = {
+                "mean": torch.from_numpy(np.array(mean, dtype=np.float32)).float(),
+                "std": torch.from_numpy(np.array(std, dtype=np.float32)).float(),
+                "min": torch.from_numpy(np.array(minv, dtype=np.float32)).float(),
+                "max": torch.from_numpy(np.array(maxv, dtype=np.float32)).float(),
+                "median": torch.from_numpy(np.array(median, dtype=np.float32)).float(),
+                "quantile_1": torch.from_numpy(np.array(q1, dtype=np.float32)).float(),
+                "quantile_99": torch.from_numpy(
+                    np.array(q99, dtype=np.float32)
+                ).float(),
+            }
+
+            if benchmark_stats is not None:
+                stat_dir = os.path.join(benchmark_dir, str(embodiment), k)
+                os.makedirs(stat_dir, exist_ok=True)
+                mean_path = os.path.join(stat_dir, "mean.pt")
+                std_path = os.path.join(stat_dir, "std.pt")
+                min_path = os.path.join(stat_dir, "min.pt")
+                max_path = os.path.join(stat_dir, "max.pt")
+                median_path = os.path.join(stat_dir, "median.pt")
+                quantile_1_path = os.path.join(stat_dir, "quantile_1.pt")
+                quantile_99_path = os.path.join(stat_dir, "quantile_99.pt")
+
+                torch.save(self.norm_stats[embodiment][k]["mean"], mean_path)
+                torch.save(self.norm_stats[embodiment][k]["std"], std_path)
+                torch.save(self.norm_stats[embodiment][k]["min"], min_path)
+                torch.save(self.norm_stats[embodiment][k]["max"], max_path)
+                torch.save(self.norm_stats[embodiment][k]["median"], median_path)
+                torch.save(
+                    self.norm_stats[embodiment][k]["quantile_1"], quantile_1_path
+                )
+                torch.save(
+                    self.norm_stats[embodiment][k]["quantile_99"], quantile_99_path
+                )
+
+                if benchmark_stats["stats"].get(embodiment, None) is None:
+                    benchmark_stats["stats"][embodiment] = {}
+                benchmark_stats["stats"][embodiment][k] = {
+                    "mean": mean_path,
+                    "std": std_path,
+                    "min": min_path,
+                    "max": max_path,
+                    "median": median_path,
+                    "quantile_1": quantile_1_path,
+                    "quantile_99": quantile_99_path,
+                }
+
+            logger.info(
+                f"[NormStats] key={k} samples={X.shape[0]} stat_shape={mean.shape}"
+            )
+            del collected[k]
+
+        computing_time = time.time() - computing_start_time
+        if benchmark_stats is not None:
+            benchmark_stats["computing_time"] = computing_time
+            benchmark_stats["frames"] = total_frames
+            with open(benchmark_file, "w") as f:
+                json.dump(benchmark_stats, f, indent=4)
+
+        logger.info(
+            f"[NormStats] Finished norm inference, episodes={len(ep_paths)} "
+            f"frames={total_frames} loading_time={loading_time:.2f}s "
+            f"computing_time={computing_time:.2f}s"
+        )
+
     def infer_norm_from_dataset(
         self,
         dataset,
