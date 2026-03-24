@@ -15,9 +15,9 @@ from __future__ import annotations
 from abc import abstractmethod
 
 import numpy as np
+import torch
 from projectaria_tools.core.sophus import SE3
 from scipy.spatial.transform import Rotation as R
-import torch
 
 from egomimic.utils.pose_utils import (
     _interpolate_euler,
@@ -224,7 +224,12 @@ class QuaternionPoseToYPR(Transform):
                 f"'{self.pose_key}'"
             )
         xyz = pose[:3]
-        ypr = R.from_quat(pose[3:7]).as_euler("ZYX", degrees=False)
+        quat = (
+            pose[3:7]
+            if np.linalg.norm(pose[3:7]) > 0
+            else np.array([0.0, 0.0, 0.0, 1.0])
+        )
+        ypr = R.from_quat(quat).as_euler("ZYX", degrees=False)
         batch[self.output_key] = np.concatenate([xyz, ypr], axis=0)
         return batch
 
@@ -414,9 +419,11 @@ class ConcatKeys(Transform):
 
         return batch
 
+
 # ---------------------------------------------------------------------------
 # Type Transforms
 # ---------------------------------------------------------------------------
+
 
 class NumpyToTensor(Transform):
     def __init__(self, keys: list[str]):
@@ -429,5 +436,7 @@ class NumpyToTensor(Transform):
             elif isinstance(batch[key], torch.Tensor):
                 batch[key] = batch[key].clone()
             else:
-                raise ValueError(f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}")
+                raise ValueError(
+                    f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
+                )
         return batch

@@ -740,15 +740,13 @@ class ZarrDataset(torch.utils.data.Dataset):
                 try:
                     data = transform.transform(data)
                 except Exception as e:
-                    logger.error(f"Error transforming data: {e}")
-                    logger.error(f"Data: {data}")
-                    logger.error(f"Transform: {transform}")
-                    logger.error(f"Error: {e}")
-                    if idx == 0:
-                        logger.error("Error in first frame")
-                        raise e
-                    else:
-                        return self.__getitem__(0)
+                    fallback = idx - 10 if idx > 0 else 1
+                    logger.warning(
+                        f"Transform failed for episode {Path(self.episode_path).name} "
+                        f"frame {idx} ({type(e).__name__}: {e}). "
+                        f"Falling back to frame {fallback}."
+                    )
+                    return self.__getitem__(fallback)
 
         for k, v in data.items():
             if isinstance(v, np.ndarray):
@@ -801,16 +799,13 @@ class ZarrDataset(torch.utils.data.Dataset):
                 try:
                     out = transform.transform(out)
                 except Exception as e:
-                    logger.error(f"Error transforming data: {e}")
-                    # NOTE: avoid dumping full arrays into logs
-                    logger.error(f"Data keys: {list(out.keys())}")
-                    logger.error(f"Transform: {transform}")
-                    logger.error(f"Error: {e}")
-                    if idx == 0:
-                        logger.error("Error in first frame")
-                        raise e
-                    else:
-                        return self.get_item_keys(0, keys)
+                    fallback = idx - 10 if idx > 0 else 1
+                    logger.warning(
+                        f"Transform failed for episode {Path(self.episode_path).name} "
+                        f"frame {idx} ({type(e).__name__}: {e}). "
+                        f"Falling back to frame {fallback}."
+                    )
+                    return self.get_item_keys(fallback, keys)
 
         for k, v in out.items():
             if isinstance(v, np.ndarray):
