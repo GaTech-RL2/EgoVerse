@@ -1,7 +1,11 @@
 from abc import ABC
 from enum import Enum
 
+import numpy as np
+import torch
+
 from egomimic.rldb.zarr.action_chunk_transforms import Transform
+from egomimic.utils.type_utils import _to_numpy
 
 
 class EMBODIMENT(Enum):
@@ -53,3 +57,67 @@ class Embodiment(ABC):
     def get_keymap():
         """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
         raise NotImplementedError
+
+    @classmethod
+    def viz_cartesian_gt_preds(cls, predictions, batch, image_key, action_key):
+        embodiment_id = batch["embodiment"][0].item()
+        embodiment_name = get_embodiment(embodiment_id).lower()
+
+        images = batch[image_key]
+        actions = batch[action_key]
+        pred_actions = predictions[f"{embodiment_name}_{action_key}"]
+        ims_list = []
+        images = _to_numpy(images)
+        actions = _to_numpy(actions)
+        pred_actions = _to_numpy(pred_actions)
+        for i in range(images.shape[0]):
+            image = images[i]
+            action = actions[i]
+            pred_action = pred_actions[i]
+            ims = cls.viz(image, action, mode="traj", color="Reds")
+            ims = cls.viz(ims, pred_action, mode="traj", color="Greens")
+            ims_list.append(ims)
+        ims = np.stack(ims_list, axis=0)
+        return ims
+
+    @classmethod
+    def apply_transform(cls, batch, transform_list: list[Transform]):
+        if transform_list:
+            batch_size = None
+            for v in batch.values():
+                if isinstance(v, (np.ndarray, torch.Tensor)):
+                    batch_size = v.shape[0]
+                    break
+
+            if batch_size is not None:
+                # Apply transforms per-sample (matching how ZarrDataset applies them)
+                results = []
+                for i in range(batch_size):
+                    sample = {
+                        k: (v[i].numpy() if isinstance(v, torch.Tensor) else v[i])
+                        if isinstance(v, (np.ndarray, torch.Tensor))
+                        else v
+                        for k, v in batch.items()
+                    }
+                    for transform in transform_list:
+                        sample = transform.transform(sample)
+                    results.append(sample)
+
+                batch = {}
+                for k in results[0]:
+                    vals = [r[k] for r in results]
+                    if isinstance(vals[0], np.ndarray):
+                        batch[k] = np.stack(vals, axis=0)
+                    elif isinstance(vals[0], torch.Tensor):
+                        batch[k] = torch.stack(vals, dim=0)
+                    else:
+                        batch[k] = vals
+            else:
+                for transform in transform_list:
+                    batch = transform.transform(batch)
+
+        for k, v in batch.items():
+            if isinstance(v, np.ndarray):
+                batch[k] = torch.from_numpy(v).to(torch.float32)
+
+        return batch
