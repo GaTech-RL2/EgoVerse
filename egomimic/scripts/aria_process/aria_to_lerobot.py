@@ -34,7 +34,7 @@ from projectaria_tools.core.mps.utils import (
 from projectaria_tools.core.sensor_data import TimeDomain, TimeQueryOptions
 from projectaria_tools.core.stream_id import StreamId
 
-from egomimic.rldb.embodiment import EMBODIMENT
+from egomimic.rldb.embodiment.embodiment import EMBODIMENT
 from egomimic.utils.egomimicUtils import (
     INTRINSICS,
     cam_frame_to_cam_pixels,

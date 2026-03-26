@@ -1,0 +1,44 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/egoverseS3DatasetTest/
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+        mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] in {'2026-03-18-19-05-27-437004', '2026-03-18-19-03-29-311551'}"
+    mode: total
+valid_datasets:
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/egoverseS3DatasetTest/
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+        mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] in {'2026-03-18-19-05-27-437004', '2026-03-18-19-03-29-311551'}"
+    mode: total
+train_dataloader_params:
+  scale_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  scale_bimanual:
+    batch_size: 32
+    num_workers: 10

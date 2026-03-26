@@ -142,9 +142,9 @@ class RobomimicHD5Extractor:
             # TODO: This seems a little hacky
             hdf5_file = data_group[list(data_group.keys())[0]]
             hdf5_file.visititems(
-                lambda name, obj: topics.append(name)
-                if isinstance(obj, h5py.Dataset)
-                else None
+                lambda name, obj: (
+                    topics.append(name) if isinstance(obj, h5py.Dataset) else None
+                )
             )
 
             for topic in topics:

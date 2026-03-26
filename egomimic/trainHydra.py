@@ -1,5 +1,7 @@
+import copy
 import os
 import signal
+from collections.abc import Mapping
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
@@ -8,9 +10,11 @@ from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf
+from tabulate import tabulate
 
 from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
 from egomimic.scripts.evaluation.eval import Eval
+from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
@@ -18,6 +22,29 @@ from egomimic.utils.utils import extras, task_wrapper
 
 OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> None:
+    rows = []
+    for name, ds in train_datasets.items():
+        rows.append(("train", name, len(ds)))
+    if train_datasets:
+        rows.append(
+            ("TOTAL", "(train)", sum(len(ds) for ds in train_datasets.values()))
+        )
+    for name, ds in valid_datasets.items():
+        rows.append(("valid", name, len(ds)))
+    if valid_datasets:
+        rows.append(
+            ("TOTAL", "(valid)", sum(len(ds) for ds in valid_datasets.values()))
+        )
+    table = tabulate(
+        rows,
+        headers=["Split", "Dataset", "Frames"],
+        tablefmt="rounded_outline",
+        intfmt=",",
+    )
+    log.info("Dataset frame counts:\n" + table)
 
 
 @task_wrapper
@@ -39,6 +66,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     else:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
+    load_env()
     # log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
 
     data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
@@ -70,13 +98,42 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
         data_schematic.infer_shapes_from_batch(dataset[0])
-        data_schematic.infer_norm_from_dataset(dataset, dataset_name)
+        # instantiate norm datasets which is same as dataset but with keymap without the image keys
+        instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
+        keymap_cfg = instantiate_copy.resolver.key_map
+        km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
+
+        km = {
+            k: v
+            for k, v in km.items()
+            if not (isinstance(v, Mapping) and v.get("key_type") == "camera_keys")
+        }
+
+        instantiate_copy.resolver.key_map = km
+        norm_dataset = hydra.utils.instantiate(instantiate_copy)
+        data_schematic.infer_norm_from_dataset(
+            norm_dataset,
+            dataset_name,
+            sample_frac=cfg.norm_stats.sample_frac,
+            num_workers=cfg.norm_stats.num_workers,
+            benchmark_dir=os.path.join(
+                cfg.trainer.default_root_dir, "benchmark_stats.json"
+            ),
+        )
+
+    viz_func = cfg.visualization
+    viz_func_dict = {}
+    for embodiment_name, embodiment_viz_func in viz_func.items():
+        viz_func_dict[embodiment_name] = hydra.utils.instantiate(embodiment_viz_func)
 
     # NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(
-        cfg.model, robomimic_model={"data_schematic": data_schematic}
+        cfg.model,
+        robomimic_model={"data_schematic": data_schematic, "viz_func": viz_func_dict},
     )
+
+    _log_dataset_frame_counts(train_datasets, valid_datasets)
 
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))

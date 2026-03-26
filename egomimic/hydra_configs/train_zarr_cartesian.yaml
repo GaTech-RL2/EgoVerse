@@ -1,0 +1,41 @@
+defaults:
+  - model: hpt_cotrain_flow_shared_head
+  - visualization: eva_cartesian_aria_cartesian
+  - paths: default
+  - trainer: ddp
+  - debug: null
+  - logger: wandb
+  - data: eva_aria_cotrain
+  - callbacks: checkpoints
+  - data_schematic: default
+  - override hydra/launcher: submitit
+  - _self_
+
+name: test
+description: test
+ckpt_path: null
+train: true
+eval: false
+
+norm_stats:
+  sample_frac: 1.0
+  num_workers: 10 
+
+eval_class:
+  _target_: egomimic.scripts.evaluation.Eve
+  mode: real
+  arm: both
+  eval_path: "./logs/eval/${name}_${now:%Y-%m-%d_%H-%M-%S}"
+
+hydra:
+  run:
+    # Dir should be experiment_name/description_{timestamp}
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+seed: 42

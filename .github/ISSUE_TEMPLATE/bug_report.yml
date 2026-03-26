@@ -1,0 +1,79 @@
+name: Bug Report
+description: Report a bug in EgoVerse
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the sections below so we can reproduce and fix the issue.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of EgoVerse is affected?
+      options:
+        - Data Processing (aria_process, aloha_process, eva_process, etc.)
+        - Training (trainHydra, algo, models)
+        - Robot Control / Deployment (rollout, collect_demo)
+        - Dataset / Zarr / RLDB
+        - Cloud Storage / Download (S3, R2)
+        - Environment Setup / Installation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug.
+      placeholder: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal steps to reproduce the issue.
+      placeholder: |
+        1. Run `python trainHydra.py ...`
+        2. ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: error
+    attributes:
+      label: Error Log / Traceback
+      description: Paste the relevant error output.
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: If training-related, paste your Hydra config overrides or relevant config snippet.
+      render: yaml
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: |
+        Please provide:
+        - OS
+        - Python version
+        - PyTorch version
+        - CUDA version (if applicable)
+        - GPU model (if applicable)
+      placeholder: |
+        - OS: Ubuntu 22.04
+        - Python: 3.10
+        - PyTorch: 2.1.0
+        - CUDA: 12.1
+        - GPU: NVIDIA A100
+    validations:
+      required: true

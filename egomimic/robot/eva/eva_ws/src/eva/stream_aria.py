@@ -33,9 +33,10 @@ def update_iptables() -> None:
     subprocess.run(update_iptables_cmd)
 
 
-def undistort(raw_image, rgb_calib):
+def undistort(raw_image, rgb_calib, height, width):
+    focal_length = 133.25430222 * (height / 240)
     warped_calib = calibration.get_linear_camera_calibration(
-        480, 640, 133.25430222 * 2, "camera-rgb"
+        height, width, focal_length, "camera-rgb"
     )
     unwarped_img = calibration.distort_by_calibration(
         raw_image, warped_calib, rgb_calib
@@ -65,6 +66,8 @@ class AriaRecorder:
         profile_name: str = "profile15",
         interface: aria.StreamingInterface = aria.StreamingInterface.Usb,
         use_security: bool = True,
+        height: int = 720,
+        width: int = 960,
     ):
         self._profile_name = profile_name
         self._interface = interface
@@ -75,7 +78,9 @@ class AriaRecorder:
         self._streaming_client = None
         self._observer = None
         self._rgb_calib = None
-
+        self._height = height
+        self._width = width
+        
     def start(self) -> None:
         aria.Level = 4
         self._device_client = aria.DeviceClient()
@@ -133,7 +138,7 @@ class AriaRecorder:
         image_bgr = self._observer.rgb_image
 
         if self._rgb_calib is not None and image_bgr is not None:
-            image_bgr = undistort(image_bgr, self._rgb_calib)
+            image_bgr = undistort(image_bgr, self._rgb_calib, self._height, self._width)
 
             if convert_to_rgb:
                 image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)

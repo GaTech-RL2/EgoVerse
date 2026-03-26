@@ -2,6 +2,8 @@ FROM ros:humble-ros-base
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SHELL=/bin/bash
+ENV EDITOR=vim
+ENV VISUAL=vim
 
 # 1) base system deps (all in one layer)
 RUN apt-get update && \
@@ -16,6 +18,7 @@ RUN apt-get update && \
     python3 \
     python3-pip \
     nano \
+    vim \
     libboost-all-dev \
     liburdfdom-dev \
     liburdfdom-headers-dev \
@@ -28,6 +31,7 @@ RUN apt-get update && \
     procps \
     curl \
     file \
+    rsync \
     ca-certificates \
     lsof \
     usbutils \
@@ -37,6 +41,8 @@ RUN apt-get update && \
     unzip /tmp/awscliv2.zip -d /tmp && \
     /tmp/aws/install && \
     rm -rf /tmp/awscliv2.zip /tmp/aws
+
+RUN git config --global core.editor vim
 
 WORKDIR /home/robot
 

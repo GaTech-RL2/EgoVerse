@@ -22,11 +22,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import random
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -35,6 +36,8 @@ import torch
 import zarr
 
 # from action_chunk_transforms import Transform
+from egomimic.rldb.filters import DatasetFilter
+from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
@@ -76,6 +79,62 @@ def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     return train, valid
 
 
+def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
+    if filters is None:
+        return DatasetFilter()
+    if isinstance(filters, DatasetFilter):
+        return filters
+    raise TypeError(
+        "filters must be a DatasetFilter or None in the zarr resolver path. "
+        "Plain dict filters are no longer supported."
+    )
+
+
+def _is_missing_filter_value(value: object) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value == ""
+
+    try:
+        missing = pd.isna(value)
+    except Exception:
+        return False
+
+    return isinstance(missing, (bool, np.bool_)) and bool(missing)
+
+
+def _first_present(*values: object) -> object | None:
+    for value in values:
+        if not _is_missing_filter_value(value):
+            return value
+    return None
+
+
+def _normalize_filter_row(
+    row: Mapping[str, Any],
+    *,
+    episode_hash: str | None = None,
+) -> dict[str, Any]:
+    normalized = dict(row)
+    normalized["episode_hash"] = (
+        episode_hash if episode_hash is not None else normalized.get("episode_hash")
+    )
+
+    if _is_missing_filter_value(normalized.get("is_deleted")):
+        normalized["is_deleted"] = False
+
+    robot_name = _first_present(
+        normalized.get("robot_name"),
+        normalized.get("robot_type"),
+        normalized.get("embodiment"),
+    )
+    if robot_name is not None:
+        normalized["robot_name"] = robot_name
+
+    return normalized
+
+
 class EpisodeResolver:
     """
     Base class for episode resolution utilities.
@@ -115,7 +174,6 @@ class EpisodeResolver:
             if name.endswith(".zarr"):
                 name = name[: -len(".zarr")]
             if name not in valid_folder_names:
-                logger.info(f"{p} is not in the list of filtered paths")
                 skipped.append(p.name)
                 continue
             try:
@@ -145,29 +203,30 @@ class S3EpisodeResolver(EpisodeResolver):
         self,
         folder_path: Path,
         bucket_name: str = "rldb",
-        main_prefix: str = "processed_v2",
+        main_prefix: str = "processed_v3",
         key_map: dict | None = None,
         transform_list: list | None = None,
+        debug: bool = False,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
+        self.debug = debug
         super().__init__(folder_path, key_map=key_map, transform_list=transform_list)
 
     def resolve(
         self,
-        filters: dict | None = None,
+        filters: DatasetFilter | None = None,
     ) -> dict[str, "ZarrDataset"]:
         """
         Outputs a dict of ZarrDatasets with relevant filters.
         Syncs S3 paths to local_root before indexing.
         """
-        filters = dict(filters) if filters is not None else {}
-        filters["is_deleted"] = False
+        filters = _ensure_dataset_filter(filters)
 
         if self.folder_path.is_dir():
             logger.info(f"Using existing directory: {self.folder_path}")
         if not self.folder_path.is_dir():
-            self.folder_path.mkdir()
+            self.folder_path.mkdir(parents=True, exist_ok=True)
 
         logger.info(f"Filters: {filters}")
 
@@ -175,6 +234,7 @@ class S3EpisodeResolver(EpisodeResolver):
             bucket_name=self.bucket_name,
             filters=filters,
             local_dir=self.folder_path,
+            debug=self.debug,
         )
 
         valid_hashes = {hashes for _, hashes in filtered_paths}
@@ -192,33 +252,46 @@ class S3EpisodeResolver(EpisodeResolver):
         return datasets
 
     @staticmethod
-    def _get_filtered_paths(filters: dict | None = None) -> list[tuple[str, str]]:
+    def _get_filtered_paths(
+        filters: DatasetFilter | None = None, debug: bool = False
+    ) -> list[tuple[str, str]]:
         """
         Filters episodes from the SQL episode table according to the criteria specified in `filters`
         and returns a list of (zarr_processed_path, episode_hash) tuples for episodes that match and
         have a non-null zarr_processed_path.
 
         Args:
-            filters (dict): Dictionary of filter key-value pairs to apply on the episode table.
+            filters (DatasetFilter | None): Filter object applied row-by-row to the
+                episode table.
 
         Returns:
             list[tuple[str, str]]: List of tuples, each containing (zarr_processed_path, episode_hash)
                                    for episodes passing the filter criteria.
         """
-        filters = dict(filters) if filters is not None else {}
+        filters = _ensure_dataset_filter(filters)
         engine = create_default_engine()
         df = episode_table_to_df(engine)
-        series = pd.Series(filters)
+        if df.empty:
+            logger.info("Episode table is empty.")
+            return []
 
-        output = df.loc[
-            (df[list(filters)] == series).all(axis=1),
-            ["zarr_processed_path", "episode_hash"],
-        ]
-        skipped = df[df["zarr_processed_path"].isnull()]["episode_hash"].tolist()
-        logger.info(
-            f"Skipped {len(skipped)} episodes with null zarr_processed_path: {skipped}"
+        mask = df.apply(
+            lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
+            axis=1,
         )
-        output = output[~output["episode_hash"].isin(skipped)]
+        output = df.loc[mask, ["zarr_processed_path", "episode_hash"]]
+        before_len = len(output)
+
+        if debug:
+            logger.info("Debug mode: limiting to 10 datasets.")
+            output = output.head(10)
+
+        output = output[
+            output["zarr_processed_path"].fillna("").astype(str).str.strip() != ""
+        ]
+        logger.info(
+            f"Skipped {before_len - len(output)} episodes with null zarr_processed_path: {output}"
+        )
 
         paths = list(output.itertuples(index=False, name=None))
         logger.info(f"Paths: {paths}")
@@ -226,7 +299,11 @@ class S3EpisodeResolver(EpisodeResolver):
 
     @classmethod
     def _sync_s3_to_local(
-        cls, bucket_name: str, s3_paths: list[tuple[str, str]], local_dir: Path
+        cls,
+        bucket_name: str,
+        s3_paths: list[tuple[str, str]],
+        local_dir: Path,
+        numworkers: int = 10,
     ):
         if not s3_paths:
             return
@@ -274,9 +351,31 @@ class S3EpisodeResolver(EpisodeResolver):
         try:
             batch_path.write_text("\n".join(lines) + "\n")
 
-            cmd = ["s5cmd", "run", str(batch_path)]
+            load_env()
+            rl2_endpoint_url = os.environ.get("R2_ENDPOINT_URL")
+            access_key_id = os.environ.get("R2_ACCESS_KEY_ID")
+            secret_access_key = os.environ.get("R2_SECRET_ACCESS_KEY")
+            if not all([rl2_endpoint_url, access_key_id, secret_access_key]):
+                raise ValueError(
+                    "R2 credentials missing. Ensure ~/.egoverse_env has "
+                    "R2_ENDPOINT_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY."
+                )
+            s5cmd_env = os.environ.copy()
+            s5cmd_env["AWS_ACCESS_KEY_ID"] = access_key_id
+            s5cmd_env["AWS_SECRET_ACCESS_KEY"] = secret_access_key
+            s5cmd_env["AWS_DEFAULT_REGION"] = "auto"
+            s5cmd_env["AWS_REGION"] = "auto"
+            cmd = [
+                "s5cmd",
+                "--endpoint-url",
+                rl2_endpoint_url,
+                "--numworkers",
+                str(numworkers),
+                "run",
+                str(batch_path),
+            ]
             logger.info("Running s5cmd batch (%d lines): %s", len(lines), " ".join(cmd))
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, env=s5cmd_env)
 
         finally:
             try:
@@ -289,8 +388,10 @@ class S3EpisodeResolver(EpisodeResolver):
         cls,
         *,
         bucket_name: str,
-        filters: dict,
+        filters: DatasetFilter | None = None,
         local_dir: Path,
+        numworkers: int = 10,
+        debug: bool = False,
     ):
         """
         Public API:
@@ -298,13 +399,16 @@ class S3EpisodeResolver(EpisodeResolver):
         - runs a single aws s3 sync with includes
         - downloads into local_dir
 
+        Args:
+            numworkers: Number of parallel workers for s5cmd.
 
         Returns:
             List[(processed_path, episode_hash)]
         """
+        filters = _ensure_dataset_filter(filters)
 
         # 1) Resolve episodes from DB
-        filtered_paths = cls._get_filtered_paths(filters)
+        filtered_paths = cls._get_filtered_paths(filters, debug=debug)
         if not filtered_paths:
             logger.warning("No episodes matched filters.")
             return []
@@ -319,6 +423,7 @@ class S3EpisodeResolver(EpisodeResolver):
             bucket_name=bucket_name,
             s3_paths=filtered_paths,
             local_dir=local_dir,
+            numworkers=numworkers,
         )
 
         return filtered_paths
@@ -334,37 +439,29 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        debug=False,
     ):
         super().__init__(folder_path, key_map, transform_list)
+        self.debug = debug
 
     @staticmethod
-    def _local_filters_match(metadata: dict, episode_hash: str, filters: dict) -> bool:
-        for key, value in filters.items():
-            if key == "episode_hash":
-                if episode_hash != value:
-                    return False
-                continue
-
-            if key == "robot_name":
-                meta_value = (
-                    metadata.get("robot_name")
-                    or metadata.get("robot_type")
-                    or metadata.get("embodiment")
-                )
-            elif key == "is_deleted":
-                meta_value = metadata.get("is_deleted", False)
-            else:
-                meta_value = metadata.get(key)
-
-            if meta_value is None:
-                return False
-            if meta_value != value:
-                return False
-
-        return True
+    def _local_filters_match(
+        metadata: dict,
+        episode_hash: str,
+        filters: DatasetFilter,
+    ) -> bool:
+        return filters.matches(
+            _normalize_filter_row(metadata, episode_hash=episode_hash)
+        )
 
     @classmethod
-    def _get_local_filtered_paths(cls, search_path: Path, filters: dict):
+    def _get_local_filtered_paths(
+        cls,
+        search_path: Path,
+        filters: DatasetFilter | None = None,
+        debug: bool = False,
+    ):
+        filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
             return []
@@ -386,13 +483,17 @@ class LocalEpisodeResolver(EpisodeResolver):
             if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
 
+        if debug:
+            logger.info("Debug mode: limiting to 10 datasets.")
+            filtered = filtered[:10]
+
         logger.info("Local filtered paths: %s", filtered)
         return filtered
 
     def resolve(
         self,
         sync_from_s3=False,
-        filters: dict | None = None,
+        filters: DatasetFilter | None = None,
     ) -> dict[str, "ZarrDataset"]:
         """
         Outputs a dict of ZarrDatasets with relevant filters from local data.
@@ -402,12 +503,14 @@ class LocalEpisodeResolver(EpisodeResolver):
                 "LocalEpisodeResolver does not sync from S3; ignoring sync_from_s3=True."
             )
 
-        filters = dict(filters) if filters is not None else {}
-        filters.setdefault("is_deleted", False)
+        filters = _ensure_dataset_filter(filters)
 
-        filtered_paths = self._get_local_filtered_paths(self.folder_path, filters)
+        filtered_paths = self._get_local_filtered_paths(
+            self.folder_path, filters, debug=self.debug
+        )
 
         valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        logger.info(f"Valid folder names: {valid_folder_names}")
         if not valid_folder_names:
             raise ValueError(
                 "No valid collection names from local filtering: "
@@ -505,7 +608,7 @@ class MultiDataset(torch.utils.data.Dataset):
         # TODO add key_map and transform pass to children
 
         sync_from_s3 = kwargs.pop("sync_from_s3", False)
-        filters = kwargs.pop("filters", {}) or {}
+        filters = kwargs.pop("filters", None)
 
         if isinstance(resolver, LocalEpisodeResolver):
             resolved = resolver.resolve(
@@ -682,7 +785,18 @@ class ZarrDataset(torch.utils.data.Dataset):
         # TODO add the transform list code here
         if self.transform:
             for transform in self.transform or []:
-                data = transform.transform(data)
+                try:
+                    data = transform.transform(data)
+                except Exception as e:
+                    logger.error(f"Error transforming data: {e}")
+                    logger.error(f"Data: {data}")
+                    logger.error(f"Transform: {transform}")
+                    logger.error(f"Error: {e}")
+                    if idx == 0:
+                        logger.error("Error in first frame")
+                        raise e
+                    else:
+                        return self.__getitem__(0)
 
         for k, v in data.items():
             if isinstance(v, np.ndarray):
@@ -732,7 +846,19 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         if self.transform:
             for transform in self.transform or []:
-                out = transform.transform(out)
+                try:
+                    out = transform.transform(out)
+                except Exception as e:
+                    logger.error(f"Error transforming data: {e}")
+                    # NOTE: avoid dumping full arrays into logs
+                    logger.error(f"Data keys: {list(out.keys())}")
+                    logger.error(f"Transform: {transform}")
+                    logger.error(f"Error: {e}")
+                    if idx == 0:
+                        logger.error("Error in first frame")
+                        raise e
+                    else:
+                        return self.get_item_keys(0, keys)
 
         for k, v in out.items():
             if isinstance(v, np.ndarray):
@@ -831,17 +957,3 @@ class ZarrEpisode:
     def __repr__(self) -> str:
         """String representation of the episode."""
         return f"ZarrEpisode(path={self._path}, frames={len(self)})"
-
-
-if __name__ == "__main__":
-    import hydra
-    from omegaconf import OmegaConf
-
-    dataset_cfg_path = "/nethome/paphiwetsa3/flash/projects/EgoVerse/egomimic/hydra_configs/data/test_multi_zarr.yaml"
-    # Using Hydra to load the dataset config
-    dataset_cfg = OmegaConf.load(dataset_cfg_path)
-    datamodule = hydra.utils.instantiate(dataset_cfg)
-    dl = datamodule.train_dataloader()
-    batch = next(iter(dl))
-
-    breakpoint()

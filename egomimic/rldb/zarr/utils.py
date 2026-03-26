@@ -1,14 +1,17 @@
 import ast
+import json
 import logging
 import math
 import os
 import random
+import time
 
 import numpy as np
 import pandas as pd
 import torch
+from tqdm import tqdm
 
-from egomimic.rldb.embodiment import get_embodiment_id
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, ZarrDataset
 
 logger = logging.getLogger(__name__)
@@ -25,7 +28,7 @@ def set_global_seed(seed: int = 42):
 
 
 class DataSchematic(object):
-    def __init__(self, schematic_dict, viz_img_key, norm_mode="zscore"):
+    def __init__(self, schematic_dict, norm_mode="zscore"):
         """
         Initialize with a schematic dictionary and create a DataFrame.
 
@@ -73,7 +76,6 @@ class DataSchematic(object):
                 )
 
         self.df = pd.DataFrame(rows)
-        self._viz_img_key = {get_embodiment_id(k): v for k, v in viz_img_key.items()}
         self.shapes_infered = False
         self.norm_mode = norm_mode
         self.norm_stats = {emb: {} for emb in self.embodiments}
@@ -155,50 +157,46 @@ class DataSchematic(object):
         sample_frac: float = 0.10,
         seed: int = 42,
         max_samples: int | None = None,
-        log_every: int = 200,
-        include_all_key_map_keys: bool = False,
-        extra_aux_keys=(),
+        batch_size: int = 512,
+        num_workers: int = 10,
+        benchmark_dir: str | None = None,
     ):
+        """
+        Args:
+            norm_dataset: the dataset to infer norm from (should not have image keys to increase performance)
+            dataset_name: the name of the dataset
+            sample_frac: the fraction of the dataset to sample
+            seed: the seed for the random number generator
+            max_samples: the maximum number of samples to use
+            log_every: the number of samples to log after
+        """
         embodiment = dataset_name
         if isinstance(embodiment, str):
             embodiment = get_embodiment_id(embodiment)
 
-        norm_keys = []
-        norm_keys.extend(self.keys_of_type("proprio_keys"))
-        norm_keys.extend(self.keys_of_type("action_keys"))
-        norm_keys = [k for k in norm_keys if self.is_key_with_embodiment(k, embodiment)]
+        benchmark_stats = None
+        if benchmark_dir is not None:
+            os.makedirs(benchmark_dir, exist_ok=True)
+            benchmark_file = os.path.join(benchmark_dir, "benchmark.json")
+            benchmark_stats = {}
+            benchmark_stats["stats"] = {}
 
-        if not norm_keys:
+        norm_keys = []
+        norm_keys.extend(self.keys_of_type("proprio_keys", embodiment))
+        norm_keys.extend(self.keys_of_type("action_keys", embodiment))
+        if len(norm_keys) == 0:
             logger.warning(
                 f"[NormStats] No proprio/action keys for embodiment={embodiment}"
             )
             return
 
-        aux_keys = self.dataset_raw_norm_keys(
+        loader = torch.utils.data.DataLoader(
             dataset,
-            key_types=("proprio_keys", "action_keys"),
-            extra_keys=extra_aux_keys,
-            include_all_key_map_keys=include_all_key_map_keys,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=True,
+            generator=torch.Generator().manual_seed(seed),
         )
-
-        if not aux_keys:
-            logger.warning(f"[NormStats] No aux keys found for dataset={type(dataset)}")
-            return
-
-        def get_item_keys_from_any(ds, idx, keys):
-            if hasattr(ds, "get_item_keys"):
-                return ds.get_item_keys(idx, keys=keys)
-
-            if hasattr(ds, "datasets") and hasattr(ds, "index_map"):
-                dataset_name_, local_idx = ds.index_map[idx]
-                child = ds.datasets[dataset_name_]
-                if not hasattr(child, "get_item_keys"):
-                    raise RuntimeError(
-                        f"Child dataset {type(child)} has no get_item_keys"
-                    )
-                return child.get_item_keys(local_idx, keys=keys)
-
-            raise RuntimeError(f"Unsupported dataset type: {type(ds)}")
 
         N = len(dataset)
         if N <= 0:
@@ -209,51 +207,61 @@ class DataSchematic(object):
         if max_samples is not None:
             n_samples = min(n_samples, max_samples)
 
-        rng = random.Random(seed)
-        sample_indices = rng.sample(range(N), k=n_samples)
-
         logger.info(f"[NormStats] embodiment={embodiment} norm_keys={norm_keys}")
-        logger.info(f"[NormStats] aux_keys={aux_keys}")
         logger.info(
             f"[NormStats] sampling {n_samples}/{N} (~{100 * sample_frac:.1f}%) indices"
         )
 
         collected = {k: [] for k in norm_keys}
-        expected_shapes = {}
 
-        for i, idx in enumerate(sample_indices, 1):
-            item = get_item_keys_from_any(dataset, idx, keys=aux_keys)
+        loading_start_time = time.time()
+        cur_num_samples = 0
+        logger.info(
+            f"[NormStats] Starting to load data for norm inference with batch_size={batch_size} and num_workers={num_workers}"
+        )
+        for batch in tqdm(loader):
+            if cur_num_samples >= n_samples:
+                break
+
+            remaining = n_samples - cur_num_samples
+            take = min(
+                remaining, batch_size
+            )  # or batch[k].shape[0] if last batch varies
+
             for k in norm_keys:
-                item_key = self.keyname_to_zarr_key(k, embodiment)
-                if item_key not in item:
+                batch_key = self.keyname_to_zarr_key(k, embodiment)
+                if batch_key is None:
                     continue
-
-                x = item[item_key]
-                if isinstance(x, torch.Tensor):
+                if batch_key not in batch:
+                    continue
+                x = batch[batch_key][:take]
+                if hasattr(x, "detach"):
                     x = x.detach().cpu().numpy()
-                x = np.asarray(x)
-
-                if k not in expected_shapes:
-                    expected_shapes[k] = x.shape
-                else:
-                    if x.shape != expected_shapes[k]:
-                        raise ValueError(
-                            f"[NormStats] Shape mismatch for key '{k}': "
-                            f"expected {expected_shapes[k]}, got {x.shape}. "
-                            "Ensure padding/horizon is consistent."
-                        )
-
                 collected[k].append(x)
 
-            if log_every and (i % log_every == 0):
-                logger.info(f"[NormStats] processed {i}/{n_samples} samples")
+            cur_num_samples += take
 
+        del_keys = []
         for k in norm_keys:
-            if not collected[k]:
+            if len(collected[k]) == 0:
+                del_keys.append(k)
+        for k in del_keys:
+            del collected[k]
+            norm_keys.remove(k)
+
+        loading_end_time = time.time()
+        loading_time = loading_end_time - loading_start_time
+        if benchmark_stats is not None:
+            benchmark_stats["loading_time"] = loading_time
+
+        computing_start_time = time.time()
+        for k in norm_keys:
+            if collected.get(k, None) is None:
                 logger.warning(f"[NormStats] No data collected for key={k}")
                 continue
+            collected[k] = np.concatenate(collected[k], axis=0)
 
-            X = np.stack(collected[k], axis=0)
+            X = collected[k]
 
             mean = np.mean(X, axis=0)
             std = np.std(X, axis=0)
@@ -264,26 +272,75 @@ class DataSchematic(object):
             q99 = np.percentile(X, 99, axis=0)
 
             self.norm_stats[embodiment][k] = {
-                "mean": torch.from_numpy(mean).float(),
-                "std": torch.from_numpy(std).float(),
-                "min": torch.from_numpy(minv).float(),
-                "max": torch.from_numpy(maxv).float(),
-                "median": torch.from_numpy(median).float(),
-                "quantile_1": torch.from_numpy(q1).float(),
-                "quantile_99": torch.from_numpy(q99).float(),
+                "mean": torch.from_numpy(np.array(mean, dtype=np.float32)).float(),
+                "std": torch.from_numpy(np.array(std, dtype=np.float32)).float(),
+                "min": torch.from_numpy(np.array(minv, dtype=np.float32)).float(),
+                "max": torch.from_numpy(np.array(maxv, dtype=np.float32)).float(),
+                "median": torch.from_numpy(np.array(median, dtype=np.float32)).float(),
+                "quantile_1": torch.from_numpy(np.array(q1, dtype=np.float32)).float(),
+                "quantile_99": torch.from_numpy(
+                    np.array(q99, dtype=np.float32)
+                ).float(),
             }
+
+            if benchmark_stats is not None:
+                os.makedirs(
+                    os.path.join(benchmark_dir, str(embodiment), k), exist_ok=True
+                )
+                mean_path = os.path.join(benchmark_dir, str(embodiment), k, "mean.pt")
+                std_path = os.path.join(benchmark_dir, str(embodiment), k, "std.pt")
+                min_path = os.path.join(benchmark_dir, str(embodiment), k, "min.pt")
+                max_path = os.path.join(benchmark_dir, str(embodiment), k, "max.pt")
+                median_path = os.path.join(
+                    benchmark_dir, str(embodiment), k, "median.pt"
+                )
+                quantile_1_path = os.path.join(
+                    benchmark_dir, str(embodiment), k, "quantile_1.pt"
+                )
+                quantile_99_path = os.path.join(
+                    benchmark_dir, str(embodiment), k, "quantile_99.pt"
+                )
+                torch.save(self.norm_stats[embodiment][k]["mean"], mean_path)
+                torch.save(self.norm_stats[embodiment][k]["std"], std_path)
+                torch.save(self.norm_stats[embodiment][k]["min"], min_path)
+                torch.save(self.norm_stats[embodiment][k]["max"], max_path)
+                torch.save(self.norm_stats[embodiment][k]["median"], median_path)
+                torch.save(
+                    self.norm_stats[embodiment][k]["quantile_1"], quantile_1_path
+                )
+                torch.save(
+                    self.norm_stats[embodiment][k]["quantile_99"], quantile_99_path
+                )
+                if benchmark_stats["stats"].get(embodiment, None) is None:
+                    benchmark_stats["stats"][embodiment] = {}
+                if benchmark_stats["stats"][embodiment].get(k, None) is None:
+                    benchmark_stats["stats"][embodiment][k] = {}
+                benchmark_stats["stats"][embodiment][k] = {
+                    "mean": mean_path,
+                    "std": std_path,
+                    "min": min_path,
+                    "max": max_path,
+                    "median": median_path,
+                    "quantile_1": quantile_1_path,
+                    "quantile_99": quantile_99_path,
+                }
 
             logger.info(
                 f"[NormStats] key={k} samples={X.shape[0]} stat_shape={mean.shape}"
             )
 
-        logger.info("[NormStats] Finished norm inference")
+        computing_end_time = time.time()
+        computing_time = computing_end_time - computing_start_time
+        if benchmark_stats is not None:
+            benchmark_stats["computing_time"] = computing_time
+            benchmark_stats["frames"] = n_samples
 
-    def viz_img_key(self):
-        """
-        Get the key that should be used for offline visualization
-        """
-        return self._viz_img_key
+        logger.info(
+            f"[NormStats] Finished norm inference, loading_time={loading_time:.2f}s, computing_time={computing_time:.2f}s"
+        )
+        if benchmark_stats is not None:
+            with open(benchmark_file, "w") as f:
+                json.dump(benchmark_stats, f, indent=4)
 
     def all_keys(self):
         """
@@ -312,7 +369,7 @@ class DataSchematic(object):
             (self.df["key_name"] == key_name) & (self.df["embodiment"] == embodiment)
         ).any()
 
-    def keys_of_type(self, key_type):
+    def keys_of_type(self, key_type, embodiment):
         """
         Get keys of a specific type.
 
@@ -324,10 +381,12 @@ class DataSchematic(object):
         Returns:
             list: Key names (str) of the given type.
         """
-        return self.df[self.df["key_type"] == key_type]["key_name"].tolist()
+        return self.df[
+            (self.df["key_type"] == key_type) & (self.df["embodiment"] == embodiment)
+        ]["key_name"].tolist()
 
-    def action_keys(self):
-        return self.keys_of_type("action_keys")
+    def action_keys(self, embodiment):
+        return self.keys_of_type("action_keys", embodiment)
 
     def key_shape(self, key, embodiment):
         """
@@ -376,9 +435,9 @@ class DataSchematic(object):
 
         norm_data = {}
         for key, tensor in data.items():
-            if key in self.keys_of_type("proprio_keys") or key in self.keys_of_type(
-                "action_keys"
-            ):
+            if key in self.keys_of_type(
+                "proprio_keys", embodiment
+            ) or key in self.keys_of_type("action_keys", embodiment):
                 if (
                     embodiment not in self.norm_stats
                     or key not in self.norm_stats[embodiment]
@@ -430,9 +489,9 @@ class DataSchematic(object):
 
         denorm_data = {}
         for key, tensor in data.items():
-            if key in self.keys_of_type("proprio_keys") or key in self.keys_of_type(
-                "action_keys"
-            ):
+            if key in self.keys_of_type(
+                "proprio_keys", embodiment
+            ) or key in self.keys_of_type("action_keys", embodiment):
                 if (
                     embodiment not in self.norm_stats
                     or key not in self.norm_stats[embodiment]

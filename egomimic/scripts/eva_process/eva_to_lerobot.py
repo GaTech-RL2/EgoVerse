@@ -18,7 +18,7 @@ from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
 from scipy.spatial.transform import Rotation as R
 
 import egomimic
-from egomimic.rldb.embodiment import EMBODIMENT
+from egomimic.rldb.embodiment.embodiment import EMBODIMENT
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 from egomimic.utils.egomimicUtils import (
     EXTRINSICS,

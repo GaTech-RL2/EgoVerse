@@ -1,0 +1,36 @@
+name: Question
+description: Ask a question about setup, usage, or the codebase
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question? Check the README first, then ask here if you're still stuck.
+
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic
+      options:
+        - Installation / Environment Setup
+        - Data Processing Pipeline
+        - Training Configuration
+        - Dataset Access / Download
+        - Robot Deployment
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like to know?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: What have you tried?
+      description: Any steps you've already taken or docs you've read.

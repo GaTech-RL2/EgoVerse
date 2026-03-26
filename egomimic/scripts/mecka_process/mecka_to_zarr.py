@@ -22,7 +22,7 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation
 
-from egomimic.rldb.embodiment import EMBODIMENT
+from egomimic.rldb.embodiment.embodiment import EMBODIMENT
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 logging.basicConfig(level=logging.INFO)
@@ -739,8 +739,7 @@ class MeckaDatasetConverter:
             annotations=annotations,
             fps=self.fps,
             embodiment=self.embodiment,
-            task=self.task_description,
-            enable_sharding=False,  # Avoid zarr sharding codec ZeroDivisionError with certain array shapes
+            task_description=self.task_description,
             metadata_override=self.mecka_metadata,
         )
         mp4_path = self.output_dir / f"{self.episode_meta['id']}.mp4"

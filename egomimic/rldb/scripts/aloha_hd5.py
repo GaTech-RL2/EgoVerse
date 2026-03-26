@@ -185,9 +185,9 @@ class AlohaHD5Extractor:
         with h5py.File(hdf5_file_path, "r") as hdf5_file:
             # Collect all dataset names in the HDF5 file
             hdf5_file.visititems(
-                lambda name, obj: topics.append(name)
-                if isinstance(obj, h5py.Dataset)
-                else None
+                lambda name, obj: (
+                    topics.append(name) if isinstance(obj, h5py.Dataset) else None
+                )
             )
 
             # Iterate over each topic to define its features

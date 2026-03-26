@@ -21,7 +21,7 @@ from egomimic.models.preprocess_pi_obs import (
     _SimpleObservation,
     _to_minus1_1,
 )
-from egomimic.rldb.embodiment import get_embodiment, get_embodiment_id
+from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import ConverterRegistry
 from egomimic.utils.egomimicUtils import (
     draw_actions,

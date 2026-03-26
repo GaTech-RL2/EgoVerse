@@ -5,8 +5,7 @@ import os
 import tempfile
 from pathlib import Path
 
-import boto3
-
+from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
 from egomimic.utils.aws.aws_sql import TableRow
 
 
@@ -16,7 +15,7 @@ class Uploader:
 
         self.embodiment = embodiment
         self.datatype = datatype
-        self.s3 = boto3.client("s3")
+        self.s3 = get_boto3_s3_client()
         self.bucket_name = "rldb"
         self.s3_base_prefix = f"raw_v2/{embodiment}/"
 
@@ -373,7 +372,7 @@ class Uploader:
             file_path: Path to the local file to upload
             new_name: Optional new name for the file in S3 storage
         """
-        s3 = boto3.client("s3")
+        s3 = get_boto3_s3_client()
         s3_key = f"{self.s3_base_prefix}{new_name or Path(file_path).name}"
 
         print(

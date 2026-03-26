@@ -531,17 +531,11 @@ def reshape_dimensions(x, begin_axis, end_axis, target_dims):
     return recursive_dict_list_tuple_apply(
         x,
         {
-            torch.Tensor: lambda x,
-            b=begin_axis,
-            e=end_axis,
-            t=target_dims: reshape_dimensions_single(
-                x, begin_axis=b, end_axis=e, target_dims=t
+            torch.Tensor: lambda x, b=begin_axis, e=end_axis, t=target_dims: (
+                reshape_dimensions_single(x, begin_axis=b, end_axis=e, target_dims=t)
             ),
-            np.ndarray: lambda x,
-            b=begin_axis,
-            e=end_axis,
-            t=target_dims: reshape_dimensions_single(
-                x, begin_axis=b, end_axis=e, target_dims=t
+            np.ndarray: lambda x, b=begin_axis, e=end_axis, t=target_dims: (
+                reshape_dimensions_single(x, begin_axis=b, end_axis=e, target_dims=t)
             ),
             type(None): lambda x: x,
         },
@@ -743,10 +737,9 @@ def gather_along_dim_with_dim(x, target_dim, source_dim, indices):
     """
     return map_tensor(
         x,
-        lambda y,
-        t=target_dim,
-        s=source_dim,
-        i=indices: gather_along_dim_with_dim_single(y, t, s, i),
+        lambda y, t=target_dim, s=source_dim, i=indices: (
+            gather_along_dim_with_dim_single(y, t, s, i)
+        ),
     )
 
 
@@ -837,16 +830,12 @@ def pad_sequence(seq, padding, batched=False, pad_same=True, pad_values=None):
     return recursive_dict_list_tuple_apply(
         seq,
         {
-            torch.Tensor: lambda x,
-            p=padding,
-            b=batched,
-            ps=pad_same,
-            pv=pad_values: pad_sequence_single(x, p, b, ps, pv),
-            np.ndarray: lambda x,
-            p=padding,
-            b=batched,
-            ps=pad_same,
-            pv=pad_values: pad_sequence_single(x, p, b, ps, pv),
+            torch.Tensor: lambda x, p=padding, b=batched, ps=pad_same, pv=pad_values: (
+                pad_sequence_single(x, p, b, ps, pv)
+            ),
+            np.ndarray: lambda x, p=padding, b=batched, ps=pad_same, pv=pad_values: (
+                pad_sequence_single(x, p, b, ps, pv)
+            ),
             type(None): lambda x: x,
         },
     )

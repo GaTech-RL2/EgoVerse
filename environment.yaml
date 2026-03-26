@@ -1,51 +1,9 @@
 name: emimic
 channels:
-  - pytorch
-  - nvidia
+  - conda-forge
+  - defaults
 dependencies:
   - python=3.11
-  - pip=23
-  - pytorch=2.3.1
-  - torchvision=0.18.1
-  - pytorch-cuda=12.1
-  - cuda-toolkit=12.1
-  - pyyaml
-  - pexpect
-  - matplotlib
-  - packaging
-  - h5py
-  - ipython
-  - rich
+  - pip
   - pip:
-    - wandb
-    - hydra-core
-    - hydra-submitit-launcher==1.2.0
-    - black
-    - gpustat
-    - pynvml
-    - termcolor
-    - pyquaternion
-    - rospkg
-    - einops
-    - av==12.0.0
-    - opencv-python==4.7.0.72
-    - dm-control==1.0.8
-    - mujoco==2.3.1
-    - mujoco-py==2.1.2.14
-    - submitit
-    - arm_pytorch_utilities
-    - pytorch-kinematics
-    - lightning
-    - positional-encodings[pytorch]
-    - argparse
-    - getdaft
-    - pandas
-    - overrides
-    - zarr
-    - tabulate
-    - transformers
-    - timm
-    - tslearn
-    - geomloss
-    - sqlalchemy
-    - psycopg[binary]
+    - -r requirements.txt

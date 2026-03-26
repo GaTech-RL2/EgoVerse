@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import boto3
 import cloudpathlib
 
+from egomimic.utils.aws.aws_data_utils import _uses_r2_endpoint
 from egomimic.utils.aws.aws_sql import (
     TableRow,
     add_episode,
@@ -155,10 +156,15 @@ def main(raw_v2_path_arg: str, endpoint_url: str | None = None):
     )
 
     if endpoint_url:
+        region_name = os.environ.get("AWS_DEFAULT_REGION", "auto")
+        if _uses_r2_endpoint(endpoint_url):
+            # Cloudflare R2 does not accept AWS session tokens on S3 requests.
+            r2_session_token = None
+            region_name = "auto"
         # R2 requires an S3 region of "auto"/provider-specific aliases.
         # Keep AWS_DEFAULT_REGION for Secrets Manager, and override only the S3 client session.
         s3_boto3_session = boto3.session.Session(
-            region_name="auto",
+            region_name=region_name,
             aws_access_key_id=r2_access_key_id,
             aws_secret_access_key=r2_secret_access_key,
             aws_session_token=r2_session_token,

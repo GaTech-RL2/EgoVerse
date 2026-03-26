@@ -44,7 +44,7 @@ class _IncrementalHandle:
         if self._total_frames is None:
             return self._capacity
         padded = self._total_frames
-        if w.enable_sharding and self._total_frames % w.chunk_timesteps != 0:
+        if self._total_frames % w.chunk_timesteps != 0:
             padded = (
                 (self._total_frames + w.chunk_timesteps - 1)
                 // w.chunk_timesteps
@@ -78,7 +78,7 @@ class _IncrementalHandle:
             frames_per_chunk = max(1, min(w.chunk_timesteps, padded))
             chunk_shape = (frames_per_chunk,) + frame_shape
 
-            if w.enable_sharding and not dynamic_length:
+            if not dynamic_length:
                 self._store.create_array(
                     key,
                     shape=full_shape,
@@ -113,7 +113,7 @@ class _IncrementalHandle:
             shape = (padded,)
             chunk_shape = (1,)
 
-            if w.enable_sharding and not dynamic_length:
+            if not dynamic_length:
                 self._store.create_array(
                     key,
                     shape=shape,
@@ -294,10 +294,10 @@ class ZarrWriter:
         episode_path: str | Path,
         embodiment: str = "",
         fps: int = 30,
-        task: str = "",
+        task_name: str = "debug",
+        task_description: str = "",
         annotations: list[tuple[str, int, int]] | None = None,
         chunk_timesteps: int = 100,
-        enable_sharding: bool = True,
     ):
         """
         Initialize ZarrWriter.
@@ -306,20 +306,20 @@ class ZarrWriter:
             episode_path: Path to episode .zarr directory.
             embodiment: Robot type identifier (e.g., "eva_bimanual").
             fps: Frames per second for playback (default: 30).
-            task: Task description.
+            task_name: Task name.
+            task_description: Task description.
             annotations: List of (text, start_idx, end_idx) tuples describing language annotations.
             chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
-            enable_sharding: Enable Zarr sharding for better cloud performance (default: True).
         """
         self.episode_path = Path(episode_path)
 
         # Store parameters
         self.fps = fps
         self.embodiment = embodiment
-        self.task = task
+        self.task_name = task_name
+        self.task_description = task_description
         self.annotations = annotations if annotations is not None else []
         self.chunk_timesteps = chunk_timesteps
-        self.enable_sharding = enable_sharding
 
         # Track image shapes for metadata
         self._features: dict[str, dict[str, Any]] = {}
@@ -328,6 +328,7 @@ class ZarrWriter:
         self,
         numeric_data: dict[str, np.ndarray] | None = None,
         image_data: dict[str, np.ndarray] | None = None,
+        pre_encoded_image_data: dict[str, tuple[np.ndarray, list[int]]] | None = None,
         metadata_override: dict[str, Any] | None = None,
     ) -> None:
         """
@@ -338,6 +339,9 @@ class ZarrWriter:
                 All arrays must have same length along axis 0.
             image_data: Dictionary of image arrays with shape (T, H, W, 3).
                 Images will be JPEG-compressed.
+            pre_encoded_image_data: Dictionary mapping key to (encoded_array, image_shape).
+                encoded_array is np.ndarray(dtype=object) of JPEG bytes.
+                image_shape is [H, W, 3]. Skips internal JPEG encoding.
             metadata_override: Optional metadata overrides to apply after building metadata.
 
         Raises:
@@ -346,25 +350,31 @@ class ZarrWriter:
         """
         numeric_data = numeric_data or {}
         image_data = image_data or {}
+        pre_encoded_image_data = pre_encoded_image_data or {}
 
-        if not numeric_data and not image_data:
-            raise ValueError("Must provide at least one of numeric_data or image_data")
+        if not numeric_data and not image_data and not pre_encoded_image_data:
+            raise ValueError(
+                "Must provide at least one of numeric_data, image_data, "
+                "or pre_encoded_image_data"
+            )
 
         # Infer total_frames from data
-        all_lengths = []
-        for key, arr in {**numeric_data, **image_data}.items():
+        all_lengths: list[int] = []
+        for arr in numeric_data.values():
             all_lengths.append(len(arr))
+        for arr in image_data.values():
+            all_lengths.append(len(arr))
+        for enc_arr, _shape in pre_encoded_image_data.values():
+            all_lengths.append(len(enc_arr))
 
         if len(set(all_lengths)) > 1:
-            raise ValueError(
-                f"Inconsistent frame counts across arrays: {dict(zip(numeric_data.keys() | image_data.keys(), all_lengths))}"
-            )
+            raise ValueError(f"Inconsistent frame counts across arrays: {all_lengths}")
 
         self.total_frames = all_lengths[0]
 
-        # Calculate padded frame count if sharding is enabled
+        # Calculate padded frame count for sharding alignment
         padded_frames = self.total_frames
-        if self.enable_sharding and self.total_frames % self.chunk_timesteps != 0:
+        if self.total_frames % self.chunk_timesteps != 0:
             padded_frames = (
                 (self.total_frames + self.chunk_timesteps - 1) // self.chunk_timesteps
             ) * self.chunk_timesteps
@@ -380,9 +390,15 @@ class ZarrWriter:
         for key, arr in numeric_data.items():
             self._write_numeric_array(store, key, arr, padded_frames)
 
-        # Write image arrays
+        # Write image arrays (with internal JPEG encoding)
         for key, arr in image_data.items():
             self._write_image_array(store, key, arr, padded_frames)
+
+        # Write pre-encoded image arrays (skip JPEG encoding)
+        for key, (enc_arr, img_shape) in pre_encoded_image_data.items():
+            self._write_pre_encoded_image_array(
+                store, key, enc_arr, img_shape, padded_frames
+            )
 
         # Write language annotations if provided
         if self.annotations is not None:
@@ -454,21 +470,12 @@ class ZarrWriter:
         # Chunk shape: (frames, ...) - keep other dimensions intact
         chunk_shape = (frames_per_chunk,) + arr.shape[1:]
 
-        # Create array with or without sharding
-        if self.enable_sharding:
-            shard_shape = arr.shape
-            store.create_array(
-                key,
-                data=arr,
-                chunks=chunk_shape,
-                shards=shard_shape,
-            )
-        else:
-            store.create_array(
-                key,
-                data=arr,
-                chunks=chunk_shape,
-            )
+        store.create_array(
+            key,
+            data=arr,
+            chunks=chunk_shape,
+            shards=arr.shape,
+        )
 
         # Track shape and dtype for metadata
         dimension_names = [f"dim_{i}" for i in range(len(original_shape))]
@@ -516,23 +523,13 @@ class ZarrWriter:
         # Images are always chunked 1 per timestep, regardless of chunk_timesteps
         chunk_shape = (1,)
 
-        # Create array with VariableLengthBytes dtype
-        if self.enable_sharding:
-            shard_shape = encoded.shape
-            store.create_array(
-                key,
-                shape=encoded.shape,
-                chunks=chunk_shape,
-                shards=shard_shape,
-                dtype=VariableLengthBytes(),
-            )
-        else:
-            store.create_array(
-                key,
-                shape=encoded.shape,
-                chunks=chunk_shape,
-                dtype=VariableLengthBytes(),
-            )
+        store.create_array(
+            key,
+            shape=encoded.shape,
+            chunks=chunk_shape,
+            shards=encoded.shape,
+            dtype=VariableLengthBytes(),
+        )
 
         # Assign data after creation (required for VariableLengthBytes)
         store[key][:] = encoded
@@ -541,6 +538,52 @@ class ZarrWriter:
         self._features[key] = {
             "dtype": "jpeg",
             "shape": list(image_arr.shape[1:]),  # [H, W, 3]
+            "names": ["height", "width", "channel"],
+        }
+
+    def _write_pre_encoded_image_array(
+        self,
+        store: zarr.Group,
+        key: str,
+        encoded_arr: np.ndarray,
+        image_shape: list[int],
+        padded_frames: int,
+    ) -> None:
+        """
+        Write already-JPEG-encoded image data to the Zarr store.
+
+        Args:
+            store: Zarr group to write to.
+            key: Array key name.
+            encoded_arr: Object array of JPEG bytes with shape (T,).
+            image_shape: Original image dimensions [H, W, 3].
+            padded_frames: Target frame count after padding.
+        """
+        num_frames = len(encoded_arr)
+
+        if padded_frames > num_frames:
+            padded = np.empty((padded_frames,), dtype=object)
+            padded[:num_frames] = encoded_arr
+            last_jpeg = encoded_arr[-1]
+            for i in range(num_frames, padded_frames):
+                padded[i] = last_jpeg
+            encoded_arr = padded
+
+        chunk_shape = (1,)
+
+        store.create_array(
+            key,
+            shape=encoded_arr.shape,
+            chunks=chunk_shape,
+            shards=encoded_arr.shape,
+            dtype=VariableLengthBytes(),
+        )
+
+        store[key][:] = encoded_arr
+
+        self._features[key] = {
+            "dtype": "jpeg",
+            "shape": image_shape,
             "names": ["height", "width", "channel"],
         }
 
@@ -572,22 +615,13 @@ class ZarrWriter:
 
         n_annotations = len(annotations)
         chunk_shape = (max(1, n_annotations),)
-        if self.enable_sharding:
-            shard_shape = (n_annotations,)
-            store.create_array(
-                "annotations",
-                shape=encoded.shape,
-                chunks=chunk_shape,
-                shards=shard_shape,
-                dtype=VariableLengthBytes(),
-            )
-        else:
-            store.create_array(
-                "annotations",
-                shape=encoded.shape,
-                chunks=chunk_shape,
-                dtype=VariableLengthBytes(),
-            )
+        store.create_array(
+            "annotations",
+            shape=encoded.shape,
+            chunks=chunk_shape,
+            shards=(n_annotations,),
+            dtype=VariableLengthBytes(),
+        )
         if n_annotations > 0:
             store["annotations"][:] = encoded
 
@@ -615,7 +649,8 @@ class ZarrWriter:
             "embodiment": self.embodiment,
             "total_frames": self.total_frames,
             "fps": self.fps,
-            "task": self.task,
+            "task_name": self.task_name,
+            "task_description": self.task_description,
             "features": self._features,
         }
 
@@ -630,12 +665,13 @@ class ZarrWriter:
         episode_path: str | Path,
         numeric_data: dict[str, np.ndarray] | None = None,
         image_data: dict[str, np.ndarray] | None = None,
+        pre_encoded_image_data: dict[str, tuple[np.ndarray, list[int]]] | None = None,
         embodiment: str = "",
         fps: int = 30,
-        task: str = "",
+        task_name: str = "debug",
+        task_description: str = "",
         annotations: list[tuple[str, int, int]] | None = None,
         chunk_timesteps: int = 100,
-        enable_sharding: bool = True,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
         """
@@ -645,35 +681,36 @@ class ZarrWriter:
             episode_path: Path to episode .zarr directory.
             numeric_data: Dictionary of numeric arrays (state, actions, etc.).
             image_data: Dictionary of image arrays with shape (T, H, W, 3).
+            pre_encoded_image_data: Dict mapping key to (encoded_array, image_shape).
+                Skips internal JPEG encoding for these keys.
             embodiment: Robot type identifier.
             fps: Frames per second (default: 30).
-            task: Task description.
+            task_name: Task name.
+            task_description: Task description.
             annotations: List of (text, start_idx, end_idx) tuples describing language annotations.
             chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
-            enable_sharding: Enable Zarr sharding (default: True).
             metadata_override: Optional metadata overrides.
 
         Returns:
             Path to created episode.
 
         Raises:
-            ValueError: If neither numeric_data nor image_data are provided.
+            ValueError: If no data is provided.
         """
-        # Create writer
         writer = ZarrWriter(
             episode_path=episode_path,
             embodiment=embodiment,
             fps=fps,
-            task=task,
+            task_name=task_name,
+            task_description=task_description,
             annotations=annotations,
             chunk_timesteps=chunk_timesteps,
-            enable_sharding=enable_sharding,
         )
 
-        # Write data
         writer.write(
             numeric_data=numeric_data,
             image_data=image_data,
+            pre_encoded_image_data=pre_encoded_image_data,
             metadata_override=metadata_override,
         )
 

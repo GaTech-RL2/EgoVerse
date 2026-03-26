@@ -21,7 +21,6 @@ from pathlib import Path
 import numpy as np
 
 from egomimic.rldb.zarr import ZarrWriter
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset, ZarrEpisode
 from egomimic.scripts.eva_process.zarr_utils import EvaHD5Extractor
 from egomimic.utils.egomimicUtils import EXTRINSICS
 
@@ -252,8 +251,8 @@ def convert_hdf5_to_zarr(
                 episode_path=zarr_episode_path,
                 fps=fps,
                 embodiment=embodiment,
-                enable_sharding=False,
-                task="",
+                task_name="debug",
+                task_description="",
             )
             with writer.write_incremental(total_frames=total_frames) as inc:
                 for start in range(0, total_frames, batch_size):
@@ -279,8 +278,8 @@ def convert_hdf5_to_zarr(
                 image_data=image_data if image_data else None,
                 fps=fps,
                 embodiment=embodiment,
-                enable_sharding=False,
-                task="",
+                task_name="debug",
+                task_description="",
             )
     except Exception as e:
         print(f"\n❌ ERROR writing Zarr file: {e}")
@@ -293,7 +292,6 @@ def convert_hdf5_to_zarr(
     print(f"   File exists: {zarr_path.exists()}")
 
     if zarr_path.exists():
-        # Get size of zarr directory
         import os
 
         total_size = sum(
@@ -302,29 +300,6 @@ def convert_hdf5_to_zarr(
             for filename in filenames
         )
         print(f"   Size: {total_size / (1024 * 1024):.2f} MB")
-
-    # Verify the conversion
-    print("\nVerifying Zarr episode...")
-    try:
-        episode = ZarrEpisode(zarr_path)
-        print(f"  ✅ Total frames: {len(episode)}")
-        print(f"  ✅ Available keys: {list(episode.keys.keys())}")
-
-        # Sample first frame using ZarrDataset
-        if len(episode) > 0:
-            print("\n  First frame sample:")
-            dataset = ZarrDataset(zarr_path)
-            frame = dataset[0]
-            for key, value in frame.items():
-                if hasattr(value, "shape"):
-                    print(f"    {key}: shape {value.shape}, dtype {value.dtype}")
-                else:
-                    print(f"    {key}: {type(value)}")
-    except Exception as e:
-        print(f"  ❌ ERROR verifying Zarr episode: {e}")
-        import traceback
-
-        traceback.print_exc()
 
     return zarr_path
 

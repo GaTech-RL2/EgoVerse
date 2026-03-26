@@ -91,6 +91,7 @@ echo "  -v /dev/aria_usb:/dev/aria_usb"
 echo
 
 docker run -it --network host \
+    --gpus all \
   "${CAN_DEVICES[@]}" \
   "${VIDEO_DEVICES[@]}" \
   "${RS_DEVICE_ARGS[@]}" \

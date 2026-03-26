@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F
 from lerobot.common.datasets.lerobot_dataset import LEROBOT_HOME, LeRobotDataset
 
-from egomimic.rldb.embodiment import EMBODIMENT
+from egomimic.rldb.embodiment.embodiment import EMBODIMENT
 from egomimic.utils.egomimicUtils import (
     EXTRINSICS,
     AlohaFK,

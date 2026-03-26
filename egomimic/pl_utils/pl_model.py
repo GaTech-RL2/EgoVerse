@@ -9,7 +9,7 @@ import torchvision.io as tvio
 from lightning import LightningModule
 
 import egomimic.utils.tensor_utils as TensorUtils
-from egomimic.rldb.embodiment import get_embodiment
+from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
 class ModelWrapper(LightningModule):
@@ -211,6 +211,15 @@ class ModelWrapper(LightningModule):
 
             self.val_counter[key] = 0
             self.val_image_buffer[key] = []
+        print(
+            f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
+            flush=True,
+        )
+        torch.distributed.barrier()
+        print(
+            f"Rank {self.global_rank} on validation end, all ranks synchronized",
+            flush=True,
+        )
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
@@ -238,6 +247,14 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
+        print(
+            f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
+            flush=True,
+        )
+        torch.distributed.barrier()
+        print(
+            f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
+        )
 
     def on_train_epoch_start(self):
         log_all = {}

@@ -140,19 +140,21 @@ class ARXInterface(Robot_Interface):
 
     def __create_cam_recorders(self, cameras_cfg):
         self.recorders = dict()
+        self.camera_res = dict()
         for name, cam_cfg in cameras_cfg.items():
             if not cam_cfg["enabled"]:
                 continue
             cam_type = cam_cfg["type"]
             if cam_type == "aria":
                 self.recorders[name] = AriaRecorder(
-                    profile_name="profile15", use_security=True
+                    profile_name="profile15", use_security=True, height=cam_cfg["height"], width=cam_cfg["width"]
                 )
                 self.recorders[name].start()
             elif cam_type == "d405":
                 self.recorders[name] = RealSenseRecorder(str(cam_cfg["serial_number"]))
             else:
                 raise ValueError("Invalid value in the config")
+            self.camera_res[name] = (cam_cfg["height"], cam_cfg["width"])
 
     def set_joints(self, desired_position, arm):
         """

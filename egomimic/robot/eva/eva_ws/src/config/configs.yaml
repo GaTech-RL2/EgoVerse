@@ -13,8 +13,8 @@ cameras:
     type: "aria"
     enabled: true
     encoding: "rgb8"
-    width: 640
-    height: 480
+    width: 960
+    height: 720
   left_wrist_img:
     type: "d405"
     enabled: true
