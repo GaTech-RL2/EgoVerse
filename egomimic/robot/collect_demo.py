@@ -711,18 +711,18 @@ def collect_demo(
                 robot_joint_action = np.zeros(14)
                 cmd_eepose_action = np.zeros(14)
                 
-                # initialize the cmd_joint_action, robot_joint_action, and cmd_eepose_action with the actual joints and eepose
-                for _arm in arms_list:
-                    _offset = 7 if _arm == "right" else 0
-                    _joints = robot_interface.get_joints(_arm)
-                    cmd_joint_action[_offset : _offset + 7] = _joints
-                    robot_joint_action[_offset : _offset + 7] = _joints
+                # # initialize the cmd_joint_action, robot_joint_action, and cmd_eepose_action with the actual joints and eepose
+                # for _arm in arms_list:
+                #     _offset = 7 if _arm == "right" else 0
+                #     _joints = robot_interface.get_joints(_arm)
+                #     cmd_joint_action[_offset : _offset + 7] = _joints
+                #     robot_joint_action[_offset : _offset + 7] = _joints
                     
-                    _pose_6d = robot_interface.get_pose_6d(_arm)
-                    cmd_eepose_action[_offset : _offset + 6] = _pose_6d
-                    cmd_eepose_action[_offset + 6] = (
-                        _joints[6] - GRIPPER_CLOSE_VALUE
-                    ) / GRIPPER_WIDTH
+                #     _pose_6d = robot_interface.get_pose_6d(_arm)
+                #     cmd_eepose_action[_offset : _offset + 6] = _pose_6d
+                #     cmd_eepose_action[_offset + 6] = (
+                #         _joints[6] - GRIPPER_CLOSE_VALUE
+                #     ) / GRIPPER_WIDTH
                 
                 for arm in arms_list:
                     if (arm == "left" and vr.l_engaged) or (
