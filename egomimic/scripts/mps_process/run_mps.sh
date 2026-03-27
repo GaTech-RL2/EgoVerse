@@ -28,10 +28,15 @@ export MPS_PASSWORD="georgiat0001"
 LOCAL_DIR="/home/ubuntu/local"
 mkdir -p "$LOCAL_DIR"
 
+# --- Clean MPS ---
+"$PYTHON_BIN" /home/ubuntu/EgoVerse/egomimic/scripts/mps_process/clean_mps.py > /home/ubuntu/EgoVerse/clean_mps.log 2>&1
+
 # --- Run ---
 "$PYTHON_BIN" /home/ubuntu/EgoVerse/egomimic/scripts/mps_process/s3_parallel_processor.py \
   --bucket rldb \
   --s3-prefix raw_v2/aria \
   --local-dir "$LOCAL_DIR" \
   --target-size-gb 150 \
-  --features HAND_TRACKING SLAM
+  --retry-failed \
+  --include-failed-recordings \
+  --features HAND_TRACKING SLAM EYE_GAZE

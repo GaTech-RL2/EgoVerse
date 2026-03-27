@@ -47,6 +47,7 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
+from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
 
 # ============================================================================
 # Version Constants for MPS Features
@@ -157,7 +158,7 @@ class Boto3Backend:
             client_kwargs["aws_secret_access_key"] = secret_access_key
         if session_token:
             client_kwargs["aws_session_token"] = session_token
-        self.client = boto3.client("s3", **client_kwargs)
+        self.client = get_boto3_s3_client()
         self.config = TransferConfig(
             multipart_threshold=8 * 1024 * 1024,
             max_concurrency=10,
