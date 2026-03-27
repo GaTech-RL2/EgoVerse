@@ -14,7 +14,6 @@ from tabulate import tabulate
 
 from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
-from egomimic.scripts.evaluation.eval import Eval
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
@@ -67,6 +66,32 @@ def _propagate_data_schematic_to_datasets(
             dataset.set_data_schematic(data_schematic)
 
 
+def _resolve_validation_ckpt_path(
+    cfg: DictConfig, trainer: Optional[Trainer] = None, train_ran: bool = False
+) -> Optional[str]:
+    if not train_ran:
+        ckpt_path = cfg.get("ckpt_path")
+        if not ckpt_path:
+            raise ValueError(
+                "cfg.ckpt_path is required when running eval without training."
+            )
+        return ckpt_path
+
+    checkpoint_callback = getattr(trainer, "checkpoint_callback", None)
+    best_ckpt_path = getattr(checkpoint_callback, "best_model_path", "")
+    if best_ckpt_path:
+        return best_ckpt_path
+
+    last_ckpt_path = os.path.join(trainer.default_root_dir, "checkpoints", "last.ckpt")
+    if os.path.exists(last_ckpt_path):
+        return last_ckpt_path
+
+    log.warning(
+        "No checkpoint found after training; validation will run on the current in-memory weights."
+    )
+    return None
+
+
 @task_wrapper
 def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
@@ -87,6 +112,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
     load_env()
+
+    if not cfg.get("train") and not cfg.get("eval"):
+        raise ValueError("At least one of cfg.train or cfg.eval must be true.")
+
     # log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
 
     data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
@@ -209,11 +238,18 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
 
     if cfg.get("eval"):
-        eval: Eval = hydra.utils.instantiate(
-            cfg.eval_class, config=cfg.model, ckpt_path=cfg.get("ckpt_path")
+        validation_ckpt_path = _resolve_validation_ckpt_path(
+            cfg, trainer=trainer, train_ran=bool(cfg.get("train"))
         )
-        log.info("Starting evaluation!")
-        eval.perfom_eval()
+        ckpt_msg = (
+            f" from checkpoint <{validation_ckpt_path}>"
+            if validation_ckpt_path
+            else " using the current in-memory weights"
+        )
+        log.info(f"Starting Lightning validation loop{ckpt_msg}")
+        trainer.validate(
+            model=model, datamodule=datamodule, ckpt_path=validation_ckpt_path
+        )
 
     train_metrics = trainer.callback_metrics
 
