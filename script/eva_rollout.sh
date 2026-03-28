@@ -9,11 +9,11 @@ python3 rollout.py --cartesian --policy-path /home/robot/robot_ws/egomimic/robot
 python3 rollout.py --dataset-path /home/robot/robot_ws/egomimic/robot/demos/white_cup_green_square_saucer/success_demo/demo_0.hdf5 --arms both --frequency 30 --query_frequency 30 --cartesian
 
 
-python3 collect_demo.py --arms both --auto-episode-start 14 --demo-dir ./demos/white_cup_white_saucer
-python3 collect_demo.py --arms both --auto-episode-start 0 --demo-dir ./demos/white_cup_yellow_saucer
-python3 collect_demo.py --arms both --auto-episode-start 0 --demo-dir ./demos/white_cup_green_square_saucer
+python3 collect_demo.py --arms both --auto-episode-start 46 --demo-dir ./demos/white_cup_white_saucer
+python3 collect_demo.py --arms both --auto-episode-start 49 --demo-dir ./demos/white_cup_yellow_saucer
+python3 collect_demo.py --arms both --auto-episode-start 47 --demo-dir ./demos/white_cup_green_square_saucer
 
-python3 collect_demo.py --arms both --auto-episode-start 13 --demo-dir ./demos/white_ceramic_cup_white_saucer
+python3 collect_demo.py --arms both --auto-episode-start 0 --demo-dir ./demos/white_ceramic_cup_white_saucer
 python3 collect_demo.py --arms both --auto-episode-start 0 --demo-dir ./demos/white_ceramic_cup_yellow_saucer
 python3 collect_demo.py --arms both --auto-episode-start 0 --demo-dir ./demos/white_ceramic_cup_green_square_saucer
 
