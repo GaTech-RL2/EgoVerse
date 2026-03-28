@@ -3,8 +3,10 @@ set -euo pipefail
 
 # ====== config (edit these) ======
 REMOTE_USER_HOST="bli678@sky2.cc.gatech.edu"
-REMOTE_PATH="/coc/flash7/bli678/Projects/EgoVerse/logs/cup_saucer/hpt_indomain2h_cotrain_2026-03-24_16-26-29"
-LOCAL_PATH="./egomimic/robot/models/cup_saucer/hpt_indomain2h_cotrain_2026-03-24_16-26-29"
+# REMOTE_PATH="/coc/flash7/bli678/Projects/EgoVerse/logs/cup_saucer/hpt_indomain2h_cotrain_2026-03-24_16-26-29"
+# REMOTE_USER_HOST="xyin85@sky2.cc.gatech.edu"
+REMOTE_PATH="/coc/flash7/xyin85/egowm-hpt/logs/cup_saucer/hpt_eva_2026-03-26_21-48-57/checkpoints"
+LOCAL_PATH="./egomimic/robot/models/cup_saucer/hpt_eva_2026-03-26_21-48-57"
 # =================================
 
 mkdir -p "$LOCAL_PATH"
