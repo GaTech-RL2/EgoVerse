@@ -148,14 +148,26 @@ def update_episode(engine, episode: TableRow):
 def episode_hash_to_table_row(engine, episode_hash):
     t = _episodes_table(engine)
     fields = set(TableRow.__dataclass_fields__.keys())
-    if {c.name for c in t.columns} != fields:
-        raise ValueError("Schema mismatch between TableRow and app.episodes")
+    db_fields = {c.name for c in t.columns}
+    missing_fields = fields - db_fields
+    if missing_fields:
+        raise ValueError(
+            f"Schema mismatch between TableRow and app.episodes: missing DB columns {sorted(missing_fields)}"
+        )
 
     stmt = select(t).where(t.c.episode_hash == episode_hash).limit(1)
     with engine.connect() as conn:
         rec = conn.execute(stmt).mappings().first()
 
-    return None if rec is None else TableRow(**rec)
+    if rec is None:
+        return None
+
+    row_data = {
+        field: rec[field]
+        for field in TableRow.__dataclass_fields__.keys()
+        if field in rec
+    }
+    return TableRow(**row_data)
 
 
 def delete_episodes(engine, episode_hashes: list[int]):
