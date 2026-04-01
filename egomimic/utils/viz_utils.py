@@ -49,6 +49,96 @@ def _prepare_viz_image(img):
     return img
 
 
+def _format_rotation_values(rot):
+    rot = np.asarray(rot).reshape(-1)
+    return ", ".join(f"{value:.2f}" for value in rot)
+
+
+def _extract_rotation_for_txt(actions):
+    actions = np.asarray(actions)
+    while actions.ndim > 1:
+        actions = actions[0]
+
+    _, left_ypr, _, right_ypr = _split_action_pose(actions)
+    return np.asarray(left_ypr).reshape(-1), np.asarray(right_ypr).reshape(-1)
+
+
+def _viz_rotation_txt(image, actions, **kwargs):
+    vis = _prepare_viz_image(image).copy()
+    left_rot, right_rot = _extract_rotation_for_txt(actions)
+
+    h, w = vis.shape[:2]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = kwargs.get("rotation_font_scale")
+    if font_scale is None:
+        font_scale = max(0.4, h / 900)
+    color = kwargs.get("rotation_text_color", (255, 255, 255))
+    thickness = kwargs.get("rotation_text_thickness")
+    if thickness is None:
+        thickness = max(1, int(h / 450))
+    margin = kwargs.get("rotation_text_margin")
+    if margin is None:
+        margin = max(10, int(h * 0.03))
+    line_spacing = (
+        kwargs.get("rotation_text_line_spacing")
+        if kwargs.get("rotation_text_line_spacing") is not None
+        else max(6, int(h * 0.012))
+    )
+    role = kwargs.get("rotation_text_role")
+    if role is None:
+        color_name = kwargs.get("color")
+        if color_name == ColorPalette.Greens:
+            role = "gt"
+        elif color_name == ColorPalette.Reds:
+            role = "pred"
+    prefix = kwargs.get("rotation_text_prefix")
+    start_line = kwargs.get("rotation_text_start_line")
+    if prefix is None and role in ("gt", "pred"):
+        prefix = role.upper()
+    if start_line is None and role in ("gt", "pred"):
+        start_line = 0 if role == "gt" else 2
+    prefix = (prefix or "").strip()
+    start_line = max(0, int(0 if start_line is None else start_line))
+    label_prefix = f"{prefix} " if prefix else ""
+
+    lines = [
+        f"{label_prefix}L rot: [{_format_rotation_values(left_rot)}]",
+        f"{label_prefix}R rot: [{_format_rotation_values(right_rot)}]",
+    ]
+    line_metrics = [
+        cv2.getTextSize(line, font, font_scale, thickness) for line in lines
+    ]
+    line_height = max(text_h + baseline for (_, text_h), baseline in line_metrics)
+    y = margin + start_line * (line_height + line_spacing)
+
+    for line, ((text_w, text_h), baseline) in zip(lines, line_metrics, strict=True):
+        x = max(margin, w - margin - text_w)
+        y += text_h
+        cv2.putText(
+            vis,
+            line,
+            (x, y),
+            font,
+            font_scale,
+            (0, 0, 0),
+            thickness + 2,
+            cv2.LINE_AA,
+        )
+        cv2.putText(
+            vis,
+            line,
+            (x, y),
+            font,
+            font_scale,
+            color,
+            thickness,
+            cv2.LINE_AA,
+        )
+        y += baseline + line_spacing
+
+    return vis
+
+
 def _viz_traj(image, actions, intrinsics_key, **kwargs):
     color = kwargs.get("color", "Blues")
     alpha = kwargs.get("alpha", 1.0)

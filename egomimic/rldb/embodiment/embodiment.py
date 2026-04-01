@@ -8,7 +8,12 @@ import torch
 
 from egomimic.rldb.zarr.action_chunk_transforms import Transform
 from egomimic.utils.type_utils import _to_numpy
-from egomimic.utils.viz_utils import _viz_annotations, _viz_axes, _viz_traj
+from egomimic.utils.viz_utils import (
+    _viz_annotations,
+    _viz_axes,
+    _viz_rotation_txt,
+    _viz_traj,
+)
 
 
 class EMBODIMENT(Enum):
@@ -58,7 +63,7 @@ class Embodiment(ABC):
     def viz_transformed_batch(
         cls,
         batch,
-        mode=Literal["traj", "axes", "annotations"],
+        mode=Literal["traj", "traj+rotation", "axes", "annotations"],
         viz_batch_key="actions_cartesian",
         image_key=None,
         transform_list=None,
@@ -92,7 +97,7 @@ class Embodiment(ABC):
         cls,
         image,
         viz_data,
-        mode=Literal["traj", "axes", "annotations"],
+        mode=Literal["traj", "traj+rotation", "axes", "annotations"],
         intrinsics_key=None,
         **kwargs,
     ):
@@ -102,6 +107,18 @@ class Embodiment(ABC):
                 image=image,
                 actions=viz_data,
                 intrinsics_key=intrinsics_key,
+                **kwargs,
+            )
+        if mode == "traj+rotation":
+            vis = _viz_traj(
+                image=image,
+                actions=viz_data,
+                intrinsics_key=intrinsics_key,
+                **kwargs,
+            )
+            return _viz_rotation_txt(
+                image=vis,
+                actions=viz_data,
                 **kwargs,
             )
         if mode == "axes":
@@ -118,7 +135,7 @@ class Embodiment(ABC):
                 **kwargs,
             )
         raise ValueError(
-            f"Unsupported mode '{mode}'. Expected one of: ('traj', 'axes', 'annotations')."
+            f"Unsupported mode '{mode}'. Expected one of: ('traj', 'traj+rotation', 'axes', 'annotations')."
         )
 
     @staticmethod
@@ -134,7 +151,7 @@ class Embodiment(ABC):
         image_key,
         action_key,
         transform_list=None,
-        mode=Literal["traj", "axes", "keypoints"],
+        mode=Literal["traj", "traj+rotation", "axes", "keypoints"],
         gt_alpha=1.0,
         pred_alpha=0.7,
         **kwargs,

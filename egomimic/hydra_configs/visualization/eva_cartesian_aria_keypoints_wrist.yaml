@@ -3,7 +3,7 @@ eva_bimanual:
   _partial_: true
   image_key: front_img_1
   action_key: actions_cartesian
-  mode: traj
+  mode: traj+rotation
   transform_list:
     _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
     is_quat: false

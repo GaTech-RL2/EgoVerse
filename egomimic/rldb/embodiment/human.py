@@ -31,7 +31,7 @@ class Human(Embodiment):
         cls,
         image,
         viz_data,
-        mode=Literal["traj", "axes", "annotations", "keypoints"],
+        mode=Literal["traj", "traj+rotation", "axes", "annotations", "keypoints"],
         intrinsics_key=None,
         **kwargs,
     ):
