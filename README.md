@@ -103,7 +103,7 @@ python egomimic/scripts/data_download/sync_s3.py \
 ### Training
 Basic training run (robot BC)...
 ``` bash
-python egomimic/trainHydra.py --config-name=train_zarr
+python egomimic/trainHydra.py --config-name=train_zarr_cartesian
 ```
 For full instructions on training see [``training.md``](./training.md)
 

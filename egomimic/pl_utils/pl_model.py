@@ -11,6 +11,7 @@ from lightning import LightningModule
 import egomimic.utils.tensor_utils as TensorUtils
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
+
 class ModelWrapper(LightningModule):
     """
     Wrapper class around robomimic models to ensure compatibility with Pytorch Lightning.
@@ -75,9 +76,7 @@ class ModelWrapper(LightningModule):
             losses["action_loss"] = losses["action_loss"] * self.debug_loss_spike_factor
             if self.trainer.is_global_zero:
                 print(
-                    "[LOSS_SPIKE] "
-                    f"step={self.global_step} "
-                    f"factor={self.debug_loss_spike_factor} "
+                    f"[LOSS_SPIKE] step={self.global_step} factor={self.debug_loss_spike_factor}",
                     flush=True,
                 )
 
