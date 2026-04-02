@@ -120,8 +120,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         last_ckpt_path = os.path.join(
             trainer.default_root_dir, "checkpoints", "last.ckpt"
         )
-        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
-        cfg.ckpt_path = last_ckpt_path
+        if os.path.isfile(last_ckpt_path):
+            log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
+            cfg.ckpt_path = last_ckpt_path
+        else:
+            log.warning(
+                f"SLURM requeue detected but checkpoint missing at {last_ckpt_path}; "
+                "starting training from scratch."
+            )
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
