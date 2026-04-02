@@ -329,11 +329,11 @@ def test_trajectory(
     Test policy on a full episode trajectory.
 
     1. Load episode frames; for each timestep t, feed obs_t to policy and get action chunk.
-    2. Use the first step of each chunk as the action for that timestep (action chunking).
-    3. Plot GT vs predicted trajectory for each action dimension over all timesteps.
+    2. Metrics use only the first action of each chunk (action chunking).
+    3. Plot per dimension: state at each timestamp + full action chunk (H steps) at each t.
 
     Returns:
-        dict with trajectory metrics (mse, mae, etc.).
+        dict with trajectory metrics (mse, mae, etc.) on first-action-only.
     """
     from tqdm import tqdm
 
@@ -350,8 +350,9 @@ def test_trajectory(
     if max_steps is not None:
         length = min(length, max_steps)
 
-    preds = []
-    gts = []
+    pred_chunks = []
+    gt_chunks = []
+    states = []
     imgs_dir = None
     if save_imgs:
         imgs_dir = Path(output_dir) / "viz" / f"trajectory_ep{episode_idx:04d}_frames"
@@ -369,60 +370,77 @@ def test_trajectory(
             rgb = _ensure_rgb(img)
             plt.imsave(imgs_dir / f"frame_{i:04d}.png", rgb)
 
+        state = obs.get("robot0_joint_pos")
+        if state is not None:
+            states.append(np.asarray(state, dtype=np.float32).ravel())
+
         result = infer_fn(obs)
         ac = result["actions"]
         if ac.ndim == 3:
             ac = ac[0]
-        # First step of chunk = action for this timestep (action chunking)
-        preds.append(ac[0, :])
+        pred_chunks.append(np.asarray(ac, dtype=np.float32))
 
         gt_chunk = _get_gt_actions(sample)
-        gts.append(gt_chunk[0, :])
+        gt_chunks.append(gt_chunk)
 
-    pred_traj = np.stack(preds, axis=0).astype(np.float32)  # (T, D)
-    gt_traj = np.stack(gts, axis=0).astype(np.float32)  # (T, D)
+    # Metrics: use only first action of each chunk
+    pred_traj = np.stack([c[0, :] for c in pred_chunks], axis=0).astype(np.float32)  # (T, D)
+    gt_traj = np.stack([c[0, :] for c in gt_chunks], axis=0).astype(np.float32)  # (T, D)
 
     pred_traj = _maybe_rad_to_deg(pred_traj, rad_to_degree)
     gt_traj = _maybe_rad_to_deg(gt_traj, rad_to_degree)
 
+    # Apply same conversion to chunks for plotting
+    pred_chunks_plot = [_maybe_rad_to_deg(c, rad_to_degree) for c in pred_chunks]
+    gt_chunks_plot = [_maybe_rad_to_deg(c, rad_to_degree) for c in gt_chunks]
+
+    state_traj = np.stack(states, axis=0) if states else None  # (T, S)
     T, D = pred_traj.shape
+    H = pred_chunks[0].shape[0]  # action horizon
+    S = state_traj.shape[1] if state_traj is not None else 0
+
     unit_label = " (deg)" if rad_to_degree else ""
-    logger.info("Trajectory: episode %d, %d steps, %d action dims%s", episode_idx, T, D, unit_label)
+    logger.info("Trajectory: episode %d, %d steps, %d action dims, H=%d%s", episode_idx, T, D, H, unit_label)
 
     metrics = compute_metrics(pred_traj, gt_traj)
 
     out_dir = Path(output_dir) / "viz"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Plot each action dim: trajectory vs timestep (GT and Pred)
+    # Plot each action dim: state at each t + action chunk (H steps) at each t
+    from matplotlib.lines import Line2D
+
     time_steps = np.arange(T)
     n_cols = min(7, D)
     n_rows = int(np.ceil(D / n_cols))
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(2.5 * n_cols, 2 * n_rows), sharex=True)
     axes = np.atleast_2d(axes)
-    gt_handles, pred_handles = None, None
+    chunk_x_offset = np.linspace(0, 0.95, H)  # spread chunk steps in [t, t+1)
     for dim in range(D):
         row, col = dim // n_cols, dim % n_cols
         ax = axes[row, col]
-        ln_gt, = ax.plot(time_steps, gt_traj[:, dim], "b-o", label="GT (ground truth)", markersize=3)
-        ln_pred, = ax.plot(time_steps, pred_traj[:, dim], "r--x", label="Pred (policy)", markersize=3)
-        if gt_handles is None:
-            gt_handles, pred_handles = ln_gt, ln_pred
+        # State trajectory (if available for this dim)
+        if state_traj is not None and dim < S:
+            ax.plot(time_steps, state_traj[:, dim], "g-", label="State", linewidth=1.5, alpha=0.8)
+        # Action chunk at each t: for each t, plot H-step chunk as a short trajectory
+        for t in range(T):
+            x_chunk = t + chunk_x_offset
+            ax.plot(x_chunk, pred_chunks_plot[t][:, dim], "r-", alpha=0.6, linewidth=1)
+            ax.plot(x_chunk, gt_chunks_plot[t][:, dim], "b-", alpha=0.6, linewidth=1)
+        if dim == 0:
+            handles = [
+                Line2D([0], [0], color="g", linewidth=2, label="State"),
+                Line2D([0], [0], color="r", linewidth=2, label="Pred chunk"),
+                Line2D([0], [0], color="b", linewidth=2, label="GT chunk"),
+            ]
+            ax.legend(handles=handles, fontsize=7)
         ax.set_title(f"Dim {dim}", fontsize=9)
         ax.set_xlabel("Timestep")
         ax.grid(True, alpha=0.3)
-    fig.legend(
-        [gt_handles, pred_handles],
-        ["GT (ground truth)", "Pred (policy)"],
-        loc="upper center",
-        ncol=2,
-        bbox_to_anchor=(0.5, -0.02),
-        fontsize=9,
-    )
     for idx in range(D, axes.size):
         r, c = idx // n_cols, idx % n_cols
         axes[r, c].axis("off")
-    fig.suptitle(f"Episode {episode_idx}: Trajectory vs Timestep (all {D} dims, T={T}){unit_label}")
+    fig.suptitle(f"Episode {episode_idx}: State + Action Chunk (H={H}) per dim, T={T}{unit_label}")
     fig.tight_layout()
     out_path = out_dir / f"trajectory_ep{episode_idx:04d}_all_dims.png"
     fig.savefig(out_path, dpi=100, bbox_inches="tight")
