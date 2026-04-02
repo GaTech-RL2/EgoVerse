@@ -1,0 +1,11 @@
+# (4) Bimanual arm+hand actions (38-dim), image + robot0_joint_pos + hand_right_qpos. Data: 0320_filtered.
+defaults:
+  - train
+  - override /model: rby1_0320_biarm_hand_act20
+  - override /data: rby1_0320_filtered
+  - _self_
+
+name: RBY1_0320_04_biarm_hand_act20_filtered
+description: train
+data_schematic:
+  norm_mode: minmax

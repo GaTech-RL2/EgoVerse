@@ -4,7 +4,7 @@ defaults:
 strategy: ddp_find_unused_parameters_true
 limit_train_batches: 5
 limit_val_batches: 3
-check_val_every_n_epoch: 2
+check_val_every_n_epoch: 1
 profiler: simple
 max_epochs: 4
 min_epochs: 4

@@ -1,0 +1,12 @@
+# (1) Image + robot0_joint_pos + hand_left_qpos + hand_right_qpos.
+# Action: right_hand + right_arm + torso (25-dim), 20-step chunk.
+defaults:
+  - train
+  - override /model: experiments/rby1_0331/rby1_0331_img_robot0_bihand_right_hand_arm_torso_act20
+  - override /data: experiments/rby1_0331/rby1_0320_filtered_torso_actions
+  - _self_
+
+name: RBY1_0331_01_right_hand_arm_torso_img_robot0_bihand
+description: train
+data_schematic:
+  norm_mode: minmax

@@ -36,36 +36,33 @@ robomimic_model:
   reverse_kl_samples: 8
   
   domains: ["rby1"]
-  shared_obs_keys: ["front_img_1"]
 
-  shared_stem_specs:
-    front_img_1:
-      _target_: egomimic.models.hpt_nets.MLPPolicyStem
-      input_dim: 256
-      output_dim: 256
-      widths: [256]
-      specs:
-        random_horizon_masking: false
-        cross_attn:
-          crossattn_latent: 16
-          crossattn_heads: 8
-          crossattn_dim_head: 64
-          crossattn_modality_dropout: 0.1
-          modality_embed_dim: 256
-          
   stem_specs:
     rby1:
-      state_robot0_joint_pos:
+      state_hand_right_qpos:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 26
+        input_dim: 12
         output_dim: 256
         widths: [256]
         specs:
           random_horizon_masking: false
           cross_attn:
             crossattn_latent: 16
-            crossattn_heads: 4
-            crossattn_dim_head: 32
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      state_right_arm:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 7
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 256
 
@@ -77,52 +74,25 @@ robomimic_model:
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        rby1: 49 # TODO: check this
+        rby1: 49
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 49 # TODO:
+        act_dim: 49
         act_seq: 10
         n_heads: 4
         dropout: 0.1
         mlp_layers: 4
         mlp_ratio: 4
 
-  encoder_specs:
-    front_img_1:
-      _target_: egomimic.models.hpt_nets.ResNet
-      output_dim: 256
-    # right_wrist_img:
-    #   _target_: egomimic.models.hpt_nets.ResNet
-    #   output_dim: 256
-    # left_wrist_img:
-    #   _target_: egomimic.models.hpt_nets.ResNet
-    #   output_dim: 256
-
-  train_image_augs:
-    _target_: torchvision.transforms.Compose
-    transforms:
-      - _target_: torchvision.transforms.ColorJitter
-        brightness: 0.1
-        contrast: 0.1
-        saturation: 0.1
-        hue: 0.05
-      - _target_: torchvision.transforms.Normalize
-        mean: [0.485, 0.456, 0.406]
-        std: [0.229, 0.224, 0.225]
-  eval_image_augs:
-    _target_: torchvision.transforms.Compose
-    transforms:
-      - _target_: torchvision.transforms.Normalize
-        mean: [0.485, 0.456, 0.406]
-        std: [0.229, 0.224, 0.225]
+  encoder_specs: {}
 
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
-  lr: 1e-4
+  lr: 5e-5 # TODO: 1e-4 originally
   weight_decay: 0.0001
 
 scheduler:

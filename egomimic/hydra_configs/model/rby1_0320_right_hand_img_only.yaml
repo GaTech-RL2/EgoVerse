@@ -1,43 +1,32 @@
+# Image-only policy: ResNet + shared image stem; no rby1 proprio stems (proprio may still appear in batches).
+# Action: actions_joint_right_arm_hand (19-dim, horizon 20).
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hpt.HPT
   data_schematic: _${data.dataset.data_schematic}
-  # camera_transforms:
-  #   rby1: # TODO: check whether we need camera transform
-  #     _target_: egomimic.utils.egomimicUtils.CameraTransforms
-  #     intrinsics_key: "base" # change to base_half if using half res 
-  #     extrinsics_key: "x5Dec13_2"
-  
-  diffusion: true 
+  diffusion: true
   6dof: true
-
   ac_keys:
-    rby1: "actions"
-
-  # kinematics_solver:
-  #   _target_: egomimic.robot.eva.eva_kinematics.EvaMinkKinematicsSolver
-  #   model_path: /coc/flash7/rpunamiya6/Projects/EgoVerse/egomimic/resources/model_x5.xml
-
+    rby1: actions_joint_right_arm_hand
   trunk:
     embed_dim: 256
     num_blocks: 16
     num_heads: 8
-    token_postprocessing: "action_token"
+    token_postprocessing: action_token
     observation_horizon: 1
-    action_horizon: 10
+    action_horizon: 20
     no_trunk: false
     use_domain_embedding: true
     drop_path: 0.1
-    weight_init_style: "pytorch"
-  
+    weight_init_style: pytorch
   multitask: false
   pretrained: false
-  pretrained_checkpoint: "" # TODO
+  pretrained_checkpoint: ""
   reverse_kl_samples: 8
-  
-  domains: ["rby1"]
-  shared_obs_keys: ["front_img_1"]
-
+  domains:
+    - rby1
+  shared_obs_keys:
+    - front_img_1
   shared_stem_specs:
     front_img_1:
       _target_: egomimic.models.hpt_nets.MLPPolicyStem
@@ -52,55 +41,32 @@ robomimic_model:
           crossattn_dim_head: 64
           crossattn_modality_dropout: 0.1
           modality_embed_dim: 256
-          
   stem_specs:
-    rby1:
-      state_robot0_joint_pos:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 26
-        output_dim: 256
-        widths: [256]
-        specs:
-          random_horizon_masking: false
-          cross_attn:
-            crossattn_latent: 16
-            crossattn_heads: 4
-            crossattn_dim_head: 32
-            crossattn_modality_dropout: 0.1
-            modality_embed_dim: 256
-
+    rby1: {}
   head_specs:
-    rby1: 
+    rby1:
       _target_: egomimic.models.fm_policy.FMPolicy
-      action_horizon: 10 # determined by delta_timestamps in data config
+      action_horizon: 20
       num_inference_steps: 50
       pooling: null
-      time_dist: "beta"
+      time_dist: beta
       infer_ac_dims:
-        rby1: 49 # TODO: check this
+        rby1: 19
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 49 # TODO:
-        act_seq: 10
+        act_dim: 19
+        act_seq: 20
         n_heads: 4
         dropout: 0.1
         mlp_layers: 4
         mlp_ratio: 4
-
   encoder_specs:
     front_img_1:
       _target_: egomimic.models.hpt_nets.ResNet
       output_dim: 256
-    # right_wrist_img:
-    #   _target_: egomimic.models.hpt_nets.ResNet
-    #   output_dim: 256
-    # left_wrist_img:
-    #   _target_: egomimic.models.hpt_nets.ResNet
-    #   output_dim: 256
-
   train_image_augs:
     _target_: torchvision.transforms.Compose
     transforms:
@@ -122,11 +88,11 @@ robomimic_model:
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
-  lr: 1e-4
+  lr: 1.0e-4
   weight_decay: 0.0001
 
 scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
   _partial_: true
   T_max: 1400
-  eta_min: 1e-5
+  eta_min: 1.0e-5

@@ -1,0 +1,11 @@
+# (2) Same as (1) but low-dim only: no image stem/encoder (proprio hand + right arm only). Data: 0320_filtered.
+defaults:
+  - train
+  - override /model: rby1_0320_right_hand_lowdim_hand_arm
+  - override /data: rby1_0320_filtered
+  - _self_
+
+name: RBY1_0320_02_right_hand_lowdim_hand_arm
+description: train
+data_schematic:
+  norm_mode: minmax

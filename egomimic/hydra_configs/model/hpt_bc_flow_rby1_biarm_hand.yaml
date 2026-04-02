@@ -1,0 +1,35 @@
+# 40-action variant of hpt_bc_flow_rby1_egoengine. Use with data=test_RBY1_0309_40act.
+defaults:
+  - hpt_bc_flow_rby1
+  - _self_
+
+robomimic_model:
+  ac_keys:
+    rby1: actions_joint_right_arm_hand
+  trunk:
+    action_horizon: 20
+  head_specs:
+    rby1:
+      action_horizon: 20
+      infer_ac_dims:
+        rby1: 19
+      model:
+        act_seq: 20
+        act_dim: 19  # per-timestep dim for joint_right_arm_hand
+
+  # TODO: currently just add right hand for testing
+  stem_specs:
+    rby1:
+      state_hand_right_qpos:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 12
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256

@@ -1,0 +1,18 @@
+# 40-action variant of hpt_bc_flow_rby1_egoengine. Use with data=test_RBY1_0309_40act.
+defaults:
+  - hpt_bc_flow_rby1_egoengine
+  - _self_
+
+robomimic_model:
+  ac_keys:
+    rby1: actions_joint_right_arm
+  trunk:
+    action_horizon: 40
+  head_specs:
+    rby1:
+      action_horizon: 40
+      infer_ac_dims:
+        rby1: 7
+      model:
+        act_seq: 40
+        act_dim: 7

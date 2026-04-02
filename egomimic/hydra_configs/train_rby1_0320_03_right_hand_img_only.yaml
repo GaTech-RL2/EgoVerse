@@ -1,0 +1,11 @@
+# (3) Same action/data as (1) but image-only policy (no proprio stems). Data: 0320_filtered.
+defaults:
+  - train
+  - override /model: rby1_0320_right_hand_img_only
+  - override /data: rby1_0320_filtered
+  - _self_
+
+name: RBY1_0320_03_right_hand_img_only
+description: train
+data_schematic:
+  norm_mode: minmax
