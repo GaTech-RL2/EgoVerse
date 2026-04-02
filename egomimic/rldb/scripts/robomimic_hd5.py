@@ -47,12 +47,12 @@ def _normalize_feature_key(key: str) -> str:
 
 
 def _get_hdf5_paths(path: Path) -> list[Path]:
-    """Return HDF5 file path(s). If path is a directory, return all .hdf5/.h5 files in it."""
+    """Return HDF5 file path(s). If path is a directory, return all .hdf5/.h5 files recursively."""
     path = Path(path)
     if path.is_file():
         return [path]
     if path.is_dir():
-        files = sorted(path.glob("*.hdf5")) + sorted(path.glob("*.h5"))
+        files = sorted(path.rglob("*.hdf5")) + sorted(path.rglob("*.h5"))
         if not files:
             raise ValueError(f"No HDF5 files found in directory: {path}")
         return files
@@ -172,6 +172,10 @@ class RobomimicHD5Extractor:
                     frame[f"obs.{_normalize_feature_key(obs_key)}"] = torch.from_numpy(
                         obs_data[frame_idx]
                     )
+            if "task_id" not in config["obs_keys"] and _h5_key_exists(obs_group, "task_id"):
+                frame["obs.task_id"] = torch.from_numpy(
+                    _h5_get(obs_group, "task_id")[frame_idx]
+                )
             frames.append(frame)
         return frames
 
@@ -202,6 +206,7 @@ class RobomimicHD5Extractor:
         allowed_keys = set(
             ["obs/" + key for key in config.get("obs_keys", [])]
             + config.get("action_keys", [])
+            + ["obs/task_id"]
         )
 
         with h5py.File(hdf5_file_path, "r") as hdf5_file:
@@ -339,6 +344,8 @@ class DatasetConverter:
 
         self._hdf5_paths = _get_hdf5_paths(self.raw_path)
         self.logger.info(f"Found {len(self._hdf5_paths)} HDF5 file(s) to process")
+        for hdf5_path in self._hdf5_paths:
+            self.logger.info(f" - {hdf5_path}")
 
         # Check format and collect (file_path, episode_key) for all episodes
         self._episode_sources: list[tuple[Path, str]] = []
@@ -545,7 +552,7 @@ def parse_arguments():
         action="store_true",
         help="Use episode keys inside config",
     )
-    parser.add_argument("--robot-type", type=str, default="eve", help="Robot type")
+    parser.add_argument("--robot-type", type=str, default="rby1", help="Robot type")
     return parser.parse_args()
 
 
