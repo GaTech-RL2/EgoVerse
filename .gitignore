@@ -37,3 +37,5 @@ lerobot_test/
 **/lerobot_test/**
 **/robot/models/**
 **/robot/models/
+checkpoints/
+dataset/

@@ -53,7 +53,7 @@ from torch.utils.data import DataLoader
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-
+"""
 # Dataset key mapping: lerobot_key -> server obs key (data_schematic batch key)
 # RBY1 from train.yaml schematic_dict. Robomimic conversion uses obs.*
 RBY1_LEROBOT_TO_OBS = {
@@ -65,7 +65,19 @@ required = {"robot0_joint_pos"}
 
 RBY1_LEROBOT_ACTION_KEYS = "actions_biarm"
 # RBY1_LEROBOT_ACTION_KEYS = "actions"
+"""
 
+RBY1_LEROBOT_TO_OBS = {
+    "obs.robot0_joint_pos": "robot0_joint_pos",
+    "obs.right_arm": "right_arm",
+    "obs.aria_image": "front_img_1",
+}
+
+# required = {"robot0_joint_pos"}
+required = {"right_arm"}
+
+# RBY1_LEROBOT_ACTION_KEYS = "actions.joint_arm"
+RBY1_LEROBOT_ACTION_KEYS = "actions.joint_right_arm"
 
 def _dataset_sample_to_obs(sample: dict) -> dict:
     """
