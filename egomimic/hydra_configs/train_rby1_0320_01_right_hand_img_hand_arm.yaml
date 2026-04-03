@@ -1,0 +1,11 @@
+# (1) Right arm+hand actions, image + hand qpos + right arm proprio. Data: datasets/0320_filtered.
+defaults:
+  - train
+  - override /model: hpt_bc_flow_rby1_egoengine
+  - override /data: rby1_0320_filtered
+  - _self_
+
+name: RBY1_0320_01_right_hand_img_hand_arm
+description: train
+data_schematic:
+  norm_mode: minmax

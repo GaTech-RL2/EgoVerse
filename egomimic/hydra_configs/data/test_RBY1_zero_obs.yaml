@@ -1,0 +1,77 @@
+# RBY1 data: actions are stored per-frame (shape [49]). HPT expects (B, action_horizon, 49).
+# delta_timestamps loads 10 future action frames so each sample has shape (10, 49). Matches fps 10: [t/10 for t in range(10)].
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+zero_obs: true
+zero_obs_use_numpy: false
+
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      rl2_lab:
+        _target_: egomimic.rldb.utils.FolderRLDBDataset
+        folder_path: /coc/flash7/zhenyang/EgoVerse/datasets/0309/smoothed # TODO: test
+        embodiment: rby1
+        mode: train
+        local_files_only: true
+        delta_timestamps:
+          actions.joint_right_arm: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9] # NOTE: stacking action chunk
+    embodiment: rby1
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      eth_lab:
+        _target_: egomimic.rldb.utils.FolderRLDBDataset
+        folder_path: /coc/flash7/zhenyang/EgoVerse/datasets/0309/smoothed # TODO: test
+        embodiment: rby1
+        mode: valid
+        local_files_only: true
+        delta_timestamps:
+          actions.joint_right_arm: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    embodiment: "rby1"
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 2
+    num_workers: 10
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 2
+    num_workers: 10
+
+# # NOTE: test file from Baoyu
+# _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# train_datasets:
+#   demo:
+#     _target_: egomimic.rldb.utils.S3RLDBDataset
+#     bucket_name: "rldb"
+#     mode: total
+#     embodiment: "eva_bimanual"
+#     filters: 
+#       episode_hash: "2026-01-22-18-57-54-150000"
+#     local_files_only: True
+
+# valid_datasets:
+#   dataset1:
+#     _target_: egomimic.rldb.utils.S3RLDBDataset
+#     bucket_name: "rldb"
+#     mode: total
+#     embodiment: "eva_bimanual"
+#     filters: 
+#       episode_hash: "2026-01-22-18-57-54-150000"
+#     local_files_only: True
+
+# train_dataloader_params:
+#   demo:
+#     batch_size: 32 
+#     num_workers: 10
+
+# valid_dataloader_params:
+#   dataset1:
+#     batch_size: 32   
+#     num_workers: 10

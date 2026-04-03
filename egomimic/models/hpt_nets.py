@@ -675,7 +675,7 @@ class ResNet(PolicyStem):
             x = x.view(-1, 3, H, W)
             feat = self.net(x)
         # concat along time
-        feat = feat.view(B, feat.shape[1], -1).transpose(1, 2)
+        feat = feat.reshape(B, feat.shape[1], -1).transpose(1, 2)
         feat = self.proj(feat)
         return feat
 

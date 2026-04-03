@@ -9,8 +9,42 @@ import logging
 from egomimic.rldb.utils import RLDBDataset
 from termcolor import cprint
 import torch
+import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def zero_obs_batch(batch, use_numpy=False):
+    """
+    In-place replace image observation tensors with zeros_like.
+    Observation keys are zeroed only if they follow the LeRobot ``obs.`` naming
+    convention and contain ``image`` in the key name.
+    Args:
+        batch: dict from collate (keys like obs.aria_image, obs.robot0_joint_pos, etc.)
+        use_numpy: if True, convert to np and use np.zeros_like; else use torch.zeros_like
+    """
+    for key in list(batch.keys()):
+        if not key.startswith("obs.") or "image" not in key:
+            continue
+        val = batch[key]
+        if use_numpy:
+            arr = val.numpy() if torch.is_tensor(val) else np.asarray(val)
+            batch[key] = np.zeros_like(arr)
+        else:
+            t = val if torch.is_tensor(val) else torch.from_numpy(np.asarray(val))
+            batch[key] = torch.zeros_like(t)
+
+
+def _wrap_collate_zero_obs(base_collate, use_numpy=False):
+    """Wrap a collate_fn to zero out image obs.* keys after collation."""
+
+    def _collate(batch):
+        out = base_collate(batch)
+        if isinstance(out, dict):
+            zero_obs_batch(out, use_numpy=use_numpy)
+        return out
+
+    return _collate
 
 
 class RLDBModule(LightningDataModule):
@@ -62,7 +96,9 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_dataloader_params: dict,
         collate_max_length = 128,
         model_name = "google/paligemma-3b-mix-224",
-        use_tokenizer = False, 
+        use_tokenizer = False,
+        zero_obs = False,
+        zero_obs_use_numpy = False,
     ):
         super().__init__()
         self.train_datasets = train_datasets
@@ -70,12 +106,16 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
         if use_tokenizer:
-            self.collate_fn = build_tokenized_collate(
+            base_collate = build_tokenized_collate(
                 max_length=collate_max_length,
                 model_name=model_name,
             )
         else:
-            self.collate_fn = default_collate
+            base_collate = default_collate
+        if zero_obs:
+            self.collate_fn = _wrap_collate_zero_obs(base_collate, use_numpy=zero_obs_use_numpy)
+        else:
+            self.collate_fn = base_collate
         
     def train_dataloader(self):
         iterables = dict()

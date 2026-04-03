@@ -1,0 +1,19 @@
+# 0309 LeRobot layout; train/valid both read datasets/0320_filtered.
+# Use with: data=rby1_0320_filtered (and model/train experiment configs below).
+defaults:
+  - test_RBY1_0309
+  - _self_
+
+zero_obs: false
+
+train_datasets:
+  dataset1:
+    datasets:
+      rl2_lab:
+        folder_path: /coc/flash7/zhenyang/EgoVerse/datasets/0320_filtered
+
+valid_datasets:
+  dataset1:
+    datasets:
+      eth_lab:
+        folder_path: /coc/flash7/zhenyang/EgoVerse/datasets/0320_filtered
