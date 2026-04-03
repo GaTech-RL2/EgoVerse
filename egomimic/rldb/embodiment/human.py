@@ -10,6 +10,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
+    PauseRemovalTransform,
     PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
     Reshape,
@@ -242,10 +243,12 @@ class Scale(Human):
     def get_transform_list(
         cls,
         mode: Literal["cartesian",],
+        pause_removal_epsilon: float | None = None,
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
-                stride=cls.ACTION_STRIDE
+                stride=cls.ACTION_STRIDE,
+                pause_removal_epsilon=pause_removal_epsilon,
             )
 
     @classmethod
@@ -945,6 +948,7 @@ def _build_aria_cartesian_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    pause_removal_epsilon: float | None = None,
 ) -> list[Transform]:
     """Canonical ARIA bimanual transform pipeline used by tests and notebooks.
 
@@ -965,6 +969,17 @@ def _build_aria_cartesian_bimanual_transform_list(
         keys_to_delete.append(target_world)
         if target_world_is_quat:
             keys_to_delete.append(target_world_ypr)
+
+    pause_transforms: list[Transform] = (
+        [
+            PauseRemovalTransform(
+                action_keys=[left_action_headframe, right_action_headframe],
+                epsilon=pause_removal_epsilon,
+            )
+        ]
+        if pause_removal_epsilon is not None
+        else []
+    )
 
     transform_list: list[Transform] = [
         ActionChunkCoordinateFrameTransform(
@@ -991,6 +1006,7 @@ def _build_aria_cartesian_bimanual_transform_list(
             transformed_key_name=right_obs_headframe,
             mode="xyzwxyz",
         ),
+        *pause_transforms,
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_action_headframe,
