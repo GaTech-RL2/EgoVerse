@@ -501,11 +501,11 @@ class PolicyRollout(Rollout):
             data["left.cmd_ee_pose"] = left_cmd_ee_pose
 
         if self.arm == "both":
-            data["embodiment"] = "eva_bimanual"
-            data["metadata.robot_name"] = "eva_bimanual"
+            data["embodiment"] = ["eva_bimanual"]
+            # data["metadata.robot_name"] = ["eva_bimanual"]
         elif self.arm == "right":
-            data["embodiment"] = "eva_right_arm"
-            data["metadata.robot_name"] = "eva_right_arm"
+            data["embodiment"] = ["eva_right_arm"]
+            # data["metadata.robot_name"] = ["eva_right_arm"]
         elif self.arm == "left":
             data["embodiment"] = "eva_left_arm"
             data["metadata.robot_name"] = "eva_left_arm"
