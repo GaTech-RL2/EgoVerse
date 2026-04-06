@@ -15,7 +15,6 @@ from pathlib import Path
 import h5py
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from tqdm import tqdm
 
 # Add path to oculus_reader if needed
 sys.path.append(os.path.join(os.path.dirname(__file__), "oculus_reader"))
@@ -29,6 +28,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 from robot_interface import ARXInterface
 
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
+
+# import cv2
 
 # ------------------------- Configuration -------------------------
 
@@ -477,25 +478,19 @@ def reset_data(demo_data: dict):
     demo_data["obs"] = []
 
 
-def save_demo(demo_data: dict, demo_dir, episode_id: int, camera_res: dict[str, tuple]):
-    """
-    Args:
-        demo_data: dict containing the demo data
-        demo_dir: directory to save the demo
-        episode_id: episode id
-        camera_res: dictionary containing the camera resolution (str, tuple) example {"front_img_1": (720, 960)}
-    """
+def save_demo(demo_data: dict, demo_dir, episode_id: int, cam_names):
     data_dict = dict()
     """Save demo to HDF5 file."""
     filename = demo_dir / f"demo_{episode_id}.hdf5"
 
-    for cam_name, (H, W) in camera_res.items():
+    for cam_name in cam_names:
         image_list = []
         for i in range(len(demo_data["obs"])):
             img = demo_data["obs"][i][cam_name]
             if img is None:
                 continue
             img_rgb = img[..., ::-1]
+            # img_rgb = cv2.resize(img_rgb, (640, 480), interpolation=cv2.INTER_AREA)
             image_list.append(img_rgb)
         data_dict[f"/observations/images/{cam_name}"] = np.array(image_list)
     print(
@@ -505,7 +500,8 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, camera_res: dict[str, 
     data_dict["/observations/joint_positions"] = np.array(
         demo_data["robot_joint_actions"]
     )
-    # data_dict["/observations/qjointvel"] = joint_vels
+    # data_dict["/observations/qjointvel"] = joint_vel
+    # s
     data_dict["/actions/eepose"] = np.array(demo_data["cmd_eepose_actions"])
     data_dict["/actions/joints"] = np.array(demo_data["cmd_joint_actions"])
     data_dict["/action"] = np.array(demo_data["cmd_joint_actions"])
@@ -542,16 +538,19 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, camera_res: dict[str, 
     data_dict["/observations/eepose"] = np.array(robot_ee_pose)
     t0 = time.time()
     max_timesteps = len(demo_data["cmd_eepose_actions"])
+    if max_timesteps == 0:
+        print("Skipping save: demo has 0 steps.")
+        return False
     with h5py.File(str(filename), "w", rdcc_nbytes=1024**2 * 2) as root:
         root.attrs["sim"] = False
         obs = root.create_group("observations")
         image = obs.create_group("images")
-        for cam_name, (H, W) in camera_res.items():
+        for cam_name in cam_names:
             _ = image.create_dataset(
                 cam_name,
-                (max_timesteps, H, W, 3),
+                (max_timesteps, 480, 640, 3),
                 dtype="uint8",
-                chunks=(1, H, W, 3),
+                chunks=(1, 480, 640, 3),
             )
         _ = obs.create_dataset("joints", (max_timesteps, 14))
         # _ = obs.create_dataset("qjointvel", (max_timesteps, 16))
@@ -578,7 +577,6 @@ def collect_demo(
     demo_dir: str = DEMO_DIR,
     recording: bool = True,
     auto_episode_start: int = None,
-    episode_length: int = None,
 ):
     """
     Collect demonstrations using VR controller.
@@ -591,6 +589,10 @@ def collect_demo(
     # Setup demo directory
     demo_dir = Path(demo_dir)
     demo_dir.mkdir(exist_ok=True, parents=True)
+    success_demo_dir = demo_dir / "success_demo"
+    failure_demo_dir = demo_dir / "failure_demo"
+    success_demo_dir.mkdir(exist_ok=True, parents=True)
+    failure_demo_dir.mkdir(exist_ok=True, parents=True)
 
     # Initialize VR interface
     vr = VRInterface()
@@ -640,223 +642,184 @@ def collect_demo(
             if all_cam_images_in is True:
                 break
     print("All cameras are ready --------------")
+
     auto_episode_id = auto_episode_start
+
     while True:
-        break_loop = False
         if auto_episode_id is None:
             episode_id = input("Input the episode id: ")
         else:
             episode_id = auto_episode_id
             print(f"Set episode id to {episode_id} teleop enabled")
-        pbar = None
-        steps_in_episode = 0
-
-        collecting_data = False
-        reset_data(demo_data)
 
         with RateLoop(frequency=frequency, verbose=False) as loop:
             for i in loop:
-                # Read VR controller (get raw transformation matrices)
                 vr_data = vr.read_vr_controller(se3=True)
-                # print(f"vr_data: {vr_data}")
                 if vr_data is None:
-                    # print("Not reading vr data using prev")
-                    vr_data = prev_vr_data
                     continue
 
-                # Check for recording control buttons
-                if vr_data["buttons"]["B"]:
-                    if prev_vr_data is not None and not prev_vr_data["buttons"]["B"]:
-                        if collecting_data is True:
-                            if pbar is not None:
-                                pbar.close()
-                                pbar = None
-                            collecting_data = False
-                            
-                            save_demo(demo_data, demo_dir, episode_id, robot_interface.camera_res)
-                            print("\nSaving DEMO ------------------------------")
-                            if auto_episode_id is not None:
-                                auto_episode_id += 1
-                            prev_vr_data = None
-                            break
-                        else:
-                            robot_interface.set_home()
-                            print(
-                                "\nStart Collecting Data ------------------------------"
-                            )
-                            collecting_data = True
-                            reset_data(demo_data)
-                            if episode_length is not None:
-                                if pbar is not None:
-                                    pbar.close()
-                                pbar = tqdm(
-                                    total=episode_length,
-                                    desc=f"Episode {episode_id}",
-                                    unit="step",
-                                )
-                                steps_in_episode = 0
+                # ----------------------------
+                # Recording control buttons
+                # ----------------------------
+                if (
+                    vr_data["buttons"]["B"]
+                    and prev_vr_data is not None
+                    and not prev_vr_data["buttons"]["B"]
+                ):
+                    if collecting_data:
+                        collecting_data = False
+                        print(
+                            "Saving to success_demo -----------------------------------"
+                        )
+                        save_demo(demo_data, success_demo_dir, episode_id, camera_names)
+                        if auto_episode_id is not None:
+                            auto_episode_id += 1
+                        prev_vr_data = vr_data
+                        break
+                    else:
+                        robot_interface.set_home()
+                        print("Start Collecting Data ------------------------------")
+                        collecting_data = True
+                        reset_data(demo_data)
 
                 if (
                     vr_data["buttons"]["X"]
                     and prev_vr_data is not None
                     and not prev_vr_data["buttons"]["X"]
                 ):
-                    if pbar is not None:
-                        pbar.close()
-                        steps_in_episode = 0
-                    print("Deleting Data -----------------------------------")
-                    collecting_data = False
-                    reset_data(demo_data)
+                    print("Saving to failure_demo -----------------------------------")
+                    if collecting_data:
+                        collecting_data = False
+                        save_demo(demo_data, failure_demo_dir, episode_id, camera_names)
+                        if auto_episode_id is not None:
+                            auto_episode_id += 1
+                        prev_vr_data = vr_data
+                        break
 
-                # kill the arm
                 if vr_data["buttons"]["A"]:
-                    if pbar is not None:
-                        pbar.close()
-                        pbar = None
-                    return
+                    prev_vr_data = vr_data
+                    break
 
                 if vr_data["buttons"]["Y"]:
                     collecting_data = False
                     reset_data(demo_data)
-                    if pbar is not None:
-                        pbar.close()
-                        steps_in_episode = 0
                     robot_interface.set_home()
                     prev_vr_data = None
+                    continue
 
-                # Update engagement states
+                # ----------------------------
+                # Update engagement
+                # ----------------------------
                 vr.update_engagement(vr_data["right"]["index"], "right")
                 vr.update_engagement(vr_data["left"]["index"], "left")
 
+                # ----------------------------
+                # Phase 1: update each arm fully
+                # ----------------------------
                 cmd_joint_action = np.zeros(14)
                 robot_joint_action = np.zeros(14)
                 cmd_eepose_action = np.zeros(14)
+
+                saving = vr.l_engaged or vr.r_engaged
+
                 for arm in arms_list:
-                    if (arm == "left" and vr.l_engaged) or (
+                    arm_offset = 7 if arm == "right" else 0
+
+                    engaged = (arm == "left" and vr.l_engaged) or (
                         arm == "right" and vr.r_engaged
+                    )
+
+                    rising_edge = (arm == "left" and vr.l_up_edge) or (
+                        arm == "right" and vr.r_up_edge
+                    )
+
+                    rb_se3 = robot_interface.get_pose(arm, se3=True)
+
+                    # Re-anchor on engage so the first engaged frame is continuous
+                    if rising_edge:
+                        vr_frame_zero_se3[arm] = np.asarray(
+                            vr_data[arm]["T"], dtype=np.float64
+                        )
+                        robot_frame_zero_se3[arm] = np.asarray(rb_se3, dtype=np.float64)
+
+                    # delta pos as cmd when engaged
+                    if (
+                        prev_vr_data is not None
+                        and vr_data is not None
+                        and arm in vr_frame_zero_se3
+                        and "T" in vr_data[arm]
+                        and engaged
                     ):
-                        rb_se3 = robot_interface.get_pose(
-                            arm, se3=True
-                        )  # TODO need to fix the logic for double arm
-                        # print(f"rb_pos {R.from_matrix(rb_rot).as_euler('ZYX', degrees=False)}")
+                        vr_zero_inv = np.linalg.inv(vr_frame_zero_se3[arm])
+                        vr_current_T = np.asarray(vr_data[arm]["T"], dtype=np.float64)
+                        delta_T = vr_zero_inv @ vr_current_T
+                        cmd_T = robot_frame_zero_se3[arm] @ delta_T
+                    else:
+                        cmd_T = rb_se3
 
-                        if (arm == "right" and vr.r_up_edge) or (
-                            arm == "left" and vr.l_up_edge
-                        ):
-                            # Store VR and robot frames as 4x4 numpy arrays (ensure float64 for numerical stability)
-                            vr_frame_zero_se3[arm] = np.asarray(
-                                vr_data[arm]["T"], dtype=np.float64
-                            )
-                            robot_frame_zero_se3[arm] = np.asarray(
-                                rb_se3, dtype=np.float64
-                            )
+                    # calculate cmd_ee_pose
+                    gripper_pos[arm] = (
+                        GRIPPER_OPEN_VALUE - vr_data[arm]["trigger"] * GRIPPER_WIDTH
+                    )
 
-                        if (
-                            prev_vr_data is not None
-                            and vr_data is not None
-                            and arm in vr_frame_zero_se3
-                            and "T" in vr_data[arm]
-                        ):
-                            # Compute relative transformation: delta_T = T_vr_zero^-1 @ T_vr_current
-                            # This gives the transformation from vr_zero frame to vr_current frame
-                            vr_zero_inv = np.linalg.inv(vr_frame_zero_se3[arm])
-                            vr_current_T = np.asarray(
-                                vr_data[arm]["T"], dtype=np.float64
-                            )
-                            delta_T = vr_zero_inv @ vr_current_T
-                            cmd_T = robot_frame_zero_se3[arm] @ delta_T
+                    cmd_pos[arm], cmd_quat[arm] = se3_to_xyzxyzw(cmd_T)
+                    cmd_ypr = R.from_quat(cmd_quat[arm]).as_euler("ZYX", degrees=False)
+                    eepose_cmd = np.concatenate([cmd_pos[arm].copy(), cmd_ypr.copy()])
 
-                        else:
-                            cmd_T = rb_se3
+                    # calculate joints by IK
+                    try:
+                        solved_joints = robot_interface.solve_ik(eepose_cmd[:6], arm)
+                    except Exception as e:
+                        print(f"[WARN] IK failed for arm {arm}: {e}")
+                        continue
 
-                        gripper_pos[arm] = GRIPPER_OPEN_VALUE - vr_data[arm][
-                            "trigger"
-                        ] * (GRIPPER_WIDTH)
-                        # limit velocity and torque in the robot interface
-
-                        # print(f"gripper_pos: {gripper_pos[arm]}")
-
-                        cmd_pos[arm], cmd_quat[arm] = se3_to_xyzxyzw(cmd_T)
-                        cmd_ypr = R.from_quat(cmd_quat[arm]).as_euler(
-                            "ZYX", degrees=False
+                    if solved_joints is not None:
+                        cmd_joints[arm] = solved_joints
+                        # normalize gripper values
+                        cmd_joints[arm] = np.concatenate(
+                            [cmd_joints[arm], [gripper_pos[arm]]]
                         )
 
-                        eepose_cmd = np.concatenate([cmd_pos[arm], cmd_ypr])
-                        # print(f"eepose: {eepose_cmd}")
-                        try:
-                            solved_joints = robot_interface.solve_ik(
-                                eepose_cmd[:6], arm
-                            )
-                        except Exception as e:
-                            print(f"[WARN] IK failed for arm {arm}: {e}")
-                            # Skip commanding this arm for this iteration; wait for next VR input
-                            continue
-                        if solved_joints is not None:
-                            cmd_joints[arm] = solved_joints
-                            # normalize gripper values
-                            cmd_joints[arm] = np.concatenate(
-                                [cmd_joints[arm], [gripper_pos[arm]]]
-                            )
-
-                        # VELOCITY_LIMIT can be done in the interface
+                    # set joints when engaged
+                    if engaged:
                         robot_interface.set_joints(cmd_joints[arm], arm)
 
-                        if collecting_data:
-                            arm_offset = 0
-                            if arm == "right":
-                                arm_offset = 7
-                            if arm in cmd_pos and arm in cmd_quat:
-                                cmd_eepose_action[arm_offset : arm_offset + 3] = (
-                                    cmd_pos[arm]
-                                )
-                                cmd_eepose_action[arm_offset + 3 : arm_offset + 6] = (
-                                    R.from_quat(
-                                        cmd_quat[arm]
-                                    ).as_euler("ZYX", degrees=False)
-                                )  # ypr convention
-                                cmd_eepose_action[arm_offset + 6] = (
-                                    gripper_pos[arm] - GRIPPER_CLOSE_VALUE
-                                ) / GRIPPER_WIDTH
+                    # saving cmd and joints
+                    if saving:
+                        # save cmd_ee_pose
+                        if arm in cmd_pos and arm in cmd_quat:
+                            cmd_eepose_action[arm_offset : arm_offset + 3] = cmd_pos[
+                                arm
+                            ]
+                            cmd_eepose_action[arm_offset + 3 : arm_offset + 6] = cmd_ypr
+                            cmd_eepose_action[arm_offset + 6] = (
+                                gripper_pos[arm] - GRIPPER_CLOSE_VALUE
+                            ) / GRIPPER_WIDTH
 
-                            if arm in cmd_joints:
-                                cmd_joint_action[arm_offset : arm_offset + 7] = (
-                                    cmd_joints[arm]
-                                )
+                        # save cmd_joint_action
+                        if arm in cmd_joints:
+                            cmd_joint_action[arm_offset : arm_offset + 7] = cmd_joints[
+                                arm
+                            ]
 
-                            robot_joint_action[arm_offset : arm_offset + 7] = (
-                                robot_interface.get_joints(arm)
-                            )
+                        # save robot_joint_action
+                        robot_joint_action[arm_offset : arm_offset + 7] = (
+                            robot_interface.get_joints(arm)
+                        )
 
-                if collecting_data and (vr.l_engaged or vr.r_engaged):
+                # ----------------------------
+                # Phase 2: append exactly one row per loop
+                # ----------------------------
+                if collecting_data and saving:
                     obs = robot_interface.get_obs()
-
-                    obs_copy = {}
-                    for key, val in obs.items():
-                        obs_copy[key] = (
-                            None if val is None else val.copy()
-                        )  # NumPy copy
+                    obs_copy = {
+                        key: (None if val is None else val.copy())
+                        for key, val in obs.items()
+                    }
                     demo_data["obs"].append(obs_copy)
-                    demo_data["cmd_joint_actions"].append(cmd_joint_action)
-                    demo_data["robot_joint_actions"].append(robot_joint_action)
-                    demo_data["cmd_eepose_actions"].append(cmd_eepose_action)
-                    if episode_length is not None and pbar is not None:
-                        steps_in_episode += 1
-                        pbar.update(1)
-                        if steps_in_episode >= episode_length:
-                            collecting_data = False
-                            pbar.close()
-                            pbar = None
-                            save_demo(demo_data, demo_dir, episode_id, robot_interface.camera_res)
-                            print("Episode length reached, stopping recording.")
-                            print("Saving DEMO ------------------------------")
-                            if auto_episode_id is not None:
-                                auto_episode_id += 1
-                            prev_vr_data = None
-                            break_loop = True
-                            break
-
-                if break_loop:
-                    break
+                    demo_data["cmd_joint_actions"].append(cmd_joint_action.copy())
+                    demo_data["robot_joint_actions"].append(robot_joint_action.copy())
+                    demo_data["cmd_eepose_actions"].append(cmd_eepose_action.copy())
 
                 if vr_data is not None:
                     prev_vr_data = vr_data
@@ -898,12 +861,6 @@ if __name__ == "__main__":
         default=None,
         help="If set, start at this episode id and auto-increment on each recording",
     )
-    parser.add_argument(
-        "--episode-length",
-        type=int,
-        default=None,
-        help="If set, automatically stop recording after this many steps",
-    )
 
     args = parser.parse_args()
 
@@ -935,5 +892,4 @@ if __name__ == "__main__":
         frequency=args.frequency,
         demo_dir=args.demo_dir,
         auto_episode_start=args.auto_episode_start,
-        episode_length=args.episode_length,
     )

@@ -145,7 +145,9 @@ def viz_rot_ee_pose(image, eepose, action_image_path, rot_image_path):
     return im_action, im_rot
 
 
-GRIPPER_WIDTH = 0.09
+GRIPPER_OPEN_VALUE = 0.08
+GRIPPER_CLOSE_VALUE = -0.018
+GRIPPER_WIDTH = GRIPPER_OPEN_VALUE - GRIPPER_CLOSE_VALUE
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
 QUERY_FREQUENCY = 30
@@ -192,6 +194,7 @@ class ReplayRollout(Rollout):
     def __init__(self, dataset_path, cartesian):
         super().__init__()
         self.dataset_path = dataset_path
+        self.cartesian = cartesian
         if not os.path.isfile(self.dataset_path):
             raise FileNotFoundError(f"HDF5 not found: {self.dataset_path}")
         with h5py.File(self.dataset_path, "r") as f:
@@ -203,10 +206,25 @@ class ReplayRollout(Rollout):
                 )
 
     def rollout_step(self, i):
-        if i < self.actions.shape[0]:
-            return self.actions[i]
-        else:
-            return None
+        try:
+            if i < self.actions.shape[0]:
+                return self.actions[i]
+            else:
+                return None
+        except Exception:
+            print(f"{i} {self.actions}")
+            import pdb
+
+            pdb.set_trace()
+
+    def reset(self):
+        with h5py.File(self.dataset_path, "r") as f:
+            if self.cartesian:
+                self.actions = np.asarray(f["actions"]["eepose"][...], dtype=np.float32)
+            else:
+                self.actions = np.asarray(
+                    f["observations"]["joint_positions"][...], dtype=np.float32
+                )
 
 
 class PolicyRollout(Rollout):
@@ -267,13 +285,16 @@ class PolicyRollout(Rollout):
         if i % self.query_frequency == 0:
             start_infer_t = time.time()
             transform_list_batch = self.process_obs_for_transform_list(obs)
+
             for transform in Eva.get_transform_list():
                 transform_list_batch = transform.transform(transform_list_batch)
+
             for k, v in transform_list_batch.items():
                 if hasattr(v, "unsqueeze"):
                     transform_list_batch[k] = v.unsqueeze(0)
                 elif isinstance(v, np.ndarray):
                     transform_list_batch[k] = v[None, ...]
+
             if self.arm == "both":
                 embodiment_name = "eva_bimanual"
             elif self.arm == "right":
@@ -284,10 +305,12 @@ class PolicyRollout(Rollout):
             batch = {
                 embodiment_name: transform_list_batch,
             }
+
             processed_batch = self.policy.model.process_batch_for_training(batch)
             preds = self.policy.model.forward_eval(processed_batch)[
                 f"{embodiment_name}_actions_cartesian"
             ]
+
             self.actions = preds.detach().cpu().numpy().squeeze()
             self.debug_actions = self.actions.copy()
             if self.cartesian:
@@ -345,12 +368,11 @@ class PolicyRollout(Rollout):
         front = front.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
 
         data = {
-            "front_img_1": front.squeeze(),
+            "observations.images.front_img_1": front.squeeze(),
             "pad_mask": torch.ones((1, 100, 1), device=self.device, dtype=torch.bool),
         }
 
         eepose = obs["ee_poses"]
-
         if self.arm in ["right", "both"]:
             right = torch.from_numpy(
                 obs["right_wrist_img"][None, ...]
@@ -359,16 +381,17 @@ class PolicyRollout(Rollout):
             right = (
                 right.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
             )
-            data["right_wrist_img"] = right.squeeze()
+            data["observations.images.right_wrist_img"] = right.squeeze()
             right_ee_pose = eepose[7:13]
             right_ee_pose = ee_pose_to_rot_ee_frame(right_ee_pose)
             right_ypr = right_ee_pose[..., 3:6]
             right_xyzw = R.from_euler("ZYX", right_ypr).as_quat()
             right_wxyz = xyzw_to_wxyz(right_xyzw)
-            right_xyzwxyz = np.concatenate([eepose[:3], right_wxyz], axis=-1)
+            right_xyzwxyz = np.concatenate([right_ee_pose[:3], right_wxyz], axis=-1)
             data["right.obs_ee_pose"] = torch.from_numpy(right_xyzwxyz).reshape(-1)
-            data["right.obs_gripper"] = torch.from_numpy(eepose[13:14]).reshape(-1)
-            right_gripper = torch.from_numpy(eepose[13:14]).view(1, 1).repeat(45, 1)
+            right_obs_gripper = eepose[13:14].astype(np.float32, copy=False)
+            data["right.obs_gripper"] = torch.from_numpy(right_obs_gripper).reshape(-1)
+            right_gripper = torch.from_numpy(right_obs_gripper).view(1, 1).repeat(45, 1)
             data["right.gripper"] = right_gripper
             # dummy command ee pose
             right_cmd_ee_pose = torch.from_numpy(right_xyzwxyz).view(1, 7).repeat(45, 1)
@@ -380,16 +403,17 @@ class PolicyRollout(Rollout):
             )  # [1, H, W, 3] BGR
             left = left[..., [2, 1, 0]]  # BGR -> RGB
             left = left.permute(0, 3, 1, 2).to(self.device, dtype=torch.float32) / 255.0
-            data["left_wrist_img"] = left.squeeze()
+            data["observations.images.left_wrist_img"] = left.squeeze()
             left_ee_pose = eepose[0:6]
             left_ee_pose = ee_pose_to_rot_ee_frame(left_ee_pose)
             left_ypr = left_ee_pose[..., 3:6]
             left_xyzw = R.from_euler("ZYX", left_ypr).as_quat()
             left_wxyz = xyzw_to_wxyz(left_xyzw)
-            left_xyzwxyz = np.concatenate([eepose[:3], left_wxyz], axis=-1)
+            left_xyzwxyz = np.concatenate([left_ee_pose[:3], left_wxyz], axis=-1)
             data["left.obs_ee_pose"] = torch.from_numpy(left_xyzwxyz).reshape(-1)
-            data["left.obs_gripper"] = torch.from_numpy(eepose[6:7]).reshape(-1)
-            left_gripper = torch.from_numpy(eepose[6:7]).view(1, 1).repeat(45, 1)
+            left_obs_gripper = eepose[6:7].astype(np.float32, copy=False)
+            data["left.obs_gripper"] = torch.from_numpy(left_obs_gripper).reshape(-1)
+            left_gripper = torch.from_numpy(left_obs_gripper).view(1, 1).repeat(45, 1)
             data["left.gripper"] = left_gripper
             # dummy command ee pose
             left_cmd_ee_pose = torch.from_numpy(left_xyzwxyz).view(1, 7).repeat(45, 1)
@@ -476,7 +500,7 @@ def debug_policy(
                 policy.debug_actions.astype(np.float32, copy=False)[None, ...]
             ),
         }
-        im_axes = Eva.viz_transformed_batch(eva_viz_batch, mode="palm_axes")
+        im_axes = Eva.viz_transformed_batch(eva_viz_batch, mode="traj")
         cv2.imwrite(f"debug/debug_axes_{step_i}.png", im_axes)
 
 
@@ -487,10 +511,11 @@ def reset_rollout(ri, policy):
     ri.set_home()
     if hasattr(policy, "reset"):
         policy.reset()
-    if hasattr(policy, "actions"):
-        policy.actions = None
-    if hasattr(policy, "debug_actions"):
-        policy.debug_actions = None
+    else:
+        if hasattr(policy, "actions"):
+            policy.actions = None
+        if hasattr(policy, "debug_actions"):
+            policy.debug_actions = None
 
 
 def main(
@@ -594,6 +619,10 @@ def main(
                                 kinematics_solver,
                             )
 
+                        print(f"Step {step_i} gripper: {actions[6:7], actions[13:14] }")
+                        # magic number to make gripper work, may have drift
+                        actions[6] += GRIPPER_CLOSE_VALUE
+                        actions[13] += GRIPPER_CLOSE_VALUE
                         for arm in arms_list:
                             arm_offset = 7 if (arm == "right" and arms == "both") else 0
                             arm_action = actions[arm_offset : arm_offset + 7]
@@ -650,7 +679,6 @@ if __name__ == "__main__":
         action="store_true",
         help="enable debug visualization of actions on images",
     )
-
     args = parser.parse_args()
 
     print(f"Resampling actions to {args.resampled_action_len}")
