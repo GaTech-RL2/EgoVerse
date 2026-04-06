@@ -39,9 +39,11 @@ _turbojpeg_lib/
 external/scale/scripts/scale_data/
 *.zarr
 **/*.zarr
+**/*.json
 .codex
 annotations/**
 annotations_test/**
+curation_results/**
 log_conversion/**
 debug_model_inputs/**
 temp_dir/****/*.json
