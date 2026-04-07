@@ -1,0 +1,79 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        observations.images.front_img_1: #batch key
+          key_type: camera_keys # key type
+          zarr_key: images.front_1
+        right.action_ee_pose:
+          key_type: action_keys
+          zarr_key: right.obs_ee_pose
+          horizon: 30
+        left.action_ee_pose:
+          key_type: action_keys
+          zarr_key: left.obs_ee_pose
+          horizon: 30
+        right.obs_ee_pose:
+          key_type: proprio_keys
+          zarr_key: right.obs_ee_pose
+        left.obs_ee_pose:
+          key_type: proprio_keys
+          zarr_key: left.obs_ee_pose
+        obs_head_pose:
+          zarr_key: obs_head_pose
+          key_type: proprio_keys
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human._build_aria_cartesian_bimanual_transform_list
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'MECKA_BIMANUAL'"
+    mode: train
+valid_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        observations.images.front_img_1: #batch key
+          key_type: camera_keys # key type
+          zarr_key: images.front_1
+        right.action_ee_pose:
+          key_type: action_keys
+          zarr_key: right.obs_ee_pose
+          horizon: 30
+        left.action_ee_pose:
+          key_type: action_keys
+          zarr_key: left.obs_ee_pose
+          horizon: 30
+        right.obs_ee_pose:
+          key_type: proprio_keys
+          zarr_key: right.obs_ee_pose
+        left.obs_ee_pose:
+          key_type: proprio_keys
+          zarr_key: left.obs_ee_pose
+        obs_head_pose:
+          zarr_key: obs_head_pose
+          key_type: proprio_keys
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human._build_aria_cartesian_bimanual_transform_list
+        stride: 1
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'MECKA_BIMANUAL'"
+    mode: valid
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 4
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 4
