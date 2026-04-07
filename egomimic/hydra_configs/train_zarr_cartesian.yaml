@@ -1,3 +1,5 @@
+# Cotrain / cartesian-focused entrypoint. Same trainHydra knobs as train_zarr.yaml;
+# swap model, data, visualization, and schematic via defaults (extra modularity).
 defaults:
   - model: hpt_cotrain_flow_shared_head
   - visualization: cartesian
@@ -8,7 +10,7 @@ defaults:
   - data: eva_aria_cotrain
   - callbacks: checkpoints
   - data_schematic: default
-  - override hydra/launcher: submitit
+  - override hydra/launcher: submitit_pace
   - _self_
 
 name: test
@@ -25,7 +27,6 @@ eval_class:
 
 hydra:
   run:
-    # Dir should be experiment_name/description_{timestamp}
     dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
   sweep:
     dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
