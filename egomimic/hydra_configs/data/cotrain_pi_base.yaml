@@ -4,7 +4,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      folder_path: /storage/project/r-dxu345-0/shared/pick_place
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
         keymap_mode: cartesian
@@ -19,7 +19,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      folder_path: /storage/project/r-dxu345-0/shared/pick_place
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
         keymap_mode: cartesian
@@ -36,7 +36,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      folder_path: /storage/project/r-dxu345-0/shared/pick_place
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
         keymap_mode: cartesian
@@ -51,7 +51,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      folder_path: /storage/project/r-dxu345-0/shared/pick_place
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
         keymap_mode: cartesian

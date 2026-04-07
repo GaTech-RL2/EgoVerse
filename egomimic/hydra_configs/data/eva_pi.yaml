@@ -14,7 +14,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '2025-12-26-18-07-46-296000'"
+        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
     mode: total
 
 valid_datasets:
@@ -32,20 +32,20 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '2025-12-26-18-07-46-296000'"
+        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
     mode: total
   
 use_tokenizer: true
 model_name: "google/paligemma-3b-mix-224"
 sampling_mode: "random"
 annotation_key: null
-default_prompt: "this is clothes folding"
+default_prompt: "fold the clothes"
 
 train_dataloader_params:
   eva_bimanual:
-    batch_size: 32 
-    num_workers: 10
+    batch_size: 64
+    num_workers: 6
 valid_dataloader_params:
   eva_bimanual:
-    batch_size: 32
-    num_workers: 10
+    batch_size: 64
+    num_workers: 6
