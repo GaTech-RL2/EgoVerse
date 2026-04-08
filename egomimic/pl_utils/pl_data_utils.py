@@ -459,6 +459,7 @@ def build_tokenized_collate(
 
         collated = default_collate(batch)
         collated["sampled_prompt"] = prompts
+        collated.update(annotation)
         collated.update(list_keys)
         attention_mask = enc["attention_mask"].bool()
         token_loss_mask = attention_mask.clone()

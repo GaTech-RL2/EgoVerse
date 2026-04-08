@@ -60,7 +60,7 @@ class Eva(Embodiment):
             },
             "right.obs_gripper": {
                 "key_type": "proprio_keys",
-                "zarr_key": "right.obs_gripper",
+                "zarr_key": "right.gripper",
             },
             "left.obs_ee_pose": {
                 "key_type": "proprio_keys",
@@ -68,16 +68,16 @@ class Eva(Embodiment):
             },
             "left.obs_gripper": {
                 "key_type": "proprio_keys",
-                "zarr_key": "left.obs_gripper",
+                "zarr_key": "left.gripper",
             },
             "right.cmd_gripper": {
                 "key_type": "action_keys",
-                "zarr_key": "right.cmd_gripper",
+                "zarr_key": "right.gripper",
                 "horizon": 45,
             },
             "left.cmd_gripper": {
                 "key_type": "action_keys",
-                "zarr_key": "left.cmd_gripper",
+                "zarr_key": "left.gripper",
                 "horizon": 45,
             },
             "right.cmd_ee_pose": {

@@ -9,7 +9,6 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
         keymap_mode: cartesian
-        annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
@@ -17,7 +16,6 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: (row['lab'] == 'mecka') & (row['zarr_processed_path'] != '') & (row['episode_hash'] != '692ea23dc621d7f4aac3aaa1')"
-        # - "lambda row: row['episode_hash'] == '696bc6351cafc9f413b5b7e8'"
     mode: train
 valid_datasets:
   mecka_bimanual:
@@ -28,7 +26,6 @@ valid_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
         keymap_mode: cartesian
-        annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
@@ -36,13 +33,12 @@ valid_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: (row['lab'] == 'mecka') & (row['zarr_processed_path'] != '') & (row['episode_hash'] != '692ea23dc621d7f4aac3aaa1')"
-        # - "lambda row: row['episode_hash'] == '696bc6351cafc9f413b5b7e8'"
     mode: valid
 
 use_tokenizer: true
 model_name: "google/paligemma-3b-mix-224"
 sampling_mode: "random"
-annotation_key: annotations
+annotation_key: null
 default_prompt: ""
 proprio: true
 embodiment_label: false

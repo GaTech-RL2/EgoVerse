@@ -55,6 +55,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 SEED = 42
+FALLBACK_LOG_THRESHOLDS = (5, 10, 25, 50, 100, 250, 500)
 
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
@@ -150,14 +151,34 @@ def get_fallback_idx(
     _attempts: int | None,
     max_attempts: int,
     exhausted_error: str,
+    *,
+    context: str | None = None,
 ) -> tuple[int, int]:
     attempts = (_attempts or 0) + 1
     valid_candidates = [
         candidate_idx for candidate_idx in candidates if candidate_idx != idx
     ]
     if attempts >= max_attempts or not valid_candidates:
+        logger.error(
+            "[DATA_FALLBACK_EXHAUSTED] idx=%s attempts=%s max_attempts=%s context=%s error=%s",
+            idx,
+            attempts,
+            max_attempts,
+            context or "n/a",
+            exhausted_error,
+        )
         raise RuntimeError(exhausted_error)
-    return random.choice(valid_candidates), attempts
+    next_idx = random.choice(valid_candidates)
+    if attempts in FALLBACK_LOG_THRESHOLDS:
+        logger.warning(
+            "[DATA_FALLBACK] idx=%s next_idx=%s attempts=%s/%s context=%s",
+            idx,
+            next_idx,
+            attempts,
+            max_attempts,
+            context or "n/a",
+        )
+    return next_idx, attempts
 
 
 class EpisodeResolver:
@@ -485,7 +506,6 @@ class LocalEpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug=False,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
@@ -644,6 +664,65 @@ class MultiDataset(torch.utils.data.Dataset):
             return dataset_name
         return Path(episode_path).name
 
+    @staticmethod
+    def _is_resampleable_runtime_error(exc: RuntimeError) -> bool:
+        message = str(exc)
+        return message.startswith(
+            (
+                "Entire episode bad",
+                "Entire dataset bad",
+                "All datasets bad",
+            )
+        )
+
+    def _resample_from_other_dataset(
+        self,
+        idx: int,
+        dataset_name: str,
+        *,
+        reason: str,
+        excluded_datasets: set[str] | None,
+        global_attempts: int | None,
+    ) -> tuple[int, int, set[str]]:
+        updated_excluded = set(excluded_datasets or set())
+        updated_excluded.add(dataset_name)
+        attempts = (global_attempts or 0) + 1
+        max_attempts = len(self.datasets)
+
+        candidate_dataset_names = [
+            candidate_name
+            for candidate_name in self.datasets
+            if candidate_name not in updated_excluded
+        ]
+        if attempts >= max_attempts or not candidate_dataset_names:
+            logger.error(
+                "[DATASET_FALLBACK_EXHAUSTED] idx=%s attempts=%s max_attempts=%s excluded_datasets=%s context=%s",
+                idx,
+                attempts,
+                max_attempts,
+                sorted(updated_excluded),
+                reason,
+            )
+            raise RuntimeError(
+                "All datasets bad (no valid episodes left): "
+                f"excluded_datasets={sorted(updated_excluded)} reason={reason}"
+            )
+
+        next_dataset_name = random.choice(candidate_dataset_names)
+        next_idx = random.choice(self._global_indices_by_dataset[next_dataset_name])
+        if attempts in FALLBACK_LOG_THRESHOLDS:
+            logger.warning(
+                "[DATASET_FALLBACK] idx=%s next_idx=%s attempts=%s/%s skipped_dataset=%s next_dataset=%s context=%s",
+                idx,
+                next_idx,
+                attempts,
+                max_attempts,
+                dataset_name,
+                next_dataset_name,
+                reason,
+            )
+        return next_idx, attempts, updated_excluded
+
     def _check_bounds(
         self, data: dict, dataset, idx: int, dataset_name: str
     ) -> str | None:
@@ -745,33 +824,84 @@ class MultiDataset(torch.utils.data.Dataset):
 
         return None
 
-    def __getitem__(self, idx, _attempts: int | None = None):
+    def __getitem__(
+        self,
+        idx,
+        _attempts: int | None = None,
+        _global_attempts: int | None = None,
+        _excluded_datasets: set[str] | None = None,
+    ):
         """
         Multidataset handles outlier rejection so that you don't need to propagate the norm stats down to every sub dataset.
         """
         dataset_name, local_idx = self.index_map[idx]
         dataset = self.datasets[dataset_name]
-        data = dataset[local_idx]
+        try:
+            data = dataset[local_idx]
+        except RuntimeError as exc:
+            if not self._is_resampleable_runtime_error(exc):
+                raise
+            reason = (
+                f"child_failure dataset={dataset_name} local_idx={local_idx} "
+                f"error={exc}"
+            )
+            next_idx, global_attempts, excluded_datasets = (
+                self._resample_from_other_dataset(
+                    idx,
+                    dataset_name,
+                    reason=reason,
+                    excluded_datasets=_excluded_datasets,
+                    global_attempts=_global_attempts,
+                )
+            )
+            next_dataset_name, next_local_idx = self.index_map[next_idx]
+            logger.warning(
+                "Skipping bad episode dataset=%s local_idx=%s (%s); trying %s[%s]",
+                dataset_name,
+                local_idx,
+                exc,
+                next_dataset_name,
+                next_local_idx,
+            )
+            return self.__getitem__(
+                next_idx,
+                _attempts=None,
+                _global_attempts=global_attempts,
+                _excluded_datasets=excluded_datasets,
+            )
 
         if isinstance(dataset, MultiDataset):
             return data
 
         violation = self._check_bounds(data, dataset, local_idx, dataset_name)
         if violation is not None:
-            next_idx, attempts = get_fallback_idx(
-                idx=idx,
-                candidates=self._global_indices_by_dataset[dataset_name],
-                _attempts=_attempts,
-                max_attempts=len(self._global_indices_by_dataset[dataset_name]),
-                exhausted_error=(
-                    f"Entire dataset bad (no valid indices): dataset={dataset_name}"
-                ),
+            reason = (
+                f"bounds_violation dataset={dataset_name} local_idx={local_idx} "
+                f"episode={Path(dataset.episode_path).name} violation={violation}"
+            )
+            next_idx, global_attempts, excluded_datasets = (
+                self._resample_from_other_dataset(
+                    idx,
+                    dataset_name,
+                    reason=reason,
+                    excluded_datasets=_excluded_datasets,
+                    global_attempts=_global_attempts,
+                )
             )
             next_dataset_name, next_local_idx = self.index_map[next_idx]
             logger.warning(
-                f"{violation} | attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
+                "%s | skipping bad episode %s; trying %s[%s]",
+                violation,
+                dataset_name,
+                next_dataset_name,
+                next_local_idx,
             )
-            return self.__getitem__(next_idx, _attempts=attempts)
+            return self.__getitem__(
+                next_idx,
+                _attempts=None,
+                _global_attempts=global_attempts,
+                _excluded_datasets=excluded_datasets,
+            )
 
         return data
 
@@ -941,6 +1071,12 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         return min(start_idx + horizon, self.total_frames)
 
+    def _worker_debug_prefix(self) -> str:
+        worker = torch.utils.data.get_worker_info()
+        if worker is None:
+            return "worker=main"
+        return f"worker={worker.id}/{worker.num_workers}"
+
     def _pad_sequences(self, data, horizon: int | None) -> dict:
         if horizon is None:
             return data
@@ -1005,9 +1141,15 @@ class ZarrDataset(torch.utils.data.Dataset):
                         exhausted_error=(
                             f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
                         ),
+                        context=(
+                            f"jpeg_decode episode={Path(self.episode_path).name} "
+                            f"origin={origin} idx={idx} key={k} zarr_key={zarr_key} "
+                            f"{self._worker_debug_prefix()}"
+                        ),
                     )
                     logger.warning(
                         f"JPEG decode failed ep={Path(self.episode_path).name} frame={idx} key={k} | "
+                        f"origin={origin} {self._worker_debug_prefix()} | "
                         f"attempt {attempts}, trying random idx {next_idx}"
                     )
                     result = self.__getitem__(
@@ -1038,9 +1180,15 @@ class ZarrDataset(torch.utils.data.Dataset):
                         exhausted_error=(
                             f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
                         ),
+                        context=(
+                            f"transform episode={Path(self.episode_path).name} "
+                            f"origin={origin} idx={idx} transform={type(transform).__name__} "
+                            f"{self._worker_debug_prefix()}"
+                        ),
                     )
                     logger.warning(
                         f"Transform failed ep={Path(self.episode_path).name} frame={idx} ({type(e).__name__}: {e}) | "
+                        f"origin={origin} {self._worker_debug_prefix()} | "
                         f"attempt {attempts}, trying random idx {next_idx}"
                     )
                     result = self.__getitem__(

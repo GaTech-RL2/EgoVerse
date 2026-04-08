@@ -7,4 +7,6 @@ eva_bimanual:
 aria_bimanual:
   annotation_key: sampled_prompt
 scale_bimanual:
-  annotation_key: sampled_prompt
+  annotation_key: annotations
+mecka_bimanual:
+  annotation_key: annotations
