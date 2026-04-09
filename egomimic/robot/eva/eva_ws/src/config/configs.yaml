@@ -6,7 +6,8 @@ interfaces:
   right: can2
 ts_offset: 0.4
 
-gripper_width: 0.8
+gripper_open: 0.08
+gripper_close: -0.018
 
 cameras:
   front_img_1: 
