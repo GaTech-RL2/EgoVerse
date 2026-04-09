@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from collections import OrderedDict
@@ -11,6 +12,7 @@ import torch.nn as nn
 from openpi.shared.image_tools import resize_with_pad_torch
 from overrides import override
 from torchmetrics import MeanSquaredError
+from transformers import AutoTokenizer
 
 from egomimic.algo.algo import Algo
 from egomimic.models.preprocess_pi_obs import (
@@ -66,6 +68,12 @@ class PI(Algo):
             "pi_cam_keys", ["base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb"]
         )
         self.config = config
+
+        # Debug: dump model inputs (images, text, proprio) before they enter the model
+        self.debug = kwargs.get("debug", False)
+        self.debug_dir = kwargs.get("debug_dir", "debug_model_inputs")
+        self._debug_counter = 0
+        self._debug_tokenizer = None
 
         self.ac_keys = ac_keys
 
@@ -493,8 +501,123 @@ class PI(Algo):
             token_loss_mask=token_loss_mask,
         )
 
+        if self.debug:
+            self._dump_debug_inputs(
+                images=images,
+                image_masks=image_masks,
+                state=state,
+                tokenized_prompt=tokenized_prompt,
+                tokenized_prompt_mask=tokenized_prompt_mask,
+                action=action32,
+                embodiment=embodiment,
+                ac_key=ac_key,
+                present_flags=present_flags,
+            )
+
         # Do NOT call _preprocessing here; the PI model does it internally.
         return observation, action32
+
+    def _dump_debug_inputs(
+        self,
+        images,
+        image_masks,
+        state,
+        tokenized_prompt,
+        tokenized_prompt_mask,
+        action,
+        embodiment,
+        ac_key,
+        present_flags,
+    ):
+        """Save a snapshot of model inputs for debugging.
+
+        Creates a numbered folder under ``self.debug_dir`` with:
+        - One PNG per camera view (first sample in batch)
+        - ``text.txt`` with the detokenized language prompt
+        - ``proprio.json`` with the proprioceptive state vector
+        - ``action.json`` with the action vector
+        - ``meta.json`` with image masks, present_flags, shapes, etc.
+        """
+        idx = self._debug_counter
+        self._debug_counter += 1
+
+        out = os.path.join(self.debug_dir, f"sample_{idx:06d}")
+        os.makedirs(out, exist_ok=True)
+
+        # --- Images (save first sample of batch) ---
+        from torchvision.utils import save_image as _tv_save
+
+        for cam_key, img_tensor in images.items():
+            # img_tensor: (B, C, H, W) in [-1, 1]
+            img = img_tensor[0].detach().cpu().float()
+            # rescale from [-1, 1] to [0, 1]
+            img = (img + 1.0) / 2.0
+            img = img.clamp(0.0, 1.0)
+            safe_name = cam_key.replace("/", "_").replace(".", "_")
+            _tv_save(img, os.path.join(out, f"{safe_name}.png"))
+
+        # --- Text (detokenize the prompt) ---
+        if self._debug_tokenizer is None:
+            self._debug_tokenizer = AutoTokenizer.from_pretrained(
+                "google/paligemma-3b-mix-224"
+            )
+        tok = self._debug_tokenizer
+        prompt_ids = tokenized_prompt[0].detach().cpu()
+        mask = tokenized_prompt_mask[0].detach().cpu().bool()
+        # only decode the non-padding tokens
+        valid_ids = prompt_ids[mask].tolist()
+        decoded_text = tok.decode(valid_ids, skip_special_tokens=True)
+
+        with open(os.path.join(out, "text.txt"), "w") as f:
+            f.write(decoded_text)
+            f.write("\n\n--- raw token ids (valid) ---\n")
+            f.write(str(valid_ids))
+            f.write(
+                f"\n\n--- prompt mask (num valid={int(mask.sum())}/{len(mask)}) ---\n"
+            )
+
+        # --- Proprio (state vector) ---
+        state_np = state[0].detach().cpu().numpy()
+        with open(os.path.join(out, "proprio.json"), "w") as f:
+            json.dump(
+                {"state_shape": list(state_np.shape), "values": state_np.tolist()},
+                f,
+                indent=2,
+            )
+
+        # --- Action ---
+        action_np = action[0].detach().cpu().numpy()
+        with open(os.path.join(out, "action.json"), "w") as f:
+            json.dump(
+                {
+                    "ac_key": ac_key,
+                    "shape": list(action_np.shape),
+                    "values": action_np.tolist(),
+                },
+                f,
+                indent=2,
+            )
+
+        # --- Meta: masks, flags, shapes ---
+        meta = {
+            "embodiment": embodiment,
+            "ac_key": ac_key,
+            "image_shapes": {k: list(v.shape) for k, v in images.items()},
+            "image_masks": {
+                k: v[0].item() if v.ndim >= 1 else bool(v)
+                for k, v in image_masks.items()
+            },
+            "present_flags": {k: bool(v) for k, v in present_flags.items()},
+            "state_shape": list(state_np.shape),
+            "action_shape": list(action_np.shape),
+            "has_lang": bool(mask.sum() > 0),
+            "num_lang_tokens": int(mask.sum()),
+        }
+        with open(os.path.join(out, "meta.json"), "w") as f:
+            json.dump(meta, f, indent=2)
+
+        if idx % 50 == 0:
+            logger.info(f"[DEBUG] Saved model input snapshot to {out}")
 
     def _clone_batch(self, batch):
         """Recursively clones all tensors inside a nested dictionary."""

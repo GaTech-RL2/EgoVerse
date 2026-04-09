@@ -11,6 +11,9 @@ robomimic_model:
       action_horizon: 100
       max_token_len: 180
 
+  debug: false          # set to true to dump model inputs (images, text, proprio) to debug_dir
+  debug_dir: debug_model_inputs
+
   train_image_augs:
     _target_: torchvision.transforms.Compose
     transforms:

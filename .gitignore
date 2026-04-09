@@ -43,3 +43,4 @@ external/scale/scripts/scale_data/
 annotations/**
 annotations_test/**
 log_conversion/**
+debug_model_inputs/**
