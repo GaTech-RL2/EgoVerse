@@ -72,11 +72,6 @@ YPR_RANGE = [2, 2, 2]
 TRIGGER_ON_THRESHOLD = 0.8
 TRIGGER_OFF_THRESHOLD = 0.2
 
-# Gripper thresholds
-GRIPPER_OPEN_VALUE = 0.08
-GRIPPER_CLOSE_VALUE = -0.018
-GRIPPER_WIDTH = GRIPPER_OPEN_VALUE - GRIPPER_CLOSE_VALUE
-GRIPPER_VEL = 1  # m/s gripper width is normally around 0.08m
 
 # Demo recording
 DEMO_DIR = "./demos"
@@ -316,8 +311,8 @@ class VRInterface:
         # Gripper state
         self.r_gripper_closed = False
         self.l_gripper_closed = False
-        self.r_gripper_value = GRIPPER_OPEN_VALUE
-        self.l_gripper_value = GRIPPER_OPEN_VALUE
+        self.r_gripper_value = 1.0
+        self.l_gripper_value = 1.0
 
         print("VR Interface initialized!")
 
@@ -501,21 +496,30 @@ def save_demo(demo_data: dict, demo_dir, episode_id: int, camera_res: dict[str, 
     print(
         f"Saving demo with {len(demo_data['cmd_eepose_actions'])} steps to {filename}"
     )
-    data_dict["/observations/joints"] = np.array(demo_data["robot_joint_actions"])
-    data_dict["/observations/joint_positions"] = np.array(
-        demo_data["robot_joint_actions"]
-    )
+    robot_joint_actions = np.array(demo_data["robot_joint_actions"])
+    cmd_joint_actions = np.array(demo_data["cmd_joint_actions"])
+    cmd_eepose_actions = np.array(demo_data["cmd_eepose_actions"])
+
+    # Normalize gripper columns (indices 6 and 13) if any value exceeds 1
+    for gripper_col in [6, 13]:
+        for arr in [robot_joint_actions, cmd_joint_actions, cmd_eepose_actions]:
+            col_max = arr[:, gripper_col].max()
+            if col_max > 1.0:
+                arr[:, gripper_col] /= col_max
+
+    data_dict["/observations/joints"] = robot_joint_actions
+    data_dict["/observations/joint_positions"] = robot_joint_actions
     # data_dict["/observations/qjointvel"] = joint_vels
-    data_dict["/actions/eepose"] = np.array(demo_data["cmd_eepose_actions"])
-    data_dict["/actions/joints"] = np.array(demo_data["cmd_joint_actions"])
-    data_dict["/action"] = np.array(demo_data["cmd_joint_actions"])
+    data_dict["/actions/eepose"] = cmd_eepose_actions
+    data_dict["/actions/joints"] = cmd_joint_actions
+    data_dict["/action"] = cmd_joint_actions
 
     kinematics_solver = EvaMinkKinematicsSolver(
         model_path="/home/robot/robot_ws/egomimic/resources/model_x5.xml"
     )
     robot_ee_pose = []
-    for i in range(len(demo_data["robot_joint_actions"])):
-        robot_joint_action = demo_data["robot_joint_actions"][i]
+    for i in range(len(robot_joint_actions)):
+        robot_joint_action = robot_joint_actions[i]
         left_joints = robot_joint_action[:7]
         right_joints = robot_joint_action[7:]
         # check if left is not 0 array
@@ -622,6 +626,8 @@ def collect_demo(
     cmd_quat = dict()
     cmd_joints = dict()
     gripper_pos = dict()
+    prev_cmd_joint = {arm: None for arm in arms_list}
+    prev_cmd_eepose = {arm: None for arm in arms_list}
     collecting_data = False
     vr_frame_zero_se3 = dict()
     robot_frame_zero_se3 = dict()
@@ -686,6 +692,8 @@ def collect_demo(
                             )
                             collecting_data = True
                             reset_data(demo_data)
+                            prev_cmd_joint = {arm: None for arm in arms_list}
+                            prev_cmd_eepose = {arm: None for arm in arms_list}
                             if episode_length is not None:
                                 if pbar is not None:
                                     pbar.close()
@@ -769,12 +777,8 @@ def collect_demo(
                         else:
                             cmd_T = rb_se3
 
-                        gripper_pos[arm] = GRIPPER_OPEN_VALUE - vr_data[arm][
-                            "trigger"
-                        ] * (GRIPPER_WIDTH)
-                        # limit velocity and torque in the robot interface
-
-                        # print(f"gripper_pos: {gripper_pos[arm]}")
+                        # trigger: 0 = open, 1 = closed → normalized: 1 = open, 0 = closed
+                        gripper_pos[arm] = 1.0 - vr_data[arm]["trigger"]
 
                         cmd_pos[arm], cmd_quat[arm] = se3_to_xyzxyzw(cmd_T)
                         cmd_ypr = R.from_quat(cmd_quat[arm]).as_euler(
@@ -792,10 +796,8 @@ def collect_demo(
                             # Skip commanding this arm for this iteration; wait for next VR input
                             continue
                         if solved_joints is not None:
-                            cmd_joints[arm] = solved_joints
-                            # normalize gripper values
                             cmd_joints[arm] = np.concatenate(
-                                [cmd_joints[arm], [gripper_pos[arm]]]
+                                [solved_joints, [gripper_pos[arm]]]
                             )
 
                         # VELOCITY_LIMIT can be done in the interface
@@ -814,18 +816,53 @@ def collect_demo(
                                         cmd_quat[arm]
                                     ).as_euler("ZYX", degrees=False)
                                 )  # ypr convention
-                                cmd_eepose_action[arm_offset + 6] = (
-                                    gripper_pos[arm] - GRIPPER_CLOSE_VALUE
-                                ) / GRIPPER_WIDTH
+                                cmd_eepose_action[arm_offset + 6] = gripper_pos[arm]
 
                             if arm in cmd_joints:
                                 cmd_joint_action[arm_offset : arm_offset + 7] = (
                                     cmd_joints[arm]
                                 )
+                                prev_cmd_joint[arm] = cmd_joints[arm].copy()
 
                             robot_joint_action[arm_offset : arm_offset + 7] = (
                                 robot_interface.get_joints(arm)
                             )
+
+                            if arm in cmd_pos and arm in cmd_quat:
+                                prev_cmd_eepose[arm] = cmd_eepose_action[
+                                    arm_offset : arm_offset + 7
+                                ].copy()
+
+                    else:
+                        # Disengaged arm: use prev cmd if available, else current state
+                        if collecting_data:
+                            arm_offset = 0
+                            if arm == "right":
+                                arm_offset = 7
+                            current_joints = robot_interface.get_joints(arm)
+                            robot_joint_action[
+                                arm_offset : arm_offset + 7
+                            ] = current_joints
+                            if prev_cmd_joint[arm] is not None:
+                                cmd_joint_action[
+                                    arm_offset : arm_offset + 7
+                                ] = prev_cmd_joint[arm]
+                            else:
+                                cmd_joint_action[
+                                    arm_offset : arm_offset + 7
+                                ] = current_joints
+                            if prev_cmd_eepose[arm] is not None:
+                                cmd_eepose_action[
+                                    arm_offset : arm_offset + 7
+                                ] = prev_cmd_eepose[arm]
+                            else:
+                                xyz, rot = robot_interface.get_pose(arm, se3=False)
+                                cmd_eepose_action[
+                                    arm_offset : arm_offset + 6
+                                ] = np.concatenate(
+                                    [xyz, rot.as_euler("ZYX", degrees=False)]
+                                )
+                                cmd_eepose_action[arm_offset + 6] = current_joints[6]
 
                 if collecting_data and (vr.l_engaged or vr.r_engaged):
                     obs = robot_interface.get_obs()

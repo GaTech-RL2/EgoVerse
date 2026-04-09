@@ -159,12 +159,9 @@ class ARXInterface(Robot_Interface):
 
             self.gripper_offset = 0.000
 
-            # self.engaged = True
-
-            # self.gripper_width = self.cfg.get("gripper_width", None)
-
-            # if self.gripper_width is None:
-            #     raise RuntimeError("Gripper value not initialized in config.yaml")
+        self.gripper_open = self.cfg.get("gripper_open", 0.08)
+        self.gripper_close = self.cfg.get("gripper_close", -0.018)
+        self.gripper_width = self.gripper_open - self.gripper_close
 
     def __create_cam_recorders(self, cameras_cfg):
         if AriaRecorder is None or RealSenseRecorder is None:
@@ -220,8 +217,9 @@ class ARXInterface(Robot_Interface):
             float(self.timestamp),
         )
 
-        # print(f"gripper val: {gripper_cmd}")
-        requested.gripper_pos = float(gripper_cmd)
+        # Denormalize gripper from [0, 1] to hardware range
+        gripper_cmd = float(gripper_cmd) * self.gripper_width + self.gripper_close
+        requested.gripper_pos = gripper_cmd
         requested.gripper_vel = 0.1
         requested.gripper_torque = 0.2
 
@@ -288,7 +286,8 @@ class ARXInterface(Robot_Interface):
     def get_joints(self, arm):
         joints = self.controller[arm].get_joint_state()
         arm_joints = joints.pos()
-        gripper = getattr(joints, "gripper_pos", 0.0)
+        gripper_raw = getattr(joints, "gripper_pos", 0.0)
+        gripper = (gripper_raw - self.gripper_close) / self.gripper_width
         joints = np.array(
             [
                 arm_joints[0],
