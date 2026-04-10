@@ -142,7 +142,7 @@ class ModelWrapper(LightningModule):
         info = {}
         info["losses"] = TensorUtils.detach(losses)
         for k, v in self.model.log_info(info).items():
-            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
+            self.log("Train/" + k, v, sync_dist=True, on_step=True, on_epoch=False)
 
         return losses["action_loss"]
 
@@ -179,7 +179,7 @@ class ModelWrapper(LightningModule):
         if not grad_norm_flagged:
             self.grad_norm_history.append(grad_norm_val)
         for k, v in info.items():
-            self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
+            self.log("Train/" + k, v, on_step=True, on_epoch=False, sync_dist=True)
 
     def on_before_optimizer_step(self, optimizer):
         grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -188,10 +188,18 @@ class ModelWrapper(LightningModule):
         self.log(
             "Train/policy_grad_norms_clipped",
             float(grad_norm),
-            on_step=False,
-            on_epoch=True,
+            on_step=True,
+            on_epoch=False,
             sync_dist=True,
         )
+        for i, param_group in enumerate(optimizer.param_groups):
+            self.log(
+                f"Optimizer/param_group_{i}_lr",
+                param_group["lr"],
+                on_step=True,
+                on_epoch=False,
+                sync_dist=True,
+            )
 
     def on_validation_start(self):
         if self.evaluator is None:

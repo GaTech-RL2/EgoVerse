@@ -1,0 +1,48 @@
+<mujoco model="wxai_single_arm">
+  <!--
+    Trossen WXAI single arm kinematic chain for FK/IK.
+    Extracted from external/scale/reference.urdf.
+    Both left and right arms share the same kinematic chain;
+    the only difference is the world-frame base offset.
+    Inertial properties from the original URDF.
+  -->
+  <compiler angle="radian" autolimits="true"/>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0">
+      <inertial pos="-0.00014175 -0.00005228 0.03175177" mass="0.45969858"
+        diaginertia="0.00060240 0.00044896 0.00021403"/>
+      <body name="link_1" pos="0 0 0.05725">
+        <inertial pos="-0.00011075 0.00171176 0.02044592" mass="0.15270428"
+          diaginertia="0.00018509 0.00008358 0.00019219"/>
+        <joint name="joint_0" type="hinge" axis="0 0 1" range="-3.0543261909900767 3.0543261909900767"/>
+        <body name="link_2" pos="0.02 0 0.04625">
+          <inertial pos="-0.13121451 -0.00292583 0.00021345" mass="1.15316319"
+            diaginertia="0.01736118 0.01794489 0.00102632"/>
+          <joint name="joint_1" type="hinge" axis="0 1 0" range="0 3.141592653589793"/>
+          <body name="link_3" pos="-0.264 0 0">
+            <inertial pos="0.18083602 -0.00094090 0.05554937" mass="0.68666638"
+              diaginertia="0.00547407 0.00561509 0.00064876"/>
+            <joint name="joint_2" type="hinge" axis="0 -1 0" range="0 2.356194490192345"/>
+            <body name="link_4" pos="0.245 0 0.06">
+              <inertial pos="0.05797842 0.00027145 0.05884447" mass="0.45789905"
+                diaginertia="0.00066138 0.00053839 0.00042116"/>
+              <joint name="joint_3" type="hinge" axis="0 -1 0" range="-1.5707963267948966 1.5707963267948966"/>
+              <body name="link_5" pos="0.06775 0 0.0455">
+                <inertial pos="0.00412447 -0.00001138 -0.04283184" mass="0.36693910"
+                  diaginertia="0.00032062 0.00026750 0.00018912"/>
+                <joint name="joint_4" type="hinge" axis="0 0 -1" range="-1.5707963267948966 1.5707963267948966"/>
+                <body name="link_6" pos="0.02895 0 -0.0455">
+                  <inertial pos="0.04572768 -0.00000726 0.00001402" mass="0.55469347"
+                    diaginertia="0.00108600 0.00082429 0.00048759"/>
+                  <joint name="joint_5" type="hinge" axis="1 0 0" range="-3.141592653589793 3.141592653589793"/>
+                  <site name="ee_gripper" pos="0.156062 0 0" type="sphere" size="0.005"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

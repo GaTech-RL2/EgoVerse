@@ -204,6 +204,44 @@ class MinkKinematicsSolver:
             mink.VelocityLimit(self.model, velocity_limits),
         ]
 
+    _MUJOCO_ATTRS = {"model", "data", "configuration", "ee_task", "posture_task",
+                     "tasks", "limits", "dof_ids"}
+
+    def __getstate__(self):
+        return {k: v for k, v in self.__dict__.items() if k not in self._MUJOCO_ATTRS}
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._init_mujoco_runtime()
+
+    def _init_mujoco_runtime(self):
+        """(Re-)create all MuJoCo-dependent objects from self.model_path."""
+        path = self.model_path
+        if not os.path.exists(path):
+            resources = os.path.join(os.path.dirname(os.path.dirname(__file__)), "resources")
+            fallback = os.path.join(resources, os.path.basename(path))
+            if os.path.exists(fallback):
+                path = fallback
+                self.model_path = path
+        self.model = mujoco.MjModel.from_xml_path(path)
+        self.data = mujoco.MjData(self.model)
+        self.dof_ids = np.array([self.model.joint(n).id for n in self.joint_names])
+
+        self.configuration = mink.Configuration(self.model)
+        self.ee_task = mink.FrameTask(
+            frame_name=self.eef_link_name,
+            frame_type=self.eef_frame_type,
+            position_cost=10.0,
+            orientation_cost=1.0,
+            lm_damping=0.1,
+        )
+        self.posture_task = mink.PostureTask(self.model, cost=1e-3)
+        self.tasks = [self.ee_task, self.posture_task]
+        self.limits = [
+            mink.ConfigurationLimit(model=self.model),
+            mink.VelocityLimit(self.model, self.velocity_limits),
+        ]
+
     def _resolve_model_path(self, model_path: str) -> str:
         """Resolve URDF path, handling package:// URIs if present."""
         if not os.path.isabs(model_path):

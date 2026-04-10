@@ -1,0 +1,10 @@
+defaults:
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "step_{step}"
+  save_last: true
+  save_top_k: -1
+  every_n_train_steps: 3100

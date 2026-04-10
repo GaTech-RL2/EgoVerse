@@ -264,6 +264,8 @@ class _IncrementalHandle:
                 pad_len = padded - self._total_frames
                 for key in self._image_info:
                     last_jpeg = self._store[key][self._total_frames - 1]
+                    if not isinstance(last_jpeg, bytes):
+                        last_jpeg = bytes(last_jpeg)
                     padding = np.empty((pad_len,), dtype=object)
                     padding[:] = last_jpeg
                     self._store[key][self._total_frames : padded] = padding

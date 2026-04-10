@@ -5,16 +5,54 @@ defaults:
 robomimic_model:
   camera_transforms:
     _target_: egomimic.utils.egomimicUtils.CameraTransforms
-    intrinsics_key: "scale" # change to base_half if using half res
+    intrinsics_key: "scale"
     extrinsics_key: "scale"
   ac_keys:
-    scale_bimanual: "actions_cartesian"
-  domains: ["scale_bimanual"]
+    scale_aloha_bimanual: "actions_cartesian"
+  domains: ["scale_aloha_bimanual"]
 
   action_converters:
     rules:
-      SCALE_BIMANUAL:
-        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
-    # optional fallback if no match is found
+      SCALE_ALOHA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
     fallback:
       _target_: egomimic.utils.action_utils.BaseActionConverter
+
+  config:
+    pytorch_training_precision: bfloat16
+    pytorch_weight_path: /opt/dlami/nvme/aseem/pi_checkpoints/pi05_base_pytorch
+    model:
+      pi05: true
+      action_dim: 32
+      action_horizon: 100
+      max_token_len: 180
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: 224
+        interpolation: 3
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Resize
+        size: 224
+        interpolation: 3
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 2.5e-5
+  betas: [0.9, 0.95]
+  eps: 1e-8
+  weight_decay: 1e-10
+
+scheduler:
+  _target_: transformers.get_cosine_schedule_with_warmup
+  _partial_: true
+  num_warmup_steps: 1000
+  num_training_steps: 31000
+  num_cycles: 0.5
+
+scheduler_interval: step

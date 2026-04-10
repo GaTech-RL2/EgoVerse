@@ -47,3 +47,16 @@ schematic_dict:
     actions_cartesian:
       key_type: action_keys
       zarr_key: actions_cartesian
+  scale_aloha_bimanual:
+    base_0_rgb:
+      key_type: camera_keys
+      zarr_key: observations.images.front_img_1
+    ee_pose:
+      key_type: proprio_keys
+      zarr_key: observations.state.ee_pose
+    actions_cartesian:
+      key_type: action_keys
+      zarr_key: actions_cartesian
+    annotations:
+      key_type: annotation_keys
+      zarr_key: annotations

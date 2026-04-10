@@ -666,6 +666,10 @@ class MultiDataset(torch.utils.data.Dataset):
             q_low = torch.as_tensor(q_low, device=arr.device, dtype=torch.float32)
             q_high = torch.as_tensor(q_high, device=arr.device, dtype=torch.float32)
 
+            margin = 0.05 * (q_high - q_low).abs().clamp(min=1e-3)
+            q_low = q_low - margin
+            q_high = q_high + margin
+
             try:
                 q_low = torch.broadcast_to(q_low, arr.shape)
                 q_high = torch.broadcast_to(q_high, arr.shape)
