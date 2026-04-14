@@ -1,0 +1,64 @@
+# DemInf curation configuration
+# Run with:
+#   python egomimic/scripts/curation/run_curation.py \
+#       --config-path=../../hydra_configs/curation \
+#       --config-name=default \
+#       data.folder_path=/path/to/zarr_cache \
+#       filter_ratio=0.3 \
+#       output_path=./curation_results/
+
+# --- Embedding ---
+state_mode: proprioceptive  # "proprioceptive" | "image"
+latent_dim: 32              # Latent space dimensionality for both embedders
+
+# --- KSG estimator ---
+k_range: [5, 5]             # k=5 only (single value is 5x faster; averaging adds little for large N)
+
+# --- Curation threshold ---
+filter_ratio: 0.3           # Remove the bottom 30% of episodes by MI score
+
+# --- Cross-embodiment handling ---
+# "independent": fit and score each embodiment separately (safer default).
+#   Aria hand keypoints and ALOHA joint commands are never compared against each other.
+# "shared": single global embedder — only use when embodiments share an action space.
+cross_embodiment_mode: independent
+
+# --- Preprocessing filters ---
+filters:
+  pause_epsilon: 0.001          # ||a_t - a_{t-1}|| threshold for pause detection
+  action_clip: true             # Apply per-episode Gaussian normalisation + clip
+  min_trajectory_length: 20    # Discard episodes shorter than this after filtering
+
+# --- Per-embodiment overrides ---
+# Aria hand-tracking data has higher noise than robot joint commands.
+embodiment_overrides:
+  aria_bimanual:
+    pause_epsilon: 0.005
+  aria_right_arm:
+    pause_epsilon: 0.005
+  aria_left_arm:
+    pause_epsilon: 0.005
+  eva_bimanual:
+    pause_epsilon: 0.001
+  aloha_bimanual:
+    pause_epsilon: 0.001
+  scale_bimanual:
+    pause_epsilon: 0.005  # hand-tracking noise similar to Aria
+
+# --- Data loading ---
+data:
+  folder_path: ???                  # Local directory with downloaded Zarr episodes
+  valid_hashes_path: null           # Optional: path to JSON list of episode hashes to consider
+  filter_lambdas: null              # Optional: list of DatasetFilter lambda strings
+  max_episodes: null                # Optional cap for debugging (null = no limit)
+  max_timesteps_per_episode: 500    # Subsample long episodes uniformly to this many timesteps.
+                                    # 500 pts/episode gives a good MI estimate and keeps KSG fast.
+                                    # Set null to use all timesteps (very slow for 30K-frame episodes).
+  custom_obs_keys: null             # Override observation zarr keys (null = auto-detect)
+  custom_action_keys: null          # Override action zarr keys (null = auto-detect)
+
+# --- Compute ---
+device: cpu                  # "cpu" | "cuda" | "cuda:0" etc. (image mode only)
+
+# --- Output ---
+output_path: /coc/flash7/agao81/EgoVerse/egomimic/curation/results
