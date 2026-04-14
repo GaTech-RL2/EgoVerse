@@ -57,3 +57,5 @@ pre-commit
 ruff
 scaleapi
 openai
+decord
+scale_sensor_fusion_io
