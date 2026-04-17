@@ -15,7 +15,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '69bb117f1e402bfacbe4736e'"
+        - "lambda row: row['episode_hash'] == '69bb1284d385c444f34222a7'"
     mode: total
 valid_datasets:
   mecka_bimanual:
@@ -32,7 +32,7 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '69bb117f1e402bfacbe4736e'"
+        - "lambda row: row['episode_hash'] == '69bb1284d385c444f34222a7'"
     mode: total
 train_dataloader_params:
   mecka_bimanual:

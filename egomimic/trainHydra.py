@@ -224,12 +224,20 @@ def _submit_to_modal(cfg: DictConfig) -> None:
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     model_cfg = copy.deepcopy(cfg.model)
+    loss_group_mode = False
+    train_datasets_cfg = OmegaConf.select(cfg, "data.train_datasets", default={}) or {}
+    for _, dataset_cfg in train_datasets_cfg.items():
+        if OmegaConf.select(dataset_cfg, "loss_groups", default=None):
+            loss_group_mode = True
+            break
     if (
         "robomimic_model" in model_cfg
         and isinstance(model_cfg.robomimic_model, DictConfig)
         and "data_schematic" in model_cfg.robomimic_model
     ):
         model_cfg.robomimic_model.data_schematic = None
+        with open_dict(model_cfg.robomimic_model):
+            model_cfg.robomimic_model.loss_group_mode = loss_group_mode
     return OmegaConf.create({"model": model_cfg})
 
 
@@ -325,7 +333,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         km["norm_mode"] = True
 
         instantiate_copy.resolver.key_map = km
-        norm_dataset = hydra.utils.instantiate(instantiate_copy)
+        try:
+            norm_dataset = hydra.utils.instantiate(instantiate_copy)
+        except Exception as exc:
+            # Some keymap resolvers (e.g. Mecka.get_keymap) do not accept norm_mode.
+            if "unexpected keyword argument 'norm_mode'" not in str(exc):
+                raise
+            km.pop("norm_mode", None)
+            instantiate_copy.resolver.key_map = km
+            norm_dataset = hydra.utils.instantiate(instantiate_copy)
         # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
         data_schematic.infer_norm_from_dataset(
             norm_dataset,

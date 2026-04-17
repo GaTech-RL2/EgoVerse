@@ -575,6 +575,48 @@ class LocalEpisodeResolver(EpisodeResolver):
         return datasets
 
 
+class Loss_groups:
+    def __init__(
+        self,
+        groups_of_filters: dict[str, DatasetFilter],
+        filtered_paths,
+    ):
+        self.groups_of_filters = groups_of_filters
+        self.filtered_paths = filtered_paths
+        self.group_map = {group_name: [] for group_name in self.groups_of_filters}
+        self.episode_to_group = {}
+
+        engine = create_default_engine()
+        df = episode_table_to_df(engine)
+
+        for group_name, group_filter in self.groups_of_filters.items():
+            for episode_path, episode_hash in self.filtered_paths:
+                matching_rows = df.loc[df["episode_hash"] == episode_hash]
+                if matching_rows.empty:
+                    continue
+                filter_row = _normalize_filter_row(
+                    matching_rows.iloc[0].to_dict(),
+                    episode_hash=episode_hash,
+                )
+                if group_filter.matches(filter_row):
+                    episode_path = str(episode_path)
+                    existing_group = self.episode_to_group.get(episode_path)
+                    if existing_group is not None and existing_group != group_name:
+                        raise ValueError(
+                            f"Episode path {episode_path} matched multiple groups: "
+                            f"{existing_group} and {group_name}"
+                        )
+                    self.episode_to_group[episode_path] = group_name
+                    self.group_map[group_name].append(episode_path)
+
+    def get_group_for_episode(self, episode_path: str):
+        episode_path = str(episode_path)
+        group_name = self.episode_to_group.get(episode_path)
+        if group_name is None:
+            raise ValueError(f"Episode path {episode_path} not found in any group")
+        return group_name
+
+
 class MultiDataset(torch.utils.data.Dataset):
     """
     Self wrapping MultiDataset, can wrap zarr or multi dataset.
@@ -634,6 +676,9 @@ class MultiDataset(torch.utils.data.Dataset):
 
         self.data_schematic = None
         self._warned_violations: set[str] = set()
+        # SQL feature injection is currently disabled.
+        # self._episode_table_df: pd.DataFrame | None = None
+        # self.sql_features: list[str] = []
 
         super().__init__()
 
@@ -646,6 +691,41 @@ class MultiDataset(torch.utils.data.Dataset):
         if episode_path is None:
             return dataset_name
         return Path(episode_path).name
+
+    def _extract_sql_features(
+        self, dataset, dataset_name: str, features: list[str]
+    ) -> Any:
+        """
+        Look up a SQL-backed episode-level feature by episode_hash.
+        Missing rows or columns log once per access and return an empty string.
+        """
+        # SQL feature injection disabled for now.
+        # if not features:
+        #     return {}
+        # if self._episode_table_df is None:
+        #     raise ValueError("sql_df is not set. Call set_sql_df first.")
+        # episode_hash = self._episode_name_for_dataset(dataset, dataset_name)
+        # if episode_hash.endswith(".zarr"):
+        #     episode_hash = episode_hash[: -len(".zarr")]
+        # row = self._episode_table_df.loc[
+        #     self._episode_table_df["episode_hash"] == episode_hash
+        # ]
+        # if row.empty:
+        #     logger.warning(
+        #         "No episode_table row for episode_hash=%r features=%r; returning empty values",
+        #         episode_hash,
+        #         features,
+        #     )
+        #     return {}
+        # additions = {}
+        # for feature in features:
+        #     if feature not in row.columns:
+        #         raise ValueError(
+        #             f"Missing feature={feature} in episode_table for episode_hash={episode_hash}"
+        #         )
+        #     additions[feature] = row[feature].iloc[0]
+        # return additions
+        return {}
 
     def _check_bounds(
         self, data: dict, dataset, idx: int, dataset_name: str
@@ -691,59 +771,37 @@ class MultiDataset(torch.utils.data.Dataset):
                 q_low = torch.broadcast_to(q_low, arr.shape)
                 q_high = torch.broadcast_to(q_high, arr.shape)
             except RuntimeError:
-                logger.warning(
-                    "Skipping bounds check for ep=%s frame=%s key=%s due to incompatible shapes: value=%s q_low=%s q_high=%s",
-                    episode_name,
-                    idx,
-                    zarr_key,
-                    tuple(arr.shape),
-                    tuple(q_low.shape),
-                    tuple(q_high.shape),
-                )
+                # logger.warning(
+                #     "Skipping bounds check for ep=%s frame=%s key=%s due to incompatible shapes: value=%s q_low=%s q_high=%s",
+                #     episode_name,
+                #     idx,
+                #     zarr_key,
+                #     tuple(arr.shape),
+                #     tuple(q_low.shape),
+                #     tuple(q_high.shape),
+                # )
                 continue
 
             has_nan = torch.any(torch.isnan(arr))
             has_inf = torch.any(torch.isinf(arr))
             if has_nan or has_inf:
-                nan_mask = torch.isnan(arr)
-                inf_mask = torch.isinf(arr)
-                n_nan = nan_mask.sum().item()
-                n_inf = inf_mask.sum().item()
-                bad_mask = nan_mask | inf_mask
-                bad_indices = bad_mask.nonzero(as_tuple=False).tolist()
-                bad_values = arr[bad_mask].tolist()
                 prefix = (
                     f"NaN/Inf violation ep={episode_name} frame={idx} key={zarr_key}"
                 )
                 warn_key = f"nan_inf:{episode_name}:{zarr_key}"
                 if warn_key not in self._warned_violations:
                     self._warned_violations.add(warn_key)
-                    logger.warning(
-                        f"{prefix} | n_nan={int(n_nan)} n_inf={int(n_inf)} "
-                        f"indices={bad_indices[:10]} values={[f'{v:.4f}' for v in bad_values[:10]]}"
-                    )
                 return prefix
 
             below = arr < q_low
             above = arr > q_high
             if torch.any(below) or torch.any(above):
-                n_below = below.sum().item()
-                n_above = above.sum().item()
-                below_vals = arr[below].tolist()
-                above_vals = arr[above].tolist()
-                below_bounds = q_low[below].tolist()
-                above_bounds = q_high[above].tolist()
                 prefix = (
                     f"Bounds violation ep={episode_name} frame={idx} key={zarr_key}"
                 )
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
                 if warn_key not in self._warned_violations:
                     self._warned_violations.add(warn_key)
-                    logger.warning(
-                        f"{prefix} | "
-                        f"n_below={int(n_below)} below_vals={[f'{v:.4f}' for v in below_vals[:5]]} below_bound={[f'{b:.4f}' for b in below_bounds[:5]]} "
-                        f"n_above={int(n_above)} above_vals={[f'{v:.4f}' for v in above_vals[:5]]} above_bound={[f'{b:.4f}' for b in above_bounds[:5]]}"
-                    )
                 return prefix
 
         return None
@@ -771,11 +829,13 @@ class MultiDataset(torch.utils.data.Dataset):
                 ),
             )
             next_dataset_name, next_local_idx = self.index_map[next_idx]
-            logger.warning(
-                f"{violation} | attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
-            )
+            # logger.warning(
+            #     f"{violation} | attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
+            # )
             return self.__getitem__(next_idx, _attempts=attempts)
 
+        # additions = self._extract_sql_features(dataset, dataset_name, self.sql_features)
+        # data.update(additions)
         return data
 
     def set_data_schematic(self, data_schematic) -> None:
@@ -792,6 +852,23 @@ class MultiDataset(torch.utils.data.Dataset):
         logger.info(
             f"Set data_schematic on MultiDataset with {len(self.datasets)} child datasets"
         )
+
+    def set_sql_context(self, sql_df, sql_features: list[str]) -> None:
+        """
+        Set shared SQL table + feature list used for per-sample injection.
+        """
+        # SQL feature injection disabled for now.
+        # self._episode_table_df = sql_df
+        # self.sql_features = list(sql_features)
+        # for ds in self.datasets.values():
+        #     if isinstance(ds, MultiDataset):
+        #         ds.set_sql_context(sql_df, sql_features)
+        # logger.info(
+        #     "Set SQL context (features=%s) on MultiDataset with %d child datasets",
+        #     self.sql_features,
+        #     len(self.datasets),
+        # )
+        return
 
     @classmethod
     def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
@@ -819,6 +896,75 @@ class MultiDataset(torch.utils.data.Dataset):
             )
         else:
             resolved = resolver.resolve(filters=filters)
+
+        loss_groups_cfg = kwargs.pop("loss_groups", None)
+        if loss_groups_cfg:
+            groups_of_filters: dict[str, DatasetFilter] = {}
+            for group_name, group_cfg in loss_groups_cfg.items():
+                if isinstance(group_cfg, DatasetFilter):
+                    groups_of_filters[group_name] = group_cfg
+                    continue
+                if not isinstance(group_cfg, Mapping):
+                    raise TypeError(
+                        f"loss_groups.{group_name} must be a DatasetFilter or mapping, got {type(group_cfg)}"
+                    )
+                filter_lambdas = group_cfg.get("filter_lambdas")
+                if filter_lambdas is None:
+                    filter_lambdas = group_cfg.get("filters")
+                if not filter_lambdas:
+                    raise ValueError(
+                        f"loss_groups.{group_name} must define non-empty `filter_lambdas` or `filters`."
+                    )
+                groups_of_filters[group_name] = DatasetFilter(
+                    filter_lambdas=filter_lambdas
+                )
+
+            filtered_paths = [
+                (str(ds.episode_path), dataset_hash)
+                for dataset_hash, ds in resolved.items()
+            ]
+            loss_groups = Loss_groups(
+                groups_of_filters=groups_of_filters,
+                filtered_paths=filtered_paths,
+            )
+            for ds in resolved.values():
+                ds.loss_groups = loss_groups
+
+            # When a train/valid split is requested alongside loss groups, split
+            # each group's collections independently so every group is guaranteed
+            # representation in both splits regardless of relative group sizes.
+            # Then interleave the groups in the resolved dict so that, even
+            # when limit_val_batches covers only a fraction of the dataset,
+            # every group appears proportionally rather than one group coming
+            # entirely after another in alphabetical hash order.
+            mode = kwargs.get("mode", "train")
+            if mode in ("train", "valid"):
+                valid_ratio = kwargs.get("valid_ratio", 0.2)
+                path_to_hash = {path: h for path, h in filtered_paths}
+                hashes_by_group: dict[str, list[str]] = {}
+                for group_name, group_paths in loss_groups.group_map.items():
+                    group_hashes = [
+                        path_to_hash[p] for p in group_paths if p in path_to_hash
+                    ]
+                    train_hashes, valid_hashes = split_dataset_names(
+                        group_hashes, valid_ratio=valid_ratio
+                    )
+                    hashes_by_group[group_name] = (
+                        sorted(valid_hashes)
+                        if mode == "valid"
+                        else sorted(train_hashes)
+                    )
+                # Interleave groups round-robin so all groups appear throughout
+                # the dataset rather than being contiguous blocks.
+                interleaved: list[str] = []
+                group_lists = [lst for lst in hashes_by_group.values() if lst]
+                max_len = max((len(lst) for lst in group_lists), default=0)
+                for i in range(max_len):
+                    for lst in group_lists:
+                        if i < len(lst):
+                            interleaved.append(lst[i])
+                resolved = {h: resolved[h] for h in interleaved if h in resolved}
+                kwargs["mode"] = "total"
 
         return cls(datasets=resolved, **kwargs)
 
@@ -855,6 +1001,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.key_map = key_map
         self.transform = transform_list
         self.norm_stats = norm_stats or {}
+        self.loss_groups: Loss_groups | None = None
         super().__init__()
 
     def init_episode(self):
@@ -1009,10 +1156,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                             f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
                         ),
                     )
-                    logger.warning(
-                        f"JPEG decode failed ep={Path(self.episode_path).name} frame={idx} key={k} | "
-                        f"attempt {attempts}, trying random idx {next_idx}"
-                    )
+                    # logger.warning(
+                    #     f"JPEG decode failed ep={Path(self.episode_path).name} frame={idx} key={k} | "
+                    #     f"attempt {attempts}, trying random idx {next_idx}"
+                    # )
                     result = self.__getitem__(
                         next_idx, _fallback_origin=origin, _attempts=attempts
                     )
@@ -1031,7 +1178,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             for transform in self.transform or []:
                 try:
                     data = transform.transform(data)
-                except Exception as e:
+                except Exception:
                     origin = _fallback_origin if _fallback_origin is not None else idx
                     next_idx, attempts = get_fallback_idx(
                         idx=idx,
@@ -1042,10 +1189,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                             f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
                         ),
                     )
-                    logger.warning(
-                        f"Transform failed ep={Path(self.episode_path).name} frame={idx} ({type(e).__name__}: {e}) | "
-                        f"attempt {attempts}, trying random idx {next_idx}"
-                    )
+                    # logger.warning(
+                    #     f"Transform failed ep={Path(self.episode_path).name} frame={idx} ({type(e).__name__}: {e}) | "
+                    #     f"attempt {attempts}, trying random idx {next_idx}"
+                    # )
                     result = self.__getitem__(
                         next_idx, _fallback_origin=origin, _attempts=attempts
                     )
@@ -1057,6 +1204,12 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         data["metadata.robot_name"] = get_embodiment_id(self.embodiment)
         data["embodiment"] = get_embodiment_id(self.embodiment)
+        if self.loss_groups is None:
+            data["loss_group"] = ""
+        else:
+            data["loss_group"] = self.loss_groups.get_group_for_episode(
+                self.episode_path
+            )
         return data
 
 

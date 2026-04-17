@@ -476,6 +476,7 @@ class HPTModel(nn.Module):
             trunk_tokens, block_outputs = self.trunk["trunk"](trunk_tokens)
 
         proc_tokens = self.postprocess_tokens(trunk_tokens)
+
         return proc_tokens, block_outputs
 
     def init_dtw(self):
@@ -572,6 +573,19 @@ class HPTModel(nn.Module):
             avg_feature_dist = torch.norm(tokens2 - tokens1, dim=-1).mean()
             return ot_loss, avg_feature_dist
 
+    def _call_head_loss(self, head, features, data, batch_size: int, reduction: str):
+        if reduction == "none":
+            try:
+                loss = head.compute_loss(features, data, reduction="none")
+            except TypeError:
+                loss = head.compute_loss(features, data)
+            if not isinstance(loss, torch.Tensor):
+                loss = torch.as_tensor(loss, device=self.device, dtype=torch.float32)
+            if loss.dim() == 0:
+                loss = loss.repeat(batch_size)
+            return loss.reshape(-1)
+        return head.compute_loss(features, data)
+
     def compute_loss_depth(self, batch, depth):
         """
         Compute BC loss but restrict gradient flow to trunk blocks from `depth` upward.
@@ -587,21 +601,36 @@ class HPTModel(nn.Module):
         auxiliary_action_loss = torch.tensor(0.0, device=self.device)
 
         if domain in self.heads:
-            action_loss += self.heads[domain].compute_loss(features, data)
+            action_loss += self._call_head_loss(
+                self.heads[domain],
+                features,
+                data,
+                data["action"].shape[0],
+                reduction="mean",
+            )
 
         if self.shared_action:
-            shared_action_loss += self.heads["shared"].compute_loss(features, data)
+            shared_action_loss += self._call_head_loss(
+                self.heads["shared"],
+                features,
+                data,
+                data["action"].shape[0],
+                reduction="mean",
+            )
 
         if domain in self.auxiliary_ac_keys:
             for key in self.auxiliary_ac_keys[domain]:
                 if f"{domain}_{key}" in self.heads:
                     data["action"] = data[key]
-                    auxiliary_action_loss += self.heads[f"{domain}_{key}"].compute_loss(
-                        features, data
+                    auxiliary_action_loss += self._call_head_loss(
+                        self.heads[f"{domain}_{key}"],
+                        features,
+                        data,
+                        data["action"].shape[0],
+                        reduction="mean",
                     )
 
         total_loss = action_loss + shared_action_loss + auxiliary_action_loss
-
         return total_loss
 
     def compute_loss(self, batch):
@@ -628,21 +657,100 @@ class HPTModel(nn.Module):
         shared_action_loss = torch.tensor(0.0, device=self.device)
         auxiliary_action_loss = torch.tensor(0.0, device=self.device)
         if domain in self.heads:
-            action_loss += self.heads[domain].compute_loss(features, data)
+            action_loss += self._call_head_loss(
+                self.heads[domain],
+                features,
+                data,
+                data["action"].shape[0],
+                reduction="mean",
+            )
 
         if self.shared_action:
-            shared_action_loss = self.heads["shared"].compute_loss(features, data)
+            shared_action_loss = self._call_head_loss(
+                self.heads["shared"],
+                features,
+                data,
+                data["action"].shape[0],
+                reduction="mean",
+            )
 
         if domain in self.auxiliary_ac_keys:
             for key in self.auxiliary_ac_keys[domain]:
                 if f"{domain}_{key}" in self.heads:
                     data["action"] = data[key]
-                    auxiliary_action_loss += self.heads[f"{domain}_{key}"].compute_loss(
-                        features, data
+                    auxiliary_action_loss += self._call_head_loss(
+                        self.heads[f"{domain}_{key}"],
+                        features,
+                        data,
+                        data["action"].shape[0],
+                        reduction="mean",
                     )
 
         total_loss = action_loss + shared_action_loss + auxiliary_action_loss
         return total_loss
+
+    def compute_loss_depth_per_sample(self, batch, depth):
+        self.train_mode = True
+        domain, data = batch["domain"], batch["data"]
+        _, block_outputs = self.forward_features(domain, data)
+        features = self.resume_from_depth(block_outputs, depth)
+        batch_size = data["action"].shape[0]
+        action_loss = torch.zeros(batch_size, device=self.device)
+        shared_action_loss = torch.zeros(batch_size, device=self.device)
+        auxiliary_action_loss = torch.zeros(batch_size, device=self.device)
+        if domain in self.heads:
+            action_loss += self._call_head_loss(
+                self.heads[domain], features, data, batch_size, reduction="none"
+            )
+        if self.shared_action:
+            shared_action_loss += self._call_head_loss(
+                self.heads["shared"], features, data, batch_size, reduction="none"
+            )
+        if domain in self.auxiliary_ac_keys:
+            for key in self.auxiliary_ac_keys[domain]:
+                if f"{domain}_{key}" in self.heads:
+                    data["action"] = data[key]
+                    auxiliary_action_loss += self._call_head_loss(
+                        self.heads[f"{domain}_{key}"],
+                        features,
+                        data,
+                        batch_size,
+                        reduction="none",
+                    )
+        return action_loss + shared_action_loss + auxiliary_action_loss
+
+    def compute_loss_per_sample(self, batch):
+        self.train_mode = True
+        domain, data = batch["domain"], batch["data"]
+        features, block_outputs = self.forward_features(domain, data)
+        batch_size = data["action"].shape[0]
+        action_loss = torch.zeros(batch_size, device=self.device)
+        shared_action_loss = torch.zeros(batch_size, device=self.device)
+        auxiliary_action_loss = torch.zeros(batch_size, device=self.device)
+        if domain in self.heads:
+            action_loss += self._call_head_loss(
+                self.heads[domain], features, data, batch_size, reduction="none"
+            )
+        if self.shared_action:
+            shared_action_loss += self._call_head_loss(
+                self.heads["shared"], features, data, batch_size, reduction="none"
+            )
+        if domain in self.auxiliary_ac_keys:
+            for key in self.auxiliary_ac_keys[domain]:
+                if f"{domain}_{key}" in self.heads:
+                    data["action"] = data[key]
+                    auxiliary_action_loss += self._call_head_loss(
+                        self.heads[f"{domain}_{key}"],
+                        features,
+                        data,
+                        batch_size,
+                        reduction="none",
+                    )
+        return action_loss + shared_action_loss + auxiliary_action_loss
+
+    def forward_pass_per_sample(self, batch):
+        """Per-sample forward pass returning per-sample losses, used by loss group mode."""
+        return self.compute_loss_per_sample(batch)
 
     def forward(self, domain, data):
         """
@@ -662,7 +770,6 @@ class HPTModel(nn.Module):
         """
         features, block_outputs = self.forward_features(domain, data)
         action = {}
-
         if self.diffusion:
             features = (features, domain)
 
@@ -826,6 +933,7 @@ class HPT(Algo):
         self.domains = domains.copy()
         self.auxiliary_ac_keys = auxiliary_ac_keys.copy()
         self.shared_ac_key = kwargs.get("shared_ac_key", None)
+        self.loss_group_mode = kwargs.get("loss_group_mode", False)
         self.is_6dof = kwargs.get("6dof", False)
         self.kinematics_solver = kwargs.get("kinematics_solver", None)
 
@@ -934,6 +1042,46 @@ class HPT(Algo):
         self.nets = self.nets.float().to(self.device)
 
         self.training_step = 0
+        self.loss_by_group: dict[str, float] = {}
+
+    @staticmethod
+    def _loss_group_labels(loss_group_val, batch_size: int) -> list[str]:
+        if loss_group_val is None or loss_group_val == "":
+            return ["default"] * batch_size
+        if isinstance(loss_group_val, torch.Tensor):
+            t = loss_group_val.flatten()
+            if t.numel() == batch_size:
+                return [str(x.item()) for x in t]
+            if t.numel() == 1:
+                return [str(t.item())] * batch_size
+            raise ValueError(
+                f"loss_group tensor has {t.numel()} elements but batch size is {batch_size}"
+            )
+        if isinstance(loss_group_val, (list, tuple)):
+            if len(loss_group_val) == batch_size:
+                return [str(x) for x in loss_group_val]
+            if len(loss_group_val) == 1:
+                return [str(loss_group_val[0])] * batch_size
+            raise ValueError(
+                f"loss_group list has {len(loss_group_val)} elements but batch size is {batch_size}"
+            )
+        return [str(loss_group_val)] * batch_size
+
+    @staticmethod
+    def _is_loss_group_enabled(loss_group_val) -> bool:
+        if loss_group_val is None:
+            return False
+        if isinstance(loss_group_val, str):
+            return loss_group_val != ""
+        if isinstance(loss_group_val, torch.Tensor):
+            if loss_group_val.numel() == 0:
+                return False
+            return any(str(x.item()) != "" for x in loss_group_val.flatten())
+        if isinstance(loss_group_val, (list, tuple)):
+            if len(loss_group_val) == 0:
+                return False
+            return any(str(x) != "" for x in loss_group_val)
+        return str(loss_group_val) != ""
 
     @override
     def process_batch_for_training(self, batch):
@@ -962,6 +1110,8 @@ class HPT(Algo):
                 key_name = self.data_schematic.zarr_key_to_keyname(key, embodiment_id)
                 if key is not None:
                     processed_batch[embodiment_id][key_name] = value
+            if "loss_group" in _batch:
+                processed_batch[embodiment_id]["loss_group"] = _batch["loss_group"]
 
             ac_key = self.ac_keys[embodiment_id]
             if len(processed_batch[embodiment_id][ac_key].shape) != 3:
@@ -1022,10 +1172,17 @@ class HPT(Algo):
             }
             hpt_batches[embodiment_id] = self._clone_batch(hpt_batch)
 
-            if self.freeze_repr:
+            loss_groups_enabled = self.loss_group_mode
+            if self.freeze_repr and loss_groups_enabled:
+                loss = self.nets["policy"].compute_loss_depth_per_sample(
+                    hpt_batch, depth=self.freeze_depth
+                )
+            elif self.freeze_repr:
                 loss = self.nets["policy"].compute_loss_depth(
                     hpt_batch, depth=self.freeze_depth
                 )
+            elif loss_groups_enabled:
+                loss = self.nets["policy"].compute_loss_per_sample(hpt_batch)
             else:
                 loss = self.nets["policy"].compute_loss(hpt_batch)
 
@@ -1121,20 +1278,41 @@ class HPT(Algo):
             ot_weight = 1.0 if self.training_step >= self.ot_warm_start_steps else 0.0
         else:
             bc_weight = 1.0
+            ot_weight = 0.0
 
+        emb_group_samples: dict[str, list[torch.Tensor]] = {}
+        self.loss_by_group = {}
+        all_bc_samples = []
         for embodiment_id, _batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
-            bc_loss = predictions[f"{embodiment_name}_loss"]
+            bc_loss = predictions[f"{embodiment_name}_loss"].reshape(-1)
             scaled_bc_loss = bc_weight * bc_loss
-            total_action_loss += scaled_bc_loss
-            loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
+            all_bc_samples.append(scaled_bc_loss)
+            loss_dict[f"{embodiment_name}_loss"] = scaled_bc_loss.mean()
+
+            labels = self._loss_group_labels(_batch.get("loss_group"), bc_loss.shape[0])
+            for idx, group_name in enumerate(labels):
+                emb_group_samples.setdefault(str(group_name), []).append(
+                    scaled_bc_loss[idx : idx + 1]
+                )
+
+        for group_name, sample_losses in emb_group_samples.items():
+            group_loss = torch.cat(sample_losses).mean()
+            safe_group_name = str(group_name).replace("/", "_")
+            self.loss_by_group[safe_group_name] = float(group_loss.detach().item())
+
+        if all_bc_samples:
+            total_action_loss = torch.cat(all_bc_samples).mean()
 
         if self.ot:
             loss_dict["ot_loss"] = predictions["ot_loss"]
             loss_dict["avg_feature_distance"] = predictions["avg_feature_distance"]
-            total_action_loss += ot_weight * self.temperature * predictions["ot_loss"]
+            total_action_loss = (
+                total_action_loss
+                + ot_weight * self.temperature * predictions["ot_loss"]
+            )
 
-        loss_dict["action_loss"] = total_action_loss / len(self.domains)
+        loss_dict["action_loss"] = total_action_loss
         return loss_dict
 
     @override
@@ -1153,6 +1331,8 @@ class HPT(Algo):
         log["Loss"] = info["losses"]["action_loss"].item()
         for loss_key, loss in info["losses"].items():
             log[loss_key] = loss.item()
+        for group_name, value in self.loss_by_group.items():
+            log[f"group/{group_name}"] = value
         return log
 
     def _forward_ot(self, batch, embodiment1_id, embodiment2_id):
@@ -1195,6 +1375,7 @@ class HPT(Algo):
         data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]
         data["embodiment"] = batch["embodiment"]
+        data["loss_group"] = batch["loss_group"]
 
         for aux_ac_key in aux_ac_keys:
             data[aux_ac_key] = batch[aux_ac_key]
@@ -1203,6 +1384,7 @@ class HPT(Algo):
             data["action"] = batch[self.shared_ac_key]
         else:
             data["action"] = batch[ac_key]
+
         return data
 
     def _clone_batch(self, batch):

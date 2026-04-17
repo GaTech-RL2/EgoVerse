@@ -1,0 +1,62 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['task'] in ['dishwashing', 'forming_dough_rings']"
+    mode: train
+    loss_groups:
+      dishwashing:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+          - "lambda row: row['task'] == 'dishwashing'"
+      forming_dough_rings:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+          - "lambda row: row['task'] == 'forming_dough_rings'"
+valid_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['task'] in ['dishwashing', 'forming_dough_rings']"
+    mode: valid
+    loss_groups:
+      dishwashing:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+          - "lambda row: row['task'] == 'dishwashing'"
+      forming_dough_rings:
+        _target_: egomimic.rldb.filters.DatasetFilter
+        filter_lambdas:
+          - "lambda row: row['task'] == 'forming_dough_rings'"
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10
