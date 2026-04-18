@@ -1438,9 +1438,12 @@ class DataSchematic(object):
                     embodiment not in self.norm_stats
                     or key not in self.norm_stats[embodiment]
                 ):
-                    raise ValueError(
-                        f"Missing normalization stats for key {key} and embodiment {embodiment}."
+                    logger.warning(
+                        f"[NormStats] No stats for key '{key}' and embodiment {embodiment}; "
+                        "passing through unnormalized."
                     )
+                    norm_data[key] = tensor
+                    continue
 
                 stats = self.norm_stats[embodiment][key]
                 if self.norm_mode == "zscore":
@@ -1492,9 +1495,12 @@ class DataSchematic(object):
                     embodiment not in self.norm_stats
                     or key not in self.norm_stats[embodiment]
                 ):
-                    raise ValueError(
-                        f"Missing normalization stats for key {key} and embodiment {embodiment}."
+                    logger.warning(
+                        f"[NormStats] No stats for key '{key}' and embodiment {embodiment}; "
+                        "passing through unnormalized."
                     )
+                    denorm_data[key] = tensor
+                    continue
 
                 stats = self.norm_stats[embodiment][key]
                 if self.norm_mode == "zscore":
