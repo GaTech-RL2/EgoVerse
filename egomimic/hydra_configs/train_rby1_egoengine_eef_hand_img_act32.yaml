@@ -1,0 +1,37 @@
+# EgoEngine: obs images + hand_right_qpos + eef_proprio; action = concat(eef, hand) as actions.right_arm_eef_hand
+# (see egoengine_lerobot_combine_action.py). Normalization: quantile.
+defaults:
+  - train
+  - override /model: experiments/rby1_egoengine/rby1_egoengine_img_eef_hand_right_cmd_act32
+  - override /data: experiments/rby1_egoengine/rby1_egoengine_eef_hand_actions
+  - _self_
+
+name: RBY1_egoengine_eef_hand_img_act32
+description: train
+
+logger:
+  wandb:
+    project: egoengine
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.images
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      eef_proprio:
+        key_type: proprio_keys
+        lerobot_key: obs.eef_proprio
+      actions_right_arm_eef_hand:
+        key_type: action_keys
+        lerobot_key: actions.right_arm_eef_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1

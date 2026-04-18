@@ -605,10 +605,20 @@ class FolderRLDBDataset(MultiRLDBDataset):
         datasets = {}
         skipped = []
 
-        subdirs = sorted([p for p in folder_path.iterdir() if p.is_dir()])
-        logger.info(
-            f"Found {len(subdirs)} subfolders. Attempting to load valid RLDB datasets..."
-        )
+        # LeRobot layout: either a parent dir whose children are dataset roots, or
+        # folder_path itself is a dataset root (data/, meta/ at top level).
+        info_at_root = folder_path / "meta" / "info.json"
+        if info_at_root.is_file():
+            subdirs = [folder_path]
+            logger.info(
+                "folder_path is a LeRobot dataset root (meta/info.json found). "
+                "Loading it as a single RLDB dataset."
+            )
+        else:
+            subdirs = sorted([p for p in folder_path.iterdir() if p.is_dir()])
+            logger.info(
+                f"Found {len(subdirs)} subfolders. Attempting to load valid RLDB datasets..."
+            )
 
         for subdir in subdirs:
             info_json = subdir / "meta" / "info.json"
@@ -1302,6 +1312,14 @@ class DataSchematic(object):
             if not self.is_key_with_embodiment(column, embodiment):
                 continue
             column_name = self.keyname_to_lerobot_key(column, embodiment)
+            cols = getattr(dataset.hf_dataset, "column_names", None)
+            if cols is not None and column_name not in cols:
+                logger.warning(
+                    f"[NormStats] Skipping {column_name}: not in dataset columns "
+                    f"(schematic may list keys not present in this LeRobot export)."
+                )
+                continue
+
             logger.info(f"[NormStats] Processing column={column_name}")
 
             # Arrow → NumPy (fast path, preserves shape)

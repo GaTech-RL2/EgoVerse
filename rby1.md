@@ -10,13 +10,16 @@ By Zhenyang Chen Feb, 2026.
 or if we have several HDF5 under the same folder:
 `python egomimic/rldb/scripts/robomimic_hd5.py --name RBY1_0303_smoothed --raw-path /coc/flash7/czhang883/smoothed --dataset-repo-id RBY1_0303_smoothed --config-path ./egomimic/rldb/configs/RBY1_HDF5_config_0309.json --output-dir ./datasets/0309/smoothed --fps 10 --ignore_episode_keys --robot-type rby1`
 
-1. (optional) Egoengine Data Processing
-
+2. (optional) SEW policy testing Processing
 Postprocess data and get the right hand and right arm data only.
 Options: currently mapping right hand. And with `--black-image` it will create a black obs.  
 `python egomimic/scripts/egoengine_process/egoengine_lerobot_extract_arm_hand.py datasets/0309/RBY1_0309`
 
-Visualize and sanity check the data
+3. Example usage for Egoengine:
+ - `python egomimic/rldb/scripts/robomimic_hd5.py --name RBY1_egoengine_mustard_cropped --dataset-repo-id RBY1_egoengine_mustard_cropped --config-path ./egomimic/rldb/configs/RBY1_egoengine_HDF5_config.json --output-dir ./datasets --fps 10 --ignore_episode_keys --robot-type rby1 --raw-path /coc/flash7/zhenyang/EgoVerse/datasets/mustard_cropped_replay_dataset.hdf5`
+ - `python egomimic/scripts/egoengine_process/egoengine_lerobot_combine_action.py   datasets/RBY1_egoengine_mustard_inpainted/   --output-path datasets/RBY1_egoengine_mustard_inpainted_right_arm_hand`
+
+4. Visualize and sanity check the data
 `python egomimic/scripts/egoengine_process/visualize_lerobot_dataset.py /coc/flash7/zhenyang/EgoVerse/datasets/RBY1_human_data_0401_v8_egoengine/LeRobot -k actions.joint_arm --dims 0:14 -e 0`
 
 ## Training setup

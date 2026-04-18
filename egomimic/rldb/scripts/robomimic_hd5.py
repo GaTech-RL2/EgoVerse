@@ -159,7 +159,7 @@ class RobomimicHD5Extractor:
                 if not _h5_key_exists(obs_group, obs_key):
                     continue
                 obs_data = _h5_get(obs_group, obs_key)
-                is_image_key = ("img" in obs_key) or ("image" in obs_key) or ("rgb" in obs_key)
+                is_image_key = ("img" in obs_key) or ("image" in obs_key) or ("rgb" in obs_key) or ("images" in obs_key)
                 if is_image_key and image_compressed:
                     image = obs_data[frame_idx]
                     if encode_as_video:
