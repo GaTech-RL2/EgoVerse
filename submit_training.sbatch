@@ -2,7 +2,7 @@
 #SBATCH -J egoverse_RBY1         # Job name
 #SBATCH --partition=overcap
 #SBATCH --nodes=1   # NOTE: try to use GPUs on the same node to reduce communication overhead
-#SBATCH --gres=gpu:l40s:1               # Request how many H100 GPUs per node
+#SBATCH --gres=gpu:a40:1               # Request how many H100 GPUs per node
 #SBATCH --cpus-per-task=10
 #SBATCH --mem-per-gpu=32G               # RAM per GPU Memory per core
 #SBATCH -t 24:00:00                     # Duration of the job
@@ -29,18 +29,28 @@ nvidia-smi
 
 # python egomimic/trainHydra.py model=hpt_bc_flow_rby1 name=RBY1_test_0305_lowdim description=debug
 
+################## SEW experiments ######
+# DATASET=RBY1_human_data_0416_pickupbox
+# DATASET=RBY1_human_data_0417_pickupbox
+DATASET=RBY1_0418_rotatebox_human_data
+CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
+        --config-name=train_rby1_sew_human_no_mobie_img_act32 \
+        name=${DATASET} \
+        data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
+        data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}
+
 ################## EgoEngine experiments ######
 # RBY1 0411Egoengine (Hydra: egomimic/hydra_configs/train_rby1_egoengine_eef_hand_img_act32.yaml).
 # Data: LeRobot root with obs.images + eef/hand proprio and actions.right_arm_eef_hand (18-D concat).
 # Build concat set: python egomimic/scripts/egoengine_process/egoengine_lerobot_combine_action.py <src> --output-path datasets/<name>_right_arm_eef_hand
 # Uncomment exactly one training block in this file (Egoengine vs 0331 below).
 # DATASET=RBY1_egoengine_mustard_cropped_right_arm_eef_hand
-DATASET=RBY1_egoengine_mustard_inpainted_right_arm_hand
-CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
-        --config-name=train_rby1_egoengine_eef_hand_img_act32 \
-        name=${DATASET} \
-        data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
-        data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}
+# DATASET=RBY1_egoengine_mustard_inpainted_right_arm_hand
+# CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
+#         --config-name=train_rby1_egoengine_eef_hand_img_act32 \
+#         name=${DATASET} \
+#         data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
+#         data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}
 
 ################## WORKING VERSION ######
 # RBY1 0331 experiments (Hydra: egomimic/hydra_configs/train_rby1_0331_*.yaml).
