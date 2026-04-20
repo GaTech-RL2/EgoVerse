@@ -108,9 +108,22 @@ class HPTModel(nn.Module):
             weight_init_style=weight_init_style,
         )
 
+        # --- Proprio augmentation ---
+        # Both features are configured per-key via each stem's `specs.proprio_dropout_p` /
+        # `specs.noise_std` in the model YAML. The trunk-level `proprio_dropout_p` acts as a
+        # global fallback when a key has no per-key override.
+        #
+        # Augmentations are applied in preprocess_states() in this order:
+        #   1. Gaussian noise  (always on kept samples)
+        #   2. Dropout         (replaces the entire tensor with a learned null token)
+        # Noise before dropout ensures dropped samples receive the null token, not noisy values.
+        #
+        # ASSUMPTION: the batch is already normalized (quantile/zscore) when preprocess_states
+        # is called, so noise_std is in normalized space (e.g. 0.05 ≈ 5% of the [-1,1] range).
         self.proprio_dropout_p = proprio_dropout_p
         self._proprio_null_tokens_raw = {}
-        self._proprio_dropout_p_per_key = {}  # key -> per-key dropout prob
+        self._proprio_dropout_p_per_key = {}  # null_key -> dropout probability
+        self._proprio_noise_std_per_key = {}   # null_key -> Gaussian noise std
 
         self.stems = {}
         self.heads = {}
@@ -177,13 +190,21 @@ class HPTModel(nn.Module):
                 )
             if modality.startswith("state_") and hasattr(stem_spec[modality], "input_dim"):
                 null_key = f"{domain_name}_{modality}"
+                # Learnable null token: replaces the proprio tensor for dropped samples.
+                # Initialized to zero; the model learns the optimal "absent proprio" embedding.
+                # Shape matches input_dim so it passes through the same MLP as real values.
                 self._proprio_null_tokens_raw[null_key] = nn.Parameter(
                     torch.zeros(stem_spec[modality].input_dim)
                 )
                 specs = getattr(stem_spec[modality], "specs", None)
+                # Per-key dropout: falls back to the trunk-level global if not set on the stem.
                 per_key_p = getattr(specs, "proprio_dropout_p", None) if specs is not None else None
                 self._proprio_dropout_p_per_key[null_key] = (
                     per_key_p if per_key_p is not None else self.proprio_dropout_p
+                )
+                # Per-key noise std in normalized space (0.0 = disabled).
+                self._proprio_noise_std_per_key[null_key] = (
+                    getattr(specs, "noise_std", 0.0) if specs is not None else 0.0
                 )
 
     def init_domain_head(self, domain_name, head_spec):
@@ -209,8 +230,10 @@ class HPTModel(nn.Module):
         """
         self.stems = nn.ModuleDict(self.stems)
         self.heads = nn.ModuleDict(self.heads)
-        self.proprio_null_tokens = nn.ParameterDict(self._proprio_null_tokens_raw)
-        del self._proprio_null_tokens_raw
+        # Guard: finalize_modules may be called more than once (e.g. shared/pretrained init paths).
+        if hasattr(self, "_proprio_null_tokens_raw"):
+            self.proprio_null_tokens = nn.ParameterDict(self._proprio_null_tokens_raw)
+            del self._proprio_null_tokens_raw
         self.apply(self._init_weights)
 
         # Shared action tokens
@@ -365,15 +388,27 @@ class HPTModel(nn.Module):
         """
         for key in data:
             if "state" in key:
-                data[key] = data[key][:, :, None]
+                data[key] = data[key][:, :, None]  # [B, S, D] -> [B, 1, S, D] for stem
                 null_key = f"{domain}_{key}"
+
+                # Step 1: Gaussian noise in normalized space. Applied first so dropped samples
+                # receive the clean null token (not noisy values). Only active during training.
+                noise_std = self._proprio_noise_std_per_key.get(null_key, 0.0)
+                if self.training and noise_std > 0.0:
+                    data[key] = data[key] + torch.randn_like(data[key]) * noise_std
+                    # DEBUG: print("[NOISE] {} range after noise: [{:.3f}, {:.3f}]".format(null_key, data[key].min().item(), data[key].max().item()))
+
+                # Step 2: Proprio dropout. Replaces the entire proprio tensor for a random
+                # fraction of samples with a learned null token, forcing the model to use
+                # other modalities (images, april tag) for those samples.
                 p = self._proprio_dropout_p_per_key.get(null_key, self.proprio_dropout_p)
                 if self.training and p > 0.0 and null_key in self.proprio_null_tokens:
                     B = data[key].shape[0]
                     drop_mask = torch.rand(B, device=data[key].device) < p
                     if drop_mask.any():
-                        data[key] = data[key].clone()
+                        data[key] = data[key].clone()  # avoid in-place autograd issues
                         data[key][drop_mask] = self.proprio_null_tokens[null_key]
+                        # DEBUG: print("[DROPOUT] {}: {}/{} samples dropped".format(null_key, drop_mask.sum().item(), B))
         return data
 
     def stem_process(self, domain, data):

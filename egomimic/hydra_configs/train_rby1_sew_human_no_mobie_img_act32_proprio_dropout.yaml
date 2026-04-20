@@ -1,13 +1,27 @@
-# Same as train_rby1_sew_human_no_mobie_img_act32 but with proprio dropout:
-#   hand_left/right_qpos: p=0.6, robot0_joint_pos: p=0.4, april_tag_xyz: no dropout.
+# Train config: proprio dropout + noise augmentation on RBY1_0418_rotatebox_human dataset.
+#
+# Motivation: BC policy overfits to proprio (joint pos, hand qpos) and ignores image / april tag.
+# Augmentation strategy (applied in normalized space, training only):
+#   - state_hand_left_qpos:    dropout p=0.6  (no noise — hand pose is high-level, noise less motivated)
+#   - state_hand_right_qpos:   dropout p=0.6
+#   - state_robot0_joint_pos:  dropout p=0.4, noise_std=0.01  (smooth signal, light noise)
+#   - state_april_tag_xyz:     noise_std=0.1  (position estimate has real uncertainty; no dropout
+#                              so the model always gets a visual anchor for task context)
+#   - front_img_1:             no augmentation via proprio dropout (camera modality, not affected)
+#
+# Assumptions:
+#   - norm_mode=quantile maps raw data to [-1, 1]; noise_std values are in that space.
+#   - Dropout uses a per-key learned null token (nn.Parameter, init=0, trained end-to-end).
+#   - Noise is applied before dropout so dropped samples receive the null token, not noisy values.
+#   - All augmentations are gated by model.training; eval/inference is unaffected.
 defaults:
   - train
   - override /model: experiments/rby1_0416/rby1_0416_img_aria_apriltag_robot0_bihand_arm_hand_torso_act32_proprio_dropout
-  - override /data: experiments/rby1_0416/rby1_0416_sew_human_no_mobie_actions_act32
+  - override /data: experiments/rby1_0416/rby1_0418_rotatebox_human_act32
   - _self_
 
 name: RBY1_sew_human_no_mobie_img_act32_proprio_dropout
-description: train with proprio dropout (hand 0.6, joint_pos 0.4, april_tag unchanged)
+description: "proprio dropout (hand 0.6, joint_pos 0.4+noise0.01, april_tag noise0.1)"
 
 logger:
   wandb:

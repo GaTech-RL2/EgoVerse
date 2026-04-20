@@ -64,6 +64,7 @@ robomimic_model:
         specs:
           random_horizon_masking: false
           proprio_dropout_p: 0.0  # set > 0 to drop this proprio key during training
+          noise_std: 0.0  # set > 0 to add Gaussian noise in normalized space
           cross_attn:
             crossattn_latent: 16
             crossattn_heads: 4
