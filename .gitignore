@@ -24,6 +24,8 @@ egomimic/scripts/masking/overlays/
 debug_ims/*
 egomimic/scripts/aloha_process/datasetFig
 egomimic/outputs
+checkpoints/
+.vscode/
 outputs/
 datasets/
 logs/
