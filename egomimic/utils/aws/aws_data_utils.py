@@ -21,12 +21,14 @@ def load_env(path="~/.egoverse_env", required: bool = False):
             raise ValueError(
                 f"Env file {p} does not exist, run ./egomimic/utils/aws/setup_secret.sh"
             )
-        warnings.warn(
-            f"Env file {p} does not exist; AWS/R2 env vars not set. "
-            "Run ./egomimic/utils/aws/setup_secret.sh if you need S3/R2.",
-            UserWarning,
-            stacklevel=2,
-        )
+        # In Modal, credentials are injected via Modal secrets — no env file needed.
+        if not os.environ.get("MODAL_IS_REMOTE"):
+            warnings.warn(
+                f"Env file {p} does not exist; AWS/R2 env vars not set. "
+                "Run ./egomimic/utils/aws/setup_secret.sh if you need S3/R2.",
+                UserWarning,
+                stacklevel=2,
+            )
         return
     for line in p.read_text().splitlines():
         line = line.strip()

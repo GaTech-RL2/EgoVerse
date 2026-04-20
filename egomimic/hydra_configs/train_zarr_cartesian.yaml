@@ -15,6 +15,7 @@ defaults:
 name: test
 description: test
 ckpt_path: null
+wandb_run_id: null  # set to resume an existing W&B run (auto-set on Modal auto-restart)
 mode: train
 
 hydra:

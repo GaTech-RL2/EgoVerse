@@ -175,7 +175,10 @@ class EpisodeResolver:
         transform_list: list | None = None,
         norm_stats: dict | None = None,
     ):
-        self.folder_path = Path(folder_path)
+        # When running on Modal, EGOVERSE_MODAL_DATA_DIR overrides folder_path so
+        # all resolvers transparently read from the mounted egoverse-data volume.
+        modal_data_dir = os.environ.get("EGOVERSE_MODAL_DATA_DIR", "").strip()
+        self.folder_path = Path(modal_data_dir) if modal_data_dir else Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
         self.norm_stats = norm_stats

@@ -96,6 +96,22 @@ print(access, secret, session or "__EMPTY__", endpoint)
 PY
 )
 
+# -------------------------------------------------------------------
+# WandB API Key Handling
+# -------------------------------------------------------------------
+
+if [[ -z "${WANDB_API_KEY:-}" ]]; then
+  echo
+  read -rsp "Enter your WANDB API key (input hidden): " WANDB_API_KEY
+  echo
+fi
+
+if [[ -z "${WANDB_API_KEY:-}" ]]; then
+  echo "WANDB_API_KEY is required but not provided." >&2
+  exit 1
+fi
+
+
 {
   if [[ -n "$SECRET_ARN" ]]; then
     printf "SECRETS_ARN=%q\n" "$SECRET_ARN"
@@ -110,6 +126,7 @@ PY
   printf "S3_ENDPOINT_URL=%q\n" "$AWS_ENDPOINT_URL_S3"
   printf "AWS_DEFAULT_REGION=%q\n" "$REGION"
   printf "BUCKET=%q\n" "$BUCKET"
+  printf "WANDB_API_KEY=%q\n" "$WANDB_API_KEY"
 } >"$ENV_FILE"
 
 chmod 600 "$ENV_FILE"
