@@ -29,6 +29,7 @@ robomimic_model:
     use_domain_embedding: true
     drop_path: 0.1
     weight_init_style: "pytorch"
+    proprio_dropout_p: 0.0  # set > 0 to drop proprio input during training (use learned null token)
   
   multitask: false
   pretrained: false
@@ -46,6 +47,7 @@ robomimic_model:
         widths: [256]
         specs:
           random_horizon_masking: false
+          proprio_dropout_p: 0.0  # set > 0 to drop this proprio key during training
           cross_attn:
             crossattn_latent: 16
             crossattn_heads: 8

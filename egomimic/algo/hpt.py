@@ -59,6 +59,7 @@ class HPTModel(nn.Module):
         use_domain_embedding=False,
         drop_path=0.0,
         weight_init_style="pytorch",
+        proprio_dropout_p=0.0,
         **kwargs,
     ):
         """
@@ -106,6 +107,10 @@ class HPTModel(nn.Module):
             drop_path=drop_path,
             weight_init_style=weight_init_style,
         )
+
+        self.proprio_dropout_p = proprio_dropout_p
+        self._proprio_null_tokens_raw = {}
+        self._proprio_dropout_p_per_key = {}  # key -> per-key dropout prob
 
         self.stems = {}
         self.heads = {}
@@ -170,6 +175,16 @@ class HPTModel(nn.Module):
                 self.stems[stem_name].init_cross_attn(
                     stem_spec[modality].specs.cross_attn
                 )
+            if modality.startswith("state_") and hasattr(stem_spec[modality], "input_dim"):
+                null_key = f"{domain_name}_{modality}"
+                self._proprio_null_tokens_raw[null_key] = nn.Parameter(
+                    torch.zeros(stem_spec[modality].input_dim)
+                )
+                specs = getattr(stem_spec[modality], "specs", None)
+                per_key_p = getattr(specs, "proprio_dropout_p", None) if specs is not None else None
+                self._proprio_dropout_p_per_key[null_key] = (
+                    per_key_p if per_key_p is not None else self.proprio_dropout_p
+                )
 
     def init_domain_head(self, domain_name, head_spec):
         """
@@ -194,6 +209,8 @@ class HPTModel(nn.Module):
         """
         self.stems = nn.ModuleDict(self.stems)
         self.heads = nn.ModuleDict(self.heads)
+        self.proprio_null_tokens = nn.ParameterDict(self._proprio_null_tokens_raw)
+        del self._proprio_null_tokens_raw
         self.apply(self._init_weights)
 
         # Shared action tokens
@@ -349,6 +366,14 @@ class HPTModel(nn.Module):
         for key in data:
             if "state" in key:
                 data[key] = data[key][:, :, None]
+                null_key = f"{domain}_{key}"
+                p = self._proprio_dropout_p_per_key.get(null_key, self.proprio_dropout_p)
+                if self.training and p > 0.0 and null_key in self.proprio_null_tokens:
+                    B = data[key].shape[0]
+                    drop_mask = torch.rand(B, device=data[key].device) < p
+                    if drop_mask.any():
+                        data[key] = data[key].clone()
+                        data[key][drop_mask] = self.proprio_null_tokens[null_key]
         return data
 
     def stem_process(self, domain, data):

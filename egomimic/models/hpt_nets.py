@@ -578,6 +578,7 @@ class MLPPolicyStem(PolicyStem):
         if tanh_end:
             modules.append(nn.Tanh())
         self.net = nn.Sequential(*modules)
+        self.input_dim = input_dim
         self.num_of_copy = num_of_copy
         if self.num_of_copy > 1:
             self.net = nn.ModuleList(

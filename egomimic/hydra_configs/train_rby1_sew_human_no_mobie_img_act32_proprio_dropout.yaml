@@ -1,0 +1,43 @@
+# Same as train_rby1_sew_human_no_mobie_img_act32 but with proprio dropout:
+#   hand_left/right_qpos: p=0.6, robot0_joint_pos: p=0.4, april_tag_xyz: no dropout.
+defaults:
+  - train
+  - override /model: experiments/rby1_0416/rby1_0416_img_aria_apriltag_robot0_bihand_arm_hand_torso_act32_proprio_dropout
+  - override /data: experiments/rby1_0416/rby1_0416_sew_human_no_mobie_actions_act32
+  - _self_
+
+name: RBY1_sew_human_no_mobie_img_act32_proprio_dropout
+description: train with proprio dropout (hand 0.6, joint_pos 0.4, april_tag unchanged)
+
+logger:
+  wandb:
+    project: sew_policy
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      april_tag_xyz:
+        key_type: proprio_keys
+        lerobot_key: obs.april_tag_xyz
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos
+      actions_joint_arm_hand_torso:
+        key_type: action_keys
+        lerobot_key: actions.joint_arm_hand_torso
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1
