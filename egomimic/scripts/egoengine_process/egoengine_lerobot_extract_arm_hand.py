@@ -21,6 +21,11 @@ from pathlib import Path
 import numpy as np
 from datasets import load_dataset
 
+# Default black image used when obs.aria_image is missing.
+DEFAULT_ARIA_IMAGE_HEIGHT = 128
+DEFAULT_ARIA_IMAGE_WIDTH = 128
+DEFAULT_ARIA_IMAGE_CHANNELS = 3
+
 # -----------------------------------------------------------------------------
 # RBY1 layouts (egoengine / SEW-style HDF5 → LeRobot)
 #
@@ -128,17 +133,57 @@ def add_arm_hand(example: dict, black_image: bool = False) -> dict:
     example["obs.right_arm"] = obs_right
     example["obs.left_arm"] = obs_left
 
-    if black_image and "obs.aria_image" in example:
-        img = example["obs.aria_image"]
-        if hasattr(img, "shape"):  # array-like (skip VideoFrame dicts)
-            img = np.asarray(img)
-            example["obs.aria_image"] = np.zeros_like(img)
+    if black_image:
+        if "obs.aria_image" in example:
+            img = example["obs.aria_image"]
+            if hasattr(img, "shape"):  # array-like (skip VideoFrame dicts)
+                img = np.asarray(img)
+                example["obs.aria_image"] = np.zeros_like(img)
+        else:
+            example["obs.aria_image"] = np.zeros(
+                (
+                    DEFAULT_ARIA_IMAGE_CHANNELS,
+                    DEFAULT_ARIA_IMAGE_HEIGHT,
+                    DEFAULT_ARIA_IMAGE_WIDTH,
+                ),
+                dtype=np.float16,
+            )
     return example
 
 
 def _episode_index_scalar(v) -> int:
     """Extract scalar episode_index (handles int or shape [1] array)."""
     return int(v[0]) if hasattr(v, "__len__") and len(v) and not isinstance(v, str) else int(v)
+
+
+def _resolve_lerobot_root(path: Path) -> Path:
+    """
+    LeRobot root must contain meta/info.json and data/ (parquet).
+    If the user passes a parent folder (e.g. .../0417_pickupbox_no_mobile_2) with one
+    child dataset inside, use that child automatically.
+    """
+    if (path / "meta" / "info.json").is_file():
+        return path
+    if not path.is_dir():
+        return path
+    candidates = sorted(
+        p
+        for p in path.iterdir()
+        if p.is_dir() and (p / "meta" / "info.json").is_file()
+    )
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        raise FileNotFoundError(
+            f"No LeRobot dataset root at {path}: missing meta/info.json. "
+            "Pass the directory that contains meta/ and data/ "
+            "(e.g. .../0417_pickupbox_no_mobile_2/RBY1_0416_pickupbox_no_mobile)."
+        )
+    names = ", ".join(c.name for c in candidates)
+    raise ValueError(
+        f"Multiple LeRobot roots under {path}: {names}. "
+        "Pass the specific dataset folder that has meta/info.json."
+    )
 
 
 def main():
@@ -148,7 +193,10 @@ def main():
     parser.add_argument(
         "dataset_path",
         type=str,
-        help="Path to LeRobot dataset (e.g. datasets/0309/RBY1_0309).",
+        help=(
+            "Path to LeRobot dataset root (folder with meta/info.json and data/). "
+            "If you pass a parent with exactly one such subfolder, it is used automatically."
+        ),
     )
     parser.add_argument(
         "--output-path",
@@ -159,13 +207,18 @@ def main():
     parser.add_argument(
         "--black-image",
         action="store_true",
-        help="Overwrite obs.aria_image with same-size black images. Output path gets _black_image appendix.",
+        help=(
+            "Overwrite obs.aria_image with same-size black images. "
+            "If obs.aria_image is missing, create a default 224x224x3 black image. "
+            "Output path gets _black_image appendix."
+        ),
     )
     args = parser.parse_args()
 
     path = Path(args.dataset_path).resolve()
     if not path.exists():
         raise FileNotFoundError(f"Dataset path does not exist: {path}")
+    path = _resolve_lerobot_root(path)
 
     suffix = "_black_image" if args.black_image else "_right_arm"
     default_output = path.parent / f"{path.name}{suffix}"
@@ -266,6 +319,12 @@ def main():
             "shape": [LEFT_ARM + RIGHT_ARM + LEFT_HAND + RIGHT_HAND + TORSO_DIM],
             "names": ["joint_arm_hand_torso"],
         }
+        if args.black_image and "obs.aria_image" not in info["features"]:
+            info["features"]["obs.aria_image"] = {
+                "dtype": "image",
+                "shape": [DEFAULT_ARIA_IMAGE_CHANNELS, DEFAULT_ARIA_IMAGE_HEIGHT, DEFAULT_ARIA_IMAGE_WIDTH],
+                "names": ["channel", "height", "width"],
+            }
         with open(meta_dst / "info.json", "w") as f:
             json.dump(info, f, indent=4)
         print(f"Updated {meta_dst / 'info.json'} with new features")
