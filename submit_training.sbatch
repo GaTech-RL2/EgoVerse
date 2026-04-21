@@ -2,7 +2,7 @@
 #SBATCH -J egoverse_RBY1         # Job name
 #SBATCH --partition=overcap
 #SBATCH --nodes=1   # NOTE: try to use GPUs on the same node to reduce communication overhead
-#SBATCH --gres=gpu:a40:1               # Request how many H100 GPUs per node
+#SBATCH --gres=gpu:l40s:1               # Request how many H100 GPUs per node
 #SBATCH --cpus-per-task=10
 #SBATCH --mem-per-gpu=32G               # RAM per GPU Memory per core
 #SBATCH -t 24:00:00                     # Duration of the job
@@ -32,12 +32,19 @@ nvidia-smi
 ################## SEW experiments ######
 # DATASET=RBY1_human_data_0416_pickupbox
 # DATASET=RBY1_human_data_0417_pickupbox
+# DATASET=RBY1_0418_rotatebox_human_data
+# CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
+#         --config-name=train_rby1_sew_human_no_mobie_img_act32 \
+#         name=${DATASET} \
+#         data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
+#         data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}
 DATASET=RBY1_0418_rotatebox_human_data
 CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
-        --config-name=train_rby1_sew_human_no_mobie_img_act32 \
-        name=${DATASET} \
+        --config-name=train_rby1_sew_human_no_mobie_img_act32_proprio_dropout \
+        name=${DATASET}_dropout_test \
         data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
         data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}
+
 
 ################## EgoEngine experiments ######
 # RBY1 0411Egoengine (Hydra: egomimic/hydra_configs/train_rby1_egoengine_eef_hand_img_act32.yaml).

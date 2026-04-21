@@ -10,7 +10,7 @@ train_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.MultiRLDBDataset
     datasets:
-      rby1_0418:
+      rl2_lab:
         _target_: egomimic.rldb.utils.FolderRLDBDataset
         folder_path: /home/droid_robot/zhenyang/EgoVerse/datasets/RBY1_0418_rotatebox_human_data
         embodiment: rby1
@@ -24,7 +24,7 @@ valid_datasets:
   dataset1:
     _target_: egomimic.rldb.utils.MultiRLDBDataset
     datasets:
-      rby1_0418:
+      eth_lab:      
         _target_: egomimic.rldb.utils.FolderRLDBDataset
         folder_path: /home/droid_robot/zhenyang/EgoVerse/datasets/RBY1_0418_rotatebox_human_data
         embodiment: rby1

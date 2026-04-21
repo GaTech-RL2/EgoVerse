@@ -21,7 +21,8 @@ defaults:
   - _self_
 
 name: RBY1_sew_human_no_mobie_img_act32_proprio_dropout
-description: "proprio dropout (hand 0.6, joint_pos 0.4+noise0.01, april_tag noise0.1)"
+# No commas in description: wandb id = name + description + timestamp (see logger/wandb.yaml id:)
+description: "proprio dropout hand0.6 joint0.4+noise0.01 april0.1"
 
 logger:
   wandb:
