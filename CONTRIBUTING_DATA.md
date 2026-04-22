@@ -12,31 +12,28 @@
 4. [Database Registry](#4-database-registry)
 5. [Zarr v3 Episode Format](#5-zarr-v3-episode-format)
 6. [Coordinate Frame Conventions](#6-coordinate-frame-conventions)
-7. [Pose Representation](#7-pose-representation)
-8. [Image Format](#8-image-format)
-9. [Language Annotations](#9-language-annotations)
-10. [Embodiment Identifiers](#10-embodiment-identifiers)
-11. [Writing an Episode (Code)](#11-writing-an-episode-code)
-12. [Registering Episodes in the Database](#12-registering-episodes-in-the-database)
-13. [Uploading to S3](#13-uploading-to-s3)
-14. [Validation and Verification](#14-validation-and-verification)
-15. [Task Taxonomy](#15-task-taxonomy)
-16. [Pre-Submission Checklist](#16-pre-submission-checklist)
-17. [Getting Access and Contact](#17-getting-access-and-contact)
+7. [Language Annotations](#7-language-annotations)
+8. [Embodiment Identifiers](#8-embodiment-identifiers)
+9. [Uploading to S3](#9-uploading-to-s3)
+10. [Validation and Verification](#10-validation-and-verification)
+11. [Task Taxonomy](#11-task-taxonomy)
+12. [Pre-Submission Checklist](#12-pre-submission-checklist)
+13. [Getting Access and Contact](#13-getting-access-and-contact)
 
 ---
 
 ## 1. Overview
 
-EgoVerse is a multi-lab egocentric human demonstration dataset for robot co-training. The primary storage and training format is **EgoVerse's own Zarr v3 schema** — a custom, S3-native per-episode format described in full in this guide. It is used as the official H2R (Human-to-Robot) metadata standard.
+EgoVerse is a multi-lab egocentric human demonstration dataset for robot co-training. The primary storage and training format is **EgoVerse's own Zarr v3 schema**. 
 
-Every contributed episode must satisfy three contracts:
+Every contributed episode must satisfy these check lists:
 
 | Contract | What it enforces |
 |---|---|
 | **File format** | Zarr v3 store with specific key names, dtypes, and shapes |
-| **Coordinate frame** | All poses expressed in a consistent reference frame (SLAM world frame at write time; head frame at train time) |
-| **Database record** | One row per episode registered in the PostgreSQL episode registry before upload |
+| **Coordinate frame** | All poses expressed in a consistent reference frame |
+| **Database record** | Consistent one row per episode registered in the PostgreSQL episode registry before upload |
+| **Dataset Practices** | Example: reducing idle times, check for data flaws |
 
 The pipeline at a glance:
 
@@ -45,7 +42,7 @@ Your raw data
     └─► Convert to Zarr v3 (this guide)
     └─► Register row in app.episodes DB
     └─► Upload to s3://rldb/processed_v3/<embodiment>/<episode_hash>.zarr/
-    └─► Available for download via sync_s3.py
+    └─► Available for download dynamically through S3MultiDataset
 ```
 
 ---
@@ -62,7 +59,7 @@ EgoVerse is hardware-agnostic. Any egocentric camera with a SLAM system that pro
 | SLAM / pose tracking | A system that outputs 6-DOF device pose in a consistent metric world frame at ≥ 30 fps, synchronized with the RGB stream. Examples: Aria MPS, ZED SDK positional tracking, ORB-SLAM3, OpenVINS, RealSense tracking firmware. |
 | Hand tracking | Per-frame 3D hand landmark estimates (21 keypoints per hand) synchronized to the RGB stream, expressed in the same SLAM world frame. Examples: Aria MPS hand tracking, MediaPipe + depth unprojection, OAK-D depthai hand tracker, Ultraleap. If your setup does not produce hand keypoints, omit `*.obs_keypoints` and `*.obs_wrist_pose` and use only `*.obs_ee_pose` (e.g. derived from a robot's FK or a wrist-worn IMU). |
 | Wrist cameras | Optional. Include as `images.left_wrist` / `images.right_wrist` if present. |
-| Robot | Any bimanual arm or single-arm platform. See §10 for embodiment identifiers. |
+| Robot | Any bimanual arm or single-arm platform. See §8 for embodiment identifiers. |
 
 **Minimum viable setup (no robot):** egocentric camera + SLAM + hand tracking → contributes `images.front_1`, `obs_head_pose`, `left/right.obs_ee_pose`, `left/right.obs_wrist_pose`, `left/right.obs_keypoints`.
 
@@ -160,8 +157,8 @@ class TableRow:
     episode_hash: str       # PRIMARY KEY. UTC timestamp string (see §3)
     operator:     str       # Person who collected the episode (e.g. "jane_doe")
     lab:          str       # Your lab/org identifier (e.g. "stanford", "scale_ai")
-    task:         str       # Task name from the taxonomy (see §15)
-    embodiment:   str       # Embodiment string (see §10)
+    task:         str       # Task name from the taxonomy (see §11)
+    embodiment:   str       # Embodiment string (see §8)
     robot_name:   str       # Hardware variant (e.g. "aria_bimanual", "eva_bimanual")
 
     # ── Optional / updated by processing pipeline ───────────────────────────
@@ -169,12 +166,9 @@ class TableRow:
     task_description:       str   = ""   # Free-text description of the specific trial
     scene:                  str   = ""   # Scene identifier (e.g. "kitchen_A")
     objects:                str   = ""   # Comma-separated list of objects in the trial
-    processed_path:         str   = ""   # S3 path to LeRobot processed files (legacy)
     zarr_processed_path:    str   = ""   # S3 path: s3://rldb/processed_v3/<emb>/<hash>.zarr
     zarr_mp4_path:          str   = ""   # S3 path to preview MP4 (optional)
-    processing_error:       str   = ""   # Non-empty if processing failed
     zarr_processing_error:  str   = ""   # Non-empty if Zarr conversion failed
-    mp4_path:               str   = ""   # S3 path to raw MP4 (optional)
     is_deleted:             bool  = False
     is_eval:                bool  = False  # True → held-out evaluation episode
     eval_score:             float = -1
@@ -184,8 +178,8 @@ class TableRow:
 **Field constraints:**
 - `episode_hash`: must match the `.zarr` directory name exactly.
 - `lab`: use a short, stable, lowercase string. Once set, do not change it (used in filters).
-- `task`: must be one of the values in §15 (or pre-approved with the consortium).
-- `embodiment`: must be one of the strings in §10.
+- `task`: must be one of the values in §11 (or pre-approved with the consortium).
+- `embodiment`: must be one of the strings in §8.
 - `robot_name`: finer-grained variant; use the format `<platform>_<config>` (e.g. `aria_bimanual`, `aria_right_arm`).
 
 ### 4.2 Inserting a Row
@@ -200,9 +194,9 @@ engine = create_default_engine()
 row = TableRow(
     episode_hash   = "2026-03-15-14-22-10-000000",
     operator       = "jane_doe",
-    lab            = "stanford",
+    lab            = "rl2",
     task           = "fold_clothes",
-    embodiment     = "aria_bimanual",
+    embodiment     = "aria",
     robot_name     = "aria_bimanual",
     task_description = "folding a 2T baby shirt on a blue table",
     scene          = "kitchen_A",
@@ -254,6 +248,10 @@ Each episode is a **Zarr v3 group** (a directory ending in `.zarr`) containing a
 ├── right.obs_wrist_pose/           ← right wrist pose (required if hand tracking available)
 ├── left.obs_keypoints/             ← left hand keypoints (required if hand tracking available)
 ├── right.obs_keypoints/            ← right hand keypoints (required if hand tracking available)
+├── left.obs_gripper/               ← left gripper state (required if parallel gripper)
+├── right.obs_gripper/              ← right gripper state (required if parallel gripper)
+├── left.cmd_gripper/               ← left gripper command (required if parallel gripper)
+├── right.cmd_gripper/              ← right gripper command (required if parallel gripper)
 ├── obs_head_pose/                  ← egocentric device pose (required)
 ├── obs_eye_gaze/                   ← eye gaze direction (if available)
 └── obs_rgb_timestamps_ns/          ← per-frame capture timestamps
@@ -267,7 +265,7 @@ All arrays are indexed along axis 0 by frame index. Every array must have **exac
 
 | Key | Shape | Dtype | Notes |
 |---|---|---|---|
-| `images.front_1` | `(T,)` of variable-length bytes | `VariableLengthBytes` | JPEG-encoded RGB frames; see §8 |
+| `images.front_1` | `(T,)` of variable-length bytes | `VariableLengthBytes` | JPEG-encoded RGB frames |
 | `images.left_wrist` | `(T,)` of variable-length bytes | `VariableLengthBytes` | Optional. Include if wrist camera present. |
 | `images.right_wrist` | `(T,)` of variable-length bytes | `VariableLengthBytes` | Optional. Include if wrist camera present. |
 
@@ -275,7 +273,7 @@ All arrays are indexed along axis 0 by frame index. Every array must have **exac
 
 | Key | Shape | Dtype | Frame | Notes |
 |---|---|---|---|---|
-| `obs_head_pose` | `(T, 7)` | `float64` | SLAM world frame | 6-DOF pose of the egocentric camera/device as XYZWXYZ; see §7. This is the pivot used at training time to re-express all other poses into head-relative coordinates. **Required for all contributors.** |
+| `obs_head_pose` | `(T, 7)` | `float64` | SLAM world frame | 6-DOF pose of the egocentric camera/device as XYZWXYZ. This is the pivot used at training time to re-express all other poses into head-relative coordinates. **Required for all contributors.** |
 
 #### Hand and Wrist Poses (if hand tracking is available)
 
@@ -295,15 +293,10 @@ Provide these if your setup produces 3D hand estimates. Omit the entire key (do 
 **If your system provides only a single aggregate hand pose** (e.g. palm center from a depth sensor), populate `*.obs_ee_pose` only.
 
 Keypoint ordering (21 landmarks):
-```
-Index  0-4:   fingertips (thumb, index, middle, ring, pinky)
-Index  5:     wrist
-Index  6-7:   thumb (CMC, MCP)
-Index  8-10:  index (MCP, PIP, DIP)
-Index 11-13:  middle (MCP, PIP, DIP)
-Index 14-16:  ring (MCP, PIP, DIP)
-Index 17-19:  pinky (MCP, PIP, DIP)
-```
+Either use one of these keypoints format and specify the convention you are using in the sql table.
+![Aria keypoints](aria_keypoints.png)
+
+![MANO keypoints](mano_keypoints.png)
 
 #### Robot Arm Poses (if operating alongside a robot)
 
@@ -359,12 +352,13 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 
 ### 5.4 Storage / Chunking
 
-The `ZarrWriter` class handles chunking automatically. If writing manually:
+Use ZarrWriter class to ensure that the sharding and chunking is the same as this dataset:
 - **Numeric arrays**: chunk shape `(chunk_timesteps, *frame_shape)` with `chunk_timesteps=100`, sharded to full array shape.
 - **Image arrays**: chunk shape `(1,)` (one JPEG blob per chunk), sharded to full array shape.
 - **Annotation arrays**: chunk shape `(N,)`, sharded to `(N,)`.
 - **Zarr format version**: always **v3** (`zarr_format=3`).
 
+See example usage in eva_to_zarr.py and aria_to_zarr.py.
 ---
 
 ## 6. Coordinate Frame Conventions
@@ -409,110 +403,11 @@ For keypoint-based models, keypoints can optionally be further expressed relativ
 
 ---
 
-## 7. Pose Representation
-
-### 7.1 Format: XYZWXYZ
-
-All 6-DOF poses are stored as a **7-element float64 vector**:
-
-```
-[tx, ty, tz, qw, qx, qy, qz]
- └─ position ─┘  └─ quaternion ─┘
-```
-
-| Index | Symbol | Meaning |
-|---|---|---|
-| 0 | tx | Translation X (meters) |
-| 1 | ty | Translation Y (meters) |
-| 2 | tz | Translation Z (meters) |
-| 3 | qw | Quaternion scalar (real part) |
-| 4 | qx | Quaternion i-component |
-| 5 | qy | Quaternion j-component |
-| 6 | qz | Quaternion k-component |
-
-**Important:** The quaternion uses **scalar-first** order (`w, x, y, z`). This matches the convention used by `projectaria_tools.core.sophus.SE3`. Note that `scipy.spatial.transform.Rotation` uses scalar-last (`x, y, z, w`) by default — use the helpers below to convert. The quaternion must be **unit-norm**: `sqrt(qw² + qx² + qy² + qz²) == 1.0`.
-
-**Conversion helpers:**
-```python
-from egomimic.utils.pose_utils import xyzw_to_wxyz, wxyz_to_xyzw
-
-# scipy uses scalar-last [qx, qy, qz, qw]; EgoVerse uses scalar-first [qw, qx, qy, qz]
-scipy_quat = rotation.as_quat()           # [qx, qy, qz, qw]
-egoverse_quat = xyzw_to_wxyz(scipy_quat)  # → [qw, qx, qy, qz]
-```
-
-**Converting from SE3 matrix:**
-```python
-from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
-import numpy as np
-
-# mat: (B, 4, 4) SE3 homogeneous matrices
-poses = _matrix_to_xyzwxyz(mat[np.newaxis])  # → (1, 7)
-```
-
-### 7.2 Alternative: XYZYPR (Euler)
-
-Some robot embodiments store commanded actions as `[tx, ty, tz, yaw, pitch, roll]` (6-element). This is the `xyzypr` format using **intrinsic ZYX Euler angles in radians**. Obs poses are always XYZWXYZ; this format is only used for action chunks after training-time transformation.
-
-### 7.3 Confidence Filtering
-
-Many hand-tracking systems produce a per-frame confidence or quality score alongside each pose estimate. **Filter out frames below your system's minimum reliable confidence threshold before writing.** Low-confidence poses (near-zero or degenerate quaternions) cause SVD convergence errors in the coordinate frame transforms at training time.
-
-If your system does not provide a confidence score, apply a basic sanity check: reject any frame where the quaternion norm deviates from 1.0 by more than 1e-3, or where the translation jumps by more than a physically plausible amount between consecutive frames (e.g. > 0.5 m in a single timestep at 30 fps).
-
----
-
-## 8. Image Format
-
-### 8.1 Encoding
-
-| Property | Value |
-|---|---|
-| Compression | JPEG |
-| Quality | **85** (fixed; do not change) |
-| Colorspace | **RGB** (not BGR — be careful if you use OpenCV which defaults to BGR) |
-| Per-frame shape | `(H, W, 3)` uint8 |
-| Zarr dtype | `VariableLengthBytes` (Zarr v3 `vlen-bytes`) |
-| Codec stack | `sharding_indexed` → `vlen-bytes` → `zstd(level=0)` |
-
-There is no fixed resolution requirement. Record the actual frame dimensions in `features["images.front_1"]["shape"]` (e.g. `[480, 640, 3]`). All frames in a given episode must have the same resolution. Common resolutions: 480×640 (Aria), 720×1280, 1080×1920. If your camera produces non-standard aspect ratios, do not crop or pad — write as-is and document the shape in `features`.
-
-### 8.2 Writing Images
-
-```python
-import simplejpeg
-import numpy as np
-
-# rgb_frame: (H, W, 3) uint8 numpy array in RGB order
-jpeg_bytes = simplejpeg.encode_jpeg(rgb_frame, quality=85, colorspace="RGB")
-```
-
-**If you have OpenCV frames (BGR):**
-```python
-import cv2
-rgb_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
-jpeg_bytes = simplejpeg.encode_jpeg(rgb_frame, quality=85, colorspace="RGB")
-```
-
-### 8.3 Reading Images
-
-```python
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrEpisode
-import simplejpeg
-
-ep = ZarrEpisode("/path/to/<episode_hash>")
-data = ep.read({"images.front_1": (frame_idx, None)})  # single frame
-rgb = simplejpeg.decode_jpeg(bytes(data["images.front_1"]), colorspace="RGB")
-# rgb: (H, W, 3) uint8
-```
-
----
-
-## 9. Language Annotations
+## 7. Language Annotations
 
 Language annotations are **optional but strongly encouraged**. They are stored as a span-based structure: each annotation covers a contiguous range of frames.
 
-### 9.1 Format (`annotation_v1`)
+### 7.1 Format (`annotation_v1`)
 
 The `annotations` array in the Zarr store contains `N` entries, where `N` is the total number of annotation spans in the episode (not the number of frames). Each entry is a UTF-8-encoded JSON string:
 
@@ -534,7 +429,7 @@ The `annotations` array in the Zarr store contains `N` entries, where `N` is the
 - Do **not** encode task-level descriptions here (those go in `task_description`). Use annotations for sub-step descriptions.
 - An empty `annotations` array (shape `(0,)`) is valid when no annotation is available.
 
-### 9.2 Annotation Granularity
+### 7.2 Annotation Granularity
 
 Use at minimum one annotation per task phase. For `fold_clothes`, for example:
 
@@ -546,7 +441,7 @@ Use at minimum one annotation per task phase. For `fold_clothes`, for example:
 | Fold right sleeve | "folding the right sleeve towards the center" |
 | Fold body | "folding the bottom half up to complete the fold" |
 
-### 9.3 Writing Annotations
+### 7.3 Writing Annotations
 
 Via `ZarrWriter`:
 ```python
@@ -580,13 +475,13 @@ writer.append_annotations(
 )
 ```
 
-### 9.4 Scale AI Annotation Format
+### 7.4 Scale AI Annotation Format
 
 If you are delivering data through Scale AI, annotations are generated via the Scale annotation API. The `ScaleAnnotationDatasetFilter` class can be used to filter episodes to only those with completed Scale annotations. Set `SCALE_API_KEY` in your environment.
 
 ---
 
-## 10. Embodiment Identifiers
+## 8. Embodiment Identifiers
 
 The `embodiment` field in the DB row and in `zarr.attrs` must be one of the following strings. The `robot_name` field is the same string (fine-grained variant names are allowed in `robot_name` but `embodiment` must match this list exactly).
 
@@ -609,161 +504,9 @@ The `embodiment` field in the DB row and in `zarr.attrs` must be one of the foll
 
 ---
 
-## 11. Writing an Episode (Code)
+## 9. Uploading to S3
 
-### 11.1 Using `ZarrWriter` (recommended)
-
-```python
-import numpy as np
-from pathlib import Path
-from egomimic.rldb.zarr.zarr_writer import ZarrWriter
-
-# ── Your data ────────────────────────────────────────────────────────────────
-T = 2712                         # total frames
-fps = 30
-episode_hash = "2026-03-15-14-22-10-000000"
-out_path = Path(f"/local/processed/{episode_hash}.zarr")
-
-# Numeric arrays: all shape (T, ...) float64
-left_ee   = np.zeros((T, 7), dtype=np.float64)   # XYZWXYZ
-right_ee  = np.zeros((T, 7), dtype=np.float64)
-left_wrist  = np.zeros((T, 7), dtype=np.float64)
-right_wrist = np.zeros((T, 7), dtype=np.float64)
-head_pose = np.zeros((T, 7), dtype=np.float64)
-left_kp   = np.zeros((T, 63), dtype=np.float64)  # 21 landmarks × 3
-right_kp  = np.zeros((T, 63), dtype=np.float64)
-eye_gaze  = np.zeros((T, 3), dtype=np.float64)   # unit direction
-ts_ns     = np.zeros((T,), dtype=np.int64)        # UTC nanoseconds
-
-# Image array: (T, H, W, 3) uint8 RGB
-images_front = np.zeros((T, 480, 640, 3), dtype=np.uint8)
-
-# Language annotations: list of (text, start_idx, end_idx)
-annotations = [
-    ("grasping the shirt", 0, 200),
-    ("folding the shirt",  200, T),
-]
-
-# ── Write ─────────────────────────────────────────────────────────────────────
-writer = ZarrWriter(
-    episode_path    = out_path,
-    embodiment      = "aria_bimanual",
-    fps             = fps,
-    task_name       = "fold_clothes",
-    task_description = "folding a 2T baby shirt on kitchen table",
-    annotations     = annotations,
-    chunk_timesteps = 100,
-)
-
-writer.write(
-    numeric_data = {
-        "left.obs_ee_pose":    left_ee,
-        "right.obs_ee_pose":   right_ee,
-        "left.obs_wrist_pose": left_wrist,
-        "right.obs_wrist_pose": right_wrist,
-        "obs_head_pose":       head_pose,
-        "left.obs_keypoints":  left_kp,
-        "right.obs_keypoints": right_kp,
-        "obs_eye_gaze":        eye_gaze,
-        "obs_rgb_timestamps_ns": ts_ns,
-    },
-    image_data = {
-        "images.front_1": images_front,   # ZarrWriter handles JPEG encoding
-    },
-)
-```
-
-### 11.2 Incremental Writing (when you cannot load all frames into RAM)
-
-```python
-writer = ZarrWriter(
-    episode_path = out_path,
-    embodiment   = "aria_bimanual",
-    fps          = 30,
-    task_name    = "fold_clothes",
-    annotations  = annotations,
-)
-
-with writer.write_incremental() as inc:
-    for frame_idx in range(T):
-        inc.add_frame(
-            numeric = {
-                "left.obs_ee_pose":    left_ee[frame_idx],     # shape (7,)
-                "right.obs_ee_pose":   right_ee[frame_idx],
-                "left.obs_wrist_pose": left_wrist[frame_idx],
-                "right.obs_wrist_pose": right_wrist[frame_idx],
-                "obs_head_pose":       head_pose[frame_idx],
-                "left.obs_keypoints":  left_kp[frame_idx],
-                "right.obs_keypoints": right_kp[frame_idx],
-                "obs_eye_gaze":        eye_gaze[frame_idx],
-                "obs_rgb_timestamps_ns": ts_ns[frame_idx:frame_idx+1],
-            },
-            images = {
-                "images.front_1": images_front[frame_idx],  # shape (H, W, 3) uint8
-            },
-        )
-# Annotations and metadata are written automatically on __exit__
-```
-
-### 11.3 Verifying the Written Episode
-
-```python
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrEpisode
-
-ep = ZarrEpisode(out_path)
-print(ep)               # ZarrEpisode(path=..., frames=2712)
-print(ep.metadata)      # dict with embodiment, total_frames, fps, features, ...
-
-# Spot-check a frame
-data = ep.read({
-    "images.front_1":   (0, None),
-    "left.obs_ee_pose": (0, None),
-})
-import simplejpeg
-frame = simplejpeg.decode_jpeg(bytes(data["images.front_1"]), colorspace="RGB")
-print(frame.shape)      # (480, 640, 3)
-print(data["left.obs_ee_pose"])  # [tx, ty, tz, qw, qx, qy, qz]
-```
-
----
-
-## 12. Registering Episodes in the Database
-
-After writing the Zarr store locally, register the episode in the DB and update its `zarr_processed_path`:
-
-```python
-from egomimic.utils.aws.aws_sql import TableRow, add_episode, update_episode, create_default_engine
-from egomimic.utils.aws.aws_data_utils import load_env
-
-load_env()
-engine = create_default_engine()
-
-episode_hash = "2026-03-15-14-22-10-000000"
-s3_zarr_path = f"s3://rldb/processed_v3/aria/{episode_hash}.zarr"
-
-# Step 1: Insert the row
-row = TableRow(
-    episode_hash     = episode_hash,
-    operator         = "jane_doe",
-    lab              = "stanford",
-    task             = "fold_clothes",
-    embodiment       = "aria_bimanual",
-    robot_name       = "aria_bimanual",
-    task_description = "folding a 2T baby shirt",
-    num_frames       = 2712,
-)
-add_episode(engine, row)
-
-# Step 2: Upload to S3 (see §13), then update zarr_processed_path
-row.zarr_processed_path = s3_zarr_path
-update_episode(engine, row)
-```
-
----
-
-## 13. Uploading to S3
-
-### 13.1 S3 Path Convention
+### 9.1 S3 Path Convention
 
 ```
 s3://rldb/processed_v3/<embodiment_prefix>/<episode_hash>.zarr/
@@ -782,7 +525,7 @@ s3://rldb/processed_v3/aria/2026-03-15-14-22-10-000000.zarr/
 s3://rldb/processed_v3/eva/2025-11-04-09-30-00-000000.zarr/
 ```
 
-### 13.2 Upload with `s5cmd`
+### 9.2 Upload with `s5cmd`
 
 `s5cmd` is the recommended upload tool (installed as part of the Python environment).
 
@@ -805,7 +548,7 @@ upload_dir_to_s3(
 )
 ```
 
-### 13.3 Bulk Upload with Ray
+### 9.3 Bulk Upload with Ray
 
 For batch uploads of many episodes, use Ray to parallelize:
 
@@ -832,9 +575,9 @@ ray.get(tasks)
 
 ---
 
-## 14. Validation and Verification
+## 10. Validation and Verification
 
-### 14.1 Automated Checks
+### 10.1 Automated Checks
 
 Run these checks on every episode before uploading:
 
@@ -915,7 +658,7 @@ else:
     print("All checks passed.")
 ```
 
-### 14.2 End-to-End Load Test
+### 10.2 End-to-End Load Test
 
 Verify the episode loads correctly through the full training pipeline before uploading:
 
@@ -955,7 +698,7 @@ Expected output for a valid Aria bimanual episode in cartesian mode:
 
 ---
 
-## 15. Task Taxonomy
+## 11. Task Taxonomy
 
 The `task` field in the DB row and `task_name` in `zarr.attrs` must be one of the following canonical strings. Contact the consortium leads to propose new tasks.
 
@@ -975,7 +718,7 @@ The `task` field in the DB row and `task_name` in `zarr.attrs` must be one of th
 
 ---
 
-## 16. Pre-Submission Checklist
+## 12. Pre-Submission Checklist
 
 Complete every item before considering an episode ready for upload.
 
@@ -984,16 +727,13 @@ Complete every item before considering an episode ready for upload.
 - [ ] Episode hash is unique — not already in the DB (`episode_hash_to_table_row(engine, hash)` returns `None`).
 
 **Zarr format**
-- [ ] Zarr v3 format (`zarr_format=3` confirmed in `zarr.json`).
-- [ ] `total_frames` in `zarr.attrs` equals the actual number of valid frames.
-- [ ] All arrays have at least `total_frames` entries along axis 0.
-- [ ] `images.front_1` is present and all frames decode successfully.
 - [ ] `obs_head_pose` is present (required for all contributors).
 - [ ] `left.obs_ee_pose` and `right.obs_ee_pose` are present if hand tracking is available.
 - [ ] All `obs_ee_pose` arrays have shape `(T, 7)` and unit-norm quaternions.
 - [ ] All `obs_keypoints` arrays have shape `(T, 63)`.
 - [ ] `features` dict in `zarr.attrs` has one entry per array key.
 - [ ] `embodiment` and `task_name` in `zarr.attrs` match the DB row values.
+- [ ] All episode succeeds on zarr validation check code
 
 **Coordinate frames**
 - [ ] All poses are in the SLAM world frame (not head frame, not camera frame).
@@ -1014,7 +754,7 @@ Complete every item before considering an episode ready for upload.
 - [ ] DB row inserted before upload.
 - [ ] `zarr_processed_path` updated to the correct S3 path after upload.
 - [ ] `num_frames` in DB row matches `total_frames` in `zarr.attrs`.
-- [ ] `embodiment` in DB row exactly matches the embodiment enum string (§10).
+- [ ] `embodiment` in DB row exactly matches the embodiment enum string (§8).
 
 **Upload**
 - [ ] Episode is accessible at `s3://rldb/processed_v3/<prefix>/<episode_hash>.zarr/`.
@@ -1022,7 +762,7 @@ Complete every item before considering an episode ready for upload.
 
 ---
 
-## 17. Getting Access and Contact
+## 13. Getting Access and Contact
 
 ### Access Request
 
