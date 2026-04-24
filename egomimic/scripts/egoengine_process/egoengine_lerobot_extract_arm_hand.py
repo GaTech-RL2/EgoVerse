@@ -13,6 +13,8 @@ Example usage:
 - python egomimic/scripts/egoengine_process/egoengine_lerobot_extract_arm_hand.py datasets/0309/RBY1_0309 --black-image
 """
 
+# TODO: obs: get the robot joint (remove wheel), action: add arm torso joint base (base from joint)
+
 import argparse
 import json
 import shutil
@@ -72,6 +74,10 @@ ACTJ_RIGHT_ARM_END = LEFT_ARM + RIGHT_ARM
 ACTJ_TORSO_START = ACTJ_RIGHT_ARM_END
 ACTJ_TORSO_END = ACTJ_TORSO_START + 6
 # After head (2) and deltas (3): hand command blocks match joint_arm_hand ordering.
+ACTJ_HEAD_START = 20
+ACTJ_HEAD_END = ACTJ_HEAD_START + 2
+ACTJ_BASE_START = 22
+ACTJ_BASE_END = ACTJ_BASE_START + 3 # delta_x, delta_y, delta_yaw
 ACTJ_LEFT_HAND_START = 25
 ACTJ_LEFT_HAND_END = ACTJ_LEFT_HAND_START + LEFT_HAND
 ACTJ_RIGHT_HAND_START = ACTJ_LEFT_HAND_END
@@ -99,7 +105,9 @@ def slice_actions_joint(joint: np.ndarray):
     torso = j[ACTJ_TORSO_START:ACTJ_TORSO_END]
     left_hand = j[ACTJ_LEFT_HAND_START:ACTJ_LEFT_HAND_END]
     right_hand = j[ACTJ_RIGHT_HAND_START:ACTJ_RIGHT_HAND_END]
-    return left_arm, right_arm, torso, left_hand, right_hand
+    base = j[ACTJ_BASE_START:ACTJ_BASE_END]
+    head = j[ACTJ_HEAD_START:ACTJ_HEAD_END]
+    return left_arm, right_arm, torso, left_hand, right_hand, base, head
 
 
 def slice_obs_robot0_joint_pos(robot0: np.ndarray):
@@ -117,7 +125,7 @@ def slice_obs_robot0_joint_pos(robot0: np.ndarray):
 def add_arm_hand(example: dict, black_image: bool = False) -> dict:
     """Add obs.right_arm / obs.left_arm and derived action keys from RBY1 data."""
     joint = np.asarray(example["actions.joint"])
-    left_arm, right_arm, torso, left_hand, right_hand = slice_actions_joint(joint)
+    left_arm, right_arm, torso, left_hand, right_hand, base, head = slice_actions_joint(joint)
 
     example["actions.joint_right_arm_hand"] = np.concatenate([right_arm, right_hand])
     example["actions.joint_left_arm_hand"] = np.concatenate([left_arm, left_hand])
@@ -127,11 +135,17 @@ def add_arm_hand(example: dict, black_image: bool = False) -> dict:
     example["actions.joint_arm_hand_torso"] = np.concatenate(
         [left_arm, right_arm, left_hand, right_hand, torso]
     )
+    # added for mobile manipulation, we predict it in a hierarchical manner
+    example["actions.joint_hands"] = np.concatenate([left_hand, right_hand])
+    example["actions.joint_arm_head"] = np.concatenate([left_arm, right_arm, head])
+    example["actions.joint_base_torso"] = np.concatenate([torso, base])
+    example["actions.joint_base_torso_head_arm_hand"] = np.concatenate([base, torso, head, left_arm, right_arm, left_hand, right_hand])
 
     robot0_joint_pos = np.asarray(example["obs.robot0_joint_pos"])
     obs_right, obs_left = slice_obs_robot0_joint_pos(robot0_joint_pos)
     example["obs.right_arm"] = obs_right
     example["obs.left_arm"] = obs_left
+    example["obs.robot0_joint_pos_no_wheel"] = robot0_joint_pos[OBS_BASE_END:]
 
     if black_image:
         if "obs.aria_image" in example:
@@ -318,6 +332,31 @@ def main():
             "dtype": "float32",
             "shape": [LEFT_ARM + RIGHT_ARM + LEFT_HAND + RIGHT_HAND + TORSO_DIM],
             "names": ["joint_arm_hand_torso"],
+        }
+        info["features"]["actions.joint_base_torso"] = {
+            "dtype": "float32",
+            "shape": [TORSO_DIM + 3],
+            "names": ["joint_base_torso"],
+        }
+        info["features"]["actions.joint_base_torso_head_arm_hand"] = {
+            "dtype": "float32",
+            "shape": [3 + TORSO_DIM + 2 + LEFT_ARM + RIGHT_ARM + LEFT_HAND + RIGHT_HAND],
+            "names": ["joint_base_torso_head_arm_hand"],
+        }
+        info["features"]["actions.joint_hands"] = {
+            "dtype": "float32",
+            "shape": [LEFT_HAND + RIGHT_HAND],
+            "names": ["joint_hands"],
+        }
+        info["features"]["actions.joint_arm_head"] = {
+            "dtype": "float32",
+            "shape": [LEFT_ARM + RIGHT_ARM + 2],
+            "names": ["joint_arm_head"],
+        }
+        info["features"]["obs.robot0_joint_pos_no_wheel"] = {
+            "dtype": "float32",
+            "shape": [ROBOT0_DIM - OBS_BASE_END],
+            "names": ["obs.robot0_joint_pos_no_wheel"],
         }
         if args.black_image and "obs.aria_image" not in info["features"]:
             info["features"]["obs.aria_image"] = {
