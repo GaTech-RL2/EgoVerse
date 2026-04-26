@@ -152,6 +152,81 @@ class Aria(Human):
             )
 
     @classmethod
+    def get_dino_ae_transform_list(cls, mode: str = "cartesian", **kwargs):
+        """Aria head-frame transform adapted to the action-expert dataset's
+        ``_t``-suffixed proprio keys. Outputs:
+          - ``actions_cartesian``           (B, 100, 14) head-frame YPR
+          - ``observations.state.ee_pose_t`` (B, 14)     concat'd current proprio
+        """
+        return _build_aria_cartesian_bimanual_transform_list(
+            target_world="obs_head_pose_t",
+            target_world_ypr="obs_head_pose_ypr_t",
+            left_obs_pose="left.obs_ee_pose_t",
+            right_obs_pose="right.obs_ee_pose_t",
+            obs_key="ee_pose_t",  # dot-free: nn.ModuleDict rejects "." in keys
+            stride=cls.ACTION_STRIDE,
+        )
+
+    @classmethod
+    def dino_action_expert_keymap(
+        cls,
+        annotation_key: str = "annotations",
+        norm_mode: bool = False,
+        **kwargs,
+    ):
+        """Keymap for the two-stage HPT-DINO action-expert pipeline on Aria.
+
+        ``norm_mode=True`` strips camera/annotation keys (matching the
+        behavior of ``Embodiment.get_keymap``) so the norm-stats DataLoader
+        only reads numeric proprio/action keys — variable-length annotation
+        lists would otherwise crash ``default_collate``.
+        """
+        key_map = {
+            "dino_front_1": {
+                "key_type": "proprio_keys",
+                "zarr_key": "dino.front_1",
+            },
+            annotation_key: {
+                "key_type": "annotation_keys",
+                "zarr_key": annotation_key,
+            },
+            "front_img": {
+                "key_type": "camera_keys",
+                "zarr_key": "images.front_1",
+            },
+            "right.obs_ee_pose": {
+                "key_type": "proprio_keys",
+                "zarr_key": "right.obs_ee_pose",
+            },
+            "left.obs_ee_pose": {
+                "key_type": "proprio_keys",
+                "zarr_key": "left.obs_ee_pose",
+            },
+            "obs_head_pose": {
+                "key_type": "proprio_keys",
+                "zarr_key": "obs_head_pose",
+            },
+            "right.action_ee_pose": {
+                "key_type": "action_keys",
+                "zarr_key": "right.obs_ee_pose",
+                "horizon": 100,
+            },
+            "left.action_ee_pose": {
+                "key_type": "action_keys",
+                "zarr_key": "left.obs_ee_pose",
+                "horizon": 100,
+            },
+        }
+        if norm_mode:
+            for k in [
+                kk
+                for kk, v in key_map.items()
+                if v.get("key_type") in ("camera_keys", "annotation_keys")
+            ]:
+                del key_map[k]
+        return key_map
+
+    @classmethod
     def _get_keymap(
         cls,
         keymap_mode: Literal["cartesian", "keypoints"],
@@ -336,7 +411,7 @@ class Mecka(Human):
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             )
-    
+
     @classmethod
     def get_keymap(
         cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False
