@@ -202,6 +202,27 @@ See `model.md` for a detailed walkthrough.
 
 ---
 
+## Action Vector Layout (RBY1, 49D)
+
+The action key `actions_joint_base_torso_head_arm_hand` is a concatenation built by
+`egomimic/scripts/egoengine_process/egoengine_lerobot_extract_arm_hand.py:142`
+(called in Step 2 of `SEW_data_workflow.sh`):
+
+| Block | Indices | Dim | Joints |
+|---|---|---|---|
+| base | [0:3] | 3 | delta_x, delta_y, delta_yaw |
+| torso | [3:9] | 6 | torso |
+| head | [9:11] | 2 | head |
+| l_arm | [11:18] | 7 | left arm |
+| r_arm | [18:25] | 7 | right arm |
+| l_hand | [25:37] | 12 | left hand |
+| r_hand | [37:49] | 12 | right hand |
+
+For hierarchical decoding use `block_dims: [3, 6, 2, 14, 24]` with DAG parents
+`[[], [0], [0,1], [0,1], [0,1,3]]` — arms/hands skip head (kinematic dead-end).
+
+---
+
 ## Key Gotchas
 
 - **Schematic vs. stems**: A key registered as `proprio_keys` in the schematic will go through normalization. If it also lacks a corresponding `state_{key}` entry in `stem_specs`, it is normalized but then silently ignored during the forward pass. This was the source of the `task_id` normalization crash — schematic entry present, no stats computed (key absent from dataset), old code raised `ValueError`. Fixed to warn and pass through.
