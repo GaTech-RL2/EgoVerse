@@ -39,6 +39,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.zarr.zarr_dataset_action_expert import ZarrActionExpertDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -159,6 +160,8 @@ class EpisodeResolver:
     Provides shared static/class helpers; subclasses implement resolve().
     """
 
+    _dataset_class = None  # set to ZarrDataset after that class is defined
+
     def __init__(
         self,
         folder_path: Path,
@@ -182,6 +185,7 @@ class EpisodeResolver:
         Returns:
             dict[str, ZarrDataset]: a dictionary mapping string keys to constructed zarr datasets from valid filters.
         """
+        dataset_class = self._dataset_class or ZarrDataset
         all_paths = sorted(search_path.iterdir())
         datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
@@ -197,7 +201,7 @@ class EpisodeResolver:
                 skipped.append(p.name)
                 continue
             try:
-                ds_obj = ZarrDataset(
+                ds_obj = dataset_class(
                     p,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
@@ -562,7 +566,7 @@ class MultiDataset(torch.utils.data.Dataset):
 
     def __init__(
         self,
-        datasets: dict[str, MultiDataset | ZarrDataset],
+        datasets: dict[str, MultiDataset | ZarrDataset | ZarrActionExpertDataset],
         mode="train",
         percent=0.1,
         valid_ratio=0.2,
@@ -692,8 +696,7 @@ class MultiDataset(torch.utils.data.Dataset):
                 bad_indices = bad_mask.nonzero(as_tuple=False).tolist()
                 bad_values = arr[bad_mask].tolist()
                 prefix = (
-                    f"NaN/Inf violation ep={episode_name} "
-                    f"frame={idx} key={zarr_key}"
+                    f"NaN/Inf violation ep={episode_name} frame={idx} key={zarr_key}"
                 )
                 warn_key = f"nan_inf:{episode_name}:{zarr_key}"
                 if warn_key not in self._warned_violations:
@@ -714,7 +717,7 @@ class MultiDataset(torch.utils.data.Dataset):
                 below_bounds = q_low[below].tolist()
                 above_bounds = q_high[above].tolist()
                 prefix = (
-                    f"Bounds violation ep={episode_name} " f"frame={idx} key={zarr_key}"
+                    f"Bounds violation ep={episode_name} frame={idx} key={zarr_key}"
                 )
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
                 if warn_key not in self._warned_violations:
@@ -727,10 +730,10 @@ class MultiDataset(torch.utils.data.Dataset):
                 return prefix
 
         return None
-    
+
     def __getitem__(self, idx, _attempts: int | None = None):
-        """ 
-        Multidataset handles outlier rejection so that you don't need to propagate the norm stats down to every sub dataset. 
+        """
+        Multidataset handles outlier rejection so that you don't need to propagate the norm stats down to every sub dataset.
         """
         dataset_name, local_idx = self.index_map[idx]
         dataset = self.datasets[dataset_name]
@@ -941,7 +944,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         _attempts: int | None = None,
     ) -> dict[str, torch.Tensor]:
         # Build keys_dict with ranges based on whether action chunking is enabled
-        """ 
+        """
         ZarrDataset handles jpeg decoding and transform function errors, and triggers resample on dataset level.
         """
         data = {}

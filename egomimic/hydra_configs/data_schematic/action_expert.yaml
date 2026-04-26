@@ -1,0 +1,53 @@
+_target_: egomimic.rldb.zarr.utils.DataSchematic
+norm_mode: quantile
+schematic_dict:
+  eva_bimanual:
+    front_img_1:          # BOS frame image
+      key_type: camera_keys
+      zarr_key: observations.images.front_img_1
+    front_img_t:          # current frame image at t
+      key_type: camera_keys
+      zarr_key: observations.images.front_img_t
+    right_wrist_img_1:
+      key_type: camera_keys
+      zarr_key: observations.images.right_wrist_img_1
+    right_wrist_img_t:
+      key_type: camera_keys
+      zarr_key: observations.images.right_wrist_img_t
+    left_wrist_img_1:
+      key_type: camera_keys
+      zarr_key: observations.images.left_wrist_img_1
+    left_wrist_img_t:
+      key_type: camera_keys
+      zarr_key: observations.images.left_wrist_img_t
+    actions_cartesian:
+      key_type: action_keys
+      zarr_key: actions_cartesian
+    embodiment:
+      key_type: metadata_keys
+      zarr_key: metadata.embodiment
+  aria_bimanual:
+    front_img_1:          # BOS frame image
+      key_type: camera_keys
+      zarr_key: observations.images.front_img_1
+    front_img_t:          # current frame image at t
+      key_type: camera_keys
+      zarr_key: observations.images.front_img_t
+    ee_pose_1:
+      key_type: proprio_keys
+      zarr_key: observations.state.ee_pose_1
+    ee_pose_t:
+      key_type: proprio_keys
+      zarr_key: observations.state.ee_pose_t
+    state_keypoints:
+      key_type: proprio_keys
+      zarr_key: observations.state.keypoints
+    actions_keypoints:
+      key_type: action_keys
+      zarr_key: actions_keypoints
+    actions_cartesian:
+      key_type: action_keys
+      zarr_key: actions_cartesian
+    embodiment:
+      key_type: metadata_keys
+      zarr_key: metadata.embodiment
