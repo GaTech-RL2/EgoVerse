@@ -17,8 +17,40 @@ from typing import Literal
 
 import numpy as np
 import torch
-from projectaria_tools.core.sophus import SE3
 from scipy.spatial.transform import Rotation as R
+
+try:
+    from projectaria_tools.core.sophus import SE3
+except ModuleNotFoundError:  # pragma: no cover - exercised only without Aria deps
+    class SE3:
+        """Small SE3 fallback that covers the matrix API used by these transforms."""
+
+        def __init__(self, matrix):
+            self._matrix = np.asarray(matrix, dtype=np.float64)
+
+        @classmethod
+        def from_matrix(cls, matrix):
+            return cls(matrix)
+
+        def inverse(self):
+            mats = np.asarray(self._matrix, dtype=np.float64)
+            single = mats.ndim == 2
+            if single:
+                mats = mats[None, ...]
+            inv = np.empty_like(mats)
+            rot = mats[:, :3, :3]
+            trans = mats[:, :3, 3]
+            rot_inv = np.swapaxes(rot, -1, -2)
+            inv[:, :3, :3] = rot_inv
+            inv[:, :3, 3] = -np.einsum("bij,bj->bi", rot_inv, trans)
+            inv[:, 3, :] = np.array([0.0, 0.0, 0.0, 1.0])
+            return SE3(inv[0] if single else inv)
+
+        def __matmul__(self, other):
+            return SE3(np.matmul(self._matrix, other._matrix))
+
+        def to_matrix(self):
+            return np.asarray(self._matrix)
 
 from egomimic.utils.pose_utils import (
     _interpolate_euler,
@@ -64,9 +96,12 @@ class InterpolatePose(Transform):
         output_action_key: str,
         stride: int = 1,
         mode: Literal["xyzwxyz", "xyzypr"] = "xyzwxyz",
+        is_quat: bool | None = None,
     ):
         if stride <= 0:
             raise ValueError(f"stride must be positive, got {stride}")
+        if is_quat is not None:
+            mode = "xyzwxyz" if is_quat else "xyzypr"
         self.new_chunk_length = new_chunk_length
         self.action_key = action_key
         self.output_action_key = output_action_key
@@ -151,6 +186,7 @@ class ActionChunkCoordinateFrameTransform(Transform):
         extra_batch_key: dict = None,
         mode: Literal["xyz", "xyzwxyz", "xyzypr"] = "xyzwxyz",
         inverse: bool = True,
+        is_quat: bool | None = None,
     ):
         """
         args:
@@ -163,6 +199,8 @@ class ActionChunkCoordinateFrameTransform(Transform):
         self.chunk_world = chunk_world
         self.transformed_key_name = transformed_key_name
         self.extra_batch_key = extra_batch_key
+        if is_quat is not None:
+            mode = "xyzwxyz" if is_quat else "xyzypr"
         self.mode = mode
         self.inverse = inverse
 
@@ -296,6 +334,46 @@ class BatchQuaternionPoseToYPR(Transform):
         xyz = pose[:, :3]
         xyzw = wxyz_to_xyzw(pose[:, 3:7])
         ypr = R.from_quat(xyzw).as_euler("ZYX", degrees=False)  # (N, 3)
+        batch[self.output_key] = np.concatenate([xyz, ypr], axis=1)
+        return batch
+
+
+class RotVecPoseToYPR(Transform):
+    """Convert a single pose from xyz + rotvec to xyz + yaw/pitch/roll."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.shape != (6,):
+            raise ValueError(
+                f"RotVecPoseToYPR expects shape (6,), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        xyz = pose[:3]
+        ypr = R.from_rotvec(pose[3:6]).as_euler("ZYX", degrees=False)
+        batch[self.output_key] = np.concatenate([xyz, ypr], axis=0)
+        return batch
+
+
+class BatchRotVecPoseToYPR(Transform):
+    """Convert a chunk of poses from xyz + rotvec to xyz + yaw/pitch/roll."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.ndim != 2 or pose.shape[-1] != 6:
+            raise ValueError(
+                f"BatchRotVecPoseToYPR expects shape (N, 6), got {pose.shape} "
+                f"for key '{self.pose_key}'"
+            )
+        xyz = pose[:, :3]
+        ypr = R.from_rotvec(pose[:, 3:6]).as_euler("ZYX", degrees=False)
         batch[self.output_key] = np.concatenate([xyz, ypr], axis=1)
         return batch
 
@@ -543,3 +621,71 @@ class NumpyToTensor(Transform):
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
         return batch
+
+
+def build_so100_singlearm_transform_list(
+    *,
+    obs_raw_key: str = "obs_ee_pose_cam_rotvec",
+    action_raw_key: str = "cmd_ee_pose_cam_rotvec",
+    obs_pose_key: str = "so100.obs_pose_rotvec",
+    obs_gripper_key: str = "so100.obs_gripper",
+    action_pose_key: str = "so100.action_pose_rotvec",
+    action_gripper_key: str = "so100.action_gripper",
+    obs_pose_ypr_key: str = "so100.obs_pose_ypr",
+    action_pose_ypr_key: str = "so100.action_pose_ypr",
+    actions_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+    chunk_length: int = 64,
+    stride: int = 1,
+) -> list[Transform]:
+    """Build the SO100 fixed-camera single-arm transform.
+
+    Raw arrays are already expressed in the fixed camera frame as
+    ``[x, y, z, wx, wy, wz, gripper]``. The transform only converts rotvec to
+    yaw/pitch/roll and turns the command stream into a future action chunk.
+    """
+
+    return [
+        SplitKeys(
+            input_key=obs_raw_key,
+            output_key_list=[(obs_pose_key, 6), (obs_gripper_key, 1)],
+        ),
+        SplitKeys(
+            input_key=action_raw_key,
+            output_key_list=[(action_pose_key, 6), (action_gripper_key, 1)],
+        ),
+        RotVecPoseToYPR(pose_key=obs_pose_key, output_key=obs_pose_ypr_key),
+        BatchRotVecPoseToYPR(pose_key=action_pose_key, output_key=action_pose_ypr_key),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=action_pose_ypr_key,
+            output_action_key=action_pose_ypr_key,
+            stride=stride,
+            mode="xyzypr",
+        ),
+        InterpolateLinear(
+            new_chunk_length=chunk_length,
+            action_key=action_gripper_key,
+            output_action_key=action_gripper_key,
+            stride=stride,
+        ),
+        ConcatKeys(
+            key_list=[action_pose_ypr_key, action_gripper_key],
+            new_key_name=actions_key,
+            delete_old_keys=True,
+        ),
+        ConcatKeys(
+            key_list=[obs_pose_ypr_key, obs_gripper_key],
+            new_key_name=obs_key,
+            delete_old_keys=True,
+        ),
+        DeleteKeys(
+            keys_to_delete=[
+                obs_raw_key,
+                action_raw_key,
+                obs_pose_key,
+                action_pose_key,
+            ]
+        ),
+        NumpyToTensor(keys=[actions_key, obs_key]),
+    ]

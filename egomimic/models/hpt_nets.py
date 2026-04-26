@@ -7,11 +7,24 @@ import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 import torchvision
 from einops import rearrange, repeat
-from timm.models.layers import DropPath, trunc_normal_
-from timm.models.vision_transformer import VisionTransformer
 from torch import einsum
 from torchvision import transforms
-from transformers import T5Model, T5Tokenizer
+
+try:
+    from timm.models.layers import DropPath, trunc_normal_
+    from timm.models.vision_transformer import VisionTransformer
+except ModuleNotFoundError:  # pragma: no cover - depends on local env
+    class DropPath(nn.Identity):
+        pass
+
+    trunc_normal_ = torch.nn.init.trunc_normal_
+    VisionTransformer = None
+
+try:
+    from transformers import T5Model, T5Tokenizer
+except ModuleNotFoundError:  # pragma: no cover - only needed for language models
+    T5Model = None
+    T5Tokenizer = None
 
 from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table
 
@@ -658,6 +671,29 @@ class ResNet(PolicyStem):
         return feat
 
 
+class TinyConvImageEncoder(PolicyStem):
+    """Small image encoder for local smoke runs where full ResNet is unnecessary."""
+
+    def __init__(self, output_dim: int = 64, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.net = nn.Sequential(
+            nn.Conv2d(3, 16, kernel_size=5, stride=4, padding=2),
+            nn.SiLU(),
+            nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1),
+            nn.SiLU(),
+            nn.AdaptiveAvgPool2d((4, 4)),
+        )
+        self.proj = nn.Linear(32, output_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, *_, H, W = x.shape
+        x = x.view(-1, 3, H, W)
+        feat = self.net(x)
+        feat = feat.flatten(2).transpose(1, 2)
+        feat = self.proj(feat)
+        return feat.view(B, -1, feat.shape[-1])
+
+
 class T5Encoder(PolicyStem):
     def __init__(self, per_token=True, **kwargs) -> None:
         """T5 Encoder that expects pre-tokenized inputs
@@ -666,6 +702,8 @@ class T5Encoder(PolicyStem):
             per_token (bool): If True, return per-token embeddings. If False, return mean-pooled embeddings
         """
         super().__init__(**kwargs)
+        if T5Model is None:
+            raise ImportError("transformers is required to use T5Encoder")
         self.per_token = per_token
         self.encoder = T5Model.from_pretrained("t5-base").encoder
 
@@ -698,6 +736,8 @@ class T5Encoder(PolicyStem):
 
 def vit_base_patch16(checkpoint_path="output/mae_pretrain_vit_base.pth", **kwargs):
     # load pretrained weights to initialize vit model
+    if VisionTransformer is None:
+        raise ImportError("timm is required to use vit_base_patch16")
     model = VisionTransformer(
         patch_size=16,
         embed_dim=768,
@@ -939,6 +979,8 @@ class T5TokenizerWrapper:
             model_name (str): Name of the T5 model to use for tokenization
             max_length (int): Maximum sequence length for tokenization
         """
+        if T5Tokenizer is None:
+            raise ImportError("transformers is required to use T5TokenizerWrapper")
         self.tokenizer = T5Tokenizer.from_pretrained(model_name)
         self.max_length = max_length
 

@@ -6,12 +6,10 @@ from pathlib import Path
 
 import cv2
 import einops
-import huggingface_hub
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
-import pytorch_kinematics as pk
 import scipy
 import torch
 import torch.nn as nn
@@ -22,6 +20,16 @@ from scipy.spatial.transform import Rotation
 import egomimic
 
 STD_SCALE = 0.02
+
+try:
+    import huggingface_hub
+except ModuleNotFoundError:  # pragma: no cover - only needed for pretrained pulls
+    huggingface_hub = None
+
+try:
+    import pytorch_kinematics as pk
+except ModuleNotFoundError:  # pragma: no cover - only needed for robot IK utilities
+    pk = None
 
 ARIA_INTRINSICS = np.array(
     [
@@ -411,6 +419,8 @@ class EinOpsRearrange(nn.Module):
 
 
 def download_from_huggingface(huggingface_repo_id: str):
+    if huggingface_hub is None:
+        raise ImportError("huggingface_hub is required to download pretrained weights")
     folder = huggingface_hub.snapshot_download(huggingface_repo_id)
     return folder
 

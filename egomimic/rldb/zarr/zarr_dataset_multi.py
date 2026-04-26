@@ -31,7 +31,6 @@ from typing import Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
-import simplejpeg
 import torch
 import zarr
 
@@ -39,15 +38,31 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.utils.aws.aws_data_utils import load_env
-from egomimic.utils.aws.aws_sql import (
-    create_default_engine,
-    episode_table_to_df,
-)
+try:
+    from egomimic.utils.aws.aws_data_utils import load_env
+    from egomimic.utils.aws.aws_sql import (
+        create_default_engine,
+        episode_table_to_df,
+    )
+except ModuleNotFoundError:  # pragma: no cover - S3 resolver deps are optional
+    def load_env():
+        raise ImportError("AWS dependencies are required for S3EpisodeResolver")
+
+    def create_default_engine():
+        raise ImportError("AWS dependencies are required for S3EpisodeResolver")
+
+    def episode_table_to_df(engine):
+        raise ImportError("AWS dependencies are required for S3EpisodeResolver")
 
 logger = logging.getLogger(__name__)
 
 SEED = 42
+
+try:
+    import simplejpeg
+except ModuleNotFoundError:  # pragma: no cover - depends on local env
+    simplejpeg = None
+    import cv2
 
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
@@ -970,7 +985,16 @@ class ZarrDataset(torch.utils.data.Dataset):
                 jpeg_bytes = data[k]
                 # Decode JPEG bytes to numpy array (H, W, 3)
                 try:
-                    decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                    if simplejpeg is not None:
+                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                    else:
+                        decoded_bgr = cv2.imdecode(
+                            np.frombuffer(jpeg_bytes, dtype=np.uint8),
+                            cv2.IMREAD_COLOR,
+                        )
+                        if decoded_bgr is None:
+                            raise ValueError("cv2.imdecode returned None")
+                        decoded = cv2.cvtColor(decoded_bgr, cv2.COLOR_BGR2RGB)
                 except Exception:
                     origin = _fallback_origin if _fallback_origin is not None else idx
                     next_idx, attempts = get_fallback_idx(

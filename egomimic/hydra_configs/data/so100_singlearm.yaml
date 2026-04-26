@@ -1,0 +1,51 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  so100_singlearm:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:SO100_HPT_ZARR_ROOT,/Users/zxwang/repos/egoverse_so100_hpt_zarr}
+      key_map:
+        _target_: egomimic.rldb.embodiment.so100.So100SingleArm.get_keymap
+        mode: camera_frame_ypr
+      transform_list:
+        _target_: egomimic.rldb.embodiment.so100.So100SingleArm.get_transform_list
+        mode: camera_frame_ypr
+        chunk_length: 64
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'so100_singlearm'"
+    mode: total
+    valid_ratio: 0.0
+
+valid_datasets:
+  so100_singlearm:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:SO100_HPT_ZARR_ROOT,/Users/zxwang/repos/egoverse_so100_hpt_zarr}
+      key_map:
+        _target_: egomimic.rldb.embodiment.so100.So100SingleArm.get_keymap
+        mode: camera_frame_ypr
+      transform_list:
+        _target_: egomimic.rldb.embodiment.so100.So100SingleArm.get_transform_list
+        mode: camera_frame_ypr
+        chunk_length: 64
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'so100_singlearm'"
+    mode: total
+    valid_ratio: 0.0
+
+train_dataloader_params:
+  so100_singlearm:
+    batch_size: 2
+    num_workers: 0
+
+valid_dataloader_params:
+  so100_singlearm:
+    batch_size: 2
+    num_workers: 0

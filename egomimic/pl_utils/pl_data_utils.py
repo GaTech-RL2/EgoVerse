@@ -6,7 +6,11 @@ from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
-from transformers import AutoTokenizer
+
+try:
+    from transformers import AutoTokenizer
+except ModuleNotFoundError:  # pragma: no cover - tokenizer only needed on request
+    AutoTokenizer = None
 
 logger = logging.getLogger(__name__)
 
@@ -287,6 +291,8 @@ def build_tokenized_collate(
 ):
     """Return a collate_fn closure that tokenizes the annotations field."""
 
+    if AutoTokenizer is None:
+        raise ImportError("transformers is required when use_tokenizer=True")
     tok = AutoTokenizer.from_pretrained(model_name)
 
     def _collate(batch):

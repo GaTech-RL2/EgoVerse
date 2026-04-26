@@ -5,7 +5,11 @@ import sys
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from egomimic.utils.scale_utils import build_df_from_tasks, get_completed_tasks
+try:
+    from egomimic.utils.scale_utils import build_df_from_tasks, get_completed_tasks
+except ModuleNotFoundError:  # pragma: no cover - Scale filters are optional
+    build_df_from_tasks = None
+    get_completed_tasks = None
 
 
 class DatasetFilter:
@@ -43,6 +47,8 @@ class ScaleAnnotationDatasetFilter(DatasetFilter):
     def __init__(
         self, project_name: str, filter_lambdas: Sequence[str] | None = None
     ) -> None:
+        if build_df_from_tasks is None or get_completed_tasks is None:
+            raise ImportError("scaleapi is required to use ScaleAnnotationDatasetFilter")
         self.project_name = project_name
         self.api_key = os.environ["SCALE_API_KEY"]
         self.tasks = get_completed_tasks(self.project_name, self.api_key)

@@ -32,6 +32,7 @@ class EMBODIMENT(Enum):
     SCALE_BIMANUAL = 12
     SCALE_RIGHT_ARM = 13
     SCALE_LEFT_ARM = 14
+    SO100_SINGLEARM = 15
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
@@ -137,8 +138,18 @@ class Embodiment(ABC):
         )
 
     @classmethod
-    def get_keymap(cls, keymap_mode: str, norm_mode: bool = False, annotation_key=None):
+    def get_keymap(
+        cls,
+        keymap_mode: str | None = None,
+        norm_mode: bool = False,
+        annotation_key=None,
+        mode: str | None = None,
+    ):
         """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
+        if keymap_mode is None:
+            keymap_mode = mode
+        if keymap_mode is None:
+            raise ValueError("keymap_mode or mode must be provided")
         key_map = cls._get_keymap(keymap_mode)
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {

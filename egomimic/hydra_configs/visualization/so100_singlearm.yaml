@@ -1,0 +1,6 @@
+so100_singlearm:
+  _target_: egomimic.rldb.embodiment.so100.So100SingleArm.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_cartesian
+  mode: traj

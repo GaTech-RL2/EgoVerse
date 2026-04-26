@@ -6,11 +6,30 @@ import einops
 import numpy as np
 import torch
 import torch.nn as nn
-from geomloss import SamplesLoss
-from overrides import override
 from termcolor import cprint
-from torchmetrics import MeanSquaredError
-from tslearn.metrics import SoftDTWLossPyTorch
+
+try:
+    from geomloss import SamplesLoss
+except ModuleNotFoundError:  # pragma: no cover - only needed for OT training
+    SamplesLoss = None
+
+try:
+    from tslearn.metrics import SoftDTWLossPyTorch
+except ModuleNotFoundError:  # pragma: no cover - only needed for DTW OT training
+    SoftDTWLossPyTorch = None
+
+try:
+    from overrides import override
+except ModuleNotFoundError:  # pragma: no cover - cosmetic decorator fallback
+    def override(fn):
+        return fn
+
+try:
+    from torchmetrics import MeanSquaredError
+except ModuleNotFoundError:  # pragma: no cover - eval logging fallback
+    class MeanSquaredError:
+        def __call__(self, pred, target):
+            return torch.mean((pred - target) ** 2)
 
 from egomimic.algo.algo import Algo
 from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
@@ -482,6 +501,8 @@ class HPTModel(nn.Module):
         return proc_tokens, block_outputs
 
     def init_dtw(self):
+        if SoftDTWLossPyTorch is None:
+            raise ImportError("tslearn is required for DTW loss")
         self.dtw = SoftDTWLossPyTorch(gamma=0.1)
         self.use_dtw = True
 
@@ -536,6 +557,8 @@ class HPTModel(nn.Module):
         tokens2 = tokens2.reshape(tokens1.shape[0], -1)
 
         if not supervised:
+            if SamplesLoss is None:
+                raise ImportError("geomloss is required for OT loss")
             ot_loss_fn = SamplesLoss("sinkhorn", p=2, blur=0.05, truncate=18)
             ot_loss = ot_loss_fn(tokens2, tokens1)
             avg_feature_dist = torch.norm(tokens2 - tokens1, dim=-1).mean()
@@ -567,6 +590,8 @@ class HPTModel(nn.Module):
 
             custom_cost_fn = self.make_custom_cost(W)
 
+            if SamplesLoss is None:
+                raise ImportError("geomloss is required for OT loss")
             ot_loss_fn = SamplesLoss(
                 loss="sinkhorn", p=2, blur=0.05, cost=custom_cost_fn, truncate=18
             )

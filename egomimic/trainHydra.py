@@ -250,7 +250,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             model=model,
             datamodule=datamodule,
             ckpt_path=cfg.get("ckpt_path"),
-            weights_only=False,
         )
     elif mode == "eval":
         eval_obj.trainer = trainer
