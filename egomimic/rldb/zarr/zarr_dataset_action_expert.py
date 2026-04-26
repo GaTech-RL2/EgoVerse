@@ -5,8 +5,7 @@ Sampling scheme:
   1. Sample a timestep t uniformly over the full episode (v_t).
   2. Use span annotations to find the enclosing annotation's
      BOS (begin-of-segment) and EOS (end-of-segment) frame indices.
-  3. Load the BOS observation (image + language) and the current
-     observation (image + language) at t.
+  3. Load BOS, t, and EOS observations (image + language).
   4. Load actions a_t : a_EOS as the action-expert supervision target.
 """
 
@@ -39,11 +38,12 @@ __all__ = [
 _OBS_KEY_TYPES = {"camera_keys", "proprio_keys"}
 
 
-def _obs_key_pair(key: str) -> tuple[str, str]:
-    """Return (bos_key, t_key) for an observation key."""
+def _obs_key_triple(key: str) -> tuple[str, str, str]:
+    """Return (bos_key, t_key, eos_key) for an observation key."""
     if key.endswith("_1"):
-        return key, key[:-2] + "_t"
-    return key + "_1", key + "_t"
+        base = key[:-2]
+        return key, base + "_t", base + "_T"
+    return key + "_1", key + "_t", key + "_T"
 
 
 class ZarrActionExpertDataset(ZarrDataset):
@@ -141,8 +141,8 @@ class ZarrActionExpertDataset(ZarrDataset):
         """Returns a single action-expert sample.
 
         Output keys:
-          - Obs (camera/proprio): <key>_1 (BOS frame), <key>_t (frame t)
-          - Annotations:          <key>_1 (BOS), <key>_t (frame t)
+          - Obs (camera/proprio): <key>_1 (BOS), <key>_t (frame t), <key>_T (EOS)
+          - Annotations:          <key>_1 (BOS), <key>_t (frame t), <key>_T (EOS)
           - Actions:              <key>  (t..EOS, padded to horizon)
         """
         t = self._valid_frame_indices[index]
@@ -154,16 +154,18 @@ class ZarrActionExpertDataset(ZarrDataset):
             for k, spec in self.key_map.items():
                 zarr_key = spec["zarr_key"]
                 key_type = spec.get("key_type")
-                bos_key, t_key = _obs_key_pair(k)
+                bos_key, t_key, eos_key = _obs_key_triple(k)
 
                 if key_type == "annotation_keys":
                     data[bos_key] = self._annotation_text_for_frame(bos)
                     data[t_key] = self._annotation_text_for_frame(t)
+                    data[eos_key] = self._annotation_text_for_frame(eos)
                 elif key_type == "action_keys":
                     data[k] = self._load_actions(zarr_key, t, eos, spec.get("horizon"))
-                else:  # camera_keys / proprio_keys: sample twice (BOS and t).
+                else:  # camera_keys / proprio_keys: sample BOS, t, and EOS.
                     data[bos_key] = self._load_obs_at(zarr_key, bos)
                     data[t_key] = self._load_obs_at(zarr_key, t)
+                    data[eos_key] = self._load_obs_at(zarr_key, eos)
 
             # Transforms expect obs at the canonical key (not <key>_t), so
             # alias <key>_t -> <key> for the pass and drop afterward.
@@ -171,7 +173,7 @@ class ZarrActionExpertDataset(ZarrDataset):
             if self.transform:
                 for k, spec in self.key_map.items():
                     if spec.get("key_type") in _OBS_KEY_TYPES:
-                        _, t_key = _obs_key_pair(k)
+                        _, t_key, _ = _obs_key_triple(k)
                         if t_key in data:
                             data[k] = data[t_key]
                             aliases.append(k)
