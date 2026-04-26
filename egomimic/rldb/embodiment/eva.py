@@ -94,6 +94,28 @@ class Eva(Embodiment):
 
         return key_map
 
+    @classmethod
+    def dinov3_keymap(cls):
+        """
+        Compact keymap for alignment training: cartesian action chunk, the
+        DINOv3 image embedding produced by the embedding_process pipeline, and
+        the language annotation track.
+        """
+        return {
+            "actions_cartesian": {
+                "key_type": "action_keys",
+                "zarr_key": "actions_cartesian",
+            },
+            "dino_front_1": {
+                "key_type": "proprio_keys",
+                "zarr_key": "dino.front_img_1",
+            },
+            "annotations": {
+                "key_type": "annotation_keys",
+                "zarr_key": "annotations",
+            },
+        }
+
 
 def _build_eva_bimanual_revert_eef_frame_transform_list(
     *,
