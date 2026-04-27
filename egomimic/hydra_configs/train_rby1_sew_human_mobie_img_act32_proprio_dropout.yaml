@@ -21,12 +21,21 @@ defaults:
   - _self_
 
 name: RBY1_sew_human_mobie_img_act32_proprio_dropout_push_cart
-# No commas in description: wandb id = name + description + timestamp (see logger/wandb.yaml id:)
-description: "proprio dropout hand0.6 joint0.4+noise0.01 april0.1"
+# No commas in description: wandb id = name + description (see logger/wandb.yaml id:)
+description: "proprio_dropout_hand0.6_joint0.4+noise0.01_april0.1"
+
+# Stable output dir (no timestamp) so SLURM requeues find last.ckpt in the same place.
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
 
 logger:
   wandb:
     project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
 
 data_schematic:
   _target_: egomimic.rldb.utils.DataSchematic

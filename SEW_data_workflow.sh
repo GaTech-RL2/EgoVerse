@@ -2,8 +2,10 @@
 source /coc/flash7/zhenyang/EgoVerse/emimic/bin/activate
 
 # Define the base name for this dataset (unified naming)
-DATASET_NAME="RBY1_0418_rotatebox"
-RAW_DATA_PATH="../datasets/0418_ye_rotatebox_raw/robot_data_0418_rotate_no_mobile.hdf5"
+# DATASET_NAME="RBY1_0418_rotatebox"
+# RAW_DATA_PATH="../datasets/0418_ye_rotatebox_raw/robot_data_0418_rotate_no_mobile.hdf5"
+DATASET_NAME="RBY1_0423_cart_mobile_v6"
+RAW_DATA_PATH="../datasets/0423_zhenyang_pushing_cart/0423_v6/robot_data_0423_cart_mobile_fix_aprtag_v6.hdf5" # 0423_converted/robot_data_0423_cart_mobile_v3.hdf5"
 BLACK_IMAGE=true
 FPS=10
 

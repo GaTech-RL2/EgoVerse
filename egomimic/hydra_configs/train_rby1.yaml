@@ -1,0 +1,101 @@
+# ── RBY1 training template ────────────────────────────────────────────────────
+#
+# Copy this file and fill in the four TODOs to launch a new RBY1 experiment.
+# Everything else has safe defaults drawn from the current best-known config.
+#
+# Naming rules (wandb + SLURM):
+#   - name:        dataset identifier, set on CLI via name=${DATASET} in sbatch
+#   - description: experiment variant, no spaces (use underscores), no commas,
+#                  keep total len(name) + len(description) < 100 chars
+#                  (wandb run ID = name_description, limit is 128 chars)
+#
+# SLURM requeue: output dir is stable (no timestamp) so last.ckpt is always
+# found at the same path on restart. wandb resume:allow continues the same run.
+
+defaults:
+  - train                          # base trainer/logger/callback/path defaults
+  - override /model: ???           # TODO 1: model config under hydra_configs/model/
+  - override /data: ???            # TODO 2: data config under hydra_configs/data/
+  - _self_                         # this file's keys win over defaults above
+
+# ── Experiment identity ────────────────────────────────────────────────────────
+
+# TODO 3: set name on the CLI (sbatch does: name=${DATASET}), or hardcode here.
+name: RBY1_CHANGE_ME
+
+# TODO 4: short description of the model/augmentation variant being tested.
+# No spaces — underscores only. This + name forms the wandb run ID and log path.
+description: "CHANGE_ME"
+
+# ── Output dir: stable across SLURM requeues ──────────────────────────────────
+# Hydra default appends a timestamp, creating a new dir on each restart so
+# last.ckpt is never found. Overriding here gives a fixed path:
+#   logs/${name}/${description}/checkpoints/last.ckpt
+# On requeue, trainHydra.py detects SLURM_RESTART_COUNT > 0 and loads it.
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logger:
+  wandb:
+    project: sew_policy            # wandb project to log into
+    id: "${name}_${description}"   # stable ID (no timestamp) so requeued runs
+    resume: "allow"                # continue the same wandb run, not a new one
+
+# ── Data schematic ────────────────────────────────────────────────────────────
+# Maps each dataset column (lerobot_key) to a batch key the model sees.
+# key_type controls normalization and routing:
+#   camera_keys   → ResNet encoder, no normalization
+#   proprio_keys  → MLP stem, quantile-normalized to [-1, 1]
+#   action_keys   → diffusion head target, quantile-normalized
+#   metadata_keys → passed through as-is (embodiment int ID)
+#
+# Keys listed here but absent from the dataset emit a warning and are skipped.
+# Keys listed in the model's stem_specs but absent here are silently ignored.
+# The DataSchematic (with norm stats) is baked into the .ckpt at save time —
+# editing this after training has no effect on inference.
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile              # quantile maps to [-1,1]; alt: minmax, zscore
+  schematic_dict:
+    rby1:
+      # ── Camera inputs ────────────────────────────────────────────────────
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image       # Aria SLAM camera (fisheye, cropped)
+
+      # ── Proprioception inputs ─────────────────────────────────────────────
+      april_tag_xyz:
+        key_type: proprio_keys
+        lerobot_key: obs.april_tag_xyz    # 3D tag position; real uncertainty → noise_std=0.1 in stem
+
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos   # 12-dim left hand joint pos
+
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos  # 12-dim right hand joint pos
+
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel  # 22-dim arm+torso+head (wheels excluded)
+
+      # ── Action target ─────────────────────────────────────────────────────
+      # 49-dim concatenation: base(3) | torso(6) | head(2) | l_arm(7) | r_arm(7) | l_hand(12) | r_hand(12)
+      # See CLAUDE.md "Action Vector Layout" for full breakdown.
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+
+      # ── Metadata ──────────────────────────────────────────────────────────
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment  # integer ID; EMBODIMENT.RBY1 = 12
+
+  # Key used to pull a camera frame for validation visualizations
+  viz_img_key:
+    rby1: front_img_1
