@@ -884,6 +884,10 @@ class HPT(Algo):
     ):
         self.nets = nn.ModuleDict()
         self.data_schematic = data_schematic
+        # Maps an RGB cam_key → its paired depth batch key.
+        # When set, _robomimic_to_hpt_data concatenates depth onto RGB (→ 4-ch RGBD)
+        # before passing to the encoder. Populated from the model YAML via kwargs.
+        self._depth_key_map = kwargs.get("depth_key_map", {})
 
         self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
@@ -1483,7 +1487,15 @@ class HPT(Algo):
         for key in cam_keys:
             if key in batch:
                 _data = batch[key]
-                if not torch.all(_data == 0):
+                # Concatenate paired depth to form 4-channel RGBD if configured.
+                # depth_key_map is set via the model YAML (e.g. {front_img_1: front_depth_1}).
+                depth_key = self._depth_key_map.get(key)
+                if depth_key and depth_key in batch:
+                    depth = batch[depth_key]
+                    if depth.dim() == 3:       # [B, H, W] → [B, 1, H, W]
+                        depth = depth.unsqueeze(1)
+                    _data = torch.cat([_data, depth], dim=1)  # [B, 4, H, W]
+                elif not torch.all(_data == 0):
                     if self.nets.training and key in self.encoders:
                         _data = self.train_image_augs(_data)
                     elif self.eval_image_augs and key in self.encoders:

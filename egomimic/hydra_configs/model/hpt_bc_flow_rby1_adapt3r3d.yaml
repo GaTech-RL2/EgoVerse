@@ -1,0 +1,152 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hpt.HPT
+  data_schematic: _${data.dataset.data_schematic}
+
+  diffusion: true
+  6dof: true
+
+  ac_keys:
+    rby1: "actions"
+
+  # Maps RGB cam_key → paired depth batch key.
+  # _robomimic_to_hpt_data will concatenate depth onto RGB → 4-channel RGBD
+  # before passing to the Adapt3R3DEncoder.
+  depth_key_map:
+    front_img_1: front_depth_1
+
+  trunk:
+    embed_dim: 256
+    num_blocks: 16
+    num_heads: 8
+    token_postprocessing: "action_token"
+    observation_horizon: 1
+    action_horizon: 10
+    no_trunk: false
+    use_domain_embedding: true
+    drop_path: 0.1
+    weight_init_style: "pytorch"
+    proprio_dropout_p: 0.0
+
+  multitask: false
+  pretrained: false
+  pretrained_checkpoint: ""
+  reverse_kl_samples: 8
+
+  domains: ["rby1"]
+  shared_obs_keys: ["front_img_1"]
+
+  # Stem unchanged: MLPPolicyStem cross-attention expands the single 3D token
+  # (output_dim=256 from Adapt3R3DEncoder) → 16 trunk tokens.
+  # input_dim must equal encoder output_dim.
+  shared_stem_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 256
+      output_dim: 256
+      widths: [256]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 8
+          crossattn_dim_head: 64
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 256
+
+  stem_specs:
+    rby1:
+      state_robot0_joint_pos:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 26
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          proprio_dropout_p: 0.0
+          noise_std: 0.0
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+
+  head_specs:
+    rby1:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 10
+      num_inference_steps: 50
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        rby1: 49
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 49
+        act_seq: 10
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.adapt3r_3d_encoder.Adapt3R3DEncoder
+      output_dim: 256        # must equal shared_stem_specs.front_img_1.input_dim
+      hidden_dim: 60         # 60 % 6 == 0 required for NeRF encoding
+      num_points: 512        # FPS target (Adapt3R default)
+      do_pos: true           # include NeRF-encoded XYZ positions
+      do_image: true         # include RGB backbone features
+      do_rgb: false          # skip raw RGB (usually not needed)
+      finetune_backbone: false  # frozen ResNet18 (set true to fine-tune)
+      # ---------------------------------------------------------------
+      # RBY1 aria camera calibration — fill in actual values.
+      # intrinsics: 3x3 pinhole K matrix [[fx,0,cx],[0,fy,cy],[0,0,1]]
+      # extrinsics: 4x4 cam-to-world transform (identity = camera frame)
+      # ---------------------------------------------------------------
+      intrinsics:
+        - [600.0, 0.0, 64.0]   # TODO: replace with actual fx, cx for aria camera
+        - [0.0, 600.0, 64.0]   # TODO: replace with actual fy, cy
+        - [0.0, 0.0, 1.0]
+      extrinsics:
+        - [1.0, 0.0, 0.0, 0.0]
+        - [0.0, 1.0, 0.0, 0.0]
+        - [0.0, 0.0, 1.0, 0.0]
+        - [0.0, 0.0, 0.0, 1.0]
+
+  # Image augs are NOT applied when depth_key_map is active for a key
+  # (the RGBD concat path bypasses the aug pipeline).
+  # Normalisation for the RGB channels is handled inside Adapt3R3DEncoder.
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1e-5

@@ -100,6 +100,9 @@ data_schematic: # Dynamically fill in these shapes from the dataset
       front_img_1:
         key_type: camera_keys
         lerobot_key: obs.aria_image
+      front_depth_1:
+        key_type: metadata_keys      # passes through to batch but skips normalization
+        lerobot_key: obs.aria_depth  # adjust to actual lerobot depth key name
       hand_left_qpos:
         key_type: proprio_keys
         lerobot_key: obs.hand_left_qpos
