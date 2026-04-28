@@ -1,0 +1,68 @@
+# Train config: proprio dropout + noise augmentation on RBY1_0418_rotatebox_human dataset.
+# Uses the delta action vector `actions.delta_joint_base_torso_head_arm_hand`.
+#
+# Motivation: BC policy overfits to proprio (joint pos, hand qpos) and ignores image / april tag.
+# Augmentation strategy (applied in normalized space, training only):
+#   - state_hand_left_qpos:    dropout p=0.6  (no noise - hand pose is high-level, noise less motivated)
+#   - state_hand_right_qpos:   dropout p=0.6
+#   - state_robot0_joint_pos:  dropout p=0.4, noise_std=0.01  (smooth signal, light noise)
+#   - state_april_tag_xyz:     noise_std=0.1  (position estimate has real uncertainty; no dropout
+#                              so the model always gets a visual anchor for task context)
+#   - front_img_1:             no augmentation via proprio dropout (camera modality, not affected)
+#
+# Assumptions:
+#   - norm_mode=quantile maps raw data to [-1, 1]; noise_std values are in that space.
+#   - Dropout uses a per-key learned null token (nn.Parameter, init=0, trained end-to-end).
+#   - Noise is applied before dropout so dropped samples receive the null token, not noisy values.
+#   - All augmentations are gated by model.training; eval/inference is unaffected.
+defaults:
+  - train
+  - override /model: experiments/rby1_0416/rby1_0416_img_aria_apriltag_robot0_no_wheel_bihand_base_torso_head_arm_hand_act32_proprio_dropout_mobile_delta
+  - override /data: experiments/rby1_0416/rby1_0423_push_cart_human_act32_base_torso_head_arm_hand_delta
+  - _self_
+
+name: RBY1_sew_human_mobie_img_act32_proprio_dropout_push_cart_delta
+# No commas in description: wandb id = name + description (see logger/wandb.yaml id:)
+description: "proprio_dropout_hand0.6_joint0.4+noise0.01_april0.1_delta"
+
+# Stable output dir (no timestamp) so SLURM requeues find last.ckpt in the same place.
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+logger:
+  wandb:
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      april_tag_xyz:
+        key_type: proprio_keys
+        lerobot_key: obs.april_tag_xyz
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.delta_joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1

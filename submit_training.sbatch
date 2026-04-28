@@ -28,8 +28,13 @@ nvidia-smi
 ################## MOBILE: PUSH CART experiments ######
 # DATASET=RBY1_human_data_0423_push_cart
 DATASET=RBY1_0423_cart_mobile_v6_human_data
+# CONFIG=train_rby1_sew_human_mobie_img_act32_proprio_dropout # vanilla config with proprio dropout
+# CONFIG=experiments/ablations/train_rby1_ablation_apriltag_only # ablation: only april tag as proprio input, no robot joint pos or hand qpos. See egomimic/hydra_configs/model/experiments/ablations/rby1_0416_img_aria_apriltag_only_act32_proprio_dropout_mobile.yaml
+# CONFIG=experiments/ablations/train_rby1_ablation_robot_only # ablation: only robot joint pos as proprio input, no april tag or hand qpos. See egomimic/hydra_configs/model/experiments/ablations/rby1_0416_img_aria_robot_only_act32_proprio_dropout_mobile.yaml
+DATASET=RBY1_0423_cart_mobile_v6_delta_human_data
+CONFIG=train_rby1_sew_human_mobie_img_act32_proprio_dropout_delta #  ablation: delta actions compared to vanilla
 CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
-        --config-name=train_rby1_sew_human_mobie_img_act32_proprio_dropout \
+        --config-name=${CONFIG} \
         name=${DATASET} \
         data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
         data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}

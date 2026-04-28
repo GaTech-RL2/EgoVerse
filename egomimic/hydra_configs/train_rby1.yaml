@@ -45,6 +45,42 @@ logger:
     id: "${name}_${description}"   # stable ID (no timestamp) so requeued runs
     resume: "allow"                # continue the same wandb run, not a new one
 
+# ── Model overrides: compact low-dimensional state latents ───────────────────
+# These override the selected /model config without editing the model file.
+# Image tokens stay at 16 in the model config; low-dimensional proprio/state
+# streams use fewer latent query tokens because they have very few context tokens.
+robomimic_model:
+  stem_specs:
+    rby1:
+      state_april_tag_xyz:
+        widths: [128]
+        specs:
+          cross_attn:
+            crossattn_latent: 1
+            crossattn_heads: 2
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.0
+      state_robot0_joint_pos:
+        specs:
+          cross_attn:
+            crossattn_latent: 2
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+      state_hand_left_qpos:
+        widths: [128]
+        specs:
+          cross_attn:
+            crossattn_latent: 1
+            crossattn_heads: 2
+            crossattn_dim_head: 32
+      state_hand_right_qpos:
+        widths: [128]
+        specs:
+          cross_attn:
+            crossattn_latent: 1
+            crossattn_heads: 2
+            crossattn_dim_head: 32
+
 # ── Data schematic ────────────────────────────────────────────────────────────
 # Maps each dataset column (lerobot_key) to a batch key the model sees.
 # key_type controls normalization and routing:
