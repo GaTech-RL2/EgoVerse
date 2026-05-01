@@ -498,6 +498,55 @@ The `embodiment` field in the DB row and in `zarr.attrs` must be one of the foll
 
 **If your hardware is not in this list**, contact the consortium leads to register a new embodiment identifier before submitting data.
 
+### 8.1 Registering an Embodiment Class
+
+Each embodiment is also represented by a Python class in [`egomimic/rldb/embodiment/`](egomimic/rldb/embodiment/). Add a subclass of `Human` (or `Embodiment` for robots) that declares your camera intrinsics, extrinsics, and the transform/keymap pipeline to use. Most new human contributors can simply delegate to `Aria`'s implementation.
+
+Add your intrinsics constant and class to [`egomimic/rldb/embodiment/human.py`](egomimic/rldb/embodiment/human.py):
+
+```python
+LIGHTWHEEL_INTRINSICS = np.array(
+    [
+        [786.6216072, 0.0, 960.0, 0],
+        [0.0, 786.6216072, 728.0, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
+
+
+class LightWheel(Human):
+    INTRINSICS = LIGHTWHEEL_INTRINSICS
+    EXTRINSICS = None
+    ACTION_STRIDE = 3
+
+    @classmethod
+    def get_transform_list(
+        cls,
+        mode: Literal[
+            "cartesian",
+            "keypoints_headframe_ypr",
+            "keypoints_headframe_quat",
+            "keypoints_wristframe_ypr",
+            "keypoints_wristframe_quat",
+        ],
+    ) -> list[Transform]:
+        if mode == "cartesian":
+            return Aria.get_transform_list(mode="cartesian")
+
+    @classmethod
+    def _get_keymap(
+        cls,
+        keymap_mode: Literal["cartesian", "keypoints"],
+    ):
+        return Aria._get_keymap(keymap_mode=keymap_mode)
+```
+
+Notes:
+- `INTRINSICS` is the camera matrix used to project poses/keypoints back into pixels for visualization. Provide it as a 3×4 matrix (last column zeros) using your camera's intrinsic parameters.
+- `EXTRINSICS = None` is appropriate for head-mounted egocentric setups (pose data is already in the SLAM/head frame). Provide a `{"left": M, "right": M}` dict only if your data is in a separate camera frame and needs an explicit base→camera transform.
+- `ACTION_STRIDE` is the temporal stride used when constructing action chunks (typically `3` for ~30 fps egocentric data).
+- Delegating `get_transform_list` and `_get_keymap` to `Aria` is the recommended starting point for any human contributor whose Zarr layout follows §5 — it gives you the canonical head-frame normalization pipeline for free.
+
 ---
 
 ## 9. Uploading to S3
@@ -767,6 +816,16 @@ Expected output for a valid Aria bimanual episode in cartesian mode:
 - `observations.state.ee_pose`: `(B, 12)` — current EEF poses, 6 DOF × 2 arms
 - `observations.images.front_img_1`: `(B, 3, H, W)` — normalized RGB in `[0, 1]`
 
+### 10.3 Visual Verification
+
+After your embodiment class is registered (§8.1) and the load test passes, visually inspect a sample episode using [`egomimic/scripts/tutorials/zarr_data_viz.ipynb`](egomimic/scripts/tutorials/zarr_data_viz.ipynb) — follow the **Aria example** in that notebook and substitute your own embodiment class (e.g. `LightWheel`) and an episode hash from your contribution. The notebook overlays projected end-effector / keypoint trajectories on the egocentric image using `cls.INTRINSICS`, so misconfigured intrinsics, extrinsics, or coordinate frames will be immediately obvious as misaligned overlays. Confirm:
+
+- Trajectories project onto the hands/end-effectors in-frame (not floating off-screen or stuck at the principal point).
+- Left/right arms are not swapped.
+- Keypoints (if present) form anatomically plausible hand skeletons.
+
+Do not upload an episode whose visualization is visibly misaligned.
+
 ---
 
 ## 11. Pre-Submission Checklist
@@ -785,6 +844,8 @@ Complete every item before considering an episode ready for upload.
 - [ ] `features` dict in `zarr.attrs` has one entry per array key.
 - [ ] `embodiment` and `task_name` in `zarr.attrs` match the DB row values.
 - [ ] All episode succeeds on zarr validation check code
+- [ ] An embodiment class is registered in `egomimic/rldb/embodiment/` (§8.1).
+- [ ] A sample episode has been visually verified via `zarr_data_viz.ipynb` (§10.3).
 
 **Coordinate frames**
 - [ ] All poses are in the SLAM world frame (not head frame, not camera frame).
