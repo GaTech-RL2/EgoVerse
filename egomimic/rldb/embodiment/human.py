@@ -59,6 +59,14 @@ MECKA_INTRINSICS = np.array(
     [[_fx, 0.0, _cx, 0], [0.0, _fy, _cy, 0], [0.0, 0.0, 1.0, 0]], dtype=np.float64
 )
 
+LIGHTWHEEL_INTRINSICS = np.array(
+    [
+        [786.6216072, 0.0, 960.0, 0],
+        [0.0, 786.6216072, 728.0, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
+
 ARIA_T_RGB_CPF = np.array(
     [
         [-0.99989084, 0.01251132, -0.00786028, 0.05686918],
@@ -355,6 +363,31 @@ class Aria(Human):
                     "zarr_key": "obs_head_pose",
                 },
             }
+
+class LightWheel(Human):
+    INTRINSICS = LIGHTWHEEL_INTRINSICS
+    EXTRINSICS = None
+    ACTION_STRIDE = 3
+
+    @classmethod
+    def get_transform_list(
+        cls,
+        mode: Literal["cartesian",
+            "keypoints_headframe_ypr",
+            "keypoints_headframe_quat",
+            "keypoints_wristframe_ypr",
+            "keypoints_wristframe_quat"],
+    ) -> list[Transform]:
+        if mode == "cartesian":
+            return Aria.get_transform_list(mode="cartesian")
+    
+    @classmethod
+    def _get_keymap(
+        cls,
+        keymap_mode: Literal["cartesian", "keypoints"],
+    ):
+        return Aria._get_keymap(keymap_mode=keymap_mode)
+
 
 class Scale(Human):
     INTRINSICS = SCALE_INTRINSICS
