@@ -36,4 +36,4 @@ norm_stats:
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
-reject_outliers: true
+reject_outliers: false
