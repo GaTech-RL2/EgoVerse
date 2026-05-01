@@ -831,7 +831,6 @@ class HPT(Algo):
         self.annotation_modality = annotation_modality
         self.default_prompt = default_prompt
 
-        self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
         self.eval_image_augs = eval_image_augs
         self.stem_specs = stem_specs

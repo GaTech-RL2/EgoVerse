@@ -22,6 +22,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 )
 from egomimic.utils.viz_utils import (
     ColorPalette,
+    _viz_gaze,
     _viz_keypoints,
 )
 
@@ -145,7 +146,28 @@ class Aria(Human):
     INTRINSICS = ARIA_INTRINSICS
     INTRINSICS_HALF = ARIA_INTRINSICS_HALF
     EXTRINSICS = {"left": np.eye(4), "right": np.eye(4)}
+    T_RGB_CPF = ARIA_T_RGB_CPF
     ACTION_STRIDE = 3
+
+    @classmethod
+    def viz(
+        cls,
+        image,
+        viz_data,
+        mode=Literal[
+            "traj", "traj+rotation", "axes", "annotations", "keypoints", "gaze"
+        ],
+        **kwargs,
+    ):
+        if mode == "gaze":
+            return _viz_gaze(
+                image=image,
+                gaze_data=viz_data,
+                intrinsics=cls.INTRINSICS,
+                t_rgb_cpf=cls.T_RGB_CPF,
+                **kwargs,
+            )
+        return super().viz(image, viz_data, mode=mode, **kwargs)
     FINGER_EDGES = [
         (
             5,

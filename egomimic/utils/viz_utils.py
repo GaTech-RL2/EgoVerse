@@ -6,6 +6,8 @@ from scipy.spatial.transform import Rotation as R
 from egomimic.utils.egomimicUtils import (
     cam_frame_to_cam_pixels,
     draw_actions,
+    draw_dot_on_frame,
+    get_gaze_endpoint,
 )
 from egomimic.utils.pose_utils import _split_action_pose, _split_keypoints
 
@@ -263,6 +265,30 @@ def _viz_axes(image, actions, intrinsics, axis_len_m=0.04, **kwargs):
     if alpha < 1.0:
         vis = cv2.addWeighted(vis, alpha, base, 1.0 - alpha, 0)
     return vis
+
+
+def _viz_gaze(
+    image,
+    gaze_data,
+    intrinsics,
+    t_rgb_cpf,
+    palette="Purples",
+    dot_size=8,
+    no_gaze_sentinel=-100,
+    **kwargs,
+):
+    """Project the gaze endpoint (yaw, pitch, depth in CPF) onto the image."""
+    image = _prepare_viz_image(image)
+    gaze = np.asarray(gaze_data).reshape(-1)
+    if gaze.size < 3 or float(gaze[0]) == float(no_gaze_sentinel):
+        return image.copy()
+
+    yaw, pitch, depth = float(gaze[0]), float(gaze[1]), float(gaze[2])
+    endpoint_cam = get_gaze_endpoint(yaw, pitch, depth, t_rgb_cpf)[None, :]
+    pixel = cam_frame_to_cam_pixels(endpoint_cam, intrinsics)
+    return draw_dot_on_frame(
+        image.copy(), pixel, show=False, palette=palette, dot_size=dot_size
+    )
 
 
 def _viz_keypoints(
