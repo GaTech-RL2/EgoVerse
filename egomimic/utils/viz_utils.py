@@ -4,7 +4,6 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.utils.egomimicUtils import (
-    INTRINSICS,
     cam_frame_to_cam_pixels,
     draw_actions,
 )
@@ -139,14 +138,13 @@ def _viz_rotation_txt(image, actions, **kwargs):
     return vis
 
 
-def _viz_traj(image, actions, intrinsics_key, **kwargs):
+def _viz_traj(image, actions, intrinsics, **kwargs):
     color = kwargs.get("color", "Blues")
     alpha = kwargs.get("alpha", 1.0)
     if not ColorPalette.is_valid(color):
         raise ValueError(f"Invalid color palette: {color}")
 
     image = _prepare_viz_image(image)
-    intrinsics = INTRINSICS[intrinsics_key]
     left_xyz, _, right_xyz, _ = _split_action_pose(actions)
 
     base = image.copy()
@@ -175,10 +173,9 @@ def _viz_traj(image, actions, intrinsics_key, **kwargs):
     return vis
 
 
-def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
+def _viz_axes(image, actions, intrinsics, axis_len_m=0.04, **kwargs):
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
-    intrinsics = INTRINSICS[intrinsics_key]
     left_xyz, left_ypr, right_xyz, right_ypr = _split_action_pose(actions)
     base = image.copy()
     vis = base.copy()
@@ -271,7 +268,7 @@ def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
 def _viz_keypoints(
     image,
     actions,
-    intrinsics_key,
+    intrinsics,
     edges,
     colors,
     edge_ranges,
@@ -281,8 +278,6 @@ def _viz_keypoints(
     """Visualize all 21 MANO keypoints per hand, projected onto the image."""
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
-
-    intrinsics = INTRINSICS[intrinsics_key]
 
     base = image.copy()
     vis = base.copy()

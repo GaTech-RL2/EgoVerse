@@ -3,6 +3,8 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Literal
 
+import numpy as np
+
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
@@ -21,6 +23,48 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 from egomimic.utils.viz_utils import (
     ColorPalette,
     _viz_keypoints,
+)
+
+
+ARIA_INTRINSICS = np.array(
+    [
+        [133.25430222 * 2, 0.0, 320, 0],
+        [0.0, 133.25430222 * 2, 240, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
+
+ARIA_INTRINSICS_HALF = np.array(
+    [
+        [133.25430222, 0.0, 320 / 2, 0],
+        [0.0, 133.25430222, 240 / 2, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
+
+SCALE_INTRINSICS = np.array(
+    [[214.134, 0.0, 324.593, 0], [0.0, 256.968, 260.146, 0], [0.0, 0.0, 1.0, 0]]
+)
+
+_w0, _h0 = float(1920), float(1080)
+_fx0, _fy0 = float(752.4707352849115), float(753.0015979987369)
+_cx0, _cy0 = float(961.8249427694457), float(553.245895705989)
+_sx = 640 / _w0
+_sy = 360 / _h0
+_fx, _fy = _fx0 * _sx, _fy0 * _sy
+_cx, _cy = _cx0 * _sx, _cy0 * _sy
+
+MECKA_INTRINSICS = np.array(
+    [[_fx, 0.0, _cx, 0], [0.0, _fy, _cy, 0], [0.0, 0.0, 1.0, 0]], dtype=np.float64
+)
+
+ARIA_T_RGB_CPF = np.array(
+    [
+        [-0.99989084, 0.01251132, -0.00786028, 0.05686918],
+        [-0.01132842, -0.99067146, -0.13580032, 0.00922798],
+        [-0.009486, -0.13569645, 0.99070505, -0.01147902],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
 )
 
 
@@ -57,11 +101,9 @@ class Human(Embodiment):
         image,
         viz_data,
         mode=Literal["traj", "traj+rotation", "axes", "annotations", "keypoints"],
-        intrinsics_key=None,
         **kwargs,
     ):
         if mode == "keypoints":
-            intrinsics_key = intrinsics_key or cls.VIZ_INTRINSICS_KEY
             color = kwargs.get("color", None)
             if color is not None and ColorPalette.is_valid(color):
                 n = len(cls.FINGER_COLORS)
@@ -76,22 +118,73 @@ class Human(Embodiment):
             return _viz_keypoints(
                 image=image,
                 actions=viz_data,
-                intrinsics_key=intrinsics_key,
+                intrinsics=cls.INTRINSICS,
                 edges=cls.FINGER_EDGES,
                 edge_ranges=cls.FINGER_EDGE_RANGES,
                 colors=colors,
                 dot_color=dot_color,
                 **kwargs,
             )
-        return super().viz(
-            image, viz_data, mode=mode, intrinsics_key=intrinsics_key, **kwargs
-        )
+        return super().viz(image, viz_data, mode=mode, **kwargs)
 
     @abstractmethod
     def _get_keymap(
         cls, mode: Literal["cartesian", "keypoints"], annotation_key: str = None
     ):
         pass
+
+    @abstractmethod
+    def get_transform_list(
+        cls,
+        mode: str,
+    ) -> list[Transform]:
+        pass
+
+
+class Aria(Human):
+    INTRINSICS = ARIA_INTRINSICS
+    INTRINSICS_HALF = ARIA_INTRINSICS_HALF
+    EXTRINSICS = {"left": np.eye(4), "right": np.eye(4)}
+    ACTION_STRIDE = 3
+    FINGER_EDGES = [
+        (
+            5,
+            6,
+        ),
+        (6, 7),
+        (7, 0),  # thumb
+        (5, 8),
+        (8, 9),
+        (9, 10),
+        (9, 1),  # index
+        (5, 11),
+        (11, 12),
+        (12, 13),
+        (13, 2),  # middle
+        (5, 14),
+        (14, 15),
+        (15, 16),
+        (16, 3),  # ring
+        (5, 17),
+        (17, 18),
+        (18, 19),
+        (19, 4),  # pinky
+    ]
+    FINGER_COLORS = {
+        "thumb": (255, 100, 100),  # red
+        "index": (100, 255, 100),  # green
+        "middle": (100, 100, 255),  # blue
+        "ring": (255, 255, 100),  # yellow
+        "pinky": (255, 100, 255),  # magenta
+    }
+    FINGER_EDGE_RANGES = [
+        ("thumb", 0, 3),
+        ("index", 3, 7),
+        ("middle", 7, 11),
+        ("ring", 11, 15),
+        ("pinky", 15, 19),
+    ]
+    DOT_COLOR = (255, 165, 0)
 
     @classmethod
     def get_transform_list(
@@ -241,9 +334,9 @@ class Aria(Human):
                 },
             }
 
-
 class Scale(Human):
-    VIZ_INTRINSICS_KEY = "scale"
+    INTRINSICS = SCALE_INTRINSICS
+    EXTRINSICS = None
     ACTION_STRIDE = 1
 
     @classmethod
@@ -322,7 +415,8 @@ class Scale(Human):
 
 
 class Mecka(Human):
-    VIZ_INTRINSICS_KEY = "mecka"
+    INTRINSICS = MECKA_INTRINSICS
+    EXTRINSICS = None
     ACTION_STRIDE = 1
 
     @classmethod

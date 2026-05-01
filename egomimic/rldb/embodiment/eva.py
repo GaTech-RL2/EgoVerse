@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Literal
 
+import numpy as np
+
 from egomimic.rldb.embodiment.embodiment import Embodiment
+from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
@@ -17,15 +20,32 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     Transform,
     XYZWXYZ_to_XYZYPR,
 )
-from egomimic.utils.egomimicUtils import (
-    EXTRINSICS,
-)
 from egomimic.utils.pose_utils import (
     _matrix_to_xyzwxyz,
 )
 
 
 class Eva(Embodiment):
+    INTRINSICS = ARIA_INTRINSICS
+    EXTRINSICS = {
+        "left": np.array(
+            [
+                [0.01329544, -0.71757193, 0.69635749, -0.04409191],
+                [-0.99959782, -0.02698416, -0.00872107, -0.23221381],
+                [0.02504862, -0.69596148, -0.7176421, 0.57323278],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+        "right": np.array(
+            [
+                [-0.04733948, -0.76631195, 0.64072222, -0.01998031],
+                [-0.9983006, 0.05811952, -0.00424732, 0.32539554],
+                [-0.0339837, -0.63983444, -0.76776103, 0.64809634],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        ),
+    }
+
     @staticmethod
     def get_transform_list(
         mode: Literal[
@@ -224,12 +244,11 @@ def _build_eva_bimanual_eef_frame_transform_list(
     obs_key: str = "observations.state.ee_pose",
     chunk_length: int = 100,
     stride: int = 1,
-    extrinsics_key: str = "x5Dec13_2",
     is_quat: bool = True,
 ) -> list[Transform]:
     """EVA bimanual transform pipeline with actions expressed relative to the
     current EEF pose (wrist frame), analogous to keypoints relative to wrist pose."""
-    extrinsics = EXTRINSICS[extrinsics_key]
+    extrinsics = Eva.EXTRINSICS
     left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
     right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
     left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
@@ -389,11 +408,10 @@ def _build_eva_bimanual_transform_list(
     obs_key: str = "observations.state.ee_pose",
     chunk_length: int = 100,
     stride: int = 1,
-    extrinsics_key: str = "x5Dec13_2",
     is_quat: bool = True,
 ) -> list[Transform]:
     """Canonical EVA bimanual transform pipeline used by tests and notebooks."""
-    extrinsics = EXTRINSICS[extrinsics_key]
+    extrinsics = Eva.EXTRINSICS
     left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
     right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
     left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}

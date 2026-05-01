@@ -31,6 +31,7 @@ class EMBODIMENT(Enum):
     SCALE_BIMANUAL = 12
     SCALE_RIGHT_ARM = 13
     SCALE_LEFT_ARM = 14
+    LW_BIMANUAL = 5  # alias of ARIA_BIMANUAL — routes through aria handling for now
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
@@ -48,7 +49,8 @@ def get_embodiment_id(embodiment_name):
 class Embodiment(ABC):
     """Base embodiment class. An embodiment is responsible for defining the transform pipeline that converts between the raw data in the dataset and the canonical representation used by the model."""
 
-    VIZ_INTRINSICS_KEY = "base"
+    INTRINSICS = None
+    EXTRINSICS = None
     VIZ_IMAGE_KEY = "observations.images.front_img_1"
 
     @staticmethod
@@ -70,7 +72,6 @@ class Embodiment(ABC):
         if transform_list is not None:
             batch = cls.apply_transform(batch, transform_list)
         image_key = image_key or cls.VIZ_IMAGE_KEY
-        intrinsics_key = cls.VIZ_INTRINSICS_KEY
         mode = (mode or "traj").lower()
         B = batch[image_key].shape[0]
         image = _to_numpy(batch[image_key][0])
@@ -85,7 +86,6 @@ class Embodiment(ABC):
             image=image,
             viz_data=viz_data,
             mode=mode,
-            intrinsics_key=intrinsics_key,
             **kwargs,
         )
 
@@ -95,22 +95,20 @@ class Embodiment(ABC):
         image,
         viz_data,
         mode=Literal["traj", "traj+rotation", "axes", "annotations"],
-        intrinsics_key=None,
         **kwargs,
     ):
-        intrinsics_key = intrinsics_key or cls.VIZ_INTRINSICS_KEY
         if mode == "traj":
             return _viz_traj(
                 image=image,
                 actions=viz_data,
-                intrinsics_key=intrinsics_key,
+                intrinsics=cls.INTRINSICS,
                 **kwargs,
             )
         if mode == "traj+rotation":
             vis = _viz_traj(
                 image=image,
                 actions=viz_data,
-                intrinsics_key=intrinsics_key,
+                intrinsics=cls.INTRINSICS,
                 **kwargs,
             )
             return _viz_rotation_txt(
@@ -122,7 +120,7 @@ class Embodiment(ABC):
             return _viz_axes(
                 image=image,
                 actions=viz_data,
-                intrinsics_key=intrinsics_key,
+                intrinsics=cls.INTRINSICS,
                 **kwargs,
             )
         if mode == "annotations":

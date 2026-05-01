@@ -12,7 +12,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     build_eva_bimanual_transform_list,
 )
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, ZarrDataset
-from egomimic.utils.egomimicUtils import EXTRINSICS
+from egomimic.rldb.embodiment.eva import Eva
 
 ZARR_EPISODE_PATH = Path(
     "/coc/flash7/rco3/EgoVerse/egomimic/rldb/zarr/zarr/new/1769460905119.zarr"
@@ -194,7 +194,7 @@ def _build_zarr_dataset_eva() -> MultiDataset:
         },
     }
 
-    extrinsics = EXTRINSICS["x5Dec13_2"]
+    extrinsics = Eva.EXTRINSICS
     left_extrinsics_pose = _matrix_to_xyzypr(extrinsics["left"][None, :])[0]
     right_extrinsics_pose = _matrix_to_xyzypr(extrinsics["right"][None, :])[0]
 

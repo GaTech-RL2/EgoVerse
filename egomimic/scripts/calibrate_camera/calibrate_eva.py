@@ -9,11 +9,7 @@ from rpl_vision_utils.utils.apriltag_detector import AprilTagDetector
 from scipy.spatial.transform import Rotation as Rot
 from tqdm import tqdm
 
-from egomimic.utils.egomimicUtils import (
-    # WIDE_LENS_ROBOT_LEFT_K,
-    # WIDE_LENS_ROBOT_LEFT_D,
-    ARIA_INTRINSICS,
-)
+from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 
 
 def parse_args():
