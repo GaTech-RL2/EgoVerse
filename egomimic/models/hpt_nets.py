@@ -187,9 +187,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -694,6 +694,93 @@ class T5Encoder(PolicyStem):
         else:
             emb = output.last_hidden_state.mean(dim=1).detach().unsqueeze(1)
             return emb
+
+
+class Qwen3TextEncoder(PolicyStem):
+    """Qwen3-Embedding-0.6B encoder. Tokenizes raw strings on the fly.
+
+    Inputs from the dataloader are expected as ``list[str]`` (one prompt per
+    sample), or ``list[list[str]]`` from the annotation collator — in which
+    case the first annotation per sample is used.
+
+    Output:
+      - per_token=False (default): ``(B, 1, hidden)`` last-token-pooled, L2-normalized
+      - per_token=True:             ``(B, L, hidden)`` raw last-hidden-states
+    """
+
+    def __init__(
+        self,
+        model_name: str = "Qwen/Qwen3-Embedding-0.6B",
+        max_length: int = 128,
+        freeze_backbone: bool = True,
+        per_token: bool = False,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        from transformers import AutoModel, AutoTokenizer
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
+        self.model = AutoModel.from_pretrained(model_name)
+        self.max_length = max_length
+        self.per_token = per_token
+        self.freeze_backbone = freeze_backbone
+        self.hidden_dim = int(self.model.config.hidden_size)
+
+        if freeze_backbone:
+            for p in self.model.parameters():
+                p.requires_grad = False
+            self.model.eval()
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if self.freeze_backbone:
+            self.model.eval()
+        return self
+
+    @staticmethod
+    def _flatten(texts):
+        flat = []
+        for t in texts:
+            if isinstance(t, (list, tuple)):
+                flat.append(t[0] if len(t) > 0 else "")
+            elif t is None:
+                flat.append("")
+            else:
+                flat.append(t)
+        return flat
+
+    @staticmethod
+    def _last_token_pool(last_hidden: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        left_padded = bool((mask[:, -1].sum() == mask.shape[0]).item())
+        if left_padded:
+            return last_hidden[:, -1]
+        seq_lens = mask.sum(dim=1) - 1
+        batch_idx = torch.arange(last_hidden.size(0), device=last_hidden.device)
+        return last_hidden[batch_idx, seq_lens]
+
+    def forward(self, texts) -> torch.Tensor:
+        flat = self._flatten(texts)
+        device = next(self.model.parameters()).device
+        tokens = self.tokenizer(
+            flat,
+            padding=True,
+            truncation=True,
+            max_length=self.max_length,
+            return_tensors="pt",
+        ).to(device)
+
+        if self.freeze_backbone:
+            with torch.no_grad():
+                out = self.model(**tokens)
+        else:
+            out = self.model(**tokens)
+
+        if self.per_token:
+            return out.last_hidden_state
+
+        pooled = self._last_token_pool(out.last_hidden_state, tokens["attention_mask"])
+        pooled = F.normalize(pooled.float(), p=2, dim=1)
+        return pooled.unsqueeze(1)
 
 
 def vit_base_patch16(checkpoint_path="output/mae_pretrain_vit_base.pth", **kwargs):

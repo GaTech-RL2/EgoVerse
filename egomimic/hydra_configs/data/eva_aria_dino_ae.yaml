@@ -1,0 +1,74 @@
+# Inherits the dataset/folder/dataloader scaffolding from cotrain_pi_base
+# and overrides only what changes for the two-stage HPT-DINO pipeline:
+#   - swap S3EpisodeResolver -> S3ActionExpertEpisodeResolver
+#   - add fixed_horizon=100 (action-expert action chunk)
+#   - swap get_keymap -> dino_action_expert_keymap
+#   - swap get_transform_list -> get_dino_ae_transform_list (wrist/head-frame YPR)
+#   - apply the cotrain_pi_lang dense-language pick_place filter
+#   - turn off the loader-side tokenizer (Qwen3 lives in the model)
+
+defaults:
+  - cotrain_pi_base
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_action_expert.S3ActionExpertEpisodeResolver
+      fixed_horizon: 100
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.dino_action_expert_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_dino_ae_transform_list
+        mode: cartesian_wristframe_ypr
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
+      filter_lambdas:
+        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
+  aria_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_action_expert.S3ActionExpertEpisodeResolver
+      fixed_horizon: 100
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.dino_action_expert_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_dino_ae_transform_list
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
+      filter_lambdas:
+        - "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
+
+valid_datasets:
+  eva_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_action_expert.S3ActionExpertEpisodeResolver
+      fixed_horizon: 100
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.dino_action_expert_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_dino_ae_transform_list
+        mode: cartesian_wristframe_ypr
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
+      filter_lambdas:
+        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
+  aria_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_action_expert.S3ActionExpertEpisodeResolver
+      fixed_horizon: 100
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.dino_action_expert_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_dino_ae_transform_list
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
+      filter_lambdas:
+        - "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
+
+# Qwen3 inside the model consumes raw text, so we don't tokenize in the loader.
+# annotation_collate (the default) will preserve the list-valued annotation keys.
+use_tokenizer: false

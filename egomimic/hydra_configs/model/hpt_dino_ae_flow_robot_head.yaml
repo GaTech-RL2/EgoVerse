@@ -1,0 +1,13 @@
+# Stage-2 head variant: predicts robot (eva) actions only.
+# Inherits the full shared-head config and overrides infer_ac_dims to drop aria.
+defaults:
+  - hpt_dino_ae_flow_shared_head
+
+robomimic_model:
+  domains: ["eva_bimanual"]                    # robot-only training
+
+  stage2_head_spec:
+    infer_ac_dims:
+      eva_bimanual: 14
+    model:
+      act_dim: 14

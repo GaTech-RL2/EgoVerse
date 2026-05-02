@@ -1,0 +1,268 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hpt_dino_ae.HPTDinoAE
+  data_schematic: _${data.dataset.data_schematic}
+
+  domains: ["eva_bimanual", "aria_bimanual"]
+
+  # ----- Action target keys -----
+  ac_keys:
+    eva_bimanual: actions_cartesian
+    aria_bimanual: actions_cartesian
+  shared_ac_key_stage1: dino_front_T          # stage 1 head predicts EOS DINO
+  shared_ac_key_stage2: actions_cartesian     # stage 2 head predicts actions
+
+  # ----- Training schedule -----
+  stage1_steps: 100000
+  stage2_steps: 100000
+  stage1_pretrained_checkpoint: null
+  stage2_pretrained_checkpoint: null
+
+  # ----- Annotation sampling -----
+  # Training picks a random annotation per sample; eval uses this fixed index
+  # so validation runs are reproducible.
+  eval_annotation_index: 0
+  default_prompt: ""
+
+  camera_transforms:
+    aria_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "base"
+      extrinsics_key: "x5Dec13_2"
+    eva_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "base"
+      extrinsics_key: "x5Dec13_2"
+
+  # ====================================================================
+  # STAGE 1 — World model: BOS DINO + sampled_prompt -> EOS DINO
+  # ====================================================================
+  stage1_trunk:
+    embed_dim: 256
+    num_blocks: 16
+    num_heads: 8
+    token_postprocessing: "action_token"
+    observation_horizon: 1
+    # 196 patch tokens for DINOv3-vitb16 at 224x224 (14*14). One learnable
+    # action token per patch is prepended to the trunk input.
+    action_horizon: 196
+    no_trunk: false
+    use_domain_embedding: false
+    drop_path: 0.1
+    weight_init_style: "pytorch"
+
+  stage1_encoder_specs:
+    sampled_prompt:
+      _target_: egomimic.models.hpt_nets.Qwen3TextEncoder
+      model_name: "Qwen/Qwen3-Embedding-0.6B"
+      max_length: 64
+      freeze_backbone: true                    # set false to fine-tune
+      per_token: false                         # (B, 1, 1024) pooled
+
+  stage1_shared_obs_keys: ["dino_front_1", "sampled_prompt"]
+
+  stage1_shared_stem_specs:
+    dino_front_1:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 768                           # DINOv3-vitb16 hidden dim
+      output_dim: 256
+      widths: [256]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 8
+          crossattn_dim_head: 64
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 256
+    sampled_prompt:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 1024                          # Qwen3-Embedding-0.6B hidden dim
+      output_dim: 256
+      widths: [256]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 8
+          crossattn_dim_head: 64
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 256
+
+  stage1_head_specs:
+    shared:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 196                      # one prediction per DINO patch
+      num_inference_steps: 50
+      pooling: null
+      padding: null
+      time_dist: "beta"
+      infer_ac_dims:
+        shared: 768                            # DINO hidden dim
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 768                           # DINO hidden dim
+        act_seq: 196                           # patch grid length
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+
+  # ====================================================================
+  # STAGE 2 — Action expert: GT EOS DINO + obs_t -> actions  (no trunk)
+  # ====================================================================
+  stage2_encoder_specs:
+    front_img_t:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 256
+      num_of_copy: 1
+    right_wrist_img_t:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 256
+      num_of_copy: 1
+    left_wrist_img_t:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 256
+      num_of_copy: 1
+
+  stage2_shared_obs_keys: ["dino_front_T", "front_img_t"]
+
+  stage2_shared_stem_specs:
+    dino_front_T:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 768
+      output_dim: 256
+      widths: [256]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 8
+          crossattn_dim_head: 64
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 256
+    front_img_t:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 256
+      output_dim: 256
+      widths: [256]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 8
+          crossattn_dim_head: 64
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 256
+
+  stage2_stem_specs:
+    eva_bimanual:
+      right_wrist_img_t:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      left_wrist_img_t:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      state_ee_pose_t:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 14                          # YPR concat (6+1+6+1)
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+
+    aria_bimanual:
+      state_ee_pose_t:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 14                          # YPR concat (6+1+6+1) for aria
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+
+  stage2_head_spec:
+    _target_: egomimic.models.fm_policy.FMPolicy
+    action_horizon: 100
+    num_inference_steps: 50
+    pooling: null
+    padding: "zero"
+    time_dist: "beta"
+    infer_ac_dims:
+      eva_bimanual: 14                         # YPR (6+1+6+1)
+      aria_bimanual: 14                        # YPR (6+1+6+1)
+    model:
+      _target_: egomimic.models.denoising_nets.CrossTransformer
+      nblocks: 6
+      cond_dim: 256
+      hidden_dim: 128
+      act_dim: 14
+      act_seq: 100
+      n_heads: 4
+      dropout: 0.1
+      mlp_layers: 4
+      mlp_ratio: 4
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1e-5

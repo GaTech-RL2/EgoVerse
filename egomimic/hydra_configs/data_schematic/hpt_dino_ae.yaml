@@ -1,0 +1,66 @@
+_target_: egomimic.rldb.zarr.utils.DataSchematic
+norm_mode: quantile
+schematic_dict:
+  eva_bimanual:
+    # ---- Stage 1 inputs / target ----
+    dino_front_1:                            # BOS DINO embedding (stage 1 stem input)
+      key_type: proprio_keys
+      zarr_key: dino_front_1
+    dino_front_T:                            # EOS DINO embedding (stage 1 target, stage 2 input)
+      key_type: proprio_keys
+      zarr_key: dino_front_T
+    sampled_prompt:                          # annotation text at sampled frame t
+      key_type: lang_keys
+      zarr_key: annotations_t
+
+    # ---- Stage 2 image inputs (frame t) ----
+    front_img_t:
+      key_type: camera_keys
+      zarr_key: front_img_t
+    right_wrist_img_t:
+      key_type: camera_keys
+      zarr_key: right_wrist_img_t
+    left_wrist_img_t:
+      key_type: camera_keys
+      zarr_key: left_wrist_img_t
+
+    # ---- Stage 2 concat'd proprio at t (output of get_dino_ae_transform_list) ----
+    ee_pose_t:
+      key_type: proprio_keys
+      zarr_key: ee_pose_t
+
+    # ---- Stage 2 concat'd action target (wrist-frame YPR, 14d) ----
+    actions_cartesian:
+      key_type: action_keys
+      zarr_key: actions_cartesian
+
+    embodiment:
+      key_type: metadata_keys
+      zarr_key: metadata.embodiment
+
+  aria_bimanual:
+    dino_front_1:
+      key_type: proprio_keys
+      zarr_key: dino_front_1
+    dino_front_T:
+      key_type: proprio_keys
+      zarr_key: dino_front_T
+    sampled_prompt:
+      key_type: lang_keys
+      zarr_key: annotations_t
+
+    front_img_t:
+      key_type: camera_keys
+      zarr_key: front_img_t
+
+    ee_pose_t:
+      key_type: proprio_keys
+      zarr_key: ee_pose_t
+
+    actions_cartesian:
+      key_type: action_keys
+      zarr_key: actions_cartesian
+
+    embodiment:
+      key_type: metadata_keys
+      zarr_key: metadata.embodiment

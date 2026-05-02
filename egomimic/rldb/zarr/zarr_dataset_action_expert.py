@@ -11,6 +11,7 @@ Sampling scheme:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,8 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
     ZarrEpisode,
     get_fallback_idx,
 )
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "ZarrActionExpertDataset",
@@ -64,13 +67,20 @@ class ZarrActionExpertDataset(ZarrDataset):
     # --- episode setup -----------------------------------------------------
 
     def _load_annotation_map(self) -> dict[int, int]:
-        """Build {frame_idx -> annotation_index} for every frame inside an annotation span."""
+        """Build {frame_idx -> annotation_index} for every frame inside an annotation span.
+
+        ``end_idx`` is clamped to ``total_frames - 1`` because some annotation
+        sources record it Python-style (exclusive); without the clamp the last
+        frame index can land one past the end of the zarr arrays and crash
+        downstream reads.
+        """
         raw = self.episode_reader._store["annotations"][:]
         decoded = [self._decode_json_entry(x) for x in raw]
         self._annotations = [d for d in decoded if isinstance(d, dict)]
+        last_valid = int(self.metadata["total_frames"]) - 1
         for i, ann in enumerate(self._annotations):
             start_idx = int(ann.get("start_idx", -1))
-            end_idx = int(ann.get("end_idx", -1))
+            end_idx = min(int(ann.get("end_idx", -1)), last_valid)
             for idx in range(start_idx, end_idx + 1):
                 self.annotation_map[idx] = i
         return self.annotation_map
@@ -103,8 +113,10 @@ class ZarrActionExpertDataset(ZarrDataset):
         """Load the t..EOS action chunk, padded to ``horizon``.
 
         If ``self.fixed_horizon`` is an int H, that overrides ``horizon``: the
-        read is clamped to EOS and zero-padded out to length H so a sample
-        never includes actions from the next segment.
+        read is clamped to EOS and padded out to length H by repeating the
+        last valid frame so a sample never includes actions from the next
+        segment AND never contains zero-norm quaternions (which would crash
+        scipy.spatial.transform.Rotation in downstream transforms).
         """
         episode_end = self._episode_total_frames
 
@@ -112,8 +124,12 @@ class ZarrActionExpertDataset(ZarrDataset):
             H = self.fixed_horizon
             end = min(t + H, eos + 1, episode_end)
             arr = self.episode_reader.read({zarr_key: (t, end)})[zarr_key]
+            if arr.shape[0] == 0:
+                raise ValueError(
+                    f"Empty action read for zarr_key={zarr_key} t={t} end={end}"
+                )
             if arr.shape[0] < H:
-                pad = np.zeros((H - arr.shape[0], *arr.shape[1:]), dtype=arr.dtype)
+                pad = np.repeat(arr[-1:], H - arr.shape[0], axis=0)
                 arr = np.concatenate([arr, pad], axis=0)
             return arr
 
@@ -122,68 +138,99 @@ class ZarrActionExpertDataset(ZarrDataset):
         self._pad_sequences(raw, horizon)
         return raw[zarr_key]
 
-    def _resample(self, index, _fallback_origin, _attempts) -> dict:
-        origin = _fallback_origin if _fallback_origin is not None else index
-        next_idx, attempts = get_fallback_idx(
-            idx=index,
-            candidates=range(self.total_frames),
-            _attempts=_attempts,
-            max_attempts=self.total_frames,
-            exhausted_error=(
-                f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
-            ),
-        )
-        return self.__getitem__(next_idx, _fallback_origin=origin, _attempts=attempts)
+    def _load_sample(self, t: int, bos: int, eos: int) -> dict:
+        """Build the per-sample data dict for the chosen (bos, t, eos)."""
+        data: dict = {}
+        for k, spec in self.key_map.items():
+            zarr_key = spec["zarr_key"]
+            key_type = spec.get("key_type")
+            bos_key, t_key, eos_key = _obs_key_triple(k)
+
+            if key_type == "annotation_keys":
+                data[bos_key] = self._annotation_text_for_frame(bos)
+                data[t_key] = self._annotation_text_for_frame(t)
+                data[eos_key] = self._annotation_text_for_frame(eos)
+            elif key_type == "action_keys":
+                data[k] = self._load_actions(zarr_key, t, eos, spec.get("horizon"))
+            else:  # camera_keys / proprio_keys: sample BOS, t, and EOS.
+                data[bos_key] = self._load_obs_at(zarr_key, bos)
+                data[t_key] = self._load_obs_at(zarr_key, t)
+                data[eos_key] = self._load_obs_at(zarr_key, eos)
+
+        aliases: list[str] = []
+        if self.transform:
+            for k, spec in self.key_map.items():
+                if spec.get("key_type") in _OBS_KEY_TYPES:
+                    _, t_key, _ = _obs_key_triple(k)
+                    if t_key in data:
+                        data[k] = data[t_key]
+                        aliases.append(k)
+            for transform in self.transform:
+                data = transform.transform(data)
+            for alias in aliases:
+                data.pop(alias, None)
+        return data
 
     # --- main entrypoint ---------------------------------------------------
 
-    def __getitem__(self, index: int, _fallback_origin=None, _attempts=None) -> dict:
+    def __getitem__(self, index: int) -> dict:
         """Returns a single action-expert sample.
+
+        Resamples (iteratively, not recursively) up to ``total_frames`` times
+        when a sample fails to load — bad JPEG, transform failure, missing
+        key, etc. The original error is logged at WARNING the first time it
+        occurs per failed index so silent failures don't go unnoticed.
 
         Output keys:
           - Obs (camera/proprio): <key>_1 (BOS), <key>_t (frame t), <key>_T (EOS)
           - Annotations:          <key>_1 (BOS), <key>_t (frame t), <key>_T (EOS)
           - Actions:              <key>  (t..EOS, padded to horizon)
         """
-        t = self._valid_frame_indices[index]
-        ann = self._annotations[self.annotation_map[t]]
-        bos, eos = int(ann["start_idx"]), int(ann["end_idx"])
-
-        try:
-            data: dict = {}
-            for k, spec in self.key_map.items():
-                zarr_key = spec["zarr_key"]
-                key_type = spec.get("key_type")
-                bos_key, t_key, eos_key = _obs_key_triple(k)
-
-                if key_type == "annotation_keys":
-                    data[bos_key] = self._annotation_text_for_frame(bos)
-                    data[t_key] = self._annotation_text_for_frame(t)
-                    data[eos_key] = self._annotation_text_for_frame(eos)
-                elif key_type == "action_keys":
-                    data[k] = self._load_actions(zarr_key, t, eos, spec.get("horizon"))
-                else:  # camera_keys / proprio_keys: sample BOS, t, and EOS.
-                    data[bos_key] = self._load_obs_at(zarr_key, bos)
-                    data[t_key] = self._load_obs_at(zarr_key, t)
-                    data[eos_key] = self._load_obs_at(zarr_key, eos)
-
-            # Transforms expect obs at the canonical key (not <key>_t), so
-            # alias <key>_t -> <key> for the pass and drop afterward.
-            aliases: list[str] = []
-            if self.transform:
-                for k, spec in self.key_map.items():
-                    if spec.get("key_type") in _OBS_KEY_TYPES:
-                        _, t_key, _ = _obs_key_triple(k)
-                        if t_key in data:
-                            data[k] = data[t_key]
-                            aliases.append(k)
-                for transform in self.transform:
-                    data = transform.transform(data)
-                for alias in aliases:
-                    data.pop(alias, None)
-        except Exception:
-            # Bad JPEG or transform failure -> resample.
-            return self._resample(index, _fallback_origin, _attempts)
+        attempts = 0
+        cur_idx = index
+        max_attempts = max(1, self.total_frames)
+        last_exc: Exception | None = None
+        while attempts < max_attempts:
+            t = self._valid_frame_indices[cur_idx]
+            ann = self._annotations[self.annotation_map[t]]
+            bos = int(ann["start_idx"])
+            # Clamp EOS to the last valid frame: annotation end_idx is sometimes
+            # Python-style exclusive and equals total_frames, which would crash
+            # _load_obs_at when reading the EOS frame.
+            eos = min(int(ann["end_idx"]), self._episode_total_frames - 1)
+            try:
+                data = self._load_sample(t, bos, eos)
+                break
+            except Exception as e:
+                last_exc = e
+                if attempts == 0:
+                    logger.warning(
+                        "[ZarrActionExpertDataset] sample failed at "
+                        "ep=%s idx=%d (t=%d, bos=%d, eos=%d): %r",
+                        Path(self.episode_path).name,
+                        cur_idx,
+                        t,
+                        bos,
+                        eos,
+                        e,
+                    )
+                next_idx, _ = get_fallback_idx(
+                    idx=cur_idx,
+                    candidates=range(self.total_frames),
+                    _attempts=attempts + 1,
+                    max_attempts=max_attempts,
+                    exhausted_error=(
+                        f"Entire episode bad (no valid indices): "
+                        f"ep={Path(self.episode_path).name}; last error: {last_exc!r}"
+                    ),
+                )
+                cur_idx = next_idx
+                attempts += 1
+        else:
+            raise RuntimeError(
+                f"Entire episode bad (no valid indices): "
+                f"ep={Path(self.episode_path).name}; last error: {last_exc!r}"
+            )
 
         for k, v in data.items():
             if isinstance(v, np.ndarray):
