@@ -535,29 +535,46 @@ class HPTDinoAE(Algo):
     # Eval
     # --------------------------------------------------------------
 
+    @torch.no_grad()
+    def _stage1_predict(self, eid: int, raw_batch: dict) -> torch.Tensor:
+        """Run Stage 1 inference and return the predicted EOS DINO embedding
+        in (B, 1, D) shape, in *normalized* space (matching the way Stage 2
+        is fed at training time).
+        """
+        data = self._build_stage1_data(eid, raw_batch)
+        pred = self.nets["policy"].stage1.forward("shared", data)
+        pred_tensor = pred.get("shared", next(iter(pred.values())))
+        T = data["action"].shape[1]
+        D = data["action"].shape[-1]
+        return pred_tensor[:, :T, :D]
+
     @override
     def forward_eval(self, batch):
-        """Active-stage eval forward. Stage 1 returns predicted EOS DINO;
-        Stage 2 returns predicted actions conditioned on GT EOS DINO. The
-        combined Stage1->Stage2 inference path lives in the eval module.
+        """Stage-aware eval forward.
+
+        - During Stage 1 training: returns only the predicted EOS DINO.
+        - During Stage 2 training: returns BOTH the predicted EOS DINO from
+          Stage 1 *and* the predicted actions from Stage 2 conditioned on the
+          predicted EOS DINO (combined inference).
         """
         unnorm_preds: dict[str, torch.Tensor] = {}
         stage = self.current_stage()
         for eid, _batch in batch.items():
             embodiment_name = get_embodiment(eid).lower()
+            preds: dict[str, torch.Tensor] = {}
+
             if stage == 1:
-                data = self._build_stage1_data(eid, _batch)
-                pred = self.nets["policy"].stage1.forward("shared", data)
-                pred_tensor = pred.get("shared", next(iter(pred.values())))
-                T = data["action"].shape[1]
-                D = data["action"].shape[-1]
-                preds = {self.shared_ac_key_stage1: pred_tensor[:, :T, :D]}
+                pred_eos = self._stage1_predict(eid, _batch)
+                preds[self.shared_ac_key_stage1] = pred_eos
             else:
-                data = self._build_stage2_data(eid, _batch)
-                pred_tensor = self.nets["policy"].stage2.forward(embodiment_name, data)
+                pred_eos = self._stage1_predict(eid, _batch)
+                preds[self.shared_ac_key_stage1] = pred_eos
+
+                data = self._build_stage2_data(eid, _batch, eos_dino_override=pred_eos)
+                pred_actions = self.nets["policy"].stage2.forward(embodiment_name, data)
                 ref = data["action"]
                 T, D = ref.shape[1], ref.shape[-1]
-                preds = {self.shared_ac_key_stage2: pred_tensor[:, :T, :D]}
+                preds[self.shared_ac_key_stage2] = pred_actions[:, :T, :D]
 
             unnorm = self.data_schematic.unnormalize_data(preds, eid)
             for k, v in unnorm.items():
