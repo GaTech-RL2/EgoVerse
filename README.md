@@ -109,3 +109,6 @@ For full instructions on training see [``training.md``](./training.md)
 
 ### Converting your own data
 See [``embodiment_tutorial.ipynb``](./egomimic/scripts/tutorials/embodiment_tutorial.ipynb) as reference to write a conversion script for your own data.
+
+#### Scale Data Reprocessing Note
+The Scale dataset was fully reprocessed on 05/03/2026. All active Scale episodes now use newly generated episode hashes, Zarr paths, and preview MP4 paths. If you previously referenced Scale episode hashes from an older export or intermediate processing run, refresh from the SQL episode table before downloading or training. Old Scale hashes should be treated as stale and should not be mixed with the current active dataset.
