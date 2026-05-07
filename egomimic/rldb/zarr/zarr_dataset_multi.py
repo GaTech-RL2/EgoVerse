@@ -1436,6 +1436,95 @@ class MultiDataset(torch.utils.data.Dataset):
             self.norm_stats.setdefault(emb, {})
 
 
+# ---------------------------------------------------------------------------
+# Per-episode subsampling wrapper around MultiDataset (K evenly-spaced
+# frames OR every Sth frame within each episode).
+# ---------------------------------------------------------------------------
+def _evenly_spaced_indices(n: int, k: int) -> list[int]:
+    if n <= 0:
+        return []
+    if k >= n:
+        return list(range(n))
+    if k == 1:
+        return [n // 2]
+    return [int(round(i * (n - 1) / (k - 1))) for i in range(k)]
+
+
+def _strided_indices(n: int, stride: int) -> list[int]:
+    if n <= 0 or stride <= 0:
+        return []
+    return list(range(0, n, stride))
+
+
+class EvenStrideDataset(MultiDataset):
+    """Wraps a `MultiDataset` to subsample frames per underlying episode.
+    Pass exactly one of `frames_per_episode` (K evenly-spaced) or
+    `stride` (every Sth frame). Subclasses `MultiDataset` so trainHydra's
+    isinstance check passes; we skip the parent `__init__` and adopt its
+    class identity only, delegating to `self.base`."""
+
+    def __init__(
+        self, base, frames_per_episode: int | None = None, stride: int | None = None
+    ):
+        if (frames_per_episode is None) == (stride is None):
+            raise ValueError(
+                "EvenStrideDataset requires exactly ONE of "
+                "`frames_per_episode` or `stride` to be set "
+                f"(got frames_per_episode={frames_per_episode}, stride={stride})."
+            )
+        gibd = getattr(base, "_global_indices_by_dataset", None)
+        if gibd is None:
+            raise ValueError(
+                f"EvenStrideDataset requires a MultiDataset exposing "
+                f"_global_indices_by_dataset, got {type(base).__name__}"
+            )
+        torch.utils.data.Dataset.__init__(self)
+        self.base = base
+        self.frames_per_episode = frames_per_episode
+        self.stride = stride
+        self.datasets = base.datasets
+
+        keep: list[int] = []
+        for ep_name, idxs in gibd.items():
+            n = len(idxs)
+            if stride is not None:
+                picks = _strided_indices(n, stride)
+                rule = f"stride={stride}"
+            else:
+                picks = _evenly_spaced_indices(n, frames_per_episode)
+                rule = f"k={frames_per_episode}"
+            chosen = [idxs[i] for i in picks]
+            actual_stride = n / max(1, len(chosen))
+            logger.info(
+                "EvenStrideDataset: %s -> %d / %d frames (%s, actual stride ~%.1f)",
+                ep_name,
+                len(chosen),
+                n,
+                rule,
+                actual_stride,
+            )
+            keep.extend(chosen)
+        self.indices = sorted(keep)
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        return self.base[self.indices[idx]]
+
+    def set_data_schematic(self, data_schematic) -> None:
+        self.base.set_data_schematic(data_schematic)
+        self.data_schematic = data_schematic
+
+    def __getattr__(self, item):
+        if item == "base":
+            raise AttributeError(item)
+        base = self.__dict__.get("base")
+        if base is None:
+            raise AttributeError(item)
+        return getattr(base, item)
+
+
 class ZarrDataset(torch.utils.data.Dataset):
     """
     Base Zarr Dataset object, Just intializes as pass through to read from zarr episode
