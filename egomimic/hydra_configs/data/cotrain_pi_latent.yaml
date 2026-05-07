@@ -1,0 +1,139 @@
+# Unified latent-eval data config.
+#
+# Three modes, picked via `latent_mode`:
+#
+#   random  — every pick_place episode of the given embodiment is included;
+#             frame count = batch_size × trainer.limit_val_batches.
+#             Override the per-batch knob with `+n_latents=N` (default 500).
+#
+#   pairs   — restrict to the fixed list of (eva, aria) pair hashes below.
+#             Each episode is subsampled to `frames_per_episode` evenly-
+#             spaced frames (deterministic, in temporal order).
+#
+#   custom  — restrict to an arbitrary set of hashes you provide on the CLI:
+#               data.custom_hashes.eva='[...]'
+#               data.custom_hashes.aria='[...]'
+#             Same EvenStrideDataset subsampling as pairs.
+#
+# All modes turn on `require_annotations: true` so episodes without a
+# language annotation field on disk are skipped.
+#
+# Examples:
+#   data=cotrain_pi_latent latent_mode=random  +n_latents=64
+#   data=cotrain_pi_latent latent_mode=pairs
+#   data=cotrain_pi_latent latent_mode=custom \
+#       'data.custom_hashes.eva=["2026-04-21-21-56-58-170000"]' \
+#       'data.custom_hashes.aria=["2026-03-17-02-35-26-000000"]'
+
+defaults:
+  - cotrain_pi_base
+  - _self_
+
+# Override the base config's _target_ with a thin wrapper that drops our
+# latent-specific top-level keys (latent_mode, *_hashes, etc.) before
+# forwarding to MultiDataModuleWrapper — they live at the data root for
+# OmegaConf interpolation but aren't kwargs of the data module.
+_target_: egomimic.eval.latent_dataset.build_MultiDataModuleWrapper
+
+# ----- Mode selector --------------------------------------------------------
+latent_mode: random          # 'random' | 'pairs' | 'custom'
+
+# ----- Per-mode hash lists --------------------------------------------------
+# These lists are read by the build() factory only when the matching mode
+# is selected — they're harmless when not used.
+
+# pairs mode (the four matched (human, robot) episodes from the original
+# cotrain_pi_latent_pairs config):
+pair_hashes:
+  eva:  ["2026-04-14-04-01-06-517000", "2026-04-14-03-36-19-145000"]
+  aria: ["2026-04-14-03-39-11-000000", "2026-04-14-04-03-19-000000"]
+
+# custom mode — fill these in via CLI or edit here:
+custom_hashes:
+  eva:  []
+  aria: []
+
+# Per-episode subsample for pairs / custom (ignored in random mode).
+# Set EXACTLY ONE of these:
+#   frames_per_episode: K  → K evenly-spaced frames per episode
+#                            (stride varies with each episode's length)
+#   stride: S              → take every Sth frame (0, S, 2S, ...).
+#                            Per-episode count varies with length.
+# stride wins when both are set.
+frames_per_episode: 128
+stride: null
+
+# ----- Dataset builders -----------------------------------------------------
+# A single Python factory dispatches on `mode` and chooses between
+# MultiDataset (random) and EvenStrideDataset (pairs / custom). The
+# correct hash list for the current mode is selected via OmegaConf
+# interpolation per embodiment.
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.eval.latent_dataset.build_dataset
+    mode: ${data.latent_mode}
+    task: pick_place
+    embodiment: eva_bimanual
+    frames_per_episode: ${data.frames_per_episode}
+    stride: ${data.stride}
+    hashes: ${oc.select:data.${data.latent_mode}_hashes.eva, []}
+    resolver:
+      require_annotations: true
+  aria_bimanual:
+    _target_: egomimic.eval.latent_dataset.build_dataset
+    mode: ${data.latent_mode}
+    task: pick_place
+    embodiment: aria_bimanual
+    frames_per_episode: ${data.frames_per_episode}
+    stride: ${data.stride}
+    hashes: ${oc.select:data.${data.latent_mode}_hashes.aria, []}
+    resolver:
+      require_annotations: true
+
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.eval.latent_dataset.build_dataset
+    mode: ${data.latent_mode}
+    task: pick_place
+    embodiment: eva_bimanual
+    frames_per_episode: ${data.frames_per_episode}
+    stride: ${data.stride}
+    hashes: ${oc.select:data.${data.latent_mode}_hashes.eva, []}
+    resolver:
+      require_annotations: true
+  aria_bimanual:
+    _target_: egomimic.eval.latent_dataset.build_dataset
+    mode: ${data.latent_mode}
+    task: pick_place
+    embodiment: aria_bimanual
+    frames_per_episode: ${data.frames_per_episode}
+    stride: ${data.stride}
+    hashes: ${oc.select:data.${data.latent_mode}_hashes.aria, []}
+    resolver:
+      require_annotations: true
+
+# ----- Tokenizer / annotations ---------------------------------------------
+use_tokenizer: true
+model_name: "google/paligemma-3b-mix-224"
+sampling_mode: "random"
+annotation_key: "annotations"
+default_prompt: ""
+
+# ----- Loader knobs --------------------------------------------------------
+# random mode: shuffle on, batch_size = n_latents (CLI overridable)
+# pairs / custom mode: shuffle off (temporal order), modest batch
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: ${oc.select:n_latents,500}
+    num_workers: 6
+    shuffle: ${oc.select:data._shuffle_${data.latent_mode}, true}
+  aria_bimanual:
+    batch_size: ${oc.select:n_latents,500}
+    num_workers: 6
+    shuffle: ${oc.select:data._shuffle_${data.latent_mode}, true}
+
+# Lookup table for shuffle behavior per mode.
+_shuffle_random: true
+_shuffle_pairs:  false
+_shuffle_custom: false

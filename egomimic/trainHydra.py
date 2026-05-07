@@ -23,7 +23,112 @@ from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper
 
 OmegaConf.register_new_resolver("eval", eval)
+
+
+def _model_dir_name_from_ckpt(ckpt_path):
+    """Extract the model-folder name (e.g. 'cotrain_partial_aug_2026-04-24_03-08-44')
+    from a ckpt path like 'logs/pick_place/finetuned/<NAME>/0/checkpoints/...'."""
+    if not ckpt_path or ckpt_path == "null":
+        return None
+    parts = str(ckpt_path).replace("\\", "/").split("/")
+    if "finetuned" in parts:
+        i = parts.index("finetuned")
+        if i + 1 < len(parts):
+            return parts[i + 1]
+    # Fallback: walk up from the ckpt file (logs/.../<NAME>/0/checkpoints/file.ckpt)
+    if len(parts) >= 4:
+        return parts[-4]
+    return None
+
+
+def _model_type_from_ckpt(ckpt_path):
+    """Strip trailing '_YYYY-MM-DD_HH-MM-SS' from the model dir name. Returns
+    'pretrained' when no checkpoint is supplied."""
+    name = _model_dir_name_from_ckpt(ckpt_path)
+    if name is None:
+        return "pretrained"
+    import re
+
+    m = re.match(r"^(.+?)_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})$", name)
+    return m.group(1) if m else name
+
+
+def _model_time_from_ckpt(ckpt_path):
+    """Extract the trailing 'YYYY-MM-DD_HH-MM-SS' from the model dir name.
+    Returns 'base' when no checkpoint is supplied."""
+    name = _model_dir_name_from_ckpt(ckpt_path)
+    if name is None:
+        return "base"
+    import re
+
+    m = re.match(r"^.+?_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})$", name)
+    return m.group(1) if m else "unknown"
+
+
+def _run_dir(name, description, mode, ckpt_path, ts):
+    """Pick the right hydra run dir: latent_eval/<type>/<time>/... for eval,
+    finetuned/... for everything else."""
+    if str(mode) == "eval":
+        mt = _model_type_from_ckpt(ckpt_path)
+        mtime = _model_time_from_ckpt(ckpt_path)
+        return f"./logs/{name}/latent_eval/{mt}/{mtime}/{description}_{ts}"
+    return f"./logs/{name}/finetuned/{description}_{ts}"
+
+
+OmegaConf.register_new_resolver("model_type_from_ckpt", _model_type_from_ckpt)
+OmegaConf.register_new_resolver("model_time_from_ckpt", _model_time_from_ckpt)
+OmegaConf.register_new_resolver("run_dir", _run_dir)
+
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+def _find_existing_latents(cfg) -> str | None:
+    """In eval mode, look for a prior run with matching (model_type,
+    model_time, description-prefix) under `latent_eval/<type>/<time>/`. Return
+    the most recent epoch dir that contains per-layer CSVs, or None.
+
+    Skipped if `force_reeval=true` is set on the CLI / config.
+    """
+    if str(cfg.get("mode")) != "eval":
+        return None
+    if cfg.get("force_reeval", False):
+        return None
+    name = cfg.get("name")
+    description = cfg.get("description")
+    ckpt_path = cfg.get("ckpt_path")
+    model_type = _model_type_from_ckpt(ckpt_path)
+    model_time = _model_time_from_ckpt(ckpt_path)
+    parent = os.path.join(
+        "logs", str(name), "latent_eval", str(model_type), str(model_time)
+    )
+    if not os.path.isdir(parent):
+        return None
+    # Find sibling runs whose name is exactly `<description>_<TS>` — strict
+    # match so e.g. `latent_random` doesn't accidentally match
+    # `latent_random_pretrained_*` directories.
+    import re
+
+    pat = re.compile(
+        rf"^{re.escape(str(description))}_\d{{4}}-\d{{2}}-\d{{2}}_\d{{2}}-\d{{2}}-\d{{2}}$"
+    )
+    candidates = []
+    for run_dir in sorted(os.listdir(parent)):
+        if not pat.match(run_dir):
+            continue
+        epoch_root = os.path.join(parent, run_dir, "latents")
+        if not os.path.isdir(epoch_root):
+            continue
+        for ed in sorted(os.listdir(epoch_root)):
+            full = os.path.join(epoch_root, ed)
+            if os.path.isdir(full) and any(
+                f.endswith(".csv") for f in os.listdir(full)
+            ):
+                candidates.append(full)
+    if not candidates:
+        return None
+    # Most recent by mtime — the latest successful prior run.
+    candidates.sort(key=lambda p: os.path.getmtime(p))
+    return candidates[-1]
 
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
@@ -239,14 +344,39 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         eval_obj.trainer = trainer
         eval_obj.model = model.model
         model.evaluator = eval_obj
-        # Load checkpoint weights manually so we can reset the epoch counter
-        ckpt_path = cfg.get("ckpt_path")
-        if ckpt_path:
-            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-            model.load_state_dict(checkpoint["state_dict"], strict=False)
-            log.info(f"Loaded weights from {ckpt_path}")
-        log.info("Starting evaluation!")
-        trainer.validate(model=model, datamodule=datamodule)
+
+        # If a previous run with matching (model_type, model_time, description)
+        # already wrote per-layer CSVs, reuse them: just re-render plots with
+        # the current yaml flags and skip the model forward entirely.
+        existing = _find_existing_latents(cfg)
+        if existing is not None and hasattr(eval_obj, "rebuild_from_csvs"):
+            log.info(
+                f"Reusing existing CSVs from {existing} — skipping model forward. "
+                f"To force re-eval, pass `+force_reeval=true` on the CLI."
+            )
+            new_dir = os.path.join(eval_obj.latent_dir(), "epoch_0")
+            eval_obj.rebuild_from_csvs(existing, out_dir=new_dir)
+        else:
+            # Load checkpoint weights unless `pretrained=true` was set (used
+            # to evaluate the PI base release weights for comparison; the
+            # ckpt_path is still used to ROUTE the output dir under the same
+            # model-type/model-time folder as the fine-tuned counterpart, but
+            # the fine-tuned weights are not actually loaded).
+            ckpt_path = cfg.get("ckpt_path")
+            pretrained = bool(cfg.get("pretrained", False))
+            if ckpt_path and not pretrained:
+                checkpoint = torch.load(
+                    ckpt_path, map_location="cpu", weights_only=False
+                )
+                model.load_state_dict(checkpoint["state_dict"], strict=False)
+                log.info(f"Loaded weights from {ckpt_path}")
+            elif ckpt_path and pretrained:
+                log.info(
+                    f"pretrained=true → skipping checkpoint load. "
+                    f"Routing output under {ckpt_path}'s folder for side-by-side comparison."
+                )
+            log.info("Starting evaluation!")
+            trainer.validate(model=model, datamodule=datamodule)
     else:
         raise ValueError(f"Invalid mode: {mode}")
 

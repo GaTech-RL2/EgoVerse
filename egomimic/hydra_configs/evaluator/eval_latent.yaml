@@ -1,0 +1,35 @@
+_target_: egomimic.eval.eval_latent.PILatentEvalVideo
+save_plots: true
+limit_val_batches: 16
+
+# Which reductions to compute per slice. Coords are baked into each
+# layer's CSV (umap_x/y/z, tsne2d_x/y, ...) so the latent_inspector and
+# other viewers can plot them without recomputing.
+#   - UMAP 3D and t-SNE 2D both run on GPU when cuML is available.
+#   - t-SNE 3D falls back to sklearn CPU and is slow; off by default.
+compute_umap: true
+compute_tsne_2d: true
+compute_tsne_3d: false
+
+# Optional PCA preprocessing. When `compute_pca: true`:
+#   - PCA is fit per layer and the cumulative explained variance ratio is
+#     logged. Aim for ~70-80% with the chosen `pca_n_components`; bump it up
+#     if you see < 70%, drop if > 95%.
+#   - If `pca_for_downstream: true`, UMAP/t-SNE consume the PCA features
+#     instead of raw keys (faster + denoised).
+#   - A "<layer>_pca.png" 3D scatter (first 3 PCs) is saved alongside the
+#     other plots.
+compute_pca: false             # save first 3 PCs as pca_x/y/z columns
+compute_pca_umap: true         # NEW: PCA-N then UMAP, saved as pca_umap_x/y/z
+pca_n_components: 50
+pca_for_downstream: false      # if true, raw umap_x/y/z BECOMES PCA-then-UMAP
+                                # (don't combine with compute_pca_umap unless you want both)
+
+# When true, paligemma layers also emit a "<layer>_combined" slice with
+# image + language tokens together (in addition to _img / _lang).
+emit_combined: true
+
+# Plot scatter coloring. "embodiment" (default) → 2 colors (aria vs eva),
+# good for cotrain_pi_latent_random. Override to "hash" for the pairs config
+# so each of the 4 specific episodes gets its own color.
+color_by: embodiment

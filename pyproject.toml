@@ -63,6 +63,7 @@ dependencies = [
     "ruff",
     "scaleapi",
     "openai",
+    "scikit-learn>=1.8.0",
 ]
 
 [tool.setuptools.packages.find]
