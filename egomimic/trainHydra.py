@@ -12,6 +12,8 @@ from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
+# Side-effect: registers latent-eval OmegaConf resolvers (run_dir, model_type_from_ckpt, model_time_from_ckpt).
+import egomimic.eval.latent_helpers  # noqa: F401
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
@@ -23,6 +25,7 @@ from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras, task_wrapper
 
 OmegaConf.register_new_resolver("eval", eval)
+
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
@@ -239,14 +242,43 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         eval_obj.trainer = trainer
         eval_obj.model = model.model
         model.evaluator = eval_obj
-        # Load checkpoint weights manually so we can reset the epoch counter
-        ckpt_path = cfg.get("ckpt_path")
-        if ckpt_path:
-            checkpoint = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-            model.load_state_dict(checkpoint["state_dict"], strict=False)
-            log.info(f"Loaded weights from {ckpt_path}")
-        log.info("Starting evaluation!")
-        trainer.validate(model=model, datamodule=datamodule)
+
+        # If a previous run with matching (model_type, model_time, description)
+        # already wrote per-layer CSVs, reuse them: just re-render plots with
+        # the current yaml flags and skip the model forward entirely.
+        existing = (
+            eval_obj.find_existing_csv_dir(cfg)
+            if hasattr(eval_obj, "find_existing_csv_dir")
+            else None
+        )
+        if existing is not None and hasattr(eval_obj, "rebuild_from_csvs"):
+            log.info(
+                f"Reusing existing CSVs from {existing} — skipping model forward. "
+                f"To force re-eval, pass `+force_reeval=true` on the CLI."
+            )
+            new_dir = os.path.join(eval_obj.latent_dir(), "epoch_0")
+            eval_obj.rebuild_from_csvs(existing, out_dir=new_dir)
+        else:
+            # Load checkpoint weights unless `pretrained=true` was set (used
+            # to evaluate the PI base release weights for comparison; the
+            # ckpt_path is still used to ROUTE the output dir under the same
+            # model-type/model-time folder as the fine-tuned counterpart, but
+            # the fine-tuned weights are not actually loaded).
+            ckpt_path = cfg.get("ckpt_path")
+            pretrained = bool(cfg.get("pretrained", False))
+            if ckpt_path and not pretrained:
+                checkpoint = torch.load(
+                    ckpt_path, map_location="cpu", weights_only=False
+                )
+                model.load_state_dict(checkpoint["state_dict"], strict=False)
+                log.info(f"Loaded weights from {ckpt_path}")
+            elif ckpt_path and pretrained:
+                log.info(
+                    f"pretrained=true → skipping checkpoint load. "
+                    f"Routing output under {ckpt_path}'s folder for side-by-side comparison."
+                )
+            log.info("Starting evaluation!")
+            trainer.validate(model=model, datamodule=datamodule)
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
