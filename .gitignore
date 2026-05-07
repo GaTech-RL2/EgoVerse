@@ -26,6 +26,7 @@ egomimic/scripts/aloha_process/datasetFig
 egomimic/outputs
 checkpoints/
 .vscode/
+.codex/
 outputs/
 datasets/
 logs/
