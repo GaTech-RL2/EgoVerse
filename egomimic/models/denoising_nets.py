@@ -748,6 +748,132 @@ class CrossBlockCfg2(CrossBlock):
         return super().forward_cross(x, cond_time)
 
 
+class MaskedCrossBlock(CrossBlock):
+    """CrossBlock with optional additive attn_mask on self-attention."""
+
+    def _forward_masked(self, x, cond, attn_mask):
+        res = x
+        x = self.ln1(x)
+        x, _ = self.mha(x, x, x, attn_mask=attn_mask)
+        x = x + res
+        res = x
+        x = self.ln2(x)
+        x, _ = self.cmha(x, cond, cond)
+        x = x + res
+        res = x
+        x = self.ln3(x)
+        x = self.mlp(x)
+        x = x + res
+        return x
+
+    def forward(self, x, cond, attn_mask=None):
+        cond = self.cond_proj(cond)
+        if attn_mask is not None:
+            return self._forward_masked(x, cond, attn_mask)
+        return self.forward_cross(x, cond)
+
+
+class HierarchicalCrossTransformer(nn.Module):
+    """
+    Drop-in replacement for CrossTransformer that uses a DAG-structured attention mask
+    across action blocks.
+
+    block_parents[i] lists the indices of blocks whose tokens block i is allowed to attend to
+    (in addition to its own tokens). This encodes arbitrary DAG dependencies.
+
+    Example for [base, torso, head, arms, hands]:
+        block_parents = [[], [0], [0,1], [0,1], [0,1,3]]
+    => arms/hands skip head; head is a dead-end in the conditioning graph.
+    """
+
+    def __init__(
+        self,
+        nblocks,
+        cond_dim,
+        hidden_dim,
+        act_dim,
+        act_seq,
+        n_heads,
+        dropout,
+        mlp_layers,
+        mlp_ratio,
+        hierarchical_block_dims,
+        hierarchical_block_parents,
+        **kwargs,
+    ):
+        super().__init__()
+        assert sum(hierarchical_block_dims) == act_dim, (
+            f"block_dims {hierarchical_block_dims} sum to {sum(hierarchical_block_dims)}, "
+            f"expected act_dim={act_dim}"
+        )
+        assert len(hierarchical_block_parents) == len(hierarchical_block_dims)
+
+        self.block_dims = hierarchical_block_dims
+        self.block_parents = hierarchical_block_parents
+        self.n_blocks = len(hierarchical_block_dims)
+        self.act_seq = act_seq
+        self.hidden_dim = hidden_dim
+
+        # Precompute slice objects for each block (action dim axis)
+        self.block_slices = []
+        offset = 0
+        for d in self.block_dims:
+            self.block_slices.append(slice(offset, offset + d))
+            offset += d
+
+        self.proj_u = nn.ModuleList([nn.Linear(d, hidden_dim // 2) for d in self.block_dims])
+        self.proj_d = nn.ModuleList([nn.Linear(hidden_dim, d) for d in self.block_dims])
+        self.pos_emb = nn.ParameterList([
+            nn.Parameter(torch.zeros(1, act_seq, hidden_dim // 2))
+            for _ in self.block_dims
+        ])
+        self.layers = nn.ModuleList([
+            MaskedCrossBlock(cond_dim, hidden_dim, n_heads, dropout, mlp_layers, mlp_ratio)
+            for _ in range(nblocks)
+        ])
+
+        self.register_buffer("attn_mask", self._build_mask())
+
+    def _build_mask(self):
+        S = self.act_seq
+        N = self.n_blocks * S
+        mask = torch.full((N, N), float("-inf"))
+        for i, parents in enumerate(self.block_parents):
+            allowed = set(parents) | {i}
+            for j in allowed:
+                mask[i * S:(i + 1) * S, j * S:(j + 1) * S] = 0.0
+        return mask
+
+    def forward(self, x, timesteps, cond, *args, **kwargs):
+        # x: [B, S, act_dim], cond: [B, S_cond, cond_dim]
+        B, S, _ = x.shape
+
+        time_embed = (
+            posemb_sincos(timesteps, self.hidden_dim // 2, min_period=4e-3, max_period=4.0)
+            .unsqueeze(1)
+            .expand(B, S, -1)
+            .to(x.device)
+        )  # [B, S, hidden_dim//2]
+
+        block_tokens = []
+        for proj_u, pos, sl in zip(self.proj_u, self.pos_emb, self.block_slices):
+            h = proj_u(x[..., sl]) + pos        # [B, S, hidden_dim//2]
+            h = torch.cat([h, time_embed], dim=-1)  # [B, S, hidden_dim]
+            block_tokens.append(h)
+
+        hid = torch.cat(block_tokens, dim=1)    # [B, n_blocks*S, hidden_dim]
+
+        for layer in self.layers:
+            hid = layer(hid, cond, attn_mask=self.attn_mask)
+
+        out_blocks = []
+        for i, (proj_d, sl) in enumerate(zip(self.proj_d, self.block_slices)):
+            h_i = hid[:, i * S:(i + 1) * S, :]  # [B, S, hidden_dim]
+            out_blocks.append(proj_d(h_i))        # [B, S, d_i]
+
+        return torch.cat(out_blocks, dim=-1)      # [B, S, act_dim]
+
+
 # class AdaLnTransformer(nn.Module):
 #     def __init__(
 #         self,

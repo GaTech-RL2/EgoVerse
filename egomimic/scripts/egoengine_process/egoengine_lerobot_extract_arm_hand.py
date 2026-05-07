@@ -86,6 +86,109 @@ ACTJ_FULL_DIM = ACTJ_RIGHT_HAND_END  # 49
 
 TORSO_DIM = ACTJ_TORSO_END - ACTJ_TORSO_START  # 6; same size as OBS torso, different indices
 
+FEATURE_SPECS = {
+    "obs.right_arm": {
+        "dtype": "float32",
+        "shape": [RIGHT_ARM],
+        "names": ["right_arm"],
+    },
+    "obs.left_arm": {
+        "dtype": "float32",
+        "shape": [LEFT_ARM],
+        "names": ["left_arm"],
+    },
+    "actions.joint_right_arm_hand": {
+        "dtype": "float32",
+        "shape": [RIGHT_ARM + RIGHT_HAND],
+        "names": ["joint_right_arm_hand"],
+    },
+    "actions.joint_left_arm_hand": {
+        "dtype": "float32",
+        "shape": [LEFT_ARM + LEFT_HAND],
+        "names": ["joint_left_arm_hand"],
+    },
+    "actions.joint_right_arm": {
+        "dtype": "float32",
+        "shape": [RIGHT_ARM],
+        "names": ["joint_right_arm"],
+    },
+    "actions.joint_left_arm": {
+        "dtype": "float32",
+        "shape": [LEFT_ARM],
+        "names": ["joint_left_arm"],
+    },
+    "actions.joint_right_arm_hand_torso": {
+        "dtype": "float32",
+        "shape": [RIGHT_ARM + RIGHT_HAND + TORSO_DIM],
+        "names": ["joint_right_arm_hand_torso"],
+    },
+    "actions.joint_arm_hand_torso": {
+        "dtype": "float32",
+        "shape": [LEFT_ARM + RIGHT_ARM + LEFT_HAND + RIGHT_HAND + TORSO_DIM],
+        "names": ["joint_arm_hand_torso"],
+    },
+    "actions.joint_base_torso": {
+        "dtype": "float32",
+        "shape": [TORSO_DIM + 3],
+        "names": ["joint_base_torso"],
+    },
+    "actions.joint_base_torso_head_arm_hand": {
+        "dtype": "float32",
+        "shape": [3 + TORSO_DIM + 2 + LEFT_ARM + RIGHT_ARM + LEFT_HAND + RIGHT_HAND],
+        "names": ["joint_base_torso_head_arm_hand"],
+    },
+    "actions.joint_hands": {
+        "dtype": "float32",
+        "shape": [LEFT_HAND + RIGHT_HAND],
+        "names": ["joint_hands"],
+    },
+    "actions.joint_arm_head": {
+        "dtype": "float32",
+        "shape": [LEFT_ARM + RIGHT_ARM + 2],
+        "names": ["joint_arm_head"],
+    },
+    "obs.robot0_joint_pos_no_wheel": {
+        "dtype": "float32",
+        "shape": [ROBOT0_DIM - OBS_BASE_END],
+        "names": ["obs.robot0_joint_pos_no_wheel"],
+    },
+}
+
+DELTA_ACTION_SOURCES = {
+    "actions.delta_joint_right_arm": "actions.joint_right_arm",
+    "actions.delta_joint_left_arm": "actions.joint_left_arm",
+    "actions.delta_joint_right_arm_hand": "actions.joint_right_arm_hand",
+    "actions.delta_joint_left_arm_hand": "actions.joint_left_arm_hand",
+    "actions.delta_joint_arm_hand_torso": "actions.joint_arm_hand_torso",
+    "actions.delta_joint_base_torso_head_arm_hand": "actions.joint_base_torso_head_arm_hand",
+}
+
+# For mixed mobile action vectors, the base commands are already per-step deltas
+# in the raw SEW action layout. Preserve them instead of finite-differencing them.
+DELTA_PRESERVE_CURRENT_SLICES = {
+    "actions.delta_joint_base_torso_head_arm_hand": [(0, 3)],
+}
+
+DELTA_FEATURE_SPECS = {
+    delta_key: {
+        "dtype": "float32",
+        "shape": FEATURE_SPECS[source_key]["shape"],
+        "names": [delta_key.removeprefix("actions.")],
+    }
+    for delta_key, source_key in DELTA_ACTION_SOURCES.items()
+}
+
+BASE_STATS_KEYS = [
+    "obs.right_arm",
+    "obs.left_arm",
+    "actions.joint_right_arm_hand",
+    "actions.joint_left_arm_hand",
+    "actions.joint_right_arm",
+    "actions.joint_left_arm",
+    "actions.joint_right_arm_hand_torso",
+    "actions.joint_arm_hand_torso",
+]
+
 
 def slice_actions_joint(joint: np.ndarray):
     """
@@ -170,6 +273,30 @@ def _episode_index_scalar(v) -> int:
     return int(v[0]) if hasattr(v, "__len__") and len(v) and not isinstance(v, str) else int(v)
 
 
+def _add_stepwise_delta_columns(dataset, ep_to_indices: dict[int, list[int]]):
+    """Add per-episode joint deltas while preserving already-delta action slices."""
+    total_rows = len(dataset)
+    for delta_key, source_key in DELTA_ACTION_SOURCES.items():
+        deltas = [None] * total_rows
+        for indices in ep_to_indices.values():
+            source = np.stack(
+                [np.asarray(x, dtype=np.float32) for x in dataset.select(indices)[source_key]],
+                axis=0,
+            )
+            delta = np.zeros_like(source, dtype=np.float32)
+            if source.shape[0] > 1:
+                delta[:-1] = source[1:] - source[:-1]
+            for start, end in DELTA_PRESERVE_CURRENT_SLICES.get(delta_key, []):
+                delta[:, start:end] = source[:, start:end]
+            for row_idx, value in zip(indices, delta, strict=True):
+                deltas[row_idx] = value.tolist()
+
+        if any(value is None for value in deltas):
+            raise RuntimeError(f"Failed to fill all rows for {delta_key}")
+        dataset = dataset.add_column(delta_key, deltas)
+    return dataset
+
+
 def _resolve_lerobot_root(path: Path) -> Path:
     """
     LeRobot root must contain meta/info.json and data/ (parquet).
@@ -227,6 +354,15 @@ def main():
             "Output path gets _black_image appendix."
         ),
     )
+    parser.add_argument(
+        "--add-delta-actions",
+        action="store_true",
+        help=(
+            "Add per-episode stepwise joint-delta action columns. Absolute joint "
+            "target slices use delta[t] = target[t+1] - target[t] with zero final "
+            "deltas; already-delta base command slices are preserved."
+        ),
+    )
     args = parser.parse_args()
 
     path = Path(args.dataset_path).resolve()
@@ -273,6 +409,9 @@ def main():
         ep_idx = _episode_index_scalar(ep_val)
         ep_to_indices.setdefault(ep_idx, []).append(i)
 
+    if args.add_delta_actions:
+        hf_dataset = _add_stepwise_delta_columns(hf_dataset, ep_to_indices)
+
     # Write per-episode parquet in original LeRobot structure
     data_out = output_path / "data"
     for ep_idx in sorted(ep_to_indices):
@@ -293,71 +432,9 @@ def main():
         shutil.copytree(meta_src, meta_dst, dirs_exist_ok=True)
         with open(meta_dst / "info.json") as f:
             info = json.load(f)
-        info["features"]["obs.right_arm"] = {
-            "dtype": "float32",
-            "shape": [RIGHT_ARM],
-            "names": ["right_arm"],
-        }
-        info["features"]["obs.left_arm"] = {
-            "dtype": "float32",
-            "shape": [LEFT_ARM],
-            "names": ["left_arm"],
-        }
-        info["features"]["actions.joint_right_arm_hand"] = {
-            "dtype": "float32",
-            "shape": [RIGHT_ARM + RIGHT_HAND],
-            "names": ["joint_right_arm_hand"],
-        }
-        info["features"]["actions.joint_left_arm_hand"] = {
-            "dtype": "float32",
-            "shape": [LEFT_ARM + LEFT_HAND],
-            "names": ["joint_left_arm_hand"],
-        }
-        info["features"]["actions.joint_right_arm"] = {
-            "dtype": "float32",
-            "shape": [RIGHT_ARM],
-            "names": ["joint_right_arm"],
-        }
-        info["features"]["actions.joint_left_arm"] = {
-            "dtype": "float32",
-            "shape": [LEFT_ARM],
-            "names": ["joint_left_arm"],
-        }
-        info["features"]["actions.joint_right_arm_hand_torso"] = {
-            "dtype": "float32",
-            "shape": [RIGHT_ARM + RIGHT_HAND + TORSO_DIM],
-            "names": ["joint_right_arm_hand_torso"],
-        }
-        info["features"]["actions.joint_arm_hand_torso"] = {
-            "dtype": "float32",
-            "shape": [LEFT_ARM + RIGHT_ARM + LEFT_HAND + RIGHT_HAND + TORSO_DIM],
-            "names": ["joint_arm_hand_torso"],
-        }
-        info["features"]["actions.joint_base_torso"] = {
-            "dtype": "float32",
-            "shape": [TORSO_DIM + 3],
-            "names": ["joint_base_torso"],
-        }
-        info["features"]["actions.joint_base_torso_head_arm_hand"] = {
-            "dtype": "float32",
-            "shape": [3 + TORSO_DIM + 2 + LEFT_ARM + RIGHT_ARM + LEFT_HAND + RIGHT_HAND],
-            "names": ["joint_base_torso_head_arm_hand"],
-        }
-        info["features"]["actions.joint_hands"] = {
-            "dtype": "float32",
-            "shape": [LEFT_HAND + RIGHT_HAND],
-            "names": ["joint_hands"],
-        }
-        info["features"]["actions.joint_arm_head"] = {
-            "dtype": "float32",
-            "shape": [LEFT_ARM + RIGHT_ARM + 2],
-            "names": ["joint_arm_head"],
-        }
-        info["features"]["obs.robot0_joint_pos_no_wheel"] = {
-            "dtype": "float32",
-            "shape": [ROBOT0_DIM - OBS_BASE_END],
-            "names": ["obs.robot0_joint_pos_no_wheel"],
-        }
+        info["features"].update(FEATURE_SPECS)
+        if args.add_delta_actions:
+            info["features"].update(DELTA_FEATURE_SPECS)
         if args.black_image and "obs.aria_image" not in info["features"]:
             info["features"]["obs.aria_image"] = {
                 "dtype": "image",
@@ -376,16 +453,9 @@ def main():
         else:
             stats = {}
 
-        new_keys = [
-            "obs.right_arm",
-            "obs.left_arm",
-            "actions.joint_right_arm_hand",
-            "actions.joint_left_arm_hand",
-            "actions.joint_right_arm",
-            "actions.joint_left_arm",
-            "actions.joint_right_arm_hand_torso",
-            "actions.joint_arm_hand_torso",
-        ]
+        new_keys = list(BASE_STATS_KEYS)
+        if args.add_delta_actions:
+            new_keys.extend(DELTA_ACTION_SOURCES)
         for key in new_keys:
             if key not in stats:
                 stats[key] = _compute_stats_for_key(hf_dataset, key)

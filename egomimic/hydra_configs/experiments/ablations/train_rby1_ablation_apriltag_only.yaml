@@ -1,0 +1,43 @@
+# @package _global_
+# Ablation: Only april_tag_xyz as proprio input
+# Based on train_rby1_sew_human_mobie_img_act32_proprio_dropout.yaml but with robot/hand keys removed
+defaults:
+  - /train
+  - override /model: experiments/ablations/rby1_0416_img_aria_apriltag_only_act32_proprio_dropout_mobile
+  - override /data: experiments/rby1_0416/rby1_0423_push_cart_human_act32_base_torso_head_arm_hand
+  - _self_
+
+name: RBY1_ablation_apriltag_only_mobie_img_act32
+description: "ablation_apriltag_only"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+logger:
+  wandb:
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      april_tag_xyz:
+        key_type: proprio_keys
+        lerobot_key: obs.april_tag_xyz
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1

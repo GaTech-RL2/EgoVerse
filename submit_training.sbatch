@@ -11,12 +11,10 @@
 #SBATCH -e ./logs/slurm/%A/task_%a/err.log
 #SBATCH --exclude='puma,deebot,qt-1'
 
-# xaea-12,dendrite,synapse,uniblab,
+# xaea-12,dendrite,synapse,uniblab,bishop (some of work)
 
 cd /coc/flash7/zhenyang/EgoVerse
-
 source emimic/bin/activate
-
 export TMPDIR=/tmp
 
 # After cd and source activate, before python
@@ -24,19 +22,39 @@ echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
 nvidia-smi
 
 # python egomimic/trainHydra.py model=hpt_bc_flow_rby1 name=RBY1_test_resume_0301_2 description=resume_last_ckpt
-
 # python egomimic/trainHydra.py model=hpt_bc_flow_eva name=EgoWM_test
-
 # python egomimic/trainHydra.py model=hpt_bc_flow_rby1 name=RBY1_test_0305_lowdim description=debug
 
-
 ################## MOBILE: PUSH CART experiments ######
-DATASET=RBY1_human_data_0423_push_cart
+# DATASET=RBY1_human_data_0423_push_cart
+DATASET=RBY1_0423_cart_mobile_v6_human_data
+# CONFIG=train_rby1_sew_human_mobie_img_act32_proprio_dropout # vanilla config with proprio dropout
+# CONFIG=experiments/ablations/train_rby1_ablation_apriltag_only # ablation: only april tag as proprio input, no robot joint pos or hand qpos. See egomimic/hydra_configs/model/experiments/ablations/rby1_0416_img_aria_apriltag_only_act32_proprio_dropout_mobile.yaml
+# CONFIG=experiments/ablations/train_rby1_ablation_robot_only # ablation: only robot joint pos as proprio input, no april tag or hand qpos. See egomimic/hydra_configs/model/experiments/ablations/rby1_0416_img_aria_robot_only_act32_proprio_dropout_mobile.yaml
+DATASET=RBY1_0423_cart_mobile_v6_delta_human_data
+CONFIG=train_rby1_sew_human_mobie_img_act32_proprio_dropout_delta #  ablation: delta actions compared to vanilla
 CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
-        --config-name=train_rby1_sew_human_mobie_img_act32_proprio_dropout \
+        --config-name=${CONFIG} \
         name=${DATASET} \
         data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
         data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}
+
+################# MOBILE: PUSH CART hierarchical experiments ######
+# DATASET=RBY1_0423_cart_mobile_v3_human_data
+
+# P1: block-token diffusion with masked attention (DAG). Same cost as vanilla at inference.
+# CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
+#         --config-name=experiments/hierarchical/push_cart_p1_masked_attn \
+#         name=${DATASET}_hier_p1 \
+#         data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
+#         data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}
+
+# P2: separate CrossTransformer per block with detached x0 conditioning. 5x inference cost.
+# CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
+#         --config-name=experiments/hierarchical/push_cart_p2_block_heads \
+#         name=${DATASET}_hier_p2 \
+#         data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET} \
+#         data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${DATASET}
 
 ################## SEW experiments ######
 # DATASET=RBY1_human_data_0416_pickupbox
