@@ -1,0 +1,38 @@
+defaults:
+  - model: hpt_bc_flow_eve
+  - visualization: eve_cartesian
+  - paths: default
+  - trainer: debug
+  - debug: null
+  - logger: debug
+  - data: cup_eve_local
+  - callbacks: checkpoints
+  - data_schematic: eve_default
+  - evaluator: eval_hpt
+  - override hydra/launcher: submitit
+  - _self_
+
+name: eve_bc_debug
+description: eve_bc_debug
+ckpt_path: null
+mode: train
+
+hydra:
+  run:
+    dir: ${oc.env:EVE_HYDRA_RUN_DIR,./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}}
+  sweep:
+    dir: ${oc.env:EVE_HYDRA_RUN_DIR,./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}}
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+seed: 42
+
+# norm_stats sample_frac is 1.0 because we only have 3 episodes — full sweep is fast.
+norm_stats:
+  sample_frac: 1.0
+  num_workers: 2
+  save_cache_dir: ${hydra:runtime.output_dir}
+  precomputed_norm_path: null
+reject_outliers: true
