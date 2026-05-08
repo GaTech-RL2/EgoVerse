@@ -35,35 +35,66 @@ removed). See `external/openpi` instructions below.
 
 This guide assumes:
 
-- **egomimic** — checked out on the rollout branch (the one carrying
-  `rollout-requirements.txt` and the relaxed `requires-python` in
-  `pyproject.toml`).
-- **external/openpi** — checked out on a `rollout` branch of our fork
-  (`https://github.com/GaTech-RL2/openpi`) with these modifications already
-  committed:
-  - `.python-version` changed `3.11` → `3.10`.
-  - `pyproject.toml` `dependencies` no longer lists `lerobot`.
-  - `[tool.uv.sources]` no longer pins the lerobot git rev.
-  - `packages/openpi-client/pyproject.toml` `requires-python` raised from
-    `>=3.7` to `>=3.10`.
-  - `src/openpi/shared/download.py` uses `datetime.timezone.utc` instead of
-    the 3.11-only `datetime.UTC`.
+- **egomimic** — checked out on `elmo/pi-rollout-local` (the rollout-host
+  branch carrying `rollout-requirements.txt`, `uv.lock`, and the relaxed
+  `requires-python` in `pyproject.toml`). It stacks on `elmo/pi-rollout-fix`,
+  which is the mergeable rollout-code branch.
+- **external/openpi** — currently in a **detached-HEAD** state at upstream
+  commit `981483d` ("use EGL for headless GPU rendering in libero example",
+  PR #837) with the patches below applied as **uncommitted working-tree
+  edits**, plus an untracked `scripts/patch_transformers.py`. The fork
+  (`https://github.com/GaTech-RL2/openpi`) does have a `pi-rollout-changes`
+  branch with overlapping patches, but it diverges from this host's working
+  tree (it adds `chex`, loosens `numpy`/`opencv-python`, patches
+  `pi0_pytorch.py`, and **does not** carry `.python-version`,
+  `packages/openpi-client/pyproject.toml`, `uv.lock`, or
+  `patch_transformers.py`). Treat this guide — not the fork branch — as the
+  source of truth for what's running here.
 
-If you're recreating these patches by hand from upstream, the diffs are small —
-search this guide for the exact symbols above.
+### openpi patches to apply on top of `981483d`
+
+After cloning and checking out commit `981483d`, edit these files:
+
+- **`.python-version`** — replace `3.11` with `3.10`.
+- **`pyproject.toml`**:
+  - In `[project]`, delete the `requires-python = ">=3.11"` line entirely
+    (the rollout install pins via the host interpreter; no replacement
+    needed).
+  - In `dependencies`, delete the `"lerobot",` entry.
+  - In `[tool.uv.sources]`, delete the
+    `lerobot = { git = "https://github.com/huggingface/lerobot", rev = "..." }`
+    entry.
+- **`packages/openpi-client/pyproject.toml`** — raise `requires-python`
+  from `>=3.7` to `>=3.10`.
+- **`src/openpi/shared/download.py`** — replace `datetime.UTC` with
+  `datetime.timezone.utc` (3.10 doesn't have `datetime.UTC`).
+- **`uv.lock`** — regenerate by running `uv lock` from `external/openpi`
+  after the `pyproject.toml` edits above (Step 3 covers this).
+- **`scripts/patch_transformers.py`** — this script is not in upstream;
+  copy it from a working rollout host or recreate it (see Step 4 for what
+  it does — copies a handful of replacement files from
+  `models_pytorch/transformers_replace/` into the active `transformers`
+  package on disk).
+
+These patches are not currently published as a clean fork branch. If you
+finish a rollout setup and want to make this reproducible without hand-
+editing, push the result to your fork as e.g. `pi-rollout-host` and update
+this section to reference it.
 
 ## Step 1 — clone with submodules
 
 ```bash
 git clone <egomimic-repo>
 cd egomimic
-git checkout <rollout-branch>
+git checkout elmo/pi-rollout-local       # stacks on elmo/pi-rollout-fix
 git submodule update --init --recursive external/openpi
-git -C external/openpi checkout <openpi-rollout-branch>
+git -C external/openpi checkout 981483d  # upstream tip the patches apply to
 ```
 
-`external/openpi` ends up at the openpi rollout-branch commit and pulls in its
-own nested submodules (`third_party/aloha`, `third_party/libero`).
+`external/openpi` ends up detached at `981483d` and pulls in its own nested
+submodules (`third_party/aloha`, `third_party/libero`). Apply the patches
+listed under "openpi patches to apply on top of `981483d`" before
+proceeding.
 
 ## Step 2 — install egomimic rollout deps
 
