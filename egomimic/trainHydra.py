@@ -100,7 +100,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         "MultiDataModuleWrapper" in cfg.data._target_
     ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
     datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
+        cfg.data,
+        train_datasets=train_datasets,
+        valid_datasets=valid_datasets,
+        data_schematic=data_schematic,
     )
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from
