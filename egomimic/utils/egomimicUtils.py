@@ -248,6 +248,19 @@ EXTRINSICS = {
         "left": np.eye(4),
         "right": np.eye(4),
     },
+    # ETH/CVG faive bimanual (Aria glasses on EVE robot). Calibration ported
+    # from the old EgoVerse so EVE base-frame trajectories project correctly
+    # onto the front camera.
+    "ethOct14": {
+        "left_cam": np.array([[-0.02199727, -0.80581615, 0.59175708, 0.20403467],
+                              [-0.99905014, 0.03998766, 0.01731508, -0.25486327],
+                              [-0.03761575, -0.59081411, -0.80593036, 0.43379187],
+                              [0.0, 0.0, 0.0, 1.0]]),
+        "right_cam": np.array([[0.02933941, -0.83227828, 0.55358113, 0.17515134],
+                               [-0.99642232, 0.01956109, 0.0822187, 0.34649483],
+                               [-0.07925749, -0.55401284, -0.82872675, 0.46895363],
+                               [0.0, 0.0, 0.0, 1.0]]),
+    },
 }
 
 INTRINSICS = {
