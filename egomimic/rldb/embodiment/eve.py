@@ -160,8 +160,6 @@ class Eve(Embodiment):
 
         intrinsics = INTRINSICS[intrinsics_key]
         extr = EXTRINSICS[extrinsics_key]
-        T_left_cam_base = np.linalg.inv(extr["left_cam"])
-        T_right_cam_base = np.linalg.inv(extr["right_cam"])
 
         actions = np.asarray(viz_data)
         if actions.ndim == 1:
@@ -170,8 +168,14 @@ class Eve(Embodiment):
         left_xyz = left_xyz.reshape(-1, 3)
         right_xyz = right_xyz.reshape(-1, 3)
 
-        left_cam = ee_pose_to_cam_frame(left_xyz, T_left_cam_base)
-        right_cam = ee_pose_to_cam_frame(right_xyz, T_right_cam_base)
+        # NOTE: NEW egomimicUtils.ee_pose_to_cam_frame inverts its 2nd arg
+        # internally (line 715), so to get p_cam = T_cam_base @ p_base the
+        # caller must pass T_base_cam (= the stored extrinsics matrix
+        # "left_cam" / "right_cam", whose translation column is the camera
+        # origin in robot base frame). Passing the inverted matrix would
+        # double-invert and project off-image (top-right corner).
+        left_cam = ee_pose_to_cam_frame(left_xyz, extr["left_cam"])
+        right_cam = ee_pose_to_cam_frame(right_xyz, extr["right_cam"])
         pts_cam = np.concatenate([left_cam, right_cam], axis=0)
         pts_pix = cam_frame_to_cam_pixels(pts_cam, intrinsics)
 
