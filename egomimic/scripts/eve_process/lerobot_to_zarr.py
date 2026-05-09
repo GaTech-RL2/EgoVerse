@@ -64,13 +64,14 @@ def _decode_image_value(value) -> np.ndarray:
     return np.asarray(img, dtype=np.uint8)
 
 
-def _stack_numeric(values) -> np.ndarray:
-    """Stack a Series whose elements are scalars or array-like into one ndarray."""
-    arr = np.asarray(list(values))
-    if arr.dtype == object:
-        # Heterogeneous (typically the prestacked action chunks)
-        arr = np.stack([np.asarray(v) for v in values], axis=0)
-    return arr
+def _stack_numeric(values, dtype=np.float64) -> np.ndarray:
+    """Stack a Series of array-like cells into one ndarray with an explicit dtype.
+
+    Zarr v3 refuses object-dtype arrays, and pandas hands back object Series for
+    columns whose cells are 1D vectors or 2D action chunks. Casting each cell
+    individually before stacking guarantees a real numeric ndarray.
+    """
+    return np.stack([np.asarray(v, dtype=dtype) for v in values], axis=0)
 
 
 def _output_image_key(parquet_col: str) -> str:
