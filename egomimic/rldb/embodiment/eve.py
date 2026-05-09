@@ -21,6 +21,7 @@ intrinsics projection, using the ``ethOct14`` calibration.
 
 from __future__ import annotations
 
+import copy
 from typing import Literal
 
 import cv2
@@ -36,6 +37,7 @@ from egomimic.utils.egomimicUtils import (
     ee_pose_to_cam_frame,
 )
 from egomimic.utils.pose_utils import _split_action_pose
+from egomimic.utils.type_utils import _to_numpy
 from egomimic.utils.viz_utils import (
     ColorPalette,
     _prepare_viz_image,
@@ -111,7 +113,9 @@ class Eve(Embodiment):
         Mirrors the OLD EgoVerse ``draw_actions`` base->cam pipeline: each
         per-arm xyz chunk is converted to camera frame via the inverse of the
         per-arm camera-to-base extrinsic, then projected with the front-camera
-        intrinsics. Other modes fall back to the base implementation.
+        intrinsics. Dots are painted opaquely (no alpha blend) — the calling
+        ``viz_gt_preds`` controls draw order so both GT and pred remain visible.
+        Other modes fall back to the base implementation.
         """
         if mode != "traj":
             return super().viz(
@@ -125,7 +129,6 @@ class Eve(Embodiment):
         intrinsics_key = intrinsics_key or cls.VIZ_INTRINSICS_KEY
         extrinsics_key = extrinsics_key or cls.VIZ_EXTRINSICS_KEY
         color = kwargs.get("color", "Blues")
-        alpha = kwargs.get("alpha", 1.0)
         if not ColorPalette.is_valid(color):
             raise ValueError(f"Invalid color palette: {color}")
 
@@ -147,7 +150,58 @@ class Eve(Embodiment):
         pts_pix = cam_frame_to_cam_pixels(pts_cam, intrinsics)
 
         base = _prepare_viz_image(image)
-        overlay = draw_dot_on_frame(base.copy(), pts_pix, show=False, palette=color)
-        if alpha < 1.0:
-            return cv2.addWeighted(overlay, alpha, base, 1.0 - alpha, 0)
-        return overlay
+        # Mutate base.copy() so the caller can chain Eve.viz calls and stack
+        # overlays without alpha blending hiding earlier dots.
+        return draw_dot_on_frame(base.copy(), pts_pix, show=False, palette=color)
+
+    @classmethod
+    def viz_gt_preds(
+        cls,
+        predictions,
+        batch,
+        image_key,
+        action_key,
+        annotation_key=None,
+        transform_list=None,
+        mode: Literal["traj", "traj+rotation", "axes", "annotations"] = "traj",
+        gt_alpha=1.0,
+        pred_alpha=1.0,
+        **kwargs,
+    ):
+        """Match OLD EgoVerse draw order: predictions first, ground truth on
+        top. The opposite (GT first, pred on top — the base-class default)
+        causes well-trained predictions to occlude GT, leaving the user with
+        a single-color overlay."""
+        embodiment_id = batch["embodiment"][0].item()
+        from egomimic.rldb.embodiment.embodiment import get_embodiment
+        embodiment_name = get_embodiment(embodiment_id).lower()
+        pred_actions = predictions[f"{embodiment_name}_{action_key}"]
+        if transform_list is not None:
+            pred_batch = copy.deepcopy(batch)
+            pred_batch[action_key] = pred_actions
+            batch = cls.apply_transform(batch, transform_list)
+            pred_batch = cls.apply_transform(pred_batch, transform_list)
+            pred_actions = pred_batch[action_key]
+
+        images = _to_numpy(batch[image_key])
+        actions = _to_numpy(batch[action_key])
+        pred_actions = _to_numpy(pred_actions)
+        if annotation_key is not None:
+            annotations = batch[annotation_key]
+
+        ims_list = []
+        for i in range(images.shape[0]):
+            image = images[i]
+            action = actions[i]
+            pred_action = pred_actions[i]
+            # OLD order: pred first, GT on top, both opaque.
+            ims = cls.viz(
+                image, pred_action, mode=mode, color="Reds", alpha=pred_alpha, **kwargs
+            )
+            ims = cls.viz(
+                ims, action, mode=mode, color="Greens", alpha=gt_alpha, **kwargs
+            )
+            if annotation_key is not None:
+                ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)
+            ims_list.append(ims)
+        return np.stack(ims_list, axis=0)
