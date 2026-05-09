@@ -20,12 +20,50 @@ import torch
 from scipy.spatial.transform import Rotation as R
 
 
+_SE3_CACHED = None
+
+
+class _SE3Numpy:
+    """Drop-in for projectaria_tools.core.sophus.SE3, implementing only the
+    surface this module uses: ``SE3.from_matrix(M)``, ``SE3 @ SE3``,
+    ``.inverse()``, ``.to_matrix()``. Both single (4,4) and batched (T,4,4)
+    homogeneous transforms are supported. Used as a fallback on platforms
+    where projectaria_tools has no wheel (aarch64 on PyPI as of 2.0.0)."""
+
+    __slots__ = ("_M",)
+
+    def __init__(self, M):
+        self._M = np.asarray(M, dtype=np.float64)
+
+    @classmethod
+    def from_matrix(cls, M):
+        return cls(M)
+
+    def to_matrix(self):
+        return self._M
+
+    def inverse(self):
+        return type(self)(np.linalg.inv(self._M))
+
+    def __matmul__(self, other):
+        if not isinstance(other, _SE3Numpy):
+            return NotImplemented
+        return type(self)(self._M @ other._M)
+
+
 def _SE3():
-    # Lazy import: projectaria_tools is not packaged for aarch64 on PyPI as of
-    # 2.0.0. Only the two transforms below actually need SE3, so deferring the
-    # import lets the module load on aarch64 hosts that don't use them.
-    from projectaria_tools.core.sophus import SE3 as _cls
-    return _cls
+    """Resolve an SE3 implementation. Prefer projectaria_tools when available
+    (matches upstream behavior for any edge cases); otherwise fall back to a
+    pure-numpy shim that uses identical 4x4 homogeneous-transform algebra."""
+    global _SE3_CACHED
+    if _SE3_CACHED is not None:
+        return _SE3_CACHED
+    try:
+        from projectaria_tools.core.sophus import SE3 as _cls
+        _SE3_CACHED = _cls
+    except ImportError:
+        _SE3_CACHED = _SE3Numpy
+    return _SE3_CACHED
 
 from egomimic.utils.pose_utils import (
     _interpolate_euler,
