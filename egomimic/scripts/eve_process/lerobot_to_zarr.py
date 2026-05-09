@@ -64,14 +64,25 @@ def _decode_image_value(value) -> np.ndarray:
     return np.asarray(img, dtype=np.uint8)
 
 
-def _stack_numeric(values, dtype=np.float64) -> np.ndarray:
-    """Stack a Series of array-like cells into one ndarray with an explicit dtype.
+def _normalize_cell(v) -> np.ndarray:
+    """Coerce one parquet cell into a real numeric ndarray.
 
-    Zarr v3 refuses object-dtype arrays, and pandas hands back object Series for
-    columns whose cells are 1D vectors or 2D action chunks. Casting each cell
-    individually before stacking guarantees a real numeric ndarray.
+    Cells from the prestacked action columns come back from pyarrow/pandas as
+    object arrays of object arrays (rows of the (T, D) chunk). Recursively
+    np.stack any inner object arrays so the outer call can cast cleanly.
     """
-    return np.stack([np.asarray(v, dtype=dtype) for v in values], axis=0)
+    a = np.asarray(v)
+    if a.dtype == object:
+        return np.stack([_normalize_cell(x) for x in a], axis=0)
+    return a
+
+
+def _stack_numeric(values, dtype=np.float64) -> np.ndarray:
+    """Stack a Series of array-like cells into one ndarray with an explicit dtype."""
+    return np.stack(
+        [_normalize_cell(v).astype(dtype, copy=False) for v in values],
+        axis=0,
+    )
 
 
 def _output_image_key(parquet_col: str) -> str:
