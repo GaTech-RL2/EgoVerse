@@ -44,6 +44,21 @@ from egomimic.utils.viz_utils import (
 )
 
 
+# Solid bright BGR colors for cv2.circle (cv2 uses BGR order). Derived from the
+# palette name passed to Eve.viz; bypasses the matplotlib gradient that paints
+# the first half of a long trajectory in near-white.
+_PALETTE_TO_BGR = {
+    "Greens":  (40, 220, 40),    # bright green
+    "Reds":    (40, 40, 220),    # bright red
+    "Blues":   (220, 40, 40),    # bright blue
+    "Purples": (180, 60, 180),   # bright purple
+}
+
+
+def _solid_color_for_palette(palette: str) -> tuple[int, int, int]:
+    return _PALETTE_TO_BGR.get(palette, (255, 255, 255))
+
+
 class Eve(Embodiment):
     VIZ_INTRINSICS_KEY = "base"
     VIZ_EXTRINSICS_KEY = "ethOct14"
@@ -161,9 +176,19 @@ class Eve(Embodiment):
         pts_pix = cam_frame_to_cam_pixels(pts_cam, intrinsics)
 
         base = _prepare_viz_image(image)
-        # Mutate base.copy() so the caller can chain Eve.viz calls and stack
-        # overlays without alpha blending hiding earlier dots.
-        return draw_dot_on_frame(base.copy(), pts_pix, show=False, palette=color)
+        # NOTE: draw_dot_on_frame applies a matplotlib cmap gradient over
+        # np.linspace(0, 1, N). For palettes like "Greens"/"Reds" with ~200
+        # dots, the first half are near-white and visually disappear against
+        # the camera image. To keep both GT and pred clearly visible we draw
+        # solid saturated colors instead, derived from the palette name.
+        rgb = _solid_color_for_palette(color)
+        out = base.copy()
+        for px in pts_pix:
+            try:
+                out = cv2.circle(out, (int(px[0]), int(px[1])), 5, rgb, -1)
+            except Exception:
+                pass
+        return out
 
     @classmethod
     def viz_gt_preds(
