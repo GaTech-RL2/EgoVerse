@@ -32,13 +32,13 @@ from egomimic.utils.egomimicUtils import (
     EXTRINSICS,
     INTRINSICS,
     cam_frame_to_cam_pixels,
+    draw_dot_on_frame,
     ee_pose_to_cam_frame,
 )
 from egomimic.utils.pose_utils import _split_action_pose
 from egomimic.utils.viz_utils import (
     ColorPalette,
     _prepare_viz_image,
-    draw_dot_on_frame,
 )
 
 
