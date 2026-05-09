@@ -17,8 +17,15 @@ from typing import Literal
 
 import numpy as np
 import torch
-from projectaria_tools.core.sophus import SE3
 from scipy.spatial.transform import Rotation as R
+
+
+def _SE3():
+    # Lazy import: projectaria_tools is not packaged for aarch64 on PyPI as of
+    # 2.0.0. Only the two transforms below actually need SE3, so deferring the
+    # import lets the module load on aarch64 hosts that don't use them.
+    from projectaria_tools.core.sophus import SE3 as _cls
+    return _cls
 
 from egomimic.utils.pose_utils import (
     _interpolate_euler,
@@ -205,6 +212,7 @@ class ActionChunkCoordinateFrameTransform(Transform):
             _xyzwxyz_to_matrix if target_world.shape[-1] == 7 else _xyzypr_to_matrix
         )
         # Convert to SE3 for transformation
+        SE3 = _SE3()
         target_se3 = SE3.from_matrix(
             target_world_to_matrix_fn(target_world[None, :])[0]
         )  # (4, 4)
@@ -443,6 +451,7 @@ class CartesianWithGripperCoordinateTransform(Transform):
         left_pose_world = chunk_world[:, :6]
         right_pose_world = chunk_world[:, 7:13]
 
+        SE3 = _SE3()
         left_target_se3 = SE3.from_matrix(
             _xyzypr_to_matrix(left_target_world[None, :])[0]
         )
