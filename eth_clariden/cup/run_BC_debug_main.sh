@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=T_eve_main_BC_DEBUG
-#SBATCH --account=a144
+#SBATCH --account=cvg-prof-m-2
 #SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/main/cup/slurm-cup-%j.out
 #SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/main/cup/slurm-cup-%j.err
 #SBATCH --partition=normal
