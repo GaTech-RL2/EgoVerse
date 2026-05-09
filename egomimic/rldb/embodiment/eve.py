@@ -51,9 +51,9 @@ class Eve(Embodiment):
 
     @staticmethod
     def get_transform_list(
-        mode: Literal["cartesian"],
+        mode: Literal["cartesian", "cartesian_wrist"],
     ) -> list[Transform]:
-        if mode == "cartesian":
+        if mode in ("cartesian", "cartesian_wrist"):
             return [
                 NumpyToTensor(
                     keys=[
@@ -68,10 +68,8 @@ class Eve(Embodiment):
         raise ValueError(f"Unsupported Eve transform mode: {mode}")
 
     @classmethod
-    def _get_keymap(cls, keymap_mode: Literal["cartesian"]):
-        if keymap_mode != "cartesian":
-            raise ValueError(f"Unsupported Eve keymap mode: {keymap_mode}")
-        return {
+    def _get_keymap(cls, keymap_mode: Literal["cartesian", "cartesian_wrist"]):
+        base = {
             cls.VIZ_IMAGE_KEY: {
                 "key_type": "camera_keys",
                 "zarr_key": "observations.images.front_img_1",
@@ -97,6 +95,19 @@ class Eve(Embodiment):
                 "zarr_key": "actions_joints",
             },
         }
+        if keymap_mode == "cartesian":
+            return base
+        if keymap_mode == "cartesian_wrist":
+            base["observations.images.left_wrist_img"] = {
+                "key_type": "camera_keys",
+                "zarr_key": "observations.images.left_wrist_img",
+            }
+            base["observations.images.right_wrist_img"] = {
+                "key_type": "camera_keys",
+                "zarr_key": "observations.images.right_wrist_img",
+            }
+            return base
+        raise ValueError(f"Unsupported Eve keymap mode: {keymap_mode}")
 
     @classmethod
     def viz(

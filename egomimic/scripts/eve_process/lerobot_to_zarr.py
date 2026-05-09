@@ -45,7 +45,14 @@ _NUMERIC_COLS = (
     "actions_cartesian",
     "actions_joints",
 )
-_IMAGE_COLS = ("observations.images.aria_rgb_cam",)
+# Image columns the lerobot parquet may have. We attempt all and silently skip
+# the ones missing from a particular dataset (cup has only the front camera;
+# bag adds left/right wrist views).
+_IMAGE_COLS = (
+    "observations.images.aria_rgb_cam",
+    "observations.images.left_wrist_img",
+    "observations.images.right_wrist_img",
+)
 
 
 def _decode_image_value(value) -> np.ndarray:
@@ -86,10 +93,11 @@ def _stack_numeric(values, dtype=np.float64) -> np.ndarray:
 
 
 def _output_image_key(parquet_col: str) -> str:
-    # Rename the cup dataset's wrist-cam-style key so it lines up with the
-    # canonical front-view used by HPT trunk: front_img_1.
+    # Rename to the canonical post-transform names the Eve embodiment + the
+    # data schematic expect.
     if parquet_col == "observations.images.aria_rgb_cam":
         return "observations.images.front_img_1"
+    # left_wrist_img / right_wrist_img already match the canonical names
     return parquet_col
 
 
