@@ -1,6 +1,5 @@
 defaults:
   - model: hpt_bc_flow_eva
-  - visualization: cartesian
   - paths: default
   - trainer: ddp
   - debug: null

@@ -267,7 +267,7 @@ def main(cfg: DictConfig) -> None:
     fps = cfg.get("fps", 30)
     frames_per_file = cfg.get("frames_per_file", 1000)
     annotation_key = OmegaConf.select(cfg, "data.annotation_key", default=None)
-    viz_cfg = cfg.visualization
+    viz_cfg = cfg.viz_func
 
     splits_to_run = []
     if split in ("train", "both"):

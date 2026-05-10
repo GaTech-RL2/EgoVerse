@@ -15,10 +15,11 @@ class EvalVideo(Eval):
     model-specific metrics and produce the frames to buffer.
     """
 
-    def __init__(self, limit_val_batches: int = 400):
+    def __init__(self, limit_val_batches: int = 400, viz_func: dict = None):
         super().__init__()
         self.trainer = None
         self.model = None
+        self.viz_func = viz_func
         self.val_image_buffer = {}
         self.val_counter = {}
         self.override_dict = {

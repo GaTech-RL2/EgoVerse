@@ -1,6 +1,6 @@
 defaults:
   - data: cotrain_pi_lang
-  - visualization: cotrain_lang
+  - evaluator/viz@viz_func: cotrain_lang
   - _self_
 
 output_dir: ./lang_viz_output

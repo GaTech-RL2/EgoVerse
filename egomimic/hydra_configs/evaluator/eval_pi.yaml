@@ -1,1 +1,5 @@
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
 _target_: egomimic.eval.eval_pi.PIEvalVideo
