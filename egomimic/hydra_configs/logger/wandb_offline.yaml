@@ -1,0 +1,12 @@
+wandb:
+  _target_: lightning.pytorch.loggers.wandb.WandbLogger
+  project: egoverse-eth-cvg-bag
+  entity: rl2-group
+  name: ${name}
+  group: ${oc.env:WANDB_GROUP,bag_groceries}
+  tags: ["bag_groceries", "POINT_GAP_4", "${oc.env:VARIANT,BC}"]
+  save_dir: ${paths.output_dir}/wandb
+  offline: true
+  id: ${oc.env:WANDB_RUN_ID,${name}}
+  log_model: false
+  prefix: ""

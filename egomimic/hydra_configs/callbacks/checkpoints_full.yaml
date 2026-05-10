@@ -1,0 +1,12 @@
+defaults:
+  - defaults
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch}"
+  save_last: true
+  save_top_k: -1
+  every_n_epochs: 100
+  train_time_interval: "00:30:00"   # crash-safety save every 30 min
