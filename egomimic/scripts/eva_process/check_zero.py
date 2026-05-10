@@ -25,14 +25,16 @@ def main(cfg: DictConfig) -> None:
         L.seed_everything(cfg.seed, workers=True)
         set_global_seed(cfg.seed)
 
-    # --- Instantiate dataset ---
-    norm_stats_obj: NormStats = hydra.utils.instantiate(cfg.data_schematic)
-
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
         train_datasets[dataset_name] = hydra.utils.instantiate(
             cfg.data.train_datasets[dataset_name]
         )
+
+    norm_stats_obj = NormStats(
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    )
+    norm_stats_obj.populate_from_datasets(train_datasets)
 
     # --- Infer shapes and norm stats (mirrors trainHydra.py) ---
     for dataset_name, dataset in train_datasets.items():

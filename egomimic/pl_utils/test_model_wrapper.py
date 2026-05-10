@@ -19,28 +19,29 @@ class DummyAlgo:
 
 
 def _build_norm_stats_state():
-    stats = NormStats(
-        {
-            "eva_bimanual": {
-                "observations.state.ee_pose": {
-                    "key_type": "proprio_keys",
-                    "zarr_key": "observations.state.ee_pose",
-                },
-                "actions_cartesian": {
-                    "key_type": "action_keys",
-                    "zarr_key": "actions_cartesian",
-                },
-            }
-        },
-        norm_mode="quantile",
-    )
+    """
+    Build a synthetic NormStats by direct field assignment. Bypasses
+    populate_from_datasets() since we don't construct a real dataset graph
+    in unit tests; this mirrors the post-populate state of NormStats.
+    """
+    stats = NormStats(norm_mode="quantile")
+    emb_id = 8  # eva_bimanual
+    stats.embodiments.add(emb_id)
+    stats.key_types[emb_id] = {
+        "observations.state.ee_pose": "proprio_keys",
+        "actions_cartesian": "action_keys",
+    }
+    stats.zarr_keys[emb_id] = {
+        "observations.state.ee_pose": "observations.state.ee_pose",
+        "actions_cartesian": "actions_cartesian",
+    }
     stats.infer_shapes_from_batch(
         {
             "observations.state.ee_pose": torch.zeros(2, 14),
             "actions_cartesian": torch.zeros(2, 100, 14),
         }
     )
-    stats.norm_stats[8] = {
+    stats.norm_stats[emb_id] = {
         "observations.state.ee_pose": {
             "mean": torch.zeros(14),
             "std": torch.ones(14),

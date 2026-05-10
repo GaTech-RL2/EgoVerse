@@ -106,11 +106,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
     load_env()
-    # log.info(f"Instantiating norm stats <{cfg.data_schematic._target_}>")
 
-    norm_stats: NormStats = hydra.utils.instantiate(cfg.data_schematic)
-
-    # Modify dataset configs to include `data_schematic` dynamically at runtime
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
         train_datasets[dataset_name] = hydra.utils.instantiate(
@@ -130,6 +126,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
     )
+
+    norm_stats = NormStats(
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    )
+    norm_stats.populate_from_datasets(datamodule.train_datasets)
 
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")

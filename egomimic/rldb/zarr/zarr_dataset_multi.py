@@ -1058,9 +1058,8 @@ class NormStats:
 
     NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
 
-    def __init__(self, schematic_dict: dict | None = None, norm_mode: str = "zscore"):
+    def __init__(self, norm_mode: str = "zscore"):
         self.norm_mode = norm_mode
-        self.schematic_dict = copy.deepcopy(schematic_dict) if schematic_dict else {}
         self.embodiments: set[int] = set()
         self.key_types: dict[int, dict[str, str]] = {}
         self.zarr_keys: dict[int, dict[str, str]] = {}
@@ -1068,17 +1067,39 @@ class NormStats:
         self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
         self._norm_run_metadata: dict[str, float | int | None] | None = None
 
-        if schematic_dict:
-            for emb_name, schematic in schematic_dict.items():
-                emb_id = get_embodiment_id(emb_name)
+    def populate_from_datasets(self, datasets) -> None:
+        """
+        Populate per-embodiment key inventory by walking each top-level
+        dataset down to its leaf ZarrDatasets and reading their key_map +
+        embodiment. The single source of truth for keys is the leaf
+        ZarrDataset.key_map; NormStats no longer requires a parallel YAML.
+        """
+        for ds in datasets.values():
+            for leaf in self._iter_leaves(ds):
+                emb = getattr(leaf, "embodiment", None)
+                key_map = getattr(leaf, "key_map", None)
+                if emb is None or key_map is None:
+                    continue
+                emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
                 self.embodiments.add(emb_id)
-                self.key_types[emb_id] = {}
-                self.zarr_keys[emb_id] = {}
-                self.shapes[emb_id] = {}
-                self.norm_stats[emb_id] = {}
-                for key_name, info in schematic.items():
-                    self.key_types[emb_id][key_name] = info["key_type"]
+                self.key_types.setdefault(emb_id, {})
+                self.zarr_keys.setdefault(emb_id, {})
+                self.shapes.setdefault(emb_id, {})
+                self.norm_stats.setdefault(emb_id, {})
+                for key_name, info in key_map.items():
+                    self.key_types[emb_id][key_name] = info.get(
+                        "key_type", "metadata_keys"
+                    )
                     self.zarr_keys[emb_id][key_name] = info["zarr_key"]
+
+    @staticmethod
+    def _iter_leaves(ds):
+        """Yield non-MultiDataset leaves from possibly nested dataset wrappers."""
+        if isinstance(ds, MultiDataset):
+            for child in ds.datasets.values():
+                yield from NormStats._iter_leaves(child)
+        else:
+            yield ds
 
     # ---- key lookups ----
 
@@ -1445,8 +1466,10 @@ class NormStats:
 
     def to_state(self) -> dict:
         return {
-            "schematic_dict": copy.deepcopy(self.schematic_dict),
             "norm_mode": self.norm_mode,
+            "embodiments": sorted(self.embodiments),
+            "key_types": copy.deepcopy(self.key_types),
+            "zarr_keys": copy.deepcopy(self.zarr_keys),
             "shapes": copy.deepcopy(self.shapes),
             "norm_stats": self._clone_norm_stats(self.norm_stats),
         }
@@ -1455,15 +1478,17 @@ class NormStats:
     def from_state(cls, state: dict) -> "NormStats":
         if state is None:
             raise ValueError("NormStats state must be provided for reconstruction.")
-        obj = cls(
-            schematic_dict=copy.deepcopy(state.get("schematic_dict", {})),
-            norm_mode=state.get("norm_mode", "zscore"),
-        )
+        obj = cls(norm_mode=state.get("norm_mode", "zscore"))
+        obj.embodiments = set(state.get("embodiments", []))
+        obj.key_types = copy.deepcopy(state.get("key_types", {}))
+        obj.zarr_keys = copy.deepcopy(state.get("zarr_keys", {}))
         obj.shapes = copy.deepcopy(state.get("shapes", {}))
         obj.norm_stats = cls._clone_norm_stats(state.get("norm_stats", {}))
         for emb in obj.embodiments:
-            obj.norm_stats.setdefault(emb, {})
+            obj.key_types.setdefault(emb, {})
+            obj.zarr_keys.setdefault(emb, {})
             obj.shapes.setdefault(emb, {})
+            obj.norm_stats.setdefault(emb, {})
         return obj
 
 

@@ -37,16 +37,17 @@ def norm_stats(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
     load_env()
-    # log.info(f"Instantiating data schematic <{cfg.norm_stats_obj._target_}>")
 
-    norm_stats_obj: NormStats = hydra.utils.instantiate(cfg.data_schematic)
-
-    # Modify dataset configs to include `norm_stats_obj` dynamically at runtime
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
         train_datasets[dataset_name] = hydra.utils.instantiate(
             cfg.data.train_datasets[dataset_name]
         )
+
+    norm_stats_obj = NormStats(
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    )
+    norm_stats_obj.populate_from_datasets(train_datasets)
 
     percent_list = [0.05, 0.1, 0.2, 0.5, 1.0]
     for dataset_name, dataset in train_datasets.items():
