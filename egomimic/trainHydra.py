@@ -14,13 +14,12 @@ from tabulate import tabulate
 
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-from egomimic.rldb.zarr.action_chunk_transforms import (
-    NormalizeTransform,
-    RejectOutliersTransform,
-)
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, NormStats
+from egomimic.rldb.zarr.zarr_dataset_multi import (
+    MultiDataset,
+    NormalizingMultiDataset,
+    NormStats,
+)
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
@@ -65,35 +64,24 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
     log.info("Dataset frame counts:\n" + table)
 
 
-def _attach_normalization_transforms(
+def _wrap_with_normalizing(
     norm_stats: NormStats, datasets: dict, reject_outliers: bool
 ) -> None:
     """
-    For each leaf ZarrDataset reachable through ``datasets``, append a
-    RejectOutliersTransform (if enabled) and a NormalizeTransform to its
-    transform_list. The leaf's existing ZarrDataset.__getitem__ runs the list
-    in order, so normalization (and reject-sampling) join the same mechanism
-    that already handles frame conversion etc. — no MultiDataset subclass
-    needed.
-
-    Order matters: bounds and stats are computed in raw (pre-normalize) space,
-    so RejectOutliersTransform must come BEFORE NormalizeTransform.
+    Replace each top-level MultiDataset with a NormalizingMultiDataset that
+    encapsulates all normalization wiring. trainHydra never touches transforms
+    or norm_stats placement — that's all inside the wrapper class.
     """
-    for ds in datasets.values():
+    for name, ds in list(datasets.items()):
         if not isinstance(ds, MultiDataset):
             raise ValueError(
                 "All top-level datasets in the data config must be MultiDataset"
             )
-        for leaf in NormStats._iter_leaves(ds):
-            emb = getattr(leaf, "embodiment", None)
-            if emb is None:
-                continue
-            emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
-            if leaf.transform is None:
-                leaf.transform = []
-            if reject_outliers:
-                leaf.transform.append(RejectOutliersTransform(norm_stats, emb_id))
-            leaf.transform.append(NormalizeTransform(norm_stats, emb_id))
+        if isinstance(ds, NormalizingMultiDataset):
+            continue
+        datasets[name] = NormalizingMultiDataset.from_multidataset(
+            ds, norm_stats, reject_outliers=reject_outliers
+        )
 
 
 @task_wrapper
@@ -171,14 +159,15 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if save_cache_dir:
             norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
-    # Append normalization (and reject-sampling, if enabled) to each leaf's
-    # transform_list. Joins the existing ZarrDataset transform mechanism — no
-    # MultiDataset subclass needed.
+    # Wrap each top-level MultiDataset with NormalizingMultiDataset, which
+    # encapsulates all normalization wiring (NormalizeTransform / RejectOutliers
+    # appended to leaves at construction). trainHydra knows nothing about
+    # transform internals.
     reject_outliers = bool(cfg.get("reject_outliers", True))
-    _attach_normalization_transforms(
+    _wrap_with_normalizing(
         norm_stats, datamodule.train_datasets, reject_outliers=reject_outliers
     )
-    _attach_normalization_transforms(
+    _wrap_with_normalizing(
         norm_stats, datamodule.valid_datasets, reject_outliers=reject_outliers
     )
 

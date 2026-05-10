@@ -1490,3 +1490,74 @@ class NormStats:
             obj.shapes.setdefault(emb, {})
             obj.norm_stats.setdefault(emb, {})
         return obj
+
+
+class NormalizingMultiDataset(MultiDataset):
+    """
+    MultiDataset wrapper that owns all normalization wiring.
+
+    On construction, walks each leaf ZarrDataset and appends:
+      - RejectOutliersTransform(norm_stats, embodiment_id)  (if reject_outliers=True)
+      - NormalizeTransform(norm_stats, embodiment_id)
+    to the leaf's existing transform_list. The leaf's standard
+    ``ZarrDataset.__getitem__`` transform loop runs them at sample time — this
+    class does NOT override ``__getitem__``. So callers (e.g. trainHydra)
+    construct one of these and never have to know about NormalizeTransform,
+    RejectOutliersTransform, leaf-walking, or norm_stats placement.
+
+    Use ``from_multidataset(mds, norm_stats)`` to upgrade an already-built
+    MultiDataset in place (preserves its index_map and dataset graph).
+    """
+
+    def __init__(
+        self,
+        datasets,
+        norm_stats: NormStats,
+        mode: str = "train",
+        percent: float = 0.1,
+        valid_ratio: float = 0.2,
+        reject_outliers: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            datasets=datasets,
+            mode=mode,
+            percent=percent,
+            valid_ratio=valid_ratio,
+            **kwargs,
+        )
+        self.norm_stats = norm_stats
+        self.reject_outliers = reject_outliers
+        self._attach_to_leaves()
+
+    @classmethod
+    def from_multidataset(
+        cls,
+        mds: "MultiDataset",
+        norm_stats: NormStats,
+        reject_outliers: bool = True,
+    ) -> "NormalizingMultiDataset":
+        new = cls.__new__(cls)
+        new.__dict__.update(mds.__dict__)
+        new.norm_stats = norm_stats
+        new.reject_outliers = reject_outliers
+        new._attach_to_leaves()
+        return new
+
+    def _attach_to_leaves(self) -> None:
+        """Walk own leaves and append the normalize/reject transforms."""
+        from egomimic.rldb.zarr.action_chunk_transforms import (
+            NormalizeTransform,
+            RejectOutliersTransform,
+        )
+
+        for leaf in NormStats._iter_leaves(self):
+            emb = getattr(leaf, "embodiment", None)
+            if emb is None:
+                continue
+            emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
+            if leaf.transform is None:
+                leaf.transform = []
+            if self.reject_outliers:
+                leaf.transform.append(RejectOutliersTransform(self.norm_stats, emb_id))
+            leaf.transform.append(NormalizeTransform(self.norm_stats, emb_id))
