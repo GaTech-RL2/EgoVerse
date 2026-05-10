@@ -7,41 +7,41 @@ import torch.nn as nn
 from omegaconf import OmegaConf
 
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.zarr.utils import DataSchematic
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
 class DummyAlgo:
-    def __init__(self, data_schematic, value, echo_value=None):
-        self.data_schematic = data_schematic
+    def __init__(self, norm_stats, value, echo_value=None):
+        self.norm_stats = norm_stats
         self.value = value
         self.echo_value = echo_value
         self.nets = nn.ModuleDict({"policy": nn.Linear(1, 1)})
 
 
-def _build_schematic_state():
-    schematic = DataSchematic(
-        {
-            "eva_bimanual": {
-                "observations.state.ee_pose": {
-                    "key_type": "proprio_keys",
-                    "zarr_key": "observations.state.ee_pose",
-                },
-                "actions_cartesian": {
-                    "key_type": "action_keys",
-                    "zarr_key": "actions_cartesian",
-                },
-            }
-        },
-        {"eva_bimanual": "observations.images.front_img_1"},
-        norm_mode="quantile",
-    )
-    schematic.infer_shapes_from_batch(
+def _build_norm_stats_state():
+    """
+    Build a synthetic stats-only MultiDataset by direct field assignment.
+    Bypasses populate_from_datasets() since we don't construct a real dataset
+    graph in unit tests; this mirrors the post-populate state.
+    """
+    stats = MultiDataset(state={}, norm_mode="quantile")
+    emb_id = 8  # eva_bimanual
+    stats.embodiments.add(emb_id)
+    stats.key_types[emb_id] = {
+        "observations.state.ee_pose": "proprio_keys",
+        "actions_cartesian": "action_keys",
+    }
+    stats.zarr_keys[emb_id] = {
+        "observations.state.ee_pose": "observations.state.ee_pose",
+        "actions_cartesian": "actions_cartesian",
+    }
+    stats.infer_shapes_from_batch(
         {
             "observations.state.ee_pose": torch.zeros(2, 14),
             "actions_cartesian": torch.zeros(2, 100, 14),
         }
     )
-    schematic.norm_stats[8] = {
+    stats.norm_stats[emb_id] = {
         "observations.state.ee_pose": {
             "mean": torch.zeros(14),
             "std": torch.ones(14),
@@ -51,7 +51,7 @@ def _build_schematic_state():
             "std": torch.ones(14),
         },
     }
-    return schematic.to_state()
+    return stats.to_state()
 
 
 def _build_config_tree():
@@ -60,7 +60,7 @@ def _build_config_tree():
             "model": {
                 "robomimic_model": {
                     "_target_": "egomimic.pl_utils.test_model_wrapper.DummyAlgo",
-                    "data_schematic": None,
+                    "norm_stats": None,
                     "value": 7,
                     "echo_value": "${model.robomimic_model.value}",
                 },
@@ -83,13 +83,13 @@ def _build_config_tree():
 def test_model_wrapper_reconstructs_model_from_config_tree():
     wrapper = ModelWrapper(
         config_tree=_build_config_tree(),
-        data_schematic_state=_build_schematic_state(),
+        norm_stats_state=_build_norm_stats_state(),
     )
 
     assert wrapper.model.__class__.__name__ == "DummyAlgo"
     assert wrapper.model.__class__.__module__ == "egomimic.pl_utils.test_model_wrapper"
     assert wrapper.model.echo_value == 7
-    assert wrapper.model.data_schematic.key_shape("actions_cartesian", 8) == (
+    assert wrapper.model.norm_stats.key_shape("actions_cartesian", 8) == (
         2,
         100,
         14,
@@ -99,7 +99,7 @@ def test_model_wrapper_reconstructs_model_from_config_tree():
 def test_model_wrapper_config_tree_builds_optimizer_and_scheduler():
     wrapper = ModelWrapper(
         config_tree=_build_config_tree(),
-        data_schematic_state=_build_schematic_state(),
+        norm_stats_state=_build_norm_stats_state(),
     )
     wrapper._trainer = SimpleNamespace(model=wrapper)
 
@@ -112,7 +112,7 @@ def test_model_wrapper_config_tree_builds_optimizer_and_scheduler():
 def test_model_wrapper_load_from_checkpoint_reconstructs_from_hparams(tmp_path: Path):
     wrapper = ModelWrapper(
         config_tree=_build_config_tree(),
-        data_schematic_state=_build_schematic_state(),
+        norm_stats_state=_build_norm_stats_state(),
     )
     ckpt_path = tmp_path / "dummy_wrapper.ckpt"
     torch.save(
@@ -130,6 +130,6 @@ def test_model_wrapper_load_from_checkpoint_reconstructs_from_hparams(tmp_path: 
     assert loaded.model.__class__.__module__ == "egomimic.pl_utils.test_model_wrapper"
     assert loaded.model.echo_value == 7
     torch.testing.assert_close(
-        loaded.model.data_schematic.norm_stats[8]["actions_cartesian"]["mean"],
+        loaded.model.norm_stats.norm_stats[8]["actions_cartesian"]["mean"],
         torch.zeros(14),
     )

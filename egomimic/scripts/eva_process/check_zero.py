@@ -7,7 +7,8 @@ from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader, default_collate
 from tqdm import tqdm
 
-from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
+from egomimic.rldb.zarr.utils import set_global_seed
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.pylogger import RankedLogger
 
 OmegaConf.register_new_resolver("eval", eval)
@@ -24,19 +25,22 @@ def main(cfg: DictConfig) -> None:
         L.seed_everything(cfg.seed, workers=True)
         set_global_seed(cfg.seed)
 
-    # --- Instantiate dataset ---
-    data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
-
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
         train_datasets[dataset_name] = hydra.utils.instantiate(
             cfg.data.train_datasets[dataset_name]
         )
 
+    norm_stats_obj = MultiDataset(
+        state={},
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
+    )
+    norm_stats_obj.populate_from_datasets(train_datasets)
+
     # --- Infer shapes and norm stats (mirrors trainHydra.py) ---
     for dataset_name, dataset in train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        data_schematic.infer_shapes_from_batch(dataset[0])
+        norm_stats_obj.infer_shapes_from_batch(dataset[0])
 
         instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
         keymap_cfg = instantiate_copy.resolver.key_map
@@ -45,7 +49,7 @@ def main(cfg: DictConfig) -> None:
         instantiate_copy.resolver.key_map = km
         norm_dataset = hydra.utils.instantiate(instantiate_copy)
 
-        data_schematic.infer_norm_from_dataset(
+        norm_stats_obj.infer_norm_from_dataset(
             norm_dataset,
             dataset_name,
             sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),

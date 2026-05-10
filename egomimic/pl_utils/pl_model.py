@@ -10,7 +10,7 @@ from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
 import egomimic.utils.tensor_utils as TensorUtils
-from egomimic.rldb.zarr.utils import DataSchematic
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
 class ModelWrapper(LightningModule):
@@ -31,10 +31,9 @@ class ModelWrapper(LightningModule):
         optimizer=None,
         scheduler=None,
         config_tree=None,
-        data_schematic_state=None,
+        norm_stats_state=None,
         scheduler_interval="step",
         scheduler_frequency: int = 1,
-        viz_func=None,
         evaluator=None,
         enable_grad_norm: bool = True,
     ):
@@ -43,18 +42,16 @@ class ModelWrapper(LightningModule):
             model (PolicyAlgo): robomimic model to wrap.
         """
         super().__init__()
-        self.save_hyperparameters(ignore=["robomimic_model", "viz_func"])
+        self.save_hyperparameters(ignore=["robomimic_model"])
 
         if config_tree is not None:
-            self.model = self._instantiate_model(
-                config_tree, data_schematic_state, viz_func
-            )
+            self.model = self._instantiate_model(config_tree, norm_stats_state)
         elif robomimic_model is not None:  # legacy support
             self.model = robomimic_model
         else:
             raise ValueError(
                 "ModelWrapper requires either an instantiated robomimic_model or "
-                "a config_tree with data_schematic_state."
+                "a config_tree with norm_stats_state."
             )
         self.nets = (
             self.model.nets
@@ -77,13 +74,12 @@ class ModelWrapper(LightningModule):
             return cfg
         return OmegaConf.create(cfg)
 
-    def _instantiate_model(self, config_tree, data_schematic_state, viz_func=None):
+    def _instantiate_model(self, config_tree, norm_stats_state):
         cfg = self._as_config(config_tree)
-        data_schematic = DataSchematic.from_state(data_schematic_state)
+        norm_stats = MultiDataset.from_state(norm_stats_state)
         return hydra.utils.instantiate(
             cfg.model.robomimic_model,
-            data_schematic=data_schematic,
-            viz_func=viz_func,
+            norm_stats=norm_stats,
         )
 
     # batch is now a dict, handle on model side
