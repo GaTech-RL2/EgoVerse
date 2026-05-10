@@ -971,7 +971,7 @@ class HPT(Algo):
                 B, S, 1, device=device
             )
 
-            # Samples are already normalized by NormalizingMultiDataset.__getitem__.
+            # Samples are already normalized by NormalizeTransform in the leaf's transform_list.
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
