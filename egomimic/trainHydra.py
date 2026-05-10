@@ -14,8 +14,12 @@ from tabulate import tabulate
 
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+from egomimic.rldb.zarr.utils import set_global_seed
+from egomimic.rldb.zarr.zarr_dataset_multi import (
+    MultiDataset,
+    NormalizingMultiDataset,
+    NormStats,
+)
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
@@ -31,9 +35,9 @@ def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     if (
         "robomimic_model" in model_cfg
         and isinstance(model_cfg.robomimic_model, DictConfig)
-        and "data_schematic" in model_cfg.robomimic_model
+        and "norm_stats" in model_cfg.robomimic_model
     ):
-        model_cfg.robomimic_model.data_schematic = None
+        model_cfg.robomimic_model.norm_stats = None
     return OmegaConf.create({"model": model_cfg})
 
 
@@ -60,17 +64,24 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
     log.info("Dataset frame counts:\n" + table)
 
 
-def _propagate_data_schematic_to_datasets(data_schematic, datasets):
+def _wrap_with_normalizing(
+    norm_stats: NormStats, datasets: dict, reject_outliers: bool
+) -> None:
     """
-    Set the shared data schematic on all top-level datasets.
+    Replace each top-level MultiDataset with a NormalizingMultiDataset that
+    encapsulates all normalization wiring. trainHydra never touches transforms
+    or norm_stats placement — that's all inside the wrapper class.
     """
-    split_datasets = datasets
-    for dataset_name, dataset in split_datasets.items():
-        if not isinstance(dataset, MultiDataset):
+    for name, ds in list(datasets.items()):
+        if not isinstance(ds, MultiDataset):
             raise ValueError(
-                f"{dataset_name} is not a MultiDataset. All top level datasets in data config should be MultiDataset"
+                "All top-level datasets in the data config must be MultiDataset"
             )
-        dataset.set_data_schematic(data_schematic)
+        if isinstance(ds, NormalizingMultiDataset):
+            continue
+        datasets[name] = NormalizingMultiDataset.from_multidataset(
+            ds, norm_stats, reject_outliers=reject_outliers
+        )
 
 
 @task_wrapper
@@ -93,11 +104,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
     load_env()
-    # log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
 
-    data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
-
-    # Modify dataset configs to include `data_schematic` dynamically at runtime
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
         train_datasets[dataset_name] = hydra.utils.instantiate(
@@ -118,9 +125,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
     )
 
+    norm_stats = NormStats(
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    )
+    norm_stats.populate_from_datasets(datamodule.train_datasets)
+
     for dataset_name, dataset in datamodule.train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        data_schematic.infer_shapes_from_batch(dataset[0])
+        norm_stats.infer_shapes_from_batch(dataset[0])
         instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
         keymap_cfg = instantiate_copy.resolver.key_map
         km = OmegaConf.to_container(keymap_cfg, resolve=False)  # plain dict
@@ -131,7 +143,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         instantiate_copy.resolver.key_map = km
         norm_dataset = hydra.utils.instantiate(instantiate_copy)
         # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
-        data_schematic.infer_norm_from_dataset(
+        norm_stats.infer_norm_from_dataset(
             norm_dataset,
             dataset_name,
             sample_frac=OmegaConf.select(cfg, "norm_stats.sample_frac", default=1.0),
@@ -145,30 +157,24 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg, "norm_stats.save_cache_dir", default=None
         )
         if save_cache_dir:
-            data_schematic.cache_stats(save_cache_dir=save_cache_dir)
+            norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
-    if cfg.reject_outliers:
-        # Propagate the shared data schematic to top-level MultiDatasets for bounds checks.
-        # Use datamodule.train_datasets (null entries already filtered by the wrapper).
-        _propagate_data_schematic_to_datasets(
-            data_schematic,
-            datamodule.train_datasets,
-        )
-    viz_func = cfg.visualization
-    viz_func_dict = {}
-    for embodiment_name, embodiment_viz_func in viz_func.items():
-        viz_func_dict[embodiment_name] = hydra.utils.instantiate(embodiment_viz_func)
+    # Wrap each top-level MultiDataset with NormalizingMultiDataset, which
+    # encapsulates all normalization wiring (NormalizeTransform / RejectOutliers
+    # appended to leaves at construction). trainHydra knows nothing about
+    # transform internals.
+    reject_outliers = bool(cfg.get("reject_outliers", True))
+    _wrap_with_normalizing(
+        norm_stats, datamodule.train_datasets, reject_outliers=reject_outliers
+    )
+    _wrap_with_normalizing(
+        norm_stats, datamodule.valid_datasets, reject_outliers=reject_outliers
+    )
 
-    viz_func_dict = {}
-    for embodiment_name, embodiment_viz_func in cfg.visualization.items():
-        viz_func_dict[embodiment_name] = hydra.utils.instantiate(embodiment_viz_func)
-
-    # NOTE: We also pass the data_schematic_dict into the robomimic model's instatiation now that we've initialzied the shapes and norm stats.  In theory, upon loading the PL checkpoint, it will remember this, but let's see.
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
         config_tree=_build_model_config_tree(cfg),
-        data_schematic_state=data_schematic.to_state(),
-        viz_func=viz_func_dict,
+        norm_stats_state=norm_stats.to_state(),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
     )
 
