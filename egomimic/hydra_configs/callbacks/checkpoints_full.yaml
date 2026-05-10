@@ -9,4 +9,5 @@ model_checkpoint:
   save_last: true
   save_top_k: -1
   every_n_epochs: 100
-  train_time_interval: "00:30:00"   # crash-safety save every 30 min
+  # train_time_interval omitted — needs datetime.timedelta object; relying on
+  # every_n_epochs=100 for crash safety (≤100 epochs lost on requeue).
