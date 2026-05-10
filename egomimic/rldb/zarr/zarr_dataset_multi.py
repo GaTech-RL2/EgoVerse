@@ -1482,16 +1482,13 @@ class NormStats:
 
 class NormalizingMultiDataset(MultiDataset):
     """
-    MultiDataset wrapper that owns all normalization wiring.
+    MultiDataset wrapper that owns all normalization concerns.
 
-    On construction, walks each leaf ZarrDataset and appends:
-      - RejectOutliersTransform(norm_stats, embodiment_id)  (if reject_outliers=True)
-      - NormalizeTransform(norm_stats, embodiment_id)
-    to the leaf's existing transform_list. The leaf's standard
-    ``ZarrDataset.__getitem__`` transform loop runs them at sample time — this
-    class does NOT override ``__getitem__``. So callers (e.g. trainHydra)
-    construct one of these and never have to know about NormalizeTransform,
-    RejectOutliersTransform, leaf-walking, or norm_stats placement.
+    Overrides ``__getitem__``: after fetching raw data from the leaf, runs the
+    bounds check (resampling within this wrapper on violation) and then
+    normalizes. ZarrDataset stays untouched — no normalize/reject transforms
+    are appended to leaf ``transform_list`` (those keep frame-conversion
+    transforms only).
 
     Use ``from_multidataset(mds, norm_stats)`` to upgrade an already-built
     MultiDataset in place (preserves its index_map and dataset graph).
@@ -1516,7 +1513,7 @@ class NormalizingMultiDataset(MultiDataset):
         )
         self.norm_stats = norm_stats
         self.reject_outliers = reject_outliers
-        self._attach_to_leaves()
+        self._build_per_embodiment_transforms()
 
     @classmethod
     def from_multidataset(
@@ -1529,23 +1526,74 @@ class NormalizingMultiDataset(MultiDataset):
         new.__dict__.update(mds.__dict__)
         new.norm_stats = norm_stats
         new.reject_outliers = reject_outliers
-        new._attach_to_leaves()
+        new._build_per_embodiment_transforms()
+        for child_name, child in list(new.datasets.items()):
+            if isinstance(child, MultiDataset) and not isinstance(
+                child, NormalizingMultiDataset
+            ):
+                new.datasets[child_name] = NormalizingMultiDataset.from_multidataset(
+                    child, norm_stats, reject_outliers=reject_outliers
+                )
         return new
 
-    def _attach_to_leaves(self) -> None:
-        """Walk own leaves and append the normalize/reject transforms."""
+    def _build_per_embodiment_transforms(self) -> None:
+        """Pre-instantiate one Normalize/Reject transform per embodiment."""
         from egomimic.rldb.zarr.action_chunk_transforms import (
             NormalizeTransform,
             RejectOutliersTransform,
         )
 
-        for leaf in NormStats._iter_leaves(self):
-            emb = getattr(leaf, "embodiment", None)
-            if emb is None:
-                continue
-            emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
-            if leaf.transform is None:
-                leaf.transform = []
-            if self.reject_outliers:
-                leaf.transform.append(RejectOutliersTransform(self.norm_stats, emb_id))
-            leaf.transform.append(NormalizeTransform(self.norm_stats, emb_id))
+        self._normalize_transforms = {
+            emb_id: NormalizeTransform(self.norm_stats, emb_id)
+            for emb_id in self.norm_stats.embodiments
+        }
+        self._reject_transforms = (
+            {
+                emb_id: RejectOutliersTransform(self.norm_stats, emb_id)
+                for emb_id in self.norm_stats.embodiments
+            }
+            if self.reject_outliers
+            else {}
+        )
+
+    def __getitem__(self, idx, _attempts: int | None = None):
+        dataset_name, local_idx = self.index_map[idx]
+        leaf = self.datasets[dataset_name]
+        data = leaf[local_idx]
+
+        # Nested MultiDatasets already handled their own bounds + normalize.
+        if isinstance(leaf, MultiDataset):
+            return data
+
+        emb = data.get("embodiment") if isinstance(data, dict) else None
+        if emb is None:
+            return data
+        emb_id = int(emb)
+
+        # Bounds check on RAW data; resample within this wrapper's scope on violation.
+        reject_t = self._reject_transforms.get(emb_id)
+        if reject_t is not None:
+            try:
+                reject_t.transform(data)
+            except ValueError as e:
+                next_idx, attempts = get_fallback_idx(
+                    idx=idx,
+                    candidates=self._global_indices_by_dataset[dataset_name],
+                    _attempts=_attempts,
+                    max_attempts=len(self._global_indices_by_dataset[dataset_name]),
+                    exhausted_error=(
+                        f"Entire dataset bad (no valid indices): dataset={dataset_name}"
+                    ),
+                )
+                next_dataset_name, next_local_idx = self.index_map[next_idx]
+                logger.warning(
+                    f"Bounds violation ep={dataset_name} frame={local_idx} ({e}) | "
+                    f"attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
+                )
+                return self.__getitem__(next_idx, _attempts=attempts)
+
+        # Normalize raw -> normalized
+        normalize_t = self._normalize_transforms.get(emb_id)
+        if normalize_t is not None:
+            data = normalize_t.transform(data)
+        return data
