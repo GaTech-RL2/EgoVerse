@@ -543,3 +543,74 @@ class NumpyToTensor(Transform):
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
         return batch
+
+
+# ---------------------------------------------------------------------------
+# Normalization & reject-sampling transforms
+# ---------------------------------------------------------------------------
+
+
+class RejectOutliersTransform(Transform):
+    """
+    Per-sample bounds check using a NormStats descriptor. Raises if any tracked
+    proprio/action key contains NaN/Inf or values outside the per-key quantile
+    bounds. Should be placed BEFORE :class:`NormalizeTransform` in transform_list
+    (bounds are in raw, pre-normalize space). The leaf ZarrDataset's transform
+    loop catches the raise and reject-samples a different local index.
+    """
+
+    def __init__(self, norm_stats, embodiment_id: int):
+        self.norm_stats = norm_stats
+        self.embodiment_id = embodiment_id
+
+    def transform(self, batch: dict) -> dict:
+        per_emb_stats = self.norm_stats.norm_stats.get(self.embodiment_id, {})
+        if not per_emb_stats:
+            return batch
+        for key_name, stats in per_emb_stats.items():
+            zarr_key = self.norm_stats.keyname_to_zarr_key(key_name, self.embodiment_id)
+            if zarr_key is None or zarr_key not in batch:
+                continue
+            v = batch[zarr_key]
+            if isinstance(v, torch.Tensor):
+                arr = v.float()
+            elif isinstance(v, np.ndarray):
+                arr = torch.from_numpy(v).float()
+            else:
+                continue
+
+            q_low = stats.get(
+                "quantile_0_01", stats.get("quantile_0_1", stats["quantile_1"])
+            )
+            q_high = stats.get(
+                "quantile_99_99", stats.get("quantile_99_9", stats["quantile_99"])
+            )
+            q_low = torch.as_tensor(q_low, device=arr.device, dtype=torch.float32)
+            q_high = torch.as_tensor(q_high, device=arr.device, dtype=torch.float32)
+            try:
+                q_low = torch.broadcast_to(q_low, arr.shape)
+                q_high = torch.broadcast_to(q_high, arr.shape)
+            except RuntimeError:
+                continue
+            if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
+                raise ValueError(f"NaN/Inf in {zarr_key}")
+            if torch.any(arr < q_low) or torch.any(arr > q_high):
+                raise ValueError(f"Bounds violation in {zarr_key}")
+        return batch
+
+
+class NormalizeTransform(Transform):
+    """
+    Per-sample normalization using a NormStats descriptor. For each
+    proprio/action key in the embodiment's schematic, applies the
+    norm_mode-specific transform (zscore / minmax / quantile) in-place on the
+    batch dict (keyed by zarr_key). Append AFTER any frame-conversion
+    transforms — bounds and stats were inferred on post-conversion values.
+    """
+
+    def __init__(self, norm_stats, embodiment_id: int):
+        self.norm_stats = norm_stats
+        self.embodiment_id = embodiment_id
+
+    def transform(self, batch: dict) -> dict:
+        return self.norm_stats.normalize(batch, self.embodiment_id)
