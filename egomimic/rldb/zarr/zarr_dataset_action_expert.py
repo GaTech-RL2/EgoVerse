@@ -54,12 +54,11 @@ class ZarrActionExpertDataset(ZarrDataset):
         Episode_path: Path,
         key_map: dict,
         transform_list: list | None = None,
-        norm_stats: dict | None = None,
         fixed_horizon: int | None = None,
     ):
         self.annotation_map = {}
         self.fixed_horizon = fixed_horizon
-        super().__init__(Episode_path, key_map, transform_list, norm_stats)
+        super().__init__(Episode_path, key_map, transform_list)
 
     # --- episode setup -----------------------------------------------------
 
