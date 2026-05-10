@@ -54,10 +54,45 @@ class PI(Algo):
         # ---------------------------
         ac_keys,
         action_converters,
+        # ---------------------------
+        # Prompt / tokenization (moved from data config). The PI algo owns
+        # the tokenizer because the prompt template is model-specific
+        # (paligemma + pi0.5 anchor). See ``process_batch_for_training`` for
+        # how these knobs assemble the prompt and produce ``tokenized_*``.
+        # ---------------------------
+        tokenizer_model_name: str = "google/paligemma-3b-mix-224",
+        tokenizer_max_length: int = 128,
+        sampling_mode: Literal["first", "random"] = "random",
+        annotation_key: str | None = None,
+        default_prompt: str = "",
+        proprio_in_prompt: bool = False,
+        embodiment_label: bool = False,
+        state_num_bins: int = 256,
+        control_mode: dict[str, str] | None = None,
+        proprio_keys_for_prompt: list[str] | None = None,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
         self.norm_stats = norm_stats
+
+        # ---- Prompt assembly + tokenization (was in collate_fn) ----
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_model_name)
+        self.tokenizer_max_length = tokenizer_max_length
+        self.sampling_mode = sampling_mode
+        self.annotation_key = annotation_key
+        self.default_prompt = default_prompt
+        self.proprio_in_prompt = proprio_in_prompt
+        self.embodiment_label = embodiment_label
+        self.state_num_bins = state_num_bins
+        self.control_mode = control_mode
+        # Default to the canonical concat key produced by each embodiment's
+        # transform_list (ConcatKeys with delete_old_keys removes per-arm zarr keys).
+        self.proprio_keys_for_prompt = (
+            list(proprio_keys_for_prompt)
+            if proprio_keys_for_prompt is not None
+            else ["observations.state.ee_pose"]
+        )
+        self._state_bin_edges = np.linspace(-1.0, 1.0, state_num_bins + 1)[:-1]
 
         self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
