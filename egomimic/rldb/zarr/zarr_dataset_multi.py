@@ -1137,6 +1137,11 @@ class NormStats:
                     continue
 
                 # Populate from the actual post-transform key set.
+                # Without data_schematic, the leaf's key_map outer key already
+                # IS the algo-side name (no rename layer), so zarr_keys becomes
+                # an identity map (data_key -> data_key). The leaf's own
+                # ``zarr_key`` field is the disk path used by the leaf to read
+                # zarr storage; it isn't what appears in the batch.
                 for data_key in sample_keys:
                     if data_key in key_map:
                         # Raw key kept by transforms — use declared type.
@@ -1144,14 +1149,13 @@ class NormStats:
                         self.key_types[emb_id][data_key] = info.get(
                             "key_type", "metadata_keys"
                         )
-                        self.zarr_keys[emb_id][data_key] = info["zarr_key"]
                     else:
                         # Post-transform-produced key — infer type by name.
                         inferred = _infer_key_type(data_key)
                         if inferred is None:
                             continue  # skip unknown / metadata-like keys
                         self.key_types[emb_id][data_key] = inferred
-                        self.zarr_keys[emb_id][data_key] = data_key
+                    self.zarr_keys[emb_id][data_key] = data_key
 
     @staticmethod
     def _iter_leaves(ds):
