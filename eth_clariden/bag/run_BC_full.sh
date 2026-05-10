@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=eve_bag_BC_pg4_full
-#SBATCH --account=a144
+#SBATCH --account=cvg-prof-m-2
 #SBATCH --output=/iopsstor/scratch/cscs/jiaqchen/egomim_out/main/bag/full/slurm-bag-BC-%j.out
 #SBATCH --error=/iopsstor/scratch/cscs/jiaqchen/egomim_out/main/bag/full/slurm-bag-BC-%j.err
 #SBATCH --partition=normal
