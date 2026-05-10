@@ -8,7 +8,7 @@ from egomimic.algo.pi import PI
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 
-class _StubDataSchematic:
+class _StubNormStats:
     def __init__(self, viz_img_keys):
         self._viz_img_keys = viz_img_keys
 
@@ -29,7 +29,7 @@ def _make_pi(camera_transforms, domains):
     pi.camera_transforms = camera_transforms
     pi.is_6dof = False
     pi.ac_keys = {get_embodiment_id(domain): "actions_cartesian" for domain in domains}
-    pi.data_schematic = _StubDataSchematic(
+    pi.norm_stats = _StubNormStats(
         {get_embodiment_id(domain): "front_img_1" for domain in domains}
     )
     return pi

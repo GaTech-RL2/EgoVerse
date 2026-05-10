@@ -9,7 +9,8 @@ import lightning as L
 import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
-from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
+from egomimic.rldb.zarr.utils import set_global_seed
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras
@@ -36,21 +37,23 @@ def norm_stats(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         raise ValueError("Seed must be provided in cfg for reproducibility!")
 
     load_env()
-    # log.info(f"Instantiating data schematic <{cfg.data_schematic._target_}>")
 
-    data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
-
-    # Modify dataset configs to include `data_schematic` dynamically at runtime
     train_datasets = {}
     for dataset_name in cfg.data.train_datasets:
         train_datasets[dataset_name] = hydra.utils.instantiate(
             cfg.data.train_datasets[dataset_name]
         )
 
+    norm_stats_obj = MultiDataset(
+        state={},
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
+    )
+    norm_stats_obj.populate_from_datasets(train_datasets)
+
     percent_list = [0.05, 0.1, 0.2, 0.5, 1.0]
     for dataset_name, dataset in train_datasets.items():
         log.info(f"Inferring shapes for dataset <{dataset_name}>")
-        data_schematic.infer_shapes_from_batch(dataset[0])
+        norm_stats_obj.infer_shapes_from_batch(dataset[0])
         # instantiate norm datasets which is same as dataset but with keymap without the image keys
         instantiate_copy = copy.deepcopy(cfg.data.train_datasets[dataset_name])
         keymap_cfg = instantiate_copy.resolver.key_map
@@ -65,7 +68,7 @@ def norm_stats(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         instantiate_copy.resolver.key_map = km
         norm_dataset = hydra.utils.instantiate(instantiate_copy)
         for percent in percent_list:
-            data_schematic.infer_norm_from_dataset(
+            norm_stats_obj.infer_norm_from_dataset(
                 norm_dataset,
                 dataset_name,
                 sample_frac=percent,
