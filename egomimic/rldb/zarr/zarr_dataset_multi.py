@@ -20,12 +20,15 @@ Each episode is self-contained with its own metadata, enabling:
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
+import math
 import os
 import random
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
@@ -34,6 +37,7 @@ import pandas as pd
 import simplejpeg
 import torch
 import zarr
+from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
@@ -621,9 +625,6 @@ class MultiDataset(torch.utils.data.Dataset):
                 self.index_map.append((dataset_name, local_idx))
                 self._global_indices_by_dataset[dataset_name].append(global_idx)
 
-        self.data_schematic = None
-        self._warned_violations: set[str] = set()
-
         super().__init__()
 
     def __len__(self) -> int:
@@ -636,151 +637,10 @@ class MultiDataset(torch.utils.data.Dataset):
             return dataset_name
         return Path(episode_path).name
 
-    def _check_bounds(
-        self, data: dict, dataset, idx: int, dataset_name: str
-    ) -> str | None:
-        if self.data_schematic is None:
-            return None
-
-        embodiment_id = data.get("embodiment")
-        if embodiment_id is None:
-            raise ValueError("data has no embodiment metadata")
-
-        norm_stats = self.data_schematic.norm_stats.get(embodiment_id, {})
-        if not norm_stats:
-            return None
-
-        episode_name = self._episode_name_for_dataset(dataset, dataset_name)
-
-        for key_name, stats in norm_stats.items():
-            zarr_key = self.data_schematic.keyname_to_zarr_key(key_name, embodiment_id)
-            if zarr_key is None or zarr_key not in data:
-                continue
-
-            v = data[zarr_key]
-            if isinstance(v, torch.Tensor):
-                arr = v.float()
-            elif isinstance(v, np.ndarray):
-                arr = torch.from_numpy(v).float()
-            else:
-                continue
-
-            q_low = stats.get(
-                "quantile_0_01",
-                stats.get("quantile_0_1", stats["quantile_1"]),
-            )
-            q_high = stats.get(
-                "quantile_99_99",
-                stats.get("quantile_99_9", stats["quantile_99"]),
-            )
-            q_low = torch.as_tensor(q_low, device=arr.device, dtype=torch.float32)
-            q_high = torch.as_tensor(q_high, device=arr.device, dtype=torch.float32)
-
-            try:
-                q_low = torch.broadcast_to(q_low, arr.shape)
-                q_high = torch.broadcast_to(q_high, arr.shape)
-            except RuntimeError:
-                logger.warning(
-                    "Skipping bounds check for ep=%s frame=%s key=%s due to incompatible shapes: value=%s q_low=%s q_high=%s",
-                    episode_name,
-                    idx,
-                    zarr_key,
-                    tuple(arr.shape),
-                    tuple(q_low.shape),
-                    tuple(q_high.shape),
-                )
-                continue
-
-            has_nan = torch.any(torch.isnan(arr))
-            has_inf = torch.any(torch.isinf(arr))
-            if has_nan or has_inf:
-                nan_mask = torch.isnan(arr)
-                inf_mask = torch.isinf(arr)
-                n_nan = nan_mask.sum().item()
-                n_inf = inf_mask.sum().item()
-                bad_mask = nan_mask | inf_mask
-                bad_indices = bad_mask.nonzero(as_tuple=False).tolist()
-                bad_values = arr[bad_mask].tolist()
-                prefix = (
-                    f"NaN/Inf violation ep={episode_name} frame={idx} key={zarr_key}"
-                )
-                warn_key = f"nan_inf:{episode_name}:{zarr_key}"
-                if warn_key not in self._warned_violations:
-                    self._warned_violations.add(warn_key)
-                    logger.warning(
-                        f"{prefix} | n_nan={int(n_nan)} n_inf={int(n_inf)} "
-                        f"indices={bad_indices[:10]} values={[f'{v:.4f}' for v in bad_values[:10]]}"
-                    )
-                return prefix
-
-            below = arr < q_low
-            above = arr > q_high
-            if torch.any(below) or torch.any(above):
-                n_below = below.sum().item()
-                n_above = above.sum().item()
-                below_vals = arr[below].tolist()
-                above_vals = arr[above].tolist()
-                below_bounds = q_low[below].tolist()
-                above_bounds = q_high[above].tolist()
-                prefix = (
-                    f"Bounds violation ep={episode_name} frame={idx} key={zarr_key}"
-                )
-                warn_key = f"bounds:{episode_name}:{zarr_key}"
-                if warn_key not in self._warned_violations:
-                    self._warned_violations.add(warn_key)
-                    logger.warning(
-                        f"{prefix} | "
-                        f"n_below={int(n_below)} below_vals={[f'{v:.4f}' for v in below_vals[:5]]} below_bound={[f'{b:.4f}' for b in below_bounds[:5]]} "
-                        f"n_above={int(n_above)} above_vals={[f'{v:.4f}' for v in above_vals[:5]]} above_bound={[f'{b:.4f}' for b in above_bounds[:5]]}"
-                    )
-                return prefix
-
-        return None
-
     def __getitem__(self, idx, _attempts: int | None = None):
-        """
-        Multidataset handles outlier rejection so that you don't need to propagate the norm stats down to every sub dataset.
-        """
         dataset_name, local_idx = self.index_map[idx]
         dataset = self.datasets[dataset_name]
-        data = dataset[local_idx]
-
-        if isinstance(dataset, MultiDataset):
-            return data
-
-        violation = self._check_bounds(data, dataset, local_idx, dataset_name)
-        if violation is not None:
-            next_idx, attempts = get_fallback_idx(
-                idx=idx,
-                candidates=self._global_indices_by_dataset[dataset_name],
-                _attempts=_attempts,
-                max_attempts=len(self._global_indices_by_dataset[dataset_name]),
-                exhausted_error=(
-                    f"Entire dataset bad (no valid indices): dataset={dataset_name}"
-                ),
-            )
-            next_dataset_name, next_local_idx = self.index_map[next_idx]
-            logger.warning(
-                f"{violation} | attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
-            )
-            return self.__getitem__(next_idx, _attempts=attempts)
-
-        return data
-
-    def set_data_schematic(self, data_schematic) -> None:
-        """
-        Set the data schematic used for top-level bounds checking.
-
-        When child datasets are themselves MultiDatasets, recursively assign the
-        same schematic so each wrapper can validate its own returned samples.
-        """
-        self.data_schematic = data_schematic
-        for ds in self.datasets.values():
-            if isinstance(ds, MultiDataset):
-                ds.set_data_schematic(data_schematic)
-        logger.info(
-            f"Set data_schematic on MultiDataset with {len(self.datasets)} child datasets"
-        )
+        return dataset[local_idx]
 
     @classmethod
     def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
@@ -1178,3 +1038,605 @@ class ZarrEpisode:
     def __repr__(self) -> str:
         """String representation of the episode."""
         return f"ZarrEpisode(path={self._path}, frames={len(self)})"
+
+
+class NormStats:
+    """
+    Slim per-embodiment metadata + normalization-stats descriptor.
+
+    Holds, indexed by (embodiment_id, key_name):
+      - key_types[emb][key_name]  -> str           (e.g. "proprio_keys", "action_keys")
+      - zarr_keys[emb][key_name]  -> str           (the dict-key the dataset's __getitem__ returns)
+      - shapes[emb][key_name]     -> tuple[int,..] (filled by infer_shapes_from_batch)
+      - norm_stats[emb][key_name] -> {mean, std, min, max, median, quantile_*}
+
+    Provides key lookups, normalize/unnormalize math (operating on data dicts
+    keyed by zarr_key), shape/norm inference, JSON cache, and to/from_state for
+    checkpoint serialization. Intentionally has no torch.utils.data.Dataset
+    semantics — it's pure metadata.
+    """
+
+    NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
+
+    def __init__(self, schematic_dict: dict | None = None, norm_mode: str = "zscore"):
+        self.norm_mode = norm_mode
+        self.schematic_dict = copy.deepcopy(schematic_dict) if schematic_dict else {}
+        self.embodiments: set[int] = set()
+        self.key_types: dict[int, dict[str, str]] = {}
+        self.zarr_keys: dict[int, dict[str, str]] = {}
+        self.shapes: dict[int, dict[str, tuple]] = {}
+        self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
+        self._norm_run_metadata: dict[str, float | int | None] | None = None
+
+        if schematic_dict:
+            for emb_name, schematic in schematic_dict.items():
+                emb_id = get_embodiment_id(emb_name)
+                self.embodiments.add(emb_id)
+                self.key_types[emb_id] = {}
+                self.zarr_keys[emb_id] = {}
+                self.shapes[emb_id] = {}
+                self.norm_stats[emb_id] = {}
+                for key_name, info in schematic.items():
+                    self.key_types[emb_id][key_name] = info["key_type"]
+                    self.zarr_keys[emb_id][key_name] = info["zarr_key"]
+
+    # ---- key lookups ----
+
+    def keys_of_type(self, key_type: str, embodiment_id: int) -> list[str]:
+        return [
+            k for k, t in self.key_types.get(embodiment_id, {}).items() if t == key_type
+        ]
+
+    def is_key_with_embodiment(self, key_name: str, embodiment_id: int) -> bool:
+        return key_name in self.key_types.get(embodiment_id, {})
+
+    def keyname_to_zarr_key(self, key_name: str, embodiment_id: int) -> str | None:
+        return self.zarr_keys.get(embodiment_id, {}).get(key_name)
+
+    def zarr_key_to_keyname(self, zarr_key: str, embodiment_id: int) -> str | None:
+        for k, v in self.zarr_keys.get(embodiment_id, {}).items():
+            if v == zarr_key:
+                return k
+        return None
+
+    def key_shape(self, key_name: str, embodiment_id: int) -> tuple:
+        if key_name not in self.shapes.get(embodiment_id, {}):
+            raise ValueError(
+                f"Shape for key {key_name!r} on embodiment {embodiment_id} not inferred yet."
+            )
+        return self.shapes[embodiment_id][key_name]
+
+    # ---- shape & norm inference ----
+
+    def infer_shapes_from_batch(self, batch: dict) -> None:
+        """
+        Update shapes from a sample batch (keyed by zarr_key — i.e. the
+        dataset's __getitem__ output keys).
+        """
+        for emb_id, per_emb in self.zarr_keys.items():
+            for key_name, zarr_key in per_emb.items():
+                if zarr_key in batch:
+                    val = batch[zarr_key]
+                    if hasattr(val, "shape"):
+                        self.shapes.setdefault(emb_id, {})[key_name] = tuple(val.shape)
+                    elif isinstance(val, int):
+                        self.shapes.setdefault(emb_id, {})[key_name] = (1,)
+
+    def infer_norm_from_dataset(
+        self,
+        dataset,
+        dataset_name,
+        sample_frac: float = 0.10,
+        seed: int = 42,
+        max_samples: int | None = None,
+        batch_size: int = 512,
+        num_workers: int = 4,
+        precomputed_norm_path: str | None = None,
+    ):
+        """
+        Compute (or load from JSON) per-embodiment normalization stats for the
+        proprio/action keys declared in the schematic.
+        """
+        embodiment = dataset_name
+        if isinstance(embodiment, str):
+            embodiment = get_embodiment_id(embodiment)
+
+        norm_keys = list(self.keys_of_type("proprio_keys", embodiment))
+        norm_keys.extend(self.keys_of_type("action_keys", embodiment))
+        if not norm_keys:
+            logger.warning(
+                f"[NormStats] No proprio/action keys for embodiment={embodiment}"
+            )
+            return
+
+        self.norm_stats.setdefault(embodiment, {})
+
+        if precomputed_norm_path is not None:
+            if os.path.isdir(precomputed_norm_path):
+                precomputed_file = os.path.join(
+                    precomputed_norm_path, "norm_stats.json"
+                )
+            elif os.path.isfile(precomputed_norm_path):
+                precomputed_file = precomputed_norm_path
+            else:
+                logger.warning(
+                    f"[NormStats] precomputed_norm_path={precomputed_norm_path} is not a valid directory or file"
+                )
+                return
+            if os.path.isfile(precomputed_file):
+                with open(precomputed_file, "r") as f:
+                    payload = json.load(f)
+                self.norm_stats[embodiment] = payload["stats"].get(str(embodiment), {})
+                self._norm_run_metadata = payload.get("norm_run_metadata", None)
+                logger.info(
+                    f"[NormStats] Loaded precomputed stats for embodiment={embodiment} from {precomputed_file}"
+                )
+                return
+
+        loader = torch.utils.data.DataLoader(
+            dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=True,
+            generator=torch.Generator().manual_seed(seed),
+        )
+
+        N = len(dataset)
+        if N <= 0:
+            raise ValueError("Dataset is empty")
+
+        n_samples = int(math.ceil(sample_frac * N))
+        n_samples = max(1, min(n_samples, N))
+        if max_samples is not None:
+            n_samples = min(n_samples, max_samples)
+
+        logger.info(f"[NormStats] embodiment={embodiment} norm_keys={norm_keys}")
+        logger.info(
+            f"[NormStats] sampling {n_samples}/{N} (~{100 * sample_frac:.1f}%) indices"
+        )
+
+        loading_start_time = time.time()
+        collected = self._collect_norm_samples(
+            loader=loader,
+            norm_keys=norm_keys,
+            embodiment=embodiment,
+            n_samples=n_samples,
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
+        for k in [k for k, v in collected.items() if not v]:
+            del collected[k]
+            norm_keys.remove(k)
+        loading_time = time.time() - loading_start_time
+
+        computing_start_time = time.time()
+        for k in norm_keys:
+            collected[k] = np.concatenate(collected[k], axis=0)
+            stats_np = self._compute_stats_for_array(collected[k])
+            self.norm_stats[embodiment][k] = {
+                name: np.asarray(arr, dtype=np.float32)
+                for name, arr in stats_np.items()
+            }
+            logger.info(
+                f"[NormStats] key={k} samples={collected[k].shape[0]} stat_shape={stats_np['mean'].shape}"
+            )
+        computing_time = time.time() - computing_start_time
+
+        self._norm_run_metadata = {
+            "loading_time": loading_time,
+            "computing_time": computing_time,
+            "frames": n_samples,
+        }
+        logger.info(
+            f"[NormStats] Finished norm inference, loading_time={loading_time:.2f}s, computing_time={computing_time:.2f}s"
+        )
+
+    def _collect_norm_samples(
+        self,
+        loader,
+        norm_keys,
+        embodiment,
+        n_samples: int,
+        batch_size: int,
+        num_workers: int,
+    ):
+        collected = {k: [] for k in norm_keys}
+        cur_num_samples = 0
+        logger.info(
+            f"[NormStats] Starting to load data with batch_size={batch_size} num_workers={num_workers}"
+        )
+        with tqdm(total=n_samples, unit="sample") as pbar:
+            for batch in loader:
+                remaining = n_samples - cur_num_samples
+                if remaining <= 0:
+                    break
+                batch_len = None
+                for value in batch.values():
+                    if hasattr(value, "shape") and len(value.shape) > 0:
+                        batch_len = int(value.shape[0])
+                        break
+                if batch_len is None:
+                    raise ValueError(
+                        "[NormStats] Could not infer batch size from DataLoader batch"
+                    )
+                take = min(remaining, batch_len)
+                for k in norm_keys:
+                    zarr_key = self.keyname_to_zarr_key(k, embodiment)
+                    if zarr_key is None or zarr_key not in batch:
+                        continue
+                    x = batch[zarr_key][:take]
+                    if hasattr(x, "detach"):
+                        x = x.detach().cpu().numpy()
+                    collected[k].append(x)
+                cur_num_samples += take
+                pbar.update(take)
+        return collected
+
+    @staticmethod
+    def _compute_stats_for_array(X):
+        return {
+            "mean": np.mean(X, axis=0),
+            "std": np.std(X, axis=0),
+            "min": np.min(X, axis=0),
+            "max": np.max(X, axis=0),
+            "median": np.median(X, axis=0),
+            "quantile_1": np.percentile(X, 1, axis=0),
+            "quantile_99": np.percentile(X, 99, axis=0),
+            "quantile_0_01": np.percentile(X, 0.01, axis=0),
+            "quantile_99_99": np.percentile(X, 99.99, axis=0),
+        }
+
+    def cache_stats(self, save_cache_dir: str):
+        """Write ``norm_stats/norm_stats.json`` under ``save_cache_dir``."""
+        cache_dir = os.path.join(save_cache_dir, "norm_stats")
+        os.makedirs(cache_dir, exist_ok=True)
+        out_path = os.path.join(cache_dir, "norm_stats.json")
+
+        stats_out: dict[str, dict[str, dict[str, list]]] = {}
+        for emb, keys_dict in self.norm_stats.items():
+            emb_key = str(emb)
+            stats_out[emb_key] = {}
+            for key_name, stat_dict in keys_dict.items():
+                stats_out[emb_key][key_name] = {
+                    stat_name: np.asarray(arr).tolist()
+                    for stat_name, arr in stat_dict.items()
+                }
+
+        payload = {
+            "stats": stats_out,
+            "loading_time": None,
+            "computing_time": None,
+            "frames": None,
+        }
+        if self._norm_run_metadata is not None:
+            for k in ("loading_time", "computing_time", "frames"):
+                if k in self._norm_run_metadata:
+                    payload[k] = self._norm_run_metadata[k]
+
+        with open(out_path, "w") as f:
+            json.dump(payload, f, indent=4)
+        logger.info(f"[NormStats] Cached stats to {out_path}")
+
+    # ---- normalize / unnormalize (data dicts keyed by zarr_key) ----
+
+    def _apply_norm_one(self, tensor, stats):
+        if self.norm_mode == "zscore":
+            mean = torch.as_tensor(
+                stats["mean"], device=tensor.device, dtype=torch.float32
+            )
+            std = torch.as_tensor(
+                stats["std"], device=tensor.device, dtype=torch.float32
+            )
+            return (tensor - mean) / (std + 1e-6)
+        if self.norm_mode == "minmax":
+            mn = torch.as_tensor(
+                stats["min"], device=tensor.device, dtype=torch.float32
+            )
+            mx = torch.as_tensor(
+                stats["max"], device=tensor.device, dtype=torch.float32
+            )
+            return 2.0 * ((tensor - mn) / (mx - mn + 1e-6)) - 1.0
+        if self.norm_mode == "quantile":
+            q1 = torch.as_tensor(
+                stats["quantile_1"], device=tensor.device, dtype=torch.float32
+            )
+            q99 = torch.as_tensor(
+                stats["quantile_99"], device=tensor.device, dtype=torch.float32
+            )
+            return 2.0 * ((tensor - q1) / (q99 - q1 + 1e-6)) - 1.0
+        raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+
+    def _apply_unnorm_one(self, tensor, stats):
+        if self.norm_mode == "zscore":
+            mean = torch.as_tensor(
+                stats["mean"], device=tensor.device, dtype=torch.float32
+            )
+            std = torch.as_tensor(
+                stats["std"], device=tensor.device, dtype=torch.float32
+            )
+            return tensor * (std + 1e-6) + mean
+        if self.norm_mode == "minmax":
+            mn = torch.as_tensor(
+                stats["min"], device=tensor.device, dtype=torch.float32
+            )
+            mx = torch.as_tensor(
+                stats["max"], device=tensor.device, dtype=torch.float32
+            )
+            return (tensor + 1) * 0.5 * (mx - mn + 1e-6) + mn
+        if self.norm_mode == "quantile":
+            q1 = torch.as_tensor(
+                stats["quantile_1"], device=tensor.device, dtype=torch.float32
+            )
+            q99 = torch.as_tensor(
+                stats["quantile_99"], device=tensor.device, dtype=torch.float32
+            )
+            return (tensor + 1) * 0.5 * (q99 - q1 + 1e-6) + q1
+        raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+
+    def normalize(self, data: dict, embodiment_id: int) -> dict:
+        """Normalize proprio/action entries in a data dict keyed by zarr_key."""
+        if not self.norm_stats.get(embodiment_id):
+            return data
+        out = dict(data)
+        for key_name, key_type in self.key_types.get(embodiment_id, {}).items():
+            if key_type not in self.NORMALIZE_KEY_TYPES:
+                continue
+            stats = self.norm_stats[embodiment_id].get(key_name)
+            if stats is None:
+                continue
+            zarr_key = self.zarr_keys[embodiment_id][key_name]
+            if zarr_key not in out:
+                continue
+            tensor = out[zarr_key]
+            if not isinstance(tensor, torch.Tensor):
+                if isinstance(tensor, np.ndarray):
+                    tensor = torch.from_numpy(tensor).float()
+                else:
+                    continue
+            out[zarr_key] = self._apply_norm_one(tensor, stats)
+        return out
+
+    def unnormalize(self, data: dict, embodiment_id: int) -> dict:
+        """
+        Unnormalize entries in a data dict. Accepts dicts keyed by either
+        the dataset zarr_key or the algo-side key_name (algos rename keys
+        in process_batch_for_training before calling unnormalize).
+        """
+        if not self.norm_stats.get(embodiment_id):
+            return data
+        out = dict(data)
+        zk_to_kn = {v: k for k, v in self.zarr_keys.get(embodiment_id, {}).items()}
+        for data_key, value in list(data.items()):
+            key_name = (
+                data_key
+                if data_key in self.norm_stats[embodiment_id]
+                else zk_to_kn.get(data_key)
+            )
+            if key_name is None:
+                continue
+            stats = self.norm_stats[embodiment_id].get(key_name)
+            if stats is None:
+                continue
+            if not isinstance(value, torch.Tensor):
+                if isinstance(value, np.ndarray):
+                    value = torch.from_numpy(value).float()
+                else:
+                    continue
+            out[data_key] = self._apply_unnorm_one(value, stats)
+        return out
+
+    # ---- serialization (checkpoint roundtrip) ----
+
+    @staticmethod
+    def _clone_norm_stats(norm_stats):
+        out = {}
+        for emb, per_emb in (norm_stats or {}).items():
+            out[emb] = {}
+            for key, stats in per_emb.items():
+                out[emb][key] = {
+                    name: (
+                        v.detach().cpu().clone()
+                        if torch.is_tensor(v)
+                        else copy.deepcopy(v)
+                    )
+                    for name, v in stats.items()
+                }
+        return out
+
+    def to_state(self) -> dict:
+        return {
+            "schematic_dict": copy.deepcopy(self.schematic_dict),
+            "norm_mode": self.norm_mode,
+            "shapes": copy.deepcopy(self.shapes),
+            "norm_stats": self._clone_norm_stats(self.norm_stats),
+        }
+
+    @classmethod
+    def from_state(cls, state: dict) -> "NormStats":
+        if state is None:
+            raise ValueError("NormStats state must be provided for reconstruction.")
+        obj = cls(
+            schematic_dict=copy.deepcopy(state.get("schematic_dict", {})),
+            norm_mode=state.get("norm_mode", "zscore"),
+        )
+        obj.shapes = copy.deepcopy(state.get("shapes", {}))
+        obj.norm_stats = cls._clone_norm_stats(state.get("norm_stats", {}))
+        for emb in obj.embodiments:
+            obj.norm_stats.setdefault(emb, {})
+            obj.shapes.setdefault(emb, {})
+        return obj
+
+
+class NormalizingMultiDataset(MultiDataset):
+    """
+    MultiDataset that owns its own NormStats and:
+      - normalizes proprio/action keys in __getitem__ (no algo-side normalize call needed)
+      - performs reject-sampling using the same NormStats' per-key quantile bounds
+
+    Construct via the standard `(datasets, mode, ...)` signature, or upgrade an
+    existing `MultiDataset` instance via `from_multidataset(mds, norm_stats)`.
+    """
+
+    def __init__(
+        self,
+        datasets,
+        norm_stats: NormStats,
+        mode="train",
+        percent=0.1,
+        valid_ratio=0.2,
+        reject_outliers: bool = True,
+        **kwargs,
+    ):
+        super().__init__(
+            datasets=datasets,
+            mode=mode,
+            percent=percent,
+            valid_ratio=valid_ratio,
+            **kwargs,
+        )
+        self.norm_stats = norm_stats
+        self.reject_outliers = reject_outliers
+        self._warned_violations: set[str] = set()
+
+    @classmethod
+    def from_multidataset(
+        cls,
+        mds: "MultiDataset",
+        norm_stats: NormStats,
+        reject_outliers: bool = True,
+    ) -> "NormalizingMultiDataset":
+        """
+        In-place upgrade: reuse the existing dataset graph + index_map without
+        re-walking children. Useful in trainHydra after norm stats are inferred.
+        """
+        new = cls.__new__(cls)
+        new.__dict__.update(mds.__dict__)
+        new.norm_stats = norm_stats
+        new.reject_outliers = reject_outliers
+        new._warned_violations = set()
+        for child_name, child in list(new.datasets.items()):
+            if isinstance(child, MultiDataset) and not isinstance(
+                child, NormalizingMultiDataset
+            ):
+                new.datasets[child_name] = NormalizingMultiDataset.from_multidataset(
+                    child, norm_stats, reject_outliers=reject_outliers
+                )
+        return new
+
+    def __getitem__(self, idx, _attempts: int | None = None):
+        dataset_name, local_idx = self.index_map[idx]
+        dataset = self.datasets[dataset_name]
+        data = dataset[local_idx]
+
+        if isinstance(dataset, MultiDataset):
+            return data
+
+        violation = (
+            self._check_bounds(data, dataset, local_idx, dataset_name)
+            if self.reject_outliers
+            else None
+        )
+        if violation is not None:
+            next_idx, attempts = get_fallback_idx(
+                idx=idx,
+                candidates=self._global_indices_by_dataset[dataset_name],
+                _attempts=_attempts,
+                max_attempts=len(self._global_indices_by_dataset[dataset_name]),
+                exhausted_error=(
+                    f"Entire dataset bad (no valid indices): dataset={dataset_name}"
+                ),
+            )
+            next_dataset_name, next_local_idx = self.index_map[next_idx]
+            logger.warning(
+                f"{violation} | attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
+            )
+            return self.__getitem__(next_idx, _attempts=attempts)
+
+        if isinstance(data, dict) and "embodiment" in data:
+            data = self.norm_stats.normalize(data, int(data["embodiment"]))
+        return data
+
+    def _check_bounds(
+        self, data: dict, dataset, idx: int, dataset_name: str
+    ) -> str | None:
+        embodiment_id = data.get("embodiment")
+        if embodiment_id is None:
+            raise ValueError("data has no embodiment metadata")
+
+        per_emb_stats = self.norm_stats.norm_stats.get(embodiment_id, {})
+        if not per_emb_stats:
+            return None
+
+        episode_name = self._episode_name_for_dataset(dataset, dataset_name)
+
+        for key_name, stats in per_emb_stats.items():
+            zarr_key = self.norm_stats.keyname_to_zarr_key(key_name, embodiment_id)
+            if zarr_key is None or zarr_key not in data:
+                continue
+
+            v = data[zarr_key]
+            if isinstance(v, torch.Tensor):
+                arr = v.float()
+            elif isinstance(v, np.ndarray):
+                arr = torch.from_numpy(v).float()
+            else:
+                continue
+
+            q_low = stats.get(
+                "quantile_0_01", stats.get("quantile_0_1", stats["quantile_1"])
+            )
+            q_high = stats.get(
+                "quantile_99_99", stats.get("quantile_99_9", stats["quantile_99"])
+            )
+            q_low = torch.as_tensor(q_low, device=arr.device, dtype=torch.float32)
+            q_high = torch.as_tensor(q_high, device=arr.device, dtype=torch.float32)
+
+            try:
+                q_low = torch.broadcast_to(q_low, arr.shape)
+                q_high = torch.broadcast_to(q_high, arr.shape)
+            except RuntimeError:
+                logger.warning(
+                    "Skipping bounds check for ep=%s frame=%s key=%s due to incompatible shapes: value=%s q_low=%s q_high=%s",
+                    episode_name,
+                    idx,
+                    zarr_key,
+                    tuple(arr.shape),
+                    tuple(q_low.shape),
+                    tuple(q_high.shape),
+                )
+                continue
+
+            if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
+                nan_mask = torch.isnan(arr)
+                inf_mask = torch.isinf(arr)
+                bad_mask = nan_mask | inf_mask
+                prefix = (
+                    f"NaN/Inf violation ep={episode_name} frame={idx} key={zarr_key}"
+                )
+                warn_key = f"nan_inf:{episode_name}:{zarr_key}"
+                if warn_key not in self._warned_violations:
+                    self._warned_violations.add(warn_key)
+                    logger.warning(
+                        f"{prefix} | n_nan={int(nan_mask.sum().item())} n_inf={int(inf_mask.sum().item())} "
+                        f"indices={bad_mask.nonzero(as_tuple=False).tolist()[:10]} "
+                        f"values={[f'{v:.4f}' for v in arr[bad_mask].tolist()[:10]]}"
+                    )
+                return prefix
+
+            below = arr < q_low
+            above = arr > q_high
+            if torch.any(below) or torch.any(above):
+                prefix = (
+                    f"Bounds violation ep={episode_name} frame={idx} key={zarr_key}"
+                )
+                warn_key = f"bounds:{episode_name}:{zarr_key}"
+                if warn_key not in self._warned_violations:
+                    self._warned_violations.add(warn_key)
+                    logger.warning(
+                        f"{prefix} | "
+                        f"n_below={int(below.sum().item())} below_vals={[f'{v:.4f}' for v in arr[below].tolist()[:5]]} below_bound={[f'{b:.4f}' for b in q_low[below].tolist()[:5]]} "
+                        f"n_above={int(above.sum().item())} above_vals={[f'{v:.4f}' for v in arr[above].tolist()[:5]]} above_bound={[f'{b:.4f}' for b in q_high[above].tolist()[:5]]}"
+                    )
+                return prefix
+
+        return None
