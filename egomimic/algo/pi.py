@@ -1,7 +1,10 @@
 import logging
 import os
+import random
 from collections import OrderedDict
+from typing import Literal
 
+import numpy as np
 import openpi
 import openpi.models.pi0_config
 import openpi.models_pytorch.pi0_pytorch
@@ -10,6 +13,7 @@ import torch
 import torch.nn as nn
 from openpi.shared.image_tools import resize_with_pad_torch
 from overrides import override
+from transformers import AutoTokenizer
 
 from egomimic.algo.algo import Algo
 from egomimic.models.preprocess_pi_obs import (
@@ -50,10 +54,45 @@ class PI(Algo):
         # ---------------------------
         ac_keys,
         action_converters,
+        # ---------------------------
+        # Prompt / tokenization (moved from data config). The PI algo owns
+        # the tokenizer because the prompt template is model-specific
+        # (paligemma + pi0.5 anchor). See ``process_batch_for_training`` for
+        # how these knobs assemble the prompt and produce ``tokenized_*``.
+        # ---------------------------
+        tokenizer_model_name: str = "google/paligemma-3b-mix-224",
+        tokenizer_max_length: int = 128,
+        sampling_mode: Literal["first", "random"] = "random",
+        annotation_key: str | None = None,
+        default_prompt: str = "",
+        proprio_in_prompt: bool = False,
+        embodiment_label: bool = False,
+        state_num_bins: int = 256,
+        control_mode: dict[str, str] | None = None,
+        proprio_keys_for_prompt: list[str] | None = None,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
         self.norm_stats = norm_stats
+
+        # ---- Prompt assembly + tokenization (was in collate_fn) ----
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_model_name)
+        self.tokenizer_max_length = tokenizer_max_length
+        self.sampling_mode = sampling_mode
+        self.annotation_key = annotation_key
+        self.default_prompt = default_prompt
+        self.proprio_in_prompt = proprio_in_prompt
+        self.embodiment_label = embodiment_label
+        self.state_num_bins = state_num_bins
+        self.control_mode = control_mode
+        # Default to the canonical concat key produced by each embodiment's
+        # transform_list (ConcatKeys with delete_old_keys removes per-arm zarr keys).
+        self.proprio_keys_for_prompt = (
+            list(proprio_keys_for_prompt)
+            if proprio_keys_for_prompt is not None
+            else ["observations.state.ee_pose"]
+        )
+        self._state_bin_edges = np.linspace(-1.0, 1.0, state_num_bins + 1)[:-1]
 
         self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
@@ -155,6 +194,103 @@ class PI(Algo):
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
 
+    def _control_mode_for(self, emb_name: str | None) -> str:
+        if self.control_mode and emb_name is not None:
+            for key, val in self.control_mode.items():
+                if key.lower() in emb_name:
+                    return val
+        if emb_name is not None and "aria" in emb_name:
+            return "cam frame xyzypr per arm"
+        return "cam frame xyzypr gripper per arm"
+
+    def _discretize_state_for_sample(self, _batch, sample_idx: int) -> str | None:
+        """Pick the latest proprio timestep for sample i, clip to [-1, 1],
+        digitize into ``state_num_bins`` bins, and return as a space-joined
+        string. Returns None if no proprio key is present.
+        """
+        parts = []
+        for k in self.proprio_keys_for_prompt:
+            if k not in _batch:
+                continue
+            v = _batch[k]
+            if isinstance(v, torch.Tensor):
+                v = v[sample_idx].detach().cpu().numpy()
+            else:
+                v = np.asarray(v)[sample_idx]
+            v = np.asarray(v, dtype=np.float32)
+            while v.ndim > 1:
+                v = v[-1]
+            parts.append(v.reshape(-1))
+        if not parts:
+            return None
+        state = np.concatenate(parts, axis=-1)
+        state = np.clip(state, -1.0, 1.0)
+        bins = np.digitize(state, bins=self._state_bin_edges) - 1
+        return " ".join(map(str, bins.tolist()))
+
+    def _build_prompts(
+        self, _batch, embodiment_name: str, batch_size: int
+    ) -> list[str]:
+        """Sample one prompt per item from the raw annotation lists and
+        splice in any of the active blocks. Returns ``batch_size`` strings.
+
+        Mirrors the prompt assembly previously done in
+        ``build_tokenized_collate``. Embodiment is known per-batch (one
+        DataLoader per embodiment), so we don't re-derive it per sample.
+        """
+        if self.annotation_key is None or self.annotation_key not in _batch:
+            prompts = [self.default_prompt] * batch_size
+        else:
+            prompts = []
+            for sample in _batch[self.annotation_key]:
+                if not sample:
+                    prompts.append(self.default_prompt)
+                elif self.sampling_mode == "random":
+                    prompts.append(sample[random.randint(0, len(sample) - 1)])
+                else:  # "first"
+                    prompts.append(sample[0])
+
+        any_block_active = (
+            self.proprio_in_prompt or self.embodiment_label or bool(self.control_mode)
+        )
+        if not any_block_active:
+            return prompts
+
+        emb_name = embodiment_name.lower().replace("_", " ")
+        spliced = []
+        for i, prompt in enumerate(prompts):
+            blocks = [f"Task: {prompt}"]
+            if self.embodiment_label:
+                blocks.append(f"Embodiment: {emb_name}")
+            if self.control_mode:
+                blocks.append(f"Control mode: {self._control_mode_for(emb_name)}")
+            if self.proprio_in_prompt:
+                state_str = self._discretize_state_for_sample(_batch, i)
+                if state_str is not None:
+                    blocks.append(f"State: {state_str}")
+            spliced.append(", ".join(blocks) + ";\nAction: ")
+        return spliced
+
+    def _tokenize_prompts(self, prompts: list[str]) -> dict:
+        enc = self.tokenizer(
+            prompts,
+            padding="max_length"
+            if self.tokenizer_max_length is not None
+            else "longest",
+            truncation=True,
+            max_length=self.tokenizer_max_length,
+            return_tensors="pt",
+        )
+        attention_mask = enc["attention_mask"].bool()
+        token_loss_mask = attention_mask.clone()
+        token_loss_mask[:, -1] = False
+        return {
+            "tokenized_prompt": enc["input_ids"].requires_grad_(False),
+            "tokenized_mask": attention_mask.requires_grad_(False),
+            "token_loss_mask": token_loss_mask.requires_grad_(False),
+            "token_ar_mask": attention_mask.clone().requires_grad_(False),
+        }
+
     @override
     def process_batch_for_training(self, batch):
         """
@@ -176,17 +312,6 @@ class PI(Algo):
                 if key_name is not None:
                     processed_batch[embodiment_id][key_name] = value
 
-            # Carry through language tokenization tensors and annotations produced by collate_fn
-            for tk in (
-                "tokenized_prompt",
-                "tokenized_mask",
-                "token_loss_mask",
-                "token_ar_mask",
-                "sampled_prompt",
-            ):
-                if tk in _batch:
-                    processed_batch[embodiment_id][tk] = _batch[tk]
-
             ac_key = self.ac_keys[embodiment_id]
             if ac_key not in processed_batch[embodiment_id]:
                 raise KeyError(
@@ -197,6 +322,13 @@ class PI(Algo):
                 raise ValueError("Action shape in batch is not 2")
 
             B, S, _ = processed_batch[embodiment_id][ac_key].shape
+
+            # Build prompts + tokenize. Reads raw `annotations` (list[list[str]])
+            # left in `_batch` by `annotation_collate`, plus per-sample proprio
+            # tensors from `_batch` for the optional State block.
+            prompts = self._build_prompts(_batch, embodiment_name, B)
+            processed_batch[embodiment_id]["sampled_prompt"] = prompts
+            processed_batch[embodiment_id].update(self._tokenize_prompts(prompts))
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(
                 B, S, 1, device=self.device
             )

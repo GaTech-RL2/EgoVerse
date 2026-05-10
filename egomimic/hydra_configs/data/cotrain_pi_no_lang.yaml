@@ -26,8 +26,7 @@ valid_datasets:
       filter_lambdas:
         - "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
 
-use_tokenizer: true
-model_name: "google/paligemma-3b-mix-224"
-sampling_mode: "random"
-annotation_key: null
-default_prompt: "fold the clothes"
+# Prompt config moved to the model side. Pair this data config with model
+# overrides (model.robomimic_model.*):
+#   annotation_key: null
+#   default_prompt: "fold the clothes"

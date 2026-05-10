@@ -29,12 +29,11 @@ valid_datasets:
       filter_lambdas:
         - "lambda row: row['robot_name'] == 'aria_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"
 
-use_tokenizer: true
-model_name: "google/paligemma-3b-mix-224"
-sampling_mode: "random"
-annotation_key: "annotations"
-default_prompt: "this is a bad action"
-
-control_mode:
-  aria: "cam frame xyzypr per arm"
-  eva: "cam frame xyzypr gripper per arm"
+# Prompt config moved to the model side. To reproduce the previous behaviour
+# of this data config, pair with the following overrides on the model
+# (model.robomimic_model.*):
+#   annotation_key: "annotations"
+#   default_prompt: "this is a bad action"
+#   control_mode:
+#     aria: "cam frame xyzypr per arm"
+#     eva:  "cam frame xyzypr gripper per arm"

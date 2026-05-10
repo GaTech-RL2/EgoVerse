@@ -1,7 +1,7 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.pi.PI
-  config:      
+  config:
     pytorch_training_precision: bfloat16
     pytorch_weight_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
     model:
@@ -9,6 +9,35 @@ robomimic_model:
       action_dim: 32
       action_horizon: 100
       max_token_len: 180
+
+  # Prompt assembly + tokenization. The PI algo owns the tokenizer because
+  # the prompt template is model-specific (paligemma + pi0.5 anchor). All
+  # of these were previously in the data config.
+  #
+  # Three orthogonal inclusion flags govern what gets spliced into the prompt:
+  #   proprio_in_prompt — append "State: <bins>" (pi0.5 discretized proprio)
+  #   embodiment_label  — append "Embodiment: <name>"
+  #   control_mode      — append "Control mode: <descriptor>" (per-embodiment dict
+  #                       or null to omit; falls back to "cam frame xyzypr ..."
+  #                       defaults if a key isn't matched)
+  #
+  # If any of these is active, the prompt is rendered as
+  #   "Task: {prompt}, <blocks>;\nAction: "
+  # Otherwise the raw prompt is tokenized as-is (pre-pi0.5 / language behaviour).
+  #
+  # Override per-run for lang / wristframe variants, e.g.
+  #   model.robomimic_model.annotation_key=annotations
+  #   model.robomimic_model.default_prompt="this is a bad action"
+  #   model.robomimic_model.control_mode='{aria: "wrist frame xyzypr per arm", eva: "wrist frame xyzypr gripper per arm"}'
+  tokenizer_model_name: "google/paligemma-3b-mix-224"
+  tokenizer_max_length: 128
+  sampling_mode: "random"
+  annotation_key: null
+  default_prompt: ""
+  proprio_in_prompt: false
+  embodiment_label: true
+  state_num_bins: 256
+  control_mode: null
 
   train_image_augs:
     _target_: torchvision.transforms.Compose

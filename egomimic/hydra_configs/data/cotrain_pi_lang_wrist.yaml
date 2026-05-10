@@ -42,11 +42,10 @@ valid_datasets:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
         mode: cartesian_wristframe_ypr
 
-# Override the cam-frame default in cotrain_pi_base for the wristframe
-# pipeline below. Setting control_mode to a non-null dict activates the
-# "Control mode: ..." block in the prompt (Task: ..., Control mode: ...;
-# \nAction: ). Set the `proprio` / `embodiment_label` flags here too if you
-# also want those blocks; otherwise they inherit `false` from the base.
-control_mode:
-  aria: "wrist frame xyzypr per arm"
-  eva: "wrist frame xyzypr gripper per arm"
+# Prompt config moved to the model side. For the wristframe pipeline,
+# pair this data config with model overrides (model.robomimic_model.*):
+#   annotation_key: "annotations"
+#   default_prompt: "this is a bad action"
+#   control_mode:
+#     aria: "wrist frame xyzypr per arm"
+#     eva:  "wrist frame xyzypr gripper per arm"
