@@ -1,4 +1,4 @@
-_target_: egomimic.rldb.zarr.utils.DataSchematic
+_target_: egomimic.rldb.zarr.zarr_dataset_multi.NormStats
 norm_mode: quantile
 schematic_dict:
   eva_bimanual:

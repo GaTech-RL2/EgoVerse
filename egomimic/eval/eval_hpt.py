@@ -23,7 +23,7 @@ class HPTEvalVideo(EvalVideo):
         images_dict = {}
         mse = MeanSquaredError()
         for embodiment_id, _batch in batch.items():
-            _batch = algo.data_schematic.unnormalize_data(_batch, embodiment_id)
+            _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
             ac_key = algo.ac_keys[embodiment_id]
 
@@ -148,12 +148,11 @@ class HPTEvalVideo(EvalVideo):
         return metrics, images_dict
 
     def _visualize_preds(self, predictions, batch):
-        algo = self.model
-        if algo.viz_func is None:
+        if self.viz_func is None:
             raise ValueError("viz_func is not set")
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
-        return algo.viz_func[embodiment_name](predictions, batch)
+        return self.viz_func[embodiment_name](predictions, batch)
 
     @torch.no_grad()
     def _collect_policy_samples(self, hpt_batch, ref, key_name, M):
