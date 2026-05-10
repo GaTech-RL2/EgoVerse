@@ -1,0 +1,73 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eve_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:EVE_LOCAL_ZARR_DIR}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eve.Eve.get_keymap
+        keymap_mode: cartesian_wrist
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eve.Eve.get_transform_list
+        mode: cartesian_wrist
+    mode: train
+    valid_ratio: 0.5
+  aria_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:ARIA_LOCAL_ZARR_DIR}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: cartesian
+    mode: train
+    valid_ratio: 0.34
+
+valid_datasets:
+  eve_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:EVE_LOCAL_ZARR_DIR}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eve.Eve.get_keymap
+        keymap_mode: cartesian_wrist
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eve.Eve.get_transform_list
+        mode: cartesian_wrist
+    mode: valid
+    valid_ratio: 0.5
+  aria_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:ARIA_LOCAL_ZARR_DIR}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: cartesian
+    mode: valid
+    valid_ratio: 0.34
+
+train_dataloader_params:
+  eve_bimanual:
+    batch_size: 4
+    num_workers: 2
+  aria_bimanual:
+    batch_size: 4
+    num_workers: 2
+
+valid_dataloader_params:
+  eve_bimanual:
+    batch_size: 4
+    num_workers: 2
+  aria_bimanual:
+    batch_size: 4
+    num_workers: 2
