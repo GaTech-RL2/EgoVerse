@@ -63,39 +63,10 @@ valid_datasets:
     mode: valid
     valid_ratio: 0.05
 
-use_tokenizer: true
-model_name: "google/paligemma-3b-mix-224"
-sampling_mode: "random"
-annotation_key: null
-default_prompt: ""
-
-# Three orthogonal inclusion flags govern what gets spliced into the prompt:
-#   proprio          — append "State: <bins>" (pi0.5 discretized proprio)
-#   embodiment_label — append "Embodiment: <name>"
-#   control_mode     — append "Control mode: <descriptor>" (per-embodiment dict
-#                      or null to omit; falls back to "cam frame xyzypr ..."
-#                      defaults if a key isn't matched)
-#
-# If any of these is active, the prompt is rendered as
-#   "Task: {prompt}, <blocks>;\nAction: "
-# Otherwise the raw prompt is tokenized as-is (pre-pi0.5 / language behaviour).
-#
-# Proprio details: when `proprio: true`, the canonical concat key produced by
-# each embodiment's transform_list (`observations.state.ee_pose`) is read as
-# the proprio vector, clipped to [-1, 1], discretized into `state_num_bins`,
-# and spliced. Per-arm zarr keys are deleted by ConcatKeys (delete_old_keys),
-# so override `proprio_keys` only if you need a different source. State is
-# assumed normalized to [-1, 1] upstream — values outside are clipped.
-proprio: false
-embodiment_label: true
-state_num_bins: 256
-
-# Per-embodiment "Control mode:" descriptor. Keys are substrings matched
-# against the lowercased embodiment name (first match wins). Default (null)
-# omits the block entirely, matching the cartesian (head/cam-frame) transform
-# pipeline used in this base config. Wristframe pipelines should override this
-# — see cotrain_pi_lang_wrist.yaml.
-control_mode: null
+# Prompt assembly + tokenization config moved to the model side
+# (see hydra_configs/model/pi0.5_base.yaml). Override prompt knobs there
+# (or via `model.robomimic_model.<key>=<value>` on the CLI) when pairing
+# this data config with a non-default prompt configuration.
 
 train_dataloader_params:
   eva_bimanual:

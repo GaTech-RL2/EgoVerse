@@ -60,17 +60,6 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
-        collate_max_length=128,
-        model_name="google/paligemma-3b-mix-224",
-        sampling_mode: Literal["first", "random"] = "random",
-        annotation_key=None,
-        use_tokenizer=False,
-        default_prompt="",
-        proprio_keys: list[str] | None = None,
-        state_num_bins: int = 256,
-        proprio: bool = False,
-        embodiment_label: bool = False,
-        control_mode: dict[str, str] | None = None,
     ):
         """
         Args:
@@ -78,35 +67,13 @@ class MultiDataModuleWrapper(LightningDataModule):
             valid_datasets: dictionary of valid datasets
             train_dataloader_params: dictionary of train dataloader parameters
             valid_dataloader_params: dictionary of valid dataloader parameters
-            model_name: name of the model to use for the tokenizer
-            sampling_mode: "first" to sample the first prompt from the list of prompts, "random" to sample a random prompt from the list of prompts
-            annotation_key: key of the annotation to use for the collate function
-            use_tokenizer: whether to use the tokenizer to tokenize the prompts
-            default_prompt: default prompt to use if the annotation key is not found
-            collate_max_length: maximum length of the tokenized prompts
-            proprio_keys: union of per-sample state keys to concat for the
-                ``proprio`` path. Keys missing from a given embodiment's
-                batch are skipped.
-            state_num_bins: number of bins to discretize each state dim into.
-            proprio: if True, splice discretized proprio into the prompt as
-                ``..., State: <bins>``. State is clipped to ``[-1, 1]`` and
-                discretized with ``state_num_bins`` (pi0.5 style; assumes
-                upstream normalization).
-            embodiment_label: if True, splice ``..., Embodiment: <name>``
-                into the prompt.
-            control_mode: optional per-embodiment dict; when non-null,
-                splices ``..., Control mode: <descriptor>``. Keys are
-                substrings matched against the (lowercased, ``_``→space)
-                embodiment name; first match wins. Falls back to the
-                built-in ``cam frame xyzypr [gripper] per arm`` strings if
-                no key matches. Example for wristframe pipelines:
-                ``{aria: "wrist frame xyzypr per arm",
-                  eva:  "wrist frame xyzypr gripper per arm"}``.
 
-            If any of ``proprio``, ``embodiment_label``, or ``control_mode``
-            is active, the prompt is rendered as
-            ``"Task: {prompt}, <blocks>;\\nAction: "`` (pi0.5 anchor).
-            Otherwise the raw ``prompt`` is tokenized as-is.
+        Tokenization (sampling a prompt from per-sample annotation lists,
+        splicing in embodiment / control-mode / proprio blocks, and running
+        the HF tokenizer) lives on the algo side now — see
+        ``PI.process_batch_for_training``. The collate here only stacks
+        tensors and preserves variable-length list-valued keys (e.g. raw
+        ``annotations``) so the algo can consume them downstream.
         """
         super().__init__()
         # Drop `None` slots so downstream iteration sites don't need null guards.
@@ -116,21 +83,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.valid_datasets = {k: v for k, v in valid_datasets.items() if v is not None}
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
-        if use_tokenizer:
-            self.collate_fn = build_tokenized_collate(
-                max_length=collate_max_length,
-                model_name=model_name,
-                sampling_mode=sampling_mode,
-                annotation_key=annotation_key,
-                default_prompt=default_prompt,
-                proprio_keys=proprio_keys,
-                state_num_bins=state_num_bins,
-                proprio=proprio,
-                embodiment_label=embodiment_label,
-                control_mode=control_mode,
-            )
-        else:
-            self.collate_fn = annotation_collate
+        self.collate_fn = annotation_collate
 
     def train_dataloader(self):
         iterables = dict()
