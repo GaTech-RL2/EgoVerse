@@ -35,7 +35,7 @@ class PI(Algo):
 
     def __init__(
         self,
-        data_schematic,
+        norm_stats,
         camera_transforms,
         domains,
         # ---------------------------
@@ -50,11 +50,10 @@ class PI(Algo):
         # ---------------------------
         ac_keys,
         action_converters,
-        viz_func,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
-        self.data_schematic = data_schematic
+        self.norm_stats = norm_stats
 
         self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
@@ -76,27 +75,25 @@ class PI(Algo):
         self.proprio_keys = {}
         self.lang_keys = {}
 
-        self.viz_func = viz_func
-
         for embodiment in self.domains:
             embodiment_id = get_embodiment_id(embodiment)
             self.camera_keys[embodiment_id] = []
             self.proprio_keys[embodiment_id] = []
             self.lang_keys[embodiment_id] = []
-            for key in data_schematic.keys_of_type("action_keys", embodiment_id):
+            for key in norm_stats.keys_of_type("action_keys", embodiment_id):
                 if (
-                    data_schematic.is_key_with_embodiment(key, embodiment_id)
+                    norm_stats.is_key_with_embodiment(key, embodiment_id)
                     and key == self.ac_keys[embodiment]
                 ):
                     self.ac_keys[embodiment_id] = key
-            for key in data_schematic.keys_of_type("camera_keys", embodiment_id):
-                if data_schematic.is_key_with_embodiment(key, embodiment_id):
+            for key in norm_stats.keys_of_type("camera_keys", embodiment_id):
+                if norm_stats.is_key_with_embodiment(key, embodiment_id):
                     self.camera_keys[embodiment_id].append(key)
-            for key in data_schematic.keys_of_type("proprio_keys", embodiment_id):
-                if data_schematic.is_key_with_embodiment(key, embodiment_id):
+            for key in norm_stats.keys_of_type("proprio_keys", embodiment_id):
+                if norm_stats.is_key_with_embodiment(key, embodiment_id):
                     self.proprio_keys[embodiment_id].append(key)
-            for key in data_schematic.keys_of_type("lang_keys", embodiment_id):
-                if data_schematic.is_key_with_embodiment(key, embodiment_id):
+            for key in norm_stats.keys_of_type("lang_keys", embodiment_id):
+                if norm_stats.is_key_with_embodiment(key, embodiment_id):
                     self.lang_keys[embodiment_id].append(key)
 
         self.num_steps = getattr(self.config, "num_sampling_steps", 10)
@@ -175,7 +172,7 @@ class PI(Algo):
             embodiment_id = get_embodiment_id(embodiment_name)
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
-                key_name = self.data_schematic.zarr_key_to_keyname(key, embodiment_id)
+                key_name = self.norm_stats.zarr_key_to_keyname(key, embodiment_id)
                 if key_name is not None:
                     processed_batch[embodiment_id][key_name] = value
 
@@ -203,9 +200,7 @@ class PI(Algo):
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(
                 B, S, 1, device=self.device
             )
-            processed_batch[embodiment_id] = self.data_schematic.normalize_data(
-                processed_batch[embodiment_id], embodiment_id
-            )
+            # Samples are already normalized by NormalizeTransform in the leaf's transform_list.
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
@@ -311,9 +306,7 @@ class PI(Algo):
                 pred = pred_actions_orig[:, :T, :D]
                 predictions[ac_key] = pred
 
-                unnorm_actions = self.data_schematic.unnormalize_data(
-                    predictions, embodiment_id
-                )
+                unnorm_actions = self.norm_stats.unnormalize(predictions, embodiment_id)
                 for key in unnorm_actions:
                     unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
 

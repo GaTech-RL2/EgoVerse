@@ -1,7 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.pi.PI
-  data_schematic: _${data.dataset.data_schematic}
   config:      
     pytorch_training_precision: bfloat16
     pytorch_weight_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
