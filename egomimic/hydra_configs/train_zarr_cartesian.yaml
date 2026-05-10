@@ -6,7 +6,6 @@ defaults:
   - logger: wandb
   - data: eva
   - callbacks: checkpoints
-  - data_schematic: default
   - evaluator: eval_hpt
   - override hydra/launcher: submitit
   - _self_
@@ -31,6 +30,7 @@ seed: 42
 
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
+  norm_mode: quantile
   sample_frac: 1.0
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}

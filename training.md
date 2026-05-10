@@ -47,7 +47,6 @@ For most use cases, you only need to modify the data YAML.
 ## 1. Modify data config
 
 Open:
-
     hydra_configs/data/aria.yaml
 
 Modify:
