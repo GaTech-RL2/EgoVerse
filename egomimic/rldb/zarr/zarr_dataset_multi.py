@@ -148,6 +148,38 @@ def _normalize_filter_row(
     return normalized
 
 
+def _infer_key_type(key_name: str) -> str | None:
+    """
+    Heuristically infer a key_type for a post-transform key that wasn't
+    declared in the leaf's key_map (typically produced by a transform like
+    ``ConcatKeys``). Returns one of the recognised key_type strings or None
+    when the key looks like metadata that NormStats shouldn't normalize.
+
+    Recognition is conservative — only positive matches return a type.
+    """
+    name = key_name.lower()
+    # Camera image keys
+    if "image" in name or "/img" in name or name.endswith("_img") or ".img" in name:
+        return "camera_keys"
+    # Action keys (model outputs)
+    if name.startswith("actions") or "/cmd_" in name or ".cmd_" in name:
+        return "action_keys"
+    # Proprioception (observed state)
+    if (
+        name.startswith("observations.state")
+        or "/obs_" in name
+        or ".obs_" in name
+        or "joint_positions" in name
+        or "ee_pose" in name
+        or "keypoints" in name
+    ):
+        return "proprio_keys"
+    # Language / annotations
+    if "annotation" in name or "tokenized" in name or "lang" in name:
+        return "annotation_keys"
+    return None
+
+
 def get_fallback_idx(
     idx: int,
     candidates: Iterable[int],
@@ -1061,6 +1093,12 @@ class NormStats:
         dataset down to its leaf ZarrDatasets and reading their key_map +
         embodiment. The single source of truth for keys is the leaf
         ZarrDataset.key_map; NormStats no longer requires a parallel YAML.
+
+        Pulls one sample through the leaf so that any consolidation done by
+        ``transform_list`` (e.g. ``ConcatKeys`` producing ``actions_cartesian``
+        from per-arm ``cmd_*`` keys) is reflected in the recorded keys. Type
+        for each post-transform key is the raw ``key_map`` declaration when
+        the key survived transforms, otherwise inferred from name pattern.
         """
         for ds in datasets.values():
             for leaf in self._iter_leaves(ds):
@@ -1074,11 +1112,46 @@ class NormStats:
                 self.zarr_keys.setdefault(emb_id, {})
                 self.shapes.setdefault(emb_id, {})
                 self.norm_stats.setdefault(emb_id, {})
-                for key_name, info in key_map.items():
-                    self.key_types[emb_id][key_name] = info.get(
-                        "key_type", "metadata_keys"
+
+                # Probe one post-transform sample to discover the keys the
+                # algo will actually receive. Falls back to raw key_map only
+                # if probing fails.
+                sample_keys: set | None = None
+                try:
+                    sample = leaf[0]
+                    if isinstance(sample, dict):
+                        sample_keys = set(sample.keys())
+                except Exception as e:
+                    logger.warning(
+                        f"[NormStats] Could not probe leaf for post-transform keys "
+                        f"(emb={emb_id}): {e}. Falling back to raw key_map."
                     )
-                    self.zarr_keys[emb_id][key_name] = info["zarr_key"]
+
+                if sample_keys is None:
+                    # Pure raw-key population (no probe available).
+                    for key_name, info in key_map.items():
+                        self.key_types[emb_id][key_name] = info.get(
+                            "key_type", "metadata_keys"
+                        )
+                        self.zarr_keys[emb_id][key_name] = info["zarr_key"]
+                    continue
+
+                # Populate from the actual post-transform key set.
+                for data_key in sample_keys:
+                    if data_key in key_map:
+                        # Raw key kept by transforms — use declared type.
+                        info = key_map[data_key]
+                        self.key_types[emb_id][data_key] = info.get(
+                            "key_type", "metadata_keys"
+                        )
+                        self.zarr_keys[emb_id][data_key] = info["zarr_key"]
+                    else:
+                        # Post-transform-produced key — infer type by name.
+                        inferred = _infer_key_type(data_key)
+                        if inferred is None:
+                            continue  # skip unknown / metadata-like keys
+                        self.key_types[emb_id][data_key] = inferred
+                        self.zarr_keys[emb_id][data_key] = data_key
 
     @staticmethod
     def _iter_leaves(ds):
