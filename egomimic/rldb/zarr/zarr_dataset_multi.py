@@ -177,12 +177,10 @@ class EpisodeResolver:
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
-        norm_stats: dict | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
-        self.norm_stats = norm_stats
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
@@ -215,7 +213,6 @@ class EpisodeResolver:
                     p,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
-                    norm_stats=self.norm_stats,
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -243,7 +240,6 @@ class S3EpisodeResolver(EpisodeResolver):
         main_prefix: str = "processed_v3",
         key_map: dict | None = None,
         transform_list: list | None = None,
-        norm_stats: dict | None = None,
         debug: bool = False,
     ):
         self.bucket_name = bucket_name
@@ -253,7 +249,6 @@ class S3EpisodeResolver(EpisodeResolver):
             folder_path,
             key_map=key_map,
             transform_list=transform_list,
-            norm_stats=norm_stats,
         )
 
     def resolve(
@@ -482,10 +477,9 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
-        norm_stats: dict | None = None,
         debug=False,
     ):
-        super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
+        super().__init__(folder_path, key_map, transform_list)
         self.debug = debug
 
     @staticmethod
@@ -682,17 +676,12 @@ class ZarrDataset(torch.utils.data.Dataset):
         Episode_path: Path,
         key_map: dict,
         transform_list: list | None = None,
-        norm_stats: dict | None = None,
     ):
         """
         Args:
             episode_path: just a path to the designated zarr episode
             key_map: dict mapping from dataset keys to zarr keys and horizon info, e.g. {"obs/image/front": {"zarr_key": "observations.images.front", "horizon": 4}, ...}
             transform_list: list of Transform objects to apply to the data after loading, e.g. for action chunk transformations. Should be in order of application.
-            norm_stats: optional dict mapping dataset key names (same keys as key_map) to
-                {"quantile_1": tensor, "quantile_99": tensor} bounds. When provided, any
-                loaded sample whose values fall outside [quantile_1, quantile_99] for any
-                tracked key triggers the random index fallback.
         """
         self.episode_path = Episode_path
         self.metadata = None
@@ -703,7 +692,6 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         self.key_map = key_map
         self.transform = transform_list
-        self.norm_stats = norm_stats or {}
         super().__init__()
 
     def init_episode(self):
