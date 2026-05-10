@@ -15,11 +15,7 @@ from tabulate import tabulate
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import (
-    MultiDataset,
-    NormalizingMultiDataset,
-    NormStats,
-)
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
@@ -64,26 +60,6 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
     log.info("Dataset frame counts:\n" + table)
 
 
-def _wrap_with_normalizing(
-    norm_stats: NormStats, datasets: dict, reject_outliers: bool
-) -> None:
-    """
-    Replace each top-level MultiDataset with a NormalizingMultiDataset that
-    encapsulates all normalization wiring. trainHydra never touches transforms
-    or norm_stats placement — that's all inside the wrapper class.
-    """
-    for name, ds in list(datasets.items()):
-        if not isinstance(ds, MultiDataset):
-            raise ValueError(
-                "All top-level datasets in the data config must be MultiDataset"
-            )
-        if isinstance(ds, NormalizingMultiDataset):
-            continue
-        datasets[name] = NormalizingMultiDataset.from_multidataset(
-            ds, norm_stats, reject_outliers=reject_outliers
-        )
-
-
 @task_wrapper
 def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
@@ -125,8 +101,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
     )
 
-    norm_stats = NormStats(
-        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    # Stats-only MultiDataset (no graph of its own; explicitly populated from
+    # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
+    norm_stats = MultiDataset(
+        state={},
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
     )
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
@@ -159,16 +138,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if save_cache_dir:
             norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
-    # Wrap each top-level MultiDataset with NormalizingMultiDataset, which
-    # encapsulates all normalization wiring (NormalizeTransform / RejectOutliers
-    # appended to leaves at construction). trainHydra knows nothing about
-    # transform internals.
+    # Attach Normalize/Reject transforms to each leaf's transform_list.
     reject_outliers = bool(cfg.get("reject_outliers", True))
-    _wrap_with_normalizing(
-        norm_stats, datamodule.train_datasets, reject_outliers=reject_outliers
+    norm_stats.attach_normalize_transforms(
+        datamodule.train_datasets, reject_outliers=reject_outliers
     )
-    _wrap_with_normalizing(
-        norm_stats, datamodule.valid_datasets, reject_outliers=reject_outliers
+    norm_stats.attach_normalize_transforms(
+        datamodule.valid_datasets, reject_outliers=reject_outliers
     )
 
     log.info(f"Instantiating model <{cfg.model._target_}>")

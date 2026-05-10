@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, default_collate
 from tqdm import tqdm
 
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import NormStats
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.pylogger import RankedLogger
 
 OmegaConf.register_new_resolver("eval", eval)
@@ -31,8 +31,9 @@ def main(cfg: DictConfig) -> None:
             cfg.data.train_datasets[dataset_name]
         )
 
-    norm_stats_obj = NormStats(
-        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    norm_stats_obj = MultiDataset(
+        state={},
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
     )
     norm_stats_obj.populate_from_datasets(train_datasets)
 

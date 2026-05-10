@@ -10,7 +10,7 @@ from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
 import egomimic.utils.tensor_utils as TensorUtils
-from egomimic.rldb.zarr.zarr_dataset_multi import NormStats
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
 class ModelWrapper(LightningModule):
@@ -76,7 +76,7 @@ class ModelWrapper(LightningModule):
 
     def _instantiate_model(self, config_tree, norm_stats_state):
         cfg = self._as_config(config_tree)
-        norm_stats = NormStats.from_state(norm_stats_state)
+        norm_stats = MultiDataset.from_state(norm_stats_state)
         return hydra.utils.instantiate(
             cfg.model.robomimic_model,
             norm_stats=norm_stats,

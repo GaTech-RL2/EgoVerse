@@ -7,7 +7,7 @@ import torch.nn as nn
 from omegaconf import OmegaConf
 
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.zarr.zarr_dataset_multi import NormStats
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
 class DummyAlgo:
@@ -20,11 +20,11 @@ class DummyAlgo:
 
 def _build_norm_stats_state():
     """
-    Build a synthetic NormStats by direct field assignment. Bypasses
-    populate_from_datasets() since we don't construct a real dataset graph
-    in unit tests; this mirrors the post-populate state of NormStats.
+    Build a synthetic stats-only MultiDataset by direct field assignment.
+    Bypasses populate_from_datasets() since we don't construct a real dataset
+    graph in unit tests; this mirrors the post-populate state.
     """
-    stats = NormStats(norm_mode="quantile")
+    stats = MultiDataset(state={}, norm_mode="quantile")
     emb_id = 8  # eva_bimanual
     stats.embodiments.add(emb_id)
     stats.key_types[emb_id] = {

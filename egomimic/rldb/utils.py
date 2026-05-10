@@ -1047,7 +1047,6 @@ class DataSchematic(object):
         """
         Initialize with a schematic dictionary and create a DataFrame.
 
-
         Args:
             schematic_dict:
                 {embodiment_name}:

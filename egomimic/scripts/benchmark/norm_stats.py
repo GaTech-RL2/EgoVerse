@@ -10,7 +10,7 @@ import pandas as pd
 from omegaconf import DictConfig, OmegaConf
 
 from egomimic.rldb.zarr.utils import set_global_seed
-from egomimic.rldb.zarr.zarr_dataset_multi import NormStats
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.utils.utils import extras
@@ -44,8 +44,9 @@ def norm_stats(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.data.train_datasets[dataset_name]
         )
 
-    norm_stats_obj = NormStats(
-        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    norm_stats_obj = MultiDataset(
+        state={},
+        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
     )
     norm_stats_obj.populate_from_datasets(train_datasets)
 
