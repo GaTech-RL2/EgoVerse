@@ -11,7 +11,7 @@ Direct (fire-and-forget):
     modal run --env robotics egomimic/modal/test_run.py::submit -- \\
         data=mecka_all_zarr trainer=ddp_modal logger=wandb model=hpt_bc_flow_mecka
 
-Direct (blocking — streams logs):
+Direct (blocking — streams logs, downloads artifacts when done):
     modal run --env robotics egomimic/modal/test_run.py::run -- \\
         data=mecka_all_zarr trainer=ddp_modal logger=wandb model=hpt_bc_flow_mecka
 
@@ -19,6 +19,13 @@ Volume note
 -----------
 The zarr dataset volume (egoverse-zarr-data) is mounted at /mnt/zarr-data.
 Use LocalEpisodeResolver with folder_path=/mnt/zarr-data (see mecka_all_zarr.yaml).
+
+Training outputs (checkpoints, logs, norm stats, videos) are written to
+/root/EgoVerse/logs inside the container, which is backed by the Modal volume
+egoverse-training-outputs. After a blocking `run`, artifacts are automatically
+downloaded to ./modal-outputs/<name>/<desc>_<timestamp>/ on your local machine.
+For fire-and-forget `submit` jobs, pull manually:
+    modal volume get --env robotics egoverse-training-outputs <run-path> ./modal-outputs/
 
 Notes
 -----
@@ -38,6 +45,7 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -65,6 +73,8 @@ class _Config:
         return f"{self.remote_repo_dir}/egomimic/trainHydra.py"
 
     volume_mount_path: str = "/mnt/zarr-data"
+    # Training outputs (checkpoints, logs, norm stats, videos) are persisted here
+    output_mount_path: str = "/root/EgoVerse/logs"
 
     # Overridable via env vars (set by trainHydra.py from +modal_gpu= etc.)
     gpu: str = field(default_factory=lambda: os.environ.get("MODAL_GPU", "A100"))
@@ -157,6 +167,9 @@ image = (
 )
 
 zarr_volume = modal.Volume.from_name("egoverse-zarr-data")
+training_outputs_volume = modal.Volume.from_name(
+    "egoverse-training-outputs", create_if_missing=True
+)
 app = modal.App("egomimic-training", image=image)
 
 # ---------------------------------------------------------------------------
@@ -223,6 +236,31 @@ def _build_train_cmd(hydra_args: tuple[str, ...]) -> list[str]:
     return [CFG.python_bin, CFG.train_script, *hydra_args]
 
 
+def _download_run_artifacts(output_rel_path: str) -> None:
+    """Download artifacts from the training outputs volume to ./modal-outputs/ locally."""
+    local_dest = REPO_ROOT / "modal-outputs" / output_rel_path
+    local_dest.mkdir(parents=True, exist_ok=True)
+    print(f"Downloading artifacts to {local_dest} ...")
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "modal", "volume", "get",
+            "--env", "robotics",
+            "egoverse-training-outputs",
+            output_rel_path,
+            str(local_dest),
+        ],
+        cwd=REPO_ROOT,
+    )
+    if result.returncode == 0:
+        print(f"Artifacts saved to: {local_dest.resolve()}")
+    else:
+        print(
+            f"Download failed — pull manually:\n"
+            f"  modal volume get --env robotics egoverse-training-outputs "
+            f'"{output_rel_path}" "{local_dest}"'
+        )
+
+
 # ---------------------------------------------------------------------------
 # Container helpers (execute inside the Modal container)
 # ---------------------------------------------------------------------------
@@ -281,15 +319,24 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
     memory=CFG.memory_mb,
     timeout=CFG.timeout_seconds,
     secrets=[modal.Secret.from_name(name) for name in CFG.secret_names],
-    volumes={CFG.volume_mount_path: zarr_volume},
+    volumes={
+        CFG.volume_mount_path: zarr_volume,
+        CFG.output_mount_path: training_outputs_volume,
+    },
 )
 def run_hydra_train(
     hydra_args: tuple[str, ...],
     git_remote: str,
     git_commit: str,
     wandb_api_key: str = "",
-) -> int:
-    """Clone the repo at *git_commit* and run trainHydra.py with *hydra_args*."""
+) -> str:
+    """Clone the repo at *git_commit* and run trainHydra.py with *hydra_args*.
+
+    Returns the path relative to the output volume root where artifacts were written
+    (e.g. 'mecka_modal/test_2026-05-11_20-35-51'), or empty string on failure.
+    """
+    import glob
+
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
 
     cmd = _build_train_cmd(hydra_args)
@@ -305,12 +352,24 @@ def run_hydra_train(
 
     zarr_volume.commit()
 
+    # Find the most recently modified run directory and persist it to the volume
+    all_run_dirs = sorted(
+        glob.glob(f"{CFG.output_mount_path}/*/*"),
+        key=os.path.getmtime,
+    )
+    output_rel_path = (
+        os.path.relpath(all_run_dirs[-1], CFG.output_mount_path)
+        if all_run_dirs
+        else ""
+    )
+    training_outputs_volume.commit()
+
     if process.returncode != 0:
         raise RuntimeError(
             f"Training failed (exit {process.returncode}): {shlex.join(cmd)}"
         )
 
-    return process.returncode
+    return output_rel_path
 
 
 # ---------------------------------------------------------------------------
@@ -382,11 +441,15 @@ def submit(*hydra_args: str) -> None:
     handle = run_hydra_train.spawn(tuple(hydra_args), git_remote, git_commit, _local_wandb_key())
     print(f"Submitted Modal job: {handle.object_id}")
     print("Monitor at: https://modal.com/apps/egomimic-training")
+    print(
+        "After completion, download artifacts:\n"
+        "  modal volume get --env robotics egoverse-training-outputs <run-path> ./modal-outputs/"
+    )
 
 
 @app.local_entrypoint()
 def run(*hydra_args: str) -> None:
-    """Blocking run: streams logs until the remote job completes."""
+    """Blocking run: streams logs and downloads artifacts to ./modal-outputs/ when complete."""
     git_remote, git_commit, is_dirty = _resolve_git_state()
     if is_dirty:
         print(
@@ -394,5 +457,9 @@ def run(*hydra_args: str) -> None:
             "Modal will run the last committed state only."
         )
     print(f"Running commit {git_commit[:12]} from {git_remote}")
-    exit_code = run_hydra_train.remote(tuple(hydra_args), git_remote, git_commit, _local_wandb_key())
-    print(f"Remote run completed with exit code: {exit_code}")
+    output_rel_path = run_hydra_train.remote(
+        tuple(hydra_args), git_remote, git_commit, _local_wandb_key()
+    )
+    print(f"Remote run completed. Output path in volume: {output_rel_path}")
+    if output_rel_path:
+        _download_run_artifacts(output_rel_path)
