@@ -10,6 +10,57 @@ PUBLIC_R2_SECRET_NAME="${PUBLIC_R2_SECRET_NAME:-r2/rldb/public/credentials}"
 ENV_FILE="${ENV_FILE:-$HOME/.egoverse_env}"
 BUCKET="${BUCKET:-rldb}"
 
+# ---------------------------------------------------------------------------
+# Direct-credentials mode
+# ---------------------------------------------------------------------------
+# If R2_ACCESS_KEY_ID (or the legacy R2_ACCESS_KEY alias) is already set in
+# the environment, skip AWS Secrets Manager entirely and write the env file
+# directly from the provided values.  Useful on machines without AWS CLI
+# (local dev, Modal containers, CI).
+#
+# Required env vars for direct mode:
+#   R2_ACCESS_KEY_ID   (or R2_ACCESS_KEY)
+#   R2_SECRET_ACCESS_KEY (or R2_SECRET_KEY)
+#   R2_ENDPOINT_URL    (or R2_ENDPOINT)
+#   DATABASE_URL       (optional; falls back to SECRETS_ARN path if absent)
+#   MONGODB_URI        (optional)
+#   BUCKET             (optional, defaults to "rldb")
+# ---------------------------------------------------------------------------
+_direct_r2_key="${R2_ACCESS_KEY_ID:-${R2_ACCESS_KEY:-}}"
+
+if [[ -n "$_direct_r2_key" ]]; then
+  echo "=== Direct-credentials mode (no AWS Secrets Manager) ==="
+
+  _r2_access="${R2_ACCESS_KEY_ID:-${R2_ACCESS_KEY:?'Set R2_ACCESS_KEY_ID or R2_ACCESS_KEY'}}"
+  _r2_secret="${R2_SECRET_ACCESS_KEY:-${R2_SECRET_KEY:?'Set R2_SECRET_ACCESS_KEY or R2_SECRET_KEY'}}"
+  _r2_endpoint="${R2_ENDPOINT_URL:-${R2_ENDPOINT:?'Set R2_ENDPOINT_URL or R2_ENDPOINT'}}"
+  _db_url="${DATABASE_URL:-}"
+  _mongo_uri="${MONGODB_URI:-}"
+
+  {
+    printf "R2_ACCESS_KEY_ID=%q\n"     "$_r2_access"
+    printf "R2_SECRET_ACCESS_KEY=%q\n" "$_r2_secret"
+    printf "AWS_ENDPOINT_URL_S3=%q\n"  "$_r2_endpoint"
+    printf "R2_ENDPOINT_URL=%q\n"      "$_r2_endpoint"
+    printf "S3_ENDPOINT_URL=%q\n"      "$_r2_endpoint"
+    printf "AWS_DEFAULT_REGION=%q\n"   "auto"
+    printf "BUCKET=%q\n"               "$BUCKET"
+    if [[ -n "$_db_url" ]]; then
+      printf "DATABASE_URL='%s'\n" "$_db_url"
+    fi
+    if [[ -n "$_mongo_uri" ]]; then
+      printf "MONGODB_URI='%s'\n" "$_mongo_uri"
+    fi
+  } >"$ENV_FILE"
+
+  chmod 600 "$ENV_FILE"
+  echo "✅ Wrote direct credentials to $ENV_FILE"
+  exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# AWS Secrets Manager mode (original behaviour)
+# ---------------------------------------------------------------------------
 echo "=== Downloading EgoVerse env from Secrets Manager ==="
 
 SECRET_ARN=""
@@ -110,6 +161,13 @@ PY
   printf "S3_ENDPOINT_URL=%q\n" "$AWS_ENDPOINT_URL_S3"
   printf "AWS_DEFAULT_REGION=%q\n" "$REGION"
   printf "BUCKET=%q\n" "$BUCKET"
+  # Write DATABASE_URL if provided alongside Secrets Manager creds
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    printf "DATABASE_URL='%s'\n" "$DATABASE_URL"
+  fi
+  if [[ -n "${MONGODB_URI:-}" ]]; then
+    printf "MONGODB_URI='%s'\n" "$MONGODB_URI"
+  fi
 } >"$ENV_FILE"
 
 chmod 600 "$ENV_FILE"
