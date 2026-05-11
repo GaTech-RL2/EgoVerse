@@ -255,8 +255,10 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
         check=True,
     )
 
+    # Full install: gets egomimic + all pyproject.toml deps (scaleapi, etc.)
+    # Packages already in the image are skipped by pip, so this is fast.
     subprocess.run(
-        [CFG.python_bin, "-m", "pip", "install", "-e", ".", "--no-deps", "-q"],
+        [CFG.python_bin, "-m", "pip", "install", "-e", ".", "-q"],
         cwd=CFG.remote_repo_dir,
         check=True,
     )
@@ -287,6 +289,7 @@ def run_hydra_train(
     cmd = _build_train_cmd(hydra_args)
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
+    env.setdefault("HYDRA_FULL_ERROR", "1")
     if wandb_api_key:
         env["WANDB_API_KEY"] = wandb_api_key
 
