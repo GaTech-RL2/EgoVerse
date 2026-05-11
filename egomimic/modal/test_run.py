@@ -195,8 +195,18 @@ def _build_train_cmd(hydra_args: tuple[str, ...]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
+def _ssh_to_https(url: str) -> str:
+    """Convert git@github.com:org/repo.git → https://github.com/org/repo.git"""
+    if url.startswith("git@github.com:"):
+        path = url[len("git@github.com:"):]
+        return f"https://github.com/{path}"
+    return url
+
+
 def _prepare_repo(git_remote: str, git_commit: str) -> None:
     """Clone (or update) the repo and check out the exact commit."""
+    # The container has no SSH keys — always use HTTPS for cloning
+    clone_url = _ssh_to_https(git_remote)
     repo_dir = Path(CFG.remote_repo_dir)
 
     if (repo_dir / ".git").exists():
@@ -206,7 +216,7 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
         )
     else:
         subprocess.run(
-            ["git", "clone", git_remote, CFG.remote_repo_dir],
+            ["git", "clone", clone_url, CFG.remote_repo_dir],
             check=True,
         )
 
