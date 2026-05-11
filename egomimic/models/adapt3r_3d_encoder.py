@@ -1,67 +1,97 @@
-"""Adapt3R 3D observation token encoder for HPT.
+"""Adapt3R 3D observation token encoder for HPT (DINOv2 / ResNet18 backbones).
 
 Overview
 --------
-This module ports the core Adapt3R contribution into EgoVerse's encoder_specs
-interface **without touching the HPT backbone (HPTModel)**. The key idea:
+Ports the core Adapt3R contribution into EgoVerse's ``encoder_specs`` interface
+**without touching the HPT backbone (HPTModel)**.
 
-  Instead of encoding each camera image into 2D spatial tokens (as HPT's
-  ResNet does), we lift the paired depth map into a 3D point cloud, encode
-  each point's XYZ position with NeRF sinusoidal embeddings, fuse those
-  position features with co-located 2D RGB backbone features, run Farthest
-  Point Sampling (FPS) to reduce to a fixed point budget, then attention-pool
-  the entire cloud into a single rich token per camera per frame.
+Per camera per frame:
 
-  That single 3D-aware token is then passed through the existing
-  MLPPolicyStem cross-attention, which expands it to the usual 16 trunk
-  tokens — so the HPT backbone, stems, and heads are completely unchanged.
+  RGB  ── backbone (DINOv2 ViT-S/14 by default; ResNet-18 as alternative)
+                 │
+                 ├── spatial feature map  [BN, h, w, F]
+                 │
+  Depth ── pinhole back-projection (intrinsics K + extrinsics E)
+                 │
+                 ├── XYZ point cloud     [BN, h, w, 3]    (downsampled to (h,w))
+                 │
+        FPS to num_points  ──►  [BN, N, 3] + [BN, N, F]
+                                       │
+            NeRF positional encoding   ▼
+            on XYZ (hidden_dim)        +  rgb_proj  (→ hidden_dim)
+                                       │
+            concat per point  ──►  [BN, N, pc_in_dim]
+                                       │
+            AttentionExtractor   ──►  [BN, 1, output_dim]
+                                       │
+                          reshape ──► [B, T*I, output_dim]
 
-Data flow
+That single 3D-aware token feeds the existing ``MLPPolicyStem`` cross-attention,
+which expands it to the standard 16 trunk tokens — so HPT's trunk, stems,
+heads, and stem cross-attention are completely unchanged.
+
+Backbones
 ---------
-    _robomimic_to_hpt_data (HPT outer class)
-        concatenates front_img_1 [B,3,H,W] + front_depth_1 [B,1,H,W]
-        → data["front_img_1"] [B,1,1,4,H,W]
+* ``backbone="dino"`` (default): DINOv2 ViT-S/14 from torch.hub. 384-d patch
+  features. Input is internally resized to 224×224 (16×16 patches → 256 spatial
+  locations). Frozen by default; pass ``finetune_backbone=True`` to allow
+  fine-tuning. ``get_finetune_param_groups(base_lr, backbone_lr_scale=...)``
+  exposes a parameter-group split for low-LR backbone finetuning.
 
-    Adapt3R3DEncoder.forward([B,1,1,4,H,W])
-        RGB  → ResNet18 backbone → rgb_proj → [BN, h*w, hidden_dim]
-        depth → lift_point_cloud_batch → XYZ [BN, h*w, 3]
-        XYZ  → NeRFSinusoidalPosEmb → [BN, h*w, hidden_dim]
-        FPS(512) on XYZ → subsample RGB & pos features
-        cat([pos_emb, rgb_feat]) → [BN, 512, 2*hidden_dim]
-        AttentionExtractor → [BN, 1, output_dim]
-        reshape → [B, 1, output_dim]  ← 1 token per frame
+* ``backbone="resnet18"``: TorchVision ImageNet-pretrained ResNet-18 with the
+  final avgpool/fc removed. 512-d features. Output spatial size is ``H/32 × W/32``.
 
-    MLPPolicyStem.compute_latent([B, 1, output_dim])
-        cross-attention (16 learned queries over 1 point-cloud token)
-        → [B, 16, 256] trunk tokens  ← same as plain ResNet path
+Camera calibration
+------------------
+Intrinsics ``K`` are configured for the original sensor resolution (e.g. 2016×1512
+for the Aria RGB cam) and are auto-rescaled at init time to the encoder input
+resolution (e.g. 360×360) using the YAML fields ``image_size_orig`` and
+``image_size_input``.
 
-Dependencies
-------------
-All self-contained — no Adapt3R package install required.
-Uses only: torch, torchvision, einops (all present in EgoVerse venv).
+Dummy depth
+-----------
+For datasets without a depth stream, set ``dummy_depth: <metres>``. The encoder
+will overwrite the depth channel of every input with that constant before
+unprojection. The lifted cloud is a flat plane at z = ``dummy_depth`` — the 3D
+encoding becomes uninformative, but the entire encoder pipeline (shape, dtype,
+device, gradient flow, integration with HPT) is exercised end-to-end.
+
+Future TODOs (intentionally not implemented for this minimal port)
+------------------------------------------------------------------
+* **FISHEYE624 distortion** — Aria RGB is a fisheye lens with 12 distortion
+  coefficients. We currently use a pinhole approximation. For real-world
+  deployment, undistort the depth/RGB into a pinhole image first or replace
+  ``depth2fgpcd_batch`` with a fisheye-aware unprojection.
+* **Scene bounding-box crop** — Adapt3R clips points outside per-task scene
+  bounds (LIBERO/MimicGen). Add ``crop_bounds: [[xmin,ymin,zmin],[xmax,ymax,zmax]]``
+  here when needed.
+* **Hand-frame transform** — Adapt3R's cross-embodiment trick re-frames the
+  cloud in the gripper frame each step. Requires per-batch hand poses.
 
 Source attribution
 ------------------
-The following classes are adapted from Adapt3R
-(https://github.com/user/adapt3r, MIT licence):
-  - NeRFSinusoidalPosEmb  ← adapt3r/algos/utils/position_encodings.py
-  - AttentionExtractor    ← adapt3r/algos/utils/pointnet_extractor.py
-  - depth2fgpcd_batch,
-    batch_transform_point_cloud,
-    lift_point_cloud_batch  ← adapt3r/utils/point_cloud_utils.py
-The pure-torch FPS and Adapt3R3DEncoder wrapper are new.
+The following classes are adapted from Adapt3R (MIT licence):
+
+* ``NeRFSinusoidalPosEmb``  ← ``adapt3r/algos/utils/position_encodings.py``
+* ``AttentionExtractor``    ← ``adapt3r/algos/utils/pointnet_extractor.py``
+* ``depth2fgpcd_batch``,
+  ``batch_transform_point_cloud``,
+  ``lift_point_cloud_batch``  ← ``adapt3r/utils/point_cloud_utils.py``
+
+The pure-torch FPS, the DINO/ResNet18 backbone selection, the K rescaling, the
+dummy-depth path, and the ``Adapt3R3DEncoder`` wrapper are new.
 """
 
 from __future__ import annotations
 
 import math
-from typing import List, Optional
+import warnings
+from typing import List, Optional, Tuple
 
 import einops
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.models as tvm
 
 __all__ = [
     "NeRFSinusoidalPosEmb",
@@ -82,61 +112,44 @@ __all__ = [
 class NeRFSinusoidalPosEmb(nn.Module):
     """NeRF-style sinusoidal positional embedding for 3-D spatial coordinates.
 
-    Encodes each XYZ point as a concatenation of sin/cos at geometrically
-    spaced frequencies — the same encoding used in the original NeRF paper.
-    This gives the downstream network a smooth, distance-aware representation
-    of where each point lives in 3D space, without any learned parameters.
+    Encodes each XYZ point as a concatenation of sin/cos at geometrically spaced
+    frequencies — the same encoding used in the original NeRF paper. Provides a
+    smooth, distance-aware representation of where each point lives in 3D space
+    without any learned parameters.
 
     Args:
-        dim: Output embedding dimension. **Must be divisible by 6** because
-             the encoding splits evenly across 3 spatial coordinates
-             (X, Y, Z) × 2 (sin + cos) × n_freqs.
+        dim: Output embedding dimension. Must be divisible by 6
+            (3 axes × 2 (sin+cos) × n_freqs).
 
     Shape:
-        Input:  ``(..., 3)`` — float tensor of XYZ coordinates, any batch shape.
-        Output: ``(..., dim)`` — sinusoidal embedding.
-
-    Example::
-
-        pos_enc = NeRFSinusoidalPosEmb(dim=60)
-        xyz = torch.randn(8, 512, 3)   # batch of 512 points
-        emb = pos_enc(xyz)             # → (8, 512, 60)
+        Input:  ``(..., 3)`` float tensor of XYZ coordinates.
+        Output: ``(..., dim)`` sinusoidal embedding.
     """
 
     def __init__(self, dim: int) -> None:
         super().__init__()
         assert dim % 6 == 0, (
-            f"NeRFSinusoidalPosEmb: dim must be divisible by 6, got {dim}. "
-            "Reason: dim // 6 frequency bands are applied to each of X, Y, Z "
-            "and then sin+cos doubles the count → 6 * n_freqs = dim."
+            f"NeRFSinusoidalPosEmb: dim must be divisible by 6, got {dim}."
         )
         self.dim = dim
 
     @torch.no_grad()
     def forward(self, x: torch.FloatTensor) -> torch.FloatTensor:
-        """Encode XYZ coordinates into sinusoidal embeddings.
-
-        Args:
-            x: Float tensor of shape ``(..., 3)``.
-
-        Returns:
-            Float tensor of shape ``(..., dim)``.
-        """
         device = x.device
-        n_freqs = self.dim // 6       # frequency bands per spatial axis
+        n_freqs = self.dim // 6
         max_freq = n_freqs - 1
-
-        # Geometrically spaced frequencies: 2^0, 2^1, …, 2^(n_freqs-1)
         freq_bands = torch.pow(
-            torch.tensor(2, device=device),
+            torch.tensor(2.0, device=device),
             torch.linspace(0, max_freq, steps=n_freqs, device=device),
-        )                                        # [n_freqs]
-        freq_bands = freq_bands.view(1, 1, 1, -1)   # broadcast: [1, 1, 1, n_freqs]
-
-        x = x.unsqueeze(-1)                          # [..., 3, 1]
-        emb = freq_bands * x                         # [..., 3, n_freqs]
+        )                                          # [n_freqs]
+        # Broadcast: leading dims of x will be (..., 3, 1); freq_bands to (..., 1, n_freqs)
+        # We choose a generic-rank-safe broadcast.
+        for _ in range(x.dim() - 1):
+            freq_bands = freq_bands.unsqueeze(0)
+        x = x.unsqueeze(-1)                        # [..., 3, 1]
+        emb = freq_bands * x                       # [..., 3, n_freqs]
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)   # [..., 3, 2*n_freqs]
-        emb = einops.rearrange(emb, "... i j -> ... (i j)")  # [..., dim]
+        emb = einops.rearrange(emb, "... i j -> ... (i j)")
         return emb
 
 
@@ -148,43 +161,13 @@ class NeRFSinusoidalPosEmb(nn.Module):
 class AttentionExtractor(nn.Module):
     """Pool a variable-size point set to a single embedding via learned attention.
 
-    Uses ``num_heads`` learnable query vectors (one per head) that attend over
-    all N input points via scaled dot-product attention.  The per-head outputs
-    are concatenated and projected to ``out_channels``.  This is order-invariant
-    (permutation-equivariant in points) and produces a fixed-size output
-    regardless of how many points are in the cloud.
-
-    Compared to simple max/mean pooling, the attention mechanism allows the
-    model to learn *which* points to focus on (e.g. object surfaces vs.
-    background), making it much better at capturing task-relevant 3D structure.
-
-    Args:
-        in_shape: Per-point input feature dimension (``int`` or shape tuple,
-                  only the last element is used).
-        out_channels: Output embedding dimension per frame.
-        use_layernorm: Whether to apply LayerNorm after each MLP hidden layer.
-                       Improves training stability at the cost of a small speed
-                       penalty.
-        final_norm: Normalisation applied after the final projection.
-                    ``"layernorm"`` | ``"none"`` (default).
-        hidden_dim: Internal dimension of the key/value MLPs and the attention
-                    heads.  Must be divisible by ``num_heads``.
-        num_heads: Number of parallel attention heads. Each head produces an
-                   independent ``hidden_dim``-dimensional read-out; the heads
-                   are concatenated before the final projection.
-        **kwargs: Absorbs extra Hydra config keys.
+    Uses ``num_heads`` learnable query vectors that attend over all N input
+    points via scaled dot-product attention. Order-invariant in points,
+    fixed-size output. See module docstring for design notes.
 
     Shape:
-        Input:  ``(B, F, N, in_channels)`` where F = frame_stack (typically 1)
-                and N = number of points.
-        Output: ``(B, F, out_channels)``
-
-    Example::
-
-        extractor = AttentionExtractor(in_shape=120, out_channels=256,
-                                       hidden_dim=256, num_heads=4)
-        pc = torch.randn(4, 1, 512, 120)   # batch=4, 1 frame, 512 points
-        token = extractor(pc)              # → (4, 1, 256)
+        Input:  ``(B, F, N, in_channels)`` (F = frame_stack, typically 1).
+        Output: ``(B, F, out_channels)``.
     """
 
     def __init__(
@@ -205,25 +188,19 @@ class AttentionExtractor(nn.Module):
         self.out_channels = out_channels
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
-
-        # One learnable query vector per head; broadcast over batch and frame dims.
-        # Each head independently decides which points to focus on.
         self.queries = nn.Parameter(torch.randn(num_heads, hidden_dim))
 
         def _mlp(in_c: int, out_c: int, use_ln: bool) -> nn.Sequential:
-            """4-layer MLP with optional LayerNorm after each hidden layer."""
             layers: List[nn.Module] = []
             for i in range(4):
                 c_in = in_c if i == 0 else out_c
                 layers.append(nn.Linear(c_in, out_c))
                 if use_ln:
                     layers.append(nn.LayerNorm(out_c))
-                if i < 3:          # no activation after the last linear
+                if i < 3:
                     layers.append(nn.ReLU())
             return nn.Sequential(*layers)
 
-        # Separate key and value projections allow the network to learn
-        # different representations for "where to look" vs "what to extract".
         self.K_mlp = _mlp(in_channels, hidden_dim, use_layernorm)
         self.V_mlp = _mlp(in_channels, hidden_dim, use_layernorm)
 
@@ -235,43 +212,38 @@ class AttentionExtractor(nn.Module):
         elif final_norm == "none":
             self.final_projection = nn.Linear(hidden_dim * num_heads, out_channels)
         else:
-            raise ValueError(
-                f"Unsupported final_norm='{final_norm}'. Choose 'layernorm' or 'none'."
-            )
+            raise ValueError(f"Unsupported final_norm='{final_norm}'.")
 
     def forward(
-        self, pc: torch.Tensor, mask: Optional[torch.Tensor] = None
+        self, pc: torch.Tensor, mask: Optional[torch.Tensor] = None,
+        return_attn: bool = False,
     ) -> torch.Tensor:
-        """Pool the point cloud to a single token per frame.
-
-        Args:
-            pc: Point features, shape ``(B, F, N, in_channels)``.
-            mask: Optional boolean attention mask, shape ``(B, F, N)``.
-                  ``True`` keeps a point, ``False`` suppresses it.
-
-        Returns:
-            Pooled token, shape ``(B, F, out_channels)``.
-        """
-        # Project each point to keys and values independently
-        K = self.K_mlp(pc)    # [B, F, N, hidden_dim]
-        V = self.V_mlp(pc)    # [B, F, N, hidden_dim]
-
-        # Q: [1, 1, num_heads, hidden_dim] — broadcast over B and F.
-        # scaled_dot_product_attention treats the last two dims as (seq_len, embed),
-        # so num_heads acts as the query sequence length → each head gives one
-        # hidden_dim read-out → concat → num_heads * hidden_dim total.
+        K = self.K_mlp(pc)
+        V = self.V_mlp(pc)
         Q = self.queries.unsqueeze(0).unsqueeze(0)    # [1, 1, num_heads, hidden_dim]
 
         if mask is not None:
-            mask = mask.unsqueeze(2)    # [B, F, 1, N] — broadcast over query heads
+            mask = mask.unsqueeze(2)
 
-        attn_out = F.scaled_dot_product_attention(
-            Q, K, V, attn_mask=mask, dropout_p=0.0, is_causal=False
-        )    # [B, F, num_heads, hidden_dim]
+        if return_attn:
+            # Manual attention so we can return the attn map for visualization.
+            scale = 1.0 / math.sqrt(K.shape[-1])
+            attn_logits = torch.einsum("b f h d, b f n d -> b f h n", Q.expand(K.shape[0], K.shape[1], -1, -1), K) * scale
+            if mask is not None:
+                attn_logits = attn_logits.masked_fill(~mask, float("-inf"))
+            attn = attn_logits.softmax(dim=-1)        # [B, F, num_heads, N]
+            attn_out = torch.einsum("b f h n, b f n d -> b f h d", attn, V)
+        else:
+            attn_out = F.scaled_dot_product_attention(
+                Q, K, V, attn_mask=mask, dropout_p=0.0, is_causal=False
+            )
+            attn = None
 
-        # Concatenate all heads, then project to final dimension
         x = einops.rearrange(attn_out, "b f h d -> b f (h d)")
-        return self.final_projection(x)    # [B, F, out_channels]
+        out = self.final_projection(x)
+        if return_attn:
+            return out, attn
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -284,85 +256,55 @@ def depth2fgpcd_batch(
     cam_params: torch.Tensor,
     keepdims: bool = False,
 ) -> torch.Tensor:
-    """Unproject a depth image to camera-frame 3-D points (pinhole model).
+    """Pinhole back-projection of a depth image to camera-frame XYZ.
 
-    For each pixel (u, v) with measured depth z:
-        X = (u - cx) * z / fx
-        Y = (v - cy) * z / fy
-        Z = z
+    For each pixel (u, v) with depth z:
+        X = (u - cx) * z / fx;  Y = (v - cy) * z / fy;  Z = z.
 
     Args:
-        depth: Depth values in metres, shape ``(B, ncam, H, W)``.
-        cam_params: Camera intrinsic matrix K, shape ``(B, ncam, 3, 3)``.
-            Layout: ``[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]``.
-        keepdims: If ``True`` return ``(B, ncam, H, W, 3)``; if ``False``
-            (default) flatten spatial dims → ``(B, ncam*H*W, 3)``.
-
-    Returns:
-        3-D point cloud in camera frame with shape
-        ``(B, ncam, H, W, 3)`` or ``(B, ncam*H*W, 3)``.
+        depth: ``(B, ncam, H, W)`` depth in metres.
+        cam_params: ``(B, ncam, 3, 3)`` intrinsic matrices.
+        keepdims: If ``True`` return ``(B, ncam, H, W, 3)``; else ``(B, ncam*H*W, 3)``.
     """
     B, ncam, H, W = depth.shape
 
-    # Extract intrinsic parameters from the K matrix
-    fx = cam_params[..., 0, 0]    # [B, ncam]
+    fx = cam_params[..., 0, 0]
     fy = cam_params[..., 1, 1]
     cx = cam_params[..., 0, 2]
     cy = cam_params[..., 1, 2]
 
-    # Build pixel coordinate grids — (u, v) in image space
-    # indexing="ij" then transpose gives the standard (row=H, col=W) layout
     pos_u, pos_v = torch.meshgrid(
         torch.arange(W, device=depth.device, dtype=depth.dtype),
         torch.arange(H, device=depth.device, dtype=depth.dtype),
         indexing="ij",
     )
-    pos_u = pos_u.T.unsqueeze(0).unsqueeze(0).expand(B, ncam, H, W)   # pixel col
-    pos_v = pos_v.T.unsqueeze(0).unsqueeze(0).expand(B, ncam, H, W)   # pixel row
+    pos_u = pos_u.T.unsqueeze(0).unsqueeze(0).expand(B, ncam, H, W)
+    pos_v = pos_v.T.unsqueeze(0).unsqueeze(0).expand(B, ncam, H, W)
 
-    # Reshape scalars for broadcasting over spatial dims
     fx = fx.reshape(B, ncam, 1, 1)
     fy = fy.reshape(B, ncam, 1, 1)
     cx = cx.reshape(B, ncam, 1, 1)
     cy = cy.reshape(B, ncam, 1, 1)
 
-    # Pinhole back-projection
-    x3d = (pos_u - cx) * depth / fx    # [B, ncam, H, W]
+    x3d = (pos_u - cx) * depth / fx
     y3d = (pos_v - cy) * depth / fy
     z3d = depth
 
-    pcd = torch.stack([x3d, y3d, z3d], dim=-1)    # [B, ncam, H, W, 3]
+    pcd = torch.stack([x3d, y3d, z3d], dim=-1)
     if keepdims:
         return pcd
     return einops.rearrange(pcd, "b ncam h w c -> b (ncam h w) c")
 
 
 def batch_transform_point_cloud(
-    pcd: torch.Tensor,
-    transform: torch.Tensor,
+    pcd: torch.Tensor, transform: torch.Tensor
 ) -> torch.Tensor:
-    """Apply a batched rigid body transform to a point cloud.
-
-    Converts points to homogeneous coordinates, applies the 4×4 transform
-    matrix, then strips the homogeneous component.
-
-    Args:
-        pcd: Point cloud in source frame, shape ``(..., N, 3)``.
-        transform: Rigid transform (cam-to-world extrinsics), shape
-            ``(..., 4, 4)``.  The leading batch dims of ``pcd`` and
-            ``transform`` must broadcast together.
-
-    Returns:
-        Transformed point cloud in target frame, shape ``(..., N, 3)``.
-    """
+    """Apply a batched 4×4 rigid transform to a point cloud ``(..., N, 3)``."""
     ones = torch.ones((*pcd.shape[:-1], 1), device=pcd.device, dtype=pcd.dtype)
-    pcd_h = torch.cat([pcd, ones], dim=-1)    # [..., N, 4]  homogeneous
-
+    pcd_h = torch.cat([pcd, ones], dim=-1)
     transform = transform.to(dtype=pcd.dtype)
-    # Einsum: for each point n in the cloud, multiply by the 4×4 matrix.
-    # "...nd,...id->...ni" contracts over the 'd' (homogeneous) dimension.
     transformed = torch.einsum("...nd,...id->...ni", pcd_h, transform)
-    return transformed[..., :3]    # drop homogeneous coordinate
+    return transformed[..., :3]
 
 
 def lift_point_cloud_batch(
@@ -371,32 +313,17 @@ def lift_point_cloud_batch(
     extrinsics: torch.Tensor,
     keepdims: bool = False,
 ) -> torch.Tensor:
-    """Full pinhole point-cloud lifting: pixel depth → world-frame XYZ.
-
-    Combines ``depth2fgpcd_batch`` (camera-frame unprojection) with
-    ``batch_transform_point_cloud`` (cam-to-world extrinsics application).
+    """Lift depth → cam-frame XYZ → world-frame via extrinsics.
 
     Args:
-        depths: Depth maps in metres, shape ``(B, ncam, H, W)``.
-        intrinsics: Camera K matrices, shape ``(B, ncam, 3, 3)``.
-        extrinsics: Camera-to-world transform matrices, shape ``(B, ncam, 4, 4)``.
-            Pass the identity matrix to stay in camera frame.
-        keepdims: If ``True`` return ``(B, ncam, H, W, 3)``; if ``False``
-            flatten spatial dims → ``(B, ncam*H*W, 3)``.
-
-    Returns:
-        World-frame point cloud with shape
-        ``(B, ncam*H*W, 3)`` or ``(B, ncam, H, W, 3)``.
+        depths: ``(B, ncam, H, W)``.
+        intrinsics: ``(B, ncam, 3, 3)``.
+        extrinsics: ``(B, ncam, 4, 4)`` cam-to-world (identity = camera frame).
     """
     B, ncam, H, W = depths.shape
-
-    # Step 1: back-project depth to camera-frame XYZ
     pcd = depth2fgpcd_batch(depths, intrinsics, keepdims=False)
     pcd = einops.rearrange(pcd, "b (ncam hw) c -> b ncam hw c", ncam=ncam)
-
-    # Step 2: transform from camera frame to world frame
     trans_pcd = batch_transform_point_cloud(pcd, extrinsics)
-
     if keepdims:
         return einops.rearrange(trans_pcd, "b ncam (h w) c -> b ncam h w c", h=H)
     return einops.rearrange(trans_pcd, "b ncam (h w) c -> b (ncam h w) c")
@@ -407,135 +334,110 @@ def lift_point_cloud_batch(
 # ---------------------------------------------------------------------------
 
 def fps_pytorch(pcd: torch.Tensor, n_samples: int) -> torch.Tensor:
-    """Farthest Point Sampling (FPS) in pure PyTorch.
+    """Farthest Point Sampling. ``pcd`` ``(B, N, 3)`` → indices ``(B, n_samples)``.
 
-    Iteratively selects the point farthest from all already-selected points.
-    This gives a well-spread, geometry-preserving subsample that is much
-    better than random sampling for retaining fine-grained 3D structure.
-
-    Complexity: O(N × n_samples) — acceptable for N ≤ 16 384 and
-    n_samples ≤ 1 024 on modern GPUs.  For very large clouds consider
-    installing DGL and using ``dgl.geometry.farthest_point_sampler`` instead.
-
-    Args:
-        pcd: Input point cloud, shape ``(B, N, 3)``.
-        n_samples: Number of points to select. Must be ≤ N.
-
-    Returns:
-        Long tensor of selected indices, shape ``(B, n_samples)``.
-
-    Note:
-        Always starts from index 0 for reproducibility.  Pass a shuffled
-        cloud if you need stochastic starts.
+    Deterministic: always seeds at index 0 (matches DGL default ``start_idx=0``).
+    Complexity O(N × n_samples).
     """
     B, N, _ = pcd.shape
-    assert n_samples <= N, f"n_samples ({n_samples}) > number of input points ({N})"
-
+    assert n_samples <= N, f"n_samples ({n_samples}) > N ({N})"
     device = pcd.device
     selected = torch.zeros(B, n_samples, dtype=torch.long, device=device)
-    # min-distance to any already-selected point; initialised to ∞
     min_dists = torch.full((B, N), float("inf"), device=device)
-
-    # Seed with the first point (index 0) for determinism
     selected[:, 0] = 0
-    last = pcd[:, 0:1, :]    # [B, 1, 3]
-
+    last = pcd[:, 0:1, :]
     for i in range(1, n_samples):
-        # Distance from every point to the most recently selected point
-        new_dists = ((pcd - last) ** 2).sum(-1)        # [B, N]
-        # Update the running minimum distance
-        min_dists = torch.min(min_dists, new_dists)    # [B, N]
-        # Select the point with the largest minimum distance
-        selected[:, i] = min_dists.argmax(dim=1)       # [B]
+        new_dists = ((pcd - last) ** 2).sum(-1)
+        min_dists = torch.min(min_dists, new_dists)
+        selected[:, i] = min_dists.argmax(dim=1)
         last = pcd[torch.arange(B, device=device), selected[:, i]].unsqueeze(1)
-
     return selected
 
 
 # ---------------------------------------------------------------------------
-# Main encoder — plugs into HPT encoder_specs
+# Backbone wrappers
+# ---------------------------------------------------------------------------
+
+class _DinoV2Wrapper(nn.Module):
+    """Wraps DINOv2 ViT-S/14 from torch.hub to expose a spatial feature map.
+
+    Internally resizes input to a fixed (default 224×224) so the patch grid is
+    a round 16×16. Returns a ``[B, F, h, w]`` tensor where ``F=384`` and
+    ``h=w=img_size//14`` (16 for img_size=224).
+    """
+
+    def __init__(self, img_size: int = 224, model_name: str = "dinov2_vits14") -> None:
+        super().__init__()
+        # Load via torch.hub. First call downloads the checkpoint to ~/.cache/torch/hub.
+        self.vit = torch.hub.load("facebookresearch/dinov2", model_name, pretrained=True)
+        self.feat_dim = self.vit.embed_dim                     # 384 for ViT-S/14
+        self.patch_size = self.vit.patch_embed.patch_size      # 14
+        if isinstance(self.patch_size, tuple):
+            self.patch_size = self.patch_size[0]
+        assert img_size % self.patch_size == 0, (
+            f"img_size ({img_size}) must be a multiple of DINO patch_size ({self.patch_size})"
+        )
+        self.img_size = img_size
+        self.grid = img_size // self.patch_size                 # 16 for 224/14
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: [B, 3, H, W] in [0,1], ImageNet-mean/std-normalised by the caller.
+        if x.shape[-1] != self.img_size or x.shape[-2] != self.img_size:
+            x = F.interpolate(x, size=(self.img_size, self.img_size), mode="bilinear", align_corners=False)
+        out = self.vit.forward_features(x)
+        # DINOv2 returns dict with `x_norm_patchtokens`: [B, N_patches, D]
+        patches = out["x_norm_patchtokens"]                     # [B, grid*grid, D]
+        h = w = self.grid
+        return einops.rearrange(patches, "b (h w) d -> b d h w", h=h, w=w)
+
+
+class _ResNet18Wrapper(nn.Module):
+    """ImageNet-pretrained ResNet-18 with avgpool/fc removed → spatial features."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        import torchvision.models as tvm
+        backbone = tvm.resnet18(weights=tvm.ResNet18_Weights.IMAGENET1K_V1)
+        self.body = nn.Sequential(*list(backbone.children())[:-2])
+        self.feat_dim = 512
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.body(x)
+
+
+# ---------------------------------------------------------------------------
+# Main encoder
 # ---------------------------------------------------------------------------
 
 class Adapt3R3DEncoder(nn.Module):
-    """Adapt3R-style 3D observation token encoder for HPT's ``encoder_specs``.
+    """Adapt3R-style 3D observation token encoder for HPT ``encoder_specs``.
 
-    Converts a 4-channel RGBD input (RGB + metric depth) into a single
-    3D-aware token per camera per frame, which is then processed by the
-    existing ``MLPPolicyStem`` cross-attention in HPT.
-
-    The encoder is **registered in the model YAML under** ``encoder_specs``
-    and wired to a camera key (e.g. ``front_img_1``).  The paired depth is
-    concatenated onto the RGB in ``HPT._robomimic_to_hpt_data`` via the
-    ``depth_key_map`` YAML config — no changes to the HPT backbone.
-
-    Pipeline (per frame per camera):
-
-    1. **RGB backbone** — frozen (by default) ImageNet-pretrained ResNet-18
-       without its final avgpool and fc layers.  Produces a spatial feature
-       map ``[BN, 512, h, w]`` which is projected to ``hidden_dim`` channels.
-
-    2. **Depth → point cloud** — standard pinhole back-projection using the
-       camera-specific intrinsics (K) and extrinsics (E) provided in the
-       YAML.  The resulting XYZ cloud is bilinearly down-sampled to the
-       backbone spatial resolution so each spatial location has both an RGB
-       feature and a 3D position.
-
-    3. **FPS** — Farthest Point Sampling selects ``num_points`` well-spread
-       points from the full spatial grid, keeping both position and RGB
-       feature for each chosen point.
-
-    4. **Feature assembly** — concatenate per-point features:
-       ``[NeRF_pos_emb(XYZ), RGB_backbone_feat]`` → ``[BN, num_points, pc_in_dim]``.
-
-    5. **Attention pooling** — ``AttentionExtractor`` reduces the ``num_points``
-       point features to one embedding vector per frame: ``[BN, 1, output_dim]``.
-
-    6. **Reshape** → ``[B, T*I, output_dim]``, matching HPT's encoder output
-       contract.  With T=I=1 this is ``[B, 1, output_dim]``.
+    See module docstring for the full pipeline. Plugs into ``encoder_specs``
+    and produces ``[B, T*I, output_dim]``.
 
     Args:
-        output_dim: Dimension of the output token.  Must equal
-            ``shared_stem_specs.<key>.input_dim`` in the model YAML
-            (default 256 for the standard RBY1 config).
-        hidden_dim: Internal feature width used by the RGB projection, NeRF
-            encoding, and AttentionExtractor MLP.  **Must be divisible by 6**
-            (NeRF encoding constraint).  Adapt3R default: 60.
-        num_points: FPS target — number of points kept per frame after
-            down-sampling.  Adapt3R default: 512.
-        intrinsics: Camera intrinsic matrix K as a nested 3×3 list
-            ``[[fx, 0, cx], [0, fy, cy], [0, 0, 1]]``.  Fixed per embodiment;
-            stored as a non-trainable buffer.
-        extrinsics: Camera-to-world 4×4 transform as a nested list.  Pass
-            the identity to keep points in camera frame.  Stored as a buffer.
-        do_pos: Include NeRF-encoded XYZ position features (recommended: True).
-        do_image: Include RGB backbone features (recommended: True).
-        do_rgb: Include raw RGB pixel values as additional point features.
-            Usually False — the backbone features already carry colour info.
-        finetune_backbone: If ``False`` (default), the ResNet-18 backbone is
-            frozen.  Set ``True`` to allow gradients through the backbone;
-            increases VRAM usage and training time noticeably.
-        **kwargs: Absorbs extra Hydra config keys (e.g. ``_target_``).
-
-    Raises:
-        AssertionError: If ``hidden_dim % 6 != 0``, or if ``intrinsics`` /
-            ``extrinsics`` are not provided.
-
-    Shape:
-        Input:  ``(B, T, I, 4, H, W)`` — 4-channel RGBD tensor.
-            Channels ``[:3]`` are RGB in ``[0, 1]``; channel ``[3]`` is
-            depth in metres (positive, non-zero).  T and I are temporal and
-            instance (camera view) dimensions; both are typically 1.
-        Output: ``(B, T*I, output_dim)``
-
-    Example (unit test)::
-
-        K = [[600, 0, 64], [0, 600, 64], [0, 0, 1]]
-        E = [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]]
-        enc = Adapt3R3DEncoder(output_dim=256, hidden_dim=60, num_points=512,
-                               intrinsics=K, extrinsics=E)
-        x = torch.cat([torch.rand(2,1,1,3,128,128),
-                        torch.rand(2,1,1,1,128,128)*2+0.1], dim=3)
-        out = enc(x)   # → (2, 1, 256)
+        output_dim: Output token width. Must equal ``shared_stem_specs.<key>.input_dim``.
+        hidden_dim: Internal feature width. Must be divisible by 6 (NeRF constraint).
+        num_points: FPS target. Silently clamped (with warning) if the spatial grid
+            is smaller than this.
+        intrinsics: 3×3 camera K matrix as nested list. Configured for the
+            ``image_size_orig`` resolution; auto-rescaled to ``image_size_input``.
+        extrinsics: 4×4 cam-to-world transform.
+        image_size_orig: ``[W, H]`` of the sensor at which intrinsics were
+            calibrated (e.g. ``[2016, 1512]`` for Aria RGB).
+        image_size_input: ``[W, H]`` reaching the encoder (e.g. ``[360, 360]``).
+            If equal to ``image_size_orig`` (or unset), no rescaling.
+        backbone: ``"dino"`` (default) or ``"resnet18"``.
+        dino_model: Hub model name when ``backbone="dino"``. Default
+            ``"dinov2_vits14"``.
+        dino_img_size: Internal resize for DINO. Must be a multiple of 14.
+            Default 224 → 16×16 patch grid.
+        do_pos: Include NeRF-encoded XYZ.
+        do_image: Include backbone features.
+        do_rgb: Include raw RGB at sampled points.
+        finetune_backbone: If False (default), backbone params are frozen.
+        dummy_depth: If set, replaces the depth channel with this constant
+            (metres). Useful for verifying integration on RGB-only datasets.
     """
 
     def __init__(
@@ -545,66 +447,69 @@ class Adapt3R3DEncoder(nn.Module):
         num_points: int = 512,
         intrinsics: Optional[List] = None,
         extrinsics: Optional[List] = None,
+        image_size_orig: Optional[List[int]] = None,
+        image_size_input: Optional[List[int]] = None,
+        backbone: str = "dino",
+        dino_model: str = "dinov2_vits14",
+        dino_img_size: int = 224,
         do_pos: bool = True,
         do_image: bool = True,
         do_rgb: bool = False,
         finetune_backbone: bool = False,
+        dummy_depth: Optional[float] = None,
         **kwargs,
     ) -> None:
         super().__init__()
 
-        # ----- Validate configuration -----
         assert hidden_dim % 6 == 0, (
-            f"hidden_dim must be divisible by 6 for NeRF encoding, got {hidden_dim}. "
-            "Set hidden_dim to 60 (Adapt3R default) or any multiple of 6."
+            f"hidden_dim must be divisible by 6, got {hidden_dim}."
         )
-        assert intrinsics is not None, (
-            "intrinsics (3×3 camera K matrix) must be provided in the model YAML. "
-            "Format: [[fx,0,cx],[0,fy,cy],[0,0,1]]"
+        assert intrinsics is not None and extrinsics is not None, (
+            "intrinsics (3×3) and extrinsics (4×4) must be provided in YAML."
         )
-        assert extrinsics is not None, (
-            "extrinsics (4×4 cam-to-world matrix) must be provided in the model YAML. "
-            "Use the identity matrix to keep points in camera frame."
-        )
-        assert do_pos or do_image, "At least one of do_pos or do_image must be True."
+        assert do_pos or do_image, "At least one of do_pos / do_image must be True."
 
-        # ----- Camera calibration (non-trainable) -----
-        # Registered as buffers so they move to the right device automatically
-        # and are saved/restored with the checkpoint.
-        K = torch.tensor(intrinsics, dtype=torch.float32).reshape(1, 1, 3, 3)
+        # ----- Camera calibration with optional rescale -----
+        # Rescale fx, cx by W_in/W_orig and fy, cy by H_in/H_orig.
+        # (FISHEYE624 distortion is currently ignored; see module TODO.)
+        K = torch.tensor(intrinsics, dtype=torch.float32).clone()
+        if image_size_orig is not None and image_size_input is not None:
+            W_o, H_o = image_size_orig
+            W_i, H_i = image_size_input
+            sx = float(W_i) / float(W_o)
+            sy = float(H_i) / float(H_o)
+            K[0, 0] *= sx        # fx
+            K[0, 2] *= sx        # cx
+            K[1, 1] *= sy        # fy
+            K[1, 2] *= sy        # cy
+        K = K.reshape(1, 1, 3, 3)
         E = torch.tensor(extrinsics, dtype=torch.float32).reshape(1, 1, 4, 4)
-        self.register_buffer("K", K)    # [1, 1, 3, 3]
-        self.register_buffer("E", E)    # [1, 1, 4, 4]
+        self.register_buffer("K", K)
+        self.register_buffer("E", E)
 
-        # ----- RGB backbone: ResNet-18 without avgpool + fc -----
-        # Removing the last 2 children (avgpool, fc) gives a spatial feature
-        # map [B, 512, h, w] where h = H//32 and w = W//32 for standard stride.
-        backbone = tvm.resnet18(weights=tvm.ResNet18_Weights.IMAGENET1K_V1)
-        self.backbone = nn.Sequential(*list(backbone.children())[:-2])
+        # ----- Backbone -----
+        self.backbone_type = backbone
+        if backbone == "dino":
+            self.backbone = _DinoV2Wrapper(img_size=dino_img_size, model_name=dino_model)
+        elif backbone == "resnet18":
+            self.backbone = _ResNet18Wrapper()
+        else:
+            raise ValueError(f"Unknown backbone='{backbone}'. Choose 'dino' or 'resnet18'.")
+        self.feat_dim = self.backbone.feat_dim
+
+        self.finetune_backbone = finetune_backbone
         if not finetune_backbone:
-            # Freeze backbone: faster training, avoids overfitting on small datasets.
-            # Set finetune_backbone=True if the backbone features are not general
-            # enough for your domain (e.g. very different from ImageNet).
             for p in self.backbone.parameters():
                 p.requires_grad = False
 
-        # Project ResNet-18 output (512-ch) to the internal hidden_dim
-        self.rgb_proj = nn.Linear(512, hidden_dim)
-
-        # ----- NeRF positional encoding -----
-        # Only instantiated when do_pos=True; stored as None otherwise so
-        # it is excluded from the parameter count.
+        # ----- Projections -----
+        self.rgb_proj = nn.Linear(self.feat_dim, hidden_dim)
         self.xyz_proj = NeRFSinusoidalPosEmb(hidden_dim) if do_pos else None
 
-        # ----- Feature dimension into AttentionExtractor -----
-        # Each point carries: [pos_emb (hidden_dim)] + [rgb_feat (hidden_dim)]
-        # + optionally raw RGB (3). Compute statically to avoid graph issues.
+        # ----- Per-point feature dim -----
         pc_in_dim = (int(do_pos) + int(do_image)) * hidden_dim + (3 if do_rgb else 0)
 
-        # ----- AttentionExtractor -----
-        # Internal hidden_dim of the MLP is scaled up 4× relative to the point
-        # feature width (common transformer convention); floor at 256 to avoid
-        # degenerate small dims when hidden_dim is very small (e.g. 60 → 240 < 256).
+        # ----- Attention pooling -----
         self.attention_extractor = AttentionExtractor(
             in_shape=pc_in_dim,
             out_channels=output_dim,
@@ -614,10 +519,7 @@ class Adapt3R3DEncoder(nn.Module):
             final_norm="none",
         )
 
-        # ----- ImageNet normalisation constants -----
-        # Stored as buffers (not parameters) — move with the model but not trained.
-        # Applied *inside* the encoder so the external image_augs in the YAML
-        # (which still apply to the plain RGB path) are not used for RGBD keys.
+        # ----- ImageNet normalisation (applied internally) -----
         self.register_buffer(
             "rgb_mean", torch.tensor([0.485, 0.456, 0.406]).reshape(1, 3, 1, 1)
         )
@@ -625,129 +527,151 @@ class Adapt3R3DEncoder(nn.Module):
             "rgb_std", torch.tensor([0.229, 0.224, 0.225]).reshape(1, 3, 1, 1)
         )
 
-        # Store flags needed at forward time
+        # ----- Flags -----
         self.do_pos = do_pos
         self.do_image = do_image
         self.do_rgb = do_rgb
         self.num_points = num_points
         self.output_dim = output_dim
+        self.hidden_dim = hidden_dim
+        self.dummy_depth = dummy_depth
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Encode an RGBD observation into a 3D-aware token.
+    # ------------------------------------------------------------------
+    # Param-group helper for low-LR backbone fine-tuning
+    # ------------------------------------------------------------------
+    def get_finetune_param_groups(
+        self, base_lr: float, backbone_lr_scale: float = 0.1
+    ) -> List[dict]:
+        """Return parameter groups suitable for AdamW with low-LR backbone.
+
+        Use this when ``finetune_backbone=True`` and you want the DINO/ResNet
+        backbone to train at a smaller LR than the rest of the encoder
+        (typical convention for vision-foundation fine-tuning).
+
+        Example::
+
+            param_groups = encoder.get_finetune_param_groups(base_lr=1e-4,
+                                                              backbone_lr_scale=0.1)
+            optimizer = torch.optim.AdamW(param_groups, weight_decay=1e-4)
+        """
+        backbone_params = list(self.backbone.parameters())
+        other_params = [
+            p for n, p in self.named_parameters()
+            if not n.startswith("backbone.") and p.requires_grad
+        ]
+        return [
+            {"params": [p for p in backbone_params if p.requires_grad],
+             "lr": base_lr * backbone_lr_scale, "name": "encoder.backbone"},
+            {"params": other_params, "lr": base_lr, "name": "encoder.other"},
+        ]
+
+    # ------------------------------------------------------------------
+    # Forward
+    # ------------------------------------------------------------------
+    def forward(
+        self, x: torch.Tensor, return_internals: bool = False
+    ) -> torch.Tensor:
+        """Encode an RGBD observation.
 
         Args:
-            x: 4-channel RGBD tensor of shape ``(B, T, I, 4, H, W)``.
-               Channels ``[:3]`` = RGB in ``[0, 1]``;
-               channel ``[3]`` = depth in metres (must be > 0).
-               Assembled by ``HPT._robomimic_to_hpt_data`` via
-               ``depth_key_map`` — both T and I are typically 1.
-
+            x: ``(B, T, I, 4, H, W)`` — channels [:3] = RGB in [0,1];
+                channel [3] = depth in metres (or 0 when ``dummy_depth`` is set).
+            return_internals: If ``True``, return a dict with intermediate
+                tensors useful for visualisation: ``{token, pcd_full, pcd_fps,
+                feat_grid, feat_fps, attn}``.
         Returns:
-            Token tensor of shape ``(B, T*I, output_dim)``.
-            With T=I=1 this is ``(B, 1, output_dim)``.
+            ``(B, T*I, output_dim)`` token, or ``(token, internals)`` when
+            ``return_internals=True``.
         """
         B, T, I, C, H, W = x.shape
-        assert C == 4, (
-            f"Adapt3R3DEncoder expects 4-channel RGBD input (C=4), got C={C}. "
-            "Check that depth_key_map is set correctly in the model YAML."
-        )
+        assert C == 4, f"Adapt3R3DEncoder expects 4-channel RGBD; got C={C}."
 
-        rgb   = x[..., :3, :, :]    # [B, T, I, 3, H, W]  — normalised in [0,1]
-        depth = x[..., 3:4, :, :]   # [B, T, I, 1, H, W]  — depth in metres
+        rgb = x[..., :3, :, :]
+        depth = x[..., 3:4, :, :]
 
-        # Flatten temporal and instance dims into the batch for parallel processing
+        if self.dummy_depth is not None:
+            depth = torch.full_like(depth, float(self.dummy_depth))
+
         N_frames = T * I
-        rgb_flat   = rgb.reshape(B * N_frames, 3, H, W)
+        rgb_flat = rgb.reshape(B * N_frames, 3, H, W)
         depth_flat = depth.reshape(B * N_frames, 1, H, W)
 
-        # Expand calibration buffers to match the batch size
-        K = self.K.expand(B * N_frames, -1, -1, -1)    # [BN, 1, 3, 3]
-        E = self.E.expand(B * N_frames, -1, -1, -1)    # [BN, 1, 4, 4]
+        K = self.K.expand(B * N_frames, -1, -1, -1)
+        E = self.E.expand(B * N_frames, -1, -1, -1)
 
-        # ------------------------------------------------------------------
-        # Step 1 — RGB features
-        # Normalise to ImageNet statistics before passing through ResNet-18.
-        # Disable gradients when the backbone is frozen to save memory.
-        # ------------------------------------------------------------------
+        # ----- Step 1: backbone features -----
         rgb_norm = (rgb_flat - self.rgb_mean) / self.rgb_std
         backbone_trainable = self.training and any(
             p.requires_grad for p in self.backbone.parameters()
         )
         with torch.set_grad_enabled(backbone_trainable):
-            feat_map = self.backbone(rgb_norm)    # [BN, 512, h, w]
+            feat_map = self.backbone(rgb_norm)             # [BN, F, h, w]
 
         h, w = feat_map.shape[-2:]
-        # Flatten spatial grid and project channels: [BN, h*w, 512] → [BN, h*w, hidden_dim]
-        feat = feat_map.flatten(2).transpose(1, 2)    # [BN, h*w, 512]
-        feat = self.rgb_proj(feat)                    # [BN, h*w, hidden_dim]
+        feat = feat_map.flatten(2).transpose(1, 2)         # [BN, h*w, F]
+        feat = self.rgb_proj(feat)                         # [BN, h*w, hidden_dim]
 
-        # ------------------------------------------------------------------
-        # Step 2 — Point cloud lifting
-        # Unproject depth to world-frame XYZ using pinhole model + extrinsics.
-        # Downsample the full-res cloud to the backbone spatial resolution (h×w)
-        # so each spatial position has a paired RGB feature and 3D coordinate.
-        # ------------------------------------------------------------------
+        # ----- Step 2: lift point cloud (at full input resolution) → downsample to (h, w) -----
         pcd_full = lift_point_cloud_batch(
-            depth_flat.reshape(B * N_frames, 1, H, W),    # [BN, 1, H, W]
-            K,                                             # [BN, 1, 3, 3]
-            E,                                             # [BN, 1, 4, 4]
-            keepdims=True,                                 # [BN, 1, H, W, 3]
-        )
-        # Rearrange to channel-first for F.interpolate, then downsample
-        pcd_chw = einops.rearrange(pcd_full, "b 1 h w c -> b c h w")    # [BN, 3, H, W]
+            depth_flat, K, E, keepdims=True
+        )                                                   # [BN, 1, H, W, 3]
+        pcd_chw = einops.rearrange(pcd_full, "b 1 h w c -> b c h w")
         pcd_ds = F.interpolate(pcd_chw.float(), size=(h, w), mode="nearest")
         pcd = einops.rearrange(pcd_ds, "b c h w -> b (h w) c")    # [BN, h*w, 3]
 
-        # ------------------------------------------------------------------
-        # Step 3 — Farthest Point Sampling
-        # Selects num_points well-spread 3D locations from the h×w spatial grid.
-        # We then gather the corresponding RGB features and XYZ positions.
-        # ------------------------------------------------------------------
+        # ----- Step 3: FPS -----
         n_spatial = pcd.shape[1]
-        n_sample = min(self.num_points, n_spatial)
-        fps_idx = fps_pytorch(pcd, n_sample)                   # [BN, n_sample]
-        idx_exp = fps_idx.unsqueeze(-1)                        # [BN, n_sample, 1]
-
-        pcd_fps  = torch.gather(pcd,  1, idx_exp.expand(-1, -1, 3))
+        n_sample = self.num_points
+        if n_sample > n_spatial:
+            warnings.warn(
+                f"Adapt3R3DEncoder.num_points={n_sample} > spatial grid {n_spatial} "
+                f"({h}×{w}); clamping to {n_spatial}. Consider lowering num_points "
+                "or using a larger backbone output (e.g. ResNet18 instead of DINO ViT-S/14).",
+                stacklevel=2,
+            )
+            n_sample = n_spatial
+        fps_idx = fps_pytorch(pcd, n_sample)
+        idx_exp = fps_idx.unsqueeze(-1)
+        pcd_fps = torch.gather(pcd, 1, idx_exp.expand(-1, -1, 3))
         feat_fps = torch.gather(feat, 1, idx_exp.expand(-1, -1, feat.shape[-1]))
 
-        # ------------------------------------------------------------------
-        # Step 4 — Per-point feature assembly
-        # Concatenate whichever feature types are enabled.
-        # Default (do_pos=True, do_image=True): [NeRF(xyz), rgb_feat]
-        # This lets the attention extractor see both *where* a point is and
-        # *what* it looks like, which is the core Adapt3R insight.
-        # ------------------------------------------------------------------
+        # ----- Step 4: per-point feature assembly -----
         parts: List[torch.Tensor] = []
-
         if self.do_pos:
-            pos_emb = self.xyz_proj(pcd_fps)    # [BN, n_sample, hidden_dim]
+            pos_emb = self.xyz_proj(pcd_fps)               # [BN, n_sample, hidden_dim]
             parts.append(pos_emb)
-
         if self.do_image:
-            parts.append(feat_fps)              # [BN, n_sample, hidden_dim]
-
+            parts.append(feat_fps)
         if self.do_rgb:
-            # Raw pixel colour at each sampled location (cheap additional signal)
             rgb_ds = F.interpolate(
                 rgb_flat, size=(h, w), mode="bilinear", align_corners=False
             )
             rgb_ds = einops.rearrange(rgb_ds, "b c h w -> b (h w) c")
             rgb_fps = torch.gather(rgb_ds, 1, idx_exp.expand(-1, -1, 3))
-            parts.append(rgb_fps)               # [BN, n_sample, 3]
+            parts.append(rgb_fps)
+        cat_cloud = torch.cat(parts, dim=-1)               # [BN, n_sample, pc_in_dim]
 
-        cat_cloud = torch.cat(parts, dim=-1)    # [BN, n_sample, pc_in_dim]
+        # ----- Step 5: attention pooling -----
+        cat_cloud = cat_cloud.unsqueeze(1)                 # [BN, 1, n_sample, pc_in_dim]
+        if return_internals:
+            tokens, attn = self.attention_extractor(cat_cloud, return_attn=True)
+        else:
+            tokens = self.attention_extractor(cat_cloud)
+            attn = None
 
-        # ------------------------------------------------------------------
-        # Step 5 — Attention pooling → 1 token per frame
-        # AttentionExtractor expects [B, F, N, D] where F is a frame-stack dim.
-        # We add a dummy F=1 dim, extract the token, then remove it.
-        # ------------------------------------------------------------------
-        cat_cloud = cat_cloud.unsqueeze(1)               # [BN, 1, n_sample, pc_in_dim]
-        tokens = self.attention_extractor(cat_cloud)     # [BN, 1, output_dim]
+        token = tokens.squeeze(1).reshape(B, N_frames, self.output_dim)
 
-        # ------------------------------------------------------------------
-        # Step 6 — Reshape to HPT encoder output format [B, N_frames, output_dim]
-        # With T=I=1 this produces [B, 1, output_dim].
-        # ------------------------------------------------------------------
-        return tokens.squeeze(1).reshape(B, N_frames, self.output_dim)
+        if not return_internals:
+            return token
+
+        internals = {
+            "token": token,                                                     # [B, N_frames, output_dim]
+            "feat_grid": feat_map.reshape(B, N_frames, *feat_map.shape[1:]),    # [B, N_frames, F, h, w]
+            "pcd_full": pcd_full.reshape(B, N_frames, H, W, 3),                 # [B, N_frames, H, W, 3]
+            "pcd_ds": pcd.reshape(B, N_frames, h, w, 3),                        # [B, N_frames, h, w, 3]
+            "pcd_fps": pcd_fps.reshape(B, N_frames, n_sample, 3),               # [B, N_frames, N, 3]
+            "feat_fps": feat_fps.reshape(B, N_frames, n_sample, -1),            # [B, N_frames, N, hidden_dim]
+            "fps_idx": fps_idx.reshape(B, N_frames, n_sample),                  # [B, N_frames, N]
+            "attn": attn.reshape(B, N_frames, *attn.shape[2:]) if attn is not None else None,
+        }
+        return token, internals
