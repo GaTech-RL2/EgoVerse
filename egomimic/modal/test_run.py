@@ -2,41 +2,35 @@
 
 Usage
 -----
-Async (fire-and-forget):
-    modal run --env robotics egomimic/modal/test_run.py -- \\
-        --config-name=train_zarr_cartesian_pi \\
-        trainer=ddp_modal \\
-        "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr" \\
-        "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr"
+Via trainHydra.py (recommended):
+    python egomimic/trainHydra.py data=mecka_all_zarr trainer=ddp_modal \\
+        logger=wandb model=hpt_bc_flow_mecka name=<run> description=<desc> \\
+        [+modal_gpu=H100] [+modal_cpu=32] [+modal_memory_gb=128]
 
-Synchronous (blocks until done):
+Direct (fire-and-forget):
+    modal run --env robotics egomimic/modal/test_run.py::submit -- \\
+        data=mecka_all_zarr trainer=ddp_modal logger=wandb model=hpt_bc_flow_mecka
+
+Direct (blocking — streams logs):
     modal run --env robotics egomimic/modal/test_run.py::run -- \\
-        --config-name=train_zarr_cartesian_pi \\
-        trainer=ddp_modal \\
-        "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr" \\
-        "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr"
-
-The MODAL_ENVIRONMENT variable is set to "robotics" automatically by
-modal_config.py, so the --env flag is optional but shown for clarity.
-
-Any extra arguments after `--` are forwarded verbatim to Hydra / trainHydra.py.
+        data=mecka_all_zarr trainer=ddp_modal logger=wandb model=hpt_bc_flow_mecka
 
 Volume note
 -----------
 The zarr dataset volume (egoverse-zarr-data) is mounted at /mnt/zarr-data.
-Processed zarr stores live at /mnt/zarr-data/processed_zarr/<embodiment>.
-Training uses LocalEpisodeResolver which reads directly from that path —
-no SQL lookup or R2 download happens at training time.
+Use LocalEpisodeResolver with folder_path=/mnt/zarr-data (see mecka_all_zarr.yaml).
 
 Notes
 -----
-- Modal runs the *committed* git state.  Uncommitted changes are not sent to
-  the container.  Commit (or stash) before submitting a real run.
-- Secrets must exist in the Modal dashboard (robotics env) before first use:
+- This file is intentionally self-contained (no egomimic imports at module level)
+  because Modal mounts it as /root/test_run.py before the repo is cloned.
+- Modal runs the *committed* git state. Commit before submitting a real run.
+- Secrets must exist in the Modal dashboard (robotics env):
     egoverse-r2      → R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET
     egoverse-mongodb → MONGODB_URI
-    egoverse-wandb   → WANDB_API_KEY  (add when ready)
-- To change GPU type or timeout, edit CFG in modal_config.py.
+- WANDB_API_KEY is per-user: add it to ~/.egoverse_env on your local machine.
+- GPU/CPU/memory are set via MODAL_GPU / MODAL_CPU / MODAL_MEMORY_GB env vars
+  (trainHydra.py sets these from +modal_gpu= / +modal_cpu= / +modal_memory_gb= overrides).
 """
 
 from __future__ import annotations
@@ -44,11 +38,93 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import modal
 
-from egomimic.modal.modal_config import CFG, REPO_ROOT, app, zarr_volume
+# ---------------------------------------------------------------------------
+# Route CLI to robotics env by default
+# ---------------------------------------------------------------------------
+os.environ.setdefault("MODAL_ENVIRONMENT", "robotics")
+
+# ---------------------------------------------------------------------------
+# Inline config (duplicated from modal_config.py so this file is standalone)
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+@dataclass
+class _Config:
+    remote_repo_dir: str = "/root/EgoVerse"
+    python_bin: str = "python3"
+
+    @property
+    def train_script(self) -> str:
+        return f"{self.remote_repo_dir}/egomimic/trainHydra.py"
+
+    volume_mount_path: str = "/mnt/zarr-data"
+
+    # Overridable via env vars (set by trainHydra.py from +modal_gpu= etc.)
+    gpu: str = field(default_factory=lambda: os.environ.get("MODAL_GPU", "A100"))
+    cpu: float = field(default_factory=lambda: float(os.environ.get("MODAL_CPU", "12.0")))
+    memory_mb: int = field(
+        default_factory=lambda: (
+            int(float(os.environ.get("MODAL_MEMORY_GB")) * 1024)
+            if os.environ.get("MODAL_MEMORY_GB")
+            else int(os.environ.get("MODAL_MEMORY_MB", "65536"))
+        )
+    )
+    timeout_seconds: int = 86400  # 24 h (Modal max)
+
+    secret_names: list[str] = field(
+        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb"]
+    )
+
+
+CFG = _Config()
+
+# ---------------------------------------------------------------------------
+# Container image
+# ---------------------------------------------------------------------------
+image = (
+    modal.Image.from_registry(
+        "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime",
+        add_python="3.10",
+    )
+    .apt_install("git")
+    .pip_install(
+        "lightning",
+        "hydra-core",
+        "omegaconf",
+        "wandb",
+        "boto3",
+        "cloudpathlib",
+        "zarr==3.1.5",
+        "tabulate",
+        "transformers==4.57.3",
+        "timm",
+        "einops",
+        "pandas",
+        "sqlalchemy",
+        "psycopg[binary]",
+        "pyarrow",
+        "simplejpeg",
+        "rich",
+        "packaging",
+        "h5py",
+        "overrides",
+        "typing_extensions",
+        "pyyaml",
+        "prettytable",
+        "positional-encodings[pytorch]",
+        "s5cmd",
+    )
+)
+
+zarr_volume = modal.Volume.from_name("egoverse-zarr-data")
+app = modal.App("egomimic-training", image=image)
 
 # ---------------------------------------------------------------------------
 # Local helpers (execute on the submitting machine)
@@ -57,8 +133,14 @@ from egomimic.modal.modal_config import CFG, REPO_ROOT, app, zarr_volume
 
 def _local_wandb_key() -> str:
     """Read WANDB_API_KEY from the local environment or ~/.egoverse_env."""
-    from egomimic.utils.aws.aws_data_utils import load_env
-    load_env()
+    env_file = Path("~/.egoverse_env").expanduser()
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("WANDB_API_KEY="):
+                key = line.split("=", 1)[1].strip().strip("'\"")
+                if key:
+                    os.environ["WANDB_API_KEY"] = key
     key = os.environ.get("WANDB_API_KEY", "")
     if not key:
         print(
@@ -109,20 +191,10 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
         check=True,
     )
     subprocess.run(
-        [
-            "git",
-            "-C",
-            CFG.remote_repo_dir,
-            "submodule",
-            "update",
-            "--init",
-            "--recursive",
-        ],
+        ["git", "-C", CFG.remote_repo_dir, "submodule", "update", "--init", "--recursive"],
         check=True,
     )
 
-    # Install the project itself so `import egomimic` resolves correctly.
-    # --no-deps avoids re-downloading packages already baked into the image.
     subprocess.run(
         [CFG.python_bin, "-m", "pip", "install", "-e", ".", "--no-deps", "-q"],
         cwd=CFG.remote_repo_dir,
@@ -141,8 +213,6 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
     memory=CFG.memory_mb,
     timeout=CFG.timeout_seconds,
     secrets=[modal.Secret.from_name(name) for name in CFG.secret_names],
-    # zarr datasets persist across runs; episodes already on the volume are
-    # skipped by S3EpisodeResolver so they are only downloaded once.
     volumes={CFG.volume_mount_path: zarr_volume},
 )
 def run_hydra_train(
@@ -162,12 +232,8 @@ def run_hydra_train(
 
     print(f"Running: {shlex.join(cmd)}")
 
-    # Stream stdout/stderr directly so logs appear in the Modal dashboard in
-    # real time (no capture — avoids buffering multi-hour training output).
     process = subprocess.run(cmd, cwd=CFG.remote_repo_dir, env=env, check=False)
 
-    # Commit any new zarr episodes written to the volume so they are visible
-    # to future runs even if this container is reused.
     zarr_volume.commit()
 
     if process.returncode != 0:
@@ -190,18 +256,13 @@ def run_hydra_train(
 )
 def _health_check() -> dict:
     """Verify secrets, DB, R2 credentials, and volume mount from inside the container."""
-    import os
-    import subprocess
     results = {}
 
-    # R2 credentials
     for key in ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT_URL"):
         results[key] = "OK" if os.environ.get(key) else "MISSING"
 
-    # MongoDB URI present
     results["MONGODB_URI"] = "OK" if os.environ.get("MONGODB_URI") else "MISSING"
 
-    # Volume mounted and writable
     probe = f"{CFG.volume_mount_path}/.modal_health_probe"
     try:
         open(probe, "w").close()
@@ -210,7 +271,6 @@ def _health_check() -> dict:
     except Exception as e:
         results["volume"] = f"ERROR: {e}"
 
-    # s5cmd available
     r = subprocess.run(["s5cmd", "version"], capture_output=True, text=True)
     results["s5cmd"] = f"OK — {r.stdout.strip()}" if r.returncode == 0 else "MISSING"
 
@@ -224,7 +284,7 @@ def _health_check() -> dict:
 
 @app.local_entrypoint()
 def verify() -> None:
-    """Boot the container and verify all secrets, DB, volume, and s5cmd."""
+    """Boot the container and verify all secrets, volume, and s5cmd."""
     print("Running container health check...")
     results = _health_check.remote()
     all_ok = True
@@ -242,14 +302,7 @@ def verify() -> None:
 
 @app.local_entrypoint()
 def submit(*hydra_args: str) -> None:
-    """Fire-and-forget: spawn a Modal job and return immediately.
-
-    Example:
-        modal run --env robotics egomimic/modal/test_run.py -- \\
-            --config-name=train_zarr_cartesian_pi trainer=ddp_modal \\
-            "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr" \\
-            "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr"
-    """
+    """Fire-and-forget: spawn a Modal job and return immediately."""
     git_remote, git_commit, is_dirty = _resolve_git_state()
     if is_dirty:
         print(
@@ -264,14 +317,7 @@ def submit(*hydra_args: str) -> None:
 
 @app.local_entrypoint()
 def run(*hydra_args: str) -> None:
-    """Synchronous run: block until the remote job completes.
-
-    Example:
-        modal run --env robotics egomimic/modal/test_run.py::run -- \\
-            --config-name=train_zarr_cartesian_pi trainer=ddp_modal \\
-            "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr" \\
-            "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr"
-    """
+    """Blocking run: streams logs until the remote job completes."""
     git_remote, git_commit, is_dirty = _resolve_git_state()
     if is_dirty:
         print(
