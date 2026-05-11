@@ -1,41 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Configuration (override with environment variables as needed)
+# ---------------------------------------------------------------------------
+# setup_secret.sh — write credential files for EgoVerse
+#
+# Two modes, writing to DIFFERENT files:
+#
+#   NEW (direct) mode  — Mecka R2 + DigitalOcean keys → ~/.egoverse_env
+#   Used by: training, data processing, Modal training jobs
+#   Required env vars:
+#     NEW_R2_ACCESS_KEY_ID      Cloudflare R2 access key (new Mecka account)
+#     NEW_R2_SECRET_ACCESS_KEY  Cloudflare R2 secret key
+#     NEW_R2_ENDPOINT_URL       R2 endpoint URL  (bucket: data)
+#     NEW_DATABASE_URL          DigitalOcean PostgreSQL connection string
+#     NEW_MONGODB_URI           (optional) MongoDB URI
+#
+#   OLD (AWS Secrets Manager) mode — legacy EgoVerse rldb keys → ~/.egoverse_env_old
+#   Used by: ingest_zarr.py ONLY (download from old rldb R2 bucket into Modal volume)
+#   Requires `aws configure` to have been run first:
+#     AccessKeyId:     AKIAYDKH4BNCAYHE5NG2
+#     SecretAccessKey: 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
+#     Default region:  us-east-2
+#   The script fetches R2 and DB credentials from AWS Secrets Manager.
+#   NOTE: these credentials give access to the legacy rldb R2 bucket and the
+#   old AWS RDS database.  Only ingest_zarr.py should use them for training.
+# ---------------------------------------------------------------------------
+
 REGION="${REGION:-us-east-2}"
 DB_SECRET_NAME="${DB_SECRET_NAME:-rds/appdb/appuser}"
 PUBLIC_DB_SECRET_NAME="${PUBLIC_DB_SECRET_NAME:-rds/appdb/appuser-readonly}"
 R2_SECRET_NAME="${R2_SECRET_NAME:-r2/rldb/credentials}"
 PUBLIC_R2_SECRET_NAME="${PUBLIC_R2_SECRET_NAME:-r2/rldb/public/credentials}"
-ENV_FILE="${ENV_FILE:-$HOME/.egoverse_env}"
 BUCKET="${BUCKET:-rldb}"
 
 # ---------------------------------------------------------------------------
-# Direct-credentials mode
+# NEW (direct-credentials) mode  →  ~/.egoverse_env
 # ---------------------------------------------------------------------------
-# If R2_ACCESS_KEY_ID (or the legacy R2_ACCESS_KEY alias) is already set in
-# the environment, skip AWS Secrets Manager entirely and write the env file
-# directly from the provided values.  Useful on machines without AWS CLI
-# (local dev, Modal containers, CI).
-#
-# Required env vars for direct mode:
-#   R2_ACCESS_KEY_ID   (or R2_ACCESS_KEY)
-#   R2_SECRET_ACCESS_KEY (or R2_SECRET_KEY)
-#   R2_ENDPOINT_URL    (or R2_ENDPOINT)
-#   DATABASE_URL       (optional; falls back to SECRETS_ARN path if absent)
-#   MONGODB_URI        (optional)
-#   BUCKET             (optional, defaults to "rldb")
-# ---------------------------------------------------------------------------
-_direct_r2_key="${R2_ACCESS_KEY_ID:-${R2_ACCESS_KEY:-}}"
+if [[ -n "${NEW_R2_ACCESS_KEY_ID:-}" ]]; then
+  ENV_FILE="${ENV_FILE:-$HOME/.egoverse_env}"
+  echo "=== New Mecka credentials mode → $ENV_FILE ==="
 
-if [[ -n "$_direct_r2_key" ]]; then
-  echo "=== Direct-credentials mode (no AWS Secrets Manager) ==="
-
-  _r2_access="${R2_ACCESS_KEY_ID:-${R2_ACCESS_KEY:?'Set R2_ACCESS_KEY_ID or R2_ACCESS_KEY'}}"
-  _r2_secret="${R2_SECRET_ACCESS_KEY:-${R2_SECRET_KEY:?'Set R2_SECRET_ACCESS_KEY or R2_SECRET_KEY'}}"
-  _r2_endpoint="${R2_ENDPOINT_URL:-${R2_ENDPOINT:?'Set R2_ENDPOINT_URL or R2_ENDPOINT'}}"
-  _db_url="${DATABASE_URL:-}"
-  _mongo_uri="${MONGODB_URI:-}"
+  _r2_access="${NEW_R2_ACCESS_KEY_ID}"
+  _r2_secret="${NEW_R2_SECRET_ACCESS_KEY:?'Set NEW_R2_SECRET_ACCESS_KEY'}"
+  _r2_endpoint="${NEW_R2_ENDPOINT_URL:?'Set NEW_R2_ENDPOINT_URL'}"
+  _db_url="${NEW_DATABASE_URL:-}"
+  _mongo_uri="${NEW_MONGODB_URI:-}"
 
   {
     printf "R2_ACCESS_KEY_ID=%q\n"     "$_r2_access"
@@ -44,7 +53,7 @@ if [[ -n "$_direct_r2_key" ]]; then
     printf "R2_ENDPOINT_URL=%q\n"      "$_r2_endpoint"
     printf "S3_ENDPOINT_URL=%q\n"      "$_r2_endpoint"
     printf "AWS_DEFAULT_REGION=%q\n"   "auto"
-    printf "BUCKET=%q\n"               "$BUCKET"
+    printf "BUCKET=%q\n"               "data"
     if [[ -n "$_db_url" ]]; then
       printf "DATABASE_URL='%s'\n" "$_db_url"
     fi
@@ -54,14 +63,18 @@ if [[ -n "$_direct_r2_key" ]]; then
   } >"$ENV_FILE"
 
   chmod 600 "$ENV_FILE"
-  echo "✅ Wrote direct credentials to $ENV_FILE"
+  echo "✅ Wrote new Mecka credentials to $ENV_FILE"
   exit 0
 fi
 
 # ---------------------------------------------------------------------------
-# AWS Secrets Manager mode (original behaviour)
+# OLD (AWS Secrets Manager) mode  →  ~/.egoverse_env_old
 # ---------------------------------------------------------------------------
-echo "=== Downloading EgoVerse env from Secrets Manager ==="
+ENV_FILE="${ENV_FILE:-$HOME/.egoverse_env_old}"
+echo "=== Old EgoVerse credentials mode → $ENV_FILE ==="
+echo "NOTE: these credentials access the legacy rldb R2 bucket and old AWS RDS."
+echo "      Used by ingest_zarr.py ONLY — do NOT use for training."
+echo ""
 
 SECRET_ARN=""
 EFFECTIVE_DB_SECRET_NAME=""
@@ -81,8 +94,6 @@ elif [[ "$PUBLIC_DB_SECRET_NAME" != "$DB_SECRET_NAME" ]] && SECRET_ARN="$(
     --output text 2>/dev/null
 )"; then
   EFFECTIVE_DB_SECRET_NAME="$PUBLIC_DB_SECRET_NAME"
-else
-  :
 fi
 
 if R2_SECRET_JSON="$(
@@ -102,8 +113,10 @@ elif [[ "$PUBLIC_R2_SECRET_NAME" != "$R2_SECRET_NAME" ]] && R2_SECRET_JSON="$(
 )"; then
   R2_SECRET_NAME="$PUBLIC_R2_SECRET_NAME"
 else
-  echo "Failed to read R2 secret from either $R2_SECRET_NAME or $PUBLIC_R2_SECRET_NAME" >&2
-  exit 1
+  echo "⚠️  Could not fetch R2 secret from Secrets Manager."
+  echo "   R2 credentials will NOT be written to $ENV_FILE."
+  echo "   DB secret (SECRETS_ARN) will still be written if available."
+  R2_SECRET_JSON=""
 fi
 
 CREDENTIAL_MODE="admin"
@@ -112,56 +125,47 @@ if [[ "$R2_SECRET_NAME" == "$PUBLIC_R2_SECRET_NAME" ]] || [[ "$EFFECTIVE_DB_SECR
 fi
 
 if [[ "$CREDENTIAL_MODE" == "public" ]]; then
-  echo "Downloading Public EgoVerse read only credentials"
-  echo "Region: $REGION"
-  if [[ -n "$EFFECTIVE_DB_SECRET_NAME" ]]; then
-    echo "DB secret: $EFFECTIVE_DB_SECRET_NAME"
-  fi
-  echo "R2 secret: $R2_SECRET_NAME"
+  echo "Credential level: public (read-only)"
 else
-  echo "Downloading EgoVerse Admin Credentials"
-  echo "Region: $REGION"
-  if [[ -n "$EFFECTIVE_DB_SECRET_NAME" ]]; then
-    echo "DB secret: $EFFECTIVE_DB_SECRET_NAME"
-  fi
-  echo "R2 secret: $R2_SECRET_NAME"
+  echo "Credential level: admin"
 fi
-
-read -r R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_SESSION_TOKEN AWS_ENDPOINT_URL_S3 < <(
-  R2_SECRET_JSON="$R2_SECRET_JSON" python3 - <<'PY'
-import json
-import os
-import sys
-
-payload = json.loads(os.environ["R2_SECRET_JSON"])
-access = payload.get("access_key_id", "")
-secret = payload.get("secret_access_key", "")
-session = payload.get("session_token", "")
-endpoint = payload.get("endpoint_url", "")
-
-if not access or not secret or not endpoint:
-    print("Missing required keys in R2 secret JSON.", file=sys.stderr)
-    sys.exit(1)
-
-print(access, secret, session or "__EMPTY__", endpoint)
-PY
-)
+if [[ -n "$EFFECTIVE_DB_SECRET_NAME" ]]; then
+  echo "DB secret: $EFFECTIVE_DB_SECRET_NAME"
+fi
 
 {
   if [[ -n "$SECRET_ARN" ]]; then
     printf "SECRETS_ARN=%q\n" "$SECRET_ARN"
   fi
-  printf "R2_ACCESS_KEY_ID=%q\n" "$R2_ACCESS_KEY_ID"
-  printf "R2_SECRET_ACCESS_KEY=%q\n" "$R2_SECRET_ACCESS_KEY"
-  if [[ "$R2_SESSION_TOKEN" != "__EMPTY__" ]]; then
-    printf "R2_SESSION_TOKEN=%q\n" "$R2_SESSION_TOKEN"
+
+  if [[ -n "$R2_SECRET_JSON" ]]; then
+    read -r R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_SESSION_TOKEN AWS_ENDPOINT_URL_S3 < <(
+      R2_SECRET_JSON="$R2_SECRET_JSON" python3 - <<'PY'
+import json, os, sys
+payload = json.loads(os.environ["R2_SECRET_JSON"])
+access = payload.get("access_key_id", "")
+secret = payload.get("secret_access_key", "")
+session = payload.get("session_token", "")
+endpoint = payload.get("endpoint_url", "")
+if not access or not secret or not endpoint:
+    print("Missing required keys in R2 secret JSON.", file=sys.stderr)
+    sys.exit(1)
+print(access, secret, session or "__EMPTY__", endpoint)
+PY
+    )
+    printf "R2_ACCESS_KEY_ID=%q\n"    "$R2_ACCESS_KEY_ID"
+    printf "R2_SECRET_ACCESS_KEY=%q\n" "$R2_SECRET_ACCESS_KEY"
+    if [[ "$R2_SESSION_TOKEN" != "__EMPTY__" ]]; then
+      printf "R2_SESSION_TOKEN=%q\n" "$R2_SESSION_TOKEN"
+    fi
+    printf "AWS_ENDPOINT_URL_S3=%q\n" "$AWS_ENDPOINT_URL_S3"
+    printf "R2_ENDPOINT_URL=%q\n"     "$AWS_ENDPOINT_URL_S3"
+    printf "S3_ENDPOINT_URL=%q\n"     "$AWS_ENDPOINT_URL_S3"
   fi
-  printf "AWS_ENDPOINT_URL_S3=%q\n" "$AWS_ENDPOINT_URL_S3"
-  printf "R2_ENDPOINT_URL=%q\n" "$AWS_ENDPOINT_URL_S3"
-  printf "S3_ENDPOINT_URL=%q\n" "$AWS_ENDPOINT_URL_S3"
+
   printf "AWS_DEFAULT_REGION=%q\n" "$REGION"
-  printf "BUCKET=%q\n" "$BUCKET"
-  # Write DATABASE_URL if provided alongside Secrets Manager creds
+  printf "BUCKET=%q\n"             "$BUCKET"
+
   if [[ -n "${DATABASE_URL:-}" ]]; then
     printf "DATABASE_URL='%s'\n" "$DATABASE_URL"
   fi
@@ -171,4 +175,4 @@ PY
 } >"$ENV_FILE"
 
 chmod 600 "$ENV_FILE"
-echo "✅ Wrote runtime environment to $ENV_FILE"
+echo "✅ Wrote old EgoVerse credentials to $ENV_FILE"

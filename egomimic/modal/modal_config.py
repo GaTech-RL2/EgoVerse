@@ -86,24 +86,34 @@ class _Config:
 
     # --- Volume ---
     # Mount path for the zarr dataset volume inside the container.
-    # Pass this as folder_path in your data configs, e.g.:
-    #   data.train_datasets.<name>.resolver.folder_path=/mnt/zarr-data/<embodiment>
+    # Processed zarr stores live at /mnt/zarr-data/processed_zarr.
+    # Pass this as folder_path when using LocalEpisodeResolver, e.g.:
+    #   data.train_datasets.<name>.resolver.folder_path=/mnt/zarr-data/processed_zarr
     volume_mount_path: str = "/mnt/zarr-data"
 
     # --- Modal compute spec ---
-    # GPU string accepted by Modal: "A100", "A10G", "H100", "A100:4", etc.
-    gpu: str = "A100"
-    cpu: float = 12.0
-    memory_mb: int = 65536   # 64 GiB
-    timeout_seconds: int = 172800  # 48 h
+    # Overridable via env vars at submission time (set by trainHydra.py):
+    #   MODAL_GPU        e.g. "A100", "H100", "A10G", "A100:4" (4 GPUs)
+    #   MODAL_CPU        e.g. "16"
+    #   MODAL_MEMORY_MB  e.g. "131072"  (or set MODAL_MEMORY_GB for convenience)
+    gpu: str = field(default_factory=lambda: os.environ.get("MODAL_GPU", "A100"))
+    cpu: float = field(default_factory=lambda: float(os.environ.get("MODAL_CPU", "12.0")))
+    memory_mb: int = field(
+        default_factory=lambda: (
+            int(float(os.environ.get("MODAL_MEMORY_GB")) * 1024)
+            if os.environ.get("MODAL_MEMORY_GB")
+            else int(os.environ.get("MODAL_MEMORY_MB", "65536"))
+        )
+    )
+    timeout_seconds: int = 86400   # 24 h (Modal max)
 
-    # --- Modal secrets ---
+    # --- Modal secrets (shared) ---
     # egoverse-r2      → R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET
     # egoverse-mongodb → MONGODB_URI
-    # egoverse-db      → DATABASE_URL  (DigitalOcean PostgreSQL, app.episodes)
-    # egoverse-wandb   → WANDB_API_KEY  (add when ready)
+    # WANDB_API_KEY is intentionally excluded — each user passes their own key
+    # via ~/.egoverse_env at submission time so runs are attributed correctly.
     secret_names: list[str] = field(
-        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb", "egoverse-db"]
+        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb"]
     )
 
 

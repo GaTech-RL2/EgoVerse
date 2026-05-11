@@ -6,15 +6,15 @@ Async (fire-and-forget):
     modal run --env robotics egomimic/modal/test_run.py -- \\
         --config-name=train_zarr_cartesian_pi \\
         trainer=ddp_modal \\
-        "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/mecka" \\
-        "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/mecka"
+        "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr" \\
+        "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr"
 
 Synchronous (blocks until done):
     modal run --env robotics egomimic/modal/test_run.py::run -- \\
         --config-name=train_zarr_cartesian_pi \\
         trainer=ddp_modal \\
-        "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/mecka" \\
-        "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/mecka"
+        "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr" \\
+        "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr"
 
 The MODAL_ENVIRONMENT variable is set to "robotics" automatically by
 modal_config.py, so the --env flag is optional but shown for clarity.
@@ -24,9 +24,9 @@ Any extra arguments after `--` are forwarded verbatim to Hydra / trainHydra.py.
 Volume note
 -----------
 The zarr dataset volume (egoverse-zarr-data) is mounted at /mnt/zarr-data.
-S3EpisodeResolver downloads episodes from R2 into that path on first use and
-skips any episode already present on subsequent runs.  Set folder_path for
-each dataset resolver to /mnt/zarr-data/<embodiment> via Hydra overrides.
+Processed zarr stores live at /mnt/zarr-data/processed_zarr/<embodiment>.
+Training uses LocalEpisodeResolver which reads directly from that path —
+no SQL lookup or R2 download happens at training time.
 
 Notes
 -----
@@ -35,7 +35,6 @@ Notes
 - Secrets must exist in the Modal dashboard (robotics env) before first use:
     egoverse-r2      → R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET
     egoverse-mongodb → MONGODB_URI
-    egoverse-db      → DATABASE_URL  (DigitalOcean PostgreSQL, app.episodes)
     egoverse-wandb   → WANDB_API_KEY  (add when ready)
 - To change GPU type or timeout, edit CFG in modal_config.py.
 """
@@ -54,6 +53,19 @@ from egomimic.modal.modal_config import CFG, REPO_ROOT, app, zarr_volume
 # ---------------------------------------------------------------------------
 # Local helpers (execute on the submitting machine)
 # ---------------------------------------------------------------------------
+
+
+def _local_wandb_key() -> str:
+    """Read WANDB_API_KEY from the local environment or ~/.egoverse_env."""
+    from egomimic.utils.aws.aws_data_utils import load_env
+    load_env()
+    key = os.environ.get("WANDB_API_KEY", "")
+    if not key:
+        print(
+            "Warning: WANDB_API_KEY not set locally — W&B logging will be disabled. "
+            "Add it to ~/.egoverse_env to enable."
+        )
+    return key
 
 
 def _git_output(args: list[str]) -> str:
@@ -137,6 +149,7 @@ def run_hydra_train(
     hydra_args: tuple[str, ...],
     git_remote: str,
     git_commit: str,
+    wandb_api_key: str = "",
 ) -> int:
     """Clone the repo at *git_commit* and run trainHydra.py with *hydra_args*."""
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
@@ -144,6 +157,8 @@ def run_hydra_train(
     cmd = _build_train_cmd(hydra_args)
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
+    if wandb_api_key:
+        env["WANDB_API_KEY"] = wandb_api_key
 
     print(f"Running: {shlex.join(cmd)}")
 
@@ -183,20 +198,6 @@ def _health_check() -> dict:
     for key in ("R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_ENDPOINT_URL"):
         results[key] = "OK" if os.environ.get(key) else "MISSING"
 
-    # Database connection
-    db_url = os.environ.get("DATABASE_URL", "")
-    if db_url:
-        try:
-            from sqlalchemy import create_engine, text
-            eng = create_engine(db_url, pool_pre_ping=True)
-            with eng.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            results["DATABASE_URL"] = "OK — connected to PostgreSQL"
-        except Exception as e:
-            results["DATABASE_URL"] = f"ERROR: {e}"
-    else:
-        results["DATABASE_URL"] = "MISSING"
-
     # MongoDB URI present
     results["MONGODB_URI"] = "OK" if os.environ.get("MONGODB_URI") else "MISSING"
 
@@ -222,14 +223,32 @@ def _health_check() -> dict:
 
 
 @app.local_entrypoint()
+def verify() -> None:
+    """Boot the container and verify all secrets, DB, volume, and s5cmd."""
+    print("Running container health check...")
+    results = _health_check.remote()
+    all_ok = True
+    for k, v in results.items():
+        symbol = "✓" if v.startswith("OK") else "✗"
+        print(f"  {symbol}  {k}: {v}")
+        if not v.startswith("OK"):
+            all_ok = False
+    print()
+    if all_ok:
+        print("All checks passed — Modal setup is ready.")
+    else:
+        raise SystemExit("One or more checks failed.")
+
+
+@app.local_entrypoint()
 def submit(*hydra_args: str) -> None:
     """Fire-and-forget: spawn a Modal job and return immediately.
 
     Example:
         modal run --env robotics egomimic/modal/test_run.py -- \\
             --config-name=train_zarr_cartesian_pi trainer=ddp_modal \\
-            "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/mecka" \\
-            "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/mecka"
+            "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr" \\
+            "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr"
     """
     git_remote, git_commit, is_dirty = _resolve_git_state()
     if is_dirty:
@@ -238,7 +257,7 @@ def submit(*hydra_args: str) -> None:
             "Modal will run the last committed state only."
         )
     print(f"Submitting commit {git_commit[:12]} from {git_remote}")
-    handle = run_hydra_train.spawn(tuple(hydra_args), git_remote, git_commit)
+    handle = run_hydra_train.spawn(tuple(hydra_args), git_remote, git_commit, _local_wandb_key())
     print(f"Submitted Modal job: {handle.object_id}")
     print("Monitor at: https://modal.com/apps/egomimic-training")
 
@@ -250,8 +269,8 @@ def run(*hydra_args: str) -> None:
     Example:
         modal run --env robotics egomimic/modal/test_run.py::run -- \\
             --config-name=train_zarr_cartesian_pi trainer=ddp_modal \\
-            "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/mecka" \\
-            "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/mecka"
+            "data.train_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr" \\
+            "data.valid_datasets.mecka_bimanual.resolver.folder_path=/mnt/zarr-data/processed_zarr"
     """
     git_remote, git_commit, is_dirty = _resolve_git_state()
     if is_dirty:
@@ -260,5 +279,5 @@ def run(*hydra_args: str) -> None:
             "Modal will run the last committed state only."
         )
     print(f"Running commit {git_commit[:12]} from {git_remote}")
-    exit_code = run_hydra_train.remote(tuple(hydra_args), git_remote, git_commit)
+    exit_code = run_hydra_train.remote(tuple(hydra_args), git_remote, git_commit, _local_wandb_key())
     print(f"Remote run completed with exit code: {exit_code}")

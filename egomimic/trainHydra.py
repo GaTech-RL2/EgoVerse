@@ -1,11 +1,13 @@
 import copy
 import os
 import signal
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
 import lightning as L
 import torch
+from hydra.core.hydra_config import HydraConfig
 from lightning import Callback, LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
@@ -24,6 +26,60 @@ from egomimic.utils.utils import extras, task_wrapper
 
 OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+def _submit_to_modal(cfg: DictConfig) -> None:
+    """Delegate to the modal CLI to submit a training job, then exit.
+
+    Uses subprocess so the modal package is imported in a clean process without
+    the egomimic/modal/ directory shadowing the installed modal package.
+
+    Supports these extra CLI overrides (stripped before forwarding to container):
+      +modal_gpu=H100          GPU type: A100, H100, A10G, A100:4 (4×A100), etc.
+      +modal_cpu=16            Number of CPU cores
+      +modal_memory_gb=128     RAM in GB  (or +modal_memory_mb=131072)
+    """
+    import subprocess
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parent.parent
+
+    # Env vars to forward to the modal subprocess (picked up by modal_config.py)
+    modal_env = os.environ.copy()
+
+    # Extract modal_* keys from Hydra overrides; pass the rest to the container
+    _MODAL_KEYS = {"modal_gpu", "modal_cpu", "modal_memory_gb", "modal_memory_mb"}
+    container_overrides = []
+    for override in HydraConfig.get().overrides.task:
+        # Strip leading +/++ sigils for key matching
+        key = override.lstrip("+").split("=")[0]
+        if key in _MODAL_KEYS:
+            val = override.split("=", 1)[1]
+            if key == "modal_gpu":
+                modal_env["MODAL_GPU"] = val
+            elif key == "modal_cpu":
+                modal_env["MODAL_CPU"] = val
+            elif key == "modal_memory_gb":
+                modal_env["MODAL_MEMORY_GB"] = val
+            elif key == "modal_memory_mb":
+                modal_env["MODAL_MEMORY_MB"] = val
+        else:
+            container_overrides.append(override)
+
+    cmd = [
+        sys.executable, "-m", "modal", "run",
+        "--env", "robotics",
+        "egomimic/modal/test_run.py::submit",
+        "--",
+        *container_overrides,
+    ]
+    gpu = modal_env.get("MODAL_GPU", "A100")
+    cpu = modal_env.get("MODAL_CPU", "12")
+    mem = modal_env.get("MODAL_MEMORY_GB", f"{int(modal_env.get('MODAL_MEMORY_MB', '65536')) // 1024}GB")
+    print(f"Modal resources: gpu={gpu}  cpu={cpu}  memory={mem}GB")
+    print(f"Submitting to Modal via: {' '.join(cmd)}")
+    result = subprocess.run(cmd, cwd=str(repo_root), env=modal_env)
+    sys.exit(result.returncode)
 
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
@@ -302,6 +358,19 @@ def main(cfg: DictConfig) -> Optional[float]:
     # apply extra utilities
     # (e.g. ask for tags if none are provided in cfg, print cfg tree, etc.)
     extras(cfg)
+
+    # If trainer._modal is set and we're not already inside a Modal container,
+    # submit the job to Modal using the raw Hydra CLI overrides and exit.
+    if OmegaConf.select(cfg, "trainer._modal", default=False):
+        if os.environ.get("MODAL_IS_REMOTE") != "1":
+            try:
+                _submit_to_modal(cfg)
+            except ImportError:
+                raise RuntimeError(
+                    "trainer._modal=true requires the 'modal' package. "
+                    "Install it with: pip install modal"
+                )
+            return  # _submit_to_modal calls sys.exit, but keep for clarity
 
     print(OmegaConf.to_yaml(cfg))
 

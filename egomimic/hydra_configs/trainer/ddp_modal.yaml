@@ -12,3 +12,7 @@ num_nodes: 1
 sync_batchnorm: True
 check_val_every_n_epoch: 200
 num_sanity_val_steps: 0
+
+# Sentinel: trainHydra.py detects this and auto-submits to Modal instead of
+# running locally. Do NOT set this in any other trainer config.
+_modal: true
