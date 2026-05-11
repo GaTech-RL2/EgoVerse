@@ -267,6 +267,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             SLURMEnvironment(requeue_signal=[signal.SIGUSR1, signal.SIGUSR2])
         )
         print("SLURM REQUEUE ENABLED")
+    # Strip Modal-only sentinel key before passing to Lightning Trainer
+    with open_dict(cfg):
+        cfg.trainer.pop("_modal", None)
     trainer: Trainer = hydra.utils.instantiate(
         cfg.trainer, callbacks=callbacks, logger=logger
     )
