@@ -10,6 +10,7 @@ them to a Zarr dataset compatible with the ZarrWriter interface.
 import argparse
 import json
 import logging
+import re
 import shutil
 import subprocess
 import time
@@ -17,22 +18,29 @@ import traceback
 from pathlib import Path
 from typing import List, Optional, Tuple, Union
 
+_SUBSET_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{1,128}$")
+
 import cv2
 import numpy as np
 import pandas as pd
 from scipy.spatial.transform import Rotation
 
-# Lightweight string mapping instead of importing EMBODIMENT, which transitively
-# pulls in torch via action_chunk_transforms. Only the `.name` strings are used.
+from egomimic.rldb.zarr.zarr_writer import ZarrWriter
+
+# Lightweight mapping to avoid importing the full embodiment module (which
+# pulls in torch via action_chunk_transforms).  Only .name strings are needed.
 _ARM_TO_EMBODIMENT_NAME = {
     "both": "MECKA_BIMANUAL",
     "left": "MECKA_LEFT_ARM",
     "right": "MECKA_RIGHT_ARM",
 }
-from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class EpisodeValidationError(RuntimeError):
+    """Raised when an episode cannot satisfy strict temporal alignment rules."""
 
 
 def download_with_retry(
@@ -130,28 +138,30 @@ def pose_to_transform(pose: np.ndarray) -> np.ndarray:
 
 def extract_mecka_metadata(
     episode_meta: dict,
-    data_dir: Optional[Path] = None,
+    data_dir: Path,
 ) -> dict:
     """
     Extract Mecka metadata dict from episode JSON for Zarr metadata_override.
 
     Args:
         episode_meta: Raw episode dict from RL2 JSON (id, user_id, duration, etc.).
-        data_dir: Optional directory containing intrinsics.json to load.
+        data_dir: Directory containing intrinsics.json (required).
 
     Returns:
         Dict with episode_id, user_id, duration, environment_id, scene_id,
-        scene_desc, objects, intrinsics (from file or {}).
+        scene_desc, objects, intrinsics.
+
+    Raises:
+        FileNotFoundError: If intrinsics.json is missing from data_dir.
     """
-    intrinsics: dict = {}
-    if data_dir is not None:
-        intrinsics_path = data_dir / "intrinsics.json"
-        if intrinsics_path.exists():
-            try:
-                with open(intrinsics_path, "r") as f:
-                    intrinsics = json.load(f)
-            except Exception as e:
-                logger.warning(f"Could not load intrinsics from {intrinsics_path}: {e}")
+    intrinsics_path = data_dir / "intrinsics.json"
+    if not intrinsics_path.exists():
+        raise FileNotFoundError(
+            f"Required intrinsics.json not found at {intrinsics_path}. "
+            f"Intrinsics must be provided for every episode."
+        )
+    with open(intrinsics_path, "r") as f:
+        intrinsics = json.load(f)
 
     return {
         "episode_id": episode_meta.get("id"),
@@ -161,7 +171,7 @@ def extract_mecka_metadata(
         "scene_id": episode_meta.get("scene_id"),
         "scene_desc": episode_meta.get("scene_desc"),
         "objects": episode_meta.get("objects", []),
-        "intrinsics": intrinsics if intrinsics else episode_meta.get("intrinsics", {}),
+        "intrinsics": intrinsics,
     }
 
 
@@ -342,12 +352,14 @@ class MeckaExtractor:
                     )
                 intrinsics_path = temp_dir / "intrinsics.json"
                 if "intrinsics" in episode_meta.get("urls", {}):
-                    try:
-                        download_with_retry(
-                            episode_meta["urls"]["intrinsics"], intrinsics_path
-                        )
-                    except Exception as e:
-                        logger.warning(f"Could not download intrinsics: {e}")
+                    download_with_retry(
+                        episode_meta["urls"]["intrinsics"], intrinsics_path
+                    )
+                if not intrinsics_path.exists():
+                    raise FileNotFoundError(
+                        f"Episode {episode_id} missing intrinsics: no pre-downloaded "
+                        f"intrinsics.json and no intrinsics URL in episode JSON"
+                    )
                 data_dir = temp_dir
             else:
                 logger.info(
@@ -368,7 +380,7 @@ class MeckaExtractor:
                         f"Could not find video in {local_data_dir}; expected one of {[str(p) for p in candidate_videos]}"
                     )
 
-                for p in [hands_path, egomotion_path, frames_path, annotations_path]:
+                for p in [hands_path, egomotion_path, frames_path]:
                     if not p.exists():
                         raise FileNotFoundError(
                             f"Missing required file for local load: {p}"
@@ -378,45 +390,73 @@ class MeckaExtractor:
             hands_df = pd.read_csv(hands_path)
             egomotion = np.loadtxt(egomotion_path)
             frames_df = pd.read_csv(frames_path)
-            annotations_df = pd.read_csv(annotations_path)
+            if annotations_path.exists():
+                annotations_df = pd.read_csv(annotations_path)
+            else:
+                annotations_df = pd.DataFrame(columns=["label", "start_time", "end_time"])
 
             # Per-frame camera poses (world-to-camera) for hand transform
             camera_transforms = MeckaExtractor._extract_camera_transforms(egomotion)
+            hand_num_frames = MeckaExtractor._extract_hand_frame_count(hands_df)
+            left_valid, right_valid = MeckaExtractor._extract_hand_validity_masks(
+                hands_df, hand_num_frames
+            )
+
+            # Downsample during extraction to avoid holding full-res frames in memory
+            target_w, target_h = 640, 360
+            images = MeckaExtractor._extract_video_frames(
+                video_path, len(frames_df), target_size=(target_w, target_h))
+
+            # Sync to the shared timeline across all streams before validating
+            # hand continuity. Any invalid interior frame in this common range is
+            # a hard failure; only boundary trimming is allowed.
+            common_frames = min(
+                len(images),
+                len(frames_df),
+                len(egomotion),
+                hand_num_frames,
+            )
+            if common_frames <= 0:
+                raise EpisodeValidationError("No overlapping frames across video/egomotion/hands")
+
+            logger.info(
+                "Shared stream span is %s frames (video=%s, frames_df=%s, egomotion=%s, hands=%s)",
+                common_frames,
+                len(images),
+                len(frames_df),
+                len(egomotion),
+                hand_num_frames,
+            )
+
+            trim_start, trim_end = MeckaExtractor._find_strict_bimanual_window(
+                left_valid=left_valid,
+                right_valid=right_valid,
+                common_frames=common_frames,
+            )
+            num_frames = trim_end - trim_start + 1
+            logger.info(
+                "Using strict hand-valid window [%s, %s] (%s frames)",
+                trim_start,
+                trim_end,
+                num_frames,
+            )
+
+            frames_df = frames_df.iloc[:common_frames].reset_index(drop=True)
+            camera_transforms = camera_transforms[:common_frames]
             hand_poses_world, hand_keypoints_world, wrist_poses_world = (
                 MeckaExtractor._extract_hand_data(
                     hands_df, frames_df, arm, camera_transforms
                 )
             )
 
-            images = MeckaExtractor._extract_video_frames(video_path, len(frames_df))
-
-            # Sync to shortest stream to ensure aligned observations
-            num_frames = min(len(images), len(frames_df), len(egomotion))
-            logger.info(
-                f"Syncing to {num_frames} frames (video={len(images)}, frames_df={len(frames_df)}, egomotion={len(egomotion)})"
-            )
-
-            images = images[:num_frames]
-
-            # Downsample images to 640x360 (W x H) for storage and training
-            target_w, target_h = 640, 360
-            downsampled_images = []
-
-            for img in images:
-                # Ensure RGB uint8
-                if img.dtype != np.uint8:
-                    if img.max() <= 1.0:
-                        img = (img * 255).astype(np.uint8)
-                    else:
-                        img = img.astype(np.uint8)
-                ds = cv2.resize(img, (target_w, target_h), interpolation=cv2.INTER_AREA)
-                downsampled_images.append(ds)
-
-            images = np.array(downsampled_images)
-            hand_poses_world = hand_poses_world[:num_frames]
-            wrist_poses_world = wrist_poses_world[:num_frames]
-            hand_keypoints_world = hand_keypoints_world[:num_frames]
-            actions_head_cartesian_world = MeckaExtractor._extract_head_poses(egomotion)
+            window = slice(trim_start, trim_end + 1)
+            images = images[window]
+            hand_poses_world = hand_poses_world[window]
+            wrist_poses_world = wrist_poses_world[window]
+            hand_keypoints_world = hand_keypoints_world[window]
+            actions_head_cartesian_world = MeckaExtractor._extract_head_poses(
+                egomotion
+            )[:common_frames][window]
             # Flatten 21×3 keypoints to 63 per hand for Zarr schema
             # hand_index 0=left, 1=right
             right_keypoints = hand_keypoints_world[:, 1, :, :].reshape(num_frames, 63)
@@ -435,6 +475,19 @@ class MeckaExtractor:
             }
 
             mecka_metadata = extract_mecka_metadata(episode_meta, data_dir)
+            mecka_metadata.update(
+                {
+                    "source_frame_start": int(trim_start),
+                    "source_frame_end": int(trim_end),
+                    "source_common_frames": int(common_frames),
+                }
+            )
+            annotations_df = MeckaExtractor._trim_annotations_to_window(
+                annotations_df,
+                trim_start=trim_start,
+                num_frames=num_frames,
+                fps=30,
+            )
 
             logger.info(f"Extracted {num_frames} frames")
             return episode_feats, annotations_df, episode_meta, mecka_metadata
@@ -485,7 +538,7 @@ class MeckaExtractor:
         frames_df: pd.DataFrame,
         arm: str,
         camera_transforms: List[np.ndarray],
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Extract hand poses and keypoints from hands CSV and transform to world frame.
 
@@ -508,6 +561,9 @@ class MeckaExtractor:
                 - hand_keypoints_world: (T, 2, 21, 3) [left_21kp, right_21kp] in world.
         """
         num_frames = len(frames_df)
+        # Clamp to camera_transforms length to avoid IndexError when
+        # hands CSV has more frames than egomotion.
+        num_frames = min(num_frames, len(camera_transforms))
         hand_poses = np.zeros((num_frames, 14))
         hand_keypoints = np.zeros((num_frames, 2, 21, 3))
         wrist_poses = np.zeros((num_frames, 14))
@@ -554,7 +610,128 @@ class MeckaExtractor:
         return hand_poses, hand_keypoints, wrist_poses
 
     @staticmethod
-    def _extract_video_frames(video_path: Path, num_frames: int) -> np.ndarray:
+    def _extract_hand_validity_masks(
+        hands_df: pd.DataFrame, hand_num_frames: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Return boolean masks for frames where each hand has a complete 21-point track.
+        """
+        left_valid = np.zeros(hand_num_frames, dtype=bool)
+        right_valid = np.zeros(hand_num_frames, dtype=bool)
+
+        if hand_num_frames <= 0 or hands_df.empty:
+            return left_valid, right_valid
+
+        counts = (
+            hands_df.groupby(["frame", "hand_index"])["landmark_index"]
+            .nunique()
+            .reset_index(name="count")
+        )
+
+        for row in counts.itertuples(index=False):
+            frame_idx = int(row.frame)
+            hand_index = int(row.hand_index)
+            is_valid = int(row.count) == 21 and 0 <= frame_idx < hand_num_frames
+            if not is_valid:
+                continue
+            if hand_index == 0:
+                left_valid[frame_idx] = True
+            elif hand_index == 1:
+                right_valid[frame_idx] = True
+
+        return left_valid, right_valid
+
+    @staticmethod
+    def _find_strict_bimanual_window(
+        left_valid: np.ndarray,
+        right_valid: np.ndarray,
+        common_frames: int,
+    ) -> Tuple[int, int]:
+        """
+        Find a contiguous frame window where both hands are valid.
+
+        Frames missing either hand may only appear at the start or end. Any
+        interior invalidity indicates broken temporal tracking and causes the
+        episode to be rejected.
+        """
+        if common_frames <= 0:
+            raise EpisodeValidationError("No shared frames to validate")
+
+        both_valid = left_valid[:common_frames] & right_valid[:common_frames]
+        valid_indices = np.flatnonzero(both_valid)
+        if valid_indices.size == 0:
+            raise EpisodeValidationError("No contiguous bimanual-valid frame window found")
+
+        start = int(valid_indices[0])
+        end = int(valid_indices[-1])
+        invalid_inside = np.flatnonzero(~both_valid[start : end + 1])
+        if invalid_inside.size > 0:
+            absolute = (invalid_inside[:10] + start).tolist()
+            raise EpisodeValidationError(
+                "Interior hand gaps detected within candidate window: "
+                f"{absolute}{'...' if invalid_inside.size > 10 else ''}"
+            )
+
+        return start, end
+
+    @staticmethod
+    def _extract_hand_frame_count(hands_df: pd.DataFrame) -> int:
+        """
+        Return the effective local hand-frame span covered by the hand CSV.
+
+        The frame column is expected to be local, 0-based with respect to the
+        upstream body/video timeline. Leading gaps are allowed; max(frame) + 1
+        preserves boundary gaps and interior gaps for later validation.
+        """
+        if hands_df.empty or "frame" not in hands_df.columns:
+            return 0
+
+        hand_frames = np.sort(hands_df["frame"].dropna().astype(int).unique())
+        if len(hand_frames) == 0:
+            return 0
+
+        min_frame = int(hand_frames[0])
+        if min_frame < 0:
+            raise ValueError(
+                f"Hand frame indices must be non-negative, got min frame {min_frame}"
+            )
+
+        return int(hand_frames[-1]) + 1
+
+    @staticmethod
+    def _trim_annotations_to_window(
+        annotations_df: pd.DataFrame,
+        trim_start: int,
+        num_frames: int,
+        fps: int,
+    ) -> pd.DataFrame:
+        """
+        Shift and clip annotation time ranges after trimming leading/trailing frames.
+        """
+        if annotations_df.empty:
+            return annotations_df.copy()
+
+        start_s = trim_start / fps
+        end_s = (trim_start + num_frames) / fps
+        kept_rows = []
+
+        for _, row in annotations_df.iterrows():
+            row_dict = row.to_dict()
+            raw_start = float(row_dict.get("start_time", 0.0))
+            raw_end = float(row_dict.get("end_time", 0.0))
+            clipped_start = max(raw_start, start_s)
+            clipped_end = min(raw_end, end_s)
+            if clipped_end <= clipped_start:
+                continue
+            row_dict["start_time"] = clipped_start - start_s
+            row_dict["end_time"] = clipped_end - start_s
+            kept_rows.append(row_dict)
+
+        return pd.DataFrame(kept_rows, columns=annotations_df.columns)
+
+    @staticmethod
+    def _extract_video_frames(video_path: Path, num_frames: int,
+                              target_size: tuple | None = None) -> np.ndarray:
         """
         Decode video file and extract the first num_frames as RGB arrays.
 
@@ -562,6 +739,8 @@ class MeckaExtractor:
         Args:
             video_path: Path to MP4 or other OpenCV-supported video.
             num_frames: Number of frames to read (stops earlier if video ends).
+            target_size: Optional (width, height) to resize frames during extraction,
+                         avoiding holding full-resolution frames in memory.
 
 
         Returns:
@@ -577,6 +756,8 @@ class MeckaExtractor:
                 break
             # Convert BGR to RGB
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            if target_size is not None:
+                frame = cv2.resize(frame, target_size, interpolation=cv2.INTER_AREA)
             frames.append(frame)
 
         cap.release()
@@ -892,18 +1073,41 @@ def main() -> None:
         default=None,
         help="Path to directory containing pre-downloaded episode files (video.mp4 or <id>_video.mp4, hands.csv, egomotion.txt, frames.csv, annotations.csv). If set, downloads are skipped.",
     )
+    parser.add_argument(
+        "--subset-name",
+        type=str,
+        default="",
+        help=(
+            "Optional subset label. When set, outputs land under "
+            "<output_dir>/subsets/<subset_name>/<episode_id>.zarr instead of "
+            "<output_dir>/<episode_id>.zarr. Allowed chars: [a-zA-Z0-9_.-]."
+        ),
+    )
 
     args = parser.parse_args()
 
-    output_path = Path(args.output_dir)
+    if args.subset_name and not _SUBSET_NAME_RE.match(args.subset_name):
+        raise ValueError(
+            f"--subset-name must match [a-zA-Z0-9_.-]{{1,128}}, got: {args.subset_name!r}"
+        )
+
+    output_dir = args.output_dir
+    if args.subset_name:
+        output_dir = str(Path(args.output_dir) / "subsets" / args.subset_name)
+        logger.info(
+            f"Subset mode: outputs will land in {output_dir} "
+            f"(subset_name={args.subset_name})"
+        )
+
+    output_path = Path(output_dir)
     if output_path.exists():
-        logger.warning(f"Output directory {args.output_dir} exists, removing...")
+        logger.warning(f"Output directory {output_dir} exists, removing...")
         shutil.rmtree(output_path)
 
     try:
         converter = MeckaDatasetConverter(
             episode_json_path=args.episode_json,
-            output_dir=args.output_dir,
+            output_dir=output_dir,
             repo_id=args.repo_id,
             arm=args.arm,
             local_data_dir=args.local_data_dir,
@@ -912,7 +1116,7 @@ def main() -> None:
         converter.extract_episode()
 
         logger.info("✅ Conversion complete!")
-        logger.info(f"Dataset saved to: {args.output_dir}")
+        logger.info(f"Dataset saved to: {output_dir}")
 
     except Exception as e:
         logger.error(f"Conversion failed: {e}")

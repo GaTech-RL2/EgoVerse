@@ -1,0 +1,1114 @@
+"""
+Modal-based subset conversion of Mecka episodes to Zarr format.
+
+Reads raw episode data from MongoDB (`mecka-ai`) and a configurable Cloudflare
+R2 bucket (`R2_BUCKET` env var from the `mecka-zarr-conversion` secret),
+converts each episode via MeckaDatasetConverter, and writes the resulting
+`.zarr` directory + preview `.mp4` into a Modal Volume at::
+
+    /vol/egoverse-zarr-data/processed_v3/<subset-name>/{task_type}/<episode_hash>.zarr
+    /vol/egoverse-zarr-data/processed_v3/<subset-name>/{task_type}/<episode_hash>_video.mp4
+
+`task_type` is `flagship` or `freeform`, classified via MongoDB `deliveryBatch`
+(freeform = `rl2_freeform_final_jan_20`).
+
+This script is **subset-only**: it does not touch the canonical R2 destination
+bucket, AWS RDS `app.episodes`, or the Mongo `delivered` collection. Every run
+must supply a `--subset-name` for routing.
+
+Usage:
+    # Dry run (3 episodes) via Modal
+    modal run modal_mecka_to_zarr.py --subset-name sample --episode-ids-file ids.txt --dry-run
+
+    # Full run, detached
+    modal run --detach modal_mecka_to_zarr.py --subset-name pilot --episode-ids-file ids.txt
+
+    # Subset defined by MongoDB filter
+    modal run modal_mecka_to_zarr.py --subset-name freeform_jan \\
+        --mongo-filter-json '{"deliveryBatch": "rl2_freeform_final_jan_20"}'
+
+    # Local test (no Modal, writes to <output_dir>/<hash>.zarr)
+    python modal_mecka_to_zarr.py --local-test --subset-name sample --episode-hash <hash>
+"""
+
+import json
+import logging
+import os
+import re
+import tempfile
+import traceback
+from pathlib import Path
+
+import modal
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Modal image – no torch/torchvision needed; preview MP4 uses ffmpeg fallback
+# ---------------------------------------------------------------------------
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("ffmpeg", "libgl1-mesa-glx", "libglib2.0-0", "curl")
+    .pip_install(
+        "numpy",
+        "scipy",
+        "pandas",
+        "opencv-python-headless",
+        "zarr>=3.0",
+        "numcodecs",
+        "simplejpeg",
+        "pymongo",
+        "boto3",
+        "av",
+    )
+    .add_local_dir(
+        "egomimic",
+        remote_path="/root/EgoVerse/egomimic",
+    )
+)
+
+app = modal.App("mecka-zarr-conversion", image=image)
+
+# ---------------------------------------------------------------------------
+# Modal Volume — sole output destination
+# ---------------------------------------------------------------------------
+EGOVERSE_ZARR_VOLUME_NAME = "egoverse-zarr-data"
+EGOVERSE_ZARR_VOLUME_MOUNT = "/vol/egoverse-zarr-data"
+egoverse_zarr_volume = modal.Volume.from_name(EGOVERSE_ZARR_VOLUME_NAME)
+
+# ---------------------------------------------------------------------------
+# MongoDB / R2 constants
+# ---------------------------------------------------------------------------
+R2_ENDPOINT_TEMPLATE = "https://{account_id}.r2.cloudflarestorage.com"
+MONGODB_DB = "mecka-ai"
+MONGODB_EPISODES_COLLECTION = "episodes"
+MONGODB_VLM_SEGMENTS_COLLECTION = "episode_vlm_segments"
+FREEFORM_DELIVERY_BATCH = "rl2_freeform_final_jan_20"
+
+# Mongo doc fields whose values are R2 storage keys for episode assets.
+MONGO_URL_FIELDS = {
+    "video": "video_1",
+    "hands": "pipeline_results.post_processing.hands_camera_interpolated",
+    "egomotion": "pipeline_results.post_processing.egomotion_client",
+    "frames": "framesKey",
+}
+
+# Body-pipeline outputs (pelvis-frame hands + camera_transform); used when
+# available in preference to hands_camera_interpolated.
+MONGO_BODY_FIELDS = {
+    "hands_final": "pipeline_results.body.key_outputs.hands_final",
+    "body_final": "pipeline_results.body.key_outputs.body_final",
+}
+
+
+# ---------------------------------------------------------------------------
+# Subset routing
+# ---------------------------------------------------------------------------
+_SUBSET_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{1,128}$")
+
+
+def _validate_subset_name(name: str) -> None:
+    if not name or not _SUBSET_NAME_RE.match(name):
+        raise ValueError(
+            f"subset_name must match [a-zA-Z0-9_.-]{{1,128}}, got: {name!r}"
+        )
+
+
+def _volume_subset_dir(subset_name: str, task_type: str) -> Path:
+    """Filesystem path inside the Modal volume for a (subset, task_type).
+
+    Layout: ``/vol/egoverse-zarr-data/processed_v3/<subset>/<task_type>``.
+    """
+    return (
+        Path(EGOVERSE_ZARR_VOLUME_MOUNT)
+        / "processed_v3"
+        / subset_name
+        / task_type
+    )
+
+
+def _write_episode_to_volume(
+    local_zarr_dir: str,
+    local_mp4: str,
+    subset_name: str,
+    task_type: str,
+    episode_hash: str,
+) -> tuple[str, str]:
+    """
+    Copy the converted episode into the Modal volume.
+
+    Returns ``(zarr_dest, mp4_dest)``. Caller must commit the volume after.
+    """
+    import shutil
+
+    dest_dir = _volume_subset_dir(subset_name, task_type)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    dest_zarr = dest_dir / f"{episode_hash}.zarr"
+    if dest_zarr.exists():
+        shutil.rmtree(dest_zarr)
+    shutil.copytree(local_zarr_dir, dest_zarr)
+
+    dest_mp4 = ""
+    if local_mp4 and os.path.exists(local_mp4):
+        dest_mp4_path = dest_dir / f"{episode_hash}_video.mp4"
+        shutil.copy2(local_mp4, dest_mp4_path)
+        dest_mp4 = str(dest_mp4_path)
+
+    return str(dest_zarr), dest_mp4
+
+
+def _delete_episode_from_volume(
+    episode_hash: str, task_type: str, subset_name: str
+) -> None:
+    """Best-effort cleanup of partial volume outputs for a failed episode."""
+    import shutil
+
+    dest_dir = _volume_subset_dir(subset_name, task_type)
+    dest_zarr = dest_dir / f"{episode_hash}.zarr"
+    dest_mp4 = dest_dir / f"{episode_hash}_video.mp4"
+    if dest_zarr.exists():
+        shutil.rmtree(dest_zarr, ignore_errors=True)
+        logger.info(f"[{episode_hash}] Removed stale volume zarr {dest_zarr}")
+    if dest_mp4.exists():
+        try:
+            dest_mp4.unlink()
+            logger.info(f"[{episode_hash}] Removed stale volume mp4 {dest_mp4}")
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Mongo + R2 access
+# ---------------------------------------------------------------------------
+
+def _get_nested(doc: dict, dotted_key: str):
+    """Resolve a dotted key like 'pipeline_results.post_processing.hands'."""
+    current = doc
+    for part in dotted_key.split("."):
+        if not isinstance(current, dict):
+            return None
+        current = current.get(part)
+    return current
+
+
+def _parse_storage_key(storage_key: str) -> tuple[str, str]:
+    """
+    Parse a storage key into ``(bucket, key)``.
+
+    The bucket is always taken from the ``R2_BUCKET`` environment variable
+    (set by the ``mecka-zarr-conversion`` secret) so the source data location
+    is configurable at the secret level rather than hard-coded into Mongo.
+
+    The key portion comes from the Mongo storage value:
+      - ``r2://<old-bucket>/<key>`` → the ``r2://<old-bucket>/`` prefix is
+        stripped and ``<key>`` is returned.
+      - bare path → returned as-is.
+    """
+    bucket = os.environ.get("R2_BUCKET")
+    if not bucket:
+        raise RuntimeError(
+            "R2_BUCKET env var is not set. Add it to the mecka-zarr-conversion "
+            "secret with the name of the R2 source bucket."
+        )
+    if storage_key.startswith("r2://"):
+        without_scheme = storage_key[len("r2://"):]
+        _, _, key = without_scheme.partition("/")
+    else:
+        key = storage_key
+    return bucket, key
+
+
+def _get_r2_client():
+    """
+    boto3 S3 client pointed at Cloudflare R2.
+
+    Reads from the ``mecka-zarr-conversion`` secret:
+      - ``R2_ENDPOINT_URL`` (or its alias ``R2_ENDPOINT``) — full https URL of
+        the R2 endpoint. Preferred. Falls back to building the URL from
+        ``R2_ACCOUNT_ID`` if neither is set.
+      - ``R2_ACCESS_KEY`` — access key ID.
+      - ``R2_SECRET_KEY`` — secret access key.
+    """
+    import boto3
+
+    endpoint_url = (
+        os.environ.get("R2_ENDPOINT_URL")
+        or os.environ.get("R2_ENDPOINT")
+    )
+    if not endpoint_url:
+        account_id = os.environ.get("R2_ACCOUNT_ID")
+        if not account_id:
+            raise RuntimeError(
+                "No R2 endpoint configured. Set one of: R2_ENDPOINT_URL, "
+                "R2_ENDPOINT, or R2_ACCOUNT_ID in the mecka-zarr-conversion "
+                "secret."
+            )
+        endpoint_url = R2_ENDPOINT_TEMPLATE.format(account_id=account_id)
+
+    access_key = os.environ.get("R2_ACCESS_KEY")
+    secret_key = os.environ.get("R2_SECRET_KEY")
+    if not access_key or not secret_key:
+        raise RuntimeError(
+            "R2_ACCESS_KEY and R2_SECRET_KEY must both be set in the "
+            "mecka-zarr-conversion secret."
+        )
+
+    return boto3.client(
+        "s3",
+        endpoint_url=endpoint_url,
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        region_name="auto",
+        config=boto3.session.Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+    )
+
+
+def _sign_url(r2_client, storage_key: str, expiry: int = 3600) -> str:
+    bucket, key = _parse_storage_key(storage_key)
+    return r2_client.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": bucket, "Key": key},
+        ExpiresIn=expiry,
+    )
+
+
+def _get_mongo_db():
+    from pymongo import MongoClient
+
+    client = MongoClient(os.environ["MONGODB_URI"])
+    return client[MONGODB_DB]
+
+
+def _fetch_vlm_annotations(db, episode_hash: str) -> list[dict]:
+    """
+    Fetch reviewed VLM segments from ``episode_vlm_segments``.
+
+    Prefers ``tierSnapshots.delivery.segments`` (finalized labels) and falls
+    back to top-level ``segments``. Closes sub-second gaps between consecutive
+    segments by extending the earlier segment's end.
+    """
+    from bson import ObjectId
+
+    col = db[MONGODB_VLM_SEGMENTS_COLLECTION]
+    doc = col.find_one({"episodeId": ObjectId(episode_hash)})
+    if doc is None:
+        return []
+
+    delivery = doc.get("tierSnapshots", {}).get("delivery", {})
+    segments = delivery.get("segments", []) if isinstance(delivery, dict) else []
+    if not segments:
+        segments = doc.get("segments", [])
+
+    annotations = []
+    for seg in segments:
+        label = seg.get("label") or seg.get("vlmLabel") or ""
+        start = seg.get("start_seconds", 0)
+        end = seg.get("end_seconds", 0)
+        if label and end > start:
+            annotations.append({"Labels": label, "start_time": start, "end_time": end})
+
+    for i in range(len(annotations) - 1):
+        gap = annotations[i + 1]["start_time"] - annotations[i]["end_time"]
+        if 0 < gap < 1.0:
+            annotations[i]["end_time"] = annotations[i + 1]["start_time"]
+
+    return annotations
+
+
+def _write_annotations_csv(annotations: list[dict], dest_path: str) -> None:
+    import pandas as pd
+
+    if annotations:
+        df = pd.DataFrame(annotations)
+    else:
+        df = pd.DataFrame(columns=["Labels", "start_time", "end_time"])
+    df.to_csv(dest_path, index=False)
+
+
+def _convert_hands_final_to_csv(
+    hands_final_path: str,
+    body_final_path: str,
+    output_csv_path: str,
+) -> None:
+    """
+    Convert hands_final.json (pelvis frame) -> hands CSV (camera frame).
+
+    Uses body_final's per-frame camera_transform: cam = inv(camera_transform) @ pelvis.
+    Frame numbers are remapped to a local 0-based timeline by subtracting the
+    minimum body_final frame.
+    """
+    import numpy as np
+    import pandas as pd
+    from scipy.spatial.transform import Rotation
+
+    with open(hands_final_path) as f:
+        hands_data = json.load(f)
+    with open(body_final_path) as f:
+        body_data = json.load(f)
+
+    frame_to_cTp = {}
+    for pose in body_data["poses"]:
+        frame_num = pose["frame"]
+        ct = pose["camera_transform"]
+        pos, ori = ct["position"], ct["orientation"]
+        T = np.eye(4)
+        T[:3, :3] = Rotation.from_quat([ori["x"], ori["y"], ori["z"], ori["w"]]).as_matrix()
+        T[:3, 3] = [pos["x"], pos["y"], pos["z"]]
+        frame_to_cTp[frame_num] = np.linalg.inv(T)
+
+    if not frame_to_cTp:
+        raise ValueError("body_final.json contained no camera_transform frames")
+
+    base_frame = min(frame_to_cTp)
+    HAND_TYPE_TO_INDEX = {"LEFT": 0, "RIGHT": 1}
+    rows = []
+
+    for frame_str, frame_data in hands_data["frames"].items():
+        frame_num = int(frame_str)
+        cTp = frame_to_cTp.get(frame_num)
+        if cTp is None:
+            continue
+        for hand in frame_data.get("hands", []):
+            hand_idx = HAND_TYPE_TO_INDEX.get(hand["hand_type"])
+            if hand_idx is None:
+                continue
+            for lm in hand["landmarks"]:
+                pelvis_h = np.array([lm["x"], lm["y"], lm["z"], 1.0])
+                cam_xyz = (cTp @ pelvis_h)[:3]
+                rows.append({
+                    "frame": frame_num - base_frame,
+                    "hand_index": hand_idx,
+                    "landmark_index": lm["landmark_index"],
+                    "world_x": cam_xyz[0],
+                    "world_y": cam_xyz[1],
+                    "world_z": cam_xyz[2],
+                })
+
+    df = pd.DataFrame(rows).sort_values(["frame", "hand_index", "landmark_index"]).reset_index(drop=True)
+    df.to_csv(output_csv_path, index=False)
+    logger.info(
+        f"Converted hands_final -> {output_csv_path} "
+        f"({len(df)} rows, {df['frame'].nunique()} frames, base_frame={base_frame})"
+    )
+
+
+def _is_freeform(db, episode_hash: str) -> bool:
+    from bson import ObjectId
+
+    doc = db[MONGODB_EPISODES_COLLECTION].find_one(
+        {"_id": ObjectId(episode_hash)}, {"deliveryBatch": 1}
+    )
+    return bool(doc and doc.get("deliveryBatch") == FREEFORM_DELIVERY_BATCH)
+
+
+def _resolve_intrinsics_key(db, episode_hash: str, mongo_doc: dict) -> str:
+    """
+    Resolve the intrinsics R2 storage key.
+
+    1. ``intrinsicsKey`` directly on the episode doc.
+    2. Device-model chain: episode → user_tasks (userTaskId) → files (meta.fileId)
+       → device.modelName → device_intrinsics (intrinsics_1080p).
+    """
+    from bson import ObjectId
+
+    direct_key = mongo_doc.get("intrinsicsKey")
+    if direct_key:
+        logger.info(f"[{episode_hash}] Intrinsics resolved via intrinsicsKey")
+        return direct_key
+
+    logger.info(f"[{episode_hash}] intrinsicsKey missing, falling back to device model chain")
+    user_task_id = mongo_doc.get("userTaskId")
+    if not user_task_id:
+        raise ValueError(f"Episode {episode_hash} missing both intrinsicsKey and userTaskId")
+
+    user_task = db["user_tasks"].find_one({"_id": user_task_id})
+    if not user_task:
+        raise ValueError(f"Episode {episode_hash}: userTask {user_task_id} not found")
+
+    file_id = user_task.get("meta", {}).get("fileId")
+    if not file_id:
+        raise ValueError(
+            f"Episode {episode_hash}: userTask {user_task_id} missing meta.fileId"
+        )
+
+    file_doc = db["files"].find_one({"_id": ObjectId(str(file_id))})
+    if not file_doc:
+        raise ValueError(f"Episode {episode_hash}: file {file_id} not found")
+
+    model_name = file_doc.get("device", {}).get("modelName")
+    if not model_name:
+        raise ValueError(
+            f"Episode {episode_hash}: file {file_id} missing device.modelName"
+        )
+
+    # Special case: iPhone17,3 → iPhone17,4
+    if model_name == "iPhone17,3":
+        model_name = "iPhone17,4"
+
+    intrinsics_doc = db["device_intrinsics"].find_one({"device": model_name})
+    if not intrinsics_doc:
+        raise ValueError(
+            f"Episode {episode_hash}: no device_intrinsics for model '{model_name}'"
+        )
+    key = intrinsics_doc.get("intrinsics_1080p")
+    if not key:
+        raise ValueError(
+            f"Episode {episode_hash}: device_intrinsics for '{model_name}' "
+            f"missing intrinsics_1080p"
+        )
+    logger.info(f"[{episode_hash}] Intrinsics resolved via device model '{model_name}' → {key}")
+    return key
+
+
+def _classify_task_types(episodes_col, episode_hashes: list[str]) -> dict[str, str]:
+    """Return {hash: 'freeform' | 'flagship'} by deliveryBatch lookup."""
+    from bson import ObjectId
+
+    out = {h: "flagship" for h in episode_hashes}
+    batch_size = 10000
+    for i in range(0, len(episode_hashes), batch_size):
+        batch = episode_hashes[i : i + batch_size]
+        for doc in episodes_col.find(
+            {
+                "_id": {"$in": [ObjectId(h) for h in batch]},
+                "deliveryBatch": FREEFORM_DELIVERY_BATCH,
+            },
+            {"_id": 1},
+        ):
+            out[str(doc["_id"])] = "freeform"
+    return out
+
+
+def _resolve_mongo_filter_ids(db, mongo_filter_json: str) -> set[str]:
+    """Resolve a MongoDB extended-JSON filter to a set of episode hash strings."""
+    if not mongo_filter_json or not mongo_filter_json.strip():
+        return set()
+    from bson import json_util
+
+    filter_doc = json_util.loads(mongo_filter_json)
+    ids = {str(d["_id"]) for d in db[MONGODB_EPISODES_COLLECTION].find(filter_doc, {"_id": 1})}
+    logger.info(f"MongoDB filter matched {len(ids)} episodes: {mongo_filter_json}")
+    return ids
+
+
+# ---------------------------------------------------------------------------
+# Episode preparation: download raw data → run converter → return local paths
+# ---------------------------------------------------------------------------
+
+def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
+    """
+    Download raw R2 data for the episode, convert it to zarr+mp4 in ``tmp_dir``,
+    and return paths plus metadata. Does NOT write to the volume or anywhere
+    durable — the caller (worker or local_test) decides where to put the output.
+
+    Returns a dict with keys:
+        episode_hash, task_type, zarr_dir (local path), mp4_path (local path or None),
+        num_annotations, task_description.
+    """
+    import sys
+    if "/root/EgoVerse" not in sys.path:
+        sys.path.insert(0, "/root/EgoVerse")
+    try:
+        project_root = str(Path(__file__).resolve().parents[3])
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+    except IndexError:
+        pass
+
+    from bson import ObjectId
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from egomimic.scripts.mecka_process.mecka_to_zarr import (
+        MeckaDatasetConverter,
+        download_with_retry,
+    )
+
+    db = _get_mongo_db()
+    episodes_col = db[MONGODB_EPISODES_COLLECTION]
+
+    # ---- 1. Episode doc ----
+    mongo_doc = episodes_col.find_one({"_id": ObjectId(episode_hash)})
+    if mongo_doc is None:
+        raise ValueError(f"Episode {episode_hash} not found in MongoDB")
+
+    # ---- 2. Sign R2 URLs ----
+    r2 = _get_r2_client()
+    urls = {}
+    for url_key, mongo_field in MONGO_URL_FIELDS.items():
+        storage_key = _get_nested(mongo_doc, mongo_field)
+        if storage_key is None:
+            raise ValueError(
+                f"MongoDB doc missing field '{mongo_field}' for episode {episode_hash}"
+            )
+        urls[url_key] = _sign_url(r2, storage_key)
+
+    intrinsics_key = _resolve_intrinsics_key(db, episode_hash, mongo_doc)
+    urls["intrinsics"] = _sign_url(r2, intrinsics_key)
+
+    # ---- 3. VLM annotations ----
+    vlm_annotations = _fetch_vlm_annotations(db, episode_hash)
+    if not vlm_annotations and task_type == "freeform":
+        raise ValueError(
+            f"Freeform episode {episode_hash} has no VLM segments in "
+            f"{MONGODB_VLM_SEGMENTS_COLLECTION}"
+        )
+    logger.info(
+        f"[{episode_hash}] VLM annotations: {len(vlm_annotations)} segments "
+        f"({'required' if task_type == 'freeform' else 'optional'})"
+    )
+
+    # ---- 4. Pre-create download dir + annotations.csv ----
+    download_dir = os.path.join(tmp_dir, "temp_download")
+    os.makedirs(download_dir, exist_ok=True)
+    _write_annotations_csv(vlm_annotations, os.path.join(download_dir, "annotations.csv"))
+
+    # ---- 5. Parallel download of raw assets ----
+    hands_final_key = _get_nested(mongo_doc, MONGO_BODY_FIELDS["hands_final"])
+    body_final_key = _get_nested(mongo_doc, MONGO_BODY_FIELDS["body_final"])
+    use_hands_final = bool(hands_final_key and body_final_key)
+
+    downloads = [
+        (urls["video"], os.path.join(download_dir, "video.mp4")),
+        (urls["egomotion"], os.path.join(download_dir, "egomotion.txt")),
+        (urls["frames"], os.path.join(download_dir, "frames.csv")),
+        (urls["intrinsics"], os.path.join(download_dir, "intrinsics.json")),
+    ]
+    if use_hands_final:
+        downloads.append((_sign_url(r2, hands_final_key), os.path.join(download_dir, "hands_final.json")))
+        downloads.append((_sign_url(r2, body_final_key), os.path.join(download_dir, "body_final.json")))
+    else:
+        downloads.append((urls["hands"], os.path.join(download_dir, "hands.csv")))
+
+    logger.info(f"[{episode_hash}] Downloading {len(downloads)} files in parallel...")
+    with ThreadPoolExecutor(max_workers=len(downloads)) as pool:
+        futures = {pool.submit(download_with_retry, url, path): path for url, path in downloads}
+        for fut in as_completed(futures):
+            fut.result()
+
+    if use_hands_final:
+        logger.info(f"[{episode_hash}] Converting hands_final → camera-frame hands.csv")
+        _convert_hands_final_to_csv(
+            os.path.join(download_dir, "hands_final.json"),
+            os.path.join(download_dir, "body_final.json"),
+            os.path.join(download_dir, "hands.csv"),
+        )
+
+    # ---- 6. Synthesize episode.json that MeckaDatasetConverter expects ----
+    vlm_doc = db[MONGODB_VLM_SEGMENTS_COLLECTION].find_one(
+        {"episodeId": ObjectId(episode_hash)}, {"taskDescription": 1}
+    )
+    task_description = (vlm_doc or {}).get("taskDescription", "") or ""
+
+    episode_json_path = os.path.join(tmp_dir, "episode.json")
+    with open(episode_json_path, "w") as f:
+        json.dump(
+            {
+                "id": episode_hash,
+                "urls": urls,
+                "user_id": str(mongo_doc.get("userId", "")),
+                "duration": mongo_doc.get("duration"),
+                "environment_id": str(mongo_doc.get("environment_id", "")),
+                "scene_id": str(mongo_doc.get("scene_id", "")),
+                "scene_desc": mongo_doc.get("scene_desc", ""),
+                "objects": [str(o) for o in mongo_doc.get("objects", [])],
+            },
+            f,
+            default=str,
+        )
+
+    # ---- 7. Run conversion ----
+    output_dir = os.path.join(tmp_dir, "output")
+    os.makedirs(output_dir, exist_ok=True)
+    MeckaDatasetConverter(
+        episode_json_path=episode_json_path,
+        output_dir=output_dir,
+        repo_id="mecka/zarr",
+        arm="both",
+        task_description=task_description,
+    ).extract_episode()
+
+    local_zarr_dir = os.path.join(output_dir, f"{episode_hash}.zarr")
+    local_mp4 = os.path.join(output_dir, f"{episode_hash}.mp4")
+    return {
+        "episode_hash": episode_hash,
+        "task_type": task_type,
+        "zarr_dir": local_zarr_dir,
+        "mp4_path": local_mp4 if os.path.exists(local_mp4) else None,
+        "num_annotations": len(vlm_annotations),
+        "task_description": task_description,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Modal worker: convert + write to volume
+# ---------------------------------------------------------------------------
+@app.function(
+    image=image,
+    secrets=[modal.Secret.from_name("mecka-zarr-conversion")],
+    volumes={EGOVERSE_ZARR_VOLUME_MOUNT: egoverse_zarr_volume},
+    timeout=3600,
+    memory=8192,
+    cpu=2,
+    max_containers=4000,
+    retries=modal.Retries(max_retries=2, initial_delay=5.0, backoff_coefficient=2.0),
+)
+def convert_episode(episode_hash: str, task_type: str, subset_name: str) -> dict:
+    """
+    Convert a single episode and write the result to the Modal volume.
+
+    Returns: ``{episode_hash, status: "ok" | "error", zarr_path, mp4_path, error}``.
+    """
+    import sys
+    sys.path.insert(0, "/root/EgoVerse")
+
+    _validate_subset_name(subset_name)
+
+    tmp_dir = None
+    try:
+        tmp_dir = tempfile.mkdtemp(prefix=f"zarr_{episode_hash}_")
+        result = _prepare_episode(episode_hash, task_type, tmp_dir)
+
+        zarr_path, mp4_path = _write_episode_to_volume(
+            local_zarr_dir=result["zarr_dir"],
+            local_mp4=result["mp4_path"] or "",
+            subset_name=subset_name,
+            task_type=task_type,
+            episode_hash=episode_hash,
+        )
+        egoverse_zarr_volume.commit()
+        logger.info(f"[{episode_hash}] Wrote to volume -> {zarr_path}")
+
+        return {
+            "episode_hash": episode_hash,
+            "task_type": task_type,
+            "status": "ok",
+            "zarr_path": zarr_path,
+            "mp4_path": mp4_path,
+            "num_annotations": result["num_annotations"],
+            "task_description": result["task_description"],
+        }
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {e}"
+        logger.error(f"[{episode_hash}] Failed: {error_msg}")
+        logger.error(traceback.format_exc())
+        try:
+            _delete_episode_from_volume(episode_hash, task_type, subset_name)
+        except Exception as cleanup_error:
+            logger.warning(f"[{episode_hash}] Volume cleanup failed: {cleanup_error}")
+        return {
+            "episode_hash": episode_hash,
+            "task_type": task_type,
+            "status": "error",
+            "error": error_msg,
+        }
+
+    finally:
+        if tmp_dir and os.path.exists(tmp_dir):
+            import shutil
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Batch dispatcher
+# ---------------------------------------------------------------------------
+
+def _run_subset_batch(
+    db,
+    episodes_col,
+    allowed_episode_ids,
+    mongo_filter_json: str,
+    subset_name: str,
+    limit: int,
+    dry_run: bool,
+    force_task_type: str,
+) -> dict:
+    """Dispatch episodes to Modal workers; collect counts. No tracking writes."""
+    import time
+
+    _validate_subset_name(subset_name)
+
+    # ---- 1. Resolve subset (union of ID list + Mongo filter) ----
+    subset_ids: set[str] = set()
+    if allowed_episode_ids:
+        subset_ids |= set(allowed_episode_ids)
+    if mongo_filter_json:
+        subset_ids |= _resolve_mongo_filter_ids(db, mongo_filter_json)
+
+    if not subset_ids:
+        logger.info("Subset is empty (no IDs from list or Mongo filter); nothing to do")
+        return {"total": 0, "ok": 0, "errors": 0, "exceptions": 0}
+
+    all_hashes = sorted(subset_ids)
+    logger.info(
+        f"Subset '{subset_name}': {len(all_hashes)} candidate episodes "
+        f"(list={len(allowed_episode_ids) if allowed_episode_ids else 0}, "
+        f"filter={'set' if mongo_filter_json else 'unset'})"
+    )
+
+    # ---- 2. Classify task_type ----
+    if force_task_type:
+        task_type_by_hash = {h: force_task_type for h in all_hashes}
+        logger.info(f"  Forced task_type={force_task_type} for all episodes")
+    else:
+        task_type_by_hash = _classify_task_types(episodes_col, all_hashes)
+        flagship_count = sum(1 for v in task_type_by_hash.values() if v == "flagship")
+        freeform_count = sum(1 for v in task_type_by_hash.values() if v == "freeform")
+        logger.info(f"  Flagship: {flagship_count}, Freeform: {freeform_count}")
+
+    # ---- 3. Apply limit / dry_run ----
+    work = [(h, task_type_by_hash[h]) for h in all_hashes]
+    if dry_run:
+        work = work[:3]
+        logger.info(f"DRY RUN: processing {len(work)} episodes")
+    elif limit > 0:
+        work = work[:limit]
+        logger.info(f"LIMITED: processing {len(work)} episodes")
+
+    if not work:
+        return {"total": 0, "ok": 0, "errors": 0, "exceptions": 0}
+
+    # ---- 4. Dispatch ----
+    hashes = [w[0] for w in work]
+    task_types = [w[1] for w in work]
+    subset_names = [subset_name] * len(work)
+    total = len(work)
+
+    logger.info(f"Dispatching {total} episodes to Modal (subset='{subset_name}')...")
+    start_time = time.time()
+
+    ok = 0
+    errors: list[str] = []
+    exceptions = 0
+    processed = 0
+
+    for r in convert_episode.map(
+        hashes,
+        task_types,
+        subset_names,
+        order_outputs=False,
+        return_exceptions=True,
+        wrap_returned_exceptions=False,
+    ):
+        processed += 1
+        if isinstance(r, Exception):
+            exceptions += 1
+            errors.append(f"EXCEPTION: {r}")
+        elif isinstance(r, dict):
+            if r["status"] == "ok":
+                ok += 1
+            else:
+                errors.append(f"{r['episode_hash']}: {r.get('error', 'unknown')}")
+
+        if processed % 100 == 0 or processed == total:
+            elapsed = time.time() - start_time
+            rate = processed / elapsed if elapsed > 0 else 0
+            eta_m = (total - processed) / rate / 60 if rate > 0 else 0
+            logger.info(
+                f"PROGRESS: {processed}/{total} ({ok} ok, {len(errors)} err) "
+                f"[{elapsed/60:.1f}m elapsed, ~{eta_m:.0f}m remaining]"
+            )
+
+    elapsed = time.time() - start_time
+    out_prefix = (
+        f"modal-volume://{EGOVERSE_ZARR_VOLUME_NAME}/processed_v3/{subset_name}/"
+    )
+    logger.info("=" * 60)
+    logger.info(
+        f"SUBSET '{subset_name}' DONE in {elapsed/60:.1f} minutes: "
+        f"{ok} ok, {len(errors)} errors, {exceptions} exceptions"
+    )
+    logger.info(
+        f"Outputs landed in Modal volume '{EGOVERSE_ZARR_VOLUME_NAME}' at: "
+        f"{out_prefix}{{flagship,freeform}}/<episode_hash>.zarr"
+    )
+    logger.info("=" * 60)
+
+    if errors:
+        for e in errors[:50]:
+            logger.info(f"  {e}")
+        if len(errors) > 50:
+            logger.info(f"  ... and {len(errors) - 50} more")
+
+    return {
+        "total": total,
+        "ok": ok,
+        "errors": len(errors),
+        "exceptions": exceptions,
+        "elapsed_seconds": elapsed,
+        "subset_name": subset_name,
+        "output_prefix": out_prefix,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Remote orchestrator (runs on Modal; holds Mongo connection for the batch)
+# ---------------------------------------------------------------------------
+@app.function(
+    image=image,
+    secrets=[modal.Secret.from_name("mecka-zarr-conversion")],
+    timeout=86400,
+    memory=4096,
+    cpu=2,
+)
+def orchestrate_subset_batch(
+    episode_ids_csv: str = "",
+    subset_name: str = "",
+    mongo_filter_json: str = "",
+    limit: int = 0,
+    dry_run: bool = False,
+    force_task_type: str = "",
+) -> dict:
+    import sys
+    if "/root/EgoVerse" not in sys.path:
+        sys.path.insert(0, "/root/EgoVerse")
+
+    _validate_subset_name(subset_name)
+
+    allowed_ids = None
+    if episode_ids_csv.strip():
+        allowed_ids = {x.strip() for x in episode_ids_csv.split(",") if x.strip()}
+
+    from pymongo import MongoClient
+
+    mongo_uri = os.environ.get("MONGODB_URI")
+    if not mongo_uri:
+        raise RuntimeError("MONGODB_URI not set")
+    client = MongoClient(mongo_uri)
+    db = client[MONGODB_DB]
+    episodes_col = db[MONGODB_EPISODES_COLLECTION]
+
+    return _run_subset_batch(
+        db=db,
+        episodes_col=episodes_col,
+        allowed_episode_ids=allowed_ids,
+        mongo_filter_json=mongo_filter_json,
+        subset_name=subset_name,
+        limit=limit,
+        dry_run=dry_run,
+        force_task_type=force_task_type,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Local entrypoint
+# ---------------------------------------------------------------------------
+@app.local_entrypoint()
+def main(
+    subset_name: str,
+    episode_ids_file: str = "",
+    mongo_filter_json: str = "",
+    mongo_filter_file: str = "",
+    limit: int = 0,
+    dry_run: bool = False,
+    episode_hash: str = "",
+    force_task_type: str = "",
+):
+    """
+    Dispatch a subset conversion run to Modal.
+
+    Outputs land in Modal volume ``egoverse-zarr-data`` at
+    ``processed_v3/<subset_name>/{task_type}/<episode_hash>.zarr``.
+
+    Args:
+        subset_name: Required. Routing label for the volume path.
+        episode_ids_file: Path to a text file with one episode hash per line.
+        mongo_filter_json: MongoDB extended-JSON filter applied to the
+            ``episodes`` collection. Matches are unioned with ``episode_ids_file``.
+        mongo_filter_file: Path to a file containing the same JSON.
+        limit: Max episodes to process (0 = all matched).
+        dry_run: Process only 3 episodes.
+        episode_hash: Convert a single episode (skips the batch path).
+        force_task_type: Override classification ("flagship" or "freeform").
+    """
+    _validate_subset_name(subset_name)
+
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+    # ---- Single-episode mode ----
+    if episode_hash:
+        logger.info(f"Single-episode mode: {episode_hash} (subset={subset_name})")
+        from pymongo import MongoClient
+        from bson import ObjectId as _OId
+        try:
+            from dotenv import load_dotenv
+            env_path = Path(__file__).resolve().parents[4] / "g_delivery" / ".env"
+            if env_path.exists():
+                load_dotenv(env_path, override=False)
+        except ImportError:
+            pass
+        mongo_uri = os.environ.get("MONGODB_URI")
+        if not mongo_uri:
+            raise RuntimeError("MONGODB_URI not set")
+        client = MongoClient(mongo_uri)
+        db = client[MONGODB_DB]
+        if force_task_type:
+            task_type = force_task_type
+        else:
+            doc = db[MONGODB_EPISODES_COLLECTION].find_one(
+                {"_id": _OId(episode_hash)}, {"deliveryBatch": 1}
+            )
+            task_type = (
+                "freeform"
+                if doc and doc.get("deliveryBatch") == FREEFORM_DELIVERY_BATCH
+                else "flagship"
+            )
+        logger.info(f"  type={task_type}")
+        result = convert_episode.remote(episode_hash, task_type, subset_name)
+        logger.info(f"  result: {result}")
+        return result
+
+    # ---- Batch mode ----
+    ids_csv = ""
+    if episode_ids_file:
+        with open(episode_ids_file) as f:
+            ids_csv = ",".join(line.strip() for line in f if line.strip())
+        logger.info(f"Read {ids_csv.count(',') + 1} episode IDs from {episode_ids_file}")
+
+    filter_json = mongo_filter_json
+    if mongo_filter_file and not filter_json:
+        filter_json = Path(mongo_filter_file).read_text().strip()
+        logger.info(f"Loaded Mongo filter from {mongo_filter_file}")
+
+    logger.info(
+        f"SUBSET MODE: subset_name='{subset_name}'. Outputs -> Modal volume "
+        f"'{EGOVERSE_ZARR_VOLUME_NAME}' under processed_v3/{subset_name}/"
+    )
+    logger.info("Dispatching to remote orchestrator on Modal...")
+
+    result = orchestrate_subset_batch.remote(
+        episode_ids_csv=ids_csv,
+        subset_name=subset_name,
+        mongo_filter_json=filter_json,
+        limit=limit,
+        dry_run=dry_run,
+        force_task_type=force_task_type,
+    )
+    logger.info(f"Result: {json.dumps(result, indent=2, default=str)}")
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Local test (no Modal, no volume — writes to a local output directory)
+# ---------------------------------------------------------------------------
+
+def local_test(
+    subset_name: str,
+    episode_hash: str,
+    output_dir: str = "",
+    force_task_type: str = "",
+):
+    """
+    Convert a single episode locally for debugging.
+
+    Outputs land at ``<output_dir>/<subset_name>/<task_type>/<episode_hash>.{zarr,mp4}``
+    to mirror the Modal volume layout.
+    """
+    _validate_subset_name(subset_name)
+
+    if not episode_hash:
+        raise ValueError("local_test requires --episode-hash")
+
+    import sys
+    import shutil
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+    try:
+        from dotenv import load_dotenv
+        env_path = Path(__file__).resolve().parents[4] / "g_delivery" / ".env"
+        if env_path.exists():
+            load_dotenv(env_path, override=False)
+            logger.info(f"Loaded env from {env_path}")
+    except ImportError:
+        pass
+
+    for var in ["MONGODB_URI", "R2_ACCESS_KEY", "R2_SECRET_KEY", "R2_BUCKET"]:
+        if not os.environ.get(var):
+            raise RuntimeError(f"Missing env var: {var}. Set it or create g_delivery/.env")
+    if not (
+        os.environ.get("R2_ENDPOINT_URL")
+        or os.environ.get("R2_ENDPOINT")
+        or os.environ.get("R2_ACCOUNT_ID")
+    ):
+        raise RuntimeError(
+            "Missing R2 endpoint: set one of R2_ENDPOINT_URL, R2_ENDPOINT, or "
+            "R2_ACCOUNT_ID (32-char Cloudflare R2 account ID)."
+        )
+
+    db = _get_mongo_db()
+    if force_task_type:
+        task_type = force_task_type
+    else:
+        task_type = "freeform" if _is_freeform(db, episode_hash) else "flagship"
+    logger.info(f"Local test: episode={episode_hash}, type={task_type}, subset={subset_name}")
+
+    if not output_dir:
+        output_dir = str(Path(__file__).resolve().parents[3] / "test_data" / "zarr_test")
+    output_path = Path(output_dir) / subset_name / task_type
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    tmp_dir = tempfile.mkdtemp(prefix=f"zarr_local_{episode_hash}_")
+    try:
+        result = _prepare_episode(episode_hash, task_type, tmp_dir)
+
+        zarr_dest = output_path / f"{episode_hash}.zarr"
+        if zarr_dest.exists():
+            shutil.rmtree(zarr_dest)
+        shutil.copytree(result["zarr_dir"], zarr_dest)
+        logger.info(f"Zarr output: {zarr_dest}")
+
+        if result.get("mp4_path") and os.path.exists(result["mp4_path"]):
+            mp4_dest = output_path / f"{episode_hash}.mp4"
+            shutil.copy2(result["mp4_path"], mp4_dest)
+            logger.info(f"MP4 output: {mp4_dest}")
+
+        logger.info("=" * 60)
+        logger.info(f"Episode:      {episode_hash}")
+        logger.info(f"Type:         {task_type}")
+        logger.info(f"Annotations:  {result['num_annotations']} segments")
+        logger.info(f"Task:         {result.get('task_description', '')}")
+        logger.info(f"Output:       {zarr_dest}")
+        logger.info("=" * 60)
+
+        try:
+            import zarr
+            store = zarr.open(str(zarr_dest), mode="r")
+            logger.info(f"Zarr arrays: {list(store.keys())}")
+            logger.info(f"Zarr attrs:  {dict(store.attrs)}")
+        except Exception as e:
+            logger.warning(f"Could not inspect zarr: {e}")
+
+        return result
+
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Mecka to Zarr (local test)")
+    parser.add_argument("--local-test", action="store_true", help="Run local test")
+    parser.add_argument("--subset-name", type=str, required=True,
+                        help="Subset label (required). Allowed chars: [a-zA-Z0-9_.-].")
+    parser.add_argument("--episode-hash", type=str, required=True,
+                        help="Episode hash to convert.")
+    parser.add_argument("--output-dir", type=str, default="",
+                        help="Local output directory (defaults to <repo>/test_data/zarr_test).")
+    parser.add_argument("--force-task-type", type=str, default="",
+                        choices=["", "flagship", "freeform"],
+                        help="Override task_type classification.")
+    args = parser.parse_args()
+
+    if args.local_test:
+        local_test(
+            subset_name=args.subset_name,
+            episode_hash=args.episode_hash,
+            output_dir=args.output_dir,
+            force_task_type=args.force_task_type,
+        )
+    else:
+        print("Use 'modal run' for batch processing, or --local-test for a local single-episode run.")
