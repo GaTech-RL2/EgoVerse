@@ -137,6 +137,14 @@ image = (
         "pyyaml",
         "matplotlib",
         "termcolor",
+        "tqdm",
+        "filelock",
+        "imageio",
+        "imageio-ffmpeg",
+        "safetensors",
+        "huggingface-hub",
+        "scaleapi",
+        "pyzmq",
         "s5cmd",
     )
 )
