@@ -116,9 +116,13 @@ image = (
         "einops",
         "positional-encodings[pytorch]",
         "pytorch-kinematics",
+        "arm-pytorch-utilities",
         "geomloss",
         "tslearn",
         "scipy",
+        # Hydra plugins
+        "hydra-submitit-launcher==1.2.0",
+        "submitit",
         # Vision
         "opencv-python-headless",
         "projectaria-tools",
@@ -144,7 +148,10 @@ image = (
         "safetensors",
         "huggingface-hub",
         "scaleapi",
+        "openai",
         "pyzmq",
+        "datasets==4.0.0",
+        "torchvision==0.21.0",
         "s5cmd",
     )
 )
@@ -255,10 +262,9 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
         check=True,
     )
 
-    # Full install: gets egomimic + all pyproject.toml deps (scaleapi, etc.)
-    # Packages already in the image are skipped by pip, so this is fast.
+    # --no-deps: packages come from the image; just registers egomimic in sys.path
     subprocess.run(
-        [CFG.python_bin, "-m", "pip", "install", "-e", ".", "-q"],
+        [CFG.python_bin, "-m", "pip", "install", "-e", ".", "--no-deps", "-q"],
         cwd=CFG.remote_repo_dir,
         check=True,
     )
