@@ -120,6 +120,7 @@ image = (
         "prettytable",
         "positional-encodings[pytorch]",
         "projectaria-tools",
+        "opencv-python-headless",
         "s5cmd",
     )
 )
