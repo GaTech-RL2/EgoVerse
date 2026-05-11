@@ -95,32 +95,48 @@ image = (
     )
     .apt_install("git")
     .pip_install(
+        # Core training stack
         "lightning",
         "hydra-core",
         "omegaconf",
         "wandb",
+        # Data / storage
         "boto3",
         "cloudpathlib",
         "zarr==3.1.5",
-        "tabulate",
+        "pyarrow",
+        "simplejpeg",
+        "h5py",
+        "av==12.0.0",
+        "mediapy",
+        "datasets==4.0.0",
+        # Model / ML
         "transformers==4.57.3",
         "timm",
         "einops",
-        "pandas",
+        "positional-encodings[pytorch]",
+        "pytorch-kinematics",
+        "geomloss",
+        "tslearn",
+        "scipy",
+        # Vision
+        "opencv-python-headless",
+        "projectaria-tools",
+        "pyquaternion",
+        # Database / infra
         "sqlalchemy",
         "psycopg[binary]",
-        "pyarrow",
-        "simplejpeg",
+        "pandas",
+        # Utilities
         "rich",
+        "tabulate",
+        "prettytable",
         "packaging",
-        "h5py",
         "overrides",
         "typing_extensions",
         "pyyaml",
-        "prettytable",
-        "positional-encodings[pytorch]",
-        "projectaria-tools",
-        "opencv-python-headless",
+        "matplotlib",
+        "termcolor",
         "s5cmd",
     )
 )
