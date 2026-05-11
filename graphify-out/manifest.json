@@ -1,0 +1,2078 @@
+{
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/setup.py": {
+    "mtime": 1778511496.1160412,
+    "hash": "2c92398fa49e0af51ee1eadb985b94c9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/__init__.py": {
+    "mtime": 1778511495.8558648,
+    "hash": "68b329da9893e34099c7d8ad5cb9c940"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/trainHydra.py": {
+    "mtime": 1778511496.060815,
+    "hash": "52bfa29261d3f08a53dcf98762eb2cb9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/pl_utils/pl_data_utils.py": {
+    "mtime": 1778511495.8710449,
+    "hash": "6da8e8b8f8a0f63a5b95e42111f25be1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/pl_utils/pl_model.py": {
+    "mtime": 1778511495.8713384,
+    "hash": "e29c51759ad9e64e9a00c5c910fc1ee6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/pl_utils/test_model_wrapper.py": {
+    "mtime": 1778511495.8715882,
+    "hash": "88859965ef552bc3b4b0f1f8bf0afa85"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/algo/hpt.py": {
+    "mtime": 1778511495.8567686,
+    "hash": "f33761780a1e232da6d6efc2d8902acb"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/algo/test_pi.py": {
+    "mtime": 1778511495.857647,
+    "hash": "570a759e03118b32a8838d72a1ba8b33"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/algo/__init__.py": {
+    "mtime": 1778511495.8560572,
+    "hash": "f0c8a0530ddfe20ac3205bf430de41b4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/algo/pi.py": {
+    "mtime": 1778511495.8573823,
+    "hash": "a118e9e4ce71033fd6ddfe31b223f098"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/algo/act.py": {
+    "mtime": 1778511495.8564308,
+    "hash": "08a952044bc1ec863393ba6bfd351ea2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/algo/algo.py": {
+    "mtime": 1778511495.8565686,
+    "hash": "642dd4c51874f07ffad8548ac8c7b22b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/hydra_utils.py": {
+    "mtime": 1778511496.0657358,
+    "hash": "fb19c7ecc5367b77849d07754bdb907f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/pose_utils.py": {
+    "mtime": 1778511496.0665443,
+    "hash": "13352d3f7995afb6d5c02fa5dbb76c6e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/video_utils.py": {
+    "mtime": 1778511496.0677845,
+    "hash": "5545f2f9d71413e6a70be802fce6f898"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/scale_utils.py": {
+    "mtime": 1778511496.0670886,
+    "hash": "ff1b24b0f10836c34546116c9ae5a50b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/instantiators.py": {
+    "mtime": 1778511496.065841,
+    "hash": "f50ec489d0610f1ddbe295f6b9cbddc5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/real_utils.py": {
+    "mtime": 1778511496.066759,
+    "hash": "9512369f85705dcb9a2e28f49d6e5d7b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/type_utils.py": {
+    "mtime": 1778511496.0674613,
+    "hash": "6b3fac2af0969e253f44b343d79b9250"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/__init__.py": {
+    "mtime": 1778511496.0610163,
+    "hash": "2f8f4aefce32ac3b2adee8decc1e94e1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/timing_callback.py": {
+    "mtime": 1778511496.0673606,
+    "hash": "ca66d87a4ceb135d487df20943e8eef0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/egomimicUtils.py": {
+    "mtime": 1778511496.0656073,
+    "hash": "43276cd49260a5281392c164b5bf3245"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/viz_utils.py": {
+    "mtime": 1778511496.0682113,
+    "hash": "3cb46e94421dcfc286c6e8b33704584b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/rich_utils.py": {
+    "mtime": 1778511496.066863,
+    "hash": "afbda8575a2968024cf8e633325728e7"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/action_utils.py": {
+    "mtime": 1778511496.061286,
+    "hash": "6ae8a85ff1c9dfd3e3971f859ce70711"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/tensor_utils.py": {
+    "mtime": 1778511496.067244,
+    "hash": "e2f60f890bbcbe1dd93a7914ee006bcb"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/obs_utils.py": {
+    "mtime": 1778511496.0662723,
+    "hash": "2bd5c6285da78f665cd8a87b79b83f75"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/utils.py": {
+    "mtime": 1778511496.0676816,
+    "hash": "8aa4b766af09223fd3f4ebeec8727d58"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/logging_utils.py": {
+    "mtime": 1778511496.065942,
+    "hash": "5ff79f7f7358006bd7147dc4297f7180"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/pylogger.py": {
+    "mtime": 1778511496.066651,
+    "hash": "ca49c0da0c662d9b4698108c80e070f8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/memory_utils.py": {
+    "mtime": 1778511496.0661695,
+    "hash": "6795db55517c783901f2da827db91790"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/aws_data_utils.py": {
+    "mtime": 1778511496.0621452,
+    "hash": "beae4865a3d4a1727c973ba97bc5ad9d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/__init__.py": {
+    "mtime": 1778511496.0615606,
+    "hash": "95d099b69ffab772b8998e1e09f195f2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/test_s3_write.py": {
+    "mtime": 1778511496.0653253,
+    "hash": "8a351d1bd469c75c2f9e2af0f4668970"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/aws_sql.py": {
+    "mtime": 1778511496.0623822,
+    "hash": "6e1f120924d1fd6dd241625c9b7186e0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/add_raw_data_to_table.py": {
+    "mtime": 1778511496.0619044,
+    "hash": "2c7c720143dbfc6f56e55d2aaf7c184e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/test_sql_access.py": {
+    "mtime": 1778511496.0654352,
+    "hash": "200d33d92738217ac1ed57faf0c8fd54"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/migrate_add_zarr_columns.py": {
+    "mtime": 1778511496.0642197,
+    "hash": "f2c80649dd18b60c69bff26f754dd15b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/budget_guardrails/setup_budget_guardrails.py": {
+    "mtime": 1778511496.0631146,
+    "hash": "6876e81c7bcf7126b5319876485d942a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/budget_guardrails/stop_ec2_lambda.py": {
+    "mtime": 1778511496.0632446,
+    "hash": "2e4f6da4e8ccc8f0b3de8cd74e3cc00d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/budget_guardrails/ray_worker_gaurdrails.py": {
+    "mtime": 1778511496.0626965,
+    "hash": "d5881a8b866c8eedac54d1abe7fa13ba"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/ddim_scheduler.py": {
+    "mtime": 1778511495.8698642,
+    "hash": "0e62b1dca4cc412f51705e111bcb364e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/fm_policy.py": {
+    "mtime": 1778511495.8705184,
+    "hash": "dd46df8e093c52efc4e6b02a7148e884"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/preprocess_pi_obs.py": {
+    "mtime": 1778511495.8708134,
+    "hash": "757781a5b38de6a2d851ba1b165ad2ec"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/act_nets.py": {
+    "mtime": 1778511495.8697076,
+    "hash": "a495846182cc17c68bdd08e1b0e1ce40"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/denoising_nets.py": {
+    "mtime": 1778511495.8700337,
+    "hash": "f6c65a4bbd074b5aa95275120e4aca35"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/diffusion_policy.py": {
+    "mtime": 1778511495.8704212,
+    "hash": "4e6f174b61496730679ec0ae6bd48419"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/__init__.py": {
+    "mtime": 1778511495.8693116,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/hpt_nets.py": {
+    "mtime": 1778511495.8706853,
+    "hash": "b4ca02bdf6e51d60683a011db701369c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/models/denoising_policy.py": {
+    "mtime": 1778511495.8702953,
+    "hash": "5176c3f3f45e1330f7312f305edfaa83"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/kinematics.py": {
+    "mtime": 1778511495.9929001,
+    "hash": "afafe7953ebec54da67dcf9de06d6204"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/__init__.py": {
+    "mtime": 1778511495.8782604,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/test.py": {
+    "mtime": 1778511496.0337086,
+    "hash": "efbbd77bb51366d22ee8d954f93b2fd6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/calibrate_utils.py": {
+    "mtime": 1778511495.8787415,
+    "hash": "04b2b347df06f167a25f3af3a11f2163"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/rollout.py": {
+    "mtime": 1778511496.033475,
+    "hash": "7e728c7d4240e28a788ce9a19fc6d197"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/bgr_to_rgb.py": {
+    "mtime": 1778511495.8784926,
+    "hash": "9fb131df276a6e950bc3b4e3b4fb8f25"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/plot_cartesian.py": {
+    "mtime": 1778511496.0330245,
+    "hash": "42f57fb337f92c5dc4aae0393223909a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/collect_demo.py": {
+    "mtime": 1778511495.8789248,
+    "hash": "d679afe47fe108530ec2cb6a54132f3a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/robot_utils.py": {
+    "mtime": 1778511496.0332735,
+    "hash": "388815d601c1691d9e1aad30f2f6cd75"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/render_ik_video.py": {
+    "mtime": 1778511495.9171832,
+    "hash": "fd62af1e6412cfb91ccae4ecbfdc5001"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/test_mink_solver.py": {
+    "mtime": 1778511495.9925954,
+    "hash": "312910e923e132c0c7349cb37675c1b8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_kinematics.py": {
+    "mtime": 1778511495.8802497,
+    "hash": "53cc142f94b5c7758992001784267415"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/arx5_pybind.cpp": {
+    "mtime": 1778511495.9858327,
+    "hash": "2e39e99c459af7655f9cdfd1b4221fdc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/teach_replay.py": {
+    "mtime": 1778511495.9884226,
+    "hash": "f25cdab2031503e6f305c5ad99e988b3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/test_bimanual.py": {
+    "mtime": 1778511495.9885793,
+    "hash": "4f96133738cb9fc5a12aa44da9d6047d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/cartesian_waypoint_scheduling.py": {
+    "mtime": 1778511495.9875429,
+    "hash": "e0a21651c8e888351e9f03370b449ba7"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/joint_waypoint_scheduling.py": {
+    "mtime": 1778511495.987659,
+    "hash": "dca7e24993d57b7cdc38e71350f7e61c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/test_x7.py": {
+    "mtime": 1778511495.989434,
+    "hash": "cadae2421687f0ad613e150eccf02b2a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/test_upside_down.py": {
+    "mtime": 1778511495.9893022,
+    "hash": "38327f57feb50d41580147806b0cde85"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/test_torque_control.py": {
+    "mtime": 1778511495.9890575,
+    "hash": "f5f53420efc1fd4f05b20395f6c7d3b8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/test_gripper_force_compensation.py": {
+    "mtime": 1778511495.9887168,
+    "hash": "dfd3b9523a2830f658c67be8261bc86c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/test_joint_control.py": {
+    "mtime": 1778511495.9888284,
+    "hash": "2caab764b3a68d881ea9649f598a7c8a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/test_solver.py": {
+    "mtime": 1778511495.9889412,
+    "hash": "51823d4458f7a5255b2c8b9d0dcee1fe"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/calibrate.py": {
+    "mtime": 1778511495.987423,
+    "hash": "f7c3073cc6a38e523fbe8d18b6b1c2d5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/spacemouse_teleop.py": {
+    "mtime": 1778511495.9881623,
+    "hash": "f503fb1e4f5790a2b80e070232eb11be"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/keyboard_teleop.py": {
+    "mtime": 1778511495.987925,
+    "hash": "3ef3f6d058935bd4578abbf260374738"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/arx5_zmq.py": {
+    "mtime": 1778511495.9871886,
+    "hash": "6665c5d601b7ee3e354d603eaaae9043"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/examples/aloha.py": {
+    "mtime": 1778511495.9870732,
+    "hash": "5da7943e137d9ec827388c13b5e1c66a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/peripherals/keystroke_counter.py": {
+    "mtime": 1778511495.9896216,
+    "hash": "5021d3196ae9802f913dde55f1a47aec"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/peripherals/spacemouse_shared_memory.py": {
+    "mtime": 1778511495.989972,
+    "hash": "c87d3cf82b565a05eba1e721c7097f6b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/communication/zmq_client.py": {
+    "mtime": 1778511495.9864647,
+    "hash": "adfadb49a458f13b271b145050042afa"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/communication/zmq_server.py": {
+    "mtime": 1778511495.9868603,
+    "hash": "9782b769a068f4ecfb7f4558b8fdf5cf"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/shared_memory/shared_memory_ring_buffer.py": {
+    "mtime": 1778511495.9907398,
+    "hash": "2ac1275094cb5dc84c5a84448f04937c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/shared_memory/shared_memory_queue.py": {
+    "mtime": 1778511495.9904795,
+    "hash": "8bf3964f4a2814b5f12cb841db27b60b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/shared_memory/shared_ndarray.py": {
+    "mtime": 1778511495.9910855,
+    "hash": "269a9b3679b03821343648707c78db98"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/shared_memory/shared_memory_util.py": {
+    "mtime": 1778511495.990847,
+    "hash": "6488dc76f68c2c62a34475934c095fd3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/utils.h": {
+    "mtime": 1778511495.9209328,
+    "hash": "f5db6d78503f096d6aa41da6535fe084"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/hardware/arx_can.h": {
+    "mtime": 1778511495.9201705,
+    "hash": "ad5441245580b6a437d1167f17a4173c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/hardware/math_ops.h": {
+    "mtime": 1778511495.9202855,
+    "hash": "e509d5f76fc06d0898a5580bf5320611"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/app/controller_base.h": {
+    "mtime": 1778511495.9197478,
+    "hash": "4b465053040a9829f90273778c515ff9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/app/joint_controller.h": {
+    "mtime": 1778511495.9198675,
+    "hash": "7bcdb5561a0128273ca25b0b59089c1e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/app/config.h": {
+    "mtime": 1778511495.9194655,
+    "hash": "a13ac61bb9162e8158aa6fb00f0cee7f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/app/solver.h": {
+    "mtime": 1778511495.9199796,
+    "hash": "ae1e4683320d3e5fa97df0673c2aba4d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/app/common.h": {
+    "mtime": 1778511495.9193082,
+    "hash": "39ba7d50892b3498ba42cee4b3075b36"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/app/cartesian_controller.h": {
+    "mtime": 1778511495.9189477,
+    "hash": "41b51cb405b10070d5c4b657ec86cfa1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/libcan/SocketCAN.h": {
+    "mtime": 1778511495.9207916,
+    "hash": "ec8880ae36b3c6a14175bb311c467687"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/include/libcan/CANFrame.h": {
+    "mtime": 1778511495.9205983,
+    "hash": "530a84e882830dec39d10ae6e9e49c72"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/examples/test_cartesian_controller.cpp": {
+    "mtime": 1778511495.9185836,
+    "hash": "a3e87d425811555bdb2608ba8fe376dd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/examples/test_joint_controller.cpp": {
+    "mtime": 1778511495.9186924,
+    "hash": "e57fe135401cc739ee603ce2cb923601"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/lib/x86_64/soem_compat.c": {
+    "mtime": 1778511495.9244807,
+    "hash": "1f764a520cead050b7f4a71f93e9b3a6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/src/utils.cpp": {
+    "mtime": 1778511495.992434,
+    "hash": "84f0a6aa7975ca9ee7717c9f46994296"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/src/app/cartesian_controller.cpp": {
+    "mtime": 1778511495.9916356,
+    "hash": "d31e277f7c4ed7bd5455c215fd962a1c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/src/app/controller_base.cpp": {
+    "mtime": 1778511495.9917817,
+    "hash": "b7405bddadfd0f7df81b85d80db0a124"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/src/app/joint_controller.cpp": {
+    "mtime": 1778511495.9921627,
+    "hash": "45ce76e10ba4653427486d47383cb637"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/setup.py": {
+    "mtime": 1778511495.9168675,
+    "hash": "4059dd37ffca7f4417a5a1c6e10dcb3f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/eva/stream_d405.py": {
+    "mtime": 1778511495.8827932,
+    "hash": "9e6c7bfcd392db50067cee4639c8f56b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/eva/vr_controller.py": {
+    "mtime": 1778511495.8829558,
+    "hash": "87dca1644a4421f38669264a3b4ef2cd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/eva/robot_node.py": {
+    "mtime": 1778511495.8822684,
+    "hash": "b1645fde2cb23b9a12bf3e8b2b97080c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/eva/__init__.py": {
+    "mtime": 1778511495.8814542,
+    "hash": "f73dc44a1647d820037b3dbef47f40db"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/eva/robot_interface.py": {
+    "mtime": 1778511495.881632,
+    "hash": "8c47f66164f85b7c263d8ed07d7a2a1f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/eva/stream_aria.py": {
+    "mtime": 1778511495.8825383,
+    "hash": "b2532455b171d6881fbaf24b58083a90"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/launch/eva_bringup.launch.py": {
+    "mtime": 1778511495.8832917,
+    "hash": "f1bbb103b92734a67a5cf6026de6868a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/setup.py": {
+    "mtime": 1778511496.0327458,
+    "hash": "a2d7178e38cc9d5cf42dcff7e6fefecc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/app_source/Projects/Android/build.py": {
+    "mtime": 1778511495.9960382,
+    "hash": "a2c566df5300404973cbd947accb2a13"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/app_source/java/com/rail/oculus/teleop/MainActivity.java": {
+    "mtime": 1778511496.0303094,
+    "hash": "f1455742054c68d0b3fb2385b3f3be9a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/app_source/Src/Buttons.cpp": {
+    "mtime": 1778511495.9972777,
+    "hash": "66504721702dc39f3f834833f5a10735"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/app_source/Src/OculusTeleop.h": {
+    "mtime": 1778511495.9977531,
+    "hash": "126b270981c26a97cab45ba62f0cdf25"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/app_source/Src/OculusTeleop.cpp": {
+    "mtime": 1778511495.9976008,
+    "hash": "5032092087539690d71bc3334e72b68e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/app_source/Src/Buttons.h": {
+    "mtime": 1778511495.9973805,
+    "hash": "2e769ff407742906c016c8f3efe4a1e0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/app_source/Src/main.cpp": {
+    "mtime": 1778511495.997874,
+    "hash": "e1a95ca0dff6cd80fbc9c3fcfc75838b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/visualize_oculus_transforms.py": {
+    "mtime": 1778511496.032386,
+    "hash": "6511dc667468ef5397a69af4e59a174e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/__init__.py": {
+    "mtime": 1778511496.0315158,
+    "hash": "5aee92412a71267c20aca4527efc001e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/FPS_counter.py": {
+    "mtime": 1778511496.0309718,
+    "hash": "a972fcc1997de3819e91504712b6f6ca"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/reader.py": {
+    "mtime": 1778511496.0322342,
+    "hash": "721870d3a8b37b3c2761b55fe38d7cd6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/buttons_parser.py": {
+    "mtime": 1778511496.0316443,
+    "hash": "dfe977b3310085b5f670dac42e8097d8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/install.py": {
+    "mtime": 1778511496.031763,
+    "hash": "1ddf1978baa6fde0899c4cbf76961360"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/visualize_oculus_transforms_ros2.py": {
+    "mtime": 1778511496.0325067,
+    "hash": "4e4bbd3016ee2f55d59687e1b0be0432"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/compression_utils.py": {
+    "mtime": 1778511495.8733745,
+    "hash": "233442b09b3082906d8c92967aeec079"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/__init__.py": {
+    "mtime": 1778511495.8731644,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/data_utils.py": {
+    "mtime": 1778511495.8734963,
+    "hash": "fc616f8f3956cf100c8d3cf4df7c77e8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/utils.py": {
+    "mtime": 1778511495.8757746,
+    "hash": "c85be62fff3fdc90967cf82d15bb7364"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/filters.py": {
+    "mtime": 1778511495.8742464,
+    "hash": "83a3f329e0bd1cd6213b5214e479b468"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/test_action_chunk_transforms_unit.py": {
+    "mtime": 1778511495.8765497,
+    "hash": "40361a532207774886f498cac4dbf273"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/test_dataset_filter.py": {
+    "mtime": 1778511495.8768022,
+    "hash": "7e6f123aa887bf869af83f87eda1af6f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/__init__.py": {
+    "mtime": 1778511495.8759582,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/benchmark_forward_pass.py": {
+    "mtime": 1778511495.8763583,
+    "hash": "0e5b68de32f73763b1dab6afeaad317b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/zarr_dataset_action_expert.py": {
+    "mtime": 1778511495.877407,
+    "hash": "fc3bad98f34e8a37977ecefaeb4a1f64"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/zarr_writer.py": {
+    "mtime": 1778511495.8779707,
+    "hash": "937594d91129ac5cd8fd75ca5e393317"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/action_chunk_transforms.py": {
+    "mtime": 1778511495.876162,
+    "hash": "55c391c2a87e6f6bc878c19cc72630ed"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/utils.py": {
+    "mtime": 1778511495.8771222,
+    "hash": "b4e9629919c4803f04cd57008a9db3e2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/zarr_dataset_multi.py": {
+    "mtime": 1778511495.8776255,
+    "hash": "06a1cd8f2215db5fe46e291da07d8ea8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/test_zarr.py": {
+    "mtime": 1778511495.8769453,
+    "hash": "a5e8373f943b3d30ddf09ffc9806efa5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/zarr/zarr_write_test.py": {
+    "mtime": 1778511495.87781,
+    "hash": "d24e1f21923bd77df53eff026239b586"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/scripts/test_load_dataset.py": {
+    "mtime": 1778511495.8752341,
+    "hash": "3df4fd9d7d820ed95b4471fab7ed8952"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/scripts/__init__.py": {
+    "mtime": 1778511495.8743641,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/scripts/aloha_hd5.py": {
+    "mtime": 1778511495.8746264,
+    "hash": "23a43b30849db79e72e3b4c7930601c3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/scripts/robomimic_hd5.py": {
+    "mtime": 1778511495.8748195,
+    "hash": "e6dfe1174ee44da900a9e6b7cd7e516f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/scripts/utils.py": {
+    "mtime": 1778511495.8755262,
+    "hash": "482065bd69dced29854089cd7cbeeea2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/embodiment/embodiment.py": {
+    "mtime": 1778511495.8738253,
+    "hash": "be9950f19910006ef3951d206eb5b8b8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/embodiment/human.py": {
+    "mtime": 1778511495.874121,
+    "hash": "6b45de84d9e4538328d69e3944e5cd08"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/embodiment/eva.py": {
+    "mtime": 1778511495.87395,
+    "hash": "7303aaa15a3fa05fded29466ca9f4c71"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/__init__.py": {
+    "mtime": 1778511495.8586657,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/run_conversion.py": {
+    "mtime": 1778511496.0588121,
+    "hash": "2592953da7ea5ddec559ee1a4945489a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/__init__.py": {
+    "mtime": 1778511496.0338306,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/viz_language.py": {
+    "mtime": 1778511496.060412,
+    "hash": "ee133a06ddbdcda7b019b1737d3643b9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/ray_helper.py": {
+    "mtime": 1778511496.0585077,
+    "hash": "a93f8878ebcc5d55e5b7ae122b2db656"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/data_visualization.py": {
+    "mtime": 1778511496.0440044,
+    "hash": "2ae4c081b968841dcfc1020e225d52b4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/benchmark/norm_stats.py": {
+    "mtime": 1778511496.0406244,
+    "hash": "6cae0dc88e4de7a059deaf2db3063f3c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/calibrate_camera/calibrate_egoplay.py": {
+    "mtime": 1778511496.0415804,
+    "hash": "969c38ec486556707163b91f038dc8fb"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/calibrate_camera/aloha_to_robomimic_calibrate.py": {
+    "mtime": 1778511496.0412114,
+    "hash": "1d1d29a4763ffbe9eee8489311691b45"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/calibrate_camera/calibrate_intrinsics.py": {
+    "mtime": 1778511496.0419552,
+    "hash": "33ada69aefd40aaba22f247b70e8e84a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/calibrate_camera/calibrate_eva.py": {
+    "mtime": 1778511496.0418105,
+    "hash": "edc6731f6470306c91152d86e6b1ef70"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/language_process/scale_annotation_download.py": {
+    "mtime": 1778511496.0494342,
+    "hash": "4981a5791fc61a7026d25ef4bdf2b644"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/language_process/scale_to_zarr_annotation.py": {
+    "mtime": 1778511496.0502117,
+    "hash": "470982320bb6abf1b198ea259d68996f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/language_process/converter.py": {
+    "mtime": 1778511496.0488646,
+    "hash": "13a85301214797330511ed9ecf6259f3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/language_process/bucket_to_zarr_annotation_parallel.py": {
+    "mtime": 1778511496.0483449,
+    "hash": "0e3c8d829a4ffb01cb3c9cb0f03f41a9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/language_process/scale_to_bucket_annotation_parallel.py": {
+    "mtime": 1778511496.0498385,
+    "hash": "819b4a6be536cd3b568ce948064d39e2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/language_process/scale_to_zarr_annotation_parallel.py": {
+    "mtime": 1778511496.0507026,
+    "hash": "79cce390570cb5d6bb25db1f05af33c8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion.py": {
+    "mtime": 1778511496.0368767,
+    "hash": "8deba4dff70cec2348267fc159dd0502"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/aria_to_lerobot.py": {
+    "mtime": 1778511496.034939,
+    "hash": "a22dca26d5d7dea8f52d8ba2762edfcd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/aria_utils.py": {
+    "mtime": 1778511496.0356317,
+    "hash": "b81f7b23742f7f49478a23f9a9d833bc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/aria_helper.py": {
+    "mtime": 1778511496.0347154,
+    "hash": "bf7961bfcb1205fd3726d790bd3aada6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/headpose_var.py": {
+    "mtime": 1778511496.035768,
+    "hash": "b0419929fac357a1dc8695ab0e870f6a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/aria_to_zarr.py": {
+    "mtime": 1778511496.035489,
+    "hash": "5e186eca6a1aac091bba0d793d5ba638"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/run_aria_conversion_deprecated.py": {
+    "mtime": 1778511496.0380046,
+    "hash": "8bdf397c95101e8d13415ea9e172dd7f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/data_upload/eva_uploader.py": {
+    "mtime": 1778511496.0432017,
+    "hash": "976170345d33641e255d1dd28c15f529"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/data_upload/abstract_upload.py": {
+    "mtime": 1778511496.0428932,
+    "hash": "23ee6a3a229b7ee381db6146529ed0a9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/data_upload/eve_uploader.py": {
+    "mtime": 1778511496.0433419,
+    "hash": "87f9aa49ee89fb4af107d6a927100e33"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/data_upload/aria_uploader.py": {
+    "mtime": 1778511496.043032,
+    "hash": "c012148c85ae278bed66954209c59534"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mecka_process/download_episodes.py": {
+    "mtime": 1778511496.0508828,
+    "hash": "bc6b79aab7be454a9ad689c33d17f50a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mecka_process/hand_visualizer.py": {
+    "mtime": 1778511496.0511255,
+    "hash": "3f7dacb2243d7b6d31a03a82d8775557"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mecka_process/pull_sample_data.py": {
+    "mtime": 1778511496.055892,
+    "hash": "0d7614213077b49ed24cd80a05688be7"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mecka_process/test_data.py": {
+    "mtime": 1778511496.0561507,
+    "hash": "def21aeb64ceeac8e2d3a2f957075d2f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mecka_process/mecka_to_lerobot.py": {
+    "mtime": 1778511496.0514917,
+    "hash": "76ebda46b4c98ff9ff677d98a074848e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mecka_process/mecka_to_zarr.py": {
+    "mtime": 1778511496.0516791,
+    "hash": "b18f73da52f671866f999cf473463f51"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/data_download/sync_s3.py": {
+    "mtime": 1778511496.042202,
+    "hash": "3b423970473bd7368cd915bb393d0905"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/plotting/plotting.py": {
+    "mtime": 1778511496.058286,
+    "hash": "e1c9aa25fc09f924268ca08ac6894b50"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/eva_process/check_zero.py": {
+    "mtime": 1778511496.0456958,
+    "hash": "91e5ae5540cba062907dbf1b8fdde76c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/eva_process/eva_to_zarr.py": {
+    "mtime": 1778511496.0471117,
+    "hash": "7316497b3f65af6ecf65c5fff6339f64"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/eva_process/eva_helper.py": {
+    "mtime": 1778511496.0464182,
+    "hash": "e4ab5d222de63d19cf84c750a0b1c7d2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/eva_process/eva_to_lerobot.py": {
+    "mtime": 1778511496.046596,
+    "hash": "b532f98f306a71d2b841f29c6dba4c50"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/eva_process/eva_utils.py": {
+    "mtime": 1778511496.0473952,
+    "hash": "3e411fbbd810cf3abf9b3f970c10283d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mps_process/run_daily_mps_v3.py": {
+    "mtime": 1778511496.0572472,
+    "hash": "1fda33b069d7a95c1aad1f1ca0dba05f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mps_process/run_daily_mps_v2.py": {
+    "mtime": 1778511496.0571344,
+    "hash": "8109384a16b72a47101129f7ef2896d3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mps_process/run_daily_mps_v1.py": {
+    "mtime": 1778511496.0568852,
+    "hash": "189149643d44a1f1e98c66de58cb157a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mps_process/clean_mps.py": {
+    "mtime": 1778511496.0563943,
+    "hash": "0e2818b0964b8c2c2c472962ce47ebfc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mps_process/s3_parallel_processor.py": {
+    "mtime": 1778511496.0576549,
+    "hash": "57f748065329c394641f9f5bcf92e802"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/evaluation/eval.py": {
+    "mtime": 1778511496.0475974,
+    "hash": "7a6ea36119a8a05ff12c0e1d91fbd76e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/tutorials/zarr_data_viz.py": {
+    "mtime": 1778511496.0599856,
+    "hash": "8407471bcc1d6d3b12999f724e72b471"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/tutorials/zarr_viz_annotation.py": {
+    "mtime": 1778511496.0600991,
+    "hash": "9760d6767bd7fe6a8b0caeeff7da1b20"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aloha_process/aloha_to_lerobot.py": {
+    "mtime": 1778511496.0341635,
+    "hash": "6e57c0cbb09bc5c47c688fec09553174"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/backfill_scripts/backfill_with_csv.py": {
+    "mtime": 1778511496.0390925,
+    "hash": "dfbbe23259556cf1b893754171de81a6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/backfill_scripts/rename_processed_paths.py": {
+    "mtime": 1778511496.0403068,
+    "hash": "4e30043994cb7ba386822f8f324fee15"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/backfill_scripts/delete_old_processed_paths.py": {
+    "mtime": 1778511496.0395799,
+    "hash": "01db63bf29898d59cdce3a2b92c8e831"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/backfill_scripts/csv_uploader.py": {
+    "mtime": 1778511496.0394368,
+    "hash": "e5a0c218d280ae270955df24b8bed1d0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/backfill_scripts/health_check.py": {
+    "mtime": 1778511496.0400357,
+    "hash": "e9035db79a29c9525d67b605350306fa"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/backfill_scripts/backfill_script.py": {
+    "mtime": 1778511496.0386362,
+    "hash": "68771d1317a5bcd786a5b9c230b983a7"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/embedding_process/zarr_key_transform.py": {
+    "mtime": 1778511496.0453796,
+    "hash": "8ed126c047d85764039245f36b54282e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/embedding_process/dinov3_embedding.py": {
+    "mtime": 1778511496.0444643,
+    "hash": "febe1fceee3e8139106b4fd965878900"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/embedding_process/zarr_embedding.py": {
+    "mtime": 1778511496.0451233,
+    "hash": "20d85522aa5068cccb1b66ed1bb7ce68"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/embedding_process/qwen3_embedding.py": {
+    "mtime": 1778511496.0447106,
+    "hash": "34e2cdb1bb9638bb542262a75ed6909d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/eval/eval_pi.py": {
+    "mtime": 1778511495.8583171,
+    "hash": "fdcca36fad13fcb2461f6344b159123a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/eval/eval_hpt.py": {
+    "mtime": 1778511495.858209,
+    "hash": "7bfb0effdb3a26f21efc486cef10d6e8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/eval/eval_video.py": {
+    "mtime": 1778511495.858548,
+    "hash": "cc9113ebc639700507408320d7dab075"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/eval/eval_act.py": {
+    "mtime": 1778511495.8579838,
+    "hash": "0759ad202715df8eacacbcf43185015b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/eval/eval.py": {
+    "mtime": 1778511495.8578553,
+    "hash": "08d665ecdbfedbb6677543310a4c787a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/__init__.py": {
+    "mtime": 1778511496.0769875,
+    "hash": "4171cca3f871b299f10e1fcdcaaf279d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/__version__.py": {
+    "mtime": 1778511496.0771072,
+    "hash": "3a342bb7a4aaacb88e8ec835db23dd05"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/logger.py": {
+    "mtime": 1778511496.089255,
+    "hash": "a862a4edbabe0c7ba9be2850c1594fa9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/transforms.py": {
+    "mtime": 1778511496.0874383,
+    "hash": "d6abf59cb47195e70e8b8fdbb3a8f5f5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/video_utils.py": {
+    "mtime": 1778511496.088487,
+    "hash": "3719715c3a680d3fda62bca2ebbf47ca"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/compute_stats.py": {
+    "mtime": 1778511496.0777714,
+    "hash": "4eacdae7e6af67d6a5576bb70fd35a47"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/factory.py": {
+    "mtime": 1778511496.0780144,
+    "hash": "8c29708e154e878bc0da03b6fe373f68"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/image_writer.py": {
+    "mtime": 1778511496.0782404,
+    "hash": "ee2d413470d5b95d0a68a4fbe3dc5ddb"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/utils.py": {
+    "mtime": 1778511496.0875983,
+    "hash": "79d14886235c3beb11eeb9e75b2de8fc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/lerobot_dataset.py": {
+    "mtime": 1778511496.0784237,
+    "hash": "adf2090b3f6933011abaabdbae431044"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/sampler.py": {
+    "mtime": 1778511496.086991,
+    "hash": "07a9b6f079a66fbad178881b128d498d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/online_buffer.py": {
+    "mtime": 1778511496.078569,
+    "hash": "0596296819d4c9a433d3bcefb284e64e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/aloha_hdf5_format.py": {
+    "mtime": 1778511496.08439,
+    "hash": "73f540d4609051ee71eaefabbe06243d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_encode_datasets.py": {
+    "mtime": 1778511496.0836601,
+    "hash": "47414899ef9ee594031335ea7f6b85e3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_umi_imagecodecs_numcodecs.py": {
+    "mtime": 1778511496.083969,
+    "hash": "45351f40d2c497f0f9c992bed9c63e32"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/umi_zarr_format.py": {
+    "mtime": 1778511496.0862365,
+    "hash": "ce3ba05673c86829d0212e7dde59f27e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/openx_rlds_format.py": {
+    "mtime": 1778511496.0853205,
+    "hash": "5b5f4772135939734454ec43d1d38d02"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_diffusion_policy_replay_buffer.py": {
+    "mtime": 1778511496.0827606,
+    "hash": "b82be35a949e9d517ae9828a89acc884"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_download_raw.py": {
+    "mtime": 1778511496.08341,
+    "hash": "720253f96283d658e578b9d55e7fe036"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/dora_parquet_format.py": {
+    "mtime": 1778511496.0848055,
+    "hash": "85736ba562da9fd9a6177b32d8f78c97"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/utils.py": {
+    "mtime": 1778511496.0864851,
+    "hash": "c9be20ff9210acac596706e2241e633f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/pusht_zarr_format.py": {
+    "mtime": 1778511496.0859356,
+    "hash": "d1ddbb5280ba426139b4c001dfd7baeb"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/cam_png_format.py": {
+    "mtime": 1778511496.0845225,
+    "hash": "60dbefa5109919e2f50bd0b2a868da03"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/xarm_pkl_format.py": {
+    "mtime": 1778511496.086863,
+    "hash": "f0976b67d943e7a2a03139cf6268ddcf"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/v2/convert_dataset_v1_to_v2.py": {
+    "mtime": 1778511496.0880156,
+    "hash": "b1d8627b56d9900b1773038af577f714"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/v2/batch_convert_dataset_v1_to_v2.py": {
+    "mtime": 1778511496.0878558,
+    "hash": "013c72d003de8e73c667f5d398095341"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/utils/benchmark.py": {
+    "mtime": 1778511496.096662,
+    "hash": "b4c42874dfdf37a8745d406e2cd4d819"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/utils/utils.py": {
+    "mtime": 1778511496.0971615,
+    "hash": "08a96ab41ebae7376057e170594452a1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/utils/io_utils.py": {
+    "mtime": 1778511496.0969179,
+    "hash": "4598cf40b90017eaa42211d4c616fd5b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/utils/import_utils.py": {
+    "mtime": 1778511496.0967798,
+    "hash": "0ed04d6ecd089c1452daaab306f8ee2a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/normalize.py": {
+    "mtime": 1778511496.09123,
+    "hash": "cff3189cea27ba66037d752448fc22f9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/factory.py": {
+    "mtime": 1778511496.0909202,
+    "hash": "92262302203949728fd5d3e3bff677ca"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/utils.py": {
+    "mtime": 1778511496.0920675,
+    "hash": "1a15efb22cc7af65ae4bac46a742973d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/policy_protocol.py": {
+    "mtime": 1778511496.0913541,
+    "hash": "1e3928ef51de36a8dd96bc29825f5ea6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/tdmpc/modeling_tdmpc.py": {
+    "mtime": 1778511496.0919316,
+    "hash": "0f9460fba1f824b1f1c5f7bb441d54c1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/tdmpc/configuration_tdmpc.py": {
+    "mtime": 1778511496.091748,
+    "hash": "2b0a488f5e633b633025993cb91398fc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/act/modeling_act.py": {
+    "mtime": 1778511496.0899134,
+    "hash": "ea78f2a8fb73824e07240e9fd4b00fe3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/act/configuration_act.py": {
+    "mtime": 1778511496.0897295,
+    "hash": "4ea33145c4c583239bf258ce0961c394"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/diffusion/modeling_diffusion.py": {
+    "mtime": 1778511496.0906692,
+    "hash": "c181abe72d12730eb0f81c7d4ae60922"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/diffusion/configuration_diffusion.py": {
+    "mtime": 1778511496.0904913,
+    "hash": "20dfa7c6d6900162c4e92c1da025f45d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/vqbet/modeling_vqbet.py": {
+    "mtime": 1778511496.0928195,
+    "hash": "a27f5305bcb31cb6c4d261962eec2c4e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/vqbet/configuration_vqbet.py": {
+    "mtime": 1778511496.092611,
+    "hash": "398bb498115de700bd1174b5379753d9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/policies/vqbet/vqbet_utils.py": {
+    "mtime": 1778511496.0930378,
+    "hash": "4b82f3f4ce58ea7fc3f29ebfdcd308bf"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/control_utils.py": {
+    "mtime": 1778511496.0943754,
+    "hash": "12b25907198445cb491a31cac0354719"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/utils.py": {
+    "mtime": 1778511496.0964751,
+    "hash": "a887f153fe80ff050c697c3aee97a8e0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/motors/dynamixel.py": {
+    "mtime": 1778511496.0946183,
+    "hash": "8d055e4672681556f30cb648306f3f2d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/motors/feetech.py": {
+    "mtime": 1778511496.0947986,
+    "hash": "fcdd06ac4305fd870d0ed7c07751a624"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/motors/utils.py": {
+    "mtime": 1778511496.094925,
+    "hash": "1fec5e37527090b02be8b1f48486ddf1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/cameras/opencv.py": {
+    "mtime": 1778511496.0937681,
+    "hash": "35263b155cf91a4e2c209d1eb39241c6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/cameras/utils.py": {
+    "mtime": 1778511496.0938919,
+    "hash": "5dba261453831dd40cf9e2b15c4716c6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/cameras/intelrealsense.py": {
+    "mtime": 1778511496.0936105,
+    "hash": "1a032b511b037d75307e9c2c4e5ac047"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/robots/stretch.py": {
+    "mtime": 1778511496.0960164,
+    "hash": "10d16a6f9528cd496f38323859f9b638"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/robots/feetech_calibration.py": {
+    "mtime": 1778511496.0954978,
+    "hash": "91d9dae54c80c55c7ede5f2d4a9306f0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/robots/manipulator.py": {
+    "mtime": 1778511496.0956578,
+    "hash": "da0027352a10e1a911a82a89edf0b081"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/robots/factory.py": {
+    "mtime": 1778511496.095384,
+    "hash": "746f4399fa2fa07e96faf174f3d61ec8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/robots/utils.py": {
+    "mtime": 1778511496.0963469,
+    "hash": "e0732d85c716757f5cc6f30915550b79"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/robot_devices/robots/dynamixel_calibration.py": {
+    "mtime": 1778511496.0952694,
+    "hash": "6c7e00923dc94da06a6aba705ff69562"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/envs/factory.py": {
+    "mtime": 1778511496.0886822,
+    "hash": "4fd0e7d105e372a864fe3e0b60ddfbe4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/envs/utils.py": {
+    "mtime": 1778511496.088791,
+    "hash": "53da4e651035252309566beae05d02aa"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/display_sys_info.py": {
+    "mtime": 1778511496.1001954,
+    "hash": "a00bec4f0a9a7c20a7bba8d3ef06c230"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/control_robot.py": {
+    "mtime": 1778511496.0999184,
+    "hash": "a4176fbe2814bf7843411d1bd8d1fdc1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/push_dataset_to_hub.py": {
+    "mtime": 1778511496.1007452,
+    "hash": "d79dff06465539c2c1bdc6a7e0a3593c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/visualize_image_transforms.py": {
+    "mtime": 1778511496.101624,
+    "hash": "5fb200c9218d9dbe39171c254798be63"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/train.py": {
+    "mtime": 1778511496.1008954,
+    "hash": "fb2ad5b6f1b8e34e09dd517fdc95be00"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/visualize_dataset.py": {
+    "mtime": 1778511496.1012263,
+    "hash": "e105633fe2ea958a46b8114f5f1226fc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/control_sim_robot.py": {
+    "mtime": 1778511496.1000712,
+    "hash": "6c3ca12753358cc826d8bfe8d77c3ac5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/eval.py": {
+    "mtime": 1778511496.1003327,
+    "hash": "7914871cda7ff6428e74e580a6d576cd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/find_motors_bus_port.py": {
+    "mtime": 1778511496.1004555,
+    "hash": "72fbdf51c9525f18da55091fecf6e47f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/configure_motor.py": {
+    "mtime": 1778511496.099787,
+    "hash": "3e318076d481ed7698954de1f911c57e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/scripts/visualize_dataset_html.py": {
+    "mtime": 1778511496.1013706,
+    "hash": "f3dee7a962992da2b5e6fe529fe758d7"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_push_dataset_to_hub.py": {
+    "mtime": 1778511496.110097,
+    "hash": "2b5b8e1c6b701b1df6b32be65ffc0229"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/mock_pyrealsense2.py": {
+    "mtime": 1778511496.1059241,
+    "hash": "8a2ccc5a865feeb0d1ac90d206d9ea65"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_utils.py": {
+    "mtime": 1778511496.1105695,
+    "hash": "d702d63fc7118031e45d8da4f4561e0c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/conftest.py": {
+    "mtime": 1778511496.1044617,
+    "hash": "42db34fe4b7e188385517bfa546fcf6f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_envs.py": {
+    "mtime": 1778511496.1081023,
+    "hash": "415f8f15bb2d01f11f642945379cb37f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_available.py": {
+    "mtime": 1778511496.1067657,
+    "hash": "64d0b9a9fbcd21dd16e9bce223b7417b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_datasets.py": {
+    "mtime": 1778511496.1076932,
+    "hash": "9cce1b38dea337c0b46c26c8ffd0835d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_visualize_dataset.py": {
+    "mtime": 1778511496.1106887,
+    "hash": "a8ad812cee30d38833a1123157af2416"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_image_writer.py": {
+    "mtime": 1778511496.1090987,
+    "hash": "8b965a9c714b213dd481b96f0b880f32"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/__init__.py": {
+    "mtime": 1778511496.10432,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_control_robot.py": {
+    "mtime": 1778511496.10729,
+    "hash": "c42502ddeb03c0ba8658cddbfad265b4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_robots.py": {
+    "mtime": 1778511496.1103315,
+    "hash": "822506742480a90ecfae382f28f253dd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_delta_timestamps.py": {
+    "mtime": 1778511496.1079893,
+    "hash": "5d382561b939fae98474cc1d8749fc36"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_cameras.py": {
+    "mtime": 1778511496.1069996,
+    "hash": "bf0abcbd502e9b45a0e04c07af1cabea"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/utils.py": {
+    "mtime": 1778511496.1109786,
+    "hash": "6043956789df942ca44c690713909b37"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_policies.py": {
+    "mtime": 1778511496.1097836,
+    "hash": "6c19125a37dcce3e7afcb54aedfaad33"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_motors.py": {
+    "mtime": 1778511496.109341,
+    "hash": "69c0336bace90a8fb6a6758b91ddfcc5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/mock_dynamixel_sdk.py": {
+    "mtime": 1778511496.1058092,
+    "hash": "7d6198fabc7b44aee669b16d62cb8d58"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/mock_scservo_sdk.py": {
+    "mtime": 1778511496.1060193,
+    "hash": "07b042c09446a4dc415635adb49f3e08"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/mock_cv2.py": {
+    "mtime": 1778511496.1056972,
+    "hash": "f02982c1b6eb556964f3aedb333418a7"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_online_buffer.py": {
+    "mtime": 1778511496.1096432,
+    "hash": "82fa0050b1cf842c44e0050ac35a9ed2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_examples.py": {
+    "mtime": 1778511496.108336,
+    "hash": "7ae7a97a6754e29237f620df49834550"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_image_transforms.py": {
+    "mtime": 1778511496.1087918,
+    "hash": "04c00e697f3741df5922107c9a5168cf"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/test_sampler.py": {
+    "mtime": 1778511496.110447,
+    "hash": "3294f69fdc4df6c9073275bc0daa5a26"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/lerobot/common/datasets/test_utils.py": {
+    "mtime": 1778511496.1055844,
+    "hash": "30b11ab971deddabec90149365e20344"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/scripts/save_image_transforms_to_safetensors.py": {
+    "mtime": 1778511496.1063077,
+    "hash": "4aaf9548f92010fc96e2f1d04497d503"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/scripts/save_dataset_to_safetensors.py": {
+    "mtime": 1778511496.106197,
+    "hash": "3871f4fd5bca08ceca21a30632f4bafe"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/scripts/save_policy_to_safetensors.py": {
+    "mtime": 1778511496.1066532,
+    "hash": "3446bcd9127cfdc3c70d028570033428"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/fixtures/files.py": {
+    "mtime": 1778511496.105164,
+    "hash": "8ca4fef5d65f14981913b4060ac6ecba"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/fixtures/dataset_factories.py": {
+    "mtime": 1778511496.1050568,
+    "hash": "fdebd354745ab2e7ba4ecb0b6511b887"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/fixtures/constants.py": {
+    "mtime": 1778511496.1046324,
+    "hash": "0b77704a511a187abfbd7ebbff659c89"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/tests/fixtures/hub.py": {
+    "mtime": 1778511496.10527,
+    "hash": "a815b4531a3818976efeebefee221ead"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/2_evaluate_pretrained_policy.py": {
+    "mtime": 1778511496.0740635,
+    "hash": "159bf6212e57ff401e5474ba31dfb058"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/6_add_image_transforms.py": {
+    "mtime": 1778511496.074675,
+    "hash": "7dc376e4c8c7810c45955378091a1730"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/1_load_lerobot_dataset.py": {
+    "mtime": 1778511496.0737205,
+    "hash": "70721a0f9062209d206d707b25af69de"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/3_train_policy.py": {
+    "mtime": 1778511496.0741782,
+    "hash": "c9c7820e1145a5812184604b21424315"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/advanced/2_calculate_validation_loss.py": {
+    "mtime": 1778511496.0762002,
+    "hash": "2d5ac94e428fcba4f283866f35b5b5db"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/port_datasets/pusht_zarr.py": {
+    "mtime": 1778511496.0765042,
+    "hash": "ae5039c9491bfa5ff8f80f4fa1618e22"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/benchmarks/video/capture_camera_feed.py": {
+    "mtime": 1778511496.072066,
+    "hash": "a8a2e7f6894d47694fac5e98765675af"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/benchmarks/video/run_video_benchmark.py": {
+    "mtime": 1778511496.0722008,
+    "hash": "2b46cce882b8e113050c2fe95a9be68a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/scale/scripts/sfs_data.py": {
+    "mtime": 1778511496.1141503,
+    "hash": "858665123ff635b8dfadeef67a8c4ce0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/scale/scripts/sfs_to_egoverse_zarr.py": {
+    "mtime": 1778511496.1143131,
+    "hash": "9a4e4275db2e2e3aa4589dc6d2b5ec98"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/scale/scripts/scale_api.py": {
+    "mtime": 1778511496.113827,
+    "hash": "b8244b0e52b2c6635ac7610a46720521"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/scale/scripts/sfs_zarr_pipeline.py": {
+    "mtime": 1778511496.114485,
+    "hash": "44a539189d0053c5a6cf9506621505e5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/setup.py": {
+    "mtime": 1778511496.1134007,
+    "hash": "d8213c7c531d8059d3b03b996c4ad5cd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/rpl_vision_utils/__init__.py": {
+    "mtime": 1778511496.112342,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/rpl_vision_utils/utils/cv2_utils.py": {
+    "mtime": 1778511496.1126742,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/rpl_vision_utils/utils/__init__.py": {
+    "mtime": 1778511496.112486,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/rpl_vision_utils/utils/transform_manager.py": {
+    "mtime": 1778511496.113095,
+    "hash": "486cbd6749a0ab187dccdcd392f2c7d9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/rpl_vision_utils/utils/apriltag_detector.py": {
+    "mtime": 1778511496.112629,
+    "hash": "e3a9b4940b48e54111d646809548c8c7"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/rpl_vision_utils/utils/img_utils.py": {
+    "mtime": 1778511496.1128213,
+    "hash": "0eefb90b2ef835cdc8b605691220bdf3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/rpl_vision_utils/utils/markers/apriltag_detector.py": {
+    "mtime": 1778511496.112988,
+    "hash": "363d67dc19ff432d73d59f91b4eca69e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/rpl_vision_utils/utils/transformation/transform_manager.py": {
+    "mtime": 1778511496.1132712,
+    "hash": "486cbd6749a0ab187dccdcd392f2c7d9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/requirements.txt": {
+    "mtime": 1778511496.115835,
+    "hash": "363402d0d21788e610bb86f776e6dec0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/training.md": {
+    "mtime": 1778511496.1163802,
+    "hash": "0146aa18ad90ce3ea70549d48d820190"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/requirements-ray.txt": {
+    "mtime": 1778511496.1157308,
+    "hash": "c851ec0f30f54f089289747483d5897d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/README.md": {
+    "mtime": 1778511495.8485649,
+    "hash": "685f25cce9a350af449551d46a22471d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/CONTRIBUTING_DATA.md": {
+    "mtime": 1778511495.8480449,
+    "hash": "e53e7651984ec36ae3df1e3c3c7b9385"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/pi05.md": {
+    "mtime": 1778511496.1154175,
+    "hash": "86fd7855d4157e552a0fc555eeca1b12"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/environment.yaml": {
+    "mtime": 1778511496.0683162,
+    "hash": "1445a7272d2b9505ada0521752dff86f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/AGENTS.md": {
+    "mtime": 1778511495.847861,
+    "hash": "9dd5829128beacb030182276256cff0d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/s3-writer-cluster.yaml": {
+    "mtime": 1778511496.0651054,
+    "hash": "98041f076ac1e0d2fcb32d62ed28f178"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/utils/aws/README.md": {
+    "mtime": 1778511496.0614624,
+    "hash": "4a98a29e2698c1e41fee4a09b4dfbc6e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva.md": {
+    "mtime": 1778511495.8800132,
+    "hash": "58c00fd8e25e78eb5efd742d451bd174"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/MINK_SOLVER_README.md": {
+    "mtime": 1778511495.879847,
+    "hash": "a24a74c83478f2ddc24df088d8bf1185"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/CMakeLists.txt": {
+    "mtime": 1778511495.9175024,
+    "hash": "ad8c8cb6e6dd989c70eae999317d03d7"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/README.md": {
+    "mtime": 1778511495.91789,
+    "hash": "1f8d675ab3dd1db0053dff8d1ffe9de6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/python/CMakeLists.txt": {
+    "mtime": 1778511495.9852934,
+    "hash": "ce5d5a4019835fe030e4d1a82632a487"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/conda_environments/py311_environment.yaml": {
+    "mtime": 1778511495.918204,
+    "hash": "1859a7b9b0bcd2c956a9d6cdb1997d4e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/conda_environments/py38_environment.yaml": {
+    "mtime": 1778511495.9183059,
+    "hash": "b31c9bf2520f3a82d137734c31fb90d5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/conda_environments/py310_environment.yaml": {
+    "mtime": 1778511495.9180884,
+    "hash": "10aff7013263d00e2682b687a52dbb9d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/stanford_repo/conda_environments/py39_environment.yaml": {
+    "mtime": 1778511495.9184046,
+    "hash": "6421f0a3e0186568a31cbd4c52649c00"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/requirements.txt": {
+    "mtime": 1778511495.8835833,
+    "hash": "7cd09fb2e4a93ebd090a7b0886d5775b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/README.md": {
+    "mtime": 1778511495.8805141,
+    "hash": "9d770ed0fc25c5b52a492634c3cbb9f6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/commands.txt": {
+    "mtime": 1778511495.8806221,
+    "hash": "e08e7961b80bb8fa65ffc56d3ce0c947"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/config/configs.yaml": {
+    "mtime": 1778511495.8808777,
+    "hash": "ed1fa94b00c851352e6094b5849f3db6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/config/task_config/test_pick_place.yaml": {
+    "mtime": 1778511495.881126,
+    "hash": "2b9b2ec2f35d14d25dbed316f33f6e33"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/config/task_config/test_task.yaml": {
+    "mtime": 1778511495.8812509,
+    "hash": "31cd037a57a5535e1748e6f4acfd7b6c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/CMakeLists.txt": {
+    "mtime": 1778511495.8840175,
+    "hash": "78531fab20a3ce830ca5f39c164873c1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/eva/eva_ws/src/resources/ARX_Model/X5A/config/joint_names_X5A.yaml": {
+    "mtime": 1778511495.884243,
+    "hash": "eaf9b13adab784b392eca092879af90d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/requirements.txt": {
+    "mtime": 1778511496.0326223,
+    "hash": "42102431bfff09fa330b46f875abe734"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/README.md": {
+    "mtime": 1778511495.993802,
+    "hash": "330f5be2b01feff09c4dccd5edec41bf"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/app_source/README.md": {
+    "mtime": 1778511495.997104,
+    "hash": "375034e16805c5ceca33bfc4e1f24d61"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/UNINSTALL.md": {
+    "mtime": 1778511496.0314014,
+    "hash": "eef9f6e0f86ce6e754ae5720b118eed2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/robot/oculus_reader/oculus_reader/README.md": {
+    "mtime": 1778511496.0312135,
+    "hash": "0c1b6ae6ccd109057dc354d1af98b8a6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/rldb/README.md": {
+    "mtime": 1778511495.8730845,
+    "hash": "98e3994ba45b60338ee70294c1348038"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/train_zarr_cartesian_pi.yaml": {
+    "mtime": 1778511495.867199,
+    "hash": "b79b8217c254883cad406d7473025def"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/train_zarr_keypoint_wrist.yaml": {
+    "mtime": 1778511495.8673153,
+    "hash": "aaffcb35d4e190d1bae4a59c157fcaf6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/train_zarr_cartesian.yaml": {
+    "mtime": 1778511495.8670857,
+    "hash": "067f5d050947d70326c4b49ffc1c9ed1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/train_zarr_keypoints.yaml": {
+    "mtime": 1778511495.8674247,
+    "hash": "023b35c724efd73cee1eeadd30f26c9e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/viz_language.yaml": {
+    "mtime": 1778511495.8689363,
+    "hash": "15bc5856818eb0cbd3ac5efe17b6f5f4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/visualization/keypoints_wrist.yaml": {
+    "mtime": 1778511495.868509,
+    "hash": "dd0ac363dcd304f9a7e8911de3e424c3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/visualization/cartesian.yaml": {
+    "mtime": 1778511495.8681064,
+    "hash": "1a35166cafaf4401b5a9cfb8000988ab"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/visualization/cotrain_lang.yaml": {
+    "mtime": 1778511495.8683133,
+    "hash": "ae3e4ba59c6bff39109a9b3437d59e55"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/visualization/keypoints.yaml": {
+    "mtime": 1778511495.868407,
+    "hash": "2cacd77494ef13794755f4996952bb82"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/visualization/pi_cartesian_lang_wrist.yaml": {
+    "mtime": 1778511495.868829,
+    "hash": "b9bfcad670756e27ce64c9ca9c790f6d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/visualization/pi_cartesian_lang.yaml": {
+    "mtime": 1778511495.8687205,
+    "hash": "c7d2dcef0a9fecbd683a75527757c3d6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/visualization/cartesian_wrist.yaml": {
+    "mtime": 1778511495.8682106,
+    "hash": "164ab9cecf73f815febdea9ed34f838e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/visualization/pi_cartesian.yaml": {
+    "mtime": 1778511495.868612,
+    "hash": "bc41ebdb8294a5ea7e55b4eedc508f5e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/evaluator/eval_pi.yaml": {
+    "mtime": 1778511495.8621347,
+    "hash": "60216b4f07af9ae70b59617b81ae3411"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/evaluator/eval_hpt.yaml": {
+    "mtime": 1778511495.8620265,
+    "hash": "063e67b3763e6b5ff7a133f896b9c0dc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/logger/debug.yaml": {
+    "mtime": 1778511495.8634953,
+    "hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/logger/wandb.yaml": {
+    "mtime": 1778511495.863635,
+    "hash": "d0f3ff95223e6f2db36b6a0a0e8b8e23"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/callbacks/defaults.yaml": {
+    "mtime": 1778511495.8590105,
+    "hash": "1f40dfe197e76ef8764b45f0a51ee833"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/callbacks/checkpoints.yaml": {
+    "mtime": 1778511495.8588948,
+    "hash": "ec014c6bab3146e68dc5b5581764522a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/paths/default.yaml": {
+    "mtime": 1778511495.866965,
+    "hash": "751f9c559400b0ceb9d6ba7e12c6021b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/lerobot_data/mecka_test.yaml": {
+    "mtime": 1778511495.8632684,
+    "hash": "bc206a5d8b43eee59517c1a0810ebf1a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/lerobot_data/eva_bc_s3.yaml": {
+    "mtime": 1778511495.86316,
+    "hash": "017f95ddc7f3675595faea8824f1b47e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/lerobot_data/cotrain_mecka_aria.yaml": {
+    "mtime": 1778511495.862916,
+    "hash": "eba461f33189abcddbf4a763b077a2b6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/lerobot_data/cotrain_s3.yaml": {
+    "mtime": 1778511495.8630304,
+    "hash": "f1c6277b7ad9fd4f60678458e2e583bd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/lerobot_data/test_bimanual.yaml": {
+    "mtime": 1778511495.8633747,
+    "hash": "526f622fd96011cf88bab71f4a993341"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/lerobot_data/aria_bc_s3.yaml": {
+    "mtime": 1778511495.8628075,
+    "hash": "cf3aa0a6801df279a0cb894724ac04e3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/pi0.5_bc_mecka.yaml": {
+    "mtime": 1778511495.8662174,
+    "hash": "dda206fa21d94186806d5afbec3f50fb"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/pi0.5_bc_aria.yaml": {
+    "mtime": 1778511495.8660002,
+    "hash": "5a7b4dd2da3477bb09b0a7b0d7a67986"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_bc_flow_eva.yaml": {
+    "mtime": 1778511495.8643103,
+    "hash": "d547f327981776e3105cacc2bd4610f3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_cotrain_enc_dec_base.yaml": {
+    "mtime": 1778511495.8651047,
+    "hash": "c4f766670e6f737554da32b9888bbdf0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/pi0.5_bc_scale.yaml": {
+    "mtime": 1778511495.8663397,
+    "hash": "a179d0a4b8bad19383bdf9dc9df79552"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/act.yaml": {
+    "mtime": 1778511495.8638155,
+    "hash": "36be99b45f2f6a6ffdd5ee2b7a9cc274"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_cotrain_flow_shared_head.yaml": {
+    "mtime": 1778511495.8654943,
+    "hash": "6903e9ca44486e7d6a94f890ac8cfd25"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_bc_keypoints_base.yaml": {
+    "mtime": 1778511495.864729,
+    "hash": "1e0350d33419a26bca1a1d934cafd100"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/pi0.5_base.yaml": {
+    "mtime": 1778511495.8658814,
+    "hash": "6b61beba800842850cfcc19b2943e9e5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/pi0.5_cotrain_eva_aria.yaml": {
+    "mtime": 1778511495.866456,
+    "hash": "1db90c5aa1464b0567005a6ccd9909a9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/egobridge.yaml": {
+    "mtime": 1778511495.863921,
+    "hash": "5b7e9c2b51c2e39c12615b6a1ce83322"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_bc_flow_scale.yaml": {
+    "mtime": 1778511495.8646011,
+    "hash": "0c686273e348e20b78d5e02490d54fba"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/pi0.5_bc_eva.yaml": {
+    "mtime": 1778511495.8661094,
+    "hash": "b4b2a149dd8261ef091b36c1530da82d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_bc_flow_aria.yaml": {
+    "mtime": 1778511495.8640494,
+    "hash": "0f94bf64793584d264c19da73da319d2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_cotrain_scale_flow_shared_head.yaml": {
+    "mtime": 1778511495.8657632,
+    "hash": "b2e554207dc123d9f7c7072db4a92fa3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_bc_flow_mecka.yaml": {
+    "mtime": 1778511495.864476,
+    "hash": "5fadd9d6bb5bf92225c6494d041453ec"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/pi0.5_cotrain_mecka_scale.yaml": {
+    "mtime": 1778511495.86672,
+    "hash": "3c888462d5f55436c384aae913f09959"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_cotrain_flow_seperate_head.yaml": {
+    "mtime": 1778511495.8653398,
+    "hash": "1c68a98c6d15d6725082cda0bb1489d4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/model/hpt_cotrain_mecka_flow_shared_head.yaml": {
+    "mtime": 1778511495.8656323,
+    "hash": "007b6032a88027ca95f945226251a4ff"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/scale.yaml": {
+    "mtime": 1778511495.8610835,
+    "hash": "769779bbc2e68d15b5f7cda5a3265b82"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/aria_pi.yaml": {
+    "mtime": 1778511495.859561,
+    "hash": "c8effb7bd2365aab783e97d1b464899e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/mecka.yaml": {
+    "mtime": 1778511495.860761,
+    "hash": "0c9d243efa530b68ff192fda39972ecf"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/eva_pi_lang.yaml": {
+    "mtime": 1778511495.860552,
+    "hash": "ad2addd9e86701b5d5896a82e126bf10"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/cotrain_pi_no_lang.yaml": {
+    "mtime": 1778511495.8601117,
+    "hash": "eca1130bced00b86eccd24f281b3bef2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/eva_pi.yaml": {
+    "mtime": 1778511495.8604414,
+    "hash": "f294655bc2199b3432af38dd2d5bfebd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/industry_eva_pi.yaml": {
+    "mtime": 1778511495.8606608,
+    "hash": "6380736767aedf27ad4d0c00a70a0649"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/cotrain_pi_lang.yaml": {
+    "mtime": 1778511495.8599007,
+    "hash": "09924ffdadc6971e4fb37354ad5e2bb0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/aria_keypoints.yaml": {
+    "mtime": 1778511495.859326,
+    "hash": "e458e5d62d83d3373b8c9c06dda89a42"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/cotrain_pi_lang_wrist.yaml": {
+    "mtime": 1778511495.8600085,
+    "hash": "a77d21c5e133cff2a1dbef7f515464ac"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/aria.yaml": {
+    "mtime": 1778511495.8592088,
+    "hash": "f50dd6f82013bb7f581bc53698af9bd4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/mecka_pi.yaml": {
+    "mtime": 1778511495.8608778,
+    "hash": "bbd1b43e43373131e66be10e016a526c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/eva.yaml": {
+    "mtime": 1778511495.860221,
+    "hash": "6eded33b9fd24a4110499ef888f74cd2"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/mecka_scale_cotrain_pi.yaml": {
+    "mtime": 1778511495.8609836,
+    "hash": "76c3bf697da3854fbf3ab2807e2b5422"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/aria_keypoints_wrist.yaml": {
+    "mtime": 1778511495.8594267,
+    "hash": "ce084baaa0e7769859bbe66dd091702a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/scale_pi.yaml": {
+    "mtime": 1778511495.8611913,
+    "hash": "31e8d6f2000145ec736b4b186fbab5dd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/cotrain_pi_base.yaml": {
+    "mtime": 1778511495.8597832,
+    "hash": "63b03ce06276376a7a369e8a6c4f6f66"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data/eva_action_expert.yaml": {
+    "mtime": 1778511495.8603337,
+    "hash": "7f52258a84d8efac953b98b0dc741c54"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data_schematic/action_expert.yaml": {
+    "mtime": 1778511495.8614473,
+    "hash": "24fc6413f3005afcbdfe601cd2fb57b4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data_schematic/hpt.yaml": {
+    "mtime": 1778511495.8617299,
+    "hash": "361d63038b3b94739443c74d1614692e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data_schematic/pi.yaml": {
+    "mtime": 1778511495.8618476,
+    "hash": "b9c9f5151fbce9474e3c5b865e7a8c1d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/data_schematic/default.yaml": {
+    "mtime": 1778511495.8615997,
+    "hash": "fa05bdecd685c9c6ced4bdd487459a2e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/trainer/ddp_pi.yaml": {
+    "mtime": 1778511495.867701,
+    "hash": "9c3389ce7356b071b463c9031dae24b1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/trainer/ddp.yaml": {
+    "mtime": 1778511495.8676026,
+    "hash": "90564fbfeccd6a315edd77031878f480"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/trainer/debug.yaml": {
+    "mtime": 1778511495.8678071,
+    "hash": "e996afa664a7e03176a6a1f584086410"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/trainer/default.yaml": {
+    "mtime": 1778511495.8679183,
+    "hash": "f69aec4c43a13868dc4a7d3a7cb64ec8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/hydra/launcher/submitit_skynet.yaml": {
+    "mtime": 1778511495.862618,
+    "hash": "2ec204c5b7e81ef56dc1d4f847ec099c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/hydra/launcher/submitit_pace.yaml": {
+    "mtime": 1778511495.8625128,
+    "hash": "357973be53ddf358f8054e5eba8e9b20"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/hydra_configs/hydra/launcher/submitit.yaml": {
+    "mtime": 1778511495.8624008,
+    "hash": "6bfddac66ac55c49bea6d54289130b1b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/language_process/prompt.txt": {
+    "mtime": 1778511496.0490832,
+    "hash": "a1c732457698f2f1f16bfbf578d4e145"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/language_process/augment_prompt.txt": {
+    "mtime": 1778511496.0477993,
+    "hash": "83fc48dd08fcb5baf80b072780355a6c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/README.md": {
+    "mtime": 1778511496.0343564,
+    "hash": "ae0f0f3a18f2c7702939384b0f5521ac"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/aria-cluster.yaml": {
+    "mtime": 1778511496.0345964,
+    "hash": "2828b1e855459c7c9cdc1a1b2bf7e44f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/aria_process/test-aria-cluster.yaml": {
+    "mtime": 1778511496.0381474,
+    "hash": "5fc7e5448b99bbd245a0bad146fe66c3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/eva_process/eva-cluster.yaml": {
+    "mtime": 1778511496.0462823,
+    "hash": "3c3b7ac446c4f3ff0f678cc774d2a5a4"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/scripts/mps_process/mps-cluster.yaml": {
+    "mtime": 1778511496.0565054,
+    "hash": "256badae79b3ec9418fac7aab4c82493"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/CODE_OF_CONDUCT.md": {
+    "mtime": 1778511496.0707977,
+    "hash": "ea02467dbbc1a50bb900bb74b49cc1ca"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/README.md": {
+    "mtime": 1778511496.0716307,
+    "hash": "79c64d3bb3dbe2c59f3caba634d6b117"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/CONTRIBUTING.md": {
+    "mtime": 1778511496.0710967,
+    "hash": "25f99d936eff44ca4a211f0da914f4f0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/card_template.md": {
+    "mtime": 1778511496.0773578,
+    "hash": "a543d60d4743c60c4fd178fb4cb6fdd3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/CODEBASE_VERSION.md": {
+    "mtime": 1778511496.07889,
+    "hash": "6baccefde83252d123afd26cf3ac82bc"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_coffee_new.txt": {
+    "mtime": 1778511496.0809257,
+    "hash": "be0c9bb19a72fed3a09933ebe375b41a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_thread_velcro.txt": {
+    "mtime": 1778511496.0819013,
+    "hash": "465e22bede6c06f45128e9b393a13b8b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_pingpong_test.txt": {
+    "mtime": 1778511496.0814874,
+    "hash": "33ea2bc3212161f6a37cb3d146ce8407"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/sim_insertion_scripted.txt": {
+    "mtime": 1778511496.0802658,
+    "hash": "0dadbfa72bd29d17504b28ff1581b5ce"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_pro_pencil.txt": {
+    "mtime": 1778511496.0815926,
+    "hash": "77c6ecd9ce593a3c7c5ab356c05f856a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_tape.txt": {
+    "mtime": 1778511496.081796,
+    "hash": "465e22bede6c06f45128e9b393a13b8b"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/sim_transfer_cube_human.txt": {
+    "mtime": 1778511496.080379,
+    "hash": "fd1e2740c900d4684db8156bbfee93d6"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/mobile_elevator.txt": {
+    "mtime": 1778511496.0796869,
+    "hash": "3455f2d62fa457e01027c6b5be663154"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_battery.txt": {
+    "mtime": 1778511496.0805998,
+    "hash": "360dce204f587a598f6ed48290852317"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_cups_open.txt": {
+    "mtime": 1778511496.0810373,
+    "hash": "63b7ea9c978204c110c3aba8facb5f02"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_fork_pick_up.txt": {
+    "mtime": 1778511496.0813801,
+    "hash": "6fa7c5fc4eac8e70ce2b2f5f6557ec76"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_vinh_cup.txt": {
+    "mtime": 1778511496.0822535,
+    "hash": "74ea8d8ceec445df963c0f2f6d97bc37"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_screw_driver.txt": {
+    "mtime": 1778511496.0816965,
+    "hash": "52ccf6d349cd79f9324128cb68293b83"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/sim_insertion_human.txt": {
+    "mtime": 1778511496.0801563,
+    "hash": "e936b0903180452826cd311a4344ed20"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_candy.txt": {
+    "mtime": 1778511496.0807054,
+    "hash": "7c849c8f0ed130dcbadacbd892bd16d9"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/mobile_cabinet.txt": {
+    "mtime": 1778511496.0791929,
+    "hash": "cc26bc650a8f050c37f9fc0d6d79f5ae"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_ziploc_slide.txt": {
+    "mtime": 1778511496.082616,
+    "hash": "b157889abce316eafcc23ee3ee0da8da"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/mobile_wash_pan.txt": {
+    "mtime": 1778511496.0799117,
+    "hash": "d1591c3a48190ea8b80325166a940338"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_towel.txt": {
+    "mtime": 1778511496.0820086,
+    "hash": "b8a8421c698e0e4e698535e2c4c11937"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/mobile_wipe_wine.txt": {
+    "mtime": 1778511496.0800438,
+    "hash": "0b3ab560d0f05f9980436006e12729ff"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_coffee.txt": {
+    "mtime": 1778511496.0808144,
+    "hash": "4d2d98233f2f3031ac66a3f822b5ed4c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/mobile_shrimp.txt": {
+    "mtime": 1778511496.0798051,
+    "hash": "90b6f2d38bc208c29877152eb4f2c255"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/mobile_chair.txt": {
+    "mtime": 1778511496.0795774,
+    "hash": "19277e9cb2fa42f16029fbb71c619ee3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/sim_transfer_cube_scripted.txt": {
+    "mtime": 1778511496.0804923,
+    "hash": "44bbfc6a34b39a9a546c283dac8b163a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/common/datasets/push_dataset_to_hub/_aloha_raw_urls/static_vinh_cup_left.txt": {
+    "mtime": 1778511496.0824914,
+    "hash": "802c96bbad48e54a359531557b61a2c5"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/default.yaml": {
+    "mtime": 1778511496.0974693,
+    "hash": "22c00f03c7353b52eb72fcf280a7d42c"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/robot/aloha.yaml": {
+    "mtime": 1778511496.0989547,
+    "hash": "a898e1d02176e89e35d8021c9fea1e2a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/robot/koch.yaml": {
+    "mtime": 1778511496.0990596,
+    "hash": "984907375ec18cddcf606b7c4da4b0cd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/robot/so100.yaml": {
+    "mtime": 1778511496.0993853,
+    "hash": "116eeb3872f8c66789f6151fa14aa098"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/robot/moss.yaml": {
+    "mtime": 1778511496.0992725,
+    "hash": "761a6491761f7bf4cdb7d0b030822761"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/robot/stretch.yaml": {
+    "mtime": 1778511496.0994878,
+    "hash": "de59e2cef48620047707ac2740ac23c1"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/robot/koch_bimanual.yaml": {
+    "mtime": 1778511496.0991745,
+    "hash": "4e8265cbfce3ec153e11448b6bf687ea"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/tdmpc_pusht_keypoints.yaml": {
+    "mtime": 1778511496.098542,
+    "hash": "8c5012caeda4952ef62bb3ae1357709a"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/act_moss_real.yaml": {
+    "mtime": 1778511496.0979807,
+    "hash": "5aec05bc1d8dff93aec3c84428571650"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/act_koch_real.yaml": {
+    "mtime": 1778511496.0978794,
+    "hash": "e01be8dfbb23c16410f7f7df27157daa"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/act.yaml": {
+    "mtime": 1778511496.0976596,
+    "hash": "fc156fb63b2e5b10cf3bfa05a6a371c3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/diffusion.yaml": {
+    "mtime": 1778511496.098211,
+    "hash": "7ff8bc722207b2e0dd183409d7d91552"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/act_aloha_real.yaml": {
+    "mtime": 1778511496.0977793,
+    "hash": "286a8a532c406ad058ee3b09098c5bb0"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/vqbet.yaml": {
+    "mtime": 1778511496.0986574,
+    "hash": "22f05de11b9975434a3850d0fb8ac991"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/diffusion_pusht_keypoints.yaml": {
+    "mtime": 1778511496.098308,
+    "hash": "2cb55f2f798a1d4066b2ea7f3d839c8e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/act_so100_real.yaml": {
+    "mtime": 1778511496.0980892,
+    "hash": "bdfaade7d1d1ac679bc9ec7ec0c67bdd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/configs/policy/tdmpc.yaml": {
+    "mtime": 1778511496.098424,
+    "hash": "cce80fb06d45a89466cff42bea83acbe"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/templates/visualize_dataset_template.html": {
+    "mtime": 1778511496.1020877,
+    "hash": "0cd475c87de5fa81f2a9674bc9c39b12"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/lerobot/templates/visualize_dataset_homepage.html": {
+    "mtime": 1778511496.1018107,
+    "hash": "1a30fc69ea3c4dcaeb18f77c5d3e7386"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/4_train_policy_with_script.md": {
+    "mtime": 1778511496.0744572,
+    "hash": "e215a89af0499afb9147a6405abfbf2e"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/7_get_started_with_real_robot.md": {
+    "mtime": 1778511496.0749884,
+    "hash": "8a9c0d99130ec9fa4a7b5c182278858d"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/10_use_so100.md": {
+    "mtime": 1778511496.0731938,
+    "hash": "faf35ecb82ca97ad7bcebe5140b64167"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/11_use_moss.md": {
+    "mtime": 1778511496.0734873,
+    "hash": "98d2445697d22b20406f21ac49ac6c6f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/5_resume_training.md": {
+    "mtime": 1778511496.0745676,
+    "hash": "4572a615058aa22beec5e3edd630e6bd"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/9_use_aloha.md": {
+    "mtime": 1778511496.0757103,
+    "hash": "aedacadfc59f6bf0ddac9e923495f219"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/8_use_stretch.md": {
+    "mtime": 1778511496.075241,
+    "hash": "95f54cf811e0af0eb0065fe384bf17b8"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/advanced/1_train_act_pusht/train_act_pusht.md": {
+    "mtime": 1778511496.0760882,
+    "hash": "e8aff5d2b0ac64a0f799c4d2ca9f6497"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/examples/advanced/1_train_act_pusht/act_pusht.yaml": {
+    "mtime": 1778511496.0759745,
+    "hash": "75171edbaff1bff6083a4d1bf2ea3e01"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/lerobot/benchmarks/video/README.md": {
+    "mtime": 1778511496.0719397,
+    "hash": "a8be0a8a2f3814e5600247f3b40245c3"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/requirements-docs.txt": {
+    "mtime": 1778511496.1122277,
+    "hash": "1f059963a522d692be59ed00bebb1367"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/external/rpl_vision_utils/README.md": {
+    "mtime": 1778511496.1121278,
+    "hash": "645d5f2c11d9324b6c93ad52cde67b1f"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/convention.png": {
+    "mtime": 1778511495.8552737,
+    "hash": "287f1eec6674575c1da0ffb4828b3341"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/mano_keypoints.png": {
+    "mtime": 1778511496.1153016,
+    "hash": "e7f54c1a08a86c27b0278a25c10f9795"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/egomimic/keypoints.jpeg": {
+    "mtime": 1778511495.8691876,
+    "hash": "d4680e8a4468e8b533ba9bb496633ffe"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/assets/train_data.png": {
+    "mtime": 1778511495.8534365,
+    "hash": "52c6ec3855a4679afc00acbbf0b06c03"
+  },
+  "/Users/anikethcheluva/Documents/CS Projects/EgoVerse/assets/egoverse.png": {
+    "mtime": 1778511495.84979,
+    "hash": "a3e6be128d3e8ef4d3c010949c8d9652"
+  }
+}
