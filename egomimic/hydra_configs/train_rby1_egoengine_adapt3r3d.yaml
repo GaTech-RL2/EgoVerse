@@ -1,0 +1,46 @@
+# EgoEngine + Adapt3R 3D encoder (DINOv2). Same data + actions as
+# train_rby1_egoengine_eef_hand_img_act32.yaml; only the model is swapped.
+# Depth is absent from the dataset → encoder uses constant dummy depth.
+defaults:
+  - train
+  - override /model: experiments/rby1_egoengine/rby1_egoengine_adapt3r3d_dino
+  - override /data: experiments/rby1_egoengine/rby1_egoengine_eef_hand_actions
+  - _self_
+
+name: RBY1_egoengine_adapt3r3d
+description: train
+
+logger:
+  wandb:
+    project: egoengine
+
+# Mirror of the original egoengine schematic, plus a `front_depth_1` placeholder
+# so HPT.depth_key_map can resolve the depth key. Since the lerobot dataset has
+# no depth stream, the key is absent at runtime and HPT inserts a zero
+# placeholder; the encoder then overwrites it with `dummy_depth`.
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.images
+      # Placeholder; not actually present in the dataset. metadata_keys ⇒ no normalization.
+      front_depth_1:
+        key_type: metadata_keys
+        lerobot_key: obs.front_depth_unused
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      eef_proprio:
+        key_type: proprio_keys
+        lerobot_key: obs.eef_proprio
+      actions_right_arm_eef_hand:
+        key_type: action_keys
+        lerobot_key: actions.right_arm_eef_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1
