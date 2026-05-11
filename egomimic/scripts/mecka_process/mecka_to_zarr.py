@@ -68,25 +68,30 @@ def download_with_retry(
                 f"Downloading {Path(dest_path).name} (attempt {attempt + 1}/{max_retries})..."
             )
 
-            subprocess.run(
+            result = subprocess.run(
                 [
                     "curl",
-                    "-L",
-                    "-C",
-                    "-",
-                    "--retry",
-                    "3",
-                    "--retry-delay",
-                    "2",
-                    "-o",
-                    str(dest_path),
+                    "-fL",                # -f: fail on HTTP >=400, -L: follow redirects
+                    "-C", "-",            # resume support
+                    "--retry", "3",
+                    "--retry-delay", "2",
+                    "-o", str(dest_path),
                     url,
                 ],
-                check=True,
+                check=False,              # we inspect stderr ourselves so we can log it
                 capture_output=True,
                 timeout=600,
                 text=True,
             )
+            if result.returncode != 0:
+                # curl wrote a partial / error body — wipe it so we don't trick
+                # downstream parsers into reading 404 XML as JSON.
+                if Path(dest_path).exists():
+                    Path(dest_path).unlink()
+                raise RuntimeError(
+                    f"curl failed (exit {result.returncode}) downloading "
+                    f"{Path(dest_path).name}: {result.stderr.strip() or '<no stderr>'}"
+                )
 
             if Path(dest_path).exists() and Path(dest_path).stat().st_size > 0:
                 logger.info(

@@ -197,27 +197,28 @@ def _parse_storage_key(storage_key: str) -> tuple[str, str]:
     """
     Parse a storage key into ``(bucket, key)``.
 
-    The bucket is always taken from the ``R2_BUCKET`` environment variable
-    (set by the ``mecka-zarr-conversion`` secret) so the source data location
-    is configurable at the secret level rather than hard-coded into Mongo.
-
-    The key portion comes from the Mongo storage value:
-      - ``r2://<old-bucket>/<key>`` → the ``r2://<old-bucket>/`` prefix is
-        stripped and ``<key>`` is returned.
-      - bare path → returned as-is.
+    Rules:
+      - ``r2://<bucket>/<key>`` → use ``<bucket>`` and ``<key>`` from the URI.
+        These keys come from the upstream pipeline and reference the original
+        bucket the file was written to (e.g. ``atlas``).
+      - Bare path (no ``r2://`` prefix) → use ``R2_BUCKET`` env var as the
+        bucket. Mongo lookups like ``device_intrinsics.intrinsics_1080p`` store
+        bare paths, so these get routed to the configurable fallback bucket.
     """
+    if storage_key.startswith("r2://"):
+        without_scheme = storage_key[len("r2://"):]
+        bucket, _, key = without_scheme.partition("/")
+        if not bucket or not key:
+            raise ValueError(f"Malformed r2:// storage key: {storage_key!r}")
+        return bucket, key
+
     bucket = os.environ.get("R2_BUCKET")
     if not bucket:
         raise RuntimeError(
-            "R2_BUCKET env var is not set. Add it to the mecka-zarr-conversion "
-            "secret with the name of the R2 source bucket."
+            f"Storage key has no r2:// prefix and R2_BUCKET env var is not set: "
+            f"{storage_key!r}. Add R2_BUCKET to the mecka-zarr-conversion secret."
         )
-    if storage_key.startswith("r2://"):
-        without_scheme = storage_key[len("r2://"):]
-        _, _, key = without_scheme.partition("/")
-    else:
-        key = storage_key
-    return bucket, key
+    return bucket, storage_key
 
 
 def _get_r2_client():
@@ -267,6 +268,7 @@ def _get_r2_client():
 
 def _sign_url(r2_client, storage_key: str, expiry: int = 3600) -> str:
     bucket, key = _parse_storage_key(storage_key)
+    logger.debug(f"sign s3://{bucket}/{key}  (from mongo value: {storage_key})")
     return r2_client.generate_presigned_url(
         "get_object",
         Params={"Bucket": bucket, "Key": key},
@@ -541,6 +543,11 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
             raise ValueError(
                 f"MongoDB doc missing field '{mongo_field}' for episode {episode_hash}"
             )
+        bucket, key = _parse_storage_key(storage_key)
+        logger.info(
+            f"[{episode_hash}] {url_key}: s3://{bucket}/{key} "
+            f"(mongo value: {storage_key})"
+        )
         urls[url_key] = _sign_url(r2, storage_key)
 
     intrinsics_key = _resolve_intrinsics_key(db, episode_hash, mongo_doc)
@@ -584,7 +591,30 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
     with ThreadPoolExecutor(max_workers=len(downloads)) as pool:
         futures = {pool.submit(download_with_retry, url, path): path for url, path in downloads}
         for fut in as_completed(futures):
-            fut.result()
+            dest_path = futures[fut]
+            try:
+                fut.result()
+            except Exception as e:
+                raise RuntimeError(
+                    f"Download failed for {Path(dest_path).name} "
+                    f"(episode {episode_hash}): {e}"
+                ) from e
+
+    # Validate JSON files actually contain JSON (catches 404 XML bodies, empties)
+    for json_name in ("intrinsics.json",) + (
+        ("hands_final.json", "body_final.json") if use_hands_final else ()
+    ):
+        p = os.path.join(download_dir, json_name)
+        try:
+            with open(p) as fh:
+                json.load(fh)
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            size = os.path.getsize(p) if os.path.exists(p) else 0
+            raise RuntimeError(
+                f"Downloaded {json_name} for episode {episode_hash} is not valid "
+                f"JSON ({size} bytes) — the R2 source key likely does not exist "
+                f"in bucket '{os.environ.get('R2_BUCKET', '?')}'. Original: {e}"
+            ) from e
 
     if use_hands_final:
         logger.info(f"[{episode_hash}] Converting hands_final → camera-frame hands.csv")
@@ -928,36 +958,19 @@ def main(
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
     # ---- Single-episode mode ----
+    # Route through the remote orchestrator so MongoDB classification runs on
+    # Modal (where the secret is available) instead of the local entrypoint.
     if episode_hash:
         logger.info(f"Single-episode mode: {episode_hash} (subset={subset_name})")
-        from pymongo import MongoClient
-        from bson import ObjectId as _OId
-        try:
-            from dotenv import load_dotenv
-            env_path = Path(__file__).resolve().parents[4] / "g_delivery" / ".env"
-            if env_path.exists():
-                load_dotenv(env_path, override=False)
-        except ImportError:
-            pass
-        mongo_uri = os.environ.get("MONGODB_URI")
-        if not mongo_uri:
-            raise RuntimeError("MONGODB_URI not set")
-        client = MongoClient(mongo_uri)
-        db = client[MONGODB_DB]
-        if force_task_type:
-            task_type = force_task_type
-        else:
-            doc = db[MONGODB_EPISODES_COLLECTION].find_one(
-                {"_id": _OId(episode_hash)}, {"deliveryBatch": 1}
-            )
-            task_type = (
-                "freeform"
-                if doc and doc.get("deliveryBatch") == FREEFORM_DELIVERY_BATCH
-                else "flagship"
-            )
-        logger.info(f"  type={task_type}")
-        result = convert_episode.remote(episode_hash, task_type, subset_name)
-        logger.info(f"  result: {result}")
+        result = orchestrate_subset_batch.remote(
+            episode_ids_csv=episode_hash,
+            subset_name=subset_name,
+            mongo_filter_json="",
+            limit=1,
+            dry_run=False,
+            force_task_type=force_task_type,
+        )
+        logger.info(f"Result: {json.dumps(result, indent=2, default=str)}")
         return result
 
     # ---- Batch mode ----
