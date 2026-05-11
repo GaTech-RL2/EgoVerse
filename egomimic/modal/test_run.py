@@ -119,6 +119,7 @@ image = (
         "pyyaml",
         "prettytable",
         "positional-encodings[pytorch]",
+        "projectaria-tools",
         "s5cmd",
     )
 )
