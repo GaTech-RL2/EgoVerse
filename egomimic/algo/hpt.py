@@ -1490,10 +1490,20 @@ class HPT(Algo):
                 # Concatenate paired depth to form 4-channel RGBD if configured.
                 # depth_key_map is set via the model YAML (e.g. {front_img_1: front_depth_1}).
                 depth_key = self._depth_key_map.get(key)
-                if depth_key and depth_key in batch:
-                    depth = batch[depth_key]
-                    if depth.dim() == 3:       # [B, H, W] → [B, 1, H, W]
-                        depth = depth.unsqueeze(1)
+                if depth_key is not None:
+                    if depth_key in batch:
+                        depth = batch[depth_key]
+                        if depth.dim() == 3:       # [B, H, W] → [B, 1, H, W]
+                            depth = depth.unsqueeze(1)
+                    else:
+                        # Depth key configured but absent from the batch (e.g. RGB-only
+                        # dataset). Pass through a zero placeholder; the encoder will
+                        # overwrite it with `dummy_depth` if set. We do NOT apply image
+                        # augs here to keep the RGBD path consistent.
+                        depth = torch.zeros(
+                            (_data.shape[0], 1, _data.shape[-2], _data.shape[-1]),
+                            dtype=_data.dtype, device=_data.device,
+                        )
                     _data = torch.cat([_data, depth], dim=1)  # [B, 4, H, W]
                 elif not torch.all(_data == 0):
                     if self.nets.training and key in self.encoders:
