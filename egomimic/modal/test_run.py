@@ -285,6 +285,19 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
             ["git", "-C", CFG.remote_repo_dir, "fetch", "--all", "--tags"],
             check=True,
         )
+    elif repo_dir.exists():
+        # Directory already exists but has no .git — happens when a volume is
+        # mounted at a subdirectory (e.g. /root/EgoVerse/logs), which causes
+        # Modal to create the parent before we clone. Use init+fetch instead.
+        subprocess.run(["git", "init", CFG.remote_repo_dir], check=True)
+        subprocess.run(
+            ["git", "-C", CFG.remote_repo_dir, "remote", "add", "origin", clone_url],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", CFG.remote_repo_dir, "fetch", "origin", "--tags"],
+            check=True,
+        )
     else:
         subprocess.run(
             ["git", "clone", clone_url, CFG.remote_repo_dir],
