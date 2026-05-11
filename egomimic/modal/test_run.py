@@ -155,10 +155,34 @@ def _git_output(args: list[str]) -> str:
 
 
 def _resolve_git_state() -> tuple[str, str, bool]:
-    """Return (remote_url, commit_sha, is_dirty)."""
+    """Return (remote_url, commit_sha, is_dirty).
+
+    Raises SystemExit if HEAD has not been pushed to the remote — the container
+    clones from GitHub so unpushed commits will cause a checkout failure there.
+    """
     git_remote = _git_output(["git", "config", "--get", "remote.origin.url"])
     git_commit = _git_output(["git", "rev-parse", "HEAD"])
     is_dirty = bool(_git_output(["git", "status", "--porcelain"]))
+
+    # Verify the commit exists on the remote before submitting
+    try:
+        subprocess.run(
+            ["git", "fetch", "--quiet", "origin"],
+            cwd=REPO_ROOT, check=True, capture_output=True,
+        )
+        result = subprocess.run(
+            ["git", "branch", "-r", "--contains", git_commit],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        )
+        if not result.stdout.strip():
+            raise SystemExit(
+                f"ERROR: commit {git_commit[:12]} has not been pushed to {git_remote}.\n"
+                "Push your branch first, then re-run.\n"
+                "  git push --set-upstream origin <branch>"
+            )
+    except subprocess.CalledProcessError:
+        pass  # fetch failed (no network / auth) — let the container surface the error
+
     return git_remote, git_commit, is_dirty
 
 
