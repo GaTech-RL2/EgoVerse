@@ -125,6 +125,7 @@ def _submit_to_modal(cfg: DictConfig) -> None:
     # Extract modal_* keys from Hydra overrides; pass the rest to the container
     _MODAL_KEYS = {"modal_gpu", "modal_cpu", "modal_memory_gb", "modal_memory_mb"}
     container_overrides = []
+    gpu_count = 1
     for override in HydraConfig.get().overrides.task:
         # Strip leading +/++ sigils for key matching
         key = override.lstrip("+").split("=")[0]
@@ -132,6 +133,8 @@ def _submit_to_modal(cfg: DictConfig) -> None:
             val = override.split("=", 1)[1]
             if key == "modal_gpu":
                 modal_env["MODAL_GPU"] = val
+                # Parse count from "A100:4" style specs
+                gpu_count = int(val.split(":")[1]) if ":" in val else 1
             elif key == "modal_cpu":
                 modal_env["MODAL_CPU"] = val
             elif key == "modal_memory_gb":
@@ -140,6 +143,14 @@ def _submit_to_modal(cfg: DictConfig) -> None:
                 modal_env["MODAL_MEMORY_MB"] = val
         else:
             container_overrides.append(override)
+
+    # Sync launch_params.gpus_per_node with the requested GPU count so DDP
+    # uses all available GPUs (devices: ${launch_params.gpus_per_node} in ddp_modal.yaml)
+    container_overrides = [
+        a for a in container_overrides
+        if not a.lstrip("+").startswith("launch_params.gpus_per_node=")
+    ]
+    container_overrides.append(f"launch_params.gpus_per_node={gpu_count}")
 
     cmd = [
         sys.executable, "-m", "modal", "run",
