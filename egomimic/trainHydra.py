@@ -138,14 +138,14 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if save_cache_dir:
             norm_stats.cache_stats(save_cache_dir=save_cache_dir)
 
-    # Attach Normalize/Reject transforms to each leaf's transform_list.
-    reject_outliers = bool(cfg.get("reject_outliers", True))
-    norm_stats.attach_normalize_transforms(
-        datamodule.train_datasets, reject_outliers=reject_outliers
-    )
-    norm_stats.attach_normalize_transforms(
-        datamodule.valid_datasets, reject_outliers=reject_outliers
-    )
+    # Wire each training/valid MultiDataset to the stats-only ``norm_stats``
+    # by reference. Bounds-check + normalize run at the MultiDataset level in
+    # ``__getitem__`` — not as per-leaf transforms — which avoids the shared
+    # transform_list aliasing trap.
+    for ds in datamodule.train_datasets.values():
+        ds.set_norm_stats_from(norm_stats)
+    for ds in datamodule.valid_datasets.values():
+        ds.set_norm_stats_from(norm_stats)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
