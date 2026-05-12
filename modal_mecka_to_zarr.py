@@ -557,6 +557,100 @@ def _build_sql_row(result: dict) -> dict:
     }
 
 
+def _fetch_episode_metadata_batch(episodes_col, episode_hashes: list[str]) -> dict:
+    """
+    Batch-fetch episode metadata from ``episodes`` collection.
+
+    Returns ``{episode_hash: doc}`` containing only the fields needed for SQL
+    row construction.
+    """
+    from bson import ObjectId
+
+    out: dict[str, dict] = {}
+    batch_size = 5000
+    for i in range(0, len(episode_hashes), batch_size):
+        batch = episode_hashes[i : i + batch_size]
+        for doc in episodes_col.find(
+            {"_id": {"$in": [ObjectId(h) for h in batch]}},
+            {
+                "userId": 1,
+                "task_id": 1,
+                "scene_id": 1,
+                "objects": 1,
+                "video_1_frames": 1,
+                "deliveryBatch": 1,
+            },
+        ):
+            out[str(doc["_id"])] = doc
+    return out
+
+
+def _fetch_task_descriptions_batch(vlm_col, episode_hashes: list[str]) -> dict:
+    """
+    Batch-fetch ``taskDescription`` from ``episode_vlm_segments``.
+
+    Tolerates ``OperationFailure`` (Mongo user lacking read permission on the
+    collection) — returns ``{}`` and logs a warning instead of raising.
+    """
+    from bson import ObjectId
+    from pymongo.errors import OperationFailure
+
+    out: dict[str, str] = {}
+    batch_size = 5000
+    try:
+        for i in range(0, len(episode_hashes), batch_size):
+            batch = episode_hashes[i : i + batch_size]
+            for doc in vlm_col.find(
+                {"episodeId": {"$in": [ObjectId(h) for h in batch]}},
+                {"episodeId": 1, "taskDescription": 1},
+            ):
+                desc = (doc.get("taskDescription") or "").strip()
+                if desc:
+                    out[str(doc["episodeId"])] = desc
+    except OperationFailure as e:
+        logger.warning(
+            f"Could not read taskDescriptions (Mongo user lacks permission on "
+            f"{MONGODB_VLM_SEGMENTS_COLLECTION}): {e}. "
+            f"task_description will be empty in SQL rows."
+        )
+    return out
+
+
+def _build_sql_row_from_mongo(
+    episode_hash: str,
+    mongo_doc: dict,
+    task_type: str,
+    task_description: str,
+    zarr_path: str,
+    mp4_path: str,
+    error: str = "",
+) -> dict:
+    """
+    Construct one ``app.episodes`` row dict from Mongo metadata + volume paths.
+    Used by the SQL-only mode (which doesn't run a worker).
+    """
+    objects_raw = mongo_doc.get("objects", [])
+    objects_json = (
+        json.dumps([str(o) for o in objects_raw]) if objects_raw else "[]"
+    )
+    return {
+        "episode_hash": episode_hash,
+        "operator": str(mongo_doc.get("userId", "")),
+        "task": str(mongo_doc.get("task_id", "")),
+        "embodiment": "mecka",
+        "robot_name": "mecka_bimanual",
+        "num_frames": int(mongo_doc.get("video_1_frames", -1) or -1),
+        "task_description": task_description,
+        "scene": str(mongo_doc.get("scene_id", "")),
+        "objects": objects_json,
+        "zarr_processed_path": zarr_path if not error else "",
+        "zarr_mp4_path": mp4_path if not error else "",
+        "zarr_processing_error": error[:500],
+        "is_deleted": False,
+        "data_type": task_type,
+    }
+
+
 def _upsert_episode_records(engine, records: list[dict]) -> tuple[int, int]:
     """
     UPSERT ``records`` into ``app.episodes`` on conflict by ``episode_hash``.
@@ -1086,6 +1180,170 @@ def orchestrate_subset_batch(
 
 
 # ---------------------------------------------------------------------------
+# SQL-only mode (no conversion, no R2 reads; just refresh app.episodes rows)
+# ---------------------------------------------------------------------------
+@app.function(
+    image=image,
+    secrets=[modal.Secret.from_name("mecka-zarr-conversion")],
+    volumes={EGOVERSE_ZARR_VOLUME_MOUNT: egoverse_zarr_volume},
+    timeout=3600,
+    memory=2048,
+    cpu=1,
+)
+def sql_only_batch(
+    episode_ids_csv: str = "",
+    subset_name: str = "",
+    mongo_filter_json: str = "",
+    force_task_type: str = "",
+    limit: int = 0,
+    verify_volume: bool = True,
+) -> dict:
+    """
+    Backfill / refresh ``app.episodes`` rows WITHOUT running a conversion.
+
+    Use this to:
+      - Backfill SQL after a Modal run that was invoked with ``--skip-sql``
+      - Re-record rows after manually re-running a subset
+      - Refresh stale rows from current MongoDB metadata
+
+    For each episode in the resolved subset:
+      1. Pull metadata from MongoDB (one batch query).
+      2. Classify task_type via ``deliveryBatch`` (or use ``force_task_type``).
+      3. Compute the expected volume path
+         (``processed_v3/<subset>/<task_type>/<hash>.zarr``).
+      4. If ``verify_volume=True``, check the path exists on the mounted Modal
+         volume; missing files get an error row (``zarr_processing_error`` set).
+      5. Upsert all rows into ``app.episodes`` in one transaction.
+    """
+    import sys
+    if "/root/EgoVerse" not in sys.path:
+        sys.path.insert(0, "/root/EgoVerse")
+
+    _validate_subset_name(subset_name)
+    if not _pg_env_present():
+        raise RuntimeError(
+            "PG_HOST not set in the mecka-zarr-conversion secret. Add "
+            "PG_HOST/PG_USER/PG_PASSWORD (and optionally PG_PORT, PG_DATABASE) "
+            "before running --sql-only."
+        )
+
+    from pymongo import MongoClient
+
+    mongo_uri = os.environ.get("MONGODB_URI")
+    if not mongo_uri:
+        raise RuntimeError("MONGODB_URI not set")
+    client = MongoClient(mongo_uri)
+    db = client[MONGODB_DB]
+    episodes_col = db[MONGODB_EPISODES_COLLECTION]
+    vlm_col = db[MONGODB_VLM_SEGMENTS_COLLECTION]
+
+    # ---- 1. Resolve subset ----
+    subset_ids: set[str] = set()
+    if episode_ids_csv.strip():
+        subset_ids |= {x.strip() for x in episode_ids_csv.split(",") if x.strip()}
+    if mongo_filter_json:
+        subset_ids |= _resolve_mongo_filter_ids(db, mongo_filter_json)
+
+    if not subset_ids:
+        logger.info("SQL-only: subset is empty; nothing to do")
+        return {"total": 0, "sql_ok": 0, "sql_errors": 0, "missing_from_volume": 0}
+
+    all_hashes = sorted(subset_ids)
+    if limit > 0:
+        all_hashes = all_hashes[:limit]
+    logger.info(
+        f"SQL-only mode for subset '{subset_name}': {len(all_hashes)} episodes "
+        f"(verify_volume={verify_volume})"
+    )
+
+    # ---- 2. Batch fetch Mongo metadata ----
+    metadata = _fetch_episode_metadata_batch(episodes_col, all_hashes)
+    task_descriptions = _fetch_task_descriptions_batch(vlm_col, all_hashes)
+    logger.info(
+        f"Mongo lookups: {len(metadata)}/{len(all_hashes)} episode docs, "
+        f"{len(task_descriptions)} taskDescriptions"
+    )
+
+    # ---- 3. Build rows ----
+    records: list[dict] = []
+    missing_from_volume = 0
+    missing_from_mongo = 0
+
+    for episode_hash in all_hashes:
+        mongo_doc = metadata.get(episode_hash, {})
+        if not mongo_doc:
+            missing_from_mongo += 1
+
+        if force_task_type:
+            task_type = force_task_type
+        else:
+            task_type = (
+                "freeform"
+                if mongo_doc.get("deliveryBatch") == FREEFORM_DELIVERY_BATCH
+                else "flagship"
+            )
+
+        vol_dir = _volume_subset_dir(subset_name, task_type)
+        zarr_path = str(vol_dir / f"{episode_hash}.zarr")
+        mp4_path = str(vol_dir / f"{episode_hash}_video.mp4")
+
+        error = ""
+        if verify_volume:
+            if not os.path.exists(zarr_path):
+                missing_from_volume += 1
+                error = f"zarr not found in volume at {zarr_path}"
+            elif not os.path.exists(mp4_path):
+                # MP4 missing isn't fatal — keep zarr path, blank mp4 path
+                mp4_path = ""
+
+        records.append(
+            _build_sql_row_from_mongo(
+                episode_hash=episode_hash,
+                mongo_doc=mongo_doc,
+                task_type=task_type,
+                task_description=task_descriptions.get(episode_hash, ""),
+                zarr_path=zarr_path,
+                mp4_path=mp4_path,
+                error=error,
+            )
+        )
+
+    if missing_from_mongo:
+        logger.warning(
+            f"{missing_from_mongo} episode IDs not found in MongoDB — their rows "
+            f"will be written with empty operator/task/scene/etc."
+        )
+    if verify_volume and missing_from_volume:
+        logger.warning(
+            f"{missing_from_volume} episodes missing zarr files on the volume — "
+            f"their rows will carry zarr_processing_error='zarr not found in volume…'"
+        )
+
+    # ---- 4. Upsert ----
+    engine = _sql_engine_from_pg_env()
+    try:
+        sql_ok, sql_err = _upsert_episode_records(engine, records)
+    finally:
+        engine.dispose()
+
+    logger.info("=" * 60)
+    logger.info(
+        f"SQL-ONLY '{subset_name}' DONE: upserted {sql_ok} ok, {sql_err} failed "
+        f"({missing_from_volume} missing zarr, {missing_from_mongo} missing mongo)"
+    )
+    logger.info("=" * 60)
+
+    return {
+        "total": len(records),
+        "sql_ok": sql_ok,
+        "sql_errors": sql_err,
+        "missing_from_volume": missing_from_volume,
+        "missing_from_mongo": missing_from_mongo,
+        "subset_name": subset_name,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Local entrypoint
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
@@ -1099,6 +1357,8 @@ def main(
     episode_hash: str = "",
     force_task_type: str = "",
     skip_sql: bool = False,
+    sql_only: bool = False,
+    no_verify_volume: bool = False,
 ):
     """
     Dispatch a subset conversion run to Modal.
@@ -1124,11 +1384,50 @@ def main(
             zarr_processed_path, zarr_mp4_path, zarr_processing_error,
             is_deleted, data_type. When the PG_* vars are absent, the step is
             skipped with a warning.
+        sql_only: Skip the conversion entirely and only refresh
+            ``app.episodes`` rows for the resolved subset. Pulls metadata from
+            MongoDB, classifies task_type, computes the expected volume path
+            for each episode, optionally verifies the file exists on the
+            volume, then upserts.
+        no_verify_volume: Only meaningful with ``sql_only``. When True, skips
+            the on-volume existence check and writes paths verbatim — useful if
+            you trust the prior conversion's outputs.
     """
     _validate_subset_name(subset_name)
 
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+    # ---- SQL-only mode: no conversion, just refresh app.episodes rows ----
+    if sql_only:
+        ids_csv = ""
+        if episode_ids_file:
+            with open(episode_ids_file) as f:
+                ids_csv = ",".join(line.strip() for line in f if line.strip())
+            logger.info(f"Read {ids_csv.count(',') + 1} episode IDs from {episode_ids_file}")
+        if episode_hash:
+            ids_csv = (ids_csv + "," + episode_hash).strip(",") if ids_csv else episode_hash
+
+        filter_json = mongo_filter_json
+        if mongo_filter_file and not filter_json:
+            filter_json = Path(mongo_filter_file).read_text().strip()
+            logger.info(f"Loaded Mongo filter from {mongo_filter_file}")
+
+        logger.info(
+            f"SQL-ONLY MODE: subset='{subset_name}', verify_volume="
+            f"{not no_verify_volume}. No R2 reads, no conversion — only "
+            f"app.episodes will be touched."
+        )
+        result = sql_only_batch.remote(
+            episode_ids_csv=ids_csv,
+            subset_name=subset_name,
+            mongo_filter_json=filter_json,
+            force_task_type=force_task_type,
+            limit=limit,
+            verify_volume=not no_verify_volume,
+        )
+        logger.info(f"Result: {json.dumps(result, indent=2, default=str)}")
+        return result
 
     # ---- Single-episode mode ----
     # Route through the remote orchestrator so MongoDB classification runs on
