@@ -32,9 +32,9 @@ robomimic_model:
   tokenizer_model_name: "google/paligemma-3b-mix-224"
   tokenizer_max_length: 128
   sampling_mode: "random"
-  annotation_key: null
-  default_prompt: ""
-  proprio_in_prompt: false
+  annotation_key: "annotations"
+  default_prompt: "This is a bad action."
+  proprio_in_prompt: true
   embodiment_label: true
   state_num_bins: 256
   control_mode: null
