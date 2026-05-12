@@ -332,7 +332,7 @@ class PI(Algo):
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(
                 B, S, 1, device=self.device
             )
-            # Samples are already normalized by NormalizeTransform in the leaf's transform_list.
+            # Samples are already normalized by MultiDataset.__getitem__.
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
