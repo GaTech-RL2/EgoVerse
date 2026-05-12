@@ -5,22 +5,24 @@ defaults:
 train_datasets:
   eva_bimanual:
     resolver:
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalAnnotationCutoffEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pick_place_diverse
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '2025-12-26-18-07-46-296000'"
+        - "lambda row: row.get('embodiment') == 'eva_bimanual'"
     mode: total
   aria_bimanual: null
 
 valid_datasets:
   eva_bimanual:
     resolver:
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalAnnotationCutoffEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pick_place_diverse
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '2025-12-26-18-07-46-296000'"
+        - "lambda row: row.get('embodiment') == 'eva_bimanual'"
     mode: total
   aria_bimanual: null
 
