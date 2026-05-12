@@ -34,7 +34,7 @@ class ModalAutoRestartCallback(Callback):
     """Saves a checkpoint and spawns a detached continuation job ~30 min before
     the Modal container timeout, then stops the current run gracefully.
 
-    Requires these env vars (set by test_run.py):
+    Requires these env vars (set by run.py):
         MODAL_TIMEOUT_SECONDS   container timeout (e.g. 86400)
         MODAL_START_TIME        unix timestamp when the container started
         MODAL_HYDRA_ARGS        JSON-encoded list of the original hydra overrides
@@ -156,7 +156,7 @@ def _submit_to_modal(cfg: DictConfig) -> None:
         sys.executable, "-m", "modal", "run",
         "--detach",
         "--env", "robotics",
-        "egomimic/modal/test_run.py::submit",
+        "egomimic/modal/run.py::submit",
         "--",
         *container_overrides,
     ]
