@@ -151,7 +151,7 @@ def _submit_to_modal(cfg: DictConfig) -> None:
     ]
     gpu = modal_env.get("MODAL_GPU", "A100")
     cpu = modal_env.get("MODAL_CPU", "12")
-    mem = modal_env.get("MODAL_MEMORY_GB", f"{int(modal_env.get('MODAL_MEMORY_MB', '65536')) // 1024}GB")
+    mem = modal_env.get("MODAL_MEMORY_GB") or str(int(modal_env.get("MODAL_MEMORY_MB", "65536")) // 1024)
     print(f"Modal resources: gpu={gpu}  cpu={cpu}  memory={mem}GB")
     print(f"Submitting to Modal via: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=str(repo_root), env=modal_env)

@@ -236,6 +236,23 @@ def _build_train_cmd(hydra_args: tuple[str, ...]) -> list[str]:
     return [CFG.python_bin, CFG.train_script, *hydra_args]
 
 
+def _resolve_volume_paths(hydra_args: tuple[str, ...]) -> tuple[str, ...]:
+    """Prepend the output volume mount path to relative values for path-bearing keys.
+
+    Allows callers to pass  ckpt_path=mecka_modal/run/checkpoints/last.ckpt
+    instead of the full container path  ckpt_path=/root/EgoVerse/logs/...
+    """
+    _PATH_KEYS = {"ckpt_path", "norm_stats.precomputed_norm_path"}
+    fixed = []
+    for arg in hydra_args:
+        key, sep, val = arg.partition("=")
+        if sep and key in _PATH_KEYS and val and val != "null" and not val.startswith("/"):
+            val = f"{CFG.output_mount_path}/{val}"
+            arg = f"{key}={val}"
+        fixed.append(arg)
+    return tuple(fixed)
+
+
 def _download_run_artifacts(output_rel_path: str) -> None:
     """Download artifacts from the training outputs volume to ./modal-outputs/ locally."""
     local_dest = REPO_ROOT / "modal-outputs" / output_rel_path
@@ -352,6 +369,7 @@ def run_hydra_train(
 
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
 
+    hydra_args = _resolve_volume_paths(hydra_args)
     cmd = _build_train_cmd(hydra_args)
     env = os.environ.copy()
     env.setdefault("PYTHONUNBUFFERED", "1")
