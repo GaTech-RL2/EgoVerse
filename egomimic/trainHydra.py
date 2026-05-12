@@ -68,8 +68,9 @@ def _submit_to_modal(cfg: DictConfig) -> None:
 
     cmd = [
         sys.executable, "-m", "modal", "run",
+        "--detach",
         "--env", "robotics",
-        "egomimic/modal/test_run.py::run",
+        "egomimic/modal/test_run.py::submit",
         "--",
         *container_overrides,
     ]
