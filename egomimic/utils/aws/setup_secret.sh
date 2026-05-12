@@ -27,7 +27,31 @@ if [[ "${NONINTERACTIVE:-0}" == "1" ]] || [[ ! -t 0 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Helper: prompt for a value, with optional silent input and default
+# Helper: read a secret showing * per character, supporting backspace
+# ---------------------------------------------------------------------------
+read_secret_stars() {
+  local var_name="$1"
+  local input=""
+  local char
+  while IFS= read -r -s -n1 char; do
+    if [[ -z "$char" ]]; then          # Enter
+      break
+    elif [[ "$char" == $'\x7f' || "$char" == $'\b' ]]; then  # Backspace
+      if [[ -n "$input" ]]; then
+        input="${input%?}"
+        printf '\b \b'
+      fi
+    else
+      input+="$char"
+      printf '*'
+    fi
+  done
+  echo
+  printf -v "$var_name" "%s" "$input"
+}
+
+# ---------------------------------------------------------------------------
+# Helper: prompt for a value, with optional star-masked input and default
 # ---------------------------------------------------------------------------
 prompt() {
   local var_name="$1"
@@ -55,16 +79,15 @@ prompt() {
   prompt_str+=": "
 
   if [[ "$silent" == "1" ]]; then
-    read -rsp "$prompt_str" input
-    echo
+    printf "%s" "$prompt_str"
+    read_secret_stars "$var_name"
   else
     read -rp "$prompt_str" input
+    if [[ -z "$input" && -n "$default" ]]; then
+      input="$default"
+    fi
+    printf -v "$var_name" "%s" "$input"
   fi
-
-  if [[ -z "$input" && -n "$default" ]]; then
-    input="$default"
-  fi
-  printf -v "$var_name" "%s" "$input"
 }
 
 # ---------------------------------------------------------------------------
@@ -84,13 +107,13 @@ prompt WANDB_API_KEY            "WandB API Key (from wandb.ai/settings)" 1
 
 echo ""
 echo "  DigitalOcean PostgreSQL (new SQL database):"
-prompt DO_DB_HOST     "  Host" 0 "robotics-do-user-17949385-0.e.db.ondigitalocean.com"
-prompt DO_DB_PORT     "  Port" 0 "25060"
-prompt DO_DB_NAME     "  Database" 0 "defaultdb"
-prompt DO_DB_USER     "  Username" 0 "doadmin"
 prompt DO_DB_PASSWORD "  Password" 1
 
-DO_DATABASE_URL="postgresql://${DO_DB_USER}:${DO_DB_PASSWORD}@${DO_DB_HOST}:${DO_DB_PORT}/${DO_DB_NAME}?sslmode=require"
+_DO_HOST="robotics-do-user-17949385-0.e.db.ondigitalocean.com"
+_DO_PORT="25060"
+_DO_NAME="defaultdb"
+_DO_USER="doadmin"
+DO_DATABASE_URL="postgresql://${_DO_USER}:${DO_DB_PASSWORD}@${_DO_HOST}:${_DO_PORT}/${_DO_NAME}?sslmode=require"
 
 prompt NEW_MONGODB_URI "MongoDB URI (optional, press Enter to skip)"
 
