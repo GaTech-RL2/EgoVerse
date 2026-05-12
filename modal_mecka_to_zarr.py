@@ -61,6 +61,8 @@ image = (
         "pymongo",
         "boto3",
         "av",
+        "sqlalchemy",
+        "psycopg[binary]",
     )
     .add_local_dir(
         "egomimic",
@@ -290,11 +292,27 @@ def _fetch_vlm_annotations(db, episode_hash: str) -> list[dict]:
     Prefers ``tierSnapshots.delivery.segments`` (finalized labels) and falls
     back to top-level ``segments``. Closes sub-second gaps between consecutive
     segments by extending the earlier segment's end.
+
+    If the Mongo user has no read permission on ``episode_vlm_segments``, this
+    function logs a warning and returns ``[]`` rather than raising. The caller
+    decides what to do — flagship episodes proceed without annotations,
+    freeform episodes raise a clear error in ``_prepare_episode``.
     """
     from bson import ObjectId
+    from pymongo.errors import OperationFailure
 
     col = db[MONGODB_VLM_SEGMENTS_COLLECTION]
-    doc = col.find_one({"episodeId": ObjectId(episode_hash)})
+    try:
+        doc = col.find_one({"episodeId": ObjectId(episode_hash)})
+    except OperationFailure as e:
+        if "not authorized" in str(e).lower() or getattr(e, "code", None) == 13:
+            logger.warning(
+                f"[{episode_hash}] Not authorized to read "
+                f"{MONGODB_VLM_SEGMENTS_COLLECTION} (MongoDB user lacks "
+                f"permission). Proceeding without VLM annotations."
+            )
+            return []
+        raise
     if doc is None:
         return []
 
@@ -483,6 +501,98 @@ def _classify_task_types(episodes_col, episode_hashes: list[str]) -> dict[str, s
     return out
 
 
+# ---------------------------------------------------------------------------
+# Postgres SQL writes (records subset conversions into app.episodes)
+# ---------------------------------------------------------------------------
+# Triggered only when PG_HOST is set in the environment. When unset, the run
+# completes successfully but emits a warning that the SQL step was skipped.
+
+SQL_UPSERT_COLUMNS = [
+    "episode_hash", "operator", "task", "embodiment", "robot_name",
+    "num_frames", "task_description", "scene", "objects",
+    "zarr_processed_path", "zarr_mp4_path", "zarr_processing_error",
+    "is_deleted", "data_type",
+]
+
+
+def _pg_env_present() -> bool:
+    return bool(os.environ.get("PG_HOST"))
+
+
+def _sql_engine_from_pg_env():
+    """SQLAlchemy engine for the Postgres DB from PG_* env vars."""
+    from urllib.parse import quote_plus
+    from sqlalchemy import create_engine
+    from sqlalchemy.pool import NullPool
+
+    user = os.environ["PG_USER"]
+    password = quote_plus(os.environ["PG_PASSWORD"])
+    host = os.environ["PG_HOST"]
+    port = os.environ.get("PG_PORT", "5432")
+    database = os.environ.get("PG_DATABASE", "defaultdb")
+    return create_engine(
+        f"postgresql+psycopg://{user}:{password}@{host}:{port}/{database}?sslmode=require",
+        poolclass=NullPool,
+    )
+
+
+def _build_sql_row(result: dict) -> dict:
+    """Map a worker result dict (ok or error) to one app.episodes row."""
+    ok = result.get("status") == "ok"
+    return {
+        "episode_hash": result["episode_hash"],
+        "operator": result.get("sql_operator", ""),
+        "task": result.get("sql_task", ""),
+        "embodiment": "mecka",
+        "robot_name": "mecka_bimanual",
+        "num_frames": int(result.get("sql_num_frames", -1) or -1),
+        "task_description": result.get("task_description", ""),
+        "scene": result.get("sql_scene", ""),
+        "objects": result.get("sql_objects", "[]"),
+        "zarr_processed_path": result.get("zarr_path", "") if ok else "",
+        "zarr_mp4_path": result.get("mp4_path", "") if ok else "",
+        "zarr_processing_error": "" if ok else (result.get("error", "") or "")[:500],
+        "is_deleted": False,
+        "data_type": result.get("task_type", ""),
+    }
+
+
+def _upsert_episode_records(engine, records: list[dict]) -> tuple[int, int]:
+    """
+    UPSERT ``records`` into ``app.episodes`` on conflict by ``episode_hash``.
+
+    Returns ``(ok_count, error_count)``.
+    """
+    from sqlalchemy import text as _text
+
+    if not records:
+        return 0, 0
+
+    cols = SQL_UPSERT_COLUMNS
+    placeholders = ", ".join(f":{c}" for c in cols)
+    updates = ", ".join(f"{c} = EXCLUDED.{c}" for c in cols if c != "episode_hash")
+    stmt = _text(
+        f"INSERT INTO app.episodes ({', '.join(cols)}) VALUES ({placeholders}) "
+        f"ON CONFLICT (episode_hash) DO UPDATE SET {updates}"
+    )
+
+    ok = 0
+    err = 0
+    # Single transaction for the whole batch; individual rows that fail (e.g.
+    # missing data_type column) shouldn't take the rest down.
+    with engine.begin() as conn:
+        for row in records:
+            try:
+                conn.execute(stmt, row)
+                ok += 1
+            except Exception as e:
+                err += 1
+                logger.warning(
+                    f"SQL upsert failed for {row.get('episode_hash')}: {e}"
+                )
+    return ok, err
+
+
 def _resolve_mongo_filter_ids(db, mongo_filter_json: str) -> set[str]:
     """Resolve a MongoDB extended-JSON filter to a set of episode hash strings."""
     if not mongo_filter_json or not mongo_filter_json.strip():
@@ -625,9 +735,13 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
         )
 
     # ---- 6. Synthesize episode.json that MeckaDatasetConverter expects ----
-    vlm_doc = db[MONGODB_VLM_SEGMENTS_COLLECTION].find_one(
-        {"episodeId": ObjectId(episode_hash)}, {"taskDescription": 1}
-    )
+    from pymongo.errors import OperationFailure
+    try:
+        vlm_doc = db[MONGODB_VLM_SEGMENTS_COLLECTION].find_one(
+            {"episodeId": ObjectId(episode_hash)}, {"taskDescription": 1}
+        )
+    except OperationFailure:
+        vlm_doc = None  # already warned above in _fetch_vlm_annotations
     task_description = (vlm_doc or {}).get("taskDescription", "") or ""
 
     episode_json_path = os.path.join(tmp_dir, "episode.json")
@@ -660,6 +774,11 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
 
     local_zarr_dir = os.path.join(output_dir, f"{episode_hash}.zarr")
     local_mp4 = os.path.join(output_dir, f"{episode_hash}.mp4")
+
+    # Metadata needed for the SQL row in app.episodes.
+    objects_raw = mongo_doc.get("objects", [])
+    objects_json = json.dumps([str(o) for o in objects_raw]) if objects_raw else "[]"
+
     return {
         "episode_hash": episode_hash,
         "task_type": task_type,
@@ -667,6 +786,12 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
         "mp4_path": local_mp4 if os.path.exists(local_mp4) else None,
         "num_annotations": len(vlm_annotations),
         "task_description": task_description,
+        # SQL row fields (worker captures them while Mongo doc is in hand)
+        "sql_operator": str(mongo_doc.get("userId", "")),
+        "sql_task": str(mongo_doc.get("task_id", "")),
+        "sql_num_frames": int(mongo_doc.get("video_1_frames", -1) or -1),
+        "sql_scene": str(mongo_doc.get("scene_id", "")),
+        "sql_objects": objects_json,
     }
 
 
@@ -717,6 +842,12 @@ def convert_episode(episode_hash: str, task_type: str, subset_name: str) -> dict
             "mp4_path": mp4_path,
             "num_annotations": result["num_annotations"],
             "task_description": result["task_description"],
+            # SQL row fields
+            "sql_operator": result.get("sql_operator", ""),
+            "sql_task": result.get("sql_task", ""),
+            "sql_num_frames": result.get("sql_num_frames", -1),
+            "sql_scene": result.get("sql_scene", ""),
+            "sql_objects": result.get("sql_objects", "[]"),
         }
 
     except Exception as e:
@@ -753,8 +884,12 @@ def _run_subset_batch(
     limit: int,
     dry_run: bool,
     force_task_type: str,
+    skip_sql: bool = False,
 ) -> dict:
-    """Dispatch episodes to Modal workers; collect counts. No tracking writes."""
+    """
+    Dispatch episodes to Modal workers, collect results, and upsert one row per
+    episode into Postgres ``app.episodes`` (if PG_HOST is set and not skipped).
+    """
     import time
 
     _validate_subset_name(subset_name)
@@ -812,6 +947,7 @@ def _run_subset_batch(
     errors: list[str] = []
     exceptions = 0
     processed = 0
+    records: list[dict] = []  # one row per worker result, used for SQL upsert
 
     for r in convert_episode.map(
         hashes,
@@ -826,6 +962,7 @@ def _run_subset_batch(
             exceptions += 1
             errors.append(f"EXCEPTION: {r}")
         elif isinstance(r, dict):
+            records.append(_build_sql_row(r))
             if r["status"] == "ok":
                 ok += 1
             else:
@@ -841,6 +978,29 @@ def _run_subset_batch(
             )
 
     elapsed = time.time() - start_time
+
+    # ---- 5. SQL upsert into app.episodes (one row per episode) ----
+    sql_ok = sql_err = 0
+    if skip_sql:
+        logger.info("SQL upsert SKIPPED (--skip-sql)")
+    elif not _pg_env_present():
+        logger.warning(
+            "SQL upsert SKIPPED: PG_HOST not set. To enable, add PG_HOST/"
+            "PG_USER/PG_PASSWORD (and optionally PG_PORT, PG_DATABASE) to the "
+            "mecka-zarr-conversion Modal secret."
+        )
+    elif not records:
+        logger.info("SQL upsert SKIPPED: no records to write")
+    else:
+        try:
+            engine = _sql_engine_from_pg_env()
+            sql_ok, sql_err = _upsert_episode_records(engine, records)
+            engine.dispose()
+            logger.info(f"SQL upsert: {sql_ok} ok, {sql_err} failed")
+        except Exception as e:
+            logger.error(f"SQL upsert step failed entirely: {e}")
+            sql_err = len(records)
+
     out_prefix = (
         f"modal-volume://{EGOVERSE_ZARR_VOLUME_NAME}/processed_v3/{subset_name}/"
     )
@@ -869,6 +1029,8 @@ def _run_subset_batch(
         "elapsed_seconds": elapsed,
         "subset_name": subset_name,
         "output_prefix": out_prefix,
+        "sql_ok": sql_ok,
+        "sql_errors": sql_err,
     }
 
 
@@ -889,6 +1051,7 @@ def orchestrate_subset_batch(
     limit: int = 0,
     dry_run: bool = False,
     force_task_type: str = "",
+    skip_sql: bool = False,
 ) -> dict:
     import sys
     if "/root/EgoVerse" not in sys.path:
@@ -918,6 +1081,7 @@ def orchestrate_subset_batch(
         limit=limit,
         dry_run=dry_run,
         force_task_type=force_task_type,
+        skip_sql=skip_sql,
     )
 
 
@@ -934,6 +1098,7 @@ def main(
     dry_run: bool = False,
     episode_hash: str = "",
     force_task_type: str = "",
+    skip_sql: bool = False,
 ):
     """
     Dispatch a subset conversion run to Modal.
@@ -951,6 +1116,14 @@ def main(
         dry_run: Process only 3 episodes.
         episode_hash: Convert a single episode (skips the batch path).
         force_task_type: Override classification ("flagship" or "freeform").
+        skip_sql: Don't upsert rows into ``app.episodes`` after conversion.
+            When False (default), if ``PG_HOST``/``PG_USER``/``PG_PASSWORD`` are
+            present in the orchestrator's secret, one row is upserted per
+            episode with columns: episode_hash, operator, task, embodiment,
+            robot_name, num_frames, task_description, scene, objects,
+            zarr_processed_path, zarr_mp4_path, zarr_processing_error,
+            is_deleted, data_type. When the PG_* vars are absent, the step is
+            skipped with a warning.
     """
     _validate_subset_name(subset_name)
 
@@ -969,6 +1142,7 @@ def main(
             limit=1,
             dry_run=False,
             force_task_type=force_task_type,
+            skip_sql=skip_sql,
         )
         logger.info(f"Result: {json.dumps(result, indent=2, default=str)}")
         return result
@@ -998,6 +1172,7 @@ def main(
         limit=limit,
         dry_run=dry_run,
         force_task_type=force_task_type,
+        skip_sql=skip_sql,
     )
     logger.info(f"Result: {json.dumps(result, indent=2, default=str)}")
     return result

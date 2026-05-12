@@ -50,11 +50,22 @@ class TableRow:
 
 
 def create_default_engine():
-    # Populate env from ~/.egoverse_env only when SECRETS_ARN is not already set.
+    """
+    Build a SQLAlchemy engine for the configured Postgres database.
+
+    Credential sources, in priority order:
+      1. ``SECRETS_ARN`` env var → fetch JSON from AWS Secrets Manager with
+         keys host/username/password/port/dbname.
+      2. ``PG_*`` env vars (``PG_HOST``, ``PG_USER``, ``PG_PASSWORD``,
+         optionally ``PG_PORT`` and ``PG_DATABASE``). Set these directly or
+         place them in ``~/.egoverse_env`` and ``load_env()`` will read them.
+
+    Use (2) for DigitalOcean managed Postgres / non-AWS deployments.
+    """
+    # Populate env from ~/.egoverse_env when no SECRETS_ARN is set.
     if not os.environ.get("SECRETS_ARN"):
         load_env()
 
-    # Try to get credentials from Secrets Manager if SECRETS_ARN is set.
     SECRETS_ARN = os.environ.get("SECRETS_ARN")
     if SECRETS_ARN:
         secrets = boto3.client("secretsmanager")
@@ -70,9 +81,22 @@ def create_default_engine():
         USER = cfg.get("username", cfg.get("user", cfg.get("USER")))
         PASSWORD = cfg.get("password", cfg.get("PASSWORD"))
         PORT = cfg.get("port", 5432)
+    elif os.environ.get("PG_HOST"):
+        HOST = os.environ["PG_HOST"]
+        USER = os.environ["PG_USER"]
+        PASSWORD = os.environ["PG_PASSWORD"]
+        DBNAME = os.environ.get("PG_DATABASE", "defaultdb")
+        PORT = int(os.environ.get("PG_PORT", "5432"))
     else:
         raise RuntimeError(
-            "SECRETS_ARN environment variable not set. Please run ./egomimic/utils/aws/setup_secret.sh."
+            "No DB credentials found. Set either SECRETS_ARN (AWS Secrets "
+            "Manager ARN) or PG_HOST/PG_USER/PG_PASSWORD (+ optional PG_PORT, "
+            "PG_DATABASE). For ~/.egoverse_env, add lines like:\n"
+            "  PG_HOST=robotics-do-user-...ondigitalocean.com\n"
+            "  PG_PORT=25060\n"
+            "  PG_USER=doadmin\n"
+            "  PG_PASSWORD=<password>\n"
+            "  PG_DATABASE=defaultdb"
         )
 
     # --- 1) connect via SQLAlchemy ---
