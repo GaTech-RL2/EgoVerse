@@ -359,6 +359,15 @@ def run_hydra_train(
     if wandb_api_key:
         env["WANDB_API_KEY"] = wandb_api_key
 
+    # Expose container context so ModalAutoRestartCallback can spawn a continuation job
+    import json as _json
+    import time as _time
+    env["MODAL_TIMEOUT_SECONDS"] = str(CFG.timeout_seconds)
+    env["MODAL_START_TIME"] = str(_time.time())
+    env["MODAL_HYDRA_ARGS"] = _json.dumps(list(hydra_args))
+    env["MODAL_GIT_REMOTE"] = git_remote
+    env["MODAL_GIT_COMMIT"] = git_commit
+
     print(f"Running: {shlex.join(cmd)}")
 
     process = subprocess.run(cmd, cwd=CFG.remote_repo_dir, env=env, check=False)

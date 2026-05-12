@@ -1,7 +1,9 @@
 import copy
+import json
 import os
 import signal
 import sys
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import hydra
@@ -26,6 +28,79 @@ from egomimic.utils.utils import extras, task_wrapper
 
 OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)
+
+
+class ModalAutoRestartCallback(Callback):
+    """Saves a checkpoint and spawns a detached continuation job ~30 min before
+    the Modal container timeout, then stops the current run gracefully.
+
+    Requires these env vars (set by test_run.py):
+        MODAL_TIMEOUT_SECONDS   container timeout (e.g. 86400)
+        MODAL_START_TIME        unix timestamp when the container started
+        MODAL_HYDRA_ARGS        JSON-encoded list of the original hydra overrides
+        MODAL_GIT_REMOTE        remote URL used to clone the repo
+        MODAL_GIT_COMMIT        git SHA checked out in the container
+    """
+
+    _RESTART_MARGIN_SEC = 1800  # save + spawn 30 min before timeout
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._triggered = False
+        self._start = float(os.environ.get("MODAL_START_TIME", time.time()))
+        self._timeout = int(os.environ.get("MODAL_TIMEOUT_SECONDS", 86400))
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        if self._triggered:
+            return
+        remaining = self._timeout - (time.time() - self._start)
+        if remaining < self._RESTART_MARGIN_SEC:
+            self._triggered = True
+            self._auto_restart(trainer)
+
+    def _auto_restart(self, trainer: "Trainer") -> None:
+        ckpt_path = os.path.join(
+            trainer.default_root_dir, "checkpoints", "modal_auto_restart.ckpt"
+        )
+        trainer.save_checkpoint(ckpt_path)
+        log.info(f"[ModalAutoRestart] Checkpoint saved → {ckpt_path}")
+
+        # Grab the live WandB run ID so the continuation logs to the same run
+        wandb_run_id = None
+        for lgr in trainer.loggers:
+            if hasattr(lgr, "experiment") and hasattr(lgr.experiment, "id"):
+                wandb_run_id = lgr.experiment.id
+                break
+
+        # Build new hydra args: original args + updated ckpt_path + wandb_run_id
+        raw_args: list = json.loads(os.environ.get("MODAL_HYDRA_ARGS", "[]"))
+        new_args = [
+            a for a in raw_args
+            if not a.startswith("ckpt_path=") and not a.startswith("wandb_run_id=")
+        ]
+        new_args.append(f"ckpt_path={ckpt_path}")
+        if wandb_run_id:
+            new_args.append(f"wandb_run_id={wandb_run_id}")
+
+        git_remote = os.environ.get("MODAL_GIT_REMOTE", "")
+        git_commit = os.environ.get("MODAL_GIT_COMMIT", "")
+        wandb_api_key = os.environ.get("WANDB_API_KEY", "")
+
+        if trainer.is_global_zero:
+            try:
+                import modal as _modal
+                fn = _modal.Function.from_name(
+                    "egomimic-training",
+                    "run_hydra_train",
+                    environment_name="robotics",
+                )
+                handle = fn.spawn(tuple(new_args), git_remote, git_commit, wandb_api_key)
+                log.info(f"[ModalAutoRestart] Spawned continuation: {handle.object_id}")
+            except Exception as exc:
+                log.error(f"[ModalAutoRestart] Failed to spawn continuation: {exc}")
+
+        trainer.should_stop = True
+        log.info("[ModalAutoRestart] Stopping current run — continuation job is running")
 
 
 def _submit_to_modal(cfg: DictConfig) -> None:
@@ -234,6 +309,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info("Instantiating callbacks...")
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
 
+    # Register Modal auto-restart callback when running inside a Modal container
+    if os.environ.get("MODAL_IS_REMOTE") == "1" and os.environ.get("MODAL_TIMEOUT_SECONDS"):
+        callbacks.append(ModalAutoRestartCallback())
+        log.info("[ModalAutoRestart] Callback registered")
+
     # Resolve mode: support both new `mode` key and legacy `train`/`eval` booleans
     if cfg.get("mode") is not None:
         mode = cfg.mode
@@ -257,6 +337,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.trainer.num_nodes = 1
             cfg.trainer.num_sanity_val_steps = 0
             cfg.logger = None
+
+    # Configure WandB to resume an existing run when wandb_run_id is provided
+    if OmegaConf.select(cfg, "wandb_run_id") and OmegaConf.select(cfg, "logger.wandb"):
+        with open_dict(cfg):
+            cfg.logger.wandb.id = str(cfg.wandb_run_id)
+            cfg.logger.wandb["resume"] = "allow"
+        log.info(f"[WandB] Resuming run id={cfg.wandb_run_id}")
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
