@@ -3,8 +3,8 @@ train_datasets:
   eva_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pick_place_elmond_refactor
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
         keymap_mode: cartesian_pi
@@ -18,8 +18,8 @@ train_datasets:
   aria_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pick_place_elmond_refactor
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
         keymap_mode: cartesian
@@ -35,8 +35,8 @@ valid_datasets:
   eva_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pick_place_elmond_refactor
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
         keymap_mode: cartesian_pi
@@ -50,8 +50,8 @@ valid_datasets:
   aria_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pick_place_elmond_refactor
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
         keymap_mode: cartesian
@@ -62,11 +62,6 @@ valid_datasets:
     filters: null
     mode: valid
     valid_ratio: 0.05
-
-# Prompt assembly + tokenization config moved to the model side
-# (see hydra_configs/model/pi0.5_base.yaml). Override prompt knobs there
-# (or via `model.robomimic_model.<key>=<value>` on the CLI) when pairing
-# this data config with a non-default prompt configuration.
 
 train_dataloader_params:
   eva_bimanual:
