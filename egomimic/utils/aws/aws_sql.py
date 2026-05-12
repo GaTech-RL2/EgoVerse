@@ -29,7 +29,6 @@ RESET = "\033[0m"
 class TableRow:
     episode_hash: str
     operator: str
-    lab: str
     task: str
     embodiment: str
     robot_name: str
@@ -37,24 +36,27 @@ class TableRow:
     task_description: str = ""
     scene: str = ""
     objects: str = ""
-    processed_path: str = ""  # Updateable
     zarr_processed_path: str = ""  # Updateable
     zarr_mp4_path: str = ""  # Updateable
-    processing_error: str = ""  # Updateable
     zarr_processing_error: str = ""  # Updateable
-    mp4_path: str = ""  # Updateable
+    data_type: str = ""
     is_deleted: bool = False
-    is_eval: bool = False
-    eval_score: float = -1
-    eval_success: bool = True
 
 
 def create_default_engine():
-    # Populate env from ~/.egoverse_env only when SECRETS_ARN is not already set.
-    if not os.environ.get("SECRETS_ARN"):
+    # Populate env from ~/.egoverse_env only when higher-priority vars are absent.
+    if not os.environ.get("SECRETS_ARN") and not os.environ.get("DATABASE_URL"):
         load_env()
 
-    # Try to get credentials from Secrets Manager if SECRETS_ARN is set.
+    # Priority 1: direct DATABASE_URL (e.g. injected via Modal secret).
+    DATABASE_URL = os.environ.get("DATABASE_URL")
+    if DATABASE_URL:
+        engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+        insp = inspect(engine)
+        print("Tables in schema 'app':", insp.get_table_names(schema="app"))
+        return engine
+
+    # Priority 2: AWS Secrets Manager ARN.
     SECRETS_ARN = os.environ.get("SECRETS_ARN")
     if SECRETS_ARN:
         secrets = boto3.client("secretsmanager")
@@ -72,7 +74,7 @@ def create_default_engine():
         PORT = cfg.get("port", 5432)
     else:
         raise RuntimeError(
-            "SECRETS_ARN environment variable not set. Please run ./egomimic/utils/aws/setup_secret.sh."
+            "No database credentials found. Set DATABASE_URL or SECRETS_ARN."
         )
 
     # --- 1) connect via SQLAlchemy ---

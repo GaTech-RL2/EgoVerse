@@ -15,6 +15,7 @@ defaults:
 name: test
 description: test
 ckpt_path: null
+wandb_run_id: null  # set to resume an existing W&B run (auto-set on Modal auto-restart)
 mode: train
 
 hydra:
@@ -33,7 +34,7 @@ seed: 42
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
   sample_frac: 1.0
-  num_workers: 4
+  num_workers: 30
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
 reject_outliers: true

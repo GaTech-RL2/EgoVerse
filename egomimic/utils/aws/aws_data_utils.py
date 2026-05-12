@@ -19,11 +19,11 @@ def load_env(path="~/.egoverse_env", required: bool = False):
     if not p.exists():
         if required:
             raise ValueError(
-                f"Env file {p} does not exist, run ./egomimic/utils/aws/setup_secret.sh"
+                f"Env file {p} does not exist. Run ./egomimic/utils/aws/setup_secret.sh (with credentials as env vars for local dev)"
             )
         warnings.warn(
             f"Env file {p} does not exist; AWS/R2 env vars not set. "
-            "Run ./egomimic/utils/aws/setup_secret.sh if you need S3/R2.",
+            "Run ./egomimic/utils/aws/setup_secret.sh (with credentials as env vars for local dev) if you need S3/R2.",
             UserWarning,
             stacklevel=2,
         )
