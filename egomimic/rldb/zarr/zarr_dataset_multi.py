@@ -20,12 +20,15 @@ Each episode is self-contained with its own metadata, enabling:
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
+import math
 import os
 import random
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
@@ -34,6 +37,7 @@ import pandas as pd
 import simplejpeg
 import torch
 import zarr
+from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
@@ -144,6 +148,38 @@ def _normalize_filter_row(
     return normalized
 
 
+def _infer_key_type(key_name: str) -> str | None:
+    """
+    Heuristically infer a key_type for a post-transform key that wasn't
+    declared in the leaf's key_map (typically produced by a transform like
+    ``ConcatKeys``). Returns one of the recognised key_type strings or None
+    when the key looks like metadata that NormStats shouldn't normalize.
+
+    Recognition is conservative — only positive matches return a type.
+    """
+    name = key_name.lower()
+    # Camera image keys
+    if "image" in name or "/img" in name or name.endswith("_img") or ".img" in name:
+        return "camera_keys"
+    # Action keys (model outputs)
+    if name.startswith("actions") or "/cmd_" in name or ".cmd_" in name:
+        return "action_keys"
+    # Proprioception (observed state)
+    if (
+        name.startswith("observations.state")
+        or "/obs_" in name
+        or ".obs_" in name
+        or "joint_positions" in name
+        or "ee_pose" in name
+        or "keypoints" in name
+    ):
+        return "proprio_keys"
+    # Language / annotations
+    if "annotation" in name or "tokenized" in name or "lang" in name:
+        return "annotation_keys"
+    return None
+
+
 def get_fallback_idx(
     idx: int,
     candidates: Iterable[int],
@@ -173,12 +209,10 @@ class EpisodeResolver:
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
-        norm_stats: dict | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
-        self.norm_stats = norm_stats
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
@@ -211,7 +245,6 @@ class EpisodeResolver:
                     p,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
-                    norm_stats=self.norm_stats,
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -249,7 +282,6 @@ class S3EpisodeResolver(EpisodeResolver):
             folder_path,
             key_map=key_map,
             transform_list=transform_list,
-            norm_stats=norm_stats,
         )
 
     def resolve(
@@ -483,11 +515,9 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
-        debug: int | bool | None = None,
-        norm_stats: dict | None = None,
         debug=False,
     ):
-        super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
+        super().__init__(folder_path, key_map, transform_list)
         self.debug = debug
 
     @staticmethod
@@ -574,26 +604,74 @@ class LocalEpisodeResolver(EpisodeResolver):
 
 class MultiDataset(torch.utils.data.Dataset):
     """
-    Self wrapping MultiDataset, can wrap zarr or multi dataset.
+    Wraps a dict of child datasets (Zarr leaves or other MultiDatasets) and
+    also owns the normalization-stats descriptor and helpers that used to live
+    in separate ``NormStats`` / ``NormalizingMultiDataset`` classes.
 
+    Two construction modes:
+      - **Data mode** (default): pass ``datasets`` to wrap a real dataset graph
+        (existing behaviour, used during training). Stats fields start empty;
+        call ``populate_from_datasets()`` and ``infer_norm_from_dataset(...)``
+        to fill them in, then ``attach_normalize_transforms()`` to wire
+        normalize/reject transforms onto each leaf's ``transform_list``.
+      - **State mode** (``state=...``, ``datasets=None``): construct a
+        stats-only instance for deploy/eval where the dataset graph isn't
+        available. ``self.datasets`` is empty; only the stats fields are
+        populated. Used by checkpoint reconstruction.
     """
+
+    NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
 
     def __init__(
         self,
-        datasets: dict[str, MultiDataset | ZarrDataset | ZarrActionExpertDataset],
-        mode="train",
-        percent=0.1,
-        valid_ratio=0.2,
+        datasets: (
+            dict[str, MultiDataset | ZarrDataset | ZarrActionExpertDataset] | None
+        ) = None,
+        mode: str = "train",
+        percent: float = 0.1,
+        valid_ratio: float = 0.2,
+        norm_mode: str = "zscore",
+        state: dict | None = None,
         **kwargs,
     ):
         """
         Args:
-            datasets (dict): Dictionary mapping unique dataset hashes (str) to dataset objects. Datasets can be individual Zarr datasets or other multi-datasets; mixing different types is supported.
-            mode (str, optional): Split mode to use (e.g., "train", "valid"). Defaults to "train".
-            percent (float, optional): Fraction of the dataset to use from each underlying dataset. Defaults to 0.1.
-            valid_ratio (float, optional): Validation split ratio for datasets that support a train/valid split.
-            **kwargs: Additional keyword arguments passed to underlying dataset constructors if needed.
+            datasets: Dict of child datasets. None for state-only construction.
+            mode: One of "train", "valid", "total", "percent" — which split to keep.
+            percent: Fraction (when mode="percent").
+            valid_ratio: Train/valid split ratio.
+            norm_mode: One of "zscore", "minmax", "quantile".
+            state: If provided, populate stats fields from this dict (deploy mode).
         """
+        super().__init__()
+
+        # ---- Stats fields (always present, may be empty) ----
+        self.norm_mode = norm_mode
+        self.embodiments: set[int] = set()
+        self.key_types: dict[int, dict[str, str]] = {}
+        self.zarr_keys: dict[int, dict[str, str]] = {}
+        self.shapes: dict[int, dict[str, tuple]] = {}
+        self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
+        self._norm_run_metadata: dict[str, float | int | None] | None = None
+
+        # ---- Dataset graph fields ----
+        self.datasets: dict = {}
+        self.index_map: list = []
+        self._global_indices_by_dataset: dict[str, list[int]] = {}
+        # Dedup bounds-check warnings: keyed by f"bounds:{episode}:{zarr_key}"
+        self._warned_violations: set[str] = set()
+        self.train_collections: set = set()
+        self.valid_collections: set = set()
+
+        if state is not None:
+            # Deploy / state-only construction — no dataset graph.
+            self._load_state(state)
+            return
+
+        if datasets is None:
+            raise ValueError("MultiDataset requires either `datasets` or `state`.")
+
+        # ---- Normal data-mode construction ----
         self.train_collections, self.valid_collections = split_dataset_names(
             datasets.keys(), valid_ratio=valid_ratio, seed=SEED
         )
@@ -608,7 +686,6 @@ class MultiDataset(torch.utils.data.Dataset):
             all_names = sorted(datasets.keys())
             rng = random.Random(SEED)
             rng.shuffle(all_names)
-
             n_keep = int(len(all_names) * percent)
             if percent > 0.0:
                 n_keep = max(1, n_keep)
@@ -619,20 +696,12 @@ class MultiDataset(torch.utils.data.Dataset):
         self.datasets = {rid: ds for rid, ds in datasets.items() if rid in chosen}
         assert self.datasets, "No datasets left after applying mode split."
 
-        self.index_map = []
-        self._global_indices_by_dataset: dict[str, list[int]] = {
-            dataset_name: [] for dataset_name in self.datasets
-        }
+        self._global_indices_by_dataset = {n: [] for n in self.datasets}
         for dataset_name, dataset in self.datasets.items():
             for local_idx in range(len(dataset)):
                 global_idx = len(self.index_map)
                 self.index_map.append((dataset_name, local_idx))
                 self._global_indices_by_dataset[dataset_name].append(global_idx)
-
-        self.data_schematic = None
-        self._warned_violations: set[str] = set()
-
-        super().__init__()
 
     def __len__(self) -> int:
         return len(self.index_map)
@@ -644,27 +713,47 @@ class MultiDataset(torch.utils.data.Dataset):
             return dataset_name
         return Path(episode_path).name
 
+    def set_norm_stats_from(self, source: "MultiDataset") -> None:
+        """Share stats with this dataset (and its nested MultiDatasets) by
+        reference. After this call ``__getitem__`` will bounds-check + normalize
+        each sample using ``source``'s ``norm_stats``/``key_types``/``zarr_keys``.
+
+        Use this *instead of* ``attach_normalize_transforms`` — it doesn't mutate
+        any leaf-level ``transform`` list, so it can't accumulate duplicate
+        passes when leaves share a transform list reference.
+        """
+        self.norm_stats = source.norm_stats
+        self.key_types = source.key_types
+        self.zarr_keys = source.zarr_keys
+        self.shapes = source.shapes
+        self.embodiments = source.embodiments
+        self.norm_mode = source.norm_mode
+        # Each MultiDataset keeps its own warning-dedup state.
+        self._warned_violations = set()
+        for ds in self.datasets.values():
+            if isinstance(ds, MultiDataset):
+                ds.set_norm_stats_from(source)
+
     def _check_bounds(
         self, data: dict, dataset, idx: int, dataset_name: str
     ) -> str | None:
-        if self.data_schematic is None:
-            return None
-
+        """Return a violation message if any tracked key in ``data`` has NaN/Inf
+        or values outside per-key quantile bounds. ``None`` means the sample
+        passes. Logs each (episode, key) violation once.
+        """
         embodiment_id = data.get("embodiment")
         if embodiment_id is None:
-            raise ValueError("data has no embodiment metadata")
-
-        norm_stats = self.data_schematic.norm_stats.get(embodiment_id, {})
-        if not norm_stats:
+            return None
+        per_emb_stats = self.norm_stats.get(embodiment_id, {})
+        if not per_emb_stats:
             return None
 
         episode_name = self._episode_name_for_dataset(dataset, dataset_name)
 
-        for key_name, stats in norm_stats.items():
-            zarr_key = self.data_schematic.keyname_to_zarr_key(key_name, embodiment_id)
+        for key_name, stats in per_emb_stats.items():
+            zarr_key = self.zarr_keys.get(embodiment_id, {}).get(key_name)
             if zarr_key is None or zarr_key not in data:
                 continue
-
             v = data[zarr_key]
             if isinstance(v, torch.Tensor):
                 arr = v.float()
@@ -674,150 +763,560 @@ class MultiDataset(torch.utils.data.Dataset):
                 continue
 
             q_low = stats.get(
-                "quantile_0_01",
-                stats.get("quantile_0_1", stats["quantile_1"]),
+                "quantile_0_01", stats.get("quantile_0_1", stats["quantile_1"])
             )
             q_high = stats.get(
-                "quantile_99_99",
-                stats.get("quantile_99_9", stats["quantile_99"]),
+                "quantile_99_99", stats.get("quantile_99_9", stats["quantile_99"])
             )
             q_low = torch.as_tensor(q_low, device=arr.device, dtype=torch.float32)
             q_high = torch.as_tensor(q_high, device=arr.device, dtype=torch.float32)
-
             try:
                 q_low = torch.broadcast_to(q_low, arr.shape)
                 q_high = torch.broadcast_to(q_high, arr.shape)
             except RuntimeError:
-                logger.warning(
-                    "Skipping bounds check for ep=%s frame=%s key=%s due to incompatible shapes: value=%s q_low=%s q_high=%s",
-                    episode_name,
-                    idx,
-                    zarr_key,
-                    tuple(arr.shape),
-                    tuple(q_low.shape),
-                    tuple(q_high.shape),
-                )
                 continue
 
-            has_nan = torch.any(torch.isnan(arr))
-            has_inf = torch.any(torch.isinf(arr))
-            if has_nan or has_inf:
-                nan_mask = torch.isnan(arr)
-                inf_mask = torch.isinf(arr)
-                n_nan = nan_mask.sum().item()
-                n_inf = inf_mask.sum().item()
-                bad_mask = nan_mask | inf_mask
-                bad_indices = bad_mask.nonzero(as_tuple=False).tolist()
-                bad_values = arr[bad_mask].tolist()
-                prefix = (
-                    f"NaN/Inf violation ep={episode_name} frame={idx} key={zarr_key}"
-                )
-                warn_key = f"nan_inf:{episode_name}:{zarr_key}"
+            if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
+                prefix = f"NaN/Inf in {zarr_key} ep={episode_name} frame={idx}"
+                warn_key = f"naninf:{episode_name}:{zarr_key}"
                 if warn_key not in self._warned_violations:
                     self._warned_violations.add(warn_key)
-                    logger.warning(
-                        f"{prefix} | n_nan={int(n_nan)} n_inf={int(n_inf)} "
-                        f"indices={bad_indices[:10]} values={[f'{v:.4f}' for v in bad_values[:10]]}"
-                    )
+                    logger.warning(prefix)
                 return prefix
 
             below = arr < q_low
             above = arr > q_high
             if torch.any(below) or torch.any(above):
-                n_below = below.sum().item()
-                n_above = above.sum().item()
-                below_vals = arr[below].tolist()
-                above_vals = arr[above].tolist()
-                below_bounds = q_low[below].tolist()
-                above_bounds = q_high[above].tolist()
-                prefix = (
-                    f"Bounds violation ep={episode_name} frame={idx} key={zarr_key}"
-                )
+                prefix = f"Bounds violation in {zarr_key} ep={episode_name} frame={idx}"
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
                 if warn_key not in self._warned_violations:
                     self._warned_violations.add(warn_key)
+                    n_below = int(below.sum().item())
+                    n_above = int(above.sum().item())
                     logger.warning(
-                        f"{prefix} | "
-                        f"n_below={int(n_below)} below_vals={[f'{v:.4f}' for v in below_vals[:5]]} below_bound={[f'{b:.4f}' for b in below_bounds[:5]]} "
-                        f"n_above={int(n_above)} above_vals={[f'{v:.4f}' for v in above_vals[:5]]} above_bound={[f'{b:.4f}' for b in above_bounds[:5]]}"
+                        f"{prefix} | n_below={n_below} n_above={n_above} "
+                        f"arr_range=[{arr.min().item():.4f}, {arr.max().item():.4f}]"
                     )
                 return prefix
-
         return None
 
     def __getitem__(self, idx, _attempts: int | None = None):
-        """
-        Multidataset handles outlier rejection so that you don't need to propagate the norm stats down to every sub dataset.
-        """
-        dataset_name, local_idx = self.index_map[idx]
-        dataset = self.datasets[dataset_name]
-        data = dataset[local_idx]
+        attempts = _attempts
+        while True:
+            dataset_name, local_idx = self.index_map[idx]
+            dataset = self.datasets[dataset_name]
+            try:
+                data = dataset[local_idx]
+            except Exception as e:
+                next_idx, attempts = self._next_after_failure(
+                    idx,
+                    dataset_name,
+                    attempts,
+                    reason=f"Sample failed ({type(e).__name__}: {e}) at "
+                    f"{dataset_name}[{local_idx}]",
+                )
+                idx = next_idx
+                continue
 
-        if isinstance(dataset, MultiDataset):
+            # If this leaf is itself a MultiDataset, it already ran bounds +
+            # normalize for its returned sample. Pass through unchanged.
+            if isinstance(dataset, MultiDataset):
+                return data
+
+            violation = self._check_bounds(data, dataset, local_idx, dataset_name)
+            if violation is not None:
+                next_idx, attempts = self._next_after_failure(
+                    idx,
+                    dataset_name,
+                    attempts,
+                    reason=violation,
+                )
+                idx = next_idx
+                continue
+
+            # Bounds passed — normalize and return.
+            if self.norm_stats and data.get("embodiment") in self.norm_stats:
+                data = self.normalize(data, data["embodiment"])
             return data
 
-        violation = self._check_bounds(data, dataset, local_idx, dataset_name)
-        if violation is not None:
-            next_idx, attempts = get_fallback_idx(
-                idx=idx,
-                candidates=self._global_indices_by_dataset[dataset_name],
-                _attempts=_attempts,
-                max_attempts=len(self._global_indices_by_dataset[dataset_name]),
-                exhausted_error=(
-                    f"Entire dataset bad (no valid indices): dataset={dataset_name}"
-                ),
-            )
-            next_dataset_name, next_local_idx = self.index_map[next_idx]
-            logger.warning(
-                f"{violation} | attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
-            )
-            return self.__getitem__(next_idx, _attempts=attempts)
-
-        return data
-
-    def set_data_schematic(self, data_schematic) -> None:
-        """
-        Set the data schematic used for top-level bounds checking.
-
-        When child datasets are themselves MultiDatasets, recursively assign the
-        same schematic so each wrapper can validate its own returned samples.
-        """
-        self.data_schematic = data_schematic
-        for ds in self.datasets.values():
-            if isinstance(ds, MultiDataset):
-                ds.set_data_schematic(data_schematic)
-        logger.info(
-            f"Set data_schematic on MultiDataset with {len(self.datasets)} child datasets"
+    def _next_after_failure(
+        self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
+    ) -> tuple[int, int]:
+        global_candidates = self._global_indices_by_dataset[dataset_name]
+        next_idx, attempts = get_fallback_idx(
+            idx=idx,
+            candidates=global_candidates,
+            _attempts=attempts,
+            max_attempts=len(global_candidates),
+            exhausted_error=(
+                f"Entire dataset bad (no valid indices): dataset={dataset_name}"
+            ),
         )
+        next_dataset_name, next_local_idx = self.index_map[next_idx]
+        logger.warning(
+            f"{reason} | attempt {attempts}, "
+            f"trying {next_dataset_name}[{next_local_idx}]"
+        )
+        return next_idx, attempts
 
     @classmethod
     def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
-        """
-        create a MultiDataset from an EpisodeResolver.
-
-        Args:
-            resolver (EpisodeResolver): The resolver instance to use for loading datasets.
-            embodiment: The embodiment identifier to use for resolving datasets.
-            **kwargs: Keyword args forwarded to resolver (e.g., filters,
-                sync_from_s3) and MultiDataset constructor (e.g., mode, percent,
-                key_map, valid_ratio).
-        Returns:
-            MultiDataset: The constructed multi-dataset.
-        """
-        # TODO add key_map and transform pass to children
-
+        """create a MultiDataset from an EpisodeResolver."""
         sync_from_s3 = kwargs.pop("sync_from_s3", False)
         filters = kwargs.pop("filters", None)
 
         if isinstance(resolver, LocalEpisodeResolver):
-            resolved = resolver.resolve(
-                sync_from_s3=sync_from_s3,
-                filters=filters,
-            )
+            resolved = resolver.resolve(sync_from_s3=sync_from_s3, filters=filters)
         else:
             resolved = resolver.resolve(filters=filters)
 
         return cls(datasets=resolved, **kwargs)
+
+    # =====================================================================
+    # Stats / normalization
+    # =====================================================================
+
+    @staticmethod
+    def _iter_leaves(ds):
+        """Yield non-MultiDataset leaves from possibly nested wrappers."""
+        if isinstance(ds, MultiDataset):
+            for child in ds.datasets.values():
+                yield from MultiDataset._iter_leaves(child)
+        else:
+            yield ds
+
+    def populate_from_datasets(self, datasets: dict | None = None) -> None:
+        """
+        Populate per-embodiment key inventory by walking leaves and probing
+        one post-transform sample per leaf. ``datasets`` defaults to
+        ``self.datasets`` so the typical call is just ``mds.populate_from_datasets()``.
+        """
+        graph = datasets if datasets is not None else self.datasets
+        for ds in graph.values():
+            for leaf in self._iter_leaves(ds):
+                emb = getattr(leaf, "embodiment", None)
+                key_map = getattr(leaf, "key_map", None)
+                if emb is None or key_map is None:
+                    continue
+                emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
+                self.embodiments.add(emb_id)
+                self.key_types.setdefault(emb_id, {})
+                self.zarr_keys.setdefault(emb_id, {})
+                self.shapes.setdefault(emb_id, {})
+                self.norm_stats.setdefault(emb_id, {})
+
+                sample_keys: set | None = None
+                try:
+                    sample = leaf[0]
+                    if isinstance(sample, dict):
+                        sample_keys = set(sample.keys())
+                except Exception as e:
+                    logger.warning(
+                        f"[MultiDataset] Could not probe leaf for post-transform "
+                        f"keys (emb={emb_id}): {e}. Falling back to raw key_map."
+                    )
+
+                if sample_keys is None:
+                    for key_name, info in key_map.items():
+                        self.key_types[emb_id][key_name] = info.get(
+                            "key_type", "metadata_keys"
+                        )
+                        self.zarr_keys[emb_id][key_name] = info["zarr_key"]
+                    continue
+
+                # Identity zarr_keys map (data_key is the algo-side name).
+                for data_key in sample_keys:
+                    if data_key in key_map:
+                        info = key_map[data_key]
+                        self.key_types[emb_id][data_key] = info.get(
+                            "key_type", "metadata_keys"
+                        )
+                    else:
+                        inferred = _infer_key_type(data_key)
+                        if inferred is None:
+                            continue
+                        self.key_types[emb_id][data_key] = inferred
+                    self.zarr_keys[emb_id][data_key] = data_key
+
+    # ---- key lookups ----
+
+    def keys_of_type(self, key_type: str, embodiment_id: int) -> list[str]:
+        return [
+            k for k, t in self.key_types.get(embodiment_id, {}).items() if t == key_type
+        ]
+
+    def is_key_with_embodiment(self, key_name: str, embodiment_id: int) -> bool:
+        return key_name in self.key_types.get(embodiment_id, {})
+
+    def keyname_to_zarr_key(self, key_name: str, embodiment_id: int) -> str | None:
+        return self.zarr_keys.get(embodiment_id, {}).get(key_name)
+
+    def zarr_key_to_keyname(self, zarr_key: str, embodiment_id: int) -> str | None:
+        for k, v in self.zarr_keys.get(embodiment_id, {}).items():
+            if v == zarr_key:
+                return k
+        return None
+
+    def key_shape(self, key_name: str, embodiment_id: int) -> tuple:
+        if key_name not in self.shapes.get(embodiment_id, {}):
+            raise ValueError(
+                f"Shape for key {key_name!r} on embodiment {embodiment_id} not inferred yet."
+            )
+        return self.shapes[embodiment_id][key_name]
+
+    # ---- shape & norm inference ----
+
+    def infer_shapes_from_batch(self, batch: dict) -> None:
+        for emb_id, per_emb in self.zarr_keys.items():
+            for key_name, zarr_key in per_emb.items():
+                if zarr_key in batch:
+                    val = batch[zarr_key]
+                    if hasattr(val, "shape"):
+                        self.shapes.setdefault(emb_id, {})[key_name] = tuple(val.shape)
+                    elif isinstance(val, int):
+                        self.shapes.setdefault(emb_id, {})[key_name] = (1,)
+
+    def infer_norm_from_dataset(
+        self,
+        dataset,
+        dataset_name,
+        sample_frac: float = 0.10,
+        seed: int = 42,
+        max_samples: int | None = None,
+        batch_size: int = 512,
+        num_workers: int = 4,
+        precomputed_norm_path: str | None = None,
+    ):
+        embodiment = dataset_name
+        if isinstance(embodiment, str):
+            embodiment = get_embodiment_id(embodiment)
+
+        norm_keys = list(self.keys_of_type("proprio_keys", embodiment))
+        norm_keys.extend(self.keys_of_type("action_keys", embodiment))
+        if not norm_keys:
+            logger.warning(
+                f"[MultiDataset] No proprio/action keys for embodiment={embodiment}"
+            )
+            return
+
+        self.norm_stats.setdefault(embodiment, {})
+
+        if precomputed_norm_path is not None:
+            if os.path.isdir(precomputed_norm_path):
+                precomputed_file = os.path.join(
+                    precomputed_norm_path, "norm_stats.json"
+                )
+            elif os.path.isfile(precomputed_norm_path):
+                precomputed_file = precomputed_norm_path
+            else:
+                logger.warning(
+                    f"[MultiDataset] precomputed_norm_path={precomputed_norm_path} is not valid"
+                )
+                return
+            if os.path.isfile(precomputed_file):
+                with open(precomputed_file, "r") as f:
+                    payload = json.load(f)
+                self.norm_stats[embodiment] = payload["stats"].get(str(embodiment), {})
+                self._norm_run_metadata = payload.get("norm_run_metadata", None)
+                logger.info(
+                    f"[MultiDataset] Loaded precomputed stats for embodiment={embodiment}"
+                )
+                return
+
+        loader = torch.utils.data.DataLoader(
+            dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=True,
+            generator=torch.Generator().manual_seed(seed),
+        )
+        N = len(dataset)
+        if N <= 0:
+            raise ValueError("Dataset is empty")
+        n_samples = int(math.ceil(sample_frac * N))
+        n_samples = max(1, min(n_samples, N))
+        if max_samples is not None:
+            n_samples = min(n_samples, max_samples)
+
+        logger.info(f"[MultiDataset] embodiment={embodiment} norm_keys={norm_keys}")
+        logger.info(
+            f"[MultiDataset] sampling {n_samples}/{N} (~{100 * sample_frac:.1f}%)"
+        )
+
+        loading_start = time.time()
+        collected = self._collect_norm_samples(
+            loader, norm_keys, embodiment, n_samples, batch_size, num_workers
+        )
+        for k in [k for k, v in collected.items() if not v]:
+            del collected[k]
+            norm_keys.remove(k)
+        loading_time = time.time() - loading_start
+
+        computing_start = time.time()
+        for k in norm_keys:
+            collected[k] = np.concatenate(collected[k], axis=0)
+            stats_np = self._compute_stats_for_array(collected[k])
+            self.norm_stats[embodiment][k] = {
+                name: np.asarray(arr, dtype=np.float32)
+                for name, arr in stats_np.items()
+            }
+            logger.info(
+                f"[MultiDataset] key={k} samples={collected[k].shape[0]} stat_shape={stats_np['mean'].shape}"
+            )
+        computing_time = time.time() - computing_start
+
+        self._norm_run_metadata = {
+            "loading_time": loading_time,
+            "computing_time": computing_time,
+            "frames": n_samples,
+        }
+        logger.info(
+            f"[MultiDataset] Finished norm inference, loading={loading_time:.2f}s, computing={computing_time:.2f}s"
+        )
+
+    def _collect_norm_samples(
+        self, loader, norm_keys, embodiment, n_samples, batch_size, num_workers
+    ):
+        collected = {k: [] for k in norm_keys}
+        cur = 0
+        with tqdm(total=n_samples, unit="sample") as pbar:
+            for batch in loader:
+                remaining = n_samples - cur
+                if remaining <= 0:
+                    break
+                batch_len = None
+                for value in batch.values():
+                    if hasattr(value, "shape") and len(value.shape) > 0:
+                        batch_len = int(value.shape[0])
+                        break
+                if batch_len is None:
+                    raise ValueError(
+                        "[MultiDataset] Could not infer batch size from DataLoader batch"
+                    )
+                take = min(remaining, batch_len)
+                for k in norm_keys:
+                    zarr_key = self.keyname_to_zarr_key(k, embodiment)
+                    if zarr_key is None or zarr_key not in batch:
+                        continue
+                    x = batch[zarr_key][:take]
+                    if hasattr(x, "detach"):
+                        x = x.detach().cpu().numpy()
+                    collected[k].append(x)
+                cur += take
+                pbar.update(take)
+        return collected
+
+    @staticmethod
+    def _compute_stats_for_array(X):
+        return {
+            "mean": np.mean(X, axis=0),
+            "std": np.std(X, axis=0),
+            "min": np.min(X, axis=0),
+            "max": np.max(X, axis=0),
+            "median": np.median(X, axis=0),
+            "quantile_1": np.percentile(X, 1, axis=0),
+            "quantile_99": np.percentile(X, 99, axis=0),
+            "quantile_0_01": np.percentile(X, 0.01, axis=0),
+            "quantile_99_99": np.percentile(X, 99.99, axis=0),
+        }
+
+    def cache_stats(self, save_cache_dir: str):
+        cache_dir = os.path.join(save_cache_dir, "norm_stats")
+        os.makedirs(cache_dir, exist_ok=True)
+        out_path = os.path.join(cache_dir, "norm_stats.json")
+
+        stats_out: dict[str, dict[str, dict[str, list]]] = {}
+        for emb, keys_dict in self.norm_stats.items():
+            stats_out[str(emb)] = {
+                k: {name: np.asarray(arr).tolist() for name, arr in stat_dict.items()}
+                for k, stat_dict in keys_dict.items()
+            }
+        payload = {
+            "stats": stats_out,
+            "loading_time": None,
+            "computing_time": None,
+            "frames": None,
+        }
+        if self._norm_run_metadata is not None:
+            for k in ("loading_time", "computing_time", "frames"):
+                if k in self._norm_run_metadata:
+                    payload[k] = self._norm_run_metadata[k]
+        with open(out_path, "w") as f:
+            json.dump(payload, f, indent=4)
+        logger.info(f"[MultiDataset] Cached stats to {out_path}")
+
+    # ---- normalize / unnormalize ----
+
+    def _apply_norm_one(self, tensor, stats):
+        if self.norm_mode == "zscore":
+            mean = torch.as_tensor(
+                stats["mean"], device=tensor.device, dtype=torch.float32
+            )
+            std = torch.as_tensor(
+                stats["std"], device=tensor.device, dtype=torch.float32
+            )
+            return (tensor - mean) / (std + 1e-6)
+        if self.norm_mode == "minmax":
+            mn = torch.as_tensor(
+                stats["min"], device=tensor.device, dtype=torch.float32
+            )
+            mx = torch.as_tensor(
+                stats["max"], device=tensor.device, dtype=torch.float32
+            )
+            return 2.0 * ((tensor - mn) / (mx - mn + 1e-6)) - 1.0
+        if self.norm_mode == "quantile":
+            q1 = torch.as_tensor(
+                stats["quantile_1"], device=tensor.device, dtype=torch.float32
+            )
+            q99 = torch.as_tensor(
+                stats["quantile_99"], device=tensor.device, dtype=torch.float32
+            )
+            return 2.0 * ((tensor - q1) / (q99 - q1 + 1e-6)) - 1.0
+        raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+
+    def _apply_unnorm_one(self, tensor, stats):
+        if self.norm_mode == "zscore":
+            mean = torch.as_tensor(
+                stats["mean"], device=tensor.device, dtype=torch.float32
+            )
+            std = torch.as_tensor(
+                stats["std"], device=tensor.device, dtype=torch.float32
+            )
+            return tensor * (std + 1e-6) + mean
+        if self.norm_mode == "minmax":
+            mn = torch.as_tensor(
+                stats["min"], device=tensor.device, dtype=torch.float32
+            )
+            mx = torch.as_tensor(
+                stats["max"], device=tensor.device, dtype=torch.float32
+            )
+            return (tensor + 1) * 0.5 * (mx - mn + 1e-6) + mn
+        if self.norm_mode == "quantile":
+            q1 = torch.as_tensor(
+                stats["quantile_1"], device=tensor.device, dtype=torch.float32
+            )
+            q99 = torch.as_tensor(
+                stats["quantile_99"], device=tensor.device, dtype=torch.float32
+            )
+            return (tensor + 1) * 0.5 * (q99 - q1 + 1e-6) + q1
+        raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
+
+    def normalize(self, data: dict, embodiment_id: int) -> dict:
+        if not self.norm_stats.get(embodiment_id):
+            return data
+        out = dict(data)
+        for key_name, key_type in self.key_types.get(embodiment_id, {}).items():
+            if key_type not in self.NORMALIZE_KEY_TYPES:
+                continue
+            stats = self.norm_stats[embodiment_id].get(key_name)
+            if stats is None:
+                continue
+            zarr_key = self.zarr_keys[embodiment_id][key_name]
+            if zarr_key not in out:
+                continue
+            tensor = out[zarr_key]
+            if not isinstance(tensor, torch.Tensor):
+                if isinstance(tensor, np.ndarray):
+                    tensor = torch.from_numpy(tensor).float()
+                else:
+                    continue
+            out[zarr_key] = self._apply_norm_one(tensor, stats)
+        return out
+
+    def unnormalize(self, data: dict, embodiment_id: int) -> dict:
+        if not self.norm_stats.get(embodiment_id):
+            return data
+        out = dict(data)
+        zk_to_kn = {v: k for k, v in self.zarr_keys.get(embodiment_id, {}).items()}
+        for data_key, value in list(data.items()):
+            key_name = (
+                data_key
+                if data_key in self.norm_stats[embodiment_id]
+                else zk_to_kn.get(data_key)
+            )
+            if key_name is None:
+                continue
+            stats = self.norm_stats[embodiment_id].get(key_name)
+            if stats is None:
+                continue
+            if not isinstance(value, torch.Tensor):
+                if isinstance(value, np.ndarray):
+                    value = torch.from_numpy(value).float()
+                else:
+                    continue
+            out[data_key] = self._apply_unnorm_one(value, stats)
+        return out
+
+    # ---- transform attachment ----
+
+    def attach_normalize_transforms(
+        self, datasets: dict | None = None, reject_outliers: bool = True
+    ) -> None:
+        """Deprecated. Use ``set_norm_stats_from`` on each training/valid
+        MultiDataset instead. Bounds-check + normalize now run at the
+        MultiDataset level in ``__getitem__``, not as per-leaf transforms.
+
+        Kept as a thin shim that calls ``set_norm_stats_from(self)`` on each
+        MultiDataset in ``datasets`` so existing callers keep working. The
+        ``reject_outliers`` flag is no longer honored — bounds checking is
+        always on when stats are populated. To disable, clear ``norm_stats``.
+        """
+        del reject_outliers  # unused
+        graph = datasets if datasets is not None else self.datasets
+        for ds in graph.values():
+            if isinstance(ds, MultiDataset):
+                ds.set_norm_stats_from(self)
+
+    # ---- serialization (checkpoint roundtrip) ----
+
+    @staticmethod
+    def _clone_norm_stats(norm_stats):
+        out = {}
+        for emb, per_emb in (norm_stats or {}).items():
+            out[emb] = {
+                key: {
+                    name: (
+                        v.detach().cpu().clone()
+                        if torch.is_tensor(v)
+                        else copy.deepcopy(v)
+                    )
+                    for name, v in stats.items()
+                }
+                for key, stats in per_emb.items()
+            }
+        return out
+
+    def to_state(self) -> dict:
+        """Serialize stats only (not the dataset graph). Suitable for checkpoint."""
+        return {
+            "norm_mode": self.norm_mode,
+            "embodiments": sorted(self.embodiments),
+            "key_types": copy.deepcopy(self.key_types),
+            "zarr_keys": copy.deepcopy(self.zarr_keys),
+            "shapes": copy.deepcopy(self.shapes),
+            "norm_stats": self._clone_norm_stats(self.norm_stats),
+        }
+
+    @classmethod
+    def from_state(cls, state: dict) -> "MultiDataset":
+        """Reconstruct a stats-only MultiDataset (no dataset graph) from state."""
+        if state is None:
+            raise ValueError("MultiDataset state must be provided for reconstruction.")
+        return cls(state=state)
+
+    def _load_state(self, state: dict) -> None:
+        """Populate stats fields from a state dict. Used by state-only construction."""
+        self.norm_mode = state.get("norm_mode", self.norm_mode)
+        self.embodiments = set(state.get("embodiments", []))
+        self.key_types = copy.deepcopy(state.get("key_types", {}))
+        self.zarr_keys = copy.deepcopy(state.get("zarr_keys", {}))
+        self.shapes = copy.deepcopy(state.get("shapes", {}))
+        self.norm_stats = self._clone_norm_stats(state.get("norm_stats", {}))
+        for emb in self.embodiments:
+            self.key_types.setdefault(emb, {})
+            self.zarr_keys.setdefault(emb, {})
+            self.shapes.setdefault(emb, {})
+            self.norm_stats.setdefault(emb, {})
 
 
 class ZarrDataset(torch.utils.data.Dataset):
@@ -830,17 +1329,12 @@ class ZarrDataset(torch.utils.data.Dataset):
         Episode_path: Path,
         key_map: dict,
         transform_list: list | None = None,
-        norm_stats: dict | None = None,
     ):
         """
         Args:
             episode_path: just a path to the designated zarr episode
             key_map: dict mapping from dataset keys to zarr keys and horizon info, e.g. {"obs/image/front": {"zarr_key": "observations.images.front", "horizon": 4}, ...}
             transform_list: list of Transform objects to apply to the data after loading, e.g. for action chunk transformations. Should be in order of application.
-            norm_stats: optional dict mapping dataset key names (same keys as key_map) to
-                {"quantile_1": tensor, "quantile_99": tensor} bounds. When provided, any
-                loaded sample whose values fall outside [quantile_1, quantile_99] for any
-                tracked key triggers the random index fallback.
         """
         self.episode_path = Episode_path
         self.metadata = None
@@ -851,7 +1345,6 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         self.key_map = key_map
         self.transform = transform_list
-        self.norm_stats = norm_stats or {}
         super().__init__()
 
     def init_episode(self):
@@ -966,95 +1459,81 @@ class ZarrDataset(torch.utils.data.Dataset):
     ) -> dict[str, torch.Tensor]:
         # Build keys_dict with ranges based on whether action chunking is enabled
         """
-        ZarrDataset handles jpeg decoding and transform function errors, and triggers resample on dataset level.
+        ZarrDataset handles jpeg decoding and transform function errors, and
+        retries on a different random index (bounded loop, no recursion).
         """
-        data = {}
-        for k in self.key_map:
-            zarr_key = self.key_map[k]["zarr_key"]
-            key_type = self.key_map[k].get("key_type", None)
-            horizon = self.key_map[k].get("horizon", None)
+        origin = _fallback_origin if _fallback_origin is not None else idx
+        attempts = _attempts
 
-            if key_type == "annotation_keys":
-                data[k] = self._annotation_text_for_frame(idx)
+        def _next(reason: str, key: str = "") -> int:
+            nonlocal attempts
+            next_idx, attempts = get_fallback_idx(
+                idx=idx,
+                candidates=range(self.total_frames),
+                _attempts=attempts,
+                max_attempts=self.total_frames,
+                exhausted_error=(
+                    f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
+                ),
+            )
+            logger.warning(
+                f"{reason} ep={Path(self.episode_path).name} frame={idx}"
+                + (f" key={key}" if key else "")
+                + f" | attempt {attempts}, trying random idx {next_idx}"
+            )
+            return next_idx
+
+        while True:
+            data = {}
+            retry = False
+            for k in self.key_map:
+                zarr_key = self.key_map[k]["zarr_key"]
+                key_type = self.key_map[k].get("key_type", None)
+                horizon = self.key_map[k].get("horizon", None)
+
+                if key_type == "annotation_keys":
+                    data[k] = self._annotation_text_for_frame(idx)
+                    continue
+
+                if horizon is not None:
+                    end_idx = self._chunk_end_idx(idx, horizon, key_type)
+                    read_interval = (idx, end_idx)
+                else:
+                    read_interval = (idx, None)
+                read_dict = {zarr_key: read_interval}
+                raw_data = self.episode_reader.read(read_dict)
+                self._pad_sequences(raw_data, horizon)  # should be able to pad images
+                data[k] = raw_data[zarr_key]
+
+                if zarr_key in self._image_keys:
+                    jpeg_bytes = data[k]
+                    try:
+                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                    except Exception:
+                        idx = _next("JPEG decode failed", key=k)
+                        retry = True
+                        break
+                    data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
+                elif zarr_key in self._json_keys:
+                    if isinstance(data[k], np.ndarray):
+                        data[k] = [self._decode_json_entry(v) for v in data[k]]
+                    else:
+                        data[k] = self._decode_json_entry(data[k])
+            if retry:
                 continue
 
-            if horizon is not None:
-                end_idx = self._chunk_end_idx(idx, horizon, key_type)
-                read_interval = (idx, end_idx)
-            else:
-                read_interval = (idx, None)
-            read_dict = {zarr_key: read_interval}
-            raw_data = self.episode_reader.read(read_dict)
-            self._pad_sequences(raw_data, horizon)  # should be able to pad images
-            data[k] = raw_data[zarr_key]
-
-            # Decode JPEG-encoded image data and normalize to [0, 1]
-            # print(f"Print the image_keys: {self._image_keys}")
-            if zarr_key in self._image_keys:
-                jpeg_bytes = data[k]
-                # Decode JPEG bytes to numpy array (H, W, 3)
-                try:
-                    decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
-                except Exception:
-                    origin = _fallback_origin if _fallback_origin is not None else idx
-                    next_idx, attempts = get_fallback_idx(
-                        idx=idx,
-                        candidates=range(self.total_frames),
-                        _attempts=_attempts,
-                        max_attempts=self.total_frames,
-                        exhausted_error=(
-                            f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
-                        ),
-                    )
-                    logger.warning(
-                        f"JPEG decode failed ep={Path(self.episode_path).name} frame={idx} key={k} | "
-                        f"attempt {attempts}, trying random idx {next_idx}"
-                    )
-                    result = self.__getitem__(
-                        next_idx, _fallback_origin=origin, _attempts=attempts
-                    )
-                    return result
-                data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
-            elif zarr_key in self._json_keys:
-                if isinstance(data[k], np.ndarray):
-                    data[k] = [self._decode_json_entry(v) for v in data[k]]
-                else:
-                    data[k] = self._decode_json_entry(data[k])
-
-        # Convert all numpy arrays in data to torch tensors
-
-        # TODO add the transform list code here
-        if self.transform:
-            for transform in self.transform or []:
-                try:
+            if self.transform:
+                for transform in self.transform or []:
                     data = transform.transform(data)
-                except Exception as e:
-                    origin = _fallback_origin if _fallback_origin is not None else idx
-                    next_idx, attempts = get_fallback_idx(
-                        idx=idx,
-                        candidates=range(self.total_frames),
-                        _attempts=_attempts,
-                        max_attempts=self.total_frames,
-                        exhausted_error=(
-                            f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
-                        ),
-                    )
-                    logger.warning(
-                        f"Transform failed ep={Path(self.episode_path).name} frame={idx} ({type(e).__name__}: {e}) | "
-                        f"attempt {attempts}, trying random idx {next_idx}"
-                    )
-                    result = self.__getitem__(
-                        next_idx, _fallback_origin=origin, _attempts=attempts
-                    )
-                    return result
 
-        for k, v in data.items():
-            if isinstance(v, np.ndarray):
-                data[k] = torch.from_numpy(v).to(torch.float32)
+            for k, v in data.items():
+                if isinstance(v, np.ndarray):
+                    data[k] = torch.from_numpy(v).to(torch.float32)
 
-        data["metadata.robot_name"] = get_embodiment_id(self.embodiment)
-        data["embodiment"] = get_embodiment_id(self.embodiment)
-        return data
+            data["metadata.robot_name"] = get_embodiment_id(self.embodiment)
+            data["embodiment"] = get_embodiment_id(self.embodiment)
+            _ = origin  # preserved for symmetry with prior API
+            return data
 
 
 class ZarrAnnotationCutoffDataset(ZarrDataset):
