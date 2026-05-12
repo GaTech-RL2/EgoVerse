@@ -4,6 +4,15 @@ This repository contains the data processing, training and evaluation code for E
 
 ---
 
+## Change Log
+### Mecka Data Reprocessing [04/01/2026]
+Mecka removed some poorer quality episodes and replaced them with higher quality alternatives.
+
+### Scale Data Reprocessing [05/03/2026]
+The Scale dataset was fully reprocessed on 05/03/2026. All active Scale episodes now use newly generated episode hashes, Zarr paths, and preview MP4 paths. If you previously referenced Scale episode hashes from an older export or intermediate processing run, refresh from the SQL episode table before downloading or training. Old Scale hashes should be treated as stale and should not be mixed with the current active dataset.
+
+---
+
 ## Structure
 - [``egomimic/trainHydra.py``](./egomimic/trainHydra.py): Main training script, powered by Pytorch Lightning and Hydra (DDP supported)
 - [``egomimic/hydra_configs``](./egomimic/hydra_configs): Train configs for each algorithm
