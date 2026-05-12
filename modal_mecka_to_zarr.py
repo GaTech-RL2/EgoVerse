@@ -74,9 +74,10 @@ app = modal.App("mecka-zarr-conversion", image=image)
 
 # ---------------------------------------------------------------------------
 # Modal Volume — sole output destination
+# Override with --volume-name at runtime, or set ZARR_VOLUME_NAME env var.
 # ---------------------------------------------------------------------------
-EGOVERSE_ZARR_VOLUME_NAME = "egoverse-zarr-data"
-EGOVERSE_ZARR_VOLUME_MOUNT = "/vol/egoverse-zarr-data"
+EGOVERSE_ZARR_VOLUME_NAME = os.environ.get("ZARR_VOLUME_NAME", "egoverse-zarr-data")
+EGOVERSE_ZARR_VOLUME_MOUNT = f"/vol/{EGOVERSE_ZARR_VOLUME_NAME}"
 egoverse_zarr_volume = modal.Volume.from_name(EGOVERSE_ZARR_VOLUME_NAME)
 
 # ---------------------------------------------------------------------------
@@ -117,17 +118,9 @@ def _validate_subset_name(name: str) -> None:
         )
 
 
-def _volume_subset_dir(subset_name: str, task_type: str) -> Path:
-    """Filesystem path inside the Modal volume for a (subset, task_type).
-
-    Layout: ``/vol/egoverse-zarr-data/processed_v3/<subset>/<task_type>``.
-    """
-    return (
-        Path(EGOVERSE_ZARR_VOLUME_MOUNT)
-        / "processed_v3"
-        / subset_name
-        / task_type
-    )
+def _volume_root() -> Path:
+    """Filesystem path to the root of the mounted Modal volume."""
+    return Path(EGOVERSE_ZARR_VOLUME_MOUNT)
 
 
 def _write_episode_to_volume(
@@ -138,13 +131,13 @@ def _write_episode_to_volume(
     episode_hash: str,
 ) -> tuple[str, str]:
     """
-    Copy the converted episode into the Modal volume.
+    Copy the converted episode into the Modal volume root (no subdirectories).
 
     Returns ``(zarr_dest, mp4_dest)``. Caller must commit the volume after.
     """
     import shutil
 
-    dest_dir = _volume_subset_dir(subset_name, task_type)
+    dest_dir = _volume_root()
     dest_dir.mkdir(parents=True, exist_ok=True)
 
     dest_zarr = dest_dir / f"{episode_hash}.zarr"
@@ -167,7 +160,7 @@ def _delete_episode_from_volume(
     """Best-effort cleanup of partial volume outputs for a failed episode."""
     import shutil
 
-    dest_dir = _volume_subset_dir(subset_name, task_type)
+    dest_dir = _volume_root()
     dest_zarr = dest_dir / f"{episode_hash}.zarr"
     dest_mp4 = dest_dir / f"{episode_hash}_video.mp4"
     if dest_zarr.exists():
@@ -214,11 +207,11 @@ def _parse_storage_key(storage_key: str) -> tuple[str, str]:
             raise ValueError(f"Malformed r2:// storage key: {storage_key!r}")
         return bucket, key
 
-    bucket = os.environ.get("R2_BUCKET")
+    bucket = os.environ.get("R2_BUCKET") or os.environ.get("BUCKET")
     if not bucket:
         raise RuntimeError(
-            f"Storage key has no r2:// prefix and R2_BUCKET env var is not set: "
-            f"{storage_key!r}. Add R2_BUCKET to the mecka-zarr-conversion secret."
+            f"Storage key has no r2:// prefix and no bucket env var is set: "
+            f"{storage_key!r}. Set R2_BUCKET or BUCKET in the egoverse-r2 secret."
         )
     return bucket, storage_key
 
@@ -227,35 +220,33 @@ def _get_r2_client():
     """
     boto3 S3 client pointed at Cloudflare R2.
 
-    Reads from the ``mecka-zarr-conversion`` secret:
-      - ``R2_ENDPOINT_URL`` (or its alias ``R2_ENDPOINT``) — full https URL of
-        the R2 endpoint. Preferred. Falls back to building the URL from
-        ``R2_ACCOUNT_ID`` if neither is set.
-      - ``R2_ACCESS_KEY`` — access key ID.
-      - ``R2_SECRET_KEY`` — secret access key.
+    Reads from the ``egoverse-r2`` secret (preferred names) with fallbacks:
+      - Endpoint: ``AWS_ENDPOINT_URL_S3`` | ``R2_ENDPOINT_URL`` | ``R2_ENDPOINT``
+      - Access key: ``R2_ACCESS_KEY_ID`` | ``R2_ACCESS_KEY``
+      - Secret key: ``R2_SECRET_ACCESS_KEY`` | ``R2_SECRET_KEY``
     """
     import boto3
 
     endpoint_url = (
-        os.environ.get("R2_ENDPOINT_URL")
+        os.environ.get("AWS_ENDPOINT_URL_S3")
+        or os.environ.get("R2_ENDPOINT_URL")
         or os.environ.get("R2_ENDPOINT")
     )
     if not endpoint_url:
         account_id = os.environ.get("R2_ACCOUNT_ID")
         if not account_id:
             raise RuntimeError(
-                "No R2 endpoint configured. Set one of: R2_ENDPOINT_URL, "
-                "R2_ENDPOINT, or R2_ACCOUNT_ID in the mecka-zarr-conversion "
-                "secret."
+                "No R2 endpoint configured. Set AWS_ENDPOINT_URL_S3, "
+                "R2_ENDPOINT_URL, or R2_ACCOUNT_ID in the egoverse-r2 secret."
             )
         endpoint_url = R2_ENDPOINT_TEMPLATE.format(account_id=account_id)
 
-    access_key = os.environ.get("R2_ACCESS_KEY")
-    secret_key = os.environ.get("R2_SECRET_KEY")
+    access_key = os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("R2_ACCESS_KEY")
+    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("R2_SECRET_KEY")
     if not access_key or not secret_key:
         raise RuntimeError(
-            "R2_ACCESS_KEY and R2_SECRET_KEY must both be set in the "
-            "mecka-zarr-conversion secret."
+            "R2 access key and secret must be set. Use R2_ACCESS_KEY_ID + "
+            "R2_SECRET_ACCESS_KEY in the egoverse-r2 secret."
         )
 
     return boto3.client(
@@ -516,15 +507,21 @@ SQL_UPSERT_COLUMNS = [
 
 
 def _pg_env_present() -> bool:
-    return bool(os.environ.get("PG_HOST"))
+    return bool(os.environ.get("DATABASE_URL") or os.environ.get("PG_HOST"))
 
 
 def _sql_engine_from_pg_env():
-    """SQLAlchemy engine for the Postgres DB from PG_* env vars."""
-    from urllib.parse import quote_plus
+    """SQLAlchemy engine from egoverse-sql secret (DATABASE_URL or PG_* vars)."""
     from sqlalchemy import create_engine
     from sqlalchemy.pool import NullPool
 
+    database_url = os.environ.get("DATABASE_URL")
+    if database_url:
+        # Swap scheme to psycopg3 driver if needed
+        url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        return create_engine(url, poolclass=NullPool)
+
+    from urllib.parse import quote_plus
     user = os.environ["PG_USER"]
     password = quote_plus(os.environ["PG_PASSWORD"])
     host = os.environ["PG_HOST"]
@@ -894,7 +891,11 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("mecka-zarr-conversion")],
+    secrets=[
+        modal.Secret.from_name("egoverse-r2"),
+        modal.Secret.from_name("egoverse-mongodb"),
+        modal.Secret.from_name("egoverse-sql"),
+    ],
     volumes={EGOVERSE_ZARR_VOLUME_MOUNT: egoverse_zarr_volume},
     timeout=3600,
     memory=8192,
@@ -1079,9 +1080,8 @@ def _run_subset_batch(
         logger.info("SQL upsert SKIPPED (--skip-sql)")
     elif not _pg_env_present():
         logger.warning(
-            "SQL upsert SKIPPED: PG_HOST not set. To enable, add PG_HOST/"
-            "PG_USER/PG_PASSWORD (and optionally PG_PORT, PG_DATABASE) to the "
-            "mecka-zarr-conversion Modal secret."
+            "SQL upsert SKIPPED: no SQL credentials found. Add DATABASE_URL (or "
+            "PG_HOST/PG_USER/PG_PASSWORD) to the egoverse-sql Modal secret."
         )
     elif not records:
         logger.info("SQL upsert SKIPPED: no records to write")
@@ -1133,7 +1133,11 @@ def _run_subset_batch(
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("mecka-zarr-conversion")],
+    secrets=[
+        modal.Secret.from_name("egoverse-r2"),
+        modal.Secret.from_name("egoverse-mongodb"),
+        modal.Secret.from_name("egoverse-sql"),
+    ],
     timeout=86400,
     memory=4096,
     cpu=2,
@@ -1184,7 +1188,11 @@ def orchestrate_subset_batch(
 # ---------------------------------------------------------------------------
 @app.function(
     image=image,
-    secrets=[modal.Secret.from_name("mecka-zarr-conversion")],
+    secrets=[
+        modal.Secret.from_name("egoverse-r2"),
+        modal.Secret.from_name("egoverse-mongodb"),
+        modal.Secret.from_name("egoverse-sql"),
+    ],
     volumes={EGOVERSE_ZARR_VOLUME_MOUNT: egoverse_zarr_volume},
     timeout=3600,
     memory=2048,
@@ -1222,9 +1230,8 @@ def sql_only_batch(
     _validate_subset_name(subset_name)
     if not _pg_env_present():
         raise RuntimeError(
-            "PG_HOST not set in the mecka-zarr-conversion secret. Add "
-            "PG_HOST/PG_USER/PG_PASSWORD (and optionally PG_PORT, PG_DATABASE) "
-            "before running --sql-only."
+            "No SQL credentials found in egoverse-sql secret. Add DATABASE_URL "
+            "(or PG_HOST/PG_USER/PG_PASSWORD) before running --sql-only."
         )
 
     from pymongo import MongoClient
@@ -1283,9 +1290,8 @@ def sql_only_batch(
                 else "flagship"
             )
 
-        vol_dir = _volume_subset_dir(subset_name, task_type)
-        zarr_path = str(vol_dir / f"{episode_hash}.zarr")
-        mp4_path = str(vol_dir / f"{episode_hash}_video.mp4")
+        zarr_path = str(_volume_root() / f"{episode_hash}.zarr")
+        mp4_path = str(_volume_root() / f"{episode_hash}_video.mp4")
 
         error = ""
         if verify_volume:
@@ -1346,6 +1352,62 @@ def sql_only_batch(
 # ---------------------------------------------------------------------------
 # Local entrypoint
 # ---------------------------------------------------------------------------
+def _load_episode_ids_file(path: str, max_episodes: int = 0) -> list[str]:
+    """
+    Load episode hashes from a file.
+
+    Accepts:
+      - Plain text: one hash per line.
+      - JSON: a list of strings, or a list of objects each containing an
+        ``episode_hash`` / ``_id`` / ``id`` key.
+
+    ``max_episodes`` caps the result when > 0.
+    """
+    text = Path(path).read_text().strip()
+    if not text:
+        return []
+
+    ids: list[str] = []
+    if path.endswith(".json") or text.startswith("[") or text.startswith("{"):
+        data = json.loads(text)
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, str):
+                    ids.append(item.strip())
+                elif isinstance(item, dict):
+                    key = next(
+                        (k for k in ("episode_id", "episode_hash", "_id", "id") if k in item), None
+                    )
+                    if key:
+                        ids.append(str(item[key]).strip())
+        elif isinstance(data, dict):
+            # {"episodes": [...]} wrapper format
+            if "episodes" in data and isinstance(data["episodes"], list):
+                for item in data["episodes"]:
+                    if isinstance(item, str):
+                        ids.append(item.strip())
+                    elif isinstance(item, dict):
+                        key = next(
+                            (k for k in ("episode_id", "episode_hash", "_id", "id") if k in item), None
+                        )
+                        if key:
+                            ids.append(str(item[key]).strip())
+            else:
+                # single object — treat as one episode
+                key = next(
+                    (k for k in ("episode_id", "episode_hash", "_id", "id") if k in data), None
+                )
+                if key:
+                    ids.append(str(data[key]).strip())
+    else:
+        ids = [line.strip() for line in text.splitlines() if line.strip()]
+
+    ids = [i for i in ids if i]
+    if max_episodes > 0:
+        ids = ids[:max_episodes]
+    return ids
+
+
 @app.local_entrypoint()
 def main(
     subset_name: str,
@@ -1359,6 +1421,7 @@ def main(
     skip_sql: bool = False,
     sql_only: bool = False,
     no_verify_volume: bool = False,
+    max_episodes: int = 0,
 ):
     """
     Dispatch a subset conversion run to Modal.
@@ -1402,9 +1465,9 @@ def main(
     if sql_only:
         ids_csv = ""
         if episode_ids_file:
-            with open(episode_ids_file) as f:
-                ids_csv = ",".join(line.strip() for line in f if line.strip())
-            logger.info(f"Read {ids_csv.count(',') + 1} episode IDs from {episode_ids_file}")
+            ids = _load_episode_ids_file(episode_ids_file, max_episodes=max_episodes)
+            ids_csv = ",".join(ids)
+            logger.info(f"Read {len(ids)} episode IDs from {episode_ids_file}")
         if episode_hash:
             ids_csv = (ids_csv + "," + episode_hash).strip(",") if ids_csv else episode_hash
 
@@ -1449,9 +1512,9 @@ def main(
     # ---- Batch mode ----
     ids_csv = ""
     if episode_ids_file:
-        with open(episode_ids_file) as f:
-            ids_csv = ",".join(line.strip() for line in f if line.strip())
-        logger.info(f"Read {ids_csv.count(',') + 1} episode IDs from {episode_ids_file}")
+        ids = _load_episode_ids_file(episode_ids_file, max_episodes=max_episodes)
+        ids_csv = ",".join(ids)
+        logger.info(f"Read {len(ids)} episode IDs from {episode_ids_file}")
 
     filter_json = mongo_filter_json
     if mongo_filter_file and not filter_json:
@@ -1512,17 +1575,22 @@ def local_test(
     except ImportError:
         pass
 
-    for var in ["MONGODB_URI", "R2_ACCESS_KEY", "R2_SECRET_KEY", "R2_BUCKET"]:
-        if not os.environ.get(var):
-            raise RuntimeError(f"Missing env var: {var}. Set it or create g_delivery/.env")
+    if not os.environ.get("MONGODB_URI"):
+        raise RuntimeError("Missing MONGODB_URI. Set it in the egoverse-mongodb secret.")
+    if not (os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("R2_ACCESS_KEY")):
+        raise RuntimeError("Missing R2 access key. Set R2_ACCESS_KEY_ID in the egoverse-r2 secret.")
+    if not (os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("R2_SECRET_KEY")):
+        raise RuntimeError("Missing R2 secret key. Set R2_SECRET_ACCESS_KEY in the egoverse-r2 secret.")
+    if not (os.environ.get("R2_BUCKET") or os.environ.get("BUCKET")):
+        raise RuntimeError("Missing bucket. Set BUCKET in the egoverse-r2 secret.")
     if not (
-        os.environ.get("R2_ENDPOINT_URL")
+        os.environ.get("AWS_ENDPOINT_URL_S3")
+        or os.environ.get("R2_ENDPOINT_URL")
         or os.environ.get("R2_ENDPOINT")
         or os.environ.get("R2_ACCOUNT_ID")
     ):
         raise RuntimeError(
-            "Missing R2 endpoint: set one of R2_ENDPOINT_URL, R2_ENDPOINT, or "
-            "R2_ACCOUNT_ID (32-char Cloudflare R2 account ID)."
+            "Missing R2 endpoint. Set AWS_ENDPOINT_URL_S3 in the egoverse-r2 secret."
         )
 
     db = _get_mongo_db()
