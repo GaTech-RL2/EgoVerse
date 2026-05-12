@@ -1,1 +1,0 @@
-{"nodes": [{"id": "act_policy", "label": "ACT (Action Chunking Transformer) Policy", "file_type": "code", "source_file": "external/lerobot/lerobot/common/policies/act/configuration_act.py", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null}], "edges": [], "hyperedges": []}
