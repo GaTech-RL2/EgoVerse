@@ -80,8 +80,19 @@ echo ""
 prompt NEW_R2_ACCESS_KEY_ID     "New Mecka R2 Access Key ID"
 prompt NEW_R2_SECRET_ACCESS_KEY "New Mecka R2 Secret Access Key" 1
 prompt NEW_R2_ENDPOINT_URL      "New Mecka R2 Endpoint URL"
-prompt NEW_MONGODB_URI          "MongoDB URI (optional, press Enter to skip)"
 prompt WANDB_API_KEY            "WandB API Key (from wandb.ai/settings)" 1
+
+echo ""
+echo "  DigitalOcean PostgreSQL (new SQL database):"
+prompt DO_DB_HOST     "  Host" 0 "robotics-do-user-17949385-0.e.db.ondigitalocean.com"
+prompt DO_DB_PORT     "  Port" 0 "25060"
+prompt DO_DB_NAME     "  Database" 0 "defaultdb"
+prompt DO_DB_USER     "  Username" 0 "doadmin"
+prompt DO_DB_PASSWORD "  Password" 1
+
+DO_DATABASE_URL="postgresql://${DO_DB_USER}:${DO_DB_PASSWORD}@${DO_DB_HOST}:${DO_DB_PORT}/${DO_DB_NAME}?sslmode=require"
+
+prompt NEW_MONGODB_URI "MongoDB URI (optional, press Enter to skip)"
 
 {
   printf "R2_ACCESS_KEY_ID=%q\n"     "$NEW_R2_ACCESS_KEY_ID"
@@ -91,6 +102,7 @@ prompt WANDB_API_KEY            "WandB API Key (from wandb.ai/settings)" 1
   printf "S3_ENDPOINT_URL=%q\n"      "$NEW_R2_ENDPOINT_URL"
   printf "AWS_DEFAULT_REGION=%q\n"   "auto"
   printf "BUCKET=%q\n"               "data"
+  printf "DATABASE_URL='%s'\n"       "$DO_DATABASE_URL"
   if [[ -n "$NEW_MONGODB_URI" ]]; then
     printf "MONGODB_URI='%s'\n" "$NEW_MONGODB_URI"
   fi
