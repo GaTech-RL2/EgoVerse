@@ -39,6 +39,38 @@ from tslearn.metrics import SoftDTWLossPyTorch
 import math
 
 
+DEXMIMICGEN_JOINT47_BLOCKS = {
+    "left_arm": slice(0, 7),
+    "right_arm": slice(7, 14),
+    "arms": slice(0, 14),
+    "torso": slice(14, 20),
+    "head": slice(20, 22),
+    "base_delta": slice(22, 25),
+    "left_hand": slice(25, 36),
+    "right_hand": slice(36, 47),
+    "hands": slice(25, 47),
+}
+
+
+def dexmimicgen_joint47_block_metrics(pred, target, metric_prefix):
+    """Block-wise validation errors for DexMimicGen actions.joint layout."""
+    if pred.shape[-1] != 47 or target.shape[-1] != 47:
+        return {}
+
+    metrics = {}
+    for name, sl in DEXMIMICGEN_JOINT47_BLOCKS.items():
+        err = pred[..., sl] - target[..., sl]
+        mse = torch.mean(err.square())
+        metrics[f"{metric_prefix}_{name}_mse_avg"] = mse
+        metrics[f"{metric_prefix}_{name}_rmse_avg"] = torch.sqrt(mse)
+
+        final_err = pred[:, -1, sl] - target[:, -1, sl]
+        final_mse = torch.mean(final_err.square())
+        metrics[f"{metric_prefix}_{name}_final_mse_avg"] = final_mse
+        metrics[f"{metric_prefix}_{name}_final_rmse_avg"] = torch.sqrt(final_mse)
+    return metrics
+
+
 class HPTModel(nn.Module):
     """
     Heterogenous Pretrained Transformer (HPT) implementation based on the HPT paper, with additional modifications.
@@ -1191,6 +1223,13 @@ class HPT(Algo):
                 metrics[f"Valid/{embodiment_name}_{ac_key}_final_mse_avg"] = mse(
                     (preds[f"{embodiment_name}_{ac_key}"][:, -1]).cpu(),
                     _batch[ac_key][:, -1].cpu(),
+                )
+                metrics.update(
+                    dexmimicgen_joint47_block_metrics(
+                        preds[f"{embodiment_name}_{ac_key}"],
+                        _batch[ac_key],
+                        f"Valid/{embodiment_name}_{ac_key}",
+                    )
                 )
                 fd = frechet_gaussian_over_time(
                     preds[f"{embodiment_name}_{ac_key}"], _batch[ac_key]

@@ -49,6 +49,7 @@ robomimic_model:
         widths: [256]
         specs:
           random_horizon_masking: false
+          proprio_dropout_p: 0.6
           cross_attn:
             crossattn_latent: 16
             crossattn_heads: 4
@@ -62,6 +63,7 @@ robomimic_model:
         widths: [256]
         specs:
           random_horizon_masking: false
+          proprio_dropout_p: 0.3
           cross_attn:
             crossattn_latent: 16
             crossattn_heads: 4
