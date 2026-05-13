@@ -37,8 +37,8 @@ SHAPES: dict[str, list[tuple[float, float, float, float]]] = {
     ],
 }
 
-OBJECT_DENSITY = 0.01
-OBJECT_FRICTION = 15.0
+OBJECT_DENSITY = 0.30
+OBJECT_FRICTION = 0.6
 PUSHER_RADIUS = 15.0
 STICK_HALF_LEN = 30.0
 STICK_HALF_THICK = 5.0

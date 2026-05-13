@@ -38,8 +38,9 @@ class PushShapesEnv(gym.Env):
     WORLD_SIZE: float = 512.0
     PUSHER_SPEED: float = 200.0
     DT: float = 1.0 / 30.0
-    SUBSTEPS: int = 10
-    DAMPING: float = 0.85
+    SUBSTEPS: int = 20
+    DAMPING: float = 0
+    STICK_TURN_RATE: float = 4.0  # rad/s — max kinematic rotation of stick pusher
     SUCCESS_THRESHOLD: float = 0.95
     SPAWN_MARGIN: float = 60.0
 
@@ -177,15 +178,26 @@ class PushShapesEnv(gym.Env):
             dist = float(np.linalg.norm(delta))
             if dist < 1e-3:
                 self._pusher_body.velocity = (0.0, 0.0)
+                self._pusher_body.angular_velocity = 0.0
             else:
                 speed = min(self.PUSHER_SPEED, dist / dt_sub)
                 ux, uy = delta[0] / dist, delta[1] / dist
                 self._pusher_body.velocity = (float(ux * speed), float(uy * speed))
                 if self.pusher_shape == "stick" and dist > 1.0:
-                    self._pusher_body.angle = math.atan2(uy, ux)
+                    # Rotate via angular_velocity (kinematic body integrates it)
+                    # instead of snapping `angle`, so contact impulses are smooth.
+                    desired = math.atan2(uy, ux)
+                    cur_angle = float(self._pusher_body.angle)
+                    diff = (desired - cur_angle + math.pi) % (2 * math.pi) - math.pi
+                    rate = max(
+                        -self.STICK_TURN_RATE,
+                        min(self.STICK_TURN_RATE, diff / dt_sub),
+                    )
+                    self._pusher_body.angular_velocity = float(rate)
+                else:
+                    self._pusher_body.angular_velocity = 0.0
             self._space.step(dt_sub)
 
-        self._pusher_body.velocity = (0.0, 0.0)
         self._step_count += 1
 
         coverage = float(self._coverage())
