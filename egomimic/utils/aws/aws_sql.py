@@ -72,9 +72,22 @@ def create_default_engine():
         USER = cfg.get("username", cfg.get("user", cfg.get("USER")))
         PASSWORD = cfg.get("password", cfg.get("PASSWORD"))
         PORT = cfg.get("port", 5432)
+    elif os.environ.get("PG_HOST"):
+        HOST = os.environ["PG_HOST"]
+        USER = os.environ["PG_USER"]
+        PASSWORD = os.environ["PG_PASSWORD"]
+        DBNAME = os.environ.get("PG_DATABASE", "defaultdb")
+        PORT = int(os.environ.get("PG_PORT", "5432"))
     else:
         raise RuntimeError(
-            "No database credentials found. Set DATABASE_URL or SECRETS_ARN."
+            "No DB credentials found. Set either SECRETS_ARN (AWS Secrets "
+            "Manager ARN) or PG_HOST/PG_USER/PG_PASSWORD (+ optional PG_PORT, "
+            "PG_DATABASE). For ~/.egoverse_env, add lines like:\n"
+            "  PG_HOST=robotics-do-user-...ondigitalocean.com\n"
+            "  PG_PORT=25060\n"
+            "  PG_USER=doadmin\n"
+            "  PG_PASSWORD=<password>\n"
+            "  PG_DATABASE=defaultdb"
         )
 
     # --- 1) connect via SQLAlchemy ---
