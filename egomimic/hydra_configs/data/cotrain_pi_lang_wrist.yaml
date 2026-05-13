@@ -7,11 +7,11 @@ train_datasets:
     resolver:
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
-        keymap_mode: cartesian_wristframe_ypr # check if this works with the transform list below
+        keymap_mode: cartesian_wristframe_ypr
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian_wristframe_ypr
+        transform_mode: cartesian_wristframe_ypr
   aria_bimanual:
     resolver:
       key_map:
@@ -20,7 +20,7 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian_wristframe_ypr
+        transform_mode: cartesian_wristframe_ypr
 
 valid_datasets:
   eva_bimanual:
@@ -31,7 +31,7 @@ valid_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian_wristframe_ypr
+        transform_mode: cartesian_wristframe_ypr
   aria_bimanual:
     resolver:
       key_map:
@@ -40,7 +40,7 @@ valid_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian_wristframe_ypr
+        transform_mode: cartesian_wristframe_ypr
 
 # Override the cam-frame default in cotrain_pi_base for the wristframe
 # pipeline below. Setting control_mode to a non-null dict activates the

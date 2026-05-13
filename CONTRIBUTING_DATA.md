@@ -734,7 +734,7 @@ from egomimic.rldb.embodiment.human import Aria
 import torch
 
 key_map = Aria.get_keymap(keymap_mode="cartesian")
-transform_list = Aria.get_transform_list(mode="cartesian")
+transform_list = Aria.get_transform_list(transform_mode="cartesian")
 
 resolver = LocalEpisodeResolver(
     folder_path    = Path("/local/processed"),

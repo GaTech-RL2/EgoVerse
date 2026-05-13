@@ -62,16 +62,16 @@ class Human(Embodiment):
             image, viz_data, mode=mode, intrinsics_key=intrinsics_key, **kwargs
         )
 
+    @classmethod
     @abstractmethod
-    def _get_keymap(
-        cls, mode: Literal["cartesian", "keypoints"], annotation_key: str = None
-    ):
+    def _get_keymap(cls, keymap_mode: Literal["cartesian", "keypoints"]):
         pass
 
+    @classmethod
     @abstractmethod
     def get_transform_list(
         cls,
-        mode: str,
+        transform_mode: str,
     ) -> list[Transform]:
         pass
 
@@ -122,7 +122,7 @@ class Aria(Human):
     @classmethod
     def get_transform_list(
         cls,
-        mode: Literal[
+        transform_mode: Literal[
             "cartesian",
             "cartesian_wristframe_ypr",
             "keypoints_headframe_ypr",
@@ -131,27 +131,27 @@ class Aria(Human):
             "keypoints_wristframe_quat",
         ],
     ) -> list[Transform]:
-        if mode == "cartesian":
+        if transform_mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             )
-        elif mode == "cartesian_wristframe_ypr":
+        elif transform_mode == "cartesian_wristframe_ypr":
             return _build_aria_cartesian_eef_frame_transform_list(
                 stride=cls.ACTION_STRIDE
             )
-        elif mode == "keypoints_headframe_ypr":
+        elif transform_mode == "keypoints_headframe_ypr":
             return _build_aria_keypoints_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE, is_quat=False
             )
-        elif mode == "keypoints_headframe_quat":
+        elif transform_mode == "keypoints_headframe_quat":
             return _build_aria_keypoints_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE, is_quat=True
             )
-        elif mode == "keypoints_wristframe_ypr":
+        elif transform_mode == "keypoints_wristframe_ypr":
             return _build_aria_keypoints_eef_frame_transform_list(
                 stride=cls.ACTION_STRIDE, is_quat=False
             )
-        elif mode == "keypoints_wristframe_quat":
+        elif transform_mode == "keypoints_wristframe_quat":
             return _build_aria_keypoints_eef_frame_transform_list(
                 stride=cls.ACTION_STRIDE, is_quat=True
             )
@@ -246,9 +246,9 @@ class Scale(Human):
     @classmethod
     def get_transform_list(
         cls,
-        mode: Literal["cartesian",],
+        transform_mode: Literal["cartesian",],
     ) -> list[Transform]:
-        if mode == "cartesian":
+        if transform_mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             )
@@ -335,19 +335,20 @@ class Mecka(Human):
     @classmethod
     def get_transform_list(
         cls,
-        mode: Literal["cartesian",],
+        transform_mode: Literal["cartesian",],
     ) -> list[Transform]:
-        if mode == "cartesian":
+        if transform_mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             )
 
     @classmethod
-    def get_keymap(
-        cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False
+    def _get_keymap(
+        cls,
+        keymap_mode: Literal["cartesian", "keypoints"],
     ):
-        if mode == "cartesian":
-            key_map = {
+        if keymap_mode == "cartesian":
+            return {
                 cls.VIZ_IMAGE_KEY: {
                     "key_type": "camera_keys",
                     "zarr_key": "images.front_1",
@@ -375,8 +376,8 @@ class Mecka(Human):
                     "zarr_key": "obs_head_pose",
                 },
             }
-        elif mode == "keypoints":
-            key_map = {
+        if keymap_mode == "keypoints":
+            return {
                 cls.VIZ_IMAGE_KEY: {
                     "key_type": "camera_keys",
                     "zarr_key": "images.front_1",
@@ -422,16 +423,9 @@ class Mecka(Human):
                     "zarr_key": "obs_head_pose",
                 },
             }
-        else:
-            raise ValueError(
-                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints'."
-            )
-        if annotations:
-            key_map["annotations"] = {
-                "key_type": "annotation_keys",
-                "zarr_key": "annotations",
-            }
-        return key_map
+        raise ValueError(
+            f"Unsupported keymap_mode '{keymap_mode}'. Expected one of: 'cartesian', 'keypoints'."
+        )
 
 
 # this works for quat and ypr since actionChunkCoordinateFrameTransform works for both

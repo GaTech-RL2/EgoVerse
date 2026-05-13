@@ -28,15 +28,15 @@ from egomimic.utils.pose_utils import (
 class Eva(Embodiment):
     @staticmethod
     def get_transform_list(
-        mode: Literal[
+        transform_mode: Literal[
             "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
         ],
     ) -> list[Transform]:
-        if mode == "cartesian":
+        if transform_mode == "cartesian":
             return _build_eva_bimanual_transform_list(is_quat=True)
-        elif mode == "cartesian_wristframe_ypr":
+        elif transform_mode == "cartesian_wristframe_ypr":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
-        elif mode == "cartesian_wristframe_quat":
+        elif transform_mode == "cartesian_wristframe_quat":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
 
     @classmethod

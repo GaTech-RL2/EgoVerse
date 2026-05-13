@@ -8,8 +8,10 @@ train_datasets:
       folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        transform_mode: cartesian
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -23,8 +25,10 @@ valid_datasets:
       folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        transform_mode: cartesian
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
