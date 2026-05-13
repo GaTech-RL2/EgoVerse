@@ -77,7 +77,7 @@ app = modal.App("mecka-zarr-conversion", image=image)
 # Override with --volume-name at runtime, or set ZARR_VOLUME_NAME env var.
 # ---------------------------------------------------------------------------
 EGOVERSE_ZARR_VOLUME_NAME = os.environ.get("ZARR_VOLUME_NAME", "egoverse-zarr-data")
-EGOVERSE_ZARR_VOLUME_MOUNT = f"/vol/{EGOVERSE_ZARR_VOLUME_NAME}"
+EGOVERSE_ZARR_VOLUME_MOUNT = "/vol/zarr_output"  # fixed mount point; volume name can vary
 egoverse_zarr_volume = modal.Volume.from_name(EGOVERSE_ZARR_VOLUME_NAME)
 
 # ---------------------------------------------------------------------------
