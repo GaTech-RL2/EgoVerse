@@ -8,8 +8,8 @@ version = "1.0"
 description = "Egomimic Scripts Package"
 requires-python = ">=3.11"
 dependencies = [
-    "torch==2.6.0",
-    "torchvision==0.21.0",
+    "torch==2.7.1",
+    "torchvision==0.22.1",
     "projectaria-tools[all]==2.0.0",
     "pyyaml",
     "matplotlib",
@@ -42,7 +42,7 @@ dependencies = [
     "overrides",
     "zarr==3.1.5",
     "tabulate",
-    "transformers==4.57.3",
+    "transformers==4.53.2",
     "timm",
     "boto3",
     "cloudpathlib",
