@@ -50,7 +50,7 @@ class ZarrDemoWriter:
         self.embodiment = embodiment
         self.chunk_timesteps = chunk_timesteps
         self.task_description = json.dumps(
-            {"env_args": env_args, "version": "0.1"}, separators=(",", ":")
+            {"env_args": env_args, "version": "0.3"}, separators=(",", ":")
         )
         self._buffer: dict[str, list[np.ndarray]] | None = None
         self._episode_idx = self._find_next_index()
