@@ -34,7 +34,7 @@ seed: 42
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
   sample_frac: 0.001
-  num_workers: 4
+  num_workers: 30
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
 reject_outliers: true

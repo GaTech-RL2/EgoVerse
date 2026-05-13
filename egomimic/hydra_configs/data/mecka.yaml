@@ -15,7 +15,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '69bb1284d385c444f34222a7'"
+        - "lambda row: row['task'] == 'dishwashing'"
     mode: total
 valid_datasets:
   mecka_bimanual:
@@ -32,13 +32,13 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '69bb1284d385c444f34222a7'"
+        - "lambda row: row['task'] == 'dishwashing'"
     mode: total
 train_dataloader_params:
   mecka_bimanual:
     batch_size: 32
-    num_workers: 10
+    num_workers: 30
 valid_dataloader_params:
   mecka_bimanual:
     batch_size: 32
-    num_workers: 10
+    num_workers: 30

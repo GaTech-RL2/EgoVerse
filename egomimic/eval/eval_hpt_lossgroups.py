@@ -110,6 +110,7 @@ class HPTEvalVideoLossGroups(HPTEvalVideo):
             if f"{embodiment_name}_{ac_key}" in preds and ac_key != algo.shared_ac_key:
                 group_paired_mses, group_final_mses = [], []
                 group_fd_avgs, group_fd_mins, group_fd_maxs = [], [], []
+                group_vals_by_name: dict[str, dict] = {}
                 for group_name, indices in indices_by_group.items():
                     safe_group = str(group_name).replace("/", "_")
                     pred_g = preds[f"{embodiment_name}_{ac_key}"][indices]
@@ -133,11 +134,19 @@ class HPTEvalVideoLossGroups(HPTEvalVideo):
                         metrics[f"Valid/{safe_group}_{ac_key}_frechet_gauss_max"] = (
                             fd.max().item()
                         )
-                    group_paired_mses.append(float(paired_mse))
-                    group_final_mses.append(float(final_mse))
+                    pm, fm = float(paired_mse), float(final_mse)
+                    group_paired_mses.append(pm)
+                    group_final_mses.append(fm)
                     group_fd_avgs.append(fd.mean().item())
                     group_fd_mins.append(fd.min().item())
                     group_fd_maxs.append(fd.max().item())
+                    group_vals_by_name[safe_group] = dict(
+                        paired_mse=pm,
+                        final_mse=fm,
+                        fd_avg=fd.mean().item(),
+                        fd_min=fd.min().item(),
+                        fd_max=fd.max().item(),
+                    )
                 n = len(unique_groups)
                 metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = (
                     sum(group_paired_mses) / n
@@ -154,6 +163,25 @@ class HPTEvalVideoLossGroups(HPTEvalVideo):
                 metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_max"] = (
                     sum(group_fd_maxs) / n
                 )
+                if algo.loss_group_weights and group_vals_by_name:
+                    present = {
+                        g: algo.loss_group_weights[g]
+                        for g in group_vals_by_name
+                        if g in algo.loss_group_weights
+                    }
+                    if present:
+                        total_w = sum(present.values())
+                        for mk, sk in [
+                            ("paired_mse", "paired_mse_avg"),
+                            ("final_mse", "final_mse_avg"),
+                            ("fd_avg", "frechet_gauss_avg"),
+                            ("fd_min", "frechet_gauss_min"),
+                            ("fd_max", "frechet_gauss_max"),
+                        ]:
+                            metrics[f"Valid/weighted_{ac_key}_{sk}"] = sum(
+                                (w / total_w) * group_vals_by_name[g][mk]
+                                for g, w in present.items()
+                            )
 
             if embodiment_name in algo.auxiliary_ac_keys:
                 for aux_key in algo.auxiliary_ac_keys[embodiment_name]:
@@ -161,6 +189,7 @@ class HPTEvalVideoLossGroups(HPTEvalVideo):
                     if pred_key in preds:
                         group_paired_mses, group_final_mses = [], []
                         group_fd_avgs, group_fd_mins, group_fd_maxs = [], [], []
+                        aux_vals_by_name: dict[str, dict] = {}
                         for group_name, indices in indices_by_group.items():
                             safe_group = str(group_name).replace("/", "_")
                             pred_g = preds[pred_key][indices]
@@ -184,11 +213,19 @@ class HPTEvalVideoLossGroups(HPTEvalVideo):
                                 metrics[
                                     f"Valid/{safe_group}_{aux_key}_frechet_gauss_max"
                                 ] = fd.max().item()
-                            group_paired_mses.append(float(paired_mse))
-                            group_final_mses.append(float(final_mse))
+                            pm, fm = float(paired_mse), float(final_mse)
+                            group_paired_mses.append(pm)
+                            group_final_mses.append(fm)
                             group_fd_avgs.append(fd.mean().item())
                             group_fd_mins.append(fd.min().item())
                             group_fd_maxs.append(fd.max().item())
+                            aux_vals_by_name[safe_group] = dict(
+                                paired_mse=pm,
+                                final_mse=fm,
+                                fd_avg=fd.mean().item(),
+                                fd_min=fd.min().item(),
+                                fd_max=fd.max().item(),
+                            )
                         n = len(unique_groups)
                         metrics[f"Valid/{pred_key}_paired_mse_avg"] = (
                             sum(group_paired_mses) / n
@@ -205,48 +242,96 @@ class HPTEvalVideoLossGroups(HPTEvalVideo):
                         metrics[f"Valid/{pred_key}_frechet_gauss_max"] = (
                             sum(group_fd_maxs) / n
                         )
+                        if algo.loss_group_weights and aux_vals_by_name:
+                            present = {
+                                g: algo.loss_group_weights[g]
+                                for g in aux_vals_by_name
+                                if g in algo.loss_group_weights
+                            }
+                            if present:
+                                total_w = sum(present.values())
+                                for mk, sk in [
+                                    ("paired_mse", "paired_mse_avg"),
+                                    ("final_mse", "final_mse_avg"),
+                                    ("fd_avg", "frechet_gauss_avg"),
+                                    ("fd_min", "frechet_gauss_min"),
+                                    ("fd_max", "frechet_gauss_max"),
+                                ]:
+                                    metrics[f"Valid/weighted_{aux_key}_{sk}"] = sum(
+                                        (w / total_w) * aux_vals_by_name[g][mk]
+                                        for g, w in present.items()
+                                    )
 
             if (
                 algo.shared_ac_key
                 and f"{embodiment_name}_{algo.shared_ac_key}" in preds
             ):
                 pred_key = f"{embodiment_name}_{algo.shared_ac_key}"
+                shared_key = algo.shared_ac_key
                 group_paired_mses, group_final_mses = [], []
                 group_fd_avgs, group_fd_mins, group_fd_maxs = [], [], []
+                shared_vals_by_name: dict[str, dict] = {}
                 for group_name, indices in indices_by_group.items():
                     safe_group = str(group_name).replace("/", "_")
                     pred_g = preds[pred_key][indices]
-                    gt_g = _batch[algo.shared_ac_key][indices]
+                    gt_g = _batch[shared_key][indices]
                     paired_mse = mse(pred_g.cpu(), gt_g.cpu())
                     final_mse = mse(pred_g[:, -1].cpu(), gt_g[:, -1].cpu())
                     fd = frechet_gaussian_over_time(pred_g, gt_g)
                     if algo.loss_group_mode:
+                        metrics[f"Valid/{safe_group}_{shared_key}_paired_mse_avg"] = (
+                            paired_mse
+                        )
+                        metrics[f"Valid/{safe_group}_{shared_key}_final_mse_avg"] = (
+                            final_mse
+                        )
                         metrics[
-                            f"Valid/{safe_group}_{algo.shared_ac_key}_paired_mse_avg"
-                        ] = paired_mse
-                        metrics[
-                            f"Valid/{safe_group}_{algo.shared_ac_key}_final_mse_avg"
-                        ] = final_mse
-                        metrics[
-                            f"Valid/{safe_group}_{algo.shared_ac_key}_frechet_gauss_avg"
+                            f"Valid/{safe_group}_{shared_key}_frechet_gauss_avg"
                         ] = fd.mean().item()
                         metrics[
-                            f"Valid/{safe_group}_{algo.shared_ac_key}_frechet_gauss_min"
+                            f"Valid/{safe_group}_{shared_key}_frechet_gauss_min"
                         ] = fd.min().item()
                         metrics[
-                            f"Valid/{safe_group}_{algo.shared_ac_key}_frechet_gauss_max"
+                            f"Valid/{safe_group}_{shared_key}_frechet_gauss_max"
                         ] = fd.max().item()
-                    group_paired_mses.append(float(paired_mse))
-                    group_final_mses.append(float(final_mse))
+                    pm, fm = float(paired_mse), float(final_mse)
+                    group_paired_mses.append(pm)
+                    group_final_mses.append(fm)
                     group_fd_avgs.append(fd.mean().item())
                     group_fd_mins.append(fd.min().item())
                     group_fd_maxs.append(fd.max().item())
+                    shared_vals_by_name[safe_group] = dict(
+                        paired_mse=pm,
+                        final_mse=fm,
+                        fd_avg=fd.mean().item(),
+                        fd_min=fd.min().item(),
+                        fd_max=fd.max().item(),
+                    )
                 n = len(unique_groups)
                 metrics[f"Valid/{pred_key}_paired_mse_avg"] = sum(group_paired_mses) / n
                 metrics[f"Valid/{pred_key}_final_mse_avg"] = sum(group_final_mses) / n
                 metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = sum(group_fd_avgs) / n
                 metrics[f"Valid/{pred_key}_frechet_gauss_min"] = sum(group_fd_mins) / n
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = sum(group_fd_maxs) / n
+                if algo.loss_group_weights and shared_vals_by_name:
+                    present = {
+                        g: algo.loss_group_weights[g]
+                        for g in shared_vals_by_name
+                        if g in algo.loss_group_weights
+                    }
+                    if present:
+                        total_w = sum(present.values())
+                        for mk, sk in [
+                            ("paired_mse", "paired_mse_avg"),
+                            ("final_mse", "final_mse_avg"),
+                            ("fd_avg", "frechet_gauss_avg"),
+                            ("fd_min", "frechet_gauss_min"),
+                            ("fd_max", "frechet_gauss_max"),
+                        ]:
+                            metrics[f"Valid/weighted_{shared_key}_{sk}"] = sum(
+                                (w / total_w) * shared_vals_by_name[g][mk]
+                                for g, w in present.items()
+                            )
 
             if algo.rkl_samples and algo.rkl_samples > 1:
                 hpt_batch = {

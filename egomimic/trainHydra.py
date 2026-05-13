@@ -18,6 +18,7 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
 from egomimic.eval.eval import Eval
+from egomimic.eval.eval_hpt_lossgroups import HPTEvalVideoLossGroups
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import DataSchematic, set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
@@ -224,20 +225,12 @@ def _submit_to_modal(cfg: DictConfig) -> None:
 
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     model_cfg = copy.deepcopy(cfg.model)
-    loss_group_mode = False
-    train_datasets_cfg = OmegaConf.select(cfg, "data.train_datasets", default={}) or {}
-    for _, dataset_cfg in train_datasets_cfg.items():
-        if OmegaConf.select(dataset_cfg, "loss_groups", default=None):
-            loss_group_mode = True
-            break
     if (
         "robomimic_model" in model_cfg
         and isinstance(model_cfg.robomimic_model, DictConfig)
         and "data_schematic" in model_cfg.robomimic_model
     ):
         model_cfg.robomimic_model.data_schematic = None
-        with open_dict(model_cfg.robomimic_model):
-            model_cfg.robomimic_model.loss_group_mode = loss_group_mode
     return OmegaConf.create({"model": model_cfg})
 
 
@@ -471,12 +464,45 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
+    def _check_loss_group_evaluator(cfg, eval_obj, algo):
+        data_cfg = OmegaConf.to_container(cfg.get("data", {}), resolve=False)
+        has_loss_groups = _cfg_has_loss_groups(data_cfg)
+        if has_loss_groups and not isinstance(eval_obj, HPTEvalVideoLossGroups):
+            raise ValueError(
+                "Data config defines loss_groups but evaluator is not HPTEvalVideoLossGroups. "
+                "Set evaluator=eval_hpt_lossgroups in your config."
+            )
+        if not has_loss_groups and isinstance(eval_obj, HPTEvalVideoLossGroups):
+            raise ValueError(
+                "Evaluator is HPTEvalVideoLossGroups but no loss_groups are defined in the data config."
+            )
+        if has_loss_groups:
+            algo.loss_group_mode = True
+            for ds in datamodule.train_datasets.values():
+                if getattr(ds, "loss_group_weights", None):
+                    safe_weights = {
+                        k.replace("/", "_"): v for k, v in ds.loss_group_weights.items()
+                    }
+                    algo.loss_group_weights = safe_weights
+                    algo.use_weighted_loss = getattr(ds, "use_weighted_loss", False)
+                    break
+
+    def _cfg_has_loss_groups(obj):
+        if isinstance(obj, dict):
+            if "loss_groups" in obj:
+                return True
+            return any(_cfg_has_loss_groups(v) for v in obj.values())
+        if isinstance(obj, list):
+            return any(_cfg_has_loss_groups(v) for v in obj)
+        return False
+
     if mode == "train":
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             eval_obj.trainer = trainer
             eval_obj.model = model.model
             model.evaluator = eval_obj
+            _check_loss_group_evaluator(cfg, eval_obj, model.model)
         log.info("Starting training!")
         trainer.fit(
             model=model,
@@ -488,6 +514,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         eval_obj.trainer = trainer
         eval_obj.model = model.model
         model.evaluator = eval_obj
+        _check_loss_group_evaluator(cfg, eval_obj, model.model)
         # Load checkpoint weights manually so we can reset the epoch counter
         ckpt_path = cfg.get("ckpt_path")
         if ckpt_path:

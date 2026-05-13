@@ -933,7 +933,9 @@ class HPT(Algo):
         self.domains = domains.copy()
         self.auxiliary_ac_keys = auxiliary_ac_keys.copy()
         self.shared_ac_key = kwargs.get("shared_ac_key", None)
-        self.loss_group_mode = kwargs.get("loss_group_mode", False)
+        self.loss_group_mode = False
+        self.loss_group_weights: dict[str, float] = {}
+        self.use_weighted_loss: bool = False
         self.is_6dof = kwargs.get("6dof", False)
         self.kinematics_solver = kwargs.get("kinematics_solver", None)
 
@@ -1067,22 +1069,6 @@ class HPT(Algo):
             )
         return [str(loss_group_val)] * batch_size
 
-    @staticmethod
-    def _is_loss_group_enabled(loss_group_val) -> bool:
-        if loss_group_val is None:
-            return False
-        if isinstance(loss_group_val, str):
-            return loss_group_val != ""
-        if isinstance(loss_group_val, torch.Tensor):
-            if loss_group_val.numel() == 0:
-                return False
-            return any(str(x.item()) != "" for x in loss_group_val.flatten())
-        if isinstance(loss_group_val, (list, tuple)):
-            if len(loss_group_val) == 0:
-                return False
-            return any(str(x) != "" for x in loss_group_val)
-        return str(loss_group_val) != ""
-
     @override
     def process_batch_for_training(self, batch):
         """
@@ -1172,8 +1158,7 @@ class HPT(Algo):
             }
             hpt_batches[embodiment_id] = self._clone_batch(hpt_batch)
 
-            loss_groups_enabled = self.loss_group_mode
-            if self.freeze_repr and loss_groups_enabled:
+            if self.freeze_repr and self.loss_group_mode:
                 loss = self.nets["policy"].compute_loss_depth_per_sample(
                     hpt_batch, depth=self.freeze_depth
                 )
@@ -1181,7 +1166,7 @@ class HPT(Algo):
                 loss = self.nets["policy"].compute_loss_depth(
                     hpt_batch, depth=self.freeze_depth
                 )
-            elif loss_groups_enabled:
+            elif self.loss_group_mode:
                 loss = self.nets["policy"].compute_loss_per_sample(hpt_batch)
             else:
                 loss = self.nets["policy"].compute_loss(hpt_batch)
@@ -1290,16 +1275,24 @@ class HPT(Algo):
             all_bc_samples.append(scaled_bc_loss)
             loss_dict[f"{embodiment_name}_loss"] = scaled_bc_loss.mean()
 
-            labels = self._loss_group_labels(_batch.get("loss_group"), bc_loss.shape[0])
-            for idx, group_name in enumerate(labels):
-                emb_group_samples.setdefault(str(group_name), []).append(
-                    scaled_bc_loss[idx : idx + 1]
+            if self.loss_group_mode:
+                labels = self._loss_group_labels(
+                    _batch.get("loss_group"), bc_loss.shape[0]
                 )
+                for idx, group_name in enumerate(labels):
+                    emb_group_samples.setdefault(str(group_name), []).append(
+                        scaled_bc_loss[idx : idx + 1]
+                    )
 
-        for group_name, sample_losses in emb_group_samples.items():
-            group_loss = torch.cat(sample_losses).mean()
-            safe_group_name = str(group_name).replace("/", "_")
-            self.loss_by_group[safe_group_name] = float(group_loss.detach().item())
+        group_loss_tensors: dict[str, torch.Tensor] = {}
+        if self.loss_group_mode:
+            for group_name, sample_losses in emb_group_samples.items():
+                group_loss_tensor = torch.cat(sample_losses).mean()
+                safe_group_name = str(group_name).replace("/", "_")
+                group_loss_tensors[safe_group_name] = group_loss_tensor
+                self.loss_by_group[safe_group_name] = float(
+                    group_loss_tensor.detach().item()
+                )
 
         if all_bc_samples:
             total_action_loss = torch.cat(all_bc_samples).mean()
@@ -1312,7 +1305,30 @@ class HPT(Algo):
                 + ot_weight * self.temperature * predictions["ot_loss"]
             )
 
-        loss_dict["action_loss"] = total_action_loss
+        # Weighted loss: use absolute weights (no renormalization) so per-group
+        # gradient contribution reflects the configured weight even when only
+        # a subset of groups appears in this batch.
+        if self.loss_group_weights and group_loss_tensors:
+            present = {
+                g: self.loss_group_weights[g]
+                for g in group_loss_tensors
+                if g in self.loss_group_weights
+            }
+            if present:
+                weighted_action_loss = sum(
+                    w * group_loss_tensors[g] for g, w in present.items()
+                )
+                loss_dict["weighted_action_loss"] = weighted_action_loss.detach()
+                loss_dict["action_loss"] = (
+                    weighted_action_loss
+                    if self.use_weighted_loss
+                    else total_action_loss
+                )
+            else:
+                loss_dict["action_loss"] = total_action_loss
+        else:
+            loss_dict["action_loss"] = total_action_loss
+
         return loss_dict
 
     @override
