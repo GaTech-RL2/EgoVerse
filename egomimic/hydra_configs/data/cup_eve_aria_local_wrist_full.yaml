@@ -1,0 +1,22 @@
+defaults:
+  - cup_eve_aria_local_wrist
+
+train_dataloader_params:
+  eve_bimanual:
+    batch_size: 32
+    num_workers: 10
+    prefetch_factor: 2
+  aria_bimanual:
+    batch_size: 32
+    num_workers: 10
+    prefetch_factor: 2
+
+valid_dataloader_params:
+  eve_bimanual:
+    batch_size: 32
+    num_workers: 10
+    prefetch_factor: 2
+  aria_bimanual:
+    batch_size: 32
+    num_workers: 10
+    prefetch_factor: 2

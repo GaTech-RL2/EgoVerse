@@ -1,0 +1,14 @@
+defaults:
+  - obj_eve_local
+
+train_dataloader_params:
+  eve_right_arm:
+    batch_size: 32
+    num_workers: 10
+    prefetch_factor: 2
+
+valid_dataloader_params:
+  eve_right_arm:
+    batch_size: 32
+    num_workers: 10
+    prefetch_factor: 2

@@ -1,7 +1,7 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
-  eve_bimanual:
+  eve_right_arm:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
@@ -16,7 +16,7 @@ train_datasets:
     valid_ratio: 0.1
 
 valid_datasets:
-  eve_bimanual:
+  eve_right_arm:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
@@ -31,11 +31,11 @@ valid_datasets:
     valid_ratio: 0.1
 
 train_dataloader_params:
-  eve_bimanual:
+  eve_right_arm:
     batch_size: 4
     num_workers: 2
 
 valid_dataloader_params:
-  eve_bimanual:
+  eve_right_arm:
     batch_size: 4
     num_workers: 2

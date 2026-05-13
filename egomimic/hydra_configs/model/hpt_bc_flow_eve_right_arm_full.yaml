@@ -1,0 +1,53 @@
+defaults:
+  - hpt_bc_flow_eve_right_arm
+
+robomimic_model:
+  trunk:
+    action_horizon: 8                          # OLD value (was 64 in base)
+
+  head_specs:
+    eve_right_arm:
+      action_horizon: 100
+      num_inference_steps: 50
+      time_dist: "beta"
+      infer_ac_dims:
+        eve_right_arm: 6
+      model:
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 6
+        act_seq: 100
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+
+    eve_right_arm_actions_joints:
+      action_horizon: 100
+      num_inference_steps: 50
+      time_dist: "beta"
+      infer_ac_dims:
+        eve_right_arm: 17
+      model:
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 17
+        act_seq: 100
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 3e-4                                     # base; 4n4g full overrides to 6e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 2000
+  eta_min: 1e-5

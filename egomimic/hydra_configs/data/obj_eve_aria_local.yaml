@@ -1,7 +1,7 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
-  eve_bimanual:
+  eve_right_arm:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
@@ -14,22 +14,22 @@ train_datasets:
         mode: cartesian_wrist
     mode: train
     valid_ratio: 0.1
-  aria_bimanual:
+  aria_right_arm:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: ${oc.env:ARIA_LOCAL_ZARR_DIR}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: cartesian_right_arm
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian
+        mode: cartesian_right_arm
     mode: train
     valid_ratio: 0.1
 
 valid_datasets:
-  eve_bimanual:
+  eve_right_arm:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
@@ -42,32 +42,32 @@ valid_datasets:
         mode: cartesian_wrist
     mode: valid
     valid_ratio: 0.1
-  aria_bimanual:
+  aria_right_arm:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: ${oc.env:ARIA_LOCAL_ZARR_DIR}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        keymap_mode: cartesian
+        keymap_mode: cartesian_right_arm
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian
+        mode: cartesian_right_arm
     mode: valid
     valid_ratio: 0.1
 
 train_dataloader_params:
-  eve_bimanual:
+  eve_right_arm:
     batch_size: 4
     num_workers: 2
-  aria_bimanual:
+  aria_right_arm:
     batch_size: 4
     num_workers: 2
 
 valid_dataloader_params:
-  eve_bimanual:
+  eve_right_arm:
     batch_size: 4
     num_workers: 2
-  aria_bimanual:
+  aria_right_arm:
     batch_size: 4
     num_workers: 2

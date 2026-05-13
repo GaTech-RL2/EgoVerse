@@ -4,7 +4,7 @@ defaults:
 strategy: ddp
 
 accelerator: gpu
-devices: ${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}
+devices: ${launch_params.gpus_per_node}
 num_nodes: ${launch_params.nodes}
 sync_batchnorm: True
 check_val_every_n_epoch: 200

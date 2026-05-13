@@ -60,7 +60,13 @@ def _extract_rotation_for_txt(actions):
         actions = actions[0]
 
     _, left_ypr, _, right_ypr = _split_action_pose(actions)
-    return np.asarray(left_ypr).reshape(-1), np.asarray(right_ypr).reshape(-1)
+    # Single-arm (right_arm) data: left_ypr is None; return empty array.
+    left_arr = (
+        np.asarray(left_ypr).reshape(-1)
+        if left_ypr is not None
+        else np.empty(0, dtype=np.float64)
+    )
+    return left_arr, np.asarray(right_ypr).reshape(-1)
 
 
 def _viz_rotation_txt(image, actions, **kwargs):
@@ -150,15 +156,17 @@ def _viz_traj(image, actions, intrinsics_key, **kwargs):
     left_xyz, _, right_xyz, _ = _split_action_pose(actions)
 
     base = image.copy()
-    overlay = draw_actions(
-        base.copy(),
-        type="xyz",
-        color=color,
-        actions=left_xyz,
-        extrinsics=None,
-        intrinsics=intrinsics,
-        arm="left",
-    )
+    overlay = base.copy()
+    if left_xyz is not None:
+        overlay = draw_actions(
+            overlay,
+            type="xyz",
+            color=color,
+            actions=left_xyz,
+            extrinsics=None,
+            intrinsics=intrinsics,
+            arm="left",
+        )
     overlay = draw_actions(
         overlay,
         type="xyz",
@@ -260,7 +268,11 @@ def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
         )
         return frame
 
-    vis = _draw_rotation_at_anchor(vis, left_xyz, left_ypr, "L rot", (255, 180, 80))
+    # Single-arm (right_arm) data: skip the L rot anchor draw when left is absent.
+    if left_xyz is not None and left_ypr is not None:
+        vis = _draw_rotation_at_anchor(
+            vis, left_xyz, left_ypr, "L rot", (255, 180, 80)
+        )
     vis = _draw_rotation_at_anchor(vis, right_xyz, right_ypr, "R rot", (80, 180, 255))
     vis = _draw_axis_color_legend(vis)
     if alpha < 1.0:

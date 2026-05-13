@@ -207,13 +207,36 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     plugins = []
     if os.environ.get("SLURM_JOB_ID"):
-        plugins.append(
-            SLURMEnvironment(requeue_signal=[signal.SIGUSR1, signal.SIGUSR2])
-        )
-        print("SLURM REQUEUE ENABLED")
+        # auto_requeue=False: skip Lightning's built-in handler. Its handler
+        # calls save_checkpoint inside the signal context, which wedges on a
+        # NCCL barrier when many ranks (e.g. 16 at 4×4) all enter the handler
+        # mid-batch. We replace it with a should_stop-based path below.
+        plugins.append(SLURMEnvironment(auto_requeue=False))
+        print("SLURM REQUEUE ENABLED (custom should_stop handler)")
     trainer: Trainer = hydra.utils.instantiate(
-        cfg.trainer, callbacks=callbacks, logger=logger
+        cfg.trainer, callbacks=callbacks, logger=logger, plugins=plugins
     )
+
+    requeue_requested = {"flag": False}
+    if os.environ.get("SLURM_JOB_ID"):
+        def _sigusr1_handler(signum, _frame):
+            requeue_requested["flag"] = True
+            # Override min_epochs/min_steps so `trainer.should_stop` isn't
+            # silently ignored by Lightning's `_can_stop_early` guard ("Trainer
+            # was signaled to stop but min_epochs has not been met"). The
+            # config sets min_epochs=2000; without this override SIGUSR1 has
+            # no effect. min_epochs is on FitLoop; min_steps is on its inner
+            # epoch_loop (FitLoop.min_steps is a read-only property).
+            # NOTE: stop happens at the next epoch boundary, not mid-batch —
+            # there can be up to one full epoch of delay before fit() returns.
+            trainer.fit_loop.min_epochs = 0
+            trainer.fit_loop.epoch_loop.min_steps = None
+            trainer.should_stop = True
+            log.info(
+                f"[rank {trainer.global_rank}] SIGUSR1 received; "
+                "requested graceful stop and requeue"
+            )
+        signal.signal(signal.SIGUSR1, _sigusr1_handler)
 
     object_dict = {
         "cfg": cfg,
@@ -232,11 +255,27 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         os.environ.get("SLURM_JOB_ID")
         and os.environ.get("SLURM_RESTART_COUNT", "0") != "0"
     ):
+        import glob as _glob
+        hpc_ckpts = _glob.glob(
+            os.path.join(trainer.default_root_dir, "hpc_ckpt_*.ckpt")
+        )
         last_ckpt_path = os.path.join(
             trainer.default_root_dir, "checkpoints", "last.ckpt"
         )
-        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
-        cfg.ckpt_path = last_ckpt_path
+        if hpc_ckpts:
+            latest_hpc = max(
+                hpc_ckpts,
+                key=lambda p: int(os.path.basename(p).split("_")[2].split(".")[0]),
+            )
+            log.info(f"Detected SLURM requeue — resuming from hpc ckpt: {latest_hpc}")
+            cfg.ckpt_path = latest_hpc
+        elif os.path.isfile(last_ckpt_path):
+            log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
+            cfg.ckpt_path = last_ckpt_path
+        else:
+            log.warning(
+                "Detected SLURM requeue but no checkpoint found — fresh start"
+            )
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
@@ -253,6 +292,40 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             ckpt_path=cfg.get("ckpt_path"),
             weights_only=False,
         )
+
+        if requeue_requested["flag"]:
+            log.info(
+                "Training stopped early due to SIGUSR1; saving hpc_ckpt then "
+                "calling 'scontrol requeue' so SLURM relaunches the job."
+            )
+            hpc_save_path = os.path.join(
+                trainer.default_root_dir,
+                f"hpc_ckpt_{trainer.global_step}.ckpt",
+            )
+            trainer.save_checkpoint(hpc_save_path)
+            log.info(f"Saved hpc ckpt to {hpc_save_path}")
+
+            if trainer.global_rank == 0:
+                job_id = os.environ.get("SLURM_JOB_ID", "")
+                if job_id:
+                    import subprocess as _sp
+                    log.info(f"Calling scontrol requeue {job_id} ...")
+                    try:
+                        rc = _sp.call(["scontrol", "requeue", job_id])
+                    except FileNotFoundError:
+                        rc = _sp.call(
+                            f"scontrol requeue {job_id}", shell=True
+                        )
+                    if rc == 0:
+                        log.info(f"Requeued SLURM job {job_id}")
+                    else:
+                        log.warning(
+                            f"scontrol requeue {job_id} failed (rc={rc}); "
+                            "job will exit without auto-requeue"
+                        )
+
+            import sys as _sys
+            _sys.exit(1)
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model

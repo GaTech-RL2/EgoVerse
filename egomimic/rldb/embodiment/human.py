@@ -124,6 +124,7 @@ class Aria(Human):
         cls,
         mode: Literal[
             "cartesian",
+            "cartesian_right_arm",
             "cartesian_wristframe_ypr",
             "keypoints_headframe_ypr",
             "keypoints_headframe_quat",
@@ -133,6 +134,10 @@ class Aria(Human):
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
+                stride=cls.ACTION_STRIDE
+            )
+        elif mode == "cartesian_right_arm":
+            return _build_aria_cartesian_right_arm_transform_list(
                 stride=cls.ACTION_STRIDE
             )
         elif mode == "cartesian_wristframe_ypr":
@@ -159,7 +164,7 @@ class Aria(Human):
     @classmethod
     def _get_keymap(
         cls,
-        keymap_mode: Literal["cartesian", "keypoints"],
+        keymap_mode: Literal["cartesian", "cartesian_right_arm", "keypoints"],
     ):
         if keymap_mode == "cartesian":
             return {
@@ -184,6 +189,26 @@ class Aria(Human):
                 "left.obs_ee_pose": {
                     "key_type": "proprio_keys",
                     "zarr_key": "left.obs_ee_pose",
+                },
+                "obs_head_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "obs_head_pose",
+                },
+            }
+        elif keymap_mode == "cartesian_right_arm":
+            return {
+                cls.VIZ_IMAGE_KEY: {
+                    "key_type": "camera_keys",
+                    "zarr_key": "images.front_1",
+                },
+                "right.action_ee_pose": {
+                    "key_type": "action_keys",
+                    "zarr_key": "right.obs_ee_pose",
+                    "horizon": 30,
+                },
+                "right.obs_ee_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_ee_pose",
                 },
                 "obs_head_pose": {
                     "key_type": "proprio_keys",
@@ -1106,6 +1131,86 @@ def _build_aria_cartesian_eef_frame_transform_list(
         ),
         DeleteKeys(keys_to_delete=keys_to_delete),
     ]
+    return transform_list
+
+
+def _build_aria_cartesian_right_arm_transform_list(
+    *,
+    target_world: str = "obs_head_pose",
+    target_world_ypr: str = "obs_head_pose_ypr",
+    target_world_is_quat: bool = True,
+    right_action_world: str = "right.action_ee_pose",
+    right_obs_pose: str = "right.obs_ee_pose",
+    right_action_headframe: str = "right.action_ee_pose_headframe",
+    right_obs_headframe: str = "right.obs_ee_pose_headframe",
+    actions_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+    chunk_length: int = 100,
+    stride: int = 3,
+    delete_target_world: bool = True,
+) -> list[Transform]:
+    """ARIA right-arm-only cartesian transform pipeline.
+
+    Single-arm mirror of `_build_aria_cartesian_bimanual_transform_list`: takes
+    only the right-side stacked action ee-pose chunks and obs ee-pose, projects
+    them into headframe via `obs_head_pose`, interpolates to chunk_length,
+    converts quat→ypr, and renames to `actions_cartesian` / `observations.state.ee_pose`
+    so downstream code sees the same canonical keys as the bimanual path —
+    just with 6D instead of 12D values. Used for `aria_right_arm` cotraining
+    with `eve_right_arm` (e.g. object_in_container task).
+    """
+    keys_to_delete = list({right_action_world, right_obs_pose})
+    if delete_target_world:
+        keys_to_delete.append(target_world)
+        if target_world_is_quat:
+            keys_to_delete.append(target_world_ypr)
+
+    transform_list: list[Transform] = [
+        ActionChunkCoordinateFrameTransform(
+            target_world=target_world,
+            chunk_world=right_action_world,
+            transformed_key_name=right_action_headframe,
+            mode="xyzwxyz",
+        ),
+        PoseCoordinateFrameTransform(
+            target_world=target_world,
+            pose_world=right_obs_pose,
+            transformed_key_name=right_obs_headframe,
+            mode="xyzwxyz",
+        ),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=right_action_headframe,
+            output_action_key=right_action_headframe,
+            stride=stride,
+            mode="xyzwxyz",
+        ),
+    ]
+
+    if target_world_is_quat:
+        transform_list.append(
+            XYZWXYZ_to_XYZYPR(
+                keys=[right_action_headframe, right_obs_headframe],
+            )
+        )
+
+    # Rename right_*_headframe -> canonical action/obs keys via ConcatKeys with
+    # a single-element list (Concat trivially passes through and deletes old key).
+    transform_list.extend(
+        [
+            ConcatKeys(
+                key_list=[right_action_headframe],
+                new_key_name=actions_key,
+                delete_old_keys=True,
+            ),
+            ConcatKeys(
+                key_list=[right_obs_headframe],
+                new_key_name=obs_key,
+                delete_old_keys=True,
+            ),
+            DeleteKeys(keys_to_delete=keys_to_delete),
+        ]
+    )
     return transform_list
 
 

@@ -1,0 +1,46 @@
+defaults:
+  - model: hpt_bc_flow_eve_wrist_full
+  - visualization: eve_cartesian
+  - paths: default
+  - trainer: ddp
+  - debug: null
+  - logger: wandb_offline
+  - data: cup_eve_local_wrist_full
+  - callbacks: checkpoints_full
+  - data_schematic: eve_wrist
+  - evaluator: eval_hpt
+  - override hydra/launcher: submitit
+  - _self_
+
+name: ${oc.env:RUN_NAME,cup_BC_pg4_full}
+description: ${oc.env:RUN_NAME,cup_BC_pg4_full}
+ckpt_path: null
+mode: train
+
+hydra:
+  run:
+    dir: ${oc.env:EVE_HYDRA_RUN_DIR,./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}}
+  sweep:
+    dir: ${oc.env:EVE_HYDRA_RUN_DIR,./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}}
+
+launch_params:
+  gpus_per_node: 4
+  nodes: 1
+
+seed: 42
+
+trainer:
+  max_epochs: 2000
+  min_epochs: 1                   # was 2000 — blocked SIGUSR1 should_stop path causing TIMEOUT instead of REQUEUE
+  check_val_every_n_epoch: 100
+  num_sanity_val_steps: 0
+  limit_train_batches: 100
+  limit_val_batches: 64
+  precision: bf16-mixed
+
+norm_stats:
+  sample_frac: 0.1
+  num_workers: 4
+  save_cache_dir: ${hydra:runtime.output_dir}
+  precomputed_norm_path: null
+reject_outliers: false

@@ -1,0 +1,6 @@
+eve_right_arm:
+  _target_: egomimic.rldb.embodiment.eve.Eve.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_cartesian
+  mode: traj

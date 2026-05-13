@@ -1,0 +1,44 @@
+_target_: egomimic.rldb.zarr.utils.DataSchematic
+norm_mode: quantile
+schematic_dict:
+  eve_right_arm:
+    front_img_1:
+      key_type: camera_keys
+      zarr_key: observations.images.front_img_1
+    left_wrist_img:
+      key_type: camera_keys
+      zarr_key: observations.images.left_wrist_img
+    right_wrist_img:
+      key_type: camera_keys
+      zarr_key: observations.images.right_wrist_img
+    ee_pose:
+      key_type: proprio_keys
+      zarr_key: observations.state.ee_pose
+    cartesian_arm:
+      key_type: proprio_keys
+      zarr_key: observations.state.cartesian_arm
+    joint_positions:
+      key_type: proprio_keys
+      zarr_key: observations.state.joints_hand
+    actions_cartesian:
+      key_type: action_keys
+      zarr_key: actions_cartesian
+    actions_joints:
+      key_type: action_keys
+      zarr_key: actions_joints
+    embodiment:
+      key_type: metadata_keys
+      zarr_key: metadata.embodiment
+  aria_right_arm:
+    front_img_1:
+      key_type: camera_keys
+      zarr_key: observations.images.front_img_1
+    ee_pose:
+      key_type: proprio_keys
+      zarr_key: observations.state.ee_pose
+    actions_cartesian:
+      key_type: action_keys
+      zarr_key: actions_cartesian
+    embodiment:
+      key_type: metadata_keys
+      zarr_key: metadata.embodiment
