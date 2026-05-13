@@ -72,6 +72,9 @@ class _Config:
     def train_script(self) -> str:
         return f"{self.remote_repo_dir}/egomimic/trainHydra.py"
 
+    zarr_volume_name: str = field(
+        default_factory=lambda: os.environ.get("MODAL_ZARR_VOLUME", "egoverse-zarr-data")
+    )
     volume_mount_path: str = "/mnt/zarr-data"
     # Training outputs (checkpoints, logs, norm stats, videos) are persisted here
     output_mount_path: str = "/root/EgoVerse/logs"
@@ -166,7 +169,7 @@ image = (
     )
 )
 
-zarr_volume = modal.Volume.from_name("egoverse-zarr-data")
+zarr_volume = modal.Volume.from_name(CFG.zarr_volume_name)
 training_outputs_volume = modal.Volume.from_name(
     "egoverse-training-outputs", create_if_missing=True
 )
