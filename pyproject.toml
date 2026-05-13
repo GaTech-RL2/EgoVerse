@@ -63,6 +63,9 @@ dependencies = [
     "ruff",
     "scaleapi",
     "openai",
+    "pymunk==7.2.0",
+    "pygame==2.6.1",
+    "shapely==2.1.2",
 ]
 
 [tool.setuptools.packages.find]
