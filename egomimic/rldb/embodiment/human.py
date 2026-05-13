@@ -344,7 +344,10 @@ class Mecka(Human):
 
     @classmethod
     def get_keymap(
-        cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False
+        cls,
+        mode: Literal["cartesian", "keypoints"],
+        annotations: bool = False,
+        norm_mode: bool = False,
     ):
         if mode == "cartesian":
             key_map = {
@@ -426,11 +429,21 @@ class Mecka(Human):
             raise ValueError(
                 f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints'."
             )
-        if annotations:
+        if annotations and not norm_mode:
             key_map["annotations"] = {
                 "key_type": "annotation_keys",
                 "zarr_key": "annotations",
             }
+
+        if norm_mode:
+            to_delete = [
+                k
+                for k, v in key_map.items()
+                if v.get("key_type") in ("camera_keys", "annotation_keys")
+            ]
+            for k in to_delete:
+                del key_map[k]
+
         return key_map
 
 
