@@ -370,6 +370,9 @@ def run_hydra_train(
     """
     import glob
 
+    # Refresh the FUSE mount before any reads — skips EIO on first listdir
+    zarr_volume.reload()
+
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
 
     hydra_args = _resolve_volume_paths(hydra_args)
