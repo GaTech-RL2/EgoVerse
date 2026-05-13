@@ -1048,7 +1048,10 @@ class HPT(Algo):
             batch (dict): dictionary with torch.Tensors sampled
                 from a data loader and filtered by @process_batch_for_training (see docstring for expected keys/shapes)
         Returns:
-            unnorm_preds (dict): {<embodiment_name>_<ac_key>: torch.Tensor (B, Seq, D)}
+            unnorm_preds (dict): {
+                <embodiment_name>_<ac_key>: torch.Tensor (B, Seq, D),
+                <embodiment_name>_loss: torch.Tensor (1),  # BC val loss
+            }
         """
         unnorm_preds = {}
         for embodiment_id, _batch in batch.items():
@@ -1065,6 +1068,15 @@ class HPT(Algo):
                 "domain": embodiment_name,  # readability on config side
                 "data": data,
             }
+
+            # BC val loss — same call as forward_training.
+            if self.freeze_repr:
+                val_loss = self.nets["policy"].compute_loss_depth(
+                    hpt_batch, depth=self.freeze_depth
+                )
+            else:
+                val_loss = self.nets["policy"].compute_loss(hpt_batch)
+            unnorm_preds[f"{embodiment_name}_loss"] = val_loss
 
             actions = self.nets["policy"].forward(
                 hpt_batch["domain"], hpt_batch["data"]

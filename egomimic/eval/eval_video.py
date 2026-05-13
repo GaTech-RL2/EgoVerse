@@ -15,11 +15,20 @@ class EvalVideo(Eval):
     model-specific metrics and produce the frames to buffer.
     """
 
-    def __init__(self, limit_val_batches: int = 400, viz_func: dict = None):
+    def __init__(
+        self,
+        limit_val_batches: int = 400,
+        viz_func: dict = None,
+        transform_lists: dict | None = None,
+    ):
         super().__init__()
         self.trainer = None
         self.model = None
         self.viz_func = viz_func
+        # Per-embodiment list[Transform] applied once during eval to project
+        # the model's wrist-frame actions back into cam (head) frame. Reused for
+        # both cam-frame MSE and the viz video so we don't transform twice.
+        self.transform_lists = transform_lists or {}
         self.val_image_buffer = {}
         self.val_counter = {}
         self.override_dict = {

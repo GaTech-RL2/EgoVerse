@@ -5,9 +5,6 @@ eva_bimanual:
   action_key: actions_cartesian
   mode: traj
   annotation_key: annotations
-  viz_transform_list:
-    _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
-    is_quat: false
 aria_bimanual:
   _target_: egomimic.rldb.embodiment.human.Aria.viz_gt_preds
   _partial_: true

@@ -1,4 +1,3 @@
-import copy
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Literal
@@ -167,7 +166,6 @@ class Embodiment(ABC):
         image_key,
         action_key,
         annotation_key=None,
-        transform_list=None,
         mode=Literal["traj", "traj+rotation", "axes", "keypoints"],
         gt_alpha=1.0,
         pred_alpha=0.7,
@@ -176,15 +174,7 @@ class Embodiment(ABC):
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
 
-        pred_actions = predictions[
-            f"{embodiment_name}_{action_key}"
-        ]  # TODO: make this work with groundtruth, clone batch and replace actions_keypoints with pred_actions
-        if transform_list is not None:
-            pred_batch = copy.deepcopy(batch)
-            pred_batch[action_key] = pred_actions
-            batch = cls.apply_transform(batch, transform_list)
-            pred_batch = cls.apply_transform(pred_batch, transform_list)
-            pred_actions = pred_batch[action_key]
+        pred_actions = predictions[f"{embodiment_name}_{action_key}"]
 
         images = batch[image_key]
         actions = batch[action_key]

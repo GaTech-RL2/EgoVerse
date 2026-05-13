@@ -402,7 +402,10 @@ class PI(Algo):
             batch (dict): dictionary with torch.Tensors sampled
                 from a data loader and filtered by @process_batch_for_training (see docstring for expected keys/shapes)
         Returns:
-            unnorm_preds (dict): {<embodiment_name>_<ac_key>: torch.Tensor (B, Seq, D)}
+            unnorm_preds (dict): {
+                <embodiment_name>_<ac_key>: torch.Tensor (B, Seq, D),
+                <embodiment_name>_loss: torch.Tensor (1),  # flow-matching val loss
+            }
         """
         unnorm_preds = {}
         with torch.no_grad():
@@ -420,6 +423,16 @@ class PI(Algo):
                     ac_key,
                     embodiment_name,
                 )
+
+                # Flow-matching val loss — same call as forward_training.
+                losses = self.nets["policy"].forward(processed_obs, action)
+                if isinstance(losses, (list, tuple)):
+                    losses = torch.stack(losses)
+                elif not isinstance(losses, torch.Tensor):
+                    losses = torch.tensor(
+                        losses, device=action.device, dtype=torch.float32
+                    )
+                unnorm_preds[f"{embodiment_name}_loss"] = losses.mean()
 
                 pred_actions = self.nets["policy"].sample_actions(
                     device=self.device,

@@ -1,8 +1,10 @@
+import copy
+
 import torch
 from torchmetrics import MeanSquaredError
 
 from egomimic.eval.eval_video import EvalVideo
-from egomimic.rldb.embodiment.embodiment import get_embodiment
+from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.utils.egomimicUtils import (
     frechet_gaussian_over_time,
     reverse_kl_from_samples,
@@ -11,8 +13,14 @@ from egomimic.utils.egomimicUtils import (
 
 class HPTEvalVideo(EvalVideo):
     """
-    Eval class for HPT models. Computes paired/final MSE, Frechet over time, and
-    optional reverse KL from samples for the main / shared / auxiliary action heads.
+    Eval class for HPT models. Per embodiment, computes:
+      - val loss (BC loss, same as training; also aggregated as ``Valid/action_loss``)
+      - paired/final MSE + Frechet over time for the main / shared / auxiliary heads
+      - paired/final MSE in cam frame on the main ``ac_key``, when a
+        ``transform_lists`` entry is configured
+      - optional Reverse KL from samples
+    The revert transform is applied once and reused by both the cam-frame MSE
+    and the viz video.
     """
 
     def compute_metrics_and_viz(self, batch):
@@ -22,10 +30,21 @@ class HPTEvalVideo(EvalVideo):
         metrics = {}
         images_dict = {}
         mse = MeanSquaredError()
+        total_loss = None
+        n_loss_embodiments = 0
         for embodiment_id, _batch in batch.items():
             _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
             ac_key = algo.ac_keys[embodiment_id]
+
+            loss_key = f"{embodiment_name}_loss"
+            if loss_key in preds:
+                loss_val = preds[loss_key]
+                metrics[f"Valid/{loss_key}"] = loss_val
+                if total_loss is None:
+                    total_loss = torch.zeros_like(loss_val)
+                total_loss = total_loss + loss_val
+                n_loss_embodiments += 1
 
             if f"{embodiment_name}_{ac_key}" in preds and ac_key != algo.shared_ac_key:
                 metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(
@@ -143,8 +162,41 @@ class HPTEvalVideo(EvalVideo):
                     rkl = reverse_kl_from_samples(samples, gt_tensor)
                     metrics[f"Valid/{pred_key_name}_reverse_kl_M{M}"] = rkl.item()
 
-            ims = self._visualize_preds(preds, _batch)
+            transform_list = self.transform_lists.get(embodiment_name)
+            main_pred_key = f"{embodiment_name}_{ac_key}"
+            gt_batch_viz = _batch
+            preds_for_viz = preds
+            if transform_list is not None and main_pred_key in preds:
+                pred_batch = copy.deepcopy(_batch)
+                pred_batch[ac_key] = preds[main_pred_key]
+                gt_t = Embodiment.apply_transform(_batch, transform_list)
+                pred_t = Embodiment.apply_transform(pred_batch, transform_list)
+                # apply_transform drops keys whose shape[0] != batch_size
+                # (e.g. ``embodiment``, ``annotations``). Merge to preserve them.
+                gt_batch_viz = {**_batch, **gt_t}
+                pred_batch_viz = {**_batch, **pred_t}
+
+                # ``.contiguous()`` because ``apply_transform`` returns CPU tensors,
+                # so ``.cpu()`` here is a no-op and ``[:, -1]`` leaves a non-contiguous
+                # view that torchmetrics' MSE doesn't accept.
+                metrics[f"Valid/{main_pred_key}_cam_paired_mse_avg"] = mse(
+                    pred_batch_viz[ac_key].cpu().contiguous(),
+                    gt_batch_viz[ac_key].cpu().contiguous(),
+                )
+                metrics[f"Valid/{main_pred_key}_cam_final_mse_avg"] = mse(
+                    pred_batch_viz[ac_key][:, -1].cpu().contiguous(),
+                    gt_batch_viz[ac_key][:, -1].cpu().contiguous(),
+                )
+
+                preds_for_viz = dict(preds)
+                preds_for_viz[main_pred_key] = pred_batch_viz[ac_key]
+
+            ims = self._visualize_preds(preds_for_viz, gt_batch_viz)
             images_dict[embodiment_id] = ims
+
+        if total_loss is not None and n_loss_embodiments > 0:
+            metrics["Valid/action_loss"] = total_loss / n_loss_embodiments
+
         return metrics, images_dict
 
     def _visualize_preds(self, predictions, batch):
