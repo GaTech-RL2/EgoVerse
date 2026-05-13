@@ -1,0 +1,16 @@
+{
+    "action_keys": [
+        "actions/joint",
+        "actions/joint_arm",
+        "actions/joint_arm_hand",
+        "actions/joint_arm_head_torso_base",
+        "actions/hand_left_cmd_input",
+        "actions/hand_right_cmd_input"
+    ],
+    "obs_keys": [
+        "frontview_image",
+        "robot0_joint_pos",
+        "robot0_left_gripper_qpos",
+        "robot0_right_gripper_qpos"
+    ]
+}

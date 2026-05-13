@@ -1,0 +1,34 @@
+# DexMimicGen no-mobile P2: separate block heads over raw actions.joint order.
+# P2 decodes blocks sequentially, so parent indices must refer to earlier blocks.
+defaults:
+  - /model/experiments/dexmimicgen/dexmimicgen_no_mobile_joint_act32@_here_
+  - _self_
+
+robomimic_model:
+  head_specs:
+    rby1:
+      _target_: egomimic.models.fm_policy.HierarchicalFMPolicy
+      action_horizon: 32
+      num_inference_steps: 50
+      pooling: null
+      time_dist: beta
+      cond_dim: 256
+      infer_ac_dims:
+        rby1: 47
+      block_dims: [14, 6, 2, 3, 22]
+      block_parents:
+        - []        # arms
+        - [0]       # torso <- arms
+        - [0, 1]    # head <- arms, torso
+        - []        # base_delta
+        - [0, 1]    # hands <- arms, torso
+      block_model_cfg:
+        nblocks: 6
+        hidden_dim: 128
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+        act_seq: 32
+      model:
+        _target_: torch.nn.Identity

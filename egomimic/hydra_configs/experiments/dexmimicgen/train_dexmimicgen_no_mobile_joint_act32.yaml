@@ -1,0 +1,47 @@
+# @package _global_
+defaults:
+  - /train
+  - override /model: experiments/dexmimicgen/dexmimicgen_no_mobile_joint_act32
+  - override /data: experiments/dexmimicgen/dexmimicgen_no_mobile_act32_joint
+  - _self_
+
+name: RBY1_dexmimicgen_no_mobile_joint_act32
+description: "vanilla_frontview_joint_grippers_proprio_dropout"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+logger:
+  wandb:
+    project: dexmimicgen_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.frontview_image
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_left_gripper_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_right_gripper_qpos
+      actions_joint:
+        key_type: action_keys
+        lerobot_key: actions.joint
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1
