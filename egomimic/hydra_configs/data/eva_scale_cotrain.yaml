@@ -1,0 +1,84 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/egoverseS3DatasetTest/
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['task'] == 'fold_clothes' and row['lab'] == 'rl2' and row['robot_name'] == 'eva_bimanual' and row['is_deleted'] == False"
+    mode: train
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset/scale
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+        mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+        mode: cartesian
+        pause_removal_epsilon: 0.015
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['task'] == 'flagship_fold_clothes' and row['lab'] == 'scale' and row['robot_name'] == 'scale_bimanual' and row['is_deleted'] == False"
+        - "lambda row: row['episode_hash'] not in {'2026-03-18-19-08-35-347174', '2026-03-18-19-05-47-128915', '2026-03-18-19-09-03-112551', '2026-03-18-19-00-01-418558', '2026-03-18-18-51-01-487301', '2026-03-18-18-50-34-608229', '2026-03-18-19-10-47-337996', '2026-03-18-18-57-25-329293'}"
+    mode: train
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/egoverseS3DatasetTest/
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['task'] == 'fold_clothes' and row['lab'] == 'rl2' and row['robot_name'] == 'eva_bimanual' and row['is_deleted'] == False"
+        - "lambda row: row['episode_hash'] not in {'2026-03-18-19-08-35-347174', '2026-03-18-19-05-47-128915', '2026-03-18-19-09-03-112551', '2026-03-18-19-00-01-418558', '2026-03-18-18-51-01-487301', '2026-03-18-18-50-34-608229', '2026-03-18-19-10-47-337996', '2026-03-18-18-57-25-329293'}"
+    mode: valid
+  scale_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset/scale
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+        mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+        mode: cartesian
+        pause_removal_epsilon: 0.015
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['task'] == 'flagship_fold_clothes' and row['lab'] == 'scale' and row['robot_name'] == 'scale_bimanual' and row['is_deleted'] == False"
+        - "lambda row: row['episode_hash'] not in {'2026-03-18-19-08-35-347174', '2026-03-18-19-05-47-128915', '2026-03-18-19-09-03-112551', '2026-03-18-19-00-01-418558', '2026-03-18-18-51-01-487301', '2026-03-18-18-50-34-608229', '2026-03-18-19-10-47-337996', '2026-03-18-18-57-25-329293'}"
+    mode: valid
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 64
+    num_workers: 10
+  scale_bimanual:
+    batch_size: 64
+    num_workers: 10
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 64
+    num_workers: 10
+  scale_bimanual:
+    batch_size: 64
+    num_workers: 10

@@ -44,4 +44,5 @@ annotations/**
 annotations_test/**
 log_conversion/**
 debug_model_inputs/**
-temp_dir/**
+temp_dir/****/*.json
+egomimic/curation_results/**
