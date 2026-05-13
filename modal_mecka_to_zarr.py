@@ -77,7 +77,9 @@ app = modal.App("mecka-zarr-conversion", image=image)
 # Override with --volume-name at runtime, or set ZARR_VOLUME_NAME env var.
 # ---------------------------------------------------------------------------
 EGOVERSE_ZARR_VOLUME_NAME = os.environ.get("ZARR_VOLUME_NAME", "egoverse-zarr-data")
-EGOVERSE_ZARR_VOLUME_MOUNT = "/vol/zarr_output"  # fixed mount point; volume name can vary
+EGOVERSE_ZARR_VOLUME_MOUNT = (
+    "/vol/zarr_output"  # fixed mount point; volume name can vary
+)
 egoverse_zarr_volume = modal.Volume.from_name(EGOVERSE_ZARR_VOLUME_NAME)
 
 # ---------------------------------------------------------------------------
@@ -125,15 +127,14 @@ def _volume_root() -> Path:
 
 def _write_episode_to_volume(
     local_zarr_dir: str,
-    local_mp4: str,
     subset_name: str,
     task_type: str,
     episode_hash: str,
-) -> tuple[str, str]:
+) -> str:
     """
-    Copy the converted episode into the Modal volume root (no subdirectories).
+    Copy the converted zarr into the Modal volume root (no subdirectories).
 
-    Returns ``(zarr_dest, mp4_dest)``. Caller must commit the volume after.
+    Returns ``zarr_dest``. Caller must commit the volume after.
     """
     import shutil
 
@@ -145,13 +146,7 @@ def _write_episode_to_volume(
         shutil.rmtree(dest_zarr)
     shutil.copytree(local_zarr_dir, dest_zarr)
 
-    dest_mp4 = ""
-    if local_mp4 and os.path.exists(local_mp4):
-        dest_mp4_path = dest_dir / f"{episode_hash}_video.mp4"
-        shutil.copy2(local_mp4, dest_mp4_path)
-        dest_mp4 = str(dest_mp4_path)
-
-    return str(dest_zarr), dest_mp4
+    return str(dest_zarr)
 
 
 def _delete_episode_from_volume(
@@ -162,21 +157,15 @@ def _delete_episode_from_volume(
 
     dest_dir = _volume_root()
     dest_zarr = dest_dir / f"{episode_hash}.zarr"
-    dest_mp4 = dest_dir / f"{episode_hash}_video.mp4"
     if dest_zarr.exists():
         shutil.rmtree(dest_zarr, ignore_errors=True)
         logger.info(f"[{episode_hash}] Removed stale volume zarr {dest_zarr}")
-    if dest_mp4.exists():
-        try:
-            dest_mp4.unlink()
-            logger.info(f"[{episode_hash}] Removed stale volume mp4 {dest_mp4}")
-        except Exception:
-            pass
 
 
 # ---------------------------------------------------------------------------
 # Mongo + R2 access
 # ---------------------------------------------------------------------------
+
 
 def _get_nested(doc: dict, dotted_key: str):
     """Resolve a dotted key like 'pipeline_results.post_processing.hands'."""
@@ -201,7 +190,7 @@ def _parse_storage_key(storage_key: str) -> tuple[str, str]:
         bare paths, so these get routed to the configurable fallback bucket.
     """
     if storage_key.startswith("r2://"):
-        without_scheme = storage_key[len("r2://"):]
+        without_scheme = storage_key[len("r2://") :]
         bucket, _, key = without_scheme.partition("/")
         if not bucket or not key:
             raise ValueError(f"Malformed r2:// storage key: {storage_key!r}")
@@ -242,7 +231,9 @@ def _get_r2_client():
         endpoint_url = R2_ENDPOINT_TEMPLATE.format(account_id=account_id)
 
     access_key = os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("R2_ACCESS_KEY")
-    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("R2_SECRET_KEY")
+    secret_key = os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get(
+        "R2_SECRET_KEY"
+    )
     if not access_key or not secret_key:
         raise RuntimeError(
             "R2 access key and secret must be set. Use R2_ACCESS_KEY_ID + "
@@ -255,7 +246,9 @@ def _get_r2_client():
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
         region_name="auto",
-        config=boto3.session.Config(signature_version="s3v4", s3={"addressing_style": "path"}),
+        config=boto3.session.Config(
+            signature_version="s3v4", s3={"addressing_style": "path"}
+        ),
     )
 
 
@@ -365,7 +358,9 @@ def _convert_hands_final_to_csv(
         ct = pose["camera_transform"]
         pos, ori = ct["position"], ct["orientation"]
         T = np.eye(4)
-        T[:3, :3] = Rotation.from_quat([ori["x"], ori["y"], ori["z"], ori["w"]]).as_matrix()
+        T[:3, :3] = Rotation.from_quat(
+            [ori["x"], ori["y"], ori["z"], ori["w"]]
+        ).as_matrix()
         T[:3, 3] = [pos["x"], pos["y"], pos["z"]]
         frame_to_cTp[frame_num] = np.linalg.inv(T)
 
@@ -388,16 +383,22 @@ def _convert_hands_final_to_csv(
             for lm in hand["landmarks"]:
                 pelvis_h = np.array([lm["x"], lm["y"], lm["z"], 1.0])
                 cam_xyz = (cTp @ pelvis_h)[:3]
-                rows.append({
-                    "frame": frame_num - base_frame,
-                    "hand_index": hand_idx,
-                    "landmark_index": lm["landmark_index"],
-                    "world_x": cam_xyz[0],
-                    "world_y": cam_xyz[1],
-                    "world_z": cam_xyz[2],
-                })
+                rows.append(
+                    {
+                        "frame": frame_num - base_frame,
+                        "hand_index": hand_idx,
+                        "landmark_index": lm["landmark_index"],
+                        "world_x": cam_xyz[0],
+                        "world_y": cam_xyz[1],
+                        "world_z": cam_xyz[2],
+                    }
+                )
 
-    df = pd.DataFrame(rows).sort_values(["frame", "hand_index", "landmark_index"]).reset_index(drop=True)
+    df = (
+        pd.DataFrame(rows)
+        .sort_values(["frame", "hand_index", "landmark_index"])
+        .reset_index(drop=True)
+    )
     df.to_csv(output_csv_path, index=False)
     logger.info(
         f"Converted hands_final -> {output_csv_path} "
@@ -429,10 +430,14 @@ def _resolve_intrinsics_key(db, episode_hash: str, mongo_doc: dict) -> str:
         logger.info(f"[{episode_hash}] Intrinsics resolved via intrinsicsKey")
         return direct_key
 
-    logger.info(f"[{episode_hash}] intrinsicsKey missing, falling back to device model chain")
+    logger.info(
+        f"[{episode_hash}] intrinsicsKey missing, falling back to device model chain"
+    )
     user_task_id = mongo_doc.get("userTaskId")
     if not user_task_id:
-        raise ValueError(f"Episode {episode_hash} missing both intrinsicsKey and userTaskId")
+        raise ValueError(
+            f"Episode {episode_hash} missing both intrinsicsKey and userTaskId"
+        )
 
     user_task = db["user_tasks"].find_one({"_id": user_task_id})
     if not user_task:
@@ -469,7 +474,9 @@ def _resolve_intrinsics_key(db, episode_hash: str, mongo_doc: dict) -> str:
             f"Episode {episode_hash}: device_intrinsics for '{model_name}' "
             f"missing intrinsics_1080p"
         )
-    logger.info(f"[{episode_hash}] Intrinsics resolved via device model '{model_name}' → {key}")
+    logger.info(
+        f"[{episode_hash}] Intrinsics resolved via device model '{model_name}' → {key}"
+    )
     return key
 
 
@@ -499,10 +506,20 @@ def _classify_task_types(episodes_col, episode_hashes: list[str]) -> dict[str, s
 # completes successfully but emits a warning that the SQL step was skipped.
 
 SQL_UPSERT_COLUMNS = [
-    "episode_hash", "operator", "task", "embodiment", "robot_name",
-    "num_frames", "task_description", "scene", "objects",
-    "zarr_processed_path", "zarr_mp4_path", "zarr_processing_error",
-    "is_deleted", "data_type",
+    "episode_hash",
+    "operator",
+    "task",
+    "embodiment",
+    "robot_name",
+    "num_frames",
+    "task_description",
+    "scene",
+    "objects",
+    "zarr_processed_path",
+    "zarr_mp4_path",
+    "zarr_processing_error",
+    "is_deleted",
+    "data_type",
 ]
 
 
@@ -522,6 +539,7 @@ def _sql_engine_from_pg_env():
         return create_engine(url, poolclass=NullPool)
 
     from urllib.parse import quote_plus
+
     user = os.environ["PG_USER"]
     password = quote_plus(os.environ["PG_PASSWORD"])
     host = os.environ["PG_HOST"]
@@ -627,9 +645,7 @@ def _build_sql_row_from_mongo(
     Used by the SQL-only mode (which doesn't run a worker).
     """
     objects_raw = mongo_doc.get("objects", [])
-    objects_json = (
-        json.dumps([str(o) for o in objects_raw]) if objects_raw else "[]"
-    )
+    objects_json = json.dumps([str(o) for o in objects_raw]) if objects_raw else "[]"
     return {
         "episode_hash": episode_hash,
         "operator": str(mongo_doc.get("userId", "")),
@@ -678,9 +694,7 @@ def _upsert_episode_records(engine, records: list[dict]) -> tuple[int, int]:
                 ok += 1
             except Exception as e:
                 err += 1
-                logger.warning(
-                    f"SQL upsert failed for {row.get('episode_hash')}: {e}"
-                )
+                logger.warning(f"SQL upsert failed for {row.get('episode_hash')}: {e}")
     return ok, err
 
 
@@ -691,7 +705,10 @@ def _resolve_mongo_filter_ids(db, mongo_filter_json: str) -> set[str]:
     from bson import json_util
 
     filter_doc = json_util.loads(mongo_filter_json)
-    ids = {str(d["_id"]) for d in db[MONGODB_EPISODES_COLLECTION].find(filter_doc, {"_id": 1})}
+    ids = {
+        str(d["_id"])
+        for d in db[MONGODB_EPISODES_COLLECTION].find(filter_doc, {"_id": 1})
+    }
     logger.info(f"MongoDB filter matched {len(ids)} episodes: {mongo_filter_json}")
     return ids
 
@@ -699,6 +716,7 @@ def _resolve_mongo_filter_ids(db, mongo_filter_json: str) -> set[str]:
 # ---------------------------------------------------------------------------
 # Episode preparation: download raw data → run converter → return local paths
 # ---------------------------------------------------------------------------
+
 
 def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
     """
@@ -711,6 +729,7 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
         num_annotations, task_description.
     """
     import sys
+
     if "/root/EgoVerse" not in sys.path:
         sys.path.insert(0, "/root/EgoVerse")
     try:
@@ -720,8 +739,10 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
     except IndexError:
         pass
 
-    from bson import ObjectId
     from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from bson import ObjectId
+
     from egomimic.scripts.mecka_process.mecka_to_zarr import (
         MeckaDatasetConverter,
         download_with_retry,
@@ -769,7 +790,9 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
     # ---- 4. Pre-create download dir + annotations.csv ----
     download_dir = os.path.join(tmp_dir, "temp_download")
     os.makedirs(download_dir, exist_ok=True)
-    _write_annotations_csv(vlm_annotations, os.path.join(download_dir, "annotations.csv"))
+    _write_annotations_csv(
+        vlm_annotations, os.path.join(download_dir, "annotations.csv")
+    )
 
     # ---- 5. Parallel download of raw assets ----
     hands_final_key = _get_nested(mongo_doc, MONGO_BODY_FIELDS["hands_final"])
@@ -783,14 +806,26 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
         (urls["intrinsics"], os.path.join(download_dir, "intrinsics.json")),
     ]
     if use_hands_final:
-        downloads.append((_sign_url(r2, hands_final_key), os.path.join(download_dir, "hands_final.json")))
-        downloads.append((_sign_url(r2, body_final_key), os.path.join(download_dir, "body_final.json")))
+        downloads.append(
+            (
+                _sign_url(r2, hands_final_key),
+                os.path.join(download_dir, "hands_final.json"),
+            )
+        )
+        downloads.append(
+            (
+                _sign_url(r2, body_final_key),
+                os.path.join(download_dir, "body_final.json"),
+            )
+        )
     else:
         downloads.append((urls["hands"], os.path.join(download_dir, "hands.csv")))
 
     logger.info(f"[{episode_hash}] Downloading {len(downloads)} files in parallel...")
     with ThreadPoolExecutor(max_workers=len(downloads)) as pool:
-        futures = {pool.submit(download_with_retry, url, path): path for url, path in downloads}
+        futures = {
+            pool.submit(download_with_retry, url, path): path for url, path in downloads
+        }
         for fut in as_completed(futures):
             dest_path = futures[fut]
             try:
@@ -827,6 +862,7 @@ def _prepare_episode(episode_hash: str, task_type: str, tmp_dir: str) -> dict:
 
     # ---- 6. Synthesize episode.json that MeckaDatasetConverter expects ----
     from pymongo.errors import OperationFailure
+
     try:
         vlm_doc = db[MONGODB_VLM_SEGMENTS_COLLECTION].find_one(
             {"episodeId": ObjectId(episode_hash)}, {"taskDescription": 1}
@@ -910,6 +946,7 @@ def convert_episode(episode_hash: str, task_type: str, subset_name: str) -> dict
     Returns: ``{episode_hash, status: "ok" | "error", zarr_path, mp4_path, error}``.
     """
     import sys
+
     sys.path.insert(0, "/root/EgoVerse")
 
     _validate_subset_name(subset_name)
@@ -919,9 +956,8 @@ def convert_episode(episode_hash: str, task_type: str, subset_name: str) -> dict
         tmp_dir = tempfile.mkdtemp(prefix=f"zarr_{episode_hash}_")
         result = _prepare_episode(episode_hash, task_type, tmp_dir)
 
-        zarr_path, mp4_path = _write_episode_to_volume(
+        zarr_path = _write_episode_to_volume(
             local_zarr_dir=result["zarr_dir"],
-            local_mp4=result["mp4_path"] or "",
             subset_name=subset_name,
             task_type=task_type,
             episode_hash=episode_hash,
@@ -934,7 +970,7 @@ def convert_episode(episode_hash: str, task_type: str, subset_name: str) -> dict
             "task_type": task_type,
             "status": "ok",
             "zarr_path": zarr_path,
-            "mp4_path": mp4_path,
+            "mp4_path": "",
             "num_annotations": result["num_annotations"],
             "task_description": result["task_description"],
             # SQL row fields
@@ -963,12 +999,14 @@ def convert_episode(episode_hash: str, task_type: str, subset_name: str) -> dict
     finally:
         if tmp_dir and os.path.exists(tmp_dir):
             import shutil
+
             shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
 # Batch dispatcher
 # ---------------------------------------------------------------------------
+
 
 def _run_subset_batch(
     db,
@@ -1152,6 +1190,7 @@ def orchestrate_subset_batch(
     skip_sql: bool = False,
 ) -> dict:
     import sys
+
     if "/root/EgoVerse" not in sys.path:
         sys.path.insert(0, "/root/EgoVerse")
 
@@ -1224,6 +1263,7 @@ def sql_only_batch(
       5. Upsert all rows into ``app.episodes`` in one transaction.
     """
     import sys
+
     if "/root/EgoVerse" not in sys.path:
         sys.path.insert(0, "/root/EgoVerse")
 
@@ -1291,16 +1331,11 @@ def sql_only_batch(
             )
 
         zarr_path = str(_volume_root() / f"{episode_hash}.zarr")
-        mp4_path = str(_volume_root() / f"{episode_hash}_video.mp4")
 
         error = ""
-        if verify_volume:
-            if not os.path.exists(zarr_path):
-                missing_from_volume += 1
-                error = f"zarr not found in volume at {zarr_path}"
-            elif not os.path.exists(mp4_path):
-                # MP4 missing isn't fatal — keep zarr path, blank mp4 path
-                mp4_path = ""
+        if verify_volume and not os.path.exists(zarr_path):
+            missing_from_volume += 1
+            error = f"zarr not found in volume at {zarr_path}"
 
         records.append(
             _build_sql_row_from_mongo(
@@ -1309,7 +1344,7 @@ def sql_only_batch(
                 task_type=task_type,
                 task_description=task_descriptions.get(episode_hash, ""),
                 zarr_path=zarr_path,
-                mp4_path=mp4_path,
+                mp4_path="",
                 error=error,
             )
         )
@@ -1376,7 +1411,12 @@ def _load_episode_ids_file(path: str, max_episodes: int = 0) -> list[str]:
                     ids.append(item.strip())
                 elif isinstance(item, dict):
                     key = next(
-                        (k for k in ("episode_id", "episode_hash", "_id", "id") if k in item), None
+                        (
+                            k
+                            for k in ("episode_id", "episode_hash", "_id", "id")
+                            if k in item
+                        ),
+                        None,
                     )
                     if key:
                         ids.append(str(item[key]).strip())
@@ -1388,14 +1428,24 @@ def _load_episode_ids_file(path: str, max_episodes: int = 0) -> list[str]:
                         ids.append(item.strip())
                     elif isinstance(item, dict):
                         key = next(
-                            (k for k in ("episode_id", "episode_hash", "_id", "id") if k in item), None
+                            (
+                                k
+                                for k in ("episode_id", "episode_hash", "_id", "id")
+                                if k in item
+                            ),
+                            None,
                         )
                         if key:
                             ids.append(str(item[key]).strip())
             else:
                 # single object — treat as one episode
                 key = next(
-                    (k for k in ("episode_id", "episode_hash", "_id", "id") if k in data), None
+                    (
+                        k
+                        for k in ("episode_id", "episode_hash", "_id", "id")
+                        if k in data
+                    ),
+                    None,
                 )
                 if key:
                     ids.append(str(data[key]).strip())
@@ -1459,6 +1509,7 @@ def main(
     _validate_subset_name(subset_name)
 
     import sys
+
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
     # ---- SQL-only mode: no conversion, just refresh app.episodes rows ----
@@ -1469,7 +1520,9 @@ def main(
             ids_csv = ",".join(ids)
             logger.info(f"Read {len(ids)} episode IDs from {episode_ids_file}")
         if episode_hash:
-            ids_csv = (ids_csv + "," + episode_hash).strip(",") if ids_csv else episode_hash
+            ids_csv = (
+                (ids_csv + "," + episode_hash).strip(",") if ids_csv else episode_hash
+            )
 
         filter_json = mongo_filter_json
         if mongo_filter_file and not filter_json:
@@ -1544,6 +1597,7 @@ def main(
 # Local test (no Modal, no volume — writes to a local output directory)
 # ---------------------------------------------------------------------------
 
+
 def local_test(
     subset_name: str,
     episode_hash: str,
@@ -1561,13 +1615,14 @@ def local_test(
     if not episode_hash:
         raise ValueError("local_test requires --episode-hash")
 
-    import sys
     import shutil
+    import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
     try:
         from dotenv import load_dotenv
+
         env_path = Path(__file__).resolve().parents[4] / "g_delivery" / ".env"
         if env_path.exists():
             load_dotenv(env_path, override=False)
@@ -1576,11 +1631,17 @@ def local_test(
         pass
 
     if not os.environ.get("MONGODB_URI"):
-        raise RuntimeError("Missing MONGODB_URI. Set it in the egoverse-mongodb secret.")
+        raise RuntimeError(
+            "Missing MONGODB_URI. Set it in the egoverse-mongodb secret."
+        )
     if not (os.environ.get("R2_ACCESS_KEY_ID") or os.environ.get("R2_ACCESS_KEY")):
-        raise RuntimeError("Missing R2 access key. Set R2_ACCESS_KEY_ID in the egoverse-r2 secret.")
+        raise RuntimeError(
+            "Missing R2 access key. Set R2_ACCESS_KEY_ID in the egoverse-r2 secret."
+        )
     if not (os.environ.get("R2_SECRET_ACCESS_KEY") or os.environ.get("R2_SECRET_KEY")):
-        raise RuntimeError("Missing R2 secret key. Set R2_SECRET_ACCESS_KEY in the egoverse-r2 secret.")
+        raise RuntimeError(
+            "Missing R2 secret key. Set R2_SECRET_ACCESS_KEY in the egoverse-r2 secret."
+        )
     if not (os.environ.get("R2_BUCKET") or os.environ.get("BUCKET")):
         raise RuntimeError("Missing bucket. Set BUCKET in the egoverse-r2 secret.")
     if not (
@@ -1598,10 +1659,14 @@ def local_test(
         task_type = force_task_type
     else:
         task_type = "freeform" if _is_freeform(db, episode_hash) else "flagship"
-    logger.info(f"Local test: episode={episode_hash}, type={task_type}, subset={subset_name}")
+    logger.info(
+        f"Local test: episode={episode_hash}, type={task_type}, subset={subset_name}"
+    )
 
     if not output_dir:
-        output_dir = str(Path(__file__).resolve().parents[3] / "test_data" / "zarr_test")
+        output_dir = str(
+            Path(__file__).resolve().parents[3] / "test_data" / "zarr_test"
+        )
     output_path = Path(output_dir) / subset_name / task_type
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -1630,6 +1695,7 @@ def local_test(
 
         try:
             import zarr
+
             store = zarr.open(str(zarr_dest), mode="r")
             logger.info(f"Zarr arrays: {list(store.keys())}")
             logger.info(f"Zarr attrs:  {dict(store.attrs)}")
@@ -1647,15 +1713,28 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Mecka to Zarr (local test)")
     parser.add_argument("--local-test", action="store_true", help="Run local test")
-    parser.add_argument("--subset-name", type=str, required=True,
-                        help="Subset label (required). Allowed chars: [a-zA-Z0-9_.-].")
-    parser.add_argument("--episode-hash", type=str, required=True,
-                        help="Episode hash to convert.")
-    parser.add_argument("--output-dir", type=str, default="",
-                        help="Local output directory (defaults to <repo>/test_data/zarr_test).")
-    parser.add_argument("--force-task-type", type=str, default="",
-                        choices=["", "flagship", "freeform"],
-                        help="Override task_type classification.")
+    parser.add_argument(
+        "--subset-name",
+        type=str,
+        required=True,
+        help="Subset label (required). Allowed chars: [a-zA-Z0-9_.-].",
+    )
+    parser.add_argument(
+        "--episode-hash", type=str, required=True, help="Episode hash to convert."
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="",
+        help="Local output directory (defaults to <repo>/test_data/zarr_test).",
+    )
+    parser.add_argument(
+        "--force-task-type",
+        type=str,
+        default="",
+        choices=["", "flagship", "freeform"],
+        help="Override task_type classification.",
+    )
     args = parser.parse_args()
 
     if args.local_test:
@@ -1666,4 +1745,6 @@ if __name__ == "__main__":
             force_task_type=args.force_task_type,
         )
     else:
-        print("Use 'modal run' for batch processing, or --local-test for a local single-episode run.")
+        print(
+            "Use 'modal run' for batch processing, or --local-test for a local single-episode run."
+        )
