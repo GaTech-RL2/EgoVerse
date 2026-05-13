@@ -73,7 +73,7 @@ class _Config:
         return f"{self.remote_repo_dir}/egomimic/trainHydra.py"
 
     zarr_volume_name: str = field(
-        default_factory=lambda: os.environ.get("MODAL_ZARR_VOLUME", "egoverse-zarr-data")
+        default_factory=lambda: os.environ.get("MODAL_ZARR_VOLUME", "mecka_data_v2")
     )
     volume_mount_path: str = "/mnt/zarr-data"
     # Training outputs (checkpoints, logs, norm stats, videos) are persisted here
@@ -370,10 +370,11 @@ def run_hydra_train(
     """
     import glob
 
-    # Refresh the FUSE mount before any reads — skips EIO on first listdir
-    zarr_volume.reload()
-
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
+
+    # Reload the FUSE mount right before training starts — _prepare_repo can take
+    # several minutes and the FUSE connection goes stale, causing EIO on listdir.
+    zarr_volume.reload()
 
     hydra_args = _resolve_volume_paths(hydra_args)
     cmd = _build_train_cmd(hydra_args)
