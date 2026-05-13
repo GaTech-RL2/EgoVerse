@@ -64,6 +64,9 @@ dependencies = [
     "scaleapi",
     "openai",
     "scikit-learn>=1.8.0",
+    "pymunk==7.2.0",
+    "pygame==2.6.1",
+    "shapely==2.1.2",
 ]
 
 [tool.setuptools.packages.find]

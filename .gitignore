@@ -49,3 +49,4 @@ scratch/
 sample_data/
 external_ckpts/
 external/MANO/
+curation_results/**

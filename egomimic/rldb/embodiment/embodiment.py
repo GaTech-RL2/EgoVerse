@@ -25,6 +25,8 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # Simulation embodiment (push-shapes T-sim env); keeps its original id.
+    PUSHSHAPES_SIM = 15
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
