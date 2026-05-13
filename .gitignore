@@ -45,3 +45,4 @@ annotations_test/**
 log_conversion/**
 debug_model_inputs/**
 temp_dir/**
+curation_results/**
