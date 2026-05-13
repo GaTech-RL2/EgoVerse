@@ -6,4 +6,4 @@ defaults:
   - override trainer: ddp_pi
   - override visualization: pi_cartesian_lang
   - override evaluator: eval_pi
-  - override hydra/launcher: submitit_pace
+  - override hydra/launcher: submitit_skynet

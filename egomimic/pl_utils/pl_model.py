@@ -281,6 +281,58 @@ class ModelWrapper(LightningModule):
             }
         return {"optimizer": optimizer}
 
+    def on_save_checkpoint(self, checkpoint):
+        # Blockwise-quantize AdamW exp_avg / exp_avg_sq to int8 in the checkpoint
+        # dict. Halves the optimizer-state portion (~7 GB on PI 0.5) without
+        # changing what the live optimizer sees during training. Mirrored by
+        # on_load_checkpoint, which dequantizes before Lightning hands the state
+        # back to the optimizer.
+        try:
+            from bitsandbytes.functional import quantize_blockwise
+        except ImportError:
+            return
+
+        for opt_state in checkpoint.get("optimizer_states", []):
+            for state in opt_state.get("state", {}).values():
+                for key in ("exp_avg", "exp_avg_sq"):
+                    t = state.get(key)
+                    if not (torch.is_tensor(t) and t.is_floating_point()):
+                        continue
+                    t_gpu = t.detach() if t.is_cuda else t.detach().cuda()
+                    q, qs = quantize_blockwise(t_gpu, blocksize=4096)
+                    state[key] = q.cpu()
+                    state[f"_{key}_q_absmax"] = qs.absmax.cpu()
+                    state[f"_{key}_q_blocksize"] = qs.blocksize
+                    state[f"_{key}_q_dtype"] = qs.dtype
+                    del t_gpu, q
+
+    def on_load_checkpoint(self, checkpoint):
+        try:
+            from bitsandbytes.functional import dequantize_blockwise
+        except ImportError:
+            return
+
+        for opt_state in checkpoint.get("optimizer_states", []):
+            for state in opt_state.get("state", {}).values():
+                for key in ("exp_avg", "exp_avg_sq"):
+                    absmax_key = f"_{key}_q_absmax"
+                    if absmax_key not in state:
+                        continue
+                    qt = state[key]
+                    absmax = state.pop(absmax_key)
+                    blocksize = state.pop(f"_{key}_q_blocksize")
+                    target_dtype = state.pop(f"_{key}_q_dtype")
+                    t = (
+                        dequantize_blockwise(
+                            qt.cuda(),
+                            absmax=absmax.cuda(),
+                            blocksize=blocksize,
+                        )
+                        .to(target_dtype)
+                        .cpu()
+                    )
+                    state[key] = t
+
     def on_fit_start(self):
         self.model.device = self.device
         print(
