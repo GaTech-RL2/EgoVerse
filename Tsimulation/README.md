@@ -45,6 +45,52 @@ Window hotkeys: **SPACE** record/pause, **S** commit + reset, **R** abort
 + reset, **Q** quit. Each committed episode becomes
 `data/pushshapes_demos/episode_NNNNNN.zarr/`.
 
+## Collect scripted demos (headless)
+
+Heuristic auto-collector — useful for bootstrapping data without a mouse
+or display. Approaches a contact point behind the object, then pushes
+toward the goal. Failed attempts (below `--success-threshold` final
+coverage) are discarded.
+
+```bash
+python -m Tsimulation.collect.scripted_collect \
+    --output data/pushshapes_scripted \
+    --object T --pusher circle --obstacles 0 \
+    --num-episodes 50
+```
+
+Works best at `--obstacles 0` with `--pusher circle`. Higher obstacle
+levels and the stick pusher will see a lower success rate.
+
+## Visualize a recorded episode
+
+Pygame viz that plays back the recorded observations alongside the
+actions. Left panel: decoded observation image with overlays (action
+target as a red X, recent action trace, agent/object/goal markers).
+Right panel: numeric state, action, reward, and goal pose.
+
+```bash
+# Interactive
+python -m Tsimulation.examples.visualize_episode \
+    --dataset data/pushshapes_demos --episode 0
+
+# Headless: write an MP4
+python -m Tsimulation.examples.visualize_episode \
+    --dataset data/pushshapes_demos --episode 0 --save ep0.mp4
+```
+
+Hotkeys: **SPACE** play/pause, **←/→** step, **↑/↓** speed, **R** reset,
+**Q** quit.
+
+## Inspect a dataset
+
+```bash
+python -m Tsimulation.examples.dataset_stats --dataset data/pushshapes_demos
+```
+
+Prints episode count, length stats, mean / final coverage, action range,
+and a per-config breakdown over `(object, pusher, obstacle_level)`.
+
 ## Output schema
 
 Per the conventions of
@@ -97,10 +143,14 @@ Tsimulation/
 ├── collect/
 │   ├── __init__.py
 │   ├── mouse_collect.py
+│   ├── scripted_collect.py
 │   └── zarr_writer.py
 ├── examples/
+│   ├── dataset_stats.py
 │   ├── play_random.py
-│   └── replay_zarr.py
+│   ├── replay_zarr.py
+│   └── visualize_episode.py
 └── tests/
+    ├── test_features.py
     └── test_smoke.py
 ```
