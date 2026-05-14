@@ -191,11 +191,17 @@ class EpisodeResolver:
         Returns:
             dict[str, ZarrDataset]: a dictionary mapping string keys to constructed zarr datasets from valid filters.
         """
+        import time
+
         dataset_class = self._dataset_class or ZarrDataset
         all_paths = sorted(search_path.iterdir())
         datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
-        for p in all_paths:
+        total = len(all_paths)
+        log_every = max(1, total // 20)
+        start_time = time.monotonic()
+        logger.info(f"Loading {total} Zarr datasets from {search_path}...")
+        for i, p in enumerate(all_paths, start=1):
             if not p.is_dir():
                 logger.info(f"{p} is not a valid directory")
                 skipped.append(p.name)
@@ -218,6 +224,20 @@ class EpisodeResolver:
                 logger.error(f"Failed to load dataset at {p}: {e}")
                 skipped.append(p.name)
 
+            if i % log_every == 0 or i == total:
+                elapsed = time.monotonic() - start_time
+                rate = i / elapsed if elapsed > 0 else 0.0
+                eta = (total - i) / rate if rate > 0 else float("inf")
+                logger.info(
+                    f"Loading Zarr datasets: {i}/{total} ({100 * i / total:.1f}%) "
+                    f"| loaded={len(datasets)} skipped={len(skipped)} "
+                    f"| {rate:.1f} ep/s | ETA {eta:.0f}s"
+                )
+
+        logger.info(
+            f"Loaded {len(datasets)} datasets, skipped {len(skipped)} "
+            f"(total scanned {total}) in {time.monotonic() - start_time:.1f}s"
+        )
         return datasets
 
     @classmethod
@@ -505,6 +525,8 @@ class LocalEpisodeResolver(EpisodeResolver):
         filters: DatasetFilter | None = None,
         debug: bool = False,
     ):
+        import time
+
         filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
@@ -513,8 +535,21 @@ class LocalEpisodeResolver(EpisodeResolver):
         _DEBUG_LIMIT = 10
         filtered = []
         # Skip sorting in debug mode — avoids materialising all 198K+ entries upfront
-        entries = search_path.iterdir() if debug else sorted(search_path.iterdir())
+        if debug:
+            entries = search_path.iterdir()
+            total = None
+        else:
+            entries = sorted(search_path.iterdir())
+            total = len(entries)
+            logger.info(
+                f"Scanning {total} entries under {search_path} for filter matches..."
+            )
+
+        log_every = max(1, (total or 1000) // 20)
+        start_time = time.monotonic()
+        scanned = 0
         for p in entries:
+            scanned += 1
             if not p.is_dir():
                 continue
 
@@ -530,10 +565,29 @@ class LocalEpisodeResolver(EpisodeResolver):
             if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
 
+            if scanned % log_every == 0 or (total is not None and scanned == total):
+                elapsed = time.monotonic() - start_time
+                rate = scanned / elapsed if elapsed > 0 else 0.0
+                if total is not None:
+                    eta = (total - scanned) / rate if rate > 0 else float("inf")
+                    logger.info(
+                        f"Filter scan: {scanned}/{total} ({100 * scanned / total:.1f}%) "
+                        f"| matched={len(filtered)} | {rate:.1f} ep/s | ETA {eta:.0f}s"
+                    )
+                else:
+                    logger.info(
+                        f"Filter scan: {scanned} scanned | matched={len(filtered)} "
+                        f"| {rate:.1f} ep/s"
+                    )
+
             if debug and len(filtered) >= _DEBUG_LIMIT:
                 logger.info("Debug mode: stopping early at %d datasets.", _DEBUG_LIMIT)
                 break
 
+        logger.info(
+            f"Filter scan complete: {len(filtered)} matches from {scanned} entries "
+            f"in {time.monotonic() - start_time:.1f}s"
+        )
         logger.info("Local filtered paths: %s", filtered)
         return filtered
 
