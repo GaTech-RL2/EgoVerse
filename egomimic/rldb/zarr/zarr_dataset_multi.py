@@ -506,8 +506,11 @@ class LocalEpisodeResolver(EpisodeResolver):
             logger.warning("Local path does not exist: %s", search_path)
             return []
 
+        _DEBUG_LIMIT = 10
         filtered = []
-        for p in sorted(search_path.iterdir()):
+        # Skip sorting in debug mode — avoids materialising all 198K+ entries upfront
+        entries = search_path.iterdir() if debug else sorted(search_path.iterdir())
+        for p in entries:
             if not p.is_dir():
                 continue
 
@@ -523,9 +526,9 @@ class LocalEpisodeResolver(EpisodeResolver):
             if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
 
-        if debug:
-            logger.info("Debug mode: limiting to 10 datasets.")
-            filtered = filtered[:10]
+            if debug and len(filtered) >= _DEBUG_LIMIT:
+                logger.info("Debug mode: stopping early at %d datasets.", _DEBUG_LIMIT)
+                break
 
         logger.info("Local filtered paths: %s", filtered)
         return filtered

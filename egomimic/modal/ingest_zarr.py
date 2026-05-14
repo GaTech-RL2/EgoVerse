@@ -48,7 +48,7 @@ _image = (
     .pip_install("s5cmd", "sqlalchemy", "psycopg[binary]", "boto3")
 )
 
-_volume = modal.Volume.from_name("egoverse-zarr-data")
+_volume = modal.Volume.from_name("mecka_data_v2")
 _app = modal.App("egomimic-ingest-zarr", image=_image)
 
 _VOLUME_MOUNT = "/mnt/zarr-data"

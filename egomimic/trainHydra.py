@@ -123,7 +123,7 @@ def _submit_to_modal(cfg: DictConfig) -> None:
     modal_env = os.environ.copy()
 
     # Extract modal_* keys from Hydra overrides; pass the rest to the container
-    _MODAL_KEYS = {"modal_gpu", "modal_cpu", "modal_memory_gb", "modal_memory_mb"}
+    _MODAL_KEYS = {"modal_gpu", "modal_cpu", "modal_memory_gb", "modal_memory_mb", "modal_volume"}
     container_overrides = []
     gpu_count = 1
     for override in HydraConfig.get().overrides.task:
@@ -141,6 +141,8 @@ def _submit_to_modal(cfg: DictConfig) -> None:
                 modal_env["MODAL_MEMORY_GB"] = val
             elif key == "modal_memory_mb":
                 modal_env["MODAL_MEMORY_MB"] = val
+            elif key == "modal_volume":
+                modal_env["MODAL_ZARR_VOLUME"] = val
         else:
             container_overrides.append(override)
 
@@ -163,7 +165,8 @@ def _submit_to_modal(cfg: DictConfig) -> None:
     gpu = modal_env.get("MODAL_GPU", "A100")
     cpu = modal_env.get("MODAL_CPU", "12")
     mem = modal_env.get("MODAL_MEMORY_GB") or str(int(modal_env.get("MODAL_MEMORY_MB", "65536")) // 1024)
-    print(f"Modal resources: gpu={gpu}  cpu={cpu}  memory={mem}GB")
+    vol = modal_env.get("MODAL_ZARR_VOLUME", "egoverse-zarr-data")
+    print(f"Modal resources: gpu={gpu}  cpu={cpu}  memory={mem}GB  zarr_volume={vol}")
     print(f"Submitting to Modal via: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=str(repo_root), env=modal_env)
     sys.exit(result.returncode)
