@@ -579,21 +579,30 @@ class LocalEpisodeResolver(EpisodeResolver):
         # (~25 ep/s) is the bottleneck, so horizontal scaling is the only fix.
         # Requires `modal deploy egomimic/modal/run.py` to have been run once.
         # Disable with EGOMIMIC_DISABLE_MODAL_SCAN=1.
-        #
-        # Detection note: `modal.is_local()` relies on Modal's in-memory runtime
-        # context, which doesn't survive subprocess boundaries. trainHydra.py
-        # runs as a subprocess of run_hydra_train, so we rely on the
-        # MODAL_IS_REMOTE=1 env var that run.py sets explicitly for the
-        # subprocess (it does survive). MODAL_TASK_ID is a Modal-native fallback.
-        inside_modal = (
-            os.environ.get("MODAL_IS_REMOTE") == "1"
-            or bool(os.environ.get("MODAL_TASK_ID"))
-        )
+
+        modal_is_remote = os.environ.get("MODAL_IS_REMOTE") == "1"
+        modal_task_id = bool(os.environ.get("MODAL_TASK_ID"))
+        inside_modal = modal_is_remote or modal_task_id
+        path_matches = str(search_path) == "/mnt/zarr-data"
+        filter_compatible = type(filters) is DatasetFilter
+        not_disabled = os.environ.get("EGOMIMIC_DISABLE_MODAL_SCAN") != "1"
         fanout_enabled = (
-            inside_modal
-            and str(search_path) == "/mnt/zarr-data"
-            and type(filters) is DatasetFilter
-            and os.environ.get("EGOMIMIC_DISABLE_MODAL_SCAN") != "1"
+            inside_modal and path_matches and filter_compatible and not_disabled
+        )
+        logger.info(
+            "Fan-out gate: enabled=%s | inside_modal=%s "
+            "(MODAL_IS_REMOTE=%s, MODAL_TASK_ID=%s) | path_matches=%s "
+            "(search_path=%r) | filter_compatible=%s (filter_type=%s) "
+            "| not_disabled=%s",
+            fanout_enabled,
+            inside_modal,
+            modal_is_remote,
+            modal_task_id,
+            path_matches,
+            str(search_path),
+            filter_compatible,
+            type(filters).__name__,
+            not_disabled,
         )
         if fanout_enabled:
             try:
