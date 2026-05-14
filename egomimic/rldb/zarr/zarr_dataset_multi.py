@@ -686,8 +686,16 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         import modal
 
-        names = [n for n in os.listdir(search_path) if (search_path / n).is_dir()]
+        # Single readdir syscall — no per-entry stat. Drop hidden files cheaply
+        # (string compare). Workers handle non-dir entries gracefully via
+        # exception-swallowing in _read_metadata, so we don't need is_dir() here.
+        logger.info(f"Modal fan-out scan: listing {search_path} (single readdir)...")
+        t0 = time.monotonic()
+        names = [n for n in os.listdir(search_path) if not n.startswith(".")]
         total = len(names)
+        logger.info(
+            f"Modal fan-out scan: listed {total} entries in {time.monotonic() - t0:.1f}s"
+        )
         if total == 0:
             return []
 
@@ -698,12 +706,13 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         logger.info(
             f"Modal fan-out scan: {total} entries across {total_shards} shards "
-            f"(~{total // total_shards} per shard)"
+            f"(~{total // total_shards} per shard). Looking up scan_shard function..."
         )
 
         fn = modal.Function.from_name(
             "egomimic-training", "scan_shard", environment_name="robotics"
         )
+        logger.info("Modal fan-out scan: function lookup OK; launching .map()...")
         filter_lambdas = list(filters.filter_lambdas)
 
         matched: list[tuple[str, str]] = []
