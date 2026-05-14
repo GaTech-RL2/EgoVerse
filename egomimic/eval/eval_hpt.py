@@ -144,15 +144,18 @@ class HPTEvalVideo(EvalVideo):
                     metrics[f"Valid/{pred_key_name}_reverse_kl_M{M}"] = rkl.item()
 
             ims = self._visualize_preds(preds, _batch)
-            images_dict[embodiment_id] = ims
+            if ims is not None:
+                images_dict[embodiment_id] = ims
         return metrics, images_dict
 
     def _visualize_preds(self, predictions, batch):
         algo = self.model
         if algo.viz_func is None:
-            raise ValueError("viz_func is not set")
+            return None
         embodiment_id = batch["embodiment"][0].item()
         embodiment_name = get_embodiment(embodiment_id).lower()
+        if embodiment_name not in algo.viz_func:
+            return None
         return algo.viz_func[embodiment_name](predictions, batch)
 
     @torch.no_grad()
