@@ -1264,15 +1264,25 @@ def sql_only_worker(
     vlm_col = db[MONGODB_VLM_SEGMENTS_COLLECTION]
 
     chunk_hashes = [x.strip() for x in episode_ids_csv.split(",") if x.strip()]
+    chunk_size = len(chunk_hashes)
+    logger.info(
+        f"[sql_worker] Starting chunk: {chunk_size} episodes (subset='{subset_name}')"
+    )
 
+    logger.info(f"[sql_worker] Fetching Mongo metadata for {chunk_size} episodes...")
     metadata = _fetch_episode_metadata_batch(episodes_col, chunk_hashes)
     task_descriptions = _fetch_task_descriptions_batch(vlm_col, chunk_hashes)
+    logger.info(
+        f"[sql_worker] Mongo fetch done: {len(metadata)}/{chunk_size} docs, "
+        f"{len(task_descriptions)} task descriptions"
+    )
 
     records: list[dict] = []
     missing_from_volume = 0
     missing_from_mongo = 0
 
-    for episode_hash in chunk_hashes:
+    log_interval = max(1, chunk_size // 10)
+    for i, episode_hash in enumerate(chunk_hashes):
         mongo_doc = metadata.get(episode_hash, {})
         if not mongo_doc:
             missing_from_mongo += 1
@@ -1305,12 +1315,23 @@ def sql_only_worker(
             )
         )
 
+        if (i + 1) % log_interval == 0:
+            logger.info(
+                f"[sql_worker] Built {i + 1}/{chunk_size} rows "
+                f"({missing_from_volume} missing zarr, {missing_from_mongo} missing mongo)"
+            )
+
+    logger.info(f"[sql_worker] Upserting {len(records)} rows to app.episodes...")
     engine = _sql_engine_from_pg_env()
     try:
         sql_ok, sql_err = _upsert_episode_records(engine, records)
     finally:
         engine.dispose()
 
+    logger.info(
+        f"[sql_worker] Done: {sql_ok} ok, {sql_err} failed, "
+        f"{missing_from_volume} missing zarr, {missing_from_mongo} missing mongo"
+    )
     return {
         "total": len(records),
         "sql_ok": sql_ok,
@@ -1338,7 +1359,7 @@ def sql_only_orchestrator(
     force_task_type: str = "",
     limit: int = 0,
     verify_volume: bool = True,
-    chunk_size: int = 5000,
+    chunk_size: int = 20000,
 ) -> dict:
     """
     Resolve the full episode list, split into chunks, and fan out to
@@ -1410,6 +1431,8 @@ def sql_only_orchestrator(
         "missing_from_volume": 0,
         "missing_from_mongo": 0,
     }
+    chunks_done = 0
+    total_chunks = len(chunks)
     for result in sql_only_worker.map(
         chunk_csvs,
         subset_names,
@@ -1418,11 +1441,19 @@ def sql_only_orchestrator(
         order_outputs=False,
         return_exceptions=True,
     ):
+        chunks_done += 1
         if isinstance(result, Exception):
-            logger.error(f"Worker chunk failed: {result}")
+            logger.error(
+                f"Worker chunk failed ({chunks_done}/{total_chunks}): {result}"
+            )
             continue
         for key in totals:
             totals[key] += result.get(key, 0)
+        logger.info(
+            f"[orchestrator] Chunk {chunks_done}/{total_chunks} done — "
+            f"running totals: {totals['sql_ok']} ok, {totals['sql_errors']} failed, "
+            f"{totals['total']} processed / {len(all_hashes)} total"
+        )
 
     logger.info("=" * 60)
     logger.info(
