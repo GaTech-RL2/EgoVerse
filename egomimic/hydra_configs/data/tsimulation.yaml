@@ -1,0 +1,31 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /mnt/c/Users/aidan/Desktop/EgoVerse/Tsimulation/test_demos
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+      transform_list: null
+    mode: total
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /mnt/c/Users/aidan/Desktop/EgoVerse/Tsimulation/test_demos
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+      transform_list: null
+    mode: total
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 4
+    num_workers: 2
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 4
+    num_workers: 2
