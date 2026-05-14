@@ -1,0 +1,75 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.HNet
+  data_schematic: _${data.dataset.data_schematic}
+
+  # ---- core dims ----
+  action_dim: 7
+  action_horizon: 64
+  d_model: 256
+  d_cond: 256
+
+  ratio_loss_weight: 0.03
+
+  # ---- H-Net architecture (fully flexible) ----
+  # arch_layout is a nested list. At each level either
+  #   [encoder_str, sub_layout, decoder_str]  (3 entries -> non-innermost stage)
+  # or
+  #   [innermost_str]                         (1 entry  -> innermost stage)
+  # The strings use the upstream notation, but only transformer entries
+  # are vendored: 'tN' = N attention-only blocks, 'TN' = N attn+MLP blocks.
+  #
+  # Example below: 2 stages. Outer stage runs T4 encoder + T4 decoder around
+  # the chunked main_network which itself is an innermost T6 stack.
+  hnet_config:
+    arch_layout:
+      - "T4"                # outer encoder
+      - ["T6"]              # innermost main_network
+      - "T4"                # outer decoder
+    d_model: [256, 384]
+    d_intermediate: [1024, 1536]
+    attn_cfg:
+      num_heads: [8, 8]
+    target_compression_ratios: [4.0]  # one entry per non-innermost stage
+
+  # ---- conditioning encoders (per-frame) ----
+  # Both obs_specs and img_encoders produce a (B, T, embed_dim) feature per
+  # key, where T == action_horizon. Features are concatenated and fused to
+  # (B, T, d_cond), then fed to AdaLN inside the H-Net encoder so each action
+  # token is conditioned on its corresponding frame.
+  #
+  # MLP encoders for proprio / lang / scalar features.
+  obs_specs:
+    state_proprio:
+      input_dim: 7
+      embed_dim: 128
+      widths: [256]
+
+  # Image encoders are Hydra-instantiated nn.Modules. Each must expose
+  # `.embed_dim` and accept (..., C, H, W) -> (..., embed_dim). The bundled
+  # SimpleConv works out of the box; swap in a ResNet/ViT stem here if needed.
+  img_encoders:
+    front_cam:
+      _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+      in_channels: 3
+      channels: [32, 64, 128]
+      kernel_size: 3
+      stride: 2
+      embed_dim: 256
+
+  # ---- domain / action key wiring (mirrors HPT) ----
+  domains: ["aria_bimanual"]
+  ac_keys:
+    aria_bimanual: "actions"
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1
