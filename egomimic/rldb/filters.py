@@ -26,6 +26,9 @@ class DatasetFilter:
     def __repr__(self) -> str:
         return f"DatasetFilter(filter_lambdas={self.filter_lambdas!r})"
 
+    def is_empty(self) -> bool:
+        return not self.filter_lambdas
+
     def matches(self, row: Mapping[str, Any]) -> bool:
         row = dict(row)
         if row.get("is_deleted", False):
