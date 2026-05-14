@@ -526,6 +526,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         debug: bool = False,
     ):
         import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
@@ -533,60 +534,97 @@ class LocalEpisodeResolver(EpisodeResolver):
             return []
 
         _DEBUG_LIMIT = 10
-        filtered = []
-        # Skip sorting in debug mode — avoids materialising all 198K+ entries upfront
-        if debug:
-            entries = search_path.iterdir()
-            total = None
-        else:
-            entries = sorted(search_path.iterdir())
-            total = len(entries)
-            logger.info(
-                f"Scanning {total} entries under {search_path} for filter matches..."
-            )
-
-        log_every = max(1, (total or 1000) // 20)
         start_time = time.monotonic()
-        scanned = 0
-        for p in entries:
-            scanned += 1
+
+        def _read_metadata(p: Path) -> dict:
+            """Fast path: read .zattrs JSON directly. Fall back to zarr group for
+            consolidated metadata or other layouts."""
+            zattrs_path = p / ".zattrs"
+            if zattrs_path.is_file():
+                with zattrs_path.open("rb") as f:
+                    return json.load(f)
+            store = zarr.open_group(str(p), mode="r")
+            return dict(store.attrs)
+
+        # Debug mode: serial with early exit — avoids materialising 198K+ paths
+        # when only a handful of matches are needed.
+        if debug:
+            filtered = []
+            for p in search_path.iterdir():
+                if not p.is_dir():
+                    continue
+                episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
+                try:
+                    metadata = _read_metadata(p)
+                except Exception as e:
+                    logger.warning("Failed to read metadata for %s: %s", p, e)
+                    continue
+                if cls._local_filters_match(metadata, episode_hash, filters):
+                    filtered.append((str(p), episode_hash))
+                if len(filtered) >= _DEBUG_LIMIT:
+                    logger.info(
+                        "Debug mode: stopping early at %d datasets.", _DEBUG_LIMIT
+                    )
+                    break
+            logger.info(
+                f"Filter scan complete: {len(filtered)} matches "
+                f"in {time.monotonic() - start_time:.1f}s"
+            )
+            logger.info("Local filtered paths: %s", filtered)
+            return filtered
+
+        # Non-debug: parallel scan over all candidates.
+        candidates: list[tuple[Path, str]] = []
+        for p in search_path.iterdir():
             if not p.is_dir():
                 continue
-
             episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
+            candidates.append((p, episode_hash))
 
+        total = len(candidates)
+        logger.info(
+            f"Scanning {total} entries under {search_path} for filter matches..."
+        )
+
+        # I/O-bound: threads scale well past CPU count. Cap to avoid FS thrash.
+        workers = min(64, max(8, (os.cpu_count() or 8) * 4))
+        log_every = max(1, total // 20)
+
+        def _process(item: tuple[Path, str]):
+            p, episode_hash = item
             try:
-                store = zarr.open_group(str(p), mode="r")
-                metadata = dict(store.attrs)
+                metadata = _read_metadata(p)
             except Exception as e:
-                logger.warning("Failed to read metadata for %s: %s", p, e)
-                continue
-
+                return ("error", p, e)
             if cls._local_filters_match(metadata, episode_hash, filters):
-                filtered.append((str(p), episode_hash))
+                return ("match", str(p), episode_hash)
+            return ("nomatch", None, None)
 
-            if scanned % log_every == 0 or (total is not None and scanned == total):
-                elapsed = time.monotonic() - start_time
-                rate = scanned / elapsed if elapsed > 0 else 0.0
-                if total is not None:
-                    eta = (total - scanned) / rate if rate > 0 else float("inf")
+        filtered: list[tuple[str, str]] = []
+        completed = 0
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = [executor.submit(_process, item) for item in candidates]
+            for fut in as_completed(futures):
+                completed += 1
+                kind, a, b = fut.result()
+                if kind == "match":
+                    filtered.append((a, b))
+                elif kind == "error":
+                    logger.warning("Failed to read metadata for %s: %s", a, b)
+
+                if completed % log_every == 0 or completed == total:
+                    elapsed = time.monotonic() - start_time
+                    rate = completed / elapsed if elapsed > 0 else 0.0
+                    eta = (total - completed) / rate if rate > 0 else float("inf")
                     logger.info(
-                        f"Filter scan: {scanned}/{total} ({100 * scanned / total:.1f}%) "
+                        f"Filter scan: {completed}/{total} "
+                        f"({100 * completed / total:.1f}%) "
                         f"| matched={len(filtered)} | {rate:.1f} ep/s | ETA {eta:.0f}s"
                     )
-                else:
-                    logger.info(
-                        f"Filter scan: {scanned} scanned | matched={len(filtered)} "
-                        f"| {rate:.1f} ep/s"
-                    )
-
-            if debug and len(filtered) >= _DEBUG_LIMIT:
-                logger.info("Debug mode: stopping early at %d datasets.", _DEBUG_LIMIT)
-                break
 
         logger.info(
-            f"Filter scan complete: {len(filtered)} matches from {scanned} entries "
-            f"in {time.monotonic() - start_time:.1f}s"
+            f"Filter scan complete: {len(filtered)} matches from {total} entries "
+            f"in {time.monotonic() - start_time:.1f}s ({workers} workers)"
         )
         logger.info("Local filtered paths: %s", filtered)
         return filtered
