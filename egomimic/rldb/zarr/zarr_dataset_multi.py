@@ -733,7 +733,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         )
 
         fn = modal.Function.from_name(
-            "egomimic-training", "scan_shard", environment_name="robotics"
+            "egomimic-scan", "scan_shard", environment_name="robotics"
         )
         logger.info("Modal fan-out scan: function lookup OK; launching .map()...")
         filter_lambdas = list(filters.filter_lambdas)
