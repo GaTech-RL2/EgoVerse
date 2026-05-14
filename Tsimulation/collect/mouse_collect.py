@@ -110,7 +110,10 @@ def run(args: argparse.Namespace) -> int:
     obs, info = env.reset()
     coverage = info.get("coverage", 0.0)
 
-    recording = False
+    # Auto-start recording so a successful push is never lost because the
+    # user forgot to press SPACE before moving the shape.
+    writer.start_episode()
+    recording = True
     saved = 0
     running = True
     while running and saved < args.num_episodes:
@@ -121,14 +124,13 @@ def run(args: argparse.Namespace) -> int:
                 if event.key == pygame.K_q or event.key == pygame.K_x:
                     running = False
                 elif event.key == pygame.K_SPACE:
-                    if not writer.is_recording:
-                        writer.start_episode()
                     recording = not recording
                 elif event.key == pygame.K_r:
                     writer.abort_episode()
-                    recording = False
                     obs, info = env.reset()
                     coverage = info.get("coverage", 0.0)
+                    writer.start_episode()
+                    recording = True
                 elif event.key == pygame.K_s:
                     if writer.steps_in_episode > 0:
                         idx = writer.commit_episode()
@@ -137,9 +139,10 @@ def run(args: argparse.Namespace) -> int:
                             print(
                                 f"saved episode {idx:06d}  ({saved}/{args.num_episodes})"
                             )
-                    recording = False
                     obs, info = env.reset()
                     coverage = info.get("coverage", 0.0)
+                    writer.start_episode()
+                    recording = True
 
         # Action = mouse position in world coords (window is 1:1 with arena).
         mx, my = pygame.mouse.get_pos()
@@ -152,12 +155,11 @@ def run(args: argparse.Namespace) -> int:
         coverage = info.get("coverage", 0.0)
 
         if recording:
-            state = np.concatenate(
-                [obs["agent_pos"], obs["object_pose"]], dtype=np.float32
-            )
             writer.add_step(
                 image=obs["image"],
-                state=state,
+                pusher_obs_pose=obs["agent_pos"],
+                object_obs_pose=obs["object_pose"],
+                pusher_cmd_pose=action,
                 action=action,
                 reward=reward,
                 goal_pose=obs["goal_pose"],
@@ -181,8 +183,7 @@ def run(args: argparse.Namespace) -> int:
         clock.tick(args.fps)
 
         if terminated or truncated:
-            # Auto-commit on success, abort on truncation without recording.
-            if recording and writer.steps_in_episode > 0 and terminated:
+            if writer.steps_in_episode > 0 and terminated:
                 idx = writer.commit_episode()
                 if idx >= 0:
                     saved += 1
@@ -191,10 +192,11 @@ def run(args: argparse.Namespace) -> int:
                     )
             else:
                 writer.abort_episode()
-            recording = False
             if saved < args.num_episodes:
                 obs, info = env.reset()
                 coverage = info.get("coverage", 0.0)
+                writer.start_episode()
+                recording = True
 
     writer.close()
     env.close()

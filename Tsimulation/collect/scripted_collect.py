@@ -96,10 +96,11 @@ def run_episode(
         next_obs, reward, terminated, truncated, info = env.step(action)
         coverage = float(info.get("coverage", 0.0))
 
-        state = np.concatenate([obs["agent_pos"], obs["object_pose"]], dtype=np.float32)
         writer.add_step(
             image=obs["image"],
-            state=state,
+            pusher_obs_pose=obs["agent_pos"],
+            object_obs_pose=obs["object_pose"],
+            pusher_cmd_pose=action,
             action=action,
             reward=float(reward),
             goal_pose=obs["goal_pose"],

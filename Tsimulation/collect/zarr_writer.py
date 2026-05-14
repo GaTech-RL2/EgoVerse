@@ -22,11 +22,12 @@ from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 
 IMAGE_KEY = "observations.images.front_img_1"
 STATE_KEY = "observations.state"
+CMD_PUSHER_KEY = "observations.pusher_cmd_pose"
 ACTION_KEY = "actions"
 REWARD_KEY = "reward"
 GOAL_KEY = "goal_pose"
 
-_EPISODE_RE = re.compile(r"^episode_(\d+)\.zarr$")
+_EPISODE_RE = re.compile(r"^episode_[A-Za-z0-9]+_[A-Za-z0-9]+_obs\d+_(\d+)\.zarr$")
 
 
 class ZarrDemoWriter:
@@ -49,6 +50,9 @@ class ZarrDemoWriter:
         self.task_name = task_name
         self.embodiment = embodiment
         self.chunk_timesteps = chunk_timesteps
+        self._object_shape = env_args.get("object_shape", "obj")
+        self._pusher_shape = env_args.get("pusher_shape", "pusher")
+        self._obstacle_level = env_args.get("obstacle_level", 0)
         self.task_description = json.dumps(
             {"env_args": env_args, "version": "0.3"}, separators=(",", ":")
         )
@@ -77,6 +81,7 @@ class ZarrDemoWriter:
         self._buffer = {
             IMAGE_KEY: [],
             STATE_KEY: [],
+            CMD_PUSHER_KEY: [],
             ACTION_KEY: [],
             REWARD_KEY: [],
             GOAL_KEY: [],
@@ -86,7 +91,9 @@ class ZarrDemoWriter:
         self,
         *,
         image: np.ndarray,
-        state: np.ndarray,
+        pusher_obs_pose: np.ndarray,
+        object_obs_pose: np.ndarray,
+        pusher_cmd_pose: np.ndarray,
         action: np.ndarray,
         reward: float,
         goal_pose: np.ndarray,
@@ -98,15 +105,14 @@ class ZarrDemoWriter:
             raise ValueError(
                 f"image must be (H, W, 3) uint8, got {img.shape} {img.dtype}"
             )
+        pusher = np.asarray(pusher_obs_pose, dtype=np.float32).reshape(-1)
+        obj = np.asarray(object_obs_pose, dtype=np.float32).reshape(-1)
         self._buffer[IMAGE_KEY].append(img)
-        self._buffer[STATE_KEY].append(np.asarray(state, dtype=np.float32).reshape(-1))
-        self._buffer[ACTION_KEY].append(
-            np.asarray(action, dtype=np.float32).reshape(-1)
-        )
+        self._buffer[STATE_KEY].append(np.concatenate([pusher, obj]))
+        self._buffer[CMD_PUSHER_KEY].append(np.asarray(pusher_cmd_pose, dtype=np.float32).reshape(-1))
+        self._buffer[ACTION_KEY].append(np.asarray(action, dtype=np.float32).reshape(-1))
         self._buffer[REWARD_KEY].append(np.asarray([reward], dtype=np.float32))
-        self._buffer[GOAL_KEY].append(
-            np.asarray(goal_pose, dtype=np.float32).reshape(-1)
-        )
+        self._buffer[GOAL_KEY].append(np.asarray(goal_pose, dtype=np.float32).reshape(-1))
 
     def commit_episode(self) -> int:
         """Write the buffered episode to disk and return its index.
@@ -119,10 +125,14 @@ class ZarrDemoWriter:
             self._buffer = None
             return -1
 
-        ep_path = self.path / f"episode_{self._episode_idx:06d}.zarr"
+        ep_path = self.path / (
+            f"episode_{self._object_shape}_{self._pusher_shape}"
+            f"_obs{self._obstacle_level}_{self._episode_idx:06d}.zarr"
+        )
         images = np.stack(self._buffer[IMAGE_KEY], axis=0)
         numeric = {
             STATE_KEY: np.stack(self._buffer[STATE_KEY], axis=0),
+            CMD_PUSHER_KEY: np.stack(self._buffer[CMD_PUSHER_KEY], axis=0),
             ACTION_KEY: np.stack(self._buffer[ACTION_KEY], axis=0),
             REWARD_KEY: np.stack(self._buffer[REWARD_KEY], axis=0),
             GOAL_KEY: np.stack(self._buffer[GOAL_KEY], axis=0),

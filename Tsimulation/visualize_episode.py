@@ -34,10 +34,12 @@ import zarr
 
 from Tsimulation.collect.zarr_writer import (
     ACTION_KEY,
+    CMD_PUSHER_KEY,
     GOAL_KEY,
     IMAGE_KEY,
+    OBS_OBJECT_KEY,
+    OBS_PUSHER_KEY,
     REWARD_KEY,
-    STATE_KEY,
 )
 
 WORLD_SIZE = 512
@@ -63,7 +65,17 @@ def _resolve_episode_path(args: argparse.Namespace) -> Path:
         return Path(args.path)
     if args.dataset is None:
         raise SystemExit("must provide either --dataset/--episode or --path")
-    return Path(args.dataset) / f"episode_{args.episode:06d}.zarr"
+    dataset = Path(args.dataset)
+    # Match new-style names: episode_<obj>_<pusher>_obs<N>_<idx>.zarr
+    import re
+    pattern = re.compile(r"^episode_[A-Za-z0-9]+_[A-Za-z0-9]+_obs\d+_(\d+)\.zarr$")
+    for entry in sorted(dataset.iterdir()):
+        m = pattern.match(entry.name)
+        if m and int(m.group(1)) == args.episode:
+            return entry
+    raise FileNotFoundError(
+        f"no episode with index {args.episode} in {dataset}"
+    )
 
 
 def _load_episode(ep_path: Path) -> dict:
@@ -77,10 +89,23 @@ def _load_episode(ep_path: Path) -> dict:
     images = np.stack(
         [simplejpeg.decode_jpeg(bytes(b), colorspace="RGB") for b in images_raw], axis=0
     )
+    actions = np.asarray(store[ACTION_KEY][:total])
+    # Support both new split keys and old bundled observations.state format.
+    if OBS_PUSHER_KEY in store:
+        pusher_obs_pose = np.asarray(store[OBS_PUSHER_KEY][:total])
+        object_obs_pose = np.asarray(store[OBS_OBJECT_KEY][:total])
+        pusher_cmd_pose = np.asarray(store[CMD_PUSHER_KEY][:total])
+    else:
+        state = np.asarray(store["observations.state"][:total])
+        pusher_obs_pose = state[:, :2]
+        object_obs_pose = state[:, 2:5]
+        pusher_cmd_pose = actions
     return {
         "images": images,
-        "states": np.asarray(store[STATE_KEY][:total]),
-        "actions": np.asarray(store[ACTION_KEY][:total]),
+        "pusher_obs_pose": pusher_obs_pose,
+        "object_obs_pose": object_obs_pose,
+        "pusher_cmd_pose": pusher_cmd_pose,
+        "actions": actions,
         "rewards": np.asarray(store[REWARD_KEY][:total]).reshape(-1),
         "goal_pose": np.asarray(store[GOAL_KEY][0]),
         "metadata": attrs,
@@ -98,7 +123,9 @@ def _world_to_image(xy: np.ndarray, panel: int = IMAGE_PANEL) -> tuple[int, int]
 def _render_frame(
     *,
     image_rgb: np.ndarray,
-    state: np.ndarray,
+    pusher_obs_pose: np.ndarray,
+    object_obs_pose: np.ndarray,
+    pusher_cmd_pose: np.ndarray,
     action: np.ndarray,
     reward: float,
     goal_pose: np.ndarray,
@@ -131,11 +158,11 @@ def _render_frame(
     pygame.draw.line(surface, ACTION_MARK, (ax - 6, ay + 6), (ax + 6, ay - 6), 2)
 
     # Agent (pusher) marker — small circle.
-    pgx, pgy = _world_to_image(state[0:2])
+    pgx, pgy = _world_to_image(pusher_obs_pose[0:2])
     pygame.draw.circle(surface, AGENT_MARK, (pgx, pgy), 4, 1)
 
     # Object center marker — small square.
-    ox, oy = _world_to_image(state[2:4])
+    ox, oy = _world_to_image(object_obs_pose[0:2])
     pygame.draw.rect(surface, OBJECT_MARK, (ox - 4, oy - 4, 8, 8), 1)
 
     # Goal marker — green diamond.
@@ -187,23 +214,23 @@ def _render_frame(
             y += 17
         y += 8
 
-    obj_theta_deg = float(np.rad2deg(state[4]))
+    obj_theta_deg = float(np.rad2deg(object_obs_pose[2]))
     goal_theta_deg = float(np.rad2deg(goal_pose[2]))
     _draw_section(
-        "observations.state",
+        "obs pose",
         [
-            ("agent xy", f"{state[0]:7.1f}, {state[1]:7.1f}"),
-            ("object xy", f"{state[2]:7.1f}, {state[3]:7.1f}"),
+            ("pusher xy", f"{pusher_obs_pose[0]:7.1f}, {pusher_obs_pose[1]:7.1f}"),
+            ("object xy", f"{object_obs_pose[0]:7.1f}, {object_obs_pose[1]:7.1f}"),
             ("object θ", f"{obj_theta_deg:+7.1f}°"),
         ],
     )
     _draw_section(
-        "actions  (target xy)",
+        "cmd pose  (target xy)",
         [
-            ("target xy", f"{action[0]:7.1f}, {action[1]:7.1f}"),
+            ("cmd xy", f"{pusher_cmd_pose[0]:7.1f}, {pusher_cmd_pose[1]:7.1f}"),
             (
-                "Δ to agent",
-                f"{action[0] - state[0]:+7.1f}, {action[1] - state[1]:+7.1f}",
+                "Δ to pusher",
+                f"{pusher_cmd_pose[0] - pusher_obs_pose[0]:+7.1f}, {pusher_cmd_pose[1] - pusher_obs_pose[1]:+7.1f}",
             ),
         ],
     )
@@ -254,7 +281,9 @@ def _save_mp4(episode: dict, out_path: Path, fps: int) -> None:
                 recent.pop(0)
             _render_frame(
                 image_rgb=episode["images"][i],
-                state=episode["states"][i],
+                pusher_obs_pose=episode["pusher_obs_pose"][i],
+                object_obs_pose=episode["object_obs_pose"][i],
+                pusher_cmd_pose=episode["pusher_cmd_pose"][i],
                 action=episode["actions"][i],
                 reward=float(episode["rewards"][i]),
                 goal_pose=episode["goal_pose"],
@@ -344,7 +373,9 @@ def _run_interactive(episode: dict, fps: int) -> None:
 
         _render_frame(
             image_rgb=episode["images"][idx],
-            state=episode["states"][idx],
+            pusher_obs_pose=episode["pusher_obs_pose"][idx],
+            object_obs_pose=episode["object_obs_pose"][idx],
+            pusher_cmd_pose=episode["pusher_cmd_pose"][idx],
             action=episode["actions"][idx],
             reward=float(episode["rewards"][idx]),
             goal_pose=episode["goal_pose"],
