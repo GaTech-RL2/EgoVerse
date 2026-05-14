@@ -22,9 +22,14 @@ robomimic_model:
 
   ratio_loss_weight: 0.03
 
+  # Fusion MLP depth: 3 linears (192 → 128 → 128 → 128) for a bit more
+  # non-linear mixing of image + proprio features before AdaLN. Default would
+  # be a single hidden layer.
+  cond_proj_widths: [128, 128]
+
   # ---- H-Net architecture ----
   # 2 stages: outer encoder/decoder process the 32-token action stream, the
-  # innermost main_network sees the chunked (~8-token) compressed sequence.
+  # innermost main_network sees the chunked (~4-token) compressed sequence.
   hnet_config:
     arch_layout:
       - "T4"
@@ -34,11 +39,15 @@ robomimic_model:
     d_intermediate: [512, 768]
     attn_cfg:
       num_heads: [4, 4]
-    target_compression_ratios: [4.0]
-    # AdaLN placement (option B = outer encoder only). Flip these lists to
-    # turn on conditioning at deeper stages or in the decoder.
+    # Pushed up from 4 -> 8 because PushT trajectories are smooth velocity
+    # commands with only a few "phases" per 32-step rollout. Target ~4
+    # boundary tokens.
+    target_compression_ratios: [8.0]
+    # AdaLN at outer encoder AND outer decoder (16 modules total). The inner
+    # stage is an Isotropic with no encoder/decoder, so cond_encoder_stages=[1]
+    # would be a no-op -- for more density either go 3-stage or enable decoder.
     cond_encoder_stages: [0]
-    cond_decoder_stages: []
+    cond_decoder_stages: [0]
 
   # ---- conditioning encoders ----
   obs_specs:
