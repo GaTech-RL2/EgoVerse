@@ -26,6 +26,9 @@ class DatasetFilter:
     def __repr__(self) -> str:
         return f"DatasetFilter(filter_lambdas={self.filter_lambdas!r})"
 
+    def is_empty(self) -> bool:
+        return not self.filter_lambdas
+
     def matches(self, row: Mapping[str, Any]) -> bool:
         row = dict(row)
         if row.get("is_deleted", False):
@@ -49,6 +52,9 @@ class ScaleAnnotationDatasetFilter(DatasetFilter):
         self.df = build_df_from_tasks(self.tasks)
         self.completed_episode_hashes = set(self.df["SEQUENCE_ID"].unique().tolist())
         super().__init__(filter_lambdas)
+
+    def is_empty(self) -> bool:
+        return False
 
     def matches(self, row: Mapping[str, Any]) -> bool:
         if row.get("episode_hash") not in self.completed_episode_hashes:
