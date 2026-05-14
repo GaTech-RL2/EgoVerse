@@ -792,13 +792,18 @@ class LocalEpisodeResolver(EpisodeResolver):
                 self.folder_path, filters, debug=self.debug
             )
 
-            valid_folder_names = {folder_name for _, folder_name in filtered_paths}
-            logger.info(f"Valid folder names: {valid_folder_names}")
-            if not valid_folder_names:
-                raise ValueError(
-                    "No valid collection names from local filtering: "
-                    "filters matched no episodes in the local directory."
-                )
+        if self.allowed_episode_ids is not None:
+            filtered_paths = [
+                (p, h) for p, h in filtered_paths if h in self.allowed_episode_ids
+            ]
+
+        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        logger.info(f"Valid folder names: {valid_folder_names}")
+        if not valid_folder_names:
+            raise ValueError(
+                "No valid collection names from local filtering: "
+                "filters matched no episodes in the local directory."
+            )
 
             datasets = self._load_zarr_datasets(
                 search_path=self.folder_path, valid_folder_names=valid_folder_names
