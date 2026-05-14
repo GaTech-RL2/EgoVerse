@@ -96,3 +96,55 @@ def scan_shard(
                 matched.append(result)
 
     return matched
+
+
+@app.function(
+    cpu=2.0,
+    memory=4096,
+    timeout=900,
+    volumes={VOLUME_MOUNT_PATH: zarr_volume},
+    max_containers=30,
+)
+def load_shard(
+    episode_names: list[str],
+) -> list[tuple[str, str, dict]]:
+    """Read .zattrs for each name and return (full_path, episode_hash, metadata).
+
+    The caller can then construct ZarrDataset objects locally without re-opening
+    every zarr group serially — the slow step on Modal volume metadata.
+    """
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+
+    zarr_volume.reload()
+    base = Path(VOLUME_MOUNT_PATH)
+
+    def _read_metadata(name: str):
+        p = base / name
+        zattrs = p / ".zattrs"
+        try:
+            if zattrs.is_file():
+                with zattrs.open("rb") as f:
+                    return json.load(f)
+            import zarr
+
+            store = zarr.open_group(str(p), mode="r")
+            return dict(store.attrs)
+        except Exception:
+            return None
+
+    def _process(name: str):
+        episode_hash = name[:-5] if name.endswith(".zarr") else name
+        metadata = _read_metadata(name)
+        if metadata is None:
+            return None
+        return (str(base / name), episode_hash, metadata)
+
+    results: list[tuple[str, str, dict]] = []
+    with ThreadPoolExecutor(max_workers=64) as executor:
+        for r in executor.map(_process, episode_names):
+            if r is not None:
+                results.append(r)
+
+    return results

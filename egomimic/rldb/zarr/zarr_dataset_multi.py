@@ -194,6 +194,30 @@ class EpisodeResolver:
         import time
 
         dataset_class = self._dataset_class or ZarrDataset
+
+        # Modal fan-out: when inside Modal with the volume mounted at the standard
+        # path, shard the per-episode .zattrs reads across many small containers.
+        # Each worker returns (path, hash, metadata) tuples; ZarrDataset is then
+        # constructed locally with precomputed_metadata, skipping the slow open.
+        # Disable with EGOMIMIC_DISABLE_MODAL_LOAD=1.
+        inside_modal = os.environ.get("MODAL_IS_REMOTE") == "1" or bool(
+            os.environ.get("MODAL_TASK_ID")
+        )
+        if (
+            inside_modal
+            and str(search_path) == "/mnt/zarr-data"
+            and os.environ.get("EGOMIMIC_DISABLE_MODAL_LOAD") != "1"
+        ):
+            try:
+                return self._modal_fanout_load(
+                    search_path, valid_folder_names, dataset_class
+                )
+            except Exception as e:
+                logger.warning(
+                    "Modal fan-out load failed (%s) — falling back to serial loop",
+                    e,
+                )
+
         all_paths = sorted(search_path.iterdir())
         datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
@@ -237,6 +261,103 @@ class EpisodeResolver:
         logger.info(
             f"Loaded {len(datasets)} datasets, skipped {len(skipped)} "
             f"(total scanned {total}) in {time.monotonic() - start_time:.1f}s"
+        )
+        return datasets
+
+    def _modal_fanout_load(
+        self,
+        search_path: Path,
+        valid_folder_names: set[str],
+        dataset_class,
+    ) -> dict:
+        """Fan out per-episode .zattrs reads across Modal containers via load_shard.
+
+        Worker returns picklable (path, hash, metadata) tuples; ZarrDataset is
+        constructed locally with precomputed_metadata so its eager zarr open is
+        skipped (deferred until first __getitem__).
+        """
+        import sys
+        import time
+
+        # See _modal_fanout_scan for why we strip egomimic from sys.path before importing modal.
+        _orig_path = list(sys.path)
+        sys.path = [p for p in sys.path if Path(p).name != "egomimic"]
+        sys.modules.pop("modal", None)
+        try:
+            import modal
+        finally:
+            sys.path = _orig_path
+        if not hasattr(modal, "Function"):
+            raise RuntimeError(
+                "Imported `modal` has no `Function` attribute — "
+                "egomimic.modal subpackage is still shadowing the installed Modal SDK"
+            )
+
+        start_time = time.monotonic()
+        logger.info(f"Modal fan-out load: listing {search_path} (single readdir)...")
+        t0 = time.monotonic()
+        on_disk_names = []
+        for raw_name in os.listdir(search_path):
+            if raw_name.startswith("."):
+                continue
+            hash_name = raw_name[:-5] if raw_name.endswith(".zarr") else raw_name
+            if hash_name in valid_folder_names:
+                on_disk_names.append(raw_name)
+        total = len(on_disk_names)
+        logger.info(
+            f"Modal fan-out load: {total} target entries (of {len(valid_folder_names)} requested) "
+            f"in {time.monotonic() - t0:.1f}s"
+        )
+        if total == 0:
+            return {}
+
+        n_shards = min(int(os.environ.get("EGOMIMIC_LOAD_SHARDS", "30")), total)
+        shards = [on_disk_names[i::n_shards] for i in range(n_shards)]
+        shards = [s for s in shards if s]
+        total_shards = len(shards)
+
+        logger.info(
+            f"Modal fan-out load: {total} entries across {total_shards} shards "
+            f"(~{total // total_shards} per shard). Looking up load_shard function..."
+        )
+
+        fn = modal.Function.from_name(
+            "egomimic-scan", "load_shard", environment_name="robotics"
+        )
+        logger.info("Modal fan-out load: function lookup OK; launching .map()...")
+
+        datasets: dict = {}
+        skipped: list[str] = []
+        completed = 0
+        log_every = max(1, total_shards // 20)
+        for shard_result in fn.map(shards):
+            completed += 1
+            for path_str, episode_hash, metadata in shard_result:
+                if episode_hash not in valid_folder_names:
+                    continue
+                try:
+                    datasets[episode_hash] = dataset_class(
+                        Path(path_str),
+                        key_map=self.key_map,
+                        transform_list=self.transform_list,
+                        norm_stats=self.norm_stats,
+                        precomputed_metadata=metadata,
+                    )
+                except Exception as e:
+                    logger.error("Failed to construct dataset for %s: %s", path_str, e)
+                    skipped.append(episode_hash)
+            if completed % log_every == 0 or completed == total_shards:
+                elapsed = time.monotonic() - start_time
+                logger.info(
+                    f"Modal load: shard {completed}/{total_shards} done "
+                    f"| loaded={len(datasets)} skipped={len(skipped)} "
+                    f"| elapsed {elapsed:.0f}s"
+                )
+
+        logger.info(
+            f"Modal fan-out load complete: {len(datasets)} datasets "
+            f"(skipped {len(skipped)}) in {time.monotonic() - start_time:.1f}s "
+            f"({total_shards} shards)"
         )
         return datasets
 
@@ -1081,6 +1202,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         key_map: dict,
         transform_list: list | None = None,
         norm_stats: dict | None = None,
+        precomputed_metadata: dict | None = None,
     ):
         """
         Args:
@@ -1091,30 +1213,51 @@ class ZarrDataset(torch.utils.data.Dataset):
                 {"quantile_1": tensor, "quantile_99": tensor} bounds. When provided, any
                 loaded sample whose values fall outside [quantile_1, quantile_99] for any
                 tracked key triggers the random index fallback.
+            precomputed_metadata: optional pre-loaded zarr `.zattrs` dict. When provided,
+                skips the eager ZarrEpisode open (slow on Modal volumes) — `episode_reader`
+                is opened lazily on first access.
         """
         self.episode_path = Episode_path
         self.metadata = None
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
-        self.init_episode()
+        self._episode_reader_cache = None  # backs the episode_reader property; lazy
+        if precomputed_metadata is not None:
+            self._init_from_metadata(precomputed_metadata)
+        else:
+            self.init_episode()
 
         self.key_map = key_map
         self.transform = transform_list
         self.norm_stats = norm_stats or {}
         super().__init__()
 
-    def init_episode(self):
-        """
-        inits the zarr episode and all the metadata associated, as well as total_frames for len
-        """
-        self.episode_reader = ZarrEpisode(self.episode_path)
-        self.metadata = self.episode_reader.metadata
-        self.total_frames = self.metadata["total_frames"]
-        self.embodiment = self.metadata["embodiment"]
-        self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
+    @property
+    def episode_reader(self):
+        if self._episode_reader_cache is None:
+            self._episode_reader_cache = ZarrEpisode(self.episode_path)
+        return self._episode_reader_cache
 
-        # Detect JPEG-encoded image keys from metadata
+    @episode_reader.setter
+    def episode_reader(self, value):
+        self._episode_reader_cache = value
+
+    def init_episode(self):
+        """Eagerly open the zarr group and populate all metadata-derived fields."""
+        self.episode_reader = ZarrEpisode(self.episode_path)
+        self._init_from_metadata(self.episode_reader.metadata)
+
+    def _init_from_metadata(self, metadata: dict) -> None:
+        """Populate metadata-derived fields from a pre-loaded `.zattrs` dict."""
+        self.metadata = metadata
+        self.total_frames = metadata["total_frames"]
+        self.embodiment = metadata["embodiment"]
+        features = metadata.get("features", {})
+        keys_list = (
+            list(features.keys()) if isinstance(features, dict) else list(features)
+        )
+        self.keys_dict = {k: (0, None) for k in keys_list}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
 
@@ -1319,9 +1462,11 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
     If the start frame is not inside any annotation, behaves like the base class.
     """
 
-    def init_episode(self):
-        super().init_episode()
+    def __init__(self, *args, **kwargs):
+        # Set before super().__init__ so it exists regardless of whether the
+        # parent goes through init_episode (eager) or _init_from_metadata (lazy).
         self._frame_to_ann_end: dict[int, int] | None = None
+        super().__init__(*args, **kwargs)
 
     def _build_frame_to_ann_end(self) -> dict[int, int]:
         """Map ``frame_idx -> ann_end`` (exclusive) for every frame inside an
