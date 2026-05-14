@@ -13,7 +13,8 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
         pause_removal_epsilon: 0.005
-    mode: train
+    mode: percent
+    percent: 0.25
 valid_datasets:
   mecka_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
