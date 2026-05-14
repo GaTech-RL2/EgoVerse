@@ -516,30 +516,23 @@ class LocalEpisodeResolver(EpisodeResolver):
         if debug is not None and debug is not False:
             max_filtered = 10 if debug is True else int(debug)
 
-        no_filters = filters.is_empty()
         for p in search_path.iterdir():
             if not p.is_dir():
                 continue
 
             episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
 
-            if no_filters:
+            try:
+                store = zarr.open_group(str(p), mode="r")
+                metadata = dict(store.attrs)
+            except Exception as e:
+                logger.warning("Failed to read metadata for %s: %s", p, e)
+                continue
+
+            if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
-            else:
-                try:
-                    store = zarr.open_group(str(p), mode="r")
-                    metadata = dict(store.attrs)
-                except Exception as e:
-                    logger.warning("Failed to read metadata for %s: %s", p, e)
-                    continue
-
-                if not cls._local_filters_match(metadata, episode_hash, filters):
-                    continue
-
-                filtered.append((str(p), episode_hash))
-
-            if max_filtered is not None and len(filtered) >= max_filtered:
-                break
+                if max_filtered is not None and len(filtered) >= max_filtered:
+                    break
 
         if max_filtered is not None:
             n_matches = len(filtered)
