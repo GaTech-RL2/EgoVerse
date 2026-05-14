@@ -65,3 +65,16 @@ schematic_dict:
     embodiment:
       key_type: metadata_keys
       zarr_key: metadata.embodiment
+  pushshapes_sim:
+    # zarr_key here = batch key produced by get_keymap() in
+    # egomimic/rldb/embodiment/pushshapes.py. The data_schematic key (left
+    # column) is what the model config references.
+    front_img_1:
+      key_type: camera_keys
+      zarr_key: front_img_1
+    state_agent_obj:
+      key_type: proprio_keys
+      zarr_key: state_agent_obj
+    actions:
+      key_type: action_keys
+      zarr_key: actions
