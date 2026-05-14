@@ -503,9 +503,8 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
-        debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug=False,
+        debug: int | bool | None = None,
         allowed_episode_ids: list[str] | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
@@ -688,9 +687,27 @@ class LocalEpisodeResolver(EpisodeResolver):
         invokes `egomimic-training::scan_shard` in parallel. Each worker mounts
         the same zarr volume read-only and runs a thread-pooled .zattrs scan.
         """
+        import sys
         import time
 
-        import modal
+        # `python egomimic/trainHydra.py` puts /root/EgoVerse/egomimic on
+        # sys.path[0], so a bare `import modal` resolves to the egomimic.modal
+        # subpackage instead of the installed Modal SDK (see trainHydra.py
+        # _submit_to_modal comment). Strip those entries before importing,
+        # then restore so nothing else relying on sys.path is affected.
+        _orig_path = list(sys.path)
+        sys.path = [p for p in sys.path if Path(p).name != "egomimic"]
+        sys.modules.pop("modal", None)
+        try:
+            import modal
+        finally:
+            sys.path = _orig_path
+
+        if not hasattr(modal, "Function"):
+            raise RuntimeError(
+                "Imported `modal` has no `Function` attribute — "
+                "egomimic.modal subpackage is still shadowing the installed Modal SDK"
+            )
 
         # Single readdir syscall — no per-entry stat. Drop hidden files cheaply
         # (string compare). Workers handle non-dir entries gracefully via
