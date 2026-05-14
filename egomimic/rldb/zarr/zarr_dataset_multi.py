@@ -512,9 +512,11 @@ class LocalEpisodeResolver(EpisodeResolver):
             return []
 
         filtered = []
-        # Skip sorting in debug mode — avoids materialising all 198K+ entries upfront
-        entries = search_path.iterdir() if debug else sorted(search_path.iterdir())
-        for p in entries:
+        max_filtered = None
+        if debug is not None and debug is not False:
+            max_filtered = 10 if debug is True else int(debug)
+
+        for p in search_path.iterdir():
             if not p.is_dir():
                 continue
 
@@ -530,10 +532,22 @@ class LocalEpisodeResolver(EpisodeResolver):
             if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
 
-        if debug is not None and debug is not False:
-            k = min(10 if debug is True else int(debug), len(filtered))
-            if k < len(filtered):
-                logger.info("Debug mode: limiting to %d datasets.", k)
+        if max_filtered is not None:
+            n_matches = len(filtered)
+            k = min(max_filtered, n_matches)
+            if max_filtered > 0 and n_matches > 0:
+                random.Random(SEED).shuffle(filtered)
+                if k < n_matches:
+                    logger.info(
+                        "Debug mode: shuffled %d filter matches, using first %d for training.",
+                        n_matches,
+                        k,
+                    )
+                elif k > 0:
+                    logger.info(
+                        "Debug mode: shuffled all %d matching datasets (k >= n).",
+                        n_matches,
+                    )
             filtered = filtered[:k]
 
         logger.info("Local filtered paths: %s", filtered)
