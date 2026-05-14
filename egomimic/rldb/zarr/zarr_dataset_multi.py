@@ -531,6 +531,8 @@ class LocalEpisodeResolver(EpisodeResolver):
 
             if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
+                if max_filtered is not None and len(filtered) >= max_filtered:
+                    break
 
         if max_filtered is not None:
             n_matches = len(filtered)
