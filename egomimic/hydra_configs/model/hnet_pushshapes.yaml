@@ -1,0 +1,75 @@
+# H-Net policy for the pushshapes_sim (PushT) environment.
+#
+# Sizes are tuned for the toy environment:
+#   - 2-D action (x, y) at horizon 32
+#   - 5-D agent+object proprio (state_agent_obj)
+#   - 96x96 image (front_img_1), ImageNet-normalised by the dataloader
+#
+# Conditioning: the PushT dataset returns single-frame obs, so HNetPolicy
+# broadcasts each obs across all T action positions (effectively per-trajectory
+# cond). If you switch to a per-frame obs dataset later, no change here is
+# needed -- HNetPolicy auto-detects per-frame vs single-frame shapes.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.HNet
+  data_schematic: _${data.dataset.data_schematic}
+
+  # ---- core dims ----
+  action_dim: 2
+  action_horizon: 32
+  d_model: 128
+  d_cond: 128
+
+  ratio_loss_weight: 0.03
+
+  # ---- H-Net architecture ----
+  # 2 stages: outer encoder/decoder process the 32-token action stream, the
+  # innermost main_network sees the chunked (~8-token) compressed sequence.
+  hnet_config:
+    arch_layout:
+      - "T4"
+      - ["T4"]
+      - "T4"
+    d_model: [128, 192]
+    d_intermediate: [512, 768]
+    attn_cfg:
+      num_heads: [4, 4]
+    target_compression_ratios: [4.0]
+    # AdaLN placement (option B = outer encoder only). Flip these lists to
+    # turn on conditioning at deeper stages or in the decoder.
+    cond_encoder_stages: [0]
+    cond_decoder_stages: []
+
+  # ---- conditioning encoders ----
+  obs_specs:
+    state_agent_obj:
+      input_dim: 5
+      embed_dim: 64
+      widths: [128]
+
+  img_encoders:
+    front_img_1:
+      _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+      in_channels: 3
+      channels: [32, 64, 128, 256]
+      kernel_size: 3
+      stride: 2
+      embed_dim: 128
+      norm_groups: 8
+
+  # ---- domain / action key wiring ----
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 200
+  eta_min: 1e-5
