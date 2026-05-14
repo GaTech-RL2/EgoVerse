@@ -51,6 +51,10 @@ def create_default_engine():
     # Priority 1: direct DATABASE_URL (e.g. injected via Modal secret).
     DATABASE_URL = os.environ.get("DATABASE_URL")
     if DATABASE_URL:
+        # Normalise to psycopg3 dialect — psycopg2 is not installed
+        DATABASE_URL = DATABASE_URL.replace(
+            "postgresql://", "postgresql+psycopg://", 1
+        ).replace("postgres://", "postgresql+psycopg://", 1)
         engine = create_engine(DATABASE_URL, pool_pre_ping=True)
         insp = inspect(engine)
         print("Tables in schema 'app':", insp.get_table_names(schema="app"))
