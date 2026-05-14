@@ -1,0 +1,43 @@
+# Train H-Net policy on pushshapes_sim (PushT).
+#
+# Mirrors the structure of train_zarr_cartesian.yaml but swaps in the H-Net
+# model + the PushT data pipeline. Other defaults (paths, trainer, logger,
+# callbacks, data_schematic) are reused as-is.
+defaults:
+  - model: hnet_pushshapes
+  - visualization: cartesian
+  - paths: default
+  - trainer: ddp
+  - debug: null
+  - logger: wandb
+  - data: tsimulation
+  - callbacks: checkpoints
+  - data_schematic: default
+  - evaluator: eval_hpt
+  - override hydra/launcher: submitit
+  - _self_
+
+name: hnet_pushshapes
+description: hnet_pushshapes
+ckpt_path: null
+mode: train
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+seed: 42
+
+# Normalization and norm-stat cache settings (override per-run as needed).
+norm_stats:
+  sample_frac: 1.0
+  num_workers: 4
+  save_cache_dir: ${hydra:runtime.output_dir}
+  precomputed_norm_path: null
+reject_outliers: true
