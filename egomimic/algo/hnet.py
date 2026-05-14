@@ -59,6 +59,7 @@ class HNetPolicy(nn.Module):
         hnet_config: HNetConfig,
         obs_specs: Optional[dict] = None,
         img_encoders: Optional[dict] = None,
+        cond_proj_widths: Optional[List[int]] = None,
     ):
         super().__init__()
         self.action_dim = action_dim
@@ -100,7 +101,12 @@ class HNetPolicy(nn.Module):
         if fused_dim == 0:
             self.cond_proj = None
         else:
-            self.cond_proj = _mlp(fused_dim, d_cond, widths=[max(d_cond, fused_dim)])
+            # Default: single hidden of max(d_cond, fused_dim). Override via
+            # `cond_proj_widths` to deepen the fusion MLP.
+            widths = cond_proj_widths
+            if widths is None:
+                widths = [max(d_cond, fused_dim)]
+            self.cond_proj = _mlp(fused_dim, d_cond, widths=list(widths))
 
         self.hnet = HNetCore(hnet_config, stage_idx=0, d_cond=d_cond, causal=True)
 
@@ -204,6 +210,7 @@ class HNet(Algo):
         hnet_config: dict,
         obs_specs: dict = None,
         img_encoders: dict = None,
+        cond_proj_widths: list = None,
         ratio_loss_weight: float = 0.03,
         domains: list = None,
         ac_keys: dict = None,
@@ -230,6 +237,7 @@ class HNet(Algo):
             hnet_config=cfg,
             obs_specs=obs_specs or {},
             img_encoders=img_encoders or {},
+            cond_proj_widths=cond_proj_widths,
         )
         self.nets = nn.ModuleDict({"policy": policy})
         self.nets = self.nets.float().to(self.device)
