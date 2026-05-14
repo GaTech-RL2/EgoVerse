@@ -554,20 +554,9 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         if self.allowed_episode_ids is not None:
             # Skip the full directory scan — directly resolve and load only the allowed paths.
-            n_allowed = len(self.allowed_episode_ids)
-            print(
-                f"[LocalEpisodeResolver] fast path: {n_allowed} allowed episodes "
-                f"under {self.folder_path}",
-                flush=True,
-            )
             dataset_class = self._dataset_class or ZarrDataset
             datasets = {}
-            for i, episode_hash in enumerate(self.allowed_episode_ids):
-                print(
-                    f"[LocalEpisodeResolver] [{i + 1}/{n_allowed}] resolving "
-                    f"{episode_hash}",
-                    flush=True,
-                )
+            for episode_hash in self.allowed_episode_ids:
                 for candidate in (
                     self.folder_path / f"{episode_hash}.zarr",
                     self.folder_path / episode_hash,
@@ -580,10 +569,6 @@ class LocalEpisodeResolver(EpisodeResolver):
                                 transform_list=self.transform_list,
                                 norm_stats=self.norm_stats,
                             )
-                            print(
-                                f"[LocalEpisodeResolver]   loaded {candidate}",
-                                flush=True,
-                            )
                         except Exception as e:
                             logger.error(
                                 "Failed to load dataset at %s: %s", candidate, e
@@ -593,10 +578,6 @@ class LocalEpisodeResolver(EpisodeResolver):
                     logger.warning(
                         "allowed_episode_id not found on disk: %s", episode_hash
                     )
-            print(
-                f"[LocalEpisodeResolver] done: loaded {len(datasets)} datasets",
-                flush=True,
-            )
             if not datasets:
                 raise ValueError(
                     "No valid episodes found for allowed_episode_ids in the local directory."
