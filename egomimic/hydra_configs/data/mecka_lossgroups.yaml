@@ -15,8 +15,18 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['task'] == 'dishwashing'"
-    mode: total
+        - "lambda row: row['lab'] == 'mecka' and row['task'] in ['dishwashing', 'cleaning']"
+    mode: train
+    use_weighted_loss: true
+    loss_groups:
+      dishwashing:
+        filter_lambdas:
+          - "lambda row: row['task'] == 'dishwashing'"
+        weight: 0.1
+      cleaning:
+        filter_lambdas:
+          - "lambda row: row['task'] == 'cleaning'"
+        weight: 0.9
 valid_datasets:
   mecka_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -32,8 +42,17 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['task'] == 'dishwashing'"
-    mode: total
+        - "lambda row: row['lab'] == 'mecka' and row['task'] in ['dishwashing', 'cleaning']"
+    mode: valid
+    loss_groups:
+      dishwashing:
+        filter_lambdas:
+          - "lambda row: row['task'] == 'dishwashing'"
+        weight: 0.1
+      cleaning:
+        filter_lambdas:
+          - "lambda row: row['task'] == 'cleaning'"
+        weight: 0.9
 train_dataloader_params:
   mecka_bimanual:
     batch_size: 32

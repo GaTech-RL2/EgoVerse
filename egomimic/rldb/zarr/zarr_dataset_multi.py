@@ -488,7 +488,6 @@ class LocalEpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug=False,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
@@ -573,6 +572,50 @@ class LocalEpisodeResolver(EpisodeResolver):
         )
 
         return datasets
+
+
+class Loss_groups:
+    def __init__(
+        self,
+        groups_of_filters: dict[str, DatasetFilter],
+        filtered_paths,
+        group_weights: dict[str, float] | None = None,
+    ):
+        self.groups_of_filters = groups_of_filters
+        self.filtered_paths = filtered_paths
+        self.group_map = {group_name: [] for group_name in self.groups_of_filters}
+        self.episode_to_group = {}
+        self.group_weights: dict[str, float] = group_weights or {}
+
+        engine = create_default_engine()
+        df = episode_table_to_df(engine)
+
+        for group_name, group_filter in self.groups_of_filters.items():
+            for episode_path, episode_hash in self.filtered_paths:
+                matching_rows = df.loc[df["episode_hash"] == episode_hash]
+                if matching_rows.empty:
+                    continue
+                filter_row = _normalize_filter_row(
+                    matching_rows.iloc[0].to_dict(),
+                    episode_hash=episode_hash,
+                )
+                if group_filter.matches(filter_row):
+                    episode_path = str(episode_path)
+                    existing_group = self.episode_to_group.get(episode_path)
+                    if existing_group is not None and existing_group != group_name:
+                        raise ValueError(
+                            f"Episode path {episode_path} matched multiple groups: "
+                            f"{existing_group} and {group_name}"
+                        )
+                    self.episode_to_group[episode_path] = group_name
+                    self.group_map[group_name].append(episode_path)
+
+    def get_group_for_episode(self, episode_path: str):
+        episode_path = str(episode_path)
+        group_name = self.episode_to_group.get(episode_path)
+        if group_name is None:
+            raise ValueError(f"Episode path {episode_path} not found in any group")
+        return group_name
 
 
 class MultiDataset(torch.utils.data.Dataset):
@@ -820,7 +863,89 @@ class MultiDataset(torch.utils.data.Dataset):
         else:
             resolved = resolver.resolve(filters=filters)
 
-        return cls(datasets=resolved, **kwargs)
+        loss_groups_cfg = kwargs.pop("loss_groups", None)
+        use_weighted_loss = bool(kwargs.pop("use_weighted_loss", False))
+        if loss_groups_cfg:
+            groups_of_filters: dict[str, DatasetFilter] = {}
+            group_weights: dict[str, float] = {}
+            for group_name, group_cfg in loss_groups_cfg.items():
+                if isinstance(group_cfg, DatasetFilter):
+                    groups_of_filters[group_name] = group_cfg
+                    continue
+                if not isinstance(group_cfg, Mapping):
+                    raise TypeError(
+                        f"loss_groups.{group_name} must be a DatasetFilter or mapping, got {type(group_cfg)}"
+                    )
+                filter_lambdas = group_cfg.get("filter_lambdas")
+                if filter_lambdas is None:
+                    filter_lambdas = group_cfg.get("filters")
+                if not filter_lambdas:
+                    raise ValueError(
+                        f"loss_groups.{group_name} must define non-empty `filter_lambdas` or `filters`."
+                    )
+                groups_of_filters[group_name] = DatasetFilter(
+                    filter_lambdas=filter_lambdas
+                )
+                if "weight" in group_cfg:
+                    group_weights[group_name] = float(group_cfg["weight"])
+
+            if group_weights:
+                total_w = sum(group_weights.values())
+                if abs(total_w - 1.0) > 1e-4:
+                    raise ValueError(
+                        f"loss_group weights must sum to 1.0, got {total_w:.4f}. "
+                        f"Weights: {group_weights}"
+                    )
+
+            filtered_paths = [
+                (str(ds.episode_path), dataset_hash)
+                for dataset_hash, ds in resolved.items()
+            ]
+            loss_groups = Loss_groups(
+                groups_of_filters=groups_of_filters,
+                filtered_paths=filtered_paths,
+                group_weights=group_weights or None,
+            )
+            for ds in resolved.values():
+                ds.loss_groups = loss_groups
+
+            # val episodes split independently across loss groups
+            mode = kwargs.get("mode", "train")
+            if mode in ("train", "valid"):
+                valid_ratio = kwargs.get("valid_ratio", 0.2)
+                path_to_episode = {path: h for path, h in filtered_paths}
+                episodes_by_group: dict[str, list[str]] = {}
+                for group_name, group_paths in loss_groups.group_map.items():
+                    group_hashes = [
+                        path_to_episode[p] for p in group_paths if p in path_to_episode
+                    ]
+                    train_episodes, valid_episodes = split_dataset_names(
+                        group_hashes, valid_ratio=valid_ratio
+                    )
+                    episodes_by_group[group_name] = (
+                        sorted(valid_episodes)
+                        if mode == "valid"
+                        else sorted(train_episodes)
+                    )
+                # alternate between groups round-robin so that even with limited val batches, every group appears in the val set
+                interleaved: list[str] = []
+                group_lists = [lst for lst in episodes_by_group.values() if lst]
+                max_len = max((len(lst) for lst in group_lists), default=0)
+                for i in range(max_len):
+                    for lst in group_lists:
+                        if i < len(lst):
+                            interleaved.append(lst[i])
+                resolved = {h: resolved[h] for h in interleaved if h in resolved}
+                kwargs["mode"] = "total"
+
+        ds = cls(datasets=resolved, **kwargs)
+        if loss_groups_cfg:
+            ds.loss_group_weights = loss_groups.group_weights
+            ds.use_weighted_loss = use_weighted_loss
+        else:
+            ds.loss_group_weights = {}
+            ds.use_weighted_loss = False
+        return ds
 
 
 class ZarrDataset(torch.utils.data.Dataset):
@@ -855,6 +980,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.key_map = key_map
         self.transform = transform_list
         self.norm_stats = norm_stats or {}
+        self.loss_groups: Loss_groups | None = None
         super().__init__()
 
     def init_episode(self):
@@ -1057,6 +1183,12 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         data["metadata.robot_name"] = get_embodiment_id(self.embodiment)
         data["embodiment"] = get_embodiment_id(self.embodiment)
+        if self.loss_groups is None:
+            data["loss_group"] = ""
+        else:
+            data["loss_group"] = self.loss_groups.get_group_for_episode(
+                self.episode_path
+            )
         return data
 
 

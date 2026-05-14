@@ -187,9 +187,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -744,7 +744,7 @@ class PolicyHead(nn.Module):
     def device(self):
         return next(self.parameters()).device
 
-    def compute_loss(self, x: torch.Tensor, data: dict):
+    def compute_loss(self, x: torch.Tensor, data: dict, reduction: str = "mean"):
         """
         Compute smooth L1 loss between predicted and target actions,
         slicing as needed if their dimensions differ.
@@ -755,7 +755,7 @@ class PolicyHead(nn.Module):
                 - 'action': ground-truth action tensor of shape (B, T, D_target)
 
         Returns:
-            torch.Tensor: Scalar loss
+            torch.Tensor: Scalar loss for ``reduction='mean'`` or per-sample vector for ``reduction='none'``
         """
         target_action = data["action"]
         B, T = target_action.shape[:2]
@@ -769,7 +769,13 @@ class PolicyHead(nn.Module):
         pred_action = pred_action[..., :D_common]
         target_action = target_action[..., :D_common]
 
-        return LOSS(pred_action, target_action)
+        per_element = LOSS(pred_action, target_action, reduction="none")
+        per_sample = per_element.reshape(B, -1).mean(dim=1)
+        if reduction == "none":
+            return per_sample
+        if reduction == "mean":
+            return per_sample.mean()
+        raise ValueError(f"Unsupported reduction: {reduction}")
 
 
 class MLPPolicyHead(PolicyHead):
