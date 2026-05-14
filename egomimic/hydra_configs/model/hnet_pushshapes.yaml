@@ -1,0 +1,100 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.HNet
+  data_schematic: _${data.dataset.data_schematic}
+
+  # ---- core dims ----
+  action_dim: 2
+  action_horizon: 32
+  d_model: 128
+  d_cond: 128
+
+  # ---- conditioning encoder ----
+  # Produces a cond_dict consumed by stages via their cond_key. The default
+  # "fused_cond" entry is per-token (B, T, d_cond) from concatenated obs
+  # encodings projected by an MLP. Per-obs un-fused embeddings are also
+  # exposed when per_obs_keys=True.
+  cond_encoder:
+    _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+    d_cond: 128
+    output_key: "fused_cond"
+    cond_proj_widths: [128, 128]
+    obs_specs:
+      state_agent_obj:
+        input_dim: 5
+        embed_dim: 64
+        widths: [128]
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+        in_channels: 3
+        channels: [32, 64, 128, 256]
+        kernel_size: 3
+        stride: 2
+        embed_dim: 128
+        norm_groups: 8
+
+  # ---- stage-based H-Net ----
+  # The list below is wired into a chain at construction:
+  #   stages[0] (outer encoder/decoder)
+  #     └─ stages[1] (chunker, compression ratio 8)
+  #           └─ stages[2] (inner compute, terminal)
+  # Each stage declares its input_hidden_dim / output_hidden_dim explicitly;
+  # ChunkerStage handles the outer→inner dim bridge via explicit Linear
+  # projections (NO padding-based dim bridging).
+  hnet:
+    _target_: egomimic.models.hnet_nets.hnet.HNet
+    stages:
+      - _target_: egomimic.models.hnet_nets.stages.EncoderDecoderStage
+        input_hidden_dim: 128
+        output_hidden_dim: 128
+        cond_key: "fused_cond"
+        d_cond: 128
+        causal: true
+        encoder:
+          arch_layout: "T4"
+          d_model: 128
+          d_intermediate: 512
+          num_heads: 4
+          cond: true
+        decoder:
+          arch_layout: "T4"
+          d_model: 128
+          d_intermediate: 512
+          num_heads: 4
+          cond: true
+      - _target_: egomimic.models.hnet_nets.stages.ChunkerStage
+        input_hidden_dim: 128
+        output_hidden_dim: 192
+        target_compression_ratio: 8.0
+        ratio_loss_weight: 0.03
+        cond_key: "fused_cond"
+      - _target_: egomimic.models.hnet_nets.stages.ComputeStage
+        input_hidden_dim: 192
+        output_hidden_dim: 192
+        cond_key: "fused_cond"
+        d_cond: 128
+        causal: true
+        main_network:
+          arch_layout: "T4"
+          d_model: 192
+          d_intermediate: 768
+          num_heads: 4
+          cond: false        # inner compute does not run AdaLN
+
+  # ---- domain / action key wiring (mirrors HPT) ----
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1
