@@ -579,16 +579,18 @@ class LocalEpisodeResolver(EpisodeResolver):
         # (~25 ep/s) is the bottleneck, so horizontal scaling is the only fix.
         # Requires `modal deploy egomimic/modal/run.py` to have been run once.
         # Disable with EGOMIMIC_DISABLE_MODAL_SCAN=1.
-        def _is_inside_modal() -> bool:
-            try:
-                import modal
-
-                return not modal.is_local()
-            except Exception:
-                return False
-
+        #
+        # Detection note: `modal.is_local()` relies on Modal's in-memory runtime
+        # context, which doesn't survive subprocess boundaries. trainHydra.py
+        # runs as a subprocess of run_hydra_train, so we rely on the
+        # MODAL_IS_REMOTE=1 env var that run.py sets explicitly for the
+        # subprocess (it does survive). MODAL_TASK_ID is a Modal-native fallback.
+        inside_modal = (
+            os.environ.get("MODAL_IS_REMOTE") == "1"
+            or bool(os.environ.get("MODAL_TASK_ID"))
+        )
         fanout_enabled = (
-            _is_inside_modal()
+            inside_modal
             and str(search_path) == "/mnt/zarr-data"
             and type(filters) is DatasetFilter
             and os.environ.get("EGOMIMIC_DISABLE_MODAL_SCAN") != "1"
