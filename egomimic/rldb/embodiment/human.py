@@ -10,6 +10,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
+    PauseRemovalTransform,
     PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
     Reshape,
@@ -124,7 +125,6 @@ class Aria(Human):
         cls,
         mode: Literal[
             "cartesian",
-            "cartesian_wristframe_ypr",
             "keypoints_headframe_ypr",
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
@@ -133,10 +133,6 @@ class Aria(Human):
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
-                stride=cls.ACTION_STRIDE
-            )
-        elif mode == "cartesian_wristframe_ypr":
-            return _build_aria_cartesian_eef_frame_transform_list(
                 stride=cls.ACTION_STRIDE
             )
         elif mode == "keypoints_headframe_ypr":
@@ -247,10 +243,12 @@ class Scale(Human):
     def get_transform_list(
         cls,
         mode: Literal["cartesian",],
+        pause_removal_epsilon: float | None = None,
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
-                stride=cls.ACTION_STRIDE
+                stride=cls.ACTION_STRIDE,
+                pause_removal_epsilon=pause_removal_epsilon,
             )
 
     @classmethod
@@ -336,15 +334,17 @@ class Mecka(Human):
     def get_transform_list(
         cls,
         mode: Literal["cartesian",],
+        pause_removal_epsilon: float | None = None,
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
-                stride=cls.ACTION_STRIDE
+                stride=cls.ACTION_STRIDE,
+                pause_removal_epsilon=pause_removal_epsilon,
             )
 
     @classmethod
     def get_keymap(
-        cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False, norm_mode: bool = False
+        cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False
     ):
         if mode == "cartesian":
             key_map = {
@@ -426,18 +426,11 @@ class Mecka(Human):
             raise ValueError(
                 f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints'."
             )
-        if annotations and not norm_mode:
+        if annotations:
             key_map["annotations"] = {
                 "key_type": "annotation_keys",
                 "zarr_key": "annotations",
             }
-        if norm_mode:
-            to_delete = [
-                k for k, v in key_map.items()
-                if v.get("key_type") in ("camera_keys", "annotation_keys")
-            ]
-            for k in to_delete:
-                del key_map[k]
         return key_map
 
 
@@ -939,183 +932,6 @@ def _build_aria_keypoints_bimanual_transform_list(
     return transform_list
 
 
-def _build_aria_cartesian_revert_eef_frame_transform_list(
-    *,
-    action_key: str = "actions_cartesian",
-    obs_key: str = "observations.state.ee_pose",
-    left_action_wristframe: str = "left.action_ee_pose_wristframe",
-    right_action_wristframe: str = "right.action_ee_pose_wristframe",
-    left_obs_headframe: str = "left.obs_ee_pose_headframe",
-    right_obs_headframe: str = "right.obs_ee_pose_headframe",
-    left_action_headframe: str = "left.action_ee_pose_headframe",
-    right_action_headframe: str = "right.action_ee_pose_headframe",
-    is_quat: bool = False,
-) -> list[Transform]:
-    """Revert wrist-frame ARIA cartesian actions back to head (camera) frame.
-
-    Inverse of ``_build_aria_cartesian_eef_frame_transform_list`` for viz: the
-    action chunks live in each side's wrist frame, the proprio ee-poses live in
-    headframe (= Aria camera frame). Re-composes ``target_headframe @ chunk_wristframe``
-    so action chunks are back in headframe / camera frame.
-    """
-    pose_shape = 7 if is_quat else 6
-    mode = "xyzwxyz" if is_quat else "xyzypr"
-    transform_list = [
-        SplitKeys(
-            input_key=obs_key,
-            output_key_list=[
-                (left_obs_headframe, pose_shape),
-                (right_obs_headframe, pose_shape),
-            ],
-        ),
-        SplitKeys(
-            input_key=action_key,
-            output_key_list=[
-                (left_action_wristframe, pose_shape),
-                (right_action_wristframe, pose_shape),
-            ],
-        ),
-        ActionChunkCoordinateFrameTransform(
-            target_world=left_obs_headframe,
-            chunk_world=left_action_wristframe,
-            transformed_key_name=left_action_headframe,
-            mode=mode,
-            inverse=False,
-        ),
-        ActionChunkCoordinateFrameTransform(
-            target_world=right_obs_headframe,
-            chunk_world=right_action_wristframe,
-            transformed_key_name=right_action_headframe,
-            mode=mode,
-            inverse=False,
-        ),
-        ConcatKeys(
-            key_list=[left_action_headframe, right_action_headframe],
-            new_key_name=action_key,
-            delete_old_keys=True,
-        ),
-    ]
-    return transform_list
-
-
-def _build_aria_cartesian_eef_frame_transform_list(
-    *,
-    target_world: str = "obs_head_pose",
-    target_world_ypr: str = "obs_head_pose_ypr",
-    target_world_is_quat: bool = True,
-    left_action_world: str = "left.action_ee_pose",
-    right_action_world: str = "right.action_ee_pose",
-    left_obs_pose: str = "left.obs_ee_pose",
-    right_obs_pose: str = "right.obs_ee_pose",
-    left_action_headframe: str = "left.action_ee_pose_headframe",
-    right_action_headframe: str = "right.action_ee_pose_headframe",
-    left_obs_headframe: str = "left.obs_ee_pose_headframe",
-    right_obs_headframe: str = "right.obs_ee_pose_headframe",
-    left_action_wristframe: str = "left.action_ee_pose_wristframe",
-    right_action_wristframe: str = "right.action_ee_pose_wristframe",
-    actions_key: str = "actions_cartesian",
-    obs_key: str = "observations.state.ee_pose",
-    chunk_length: int = 100,
-    stride: int = 3,
-    delete_target_world: bool = True,
-) -> list[Transform]:
-    """ARIA bimanual cartesian pipeline expressed in the current wrist frame.
-
-    Action ee-pose chunks are first transformed world → headframe (via
-    ``obs_head_pose``), then headframe → wristframe (via the proprio
-    ``*.obs_ee_pose_headframe`` for each side). Proprio ee-poses remain in
-    headframe (wristframe of the wrist itself is identity). All retained poses
-    are converted to xyz-ypr.
-    """
-    keys_to_delete = list(
-        {
-            left_action_world,
-            right_action_world,
-            left_obs_pose,
-            right_obs_pose,
-            left_action_headframe,
-            right_action_headframe,
-        }
-    )
-    if delete_target_world:
-        keys_to_delete.append(target_world)
-        if target_world_is_quat:
-            keys_to_delete.append(target_world_ypr)
-
-    transform_list: list[Transform] = [
-        ActionChunkCoordinateFrameTransform(
-            target_world=target_world,
-            chunk_world=left_action_world,
-            transformed_key_name=left_action_headframe,
-            mode="xyzwxyz",
-        ),
-        ActionChunkCoordinateFrameTransform(
-            target_world=target_world,
-            chunk_world=right_action_world,
-            transformed_key_name=right_action_headframe,
-            mode="xyzwxyz",
-        ),
-        PoseCoordinateFrameTransform(
-            target_world=target_world,
-            pose_world=left_obs_pose,
-            transformed_key_name=left_obs_headframe,
-            mode="xyzwxyz",
-        ),
-        PoseCoordinateFrameTransform(
-            target_world=target_world,
-            pose_world=right_obs_pose,
-            transformed_key_name=right_obs_headframe,
-            mode="xyzwxyz",
-        ),
-        InterpolatePose(
-            new_chunk_length=chunk_length,
-            action_key=left_action_headframe,
-            output_action_key=left_action_headframe,
-            stride=stride,
-            mode="xyzwxyz",
-        ),
-        InterpolatePose(
-            new_chunk_length=chunk_length,
-            action_key=right_action_headframe,
-            output_action_key=right_action_headframe,
-            stride=stride,
-            mode="xyzwxyz",
-        ),
-        ActionChunkCoordinateFrameTransform(
-            target_world=left_obs_headframe,
-            chunk_world=left_action_headframe,
-            transformed_key_name=left_action_wristframe,
-            mode="xyzwxyz",
-        ),
-        ActionChunkCoordinateFrameTransform(
-            target_world=right_obs_headframe,
-            chunk_world=right_action_headframe,
-            transformed_key_name=right_action_wristframe,
-            mode="xyzwxyz",
-        ),
-        XYZWXYZ_to_XYZYPR(
-            keys=[
-                left_action_wristframe,
-                right_action_wristframe,
-                left_obs_headframe,
-                right_obs_headframe,
-            ]
-        ),
-        ConcatKeys(
-            key_list=[left_action_wristframe, right_action_wristframe],
-            new_key_name=actions_key,
-            delete_old_keys=True,
-        ),
-        ConcatKeys(
-            key_list=[left_obs_headframe, right_obs_headframe],
-            new_key_name=obs_key,
-            delete_old_keys=True,
-        ),
-        DeleteKeys(keys_to_delete=keys_to_delete),
-    ]
-    return transform_list
-
-
 def _build_aria_cartesian_bimanual_transform_list(
     *,
     target_world: str = "obs_head_pose",
@@ -1134,6 +950,7 @@ def _build_aria_cartesian_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    pause_removal_epsilon: float | None = None,
 ) -> list[Transform]:
     """Canonical ARIA bimanual transform pipeline used by tests and notebooks.
 
@@ -1155,6 +972,17 @@ def _build_aria_cartesian_bimanual_transform_list(
         if target_world_is_quat:
             keys_to_delete.append(target_world_ypr)
 
+    pause_transforms: list[Transform] = (
+        [
+            PauseRemovalTransform(
+                action_keys=[left_action_headframe, right_action_headframe],
+                epsilon=pause_removal_epsilon,
+            )
+        ]
+        if pause_removal_epsilon is not None
+        else []
+    )
+
     transform_list: list[Transform] = [
         ActionChunkCoordinateFrameTransform(
             target_world=target_pose_key,
@@ -1180,6 +1008,7 @@ def _build_aria_cartesian_bimanual_transform_list(
             transformed_key_name=right_obs_headframe,
             mode="xyzwxyz",
         ),
+        *pause_transforms,
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_action_headframe,

@@ -474,6 +474,80 @@ class CartesianWithGripperCoordinateTransform(Transform):
 
 
 # ---------------------------------------------------------------------------
+# Pause Removal
+# ---------------------------------------------------------------------------
+
+
+class PauseRemovalTransform(Transform):
+    """
+    Collapse consecutive pause frames within an action chunk and pad back to
+    the original length by repeating the last kept frame.
+
+    A frame at index t is a "pause" if ||chunk[t] - chunk[t-1}|| < epsilon.
+    Consecutive pause runs are collapsed to their first frame; subsequent
+    duplicates are dropped.  The chunk length is preserved so downstream
+    transforms (e.g. InterpolatePose) receive the expected shape.
+
+    Must be placed *after* coordinate-frame transforms (so detection runs in
+    the model's native action space) and *before* InterpolatePose.
+
+    Args:
+        action_keys: Batch-dict keys to apply pause removal to.  Each must
+            map to a numpy array of shape (H, action_dim).
+        epsilon: L2-norm threshold below which consecutive frames are "paused".
+    """
+
+    def __init__(
+        self, action_keys: list[str], epsilon: float = 0.001, log_every: int = 2000
+    ) -> None:
+        self.action_keys = list(action_keys)
+        self.epsilon = epsilon
+        self.log_every = log_every
+        self._n_calls = 0
+        self._total_removed = 0
+        self._total_frames = 0
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.action_keys:
+            if key not in batch:
+                continue
+            chunk = np.asarray(batch[key])
+            if chunk.ndim == 2 and len(chunk) >= 2:
+                batch[key] = self._compress(chunk)
+        return batch
+
+    def _compress(self, chunk: np.ndarray) -> np.ndarray:
+        H = len(chunk)
+        deltas = np.linalg.norm(np.diff(chunk, axis=0), axis=-1)  # (H-1,)
+        keep = np.ones(H, dtype=bool)
+        in_pause = False
+        for t in range(1, H):
+            if deltas[t - 1] < self.epsilon:
+                if in_pause:
+                    keep[t] = False
+                else:
+                    in_pause = True
+            else:
+                in_pause = False
+        kept = chunk[keep]
+        n_removed = H - len(kept)
+        self._n_calls += 1
+        self._total_removed += n_removed
+        self._total_frames += H
+        if self._n_calls % self.log_every == 0:
+            pct = 100 * self._total_removed / max(self._total_frames, 1)
+            print(
+                f"[PauseRemoval] {self._n_calls} chunks processed: "
+                f"removed {self._total_removed}/{self._total_frames} frames "
+                f"({pct:.1f}%) (epsilon={self.epsilon})"
+            )
+        if n_removed > 0:
+            pad = np.repeat(kept[-1:], n_removed, axis=0)
+            kept = np.concatenate([kept, pad], axis=0)
+        return kept
+
+
+# ---------------------------------------------------------------------------
 # Shape Transforms
 # ---------------------------------------------------------------------------
 class SplitKeys(Transform):

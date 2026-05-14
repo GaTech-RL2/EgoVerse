@@ -48,3 +48,4 @@ temp_dir/**
 .claude/
 graphify-out/
 CLAUDE.md
+tri-cmu-first-batch.json

@@ -12,7 +12,19 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
-      debug: true
+        pause_removal_epsilon: 0.005
+      allowed_episode_ids:
+        - 69b1d00f29d110add752dd69
+        - 69d4aa8f782738835770d90b
+        - 69d2ed564893f9e0d63a7b26
+        - 69b26a38c0e914cdcebdcdcd
+        - 69b20b7a420b58a5f78421a1
+        - 69cf789d58d2d7dee29aade9
+        - 69bb706d0de22d3b2bfa3f48
+        - 69b38e7b76a7fcd9155cb4ec
+        - 69b1f24c7a2805ad3332bf52
+        - 69cdce8f4d0eb7a1e7993837
+        - 69d34b2ff3b3fcc3d93facca
     mode: total
 
 valid_datasets:
@@ -27,7 +39,19 @@ valid_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
-      debug: true
+        pause_removal_epsilon: 0.005
+      allowed_episode_ids:
+        - 69b1d00f29d110add752dd69
+        - 69d4aa8f782738835770d90b
+        - 69d2ed564893f9e0d63a7b26
+        - 69b26a38c0e914cdcebdcdcd
+        - 69b20b7a420b58a5f78421a1
+        - 69cf789d58d2d7dee29aade9
+        - 69bb706d0de22d3b2bfa3f48
+        - 69b38e7b76a7fcd9155cb4ec
+        - 69b1f24c7a2805ad3332bf52
+        - 69cdce8f4d0eb7a1e7993837
+        - 69d34b2ff3b3fcc3d93facca
     mode: total
 
 train_dataloader_params:

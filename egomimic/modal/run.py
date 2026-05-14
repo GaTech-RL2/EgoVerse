@@ -72,16 +72,15 @@ class _Config:
     def train_script(self) -> str:
         return f"{self.remote_repo_dir}/egomimic/trainHydra.py"
 
-    zarr_volume_name: str = field(
-        default_factory=lambda: os.environ.get("MODAL_ZARR_VOLUME", "mecka_data_v2")
-    )
     volume_mount_path: str = "/mnt/zarr-data"
     # Training outputs (checkpoints, logs, norm stats, videos) are persisted here
     output_mount_path: str = "/root/EgoVerse/logs"
 
     # Overridable via env vars (set by trainHydra.py from +modal_gpu= etc.)
     gpu: str = field(default_factory=lambda: os.environ.get("MODAL_GPU", "A100"))
-    cpu: float = field(default_factory=lambda: float(os.environ.get("MODAL_CPU", "12.0")))
+    cpu: float = field(
+        default_factory=lambda: float(os.environ.get("MODAL_CPU", "12.0"))
+    )
     memory_mb: int = field(
         default_factory=lambda: (
             int(float(os.environ.get("MODAL_MEMORY_GB")) * 1024)
@@ -169,7 +168,7 @@ image = (
     )
 )
 
-zarr_volume = modal.Volume.from_name(CFG.zarr_volume_name)
+zarr_volume = modal.Volume.from_name("mecka_data_v2")
 training_outputs_volume = modal.Volume.from_name(
     "egoverse-training-outputs", create_if_missing=True
 )
@@ -217,11 +216,15 @@ def _resolve_git_state() -> tuple[str, str, bool]:
     try:
         subprocess.run(
             ["git", "fetch", "--quiet", "origin"],
-            cwd=REPO_ROOT, check=True, capture_output=True,
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
         )
         result = subprocess.run(
             ["git", "branch", "-r", "--contains", git_commit],
-            cwd=REPO_ROOT, capture_output=True, text=True,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
         )
         if not result.stdout.strip():
             raise SystemExit(
@@ -249,7 +252,13 @@ def _resolve_volume_paths(hydra_args: tuple[str, ...]) -> tuple[str, ...]:
     fixed = []
     for arg in hydra_args:
         key, sep, val = arg.partition("=")
-        if sep and key in _PATH_KEYS and val and val != "null" and not val.startswith("/"):
+        if (
+            sep
+            and key in _PATH_KEYS
+            and val
+            and val != "null"
+            and not val.startswith("/")
+        ):
             val = f"{CFG.output_mount_path}/{val}"
             arg = f"{key}={val}"
         fixed.append(arg)
@@ -263,8 +272,13 @@ def _download_run_artifacts(output_rel_path: str) -> None:
     print(f"Downloading artifacts to {local_dest} ...")
     result = subprocess.run(
         [
-            sys.executable, "-m", "modal", "volume", "get",
-            "--env", "robotics",
+            sys.executable,
+            "-m",
+            "modal",
+            "volume",
+            "get",
+            "--env",
+            "robotics",
             "egoverse-training-outputs",
             output_rel_path,
             str(local_dest),
@@ -289,7 +303,7 @@ def _download_run_artifacts(output_rel_path: str) -> None:
 def _ssh_to_https(url: str) -> str:
     """Convert git@github.com:org/repo.git → https://github.com/org/repo.git"""
     if url.startswith("git@github.com:"):
-        path = url[len("git@github.com:"):]
+        path = url[len("git@github.com:") :]
         return f"https://github.com/{path}"
     return url
 
@@ -329,7 +343,15 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
         check=True,
     )
     subprocess.run(
-        ["git", "-C", CFG.remote_repo_dir, "submodule", "update", "--init", "--recursive"],
+        [
+            "git",
+            "-C",
+            CFG.remote_repo_dir,
+            "submodule",
+            "update",
+            "--init",
+            "--recursive",
+        ],
         check=True,
     )
 
@@ -372,10 +394,6 @@ def run_hydra_train(
 
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
 
-    # Reload the FUSE mount right before training starts — _prepare_repo can take
-    # several minutes and the FUSE connection goes stale, causing EIO on listdir.
-    zarr_volume.reload()
-
     hydra_args = _resolve_volume_paths(hydra_args)
     cmd = _build_train_cmd(hydra_args)
     env = os.environ.copy()
@@ -387,6 +405,7 @@ def run_hydra_train(
     # Expose container context so ModalAutoRestartCallback can spawn a continuation job
     import json as _json
     import time as _time
+
     env["MODAL_TIMEOUT_SECONDS"] = str(CFG.timeout_seconds)
     env["MODAL_START_TIME"] = str(_time.time())
     env["MODAL_HYDRA_ARGS"] = _json.dumps(list(hydra_args))
@@ -405,9 +424,7 @@ def run_hydra_train(
         key=os.path.getmtime,
     )
     output_rel_path = (
-        os.path.relpath(all_run_dirs[-1], CFG.output_mount_path)
-        if all_run_dirs
-        else ""
+        os.path.relpath(all_run_dirs[-1], CFG.output_mount_path) if all_run_dirs else ""
     )
     training_outputs_volume.commit()
 
@@ -485,7 +502,9 @@ def submit(*hydra_args: str) -> None:
             "Modal will run the last committed state only."
         )
     print(f"Submitting commit {git_commit[:12]} from {git_remote}")
-    handle = run_hydra_train.spawn(tuple(hydra_args), git_remote, git_commit, _local_wandb_key())
+    handle = run_hydra_train.spawn(
+        tuple(hydra_args), git_remote, git_commit, _local_wandb_key()
+    )
     print(f"Submitted Modal job: {handle.object_id}")
     print("Monitor at: https://modal.com/apps/egomimic-training")
     print(
