@@ -406,6 +406,7 @@ def run_hydra_train(
     import json as _json
     import time as _time
 
+    env["MODAL_IS_REMOTE"] = "1"
     env["MODAL_TIMEOUT_SECONDS"] = str(CFG.timeout_seconds)
     env["MODAL_START_TIME"] = str(_time.time())
     env["MODAL_HYDRA_ARGS"] = _json.dumps(list(hydra_args))
@@ -439,6 +440,77 @@ def run_hydra_train(
 # ---------------------------------------------------------------------------
 # Container health-check function
 # ---------------------------------------------------------------------------
+
+
+@app.function(
+    cpu=2.0,
+    memory=4096,
+    timeout=900,  # 15 min per shard
+    volumes={CFG.volume_mount_path: zarr_volume},
+)
+def scan_shard(
+    episode_names: list[str],
+    filter_lambdas: list[str],
+) -> list[tuple[str, str]]:
+    """Scan a shard of zarr episode dirs and return matched (path, episode_hash) pairs.
+
+    Self-contained: no egomimic imports — reads .zattrs JSON directly and
+    re-evals filter lambda strings to reconstruct DatasetFilter behavior.
+    Mirrors `_normalize_filter_row` + `DatasetFilter.matches` from the egomimic
+    side; keep in sync if those change.
+    """
+    import json
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+
+    zarr_volume.reload()
+
+    predicates = [eval(expr) for expr in filter_lambdas]
+    base = Path(CFG.volume_mount_path)
+
+    def _read_metadata(name: str):
+        p = base / name
+        zattrs = p / ".zattrs"
+        try:
+            if zattrs.is_file():
+                with zattrs.open("rb") as f:
+                    return json.load(f)
+            import zarr
+
+            store = zarr.open_group(str(p), mode="r")
+            return dict(store.attrs)
+        except Exception:
+            return None
+
+    def _matches(metadata: dict, episode_hash: str) -> bool:
+        row = dict(metadata)
+        row["episode_hash"] = episode_hash
+        v = row.get("is_deleted")
+        if v is None or v == "":
+            row["is_deleted"] = False
+        if row.get("is_deleted"):
+            return False
+        for pred in predicates:
+            if not pred(row):
+                return False
+        return True
+
+    def _process(name: str):
+        episode_hash = name[:-5] if name.endswith(".zarr") else name
+        metadata = _read_metadata(name)
+        if metadata is None:
+            return None
+        if _matches(metadata, episode_hash):
+            return (str(base / name), episode_hash)
+        return None
+
+    matched: list[tuple[str, str]] = []
+    with ThreadPoolExecutor(max_workers=64) as executor:
+        for result in executor.map(_process, episode_names):
+            if result is not None:
+                matched.append(result)
+
+    return matched
 
 
 @app.function(

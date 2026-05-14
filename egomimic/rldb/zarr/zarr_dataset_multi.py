@@ -573,7 +573,36 @@ class LocalEpisodeResolver(EpisodeResolver):
             logger.info("Local filtered paths: %s", filtered)
             return filtered
 
-        # Non-debug: parallel scan over all candidates.
+        # Modal fan-out path: when running inside a Modal container with the
+        # zarr volume mounted at /mnt/zarr-data, shard the scan across many
+        # CPU-only worker containers. The per-container metadata-op cap
+        # (~25 ep/s) is the bottleneck, so horizontal scaling is the only fix.
+        # Requires `modal deploy egomimic/modal/run.py` to have been run once.
+        # Disable with EGOMIMIC_DISABLE_MODAL_SCAN=1.
+        def _is_inside_modal() -> bool:
+            try:
+                import modal
+
+                return not modal.is_local()
+            except Exception:
+                return False
+
+        fanout_enabled = (
+            _is_inside_modal()
+            and str(search_path) == "/mnt/zarr-data"
+            and type(filters) is DatasetFilter
+            and os.environ.get("EGOMIMIC_DISABLE_MODAL_SCAN") != "1"
+        )
+        if fanout_enabled:
+            try:
+                return cls._modal_fanout_scan(search_path, filters, start_time)
+            except Exception as e:
+                logger.warning(
+                    "Modal fan-out scan failed (%s) — falling back to local thread pool",
+                    e,
+                )
+
+        # Local fallback: parallel scan over all candidates.
         candidates: list[tuple[Path, str]] = []
         for p in search_path.iterdir():
             if not p.is_dir():
@@ -628,6 +657,64 @@ class LocalEpisodeResolver(EpisodeResolver):
         )
         logger.info("Local filtered paths: %s", filtered)
         return filtered
+
+    @classmethod
+    def _modal_fanout_scan(
+        cls,
+        search_path: Path,
+        filters: DatasetFilter,
+        start_time: float,
+    ) -> list[tuple[str, str]]:
+        """Fan out the filter scan across Modal containers.
+
+        Lists candidate dir names locally (one fast syscall), shards them, and
+        invokes `egomimic-training::scan_shard` in parallel. Each worker mounts
+        the same zarr volume read-only and runs a thread-pooled .zattrs scan.
+        """
+        import time
+
+        import modal
+
+        names = [n for n in os.listdir(search_path) if (search_path / n).is_dir()]
+        total = len(names)
+        if total == 0:
+            return []
+
+        n_shards = min(int(os.environ.get("EGOMIMIC_SCAN_SHARDS", "100")), total)
+        shards = [names[i::n_shards] for i in range(n_shards)]
+        shards = [s for s in shards if s]
+        total_shards = len(shards)
+
+        logger.info(
+            f"Modal fan-out scan: {total} entries across {total_shards} shards "
+            f"(~{total // total_shards} per shard)"
+        )
+
+        fn = modal.Function.from_name(
+            "egomimic-training", "scan_shard", environment_name="robotics"
+        )
+        filter_lambdas = list(filters.filter_lambdas)
+
+        matched: list[tuple[str, str]] = []
+        completed = 0
+        log_every = max(1, total_shards // 20)
+        for shard_result in fn.map(shards, [filter_lambdas] * total_shards):
+            completed += 1
+            matched.extend(shard_result)
+            if completed % log_every == 0 or completed == total_shards:
+                elapsed = time.monotonic() - start_time
+                logger.info(
+                    f"Modal scan: shard {completed}/{total_shards} done "
+                    f"| matched={len(matched)} | elapsed {elapsed:.0f}s"
+                )
+
+        logger.info(
+            f"Modal fan-out scan complete: {len(matched)} matches from {total} "
+            f"entries in {time.monotonic() - start_time:.1f}s "
+            f"({total_shards} shards)"
+        )
+        logger.info("Local filtered paths: %s", matched)
+        return matched
 
     def resolve(
         self,
