@@ -239,8 +239,8 @@ class S3EpisodeResolver(EpisodeResolver):
         main_prefix: str = "processed_v3",
         key_map: dict | None = None,
         transform_list: list | None = None,
+        debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug: bool = False,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
@@ -292,7 +292,7 @@ class S3EpisodeResolver(EpisodeResolver):
 
     @staticmethod
     def _get_filtered_paths(
-        filters: DatasetFilter | None = None, debug: bool = False
+        filters: DatasetFilter | None = None, debug: int | bool | None = None
     ) -> list[tuple[str, str]]:
         """
         Filters episodes from the SQL episode table according to the criteria specified in `filters`
@@ -319,18 +319,23 @@ class S3EpisodeResolver(EpisodeResolver):
             axis=1,
         )
         output = df.loc[mask, ["zarr_processed_path", "episode_hash"]]
-        before_len = len(output)
-
-        if debug:
-            logger.info("Debug mode: limiting to 10 datasets.")
-            output = output.head(10)
+        n_matched_sql = len(output)
 
         output = output[
             output["zarr_processed_path"].fillna("").astype(str).str.strip() != ""
         ]
-        logger.info(
-            f"Skipped {before_len - len(output)} episodes with null zarr_processed_path: {output}"
-        )
+        n_skipped_null = n_matched_sql - len(output)
+        if n_skipped_null:
+            logger.info(
+                "Skipped %d episodes with null/empty zarr_processed_path.",
+                n_skipped_null,
+            )
+
+        if debug is not None and debug is not False:
+            k = min(10 if debug is True else int(debug), len(output))
+            if k < len(output):
+                logger.info("Debug mode: limiting to %d datasets.", k)
+            output = output.iloc[:k]
 
         paths = list(output.itertuples(index=False, name=None))
         logger.info(f"Paths: {paths}")
@@ -430,7 +435,7 @@ class S3EpisodeResolver(EpisodeResolver):
         filters: DatasetFilter | None = None,
         local_dir: Path,
         numworkers: int = 10,
-        debug: bool = False,
+        debug: int | bool | None = None,
     ):
         """
         Public API:
@@ -478,8 +483,8 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug=False,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
@@ -499,14 +504,13 @@ class LocalEpisodeResolver(EpisodeResolver):
         cls,
         search_path: Path,
         filters: DatasetFilter | None = None,
-        debug: bool = False,
+        debug: int | bool | None = None,
     ):
         filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
             return []
 
-        _DEBUG_LIMIT = 10
         filtered = []
         # Skip sorting in debug mode — avoids materialising all 198K+ entries upfront
         entries = search_path.iterdir() if debug else sorted(search_path.iterdir())
@@ -526,9 +530,11 @@ class LocalEpisodeResolver(EpisodeResolver):
             if cls._local_filters_match(metadata, episode_hash, filters):
                 filtered.append((str(p), episode_hash))
 
-            if debug and len(filtered) >= _DEBUG_LIMIT:
-                logger.info("Debug mode: stopping early at %d datasets.", _DEBUG_LIMIT)
-                break
+        if debug is not None and debug is not False:
+            k = min(10 if debug is True else int(debug), len(filtered))
+            if k < len(filtered):
+                logger.info("Debug mode: limiting to %d datasets.", k)
+            filtered = filtered[:k]
 
         logger.info("Local filtered paths: %s", filtered)
         return filtered
