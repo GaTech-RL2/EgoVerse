@@ -27,7 +27,7 @@ os.environ.setdefault("MODAL_ENVIRONMENT", "robotics")
 VOLUME_MOUNT_PATH = "/mnt/zarr-data"
 ZARR_VOLUME_NAME = "mecka_data_v2"
 
-image = modal.Image.debian_slim(python_version="3.10").pip_install("zarr==3.1.5")
+image = modal.Image.debian_slim(python_version="3.11").pip_install("zarr==3.1.5")
 zarr_volume = modal.Volume.from_name(ZARR_VOLUME_NAME)
 app = modal.App("egomimic-scan", image=image)
 
