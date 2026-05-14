@@ -9,7 +9,7 @@ accelerator: gpu
 devices: ${launch_params.gpus_per_node}
 num_nodes: 1
 sync_batchnorm: True
-check_val_every_n_epoch: 200
+check_val_every_n_epoch: 5
 num_sanity_val_steps: 0
 
 # Sentinel: trainHydra.py detects this and auto-submits to Modal instead of

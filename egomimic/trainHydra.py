@@ -1,6 +1,7 @@
 import copy
 import json
 import os
+import re
 import signal
 import sys
 import time
@@ -95,8 +96,12 @@ class ModalAutoRestartCallback(Callback):
             try:
                 import modal as _modal
 
+                _modal_app = (
+                    os.environ.get("MODAL_APP_NAME", "egoverse-train").strip()
+                    or "egoverse-train"
+                )
                 fn = _modal.Function.from_name(
-                    "egoverse-train",
+                    _modal_app,
                     "run_hydra_train",
                     environment_name=os.environ.get("MODAL_ENVIRONMENT", "main"),
                 )
@@ -111,6 +116,36 @@ class ModalAutoRestartCallback(Callback):
         log.info(
             "[ModalAutoRestart] Stopping current run — continuation job is running"
         )
+
+
+_MODAL_APP_DEFAULT = "egoverse-train"
+
+
+def _modal_app_name_from_cfg(cfg: DictConfig) -> str:
+    """Derive Modal App / log label as ``<name>-<description>`` (Hydra cfg keys).
+
+    Must satisfy Modal object naming: alphanumeric, ``-``, ``_``, ``.``, max 64 chars.
+    """
+
+    def _san(s: object) -> str:
+        t = re.sub(r"[^a-zA-Z0-9_.-]", "-", str(s or "").strip())
+        return t.strip("-_.") or ""
+
+    n = _san(cfg.get("name"))
+    d = _san(cfg.get("description"))
+    if n and d:
+        label = f"{n}-{d}"
+    elif n:
+        label = n
+    elif d:
+        label = d
+    else:
+        return _MODAL_APP_DEFAULT
+    if len(label) > 64:
+        label = label[:64].rstrip("-_.")
+    if not re.match(r"^[a-zA-Z0-9-_.]+$", label):
+        return _MODAL_APP_DEFAULT
+    return label or _MODAL_APP_DEFAULT
 
 
 def _submit_to_modal(cfg: DictConfig) -> None:
@@ -130,6 +165,7 @@ def _submit_to_modal(cfg: DictConfig) -> None:
     repo_root = Path(__file__).resolve().parent.parent
 
     modal_env = os.environ.copy()
+    modal_env["MODAL_APP_NAME"] = _modal_app_name_from_cfg(cfg)
 
     _MODAL_KEYS = {"modal_gpu", "modal_cpu", "modal_memory_gb", "modal_memory_mb"}
     container_overrides = []
@@ -180,6 +216,7 @@ def _submit_to_modal(cfg: DictConfig) -> None:
         int(modal_env.get("MODAL_MEMORY_MB", "65536")) // 1024
     )
     print(f"Modal resources: gpu={gpu}  cpu={cpu}  memory={mem_gb}GB")
+    print(f"Modal app / run label: {modal_env['MODAL_APP_NAME']}")
     print(f"Submitting to Modal via: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=str(repo_root), env=modal_env)
     sys.exit(result.returncode)
