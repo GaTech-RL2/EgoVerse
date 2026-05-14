@@ -480,9 +480,13 @@ class LocalEpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         norm_stats: dict | None = None,
         debug=False,
+        allowed_episode_ids: list[str] | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
+        self.allowed_episode_ids = (
+            set(allowed_episode_ids) if allowed_episode_ids else None
+        )
 
     @staticmethod
     def _local_filters_match(
@@ -551,6 +555,11 @@ class LocalEpisodeResolver(EpisodeResolver):
         filtered_paths = self._get_local_filtered_paths(
             self.folder_path, filters, debug=self.debug
         )
+
+        if self.allowed_episode_ids is not None:
+            filtered_paths = [
+                (p, h) for p, h in filtered_paths if h in self.allowed_episode_ids
+            ]
 
         valid_folder_names = {folder_name for _, folder_name in filtered_paths}
         logger.info(f"Valid folder names: {valid_folder_names}")
