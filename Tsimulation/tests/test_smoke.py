@@ -20,6 +20,7 @@ os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
 from Tsimulation.collect.zarr_writer import (
     ACTION_KEY,
+    CMD_PUSHER_KEY,
     GOAL_KEY,
     IMAGE_KEY,
     REWARD_KEY,
@@ -32,6 +33,31 @@ from Tsimulation.pushshapes.shapes import SHAPES
 SHAPES_TO_TEST = list(SHAPES.keys())
 PUSHERS = ["circle", "stick"]
 OBSTACLES = [0, 1, 2, 3]
+
+
+def _add_fake_step(
+    writer: ZarrDemoWriter,
+    rng: np.random.Generator,
+    image_size: int = 8,
+    reward: float | None = None,
+) -> None:
+    """Helper: feed the writer one synthetic step with the new split-pose API."""
+    writer.add_step(
+        image=rng.integers(0, 255, size=(image_size, image_size, 3), dtype=np.uint8),
+        pusher_obs_pose=rng.standard_normal(2).astype(np.float32),
+        object_obs_pose=rng.standard_normal(3).astype(np.float32),
+        pusher_cmd_pose=rng.uniform(0, 512, size=2).astype(np.float32),
+        action=rng.uniform(0, 512, size=2).astype(np.float32),
+        reward=float(rng.uniform()) if reward is None else reward,
+        goal_pose=rng.standard_normal(3).astype(np.float32),
+    )
+
+
+def _episode_filename(env_args: dict, idx: int) -> str:
+    return (
+        f"episode_{env_args['object_shape']}_{env_args['pusher_shape']}"
+        f"_obs{env_args['obstacle_level']}_{idx:06d}.zarr"
+    )
 
 
 @pytest.mark.parametrize("object_shape", SHAPES_TO_TEST)
@@ -84,13 +110,7 @@ def test_writer_round_trip():
         for ep_len in episode_lengths:
             writer.start_episode()
             for _ in range(ep_len):
-                writer.add_step(
-                    image=rng.integers(0, 255, size=(8, 8, 3), dtype=np.uint8),
-                    state=rng.standard_normal(5).astype(np.float32),
-                    action=rng.uniform(0, 512, size=2).astype(np.float32),
-                    reward=float(rng.uniform()),
-                    goal_pose=rng.standard_normal(3).astype(np.float32),
-                )
+                _add_fake_step(writer, rng)
             idx = writer.commit_episode()
             assert idx >= 0
 
@@ -98,7 +118,7 @@ def test_writer_round_trip():
 
         # Reopen each episode store and verify.
         for ep_idx, ep_len in enumerate(episode_lengths):
-            ep_path = os.path.join(tmp, f"episode_{ep_idx:06d}.zarr")
+            ep_path = os.path.join(tmp, _episode_filename(env_args, ep_idx))
             assert os.path.isdir(ep_path), f"missing {ep_path}"
             store = zarr.open_group(ep_path, mode="r")
             attrs = dict(store.attrs)
@@ -106,16 +126,19 @@ def test_writer_round_trip():
             assert attrs["total_frames"] == ep_len
             assert attrs["task_name"] == "pushshapes"
 
-            # task_description should be JSON of env_args.
             desc = json.loads(attrs["task_description"])
             assert desc["env_args"]["object_shape"] == "T"
 
             features = attrs["features"]
-            assert STATE_KEY in features
-            assert ACTION_KEY in features
-            assert REWARD_KEY in features
-            assert GOAL_KEY in features
-            assert IMAGE_KEY in features
+            for key in (
+                STATE_KEY,
+                CMD_PUSHER_KEY,
+                ACTION_KEY,
+                REWARD_KEY,
+                GOAL_KEY,
+                IMAGE_KEY,
+            ):
+                assert key in features, f"missing feature {key!r}"
             assert features[IMAGE_KEY]["dtype"] == "jpeg"
 
             # Numeric arrays at least as long as episode (writer may pad to
@@ -124,6 +147,8 @@ def test_writer_round_trip():
             assert state_arr.shape == (ep_len, 5)
             action_arr = store[ACTION_KEY][:ep_len]
             assert action_arr.shape == (ep_len, 2)
+            cmd_arr = store[CMD_PUSHER_KEY][:ep_len]
+            assert cmd_arr.shape == (ep_len, 2)
 
 
 def test_writer_resumes_index_after_reopen():
@@ -134,13 +159,7 @@ def test_writer_resumes_index_after_reopen():
         w1.start_episode()
         rng = np.random.default_rng(1)
         for _ in range(2):
-            w1.add_step(
-                image=rng.integers(0, 255, size=(8, 8, 3), dtype=np.uint8),
-                state=rng.standard_normal(5).astype(np.float32),
-                action=rng.uniform(0, 512, size=2).astype(np.float32),
-                reward=0.5,
-                goal_pose=rng.standard_normal(3).astype(np.float32),
-            )
+            _add_fake_step(w1, rng, reward=0.5)
         idx = w1.commit_episode()
         assert idx == 0
         w1.close()
@@ -148,7 +167,7 @@ def test_writer_resumes_index_after_reopen():
         w2 = ZarrDemoWriter(path=tmp, env_args=env_args, image_size=8)
         assert (
             w2.next_episode_index == 1
-        ), "writer should resume at idx 1 when episode_000000 already exists"
+        ), "writer should resume at idx 1 when an episode_*_000000.zarr already exists"
         w2.close()
 
 
@@ -159,7 +178,9 @@ def test_writer_abort_does_not_create_store():
         writer.start_episode()
         writer.add_step(
             image=np.zeros((8, 8, 3), dtype=np.uint8),
-            state=np.zeros(5, dtype=np.float32),
+            pusher_obs_pose=np.zeros(2, dtype=np.float32),
+            object_obs_pose=np.zeros(3, dtype=np.float32),
+            pusher_cmd_pose=np.zeros(2, dtype=np.float32),
             action=np.zeros(2, dtype=np.float32),
             reward=0.0,
             goal_pose=np.zeros(3, dtype=np.float32),
@@ -188,31 +209,24 @@ def test_zarrdataset_end_to_end_load():
         rng = np.random.default_rng(7)
         ep_len = 4
         for _ in range(ep_len):
-            writer.add_step(
-                image=rng.integers(0, 255, size=(8, 8, 3), dtype=np.uint8),
-                state=rng.standard_normal(5).astype(np.float32),
-                action=rng.uniform(0, 512, size=2).astype(np.float32),
-                reward=float(rng.uniform()),
-                goal_pose=rng.standard_normal(3).astype(np.float32),
-            )
+            _add_fake_step(writer, rng)
         idx = writer.commit_episode()
         writer.close()
         assert idx == 0
 
-        ep_path = os.path.join(tmp, "episode_000000.zarr")
+        ep_path = os.path.join(tmp, _episode_filename(env_args, 0))
         dataset = ZarrDataset(ep_path, key_map=get_keymap())
         sample = dataset[0]
 
         # The loader should hand back each configured key with the right
-        # shape; image is JPEG-decoded to (H, W, 3) uint8.
+        # shape; ZarrDataset returns images in torch (C, H, W) layout after
+        # decoding the JPEG bytes.
         assert "front_img_1" in sample
         assert "state_agent_obj" in sample
         assert "actions" in sample
         img = sample["front_img_1"]
-        # Decoded image: (H, W, 3) uint8 — tolerate either np or torch.
-        assert img.shape[-1] == 3
+        assert img.shape[0] == 3, f"expected C=3, got shape {tuple(img.shape)}"
         assert len(img.shape) == 3
-        state = sample["state_agent_obj"]
-        actions = sample["actions"]
-        assert state.shape[-1] == 5
-        assert actions.shape[-1] == 2
+        assert sample["state_agent_obj"].shape[-1] == 5
+        # action_horizon=32 set in get_keymap → loader returns (32, 2) per sample.
+        assert sample["actions"].shape == (32, 2)

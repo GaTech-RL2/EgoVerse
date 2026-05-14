@@ -1,25 +1,13 @@
-"""Keymap and transform helpers for the pushshapes_sim embodiment."""
+"""Thin re-export shim for the pushshapes_sim keymap.
+
+The canonical embodiment helper (`get_keymap` + `viz_gt_preds`) lives in
+:mod:`egomimic.rldb.embodiment.pushshapes` because the training pipeline
+imports it from there. This module just re-exports `get_keymap` so local
+sim-only scripts can use the shorter import path.
+"""
 
 from __future__ import annotations
 
+from egomimic.rldb.embodiment.pushshapes import get_keymap
 
-def get_keymap(**kwargs) -> dict:
-    """Return the key_map for pushshapes_sim ZarrDataset.
-
-    Extra kwargs (e.g. norm_mode=True injected by trainHydra) are accepted
-    and ignored so that norm-stat collection doesn't crash.
-    """
-    return {
-        "front_img_1": {
-            "key_type": "camera_keys",
-            "zarr_key": "observations.images.front_img_1",
-        },
-        "state_agent_obj": {
-            "key_type": "proprio_keys",
-            "zarr_key": "observations.state",
-        },
-        "actions": {
-            "key_type": "action_keys",
-            "zarr_key": "actions",
-        },
-    }
+__all__ = ["get_keymap"]

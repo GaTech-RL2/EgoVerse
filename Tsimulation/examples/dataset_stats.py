@@ -23,7 +23,8 @@ import zarr
 
 from Tsimulation.collect.zarr_writer import ACTION_KEY, REWARD_KEY
 
-_EPISODE_RE = re.compile(r"^episode_(\d+)\.zarr$")
+_EPISODE_NEW_RE = re.compile(r"^episode_[A-Za-z0-9]+_[A-Za-z0-9]+_obs\d+_\d+\.zarr$")
+_EPISODE_OLD_RE = re.compile(r"^episode_\d+\.zarr$")
 
 # (object_shape, pusher_shape, obstacle_level)
 Config = tuple[str, str, object]
@@ -78,11 +79,14 @@ class DatasetStats:
 
 
 def _list_episodes(dataset: Path) -> list[Path]:
-    """Subdirectories matching `episode_NNNNNN.zarr/` in `dataset`."""
+    """Episode subdirectories under `dataset` — accepts both the new
+    `episode_<obj>_<pusher>_obs<N>_<idx>.zarr` and legacy
+    `episode_NNNNNN.zarr` naming."""
     return [
         entry
         for entry in sorted(dataset.iterdir())
-        if entry.is_dir() and _EPISODE_RE.match(entry.name)
+        if entry.is_dir()
+        and (_EPISODE_NEW_RE.match(entry.name) or _EPISODE_OLD_RE.match(entry.name))
     ]
 
 

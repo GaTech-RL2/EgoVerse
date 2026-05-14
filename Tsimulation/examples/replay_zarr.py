@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,20 @@ import zarr
 
 from Tsimulation.collect.zarr_writer import ACTION_KEY, GOAL_KEY, STATE_KEY
 from Tsimulation.pushshapes.env import PushShapesEnv
+
+# Match both new-style `episode_<obj>_<pusher>_obs<N>_<idx>.zarr` and the
+# older flat `episode_NNNNNN.zarr` naming.
+_NEW_EPISODE_RE = re.compile(r"^episode_[A-Za-z0-9]+_[A-Za-z0-9]+_obs\d+_(\d+)\.zarr$")
+_OLD_EPISODE_RE = re.compile(r"^episode_(\d+)\.zarr$")
+
+
+def _resolve_episode_path(dataset: Path, episode: int) -> Path:
+    for entry in sorted(dataset.iterdir()):
+        for regex in (_NEW_EPISODE_RE, _OLD_EPISODE_RE):
+            m = regex.match(entry.name)
+            if m and int(m.group(1)) == episode:
+                return entry
+    raise FileNotFoundError(f"no episode with index {episode} in {dataset}")
 
 
 def main() -> int:
@@ -35,10 +50,7 @@ def main() -> int:
     p.add_argument("--tol", type=float, default=1e-3)
     args = p.parse_args()
 
-    episode_path = Path(args.dataset) / f"episode_{args.episode:06d}.zarr"
-    if not episode_path.exists():
-        raise FileNotFoundError(f"no such episode store: {episode_path}")
-
+    episode_path = _resolve_episode_path(Path(args.dataset), args.episode)
     store = zarr.open_group(str(episode_path), mode="r")
     actions = np.asarray(store[ACTION_KEY][:])
     states = np.asarray(store[STATE_KEY][:])
