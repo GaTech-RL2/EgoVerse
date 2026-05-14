@@ -17,7 +17,9 @@ robomimic_model:
     num_heads: 4
     token_postprocessing: "action_token"
     observation_horizon: 1
-    action_horizon: 32
+    # Single source of truth: defined in data/tsimulation.yaml and threaded
+    # into both the loader's key_map and the head/policy below.
+    action_horizon: ${data.action_horizon}
     no_trunk: false
     use_domain_embedding: true
     drop_path: 0.1
@@ -65,7 +67,7 @@ robomimic_model:
   head_specs:
     pushshapes_sim:
       _target_: egomimic.models.fm_policy.FMPolicy
-      action_horizon: 32
+      action_horizon: ${data.action_horizon}
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
@@ -77,7 +79,7 @@ robomimic_model:
         cond_dim: 128
         hidden_dim: 64
         act_dim: 2
-        act_seq: 32
+        act_seq: ${data.action_horizon}
         n_heads: 4
         dropout: 0.1
         mlp_layers: 4

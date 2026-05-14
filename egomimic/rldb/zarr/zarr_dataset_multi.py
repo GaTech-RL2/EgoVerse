@@ -1808,6 +1808,7 @@ class ZarrEpisode:
     __slots__ = (
         "_path",
         "_store",
+        "_pid",
         "metadata",
         "keys",
     )
@@ -1819,9 +1820,17 @@ class ZarrEpisode:
             path: Path to the .zarr episode directory
         """
         self._path = Path(path)
+        self._pid = os.getpid()
         self._store = zarr.open_group(str(self._path), mode="r")
         self.metadata = dict(self._store.attrs)
         self.keys = self.metadata["features"]
+
+    def _get_store(self):
+        # zarr v3 uses asyncio internally which is not fork-safe; reopen after fork
+        if os.getpid() != self._pid:
+            self._store = zarr.open_group(str(self._path), mode="r")
+            self._pid = os.getpid()
+        return self._store
 
     def read(
         self, keys_with_ranges: dict[str, tuple[int, int | None]]
@@ -1841,9 +1850,10 @@ class ZarrEpisode:
             ...     "rewards": (20, None),     # Read single frame at index 20
             ... })
         """
+        store = self._get_store()
         result = {}
         for key, (start, end) in keys_with_ranges.items():
-            arr = self._store[key]
+            arr = store[key]
             if end is not None:
                 data = arr[start:end]
             else:

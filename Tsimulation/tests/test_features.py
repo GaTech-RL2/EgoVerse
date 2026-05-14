@@ -112,6 +112,24 @@ def test_scripted_collector_runs_end_to_end():
         scripted_collect.run(args)
 
 
+def _add_step(
+    writer: ZarrDemoWriter,
+    rng: np.random.Generator,
+    image_size: int = 8,
+    reward: float | None = None,
+) -> None:
+    """Helper: feed one synthetic step through the new split-pose API."""
+    writer.add_step(
+        image=rng.integers(0, 255, size=(image_size, image_size, 3), dtype=np.uint8),
+        pusher_obs_pose=rng.standard_normal(2).astype(np.float32),
+        object_obs_pose=rng.standard_normal(3).astype(np.float32),
+        pusher_cmd_pose=rng.uniform(0, 512, size=2).astype(np.float32),
+        action=rng.uniform(0, 512, size=2).astype(np.float32),
+        reward=float(rng.uniform()) if reward is None else reward,
+        goal_pose=rng.standard_normal(3).astype(np.float32),
+    )
+
+
 def test_dataset_stats_on_synthesized_dataset():
     """Synthesize two short episodes via the writer, then run stats."""
     from Tsimulation.examples import dataset_stats
@@ -127,13 +145,7 @@ def test_dataset_stats_on_synthesized_dataset():
         for ep_len in (3, 5):
             writer.start_episode()
             for k in range(ep_len):
-                writer.add_step(
-                    image=rng.integers(0, 255, size=(8, 8, 3), dtype=np.uint8),
-                    state=rng.standard_normal(5).astype(np.float32),
-                    action=rng.uniform(0, 512, size=2).astype(np.float32),
-                    reward=float(k) / ep_len,  # rising reward
-                    goal_pose=rng.standard_normal(3).astype(np.float32),
-                )
+                _add_step(writer, rng, reward=float(k) / ep_len)
             writer.commit_episode()
         writer.close()
 
@@ -151,7 +163,9 @@ def test_dataset_stats_on_synthesized_dataset():
 
 def test_visualize_episode_save_mp4(tmp_path):
     """Headless render: save a short MP4 from a synthesized 4-frame episode."""
-    from Tsimulation.examples import visualize_episode
+    # The visualize module lives at the Tsimulation package root on this
+    # branch (not under Tsimulation/examples/).
+    from Tsimulation import visualize_episode
 
     dataset_dir = tmp_path / "ds"
     dataset_dir.mkdir()
@@ -161,14 +175,13 @@ def test_visualize_episode_save_mp4(tmp_path):
         "obstacle_level": 0,
     }
     writer = ZarrDemoWriter(path=dataset_dir, env_args=env_args, image_size=32)
-    rng = np.random.default_rng(123)
     writer.start_episode()
     for k in range(4):
         writer.add_step(
-            image=rng.integers(0, 255, size=(32, 32, 3), dtype=np.uint8),
-            state=np.array(
-                [100.0 + k, 100.0 + k, 200.0, 200.0, 0.1 * k], dtype=np.float32
-            ),
+            image=np.zeros((32, 32, 3), dtype=np.uint8),
+            pusher_obs_pose=np.array([100.0 + k, 100.0 + k], dtype=np.float32),
+            object_obs_pose=np.array([200.0, 200.0, 0.1 * k], dtype=np.float32),
+            pusher_cmd_pose=np.array([150.0 + k * 10, 150.0], dtype=np.float32),
             action=np.array([150.0 + k * 10, 150.0], dtype=np.float32),
             reward=0.1 * k,
             goal_pose=np.array([400.0, 300.0, 0.5], dtype=np.float32),
@@ -178,14 +191,7 @@ def test_visualize_episode_save_mp4(tmp_path):
 
     out_mp4 = tmp_path / "out.mp4"
     rc = visualize_episode.main(
-        [
-            "--dataset",
-            str(dataset_dir),
-            "--episode",
-            "0",
-            "--save",
-            str(out_mp4),
-        ]
+        ["--dataset", str(dataset_dir), "--episode", "0", "--save", str(out_mp4)]
     )
     assert rc == 0
     assert out_mp4.exists()
