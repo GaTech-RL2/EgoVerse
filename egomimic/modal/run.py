@@ -28,6 +28,11 @@ GPU / compute
 MODAL_GPU (default "A100"), MODAL_CPU (default 12.0), MODAL_MEMORY_GB (default 64).
 trainHydra.py sets these from +modal_gpu= / +modal_cpu= / +modal_memory_gb= overrides.
 
+App name (Modal dashboard / logs)
+----------------------------------
+MODAL_APP_NAME sets the Modal App name (default ``egoverse-train``). trainHydra.py sets it
+from Hydra ``name`` and ``description`` as ``<name>-<description>`` when using trainer._modal.
+
 Credentials
 ------------
 ~/.egoverse_env is copied into the container automatically if it exists.
@@ -180,7 +185,11 @@ if _env_src is not None:
 else:
     image = _base_image
 
-app = modal.App("egoverse-train", image=image)
+_MODAL_APP_DEFAULT = "egoverse-train"
+_modal_app_name = (
+    os.environ.get("MODAL_APP_NAME", _MODAL_APP_DEFAULT).strip() or _MODAL_APP_DEFAULT
+)
+app = modal.App(_modal_app_name, image=image)
 
 # ---------------------------------------------------------------------------
 # Local helpers (run on the submitting machine)
@@ -431,6 +440,17 @@ def run_hydra_train(
     env.setdefault("PYTHONUNBUFFERED", "1")
     env.setdefault("HYDRA_FULL_ERROR", "1")
     env["MODAL_IS_REMOTE"] = "1"
+    _container_app = modal.App._get_container_app()
+    _resolved_app = (
+        (
+            _container_app.name
+            if _container_app is not None and _container_app.name
+            else ""
+        )
+        or os.environ.get("MODAL_APP_NAME", "").strip()
+        or _MODAL_APP_DEFAULT
+    )
+    env["MODAL_APP_NAME"] = _resolved_app
     # Tell EpisodeResolver to read data from the mounted volume
     env["EGOVERSE_MODAL_DATA_DIR"] = CFG.zarr_volume_mount_path
     if wandb_api_key:
@@ -553,7 +573,11 @@ def submit(*hydra_args: str) -> None:
     )
     modal_environment = os.environ.get("MODAL_ENVIRONMENT", "main")
     print(f"Submitted Modal job: {handle.object_id}")
-    print("Monitor at: https://modal.com/apps/egoverse-train")
+    _app_url_name = (
+        os.environ.get("MODAL_APP_NAME", _MODAL_APP_DEFAULT).strip()
+        or _MODAL_APP_DEFAULT
+    )
+    print(f"Monitor at: https://modal.com/apps/{_app_url_name}")
     print(
         "After completion, download artifacts:\n"
         f"  modal volume get --env {modal_environment} "
