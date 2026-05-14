@@ -483,9 +483,8 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
-        debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug=False,
+        debug: int | bool | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
