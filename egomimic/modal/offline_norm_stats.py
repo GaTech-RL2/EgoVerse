@@ -278,6 +278,9 @@ def run_norm_stats(
 
     data_schematic = DataSchematic(schematic_dict=schematic_dict, norm_mode="quantile")
 
+    out_path = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
     # ---- Pass 2: infer shapes and norm stats per dataset ----
     for dataset_name, ds_cfg in prepared_ds_cfgs.items():
         print(f"[NormStats] Instantiating dataset <{dataset_name}>")
@@ -329,9 +332,6 @@ def run_norm_stats(
         if not produced:
             raise RuntimeError(f"[NormStats] No stats produced for dataset={dataset_name}")
         print(f"[NormStats] Validated {len(produced)} keys for <{dataset_name}>")
-
-    out_path = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
 
     stats_out: dict = {}
     for emb, keys_dict in data_schematic.norm_stats.items():
