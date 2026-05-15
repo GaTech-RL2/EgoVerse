@@ -1,4 +1,5 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
 train_datasets:
   eva_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -7,7 +8,7 @@ train_datasets:
       folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pick_place_elmond_refactor
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
-        keymap_mode: cartesian_pi
+        keymap_mode: cartesian
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
@@ -33,35 +34,17 @@ train_datasets:
 
 valid_datasets:
   eva_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
-      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pick_place_elmond_refactor
-      key_map:
-        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
-        keymap_mode: cartesian_pi
-        annotation_key: annotations
-      transform_list:
-        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian
-    filters: null
+    _target_: ${train_datasets.eva_bimanual._target_}
+    resolver: ${train_datasets.eva_bimanual.resolver}
+    filters: ${train_datasets.eva_bimanual.filters}
     mode: valid
-    valid_ratio: 0.05
+    valid_ratio: ${train_datasets.eva_bimanual.valid_ratio}
   aria_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
-      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pick_place_elmond_refactor
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        keymap_mode: cartesian
-        annotation_key: annotations
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian
-    filters: null
+    _target_: ${train_datasets.aria_bimanual._target_}
+    resolver: ${train_datasets.aria_bimanual.resolver}
+    filters: ${train_datasets.aria_bimanual.filters}
     mode: valid
-    valid_ratio: 0.05
+    valid_ratio: ${train_datasets.aria_bimanual.valid_ratio}
 
 train_dataloader_params:
   eva_bimanual:

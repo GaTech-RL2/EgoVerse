@@ -20,21 +20,11 @@ train_datasets:
 
 valid_datasets:
   eva_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_action_expert.S3ActionExpertEpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
-      fixed_horizon: 100
-      key_map:
-        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
-        keymap_mode: cartesian
-        annotation_key: annotations
-      transform_list:
-        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian_wristframe_ypr
-    filters: null
+    _target_: ${train_datasets.eva_bimanual._target_}
+    resolver: ${train_datasets.eva_bimanual.resolver}
+    filters: ${train_datasets.eva_bimanual.filters}
     mode: valid
-    valid_ratio: 0.05
+    valid_ratio: ${train_datasets.eva_bimanual.valid_ratio}
 
 train_dataloader_params:
   eva_bimanual:

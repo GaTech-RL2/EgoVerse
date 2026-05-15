@@ -14,20 +14,16 @@ train_datasets:
       filter_lambdas:
         - "lambda row: ((row['task'] == 'Folding Clothes') | (row['task'] == '[flagship] Folding Clothes')) & (row['lab'] == 'scale') & (row['robot_name'] == 'scale_bimanual') & (row['is_deleted'] == false)"
     mode: train
+
 valid_datasets:
   scale_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+    _target_: ${train_datasets.scale_bimanual._target_}
+    resolver: ${train_datasets.scale_bimanual.resolver}
     filters:
       task:
         - "lambda row: ((row['task'] == 'Folding Clothes') | (row['task'] == '[flagship] Folding Clothes')) & (row['lab'] == 'scale') & (row['robot_name'] == 'scale_bimanual') & (row['is_deleted'] == false)"
     mode: valid
+
 train_dataloader_params:
   scale_bimanual:
     batch_size: 32

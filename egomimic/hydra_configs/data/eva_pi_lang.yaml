@@ -4,6 +4,9 @@ defaults:
 
 train_datasets:
   eva_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian_pi
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
@@ -19,10 +22,3 @@ valid_datasets:
       filter_lambdas:
         - "lambda row: row['robot_name'] == 'eva_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"
   aria_bimanual: null
-
-# Prompt config moved to the model side. Pair this data config with model
-# overrides (model.robomimic_model.*):
-#   annotation_key: "annotations"
-#   default_prompt: "this is a bad action"
-#   control_mode:
-#     eva: "cam frame xyzypr gripper per arm"

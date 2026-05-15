@@ -4,6 +4,9 @@ defaults:
 
 train_datasets:
   eva_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian_pi
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -13,20 +16,3 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
-
-valid_datasets:
-  eva_bimanual:
-    filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
-      filter_lambdas:
-        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
-  aria_bimanual:
-    filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
-      filter_lambdas:
-        - "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
-
-# Prompt config moved to the model side. Pair this data config with model
-# overrides (model.robomimic_model.*):
-#   annotation_key: null
-#   default_prompt: "fold the clothes"

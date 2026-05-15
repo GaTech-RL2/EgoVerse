@@ -13,7 +13,6 @@ train_datasets:
     filters:
       lab: "mecka"
       task: "fold_clothes"
-      # episode_hash: "6930856076acbe36f0806bfb"
     mode: train
   scale_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -27,37 +26,20 @@ train_datasets:
     filters:
       lab: "scale"
       task: "flagship_fold_clothes"
-      # episode_hash: "2026-03-18-19-03-29-311551"
     mode: train
+
 valid_datasets:
   mecka_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
-    filters:
-      lab: "mecka"
-      task: "fold_clothes"
-      # episode_hash: "6930856076acbe36f0806bfb"
+    _target_: ${train_datasets.mecka_bimanual._target_}
+    resolver: ${train_datasets.mecka_bimanual.resolver}
+    filters: ${train_datasets.mecka_bimanual.filters}
     mode: valid
   scale_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
-    filters:
-      lab: "scale"
-      task: "flagship_fold_clothes"
-      # episode_hash: "2026-03-18-19-03-29-311551"
+    _target_: ${train_datasets.scale_bimanual._target_}
+    resolver: ${train_datasets.scale_bimanual.resolver}
+    filters: ${train_datasets.scale_bimanual.filters}
     mode: valid
+
 train_dataloader_params:
   mecka_bimanual:
     batch_size: 32

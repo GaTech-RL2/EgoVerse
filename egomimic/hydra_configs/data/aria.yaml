@@ -17,23 +17,10 @@ train_datasets:
       filter_lambdas:
         - "lambda row: row['episode_hash'] == '2025-09-20-17-47-54-000000'"
     mode: total
+
 valid_datasets:
-  aria_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/aria
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        mode: cartesian
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian
-    filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
-      filter_lambdas:
-        - "lambda row: row['episode_hash'] == '2025-09-20-17-47-54-000000'"
-    mode: total
+  aria_bimanual: ${train_datasets.aria_bimanual}
+
 train_dataloader_params:
   aria_bimanual:
     batch_size: 32

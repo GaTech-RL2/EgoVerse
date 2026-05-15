@@ -7,6 +7,8 @@ train_datasets:
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalAnnotationCutoffEpisodeResolver
       folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pick_place_diverse
+      key_map:
+        keymap_mode: cartesian_pi
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -15,19 +17,5 @@ train_datasets:
   aria_bimanual: null
 
 valid_datasets:
-  eva_bimanual:
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalAnnotationCutoffEpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pick_place_diverse
-    filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
-      filter_lambdas:
-        - "lambda row: row.get('embodiment') == 'eva_bimanual'"
-    mode: total
+  eva_bimanual: ${train_datasets.eva_bimanual}
   aria_bimanual: null
-
-
-# Prompt config moved to the model side. Pair this data config with model
-# overrides (model.robomimic_model.*):
-#   annotation_key: "annotations"
-#   default_prompt: "this is a bad action"

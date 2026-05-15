@@ -40,46 +40,24 @@ train_datasets:
       lab: "scale"
       task: "flagship_fold_clothes"
     mode: train
+
 valid_datasets:
   eva_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
-      key_map:
-        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
-      transform_list:
-        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-    filters:
-      robot_name: "eva_bimanual"
-      task: "fold_clothes"
+    _target_: ${train_datasets.eva_bimanual._target_}
+    resolver: ${train_datasets.eva_bimanual.resolver}
+    filters: ${train_datasets.eva_bimanual.filters}
     mode: valid
   mecka_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
-    filters:
-      lab: "mecka"
-      task: "fold_clothes"
+    _target_: ${train_datasets.mecka_bimanual._target_}
+    resolver: ${train_datasets.mecka_bimanual.resolver}
+    filters: ${train_datasets.mecka_bimanual.filters}
     mode: valid
   scale_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
-    filters:
-      lab: "scale"
-      task: "flagship_fold_clothes"
+    _target_: ${train_datasets.scale_bimanual._target_}
+    resolver: ${train_datasets.scale_bimanual.resolver}
+    filters: ${train_datasets.scale_bimanual.filters}
     mode: valid
+
 train_dataloader_params:
   eva_bimanual:
     batch_size: 21

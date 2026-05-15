@@ -1,8 +1,12 @@
 defaults:
   - cotrain_pi_base
   - _self_
+
 train_datasets:
   eva_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian_pi
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
@@ -28,12 +32,3 @@ valid_datasets:
       project_name: "dense-language"
       filter_lambdas:
         - "lambda row: row['robot_name'] == 'aria_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"
-
-# Prompt config moved to the model side. To reproduce the previous behaviour
-# of this data config, pair with the following overrides on the model
-# (model.robomimic_model.*):
-#   annotation_key: "annotations"
-#   default_prompt: "this is a bad action"
-#   control_mode:
-#     aria: "cam frame xyzypr per arm"
-#     eva:  "cam frame xyzypr gripper per arm"

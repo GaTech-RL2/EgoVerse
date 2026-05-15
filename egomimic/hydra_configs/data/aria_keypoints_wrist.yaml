@@ -1,4 +1,5 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
 train_datasets:
   aria_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -15,22 +16,10 @@ train_datasets:
       robot_name: "aria_bimanual"
       task: "fold_clothes_indomain"
     mode: total
+
 valid_datasets:
-  aria_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        mode: keypoints
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: keypoints_wristframe_ypr
-    filters:
-      robot_name: "aria_bimanual"
-      task: "fold_clothes_indomain"
-    mode: total
+  aria_bimanual: ${train_datasets.aria_bimanual}
+
 train_dataloader_params:
   aria_bimanual:
     batch_size: 32
