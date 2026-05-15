@@ -14,7 +14,6 @@ train_datasets:
         mode: cartesian
       debug: true
     mode: total
-    num_workers: ${train_dataloader_params.mecka_bimanual.num_workers}
 
 valid_datasets:
   mecka_bimanual:
@@ -30,7 +29,6 @@ valid_datasets:
         mode: cartesian
       debug: true
     mode: total
-    num_workers: ${valid_dataloader_params.mecka_bimanual.num_workers}
 
 train_dataloader_params:
   mecka_bimanual:

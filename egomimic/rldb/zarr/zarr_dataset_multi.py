@@ -604,7 +604,6 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
     def resolve(
         self,
         filters: DatasetFilter | None = None,
-        num_workers: int = 30,
         **kwargs,
     ) -> dict[str, "ZarrDataset"]:
         filters = _ensure_dataset_filter(filters)
@@ -635,7 +634,7 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
             logger.info("Debug mode: using first %d episodes", len(episode_hashes))
 
         dataset_class = self._dataset_class or ZarrDataset
-        num_workers = min(num_workers, len(episode_hashes))
+        num_workers = min(os.cpu_count() or 8, len(episode_hashes))
 
         def _load_one(episode_hash: str):
             local_path = next(
@@ -926,15 +925,12 @@ class MultiDataset(torch.utils.data.Dataset):
 
         sync_from_s3 = kwargs.pop("sync_from_s3", False)
         filters = kwargs.pop("filters", None)
-        num_workers = kwargs.pop("num_workers", 30)
 
         if isinstance(resolver, LocalEpisodeResolver):
             resolved = resolver.resolve(
                 sync_from_s3=sync_from_s3,
                 filters=filters,
             )
-        elif isinstance(resolver, LocalSQLEpisodeResolver):
-            resolved = resolver.resolve(filters=filters, num_workers=num_workers)
         else:
             resolved = resolver.resolve(filters=filters)
 
