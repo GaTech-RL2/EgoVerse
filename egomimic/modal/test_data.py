@@ -10,18 +10,13 @@ Checks (same as the original):
   2. Embodiment in zarr.json + presence of every required key dir.
   3. /c layout — files under <key>/c/ with names longer than 4 chars.
 
-Design
-------
-- list_episodes  : runs on one container, just enumerates names in the volume.
-- scan_shard     : fan-out worker. The embodiment → required-keys table is
-                   precomputed locally (it needs the full egomimic stack to
-                   import) and shipped to each worker, so the worker image
-                   stays minimal (zarr + numpy only) for fast cold starts.
-
 Usage
 -----
-    modal run --env robotics egomimic/modal/test_data.py
-    modal run --env robotics egomimic/modal/test_data.py -- --pct 10 --shards 500
+    modal run --detach --env robotics egomimic/modal/test_data.py
+    modal run --detach --env robotics egomimic/modal/test_data.py -- --pct 10 --shards 500
+
+    # then watch progress + read the final summary:
+    modal app logs egomimic-test-data
 """
 
 from __future__ import annotations
@@ -368,8 +363,9 @@ def scan_shard(
 # connection open and performs the wide fan-out cloud-to-cloud, which is
 # what Modal is built for.
 @app.function(
-    cpu=2.0,
-    memory=4096,
+    cpu=8.0,  # Coordinator juggles up to MAX_CONTAINERS worker heartbeats —
+    # starve its gRPC handler and the local client's heartbeats time out.
+    memory=8192,
     timeout=7200,  # 2h for the whole scan
     volumes={VOLUME_MOUNT_PATH: zarr_volume},
 )
@@ -472,7 +468,7 @@ def scan_all(
                 f"{total_episodes_with_zeros + total_episodes_with_struct_issues + total_episodes_with_chunk_issues + len(scan_errors)})"
             )
 
-    return {
+    result = {
         "scanned": scanned,
         "scan_errors": scan_errors,
         "total_episodes_with_zeros": total_episodes_with_zeros,
@@ -483,29 +479,18 @@ def scan_all(
         "results_struct_issues": results_struct_issues,
         "results_chunk_issues": results_chunk_issues,
     }
+    # Print the full summary into the coordinator's own logs — the local
+    # CLI uses .spawn() and exits, so it never sees the returned dict.
+    _print_summary(result)
+    return result
 
 
-# ---------------------------------------------------------------------------
-# Local entrypoint — thin wrapper around the coordinator
-# ---------------------------------------------------------------------------
-@app.local_entrypoint()
-def main(
-    pct: float = 100.0,
-    seed: int = 42,
-    shards: int = MAX_CONTAINERS,
-) -> None:
-    """Build the embodiment table locally, then run the coordinator on Modal."""
-    print("Building embodiment keymap table (locally — needs egomimic)...")
-    emb_table = _build_embodiment_keymap_table()
-    for family, keys in emb_table.items():
-        print(f"  {family:<6}: {keys}")
-
-    result = scan_all.remote(emb_table, pct, seed, shards)
-
+def _print_summary(result: dict) -> None:
+    """Print the final report. Runs inside the coordinator (logged to Modal)."""
     scanned = result.get("scanned", 0)
     if scanned == 0:
         print(result.get("summary_text", "No episodes scanned."))
-        raise SystemExit(2)
+        return
 
     scan_errors = result["scan_errors"]
     total_episodes_with_zeros = result["total_episodes_with_zeros"]
@@ -516,7 +501,6 @@ def main(
     results_struct_issues = result["results_struct_issues"]
     results_chunk_issues = result["results_chunk_issues"]
 
-    # ── Summary ─────────────────────────────────────────────────────────────
     print()
     print("=" * 60)
     print(f"Episodes scanned       : {scanned}")
@@ -568,5 +552,32 @@ def main(
         or bool(results_chunk_issues)
         or bool(scan_errors)
     )
-    if any_flagged:
-        raise SystemExit(1)
+    print(f"RESULT: {'FLAGGED' if any_flagged else 'CLEAN'}")
+
+
+# ---------------------------------------------------------------------------
+# Local entrypoint — thin wrapper around the coordinator
+# ---------------------------------------------------------------------------
+@app.local_entrypoint()
+def main(
+    pct: float = 100.0,
+    seed: int = 42,
+    shards: int = MAX_CONTAINERS,
+) -> None:
+    """Build the embodiment table locally, then SPAWN the coordinator and exit."""
+    print("Building embodiment keymap table (locally — needs egomimic)...")
+    emb_table = _build_embodiment_keymap_table()
+    for family, keys in emb_table.items():
+        print(f"  {family:<6}: {keys}")
+
+    handle = scan_all.spawn(emb_table, pct, seed, shards)
+
+    print()
+    print("=" * 60)
+    print("Scan launched on Modal (fire-and-forget).")
+    print(f"  function call id : {handle.object_id}")
+    print("  NOTE: this only persists if you ran with `modal run --detach`.")
+    print("  watch progress + final summary:")
+    print("    modal app logs egomimic-test-data")
+    print("  the coordinator prints the full report at the end of its logs")
+    print("=" * 60)
