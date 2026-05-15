@@ -228,10 +228,9 @@ class EpisodeResolver:
             dict[str, ZarrDataset]: a dictionary mapping string keys to constructed zarr datasets from valid filters.
         """
         dataset_class = self._dataset_class or ZarrDataset
-        all_paths = sorted(search_path.iterdir())
         datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
-        for p in all_paths:
+        for p in search_path.iterdir():
             if not p.is_dir():
                 logger.info(f"{p} is not a valid directory")
                 skipped.append(p.name)
