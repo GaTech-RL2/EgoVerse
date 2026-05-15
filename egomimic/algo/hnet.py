@@ -853,6 +853,119 @@ class HNet(Algo):
             log[k] = v.item()
         return log
 
+    # ----- Sim eval hooks (SimRolloutEval calls these) ----- #
+
+    @torch.no_grad()
+    def sim_init_state(
+        self,
+        batch_size: int,
+        T_max: int,
+        device,
+        emb_id: int,
+    ) -> dict:
+        """Build inference state for a closed-loop sim rollout.
+
+        Returns a state dict opaque to the eval loop. Allocates the KV
+        cache, captures the right backbone (``policy.hnet`` for stage-based
+        / ``policy.backbone`` for flat-fused), and primes the initial AR
+        input token (BOS + pos_emb[0] for stage-based; the flat path
+        primes the action-token branch and runs the cond-token branch
+        each ``sim_predict_step`` call).
+        """
+        policy = self.nets["policy"]
+        T_max = int(min(T_max, policy.action_horizon))
+
+        hnet_core = getattr(policy, "hnet", None)
+        flat_backbone = getattr(policy, "backbone", None)
+        is_flat = hnet_core is None and flat_backbone is not None
+        backbone = hnet_core if hnet_core is not None else flat_backbone
+        if backbone is None:
+            raise RuntimeError("policy must expose ``hnet`` or ``backbone`` attribute")
+
+        dtype = next(policy.parameters()).dtype
+        cache_max_seqlen = (2 * T_max) if is_flat else T_max
+        params = backbone.allocate_inference_cache(
+            batch_size=batch_size,
+            max_seqlen=cache_max_seqlen,
+            device=device,
+            dtype=dtype,
+        )
+
+        bos = policy.bos.expand(batch_size, 1, policy.d_model).to(dtype)
+        if is_flat:
+            state = {
+                "is_flat": True,
+                "backbone": backbone,
+                "params": params,
+                "a_prev_emb": bos,
+                "dtype": dtype,
+                "T_max": T_max,
+            }
+        else:
+            cur = bos + policy.pos_emb[:, 0:1].to(dtype)
+            state = {
+                "is_flat": False,
+                "backbone": backbone,
+                "params": params,
+                "cur": cur,
+                "dtype": dtype,
+                "T_max": T_max,
+            }
+        return state
+
+    @torch.no_grad()
+    def sim_predict_step(
+        self,
+        state: dict,
+        obs_norm: dict,
+        t: int,
+        emb_id: int,
+    ) -> torch.Tensor:
+        """One AR step. Returns normalized action ``(B, 1, action_dim)``.
+
+        Mutates ``state`` in-place: updates ``cur`` (stage-based) or
+        ``a_prev_emb`` (flat-fused) to feed the next call.
+        """
+        policy = self.nets["policy"]
+        dtype = state["dtype"]
+        cond_dict_seq = policy.cond_encoder.encode(obs_norm, T_action=1)
+        # cond[fused_cond] is (B, 1, d_cond). The block step paths accept
+        # the (B, d_cond) view (AdaLN) or auto-unsqueeze the (B, 1, d_cond)
+        # view (cross-attn).
+        cond_2d = {k: v.squeeze(1) for k, v in cond_dict_seq.items()}
+
+        if state["is_flat"]:
+            fused = cond_dict_seq["fused_cond"].squeeze(1)  # (B, d_cond)
+            c_tok = (
+                policy.cond_in(fused).unsqueeze(1)
+                + policy.pos_emb[:, 2 * t : 2 * t + 1]
+            ).to(dtype)
+            _ = state["backbone"].step(c_tok, state["params"])
+            a_tok = (state["a_prev_emb"] + policy.pos_emb[:, 2 * t + 1 : 2 * t + 2]).to(
+                dtype
+            )
+            h = state["backbone"].step(a_tok, state["params"])
+        else:
+            ctx = HNetContext(
+                cond_dict=cond_2d,
+                aux=[],
+                inference_params=state["params"],
+            )
+            h = state["backbone"].step(state["cur"], ctx)
+
+        a_t_norm = policy.action_out(h)  # (B, 1, action_dim)
+
+        # Prepare next-step input token.
+        if state["is_flat"]:
+            state["a_prev_emb"] = policy.action_in(a_t_norm).to(dtype)
+        else:
+            t_next = t + 1
+            if t_next < policy.action_horizon:
+                state["cur"] = (
+                    policy.action_in(a_t_norm) + policy.pos_emb[:, t_next : t_next + 1]
+                ).to(dtype)
+        return a_t_norm
+
     # ----- Optional training recipe hook for pl_model.configure_optimizers ----- #
 
     def parameter_groups(self, base_lr: float):

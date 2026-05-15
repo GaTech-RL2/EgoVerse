@@ -1,4 +1,4 @@
-_target_: egomimic.eval.eval_hnet_sim.HNetSimEval
+_target_: egomimic.eval.eval_sim.SimRolloutEval
 
 # Closed-loop sim eval. For each val episode, resets PushShapesEnv (init
 # mode is configurable) and steps the env one frame at a time using the
