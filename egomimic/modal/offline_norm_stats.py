@@ -161,26 +161,26 @@ def run_norm_stats(
     Returns the container path of the written norm_stats.json.
     """
     import copy
+    import glob
     import json
     import sys
-
-    import hydra
-    import numpy as np
-    from hydra import compose, initialize_config_dir
-    from omegaconf import OmegaConf, open_dict
-
-    import glob
 
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
     zarr_volume.reload()
 
-    # Point the current process at the uv venv created by _prepare_repo
+    # Point the current process at the uv venv created by _prepare_repo.
+    # All third-party imports must come after this block.
     venv_site = sorted(
         glob.glob(f"{CFG.remote_repo_dir}/.venv/lib/python*/site-packages")
     )
     for p in venv_site:
         sys.path.insert(0, p)
     sys.path.insert(0, CFG.remote_repo_dir)
+
+    import hydra
+    import numpy as np
+    from hydra import compose, initialize_config_dir
+    from omegaconf import OmegaConf, open_dict
 
     from egomimic.utils.aws.aws_data_utils import load_env
     from egomimic.rldb.zarr.utils import DataSchematic
