@@ -59,7 +59,7 @@ class _Config:
     volume_mount_path: str = "/mnt/zarr-data"
     output_mount_path: str = "/root/EgoVerse/logs"
     secret_names: list[str] = field(
-        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb"]
+        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb", "egoverse-db", "egoverse-sql"]
     )
 
 
