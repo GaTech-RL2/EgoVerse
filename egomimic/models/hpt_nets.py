@@ -187,9 +187,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -650,10 +650,10 @@ class ResNet(PolicyStem):
                 out.append(net(input))
             feat = torch.stack(out, dim=1)
         else:
-            x = x.view(-1, 3, H, W)
+            x = x.reshape(-1, 3, H, W)
             feat = self.net(x)
         # concat along time
-        feat = feat.view(B, feat.shape[1], -1).transpose(1, 2)
+        feat = feat.reshape(B, feat.shape[1], -1).transpose(1, 2)
         feat = self.proj(feat)
         return feat
 
