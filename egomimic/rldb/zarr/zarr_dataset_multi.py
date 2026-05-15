@@ -614,6 +614,10 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
         if df.empty:
             raise ValueError("SQL episode table is empty.")
 
+        # Always exclude deleted episodes before any other filtering
+        if "is_deleted" in df.columns:
+            df = df[df["is_deleted"] != True]  # noqa: E712 — handles non-bool True values
+
         mask = df.apply(
             lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
             axis=1,
