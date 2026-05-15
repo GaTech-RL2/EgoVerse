@@ -13,6 +13,7 @@ Loss = action MSE (next-action prediction) +
 The per-chunker ratio-loss weights live inside the chunker stages themselves;
 this algo just calls ``ratio_loss_from_aux(ctx.aux)`` after forward.
 """
+
 from collections import OrderedDict
 from typing import Optional
 
@@ -24,7 +25,7 @@ from egomimic.algo.algo import Algo
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.models.hnet_nets.context import HNetContext
 from egomimic.models.hnet_nets.hnet import HNet as HNetCore
-from egomimic.models.hnet_nets.hnet import ratio_loss_from_aux
+from egomimic.models.hnet_nets.hnet import chunk_stats_from_aux, ratio_loss_from_aux
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 
@@ -91,16 +92,120 @@ class HNetPolicy(nn.Module):
         h = self.hnet(x, ctx)
         return self.action_out(h), ctx.aux
 
+    def forward_packed(
+        self,
+        actions_packed: torch.Tensor,
+        obs_packed: dict,
+        cu_seqlens: torch.Tensor,
+        max_seqlen: int,
+    ):
+        """Packed-mode teacher-forced forward.
+
+        Mirrors :meth:`forward` for variable-length episodes packed into a
+        single flat stream (FlashAttention-style varlen). The BOS shift and
+        ``pos_emb`` indexing happen per sub-sequence — for each subseq
+        ``[s, e)``, position s gets BOS and positions s+1..e-1 get
+        ``action_in(actions[s..e-2])``; ``pos_emb`` is indexed by ``t - s``
+        within each subseq so every episode starts at position 0.
+
+        Args:
+            actions_packed: (T_total, action_dim) packed ground-truth actions.
+            obs_packed:     dict of (T_total, ...) per-frame obs tensors.
+            cu_seqlens:     (B+1,) long, cumulative subseq lengths (starts 0).
+            max_seqlen:     int, longest subseq length.
+
+        Returns: (pred_packed (T_total, action_dim), aux).
+        """
+        device = actions_packed.device
+        T_total = actions_packed.shape[0]
+        if not torch.is_tensor(cu_seqlens):
+            cu_seqlens = torch.tensor(cu_seqlens, device=device, dtype=torch.long)
+        else:
+            cu_seqlens = cu_seqlens.to(device=device, dtype=torch.long)
+        if max_seqlen > self.action_horizon:
+            raise ValueError(
+                f"max_seqlen={max_seqlen} exceeds pos_emb length "
+                f"action_horizon={self.action_horizon}; increase action_horizon "
+                f"or chunk episodes to <= action_horizon frames."
+            )
+
+        # 1. Tokenize, then global shift-right by 1, then overwrite each
+        #    subseq's first slot with BOS. Under autocast (e.g. bf16) the
+        #    activations are downcast but ``self.bos`` stays in fp32; we
+        #    match the activation dtype to keep the index-put happy.
+        a_emb = self.action_in(actions_packed)  # (T_total, D)
+        x_shifted = torch.cat(
+            [
+                torch.zeros(1, self.d_model, device=device, dtype=a_emb.dtype),
+                a_emb[:-1],
+            ],
+            dim=0,
+        )  # (T_total, D)
+        bos = self.bos.squeeze(0).squeeze(0).to(a_emb.dtype)  # (D,)
+        starts = cu_seqlens[:-1]  # (B,)
+        x_shifted = x_shifted.clone()
+        x_shifted[starts] = bos
+
+        # 2. Per-sub-sequence pos_emb: position t in subseq [s, e) gets index t-s.
+        #    Build seq_idx (which subseq each token belongs to), then subtract
+        #    that subseq's start to get the local position index.
+        pos_t = torch.arange(T_total, device=device)
+        # seq_idx[t] = number of subseq starts strictly less-than-or-equal to t
+        # Same as: (cu_seqlens[1:] <= t).sum() ... but easier:
+        seq_idx = (pos_t[:, None] >= cu_seqlens[None, 1:]).sum(dim=-1)  # (T_total,)
+        local_pos = pos_t - cu_seqlens[seq_idx]  # (T_total,)
+        pos = self.pos_emb.squeeze(0)[local_pos].to(x_shifted.dtype)  # (T_total, D)
+        x_packed = x_shifted + pos
+
+        # 3. Packed cond. ``cond_encoder.encode`` expects (B, T, ...); for a
+        #    packed stream the simplest path is to feed (1, T_total, ...) and
+        #    squeeze the leading dim back out. The encoder's per-frame branch
+        #    (state x.dim()==3 / images x.dim()==5) fires correctly because
+        #    obs_packed already carries the per-frame dim.
+        obs_for_encode = {k: v.unsqueeze(0) for k, v in obs_packed.items()}
+        cond_padded = self.cond_encoder.encode(obs_for_encode, T_action=T_total)
+        cond_packed = {k: v.squeeze(0) for k, v in cond_padded.items()}
+
+        # 4. Build packed ctx and run.
+        ctx = HNetContext(
+            cond_dict=cond_packed,
+            aux=[],
+            inference_params=None,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=int(max_seqlen),
+        )
+        h = self.hnet(x_packed, ctx)  # (T_total, D)
+        return self.action_out(h), ctx.aux
+
     @torch.no_grad()
-    def generate(self, obs: dict, batch_size: int, device) -> torch.Tensor:
-        """Autoregressive rollout from BOS for ``action_horizon`` steps."""
-        T = self.action_horizon
+    def generate(
+        self,
+        obs: dict,
+        batch_size: int,
+        device,
+        T: Optional[int] = None,
+    ) -> torch.Tensor:
+        """Autoregressive rollout from BOS for ``T`` steps (default
+        ``action_horizon``). ``T`` may be < ``action_horizon`` when rolling
+        out an individual episode whose length is known to be shorter — the
+        pos_emb is sized at action_horizon so any T <= action_horizon
+        works."""
+        if T is None:
+            T = self.action_horizon
+        if T > self.action_horizon:
+            raise ValueError(
+                f"generate T={T} exceeds pos_emb length action_horizon="
+                f"{self.action_horizon}"
+            )
         cond_dict = self.cond_encoder.encode(obs, T)
         actions = torch.zeros(batch_size, T, self.action_dim, device=device)
         dtype = next(self.parameters()).dtype
 
         inference_params = self.hnet.allocate_inference_cache(
-            batch_size=batch_size, max_seqlen=T, device=device, dtype=dtype,
+            batch_size=batch_size,
+            max_seqlen=T,
+            device=device,
+            dtype=dtype,
         )
 
         # Per-step cond_dict slice (B, d_cond) — AdaLN broadcasts over the
@@ -111,7 +216,9 @@ class HNetPolicy(nn.Module):
         cur = self.bos.expand(batch_size, -1, -1) + self.pos_emb[:, 0:1]
         for t in range(T):
             ctx = HNetContext(
-                cond_dict=slice_cond(t), aux=[], inference_params=inference_params,
+                cond_dict=slice_cond(t),
+                aux=[],
+                inference_params=inference_params,
             )
             h = self.hnet.step(cur, ctx)
             a_t = self.action_out(h)
@@ -129,20 +236,52 @@ class HNet(Algo):
 
     def __init__(
         self,
-        data_schematic,
         action_dim: int,
         action_horizon: int,
         d_model: int,
         d_cond: int,
         cond_encoder: CondEncoderModule,
         hnet: HNetCore,
+        norm_stats,
         domains: list = None,
         ac_keys: dict = None,
         device=None,
+        init_weights_range: Optional[float] = None,
+        lr_multipliers: Optional[list] = None,
+        use_parameter_groups: bool = False,
+        weight_decay: float = 0.0,
         **kwargs,
     ):
+        """
+        Training recipe knobs (all OFF by default — opt-in):
+
+        - ``init_weights_range``: if set (e.g. ``0.02``), call
+          ``hnet.init_weights(init_weights_range)`` after policy construction
+          so ``out_proj`` / ``fc2`` weights get ``1/sqrt(n_residuals)``
+          scaling.
+        - ``lr_multipliers``: list of per-stage LR scales (outer→inner). If
+          set, call ``hnet.apply_lr_multiplier(...)`` which stamps every
+          parameter's ``_optim`` dict with ``lr_multiplier``.
+        - ``use_parameter_groups``: if True, expose
+          ``self.parameter_groups()`` so ``pl_model.configure_optimizers``
+          builds AdamW param groups (bias / norm weights get
+          ``weight_decay=0``; per-group ``lr = base_lr * lr_multiplier``).
+        - ``weight_decay``: the base WD used when building parameter groups
+          (only consulted when ``use_parameter_groups=True``). Outside of
+          that, the optimizer config in the model YAML drives WD.
+
+        Leaving all of these at their defaults reproduces "standard
+        training": PyTorch default init, single LR for all params, single
+        WD for all params from the optimizer config.
+        """
         super().__init__()
-        self.data_schematic = data_schematic
+        # ``norm_stats`` is a ``MultiDataset`` instance that owns the
+        # per-embodiment per-feature normalization stats AND the key-topology
+        # helpers (``keys_of_type``, ``is_key_with_embodiment``,
+        # ``zarr_key_to_keyname``). pl_model._instantiate_model passes it in
+        # automatically; the previous ``data_schematic`` parameter was legacy
+        # and is gone.
+        self.norm_stats = norm_stats
         self.domains = list(domains or [])
         self.ac_keys = dict(ac_keys or {})
         self.action_horizon = action_horizon
@@ -151,6 +290,11 @@ class HNet(Algo):
             "cuda" if torch.cuda.is_available() else "cpu"
         )
 
+        # Cache training-recipe knobs for configure_optimizers.
+        self.use_parameter_groups = bool(use_parameter_groups)
+        self.lr_multipliers = list(lr_multipliers) if lr_multipliers else None
+        self.weight_decay = float(weight_decay)
+
         policy = HNetPolicy(
             action_dim=action_dim,
             action_horizon=action_horizon,
@@ -158,10 +302,21 @@ class HNet(Algo):
             cond_encoder=cond_encoder,
             hnet=hnet,
         )
+        # Apply opt-in training recipe BEFORE moving to device so the init
+        # writes hit cpu params (matches upstream's pattern of init pre-move).
+        if init_weights_range is not None:
+            hnet.init_weights(initializer_range=float(init_weights_range))
+        if self.lr_multipliers is not None:
+            hnet.apply_lr_multiplier(self.lr_multipliers)
+        # Stash the inner HNetCore so parameter_groups can reach it without
+        # going through nets["policy"].hnet.
+        self._hnet_core = hnet
+
         self.nets = nn.ModuleDict({"policy": policy})
         self.nets = self.nets.float().to(self.device)
 
-        # Resolve per-embodiment keys via data_schematic (like HPT).
+        # Resolve per-embodiment keys via norm_stats (which owns the
+        # MultiDataset key topology — same surface HPT uses).
         self.embodiment_ids = {}
         self.proprio_keys = {}
         self.lang_keys = {}
@@ -173,23 +328,35 @@ class HNet(Algo):
             self.proprio_keys[emb_id] = []
             self.lang_keys[emb_id] = []
             self.camera_keys[emb_id] = []
-            for key in data_schematic.keys_of_type("action_keys", emb_id):
+            for key in norm_stats.keys_of_type("action_keys", emb_id):
                 if (
-                    data_schematic.is_key_with_embodiment(key, emb_id)
+                    norm_stats.is_key_with_embodiment(key, emb_id)
                     and key == self.ac_keys[emb]
                 ):
                     self.resolved_ac_keys[emb_id] = key
-            for key in data_schematic.keys_of_type("proprio_keys", emb_id):
-                if data_schematic.is_key_with_embodiment(key, emb_id):
+            for key in norm_stats.keys_of_type("proprio_keys", emb_id):
+                if norm_stats.is_key_with_embodiment(key, emb_id):
                     self.proprio_keys[emb_id].append(key)
-            for key in data_schematic.keys_of_type("lang_keys", emb_id):
-                if data_schematic.is_key_with_embodiment(key, emb_id):
+            for key in norm_stats.keys_of_type("lang_keys", emb_id):
+                if norm_stats.is_key_with_embodiment(key, emb_id):
                     self.lang_keys[emb_id].append(key)
-            for key in data_schematic.keys_of_type("camera_keys", emb_id):
-                if data_schematic.is_key_with_embodiment(key, emb_id):
+            for key in norm_stats.keys_of_type("camera_keys", emb_id):
+                if norm_stats.is_key_with_embodiment(key, emb_id):
                     self.camera_keys[emb_id].append(key)
 
     # ---- Algo API --------------------------------------------------------
+
+    # Keys emitted by ``pack_collate`` that aren't zarr-mapped data tensors
+    # and must be passed through ``process_batch_for_training`` unchanged.
+    _PACKED_META_KEYS = (
+        "cu_seqlens",
+        "max_seq_len",
+        "seq_lens",
+        "batch_size",
+        "embodiment",
+        "episode_idx",
+        "chunk_offset",
+    )
 
     @override
     def process_batch_for_training(self, batch):
@@ -197,17 +364,40 @@ class HNet(Algo):
         for emb_name, _batch in batch.items():
             emb_id = get_embodiment_id(emb_name)
             processed[emb_id] = {}
+            # Detect packed batches by the presence of cu_seqlens. Packed and
+            # padded batches have a different key topology; treat them
+            # separately so we don't try to keyname-resolve the meta keys.
+            is_packed = "cu_seqlens" in _batch
+
             for key, value in _batch.items():
-                key_name = self.data_schematic.zarr_key_to_keyname(key, emb_id)
-                if key is not None:
+                if is_packed and key in self._PACKED_META_KEYS:
+                    processed[emb_id][key] = value
+                    continue
+                key_name = self.norm_stats.zarr_key_to_keyname(key, emb_id)
+                # Pre-existing typo: tested ``key is not None`` instead of
+                # ``key_name``, which caused unrelated batch keys (e.g.
+                # ``metadata.robot_name`` from _read_span) to be stored under
+                # the None key. Skip silently when keyname can't be resolved.
+                if key_name is not None:
                     processed[emb_id][key_name] = value
 
             ac_key = self.resolved_ac_keys[emb_id]
-            B, S, _ = processed[emb_id][ac_key].shape
-            processed[emb_id]["pad_mask"] = torch.ones(
-                B, S, 1, device=processed[emb_id][ac_key].device
-            )
-            processed[emb_id] = self.data_schematic.normalize_data(processed[emb_id], emb_id)
+            if is_packed:
+                # Packed actions are (T_total, action_dim). No pad_mask needed
+                # since variable-length is expressed via cu_seqlens.
+                processed[emb_id]["pad_mask"] = None
+                processed[emb_id]["_packed"] = True
+            else:
+                B, S, _ = processed[emb_id][ac_key].shape
+                processed[emb_id]["pad_mask"] = torch.ones(
+                    B, S, 1, device=processed[emb_id][ac_key].device
+                )
+                processed[emb_id]["_packed"] = False
+            # Per-feature normalization via MultiDataset stats: each tensor
+            # gets ``(x - mean) / std`` (or quantile equivalent) broadcast
+            # against (action_dim,) / (proprio_dim,) stats. Works for both
+            # padded ``(B, T, D)`` and packed ``(T_total, D)`` shapes.
+            processed[emb_id] = self.norm_stats.normalize(processed[emb_id], emb_id)
             processed[emb_id]["embodiment"] = torch.tensor(
                 [emb_id], device=self.device, dtype=torch.int64
             )
@@ -239,12 +429,24 @@ class HNet(Algo):
             actions = _batch[ac_key]
             obs = self._build_obs(_batch, emb_id)
 
-            pred, aux = policy(actions, obs)
+            if _batch.get("_packed", False):
+                cu_seqlens = _batch["cu_seqlens"]
+                max_seqlen = int(_batch["max_seq_len"])
+                pred, aux = policy.forward_packed(actions, obs, cu_seqlens, max_seqlen)
+            else:
+                pred, aux = policy(actions, obs)
+
             mse = nn.functional.mse_loss(pred, actions)
             rloss = ratio_loss_from_aux(aux, device=mse.device)
             predictions[f"{emb_id}_pred"] = pred
             predictions[f"{emb_id}_action_loss"] = mse
             predictions[f"{emb_id}_ratio_loss"] = rloss
+
+            # Per-chunker stats for logging. avg_chunk_len = T / max(#boundaries, 1)
+            # so it == 1/F when F>0 and falls back to T when F==0 (no compression).
+            stats = chunk_stats_from_aux(aux)
+            for k, v in stats.items():
+                predictions[f"{emb_id}_{k}"] = torch.tensor(v, device=mse.device)
         return predictions
 
     @override
@@ -253,15 +455,82 @@ class HNet(Algo):
         policy = self.nets["policy"]
         for emb_id, _batch in batch.items():
             ac_key = self.resolved_ac_keys[emb_id]
+            if _batch.get("_packed", False):
+                # Packed validation: per-episode autoregressive rollout from
+                # BOS for that episode's length, then pad results back into a
+                # padded ``(B, T_max, action_dim)`` tensor for downstream
+                # metric / viz computation. Slow but matches inference-time
+                # semantics; we expose seq_lens for masking.
+                preds_padded, seq_lens = self._ar_rollout_packed(_batch, emb_id)
+                preds = OrderedDict()
+                preds[ac_key] = preds_padded
+                unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
+                for key, val in unnorm_actions.items():
+                    unnorm[f"emb{emb_id}_{key}"] = val
+                unnorm[f"emb{emb_id}_seq_lens"] = seq_lens
+                continue
             obs = self._build_obs(_batch, emb_id)
             B = next(iter(obs.values())).shape[0] if obs else _batch[ac_key].shape[0]
             actions = policy.generate(obs, batch_size=B, device=self.device)
             preds = OrderedDict()
             preds[ac_key] = actions
-            unnorm_actions = self.data_schematic.unnormalize_data(preds, emb_id)
+            unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
             for key, val in unnorm_actions.items():
                 unnorm[f"emb{emb_id}_{key}"] = val
         return unnorm
+
+    @torch.no_grad()
+    def _ar_rollout_packed(self, _batch: dict, emb_id: int):
+        """Per-episode AR rollout for a packed validation batch.
+
+        For each sub-sequence ``[s, e)`` in ``cu_seqlens``:
+          1. Slice that episode's obs into ``(1, T_ep, ...)``.
+          2. Call ``policy.generate(obs_ep, batch_size=1, T=T_ep)`` to AR
+             rollout exactly ``T_ep`` steps from BOS.
+          3. Stash the prediction.
+
+        Returns:
+            preds_padded: ``(B, T_max, action_dim)`` (zero-padded past each
+                episode's length).
+            seq_lens:     ``(B,)`` long, the per-episode rollout lengths
+                (matches ``_batch['seq_lens']`` and used for masking the
+                padding in downstream MSE).
+        """
+        policy = self.nets["policy"]
+        cu = _batch["cu_seqlens"]
+        seq_lens = _batch["seq_lens"].clone()
+        B = int(seq_lens.shape[0])
+        T_max = int(seq_lens.max().item())
+        action_dim = policy.action_dim
+        device = self.device
+
+        # Gather the obs keys we need for the cond encoder.
+        obs_keys = (
+            self.proprio_keys[emb_id]
+            + self.lang_keys[emb_id]
+            + self.camera_keys[emb_id]
+        )
+        obs_keys = [k for k in obs_keys if k in _batch]
+
+        preds_padded = torch.zeros(B, T_max, action_dim, device=device)
+
+        for b in range(B):
+            s = int(cu[b].item())
+            e = int(cu[b + 1].item())
+            T_ep = e - s
+            # Slice each obs key to the episode's range and add a leading
+            # batch dim. The packed tensor is (T_total, ...) so slicing along
+            # dim 0 gives (T_ep, ...) → unsqueeze → (1, T_ep, ...).
+            obs_ep = {k: _batch[k][s:e].unsqueeze(0) for k in obs_keys}
+            a_ep = policy.generate(
+                obs_ep,
+                batch_size=1,
+                device=device,
+                T=T_ep,
+            )  # (1, T_ep, action_dim)
+            preds_padded[b, :T_ep] = a_ep.squeeze(0)
+
+        return preds_padded, seq_lens
 
     @override
     def compute_losses(self, predictions, batch):
@@ -275,6 +544,18 @@ class HNet(Algo):
             # Ratio-loss weights are baked into each chunker stage, so r
             # is already a properly-weighted sum.
             total = total + a + r
+
+            # Pass non-loss stats through to logging (boundary_rate /
+            # avg_chunk_len, per-chunker and aggregate). They are 0-dim
+            # tensors so log_info.item() still works.
+            for key, value in predictions.items():
+                prefix = f"{emb_id}_"
+                if not key.startswith(prefix):
+                    continue
+                tail = key[len(prefix) :]
+                if tail in ("pred", "action_loss", "ratio_loss"):
+                    continue
+                loss_dict[f"emb{emb_id}_{tail}"] = value
         loss_dict["action_loss"] = total / max(len(batch), 1)
         return loss_dict
 
@@ -285,3 +566,56 @@ class HNet(Algo):
         for k, v in info["losses"].items():
             log[k] = v.item()
         return log
+
+    # ----- Optional training recipe hook for pl_model.configure_optimizers ----- #
+
+    def parameter_groups(self, base_lr: float):
+        """Return AdamW-ready ``list[dict]`` if ``use_parameter_groups``,
+        else ``None`` (caller falls back to ``self.nets.parameters()``).
+
+        Groups are built by the inner HNet stage tree via
+        ``HNetCore.parameter_groups(weight_decay=self.weight_decay)``, then
+        each group's ``lr`` is set to ``base_lr * lr_multiplier``. Params
+        that aren't part of the HNet stage tree (e.g. ``action_in``,
+        ``action_out``, ``cond_encoder``, ``bos``, ``pos_emb``) are added in
+        a single extra group with ``lr_multiplier=1.0`` so optimizer
+        instantiation still sees every learnable parameter exactly once.
+        """
+        if not self.use_parameter_groups:
+            return None
+
+        # Groups for params inside the HNet stage tree.
+        groups = self._hnet_core.parameter_groups(weight_decay=self.weight_decay)
+        for g in groups:
+            g["lr"] = float(base_lr) * float(g.get("lr_multiplier", 1.0))
+
+        # Extra group for everything *not* inside the HNet stage tree.
+        hnet_param_ids = {id(p) for g in groups for p in g["params"]}
+        extra_params, extra_bias_norm = [], []
+        for name, p in self.nets.named_parameters():
+            if id(p) in hnet_param_ids or not p.requires_grad:
+                continue
+            # Bias / norm-weight detection (same rule as parameter_groups).
+            if name.endswith(".bias") or ".norm" in name or "rmsnorm" in name.lower():
+                extra_bias_norm.append(p)
+            else:
+                extra_params.append(p)
+        if extra_params:
+            groups.append(
+                {
+                    "params": extra_params,
+                    "lr": float(base_lr),
+                    "lr_multiplier": 1.0,
+                    "weight_decay": self.weight_decay,
+                }
+            )
+        if extra_bias_norm:
+            groups.append(
+                {
+                    "params": extra_bias_norm,
+                    "lr": float(base_lr),
+                    "lr_multiplier": 1.0,
+                    "weight_decay": 0.0,
+                }
+            )
+        return groups

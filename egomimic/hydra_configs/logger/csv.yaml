@@ -1,0 +1,11 @@
+# Local-only Lightning CSV logger. Writes metrics to
+# ``${paths.output_dir}/csv_logs/lightning_logs/version_*/metrics.csv``.
+# Useful for debug runs where wandb is overkill but we still want to see
+# the loss curve (training without a logger means Lightning drops every
+# log_dict call on the floor).
+csv:
+  _target_: lightning.pytorch.loggers.CSVLogger
+  save_dir: "${paths.output_dir}/csv_logs"
+  name: "lightning_logs"
+  version: null
+  flush_logs_every_n_steps: 1
