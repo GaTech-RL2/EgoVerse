@@ -208,44 +208,94 @@ def run_norm_stats(
 ) -> str:
     """Clone the repo and compute norm stats for *data_config*.
 
-    Mirrors run.py: _prepare_repo installs egomimic, then the actual
-    computation runs as a subprocess so egomimic is importable from the
-    start of that child process.
-
     Returns the container path of the written norm_stats.json.
     """
-    import shlex
+    import copy
+    import json
+    import sys
+
+    import hydra
+    import numpy as np
+    from hydra import compose, initialize_config_dir
+    from omegaconf import OmegaConf, open_dict
 
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
     zarr_volume.reload()
 
-    out_path = str(
-        Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
-    )
-    runner = str(
-        Path(CFG.remote_repo_dir) / "egomimic" / "modal" / "norm_stats_runner.py"
-    )
-    cmd = [
-        CFG.python_bin, runner,
-        data_config,
-        "--num_workers", str(num_workers),
-        "--sample_frac", str(sample_frac),
-        "--output_path", out_path,
-    ]
+    sys.path.insert(0, CFG.remote_repo_dir)
 
-    env = os.environ.copy()
-    env.setdefault("PYTHONUNBUFFERED", "1")
+    from egomimic.utils.aws.aws_data_utils import load_env
+    from egomimic.rldb.zarr.utils import DataSchematic
 
-    print(f"Running: {shlex.join(cmd)}")
-    result = subprocess.run(cmd, cwd=CFG.remote_repo_dir, env=env, check=False)
+    load_env()
+    OmegaConf.register_new_resolver("eval", eval, replace=True)
+
+    config_dir = str(Path(CFG.remote_repo_dir) / "egomimic" / "hydra_configs")
+    with initialize_config_dir(config_dir=config_dir, version_base="1.3"):
+        cfg = compose(
+            config_name="train_zarr_cartesian.yaml",
+            overrides=[f"data={data_config}"],
+        )
+
+    # Disable debug limits — norm stats must cover the full dataset
+    with open_dict(cfg):
+        for ds_name in list(cfg.data.train_datasets):
+            resolver = OmegaConf.select(
+                cfg.data.train_datasets[ds_name], "resolver", default=None
+            )
+            if resolver is not None:
+                cfg.data.train_datasets[ds_name].resolver.debug = False
+
+    data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
+
+    for dataset_name in cfg.data.train_datasets:
+        print(f"[NormStats] Instantiating dataset <{dataset_name}>")
+        dataset = hydra.utils.instantiate(cfg.data.train_datasets[dataset_name])
+        data_schematic.infer_shapes_from_batch(dataset[0])
+
+        norm_cfg = copy.deepcopy(cfg.data.train_datasets[dataset_name])
+        km = OmegaConf.to_container(norm_cfg.resolver.key_map, resolve=False)
+        km["norm_mode"] = True
+        norm_cfg.resolver.key_map = km
+        norm_dataset = hydra.utils.instantiate(norm_cfg)
+
+        data_schematic.infer_norm_from_dataset(
+            norm_dataset,
+            dataset_name,
+            sample_frac=sample_frac,
+            num_workers=num_workers,
+        )
+
+    out_path = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    stats_out: dict = {}
+    for emb, keys_dict in data_schematic.norm_stats.items():
+        stats_out[str(emb)] = {
+            key_name: {
+                stat_name: np.asarray(arr).tolist()
+                for stat_name, arr in stat_dict.items()
+            }
+            for key_name, stat_dict in keys_dict.items()
+        }
+
+    payload: dict = {
+        "stats": stats_out,
+        "loading_time": None,
+        "computing_time": None,
+        "frames": None,
+    }
+    if data_schematic._norm_run_metadata is not None:
+        for k in ("loading_time", "computing_time", "frames"):
+            if k in data_schematic._norm_run_metadata:
+                payload[k] = data_schematic._norm_run_metadata[k]
+
+    with open(out_path, "w") as f:
+        json.dump(payload, f, indent=4)
 
     training_outputs_volume.commit()
-
-    if result.returncode != 0:
-        raise RuntimeError(f"norm_stats_runner failed (exit {result.returncode})")
-
     print(f"[NormStats] Saved to {out_path}")
-    return out_path
+    return str(out_path)
 
 
 # ---------------------------------------------------------------------------
