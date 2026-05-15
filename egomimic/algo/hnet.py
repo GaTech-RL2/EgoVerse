@@ -689,17 +689,29 @@ class HNet(Algo):
 
     @override
     def forward_eval(self, batch):
+        """Per-frame teacher-forced eval.
+
+        For each batch entry we run a SINGLE forward pass with the GT
+        action stream (same as training) and compare per-frame predictions
+        against GT in raw / unnormalized action space. AR rollout used to
+        live here but is pointless when the obs sequence is fixed: the
+        predicted action doesn't change what the model sees next, so AR
+        just compounds exposure-bias error without testing anything
+        useful. To test closed-loop behavior, run a separate
+        envrollout evaluator that steps a simulator with predicted
+        actions.
+
+        Returns a dict with keys ``emb{id}_{ac_key}`` carrying
+        ``(B, T_max, action_dim)`` unnormalized predictions (zero-padded
+        past each episode's length) and ``emb{id}_seq_lens`` ``(B,)`` so
+        downstream metric code can mask the padded positions.
+        """
         unnorm = {}
         policy = self.nets["policy"]
         for emb_id, _batch in batch.items():
             ac_key = self.resolved_ac_keys[emb_id]
             if _batch.get("_packed", False):
-                # Packed validation: per-episode autoregressive rollout from
-                # BOS for that episode's length, then pad results back into a
-                # padded ``(B, T_max, action_dim)`` tensor for downstream
-                # metric / viz computation. Slow but matches inference-time
-                # semantics; we expose seq_lens for masking.
-                preds_padded, seq_lens = self._ar_rollout_packed(_batch, emb_id)
+                preds_padded, seq_lens = self._teacher_forced_packed(_batch, emb_id)
                 preds = OrderedDict()
                 preds[ac_key] = preds_padded
                 unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
@@ -707,15 +719,51 @@ class HNet(Algo):
                     unnorm[f"emb{emb_id}_{key}"] = val
                 unnorm[f"emb{emb_id}_seq_lens"] = seq_lens
                 continue
+            # Padded mode (legacy): no packed dataset wired but kept for
+            # completeness.
             obs = self._build_obs(_batch, emb_id)
-            B = next(iter(obs.values())).shape[0] if obs else _batch[ac_key].shape[0]
-            actions = policy.generate(obs, batch_size=B, device=self.device)
+            actions = _batch[ac_key]
+            pred, _ = policy(actions, obs)
             preds = OrderedDict()
-            preds[ac_key] = actions
+            preds[ac_key] = pred
             unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
             for key, val in unnorm_actions.items():
                 unnorm[f"emb{emb_id}_{key}"] = val
         return unnorm
+
+    @torch.no_grad()
+    def _teacher_forced_packed(self, _batch: dict, emb_id: int):
+        """Single-pass teacher-forced eval for a packed validation batch.
+
+        Runs ``policy.forward_packed`` (the same path used in training)
+        and unpacks the resulting ``(T_total, action_dim)`` predictions
+        into ``(B, T_max, action_dim)`` zero-padded per-episode for
+        downstream metric / viz code.
+        """
+        policy = self.nets["policy"]
+        ac_key = self.resolved_ac_keys[emb_id]
+        actions = _batch[ac_key]
+        obs = self._build_obs(_batch, emb_id)
+        cu = _batch["cu_seqlens"]
+        max_seqlen = int(_batch["max_seq_len"])
+        seq_lens = _batch["seq_lens"].clone()
+        pred_packed, _ = policy.forward_packed(actions, obs, cu, max_seqlen)
+
+        B = int(seq_lens.shape[0])
+        T_max = int(seq_lens.max().item())
+        action_dim = policy.action_dim
+        preds_padded = torch.zeros(
+            B,
+            T_max,
+            action_dim,
+            device=pred_packed.device,
+            dtype=pred_packed.dtype,
+        )
+        for b in range(B):
+            s = int(cu[b].item())
+            e = int(cu[b + 1].item())
+            preds_padded[b, : e - s] = pred_packed[s:e]
+        return preds_padded, seq_lens
 
     @torch.no_grad()
     def _ar_rollout_packed(self, _batch: dict, emb_id: int):
