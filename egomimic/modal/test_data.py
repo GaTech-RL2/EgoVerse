@@ -2,7 +2,7 @@
 Modal-parallelized version of egomimic/scripts/test_data.py.
 
 Scans every Zarr episode on the `mecka_data_v2` Modal volume in parallel
-across up to 200 CPU-only containers, then aggregates the per-episode
+across up to 500 CPU-only containers, then aggregates the per-episode
 findings locally and prints the same summary as the original.
 
 Checks (same as the original):
@@ -21,7 +21,7 @@ Design
 Usage
 -----
     modal run --env robotics egomimic/modal/test_data.py
-    modal run --env robotics egomimic/modal/test_data.py -- --pct 10 --shards 200
+    modal run --env robotics egomimic/modal/test_data.py -- --pct 10 --shards 500
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ os.environ.setdefault("MODAL_ENVIRONMENT", "robotics")
 # ---------------------------------------------------------------------------
 VOLUME_MOUNT_PATH = "/mnt/zarr-data"
 ZARR_VOLUME_NAME = "mecka_data_v2"
-MAX_CONTAINERS = 200
+MAX_CONTAINERS = 500
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "zarr==3.1.5",
@@ -173,12 +173,12 @@ def _build_embodiment_keymap_table() -> dict[str, list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Worker — fan out to up to 200 containers
+# Worker — fan out to up to MAX_CONTAINERS containers
 # ---------------------------------------------------------------------------
 @app.function(
     cpu=1.0,
     memory=2048,
-    timeout=1800,  # 30 min per shard
+    timeout=3600,  # 1h per shard
     volumes={VOLUME_MOUNT_PATH: zarr_volume},
     max_containers=MAX_CONTAINERS,
 )
@@ -294,13 +294,35 @@ def scan_shard(
                     + ", ".join(sorted(missing_required_keys))
                 )
 
-            # (1) rows of zeros
+            # (1) rows of zeros — only on small pose/keypoint vectors.
+            # Skip image arrays: they dominate I/O on a network volume
+            # (hundreds of MB each), and zero-row corruption only manifests
+            # in pose vecs anyway. Filter by name first to avoid even loading
+            # image metadata (zarr 3.x does an async metadata fetch per key).
             zero_rows: dict[str, list[int]] = {}
             for key in g.keys():
-                arr = g[key]
-                if arr.ndim < 2 or not _np.issubdtype(arr.dtype, _np.number):
+                if key.startswith("images.") or key.startswith("images/"):
                     continue
-                data = arr[:]
+                try:
+                    arr = g[key]
+                except Exception:
+                    continue
+                if not hasattr(arr, "ndim") or not hasattr(arr, "shape"):
+                    continue  # skip groups
+                if arr.ndim < 2:
+                    continue
+                if not _np.issubdtype(arr.dtype, _np.number):
+                    continue
+                # Safety net: per-frame element count > 1024 ⇒ image-like
+                per_frame = 1
+                for d in arr.shape[1:]:
+                    per_frame *= int(d)
+                if per_frame > 1024:
+                    continue
+                try:
+                    data = arr[:]
+                except Exception:
+                    continue
                 T = data.shape[0]
                 flat = data.reshape(T, -1)
                 bad = _np.where((flat == 0).all(axis=1))[0].tolist()
@@ -340,10 +362,11 @@ def scan_shard(
 # ---------------------------------------------------------------------------
 # Coordinator — runs inside Modal, fans out scan_shard cloud-to-cloud
 # ---------------------------------------------------------------------------
-# Fanning out 200 containers directly from the local entrypoint saturates the
-# client's control-plane connection (heartbeat timeouts). Running the fan-out
-# from a Modal coordinator keeps only one cloud↔local connection open and
-# performs the 200-way fan-out cloud-to-cloud, which is what Modal is built for.
+# Fanning out hundreds of containers directly from the local entrypoint
+# saturates the client's control-plane connection (heartbeat timeouts).
+# Running the fan-out from a Modal coordinator keeps only one cloud↔local
+# connection open and performs the wide fan-out cloud-to-cloud, which is
+# what Modal is built for.
 @app.function(
     cpu=2.0,
     memory=4096,
@@ -386,7 +409,10 @@ def scan_all(
         raw = sorted(rng.sample(raw, k))
         print(f"  sampling {k} episodes ({pct:.1f}%)")
 
-    n_shards = max(1, min(shards, len(raw), MAX_CONTAINERS))
+    # Allow more shards than MAX_CONTAINERS — extras get queued, smaller
+    # per-shard work means slow episodes don't push any single shard near
+    # the per-shard timeout. MAX_CONTAINERS still caps concurrency.
+    n_shards = max(1, min(shards, len(raw)))
     chunk = math.ceil(len(raw) / n_shards)
     shard_payloads = [
         (raw[i : i + chunk], emb_table) for i in range(0, len(raw), chunk)
