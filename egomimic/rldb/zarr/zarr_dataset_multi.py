@@ -1628,6 +1628,21 @@ class ZarrDataset(torch.utils.data.Dataset):
                 valid_annotations.append(ann.get("text", ""))
         return valid_annotations
 
+    def _annotations_for_span(self, start: int, end: int) -> list[str]:
+        """Return all annotation texts whose [start_idx, end_idx) overlap [start, end)."""
+        out: list[str] = []
+        for ann in self._load_annotations():
+            a_start = int(ann.get("start_idx", -1))
+            a_end = int(ann.get("end_idx", -1))
+            if a_start < 0 or a_end <= a_start:
+                continue
+            if a_end <= start or a_start >= end:
+                continue
+            text = ann.get("text", "")
+            if text:
+                out.append(text)
+        return out
+
     def __len__(self) -> int:
         return self.total_frames
 
@@ -1653,6 +1668,86 @@ class ZarrDataset(torch.utils.data.Dataset):
                     padding = np.repeat(last_frame, pad_len, axis=0)
                     data[k] = np.concatenate([data[k], padding], axis=0)
 
+        return data
+
+    def _read_span(
+        self,
+        start: int,
+        end: int,
+        *,
+        episode_idx: int | None = None,
+    ) -> dict:
+        """Read a variable-length span ``[start, end)`` for every key in ``key_map``.
+
+        Unlike ``__getitem__``, this performs no horizon-based windowing or
+        padding — each per-frame key is read exactly over the span. Designed
+        for packed dataloaders that batch multiple variable-length samples
+        into a single stream.
+
+        Returns a dict containing:
+          - per-frame tensors of shape ``(end - start, ...)`` for camera /
+            proprio / action keys
+          - the configured annotation key (``key_type == "annotation_keys"``)
+            → ``list[str]`` of annotation texts whose spans overlap
+            ``[start, end)``
+          - ``"seq_len"`` (int)
+          - ``"embodiment"`` and ``"metadata.robot_name"`` (int embodiment id)
+          - ``"episode_idx"`` if provided
+
+        Errors (bad JPEG, transform failure) propagate to the caller; the
+        wrapping packed dataset is responsible for resampling.
+        """
+        if end <= start:
+            raise ValueError(
+                f"_read_span requires end > start (got start={start}, end={end})"
+            )
+        if start < 0 or end > self.total_frames:
+            raise ValueError(
+                f"_read_span out of range [0, {self.total_frames}): "
+                f"start={start}, end={end}"
+            )
+
+        seq_len = end - start
+        data: dict = {}
+
+        for k in self.key_map:
+            spec = self.key_map[k]
+            zarr_key = spec["zarr_key"]
+            key_type = spec.get("key_type", None)
+
+            if key_type == "annotation_keys":
+                data[k] = self._annotations_for_span(start, end)
+                continue
+
+            if key_type == "metadata_keys":
+                continue
+
+            arr = self.episode_reader.read({zarr_key: (start, end)})[zarr_key]
+
+            if zarr_key in self._image_keys:
+                decoded_frames = []
+                for jpeg_bytes in arr:
+                    decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                    decoded_frames.append(np.transpose(decoded, (2, 0, 1)) / 255.0)
+                arr = np.stack(decoded_frames, axis=0)
+            elif zarr_key in self._json_keys:
+                arr = [self._decode_json_entry(v) for v in arr]
+
+            data[k] = arr
+
+        if self.transform:
+            for transform in self.transform:
+                data = transform.transform(data)
+
+        for k, v in list(data.items()):
+            if isinstance(v, np.ndarray) and v.dtype != object:
+                data[k] = torch.from_numpy(v).to(torch.float32)
+
+        data["seq_len"] = seq_len
+        data["embodiment"] = get_embodiment_id(self.embodiment)
+        data["metadata.robot_name"] = get_embodiment_id(self.embodiment)
+        if episode_idx is not None:
+            data["episode_idx"] = int(episode_idx)
         return data
 
     def __getitem__(
