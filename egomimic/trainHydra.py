@@ -275,8 +275,6 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         km["norm_mode"] = True
 
         instantiate_copy.resolver.key_map = km
-        with open_dict(instantiate_copy):
-            instantiate_copy.mode = "train"
         norm_dataset = hydra.utils.instantiate(instantiate_copy)
         # infer_norm_from_dataset: load from precomputed JSON/dir if set, else compute (no disk write).
         data_schematic.infer_norm_from_dataset(

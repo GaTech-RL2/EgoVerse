@@ -180,42 +180,6 @@ class EpisodeResolver:
         self.transform_list = transform_list
         self.norm_stats = norm_stats
 
-    def _load_zarr_datasets_from_paths(
-        self,
-        filtered_paths: list[tuple[str, str]],
-        num_workers: int = 32,
-    ):
-        """Load ZarrDatasets directly from pre-filtered (path, hash) pairs in parallel.
-
-        Avoids re-scanning the volume and parallelises zarr-metadata reads,
-        which are the two bottlenecks on large FUSE-mounted volumes.
-        """
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
-        dataset_class = self._dataset_class or ZarrDataset
-
-        def _open(item):
-            path_str, episode_hash = item
-            p = Path(path_str)
-            return episode_hash, dataset_class(
-                p,
-                key_map=self.key_map,
-                transform_list=self.transform_list,
-                norm_stats=self.norm_stats,
-            )
-
-        datasets: dict[str, ZarrDataset] = {}
-        with ThreadPoolExecutor(max_workers=num_workers) as pool:
-            futures = {pool.submit(_open, item): item for item in filtered_paths}
-            for fut in as_completed(futures):
-                try:
-                    episode_hash, ds_obj = fut.result()
-                    datasets[episode_hash] = ds_obj
-                except Exception as e:
-                    logger.error("Failed to load dataset at %s: %s", futures[fut][0], e)
-
-        return datasets
-
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
@@ -228,9 +192,10 @@ class EpisodeResolver:
             dict[str, ZarrDataset]: a dictionary mapping string keys to constructed zarr datasets from valid filters.
         """
         dataset_class = self._dataset_class or ZarrDataset
+        all_paths = sorted(search_path.iterdir())
         datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
-        for p in search_path.iterdir():
+        for p in all_paths:
             if not p.is_dir():
                 logger.info(f"{p} is not a valid directory")
                 skipped.append(p.name)
@@ -547,48 +512,28 @@ class LocalEpisodeResolver(EpisodeResolver):
             return []
 
         filtered = []
-        max_filtered = None
-        if debug is not None and debug is not False:
-            max_filtered = 10 if debug is True else int(debug)
-
-        no_filters = filters.is_empty()
-        for p in search_path.iterdir():
+        # Skip sorting in debug mode — avoids materialising all 198K+ entries upfront
+        entries = search_path.iterdir() if debug else sorted(search_path.iterdir())
+        for p in entries:
             if not p.is_dir():
                 continue
 
             episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
 
-            if not no_filters:
-                try:
-                    store = zarr.open_group(str(p), mode="r")
-                    metadata = dict(store.attrs)
-                except Exception as e:
-                    logger.warning("Failed to read metadata for %s: %s", p, e)
-                    continue
+            try:
+                store = zarr.open_group(str(p), mode="r")
+                metadata = dict(store.attrs)
+            except Exception as e:
+                logger.warning("Failed to read metadata for %s: %s", p, e)
+                continue
 
-                if not cls._local_filters_match(metadata, episode_hash, filters):
-                    continue
+            if cls._local_filters_match(metadata, episode_hash, filters):
+                filtered.append((str(p), episode_hash))
 
-            filtered.append((str(p), episode_hash))
-            if max_filtered is not None and len(filtered) >= max_filtered:
-                break
-
-        if max_filtered is not None:
-            n_matches = len(filtered)
-            k = min(max_filtered, n_matches)
-            if max_filtered > 0 and n_matches > 0:
-                random.Random(SEED).shuffle(filtered)
-                if k < n_matches:
-                    logger.info(
-                        "Debug mode: shuffled %d filter matches, using first %d for training.",
-                        n_matches,
-                        k,
-                    )
-                elif k > 0:
-                    logger.info(
-                        "Debug mode: shuffled all %d matching datasets (k >= n).",
-                        n_matches,
-                    )
+        if debug is not None and debug is not False:
+            k = min(10 if debug is True else int(debug), len(filtered))
+            if k < len(filtered):
+                logger.info("Debug mode: limiting to %d datasets.", k)
             filtered = filtered[:k]
 
         logger.info("Local filtered paths: %s", filtered)
@@ -613,14 +558,17 @@ class LocalEpisodeResolver(EpisodeResolver):
             self.folder_path, filters, debug=self.debug
         )
 
-        if not filtered_paths:
+        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        logger.info(f"Valid folder names: {valid_folder_names}")
+        if not valid_folder_names:
             raise ValueError(
                 "No valid collection names from local filtering: "
                 "filters matched no episodes in the local directory."
             )
 
-        logger.info(f"Loading {len(filtered_paths)} episodes in parallel...")
-        datasets = self._load_zarr_datasets_from_paths(filtered_paths)
+        datasets = self._load_zarr_datasets(
+            search_path=self.folder_path, valid_folder_names=valid_folder_names
+        )
 
         return datasets
 
