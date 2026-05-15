@@ -13,7 +13,7 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
       debug: true
-      num_workers: 30
+      num_workers: ${train_dataloader_params.mecka_bimanual.num_workers}
     mode: total
 
 valid_datasets:
@@ -29,7 +29,7 @@ valid_datasets:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
       debug: true
-      num_workers: 30
+      num_workers: ${valid_dataloader_params.mecka_bimanual.num_workers}
     mode: total
 
 train_dataloader_params:
