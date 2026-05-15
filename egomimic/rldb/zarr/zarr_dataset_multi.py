@@ -634,7 +634,8 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
             logger.info("Debug mode: using first %d episodes", len(episode_hashes))
 
         dataset_class = self._dataset_class or ZarrDataset
-        num_workers = min(os.cpu_count() or 8, len(episode_hashes))
+        # I/O-bound FUSE reads — use far more threads than CPUs
+        num_workers = min(256, len(episode_hashes))
 
         def _load_one(episode_hash: str):
             local_path = next(
