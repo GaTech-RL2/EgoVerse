@@ -243,9 +243,28 @@ class ModelWrapper(LightningModule):
         config_tree = getattr(self.hparams, "config_tree", None)
         if config_tree is not None:
             cfg = self._as_config(config_tree)
+            # Optional hook: algos with custom parameter groups (e.g. H-Net's
+            # per-stage LR multipliers + WD=0 on biases/norms) can return a
+            # ``list[dict]`` here. Returning ``None`` falls back to flat
+            # ``self.trainer.model.parameters()``.
+            groups = None
+            param_groups_fn = getattr(self.model, "parameter_groups", None)
+            if callable(param_groups_fn):
+                try:
+                    base_lr = float(
+                        OmegaConf.select(cfg, "model.optimizer.lr", default=1e-4)
+                    )
+                    groups = param_groups_fn(base_lr=base_lr)
+                except TypeError:
+                    # Method exists but doesn't accept base_lr — skip.
+                    groups = None
+
+            params_arg = (
+                groups if groups is not None else self.trainer.model.parameters()
+            )
             optimizer = hydra.utils.instantiate(
                 cfg.model.optimizer,
-                params=self.trainer.model.parameters(),
+                params=params_arg,
             )
             if callable(optimizer):
                 optimizer = optimizer()
@@ -287,7 +306,8 @@ class ModelWrapper(LightningModule):
             )
             torch.distributed.barrier()
             print(
-                f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
+                f"Rank {self.global_rank} on fit start, all ranks synchronized",
+                flush=True,
             )
 
     def on_train_epoch_start(self):

@@ -1,11 +1,15 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hnet.HNet
-  data_schematic: _${data.dataset.data_schematic}
+  # ``norm_stats`` is injected at runtime by
+  # ``pl_model.ModelWrapper._instantiate_model``; do not set it here.
 
   # ---- core dims ----
   action_dim: 2
-  action_horizon: 32
+  # Upper bound on a single sub-sequence length in packed mode (the policy's
+  # learned pos_emb is sized at action_horizon). Longest pushshapes episode
+  # is 958 frames; 1024 leaves headroom.
+  action_horizon: 1024
   d_model: 128
   d_cond: 128
 
@@ -86,6 +90,27 @@ robomimic_model:
   domains: ["pushshapes_sim"]
   ac_keys:
     pushshapes_sim: "actions"
+
+  # ---- training recipe (all OPT-IN; default disabled) ----
+  # Ported from upstream hnet/models/hnet.py + hnet/utils/train.py.
+  # Leaving these unset reproduces "standard training": PyTorch default
+  # Linear init, single LR for all params, single weight_decay from the
+  # optimizer config below.
+  #
+  #   init_weights_range: 0.02          # residual-stream-aware init
+  #                                     #   (out_proj/fc2 scaled by 1/sqrt(n_residuals))
+  #   lr_multipliers: [3.0, 1.7, 0.9]   # per-stage LR scale (outer → inner)
+  #                                     #   length must match number of stages
+  #   use_parameter_groups: true        # build AdamW groups with WD=0 on
+  #                                     #   bias/norm and per-group lr =
+  #                                     #   base_lr * lr_multiplier. Reads
+  #                                     #   weight_decay from this field, NOT
+  #                                     #   from the optimizer config.
+  #   weight_decay: 0.01                # WD used when use_parameter_groups=true
+  init_weights_range: null
+  lr_multipliers: null
+  use_parameter_groups: false
+  weight_decay: 0.0
 
 optimizer:
   _target_: torch.optim.AdamW
