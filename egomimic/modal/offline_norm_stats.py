@@ -293,12 +293,35 @@ def run_norm_stats(
             norm_cfg.mode = "train"
         norm_dataset = hydra.utils.instantiate(norm_cfg)
 
+        emb_id = str(get_embodiment_id(dataset_name))
+        ckpt_dir = out_path.parent / "checkpoints"
+        ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+        def _make_checkpoint_fn(ckpt_dir=ckpt_dir, emb_id=emb_id):
+            def _fn(collected, pct):
+                partial: dict = {}
+                for k, arrays in collected.items():
+                    if not arrays:
+                        continue
+                    X = np.concatenate(arrays, axis=0)
+                    partial[k] = {
+                        stat_name: np.asarray(arr).tolist()
+                        for stat_name, arr in data_schematic._compute_stats_for_array(X).items()
+                    }
+                ckpt_path = ckpt_dir / f"norm_stats_checkpoint_{pct}pct.json"
+                with open(ckpt_path, "w") as f:
+                    json.dump({"stats": {emb_id: partial}, "checkpoint_pct": pct}, f, indent=4)
+                training_outputs_volume.commit()
+                print(f"[NormStats] Checkpoint {pct}% → {ckpt_path}")
+            return _fn
+
         data_schematic.infer_norm_from_dataset(
             norm_dataset,
             dataset_name,
             sample_frac=sample_frac,
             num_workers=num_workers,
             batch_size=batch_size,
+            checkpoint_fn=_make_checkpoint_fn(),
         )
 
         emb_id = get_embodiment_id(dataset_name)

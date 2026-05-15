@@ -197,6 +197,7 @@ class DataSchematic(object):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        checkpoint_fn=None,
     ):
         """
         Load or compute normalization statistics for an embodiment; does not write cache files.
@@ -285,6 +286,7 @@ class DataSchematic(object):
             n_samples=n_samples,
             batch_size=batch_size,
             num_workers=num_workers,
+            checkpoint_fn=checkpoint_fn,
         )
         del_keys = []
         for k in norm_keys:
@@ -326,10 +328,12 @@ class DataSchematic(object):
         )
 
     def _collect_norm_samples(
-        self, loader, norm_keys, embodiment, n_samples: int, batch_size: int, num_workers: int
+        self, loader, norm_keys, embodiment, n_samples: int, batch_size: int, num_workers: int,
+        checkpoint_fn=None,
     ):
         collected = {k: [] for k in norm_keys}
         cur_num_samples = 0
+        _next_ckpt_pct = 10
         logger.info(
             f"[NormStats] Starting to load data for norm inference with batch_size={batch_size} and num_workers={num_workers}"
         )
@@ -361,6 +365,12 @@ class DataSchematic(object):
 
                 cur_num_samples += take
                 pbar.update(take)
+
+                if checkpoint_fn is not None and _next_ckpt_pct <= 90:
+                    if 100 * cur_num_samples / n_samples >= _next_ckpt_pct:
+                        checkpoint_fn(collected, _next_ckpt_pct)
+                        _next_ckpt_pct += 10
+
         return collected
 
     @staticmethod
