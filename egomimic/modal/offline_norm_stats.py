@@ -77,6 +77,58 @@ image = (
     .apt_install("git", "curl")
     .run_commands("curl -LsSf https://astral.sh/uv/install.sh | sh")
     .env({"PATH": "/root/.local/bin:$PATH"})
+    .pip_install(
+        "lightning",
+        "hydra-core",
+        "omegaconf",
+        "wandb",
+        "boto3",
+        "cloudpathlib",
+        "zarr==3.1.5",
+        "pyarrow",
+        "simplejpeg",
+        "h5py",
+        "av==12.0.0",
+        "mediapy",
+        "datasets==4.0.0",
+        "transformers==4.57.3",
+        "timm",
+        "einops",
+        "positional-encodings[pytorch]",
+        "pytorch-kinematics",
+        "arm-pytorch-utilities",
+        "geomloss",
+        "tslearn",
+        "scipy",
+        "hydra-submitit-launcher==1.2.0",
+        "submitit",
+        "opencv-python-headless",
+        "projectaria-tools",
+        "pyquaternion",
+        "sqlalchemy",
+        "psycopg[binary]",
+        "pandas",
+        "rich",
+        "tabulate",
+        "prettytable",
+        "packaging",
+        "overrides",
+        "typing_extensions",
+        "pyyaml",
+        "matplotlib",
+        "termcolor",
+        "tqdm",
+        "filelock",
+        "imageio",
+        "imageio-ffmpeg",
+        "safetensors",
+        "huggingface-hub",
+        "scaleapi",
+        "openai",
+        "pyzmq",
+        "torchvision==0.21.0",
+        "s5cmd",
+    )
 )
 
 zarr_volume = modal.Volume.from_name(CFG.zarr_volume_name)
@@ -127,8 +179,11 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
         ["git", "-C", CFG.remote_repo_dir, "submodule", "update", "--init", "--recursive"],
         check=True,
     )
+    # Register egomimic as an editable install without touching deps
+    # (all deps come from the Modal image). uv pip --system writes to the
+    # system Python that the container process is already running.
     subprocess.run(
-        ["uv", "sync", "--frozen"],
+        ["uv", "pip", "install", "--system", "-e", ".", "--no-deps"],
         cwd=CFG.remote_repo_dir,
         check=True,
     )
@@ -168,13 +223,9 @@ def run_norm_stats(
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
     zarr_volume.reload()
 
-    # Point the current process at the uv venv created by _prepare_repo.
-    # All third-party imports must come after this block.
-    venv_site = sorted(
-        glob.glob(f"{CFG.remote_repo_dir}/.venv/lib/python*/site-packages")
-    )
-    for p in venv_site:
-        sys.path.insert(0, p)
+    # uv pip --system writes to the system Python's site-packages, but the
+    # current process won't pick up the new .pth until it restarts. Add the
+    # repo root directly so egomimic is importable in-process.
     sys.path.insert(0, CFG.remote_repo_dir)
 
     import hydra
