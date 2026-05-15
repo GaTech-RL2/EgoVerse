@@ -266,6 +266,8 @@ def run_norm_stats(
         km = OmegaConf.to_container(norm_cfg.resolver.key_map, resolve=False)
         km["norm_mode"] = True
         norm_cfg.resolver.key_map = km
+        with open_dict(norm_cfg):
+            norm_cfg.mode = "train"
         norm_dataset = hydra.utils.instantiate(norm_cfg)
 
         data_schematic.infer_norm_from_dataset(
