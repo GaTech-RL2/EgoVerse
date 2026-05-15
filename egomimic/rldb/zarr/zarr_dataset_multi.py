@@ -180,6 +180,42 @@ class EpisodeResolver:
         self.transform_list = transform_list
         self.norm_stats = norm_stats
 
+    def _load_zarr_datasets_from_paths(
+        self,
+        filtered_paths: list[tuple[str, str]],
+        num_workers: int = 32,
+    ):
+        """Load ZarrDatasets directly from pre-filtered (path, hash) pairs in parallel.
+
+        Avoids re-scanning the volume and parallelises zarr-metadata reads,
+        which are the two bottlenecks on large FUSE-mounted volumes.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        dataset_class = self._dataset_class or ZarrDataset
+
+        def _open(item):
+            path_str, episode_hash = item
+            p = Path(path_str)
+            return episode_hash, dataset_class(
+                p,
+                key_map=self.key_map,
+                transform_list=self.transform_list,
+                norm_stats=self.norm_stats,
+            )
+
+        datasets: dict[str, ZarrDataset] = {}
+        with ThreadPoolExecutor(max_workers=num_workers) as pool:
+            futures = {pool.submit(_open, item): item for item in filtered_paths}
+            for fut in as_completed(futures):
+                try:
+                    episode_hash, ds_obj = fut.result()
+                    datasets[episode_hash] = ds_obj
+                except Exception as e:
+                    logger.error("Failed to load dataset at %s: %s", futures[fut][0], e)
+
+        return datasets
+
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
@@ -578,17 +614,14 @@ class LocalEpisodeResolver(EpisodeResolver):
             self.folder_path, filters, debug=self.debug
         )
 
-        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
-        logger.info(f"Valid folder names: {valid_folder_names}")
-        if not valid_folder_names:
+        if not filtered_paths:
             raise ValueError(
                 "No valid collection names from local filtering: "
                 "filters matched no episodes in the local directory."
             )
 
-        datasets = self._load_zarr_datasets(
-            search_path=self.folder_path, valid_folder_names=valid_folder_names
-        )
+        logger.info(f"Loading {len(filtered_paths)} episodes in parallel...")
+        datasets = self._load_zarr_datasets_from_paths(filtered_paths)
 
         return datasets
 
