@@ -35,7 +35,17 @@ os.environ.setdefault("MODAL_ENVIRONMENT", "robotics")
 # ---------------------------------------------------------------------------
 VOLUME_MOUNT_PATH = "/mnt/zarr-data"
 ZARR_VOLUME_NAME = "mecka_data_v2"
-MAX_CONTAINERS = 500
+
+# Global cap on concurrent scan_shard worker containers.
+MAX_CONTAINERS = 200
+
+# Hierarchical fan-out width. A single parent that .starmap()s N children must
+# heartbeat all N over one control-plane connection; past ~30 that connection
+# saturates and heartbeats time out (see egomimic/modal/scan.py). So we use a
+# 3-tier tree: scan_all -> GROUPS x scan_group -> scan_shard. With GROUPS≈16
+# every parent tracks ≤ ~16 children while still reaching ~MAX_CONTAINERS
+# effective parallelism (16 groups × ~13 concurrent shards each).
+GROUPS = 16
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "zarr==3.1.5",
@@ -354,17 +364,108 @@ def scan_shard(
     return out
 
 
+def _empty_partial() -> dict:
+    return {
+        "scanned": 0,
+        "scan_errors": [],
+        "total_episodes_with_zeros": 0,
+        "total_zero_frames": 0,
+        "total_episodes_with_struct_issues": 0,
+        "total_episodes_with_chunk_issues": 0,
+        "results_with_zeros": {},
+        "results_struct_issues": {},
+        "results_chunk_issues": {},
+    }
+
+
+def _fold_shard_result(acc: dict, res: dict) -> None:
+    """Fold one per-episode scan result into an accumulator dict (in place)."""
+    acc["scanned"] += 1
+    eh = res["episode_hash"]
+
+    if res["error"]:
+        acc["scan_errors"].append(f"{eh}: {res['error']}")
+        return
+
+    if res.get("issues_struct"):
+        acc["total_episodes_with_struct_issues"] += 1
+        acc["results_struct_issues"][eh] = list(res["issues_struct"])
+
+    if res.get("issues_chunks"):
+        acc["total_episodes_with_chunk_issues"] += 1
+        acc["results_chunk_issues"][eh] = dict(res["issues_chunks"])
+
+    if res["zero_rows"]:
+        acc["total_episodes_with_zeros"] += 1
+        acc["results_with_zeros"][eh] = res["zero_rows"]
+        all_bad: set[int] = set()
+        for bad in res["zero_rows"].values():
+            all_bad.update(bad)
+        acc["total_zero_frames"] += len(all_bad)
+
+
+def _merge_partials(partials: list[dict]) -> dict:
+    """Merge mid-tier partial dicts into one. Episode hashes are unique
+    across groups, so dict-update is collision-free."""
+    out = _empty_partial()
+    for p in partials:
+        out["scanned"] += p["scanned"]
+        out["scan_errors"].extend(p["scan_errors"])
+        out["total_episodes_with_zeros"] += p["total_episodes_with_zeros"]
+        out["total_zero_frames"] += p["total_zero_frames"]
+        out["total_episodes_with_struct_issues"] += p[
+            "total_episodes_with_struct_issues"
+        ]
+        out["total_episodes_with_chunk_issues"] += p["total_episodes_with_chunk_issues"]
+        out["results_with_zeros"].update(p["results_with_zeros"])
+        out["results_struct_issues"].update(p["results_struct_issues"])
+        out["results_chunk_issues"].update(p["results_chunk_issues"])
+    return out
+
+
 # ---------------------------------------------------------------------------
-# Coordinator — runs inside Modal, fans out scan_shard cloud-to-cloud
+# Mid-tier — one per GROUP, fans out scan_shard over its slice
 # ---------------------------------------------------------------------------
-# Fanning out hundreds of containers directly from the local entrypoint
-# saturates the client's control-plane connection (heartbeat timeouts).
-# Running the fan-out from a Modal coordinator keeps only one cloud↔local
-# connection open and performs the wide fan-out cloud-to-cloud, which is
-# what Modal is built for.
+# Each scan_group only .starmap()s ~MAX_CONTAINERS/GROUPS shards, so its
+# control-plane connection tracks a small number of children — well under
+# the saturation point that caused the heartbeat timeouts.
 @app.function(
-    cpu=8.0,  # Coordinator juggles up to MAX_CONTAINERS worker heartbeats —
-    # starve its gRPC handler and the local client's heartbeats time out.
+    cpu=2.0,
+    memory=4096,
+    timeout=7200,
+    volumes={VOLUME_MOUNT_PATH: zarr_volume},
+    max_containers=GROUPS,
+)
+def scan_group(
+    group_specs: list[tuple[str, str]],
+    emb_table: dict[str, list[str]],
+    sub_shards: int,
+) -> dict:
+    """Split this group's episodes into sub-shards, fan out scan_shard,
+    aggregate into a partial dict (same schema as the final result)."""
+    n = max(1, min(sub_shards, len(group_specs)))
+    chunk = math.ceil(len(group_specs) / n)
+    payloads = [
+        (group_specs[i : i + chunk], emb_table)
+        for i in range(0, len(group_specs), chunk)
+    ]
+
+    acc = _empty_partial()
+    for shard_results in scan_shard.starmap(payloads, order_outputs=False):
+        for res in shard_results:
+            _fold_shard_result(acc, res)
+    return acc
+
+
+# ---------------------------------------------------------------------------
+# Top coordinator — discovers episodes, fans out GROUPS x scan_group
+# ---------------------------------------------------------------------------
+# 3-tier tree: scan_all -> scan_group (×GROUPS) -> scan_shard. No parent
+# .starmap()s more than ~GROUPS children, keeping every control-plane
+# connection well under the heartbeat-saturation ceiling while still
+# reaching ~MAX_CONTAINERS effective parallelism.
+@app.function(
+    cpu=4.0,
     memory=8192,
     timeout=7200,  # 2h for the whole scan
     volumes={VOLUME_MOUNT_PATH: zarr_volume},
@@ -375,7 +476,7 @@ def scan_all(
     seed: int,
     shards: int,
 ) -> dict:
-    """Discover, fan out scan_shard.starmap, aggregate; return a summary dict."""
+    """Discover episodes, hierarchically fan out, aggregate, print summary."""
     zarr_volume.reload()
     base = Path(VOLUME_MOUNT_PATH)
 
@@ -405,80 +506,42 @@ def scan_all(
         raw = sorted(rng.sample(raw, k))
         print(f"  sampling {k} episodes ({pct:.1f}%)")
 
-    # Allow more shards than MAX_CONTAINERS — extras get queued, smaller
-    # per-shard work means slow episodes don't push any single shard near
-    # the per-shard timeout. MAX_CONTAINERS still caps concurrency.
-    n_shards = max(1, min(shards, len(raw)))
-    chunk = math.ceil(len(raw) / n_shards)
-    shard_payloads = [
-        (raw[i : i + chunk], emb_table) for i in range(0, len(raw), chunk)
-    ]
-    total_shards = len(shard_payloads)
+    # Tier 1: split episodes across GROUPS mid-coordinators (round-robin so
+    # each group gets a representative mix, not a contiguous block).
+    n_groups = max(1, min(GROUPS, len(raw)))
+    group_specs = [raw[i::n_groups] for i in range(n_groups)]
+    group_specs = [g for g in group_specs if g]
+
+    # Tier 2: total scan_shard units across the whole run = `shards`.
+    # Each group gets a proportional share of sub-shards.
+    total_shards = max(1, min(shards, len(raw)))
+    sub_shards = max(1, math.ceil(total_shards / len(group_specs)))
+
     print(
-        f"  fan-out: {total_shards} shards × ~{chunk} eps "
-        f"(max_containers={MAX_CONTAINERS})"
+        f"  fan-out: {len(group_specs)} groups × ~{sub_shards} sub-shards "
+        f"(~{math.ceil(len(raw) / len(group_specs))} eps/group, "
+        f"global max_containers={MAX_CONTAINERS})"
     )
 
-    total_episodes_with_zeros = 0
-    total_zero_frames = 0
-    total_episodes_with_struct_issues = 0
-    total_episodes_with_chunk_issues = 0
-    scanned = 0
-    scan_errors: list[str] = []
-    results_with_zeros: dict[str, dict[str, list[int]]] = {}
-    results_struct_issues: dict[str, list[str]] = {}
-    results_chunk_issues: dict[str, dict[str, list[str]]] = {}
+    payloads = [(g, emb_table, sub_shards) for g in group_specs]
 
-    # Quiet aggregation: per-episode details are emitted by the local
-    # entrypoint from the returned dict. Logging every flagged episode
-    # here streams it back to the local client and saturates the
-    # heartbeat channel — that was the source of the deadline-exceeded errors.
-    shards_done = 0
-    progress_every = max(1, total_shards // 20)  # ~20 progress lines total
-    for shard_results in scan_shard.starmap(shard_payloads, order_outputs=False):
-        shards_done += 1
-        for res in shard_results:
-            scanned += 1
-            eh = res["episode_hash"]
+    partials: list[dict] = []
+    groups_done = 0
+    for partial in scan_group.starmap(payloads, order_outputs=False):
+        groups_done += 1
+        partials.append(partial)
+        flagged = (
+            partial["total_episodes_with_zeros"]
+            + partial["total_episodes_with_struct_issues"]
+            + partial["total_episodes_with_chunk_issues"]
+            + len(partial["scan_errors"])
+        )
+        print(
+            f"  progress: group {groups_done}/{len(group_specs)} done "
+            f"(eps={partial['scanned']}, flagged={flagged})"
+        )
 
-            if res["error"]:
-                scan_errors.append(f"{eh}: {res['error']}")
-                continue
-
-            if res.get("issues_struct"):
-                total_episodes_with_struct_issues += 1
-                results_struct_issues[eh] = list(res["issues_struct"])
-
-            if res.get("issues_chunks"):
-                total_episodes_with_chunk_issues += 1
-                results_chunk_issues[eh] = dict(res["issues_chunks"])
-
-            if res["zero_rows"]:
-                total_episodes_with_zeros += 1
-                results_with_zeros[eh] = res["zero_rows"]
-                all_bad: set[int] = set()
-                for bad in res["zero_rows"].values():
-                    all_bad.update(bad)
-                total_zero_frames += len(all_bad)
-
-        if shards_done % progress_every == 0 or shards_done == total_shards:
-            print(
-                f"  progress: shard {shards_done}/{total_shards}  "
-                f"(eps scanned: {scanned}, flagged: "
-                f"{total_episodes_with_zeros + total_episodes_with_struct_issues + total_episodes_with_chunk_issues + len(scan_errors)})"
-            )
-
-    result = {
-        "scanned": scanned,
-        "scan_errors": scan_errors,
-        "total_episodes_with_zeros": total_episodes_with_zeros,
-        "total_zero_frames": total_zero_frames,
-        "total_episodes_with_struct_issues": total_episodes_with_struct_issues,
-        "total_episodes_with_chunk_issues": total_episodes_with_chunk_issues,
-        "results_with_zeros": results_with_zeros,
-        "results_struct_issues": results_struct_issues,
-        "results_chunk_issues": results_chunk_issues,
-    }
+    result = _merge_partials(partials)
     # Print the full summary into the coordinator's own logs — the local
     # CLI uses .spawn() and exits, so it never sees the returned dict.
     _print_summary(result)
