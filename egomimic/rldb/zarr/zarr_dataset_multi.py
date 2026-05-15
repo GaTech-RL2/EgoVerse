@@ -879,12 +879,27 @@ class MultiDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def _iter_leaves(ds):
-        """Yield non-MultiDataset leaves from possibly nested wrappers."""
+        """Yield non-MultiDataset leaves from possibly nested wrappers.
+
+        Also descends into ``ZarrEpisodePackedDataset``, which owns the same
+        ``dict[str, ZarrDataset]`` shape as ``MultiDataset.datasets``. The
+        leaves carry ``.embodiment`` / ``.key_map`` and that's what
+        ``populate_from_datasets`` probes.
+        """
         if isinstance(ds, MultiDataset):
             for child in ds.datasets.values():
                 yield from MultiDataset._iter_leaves(child)
-        else:
-            yield ds
+            return
+        # Lazy import to avoid cycle.
+        from egomimic.rldb.zarr.zarr_dataset_packed import (
+            ZarrEpisodePackedDataset as _ZEP,
+        )
+
+        if isinstance(ds, _ZEP):
+            for child in ds.datasets.values():
+                yield from MultiDataset._iter_leaves(child)
+            return
+        yield ds
 
     def populate_from_datasets(self, datasets: dict | None = None) -> None:
         """
@@ -893,6 +908,10 @@ class MultiDataset(torch.utils.data.Dataset):
         ``self.datasets`` so the typical call is just ``mds.populate_from_datasets()``.
         """
         graph = datasets if datasets is not None else self.datasets
+        # Leaves under the same wrapper share the same embodiment / key_map,
+        # so probing one is enough — the rest produce identical info and
+        # ``leaf[0]`` is expensive (JPEG decode + horizon-window read).
+        probed_embodiments: set = set()
         for ds in graph.values():
             for leaf in self._iter_leaves(ds):
                 emb = getattr(leaf, "embodiment", None)
@@ -900,6 +919,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 if emb is None or key_map is None:
                     continue
                 emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
+                if emb_id in probed_embodiments:
+                    continue
+                probed_embodiments.add(emb_id)
                 self.embodiments.add(emb_id)
                 self.key_types.setdefault(emb_id, {})
                 self.zarr_keys.setdefault(emb_id, {})
@@ -1024,24 +1046,47 @@ class MultiDataset(torch.utils.data.Dataset):
                 )
                 return
 
+        # Packed datasets return variable-length per-episode tensors; default
+        # collate would torch.stack them and crash. Use pack_collate when the
+        # dataset is a ``ZarrEpisodePackedDataset``; in that case n_samples is
+        # interpreted as frames (since each packed batch contributes many
+        # frames at once via ``batch[zarr_key].shape[0] == T_total``).
+        from egomimic.rldb.zarr.zarr_dataset_packed import (
+            ZarrEpisodePackedDataset,
+            pack_collate,
+        )
+
+        is_packed = isinstance(dataset, ZarrEpisodePackedDataset)
+        collate_fn = pack_collate if is_packed else None
+
         loader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
             num_workers=num_workers,
             shuffle=True,
             generator=torch.Generator().manual_seed(seed),
+            collate_fn=collate_fn,
         )
         N = len(dataset)
         if N <= 0:
             raise ValueError("Dataset is empty")
-        n_samples = int(math.ceil(sample_frac * N))
-        n_samples = max(1, min(n_samples, N))
+        if is_packed:
+            # Frames, not episodes — sample_frac applies to the full frame budget.
+            total_frames = sum(end - start for _key, start, end in dataset.index)
+            n_samples = int(math.ceil(sample_frac * total_frames))
+            n_samples = max(1, min(n_samples, total_frames))
+        else:
+            n_samples = int(math.ceil(sample_frac * N))
+            n_samples = max(1, min(n_samples, N))
         if max_samples is not None:
             n_samples = min(n_samples, max_samples)
 
         logger.info(f"[MultiDataset] embodiment={embodiment} norm_keys={norm_keys}")
+        unit = "frames" if is_packed else "samples"
+        denom = total_frames if is_packed else N
         logger.info(
-            f"[MultiDataset] sampling {n_samples}/{N} (~{100 * sample_frac:.1f}%)"
+            f"[MultiDataset] sampling {n_samples}/{denom} {unit} "
+            f"(~{100 * sample_frac:.1f}%)"
         )
 
         loading_start = time.time()
@@ -1604,12 +1649,25 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
                     try:
-                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                        if horizon is not None and horizon > 1:
+                            # Windowed image read: jpeg_bytes is an array of
+                            # per-frame JPEG buffers. Decode each frame
+                            # individually (simplejpeg can't vectorize across
+                            # the buffer-array dtype). Matches _read_span.
+                            frames = []
+                            for buf in jpeg_bytes:
+                                decoded = simplejpeg.decode_jpeg(buf, colorspace="RGB")
+                                frames.append(np.transpose(decoded, (2, 0, 1)) / 255.0)
+                            data[k] = np.stack(frames, axis=0)
+                        else:
+                            decoded = simplejpeg.decode_jpeg(
+                                jpeg_bytes, colorspace="RGB"
+                            )
+                            data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
                     except Exception:
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
-                    data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
                         data[k] = [self._decode_json_entry(v) for v in data[k]]

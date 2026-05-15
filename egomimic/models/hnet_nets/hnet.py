@@ -16,6 +16,7 @@ individual stages. It exists to:
 action_in / action_out / BOS / pos_emb / cond encoders live on the algo
 class (``HNetPolicy``), not here.
 """
+
 from typing import List
 
 import torch
@@ -23,6 +24,18 @@ import torch.nn as nn
 
 from egomimic.models.hnet_nets.context import HNetContext
 from egomimic.models.hnet_nets.stages import _BaseStage
+
+
+def apply_optimization_params(param: torch.Tensor, **kwargs) -> None:
+    """Annotate a parameter with optimizer kwargs (lr_multiplier, weight_decay).
+
+    Mirrors the upstream H-Net helper. ``HNet.parameter_groups`` later reads
+    each parameter's ``_optim`` dict to build AdamW param groups.
+    """
+    if hasattr(param, "_optim"):
+        param._optim.update(kwargs)
+    else:
+        param._optim = dict(kwargs)
 
 
 class HNet(nn.Module):
@@ -49,6 +62,7 @@ class HNet(nn.Module):
             # inner stage runs in the chunked space at output_hidden_dim
             # (after the explicit proj_in).
             from egomimic.models.hnet_nets.stages import ChunkerStage as _CS
+
             expected = (
                 stages[i].output_hidden_dim
                 if isinstance(stages[i], _CS)
@@ -56,7 +70,7 @@ class HNet(nn.Module):
             )
             if stages[i + 1].input_hidden_dim != expected:
                 raise ValueError(
-                    f"Hidden-dim mismatch: stages[{i+1}].input_hidden_dim "
+                    f"Hidden-dim mismatch: stages[{i + 1}].input_hidden_dim "
                     f"({stages[i + 1].input_hidden_dim}) does not match the "
                     f"inner working dim of stages[{i}] ({expected})."
                 )
@@ -103,9 +117,101 @@ class HNet(nn.Module):
         assert ctx.inference_params is not None, "Call allocate_inference_cache first."
         return self.root.step(x, ctx, ctx.inference_params[0])
 
-    def allocate_inference_cache(self, batch_size: int, max_seqlen: int, device, dtype=torch.float32):
+    def allocate_inference_cache(
+        self, batch_size: int, max_seqlen: int, device, dtype=torch.float32
+    ):
         """Returns a list with a single entry: the root stage's nested state."""
         return [self.root._allocate(batch_size, max_seqlen, dtype, device)]
+
+    # ----- Training recipe (mirrors upstream hnet/models/hnet.py) ----- #
+
+    def init_weights(self, initializer_range: float = 0.02) -> None:
+        """Walk the stage chain and apply residual-stream-aware Linear init.
+
+        ``out_proj`` and ``fc2`` weights are scaled by
+        ``initializer_range / sqrt(n_residuals)`` where ``n_residuals`` is
+        the cumulative residual depth through the hierarchy. Modules flagged
+        ``_no_reinit`` (routing q/k, residual_proj, AdaLN) are skipped.
+        """
+        self.root._init_weights(initializer_range, parent_residuals=0)
+
+    def apply_lr_multiplier(self, lr_multipliers) -> None:
+        """Stamp every parameter with a per-stage ``lr_multiplier`` annotation.
+
+        ``lr_multipliers`` is a list with one entry per stage in the flat
+        list (outer first). Stage i's parameters get ``lr_multipliers[i]``.
+        Read by ``parameter_groups`` when building optimizer param groups.
+        """
+        self.root._apply_lr_multiplier(lr_multipliers, stage_idx=0)
+
+    def parameter_groups(self, weight_decay: float = 0.0) -> list:
+        """Build AdamW parameter groups from per-parameter ``_optim`` annotations.
+
+        Groups params by their ``_optim`` tuple. Sets ``weight_decay=0`` on
+        biases and norm weights regardless of any other annotation.
+        Returns ``list[dict]`` suitable for ``torch.optim.AdamW(params=...)``.
+
+        If ``apply_lr_multiplier`` was never called, params have no
+        ``_optim`` and end up in one group with ``lr_multiplier=1.0`` and the
+        passed ``weight_decay`` (bias/norm still get WD=0).
+        """
+        # First pass: stamp bias / norm params with weight_decay=0. Other
+        # params inherit the caller's ``weight_decay`` arg via the default
+        # group below.
+        for name, p in self.named_parameters():
+            if not p.requires_grad:
+                continue
+            if name.endswith(".bias") or ".norm" in name or "rmsnorm" in name.lower():
+                apply_optimization_params(p, weight_decay=0.0)
+
+        # Build group dict keyed by sorted-tuple of (key, value) items from _optim.
+        groups: dict = {}
+        for p in self.parameters():
+            if not p.requires_grad:
+                continue
+            optim = getattr(p, "_optim", {})
+            key = tuple(sorted(optim.items()))
+            entry = groups.setdefault(
+                key, {"params": [], "weight_decay": weight_decay, "lr_multiplier": 1.0}
+            )
+            entry["params"].append(p)
+            for k, v in optim.items():
+                entry[k] = v
+        return list(groups.values())
+
+
+def chunk_stats_from_aux(aux: List[dict]) -> dict:
+    """Per-chunker boundary stats for logging.
+
+    For each entry in ``aux`` (one per chunker stage), report:
+      - boundary_rate (F): fraction of tokens marked as boundaries.
+      - avg_chunk_len: average length of a chunk in tokens. Defined as
+        ``num_tokens / max(num_boundaries, 1)``; equals ``1 / F`` when F > 0
+        and ``num_tokens`` (one chunk covering everything) when F == 0.
+
+    Returns a dict with keys per chunker (``avg_chunk_len_0``,
+    ``boundary_rate_0``, ...) plus aggregate ``avg_chunk_len`` /
+    ``boundary_rate`` averaged across chunkers. All values are Python
+    floats — these are pure logging stats, not loss terms.
+    """
+    out: dict = {}
+    if not aux:
+        return out
+    rates = []
+    lens = []
+    for i, entry in enumerate(aux):
+        bm = entry["bpred"].boundary_mask
+        n = max(bm.numel(), 1)
+        n_b = int(bm.sum().item())
+        f = n_b / n
+        avg_len = n / max(n_b, 1)
+        out[f"boundary_rate_{i}"] = f
+        out[f"avg_chunk_len_{i}"] = avg_len
+        rates.append(f)
+        lens.append(avg_len)
+    out["boundary_rate"] = sum(rates) / len(rates)
+    out["avg_chunk_len"] = sum(lens) / len(lens)
+    return out
 
 
 def ratio_loss_from_aux(aux: List[dict], device=None) -> torch.Tensor:
