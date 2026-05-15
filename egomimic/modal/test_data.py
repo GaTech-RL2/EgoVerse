@@ -10,26 +10,53 @@ Checks (same as the original):
   2. Embodiment in zarr.json + presence of every required key dir.
   3. /c layout — files under <key>/c/ with names longer than 4 chars.
 
-Architecture (fault-tolerant, connectionless)
----------------------------------------------
-A 198K-episode scan runs for hours. Any Modal call that returns results
-(.remote / .map / .starmap) forces the caller to hold a live control-plane
-connection for the whole job — over hours that connection always dies
-(heartbeat timeout) or the holding container gets preempted, losing all
-progress. So this script holds NO such connection:
+Architecture (volume-only state, no long-lived control connections)
+-------------------------------------------------------------------
+Every persisted artifact lives on the zarr volume under
+    <volume>/_results/<run_id>/
+        meta.json           — n_shards, expected_total, started
+        LAUNCHED            — marker file (idempotent re-entry of scan_all)
+        shard_000000.json   — one per shard, written atomically by workers
+        ...
+        summary.json        — compact aggregate, written by summarize
 
-  main()       local: build embodiment table, scan_all.spawn(), exit.
-  scan_all     Modal: list episodes, scan_shard.spawn() every shard
-               (spawn only enqueues — no connection held), then exits in
-               minutes. Idempotent under preemption via a LAUNCHED marker.
-  scan_shard   Modal worker (×MAX_CONTAINERS): scans its episodes, writes a
-               partial aggregate into a modal.Dict keyed by run_id/idx.
-               Idempotent: if its key exists it returns immediately, so a
-               preemption-restart is a cheap no-op.
-  aggregate    Modal: polls the Dict (reads only — zero worker connections),
-               merges partials, prints the summary. Idempotent.
+No modal.Dict and no long-running poll. Each modal function is short and
+exits cleanly, so neither client→worker heartbeats nor worker preemption
+can break the run.
 
-Result: neither heartbeat timeouts nor worker preemption can break a run.
+  main (local):       build emb table, scan_all.spawn(...), exit.
+
+  scan_all (modal):   list episodes, write meta.json, *parallel-spawn* every
+                      shard from a ThreadPoolExecutor (RPCs happen
+                      concurrently, finishing in seconds instead of minutes),
+                      spawn summarize, exit. Idempotent via LAUNCHED marker.
+
+  scan_shard ×N:      scan their slice, atomically write
+                      shard_<idx>.json to the volume, exit. Idempotent —
+                      if the file already exists, returns immediately.
+
+  summarize:          a single short-lived poll iteration: read shard_*.json
+                      from the volume; if all present (or max iters reached)
+                      merge + print + write summary.json + exit; otherwise
+                      sleep ~60s and spawn the next iteration of itself.
+                      Each invocation is <5 min, well below any heartbeat
+                      threshold.
+
+Why this fixes the heartbeat / preemption loop the previous version hit
+----------------------------------------------------------------------
+The old scan_all looped `scan_shard.spawn()` ~1000 times serially. Each
+.spawn() is one control-plane RPC; the cumulative wall-clock exceeded the
+client→worker heartbeat budget (~60s), so Modal preempted scan_all
+mid-loop. On restart it would re-enter the same loop and preempt again.
+
+This version:
+  * sizes shards to MAX_CONTAINERS so we issue exactly that many spawns
+    (no deep queue), and
+  * issues those spawns in parallel via a ThreadPool so the whole spawn
+    phase completes in seconds.
+
+Combined with volume-only state (no modal.Dict polling) and the
+self-respawning summarize, no function ever runs long enough to heartbeat.
 
 Usage
 -----
@@ -37,16 +64,21 @@ Usage
     modal run --detach --env robotics egomimic/modal/test_data.py
     modal run --detach --env robotics egomimic/modal/test_data.py -- --pct 10
 
-    # watch progress; the `aggregate` logs end with the ==== summary block:
+    # watch progress; the summarize logs end with the ==== summary block:
     modal app logs egomimic-test-data
+
+    # re-summarize an already-scanned run (e.g. if you missed the log):
+    modal run --env robotics egomimic/modal/test_data.py::resummarize_cli -- --run-id <run_id>
 """
 
 from __future__ import annotations
 
+import json as _json
 import math
 import os
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import modal
@@ -58,58 +90,21 @@ os.environ.setdefault("MODAL_ENVIRONMENT", "robotics")
 # ---------------------------------------------------------------------------
 VOLUME_MOUNT_PATH = "/mnt/zarr-data"
 ZARR_VOLUME_NAME = "mecka_data_v2"
+RESULTS_PREFIX = "_results"  # results live under <vol>/_results/<run_id>/
 
 # Global cap on concurrent scan_shard worker containers.
 MAX_CONTAINERS = 200
 
-# Target episodes per shard. Smaller shards finish in minutes, so a
-# preemption-restart redoes only a few minutes of work (and the idempotency
-# check usually makes it a no-op). Drives the shard count for huge datasets.
-TARGET_EPS_PER_SHARD = 200
+# Parallelism for the .spawn() RPC fan-out inside scan_all. The actual scan
+# concurrency is bounded by MAX_CONTAINERS; this just controls how fast we
+# enqueue the calls. 32 is plenty to enqueue MAX_CONTAINERS=200 in seconds.
+SPAWN_RPC_THREADS = 32
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "zarr==3.1.5",
     "numpy",
 )
 zarr_volume = modal.Volume.from_name(ZARR_VOLUME_NAME)
-
-# Connectionless result store. Workers write their partial here keyed by
-# run_id/shard_idx; the aggregator polls it. Nothing holds a live connection
-# to running workers, so neither heartbeat timeouts nor preemption can break
-# the run — a preempted worker just reruns and overwrites the same key.
-results_dict = modal.Dict.from_name(
-    "egomimic-test-data-results", create_if_missing=True
-)
-
-
-def _dict_set_with_retry(key: str, value, attempts: int = 5) -> None:
-    """Best-effort set on results_dict; swallows transient RPC failures.
-    Modal heartbeat blips occasionally fail a Dict op; retry quickly so the
-    worker doesn't have to be killed and restarted just for one bad RPC."""
-    for i in range(attempts):
-        try:
-            results_dict[key] = value
-            return
-        except Exception as e:
-            if i == attempts - 1:
-                raise
-            time.sleep(2**i)
-            print(f"  Dict set retry {i + 1}/{attempts} after {type(e).__name__}: {e}")
-
-
-def _dict_contains_with_retry(key: str, attempts: int = 5) -> bool:
-    for i in range(attempts):
-        try:
-            return key in results_dict
-        except Exception as e:
-            if i == attempts - 1:
-                raise
-            time.sleep(2**i)
-            print(
-                f"  Dict contains retry {i + 1}/{attempts} after {type(e).__name__}: {e}"
-            )
-    return False
-
 
 app = modal.App("egomimic-test-data", image=image)
 
@@ -237,220 +232,34 @@ def _build_embodiment_keymap_table() -> dict[str, list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Worker — fan out to up to MAX_CONTAINERS containers
+# Volume-state helpers (replaces modal.Dict)
 # ---------------------------------------------------------------------------
-@app.function(
-    cpu=1.0,
-    memory=2048,
-    timeout=3600,  # 1h per shard (shards target ~minutes; this is slack)
-    volumes={VOLUME_MOUNT_PATH: zarr_volume},
-    max_containers=MAX_CONTAINERS,
-    retries=modal.Retries(max_retries=3, backoff_coefficient=1.0),
-)
-def scan_shard(
-    run_id: str,
-    shard_idx: int,
-    episode_specs: list[tuple[str, str]],
-    emb_table: dict[str, list[str]],
-) -> None:
-    """Scan a shard of episodes and write a partial aggregate to results_dict.
-
-    Idempotent: if this shard's key already exists (preemption-restart or
-    duplicate spawn), return immediately. Episodes with is_deleted=True in
-    zarr.json are skipped to match LocalEpisodeResolver + DatasetFilter().
-    """
-    import json as _json
-    from concurrent.futures import ThreadPoolExecutor
-
-    import numpy as _np
-    import zarr as _zarr
-
-    key = f"{run_id}/{shard_idx}"
-    if _dict_contains_with_retry(key):
-        print(f"shard {shard_idx}: already done, skipping")
-        return
-
-    zarr_volume.reload()
-    base = Path(VOLUME_MOUNT_PATH)
-
-    def _read_json(path: Path):
-        try:
-            with path.open("r") as f:
-                return _json.load(f), None
-        except FileNotFoundError:
-            return None, f"missing {path.name}"
-        except Exception as e:
-            return None, f"failed to read {path.name}: {type(e).__name__}: {e}"
-
-    def _validate_c_layout(key_dir: Path) -> list[str]:
-        cdir = key_dir / "c"
-        if not cdir.exists():
-            return ["missing c/"]
-        if not cdir.is_dir():
-            return ["c/ is not a directory"]
-        try:
-            entries = list(cdir.iterdir())
-        except Exception as e:
-            return [f"cannot list c/: {type(e).__name__}: {e}"]
-        issues: list[str] = []
-        for ent in entries:
-            if ent.name == "zarr.json":
-                continue
-            if len(ent.name) > 4:
-                issues.append(f"name length > 4 under c/: {ent.name}")
-        return issues
-
-    def _scan(name: str, eh: str) -> dict | None:
-        ep_path = base / name
-        try:
-            g = _zarr.open_group(str(ep_path), mode="r")
-
-            # Skip deleted episodes to match LocalEpisodeResolver+DatasetFilter()
-            attrs = dict(g.attrs)
-            if attrs.get("is_deleted"):
-                return None
-
-            total_frames = int(attrs.get("total_frames", 0) or 0)
-
-            issues_struct: list[str] = []
-            issues_chunks: dict[str, list[str]] = {}
-            missing_required_keys: list[str] = []
-            required_keys: set[str] = set()
-            embodiment_name: str | None = None
-
-            # (2) Embodiment + required keys.
-            #
-            # We support both zarr v3 (zarr.json) and v2 (.zattrs) layouts —
-            # the training stack reads both, so we have to as well. The
-            # original test_data.py was v3-only and over-flagged v2 stores.
-            # Logic: try zarr.json (v3), then .zattrs (v2), then g.attrs as a
-            # final catch-all. Only flag if NOTHING produces an embodiment.
-            zarr_json_path = ep_path / "zarr.json"
-            zattrs_path = ep_path / ".zattrs"
-            is_v3 = zarr_json_path.is_file()
-
-            if is_v3:
-                zj, _zj_err = _read_json(zarr_json_path)
-                if isinstance(zj, dict):
-                    embodiment_name = _extract_embodiment_from_zarr_json(zj)
-            if not embodiment_name and zattrs_path.is_file():
-                # .zattrs is the bare attrs dict; wrap for the extractor.
-                za, _za_err = _read_json(zattrs_path)
-                if isinstance(za, dict):
-                    embodiment_name = _extract_embodiment_from_zarr_json(
-                        {"attributes": za}
-                    )
-            if not embodiment_name:
-                attr_emb = attrs.get("embodiment")
-                if isinstance(attr_emb, int):
-                    embodiment_name = EMBODIMENT_ID_TO_KEY.get(attr_emb)
-                elif isinstance(attr_emb, str) and attr_emb.strip():
-                    embodiment_name = attr_emb.strip().upper()
-
-            if not embodiment_name:
-                issues_struct.append("missing embodiment (zarr.json/.zattrs/attrs)")
-            else:
-                required_keys, km_err = _required_keys_for_embodiment(
-                    embodiment_name, emb_table
-                )
-                if km_err:
-                    issues_struct.append(km_err)
-
-            if required_keys:
-                for zkey in sorted(required_keys):
-                    key_dir = ep_path / zkey
-                    if not key_dir.exists():
-                        missing_required_keys.append(zkey)
-                        continue
-                    if not key_dir.is_dir():
-                        issues_struct.append(
-                            f"{zkey}: expected directory, found non-dir"
-                        )
-                        continue
-                    # /c chunk layout is a zarr v3 convention. v2 stores
-                    # chunks as 0, 0.0, etc. directly under key_dir, so the
-                    # check doesn't apply. Skip on v2 to avoid false flags.
-                    if is_v3:
-                        c_issues = _validate_c_layout(key_dir)
-                        if c_issues:
-                            issues_chunks[zkey] = c_issues
-
-            if missing_required_keys:
-                issues_struct.append(
-                    "missing required key dirs: "
-                    + ", ".join(sorted(missing_required_keys))
-                )
-
-            # (1) rows of zeros — only on small pose/keypoint vectors.
-            # Skip image arrays: they dominate I/O on a network volume
-            # (hundreds of MB each), and zero-row corruption only manifests
-            # in pose vecs anyway. Filter by name first to avoid even loading
-            # image metadata (zarr 3.x does an async metadata fetch per key).
-            zero_rows: dict[str, list[int]] = {}
-            for key in g.keys():
-                if key.startswith("images.") or key.startswith("images/"):
-                    continue
-                try:
-                    arr = g[key]
-                except Exception:
-                    continue
-                if not hasattr(arr, "ndim") or not hasattr(arr, "shape"):
-                    continue  # skip groups
-                if arr.ndim < 2:
-                    continue
-                if not _np.issubdtype(arr.dtype, _np.number):
-                    continue
-                # Safety net: per-frame element count > 1024 ⇒ image-like
-                per_frame = 1
-                for d in arr.shape[1:]:
-                    per_frame *= int(d)
-                if per_frame > 1024:
-                    continue
-                try:
-                    data = arr[:]
-                except Exception:
-                    continue
-                T = data.shape[0]
-                flat = data.reshape(T, -1)
-                bad = _np.where((flat == 0).all(axis=1))[0].tolist()
-                if bad:
-                    zero_rows[key] = bad
-
-            return {
-                "episode_hash": eh,
-                "total_frames": total_frames,
-                "embodiment": embodiment_name,
-                "zero_rows": zero_rows,
-                "issues_struct": issues_struct,
-                "issues_chunks": issues_chunks,
-                "error": None,
-            }
-
-        except Exception as e:
-            return {
-                "episode_hash": eh,
-                "total_frames": 0,
-                "embodiment": None,
-                "zero_rows": {},
-                "issues_struct": [],
-                "issues_chunks": {},
-                "error": str(e),
-            }
-
-    # I/O bound — threads inside the container amplify each shard.
-    acc = _empty_partial()
-    with ThreadPoolExecutor(max_workers=16) as ex:
-        for res in ex.map(lambda spec: _scan(*spec), episode_specs):
-            if res is not None:
-                _fold_shard_result(acc, res)
-
-    _dict_set_with_retry(key, acc)
-    print(
-        f"shard {shard_idx}: done — {acc['scanned']} eps, "
-        f"flagged {acc['total_episodes_with_zeros'] + acc['total_episodes_with_struct_issues'] + acc['total_episodes_with_chunk_issues'] + len(acc['scan_errors'])}"
-    )
+def _results_dir(base: Path, run_id: str) -> Path:
+    return base / RESULTS_PREFIX / run_id
 
 
+def _write_json_atomic(path: Path, obj) -> None:
+    """Write JSON via a tmp+rename so readers never see a partial file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with tmp.open("w") as f:
+        _json.dump(obj, f)
+    tmp.replace(path)
+
+
+def _read_json_safe(path: Path):
+    try:
+        with path.open("r") as f:
+            return _json.load(f)
+    except FileNotFoundError:
+        return None
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Per-shard aggregator structure
+# ---------------------------------------------------------------------------
 def _empty_partial() -> dict:
     return {
         "scanned": 0,
@@ -510,22 +319,217 @@ def _merge_partials(partials: list[dict]) -> dict:
     return out
 
 
-def _shard_keys(run_id: str, n_shards: int) -> list[str]:
-    return [f"{run_id}/{i}" for i in range(n_shards)]
+# ---------------------------------------------------------------------------
+# Worker — fan out to up to MAX_CONTAINERS containers
+# ---------------------------------------------------------------------------
+@app.function(
+    cpu=1.0,
+    memory=4096,
+    timeout=3600,  # 1h per shard; ample slack for ~1000 eps
+    volumes={VOLUME_MOUNT_PATH: zarr_volume},
+    max_containers=MAX_CONTAINERS,
+    retries=modal.Retries(max_retries=3, backoff_coefficient=1.0),
+)
+def scan_shard(
+    run_id: str,
+    shard_idx: int,
+    episode_specs: list[tuple[str, str]],
+    emb_table: dict[str, list[str]],
+) -> None:
+    """Scan a shard of episodes and write a partial aggregate to the volume.
+
+    Idempotent: if this shard's result file already exists (preemption-restart
+    or duplicate spawn), return immediately. Episodes with is_deleted=True in
+    zarr.json are skipped to match LocalEpisodeResolver + DatasetFilter().
+    """
+    import numpy as _np
+    import zarr as _zarr
+
+    zarr_volume.reload()
+    base = Path(VOLUME_MOUNT_PATH)
+    out_path = _results_dir(base, run_id) / f"shard_{shard_idx:06d}.json"
+    if out_path.exists():
+        print(f"shard {shard_idx}: already done, skipping")
+        return
+
+    def _validate_c_layout(key_dir: Path) -> list[str]:
+        cdir = key_dir / "c"
+        if not cdir.exists():
+            return ["missing c/"]
+        if not cdir.is_dir():
+            return ["c/ is not a directory"]
+        try:
+            entries = list(cdir.iterdir())
+        except Exception as e:
+            return [f"cannot list c/: {type(e).__name__}: {e}"]
+        issues: list[str] = []
+        for ent in entries:
+            if ent.name == "zarr.json":
+                continue
+            if len(ent.name) > 4:
+                issues.append(f"name length > 4 under c/: {ent.name}")
+        return issues
+
+    def _scan(name: str, eh: str) -> dict | None:
+        ep_path = base / name
+        try:
+            g = _zarr.open_group(str(ep_path), mode="r")
+
+            # Skip deleted episodes to match LocalEpisodeResolver+DatasetFilter()
+            attrs = dict(g.attrs)
+            if attrs.get("is_deleted"):
+                return None
+
+            total_frames = int(attrs.get("total_frames", 0) or 0)
+
+            issues_struct: list[str] = []
+            issues_chunks: dict[str, list[str]] = {}
+            missing_required_keys: list[str] = []
+            required_keys: set[str] = set()
+            embodiment_name: str | None = None
+
+            # (2) Embodiment + required keys.
+            #
+            # We support both zarr v3 (zarr.json) and v2 (.zattrs) layouts —
+            # the training stack reads both, so we have to as well. The
+            # original test_data.py was v3-only and over-flagged v2 stores.
+            zarr_json_path = ep_path / "zarr.json"
+            zattrs_path = ep_path / ".zattrs"
+            is_v3 = zarr_json_path.is_file()
+
+            if is_v3:
+                zj = _read_json_safe(zarr_json_path)
+                if isinstance(zj, dict):
+                    embodiment_name = _extract_embodiment_from_zarr_json(zj)
+            if not embodiment_name and zattrs_path.is_file():
+                za = _read_json_safe(zattrs_path)
+                if isinstance(za, dict):
+                    embodiment_name = _extract_embodiment_from_zarr_json(
+                        {"attributes": za}
+                    )
+            if not embodiment_name:
+                attr_emb = attrs.get("embodiment")
+                if isinstance(attr_emb, int):
+                    embodiment_name = EMBODIMENT_ID_TO_KEY.get(attr_emb)
+                elif isinstance(attr_emb, str) and attr_emb.strip():
+                    embodiment_name = attr_emb.strip().upper()
+
+            if not embodiment_name:
+                issues_struct.append("missing embodiment (zarr.json/.zattrs/attrs)")
+            else:
+                required_keys, km_err = _required_keys_for_embodiment(
+                    embodiment_name, emb_table
+                )
+                if km_err:
+                    issues_struct.append(km_err)
+
+            if required_keys:
+                for zkey in sorted(required_keys):
+                    key_dir = ep_path / zkey
+                    if not key_dir.exists():
+                        missing_required_keys.append(zkey)
+                        continue
+                    if not key_dir.is_dir():
+                        issues_struct.append(
+                            f"{zkey}: expected directory, found non-dir"
+                        )
+                        continue
+                    # /c chunk layout is a zarr v3 convention. v2 stores
+                    # chunks as 0, 0.0, etc. directly under key_dir, so the
+                    # check doesn't apply. Skip on v2 to avoid false flags.
+                    if is_v3:
+                        c_issues = _validate_c_layout(key_dir)
+                        if c_issues:
+                            issues_chunks[zkey] = c_issues
+
+            if missing_required_keys:
+                issues_struct.append(
+                    "missing required key dirs: "
+                    + ", ".join(sorted(missing_required_keys))
+                )
+
+            # (1) rows of zeros — only on small pose/keypoint vectors.
+            # Skip image arrays: they dominate I/O on a network volume
+            # (hundreds of MB each), and zero-row corruption only manifests
+            # in pose vecs anyway. Filter by name first to avoid even loading
+            # image metadata (zarr 3.x does an async metadata fetch per key).
+            zero_rows: dict[str, list[int]] = {}
+            for k in g.keys():
+                if k.startswith("images.") or k.startswith("images/"):
+                    continue
+                try:
+                    arr = g[k]
+                except Exception:
+                    continue
+                if not hasattr(arr, "ndim") or not hasattr(arr, "shape"):
+                    continue  # skip groups
+                if arr.ndim < 2:
+                    continue
+                if not _np.issubdtype(arr.dtype, _np.number):
+                    continue
+                # Safety net: per-frame element count > 1024 ⇒ image-like
+                per_frame = 1
+                for d in arr.shape[1:]:
+                    per_frame *= int(d)
+                if per_frame > 1024:
+                    continue
+                try:
+                    data = arr[:]
+                except Exception:
+                    continue
+                T = data.shape[0]
+                flat = data.reshape(T, -1)
+                bad = _np.where((flat == 0).all(axis=1))[0].tolist()
+                if bad:
+                    zero_rows[k] = bad
+
+            return {
+                "episode_hash": eh,
+                "total_frames": total_frames,
+                "embodiment": embodiment_name,
+                "zero_rows": zero_rows,
+                "issues_struct": issues_struct,
+                "issues_chunks": issues_chunks,
+                "error": None,
+            }
+
+        except Exception as e:
+            return {
+                "episode_hash": eh,
+                "total_frames": 0,
+                "embodiment": None,
+                "zero_rows": {},
+                "issues_struct": [],
+                "issues_chunks": {},
+                "error": str(e),
+            }
+
+    # I/O bound — threads inside the container amplify each shard.
+    acc = _empty_partial()
+    with ThreadPoolExecutor(max_workers=16) as ex:
+        for res in ex.map(lambda spec: _scan(*spec), episode_specs):
+            if res is not None:
+                _fold_shard_result(acc, res)
+
+    _write_json_atomic(out_path, acc)
+    zarr_volume.commit()
+
+    flagged = (
+        acc["total_episodes_with_zeros"]
+        + acc["total_episodes_with_struct_issues"]
+        + acc["total_episodes_with_chunk_issues"]
+        + len(acc["scan_errors"])
+    )
+    print(f"shard {shard_idx}: done — {acc['scanned']} eps, flagged {flagged}")
 
 
 # ---------------------------------------------------------------------------
-# Coordinator — discovers episodes, FIRE-AND-FORGET spawns every shard, exits
+# Coordinator — discover episodes, parallel-spawn shards, spawn summarize
 # ---------------------------------------------------------------------------
-# No .map()/.starmap()/.remote() anywhere: .spawn() only enqueues, so this
-# container never holds a live connection to running workers. It finishes in
-# a few minutes (discover + spawn loop) and exits. Nothing to heartbeat,
-# nothing to preempt mid-job. Idempotent under preemption-restart via the
-# LAUNCHED marker.
 @app.function(
     cpu=4.0,
     memory=8192,
-    timeout=3600,  # only needs to discover + spawn; not the whole scan
+    timeout=1800,  # discovery + parallel spawn; finishes in seconds-to-minutes
     volumes={VOLUME_MOUNT_PATH: zarr_volume},
     retries=modal.Retries(max_retries=5, backoff_coefficient=2.0),
 )
@@ -533,20 +537,21 @@ def scan_all(
     emb_table: dict[str, list[str]],
     pct: float,
     seed: int,
-    shards: int,
     run_id: str,
 ) -> None:
-    """Discover episodes, spawn all scan_shards + the aggregator, then exit."""
-    launched_key = f"{run_id}/LAUNCHED"
-    if launched_key in results_dict:
-        # Preemption-restart after the spawn loop already ran. Don't re-spawn
-        # workers; just make sure the aggregator is running and exit.
-        print(f"run {run_id}: already launched, (re)spawning aggregator only")
-        aggregate.spawn(run_id)
-        return
-
+    """Discover episodes, spawn every scan_shard + summarize, then exit."""
     zarr_volume.reload()
     base = Path(VOLUME_MOUNT_PATH)
+    rdir = _results_dir(base, run_id)
+    rdir.mkdir(parents=True, exist_ok=True)
+    launched_path = rdir / "LAUNCHED"
+
+    if launched_path.exists():
+        # Preemption-restart after the spawn phase already completed.
+        # Don't re-spawn workers; just make sure summarize is running.
+        print(f"run {run_id}: already launched, (re)spawning summarize only")
+        summarize.spawn(run_id, 0)
+        return
 
     print("Listing episodes from volume (single readdir)...")
     raw: list[tuple[str, str]] = []
@@ -562,9 +567,10 @@ def scan_all(
     print(f"  found {len(raw)} episode dirs")
 
     if not raw:
-        results_dict[f"{run_id}/META"] = {"n_shards": 0, "expected_total": 0}
-        results_dict[launched_key] = True
-        aggregate.spawn(run_id)
+        _write_json_atomic(rdir / "meta.json", {"n_shards": 0, "expected_total": 0})
+        launched_path.touch()
+        zarr_volume.commit()
+        summarize.spawn(run_id, 0)
         return
 
     if pct < 100.0:
@@ -573,137 +579,156 @@ def scan_all(
         raw = sorted(rng.sample(raw, k))
         print(f"  sampling {k} episodes ({pct:.1f}%)")
 
-    # Many small shards: each finishes in minutes so a preemption-restart
-    # only redoes minutes (and the idempotency check usually no-ops it).
-    # `shards` is a floor; the dataset size pushes it higher if needed.
-    n_shards = max(
-        1,
-        min(
-            max(shards, math.ceil(len(raw) / TARGET_EPS_PER_SHARD)),
-            len(raw),
-        ),
-    )
+    # Size shards to exactly MAX_CONTAINERS so we issue that many spawns and
+    # no more. Two reasons:
+    #   - the old design queued ~5× more shards than slots, deepening the
+    #     control-plane queue without any throughput benefit, and
+    #   - more shards == more serial .spawn() RPCs == longer time inside
+    #     scan_all, which is what tripped the client-heartbeat preemption.
+    n_shards = max(1, min(MAX_CONTAINERS, len(raw)))
     chunk = math.ceil(len(raw) / n_shards)
     shard_specs = [raw[i : i + chunk] for i in range(0, len(raw), chunk)]
     n_shards = len(shard_specs)
 
-    results_dict[f"{run_id}/META"] = {
-        "n_shards": n_shards,
-        "expected_total": len(raw),
-        "started": time.time(),
-    }
+    _write_json_atomic(
+        rdir / "meta.json",
+        {
+            "n_shards": n_shards,
+            "expected_total": len(raw),
+            "started": time.time(),
+        },
+    )
+    zarr_volume.commit()
+
     print(
         f"  fan-out: {n_shards} shards × ~{chunk} eps "
-        f"(global max_containers={MAX_CONTAINERS}); spawning..."
+        f"(global max_containers={MAX_CONTAINERS}); spawning in parallel..."
     )
 
-    # Fire-and-forget: .spawn() returns immediately, holds no connection.
-    for idx, specs in enumerate(shard_specs):
+    # Issue the spawn RPCs concurrently. With 200 spawns at ~100ms each,
+    # serial would take ~20s — fine, but parallel-32 collapses it to under
+    # a second and leaves a comfortable margin under any client-side
+    # heartbeat timeout.
+    def _spawn_one(idx_specs: tuple[int, list[tuple[str, str]]]) -> None:
+        idx, specs = idx_specs
         scan_shard.spawn(run_id, idx, specs, emb_table)
-        if (idx + 1) % 100 == 0 or idx + 1 == n_shards:
-            print(f"  spawned {idx + 1}/{n_shards} shards")
 
-    results_dict[launched_key] = True
-    aggregate.spawn(run_id)
-    print(f"run {run_id}: all shards + aggregator spawned; coordinator exiting")
+    t0 = time.time()
+    with ThreadPoolExecutor(max_workers=SPAWN_RPC_THREADS) as ex:
+        list(ex.map(_spawn_one, enumerate(shard_specs)))
+    print(f"  spawned {n_shards} shards in {time.time() - t0:.1f}s")
+
+    launched_path.touch()
+    zarr_volume.commit()
+    summarize.spawn(run_id, 0)
+    print(f"run {run_id}: all shards + summarize spawned; coordinator exiting")
 
 
 # ---------------------------------------------------------------------------
-# Aggregator — polls the result Dict (reads only), merges, prints summary
+# Summarize — short-lived self-respawning poller
 # ---------------------------------------------------------------------------
-# Holds no connection to any worker; just reads results_dict. Fully
-# idempotent — a preemption-restart simply re-polls. This is what makes the
-# whole run immune to heartbeat timeouts and preemption.
+SUMMARIZE_POLL_S = 60  # poll cadence (one sleep per invocation)
+SUMMARIZE_MAX_ITERS = 360  # 360 × 60s = 6h overall budget
+
+
 @app.function(
     cpu=2.0,
     memory=8192,
-    timeout=21600,  # 6h budget to let every shard (incl. retries) report
-    retries=modal.Retries(max_retries=5, backoff_coefficient=2.0),
+    timeout=300,  # 5min per iteration — far under any heartbeat threshold
+    volumes={VOLUME_MOUNT_PATH: zarr_volume},
+    retries=modal.Retries(max_retries=3, backoff_coefficient=2.0),
 )
-def aggregate(run_id: str) -> None:
-    """Poll results_dict until all shards report, then merge + print."""
-    meta_key = f"{run_id}/META"
+def summarize(run_id: str, iteration: int) -> None:
+    """One poll iteration. Either finishes the summary or respawns itself."""
+    zarr_volume.reload()
+    base = Path(VOLUME_MOUNT_PATH)
+    rdir = _results_dir(base, run_id)
 
-    # Wait for the coordinator to publish META.
-    waited = 0
-    while meta_key not in results_dict:
-        if waited > 1800:  # 30 min
-            print(f"run {run_id}: META never appeared; aborting aggregator")
-            return
-        time.sleep(15)
-        waited += 15
-
-    meta = results_dict[meta_key]
-    n_shards = meta["n_shards"]
-    expected_total = meta["expected_total"]
-    print(
-        f"run {run_id}: aggregating {n_shards} shards "
-        f"(~{expected_total} episodes expected)"
-    )
-
-    if n_shards == 0:
-        _print_summary({"scanned": 0, "summary_text": "No episodes found."})
-        results_dict[f"{run_id}/SUMMARY"] = "No episodes found."
+    meta = _read_json_safe(rdir / "meta.json")
+    if meta is None:
+        if iteration < SUMMARIZE_MAX_ITERS:
+            print(
+                f"run {run_id}: meta.json not yet present "
+                f"(iter {iteration}/{SUMMARIZE_MAX_ITERS}); respawning"
+            )
+            time.sleep(SUMMARIZE_POLL_S)
+            summarize.spawn(run_id, iteration + 1)
+        else:
+            print(f"run {run_id}: meta.json never appeared; aborting summarize")
         return
 
-    keys = _shard_keys(run_id, n_shards)
-    done: set[str] = set()
-    budget_s = 6 * 3600
-    elapsed = 0
-    poll_s = 20
-    last_report = -1
+    n_shards = int(meta.get("n_shards", 0))
+    expected_total = int(meta.get("expected_total", 0))
 
-    while len(done) < n_shards and elapsed < budget_s:
-        present = set(results_dict.keys())
-        for k in keys:
-            if k in present:
-                done.add(k)
-        pct_done = int(100 * len(done) / n_shards)
-        if pct_done != last_report:
-            print(f"  shards reported: {len(done)}/{n_shards} ({pct_done}%)")
-            last_report = pct_done
-        if len(done) >= n_shards:
-            break
-        time.sleep(poll_s)
-        elapsed += poll_s
-
-    missing = [k for k in keys if k not in done]
-    if missing:
-        print(
-            f"run {run_id}: WARNING {len(missing)}/{n_shards} shards never "
-            f"reported (budget exhausted); summary is partial"
+    if n_shards == 0:
+        print(f"run {run_id}: no episodes found.")
+        _write_json_atomic(
+            rdir / "summary.json", {"scanned": 0, "summary": "No episodes found."}
         )
+        zarr_volume.commit()
+        return
 
-    partials = [results_dict[k] for k in keys if k in done]
+    shard_paths = sorted(rdir.glob("shard_*.json"))
+    done = len(shard_paths)
+    pct_done = int(100 * done / n_shards) if n_shards else 100
+    print(
+        f"run {run_id}: shards reported {done}/{n_shards} ({pct_done}%) "
+        f"iter={iteration}/{SUMMARIZE_MAX_ITERS}"
+    )
+
+    if done < n_shards and iteration < SUMMARIZE_MAX_ITERS:
+        # Short sleep, then respawn — keeps this invocation well under the
+        # 5min timeout and any client-heartbeat window.
+        time.sleep(SUMMARIZE_POLL_S)
+        summarize.spawn(run_id, iteration + 1)
+        return
+
+    # Either every shard has reported or we've hit the iteration budget —
+    # merge what we have and print the summary.
+    partials: list[dict] = []
+    for p in shard_paths:
+        d = _read_json_safe(p)
+        if isinstance(d, dict):
+            partials.append(d)
+
     result = _merge_partials(partials)
-    if missing:
+    missing = n_shards - len(partials)
+    if missing > 0:
         result["scan_errors"].append(
-            f"[aggregator] {len(missing)} shard(s) missing — partial result"
+            f"[summarize] {missing} shard(s) missing after {iteration} iters "
+            f"(~{iteration * SUMMARIZE_POLL_S}s budget) — partial result"
         )
-    _print_summary(result)
 
-    # Persist a compact summary line so it can be retrieved without logs.
+    _print_summary(result, expected_total)
+
     flagged = (
         result["total_episodes_with_zeros"]
         + result["total_episodes_with_struct_issues"]
         + result["total_episodes_with_chunk_issues"]
         + len(result["scan_errors"])
     )
-    results_dict[f"{run_id}/SUMMARY"] = (
-        f"scanned={result['scanned']} flagged={flagged} "
-        f"zeros={result['total_episodes_with_zeros']} "
-        f"struct={result['total_episodes_with_struct_issues']} "
-        f"chunks={result['total_episodes_with_chunk_issues']} "
-        f"errors={len(result['scan_errors'])} "
-        f"missing_shards={len(missing)}"
+    _write_json_atomic(
+        rdir / "summary.json",
+        {
+            "scanned": result["scanned"],
+            "expected_total": expected_total,
+            "missing_shards": missing,
+            "flagged": flagged,
+            "zeros": result["total_episodes_with_zeros"],
+            "zero_frames": result["total_zero_frames"],
+            "struct": result["total_episodes_with_struct_issues"],
+            "chunks": result["total_episodes_with_chunk_issues"],
+            "errors": len(result["scan_errors"]),
+        },
     )
+    zarr_volume.commit()
 
 
-def _print_summary(result: dict) -> None:
-    """Print the final report. Runs inside the coordinator (logged to Modal)."""
+def _print_summary(result: dict, expected_total: int = 0) -> None:
+    """Print the final report. Runs inside summarize (logged to Modal)."""
     scanned = result.get("scanned", 0)
     if scanned == 0:
-        print(result.get("summary_text", "No episodes scanned."))
+        print(result.get("summary", "No episodes scanned."))
         return
 
     scan_errors = result["scan_errors"]
@@ -717,6 +742,7 @@ def _print_summary(result: dict) -> None:
 
     print()
     print("=" * 60)
+    print(f"Episodes expected      : {expected_total}")
     print(f"Episodes scanned       : {scanned}")
     print(f"Scan errors            : {len(scan_errors)}")
     print(f"Episodes with zeros    : {total_episodes_with_zeros}")
@@ -770,40 +796,52 @@ def _print_summary(result: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Local entrypoint — thin wrapper around the coordinator
+# Local entrypoints
 # ---------------------------------------------------------------------------
 @app.local_entrypoint()
 def main(
     pct: float = 100.0,
     seed: int = 42,
-    shards: int = MAX_CONTAINERS,
     run_id: str = "",
 ) -> None:
-    """Build the embodiment table locally, then SPAWN the coordinator and exit.
+    """Build the embodiment table locally, SPAWN the coordinator, exit.
 
-    The coordinator only discovers + .spawn()s shards (no connection held),
-    workers write results to a Dict idempotently, and a polling aggregator
-    prints the summary. Nothing maintains a long-lived connection, so neither
-    heartbeat timeouts nor worker preemption can break the run.
+    The coordinator parallel-spawns every shard (no connection held),
+    workers write JSON shard files to the volume idempotently, and a
+    self-respawning summarize prints the final report. Nothing maintains
+    a long-lived control connection, so neither client→worker heartbeats
+    nor worker preemption can break the run.
     """
-    import time as _t
-
     print("Building embodiment keymap table (locally — needs egomimic)...")
     emb_table = _build_embodiment_keymap_table()
     for family, keys in emb_table.items():
         print(f"  {family:<6}: {keys}")
 
-    rid = run_id or _t.strftime("run-%Y%m%d-%H%M%S")
-    handle = scan_all.spawn(emb_table, pct, seed, shards, rid)
+    rid = run_id or time.strftime("run-%Y%m%d-%H%M%S")
+    handle = scan_all.spawn(emb_table, pct, seed, rid)
 
     print()
     print("=" * 60)
     print("Scan launched on Modal (fire-and-forget, fault-tolerant).")
     print(f"  run id           : {rid}")
     print(f"  function call id : {handle.object_id}")
+    print(f"  results path     : <volume>/{RESULTS_PREFIX}/{rid}/")
     print("  REQUIRED: run with `modal run --detach` so the app survives.")
     print("  watch progress + final summary:")
     print("    modal app logs egomimic-test-data")
-    print("  the `aggregate` function prints the final report when all")
-    print("  shards have reported (look for the ==== summary block).")
+    print("  re-summarize an existing run:")
+    print(
+        f"    modal run --env robotics egomimic/modal/test_data.py::resummarize_cli -- --run-id {rid}"
+    )
     print("=" * 60)
+
+
+@app.local_entrypoint()
+def resummarize_cli(run_id: str) -> None:
+    """Manually re-kick the summarize chain for an existing run_id.
+
+    Useful if the original summarize chain was lost (e.g. the modal app was
+    torn down) but the shard_*.json files are still on the volume.
+    """
+    handle = summarize.spawn(run_id, 0)
+    print(f"summarize launched: run_id={run_id} fn_call_id={handle.object_id}")
