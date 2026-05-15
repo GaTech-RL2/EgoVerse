@@ -580,6 +580,96 @@ class LocalEpisodeResolver(EpisodeResolver):
         return datasets
 
 
+class LocalSQLEpisodeResolver(EpisodeResolver):
+    """
+    Resolves episodes by querying the SQL episode table and loading matching
+    zarr stores from a local volume directory.
+
+    Filtering happens on the SQL table (fast — no per-file zarr reads).
+    Episodes present in the table but absent from the local volume are skipped
+    with a warning, so a partially-synced volume still works.
+    """
+
+    def __init__(
+        self,
+        folder_path: Path,
+        key_map: dict | None = None,
+        transform_list: list | None = None,
+        debug: int | bool | None = None,
+        norm_stats: dict | None = None,
+    ):
+        super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
+        self.debug = debug
+
+    def resolve(
+        self,
+        filters: DatasetFilter | None = None,
+        **kwargs,
+    ) -> dict[str, "ZarrDataset"]:
+        filters = _ensure_dataset_filter(filters)
+
+        engine = create_default_engine()
+        df = episode_table_to_df(engine)
+
+        if df.empty:
+            raise ValueError("SQL episode table is empty.")
+
+        mask = df.apply(
+            lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
+            axis=1,
+        )
+        episode_hashes = df.loc[mask, "episode_hash"].tolist()
+        logger.info("SQL filter matched %d episodes", len(episode_hashes))
+
+        if not episode_hashes:
+            raise ValueError("SQL filter matched no episodes.")
+
+        if self.debug:
+            k = 10 if self.debug is True else int(self.debug)
+            episode_hashes = episode_hashes[:k]
+            logger.info("Debug mode: using first %d episodes", len(episode_hashes))
+
+        dataset_class = self._dataset_class or ZarrDataset
+        datasets: dict[str, ZarrDataset] = {}
+        n_missing = 0
+        for episode_hash in episode_hashes:
+            local_path = next(
+                (
+                    p for p in (
+                        self.folder_path / episode_hash,
+                        self.folder_path / f"{episode_hash}.zarr",
+                    )
+                    if p.is_dir()
+                ),
+                None,
+            )
+            if local_path is None:
+                n_missing += 1
+                logger.warning("Episode not found locally, skipping: %s", episode_hash)
+                continue
+            try:
+                datasets[episode_hash] = dataset_class(
+                    local_path,
+                    key_map=self.key_map,
+                    transform_list=self.transform_list,
+                    norm_stats=self.norm_stats,
+                )
+            except Exception as e:
+                logger.warning("Failed to load episode %s: %s", episode_hash, e)
+                n_missing += 1
+
+        if n_missing:
+            logger.info("Skipped %d episodes not present in local volume", n_missing)
+
+        if not datasets:
+            raise ValueError(
+                "No episodes loaded — all SQL-matched episodes are missing from the local volume."
+            )
+
+        logger.info("Loaded %d episodes from local volume", len(datasets))
+        return datasets
+
+
 class MultiDataset(torch.utils.data.Dataset):
     """
     Self wrapping MultiDataset, can wrap zarr or multi dataset.
