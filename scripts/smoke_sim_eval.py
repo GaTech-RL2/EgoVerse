@@ -22,7 +22,7 @@ import torchvision.io as tvio
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
-from egomimic.eval.eval_hnet_sim import HNetSimEval
+from egomimic.eval.eval_sim import SimRolloutEval
 
 
 def load_algo_from_ckpt(ckpt_path: str, config_path: str | None = None):
@@ -68,7 +68,7 @@ def load_algo_from_ckpt(ckpt_path: str, config_path: str | None = None):
         print(f"[load] missing keys ({len(missing)}): {missing[:5]}")
     if unexpected:
         print(f"[load] unexpected keys ({len(unexpected)}): {unexpected[:5]}")
-    return algo
+    return algo, cfg
 
 
 class _MockTrainer:
@@ -100,28 +100,42 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if args.config_path is None:
-        # If ckpt lives in a hydra run dir, infer the .hydra path.
-        guessed = Path(args.ckpt).parents[3] / ".hydra" / "config.yaml"
+        # If ckpt lives in a hydra run dir, infer the .hydra path. The ckpt
+        # path is run_dir/csv_logs/lightning_logs/version_0/checkpoints/*.ckpt
+        # → parents[4] is run_dir.
+        guessed = Path(args.ckpt).parents[4] / ".hydra" / "config.yaml"
         if guessed.exists():
             args.config_path = str(guessed)
             print(f"[config] using {args.config_path}")
 
-    algo = load_algo_from_ckpt(args.ckpt, args.config_path)
-    algo = algo.to(device)
+    algo, _ = load_algo_from_ckpt(args.ckpt, args.config_path)
+    # HNet algo doesn't inherit nn.Module — move the inner ModuleDict.
+    algo.nets = algo.nets.to(device)
     algo.device = device
     algo.nets.eval()
 
-    # Build the dataset to get a real batch of val episodes.
-    cfg = OmegaConf.load(args.config_path)
-    data_cfg = cfg.data
+    # Build the dataset from the full hydra .hydra/config.yaml (the ckpt's
+    # config_tree only contains the model subtree — no data/evaluator).
+    if args.config_path is None:
+        raise SystemExit(
+            "Pass --config-path to point at the original run's .hydra/config.yaml "
+            "for the data config."
+        )
+    full_cfg = OmegaConf.load(args.config_path)
+    data_cfg = full_cfg.data
     print(f"[data] target: {data_cfg._target_}")
     dm = instantiate(data_cfg)
-    dm.setup()
+    dm.setup(stage="validate")
     val_loader = dm.val_dataloader()
-    if isinstance(val_loader, dict):
-        val_loader = next(iter(val_loader.values()))
-    batch = next(iter(val_loader))
-    # batch is {emb_name: {...}}; pack_collate output should have cu_seqlens.
+    # MultiDataModuleWrapper returns a CombinedLoader that yields
+    # ``(batch_dict, batch_idx, dataloader_idx)`` tuples.
+    first = next(iter(val_loader))
+    if isinstance(first, tuple) and len(first) == 3:
+        batch = first[0]
+    elif isinstance(first, dict):
+        batch = first
+    else:
+        raise SystemExit(f"unexpected batch type: {type(first)}")
     batch = algo.process_batch_for_training(batch)
     print(f"[batch] embodiments: {list(batch.keys())}")
     for emb_id, _b in batch.items():
@@ -130,8 +144,9 @@ def main():
             print(f"[batch] emb={emb_id} cu_seqlens={cu.tolist()}  B={len(cu)-1}")
 
     # Build the sim evaluator and wire trainer/model stubs.
-    sim_eval = HNetSimEval(
+    sim_eval = SimRolloutEval(
         env_kwargs={"object_shape": "T", "pusher_shape": "circle"},
+        embodiment_name="pushshapes_sim",
         init_mode="replay",
         max_steps=args.max_steps,
         coverage_threshold=0.7,
