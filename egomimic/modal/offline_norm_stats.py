@@ -74,59 +74,9 @@ image = (
         "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime",
         add_python="3.10",
     )
-    .apt_install("git")
-    .pip_install(
-        "lightning",
-        "hydra-core",
-        "omegaconf",
-        "wandb",
-        "boto3",
-        "cloudpathlib",
-        "zarr==3.1.5",
-        "pyarrow",
-        "simplejpeg",
-        "h5py",
-        "av==12.0.0",
-        "mediapy",
-        "datasets==4.0.0",
-        "transformers==4.57.3",
-        "timm",
-        "einops",
-        "positional-encodings[pytorch]",
-        "pytorch-kinematics",
-        "arm-pytorch-utilities",
-        "geomloss",
-        "tslearn",
-        "scipy",
-        "hydra-submitit-launcher==1.2.0",
-        "submitit",
-        "opencv-python-headless",
-        "projectaria-tools",
-        "pyquaternion",
-        "sqlalchemy",
-        "psycopg[binary]",
-        "pandas",
-        "rich",
-        "tabulate",
-        "prettytable",
-        "packaging",
-        "overrides",
-        "typing_extensions",
-        "pyyaml",
-        "matplotlib",
-        "termcolor",
-        "tqdm",
-        "filelock",
-        "imageio",
-        "imageio-ffmpeg",
-        "safetensors",
-        "huggingface-hub",
-        "scaleapi",
-        "openai",
-        "pyzmq",
-        "torchvision==0.21.0",
-        "s5cmd",
-    )
+    .apt_install("git", "curl")
+    .run_commands("curl -LsSf https://astral.sh/uv/install.sh | sh")
+    .env({"PATH": "/root/.local/bin:$PATH"})
 )
 
 zarr_volume = modal.Volume.from_name(CFG.zarr_volume_name)
@@ -178,7 +128,7 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
         check=True,
     )
     subprocess.run(
-        [CFG.python_bin, "-m", "pip", "install", "-e", ".", "--no-deps", "-q"],
+        ["uv", "sync", "--frozen"],
         cwd=CFG.remote_repo_dir,
         check=True,
     )
@@ -219,9 +169,17 @@ def run_norm_stats(
     from hydra import compose, initialize_config_dir
     from omegaconf import OmegaConf, open_dict
 
+    import glob
+
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
     zarr_volume.reload()
 
+    # Point the current process at the uv venv created by _prepare_repo
+    venv_site = sorted(
+        glob.glob(f"{CFG.remote_repo_dir}/.venv/lib/python*/site-packages")
+    )
+    for p in venv_site:
+        sys.path.insert(0, p)
     sys.path.insert(0, CFG.remote_repo_dir)
 
     from egomimic.utils.aws.aws_data_utils import load_env
