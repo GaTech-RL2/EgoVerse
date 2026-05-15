@@ -1,0 +1,201 @@
+"""Offline normalization-statistics computation on Modal CPUs.
+
+Computes norm stats for a given data config and writes:
+  <training-outputs-volume>/precomputed_norm_stats/<data_config>/norm_stats.json
+
+Usage:
+    modal run --env robotics egomimic/modal/offline_norm_stats.py \\
+        -- mecka_all_zarr [--cpu 32] [--memory_gb 128] [--num_workers 30] [--sample_frac 1.0]
+
+In training, point at the result with:
+    norm_stats.precomputed_norm_path=precomputed_norm_stats/<data_config>
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+import modal
+
+os.environ.setdefault("MODAL_ENVIRONMENT", "robotics")
+
+# ---------------------------------------------------------------------------
+# Parse --cpu / --memory_gb from sys.argv at module load time so the
+# @app.function decorator below picks up the right resource values.
+# ---------------------------------------------------------------------------
+
+
+def _extract_arg(argv: list[str], flag: str, default: str) -> str:
+    for i, a in enumerate(argv):
+        if a == flag and i + 1 < len(argv):
+            return argv[i + 1]
+    return default
+
+
+_argv = sys.argv[1:]
+os.environ["MODAL_CPU"] = _extract_arg(_argv, "--cpu", os.environ.get("MODAL_CPU", "16"))
+os.environ["MODAL_MEMORY_GB"] = _extract_arg(
+    _argv, "--memory_gb", os.environ.get("MODAL_MEMORY_GB", "64")
+)
+os.environ.pop("MODAL_GPU", None)  # CPU-only job
+
+from egomimic.modal.run import (  # noqa: E402
+    CFG,
+    REPO_ROOT,
+    app,
+    training_outputs_volume,
+    zarr_volume,
+    _prepare_repo,
+    _resolve_git_state,
+)
+
+_TIMEOUT = 3 * 3600  # 3 hours
+_NORM_SUBDIR = "precomputed_norm_stats"
+
+
+@app.function(
+    cpu=float(os.environ.get("MODAL_CPU", "16")),
+    memory=int(float(os.environ.get("MODAL_MEMORY_GB", "64")) * 1024),
+    timeout=_TIMEOUT,
+    secrets=[modal.Secret.from_name(name) for name in CFG.secret_names],
+    volumes={
+        CFG.volume_mount_path: zarr_volume,
+        CFG.output_mount_path: training_outputs_volume,
+    },
+)
+def run_norm_stats(
+    data_config: str,
+    num_workers: int,
+    sample_frac: float,
+    git_remote: str,
+    git_commit: str,
+) -> str:
+    """Clone the repo and compute norm stats for *data_config*.
+
+    Returns the absolute path of the written norm_stats.json inside the container.
+    """
+    import copy
+    import json
+
+    import hydra
+    import numpy as np
+    from hydra import compose, initialize_config_dir
+    from omegaconf import OmegaConf, open_dict
+
+    _prepare_repo(git_remote=git_remote, git_commit=git_commit)
+    zarr_volume.reload()
+
+    from egomimic.utils.aws.aws_data_utils import load_env
+
+    load_env()
+
+    OmegaConf.register_new_resolver("eval", eval, replace=True)
+
+    config_dir = str(Path(CFG.remote_repo_dir) / "egomimic" / "hydra_configs")
+    with initialize_config_dir(config_dir=config_dir, version_base="1.3"):
+        cfg = compose(
+            config_name="train_zarr_cartesian.yaml",
+            overrides=[f"data={data_config}"],
+        )
+
+    # Disable debug limits — compute stats over the full dataset
+    with open_dict(cfg):
+        for ds_name in list(cfg.data.train_datasets):
+            resolver = OmegaConf.select(
+                cfg.data.train_datasets[ds_name], "resolver", default=None
+            )
+            if resolver is not None:
+                cfg.data.train_datasets[ds_name].resolver.debug = False
+
+    from egomimic.rldb.zarr.utils import DataSchematic
+
+    data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
+
+    for dataset_name in cfg.data.train_datasets:
+        print(f"[NormStats] Instantiating dataset <{dataset_name}>")
+        dataset = hydra.utils.instantiate(cfg.data.train_datasets[dataset_name])
+
+        data_schematic.infer_shapes_from_batch(dataset[0])
+
+        # Build norm-mode dataset (strips image/annotation keys)
+        norm_cfg = copy.deepcopy(cfg.data.train_datasets[dataset_name])
+        km = OmegaConf.to_container(norm_cfg.resolver.key_map, resolve=False)
+        km["norm_mode"] = True
+        norm_cfg.resolver.key_map = km
+        norm_dataset = hydra.utils.instantiate(norm_cfg)
+
+        data_schematic.infer_norm_from_dataset(
+            norm_dataset,
+            dataset_name,
+            sample_frac=sample_frac,
+            num_workers=num_workers,
+        )
+
+    # Serialize to output volume at the user-specified path
+    out_dir = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "norm_stats.json"
+
+    stats_out: dict = {}
+    for emb, keys_dict in data_schematic.norm_stats.items():
+        emb_key = str(emb)
+        stats_out[emb_key] = {
+            key_name: {
+                stat_name: np.asarray(arr).tolist()
+                for stat_name, arr in stat_dict.items()
+            }
+            for key_name, stat_dict in keys_dict.items()
+        }
+
+    payload: dict = {"stats": stats_out, "loading_time": None, "computing_time": None, "frames": None}
+    if data_schematic._norm_run_metadata is not None:
+        for k in ("loading_time", "computing_time", "frames"):
+            if k in data_schematic._norm_run_metadata:
+                payload[k] = data_schematic._norm_run_metadata[k]
+
+    with open(out_path, "w") as f:
+        json.dump(payload, f, indent=4)
+
+    training_outputs_volume.commit()
+    print(f"[NormStats] Saved to {out_path}")
+    return str(out_path)
+
+
+@app.local_entrypoint()
+def main(*args: str) -> None:
+    """Compute and cache norm stats for a data config on Modal CPUs."""
+    import argparse
+
+    parser = argparse.ArgumentParser(prog="offline_norm_stats")
+    parser.add_argument("data_config", help="Data config name, e.g. mecka_all_zarr")
+    parser.add_argument("--cpu", type=float, default=16.0, help="Number of CPU cores")
+    parser.add_argument("--memory_gb", type=float, default=64.0, help="RAM in GB")
+    parser.add_argument("--num_workers", type=int, default=16, help="DataLoader workers")
+    parser.add_argument("--sample_frac", type=float, default=1.0, help="Fraction of episodes to sample")
+    parsed = parser.parse_args(list(args))
+
+    git_remote, git_commit, is_dirty = _resolve_git_state()
+    if is_dirty:
+        print("Warning: local repo has uncommitted changes. Modal runs the last committed state.")
+
+    print(
+        f"Submitting norm-stats job: data={parsed.data_config!r} "
+        f"cpu={parsed.cpu} memory={parsed.memory_gb}GB workers={parsed.num_workers} "
+        f"sample_frac={parsed.sample_frac}"
+    )
+
+    out_path = run_norm_stats.remote(
+        data_config=parsed.data_config,
+        num_workers=parsed.num_workers,
+        sample_frac=parsed.sample_frac,
+        git_remote=git_remote,
+        git_commit=git_commit,
+    )
+
+    print(f"\nDone. Saved to volume path: {out_path}")
+    print(
+        f"\nTo use in training, pass:\n"
+        f"  norm_stats.precomputed_norm_path={_NORM_SUBDIR}/{parsed.data_config}"
+    )
