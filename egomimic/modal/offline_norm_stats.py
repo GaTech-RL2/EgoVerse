@@ -295,7 +295,6 @@ def run_norm_stats(
 
         emb_id = str(get_embodiment_id(dataset_name))
         ckpt_dir = out_path.parent / "checkpoints"
-        ckpt_dir.mkdir(parents=True, exist_ok=True)
 
         def _make_checkpoint_fn(ckpt_dir=ckpt_dir, emb_id=emb_id):
             def _fn(collected, pct):
@@ -308,7 +307,8 @@ def run_norm_stats(
                         stat_name: np.asarray(arr).tolist()
                         for stat_name, arr in data_schematic._compute_stats_for_array(X).items()
                     }
-                ckpt_path = ckpt_dir / f"norm_stats_checkpoint_{pct}pct.json"
+                ckpt_path = ckpt_dir / str(pct) / "norm_stats.json"
+                ckpt_path.parent.mkdir(parents=True, exist_ok=True)
                 with open(ckpt_path, "w") as f:
                     json.dump({"stats": {emb_id: partial}, "checkpoint_pct": pct}, f, indent=4)
                 training_outputs_volume.commit()
