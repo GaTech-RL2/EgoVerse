@@ -52,14 +52,21 @@ def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
     and ignored so that norm-stat collection doesn't crash by passing
     sentinel keys through to the inner key_map iteration.
     """
+    # Per-frame obs (obs_t aligned with action_t): give the obs keys the same
+    # horizon as actions so the dataloader returns (T, ...) windows rather than
+    # a single broadcast frame. CondEncoderModule.encode then skips its
+    # unsqueeze-and-expand branch (kicks in only when x.dim()==2 for state /
+    # ==4 for images), and AdaLN sees a true per-token cond.
     return {
         "front_img_1": {
             "key_type": "camera_keys",
             "zarr_key": "observations.images.front_img_1",
+            "horizon": int(action_horizon),
         },
         "state_agent_obj": {
             "key_type": "proprio_keys",
             "zarr_key": "observations.state",
+            "horizon": int(action_horizon),
         },
         "actions": {
             "key_type": "action_keys",
