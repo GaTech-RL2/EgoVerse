@@ -1,39 +1,54 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# Pushshapes' action chunk length. Lives at the root of this file so the
-# model config can interpolate it too (it's referenced from
-# `data.action_horizon`) — there is exactly one place to change it.
-action_horizon: 32
+# NOTE: action_horizon is hard-coded as 1024 in this file (both keymap calls
+# below) AND in egomimic/hydra_configs/model/hnet_pushshapes.yaml. The two
+# must match; ``hydra.utils.instantiate(cfg.data, ...)`` forwards every
+# top-level key to ``MultiDataModuleWrapper.__init__``, so we can't keep a
+# top-level ``action_horizon`` here. The longest episode in
+# Tsim_datasets2/circle is 958 frames; 1024 leaves room.
 
+# Packed dataloading. Each sample is one full episode (chunking="none"),
+# and `pack_collate` (selected automatically by `_collate_fn_for` in
+# pl_data_utils) concatenates `batch_size` episodes into a single flat
+# stream with `cu_seqlens` boundaries. The algo's `forward_training`
+# detects the packed batch (presence of `cu_seqlens`) and dispatches to
+# `HNetPolicy.forward_packed`.
 train_datasets:
   pushshapes_sim:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /mnt/c/Users/aidan/Desktop/EgoVerse/Tsimulation/test_demos
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
-        action_horizon: ${data.action_horizon}
+        action_horizon: 1024
       transform_list: null
-    mode: total
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: null
 
 valid_datasets:
   pushshapes_sim:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /mnt/c/Users/aidan/Desktop/EgoVerse/Tsimulation/test_demos
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
-        action_horizon: ${data.action_horizon}
+        action_horizon: 1024
       transform_list: null
-    mode: total
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: null
 
+# A40 baseline (44.4 GiB): one full episode at T~958 peaks at ~1.8 GiB,
+# so 8 episodes packed should land in 12–16 GiB worst case. Headroom for
+# the chunker firing more boundaries as training progresses.
 train_dataloader_params:
   pushshapes_sim:
-    batch_size: 4
+    batch_size: 8
     num_workers: 2
 valid_dataloader_params:
   pushshapes_sim:
-    batch_size: 4
+    batch_size: 8
     num_workers: 2
