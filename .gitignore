@@ -46,3 +46,4 @@ log_conversion/**
 debug_model_inputs/**
 temp_dir/**
 curation_results/**
+eval_runs/**
