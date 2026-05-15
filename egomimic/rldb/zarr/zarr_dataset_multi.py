@@ -597,9 +597,11 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
+        num_workers: int = 30,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
+        self.num_workers = num_workers
 
     def resolve(
         self,
@@ -634,7 +636,7 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
             logger.info("Debug mode: using first %d episodes", len(episode_hashes))
 
         dataset_class = self._dataset_class or ZarrDataset
-        num_workers = min(64, len(episode_hashes))
+        num_workers = min(self.num_workers, len(episode_hashes))
 
         def _load_one(episode_hash: str):
             local_path = next(
