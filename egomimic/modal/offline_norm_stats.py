@@ -8,7 +8,7 @@ Computes norm stats for a given data config and writes:
 
 Usage:
     modal run --env robotics egomimic/modal/offline_norm_stats.py \\
-        -- mecka_all_zarr [--cpu 32] [--memory_gb 128] [--num_workers 30] [--sample_frac 1.0]
+        -- mecka_all_zarr [--cpu 32] [--memory_gb 128] [--num_workers 30] [--sample_frac 1.0] [--batch_size 512]
 
 In training, point at the result with:
     norm_stats.precomputed_norm_path=precomputed_norm_stats/<data_config>
@@ -208,6 +208,7 @@ def run_norm_stats(
     data_config: str,
     num_workers: int,
     sample_frac: float,
+    batch_size: int,
     git_remote: str,
     git_commit: str,
 ) -> str:
@@ -216,7 +217,6 @@ def run_norm_stats(
     Returns the container path of the written norm_stats.json.
     """
     import copy
-    import glob
     import json
     import sys
 
@@ -230,39 +230,62 @@ def run_norm_stats(
 
     import hydra
     import numpy as np
-    from hydra import compose, initialize_config_dir
     from omegaconf import OmegaConf, open_dict
 
     from egomimic.utils.aws.aws_data_utils import load_env
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
     from egomimic.rldb.zarr.utils import DataSchematic
 
     load_env()
     OmegaConf.register_new_resolver("eval", eval, replace=True)
 
-    config_dir = str(Path(CFG.remote_repo_dir) / "egomimic" / "hydra_configs")
-    with initialize_config_dir(config_dir=config_dir, version_base="1.3"):
-        cfg = compose(
-            config_name="train_zarr_cartesian.yaml",
-            overrides=[f"data={data_config}"],
-        )
+    # Load just the data config YAML directly — no full Hydra compose needed,
+    # which avoids pulling in trainer / model / callback defaults.
+    data_cfg_path = (
+        Path(CFG.remote_repo_dir) / "egomimic" / "hydra_configs" / "data" / f"{data_config}.yaml"
+    )
+    if not data_cfg_path.exists():
+        raise FileNotFoundError(f"Data config not found: {data_cfg_path}")
+    data_cfg = OmegaConf.load(str(data_cfg_path))
 
-    # Disable debug limits — norm stats must cover the full dataset
-    with open_dict(cfg):
-        for ds_name in list(cfg.data.train_datasets):
-            resolver = OmegaConf.select(
-                cfg.data.train_datasets[ds_name], "resolver", default=None
-            )
-            if resolver is not None:
-                cfg.data.train_datasets[ds_name].resolver.debug = False
+    # ---- Pass 1: build combined schematic_dict from all train datasets ----
+    # We instantiate the key_map for each dataset, strip camera/annotation
+    # keys, and collect the {key_name: {key_type, zarr_key}} entries needed
+    # to construct DataSchematic.
+    schematic_dict: dict = {}
+    prepared_ds_cfgs: dict = {}
 
-    data_schematic: DataSchematic = hydra.utils.instantiate(cfg.data_schematic)
+    for dataset_name, ds_cfg_raw in data_cfg.train_datasets.items():
+        print(f"[NormStats] Building schematic for <{dataset_name}>")
+        ds_cfg = copy.deepcopy(ds_cfg_raw)
+        with open_dict(ds_cfg):
+            if OmegaConf.select(ds_cfg, "resolver.debug", default=None) is not None:
+                ds_cfg.resolver.debug = False
 
-    for dataset_name in cfg.data.train_datasets:
+        # Instantiate key_map to get the actual {key_name: {...}} dict
+        key_map = hydra.utils.instantiate(ds_cfg.resolver.key_map)
+        norm_key_map = {
+            k: v for k, v in key_map.items()
+            if isinstance(v, dict) and v.get("key_type") not in ("camera_keys", "annotation_keys")
+        }
+
+        schematic_dict[dataset_name] = {
+            key_name: {"key_type": key_info["key_type"], "zarr_key": key_info["zarr_key"]}
+            for key_name, key_info in norm_key_map.items()
+            if isinstance(key_info, dict) and "zarr_key" in key_info
+        }
+        prepared_ds_cfgs[dataset_name] = ds_cfg
+
+    data_schematic = DataSchematic(schematic_dict=schematic_dict, norm_mode="quantile")
+
+    # ---- Pass 2: infer shapes and norm stats per dataset ----
+    for dataset_name, ds_cfg in prepared_ds_cfgs.items():
         print(f"[NormStats] Instantiating dataset <{dataset_name}>")
-        dataset = hydra.utils.instantiate(cfg.data.train_datasets[dataset_name])
-        data_schematic.infer_shapes_from_batch(dataset[0])
+        sample_dataset = hydra.utils.instantiate(ds_cfg)
+        data_schematic.infer_shapes_from_batch(sample_dataset[0])
 
-        norm_cfg = copy.deepcopy(cfg.data.train_datasets[dataset_name])
+        # Build the norm dataset: train split only, camera/annotation keys stripped
+        norm_cfg = copy.deepcopy(ds_cfg)
         km = OmegaConf.to_container(norm_cfg.resolver.key_map, resolve=False)
         km["norm_mode"] = True
         norm_cfg.resolver.key_map = km
@@ -275,7 +298,14 @@ def run_norm_stats(
             dataset_name,
             sample_frac=sample_frac,
             num_workers=num_workers,
+            batch_size=batch_size,
         )
+
+        emb_id = get_embodiment_id(dataset_name)
+        produced = data_schematic.norm_stats.get(emb_id, {})
+        if not produced:
+            raise RuntimeError(f"[NormStats] No stats produced for dataset={dataset_name}")
+        print(f"[NormStats] Validated {len(produced)} keys for <{dataset_name}>")
 
     out_path = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -352,6 +382,7 @@ def main(*args: str) -> None:
     parser.add_argument("--memory_gb", type=float, default=64.0, help="RAM in GB")
     parser.add_argument("--num_workers", type=int, default=16, help="DataLoader workers")
     parser.add_argument("--sample_frac", type=float, default=1.0, help="Fraction of episodes to sample (0.0–1.0)")
+    parser.add_argument("--batch_size", type=int, default=512, help="DataLoader batch size for norm collection")
     parsed = parser.parse_args(list(args))
 
     git_remote, git_commit, is_dirty = _resolve_git_state()
@@ -361,13 +392,15 @@ def main(*args: str) -> None:
     print(
         f"Submitting norm-stats job: data={parsed.data_config!r} "
         f"cpu={parsed.cpu} memory={parsed.memory_gb}GB "
-        f"workers={parsed.num_workers} sample_frac={parsed.sample_frac}"
+        f"workers={parsed.num_workers} sample_frac={parsed.sample_frac} "
+        f"batch_size={parsed.batch_size}"
     )
 
     out_path = run_norm_stats.remote(
         data_config=parsed.data_config,
         num_workers=parsed.num_workers,
         sample_frac=parsed.sample_frac,
+        batch_size=parsed.batch_size,
         git_remote=git_remote,
         git_commit=git_commit,
     )

@@ -511,32 +511,39 @@ class LocalEpisodeResolver(EpisodeResolver):
             logger.warning("Local path does not exist: %s", search_path)
             return []
 
-        filtered = []
-        # Skip sorting in debug mode — avoids materialising all 198K+ entries upfront
-        entries = search_path.iterdir() if debug else sorted(search_path.iterdir())
-        for p in entries:
-            if not p.is_dir():
-                continue
-
-            episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
-
-            try:
-                store = zarr.open_group(str(p), mode="r")
-                metadata = dict(store.attrs)
-            except Exception as e:
-                logger.warning("Failed to read metadata for %s: %s", p, e)
-                continue
-
-            if cls._local_filters_match(metadata, episode_hash, filters):
+        if filters.is_empty():
+            filtered = []
+            for p in search_path.iterdir():
+                if not p.is_dir():
+                    continue
+                episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
                 filtered.append((str(p), episode_hash))
+            logger.info("Local paths (no filter): %d episodes", len(filtered))
+        else:
+            filtered = []
+            for p in search_path.iterdir():
+                if not p.is_dir():
+                    continue
 
-        if debug is not None and debug is not False:
-            k = min(10 if debug is True else int(debug), len(filtered))
-            if k < len(filtered):
-                logger.info("Debug mode: limiting to %d datasets.", k)
+                episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
+
+                try:
+                    store = zarr.open_group(str(p), mode="r")
+                    metadata = dict(store.attrs)
+                except Exception as e:
+                    logger.warning("Failed to read metadata for %s: %s", p, e)
+                    continue
+
+                if cls._local_filters_match(metadata, episode_hash, filters):
+                    filtered.append((str(p), episode_hash))
+
+            logger.info("Local filtered paths: %d episodes", len(filtered))
+
+        if debug:
+            k = 10 if debug is True else int(debug)
             filtered = filtered[:k]
+            logger.info("Debug mode: using first %d episodes", len(filtered))
 
-        logger.info("Local filtered paths: %s", filtered)
         return filtered
 
     def resolve(
