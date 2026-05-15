@@ -622,7 +622,8 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
             lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
             axis=1,
         )
-        episode_hashes = df.loc[mask, "episode_hash"].tolist()
+        matched = df.loc[mask, ["episode_hash", "num_frames", "robot_name"]]
+        episode_hashes = matched["episode_hash"].tolist()
         logger.info("SQL filter matched %d episodes", len(episode_hashes))
 
         if not episode_hashes:
@@ -630,14 +631,21 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
 
         if self.debug:
             k = 10 if self.debug is True else int(self.debug)
-            episode_hashes = episode_hashes[:k]
+            matched = matched.iloc[:k]
+            episode_hashes = matched["episode_hash"].tolist()
             logger.info("Debug mode: using first %d episodes", len(episode_hashes))
 
         dataset_class = self._dataset_class or ZarrDataset
-        # I/O-bound FUSE reads — use far more threads than CPUs
-        num_workers = min(256, len(episode_hashes))
 
-        def _load_one(episode_hash: str):
+        # Build a lookup from episode_hash → (num_frames, robot_name) from SQL
+        meta_lookup = {
+            row["episode_hash"]: (int(row["num_frames"]), str(row["robot_name"]))
+            for _, row in matched.iterrows()
+        }
+
+        datasets: dict[str, ZarrDataset] = {}
+        n_missing = 0
+        for episode_hash, (num_frames, robot_name) in meta_lookup.items():
             local_path = next(
                 (
                     p for p in (
@@ -649,34 +657,17 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
                 None,
             )
             if local_path is None:
-                return episode_hash, None, "missing"
-            try:
-                ds = dataset_class(
-                    local_path,
-                    key_map=self.key_map,
-                    transform_list=self.transform_list,
-                    norm_stats=self.norm_stats,
-                )
-                return episode_hash, ds, None
-            except Exception as e:
-                return episode_hash, None, str(e)
-
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-        datasets: dict[str, ZarrDataset] = {}
-        n_missing = 0
-        logger.info("Loading %d episodes with %d workers...", len(episode_hashes), num_workers)
-        with ThreadPoolExecutor(max_workers=num_workers) as pool:
-            futures = {pool.submit(_load_one, h): h for h in episode_hashes}
-            for future in as_completed(futures):
-                episode_hash, ds, err = future.result()
-                if err == "missing":
-                    n_missing += 1
-                    logger.warning("Episode not found locally, skipping: %s", episode_hash)
-                elif err is not None:
-                    n_missing += 1
-                    logger.warning("Failed to load episode %s: %s", episode_hash, err)
-                else:
-                    datasets[episode_hash] = ds
+                n_missing += 1
+                logger.warning("Episode not found locally, skipping: %s", episode_hash)
+                continue
+            datasets[episode_hash] = dataset_class(
+                local_path,
+                key_map=self.key_map,
+                transform_list=self.transform_list,
+                norm_stats=self.norm_stats,
+                _total_frames=num_frames,
+                _embodiment=robot_name,
+            )
 
         if n_missing:
             logger.info("Skipped %d episodes not present in local volume", n_missing)
@@ -949,6 +940,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         key_map: dict,
         transform_list: list | None = None,
         norm_stats: dict | None = None,
+        _total_frames: int | None = None,
+        _embodiment: str | None = None,
     ):
         """
         Args:
@@ -959,18 +952,33 @@ class ZarrDataset(torch.utils.data.Dataset):
                 {"quantile_1": tensor, "quantile_99": tensor} bounds. When provided, any
                 loaded sample whose values fall outside [quantile_1, quantile_99] for any
                 tracked key triggers the random index fallback.
+            _total_frames: if provided (e.g. from SQL), skip zarr open at init and defer to first __getitem__.
+            _embodiment: if provided alongside _total_frames, also skip zarr open at init.
         """
         self.episode_path = Episode_path
         self.metadata = None
-        self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
-        self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
+        self._image_keys = None
+        self._json_keys = None
         self._annotations = None
-        self.init_episode()
+        self.episode_reader = None
+
+        if _total_frames is not None and _embodiment is not None:
+            # Fast path: metadata supplied externally — defer zarr open to first access
+            self.total_frames = _total_frames
+            self.embodiment = _embodiment
+            self.keys_dict = {}
+        else:
+            self.init_episode()
 
         self.key_map = key_map
         self.transform = transform_list
         self.norm_stats = norm_stats or {}
         super().__init__()
+
+    def _ensure_episode_reader(self):
+        """Open the zarr store on first access if it was deferred at init."""
+        if self.episode_reader is None:
+            self.init_episode()
 
     def init_episode(self):
         """
@@ -1082,10 +1090,10 @@ class ZarrDataset(torch.utils.data.Dataset):
         _fallback_origin: int | None = None,
         _attempts: int | None = None,
     ) -> dict[str, torch.Tensor]:
-        # Build keys_dict with ranges based on whether action chunking is enabled
         """
         ZarrDataset handles jpeg decoding and transform function errors, and triggers resample on dataset level.
         """
+        self._ensure_episode_reader()
         data = {}
         for k in self.key_map:
             zarr_key = self.key_map[k]["zarr_key"]
