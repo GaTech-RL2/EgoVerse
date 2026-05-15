@@ -433,7 +433,12 @@ def scan_all(
     results_struct_issues: dict[str, list[str]] = {}
     results_chunk_issues: dict[str, dict[str, list[str]]] = {}
 
+    # Quiet aggregation: per-episode details are emitted by the local
+    # entrypoint from the returned dict. Logging every flagged episode
+    # here streams it back to the local client and saturates the
+    # heartbeat channel — that was the source of the deadline-exceeded errors.
     shards_done = 0
+    progress_every = max(1, total_shards // 20)  # ~20 progress lines total
     for shard_results in scan_shard.starmap(shard_payloads, order_outputs=False):
         shards_done += 1
         for res in shard_results:
@@ -442,28 +447,15 @@ def scan_all(
 
             if res["error"]:
                 scan_errors.append(f"{eh}: {res['error']}")
-                print(f"[ERROR] {eh}: {res['error']}")
                 continue
 
             if res.get("issues_struct"):
                 total_episodes_with_struct_issues += 1
                 results_struct_issues[eh] = list(res["issues_struct"])
-                preview = "; ".join(res["issues_struct"][:6])
-                more = " ..." if len(res["issues_struct"]) > 6 else ""
-                print(f"[STRUCT] ep={eh}  {preview}{more}")
 
             if res.get("issues_chunks"):
                 total_episodes_with_chunk_issues += 1
                 results_chunk_issues[eh] = dict(res["issues_chunks"])
-                preview_keys = ", ".join(
-                    f"{k}({len(v)})" for k, v in list(res["issues_chunks"].items())[:3]
-                )
-                more = (
-                    f" (+{len(res['issues_chunks']) - 3} keys)"
-                    if len(res["issues_chunks"]) > 3
-                    else ""
-                )
-                print(f"[CHUNKS] ep={eh}  {preview_keys}{more}")
 
             if res["zero_rows"]:
                 total_episodes_with_zeros += 1
@@ -472,16 +464,13 @@ def scan_all(
                 for bad in res["zero_rows"].values():
                     all_bad.update(bad)
                 total_zero_frames += len(all_bad)
-                keys_str = ", ".join(
-                    f"{k}({len(v)})" for k, v in res["zero_rows"].items()
-                )
-                print(
-                    f"[ZEROS] ep={eh}  "
-                    f"{len(all_bad)} frame(s) with all-zero rows  [{keys_str}]"
-                )
-        print(
-            f"  progress: shard {shards_done}/{total_shards}  (eps scanned: {scanned})"
-        )
+
+        if shards_done % progress_every == 0 or shards_done == total_shards:
+            print(
+                f"  progress: shard {shards_done}/{total_shards}  "
+                f"(eps scanned: {scanned}, flagged: "
+                f"{total_episodes_with_zeros + total_episodes_with_struct_issues + total_episodes_with_chunk_issues + len(scan_errors)})"
+            )
 
     return {
         "scanned": scanned,
