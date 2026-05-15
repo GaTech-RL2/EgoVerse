@@ -262,12 +262,16 @@ class ModelWrapper(LightningModule):
             params_arg = (
                 groups if groups is not None else self.trainer.model.parameters()
             )
-            optimizer = hydra.utils.instantiate(
-                cfg.model.optimizer,
-                params=params_arg,
-            )
-            if callable(optimizer):
-                optimizer = optimizer()
+            # When ``params_arg`` is a ``list[dict]`` of param groups, passing
+            # it through ``hydra.utils.instantiate`` (a kwarg to a _partial_
+            # target) wraps the dicts as OmegaConf ``DictConfig`` objects,
+            # which trips AdamW's tensor-type check. Instantiate the partial
+            # first, then call it with the native-Python params arg.
+            optimizer_partial = hydra.utils.instantiate(cfg.model.optimizer)
+            if callable(optimizer_partial):
+                optimizer = optimizer_partial(params=params_arg)
+            else:
+                optimizer = optimizer_partial
             scheduler_cfg = cfg.model.get("scheduler")
             if scheduler_cfg is not None:
                 scheduler = hydra.utils.instantiate(
