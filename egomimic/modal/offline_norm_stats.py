@@ -221,6 +221,11 @@ def run_norm_stats(
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
     zarr_volume.reload()
 
+    # pip install -e . runs in a subprocess and doesn't update the current
+    # process's sys.path, so add the repo root explicitly.
+    import sys
+    sys.path.insert(0, CFG.remote_repo_dir)
+
     from egomimic.utils.aws.aws_data_utils import load_env
 
     load_env()
