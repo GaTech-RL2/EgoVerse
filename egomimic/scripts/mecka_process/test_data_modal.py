@@ -168,15 +168,6 @@ def scan_episode(ep_path_str: str, episode_hash: str) -> dict:
         zero_pct = n_zero / total_frames if total_frames > 0 else 0.0
         exceeded = zero_pct > ZERO_FRAME_THRESHOLD
 
-        if zero_rows:
-            keys_str = ", ".join(f"{k}({len(v)})" for k, v in zero_rows.items())
-            status_tag = "[FAIL] " if exceeded else "[ZEROS]"
-            print(
-                f"{status_tag} ep={episode_hash}  "
-                f"{n_zero} frame(s) with all-zero rows  [{keys_str}]  "
-                f"({zero_pct:.2%} {'> THRESHOLD' if exceeded else '<= threshold'})"
-            )
-
         return {
             "episode_hash": episode_hash,
             "ep_path": ep_path_str,
@@ -225,8 +216,8 @@ def scan_episode(ep_path_str: str, episode_hash: str) -> dict:
 )
 def save_results(results: list[dict], run_id: str, runtime_seconds: float = 0.0) -> str:
     """
-    Aggregate all per-episode results and write five artifacts to the output volume:
-      summary.json, errors.jsonl, failures.jsonl, zero_frames.jsonl, per_sample_results.jsonl
+    Aggregate all per-episode results and write three artifacts to the output volume:
+      summary.json, errors.jsonl, failures.jsonl
     Calls volume.commit() so results are durable even after the container exits.
     Returns the path to the run directory inside the volume.
     """
@@ -291,31 +282,6 @@ def save_results(results: list[dict], run_id: str, runtime_seconds: float = 0.0)
                 )
                 + "\n"
             )
-
-    # ── zero_frames.jsonl — every non-error sample (fully auditable) ──────────
-    with open(run_dir / "zero_frames.jsonl", "w") as fh:
-        for r in results:
-            if r["status"] == "error":
-                continue
-            fh.write(
-                json.dumps(
-                    {
-                        "episode_hash": r["episode_hash"],
-                        "ep_path": r["ep_path"],
-                        "total_frames": r["total_frames"],
-                        "zero_frame_count": r["zero_frame_count"],
-                        "zero_frame_pct": r["zero_frame_pct"],
-                        "zero_frame_indices": r["zero_frame_indices"],
-                        "exceeded_threshold": r["exceeded_threshold"],
-                    }
-                )
-                + "\n"
-            )
-
-    # ── per_sample_results.jsonl — complete record for every sample ───────────
-    with open(run_dir / "per_sample_results.jsonl", "w") as fh:
-        for r in results:
-            fh.write(json.dumps(r) + "\n")
 
     output_vol.commit()
     return str(run_dir)
@@ -418,45 +384,8 @@ def main(
     print("\n[data-health] Writing artifacts to volume...")
     run_path = save_results.remote(results, run_id, scan_elapsed)
 
-    # ── Summary — mirrors original test_data.py console output ────────────────
-    n_with_zeros = sum(
-        1 for r in results if r["zero_frame_count"] > 0 and r["status"] != "error"
-    )
-    total_bad_slots = sum(
-        r["zero_frame_count"] for r in results if r["status"] != "error"
-    )
-
-    print()
-    print("=" * 60)
-    print(f"Episodes scanned       : {len(results)}")
-    print(f"Scan errors            : {n_error}")
-    print(f"Episodes with zeros    : {n_with_zeros}")
-    print(f"  FAILED (>{ZERO_FRAME_THRESHOLD:.0%} threshold) : {n_fail}")
-    print(f"  passed (≤ threshold) : {n_with_zeros - n_fail}")
-    print(f"Total bad frame slots  : {total_bad_slots}")
-    print(f"Runtime                : {scan_elapsed:.1f}s")
-
-    episodes_with_zeros = [
-        r for r in results if r["zero_frame_count"] > 0 and r["status"] != "error"
-    ]
-    if episodes_with_zeros:
-        print()
-        print("Episodes with zero rows (sorted by bad-frame count):")
-        for r in sorted(episodes_with_zeros, key=lambda x: -x["zero_frame_count"]):
-            tag = "[FAIL]" if r["exceeded_threshold"] else "[pass]"
-            eh = r["episode_hash"]
-            all_bad = r["zero_frame_indices"]
-            keys_str = ", ".join(r.get("zero_rows_by_key", {}).keys())
-            print(f"  {tag} {eh}")
-            print(f"    keys   : {keys_str}")
-            print(
-                f"    frames : {r['zero_frame_count']}  "
-                f"{all_bad[:20]}{'...' if len(all_bad) > 20 else ''}"
-            )
-
-    print("=" * 60)
-    print()
-    print(f"Results saved to : {run_path}")
     print(
-        f"Inspect with     : modal volume ls {OUTPUT_VOLUME_NAME} data_health/{run_id}/"
+        f"[data-health] scanned={len(results)}  fail={n_fail}  error={n_error}  "
+        f"runtime={scan_elapsed:.1f}s"
     )
+    print(f"[data-health] saved to: {run_path}")
