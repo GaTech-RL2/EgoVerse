@@ -68,7 +68,7 @@ Usage
     modal app logs egomimic-test-data
 
     # re-summarize an already-scanned run (e.g. if you missed the log):
-    modal run --env robotics egomimic/modal/test_data.py::resummarize_cli -- --run-id <run_id>
+    modal run --env robotics egomimic/modal/test_data.py::summarize --run-id <run_id>
 """
 
 from __future__ import annotations
@@ -95,9 +95,19 @@ RESULTS_PREFIX = "_results"  # results live under <vol>/_results/<run_id>/
 # Global cap on concurrent scan_shard worker containers.
 MAX_CONTAINERS = 200
 
+# Target eps per shard. Smaller shards = faster individual completion =
+# earlier progress reports surfacing in summarize. Each container will run
+# multiple shards back-to-back (warm reuse), so the total wall time is
+# governed by MAX_CONTAINERS, not the shard count.
+TARGET_EPS_PER_SHARD = 250
+
+# Hard cap on the total shard count so the parallel .spawn() phase stays
+# well under any client-heartbeat budget even at 1M+ episodes.
+MAX_SHARDS = MAX_CONTAINERS * 8  # 1600
+
 # Parallelism for the .spawn() RPC fan-out inside scan_all. The actual scan
 # concurrency is bounded by MAX_CONTAINERS; this just controls how fast we
-# enqueue the calls. 32 is plenty to enqueue MAX_CONTAINERS=200 in seconds.
+# enqueue the calls. 32 threads × ~100ms/spawn handles 1600 spawns in ~5s.
 SPAWN_RPC_THREADS = 32
 
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
@@ -167,10 +177,17 @@ def _extract_embodiment_from_zarr_json(zarr_json: dict) -> str | None:
     return None
 
 
-def _required_keys_for_embodiment(
-    emb_name: str, emb_table: dict[str, list[str]]
-) -> tuple[set[str], str | None]:
-    """Resolve embodiment name → required zarr key set using the local table."""
+def _required_modes_for_embodiment(
+    emb_name: str, emb_table: dict[str, dict[str, list[str]]]
+) -> tuple[dict[str, set[str]], str | None]:
+    """Resolve embodiment name → {mode: required-zarr-key-set}.
+
+    Each embodiment supports one or more modes (cartesian / keypoints /
+    etc.). A real episode only ships keys for ONE mode, so the validator
+    should accept an episode if any mode is fully satisfied — not require
+    every key from every mode at once (the bug the original test_data.py
+    had, which flagged ~100% of episodes).
+    """
     emb = str(emb_name).strip().upper().replace("-", "_").replace(" ", "_")
     if emb in {"SCALE", "SCALE_BIMANUAL"}:
         emb = "SCALE_BIMANUAL"
@@ -183,51 +200,54 @@ def _required_keys_for_embodiment(
     elif emb.startswith("SCALE_"):
         family = "SCALE"
     else:
-        return set(), f"unsupported embodiment '{emb_name}'"
-    keys = emb_table.get(family, [])
-    if not keys:
-        return set(), f"no required keys resolved for embodiment '{emb_name}'"
-    return set(keys), None
+        return {}, f"unsupported embodiment '{emb_name}'"
+    modes = emb_table.get(family, {})
+    if not modes:
+        return {}, f"no required keys resolved for embodiment '{emb_name}'"
+    return {m: set(keys) for m, keys in modes.items() if keys}, None
 
 
-def _build_embodiment_keymap_table() -> dict[str, list[str]]:
+def _build_embodiment_keymap_table() -> dict[str, dict[str, list[str]]]:
     """Run *locally* — needs the full egomimic stack (torch etc.).
 
-    Returns {family: [zarr_key, ...]} for EVA / MECKA / ARIA / SCALE.
+    Returns {family: {mode: [zarr_key, ...]}} for EVA / MECKA / ARIA / SCALE.
+    Modes are kept separate (instead of unioned) so the validator can accept
+    an episode that fully satisfies *any* one mode — real episodes only
+    ship keys for the mode they were processed in.
     """
     from egomimic.rldb.embodiment.eva import Eva
     from egomimic.rldb.embodiment.human import Aria, Mecka, Scale
 
-    def _keys_from(km: dict | None) -> set[str]:
+    def _keys_from(km: dict | None) -> list[str]:
         out: set[str] = set()
         if not km:
-            return out
+            return []
         for spec in km.values():
             if not isinstance(spec, dict):
                 continue
             zkey = spec.get("zarr_key")
             if isinstance(zkey, str) and zkey != "annotations":
                 out.add(zkey)
-        return out
+        return sorted(out)
 
     # Only Mecka overrides get_keymap to accept the `annotations` kwarg;
     # Eva/Aria/Scale use the base Embodiment.get_keymap which doesn't.
-    eva_keys = _keys_from(Eva.get_keymap("cartesian"))
-    mecka_keys = _keys_from(
-        Mecka.get_keymap("cartesian", annotations=False)
-    ) | _keys_from(Mecka.get_keymap("keypoints", annotations=False))
-    aria_keys = _keys_from(Aria.get_keymap("cartesian")) | _keys_from(
-        Aria.get_keymap("keypoints")
-    )
-    scale_keys = _keys_from(Scale.get_keymap("cartesian")) | _keys_from(
-        Scale.get_keymap("keypoints")
-    )
-
     return {
-        "EVA": sorted(eva_keys),
-        "MECKA": sorted(mecka_keys),
-        "ARIA": sorted(aria_keys),
-        "SCALE": sorted(scale_keys),
+        "EVA": {
+            "cartesian": _keys_from(Eva.get_keymap("cartesian")),
+        },
+        "MECKA": {
+            "cartesian": _keys_from(Mecka.get_keymap("cartesian", annotations=False)),
+            "keypoints": _keys_from(Mecka.get_keymap("keypoints", annotations=False)),
+        },
+        "ARIA": {
+            "cartesian": _keys_from(Aria.get_keymap("cartesian")),
+            "keypoints": _keys_from(Aria.get_keymap("keypoints")),
+        },
+        "SCALE": {
+            "cartesian": _keys_from(Scale.get_keymap("cartesian")),
+            "keypoints": _keys_from(Scale.get_keymap("keypoints")),
+        },
     }
 
 
@@ -384,8 +404,6 @@ def scan_shard(
 
             issues_struct: list[str] = []
             issues_chunks: dict[str, list[str]] = {}
-            missing_required_keys: list[str] = []
-            required_keys: set[str] = set()
             embodiment_name: str | None = None
 
             # (2) Embodiment + required keys.
@@ -414,21 +432,43 @@ def scan_shard(
                 elif isinstance(attr_emb, str) and attr_emb.strip():
                     embodiment_name = attr_emb.strip().upper()
 
+            required_modes: dict[str, set[str]] = {}
             if not embodiment_name:
                 issues_struct.append("missing embodiment (zarr.json/.zattrs/attrs)")
             else:
-                required_keys, km_err = _required_keys_for_embodiment(
+                required_modes, km_err = _required_modes_for_embodiment(
                     embodiment_name, emb_table
                 )
                 if km_err:
                     issues_struct.append(km_err)
 
-            if required_keys:
-                for zkey in sorted(required_keys):
+            # Pick the satisfied mode: an episode is OK if every key for at
+            # least one mode (cartesian or keypoints) is present as a dir.
+            # We then run downstream checks (/c layout, non-dir) only against
+            # that mode's keys — checking the other mode's keys against an
+            # episode that wasn't processed in that mode just produces noise.
+            satisfied_mode: str | None = None
+            mode_missing: dict[str, list[str]] = {}
+            for mode_name, mode_keys in required_modes.items():
+                missing = sorted(k for k in mode_keys if not (ep_path / k).exists())
+                mode_missing[mode_name] = missing
+                if not missing and satisfied_mode is None:
+                    satisfied_mode = mode_name
+
+            if required_modes and satisfied_mode is None:
+                # Neither mode is fully satisfied — pick the one with the
+                # fewest missing keys for the diagnostic so the user sees
+                # the smallest legible gap.
+                best_mode, best_missing = min(
+                    mode_missing.items(), key=lambda x: len(x[1])
+                )
+                issues_struct.append(
+                    f"no mode satisfied (best={best_mode}, "
+                    f"missing={', '.join(best_missing)})"
+                )
+            elif satisfied_mode is not None:
+                for zkey in sorted(required_modes[satisfied_mode]):
                     key_dir = ep_path / zkey
-                    if not key_dir.exists():
-                        missing_required_keys.append(zkey)
-                        continue
                     if not key_dir.is_dir():
                         issues_struct.append(
                             f"{zkey}: expected directory, found non-dir"
@@ -441,12 +481,6 @@ def scan_shard(
                         c_issues = _validate_c_layout(key_dir)
                         if c_issues:
                             issues_chunks[zkey] = c_issues
-
-            if missing_required_keys:
-                issues_struct.append(
-                    "missing required key dirs: "
-                    + ", ".join(sorted(missing_required_keys))
-                )
 
             # (1) rows of zeros — only on small pose/keypoint vectors.
             # Skip image arrays: they dominate I/O on a network volume
@@ -579,13 +613,13 @@ def scan_all(
         raw = sorted(rng.sample(raw, k))
         print(f"  sampling {k} episodes ({pct:.1f}%)")
 
-    # Size shards to exactly MAX_CONTAINERS so we issue that many spawns and
-    # no more. Two reasons:
-    #   - the old design queued ~5× more shards than slots, deepening the
-    #     control-plane queue without any throughput benefit, and
-    #   - more shards == more serial .spawn() RPCs == longer time inside
-    #     scan_all, which is what tripped the client-heartbeat preemption.
-    n_shards = max(1, min(MAX_CONTAINERS, len(raw)))
+    # Size shards so each one finishes in tens of seconds — gives summarize
+    # an early stream of "shard done" files instead of one big wave at the
+    # very end. Capped at MAX_SHARDS so the parallel .spawn() phase stays
+    # well under the client-heartbeat budget (the original bug was a serial
+    # 1000-call spawn loop overrunning that budget).
+    n_shards = max(1, min(MAX_SHARDS, math.ceil(len(raw) / TARGET_EPS_PER_SHARD)))
+    n_shards = min(n_shards, len(raw))
     chunk = math.ceil(len(raw) / n_shards)
     shard_specs = [raw[i : i + chunk] for i in range(0, len(raw), chunk)]
     n_shards = len(shard_specs)
@@ -627,8 +661,8 @@ def scan_all(
 # ---------------------------------------------------------------------------
 # Summarize — short-lived self-respawning poller
 # ---------------------------------------------------------------------------
-SUMMARIZE_POLL_S = 60  # poll cadence (one sleep per invocation)
-SUMMARIZE_MAX_ITERS = 360  # 360 × 60s = 6h overall budget
+SUMMARIZE_POLL_S = 30  # poll cadence (one sleep per invocation)
+SUMMARIZE_MAX_ITERS = 720  # 720 × 30s = 6h overall budget
 
 
 @app.function(
@@ -638,7 +672,7 @@ SUMMARIZE_MAX_ITERS = 360  # 360 × 60s = 6h overall budget
     volumes={VOLUME_MOUNT_PATH: zarr_volume},
     retries=modal.Retries(max_retries=3, backoff_coefficient=2.0),
 )
-def summarize(run_id: str, iteration: int) -> None:
+def summarize(run_id: str, iteration: int = 0) -> None:
     """One poll iteration. Either finishes the summary or respawns itself."""
     zarr_volume.reload()
     base = Path(VOLUME_MOUNT_PATH)
@@ -831,17 +865,6 @@ def main(
     print("    modal app logs egomimic-test-data")
     print("  re-summarize an existing run:")
     print(
-        f"    modal run --env robotics egomimic/modal/test_data.py::resummarize_cli -- --run-id {rid}"
+        f"    modal run --env robotics egomimic/modal/test_data.py::summarize --run-id {rid}"
     )
     print("=" * 60)
-
-
-@app.local_entrypoint()
-def resummarize_cli(run_id: str) -> None:
-    """Manually re-kick the summarize chain for an existing run_id.
-
-    Useful if the original summarize chain was lost (e.g. the modal app was
-    torn down) but the shard_*.json files are still on the volume.
-    """
-    handle = summarize.spawn(run_id, 0)
-    print(f"summarize launched: run_id={run_id} fn_call_id={handle.object_id}")
