@@ -634,9 +634,9 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
             logger.info("Debug mode: using first %d episodes", len(episode_hashes))
 
         dataset_class = self._dataset_class or ZarrDataset
-        datasets: dict[str, ZarrDataset] = {}
-        n_missing = 0
-        for episode_hash in episode_hashes:
+        num_workers = min(64, len(episode_hashes))
+
+        def _load_one(episode_hash: str):
             local_path = next(
                 (
                     p for p in (
@@ -648,19 +648,34 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
                 None,
             )
             if local_path is None:
-                n_missing += 1
-                logger.warning("Episode not found locally, skipping: %s", episode_hash)
-                continue
+                return episode_hash, None, "missing"
             try:
-                datasets[episode_hash] = dataset_class(
+                ds = dataset_class(
                     local_path,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                     norm_stats=self.norm_stats,
                 )
+                return episode_hash, ds, None
             except Exception as e:
-                logger.warning("Failed to load episode %s: %s", episode_hash, e)
-                n_missing += 1
+                return episode_hash, None, str(e)
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        datasets: dict[str, ZarrDataset] = {}
+        n_missing = 0
+        logger.info("Loading %d episodes with %d workers...", len(episode_hashes), num_workers)
+        with ThreadPoolExecutor(max_workers=num_workers) as pool:
+            futures = {pool.submit(_load_one, h): h for h in episode_hashes}
+            for future in as_completed(futures):
+                episode_hash, ds, err = future.result()
+                if err == "missing":
+                    n_missing += 1
+                    logger.warning("Episode not found locally, skipping: %s", episode_hash)
+                elif err is not None:
+                    n_missing += 1
+                    logger.warning("Failed to load episode %s: %s", episode_hash, err)
+                else:
+                    datasets[episode_hash] = ds
 
         if n_missing:
             logger.info("Skipped %d episodes not present in local volume", n_missing)
