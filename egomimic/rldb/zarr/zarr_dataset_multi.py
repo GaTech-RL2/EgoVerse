@@ -334,7 +334,7 @@ class EpisodeResolver:
         if total == 0:
             return {}
 
-        n_shards = min(int(os.environ.get("EGOMIMIC_LOAD_SHARDS", "30")), total)
+        n_shards = min(int(os.environ.get("EGOMIMIC_LOAD_SHARDS", "100")), total)
         shards = [on_disk_names[i::n_shards] for i in range(n_shards)]
         shards = [s for s in shards if s]
         total_shards = len(shards)

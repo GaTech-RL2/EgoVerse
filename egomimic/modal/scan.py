@@ -37,7 +37,7 @@ app = modal.App("egomimic-scan", image=image)
     memory=4096,
     timeout=900,  # 15 min per shard
     volumes={VOLUME_MOUNT_PATH: zarr_volume},
-    max_containers=30,  # cap parallel workers — too many saturates parent's control-plane connection
+    max_containers=100,  # cap parallel workers — too many saturates parent's control-plane connection
 )
 def scan_shard(
     episode_names: list[str],
@@ -103,7 +103,7 @@ def scan_shard(
     memory=4096,
     timeout=900,
     volumes={VOLUME_MOUNT_PATH: zarr_volume},
-    max_containers=30,
+    max_containers=100,
 )
 def load_shard(
     episode_names: list[str],
