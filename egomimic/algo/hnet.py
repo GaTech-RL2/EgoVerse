@@ -228,6 +228,244 @@ class HNetPolicy(nn.Module):
         return actions
 
 
+class FlatFusedPolicy(nn.Module):
+    """Flat transformer with interleaved [c_t, a_t] tokens.
+
+    Drop-in replacement for ``HNetPolicy`` that bypasses the H-Net stage
+    hierarchy (no chunker, no ratio loss). Each timestep contributes TWO
+    tokens to the input sequence: a cond token and a (shifted) action token.
+    Causal masking means the model predicting ``a_t`` (at sequence position
+    2t+1) has seen ``c_0, BOS, c_1, a_0, c_2, a_1, ..., c_t, a_{t-1}``.
+
+    Input layout (length 2T):
+      x[:, 0]  = cond_in(c_0)         x[:, 1]  = BOS
+      x[:, 2]  = cond_in(c_1)         x[:, 3]  = action_in(a_0)
+      ...
+      x[:, 2t]   = cond_in(c_t)       x[:, 2t+1] = action_in(a_{t-1})
+
+    Output extraction:
+      pred[:, t] = action_out(out[:, 2t+1])
+
+    AR rollout walks the sequence one token at a time (2T model steps for T
+    actions). Each "outer" step emits one action prediction and adds two
+    tokens (the new cond + the new predicted action) to the cache.
+
+    Same ``forward(actions, obs)`` / ``forward_packed(...)`` / ``generate(...)``
+    contracts as ``HNetPolicy`` so the same ``HNet`` algo wrapper consumes
+    it. Aux is always ``[]`` (no chunker contributions).
+    """
+
+    def __init__(
+        self,
+        action_dim: int,
+        action_horizon: int,
+        d_model: int,
+        d_cond: int,
+        cond_encoder: CondEncoderModule,
+        arch_layout: str = "T8",
+        num_heads: int = 4,
+        d_intermediate: int = 512,
+    ):
+        super().__init__()
+        from egomimic.models.hnet_nets.isotropic_builder import build_isotropic
+
+        self.action_dim = action_dim
+        self.action_horizon = action_horizon
+        self.d_model = d_model
+        self.d_cond = d_cond
+        self.cond_encoder = cond_encoder
+
+        self.action_in = nn.Linear(action_dim, d_model)
+        self.action_out = nn.Linear(d_model, action_dim)
+        self.cond_in = nn.Linear(d_cond, d_model)
+        self.bos = nn.Parameter(torch.zeros(1, 1, d_model))
+        nn.init.normal_(self.bos, std=0.02)
+        # pos_emb covers the 2T-token interleaved sequence.
+        self.pos_emb = nn.Parameter(torch.zeros(1, 2 * action_horizon, d_model))
+        nn.init.normal_(self.pos_emb, std=0.02)
+
+        # Single Isotropic stack, causal, no per-block cond (the fusion happens
+        # at the input layer).
+        self.backbone = build_isotropic(
+            {
+                "arch_layout": arch_layout,
+                "d_model": d_model,
+                "d_intermediate": d_intermediate,
+                "num_heads": num_heads,
+                "cond": False,
+            },
+            d_cond=0,
+            causal=True,
+        )
+
+    def _encode_cond(self, obs: dict, T: int) -> torch.Tensor:
+        cond_dict = self.cond_encoder.encode(obs, T)
+        c = cond_dict.get("fused_cond")
+        if c is None:
+            raise KeyError(
+                "FlatFusedPolicy requires 'fused_cond' in cond_encoder output."
+            )
+        return c  # (B, T, d_cond)
+
+    def forward(self, actions: torch.Tensor, obs: dict):
+        """Padded teacher-forced forward.
+
+        actions: (B, T, action_dim)
+        obs:     dict of per-frame (B, T, ...) obs tensors.
+        Returns: (pred (B, T, action_dim), aux=[]).
+        """
+        B, T, _ = actions.shape
+        c = self._encode_cond(obs, T)  # (B, T, d_cond)
+        c_tok = self.cond_in(c)  # (B, T, d_model)
+        a_tok = self.action_in(actions)  # (B, T, d_model)
+        # Shift: BOS at position 0, a_0..a_{T-2} after.
+        a_shifted = torch.cat([self.bos.expand(B, -1, -1), a_tok[:, :-1]], dim=1)
+
+        # Interleave: x[:, 0::2] = c_tok, x[:, 1::2] = a_shifted.
+        x = torch.empty(
+            B, 2 * T, self.d_model, device=actions.device, dtype=a_tok.dtype
+        )
+        x[:, 0::2] = c_tok
+        x[:, 1::2] = a_shifted
+        x = x + self.pos_emb[:, : 2 * T].to(x.dtype)
+
+        x = self.backbone(x)  # (B, 2T, d_model)
+        pred = self.action_out(x[:, 1::2])  # (B, T, action_dim)
+        return pred, []
+
+    def forward_packed(
+        self,
+        actions_packed: torch.Tensor,
+        obs_packed: dict,
+        cu_seqlens: torch.Tensor,
+        max_seqlen: int,
+    ):
+        """Packed-mode teacher-forced forward.
+
+        Builds a fused-token packed stream where each sub-sequence ``[s, e)``
+        becomes a length-``2*(e-s)`` interleaved chunk. Returns predictions
+        in packed format ``(T_total, action_dim)`` matching the input
+        ``actions_packed`` layout.
+        """
+        device = actions_packed.device
+        T_total = actions_packed.shape[0]
+        cu_seqlens = cu_seqlens.to(device=device, dtype=torch.long)
+        if max_seqlen > self.action_horizon:
+            raise ValueError(
+                f"max_seqlen={max_seqlen} exceeds action_horizon={self.action_horizon}"
+            )
+
+        # Encode cond. Feed obs as (1, T_total, ...) via cond_encoder.encode.
+        obs_for_encode = {k: v.unsqueeze(0) for k, v in obs_packed.items()}
+        cond_seq = self._encode_cond(obs_for_encode, T_total).squeeze(
+            0
+        )  # (T_total, d_cond)
+        c_tok = self.cond_in(cond_seq)  # (T_total, d_model)
+        a_tok = self.action_in(actions_packed)  # (T_total, d_model)
+
+        # Build BOS-shifted actions per sub-sequence.
+        a_shifted = torch.empty_like(a_tok)
+        bos = self.bos.squeeze(0).squeeze(0).to(a_tok.dtype)  # (d_model,)
+        a_shifted[cu_seqlens[:-1]] = bos
+        # For positions that aren't sub-seq starts, copy a_tok[t-1].
+        non_start = torch.ones(T_total, dtype=torch.bool, device=device)
+        non_start[cu_seqlens[:-1]] = False
+        # Indices of non-start positions:
+        idx_non_start = torch.nonzero(non_start, as_tuple=False).squeeze(-1)
+        a_shifted[idx_non_start] = a_tok[idx_non_start - 1]
+
+        # Build per-sub-seq position indices: 0, 1, ..., (e-s)-1 within each
+        # sub-seq. Then the 2-token interleave doubles to 2*(e-s).
+        pos = torch.arange(T_total, device=device)
+        seq_idx = (pos[:, None] >= cu_seqlens[None, 1:]).sum(dim=-1)
+        local_pos = pos - cu_seqlens[seq_idx]  # (T_total,)
+
+        # The interleaved stream has 2T_total tokens. cond_t at 2*local_pos
+        # within each sub-seq; action_t at 2*local_pos+1.
+        # Compute new cu_seqlens for the doubled stream.
+        sub_lens = cu_seqlens[1:] - cu_seqlens[:-1]
+        new_lens = 2 * sub_lens
+        new_cu = torch.zeros(len(cu_seqlens), dtype=torch.long, device=device)
+        new_cu[1:] = torch.cumsum(new_lens, dim=0)
+        new_T_total = int(new_cu[-1].item())
+
+        # Build the packed interleaved stream and apply pos_emb based on
+        # 2*local_pos / 2*local_pos+1.
+        x = torch.empty(new_T_total, self.d_model, device=device, dtype=a_tok.dtype)
+        # For each t, write c_tok[t] at new_cu[seq_idx[t]] + 2*local_pos[t]
+        # and a_shifted[t] at the next position.
+        target_c = new_cu[seq_idx] + 2 * local_pos
+        target_a = target_c + 1
+        x[target_c] = c_tok
+        x[target_a] = a_shifted
+        # pos_emb indexing: doubled local positions within each sub-seq.
+        # pos_emb is (1, 2*action_horizon, d_model). Apply pos_emb[2*local_pos]
+        # to cond positions and pos_emb[2*local_pos+1] to action positions.
+        pos_c = (2 * local_pos).clamp(max=2 * self.action_horizon - 1)
+        pos_a = (2 * local_pos + 1).clamp(max=2 * self.action_horizon - 1)
+        x[target_c] = x[target_c] + self.pos_emb[0, pos_c].to(x.dtype)
+        x[target_a] = x[target_a] + self.pos_emb[0, pos_a].to(x.dtype)
+
+        # Run the backbone on the doubled packed stream.
+        out = self.backbone(
+            x,
+            cu_seqlens=new_cu,
+            max_seqlen=2 * int(max_seqlen),
+        )
+
+        # Predictions: out at action positions (target_a). action_out projects
+        # to (T_total, action_dim). Order matches actions_packed.
+        pred = self.action_out(out[target_a])
+        return pred, []
+
+    @torch.no_grad()
+    def generate(
+        self,
+        obs: dict,
+        batch_size: int,
+        device,
+        T: Optional[int] = None,
+    ) -> torch.Tensor:
+        """AR rollout for T action steps over a 2T-token interleaved stream.
+
+        Each AR outer step does TWO inner step() calls: one for the cond
+        token, one for the (predicted) action token. The output of the
+        action-step is the next action prediction.
+        """
+        if T is None:
+            T = self.action_horizon
+        if T > self.action_horizon:
+            raise ValueError(f"generate T={T} exceeds action_horizon")
+
+        cond_seq = self._encode_cond(obs, T)  # (B, T, d_cond)
+        c_tok = self.cond_in(cond_seq)  # (B, T, d_model)
+        dtype = c_tok.dtype
+
+        # Allocate the backbone's inference cache sized for the doubled stream.
+        params = self.backbone.allocate_inference_cache(
+            batch_size=batch_size,
+            max_seqlen=2 * T,
+            device=device,
+            dtype=dtype,
+        )
+
+        actions = torch.zeros(batch_size, T, self.action_dim, device=device)
+        a_prev = self.bos.expand(batch_size, -1, -1).to(dtype)  # (B, 1, d_model)
+        for t in range(T):
+            # Cond step.
+            x_c = c_tok[:, t : t + 1] + self.pos_emb[:, 2 * t : 2 * t + 1].to(dtype)
+            _ = self.backbone.step(x_c, params)
+            # Action step.
+            x_a = a_prev + self.pos_emb[:, 2 * t + 1 : 2 * t + 2].to(dtype)
+            h = self.backbone.step(x_a, params)
+            a_t = self.action_out(h)  # (B, 1, action_dim)
+            actions[:, t : t + 1] = a_t
+            # Prepare next-step's a_prev (a_t becomes a_{t-1} for the next outer step).
+            a_prev = self.action_in(a_t)
+
+        return actions
+
+
 class HNet(Algo):
     """
     H-Net policy Algo. Single-domain action-sequence model with per-frame
@@ -619,3 +857,92 @@ class HNet(Algo):
                 }
             )
         return groups
+
+
+class HNetFused(HNet):
+    """Flat-transformer (no chunker) variant: interleaved [c_t, a_t] tokens.
+
+    Same Algo contract as :class:`HNet`. Replaces the H-Net stage hierarchy
+    with a single :class:`FlatFusedPolicy` (one Isotropic stack over a 2T
+    interleaved input). ``aux`` is always ``[]`` so ratio_loss is 0 and
+    chunk_stats is empty; logging surfaces only action_loss.
+
+    Reuses HNet's ``process_batch_for_training`` / ``forward_training`` /
+    ``forward_eval`` / ``compute_losses`` / ``log_info`` /
+    ``_ar_rollout_packed`` unchanged because the policy interface matches
+    HNetPolicy verbatim.
+    """
+
+    def __init__(
+        self,
+        action_dim: int,
+        action_horizon: int,
+        d_model: int,
+        d_cond: int,
+        cond_encoder: CondEncoderModule,
+        norm_stats,
+        domains: list = None,
+        ac_keys: dict = None,
+        device=None,
+        arch_layout: str = "T8",
+        num_heads: int = 4,
+        d_intermediate: int = 512,
+        **kwargs,
+    ):
+        # Skip HNet.__init__ — it requires a HNetCore. We re-implement the
+        # tiny init here for the flat path.
+        Algo.__init__(self)
+        self.norm_stats = norm_stats
+        self.domains = list(domains or [])
+        self.ac_keys = dict(ac_keys or {})
+        self.action_horizon = action_horizon
+        self.d_cond = d_cond
+        self.device = device or torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        self.use_parameter_groups = False
+        self.lr_multipliers = None
+        self.weight_decay = 0.0
+        self._hnet_core = None
+        self.action_dim = action_dim
+
+        policy = FlatFusedPolicy(
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+            d_model=d_model,
+            d_cond=d_cond,
+            cond_encoder=cond_encoder,
+            arch_layout=arch_layout,
+            num_heads=num_heads,
+            d_intermediate=d_intermediate,
+        )
+        self.nets = nn.ModuleDict({"policy": policy})
+        self.nets = self.nets.float().to(self.device)
+
+        # Replicate HNet's key-resolution loop (norm_stats-based).
+        self.embodiment_ids = {}
+        self.proprio_keys = {}
+        self.lang_keys = {}
+        self.camera_keys = {}
+        self.resolved_ac_keys = {}
+        for emb in self.domains:
+            emb_id = get_embodiment_id(emb)
+            self.embodiment_ids[emb] = emb_id
+            self.proprio_keys[emb_id] = []
+            self.lang_keys[emb_id] = []
+            self.camera_keys[emb_id] = []
+            for key in norm_stats.keys_of_type("action_keys", emb_id):
+                if (
+                    norm_stats.is_key_with_embodiment(key, emb_id)
+                    and key == self.ac_keys[emb]
+                ):
+                    self.resolved_ac_keys[emb_id] = key
+            for key in norm_stats.keys_of_type("proprio_keys", emb_id):
+                if norm_stats.is_key_with_embodiment(key, emb_id):
+                    self.proprio_keys[emb_id].append(key)
+            for key in norm_stats.keys_of_type("lang_keys", emb_id):
+                if norm_stats.is_key_with_embodiment(key, emb_id):
+                    self.lang_keys[emb_id].append(key)
+            for key in norm_stats.keys_of_type("camera_keys", emb_id):
+                if norm_stats.is_key_with_embodiment(key, emb_id):
+                    self.camera_keys[emb_id].append(key)
