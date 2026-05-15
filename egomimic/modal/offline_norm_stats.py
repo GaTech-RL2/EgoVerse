@@ -1,5 +1,8 @@
 """Offline normalization-statistics computation on Modal CPUs.
 
+Intentionally self-contained (no egomimic imports at module level) because
+Modal mounts this file as /root/offline_norm_stats.py before the repo is cloned.
+
 Computes norm stats for a given data config and writes:
   <training-outputs-volume>/precomputed_norm_stats/<data_config>/norm_stats.json
 
@@ -14,7 +17,9 @@ In training, point at the result with:
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import modal
@@ -22,8 +27,7 @@ import modal
 os.environ.setdefault("MODAL_ENVIRONMENT", "robotics")
 
 # ---------------------------------------------------------------------------
-# Parse --cpu / --memory_gb from sys.argv at module load time so the
-# @app.function decorator below picks up the right resource values.
+# Parse --cpu / --memory_gb from sys.argv before the decorator below runs
 # ---------------------------------------------------------------------------
 
 
@@ -35,29 +39,159 @@ def _extract_arg(argv: list[str], flag: str, default: str) -> str:
 
 
 _argv = sys.argv[1:]
-os.environ["MODAL_CPU"] = _extract_arg(_argv, "--cpu", os.environ.get("MODAL_CPU", "16"))
-os.environ["MODAL_MEMORY_GB"] = _extract_arg(
-    _argv, "--memory_gb", os.environ.get("MODAL_MEMORY_GB", "64")
-)
-os.environ.pop("MODAL_GPU", None)  # CPU-only job
+_CPU = float(_extract_arg(_argv, "--cpu", "16"))
+_MEMORY_MB = int(float(_extract_arg(_argv, "--memory_gb", "64")) * 1024)
 
-from egomimic.modal.run import (  # noqa: E402
-    CFG,
-    REPO_ROOT,
-    app,
-    training_outputs_volume,
-    zarr_volume,
-    _prepare_repo,
-    _resolve_git_state,
+# ---------------------------------------------------------------------------
+# Inline config (mirrors run.py — no egomimic import needed)
+# ---------------------------------------------------------------------------
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+@dataclass
+class _Config:
+    remote_repo_dir: str = "/root/EgoVerse"
+    python_bin: str = "python3"
+    zarr_volume_name: str = field(
+        default_factory=lambda: os.environ.get("MODAL_ZARR_VOLUME", "mecka_data_v2")
+    )
+    volume_mount_path: str = "/mnt/zarr-data"
+    output_mount_path: str = "/root/EgoVerse/logs"
+    secret_names: list[str] = field(
+        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb"]
+    )
+
+
+CFG = _Config()
+
+# ---------------------------------------------------------------------------
+# Image and volumes (same as run.py)
+# ---------------------------------------------------------------------------
+
+image = (
+    modal.Image.from_registry(
+        "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime",
+        add_python="3.10",
+    )
+    .apt_install("git")
+    .pip_install(
+        "lightning",
+        "hydra-core",
+        "omegaconf",
+        "wandb",
+        "boto3",
+        "cloudpathlib",
+        "zarr==3.1.5",
+        "pyarrow",
+        "simplejpeg",
+        "h5py",
+        "av==12.0.0",
+        "mediapy",
+        "datasets==4.0.0",
+        "transformers==4.57.3",
+        "timm",
+        "einops",
+        "positional-encodings[pytorch]",
+        "pytorch-kinematics",
+        "arm-pytorch-utilities",
+        "geomloss",
+        "tslearn",
+        "scipy",
+        "hydra-submitit-launcher==1.2.0",
+        "submitit",
+        "opencv-python-headless",
+        "projectaria-tools",
+        "pyquaternion",
+        "sqlalchemy",
+        "psycopg[binary]",
+        "pandas",
+        "rich",
+        "tabulate",
+        "prettytable",
+        "packaging",
+        "overrides",
+        "typing_extensions",
+        "pyyaml",
+        "matplotlib",
+        "termcolor",
+        "tqdm",
+        "filelock",
+        "imageio",
+        "imageio-ffmpeg",
+        "safetensors",
+        "huggingface-hub",
+        "scaleapi",
+        "openai",
+        "pyzmq",
+        "torchvision==0.21.0",
+        "s5cmd",
+    )
 )
 
-_TIMEOUT = 3 * 3600  # 3 hours
+zarr_volume = modal.Volume.from_name(CFG.zarr_volume_name)
+training_outputs_volume = modal.Volume.from_name(
+    "egoverse-training-outputs", create_if_missing=True
+)
+app = modal.App("egomimic-norm-stats", image=image)
+
+_TIMEOUT = 3 * 3600
 _NORM_SUBDIR = "precomputed_norm_stats"
+
+# ---------------------------------------------------------------------------
+# Container helpers (inlined from run.py — no egomimic import)
+# ---------------------------------------------------------------------------
+
+
+def _ssh_to_https(url: str) -> str:
+    if url.startswith("git@github.com:"):
+        path = url[len("git@github.com:"):]
+        return f"https://github.com/{path}"
+    return url
+
+
+def _prepare_repo(git_remote: str, git_commit: str) -> None:
+    clone_url = _ssh_to_https(git_remote)
+    repo_dir = Path(CFG.remote_repo_dir)
+
+    if (repo_dir / ".git").exists():
+        subprocess.run(
+            ["git", "-C", CFG.remote_repo_dir, "fetch", "--all", "--tags"], check=True
+        )
+    elif repo_dir.exists():
+        subprocess.run(["git", "init", CFG.remote_repo_dir], check=True)
+        subprocess.run(
+            ["git", "-C", CFG.remote_repo_dir, "remote", "add", "origin", clone_url],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", CFG.remote_repo_dir, "fetch", "origin", "--tags"], check=True
+        )
+    else:
+        subprocess.run(["git", "clone", clone_url, CFG.remote_repo_dir], check=True)
+
+    subprocess.run(
+        ["git", "-C", CFG.remote_repo_dir, "checkout", git_commit], check=True
+    )
+    subprocess.run(
+        ["git", "-C", CFG.remote_repo_dir, "submodule", "update", "--init", "--recursive"],
+        check=True,
+    )
+    subprocess.run(
+        [CFG.python_bin, "-m", "pip", "install", "-e", ".", "--no-deps", "-q"],
+        cwd=CFG.remote_repo_dir,
+        check=True,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Modal function
+# ---------------------------------------------------------------------------
 
 
 @app.function(
-    cpu=float(os.environ.get("MODAL_CPU", "16")),
-    memory=int(float(os.environ.get("MODAL_MEMORY_GB", "64")) * 1024),
+    cpu=_CPU,
+    memory=_MEMORY_MB,
     timeout=_TIMEOUT,
     secrets=[modal.Secret.from_name(name) for name in CFG.secret_names],
     volumes={
@@ -74,7 +208,7 @@ def run_norm_stats(
 ) -> str:
     """Clone the repo and compute norm stats for *data_config*.
 
-    Returns the absolute path of the written norm_stats.json inside the container.
+    Returns the container path of the written norm_stats.json.
     """
     import copy
     import json
@@ -100,7 +234,7 @@ def run_norm_stats(
             overrides=[f"data={data_config}"],
         )
 
-    # Disable debug limits — compute stats over the full dataset
+    # Disable debug limits — norm stats must cover the full dataset
     with open_dict(cfg):
         for ds_name in list(cfg.data.train_datasets):
             resolver = OmegaConf.select(
@@ -116,10 +250,8 @@ def run_norm_stats(
     for dataset_name in cfg.data.train_datasets:
         print(f"[NormStats] Instantiating dataset <{dataset_name}>")
         dataset = hydra.utils.instantiate(cfg.data.train_datasets[dataset_name])
-
         data_schematic.infer_shapes_from_batch(dataset[0])
 
-        # Build norm-mode dataset (strips image/annotation keys)
         norm_cfg = copy.deepcopy(cfg.data.train_datasets[dataset_name])
         km = OmegaConf.to_container(norm_cfg.resolver.key_map, resolve=False)
         km["norm_mode"] = True
@@ -133,7 +265,6 @@ def run_norm_stats(
             num_workers=num_workers,
         )
 
-    # Serialize to output volume at the user-specified path
     out_dir = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "norm_stats.json"
@@ -149,7 +280,12 @@ def run_norm_stats(
             for key_name, stat_dict in keys_dict.items()
         }
 
-    payload: dict = {"stats": stats_out, "loading_time": None, "computing_time": None, "frames": None}
+    payload: dict = {
+        "stats": stats_out,
+        "loading_time": None,
+        "computing_time": None,
+        "frames": None,
+    }
     if data_schematic._norm_run_metadata is not None:
         for k in ("loading_time", "computing_time", "frames"):
             if k in data_schematic._norm_run_metadata:
@@ -163,6 +299,38 @@ def run_norm_stats(
     return str(out_path)
 
 
+# ---------------------------------------------------------------------------
+# Local entrypoint
+# ---------------------------------------------------------------------------
+
+
+def _resolve_git_state() -> tuple[str, str, bool]:
+    def _git(args):
+        return subprocess.check_output(args, cwd=REPO_ROOT, text=True).strip()
+
+    git_remote = _git(["git", "config", "--get", "remote.origin.url"])
+    git_commit = _git(["git", "rev-parse", "HEAD"])
+    is_dirty = bool(_git(["git", "status", "--porcelain"]))
+
+    try:
+        subprocess.run(
+            ["git", "fetch", "--quiet", "origin"], cwd=REPO_ROOT, check=True, capture_output=True
+        )
+        result = subprocess.run(
+            ["git", "branch", "-r", "--contains", git_commit],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+        )
+        if not result.stdout.strip():
+            raise SystemExit(
+                f"ERROR: commit {git_commit[:12]} has not been pushed.\n"
+                "Push your branch first, then re-run."
+            )
+    except subprocess.CalledProcessError:
+        pass
+
+    return git_remote, git_commit, is_dirty
+
+
 @app.local_entrypoint()
 def main(*args: str) -> None:
     """Compute and cache norm stats for a data config on Modal CPUs."""
@@ -170,10 +338,10 @@ def main(*args: str) -> None:
 
     parser = argparse.ArgumentParser(prog="offline_norm_stats")
     parser.add_argument("data_config", help="Data config name, e.g. mecka_all_zarr")
-    parser.add_argument("--cpu", type=float, default=16.0, help="Number of CPU cores")
+    parser.add_argument("--cpu", type=float, default=16.0, help="CPU cores (max 64)")
     parser.add_argument("--memory_gb", type=float, default=64.0, help="RAM in GB")
     parser.add_argument("--num_workers", type=int, default=16, help="DataLoader workers")
-    parser.add_argument("--sample_frac", type=float, default=1.0, help="Fraction of episodes to sample")
+    parser.add_argument("--sample_frac", type=float, default=1.0, help="Fraction of episodes to sample (0.0–1.0)")
     parsed = parser.parse_args(list(args))
 
     git_remote, git_commit, is_dirty = _resolve_git_state()
@@ -182,8 +350,8 @@ def main(*args: str) -> None:
 
     print(
         f"Submitting norm-stats job: data={parsed.data_config!r} "
-        f"cpu={parsed.cpu} memory={parsed.memory_gb}GB workers={parsed.num_workers} "
-        f"sample_frac={parsed.sample_frac}"
+        f"cpu={parsed.cpu} memory={parsed.memory_gb}GB "
+        f"workers={parsed.num_workers} sample_frac={parsed.sample_frac}"
     )
 
     out_path = run_norm_stats.remote(
@@ -194,8 +362,8 @@ def main(*args: str) -> None:
         git_commit=git_commit,
     )
 
-    print(f"\nDone. Saved to volume path: {out_path}")
+    print(f"\nDone. Volume path: {out_path}")
     print(
-        f"\nTo use in training, pass:\n"
+        f"\nTo use in training:\n"
         f"  norm_stats.precomputed_norm_path={_NORM_SUBDIR}/{parsed.data_config}"
     )
