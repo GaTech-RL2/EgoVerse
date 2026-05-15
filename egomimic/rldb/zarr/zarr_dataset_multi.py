@@ -57,6 +57,42 @@ logger = logging.getLogger(__name__)
 SEED = 42
 
 
+def _import_real_modal():
+    """Return the installed Modal SDK, working around egomimic.modal shadowing.
+
+    When trainHydra.py runs as `python /root/EgoVerse/egomimic/trainHydra.py`,
+    Python puts /root/EgoVerse/egomimic on sys.path[0], which makes a bare
+    `import modal` resolve to the egomimic.modal subpackage. This helper:
+      1. Returns the cached real SDK if one is already in sys.modules.
+      2. Otherwise strips egomimic from sys.path and re-imports.
+
+    Important: we do NOT pop `modal` from sys.modules once the real SDK is
+    cached there — re-importing produces a fresh top-level module that no
+    longer carries the lazily-attached submodules (modal._grpc_client, etc.),
+    breaking subsequent fn.map() calls.
+    """
+    import sys
+
+    existing = sys.modules.get("modal")
+    if existing is not None and hasattr(existing, "Function"):
+        return existing
+
+    _orig_path = list(sys.path)
+    sys.path = [p for p in sys.path if Path(p).name != "egomimic"]
+    sys.modules.pop("modal", None)
+    try:
+        import modal as _modal
+    finally:
+        sys.path = _orig_path
+
+    if not hasattr(_modal, "Function"):
+        raise RuntimeError(
+            "Imported `modal` has no `Function` attribute — "
+            "egomimic.modal subpackage is still shadowing the installed Modal SDK"
+        )
+    return _modal
+
+
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     """
     Split a list of dataset names into train/valid sets.
@@ -276,22 +312,9 @@ class EpisodeResolver:
         constructed locally with precomputed_metadata so its eager zarr open is
         skipped (deferred until first __getitem__).
         """
-        import sys
         import time
 
-        # See _modal_fanout_scan for why we strip egomimic from sys.path before importing modal.
-        _orig_path = list(sys.path)
-        sys.path = [p for p in sys.path if Path(p).name != "egomimic"]
-        sys.modules.pop("modal", None)
-        try:
-            import modal
-        finally:
-            sys.path = _orig_path
-        if not hasattr(modal, "Function"):
-            raise RuntimeError(
-                "Imported `modal` has no `Function` attribute — "
-                "egomimic.modal subpackage is still shadowing the installed Modal SDK"
-            )
+        modal = _import_real_modal()
 
         start_time = time.monotonic()
         logger.info(f"Modal fan-out load: listing {search_path} (single readdir)...")
@@ -808,27 +831,9 @@ class LocalEpisodeResolver(EpisodeResolver):
         invokes `egomimic-training::scan_shard` in parallel. Each worker mounts
         the same zarr volume read-only and runs a thread-pooled .zattrs scan.
         """
-        import sys
         import time
 
-        # `python egomimic/trainHydra.py` puts /root/EgoVerse/egomimic on
-        # sys.path[0], so a bare `import modal` resolves to the egomimic.modal
-        # subpackage instead of the installed Modal SDK (see trainHydra.py
-        # _submit_to_modal comment). Strip those entries before importing,
-        # then restore so nothing else relying on sys.path is affected.
-        _orig_path = list(sys.path)
-        sys.path = [p for p in sys.path if Path(p).name != "egomimic"]
-        sys.modules.pop("modal", None)
-        try:
-            import modal
-        finally:
-            sys.path = _orig_path
-
-        if not hasattr(modal, "Function"):
-            raise RuntimeError(
-                "Imported `modal` has no `Function` attribute — "
-                "egomimic.modal subpackage is still shadowing the installed Modal SDK"
-            )
+        modal = _import_real_modal()
 
         # Single readdir syscall — no per-entry stat. Drop hidden files cheaply
         # (string compare). Workers handle non-dir entries gracefully via
