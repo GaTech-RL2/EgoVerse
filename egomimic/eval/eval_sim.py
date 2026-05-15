@@ -224,7 +224,9 @@ class SimRolloutEval(EvalVideo):
         # The algo may have capped T_max internally (e.g. by its pos_emb).
         T = state.get("T_max", T_eff)
 
-        ac_key = algo.resolved_ac_keys[emb_id]
+        # ``resolved_ac_keys`` is HNet's id-keyed map; HPT's ``ac_keys``
+        # is dual-keyed (both name and id) so both work via the same access.
+        ac_key = getattr(algo, "resolved_ac_keys", algo.ac_keys)[emb_id]
         obs_formatter = _OBS_FORMATTERS[self.embodiment_name]
 
         frames: List[np.ndarray] = []
