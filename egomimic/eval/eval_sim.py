@@ -156,18 +156,31 @@ class SimRolloutEval(EvalVideo):
             self._env = PushShapesEnv(**kwargs)
         return self._env
 
-    def _init_env(self, env, sample: dict, ep_seed_offset: int) -> None:
-        """Reset + (optionally) set_state. Encapsulates init_mode."""
+    def _init_env(self, env, sample: dict, ep_seed_offset: int, emb_id: int) -> None:
+        """Reset + (optionally) set_state. Encapsulates init_mode.
+
+        Replay mode reads ``state_agent_obj`` and ``goal_pose`` from the
+        batch and **unnormalizes** them before calling ``env.set_state``:
+        the batch was passed through ``process_batch_for_training`` which
+        normalizes obs, but the env expects world coordinates.
+        """
         if self.init_mode == "replay":
             state_seq = sample.get("state_agent_obj")
             if state_seq is None:
                 raise KeyError("init_mode='replay' requires 'state_agent_obj' in batch")
-            frame0 = state_seq[0].detach().cpu().numpy()
+
+            # Build a single-key dict and unnormalize → world coords.
+            unnorm = self.model.norm_stats.unnormalize(
+                {"state_agent_obj": state_seq}, emb_id
+            )
+            frame0 = unnorm["state_agent_obj"][0].detach().cpu().numpy()
             agent_pos, object_pose = _state_to_init(frame0)
 
-            goal_seq = sample.get("goal_pose")
             goal_pose = None
+            goal_seq = sample.get("goal_pose")
             if goal_seq is not None:
+                # ``goal_pose`` isn't a normalized key (see
+                # ``MultiDataset.norm_stats`` keys); pass straight through.
                 goal_pose = tuple(
                     float(x)
                     for x in np.asarray(goal_seq[0].detach().cpu().numpy()).reshape(-1)[
@@ -206,7 +219,7 @@ class SimRolloutEval(EvalVideo):
         device = self.trainer.lightning_module.device
         env = self._get_env()
 
-        self._init_env(env, sample, ep_seed_offset=ep_idx)
+        self._init_env(env, sample, ep_seed_offset=ep_idx, emb_id=emb_id)
         T_eff = self.max_steps if self.max_steps is not None else int(seq_len)
 
         if not hasattr(algo, "sim_init_state") or not hasattr(algo, "sim_predict_step"):
