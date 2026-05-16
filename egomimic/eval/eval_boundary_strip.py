@@ -32,11 +32,11 @@ import torch
 
 from egomimic.eval.eval_video import EvalVideo
 
-# Continuous colormap: matplotlib's ``magma`` runs black → purple → orange
-# → near-white as the value rises. Smooth, perceptually uniform, and
-# distinguishes neighbouring values well so you can see step-to-step
-# instability as visible banding/noise in the strip.
-_CMAP = _cm.get_cmap("magma")
+# Continuous greyscale: ``P(boundary) = 0`` → white (chunker quiet),
+# ``P(boundary) = 1`` → black (chunker fires a boundary here). Matches
+# the "mark a boundary as a dark tick on a timeline" intuition. Step-to-
+# step instability shows up as speckled grey noise in the strip.
+_CMAP = _cm.get_cmap("gray_r")
 
 
 def _colors_for_probs(probs: np.ndarray) -> np.ndarray:
