@@ -539,10 +539,16 @@ class MLPPolicyStem(PolicyStem):
         tanh_end: bool = False,
         ln: bool = True,
         num_of_copy: int = 1,
+        input_slice: Optional[List[int]] = None,
         **kwargs,
     ) -> None:
-        """vanilla MLP class"""
+        """vanilla MLP class. ``input_slice=[start, end]`` picks ``x[..., start:end]``
+        in forward, letting a multi-component proprio tensor feed only a subset
+        into the stem without resaving the zarr."""
         super().__init__(**kwargs)
+        self.input_slice = (
+            slice(int(input_slice[0]), int(input_slice[1])) if input_slice else None
+        )
         modules = [nn.Linear(input_dim, widths[0]), nn.SiLU()]
 
         for i in range(len(widths) - 1):
@@ -570,6 +576,8 @@ class MLPPolicyStem(PolicyStem):
         Returns:
             Flatten tensor with shape [B, M, 512]
         """
+        if self.input_slice is not None:
+            x = x[..., self.input_slice]
         if self.num_of_copy > 1:
             out = []
             iter_num = min(self.num_of_copy, x.shape[1])
