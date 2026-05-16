@@ -23,7 +23,7 @@ train_datasets:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
         action_horizon: 400
       transform_list: null
-    chunking: "none"
+    chunking: "sequential"
     min_seq_len: 64
     max_seq_len: 400
 
@@ -37,7 +37,7 @@ valid_datasets:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
         action_horizon: 400
       transform_list: null
-    chunking: "none"
+    chunking: "sequential"
     min_seq_len: 64
     max_seq_len: 400
 
