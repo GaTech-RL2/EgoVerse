@@ -772,6 +772,14 @@ class MultiDataset(torch.utils.data.Dataset):
         self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
         self._norm_run_metadata: dict[str, float | int | None] | None = None
 
+        # When True, ``__getitem__`` still LOGS bounds violations but does
+        # NOT resample to a fresh index — the slightly-out-of-quantile
+        # sample is returned as-is. Useful when norm stats are reused
+        # across datasets (~1-2% of frames naturally lie outside the
+        # precomputed q1/q99) and the per-sample resample loop dominates
+        # data-loading time.
+        self.skip_bounds_check = bool(kwargs.get("skip_bounds_check", False))
+
         # ---- Dataset graph fields ----
         self.datasets: dict = {}
         self.index_map: list = []
@@ -942,7 +950,7 @@ class MultiDataset(torch.utils.data.Dataset):
                 return data
 
             violation = self._check_bounds(data, dataset, local_idx, dataset_name)
-            if violation is not None:
+            if violation is not None and not self.skip_bounds_check:
                 next_idx, attempts = self._next_after_failure(
                     idx,
                     dataset_name,
