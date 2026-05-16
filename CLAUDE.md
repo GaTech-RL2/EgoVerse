@@ -163,6 +163,21 @@ Fallback behaviour, in order of impact:
 
 ## Installing the CUDA kernels (`flash_attn`, `mamba_ssm`, `causal_conv1d`)
 
+**One-shot script:** `scripts/install_cuda_kernels.sh` does the whole
+flow end-to-end (drops micromamba in, builds the cu12.4 toolkit, clears
+stale wheel caches, installs the three exts with the right flags,
+verifies). Run it on a **compute node** (login node has no GPU and the
+arch detection fails):
+
+```bash
+srun --jobid=<JOB> --chdir=$PWD scripts/install_cuda_kernels.sh
+```
+
+Everything below is the manual breakdown for when something goes wrong
+or you want to understand why each step exists.
+
+---
+
 We install a **project-local CUDA 12.4 toolkit** (matches `torch
 2.6.0+cu124`) via `micromamba`, then build the three exts with the
 `--no-deps --no-build-isolation` flags so pip cannot resolve and upgrade
