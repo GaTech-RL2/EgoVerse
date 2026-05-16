@@ -1,22 +1,30 @@
 """
-BoundaryStripEval — renders the chunker's boundary probability over time
-as a thin vertical strip.
+BoundaryStripEval — renders the chunker's boundary probability AND its
+committed boundary decisions over time as a pair of thin vertical strips.
 
-For each validation episode, we run the algo's teacher-forced
-``forward_packed`` and pull ``boundary_prob`` out of ``ctx.aux`` (each
-chunker stage emits a ``bpred`` with shape ``(T_total, 2)`` where column
-1 is ``P(boundary)`` per token). Then for each frame ``t`` of the video,
-we render a centered ``window`` of the surrounding ``[t - W/2, t + W/2]``
-boundary probs as a vertical gradient column — bright when the chunker
-would fire a boundary, dark when it wouldn't.
+For each validation episode we run the algo's teacher-forced
+``forward_packed`` and pull ``boundary_prob`` plus ``boundary_mask`` out
+of ``ctx.aux`` (each chunker stage emits a ``bpred`` with
+``boundary_prob: (T_total, 2)`` — column 1 = ``P(boundary)`` — and
+``boundary_mask: (T_total,)`` — the chunker's committed fire decisions
+after the STE / argmax).
 
-By default each timestep occupies ONE pixel row so consecutive probs
-blend into a smooth gradient (good for spotting instability — sharp
-banding between near-by frames indicates jumpy chunker decisions). Bump
-``pixels_per_step`` for a chunkier "square" look.
+Per video frame ``t``, two side-by-side strips of the centered window
+``[t - W/2, t + W/2]`` are rendered:
 
-If multiple chunkers are present, the strip column groups them
-vertically (one sub-strip per chunker, top-most first).
+  * **Gradient strip** — continuous greyscale of soft ``P(boundary)``.
+    White = quiet, black = about to fire. Use to read confidence and
+    spot step-to-step jitter.
+  * **Discrete strip** — binary red/white of ``boundary_mask``. Red rows
+    = committed chunk dividers. Use to read decisions: chunk sizes,
+    rhythm, alignment with motion.
+
+Each timestep occupies ``pixels_per_step`` pixel rows (default 1 → smooth
+gradient; bump for a chunkier "square" look). A yellow 1-pixel row
+through both strips marks the current frame.
+
+If multiple chunkers are present, the two-strip panels are stacked
+vertically (one pair per chunker, top-most chunker first).
 """
 
 from __future__ import annotations
@@ -139,15 +147,21 @@ class BoundaryStripEval(EvalVideo):
         T_ep: int,
     ) -> np.ndarray:
         """Render the per-frame centered window strip for one chunker on
-        one episode. Returns ``(T_ep, strip_H, strip_W, 3)`` uint8.
+        one episode. Returns ``(T_ep, strip_H, 2*strip_W + 1, 3)`` uint8.
 
-        Layers (top of stack drawn last):
-          1. Greyscale background = ``P(boundary)`` gradient (gray_r).
-          2. Red horizontal lines where ``boundary_mask`` is True — the
-             chunker's committed chunk dividers. Each red line is 1
-             pixel-row tall (or ``pps`` rows when ``pixels_per_step>1``)
-             and spans the full strip width.
-          3. Yellow horizontal line at the centre = current frame.
+        Two strips, side-by-side, separated by a 1-pixel black divider:
+
+          A) **Gradient strip** — continuous greyscale (``gray_r``) of the
+             soft ``P(boundary)`` in [0, 1]. White = quiet, black = chunker
+             about to fire. Use this to read the chunker's *confidence*
+             and to spot step-to-step jitter.
+          B) **Discrete strip** — binary red/white from ``boundary_mask``.
+             Red where the chunker actually fired a boundary (committed
+             chunk divider), white otherwise. Use this to read the
+             chunker's *decisions* — chunk sizes, regularity, etc.
+
+        A yellow 1-pixel line through both strips marks the current frame
+        at the centre of the window.
         """
         T_ep = int(T_ep)
         W = self.window
@@ -175,32 +189,37 @@ class BoundaryStripEval(EvalVideo):
             prob_grid = np.where(in_range, bp[clamped], 0.0)
             mask_grid = np.where(in_range, bm[clamped], False)
 
-        # (T_ep, W, 3) uint8 — greyscale background
-        colors = _colors_for_probs(prob_grid.reshape(-1)).reshape(T_ep, W, 3)
-        # Stretch each row to ``pps`` pixel-rows → (T_ep, W*pps, 3)
-        if pps > 1:
-            colors = np.repeat(colors, pps, axis=1)
-            # Repeat the mask the same way so indices line up after stretch.
-            mask_stretched = np.repeat(mask_grid, pps, axis=1)
-        else:
-            mask_stretched = mask_grid
-
-        # Tile across width → (T_ep, strip_H, strip_W, 3)
-        frames = np.broadcast_to(colors[:, :, None, :], (T_ep, strip_H, sw, 3)).copy()
-
-        # Red chunk-divider lines for committed boundaries
-        # (boundary_mask = True). ``mask_stretched`` shape (T_ep, strip_H).
-        # We broadcast the mask across width and assign red on True rows.
+        # Gradient strip = greyscale P(boundary).
+        grad_colors = _colors_for_probs(prob_grid.reshape(-1)).reshape(T_ep, W, 3)
+        # Discrete strip = red where boundary_mask is True, white else.
         red = np.array([220, 30, 30], dtype=np.uint8)
-        # Index into frames where mask is True. Per-frame fancy indexing.
-        frame_idx, row_idx = np.where(mask_stretched)
-        if frame_idx.size > 0:
-            frames[frame_idx, row_idx, :, :] = red
+        white = np.array([255, 255, 255], dtype=np.uint8)
+        disc_colors = np.where(mask_grid[..., None], red, white).astype(np.uint8)
 
-        # Yellow current-step marker (1px line at the centre of the window).
+        # Stretch each row to ``pps`` pixel-rows → (T_ep, strip_H, 3).
+        if pps > 1:
+            grad_colors = np.repeat(grad_colors, pps, axis=1)
+            disc_colors = np.repeat(disc_colors, pps, axis=1)
+
+        # Tile each across the strip width → (T_ep, strip_H, sw, 3).
+        grad_frames = np.broadcast_to(
+            grad_colors[:, :, None, :], (T_ep, strip_H, sw, 3)
+        ).copy()
+        disc_frames = np.broadcast_to(
+            disc_colors[:, :, None, :], (T_ep, strip_H, sw, 3)
+        ).copy()
+
+        # Yellow current-step marker (1px line at the centre of the window)
+        # painted on both strips.
         ymid = half * pps + pps // 2
-        frames[:, max(0, ymid - 1) : ymid + 1, :, :] = (255, 220, 0)
-        return frames
+        yellow = (255, 220, 0)
+        grad_frames[:, max(0, ymid - 1) : ymid + 1, :, :] = yellow
+        disc_frames[:, max(0, ymid - 1) : ymid + 1, :, :] = yellow
+
+        # 2-px black divider column between the two strips. (Width = even so
+        # the eventual composite stays divisible-by-2 for x264 encoding.)
+        divider = np.zeros((T_ep, strip_H, 2, 3), dtype=np.uint8)
+        return np.concatenate([grad_frames, divider, disc_frames], axis=2)
 
     # ------------------------------------------------------------------ #
 
