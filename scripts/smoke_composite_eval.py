@@ -107,7 +107,7 @@ def main():
                 pixels_per_step=1,
             ),
         ],
-        pad_h="min",
+        pad_h="max",
         limit_val_batches=1,
     )
     composite.trainer = _MockTrainer(args.out_dir, device)
