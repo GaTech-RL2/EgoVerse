@@ -17,6 +17,10 @@ train_datasets:
         action_horizon: 32
       transform_list: null
     mode: total
+    skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
+                              # (per-frame loader + reused norm stats causes
+                              # ~1-2% of frames to fail bounds; resampling
+                              # each one stalls data loading).
 
 valid_datasets:
   pushshapes_sim:
@@ -29,6 +33,10 @@ valid_datasets:
         action_horizon: 32
       transform_list: null
     mode: total
+    skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
+                              # (per-frame loader + reused norm stats causes
+                              # ~1-2% of frames to fail bounds; resampling
+                              # each one stalls data loading).
 
 train_dataloader_params:
   pushshapes_sim:
