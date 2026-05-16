@@ -9,7 +9,6 @@ import torchvision
 from einops import rearrange, repeat
 from timm.models.layers import DropPath, trunc_normal_
 from timm.models.vision_transformer import VisionTransformer
-from torch import einsum
 from torchvision import transforms
 from transformers import T5Model, T5Tokenizer
 
@@ -64,21 +63,18 @@ class CrossAttention(nn.Module):
         q = self.to_q(x)
         k, v = self.to_kv(context).chunk(2, dim=-1)
         q, k, v = map(lambda t: rearrange(t, "b n (h d) -> (b h) n d", h=h), (q, k, v))
-        sim = einsum("b i d, b j d -> b i j", q, k) * self.scale
 
+        # Build SDPA attn_mask (bool: True=attend, False=mask out) — matches
+        # the original `~mask` masked_fill semantics.
+        attn_mask = None
         if mask is not None:
-            # fill in the masks with negative values
-            mask = rearrange(mask, "b ... -> b (...)")
-            max_neg_value = -torch.finfo(sim.dtype).max
-            mask = repeat(mask, "b j -> (b h) () j", h=h)
-            sim.masked_fill_(~mask, max_neg_value)
+            m = rearrange(mask, "b ... -> b (...)")
+            attn_mask = repeat(m, "b j -> (b h) () j", h=h)
 
-        # attention, what we cannot get enough of
-        attn = sim.softmax(dim=-1)
-
-        # dropout
-        attn = self.dropout(attn)
-        out = einsum("b i j, b j d -> b i d", attn, v)
+        dropout_p = self.dropout.p if self.training else 0.0
+        out = F.scaled_dot_product_attention(
+            q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, scale=self.scale
+        )
         out = rearrange(out, "(b h) n d -> b n (h d)", h=h)
         return self.to_out(out)
 
@@ -126,11 +122,14 @@ class Attention(nn.Module):
             qkv[2],
         )  # make torchscript happy (cannot use tensor as tuple)
 
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
+        # SDPA picks flash / mem-efficient / math backend automatically based
+        # on dtype, shapes, and device; flash is used when available.
+        dropout_p = self.attn_drop.p if self.training else 0.0
+        x = F.scaled_dot_product_attention(
+            q, k, v, dropout_p=dropout_p, scale=self.scale
+        )
 
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
