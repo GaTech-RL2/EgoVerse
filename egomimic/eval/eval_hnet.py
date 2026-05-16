@@ -103,24 +103,27 @@ class HNetEvalVideo(EvalVideo):
                     ((final_pred - final_gt) ** 2).mean().detach()
                 )
 
-                # Build the viz batch: use frame 0 of each episode's image
-                # for the background, and the full predicted / GT trajectory
-                # overlay on top.
-                first_frame_img = None
+                # Build the viz batch: pass the FULL per-episode video
+                # (B, T_max, C, H, W) instead of just frame 0. The
+                # viz_func (pushshapes.viz_gt_preds) then renders one
+                # output frame per real timestep — saved video shows
+                # each episode playing back with the GT/pred trajectory
+                # overlay so you can verify alignment over time.
+                per_frame_img = None
                 cam_keys = algo.camera_keys.get(emb_id, [])
                 if cam_keys:
                     img_key = cam_keys[0]
                     if img_key in _batch_unnorm:
                         packed_img = _batch_unnorm[img_key]
-                        unpacked = _unpack_to_padded(packed_img, cu, seq_lens)
-                        first_frame_img = unpacked[:, 0]  # (B, C, H, W)
+                        per_frame_img = _unpack_to_padded(packed_img, cu, seq_lens)
 
                 viz_batch = {
                     ac_key: gt,
                     "embodiment": _batch["embodiment"],
+                    "seq_lens": seq_lens,
                 }
-                if first_frame_img is not None:
-                    viz_batch[cam_keys[0]] = first_frame_img
+                if per_frame_img is not None:
+                    viz_batch[cam_keys[0]] = per_frame_img
                 viz_preds = {f"{embodiment_name}_{ac_key}": pred}
             else:
                 # Padded mode (legacy).
