@@ -95,13 +95,14 @@ class BoundaryStripEval(EvalVideo):
     @torch.no_grad()
     def _run_forward_and_collect_bprobs(
         self, batch: Dict[int, Dict[str, Any]]
-    ) -> Dict[int, List[torch.Tensor]]:
-        """Run ``policy.forward_packed`` for each emb and collect the list
-        of per-chunker boundary_prob tensors. Returns
-        ``{emb_id: [boundary_prob_packed_chunker_0, …]}``.
+    ) -> Dict[int, List[tuple[torch.Tensor, torch.Tensor]]]:
+        """Run ``policy.forward_packed`` for each emb and collect per-chunker
+        ``(boundary_prob_packed, boundary_mask_packed)`` tuples.
+
+        Returns ``{emb_id: [(prob_chunker_0, mask_chunker_0), …]}``.
         """
         algo = self.model
-        out: Dict[int, List[torch.Tensor]] = {}
+        out: Dict[int, List[tuple[torch.Tensor, torch.Tensor]]] = {}
         for emb_id, _batch in batch.items():
             if not _batch.get("_packed", False):
                 continue
@@ -117,28 +118,36 @@ class BoundaryStripEval(EvalVideo):
                 cu,
                 max_seqlen,
             )
-            # ``aux`` is list[dict]; each chunker entry has 'bpred'.
-            bprobs: List[torch.Tensor] = []
+            bprobs: List[tuple[torch.Tensor, torch.Tensor]] = []
             for entry in aux:
                 bp = entry.get("bpred") if isinstance(entry, dict) else None
                 if bp is None:
                     continue
-                # bp.boundary_prob: packed (T_total, 2)
-                bprobs.append(bp.boundary_prob[..., 1].detach().cpu())
+                # bp.boundary_prob: packed (T_total, 2); column 1 = P(boundary).
+                # bp.boundary_mask: packed (T_total,) bool — the chunker's
+                # committed boundary decisions (argmax / STE output).
+                prob = bp.boundary_prob[..., 1].detach().cpu()
+                mask = bp.boundary_mask.detach().cpu().to(torch.bool)
+                bprobs.append((prob, mask))
             out[emb_id] = bprobs
         return out
 
     def _render_strip_for_episode(
         self,
         bprob_packed: torch.Tensor,
+        bmask_packed: torch.Tensor,
         T_ep: int,
     ) -> np.ndarray:
         """Render the per-frame centered window strip for one chunker on
         one episode. Returns ``(T_ep, strip_H, strip_W, 3)`` uint8.
 
-        Vectorised: builds the full (T_ep, window) probability matrix in
-        one shot, looks up colors, then stretches each row to
-        ``pixels_per_step`` and tiles horizontally to ``strip_width``.
+        Layers (top of stack drawn last):
+          1. Greyscale background = ``P(boundary)`` gradient (gray_r).
+          2. Red horizontal lines where ``boundary_mask`` is True — the
+             chunker's committed chunk dividers. Each red line is 1
+             pixel-row tall (or ``pps`` rows when ``pixels_per_step>1``)
+             and spans the full strip width.
+          3. Yellow horizontal line at the centre = current frame.
         """
         T_ep = int(T_ep)
         W = self.window
@@ -147,33 +156,47 @@ class BoundaryStripEval(EvalVideo):
         strip_H = W * pps
 
         bp = bprob_packed.numpy().astype(np.float32)
+        bm = bmask_packed.numpy().astype(bool)
         if bp.shape[0] < T_ep:
             bp = np.concatenate([bp, np.zeros(T_ep - bp.shape[0], dtype=np.float32)])
+            bm = np.concatenate([bm, np.zeros(T_ep - bm.shape[0], dtype=bool)])
 
-        # Build (T_ep, W) matrix of probabilities for the centered window
-        # around each ``t``. ``idx_grid[t, i] = t - W//2 + i``.
         half = W // 2
-        t_idx = np.arange(T_ep)[:, None]  # (T_ep, 1)
-        offsets = np.arange(W)[None, :] - half  # (1, W)
-        gidx = t_idx + offsets  # (T_ep, W)
+        t_idx = np.arange(T_ep)[:, None]
+        offsets = np.arange(W)[None, :] - half
+        gidx = t_idx + offsets
         in_range = (gidx >= 0) & (gidx < bp.shape[0])
         if self.future_pad == "clamp":
             clamped = np.clip(gidx, 0, bp.shape[0] - 1)
             prob_grid = bp[clamped]
+            mask_grid = bm[clamped]
         else:
-            prob_grid = np.where(in_range, bp[np.clip(gidx, 0, bp.shape[0] - 1)], 0.0)
-            # ``bp[np.clip(...)]`` produces a real lookup; we only keep it
-            # where in_range was True. The else branch ("black" pad) is
-            # already (0, 0, 0) in the colormap at p=0, but we explicitly
-            # zero so the actual probability data isn't seen as in-range.
+            clamped = np.clip(gidx, 0, bp.shape[0] - 1)
+            prob_grid = np.where(in_range, bp[clamped], 0.0)
+            mask_grid = np.where(in_range, bm[clamped], False)
 
-        # (T_ep, W, 3) uint8
+        # (T_ep, W, 3) uint8 — greyscale background
         colors = _colors_for_probs(prob_grid.reshape(-1)).reshape(T_ep, W, 3)
         # Stretch each row to ``pps`` pixel-rows → (T_ep, W*pps, 3)
         if pps > 1:
             colors = np.repeat(colors, pps, axis=1)
+            # Repeat the mask the same way so indices line up after stretch.
+            mask_stretched = np.repeat(mask_grid, pps, axis=1)
+        else:
+            mask_stretched = mask_grid
+
         # Tile across width → (T_ep, strip_H, strip_W, 3)
         frames = np.broadcast_to(colors[:, :, None, :], (T_ep, strip_H, sw, 3)).copy()
+
+        # Red chunk-divider lines for committed boundaries
+        # (boundary_mask = True). ``mask_stretched`` shape (T_ep, strip_H).
+        # We broadcast the mask across width and assign red on True rows.
+        red = np.array([220, 30, 30], dtype=np.uint8)
+        # Index into frames where mask is True. Per-frame fancy indexing.
+        frame_idx, row_idx = np.where(mask_stretched)
+        if frame_idx.size > 0:
+            frames[frame_idx, row_idx, :, :] = red
+
         # Yellow current-step marker (1px line at the centre of the window).
         ymid = half * pps + pps // 2
         frames[:, max(0, ymid - 1) : ymid + 1, :, :] = (255, 220, 0)
@@ -204,8 +227,8 @@ class BoundaryStripEval(EvalVideo):
                 T_ep = e - s
                 # Stack per-chunker strips vertically (one row per chunker).
                 per_chunker_panels = []
-                for bp in chosen:
-                    panel = self._render_strip_for_episode(bp[s:e], T_ep)
+                for prob, mask in chosen:
+                    panel = self._render_strip_for_episode(prob[s:e], mask[s:e], T_ep)
                     per_chunker_panels.append(panel)
                 # All have same T_ep; concat along height (axis=1).
                 stacked = np.concatenate(per_chunker_panels, axis=1)
@@ -219,12 +242,15 @@ class BoundaryStripEval(EvalVideo):
 
             images_dict[emb_id] = np.concatenate(ep_panels, axis=0)
 
-            # Aggregate metric: fraction of tokens where P(boundary) > 0.5
-            # (one per chunker).
-            for ci, bp in enumerate(bprobs):
-                rate = float((bp > 0.5).float().mean().item())
+            # Aggregate metrics per chunker.
+            for ci, (prob, mask) in enumerate(bprobs):
+                rate_prob = float((prob > 0.5).float().mean().item())
+                rate_mask = float(mask.float().mean().item())
                 metrics[f"Valid/emb{emb_id}_chunker{ci}_pboundary_gt05"] = torch.tensor(
-                    rate, device=self.trainer.lightning_module.device
+                    rate_prob, device=self.trainer.lightning_module.device
+                )
+                metrics[f"Valid/emb{emb_id}_chunker{ci}_boundary_mask_rate"] = (
+                    torch.tensor(rate_mask, device=self.trainer.lightning_module.device)
                 )
 
         return metrics, images_dict
