@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.WARNING, format="%(message)s", stream=sys.stde
 def main():
     t0 = time.perf_counter()
     ds = ZarrEpisodePackedDataset.from_local_folder(
-        folder_path="/coc/cedarp-dxu345-0/Tsim_datasets2/circle/basic",
+        folder_path="/coc/flash7/paphiwetsa3/datasets/circle/basic",
         key_map=get_keymap(action_horizon=1024),
         max_seq_len=None,
         chunking="none",
