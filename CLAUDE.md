@@ -1,5 +1,23 @@
 # CLAUDE.md
 
+## SLURM / compute-node workflow
+
+**Never run Python / training / eval / smoke scripts on the login node
+(`sky1` — no GPU).** Always dispatch through a compute-node allocation:
+
+```bash
+# One-time: allocate an idle interactive node (keep several around so
+# scripts can dispatch instantly without waiting on the queue).
+salloc --no-shell <gpu-partition-args>     # e.g. via the geta40_rl2 alias
+
+# Then run any script through the allocated job's id:
+srun --jobid=<JOBID> bash -c "PYTHONPATH=. .venv/bin/python scripts/foo.py ..."
+```
+
+Use `squeue -u $USER -o '%i %j %T %N'` to list current allocations and
+pick a `RUNNING` job to dispatch onto. Hostname-check inside scripts —
+if a job thinks it's on `sky1`, abort.
+
 ## Packed dataloading (episode-level)
 
 A variable-length, per-frame "packed" read path was added on top of the
