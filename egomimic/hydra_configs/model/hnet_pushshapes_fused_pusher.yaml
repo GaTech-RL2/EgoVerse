@@ -2,7 +2,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hnet.HNetFused
   action_dim: 2
-  action_horizon: 1024
+  action_horizon: 400
   d_model: 128
   d_cond: 128
   cond_encoder:

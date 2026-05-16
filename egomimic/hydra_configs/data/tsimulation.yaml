@@ -21,7 +21,7 @@ train_datasets:
       folder_path: /coc/flash7/paphiwetsa3/datasets/circle/basic
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
-        action_horizon: 1024
+        action_horizon: 400
       transform_list: null
     chunking: "none"
     min_seq_len: 64
@@ -35,7 +35,7 @@ valid_datasets:
       folder_path: /coc/flash7/paphiwetsa3/datasets/circle/basic
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
-        action_horizon: 1024
+        action_horizon: 400
       transform_list: null
     chunking: "none"
     min_seq_len: 64
