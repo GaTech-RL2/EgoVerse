@@ -40,9 +40,9 @@ valid_datasets:
 
 train_dataloader_params:
   pushshapes_sim:
-    batch_size: 32
-    num_workers: 2
+    batch_size: 128
+    num_workers: 8
 valid_dataloader_params:
   pushshapes_sim:
-    batch_size: 32
-    num_workers: 2
+    batch_size: 128
+    num_workers: 8
