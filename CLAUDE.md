@@ -140,10 +140,11 @@ pure-PyTorch fallbacks when absent. Detection helpers live in:
 - `blocks.has_flash_attn()` / `blocks.has_mamba()`
 - `routing.has_mamba_scan()`
 
-Status in this venv: **all three return `False`**. The CUDA-toolkit /
-torch-build mismatch (torch is cu124, only nvcc 13.2 is installed) blocks
-building any of `flash_attn`, `mamba_ssm`, or `causal_conv1d` from source.
-`install_kernels.sh` would compile against the wrong nvcc.
+The cluster's system nvcc is `13.2` (under `/usr/local/cuda-13.2`); our
+torch is `2.6.0+cu124`. Using the system nvcc directly would compile
+against the wrong CUDA major version. The fix is to install a
+**project-local cu12.4 toolkit** under `./cuda-12.4/` (see "Installing
+the CUDA kernels" below) and point `CUDA_HOME` at it before building.
 
 Fallback behaviour, in order of impact:
 
@@ -159,6 +160,104 @@ Fallback behaviour, in order of impact:
 - Mamba2 (`m` / `M` blocks) is unavailable; only `t` / `T` (transformer)
   arch tokens work in `arch_layout` strings. Current pushshapes config is
   pure-attention (`T4`), so this doesn't bite us yet.
+
+## Installing the CUDA kernels (`flash_attn`, `mamba_ssm`, `causal_conv1d`)
+
+We install a **project-local CUDA 12.4 toolkit** (matches `torch
+2.6.0+cu124`) via `micromamba`, then build the three exts with the
+`--no-deps --no-build-isolation` flags so pip cannot resolve and upgrade
+torch out from under us.
+
+### Why both flags matter
+
+- `--no-build-isolation` only stops pip from spawning an isolated build
+  env for the wheel — it does **not** stop pip from resolving and
+  installing runtime deps at the top level.
+- `--no-deps` is what actually prevents pip from touching torch. The
+  ext wheels declare `torch` unpinned in their `Requires-Dist`, so a
+  naked `pip install mamba_ssm` will happily upgrade torch to the
+  latest (e.g. `2.12.0+cu130`), which then mismatches the cu12.4 nvcc
+  we just installed and breaks `flash-attn`'s CUDA-version assertion.
+- Always use **both** flags together when building CUDA exts in this
+  venv.
+
+### Step 1 — install a cu12.4 toolkit under `./cuda-12.4`
+
+```bash
+# 1a. Download micromamba (~18 MB) into the project.
+mkdir -p .micromamba
+curl -sL https://micro.mamba.pm/api/micromamba/linux-64/latest \
+  | tar -xj -C .micromamba bin/micromamba
+
+# 1b. Install nvcc 12.4 + the matching headers / dev libs into ./cuda-12.4.
+./.micromamba/bin/micromamba create -p ./cuda-12.4 \
+  -c "nvidia/label/cuda-12.4.1" \
+  cuda-nvcc cuda-cudart-dev cuda-cccl cuda-nvrtc-dev cuda-libraries-dev \
+  -y
+
+./cuda-12.4/bin/nvcc --version    # -> 12.4.131
+```
+
+The PyPI `nvidia-cuda-nvcc-cu12` wheel is **not enough** — it ships
+`ptxas` + `nvvm` but **not** the `nvcc` driver binary. Use the conda
+package via micromamba instead.
+
+### Step 2 — build the three exts on a compute node
+
+Login node `sky1` has no GPU and `torch.cuda.is_available()` is `False`,
+which makes `setup.py` skip the CUDA build path. **Always run the build
+through `srun --jobid=<JOB>`** against an interactive A40/A100 alloc.
+
+The canonical build script lives at `scripts/build_cuda_exts.sh`. Run it
+as:
+
+```bash
+srun --jobid=<JOB> --chdir=$PWD scripts/build_cuda_exts.sh
+```
+
+The script does, in order:
+
+```bash
+export CUDA_HOME=$PWD/cuda-12.4
+export PATH=$CUDA_HOME/bin:$PATH
+export TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0"  # A100, A40, L40, H100
+export MAX_JOBS=4                              # cap nvcc -j to avoid OOM
+
+# --no-deps so pip can't upgrade torch; --no-build-isolation so the
+# build uses the project's torch instead of a fresh isolated env.
+.venv/bin/python -m pip install --no-deps --no-build-isolation causal_conv1d
+.venv/bin/python -m pip install --no-deps --no-build-isolation mamba_ssm
+.venv/bin/python -m pip install --no-deps --no-build-isolation flash-attn
+```
+
+Total wall time on an A40: ~25-40 min (flash-attn is the long pole).
+
+### Step 3 — verify
+
+```bash
+.venv/bin/python -c "
+from egomimic.models.hnet_nets.blocks import has_flash_attn, has_mamba
+from egomimic.models.hnet_nets.routing import has_mamba_scan
+print('has_flash_attn :', has_flash_attn())
+print('has_mamba      :', has_mamba())
+print('has_mamba_scan :', has_mamba_scan())
+"
+# All three should be True. ``has_mamba_scan = True`` is the one that
+# removes the EMA Python loop cliff documented above.
+```
+
+### Recovery — if pip upgraded torch by accident
+
+If you forget `--no-deps` and the env ends up with `torch 2.12+cu130`,
+the recovery is in `scripts/recover_torch_cu124.sh`:
+
+```bash
+.venv/bin/python -m pip uninstall -y causal_conv1d mamba_ssm
+.venv/bin/python -m pip install --no-deps --force-reinstall \
+  --index-url https://download.pytorch.org/whl/cu124 \
+  torch==2.6.0 torchvision==0.21.0
+# then re-run build_cuda_exts.sh with --no-deps.
+```
 
 ## hnet_nets — stage-based architecture + packed mode
 

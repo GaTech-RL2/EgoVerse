@@ -191,7 +191,11 @@ class MultiHeadAttention(nn.Module):
         qkv = self.qkv(x).reshape(T_total, 3, self.num_heads, self.head_dim)
         q, k, v = qkv.unbind(dim=1)  # each (T_total, H, Dh)
 
-        if _HAS_FLASH_ATTN and x.is_cuda:
+        # flash_attn_varlen_func ONLY supports fp16 / bf16. Under bf16
+        # autocast (Lightning ``trainer.precision=bf16-mixed``) q/k/v
+        # are already bf16 so this is the common path; standalone fp32
+        # forwards (smokes, no-autocast inference) drop to SDPA.
+        if _HAS_FLASH_ATTN and x.is_cuda and q.dtype in (torch.float16, torch.bfloat16):
             cu_q = cu_seqlens.to(torch.int32)
             ms = (
                 int(max_seqlen)
