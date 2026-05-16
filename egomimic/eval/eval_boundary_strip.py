@@ -7,13 +7,13 @@ For each validation episode, we run the algo's teacher-forced
 chunker stage emits a ``bpred`` with shape ``(T_total, 2)`` where column
 1 is ``P(boundary)`` per token). Then for each frame ``t`` of the video,
 we render a centered ``window`` of the surrounding ``[t - W/2, t + W/2]``
-boundary probs as a vertical column of colored squares — bright when
-the chunker would fire a boundary, dark when it wouldn't.
+boundary probs as a vertical gradient column — bright when the chunker
+would fire a boundary, dark when it wouldn't.
 
-The strip's height is fixed (one square per timestep in the window) and
-its width is configurable. Each frame's strip is independent so a
-viewer scrubbing through the video can see the chunker's recent /
-upcoming boundary decisions.
+By default each timestep occupies ONE pixel row so consecutive probs
+blend into a smooth gradient (good for spotting instability — sharp
+banding between near-by frames indicates jumpy chunker decisions). Bump
+``pixels_per_step`` for a chunkier "square" look.
 
 If multiple chunkers are present, the strip column groups them
 vertically (one sub-strip per chunker, top-most first).
@@ -23,23 +23,30 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Tuple
 
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.cm as _cm
 import numpy as np
 import torch
 
 from egomimic.eval.eval_video import EvalVideo
 
+# Continuous colormap: matplotlib's ``magma`` runs black → purple → orange
+# → near-white as the value rises. Smooth, perceptually uniform, and
+# distinguishes neighbouring values well so you can see step-to-step
+# instability as visible banding/noise in the strip.
+_CMAP = _cm.get_cmap("magma")
 
-def _color_for_prob(p: float) -> tuple[int, int, int]:
-    """RGB colour for a boundary probability ``p`` in [0, 1].
 
-    Sweeps cool→warm: 0 = dark blue, 0.5 = grey-green, 1 = bright red. Easy
-    to read in a strip without a colorbar.
+def _colors_for_probs(probs: np.ndarray) -> np.ndarray:
+    """Vectorised RGB lookup for an array of probabilities in [0, 1].
+
+    Returns ``(N, 3)`` uint8.
     """
-    p = float(np.clip(p, 0.0, 1.0))
-    r = int(255 * p)
-    g = int(255 * (1 - abs(2 * p - 1)))
-    b = int(255 * (1 - p))
-    return (r, g, b)
+    p = np.clip(probs.astype(np.float32), 0.0, 1.0)
+    rgba = _CMAP(p)  # (N, 4) float in [0, 1]
+    return (rgba[..., :3] * 255).astype(np.uint8)
 
 
 class BoundaryStripEval(EvalVideo):
@@ -47,11 +54,12 @@ class BoundaryStripEval(EvalVideo):
     coloured squares.
 
     Args (yaml):
-      window: number of timesteps in the centered window (default 64).
-        The strip is ``window`` squares tall.
-      strip_width: pixel width of each square (default 16).
-      square_height: pixel height of each square (default 8).
-        Strip height = ``window * square_height``.
+      window: number of timesteps in the centered window (default 256).
+        Strip height = ``window * pixels_per_step``.
+      strip_width: pixel width of the strip (default 24).
+      pixels_per_step: how many pixel rows each timestep occupies. 1
+        (default) gives a smooth gradient; higher values produce a
+        chunkier "square" look.
       future_pad: how to fill the window's tail past the episode's last
         frame: ``"black"`` (default) or ``"clamp"`` (repeat last value).
       chunker_idx: which chunker's bpred to render. ``None`` = stack all
@@ -60,9 +68,9 @@ class BoundaryStripEval(EvalVideo):
 
     def __init__(
         self,
-        window: int = 64,
-        strip_width: int = 16,
-        square_height: int = 8,
+        window: int = 256,
+        strip_width: int = 24,
+        pixels_per_step: int = 1,
         future_pad: str = "black",
         chunker_idx: int | None = None,
         limit_val_batches: int = 4,
@@ -76,7 +84,7 @@ class BoundaryStripEval(EvalVideo):
         )
         self.window = int(window)
         self.strip_width = int(strip_width)
-        self.square_height = int(square_height)
+        self.pixels_per_step = int(pixels_per_step)
         if future_pad not in {"black", "clamp"}:
             raise ValueError("future_pad must be 'black' or 'clamp'")
         self.future_pad = future_pad
@@ -126,38 +134,49 @@ class BoundaryStripEval(EvalVideo):
         T_ep: int,
     ) -> np.ndarray:
         """Render the per-frame centered window strip for one chunker on
-        one episode. Returns ``(T_ep + sep, strip_H, strip_W, 3)`` uint8.
+        one episode. Returns ``(T_ep, strip_H, strip_W, 3)`` uint8.
+
+        Vectorised: builds the full (T_ep, window) probability matrix in
+        one shot, looks up colors, then stretches each row to
+        ``pixels_per_step`` and tiles horizontally to ``strip_width``.
         """
         T_ep = int(T_ep)
         W = self.window
-        sq_h = self.square_height
-        sq_w = self.strip_width
-        strip_H = W * sq_h
-        strip_W = sq_w
+        pps = self.pixels_per_step
+        sw = self.strip_width
+        strip_H = W * pps
 
-        # bprob_packed is (T_ep,) for this episode.
-        bp = bprob_packed.numpy()
+        bp = bprob_packed.numpy().astype(np.float32)
         if bp.shape[0] < T_ep:
-            # Defensive: pad with zeros so indexing is safe.
-            bp = np.concatenate([bp, np.zeros(T_ep - bp.shape[0])])
+            bp = np.concatenate([bp, np.zeros(T_ep - bp.shape[0], dtype=np.float32)])
 
-        frames = np.zeros((T_ep, strip_H, strip_W, 3), dtype=np.uint8)
-        for t in range(T_ep):
-            half = W // 2
-            for i in range(W):
-                idx = t - half + i  # global index into bp
-                if 0 <= idx < bp.shape[0]:
-                    color = _color_for_prob(bp[idx])
-                elif self.future_pad == "clamp":
-                    clamped = max(0, min(bp.shape[0] - 1, idx))
-                    color = _color_for_prob(bp[clamped])
-                else:
-                    color = (0, 0, 0)
-                y0 = i * sq_h
-                frames[t, y0 : y0 + sq_h, :] = color
-            # Mark current step with a thin yellow horizontal line at center.
-            ymid = half * sq_h + sq_h // 2
-            frames[t, ymid - 1 : ymid + 1, :] = (255, 220, 0)
+        # Build (T_ep, W) matrix of probabilities for the centered window
+        # around each ``t``. ``idx_grid[t, i] = t - W//2 + i``.
+        half = W // 2
+        t_idx = np.arange(T_ep)[:, None]  # (T_ep, 1)
+        offsets = np.arange(W)[None, :] - half  # (1, W)
+        gidx = t_idx + offsets  # (T_ep, W)
+        in_range = (gidx >= 0) & (gidx < bp.shape[0])
+        if self.future_pad == "clamp":
+            clamped = np.clip(gidx, 0, bp.shape[0] - 1)
+            prob_grid = bp[clamped]
+        else:
+            prob_grid = np.where(in_range, bp[np.clip(gidx, 0, bp.shape[0] - 1)], 0.0)
+            # ``bp[np.clip(...)]`` produces a real lookup; we only keep it
+            # where in_range was True. The else branch ("black" pad) is
+            # already (0, 0, 0) in the colormap at p=0, but we explicitly
+            # zero so the actual probability data isn't seen as in-range.
+
+        # (T_ep, W, 3) uint8
+        colors = _colors_for_probs(prob_grid.reshape(-1)).reshape(T_ep, W, 3)
+        # Stretch each row to ``pps`` pixel-rows → (T_ep, W*pps, 3)
+        if pps > 1:
+            colors = np.repeat(colors, pps, axis=1)
+        # Tile across width → (T_ep, strip_H, strip_W, 3)
+        frames = np.broadcast_to(colors[:, :, None, :], (T_ep, strip_H, sw, 3)).copy()
+        # Yellow current-step marker (1px line at the centre of the window).
+        ymid = half * pps + pps // 2
+        frames[:, max(0, ymid - 1) : ymid + 1, :, :] = (255, 220, 0)
         return frames
 
     # ------------------------------------------------------------------ #

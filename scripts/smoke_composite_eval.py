@@ -104,7 +104,7 @@ def main():
                 limit_val_batches=1,
                 window=args.window,
                 strip_width=24,
-                square_height=6,
+                pixels_per_step=1,
             ),
         ],
         pad_h="min",
