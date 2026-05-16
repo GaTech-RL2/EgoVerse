@@ -18,7 +18,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle/basic
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
         action_horizon: 1024
@@ -32,7 +32,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle/basic
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
         action_horizon: 1024
