@@ -1069,18 +1069,29 @@ class HPT(Algo):
                 "data": data,
             }
 
+            # ``stem_process`` mutates the data dict in place (each modality
+            # gets replaced by its encoder output). compute_loss and forward
+            # both run ``forward_features`` and would each re-encode; the
+            # second call would feed already-encoded tokens (e.g. shape
+            # (B, seq, embed_dim)) back into the image encoder and crash on
+            # the ``view(B, -1, 3, H, W)`` reshape inside ResNet.forward.
+            # Pass independent clones so each call starts from raw obs.
+            loss_data = self._clone_batch(hpt_batch["data"])
+            fwd_data = self._clone_batch(hpt_batch["data"])
+
             # BC val loss — same call as forward_training.
             if self.freeze_repr:
                 val_loss = self.nets["policy"].compute_loss_depth(
-                    hpt_batch, depth=self.freeze_depth
+                    {"domain": hpt_batch["domain"], "data": loss_data},
+                    depth=self.freeze_depth,
                 )
             else:
-                val_loss = self.nets["policy"].compute_loss(hpt_batch)
+                val_loss = self.nets["policy"].compute_loss(
+                    {"domain": hpt_batch["domain"], "data": loss_data}
+                )
             unnorm_preds[f"{embodiment_name}_loss"] = val_loss
 
-            actions = self.nets["policy"].forward(
-                hpt_batch["domain"], hpt_batch["data"]
-            )
+            actions = self.nets["policy"].forward(hpt_batch["domain"], fwd_data)
             predictions = OrderedDict()
 
             for key in actions:
