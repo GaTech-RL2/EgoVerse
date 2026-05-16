@@ -21,6 +21,7 @@ logic differs between the two flavours.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -282,6 +283,11 @@ def _is_per_frame_tensor(value, seq_len: int) -> bool:
     return False
 
 
+PACK_COLLATE_MAX_TOTAL_FRAMES = (
+    int(os.environ.get("PACK_COLLATE_MAX_TOTAL_FRAMES", "0")) or None
+)
+
+
 def pack_collate(batch: list[dict]) -> dict:
     """Pack variable-length samples into a single flattened batch.
 
@@ -304,9 +310,28 @@ def pack_collate(batch: list[dict]) -> dict:
         contract.
       - Scalar-per-sample keys (e.g. ``embodiment``, ``episode_idx``,
         ``chunk_offset``) → ``LongTensor`` of length ``B``.
+
+    ``PACK_COLLATE_MAX_TOTAL_FRAMES`` env var (set in the launcher) caps the
+    combined number of frames across all samples in the pack. When the
+    incoming ``batch`` would exceed it, trailing samples are dropped until
+    ``sum(seq_lens) <= cap``. Always keeps at least one sample so the loader
+    can't produce an empty batch.
     """
     if not batch:
         raise ValueError("pack_collate received an empty batch")
+
+    cap = PACK_COLLATE_MAX_TOTAL_FRAMES
+    if cap is not None:
+        acc = 0
+        keep = 0
+        for s in batch:
+            sl = int(s["seq_len"])
+            if keep > 0 and acc + sl > cap:
+                break
+            acc += sl
+            keep += 1
+        if keep < len(batch):
+            batch = batch[:keep]
 
     seq_lens = [int(s["seq_len"]) for s in batch]
     cu_seqlens = [0]
