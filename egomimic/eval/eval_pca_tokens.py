@@ -1,22 +1,31 @@
 """
-PCATokenEval — PCA scatter visualisation of the "highest stage" tokens.
+PCATokenEval — PCA scatter visualisation of the **chunker output**
+tokens (high-level / post-compression representation).
 
 For each val episode we run the algo's teacher-forced ``forward_packed``
-and capture the per-token activations going into ``policy.action_out``
-(via a forward pre-hook). These are the highest-level tokens in the
-network — same shape as the predicted action sequence in token space,
-``(T_total, d_model)`` packed.
+and capture two streams via forward hooks on the inner-most
+``ComputeStage.main_network``:
 
-PCA is fit on ALL tokens across the val batch (global 2D embedding).
-Then per video frame ``t`` of each episode, we render a 2D scatter
-with that episode's tokens up to time ``t`` drawn as a connected
-"trail" so a viewer scrubbing through the video can see how the
-representation evolves over time.
+  * ``inner_tokens``: ``(T_chunked, d_inner)`` — one token per chunk
+    (i.e. one token per *committed* boundary). These are the
+    high-level representations the model "thinks at" between chunker
+    decisions; they only update when a new boundary fires.
+  * ``boundary_mask`` from ``ctx.aux`` — used to map each video frame
+    ``t`` to its containing chunk index (cumsum of mask up to ``t``).
+
+PCA is fit on ALL chunker tokens across the val batch. Per video frame
+the PCA scatter shows that episode's chunks visited so far (a trail
+that only EXTENDS when a boundary fires; otherwise the "current point"
+stays put). This is the right "PCA jumps on boundaries, not on every
+frame" behaviour the earlier ``action_out``-hook version got wrong.
+
+For policies without a chunker (e.g. FlatFusedPolicy) the hook gracefully
+falls back to the input of ``policy.action_out`` (one token per frame)
+so the panel still renders something, just frame-by-frame.
 
 Output: ``(N_total, H, W, 3)`` where ``H``/``W`` is the figure size
-(default 384×384 to match the env render). Length matches
-``HNetEvalVideo`` (one frame per real timestep across all episodes,
-plus 5-frame separators).
+(default 384×384). Length matches the other panels (one frame per real
+timestep across all episodes, plus 5-frame separators).
 """
 
 from __future__ import annotations
@@ -126,46 +135,107 @@ class PCATokenEval(EvalVideo):
     # ------------------------------------------------------------------ #
 
     @torch.no_grad()
-    def _capture_tokens(
-        self, batch: Dict[int, Dict[str, Any]]
-    ) -> Dict[int, np.ndarray]:
-        """Returns ``{emb_id: tokens (T_total, d_model)}`` captured from
-        the input to ``policy.action_out``. Done via a forward pre-hook.
+    def _capture_tokens(self, batch: Dict[int, Dict[str, Any]]) -> Dict[int, dict]:
+        """For each emb returns a dict with:
+
+          * ``inner_tokens``: ``(T_chunked, d_inner)`` — chunker output.
+            Falls back to ``(T_total, d_model)`` (one per frame) when
+            there's no chunker / no inner ComputeStage.
+          * ``boundary_mask``: ``(T_total,) bool`` — per-frame chunker
+            decisions, used to map frames to chunk indices. ``None`` for
+            policies without a chunker.
+
+        We hook ``ComputeStage.main_network`` forward to grab the
+        chunker output activations, and read ``boundary_mask`` from
+        ``ctx.aux`` via the same ``forward_packed`` call.
         """
         algo = self.model
-        out: Dict[int, np.ndarray] = {}
+        out: Dict[int, dict] = {}
         for emb_id, _batch in batch.items():
             if not _batch.get("_packed", False):
                 continue
             policy = algo.nets["policy"]
-            captured: list[torch.Tensor] = []
 
-            def _hook(_module, inputs):
-                # inputs is a tuple; first arg is the (T_total, d_model)
-                # tensor that action_out projects to action_dim.
-                captured.append(inputs[0].detach().float().cpu())
+            inner_module = self._find_inner_main_network(policy)
+            captured_inner: list[torch.Tensor] = []
+            captured_outer: list[torch.Tensor] = []
 
-            handle = policy.action_out.register_forward_pre_hook(_hook)
+            def _hook_inner(_module, inputs, output):
+                # ``main_network`` returns the chunker-space tokens
+                # (T_chunked, d_inner) in packed mode.
+                t = output.detach().float().cpu()
+                if t.dim() == 3:
+                    t = t.reshape(-1, t.shape[-1])
+                captured_inner.append(t)
+
+            def _hook_outer(_module, inputs):
+                # ``action_out`` input: (T_total, d_model). Fallback only.
+                t = inputs[0].detach().float().cpu()
+                if t.dim() == 3:
+                    t = t.reshape(-1, t.shape[-1])
+                captured_outer.append(t)
+
+            handles = []
+            if inner_module is not None:
+                handles.append(inner_module.register_forward_hook(_hook_inner))
+            handles.append(policy.action_out.register_forward_pre_hook(_hook_outer))
+
+            aux_list = []
             try:
                 ac_key = algo.resolved_ac_keys[emb_id]
                 obs = algo._build_obs(_batch, emb_id)
                 actions = _batch[ac_key]
                 cu = _batch["cu_seqlens"]
                 max_seqlen = int(_batch["max_seq_len"])
-                policy.forward_packed(actions, obs, cu, max_seqlen)
+                _pred, aux = policy.forward_packed(actions, obs, cu, max_seqlen)
+                aux_list = aux
             finally:
-                handle.remove()
+                for h in handles:
+                    h.remove()
 
-            if not captured:
-                continue
-            tokens = captured[-1]  # (T_total, d_model)  — last call (handles
-            # nested hook fires defensively).
-            # FlatFusedPolicy may run action_out on a (B, T, d_model) tensor;
-            # flatten if so.
-            if tokens.dim() == 3:
-                tokens = tokens.reshape(-1, tokens.shape[-1])
-            out[emb_id] = tokens.numpy()
+            # Pick inner if available; else fallback to outer per-frame.
+            if captured_inner:
+                tokens = captured_inner[-1]
+                # Extract boundary_mask from the first chunker stage.
+                bmask = None
+                for entry in aux_list:
+                    bp = entry.get("bpred") if isinstance(entry, dict) else None
+                    if bp is None:
+                        continue
+                    bmask = bp.boundary_mask.detach().cpu().to(torch.bool)
+                    break
+                out[emb_id] = {
+                    "inner_tokens": tokens.numpy(),
+                    "boundary_mask": bmask.numpy() if bmask is not None else None,
+                    "per_frame_fallback": False,
+                }
+            elif captured_outer:
+                out[emb_id] = {
+                    "inner_tokens": captured_outer[-1].numpy(),
+                    "boundary_mask": None,
+                    "per_frame_fallback": True,
+                }
         return out
+
+    @staticmethod
+    def _find_inner_main_network(policy):
+        """Walk ``policy.hnet.stages`` from the inside out to find the
+        innermost ``ComputeStage``'s ``main_network``. Returns ``None``
+        for flat policies / policies without a chunker.
+        """
+        hnet = getattr(policy, "hnet", None)
+        if hnet is None:
+            return None
+        stages = getattr(hnet, "stages", None)
+        if not stages:
+            return None
+        # Walk in reverse; first stage with a ``main_network`` attribute is
+        # the innermost ComputeStage.
+        for stage in reversed(stages):
+            mn = getattr(stage, "main_network", None)
+            if mn is not None:
+                return mn
+        return None
 
     # ------------------------------------------------------------------ #
 
@@ -174,24 +244,23 @@ class PCATokenEval(EvalVideo):
     ) -> Tuple[Dict[str, torch.Tensor], Dict[int, np.ndarray]]:
         metrics: Dict[str, torch.Tensor] = {}
         images_dict: Dict[int, np.ndarray] = {}
-        tokens_by_emb = self._capture_tokens(batch)
+        capture_by_emb = self._capture_tokens(batch)
 
         for emb_id, _batch in batch.items():
-            tokens = tokens_by_emb.get(emb_id)
-            if tokens is None:
+            captured = capture_by_emb.get(emb_id)
+            if captured is None:
                 continue
+            tokens = captured["inner_tokens"]
+            bmask = captured.get("boundary_mask")
+            per_frame_fallback = captured.get("per_frame_fallback", False)
+
             cu = _batch["cu_seqlens"]
             seq_lens = _batch["seq_lens"]
             B = int(seq_lens.shape[0])
-            T_total = tokens.shape[0]
-            # Sanity: pack length should match.
-            if int(cu[-1].item()) != T_total:
-                # Shapes diverge — give up on this emb to avoid mis-indexing.
-                continue
+            T_total = int(cu[-1].item())
 
-            # Global PCA fit on all tokens.
+            # Global PCA fit on chunker tokens.
             X_proj, _ = _pca_fit_transform(tokens, k=self.n_components)
-            # Compute axis limits once, with a 5% pad.
             x_min, x_max = X_proj[:, 0].min(), X_proj[:, 0].max()
             y_min, y_max = X_proj[:, 1].min(), X_proj[:, 1].max()
             pad_x = 0.05 * (x_max - x_min + 1e-9)
@@ -199,35 +268,56 @@ class PCATokenEval(EvalVideo):
             xlim = (x_min - pad_x, x_max + pad_x)
             ylim = (y_min - pad_y, y_max + pad_y)
 
-            # Per-frame: for each episode, for each timestep t, render the
-            # trail up to and including t.
+            # Build a packed frame-index → chunk-index lookup. The chunker
+            # output has one token per True in ``boundary_mask`` (cumsum
+            # gives the running chunk index). The chunker stage commits a
+            # chunk at each fire, so frame ``t`` belongs to chunk
+            # ``cumsum(bmask)[t] - 1``.
+            if not per_frame_fallback and bmask is not None:
+                cs = np.cumsum(bmask.astype(np.int64))
+                global_chunk_idx = np.maximum(cs - 1, 0)
+            else:
+                # Fallback: one token per frame.
+                global_chunk_idx = np.arange(T_total)
+
             frames: List[np.ndarray] = []
             for b in range(B):
                 s = int(cu[b].item())
                 e = int(cu[b + 1].item())
                 T_ep = e - s
-                ep_xy = X_proj[s:e]  # (T_ep, 2)
+                ep_chunk_idx = global_chunk_idx[s:e]
+                if ep_chunk_idx.size == 0:
+                    continue
+                ep_chunk_idx = np.clip(ep_chunk_idx, 0, tokens.shape[0] - 1)
+                title_prefix = f"PCA ep={b}"
                 for t in range(T_ep):
+                    cur_idx = int(ep_chunk_idx[t])
+                    # Trail: unique chunks visited up to t, in order.
+                    seen, uniq = set(), []
+                    for ci in ep_chunk_idx[: t + 1].tolist():
+                        if ci not in seen:
+                            seen.add(int(ci))
+                            uniq.append(int(ci))
+                    trail_xy = X_proj[np.array(uniq, dtype=np.int64)]
                     frame = _render_pca_frame(
                         fig_h=self.panel_h,
                         fig_w=self.panel_w,
                         global_xy=X_proj,
-                        trail_xy=ep_xy[: t + 1],
-                        current_xy=ep_xy[t],
+                        trail_xy=trail_xy,
+                        current_xy=X_proj[cur_idx],
                         xlim=xlim,
                         ylim=ylim,
-                        title=f"PCA ep={b} t={t}",
+                        title=f"{title_prefix} t={t} chunk={cur_idx}",
                     )
                     frames.append(frame)
                 if b < B - 1:
                     sep = np.zeros((5, self.panel_h, self.panel_w, 3), dtype=np.uint8)
                     frames.extend(list(sep))
 
-            images_dict[emb_id] = np.stack(frames, axis=0)
+            if frames:
+                images_dict[emb_id] = np.stack(frames, axis=0)
 
-            # Aggregate metric: total variance explained by top-k PCs.
             try:
-                # Cheap: top-k singular values squared / total Frobenius.
                 mean = tokens.mean(axis=0, keepdims=True)
                 Xc = tokens - mean
                 S = np.linalg.svd(Xc, full_matrices=False, compute_uv=False)
@@ -236,6 +326,10 @@ class PCATokenEval(EvalVideo):
                 ratio = topk / max(total, 1e-9)
                 metrics[f"Valid/emb{emb_id}_pca_top{self.n_components}_explained"] = (
                     torch.tensor(ratio, device=self.trainer.lightning_module.device)
+                )
+                metrics[f"Valid/emb{emb_id}_pca_n_tokens"] = torch.tensor(
+                    float(tokens.shape[0]),
+                    device=self.trainer.lightning_module.device,
                 )
             except Exception:
                 pass
