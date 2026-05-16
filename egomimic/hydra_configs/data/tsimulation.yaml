@@ -25,7 +25,7 @@ train_datasets:
       transform_list: null
     chunking: "none"
     min_seq_len: 64
-    max_seq_len: null
+    max_seq_len: 400
 
 valid_datasets:
   pushshapes_sim:
@@ -39,7 +39,7 @@ valid_datasets:
       transform_list: null
     chunking: "none"
     min_seq_len: 64
-    max_seq_len: null
+    max_seq_len: 400
 
 # A40 baseline (44.4 GiB): one full episode at T~958 peaks at ~1.8 GiB,
 # so 8 episodes packed should land in 12–16 GiB worst case. Headroom for
