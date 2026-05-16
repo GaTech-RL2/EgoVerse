@@ -169,5 +169,18 @@ class EvalListSideBySide(EvalList):
                         dtype=a.dtype,
                     )
                     aligned[i] = np.concatenate([a, pad], axis=0)
-            merged[emb_id] = np.concatenate(aligned, axis=2)
+            stacked = np.concatenate(aligned, axis=2)
+            # libx264 requires both spatial dims to be divisible by 2.
+            # Right-pad / bottom-pad a single black row/col if needed.
+            N, H, W, C = stacked.shape
+            if H % 2 == 1:
+                stacked = np.concatenate(
+                    [stacked, np.zeros((N, 1, W, C), dtype=stacked.dtype)], axis=1
+                )
+                H += 1
+            if W % 2 == 1:
+                stacked = np.concatenate(
+                    [stacked, np.zeros((N, H, 1, C), dtype=stacked.dtype)], axis=2
+                )
+            merged[emb_id] = stacked
         return all_metrics, merged
