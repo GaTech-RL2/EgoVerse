@@ -17,6 +17,7 @@ import numpy as np
 import torch
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment
+from egomimic.utils.egomimicUtils import draw_dot_on_frame
 
 # ImageNet normalization constants applied by eval_image_augs; we invert them
 # before rendering so the image looks correct in the viz frame.
@@ -29,13 +30,35 @@ _IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 _WORLD_SIZE = 512.0
 UP_SCALE = 4
 
-# Trajectory styling. Colors are RGB (cv2 will draw them in the obs frame,
-# which is RGB by the time it reaches us).
-_GT_COLOR = (0, 200, 0)
-_PRED_COLOR = (220, 50, 50)
-_TRAJ_THICKNESS = 2
-_TRAJ_DOT_RADIUS = 3
-_TRAJ_DOT_EVERY = 2  # draw a dot at every Nth trajectory point
+# Trajectory styling. Match the main-branch ``draw_actions`` pattern:
+# render each chunk as palette-graded dots (light→dark = early→late) on a
+# single frame, GT in Greens and pred in Reds.
+_GT_PALETTE = "Greens"
+_PRED_PALETTE = "Reds"
+_DOT_RADIUS = 3
+# Per-chunk we render ONE frame (not T frames repeated). Repeat that frame
+# this many times so each chunk gets ~1 sec of dwell at 30 fps in the mp4.
+_CHUNK_DWELL_FRAMES = 30
+
+
+def _draw_chunk(
+    frame: np.ndarray,
+    actions: np.ndarray,
+    scale: float,
+    palette: str,
+    dot_size: int = _DOT_RADIUS,
+) -> np.ndarray:
+    """Draw an action chunk as palette-graded dots on ``frame``.
+
+    ``actions`` is (N, 2) in world (0–512) coords; ``scale`` maps world→pixel.
+    Uses ``draw_dot_on_frame`` (main-branch pattern) so consecutive dots are
+    colored along a perceptual gradient — viewer can see chunk ordering at a
+    glance. Returns the modified frame (draw_dot_on_frame returns a copy).
+    """
+    pix = np.asarray(actions, dtype=np.float32).reshape(-1, 2) * float(scale)
+    return draw_dot_on_frame(
+        frame, pix.tolist(), show=False, palette=palette, dot_size=dot_size
+    )
 
 
 def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
@@ -101,27 +124,6 @@ def _denormalize_imagenet(images: np.ndarray) -> np.ndarray:
     return (out * 255).astype(np.uint8)
 
 
-def _draw_traj(frame: np.ndarray, traj: np.ndarray, scale: float, color: tuple) -> None:
-    """Overlay a 2-D trajectory (lines + sparse dots) onto `frame` in place."""
-    h, w = frame.shape[:2]
-    pts: list[tuple[int, int]] = []
-    for xy in traj:
-        px = max(0, min(w - 1, int(xy[0] * scale)))
-        py = max(0, min(h - 1, int(xy[1] * scale)))
-        pts.append((px, py))
-    for j in range(1, len(pts)):
-        cv2.line(
-            frame,
-            pts[j - 1],
-            pts[j],
-            color,
-            thickness=_TRAJ_THICKNESS,
-            lineType=cv2.LINE_AA,
-        )
-    for px, py in pts[::_TRAJ_DOT_EVERY]:
-        cv2.circle(frame, (px, py), _TRAJ_DOT_RADIUS, color, thickness=-1)
-
-
 def viz_gt_preds(
     predictions: dict,
     batch: dict,
@@ -155,6 +157,11 @@ def viz_gt_preds(
         seq_lens = _as_numpy(batch["seq_lens"])
 
     # Per-frame mode: images is (B, T, H, W, C).
+    # New behavior (mirrors main-branch ``draw_actions``): render ONE frame
+    # per chunk — use the chunk's first obs as background, overlay the GT
+    # and predicted action chunks as palette-graded dots (light→dark =
+    # early→late within the chunk). Repeat that single frame for
+    # ``_CHUNK_DWELL_FRAMES`` so the mp4 dwells on each chunk ~1 sec.
     if images.ndim == 5:
         B, T_max, h, w, _ = images.shape
         out_h, out_w = h * UP_SCALE, w * UP_SCALE
@@ -166,23 +173,24 @@ def viz_gt_preds(
 
         frames: list[np.ndarray] = []
         for b in range(B):
-            T_b = int(seq_lens[b])
-            for t in range(T_b):
-                frame = cv2.resize(
-                    images[b, t], (out_w, out_h), interpolation=cv2.INTER_LINEAR
-                )
-                if gt_actions is not None:
-                    _draw_traj(frame, gt_actions[b, :T_b], scale, _GT_COLOR)
-                if pred_actions is not None:
-                    _draw_traj(frame, pred_actions[b, :T_b], scale, _PRED_COLOR)
-                frames.append(frame)
-            # 5-frame black separator between episodes for readability.
-            if b < B - 1 and frames:
+            T_b = max(1, int(seq_lens[b]))
+            base = cv2.resize(
+                images[b, 0], (out_w, out_h), interpolation=cv2.INTER_LINEAR
+            )
+            if gt_actions is not None:
+                base = _draw_chunk(base, gt_actions[b, :T_b], scale, _GT_PALETTE)
+            if pred_actions is not None:
+                base = _draw_chunk(base, pred_actions[b, :T_b], scale, _PRED_PALETTE)
+            for _ in range(_CHUNK_DWELL_FRAMES):
+                frames.append(base.copy())
+            # 5-frame black separator between chunks for readability.
+            if b < B - 1:
                 sep = np.zeros((5, out_h, out_w, 3), dtype=np.uint8)
                 frames.extend(list(sep))
         return np.stack(frames, axis=0)
 
-    # Single-frame legacy path: (B, H, W, C).
+    # Single-frame legacy path: (B, H, W, C). One image per sample with the
+    # same palette-graded chunk overlay.
     b_count, h, w, _ = images.shape
     out_h, out_w = h * UP_SCALE, w * UP_SCALE
     scale = out_w / _WORLD_SIZE
@@ -191,8 +199,8 @@ def viz_gt_preds(
     for i in range(b_count):
         frame = cv2.resize(images[i], (out_w, out_h), interpolation=cv2.INTER_LINEAR)
         if gt_actions is not None:
-            _draw_traj(frame, gt_actions[i], scale, _GT_COLOR)
+            frame = _draw_chunk(frame, gt_actions[i], scale, _GT_PALETTE)
         if pred_actions is not None:
-            _draw_traj(frame, pred_actions[i], scale, _PRED_COLOR)
+            frame = _draw_chunk(frame, pred_actions[i], scale, _PRED_PALETTE)
         frames.append(frame)
     return np.stack(frames, axis=0)
