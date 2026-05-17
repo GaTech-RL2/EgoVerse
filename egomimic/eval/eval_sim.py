@@ -290,13 +290,49 @@ class SimRolloutEval(EvalVideo):
 
         for emb_id, _batch in batch.items():
             is_packed = _batch.get("_packed", False)
-            if not is_packed:
-                continue
 
-            cu = _batch["cu_seqlens"]
-            seq_lens = _batch["seq_lens"]
-            B = int(seq_lens.shape[0])
-            ep_coverages: list[float] = []
+            # Non-packed (HPT per-frame loader): each row of the batch is one
+            # action-chunk sample. Synthesize a packed-style batch by
+            # treating the first dimension as the episode index and the
+            # action-horizon T as the sub-episode length. ``_init_env``
+            # uses the first frame of ``state_agent_obj`` as the env init
+            # state — for HPT that's the obs at the chunk's start.
+            if not is_packed:
+                state_key = "state_agent_obj"
+                if state_key not in _batch:
+                    continue
+                state = _batch[state_key]
+                if state.dim() < 2:
+                    continue
+                # Cap to a sensible number of rollouts in the smoke path —
+                # SimRolloutEval doesn't currently know about --n-episodes
+                # for non-packed input, and 128 × max_steps rollouts is huge.
+                B_hpt = min(
+                    int(state.shape[0]), int(getattr(self, "limit_val_batches", 4) or 4)
+                )
+                state = state[:B_hpt]
+                # Treat each row as a 1-frame episode for init purposes.
+                cu = torch.arange(B_hpt + 1, device=state.device, dtype=torch.long)
+                seq_lens = torch.ones(B_hpt, device=state.device, dtype=torch.long)
+                # Re-pack the per-frame batch by taking frame 0 of each row.
+                _packed_batch: dict = {}
+                for k, v in _batch.items():
+                    if torch.is_tensor(v) and v.dim() >= 2 and v.shape[0] >= B_hpt:
+                        _packed_batch[k] = v[:B_hpt, 0]
+                    else:
+                        _packed_batch[k] = v
+                _packed_batch["cu_seqlens"] = cu
+                _packed_batch["seq_lens"] = seq_lens
+                _batch = _packed_batch
+                cu = _batch["cu_seqlens"]
+                seq_lens = _batch["seq_lens"]
+                B = int(seq_lens.shape[0])
+                ep_coverages = []
+            else:
+                cu = _batch["cu_seqlens"]
+                seq_lens = _batch["seq_lens"]
+                B = int(seq_lens.shape[0])
+                ep_coverages: list[float] = []
             ep_successes: list[float] = []
             ep_frames_for_video: list[np.ndarray] = []
 
