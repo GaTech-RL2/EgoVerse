@@ -75,7 +75,8 @@ class ModalAutoRestartCallback(Callback):
         # Build new hydra args: original args + updated ckpt_path + wandb_run_id
         raw_args: list = json.loads(os.environ.get("MODAL_HYDRA_ARGS", "[]"))
         new_args = [
-            a for a in raw_args
+            a
+            for a in raw_args
             if not a.startswith("ckpt_path=") and not a.startswith("wandb_run_id=")
         ]
         new_args.append(f"ckpt_path={ckpt_path}")
@@ -89,18 +90,53 @@ class ModalAutoRestartCallback(Callback):
         if trainer.is_global_zero:
             try:
                 import modal as _modal
+
                 fn = _modal.Function.from_name(
                     "egomimic-training",
                     "run_hydra_train",
                     environment_name="robotics",
                 )
-                handle = fn.spawn(tuple(new_args), git_remote, git_commit, wandb_api_key)
+                handle = fn.spawn(
+                    tuple(new_args), git_remote, git_commit, wandb_api_key
+                )
                 log.info(f"[ModalAutoRestart] Spawned continuation: {handle.object_id}")
             except Exception as exc:
                 log.error(f"[ModalAutoRestart] Failed to spawn continuation: {exc}")
 
         trainer.should_stop = True
-        log.info("[ModalAutoRestart] Stopping current run — continuation job is running")
+        log.info(
+            "[ModalAutoRestart] Stopping current run — continuation job is running"
+        )
+
+
+def _git_commit_and_push(repo_root) -> None:
+    """Force-commit all active changes and push to remote before Modal submission."""
+    import subprocess
+
+    def _run(cmd, **kwargs):
+        return subprocess.run(
+            cmd, cwd=str(repo_root), capture_output=True, text=True, **kwargs
+        )
+
+    status = _run(["git", "status", "--porcelain"])
+    has_changes = bool(status.stdout.strip())
+
+    if has_changes:
+        print("Auto-committing local changes before Modal submission...")
+        _run(["git", "add", "-A"])
+        commit = _run(
+            ["git", "commit", "--no-verify", "-m", "auto: pre-modal training commit"]
+        )
+        if commit.returncode != 0:
+            print(f"[git commit] {commit.stderr.strip()}")
+
+    print("Pushing to remote...")
+    push = _run(["git", "push", "origin", "HEAD"])
+    if push.returncode != 0:
+        raise RuntimeError(
+            f"git push failed — cannot submit to Modal with unpushed changes:\n{push.stderr.strip()}"
+        )
+    print("Push complete.")
 
 
 def _submit_to_modal(cfg: DictConfig) -> None:
@@ -119,11 +155,19 @@ def _submit_to_modal(cfg: DictConfig) -> None:
 
     repo_root = Path(__file__).resolve().parent.parent
 
+    _git_commit_and_push(repo_root)
+
     # Env vars to forward to the modal subprocess (picked up by modal_config.py)
     modal_env = os.environ.copy()
 
     # Extract modal_* keys from Hydra overrides; pass the rest to the container
-    _MODAL_KEYS = {"modal_gpu", "modal_cpu", "modal_memory_gb", "modal_memory_mb", "modal_volume"}
+    _MODAL_KEYS = {
+        "modal_gpu",
+        "modal_cpu",
+        "modal_memory_gb",
+        "modal_memory_mb",
+        "modal_volume",
+    }
     container_overrides = []
     gpu_count = 1
     for override in HydraConfig.get().overrides.task:
@@ -149,22 +193,29 @@ def _submit_to_modal(cfg: DictConfig) -> None:
     # Sync launch_params.gpus_per_node with the requested GPU count so DDP
     # uses all available GPUs (devices: ${launch_params.gpus_per_node} in ddp_modal.yaml)
     container_overrides = [
-        a for a in container_overrides
+        a
+        for a in container_overrides
         if not a.lstrip("+").startswith("launch_params.gpus_per_node=")
     ]
     container_overrides.append(f"launch_params.gpus_per_node={gpu_count}")
 
     cmd = [
-        sys.executable, "-m", "modal", "run",
+        sys.executable,
+        "-m",
+        "modal",
+        "run",
         "--detach",
-        "--env", "robotics",
+        "--env",
+        "robotics",
         "egomimic/modal/run.py::submit",
         "--",
         *container_overrides,
     ]
     gpu = modal_env.get("MODAL_GPU", "A100")
     cpu = modal_env.get("MODAL_CPU", "12")
-    mem = modal_env.get("MODAL_MEMORY_GB") or str(int(modal_env.get("MODAL_MEMORY_MB", "65536")) // 1024)
+    mem = modal_env.get("MODAL_MEMORY_GB") or str(
+        int(modal_env.get("MODAL_MEMORY_MB", "65536")) // 1024
+    )
     vol = modal_env.get("MODAL_ZARR_VOLUME", "egoverse-zarr-data")
     print(f"Modal resources: gpu={gpu}  cpu={cpu}  memory={mem}GB  zarr_volume={vol}")
     print(f"Submitting to Modal via: {' '.join(cmd)}")
@@ -324,7 +375,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     callbacks: List[Callback] = instantiate_callbacks(cfg.get("callbacks"))
 
     # Register Modal auto-restart callback when running inside a Modal container
-    if os.environ.get("MODAL_IS_REMOTE") == "1" and os.environ.get("MODAL_TIMEOUT_SECONDS"):
+    if os.environ.get("MODAL_IS_REMOTE") == "1" and os.environ.get(
+        "MODAL_TIMEOUT_SECONDS"
+    ):
         callbacks.append(ModalAutoRestartCallback())
         log.info("[ModalAutoRestart] Callback registered")
 

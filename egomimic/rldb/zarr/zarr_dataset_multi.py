@@ -57,6 +57,42 @@ logger = logging.getLogger(__name__)
 SEED = 42
 
 
+def _import_real_modal():
+    """Return the installed Modal SDK, working around egomimic.modal shadowing.
+
+    When trainHydra.py runs as `python /root/EgoVerse/egomimic/trainHydra.py`,
+    Python puts /root/EgoVerse/egomimic on sys.path[0], which makes a bare
+    `import modal` resolve to the egomimic.modal subpackage. This helper:
+      1. Returns the cached real SDK if one is already in sys.modules.
+      2. Otherwise strips egomimic from sys.path and re-imports.
+
+    Important: we do NOT pop `modal` from sys.modules once the real SDK is
+    cached there — re-importing produces a fresh top-level module that no
+    longer carries the lazily-attached submodules (modal._grpc_client, etc.),
+    breaking subsequent fn.map() calls.
+    """
+    import sys
+
+    existing = sys.modules.get("modal")
+    if existing is not None and hasattr(existing, "Function"):
+        return existing
+
+    _orig_path = list(sys.path)
+    sys.path = [p for p in sys.path if Path(p).name != "egomimic"]
+    sys.modules.pop("modal", None)
+    try:
+        import modal as _modal
+    finally:
+        sys.path = _orig_path
+
+    if not hasattr(_modal, "Function"):
+        raise RuntimeError(
+            "Imported `modal` has no `Function` attribute — "
+            "egomimic.modal subpackage is still shadowing the installed Modal SDK"
+        )
+    return _modal
+
+
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     """
     Split a list of dataset names into train/valid sets.
@@ -191,11 +227,41 @@ class EpisodeResolver:
         Returns:
             dict[str, ZarrDataset]: a dictionary mapping string keys to constructed zarr datasets from valid filters.
         """
+        import time
+
         dataset_class = self._dataset_class or ZarrDataset
+
+        # Modal fan-out: when inside Modal with the volume mounted at the standard
+        # path, shard the per-episode .zattrs reads across many small containers.
+        # Each worker returns (path, hash, metadata) tuples; ZarrDataset is then
+        # constructed locally with precomputed_metadata, skipping the slow open.
+        # Disable with EGOMIMIC_DISABLE_MODAL_LOAD=1.
+        inside_modal = os.environ.get("MODAL_IS_REMOTE") == "1" or bool(
+            os.environ.get("MODAL_TASK_ID")
+        )
+        if (
+            inside_modal
+            and str(search_path) == "/mnt/zarr-data"
+            and os.environ.get("EGOMIMIC_DISABLE_MODAL_LOAD") != "1"
+        ):
+            try:
+                return self._modal_fanout_load(
+                    search_path, valid_folder_names, dataset_class
+                )
+            except Exception as e:
+                logger.warning(
+                    "Modal fan-out load failed (%s) — falling back to serial loop",
+                    e,
+                )
+
         all_paths = sorted(search_path.iterdir())
         datasets: dict[str, ZarrDataset] = {}
         skipped: list[str] = []
-        for p in all_paths:
+        total = len(all_paths)
+        log_every = max(1, total // 20)
+        start_time = time.monotonic()
+        logger.info(f"Loading {total} Zarr datasets from {search_path}...")
+        for i, p in enumerate(all_paths, start=1):
             if not p.is_dir():
                 logger.info(f"{p} is not a valid directory")
                 skipped.append(p.name)
@@ -218,6 +284,104 @@ class EpisodeResolver:
                 logger.error(f"Failed to load dataset at {p}: {e}")
                 skipped.append(p.name)
 
+            if i % log_every == 0 or i == total:
+                elapsed = time.monotonic() - start_time
+                rate = i / elapsed if elapsed > 0 else 0.0
+                eta = (total - i) / rate if rate > 0 else float("inf")
+                logger.info(
+                    f"Loading Zarr datasets: {i}/{total} ({100 * i / total:.1f}%) "
+                    f"| loaded={len(datasets)} skipped={len(skipped)} "
+                    f"| {rate:.1f} ep/s | ETA {eta:.0f}s"
+                )
+
+        logger.info(
+            f"Loaded {len(datasets)} datasets, skipped {len(skipped)} "
+            f"(total scanned {total}) in {time.monotonic() - start_time:.1f}s"
+        )
+        return datasets
+
+    def _modal_fanout_load(
+        self,
+        search_path: Path,
+        valid_folder_names: set[str],
+        dataset_class,
+    ) -> dict:
+        """Fan out per-episode .zattrs reads across Modal containers via load_shard.
+
+        Worker returns picklable (path, hash, metadata) tuples; ZarrDataset is
+        constructed locally with precomputed_metadata so its eager zarr open is
+        skipped (deferred until first __getitem__).
+        """
+        import time
+
+        modal = _import_real_modal()
+
+        start_time = time.monotonic()
+        logger.info(f"Modal fan-out load: listing {search_path} (single readdir)...")
+        t0 = time.monotonic()
+        on_disk_names = []
+        for raw_name in os.listdir(search_path):
+            if raw_name.startswith("."):
+                continue
+            hash_name = raw_name[:-5] if raw_name.endswith(".zarr") else raw_name
+            if hash_name in valid_folder_names:
+                on_disk_names.append(raw_name)
+        total = len(on_disk_names)
+        logger.info(
+            f"Modal fan-out load: {total} target entries (of {len(valid_folder_names)} requested) "
+            f"in {time.monotonic() - t0:.1f}s"
+        )
+        if total == 0:
+            return {}
+
+        n_shards = min(int(os.environ.get("EGOMIMIC_LOAD_SHARDS", "100")), total)
+        shards = [on_disk_names[i::n_shards] for i in range(n_shards)]
+        shards = [s for s in shards if s]
+        total_shards = len(shards)
+
+        logger.info(
+            f"Modal fan-out load: {total} entries across {total_shards} shards "
+            f"(~{total // total_shards} per shard). Looking up load_shard function..."
+        )
+
+        fn = modal.Function.from_name(
+            "egomimic-scan", "load_shard", environment_name="robotics"
+        )
+        logger.info("Modal fan-out load: function lookup OK; launching .map()...")
+
+        datasets: dict = {}
+        skipped: list[str] = []
+        completed = 0
+        log_every = max(1, total_shards // 20)
+        for shard_result in fn.map(shards):
+            completed += 1
+            for path_str, episode_hash, metadata in shard_result:
+                if episode_hash not in valid_folder_names:
+                    continue
+                try:
+                    datasets[episode_hash] = dataset_class(
+                        Path(path_str),
+                        key_map=self.key_map,
+                        transform_list=self.transform_list,
+                        norm_stats=self.norm_stats,
+                        precomputed_metadata=metadata,
+                    )
+                except Exception as e:
+                    logger.error("Failed to construct dataset for %s: %s", path_str, e)
+                    skipped.append(episode_hash)
+            if completed % log_every == 0 or completed == total_shards:
+                elapsed = time.monotonic() - start_time
+                logger.info(
+                    f"Modal load: shard {completed}/{total_shards} done "
+                    f"| loaded={len(datasets)} skipped={len(skipped)} "
+                    f"| elapsed {elapsed:.0f}s"
+                )
+
+        logger.info(
+            f"Modal fan-out load complete: {len(datasets)} datasets "
+            f"(skipped {len(skipped)}) in {time.monotonic() - start_time:.1f}s "
+            f"({total_shards} shards)"
+        )
         return datasets
 
     @classmethod
@@ -485,7 +649,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug=False,
+        debug: int | bool | None = None,
         allowed_episode_ids: list[str] | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
@@ -511,6 +675,9 @@ class LocalEpisodeResolver(EpisodeResolver):
         filters: DatasetFilter | None = None,
         debug: int | bool | None = None,
     ):
+        import time
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
@@ -550,6 +717,73 @@ class LocalEpisodeResolver(EpisodeResolver):
             logger.info("Debug mode: using first %d episodes", len(filtered))
 
         return filtered
+
+    @classmethod
+    def _modal_fanout_scan(
+        cls,
+        search_path: Path,
+        filters: DatasetFilter,
+        start_time: float,
+    ) -> list[tuple[str, str]]:
+        """Fan out the filter scan across Modal containers.
+
+        Lists candidate dir names locally (one fast syscall), shards them, and
+        invokes `egomimic-training::scan_shard` in parallel. Each worker mounts
+        the same zarr volume read-only and runs a thread-pooled .zattrs scan.
+        """
+        import time
+
+        modal = _import_real_modal()
+
+        # Single readdir syscall — no per-entry stat. Drop hidden files cheaply
+        # (string compare). Workers handle non-dir entries gracefully via
+        # exception-swallowing in _read_metadata, so we don't need is_dir() here.
+        logger.info(f"Modal fan-out scan: listing {search_path} (single readdir)...")
+        t0 = time.monotonic()
+        names = [n for n in os.listdir(search_path) if not n.startswith(".")]
+        total = len(names)
+        logger.info(
+            f"Modal fan-out scan: listed {total} entries in {time.monotonic() - t0:.1f}s"
+        )
+        if total == 0:
+            return []
+
+        n_shards = min(int(os.environ.get("EGOMIMIC_SCAN_SHARDS", "100")), total)
+        shards = [names[i::n_shards] for i in range(n_shards)]
+        shards = [s for s in shards if s]
+        total_shards = len(shards)
+
+        logger.info(
+            f"Modal fan-out scan: {total} entries across {total_shards} shards "
+            f"(~{total // total_shards} per shard). Looking up scan_shard function..."
+        )
+
+        fn = modal.Function.from_name(
+            "egomimic-scan", "scan_shard", environment_name="robotics"
+        )
+        logger.info("Modal fan-out scan: function lookup OK; launching .map()...")
+        filter_lambdas = list(filters.filter_lambdas)
+
+        matched: list[tuple[str, str]] = []
+        completed = 0
+        log_every = max(1, total_shards // 20)
+        for shard_result in fn.map(shards, [filter_lambdas] * total_shards):
+            completed += 1
+            matched.extend(shard_result)
+            if completed % log_every == 0 or completed == total_shards:
+                elapsed = time.monotonic() - start_time
+                logger.info(
+                    f"Modal scan: shard {completed}/{total_shards} done "
+                    f"| matched={len(matched)} | elapsed {elapsed:.0f}s"
+                )
+
+        logger.info(
+            f"Modal fan-out scan complete: {len(matched)} matches from {total} "
+            f"entries in {time.monotonic() - start_time:.1f}s "
+            f"({total_shards} shards)"
+        )
+        logger.info("Local filtered paths: %s", matched)
+        return matched
 
     def resolve(
         self,
@@ -596,23 +830,21 @@ class LocalEpisodeResolver(EpisodeResolver):
                 raise ValueError(
                     "No valid episodes found for allowed_episode_ids in the local directory."
                 )
-        else:
-            filtered_paths = self._get_local_filtered_paths(
-                self.folder_path, filters, debug=self.debug
+            return datasets
+
+        filtered_paths = self._get_local_filtered_paths(
+            self.folder_path, filters, debug=self.debug
+        )
+        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+        logger.info(f"Valid folder names: {valid_folder_names}")
+        if not valid_folder_names:
+            raise ValueError(
+                "No valid collection names from local filtering: "
+                "filters matched no episodes in the local directory."
             )
-
-            valid_folder_names = {folder_name for _, folder_name in filtered_paths}
-            logger.info(f"Valid folder names: {valid_folder_names}")
-            if not valid_folder_names:
-                raise ValueError(
-                    "No valid collection names from local filtering: "
-                    "filters matched no episodes in the local directory."
-                )
-
-            datasets = self._load_zarr_datasets(
-                search_path=self.folder_path, valid_folder_names=valid_folder_names
-            )
-
+        datasets = self._load_zarr_datasets(
+            search_path=self.folder_path, valid_folder_names=valid_folder_names
+        )
         return datasets
 
 
@@ -1024,16 +1256,20 @@ class ZarrDataset(torch.utils.data.Dataset):
             self.init_episode()
 
     def init_episode(self):
-        """
-        inits the zarr episode and all the metadata associated, as well as total_frames for len
-        """
+        """Eagerly open the zarr group and populate all metadata-derived fields."""
         self.episode_reader = ZarrEpisode(self.episode_path)
-        self.metadata = self.episode_reader.metadata
-        self.total_frames = self.metadata["total_frames"]
-        self.embodiment = self.metadata["embodiment"]
-        self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
+        self._init_from_metadata(self.episode_reader.metadata)
 
-        # Detect JPEG-encoded image keys from metadata
+    def _init_from_metadata(self, metadata: dict) -> None:
+        """Populate metadata-derived fields from a pre-loaded `.zattrs` dict."""
+        self.metadata = metadata
+        self.total_frames = metadata["total_frames"]
+        self.embodiment = metadata["embodiment"]
+        features = metadata.get("features", {})
+        keys_list = (
+            list(features.keys()) if isinstance(features, dict) else list(features)
+        )
+        self.keys_dict = {k: (0, None) for k in keys_list}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
 
@@ -1238,9 +1474,11 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
     If the start frame is not inside any annotation, behaves like the base class.
     """
 
-    def init_episode(self):
-        super().init_episode()
+    def __init__(self, *args, **kwargs):
+        # Set before super().__init__ so it exists regardless of whether the
+        # parent goes through init_episode (eager) or _init_from_metadata (lazy).
         self._frame_to_ann_end: dict[int, int] | None = None
+        super().__init__(*args, **kwargs)
 
     def _build_frame_to_ann_end(self) -> dict[int, int]:
         """Map ``frame_idx -> ann_end`` (exclusive) for every frame inside an

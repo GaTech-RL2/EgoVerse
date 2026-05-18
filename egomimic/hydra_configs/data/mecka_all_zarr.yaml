@@ -12,9 +12,8 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
-      # debug: true
-    mode: total
-
+        pause_removal_epsilon: 0.005
+    mode: train
 valid_datasets:
   mecka_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -27,8 +26,8 @@ valid_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
-      # debug: true
-    mode: total
+        pause_removal_epsilon: 0.005
+    mode: valid
 
 train_dataloader_params:
   mecka_bimanual:

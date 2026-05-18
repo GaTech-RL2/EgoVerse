@@ -406,6 +406,7 @@ def run_hydra_train(
     import json as _json
     import time as _time
 
+    env["MODAL_IS_REMOTE"] = "1"
     env["MODAL_TIMEOUT_SECONDS"] = str(CFG.timeout_seconds)
     env["MODAL_START_TIME"] = str(_time.time())
     env["MODAL_HYDRA_ARGS"] = _json.dumps(list(hydra_args))
