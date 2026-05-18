@@ -439,21 +439,28 @@ def run_norm_stats(
             print(f"[NormStats] After excluding {len(exclude_hashes)} hashes: {len(df)} rows")
 
         # ---- Find episodes present on local volume ----
+        # Single os.listdir() call is orders of magnitude faster than
+        # 197K individual is_dir() FUSE stat calls.
         volume_path = Path(CFG.volume_mount_path)
+        print(f"[NormStats] Listing volume directory {volume_path} ...")
+        import os as _os
+        local_names = set(_os.listdir(str(volume_path)))
+        print(f"[NormStats] Volume has {len(local_names)} entries")
+
         episodes: list[dict] = []
         n_missing = 0
         for _, row in df.iterrows():
             h = row["episode_hash"]
-            local = next(
-                (p for p in (volume_path / h, volume_path / f"{h}.zarr") if p.is_dir()),
-                None,
-            )
-            if local is None:
+            if h in local_names:
+                local_path = str(volume_path / h)
+            elif f"{h}.zarr" in local_names:
+                local_path = str(volume_path / f"{h}.zarr")
+            else:
                 n_missing += 1
                 continue
             episodes.append({
                 "episode_hash": h,
-                "local_path": str(local),
+                "local_path": local_path,
                 "num_frames": int(row["num_frames"]),
             })
 
