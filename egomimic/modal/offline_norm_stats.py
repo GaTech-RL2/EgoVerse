@@ -67,7 +67,7 @@ image = (
         "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime",
         add_python="3.10",
     )
-    .apt_install("git", "curl")
+    .apt_install("git", "curl", "build-essential")
     .run_commands("curl -LsSf https://astral.sh/uv/install.sh | sh")
     .env({"PATH": "/root/.local/bin:$PATH"})
     .pip_install(
