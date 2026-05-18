@@ -188,7 +188,7 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
 @app.function(
     cpu=2,
     memory=4 * 1024,
-    timeout=1800,
+    timeout=3600,
     volumes={CFG.volume_mount_path: zarr_volume},
 )
 def compute_shard_stats(
