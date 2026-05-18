@@ -18,7 +18,10 @@
 _target_: egomimic.eval.eval_sim.HPTSimRolloutEval
 limit_val_batches: 1            # one val batch ↔ n_rollouts_per_batch rollouts
 n_rollouts_per_batch: 2
-max_steps: 200
+# Hard cap on rollout length. The rollout actually exits as soon as
+# coverage crosses ``coverage_threshold`` (success); this cap is just the
+# upper bound for the case where the model can't reach it.
+max_steps: 500
 embodiment_name: pushshapes_sim
 init_mode: replay               # uses state_agent_obj from the sample
 coverage_threshold: 0.7

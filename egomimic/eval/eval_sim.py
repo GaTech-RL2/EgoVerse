@@ -276,6 +276,11 @@ class SimRolloutEval(EvalVideo):
 
             if terminated:
                 break
+            # Early-exit on success: once coverage crosses the threshold,
+            # the rollout has "succeeded" and the rest of the steps would
+            # just be the model nudging things around. Save what we have.
+            if last_coverage >= self.coverage_threshold:
+                break
 
         return last_coverage, frames, actions_taken
 
