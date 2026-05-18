@@ -1069,13 +1069,17 @@ class HPT(Algo):
                 "data": data,
             }
 
-            # BC val loss — same call as forward_training.
+            # BC val loss — same call as forward_training. Clone the batch
+            # because stem_process overwrites data[modality] with the encoder
+            # output in place, and the forward() call below needs the original
+            # (image) data still intact.
+            loss_batch = self._clone_batch(hpt_batch)
             if self.freeze_repr:
                 val_loss = self.nets["policy"].compute_loss_depth(
-                    hpt_batch, depth=self.freeze_depth
+                    loss_batch, depth=self.freeze_depth
                 )
             else:
-                val_loss = self.nets["policy"].compute_loss(hpt_batch)
+                val_loss = self.nets["policy"].compute_loss(loss_batch)
             unnorm_preds[f"{embodiment_name}_loss"] = val_loss
 
             actions = self.nets["policy"].forward(
