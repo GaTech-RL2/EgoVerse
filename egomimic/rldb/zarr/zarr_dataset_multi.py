@@ -485,9 +485,14 @@ class LocalEpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
+        debug=False,
+        allowed_episode_ids: list[str] | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
+        self.allowed_episode_ids = (
+            set(allowed_episode_ids) if allowed_episode_ids else None
+        )
 
     @staticmethod
     def _local_filters_match(
@@ -561,21 +566,52 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         filters = _ensure_dataset_filter(filters)
 
-        filtered_paths = self._get_local_filtered_paths(
-            self.folder_path, filters, debug=self.debug
-        )
-
-        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
-        logger.info(f"Valid folder names: {valid_folder_names}")
-        if not valid_folder_names:
-            raise ValueError(
-                "No valid collection names from local filtering: "
-                "filters matched no episodes in the local directory."
+        if self.allowed_episode_ids is not None:
+            # Skip the full directory scan — directly resolve and load only the allowed paths.
+            dataset_class = self._dataset_class or ZarrDataset
+            datasets = {}
+            for episode_hash in self.allowed_episode_ids:
+                for candidate in (
+                    self.folder_path / f"{episode_hash}.zarr",
+                    self.folder_path / episode_hash,
+                ):
+                    if candidate.is_dir():
+                        try:
+                            datasets[episode_hash] = dataset_class(
+                                candidate,
+                                key_map=self.key_map,
+                                transform_list=self.transform_list,
+                                norm_stats=self.norm_stats,
+                            )
+                        except Exception as e:
+                            logger.error(
+                                "Failed to load dataset at %s: %s", candidate, e
+                            )
+                        break
+                else:
+                    logger.warning(
+                        "allowed_episode_id not found on disk: %s", episode_hash
+                    )
+            if not datasets:
+                raise ValueError(
+                    "No valid episodes found for allowed_episode_ids in the local directory."
+                )
+        else:
+            filtered_paths = self._get_local_filtered_paths(
+                self.folder_path, filters, debug=self.debug
             )
 
-        datasets = self._load_zarr_datasets(
-            search_path=self.folder_path, valid_folder_names=valid_folder_names
-        )
+            valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+            logger.info(f"Valid folder names: {valid_folder_names}")
+            if not valid_folder_names:
+                raise ValueError(
+                    "No valid collection names from local filtering: "
+                    "filters matched no episodes in the local directory."
+                )
+
+            datasets = self._load_zarr_datasets(
+                search_path=self.folder_path, valid_folder_names=valid_folder_names
+            )
 
         return datasets
 
