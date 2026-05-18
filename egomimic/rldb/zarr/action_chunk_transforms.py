@@ -498,7 +498,7 @@ class PauseRemovalTransform(Transform):
     """
 
     def __init__(
-        self, action_keys: list[str], epsilon: float = 0.001, log_every: int = 1000
+        self, action_keys: list[str], epsilon: float = 0.001, log_every: int = 100
     ) -> None:
         self.action_keys = list(action_keys)
         self.epsilon = epsilon

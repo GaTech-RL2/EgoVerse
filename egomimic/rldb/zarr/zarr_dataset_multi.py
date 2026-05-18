@@ -1011,9 +1011,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 self._global_indices_by_dataset[dataset_name].append(global_idx)
 
         self.data_schematic = None
-        self._n_bounds_violations = 0
-        self._n_naninf_violations = 0
-        self._violation_log_every = 50
+        self._n_samples_checked = 0
+        self._n_violation_samples = 0
+        self._violation_log_every = 100
 
         super().__init__()
 
@@ -1041,7 +1041,8 @@ class MultiDataset(torch.utils.data.Dataset):
         if not norm_stats:
             return None
 
-        episode_name = self._episode_name_for_dataset(dataset, dataset_name)
+        self._n_samples_checked += 1
+        prefix: str | None = None
 
         for key_name, stats in norm_stats.items():
             zarr_key = self.data_schematic.keyname_to_zarr_key(key_name, embodiment_id)
@@ -1071,68 +1072,47 @@ class MultiDataset(torch.utils.data.Dataset):
                 q_low = torch.broadcast_to(q_low, arr.shape)
                 q_high = torch.broadcast_to(q_high, arr.shape)
             except RuntimeError:
-                logger.warning(
-                    "Skipping bounds check for ep=%s frame=%s key=%s due to incompatible shapes: value=%s q_low=%s q_high=%s",
-                    episode_name,
-                    idx,
-                    zarr_key,
-                    tuple(arr.shape),
-                    tuple(q_low.shape),
-                    tuple(q_high.shape),
-                )
+                shape_warn_key = (str(zarr_key), tuple(arr.shape), tuple(q_low.shape))
+                if shape_warn_key not in getattr(self, "_shape_mismatch_warned", set()):
+                    if not hasattr(self, "_shape_mismatch_warned"):
+                        self._shape_mismatch_warned = set()
+                    self._shape_mismatch_warned.add(shape_warn_key)
+                    logger.warning(
+                        "Skipping bounds check for key=%s due to incompatible shapes: value=%s q_low=%s",
+                        zarr_key,
+                        tuple(arr.shape),
+                        tuple(q_low.shape),
+                    )
                 continue
 
-            has_nan = torch.any(torch.isnan(arr))
-            has_inf = torch.any(torch.isinf(arr))
-            if has_nan or has_inf:
-                nan_mask = torch.isnan(arr)
-                inf_mask = torch.isinf(arr)
-                n_nan = nan_mask.sum().item()
-                n_inf = inf_mask.sum().item()
-                bad_mask = nan_mask | inf_mask
-                bad_indices = bad_mask.nonzero(as_tuple=False).tolist()
-                bad_values = arr[bad_mask].tolist()
+            if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
+                episode_name = self._episode_name_for_dataset(dataset, dataset_name)
                 prefix = (
                     f"NaN/Inf violation ep={episode_name} frame={idx} key={zarr_key}"
                 )
-                self._n_naninf_violations += 1
-                if (
-                    self._n_naninf_violations == 1
-                    or self._n_naninf_violations % self._violation_log_every == 0
-                ):
-                    logger.warning(
-                        f"{prefix} | n_nan={int(n_nan)} n_inf={int(n_inf)} "
-                        f"indices={bad_indices[:10]} values={[f'{v:.4f}' for v in bad_values[:10]]} "
-                        f"(total NaN/Inf violations so far: {self._n_naninf_violations})"
-                    )
-                return prefix
+                break
 
-            below = arr < q_low
-            above = arr > q_high
-            if torch.any(below) or torch.any(above):
-                n_below = below.sum().item()
-                n_above = above.sum().item()
-                below_vals = arr[below].tolist()
-                above_vals = arr[above].tolist()
-                below_bounds = q_low[below].tolist()
-                above_bounds = q_high[above].tolist()
+            if torch.any(arr < q_low) or torch.any(arr > q_high):
+                episode_name = self._episode_name_for_dataset(dataset, dataset_name)
                 prefix = (
                     f"Bounds violation ep={episode_name} frame={idx} key={zarr_key}"
                 )
-                self._n_bounds_violations += 1
-                if (
-                    self._n_bounds_violations == 1
-                    or self._n_bounds_violations % self._violation_log_every == 0
-                ):
-                    logger.warning(
-                        f"{prefix} | "
-                        f"n_below={int(n_below)} below_vals={[f'{v:.4f}' for v in below_vals[:5]]} below_bound={[f'{b:.4f}' for b in below_bounds[:5]]} "
-                        f"n_above={int(n_above)} above_vals={[f'{v:.4f}' for v in above_vals[:5]]} above_bound={[f'{b:.4f}' for b in above_bounds[:5]]} "
-                        f"(total bounds violations so far: {self._n_bounds_violations})"
-                    )
-                return prefix
+                break
 
-        return None
+        if prefix is not None:
+            self._n_violation_samples += 1
+
+        if (
+            self._n_samples_checked == 1
+            or self._n_samples_checked % self._violation_log_every == 0
+        ):
+            pct = 100 * self._n_violation_samples / max(self._n_samples_checked, 1)
+            print(
+                f"[BoundsCheck] {self._n_samples_checked} samples checked: "
+                f"{self._n_violation_samples} violations ({pct:.1f}%)"
+            )
+
+        return prefix
 
     def __getitem__(self, idx, _attempts: int | None = None):
         """
@@ -1155,10 +1135,6 @@ class MultiDataset(torch.utils.data.Dataset):
                 exhausted_error=(
                     f"Entire dataset bad (no valid indices): dataset={dataset_name}"
                 ),
-            )
-            next_dataset_name, next_local_idx = self.index_map[next_idx]
-            logger.warning(
-                f"{violation} | attempt {attempts}, trying {next_dataset_name}[{next_local_idx}]"
             )
             return self.__getitem__(next_idx, _attempts=attempts)
 
