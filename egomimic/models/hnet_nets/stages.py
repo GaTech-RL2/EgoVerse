@@ -28,8 +28,9 @@ declares its ``input_hidden_dim`` and ``output_hidden_dim``. When the inner
 stage's expected input dim differs from this stage's working dim, the stage
 inserts a minimal ``nn.Linear`` projection. No padding-based bridging.
 """
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -49,10 +50,10 @@ from egomimic.models.hnet_nets.routing import (
     RoutingModuleState,
 )
 
-
 # --------------------------------------------------------------------------- #
 # Inference-state dataclasses (one per stage type).
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class EncoderDecoderStageState:
@@ -80,6 +81,7 @@ class ComputeStageState:
 # Straight-through estimator for the boundary mask (matches upstream HNet).
 # --------------------------------------------------------------------------- #
 
+
 class _STE(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x):
@@ -99,11 +101,14 @@ def _ste(x):
 # Reused (and slightly simplified) from the previous monolithic HNet.
 # --------------------------------------------------------------------------- #
 
+
 def _slice_iso_params(params: Optional[IsotropicInferenceParams], mask: torch.Tensor):
     if params is None:
         return None
     new = IsotropicInferenceParams(
-        layer_caches={}, max_seqlen=params.max_seqlen, batch_size=int(mask.sum().item()),
+        layer_caches={},
+        max_seqlen=params.max_seqlen,
+        batch_size=int(mask.sum().item()),
     )
     for k, c in params.layer_caches.items():
         if isinstance(c, KVCache):
@@ -190,14 +195,18 @@ def _scatter_state(state: Any, sub: Any, mask: torch.Tensor):
         return
     if isinstance(state, ChunkerStageState):
         if state.routing_state is not None and sub.routing_state is not None:
-            state.routing_state.has_seen_tokens[mask] = sub.routing_state.has_seen_tokens
+            state.routing_state.has_seen_tokens[mask] = (
+                sub.routing_state.has_seen_tokens
+            )
             state.routing_state.last_hidden_state[mask] = (
-                sub.routing_state.last_hidden_state.to(state.routing_state.last_hidden_state.dtype)
+                sub.routing_state.last_hidden_state.to(
+                    state.routing_state.last_hidden_state.dtype
+                )
             )
         _scatter_state(state.inner_state, sub.inner_state, mask)
         if state.dechunk_state is not None and sub.dechunk_state is not None:
-            state.dechunk_state.last_value[mask] = (
-                sub.dechunk_state.last_value.to(state.dechunk_state.last_value.dtype)
+            state.dechunk_state.last_value[mask] = sub.dechunk_state.last_value.to(
+                state.dechunk_state.last_value.dtype
             )
         return
     if isinstance(state, ComputeStageState):
@@ -211,6 +220,7 @@ def _scatter_state(state: Any, sub: Any, mask: torch.Tensor):
 # Shared base — handles inner_stage wiring assertion and the optional
 # input/output projections triggered only when input_hidden_dim != working dim.
 # --------------------------------------------------------------------------- #
+
 
 class _BaseStage(nn.Module):
     """Common scaffolding for stage classes."""
@@ -243,10 +253,53 @@ class _BaseStage(nn.Module):
     def allocate_inference_cache(self, batch_size: int, dtype, device):
         raise NotImplementedError
 
+    # ----- Training recipe hooks (mirror upstream hnet/models/hnet.py) ----- #
+
+    def _init_weights(self, initializer_range: float, parent_residuals: int) -> int:
+        """Initialize Linear weights in this stage using residual-stream-aware
+        scaling. Returns the cumulative ``n_residuals`` after this stage's
+        contribution (used by the parent's recursion into sibling stages).
+
+        Default behavior is no-op: subclasses override to scale their inner
+        Isotropic stacks' ``out_proj`` / ``fc2`` weights by
+        ``initializer_range / sqrt(n_residuals)`` and recurse into
+        ``inner_stage``.
+        """
+        return parent_residuals
+
+    def _apply_lr_multiplier(self, lr_multipliers, stage_idx: int) -> None:
+        """Stamp every parameter in this stage (and ``inner_stage``) with the
+        corresponding LR multiplier via ``apply_optimization_params``. The
+        outer stage gets ``lr_multipliers[stage_idx]``; ``inner_stage`` gets
+        ``stage_idx + 1``. Indexing past the list is a config error.
+        """
+        from egomimic.models.hnet_nets.hnet import apply_optimization_params
+
+        if stage_idx >= len(lr_multipliers):
+            raise IndexError(
+                f"lr_multipliers list has {len(lr_multipliers)} entries but "
+                f"stage tree wants index {stage_idx}; provide one multiplier "
+                f"per stage in the flat list passed to ``HNet([...])``."
+            )
+        mul = float(lr_multipliers[stage_idx])
+        for p in self.parameters(recurse=False):
+            apply_optimization_params(p, lr_multiplier=mul)
+        # Recurse into our own owned sub-modules (encoder/decoder/main_network),
+        # but skip ``inner_stage`` here — that's a sibling in the flat list and
+        # handled by its own _apply_lr_multiplier call at stage_idx+1.
+        for name, child in self.named_children():
+            if name == "inner_stage":
+                continue
+            for p in child.parameters():
+                apply_optimization_params(p, lr_multiplier=mul)
+        if self.inner_stage is not None:
+            self.inner_stage._apply_lr_multiplier(lr_multipliers, stage_idx + 1)
+
 
 # --------------------------------------------------------------------------- #
 # EncoderDecoderStage
 # --------------------------------------------------------------------------- #
+
 
 class EncoderDecoderStage(_BaseStage):
     """encoder → (optional inner_stage) → +encoder-residual → decoder.
@@ -295,17 +348,30 @@ class EncoderDecoderStage(_BaseStage):
 
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
         cond = self._get_cond(ctx)
-        # Padded mode: build an all-ones mask along T (causal already wired
-        # into the Isotropic). This matches the algo's BOS-prefixed teacher-
-        # forced input.
-        mask = torch.ones(x.shape[:2], dtype=torch.bool, device=x.device)
-
-        x = self.encoder(x, mask=mask, cond=cond)
-        residual = x
-        if self.inner_stage is not None:
-            x = self.inner_stage(x, ctx)
-        x = x + residual
-        x = self.decoder(x, mask=mask, cond=cond)
+        if ctx.packed:
+            # Packed mode: x is (T_total, D); pass cu_seqlens/max_seqlen straight
+            # through. Both encoder and decoder operate at the outer pack.
+            x = self.encoder(
+                x, cu_seqlens=ctx.cu_seqlens, max_seqlen=ctx.max_seqlen, cond=cond
+            )
+            residual = x
+            if self.inner_stage is not None:
+                x = self.inner_stage(x, ctx)
+            x = x + residual
+            x = self.decoder(
+                x, cu_seqlens=ctx.cu_seqlens, max_seqlen=ctx.max_seqlen, cond=cond
+            )
+        else:
+            # Padded mode: build an all-ones mask along T (causal already wired
+            # into the Isotropic). This matches the algo's BOS-prefixed teacher-
+            # forced input.
+            mask = torch.ones(x.shape[:2], dtype=torch.bool, device=x.device)
+            x = self.encoder(x, mask=mask, cond=cond)
+            residual = x
+            if self.inner_stage is not None:
+                x = self.inner_stage(x, ctx)
+            x = x + residual
+            x = self.decoder(x, mask=mask, cond=cond)
         return x
 
     def step(self, x: torch.Tensor, ctx: HNetContext, state: EncoderDecoderStageState):
@@ -319,25 +385,43 @@ class EncoderDecoderStage(_BaseStage):
         return x
 
     def allocate_inference_cache(self, batch_size, dtype, device):
-        max_seqlen = 1024  # generous: KVCache size; actual seqlen comes from algo
         # The algo will call HNet.allocate_inference_cache(batch_size, max_seqlen, ...)
         # which forwards max_seqlen through; for simplicity we keep a separate path.
-        raise NotImplementedError("Use _allocate(batch_size, max_seqlen, dtype, device).")
+        raise NotImplementedError(
+            "Use _allocate(batch_size, max_seqlen, dtype, device)."
+        )
 
     def _allocate(self, batch_size, max_seqlen, dtype, device):
         return EncoderDecoderStageState(
-            encoder_state=self.encoder.allocate_inference_cache(batch_size, max_seqlen, device, dtype),
+            encoder_state=self.encoder.allocate_inference_cache(
+                batch_size, max_seqlen, device, dtype
+            ),
             inner_state=(
                 self.inner_stage._allocate(batch_size, max_seqlen, dtype, device)
-                if self.inner_stage is not None else None
+                if self.inner_stage is not None
+                else None
             ),
-            decoder_state=self.decoder.allocate_inference_cache(batch_size, max_seqlen, device, dtype),
+            decoder_state=self.decoder.allocate_inference_cache(
+                batch_size, max_seqlen, device, dtype
+            ),
         )
+
+    def _init_weights(self, initializer_range: float, parent_residuals: int) -> int:
+        # Encoder + decoder both contribute to the residual stream of this
+        # stage. Inner stage runs at the same outer dim and contributes
+        # additional residuals which are passed through to its own init.
+        n_residuals = parent_residuals + self.encoder.height + self.decoder.height
+        _init_isotropic_linears(self.encoder, initializer_range, n_residuals)
+        _init_isotropic_linears(self.decoder, initializer_range, n_residuals)
+        if self.inner_stage is not None:
+            n_residuals = self.inner_stage._init_weights(initializer_range, n_residuals)
+        return n_residuals
 
 
 # --------------------------------------------------------------------------- #
 # ChunkerStage
 # --------------------------------------------------------------------------- #
+
 
 class ChunkerStage(_BaseStage):
     """RoutingModule → ChunkLayer → (optional inner_stage) → DeChunkLayer.
@@ -386,6 +470,11 @@ class ChunkerStage(_BaseStage):
         self.residual_proj.weight._no_reinit = True
 
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
+        if ctx.packed:
+            return self._forward_packed(x, ctx)
+        return self._forward_padded(x, ctx)
+
+    def _forward_padded(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
         # Padded mode (B, T, D_in).
         B, T, _ = x.shape
         mask = torch.ones(B, T, dtype=torch.bool, device=x.device)
@@ -394,7 +483,9 @@ class ChunkerStage(_BaseStage):
         residual = self.residual_proj(x.float())
 
         chunked, _next_cu, next_max, next_mask = self.chunk_layer(
-            x, bpred.boundary_mask, mask=mask,
+            x,
+            bpred.boundary_mask,
+            mask=mask,
         )
 
         # Project into inner-stage working dim if required.
@@ -408,13 +499,67 @@ class ChunkerStage(_BaseStage):
             chunked = self.proj_out(chunked)
 
         dechunked = self.dechunk_layer(
-            chunked, bpred.boundary_mask, bpred.boundary_prob, mask=mask,
+            chunked,
+            bpred.boundary_mask,
+            bpred.boundary_prob,
+            mask=mask,
         )
 
         # STE residual gating (fp32 like upstream).
-        out = (
-            dechunked.float() * _ste(bpred.selected_probs) + residual
-        ).to(x.dtype)
+        out = (dechunked.float() * _ste(bpred.selected_probs) + residual).to(x.dtype)
+
+        ctx.register_aux(
+            {
+                "bpred": bpred,
+                "target_ratio": self.target_compression_ratio,
+                "weight": self.ratio_loss_weight,
+            }
+        )
+        return out
+
+    def _forward_packed(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
+        # Packed mode: x is (T_total, D_in), routed/chunked/dechunked in 2D.
+        # All sub-modules' packed paths assume the outer cu_seqlens from ctx;
+        # the inner_stage runs with the chunked-space cu_seqlens (we substitute
+        # and restore around the call).
+        cu = ctx.cu_seqlens
+
+        bpred = self.routing_module(x, cu_seqlens=cu)
+        residual = self.residual_proj(x.float())
+
+        chunked, next_cu, next_max, _ = self.chunk_layer(
+            x,
+            bpred.boundary_mask,
+            cu_seqlens=cu,
+        )
+
+        if self.proj_in is not None:
+            chunked = self.proj_in(chunked)
+
+        if self.inner_stage is not None:
+            saved_cu, saved_max = ctx.cu_seqlens, ctx.max_seqlen
+            ctx.cu_seqlens, ctx.max_seqlen = next_cu, next_max
+            try:
+                chunked = self.inner_stage(chunked, ctx)
+            finally:
+                ctx.cu_seqlens, ctx.max_seqlen = saved_cu, saved_max
+
+        if self.proj_out is not None:
+            chunked = self.proj_out(chunked)
+
+        # DeChunkLayer in packed mode takes the **chunked-space** cu_seqlens.
+        dechunked = self.dechunk_layer(
+            chunked,
+            bpred.boundary_mask,
+            bpred.boundary_prob,
+            cu_seqlens=next_cu,
+        )
+
+        # STE residual gating (fp32 like upstream). Shapes in packed mode:
+        #   dechunked: (T_total, D_in)
+        #   selected_probs: (T_total, 1)  → STE returns ones_like → broadcasts.
+        #   residual: (T_total, D_in)
+        out = (dechunked.float() * _ste(bpred.selected_probs) + residual).to(x.dtype)
 
         ctx.register_aux(
             {
@@ -446,7 +591,10 @@ class ChunkerStage(_BaseStage):
             inner_out = inner_in  # empty tensor at outer dim already
 
         dechunked = self.dechunk_layer.step(
-            inner_out, bpred.boundary_mask, bpred.boundary_prob, state.dechunk_state,
+            inner_out,
+            bpred.boundary_mask,
+            bpred.boundary_prob,
+            state.dechunk_state,
         )
 
         # selected_probs at step has shape (B, 1); STE expects something
@@ -471,17 +619,35 @@ class ChunkerStage(_BaseStage):
             ),
             inner_state=(
                 self.inner_stage._allocate(batch_size, max_seqlen, dtype, device)
-                if self.inner_stage is not None else None
+                if self.inner_stage is not None
+                else None
             ),
             dechunk_state=self.dechunk_layer.allocate_inference_cache(
                 batch_size, max_seqlen, device, dtype
             ),
         )
 
+    def _init_weights(self, initializer_range: float, parent_residuals: int) -> int:
+        # ChunkerStage itself adds no transformer/MLP blocks to the residual
+        # stream — the routing q/k are identity-init (marked _no_reinit) and
+        # residual_proj is zero-init (also _no_reinit). proj_in / proj_out
+        # are dim-bridge Linears between outer and inner working dim; use
+        # the unscaled ``initializer_range`` (they're not in a residual
+        # stream context).
+        for m in (self.proj_in, self.proj_out):
+            if m is not None and not getattr(m.weight, "_no_reinit", False):
+                nn.init.normal_(m.weight, mean=0.0, std=initializer_range)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+        if self.inner_stage is not None:
+            return self.inner_stage._init_weights(initializer_range, parent_residuals)
+        return parent_residuals
+
 
 # --------------------------------------------------------------------------- #
 # ComputeStage
 # --------------------------------------------------------------------------- #
+
 
 class ComputeStage(_BaseStage):
     """A single Isotropic main_network. Terminal by default; an inner_stage
@@ -512,8 +678,16 @@ class ComputeStage(_BaseStage):
 
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
         cond = self._get_cond(ctx)
-        mask = torch.ones(x.shape[:2], dtype=torch.bool, device=x.device)
-        x = self.main_network(x, mask=mask, cond=cond)
+        if ctx.packed:
+            x = self.main_network(
+                x,
+                cu_seqlens=ctx.cu_seqlens,
+                max_seqlen=ctx.max_seqlen,
+                cond=cond,
+            )
+        else:
+            mask = torch.ones(x.shape[:2], dtype=torch.bool, device=x.device)
+            x = self.main_network(x, mask=mask, cond=cond)
         if self.inner_stage is not None:
             x = self.inner_stage(x, ctx)
         return x
@@ -532,6 +706,45 @@ class ComputeStage(_BaseStage):
             ),
             inner_state=(
                 self.inner_stage._allocate(batch_size, max_seqlen, dtype, device)
-                if self.inner_stage is not None else None
+                if self.inner_stage is not None
+                else None
             ),
         )
+
+    def _init_weights(self, initializer_range: float, parent_residuals: int) -> int:
+        n_residuals = parent_residuals + self.main_network.height
+        _init_isotropic_linears(self.main_network, initializer_range, n_residuals)
+        if self.inner_stage is not None:
+            n_residuals = self.inner_stage._init_weights(initializer_range, n_residuals)
+        return n_residuals
+
+
+# --------------------------------------------------------------------------- #
+# Shared init helper — mirrors upstream's named-module iteration.
+# --------------------------------------------------------------------------- #
+
+
+def _init_isotropic_linears(
+    isotropic, initializer_range: float, n_residuals: int
+) -> None:
+    """Initialize Linear weights inside an Isotropic stack.
+
+    Out-projection (attention ``out_proj``) and FFN second linear (``fc2``)
+    contribute to the residual stream and get scaled by
+    ``initializer_range / sqrt(n_residuals)`` so the residual norm stays
+    bounded with depth. All other Linears use ``initializer_range``.
+    Modules flagged ``_no_reinit`` (e.g. routing q/k = identity, residual
+    projections = zero-init, AdaLN = zero-init) are skipped.
+    """
+    scaled_std = initializer_range / max(n_residuals, 1) ** 0.5
+    for name, m in isotropic.named_modules():
+        if not isinstance(m, nn.Linear):
+            continue
+        if getattr(m.weight, "_no_reinit", False):
+            continue
+        if "out_proj" in name or "fc2" in name:
+            nn.init.normal_(m.weight, mean=0.0, std=scaled_std)
+        else:
+            nn.init.normal_(m.weight, mean=0.0, std=initializer_range)
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)

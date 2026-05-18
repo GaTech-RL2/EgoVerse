@@ -195,6 +195,25 @@ class ZarrEpisodePackedDataset(Dataset):
         )
 
     # ------------------------------------------------------------------ #
+    # Norm-stat plumbing (trainHydra parity with MultiDataset)
+    # ------------------------------------------------------------------ #
+
+    def set_norm_stats_from(self, source) -> None:
+        """No-op compatibility hook.
+
+        ``MultiDataset.set_norm_stats_from`` wires per-key normalization
+        stats into the dataset so that ``__getitem__`` normalizes at read
+        time. The packed dataset deliberately keeps reads raw — normalization
+        for the algo's packed batches happens algo-side in
+        ``HNet.process_batch_for_training`` via ``norm_stats.normalize(...)``.
+
+        Implemented as a no-op so trainHydra's
+        ``for ds in datasets: ds.set_norm_stats_from(norm_stats)`` loop runs
+        uniformly across padded and packed datasets.
+        """
+        return None
+
+    # ------------------------------------------------------------------ #
     # Dataset protocol
     # ------------------------------------------------------------------ #
 
