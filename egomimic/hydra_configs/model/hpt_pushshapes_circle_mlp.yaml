@@ -1,12 +1,16 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hpt.HPT
-  # ``norm_stats`` is injected at runtime by pl_model._instantiate_model;
-  # do not set it here. Replaces the old ``data_schematic`` arg.
+  # Regression variant of hpt_pushshapes_circle.
+  # - diffusion: false so hpt.py:666 does NOT wrap features into a (features, domain)
+  #   tuple (which FMPolicy expects). MLPPolicyHead just takes raw features.
+  # - head is MLPPolicyHead: trunk emits (B, 32, embed_dim) action tokens,
+  #   the MLP maps embed_dim -> action_dim per token. Direct L1/MSE regression
+  #   on actions, no flow-matching sampling.
 
   camera_transforms: null
 
-  diffusion: true
+  diffusion: false
   6dof: false
 
   ac_keys:
@@ -65,24 +69,13 @@ robomimic_model:
 
   head_specs:
     pushshapes_sim:
-      _target_: egomimic.models.fm_policy.FMPolicy
-      action_horizon: 32
-      num_inference_steps: 50
-      pooling: null
-      time_dist: "beta"
-      infer_ac_dims:
-        pushshapes_sim: 2
-      model:
-        _target_: egomimic.models.denoising_nets.CrossTransformer
-        nblocks: 4
-        cond_dim: 128
-        hidden_dim: 64
-        act_dim: 2
-        act_seq: 32
-        n_heads: 4
-        dropout: 0.1
-        mlp_layers: 4
-        mlp_ratio: 4
+      _target_: egomimic.models.hpt_nets.MLPPolicyHead
+      input_dim: 128       # = trunk.embed_dim (per-token feature size)
+      output_dim: 2        # = action_dim for pushshapes_sim (x, y)
+      widths: [128, 128]
+      dropout: false
+      ln: true
+      tanh_end: false
 
   encoder_specs:
     front_img_1:
