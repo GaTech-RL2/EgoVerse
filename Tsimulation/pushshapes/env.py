@@ -51,11 +51,12 @@ class PushShapesEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 30}
 
     WORLD_SIZE: float = 512.0
-    PUSHER_SPEED: float = 200.0  # px/sec cap on commanded velocity
-    DT: float = 1.0 / 30.0  # outer step is 1/30s; subdivided for contacts
-    SUBSTEPS: int = 10
-    DAMPING: float = 0.85  # global linear damping → object drifts to rest
-    SUCCESS_THRESHOLD: float = 0.95  # IoU(object, goal) needed to terminate
+    PUSHER_SPEED: float = 200.0
+    DT: float = 1.0 / 30.0
+    SUBSTEPS: int = 20
+    DAMPING: float = 0
+    STICK_TURN_RATE: float = 4.0  # rad/s — max kinematic rotation of stick pusher
+    SUCCESS_THRESHOLD: float = 0.95
     SPAWN_MARGIN: float = 60.0
 
     def __init__(
@@ -200,9 +201,10 @@ class PushShapesEnv(gym.Env):
             self._drive_pusher_toward(tx, ty, dt_sub)
             self._space.step(dt_sub)
 
-        # Zero pusher velocity between outer steps so a stale velocity
-        # doesn't drift contacts when no new action comes in.
+        # Zero pusher velocity (and angular velocity) between outer steps so
+        # stale motion doesn't drift contacts when no new action comes in.
         self._pusher_body.velocity = (0.0, 0.0)
+        self._pusher_body.angular_velocity = 0.0
         self._step_count += 1
 
         coverage = float(self._coverage())
@@ -282,22 +284,38 @@ class PushShapesEnv(gym.Env):
     # ------------------------------------------------------------------ #
 
     def _drive_pusher_toward(self, tx: float, ty: float, dt_sub: float) -> None:
-        """Single-substep velocity command toward (tx, ty) in world coords."""
-        pos = self._pusher_body.position
+        """Single-substep velocity command toward (tx, ty) in world coords.
+
+        For the stick pusher we set `angular_velocity` (rather than snapping
+        `angle`) so contact impulses on the object stay smooth — the
+        kinematic body integrates the spin over the substep.
+        """
+        body = self._pusher_body
+        pos = body.position
         dx, dy = tx - pos.x, ty - pos.y
         dist = math.hypot(dx, dy)
         if dist < _MIN_TARGET_DIST:
-            self._pusher_body.velocity = (0.0, 0.0)
+            body.velocity = (0.0, 0.0)
+            body.angular_velocity = 0.0
             return
+
         # Cap by PUSHER_SPEED but also by distance-remaining-per-substep so
         # we don't overshoot the target inside a single substep.
         speed = min(self.PUSHER_SPEED, dist / dt_sub)
         ux, uy = dx / dist, dy / dist
-        self._pusher_body.velocity = (ux * speed, uy * speed)
+        body.velocity = (ux * speed, uy * speed)
+
         if self.pusher_shape == "stick" and dist > _MIN_STICK_TURN_DIST:
-            # KINEMATIC body — angle can be set directly without disturbing
-            # the physics solver.
-            self._pusher_body.angle = math.atan2(uy, ux)
+            # Shortest signed angle diff to the velocity direction, capped at
+            # STICK_TURN_RATE so the stick eases into its new heading rather
+            # than rotating instantly through contacts.
+            desired = math.atan2(uy, ux)
+            diff = (desired - float(body.angle) + math.pi) % (2 * math.pi) - math.pi
+            body.angular_velocity = max(
+                -self.STICK_TURN_RATE, min(self.STICK_TURN_RATE, diff / dt_sub)
+            )
+        else:
+            body.angular_velocity = 0.0
 
     def _build_boundary_walls(self) -> None:
         """Four static segments enclosing the 512x512 arena."""
