@@ -1213,12 +1213,22 @@ class HPT(Algo):
             robo_batch = dict(obs_norm)
             # Sanity: zeroes are fine — HPT only uses ``batch[ac_key]``
             # for the train-time loss target, never for inference shape.
-            action_dim = (
-                policy_module.heads[embodiment_name].infer_ac_dims[embodiment_name]
-                if hasattr(policy_module, "heads")
+            # Resolve action_dim from the head. FMPolicy stores it in
+            # ``infer_ac_dims``; simpler heads (MLPPolicyHead,
+            # MultiBlockTransformerDecoder) expose ``output_dim``. Fall back
+            # to 2 (pushshapes default) if neither is set.
+            head = None
+            if (
+                hasattr(policy_module, "heads")
                 and embodiment_name in policy_module.heads
-                else 2  # pushshapes default
-            )
+            ):
+                head = policy_module.heads[embodiment_name]
+            if head is not None and hasattr(head, "infer_ac_dims"):
+                action_dim = head.infer_ac_dims[embodiment_name]
+            elif head is not None and hasattr(head, "output_dim"):
+                action_dim = int(head.output_dim)
+            else:
+                action_dim = 2  # pushshapes default
             robo_batch[ac_key] = torch.zeros(
                 B,
                 chunk_size,
