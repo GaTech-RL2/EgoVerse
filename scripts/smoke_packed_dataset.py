@@ -48,7 +48,7 @@ KEY_MAP = {
     },
 }
 
-DATA_FOLDER = "/coc/cedarp-dxu345-0/Tsim_datasets/test_demos"
+DATA_FOLDER = "/coc/cedarp-dxu345-0/Tsim_datasets2/circle"
 OUT_DIR = Path("./packed_smoke_out")
 N_EPISODES_TO_SAVE_VIDEOS = 2  # cap on per-episode MP4 dumps
 VIDEO_FPS = 30
