@@ -13,9 +13,8 @@ train_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
       key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: 32
-        window_obs: false
       transform_list: null
     mode: total
     skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
@@ -30,9 +29,8 @@ valid_datasets:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
       key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: 32
-        window_obs: false
       transform_list: null
     mode: total
     skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
