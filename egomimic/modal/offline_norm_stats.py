@@ -1,14 +1,24 @@
-"""Offline normalization-statistics computation on Modal CPUs.
+"""Offline normalization-statistics computation on Modal CPUs — sharded edition.
 
-Intentionally self-contained (no egomimic imports at module level) because
-Modal mounts this file as /root/offline_norm_stats.py before the repo is cloned.
+Architecture
+------------
+* A coordinator container (run_norm_stats) clones the repo, loads the data
+  config, queries the SQL episode table, splits episodes into N_SHARDS chunks,
+  and fans out to compute_shard_stats via .map().
+* Each shard container reads its episodes directly from the zarr volume,
+  accumulates Welford online mean/std (Chan's parallel formula), running
+  min/max, and per-dimension t-digest sketches for quantiles.
+* The coordinator merges all shard results (exact mean/std via Chan's,
+  exact min/max, approximate quantiles via merged t-digests) and writes
+  norm_stats.json.
 
-Computes norm stats for a given data config and writes:
-  <training-outputs-volume>/precomputed_norm_stats/<data_config>/norm_stats.json
+~300 containers × own FUSE daemon → ~300× throughput vs a single container.
+Each shard reads only SAMPLES_PER_SHARD frames per key then exits early.
 
 Usage:
-    modal run --env robotics egomimic/modal/offline_norm_stats.py \\
-        -- mecka_all_zarr [--cpu 32] [--memory_gb 128] [--num_workers 30] [--sample_frac 1.0] [--batch_size 512]
+    modal run --detach --env robotics egomimic/modal/offline_norm_stats.py \\
+        -- mecka_all_zarr [--n_shards 300] [--samples_per_shard 700]
+                          [--exclude_hashes_file /path/to/failures.jsonl]
 
 In training, point at the result with:
     norm_stats.precomputed_norm_path=precomputed_norm_stats/<data_config>
@@ -27,23 +37,7 @@ import modal
 os.environ.setdefault("MODAL_ENVIRONMENT", "robotics")
 
 # ---------------------------------------------------------------------------
-# Parse --cpu / --memory_gb from sys.argv before the decorator below runs
-# ---------------------------------------------------------------------------
-
-
-def _extract_arg(argv: list[str], flag: str, default: str) -> str:
-    for i, a in enumerate(argv):
-        if a == flag and i + 1 < len(argv):
-            return argv[i + 1]
-    return default
-
-
-_argv = sys.argv[1:]
-_CPU = float(_extract_arg(_argv, "--cpu", "16"))
-_MEMORY_MB = int(float(_extract_arg(_argv, "--memory_gb", "64")) * 1024)
-
-# ---------------------------------------------------------------------------
-# Inline config (mirrors run.py — no egomimic import needed)
+# Inline config
 # ---------------------------------------------------------------------------
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -52,7 +46,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 @dataclass
 class _Config:
     remote_repo_dir: str = "/root/EgoVerse"
-    python_bin: str = "python3"
     zarr_volume_name: str = field(
         default_factory=lambda: os.environ.get("MODAL_ZARR_VOLUME", "mecka_data_v2")
     )
@@ -66,7 +59,7 @@ class _Config:
 CFG = _Config()
 
 # ---------------------------------------------------------------------------
-# Image and volumes (same as run.py)
+# Image — add tdigest for mergeable quantile sketches
 # ---------------------------------------------------------------------------
 
 image = (
@@ -128,6 +121,7 @@ image = (
         "pyzmq",
         "torchvision==0.21.0",
         "s5cmd",
+        "tdigest==0.5.2.1",
     )
 )
 
@@ -141,7 +135,7 @@ _TIMEOUT = 3 * 3600
 _NORM_SUBDIR = "precomputed_norm_stats"
 
 # ---------------------------------------------------------------------------
-# Container helpers (inlined from run.py — no egomimic import)
+# Container helpers
 # ---------------------------------------------------------------------------
 
 
@@ -179,9 +173,6 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
         ["git", "-C", CFG.remote_repo_dir, "submodule", "update", "--init", "--recursive"],
         check=True,
     )
-    # Register egomimic as an editable install without touching deps
-    # (all deps come from the Modal image). uv pip --system writes to the
-    # system Python that the container process is already running.
     subprocess.run(
         ["uv", "pip", "install", "--system", "-e", ".", "--no-deps"],
         cwd=CFG.remote_repo_dir,
@@ -190,13 +181,182 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Modal function
+# Shard worker — no repo clone, reads zarr directly
 # ---------------------------------------------------------------------------
 
 
 @app.function(
-    cpu=_CPU,
-    memory=_MEMORY_MB,
+    cpu=2,
+    memory=4 * 1024,
+    timeout=1800,
+    volumes={CFG.volume_mount_path: zarr_volume},
+)
+def compute_shard_stats(
+    shard_id: int,
+    episodes: list[dict],
+    norm_key_map: dict,
+    samples_per_shard: int,
+) -> dict:
+    """Per-shard stats: Welford online mean/std, running min/max, t-digest quantiles.
+
+    episodes: [{"episode_hash", "local_path", "num_frames"}, ...]
+    norm_key_map: {key_name: {"zarr_key": str}}
+    Returns serialized per-key stats dict.
+    """
+    import random
+    import numpy as np
+    import zarr
+    from tdigest import TDigest
+
+    accum: dict = {}
+    samples_collected = {k: 0 for k in norm_key_map}
+
+    episodes = list(episodes)
+    random.shuffle(episodes)
+
+    for ep in episodes:
+        if all(c >= samples_per_shard for c in samples_collected.values()):
+            break
+
+        try:
+            store = zarr.open_group(ep["local_path"], mode="r")
+        except Exception as e:
+            print(f"[Shard {shard_id}] Failed to open {ep['local_path']}: {e}")
+            continue
+
+        n_frames = max(1, int(ep["num_frames"]))
+
+        for key_name, key_info in norm_key_map.items():
+            need = samples_per_shard - samples_collected[key_name]
+            if need <= 0:
+                continue
+
+            zarr_key = key_info["zarr_key"]
+            try:
+                raw = store[zarr_key][:]  # (n_frames, *shape)
+            except Exception:
+                continue
+
+            raw = np.asarray(raw, dtype=np.float64).reshape(n_frames, -1)
+            n_take = min(need, n_frames)
+            idx = (
+                random.sample(range(n_frames), n_take)
+                if n_take < n_frames
+                else list(range(n_frames))
+            )
+            frames = raw[idx]  # (n_take, n_dims)
+            n_b, n_dims = frames.shape
+
+            if key_name not in accum:
+                accum[key_name] = {
+                    "n": 0,
+                    "mean": np.zeros(n_dims),
+                    "M2": np.zeros(n_dims),
+                    "min": np.full(n_dims, np.inf),
+                    "max": np.full(n_dims, -np.inf),
+                    "digests": [TDigest() for _ in range(n_dims)],
+                }
+
+            a = accum[key_name]
+            n_a = a["n"]
+            batch_mean = frames.mean(axis=0)
+            batch_M2 = ((frames - batch_mean) ** 2).sum(axis=0)
+
+            # Chan's parallel formula
+            if n_a == 0:
+                a["mean"] = batch_mean.copy()
+                a["M2"] = batch_M2.copy()
+            else:
+                n_c = n_a + n_b
+                delta = batch_mean - a["mean"]
+                a["mean"] = (n_a * a["mean"] + n_b * batch_mean) / n_c
+                a["M2"] = a["M2"] + batch_M2 + delta ** 2 * n_a * n_b / n_c
+
+            a["n"] += n_b
+            np.minimum(a["min"], frames.min(axis=0), out=a["min"])
+            np.maximum(a["max"], frames.max(axis=0), out=a["max"])
+
+            for dim_i in range(n_dims):
+                a["digests"][dim_i].batch_update(frames[:, dim_i].tolist())
+
+            samples_collected[key_name] += n_b
+
+    # Serialize
+    out: dict = {}
+    for key_name, a in accum.items():
+        if a["n"] == 0:
+            continue
+        out[key_name] = {
+            "n": int(a["n"]),
+            "mean": a["mean"].tolist(),
+            "M2": a["M2"].tolist(),
+            "min": a["min"].tolist(),
+            "max": a["max"].tolist(),
+            # Per-dim: list of {"centroids": [{"m": float, "c": float}], "n": int}
+            "tdigests": [a["digests"][i].to_dict() for i in range(len(a["digests"]))],
+        }
+
+    print(f"[Shard {shard_id}] collected={samples_collected}")
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Merge helpers
+# ---------------------------------------------------------------------------
+
+
+def _chan_merge(acc: dict, shard: dict) -> dict:
+    """Merge one shard's Welford stats into the running accumulator (in-place)."""
+    import numpy as np
+
+    n_a = acc["n"]
+    n_b = shard["n"]
+    if n_b == 0:
+        return acc
+
+    mean_b = np.asarray(shard["mean"])
+    M2_b = np.asarray(shard["M2"])
+    min_b = np.asarray(shard["min"])
+    max_b = np.asarray(shard["max"])
+
+    if n_a == 0:
+        acc["mean"] = mean_b.copy()
+        acc["M2"] = M2_b.copy()
+        acc["min"] = min_b.copy()
+        acc["max"] = max_b.copy()
+        acc["n"] = n_b
+        return acc
+
+    n_c = n_a + n_b
+    mean_a = np.asarray(acc["mean"])
+    delta = mean_b - mean_a
+    acc["mean"] = (n_a * mean_a + n_b * mean_b) / n_c
+    acc["M2"] = np.asarray(acc["M2"]) + M2_b + delta ** 2 * n_a * n_b / n_c
+    acc["min"] = np.minimum(acc["min"], min_b)
+    acc["max"] = np.maximum(acc["max"], max_b)
+    acc["n"] = n_c
+    return acc
+
+
+def _merge_tdigests(all_td_dicts: list[dict]):
+    """Merge a list of t-digest dicts (from to_dict()) into one TDigest."""
+    from tdigest import TDigest
+
+    merged = TDigest()
+    for td in all_td_dicts:
+        for c in td.get("centroids", []):
+            merged.update(c["m"], c["c"])
+    return merged
+
+
+# ---------------------------------------------------------------------------
+# Coordinator
+# ---------------------------------------------------------------------------
+
+
+@app.function(
+    cpu=8,
+    memory=32 * 1024,
     timeout=_TIMEOUT,
     secrets=[modal.Secret.from_name(name) for name in CFG.secret_names],
     volumes={
@@ -206,42 +366,35 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
 )
 def run_norm_stats(
     data_config: str,
-    num_workers: int,
-    sample_frac: float,
-    batch_size: int,
     git_remote: str,
     git_commit: str,
+    n_shards: int = 300,
+    samples_per_shard: int = 700,
     exclude_hashes: list[str] | None = None,
 ) -> str:
-    """Clone the repo and compute norm stats for *data_config*.
-
-    Returns the container path of the written norm_stats.json.
-    """
+    """Fan out to shard workers, merge results, write norm_stats.json."""
     import copy
     import json
+    import math
     import sys
+    import time
+
+    import numpy as np
 
     _prepare_repo(git_remote=git_remote, git_commit=git_commit)
     zarr_volume.reload()
-
-    # uv pip --system writes to the system Python's site-packages, but the
-    # current process won't pick up the new .pth until it restarts. Add the
-    # repo root directly so egomimic is importable in-process.
     sys.path.insert(0, CFG.remote_repo_dir)
 
     import hydra
-    import numpy as np
     from omegaconf import OmegaConf, open_dict
 
     from egomimic.utils.aws.aws_data_utils import load_env
+    from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
     from egomimic.rldb.embodiment.embodiment import get_embodiment_id
-    from egomimic.rldb.zarr.utils import DataSchematic
 
     load_env()
     OmegaConf.register_new_resolver("eval", eval, replace=True)
 
-    # Load just the data config YAML directly — no full Hydra compose needed,
-    # which avoids pulling in trainer / model / callback defaults.
     data_cfg_path = (
         Path(CFG.remote_repo_dir) / "egomimic" / "hydra_configs" / "data" / f"{data_config}.yaml"
     )
@@ -249,119 +402,165 @@ def run_norm_stats(
         raise FileNotFoundError(f"Data config not found: {data_cfg_path}")
     data_cfg = OmegaConf.load(str(data_cfg_path))
 
-    # ---- Pass 1: build combined schematic_dict from all train datasets ----
-    # We instantiate the key_map for each dataset, strip camera/annotation
-    # keys, and collect the {key_name: {key_type, zarr_key}} entries needed
-    # to construct DataSchematic.
-    schematic_dict: dict = {}
-    prepared_ds_cfgs: dict = {}
+    out_path = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # ---- Build norm_key_map from config ----
+    all_stats_out: dict = {}
 
     for dataset_name, ds_cfg_raw in data_cfg.train_datasets.items():
-        print(f"[NormStats] Building schematic for <{dataset_name}>")
+        print(f"[NormStats] Processing dataset <{dataset_name}>")
+
         ds_cfg = copy.deepcopy(ds_cfg_raw)
         with open_dict(ds_cfg):
             if OmegaConf.select(ds_cfg, "resolver.debug", default=None) is not None:
                 ds_cfg.resolver.debug = False
-            if exclude_hashes:
-                ds_cfg.resolver.exclude_hashes = list(exclude_hashes)
 
-        # Instantiate key_map to get the actual {key_name: {...}} dict
         key_map = hydra.utils.instantiate(ds_cfg.resolver.key_map)
         norm_key_map = {
-            k: v for k, v in key_map.items()
-            if isinstance(v, dict) and v.get("key_type") not in ("camera_keys", "annotation_keys")
+            k: {"zarr_key": v["zarr_key"]}
+            for k, v in key_map.items()
+            if isinstance(v, dict)
+            and v.get("key_type") not in ("camera_keys", "annotation_keys")
+            and "zarr_key" in v
         }
+        print(f"[NormStats] norm_key_map keys: {list(norm_key_map.keys())}")
 
-        schematic_dict[dataset_name] = {
-            key_name: {"key_type": key_info["key_type"], "zarr_key": key_info["zarr_key"]}
-            for key_name, key_info in norm_key_map.items()
-            if isinstance(key_info, dict) and "zarr_key" in key_info
-        }
-        prepared_ds_cfgs[dataset_name] = ds_cfg
+        # ---- Query SQL for episode list ----
+        engine = create_default_engine()
+        df = episode_table_to_df(engine)
+        if df.empty:
+            raise ValueError("SQL episode table is empty")
+        df = df[df["is_deleted"] != True]  # noqa: E712
+        if exclude_hashes:
+            df = df[~df["episode_hash"].isin(set(exclude_hashes))]
+            print(f"[NormStats] After excluding {len(exclude_hashes)} hashes: {len(df)} rows")
 
-    data_schematic = DataSchematic(schematic_dict=schematic_dict, norm_mode="quantile")
+        # ---- Find episodes present on local volume ----
+        volume_path = Path(CFG.volume_mount_path)
+        episodes: list[dict] = []
+        n_missing = 0
+        for _, row in df.iterrows():
+            h = row["episode_hash"]
+            local = next(
+                (p for p in (volume_path / h, volume_path / f"{h}.zarr") if p.is_dir()),
+                None,
+            )
+            if local is None:
+                n_missing += 1
+                continue
+            episodes.append({
+                "episode_hash": h,
+                "local_path": str(local),
+                "num_frames": int(row["num_frames"]),
+            })
 
-    out_path = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+        print(f"[NormStats] {len(episodes)} episodes found locally, {n_missing} missing")
 
-    # ---- Pass 2: infer shapes and norm stats per dataset ----
-    for dataset_name, ds_cfg in prepared_ds_cfgs.items():
-        print(f"[NormStats] Instantiating dataset <{dataset_name}>")
-        sample_dataset = hydra.utils.instantiate(ds_cfg)
-        data_schematic.infer_shapes_from_batch(sample_dataset[0])
+        if not episodes:
+            raise ValueError("No episodes found on local volume.")
 
-        # Build the norm dataset: train split only, camera/annotation keys stripped
-        norm_cfg = copy.deepcopy(ds_cfg)
-        km = OmegaConf.to_container(norm_cfg.resolver.key_map, resolve=False)
-        km["norm_mode"] = True
-        norm_cfg.resolver.key_map = km
-        with open_dict(norm_cfg):
-            norm_cfg.mode = "train"
-        norm_dataset = hydra.utils.instantiate(norm_cfg)
+        # ---- Split into shards ----
+        actual_shards = min(n_shards, len(episodes))
+        shard_size = math.ceil(len(episodes) / actual_shards)
+        shards = [
+            episodes[i: i + shard_size]
+            for i in range(0, len(episodes), shard_size)
+        ]
+        print(f"[NormStats] {len(shards)} shards × ~{shard_size} episodes each, "
+              f"{samples_per_shard} samples/shard/key → "
+              f"~{len(shards) * samples_per_shard} total samples/key")
 
-        emb_id = str(get_embodiment_id(dataset_name))
-        ckpt_dir = out_path.parent / "checkpoints"
-
-        def _make_checkpoint_fn(ckpt_dir=ckpt_dir, emb_id=emb_id):
-            def _fn(collected, pct):
-                partial: dict = {}
-                for k, arrays in collected.items():
-                    if not arrays:
-                        continue
-                    X = np.concatenate(arrays, axis=0)
-                    partial[k] = {
-                        stat_name: np.asarray(arr).tolist()
-                        for stat_name, arr in data_schematic._compute_stats_for_array(X).items()
-                    }
-                ckpt_path = ckpt_dir / str(pct) / "norm_stats.json"
-                ckpt_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(ckpt_path, "w") as f:
-                    json.dump({"stats": {emb_id: partial}, "checkpoint_pct": pct}, f, indent=4)
-                training_outputs_volume.commit()
-                print(f"[NormStats] Checkpoint {pct}% → {ckpt_path}")
-            return _fn
-
-        data_schematic.infer_norm_from_dataset(
-            norm_dataset,
-            dataset_name,
-            sample_frac=sample_frac,
-            num_workers=num_workers,
-            batch_size=batch_size,
-            checkpoint_fn=_make_checkpoint_fn(),
+        # ---- Fan out ----
+        t_start = time.time()
+        shard_inputs = [
+            (i, shard, norm_key_map, samples_per_shard)
+            for i, shard in enumerate(shards)
+        ]
+        shard_results = list(
+            compute_shard_stats.starmap(shard_inputs)
         )
+        elapsed = time.time() - t_start
+        print(f"[NormStats] All shards complete in {elapsed:.1f}s")
 
-        emb_id = get_embodiment_id(dataset_name)
-        produced = data_schematic.norm_stats.get(emb_id, {})
-        if not produced:
-            raise RuntimeError(f"[NormStats] No stats produced for dataset={dataset_name}")
-        print(f"[NormStats] Validated {len(produced)} keys for <{dataset_name}>")
+        # ---- Merge ----
+        merged: dict = {k: {"n": 0, "mean": None, "M2": None, "min": None, "max": None} for k in norm_key_map}
+        # Per key per dim: collect all shard t-digest dicts
+        per_key_dim_tdigests: dict = {k: None for k in norm_key_map}
 
-    stats_out: dict = {}
-    for emb, keys_dict in data_schematic.norm_stats.items():
-        stats_out[str(emb)] = {
-            key_name: {
-                stat_name: np.asarray(arr).tolist()
-                for stat_name, arr in stat_dict.items()
+        for shard_result in shard_results:
+            for key_name in norm_key_map:
+                if key_name not in shard_result:
+                    continue
+                sr = shard_result[key_name]
+                merged[key_name] = _chan_merge(merged[key_name], sr)
+
+                # Accumulate t-digest dicts per dimension
+                if per_key_dim_tdigests[key_name] is None:
+                    n_dims = len(sr["tdigests"])
+                    per_key_dim_tdigests[key_name] = [[] for _ in range(n_dims)]
+                for dim_i, td_dict in enumerate(sr["tdigests"]):
+                    per_key_dim_tdigests[key_name][dim_i].append(td_dict)
+
+        # ---- Compute final stats ----
+        emb_id = str(get_embodiment_id(dataset_name))
+        key_stats: dict = {}
+
+        for key_name in norm_key_map:
+            m = merged[key_name]
+            if m["n"] == 0 or m["mean"] is None:
+                print(f"[NormStats] No data for key {key_name}, skipping")
+                continue
+
+            mean = np.asarray(m["mean"], dtype=np.float32)
+            std = np.sqrt(np.asarray(m["M2"]) / m["n"]).astype(np.float32)
+            min_ = np.asarray(m["min"], dtype=np.float32)
+            max_ = np.asarray(m["max"], dtype=np.float32)
+
+            n_dims = len(mean)
+            quantile_stats = {
+                "median": np.zeros(n_dims, dtype=np.float32),
+                "quantile_1": np.zeros(n_dims, dtype=np.float32),
+                "quantile_99": np.zeros(n_dims, dtype=np.float32),
+                "quantile_0_01": np.zeros(n_dims, dtype=np.float32),
+                "quantile_99_99": np.zeros(n_dims, dtype=np.float32),
             }
-            for key_name, stat_dict in keys_dict.items()
-        }
 
-    payload: dict = {
-        "stats": stats_out,
+            if per_key_dim_tdigests[key_name] is not None:
+                for dim_i in range(n_dims):
+                    td = _merge_tdigests(per_key_dim_tdigests[key_name][dim_i])
+                    quantile_stats["median"][dim_i] = td.percentile(50)
+                    quantile_stats["quantile_1"][dim_i] = td.percentile(1)
+                    quantile_stats["quantile_99"][dim_i] = td.percentile(99)
+                    quantile_stats["quantile_0_01"][dim_i] = td.percentile(0.01)
+                    quantile_stats["quantile_99_99"][dim_i] = td.percentile(99.99)
+
+            key_stats[key_name] = {
+                "mean": mean.tolist(),
+                "std": std.tolist(),
+                "min": min_.tolist(),
+                "max": max_.tolist(),
+                **{k: v.tolist() for k, v in quantile_stats.items()},
+            }
+            print(f"[NormStats] key={key_name} n={m['n']} shape={mean.shape}")
+
+        if not key_stats:
+            raise RuntimeError(f"No stats produced for dataset={dataset_name}")
+
+        all_stats_out[emb_id] = key_stats
+
+    payload = {
+        "stats": all_stats_out,
         "loading_time": None,
         "computing_time": None,
-        "frames": None,
+        "frames": sum(m["n"] for key_name in norm_key_map for m in [merged.get(key_name, {"n": 0})]),
     }
-    if data_schematic._norm_run_metadata is not None:
-        for k in ("loading_time", "computing_time", "frames"):
-            if k in data_schematic._norm_run_metadata:
-                payload[k] = data_schematic._norm_run_metadata[k]
 
     with open(out_path, "w") as f:
         json.dump(payload, f, indent=4)
 
     training_outputs_volume.commit()
-    print(f"[NormStats] Saved to {out_path}")
+    print(f"[NormStats] Saved → {out_path}")
     return str(out_path)
 
 
@@ -399,53 +598,47 @@ def _resolve_git_state() -> tuple[str, str, bool]:
 
 @app.local_entrypoint()
 def main(*args: str) -> None:
-    """Compute and cache norm stats for a data config on Modal CPUs."""
+    """Compute norm stats via sharded Modal containers with t-digest quantiles."""
     import argparse
+    import json as _json
 
     parser = argparse.ArgumentParser(prog="offline_norm_stats")
     parser.add_argument("data_config", help="Data config name, e.g. mecka_all_zarr")
-    parser.add_argument("--cpu", type=float, default=16.0, help="CPU cores (max 64)")
-    parser.add_argument("--memory_gb", type=float, default=64.0, help="RAM in GB")
-    parser.add_argument("--num_workers", type=int, default=16, help="DataLoader workers")
-    parser.add_argument("--sample_frac", type=float, default=1.0, help="Fraction of episodes to sample (0.0–1.0)")
-    parser.add_argument("--batch_size", type=int, default=512, help="DataLoader batch size for norm collection")
-    parser.add_argument("--exclude_hashes_file", type=str, default=None, help="Path to a JSONL file with episode_hash fields to exclude")
+    parser.add_argument("--n_shards", type=int, default=300, help="Number of parallel shard containers")
+    parser.add_argument("--samples_per_shard", type=int, default=700, help="Frames per key per shard")
+    parser.add_argument("--exclude_hashes_file", type=str, default=None,
+                        help="JSONL file with episode_hash fields to exclude")
     parsed = parser.parse_args(list(args))
 
     exclude_hashes: list[str] = []
     if parsed.exclude_hashes_file:
-        import json as _json
         with open(parsed.exclude_hashes_file) as f:
             for line in f:
                 line = line.strip()
                 if line:
                     exclude_hashes.append(_json.loads(line)["episode_hash"])
-        print(f"Loaded {len(exclude_hashes)} episode hashes to exclude from {parsed.exclude_hashes_file}")
+        print(f"Loaded {len(exclude_hashes)} hashes to exclude")
 
     git_remote, git_commit, is_dirty = _resolve_git_state()
     if is_dirty:
         print("Warning: local repo has uncommitted changes. Modal runs the last committed state.")
 
+    total_samples = parsed.n_shards * parsed.samples_per_shard
     print(
         f"Submitting norm-stats job: data={parsed.data_config!r} "
-        f"cpu={parsed.cpu} memory={parsed.memory_gb}GB "
-        f"workers={parsed.num_workers} sample_frac={parsed.sample_frac} "
-        f"batch_size={parsed.batch_size}"
-        + (f" exclude_hashes={len(exclude_hashes)}" if exclude_hashes else "")
+        f"n_shards={parsed.n_shards} samples_per_shard={parsed.samples_per_shard} "
+        f"→ ~{total_samples:,} total samples/key"
+        + (f"  exclude_hashes={len(exclude_hashes)}" if exclude_hashes else "")
     )
 
     out_path = run_norm_stats.remote(
         data_config=parsed.data_config,
-        num_workers=parsed.num_workers,
-        sample_frac=parsed.sample_frac,
-        batch_size=parsed.batch_size,
         git_remote=git_remote,
         git_commit=git_commit,
+        n_shards=parsed.n_shards,
+        samples_per_shard=parsed.samples_per_shard,
         exclude_hashes=exclude_hashes or None,
     )
 
     print(f"\nDone. Volume path: {out_path}")
-    print(
-        f"\nTo use in training:\n"
-        f"  norm_stats.precomputed_norm_path={_NORM_SUBDIR}/{parsed.data_config}"
-    )
+    print(f"\nTo use in training:\n  norm_stats.precomputed_norm_path={_NORM_SUBDIR}/{parsed.data_config}")
