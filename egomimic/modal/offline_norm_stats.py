@@ -360,6 +360,7 @@ def _merge_tdigests(all_td_dicts: list[dict]):
     cpu=8,
     memory=32 * 1024,
     timeout=_TIMEOUT,
+    allow_preemption=False,
     secrets=[modal.Secret.from_name(name) for name in CFG.secret_names],
     volumes={
         CFG.volume_mount_path: zarr_volume,
