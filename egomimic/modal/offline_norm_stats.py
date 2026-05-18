@@ -211,6 +211,7 @@ def run_norm_stats(
     batch_size: int,
     git_remote: str,
     git_commit: str,
+    exclude_hashes: list[str] | None = None,
 ) -> str:
     """Clone the repo and compute norm stats for *data_config*.
 
@@ -261,6 +262,8 @@ def run_norm_stats(
         with open_dict(ds_cfg):
             if OmegaConf.select(ds_cfg, "resolver.debug", default=None) is not None:
                 ds_cfg.resolver.debug = False
+            if exclude_hashes:
+                ds_cfg.resolver.exclude_hashes = list(exclude_hashes)
 
         # Instantiate key_map to get the actual {key_name: {...}} dict
         key_map = hydra.utils.instantiate(ds_cfg.resolver.key_map)
@@ -406,7 +409,18 @@ def main(*args: str) -> None:
     parser.add_argument("--num_workers", type=int, default=16, help="DataLoader workers")
     parser.add_argument("--sample_frac", type=float, default=1.0, help="Fraction of episodes to sample (0.0–1.0)")
     parser.add_argument("--batch_size", type=int, default=512, help="DataLoader batch size for norm collection")
+    parser.add_argument("--exclude_hashes_file", type=str, default=None, help="Path to a JSONL file with episode_hash fields to exclude")
     parsed = parser.parse_args(list(args))
+
+    exclude_hashes: list[str] = []
+    if parsed.exclude_hashes_file:
+        import json as _json
+        with open(parsed.exclude_hashes_file) as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    exclude_hashes.append(_json.loads(line)["episode_hash"])
+        print(f"Loaded {len(exclude_hashes)} episode hashes to exclude from {parsed.exclude_hashes_file}")
 
     git_remote, git_commit, is_dirty = _resolve_git_state()
     if is_dirty:
@@ -417,6 +431,7 @@ def main(*args: str) -> None:
         f"cpu={parsed.cpu} memory={parsed.memory_gb}GB "
         f"workers={parsed.num_workers} sample_frac={parsed.sample_frac} "
         f"batch_size={parsed.batch_size}"
+        + (f" exclude_hashes={len(exclude_hashes)}" if exclude_hashes else "")
     )
 
     out_path = run_norm_stats.remote(
@@ -426,6 +441,7 @@ def main(*args: str) -> None:
         batch_size=parsed.batch_size,
         git_remote=git_remote,
         git_commit=git_commit,
+        exclude_hashes=exclude_hashes or None,
     )
 
     print(f"\nDone. Volume path: {out_path}")

@@ -597,9 +597,11 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
+        exclude_hashes: list[str] | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
         self.debug = debug
+        self.exclude_hashes: set[str] = set(exclude_hashes) if exclude_hashes else set()
 
     def resolve(
         self,
@@ -617,6 +619,11 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
         # Always exclude deleted episodes before any other filtering
         if "is_deleted" in df.columns:
             df = df[df["is_deleted"] != True]  # noqa: E712 — handles non-bool True values
+
+        if self.exclude_hashes:
+            before = len(df)
+            df = df[~df["episode_hash"].isin(self.exclude_hashes)]
+            logger.info("Excluded %d episodes via exclude_hashes", before - len(df))
 
         mask = df.apply(
             lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
