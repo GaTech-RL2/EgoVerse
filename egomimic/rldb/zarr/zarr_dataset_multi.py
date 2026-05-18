@@ -649,7 +649,6 @@ class LocalEpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug: int | bool | None = None,
         allowed_episode_ids: list[str] | None = None,
     ):
         super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
@@ -675,9 +674,6 @@ class LocalEpisodeResolver(EpisodeResolver):
         filters: DatasetFilter | None = None,
         debug: int | bool | None = None,
     ):
-        import time
-        from concurrent.futures import ThreadPoolExecutor, as_completed
-
         filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
@@ -923,7 +919,8 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
         for episode_hash, (num_frames, robot_name) in meta_lookup.items():
             local_path = next(
                 (
-                    p for p in (
+                    p
+                    for p in (
                         self.folder_path / episode_hash,
                         self.folder_path / f"{episode_hash}.zarr",
                     )
