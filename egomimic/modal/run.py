@@ -91,7 +91,7 @@ class _Config:
     timeout_seconds: int = 86400  # 24 h (Modal max)
 
     secret_names: list[str] = field(
-        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb"]
+        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb", "egoverse-db", "egoverse-sql"]
     )
 
 

@@ -224,6 +224,29 @@ def episode_table_to_df(engine):
             return df
 
 
+def bulk_mark_deleted_where_empty_path(engine) -> int:
+    """Mark is_deleted=True for all episodes whose zarr_processed_path is null or empty.
+
+    Returns the number of rows updated.
+    """
+    episodes_tbl = _episodes_table(engine)
+    from sqlalchemy import or_, null
+
+    stmt = (
+        update(episodes_tbl)
+        .where(
+            or_(
+                episodes_tbl.c.zarr_processed_path == None,
+                episodes_tbl.c.zarr_processed_path == "",
+            )
+        )
+        .values(is_deleted=True)
+    )
+    with engine.begin() as conn:
+        result = conn.execute(stmt)
+    return result.rowcount
+
+
 def reset_processed_path(engine, episode_hash):
     episodes_tbl = _episodes_table(engine)
     with engine.begin() as conn:

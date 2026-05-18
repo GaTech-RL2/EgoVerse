@@ -4,7 +4,7 @@ train_datasets:
   mecka_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalSQLEpisodeResolver
       folder_path: /mnt/zarr-data
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
@@ -18,7 +18,7 @@ valid_datasets:
   mecka_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalSQLEpisodeResolver
       folder_path: /mnt/zarr-data
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
