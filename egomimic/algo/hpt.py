@@ -1264,11 +1264,16 @@ class HPT(Algo):
 
         for key in proprio_keys:
             if key in batch:
-                data[f"state_{key}"] = batch[key].unsqueeze(1)
+                v = batch[key]
+                if v.dim() == 3:        # (B, T, D) windowed keymap; HPT uses obs_t=0
+                    v = v[:, 0]
+                data[f"state_{key}"] = v.unsqueeze(1)
 
         for key in cam_keys:
             if key in batch:
                 _data = batch[key]
+                if _data.dim() == 5:    # (B, T, C, H, W) windowed keymap; HPT uses obs_t=0
+                    _data = _data[:, 0]
                 if not torch.all(_data == 0):
                     if self.nets.training and key in self.encoders:
                         _data = self.train_image_augs(_data)

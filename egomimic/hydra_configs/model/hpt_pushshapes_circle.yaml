@@ -6,7 +6,7 @@ robomimic_model:
 
   camera_transforms: null
 
-  diffusion: true
+  diffusion: false
   6dof: false
 
   ac_keys:
