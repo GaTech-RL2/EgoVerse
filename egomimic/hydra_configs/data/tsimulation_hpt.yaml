@@ -15,6 +15,7 @@ train_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
         action_horizon: 32
+        window_obs: false
       transform_list: null
     mode: total
     skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
@@ -31,6 +32,7 @@ valid_datasets:
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
         action_horizon: 32
+        window_obs: false
       transform_list: null
     mode: total
     skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
