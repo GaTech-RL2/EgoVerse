@@ -7,10 +7,10 @@ train_datasets:
       folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        mode: keypoints
+        keymap_mode: keypoints
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: keypoints_wristframe_ypr
+        transform_mode: keypoints_wristframe_ypr
     filters:
       robot_name: "aria_bimanual"
       task: "fold_clothes_indomain"
@@ -23,10 +23,10 @@ valid_datasets:
       folder_path: /coc/flash7/scratch/egoverseS3ZarrDataset
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
-        mode: keypoints
+        keymap_mode: keypoints
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: keypoints_wristframe_ypr
+        transform_mode: keypoints_wristframe_ypr
     filters:
       robot_name: "aria_bimanual"
       task: "fold_clothes_indomain"
