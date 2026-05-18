@@ -1011,7 +1011,9 @@ class MultiDataset(torch.utils.data.Dataset):
                 self._global_indices_by_dataset[dataset_name].append(global_idx)
 
         self.data_schematic = None
-        self._warned_violations: set[str] = set()
+        self._n_bounds_violations = 0
+        self._n_naninf_violations = 0
+        self._violation_log_every = 50
 
         super().__init__()
 
@@ -1093,12 +1095,15 @@ class MultiDataset(torch.utils.data.Dataset):
                 prefix = (
                     f"NaN/Inf violation ep={episode_name} frame={idx} key={zarr_key}"
                 )
-                warn_key = f"nan_inf:{episode_name}:{zarr_key}"
-                if warn_key not in self._warned_violations:
-                    self._warned_violations.add(warn_key)
+                self._n_naninf_violations += 1
+                if (
+                    self._n_naninf_violations == 1
+                    or self._n_naninf_violations % self._violation_log_every == 0
+                ):
                     logger.warning(
                         f"{prefix} | n_nan={int(n_nan)} n_inf={int(n_inf)} "
-                        f"indices={bad_indices[:10]} values={[f'{v:.4f}' for v in bad_values[:10]]}"
+                        f"indices={bad_indices[:10]} values={[f'{v:.4f}' for v in bad_values[:10]]} "
+                        f"(total NaN/Inf violations so far: {self._n_naninf_violations})"
                     )
                 return prefix
 
@@ -1114,13 +1119,16 @@ class MultiDataset(torch.utils.data.Dataset):
                 prefix = (
                     f"Bounds violation ep={episode_name} frame={idx} key={zarr_key}"
                 )
-                warn_key = f"bounds:{episode_name}:{zarr_key}"
-                if warn_key not in self._warned_violations:
-                    self._warned_violations.add(warn_key)
+                self._n_bounds_violations += 1
+                if (
+                    self._n_bounds_violations == 1
+                    or self._n_bounds_violations % self._violation_log_every == 0
+                ):
                     logger.warning(
                         f"{prefix} | "
                         f"n_below={int(n_below)} below_vals={[f'{v:.4f}' for v in below_vals[:5]]} below_bound={[f'{b:.4f}' for b in below_bounds[:5]]} "
-                        f"n_above={int(n_above)} above_vals={[f'{v:.4f}' for v in above_vals[:5]]} above_bound={[f'{b:.4f}' for b in above_bounds[:5]]}"
+                        f"n_above={int(n_above)} above_vals={[f'{v:.4f}' for v in above_vals[:5]]} above_bound={[f'{b:.4f}' for b in above_bounds[:5]]} "
+                        f"(total bounds violations so far: {self._n_bounds_violations})"
                     )
                 return prefix
 

@@ -498,7 +498,7 @@ class PauseRemovalTransform(Transform):
     """
 
     def __init__(
-        self, action_keys: list[str], epsilon: float = 0.001, log_every: int = 2000
+        self, action_keys: list[str], epsilon: float = 0.001, log_every: int = 50
     ) -> None:
         self.action_keys = list(action_keys)
         self.epsilon = epsilon
@@ -534,7 +534,7 @@ class PauseRemovalTransform(Transform):
         self._n_calls += 1
         self._total_removed += n_removed
         self._total_frames += H
-        if self._n_calls % self.log_every == 0:
+        if self._n_calls == 1 or self._n_calls % self.log_every == 0:
             pct = 100 * self._total_removed / max(self._total_frames, 1)
             print(
                 f"[PauseRemoval] {self._n_calls} chunks processed: "
