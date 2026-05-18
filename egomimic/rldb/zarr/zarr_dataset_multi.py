@@ -239,8 +239,8 @@ class S3EpisodeResolver(EpisodeResolver):
         main_prefix: str = "processed_v3",
         key_map: dict | None = None,
         transform_list: list | None = None,
+        debug: int | bool | None = None,
         norm_stats: dict | None = None,
-        debug: bool = False,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
@@ -292,7 +292,7 @@ class S3EpisodeResolver(EpisodeResolver):
 
     @staticmethod
     def _get_filtered_paths(
-        filters: DatasetFilter | None = None, debug: bool = False
+        filters: DatasetFilter | None = None, debug: int | bool | None = None
     ) -> list[tuple[str, str]]:
         """
         Filters episodes from the SQL episode table according to the criteria specified in `filters`
@@ -319,18 +319,23 @@ class S3EpisodeResolver(EpisodeResolver):
             axis=1,
         )
         output = df.loc[mask, ["zarr_processed_path", "episode_hash"]]
-        before_len = len(output)
-
-        if debug:
-            logger.info("Debug mode: limiting to 10 datasets.")
-            output = output.head(10)
+        n_matched_sql = len(output)
 
         output = output[
             output["zarr_processed_path"].fillna("").astype(str).str.strip() != ""
         ]
-        logger.info(
-            f"Skipped {before_len - len(output)} episodes with null zarr_processed_path: {output}"
-        )
+        n_skipped_null = n_matched_sql - len(output)
+        if n_skipped_null:
+            logger.info(
+                "Skipped %d episodes with null/empty zarr_processed_path.",
+                n_skipped_null,
+            )
+
+        if debug is not None and debug is not False:
+            k = min(10 if debug is True else int(debug), len(output))
+            if k < len(output):
+                logger.info("Debug mode: limiting to %d datasets.", k)
+            output = output.iloc[:k]
 
         paths = list(output.itertuples(index=False, name=None))
         logger.info(f"Paths: {paths}")
@@ -430,7 +435,7 @@ class S3EpisodeResolver(EpisodeResolver):
         filters: DatasetFilter | None = None,
         local_dir: Path,
         numworkers: int = 10,
-        debug: bool = False,
+        debug: int | bool | None = None,
     ):
         """
         Public API:
@@ -478,6 +483,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        debug: int | bool | None = None,
         norm_stats: dict | None = None,
         debug=False,
         allowed_episode_ids: list[str] | None = None,
@@ -503,38 +509,46 @@ class LocalEpisodeResolver(EpisodeResolver):
         cls,
         search_path: Path,
         filters: DatasetFilter | None = None,
-        debug: bool = False,
+        debug: int | bool | None = None,
     ):
         filters = _ensure_dataset_filter(filters)
         if not search_path.is_dir():
             logger.warning("Local path does not exist: %s", search_path)
             return []
 
-        _DEBUG_LIMIT = 10
-        filtered = []
-        # Skip sorting in debug mode — avoids materialising all 198K+ entries upfront
-        entries = search_path.iterdir() if debug else sorted(search_path.iterdir())
-        for p in entries:
-            if not p.is_dir():
-                continue
-
-            episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
-
-            try:
-                store = zarr.open_group(str(p), mode="r")
-                metadata = dict(store.attrs)
-            except Exception as e:
-                logger.warning("Failed to read metadata for %s: %s", p, e)
-                continue
-
-            if cls._local_filters_match(metadata, episode_hash, filters):
+        if filters.is_empty():
+            filtered = []
+            for p in search_path.iterdir():
+                if not p.is_dir():
+                    continue
+                episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
                 filtered.append((str(p), episode_hash))
+            logger.info("Local paths (no filter): %d episodes", len(filtered))
+        else:
+            filtered = []
+            for p in search_path.iterdir():
+                if not p.is_dir():
+                    continue
 
-            if debug and len(filtered) >= _DEBUG_LIMIT:
-                logger.info("Debug mode: stopping early at %d datasets.", _DEBUG_LIMIT)
-                break
+                episode_hash = p.name[:-5] if p.name.endswith(".zarr") else p.name
 
-        logger.info("Local filtered paths: %s", filtered)
+                try:
+                    store = zarr.open_group(str(p), mode="r")
+                    metadata = dict(store.attrs)
+                except Exception as e:
+                    logger.warning("Failed to read metadata for %s: %s", p, e)
+                    continue
+
+                if cls._local_filters_match(metadata, episode_hash, filters):
+                    filtered.append((str(p), episode_hash))
+
+            logger.info("Local filtered paths: %d episodes", len(filtered))
+
+        if debug:
+            k = 10 if debug is True else int(debug)
+            filtered = filtered[:k]
+            logger.info("Debug mode: using first %d episodes", len(filtered))
+
         return filtered
 
     def resolve(
@@ -599,6 +613,114 @@ class LocalEpisodeResolver(EpisodeResolver):
                 search_path=self.folder_path, valid_folder_names=valid_folder_names
             )
 
+        return datasets
+
+
+class LocalSQLEpisodeResolver(EpisodeResolver):
+    """
+    Resolves episodes by querying the SQL episode table and loading matching
+    zarr stores from a local volume directory.
+
+    Filtering happens on the SQL table (fast — no per-file zarr reads).
+    Episodes present in the table but absent from the local volume are skipped
+    with a warning, so a partially-synced volume still works.
+    """
+
+    def __init__(
+        self,
+        folder_path: Path,
+        key_map: dict | None = None,
+        transform_list: list | None = None,
+        debug: int | bool | None = None,
+        norm_stats: dict | None = None,
+        exclude_hashes: list[str] | None = None,
+    ):
+        super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
+        self.debug = debug
+        self.exclude_hashes: set[str] = set(exclude_hashes) if exclude_hashes else set()
+
+    def resolve(
+        self,
+        filters: DatasetFilter | None = None,
+        **kwargs,
+    ) -> dict[str, "ZarrDataset"]:
+        filters = _ensure_dataset_filter(filters)
+
+        engine = create_default_engine()
+        df = episode_table_to_df(engine)
+
+        if df.empty:
+            raise ValueError("SQL episode table is empty.")
+
+        # Always exclude deleted episodes before any other filtering
+        if "is_deleted" in df.columns:
+            df = df[df["is_deleted"] != True]  # noqa: E712 — handles non-bool True values
+
+        if self.exclude_hashes:
+            before = len(df)
+            df = df[~df["episode_hash"].isin(self.exclude_hashes)]
+            logger.info("Excluded %d episodes via exclude_hashes", before - len(df))
+
+        mask = df.apply(
+            lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
+            axis=1,
+        )
+        matched = df.loc[mask, ["episode_hash", "num_frames", "robot_name"]]
+        episode_hashes = matched["episode_hash"].tolist()
+        logger.info("SQL filter matched %d episodes", len(episode_hashes))
+
+        if not episode_hashes:
+            raise ValueError("SQL filter matched no episodes.")
+
+        if self.debug:
+            k = 10 if self.debug is True else int(self.debug)
+            matched = matched.iloc[:k]
+            episode_hashes = matched["episode_hash"].tolist()
+            logger.info("Debug mode: using first %d episodes", len(episode_hashes))
+
+        dataset_class = self._dataset_class or ZarrDataset
+
+        # Build a lookup from episode_hash → (num_frames, robot_name) from SQL
+        meta_lookup = {
+            row["episode_hash"]: (int(row["num_frames"]), str(row["robot_name"]))
+            for _, row in matched.iterrows()
+        }
+
+        datasets: dict[str, ZarrDataset] = {}
+        n_missing = 0
+        for episode_hash, (num_frames, robot_name) in meta_lookup.items():
+            local_path = next(
+                (
+                    p for p in (
+                        self.folder_path / episode_hash,
+                        self.folder_path / f"{episode_hash}.zarr",
+                    )
+                    if p.is_dir()
+                ),
+                None,
+            )
+            if local_path is None:
+                n_missing += 1
+                logger.warning("Episode not found locally, skipping: %s", episode_hash)
+                continue
+            datasets[episode_hash] = dataset_class(
+                local_path,
+                key_map=self.key_map,
+                transform_list=self.transform_list,
+                norm_stats=self.norm_stats,
+                _total_frames=num_frames,
+                _embodiment=robot_name,
+            )
+
+        if n_missing:
+            logger.info("Skipped %d episodes not present in local volume", n_missing)
+
+        if not datasets:
+            raise ValueError(
+                "No episodes loaded — all SQL-matched episodes are missing from the local volume."
+            )
+
+        logger.info("Loaded %d episodes from local volume", len(datasets))
         return datasets
 
 
@@ -861,6 +983,8 @@ class ZarrDataset(torch.utils.data.Dataset):
         key_map: dict,
         transform_list: list | None = None,
         norm_stats: dict | None = None,
+        _total_frames: int | None = None,
+        _embodiment: str | None = None,
     ):
         """
         Args:
@@ -871,18 +995,33 @@ class ZarrDataset(torch.utils.data.Dataset):
                 {"quantile_1": tensor, "quantile_99": tensor} bounds. When provided, any
                 loaded sample whose values fall outside [quantile_1, quantile_99] for any
                 tracked key triggers the random index fallback.
+            _total_frames: if provided (e.g. from SQL), skip zarr open at init and defer to first __getitem__.
+            _embodiment: if provided alongside _total_frames, also skip zarr open at init.
         """
         self.episode_path = Episode_path
         self.metadata = None
-        self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
-        self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
+        self._image_keys = None
+        self._json_keys = None
         self._annotations = None
-        self.init_episode()
+        self.episode_reader = None
+
+        if _total_frames is not None and _embodiment is not None:
+            # Fast path: metadata supplied externally — defer zarr open to first access
+            self.total_frames = _total_frames
+            self.embodiment = _embodiment
+            self.keys_dict = {}
+        else:
+            self.init_episode()
 
         self.key_map = key_map
         self.transform = transform_list
         self.norm_stats = norm_stats or {}
         super().__init__()
+
+    def _ensure_episode_reader(self):
+        """Open the zarr store on first access if it was deferred at init."""
+        if self.episode_reader is None:
+            self.init_episode()
 
     def init_episode(self):
         """
@@ -994,10 +1133,10 @@ class ZarrDataset(torch.utils.data.Dataset):
         _fallback_origin: int | None = None,
         _attempts: int | None = None,
     ) -> dict[str, torch.Tensor]:
-        # Build keys_dict with ranges based on whether action chunking is enabled
         """
         ZarrDataset handles jpeg decoding and transform function errors, and triggers resample on dataset level.
         """
+        self._ensure_episode_reader()
         data = {}
         for k in self.key_map:
             zarr_key = self.key_map[k]["zarr_key"]
