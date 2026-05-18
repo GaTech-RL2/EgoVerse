@@ -224,8 +224,6 @@ def compute_shard_stats(
             print(f"[Shard {shard_id}] Failed to open {ep['local_path']}: {e}")
             continue
 
-        n_frames = max(1, int(ep["num_frames"]))
-
         for key_name, key_info in norm_key_map.items():
             need = samples_per_shard - samples_collected[key_name]
             if need <= 0:
@@ -237,7 +235,11 @@ def compute_shard_stats(
             except Exception:
                 continue
 
-            raw = np.asarray(raw, dtype=np.float64).reshape(n_frames, -1)
+            raw = np.asarray(raw, dtype=np.float64)
+            n_frames = raw.shape[0]
+            if n_frames == 0:
+                continue
+            raw = raw.reshape(n_frames, -1)
             n_take = min(need, n_frames)
             idx = (
                 random.sample(range(n_frames), n_take)
