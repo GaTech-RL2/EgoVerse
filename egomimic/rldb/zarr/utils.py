@@ -327,11 +327,17 @@ class DataSchematic(object):
             f"[NormStats] Finished norm inference, loading_time={loading_time:.2f}s, computing_time={computing_time:.2f}s"
         )
 
+    # Max samples stored per key. DataLoader uses shuffle=True so the first N
+    # batches are a random draw — once every key is full we stop iterating to
+    # avoid unbounded RAM growth and unnecessary FUSE reads.
+    MAX_RESERVOIR_SAMPLES = 200_000
+
     def _collect_norm_samples(
         self, loader, norm_keys, embodiment, n_samples: int, batch_size: int, num_workers: int,
         checkpoint_fn=None,
     ):
         collected = {k: [] for k in norm_keys}
+        collected_counts = {k: 0 for k in norm_keys}
         cur_num_samples = 0
         _next_ckpt_pct = 10
         logger.info(
@@ -341,6 +347,14 @@ class DataSchematic(object):
             for batch in loader:
                 remaining = n_samples - cur_num_samples
                 if remaining <= 0:
+                    break
+
+                # Stop early once every key's reservoir is full
+                if all(collected_counts[k] >= self.MAX_RESERVOIR_SAMPLES for k in norm_keys):
+                    logger.info(
+                        "[NormStats] All keys reached reservoir limit (%d), stopping early",
+                        self.MAX_RESERVOIR_SAMPLES,
+                    )
                     break
 
                 batch_len = None
@@ -358,10 +372,14 @@ class DataSchematic(object):
                     batch_key = self.keyname_to_zarr_key(k, embodiment)
                     if batch_key is None or batch_key not in batch:
                         continue
-                    x = batch[batch_key][:take]
+                    space = self.MAX_RESERVOIR_SAMPLES - collected_counts[k]
+                    if space <= 0:
+                        continue
+                    x = batch[batch_key][:min(take, space)]
                     if hasattr(x, "detach"):
                         x = x.detach().cpu().numpy()
                     collected[k].append(x)
+                    collected_counts[k] += len(x)
 
                 cur_num_samples += take
                 pbar.update(take)
