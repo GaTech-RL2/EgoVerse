@@ -1,0 +1,39 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Pushshapes' action chunk length. Lives at the root of this file so the
+# model config can interpolate it too (it's referenced from
+# `data.action_horizon`) — there is exactly one place to change it.
+action_horizon: 32
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /mnt/c/Users/aidan/Desktop/EgoVerse/Tsimulation/test_demos
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: ${data.action_horizon}
+      transform_list: null
+    mode: total
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /mnt/c/Users/aidan/Desktop/EgoVerse/Tsimulation/test_demos
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: ${data.action_horizon}
+      transform_list: null
+    mode: total
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 4
+    num_workers: 2
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 4
+    num_workers: 2

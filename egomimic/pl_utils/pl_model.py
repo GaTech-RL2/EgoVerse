@@ -220,15 +220,16 @@ class ModelWrapper(LightningModule):
         if self.evaluator is not None:
             self.evaluator.on_validation_end()
 
-        print(
-            f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
-            flush=True,
-        )
-        torch.distributed.barrier()
-        print(
-            f"Rank {self.global_rank} on validation end, all ranks synchronized",
-            flush=True,
-        )
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            print(
+                f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
+                flush=True,
+            )
+            torch.distributed.barrier()
+            print(
+                f"Rank {self.global_rank} on validation end, all ranks synchronized",
+                flush=True,
+            )
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
@@ -279,14 +280,15 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
-        print(
-            f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
-            flush=True,
-        )
-        torch.distributed.barrier()
-        print(
-            f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
-        )
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            print(
+                f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
+                flush=True,
+            )
+            torch.distributed.barrier()
+            print(
+                f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
+            )
 
     def on_train_epoch_start(self):
         for i, param_group in enumerate(self.optimizers().param_groups):

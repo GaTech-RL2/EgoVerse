@@ -114,7 +114,11 @@ def run(args: argparse.Namespace) -> int:
 
     obs, info = env.reset()
     coverage = info.get("coverage", 0.0)
-    recording = False
+
+    # Auto-start recording so a successful push is never lost because the
+    # user forgot to press SPACE before moving the shape.
+    writer.start_episode()
+    recording = True
     saved = 0
     running = True
 
@@ -122,31 +126,29 @@ def run(args: argparse.Namespace) -> int:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-                continue
-            if event.type != pygame.KEYDOWN:
-                continue
-            if event.key in (pygame.K_q, pygame.K_x):
-                running = False
-            elif event.key == pygame.K_SPACE:
-                # First SPACE in an episode begins buffering; subsequent
-                # presses toggle pause without discarding what's recorded.
-                if not writer.is_recording:
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_q or event.key == pygame.K_x:
+                    running = False
+                elif event.key == pygame.K_SPACE:
+                    recording = not recording
+                elif event.key == pygame.K_r:
+                    writer.abort_episode()
+                    obs, info = env.reset()
+                    coverage = info.get("coverage", 0.0)
                     writer.start_episode()
-                recording = not recording
-            elif event.key == pygame.K_r:
-                writer.abort_episode()
-                recording = False
-                obs, info = env.reset()
-                coverage = info.get("coverage", 0.0)
-            elif event.key == pygame.K_s:
-                if writer.steps_in_episode > 0:
-                    idx = writer.commit_episode()
-                    if idx >= 0:
-                        saved += 1
-                        print(f"saved episode {idx:06d}  ({saved}/{args.num_episodes})")
-                recording = False
-                obs, info = env.reset()
-                coverage = info.get("coverage", 0.0)
+                    recording = True
+                elif event.key == pygame.K_s:
+                    if writer.steps_in_episode > 0:
+                        idx = writer.commit_episode()
+                        if idx >= 0:
+                            saved += 1
+                            print(
+                                f"saved episode {idx:06d}  ({saved}/{args.num_episodes})"
+                            )
+                    obs, info = env.reset()
+                    coverage = info.get("coverage", 0.0)
+                    writer.start_episode()
+                    recording = True
 
         # Action = mouse pos in world coords (window is 1:1 with arena).
         mx, my = pygame.mouse.get_pos()
@@ -159,12 +161,11 @@ def run(args: argparse.Namespace) -> int:
         coverage = info.get("coverage", 0.0)
 
         if recording:
-            state = np.concatenate(
-                [obs["agent_pos"], obs["object_pose"]], dtype=np.float32
-            )
             writer.add_step(
                 image=obs["image"],
-                state=state,
+                pusher_obs_pose=obs["agent_pos"],
+                object_obs_pose=obs["object_pose"],
+                pusher_cmd_pose=action,
                 action=action,
                 reward=reward,
                 goal_pose=obs["goal_pose"],
@@ -186,10 +187,7 @@ def run(args: argparse.Namespace) -> int:
         clock.tick(args.fps)
 
         if terminated or truncated:
-            # Auto-commit on success; otherwise drop the buffer. Truncated
-            # is currently always False (env disables it) but we honor it
-            # in case that changes.
-            if recording and writer.steps_in_episode > 0 and terminated:
+            if writer.steps_in_episode > 0 and terminated:
                 idx = writer.commit_episode()
                 if idx >= 0:
                     saved += 1
@@ -198,10 +196,11 @@ def run(args: argparse.Namespace) -> int:
                     )
             else:
                 writer.abort_episode()
-            recording = False
             if saved < args.num_episodes:
                 obs, info = env.reset()
                 coverage = info.get("coverage", 0.0)
+                writer.start_episode()
+                recording = True
 
     writer.close()
     env.close()
