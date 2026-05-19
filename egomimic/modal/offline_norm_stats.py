@@ -361,9 +361,12 @@ def compute_shard_stats(
                 np.minimum(a["min"], ac, out=a["min"])
                 np.maximum(a["max"], ac, out=a["max"])
             a["n"] += 1
-            # Pooled quantile digests: feed all 100 steps into each dim's digest
+            # Pooled quantile digests: sample 10 of 100 steps to avoid 1200 tdigest
+            # insertions per sample (the full 100*12=1200 makes ~285ms/sample).
+            step_sample = random.sample(range(_CHUNK_LEN), min(10, _CHUNK_LEN))
             for d in range(_ACT_DIM):
-                a["digests"][d].batch_update(ac[:, d].tolist())
+                for s in step_sample:
+                    a["digests"][d].update(ac[s, d])
 
             n_collected += 1
 
@@ -553,10 +556,11 @@ def run_norm_stats(
         for i, shard in enumerate(shards)
     ]
     shard_results = list(
-        compute_shard_stats.starmap(shard_inputs)
+        compute_shard_stats.starmap(shard_inputs, return_exceptions=True)
     )
     elapsed = time.time() - t_start
-    print(f"[NormStats] All shards complete in {elapsed:.1f}s")
+    n_failed = sum(1 for r in shard_results if isinstance(r, Exception))
+    print(f"[NormStats] All shards done in {elapsed:.1f}s — {n_failed}/{len(shard_results)} failed")
 
     # ---- Merge ----
     # Keys we track: "ee_pose" and "actions_cartesian"
@@ -566,6 +570,9 @@ def run_norm_stats(
     per_key_dim_tdigests: dict = {k: None for k in tracked_keys}
 
     for shard_result in shard_results:
+        if isinstance(shard_result, Exception):
+            print(f"[NormStats] Shard failed (skipping): {type(shard_result).__name__}: {shard_result}")
+            continue
         for key in tracked_keys:
             if key not in shard_result:
                 continue
