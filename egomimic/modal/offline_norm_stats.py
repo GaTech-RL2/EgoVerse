@@ -171,7 +171,7 @@ def _ssh_to_https(url: str) -> str:
     return url
 
 
-def _prepare_repo(git_remote: str, git_commit: str) -> None:
+def _prepare_repo(git_remote: str, git_commit: str, recurse_submodules: bool = True) -> None:
     clone_url = _ssh_to_https(git_remote)
     repo_dir = Path(CFG.remote_repo_dir)
 
@@ -189,15 +189,19 @@ def _prepare_repo(git_remote: str, git_commit: str) -> None:
             ["git", "-C", CFG.remote_repo_dir, "fetch", "origin", "--tags"], check=True
         )
     else:
-        subprocess.run(["git", "clone", clone_url, CFG.remote_repo_dir], check=True)
+        subprocess.run(
+            ["git", "clone", "--no-recurse-submodules", clone_url, CFG.remote_repo_dir],
+            check=True,
+        )
 
     subprocess.run(
         ["git", "-C", CFG.remote_repo_dir, "checkout", git_commit], check=True
     )
-    subprocess.run(
-        ["git", "-C", CFG.remote_repo_dir, "submodule", "update", "--init", "--recursive"],
-        check=True,
-    )
+    if recurse_submodules:
+        subprocess.run(
+            ["git", "-C", CFG.remote_repo_dir, "submodule", "update", "--init", "--recursive"],
+            check=True,
+        )
     subprocess.run(
         ["uv", "pip", "install", "--system", "-e", ".", "--no-deps"],
         cwd=CFG.remote_repo_dir,
@@ -239,9 +243,9 @@ def compute_shard_stats(
     import zarr
     from tdigest import TDigest
 
-    # Install repo so egomimic is importable
+    # Install repo so egomimic is importable; skip submodules (openpi etc.) — not needed here
     if git_remote and git_commit:
-        _prepare_repo(git_remote=git_remote, git_commit=git_commit)
+        _prepare_repo(git_remote=git_remote, git_commit=git_commit, recurse_submodules=False)
 
     # Build transform pipeline matching training (mecka_bimanual, cartesian mode)
     import sys as _sys
