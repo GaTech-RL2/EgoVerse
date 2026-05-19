@@ -10,7 +10,6 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
-    PauseRemovalTransform,
     PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
     Reshape,
@@ -243,12 +242,10 @@ class Scale(Human):
     def get_transform_list(
         cls,
         mode: Literal["cartesian",],
-        pause_removal_epsilon: float | None = None,
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE,
-                pause_removal_epsilon=pause_removal_epsilon,
             )
 
     @classmethod
@@ -334,12 +331,10 @@ class Mecka(Human):
     def get_transform_list(
         cls,
         mode: Literal["cartesian",],
-        pause_removal_epsilon: float | None = None,
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE,
-                pause_removal_epsilon=pause_removal_epsilon,
             )
 
     @classmethod
@@ -959,13 +954,17 @@ def _build_aria_cartesian_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
-    pause_removal_epsilon: float | None = None,
 ) -> list[Transform]:
     """Canonical ARIA bimanual transform pipeline used by tests and notebooks.
 
     Aria human data does not have commanded ee poses; action chunks are built
     from stacked observed ee poses (typically with a horizon on
     ``left/right.action_ee_pose`` mapped from ``left/right.obs_ee_pose``).
+
+    Note: pause/idle filtering is no longer applied as a per-sample transform
+    here. It is now an episode-level precompute on the dataset (see
+    ``ZarrDataset.precompute_pause_filter``), gated by passing
+    ``pause_removal_epsilon`` to the resolver.
     """
     keys_to_delete = list(
         {
@@ -980,17 +979,6 @@ def _build_aria_cartesian_bimanual_transform_list(
         keys_to_delete.append(target_world)
         if target_world_is_quat:
             keys_to_delete.append(target_world_ypr)
-
-    pause_transforms: list[Transform] = (
-        [
-            PauseRemovalTransform(
-                action_keys=[left_action_headframe, right_action_headframe],
-                epsilon=pause_removal_epsilon,
-            )
-        ]
-        if pause_removal_epsilon is not None
-        else []
-    )
 
     transform_list: list[Transform] = [
         ActionChunkCoordinateFrameTransform(
@@ -1017,7 +1005,6 @@ def _build_aria_cartesian_bimanual_transform_list(
             transformed_key_name=right_obs_headframe,
             mode="xyzwxyz",
         ),
-        *pause_transforms,
         InterpolatePose(
             new_chunk_length=chunk_length,
             action_key=left_action_headframe,

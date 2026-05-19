@@ -56,6 +56,45 @@ logger = logging.getLogger(__name__)
 
 SEED = 42
 
+# Zarr keys used to detect pause frames. Both must be present on an episode for
+# pause precompute to run; otherwise the episode keeps all frames.
+PAUSE_DETECT_KEYS: tuple[str, str] = ("left.obs_ee_pose", "right.obs_ee_pose")
+
+
+def _build_pause_keep_mask(
+    *,
+    left_pose: np.ndarray,
+    right_pose: np.ndarray,
+    epsilon: float,
+) -> np.ndarray:
+    """Replicate the old PauseRemovalTransform compress logic at the episode level.
+
+    A frame at index t is a "pause step" if both ||left[t]-left[t-1]|| < eps and
+    ||right[t]-right[t-1]|| < eps. The first frame of each pause run is kept
+    (transition into pause); subsequent in-pause frames are dropped until motion
+    resumes. Matches PauseRemovalTransform._compress except detection is
+    coordinated across both hands instead of running per-key.
+    """
+    T = len(left_pose)
+    if T < 2:
+        return np.ones(T, dtype=bool)
+
+    left_d = np.linalg.norm(np.diff(left_pose, axis=0), axis=-1)
+    right_d = np.linalg.norm(np.diff(right_pose, axis=0), axis=-1)
+    is_paused_step = (left_d < epsilon) & (right_d < epsilon)
+
+    keep = np.ones(T, dtype=bool)
+    in_pause = False
+    for t in range(1, T):
+        if is_paused_step[t - 1]:
+            if in_pause:
+                keep[t] = False
+            else:
+                in_pause = True
+        else:
+            in_pause = False
+    return keep
+
 
 def _import_real_modal():
     """Return the installed Modal SDK, working around egomimic.modal shadowing.
@@ -210,11 +249,13 @@ class EpisodeResolver:
         key_map: dict | None = None,
         transform_list: list | None = None,
         norm_stats: dict | None = None,
+        pause_removal_epsilon: float | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
         self.norm_stats = norm_stats
+        self.pause_removal_epsilon = pause_removal_epsilon
 
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
@@ -278,6 +319,7 @@ class EpisodeResolver:
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                     norm_stats=self.norm_stats,
+                    pause_removal_epsilon=self.pause_removal_epsilon,
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -364,6 +406,7 @@ class EpisodeResolver:
                         key_map=self.key_map,
                         transform_list=self.transform_list,
                         norm_stats=self.norm_stats,
+                        pause_removal_epsilon=self.pause_removal_epsilon,
                         precomputed_metadata=metadata,
                     )
                 except Exception as e:
@@ -383,6 +426,55 @@ class EpisodeResolver:
             f"({total_shards} shards)"
         )
         return datasets
+
+    def _run_pause_precompute(self, datasets: dict) -> None:
+        """Run per-episode pause precompute in parallel after dataset construction.
+
+        No-op when ``self.pause_removal_epsilon`` is None. Logs an aggregate
+        kept/total summary so callers can confirm the filter actually altered
+        the dataset.
+        """
+        if self.pause_removal_epsilon is None or not datasets:
+            return
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        max_workers = min(32, max(2, len(datasets)))
+        t0 = time.monotonic()
+        results: list[tuple[str, int, int, str | None]] = []
+
+        def _one(item):
+            name, ds = item
+            try:
+                n_raw, n_kept = ds.precompute_pause_filter()
+                return (name, n_raw, n_kept, None)
+            except Exception as e:
+                return (name, 0, 0, f"{type(e).__name__}: {e}")
+
+        with ThreadPoolExecutor(max_workers=max_workers) as ex:
+            for r in ex.map(_one, datasets.items()):
+                results.append(r)
+
+        n_total = sum(r[1] for r in results)
+        n_kept = sum(r[2] for r in results)
+        n_errs = sum(1 for r in results if r[3] is not None)
+        elapsed = time.monotonic() - t0
+        pct = (100.0 * n_kept / n_total) if n_total else 100.0
+        logger.info(
+            "Pause precompute (epsilon=%s): kept %d/%d frames (%.1f%%) "
+            "across %d episodes in %.1fs (errors=%d)",
+            self.pause_removal_epsilon,
+            n_kept,
+            n_total,
+            pct,
+            len(datasets),
+            elapsed,
+            n_errs,
+        )
+        if n_errs:
+            sample = [r for r in results if r[3] is not None][:5]
+            for name, _, _, err in sample:
+                logger.warning("Pause precompute failed for %s: %s", name, err)
 
     @classmethod
     def _episode_already_present(cls, local_dir: Path, episode_hash: str) -> bool:
@@ -405,6 +497,7 @@ class S3EpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
+        pause_removal_epsilon: float | None = None,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
@@ -414,6 +507,7 @@ class S3EpisodeResolver(EpisodeResolver):
             key_map=key_map,
             transform_list=transform_list,
             norm_stats=norm_stats,
+            pause_removal_epsilon=pause_removal_epsilon,
         )
 
     def resolve(
@@ -451,6 +545,7 @@ class S3EpisodeResolver(EpisodeResolver):
             search_path=self.folder_path,
             valid_folder_names=valid_hashes,
         )
+        self._run_pause_precompute(datasets)
 
         return datasets
 
@@ -650,8 +745,15 @@ class LocalEpisodeResolver(EpisodeResolver):
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
         allowed_episode_ids: list[str] | None = None,
+        pause_removal_epsilon: float | None = None,
     ):
-        super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
+        super().__init__(
+            folder_path,
+            key_map,
+            transform_list,
+            norm_stats=norm_stats,
+            pause_removal_epsilon=pause_removal_epsilon,
+        )
         self.debug = debug
         self.allowed_episode_ids = (
             set(allowed_episode_ids) if allowed_episode_ids else None
@@ -812,6 +914,7 @@ class LocalEpisodeResolver(EpisodeResolver):
                                 key_map=self.key_map,
                                 transform_list=self.transform_list,
                                 norm_stats=self.norm_stats,
+                                pause_removal_epsilon=self.pause_removal_epsilon,
                             )
                         except Exception as e:
                             logger.error(
@@ -826,6 +929,7 @@ class LocalEpisodeResolver(EpisodeResolver):
                 raise ValueError(
                     "No valid episodes found for allowed_episode_ids in the local directory."
                 )
+            self._run_pause_precompute(datasets)
             return datasets
 
         filtered_paths = self._get_local_filtered_paths(
@@ -841,6 +945,7 @@ class LocalEpisodeResolver(EpisodeResolver):
         datasets = self._load_zarr_datasets(
             search_path=self.folder_path, valid_folder_names=valid_folder_names
         )
+        self._run_pause_precompute(datasets)
         return datasets
 
 
@@ -862,8 +967,15 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
         exclude_hashes: list[str] | None = None,
+        pause_removal_epsilon: float | None = None,
     ):
-        super().__init__(folder_path, key_map, transform_list, norm_stats=norm_stats)
+        super().__init__(
+            folder_path,
+            key_map,
+            transform_list,
+            norm_stats=norm_stats,
+            pause_removal_epsilon=pause_removal_epsilon,
+        )
         self.debug = debug
         self.exclude_hashes: set[str] = set(exclude_hashes) if exclude_hashes else set()
 
@@ -937,6 +1049,7 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
                 key_map=self.key_map,
                 transform_list=self.transform_list,
                 norm_stats=self.norm_stats,
+                pause_removal_epsilon=self.pause_removal_epsilon,
                 _total_frames=num_frames,
                 _embodiment=robot_name,
             )
@@ -950,6 +1063,7 @@ class LocalSQLEpisodeResolver(EpisodeResolver):
             )
 
         logger.info("Loaded %d episodes from local volume", len(datasets))
+        self._run_pause_precompute(datasets)
         return datasets
 
 
@@ -1212,6 +1326,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         key_map: dict,
         transform_list: list | None = None,
         norm_stats: dict | None = None,
+        pause_removal_epsilon: float | None = None,
         _total_frames: int | None = None,
         _embodiment: str | None = None,
     ):
@@ -1224,6 +1339,13 @@ class ZarrDataset(torch.utils.data.Dataset):
                 {"quantile_1": tensor, "quantile_99": tensor} bounds. When provided, any
                 loaded sample whose values fall outside [quantile_1, quantile_99] for any
                 tracked key triggers the random index fallback.
+            pause_removal_epsilon: when set, ``precompute_pause_filter()`` (invoked
+                by the resolver after construction) builds an episode-level
+                keep_indices mask using deltas on left/right obs_ee_pose. After
+                that, ``__len__`` drops to the kept-frame count and ``__getitem__``
+                translates the requested index through keep_indices so chunks
+                begin only at non-pause frames. None (default) preserves the raw
+                episode unchanged.
             _total_frames: if provided (e.g. from SQL), skip zarr open at init and defer to first __getitem__.
             _embodiment: if provided alongside _total_frames, also skip zarr open at init.
         """
@@ -1245,6 +1367,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.key_map = key_map
         self.transform = transform_list
         self.norm_stats = norm_stats or {}
+        self.pause_removal_epsilon = pause_removal_epsilon
+        self.keep_indices: np.ndarray | None = None
+        self._raw_total_frames: int | None = None
         super().__init__()
 
     def _ensure_episode_reader(self):
@@ -1334,7 +1459,43 @@ class ZarrDataset(torch.utils.data.Dataset):
         return valid_annotations
 
     def __len__(self) -> int:
+        if self.keep_indices is not None:
+            return int(len(self.keep_indices))
         return self.total_frames
+
+    def precompute_pause_filter(self) -> tuple[int, int]:
+        """Build the per-episode pause keep-mask from raw obs_ee_pose deltas.
+
+        Idempotent: cached on ``self.keep_indices`` after the first run. Forces
+        the zarr store open even on the SQL fast path because we need to read
+        the pose arrays. Returns ``(raw_total_frames, kept_frames)``.
+
+        If the episode does not have both PAUSE_DETECT_KEYS, keeps all frames.
+        """
+        if self.pause_removal_epsilon is None:
+            return (self.total_frames, self.total_frames)
+        if self.keep_indices is not None:
+            return (self._raw_total_frames or self.total_frames, len(self.keep_indices))
+
+        self._ensure_episode_reader()
+        store = self.episode_reader._store
+        left_key, right_key = PAUSE_DETECT_KEYS
+        try:
+            left_pose = np.asarray(store[left_key][:])
+            right_pose = np.asarray(store[right_key][:])
+        except KeyError:
+            self._raw_total_frames = int(self.total_frames)
+            self.keep_indices = np.arange(self.total_frames, dtype=np.int64)
+            return (self.total_frames, self.total_frames)
+
+        keep = _build_pause_keep_mask(
+            left_pose=left_pose,
+            right_pose=right_pose,
+            epsilon=self.pause_removal_epsilon,
+        )
+        self._raw_total_frames = int(self.total_frames)
+        self.keep_indices = np.flatnonzero(keep).astype(np.int64)
+        return (self._raw_total_frames, int(len(self.keep_indices)))
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
         """End index (exclusive) for a windowed read starting at ``start_idx``.
@@ -1370,6 +1531,15 @@ class ZarrDataset(torch.utils.data.Dataset):
         ZarrDataset handles jpeg decoding and transform function errors, and triggers resample on dataset level.
         """
         self._ensure_episode_reader()
+        # When the pause precompute has run, the dataset is presented as a
+        # smaller virtual episode whose i-th sample corresponds to the i-th
+        # kept (non-pause) start frame in the original episode. Chunk reads
+        # are still contiguous from that real start frame. We keep the logical
+        # idx untouched so fallback paths sample within the virtual range.
+        if self.keep_indices is not None:
+            real_idx = int(self.keep_indices[idx])
+        else:
+            real_idx = idx
         data = {}
         for k in self.key_map:
             zarr_key = self.key_map[k]["zarr_key"]
@@ -1377,14 +1547,14 @@ class ZarrDataset(torch.utils.data.Dataset):
             horizon = self.key_map[k].get("horizon", None)
 
             if key_type == "annotation_keys":
-                data[k] = self._annotation_text_for_frame(idx)
+                data[k] = self._annotation_text_for_frame(real_idx)
                 continue
 
             if horizon is not None:
-                end_idx = self._chunk_end_idx(idx, horizon, key_type)
-                read_interval = (idx, end_idx)
+                end_idx = self._chunk_end_idx(real_idx, horizon, key_type)
+                read_interval = (real_idx, end_idx)
             else:
-                read_interval = (idx, None)
+                read_interval = (real_idx, None)
             read_dict = {zarr_key: read_interval}
             raw_data = self.episode_reader.read(read_dict)
             self._pad_sequences(raw_data, horizon)  # should be able to pad images
@@ -1401,9 +1571,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                     origin = _fallback_origin if _fallback_origin is not None else idx
                     next_idx, attempts = get_fallback_idx(
                         idx=idx,
-                        candidates=range(self.total_frames),
+                        candidates=range(len(self)),
                         _attempts=_attempts,
-                        max_attempts=self.total_frames,
+                        max_attempts=len(self),
                         exhausted_error=(
                             f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
                         ),
@@ -1434,9 +1604,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                     origin = _fallback_origin if _fallback_origin is not None else idx
                     next_idx, attempts = get_fallback_idx(
                         idx=idx,
-                        candidates=range(self.total_frames),
+                        candidates=range(len(self)),
                         _attempts=_attempts,
-                        max_attempts=self.total_frames,
+                        max_attempts=len(self),
                         exhausted_error=(
                             f"Entire episode bad (no valid indices): ep={Path(self.episode_path).name}"
                         ),

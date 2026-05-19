@@ -59,7 +59,12 @@ class _Config:
     volume_mount_path: str = "/mnt/zarr-data"
     output_mount_path: str = "/root/EgoVerse/logs"
     secret_names: list[str] = field(
-        default_factory=lambda: ["egoverse-r2", "egoverse-mongodb", "egoverse-db", "egoverse-sql"]
+        default_factory=lambda: [
+            "egoverse-r2",
+            "egoverse-mongodb",
+            "egoverse-db",
+            "egoverse-sql",
+        ]
     )
 
 
@@ -68,8 +73,8 @@ CFG = _Config()
 # ---------------------------------------------------------------------------
 # Post-transform key names (must match DataSchematic default.yaml: mecka_bimanual)
 # ---------------------------------------------------------------------------
-_OBS_KEY = "observations.state.ee_pose"   # zarr_key for DataSchematic key "ee_pose"
-_ACT_KEY = "actions_cartesian"             # zarr_key == key_name in DataSchematic
+_OBS_KEY = "observations.state.ee_pose"  # zarr_key for DataSchematic key "ee_pose"
+_ACT_KEY = "actions_cartesian"  # zarr_key == key_name in DataSchematic
 
 # Raw zarr keys read from each episode
 _ZK_RIGHT_EE = "right.obs_ee_pose"
@@ -77,11 +82,15 @@ _ZK_LEFT_EE = "left.obs_ee_pose"
 _ZK_HEAD = "obs_head_pose"
 
 # Transform params (must match training config)
-_ACTION_HORIZON = 30    # raw frames read per action chunk
-_CHUNK_LEN = 100        # interpolated action steps after InterpolatePose
-_OBS_DIM = 12           # left(6) + right(6) after XYZWXYZ→XYZYPR
-_ACT_DIM = 12           # same
-_PAUSE_EPSILON = 0.005  # PauseRemovalTransform epsilon for mecka
+_ACTION_HORIZON = 30  # raw frames read per action chunk
+_CHUNK_LEN = 100  # interpolated action steps after InterpolatePose
+_OBS_DIM = 12  # left(6) + right(6) after XYZWXYZ→XYZYPR
+_ACT_DIM = 12  # same
+# Pause/idle filtering is now an episode-level precompute on ZarrDataset, not a
+# transform in the pipeline used here. Norm stats here are computed over raw
+# (pre-precompute) episode frames; the slight distributional divergence from
+# training is tolerable. To match exactly, mirror precompute_pause_filter on
+# each episode before sampling.
 
 # ---------------------------------------------------------------------------
 # Image — add tdigest for mergeable quantile sketches
@@ -166,12 +175,14 @@ _NORM_SUBDIR = "precomputed_norm_stats"
 
 def _ssh_to_https(url: str) -> str:
     if url.startswith("git@github.com:"):
-        path = url[len("git@github.com:"):]
+        path = url[len("git@github.com:") :]
         return f"https://github.com/{path}"
     return url
 
 
-def _prepare_repo(git_remote: str, git_commit: str, recurse_submodules: bool = True) -> None:
+def _prepare_repo(
+    git_remote: str, git_commit: str, recurse_submodules: bool = True
+) -> None:
     clone_url = _ssh_to_https(git_remote)
     repo_dir = Path(CFG.remote_repo_dir)
 
@@ -199,7 +210,15 @@ def _prepare_repo(git_remote: str, git_commit: str, recurse_submodules: bool = T
     )
     if recurse_submodules:
         subprocess.run(
-            ["git", "-C", CFG.remote_repo_dir, "submodule", "update", "--init", "--recursive"],
+            [
+                "git",
+                "-C",
+                CFG.remote_repo_dir,
+                "submodule",
+                "update",
+                "--init",
+                "--recursive",
+            ],
             check=True,
         )
     subprocess.run(
@@ -239,21 +258,25 @@ def compute_shard_stats(
     Returns serialized per-key stats dict.
     """
     import random
+
     import numpy as np
     import zarr
     from tdigest import TDigest
 
     # Install repo so egomimic is importable; skip submodules (openpi etc.) — not needed here
     if git_remote and git_commit:
-        _prepare_repo(git_remote=git_remote, git_commit=git_commit, recurse_submodules=False)
+        _prepare_repo(
+            git_remote=git_remote, git_commit=git_commit, recurse_submodules=False
+        )
 
     # Build transform pipeline matching training (mecka_bimanual, cartesian mode)
     import sys as _sys
+
     _sys.path.insert(0, CFG.remote_repo_dir)
     from egomimic.rldb.embodiment.human import Mecka
+
     transform_list = Mecka.get_transform_list(
         mode="cartesian",
-        pause_removal_epsilon=_PAUSE_EPSILON,
     )
 
     # Per-key accumulators
@@ -309,11 +332,11 @@ def compute_shard_stats(
 
         for t in sample_frames:
             data = {
-                "right.action_ee_pose": right_ee[t: t + _ACTION_HORIZON],  # (H, 7)
-                "left.action_ee_pose":  left_ee[t: t + _ACTION_HORIZON],   # (H, 7)
-                "right.obs_ee_pose":    right_ee[t],                        # (7,)
-                "left.obs_ee_pose":     left_ee[t],                         # (7,)
-                "obs_head_pose":        head[t],                            # (7,)
+                "right.action_ee_pose": right_ee[t : t + _ACTION_HORIZON],  # (H, 7)
+                "left.action_ee_pose": left_ee[t : t + _ACTION_HORIZON],  # (H, 7)
+                "right.obs_ee_pose": right_ee[t],  # (7,)
+                "left.obs_ee_pose": left_ee[t],  # (7,)
+                "obs_head_pose": head[t],  # (7,)
             }
 
             try:
@@ -322,8 +345,8 @@ def compute_shard_stats(
             except Exception:
                 continue
 
-            ee = np.asarray(data[_OBS_KEY], dtype=np.float64)   # (12,)
-            ac = np.asarray(data[_ACT_KEY], dtype=np.float64)    # (100, 12)
+            ee = np.asarray(data[_OBS_KEY], dtype=np.float64)  # (12,)
+            ac = np.asarray(data[_ACT_KEY], dtype=np.float64)  # (100, 12)
 
             if np.any(~np.isfinite(ee)) or np.any(~np.isfinite(ac)):
                 continue
@@ -423,7 +446,7 @@ def _chan_merge(acc: dict, shard: dict) -> dict:
     mean_a = np.asarray(acc["mean"])
     delta = mean_b - mean_a
     acc["mean"] = (n_a * mean_a + n_b * mean_b) / n_c
-    acc["M2"] = np.asarray(acc["M2"]) + M2_b + delta ** 2 * n_a * n_b / n_c
+    acc["M2"] = np.asarray(acc["M2"]) + M2_b + delta**2 * n_a * n_b / n_c
     acc["min"] = np.minimum(acc["min"], min_b)
     acc["max"] = np.maximum(acc["max"], max_b)
     acc["n"] = n_c
@@ -469,10 +492,8 @@ def run_norm_stats(
     Stats are keyed by DataSchematic key names ("ee_pose", "actions_cartesian")
     under the embodiment ID for mecka_bimanual.
     """
-    import copy
     import json
     import math
-    import sys
     import time
 
     import numpy as np
@@ -481,13 +502,15 @@ def run_norm_stats(
     zarr_volume.reload()
     sys.path.insert(0, CFG.remote_repo_dir)
 
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
     from egomimic.utils.aws.aws_data_utils import load_env
     from egomimic.utils.aws.aws_sql import create_default_engine, episode_table_to_df
-    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
     load_env()
 
-    out_path = Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
+    out_path = (
+        Path(CFG.output_mount_path) / _NORM_SUBDIR / data_config / "norm_stats.json"
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     all_stats_out: dict = {}
@@ -500,12 +523,15 @@ def run_norm_stats(
     df = df[df["is_deleted"] != True]  # noqa: E712
     if exclude_hashes:
         df = df[~df["episode_hash"].isin(set(exclude_hashes))]
-        print(f"[NormStats] After excluding {len(exclude_hashes)} hashes: {len(df)} rows")
+        print(
+            f"[NormStats] After excluding {len(exclude_hashes)} hashes: {len(df)} rows"
+        )
 
     # ---- Find episodes present on local volume ----
     volume_path = Path(CFG.volume_mount_path)
     print(f"[NormStats] Listing volume directory {volume_path} ...")
     import os as _os
+
     local_names = set(_os.listdir(str(volume_path)))
     print(f"[NormStats] Volume has {len(local_names)} entries")
 
@@ -520,11 +546,13 @@ def run_norm_stats(
         else:
             n_missing += 1
             continue
-        episodes.append({
-            "episode_hash": h,
-            "local_path": local_path,
-            "num_frames": int(row["num_frames"]),
-        })
+        episodes.append(
+            {
+                "episode_hash": h,
+                "local_path": local_path,
+                "num_frames": int(row["num_frames"]),
+            }
+        )
 
     print(f"[NormStats] {len(episodes)} episodes found locally, {n_missing} missing")
 
@@ -534,10 +562,7 @@ def run_norm_stats(
     # ---- Split into shards ----
     actual_shards = min(n_shards, len(episodes))
     shard_size = math.ceil(len(episodes) / actual_shards)
-    shards = [
-        episodes[i: i + shard_size]
-        for i in range(0, len(episodes), shard_size)
-    ]
+    shards = [episodes[i : i + shard_size] for i in range(0, len(episodes), shard_size)]
     print(
         f"[NormStats] {len(shards)} shards × ~{shard_size} episodes each, "
         f"{samples_per_shard} samples/shard → "
@@ -560,18 +585,24 @@ def run_norm_stats(
     )
     elapsed = time.time() - t_start
     n_failed = sum(1 for r in shard_results if isinstance(r, Exception))
-    print(f"[NormStats] All shards done in {elapsed:.1f}s — {n_failed}/{len(shard_results)} failed")
+    print(
+        f"[NormStats] All shards done in {elapsed:.1f}s — {n_failed}/{len(shard_results)} failed"
+    )
 
     # ---- Merge ----
     # Keys we track: "ee_pose" and "actions_cartesian"
     tracked_keys = ["ee_pose", "actions_cartesian"]
-    merged: dict = {k: {"n": 0, "mean": None, "M2": None, "min": None, "max": None}
-                    for k in tracked_keys}
+    merged: dict = {
+        k: {"n": 0, "mean": None, "M2": None, "min": None, "max": None}
+        for k in tracked_keys
+    }
     per_key_dim_tdigests: dict = {k: None for k in tracked_keys}
 
     for shard_result in shard_results:
         if isinstance(shard_result, Exception):
-            print(f"[NormStats] Shard failed (skipping): {type(shard_result).__name__}: {shard_result}")
+            print(
+                f"[NormStats] Shard failed (skipping): {type(shard_result).__name__}: {shard_result}"
+            )
             continue
         for key in tracked_keys:
             if key not in shard_result:
@@ -605,9 +636,9 @@ def run_norm_stats(
         # Quantiles: always shape (_ACT_DIM,) = (12,), computed from pooled t-digests
         n_dims = _ACT_DIM  # 12 for both keys
         quantile_stats = {
-            "median":        np.zeros(n_dims, dtype=np.float32),
-            "quantile_1":    np.zeros(n_dims, dtype=np.float32),
-            "quantile_99":   np.zeros(n_dims, dtype=np.float32),
+            "median": np.zeros(n_dims, dtype=np.float32),
+            "quantile_1": np.zeros(n_dims, dtype=np.float32),
+            "quantile_99": np.zeros(n_dims, dtype=np.float32),
             "quantile_0_01": np.zeros(n_dims, dtype=np.float32),
             "quantile_99_99": np.zeros(n_dims, dtype=np.float32),
         }
@@ -615,23 +646,25 @@ def run_norm_stats(
         if per_key_dim_tdigests[key] is not None:
             for dim_i in range(n_dims):
                 td = _merge_tdigests(per_key_dim_tdigests[key][dim_i])
-                quantile_stats["median"][dim_i]        = td.percentile(50)
-                quantile_stats["quantile_1"][dim_i]    = td.percentile(1)
-                quantile_stats["quantile_99"][dim_i]   = td.percentile(99)
+                quantile_stats["median"][dim_i] = td.percentile(50)
+                quantile_stats["quantile_1"][dim_i] = td.percentile(1)
+                quantile_stats["quantile_99"][dim_i] = td.percentile(99)
                 quantile_stats["quantile_0_01"][dim_i] = td.percentile(0.01)
                 quantile_stats["quantile_99_99"][dim_i] = td.percentile(99.99)
 
         key_stats[key] = {
-            "mean": mean.tolist(),   # (12,) or (100, 12)
-            "std":  std.tolist(),
-            "min":  min_.tolist(),
-            "max":  max_.tolist(),
+            "mean": mean.tolist(),  # (12,) or (100, 12)
+            "std": std.tolist(),
+            "min": min_.tolist(),
+            "max": max_.tolist(),
             **{k: v.tolist() for k, v in quantile_stats.items()},  # always (12,)
         }
         print(f"[NormStats] key={key} n={m['n']} mean_shape={mean.shape}")
 
     if not key_stats:
-        raise RuntimeError("No stats produced — check that episodes have valid zarr data.")
+        raise RuntimeError(
+            "No stats produced — check that episodes have valid zarr data."
+        )
 
     all_stats_out[emb_id] = key_stats
 
@@ -665,11 +698,16 @@ def _resolve_git_state() -> tuple[str, str, bool]:
 
     try:
         subprocess.run(
-            ["git", "fetch", "--quiet", "origin"], cwd=REPO_ROOT, check=True, capture_output=True
+            ["git", "fetch", "--quiet", "origin"],
+            cwd=REPO_ROOT,
+            check=True,
+            capture_output=True,
         )
         result = subprocess.run(
             ["git", "branch", "-r", "--contains", git_commit],
-            cwd=REPO_ROOT, capture_output=True, text=True,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
         )
         if not result.stdout.strip():
             raise SystemExit(
@@ -690,12 +728,18 @@ def main(*args: str) -> None:
 
     parser = argparse.ArgumentParser(prog="offline_norm_stats")
     parser.add_argument("data_config", help="Data config name, e.g. mecka_all_zarr")
-    parser.add_argument("--n_shards", type=int, default=300,
-                        help="Number of parallel shard containers")
-    parser.add_argument("--samples_per_shard", type=int, default=700,
-                        help="Frames per shard to sample")
-    parser.add_argument("--exclude_hashes_file", type=str, default=None,
-                        help="JSONL file with episode_hash fields to exclude")
+    parser.add_argument(
+        "--n_shards", type=int, default=300, help="Number of parallel shard containers"
+    )
+    parser.add_argument(
+        "--samples_per_shard", type=int, default=700, help="Frames per shard to sample"
+    )
+    parser.add_argument(
+        "--exclude_hashes_file",
+        type=str,
+        default=None,
+        help="JSONL file with episode_hash fields to exclude",
+    )
     parsed = parser.parse_args(list(args))
 
     exclude_hashes: list[str] = []
@@ -709,7 +753,9 @@ def main(*args: str) -> None:
 
     git_remote, git_commit, is_dirty = _resolve_git_state()
     if is_dirty:
-        print("Warning: local repo has uncommitted changes. Modal runs the last committed state.")
+        print(
+            "Warning: local repo has uncommitted changes. Modal runs the last committed state."
+        )
 
     total_frames = parsed.n_shards * parsed.samples_per_shard
     print(
@@ -734,4 +780,6 @@ def main(*args: str) -> None:
     )
 
     print(f"\nDone. Volume path: {out_path}")
-    print(f"\nTo use in training:\n  norm_stats.precomputed_norm_path={_NORM_SUBDIR}/{parsed.data_config}")
+    print(
+        f"\nTo use in training:\n  norm_stats.precomputed_norm_path={_NORM_SUBDIR}/{parsed.data_config}"
+    )

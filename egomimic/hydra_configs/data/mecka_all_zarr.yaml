@@ -6,13 +6,13 @@ train_datasets:
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalSQLEpisodeResolver
       folder_path: /mnt/zarr-data
+      pause_removal_epsilon: 0.005
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
         mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
-        pause_removal_epsilon: 0.005
     mode: train
 valid_datasets:
   mecka_bimanual:
@@ -20,13 +20,13 @@ valid_datasets:
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalSQLEpisodeResolver
       folder_path: /mnt/zarr-data
+      pause_removal_epsilon: 0.005
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
         mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
         mode: cartesian
-        pause_removal_epsilon: 0.005
     mode: valid
 
 train_dataloader_params:
