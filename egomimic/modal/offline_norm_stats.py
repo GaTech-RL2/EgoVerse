@@ -86,11 +86,6 @@ _ACTION_HORIZON = 30  # raw frames read per action chunk
 _CHUNK_LEN = 100  # interpolated action steps after InterpolatePose
 _OBS_DIM = 12  # left(6) + right(6) after XYZWXYZ→XYZYPR
 _ACT_DIM = 12  # same
-# Pause/idle filtering is now an episode-level precompute on ZarrDataset, not a
-# transform in the pipeline used here. Norm stats here are computed over raw
-# (pre-precompute) episode frames; the slight distributional divergence from
-# training is tolerable. To match exactly, mirror precompute_pause_filter on
-# each episode before sampling.
 
 # ---------------------------------------------------------------------------
 # Image — add tdigest for mergeable quantile sketches

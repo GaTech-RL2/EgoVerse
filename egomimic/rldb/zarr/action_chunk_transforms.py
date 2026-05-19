@@ -473,11 +473,6 @@ class CartesianWithGripperCoordinateTransform(Transform):
         return batch
 
 
-# Pause/idle filtering used to live here as PauseRemovalTransform (a per-sample
-# transform). It is now an episode-level precompute on ZarrDataset; see
-# ZarrDataset.precompute_pause_filter and zarr_dataset_multi._build_pause_keep_mask.
-
-
 # ---------------------------------------------------------------------------
 # Shape Transforms
 # ---------------------------------------------------------------------------

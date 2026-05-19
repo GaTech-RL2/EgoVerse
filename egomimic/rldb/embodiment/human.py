@@ -960,11 +960,6 @@ def _build_aria_cartesian_bimanual_transform_list(
     Aria human data does not have commanded ee poses; action chunks are built
     from stacked observed ee poses (typically with a horizon on
     ``left/right.action_ee_pose`` mapped from ``left/right.obs_ee_pose``).
-
-    Note: pause/idle filtering is no longer applied as a per-sample transform
-    here. It is now an episode-level precompute on the dataset (see
-    ``ZarrDataset.precompute_pause_filter``), gated by passing
-    ``pause_removal_epsilon`` to the resolver.
     """
     keys_to_delete = list(
         {

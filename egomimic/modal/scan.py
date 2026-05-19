@@ -148,3 +148,76 @@ def load_shard(
                 results.append(r)
 
     return results
+
+
+@app.function(
+    cpu=2.0,
+    memory=4096,
+    timeout=900,
+    volumes={VOLUME_MOUNT_PATH: zarr_volume},
+    max_containers=100,
+)
+def pause_precompute_shard(
+    episodes: list[tuple[str, str]],
+    epsilon: float,
+) -> list[tuple[str, int, list[int]]]:
+    """Compute pause keep_indices for a shard of episodes.
+
+    Args:
+        episodes: list of (episode_hash, episode_path_str).
+        epsilon: L2 threshold for the "frame is paused" test (m, per hand).
+
+    Returns:
+        list of (episode_hash, raw_total_frames, keep_indices_list). For
+        episodes missing the obs_ee_pose keys or that fail to open, raw is 0
+        and indices is empty — the caller treats this as "skip".
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    import numpy as np
+    import zarr
+
+    LEFT_KEY = "left.obs_ee_pose"
+    RIGHT_KEY = "right.obs_ee_pose"
+
+    zarr_volume.reload()
+
+    def _mask(left_pose: "np.ndarray", right_pose: "np.ndarray") -> "np.ndarray":
+        T = len(left_pose)
+        if T < 2:
+            return np.ones(T, dtype=bool)
+        left_d = np.linalg.norm(np.diff(left_pose, axis=0), axis=-1)
+        right_d = np.linalg.norm(np.diff(right_pose, axis=0), axis=-1)
+        is_paused = (left_d < epsilon) & (right_d < epsilon)
+        keep = np.ones(T, dtype=bool)
+        in_pause = False
+        for t in range(1, T):
+            if is_paused[t - 1]:
+                if in_pause:
+                    keep[t] = False
+                else:
+                    in_pause = True
+            else:
+                in_pause = False
+        return keep
+
+    def _one(item: tuple[str, str]) -> tuple[str, int, list[int]]:
+        episode_hash, path_str = item
+        try:
+            store = zarr.open_group(path_str, mode="r")
+            left = np.asarray(store[LEFT_KEY][:])
+            right = np.asarray(store[RIGHT_KEY][:])
+        except Exception:
+            return (episode_hash, 0, [])
+        try:
+            keep = _mask(left, right)
+            indices = np.flatnonzero(keep).astype(np.int64).tolist()
+            return (episode_hash, int(left.shape[0]), indices)
+        except Exception:
+            return (episode_hash, 0, [])
+
+    out: list[tuple[str, int, list[int]]] = []
+    with ThreadPoolExecutor(max_workers=64) as executor:
+        for r in executor.map(_one, episodes):
+            out.append(r)
+    return out

@@ -1,16 +1,10 @@
-"""Smoke tests for the episode-level pause/idle precompute.
-
-These cover:
-  - the pure-numpy mask helper against the reference PauseRemovalTransform
-    compress logic that lived previously in action_chunk_transforms.py,
-  - the ZarrDataset integration on a synthetic single-episode store,
-  - that __len__ shrinks and __getitem__ resolves chunks from the correct
-    real frame, proving the dataset is actually altered.
-"""
+"""Tests for the episode-level pause/idle precompute."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -18,14 +12,11 @@ import zarr
 
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     PAUSE_DETECT_KEYS,
+    EpisodeResolver,
+    LocalEpisodeResolver,
     ZarrDataset,
     _build_pause_keep_mask,
 )
-
-# ---------------------------------------------------------------------------
-# Reference compress logic — copy of the old PauseRemovalTransform algorithm.
-# Used only to confirm the new mask helper matches the previous semantics.
-# ---------------------------------------------------------------------------
 
 
 def _reference_compress_keep_mask(chunk: np.ndarray, epsilon: float) -> np.ndarray:
@@ -44,11 +35,6 @@ def _reference_compress_keep_mask(chunk: np.ndarray, epsilon: float) -> np.ndarr
         else:
             in_pause = False
     return keep
-
-
-# ---------------------------------------------------------------------------
-# Synthetic episode helpers
-# ---------------------------------------------------------------------------
 
 
 def _synthetic_poses(
@@ -116,20 +102,12 @@ def _write_synthetic_mecka_episode(
     return left, right
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "pause_spans,n,expected_dropped",
     [
         ([], 10, 0),
-        # 5-frame pause [3,8): transition frame at t=3 kept, drop t=4,5,6,7.
         ([(3, 8)], 10, 4),
-        # Leading pause [0,5): transition at t=1 kept, drop t=2,3,4.
         ([(0, 5)], 10, 3),
-        # Two pauses: [2,4) drops one frame; [6,9) drops two frames.
         ([(2, 4), (6, 9)], 10, 3),
     ],
 )
@@ -146,7 +124,6 @@ def test_build_pause_keep_mask_matches_reference(pause_spans, n, expected_droppe
 
 
 def test_build_pause_keep_mask_short_episode():
-    # 0 and 1-frame edge cases — nothing to drop.
     for n in (0, 1):
         left = np.zeros((n, 7))
         right = np.zeros((n, 7))
@@ -178,11 +155,7 @@ def test_zarr_dataset_precompute_alters_length(tmp_path):
     assert ds_off.keep_indices is None
 
     ds_on = ZarrDataset(ep, key_map=key_map, pause_removal_epsilon=0.005)
-    assert len(ds_on) == n_frames, (
-        "Length should still match raw total_frames before precompute_pause_filter() "
-        "is invoked, so PyTorch's index_map building (which calls __len__) sees the "
-        "filtered count only after the resolver runs precompute."
-    )
+    assert len(ds_on) == n_frames
 
     n_raw, n_kept = ds_on.precompute_pause_filter()
     assert n_raw == n_frames
@@ -193,13 +166,13 @@ def test_zarr_dataset_precompute_alters_length(tmp_path):
     )
     assert n_kept == int(expected_keep.sum())
     assert len(ds_on) == n_kept
-    assert n_kept < n_frames, "pause precompute must shrink an episode with pauses"
+    assert n_kept < n_frames
 
 
 def test_zarr_dataset_getitem_uses_keep_indices(tmp_path):
     ep = tmp_path / "ep_idx.zarr"
     n_frames = 20
-    pause_spans = [(4, 10)]  # frames 4-9 paused (5 dropped after transition at 4)
+    pause_spans = [(4, 10)]
     _write_synthetic_mecka_episode(ep, n_frames=n_frames, pause_spans=pause_spans)
 
     key_map = {
@@ -213,19 +186,15 @@ def test_zarr_dataset_getitem_uses_keep_indices(tmp_path):
 
     keep = ds.keep_indices
     assert keep is not None
-    # First kept frame is always 0, last must be in-bounds.
     assert int(keep[0]) == 0
     assert int(keep[-1]) < n_frames
 
-    # __getitem__ at logical idx 0 should return data from real frame keep[0].
     sample_0 = ds[0]
     raw_left = ds.episode_reader._store["left.obs_ee_pose"][:]
     np.testing.assert_allclose(
         sample_0["left.obs_ee_pose"].numpy(), raw_left[int(keep[0])]
     )
 
-    # A logical idx that lands inside the post-filter range but past where the
-    # original pause was must resolve to a non-paused frame in the raw episode.
     mid = len(keep) // 2
     sample_mid = ds[mid]
     np.testing.assert_allclose(
@@ -247,3 +216,130 @@ def test_zarr_dataset_precompute_is_idempotent(tmp_path):
     b = ds.precompute_pause_filter()
     assert a == b
     assert ds.keep_indices is not None
+
+
+@pytest.fixture
+def _clean_modal_env(monkeypatch):
+    monkeypatch.delenv("MODAL_IS_REMOTE", raising=False)
+    monkeypatch.delenv("MODAL_TASK_ID", raising=False)
+    monkeypatch.delenv("EGOMIMIC_DISABLE_MODAL_PAUSE_PRECOMPUTE", raising=False)
+
+
+def _stub_dataset(path: str):
+    return SimpleNamespace(episode_path=path)
+
+
+def test_dispatch_off_outside_modal(_clean_modal_env):
+    datasets = {"a": _stub_dataset("/mnt/zarr-data/a.zarr")}
+    assert EpisodeResolver._should_use_modal_pause_precompute(datasets) is False
+
+
+def test_dispatch_on_inside_modal_with_volume_paths(_clean_modal_env, monkeypatch):
+    monkeypatch.setenv("MODAL_IS_REMOTE", "1")
+    datasets = {
+        "a": _stub_dataset("/mnt/zarr-data/a.zarr"),
+        "b": _stub_dataset("/mnt/zarr-data/b.zarr"),
+    }
+    assert EpisodeResolver._should_use_modal_pause_precompute(datasets) is True
+
+
+def test_dispatch_on_when_modal_task_id_set(_clean_modal_env, monkeypatch):
+    monkeypatch.setenv("MODAL_TASK_ID", "ta-xxxxxxxx")
+    datasets = {"a": _stub_dataset("/mnt/zarr-data/a.zarr")}
+    assert EpisodeResolver._should_use_modal_pause_precompute(datasets) is True
+
+
+def test_dispatch_off_when_disabled_env(_clean_modal_env, monkeypatch):
+    monkeypatch.setenv("MODAL_IS_REMOTE", "1")
+    monkeypatch.setenv("EGOMIMIC_DISABLE_MODAL_PAUSE_PRECOMPUTE", "1")
+    datasets = {"a": _stub_dataset("/mnt/zarr-data/a.zarr")}
+    assert EpisodeResolver._should_use_modal_pause_precompute(datasets) is False
+
+
+def test_dispatch_off_when_paths_not_on_volume(_clean_modal_env, monkeypatch):
+    monkeypatch.setenv("MODAL_IS_REMOTE", "1")
+    datasets = {"a": _stub_dataset("/tmp/elsewhere/a.zarr")}
+    assert EpisodeResolver._should_use_modal_pause_precompute(datasets) is False
+
+
+def test_run_pause_precompute_uses_local_path_outside_modal(tmp_path, _clean_modal_env):
+    ep = tmp_path / "ep_dispatch.zarr"
+    _write_synthetic_mecka_episode(ep, n_frames=20, pause_spans=[(4, 10)])
+    key_map = {
+        "left.obs_ee_pose": {
+            "key_type": "proprio_keys",
+            "zarr_key": "left.obs_ee_pose",
+        },
+    }
+    ds = ZarrDataset(ep, key_map=key_map, pause_removal_epsilon=0.005)
+    resolver = LocalEpisodeResolver(
+        folder_path=tmp_path,
+        key_map=key_map,
+        pause_removal_epsilon=0.005,
+    )
+    resolver._run_pause_precompute({"ep_dispatch": ds})
+    assert ds.keep_indices is not None
+    assert len(ds.keep_indices) < 20
+
+
+def test_run_pause_precompute_falls_back_when_modal_lookup_fails(
+    tmp_path, _clean_modal_env, monkeypatch
+):
+    """When dispatch picks Modal but the function lookup raises, fall back to local."""
+    ep = tmp_path / "ep_fallback.zarr"
+    _write_synthetic_mecka_episode(ep, n_frames=20, pause_spans=[(4, 10)])
+    key_map = {
+        "left.obs_ee_pose": {
+            "key_type": "proprio_keys",
+            "zarr_key": "left.obs_ee_pose",
+        },
+    }
+    ds = ZarrDataset(ep, key_map=key_map, pause_removal_epsilon=0.005)
+    # Force the local dataset to look like it lives on the Modal volume so
+    # _should_use_modal_pause_precompute returns True.
+    ds.episode_path = Path("/mnt/zarr-data/ep_fallback.zarr")
+    monkeypatch.setenv("MODAL_IS_REMOTE", "1")
+
+    resolver = LocalEpisodeResolver(
+        folder_path=tmp_path,
+        key_map=key_map,
+        pause_removal_epsilon=0.005,
+    )
+
+    def _broken_modal_fanout(_self, _datasets):
+        raise RuntimeError("simulated function lookup failure")
+
+    monkeypatch.setattr(
+        EpisodeResolver,
+        "_modal_fanout_pause_precompute",
+        _broken_modal_fanout,
+    )
+    # Path on disk is real; restore for the local fallback read.
+    real_path = ep
+    ds.episode_path = real_path
+
+    # Tell dispatch to think this is on the Modal volume via the stub episode_path.
+    class _PathProxy:
+        def __init__(self, real, advertised):
+            self._real = real
+            self._advertised = advertised
+
+        def __str__(self):
+            return self._advertised
+
+        def __fspath__(self):
+            return str(self._real)
+
+    ds.episode_path = _PathProxy(real_path, "/mnt/zarr-data/ep_fallback.zarr")
+    resolver._run_pause_precompute({"ep_fallback": ds})
+    assert ds.keep_indices is not None
+    assert len(ds.keep_indices) < 20
+
+
+def test_modal_pause_precompute_shard_is_registered():
+    """Guards against accidental deletion of the deployed Modal worker."""
+    pytest.importorskip("modal")
+    from egomimic.modal import scan as scan_mod
+
+    assert hasattr(scan_mod, "pause_precompute_shard")
+    assert scan_mod.pause_precompute_shard.app is scan_mod.app
