@@ -220,6 +220,8 @@ def compute_shard_stats(
     shard_id: int,
     episodes: list[dict],
     samples_per_shard: int,
+    git_remote: str = "",
+    git_commit: str = "",
 ) -> dict:
     """Per-shard stats on post-transform data.
 
@@ -236,6 +238,10 @@ def compute_shard_stats(
     import numpy as np
     import zarr
     from tdigest import TDigest
+
+    # Install repo so egomimic is importable
+    if git_remote and git_commit:
+        _prepare_repo(git_remote=git_remote, git_commit=git_commit)
 
     # Build transform pipeline matching training (mecka_bimanual, cartesian mode)
     import sys as _sys
@@ -539,7 +545,7 @@ def run_norm_stats(
     # ---- Fan out ----
     t_start = time.time()
     shard_inputs = [
-        (i, shard, samples_per_shard)
+        (i, shard, samples_per_shard, git_remote, git_commit)
         for i, shard in enumerate(shards)
     ]
     shard_results = list(
