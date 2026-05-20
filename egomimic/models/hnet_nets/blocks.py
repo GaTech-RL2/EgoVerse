@@ -569,6 +569,27 @@ class TransformerBlock(nn.Module):
         per-token shape contract as adaln. ``causal=True`` constrains the
         action token at position t to attend only to cond_<=t (matching
         teacher-forcing semantics).
+
+    Per-token AdaLN flag (``adaln_per_token``):
+      Optional, flag-gated contract for AdaLN. When ``False`` (default) the
+      block accepts the historical sequence-level cond shape ``(B, d_cond)``
+      and broadcasts (scale, shift) across all T tokens; per-token cond
+      ``(B, T, d_cond)`` is still accepted (the shape-flexible ``_adaln``
+      broadcasts correctly in both modes). When ``True`` the block REQUIRES
+      a per-token cond ``(B, T, d_cond)`` / ``(T_total, d_cond)`` and asserts
+      the contract — used by DFoT where every token has its own noise level.
+
+      Sanity check (padded mode, d_model=8, T=4)::
+
+          # Per-sequence (default): cond (B, d_cond) -> scale (B, d_model).
+          blk = TransformerBlock(d_model=8, num_heads=2, d_cond=4)
+          blk(torch.randn(2, 4, 8), cond=torch.randn(2, 4))   # OK
+
+          # Per-token (DFoT): cond (B, T, d_cond) -> scale (B, T, d_model).
+          blk = TransformerBlock(
+              d_model=8, num_heads=2, d_cond=4, adaln_per_token=True,
+          )
+          blk(torch.randn(2, 4, 8), cond=torch.randn(2, 4, 4))  # OK
     """
 
     def __init__(
@@ -582,6 +603,7 @@ class TransformerBlock(nn.Module):
         rotary_emb_dim: int = 0,
         dropout: float = 0.0,
         resid_dropout: float = 0.0,
+        adaln_per_token: bool = False,
     ):
         super().__init__()
         self.has_mlp = d_intermediate > 0
@@ -590,6 +612,11 @@ class TransformerBlock(nn.Module):
         self.cond_mode = cond_mode if self.has_cond else "none"
         if self.cond_mode not in ("adaln", "cross_attn", "none"):
             raise ValueError(f"Unknown cond_mode: {self.cond_mode}")
+        # ``adaln_per_token`` is a contract flag only — it doesn't change the
+        # AdaLN math (``_adaln`` already broadcasts shape-flexibly). When set,
+        # ``forward`` asserts the cond shape matches x's per-token layout so
+        # DFoT-style callers fail fast if they accidentally pass (B, d_cond).
+        self.adaln_per_token = bool(adaln_per_token)
         self.norm1 = RMSNorm(d_model)
         # F6: plumb rotary_emb_dim into the self-attn mixer. Cross-attn (cond
         # tokens) intentionally does NOT use RoPE — cond positions are per-
@@ -623,6 +650,16 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x, mask=None, cond=None, cu_seqlens=None, max_seqlen=None):
         # Self-attention.
+        if (
+            self.adaln_per_token
+            and self.cond_mode == "adaln"
+            and cond is not None
+        ):
+            assert cond.dim() == x.dim(), (
+                f"adaln_per_token=True requires cond shape matching x's "
+                f"per-token layout (got cond.dim()={cond.dim()}, "
+                f"x.dim()={x.dim()})"
+            )
         h = self.norm1(x)
         if self.cond_mode == "adaln" and cond is not None:
             s, b = self.adaln1(cond)

@@ -1,0 +1,88 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.dfot.DFoT
+  # ``norm_stats`` is injected at runtime by
+  # ``pl_model.ModelWrapper._instantiate_model``; do not set it here.
+
+  # ---- core dims ----
+  # PushShapes circle/basic action dim = 2 (xy).
+  action_dim: 2
+  # Per-frame loader (tsimulation_hpt.yaml) emits chunks of length 32. Must
+  # match the keymap's action_horizon (32 in tsimulation_hpt.yaml).
+  action_horizon: 32
+
+  diffusion_type: "continuous"
+  diffusion_kwargs:
+    action_dim: 2
+    precond_scale: 0.25
+    sigmoid_bias: -1.0
+    clip_noise: 20.0
+    logsnr_min: -15.0
+    logsnr_max: 15.0
+    shift: 1.0
+
+  sampler: "ddim"
+  sampler_n_steps: 50
+  sampler_eta: 0.0
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+  cond_output_key: "fused_cond"
+
+  # ---- conditioning encoder ----
+  # Single-frame obs (state + image) -> (B, cond_dim) fused vector.
+  cond_encoder:
+    _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+    d_cond: 128
+    output_key: "fused_cond"
+    cond_proj_widths: [128, 128]
+    obs_specs:
+      state_agent_obj:
+        input_dim: 5
+        embed_dim: 64
+        widths: [128]
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+        in_channels: 3
+        channels: [32, 64, 128, 256]
+        kernel_size: 3
+        stride: 2
+        embed_dim: 128
+        norm_groups: 8
+
+  # ---- DFoT backbone ----
+  backbone:
+    _target_: egomimic.algo.dfot.DFoTBackbone
+    action_dim: 2
+    action_horizon: 32
+    d_model: 128
+    d_cond: 128
+    cond_dim: 128             # matches cond_encoder.d_cond
+    time_embed_dim: 128
+    cond_emb_dim: 128
+    use_fourier_time: true    # continuous diffusion -> Fourier (no stochastic dropout)
+    stochastic_time_p: 0.0
+    cond_dropout_prob: 0.1    # CFG-style cond dropout
+    arch_layout: "T6"
+    num_heads: 4
+    d_intermediate: 512
+    rotary_emb_dim: 32        # head_dim = 128 / 4 = 32
+    dropout: 0.1
+    resid_dropout: 0.1
+    causal: false             # action-chunk diffusion: non-causal denoiser
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200            # matches HPT default budget
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5
