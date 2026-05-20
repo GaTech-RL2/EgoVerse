@@ -25,6 +25,26 @@ from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
 
+class _PackedBackboneWrapper:
+    """Closure-style wrapper so the diffusion module's 3-arg
+    ``backbone(x, t, cond)`` call automatically threads cu_seqlens / max_seqlen
+    into ``DFoTBackbone.forward`` for packed-mode within-episode attention."""
+
+    def __init__(self, backbone: DFoTBackbone, cu_seqlens, max_seqlen):
+        self.backbone = backbone
+        self.cu_seqlens = cu_seqlens
+        self.max_seqlen = max_seqlen
+
+    def __call__(self, x, noise_levels, external_cond=None):
+        return self.backbone(
+            x,
+            noise_levels,
+            external_cond=external_cond,
+            cu_seqlens=self.cu_seqlens,
+            max_seqlen=self.max_seqlen,
+        )
+
+
 class DFoT(Algo):
     """Diffusion Forcing Transformer (action-chunk denoising) Algo.
 
@@ -124,19 +144,31 @@ class DFoT(Algo):
                 if norm_stats.is_key_with_embodiment(key, emb_id):
                     self.camera_keys[emb_id].append(key)
 
+    # Packed-mode metadata that must NOT go through zarr_key_to_keyname
+    # resolution (these are bookkeeping, not feature tensors).
+    _PACKED_META_KEYS = ("cu_seqlens", "max_seq_len", "seq_lens")
+
     # ---- Algo API -------------------------------------------------------- #
 
     @override
     def process_batch_for_training(self, batch):
-        """Per-frame batches only (no packed mode for v1)."""
+        """Accept both padded ``(B, T, *)`` batches and packed
+        ``(T_total, *)`` + ``cu_seqlens`` batches."""
         processed = {}
         for emb_name, _batch in batch.items():
             emb_id = get_embodiment_id(emb_name)
             processed[emb_id] = {}
+            is_packed = "cu_seqlens" in _batch
+
             for key, value in _batch.items():
+                if is_packed and key in self._PACKED_META_KEYS:
+                    processed[emb_id][key] = value
+                    continue
                 key_name = self.norm_stats.zarr_key_to_keyname(key, emb_id)
                 if key_name is not None:
                     processed[emb_id][key_name] = value
+
+            processed[emb_id]["_packed"] = is_packed
             processed[emb_id] = self.norm_stats.normalize(processed[emb_id], emb_id)
             processed[emb_id]["embodiment"] = torch.tensor(
                 [emb_id], device=self.device, dtype=torch.int64
@@ -161,26 +193,37 @@ class DFoT(Algo):
         return obs
 
     def _encode_cond(self, obs: dict, T: int) -> Optional[torch.Tensor]:
+        """Encode obs to per-token cond. Honors per-frame obs (no reduction)."""
         cond_dict = self.nets["cond_encoder"].encode(obs, T)
-        if self.cond_output_key not in cond_dict:
-            return None
-        # Cond encoder emits (B, T, d_cond); reduce to (B, d_cond) by taking
-        # the first frame since obs is single-frame for DFoT v1. The backbone
-        # then broadcasts back to per-token inside.
-        c = cond_dict[self.cond_output_key]
-        if c.dim() == 3:
-            c = c[:, 0]
-        return c
+        return cond_dict.get(self.cond_output_key)
 
-    def _sample_noise_levels(self, B: int, T: int, device) -> torch.Tensor:
+    def _encode_cond_packed(self, obs: dict) -> Optional[torch.Tensor]:
+        """Packed-mode cond. Obs values are (T_total, ...). We fake batch=1
+        by ``unsqueeze(0)``-ing each so ``CondEncoderModule.encode`` runs in
+        its already-per-frame branch (it doesn't broadcast when dim already
+        matches). Output: (T_total, d_cond) or None."""
+        obs_3d = {
+            k: (v.unsqueeze(0) if torch.is_tensor(v) else v)
+            for k, v in obs.items()
+        }
+        # T_action argument is unused when obs is already per-frame (dim==3
+        # for state, dim==5 for image); pass any non-zero placeholder.
+        cond_dict = self.nets["cond_encoder"].encode(obs_3d, T_action=1)
+        c = cond_dict.get(self.cond_output_key)
+        if c is None:
+            return None
+        if c.dim() == 3 and c.shape[0] == 1:
+            c = c.squeeze(0)
+        return c  # (T_total, d_cond)
+
+    def _sample_noise_levels(self, shape, device) -> torch.Tensor:
         """Per-token random noise level. Discrete -> longs in [0, timesteps);
         continuous -> floats in (0, 1)."""
         if isinstance(self.diffusion, DiscreteDiffusion):
             return torch.randint(
-                0, self.diffusion.timesteps, (B, T), device=device, dtype=torch.long
+                0, self.diffusion.timesteps, shape, device=device, dtype=torch.long
             )
-        # continuous
-        return torch.rand((B, T), device=device).clamp_(1e-5, 1.0 - 1e-5)
+        return torch.rand(shape, device=device).clamp_(1e-5, 1.0 - 1e-5)
 
     @override
     def forward_training(self, batch):
@@ -188,42 +231,80 @@ class DFoT(Algo):
         backbone = self.nets["backbone"]
         for emb_id, _batch in batch.items():
             ac_key = self.resolved_ac_keys[emb_id]
-            actions = _batch[ac_key]  # (B, T, action_dim)
-            if actions.dim() != 3:
-                raise ValueError(
-                    f"DFoT expects per-frame action chunks (B, T, action_dim); "
-                    f"got shape {tuple(actions.shape)}"
-                )
-            B, T, _ = actions.shape
+            actions = _batch[ac_key]
+            is_packed = _batch.get("_packed", False)
             obs = self._build_obs(_batch, emb_id)
-            cond = self._encode_cond(obs, T)
-            k = self._sample_noise_levels(B, T, actions.device)
-            _, loss = self.diffusion(backbone, actions, k, external_cond=cond)
+
+            if is_packed:
+                # actions: (T_total, action_dim)
+                if actions.dim() != 2:
+                    raise ValueError(
+                        f"packed actions must be (T_total, action_dim); "
+                        f"got {tuple(actions.shape)}"
+                    )
+                T_total = actions.shape[0]
+                cu = _batch["cu_seqlens"]
+                msl = int(_batch.get("max_seq_len", 0)) or None
+
+                cond = self._encode_cond_packed(obs)
+                k = self._sample_noise_levels((T_total,), actions.device)
+                # Wrap backbone so the diffusion module's 3-arg call carries
+                # the cu_seqlens/max_seqlen kwargs through to packed attention.
+                packed_backbone = _PackedBackboneWrapper(backbone, cu, msl)
+                _, loss = self.diffusion(packed_backbone, actions, k, external_cond=cond)
+            else:
+                if actions.dim() != 3:
+                    raise ValueError(
+                        f"padded actions must be (B, T, action_dim); got "
+                        f"{tuple(actions.shape)}"
+                    )
+                B, T, _ = actions.shape
+                cond = self._encode_cond(obs, T)
+                k = self._sample_noise_levels((B, T), actions.device)
+                _, loss = self.diffusion(backbone, actions, k, external_cond=cond)
+
             mse = loss.mean()
             predictions[f"{emb_id}_action_loss"] = mse
         return predictions
 
     @override
     def forward_eval(self, batch):
+        """Returns val-loss + sampled chunks for each embodiment. Sampled
+        chunks are always single-window (B=1 if packed) at length
+        ``self.action_horizon`` — packed-mode val skips per-position chunk
+        sampling for now (rollout drives closed-loop quality via
+        ``inference_step``)."""
         unnorm = {}
         backbone = self.nets["backbone"]
         for emb_id, _batch in batch.items():
             ac_key = self.resolved_ac_keys[emb_id]
             actions = _batch[ac_key]
-            B, T, _ = actions.shape
+            is_packed = _batch.get("_packed", False)
             obs = self._build_obs(_batch, emb_id)
-            cond = self._encode_cond(obs, T)
-            # Val loss at a random noise level (same path as training).
-            k = self._sample_noise_levels(B, T, actions.device)
-            _, loss = self.diffusion(backbone, actions, k, external_cond=cond)
-            unnorm[f"emb{emb_id}_loss"] = loss.mean()
-            # Sampled actions.
-            sampled = self._sample_chunk(B, T, cond=cond, device=actions.device)
-            preds = OrderedDict()
-            preds[ac_key] = sampled
-            unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
-            for key, val in unnorm_actions.items():
-                unnorm[f"emb{emb_id}_{key}"] = val
+
+            if is_packed:
+                T_total = actions.shape[0]
+                cu = _batch["cu_seqlens"]
+                msl = int(_batch.get("max_seq_len", 0)) or None
+                cond = self._encode_cond_packed(obs)
+                k = self._sample_noise_levels((T_total,), actions.device)
+                packed_backbone = _PackedBackboneWrapper(backbone, cu, msl)
+                _, loss = self.diffusion(packed_backbone, actions, k, external_cond=cond)
+                unnorm[f"emb{emb_id}_loss"] = loss.mean()
+                # No chunk sampling in packed val — too expensive per episode and
+                # the closed-loop measure lives in inference_step / sim eval.
+            else:
+                B, T, _ = actions.shape
+                cond = self._encode_cond(obs, T)
+                k = self._sample_noise_levels((B, T), actions.device)
+                _, loss = self.diffusion(backbone, actions, k, external_cond=cond)
+                unnorm[f"emb{emb_id}_loss"] = loss.mean()
+                sampled = self._sample_chunk(B, T, cond=cond, device=actions.device)
+                preds = OrderedDict()
+                preds[ac_key] = sampled
+                unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
+                for key, val in unnorm_actions.items():
+                    unnorm[f"emb{emb_id}_{key}"] = val
         return unnorm
 
     def _sample_chunk(

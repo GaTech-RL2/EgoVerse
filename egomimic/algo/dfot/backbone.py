@@ -138,7 +138,63 @@ class DFoTBackbone(nn.Module):
         x: torch.Tensor,
         noise_levels: torch.Tensor,
         external_cond: Optional[torch.Tensor] = None,
+        cu_seqlens: Optional[torch.Tensor] = None,
+        max_seqlen: Optional[int] = None,
     ) -> torch.Tensor:
+        """
+        Padded mode (cu_seqlens is None):
+            x:            (B, T, action_dim)
+            noise_levels: (B,) or (B, T)
+            external_cond: (B, cond_dim) or (B, T, cond_dim) or None
+
+        Packed mode (cu_seqlens given):
+            x:            (T_total, action_dim)
+            noise_levels: (T_total,)
+            external_cond: (T_total, cond_dim) or None
+            cu_seqlens:   (B+1,) int — episode boundaries inside x
+            max_seqlen:   int — longest episode length (perf hint)
+        """
+        is_packed = cu_seqlens is not None
+
+        if is_packed:
+            if x.dim() != 2:
+                raise ValueError(
+                    f"packed x must be (T_total, action_dim); got {tuple(x.shape)}"
+                )
+            if noise_levels.dim() != 1:
+                raise ValueError(
+                    f"packed noise_levels must be (T_total,); got "
+                    f"{tuple(noise_levels.shape)}"
+                )
+            if external_cond is not None and external_cond.dim() != 2:
+                raise ValueError(
+                    f"packed external_cond must be (T_total, cond_dim); got "
+                    f"{tuple(external_cond.shape)}"
+                )
+
+            # 1. Project x. (T_total, A) -> (T_total, d_model).
+            h = self.x_in(x)
+            # 2. Per-token noise embedding -> (T_total, time_embed_dim).
+            noise_emb = self.time_embed(noise_levels)
+            # 3. External cond -> (T_total, cond_emb_dim) or None.
+            if self.cond_embed is not None and external_cond is not None:
+                cond_emb = self.cond_embed(external_cond)
+            else:
+                cond_emb = None
+            # 4. Fuse + project to d_cond.
+            if cond_emb is not None:
+                fused = torch.cat([noise_emb, cond_emb], dim=-1)
+            else:
+                fused = noise_emb
+            cond = self.cond_fuse(fused)  # (T_total, d_cond)
+            # 5. Trunk in packed mode (within-episode attention).
+            h = self.trunk(
+                h, cond=cond, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+            )
+            # 6. Project to action.
+            return self.x_out(h)
+
+        # Padded mode.
         if x.dim() != 3:
             raise ValueError(
                 f"x must be (B, T, action_dim); got shape {tuple(x.shape)}"
