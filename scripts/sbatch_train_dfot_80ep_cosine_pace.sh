@@ -7,16 +7,18 @@
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:h200:1
 #SBATCH --mem=250G
-#SBATCH --time=4:00:00
+#SBATCH --time=8:00:00
 #SBATCH --output=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4/logs/sbatch/dfot_80ep_cosine_%j.out
 #SBATCH --error=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4/logs/sbatch/dfot_80ep_cosine_%j.err
 
 # DFoT v1 on PushShapes circle/basic. Packed training (tsimulation.yaml ->
 # variable-length episodes with cu_seqlens within-episode attention).
 # Per-frame obs naturally aligns with per-token action via DFoT's per-token
-# AdaLN. Schedule mirrors the H-Net retrain (lr=4e-5, warmup-cosine, 80 ep,
-# limit_train_batches=8 -> 640 steps total) for apples-to-apples comparison
-# of train loss + closed-loop coverage.
+# AdaLN.
+#
+# 20x budget: 80 ep x 160 batches = 12800 steps (was 640). Warmup-cosine
+# matched: 480 warmup steps (~3 ep), eta_min 4e-6, lr 4e-5. --time bumped
+# to 8h since 12800 packed-mode H200 steps comfortably exceed the 4h cap.
 #
 # Eval: eval_hnet_sim — closed-loop PushShapesEnv rollout per val episode,
 # 4 val batches x 8 episodes = 32 rollouts per check. inference_step uses
@@ -44,8 +46,8 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   data=tsimulation \
   model=dfot_pushshapes \
   model.optimizer.lr=4.0e-5 \
-  model.scheduler.max_steps=640 \
-  model.scheduler.warmup_steps=24 \
+  model.scheduler.max_steps=12800 \
+  model.scheduler.warmup_steps=480 \
   model.scheduler.warmup_start_factor=0.1 \
   model.scheduler.eta_min=4.0e-6 \
   evaluator=eval_hnet_sim \
@@ -55,7 +57,7 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   trainer=debug \
   trainer.max_epochs=80 \
   trainer.min_epochs=80 \
-  trainer.limit_train_batches=8 \
+  trainer.limit_train_batches=160 \
   trainer.limit_val_batches=4 \
   trainer.check_val_every_n_epoch=20 \
   trainer.profiler=null \
