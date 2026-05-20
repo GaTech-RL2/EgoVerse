@@ -5,6 +5,13 @@ from egomimic.algo.dfot.backbone import DFoTBackbone
 from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
 from egomimic.algo.dfot.sampling import ddim_sample, ddpm_sample
+from egomimic.algo.dfot.sampling_ar import (
+    CausalARRollout,
+    causal_ar_schedule,
+    chunk_schedule,
+    matrix_sample,
+    vanilla_schedule,
+)
 
 __all__ = [
     "DFoT",
@@ -13,4 +20,9 @@ __all__ = [
     "DiscreteDiffusion",
     "ddim_sample",
     "ddpm_sample",
+    "matrix_sample",
+    "vanilla_schedule",
+    "causal_ar_schedule",
+    "chunk_schedule",
+    "CausalARRollout",
 ]
