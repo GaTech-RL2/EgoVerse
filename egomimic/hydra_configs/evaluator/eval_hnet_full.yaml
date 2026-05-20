@@ -1,0 +1,46 @@
+# H-Net full validation evaluator: val data viz + PCA + boundary strips + sim eval.
+#
+# Layout:
+#   1. composite (EvalListSideBySide) — HNetEvalVideo + PCATokenEval +
+#      BoundaryStripEval rendered side-by-side as one .mp4.
+#   2. sim — SimRolloutEval closed-loop rollout, capped at 2 videos via
+#      max_videos so the saved .mp4 stays small regardless of batch size.
+
+_target_: egomimic.eval.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.eval_composite.EvalListSideBySide
+    pad_h: max
+    limit_val_batches: 4
+    evals:
+      - _target_: egomimic.eval.eval_hnet.HNetEvalVideo
+        limit_val_batches: 4
+        max_videos: 2
+        viz_func:
+          pushshapes_sim:
+            _target_: hydra.utils.get_method
+            path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+      - _target_: egomimic.eval.eval_pca_tokens.PCATokenEval
+        limit_val_batches: 4
+        max_videos: 2
+        panel_h: 384
+        panel_w: 384
+        n_components: 2
+      - _target_: egomimic.eval.eval_boundary_strip.BoundaryStripEval
+        limit_val_batches: 4
+        max_videos: 2
+        window: 256
+        strip_width: 24
+        pixels_per_step: 1
+  - _target_: egomimic.eval.eval_sim.SimRolloutEval
+    limit_val_batches: 4
+    max_videos: 2
+    embodiment_name: pushshapes_sim
+    init_mode: replay
+    max_steps: null
+    coverage_threshold: 0.7
+    env_kwargs:
+      object_shape: T
+      pusher_shape: circle
+      obstacle_level: 0
+      image_size: 96
