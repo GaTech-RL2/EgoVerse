@@ -278,23 +278,17 @@ class DFoT(Algo):
     ) -> "np.ndarray":
         embodiment_name = get_embodiment(emb_id).lower()
         device = next(self.nets["backbone"].parameters()).device
-        ac_key = (
-            self.ac_keys[embodiment_name]
-            if embodiment_name in self.ac_keys
-            else self.ac_keys[emb_id]
-        )
+        ac_key = self.ac_keys[embodiment_name]
         if t == 0:
             self._sim_state = {"chunk": None, "chunk_idx": 0}
         state = self._sim_state
 
         if state["chunk"] is None or state["chunk_idx"] >= self.action_horizon:
+            # obs_zarr is already shaped per the SimRolloutEval contract:
+            # state_agent_obj (1, D), front_img_1 (1, C, H, W). CondEncoderModule
+            # handles the per-T_action broadcast internally — don't unsqueeze.
             obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
-            # Add batch dim where missing.
-            obs_b = {
-                k: (v.unsqueeze(0) if torch.is_tensor(v) and v.dim() < 4 else v)
-                for k, v in obs_norm.items()
-            }
-            cond = self._encode_cond(obs_b, self.action_horizon)
+            cond = self._encode_cond(obs_norm, self.action_horizon)
             sampled = self._sample_chunk(
                 B=1, T=self.action_horizon, cond=cond, device=device
             )
