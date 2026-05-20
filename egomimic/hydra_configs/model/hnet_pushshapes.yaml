@@ -61,12 +61,22 @@ robomimic_model:
           d_intermediate: 512
           num_heads: 4
           cond: true
+          # F6: RoPE inside MHA replaces the old learned absolute pos_emb.
+          # head_dim = d_model / num_heads = 32; full head_dim rotation.
+          rotary_emb_dim: 32
+          # Stronger-than-default dropout: the obs/action conditioning signal
+          # in pushshapes is very strong, so we regularise the backbone.
+          dropout: 0.15           # attention dropout
+          resid_dropout: 0.2      # residual dropout
         decoder:
           arch_layout: "T4"
           d_model: 128
           d_intermediate: 512
           num_heads: 4
           cond: true
+          rotary_emb_dim: 32
+          dropout: 0.15
+          resid_dropout: 0.2
       - _target_: egomimic.models.hnet_nets.stages.ChunkerStage
         input_hidden_dim: 128
         output_hidden_dim: 192
@@ -85,6 +95,10 @@ robomimic_model:
           d_intermediate: 768
           num_heads: 4
           cond: false        # inner compute does not run AdaLN
+          # F6: RoPE; head_dim = 192/4 = 48; full head_dim rotation.
+          rotary_emb_dim: 48
+          dropout: 0.15
+          resid_dropout: 0.2
 
   # ---- domain / action key wiring (mirrors HPT) ----
   domains: ["pushshapes_sim"]
@@ -107,10 +121,16 @@ robomimic_model:
   #                                     #   weight_decay from this field, NOT
   #                                     #   from the optimizer config.
   #   weight_decay: 0.01                # WD used when use_parameter_groups=true
-  init_weights_range: null
-  lr_multipliers: null
-  use_parameter_groups: false
-  weight_decay: 0.0
+  # F22: paper's stability recipe ON. ``init_weights_range`` matches the
+  # upstream default (``hnet/utils/train.py``: 0.02). LR multipliers follow
+  # the commented example above (outer stage gets higher LR, inner lower).
+  # ``use_parameter_groups=true`` is required for ``lr_multipliers`` to take
+  # effect via the AdamW param-group hook. ``weight_decay`` is the base WD
+  # applied to non-bias / non-norm params.
+  init_weights_range: 0.02
+  lr_multipliers: [3.0, 1.7, 0.9]
+  use_parameter_groups: true
+  weight_decay: 0.01
 
 optimizer:
   _target_: torch.optim.AdamW

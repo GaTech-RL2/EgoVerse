@@ -1182,85 +1182,89 @@ class HPT(Algo):
     # action per step from the most recent chunk.
 
     @torch.no_grad()
-    def sim_init_state(self, batch_size: int, T_max: int, device, emb_id: int) -> dict:
-        """Initial state for HPT chunk-based AR rollout.
+    def inference_step(
+        self, obs_zarr: dict, t: int, emb_id: int, T_max=None
+    ) -> "np.ndarray":
+        """One closed-loop sim step. Chunk-aware: HPT predicts a chunk
+        of ``action_horizon`` actions per forward; we buffer and pop one
+        per call. Re-plans when the chunk is fully consumed.
 
-        Tracks the most recently predicted action chunk and where we are
-        within it. The first ``sim_predict_step`` call triggers a fresh
-        ``policy.forward`` to fill the chunk.
-        """
-        return {
-            "action_chunk": None,
-            "chunk_idx": 0,
-            "batch_size": int(batch_size),
-            "device": device,
-            "T_max": int(T_max),
-        }
+        Args:
+            obs_zarr: env obs in canonical zarr-key dict (already on device).
+            t: timestep within the rollout. t=0 resets state.
+            emb_id: embodiment id.
 
-    @torch.no_grad()
-    def sim_predict_step(
-        self, state: dict, obs_norm: dict, t: int, emb_id: int
-    ) -> torch.Tensor:
-        """Chunk-aware step. Returns the current step's normalized action
-        ``(B, 1, action_dim)``. Re-plans by calling ``policy.forward`` when
-        the chunk is empty or has been fully consumed.
+        Returns:
+            absolute-frame action as np.float32 of shape (action_dim,).
         """
+        import numpy as np
         policy_module = self.nets["policy"]
+        embodiment_name = get_embodiment(emb_id).lower()
         chunk_size = int(policy_module.action_horizon)
 
+        if t == 0:
+            device = next(self.nets["policy"].parameters()).device
+            self._sim_state = {
+                "action_chunk": None,
+                "chunk_idx": 0,
+                "batch_size": 1,
+                "device": device,
+            }
+        state = self._sim_state
+
         if state["action_chunk"] is None or state["chunk_idx"] >= chunk_size:
-            embodiment_name = get_embodiment(emb_id).lower()
             cam_keys = self.camera_keys[emb_id]
             proprio_keys = self.proprio_keys[emb_id]
             ac_key = self.ac_keys[embodiment_name]
             B = state["batch_size"]
             dev = state["device"]
 
-            # Build a robomimic-style batch from the per-step obs.
-            # ``_robomimic_to_hpt_data`` expects every cam/proprio key
-            # un-time-dimmed and an action tensor of shape ``(B, T, D)``
-            # used only for shape reference.
-            robo_batch = dict(obs_norm)
-            # Sanity: zeroes are fine — HPT only uses ``batch[ac_key]``
-            # for the train-time loss target, never for inference shape.
-            # ``infer_ac_dims`` only exists on FMPolicy (diffusion); fall back
-            # to 2 (pushshapes default) for MLPPolicyHead and other heads.
+            # Determine action_dim. FMPolicy exposes infer_ac_dims;
+            # MLPPolicyHead and other heads expose output_dim. Default 2 (pushshapes).
             action_dim = 2
-            if (
-                hasattr(policy_module, "heads")
-                and embodiment_name in policy_module.heads
-            ):
+            if hasattr(policy_module, "heads") and embodiment_name in policy_module.heads:
                 _h = policy_module.heads[embodiment_name]
                 if hasattr(_h, "infer_ac_dims"):
                     action_dim = _h.infer_ac_dims[embodiment_name]
-            robo_batch[ac_key] = torch.zeros(
-                B,
-                chunk_size,
-                action_dim,
-                device=dev,
-            )
+                elif hasattr(_h, "output_dim"):
+                    action_dim = int(_h.output_dim)
+
+            obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
+            robo_batch = dict(obs_norm)
+            robo_batch[ac_key] = torch.zeros(B, chunk_size, action_dim, device=dev)
             robo_batch["pad_mask"] = torch.ones(B, chunk_size, 1, device=dev)
             robo_batch["embodiment"] = torch.tensor(
                 [emb_id], device=dev, dtype=torch.int64
             )
-
             data = self._robomimic_to_hpt_data(
-                robo_batch, cam_keys, proprio_keys, [], ac_key, []
+                robo_batch, cam_keys, proprio_keys, [], ac_key, [],
             )
             actions = policy_module.forward(embodiment_name, data)
-            # ``forward`` returns ``{embodiment_name: (B, T, A), ...}``.
             chunk = actions.get(embodiment_name)
             if chunk is None:
                 raise RuntimeError(
                     f"policy.forward did not return key {embodiment_name!r}"
                 )
+            # Store the normalized chunk for reference, but ALSO compute the
+            # world-frame chunk immediately. Action norm stats are
+            # (chunk_size, action_dim) per-position (this is the
+            # intended training convention — each chunk position has its
+            # own stats). Unnormalizing a (1, 32, D) tensor against
+            # (32, D) broadcasts per-position correctly. Doing this once
+            # at replan time avoids the position-broadcasting bug that
+            # would otherwise happen if we tried to unnormalize a
+            # (action_dim,) extracted entry against (32, action_dim) stats.
             state["action_chunk"] = chunk[:, :chunk_size, :action_dim]
+            chunk_world = self.norm_stats.unnormalize(
+                {ac_key: state["action_chunk"].squeeze(0)}, emb_id,  # (32, action_dim) world frame
+            )[ac_key]
+            state["action_chunk_world"] = chunk_world.detach()
             state["chunk_idx"] = 0
 
         idx = state["chunk_idx"]
-        a_t = state["action_chunk"][:, idx : idx + 1]
+        action_world = state["action_chunk_world"][idx]  # (action_dim,) world frame
         state["chunk_idx"] = idx + 1
-        return a_t
+        return action_world.cpu().numpy().reshape(-1).astype(np.float32)
 
     def _forward_ot(self, batch, embodiment1_id, embodiment2_id):
         hpt_batch_1 = batch[embodiment1_id]

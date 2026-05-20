@@ -1,7 +1,7 @@
 # Standard validation evaluator for HNet-style models on pushshapes_sim.
 #
 # Layout (top-level EvalList runs both sub-evals; each emits its own .mp4):
-#   1. ``composite`` — EvalListSideBySide([
+#   1. ``composite`` — EvalVideoList([
 #          HNetEvalVideo,        # teacher-forced trajectory overlay
 #          PCATokenEval,         # PCA scatter trail of action-out tokens
 #          BoundaryStripEval,    # chunker P(boundary) gradient strip
@@ -15,7 +15,7 @@
 _target_: egomimic.eval.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.eval_composite.EvalListSideBySide
+  - _target_: egomimic.eval.eval_composite.EvalVideoList
     pad_h: max    # pad short panels to the tallest, instead of cropping
                   # tall ones — the boundary strip is window*pps (256px)
                   # while PCA and the HNet video are taller; ``min`` was

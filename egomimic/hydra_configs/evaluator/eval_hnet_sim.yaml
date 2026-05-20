@@ -1,4 +1,4 @@
-_target_: egomimic.eval.eval_sim.SimRolloutEval
+_target_: egomimic.eval.eval_sim.HNetSimEval
 
 # Closed-loop sim eval. For each val episode, resets PushShapesEnv (init
 # mode is configurable) and steps the env one frame at a time using the
@@ -23,7 +23,7 @@ init_seeds: [0, 1, 2, 3]
 # ---- Rollout knobs ----
 # When null, replay mode uses the recorded episode length; random/seeds
 # fall back to 200.
-max_steps: null
+max_steps: 1200
 coverage_threshold: 0.7
 video_fps: 30
 

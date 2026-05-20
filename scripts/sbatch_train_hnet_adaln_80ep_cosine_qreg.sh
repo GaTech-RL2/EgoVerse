@@ -27,6 +27,7 @@ mkdir -p logs/sbatch
 hostname
 nvidia-smi || true
 
+export PACK_COLLATE_MAX_TOTAL_FRAMES=3200  # match max_seq_len; pack_collate drops samples to fit
 export PYTHONPATH=.
 srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
@@ -36,8 +37,8 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   data=tsimulation \
   model=hnet_pushshapes \
   model.scheduler.max_steps=640 \
-  model.robomimic_model.hnet.target_compression_ratio=8.0 \
-  model.robomimic_model.hnet.ratio_loss_weight=0.0075 \
+  model.robomimic_model.hnet.stages.1.target_compression_ratio=8.0 \
+  model.robomimic_model.hnet.stages.1.ratio_loss_weight=0.0075 \
   evaluator=eval_hnet_full \
   callbacks=checkpoints \
   callbacks.model_checkpoint.every_n_epochs=20 \

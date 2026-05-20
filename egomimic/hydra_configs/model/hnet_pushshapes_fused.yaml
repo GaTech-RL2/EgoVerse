@@ -8,7 +8,7 @@ robomimic_model:
   # action_out extraction at odd positions gives the per-step action
   # predictions.
   action_dim: 2
-  action_horizon: 400
+  action_horizon: 1024
   d_model: 128
   d_cond: 128
 
@@ -37,10 +37,24 @@ robomimic_model:
   arch_layout: "T8"
   num_heads: 4
   d_intermediate: 512
+  # Stronger-than-default dropout: the obs/action conditioning signal in
+  # pushshapes is very strong, so we regularise the flat backbone.
+  dropout: 0.15           # attention dropout (inside MHA)
+  resid_dropout: 0.2      # residual-branch dropout (attn/ffn outputs)
 
   domains: ["pushshapes_sim"]
   ac_keys:
     pushshapes_sim: "actions"
+
+  # F22: paper's stability recipe knobs. NOTE — ``HNetFused`` does NOT have a
+  # multi-stage chunker hierarchy (single flat backbone), so these are
+  # currently *absorbed by **kwargs* and have no effect on the fused variant.
+  # Kept in the yaml so the two configs stay structurally parallel and so
+  # they take effect immediately if/when HNetFused gains stage-tree support.
+  init_weights_range: 0.02
+  lr_multipliers: [1.0]
+  use_parameter_groups: true
+  weight_decay: 0.01
 
 optimizer:
   _target_: torch.optim.AdamW

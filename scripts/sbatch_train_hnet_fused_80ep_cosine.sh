@@ -24,6 +24,7 @@ hostname
 nvidia-smi || true
 echo "SLURM_JOB_ID=${SLURM_JOB_ID:-}  SLURM_RESTART_COUNT=${SLURM_RESTART_COUNT:-0}"
 
+export PACK_COLLATE_MAX_TOTAL_FRAMES=3200  # match max_seq_len; pack_collate drops samples to fit
 export PYTHONPATH=.
 srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
