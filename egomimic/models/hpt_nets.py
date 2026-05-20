@@ -9,7 +9,6 @@ import torchvision
 from einops import rearrange, repeat
 from timm.models.layers import DropPath, trunc_normal_
 from timm.models.vision_transformer import VisionTransformer
-from torch import einsum
 from torchvision import transforms
 from transformers import T5Model, T5Tokenizer
 
@@ -64,21 +63,18 @@ class CrossAttention(nn.Module):
         q = self.to_q(x)
         k, v = self.to_kv(context).chunk(2, dim=-1)
         q, k, v = map(lambda t: rearrange(t, "b n (h d) -> (b h) n d", h=h), (q, k, v))
-        sim = einsum("b i d, b j d -> b i j", q, k) * self.scale
 
+        # Build SDPA attn_mask (bool: True=attend, False=mask out) — matches
+        # the original `~mask` masked_fill semantics.
+        attn_mask = None
         if mask is not None:
-            # fill in the masks with negative values
-            mask = rearrange(mask, "b ... -> b (...)")
-            max_neg_value = -torch.finfo(sim.dtype).max
-            mask = repeat(mask, "b j -> (b h) () j", h=h)
-            sim.masked_fill_(~mask, max_neg_value)
+            m = rearrange(mask, "b ... -> b (...)")
+            attn_mask = repeat(m, "b j -> (b h) () j", h=h)
 
-        # attention, what we cannot get enough of
-        attn = sim.softmax(dim=-1)
-
-        # dropout
-        attn = self.dropout(attn)
-        out = einsum("b i j, b j d -> b i d", attn, v)
+        dropout_p = self.dropout.p if self.training else 0.0
+        out = F.scaled_dot_product_attention(
+            q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, scale=self.scale
+        )
         out = rearrange(out, "(b h) n d -> b n (h d)", h=h)
         return self.to_out(out)
 
@@ -126,11 +122,14 @@ class Attention(nn.Module):
             qkv[2],
         )  # make torchscript happy (cannot use tensor as tuple)
 
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
+        # SDPA picks flash / mem-efficient / math backend automatically based
+        # on dtype, shapes, and device; flash is used when available.
+        dropout_p = self.attn_drop.p if self.training else 0.0
+        x = F.scaled_dot_product_attention(
+            q, k, v, dropout_p=dropout_p, scale=self.scale
+        )
 
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
+        x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
@@ -187,9 +186,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -540,10 +539,16 @@ class MLPPolicyStem(PolicyStem):
         tanh_end: bool = False,
         ln: bool = True,
         num_of_copy: int = 1,
+        input_slice: Optional[List[int]] = None,
         **kwargs,
     ) -> None:
-        """vanilla MLP class"""
+        """vanilla MLP class. ``input_slice=[start, end]`` picks ``x[..., start:end]``
+        in forward, letting a multi-component proprio tensor feed only a subset
+        into the stem without resaving the zarr."""
         super().__init__(**kwargs)
+        self.input_slice = (
+            slice(int(input_slice[0]), int(input_slice[1])) if input_slice else None
+        )
         modules = [nn.Linear(input_dim, widths[0]), nn.SiLU()]
 
         for i in range(len(widths) - 1):
@@ -571,6 +576,8 @@ class MLPPolicyStem(PolicyStem):
         Returns:
             Flatten tensor with shape [B, M, 512]
         """
+        if self.input_slice is not None:
+            x = x[..., self.input_slice]
         if self.num_of_copy > 1:
             out = []
             iter_num = min(self.num_of_copy, x.shape[1])
@@ -650,10 +657,10 @@ class ResNet(PolicyStem):
                 out.append(net(input))
             feat = torch.stack(out, dim=1)
         else:
-            x = x.view(-1, 3, H, W)
+            x = x.reshape(-1, 3, H, W)
             feat = self.net(x)
         # concat along time
-        feat = feat.view(B, feat.shape[1], -1).transpose(1, 2)
+        feat = feat.reshape(B, feat.shape[1], -1).transpose(1, 2)
         feat = self.proj(feat)
         return feat
 
