@@ -25,6 +25,14 @@ robomimic_model:
   sampler_n_steps: 50
   sampler_eta: 0.0
 
+  # ---- closed-loop inference (sim eval) ----
+  # "ar"    — causal-AR rolling staircase. One denoise step per env tick;
+  #           buffer carries across steps. Matches DFoT training distribution.
+  # "chunk" — legacy plan-and-execute (uniform per-token noise, predict
+  #           ``action_horizon`` actions, replan after). Cheaper baseline.
+  inference_mode: "ar"
+  ar_inference_chunk_size: 1   # actions committed per env tick (1 = classic AR)
+
   domains: ["pushshapes_sim"]
   ac_keys:
     pushshapes_sim: "actions"

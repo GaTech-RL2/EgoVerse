@@ -35,8 +35,8 @@ import torch
 
 from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.sampling_ar import (
-    matrix_sample,
+from egomimic.algo.dfot.sampling import (
+    sample,
     staircase_ar_schedule,
     vanilla_schedule,
 )
@@ -170,10 +170,8 @@ class DFoTValEval(EvalVideo):
         schedule = vanilla_schedule(
             n_steps=self.n_chunk_steps, T=T, discrete_timesteps=discrete_ts
         ).to(device)
-        # External cond shape for matrix_sample: (B, T, d_cond) or (B, d_cond).
-        # We have per-frame cond (T, d_cond) -> add batch dim.
         ec = cond_per_frame.unsqueeze(0) if cond_per_frame is not None else None
-        pred_norm = matrix_sample(
+        pred_norm = sample(
             diff,
             backbone,
             schedule_matrix=schedule,
@@ -195,18 +193,15 @@ class DFoTValEval(EvalVideo):
         emb_id: int,
         T: int,
     ) -> torch.Tensor:
-        """Staircase causal-AR. One denoise step per frame, front token
-        committed each step. Returns world-frame predictions (T, A).
+        """Single-call staircase causal-AR denoising over the whole episode.
 
-        Buffer geometry: ``ar_chunk_size`` tokens per rung x
-        ``n_rungs`` rungs in flight. We pick ``n_rungs`` from
-        ``ar_step_size``-many denoising steps per rung so token at the back
-        takes ``ar_step_size * n_rungs`` schedule units to graduate. For a
-        simple per-frame implementation we use a single-rung-deep buffer of
-        ``ar_chunk_size`` tokens, with ``ar_step_size`` schedule units per
-        rung — i.e. one new prediction per ``ar_step_size`` frames. Tokens
-        within the same chunk are committed simultaneously to maintain
-        causal AR semantics with chunked rungs.
+        The schedule_matrix is the rolling-staircase geometry produced by
+        ``staircase_ar_schedule(T, chunk_size=ar_chunk_size,
+        step_size=ar_step_size)``. ``sample()`` then walks all
+        ``ceil(T / ar_chunk_size) * ar_step_size`` denoising steps, with
+        every token at every step taking its noise level from the matrix.
+        Earlier tokens reach 0 first; later tokens still at high noise
+        — the canonical DFoT-paper causal-AR pattern.
         """
         device = cond_per_frame.device
         diff = algo.diffusion
@@ -216,40 +211,24 @@ class DFoTValEval(EvalVideo):
         )
         ac_key = algo.resolved_ac_keys[emb_id]
         A = int(algo.action_dim)
-        chunk = int(self.ar_chunk_size)
-        step = int(self.ar_step_size)
-        # Schedule for one rung's worth of denoising (chunk tokens, step
-        # denoise steps each). Each rung emits ``chunk`` predicted actions.
-        # We slide ``ceil(T / chunk)`` rungs.
-        n_rungs = (T + chunk - 1) // chunk
-
-        preds_world = torch.zeros(T, A, device=device, dtype=cond_per_frame.dtype)
-        for r in range(n_rungs):
-            t_start = r * chunk
-            t_end = min(t_start + chunk, T)
-            cur_chunk = t_end - t_start
-            schedule = staircase_ar_schedule(
-                T=cur_chunk,
-                chunk_size=1,  # within this rung's denoise pass, one-token
-                step_size=step,
-                discrete_timesteps=discrete_ts,
-            ).to(device)
-            # Cond for this rung's tokens: frames [t_start, t_end).
-            ec = cond_per_frame[t_start:t_end].unsqueeze(0)
-            pred_norm = matrix_sample(
-                diff,
-                backbone,
-                schedule_matrix=schedule,
-                action_dim=A,
-                batch_size=1,
-                external_cond=ec,
-                device=device,
-            ).squeeze(0)  # (cur_chunk, A)
-            pred_world_chunk = algo.norm_stats.unnormalize(
-                {ac_key: pred_norm}, emb_id
-            )[ac_key]
-            preds_world[t_start:t_end] = pred_world_chunk
-        return preds_world
+        schedule = staircase_ar_schedule(
+            T=T,
+            chunk_size=int(self.ar_chunk_size),
+            step_size=int(self.ar_step_size),
+            discrete_timesteps=discrete_ts,
+        ).to(device)
+        ec = cond_per_frame.unsqueeze(0)  # (1, T, d_cond)
+        pred_norm = sample(
+            diff,
+            backbone,
+            schedule_matrix=schedule,
+            action_dim=A,
+            batch_size=1,
+            external_cond=ec,
+            device=device,
+        ).squeeze(0)  # (T, A)
+        pred_world = algo.norm_stats.unnormalize({ac_key: pred_norm}, emb_id)[ac_key]
+        return pred_world
 
     # ---- main eval entrypoint ---- #
 

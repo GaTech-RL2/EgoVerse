@@ -1,0 +1,42 @@
+# Composite DFoT evaluator: teacher-forced val viz + closed-loop sim eval.
+#   1. eval_dfot_val — full-chunk DDIM + staircase-AR overlaid on GT env
+#      frames. Tells us "given the right obs, does the model predict the
+#      right actions?" Independent of env dynamics.
+#   2. eval_dfot_sim — closed-loop rollout in PushShapesEnv driven by
+#      DFoT.inference_step (default: causal-AR staircase). Tells us
+#      "does the policy actually solve the task?"
+#
+# Both run every val pass.
+
+_target_: egomimic.eval.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.eval_dfot_val.DFoTValEval
+    do_full_chunk: true
+    do_ar: true
+    n_chunk_steps: 50
+    ar_chunk_size: 1
+    ar_step_size: 1
+    limit_val_batches: 4
+    max_videos: 2
+    coverage_threshold: 0.7
+    embodiment_name: pushshapes_sim
+    env_kwargs: null
+    viz_func: null
+    transform_lists: null
+
+  - _target_: egomimic.eval.eval_sim.PackedSimEval
+    env_kwargs:
+      object_shape: "T"
+      pusher_shape: "circle"
+      obstacle_level: 0
+      image_size: 96
+    init_mode: "replay"
+    init_seeds: [0, 1, 2, 3]
+    max_steps: 1200
+    coverage_threshold: 0.7
+    video_fps: 30
+    limit_val_batches: 4
+    max_videos: 2
+    viz_func: null
+    transform_lists: null

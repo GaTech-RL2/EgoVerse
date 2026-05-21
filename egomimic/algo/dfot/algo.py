@@ -20,7 +20,11 @@ from egomimic.algo.algo import Algo
 from egomimic.algo.dfot.backbone import DFoTBackbone
 from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.sampling import ddim_sample, ddpm_sample
+from egomimic.algo.dfot.sampling import (
+    CausalARRollout,
+    ddim_sample,
+    ddpm_sample,
+)
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
@@ -77,6 +81,8 @@ class DFoT(Algo):
         sampler: str = "ddim",
         sampler_n_steps: int = 50,
         sampler_eta: float = 0.0,
+        inference_mode: str = "ar",
+        ar_inference_chunk_size: int = 1,
         domains: Optional[list] = None,
         ac_keys: Optional[dict] = None,
         cond_output_key: str = "fused_cond",
@@ -93,6 +99,12 @@ class DFoT(Algo):
         self.sampler = sampler
         self.sampler_n_steps = int(sampler_n_steps)
         self.sampler_eta = float(sampler_eta)
+        if inference_mode not in {"ar", "chunk"}:
+            raise ValueError(
+                f"inference_mode must be 'ar' or 'chunk', got {inference_mode!r}"
+            )
+        self.inference_mode = inference_mode
+        self.ar_inference_chunk_size = int(ar_inference_chunk_size)
         self.diffusion_type = diffusion_type
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
@@ -171,9 +183,9 @@ class DFoT(Algo):
             processed[emb_id]["_packed"] = is_packed
             # Synthesize seq_lens from cu_seqlens for packed batches if the
             # collator didn't emit it. Several downstream evaluators
-            # (HNetSimEval._infer_n_episodes, etc.) key off seq_lens to find
-            # episode boundaries — silently returning 0 episodes when it's
-            # missing produces no metrics + no videos.
+            # (``PackedSimEval._infer_n_episodes``, etc.) key off seq_lens
+            # to find episode boundaries — silently returning 0 episodes
+            # when it's missing produces no metrics + no videos.
             if is_packed and "seq_lens" not in processed[emb_id]:
                 cu = processed[emb_id].get("cu_seqlens")
                 if cu is not None and torch.is_tensor(cu):
@@ -360,12 +372,80 @@ class DFoT(Algo):
             log[k] = v.item()
         return log
 
-    # ---- Sim eval hook (HPT-style chunk sampler) ---- #
+    # ---- Sim eval hook ---- #
+    #
+    # Two inference modes, selected by ``self.inference_mode`` (config):
+    #   "ar"     — DFoT-flavored causal-AR rolling staircase (default).
+    #              Each env step advances the CausalARRollout buffer by one
+    #              schedule unit; the front token commits as the action.
+    #              Matches training distribution (per-token random noise).
+    #   "chunk"  — legacy chunk-replan: predict ``action_horizon`` actions
+    #              with uniform-per-token DDIM, execute them one at a time,
+    #              replan after the chunk is exhausted. Cheaper but doesn't
+    #              exercise DFoT's per-token-noise capability.
 
     @torch.no_grad()
     def inference_step(
         self, obs_zarr: dict, t: int, emb_id: int, T_max=None
     ) -> "np.ndarray":
+        if self.inference_mode == "ar":
+            return self._inference_step_ar(obs_zarr, t, emb_id)
+        if self.inference_mode == "chunk":
+            return self._inference_step_chunk(obs_zarr, t, emb_id)
+        raise ValueError(f"unknown inference_mode {self.inference_mode!r}")
+
+    @torch.no_grad()
+    def _inference_step_ar(
+        self, obs_zarr: dict, t: int, emb_id: int
+    ) -> "np.ndarray":
+        """Causal-AR rolling-staircase inference. One denoise step per env
+        tick, one (or ``ar_inference_chunk_size``-many) action(s) committed
+        per call. The buffer carries over between env ticks."""
+        embodiment_name = get_embodiment(emb_id).lower()
+        device = next(self.nets["backbone"].parameters()).device
+        ac_key = self.ac_keys[embodiment_name]
+
+        if t == 0 or not hasattr(self, "_sim_rollout") or self._sim_rollout is None:
+            self._sim_rollout = CausalARRollout(
+                self.diffusion,
+                self.nets["backbone"],
+                action_dim=self.action_dim,
+                buffer_size=self.action_horizon,
+                chunk_size=self.ar_inference_chunk_size,
+                device=device,
+                dtype=torch.float32,
+            )
+            self._sim_committed_queue = []
+
+        # If we already have committed actions ready, just pop one.
+        if self._sim_committed_queue:
+            return self._sim_committed_queue.pop(0)
+
+        # Otherwise: encode current obs, advance the rollout, unnormalize.
+        obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
+        cond = self._encode_cond(obs_norm, self.action_horizon)  # (1, d_cond)
+        # CausalARRollout expects (B=1, cond_dim) or (B=1, T, cond_dim).
+        # Per-token broadcast happens inside the backbone — pass (1, d_cond).
+        if cond is not None and cond.dim() == 3:
+            cond = cond[:, 0]
+        committed_norm = self._sim_rollout.step(external_cond=cond)
+        # Shape: (chunk_size, action_dim).
+        committed_world = self.norm_stats.unnormalize(
+            {ac_key: committed_norm}, emb_id
+        )[ac_key]
+        committed_np = committed_world.detach().cpu().numpy()
+        # Push extras to queue, return the first.
+        for row in committed_np[1:]:
+            self._sim_committed_queue.append(row.reshape(-1).astype(np.float32))
+        return committed_np[0].reshape(-1).astype(np.float32)
+
+    @torch.no_grad()
+    def _inference_step_chunk(
+        self, obs_zarr: dict, t: int, emb_id: int
+    ) -> "np.ndarray":
+        """Legacy chunk-replan inference (uniform per-token noise, plan +
+        execute action_horizon steps before replanning). Cheaper but does
+        NOT exercise DFoT's per-token-noise capability."""
         embodiment_name = get_embodiment(emb_id).lower()
         device = next(self.nets["backbone"].parameters()).device
         ac_key = self.ac_keys[embodiment_name]
@@ -374,9 +454,6 @@ class DFoT(Algo):
         state = self._sim_state
 
         if state["chunk"] is None or state["chunk_idx"] >= self.action_horizon:
-            # obs_zarr is already shaped per the SimRolloutEval contract:
-            # state_agent_obj (1, D), front_img_1 (1, C, H, W). CondEncoderModule
-            # handles the per-T_action broadcast internally — don't unsqueeze.
             obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
             cond = self._encode_cond(obs_norm, self.action_horizon)
             sampled = self._sample_chunk(

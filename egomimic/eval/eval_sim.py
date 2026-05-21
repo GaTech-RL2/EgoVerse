@@ -10,7 +10,7 @@ Design:
   * SimRolloutEval (base) drives the env loop. For each step, it
     calls algo.inference_step(obs_zarr, t, emb_id) -> np.ndarray,
     feeds the action to env.step, and renders the frame.
-  * Per-model subclasses (HPTSimEval, HNetSimEval) implement
+  * Per-model subclasses (HPTSimEval, PackedSimEval) implement
     batch_to_env_init(batch, b_idx, emb_id): slice the val batch
     into the env init dict for replay mode. The base class is otherwise
     model-agnostic.
@@ -344,9 +344,18 @@ class HPTSimEval(SimRolloutEval):
         }
 
 
-class HNetSimEval(SimRolloutEval):
-    """HNet packed batch layout: cu_seqlens / seq_lens describe episode
-    boundaries; each episode's frame-0 state is the env init."""
+class PackedSimEval(SimRolloutEval):
+    """Closed-loop sim eval for any algo using packed batches.
+
+    The batch is expected to carry ``cu_seqlens`` (and ideally ``seq_lens``)
+    marking episode boundaries; each episode's frame-0 state is the env init.
+    The algo just needs to implement ``inference_step(obs_zarr, t, emb_id)``
+    — sim eval is otherwise algo-agnostic. Used by HNet, DFoT, and any
+    future packed-batch policy.
+
+    Kept under the (legacy) name ``HNetSimEval`` for backward compat — both
+    names resolve to this class.
+    """
 
     def _infer_n_episodes(self, batch: Dict[str, Any]) -> int:
         seq_lens = batch.get("seq_lens")
@@ -375,3 +384,9 @@ class HNetSimEval(SimRolloutEval):
             "object_pose": object_pose,
             "goal_pose": goal_pose,
         }
+
+
+# Backward-compat alias — old configs / docs may reference HNetSimEval;
+# the class is algo-agnostic so the rename to PackedSimEval is purely
+# cosmetic. Existing eval_hnet_sim.yaml and downstream callers keep working.
+HNetSimEval = PackedSimEval
