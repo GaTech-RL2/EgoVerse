@@ -1,11 +1,21 @@
 """
 DFoT Algo: per-token-noise-level diffusion over action chunks.
 
-Single-domain (PushShapes by default), per-frame loader. Each sample is a
-``(B, T, action_dim)`` action chunk with single-frame obs; obs is encoded
-into ``(B, cond_dim)`` via the existing ``CondEncoderModule`` and broadcast
-to per-token inside the backbone. Loss is the diffusion (epsilon/v/x0)
-MSE with the chosen loss-weighting strategy.
+Supports both packed (full variable-length episodes; ``cu_seqlens``-driven
+within-episode attention) and padded (fixed-T windows) batches. In packed
+mode obs is per-frame (one obs per action timestep, aligned via the
+``pushshapes.get_keymap`` per-frame keymap); in padded mode obs may be
+single-frame and is broadcast across T at the per-token AdaLN. Loss is the
+diffusion (epsilon / v / x0) MSE with the configured weighting strategy.
+
+Two inference modes (see ``inference_step``):
+  * "ar":    rolling causal-AR staircase. One ``sample_step`` per env tick.
+             Matches training distribution. Default.
+  * "chunk": vanilla DDIM over a fixed window with plan-and-execute. Legacy
+             baseline; doesn't exercise DFoT's per-token-noise capability.
+
+Teacher-forced offline val viz lives in ``egomimic/eval/eval_dfot_val.py``
+(``DFoTValEval``).
 """
 
 from collections import OrderedDict
@@ -20,11 +30,7 @@ from egomimic.algo.algo import Algo
 from egomimic.algo.dfot.backbone import DFoTBackbone
 from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.sampling import (
-    CausalARRollout,
-    ddim_sample,
-    ddpm_sample,
-)
+from egomimic.algo.dfot.sampling import ddim_sample, ddpm_sample, sample_step
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
@@ -54,19 +60,28 @@ class DFoT(Algo):
 
     Args:
         action_dim: action feature width.
-        action_horizon: chunk length T.
-        cond_encoder: ``CondEncoderModule`` for obs -> ``(B, cond_dim)``.
-        backbone: ``DFoTBackbone`` (built via Hydra). Owns x/cond/time
-            projections and the Isotropic trunk.
+        action_horizon: AR buffer / chunk length T. Also the planning window
+            for legacy chunk-mode inference.
+        cond_encoder: ``CondEncoderModule`` for obs -> ``(B, T, cond_dim)``
+            (per-frame) or ``(B, cond_dim)`` (single-frame, broadcast).
+        backbone: ``DFoTBackbone`` (built via Hydra). Owns x / cond / time
+            projections and the ``Isotropic`` trunk.
+        norm_stats: ``MultiDataset`` (injected by
+            ``pl_model._instantiate_model``).
         diffusion_type: ``"discrete"`` or ``"continuous"``.
         diffusion_kwargs: dict forwarded to the chosen diffusion class.
-        sampler: ``"ddpm"`` or ``"ddim"``.
-        sampler_n_steps: number of denoising steps at inference time.
-        sampler_eta: DDIM eta (0.0 = deterministic).
-        norm_stats: MultiDataset (injected by ``pl_model._instantiate_model``).
+        sampler: ``"ddpm"`` or ``"ddim"`` — used only by chunk-mode inference.
+        sampler_n_steps: denoising step count for chunk-mode inference.
+        sampler_eta: DDIM eta (0.0 = deterministic) for chunk-mode inference.
+        inference_mode: ``"ar"`` (default) for rolling causal-AR staircase or
+            ``"chunk"`` for legacy plan-and-execute.
+        ar_inference_chunk_size: tokens committed per env tick in AR mode
+            (1 = classic causal AR; >1 = chunked staircase rungs).
+            ``action_horizon`` must be divisible by this.
         domains: list of embodiment names (single-element for v1).
         ac_keys: dict ``embodiment_name -> action zarr key``.
-        cond_output_key: key under which the cond encoder exposes its fused cond.
+        cond_output_key: key under which the cond encoder exposes its fused
+            cond.
     """
 
     def __init__(
@@ -376,8 +391,8 @@ class DFoT(Algo):
     #
     # Two inference modes, selected by ``self.inference_mode`` (config):
     #   "ar"     — DFoT-flavored causal-AR rolling staircase (default).
-    #              Each env step advances the CausalARRollout buffer by one
-    #              schedule unit; the front token commits as the action.
+    #              Each env step does ONE ``sample_step`` against the AR
+    #              buffer; the front rung commits as the action(s).
     #              Matches training distribution (per-token random noise).
     #   "chunk"  — legacy chunk-replan: predict ``action_horizon`` actions
     #              with uniform-per-token DDIM, execute them one at a time,
@@ -394,47 +409,93 @@ class DFoT(Algo):
             return self._inference_step_chunk(obs_zarr, t, emb_id)
         raise ValueError(f"unknown inference_mode {self.inference_mode!r}")
 
+    def _ar_state_init(self, device):
+        """Initialize the AR buffer + staircase geometry. Called from
+        ``_inference_step_ar`` on ``t==0`` or when stale."""
+        if self.action_horizon % self.ar_inference_chunk_size != 0:
+            raise ValueError(
+                f"action_horizon ({self.action_horizon}) must be divisible by "
+                f"ar_inference_chunk_size ({self.ar_inference_chunk_size})."
+            )
+        n_rungs = self.action_horizon // self.ar_inference_chunk_size
+        is_discrete = isinstance(self.diffusion, DiscreteDiffusion)
+        if is_discrete:
+            self._ar_unit = max(1, self.diffusion.timesteps // n_rungs)
+        else:
+            self._ar_unit = 1.0 / float(n_rungs)
+        self._ar_discrete = is_discrete
+        self._ar_buffer = torch.randn(
+            1, self.action_horizon, self.action_dim, device=device, dtype=torch.float32
+        )
+        self._sim_committed_queue = []
+
+    def _ar_levels(self, offset: float, device) -> torch.Tensor:
+        """Per-token noise levels for the staircase at rung-offset ``offset``.
+        ``offset=0`` = current; ``offset=1`` = after one rung advance.
+        Tokens within the same chunk share a rung's level."""
+        tok_idx = torch.arange(self.action_horizon, device=device).float()
+        rung_idx = (tok_idx // self.ar_inference_chunk_size) + 1.0 - offset
+        if self._ar_discrete:
+            levels = (rung_idx * self._ar_unit).long().clamp(
+                -1, self.diffusion.timesteps - 1
+            )
+        else:
+            levels = (rung_idx * self._ar_unit).clamp(0.0, 1.0)
+        return levels.unsqueeze(0)  # (1, action_horizon)
+
     @torch.no_grad()
     def _inference_step_ar(
         self, obs_zarr: dict, t: int, emb_id: int
     ) -> "np.ndarray":
-        """Causal-AR rolling-staircase inference. One denoise step per env
+        """Causal-AR rolling-staircase inference. One sample_step per env
         tick, one (or ``ar_inference_chunk_size``-many) action(s) committed
-        per call. The buffer carries over between env ticks."""
+        per call. Buffer carries across calls."""
         embodiment_name = get_embodiment(emb_id).lower()
         device = next(self.nets["backbone"].parameters()).device
         ac_key = self.ac_keys[embodiment_name]
 
-        if t == 0 or not hasattr(self, "_sim_rollout") or self._sim_rollout is None:
-            self._sim_rollout = CausalARRollout(
-                self.diffusion,
-                self.nets["backbone"],
-                action_dim=self.action_dim,
-                buffer_size=self.action_horizon,
-                chunk_size=self.ar_inference_chunk_size,
-                device=device,
-                dtype=torch.float32,
-            )
-            self._sim_committed_queue = []
+        # Reset on episode start.
+        if t == 0 or not hasattr(self, "_ar_buffer"):
+            self._ar_state_init(device)
 
         # If we already have committed actions ready, just pop one.
         if self._sim_committed_queue:
             return self._sim_committed_queue.pop(0)
 
-        # Otherwise: encode current obs, advance the rollout, unnormalize.
+        # Encode current obs into per-call cond. Broadcast across buffer
+        # tokens inside the backbone (per-token AdaLN).
         obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
-        cond = self._encode_cond(obs_norm, self.action_horizon)  # (1, d_cond)
-        # CausalARRollout expects (B=1, cond_dim) or (B=1, T, cond_dim).
-        # Per-token broadcast happens inside the backbone — pass (1, d_cond).
+        cond = self._encode_cond(obs_norm, self.action_horizon)
         if cond is not None and cond.dim() == 3:
-            cond = cond[:, 0]
-        committed_norm = self._sim_rollout.step(external_cond=cond)
-        # Shape: (chunk_size, action_dim).
+            cond = cond[:, 0]  # (1, cond_dim) — backbone broadcasts to T
+
+        # One denoise step on the buffer.
+        cur_levels = self._ar_levels(offset=0.0, device=device)
+        nxt_levels = self._ar_levels(offset=1.0, device=device)
+        self._ar_buffer = sample_step(
+            self.diffusion,
+            self.nets["backbone"],
+            x=self._ar_buffer,
+            current_levels=cur_levels,
+            next_levels=nxt_levels,
+            external_cond=cond,
+        )
+
+        # Commit front rung, slide buffer, push fresh noisy rung at the back.
+        chunk = self.ar_inference_chunk_size
+        committed_norm = self._ar_buffer[:, :chunk, :].clone()  # (1, chunk, A)
+        new_back = torch.randn(
+            1, chunk, self.action_dim, device=device, dtype=torch.float32
+        )
+        self._ar_buffer = torch.cat(
+            [self._ar_buffer[:, chunk:, :], new_back], dim=1
+        )
+
+        # Unnormalize + return first committed action; queue extras.
         committed_world = self.norm_stats.unnormalize(
-            {ac_key: committed_norm}, emb_id
+            {ac_key: committed_norm.squeeze(0)}, emb_id
         )[ac_key]
         committed_np = committed_world.detach().cpu().numpy()
-        # Push extras to queue, return the first.
         for row in committed_np[1:]:
             self._sim_committed_queue.append(row.reshape(-1).astype(np.float32))
         return committed_np[0].reshape(-1).astype(np.float32)
