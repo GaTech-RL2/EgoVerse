@@ -20,7 +20,7 @@ For each val episode the evaluator emits one mp4: the GT env image stream
 — GT (green), full_chunk pred (blue), AR pred (yellow). Per-mode per-
 frame MSE is reported as the validation metric.
 
-This evaluator does NOT touch a simulator (cf. ``HNetSimEval`` /
+This evaluator does NOT touch a simulator (cf. ``PackedSimEval`` /
 ``HPTSimEval``). All obs come straight from the packed val batch — no
 closed-loop drift between predicted action and next obs.
 """
