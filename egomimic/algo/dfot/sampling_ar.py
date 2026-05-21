@@ -87,6 +87,48 @@ def causal_ar_schedule(
     return levels.contiguous()
 
 
+def staircase_ar_schedule(
+    T: int,
+    *,
+    chunk_size: int = 1,
+    step_size: int = 1,
+    discrete_timesteps: Optional[int] = None,
+) -> torch.Tensor:
+    """Configurable causal-AR staircase schedule.
+
+    The two knobs control staircase geometry:
+      - ``chunk_size`` (staircase "width"): how many tokens share the same
+        noise level at any given step. 1 = one token per rung (vanilla
+        causal AR). Larger = wider staircase rungs (more tokens denoise
+        together).
+      - ``step_size`` (staircase "height"): how many denoising steps each
+        rung takes before sliding forward. 1 = each step advances every
+        token by one schedule unit. Larger = slower denoise per rung.
+
+    With ``chunk_size=1, step_size=1`` this reduces to ``causal_ar_schedule``.
+
+    Noise level for token ``i`` at step ``s``:
+
+        rung      = i // chunk_size                  # 0..n_chunks-1
+        n_chunks  = ceil(T / chunk_size)
+        level     = clamp(1 - (s - rung*step_size) / step_size, 0, 1)
+
+    Total schedule length = ``n_chunks * step_size + 1``.
+    """
+    n_chunks = (T + chunk_size - 1) // chunk_size
+    n_total = n_chunks * step_size
+    step_idx = torch.arange(n_total + 1).float()  # (n_total + 1,)
+    tok_idx = torch.arange(T).float()  # (T,)
+    rung = (tok_idx // chunk_size)  # (T,) integer rung index
+    raw = 1.0 - (step_idx[:, None] - rung[None, :] * step_size) / float(step_size)
+    levels = raw.clamp(0.0, 1.0)
+    if discrete_timesteps is not None:
+        levels = (levels * (discrete_timesteps - 1)).round().long().clamp(
+            0, discrete_timesteps - 1
+        )
+    return levels.contiguous()
+
+
 def chunk_schedule(
     T: int,
     *,

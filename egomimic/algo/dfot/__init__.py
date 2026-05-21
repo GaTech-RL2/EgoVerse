@@ -10,6 +10,7 @@ from egomimic.algo.dfot.sampling_ar import (
     causal_ar_schedule,
     chunk_schedule,
     matrix_sample,
+    staircase_ar_schedule,
     vanilla_schedule,
 )
 
@@ -23,6 +24,7 @@ __all__ = [
     "matrix_sample",
     "vanilla_schedule",
     "causal_ar_schedule",
+    "staircase_ar_schedule",
     "chunk_schedule",
     "CausalARRollout",
 ]
