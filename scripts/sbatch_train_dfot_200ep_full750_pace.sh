@@ -21,8 +21,9 @@
 # steps (~3 ep), eta_min 4e-6, lr 4e-5. --time set to 12h (32000 steps
 # ~10.7h at ~50 steps/min on H200).
 #
-# Eval: eval_hnet_sim — closed-loop PushShapesEnv rollout per val episode.
-# Val every 25 epochs (=8 val passes over 200 ep) to reduce sim-eval cost.
+# Eval: eval_dfot_val — teacher-forced action prediction with viz, both
+# full-chunk DDIM denoise + staircase causal-AR overlaid in one mp4 per
+# val episode. Val every 25 epochs (=8 val passes over 200 ep).
 
 set -euxo pipefail
 cd /storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4
@@ -49,8 +50,11 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   model.scheduler.warmup_steps=480 \
   model.scheduler.warmup_start_factor=0.1 \
   model.scheduler.eta_min=4.0e-6 \
-  evaluator=eval_hnet_sim \
+  evaluator=eval_dfot_val \
   evaluator.limit_val_batches=4 \
+  evaluator.ar_chunk_size=1 \
+  evaluator.ar_step_size=1 \
+  evaluator.n_chunk_steps=50 \
   callbacks=checkpoints \
   callbacks.model_checkpoint.every_n_epochs=25 \
   trainer=debug \

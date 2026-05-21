@@ -169,6 +169,15 @@ class DFoT(Algo):
                     processed[emb_id][key_name] = value
 
             processed[emb_id]["_packed"] = is_packed
+            # Synthesize seq_lens from cu_seqlens for packed batches if the
+            # collator didn't emit it. Several downstream evaluators
+            # (HNetSimEval._infer_n_episodes, etc.) key off seq_lens to find
+            # episode boundaries — silently returning 0 episodes when it's
+            # missing produces no metrics + no videos.
+            if is_packed and "seq_lens" not in processed[emb_id]:
+                cu = processed[emb_id].get("cu_seqlens")
+                if cu is not None and torch.is_tensor(cu):
+                    processed[emb_id]["seq_lens"] = (cu[1:] - cu[:-1]).to(torch.int64)
             processed[emb_id] = self.norm_stats.normalize(processed[emb_id], emb_id)
             processed[emb_id]["embodiment"] = torch.tensor(
                 [emb_id], device=self.device, dtype=torch.int64
