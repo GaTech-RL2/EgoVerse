@@ -118,6 +118,101 @@ def causal_ar_schedule(
 
 
 @torch.no_grad()
+def sample_step(
+    diffusion: Union[ContinuousDiffusion, DiscreteDiffusion],
+    backbone,
+    *,
+    x: torch.Tensor,
+    current_levels: torch.Tensor,
+    next_levels: torch.Tensor,
+    external_cond: Optional[torch.Tensor] = None,
+    eta: float = 0.0,
+) -> torch.Tensor:
+    """One denoise step. Per-token noise levels are arbitrary.
+
+    This is the primitive — every other inference path is a loop over
+    ``sample_step``. Use it directly when the schedule isn't known in
+    advance (e.g. online AR rollout where the buffer grows over env ticks);
+    use ``sample(schedule_matrix, ...)`` when you have the full plan up
+    front.
+
+    Args:
+        diffusion: ``ContinuousDiffusion`` or ``DiscreteDiffusion``.
+        backbone: callable ``(x, noise_levels, external_cond) -> pred``.
+        x: current per-token state, ``(B, T, action_dim)``.
+        current_levels: per-token noise levels at the current step, shape
+            ``(B, T)`` or ``(T,)`` (broadcast over batch). Floats in
+            ``[0, 1]`` for continuous diffusion, longs in ``[0, timesteps)``
+            for discrete (``-1`` = fully clean sentinel).
+        next_levels: per-token noise levels at the next step, same shape
+            convention as ``current_levels``.
+        external_cond: ``(B, T, cond_dim)`` or ``(B, cond_dim)`` or ``None``.
+        eta: DDIM stochasticity (0.0 = deterministic).
+
+    Returns:
+        Updated ``x`` of the same shape ``(B, T, action_dim)``.
+
+    Note:
+        ``x.shape[1]`` (the T dimension) must match ``current_levels`` and
+        ``next_levels``. If you want to *grow* T between calls (push new
+        noisy tokens at the back of an AR buffer), append the new slot to
+        ``x`` before calling ``sample_step`` and provide noise levels for
+        the new tokens at the appropriate "fully noisy" entry.
+    """
+    B, T, _ = x.shape
+    dtype = x.dtype
+
+    # Broadcast (T,) -> (B, T).
+    if current_levels.dim() == 1:
+        current_levels = current_levels.unsqueeze(0).expand(B, T)
+    if next_levels.dim() == 1:
+        next_levels = next_levels.unsqueeze(0).expand(B, T)
+
+    if isinstance(diffusion, ContinuousDiffusion):
+        t_cur = current_levels.to(dtype)
+        t_next = next_levels.to(dtype)
+        v = diffusion.model_v(backbone, x, t_cur, external_cond)
+        x0, eps = diffusion.v_to_x0_and_noise(x, t_cur, v)
+        logsnr_next = diffusion.schedule(t_next)
+        alpha_next = torch.sigmoid(logsnr_next).sqrt().unsqueeze(-1)
+        sigma_next = torch.sigmoid(-logsnr_next).sqrt().unsqueeze(-1)
+        if eta > 0:
+            noise = torch.randn_like(x)
+            return alpha_next * x0 + sigma_next * (
+                (1 - eta ** 2).clamp_min(0.0).sqrt() * eps + eta * noise
+            )
+        return alpha_next * x0 + sigma_next * eps
+
+    if isinstance(diffusion, DiscreteDiffusion):
+        k_cur = current_levels.long()
+        k_next = next_levels.long()
+        pred = diffusion.model_predictions(
+            backbone, x, k_cur.clamp_min(0), external_cond
+        )
+        x0 = pred.pred_x_start
+        eps = pred.pred_noise
+        alpha = diffusion.alphas_cumprod[k_cur.clamp_min(0)].unsqueeze(-1)
+        k_next_clamp = k_next.clamp_min(0)
+        alpha_next = diffusion.alphas_cumprod[k_next_clamp].unsqueeze(-1)
+        fully_clean = (k_next < 0).unsqueeze(-1)
+        alpha_next = torch.where(
+            fully_clean, torch.ones_like(alpha_next), alpha_next
+        )
+        sigma_sq = (
+            eta ** 2
+            * (1 - alpha / alpha_next.clamp_min(1e-8)).clamp_min(0.0)
+            * (1 - alpha_next).clamp_min(0.0)
+            / (1 - alpha).clamp_min(1e-8)
+        )
+        sigma = sigma_sq.clamp_min(0.0).sqrt()
+        c = (1 - alpha_next - sigma ** 2).clamp_min(0.0).sqrt()
+        noise_term = torch.randn_like(x) if eta > 0 else torch.zeros_like(x)
+        return x0 * alpha_next.sqrt() + eps * c + sigma * noise_term
+
+    raise TypeError(f"unsupported diffusion type {type(diffusion).__name__}")
+
+
+@torch.no_grad()
 def sample(
     diffusion: Union[ContinuousDiffusion, DiscreteDiffusion],
     backbone,
@@ -131,26 +226,26 @@ def sample(
     dtype: torch.dtype = torch.float32,
     x_init: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    """Denoise an action chunk under an arbitrary per-token-per-step
-    schedule.
+    """Denoise under a known static schedule. Thin loop over ``sample_step``.
+
+    Use this when the full ``schedule_matrix`` is known up front (e.g.
+    offline teacher-forced eval, full-chunk denoising, fixed-length
+    staircase). For online AR where the schedule grows over time, call
+    ``sample_step`` directly per env tick.
 
     Args:
         diffusion: ``ContinuousDiffusion`` or ``DiscreteDiffusion``.
         backbone: callable ``(x, noise_levels, external_cond) -> pred``.
         schedule_matrix: ``(n_steps + 1, T)``. Row 0 = initial per-token
-            noise levels; row -1 = final. Floats for continuous, longs for
-            discrete (``-1`` denotes "fully clean" sentinel).
+            noise levels; row -1 = final.
         action_dim: feature dim of the action.
         batch_size: batch dim for output; schedule is broadcast across batch.
-        external_cond: optional obs cond ``(B, T, cond_dim)`` or
-            ``(B, cond_dim)``.
+        external_cond: ``(B, T, cond_dim)`` or ``(B, cond_dim)`` or ``None``.
         eta: DDIM stochasticity (0.0 = deterministic).
-        x_init: optional initial sample. If None, samples standard normal.
-            Useful for stateful online rollouts that want to carry a buffer
-            across calls.
+        x_init: optional initial sample; defaults to standard normal.
 
     Returns:
-        ``(B, T, action_dim)`` denoised actions.
+        ``(B, T, action_dim)`` denoised.
     """
     n_steps_plus_one, T = schedule_matrix.shape
     n_steps = n_steps_plus_one - 1
@@ -169,53 +264,17 @@ def sample(
                 f"x_init shape {tuple(x.shape)} != ({B}, {T}, {action_dim})"
             )
 
-    if isinstance(diffusion, ContinuousDiffusion):
-        for s in range(n_steps):
-            t_cur = schedule_matrix[s].to(dtype).unsqueeze(0).expand(B, T)
-            t_next = schedule_matrix[s + 1].to(dtype).unsqueeze(0).expand(B, T)
-            v = diffusion.model_v(backbone, x, t_cur, external_cond)
-            x0, eps = diffusion.v_to_x0_and_noise(x, t_cur, v)
-            logsnr_next = diffusion.schedule(t_next)
-            alpha_next = torch.sigmoid(logsnr_next).sqrt().unsqueeze(-1)
-            sigma_next = torch.sigmoid(-logsnr_next).sqrt().unsqueeze(-1)
-            if eta > 0:
-                noise = torch.randn_like(x)
-                x = alpha_next * x0 + sigma_next * (
-                    (1 - eta ** 2).clamp_min(0.0).sqrt() * eps + eta * noise
-                )
-            else:
-                x = alpha_next * x0 + sigma_next * eps
-        return x
-
-    if isinstance(diffusion, DiscreteDiffusion):
-        for s in range(n_steps):
-            k_cur = schedule_matrix[s].long().unsqueeze(0).expand(B, T)
-            k_next = schedule_matrix[s + 1].long().unsqueeze(0).expand(B, T)
-            pred = diffusion.model_predictions(
-                backbone, x, k_cur.clamp_min(0), external_cond
-            )
-            x0 = pred.pred_x_start
-            eps = pred.pred_noise
-            alpha = diffusion.alphas_cumprod[k_cur.clamp_min(0)].unsqueeze(-1)
-            k_next_clamp = k_next.clamp_min(0)
-            alpha_next = diffusion.alphas_cumprod[k_next_clamp].unsqueeze(-1)
-            fully_clean = (k_next < 0).unsqueeze(-1)
-            alpha_next = torch.where(
-                fully_clean, torch.ones_like(alpha_next), alpha_next
-            )
-            sigma_sq = (
-                eta ** 2
-                * (1 - alpha / alpha_next.clamp_min(1e-8)).clamp_min(0.0)
-                * (1 - alpha_next).clamp_min(0.0)
-                / (1 - alpha).clamp_min(1e-8)
-            )
-            sigma = sigma_sq.clamp_min(0.0).sqrt()
-            c = (1 - alpha_next - sigma ** 2).clamp_min(0.0).sqrt()
-            noise_term = torch.randn_like(x) if eta > 0 else torch.zeros_like(x)
-            x = x0 * alpha_next.sqrt() + eps * c + sigma * noise_term
-        return x
-
-    raise TypeError(f"unsupported diffusion type {type(diffusion).__name__}")
+    for s in range(n_steps):
+        x = sample_step(
+            diffusion,
+            backbone,
+            x=x,
+            current_levels=schedule_matrix[s],
+            next_levels=schedule_matrix[s + 1],
+            external_cond=external_cond,
+            eta=eta,
+        )
+    return x
 
 
 # --------------------------------------------------------------------------- #
@@ -373,21 +432,17 @@ class CausalARRollout:
         """Advance the staircase by one unit, commit the front ``chunk_size``
         tokens, push fresh fully-noisy slots. Returns the committed actions
         of shape ``(chunk_size, action_dim)``."""
-        cur = self._levels(offset=0.0)
+        cur = self._levels(offset=0.0)  # (1, buffer_size)
         nxt = self._levels(offset=1.0)
-        schedule = torch.stack([cur.squeeze(0), nxt.squeeze(0)], dim=0)
-        x_next = sample(
+        # One denoise step against the current buffer.
+        self.x = sample_step(
             self.diffusion,
             self.backbone,
-            schedule_matrix=schedule,
-            action_dim=self.action_dim,
-            batch_size=1,
+            x=self.x,
+            current_levels=cur,
+            next_levels=nxt,
             external_cond=external_cond,
-            device=self.device,
-            dtype=self.dtype,
-            x_init=self.x,
         )
-        self.x = x_next
         # Pop the chunk_size front tokens (committed), push fresh noisy tokens.
         front = self.x[:, : self.chunk_size, :].clone()  # (1, chunk_size, A)
         new_back = torch.randn(

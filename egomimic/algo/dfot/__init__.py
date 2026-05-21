@@ -10,6 +10,7 @@ from egomimic.algo.dfot.sampling import (
     ddim_sample,
     ddpm_sample,
     sample,
+    sample_step,
     staircase_ar_schedule,
     vanilla_schedule,
 )
@@ -19,6 +20,7 @@ __all__ = [
     "DFoTBackbone",
     "ContinuousDiffusion",
     "DiscreteDiffusion",
+    "sample_step",
     "sample",
     "vanilla_schedule",
     "causal_ar_schedule",
