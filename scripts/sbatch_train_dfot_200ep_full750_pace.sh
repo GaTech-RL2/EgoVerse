@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dfot-80ep-cosine
+#SBATCH --job-name=dfot-200ep-full750
 #SBATCH -A gts-dxu345-rl2
 #SBATCH -q inferno
 #SBATCH --partition=gpu-h200
@@ -7,23 +7,22 @@
 #SBATCH --nodes=1
 #SBATCH --gres=gpu:h200:1
 #SBATCH --mem=250G
-#SBATCH --time=8:00:00
-#SBATCH --output=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4/logs/sbatch/dfot_80ep_cosine_%j.out
-#SBATCH --error=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4/logs/sbatch/dfot_80ep_cosine_%j.err
+#SBATCH --time=12:00:00
+#SBATCH --output=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4/logs/sbatch/dfot_200ep_full750_%j.out
+#SBATCH --error=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4/logs/sbatch/dfot_200ep_full750_%j.err
 
-# DFoT v1 on PushShapes circle/basic. Packed training (tsimulation.yaml ->
+# DFoT v1 on PushShapes circle 750-episode full dataset
+# (pushT/circle_750/circle). Packed training (tsimulation_full.yaml ->
 # variable-length episodes with cu_seqlens within-episode attention).
 # Per-frame obs naturally aligns with per-token action via DFoT's per-token
 # AdaLN.
 #
-# 20x budget: 80 ep x 160 batches = 12800 steps (was 640). Warmup-cosine
-# matched: 480 warmup steps (~3 ep), eta_min 4e-6, lr 4e-5. --time bumped
-# to 8h since 12800 packed-mode H200 steps comfortably exceed the 4h cap.
+# Schedule: 200 ep x 160 batches = 32000 steps. Warmup-cosine: 480 warmup
+# steps (~3 ep), eta_min 4e-6, lr 4e-5. --time set to 12h (32000 steps
+# ~10.7h at ~50 steps/min on H200).
 #
-# Eval: eval_hnet_sim — closed-loop PushShapesEnv rollout per val episode,
-# 4 val batches x 8 episodes = 32 rollouts per check. inference_step uses
-# the current chunk-replan (action_horizon=32) path; AR sampler (causal
-# staircase) is a separate launch.
+# Eval: eval_hnet_sim — closed-loop PushShapesEnv rollout per val episode.
+# Val every 25 epochs (=8 val passes over 200 ep) to reduce sim-eval cost.
 
 set -euxo pipefail
 cd /storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4
@@ -41,24 +40,24 @@ export PYTHONPATH=.
 srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=dfot_variants \
-  description=dfot_80ep_cosine_lr4e5 \
+  description=dfot_200ep_full750_lr4e5 \
   mode=train \
-  data=tsimulation \
+  data=tsimulation_full \
   model=dfot_pushshapes \
   model.optimizer.lr=4.0e-5 \
-  model.scheduler.max_steps=12800 \
+  model.scheduler.max_steps=32000 \
   model.scheduler.warmup_steps=480 \
   model.scheduler.warmup_start_factor=0.1 \
   model.scheduler.eta_min=4.0e-6 \
   evaluator=eval_hnet_sim \
   evaluator.limit_val_batches=4 \
   callbacks=checkpoints \
-  callbacks.model_checkpoint.every_n_epochs=20 \
+  callbacks.model_checkpoint.every_n_epochs=25 \
   trainer=debug \
-  trainer.max_epochs=80 \
-  trainer.min_epochs=80 \
+  trainer.max_epochs=200 \
+  trainer.min_epochs=200 \
   trainer.limit_train_batches=160 \
   trainer.limit_val_batches=4 \
-  trainer.check_val_every_n_epoch=20 \
+  trainer.check_val_every_n_epoch=25 \
   trainer.profiler=null \
   logger=csv_wandb
