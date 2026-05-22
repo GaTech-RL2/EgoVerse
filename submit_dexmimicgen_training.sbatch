@@ -96,6 +96,6 @@ echo "[Step 2] No egoengine_process step needed; training uses raw actions.joint
 echo "[Step 3] Training with config=${TRAIN_CONFIG}, dataset=datasets/${TRAIN_DATASET}"
 CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
     --config-name="${TRAIN_CONFIG}" \
-    name="${TRAIN_RUN_NAME}" \
-    data.train_datasets.dataset1.datasets.rl2_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${TRAIN_DATASET} \
-    data.valid_datasets.dataset1.datasets.eth_lab.folder_path=/coc/flash7/zhenyang/EgoVerse/datasets/${TRAIN_DATASET}
+    "name=\"${TRAIN_RUN_NAME}\"" \
+    "data.train_datasets.dataset1.datasets.rl2_lab.folder_path=\"/coc/flash7/zhenyang/EgoVerse/datasets/${TRAIN_DATASET}\"" \
+    "data.valid_datasets.dataset1.datasets.eth_lab.folder_path=\"/coc/flash7/zhenyang/EgoVerse/datasets/${TRAIN_DATASET}\""
