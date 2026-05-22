@@ -22,9 +22,7 @@ class EvalVideo(Eval):
         transform_lists: dict | None = None,
         max_videos: int | None = None,
     ):
-        super().__init__()
-        self.trainer = None
-        self.model = None
+        super().__init__()  # initializes self.trainer = self.model = None
         self.viz_func = viz_func
         # Cap on number of episodes rendered per validation pass. None
         # = no cap. Each sub-eval reads this in its per-episode loop to

@@ -61,6 +61,40 @@ def _draw_chunk(
     )
 
 
+def get_keymap_hpt(action_horizon: int = 32, **kwargs) -> dict:
+    """HPT-specific keymap: SINGLE-FRAME obs + action_horizon-long action chunk.
+
+    HPT's contract is "one current obs -> predict next action_horizon actions".
+    Unlike H-Net (which sees a per-token obs window aligned with actions and
+    is meant to encode trajectories), HPT must condition on the CURRENT obs
+    only. Returning windowed obs would make training trivial (model just reads
+    the future obs out of its context) while inference, which only has the
+    current obs, becomes wildly OOD. Diagnosed 2026-05-19: closed-loop sim
+    rollout was failing despite low training loss because obs windowing
+    let the model cheat at train time.
+
+    Extra kwargs (e.g. ``norm_mode=True`` from trainHydra) are accepted and
+    ignored so norm-stat collection doesn't crash.
+    """
+    return {
+        "front_img_1": {
+            "key_type": "camera_keys",
+            "zarr_key": "observations.images.front_img_1",
+            # no horizon -> single-frame obs (B, C, H, W) per sample
+        },
+        "state_agent_obj": {
+            "key_type": "proprio_keys",
+            "zarr_key": "observations.state",
+            # no horizon -> single-frame (B, D) per sample
+        },
+        "actions": {
+            "key_type": "action_keys",
+            "zarr_key": "actions",
+            "horizon": int(action_horizon),
+        },
+    }
+
+
 def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
     """Return the key_map for pushshapes_sim ZarrDataset.
 

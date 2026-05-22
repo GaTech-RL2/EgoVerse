@@ -215,7 +215,7 @@ class HPTEvalVideo(EvalVideo):
         was_training = algo.nets.training
         algo.nets.eval()
         for _ in range(M):
-            out = algo.nets["policy"].forward(
+            out = algo.policy.forward(
                 hpt_batch["domain"], algo._clone_batch(hpt_batch["data"])
             )
             if key_name in out:

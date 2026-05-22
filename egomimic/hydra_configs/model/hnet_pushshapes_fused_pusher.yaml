@@ -1,46 +1,53 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hnet.HNetFused
-  action_dim: 2
-  action_horizon: 400
-  d_model: 128
   d_cond: 128
-  cond_encoder:
-    _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
-    d_cond: 128
-    output_key: fused_cond
-    cond_proj_widths:
-    - 128
-    - 128
-    obs_specs:
-      state_agent_obj:
-        input_dim: 2
-        embed_dim: 64
-        widths:
-        - 128
-        input_slice:
-        - 0
-        - 2
-    img_encoders:
-      front_img_1:
-        _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
-        in_channels: 3
-        channels:
-        - 32
-        - 64
-        - 128
-        - 256
-        kernel_size: 3
-        stride: 2
-        embed_dim: 128
-        norm_groups: 8
-  arch_layout: T8
-  num_heads: 4
-  d_intermediate: 512
   domains:
-  - pushshapes_sim
+    - pushshapes_sim
   ac_keys:
     pushshapes_sim: actions
+
+  outer_stage:
+    _target_: egomimic.algo.flat_fused_outer_stage.FlatFusedOuterStage
+    action_dim: 2
+    # 1024 covers the longest pushshapes episode (958 frames); 400 was a
+    # pre-refactor leftover that crashed on full-dataset val.
+    action_horizon: 1024
+    d_model: 128
+    d_cond: 128
+    cond_encoder:
+      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      d_cond: 128
+      output_key: fused_cond
+      cond_proj_widths:
+        - 128
+        - 128
+      obs_specs:
+        state_agent_obj:
+          input_dim: 2
+          embed_dim: 64
+          widths:
+            - 128
+          input_slice:
+            - 0
+            - 2
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+          in_channels: 3
+          channels:
+            - 32
+            - 64
+            - 128
+            - 256
+          kernel_size: 3
+          stride: 2
+          embed_dim: 128
+          norm_groups: 8
+    arch_layout: T8
+    num_heads: 4
+    d_intermediate: 512
+
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true

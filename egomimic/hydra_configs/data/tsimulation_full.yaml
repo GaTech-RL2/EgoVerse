@@ -1,0 +1,47 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Full 750-episode pushshapes circle dataset (pushT/circle_750/circle).
+# Same packed-dataloading layout as tsimulation.yaml (450-ep circle/basic).
+# Each sample is one full episode (chunking="none"); pack_collate concatenates
+# `batch_size` episodes into a flat stream with cu_seqlens boundaries.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pushT/circle_750/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 1024
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pushT/circle_750/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 1024
+
+# H200 (141GB) scale-up: 16 packed episodes / batch. With ~700 frames per
+# episode on circle/basic that's ~11200 total frames per packed batch.
+# Combined with d_model=512 + T12 transformer this should target ~40-60%
+# of GPU memory. Bump higher if utilization stays low.
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 8
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 8

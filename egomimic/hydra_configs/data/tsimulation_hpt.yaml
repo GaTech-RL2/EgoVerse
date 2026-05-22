@@ -11,9 +11,9 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /coc/flash7/paphiwetsa3/datasets/circle/basic
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle/basic
       key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: 32
       transform_list: null
     mode: total
@@ -27,9 +27,9 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /coc/flash7/paphiwetsa3/datasets/circle/basic
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle/basic
       key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
         action_horizon: 32
       transform_list: null
     mode: total
@@ -41,8 +41,8 @@ valid_datasets:
 train_dataloader_params:
   pushshapes_sim:
     batch_size: 128
-    num_workers: 8
+    num_workers: 4
 valid_dataloader_params:
   pushshapes_sim:
     batch_size: 128
-    num_workers: 8
+    num_workers: 4

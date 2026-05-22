@@ -156,7 +156,7 @@ class PCATokenEval(EvalVideo):
         for emb_id, _batch in batch.items():
             if not _batch.get("_packed", False):
                 continue
-            policy = algo.nets["policy"]
+            policy = algo.policy
 
             inner_module = self._find_inner_main_network(policy)
             captured_inner: list[torch.Tensor] = []

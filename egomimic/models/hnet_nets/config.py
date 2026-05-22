@@ -7,6 +7,12 @@ class AttnConfig:
     num_heads: List[int] = field(default_factory=list)
     rotary_emb_dim: List[int] = field(default_factory=list)
     window_size: List[int] = field(default_factory=list)
+    # Per-stage dropout knobs. ``dropout`` is the attention-softmax dropout
+    # (applied inside MHA's SDPA / flash_attn call). ``resid_dropout`` is
+    # the residual-branch dropout applied to attn/ffn outputs before the
+    # residual add in each TransformerBlock.
+    dropout: List[float] = field(default_factory=list)
+    resid_dropout: List[float] = field(default_factory=list)
 
 
 @dataclass
