@@ -30,7 +30,7 @@ from egomimic.algo.algo import Algo
 from egomimic.algo.dfot.backbone import DFoTBackbone
 from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.sampling import ddim_sample, ddpm_sample, sample_step
+from egomimic.algo.dfot.sampling import sample_step
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
@@ -98,6 +98,8 @@ class DFoT(Algo):
         sampler_eta: float = 0.0,
         inference_mode: str = "ar",
         ar_inference_chunk_size: int = 1,
+        ar_inference_step_size: int = 1,
+        cfg_scale: float = 1.0,
         domains: Optional[list] = None,
         ac_keys: Optional[dict] = None,
         cond_output_key: str = "fused_cond",
@@ -120,6 +122,15 @@ class DFoT(Algo):
             )
         self.inference_mode = inference_mode
         self.ar_inference_chunk_size = int(ar_inference_chunk_size)
+        # Number of `sample_step` calls per env tick. step_size>1 advances
+        # noise levels by 1/(n_rungs*step_size) per sub-step. Mirrors the
+        # offline staircase_ar_schedule(chunk, step) shape.
+        self.ar_inference_step_size = int(ar_inference_step_size)
+        # Classifier-free-guidance scale at inference. 1.0 disables CFG
+        # (single backbone pass). >1.0 runs two passes (cond + zero-cond)
+        # and blends. Only active when ``cond_dropout_prob > 0`` was set
+        # at training time (otherwise the uncond branch is undefined).
+        self.cfg_scale = float(cfg_scale)
         self.diffusion_type = diffusion_type
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
@@ -239,8 +250,7 @@ class DFoT(Algo):
         its already-per-frame branch (it doesn't broadcast when dim already
         matches). Output: (T_total, d_cond) or None."""
         obs_3d = {
-            k: (v.unsqueeze(0) if torch.is_tensor(v) else v)
-            for k, v in obs.items()
+            k: (v.unsqueeze(0) if torch.is_tensor(v) else v) for k, v in obs.items()
         }
         # T_action argument is unused when obs is already per-frame (dim==3
         # for state, dim==5 for image); pass any non-zero placeholder.
@@ -287,7 +297,9 @@ class DFoT(Algo):
                 # Wrap backbone so the diffusion module's 3-arg call carries
                 # the cu_seqlens/max_seqlen kwargs through to packed attention.
                 packed_backbone = _PackedBackboneWrapper(backbone, cu, msl)
-                _, loss = self.diffusion(packed_backbone, actions, k, external_cond=cond)
+                _, loss = self.diffusion(
+                    packed_backbone, actions, k, external_cond=cond
+                )
             else:
                 if actions.dim() != 3:
                     raise ValueError(
@@ -325,7 +337,9 @@ class DFoT(Algo):
                 cond = self._encode_cond_packed(obs)
                 k = self._sample_noise_levels((T_total,), actions.device)
                 packed_backbone = _PackedBackboneWrapper(backbone, cu, msl)
-                _, loss = self.diffusion(packed_backbone, actions, k, external_cond=cond)
+                _, loss = self.diffusion(
+                    packed_backbone, actions, k, external_cond=cond
+                )
                 unnorm[f"emb{emb_id}_loss"] = loss.mean()
                 # No chunk sampling in packed val — too expensive per episode and
                 # the closed-loop measure lives in inference_step / sim eval.
@@ -346,27 +360,37 @@ class DFoT(Algo):
     def _sample_chunk(
         self, B: int, T: int, cond: Optional[torch.Tensor], device
     ) -> torch.Tensor:
-        shape = (B, T, self.action_dim)
-        if self.sampler == "ddpm":
-            return ddpm_sample(
-                self.diffusion,
-                self.nets["backbone"],
-                shape,
-                external_cond=cond,
-                n_steps=self.sampler_n_steps,
-                device=device,
-            )
-        if self.sampler == "ddim":
-            return ddim_sample(
-                self.diffusion,
-                self.nets["backbone"],
-                shape,
-                external_cond=cond,
-                n_steps=self.sampler_n_steps,
-                eta=self.sampler_eta,
-                device=device,
-            )
-        raise ValueError(f"unknown sampler {self.sampler!r}")
+        # Build the schedule + run sample() directly so we can plumb
+        # cfg_scale through. (ddim_sample/ddpm_sample wrappers don't yet
+        # expose cfg_scale; could be added if needed.)
+        if self.sampler not in ("ddpm", "ddim"):
+            raise ValueError(f"unknown sampler {self.sampler!r}")
+        discrete_ts = (
+            int(self.diffusion.timesteps)
+            if isinstance(self.diffusion, DiscreteDiffusion)
+            else None
+        )
+        n_steps = (
+            self.sampler_n_steps
+            if self.sampler == "ddim"
+            else (discrete_ts or self.sampler_n_steps)
+        )
+        from egomimic.algo.dfot.sampling import sample as _sample
+        from egomimic.algo.dfot.sampling import vanilla_schedule
+
+        sm = vanilla_schedule(n_steps=n_steps, T=T, discrete_timesteps=discrete_ts)
+        eta = 1.0 if self.sampler == "ddpm" else self.sampler_eta
+        return _sample(
+            self.diffusion,
+            self.nets["backbone"],
+            schedule_matrix=sm,
+            action_dim=self.action_dim,
+            batch_size=B,
+            external_cond=cond,
+            eta=eta,
+            cfg_scale=self.cfg_scale,
+            device=device,
+        )
 
     @override
     def compute_losses(self, predictions, batch):
@@ -409,9 +433,18 @@ class DFoT(Algo):
             return self._inference_step_chunk(obs_zarr, t, emb_id)
         raise ValueError(f"unknown inference_mode {self.inference_mode!r}")
 
-    def _ar_state_init(self, device):
-        """Initialize the AR buffer + staircase geometry. Called from
-        ``_inference_step_ar`` on ``t==0`` or when stale."""
+    def _ar_state_init(self, device, external_cond):
+        """Initialize the AR buffer + staircase geometry AND warm it up so
+        every slot's actual noise level matches the schedule before any
+        action is fired.
+
+        Without warmup, the buffer is ``randn`` (all slots at noise 1.0) but
+        the staircase schedule claims token 0 is at noise 1/K, token 1 at
+        2/K, etc. — a mismatch that produces junk for the first K-1 env
+        ticks. After ``n_rungs - 1`` ``sample_step`` calls, every slot has
+        been denoised the right number of times and the buffer/schedule
+        agree.
+        """
         if self.action_horizon % self.ar_inference_chunk_size != 0:
             raise ValueError(
                 f"action_horizon ({self.action_horizon}) must be divisible by "
@@ -429,6 +462,69 @@ class DFoT(Algo):
         )
         self._sim_committed_queue = []
 
+        # ---- Warmup: walk the staircase forward without committing ----
+        # We need every slot at the noise level the schedule expects. The
+        # buffer starts with all slots at noise 1.0 (fully noisy randn).
+        # The staircase, when first queried, claims slot 0 is at 1/K. We
+        # need to "demote" each slot's actual noise to match by running
+        # n_rungs - 1 denoise steps where the schedule entries are shifted
+        # back by one rung at the top.
+        #
+        # Concretely: at warmup step ``w`` (0-indexed, 0..n_rungs-2):
+        #   declared current levels = (rung_idx + (n_rungs-1-w)) / n_rungs,
+        #     clamp(<=1.0); slots beyond the declared front are still 1.0.
+        #   declared next levels    = (rung_idx + (n_rungs-2-w)) / n_rungs,
+        #     clamp(<=1.0).
+        # This walks the schedule from "all slots at 1.0" down to the
+        # canonical staircase [1/K, 2/K, ..., 1.0] over n_rungs-1 steps.
+        # On the final canonical step (committing tick 0), the first
+        # ``inference_step`` call then advances by one more unit, which is
+        # the correct first-action commit.
+        if n_rungs > 1:
+            self._ar_warmup(device, external_cond=external_cond, n_rungs=n_rungs)
+
+    @torch.no_grad()
+    def _ar_warmup(self, device, external_cond, n_rungs: int):
+        """Run ``n_rungs - 1`` denoise steps to fill the buffer to the
+        canonical staircase [1/K, 2/K, ..., 1.0] starting from ``randn``."""
+        tok_idx = torch.arange(self.action_horizon, device=device).float()
+        rung_idx = tok_idx // self.ar_inference_chunk_size  # 0..n_rungs-1
+        for w in range(n_rungs - 1):
+            # At warmup step w (0-indexed, 0..n_rungs-2):
+            #   slot i is at rung_idx[i] + (n_rungs - w) entering this step,
+            #   clamped to n_rungs (= level 1.0 ceiling). So at w=0 every
+            #   slot starts at the full-noise ceiling — exactly matching the
+            #   ``randn`` buffer — and slot 0 then denoises by one rung.
+            #   After this step, slot 0 has gone (n_rungs - w)/K -> (n_rungs - w - 1)/K
+            #   (for w=0: 1.0 -> (K-1)/K).
+            shift_cur = float(n_rungs - w)
+            shift_nxt = float(n_rungs - 1 - w)
+            cur_rung = (rung_idx + shift_cur).clamp(max=float(n_rungs))
+            nxt_rung = (rung_idx + shift_nxt).clamp(max=float(n_rungs))
+            if self._ar_discrete:
+                cur_levels = (
+                    (cur_rung * self._ar_unit)
+                    .long()
+                    .clamp(-1, self.diffusion.timesteps - 1)
+                )
+                nxt_levels = (
+                    (nxt_rung * self._ar_unit)
+                    .long()
+                    .clamp(-1, self.diffusion.timesteps - 1)
+                )
+            else:
+                cur_levels = (cur_rung * self._ar_unit).clamp(0.0, 1.0)
+                nxt_levels = (nxt_rung * self._ar_unit).clamp(0.0, 1.0)
+            self._ar_buffer = sample_step(
+                self.diffusion,
+                self.nets["backbone"],
+                x=self._ar_buffer,
+                current_levels=cur_levels.unsqueeze(0),
+                next_levels=nxt_levels.unsqueeze(0),
+                external_cond=external_cond,
+                cfg_scale=self.cfg_scale,
+            )
+
     def _ar_levels(self, offset: float, device) -> torch.Tensor:
         """Per-token noise levels for the staircase at rung-offset ``offset``.
         ``offset=0`` = current; ``offset=1`` = after one rung advance.
@@ -436,31 +532,23 @@ class DFoT(Algo):
         tok_idx = torch.arange(self.action_horizon, device=device).float()
         rung_idx = (tok_idx // self.ar_inference_chunk_size) + 1.0 - offset
         if self._ar_discrete:
-            levels = (rung_idx * self._ar_unit).long().clamp(
-                -1, self.diffusion.timesteps - 1
+            levels = (
+                (rung_idx * self._ar_unit)
+                .long()
+                .clamp(-1, self.diffusion.timesteps - 1)
             )
         else:
             levels = (rung_idx * self._ar_unit).clamp(0.0, 1.0)
         return levels.unsqueeze(0)  # (1, action_horizon)
 
     @torch.no_grad()
-    def _inference_step_ar(
-        self, obs_zarr: dict, t: int, emb_id: int
-    ) -> "np.ndarray":
+    def _inference_step_ar(self, obs_zarr: dict, t: int, emb_id: int) -> "np.ndarray":
         """Causal-AR rolling-staircase inference. One sample_step per env
         tick, one (or ``ar_inference_chunk_size``-many) action(s) committed
         per call. Buffer carries across calls."""
         embodiment_name = get_embodiment(emb_id).lower()
         device = next(self.nets["backbone"].parameters()).device
         ac_key = self.ac_keys[embodiment_name]
-
-        # Reset on episode start.
-        if t == 0 or not hasattr(self, "_ar_buffer"):
-            self._ar_state_init(device)
-
-        # If we already have committed actions ready, just pop one.
-        if self._sim_committed_queue:
-            return self._sim_committed_queue.pop(0)
 
         # Encode current obs into per-call cond. Broadcast across buffer
         # tokens inside the backbone (per-token AdaLN).
@@ -469,17 +557,33 @@ class DFoT(Algo):
         if cond is not None and cond.dim() == 3:
             cond = cond[:, 0]  # (1, cond_dim) — backbone broadcasts to T
 
-        # One denoise step on the buffer.
-        cur_levels = self._ar_levels(offset=0.0, device=device)
-        nxt_levels = self._ar_levels(offset=1.0, device=device)
-        self._ar_buffer = sample_step(
-            self.diffusion,
-            self.nets["backbone"],
-            x=self._ar_buffer,
-            current_levels=cur_levels,
-            next_levels=nxt_levels,
-            external_cond=cond,
-        )
+        # Reset + warm up on episode start. Warmup uses the t=0 obs cond
+        # for all warmup denoise steps (no future obs available); this is
+        # the correct online-AR semantics — every future env tick uses its
+        # own obs.
+        if t == 0 or not hasattr(self, "_ar_buffer"):
+            self._ar_state_init(device, external_cond=cond)
+
+        # If we already have committed actions ready, just pop one.
+        if self._sim_committed_queue:
+            return self._sim_committed_queue.pop(0)
+
+        # ``step_size`` denoise sub-steps on the buffer, advancing total
+        # noise by exactly one rung over the env tick (so commit semantics
+        # are preserved). Each sub-step advances noise by 1/(n_rungs*S).
+        S = max(1, int(getattr(self, "ar_inference_step_size", 1)))
+        for s in range(S):
+            cur_levels = self._ar_levels(offset=s / S, device=device)
+            nxt_levels = self._ar_levels(offset=(s + 1) / S, device=device)
+            self._ar_buffer = sample_step(
+                self.diffusion,
+                self.nets["backbone"],
+                x=self._ar_buffer,
+                current_levels=cur_levels,
+                next_levels=nxt_levels,
+                external_cond=cond,
+                cfg_scale=self.cfg_scale,
+            )
 
         # Commit front rung, slide buffer, push fresh noisy rung at the back.
         chunk = self.ar_inference_chunk_size
@@ -487,9 +591,7 @@ class DFoT(Algo):
         new_back = torch.randn(
             1, chunk, self.action_dim, device=device, dtype=torch.float32
         )
-        self._ar_buffer = torch.cat(
-            [self._ar_buffer[:, chunk:, :], new_back], dim=1
-        )
+        self._ar_buffer = torch.cat([self._ar_buffer[:, chunk:, :], new_back], dim=1)
 
         # Unnormalize + return first committed action; queue extras.
         committed_world = self.norm_stats.unnormalize(

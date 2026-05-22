@@ -31,7 +31,6 @@ import torch
 from .continuous_diffusion import ContinuousDiffusion
 from .discrete_diffusion import DiscreteDiffusion
 
-
 # --------------------------------------------------------------------------- #
 # Schedule constructors. Each returns a ``(n_steps + 1, T)`` matrix.
 # --------------------------------------------------------------------------- #
@@ -49,9 +48,11 @@ def vanilla_schedule(
     if discrete_timesteps is None:
         levels = torch.linspace(1.0, 0.0, n_steps + 1)
     else:
-        levels = torch.linspace(
-            float(discrete_timesteps - 1), -1.0, n_steps + 1
-        ).long().clamp_min(-1)
+        levels = (
+            torch.linspace(float(discrete_timesteps - 1), -1.0, n_steps + 1)
+            .long()
+            .clamp_min(-1)
+        )
     return levels[:, None].expand(n_steps + 1, T).contiguous()
 
 
@@ -84,12 +85,15 @@ def staircase_ar_schedule(
     n_total = n_chunks * step_size
     step_idx = torch.arange(n_total + 1).float()  # (n_total + 1,)
     tok_idx = torch.arange(T).float()
-    rung = (tok_idx // chunk_size)
+    rung = tok_idx // chunk_size
     raw = 1.0 - (step_idx[:, None] - rung[None, :] * step_size) / float(step_size)
     levels = raw.clamp(0.0, 1.0)
     if discrete_timesteps is not None:
-        levels = (levels * (discrete_timesteps - 1)).round().long().clamp(
-            0, discrete_timesteps - 1
+        levels = (
+            (levels * (discrete_timesteps - 1))
+            .round()
+            .long()
+            .clamp(0, discrete_timesteps - 1)
         )
     return levels.contiguous()
 
@@ -117,6 +121,38 @@ def causal_ar_schedule(
 # --------------------------------------------------------------------------- #
 
 
+class _CFGBackbone:
+    """Wrap a backbone for classifier-free-guidance inference.
+
+    Each call runs TWO backbone passes (with cond and with cond zeroed
+    post-embedding to match training-time dropout exactly) and returns
+    the blended model output:
+
+        out_guided = out_uncond + cfg_scale * (out_cond - out_uncond)
+
+    For continuous diffusion (v-pred) the model output is ``v``; for
+    discrete it's the configured ``objective`` output (v / x0 / noise) —
+    the blend is correct on any of them because the diffusion class then
+    converts the blended output through the same closed-form.
+
+    ``cfg_scale=1.0`` short-circuits to a single pass (zero overhead).
+    Requires the backbone to accept ``force_uncond=True`` (DFoTBackbone).
+    """
+
+    def __init__(self, backbone, cfg_scale: float):
+        self.backbone = backbone
+        self.cfg_scale = float(cfg_scale)
+
+    def __call__(self, x, noise_levels, external_cond=None):
+        if self.cfg_scale == 1.0 or external_cond is None:
+            return self.backbone(x, noise_levels, external_cond=external_cond)
+        out_cond = self.backbone(x, noise_levels, external_cond=external_cond)
+        out_uncond = self.backbone(
+            x, noise_levels, external_cond=external_cond, force_uncond=True
+        )
+        return out_uncond + self.cfg_scale * (out_cond - out_uncond)
+
+
 @torch.no_grad()
 def sample_step(
     diffusion: Union[ContinuousDiffusion, DiscreteDiffusion],
@@ -127,6 +163,7 @@ def sample_step(
     next_levels: torch.Tensor,
     external_cond: Optional[torch.Tensor] = None,
     eta: float = 0.0,
+    cfg_scale: float = 1.0,
 ) -> torch.Tensor:
     """One denoise step. Per-token noise levels are arbitrary.
 
@@ -168,10 +205,13 @@ def sample_step(
     if next_levels.dim() == 1:
         next_levels = next_levels.unsqueeze(0).expand(B, T)
 
+    # CFG: wrap backbone for two-pass cond/uncond blend when cfg_scale > 1.
+    bb = _CFGBackbone(backbone, cfg_scale) if cfg_scale != 1.0 else backbone
+
     if isinstance(diffusion, ContinuousDiffusion):
         t_cur = current_levels.to(dtype)
         t_next = next_levels.to(dtype)
-        v = diffusion.model_v(backbone, x, t_cur, external_cond)
+        v = diffusion.model_v(bb, x, t_cur, external_cond)
         x0, eps = diffusion.v_to_x0_and_noise(x, t_cur, v)
         logsnr_next = diffusion.schedule(t_next)
         alpha_next = torch.sigmoid(logsnr_next).sqrt().unsqueeze(-1)
@@ -179,33 +219,29 @@ def sample_step(
         if eta > 0:
             noise = torch.randn_like(x)
             return alpha_next * x0 + sigma_next * (
-                (1 - eta ** 2).clamp_min(0.0).sqrt() * eps + eta * noise
+                (1 - eta**2).clamp_min(0.0).sqrt() * eps + eta * noise
             )
         return alpha_next * x0 + sigma_next * eps
 
     if isinstance(diffusion, DiscreteDiffusion):
         k_cur = current_levels.long()
         k_next = next_levels.long()
-        pred = diffusion.model_predictions(
-            backbone, x, k_cur.clamp_min(0), external_cond
-        )
+        pred = diffusion.model_predictions(bb, x, k_cur.clamp_min(0), external_cond)
         x0 = pred.pred_x_start
         eps = pred.pred_noise
         alpha = diffusion.alphas_cumprod[k_cur.clamp_min(0)].unsqueeze(-1)
         k_next_clamp = k_next.clamp_min(0)
         alpha_next = diffusion.alphas_cumprod[k_next_clamp].unsqueeze(-1)
         fully_clean = (k_next < 0).unsqueeze(-1)
-        alpha_next = torch.where(
-            fully_clean, torch.ones_like(alpha_next), alpha_next
-        )
+        alpha_next = torch.where(fully_clean, torch.ones_like(alpha_next), alpha_next)
         sigma_sq = (
-            eta ** 2
+            eta**2
             * (1 - alpha / alpha_next.clamp_min(1e-8)).clamp_min(0.0)
             * (1 - alpha_next).clamp_min(0.0)
             / (1 - alpha).clamp_min(1e-8)
         )
         sigma = sigma_sq.clamp_min(0.0).sqrt()
-        c = (1 - alpha_next - sigma ** 2).clamp_min(0.0).sqrt()
+        c = (1 - alpha_next - sigma**2).clamp_min(0.0).sqrt()
         noise_term = torch.randn_like(x) if eta > 0 else torch.zeros_like(x)
         return x0 * alpha_next.sqrt() + eps * c + sigma * noise_term
 
@@ -222,6 +258,7 @@ def sample(
     batch_size: int = 1,
     external_cond: Optional[torch.Tensor] = None,
     eta: float = 0.0,
+    cfg_scale: float = 1.0,
     device=None,
     dtype: torch.dtype = torch.float32,
     x_init: Optional[torch.Tensor] = None,
@@ -273,6 +310,7 @@ def sample(
             next_levels=schedule_matrix[s + 1],
             external_cond=external_cond,
             eta=eta,
+            cfg_scale=cfg_scale,
         )
     return x
 
@@ -336,9 +374,7 @@ def ddpm_sample(
             f"(got {steps} vs {diffusion.timesteps}); use ddim_sample "
             "for fewer steps."
         )
-    sm = vanilla_schedule(
-        n_steps=steps, T=T, discrete_timesteps=diffusion.timesteps
-    )
+    sm = vanilla_schedule(n_steps=steps, T=T, discrete_timesteps=diffusion.timesteps)
     return sample(
         diffusion,
         backbone,
