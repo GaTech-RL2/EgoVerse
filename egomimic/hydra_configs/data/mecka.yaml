@@ -5,7 +5,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/mecka
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
         mode: cartesian
@@ -15,14 +15,14 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '69199812208123403bbdb24f'"
-    mode: total
+        - "lambda row: row['lab'] == 'mecka'"
+    mode: train
 valid_datasets:
   mecka_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /coc/flash7/scratch/egoverseDebugDatasets/mecka
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
         mode: cartesian
@@ -32,8 +32,8 @@ valid_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '69199812208123403bbdb24f'"
-    mode: total
+        - "lambda row: row['lab'] == 'mecka'"
+    mode: valid
 train_dataloader_params:
   mecka_bimanual:
     batch_size: 32

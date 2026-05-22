@@ -1,0 +1,128 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.autoregressive.AutoregressivePolicy
+  data_schematic: _${data.dataset.data_schematic}
+  camera_transforms:
+    mecka_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "mecka"
+      extrinsics_key: "mecka"
+
+  6dof: true
+
+  ac_keys:
+    mecka_bimanual: "actions_cartesian"
+
+  trunk:
+    embed_dim: 256
+    num_blocks: 16
+    num_heads: 8
+    weight_init_style: "pytorch"
+    drop_path: 0.1
+    dropout: 0.1
+
+  temperature: 1.0
+
+  domains: ["mecka_bimanual"]
+  shared_obs_keys: ["front_img_1"]
+
+  # --- Tokenizer mode ---
+  # Mode A (default): train tokenizer jointly with policy — set freeze_tokenizer: false
+  # Mode B: load pre-trained tokenizer — override on CLI:
+  #   robomimic_model.action_tokenizer._target_=oat.tokenizer.oat.tokenizer.OATTok.from_checkpoint
+  #   robomimic_model.action_tokenizer.checkpoint=/path/to/oattok.ckpt
+  #   robomimic_model.freeze_tokenizer=true
+  freeze_tokenizer: false
+
+  action_tokenizer:
+    _target_: oat.tokenizer.oat.tokenizer.OATTok
+
+    encoder:
+      _target_: oat.tokenizer.oat.encoder.register_encoder.RegisterEncoder
+      sample_dim: 12        # bimanual cartesian action dim
+      sample_horizon: 100   # action chunk length
+      emb_dim: 256
+      head_dim: 64
+      depth: 2
+      pdropout: 0.1
+      latent_dim: 5         # len(quantizer.levels) — must stay in sync
+      num_registers: 128    # number of discrete latent tokens
+
+    decoder:
+      _target_: oat.tokenizer.oat.decoder.single_pass_decoder.SinglePassDecoder
+      sample_dim: 12
+      sample_horizon: 100   # must match encoder.sample_horizon
+      emb_dim: 256
+      head_dim: 64
+      depth: 4
+      pdropout: 0.1
+      token_dropout_mode: "pow2"
+      use_causal_decoder: true
+      latent_dim: 5       
+      latent_horizon: 128   # must match encoder.num_registers
+
+    quantizer:
+      _target_: oat.tokenizer.oat.quantizer.fsq.FSQ
+      levels: [4, 4, 4, 4, 4]  # codebook size = prod(levels) = 1024
+
+  shared_stem_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 256
+      output_dim: 256
+      widths: [256]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 8
+          crossattn_dim_head: 64
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 256
+
+  stem_specs:
+    mecka_bimanual:
+      state_ee_pose:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 12
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 256
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0001
+
+scheduler: null

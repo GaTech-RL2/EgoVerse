@@ -336,12 +336,20 @@ class Mecka(Human):
             return _build_aria_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             )
-    
+
     @classmethod
     def get_keymap(
-        cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False
+        cls,
+        mode: Literal["cartesian", "keypoints"] | None = None,
+        keymap_mode: Literal["cartesian", "keypoints"] | None = None,
+        norm_mode: bool = False,
+        annotation_key: str | None = None,
+        annotations: bool = False,
     ):
-        if mode == "cartesian":
+        # Keep compatibility with older configs that pass `mode`,
+        # while supporting newer callsites that pass `keymap_mode`.
+        keymap_mode = keymap_mode or mode or "cartesian"
+        if keymap_mode == "cartesian":
             key_map = {
                 cls.VIZ_IMAGE_KEY: {
                     "key_type": "camera_keys",
@@ -370,7 +378,7 @@ class Mecka(Human):
                     "zarr_key": "obs_head_pose",
                 },
             }
-        elif mode == "keypoints":
+        elif keymap_mode == "keypoints":
             key_map = {
                 cls.VIZ_IMAGE_KEY: {
                     "key_type": "camera_keys",
@@ -419,13 +427,24 @@ class Mecka(Human):
             }
         else:
             raise ValueError(
-                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints'."
+                f"Unsupported mode '{keymap_mode}'. Expected one of: 'cartesian', 'keypoints'."
             )
-        if annotations:
-            key_map["annotations"] = {
+
+        if annotations and annotation_key is None:
+            annotation_key = "annotations"
+        if annotation_key is not None and not norm_mode:
+            key_map[annotation_key] = {
                 "key_type": "annotation_keys",
-                "zarr_key": "annotations",
+                "zarr_key": annotation_key,
             }
+        if norm_mode:
+            to_delete = [
+                k
+                for k, v in key_map.items()
+                if v.get("key_type") in ("camera_keys", "annotation_keys")
+            ]
+            for k in to_delete:
+                del key_map[k]
         return key_map
 
 

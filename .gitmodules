@@ -1,3 +1,6 @@
 [submodule "external/openpi"]
 	path = external/openpi
 	url = https://github.com/GaTech-RL2/openpi.git
+[submodule "/storage/home/hcoda1/5/acheluva3/EgoVerse_oat/external/oat"]
+	path = /storage/home/hcoda1/5/acheluva3/EgoVerse_oat/external/oat
+	url = https://github.com/Chaoqi-LIU/oat.git

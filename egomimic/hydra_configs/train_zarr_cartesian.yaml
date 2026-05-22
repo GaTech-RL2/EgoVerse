@@ -9,7 +9,7 @@ defaults:
   - callbacks: checkpoints
   - data_schematic: default
   - evaluator: eval_video
-  - override hydra/launcher: submitit
+  - override hydra/launcher: submitit_pace
   - _self_
 
 name: test
@@ -32,7 +32,7 @@ seed: 42
 
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
-  sample_frac: 1.0
+  sample_frac: 0.1
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null

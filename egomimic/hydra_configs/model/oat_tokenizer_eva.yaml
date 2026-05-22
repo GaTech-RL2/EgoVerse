@@ -1,0 +1,51 @@
+# Train the OAT action tokenizer on eva_bimanual data.
+# Eva bimanual cartesian: 14D actions (6D xyz+ypr + 1D gripper per arm), 100-step chunks.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+robomimic_model:
+  _target_: egomimic.algo.oat_tokenizer.OATTokenizerTrainer
+  data_schematic: _${data.dataset.data_schematic}
+
+  domains: ["eva_bimanual"]
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+
+  action_tokenizer:
+    _target_: oat.tokenizer.oat.tokenizer.OATTok
+
+    encoder:
+      _target_: oat.tokenizer.oat.encoder.register_encoder.RegisterEncoder
+      sample_dim: 14        # bimanual cartesian action dim (6D pose + 1D gripper) x2 arms
+      sample_horizon: 100   # action chunk length
+      emb_dim: 256
+      head_dim: 64
+      depth: 2
+      pdropout: 0.1
+      latent_dim: 5         # len(quantizer.levels) — must stay in sync
+      num_registers: 128    # number of discrete latent tokens
+
+    decoder:
+      _target_: oat.tokenizer.oat.decoder.single_pass_decoder.SinglePassDecoder
+      sample_dim: 14
+      sample_horizon: 100   # must match encoder.sample_horizon
+      emb_dim: 256
+      head_dim: 64
+      depth: 4
+      pdropout: 0.1
+      token_dropout_mode: "pow2"
+      use_causal_decoder: true
+      latent_dim: 5
+      latent_horizon: 128   # must match encoder.num_registers
+
+    quantizer:
+      _target_: oat.tokenizer.oat.quantizer.fsq.FSQ
+      levels: [4, 4, 4, 4, 4]  # codebook size = prod(levels) = 1024
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+  betas: [0.9, 0.95]
+
+scheduler: null

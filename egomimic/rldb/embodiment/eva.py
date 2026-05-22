@@ -29,10 +29,12 @@ class Eva(Embodiment):
     @staticmethod
     def get_transform_list(
         mode: Literal[
-            "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
+            "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
         ],
     ) -> list[Transform]:
-        if mode == "cartesian_wristframe_ypr":
+        if mode == "cartesian":
+            return _build_eva_bimanual_transform_list()
+        elif mode == "cartesian_wristframe_ypr":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
         elif mode == "cartesian_wristframe_quat":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
