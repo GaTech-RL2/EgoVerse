@@ -1,0 +1,31 @@
+# DFoT obs+action evaluator: world-model self-rollout only.
+#
+# DFoTSelfRolloutEval picks the first ``max_videos`` val episodes,
+# takes ONLY the t=0 image, and runs a chunk-mode rollout (no GT obs /
+# action used). Produces one mp4 per episode showing the predicted
+# agent path unfolding over ``rollout_steps`` ticks.
+#
+# DFoTValEval (teacher-forced full-chunk + AR) is NOT included here:
+# its sampler is hardcoded to ``algo.action_dim`` for the backbone
+# input width, which is the ACTION dim (2) — not the bundle dim (7).
+# Running it against an ObsActionDFoTOuterStage feeds 2-D tokens into a
+# backbone expecting 7-D and crashes. A bundle-aware teacher-forced eval
+# is a follow-up.
+#
+# PackedSimEval is also omitted: closed-loop sim requires the bundle's
+# action portion to drive the env meaningfully, which is the next
+# milestone past basic training.
+
+_target_: egomimic.eval.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.eval_dfot_self_rollout.DFoTSelfRolloutEval
+    rollout_steps: 64
+    world_size: 512.0
+    image_key: "front_img_1"
+    agent_state_slice: [0, 2]
+    cfg_scale: 1.0
+    upscale_to: 512
+    max_videos: 2
+    limit_val_batches: 4
+    embodiment_name: "pushshapes_sim"

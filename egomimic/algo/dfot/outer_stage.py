@@ -93,6 +93,21 @@ class DFoTOuterStage(OuterStage):
         self.diffusion = diffusion
         self.cond_output_key = cond_output_key
 
+    @property
+    def bundle_dim(self) -> int:
+        """Width of the diffused tensor. For vanilla DFoT this equals
+        ``action_dim``; subclasses that diffuse extra modalities (obs+action
+        joint, etc.) override to return the full bundle width."""
+        return self.action_dim
+
+    @property
+    def action_slice(self) -> slice:
+        """Slice into the trailing dim of the sampled bundle that
+        corresponds to actions. Vanilla DFoT is action-only, so this is
+        the full slice. Subclasses (e.g. obs+action joint) override to
+        point at just the action portion of their bundle."""
+        return slice(0, self.action_dim)
+
     # -------------------------------------------------------------------
     # Per-mode cond encode helpers (lifted from algo.py to keep modality
     # encoding on the outer stage where it belongs).

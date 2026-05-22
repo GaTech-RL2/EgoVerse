@@ -374,7 +374,7 @@ class DFoT(Algo):
         # Build the schedule + run sample() directly so we can plumb
         # cfg_scale through. (ddim_sample/ddpm_sample wrappers don't yet
         # expose cfg_scale; could be added if needed.)
-        shape = (B, T, self.action_dim)
+        bundle_dim = self.outer_stage.bundle_dim
         if self.sampler not in ("ddpm", "ddim"):
             raise ValueError(f"unknown sampler {self.sampler!r}")
         discrete_ts = (
@@ -392,7 +392,7 @@ class DFoT(Algo):
             self.diffusion,
             self.backbone,
             schedule_matrix=sm,
-            action_dim=self.action_dim,
+            action_dim=bundle_dim,
             batch_size=B,
             external_cond=cond,
             eta=eta,
@@ -466,7 +466,8 @@ class DFoT(Algo):
             self._ar_unit = 1.0 / float(n_rungs)
         self._ar_discrete = is_discrete
         self._ar_buffer = torch.randn(
-            1, self.action_horizon, self.action_dim, device=device, dtype=torch.float32
+            1, self.action_horizon, self.outer_stage.bundle_dim,
+            device=device, dtype=torch.float32,
         )
         self._sim_committed_queue = []
 
@@ -587,17 +588,21 @@ class DFoT(Algo):
 
         # Commit front rung, slide buffer, push fresh noisy rung at the back.
         chunk = self.ar_inference_chunk_size
-        committed_norm = self._ar_buffer[:, :chunk, :].clone()  # (1, chunk, A)
+        committed_norm = self._ar_buffer[:, :chunk, :].clone()  # (1, chunk, bundle_dim)
         new_back = torch.randn(
-            1, chunk, self.action_dim, device=device, dtype=torch.float32
+            1, chunk, self.outer_stage.bundle_dim,
+            device=device, dtype=torch.float32,
         )
         self._ar_buffer = torch.cat(
             [self._ar_buffer[:, chunk:, :], new_back], dim=1
         )
 
-        # Unnormalize + return first committed action; queue extras.
+        # For joint obs+action bundles, slice out the action portion before
+        # returning to the env. For vanilla DFoT this is a no-op (action_slice
+        # spans the full trailing dim).
+        committed_actions = committed_norm[..., self.outer_stage.action_slice]
         committed_world = self.norm_stats.unnormalize(
-            {ac_key: committed_norm.squeeze(0)}, emb_id
+            {ac_key: committed_actions.squeeze(0)}, emb_id
         )[ac_key]
         committed_np = committed_world.detach().cpu().numpy()
         for row in committed_np[1:]:
@@ -624,8 +629,11 @@ class DFoT(Algo):
             sampled = self._sample_chunk(
                 B=1, T=self.action_horizon, cond=cond, device=device
             )
+            # Slice action portion out of the (potentially joint) bundle
+            # before unnormalizing. For vanilla DFoT action_slice is full.
+            sampled_actions = sampled[..., self.outer_stage.action_slice]
             chunk_world = self.norm_stats.unnormalize(
-                {ac_key: sampled.squeeze(0)}, emb_id
+                {ac_key: sampled_actions.squeeze(0)}, emb_id
             )[ac_key]
             state["chunk"] = chunk_world.detach()
             state["chunk_idx"] = 0
