@@ -28,12 +28,13 @@ closed-loop drift between predicted action and next obs.
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 import cv2
 import numpy as np
 import torch
 
+from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
 from egomimic.algo.dfot.sampling import (
     sample,
@@ -43,7 +44,9 @@ from egomimic.algo.dfot.sampling import (
 from egomimic.eval.eval_video import EvalVideo
 
 
-def _to_xy_pix(action_world: np.ndarray, img_hw: tuple, world_size: float) -> tuple:
+def _to_xy_pix(
+    action_world: np.ndarray, img_hw: tuple, world_size: float
+) -> tuple:
     """Map a world-frame xy action into pixel coords for a (H, W) image.
 
     PushShapesEnv decouples physics world size (``WORLD_SIZE=512``) from
@@ -177,7 +180,7 @@ class DFoTValEval(EvalVideo):
         T, A = actions_norm.shape
         device = actions_norm.device
         diff = algo.diffusion
-        backbone = algo.nets["backbone"]
+        backbone = algo.backbone
         discrete_ts = (
             int(diff.timesteps) if isinstance(diff, DiscreteDiffusion) else None
         )
@@ -220,7 +223,7 @@ class DFoTValEval(EvalVideo):
         """
         device = cond_per_frame.device
         diff = algo.diffusion
-        backbone = algo.nets["backbone"]
+        backbone = algo.backbone
         discrete_ts = (
             int(diff.timesteps) if isinstance(diff, DiscreteDiffusion) else None
         )
@@ -255,9 +258,9 @@ class DFoTValEval(EvalVideo):
         images_dict: Dict[int, np.ndarray] = {}
 
         palette = {
-            "gt": (0, 255, 0),  # green
+            "gt": (0, 255, 0),       # green
             "chunk": (255, 64, 64),  # red — full-chunk DDIM
-            "ar": (255, 255, 0),  # yellow — staircase AR
+            "ar": (255, 255, 0),     # yellow — staircase AR
         }
 
         for emb_id, _batch in batch.items():
@@ -270,7 +273,9 @@ class DFoTValEval(EvalVideo):
             B = int(cu.shape[0]) - 1
             if B <= 0:
                 continue
-            B_render = min(B, self.max_videos) if self.max_videos is not None else B
+            B_render = (
+                min(B, self.max_videos) if self.max_videos is not None else B
+            )
 
             ac_key = algo.resolved_ac_keys[emb_id]
             actions_packed = _batch[ac_key]  # (T_total, A)
@@ -314,7 +319,9 @@ class DFoTValEval(EvalVideo):
                     chunk_world = self._full_chunk_pred(
                         algo, acts_norm_ep, cond_ep, emb_id
                     )
-                    chunk_sse += float(torch.sum((chunk_world - gt_world) ** 2).item())
+                    chunk_sse += float(
+                        torch.sum((chunk_world - gt_world) ** 2).item()
+                    )
                     chunk_n += int(chunk_world.numel())
 
                 if self.do_ar:
@@ -322,7 +329,9 @@ class DFoTValEval(EvalVideo):
                         ar_world = None
                     else:
                         ar_world = self._ar_pred(algo, cond_ep, emb_id, T=T)
-                        ar_sse += float(torch.sum((ar_world - gt_world) ** 2).item())
+                        ar_sse += float(
+                            torch.sum((ar_world - gt_world) ** 2).item()
+                        )
                         ar_n += int(ar_world.numel())
 
                 # Build viz video for this episode.
@@ -338,9 +347,7 @@ class DFoTValEval(EvalVideo):
                         if ar_world is not None:
                             overlay_actions["ar"] = ar_world[t].detach().cpu().numpy()
                         out = _draw_overlay(
-                            img_chw,
-                            overlay_actions,
-                            palette,
+                            img_chw, overlay_actions, palette,
                             world_size=self.world_size,
                         )
                         frames_ep.append(np.ascontiguousarray(out))

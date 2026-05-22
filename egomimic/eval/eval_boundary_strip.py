@@ -121,7 +121,7 @@ class BoundaryStripEval(EvalVideo):
             actions = _batch[ac_key]
             cu = _batch["cu_seqlens"]
             max_seqlen = int(_batch["max_seq_len"])
-            policy = algo.nets["policy"]
+            policy = algo.policy
             _pred, aux = policy.forward_packed(
                 actions,
                 obs,
