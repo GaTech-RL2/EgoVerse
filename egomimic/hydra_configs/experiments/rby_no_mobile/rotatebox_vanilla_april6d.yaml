@@ -1,0 +1,52 @@
+# @package _global_
+# Vanilla (non-hierarchical CrossTransformer) for the 0418 rotatebox task using 6D april_tag.
+# Same data + action keys as the hierarchical p1 variant; only the head architecture differs.
+defaults:
+  - /train
+  - override /model: experiments/rby1_0416/rby1_0416_img_aria_apriltag_robot0_no_wheel_bihand_base_torso_head_arm_hand_act32_proprio_dropout_mobile_april6d
+  - override /data: experiments/rby1_0416/rby1_0423_push_cart_human_act32_base_torso_head_arm_hand
+  - _self_
+
+name: RBY1_rotatebox_vanilla_april6d
+description: "vanilla_april6d_hand0.7_joint0.4+noise"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+logger:
+  wandb:
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      april_tag:
+        key_type: proprio_keys
+        lerobot_key: obs.april_tag
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1
