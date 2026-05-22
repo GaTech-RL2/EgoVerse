@@ -186,6 +186,39 @@ class HNetOuterStage(OuterStage):
         return h
 
     # ------------------------------------------------------------------
+    # Legacy bridge methods for code that calls (actions, obs[, cu, msl])
+    # and expects (pred, aux). These wrap the new (batch, ctx) API so the
+    # HNet algo class's forward_eval / _teacher_forced_packed / etc. can
+    # keep working with a minimal call-site rename.
+    # ------------------------------------------------------------------
+
+    def forward_padded(self, actions: torch.Tensor, obs: dict):
+        """Legacy bridge: padded (actions, obs) -> (pred, aux)."""
+        batch = {"actions": actions, "__obs": obs}
+        ctx = HNetContext(cond_dict={}, aux=[], inference_params=None)
+        self.forward(batch, ctx)
+        return batch["pred_action"], ctx.aux
+
+    def forward_packed(
+        self,
+        actions_packed: torch.Tensor,
+        obs_packed: dict,
+        cu_seqlens: torch.Tensor,
+        max_seqlen: int,
+    ):
+        """Legacy bridge: packed (...) -> (pred, aux)."""
+        batch = {"actions": actions_packed, "__obs": obs_packed}
+        ctx = HNetContext(
+            cond_dict={},
+            aux=[],
+            inference_params=None,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=int(max_seqlen),
+        )
+        self.forward(batch, ctx)
+        return batch["pred_action"], ctx.aux
+
+    # ------------------------------------------------------------------
     # Inference: AR generate + step. Used by the algo class's closed-loop
     # path; not part of the OuterStage abstract API.
     # ------------------------------------------------------------------

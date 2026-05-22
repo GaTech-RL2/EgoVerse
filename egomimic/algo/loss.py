@@ -103,9 +103,15 @@ class HNetLoss(Loss):
 
         # Sum per-chunker boundary regularisers if any.
         aux = getattr(ctx, "aux", None) or []
-        ratio_loss = ratio_loss_from_aux(aux) if aux else torch.zeros(
-            (), device=action_loss.device, dtype=action_loss.dtype
+        ratio_loss = (
+            ratio_loss_from_aux(aux, device=action_loss.device)
+            if aux
+            else torch.zeros((), device=action_loss.device, dtype=action_loss.dtype)
         )
+        # Stash the per-term breakdown on ctx so the algo class's logging
+        # path can read them without recomputing.
+        ctx.action_loss = action_loss
+        ctx.ratio_loss = ratio_loss
         return action_loss + ratio_loss
 
 

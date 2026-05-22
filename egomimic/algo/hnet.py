@@ -22,6 +22,8 @@ import torch.nn as nn
 from overrides import override
 
 from egomimic.algo.algo import Algo
+from egomimic.algo.hnet_outer_stage import HNetOuterStage
+from egomimic.algo.loss import HNetLoss, Loss
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.algo.input_modules import ActionInToken, InputModule
 from egomimic.models.hnet_nets.context import HNetContext
@@ -683,13 +685,10 @@ class HNet(Algo):
 
     def __init__(
         self,
-        action_dim: int,
-        action_horizon: int,
-        d_model: int,
-        d_cond: int,
-        cond_encoder: CondEncoderModule,
-        hnet: HNetCore,
+        outer_stage: HNetOuterStage,
         norm_stats,
+        d_cond: int = None,
+        loss: Optional[Loss] = None,
         domains: list = None,
         ac_keys: dict = None,
         device=None,
@@ -698,8 +697,6 @@ class HNet(Algo):
         use_parameter_groups: bool = False,
         weight_decay: float = 0.0,
         train_obs_transforms: list | None = None,
-        action_head_type: str = "linear",
-        input_modules: list | None = None,
         **kwargs,
     ):
         """
@@ -725,17 +722,11 @@ class HNet(Algo):
         WD for all params from the optimizer config.
         """
         super().__init__()
-        # ``norm_stats`` is a ``MultiDataset`` instance that owns the
-        # per-embodiment per-feature normalization stats AND the key-topology
-        # helpers (``keys_of_type``, ``is_key_with_embodiment``,
-        # ``zarr_key_to_keyname``). pl_model._instantiate_model passes it in
-        # automatically; the previous ``data_schematic`` parameter was legacy
-        # and is gone.
         self.norm_stats = norm_stats
         self.domains = list(domains or [])
         self.ac_keys = dict(ac_keys or {})
-        self.action_horizon = action_horizon
-        self.d_cond = d_cond
+        self.action_horizon = outer_stage.action_horizon
+        self.d_cond = d_cond  # legacy field; not used by refactored code
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -746,26 +737,19 @@ class HNet(Algo):
         self.weight_decay = float(weight_decay)
         self.train_obs_transforms = list(train_obs_transforms or [])
 
-        policy = HNetPolicy(
-            action_dim=action_dim,
-            action_horizon=action_horizon,
-            d_model=d_model,
-            cond_encoder=cond_encoder,
-            hnet=hnet,
-            action_head_type=action_head_type,
-            input_modules=input_modules,
-        )
-        # Apply opt-in training recipe BEFORE moving to device so the init
-        # writes hit cpu params (matches upstream's pattern of init pre-move).
+        # Apply opt-in training recipe BEFORE moving to device.
+        hnet = outer_stage.inner_stage  # HNetCore
         if init_weights_range is not None:
             hnet.init_weights(initializer_range=float(init_weights_range))
         if self.lr_multipliers is not None:
             hnet.apply_lr_multiplier(self.lr_multipliers)
         # Stash the inner HNetCore so parameter_groups can reach it without
-        # going through nets["policy"].hnet.
+        # going through nets["outer_stage"].inner_stage.
         self._hnet_core = hnet
 
-        self.nets = nn.ModuleDict({"policy": policy})
+        if loss is None:
+            loss = HNetLoss()
+        self.nets = nn.ModuleDict({"outer_stage": outer_stage, "loss": loss})
         self.nets = self.nets.float().to(self.device)
 
         # Resolve per-embodiment keys via norm_stats (which owns the
@@ -796,6 +780,39 @@ class HNet(Algo):
             for key in norm_stats.keys_of_type("camera_keys", emb_id):
                 if norm_stats.is_key_with_embodiment(key, emb_id):
                     self.camera_keys[emb_id].append(key)
+
+    # ----- Convenience accessors so code that references the old
+    # ``self.outer_stage`` / cond_encoder / hnet keeps working via
+    # forwarding to the new outer_stage submodules.
+
+    @property
+    def outer_stage(self) -> HNetOuterStage:
+        return self.nets["outer_stage"]
+
+    @property
+    def loss(self) -> Loss:
+        return self.nets["loss"]
+
+    @property
+    def policy(self) -> HNetOuterStage:
+        """Back-compat alias — used to be HNetPolicy; now is HNetOuterStage."""
+        return self.outer_stage
+
+    @property
+    def cond_encoder(self) -> CondEncoderModule:
+        return self.outer_stage.cond_encoder
+
+    @property
+    def hnet(self) -> HNetCore:
+        return self.outer_stage.inner_stage
+
+    @property
+    def input_modules(self) -> nn.ModuleList:
+        return self.outer_stage.input_modules
+
+    @property
+    def action_out(self) -> nn.Module:
+        return self.outer_stage.action_out
 
     # ---- Algo API --------------------------------------------------------
 
@@ -850,7 +867,7 @@ class HNet(Algo):
             processed[emb_id] = self.norm_stats.normalize(processed[emb_id], emb_id)
             # Post-normalize train-only obs transforms (e.g. GaussianObsNoise).
             # Whole-dict; transforms must preserve packed metadata like cu_seqlens.
-            if self.train_obs_transforms and self.nets["policy"].training:
+            if self.train_obs_transforms and self.outer_stage.training:
                 for t in self.train_obs_transforms:
                     processed[emb_id] = t(processed[emb_id])
             processed[emb_id]["embodiment"] = torch.tensor(
@@ -877,29 +894,46 @@ class HNet(Algo):
 
     @override
     def forward_training(self, batch):
+        """Refactored training forward — delegates to outer_stage + loss.
+
+        Builds (per-embodiment) the inner batch dict + HNetContext, calls
+        outer_stage(batch, ctx) which writes batch[pred_action] + ctx.aux,
+        calls loss(batch, ctx) which combines action MSE + chunker ratio
+        loss and stores the per-term breakdown on ctx (ctx.action_loss,
+        ctx.ratio_loss) for the logging dict.
+        """
         predictions = OrderedDict()
-        policy = self.nets["policy"]
+        outer_stage = self.outer_stage
+        loss_fn = self.loss
         for emb_id, _batch in batch.items():
             ac_key = self.resolved_ac_keys[emb_id]
             actions = _batch[ac_key]
             obs = self._build_obs(_batch, emb_id)
+            is_packed = _batch.get("_packed", False)
 
-            if _batch.get("_packed", False):
-                cu_seqlens = _batch["cu_seqlens"]
-                max_seqlen = int(_batch["max_seq_len"])
-                pred, aux = policy.forward_packed(actions, obs, cu_seqlens, max_seqlen)
-            else:
-                pred, aux = policy(actions, obs)
-
-            mse = nn.functional.mse_loss(pred, actions)
-            rloss = ratio_loss_from_aux(aux, device=mse.device)
+            new_batch = {"actions": actions, "__obs": obs}
+            ctx = HNetContext(
+                cond_dict={},
+                aux=[],
+                inference_params=None,
+                cu_seqlens=_batch["cu_seqlens"] if is_packed else None,
+                max_seqlen=int(_batch["max_seq_len"]) if is_packed else None,
+            )
+            outer_stage(new_batch, ctx)
+            total_loss = loss_fn(new_batch, ctx)
+            pred = new_batch["pred_action"]
+            mse = getattr(ctx, "action_loss", total_loss)
+            rloss = getattr(
+                ctx,
+                "ratio_loss",
+                torch.zeros((), device=total_loss.device, dtype=total_loss.dtype),
+            )
             predictions[f"{emb_id}_pred"] = pred
             predictions[f"{emb_id}_action_loss"] = mse
             predictions[f"{emb_id}_ratio_loss"] = rloss
 
-            # Per-chunker stats for logging. avg_chunk_len = T / max(#boundaries, 1)
-            # so it == 1/F when F>0 and falls back to T when F==0 (no compression).
-            stats = chunk_stats_from_aux(aux)
+            # Per-chunker stats for logging.
+            stats = chunk_stats_from_aux(ctx.aux)
             for k, v in stats.items():
                 predictions[f"{emb_id}_{k}"] = torch.tensor(v, device=mse.device)
         return predictions
@@ -924,7 +958,7 @@ class HNet(Algo):
         downstream metric code can mask the padded positions.
         """
         unnorm = {}
-        policy = self.nets["policy"]
+        policy = self.outer_stage
         for emb_id, _batch in batch.items():
             ac_key = self.resolved_ac_keys[emb_id]
             if _batch.get("_packed", False):
@@ -940,7 +974,7 @@ class HNet(Algo):
             # completeness.
             obs = self._build_obs(_batch, emb_id)
             actions = _batch[ac_key]
-            pred, _ = policy(actions, obs)
+            pred, _ = policy.forward_padded(actions, obs)
             preds = OrderedDict()
             preds[ac_key] = pred
             unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
@@ -957,7 +991,7 @@ class HNet(Algo):
         into ``(B, T_max, action_dim)`` zero-padded per-episode for
         downstream metric / viz code.
         """
-        policy = self.nets["policy"]
+        policy = self.outer_stage
         ac_key = self.resolved_ac_keys[emb_id]
         actions = _batch[ac_key]
         obs = self._build_obs(_batch, emb_id)
@@ -999,7 +1033,7 @@ class HNet(Algo):
                 (matches ``_batch['seq_lens']`` and used for masking the
                 padding in downstream MSE).
         """
-        policy = self.nets["policy"]
+        policy = self.outer_stage
         cu = _batch["cu_seqlens"]
         seq_lens = _batch["seq_lens"].clone()
         B = int(seq_lens.shape[0])
@@ -1090,9 +1124,9 @@ class HNet(Algo):
             absolute-frame action as np.float32 of shape (action_dim,).
         """
         import numpy as np
-        policy = self.nets["policy"]
+        policy = self.outer_stage
         if t == 0:
-            device = next(self.nets["policy"].parameters()).device
+            device = next(self.outer_stage.parameters()).device
             default_T = int(getattr(policy, "action_horizon", 1024))
             T_max_use = int(T_max) if T_max is not None else default_T
             import torch
