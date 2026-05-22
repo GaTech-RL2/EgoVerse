@@ -1,0 +1,13 @@
+# Custom mobile_base config for SEWSolver, matching the user-specified __init__ kwargs.
+# Consumed via RBY1SEWSolver(mobile_base_config_path=<this file>).
+mobile_base_spring_damper: true
+mobile_base_deadband: 0.05
+mobile_base_yaw_deadband: 0.1
+mobile_base_natural_freq: 1.5
+mobile_base_damping_ratio: 0.5
+mobile_base_sampling_rate: 60.0
+mobile_base_adaptive_freq: false
+mobile_base_freq_min: 0.3
+mobile_base_adaptive_threshold: 0.15
+enable_stability_clamp: false
+stability_radius: 20.0
