@@ -76,6 +76,36 @@ class CompositeLoss(Loss):
         return total
 
 
+class DFoTLoss(Loss):
+    """DFoT epsilon-MSE with sigmoid (SNR-style) weighting.
+
+    Reads:
+      - ``batch["pred_v"]``: v-prediction emitted by the DFoT backbone
+        (written by ``DFoTOuterStage.decode``).
+      - ``ctx.q_state``: dict produced by ``diffusion.q_sample`` during
+        ``DFoTOuterStage.encode``. Carries ``x_t``, ``noise``, ``alpha_t``,
+        ``sigma_t``, ``logsnr``.
+
+    The actual math lives in ``diffusion.compute_loss``; this class is the
+    interface that fits the OuterStage-orchestrated training loop and
+    reduces the per-token loss to a scalar.
+
+    ``diffusion`` is the same instance held by the outer stage — it has
+    no learnable params (in continuous mode) so this is a free reference,
+    not a duplicate submodule.
+    """
+
+    def __init__(self, diffusion: nn.Module):
+        super().__init__()
+        self.diffusion = diffusion
+
+    def forward(self, batch: dict, ctx) -> torch.Tensor:
+        v_pred = batch["pred_v"]
+        q_state = ctx.q_state
+        per_token = self.diffusion.compute_loss(v_pred, q_state)
+        return per_token.mean()
+
+
 class MSELoss(Loss):
     """Per-modality MSE between ``batch[pred_key]`` and ``batch[target_key]``.
 
