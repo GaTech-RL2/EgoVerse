@@ -17,6 +17,8 @@ evals:
     n_chunk_steps: 50
     ar_chunk_size: 1
     ar_step_size: 1
+    cfg_scale: 1.0     # standard CFG; 1.0 = off
+    world_size: 512.0  # PushShapesEnv physics extent — for viz overlay scaling
     limit_val_batches: 4
     max_videos: 2
     coverage_threshold: 0.7

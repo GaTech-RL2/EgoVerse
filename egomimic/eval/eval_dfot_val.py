@@ -7,13 +7,14 @@ overlaying both predictions on top of the GT environment frames:
     sequence. Single schedule with uniform per-token noise levels driven
     from 1.0 -> 0.0 over ``n_chunk_steps`` DDIM steps. Tests how well the
     model can recover a full trajectory from a single chunk of obs.
-  * **ar (staircase)**: configurable causal-AR rolling-staircase denoising.
-    The buffer holds ``chunk_size * step_size`` in-flight tokens at
-    staircase noise levels; at each env-frame step the front-most token
-    commits and a new fully-noisy token enters the back. The two knobs
-    expose staircase geometry — ``ar_chunk_size`` = how many tokens share
-    a rung ("width"), ``ar_step_size`` = how many denoise steps per rung
-    ("height").
+  * **ar (staircase)**: a single offline ``sample()`` call over the full
+    episode driven by ``staircase_ar_schedule(T, ar_chunk_size,
+    ar_step_size)``. Earlier tokens denoise first; later tokens still at
+    high noise — the rolling-staircase pattern unrolled across the whole
+    episode in one pass. Knobs: ``ar_chunk_size`` = tokens per rung
+    ("width"); ``ar_step_size`` = denoise steps per rung ("height").
+    For online (env-tick-by-env-tick) AR see ``DFoT.inference_step`` —
+    this evaluator is teacher-forced and runs offline.
 
 For each val episode the evaluator emits one mp4: the GT env image stream
 (from ``front_img_1``) overlaid with three coloured action dots per frame
@@ -27,13 +28,12 @@ closed-loop drift between predicted action and next obs.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np
 import torch
 
-from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
 from egomimic.algo.dfot.sampling import (
     sample,
@@ -43,19 +43,19 @@ from egomimic.algo.dfot.sampling import (
 from egomimic.eval.eval_video import EvalVideo
 
 
-def _to_xy_pix(action_world: np.ndarray, img_hw: tuple) -> tuple:
+def _to_xy_pix(action_world: np.ndarray, img_hw: tuple, world_size: float) -> tuple:
     """Map a world-frame xy action into pixel coords for a (H, W) image.
 
-    PushShapesEnv renders at ``image_size`` pixels per world-unit. Caller
-    passes ``img_hw = (H, W)``; we assume world coords are in
-    ``[0, image_size]`` and scale linearly. Out-of-bounds returns None.
+    PushShapesEnv decouples physics world size (``WORLD_SIZE=512``) from
+    the rendered image_size (e.g. 96). Actions live in
+    ``[0, world_size]``; we scale to pixel coords using the image dims.
+    Out-of-bounds returns None.
     """
     h, w = img_hw
     x, y = float(action_world[0]), float(action_world[1])
-    # PushShapes world frame uses image_size as the world extent; pull
-    # the scale from the image dims (H==W==image_size in the configs we use).
-    scale = max(h, w) / float(max(h, w))  # = 1.0 for square; safe default
-    cx, cy = int(round(x * scale)), int(round(y * scale))
+    sx = w / float(world_size)
+    sy = h / float(world_size)
+    cx, cy = int(round(x * sx)), int(round(y * sy))
     if 0 <= cx < w and 0 <= cy < h:
         return cx, cy
     return None
@@ -65,17 +65,24 @@ def _draw_overlay(
     img_chw_uint8: np.ndarray,
     actions_world: Dict[str, np.ndarray],
     palette: Dict[str, Tuple[int, int, int]],
-    radius: int = 4,
+    world_size: float,
+    radius: int = 8,
+    upscale_to: int | None = 512,
 ) -> np.ndarray:
     """Overlay one dot per mode on a (C, H, W) uint8 image. Returns (H, W, C)
-    uint8 ready for video stacking."""
+    uint8 ready for video stacking. If upscale_to is set, the env image is
+    nearest-neighbor upscaled before dots are drawn so dot edges stay crisp."""
     if img_chw_uint8.dtype != np.uint8:
         img_chw_uint8 = (img_chw_uint8 * 255.0).clip(0, 255).astype(np.uint8)
     img_hwc = np.transpose(img_chw_uint8, (1, 2, 0))
+    if upscale_to is not None and img_hwc.shape[0] != upscale_to:
+        img_hwc = cv2.resize(
+            img_hwc, (upscale_to, upscale_to), interpolation=cv2.INTER_NEAREST
+        )
     H, W, _ = img_hwc.shape
     out = np.ascontiguousarray(img_hwc.copy())
     for name, a in actions_world.items():
-        pt = _to_xy_pix(a, (H, W))
+        pt = _to_xy_pix(a, (H, W), world_size=world_size)
         if pt is None:
             continue
         cv2.circle(out, pt, radius + 2, (0, 0, 0), thickness=-1)
@@ -115,6 +122,8 @@ class DFoTValEval(EvalVideo):
         n_chunk_steps: int = 50,
         ar_chunk_size: int = 1,
         ar_step_size: int = 1,
+        cfg_scale: float = 1.0,
+        world_size: float = 512.0,
         limit_val_batches: int = 4,
         max_videos: int = 2,
         coverage_threshold: float = 0.7,
@@ -134,8 +143,13 @@ class DFoTValEval(EvalVideo):
         self.n_chunk_steps = int(n_chunk_steps)
         self.ar_chunk_size = int(ar_chunk_size)
         self.ar_step_size = int(ar_step_size)
+        # Classifier-free-guidance scale at sampling. 1.0 disables CFG.
+        self.cfg_scale = float(cfg_scale)
+        # PushShapesEnv physics world extent. Actions live in [0, world_size].
+        # Rendered images may be smaller (e.g. 96 px); _to_xy_pix scales.
+        self.world_size = float(world_size)
         self.embodiment_name = embodiment_name
-        # Kept for config-shape parity with eval_hnet_sim; not used.
+        # Kept for config-shape parity with eval_dfot_sim; not used.
         _ = coverage_threshold, env_kwargs
 
     # ---- env-image extraction ---- #
@@ -178,6 +192,7 @@ class DFoTValEval(EvalVideo):
             action_dim=A,
             batch_size=1,
             external_cond=ec,
+            cfg_scale=self.cfg_scale,
             device=device,
         ).squeeze(0)  # (T, A)
         # Un-normalize.
@@ -225,6 +240,7 @@ class DFoTValEval(EvalVideo):
             action_dim=A,
             batch_size=1,
             external_cond=ec,
+            cfg_scale=self.cfg_scale,
             device=device,
         ).squeeze(0)  # (T, A)
         pred_world = algo.norm_stats.unnormalize({ac_key: pred_norm}, emb_id)[ac_key]
@@ -239,9 +255,9 @@ class DFoTValEval(EvalVideo):
         images_dict: Dict[int, np.ndarray] = {}
 
         palette = {
-            "gt": (0, 255, 0),
-            "chunk": (0, 128, 255),
-            "ar": (0, 255, 255),
+            "gt": (0, 255, 0),  # green
+            "chunk": (255, 64, 64),  # red — full-chunk DDIM
+            "ar": (255, 255, 0),  # yellow — staircase AR
         }
 
         for emb_id, _batch in batch.items():
@@ -254,9 +270,7 @@ class DFoTValEval(EvalVideo):
             B = int(cu.shape[0]) - 1
             if B <= 0:
                 continue
-            B_render = (
-                min(B, self.max_videos) if self.max_videos is not None else B
-            )
+            B_render = min(B, self.max_videos) if self.max_videos is not None else B
 
             ac_key = algo.resolved_ac_keys[emb_id]
             actions_packed = _batch[ac_key]  # (T_total, A)
@@ -265,8 +279,15 @@ class DFoTValEval(EvalVideo):
             img_key = next(iter(algo.camera_keys[emb_id]), None)
             imgs_packed = _batch.get(img_key) if img_key is not None else None
 
-            ep_chunk_mse: List[float] = []
-            ep_ar_mse: List[float] = []
+            # Accumulators for global mean MSE (sum of squared errors
+            # across ALL episodes / frames / action dims, divided by the
+            # TOTAL element count). This weights long episodes
+            # proportionally rather than treating each episode equally,
+            # matching the train-loss reduction.
+            chunk_sse: float = 0.0
+            chunk_n: int = 0
+            ar_sse: float = 0.0
+            ar_n: int = 0
             ep_frames: List[np.ndarray] = []
 
             for b in range(B_render):
@@ -293,18 +314,16 @@ class DFoTValEval(EvalVideo):
                     chunk_world = self._full_chunk_pred(
                         algo, acts_norm_ep, cond_ep, emb_id
                     )
-                    ep_chunk_mse.append(
-                        float(torch.mean((chunk_world - gt_world) ** 2).item())
-                    )
+                    chunk_sse += float(torch.sum((chunk_world - gt_world) ** 2).item())
+                    chunk_n += int(chunk_world.numel())
 
                 if self.do_ar:
                     if cond_ep is None:
                         ar_world = None
                     else:
                         ar_world = self._ar_pred(algo, cond_ep, emb_id, T=T)
-                        ep_ar_mse.append(
-                            float(torch.mean((ar_world - gt_world) ** 2).item())
-                        )
+                        ar_sse += float(torch.sum((ar_world - gt_world) ** 2).item())
+                        ar_n += int(ar_world.numel())
 
                 # Build viz video for this episode.
                 if imgs_ep is not None:
@@ -318,23 +337,31 @@ class DFoTValEval(EvalVideo):
                             )
                         if ar_world is not None:
                             overlay_actions["ar"] = ar_world[t].detach().cpu().numpy()
-                        out = _draw_overlay(img_chw, overlay_actions, palette)
+                        out = _draw_overlay(
+                            img_chw,
+                            overlay_actions,
+                            palette,
+                            world_size=self.world_size,
+                        )
                         frames_ep.append(np.ascontiguousarray(out))
                     ep_frames.extend(frames_ep)
                     if b < B_render - 1 and frames_ep:
+                        # 5-frame black separator between consecutive episodes.
                         H, W, _ = frames_ep[0].shape
-                        sep = np.zeros((5, W, 3), dtype=np.uint8)
-                        # 5-row black separator between consecutive episodes.
-                        ep_frames.append(np.broadcast_to(sep, (5, W, 3)).copy())
+                        sep = np.zeros((5, H, W, 3), dtype=np.uint8)
+                        ep_frames.extend(sep)
 
-            # Aggregate metrics.
-            if ep_chunk_mse:
-                metrics[f"emb{emb_id}_chunk_action_mse"] = torch.tensor(
-                    float(np.mean(ep_chunk_mse)), device=device
+            # Aggregate: global mean MSE = sum_squared_errors / N where
+            # N is total element count across all episodes (frames *
+            # action_dim). Prefixed with ``Valid/`` so the metric lands
+            # in the W&B Valid panel alongside sim_coverage etc.
+            if chunk_n > 0:
+                metrics[f"Valid/emb{emb_id}_chunk_action_mse"] = torch.tensor(
+                    chunk_sse / chunk_n, device=device
                 )
-            if ep_ar_mse:
-                metrics[f"emb{emb_id}_ar_action_mse"] = torch.tensor(
-                    float(np.mean(ep_ar_mse)), device=device
+            if ar_n > 0:
+                metrics[f"Valid/emb{emb_id}_ar_action_mse"] = torch.tensor(
+                    ar_sse / ar_n, device=device
                 )
             if ep_frames:
                 images_dict[emb_id] = np.stack(ep_frames, axis=0)

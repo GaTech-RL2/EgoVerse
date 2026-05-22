@@ -7,8 +7,10 @@ robomimic_model:
   # ---- core dims ----
   # PushShapes circle/basic action dim = 2 (xy).
   action_dim: 2
-  # Per-frame loader (tsimulation_hpt.yaml) emits chunks of length 32. Must
-  # match the keymap's action_horizon (32 in tsimulation_hpt.yaml).
+  # AR buffer / chunk length T. Also the planning window for legacy
+  # chunk-mode inference. Packed-mode training does NOT slice into
+  # ``action_horizon``-sized windows — the diffusion runs over whole
+  # variable-length episodes; ``action_horizon`` only governs inference.
   action_horizon: 32
 
   diffusion_type: "continuous"
@@ -32,6 +34,12 @@ robomimic_model:
   #           ``action_horizon`` actions, replan after). Cheaper baseline.
   inference_mode: "ar"
   ar_inference_chunk_size: 1   # actions committed per env tick (1 = classic AR)
+  # Classifier-free-guidance scale. 1.0 = no CFG (single backbone pass).
+  # >1.0 runs two passes per denoise step (cond + zero-cond) and blends:
+  #   v = v_uncond + cfg_scale * (v_cond - v_uncond)
+  # Typical action-policy values: 1.2-2.0. Higher = sharper, less variance.
+  # Requires training with ``cond_dropout_prob > 0`` (we use 0.1).
+  cfg_scale: 1.0
 
   domains: ["pushshapes_sim"]
   ac_keys:
@@ -39,47 +47,62 @@ robomimic_model:
   cond_output_key: "fused_cond"
 
   # ---- conditioning encoder ----
-  # Single-frame obs (state + image) -> (B, cond_dim) fused vector.
+  # In packed-mode training, obs is per-frame (one obs aligned with one
+  # action token), so cond_encoder emits ``(T_total, d_cond)`` and is fed
+  # per-token into the backbone's AdaLN. At online inference, the same
+  # encoder runs on the current env obs and is broadcast across the AR
+  # buffer.
   cond_encoder:
     _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
-    d_cond: 128
+    d_cond: 512
     output_key: "fused_cond"
-    cond_proj_widths: [128, 128]
+    cond_proj_widths: [512, 512]
     obs_specs:
       state_agent_obj:
         input_dim: 5
-        embed_dim: 64
-        widths: [128]
+        embed_dim: 256
+        widths: [256]
     img_encoders:
       front_img_1:
         _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
         in_channels: 3
-        channels: [32, 64, 128, 256]
+        channels: [64, 128, 256, 512]
         kernel_size: 3
         stride: 2
-        embed_dim: 128
+        embed_dim: 256
         norm_groups: 8
 
   # ---- DFoT backbone ----
+  # Scaled for H200 (141GB VRAM). T12 transformer at d_model=512 +
+  # d_intermediate=2048 ~= 50M params. Combined with packed batch_size=16
+  # this should fill the GPU comfortably while leaving headroom for
+  # activation memory at long episodes.
   backbone:
     _target_: egomimic.algo.dfot.DFoTBackbone
     action_dim: 2
     action_horizon: 32
-    d_model: 128
-    d_cond: 128
-    cond_dim: 128             # matches cond_encoder.d_cond
-    time_embed_dim: 128
-    cond_emb_dim: 128
+    d_model: 512
+    d_cond: 512
+    cond_dim: 512             # matches cond_encoder.d_cond
+    time_embed_dim: 512
+    cond_emb_dim: 512
     use_fourier_time: true    # continuous diffusion -> Fourier (no stochastic dropout)
     stochastic_time_p: 0.0
     cond_dropout_prob: 0.1    # CFG-style cond dropout
-    arch_layout: "T6"
-    num_heads: 4
-    d_intermediate: 512
-    rotary_emb_dim: 32        # head_dim = 128 / 4 = 32
+    arch_layout: "T12"
+    num_heads: 8
+    d_intermediate: 2048
+    rotary_emb_dim: 64        # head_dim = 512 / 8 = 64
     dropout: 0.1
     resid_dropout: 0.1
-    causal: false             # action-chunk diffusion: non-causal denoiser
+    # Causal self-attention. Each action token attends only to tokens at
+    # equal-or-earlier positions, matching closed-loop control semantics
+    # (at env-tick t, only obs[0..t] is available). Combined with the
+    # rolling-staircase schedule at inference, this gives strict AR
+    # behavior at both the attention level and the noise-level level.
+    # Differs from DFoT-paper video defaults (bidirectional) — better fit
+    # for online robot-policy inference where future obs is unknown.
+    causal: true
 
 optimizer:
   _target_: torch.optim.AdamW
