@@ -738,13 +738,14 @@ class HNet(Algo):
         self.train_obs_transforms = list(train_obs_transforms or [])
 
         # Apply opt-in training recipe BEFORE moving to device.
-        hnet = outer_stage.inner_stage  # HNetCore
-        if init_weights_range is not None:
+        # outer_stage.inner_stage is the HNetCore (stage tree) for the
+        # stage-based H-Net; for flat variants (FlatFusedOuterStage) it's
+        # None — the training recipe knobs are no-ops in that case.
+        hnet = outer_stage.inner_stage
+        if hnet is not None and init_weights_range is not None:
             hnet.init_weights(initializer_range=float(init_weights_range))
-        if self.lr_multipliers is not None:
+        if hnet is not None and self.lr_multipliers is not None:
             hnet.apply_lr_multiplier(self.lr_multipliers)
-        # Stash the inner HNetCore so parameter_groups can reach it without
-        # going through nets["outer_stage"].inner_stage.
         self._hnet_core = hnet
 
         if loss is None:
@@ -1197,93 +1198,14 @@ class HNet(Algo):
 
 
 class HNetFused(HNet):
-    """Flat-transformer (no chunker) variant: interleaved [c_t, a_t] tokens.
+    """Flat-transformer (no chunker) variant. Thin alias for ``HNet`` —
+    kept as a separate ``_target_`` for the hnet_pushshapes_fused*.yaml
+    configs that historically referenced this class.
 
-    Same Algo contract as :class:`HNet`. Replaces the H-Net stage hierarchy
-    with a single :class:`FlatFusedPolicy` (one Isotropic stack over a 2T
-    interleaved input). ``aux`` is always ``[]`` so ratio_loss is 0 and
-    chunk_stats is empty; logging surfaces only action_loss.
-
-    Reuses HNet's ``process_batch_for_training`` / ``forward_training`` /
-    ``forward_eval`` / ``compute_losses`` / ``log_info`` /
-    ``_ar_rollout_packed`` unchanged because the policy interface matches
-    HNetPolicy verbatim.
+    All the flat-fused behavior (interleaved [c_t, a_t] tokens, single
+    Isotropic stack, no chunker / ratio loss) lives in
+    :class:`egomimic.algo.flat_fused_outer_stage.FlatFusedOuterStage`.
+    Use that as the ``outer_stage`` argument.
     """
 
-    def __init__(
-        self,
-        action_dim: int,
-        action_horizon: int,
-        d_model: int,
-        d_cond: int,
-        cond_encoder: CondEncoderModule,
-        norm_stats,
-        domains: list = None,
-        ac_keys: dict = None,
-        device=None,
-        arch_layout: str = "T8",
-        num_heads: int = 4,
-        d_intermediate: int = 512,
-        dropout: float = 0.0,
-        resid_dropout: float = 0.0,
-        **kwargs,
-    ):
-        # Skip HNet.__init__ — it requires a HNetCore. We re-implement the
-        # tiny init here for the flat path.
-        Algo.__init__(self)
-        self.norm_stats = norm_stats
-        self.domains = list(domains or [])
-        self.ac_keys = dict(ac_keys or {})
-        self.action_horizon = action_horizon
-        self.d_cond = d_cond
-        self.device = device or torch.device(
-            "cuda" if torch.cuda.is_available() else "cpu"
-        )
-        self.use_parameter_groups = False
-        self.lr_multipliers = None
-        self.weight_decay = 0.0
-        self._hnet_core = None
-        self.action_dim = action_dim
-
-        policy = FlatFusedPolicy(
-            action_dim=action_dim,
-            action_horizon=action_horizon,
-            d_model=d_model,
-            d_cond=d_cond,
-            cond_encoder=cond_encoder,
-            arch_layout=arch_layout,
-            num_heads=num_heads,
-            d_intermediate=d_intermediate,
-            dropout=dropout,
-            resid_dropout=resid_dropout,
-        )
-        self.nets = nn.ModuleDict({"policy": policy})
-        self.nets = self.nets.float().to(self.device)
-
-        # Replicate HNet's key-resolution loop (norm_stats-based).
-        self.embodiment_ids = {}
-        self.proprio_keys = {}
-        self.lang_keys = {}
-        self.camera_keys = {}
-        self.resolved_ac_keys = {}
-        for emb in self.domains:
-            emb_id = get_embodiment_id(emb)
-            self.embodiment_ids[emb] = emb_id
-            self.proprio_keys[emb_id] = []
-            self.lang_keys[emb_id] = []
-            self.camera_keys[emb_id] = []
-            for key in norm_stats.keys_of_type("action_keys", emb_id):
-                if (
-                    norm_stats.is_key_with_embodiment(key, emb_id)
-                    and key == self.ac_keys[emb]
-                ):
-                    self.resolved_ac_keys[emb_id] = key
-            for key in norm_stats.keys_of_type("proprio_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.proprio_keys[emb_id].append(key)
-            for key in norm_stats.keys_of_type("lang_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.lang_keys[emb_id].append(key)
-            for key in norm_stats.keys_of_type("camera_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.camera_keys[emb_id].append(key)
+    pass

@@ -34,6 +34,9 @@ CONFIGS = [
     "hnet_pushshapes_obs_ar.yaml",
     "hnet_pushshapes_obs_ar_large.yaml",
     "hnet_pushshapes_recipe.yaml",
+    "hnet_pushshapes_fused.yaml",
+    "hnet_pushshapes_fused_lowlr.yaml",
+    "hnet_pushshapes_fused_pusher.yaml",
 ]
 
 results = []
