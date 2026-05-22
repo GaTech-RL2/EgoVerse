@@ -30,7 +30,9 @@ from egomimic.algo.algo import Algo
 from egomimic.algo.dfot.backbone import DFoTBackbone
 from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.sampling import sample_step
+from egomimic.algo.dfot.outer_stage import DFoTOuterStage, make_dfot_ctx
+from egomimic.algo.dfot.sampling import ddim_sample, ddpm_sample, sample_step
+from egomimic.algo.loss import DFoTLoss, Loss
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
@@ -86,13 +88,11 @@ class DFoT(Algo):
 
     def __init__(
         self,
+        outer_stage: DFoTOuterStage,
         action_dim: int,
         action_horizon: int,
-        cond_encoder: CondEncoderModule,
-        backbone: DFoTBackbone,
         norm_stats,
-        diffusion_type: str = "continuous",
-        diffusion_kwargs: Optional[dict] = None,
+        loss: Optional[Loss] = None,
         sampler: str = "ddim",
         sampler_n_steps: int = 50,
         sampler_eta: float = 0.0,
@@ -102,17 +102,32 @@ class DFoT(Algo):
         cfg_scale: float = 1.0,
         domains: Optional[list] = None,
         ac_keys: Optional[dict] = None,
-        cond_output_key: str = "fused_cond",
         device=None,
         **kwargs,
     ):
+        """Refactored DFoT algo.
+
+        Args:
+            outer_stage: ``DFoTOuterStage`` owning the cond_encoder + backbone
+                + diffusion submodules and implementing the training-path
+                encode -> q_sample -> backbone -> decode flow.
+            loss: ``Loss`` (typically ``DFoTLoss``) that consumes
+                ``batch['pred_v']`` + ``ctx.q_state`` and emits the scalar
+                training loss.
+            sampler / sampler_n_steps / sampler_eta / inference_mode /
+            ar_inference_chunk_size / ar_inference_step_size / cfg_scale:
+                Inference knobs. Closed-loop AR + chunk-mode inference paths
+                still live on this algo class and consume the outer_stage's
+                submodules via the ``cond_encoder`` / ``backbone`` /
+                ``diffusion`` properties below.
+        """
         super().__init__()
         self.norm_stats = norm_stats
         self.domains = list(domains or [])
         self.ac_keys = dict(ac_keys or {})
         self.action_dim = int(action_dim)
         self.action_horizon = int(action_horizon)
-        self.cond_output_key = cond_output_key
+        self.cond_output_key = outer_stage.cond_output_key
         self.sampler = sampler
         self.sampler_n_steps = int(sampler_n_steps)
         self.sampler_eta = float(sampler_eta)
@@ -126,32 +141,18 @@ class DFoT(Algo):
         # noise levels by 1/(n_rungs*step_size) per sub-step. Mirrors the
         # offline staircase_ar_schedule(chunk, step) shape.
         self.ar_inference_step_size = int(ar_inference_step_size)
-        # Classifier-free-guidance scale at inference. 1.0 disables CFG
-        # (single backbone pass). >1.0 runs two passes (cond + zero-cond)
-        # and blends. Only active when ``cond_dropout_prob > 0`` was set
-        # at training time (otherwise the uncond branch is undefined).
+        # Classifier-free-guidance scale at inference. 1.0 disables CFG.
         self.cfg_scale = float(cfg_scale)
-        self.diffusion_type = diffusion_type
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
 
-        diffusion_kwargs = dict(diffusion_kwargs or {})
-        diffusion_kwargs.setdefault("action_dim", self.action_dim)
-        if diffusion_type == "discrete":
-            self.diffusion = DiscreteDiffusion(**diffusion_kwargs)
-        elif diffusion_type == "continuous":
-            self.diffusion = ContinuousDiffusion(**diffusion_kwargs)
-        else:
-            raise ValueError(f"unknown diffusion_type {diffusion_type!r}")
-
-        self.nets = nn.ModuleDict(
-            {
-                "backbone": backbone,
-                "cond_encoder": cond_encoder,
-                "diffusion": self.diffusion,
-            }
-        )
+        # outer_stage owns: cond_encoder, inner_stage (backbone), diffusion.
+        # loss reads ctx.q_state (populated by outer_stage.encode) + batch.
+        # If no loss is provided, default to DFoTLoss(outer_stage.diffusion).
+        if loss is None:
+            loss = DFoTLoss(outer_stage.diffusion)
+        self.nets = nn.ModuleDict({"outer_stage": outer_stage, "loss": loss})
         self.nets = self.nets.float().to(self.device)
 
         # Resolve per-embodiment keys via norm_stats (HNet-style).
@@ -181,6 +182,32 @@ class DFoT(Algo):
             for key in norm_stats.keys_of_type("camera_keys", emb_id):
                 if norm_stats.is_key_with_embodiment(key, emb_id):
                     self.camera_keys[emb_id].append(key)
+
+    # ----- Convenience accessors so the inference-path code paths
+    # (forward_eval, _sample_chunk, _inference_step_ar, _inference_step_chunk)
+    # can keep referring to ``self.backbone`` / ``self.cond_encoder`` /
+    # ``self.diffusion`` without going through ``self.nets["outer_stage"]``
+    # each call. All three are submodules of the outer_stage.
+
+    @property
+    def outer_stage(self) -> DFoTOuterStage:
+        return self.nets["outer_stage"]
+
+    @property
+    def loss(self) -> Loss:
+        return self.nets["loss"]
+
+    @property
+    def cond_encoder(self) -> CondEncoderModule:
+        return self.outer_stage.cond_encoder
+
+    @property
+    def backbone(self) -> DFoTBackbone:
+        return self.outer_stage.inner_stage
+
+    @property
+    def diffusion(self) -> nn.Module:
+        return self.outer_stage.diffusion
 
     # Packed-mode metadata that must NOT go through zarr_key_to_keyname
     # resolution (these are bookkeeping, not feature tensors).
@@ -241,7 +268,7 @@ class DFoT(Algo):
 
     def _encode_cond(self, obs: dict, T: int) -> Optional[torch.Tensor]:
         """Encode obs to per-token cond. Honors per-frame obs (no reduction)."""
-        cond_dict = self.nets["cond_encoder"].encode(obs, T)
+        cond_dict = self.cond_encoder.encode(obs, T)
         return cond_dict.get(self.cond_output_key)
 
     def _encode_cond_packed(self, obs: dict) -> Optional[torch.Tensor]:
@@ -250,11 +277,12 @@ class DFoT(Algo):
         its already-per-frame branch (it doesn't broadcast when dim already
         matches). Output: (T_total, d_cond) or None."""
         obs_3d = {
-            k: (v.unsqueeze(0) if torch.is_tensor(v) else v) for k, v in obs.items()
+            k: (v.unsqueeze(0) if torch.is_tensor(v) else v)
+            for k, v in obs.items()
         }
         # T_action argument is unused when obs is already per-frame (dim==3
         # for state, dim==5 for image); pass any non-zero placeholder.
-        cond_dict = self.nets["cond_encoder"].encode(obs_3d, T_action=1)
+        cond_dict = self.cond_encoder.encode(obs_3d, T_action=1)
         c = cond_dict.get(self.cond_output_key)
         if c is None:
             return None
@@ -273,45 +301,30 @@ class DFoT(Algo):
 
     @override
     def forward_training(self, batch):
+        """Refactored training forward: delegates encode/decode + loss to
+        the outer_stage + loss submodules.
+
+        For each embodiment:
+          1. Build a DFoT context with packed/padded mode and obs.
+          2. Call outer_stage(batch_emb, ctx) — runs encode -> q_sample,
+             backbone, decode (writes batch[pred_v]).
+          3. Call loss(batch_emb, ctx) — reads pred_v + ctx.q_state, returns
+             scalar SNR-weighted eps-MSE.
+        """
         predictions = OrderedDict()
-        backbone = self.nets["backbone"]
         for emb_id, _batch in batch.items():
             ac_key = self.resolved_ac_keys[emb_id]
-            actions = _batch[ac_key]
             is_packed = _batch.get("_packed", False)
             obs = self._build_obs(_batch, emb_id)
-
-            if is_packed:
-                # actions: (T_total, action_dim)
-                if actions.dim() != 2:
-                    raise ValueError(
-                        f"packed actions must be (T_total, action_dim); "
-                        f"got {tuple(actions.shape)}"
-                    )
-                T_total = actions.shape[0]
-                cu = _batch["cu_seqlens"]
-                msl = int(_batch.get("max_seq_len", 0)) or None
-
-                cond = self._encode_cond_packed(obs)
-                k = self._sample_noise_levels((T_total,), actions.device)
-                # Wrap backbone so the diffusion module's 3-arg call carries
-                # the cu_seqlens/max_seqlen kwargs through to packed attention.
-                packed_backbone = _PackedBackboneWrapper(backbone, cu, msl)
-                _, loss = self.diffusion(
-                    packed_backbone, actions, k, external_cond=cond
-                )
-            else:
-                if actions.dim() != 3:
-                    raise ValueError(
-                        f"padded actions must be (B, T, action_dim); got "
-                        f"{tuple(actions.shape)}"
-                    )
-                B, T, _ = actions.shape
-                cond = self._encode_cond(obs, T)
-                k = self._sample_noise_levels((B, T), actions.device)
-                _, loss = self.diffusion(backbone, actions, k, external_cond=cond)
-
-            mse = loss.mean()
+            ctx = make_dfot_ctx(
+                is_packed=is_packed,
+                action_key=ac_key,
+                obs=obs,
+                cu_seqlens=_batch.get("cu_seqlens") if is_packed else None,
+                max_seqlen=(int(_batch.get("max_seq_len", 0)) or None) if is_packed else None,
+            )
+            self.outer_stage(_batch, ctx)
+            mse = self.loss(_batch, ctx)
             predictions[f"{emb_id}_action_loss"] = mse
         return predictions
 
@@ -323,7 +336,7 @@ class DFoT(Algo):
         sampling for now (rollout drives closed-loop quality via
         ``inference_step``)."""
         unnorm = {}
-        backbone = self.nets["backbone"]
+        backbone = self.backbone
         for emb_id, _batch in batch.items():
             ac_key = self.resolved_ac_keys[emb_id]
             actions = _batch[ac_key]
@@ -337,9 +350,7 @@ class DFoT(Algo):
                 cond = self._encode_cond_packed(obs)
                 k = self._sample_noise_levels((T_total,), actions.device)
                 packed_backbone = _PackedBackboneWrapper(backbone, cu, msl)
-                _, loss = self.diffusion(
-                    packed_backbone, actions, k, external_cond=cond
-                )
+                _, loss = self.diffusion(packed_backbone, actions, k, external_cond=cond)
                 unnorm[f"emb{emb_id}_loss"] = loss.mean()
                 # No chunk sampling in packed val — too expensive per episode and
                 # the closed-loop measure lives in inference_step / sim eval.
@@ -363,6 +374,7 @@ class DFoT(Algo):
         # Build the schedule + run sample() directly so we can plumb
         # cfg_scale through. (ddim_sample/ddpm_sample wrappers don't yet
         # expose cfg_scale; could be added if needed.)
+        shape = (B, T, self.action_dim)
         if self.sampler not in ("ddpm", "ddim"):
             raise ValueError(f"unknown sampler {self.sampler!r}")
         discrete_ts = (
@@ -370,19 +382,15 @@ class DFoT(Algo):
             if isinstance(self.diffusion, DiscreteDiffusion)
             else None
         )
-        n_steps = (
-            self.sampler_n_steps
-            if self.sampler == "ddim"
-            else (discrete_ts or self.sampler_n_steps)
+        n_steps = self.sampler_n_steps if self.sampler == "ddim" else (
+            discrete_ts or self.sampler_n_steps
         )
-        from egomimic.algo.dfot.sampling import sample as _sample
-        from egomimic.algo.dfot.sampling import vanilla_schedule
-
+        from egomimic.algo.dfot.sampling import vanilla_schedule, sample as _sample
         sm = vanilla_schedule(n_steps=n_steps, T=T, discrete_timesteps=discrete_ts)
         eta = 1.0 if self.sampler == "ddpm" else self.sampler_eta
         return _sample(
             self.diffusion,
-            self.nets["backbone"],
+            self.backbone,
             schedule_matrix=sm,
             action_dim=self.action_dim,
             batch_size=B,
@@ -502,22 +510,18 @@ class DFoT(Algo):
             cur_rung = (rung_idx + shift_cur).clamp(max=float(n_rungs))
             nxt_rung = (rung_idx + shift_nxt).clamp(max=float(n_rungs))
             if self._ar_discrete:
-                cur_levels = (
-                    (cur_rung * self._ar_unit)
-                    .long()
-                    .clamp(-1, self.diffusion.timesteps - 1)
+                cur_levels = (cur_rung * self._ar_unit).long().clamp(
+                    -1, self.diffusion.timesteps - 1
                 )
-                nxt_levels = (
-                    (nxt_rung * self._ar_unit)
-                    .long()
-                    .clamp(-1, self.diffusion.timesteps - 1)
+                nxt_levels = (nxt_rung * self._ar_unit).long().clamp(
+                    -1, self.diffusion.timesteps - 1
                 )
             else:
                 cur_levels = (cur_rung * self._ar_unit).clamp(0.0, 1.0)
                 nxt_levels = (nxt_rung * self._ar_unit).clamp(0.0, 1.0)
             self._ar_buffer = sample_step(
                 self.diffusion,
-                self.nets["backbone"],
+                self.backbone,
                 x=self._ar_buffer,
                 current_levels=cur_levels.unsqueeze(0),
                 next_levels=nxt_levels.unsqueeze(0),
@@ -532,22 +536,22 @@ class DFoT(Algo):
         tok_idx = torch.arange(self.action_horizon, device=device).float()
         rung_idx = (tok_idx // self.ar_inference_chunk_size) + 1.0 - offset
         if self._ar_discrete:
-            levels = (
-                (rung_idx * self._ar_unit)
-                .long()
-                .clamp(-1, self.diffusion.timesteps - 1)
+            levels = (rung_idx * self._ar_unit).long().clamp(
+                -1, self.diffusion.timesteps - 1
             )
         else:
             levels = (rung_idx * self._ar_unit).clamp(0.0, 1.0)
         return levels.unsqueeze(0)  # (1, action_horizon)
 
     @torch.no_grad()
-    def _inference_step_ar(self, obs_zarr: dict, t: int, emb_id: int) -> "np.ndarray":
+    def _inference_step_ar(
+        self, obs_zarr: dict, t: int, emb_id: int
+    ) -> "np.ndarray":
         """Causal-AR rolling-staircase inference. One sample_step per env
         tick, one (or ``ar_inference_chunk_size``-many) action(s) committed
         per call. Buffer carries across calls."""
         embodiment_name = get_embodiment(emb_id).lower()
-        device = next(self.nets["backbone"].parameters()).device
+        device = next(self.backbone.parameters()).device
         ac_key = self.ac_keys[embodiment_name]
 
         # Encode current obs into per-call cond. Broadcast across buffer
@@ -568,22 +572,18 @@ class DFoT(Algo):
         if self._sim_committed_queue:
             return self._sim_committed_queue.pop(0)
 
-        # ``step_size`` denoise sub-steps on the buffer, advancing total
-        # noise by exactly one rung over the env tick (so commit semantics
-        # are preserved). Each sub-step advances noise by 1/(n_rungs*S).
-        S = max(1, int(getattr(self, "ar_inference_step_size", 1)))
-        for s in range(S):
-            cur_levels = self._ar_levels(offset=s / S, device=device)
-            nxt_levels = self._ar_levels(offset=(s + 1) / S, device=device)
-            self._ar_buffer = sample_step(
-                self.diffusion,
-                self.nets["backbone"],
-                x=self._ar_buffer,
-                current_levels=cur_levels,
-                next_levels=nxt_levels,
-                external_cond=cond,
-                cfg_scale=self.cfg_scale,
-            )
+        # One denoise step on the buffer.
+        cur_levels = self._ar_levels(offset=0.0, device=device)
+        nxt_levels = self._ar_levels(offset=1.0, device=device)
+        self._ar_buffer = sample_step(
+            self.diffusion,
+            self.backbone,
+            x=self._ar_buffer,
+            current_levels=cur_levels,
+            next_levels=nxt_levels,
+            external_cond=cond,
+            cfg_scale=self.cfg_scale,
+        )
 
         # Commit front rung, slide buffer, push fresh noisy rung at the back.
         chunk = self.ar_inference_chunk_size
@@ -591,7 +591,9 @@ class DFoT(Algo):
         new_back = torch.randn(
             1, chunk, self.action_dim, device=device, dtype=torch.float32
         )
-        self._ar_buffer = torch.cat([self._ar_buffer[:, chunk:, :], new_back], dim=1)
+        self._ar_buffer = torch.cat(
+            [self._ar_buffer[:, chunk:, :], new_back], dim=1
+        )
 
         # Unnormalize + return first committed action; queue extras.
         committed_world = self.norm_stats.unnormalize(
@@ -610,7 +612,7 @@ class DFoT(Algo):
         execute action_horizon steps before replanning). Cheaper but does
         NOT exercise DFoT's per-token-noise capability."""
         embodiment_name = get_embodiment(emb_id).lower()
-        device = next(self.nets["backbone"].parameters()).device
+        device = next(self.backbone.parameters()).device
         ac_key = self.ac_keys[embodiment_name]
         if t == 0:
             self._sim_state = {"chunk": None, "chunk_idx": 0}
