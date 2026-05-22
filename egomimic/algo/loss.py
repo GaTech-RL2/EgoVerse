@@ -76,6 +76,39 @@ class CompositeLoss(Loss):
         return total
 
 
+class HNetLoss(Loss):
+    """Action-MSE + per-chunker ratio-loss regulariser.
+
+    Reads:
+      - ``batch["pred_action"]`` (per-token predicted actions; written by
+        ``HNetOuterStage.decode``)
+      - ``batch["actions"]`` (per-token GT actions)
+      - ``ctx.aux`` (list of chunker-stage auxiliaries; each chunker
+        contributes a ``ratio_loss`` * weight term)
+
+    The per-chunker weight lives inside each ChunkerStage's aux already
+    (see ``ratio_loss_from_aux``); this class just sums them onto the
+    action MSE.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, batch: dict, ctx) -> torch.Tensor:
+        from egomimic.models.hnet_nets.hnet import ratio_loss_from_aux
+
+        pred = batch["pred_action"]
+        target = batch["actions"]
+        action_loss = torch.mean((pred - target) ** 2)
+
+        # Sum per-chunker boundary regularisers if any.
+        aux = getattr(ctx, "aux", None) or []
+        ratio_loss = ratio_loss_from_aux(aux) if aux else torch.zeros(
+            (), device=action_loss.device, dtype=action_loss.dtype
+        )
+        return action_loss + ratio_loss
+
+
 class DFoTLoss(Loss):
     """DFoT epsilon-MSE with sigmoid (SNR-style) weighting.
 
