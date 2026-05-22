@@ -1,0 +1,62 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# BC-RNN on PushShapes. Faithful to robomimic's BC_RNN (LSTM trunk, per-step
+# linear head, per-step MSE). Defaults match the robomimic template:
+#   rnn.hidden_dim=400, num_layers=2, type=LSTM, horizon=10, open_loop=false.
+# Obs encoder reuses the project's CondEncoderModule so multi-modal
+# (state + image) inputs work without a separate encoder stack.
+
+robomimic_model:
+  _target_: egomimic.algo.bcrnn.BCRNN
+  action_dim: 2
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  # robomimic rnn.horizon: reset hidden state every N env ticks at rollout.
+  rnn_horizon: 10
+  rnn_open_loop: false
+
+  outer_stage:
+    _target_: egomimic.algo.bcrnn.BCRNNOuterStage
+    action_dim: 2
+    rnn_hidden_dim: 400
+    rnn_num_layers: 2
+    rnn_type: "LSTM"
+    rnn_bidirectional: false
+    action_head_type: "linear"
+
+    cond_encoder:
+      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      # d_cond doubles as the LSTM input width.
+      d_cond: 128
+      output_key: "fused_cond"
+      cond_proj_widths: [128, 128]
+      obs_specs:
+        state_agent_obj:
+          input_dim: 5
+          embed_dim: 64
+          widths: [128]
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+          in_channels: 3
+          channels: [32, 64, 128, 256]
+          kernel_size: 3
+          stride: 2
+          embed_dim: 128
+          norm_groups: 8
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4              # robomimic default
+  weight_decay: 0.0
+
+scheduler:
+  # Robomimic BC-RNN template has no scheduler. Keep a no-op LinearLR
+  # so the trainer's scheduler hook stays happy.
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1
