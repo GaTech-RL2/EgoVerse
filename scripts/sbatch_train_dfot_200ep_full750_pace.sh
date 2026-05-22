@@ -18,12 +18,16 @@
 # AdaLN.
 #
 # Schedule: 200 ep x 160 batches = 32000 steps. Warmup-cosine: 480 warmup
-# steps (~3 ep), eta_min 4e-6, lr 4e-5. --time set to 12h (32000 steps
-# ~10.7h at ~50 steps/min on H200).
+# steps (~3 ep), eta_min 4e-6, lr 4e-5. --time set to 12h (measured H200
+# throughput ~100 steps/min in packed mode -> ~5.3h actual; 12h leaves
+# margin for slower val passes with both evals enabled).
 #
-# Eval: eval_dfot_val — teacher-forced action prediction with viz, both
-# full-chunk DDIM denoise + staircase causal-AR overlaid in one mp4 per
-# val episode. Val every 25 epochs (=8 val passes over 200 ep).
+# Eval: eval_dfot_full — composite of:
+#   * eval_dfot_val (teacher-forced, full-chunk DDIM + staircase-AR
+#     overlaid on GT env frames)
+#   * eval_dfot_sim (closed-loop PushShapesEnv rollout via
+#     DFoT.inference_step in AR mode by default)
+# Val every 25 epochs (=8 val passes over 200 ep).
 
 set -euxo pipefail
 cd /storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4
