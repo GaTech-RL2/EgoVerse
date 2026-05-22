@@ -1,0 +1,138 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.dfot.DFoT
+  # ``norm_stats`` is injected at runtime by
+  # ``pl_model.ModelWrapper._instantiate_model``; do not set it here.
+
+  # ---- core dims ----
+  # PushShapes circle/basic action dim = 2 (xy).
+  action_dim: 2
+  # AR buffer / chunk length T. Also the planning window for legacy
+  # chunk-mode inference. Packed-mode training does NOT slice into
+  # ``action_horizon``-sized windows — the diffusion runs over whole
+  # variable-length episodes; ``action_horizon`` only governs inference.
+  action_horizon: 32
+
+  sampler: "ddim"
+  sampler_n_steps: 50
+  sampler_eta: 0.0
+
+  # ---- closed-loop inference (sim eval) ----
+  # "ar"    — causal-AR rolling staircase. One denoise step per env tick;
+  #           buffer carries across steps. Matches DFoT training distribution.
+  # "chunk" — legacy plan-and-execute (uniform per-token noise, predict
+  #           ``action_horizon`` actions, replan after). Cheaper baseline.
+  inference_mode: "ar"
+  ar_inference_chunk_size: 1   # actions committed per env tick (1 = classic AR)
+  ar_inference_step_size: 1    # sample_step sub-steps per env tick
+  # Classifier-free-guidance scale. 1.0 = no CFG (single backbone pass).
+  # >1.0 runs two passes per denoise step (cond + zero-cond) and blends:
+  #   v = v_uncond + cfg_scale * (v_cond - v_uncond)
+  # Typical action-policy values: 1.2-2.0. Higher = sharper, less variance.
+  # Requires training with ``cond_dropout_prob > 0`` (we use 0.1).
+  cfg_scale: 1.0
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  # ---- outer_stage: owns the modality boundary + the trunk ----
+  # The outer stage holds the cond_encoder (obs -> per-token AdaLN cond),
+  # the backbone (Isotropic trunk + per-token AdaLN), and the diffusion
+  # module (q_sample / compute_loss math). DFoTOuterStage.encode samples
+  # per-token noise at training time, runs q_sample, stores q_state on
+  # ctx for the loss to read. Its inner_stage IS the backbone.
+  outer_stage:
+    _target_: egomimic.algo.dfot.outer_stage.DFoTOuterStage
+    action_dim: 2
+    cond_output_key: "fused_cond"
+
+    # In packed-mode training, obs is per-frame (one obs aligned with one
+    # action token), so cond_encoder emits ``(T_total, d_cond)`` and is fed
+    # per-token into the backbone's AdaLN. At online inference, the same
+    # encoder runs on the current env obs and is broadcast across the AR
+    # buffer.
+    cond_encoder:
+      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      d_cond: 512
+      output_key: "fused_cond"
+      cond_proj_widths: [512, 512]
+      obs_specs:
+        state_agent_obj:
+          input_dim: 5
+          embed_dim: 256
+          widths: [256]
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+          in_channels: 3
+          channels: [64, 128, 256, 512]
+          kernel_size: 3
+          stride: 2
+          embed_dim: 256
+          norm_groups: 8
+
+    # DFoT backbone. Scaled for H200 (141GB VRAM). T12 transformer at
+    # d_model=512 + d_intermediate=2048 ~= 50M params. Combined with
+    # packed batch_size=16 this should fill the GPU comfortably while
+    # leaving headroom for activation memory at long episodes.
+    backbone:
+      _target_: egomimic.algo.dfot.DFoTBackbone
+      action_dim: 2
+      action_horizon: 32
+      d_model: 512
+      d_cond: 512
+      cond_dim: 512             # matches cond_encoder.d_cond
+      time_embed_dim: 512
+      cond_emb_dim: 512
+      use_fourier_time: true    # continuous diffusion -> Fourier (no stochastic dropout)
+      stochastic_time_p: 0.0
+      cond_dropout_prob: 0.1    # CFG-style cond dropout
+      arch_layout: "T12"
+      num_heads: 8
+      d_intermediate: 2048
+      rotary_emb_dim: 64        # head_dim = 512 / 8 = 64
+      dropout: 0.1
+      resid_dropout: 0.1
+      # Causal self-attention. Each action token attends only to tokens at
+      # equal-or-earlier positions, matching closed-loop control semantics
+      # (at env-tick t, only obs[0..t] is available). Combined with the
+      # rolling-staircase schedule at inference, this gives strict AR
+      # behavior at both the attention level and the noise-level level.
+      causal: true
+
+    # Continuous-time diffusion (v-prediction, sigmoid loss weighting).
+    # Used by outer_stage.encode for q_sample at training, and also
+    # implicitly by the default DFoTLoss (no loss block below -> the
+    # algo class auto-builds DFoTLoss(outer_stage.diffusion)).
+    diffusion:
+      _target_: egomimic.algo.dfot.continuous_diffusion.ContinuousDiffusion
+      action_dim: 2
+      precond_scale: 0.25
+      sigmoid_bias: -1.0
+      clip_noise: 20.0
+      logsnr_min: -15.0
+      logsnr_max: 15.0
+      shift: 1.0
+
+  # ---- loss: optional ----
+  # If omitted, DFoT.__init__ defaults to ``DFoTLoss(outer_stage.diffusion)``
+  # (SNR-weighted epsilon-MSE). Override here only when you want a different
+  # loss policy (e.g. CompositeLoss with extra obs-reconstruction terms in
+  # the future fused-obs+action mode).
+  # loss:
+  #   _target_: egomimic.algo.loss.DFoTLoss
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200            # matches HPT default budget
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5
