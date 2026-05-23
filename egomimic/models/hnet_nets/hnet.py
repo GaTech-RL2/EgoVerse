@@ -56,18 +56,13 @@ class HNet(nn.Module):
                     f"and let HNet wire the chain."
                 )
         for i in range(len(stages) - 1):
-            # Sanity-check dim handoff into the nested inner_stage. For
-            # EncoderDecoderStage/ComputeStage the inner stage runs at the
-            # outer working dim (== input_hidden_dim). For ChunkerStage the
-            # inner stage runs in the chunked space at output_hidden_dim
-            # (after the explicit proj_in).
-            from egomimic.models.hnet_nets.stages import ChunkerStage as _CS
-
-            expected = (
-                stages[i].output_hidden_dim
-                if isinstance(stages[i], _CS)
-                else stages[i].input_hidden_dim
-            )
+            # Sanity-check dim handoff into the nested inner_stage. Every
+            # stage exposes ``inner_working_dim`` polymorphically:
+            # EncoderDecoderStage / ComputeStage default to input_hidden_dim;
+            # ChunkerStage returns output_hidden_dim (chunked space, post
+            # ``proj_in``); wrapper stages like ``PerEmbodimentStage``
+            # delegate to the wrapped child. No isinstance check needed.
+            expected = stages[i].inner_working_dim
             if stages[i + 1].input_hidden_dim != expected:
                 raise ValueError(
                     f"Hidden-dim mismatch: stages[{i + 1}].input_hidden_dim "

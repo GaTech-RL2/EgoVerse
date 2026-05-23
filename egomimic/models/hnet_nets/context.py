@@ -59,6 +59,7 @@ class HNetContext:
     extras: Dict[str, Any] = field(default_factory=dict)
     cu_seqlens: Optional[torch.Tensor] = None
     max_seqlen: Optional[int] = None
+    embodiment_id: Optional[str] = None
 
     @property
     def packed(self) -> bool:

@@ -243,6 +243,18 @@ class _BaseStage(nn.Module):
             return None
         return ctx.cond_dict.get(self.cond_key)
 
+    @property
+    def inner_working_dim(self) -> int:
+        """Hidden dim at which this stage's ``inner_stage`` is expected to
+        operate. Default: ``input_hidden_dim`` (EncoderDecoderStage /
+        ComputeStage pass through at the outer dim). Overridden by
+        ``ChunkerStage`` to return ``output_hidden_dim`` (chunked space).
+        Polymorphic wrapper stages (e.g. ``PerEmbodimentStage``) override
+        this to delegate to the wrapped sub-stage so chain-wiring works
+        without isinstance checks.
+        """
+        return self.input_hidden_dim
+
     # Subclasses implement these.
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:  # noqa: D401
         raise NotImplementedError
@@ -449,6 +461,9 @@ class ChunkerStage(_BaseStage):
         self.ratio_loss_weight = float(ratio_loss_weight)
 
         # Routing / chunk / dechunk operate at the *outer* (input) hidden dim.
+        # inner_working_dim override below so the chain wiring sees the
+        # chunked-space dim handoff.
+
         self.routing_module = RoutingModule(self.input_hidden_dim)
         self.chunk_layer = ChunkLayer()
         self.dechunk_layer = DeChunkLayer(self.input_hidden_dim)
@@ -468,6 +483,12 @@ class ChunkerStage(_BaseStage):
         nn.init.zeros_(self.residual_proj.weight)
         nn.init.zeros_(self.residual_proj.bias)
         self.residual_proj.weight._no_reinit = True
+
+    @property
+    def inner_working_dim(self) -> int:
+        """Inner stage runs in chunked space at ``output_hidden_dim`` (after
+        ``proj_in``)."""
+        return self.output_hidden_dim
 
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
         if ctx.packed:
