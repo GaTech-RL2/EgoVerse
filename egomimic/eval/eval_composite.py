@@ -171,10 +171,18 @@ class EvalListSideBySide(EvalList):
             target_N = max(a.shape[0] for a in aligned)
             for i, a in enumerate(aligned):
                 if a.shape[0] < target_N:
-                    pad = np.zeros(
-                        (target_N - a.shape[0], a.shape[1], a.shape[2], a.shape[3]),
-                        dtype=a.dtype,
+                    # Repeat last frame instead of black padding so the
+                    # short panel (e.g. PCA when its bmask is shorter than
+                    # the full teacher-forced rollout) freezes on its
+                    # final state rather than blanking out.
+                    last = (
+                        a[-1:]
+                        if a.shape[0] > 0
+                        else np.zeros(
+                            (1, a.shape[1], a.shape[2], a.shape[3]), dtype=a.dtype
+                        )
                     )
+                    pad = np.repeat(last, target_N - a.shape[0], axis=0)
                     aligned[i] = np.concatenate([a, pad], axis=0)
             stacked = np.concatenate(aligned, axis=2)
             # libx264 requires both spatial dims to be divisible by 2.
