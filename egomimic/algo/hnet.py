@@ -72,14 +72,33 @@ class HNetPolicy(nn.Module):
                 f"must equal d_model ({d_model})."
             )
 
-    def _build_ctx(self, obs: dict) -> HNetContext:
-        cond_dict = self.cond_encoder.encode(obs, self.action_horizon)
-        return HNetContext(cond_dict=cond_dict, aux=[], inference_params=None)
+    def _build_ctx(
+        self,
+        obs: dict,
+        embodiment_id: Optional[str] = None,
+    ) -> HNetContext:
+        cond_dict = self.cond_encoder.encode(
+            obs, self.action_horizon, embodiment_id=embodiment_id
+        )
+        return HNetContext(
+            cond_dict=cond_dict,
+            aux=[],
+            inference_params=None,
+            embodiment_id=embodiment_id,
+        )
 
-    def forward(self, actions: torch.Tensor, obs: dict):
+    def forward(
+        self,
+        actions: torch.Tensor,
+        obs: dict,
+        embodiment_id: Optional[str] = None,
+    ):
         """
         actions: (B, T, action_dim) ground-truth actions for teacher-forcing.
         obs:     dict of (B, ...) obs tensors.
+        embodiment_id: optional domain name (e.g. ``"pushshapes_sim"``).
+            Required when the cond encoder / hnet stages dispatch
+            per-embodiment; ignored by single-embodiment configs.
 
         Returns: (pred_actions (B, T, action_dim), aux list).
         """
@@ -88,7 +107,7 @@ class HNetPolicy(nn.Module):
         x = torch.cat([self.bos.expand(B, -1, -1), x[:, :-1]], dim=1)
         x = x + self.pos_emb[:, :T]
 
-        ctx = self._build_ctx(obs)
+        ctx = self._build_ctx(obs, embodiment_id=embodiment_id)
         h = self.hnet(x, ctx)
         return self.action_out(h), ctx.aux
 
@@ -98,6 +117,7 @@ class HNetPolicy(nn.Module):
         obs_packed: dict,
         cu_seqlens: torch.Tensor,
         max_seqlen: int,
+        embodiment_id: Optional[str] = None,
     ):
         """Packed-mode teacher-forced forward.
 
@@ -163,7 +183,9 @@ class HNetPolicy(nn.Module):
         #    (state x.dim()==3 / images x.dim()==5) fires correctly because
         #    obs_packed already carries the per-frame dim.
         obs_for_encode = {k: v.unsqueeze(0) for k, v in obs_packed.items()}
-        cond_padded = self.cond_encoder.encode(obs_for_encode, T_action=T_total)
+        cond_padded = self.cond_encoder.encode(
+            obs_for_encode, T_action=T_total, embodiment_id=embodiment_id
+        )
         cond_packed = {k: v.squeeze(0) for k, v in cond_padded.items()}
 
         # 4. Build packed ctx and run.
@@ -173,6 +195,7 @@ class HNetPolicy(nn.Module):
             inference_params=None,
             cu_seqlens=cu_seqlens,
             max_seqlen=int(max_seqlen),
+            embodiment_id=embodiment_id,
         )
         h = self.hnet(x_packed, ctx)  # (T_total, D)
         return self.action_out(h), ctx.aux
@@ -656,6 +679,11 @@ class HNet(Algo):
         # Resolve per-embodiment keys via norm_stats (which owns the
         # MultiDataset key topology — same surface HPT uses).
         self.embodiment_ids = {}
+        # Reverse map (int emb id -> domain name) used by cotrain dispatch:
+        # forward_training looks up the domain name for the active batch's
+        # int emb id and passes it to ``policy.forward(..., embodiment_id=…)``
+        # so the per-emb cond encoder / per-emb stages route correctly.
+        self.domain_by_id = {}
         self.proprio_keys = {}
         self.lang_keys = {}
         self.camera_keys = {}
@@ -663,6 +691,7 @@ class HNet(Algo):
         for emb in self.domains:
             emb_id = get_embodiment_id(emb)
             self.embodiment_ids[emb] = emb_id
+            self.domain_by_id[emb_id] = emb
             self.proprio_keys[emb_id] = []
             self.lang_keys[emb_id] = []
             self.camera_keys[emb_id] = []
@@ -766,13 +795,20 @@ class HNet(Algo):
             ac_key = self.resolved_ac_keys[emb_id]
             actions = _batch[ac_key]
             obs = self._build_obs(_batch, emb_id)
+            domain_name = self.domain_by_id.get(emb_id)
 
             if _batch.get("_packed", False):
                 cu_seqlens = _batch["cu_seqlens"]
                 max_seqlen = int(_batch["max_seq_len"])
-                pred, aux = policy.forward_packed(actions, obs, cu_seqlens, max_seqlen)
+                pred, aux = policy.forward_packed(
+                    actions,
+                    obs,
+                    cu_seqlens,
+                    max_seqlen,
+                    embodiment_id=domain_name,
+                )
             else:
-                pred, aux = policy(actions, obs)
+                pred, aux = policy(actions, obs, embodiment_id=domain_name)
 
             mse = nn.functional.mse_loss(pred, actions)
             rloss = ratio_loss_from_aux(aux, device=mse.device)
@@ -823,7 +859,8 @@ class HNet(Algo):
             # completeness.
             obs = self._build_obs(_batch, emb_id)
             actions = _batch[ac_key]
-            pred, _ = policy(actions, obs)
+            domain_name = self.domain_by_id.get(emb_id)
+            pred, _ = policy(actions, obs, embodiment_id=domain_name)
             preds = OrderedDict()
             preds[ac_key] = pred
             unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
@@ -847,7 +884,10 @@ class HNet(Algo):
         cu = _batch["cu_seqlens"]
         max_seqlen = int(_batch["max_seq_len"])
         seq_lens = _batch["seq_lens"].clone()
-        pred_packed, _ = policy.forward_packed(actions, obs, cu, max_seqlen)
+        domain_name = self.domain_by_id.get(emb_id)
+        pred_packed, _ = policy.forward_packed(
+            actions, obs, cu, max_seqlen, embodiment_id=domain_name
+        )
 
         B = int(seq_lens.shape[0])
         T_max = int(seq_lens.max().item())
@@ -1085,6 +1125,8 @@ class HNetFused(HNet):
 
         # Replicate HNet's key-resolution loop (norm_stats-based).
         self.embodiment_ids = {}
+        # Reverse map for cotrain dispatch (used by forward_training).
+        self.domain_by_id = {}
         self.proprio_keys = {}
         self.lang_keys = {}
         self.camera_keys = {}
@@ -1092,6 +1134,7 @@ class HNetFused(HNet):
         for emb in self.domains:
             emb_id = get_embodiment_id(emb)
             self.embodiment_ids[emb] = emb_id
+            self.domain_by_id[emb_id] = emb
             self.proprio_keys[emb_id] = []
             self.lang_keys[emb_id] = []
             self.camera_keys[emb_id] = []
