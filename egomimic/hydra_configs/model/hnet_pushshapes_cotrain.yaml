@@ -1,0 +1,177 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.HNet
+
+  # Cotrain on circle + stick. Two-level H-Net:
+  #   - Outer level (per-embodiment): EncoderDecoderStage + ChunkerStage
+  #     with target_compression_ratio=8. Wrapped in PerEmbodimentStage so
+  #     each embodiment has its own parameters at this depth. AdaLN cond
+  #     ON via per-emb cond encoder (image + state).
+  #   - Inner level (shared): EncoderDecoderStage + ChunkerStage with
+  #     target_compression_ratio=4, plus ComputeStage trunk. Unconditioned
+  #     (cond_key=null) — the shared trunk operates purely on the chunked
+  #     representation produced by each embodiment's outer level.
+  #
+  # Net compression: 8 (outer) * 4 (inner) = 32x over the action stream.
+  # action_horizon=1024 → ~32 chunks at the trunk.
+  action_dim: 2
+  action_horizon: 1024
+  d_model: 128
+  d_cond: 128
+
+  cond_encoder:
+    _target_: egomimic.models.hnet_nets.cond_encoders.MultiEmbodimentCondEncoder
+    encoders:
+      pushshapes_sim:
+        _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+        d_cond: 128
+        output_key: "fused_cond"
+        cond_proj_widths: [128, 128]
+        obs_specs:
+          state_agent_obj:
+            input_dim: 5
+            embed_dim: 64
+            widths: [128]
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+            in_channels: 3
+            channels: [32, 64, 128, 256]
+            kernel_size: 3
+            stride: 2
+            embed_dim: 128
+            norm_groups: 8
+      pushshapes_sim_stick:
+        _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+        d_cond: 128
+        output_key: "fused_cond"
+        cond_proj_widths: [128, 128]
+        obs_specs:
+          state_agent_obj:
+            input_dim: 5
+            embed_dim: 64
+            widths: [128]
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+            in_channels: 3
+            channels: [32, 64, 128, 256]
+            kernel_size: 3
+            stride: 2
+            embed_dim: 128
+            norm_groups: 8
+
+  hnet:
+    _target_: egomimic.models.hnet_nets.hnet.HNet
+    stages:
+      # ---------------- Outer level: per-embodiment (AdaLN cond ON) -------- #
+      - _target_: egomimic.models.hnet_nets.per_embodiment_stage.PerEmbodimentStage
+        sub_stages:
+          pushshapes_sim:
+            _target_: egomimic.models.hnet_nets.stages.EncoderDecoderStage
+            input_hidden_dim: 128
+            output_hidden_dim: 128
+            cond_key: "fused_cond"
+            d_cond: 128
+            causal: true
+            encoder:
+              arch_layout: "T4"
+              d_model: 128
+              d_intermediate: 512
+              num_heads: 4
+              cond: true
+            decoder:
+              arch_layout: "T4"
+              d_model: 128
+              d_intermediate: 512
+              num_heads: 4
+              cond: true
+          pushshapes_sim_stick:
+            _target_: egomimic.models.hnet_nets.stages.EncoderDecoderStage
+            input_hidden_dim: 128
+            output_hidden_dim: 128
+            cond_key: "fused_cond"
+            d_cond: 128
+            causal: true
+            encoder:
+              arch_layout: "T4"
+              d_model: 128
+              d_intermediate: 512
+              num_heads: 4
+              cond: true
+            decoder:
+              arch_layout: "T4"
+              d_model: 128
+              d_intermediate: 512
+              num_heads: 4
+              cond: true
+      - _target_: egomimic.models.hnet_nets.per_embodiment_stage.PerEmbodimentStage
+        sub_stages:
+          pushshapes_sim:
+            _target_: egomimic.models.hnet_nets.stages.ChunkerStage
+            input_hidden_dim: 128
+            output_hidden_dim: 192
+            target_compression_ratio: 8.0
+            ratio_loss_weight: 0.03
+            cond_key: "fused_cond"
+          pushshapes_sim_stick:
+            _target_: egomimic.models.hnet_nets.stages.ChunkerStage
+            input_hidden_dim: 128
+            output_hidden_dim: 192
+            target_compression_ratio: 8.0
+            ratio_loss_weight: 0.03
+            cond_key: "fused_cond"
+      # ---------------- Inner level: shared (cond OFF) ------------------- #
+      - _target_: egomimic.models.hnet_nets.stages.EncoderDecoderStage
+        input_hidden_dim: 192
+        output_hidden_dim: 192
+        cond_key: null
+        d_cond: 0
+        causal: true
+        encoder:
+          arch_layout: "T4"
+          d_model: 192
+          d_intermediate: 768
+          num_heads: 4
+          cond: false
+        decoder:
+          arch_layout: "T4"
+          d_model: 192
+          d_intermediate: 768
+          num_heads: 4
+          cond: false
+      - _target_: egomimic.models.hnet_nets.stages.ChunkerStage
+        input_hidden_dim: 192
+        output_hidden_dim: 256
+        target_compression_ratio: 4.0
+        ratio_loss_weight: 0.03
+        cond_key: null
+      - _target_: egomimic.models.hnet_nets.stages.ComputeStage
+        input_hidden_dim: 256
+        output_hidden_dim: 256
+        cond_key: null
+        d_cond: 0
+        causal: true
+        main_network:
+          arch_layout: "T4"
+          d_model: 256
+          d_intermediate: 1024
+          num_heads: 4
+          cond: false
+
+  domains: ["pushshapes_sim", "pushshapes_sim_stick"]
+  ac_keys:
+    pushshapes_sim: "actions"
+    pushshapes_sim_stick: "actions"
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1
