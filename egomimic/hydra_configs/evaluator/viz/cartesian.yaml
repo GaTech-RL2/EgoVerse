@@ -4,6 +4,12 @@ pushshapes_sim:
   image_key: front_img_1
   action_key: actions
   mode: traj
+pushshapes_sim_stick:
+  _target_: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions
+  mode: traj
 eva_bimanual:
   _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
   _partial_: true
