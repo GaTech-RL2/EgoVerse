@@ -129,6 +129,13 @@ class EvalListSideBySide(EvalList):
         # walk up to EvalVideo for the buffer setup.
         EvalVideo.on_validation_start(self)
 
+    def on_validation_end(self):
+        # Flush the composite buffer (merged side-by-side mp4), then
+        # let each sub-eval finalize its own state.
+        EvalVideo.on_validation_end(self)
+        for ev in self.evals:
+            ev.on_validation_end()
+
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
         # Use the parent ``EvalVideo`` path so the merged images_dict
         # produced by ``compute_metrics_and_viz`` below ends up in

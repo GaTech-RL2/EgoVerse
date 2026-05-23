@@ -1,0 +1,75 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Pair-aligned eval data for cross-embodiment alignment viz. Each emb has 3
+# episodes (matched index = same pushT scene); render order should match so
+# composite side-by-side rows line up. Reuses LocalEpisodeResolver{,WithOverride}
+# patterns from tsimulation_cotrain.yaml. valid only — no train side.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/pairs/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/pairs/stick
+      embodiment_override: "pushshapes_sim_stick"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/pairs/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/pairs/stick
+      embodiment_override: "pushshapes_sim_stick"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 3
+    num_workers: 1
+  pushshapes_sim_stick:
+    batch_size: 3
+    num_workers: 1
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 3
+    num_workers: 1
+  pushshapes_sim_stick:
+    batch_size: 3
+    num_workers: 1

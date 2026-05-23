@@ -189,7 +189,10 @@ class PCATokenEval(EvalVideo):
                 actions = _batch[ac_key]
                 cu = _batch["cu_seqlens"]
                 max_seqlen = int(_batch["max_seq_len"])
-                _pred, aux = policy.forward_packed(actions, obs, cu, max_seqlen)
+                domain_name = getattr(algo, "domain_by_id", {}).get(emb_id)
+                _pred, aux = policy.forward_packed(
+                    actions, obs, cu, max_seqlen, embodiment_id=domain_name
+                )
                 aux_list = aux
             finally:
                 for h in handles:
@@ -324,11 +327,11 @@ class PCATokenEval(EvalVideo):
             for b in range(B_render):
                 s = int(cu[b].item())
                 e = int(cu[b + 1].item())
-                T_ep = e - s
                 ep_chunk_idx = global_chunk_idx[s:e]
                 if ep_chunk_idx.size == 0:
                     continue
                 ep_chunk_idx = np.clip(ep_chunk_idx, 0, tokens.shape[0] - 1)
+                T_ep = ep_chunk_idx.shape[0]
                 title_prefix = f"PCA ep={b}"
                 for t in range(T_ep):
                     cur_idx = int(ep_chunk_idx[t])

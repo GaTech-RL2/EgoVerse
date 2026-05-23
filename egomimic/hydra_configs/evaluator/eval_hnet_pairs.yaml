@@ -1,0 +1,32 @@
+# Eval composite for cross-embodiment alignment viz on matched pair episodes.
+# Rows = embodiments (pushshapes_sim, pushshapes_sim_stick),
+# Cols = [teacher-forced traj viz, PCA (shared basis), boundary strips].
+# PCATokenEval fits ONE PCA on the union of both embs' trunk tokens so
+# similar-semantic episodes should land near each other if alignment worked.
+
+_target_: egomimic.eval.eval_composite.EvalListSideBySide
+pad_h: max
+limit_val_batches: 1
+evals:
+  - _target_: egomimic.eval.eval_hnet.HNetEvalVideo
+    limit_val_batches: 1
+    max_videos: 3
+    viz_func:
+      pushshapes_sim:
+        _target_: hydra.utils.get_method
+        path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+      pushshapes_sim_stick:
+        _target_: hydra.utils.get_method
+        path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+  - _target_: egomimic.eval.eval_pca_tokens.PCATokenEval
+    limit_val_batches: 1
+    max_videos: 3
+    panel_h: 384
+    panel_w: 384
+    n_components: 2
+  - _target_: egomimic.eval.eval_boundary_strip.BoundaryStripEval
+    limit_val_batches: 1
+    max_videos: 3
+    window: 256
+    strip_width: 24
+    pixels_per_step: 1

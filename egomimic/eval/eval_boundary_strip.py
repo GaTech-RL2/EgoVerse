@@ -122,11 +122,13 @@ class BoundaryStripEval(EvalVideo):
             cu = _batch["cu_seqlens"]
             max_seqlen = int(_batch["max_seq_len"])
             policy = algo.nets["policy"]
+            domain_name = getattr(algo, "domain_by_id", {}).get(emb_id)
             _pred, aux = policy.forward_packed(
                 actions,
                 obs,
                 cu,
                 max_seqlen,
+                embodiment_id=domain_name,
             )
             bprobs: List[tuple[torch.Tensor, torch.Tensor]] = []
             for entry in aux:
