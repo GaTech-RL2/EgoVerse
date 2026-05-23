@@ -1,0 +1,90 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Cotrain on the new PACE pushT dataset: circle (750 ep) + stick (312 ep).
+# Both share the same on-disk schema (`actions`, `observations.state`,
+# `observations.images.front_img_1`). Stick zarrs have
+# `attrs["embodiment"]="pushshapes_sim"` (same as circle), so we use
+# `LocalEpisodeResolverWithEmbodimentOverride` to remap stick's embodiment
+# to `"pushshapes_sim_stick"` (enum id 16) at resolve time — no zarr
+# rewriting needed.
+#
+# Packed dataloading. Each sample is one full episode (chunking="sequential"
+# with max_seq_len that fits the longest real-trim length, so each episode
+# fits in one packed sample). `pack_collate` concatenates `batch_size`
+# episodes into a single flat stream with `cu_seqlens` boundaries. The
+# algo's `forward_training` iterates per-embodiment and threads the domain
+# name through `policy.forward_packed(..., embodiment_id=…)` so the
+# per-embodiment cond encoder + outer stages route correctly.
+#
+# action_horizon=1024 is the pos_emb cap; longest real-trim episode in
+# circle_750 is ~958 (verified) and in stick_312 is ~657, so 1024 leaves
+# headroom for the rare longest-tail episode.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pushT/circle_750/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pushT/stick_312/stick
+      embodiment_override: "pushshapes_sim_stick"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pushT/circle_750/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pushT/stick_312/stick
+      embodiment_override: "pushshapes_sim_stick"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 4
+  pushshapes_sim_stick:
+    batch_size: 8
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 4
+  pushshapes_sim_stick:
+    batch_size: 8
+    num_workers: 4
