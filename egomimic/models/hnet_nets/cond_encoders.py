@@ -99,9 +99,17 @@ class CondEncoderModule(nn.Module):
             self.cond_proj = _mlp(fused_dim, self.d_cond, widths=list(widths))
 
     def encode(
-        self, obs: Dict[str, torch.Tensor], T_action: int
+        self,
+        obs: Dict[str, torch.Tensor],
+        T_action: int,
+        embodiment_id: Optional[str] = None,  # noqa: ARG002 — accepted for signature parity
     ) -> Dict[str, torch.Tensor]:
-        """Returns a cond_dict. Single-frame obs are broadcast across T_action."""
+        """Returns a cond_dict. Single-frame obs are broadcast across T_action.
+
+        ``embodiment_id`` is accepted (and ignored) so callers can pass it
+        unconditionally, keeping signature parity with
+        ``MultiEmbodimentCondEncoder.encode``.
+        """
         if self.cond_proj is None:
             return {}
 
@@ -137,3 +145,60 @@ class CondEncoderModule(nn.Module):
         fused = torch.cat(feats, dim=-1)
         out[self.output_key] = self.cond_proj(fused)
         return out
+
+
+class MultiEmbodimentCondEncoder(nn.Module):
+    """Per-embodiment cond encoder dispatch.
+
+    Holds a ``nn.ModuleDict[str, CondEncoderModule]`` (one encoder per
+    embodiment name) and routes ``encode()`` calls to the matching encoder
+    based on ``embodiment_id``.
+
+    Hydra config layout:
+        cond_encoder:
+          _target_: egomimic.models.hnet_nets.cond_encoders.MultiEmbodimentCondEncoder
+          encoders:
+            pushshapes_sim:
+              _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+              d_cond: 128
+              ...
+            pushshapes_sim_stick:
+              _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+              d_cond: 128
+              ...
+
+    The first encoder's ``output_key`` is exposed as ``self.output_key`` so
+    callers that need it can read the fused-cond key. All encoders must
+    share the same output_key.
+    """
+
+    def __init__(self, encoders: Dict[str, "CondEncoderModule"]):
+        super().__init__()
+        if not encoders:
+            raise ValueError("MultiEmbodimentCondEncoder needs at least one encoder.")
+        self.encoders = nn.ModuleDict(encoders)
+        first = next(iter(self.encoders.values()))
+        self.output_key = first.output_key
+        for emb, enc in self.encoders.items():
+            if enc.output_key != self.output_key:
+                raise ValueError(
+                    f"All per-embodiment encoders must share output_key; "
+                    f"got {enc.output_key!r} for {emb!r} vs {self.output_key!r}."
+                )
+
+    def encode(
+        self,
+        obs: Dict[str, torch.Tensor],
+        T_action: int,
+        embodiment_id: Optional[str] = None,
+    ) -> Dict[str, torch.Tensor]:
+        if embodiment_id is None:
+            raise RuntimeError(
+                "MultiEmbodimentCondEncoder.encode requires embodiment_id."
+            )
+        if embodiment_id not in self.encoders:
+            raise KeyError(
+                f"No cond encoder for embodiment {embodiment_id!r}; "
+                f"available: {list(self.encoders.keys())}."
+            )
+        return self.encoders[embodiment_id].encode(obs, T_action)
