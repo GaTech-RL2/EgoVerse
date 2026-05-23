@@ -248,27 +248,64 @@ class PCATokenEval(EvalVideo):
         images_dict: Dict[int, np.ndarray] = {}
         capture_by_emb = self._capture_tokens(batch)
 
+        # ------------------------------------------------------------------ #
+        # Pass 1: collect per-emb token streams + metadata. Then fit ONE PCA
+        # on the union so all embodiments live in the same projected space —
+        # required for cross-embodiment alignment viz (otherwise each emb
+        # has its own basis and a "circle vs stick" comparison is
+        # meaningless).
+        # ------------------------------------------------------------------ #
+        emb_records: Dict[int, dict] = {}
+        token_chunks: List[np.ndarray] = []
+        offsets: Dict[int, tuple[int, int]] = {}  # emb_id -> (start, end) in concat
+        running = 0
         for emb_id, _batch in batch.items():
             captured = capture_by_emb.get(emb_id)
             if captured is None:
                 continue
             tokens = captured["inner_tokens"]
-            bmask = captured.get("boundary_mask")
-            per_frame_fallback = captured.get("per_frame_fallback", False)
+            if tokens.size == 0:
+                continue
+            emb_records[emb_id] = {
+                "tokens": tokens,
+                "bmask": captured.get("boundary_mask"),
+                "per_frame_fallback": captured.get("per_frame_fallback", False),
+                "cu": _batch["cu_seqlens"],
+                "seq_lens": _batch["seq_lens"],
+            }
+            token_chunks.append(tokens)
+            offsets[emb_id] = (running, running + tokens.shape[0])
+            running += tokens.shape[0]
 
-            cu = _batch["cu_seqlens"]
-            seq_lens = _batch["seq_lens"]
+        if not token_chunks:
+            return metrics, images_dict
+
+        # ONE PCA fit on the union of all embs' tokens.
+        all_tokens = np.concatenate(token_chunks, axis=0)
+        X_all, _ = _pca_fit_transform(all_tokens, k=self.n_components)
+        # Shared xlim / ylim so all per-emb panels render in the same axes.
+        x_min, x_max = X_all[:, 0].min(), X_all[:, 0].max()
+        y_min, y_max = X_all[:, 1].min(), X_all[:, 1].max()
+        pad_x = 0.05 * (x_max - x_min + 1e-9)
+        pad_y = 0.05 * (y_max - y_min + 1e-9)
+        xlim = (x_min - pad_x, x_max + pad_x)
+        ylim = (y_min - pad_y, y_max + pad_y)
+
+        for emb_id, _batch in batch.items():
+            rec = emb_records.get(emb_id)
+            if rec is None:
+                continue
+            tokens = rec["tokens"]
+            bmask = rec["bmask"]
+            per_frame_fallback = rec["per_frame_fallback"]
+            cu = rec["cu"]
+            seq_lens = rec["seq_lens"]
             B = int(seq_lens.shape[0])
             T_total = int(cu[-1].item())
 
-            # Global PCA fit on chunker tokens.
-            X_proj, _ = _pca_fit_transform(tokens, k=self.n_components)
-            x_min, x_max = X_proj[:, 0].min(), X_proj[:, 0].max()
-            y_min, y_max = X_proj[:, 1].min(), X_proj[:, 1].max()
-            pad_x = 0.05 * (x_max - x_min + 1e-9)
-            pad_y = 0.05 * (y_max - y_min + 1e-9)
-            xlim = (x_min - pad_x, x_max + pad_x)
-            ylim = (y_min - pad_y, y_max + pad_y)
+            # This emb's slice of the shared projection.
+            s, e = offsets[emb_id]
+            X_proj = X_all[s:e]
 
             # Build a packed frame-index → chunk-index lookup. The chunker
             # output has one token per True in ``boundary_mask`` (cumsum
