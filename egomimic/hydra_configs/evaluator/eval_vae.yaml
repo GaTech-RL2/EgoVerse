@@ -1,0 +1,12 @@
+# VAE reconstruction evaluator. Single sub-eval -> single mp4 per val
+# pass showing [GT | reconstruction] side-by-side.
+
+_target_: egomimic.eval.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.eval_vae_recon.VAEReconEval
+    image_key: "front_img_1"
+    max_frames: 256
+    upscale_to: 256
+    limit_val_batches: 1
+    embodiment_name: "pushshapes_sim"

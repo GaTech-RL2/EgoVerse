@@ -17,18 +17,19 @@ this algo just calls ``ratio_loss_from_aux(ctx.aux)`` after forward.
 from collections import OrderedDict
 from typing import Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 from overrides import override
 
 from egomimic.algo.algo import Algo
 from egomimic.algo.hnet_outer_stage import HNetOuterStage
+from egomimic.algo.input_modules import ActionInToken, InputModule
 from egomimic.algo.loss import HNetLoss, Loss
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
-from egomimic.algo.input_modules import ActionInToken, InputModule
 from egomimic.models.hnet_nets.context import HNetContext
 from egomimic.models.hnet_nets.hnet import HNet as HNetCore
-from egomimic.models.hnet_nets.hnet import chunk_stats_from_aux, ratio_loss_from_aux
+from egomimic.models.hnet_nets.hnet import chunk_stats_from_aux
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
 
@@ -111,8 +112,14 @@ class HNetPolicy(nn.Module):
             )
 
     def _remap_legacy_input_keys(
-        self, state_dict, prefix, local_metadata, strict, missing_keys,
-        unexpected_keys, error_msgs,
+        self,
+        state_dict,
+        prefix,
+        local_metadata,
+        strict,
+        missing_keys,
+        unexpected_keys,
+        error_msgs,
     ):
         """Remap pre-refactor ckpt keys (``<prefix>action_in.*``, ``<prefix>bos``)
         to the new ``input_modules.0.*`` paths when the first input module
@@ -151,7 +158,12 @@ class HNetPolicy(nn.Module):
         x = None
         for mod in self.input_modules:
             contrib = mod.forward_padded(
-                actions=actions, obs=obs, B=B, T=T, device=device, dtype=dtype,
+                actions=actions,
+                obs=obs,
+                B=B,
+                T=T,
+                device=device,
+                dtype=dtype,
             )
             x = contrib if x is None else x + contrib
         if x is None:
@@ -357,7 +369,14 @@ class HNetPolicy(nn.Module):
 
         # Per-step obs dict in (B, 1, ...) form for input_modules.
         obs_step = {
-            k: v.unsqueeze(1) if (torch.is_tensor(v) and v.dim() < 5 and v.shape[0] == state["batch_size"] and (v.dim() == 1 or v.shape[1] != 1)) else v
+            k: v.unsqueeze(1)
+            if (
+                torch.is_tensor(v)
+                and v.dim() < 5
+                and v.shape[0] == state["batch_size"]
+                and (v.dim() == 1 or v.shape[1] != 1)
+            )
+            else v
             for k, v in obs_norm.items()
         }
         # Assemble the per-step input token by summing module contributions.
@@ -852,7 +871,6 @@ class HNet(Algo):
                 if key_name is not None:
                     processed[emb_id][key_name] = value
 
-            ac_key = self.resolved_ac_keys[emb_id]
             # F5: H-Net does NOT consume ``pad_mask`` — variable-length is
             # carried by ``cu_seqlens`` in packed mode and by the full-length
             # convention in padded mode. The previous code populated an
@@ -1125,21 +1143,28 @@ class HNet(Algo):
             absolute-frame action as np.float32 of shape (action_dim,).
         """
         import numpy as np
+
         policy = self.outer_stage
         if t == 0:
             device = next(self.outer_stage.parameters()).device
             default_T = int(getattr(policy, "action_horizon", 1024))
             T_max_use = int(T_max) if T_max is not None else default_T
             import torch
+
             self._sim_state = policy.init_step_state(
                 batch_size=1, T_max=T_max_use, device=device, dtype=torch.bfloat16
             )
         embodiment_name = get_embodiment(emb_id).lower()
-        ac_key = self.ac_keys[embodiment_name] if embodiment_name in self.ac_keys else self.ac_keys[emb_id]
+        ac_key = (
+            self.ac_keys[embodiment_name]
+            if embodiment_name in self.ac_keys
+            else self.ac_keys[emb_id]
+        )
         obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
         action_norm = policy.step(self._sim_state, obs_norm, t)
         action_unnorm = self.norm_stats.unnormalize(
-            {ac_key: action_norm.squeeze(0).squeeze(0)}, emb_id,
+            {ac_key: action_norm.squeeze(0).squeeze(0)},
+            emb_id,
         )[ac_key]
         return action_unnorm.detach().cpu().numpy().reshape(-1).astype(np.float32)
 

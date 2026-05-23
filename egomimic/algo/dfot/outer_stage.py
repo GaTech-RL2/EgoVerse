@@ -28,10 +28,9 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from egomimic.algo.outer_stage import OuterStage
 from egomimic.algo.dfot.backbone import DFoTBackbone
-from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
+from egomimic.algo.outer_stage import OuterStage
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 
 
@@ -93,6 +92,21 @@ class DFoTOuterStage(OuterStage):
         self.diffusion = diffusion
         self.cond_output_key = cond_output_key
 
+    @property
+    def bundle_dim(self) -> int:
+        """Width of the diffused tensor. For vanilla DFoT this equals
+        ``action_dim``; subclasses that diffuse extra modalities (obs+action
+        joint, etc.) override to return the full bundle width."""
+        return self.action_dim
+
+    @property
+    def action_slice(self) -> slice:
+        """Slice into the trailing dim of the sampled bundle that
+        corresponds to actions. Vanilla DFoT is action-only, so this is
+        the full slice. Subclasses (e.g. obs+action joint) override to
+        point at just the action portion of their bundle."""
+        return slice(0, self.action_dim)
+
     # -------------------------------------------------------------------
     # Per-mode cond encode helpers (lifted from algo.py to keep modality
     # encoding on the outer stage where it belongs).
@@ -104,8 +118,7 @@ class DFoTOuterStage(OuterStage):
 
     def _encode_cond_packed(self, obs: dict) -> Optional[torch.Tensor]:
         obs_3d = {
-            k: (v.unsqueeze(0) if torch.is_tensor(v) else v)
-            for k, v in obs.items()
+            k: (v.unsqueeze(0) if torch.is_tensor(v) else v) for k, v in obs.items()
         }
         cond_dict = self.cond_encoder.encode(obs_3d, T_action=1)
         c = cond_dict.get(self.cond_output_key)

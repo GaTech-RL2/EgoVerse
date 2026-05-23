@@ -1,0 +1,51 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# VAE v4: SD-VAE / VQGAN-style architectural overhaul.
+# Changes vs v3:
+#   1. spatial_latent: True  -> latent is (4, 6, 6) = 144D feature map
+#      instead of a flat 128D vector. Decoder starts from a spatial
+#      latent so it inherits "what goes where" instead of inventing it.
+#      Single biggest expected win for this domain.
+#   2. residual: True -> encoder/decoder use 2-conv residual blocks
+#      with skip connections. Much better gradient flow than v3's
+#      single-conv blocks.
+#   3. NN-Upsample decoder (kept from v3).
+#   4. beta=0, LPIPS@1.0 (kept from v3).
+#
+# Downstream DFoT bundle plumbing flattens the spatial latent to 144D
+# at the bundle layer; the VAE itself sees / produces the spatial form.
+
+robomimic_model:
+  _target_: egomimic.algo.vae.VAE
+  image_key: "front_img_1"
+  beta: 0.0
+  lpips_weight: 1.0
+  lpips_net: "alex"
+  domains: ["pushshapes_sim"]
+
+  vae:
+    _target_: egomimic.models.image_vae.ImageVAE
+    in_channels: 3
+    image_size: 96
+    # Spatial latent params. The flat latent_dim arg is ignored when
+    # spatial_latent=True; we keep it set to a sane fallback.
+    latent_dim: 128
+    spatial_latent: true
+    latent_channels: 4
+    channels: [64, 128, 256, 512]
+    decoder_upsample: "nearest"
+    residual: true
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

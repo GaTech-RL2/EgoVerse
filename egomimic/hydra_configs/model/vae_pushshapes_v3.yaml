@@ -1,0 +1,46 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# VAE v3: same param budget as v2 (~10M) but architectural fixes for
+# sharper edges. Three changes vs v2:
+#   1. decoder_upsample: "nearest" -> NN-Upsample + stride-1 Conv2d
+#      replaces ConvTranspose stride-2. Eliminates checkerboard pattern
+#      that v2 inherits from ConvTranspose on sharp edges.
+#   2. beta: 0 -> pure autoencoder. We don't need a generative N(0,I)
+#      posterior; downstream diffusion sees a deterministic latent.
+#      Removes the KL pressure that was nudging the encoder to compress
+#      edge info.
+#   3. lpips_weight: 1.0 (up from 0.5) -> tilts the gradient further
+#      toward perceptual sharpness over per-pixel mean.
+#
+# Same channels [64,128,256,512] + latent_dim 128 as v2 so params
+# match.
+
+robomimic_model:
+  _target_: egomimic.algo.vae.VAE
+  image_key: "front_img_1"
+  beta: 0.0
+  lpips_weight: 1.0
+  lpips_net: "alex"
+  domains: ["pushshapes_sim"]
+
+  vae:
+    _target_: egomimic.models.image_vae.ImageVAE
+    in_channels: 3
+    image_size: 96
+    latent_dim: 128
+    channels: [64, 128, 256, 512]
+    decoder_upsample: "nearest"   # <- key v3 architectural change
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

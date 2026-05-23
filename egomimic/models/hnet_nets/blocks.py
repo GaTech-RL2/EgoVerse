@@ -137,7 +137,9 @@ def _rotate_half(x: torch.Tensor) -> torch.Tensor:
     return torch.cat((-x2, x1), dim=-1)
 
 
-def _apply_rotary(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+def _apply_rotary(
+    x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
+) -> torch.Tensor:
     """Apply RoPE to the leading ``rotary_dim`` channels of ``x``.
 
     Mirrors ``flash_attn.layers.rotary.apply_rotary_emb_torch`` (non-interleaved,
@@ -650,11 +652,7 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x, mask=None, cond=None, cu_seqlens=None, max_seqlen=None):
         # Self-attention.
-        if (
-            self.adaln_per_token
-            and self.cond_mode == "adaln"
-            and cond is not None
-        ):
+        if self.adaln_per_token and self.cond_mode == "adaln" and cond is not None:
             assert cond.dim() == x.dim(), (
                 f"adaln_per_token=True requires cond shape matching x's "
                 f"per-token layout (got cond.dim()={cond.dim()}, "
@@ -672,9 +670,7 @@ class TransformerBlock(nn.Module):
         if self.cond_mode == "cross_attn" and cond is not None:
             h = self.cross_norm(x)
             x = x + self.cross_resid_drop(
-                self.cross_attn(
-                    h, cond, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
-                )
+                self.cross_attn(h, cond, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
             )
 
         # MLP.
@@ -788,7 +784,12 @@ class Mamba2Mixer(nn.Module):
             seq_idx so the inner scan resets at sub-sequence boundaries.
         """
         if cu_seqlens is not None:
-            x3 = x.unsqueeze(0)
+            # ``causal_conv1d`` (>=1.6) requires channel-last contiguous
+            # layout when ``seq_idx`` is provided. ``x.unsqueeze(0)`` gives a
+            # non-contiguous view; force a real contiguous copy in
+            # ``(1, T_total, D)`` layout so the conv kernel doesn't fail
+            # with ``seq_idx is only supported for channel last layout``.
+            x3 = x.unsqueeze(0).contiguous()
             pos = torch.arange(x3.shape[1], device=x.device)
             seq_idx = (pos[:, None] >= cu_seqlens[None, 1:]).sum(dim=-1).to(torch.int32)
             seq_idx = seq_idx.unsqueeze(0)  # (1, T_total)

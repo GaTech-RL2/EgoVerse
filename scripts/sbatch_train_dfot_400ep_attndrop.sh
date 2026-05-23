@@ -8,8 +8,9 @@
 #SBATCH --gres=gpu:h200:1
 #SBATCH --mem=250G
 #SBATCH --time=20:00:00
-#SBATCH --output=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4/logs/sbatch/dfot_400ep_attndrop_%j.out
-#SBATCH --error=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4/logs/sbatch/dfot_400ep_attndrop_%j.err
+#SBATCH --no-requeue
+#SBATCH --output=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3/logs/sbatch/dfot_400ep_attndrop_%j.out
+#SBATCH --error=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3/logs/sbatch/dfot_400ep_attndrop_%j.err
 
 # DFoT 400ep + random per-batch attn dropout from {0.1, 0.5, 0.8, 0.9, 0.95}.
 # Motivation: long packed episodes (up to 400 tokens) + i.i.d. per-token noise
@@ -22,7 +23,7 @@
 # Scheduler fix vs 200ep run: max_steps=18800 (= 400 * 47 actual steps/epoch).
 
 set -euxo pipefail
-cd /storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse4
+cd /storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3
 mkdir -p logs/sbatch
 
 hostname
@@ -56,4 +57,4 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   trainer.limit_val_batches=4 \
   trainer.check_val_every_n_epoch=50 \
   trainer.profiler=null \
-  logger=csv_wandb
+  logger=csv

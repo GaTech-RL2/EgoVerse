@@ -28,10 +28,9 @@ from overrides import override
 
 from egomimic.algo.algo import Algo
 from egomimic.algo.dfot.backbone import DFoTBackbone
-from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
 from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
 from egomimic.algo.dfot.outer_stage import DFoTOuterStage, make_dfot_ctx
-from egomimic.algo.dfot.sampling import ddim_sample, ddpm_sample, sample_step
+from egomimic.algo.dfot.sampling import sample_step
 from egomimic.algo.loss import DFoTLoss, Loss
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
@@ -277,8 +276,7 @@ class DFoT(Algo):
         its already-per-frame branch (it doesn't broadcast when dim already
         matches). Output: (T_total, d_cond) or None."""
         obs_3d = {
-            k: (v.unsqueeze(0) if torch.is_tensor(v) else v)
-            for k, v in obs.items()
+            k: (v.unsqueeze(0) if torch.is_tensor(v) else v) for k, v in obs.items()
         }
         # T_action argument is unused when obs is already per-frame (dim==3
         # for state, dim==5 for image); pass any non-zero placeholder.
@@ -321,7 +319,9 @@ class DFoT(Algo):
                 action_key=ac_key,
                 obs=obs,
                 cu_seqlens=_batch.get("cu_seqlens") if is_packed else None,
-                max_seqlen=(int(_batch.get("max_seq_len", 0)) or None) if is_packed else None,
+                max_seqlen=(int(_batch.get("max_seq_len", 0)) or None)
+                if is_packed
+                else None,
             )
             self.outer_stage(_batch, ctx)
             mse = self.loss(_batch, ctx)
@@ -350,7 +350,9 @@ class DFoT(Algo):
                 cond = self._encode_cond_packed(obs)
                 k = self._sample_noise_levels((T_total,), actions.device)
                 packed_backbone = _PackedBackboneWrapper(backbone, cu, msl)
-                _, loss = self.diffusion(packed_backbone, actions, k, external_cond=cond)
+                _, loss = self.diffusion(
+                    packed_backbone, actions, k, external_cond=cond
+                )
                 unnorm[f"emb{emb_id}_loss"] = loss.mean()
                 # No chunk sampling in packed val — too expensive per episode and
                 # the closed-loop measure lives in inference_step / sim eval.
@@ -374,7 +376,7 @@ class DFoT(Algo):
         # Build the schedule + run sample() directly so we can plumb
         # cfg_scale through. (ddim_sample/ddpm_sample wrappers don't yet
         # expose cfg_scale; could be added if needed.)
-        shape = (B, T, self.action_dim)
+        bundle_dim = self.outer_stage.bundle_dim
         if self.sampler not in ("ddpm", "ddim"):
             raise ValueError(f"unknown sampler {self.sampler!r}")
         discrete_ts = (
@@ -382,17 +384,21 @@ class DFoT(Algo):
             if isinstance(self.diffusion, DiscreteDiffusion)
             else None
         )
-        n_steps = self.sampler_n_steps if self.sampler == "ddim" else (
-            discrete_ts or self.sampler_n_steps
+        n_steps = (
+            self.sampler_n_steps
+            if self.sampler == "ddim"
+            else (discrete_ts or self.sampler_n_steps)
         )
-        from egomimic.algo.dfot.sampling import vanilla_schedule, sample as _sample
+        from egomimic.algo.dfot.sampling import sample as _sample
+        from egomimic.algo.dfot.sampling import vanilla_schedule
+
         sm = vanilla_schedule(n_steps=n_steps, T=T, discrete_timesteps=discrete_ts)
         eta = 1.0 if self.sampler == "ddpm" else self.sampler_eta
         return _sample(
             self.diffusion,
             self.backbone,
             schedule_matrix=sm,
-            action_dim=self.action_dim,
+            action_dim=bundle_dim,
             batch_size=B,
             external_cond=cond,
             eta=eta,
@@ -466,7 +472,11 @@ class DFoT(Algo):
             self._ar_unit = 1.0 / float(n_rungs)
         self._ar_discrete = is_discrete
         self._ar_buffer = torch.randn(
-            1, self.action_horizon, self.action_dim, device=device, dtype=torch.float32
+            1,
+            self.action_horizon,
+            self.outer_stage.bundle_dim,
+            device=device,
+            dtype=torch.float32,
         )
         self._sim_committed_queue = []
 
@@ -510,11 +520,15 @@ class DFoT(Algo):
             cur_rung = (rung_idx + shift_cur).clamp(max=float(n_rungs))
             nxt_rung = (rung_idx + shift_nxt).clamp(max=float(n_rungs))
             if self._ar_discrete:
-                cur_levels = (cur_rung * self._ar_unit).long().clamp(
-                    -1, self.diffusion.timesteps - 1
+                cur_levels = (
+                    (cur_rung * self._ar_unit)
+                    .long()
+                    .clamp(-1, self.diffusion.timesteps - 1)
                 )
-                nxt_levels = (nxt_rung * self._ar_unit).long().clamp(
-                    -1, self.diffusion.timesteps - 1
+                nxt_levels = (
+                    (nxt_rung * self._ar_unit)
+                    .long()
+                    .clamp(-1, self.diffusion.timesteps - 1)
                 )
             else:
                 cur_levels = (cur_rung * self._ar_unit).clamp(0.0, 1.0)
@@ -536,17 +550,17 @@ class DFoT(Algo):
         tok_idx = torch.arange(self.action_horizon, device=device).float()
         rung_idx = (tok_idx // self.ar_inference_chunk_size) + 1.0 - offset
         if self._ar_discrete:
-            levels = (rung_idx * self._ar_unit).long().clamp(
-                -1, self.diffusion.timesteps - 1
+            levels = (
+                (rung_idx * self._ar_unit)
+                .long()
+                .clamp(-1, self.diffusion.timesteps - 1)
             )
         else:
             levels = (rung_idx * self._ar_unit).clamp(0.0, 1.0)
         return levels.unsqueeze(0)  # (1, action_horizon)
 
     @torch.no_grad()
-    def _inference_step_ar(
-        self, obs_zarr: dict, t: int, emb_id: int
-    ) -> "np.ndarray":
+    def _inference_step_ar(self, obs_zarr: dict, t: int, emb_id: int) -> "np.ndarray":
         """Causal-AR rolling-staircase inference. One sample_step per env
         tick, one (or ``ar_inference_chunk_size``-many) action(s) committed
         per call. Buffer carries across calls."""
@@ -587,17 +601,22 @@ class DFoT(Algo):
 
         # Commit front rung, slide buffer, push fresh noisy rung at the back.
         chunk = self.ar_inference_chunk_size
-        committed_norm = self._ar_buffer[:, :chunk, :].clone()  # (1, chunk, A)
+        committed_norm = self._ar_buffer[:, :chunk, :].clone()  # (1, chunk, bundle_dim)
         new_back = torch.randn(
-            1, chunk, self.action_dim, device=device, dtype=torch.float32
+            1,
+            chunk,
+            self.outer_stage.bundle_dim,
+            device=device,
+            dtype=torch.float32,
         )
-        self._ar_buffer = torch.cat(
-            [self._ar_buffer[:, chunk:, :], new_back], dim=1
-        )
+        self._ar_buffer = torch.cat([self._ar_buffer[:, chunk:, :], new_back], dim=1)
 
-        # Unnormalize + return first committed action; queue extras.
+        # For joint obs+action bundles, slice out the action portion before
+        # returning to the env. For vanilla DFoT this is a no-op (action_slice
+        # spans the full trailing dim).
+        committed_actions = committed_norm[..., self.outer_stage.action_slice]
         committed_world = self.norm_stats.unnormalize(
-            {ac_key: committed_norm.squeeze(0)}, emb_id
+            {ac_key: committed_actions.squeeze(0)}, emb_id
         )[ac_key]
         committed_np = committed_world.detach().cpu().numpy()
         for row in committed_np[1:]:
@@ -624,8 +643,11 @@ class DFoT(Algo):
             sampled = self._sample_chunk(
                 B=1, T=self.action_horizon, cond=cond, device=device
             )
+            # Slice action portion out of the (potentially joint) bundle
+            # before unnormalizing. For vanilla DFoT action_slice is full.
+            sampled_actions = sampled[..., self.outer_stage.action_slice]
             chunk_world = self.norm_stats.unnormalize(
-                {ac_key: sampled.squeeze(0)}, emb_id
+                {ac_key: sampled_actions.squeeze(0)}, emb_id
             )[ac_key]
             state["chunk"] = chunk_world.detach()
             state["chunk_idx"] = 0
