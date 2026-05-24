@@ -483,6 +483,10 @@ class ChunkerStage(_BaseStage):
         nn.init.zeros_(self.residual_proj.weight)
         nn.init.zeros_(self.residual_proj.bias)
         self.residual_proj.weight._no_reinit = True
+        # Anneal-able scalar gate on the skip path; default 1.0 = upstream behaviour.
+        # A Lightning callback (ChunkerResidualScheduler) can drive this over training
+        # steps to suppress the skip path early so the inner trunk must do real work.
+        self.residual_scale: float = 1.0
 
     @property
     def inner_working_dim(self) -> int:
@@ -501,7 +505,7 @@ class ChunkerStage(_BaseStage):
         mask = torch.ones(B, T, dtype=torch.bool, device=x.device)
 
         bpred = self.routing_module(x, mask=mask)
-        residual = self.residual_proj(x.float())
+        residual = self.residual_scale * self.residual_proj(x.float())
 
         chunked, _next_cu, next_max, next_mask = self.chunk_layer(
             x,
@@ -546,7 +550,7 @@ class ChunkerStage(_BaseStage):
         cu = ctx.cu_seqlens
 
         bpred = self.routing_module(x, cu_seqlens=cu)
-        residual = self.residual_proj(x.float())
+        residual = self.residual_scale * self.residual_proj(x.float())
 
         chunked, next_cu, next_max, _ = self.chunk_layer(
             x,
@@ -593,7 +597,7 @@ class ChunkerStage(_BaseStage):
 
     def step(self, x: torch.Tensor, ctx: HNetContext, state: ChunkerStageState):
         bpred = self.routing_module.step(x, state.routing_state)
-        residual = self.residual_proj(x.float())
+        residual = self.residual_scale * self.residual_proj(x.float())
 
         inner_in = self.chunk_layer.step(x, bpred.boundary_mask)
         if inner_in.shape[0] > 0:
