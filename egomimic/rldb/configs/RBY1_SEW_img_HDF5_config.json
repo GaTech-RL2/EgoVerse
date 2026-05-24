@@ -1,0 +1,4 @@
+{
+    "action_keys": ["actions/joint", "actions/joint_arm", "actions/joint_arm_hand", "actions/joint_arm_head_torso_base"],
+    "obs_keys": ["aria_image", "april_tag_xyz", "april_tag", "hand_left_qpos", "hand_right_qpos", "robot0_joint_pos"]
+}

@@ -1,0 +1,30 @@
+# DexMimicGen no-mobile P1: masked-attention hierarchy over raw actions.joint order.
+# Block layout follows verify_replay_from_collected.py:
+# arms(14) | torso(6) | head(2) | base_delta(3) | hands(22) = 47.
+defaults:
+  - /model/experiments/dexmimicgen/dexmimicgen_no_mobile_joint_act32@_here_
+  - _self_
+
+robomimic_model:
+  head_specs:
+    rby1:
+      infer_ac_dims:
+        rby1: 47
+      model:
+        _target_: egomimic.models.denoising_nets.HierarchicalCrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 47
+        act_seq: 32
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+        hierarchical_block_dims: [14, 6, 2, 3, 22]
+        hierarchical_block_parents:
+          - []        # arms
+          - [0]       # torso <- arms
+          - [0, 1]    # head <- arms, torso
+          - []        # base_delta is fixed-base/no-mobile metadata in this dataset
+          - [0, 1]    # hands <- arms, torso

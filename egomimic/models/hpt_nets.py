@@ -681,6 +681,38 @@ class ResNet(PolicyStem):
         return feat
 
 
+class TinyCNN(PolicyStem):
+    def __init__(
+        self,
+        output_dim: int = 192,
+        in_channels: int = 3,
+        channels: List[int] = [16, 32, 64],
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        layers = []
+        c_in = in_channels
+        for c_out in channels:
+            layers += [
+                nn.Conv2d(c_in, c_out, kernel_size=3, stride=2, padding=1),
+                nn.GroupNorm(num_groups=min(8, c_out), num_channels=c_out),
+                nn.SiLU(),
+            ]
+            c_in = c_out
+        self.net = nn.Sequential(*layers)
+        self.proj = nn.Linear(c_in, output_dim)
+        self.out_dim = output_dim
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, *_, H, W = x.shape
+        x = x.view(B, -1, 3, H, W)
+        x = x.view(-1, 3, H, W)
+        feat = self.net(x)
+        feat = feat.reshape(B, feat.shape[1], -1).transpose(1, 2)
+        feat = self.proj(feat)
+        return feat
+
+
 class T5Encoder(PolicyStem):
     def __init__(self, per_token=True, **kwargs) -> None:
         """T5 Encoder that expects pre-tokenized inputs

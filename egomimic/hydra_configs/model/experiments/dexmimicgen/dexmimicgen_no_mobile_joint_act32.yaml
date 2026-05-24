@@ -1,4 +1,6 @@
-# Image (obs.images) + eef proprio + right hand qpos. Single action: actions.right_arm_eef_hand (eef 6 + hand 12 = 18), 32-step chunks.
+# DexMimicGen no-mobile vanilla diffusion policy.
+# Obs: frontview image, robot0 joints, left/right 11-D gripper qpos.
+# Action: raw actions.joint, 47-D, 32-step chunks.
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hpt.HPT
@@ -6,7 +8,7 @@ robomimic_model:
   diffusion: true
   6dof: true
   ac_keys:
-    rby1: actions_right_arm_eef_hand
+    rby1: actions_joint
   trunk:
     embed_dim: 256
     num_blocks: 16
@@ -42,9 +44,24 @@ robomimic_model:
           modality_embed_dim: 256
   stem_specs:
     rby1:
-      state_hand_right_qpos:
+      state_robot0_joint_pos:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 12
+        input_dim: 22
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          proprio_dropout_p: 0.4
+          noise_std: 0.01
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      state_hand_left_qpos:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 11
         output_dim: 256
         widths: [256]
         specs:
@@ -56,14 +73,14 @@ robomimic_model:
             crossattn_dim_head: 32
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 256
-      state_eef_proprio:
+      state_hand_right_qpos:
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
-        input_dim: 6
+        input_dim: 11
         output_dim: 256
         widths: [256]
         specs:
           random_horizon_masking: false
-          proprio_dropout_p: 0.3
+          proprio_dropout_p: 0.6
           cross_attn:
             crossattn_latent: 16
             crossattn_heads: 4
@@ -78,13 +95,13 @@ robomimic_model:
       pooling: null
       time_dist: beta
       infer_ac_dims:
-        rby1: 18
+        rby1: 47
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
-        act_dim: 18
+        act_dim: 47
         act_seq: 32
         n_heads: 4
         dropout: 0.1

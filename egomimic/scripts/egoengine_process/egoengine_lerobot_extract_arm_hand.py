@@ -24,8 +24,8 @@ import numpy as np
 from datasets import load_dataset
 
 # Default black image used when obs.aria_image is missing.
-DEFAULT_ARIA_IMAGE_HEIGHT = 128
-DEFAULT_ARIA_IMAGE_WIDTH = 128
+DEFAULT_ARIA_IMAGE_HEIGHT = 64
+DEFAULT_ARIA_IMAGE_WIDTH = 64
 DEFAULT_ARIA_IMAGE_CHANNELS = 3
 
 # -----------------------------------------------------------------------------
