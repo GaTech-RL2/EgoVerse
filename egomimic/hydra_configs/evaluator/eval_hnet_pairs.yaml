@@ -6,6 +6,7 @@
 
 _target_: egomimic.eval.eval_composite.EvalListSideBySide
 pad_h: max
+below_indices: [2]   # idx 2 = BoundaryStripEval -> vstack below traj+PCA row
 limit_val_batches: 1
 evals:
   - _target_: egomimic.eval.eval_hnet.HNetEvalVideo
@@ -24,6 +25,7 @@ evals:
     panel_h: 384
     panel_w: 384
     n_components: 2
+    n_extra_train_episodes: 30   # mix into PCA basis for a meaningful background
   - _target_: egomimic.eval.eval_boundary_strip.BoundaryStripEval
     limit_val_batches: 1
     max_videos: 3

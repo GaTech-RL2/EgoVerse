@@ -113,11 +113,15 @@ class EvalListSideBySide(EvalList):
     a clean composite frame.
     """
 
-    def __init__(self, pad_h: str = "min", **kwargs):
+    def __init__(self, pad_h: str = "min", below_indices: list | None = None, **kwargs):
         super().__init__(**kwargs)
         if pad_h not in {"min", "max"}:
             raise ValueError(f"pad_h must be 'min' or 'max', got {pad_h!r}")
         self.pad_h = pad_h
+        # Sub-eval indices that go BELOW the top row instead of being
+        # hstacked into it (e.g. a horizontal boundary strip that should
+        # sit under the traj+PCA row).
+        self.below_indices = set(int(i) for i in (below_indices or []))
 
     def on_validation_start(self):
         # Re-enable the parent's video-dir mkdir; this composite DOES own
@@ -153,40 +157,83 @@ class EvalListSideBySide(EvalList):
 
         all_emb_ids = sorted({eid for d in per_eval_images for eid in d.keys()})
         for emb_id in all_emb_ids:
-            panels = [d[emb_id] for d in per_eval_images if emb_id in d]
-            if not panels:
+            # Split panels into "right" (hstacked into top row) and "below"
+            # (vstacked beneath the top row).
+            right_panels = [
+                per_eval_images[i][emb_id]
+                for i in range(len(per_eval_images))
+                if i not in self.below_indices and emb_id in per_eval_images[i]
+            ]
+            below_panels = [
+                per_eval_images[i][emb_id]
+                for i in range(len(per_eval_images))
+                if i in self.below_indices and emb_id in per_eval_images[i]
+            ]
+            if not right_panels and not below_panels:
                 continue
-            heights = [p.shape[1] for p in panels]
-            target_h = min(heights) if self.pad_h == "min" else max(heights)
-            aligned = []
-            for p in panels:
-                N, H, W, C = p.shape
-                if H == target_h:
-                    aligned.append(p)
-                elif H > target_h:
-                    aligned.append(p[:, :target_h])
-                else:
-                    pad = np.zeros((N, target_h - H, W, C), dtype=p.dtype)
-                    aligned.append(np.concatenate([p, pad], axis=1))
-            target_N = max(a.shape[0] for a in aligned)
-            for i, a in enumerate(aligned):
-                if a.shape[0] < target_N:
-                    # Repeat last frame instead of black padding so the
-                    # short panel (e.g. PCA when its bmask is shorter than
-                    # the full teacher-forced rollout) freezes on its
-                    # final state rather than blanking out.
-                    last = (
-                        a[-1:]
-                        if a.shape[0] > 0
-                        else np.zeros(
-                            (1, a.shape[1], a.shape[2], a.shape[3]), dtype=a.dtype
+
+            def _frame_pad(panels):
+                target_N = max(p.shape[0] for p in panels)
+                out = []
+                for p in panels:
+                    if p.shape[0] < target_N:
+                        last = (
+                            p[-1:]
+                            if p.shape[0] > 0
+                            else np.zeros(
+                                (1, p.shape[1], p.shape[2], p.shape[3]), dtype=p.dtype
+                            )
                         )
-                    )
-                    pad = np.repeat(last, target_N - a.shape[0], axis=0)
-                    aligned[i] = np.concatenate([a, pad], axis=0)
-            stacked = np.concatenate(aligned, axis=2)
+                        pad = np.repeat(last, target_N - p.shape[0], axis=0)
+                        out.append(np.concatenate([p, pad], axis=0))
+                    else:
+                        out.append(p)
+                return out
+
+            # ----- top row: hstack right_panels with height reconciled -----
+            top_row = None
+            if right_panels:
+                heights = [p.shape[1] for p in right_panels]
+                target_h = min(heights) if self.pad_h == "min" else max(heights)
+                aligned = []
+                for p in right_panels:
+                    N, H, W, C = p.shape
+                    if H == target_h:
+                        aligned.append(p)
+                    elif H > target_h:
+                        aligned.append(p[:, :target_h])
+                    else:
+                        pad = np.zeros((N, target_h - H, W, C), dtype=p.dtype)
+                        aligned.append(np.concatenate([p, pad], axis=1))
+                aligned = _frame_pad(aligned)
+                top_row = np.concatenate(aligned, axis=2)
+
+            # ----- below: vstack each below panel under the top row -----
+            if below_panels:
+                # Pick the unifying width: max of top_row.W and all below widths.
+                widths = [p.shape[2] for p in below_panels]
+                if top_row is not None:
+                    widths.append(top_row.shape[2])
+                target_w = max(widths)
+
+                def _pad_w(p):
+                    N, H, W, C = p.shape
+                    if W < target_w:
+                        pad = np.zeros((N, H, target_w - W, C), dtype=p.dtype)
+                        return np.concatenate([p, pad], axis=2)
+                    return p
+
+                all_rows = []
+                if top_row is not None:
+                    all_rows.append(_pad_w(top_row))
+                for bp_ in below_panels:
+                    all_rows.append(_pad_w(bp_))
+                all_rows = _frame_pad(all_rows)
+                stacked = np.concatenate(all_rows, axis=1)
+            else:
+                stacked = top_row
+
             # libx264 requires both spatial dims to be divisible by 2.
-            # Right-pad / bottom-pad a single black row/col if needed.
             N, H, W, C = stacked.shape
             if H % 2 == 1:
                 stacked = np.concatenate(

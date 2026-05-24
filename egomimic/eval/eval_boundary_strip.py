@@ -57,6 +57,70 @@ def _colors_for_probs(probs: np.ndarray) -> np.ndarray:
     return (rgba[..., :3] * 255).astype(np.uint8)
 
 
+
+def _compose_bprobs_to_frame_level(bprobs, T_total):
+    """Upsample inner chunker (prob, mask) to frame resolution. bprobs is in
+    forward_packed order (innermost first). Walks outer -> inner composing
+    cumsums so each level's per-token signal is replicated across the frames
+    that map to it."""
+    import numpy as _np
+    import torch as _torch
+    if not bprobs:
+        return []
+    out = list(bprobs)
+    outer_idx = None
+    for i, (_p, _m) in enumerate(bprobs):
+        if _m.shape[0] == T_total:
+            outer_idx = i
+            break
+    if outer_idx is None:
+        return out
+    outer_mask = bprobs[outer_idx][1].numpy().astype(bool)
+    cur_level_map = _np.maximum(_np.cumsum(outer_mask) - 1, 0)
+    for inner_i in range(outer_idx - 1, -1, -1):
+        prob_i, mask_i = bprobs[inner_i]
+        prob_np = prob_i.numpy()
+        mask_np = mask_i.numpy().astype(bool)
+        if mask_np.shape[0] == 0:
+            continue
+        idx = _np.clip(cur_level_map, 0, mask_np.shape[0] - 1)
+        out[inner_i] = (
+            _torch.from_numpy(prob_np[idx]),
+            _torch.from_numpy(mask_np[idx]),
+        )
+        local_map = _np.maximum(_np.cumsum(mask_np) - 1, 0)
+        cur_level_map = local_map[idx]
+    return out
+
+
+def _render_stage_label(stage_idx, h, w):
+    """White label panel with 'Stage k' text centred. Returns (h, w, 3) uint8."""
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+    except ImportError:
+        return np.full((h, w, 3), 200, dtype=np.uint8)
+    img = Image.new("RGB", (w, h), color=(245, 245, 245))
+    draw = ImageDraw.Draw(img)
+    font = None
+    for fp in [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/Library/Fonts/Arial.ttf",
+    ]:
+        try:
+            font = ImageFont.truetype(fp, 14)
+            break
+        except IOError:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+    text = f"Stage {stage_idx}"
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    draw.text(((w - tw) // 2, (h - th) // 2), text, fill=(20, 20, 20), font=font)
+    return np.array(img, dtype=np.uint8)
+
+
 class BoundaryStripEval(EvalVideo):
     """Per-frame centered window of chunker P(boundary), rendered as
     coloured squares.
@@ -238,33 +302,88 @@ class BoundaryStripEval(EvalVideo):
             bprobs = bprob_by_emb.get(emb_id, [])
             if not bprobs:
                 continue
-            chosen = bprobs if self.chunker_idx is None else [bprobs[self.chunker_idx]]
             cu = _batch["cu_seqlens"]
             seq_lens = _batch["seq_lens"]
             B = int(seq_lens.shape[0])
+            T_total = int(cu[-1].item())
+            # Upsample inner chunkers (prob, mask) to frame resolution.
+            bprobs = _compose_bprobs_to_frame_level(bprobs, T_total)
+            # Display order: OUTER chunker (frame-level natively) on top as
+            # "Stage 0", inner chunkers below. aux list is innermost-first,
+            # so reverse for the display.
+            if self.chunker_idx is None:
+                display_chunkers = list(reversed(bprobs))
+            else:
+                display_chunkers = [bprobs[self.chunker_idx]]
 
-            ep_panels: List[np.ndarray] = []
             B_render = min(B, self.max_videos) if self.max_videos is not None else B
+            ep_widths = []
             for b in range(B_render):
-                s = int(cu[b].item())
-                e = int(cu[b + 1].item())
-                T_ep = e - s
-                # Stack per-chunker strips vertically (one row per chunker).
-                per_chunker_panels = []
-                for prob, mask in chosen:
-                    panel = self._render_strip_for_episode(prob[s:e], mask[s:e], T_ep)
-                    per_chunker_panels.append(panel)
-                # All have same T_ep; concat along height (axis=1).
-                stacked = np.concatenate(per_chunker_panels, axis=1)
-                ep_panels.append(stacked)
-                # Black separator (5 frames) between episodes.
-                if b < B - 1:
-                    sep = np.zeros(
-                        (5, stacked.shape[1], stacked.shape[2], 3), dtype=np.uint8
-                    )
-                    ep_panels.append(sep)
+                ep_widths.append(int(cu[b + 1].item()) - int(cu[b].item()))
+            ep_sep_w = 4
+            label_w = 64
+            sw = self.strip_width
+            red = np.array([220, 30, 30], dtype=np.uint8)
+            white = np.array([255, 255, 255], dtype=np.uint8)
+            row_h = 2 * sw + 2
 
-            images_dict[emb_id] = np.concatenate(ep_panels, axis=0)
+            yellow = (255, 220, 0)
+            per_ep_imgs = []  # one (T_ep_b, H, W_b, 3) per episode
+            for b in range(B_render):
+                s_ = int(cu[b].item())
+                e_ = int(cu[b + 1].item())
+                T_ep_b = e_ - s_
+                # Build per-chunker rows for THIS episode only.
+                chunker_rows = []
+                for ci, (prob, mask) in enumerate(display_chunkers):
+                    bp_arr = prob[s_:e_].numpy().astype(np.float32)
+                    bm_arr = mask[s_:e_].numpy().astype(bool)
+                    if bp_arr.shape[0] < T_ep_b:
+                        bp_arr = np.concatenate([
+                            bp_arr,
+                            np.zeros(T_ep_b - bp_arr.shape[0], dtype=np.float32),
+                        ])
+                        bm_arr = np.concatenate([
+                            bm_arr,
+                            np.zeros(T_ep_b - bm_arr.shape[0], dtype=bool),
+                        ])
+                    grad = _colors_for_probs(bp_arr).reshape(T_ep_b, 3)
+                    grad_row = np.broadcast_to(
+                        grad[None, :, :], (sw, T_ep_b, 3)
+                    ).copy()
+                    disc = np.where(bm_arr[:, None], red, white).astype(np.uint8)
+                    disc_row = np.broadcast_to(
+                        disc[None, :, :], (sw, T_ep_b, 3)
+                    ).copy()
+                    div = np.zeros((2, T_ep_b, 3), dtype=np.uint8)
+                    seg = np.concatenate([grad_row, div, disc_row], axis=0)
+                    label = _render_stage_label(ci, row_h, label_w)
+                    chunker_rows.append(np.concatenate([label, seg], axis=1))
+                base_ep = np.concatenate(chunker_rows, axis=0)  # (H, label_w+T_ep_b, 3)
+                base_H_ep, base_W_ep, _ = base_ep.shape
+                panel_ep = np.broadcast_to(
+                    base_ep[None, :, :, :], (T_ep_b, base_H_ep, base_W_ep, 3)
+                ).copy()
+                # Stamp marker per frame within this episode.
+                for t_in_ep in range(T_ep_b):
+                    col = label_w + t_in_ep
+                    panel_ep[t_in_ep, :, max(0, col - 1) : col + 1, :] = yellow
+                per_ep_imgs.append(panel_ep)
+
+            # Episodes can have different widths; pad to max width before
+            # concatenating along time (axis=0).
+            target_W = max(p.shape[2] for p in per_ep_imgs)
+            target_H = per_ep_imgs[0].shape[1]
+            padded = []
+            for p_ in per_ep_imgs:
+                if p_.shape[2] < target_W:
+                    pad = np.zeros(
+                        (p_.shape[0], target_H, target_W - p_.shape[2], 3),
+                        dtype=p_.dtype,
+                    )
+                    p_ = np.concatenate([p_, pad], axis=2)
+                padded.append(p_)
+            images_dict[emb_id] = np.concatenate(padded, axis=0)
 
             # Aggregate metrics per chunker.
             for ci, (prob, mask) in enumerate(bprobs):
