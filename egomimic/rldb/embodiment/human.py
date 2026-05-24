@@ -326,12 +326,37 @@ class Mecka(Human):
     ACTION_STRIDE = 1
 
     @classmethod
-    def get_keymap(
-        cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False
-    ):
+    def get_transform_list(
+        cls,
+        mode: Literal["cartesian",] = "cartesian",
+        chunk_length: int = 100,
+    ) -> list[Transform]:
         if mode == "cartesian":
+            return _build_aria_cartesian_bimanual_transform_list(
+                stride=cls.ACTION_STRIDE,
+                chunk_length=chunk_length,
+            )
+
+    @classmethod
+    def get_keymap(
+        cls,
+        mode: Literal["cartesian", "cartesian_pi", "keypoints"] | None = None,
+        keymap_mode: Literal["cartesian", "cartesian_pi", "keypoints"] | None = None,
+        annotations: bool = False,
+        norm_mode: bool = False,
+        annotation_key: str | None = None,
+    ):
+        if mode is None:
+            mode = keymap_mode or "cartesian"
+        elif keymap_mode is not None and keymap_mode != mode:
+            raise ValueError(
+                f"Conflicting Mecka keymap modes: mode='{mode}', keymap_mode='{keymap_mode}'."
+            )
+
+        if mode in ("cartesian", "cartesian_pi"):
+            front_key = "base_0_rgb" if mode == "cartesian_pi" else cls.VIZ_IMAGE_KEY
             key_map = {
-                cls.VIZ_IMAGE_KEY: {
+                front_key: {
                     "key_type": "camera_keys",
                     "zarr_key": "images.front_1",
                 },
@@ -407,13 +432,21 @@ class Mecka(Human):
             }
         else:
             raise ValueError(
-                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints'."
+                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'cartesian_pi', 'keypoints'."
             )
-        if annotations:
-            key_map["annotations"] = {
+
+        requested_annotation_key = annotation_key or (
+            "annotations" if annotations else None
+        )
+        if requested_annotation_key is not None:
+            key_map[requested_annotation_key] = {
                 "key_type": "annotation_keys",
-                "zarr_key": "annotations",
+                "zarr_key": requested_annotation_key,
             }
+        if norm_mode:
+            for key in list(key_map):
+                if key_map[key].get("key_type") in ("camera_keys", "annotation_keys"):
+                    del key_map[key]
         return key_map
 
 

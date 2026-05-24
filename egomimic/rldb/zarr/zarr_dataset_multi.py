@@ -912,7 +912,6 @@ class MultiDataset(torch.utils.data.Dataset):
             except Exception as e:
                 next_idx, attempts = self._next_after_failure(
                     idx,
-                    dataset_name,
                     attempts,
                     reason=f"Sample failed ({type(e).__name__}: {e}) at "
                     f"{dataset_name}[{local_idx}]",
@@ -929,7 +928,6 @@ class MultiDataset(torch.utils.data.Dataset):
             if violation is not None:
                 next_idx, attempts = self._next_after_failure(
                     idx,
-                    dataset_name,
                     attempts,
                     reason=violation,
                 )
@@ -942,17 +940,19 @@ class MultiDataset(torch.utils.data.Dataset):
             return data
 
     def _next_after_failure(
-        self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
+        self, idx: int, attempts: int | None, *, reason: str
     ) -> tuple[int, int]:
-        global_candidates = self._global_indices_by_dataset[dataset_name]
+        # Resample across the whole MultiDataset, not just the failing leaf —
+        # otherwise a systematically bad leaf (e.g. an episode where every
+        # frame's actions_cartesian violates bounds) chews through all its
+        # own frames before raising, instead of escaping to a healthy leaf.
+        global_candidates = range(len(self.index_map))
         next_idx, attempts = get_fallback_idx(
             idx=idx,
             candidates=global_candidates,
             _attempts=attempts,
             max_attempts=len(global_candidates),
-            exhausted_error=(
-                f"Entire dataset bad (no valid indices): dataset={dataset_name}"
-            ),
+            exhausted_error=("Entire MultiDataset bad (no valid indices)"),
         )
         next_dataset_name, next_local_idx = self.index_map[next_idx]
         logger.warning(

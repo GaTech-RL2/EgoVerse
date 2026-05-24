@@ -8,3 +8,5 @@ aria_bimanual:
   annotation_key: sampled_prompt
 scale_bimanual:
   annotation_key: sampled_prompt
+mecka_bimanual:
+  annotation_key: sampled_prompt

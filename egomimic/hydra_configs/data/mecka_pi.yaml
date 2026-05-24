@@ -8,25 +8,29 @@ train_datasets:
       folder_path: ${paths.dataset_dir}
       key_map:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian_pi
+        annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
     filters:
-      lab: "mecka"
-      task: "folding_clothes"
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['task'] == 'fold_clothes'"
     mode: train
 
 valid_datasets:
   mecka_bimanual:
-    _target_: ${train_datasets.mecka_bimanual._target_}
-    resolver: ${train_datasets.mecka_bimanual.resolver}
-    filters: ${train_datasets.mecka_bimanual.filters}
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
     mode: valid
 
 train_dataloader_params:
   mecka_bimanual:
-    batch_size: 32
+    batch_size: 64
     num_workers: 10
 valid_dataloader_params:
   mecka_bimanual:
-    batch_size: 32
+    batch_size: 64
     num_workers: 10

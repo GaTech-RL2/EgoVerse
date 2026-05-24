@@ -1,0 +1,105 @@
+"""Tests for MultiDataset's per-sample retry on bounds/exception failures.
+
+Verifies that retries draw from the *whole* MultiDataset, not just the
+failing leaf, so a single bad episode can't trap the loader inside itself.
+"""
+
+from __future__ import annotations
+
+import random
+
+import pytest
+
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+
+class _DummyLeaf:
+    """Minimal stand-in for a ZarrDataset leaf.
+
+    `bad_local_idxs` is the set of local indices that should raise; all
+    other indices return a trivial sample dict. We do not set `embodiment`,
+    so MultiDataset._check_bounds short-circuits to None and returns the
+    sample as-is — the only retry path exercised here is the
+    `except Exception` branch in __getitem__.
+    """
+
+    def __init__(self, name: str, length: int, bad_local_idxs: set[int] | None = None):
+        self.name = name
+        self._length = length
+        self._bad = bad_local_idxs or set()
+
+    def __len__(self) -> int:
+        return self._length
+
+    def __getitem__(self, local_idx: int) -> dict:
+        if local_idx in self._bad:
+            raise ValueError(f"intentional failure at {self.name}[{local_idx}]")
+        return {"leaf": self.name, "local_idx": local_idx}
+
+
+def _make_mds(datasets: dict) -> MultiDataset:
+    return MultiDataset(datasets=datasets, mode="total")
+
+
+def test_retry_escapes_fully_bad_leaf():
+    """A leaf where every local index fails must be escapable via retry."""
+    bad_len = 4
+    good_len = 6
+    bad = _DummyLeaf("bad_ep", bad_len, bad_local_idxs=set(range(bad_len)))
+    good = _DummyLeaf("good_ep", good_len)
+
+    mds = _make_mds({"bad_ep": bad, "good_ep": good})
+    # Sanity: index_map covers both leaves.
+    assert len(mds) == bad_len + good_len
+
+    # Hit an index that lives in the bad leaf. With per-leaf retry this would
+    # exhaust attempts inside "bad_ep" and raise RuntimeError. With global
+    # retry it should land somewhere in "good_ep" instead.
+    bad_global_idx = mds._global_indices_by_dataset["bad_ep"][0]
+
+    random.seed(0)
+    sample = mds[bad_global_idx]
+    assert sample["leaf"] == "good_ep"
+
+
+def test_retry_pool_is_global(monkeypatch):
+    """The candidate pool passed to random.choice should be the whole
+    index_map (minus the failing index), not just the failing leaf's
+    indices."""
+    bad = _DummyLeaf("bad_ep", 3, bad_local_idxs={0, 1, 2})
+    good = _DummyLeaf("good_ep", 5)
+    mds = _make_mds({"bad_ep": bad, "good_ep": good})
+
+    captured: list[list[int]] = []
+
+    real_choice = random.choice
+
+    def spy_choice(seq):
+        # Materialize whatever was passed so we can inspect it.
+        captured.append(list(seq))
+        return real_choice(captured[-1])
+
+    monkeypatch.setattr(random, "choice", spy_choice)
+
+    bad_global_idx = mds._global_indices_by_dataset["bad_ep"][0]
+    mds[bad_global_idx]
+
+    assert captured, "retry never sampled — bad leaf wasn't exercised"
+    # First retry's pool should include indices from the good leaf.
+    good_globals = set(mds._global_indices_by_dataset["good_ep"])
+    first_pool = set(captured[0])
+    assert first_pool & good_globals, (
+        f"first retry pool {first_pool} did not include any good-leaf indices "
+        f"{good_globals} — retry is still scoped to the failing leaf"
+    )
+
+
+def test_retry_exhausts_when_everything_is_bad():
+    """If every leaf is fully bad, the bounded while-loop must raise rather
+    than spin forever."""
+    a = _DummyLeaf("a", 2, bad_local_idxs={0, 1})
+    b = _DummyLeaf("b", 2, bad_local_idxs={0, 1})
+    mds = _make_mds({"a": a, "b": b})
+
+    with pytest.raises(RuntimeError, match="Entire MultiDataset bad"):
+        mds[0]

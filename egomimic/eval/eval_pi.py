@@ -27,6 +27,25 @@ class PIEvalVideo(EvalVideo):
         total_loss = None
         n_loss_embodiments = 0
 
+        # Bimanual 12-D layout from `HumanBimanualCartesianEuler.from32`:
+        # [L_xyz(3), L_ypr(3), R_xyz(3), R_ypr(3)]. Split lets us tell a
+        # translation problem apart from a rotation-reconstruction artifact
+        # (6D-cols → matrix → YPR can blow up near gimbal lock / ±π wrap).
+        def _split_mse(pred_t, gt_t):
+            if pred_t.shape[-1] != 12:
+                return None, None
+            xyz_idx = [0, 1, 2, 6, 7, 8]
+            ypr_idx = [3, 4, 5, 9, 10, 11]
+            xyz = MeanSquaredError()(
+                pred_t[..., xyz_idx].cpu().contiguous(),
+                gt_t[..., xyz_idx].cpu().contiguous(),
+            )
+            ypr = MeanSquaredError()(
+                pred_t[..., ypr_idx].cpu().contiguous(),
+                gt_t[..., ypr_idx].cpu().contiguous(),
+            )
+            return xyz, ypr
+
         for embodiment_id, _batch in batch.items():
             _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
             embodiment_name = get_embodiment(embodiment_id).lower()
@@ -49,6 +68,16 @@ class PIEvalVideo(EvalVideo):
                 metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
                     preds[pred_key][:, -1].cpu(), _batch[ac_key][:, -1].cpu()
                 )
+                xyz_p, ypr_p = _split_mse(preds[pred_key], _batch[ac_key])
+                if xyz_p is not None:
+                    metrics[f"Valid/{pred_key}_xyz_paired_mse_avg"] = xyz_p
+                    metrics[f"Valid/{pred_key}_ypr_paired_mse_avg"] = ypr_p
+                xyz_f, ypr_f = _split_mse(
+                    preds[pred_key][:, -1:], _batch[ac_key][:, -1:]
+                )
+                if xyz_f is not None:
+                    metrics[f"Valid/{pred_key}_xyz_final_mse_avg"] = xyz_f
+                    metrics[f"Valid/{pred_key}_ypr_final_mse_avg"] = ypr_f
 
             transform_list = self.transform_lists.get(embodiment_name)
             gt_batch_viz = _batch
@@ -74,6 +103,18 @@ class PIEvalVideo(EvalVideo):
                     pred_batch_viz[ac_key][:, -1].cpu().contiguous(),
                     gt_batch_viz[ac_key][:, -1].cpu().contiguous(),
                 )
+                xyz_cp, ypr_cp = _split_mse(
+                    pred_batch_viz[ac_key], gt_batch_viz[ac_key]
+                )
+                if xyz_cp is not None:
+                    metrics[f"Valid/{pred_key}_cam_xyz_paired_mse_avg"] = xyz_cp
+                    metrics[f"Valid/{pred_key}_cam_ypr_paired_mse_avg"] = ypr_cp
+                xyz_cf, ypr_cf = _split_mse(
+                    pred_batch_viz[ac_key][:, -1:], gt_batch_viz[ac_key][:, -1:]
+                )
+                if xyz_cf is not None:
+                    metrics[f"Valid/{pred_key}_cam_xyz_final_mse_avg"] = xyz_cf
+                    metrics[f"Valid/{pred_key}_cam_ypr_final_mse_avg"] = ypr_cf
 
                 preds_for_viz = dict(preds)
                 preds_for_viz[pred_key] = pred_batch_viz[ac_key]
