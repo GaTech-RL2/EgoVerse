@@ -158,6 +158,26 @@ class PI(Algo):
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
 
+    @staticmethod
+    def _is_rank_zero() -> bool:
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            return torch.distributed.get_rank() == 0
+        return True
+
+    def _print_training_prompts(self, embodiment_name: str, batch: dict) -> None:
+        if not self._is_rank_zero() or "sampled_prompt" not in batch:
+            return
+        prompts = batch["sampled_prompt"]
+        if isinstance(prompts, str):
+            prompts = [prompts]
+        for idx, prompt in enumerate(prompts):
+            print(
+                f"[PI_TRAIN_FULL_PROMPT] embodiment={embodiment_name} sample={idx}\n"
+                f"{prompt}\n"
+                "[/PI_TRAIN_FULL_PROMPT]",
+                flush=True,
+            )
+
     @override
     def process_batch_for_training(self, batch):
         """
@@ -179,13 +199,14 @@ class PI(Algo):
                 if key_name is not None:
                     processed_batch[embodiment_id][key_name] = value
 
-            # Carry through language tokenization tensors and annotations produced by collate_fn
+            # Carry through language tokenization tensors and annotation metadata produced by collate_fn.
             for tk in (
                 "tokenized_prompt",
                 "tokenized_mask",
                 "token_loss_mask",
                 "token_ar_mask",
                 "sampled_prompt",
+                "annotations",
             ):
                 if tk in _batch:
                     processed_batch[embodiment_id][tk] = _batch[tk]
@@ -243,6 +264,7 @@ class PI(Algo):
             ac_key = self.ac_keys[embodiment_id]
             camera_keys = self.camera_keys.get(embodiment_id, self.pi_cam_keys)
             embodiment_name = get_embodiment(embodiment_id).lower()
+            self._print_training_prompts(embodiment_name, _batch)
             processed_obs, action = self._robomimic_to_pi_data(
                 _batch,
                 camera_keys,

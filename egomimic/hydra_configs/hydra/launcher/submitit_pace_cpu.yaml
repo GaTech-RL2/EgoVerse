@@ -1,0 +1,19 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# CPU-only PACE launcher (no GPU). Suitable for norm-stat precomputation.
+name: ${hydra.job.name}
+partition: "cpu-small"
+account: "gts-dxu345-rl2"
+cpus_per_task: 16
+nodes: 1
+tasks_per_node: 1
+gres: null
+gpus_per_node: null
+qos: "inferno"
+mem_gb: 256
+timeout_min: 720
+additional_parameters:
+  requeue: true

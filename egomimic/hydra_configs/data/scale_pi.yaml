@@ -8,8 +8,11 @@ train_datasets:
       folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       key_map:
         _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+        mode: cartesian
+        annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+        mode: cartesian
     filters:
       filter_lambdas:
         - "lambda row: ((row['task'] == 'Folding Clothes') | (row['task'] == '[flagship] Folding Clothes')) & (row['lab'] == 'scale') & (row['robot_name'] == 'scale_bimanual') & (row['is_deleted'] == false)"
@@ -22,17 +25,20 @@ valid_datasets:
       folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
       key_map:
         _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
+        mode: cartesian
+        annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
+        mode: cartesian
     filters:
       task:
         - "lambda row: ((row['task'] == 'Folding Clothes') | (row['task'] == '[flagship] Folding Clothes')) & (row['lab'] == 'scale') & (row['robot_name'] == 'scale_bimanual') & (row['is_deleted'] == false)"
     mode: valid
 train_dataloader_params:
   scale_bimanual:
-    batch_size: 32
+    batch_size: 1
     num_workers: 10
 valid_dataloader_params:
   scale_bimanual:
-    batch_size: 32
+    batch_size: 1
     num_workers: 10

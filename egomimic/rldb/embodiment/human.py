@@ -343,10 +343,8 @@ class Mecka(Human):
             )
 
     @classmethod
-    def get_keymap(
-        cls, mode: Literal["cartesian", "keypoints"], annotations: bool = False
-    ):
-        if mode == "cartesian":
+    def _get_keymap(cls, keymap_mode: Literal["cartesian", "keypoints"]):
+        if keymap_mode == "cartesian":
             key_map = {
                 cls.VIZ_IMAGE_KEY: {
                     "key_type": "camera_keys",
@@ -375,7 +373,7 @@ class Mecka(Human):
                     "zarr_key": "obs_head_pose",
                 },
             }
-        elif mode == "keypoints":
+        elif keymap_mode == "keypoints":
             key_map = {
                 cls.VIZ_IMAGE_KEY: {
                     "key_type": "camera_keys",
@@ -424,13 +422,8 @@ class Mecka(Human):
             }
         else:
             raise ValueError(
-                f"Unsupported mode '{mode}'. Expected one of: 'cartesian', 'keypoints'."
+                f"Unsupported mode '{keymap_mode}'. Expected one of: 'cartesian', 'keypoints'."
             )
-        if annotations:
-            key_map["annotations"] = {
-                "key_type": "annotation_keys",
-                "zarr_key": "annotations",
-            }
         return key_map
 
 

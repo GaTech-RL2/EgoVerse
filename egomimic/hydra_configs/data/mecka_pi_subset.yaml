@@ -1,3 +1,15 @@
+# Small representative subset of the mecka human data for pi0.5 training.
+#
+# 12 well-sampled, diverse tasks (>= 129 episodes each), ~47.1 hr total / 2054
+# episodes (vs. 828 hr / 41.6k episodes for the full mecka set). Use this when
+# the full dataset is too large to fit / iterate on.
+#
+# Selected with: egomimic/scripts/task_hours.py
+#   ./emimic/bin/python egomimic/scripts/task_hours.py \
+#     --tasks "repairing_laptops,assembling_pens,weeding,woodworking,folding_boxes,filling_bags,sorting_coffee_beans,cutting_fabric,cleaning_electronics,hanging_clothes,brushing_shoes,cutting_stickers"
+#
+# To change the subset, edit the task set in the second filter lambda below.
+
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
@@ -17,7 +29,7 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: (row['lab'] == 'mecka') & (row['zarr_processed_path'] != '') & (row['episode_hash'] != '692ea23dc621d7f4aac3aaa1')"
-        # - "lambda row: row['episode_hash'] == '696bc6351cafc9f413b5b7e8'"
+        - "lambda row: row['task'] in {'repairing_laptops', 'assembling_pens', 'weeding', 'woodworking', 'folding_boxes', 'filling_bags', 'sorting_coffee_beans', 'cutting_fabric', 'cleaning_electronics', 'hanging_clothes', 'brushing_shoes', 'cutting_stickers'}"
     mode: train
 valid_datasets:
   mecka_bimanual:
@@ -36,7 +48,7 @@ valid_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: (row['lab'] == 'mecka') & (row['zarr_processed_path'] != '') & (row['episode_hash'] != '692ea23dc621d7f4aac3aaa1')"
-        # - "lambda row: row['episode_hash'] == '696bc6351cafc9f413b5b7e8'"
+        - "lambda row: row['task'] in {'repairing_laptops', 'assembling_pens', 'weeding', 'woodworking', 'folding_boxes', 'filling_bags', 'sorting_coffee_beans', 'cutting_fabric', 'cleaning_electronics', 'hanging_clothes', 'brushing_shoes', 'cutting_stickers'}"
     mode: valid
 
 use_tokenizer: true

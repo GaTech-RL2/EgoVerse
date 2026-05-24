@@ -1,0 +1,20 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# Single-GPU PACE launcher for eval-mode validation-video generation.
+# Eval mode forces trainer.devices=1 / num_nodes=1, so this requests exactly
+# one task on one GPU (no DDP fan-out).
+name: ${hydra.job.name}
+partition: "gpu-h200"                # match the partition the run trained on
+account: "gts-dxu345-rl2"
+cpus_per_task: 4                     # 4:1 CPU:GPU cap on inferno GPU nodes
+nodes: 1
+tasks_per_node: 1
+gres: "gpu:h200:1"
+qos: "inferno"
+mem_gb: 200
+timeout_min: 240                     # 4 hours
+additional_parameters:
+  requeue: true

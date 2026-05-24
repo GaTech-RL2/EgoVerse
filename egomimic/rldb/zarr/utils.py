@@ -197,6 +197,8 @@ class DataSchematic(object):
         batch_size: int = 512,
         num_workers: int = 4,
         precomputed_norm_path: str | None = None,
+        checkpoint_every_frac: float | None = None,
+        checkpoint_save_dir: str | None = None,
     ):
         """
         Load or compute normalization statistics for an embodiment; does not write cache files.
@@ -233,11 +235,13 @@ class DataSchematic(object):
 
         if embodiment not in self.norm_stats:
             self.norm_stats[embodiment] = {}
-        
+
         # Load precomputed norm stats if available
         if precomputed_norm_path is not None:
             if os.path.isdir(precomputed_norm_path):
-                precomputed_file = os.path.join(precomputed_norm_path, "norm_stats.json")
+                precomputed_file = os.path.join(
+                    precomputed_norm_path, "norm_stats.json"
+                )
             elif os.path.isfile(precomputed_norm_path):
                 precomputed_file = precomputed_norm_path
             else:
@@ -248,8 +252,12 @@ class DataSchematic(object):
             if os.path.isfile(precomputed_file):
                 with open(precomputed_file, "r") as f:
                     precomputed_norm_stats = json.load(f)
-                    self.norm_stats[embodiment] = precomputed_norm_stats["stats"].get(str(embodiment), {})
-                    self._norm_run_metadata = precomputed_norm_stats.get("norm_run_metadata", None)
+                    self.norm_stats[embodiment] = precomputed_norm_stats["stats"].get(
+                        str(embodiment), {}
+                    )
+                    self._norm_run_metadata = precomputed_norm_stats.get(
+                        "norm_run_metadata", None
+                    )
                     logger.info(
                         f"[NormStats] Loaded precomputed stats for embodiment={embodiment} from {precomputed_file}"
                     )
@@ -278,6 +286,47 @@ class DataSchematic(object):
         )
 
         loading_start_time = time.time()
+
+        # Build a periodic-checkpoint callback if requested.
+        checkpoint_every = None
+        on_checkpoint = None
+        if checkpoint_every_frac is not None and checkpoint_every_frac > 0:
+            checkpoint_every = max(
+                1, int(math.floor(checkpoint_every_frac * n_samples))
+            )
+
+            def on_checkpoint(collected_snapshot, n_so_far):
+                elapsed = time.time() - loading_start_time
+                # Snapshot stats from samples seen so far; does not consume `collected`.
+                self._finalize_stats_from_collected(
+                    collected_snapshot, list(norm_keys), embodiment
+                )
+                self._norm_run_metadata = {
+                    "loading_time": elapsed,
+                    "computing_time": None,
+                    "frames": n_so_far,
+                    "partial": True,
+                }
+                if checkpoint_save_dir:
+                    pct = 100 * n_so_far / n_samples
+                    # Tag by embodiment + samples-so-far so each checkpoint
+                    # lands in its own file. Embodiment is included because
+                    # this method is called per-dataset and would otherwise
+                    # collide across datasets sharing a save dir.
+                    ckpt_filename = f"norm_stats_partial_{embodiment}_n{n_so_far}_of_{n_samples}.json"
+                    self.cache_stats(
+                        save_cache_dir=checkpoint_save_dir, filename=ckpt_filename
+                    )
+                    logger.info(
+                        f"[NormStats] checkpoint @ {n_so_far}/{n_samples} "
+                        f"({pct:.1f}%) → {ckpt_filename}"
+                    )
+                else:
+                    logger.info(
+                        f"[NormStats] checkpoint @ {n_so_far}/{n_samples} "
+                        f"({100 * n_so_far / n_samples:.1f}%) (no save dir; in-memory only)"
+                    )
+
         collected = self._collect_norm_samples(
             loader=loader,
             norm_keys=norm_keys,
@@ -285,35 +334,14 @@ class DataSchematic(object):
             n_samples=n_samples,
             batch_size=batch_size,
             num_workers=num_workers,
+            on_checkpoint=on_checkpoint,
+            checkpoint_every=checkpoint_every,
         )
-        del_keys = []
-        for k in norm_keys:
-            if len(collected[k]) == 0:
-                del_keys.append(k)
-        for k in del_keys:
-            del collected[k]
-            norm_keys.remove(k)
 
         loading_time = time.time() - loading_start_time
 
         computing_start_time = time.time()
-        for k in norm_keys:
-            if collected.get(k, None) is None:
-                logger.warning(f"[NormStats] No data collected for key={k}")
-                continue
-            collected[k] = np.concatenate(collected[k], axis=0)
-
-            X = collected[k]
-            stats_np = self._compute_stats_for_array(X)
-            self.norm_stats[embodiment][k] = {
-                name: np.asarray(arr, dtype=np.float32)
-                for name, arr in stats_np.items()
-            }
-
-            logger.info(
-                f"[NormStats] key={k} samples={X.shape[0]} stat_shape={stats_np['mean'].shape}"
-            )
-
+        self._finalize_stats_from_collected(collected, list(norm_keys), embodiment)
         computing_time = time.time() - computing_start_time
         self._norm_run_metadata = {
             "loading_time": loading_time,
@@ -326,10 +354,19 @@ class DataSchematic(object):
         )
 
     def _collect_norm_samples(
-        self, loader, norm_keys, embodiment, n_samples: int, batch_size: int, num_workers: int
+        self,
+        loader,
+        norm_keys,
+        embodiment,
+        n_samples: int,
+        batch_size: int,
+        num_workers: int,
+        on_checkpoint=None,
+        checkpoint_every: int | None = None,
     ):
         collected = {k: [] for k in norm_keys}
         cur_num_samples = 0
+        next_threshold = checkpoint_every if checkpoint_every else None
         logger.info(
             f"[NormStats] Starting to load data for norm inference with batch_size={batch_size} and num_workers={num_workers}"
         )
@@ -361,7 +398,39 @@ class DataSchematic(object):
 
                 cur_num_samples += take
                 pbar.update(take)
+
+                if (
+                    on_checkpoint is not None
+                    and next_threshold is not None
+                    and cur_num_samples >= next_threshold
+                ):
+                    on_checkpoint(collected, cur_num_samples)
+                    # Skip ahead past any thresholds we've already crossed in
+                    # case a single batch jumped multiple checkpoints.
+                    while next_threshold <= cur_num_samples:
+                        next_threshold += checkpoint_every
         return collected
+
+    def _finalize_stats_from_collected(self, collected, norm_keys, embodiment):
+        """Compute stats from already-collected per-key arrays and update self.norm_stats[embodiment].
+
+        Operates on a snapshot — does not mutate `collected` or the caller's
+        `norm_keys` list. Safe to call multiple times (e.g. for periodic
+        checkpoints during a single collection pass).
+        """
+        for k in norm_keys:
+            arrs = collected.get(k)
+            if not arrs:
+                continue
+            X = np.concatenate(arrs, axis=0)
+            stats_np = self._compute_stats_for_array(X)
+            self.norm_stats[embodiment][k] = {
+                name: np.asarray(arr, dtype=np.float32)
+                for name, arr in stats_np.items()
+            }
+            logger.info(
+                f"[NormStats] key={k} samples={X.shape[0]} stat_shape={stats_np['mean'].shape}"
+            )
 
     @staticmethod
     def _compute_stats_for_array(X):
@@ -377,11 +446,11 @@ class DataSchematic(object):
             "quantile_99_99": np.percentile(X, 99.99, axis=0),
         }
 
-    def cache_stats(self, save_cache_dir: str):
-        """Write ``norm_stats/norm_stats.json`` under ``save_cache_dir`` (stats as nested lists)."""
+    def cache_stats(self, save_cache_dir: str, filename: str = "norm_stats.json"):
+        """Write ``norm_stats/<filename>`` under ``save_cache_dir`` (stats as nested lists)."""
         cache_dir = os.path.join(save_cache_dir, "norm_stats")
         os.makedirs(cache_dir, exist_ok=True)
-        out_path = os.path.join(cache_dir, "norm_stats.json")
+        out_path = os.path.join(cache_dir, filename)
 
         stats_out: dict[str, dict[str, dict[str, list]]] = {}
         for emb, keys_dict in self.norm_stats.items():
