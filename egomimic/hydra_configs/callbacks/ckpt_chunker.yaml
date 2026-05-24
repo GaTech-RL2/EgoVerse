@@ -7,7 +7,7 @@ model_checkpoint:
   _target_: lightning.pytorch.callbacks.ModelCheckpoint
   dirpath: ${hydra:runtime.output_dir}/checkpoints
   filename: "epoch_{epoch}"
-  every_n_epochs: 60
+  every_n_epochs: 50
   save_top_k: -1
   save_last: true
 
@@ -15,5 +15,5 @@ chunker_residual_scheduler:
   _target_: egomimic.pl_utils.callbacks.chunker_residual_scheduler.ChunkerResidualScheduler
   schedule:
     - [0, 0.0]
-    - [959, 0.0]
-    - [960, 1.0]
+    - [9599, 0.0]
+    - [9600, 1.0]   # 3/4 of 200ep*64=12800 steps without residual; on for last 1/4
