@@ -1,0 +1,27 @@
+# Cotrain sim eval: closed-loop rollout for both circle and stick.
+
+_target_: egomimic.eval.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.eval_sim.SimRolloutEval
+    limit_val_batches: 4
+    embodiment_name: pushshapes_sim
+    init_mode: replay
+    max_steps: null
+    coverage_threshold: 0.7
+    env_kwargs:
+      object_shape: T
+      pusher_shape: circle
+      obstacle_level: 0
+      image_size: 96
+  - _target_: egomimic.eval.eval_sim.SimRolloutEval
+    limit_val_batches: 4
+    embodiment_name: pushshapes_sim_stick
+    init_mode: replay
+    max_steps: null
+    coverage_threshold: 0.7
+    env_kwargs:
+      object_shape: T
+      pusher_shape: stick
+      obstacle_level: 0
+      image_size: 96

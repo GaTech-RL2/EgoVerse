@@ -35,7 +35,7 @@ def test_scripted_action_clipped_and_finite():
         world_size=512.0,
     )
     assert action.shape == (2,)
-    assert action.dtype == np.float32
+    assert action.dtype == np.float64
     assert np.all(action >= 0.0)
     assert np.all(action <= 512.0)
     assert np.all(np.isfinite(action))
