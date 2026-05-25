@@ -41,3 +41,5 @@ lerobot_test/
 **/robot/models/
 checkpoints/
 dataset/
+base_pose_plots/
+tmux-client-*.log
