@@ -9,6 +9,8 @@ until terminated, the caller stops it, or set_state() resets things).
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 import os
 from typing import Any
@@ -92,15 +94,15 @@ class PushShapesEnv(gym.Env):
         self.image_size = int(image_size)
 
         self.action_space = spaces.Box(
-            low=0.0, high=float(self.WORLD_SIZE), shape=(2,), dtype=np.float32
+            low=0.0, high=float(self.WORLD_SIZE), shape=(2,), dtype=np.float64
         )
         self.observation_space = spaces.Dict(
             {
                 "agent_pos": spaces.Box(
-                    0.0, float(self.WORLD_SIZE), (2,), dtype=np.float32
+                    0.0, float(self.WORLD_SIZE), (2,), dtype=np.float64
                 ),
-                "object_pose": spaces.Box(-np.inf, np.inf, (3,), dtype=np.float32),
-                "goal_pose": spaces.Box(-np.inf, np.inf, (3,), dtype=np.float32),
+                "object_pose": spaces.Box(-np.inf, np.inf, (3,), dtype=np.float64),
+                "goal_pose": spaces.Box(-np.inf, np.inf, (3,), dtype=np.float64),
                 "image": spaces.Box(
                     0, 255, (self.image_size, self.image_size, 3), dtype=np.uint8
                 ),
@@ -142,6 +144,24 @@ class PushShapesEnv(gym.Env):
     def goal_pose(self) -> tuple[float, float, float]:
         return self._goal_pose
 
+    def get_episode_init(self) -> dict:
+        """Capture full episode init state for deterministic replay."""
+        obstacles = [[list(a), list(b)] for a, b in OBSTACLE_LEVELS.get(self.obstacle_level, [])]
+        init = {
+            "agent_pos": list(self.agent_pos),
+            "object_pose": list(self.object_pose),
+            "goal_pose": list(self.goal_pose),
+            "object_shape": self.object_shape,
+            "pusher_shape": self.pusher_shape,
+            "obstacle_level": self.obstacle_level,
+            "obstacles": obstacles,
+            "reset_seed": getattr(self, "_last_reset_seed", None),
+        }
+        init["config_hash"] = hashlib.sha256(
+            json.dumps(init, sort_keys=True).encode()
+        ).hexdigest()[:16]
+        return init
+
     # ------------------------------------------------------------------ #
     # gym API
     # ------------------------------------------------------------------ #
@@ -153,6 +173,7 @@ class PushShapesEnv(gym.Env):
         options: dict[str, Any] | None = None,
     ) -> tuple[dict[str, np.ndarray], dict[str, Any]]:
         super().reset(seed=seed)
+        self._last_reset_seed = seed
         if seed is not None:
             self._np_random = np.random.default_rng(seed)
 
@@ -186,7 +207,7 @@ class PushShapesEnv(gym.Env):
     def step(
         self, action: np.ndarray
     ) -> tuple[dict[str, np.ndarray], float, bool, bool, dict[str, Any]]:
-        action = np.asarray(action, dtype=np.float32).reshape(-1)
+        action = np.asarray(action, dtype=np.float64).reshape(-1)
         if action.shape != (2,):
             raise ValueError(f"action must be shape (2,), got {action.shape}")
 
@@ -229,8 +250,12 @@ class PushShapesEnv(gym.Env):
             self._pusher_body.velocity = (0.0, 0.0)
 
         if object_pose is not None:
-            self._object_body.position = (float(object_pose[0]), float(object_pose[1]))
+            # Set angle BEFORE position: pymunk's body.position is the CoG
+            # in world space.  When center_of_gravity is non-zero (T-shape),
+            # setting body.angle after body.position rotates the CoG offset
+            # and silently shifts body.position.  Angle-first avoids this.
             self._object_body.angle = float(object_pose[2])
+            self._object_body.position = (float(object_pose[0]), float(object_pose[1]))
             self._object_body.velocity = (0.0, 0.0)
             self._object_body.angular_velocity = 0.0
 
@@ -333,11 +358,11 @@ class PushShapesEnv(gym.Env):
         obj = self._object_body
         surface = self._render_world()
         return {
-            "agent_pos": np.array([pos.x, pos.y], dtype=np.float32),
+            "agent_pos": np.array([pos.x, pos.y], dtype=np.float64),
             "object_pose": np.array(
-                [obj.position.x, obj.position.y, obj.angle], dtype=np.float32
+                [obj.position.x, obj.position.y, obj.angle], dtype=np.float64
             ),
-            "goal_pose": np.array(self._goal_pose, dtype=np.float32),
+            "goal_pose": np.array(self._goal_pose, dtype=np.float64),
             "image": to_image_obs(surface, self.image_size),
         }
 

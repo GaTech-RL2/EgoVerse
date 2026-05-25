@@ -1,7 +1,8 @@
 """Mouse-driven demonstration collection for PushShapesEnv.
 
-Each step's action is the mouse cursor's XY in world coordinates — the window
-is 1:1 with the 512x512 arena. Episodes commit to per-pusher/per-obstacle-level
+Each step's action is the mouse cursor's XY in world coordinates. The window
+is 2x the 512x512 arena for sub-pixel action resolution. Episodes commit to
+per-pusher/per-obstacle-level
 subfolders under ``--output``::
 
     <output>/<pusher>/<obstacles>/episode_000000.zarr
@@ -32,7 +33,9 @@ import pygame
 from Tsimulation.collect.zarr_writer import ZarrDemoWriter
 from Tsimulation.pushshapes.env import PushShapesEnv
 
-WINDOW_SIZE = 512
+WORLD_SIZE = 512
+WINDOW_SCALE = 2
+WINDOW_SIZE = WORLD_SIZE * WINDOW_SCALE
 OVERLAY_COLOR = (20, 20, 20)
 RECORDING_COLOR = (210, 60, 60)
 PAUSED_COLOR = (180, 140, 0)
@@ -103,6 +106,7 @@ def run(args: argparse.Namespace) -> int:
         "obstacle_level": args.obstacles,
         "image_size": args.image_size,
         "fps": args.fps,
+        "collector": "mouse",
     }
     output_dir = _episode_output_dir(Path(args.output), args.pusher, args.obstacles)
     writer = ZarrDemoWriter(
@@ -117,7 +121,7 @@ def run(args: argparse.Namespace) -> int:
 
     # Auto-start recording so a successful push is never lost because the
     # user forgot to press SPACE before moving the shape.
-    writer.start_episode()
+    writer.start_episode(init_state=env.get_episode_init())
     recording = True
     saved = 0
     running = True
@@ -135,7 +139,7 @@ def run(args: argparse.Namespace) -> int:
                     writer.abort_episode()
                     obs, info = env.reset()
                     coverage = info.get("coverage", 0.0)
-                    writer.start_episode()
+                    writer.start_episode(init_state=env.get_episode_init())
                     recording = True
                 elif event.key == pygame.K_s:
                     if writer.steps_in_episode > 0:
@@ -147,31 +151,40 @@ def run(args: argparse.Namespace) -> int:
                             )
                     obs, info = env.reset()
                     coverage = info.get("coverage", 0.0)
-                    writer.start_episode()
+                    writer.start_episode(init_state=env.get_episode_init())
                     recording = True
 
-        # Action = mouse pos in world coords (window is 1:1 with arena).
+        # Action = mouse pos in world coords. Window is scaled up from the
+        # arena so we get sub-pixel resolution (0.5 world units at 2x scale).
         mx, my = pygame.mouse.get_pos()
+        wx = mx / WINDOW_SCALE
+        wy = my / WINDOW_SCALE
         action = np.array(
-            [np.clip(mx, 0, WINDOW_SIZE - 1), np.clip(my, 0, WINDOW_SIZE - 1)],
-            dtype=np.float32,
+            [np.clip(wx, 0.0, float(WORLD_SIZE)), np.clip(wy, 0.0, float(WORLD_SIZE))],
+            dtype=np.float64,
         )
 
+        # Store pre-step obs so (state[t], action[t]) pairs are aligned:
+        # state[t] is the state BEFORE action[t] is applied.
+        pre_obs = obs
         obs, reward, terminated, truncated, info = env.step(action)
         coverage = info.get("coverage", 0.0)
 
         if recording:
             writer.add_step(
-                image=obs["image"],
-                pusher_obs_pose=obs["agent_pos"],
-                object_obs_pose=obs["object_pose"],
+                image=pre_obs["image"],
+                pusher_obs_pose=pre_obs["agent_pos"],
+                object_obs_pose=pre_obs["object_pose"],
                 pusher_cmd_pose=action,
                 action=action,
                 reward=reward,
-                goal_pose=obs["goal_pose"],
+                goal_pose=pre_obs["goal_pose"],
             )
 
-        screen.blit(env.world_surface(), (0, 0))
+        world_surf = env.world_surface()
+        if WINDOW_SCALE != 1:
+            world_surf = pygame.transform.scale(world_surf, (WINDOW_SIZE, WINDOW_SIZE))
+        screen.blit(world_surf, (0, 0))
         _draw_overlay(
             screen,
             font,
@@ -199,7 +212,7 @@ def run(args: argparse.Namespace) -> int:
             if saved < args.num_episodes:
                 obs, info = env.reset()
                 coverage = info.get("coverage", 0.0)
-                writer.start_episode()
+                writer.start_episode(init_state=env.get_episode_init())
                 recording = True
 
     writer.close()
