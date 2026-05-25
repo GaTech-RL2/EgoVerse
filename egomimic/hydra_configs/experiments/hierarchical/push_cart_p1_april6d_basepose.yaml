@@ -1,0 +1,49 @@
+# @package _global_
+# Hierarchical P1 for the push_cart task — adds a base-pose-integrated proprio.
+#
+# Inherits the rotatebox_p1_april6d hierarchical decoder + april6d pipeline and:
+#   1. Adds the base_pose_integrated key to the data_schematic so the
+#      DataSchematic picks up the new column from the LeRobot dataset.
+#   2. Adds a state_base_pose_integrated MLP stem (input_dim=3) to the model,
+#      with noise + dropout for distribution-mismatch robustness:
+#        - noise_std=0.10        ⇒ ~10cm / 0.10rad jitter in normalized space
+#        - proprio_dropout_p=0.20 ⇒ 20% chance of replacing with learned null token
+#      so the model doesn't over-trust the integrator (which sees GT deltas at
+#      training time but policy-predicted deltas at inference time).
+#
+# Dataset folder is overridden per-job via CLI (see submit_sew_basepose_training.sbatch).
+defaults:
+  - /experiments/hierarchical/rotatebox_p1_april6d
+  - _self_
+
+name: RBY1_push_cart_basepose_p1_april6d
+description: "hier_p1_april6d_basepose_noise0.10_drop0.20"
+
+# Add the base-pose key to the schematic (deep-merged with parent's rby1 block).
+data_schematic:
+  schematic_dict:
+    rby1:
+      base_pose_integrated:
+        key_type: proprio_keys
+        lerobot_key: obs.base_pose_integrated
+
+# Add a new stem for the base-pose obs (deep-merged with parent's rby1 stem_specs).
+model:
+  robomimic_model:
+    stem_specs:
+      rby1:
+        state_base_pose_integrated:
+          _target_: egomimic.models.hpt_nets.MLPPolicyStem
+          input_dim: 3
+          output_dim: 192
+          widths: [128]
+          specs:
+            random_horizon_masking: false
+            noise_std: 0.10
+            proprio_dropout_p: 0.20
+            cross_attn:
+              crossattn_latent: 1
+              crossattn_heads: 2
+              crossattn_dim_head: 32
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: 192
