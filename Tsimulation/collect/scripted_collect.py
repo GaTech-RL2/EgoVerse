@@ -49,18 +49,18 @@ def scripted_action(
     goal_xy: np.ndarray,
     world_size: float,
 ) -> np.ndarray:
-    """Return a (2,) float32 action target in world coords."""
+    """Return a (2,) float64 action target in world coords."""
     push_vec = goal_xy - object_xy
     push_dist = float(np.linalg.norm(push_vec))
     if push_dist < 1e-3:
-        return object_xy.astype(np.float32)
+        return object_xy.astype(np.float64)
     push_dir = push_vec / push_dist
     approach_point = object_xy - push_dir * APPROACH_OFFSET
     if float(np.linalg.norm(agent_xy - approach_point)) > CONTACT_RADIUS:
         target = approach_point
     else:
         target = object_xy + push_dir * PUSH_LOOKAHEAD
-    return np.clip(target, 0.0, world_size).astype(np.float32)
+    return np.clip(target, 0.0, world_size).astype(np.float64)
 
 
 def run_episode(
@@ -75,14 +75,14 @@ def run_episode(
 ) -> tuple[bool, float, int]:
     """Roll out one scripted episode. Returns (committed, final_coverage, steps)."""
     obs, info = env.reset(seed=seed)
-    writer.start_episode()
+    writer.start_episode(init_state=env.get_episode_init())
     coverage = float(info.get("coverage", 0.0))
     final_coverage = coverage
     steps = 0
     for _ in range(max_steps):
-        agent_xy = np.asarray(obs["agent_pos"], dtype=np.float32)
-        object_xy = np.asarray(obs["object_pose"][:2], dtype=np.float32)
-        goal_xy = np.asarray(obs["goal_pose"][:2], dtype=np.float32)
+        agent_xy = np.asarray(obs["agent_pos"], dtype=np.float64)
+        object_xy = np.asarray(obs["object_pose"][:2], dtype=np.float64)
+        goal_xy = np.asarray(obs["goal_pose"][:2], dtype=np.float64)
         action = scripted_action(
             agent_xy=agent_xy,
             object_xy=object_xy,
@@ -90,8 +90,8 @@ def run_episode(
             world_size=float(env.WORLD_SIZE),
         )
         if jitter > 0.0:
-            action = action + rng.normal(0.0, jitter, size=(2,)).astype(np.float32)
-            action = np.clip(action, 0.0, float(env.WORLD_SIZE)).astype(np.float32)
+            action = action + rng.normal(0.0, jitter, size=(2,))
+            action = np.clip(action, 0.0, float(env.WORLD_SIZE))
 
         next_obs, reward, terminated, truncated, info = env.step(action)
         coverage = float(info.get("coverage", 0.0))

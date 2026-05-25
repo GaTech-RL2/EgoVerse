@@ -75,7 +75,11 @@ class ZarrDemoWriter:
     def is_recording(self) -> bool:
         return self._buffer is not None
 
-    def start_episode(self) -> None:
+    def start_episode(
+        self,
+        *,
+        init_state: dict[str, Any] | None = None,
+    ) -> None:
         if self._buffer is not None:
             raise RuntimeError("episode already started; commit or abort first")
         self._buffer = {
@@ -86,6 +90,7 @@ class ZarrDemoWriter:
             REWARD_KEY: [],
             GOAL_KEY: [],
         }
+        self._episode_init = init_state
 
     def add_step(
         self,
@@ -105,14 +110,14 @@ class ZarrDemoWriter:
             raise ValueError(
                 f"image must be (H, W, 3) uint8, got {img.shape} {img.dtype}"
             )
-        pusher = np.asarray(pusher_obs_pose, dtype=np.float32).reshape(-1)
-        obj = np.asarray(object_obs_pose, dtype=np.float32).reshape(-1)
+        pusher = np.asarray(pusher_obs_pose, dtype=np.float64).reshape(-1)
+        obj = np.asarray(object_obs_pose, dtype=np.float64).reshape(-1)
         self._buffer[IMAGE_KEY].append(img)
         self._buffer[STATE_KEY].append(np.concatenate([pusher, obj]))
-        self._buffer[CMD_PUSHER_KEY].append(np.asarray(pusher_cmd_pose, dtype=np.float32).reshape(-1))
-        self._buffer[ACTION_KEY].append(np.asarray(action, dtype=np.float32).reshape(-1))
-        self._buffer[REWARD_KEY].append(np.asarray([reward], dtype=np.float32))
-        self._buffer[GOAL_KEY].append(np.asarray(goal_pose, dtype=np.float32).reshape(-1))
+        self._buffer[CMD_PUSHER_KEY].append(np.asarray(pusher_cmd_pose, dtype=np.float64).reshape(-1))
+        self._buffer[ACTION_KEY].append(np.asarray(action, dtype=np.float64).reshape(-1))
+        self._buffer[REWARD_KEY].append(np.asarray([reward], dtype=np.float64))
+        self._buffer[GOAL_KEY].append(np.asarray(goal_pose, dtype=np.float64).reshape(-1))
 
     def commit_episode(self) -> int:
         """Write the buffered episode to disk and return its index.
@@ -138,6 +143,10 @@ class ZarrDemoWriter:
             GOAL_KEY: np.stack(self._buffer[GOAL_KEY], axis=0),
         }
 
+        metadata_override = None
+        if self._episode_init is not None:
+            metadata_override = {"episode_init": json.dumps(self._episode_init)}
+
         ZarrWriter.create_and_write(
             episode_path=ep_path,
             numeric_data=numeric,
@@ -147,15 +156,18 @@ class ZarrDemoWriter:
             task_name=self.task_name,
             task_description=self.task_description,
             chunk_timesteps=self.chunk_timesteps,
+            metadata_override=metadata_override,
         )
 
         idx = self._episode_idx
         self._episode_idx += 1
         self._buffer = None
+        self._episode_init = None
         return idx
 
     def abort_episode(self) -> None:
         self._buffer = None
+        self._episode_init = None
 
     def close(self) -> None:
         if self._buffer is not None:

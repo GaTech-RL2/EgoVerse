@@ -75,11 +75,11 @@ def test_env_step_smoke(object_shape, pusher_shape, obstacle_level):
         obs, info = env.reset(seed=42)
 
         assert obs["agent_pos"].shape == (2,)
-        assert obs["agent_pos"].dtype == np.float32
+        assert obs["agent_pos"].dtype == np.float64
         assert obs["object_pose"].shape == (3,)
-        assert obs["object_pose"].dtype == np.float32
+        assert obs["object_pose"].dtype == np.float64
         assert obs["goal_pose"].shape == (3,)
-        assert obs["goal_pose"].dtype == np.float32
+        assert obs["goal_pose"].dtype == np.float64
         assert obs["image"].shape == (96, 96, 3)
         assert obs["image"].dtype == np.uint8
         assert "coverage" in info
