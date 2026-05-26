@@ -22,7 +22,7 @@ robomimic_model:
   multitask: false
   pretrained: false
   pretrained_checkpoint: ""
-  reverse_kl_samples: 8
+  reverse_kl_samples: 0
   domains:
     - rby1
   shared_obs_keys:
@@ -50,7 +50,14 @@ robomimic_model:
         widths: [192]
         specs:
           random_horizon_masking: false
-          noise_std: 0.1
+          # TODO(cleanup): noise_std is applied uniformly to all 6 dims of
+          # april_tag (xyz + rotation vector). Adding Gaussian noise to a
+          # rotation vector is not a geometrically valid perturbation; for a
+          # principled fix, split into (xyz with Gaussian noise) + (rot with
+          # small random SO(3) composed on tag rotation), or add a per-dim
+          # noise_std list to MLPPolicyStem. 0.05 keeps xyz jitter at ~5cm
+          # (was 0.1 ~ 10cm, too large for april-tag detection).
+          noise_std: 0.05
           cross_attn:
             crossattn_latent: 16
             crossattn_heads: 4
