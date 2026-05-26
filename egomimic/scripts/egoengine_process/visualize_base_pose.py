@@ -70,6 +70,14 @@ def _pose_from_dataset(subset) -> np.ndarray:
     )
 
 
+def _pose_for_episode(subset) -> tuple[np.ndarray, str]:
+    """Return (pose, source) for an episode, falling back to recompute-from-actions
+    if the dataset hasn't been processed by egoengine_lerobot_extract_base_pose.py."""
+    if NEW_OBS_KEY in subset.column_names:
+        return _pose_from_dataset(subset), "dataset"
+    return _pose_from_actions(subset), "actions"
+
+
 def _pose_from_actions(subset) -> np.ndarray:
     """Independently recompute the trajectory from the action deltas for sanity check."""
     if SOURCE_ACTION_KEY in subset.column_names:
@@ -120,8 +128,9 @@ def _add_triads_3d(ax, pose: np.ndarray, n_triads: int, length: float):
 def _plot_one_episode(subset, ep_idx: int, out_path: Path,
                       n_triads: int, triad_length_frac: float,
                       overlay_recomputed: bool):
-    pose = _pose_from_dataset(subset)
-    recomputed = _pose_from_actions(subset) if overlay_recomputed else None
+    pose, source = _pose_for_episode(subset)
+    # If we're already computing from actions, overlay would be identical -- skip.
+    recomputed = _pose_from_actions(subset) if (overlay_recomputed and source == "dataset") else None
 
     T = pose.shape[0]
     bbox = np.ptp(pose[:, :2], axis=0).max() if T > 1 else 1.0

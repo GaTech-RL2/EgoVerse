@@ -1,0 +1,63 @@
+# @package _global_
+# Hierarchical P1 for push_cart with a WINDOWED base-pose proprio.
+#
+# Instead of a single 3-D absolute world pose, the new key
+#   obs.base_pose_integrated
+# now carries 6 past offsets relative to the current robot pose, expressed in
+# the current BODY frame, sampled every 10 frames (= 1.0 s at 10 Hz):
+#
+#   [(pose[t-10] - pose[t]) in body, (pose[t-20] - pose[t]) in body, ...,
+#    (pose[t-60] - pose[t]) in body]
+#
+# Each block is (dx_body, dy_body, dtheta) -> 6 * 3 = 18 dims total.
+#
+# Motivation: the 3-D absolute version disambiguates "where in the task am I"
+# but at (0,0,0) it cannot distinguish "fresh start" from "stalled for 30
+# frames" -- both look identical. The windowed version gives the policy an
+# implicit velocity / recent-motion signal so it can learn "no motion recently
+# AND tag still visible -> push harder". Body-frame deltas are rotation-
+# invariant to current heading.
+#
+# Dataset must be built with
+#   egoengine_lerobot_extract_base_pose.py --window-size 6 --window-delta 10
+# (default output dir suffix: _basepose_window).
+#
+# Stem tuning (deliberate, vs the single-point basepose config):
+#   - input_dim:           3   -> 18
+#   - proprio_dropout_p:   0.20 -> 0.00   (don't teach the policy to ignore it)
+#   - noise_std:           0.10 -> 0.10   (KEEP -- still want some robustness)
+defaults:
+  - /experiments/hierarchical/rotatebox_p1_april6d
+  - _self_
+
+name: RBY1_push_cart_basepose_window_p1_april6d
+description: "hier_p1_april6d_basepose_window6x10_noise0.10_drop0.0"
+
+# Add the base-pose key to the schematic (deep-merged with parent's rby1 block).
+data_schematic:
+  schematic_dict:
+    rby1:
+      base_pose_integrated:
+        key_type: proprio_keys
+        lerobot_key: obs.base_pose_integrated
+
+# Add stem for the windowed base-pose obs (deep-merged with parent's rby1 stem_specs).
+model:
+  robomimic_model:
+    stem_specs:
+      rby1:
+        state_base_pose_integrated:
+          _target_: egomimic.models.hpt_nets.MLPPolicyStem
+          input_dim: 18
+          output_dim: 192
+          widths: [128]
+          specs:
+            random_horizon_masking: false
+            noise_std: 0.10
+            proprio_dropout_p: 0.0
+            cross_attn:
+              crossattn_latent: 1
+              crossattn_heads: 2
+              crossattn_dim_head: 32
+              crossattn_modality_dropout: 0.1
+              modality_embed_dim: 192
