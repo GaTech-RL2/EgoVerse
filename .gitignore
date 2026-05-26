@@ -54,3 +54,4 @@ curation_results/**
 
 # One-off plot artifacts.
 /variant_comparison.png
+external_ckpts/*.ckpt

@@ -31,6 +31,7 @@ import torch
 from .continuous_diffusion import ContinuousDiffusion
 from .discrete_diffusion import DiscreteDiffusion
 
+
 # --------------------------------------------------------------------------- #
 # Schedule constructors. Each returns a ``(n_steps + 1, T)`` matrix.
 # --------------------------------------------------------------------------- #
@@ -48,11 +49,9 @@ def vanilla_schedule(
     if discrete_timesteps is None:
         levels = torch.linspace(1.0, 0.0, n_steps + 1)
     else:
-        levels = (
-            torch.linspace(float(discrete_timesteps - 1), -1.0, n_steps + 1)
-            .long()
-            .clamp_min(-1)
-        )
+        levels = torch.linspace(
+            float(discrete_timesteps - 1), -1.0, n_steps + 1
+        ).long().clamp_min(-1)
     return levels[:, None].expand(n_steps + 1, T).contiguous()
 
 
@@ -85,15 +84,12 @@ def staircase_ar_schedule(
     n_total = n_chunks * step_size
     step_idx = torch.arange(n_total + 1).float()  # (n_total + 1,)
     tok_idx = torch.arange(T).float()
-    rung = tok_idx // chunk_size
+    rung = (tok_idx // chunk_size)
     raw = 1.0 - (step_idx[:, None] - rung[None, :] * step_size) / float(step_size)
     levels = raw.clamp(0.0, 1.0)
     if discrete_timesteps is not None:
-        levels = (
-            (levels * (discrete_timesteps - 1))
-            .round()
-            .long()
-            .clamp(0, discrete_timesteps - 1)
+        levels = (levels * (discrete_timesteps - 1)).round().long().clamp(
+            0, discrete_timesteps - 1
         )
     return levels.contiguous()
 
@@ -196,8 +192,16 @@ def sample_step(
         ``x`` before calling ``sample_step`` and provide noise levels for
         the new tokens at the appropriate "fully noisy" entry.
     """
-    B, T, _ = x.shape
+    # Support both 1D-bundle x of shape (B, T, action_dim) and spatial
+    # x of shape (B, T, C, H, W). All per-token broadcasting below adds
+    # singleton dims to match ``x.dim()`` instead of hardcoding unsqueeze(-1).
+    B, T = x.shape[:2]
     dtype = x.dtype
+    pad_dims = x.dim() - 2  # number of trailing dims after (B, T)
+
+    def _to_x_shape(t: torch.Tensor) -> torch.Tensor:
+        """Reshape ``(B, T)`` to broadcast against ``x``."""
+        return t.reshape(B, T, *([1] * pad_dims))
 
     # Broadcast (T,) -> (B, T).
     if current_levels.dim() == 1:
@@ -214,34 +218,38 @@ def sample_step(
         v = diffusion.model_v(bb, x, t_cur, external_cond)
         x0, eps = diffusion.v_to_x0_and_noise(x, t_cur, v)
         logsnr_next = diffusion.schedule(t_next)
-        alpha_next = torch.sigmoid(logsnr_next).sqrt().unsqueeze(-1)
-        sigma_next = torch.sigmoid(-logsnr_next).sqrt().unsqueeze(-1)
+        alpha_next = _to_x_shape(torch.sigmoid(logsnr_next).sqrt())
+        sigma_next = _to_x_shape(torch.sigmoid(-logsnr_next).sqrt())
         if eta > 0:
             noise = torch.randn_like(x)
             return alpha_next * x0 + sigma_next * (
-                (1 - eta**2).clamp_min(0.0).sqrt() * eps + eta * noise
+                (1 - eta ** 2).clamp_min(0.0).sqrt() * eps + eta * noise
             )
         return alpha_next * x0 + sigma_next * eps
 
     if isinstance(diffusion, DiscreteDiffusion):
         k_cur = current_levels.long()
         k_next = next_levels.long()
-        pred = diffusion.model_predictions(bb, x, k_cur.clamp_min(0), external_cond)
+        pred = diffusion.model_predictions(
+            bb, x, k_cur.clamp_min(0), external_cond
+        )
         x0 = pred.pred_x_start
         eps = pred.pred_noise
-        alpha = diffusion.alphas_cumprod[k_cur.clamp_min(0)].unsqueeze(-1)
+        alpha = _to_x_shape(diffusion.alphas_cumprod[k_cur.clamp_min(0)])
         k_next_clamp = k_next.clamp_min(0)
-        alpha_next = diffusion.alphas_cumprod[k_next_clamp].unsqueeze(-1)
-        fully_clean = (k_next < 0).unsqueeze(-1)
-        alpha_next = torch.where(fully_clean, torch.ones_like(alpha_next), alpha_next)
+        alpha_next = _to_x_shape(diffusion.alphas_cumprod[k_next_clamp])
+        fully_clean = _to_x_shape((k_next < 0).to(dtype=torch.bool).long()).bool()
+        alpha_next = torch.where(
+            fully_clean, torch.ones_like(alpha_next), alpha_next
+        )
         sigma_sq = (
-            eta**2
+            eta ** 2
             * (1 - alpha / alpha_next.clamp_min(1e-8)).clamp_min(0.0)
             * (1 - alpha_next).clamp_min(0.0)
             / (1 - alpha).clamp_min(1e-8)
         )
         sigma = sigma_sq.clamp_min(0.0).sqrt()
-        c = (1 - alpha_next - sigma**2).clamp_min(0.0).sqrt()
+        c = (1 - alpha_next - sigma ** 2).clamp_min(0.0).sqrt()
         noise_term = torch.randn_like(x) if eta > 0 else torch.zeros_like(x)
         return x0 * alpha_next.sqrt() + eps * c + sigma * noise_term
 
@@ -254,7 +262,8 @@ def sample(
     backbone,
     *,
     schedule_matrix: torch.Tensor,
-    action_dim: int,
+    action_dim: Optional[int] = None,
+    x_shape: Optional[tuple] = None,
     batch_size: int = 1,
     external_cond: Optional[torch.Tensor] = None,
     eta: float = 0.0,
@@ -275,15 +284,25 @@ def sample(
         backbone: callable ``(x, noise_levels, external_cond) -> pred``.
         schedule_matrix: ``(n_steps + 1, T)``. Row 0 = initial per-token
             noise levels; row -1 = final.
-        action_dim: feature dim of the action.
+        action_dim: trailing feature dim for 1D-bundle backbones; output
+            shape is ``(B, T, action_dim)``. Exactly one of ``action_dim``
+            / ``x_shape`` must be set.
+        x_shape: trailing shape for spatial backbones (e.g. ``(C, H, W)``
+            for ``DFoTSpatialBackbone``); output shape is
+            ``(B, T, *x_shape)``.
         batch_size: batch dim for output; schedule is broadcast across batch.
         external_cond: ``(B, T, cond_dim)`` or ``(B, cond_dim)`` or ``None``.
         eta: DDIM stochasticity (0.0 = deterministic).
         x_init: optional initial sample; defaults to standard normal.
 
     Returns:
-        ``(B, T, action_dim)`` denoised.
+        Denoised tensor of shape ``(B, T, action_dim)`` (if ``action_dim``
+        was given) or ``(B, T, *x_shape)`` (if ``x_shape`` was given).
     """
+    if (action_dim is None) == (x_shape is None):
+        raise ValueError(
+            "exactly one of action_dim / x_shape must be provided to sample()."
+        )
     n_steps_plus_one, T = schedule_matrix.shape
     n_steps = n_steps_plus_one - 1
     device = device or (
@@ -291,14 +310,18 @@ def sample(
     )
     schedule_matrix = schedule_matrix.to(device)
     B = batch_size
+    out_shape = (
+        (B, T, int(action_dim)) if action_dim is not None
+        else (B, T, *tuple(int(d) for d in x_shape))
+    )
 
     if x_init is None:
-        x = torch.randn(B, T, action_dim, device=device, dtype=dtype)
+        x = torch.randn(*out_shape, device=device, dtype=dtype)
     else:
         x = x_init.to(device=device, dtype=dtype)
-        if x.shape != (B, T, action_dim):
+        if tuple(x.shape) != out_shape:
             raise ValueError(
-                f"x_init shape {tuple(x.shape)} != ({B}, {T}, {action_dim})"
+                f"x_init shape {tuple(x.shape)} != {out_shape}"
             )
 
     for s in range(n_steps):
@@ -374,7 +397,9 @@ def ddpm_sample(
             f"(got {steps} vs {diffusion.timesteps}); use ddim_sample "
             "for fewer steps."
         )
-    sm = vanilla_schedule(n_steps=steps, T=T, discrete_timesteps=diffusion.timesteps)
+    sm = vanilla_schedule(
+        n_steps=steps, T=T, discrete_timesteps=diffusion.timesteps
+    )
     return sample(
         diffusion,
         backbone,

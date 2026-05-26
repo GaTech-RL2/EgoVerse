@@ -1,0 +1,24 @@
+# DFoT image-spatial evaluator (plan A: world-model only).
+#
+# Single sub-eval: DFoTSpatialVideoRolloutEval -- decodes the predicted
+# spatial latent sequence into pixel frames + per-step MSE vs GT frames
+# in the val batch.
+#
+# No DFoTValEval / HNetSimEval here because this variant doesn't
+# diffuse actions; sim env-rollout requires predicted actions.
+
+_target_: egomimic.eval.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.eval_dfot_spatial_video_rollout.DFoTSpatialVideoRolloutEval
+    rollout_steps: 64
+    upscale_to: 384
+    max_videos: 2
+    limit_val_batches: 4
+    embodiment_name: "pushshapes_sim"
+    image_key: "front_img_1"
+    recon_loss_n_frames: 10
+    mode: "chunk"
+    n_chunk_steps: 50
+    cfg_scale: 1.0
+    video_subdir: "videos_spatial_rollout"

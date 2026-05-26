@@ -211,6 +211,35 @@ class DiscreteDiffusion(nn.Module):
             return epsilon_weighting * snr / (snr + 1)
         raise ValueError(f"unknown objective {self.objective}")
 
+    def compute_loss(self, v_pred: torch.Tensor, q_state: dict) -> torch.Tensor:
+        """Compute weighted per-token MSE given the backbone's output and
+        the q_state dict from encode. Matches ContinuousDiffusion.compute_loss
+        interface so DFoTLoss works with both.
+
+        Args:
+            v_pred: model output (B, T, ...) — interpretation depends on objective.
+            q_state: dict with 'x_t' (noised), 'k' (timesteps), 'noise' (eps),
+                     'x_start' (clean target).
+        """
+        k = q_state["k"]
+        noise = q_state["noise"]
+        x_start = q_state["x_start"]
+        if self.objective == "pred_noise":
+            target = noise
+        elif self.objective == "pred_x0":
+            target = x_start
+        elif self.objective == "pred_v":
+            target = self.predict_v(x_start, k, noise)
+        else:
+            raise ValueError(f"unknown objective {self.objective}")
+        per_element = (v_pred - target.detach()) ** 2
+        # Reduce over all trailing dims (action_dim or C,H,W) to get per-token loss
+        n_trailing = per_element.dim() - k.dim()
+        for _ in range(n_trailing):
+            per_element = per_element.mean(dim=-1)
+        w = self.compute_loss_weights(k)
+        return per_element * w
+
     def forward(
         self,
         backbone,

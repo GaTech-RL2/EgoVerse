@@ -32,12 +32,14 @@ class ContinuousDiffusion(nn.Module):
         logsnr_min: float = -15.0,
         logsnr_max: float = 15.0,
         shift: float = 1.0,
+        loss_weighting: str = "sigmoid",
     ):
         super().__init__()
         self.action_dim = int(action_dim)
         self.precond_scale = float(precond_scale)
         self.sigmoid_bias = float(sigmoid_bias)
         self.clip_noise = float(clip_noise)
+        self.loss_weighting = str(loss_weighting)
         self.schedule = CosineNoiseSchedule(
             logsnr_min=logsnr_min, logsnr_max=logsnr_max, shift=shift
         )
@@ -73,6 +75,7 @@ class ContinuousDiffusion(nn.Module):
         x_t = alpha_t * x + sigma_t * noise
         return {
             "x_t": x_t,
+            "x_start": x,
             "noise": noise,
             "alpha_t": alpha_t,
             "sigma_t": sigma_t,
@@ -81,9 +84,10 @@ class ContinuousDiffusion(nn.Module):
         }
 
     def compute_loss(self, v_pred: torch.Tensor, q_state: dict) -> torch.Tensor:
-        """Per-token SNR-weighted epsilon-MSE between predicted noise
-        (derived from ``v_pred``) and the noise stored in ``q_state``.
-        Caller is responsible for reducing (``.mean()``).
+        """Per-token SNR-weighted noise-MSE (matches reference: v_pred is
+        converted to noise_pred, then MSE against actual noise). The
+        alpha_t^2 factor from the conversion provides implicit
+        downweighting of noisy timesteps. Caller reduces (``.mean()``).
         """
         x_t = q_state["x_t"]
         alpha_t = q_state["alpha_t"]
@@ -92,6 +96,8 @@ class ContinuousDiffusion(nn.Module):
         logsnr = q_state["logsnr"]
         noise_pred = alpha_t * v_pred + sigma_t * x_t
         loss = F.mse_loss(noise_pred, noise.detach(), reduction="none")
+        if self.loss_weighting == "uniform":
+            return loss
         loss_weight = self._broadcast(
             torch.sigmoid(self.sigmoid_bias - logsnr), v_pred
         )

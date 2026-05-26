@@ -1,0 +1,43 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# VAE v6: same as v5 but with KL regularization enabled (beta=0.001).
+# The latent space needs Gaussian structure for latent diffusion to work —
+# without KL, the encoder can produce an arbitrary non-smooth manifold
+# that the diffusion model can't learn to sample from.
+#
+# beta=0.001 is a light touch — enough to regularize the space without
+# destroying reconstruction quality. Stable Diffusion uses beta ~1e-6
+# with their much larger latent space.
+
+robomimic_model:
+  _target_: egomimic.algo.vae.VAE
+  image_key: "front_img_1"
+  beta: 0.001
+  lpips_weight: 1.0
+  lpips_net: "vgg"
+  domains: ["pushshapes_sim"]
+
+  vae:
+    _target_: egomimic.models.image_vae.ImageVAE
+    in_channels: 3
+    image_size: 96
+    latent_dim: 128
+    spatial_latent: true
+    latent_channels: 4
+    channels: [64, 128, 256, 512]
+    decoder_upsample: "nearest"
+    residual: true
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5
