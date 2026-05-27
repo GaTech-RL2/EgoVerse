@@ -1,0 +1,48 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['task'] in {'packaging_coffee', 'wrapping_gifts', 'cleaning_tools', 'folding_napkins', 'repairing_electronics', 'polishing_jewelry', 'disassembling_phone', 'assembling_flowers', 'making_dumplings', 'peeling_vegetables'}"
+    mode: train
+
+valid_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
+    mode: valid
+
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10
+
+# `+evaluator@train_viz_evaluator=train_viz_pi`.
+train_viz_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
+    mode: train
+train_viz_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10

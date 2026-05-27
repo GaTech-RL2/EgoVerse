@@ -30,7 +30,7 @@ def main():
         default=[],
         help="Equality filters like lab=mecka. Multiple filters are ANDed.",
     )
-    parser.add_argument("--top", type=int, default=10, help="Number of tasks to show.")
+    parser.add_argument("--top", type=int, default=100, help="Number of tasks to show.")
     args = parser.parse_args()
 
     filters = parse_filters(args.filter)
