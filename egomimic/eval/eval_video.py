@@ -1,5 +1,7 @@
 import os
+import re
 from abc import abstractmethod
+from collections import defaultdict
 
 import torch
 import torchvision.io as tvio
@@ -20,6 +22,8 @@ class EvalVideo(Eval):
         limit_val_batches: int = 400,
         viz_func: dict = None,
         transform_lists: dict | None = None,
+        one_video_per_task: bool = False,
+        max_frames_per_task: int | None = 1000,
     ):
         super().__init__()
         self.trainer = None
@@ -29,6 +33,13 @@ class EvalVideo(Eval):
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
         self.transform_lists = transform_lists or {}
+        # When True, key the buffer by (embodiment_id, task) and emit exactly
+        # one mp4 per (embodiment, task) at the end of validation. Used in
+        # eval-only mode when the valid filter spans multiple tasks.
+        self.one_video_per_task = one_video_per_task
+        # Cap each (embodiment, task) bucket at this many frames. Only takes
+        # effect when one_video_per_task=True. Set None to disable.
+        self.max_frames_per_task = max_frames_per_task
         self.val_image_buffer = {}
         self.val_counter = {}
         self.override_dict = {
@@ -65,13 +76,26 @@ class EvalVideo(Eval):
                 exist_ok=True,
             )
 
+    @staticmethod
+    def _sanitize_task(task: str) -> str:
+        # Filesystem-safe: collapse whitespace and replace path separators.
+        return re.sub(r"[^\w.-]+", "_", str(task)).strip("_") or "unknown"
+
     def on_validation_end(self):
         for key, buffer in self.val_image_buffer.items():
+            if self.one_video_per_task:
+                embodiment_id, task = key
+                emb_dir = str(get_embodiment(embodiment_id))
+                filename = f"{self._sanitize_task(task)}.mp4"
+            else:
+                emb_dir = str(get_embodiment(key))
+                filename = f"validation_video_{self.val_counter[key]}.mp4"
+
             os.makedirs(
                 os.path.join(
                     self.video_dir(),
                     f"epoch_{self.trainer.current_epoch}",
-                    str(get_embodiment(key)),
+                    emb_dir,
                 ),
                 exist_ok=True,
             )
@@ -80,8 +104,8 @@ class EvalVideo(Eval):
                 path = os.path.join(
                     self.video_dir(),
                     f"epoch_{self.trainer.current_epoch}",
-                    str(get_embodiment(key)),
-                    f"validation_video_{self.val_counter[key]}.mp4",
+                    emb_dir,
+                    filename,
                 )
                 tvio.write_video(path, frames, fps=30, video_codec="h264")
 
@@ -98,29 +122,60 @@ class EvalVideo(Eval):
         }
 
         ## images is now a dict
-        for key, images in images_dict.items():
+        for embodiment_id, images in images_dict.items():
             os.makedirs(
                 os.path.join(
                     self.video_dir(),
                     f"epoch_{self.trainer.current_epoch}",
-                    str(get_embodiment(key)),
+                    str(get_embodiment(embodiment_id)),
                 ),
                 exist_ok=True,
             )
-            if key not in self.val_image_buffer or self.val_image_buffer[key] is None:
-                self.val_image_buffer[key] = []
-                self.val_counter[key] = 0
-            self.val_image_buffer[key].extend(torch.from_numpy(images))
-            if len(self.val_image_buffer[key]) >= 1000:
-                frames = torch.stack(self.val_image_buffer[key])
-                path = os.path.join(
-                    self.video_dir(),
-                    f"epoch_{self.trainer.current_epoch}",
-                    str(get_embodiment(key)),
-                    f"validation_video_{self.val_counter[key]}.mp4",
-                )
-                tvio.write_video(path, frames, fps=30, video_codec="h264")
-                self.val_image_buffer[key].clear()
-                self.val_counter[key] += 1
+            frames_tensor = torch.from_numpy(images)
+
+            if self.one_video_per_task:
+                tasks = batch[embodiment_id].get("task")
+                if tasks is None:
+                    raise KeyError(
+                        "one_video_per_task=True requires 'task' in each batch "
+                        "sample. Confirm ZarrDataset.__getitem__ attaches it."
+                    )
+                # Group sample indices by task so each bucket only takes one
+                # extend call even when a batch straddles two tasks.
+                per_task = defaultdict(list)
+                for i, t in enumerate(tasks):
+                    per_task[str(t)].append(i)
+                for task, idxs in per_task.items():
+                    key = (embodiment_id, task)
+                    if key not in self.val_image_buffer:
+                        self.val_image_buffer[key] = []
+                        self.val_counter[key] = 0
+                    if self.max_frames_per_task is not None:
+                        remaining = self.max_frames_per_task - len(
+                            self.val_image_buffer[key]
+                        )
+                        if remaining <= 0:
+                            continue
+                        idxs = idxs[:remaining]
+                    self.val_image_buffer[key].extend(frames_tensor[idxs])
+                # No mid-flush in per-task mode: clip length is bounded by
+                # limit_val_batches; final write happens in on_validation_end.
+            else:
+                key = embodiment_id
+                if key not in self.val_image_buffer:
+                    self.val_image_buffer[key] = []
+                    self.val_counter[key] = 0
+                self.val_image_buffer[key].extend(frames_tensor)
+                if len(self.val_image_buffer[key]) >= 1000:
+                    frames = torch.stack(self.val_image_buffer[key])
+                    path = os.path.join(
+                        self.video_dir(),
+                        f"epoch_{self.trainer.current_epoch}",
+                        str(get_embodiment(embodiment_id)),
+                        f"validation_video_{self.val_counter[key]}.mp4",
+                    )
+                    tvio.write_video(path, frames, fps=30, video_codec="h264")
+                    self.val_image_buffer[key].clear()
+                    self.val_counter[key] += 1
 
         self.trainer.lightning_module.log_dict(metrics, sync_dist=True)
