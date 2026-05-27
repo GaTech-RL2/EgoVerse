@@ -133,7 +133,6 @@ def _add_raw_episode_to_table(
             lab=metadata["lab"],
             task=metadata["task"],
             embodiment=metadata["embodiment"],
-            robot_name=metadata.get("robot_name", metadata["embodiment"]),
             task_description=metadata.get("task_description", ""),
             scene=metadata["scene"],
             objects=metadata["objects"],

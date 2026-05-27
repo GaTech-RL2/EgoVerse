@@ -74,10 +74,10 @@ def _map_processed_local_to_remote(p: str | Path, processed_remote_prefix: str) 
 
 def infer_arm_from_row(row: TableRow) -> str:
     """
-    Infer arm from SQL row.robot_name (e.g., 'aria_left', 'aria_right', 'aria_bimanual').
+    Infer arm from SQL row.embodiment (e.g., 'aria_left', 'aria_right', 'aria_bimanual').
     Falls back to 'bimanual'.
     """
-    emb = (row.robot_name or "").lower()
+    emb = (row.embodiment or "").lower()
     if "left" in emb:
         return "left"
     if "right" in emb:
