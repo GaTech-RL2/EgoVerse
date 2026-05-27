@@ -32,7 +32,6 @@ class TableRow:
     lab: str
     task: str
     embodiment: str
-    robot_name: str
     num_frames: int = -1  # Updateable
     task_description: str = ""
     scene: str = ""

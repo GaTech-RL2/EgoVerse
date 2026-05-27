@@ -137,13 +137,13 @@ def _normalize_filter_row(
     if _is_missing_filter_value(normalized.get("is_deleted")):
         normalized["is_deleted"] = False
 
-    robot_name = _first_present(
-        normalized.get("robot_name"),
+    embodiment = _first_present(
+        normalized.get("embodiment"),
         normalized.get("robot_type"),
         normalized.get("embodiment"),
     )
-    if robot_name is not None:
-        normalized["robot_name"] = robot_name
+    if embodiment is not None:
+        normalized["embodiment"] = embodiment
 
     return normalized
 
