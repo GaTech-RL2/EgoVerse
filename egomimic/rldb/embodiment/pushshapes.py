@@ -39,24 +39,18 @@ _TRAJ_DOT_EVERY = 2  # draw a dot at every Nth trajectory point
 
 
 def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
-    """Return the key_map for pushshapes_sim ZarrDataset.
+    """HNet-style keymap for pushshapes_sim: per-frame obs windows.
 
-    Args:
-        action_horizon: number of future actions returned per sample. Must
-            match the model's ``trunk.action_horizon`` / head ``act_seq``.
-            Wire it from the data config (see
-            ``egomimic/hydra_configs/data/tsimulation.yaml``) so there's one
-            source of truth shared with the model config.
+    Obs keys carry ``horizon=action_horizon`` so the dataloader returns
+    ``(T, ...)`` per-frame windows — required for HNet's AdaLN per-token
+    cond (one ``obs_t`` per action token).
 
-    Extra kwargs (e.g. ``norm_mode=True`` injected by trainHydra) are accepted
-    and ignored so that norm-stat collection doesn't crash by passing
-    sentinel keys through to the inner key_map iteration.
+    For HPT, which only consumes ``obs_t=0`` and would otherwise pay 32× the
+    JPEG-decode cost, use ``get_keymap_hpt`` instead.
+
+    Extra kwargs (e.g. ``norm_mode=True`` injected by trainHydra) are
+    accepted and ignored so norm-stat collection doesn't crash.
     """
-    # Per-frame obs (obs_t aligned with action_t): give the obs keys the same
-    # horizon as actions so the dataloader returns (T, ...) windows rather than
-    # a single broadcast frame. CondEncoderModule.encode then skips its
-    # unsqueeze-and-expand branch (kicks in only when x.dim()==2 for state /
-    # ==4 for images), and AdaLN sees a true per-token cond.
     return {
         "front_img_1": {
             "key_type": "camera_keys",
@@ -67,6 +61,35 @@ def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
             "key_type": "proprio_keys",
             "zarr_key": "observations.state",
             "horizon": int(action_horizon),
+        },
+        "actions": {
+            "key_type": "action_keys",
+            "zarr_key": "actions",
+            "horizon": int(action_horizon),
+        },
+    }
+
+
+def get_keymap_hpt(action_horizon: int = 32, **kwargs) -> dict:
+    """HPT-style keymap for pushshapes_sim: single-frame obs.
+
+    Obs keys carry no horizon, so the dataloader returns one frame of
+    ``front_img_1`` + ``state_agent_obj`` per sample alongside an
+    ``action_horizon``-long action chunk. Matches HPT's contract
+    ("predict the next ``action_horizon`` actions given current obs") and
+    avoids 32× the JPEG-decode work that the windowed HNet keymap incurs.
+
+    Extra kwargs (e.g. ``norm_mode=True`` injected by trainHydra) are
+    accepted and ignored.
+    """
+    return {
+        "front_img_1": {
+            "key_type": "camera_keys",
+            "zarr_key": "observations.images.front_img_1",
+        },
+        "state_agent_obj": {
+            "key_type": "proprio_keys",
+            "zarr_key": "observations.state",
         },
         "actions": {
             "key_type": "action_keys",

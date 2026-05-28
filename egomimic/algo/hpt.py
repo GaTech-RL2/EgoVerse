@@ -1069,13 +1069,17 @@ class HPT(Algo):
                 "data": data,
             }
 
-            # BC val loss — same call as forward_training.
+            # BC val loss — same call as forward_training. Clone the batch
+            # because stem_process overwrites data[modality] with the encoder
+            # output in place, and the forward() call below needs the original
+            # (image) data still intact.
+            loss_batch = self._clone_batch(hpt_batch)
             if self.freeze_repr:
                 val_loss = self.nets["policy"].compute_loss_depth(
-                    hpt_batch, depth=self.freeze_depth
+                    loss_batch, depth=self.freeze_depth
                 )
             else:
-                val_loss = self.nets["policy"].compute_loss(hpt_batch)
+                val_loss = self.nets["policy"].compute_loss(loss_batch)
             unnorm_preds[f"{embodiment_name}_loss"] = val_loss
 
             actions = self.nets["policy"].forward(
@@ -1209,12 +1213,22 @@ class HPT(Algo):
             robo_batch = dict(obs_norm)
             # Sanity: zeroes are fine — HPT only uses ``batch[ac_key]``
             # for the train-time loss target, never for inference shape.
-            action_dim = (
-                policy_module.heads[embodiment_name].infer_ac_dims[embodiment_name]
-                if hasattr(policy_module, "heads")
+            # Resolve action_dim from the head. FMPolicy stores it in
+            # ``infer_ac_dims``; simpler heads (MLPPolicyHead,
+            # MultiBlockTransformerDecoder) expose ``output_dim``. Fall back
+            # to 2 (pushshapes default) if neither is set.
+            head = None
+            if (
+                hasattr(policy_module, "heads")
                 and embodiment_name in policy_module.heads
-                else 2  # pushshapes default
-            )
+            ):
+                head = policy_module.heads[embodiment_name]
+            if head is not None and hasattr(head, "infer_ac_dims"):
+                action_dim = head.infer_ac_dims[embodiment_name]
+            elif head is not None and hasattr(head, "output_dim"):
+                action_dim = int(head.output_dim)
+            else:
+                action_dim = 2  # pushshapes default
             robo_batch[ac_key] = torch.zeros(
                 B,
                 chunk_size,
@@ -1264,11 +1278,16 @@ class HPT(Algo):
 
         for key in proprio_keys:
             if key in batch:
-                data[f"state_{key}"] = batch[key].unsqueeze(1)
+                v = batch[key]
+                if v.dim() == 3:        # (B, T, D) windowed keymap; HPT uses obs_t=0
+                    v = v[:, 0]
+                data[f"state_{key}"] = v.unsqueeze(1)
 
         for key in cam_keys:
             if key in batch:
                 _data = batch[key]
+                if _data.dim() == 5:    # (B, T, C, H, W) windowed keymap; HPT uses obs_t=0
+                    _data = _data[:, 0]
                 if not torch.all(_data == 0):
                     if self.nets.training and key in self.encoders:
                         _data = self.train_image_augs(_data)

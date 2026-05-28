@@ -185,6 +185,11 @@ class SimRolloutEval(EvalVideo):
 
             if terminated:
                 break
+            # Early-exit on success: once coverage crosses the threshold,
+            # the rollout has "succeeded" and the rest of the steps would
+            # just be the model nudging things around. Save what we have.
+            if last_coverage >= self.coverage_threshold:
+                break
 
         return last_coverage, frames, actions_taken
 
@@ -237,6 +242,102 @@ class SimRolloutEval(EvalVideo):
             success_rate = float(np.mean(ep_successes)) if ep_successes else 0.0
             metrics[f"Valid/emb{emb_id}_sim_coverage"] = torch.tensor(mean_cov, device=device)
             metrics[f"Valid/emb{emb_id}_sim_success_rate"] = torch.tensor(success_rate, device=device)
+
+            if ep_frames_for_video:
+                images_dict[emb_id] = np.stack(ep_frames_for_video, axis=0)
+
+        return metrics, images_dict
+
+
+class HPTSimRolloutEval(SimRolloutEval):
+    """Closed-loop sim rollout eval for HPT models trained with the
+    *per-frame* dataloader (``tsimulation_hpt.yaml``).
+
+    ``SimRolloutEval`` (the parent) was built for packed batches: it uses
+    ``cu_seqlens`` / ``seq_lens`` to slice each batch into full episodes,
+    then rolls each episode out. HPT's per-frame data path doesn't produce
+    those keys — each sample is just one frame from a random episode.
+
+    Override ``compute_metrics_and_viz`` to handle the non-packed case:
+    take the first ``n_rollouts_per_batch`` samples of each val batch and
+    use each one's ``state_agent_obj`` (frame-0 state) as the init state
+    for an independent ``max_steps``-long rollout in PushShapesEnv. The
+    inner ``_rollout_one`` is inherited unchanged — same env step loop,
+    same ``algo.sim_predict_step`` calls, same metrics.
+    """
+
+    def __init__(
+        self,
+        n_rollouts_per_batch: int = 2,
+        max_steps: int | None = 200,
+        **kwargs,
+    ):
+        super().__init__(max_steps=max_steps, **kwargs)
+        self.n_rollouts_per_batch = int(n_rollouts_per_batch)
+
+    def compute_metrics_and_viz(
+        self, batch: Dict[int, Dict[str, Any]]
+    ) -> Tuple[Dict[str, torch.Tensor], Dict[int, np.ndarray]]:
+        metrics: Dict[str, torch.Tensor] = {}
+        images_dict: Dict[int, np.ndarray] = {}
+        device = self.trainer.lightning_module.device
+
+        for emb_id, _batch in batch.items():
+            # Packed batches: let the parent handle them.
+            if _batch.get("_packed", False):
+                continue
+
+            state_seq = _batch.get("state_agent_obj")
+            if state_seq is None or not torch.is_tensor(state_seq):
+                continue
+            B = int(state_seq.shape[0])
+            N = min(B, self.n_rollouts_per_batch)
+            if N == 0:
+                continue
+            if self.max_steps is None:
+                raise ValueError(
+                    "HPTSimRolloutEval needs max_steps set — per-frame batches "
+                    "carry no recorded episode length to fall back on."
+                )
+
+            ep_coverages: list[float] = []
+            ep_successes: list[float] = []
+            ep_frames_for_video: list[np.ndarray] = []
+
+            for b in range(N):
+                # Slice one sample, preserve the leading batch dim so the
+                # inherited _init_env can do `state_seq[0]` and get a (5,)
+                # frame vector.
+                sample: dict = {}
+                for k, v in _batch.items():
+                    if torch.is_tensor(v) and v.dim() >= 1 and v.shape[0] == B:
+                        sample[k] = v[b : b + 1]
+
+                coverage, frames, _ = self._rollout_one(
+                    sample,
+                    seq_len=self.max_steps,
+                    emb_id=emb_id,
+                    ep_idx=b,
+                )
+                ep_coverages.append(coverage)
+                ep_successes.append(float(coverage >= self.coverage_threshold))
+                if frames:
+                    ep_frames_for_video.extend(frames)
+                    if b < N - 1:
+                        H, W, _ = frames[0].shape
+                        sep = np.zeros((5, H, W, 3), dtype=np.uint8)
+                        ep_frames_for_video.extend(list(sep))
+
+            mean_cov = float(np.mean(ep_coverages)) if ep_coverages else 0.0
+            success_rate = (
+                float(np.mean(ep_successes)) if ep_successes else 0.0
+            )
+            metrics[f"Valid/emb{emb_id}_sim_coverage"] = torch.tensor(
+                mean_cov, device=device
+            )
+            metrics[f"Valid/emb{emb_id}_sim_success_rate"] = torch.tensor(
+                success_rate, device=device
+            )
 
             if ep_frames_for_video:
                 images_dict[emb_id] = np.stack(ep_frames_for_video, axis=0)

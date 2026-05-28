@@ -1,0 +1,33 @@
+# Closed-loop sim rollout evaluator for HPT on pushshapes_sim.
+#
+# Unlike eval_hpt.yaml (HPTEvalVideo: trajectory-overlay-on-real-obs viz)
+# and eval_hpt_standard.yaml (SimRolloutEval: requires packed batches,
+# silently no-ops on HPT's per-frame data), this evaluator drives the
+# PushShapesEnv simulator with model predictions in closed loop:
+#
+#   1. Reset env, set_state to a val-batch sample's frame-0 (pusher + object)
+#   2. For each of max_steps:
+#        obs = env._get_obs()  →  model.sim_predict_step(obs, t)  →
+#        action = norm_stats.unnormalize(pred)  →  env.step(action)
+#        env.render() → frame
+#   3. Save the concatenated frames as a validation .mp4 in videos/epoch_N/
+#
+# Per-batch we run ``n_rollouts_per_batch`` independent rollouts (each
+# seeded from a different sample in the batch).
+
+_target_: egomimic.eval.eval_sim.HPTSimRolloutEval
+limit_val_batches: 1            # one val batch ↔ n_rollouts_per_batch rollouts
+n_rollouts_per_batch: 2
+# Hard cap on rollout length. The rollout actually exits as soon as
+# coverage crosses ``coverage_threshold`` (success); this cap is just the
+# upper bound for the case where the model can't reach it.
+max_steps: 500
+embodiment_name: pushshapes_sim
+init_mode: replay               # uses state_agent_obj from the sample
+coverage_threshold: 0.7
+video_fps: 30
+env_kwargs:
+  object_shape: T
+  pusher_shape: circle
+  obstacle_level: 0
+  image_size: 96
