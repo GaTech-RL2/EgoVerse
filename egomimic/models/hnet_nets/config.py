@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Union, Any
+from typing import Any, List, Union
 
 
 @dataclass
@@ -7,11 +7,18 @@ class AttnConfig:
     num_heads: List[int] = field(default_factory=list)
     rotary_emb_dim: List[int] = field(default_factory=list)
     window_size: List[int] = field(default_factory=list)
+    # Per-stage dropout knobs. ``dropout`` is the attention-softmax dropout
+    # (applied inside MHA's SDPA / flash_attn call). ``resid_dropout`` is
+    # the residual-branch dropout applied to attn/ffn outputs before the
+    # residual add in each TransformerBlock.
+    dropout: List[float] = field(default_factory=list)
+    resid_dropout: List[float] = field(default_factory=list)
 
 
 @dataclass
 class SSMConfig:
     """Per-stage Mamba2 kwargs. Each list is indexed by stage_idx."""
+
     d_conv: List[int] = field(default_factory=list)
     expand: List[int] = field(default_factory=list)
     d_state: List[int] = field(default_factory=list)

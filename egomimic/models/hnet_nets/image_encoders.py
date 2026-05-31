@@ -18,6 +18,7 @@ Shape contract: accept any tensor of shape `(..., C, H, W)` and return
 unflattened on output — so `(B, T, C, H, W) -> (B, T, embed_dim)` works
 out of the box.
 """
+
 from typing import Sequence
 
 import torch
@@ -47,7 +48,9 @@ class SimpleConv(nn.Module):
         c = in_channels
         for c_out in channels:
             layers += [
-                nn.Conv2d(c, c_out, kernel_size, stride=stride, padding=kernel_size // 2),
+                nn.Conv2d(
+                    c, c_out, kernel_size, stride=stride, padding=kernel_size // 2
+                ),
                 nn.GroupNorm(min(norm_groups, c_out), c_out),
                 nn.GELU(),
             ]
@@ -61,6 +64,6 @@ class SimpleConv(nn.Module):
         # x: (..., C, H, W) -> (..., embed_dim)
         leading = x.shape[:-3]
         x = x.reshape(-1, *x.shape[-3:])
-        feat = self.conv(x).flatten(1)         # (N, C_last)
-        feat = self.head(feat)                 # (N, embed_dim)
+        feat = self.conv(x).flatten(1)  # (N, C_last)
+        feat = self.head(feat)  # (N, embed_dim)
         return feat.reshape(*leading, self.embed_dim)
