@@ -993,6 +993,26 @@ class HPT(Algo):
         processed_batch = {}
         for embodiment_name, _batch in batch.items():
             embodiment_id = get_embodiment_id(embodiment_name)
+            # Packed eval batches (SimRolloutEval) carry cu_seqlens + flat
+            # (T_total, ...) per-frame streams. The per-frame train path below
+            # asserts a (B, S, D) action shape and would crash; pass packed
+            # batches through instead (remap embodiment, keep bookkeeping, cast
+            # floats to model dtype, flag _packed so the evaluator picks it up).
+            if "cu_seqlens" in _batch:
+                _dtype = next(self.nets.parameters()).dtype
+                pb = {}
+                for key, value in _batch.items():
+                    if isinstance(value, torch.Tensor):
+                        value = value.to(self.device)
+                        if value.is_floating_point():
+                            value = value.to(_dtype)
+                    pb[key] = value
+                pb["_packed"] = True
+                pb["embodiment"] = torch.tensor(
+                    [embodiment_id], device=self.device, dtype=torch.int64
+                )
+                processed_batch[embodiment_id] = pb
+                continue
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
                 key_name = self.norm_stats.zarr_key_to_keyname(key, embodiment_id)
@@ -1259,6 +1279,7 @@ class HPT(Algo):
                 policy_module.heads[embodiment_name].infer_ac_dims[embodiment_name]
                 if hasattr(policy_module, "heads")
                 and embodiment_name in policy_module.heads
+                and hasattr(policy_module.heads[embodiment_name], "infer_ac_dims")
                 else 2  # pushshapes default
             )
             robo_batch[ac_key] = torch.zeros(
