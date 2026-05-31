@@ -54,3 +54,13 @@ curation_results/**
 
 # One-off plot artifacts.
 /variant_comparison.png
+external_ckpts/
+_hnet_migration_bak/
+*.bak
+*.bak_*
+.micromamba
+cuda-12.4/
+__pycache__/
+sim_smoke_out/
+*.materialized
+*.bak[0-9]*
