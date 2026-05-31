@@ -174,6 +174,9 @@ class DiTAttention(nn.Module):
         self.k_norm = nn.LayerNorm(self.head_dim) if qk_norm else nn.Identity()
         self.proj = nn.Linear(dim, dim)
         self.rope = rope
+        # Attention-dropout rate; settable per-batch by RandomAttnDropoutScheduler
+        # (the proven cond-OOD regularizer). Read fresh each forward.
+        self.dropout = 0.0
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, N, C = x.shape
@@ -183,7 +186,9 @@ class DiTAttention(nn.Module):
         if self.rope is not None:
             q = self.rope(q)
             k = self.rope(k)
-        x = F.scaled_dot_product_attention(q, k, v)
+        x = F.scaled_dot_product_attention(
+            q, k, v, dropout_p=(self.dropout if self.training else 0.0)
+        )
         x = x.transpose(1, 2).reshape(B, N, C)
         x = self.proj(x)
         return x
@@ -430,6 +435,7 @@ class DFoTDiT3DBackbone(nn.Module):
         max_seqlen: Optional[int] = None,
         force_uncond: bool = False,
         action: Optional[torch.Tensor] = None,
+        action_noise_levels: Optional[torch.Tensor] = None,
     ):
         """Returns ``v_image`` (B, T, C, H, W), or the tuple
         ``(v_image, v_action)`` when ``action_token_dim > 0`` and a noisy
@@ -478,7 +484,19 @@ class DFoTDiT3DBackbone(nn.Module):
                 + self.action_type_embed
             )
             tokens = torch.cat([tokens, act_tok], dim=1)        # (B, T*P + T, d)
-            cond = torch.cat([img_cond, frame_cond], dim=1)     # (B, T*P + T, d_cond)
+            # Action tokens may carry their OWN noise level (decoupled action
+            # noise -> cut-action-input fix). When given, build a separate
+            # per-frame cond from action_noise_levels for the action tokens so
+            # the model conditions the action prediction on its own (high) noise
+            # + the state, never on a clean past action.
+            if action_noise_levels is not None:
+                act_frame_cond = self._build_cond(
+                    action_noise_levels, external_cond,
+                    is_packed=False, B=B, T=T, force_uncond=force_uncond,
+                )
+            else:
+                act_frame_cond = frame_cond
+            cond = torch.cat([img_cond, act_frame_cond], dim=1)  # (B, T*P + T, d_cond)
             self._rope._n_grid_tokens = T * P
         else:
             cond = img_cond

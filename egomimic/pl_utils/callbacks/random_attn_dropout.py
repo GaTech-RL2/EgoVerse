@@ -45,6 +45,10 @@ class RandomAttnDropoutScheduler(pl.Callback):
         # uniform across the trunk so the model can't route around it.
         rate = self._rng.choices(self.dropout_values, weights=self.weights, k=1)[0]
         for m in pl_module.modules():
-            if isinstance(m, MultiHeadAttention) and hasattr(m, "dropout"):
+            # H-Net MultiHeadAttention + DFoT DiT3D DiTAttention (matched by
+            # class name to avoid a circular import). Both expose a settable
+            # ``dropout`` their forward reads each call.
+            if (isinstance(m, MultiHeadAttention)
+                    or type(m).__name__ == "DiTAttention") and hasattr(m, "dropout"):
                 m.dropout = float(rate)
         pl_module.log(self.log_key, float(rate), on_step=True, on_epoch=False, prog_bar=False)

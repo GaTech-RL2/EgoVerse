@@ -24,9 +24,14 @@ from egomimic.algo.dfot.image_spatial_outer_stage import ImageSpatialDFoTOuterSt
 
 
 class SpatialObsActionPolicyDFoTOuterStage(ImageSpatialDFoTOuterStage):
-    def __init__(self, *args, action_loss_weight: float = 1.0, **kwargs):
+    def __init__(self, *args, action_loss_weight: float = 1.0,
+                 decouple_action_noise: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_loss_weight = float(action_loss_weight)
+        # When True, the action token carries an INDEPENDENT per-frame noise
+        # level (never reliably clean) so the model must predict a_t from obs
+        # and cannot copy a_{t-1}. Cut-action-input fix for closed-loop rollout.
+        self.decouple_action_noise = bool(decouple_action_noise)
 
         # State-only conditioning MLP. The parent's ``state_action_proj`` mixes
         # the action into the cond, but here the action is a TARGET, so we
@@ -66,7 +71,11 @@ class SpatialObsActionPolicyDFoTOuterStage(ImageSpatialDFoTOuterStage):
             t = self._sample_noise_levels((latent.shape[0], latent.shape[1]), latent.device)
 
         ctx.q_state = self._qstate(latent, t)
-        ctx.q_action = self._qstate(action, t)   # same per-frame noise level
+        if self.decouple_action_noise:
+            t_a = self._sample_noise_levels(tuple(t.shape), latent.device)
+        else:
+            t_a = t                              # legacy: shared per-frame level
+        ctx.q_action = self._qstate(action, t_a)
         ctx.external_cond = state_cond
         return ctx.q_state["x_t"], ctx.q_action["x_t"]
 
@@ -92,6 +101,9 @@ class SpatialObsActionPolicyDFoTOuterStage(ImageSpatialDFoTOuterStage):
             v_latent, v_action = self.inner_stage(
                 x_t_latent, time_cond,
                 external_cond=ctx.external_cond, action=x_t_action,
+                action_noise_levels=(
+                    ctx.q_action["time_cond"] if self.decouple_action_noise else None
+                ),
             )
         else:
             # DiT3D has no packed mode -> run each episode as a batch-of-1.
@@ -105,6 +117,10 @@ class SpatialObsActionPolicyDFoTOuterStage(ImageSpatialDFoTOuterStage):
                     time_cond[s:e].unsqueeze(0),
                     external_cond=ctx.external_cond[s:e].unsqueeze(0),
                     action=x_t_action[s:e].unsqueeze(0),
+                    action_noise_levels=(
+                        ctx.q_action["time_cond"][s:e].unsqueeze(0)
+                        if self.decouple_action_noise else None
+                    ),
                 )
                 vlat.append(vl.squeeze(0))
                 vact.append(va.squeeze(0))

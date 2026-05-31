@@ -133,9 +133,10 @@ class DFoT(Algo):
         self.sampler = sampler
         self.sampler_n_steps = int(sampler_n_steps)
         self.sampler_eta = float(sampler_eta)
-        if inference_mode not in {"ar", "chunk", "spatial_rh"}:
+        if inference_mode not in {"ar", "chunk", "spatial_rh", "spatial_decoupled"}:
             raise ValueError(
-                f"inference_mode must be 'ar', 'chunk', or 'spatial_rh', got {inference_mode!r}"
+                f"inference_mode must be 'ar', 'chunk', 'spatial_rh', or "
+                f"'spatial_decoupled', got {inference_mode!r}"
             )
         self.inference_mode = inference_mode
         self.ar_inference_chunk_size = int(ar_inference_chunk_size)
@@ -476,6 +477,8 @@ class DFoT(Algo):
             return self._inference_step_chunk(obs_zarr, t, emb_id)
         if self.inference_mode == "spatial_rh":
             return self._inference_step_spatial_rh(obs_zarr, t, emb_id)
+        if self.inference_mode == "spatial_decoupled":
+            return self._inference_step_spatial_decoupled(obs_zarr, t, emb_id)
         raise ValueError(f"unknown inference_mode {self.inference_mode!r}")
 
     def _ar_state_init(self, device, external_cond):
@@ -790,3 +793,76 @@ class DFoT(Algo):
         for row in unnorm_np[1:]:
             self._sp_queue.append(row.reshape(-1).astype(np.float32))
         return unnorm_np[0].reshape(-1).astype(np.float32)
+
+    @torch.no_grad()
+    def _inference_step_spatial_decoupled(
+        self, obs_zarr: dict, t: int, emb_id: int
+    ) -> "np.ndarray":
+        """Closed-loop controller for the DECOUPLED-action policy
+        (``decouple_action_noise=True``). The action token has its own noise
+        level, so we CAN pin the real current image clean while predicting its
+        action -> reactive, and the action is never a clean input (no copy).
+
+        Each tick: pin the last ``n_context`` OBSERVED latents clean (incl. the
+        current frame), keep ALL action tokens noised, denoise the action stream
+        on its own schedule conditioned on the clean obs + state, and commit the
+        action predicted at the current (last) frame. Causal: no future frames.
+        """
+        from egomimic.algo.dfot.sampling import vanilla_schedule
+
+        outer = self.outer_stage
+        diff = self.diffusion
+        device = next(self.backbone.parameters()).device
+        embodiment_name = get_embodiment(emb_id).lower()
+        ac_key = self.ac_keys[embodiment_name]
+        n_ctx = int(self.sp_n_context)
+        n_steps = int(self.sampler_n_steps)
+
+        if t == 0 or not hasattr(self, "_sd_lat"):
+            self._sd_lat = []      # observed clean latents, each (1, C, H, W)
+            self._sd_state = []    # observed states, each (1, sd) normalized
+
+        obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
+        state = torch.cat(
+            [obs_norm[kk] for kk in outer.bundle_obs_keys], dim=-1
+        ).float().to(device)
+        img = obs_zarr[outer.image_key].float().to(device)
+        if img.max() > 1.5:
+            img = img / 255.0
+        mu, _ = outer.vae.encode(img)
+        self._sd_lat.append(outer.normalize_latent(mu))
+        self._sd_state.append(state)
+
+        C, H, W = outer.bundle_shape
+        A = outer._action_dim
+        L = len(self._sd_lat)
+        idx = [max(0, L - n_ctx + i) for i in range(n_ctx)]   # current frame is last
+        T = n_ctx
+        latent_ctx = torch.cat([self._sd_lat[i] for i in idx], dim=0).unsqueeze(0)   # (1,T,C,H,W) CLEAN
+        cond = outer.state_only_proj(
+            torch.cat([self._sd_state[i] for i in idx], dim=0)
+        ).unsqueeze(0)                                                                # (1,T,proj)
+
+        dts = int(diff.timesteps) if isinstance(diff, DiscreteDiffusion) else None
+        clean = -1 if dts is not None else 0.0
+        # obs given clean for all frames; action denoised on its own schedule.
+        obs_levels = torch.full(
+            (1, T), clean, device=device,
+            dtype=torch.long if dts is not None else torch.float32,
+        )
+        act_sched = vanilla_schedule(n_steps, T, discrete_timesteps=dts).to(device)
+
+        x_lat = latent_ctx                                   # clean obs, never stepped
+        x_act = torch.randn(1, T, A, device=device)
+        for s in range(act_sched.shape[0] - 1):
+            _, v_act = self.backbone(
+                x_lat, obs_levels, external_cond=cond, action=x_act,
+                action_noise_levels=act_sched[s].unsqueeze(0),
+            )
+            x_act = self._struct_ddim_step(diff, x_act, v_act, act_sched[s], act_sched[s + 1])
+
+        pred_norm = x_act[0, -1]                             # action at the current frame
+        unnorm = self.norm_stats.unnormalize(
+            {ac_key: pred_norm.unsqueeze(0)}, emb_id
+        )[ac_key]
+        return unnorm.squeeze(0).detach().cpu().numpy().reshape(-1).astype(np.float32)
