@@ -236,10 +236,34 @@ def ratio_loss_from_aux(aux: List[dict], device=None) -> torch.Tensor:
         w = float(entry["weight"])
         bm = bpred.boundary_mask.float()
         bp = bpred.boundary_prob[..., -1]
-        # We treat all positions as valid (no padding mask).
-        denom = max(bm.numel(), 1)
-        F_ = bm.sum() / denom
-        G_ = bp.sum() / denom
+        # F4 (upstream parity): exclude positions where ``boundary_prob`` was
+        # *forced* to 1.0 by the routing module. Padded mode: position 0 of
+        # each row (the leading ``F.pad(..., 1.0)``). Packed mode:
+        # ``cu_seqlens[:-1]`` (every subseq start). These are synthetic
+        # boundaries, not learned predictions — counting them in F (fraction
+        # selected) and G (mean boundary probability) inflates both toward
+        # 1.0 and pulls the ratio loss away from its real target.
+        cu = entry.get("cu_seqlens", None)
+        if cu is not None:
+            # Packed: bm/bp are (T_total,). Mask out subseq-start indices.
+            valid = torch.ones_like(bm, dtype=torch.bool)
+            valid[cu[:-1]] = False
+            denom = max(int(valid.sum().item()), 1)
+            vf = valid.to(bm.dtype)
+            F_ = (bm * vf).sum() / denom
+            G_ = (bp * vf).sum() / denom
+        else:
+            valid = entry.get("valid_mask_padded", None)
+            if valid is not None:
+                vf = valid.to(bm.dtype)
+                denom = max(int(valid.sum().item()), 1)
+                F_ = (bm * vf).sum() / denom
+                G_ = (bp * vf).sum() / denom
+            else:
+                # Legacy / no mask info — preserve old behaviour.
+                denom = max(bm.numel(), 1)
+                F_ = bm.sum() / denom
+                G_ = bp.sum() / denom
         loss_i = w * (N / (N - 1)) * ((N - 1) * F_ * G_ + (1 - F_) * (1 - G_))
         losses.append(loss_i)
     return torch.stack(losses).sum()

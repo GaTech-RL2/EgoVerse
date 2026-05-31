@@ -132,8 +132,90 @@ def _adaln(x, scale, shift):
     return x * (1 + scale) + shift
 
 
+def _rotate_half(x: torch.Tensor) -> torch.Tensor:
+    x1, x2 = x.chunk(2, dim=-1)
+    return torch.cat((-x2, x1), dim=-1)
+
+
+def _apply_rotary(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+    """Apply RoPE to the leading ``rotary_dim`` channels of ``x``.
+
+    Mirrors ``flash_attn.layers.rotary.apply_rotary_emb_torch`` (non-interleaved,
+    i.e. GPT-NeoX style — rotate first/second halves). Works on any leading
+    shape; the last dim of ``x`` is ``head_dim``, and ``cos/sin`` are
+    broadcastable along all dims except the rotary-channel axis.
+
+    x:        (..., head_dim)
+    cos, sin: (..., rotary_dim / 2)  with positions aligned to x's positional
+              axis (caller is responsible for shaping so they broadcast).
+    """
+    rotary_dim = cos.shape[-1] * 2
+    assert rotary_dim <= x.shape[-1]
+    x_rot = x[..., :rotary_dim]
+    x_pass = x[..., rotary_dim:]
+    # Stack cos/sin into the rotary-channel layout: (..., rotary_dim).
+    cos_full = torch.cat([cos, cos], dim=-1).to(x.dtype)
+    sin_full = torch.cat([sin, sin], dim=-1).to(x.dtype)
+    out_rot = x_rot * cos_full + _rotate_half(x_rot) * sin_full
+    return torch.cat([out_rot, x_pass], dim=-1) if x_pass.numel() > 0 else out_rot
+
+
+class _RotaryCache(nn.Module):
+    """Cached cos/sin tables for RoPE.
+
+    Holds a cache sized to the largest seqlen seen so far. ``get(positions)``
+    returns ``(cos, sin)`` indexed by an arbitrary 1D position tensor —
+    crucial for packed mode where positions are per-subseq, not contiguous.
+    """
+
+    def __init__(self, dim: int, base: float = 10000.0):
+        super().__init__()
+        assert dim % 2 == 0, "rotary_emb_dim must be even"
+        self.dim = dim
+        self.base = float(base)
+        inv_freq = 1.0 / (
+            self.base ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim)
+        )
+        # Buffer so it follows .to(device); not persistent (no state_dict bloat).
+        self.register_buffer("inv_freq", inv_freq, persistent=False)
+        self._seq_len_cached = 0
+        self._cos_cached: Optional[torch.Tensor] = None
+        self._sin_cached: Optional[torch.Tensor] = None
+        # ``_no_reinit`` keeps the residual-stream init from touching the
+        # frozen freq table even though it isn't a Linear weight.
+        self.inv_freq._no_reinit = True
+
+    def _maybe_resize(self, seqlen: int, device, dtype):
+        if (
+            self._cos_cached is None
+            or seqlen > self._seq_len_cached
+            or self._cos_cached.device != device
+            or self._cos_cached.dtype != dtype
+        ):
+            t = torch.arange(seqlen, device=device, dtype=torch.float32)
+            inv = self.inv_freq.to(device=device, dtype=torch.float32)
+            freqs = torch.outer(t, inv)  # (seqlen, dim/2)
+            self._cos_cached = freqs.cos().to(dtype)
+            self._sin_cached = freqs.sin().to(dtype)
+            self._seq_len_cached = seqlen
+
+    def get(self, positions: torch.Tensor, dtype: torch.dtype):
+        """positions: (N,) long. Returns (cos, sin) each (N, dim/2)."""
+        max_pos = int(positions.max().item()) + 1 if positions.numel() > 0 else 1
+        self._maybe_resize(max_pos, positions.device, dtype)
+        return self._cos_cached[positions], self._sin_cached[positions]
+
+
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, num_heads, causal=False, dropout=0.0):
+    def __init__(
+        self,
+        d_model,
+        num_heads,
+        causal=False,
+        dropout=0.0,
+        rotary_emb_dim: int = 0,
+        rotary_emb_base: float = 10000.0,
+    ):
         super().__init__()
         assert d_model % num_heads == 0
         self.d_model = d_model
@@ -143,6 +225,18 @@ class MultiHeadAttention(nn.Module):
         self.qkv = nn.Linear(d_model, 3 * d_model, bias=True)
         self.out_proj = nn.Linear(d_model, d_model, bias=True)
         self.dropout = dropout
+        # RoPE (F6): when > 0, rotate the leading ``rotary_emb_dim`` channels
+        # of q/k before attention. ``rotary_emb_dim <= head_dim``. Mirrors
+        # upstream ``goombalab/hnet/hnet/modules/mha.py:CausalMHA``.
+        self.rotary_emb_dim = int(rotary_emb_dim)
+        assert self.rotary_emb_dim <= self.head_dim, (
+            f"rotary_emb_dim ({self.rotary_emb_dim}) must be <= head_dim "
+            f"({self.head_dim})"
+        )
+        if self.rotary_emb_dim > 0:
+            self.rotary_emb = _RotaryCache(self.rotary_emb_dim, base=rotary_emb_base)
+        else:
+            self.rotary_emb = None
 
     def forward(
         self,
@@ -165,6 +259,15 @@ class MultiHeadAttention(nn.Module):
         B, L, D = x.shape
         qkv = self.qkv(x).reshape(B, L, 3, self.num_heads, self.head_dim)
         q, k, v = qkv.unbind(dim=2)
+        # RoPE on q/k (F6). Positions are 0..L-1, broadcast over batch + heads.
+        if self.rotary_emb is not None:
+            positions = torch.arange(L, device=x.device)
+            cos, sin = self.rotary_emb.get(positions, q.dtype)  # (L, dim/2)
+            # Broadcast shape: (1, L, 1, dim/2) to match (B, L, H, head_dim).
+            cos = cos[None, :, None, :]
+            sin = sin[None, :, None, :]
+            q = _apply_rotary(q, cos, sin)
+            k = _apply_rotary(k, cos, sin)
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
@@ -174,14 +277,20 @@ class MultiHeadAttention(nn.Module):
             attn_mask = mask[:, None, None, :].to(dtype=torch.bool)
             attn_mask = attn_mask & attn_mask.transpose(-1, -2)
 
-        out = F.scaled_dot_product_attention(
-            q,
-            k,
-            v,
-            attn_mask=attn_mask,
-            dropout_p=self.dropout if self.training else 0.0,
-            is_causal=self.causal,
-        )
+        _W = getattr(self, "window", 0)
+        if _W > 0 and self.causal:
+            _p = torch.arange(q.shape[2], device=q.device)
+            _wm = ((_p[:, None] >= _p[None, :]) & (_p[:, None] - _p[None, :] < _W))[None, None]
+            attn_mask = _wm if attn_mask is None else (attn_mask & _wm)
+            out = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=attn_mask,
+                dropout_p=self.dropout if self.training else 0.0, is_causal=False,
+            )
+        else:
+            out = F.scaled_dot_product_attention(
+                q, k, v, attn_mask=attn_mask,
+                dropout_p=self.dropout if self.training else 0.0, is_causal=self.causal,
+            )
         out = out.transpose(1, 2).reshape(B, L, D)
         return self.out_proj(out)
 
@@ -190,6 +299,22 @@ class MultiHeadAttention(nn.Module):
         T_total, D = x.shape
         qkv = self.qkv(x).reshape(T_total, 3, self.num_heads, self.head_dim)
         q, k, v = qkv.unbind(dim=1)  # each (T_total, H, Dh)
+
+        # RoPE on q/k in packed mode (F6). Positions are PER-SUBSEQ: token t
+        # at global index i belongs to subseq s with start cu_seqlens[s], so
+        # its rotary position is ``i - cu_seqlens[s]``. This avoids the
+        # cross-subseq position leakage that would happen with a single
+        # global arange.
+        if self.rotary_emb is not None:
+            pos_global = torch.arange(T_total, device=x.device)
+            seq_idx = (pos_global[:, None] >= cu_seqlens[None, 1:]).sum(dim=-1)
+            local_pos = pos_global - cu_seqlens[seq_idx]  # (T_total,)
+            cos, sin = self.rotary_emb.get(local_pos, q.dtype)  # (T_total, dim/2)
+            # Broadcast over heads: (T_total, 1, dim/2).
+            cos = cos[:, None, :]
+            sin = sin[:, None, :]
+            q = _apply_rotary(q, cos, sin)
+            k = _apply_rotary(k, cos, sin)
 
         # flash_attn_varlen_func ONLY supports fp16 / bf16. Under bf16
         # autocast (Lightning ``trainer.precision=bf16-mixed``) q/k/v
@@ -202,6 +327,7 @@ class MultiHeadAttention(nn.Module):
                 if max_seqlen is not None
                 else int((cu_seqlens[1:] - cu_seqlens[:-1]).max().item())
             )
+            _W = getattr(self, "window", 0)
             out = flash_attn_varlen_func(
                 q,
                 k,
@@ -212,6 +338,7 @@ class MultiHeadAttention(nn.Module):
                 max_seqlen_k=ms,
                 dropout_p=self.dropout if self.training else 0.0,
                 causal=self.causal,
+                window_size=((_W - 1, 0) if (_W > 0 and self.causal) else (-1, -1)),
             )
             # flash_attn returns (T_total, H, Dh)
             out = out.reshape(T_total, D)
@@ -228,6 +355,9 @@ class MultiHeadAttention(nn.Module):
         same_seq = seq_idx[:, None] == seq_idx[None, :]
         if self.causal:
             causal_mask = pos[:, None] >= pos[None, :]
+            _W = getattr(self, "window", 0)
+            if _W > 0:
+                causal_mask = causal_mask & (pos[:, None] - pos[None, :] < _W)
             attn_mask = (same_seq & causal_mask)[None, None]
         else:
             attn_mask = same_seq[None, None]
@@ -269,7 +399,18 @@ class MultiHeadAttention(nn.Module):
         # x: (B, 1, D). Per-batch K/V scatter + attn against valid prior slots.
         B, _, D = x.shape
         qkv = self.qkv(x).reshape(B, 1, 3, self.num_heads, self.head_dim)
-        q, k, v = qkv.unbind(dim=2)
+        q, k, v = qkv.unbind(dim=2)  # each (B, 1, H, head_dim)
+
+        # RoPE on q/k at the current AR position (F6). Each batch element may
+        # be at a different ``cache.offsets`` (variable-length rollouts), so
+        # we look up cos/sin per-row.
+        if self.rotary_emb is not None:
+            cos, sin = self.rotary_emb.get(cache.offsets, q.dtype)  # (B, dim/2)
+            cos = cos[:, None, None, :]  # (B, 1, 1, dim/2) -> broadcast over (1, H)
+            sin = sin[:, None, None, :]
+            q = _apply_rotary(q, cos, sin)
+            k = _apply_rotary(k, cos, sin)
+
         q = q.transpose(1, 2)
         k = k.transpose(1, 2)
         v = v.transpose(1, 2)
@@ -282,9 +423,15 @@ class MultiHeadAttention(nn.Module):
         max_T = cache.k.shape[2]
         pos = torch.arange(max_T, device=x.device)
         attn_mask = pos[None, :] < cache.offsets[:, None]
+        _W = getattr(self, "window", 0)
+        if _W > 0:
+            attn_mask = attn_mask & (pos[None, :] >= cache.offsets[:, None] - _W)
         attn_mask = attn_mask[:, None, None, :]
 
-        out = F.scaled_dot_product_attention(q, cache.k, cache.v, attn_mask=attn_mask)
+        # AR inference: never apply dropout regardless of training flag.
+        out = F.scaled_dot_product_attention(
+            q, cache.k, cache.v, attn_mask=attn_mask, dropout_p=0.0
+        )
         out = out.transpose(1, 2).reshape(B, 1, D)
         return self.out_proj(out)
 
@@ -351,6 +498,9 @@ class CrossMultiHeadAttention(nn.Module):
         same_seq = seq_idx[:, None] == seq_idx[None, :]
         if self.causal:
             causal_mask = pos[:, None] >= pos[None, :]
+            _W = getattr(self, "window", 0)
+            if _W > 0:
+                causal_mask = causal_mask & (pos[:, None] - pos[None, :] < _W)
             attn_mask = (same_seq & causal_mask)[None, None]
         else:
             attn_mask = same_seq[None, None]
@@ -446,6 +596,9 @@ class TransformerBlock(nn.Module):
         causal=False,
         d_cond=0,
         cond_mode: str = "adaln",
+        rotary_emb_dim: int = 0,
+        dropout: float = 0.0,
+        resid_dropout: float = 0.0,
     ):
         super().__init__()
         self.has_mlp = d_intermediate > 0
@@ -455,10 +608,25 @@ class TransformerBlock(nn.Module):
         if self.cond_mode not in ("adaln", "cross_attn", "none"):
             raise ValueError(f"Unknown cond_mode: {self.cond_mode}")
         self.norm1 = RMSNorm(d_model)
-        self.mixer = MultiHeadAttention(d_model, num_heads, causal=causal)
+        # F6: plumb rotary_emb_dim into the self-attn mixer. Cross-attn (cond
+        # tokens) intentionally does NOT use RoPE — cond positions are per-
+        # frame conditioning, not autoregressive token positions.
+        # ``dropout`` is the attention-softmax dropout (forwarded into MHA).
+        self.mixer = MultiHeadAttention(
+            d_model,
+            num_heads,
+            causal=causal,
+            dropout=dropout,
+            rotary_emb_dim=rotary_emb_dim,
+        )
+        # Residual-branch dropout (applied to attn/ffn outputs before the
+        # residual add). Default 0.0 — keeps existing call sites unaffected.
+        self.resid_dropout = float(resid_dropout)
+        self.attn_resid_drop = nn.Dropout(self.resid_dropout)
         if self.has_mlp:
             self.norm2 = RMSNorm(d_model)
             self.mlp = SwiGLU(d_model, d_intermediate)
+            self.ffn_resid_drop = nn.Dropout(self.resid_dropout)
         if self.cond_mode == "adaln":
             self.adaln1 = AdaLNModulation(d_cond, d_model)
             if self.has_mlp:
@@ -468,6 +636,7 @@ class TransformerBlock(nn.Module):
             self.cross_attn = CrossMultiHeadAttention(
                 d_model=d_model, d_cond=d_cond, num_heads=num_heads, causal=causal
             )
+            self.cross_resid_drop = nn.Dropout(self.resid_dropout)
 
     def forward(self, x, mask=None, cond=None, cu_seqlens=None, max_seqlen=None):
         # Self-attention.
@@ -475,13 +644,17 @@ class TransformerBlock(nn.Module):
         if self.cond_mode == "adaln" and cond is not None:
             s, b = self.adaln1(cond)
             h = _adaln(h, s, b)
-        x = x + self.mixer(h, mask=mask, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
+        x = x + self.attn_resid_drop(
+            self.mixer(h, mask=mask, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
+        )
 
         # Cross-attention (if enabled).
         if self.cond_mode == "cross_attn" and cond is not None:
             h = self.cross_norm(x)
-            x = x + self.cross_attn(
-                h, cond, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+            x = x + self.cross_resid_drop(
+                self.cross_attn(
+                    h, cond, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
+                )
             )
 
         # MLP.
@@ -490,7 +663,7 @@ class TransformerBlock(nn.Module):
             if self.cond_mode == "adaln" and cond is not None:
                 s, b = self.adaln2(cond)
                 h = _adaln(h, s, b)
-            x = x + self.mlp(h)
+            x = x + self.ffn_resid_drop(self.mlp(h))
         return x
 
     def allocate_inference_cache(self, batch_size, max_seqlen, device, dtype):
@@ -527,12 +700,13 @@ class TransformerBlock(nn.Module):
         else:
             self_cache, cross_cache = cache, None
 
-        # Self-attention.
+        # Self-attention. Residual dropout modules are still applied — in
+        # eval/AR mode they are identity (self.training=False).
         h = self.norm1(x)
         if self.cond_mode == "adaln" and cond is not None:
             s, b = self.adaln1(cond)
             h = _adaln(h, s, b)
-        x = x + self.mixer.step(h, self_cache)
+        x = x + self.attn_resid_drop(self.mixer.step(h, self_cache))
 
         # Cross-attention.
         if self.cond_mode == "cross_attn" and cond is not None:
@@ -544,7 +718,9 @@ class TransformerBlock(nn.Module):
             # an explicit time dim.
             cond_curr = cond.unsqueeze(1) if cond.dim() == 2 else cond
             h = self.cross_norm(x)
-            x = x + self.cross_attn.step(h, cond_curr, cross_cache)
+            x = x + self.cross_resid_drop(
+                self.cross_attn.step(h, cond_curr, cross_cache)
+            )
 
         # MLP.
         if self.has_mlp:
@@ -552,7 +728,7 @@ class TransformerBlock(nn.Module):
             if self.cond_mode == "adaln" and cond is not None:
                 s, b = self.adaln2(cond)
                 h = _adaln(h, s, b)
-            x = x + self.mlp(h)
+            x = x + self.ffn_resid_drop(self.mlp(h))
         return x
 
 
@@ -632,6 +808,7 @@ class MambaBlock(nn.Module):
         ssm_cfg: Optional[dict] = None,
         device=None,
         dtype=None,
+        resid_dropout: float = 0.0,
     ):
         super().__init__()
         self.has_mlp = d_intermediate > 0
@@ -640,9 +817,13 @@ class MambaBlock(nn.Module):
         self.mixer = Mamba2Mixer(
             d_model, layer_idx=layer_idx, ssm_cfg=ssm_cfg, device=device, dtype=dtype
         )
+        # Residual-branch dropout (analogous to TransformerBlock).
+        self.resid_dropout = float(resid_dropout)
+        self.mixer_resid_drop = nn.Dropout(self.resid_dropout)
         if self.has_mlp:
             self.norm2 = RMSNorm(d_model)
             self.mlp = SwiGLU(d_model, d_intermediate)
+            self.ffn_resid_drop = nn.Dropout(self.resid_dropout)
         if self.has_cond:
             self.adaln1 = AdaLNModulation(d_cond, d_model)
             if self.has_mlp:
@@ -653,14 +834,16 @@ class MambaBlock(nn.Module):
         if self.has_cond and cond is not None:
             s, b = self.adaln1(cond)
             h = _adaln(h, s, b)
-        x = x + self.mixer(h, mask=mask, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
+        x = x + self.mixer_resid_drop(
+            self.mixer(h, mask=mask, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
+        )
 
         if self.has_mlp:
             h = self.norm2(x)
             if self.has_cond and cond is not None:
                 s, b = self.adaln2(cond)
                 h = _adaln(h, s, b)
-            x = x + self.mlp(h)
+            x = x + self.ffn_resid_drop(self.mlp(h))
         return x
 
     def step(self, x, cache: MambaCache, cond: Optional[torch.Tensor] = None):
@@ -668,14 +851,14 @@ class MambaBlock(nn.Module):
         if self.has_cond and cond is not None:
             s, b = self.adaln1(cond)
             h = _adaln(h, s, b)
-        x = x + self.mixer.step(h, cache)
+        x = x + self.mixer_resid_drop(self.mixer.step(h, cache))
 
         if self.has_mlp:
             h = self.norm2(x)
             if self.has_cond and cond is not None:
                 s, b = self.adaln2(cond)
                 h = _adaln(h, s, b)
-            x = x + self.mlp(h)
+            x = x + self.ffn_resid_drop(self.mlp(h))
         return x
 
 
@@ -698,6 +881,14 @@ class Isotropic(nn.Module):
         self.cond_mode = cond_mode
         attn_cfg = get_stage_cfg(config.attn_cfg, stage_idx)
         num_heads = attn_cfg.get("num_heads", 8)
+        # F6: per-stage rotary_emb_dim. ``AttnConfig.rotary_emb_dim`` is a
+        # per-stage list (parallel to ``num_heads``); 0 disables RoPE in this
+        # stage.
+        rotary_emb_dim = int(attn_cfg.get("rotary_emb_dim", 0) or 0)
+        # Per-stage dropout knobs (default 0.0 — existing call sites that
+        # don't set them in their AttnConfig stay unaffected).
+        attn_dropout = float(attn_cfg.get("dropout", 0.0) or 0.0)
+        resid_dropout = float(attn_cfg.get("resid_dropout", 0.0) or 0.0)
         ssm_cfg = (
             get_stage_cfg(config.ssm_cfg, stage_idx)
             if hasattr(config, "ssm_cfg")
@@ -730,6 +921,9 @@ class Isotropic(nn.Module):
                         causal=causal,
                         d_cond=d_cond if cond_here else 0,
                         cond_mode=cond_mode,
+                        rotary_emb_dim=rotary_emb_dim,
+                        dropout=attn_dropout,
+                        resid_dropout=resid_dropout,
                     )
                 else:  # 'm' or 'M'
                     blk = MambaBlock(
@@ -738,6 +932,7 @@ class Isotropic(nn.Module):
                         d_intermediate=d_int,
                         d_cond=d_cond if cond_here else 0,
                         ssm_cfg=ssm_cfg or None,
+                        resid_dropout=resid_dropout,
                     )
                 blocks.append(blk)
                 self.arch_full.append(arch)

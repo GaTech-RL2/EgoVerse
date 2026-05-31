@@ -26,7 +26,21 @@ from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.models.hnet_nets.context import HNetContext
 from egomimic.models.hnet_nets.hnet import HNet as HNetCore
 from egomimic.models.hnet_nets.hnet import chunk_stats_from_aux, ratio_loss_from_aux
-from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
+
+
+def _apply_token_dropout(x, bos, p, training):
+    """Anti-copy-cheat: replace prev-action tokens with BOS at rate ``p`` during
+    training so the model cannot copy the previous action and must predict from
+    obs (like HPT). Handles (B, T, D) and packed (T_total, D); ``bos`` is (D,).
+    p=1.0 drops every action token (pure obs-conditioned)."""
+    if (not training) or p <= 0:
+        return x
+    lead = tuple(x.shape[:-1])
+    D = x.shape[-1]
+    drop = torch.rand(*(lead + (1,)), device=x.device) < p
+    bos_b = bos.reshape((1,) * len(lead) + (D,)).to(x.dtype).expand_as(x)
+    return torch.where(drop, bos_b, x)
 
 
 class HNetPolicy(nn.Module):
@@ -54,8 +68,12 @@ class HNetPolicy(nn.Module):
         self.action_out = nn.Linear(d_model, action_dim)
         self.bos = nn.Parameter(torch.zeros(1, 1, d_model))
         nn.init.normal_(self.bos, std=0.02)
-        self.pos_emb = nn.Parameter(torch.zeros(1, action_horizon, d_model))
-        nn.init.normal_(self.pos_emb, std=0.02)
+        # F6: positional information is now carried by RoPE inside each
+        # MultiHeadAttention (q/k rotation), matching upstream
+        # ``goombalab/hnet/hnet/modules/mha.py``. The previous learned
+        # absolute ``pos_emb = nn.Parameter(zeros(1, action_horizon,
+        # d_model))`` capped episodes at ``action_horizon`` and added a
+        # second positional signal on top of RoPE; both are gone.
 
         self.cond_encoder = cond_encoder
         self.hnet = hnet
@@ -86,7 +104,11 @@ class HNetPolicy(nn.Module):
         B, T, _ = actions.shape
         x = self.action_in(actions)
         x = torch.cat([self.bos.expand(B, -1, -1), x[:, :-1]], dim=1)
-        x = x + self.pos_emb[:, :T]
+        x = _apply_token_dropout(
+            x, self.bos.reshape(-1), getattr(self, "token_dropout_p", 0.0), self.training
+        )
+        # F6: no outer pos_emb — RoPE inside the attention modules handles
+        # positional information.
 
         ctx = self._build_ctx(obs)
         h = self.hnet(x, ctx)
@@ -122,12 +144,10 @@ class HNetPolicy(nn.Module):
             cu_seqlens = torch.tensor(cu_seqlens, device=device, dtype=torch.long)
         else:
             cu_seqlens = cu_seqlens.to(device=device, dtype=torch.long)
-        if max_seqlen > self.action_horizon:
-            raise ValueError(
-                f"max_seqlen={max_seqlen} exceeds pos_emb length "
-                f"action_horizon={self.action_horizon}; increase action_horizon "
-                f"or chunk episodes to <= action_horizon frames."
-            )
+        # F6: with RoPE handling positions inside each MHA, there is no
+        # hard ``action_horizon`` ceiling anymore — the old check on
+        # ``max_seqlen > self.action_horizon`` was tied to the size of
+        # ``self.pos_emb`` and is removed.
 
         # 1. Tokenize, then global shift-right by 1, then overwrite each
         #    subseq's first slot with BOS. Under autocast (e.g. bf16) the
@@ -146,16 +166,14 @@ class HNetPolicy(nn.Module):
         x_shifted = x_shifted.clone()
         x_shifted[starts] = bos
 
-        # 2. Per-sub-sequence pos_emb: position t in subseq [s, e) gets index t-s.
-        #    Build seq_idx (which subseq each token belongs to), then subtract
-        #    that subseq's start to get the local position index.
-        pos_t = torch.arange(T_total, device=device)
-        # seq_idx[t] = number of subseq starts strictly less-than-or-equal to t
-        # Same as: (cu_seqlens[1:] <= t).sum() ... but easier:
-        seq_idx = (pos_t[:, None] >= cu_seqlens[None, 1:]).sum(dim=-1)  # (T_total,)
-        local_pos = pos_t - cu_seqlens[seq_idx]  # (T_total,)
-        pos = self.pos_emb.squeeze(0)[local_pos].to(x_shifted.dtype)  # (T_total, D)
-        x_packed = x_shifted + pos
+        # F6: no outer per-subseq pos_emb add — the MHA RoPE applies per-subseq
+        # rotary positions inside attention. ``cu_seqlens`` is threaded into
+        # ``HNetContext`` below and re-derived in ``_forward_packed`` of
+        # ``MultiHeadAttention``.
+        x_packed = x_shifted
+        x_packed = _apply_token_dropout(
+            x_packed, bos, getattr(self, "token_dropout_p", 0.0), self.training
+        )
 
         # 3. Packed cond. ``cond_encoder.encode`` expects (B, T, ...); for a
         #    packed stream the simplest path is to feed (1, T_total, ...) and
@@ -192,11 +210,10 @@ class HNetPolicy(nn.Module):
         works."""
         if T is None:
             T = self.action_horizon
-        if T > self.action_horizon:
-            raise ValueError(
-                f"generate T={T} exceeds pos_emb length action_horizon="
-                f"{self.action_horizon}"
-            )
+        # F6: no upper bound on T from a learned pos_emb anymore — RoPE
+        # handles arbitrary positions inside the MHA. The previous check
+        # `T > self.action_horizon` is removed. ``action_horizon`` is still
+        # consulted as a *default rollout length* when ``T`` is None.
         cond_dict = self.cond_encoder.encode(obs, T)
         actions = torch.zeros(batch_size, T, self.action_dim, device=device)
         dtype = next(self.parameters()).dtype
@@ -213,7 +230,9 @@ class HNetPolicy(nn.Module):
         def slice_cond(t: int) -> dict:
             return {k: v[:, t] if v.dim() == 3 else v for k, v in cond_dict.items()}
 
-        cur = self.bos.expand(batch_size, -1, -1) + self.pos_emb[:, 0:1]
+        # F6: no outer pos_emb add; RoPE inside MHA reads positions from each
+        # KVCache's ``offsets`` (set by ``MultiHeadAttention.step``).
+        cur = self.bos.expand(batch_size, -1, -1)
         for t in range(T):
             ctx = HNetContext(
                 cond_dict=slice_cond(t),
@@ -224,7 +243,7 @@ class HNetPolicy(nn.Module):
             a_t = self.action_out(h)
             actions[:, t : t + 1] = a_t
             if t < T - 1:
-                cur = self.action_in(a_t) + self.pos_emb[:, t + 1 : t + 2]
+                cur = self.action_in(a_t)
         return actions
 
     # ----- Single-step inference API for closed-loop rollout -----
@@ -235,7 +254,10 @@ class HNetPolicy(nn.Module):
         rollouts of at most ``T_max`` steps. The state is opaque to the
         caller; pass it back to :meth:`step` along with the current obs.
         """
-        T_max = int(min(T_max, self.action_horizon))
+        # F6: T_max is no longer clamped by self.action_horizon — RoPE
+        # handles arbitrary positions. We still need ``T_max`` to size the
+        # KV cache allocations.
+        T_max = int(T_max)
         dtype = dtype or next(self.parameters()).dtype
         params = self.hnet.allocate_inference_cache(
             batch_size=batch_size,
@@ -243,9 +265,8 @@ class HNetPolicy(nn.Module):
             device=device,
             dtype=dtype,
         )
-        cur = (self.bos.expand(batch_size, 1, self.d_model) + self.pos_emb[:, 0:1]).to(
-            dtype
-        )
+        # F6: BOS only — no outer pos_emb add. RoPE applies inside the MHA.
+        cur = self.bos.expand(batch_size, 1, self.d_model).to(dtype)
         return {
             "params": params,
             "cur": cur,
@@ -274,11 +295,10 @@ class HNetPolicy(nn.Module):
         h = self.hnet.step(state["cur"], ctx)
         a_t_norm = self.action_out(h)
 
-        t_next = t + 1
-        if t_next < self.action_horizon:
-            state["cur"] = (
-                self.action_in(a_t_norm) + self.pos_emb[:, t_next : t_next + 1]
-            ).to(state["dtype"])
+        # F6: no per-step pos_emb add; the next-token input is just the
+        # projected predicted action. RoPE is applied inside each MHA.step
+        # using cache.offsets as the position.
+        state["cur"] = self.action_in(a_t_norm).to(state["dtype"])
         return a_t_norm
 
 
@@ -319,6 +339,8 @@ class FlatFusedPolicy(nn.Module):
         arch_layout: str = "T8",
         num_heads: int = 4,
         d_intermediate: int = 512,
+        dropout: float = 0.0,
+        resid_dropout: float = 0.0,
     ):
         super().__init__()
         from egomimic.models.hnet_nets.isotropic_builder import build_isotropic
@@ -347,6 +369,8 @@ class FlatFusedPolicy(nn.Module):
                 "d_intermediate": d_intermediate,
                 "num_heads": num_heads,
                 "cond": False,
+                "dropout": dropout,
+                "resid_dropout": resid_dropout,
             },
             d_cond=0,
             causal=True,
@@ -374,6 +398,9 @@ class FlatFusedPolicy(nn.Module):
         a_tok = self.action_in(actions)  # (B, T, d_model)
         # Shift: BOS at position 0, a_0..a_{T-2} after.
         a_shifted = torch.cat([self.bos.expand(B, -1, -1), a_tok[:, :-1]], dim=1)
+        a_shifted = _apply_token_dropout(
+            a_shifted, self.bos.reshape(-1), getattr(self, "token_dropout_p", 0.0), self.training
+        )
 
         # Interleave: x[:, 0::2] = c_tok, x[:, 1::2] = a_shifted.
         x = torch.empty(
@@ -427,6 +454,9 @@ class FlatFusedPolicy(nn.Module):
         # Indices of non-start positions:
         idx_non_start = torch.nonzero(non_start, as_tuple=False).squeeze(-1)
         a_shifted[idx_non_start] = a_tok[idx_non_start - 1]
+        a_shifted = _apply_token_dropout(
+            a_shifted, bos, getattr(self, "token_dropout_p", 0.0), self.training
+        )
 
         # Build per-sub-seq position indices: 0, 1, ..., (e-s)-1 within each
         # sub-seq. Then the 2-token interleave doubles to 2*(e-s).
@@ -640,6 +670,14 @@ class HNet(Algo):
             cond_encoder=cond_encoder,
             hnet=hnet,
         )
+        policy.token_dropout_p = float(kwargs.get("token_dropout_p", 0.0) or 0.0)
+        self.train_mode = str(kwargs.get("train_mode", "tf"))
+        self.ss_prob = float(kwargs.get("ss_prob", 0.5) or 0.5)
+        _win = int(kwargs.get("window_size", 0) or 0)
+        if _win > 0:
+            for _m in policy.modules():
+                if _m.__class__.__name__ == "MultiHeadAttention":
+                    _m.window = _win
         # Apply opt-in training recipe BEFORE moving to device so the init
         # writes hit cpu params (matches upstream's pattern of init pre-move).
         if init_weights_range is not None:
@@ -720,22 +758,24 @@ class HNet(Algo):
                     processed[emb_id][key_name] = value
 
             ac_key = self.resolved_ac_keys[emb_id]
-            if is_packed:
-                # Packed actions are (T_total, action_dim). No pad_mask needed
-                # since variable-length is expressed via cu_seqlens.
-                processed[emb_id]["pad_mask"] = None
-                processed[emb_id]["_packed"] = True
-            else:
-                B, S, _ = processed[emb_id][ac_key].shape
-                processed[emb_id]["pad_mask"] = torch.ones(
-                    B, S, 1, device=processed[emb_id][ac_key].device
-                )
-                processed[emb_id]["_packed"] = False
+            # F5: H-Net does NOT consume ``pad_mask`` — variable-length is
+            # carried by ``cu_seqlens`` in packed mode and by the full-length
+            # convention in padded mode. The previous code populated an
+            # all-ones ``pad_mask`` (or None) here as a vestige from the
+            # ACT/HPT algos; no downstream H-Net code reads it. Don't
+            # re-introduce it: if you need a true valid-token mask, plumb
+            # it through ``HNetContext`` instead.
+            processed[emb_id]["_packed"] = is_packed
             # Per-feature normalization via MultiDataset stats: each tensor
             # gets ``(x - mean) / std`` (or quantile equivalent) broadcast
             # against (action_dim,) / (proprio_dim,) stats. Works for both
             # padded ``(B, T, D)`` and packed ``(T_total, D)`` shapes.
             processed[emb_id] = self.norm_stats.normalize(processed[emb_id], emb_id)
+            # Preserve goal_pose (goal_keys type) for the sim evaluator:
+            # norm_stats.zarr_key_to_keyname returns None for it, so the
+            # keyname loop above drops it. The closed-loop env init needs it.
+            if "goal_pose" in _batch:
+                processed[emb_id]["goal_pose"] = _batch["goal_pose"]
             processed[emb_id]["embodiment"] = torch.tensor(
                 [emb_id], device=self.device, dtype=torch.int64
             )
@@ -767,12 +807,28 @@ class HNet(Algo):
             actions = _batch[ac_key]
             obs = self._build_obs(_batch, emb_id)
 
-            if _batch.get("_packed", False):
-                cu_seqlens = _batch["cu_seqlens"]
-                max_seqlen = int(_batch["max_seq_len"])
-                pred, aux = policy.forward_packed(actions, obs, cu_seqlens, max_seqlen)
+            is_packed = _batch.get("_packed", False)
+            cu_seqlens = _batch["cu_seqlens"] if is_packed else None
+            max_seqlen = int(_batch["max_seq_len"]) if is_packed else None
+
+            def _fwd(acts):
+                if is_packed:
+                    return policy.forward_packed(acts, obs, cu_seqlens, max_seqlen)
+                return policy(acts, obs)
+
+            if getattr(self, "train_mode", "tf") == "ar":
+                # Scheduled-sampling AR training: pass 1 teacher-forced (no grad)
+                # gives the model's own action predictions; pass 2 substitutes
+                # them for the GT prev-action inputs at rate ss_prob so the model
+                # learns to recover from its own errors. Loss target stays GT.
+                with torch.no_grad():
+                    pred1, _ = _fwd(actions)
+                _ss = float(getattr(self, "ss_prob", 0.5))
+                _mask = torch.rand(actions.shape[:-1] + (1,), device=actions.device) < _ss
+                mixed = torch.where(_mask, pred1.detach(), actions)
+                pred, aux = _fwd(mixed)
             else:
-                pred, aux = policy(actions, obs)
+                pred, aux = _fwd(actions)
 
             mse = nn.functional.mse_loss(pred, actions)
             rloss = ratio_loss_from_aux(aux, device=mse.device)
@@ -953,21 +1009,41 @@ class HNet(Algo):
             log[k] = v.item()
         return log
 
-    # ----- Sim eval hooks (SimRolloutEval calls these) ----- #
-    # Thin routers — the policy class owns the actual step semantics
-    # (KV cache lifecycle, BOS/pos_emb threading, two-token interleaving
-    # for the flat-fused variant). See ``HNetPolicy.init_step_state`` /
-    # ``FlatFusedPolicy.init_step_state``.
+    # ----- Sim eval hook (SimRolloutEval.inference_step contract) ----- #
+    # Single entry point. t=0 is the universal reset signal (allocates a
+    # fresh AR state); t>0 steps against the cached state. The eval class
+    # never touches model state — it lives entirely in self._sim_state.
 
     @torch.no_grad()
-    def sim_init_state(self, batch_size: int, T_max: int, device, emb_id: int) -> dict:
-        return self.nets["policy"].init_step_state(batch_size, T_max, device)
+    def inference_step(
+        self, obs_zarr: dict, t: int, emb_id: int
+    ) -> "np.ndarray":
+        """One closed-loop sim step.
 
-    @torch.no_grad()
-    def sim_predict_step(
-        self, state: dict, obs_norm: dict, t: int, emb_id: int
-    ) -> torch.Tensor:
-        return self.nets["policy"].step(state, obs_norm, t)
+        Args:
+            obs_zarr: env obs in canonical zarr-key dict (already on device).
+            t: timestep within the rollout. t=0 resets state.
+            emb_id: embodiment id.
+
+        Returns:
+            absolute-frame action as np.float32 of shape (action_dim,).
+        """
+        import numpy as np
+        policy = self.nets["policy"]
+        if t == 0:
+            device = next(self.nets["policy"].parameters()).device
+            T_max = int(getattr(policy, "action_horizon", 1024))
+            self._sim_state = policy.init_step_state(
+                batch_size=1, T_max=T_max, device=device
+            )
+        embodiment_name = get_embodiment(emb_id).lower()
+        ac_key = self.ac_keys[embodiment_name] if embodiment_name in self.ac_keys else self.ac_keys[emb_id]
+        obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
+        action_norm = policy.step(self._sim_state, obs_norm, t)
+        action_unnorm = self.norm_stats.unnormalize(
+            {ac_key: action_norm.squeeze(0).squeeze(0)}, emb_id,
+        )[ac_key]
+        return action_unnorm.detach().cpu().numpy().reshape(-1).astype(np.float32)
 
     # ----- Optional training recipe hook for pl_model.configure_optimizers ----- #
 
@@ -1051,6 +1127,8 @@ class HNetFused(HNet):
         arch_layout: str = "T8",
         num_heads: int = 4,
         d_intermediate: int = 512,
+        dropout: float = 0.0,
+        resid_dropout: float = 0.0,
         **kwargs,
     ):
         # Skip HNet.__init__ — it requires a HNetCore. We re-implement the
@@ -1079,7 +1157,17 @@ class HNetFused(HNet):
             arch_layout=arch_layout,
             num_heads=num_heads,
             d_intermediate=d_intermediate,
+            dropout=dropout,
+            resid_dropout=resid_dropout,
         )
+        policy.token_dropout_p = float(kwargs.get("token_dropout_p", 0.0) or 0.0)
+        self.train_mode = str(kwargs.get("train_mode", "tf"))
+        self.ss_prob = float(kwargs.get("ss_prob", 0.5) or 0.5)
+        _win = int(kwargs.get("window_size", 0) or 0)
+        if _win > 0:
+            for _m in policy.modules():
+                if _m.__class__.__name__ == "MultiHeadAttention":
+                    _m.window = _win
         self.nets = nn.ModuleDict({"policy": policy})
         self.nets = self.nets.float().to(self.device)
 

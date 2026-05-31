@@ -96,6 +96,20 @@ def _ste(x):
     return _STE.apply(x)
 
 
+def _build_padded_valid_mask(shape, device) -> torch.Tensor:
+    """(B, T) mask that's False at position 0 of each row (the synthetic
+    boundary forced by ``RoutingModule._forward_padded``), True elsewhere.
+
+    Used by ``ratio_loss_from_aux`` (F4) so the F/G aggregates only see
+    actual predicted boundaries.
+    """
+    B, T = shape
+    m = torch.ones(B, T, dtype=torch.bool, device=device)
+    if T > 0:
+        m[:, 0] = False
+    return m
+
+
 # --------------------------------------------------------------------------- #
 # Per-batch slice/scatter helpers for nested inference state during step().
 # Reused (and slightly simplified) from the previous monolithic HNet.
@@ -347,40 +361,39 @@ class EncoderDecoderStage(_BaseStage):
         self.decoder = build_isotropic(decoder, d_cond=d_cond, causal=causal)
 
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
+        # F1 (upstream parity): there is exactly ONE residual around the
+        # chunker, and it lives INSIDE the ChunkerStage as the STE-gated
+        # ``residual_proj(encoder_output)`` path (matches upstream
+        # ``residual_func = out * ste_func(p) + residual`` in
+        # ``hnet/models/hnet.py``). We must NOT add a second un-gated
+        # encoder→decoder residual at this outer level; doing so would feed
+        # the encoder output around the chunker twice. The inner_stage
+        # (chunker) returns the already-residual-mixed tensor.
         cond = self._get_cond(ctx)
         if ctx.packed:
-            # Packed mode: x is (T_total, D); pass cu_seqlens/max_seqlen straight
-            # through. Both encoder and decoder operate at the outer pack.
             x = self.encoder(
                 x, cu_seqlens=ctx.cu_seqlens, max_seqlen=ctx.max_seqlen, cond=cond
             )
-            residual = x
             if self.inner_stage is not None:
                 x = self.inner_stage(x, ctx)
-            x = x + residual
             x = self.decoder(
                 x, cu_seqlens=ctx.cu_seqlens, max_seqlen=ctx.max_seqlen, cond=cond
             )
         else:
-            # Padded mode: build an all-ones mask along T (causal already wired
-            # into the Isotropic). This matches the algo's BOS-prefixed teacher-
-            # forced input.
             mask = torch.ones(x.shape[:2], dtype=torch.bool, device=x.device)
             x = self.encoder(x, mask=mask, cond=cond)
-            residual = x
             if self.inner_stage is not None:
                 x = self.inner_stage(x, ctx)
-            x = x + residual
             x = self.decoder(x, mask=mask, cond=cond)
         return x
 
     def step(self, x: torch.Tensor, ctx: HNetContext, state: EncoderDecoderStageState):
+        # F1 (upstream parity): single residual lives inside the chunker; no
+        # outer encoder→decoder residual here.
         cond = self._get_cond(ctx)
         x = self.encoder.step(x, state.encoder_state, cond=cond)
-        residual = x
         if self.inner_stage is not None:
             x = self.inner_stage.step(x, ctx, state.inner_state)
-        x = x + residual
         x = self.decoder.step(x, state.decoder_state, cond=cond)
         return x
 
@@ -513,6 +526,15 @@ class ChunkerStage(_BaseStage):
                 "bpred": bpred,
                 "target_ratio": self.target_compression_ratio,
                 "weight": self.ratio_loss_weight,
+                # F4: ratio loss must exclude positions where boundary_prob
+                # was *forced* to 1.0 by the routing module. In padded mode
+                # that's only position 0 along each row (see
+                # ``RoutingModule._forward_padded``: the leading
+                # ``F.pad(..., 1.0)``). Encode this as a (B, T) bool mask of
+                # *real* (non-forced) positions.
+                "valid_mask_padded": _build_padded_valid_mask(
+                    bpred.boundary_mask.shape, x.device
+                ),
             }
         )
         return out
@@ -566,6 +588,11 @@ class ChunkerStage(_BaseStage):
                 "bpred": bpred,
                 "target_ratio": self.target_compression_ratio,
                 "weight": self.ratio_loss_weight,
+                # F4: in packed mode boundary_prob is forced to 1.0 at every
+                # subseq start (``boundary_prob[cu_seqlens[:-1]] = 1.0`` in
+                # ``RoutingModule._forward_packed``). Pass cu_seqlens through
+                # so the ratio loss can exclude those synthetic positions.
+                "cu_seqlens": cu,
             }
         )
         return out
