@@ -33,6 +33,7 @@ from einops import rearrange, repeat
 from egomimic.algo.dfot.embeddings import (
     RandomDropoutCondEmbedding,
     StochasticTimeEmbedding,
+    get_timestep_embedding,
 )
 
 # ---------------------------------------------------------------------------
@@ -93,8 +94,23 @@ class RotaryEmbedding3D(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         seq_len = x.shape[-2]
         H, W = self._spatial_sizes
-        T = seq_len // (H * W)
-        freqs = self._build_freqs(T, x.device, x.dtype)[:seq_len]
+        # When non-grid tokens (e.g. per-frame action tokens) are appended to
+        # the sequence, ``_n_grid_tokens`` tells us how many leading tokens are
+        # the (T, H, W) image grid. The appended tokens get identity rotation
+        # (zero freqs) and rely on a learned positional embedding instead.
+        n_grid = getattr(self, "_n_grid_tokens", None)
+        if n_grid is None:
+            n_grid = seq_len
+        T = n_grid // (H * W)
+        grid_freqs = self._build_freqs(T, x.device, x.dtype)[:n_grid]
+        if seq_len > n_grid:
+            pad = torch.zeros(
+                seq_len - n_grid, grid_freqs.shape[-1],
+                device=x.device, dtype=x.dtype,
+            )
+            freqs = torch.cat([grid_freqs, pad], dim=0)
+        else:
+            freqs = grid_freqs[:seq_len]
         return x * freqs.cos() + _rotate_half(x) * freqs.sin()
 
 
@@ -294,6 +310,7 @@ class DFoTDiT3DBackbone(nn.Module):
         dropout: float = 0.0,
         resid_dropout: float = 0.0,
         causal: bool = False,
+        action_token_dim: int = 0,
     ):
         super().__init__()
         if latent_size % patch_size != 0:
@@ -363,6 +380,27 @@ class DFoTDiT3DBackbone(nn.Module):
         # 7. Final layer (zero-init output)
         self.final_layer = DiTFinalLayer(self.d_model, out_channels)
 
+        # 8. Optional per-frame action token (2D POLICY). When
+        # action_token_dim > 0 the backbone additionally diffuses one action
+        # token per frame: the noisy action is projected to d_model, appended
+        # after the T*P image patch tokens (identity RoPE + learned per-frame
+        # position), co-attended with the image patches through the shared DiT
+        # blocks, and projected back to action-v. forward() then returns the
+        # tuple (v_image, v_action).
+        self.action_token_dim = int(action_token_dim)
+        self._rope = rope  # forward sets _n_grid_tokens on this shared instance
+        if self.action_token_dim > 0:
+            self.action_in_proj = nn.Linear(self.action_token_dim, self.d_model)
+            # Learned "this is an action token" marker. Temporal position is a
+            # dynamic sinusoidal embedding (computed per-T in forward) so it
+            # works for any episode length, not just action_horizon.
+            self.action_type_embed = nn.Parameter(
+                torch.randn(1, 1, self.d_model) * 0.02
+            )
+            self.action_out = nn.Linear(self.d_model, self.action_token_dim)
+            nn.init.zeros_(self.action_out.weight)
+            nn.init.zeros_(self.action_out.bias)
+
     def _build_cond(
         self,
         noise_levels: torch.Tensor,
@@ -391,7 +429,11 @@ class DFoTDiT3DBackbone(nn.Module):
         cu_seqlens: Optional[torch.Tensor] = None,
         max_seqlen: Optional[int] = None,
         force_uncond: bool = False,
-    ) -> torch.Tensor:
+        action: Optional[torch.Tensor] = None,
+    ):
+        """Returns ``v_image`` (B, T, C, H, W), or the tuple
+        ``(v_image, v_action)`` when ``action_token_dim > 0`` and a noisy
+        ``action`` (B, T, action_token_dim) is supplied."""
         is_packed = cu_seqlens is not None
         P = self.num_patches
 
@@ -413,22 +455,50 @@ class DFoTDiT3DBackbone(nn.Module):
         tokens = self.patch_embed(x_flat)  # (B*T, P, d_model)
         tokens = rearrange(tokens, "(b t) p c -> b (t p) c", b=B)
 
-        # 2. Per-frame cond -> broadcast to patches
-        cond = self._build_cond(noise_levels, external_cond,
-                                is_packed=False, B=B, T=T, force_uncond=force_uncond)
-        cond = cond.unsqueeze(2).expand(-1, -1, P, -1)
-        cond = rearrange(cond, "b t p c -> b (t p) c")
+        # 2. Per-frame cond (B, T, d_cond), broadcast to image patches.
+        frame_cond = self._build_cond(
+            noise_levels, external_cond,
+            is_packed=False, B=B, T=T, force_uncond=force_uncond,
+        )
+        img_cond = rearrange(
+            frame_cond.unsqueeze(2).expand(-1, -1, P, -1), "b t p c -> b (t p) c"
+        )
 
-        # 3. DiT blocks
+        # 2b. Optional per-frame action token (2D policy). Append after the
+        # image patches; give it the frame's cond + a learned position; mark
+        # the grid length so RoPE rotates only the image tokens.
+        has_action = self.action_token_dim > 0 and action is not None
+        if has_action:
+            # Dynamic sinusoidal temporal position (any T) + learned type marker.
+            frame_idx = torch.arange(T, device=x.device, dtype=torch.float32)
+            act_pos = get_timestep_embedding(frame_idx, self.d_model).to(tokens.dtype)
+            act_tok = (
+                self.action_in_proj(action)
+                + act_pos.unsqueeze(0)
+                + self.action_type_embed
+            )
+            tokens = torch.cat([tokens, act_tok], dim=1)        # (B, T*P + T, d)
+            cond = torch.cat([img_cond, frame_cond], dim=1)     # (B, T*P + T, d_cond)
+            self._rope._n_grid_tokens = T * P
+        else:
+            cond = img_cond
+            self._rope._n_grid_tokens = None
+
+        # 3. DiT blocks (shared, bidirectional self-attention)
         for block in self.blocks:
             tokens = block(tokens, cond)
 
-        # 4. Final layer + unpatchify
-        tokens = self.final_layer(tokens, cond)
-        tokens = rearrange(tokens, "b (t p) c -> (b t) p c", t=T)
-        # Unpatchify: (BT, P, patch**2 * C) -> (BT, C, H, W)
+        # 4. Split image / action, final layer + unpatchify the image stream.
+        if has_action:
+            img_tokens = tokens[:, : T * P]
+            act_tokens = tokens[:, T * P:]
+        else:
+            img_tokens = tokens
+
+        img_tokens = self.final_layer(img_tokens, img_cond)
+        img_tokens = rearrange(img_tokens, "b (t p) c -> (b t) p c", t=T)
         v_pred = rearrange(
-            tokens,
+            img_tokens,
             "bt (h w) (p q c) -> bt c (h p) (w q)",
             h=self.grid_size,
             w=self.grid_size,
@@ -437,4 +507,8 @@ class DFoTDiT3DBackbone(nn.Module):
             c=self.latent_channels,
         )
         v_pred = rearrange(v_pred, "(b t) c h w -> b t c h w", b=B)
+
+        if has_action:
+            v_action = self.action_out(act_tokens)  # (B, T, action_token_dim)
+            return v_pred, v_action
         return v_pred

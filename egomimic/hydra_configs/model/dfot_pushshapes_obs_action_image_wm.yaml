@@ -1,16 +1,17 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
-# Joint obs+action+image diffusion forcing.
-# Per step the diffusion target is concat([state, vae_latent_flat, action]).
-# A frozen pretrained ImageVAE (spatial latent 4x6x6) supplies the latent.
+# 1D WORLD MODEL variant of obs+action+image diffusion forcing.
+# Action is NOT in the bundle: it is fed as AdaLN conditioning (external_cond).
+# The diffused bundle is obs-only: concat([state, vae_latent_flat]).
 #
 # Bundle layout per step:
-#   state_agent_obj (5D) || vae_latent_flat (4*6*6 = 144D) || actions (2D) = 151D
+#   state_agent_obj (5D) || vae_latent_flat (4*6*6 = 144D) = 149D   (target)
+#   actions (2D)                                            -> external_cond
 #
-# cond_encoder is intentionally empty: the image already lives in the
-# bundle via its VAE encoding; AdaLN-conditioning on it again would
-# double-count. At inference the t=0 image is encoded by the same VAE
-# and used as the initial bundle prefix (handled by the eval).
+# This is the action-conditioned video predictor (df_video-style): given the
+# action sequence, predict the future obs/frames. Contrast with the POLICY
+# variant (dfot_pushshapes_obs_action_image.yaml) where action_in_bundle=True
+# so the action is jointly predicted.
 
 robomimic_model:
   _target_: egomimic.algo.dfot.DFoT
@@ -34,15 +35,15 @@ robomimic_model:
     _target_: egomimic.algo.dfot.ObsActionImageDFoTOuterStage
     action_dim: 2
     cond_output_key: "fused_cond"
+    action_in_bundle: false      # <-- world model: action is conditioning
 
-    # State is the only "real" obs key in the bundle. Image latent is
-    # added automatically (144D) by the outer stage.
     bundle_obs_keys: ["state_agent_obj"]
     bundle_obs_dims: [5]
     image_key: "front_img_1"
     vae_checkpoint_path: /coc/flash7/paphiwetsa3/projects/EgoVerse-pact/external_ckpts/vae_v5_last.ckpt
 
-    # Empty cond_encoder -- no AdaLN cond. The image is in the bundle.
+    # cond_encoder stays empty -- the image is in the bundle, and the action
+    # is supplied directly as external_cond by the outer stage's encode().
     cond_encoder:
       _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
       d_cond: 512
@@ -51,20 +52,19 @@ robomimic_model:
       obs_specs: {}
       img_encoders: {}
 
-    # Bundle width = 5 + 144 + 2 = 151.
+    # Bundle width = 5 + 144 = 149 (no action). Action (2D) -> external_cond.
     backbone:
       _target_: egomimic.algo.dfot.DFoTBackbone
-      action_dim: 151
+      action_dim: 149
       action_horizon: 32
       d_model: 512
       d_cond: 512
-      # No external cond -- image is in the bundle, not via AdaLN.
-      cond_dim: 0
+      cond_dim: 2                # <-- action width fed as external_cond
+      cond_emb_dim: 128
+      cond_dropout_prob: 0.0     # set >0 to enable action CFG
       time_embed_dim: 512
-      cond_emb_dim: 0
       use_fourier_time: true
       stochastic_time_p: 0.0
-      cond_dropout_prob: 0.0   # no cond -> CFG meaningless
       arch_layout: "T12"
       num_heads: 8
       d_intermediate: 2048
@@ -75,7 +75,7 @@ robomimic_model:
 
     diffusion:
       _target_: egomimic.algo.dfot.continuous_diffusion.ContinuousDiffusion
-      action_dim: 151
+      action_dim: 149
       precond_scale: 0.25
       sigmoid_bias: -1.0
       clip_noise: 20.0

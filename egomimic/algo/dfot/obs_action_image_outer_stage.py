@@ -67,6 +67,7 @@ class ObsActionImageDFoTOuterStage(ObsActionDFoTOuterStage):
         bundle_obs_dims: List[int],
         vae_checkpoint_path: str,
         image_key: str = "front_img_1",
+        action_in_bundle: bool = True,
         cond_output_key: str = "fused_cond",
     ):
         # Load the VAE first so we know its latent_flat_dim — that
@@ -100,6 +101,7 @@ class ObsActionImageDFoTOuterStage(ObsActionDFoTOuterStage):
             diffusion=diffusion,
             bundle_obs_keys=extended_keys,
             bundle_obs_dims=extended_dims,
+            action_in_bundle=action_in_bundle,
             cond_output_key=cond_output_key,
         )
 
@@ -186,8 +188,10 @@ class ObsActionImageDFoTOuterStage(ObsActionDFoTOuterStage):
             latent_flat = latent_flat.reshape(B, T, -1)
         pieces.append(latent_flat)
 
-        # 3. Action.
-        pieces.append(actions)
+        # 3. Action (only when it is a diffusion target; in world-model mode
+        # it is routed through external_cond by the base ``encode``).
+        if self.action_in_bundle:
+            pieces.append(actions)
 
         bundle = torch.cat(pieces, dim=-1)
         if bundle.shape[-1] != self._bundle_dim:

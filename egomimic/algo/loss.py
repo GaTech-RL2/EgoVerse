@@ -139,6 +139,13 @@ class DFoTLoss(Loss):
         self.diffusion = diffusion
 
     def forward(self, batch: dict, ctx) -> torch.Tensor:
+        # Structured-target outer stages (e.g. the 2D spatial-image + action
+        # policy) compute their own multi-term loss and stash it here, since a
+        # single (image, action) target can't flow through the scalar v-MSE
+        # path below. No-op for every existing 1D/spatial stage.
+        precomputed = getattr(ctx, "precomputed_loss", None)
+        if precomputed is not None:
+            return precomputed
         v_pred = batch["pred_v"]
         q_state = ctx.q_state
         per_token = self.diffusion.compute_loss(v_pred, q_state)

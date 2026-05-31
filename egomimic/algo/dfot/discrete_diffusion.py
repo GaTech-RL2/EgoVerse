@@ -56,8 +56,10 @@ class DiscreteDiffusion(nn.Module):
         beta_schedule: str = "cosine",
         schedule_fn_kwargs: Optional[dict] = None,
         objective: Literal["pred_noise", "pred_x0", "pred_v"] = "pred_v",
-        loss_weighting_strategy: Literal["uniform", "min_snr", "sigmoid"] = "min_snr",
+        loss_weighting_strategy: Literal["uniform", "min_snr", "fused_min_snr", "sigmoid"] = "min_snr",
         snr_clip: float = 5.0,
+        cum_snr_decay: float = 0.96,
+        use_causal_mask: bool = False,
         sigmoid_bias: float = -1.0,
         clip_noise: float = 20.0,
     ):
@@ -67,6 +69,8 @@ class DiscreteDiffusion(nn.Module):
         self.objective = objective
         self.loss_weighting_strategy = loss_weighting_strategy
         self.snr_clip = float(snr_clip)
+        self.cum_snr_decay = float(cum_snr_decay)
+        self.use_causal_mask = bool(use_causal_mask)
         self.sigmoid_bias = float(sigmoid_bias)
         self.clip_noise = float(clip_noise)
 
@@ -112,7 +116,7 @@ class DiscreteDiffusion(nn.Module):
 
         snr = alphas_cumprod / (1 - alphas_cumprod)
         reg("snr", snr)
-        if loss_weighting_strategy == "min_snr":
+        if loss_weighting_strategy in ("min_snr", "fused_min_snr"):
             clipped_snr = snr.clone().clamp_(max=self.snr_clip)
             reg("clipped_snr", clipped_snr)
         if loss_weighting_strategy == "sigmoid":
@@ -201,6 +205,38 @@ class DiscreteDiffusion(nn.Module):
         elif strategy == "sigmoid":
             logsnr = self.logsnr[k]
             epsilon_weighting = torch.sigmoid(self.sigmoid_bias - logsnr)
+        elif strategy == "fused_min_snr":
+            if k.dim() == 1:
+                clipped_snr = self.clipped_snr[k]
+                epsilon_weighting = clipped_snr / snr.clamp(min=1e-8)
+            else:
+                snr_clip = self.snr_clip
+                cum_snr_decay = self.cum_snr_decay
+                clipped_snr = self.clipped_snr[k]
+                normalized_clipped_snr = clipped_snr / snr_clip
+                normalized_snr = snr / snr_clip
+
+                def compute_cum_snr(reverse=False):
+                    x = normalized_clipped_snr.flip(1) if reverse else normalized_clipped_snr
+                    cum = torch.zeros_like(x)
+                    for t in range(k.shape[1]):
+                        if t == 0:
+                            cum[:, t] = x[:, t]
+                        else:
+                            cum[:, t] = cum_snr_decay * cum[:, t - 1] + (1 - cum_snr_decay) * x[:, t]
+                    cum = torch.nn.functional.pad(cum[:, :-1], (1, 0, 0, 0), value=0.0)
+                    return cum.flip(1) if reverse else cum
+
+                if self.use_causal_mask:
+                    cum_snr = compute_cum_snr()
+                else:
+                    cum_snr = (compute_cum_snr(reverse=True) + compute_cum_snr(reverse=False)) * 0.5
+
+                clipped_fused_snr = 1 - (1 - cum_snr * cum_snr_decay) * (1 - normalized_clipped_snr)
+                fused_snr = 1 - (1 - cum_snr * cum_snr_decay) * (1 - normalized_snr)
+                snr = fused_snr * snr_clip
+                clipped_snr = clipped_fused_snr * snr_clip
+                epsilon_weighting = clipped_snr / snr.clamp(min=1e-8)
         else:
             raise ValueError(f"unknown loss weighting strategy {strategy}")
         if self.objective == "pred_noise":

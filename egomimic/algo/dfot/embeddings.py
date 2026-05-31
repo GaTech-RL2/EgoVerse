@@ -70,8 +70,8 @@ class _Timesteps(nn.Module):
     def __init__(
         self,
         num_channels: int,
-        flip_sin_to_cos: bool = True,
-        downscale_freq_shift: float = 0.0,
+        flip_sin_to_cos: bool = False,
+        downscale_freq_shift: float = 1.0,
     ):
         super().__init__()
         self.num_channels = num_channels

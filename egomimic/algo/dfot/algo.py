@@ -100,6 +100,8 @@ class DFoT(Algo):
         ar_inference_chunk_size: int = 1,
         ar_inference_step_size: int = 1,
         cfg_scale: float = 1.0,
+        sp_n_context: int = 4,
+        sp_commit: int = 1,
         domains: Optional[list] = None,
         ac_keys: Optional[dict] = None,
         device=None,
@@ -131,9 +133,9 @@ class DFoT(Algo):
         self.sampler = sampler
         self.sampler_n_steps = int(sampler_n_steps)
         self.sampler_eta = float(sampler_eta)
-        if inference_mode not in {"ar", "chunk"}:
+        if inference_mode not in {"ar", "chunk", "spatial_rh"}:
             raise ValueError(
-                f"inference_mode must be 'ar' or 'chunk', got {inference_mode!r}"
+                f"inference_mode must be 'ar', 'chunk', or 'spatial_rh', got {inference_mode!r}"
             )
         self.inference_mode = inference_mode
         self.ar_inference_chunk_size = int(ar_inference_chunk_size)
@@ -143,6 +145,11 @@ class DFoT(Algo):
         self.ar_inference_step_size = int(ar_inference_step_size)
         # Classifier-free-guidance scale at inference. 1.0 disables CFG.
         self.cfg_scale = float(cfg_scale)
+        # spatial_rh closed-loop controller: context window + actions committed
+        # per replan (sp_commit>1 = predict a short chunk open-loop, re-plan
+        # every sp_commit ticks -> sp_commit-fold fewer diffusion rollouts).
+        self.sp_n_context = int(sp_n_context)
+        self.sp_commit = int(sp_commit)
         self.device = device or torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -232,6 +239,8 @@ class DFoT(Algo):
                 key_name = self.norm_stats.zarr_key_to_keyname(key, emb_id)
                 if key_name is not None:
                     processed[emb_id][key_name] = value
+                else:
+                    processed[emb_id][key] = value
 
             processed[emb_id]["_packed"] = is_packed
             # Synthesize seq_lens from cu_seqlens for packed batches if the
@@ -313,7 +322,7 @@ class DFoT(Algo):
         """
         predictions = OrderedDict()
         for emb_id, _batch in batch.items():
-            ac_key = self.resolved_ac_keys[emb_id]
+            ac_key = self.resolved_ac_keys.get(emb_id, "actions")
             is_packed = _batch.get("_packed", False)
             obs = self._build_obs(_batch, emb_id)
             ctx = make_dfot_ctx(
@@ -338,29 +347,46 @@ class DFoT(Algo):
         unnorm = {}
         backbone = self.backbone
         for emb_id, _batch in batch.items():
-            ac_key = self.resolved_ac_keys[emb_id]
+            ac_key = self.resolved_ac_keys.get(emb_id, "actions")
             actions = _batch[ac_key]
             is_packed = _batch.get("_packed", False)
             obs = self._build_obs(_batch, emb_id)
 
+            # Build the joint diffusion target (= the bundle for obs+action
+            # outer stages, or just actions for vanilla DFoT). Previously this
+            # path diffused raw `actions`, which is wrong for obs-action
+            # variants whose backbone/diffusion are sized to the full bundle.
+            _eval_ctx = make_dfot_ctx(
+                is_packed=is_packed,
+                action_key=ac_key,
+                obs=obs,
+                cu_seqlens=_batch.get("cu_seqlens") if is_packed else None,
+                max_seqlen=(int(_batch.get("max_seq_len", 0)) or None) if is_packed else None,
+            )
+            _build_bundle = getattr(self.outer_stage, "_build_bundle", None)
+            target = _build_bundle(_batch, _eval_ctx) if _build_bundle is not None else actions
+
             if is_packed:
-                T_total = actions.shape[0]
+                T_total = target.shape[0]
                 cu = _batch["cu_seqlens"]
                 msl = int(_batch.get("max_seq_len", 0)) or None
                 cond = self._encode_cond_packed(obs)
-                k = self._sample_noise_levels((T_total,), actions.device)
+                k = self._sample_noise_levels((T_total,), target.device)
                 packed_backbone = _PackedBackboneWrapper(backbone, cu, msl)
-                _, loss = self.diffusion(packed_backbone, actions, k, external_cond=cond)
+                _, loss = self.diffusion(packed_backbone, target, k, external_cond=cond)
                 unnorm[f"emb{emb_id}_loss"] = loss.mean()
                 # No chunk sampling in packed val — too expensive per episode and
                 # the closed-loop measure lives in inference_step / sim eval.
             else:
                 B, T, _ = actions.shape
                 cond = self._encode_cond(obs, T)
-                k = self._sample_noise_levels((B, T), actions.device)
-                _, loss = self.diffusion(backbone, actions, k, external_cond=cond)
+                k = self._sample_noise_levels((B, T), target.device)
+                _, loss = self.diffusion(backbone, target, k, external_cond=cond)
                 unnorm[f"emb{emb_id}_loss"] = loss.mean()
                 sampled = self._sample_chunk(B, T, cond=cond, device=actions.device)
+                # _sample_chunk returns the full bundle; pick out the action
+                # slice so unnormalize sees an action-shaped tensor.
+                sampled = sampled[..., self.outer_stage.action_slice]
                 preds = OrderedDict()
                 preds[ac_key] = sampled
                 unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
@@ -448,6 +474,8 @@ class DFoT(Algo):
             return self._inference_step_ar(obs_zarr, t, emb_id)
         if self.inference_mode == "chunk":
             return self._inference_step_chunk(obs_zarr, t, emb_id)
+        if self.inference_mode == "spatial_rh":
+            return self._inference_step_spatial_rh(obs_zarr, t, emb_id)
         raise ValueError(f"unknown inference_mode {self.inference_mode!r}")
 
     def _ar_state_init(self, device, external_cond):
@@ -651,3 +679,114 @@ class DFoT(Algo):
         action_world = state["chunk"][idx]
         state["chunk_idx"] = idx + 1
         return action_world.cpu().numpy().reshape(-1).astype(np.float32)
+
+    # ------------------------------------------------------------------ #
+    # Closed-loop controller for the 2D spatial obs+action policy.
+    # ------------------------------------------------------------------ #
+    def _struct_ddim_step(self, diff, x, v, cur, nxt):
+        """One eta=0 DDIM step from a v-prediction (discrete diffusion).
+        ``cur``/``nxt`` are (T,) per-token levels; ``x`` is (1, T, *trailing).
+        Mirrors DFoTPolicyActionEval._ddim_from_v exactly."""
+        T = x.shape[1]
+        pad = x.dim() - 2
+        kBT = cur.clamp_min(0).long().unsqueeze(0)
+        x0 = diff.predict_start_from_v(x, kBT, v)
+        eps = diff.predict_noise_from_v(x, kBT, v)
+        an = diff.alphas_cumprod[nxt.clamp_min(0).long()]
+        an = torch.where(nxt < 0, torch.ones_like(an), an)
+        an = an.reshape(1, T, *([1] * pad))
+        c = (1.0 - an).clamp_min(0.0).sqrt()
+        return x0 * an.sqrt() + eps * c
+
+    @torch.no_grad()
+    def _inference_step_spatial_rh(
+        self, obs_zarr: dict, t: int, emb_id: int
+    ) -> "np.ndarray":
+        """Reactive receding-horizon controller for the 2D spatial obs+action
+        policy (``SpatialObsActionPolicyDFoTOuterStage`` + dual-stream DiT3D).
+
+        The backbone uses ONE noise level per frame (shared by the latent and
+        its action token), so we cannot pin the current image clean while
+        predicting its action. Instead: pin the last ``n_context`` OBSERVED
+        frames (real latent + executed action) clean, condition on the REAL
+        current state via external_cond, and predict the next frame's
+        (imagined latent, action); commit the action. Real observations enter
+        as clean context one tick later. This is the closed-loop form of the
+        validated DFoTPolicyActionEval._rollout.
+        """
+        from egomimic.algo.dfot.sampling import vanilla_schedule
+
+        outer = self.outer_stage
+        diff = self.diffusion
+        device = next(self.backbone.parameters()).device
+        embodiment_name = get_embodiment(emb_id).lower()
+        ac_key = self.ac_keys[embodiment_name]
+        n_ctx = int(self.sp_n_context)
+        k = max(1, int(self.sp_commit))                         # actions committed per replan
+        n_steps = int(self.sampler_n_steps)
+
+        if t == 0 or not hasattr(self, "_sp_lat"):
+            self._sp_lat = []      # observed clean latents, each (1, C, H, W)
+            self._sp_state = []    # observed states, each (1, sd) normalized
+            self._sp_act = []      # executed NORMALIZED actions, each (A,)
+            self._sp_queue = []    # pending committed unnorm actions (np, A)
+
+        # ---- encode current obs (becomes a clean context frame next tick) ----
+        obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
+        state = torch.cat(
+            [obs_norm[kk] for kk in outer.bundle_obs_keys], dim=-1
+        ).float().to(device)                                    # (1, sd)
+        img = obs_zarr[outer.image_key].float().to(device)
+        if img.max() > 1.5:
+            img = img / 255.0
+        mu, _ = outer.vae.encode(img)                           # (1, C, H, W)
+        lat = outer.normalize_latent(mu)                        # (1, C, H, W)
+        self._sp_lat.append(lat)
+        self._sp_state.append(state)
+
+        # Mid-chunk: return the next already-committed action (no replan).
+        if self._sp_queue:
+            return self._sp_queue.pop(0)
+
+        # ---- replan: predict the next k (latent, action) frames ----
+        C, H, W = outer.bundle_shape
+        A = outer._action_dim
+        n_done = len(self._sp_act)                              # executed actions so far
+        ctx_idx = [max(0, n_done - n_ctx + i) for i in range(n_ctx)]
+        T = n_ctx + k
+
+        latent_ctx = torch.cat([self._sp_lat[i] for i in ctx_idx], dim=0)  # (n_ctx, C, H, W)
+        # cond: context-frame states + the REAL current state for each predicted frame
+        state_seq = [self._sp_state[i] for i in ctx_idx] + [self._sp_state[-1]] * k
+        cond = outer.state_only_proj(torch.cat(state_seq, dim=0)).unsqueeze(0)  # (1, T, proj)
+        act_ctx = torch.stack(
+            [self._sp_act[i] if i < len(self._sp_act) else torch.zeros(A, device=device)
+             for i in ctx_idx], dim=0)                          # (n_ctx, A)
+
+        dts = int(diff.timesteps) if isinstance(diff, DiscreteDiffusion) else None
+        clean = -1 if dts is not None else 0.0
+        sched = vanilla_schedule(n_steps, T, discrete_timesteps=dts).to(device).clone()
+        sched[:, :n_ctx] = clean
+
+        x_lat = torch.randn(1, T, C, H, W, device=device)
+        x_lat[:, :n_ctx] = latent_ctx.unsqueeze(0)
+        x_act = torch.randn(1, T, A, device=device)
+        x_act[:, :n_ctx] = act_ctx.unsqueeze(0)
+        for s in range(sched.shape[0] - 1):
+            klev = sched[s].clamp_min(0).long().unsqueeze(0)
+            v_lat, v_act = self.backbone(x_lat, klev, external_cond=cond, action=x_act)
+            x_lat = self._struct_ddim_step(diff, x_lat, v_lat, sched[s], sched[s + 1])
+            x_act = self._struct_ddim_step(diff, x_act, v_act, sched[s], sched[s + 1])
+            x_lat[:, :n_ctx] = latent_ctx.unsqueeze(0)
+            x_act[:, :n_ctx] = act_ctx.unsqueeze(0)
+
+        pred_norm = x_act[0, n_ctx:n_ctx + k]                   # (k, A) normalized predicted actions
+        for j in range(k):
+            self._sp_act.append(pred_norm[j].detach())         # record executed (normalized)
+        unnorm = self.norm_stats.unnormalize(
+            {ac_key: pred_norm}, emb_id
+        )[ac_key]                                               # (k, A) absolute frame
+        unnorm_np = unnorm.detach().cpu().numpy()
+        for row in unnorm_np[1:]:
+            self._sp_queue.append(row.reshape(-1).astype(np.float32))
+        return unnorm_np[0].reshape(-1).astype(np.float32)

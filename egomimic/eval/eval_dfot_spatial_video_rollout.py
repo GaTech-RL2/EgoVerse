@@ -73,6 +73,7 @@ class DFoTSpatialVideoRolloutEval(EvalVideo):
         embodiment_name: str = "pushshapes_sim",
         image_key: str = "front_img_1",
         recon_loss_n_frames: int = 10,
+        n_context_frames: int = 0,
         mode: str = "chunk",
         ar_chunk_size: int = 1,
         ar_step_size: int = 1,
@@ -95,6 +96,7 @@ class DFoTSpatialVideoRolloutEval(EvalVideo):
         self.embodiment_name = embodiment_name
         self.image_key = str(image_key)
         self.recon_loss_n_frames = int(recon_loss_n_frames)
+        self.n_context_frames = int(n_context_frames)
         self.mode = mode
         self.ar_chunk_size = int(ar_chunk_size)
         self.ar_step_size = int(ar_step_size)
@@ -113,9 +115,16 @@ class DFoTSpatialVideoRolloutEval(EvalVideo):
 
     @torch.no_grad()
     def _rollout(
-        self, algo, cond_seq: torch.Tensor, device, batch_size: int = 1
+        self, algo, cond_seq: torch.Tensor, device, context_latent=None,
+        batch_size: int = 1,
     ) -> torch.Tensor:
-        """Returns predicted latent of shape ``(batch_size, T, C, H, W)``."""
+        """Returns predicted latent ``(batch_size, T, C, H, W)``.
+
+        If ``context_latent`` (1, n_ctx, C, H, W) is given, the first n_ctx
+        latents are seeded from GT and pinned clean across all sampling steps
+        (anchored conditional rollout — predict the continuation given the real
+        first frame[s] + the action sequence). Else the whole sequence is
+        generated from noise conditioned only on the actions."""
         outer = algo.outer_stage
         bundle_shape = outer.bundle_shape
         T = cond_seq.shape[1]
@@ -130,22 +139,32 @@ class DFoTSpatialVideoRolloutEval(EvalVideo):
             ).to(device)
         else:
             schedule = staircase_ar_schedule(
-                T=T,
-                chunk_size=self.ar_chunk_size,
-                step_size=self.ar_step_size,
+                T=T, chunk_size=self.ar_chunk_size, step_size=self.ar_step_size,
                 discrete_timesteps=discrete_ts,
             ).to(device)
 
-        return _sample(
-            algo.diffusion,
-            algo.backbone,
-            schedule_matrix=schedule,
-            x_shape=bundle_shape,
-            batch_size=batch_size,
-            external_cond=cond_seq,
-            cfg_scale=self.cfg_scale,
-            device=device,
-        )
+        if context_latent is None:
+            return _sample(
+                algo.diffusion, algo.backbone, schedule_matrix=schedule,
+                x_shape=bundle_shape, batch_size=batch_size,
+                external_cond=cond_seq, cfg_scale=self.cfg_scale, device=device,
+            )
+
+        from egomimic.algo.dfot.sampling import sample_step
+        n_ctx = context_latent.shape[1]
+        clean = -1 if discrete_ts is not None else 0.0
+        schedule = schedule.clone()
+        schedule[:, :n_ctx] = clean
+        x = torch.randn(batch_size, T, *bundle_shape, device=device)
+        x[:, :n_ctx] = context_latent
+        for s in range(schedule.shape[0] - 1):
+            x = sample_step(
+                algo.diffusion, algo.backbone, x=x,
+                current_levels=schedule[s], next_levels=schedule[s + 1],
+                external_cond=cond_seq, eta=0.0, cfg_scale=self.cfg_scale,
+            )
+            x[:, :n_ctx] = context_latent
+        return x
 
     # ------------------------------------------------------------------
     # Build per-step (state, action) -> external_cond for one episode.
@@ -232,8 +251,21 @@ class DFoTSpatialVideoRolloutEval(EvalVideo):
                 gt_seq = imgs[ep_idx, :T_rollout]
 
             cond_seq = cond_seq.to(device).float()
+            # Optional GT context anchor: VAE-encode the first n_context frames
+            # to latents and pin them clean -> predict the continuation given
+            # the real frame(s) + the action sequence (the in-distribution task).
+            context_latent = None
+            if self.n_context_frames > 0:
+                n_ctx = min(self.n_context_frames, T_rollout)
+                ctx_img = gt_seq[:n_ctx].to(device).float()
+                if ctx_img.max() > 1.5:
+                    ctx_img = ctx_img / 255.0
+                mu, _lv = outer.vae.encode(ctx_img)
+                context_latent = outer.normalize_latent(mu).unsqueeze(0)
             # ---- Sampler returns (1, T, C, H, W) ----
-            pred_latent = self._rollout(algo, cond_seq, device).squeeze(0)
+            pred_latent = self._rollout(
+                algo, cond_seq, device, context_latent=context_latent,
+            ).squeeze(0)
             # ---- VAE decode -> pixel frames (T, 3, H, W) ----
             pred_frames = outer.vae.decode(outer.denormalize_latent(pred_latent))
 

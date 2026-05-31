@@ -17,6 +17,11 @@ class Eval(ABC):
     def __init__(self):
         self.trainer = None
         self.model = None
+        # Trainer-config overrides consumed by trainHydra in `mode=eval`.
+        # Video evaluators (EvalVideo) repopulate this; the base default of
+        # {} lets non-video evaluators (e.g. the EvalList composite runner)
+        # run in eval mode without crashing on a missing attribute.
+        self.override_dict = {}
 
     def root_dir(self):
         return self.trainer.default_root_dir

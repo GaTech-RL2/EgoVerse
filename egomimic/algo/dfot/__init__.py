@@ -10,6 +10,12 @@ from egomimic.algo.dfot.obs_action_image_outer_stage import (
     ObsActionImageDFoTOuterStage,
 )
 from egomimic.algo.dfot.obs_action_outer_stage import ObsActionDFoTOuterStage
+from egomimic.algo.dfot.pixel_spatial_outer_stage import (
+    PixelSpatialDFoTOuterStage,
+)
+from egomimic.algo.dfot.spatial_obs_action_policy_outer_stage import (
+    SpatialObsActionPolicyDFoTOuterStage,
+)
 from egomimic.algo.dfot.spatial_backbone import DFoTSpatialBackbone
 from egomimic.algo.dfot.outer_stage import DFoTOuterStage, make_dfot_ctx
 from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
@@ -33,6 +39,8 @@ __all__ = [
     "ImageSpatialDFoTOuterStage",
     "ObsActionDFoTOuterStage",
     "ObsActionImageDFoTOuterStage",
+    "PixelSpatialDFoTOuterStage",
+    "SpatialObsActionPolicyDFoTOuterStage",
     "make_dfot_ctx",
     "ContinuousDiffusion",
     "DiscreteDiffusion",
@@ -44,3 +52,4 @@ __all__ = [
     "ddim_sample",
     "ddpm_sample",
 ]
+from egomimic.algo.dfot.pixel_video_outer_stage import PixelVideoDFoTOuterStage

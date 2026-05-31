@@ -1,10 +1,5 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# Full 750-episode pushshapes circle dataset (pushT/circle_750/circle).
-# Same packed-dataloading layout as tsimulation.yaml (450-ep circle/basic).
-# Each sample is one full episode (chunking="none"); pack_collate concatenates
-# `batch_size` episodes into a flat stream with cu_seqlens boundaries.
-
 train_datasets:
   pushshapes_sim:
     _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
@@ -33,15 +28,22 @@ valid_datasets:
     min_seq_len: 64
     max_seq_len: 1024
 
-# H200 (141GB) scale-up: 16 packed episodes / batch. With ~700 frames per
-# episode on circle/basic that's ~11200 total frames per packed batch.
-# Combined with d_model=512 + T12 transformer this should target ~40-60%
-# of GPU memory. Bump higher if utilization stays low.
+# 2026-05-23 perf bump: pin_memory + persistent_workers + prefetch_factor=4
+# + num_workers=12 (matching cpus-per-task=12 on A40 alloc). Pin memory
+# enables async H2D DMA. Persistent workers avoids the fork-each-epoch
+# tax. prefetch_factor=4 keeps 48 batches queued across workers. Target
+# was 57% GPU util on the previous data-bound config.
 train_dataloader_params:
   pushshapes_sim:
     batch_size: 16
-    num_workers: 8
+    num_workers: 12
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
 valid_dataloader_params:
   pushshapes_sim:
     batch_size: 16
-    num_workers: 8
+    num_workers: 12
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4

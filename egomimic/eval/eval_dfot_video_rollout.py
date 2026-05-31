@@ -76,6 +76,7 @@ class DFoTVideoRolloutEval(EvalVideo):
         ar_step_size: int = 1,
         n_chunk_steps: int = 50,
         cfg_scale: float = 1.0,
+        recon_loss_n_frames: int = 10,
         viz_func=None,
         transform_lists=None,
     ):
@@ -108,10 +109,10 @@ class DFoTVideoRolloutEval(EvalVideo):
         self.ar_step_size = int(ar_step_size)
         self.n_chunk_steps = int(n_chunk_steps)
         self.cfg_scale = float(cfg_scale)
+        self.recon_loss_n_frames = int(recon_loss_n_frames)
 
     def video_dir(self):
         import os
-
         return os.path.join(self.root_dir(), self._video_subdir)
 
     @torch.no_grad()
@@ -135,8 +136,6 @@ class DFoTVideoRolloutEval(EvalVideo):
         from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
         from egomimic.algo.dfot.sampling import (
             sample as _sample,
-        )
-        from egomimic.algo.dfot.sampling import (
             staircase_ar_schedule,
         )
 
@@ -208,27 +207,71 @@ class DFoTVideoRolloutEval(EvalVideo):
         # bundle, not the cond), so cond should be None.
         cond = None
 
+        # Per-step + average MSE of predicted vs GT frames for the first
+        # ``recon_loss_n_frames`` rollout steps. Caveat: with the current
+        # empty cond_encoder + no obs-anchoring at inference, predictions
+        # are sampled from the learned prior with no link to a specific
+        # GT episode. The MSE is therefore noisy episode-to-episode but
+        # the mean across val episodes should still trend down as the
+        # model learns the dataset's distribution.
+        per_step_sse = np.zeros(self.recon_loss_n_frames, dtype=np.float64)
+        per_step_n = np.zeros(self.recon_loss_n_frames, dtype=np.int64)
+
         all_frames: List[np.ndarray] = []
-        for img_chw in starting:
+        for ep_idx, img_chw in enumerate(starting):
             bundle_pred = self._rollout(algo, device, cond)  # (T, bundle_dim)
             latent_seq = bundle_pred[:, lat_slice]
             pred_frames = self._decode_latents_to_frames(algo, latent_seq)
+
+            # ---- per-step MSE against GT episode's first N frames ----
+            n_cmp = min(self.recon_loss_n_frames, pred_frames.shape[0])
+            if _batch.get("_packed", False):
+                s_idx = int(cu[ep_idx].item())
+                gt_seq = imgs[s_idx : s_idx + n_cmp]
+            else:
+                gt_seq = imgs[ep_idx, :n_cmp]
+            # GT in [0,1] float; predicted also in [0,1] from VAE sigmoid.
+            gt_f = gt_seq.to(device).float()
+            if gt_f.max() > 1.5:
+                gt_f = gt_f / 255.0
+            pred_f = pred_frames[:n_cmp].to(device).float()
+            # MSE per step over (C, H, W) dims.
+            mse_per_step = ((pred_f - gt_f) ** 2).mean(dim=(1, 2, 3)).detach().cpu().numpy()
+            for t in range(n_cmp):
+                per_step_sse[t] += float(mse_per_step[t])
+                per_step_n[t] += 1
+
             # Prepend the GT t=0 frame for context.
             t0_uint = _img_chw_to_uint8(img_chw)
             t0_uint = cv2.resize(
-                t0_uint,
-                (self.upscale_to, self.upscale_to),
+                t0_uint, (self.upscale_to, self.upscale_to),
                 interpolation=cv2.INTER_NEAREST,
             )
             all_frames.append(np.ascontiguousarray(t0_uint))
             for t in range(pred_frames.shape[0]):
                 f = _img_chw_to_uint8(pred_frames[t])
                 f = cv2.resize(
-                    f,
-                    (self.upscale_to, self.upscale_to),
+                    f, (self.upscale_to, self.upscale_to),
                     interpolation=cv2.INTER_NEAREST,
                 )
                 all_frames.append(np.ascontiguousarray(f))
+
+        # ---- emit metrics ----
+        # Per-step (so wandb plots a fan / can see degradation over time).
+        for t in range(self.recon_loss_n_frames):
+            if per_step_n[t] > 0:
+                metrics[
+                    f"Valid/emb{emb_id}_video_recon_mse_step_{t:02d}"
+                ] = torch.tensor(
+                    per_step_sse[t] / per_step_n[t], device=device
+                )
+        # Single scalar across the first N frames (averaged per episode).
+        if per_step_n.sum() > 0:
+            metrics[
+                f"Valid/emb{emb_id}_video_recon_mse_first{self.recon_loss_n_frames}"
+            ] = torch.tensor(
+                per_step_sse.sum() / per_step_n.sum(), device=device
+            )
 
         if all_frames:
             images_dict[emb_id] = np.stack(all_frames, axis=0)

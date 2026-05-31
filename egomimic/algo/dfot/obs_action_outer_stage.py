@@ -64,6 +64,7 @@ class ObsActionDFoTOuterStage(DFoTOuterStage):
         diffusion,
         bundle_obs_keys: List[str],
         bundle_obs_dims: List[int],
+        action_in_bundle: bool = True,
         cond_output_key: str = "fused_cond",
     ):
         super().__init__(
@@ -78,10 +79,18 @@ class ObsActionDFoTOuterStage(DFoTOuterStage):
                 f"bundle_obs_keys ({len(bundle_obs_keys)}) and "
                 f"bundle_obs_dims ({len(bundle_obs_dims)}) must align."
             )
+        # action_in_bundle=True (default): the action is a DIFFUSION TARGET in
+        # the bundle (joint obs+action prediction = POLICY). False: the action
+        # is moved to the AdaLN conditioning path (external_cond) and the bundle
+        # is obs-only (action-conditioned video = WORLD MODEL). In world-model
+        # mode the backbone must be configured with cond_dim = action_dim.
+        self.action_in_bundle = bool(action_in_bundle)
         self.bundle_obs_keys = list(bundle_obs_keys)
         self.bundle_obs_dims = [int(d) for d in bundle_obs_dims]
         self._obs_total = sum(self.bundle_obs_dims)
-        self._bundle_dim = self._obs_total + int(action_dim)
+        self._bundle_dim = self._obs_total + (
+            int(action_dim) if self.action_in_bundle else 0
+        )
 
         # Backbone width sanity check — its ``action_dim`` must match the
         # bundle width since it produces ``v_pred`` of the same shape.
@@ -105,6 +114,10 @@ class ObsActionDFoTOuterStage(DFoTOuterStage):
     @property
     def action_slice(self) -> slice:
         # action is concatenated last; slice picks it out of the bundle.
+        # World-model mode (action_in_bundle=False) predicts no action, so the
+        # slice is empty.
+        if not self.action_in_bundle:
+            return slice(self._obs_total, self._obs_total)
         return slice(self._obs_total, self._bundle_dim)
 
     # ------------------------------------------------------------------
@@ -137,7 +150,8 @@ class ObsActionDFoTOuterStage(DFoTOuterStage):
                     f"bundle_obs_dim {dim}."
                 )
             pieces.append(v)
-        pieces.append(actions)
+        if self.action_in_bundle:
+            pieces.append(actions)
         bundle = torch.cat(pieces, dim=-1)
         if bundle.shape[-1] != self._bundle_dim:
             raise RuntimeError(
@@ -148,6 +162,9 @@ class ObsActionDFoTOuterStage(DFoTOuterStage):
 
     def encode(self, batch: dict, ctx: SimpleNamespace) -> torch.Tensor:
         bundle = self._build_bundle(batch, ctx)
+        # World-model mode: the action is the conditioning signal, fed through
+        # the backbone's external_cond / AdaLN path instead of being diffused.
+        action_cond = None if self.action_in_bundle else batch[ctx.action_key]
 
         if ctx.is_packed:
             if bundle.dim() != 2:
@@ -156,7 +173,11 @@ class ObsActionDFoTOuterStage(DFoTOuterStage):
                     f"got {tuple(bundle.shape)}"
                 )
             T_total = bundle.shape[0]
-            cond = self._encode_cond_packed(ctx.obs)
+            cond = (
+                action_cond
+                if action_cond is not None
+                else self._encode_cond_packed(ctx.obs)
+            )
             t = self._sample_noise_levels((T_total,), bundle.device)
         else:
             if bundle.dim() != 3:
@@ -165,7 +186,11 @@ class ObsActionDFoTOuterStage(DFoTOuterStage):
                     f"got {tuple(bundle.shape)}"
                 )
             B, T, _ = bundle.shape
-            cond = self._encode_cond_padded(ctx.obs, T)
+            cond = (
+                action_cond
+                if action_cond is not None
+                else self._encode_cond_padded(ctx.obs, T)
+            )
             t = self._sample_noise_levels((B, T), bundle.device)
 
         q = self.diffusion.q_sample(bundle, t)
