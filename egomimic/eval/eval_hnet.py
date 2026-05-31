@@ -142,7 +142,9 @@ class HNetEvalVideo(EvalVideo):
             n_loss += 1
 
             if self.viz_func is not None and embodiment_name in self.viz_func:
-                ims = self.viz_func[embodiment_name](viz_preds, viz_batch)
+                ims = self.viz_func[embodiment_name](
+                    viz_preds, viz_batch, max_videos=self.max_videos
+                )
                 images_dict[emb_id] = ims
 
         if total_loss is not None and n_loss > 0:

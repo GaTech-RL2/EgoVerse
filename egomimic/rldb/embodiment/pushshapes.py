@@ -76,6 +76,82 @@ def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
     }
 
 
+def get_keymap_causal(action_horizon: int = 32, **kwargs) -> dict:
+    """Causal keymap: obs is the SINGLE current frame (horizon 1), actions are a
+    chunk of length ``action_horizon``. This matches closed-loop inference
+    (sim_predict_step feeds one current obs and predicts an action chunk),
+    unlike ``get_keymap`` which gives the obs the same 32-step window that
+    includes FUTURE frames unavailable at rollout time. Train with this so
+    train == inference and the policy doesn't drift in closed loop.
+    """
+    return {
+        "front_img_1": {
+            "key_type": "camera_keys",
+            "zarr_key": "observations.images.front_img_1",
+            "horizon": 1,
+        },
+        "state_agent_obj": {
+            "key_type": "proprio_keys",
+            "zarr_key": "observations.state",
+            "horizon": 1,
+        },
+        "actions": {
+            "key_type": "action_keys",
+            "zarr_key": "actions",
+            "horizon": int(action_horizon),
+        },
+    }
+
+
+def get_keymap_goal(action_horizon: int = 32, **kwargs) -> dict:
+    """``get_keymap`` + ``goal_obs`` = the goal pose as a normalized proprio model
+    input (H2 goal-conditioning test). proprio_keys => normalized + fed to the
+    cond encoder."""
+    km = get_keymap(action_horizon=action_horizon)
+    km["goal_obs"] = {
+        "key_type": "proprio_keys",
+        "zarr_key": "goal_pose",
+        "horizon": int(action_horizon),
+    }
+    return km
+
+
+def get_keymap_goal_eval(action_horizon: int = 32, **kwargs) -> dict:
+    """``get_keymap_goal`` + raw ``goal_pose`` passthrough for the sim env init."""
+    km = get_keymap_goal(action_horizon=action_horizon)
+    km["goal_pose"] = {
+        "key_type": "goal_keys",
+        "zarr_key": "goal_pose",
+        "horizon": int(action_horizon),
+    }
+    return km
+
+
+def get_keymap_eval(action_horizon: int = 32, **kwargs) -> dict:
+    """``get_keymap`` plus ``goal_pose`` for closed-loop sim eval.
+
+    ``SimRolloutEval`` (replay init) reads ``sample['goal_pose']`` to set the
+    PushShapes env goal. The training keymap omits it (training never uses the
+    goal). ``goal_pose`` uses a non-normalized, non-image key_type so it is read
+    into the packed batch and passed straight through to the evaluator.
+    """
+    km = get_keymap(action_horizon=action_horizon)
+    km["goal_pose"] = {
+        "key_type": "goal_keys",
+        "zarr_key": "goal_pose",
+        "horizon": int(action_horizon),
+    }
+    # Raw (un-normalized, un-delta'd) copy of the absolute actions so the delta
+    # rollout can seed its integration from action[0]. DeltaAction only rewrites
+    # the "actions" key, so this passthrough stays absolute.
+    km["init_action"] = {
+        "key_type": "goal_keys",
+        "zarr_key": "actions",
+        "horizon": int(action_horizon),
+    }
+    return km
+
+
 # ---------------------------------------------------------------------- #
 # Validation viz
 # ---------------------------------------------------------------------- #
