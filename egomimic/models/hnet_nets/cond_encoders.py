@@ -12,13 +12,16 @@ Output:
     optionally per-obs raw embeddings keyed by their obs name when
     ``per_obs_keys=True`` (useful if a stage wants un-fused cond).
 """
+
 from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
 
 
-def _mlp(in_dim: int, out_dim: int, widths: Optional[List[int]] = None) -> nn.Sequential:
+def _mlp(
+    in_dim: int, out_dim: int, widths: Optional[List[int]] = None
+) -> nn.Sequential:
     widths = widths or []
     layers: List[nn.Module] = []
     prev = in_dim
@@ -60,12 +63,19 @@ class CondEncoderModule(nn.Module):
         obs_specs = obs_specs or {}
         self.obs_keys = sorted(obs_specs.keys())
         self.obs_encoders = nn.ModuleDict()
+        # Optional per-key input slice: spec["input_slice"] = [start, end] picks
+        # x[..., start:end] before the MLP. Lets a multi-component proprio
+        # tensor feed only a subset into the encoder without resaving the zarr.
+        self.obs_input_slices: Dict[str, slice] = {}
         fused_dim = 0
         for key in self.obs_keys:
             spec = obs_specs[key]
             self.obs_encoders[key] = _mlp(
                 spec["input_dim"], spec["embed_dim"], spec.get("widths", [])
             )
+            if "input_slice" in spec:
+                start, end = spec["input_slice"]
+                self.obs_input_slices[key] = slice(int(start), int(end))
             fused_dim += spec["embed_dim"]
 
         img_encoders = img_encoders or {}
@@ -88,7 +98,9 @@ class CondEncoderModule(nn.Module):
                 widths = [max(self.d_cond, fused_dim)]
             self.cond_proj = _mlp(fused_dim, self.d_cond, widths=list(widths))
 
-    def encode(self, obs: Dict[str, torch.Tensor], T_action: int) -> Dict[str, torch.Tensor]:
+    def encode(
+        self, obs: Dict[str, torch.Tensor], T_action: int
+    ) -> Dict[str, torch.Tensor]:
         """Returns a cond_dict. Single-frame obs are broadcast across T_action."""
         if self.cond_proj is None:
             return {}
@@ -100,9 +112,11 @@ class CondEncoderModule(nn.Module):
             if key not in obs:
                 continue
             x = obs[key]
-            if x.dim() == 2:                       # (B, D) -> (B, T, D)
+            if key in self.obs_input_slices:
+                x = x[..., self.obs_input_slices[key]]
+            if x.dim() == 2:  # (B, D) -> (B, T, D)
                 x = x.unsqueeze(1).expand(-1, T_action, -1)
-            emb = self.obs_encoders[key](x)         # (B, T, embed_dim)
+            emb = self.obs_encoders[key](x)  # (B, T, embed_dim)
             feats.append(emb)
             if self.per_obs_keys:
                 out[key] = emb
@@ -111,9 +125,9 @@ class CondEncoderModule(nn.Module):
             if key not in obs:
                 continue
             x = obs[key]
-            if x.dim() == 4:                       # (B, C, H, W) -> (B, T, ...)
+            if x.dim() == 4:  # (B, C, H, W) -> (B, T, ...)
                 x = x.unsqueeze(1).expand(-1, T_action, -1, -1, -1)
-            emb = self.img_encoders[key](x)         # (B, T, embed_dim)
+            emb = self.img_encoders[key](x)  # (B, T, embed_dim)
             feats.append(emb)
             if self.per_obs_keys:
                 out[key] = emb

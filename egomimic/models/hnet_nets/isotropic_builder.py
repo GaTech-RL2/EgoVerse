@@ -47,13 +47,26 @@ def build_isotropic(
     cond_here = bool(spec.get("cond", False))
     cond_mode = str(spec.get("cond_mode", "adaln"))
     ssm_kwargs = spec.get("ssm_cfg", {}) or {}
+    # F6: per-stack rotary_emb_dim (0 disables RoPE for this Isotropic).
+    rotary_emb_dim = int(spec.get("rotary_emb_dim", 0) or 0)
+    # Per-stack dropout knobs. ``dropout`` is the attention-softmax dropout
+    # (forwarded into MHA); ``resid_dropout`` is the residual-branch dropout
+    # applied to attn/ffn outputs in each TransformerBlock. Both default to
+    # 0.0 — yaml specs that omit them are unaffected.
+    attn_dropout = float(spec.get("dropout", 0.0) or 0.0)
+    resid_dropout = float(spec.get("resid_dropout", 0.0) or 0.0)
 
     # Wrap the per-stage scalars into the list-indexed config Isotropic expects.
     cfg = HNetConfig(
         arch_layout=[arch_layout],  # 1-level nesting; pos_idx=0 selects it
         d_model=[d_model],
         d_intermediate=[d_intermediate],
-        attn_cfg=AttnConfig(num_heads=[num_heads]),
+        attn_cfg=AttnConfig(
+            num_heads=[num_heads],
+            rotary_emb_dim=[rotary_emb_dim],
+            dropout=[attn_dropout],
+            resid_dropout=[resid_dropout],
+        ),
         ssm_cfg=SSMConfig(**{k: [v] for k, v in ssm_kwargs.items()}),
     )
     return Isotropic(

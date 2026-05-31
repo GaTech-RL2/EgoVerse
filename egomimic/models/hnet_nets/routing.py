@@ -73,6 +73,18 @@ class RoutingModule(nn.Module):
         self.d_model = d_model
         self.q_proj_layer = nn.Linear(d_model, d_model, bias=False, **factory_kwargs)
         self.k_proj_layer = nn.Linear(d_model, d_model, bias=False, **factory_kwargs)
+        # F9 (upstream parity): identity init for q/k is intentional in the
+        # H-Net paper / reference implementation
+        # (``goombalab/hnet/hnet/modules/dc.py:RoutingModule.__init__``).
+        # At init cos_sim(q(h_t), k(h_{t+1})) reduces to cosine similarity
+        # of consecutive hidden states themselves; near-identical consecutive
+        # embeddings give cos_sim ~ 1 → boundary_prob ~ 0, so the chunker
+        # initially fires ONLY at the forced subseq-start positions
+        # (``boundary_prob[cu_seqlens[:-1]] = 1.0`` below). The network is
+        # expected to break this degeneracy during training. The
+        # ``_no_reinit`` flags keep residual-stream-aware init from
+        # overwriting these back to a normal-init. Do NOT change to a random
+        # init: upstream relies on this exact behaviour.
         with torch.no_grad():
             self.q_proj_layer.weight.copy_(torch.eye(d_model))
             self.k_proj_layer.weight.copy_(torch.eye(d_model))
