@@ -20,6 +20,7 @@ class EvalVideo(Eval):
         limit_val_batches: int = 400,
         viz_func: dict = None,
         transform_lists: dict | None = None,
+        max_videos: int | None = None,
     ):
         super().__init__()
         self.trainer = None
@@ -29,6 +30,7 @@ class EvalVideo(Eval):
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
         self.transform_lists = transform_lists or {}
+        self.max_videos = max_videos
         self.val_image_buffer = {}
         self.val_counter = {}
         self.override_dict = {
