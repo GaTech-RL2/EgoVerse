@@ -1,0 +1,12 @@
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+# Cam-frame variant: use when the data config does NOT apply a wristframe
+# transform (e.g. motion_gen_pi_lang / obj_gen_pi_lang with plain cartesian_pi
+# keymap). Actions are already in cam (head) frame, so no revert is needed —
+# applying the wrist->cam revert from eval_pi_wristframe.yaml to cam-frame
+# actions shifts both gt and pred by a constant offset in the viz video.
+transform_lists: {}

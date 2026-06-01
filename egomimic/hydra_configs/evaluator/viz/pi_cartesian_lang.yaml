@@ -3,8 +3,8 @@ defaults:
   - _self_
 
 eva_bimanual:
-  annotation_key: sampled_prompt
+  annotation_key: annotations
 aria_bimanual:
-  annotation_key: sampled_prompt
+  annotation_key: annotations
 scale_bimanual:
-  annotation_key: sampled_prompt
+  annotation_key: annotations

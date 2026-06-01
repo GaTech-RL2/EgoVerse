@@ -17,10 +17,11 @@ mode: train
 
 hydra:
   run:
-    # Dir should be experiment_name/description_{timestamp}
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    # Pin to SLURM_JOB_ID so Slurm requeues land in the same dir and Lightning
+    # autoresume finds last.ckpt; fall back to a timestamp when run outside Slurm.
+    dir: ./logs/${name}/${description}_${oc.env:SLURM_JOB_ID,${now:%Y-%m-%d_%H-%M-%S}}
   sweep:
-    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+    dir: ./logs/${name}/${description}_${oc.env:SLURM_JOB_ID,${now:%Y-%m-%d_%H-%M-%S}}
 
 launch_params:
   gpus_per_node: 1

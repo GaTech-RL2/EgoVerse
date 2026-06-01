@@ -1,0 +1,20 @@
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+# Wristframe variant: use when the data config applies a wristframe transform
+# (e.g. motion_gen_pi_lang_wristframe / obj_gen_pi_lang_wristframe with
+# `transform_list: mode: cartesian_wristframe_ypr`). The model predicts in
+# each wrist's local frame; these revert transforms project predictions and
+# gt back to cam (head) frame for the cam-frame MSE and the viz video. Each
+# value resolves to a list[Transform] via its ``_target_``. Must match the
+# viz config mounted above.
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+  aria_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_aria_cartesian_revert_eef_frame_transform_list
+    is_quat: false

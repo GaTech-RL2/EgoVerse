@@ -1,0 +1,41 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'eva_bimanual'"
+        - "lambda row: row.get('task') == 'fold_clothes'"
+        - "lambda row: (row.get('processing_error') or '') == '' and (row.get('zarr_processing_error') or '') == ''"
+        - "lambda row: (row.get('num_frames') or -1) > 0"
+        - "lambda row: row.get('episode_hash') not in {'2025-09-20-18-44-29-000000', '2025-09-24-04-02-36-000000', '2025-10-13-00-26-50-123000', '2025-10-13-03-55-42-588000', '2025-10-29-22-02-32-491000', '2025-10-29-22-05-17-842000', '2025-10-29-22-06-00-422000', '2025-10-29-22-06-00-423000', '2025-11-11-22-57-35-210000', '2025-11-11-22-59-20-286000', '2026-01-20-21-28-58-868000'}"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 10

@@ -7,5 +7,5 @@ accelerator: gpu
 devices: ${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}
 num_nodes: ${launch_params.nodes}
 sync_batchnorm: True
-check_val_every_n_epoch: 200
+check_val_every_n_epoch: 100
 num_sanity_val_steps: 0

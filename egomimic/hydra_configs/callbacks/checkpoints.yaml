@@ -8,4 +8,9 @@ model_checkpoint:
   filename: "epoch_{epoch}"
   save_last: true
   save_top_k: -1
-  every_n_epochs: 100
+  every_n_epochs: 50
+  # Force the save to fire at train_epoch_end; without this Lightning defers
+  # to the end of the first validation loop, which (with
+  # check_val_every_n_epoch=200) means no ckpt is written for the first 200
+  # epochs — leaving a long restart-from-scratch window if a job dies.
+  save_on_train_epoch_end: trueclose

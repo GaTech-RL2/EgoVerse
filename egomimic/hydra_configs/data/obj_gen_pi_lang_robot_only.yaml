@@ -1,0 +1,12 @@
+defaults:
+  - obj_gen_pi_lang
+  - _self_
+
+# Robot-only variant of obj_gen_pi_lang: annotated eva (robot) data only,
+# aria (human) data dropped. Inherits eva filters/resolver from obj_gen_pi_lang.
+
+train_datasets:
+  aria_bimanual: null
+
+valid_datasets:
+  aria_bimanual: null

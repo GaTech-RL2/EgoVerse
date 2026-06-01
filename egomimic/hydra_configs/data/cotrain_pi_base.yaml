@@ -4,8 +4,8 @@ train_datasets:
   eva_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/home/hcoda1/5/agao81/r-dxu345-0/EgoVerse/datasets/pick_place_cotrain
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
         keymap_mode: cartesian
@@ -19,8 +19,8 @@ train_datasets:
   aria_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/home/hcoda1/5/agao81/r-dxu345-0/EgoVerse/datasets/pick_place_cotrain
       key_map:
         _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
         keymap_mode: cartesian
@@ -34,30 +34,33 @@ train_datasets:
 
 valid_datasets:
   eva_bimanual:
-    _target_: ${train_datasets.eva_bimanual._target_}
-    resolver: ${train_datasets.eva_bimanual.resolver}
-    filters: ${train_datasets.eva_bimanual.filters}
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
     mode: valid
-    valid_ratio: ${train_datasets.eva_bimanual.valid_ratio}
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
   aria_bimanual:
-    _target_: ${train_datasets.aria_bimanual._target_}
-    resolver: ${train_datasets.aria_bimanual.resolver}
-    filters: ${train_datasets.aria_bimanual.filters}
+    _target_: ${...train_datasets.aria_bimanual._target_}
+    resolver: ${...train_datasets.aria_bimanual.resolver}
+    filters: ${...train_datasets.aria_bimanual.filters}
     mode: valid
-    valid_ratio: ${train_datasets.aria_bimanual.valid_ratio}
+    valid_ratio: ${...train_datasets.aria_bimanual.valid_ratio}
 
 train_dataloader_params:
   eva_bimanual:
     batch_size: 32
-    num_workers: 6
+    num_workers: 8
+    timeout: 300
   aria_bimanual:
     batch_size: 32
-    num_workers: 6
-
+    num_workers: 8
+    timeout: 300
 valid_dataloader_params:
   eva_bimanual:
     batch_size: 32
-    num_workers: 6
+    num_workers: 8
+    timeout: 300
   aria_bimanual:
     batch_size: 32
-    num_workers: 6
+    num_workers: 8
+    timeout: 300
