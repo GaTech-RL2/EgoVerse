@@ -308,7 +308,7 @@ class PI(Algo):
 
     def _unnormalize_action(self, action: torch.Tensor, embodiment_id: int, ac_key: str):
         return self.norm_stats.unnormalize(
-            {ac_key: action, "embodiment": embodiment_id},
+            {ac_key: action.clone(), "embodiment": embodiment_id},
             embodiment_id,
         )[ac_key].to(action.device)
 
