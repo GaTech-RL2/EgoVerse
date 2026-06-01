@@ -3,3 +3,11 @@ defaults:
   - _self_
 
 _target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+# Optional task allowlist for visualization. A non-empty list emits one mp4 per
+# listed task and skips frames from other tasks. Data configs can set
+# `viz_tasks`; direct evaluator.tasks overrides still take precedence.
+tasks: ${oc.select:data.viz_tasks,[]}
+
+# Number of videos to write per task when per-task video output is enabled.
+videos_per_task: 1

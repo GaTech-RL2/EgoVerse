@@ -28,8 +28,9 @@ class TrainVizEvalVideo(EvalVideo):
             limit_val_batches=limit_val_batches,
             viz_func=base.viz_func,
             transform_lists=base.transform_lists,
-            one_video_per_task=base.one_video_per_task,
             max_frames_per_task=base.max_frames_per_task,
+            tasks=base.tasks,
+            videos_per_task=base.videos_per_task,
         )
 
     @property

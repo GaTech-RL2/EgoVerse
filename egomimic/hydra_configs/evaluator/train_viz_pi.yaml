@@ -17,3 +17,9 @@ _target_: egomimic.eval.eval_train_viz.TrainVizEvalVideo
 # Train data is iterated as a "spot check"; keep this small relative to the
 # canonical valid loader's limit_val_batches.
 limit_val_batches: 50
+
+# Mirror canonical validation-viz task settings unless explicitly overridden.
+base:
+  tasks: ${evaluator.tasks}
+  videos_per_task: ${evaluator.videos_per_task}
+  max_frames_per_task: ${evaluator.max_frames_per_task}

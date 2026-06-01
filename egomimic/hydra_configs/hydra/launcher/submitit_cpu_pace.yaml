@@ -5,7 +5,7 @@ _target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
 
 # CPU-only PACE launcher for norm-stats / preprocessing jobs (no GPU).
 name: ${hydra.job.name}
-partition: "cpu-small"                              # PACE CPU partition — confirm before first submit
+partition: "cpu-medium"                             # PACE CPU partition for higher-memory CPU jobs
 account: "gts-dxu345-rl2"
 cpus_per_task: 24
 nodes: 1

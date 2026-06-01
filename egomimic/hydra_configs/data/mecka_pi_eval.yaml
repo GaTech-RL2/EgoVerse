@@ -2,7 +2,7 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 # Eval-only variant of mecka_pi: train side is unchanged (single task), but the
 # valid filter is broadened to all mecka tasks so eval mode can score across
-# them. Use together with evaluator.one_video_per_task=true.
+# them. Set data.viz_tasks or evaluator.tasks to emit per-task videos.
 
 train_datasets:
   mecka_bimanual:

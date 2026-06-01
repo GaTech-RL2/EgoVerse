@@ -1021,6 +1021,8 @@ class HPT(Algo):
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
+            if "task" in _batch:
+                processed_batch[embodiment_id]["task"] = _batch["task"]
             # TODO make this work with any fp type
             for key, value in processed_batch[embodiment_id].items():
                 if isinstance(value, torch.Tensor):

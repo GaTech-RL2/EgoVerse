@@ -34,6 +34,71 @@ logger.setLevel(logging.INFO)
 logger.propagate = True  # Explicitly enable propagation (default, but ensures it works)
 
 
+class _OpenPIPaligemmaPromptTokenizer:
+    """Small wrapper matching the Hugging Face tokenizer call used below."""
+
+    def __init__(self, max_length: int | None):
+        from openpi.models.tokenizer import PaligemmaTokenizer
+
+        self.max_length = max_length
+        tokenizer = PaligemmaTokenizer(max_len=max_length or 128)
+        self._sentencepiece = tokenizer._tokenizer
+
+    def __call__(
+        self,
+        prompts,
+        padding="max_length",
+        truncation=True,
+        max_length=None,
+        return_tensors=None,
+    ):
+        del return_tensors
+        max_len = max_length or self.max_length
+        encoded = []
+        masks = []
+        for prompt in prompts:
+            ids = self._sentencepiece.encode(str(prompt), add_bos=True)
+            if max_len is not None:
+                if truncation and len(ids) > max_len:
+                    ids = ids[:max_len]
+                mask = [True] * len(ids)
+                if padding == "max_length" and len(ids) < max_len:
+                    pad_len = max_len - len(ids)
+                    ids = ids + [0] * pad_len
+                    mask = mask + [False] * pad_len
+            else:
+                mask = [True] * len(ids)
+            encoded.append(ids)
+            masks.append(mask)
+
+        if max_len is None and padding == "longest":
+            max_len = max(len(ids) for ids in encoded)
+            for i, ids in enumerate(encoded):
+                pad_len = max_len - len(ids)
+                if pad_len > 0:
+                    encoded[i] = ids + [0] * pad_len
+                    masks[i] = masks[i] + [False] * pad_len
+
+        return {
+            "input_ids": torch.tensor(encoded, dtype=torch.long),
+            "attention_mask": torch.tensor(masks, dtype=torch.long),
+        }
+
+
+def _load_prompt_tokenizer(tokenizer_model_name: str, tokenizer_max_length: int | None):
+    try:
+        return AutoTokenizer.from_pretrained(tokenizer_model_name)
+    except OSError:
+        if tokenizer_model_name != "google/paligemma-3b-mix-224":
+            raise
+        logger.warning(
+            "Falling back to bundled OpenPI PaliGemma tokenizer because "
+            "Hugging Face access to %s is unavailable.",
+            tokenizer_model_name,
+        )
+        return _OpenPIPaligemmaPromptTokenizer(tokenizer_max_length)
+
+
 class PI(Algo):
     """ """
 
@@ -76,7 +141,9 @@ class PI(Algo):
         self.norm_stats = norm_stats
 
         # ---- Prompt assembly + tokenization (was in collate_fn) ----
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_model_name)
+        self.tokenizer = _load_prompt_tokenizer(
+            tokenizer_model_name, tokenizer_max_length
+        )
         self.tokenizer_max_length = tokenizer_max_length
         self.sampling_mode = sampling_mode
         self.annotation_key = annotation_key
@@ -352,8 +419,7 @@ class PI(Algo):
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
-            # Forward per-sample task tags (list[str], length B) so EvalVideo's
-            # one_video_per_task bucketing can read batch[emb]["task"].
+            # Forward per-sample task tags so EvalVideo can bucket task videos.
             if "task" in _batch:
                 processed_batch[embodiment_id]["task"] = _batch["task"]
 

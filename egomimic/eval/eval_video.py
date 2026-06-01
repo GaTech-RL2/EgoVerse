@@ -22,10 +22,13 @@ class EvalVideo(Eval):
         limit_val_batches: int = 400,
         viz_func: dict = None,
         transform_lists: dict | None = None,
-        one_video_per_task: bool = False,
         max_frames_per_task: int | None = 1000,
+        tasks: list[str] | None = None,
+        videos_per_task: int = 1,
     ):
         super().__init__()
+        if videos_per_task < 1:
+            raise ValueError("videos_per_task must be >= 1")
         self.trainer = None
         self.model = None
         self.viz_func = viz_func
@@ -33,13 +36,14 @@ class EvalVideo(Eval):
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
         self.transform_lists = transform_lists or {}
-        # When True, key the buffer by (embodiment_id, task) and emit exactly
-        # one mp4 per (embodiment, task) at the end of validation. Used in
-        # eval-only mode when the valid filter spans multiple tasks.
-        self.one_video_per_task = one_video_per_task
-        # Cap each (embodiment, task) bucket at this many frames. Only takes
-        # effect when one_video_per_task=True. Set None to disable.
+        task_list = [str(task) for task in (tasks or [])]
+        self.tasks = task_list
+        self._task_filter = set(task_list) if task_list else None
+        self._write_task_videos = self._task_filter is not None
+        # Cap each task video at this many frames. With multiple videos per
+        # task, the buffered task limit is this value times videos_per_task.
         self.max_frames_per_task = max_frames_per_task
+        self.videos_per_task = int(videos_per_task)
         self.val_image_buffer = {}
         self.val_counter = {}
         self.override_dict = {
@@ -81,12 +85,26 @@ class EvalVideo(Eval):
         # Filesystem-safe: collapse whitespace and replace path separators.
         return re.sub(r"[^\w.-]+", "_", str(task)).strip("_") or "unknown"
 
+    def _task_frame_limit(self):
+        if self.max_frames_per_task is None:
+            return None
+        return self.max_frames_per_task * self.videos_per_task
+
+    def _task_video_chunks(self, buffer):
+        if self.videos_per_task == 1:
+            return [buffer]
+        num_chunks = min(self.videos_per_task, len(buffer))
+        chunk_size = (len(buffer) + num_chunks - 1) // num_chunks
+        return [
+            buffer[start : start + chunk_size]
+            for start in range(0, len(buffer), chunk_size)
+        ][:num_chunks]
+
     def on_validation_end(self):
         for key, buffer in self.val_image_buffer.items():
-            if self.one_video_per_task:
+            if self._write_task_videos:
                 embodiment_id, task = key
                 emb_dir = str(get_embodiment(embodiment_id))
-                filename = f"{self._sanitize_task(task)}.mp4"
             else:
                 emb_dir = str(get_embodiment(key))
                 filename = f"validation_video_{self.val_counter[key]}.mp4"
@@ -100,14 +118,31 @@ class EvalVideo(Eval):
                 exist_ok=True,
             )
             if len(buffer) != 0:
-                frames = torch.stack(buffer)
-                path = os.path.join(
-                    self.video_dir(),
-                    f"epoch_{self.trainer.current_epoch}",
-                    emb_dir,
-                    filename,
-                )
-                tvio.write_video(path, frames, fps=30, video_codec="h264")
+                if self._write_task_videos:
+                    task_name = self._sanitize_task(task)
+                    for video_idx, chunk in enumerate(self._task_video_chunks(buffer)):
+                        filename = (
+                            f"{task_name}.mp4"
+                            if self.videos_per_task == 1
+                            else f"{task_name}_{video_idx}.mp4"
+                        )
+                        frames = torch.stack(chunk)
+                        path = os.path.join(
+                            self.video_dir(),
+                            f"epoch_{self.trainer.current_epoch}",
+                            emb_dir,
+                            filename,
+                        )
+                        tvio.write_video(path, frames, fps=30, video_codec="h264")
+                else:
+                    frames = torch.stack(buffer)
+                    path = os.path.join(
+                        self.video_dir(),
+                        f"epoch_{self.trainer.current_epoch}",
+                        emb_dir,
+                        filename,
+                    )
+                    tvio.write_video(path, frames, fps=30, video_codec="h264")
 
             self.val_counter[key] = 0
             self.val_image_buffer[key] = []
@@ -133,27 +168,29 @@ class EvalVideo(Eval):
             )
             frames_tensor = torch.from_numpy(images)
 
-            if self.one_video_per_task:
+            if self._write_task_videos:
                 tasks = batch[embodiment_id].get("task")
                 if tasks is None:
                     raise KeyError(
-                        "one_video_per_task=True requires 'task' in each batch "
-                        "sample. Confirm ZarrDataset.__getitem__ attaches it."
+                        "Per-task video output requires 'task' in each batch sample. "
+                        "Confirm ZarrDataset.__getitem__ attaches it."
                     )
                 # Group sample indices by task so each bucket only takes one
                 # extend call even when a batch straddles two tasks.
                 per_task = defaultdict(list)
                 for i, t in enumerate(tasks):
-                    per_task[str(t)].append(i)
+                    task = str(t)
+                    if self._task_filter is not None and task not in self._task_filter:
+                        continue
+                    per_task[task].append(i)
                 for task, idxs in per_task.items():
                     key = (embodiment_id, task)
                     if key not in self.val_image_buffer:
                         self.val_image_buffer[key] = []
                         self.val_counter[key] = 0
-                    if self.max_frames_per_task is not None:
-                        remaining = self.max_frames_per_task - len(
-                            self.val_image_buffer[key]
-                        )
+                    frame_limit = self._task_frame_limit()
+                    if frame_limit is not None:
+                        remaining = frame_limit - len(self.val_image_buffer[key])
                         if remaining <= 0:
                             continue
                         idxs = idxs[:remaining]

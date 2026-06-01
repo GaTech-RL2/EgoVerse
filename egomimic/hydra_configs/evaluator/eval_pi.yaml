@@ -4,12 +4,16 @@ defaults:
 
 _target_: egomimic.eval.eval_pi.PIEvalVideo
 
-# When true, key the buffer by (embodiment, task) and emit one mp4 per task
-# in on_validation_end. Opt-in for eval-only runs that span multiple tasks.
-one_video_per_task: false
+# Optional task allowlist for visualization. A non-empty list emits one mp4 per
+# listed task and skips frames from other tasks. Data configs can set
+# `viz_tasks`; direct evaluator.tasks overrides still take precedence.
+tasks: ${oc.select:data.viz_tasks,[]}
+
+# Number of videos to write per task when per-task video output is enabled.
+videos_per_task: 1
 
 # Cap each (embodiment, task) video at this many frames. Only takes effect
-# when one_video_per_task=true. Set null to disable.
+# when per-task video output is enabled. Set null to disable.
 max_frames_per_task: 1000
 
 # Per-embodiment revert transform. Applied once during validation to project

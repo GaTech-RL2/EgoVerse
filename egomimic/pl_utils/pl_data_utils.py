@@ -62,6 +62,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_dataloader_params: dict,
         train_viz_datasets: dict | None = None,
         train_viz_dataloader_params: dict | None = None,
+        viz_tasks: list[str] | None = None,
     ):
         """
         Args:
@@ -77,6 +78,8 @@ class MultiDataModuleWrapper(LightningDataModule):
                 ``dataloader_idx=1`` on validation_step.
             train_viz_dataloader_params: dict of per-dataset DataLoader kwargs
                 for the train-viz loader (parallels valid_dataloader_params).
+            viz_tasks: optional visualization task allowlist from data configs.
+                Stored as metadata; evaluators consume it through Hydra config.
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
@@ -97,6 +100,7 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
         self.train_viz_dataloader_params = train_viz_dataloader_params or {}
+        self.viz_tasks = list(viz_tasks or [])
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
