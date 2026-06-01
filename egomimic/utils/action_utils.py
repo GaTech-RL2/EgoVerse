@@ -408,6 +408,11 @@ class RobotBimanualCartesianEuler(BaseActionConverter):
         model_actions = self.from20(actions20)
         if not unnormalize_non_rotation:
             return model_actions
+        if model_actions.shape[-1] != 14:
+            raise ValueError(
+                "RobotBimanual raw-rotation decoding expected 14D Cartesian actions; "
+                f"got {model_actions.shape[-1]} dims"
+            )
         if stats is None:
             raise ValueError("stats are required to unnormalize non-rotation dims")
         return _unnormalize_robot_bimanual_non_rot(model_actions, stats, norm_mode)
