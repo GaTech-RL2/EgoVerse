@@ -1,9 +1,10 @@
 import torch
+import pytest
 
-from egomimic.utils.action_utils import RobotBimanualCartesianEuler
+from egomimic.utils.action_utils import BaseActionConverter, RobotBimanualCartesianEuler
 
 
-def _stats_for(raw: torch.Tensor) -> dict[str, torch.Tensor]:
+def _stats_for() -> dict[str, torch.Tensor]:
     # Deliberately asymmetric per-dim ranges exercise non-rotation normalization.
     q1 = torch.tensor(
         [-1.0, -2.0, -3.0, -torch.pi, -1.0, -1.0, 0.0] * 2,
@@ -23,13 +24,21 @@ def _stats_for(raw: torch.Tensor) -> dict[str, torch.Tensor]:
     }
 
 
-def _quantile_normalize(raw: torch.Tensor, stats: dict[str, torch.Tensor]) -> torch.Tensor:
-    return 2.0 * (
-        (raw - stats["quantile_1"]) / (stats["quantile_99"] - stats["quantile_1"] + 1e-6)
-    ) - 1.0
+def _normalize(raw: torch.Tensor, stats: dict[str, torch.Tensor], norm_mode: str) -> torch.Tensor:
+    if norm_mode == "zscore":
+        return (raw - stats["mean"]) / (stats["std"] + 1e-6)
+    if norm_mode == "minmax":
+        return 2.0 * ((raw - stats["min"]) / (stats["max"] - stats["min"] + 1e-6)) - 1.0
+    if norm_mode == "quantile":
+        return 2.0 * (
+            (raw - stats["quantile_1"])
+            / (stats["quantile_99"] - stats["quantile_1"] + 1e-6)
+        ) - 1.0
+    raise AssertionError(f"unexpected norm mode {norm_mode}")
 
 
-def test_raw_rotation_encoding_round_trips_robot_bimanual_actions():
+@pytest.mark.parametrize("norm_mode", ["zscore", "minmax", "quantile"])
+def test_raw_rotation_encoding_round_trips_robot_bimanual_actions(norm_mode):
     converter = RobotBimanualCartesianEuler()
     raw = torch.tensor(
         [
@@ -54,13 +63,13 @@ def test_raw_rotation_encoding_round_trips_robot_bimanual_actions():
         ],
         dtype=torch.float32,
     )
-    stats = _stats_for(raw)
+    stats = _stats_for()
 
-    packed = converter.to32_raw_rotation(raw, stats=stats, norm_mode="quantile")
+    packed = converter.to32_raw_rotation(raw, stats=stats, norm_mode=norm_mode)
     decoded = converter.from32_raw_rotation(
         packed,
         stats=stats,
-        norm_mode="quantile",
+        norm_mode=norm_mode,
         unnormalize_non_rotation=True,
     )
 
@@ -73,8 +82,8 @@ def test_raw_rotation_encoding_preserves_yaw_wrap_continuity():
     raw = torch.zeros(1, 2, 14, dtype=torch.float32)
     raw[:, 0, 3] = torch.pi - eps
     raw[:, 1, 3] = -torch.pi + eps
-    stats = _stats_for(raw)
-    normalized = _quantile_normalize(raw, stats)
+    stats = _stats_for()
+    normalized = _normalize(raw, stats, "quantile")
 
     legacy_packed = converter.to32(normalized)
     fixed_packed = converter.to32_raw_rotation(
@@ -93,3 +102,11 @@ def test_raw_rotation_encoding_preserves_yaw_wrap_continuity():
 
     assert legacy_rot_distance > 2.0
     assert fixed_rot_distance < 1e-3
+
+
+def test_base_converter_rejects_raw_rotation_encoding():
+    converter = BaseActionConverter()
+    actions = torch.zeros(1, 1, 14)
+
+    with pytest.raises(NotImplementedError, match="raw-rotation action encoding"):
+        converter.to32_raw_rotation(actions)
