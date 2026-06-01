@@ -751,6 +751,8 @@ class MultiDataset(torch.utils.data.Dataset):
     """
 
     NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")
+    CARTESIAN_ACTION_XYZ_INDICES = (0, 1, 2, 6, 7, 8)
+    CARTESIAN_ACTION_YPR_INDICES = (3, 4, 5, 9, 10, 11)
 
     def __init__(
         self,
@@ -762,6 +764,7 @@ class MultiDataset(torch.utils.data.Dataset):
         valid_ratio: float = 0.2,
         norm_mode: str = "zscore",
         state: dict | None = None,
+        reject_outliers: bool = True,
         **kwargs,
     ):
         """
@@ -772,6 +775,11 @@ class MultiDataset(torch.utils.data.Dataset):
             valid_ratio: Train/valid split ratio.
             norm_mode: One of "zscore", "minmax", "quantile".
             state: If provided, populate stats fields from this dict (deploy mode).
+            reject_outliers: If true, reject finite values outside quantile bounds
+                for keys where quantile rejection is enabled. NaN/Inf rejection
+                always remains active when norm stats are present. For
+                ``actions_cartesian`` bimanual samples, rotation columns are
+                excluded from finite quantile checks.
         """
         super().__init__()
 
@@ -783,6 +791,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.shapes: dict[int, dict[str, tuple]] = {}
         self.norm_stats: dict[int, dict[str, dict[str, np.ndarray]]] = {}
         self._norm_run_metadata: dict[str, float | int | None] | None = None
+        self.reject_outliers = bool(reject_outliers)
 
         # ---- Dataset graph fields ----
         self.datasets: dict = {}
@@ -858,6 +867,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.shapes = source.shapes
         self.embodiments = source.embodiments
         self.norm_mode = source.norm_mode
+        self.reject_outliers = source.reject_outliers
         # Each MultiDataset keeps its own warning-dedup state.
         self._warned_violations = set()
         for ds in self.datasets.values():
@@ -868,8 +878,8 @@ class MultiDataset(torch.utils.data.Dataset):
         self, data: dict, dataset, idx: int, dataset_name: str
     ) -> str | None:
         """Return a violation message if any tracked key in ``data`` has NaN/Inf
-        or values outside per-key quantile bounds. ``None`` means the sample
-        passes. Logs each (episode, key) violation once.
+        or rejected finite values. ``None`` means the sample passes. Logs each
+        (episode, key) violation once.
         """
         embodiment_id = data.get("embodiment")
         if embodiment_id is None:
@@ -881,6 +891,7 @@ class MultiDataset(torch.utils.data.Dataset):
         episode_name = self._episode_name_for_dataset(dataset, dataset_name)
 
         for key_name, stats in per_emb_stats.items():
+            key_type = self.key_types.get(embodiment_id, {}).get(key_name)
             zarr_key = self.zarr_keys.get(embodiment_id, {}).get(key_name)
             if zarr_key is None or zarr_key not in data:
                 continue
@@ -890,6 +901,22 @@ class MultiDataset(torch.utils.data.Dataset):
             elif isinstance(v, np.ndarray):
                 arr = torch.from_numpy(v).float()
             else:
+                continue
+
+            if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
+                prefix = f"NaN/Inf in {zarr_key} ep={episode_name} frame={idx}"
+                warn_key = f"naninf:{episode_name}:{zarr_key}"
+                if warn_key not in self._warned_violations:
+                    self._warned_violations.add(warn_key)
+                    logger.warning(prefix)
+                return prefix
+
+            is_cartesian_action = (
+                key_type == "action_keys"
+                and key_name == "actions_cartesian"
+                and arr.shape[-1] == 12
+            )
+            if not self.reject_outliers:
                 continue
 
             q_low = stats.get(
@@ -906,16 +933,16 @@ class MultiDataset(torch.utils.data.Dataset):
             except RuntimeError:
                 continue
 
-            if torch.any(torch.isnan(arr)) or torch.any(torch.isinf(arr)):
-                prefix = f"NaN/Inf in {zarr_key} ep={episode_name} frame={idx}"
-                warn_key = f"naninf:{episode_name}:{zarr_key}"
-                if warn_key not in self._warned_violations:
-                    self._warned_violations.add(warn_key)
-                    logger.warning(prefix)
-                return prefix
+            if is_cartesian_action:
+                xyz_idx = list(self.CARTESIAN_ACTION_XYZ_INDICES)
+                arr_for_quantiles = arr[..., xyz_idx]
+                q_low = q_low[..., xyz_idx]
+                q_high = q_high[..., xyz_idx]
+            else:
+                arr_for_quantiles = arr
 
-            below = arr < q_low
-            above = arr > q_high
+            below = arr_for_quantiles < q_low
+            above = arr_for_quantiles > q_high
             if torch.any(below) or torch.any(above):
                 prefix = f"Bounds violation in {zarr_key} ep={episode_name} frame={idx}"
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
@@ -1387,11 +1414,9 @@ class MultiDataset(torch.utils.data.Dataset):
         MultiDataset level in ``__getitem__``, not as per-leaf transforms.
 
         Kept as a thin shim that calls ``set_norm_stats_from(self)`` on each
-        MultiDataset in ``datasets`` so existing callers keep working. The
-        ``reject_outliers`` flag is no longer honored — bounds checking is
-        always on when stats are populated. To disable, clear ``norm_stats``.
+        MultiDataset in ``datasets`` so existing callers keep working.
         """
-        del reject_outliers  # unused
+        self.reject_outliers = bool(reject_outliers)
         graph = datasets if datasets is not None else self.datasets
         for ds in graph.values():
             if isinstance(ds, MultiDataset):
@@ -1425,6 +1450,7 @@ class MultiDataset(torch.utils.data.Dataset):
             "zarr_keys": copy.deepcopy(self.zarr_keys),
             "shapes": copy.deepcopy(self.shapes),
             "norm_stats": self._clone_norm_stats(self.norm_stats),
+            "reject_outliers": self.reject_outliers,
         }
 
     @classmethod
@@ -1442,6 +1468,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.zarr_keys = copy.deepcopy(state.get("zarr_keys", {}))
         self.shapes = copy.deepcopy(state.get("shapes", {}))
         self.norm_stats = self._clone_norm_stats(state.get("norm_stats", {}))
+        self.reject_outliers = bool(state.get("reject_outliers", self.reject_outliers))
         for emb in self.embodiments:
             self.key_types.setdefault(emb, {})
             self.zarr_keys.setdefault(emb, {})
