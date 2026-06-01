@@ -2,9 +2,10 @@ from typing import Any, Dict, Tuple
 
 import torch
 
-PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D = "cartesian_ypr_raw_rot6d_v1"
+PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D = "cartesian_ypr_raw_rot6d"
 PI05_CARTESIAN_ACTION_ENCODING_LEGACY = "legacy_normalized_ypr_rot6d"
 
+# Bimanual robot Cartesian layout: [x, y, z, yaw, pitch, roll, gripper] x 2.
 ROBOT_BIMANUAL_CARTESIAN_ROT_DIMS = (3, 4, 5, 10, 11, 12)
 ROBOT_BIMANUAL_CARTESIAN_NON_ROT_DIMS = (0, 1, 2, 6, 7, 8, 9, 13)
 
@@ -224,7 +225,9 @@ class BaseActionConverter:
     ) -> torch.Tensor:
         """Pack actions with raw YPR rotations and normalized non-rotation dims."""
         del normalized_actions, stats, norm_mode
-        return self.to32(raw_actions)
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support raw-rotation action encoding"
+        )
 
     def from32_raw_rotation(
         self,
@@ -236,7 +239,9 @@ class BaseActionConverter:
     ) -> torch.Tensor:
         """Decode actions whose 6D rotation columns represent raw YPR rotations."""
         del stats, norm_mode, unnormalize_non_rotation
-        return self.from32(actions32)
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support raw-rotation action decoding"
+        )
 
 
 # ============================================================
