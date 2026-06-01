@@ -7,7 +7,7 @@ robomimic_model:
   ac_keys:
     eva_bimanual: "actions_cartesian"
   domains: ["eva_bimanual"]
-  action_encoding: "cartesian_ypr_raw_rot6d_v1"
+  action_encoding: "cartesian_ypr_raw_rot6d"
 
   action_converters:
     rules:
