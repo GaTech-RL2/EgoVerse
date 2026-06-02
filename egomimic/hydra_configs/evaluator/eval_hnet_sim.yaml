@@ -1,0 +1,38 @@
+_target_: egomimic.eval.eval_sim.SimRolloutEval
+
+# Closed-loop sim eval. For each val episode, resets PushShapesEnv (init
+# mode is configurable) and steps the env one frame at a time using the
+# policy's predicted actions. Reports mean final coverage + success rate
+# and renders an mp4 per validation pass.
+
+# ---- PushShapesEnv constructor kwargs ----
+env_kwargs:
+  object_shape: "T"
+  pusher_shape: "circle"
+  obstacle_level: 0
+  image_size: 96
+
+# ---- Episode init mode ----
+#   replay: read frame-0 state + goal from each batch sample (closest
+#     match to current teacher-forced eval semantics).
+#   random: env.reset(seed=ep_idx) per rollout (random goal etc).
+#   seeds:  cycle through ``init_seeds`` per rollout (reproducible suite).
+init_mode: "replay"
+init_seeds: [0, 1, 2, 3]
+
+# ---- Rollout knobs ----
+# When null, replay mode uses the recorded episode length; random/seeds
+# fall back to 200.
+max_steps: null
+coverage_threshold: 0.7
+video_fps: 30
+
+# AR rollout per episode is slow (single-token step path), so cap the
+# number of val batches; 4 batches @ 8 ep each = 32 rollouts is enough
+# to estimate coverage stably.
+limit_val_batches: 4
+
+# Borrow the teacher-forced viz_func — but we don't use it here since
+# the sim's own rendered frames are the viz. Leave null.
+viz_func: null
+transform_lists: null

@@ -1208,6 +1208,89 @@ class HPT(Algo):
             log[loss_key] = loss.item()
         return log
 
+    # ----- Sim eval hooks (SimRolloutEval calls these) ----- #
+    # HPT is a chunk-based diffusion policy: ``forward`` predicts
+    # ``action_horizon`` actions per inference. The closed-loop rollout
+    # therefore re-plans every ``action_horizon`` steps and executes one
+    # action per step from the most recent chunk.
+
+    @torch.no_grad()
+    def sim_init_state(self, batch_size: int, T_max: int, device, emb_id: int) -> dict:
+        """Initial state for HPT chunk-based AR rollout.
+
+        Tracks the most recently predicted action chunk and where we are
+        within it. The first ``sim_predict_step`` call triggers a fresh
+        ``policy.forward`` to fill the chunk.
+        """
+        return {
+            "action_chunk": None,
+            "chunk_idx": 0,
+            "batch_size": int(batch_size),
+            "device": device,
+            "T_max": int(T_max),
+        }
+
+    @torch.no_grad()
+    def sim_predict_step(
+        self, state: dict, obs_norm: dict, t: int, emb_id: int
+    ) -> torch.Tensor:
+        """Chunk-aware step. Returns the current step's normalized action
+        ``(B, 1, action_dim)``. Re-plans by calling ``policy.forward`` when
+        the chunk is empty or has been fully consumed.
+        """
+        policy_module = self.nets["policy"]
+        chunk_size = int(policy_module.action_horizon)
+
+        if state["action_chunk"] is None or state["chunk_idx"] >= chunk_size:
+            embodiment_name = get_embodiment(emb_id).lower()
+            cam_keys = self.camera_keys[emb_id]
+            proprio_keys = self.proprio_keys[emb_id]
+            ac_key = self.ac_keys[embodiment_name]
+            B = state["batch_size"]
+            dev = state["device"]
+
+            # Build a robomimic-style batch from the per-step obs.
+            # ``_robomimic_to_hpt_data`` expects every cam/proprio key
+            # un-time-dimmed and an action tensor of shape ``(B, T, D)``
+            # used only for shape reference.
+            robo_batch = dict(obs_norm)
+            # Sanity: zeroes are fine — HPT only uses ``batch[ac_key]``
+            # for the train-time loss target, never for inference shape.
+            action_dim = (
+                policy_module.heads[embodiment_name].infer_ac_dims[embodiment_name]
+                if hasattr(policy_module, "heads")
+                and embodiment_name in policy_module.heads
+                else 2  # pushshapes default
+            )
+            robo_batch[ac_key] = torch.zeros(
+                B,
+                chunk_size,
+                action_dim,
+                device=dev,
+            )
+            robo_batch["pad_mask"] = torch.ones(B, chunk_size, 1, device=dev)
+            robo_batch["embodiment"] = torch.tensor(
+                [emb_id], device=dev, dtype=torch.int64
+            )
+
+            data = self._robomimic_to_hpt_data(
+                robo_batch, cam_keys, proprio_keys, [], ac_key, []
+            )
+            actions = policy_module.forward(embodiment_name, data)
+            # ``forward`` returns ``{embodiment_name: (B, T, A), ...}``.
+            chunk = actions.get(embodiment_name)
+            if chunk is None:
+                raise RuntimeError(
+                    f"policy.forward did not return key {embodiment_name!r}"
+                )
+            state["action_chunk"] = chunk[:, :chunk_size, :action_dim]
+            state["chunk_idx"] = 0
+
+        idx = state["chunk_idx"]
+        a_t = state["action_chunk"][:, idx : idx + 1]
+        state["chunk_idx"] = idx + 1
+        return a_t
+
     def _forward_ot(self, batch, embodiment1_id, embodiment2_id):
         hpt_batch_1 = batch[embodiment1_id]
         hpt_batch_2 = batch[embodiment2_id]

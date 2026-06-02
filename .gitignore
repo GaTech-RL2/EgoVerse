@@ -45,3 +45,12 @@ annotations_test/**
 log_conversion/**
 debug_model_inputs/**
 temp_dir/**
+curation_results/**
+# Project-local CUDA 12.4 toolkit installed via micromamba (used to build
+# flash-attn, mamba_ssm, causal_conv1d against torch 2.6.0+cu124). See
+# CLAUDE.md "Installing the CUDA kernels". ~1.6GB.
+/cuda-12.4/
+/.micromamba/
+
+# One-off plot artifacts.
+/variant_comparison.png
