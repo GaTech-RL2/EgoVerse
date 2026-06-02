@@ -267,7 +267,15 @@ class PolicyRollout(Rollout):
         # checkpoint's .hydra/config.yaml so the rollout uses whatever viz
         # the training pipeline declared (image_key / action_key / mode).
         self.viz_func = self._build_viz_func_from_config()
+        # Two independent viz modes — both off by default; toggle from the
+        # intervention menu. ``viz_enabled`` saves at the intrinsics' native
+        # 640x480 (matches what training viz uses). ``viz_model_enabled``
+        # saves at 224x224-with-pad — i.e. the exact tensor the model sees
+        # after resize_with_pad_torch — and uses scaled intrinsics so the
+        # projection still lands on the right pixels at that resolution.
         self.viz_enabled = False
+        self.viz_model_enabled = False
+        self.viz_model_target = 224
         # Revert transform_list. For wrist-frame models, the training
         # pipeline declares an ``evaluator.transform_lists.<emb>`` block
         # that converts model output from wrist frame back to cam frame
@@ -425,6 +433,9 @@ class PolicyRollout(Rollout):
             os.path.normpath(os.path.join(ckpt_dir, "..", ".hydra", "config.yaml")),
             os.path.normpath(os.path.join(ckpt_dir, ".hydra", "config.yaml")),
         ]
+        self._viz_image_key = None
+        self._viz_action_key = "actions_cartesian"
+        self._viz_annotation_key = None
         cfg = None
         for p in candidates:
             if os.path.isfile(p):
@@ -451,6 +462,7 @@ class PolicyRollout(Rollout):
                 )
                 self._viz_image_key = entry.get("image_key")
                 self._viz_action_key = entry.get("action_key", "actions_cartesian")
+                self._viz_annotation_key = entry.get("annotation_key")
                 return fn
         return None
 
@@ -524,6 +536,106 @@ class PolicyRollout(Rollout):
             out = torch.as_tensor(out)
         return out.to(preds.device, dtype=preds.dtype)
 
+    def _save_viz_model_res(self, batch_for_model, preds, embodiment_name, step_i):
+        """Save the prediction viz at the model's input resolution
+        (224x224 with padding, mirroring resize_with_pad_torch). Uses
+        scaled-and-padded intrinsics so the cam-frame xyz projection still
+        lands on the correct pixel even though the image is small.
+        Written to ``debug/viz_model_<step_i>.png`` (separate from the
+        ``viz_<step_i>.png`` files produced by the standard viz mode).
+        """
+        if self.viz_func is None:
+            print("[rollout] viz_model toggle is on but no viz_func is configured — skipping")
+            return
+        try:
+            import torch.nn.functional as F
+            from egomimic.utils import egomimicUtils
+
+            batch = dict(batch_for_model)
+            img_key = self._viz_image_key
+            if not (img_key and img_key in batch):
+                print(f"[rollout] viz_model: '{img_key}' not in batch — skipping")
+                return
+            img_t = batch[img_key]
+            if isinstance(img_t, torch.Tensor):
+                if img_t.dim() == 3:
+                    img_t = img_t.unsqueeze(0)
+                if img_t.shape[1] != 3 and img_t.shape[-1] == 3:
+                    img_t = img_t.permute(0, 3, 1, 2)
+            src_h, src_w = img_t.shape[-2:]
+
+            # resize_with_pad to target x target
+            target = int(self.viz_model_target)
+            ratio = max(src_w / target, src_h / target)
+            resized_h = int(src_h / ratio)
+            resized_w = int(src_w / ratio)
+            img_resized = F.interpolate(
+                img_t.float(), size=(resized_h, resized_w),
+                mode="bilinear", align_corners=False,
+            )
+            pad_h0 = (target - resized_h) // 2
+            pad_h1 = target - resized_h - pad_h0
+            pad_w0 = (target - resized_w) // 2
+            pad_w1 = target - resized_w - pad_w0
+            img_padded = F.pad(
+                img_resized, (pad_w0, pad_w1, pad_h0, pad_h1),
+                mode="constant", value=0,
+            )
+            batch[img_key] = img_padded
+
+            # Scale intrinsics to match the resize+pad. The base intrinsics
+            # are calibrated for cx*2 x cy*2 (e.g. 640x480 for ARIA).
+            # Scale them up to the source camera resolution first, then
+            # apply the resize-with-pad scaling on top.
+            orig_K = egomimicUtils.INTRINSICS["base"].copy()
+            ref_w = float(orig_K[0, 2] * 2.0)
+            ref_h = float(orig_K[1, 2] * 2.0)
+            cam_scale_x = src_w / ref_w
+            cam_scale_y = src_h / ref_h
+            fx = orig_K[0, 0] * cam_scale_x
+            fy = orig_K[1, 1] * cam_scale_y
+            cx = orig_K[0, 2] * cam_scale_x
+            cy = orig_K[1, 2] * cam_scale_y
+            new_fx, new_fy = fx / ratio, fy / ratio
+            new_cx = cx / ratio + pad_w0
+            new_cy = cy / ratio + pad_h0
+            scaled_K = np.array([
+                [new_fx, 0.0, new_cx, 0.0],
+                [0.0, new_fy, new_cy, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+            ])
+
+            # viz_gt_preds expects batch["embodiment"][0].item() to work.
+            emb = batch.get("embodiment")
+            if not isinstance(emb, torch.Tensor):
+                batch["embodiment"] = torch.tensor(
+                    [int(self.embodiment_id)], dtype=torch.int64
+                )
+            predictions = {
+                f"{embodiment_name}_{self._viz_action_key}": preds.detach(),
+            }
+            # Swap in scaled intrinsics for the duration of the viz_func call,
+            # then restore. viz_func reads INTRINSICS["base"] internally.
+            # ``pred_alpha=0.0`` makes the red prediction overlay fully
+            # transparent — model-res viz shows the image as the model sees
+            # it, without the prediction trajectory drawn on top.
+            try:
+                egomimicUtils.INTRINSICS["base"] = scaled_K
+                ims = self.viz_func(predictions, batch, pred_alpha=0.0)
+            finally:
+                egomimicUtils.INTRINSICS["base"] = orig_K
+
+            ims = np.asarray(ims)
+            out_im = ims[0] if ims.ndim == 4 else ims
+            out_im = cv2.cvtColor(out_im, cv2.COLOR_RGB2BGR)
+            out_dir = os.path.abspath("debug")
+            os.makedirs(out_dir, exist_ok=True)
+            out_path = os.path.join(out_dir, f"viz_model_{step_i:06d}.png")
+            cv2.imwrite(out_path, out_im)
+            print(f"[rollout] saved viz_model -> {out_path}")
+        except Exception as e:
+            print(f"[rollout] viz_model failed at step {step_i}: {e}")
+
     def _save_viz(self, batch_for_model, preds, embodiment_name, step_i):
         """Render and save a per-inference prediction visualization to
         ``debug/viz_<step_i>.png``. Caller is expected to have already
@@ -564,6 +676,14 @@ class PolicyRollout(Rollout):
                 batch["embodiment"] = torch.tensor(
                     [int(self.embodiment_id)], dtype=torch.int64
                 )
+            # If the viz_func config sets ``annotation_key`` (the partial
+            # will then do ``batch[annotation_key]`` unconditionally), make
+            # sure the key exists. Use the loaded rollout annotation when
+            # present, else an empty string so the text overlay just draws
+            # blank.
+            ak = self._viz_annotation_key
+            if ak and ak not in batch:
+                batch[ak] = [self.annotation if self.annotation is not None else ""]
             predictions = {
                 f"{embodiment_name}_{self._viz_action_key}": preds.detach(),
             }
@@ -734,6 +854,8 @@ class PolicyRollout(Rollout):
                 batch_for_viz = {**batch_for_viz, **gt_reverted}
             if self.viz_enabled:
                 self._save_viz(batch_for_viz, preds, embodiment_name, i)
+            if self.viz_model_enabled:
+                self._save_viz_model_res(batch_for_viz, preds, embodiment_name, i)
             self.actions = preds.detach().cpu().numpy().squeeze()
             self.debug_actions = self.actions.copy()
             if self.cartesian:
@@ -999,10 +1121,14 @@ def main(
         viz_state = (
             "ON" if (isinstance(policy, PolicyRollout) and policy.viz_enabled) else "OFF"
         )
+        viz_model_state = (
+            "ON" if (isinstance(policy, PolicyRollout) and policy.viz_model_enabled) else "OFF"
+        )
         print("\n--- INTERVENTION (rollout paused) ---")
         print("  c            : continue rollout")
         print("  a <path>     : load new annotation file")
-        print(f"  v            : toggle prediction viz (currently {viz_state})")
+        print(f"  v            : toggle prediction viz @ 640x480 (currently {viz_state})")
+        print(f"  m            : toggle prediction viz @ model res 224x224 (currently {viz_model_state})")
         print("  r            : restart rollout")
         print("  q            : quit")
 
@@ -1038,8 +1164,14 @@ def main(
                     continue
                 policy.viz_enabled = not policy.viz_enabled
                 print(f"[rollout] viz now {'ON' if policy.viz_enabled else 'OFF'}")
+            elif cmd == "m":
+                if rollout_type != "policy" or not isinstance(policy, PolicyRollout):
+                    print("Prediction viz is only supported for policy rollouts.")
+                    continue
+                policy.viz_model_enabled = not policy.viz_model_enabled
+                print(f"[rollout] viz_model now {'ON' if policy.viz_model_enabled else 'OFF'}")
             else:
-                print(f"Unknown command: '{cmd}'. Use c / a <path> / v / r / q.")
+                print(f"Unknown command: '{cmd}'. Use c / a <path> / v / m / r / q.")
 
     try:
         with _KeyPoll() as kp:
