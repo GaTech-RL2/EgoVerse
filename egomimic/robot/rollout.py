@@ -266,11 +266,8 @@ class PolicyRollout(Rollout):
         self.debug = debug
         self.transform_list = Eva.get_transform_list(mode="cartesian_wristframe_ypr")
         self.annotation = None
-        # PI's process_batch_for_training now owns prompt assembly + tokenization
-        # (see PI._build_prompts / _tokenize_prompts). The collate's only job is
-        # to stack tensors and preserve the raw per-sample `annotations` list as
-        # list-of-lists, which is what _build_prompts iterates over.
         self.collate_fn = annotation_collate
+        self._proprio_debug_printed = False
         if annotation_path is not None:
             if not os.path.isfile(annotation_path):
                 print(f"[rollout] WARNING: annotation file not found: {annotation_path}  (continuing without annotation)")
@@ -402,6 +399,15 @@ class PolicyRollout(Rollout):
             transform_list_batch = self.process_obs_for_transform_list(obs)
             for transform in self.transform_list:
                 transform_list_batch = transform.transform(transform_list_batch)
+            # Match training: MultiDataset.__getitem__ normalizes the
+            # post-transform sample before it reaches the model. build_tokenized_collate
+            # also normalized proprio before discretizing into the State block,
+            # which the algo-side _discretize_state_for_sample no longer does. Both
+            # paths assume normalized inputs, so normalize the single sample here
+            # using the model's own norm_stats (a MultiDataset).
+            transform_list_batch = self.policy.model.norm_stats.normalize(
+                transform_list_batch, self.embodiment_id
+            )
             transform_list_batch = self.collate_fn([transform_list_batch])
             if self.arm == "both":
                 embodiment_name = "eva_bimanual"
@@ -413,7 +419,15 @@ class PolicyRollout(Rollout):
             batch = {
                 embodiment_name: transform_list_batch,
             }
+
             processed_batch = self.policy.model.process_batch_for_training(batch)
+
+            if not self._proprio_debug_printed:
+                emb_id = next(iter(processed_batch))
+                prompts = processed_batch[emb_id].get("sampled_prompt", None)
+                print(f"[rollout][proprio-debug] full prompt: {prompts[0] if prompts else None!r}")
+                self._proprio_debug_printed = True
+
             preds = self.policy.model.forward_eval(processed_batch)[
                 f"{embodiment_name}_actions_cartesian"
             ]
