@@ -305,6 +305,83 @@ def build_app(
                                             "marginTop": "6px",
                                         },
                                     ),
+                                    html.Div(
+                                        "Neighbor pairs",
+                                        style={**LABEL_STYLE, "marginTop": "12px"},
+                                    ),
+                                    dcc.RadioItems(
+                                        id="browser_knn_pairs",
+                                        options=[
+                                            {
+                                                "label": " Cross-embodiment",
+                                                "value": "cross",
+                                            },
+                                            {
+                                                "label": " Same embodiment",
+                                                "value": "same",
+                                            },
+                                        ],
+                                        value="cross",
+                                        labelStyle={
+                                            "display": "block",
+                                            "fontSize": "13px",
+                                            "marginBottom": "4px",
+                                            "cursor": "pointer",
+                                        },
+                                    ),
+                                    html.Div(
+                                        "Same-embodiment skips the precomputed "
+                                        "KNN (cross-only) and excludes the "
+                                        "clicked frame's own action (its "
+                                        "annotation interval; whole recording "
+                                        "if unannotated).",
+                                        style={
+                                            "fontSize": "10px",
+                                            "color": MUTED,
+                                            "marginTop": "6px",
+                                        },
+                                    ),
+                                ],
+                            ),
+                            # PCA component removal: drop the top-K PCA-50 dims
+                            # most discriminative between aria and eva
+                            # embodiments (Fisher score). Affects BOTH views:
+                            # scatter recomputes UMAP live on the filtered
+                            # features (click Apply), and the KNN lists
+                            # (scatter pane + browser) measure distances in
+                            # the reduced space.
+                            html.Div(
+                                style=CARD_STYLE,
+                                children=[
+                                    html.Div(
+                                        "PCA removal (aria vs eva Fisher)",
+                                        style=LABEL_STYLE,
+                                    ),
+                                    dcc.Slider(
+                                        id="pca_drop_k",
+                                        min=0,
+                                        max=50,
+                                        step=5,
+                                        value=0,
+                                        marks={i: str(i) for i in range(0, 51, 10)},
+                                        tooltip={
+                                            "placement": "bottom",
+                                            "always_visible": False,
+                                        },
+                                    ),
+                                    html.Div(
+                                        "Drops the top-K of 50 PCA dims ranked "
+                                        "by aria↔eva Fisher score. Scatter: "
+                                        "live UMAP on the filtered features "
+                                        "(click Apply; first run fits PCA + "
+                                        "UMAP — slow). KNN lists use the "
+                                        "reduced space in both views.",
+                                        style={
+                                            "fontSize": "10px",
+                                            "color": MUTED,
+                                            "marginTop": "6px",
+                                        },
+                                    ),
                                 ],
                             ),
                             # Scatter-only controls: hidden when view_mode='browser'.
@@ -462,6 +539,35 @@ def build_app(
                                         labelStyle={
                                             "fontSize": "13px",
                                             "cursor": "pointer",
+                                        },
+                                    ),
+                                    html.Div(
+                                        "Browse order",
+                                        style={**LABEL_STYLE, "marginTop": "12px"},
+                                    ),
+                                    dcc.Checklist(
+                                        id="browser_shuffle",
+                                        options=[
+                                            {
+                                                "label": " Shuffle frames",
+                                                "value": "on",
+                                            }
+                                        ],
+                                        value=[],
+                                        labelStyle={
+                                            "fontSize": "13px",
+                                            "cursor": "pointer",
+                                        },
+                                    ),
+                                    html.Div(
+                                        "Fixed-seed permutation of the whole "
+                                        "list — paging via Load more stays "
+                                        "stable. Off = round-robin across "
+                                        "recordings, frames in temporal order.",
+                                        style={
+                                            "fontSize": "10px",
+                                            "color": MUTED,
+                                            "marginTop": "4px",
                                         },
                                     ),
                                     html.Div(
@@ -905,10 +1011,21 @@ def build_app(
         dash.Input("layer", "value"),
         dash.Input("view_mode", "value"),
         dash.Input("browser_knn_space", "value"),
+        dash.Input("pca_drop_k", "value"),
+        dash.Input("browser_knn_pairs", "value"),
         dash.Input("browser_nav_stack", "data"),
         dash.Input("nav_stack", "data"),
     )
-    def _state_to_url(run, layer, view_mode, knn_space, browser_nav, scatter_nav):
+    def _state_to_url(
+        run,
+        layer,
+        view_mode,
+        knn_space,
+        pca_drop_k,
+        knn_pairs,
+        browser_nav,
+        scatter_nav,
+    ):
         params: dict[str, str] = {}
         if run:
             params["run"] = run
@@ -918,6 +1035,10 @@ def build_app(
             params["view"] = view_mode
         if knn_space:
             params["knn"] = knn_space
+        if pca_drop_k:
+            params["pcadrop"] = str(int(pca_drop_k))
+        if knn_pairs:
+            params["pairs"] = knn_pairs
         # The most recent clicked frame is the tail of whichever nav stack
         # belongs to the active view.
         active_nav = (browser_nav if view_mode == "browser" else scatter_nav) or []

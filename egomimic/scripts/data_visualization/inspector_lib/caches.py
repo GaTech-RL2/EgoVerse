@@ -36,15 +36,27 @@ class LayerStore:
         keys_max: int = 2,
         pca_max: int = 4,
         knn_max: int = 8,
+        drop_max: int = 2,
     ):
         self.full_max = full_max
         self.keys_max = keys_max
         self.pca_max = pca_max
         self.knn_max = knn_max
+        self.drop_max = drop_max
         self.full_cache: "OrderedDict[tuple[str, str], dict]" = OrderedDict()
         self.keys_cache: "OrderedDict[tuple[str, str], np.ndarray]" = OrderedDict()
-        self.pca_cache: "OrderedDict[tuple[str, str, int], np.ndarray]" = OrderedDict()
+        # (run, layer, n_components) -> {'feats', 'components', 'mean', 'evr'}
+        self.pca_cache: "OrderedDict[tuple[str, str, int], dict]" = OrderedDict()
         self.knn_cache: "OrderedDict[tuple[str, str], dict | None]" = OrderedDict()
+        # (run, layer, n_components) -> {'scores', 'order', 'group_a', 'group_b'}
+        self.fisher_cache: "OrderedDict[tuple[str, str, int], dict | None]" = (
+            OrderedDict()
+        )
+        # (run, layer, n_components, drop_k) -> feats with dropped columns.
+        # These are full-N float32 copies — keep the cap tight.
+        self.drop_cache: "OrderedDict[tuple[str, str, int, int], np.ndarray]" = (
+            OrderedDict()
+        )
 
     def layers_for(self, run_path: str) -> list[str]:
         paths = list_layer_csvs(run_path)
@@ -319,10 +331,11 @@ class LayerStore:
             )
         return self.knn_cache[key]
 
-    def pca_features(self, run_path: str, layer: str, n_components: int = 50):
-        """Fit PCA(n_components) on the layer's raw keys and return the
-        transformed (N, n_components) array. Cached. Returns None if raw
-        keys aren't available."""
+    def _pca_entry(self, run_path: str, layer: str, n_components: int = 50):
+        """Fit PCA(n_components) on the layer's raw keys. Returns a cached
+        dict with 'feats' (N, k) float32, 'components' (k, D) float32,
+        'mean' (D,) float32, 'evr' (k,) float32 — or None if raw keys
+        aren't available / the fit fails."""
         cache_key = (run_path, layer, n_components)
         if cache_key in self.pca_cache:
             self.pca_cache.move_to_end(cache_key)
@@ -342,15 +355,20 @@ class LayerStore:
                 "PCA failed for %s | %s: %s", os.path.basename(run_path), layer, e
             )
             return None
-        feats = feats.astype(np.float32)
+        entry = {
+            "feats": feats.astype(np.float32),
+            "components": np.asarray(pca.components_, dtype=np.float32),
+            "mean": np.asarray(pca.mean_, dtype=np.float32),
+            "evr": np.asarray(pca.explained_variance_ratio_, dtype=np.float32),
+        }
         logger.info(
             "PCA features for %s | %s shape=%s (var explained=%.3f)",
             os.path.basename(run_path),
             layer,
-            feats.shape,
-            float(getattr(pca, "explained_variance_ratio_", np.zeros(1)).sum()),
+            entry["feats"].shape,
+            float(entry["evr"].sum()),
         )
-        self.pca_cache[cache_key] = feats
+        self.pca_cache[cache_key] = entry
         while len(self.pca_cache) > self.pca_max:
             evicted_key, _ = self.pca_cache.popitem(last=False)
             logger.info(
@@ -359,4 +377,137 @@ class LayerStore:
                 evicted_key[1],
                 evicted_key[2],
             )
-        return self.pca_cache[cache_key]
+        return entry
+
+    def pca_features(self, run_path: str, layer: str, n_components: int = 50):
+        """Fit PCA(n_components) on the layer's raw keys and return the
+        transformed (N, n_components) array. Cached. Returns None if raw
+        keys aren't available."""
+        entry = self._pca_entry(run_path, layer, n_components)
+        return None if entry is None else entry["feats"]
+
+    def fisher_ranking(self, run_path: str, layer: str, n_components: int = 50):
+        """Rank PCA dims by Fisher score between the aria-* and eva-*
+        embodiment groups: F_d = (mu_a - mu_b)^2 / (var_a + var_b). Returns
+        a cached dict with 'scores' (k,) float32, 'order' (k,) int64
+        (descending score), 'group_a'/'group_b' labels — or None if PCA
+        features are unavailable, misaligned with the CSV rows, or fewer
+        than two embodiment groups exist."""
+        cache_key = (run_path, layer, n_components)
+        if cache_key in self.fisher_cache:
+            self.fisher_cache.move_to_end(cache_key)
+            return self.fisher_cache[cache_key]
+
+        result = None
+        entry = self._pca_entry(run_path, layer, n_components)
+        if entry is not None:
+            feats = entry["feats"]
+            embs = np.asarray(self.load(run_path, layer)["embs"])
+            if feats.shape[0] != len(embs):
+                logger.warning(
+                    "fisher_ranking: PCA rows (%d) mismatch CSV rows (%d) for %s | %s",
+                    feats.shape[0],
+                    len(embs),
+                    os.path.basename(run_path),
+                    layer,
+                )
+            else:
+                # Embodiment names look like 'aria_bimanual' / 'eva_right_arm'.
+                # Prefer the aria-vs-eva split; fall back to the two largest
+                # embodiment groups when those substrings are absent.
+                lower = np.array([str(e).lower() for e in embs])
+                mask_a = np.char.find(lower.astype(str), "aria") >= 0
+                mask_b = np.char.find(lower.astype(str), "eva") >= 0
+                group_a, group_b = "aria*", "eva*"
+                if not (mask_a.any() and mask_b.any()):
+                    uniq, counts = np.unique(lower, return_counts=True)
+                    if len(uniq) >= 2:
+                        top2 = uniq[np.argsort(counts)[::-1][:2]]
+                        group_a, group_b = str(top2[0]), str(top2[1])
+                        mask_a = lower == top2[0]
+                        mask_b = lower == top2[1]
+                    else:
+                        mask_a = mask_b = None
+                if mask_a is not None and mask_a.any() and mask_b.any():
+                    fa = feats[mask_a]
+                    fb = feats[mask_b]
+                    mu_diff = fa.mean(axis=0) - fb.mean(axis=0)
+                    denom = fa.var(axis=0) + fb.var(axis=0) + 1e-12
+                    scores = (mu_diff * mu_diff / denom).astype(np.float32)
+                    order = np.argsort(scores)[::-1].copy()
+                    result = {
+                        "scores": scores,
+                        "order": order,
+                        "group_a": group_a,
+                        "group_b": group_b,
+                    }
+                    logger.info(
+                        "Fisher ranking for %s | %s (%s n=%d vs %s n=%d): "
+                        "top-5 dims=%s scores=%s",
+                        os.path.basename(run_path),
+                        layer,
+                        group_a,
+                        int(mask_a.sum()),
+                        group_b,
+                        int(mask_b.sum()),
+                        order[:5].tolist(),
+                        [f"{v:.3g}" for v in scores[order[:5]]],
+                    )
+                else:
+                    logger.warning(
+                        "fisher_ranking: <2 embodiment groups for %s | %s",
+                        os.path.basename(run_path),
+                        layer,
+                    )
+
+        self.fisher_cache[cache_key] = result
+        while len(self.fisher_cache) > self.pca_max:
+            self.fisher_cache.popitem(last=False)
+        return result
+
+    def pca_features_dropped(
+        self, run_path: str, layer: str, n_components: int = 50, drop_k: int = 0
+    ):
+        """PCA features with the top-`drop_k` Fisher-ranked dims removed
+        (columns deleted, so distances live in the remaining subspace).
+        Cached (full-N copies — tight LRU). Returns None when PCA features
+        or the Fisher ranking are unavailable."""
+        if drop_k <= 0:
+            return self.pca_features(run_path, layer, n_components)
+        cache_key = (run_path, layer, n_components, int(drop_k))
+        if cache_key in self.drop_cache:
+            self.drop_cache.move_to_end(cache_key)
+            return self.drop_cache[cache_key]
+        feats = self.pca_features(run_path, layer, n_components)
+        ranking = self.fisher_ranking(run_path, layer, n_components)
+        if feats is None or ranking is None:
+            return None
+        drop = ranking["order"][: min(int(drop_k), feats.shape[1])]
+        out = np.delete(feats, drop, axis=1)
+        logger.info(
+            "PCA-dropped features for %s | %s: removed top-%d Fisher dims -> shape=%s",
+            os.path.basename(run_path),
+            layer,
+            len(drop),
+            out.shape,
+        )
+        self.drop_cache[cache_key] = out
+        while len(self.drop_cache) > self.drop_max:
+            self.drop_cache.popitem(last=False)
+        return out
+
+    def fisher_dropped_directions(
+        self, run_path: str, layer: str, n_components: int = 50, drop_k: int = 0
+    ):
+        """The (drop_k, D) raw-space directions of the top-`drop_k`
+        Fisher-ranked PCA components — used to project embodiment-
+        discriminative directions out of raw-key distances. Returns None
+        when unavailable."""
+        if drop_k <= 0:
+            return None
+        entry = self._pca_entry(run_path, layer, n_components)
+        ranking = self.fisher_ranking(run_path, layer, n_components)
+        if entry is None or ranking is None:
+            return None
+        drop = ranking["order"][: min(int(drop_k), entry["components"].shape[0])]
+        return entry["components"][drop]

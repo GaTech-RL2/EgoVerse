@@ -102,6 +102,57 @@ def main():
     p.add_argument(
         "--host", default="0.0.0.0", help="Set to 127.0.0.1 to bind localhost only."
     )
+    p.add_argument(
+        "--pair-rank",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Report mode (no server): for each layer, sample N rows and "
+        "print the average place of the perfect-pair action among "
+        "opposite-embodiment actions (1 = nearest). E.g. --pair-rank 1000.",
+    )
+    p.add_argument(
+        "--pair-rank-space",
+        default="umap",
+        choices=["umap", "pca_umap", "tsne2d"],
+        help="Coordinate space for the --pair-rank distances (CSV-baked "
+        "reductions; same spaces the scatter view plots). Ignored when "
+        "--pair-rank-sweep is set.",
+    )
+    p.add_argument(
+        "--pair-rank-seed",
+        type=int,
+        default=0,
+        help="Sampling seed for --pair-rank.",
+    )
+    p.add_argument(
+        "--pair-rank-sweep",
+        action="store_true",
+        help="Run the embedding-space sweep instead of the CSV-coord report: "
+        "for a few focus layers, report MEAN place in raw-key space, PCA "
+        "space, and PCA with the top-k aria-vs-eva Fisher dims removed "
+        "(removal swept in steps of --pair-rank-drop-step). Needs "
+        "<layer>_keys.pt files in each run dir.",
+    )
+    p.add_argument(
+        "--pair-rank-layers",
+        default="default",
+        help="Comma-separated layer names for --pair-rank-sweep, or 'default' "
+        "(expert 0/12/17 + paligemma 0/17 combined & lang) or 'all'.",
+    )
+    p.add_argument(
+        "--pair-rank-pca",
+        type=int,
+        default=50,
+        help="PCA components for the --pair-rank-sweep PCA / Fisher spaces.",
+    )
+    p.add_argument(
+        "--pair-rank-drop-step",
+        type=int,
+        default=10,
+        help="Fisher-removal step for --pair-rank-sweep: sweep drop_k = step, "
+        "2*step, ... up to (but excluding) --pair-rank-pca.",
+    )
     args = p.parse_args()
 
     # ----- Dataset Browser mode (no latents/zarr-root needed) -------------
@@ -137,6 +188,55 @@ def main():
                 os.path.abspath(args.latent_dir),
             )
         ]
+
+    if args.pair_rank > 0:
+        if args.pair_rank_sweep:
+            from inspector_lib.pair_rank import (
+                DEFAULT_SWEEP_LAYERS,
+                pair_rank_sweep,
+            )
+
+            if args.pair_rank_layers in ("default", ""):
+                layers = list(DEFAULT_SWEEP_LAYERS)
+            elif args.pair_rank_layers == "all":
+                layers = None  # resolved per-run below
+            else:
+                layers = [
+                    s.strip() for s in args.pair_rank_layers.split(",") if s.strip()
+                ]
+            pca = int(args.pair_rank_pca)
+            step = max(1, int(args.pair_rank_drop_step))
+            drop_steps = tuple(range(step, pca, step))
+            for disp, run_dir in runs:
+                print(f"\n===== run: {disp} =====")
+                run_layers = layers
+                if run_layers is None:
+                    from inspector_lib.caches import LayerStore
+
+                    run_layers = LayerStore().layers_for(run_dir)
+                pair_rank_sweep(
+                    run_dir,
+                    args.zarr_root,
+                    n_samples=args.pair_rank,
+                    seed=args.pair_rank_seed,
+                    layers=run_layers,
+                    n_components=pca,
+                    drop_steps=drop_steps,
+                )
+            return
+
+        from inspector_lib.pair_rank import pair_rank_report
+
+        for disp, run_dir in runs:
+            print(f"\n===== run: {disp} =====")
+            pair_rank_report(
+                run_dir,
+                args.zarr_root,
+                n_samples=args.pair_rank,
+                space=args.pair_rank_space,
+                seed=args.pair_rank_seed,
+            )
+        return
 
     app = build_app(
         runs=runs,

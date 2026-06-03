@@ -16,7 +16,10 @@ from .images import (
 logger = logging.getLogger(__name__)
 
 
-@lru_cache(maxsize=512)
+# Sized to hold every episode of a large run at once (full-cotrain latent
+# runs span >1000 recordings) — eviction thrash here means re-opening zarrs
+# over NFS on every click.
+@lru_cache(maxsize=4096)
 def annotation_intervals(
     zarr_root: str, video_hash: str
 ) -> tuple[tuple[int, int, str, str], ...]:

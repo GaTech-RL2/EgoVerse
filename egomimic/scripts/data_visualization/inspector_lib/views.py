@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections import OrderedDict
 
 import numpy as np
 
@@ -18,6 +19,7 @@ from .io import LazyStringArray
 from .language import (
     all_lang_concat_lower,
     annotation_intervals,
+    interval_for_frame,
     load_language_prompt,
 )
 
@@ -88,24 +90,195 @@ def _get_langs_per_row(data: dict, zarr_root: str) -> np.ndarray:
 
 
 def _filter_data_by_lang(data: dict, excludes: list[str], zarr_root: str):
-    """Return a shallow-copy of `data` with all per-row arrays masked
-    down to rows whose language doesn't contain any of `excludes`.
-    If `excludes` is empty, returns `data` unchanged."""
+    """Return (filtered_data, n_dropped, keep_mask). `filtered_data` is a
+    shallow-copy of `data` with all per-row arrays masked down to rows
+    whose language doesn't contain any of `excludes`; `keep_mask` is the
+    boolean row mask (None when nothing was filtered) so callers can map
+    filtered row indices back to original CSV rows. If `excludes` is
+    empty, returns `data` unchanged."""
     if not excludes:
-        return data, 0
+        return data, 0, None
     langs = _get_langs_per_row(data, zarr_root)
     keep = np.ones(len(langs), dtype=bool)
     for sub in excludes:
         keep &= np.array([sub not in (text or "") for text in langs])
     if keep.all():
-        return data, 0
+        return data, 0, None
     out = {}
     for k, v in data.items():
         if isinstance(v, (np.ndarray, LazyStringArray)) and len(v) == len(keep):
             out[k] = v[keep]
         else:
             out[k] = v
-    return out, int((~keep).sum())
+    return out, int((~keep).sum()), keep
+
+
+def _action_key(zarr_root: str, video_hash: str, frame_idx: int):
+    """Identity of the action instance a row belongs to: the recording plus
+    the first annotation interval covering the frame. Rows with no covering
+    interval (or unreadable annotations) collapse into one whole-recording
+    action — same fallback as the same-embodiment action exclusion."""
+    for s, e, *_ in annotation_intervals(zarr_root, str(video_hash)):
+        if s <= frame_idx < e:
+            return (str(video_hash), s, e)
+    return (str(video_hash), -1, -1)
+
+
+# (cache_key, n_rows) -> (N,) int64 action ids. Small: a few layers' worth of
+# int arrays. Keyed per (run, layer) so LayerStore cache turnover can't serve
+# stale rows.
+_ACTION_IDS_CACHE: "OrderedDict[tuple, np.ndarray]" = OrderedDict()
+_ACTION_IDS_CACHE_MAX = 8
+
+
+def _row_action_ids(zarr_root: str, data: dict, cache_key: tuple | None = None):
+    """(N,) int array assigning every row its action-instance id (recording +
+    first covering annotation interval; whole recording when uncovered).
+
+    Built vectorized per unique recording with the intervals prefetched in
+    parallel — per-row python/zarr lookups made click latency scale with both
+    row count and episode count on the network FS."""
+    n = len(np.asarray(data["frame_idx"]))
+    key = (cache_key, n) if cache_key is not None else None
+    if key is not None and key in _ACTION_IDS_CACHE:
+        _ACTION_IDS_CACHE.move_to_end(key)
+        return _ACTION_IDS_CACHE[key]
+
+    hashes = data["hashes"]
+    frames = np.asarray(data["frame_idx"])
+    uniq = sorted({str(x) for x in hashes})
+
+    # Warm the annotation_intervals lru in parallel (NFS-bound, like
+    # _populate_browser_list does).
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=min(16, max(1, len(uniq)))) as ex:
+        list(ex.map(lambda h: annotation_intervals(zarr_root, h), uniq))
+
+    ids = np.full(n, -1, dtype=np.int64)
+    next_id = 0
+    for h in uniq:
+        hmask = np.asarray(hashes == h)
+        if not hmask.any():
+            continue
+        assigned = np.zeros(n, dtype=bool)
+        spans = []
+        for s, e, *_ in annotation_intervals(zarr_root, h):
+            if (s, e) not in spans:
+                spans.append((s, e))
+        # Process in list order so overlapping spans resolve to the first
+        # covering interval — same semantics as _action_key.
+        for s, e in spans:
+            sel = hmask & ~assigned & (frames >= s) & (frames < e)
+            if sel.any():
+                ids[sel] = next_id
+                assigned |= sel
+            next_id += 1
+        rest = hmask & ~assigned
+        if rest.any():
+            ids[rest] = next_id  # whole-recording fallback action
+        next_id += 1
+
+    if key is not None:
+        _ACTION_IDS_CACHE[key] = ids
+        while len(_ACTION_IDS_CACHE) > _ACTION_IDS_CACHE_MAX:
+            _ACTION_IDS_CACHE.popitem(last=False)
+    return ids
+
+
+def _dedupe_neighbors_by_action(
+    zarr_root: str, data: dict, candidates, k: int, cache_key: tuple | None = None
+):
+    """Keep only the nearest row per action instance, up to k rows.
+    `candidates` is an iterable of (distance, row_idx) pairs already sorted
+    by ascending distance; consumed lazily, so callers can pass a generator
+    over a full argsort without materializing it."""
+    ids = _row_action_ids(zarr_root, data, cache_key=cache_key)
+    seen: set = set()
+    out: list[tuple[float, int]] = []
+    for dist, ridx in candidates:
+        a = int(ids[ridx])
+        if a in seen:
+            continue
+        seen.add(a)
+        out.append((dist, ridx))
+        if len(out) >= k:
+            break
+    return out
+
+
+def _find_pair_action(
+    zarr_root: str, data: dict, video_hash: str, frame_idx: int, src_emb: str
+):
+    """Locate the matching action in the paired opposite-embodiment episode.
+
+    Perfect-pair episodes carry (near-)identical annotation sets, so the twin
+    is the opposite-embodiment episode sharing the most (start, end, text)
+    annotation entries with the clicked episode. The matching action is the
+    twin's interval equal to the clicked frame's covering interval, with a
+    text-only fallback (two aria pair episodes share canonical texts but not
+    every rephrasing). Returns (twin_hash, start, end) or None when the frame
+    is unannotated or no opposite-embodiment episode shares any entry."""
+    intervals = annotation_intervals(zarr_root, str(video_hash))
+    cover = [(s, e) for s, e, _, _ in intervals if s <= frame_idx < e]
+    if not cover:
+        return None
+    s0, e0 = cover[0]
+    own = {(s, e, low) for s, e, low, _ in intervals}
+    embs = np.asarray(data["embs"])
+    opp_hashes = sorted({str(x) for x in data["hashes"][embs != src_emb]})
+    best_hash, best_iv, best_score = None, None, 0
+    for h2 in opp_hashes:
+        iv2 = annotation_intervals(zarr_root, h2)
+        score = sum((s, e, low) in own for s, e, low, _ in iv2)
+        if score > best_score:
+            best_hash, best_iv, best_score = h2, iv2, score
+    if best_hash is None:
+        return None
+    # The matching action is the twin's interval with the same boundaries
+    # (pair members share segmentation); fall back to max frame-overlap.
+    spans = sorted({(s, e) for s, e, _, _ in best_iv})
+    if (s0, e0) in spans:
+        s2, e2 = s0, e0
+    else:
+        s2, e2 = max(spans, key=lambda sp: max(0, min(sp[1], e0) - max(sp[0], s0)))
+        if min(e2, e0) - max(s2, s0) <= 0:
+            return None
+    # Select the twin's prompt with the SAME rule the clicked-frame display
+    # uses (interval_for_frame → last paraphrase covering the frame). With
+    # byte-identical pair annotations this makes the paired prompt equal the
+    # clicked prompt; when they differ it stays an apples-to-apples compare.
+    m = interval_for_frame(best_iv, s2)
+    prompt = m[2] if m is not None else ""
+    return best_hash, s2, e2, prompt
+
+
+def _pair_action_rows(data: dict, twin_hash: str, start: int, end: int):
+    """Row indices of the twin episode's frames inside the action interval."""
+    frames = np.asarray(data["frame_idx"])
+    return np.where((data["hashes"] == twin_hash) & (frames >= start) & (frames < end))[
+        0
+    ]
+
+
+def _pair_distance_text(
+    twin_hash: str,
+    start: int,
+    end: int,
+    prompt: str,
+    dists_rows,
+    rows,
+    frames,
+    space_label: str,
+) -> str:
+    """Render the paired-action distance block shown under the clicked frame."""
+    j = int(np.argmin(dists_rows))
+    return (
+        f"\n\n-- paired action ({space_label}) --\n"
+        f"{twin_hash}  seg [{start},{end})\n"
+        f"prompt: {prompt}\n"
+        f"min dist {float(dists_rows[j]):.4f} @ frame {int(frames[int(rows[j])])}"
+    )
 
 
 class ScatterView:
@@ -126,6 +299,65 @@ class ScatterView:
         self.lang_key = lang_key
         self.image_key = image_key
         self.default_sample = default_sample
+        self._knn_trees = {}  # (run_path, layer, reduction, target_emb) -> (cKDTree, target_indices)
+        # (run, layer, drop_k, rows-md5) -> (rows, umap_xyz) for the live
+        # PCA-removal recompute. Small: only sampled points are embedded.
+        self._live_umap_cache = {}
+
+    def _live_umap_coords(self, run_path: str, layer: str, drop_k: int, rows):
+        """UMAP-3D embedding of the Fisher-filtered PCA features for the
+        given original-CSV `rows` (the sampled points). Cached by content,
+        so re-clicking Apply with unchanged controls is instant. Returns
+        (coords (len(rows), 3), None) or (None, error_message)."""
+        import hashlib
+        import time
+
+        cache_key = (
+            run_path,
+            layer,
+            int(drop_k),
+            hashlib.md5(np.ascontiguousarray(rows).tobytes()).hexdigest(),
+        )
+        cached = self._live_umap_cache.get(cache_key)
+        if cached is not None:
+            return cached, None
+
+        feats = self.store.pca_features_dropped(
+            run_path, layer, n_components=50, drop_k=drop_k
+        )
+        if feats is None:
+            return None, (
+                f"PCA removal needs raw keys + both embodiments — "
+                f"{layer}_keys.pt missing or Fisher ranking unavailable "
+                f"(re-run eval with +force_reeval=true to write raw keys)"
+            )
+        if feats.shape[1] == 0:
+            return None, "all PCA dims removed — lower the slider"
+        if rows.max() >= feats.shape[0]:
+            return None, (
+                f"PCA features rows ({feats.shape[0]}) mismatch CSV rows — "
+                f"stale {layer}_keys.pt?"
+            )
+        try:
+            import umap
+        except ImportError:
+            return None, "umap-learn not installed — pip install umap-learn"
+        t0 = time.perf_counter()
+        X = feats[rows]
+        coords = umap.UMAP(n_components=3, random_state=42).fit_transform(X)
+        coords = np.asarray(coords, dtype=np.float32)
+        logger.info(
+            "live UMAP for %s | %s drop_k=%d on %d pts in %.1fs",
+            os.path.basename(run_path),
+            layer,
+            drop_k,
+            len(rows),
+            time.perf_counter() - t0,
+        )
+        self._live_umap_cache[cache_key] = coords
+        while len(self._live_umap_cache) > 8:
+            self._live_umap_cache.pop(next(iter(self._live_umap_cache)))
+        return coords, None
 
     def build_figure(
         self,
@@ -137,6 +369,7 @@ class ScatterView:
         remove_outliers: bool = False,
         outlier_thresh: float = 3.0,
         excludes: list[str] | None = None,
+        pca_drop_k: int = 0,
     ):
         import time
 
@@ -163,22 +396,27 @@ class ScatterView:
         data = self.store.load(run_path, layer)
         _phase("store.load", t0)
 
+        pca_drop_k = int(pca_drop_k or 0)
+
         # Trigger the selected reduction's lazy materialization NOW (before
         # filter/sample). Lazy fields are None placeholders in the dict;
         # without this, the filtered/sampled copy propagates None and the
-        # scatter goes blank.
-        t0 = time.perf_counter()
-        reduction_key = _REDUCTION_TO_COORDS.get(reduction, ("umap_xyz", "?"))[0]
-        _ = data[reduction_key]
-        _phase(f"materialize[{reduction_key}]", t0)
+        # scatter goes blank. Skipped when PCA removal is active — coords
+        # then come from a live UMAP recompute, not the CSV.
+        if pca_drop_k <= 0:
+            t0 = time.perf_counter()
+            reduction_key = _REDUCTION_TO_COORDS.get(reduction, ("umap_xyz", "?"))[0]
+            _ = data[reduction_key]
+            _phase(f"materialize[{reduction_key}]", t0)
 
         # Apply lang filter (e.g. drop "home" frames) BEFORE sampling so the
         # filter affects what shows up on the plot, not just whether the
         # `sample` points include filtered ones.
         t0 = time.perf_counter()
         n_lang_dropped = 0
+        lang_keep = None
         if excludes:
-            data, n_lang_dropped = _filter_data_by_lang(
+            data, n_lang_dropped, lang_keep = _filter_data_by_lang(
                 data, list(excludes), self.zarr_root
             )
         _phase("lang_filter", t0)
@@ -194,6 +432,13 @@ class ScatterView:
         _phase("sample", t0)
         sub_groups = groups[keep]
         n_outliers_removed = 0
+        # Original-CSV row indices of the sampled points — needed to slice
+        # the full-N PCA features when PCA removal is active.
+        orig_rows = (
+            np.flatnonzero(lang_keep)[keep]
+            if lang_keep is not None
+            else np.asarray(keep)
+        )
 
         # All reductions are read directly from precomputed coords produced
         # by eval_latent — no client-side recompute. If the user picks a
@@ -217,7 +462,20 @@ class ScatterView:
             "tsne3d": ("tsne3d_xyz", "t-SNE 3D", 3, "evaluator.compute_tsne_3d=true"),
             "pca": ("pca_xyz", "PCA", 3, "evaluator.compute_pca=true"),
         }
-        if reduction not in spec:
+        if pca_drop_k > 0:
+            # PCA removal active: ignore the precomputed reductions and embed
+            # the sampled points' Fisher-filtered PCA features with a live
+            # UMAP fit (cached per (run, layer, k, sample)).
+            t0 = time.perf_counter()
+            coords, live_err = self._live_umap_coords(
+                run_path, layer, pca_drop_k, orig_rows
+            )
+            _phase("live_umap", t0)
+            if coords is None:
+                missing_msg = live_err
+            else:
+                axis_prefix, d = "umap", 3
+        elif reduction not in spec:
             missing_msg = f"unknown reduction: {reduction!r}"
         else:
             key, label, dims, flag = spec[reduction]
@@ -341,6 +599,11 @@ class ScatterView:
             title=(
                 f"{layer} ({axis_prefix} {d}D, n={coords.shape[0]}"
                 + (
+                    f", live UMAP on PCA-50 −top{pca_drop_k} Fisher dims"
+                    if pca_drop_k > 0
+                    else ""
+                )
+                + (
                     f", {n_outliers_removed} outliers hidden"
                     if n_outliers_removed > 0
                     else ""
@@ -397,32 +660,122 @@ class ScatterView:
             },
         )
 
+    def _get_knn_tree(self, data, run_path, layer, reduction, target_emb, coords=None):
+        """Get or build a cKDTree for the target embodiment's coords."""
+        from scipy.spatial import cKDTree
+
+        cache_key = (run_path, layer, reduction, target_emb)
+        if cache_key in self._knn_trees:
+            return self._knn_trees[cache_key]
+
+        if coords is None:
+            coord_key = _REDUCTION_TO_COORDS.get(reduction, ("umap_xyz", "?"))[0]
+            coords = data.get(coord_key)
+        if coords is None:
+            return None
+
+        embs = data["embs"]
+        target_mask = embs == target_emb
+        if not target_mask.any():
+            self._knn_trees[cache_key] = None
+            return None
+
+        target_idx = np.where(target_mask)[0]
+        tree = cKDTree(coords[target_idx])
+        entry = (tree, target_idx)
+        self._knn_trees[cache_key] = entry
+        if len(self._knn_trees) > 16:
+            oldest = next(iter(self._knn_trees))
+            del self._knn_trees[oldest]
+        return entry
+
     def knn_other_embodiment(
-        self, data, src_idx, src_emb, reduction, k=10, coords_override=None
+        self,
+        data,
+        src_idx,
+        src_emb,
+        reduction,
+        k=10,
+        coords_override=None,
+        run_path=None,
+        layer=None,
     ):
         """Return list of dicts for the K closest opposite-embodiment rows.
-        If `coords_override` is given, distances are computed on those coords
-        (use for raw 256d KNN). Otherwise the reduction's CSV columns are
-        used. Each dict has hash, frame, token, embodiment, distance.
-        None on missing data, [] when no opposite-embodiment rows exist."""
+        Uses a cKDTree for O(log N) queries instead of brute-force."""
         if coords_override is not None:
             coords = coords_override
         else:
             coord_key = _REDUCTION_TO_COORDS.get(reduction, ("umap_xyz", "?"))[0]
             coords = data.get(coord_key)
         if coords is None:
-            return None  # missing column / file
+            return None
+
         embs = data["embs"]
-        target_mask = embs != src_emb
-        if not target_mask.any():
+        unique_embs = set(np.unique(embs))
+        unique_embs.discard(src_emb)
+        if not unique_embs:
             return []
-        target_idx = np.where(target_mask)[0]
-        diff = coords[target_idx] - coords[src_idx]
-        dists = np.linalg.norm(diff, axis=1)
-        order = np.argsort(dists)[:k]
+
+        all_neighbors = []
+        for target_emb in unique_embs:
+            if run_path and layer:
+                entry = self._get_knn_tree(
+                    data, run_path, layer, reduction, target_emb, coords
+                )
+            else:
+                entry = None
+
+            if entry is not None:
+                tree, target_idx = entry
+                query_pt = coords[src_idx].reshape(1, -1)
+                n_target = tree.data.shape[0]
+                # At most one row per action instance: the raw top-k is
+                # dominated by temporally-adjacent rows of a single
+                # opposite-embodiment motion, so over-query and dedupe,
+                # expanding until k distinct actions are found or the
+                # embodiment is exhausted.
+                query_k = min(max(64, k * 16), n_target)
+                while True:
+                    dists_arr, idx_arr = tree.query(query_pt, k=query_k)
+                    cand = (
+                        (float(d), int(target_idx[int(i)]))
+                        for d, i in zip(
+                            np.atleast_1d(np.squeeze(dists_arr)),
+                            np.atleast_1d(np.squeeze(idx_arr)),
+                        )
+                    )
+                    kept = _dedupe_neighbors_by_action(
+                        self.zarr_root,
+                        data,
+                        cand,
+                        k,
+                        cache_key=(run_path, layer),
+                    )
+                    if len(kept) >= k or query_k >= n_target:
+                        break
+                    query_k = min(query_k * 8, n_target)
+                all_neighbors.extend(kept)
+            else:
+                target_mask = embs == target_emb
+                target_idx = np.where(target_mask)[0]
+                diff = coords[target_idx] - coords[src_idx]
+                dists = np.linalg.norm(diff, axis=1)
+                order = np.argsort(dists)
+                cand = ((float(dists[int(o)]), int(target_idx[int(o)])) for o in order)
+                all_neighbors.extend(
+                    _dedupe_neighbors_by_action(
+                        self.zarr_root, data, cand, k, cache_key=(run_path, layer)
+                    )
+                )
+
+        all_neighbors.sort(key=lambda x: x[0])
+        # Re-dedupe across embodiments (no-op when there is only one
+        # opposite embodiment) and truncate to k.
+        all_neighbors = _dedupe_neighbors_by_action(
+            self.zarr_root, data, all_neighbors, k, cache_key=(run_path, layer)
+        )
         out = []
-        for rank, o in enumerate(order, start=1):
-            ridx = int(target_idx[o])
+        for rank, (dist, ridx) in enumerate(all_neighbors, start=1):
             out.append(
                 {
                     "rank": rank,
@@ -430,7 +783,7 @@ class ScatterView:
                     "frame_idx": int(data["frame_idx"][ridx]),
                     "token_idx": int(data["token_idx"][ridx]),
                     "embodiment": str(data["embs"][ridx]),
-                    "distance": float(dists[o]),
+                    "distance": dist,
                 }
             )
         return out
@@ -598,10 +951,21 @@ class ScatterView:
         return rows
 
     def build_inspect_payload(
-        self, run_path, layer, video_hash, frame_idx, token_idx, emb, reduction
+        self,
+        run_path,
+        layer,
+        video_hash,
+        frame_idx,
+        token_idx,
+        emb,
+        reduction,
+        pca_drop_k: int = 0,
     ):
         """Compute everything needed to populate the right pane for one
-        clicked frame: meta text, image URI, lang text, KNN buttons, label."""
+        clicked frame: meta text, image URI, lang text, KNN buttons, label.
+        When `pca_drop_k` > 0 the KNN is computed in the Fisher-filtered
+        PCA-50 space (matching the live-UMAP scatter) instead of the
+        precomputed reduction coords."""
         from dash import html
 
         meta = (
@@ -633,8 +997,12 @@ class ScatterView:
                 "Paths attempted:\n  " + "\n  ".join(lang_tried[:25])
             )
 
-        red_label = _REDUCTION_TO_COORDS.get(reduction, ("?", reduction))[1]
-        knn_label = f"10 closest opposite-embodiment frames ({red_label})"
+        pca_drop_k = int(pca_drop_k or 0)
+        if pca_drop_k > 0:
+            red_label = f"PCA-50 −top{pca_drop_k} Fisher dims"
+        else:
+            red_label = _REDUCTION_TO_COORDS.get(reduction, ("?", reduction))[1]
+        knn_label = f"10 closest opposite-embodiment frames ({red_label}, 1 per action)"
         knn_buttons = [html.Div("(no run/layer selected)", style={"color": "#94a3b8"})]
         if run_path and layer:
             try:
@@ -655,10 +1023,64 @@ class ScatterView:
                 else:
                     src_idx = int(where[0])
                     src_emb = str(data["embs"][src_idx])
+                    coords_override = None
+                    knn_reduction = reduction
+                    if pca_drop_k > 0:
+                        # Same Fisher-filtered space the live-UMAP scatter is
+                        # built from. The tag keeps the cKDTree cache keyed
+                        # per drop level.
+                        coords_override = self.store.pca_features_dropped(
+                            run_path, layer, n_components=50, drop_k=pca_drop_k
+                        )
+                        knn_reduction = f"pca50_drop{pca_drop_k}"
+                        if coords_override is None or coords_override.shape[0] != len(
+                            data["hashes"]
+                        ):
+                            raise RuntimeError(
+                                "Fisher-filtered PCA features unavailable or "
+                                "misaligned — re-run eval with "
+                                "+force_reeval=true to write raw keys"
+                            )
                     neighbors = self.knn_other_embodiment(
-                        data, src_idx, src_emb, reduction, k=10
+                        data,
+                        src_idx,
+                        src_emb,
+                        knn_reduction,
+                        k=10,
+                        coords_override=coords_override,
+                        run_path=run_path,
+                        layer=layer,
                     )
                     knn_buttons = self.knn_buttons(neighbors)
+                    # Paired-action distance, in the same space as the KNN
+                    # list, appended below the clicked frame's language.
+                    if coords_override is not None:
+                        pair_coords = coords_override
+                    else:
+                        coord_key = _REDUCTION_TO_COORDS.get(
+                            knn_reduction, ("umap_xyz", "?")
+                        )[0]
+                        pair_coords = data.get(coord_key)
+                    pair = _find_pair_action(
+                        self.zarr_root, data, str(video_hash), int(frame_idx), src_emb
+                    )
+                    if pair is not None and pair_coords is not None:
+                        twin, s2, e2, pair_prompt = pair
+                        rows = _pair_action_rows(data, twin, s2, e2)
+                        if rows.size:
+                            d = np.linalg.norm(
+                                pair_coords[rows] - pair_coords[src_idx], axis=1
+                            )
+                            lang_display = lang_display + _pair_distance_text(
+                                twin,
+                                s2,
+                                e2,
+                                pair_prompt,
+                                d,
+                                rows,
+                                np.asarray(data["frame_idx"]),
+                                red_label,
+                            )
             except Exception as e:
                 knn_buttons = [
                     html.Div(
@@ -741,6 +1163,7 @@ class ScatterView:
             State("outlier_thresh", "value"),
             State("browser_hide_home", "value"),
             State("browser_lang_exclude", "value"),
+            State("pca_drop_k", "value"),
         )
         def update_figure(
             _n_clicks,
@@ -752,6 +1175,7 @@ class ScatterView:
             outlier_thresh_val,
             hide_home_val,
             lang_exclude_val,
+            pca_drop_k,
         ):
             # Only re-render when the user clicks Apply. Pre-1st-click also fires
             # once (n_clicks=0) so the initial figure renders on page load.
@@ -773,6 +1197,7 @@ class ScatterView:
                 remove_outliers=remove_out,
                 outlier_thresh=thresh,
                 excludes=excludes,
+                pca_drop_k=int(pca_drop_k or 0),
             )
 
         # Unified click handler — fires on:
@@ -802,9 +1227,17 @@ class ScatterView:
             State("run", "value"),
             State("layer", "value"),
             State("reduction", "value"),
+            State("pca_drop_k", "value"),
         )
         def on_inspect(
-            clickData, _knn_clicks, _back_clicks, nav_stack, run_path, layer, reduction
+            clickData,
+            _knn_clicks,
+            _back_clicks,
+            nav_stack,
+            run_path,
+            layer,
+            reduction,
+            pca_drop_k,
         ):
             nav_stack = list(nav_stack or [])
             ctx = dash.callback_context
@@ -828,6 +1261,7 @@ class ScatterView:
                     int(prev["token"]),
                     prev["emb"],
                     reduction,
+                    pca_drop_k=int(pca_drop_k or 0),
                 )
                 back_disabled = len(nav_stack) <= 1
                 return (*payload, nav_stack, back_disabled)
@@ -908,6 +1342,7 @@ class ScatterView:
                             int(nav_stack[-1]["token"]),
                             nav_stack[-1]["emb"],
                             reduction,
+                            pca_drop_k=int(pca_drop_k or 0),
                         ),
                         nav_stack,
                         len(nav_stack) <= 1,
@@ -926,6 +1361,7 @@ class ScatterView:
                 new_pt["token"],
                 new_pt["emb"],
                 reduction,
+                pca_drop_k=int(pca_drop_k or 0),
             )
             back_disabled = len(nav_stack) <= 1
             return (*payload, nav_stack, back_disabled)
@@ -1096,10 +1532,25 @@ class BrowserView:
             )
         return rows
 
-    def render_browser_detail(self, run_path, layer, h, f, tok, knn_space="raw"):
+    def render_browser_detail(
+        self,
+        run_path,
+        layer,
+        h,
+        f,
+        tok,
+        knn_space="raw",
+        pca_drop_k=0,
+        pair_mode="cross",
+    ):
         """Build (meta, img_src, lang_display, knn_label, knn_buttons) for one
         clicked/popped (hash, frame, token). `knn_space` is 'raw' (full-D
-        keys) or 'pca' (50-d PCA features fitted on the layer's keys)."""
+        keys) or 'pca' (50-d PCA features fitted on the layer's keys).
+        `pca_drop_k` > 0 removes the top-k PCA dims ranked by aria-vs-eva
+        Fisher score from the KNN space: dropped columns in 'pca' mode,
+        projected-out component directions in 'raw' mode. `pair_mode` is
+        'cross' (neighbors from OTHER embodiments — default) or 'same'
+        (neighbors from the clicked frame's own embodiment, self excluded)."""
         import time
 
         from dash import html
@@ -1110,13 +1561,17 @@ class BrowserView:
         def _phase(name: str, t0: float):
             _t_phases[name] = time.perf_counter() - t0
 
+        pca_drop_k = int(pca_drop_k or 0)
+        pair_mode = pair_mode or "cross"
         logger.info(
-            "render_browser_detail ENTER layer=%s h=%s f=%s tok=%s knn_space=%s",
+            "render_browser_detail ENTER layer=%s h=%s f=%s tok=%s knn_space=%s drop_k=%d pairs=%s",
             layer,
             h,
             f,
             tok,
             knn_space,
+            pca_drop_k,
+            pair_mode,
         )
 
         t0 = time.perf_counter()
@@ -1170,8 +1625,15 @@ class BrowserView:
         # raw-key space and dumped it as `<layer>_knn.pt`. When present
         # AND aligned with the current CSV, we skip the full-D distance
         # scan entirely. PCA mode still computes on demand because the
-        # n_components knob is inspector-side.
-        if knn_space != "pca" and src_idx is not None:
+        # n_components knob is inspector-side. PCA removal and
+        # same-embodiment pairs also bypass this path — the precomputed
+        # neighbors were built cross-embodiment in the full raw space.
+        if (
+            knn_space != "pca"
+            and pca_drop_k <= 0
+            and pair_mode != "same"
+            and src_idx is not None
+        ):
             t_knn = time.perf_counter()
             knn_pre = self.store.load_knn(run_path, layer)
             _phase("load_knn", t_knn)
@@ -1201,11 +1663,61 @@ class BrowserView:
                             style={"color": "#94a3b8"},
                         )
                     ]
-                else:
+                    phase_str = " ".join(
+                        f"{n}={dt*1000:.0f}ms" for n, dt in _t_phases.items()
+                    )
+                    logger.info(
+                        "render_browser_detail (precomputed-KNN path) %s in %.2fs | %s",
+                        layer,
+                        time.perf_counter() - _t_overall,
+                        phase_str,
+                    )
+                    return meta, img_src, lang_display, knn_label, knn_buttons
+                # One row per action instance. The sidecar stores only the
+                # K (=8) globally-nearest rows, which usually collapse to a
+                # couple of distinct actions — only take this fast path when
+                # it can still fill the list; otherwise fall through to the
+                # full computed scan below.
+                cand = (
+                    (float(d), int(o))
+                    for d, o in zip(pre_dist.tolist(), pre_idx.tolist())
+                )
+                deduped = _dedupe_neighbors_by_action(
+                    self.zarr_root, data, cand, 10, cache_key=(run_path, layer)
+                )
+                if len(deduped) >= 10:
+                    # Paired-action distance (raw space — same space the
+                    # precomputed neighbors live in). Row-only gather from
+                    # the mmap-backed keys keeps this path per-click cheap.
+                    pair = _find_pair_action(self.zarr_root, data, h, f, src_emb)
+                    if pair is not None:
+                        twin, s2, e2, pair_prompt = pair
+                        pair_rows = _pair_action_rows(data, twin, s2, e2)
+                        keys_arr = (
+                            self.store.load_keys(run_path, layer)
+                            if pair_rows.size
+                            else None
+                        )
+                        if keys_arr is not None and keys_arr.shape[0] == len(
+                            data["hashes"]
+                        ):
+                            d = np.linalg.norm(
+                                np.asarray(keys_arr[pair_rows], dtype=np.float32)
+                                - np.asarray(keys_arr[src_idx], dtype=np.float32),
+                                axis=1,
+                            )
+                            lang_display = lang_display + _pair_distance_text(
+                                twin,
+                                s2,
+                                e2,
+                                pair_prompt,
+                                d,
+                                pair_rows,
+                                np.asarray(data["frame_idx"]),
+                                "raw",
+                            )
                     neighbors = []
-                    for rank, (o, dist) in enumerate(
-                        zip(pre_idx.tolist(), pre_dist.tolist()), start=1
-                    ):
+                    for rank, (dist, o) in enumerate(deduped, start=1):
                         neighbors.append(
                             {
                                 "rank": rank,
@@ -1213,33 +1725,44 @@ class BrowserView:
                                 "frame_idx": int(data["frame_idx"][o]),
                                 "token_idx": int(data["token_idx"][o]),
                                 "embodiment": str(data["embs"][o]),
-                                "distance": float(dist),
+                                "distance": dist,
                             }
                         )
                     knn_label = (
                         f"{len(neighbors)} closest CROSS-embodiment in "
-                        f"{space_label} (source='{src_emb}')"
+                        f"{space_label} (source='{src_emb}', 1 per action)"
                     )
                     knn_buttons = self.browser_knn_buttons(neighbors)
-                phase_str = " ".join(
-                    f"{n}={dt*1000:.0f}ms" for n, dt in _t_phases.items()
-                )
-                logger.info(
-                    "render_browser_detail (precomputed-KNN path) %s in %.2fs | %s",
-                    layer,
-                    time.perf_counter() - _t_overall,
-                    phase_str,
-                )
-                return meta, img_src, lang_display, knn_label, knn_buttons
+                    phase_str = " ".join(
+                        f"{n}={dt*1000:.0f}ms" for n, dt in _t_phases.items()
+                    )
+                    logger.info(
+                        "render_browser_detail (precomputed-KNN path) %s in %.2fs | %s",
+                        layer,
+                        time.perf_counter() - _t_overall,
+                        phase_str,
+                    )
+                    return meta, img_src, lang_display, knn_label, knn_buttons
 
+        # `drop_dirs` is only set in raw mode with removal active: the
+        # (drop_k, D) component directions whose contribution gets
+        # subtracted from the raw distances below.
+        drop_dirs = None
         if knn_space == "pca":
-            feats = self.store.pca_features(run_path, layer, n_components=50)
-            space_label = "PCA-50"
+            feats = self.store.pca_features_dropped(
+                run_path, layer, n_components=50, drop_k=pca_drop_k
+            )
+            space_label = (
+                f"PCA-50 −top{pca_drop_k} Fisher dims" if pca_drop_k > 0 else "PCA-50"
+            )
             missing_msg = (
                 f"({layer}_keys.pt missing — PCA features can't be "
                 f"fitted; re-run eval with +force_reeval=true to "
                 f"write raw keys)"
             )
+            if pca_drop_k > 0 and feats is not None and feats.shape[1] == 0:
+                feats = None
+                missing_msg = "(all PCA dims removed — lower the slider)"
         else:
             feats = self.store.load_keys(run_path, layer)
             space_label = f"raw D={feats.shape[1]}" if feats is not None else "raw keys"
@@ -1248,6 +1771,18 @@ class BrowserView:
                 f"+force_reeval=true to write raw keys "
                 f"(KNN is bundled inside the same file))"
             )
+            if pca_drop_k > 0 and feats is not None:
+                drop_dirs = self.store.fisher_dropped_directions(
+                    run_path, layer, n_components=50, drop_k=pca_drop_k
+                )
+                if drop_dirs is None:
+                    feats = None
+                    missing_msg = (
+                        "(Fisher ranking unavailable — needs PCA on raw keys "
+                        "and both aria/eva embodiments in this layer)"
+                    )
+                else:
+                    space_label += f" −top{pca_drop_k} Fisher PCA dims"
 
         if feats is None:
             knn_label = f"10 closest in {space_label}"
@@ -1271,29 +1806,103 @@ class BrowserView:
             ]
         else:
             diff = feats - feats[src_idx]
-            dists = np.linalg.norm(diff, axis=1)
-            # Cross-embodiment only: mask self AND every row whose
-            # embodiment matches the clicked frame's. Without this the
-            # neighbors are dominated by frames from the same recording
-            # type, which defeats the point of the visualization.
-            same_or_self = data["embs"] == src_emb
-            dists[same_or_self] = np.inf
-            n_candidates = int((~same_or_self).sum())
+            if drop_dirs is not None:
+                # Raw-space removal: subtract the dropped components'
+                # contribution from the squared distances instead of
+                # materializing a filtered copy of the (N, D) keys.
+                d2 = np.einsum("ij,ij->i", diff, diff)
+                proj = diff @ drop_dirs.T
+                d2 -= np.einsum("ij,ij->i", proj, proj)
+                dists = np.sqrt(np.clip(d2, 0.0, None))
+            else:
+                dists = np.linalg.norm(diff, axis=1)
+            # Paired-action distance, appended below the clicked frame's
+            # language. Computed before the pair-mode masking so the twin's
+            # (opposite-embodiment) rows still hold finite distances.
+            pair = _find_pair_action(self.zarr_root, data, h, f, src_emb)
+            if pair is not None:
+                twin, s2, e2, pair_prompt = pair
+                pair_rows = _pair_action_rows(data, twin, s2, e2)
+                if pair_rows.size:
+                    lang_display = lang_display + _pair_distance_text(
+                        twin,
+                        s2,
+                        e2,
+                        pair_prompt,
+                        dists[pair_rows],
+                        pair_rows,
+                        np.asarray(data["frame_idx"]),
+                        space_label,
+                    )
+            # Candidate masking by pair mode. Cross (default): mask self AND
+            # every row whose embodiment matches the clicked frame's —
+            # without this the neighbors are dominated by frames from the
+            # same recording type, which defeats the point of the
+            # visualization. Same: keep only the clicked frame's embodiment,
+            # masking the clicked row itself.
+            if pair_mode == "same":
+                mask_out = np.asarray(data["embs"] != src_emb)
+                mask_out[src_idx] = True
+                # Exclude the clicked frame's own ACTION: rows from the same
+                # recording whose frame falls inside any annotation interval
+                # covering the clicked frame. Otherwise the list is just the
+                # temporally adjacent frames of the same motion. When no
+                # interval covers the frame (or annotations are unreadable),
+                # fall back to excluding the whole recording.
+                same_hash = np.asarray(data["hashes"] == h)
+                intervals = annotation_intervals(self.zarr_root, h)
+                spans = [(s, e) for s, e, *_ in intervals if s <= f < e]
+                if spans:
+                    frames = np.asarray(data["frame_idx"])
+                    in_action = np.zeros(len(frames), dtype=bool)
+                    for s, e in spans:
+                        in_action |= (frames >= s) & (frames < e)
+                    mask_out |= same_hash & in_action
+                else:
+                    mask_out |= same_hash
+                pair_label = "SAME"
+                pair_suffix = ", same action excluded"
+                empty_msg = (
+                    f"(no rows from embodiment '{src_emb}' outside the "
+                    f"clicked action in this layer)"
+                )
+            else:
+                mask_out = np.asarray(data["embs"] == src_emb)
+                pair_label = "CROSS"
+                pair_suffix = ", 1 per action"
+                empty_msg = (
+                    f"(no rows from a different embodiment than '{src_emb}' "
+                    f"in this layer)"
+                )
+            dists[mask_out] = np.inf
+            n_candidates = int((~mask_out).sum())
             if n_candidates == 0:
                 knn_label = f"10 closest in {space_label}"
                 knn_buttons = [
                     html.Div(
-                        f"(no rows from a different embodiment than '{src_emb}' "
-                        f"in this layer)",
+                        empty_msg,
                         style={"color": "#94a3b8"},
                     )
                 ]
             else:
-                k = min(10, n_candidates)
-                order = np.argsort(dists)[:k]
+                order = np.argsort(dists)
+                if pair_mode == "same":
+                    k = min(10, n_candidates)
+                    picked = [(float(dists[int(o)]), int(o)) for o in order[:k]]
+                else:
+                    # Cross mode: at most one row per action instance —
+                    # otherwise the list is 10 temporally-adjacent frames
+                    # of a single opposite-embodiment motion. argsort puts
+                    # the masked (inf) rows last, so capping the walk at
+                    # n_candidates only visits valid rows.
+                    cand = (
+                        (float(dists[int(o)]), int(o)) for o in order[:n_candidates]
+                    )
+                    picked = _dedupe_neighbors_by_action(
+                        self.zarr_root, data, cand, 10, cache_key=(run_path, layer)
+                    )
                 neighbors = []
-                for rank, o in enumerate(order, start=1):
-                    o = int(o)
+                for rank, (dist, o) in enumerate(picked, start=1):
                     neighbors.append(
                         {
                             "rank": rank,
@@ -1301,12 +1910,12 @@ class BrowserView:
                             "frame_idx": int(data["frame_idx"][o]),
                             "token_idx": int(data["token_idx"][o]),
                             "embodiment": str(data["embs"][o]),
-                            "distance": float(dists[o]),
+                            "distance": dist,
                         }
                     )
                 knn_label = (
-                    f"10 closest CROSS-embodiment in {space_label} "
-                    f"(source='{src_emb}')"
+                    f"10 closest {pair_label}-embodiment in {space_label} "
+                    f"(source='{src_emb}'{pair_suffix})"
                 )
                 knn_buttons = self.browser_knn_buttons(neighbors)
 
@@ -1379,6 +1988,7 @@ class BrowserView:
             Input("view_mode", "value"),
             Input("browser_hide_home", "value"),
             Input("browser_lang_exclude", "value"),
+            Input("browser_shuffle", "value"),
             prevent_initial_call=True,
         )
         def _reset_visible_count(*_):
@@ -1393,9 +2003,16 @@ class BrowserView:
             Input("browser_visible_count", "data"),
             Input("browser_hide_home", "value"),
             Input("browser_lang_exclude", "value"),
+            Input("browser_shuffle", "value"),
         )
         def _populate_browser_list(
-            run_path, layer, mode, visible_count, hide_home_val, lang_exclude_val
+            run_path,
+            layer,
+            mode,
+            visible_count,
+            hide_home_val,
+            lang_exclude_val,
+            shuffle_val,
         ):
             import time as _time
 
@@ -1494,6 +2111,14 @@ class BrowserView:
                 len(items),
                 _time.perf_counter() - _t_pop_start,
             )
+            # Optional shuffle of the browse order. Fixed seed: the full list
+            # is rebuilt on every callback (incl. Load-more re-fires), so a
+            # stable permutation keeps already-rendered cards in place while
+            # paging. Applied before the lang-filter slicing below so the
+            # filtered window matches what gets rendered.
+            if shuffle_val and "on" in shuffle_val and items:
+                rng = np.random.default_rng(12345)
+                items = [items[int(i)] for i in rng.permutation(len(items))]
             # Apply lang filter, if any. KEY OPTIMIZATION: only filter the
             # `visible_count + FILTER_BUFFER` items we're about to render —
             # NOT the whole 249-card list. Each filter hit costs a zarr open
@@ -1757,6 +2382,8 @@ class BrowserView:
             ),
             Input("browser_back", "n_clicks"),
             Input("browser_knn_space", "value"),
+            Input("pca_drop_k", "value"),
+            Input("browser_knn_pairs", "value"),
             State("browser_nav_stack", "data"),
             State("run", "value"),
             State("layer", "value"),
@@ -1767,6 +2394,8 @@ class BrowserView:
             _knn_clicks,
             _back_clicks,
             knn_space,
+            pca_drop_k,
+            knn_pairs,
             nav_stack,
             run_path,
             layer,
@@ -1778,18 +2407,23 @@ class BrowserView:
                 return (dash.no_update,) * 7
             triggered = ctx.triggered[0]["prop_id"]
             logger.info(
-                "_on_browser_click trigger=%s knn_space=%s run=%s layer=%s nav_depth=%d",
+                "_on_browser_click trigger=%s knn_space=%s drop_k=%s pairs=%s run=%s layer=%s nav_depth=%d",
                 triggered,
                 knn_space,
+                pca_drop_k,
+                knn_pairs,
                 os.path.basename(run_path) if run_path else None,
                 layer,
                 len(nav_stack),
             )
 
-            # ---- Branch 0: KNN-space radio toggled ----
+            # ---- Branch 0: KNN-space radio, PCA-removal slider, or pair-mode
+            # toggle changed ----
             # Re-render the current selection (if any) using the new space.
             # No nav_stack mutation.
-            if triggered.startswith("browser_knn_space"):
+            if triggered.startswith(
+                ("browser_knn_space", "pca_drop_k", "browser_knn_pairs")
+            ):
                 if not nav_stack:
                     return (dash.no_update,) * 7
                 cur = nav_stack[-1]
@@ -1800,6 +2434,8 @@ class BrowserView:
                     int(cur["frame"]),
                     int(cur["token"]),
                     knn_space=knn_space,
+                    pca_drop_k=pca_drop_k,
+                    pair_mode=knn_pairs,
                 )
                 return (*payload, nav_stack, len(nav_stack) <= 1)
 
@@ -1825,6 +2461,8 @@ class BrowserView:
                     int(prev["frame"]),
                     int(prev["token"]),
                     knn_space=knn_space,
+                    pca_drop_k=pca_drop_k,
+                    pair_mode=knn_pairs,
                 )
                 return (*payload, nav_stack, len(nav_stack) <= 1)
 
@@ -1863,7 +2501,14 @@ class BrowserView:
                 nav_stack.append(new_pt)
 
             payload = self.render_browser_detail(
-                run_path, layer, h, f, tok, knn_space=knn_space
+                run_path,
+                layer,
+                h,
+                f,
+                tok,
+                knn_space=knn_space,
+                pca_drop_k=pca_drop_k,
+                pair_mode=knn_pairs,
             )
             return (*payload, nav_stack, len(nav_stack) <= 1)
 

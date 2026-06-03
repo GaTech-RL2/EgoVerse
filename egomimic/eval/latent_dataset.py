@@ -61,6 +61,14 @@ _LATENT_CONFIG_KEYS = frozenset(
         "_shuffle_random",
         "_shuffle_pairs",
         "_shuffle_custom",
+        # Tokenizer/annotation knobs declared at the data root for OmegaConf
+        # interpolation. Tokenization now lives on the algo side, so
+        # MultiDataModuleWrapper no longer accepts these as constructor args.
+        "use_tokenizer",
+        "model_name",
+        "sampling_mode",
+        "annotation_key",
+        "default_prompt",
     }
 )
 
@@ -72,6 +80,7 @@ def build_dataset(
     embodiment: str,
     resolver,
     hashes: list[str] | None = None,
+    exclude_hashes: list[str] | None = None,
     frames_per_episode: int | None = 128,
     stride: int | None = None,
     valid_ratio: float = 0.05,
@@ -85,11 +94,17 @@ def build_dataset(
     Unknown `mode` values raise. Extra kwargs are NOT accepted (no silent
     swallowing) — typos in yaml fail loudly.
     """
+    excl = tuple(str(h) for h in (exclude_hashes or []))
     if mode == "random":
         lam = (
             "lambda row: row['task'] == "
             f"{task!r} and row['embodiment'] == {embodiment!r}"
         )
+        # Drop known-corrupt episodes (e.g. zero-norm quaternions that crash the
+        # quat->ypr transform; the per-sample retry can't escape a fully-bad
+        # episode since its fallback pool is that episode's own frames).
+        if excl:
+            lam += f" and row['episode_hash'] not in {excl!r}"
         filters = DatasetFilter(filter_lambdas=[lam])
         logger.info("[build_dataset] %s | random mode | filter=%s", embodiment, lam)
         return MultiDataset._from_resolver(

@@ -1790,6 +1790,11 @@ class ZarrDataset(torch.utils.data.Dataset):
             data["episode_hash"] = (
                 ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
             )
+            # The actual source frame served (after any JPEG-decode fallback,
+            # `idx` is the frame finally read). Surfaced parallel to
+            # episode_hash so latent capture can label rows with the true
+            # frame index instead of a per-run counter.
+            data["frame_idx"] = int(idx)
             _ = origin  # preserved for symmetry with prior API
             return data
 
