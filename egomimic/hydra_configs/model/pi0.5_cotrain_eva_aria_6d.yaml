@@ -1,0 +1,11 @@
+defaults:
+  - pi0.5_cotrain_eva_aria
+  - _self_
+
+# Normalized continuous-6D rotation encoding. Actions arrive already in
+# xyz+6D(+gripper) layout (via the `cartesian_6d` transform mode) and normalized
+# by the standard pipeline; the forward pass only packs them into the 32D vector.
+robomimic_model:
+  action_encoding: "cartesian_normalized_rot6d"
+  # Do not splice "Embodiment: <name>" into the prompt (pi0.5_base defaults it on).
+  embodiment_label: false

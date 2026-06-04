@@ -1,0 +1,18 @@
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+# Cam-frame 6D-rotation variant: use when the data config expresses cartesian
+# actions in head/camera frame with the continuous 6D rotation representation
+# (e.g. a data config with `transform_list: mode: cartesian_6d`). Actions are
+# already in cam (head) frame, so no frame change is needed — the revert only
+# converts the rotation back from xyz+6D (9/arm) to xyz+ypr (6/arm) so the viz
+# video and cam-frame MSE see the same ypr layout as the plain cartesian mode.
+# Each value resolves to a list[Transform] via its ``_target_``.
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_transform_list

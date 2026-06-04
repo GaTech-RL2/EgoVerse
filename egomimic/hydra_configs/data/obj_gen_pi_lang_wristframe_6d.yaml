@@ -1,0 +1,25 @@
+defaults:
+  - obj_gen_pi_lang_wristframe
+  - _self_
+
+# 6D-rotation + AnnotationCutoff variant of the wrist-frame motion-generalization
+# cotrain (obj_gen_pi_lang_wristframe):
+#   - actions in each wrist's own frame, rotation expressed as the continuous 6D
+#     representation via the `cartesian_wristframe_6d` transform mode. Pairs with
+#     model=pi0.5_cotrain_eva_aria_6d and evaluator=eval_pi_wristframe_6d (which
+#     un-6Ds then projects wrist-frame preds back to cam frame for viz/MSE).
+#   - dataset switched to the AnnotationCutoff resolver (clamps each action chunk
+#     at the end of its enclosing language-annotation span).
+# Valid datasets inherit the train resolver via `${...}` interpolation in
+# cotrain_pi_base, so overriding the train resolver is sufficient.
+train_datasets:
+  eva_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      transform_list:
+        mode: cartesian_wristframe_6d
+  aria_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      transform_list:
+        mode: cartesian_wristframe_6d
