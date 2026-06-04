@@ -1,0 +1,18 @@
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+# Wrist-frame 6D-rotation variant: use with a data config that applies the
+# `cartesian_wristframe_6d` transform mode (e.g. obj_gen_pi_lang_wristframe_6d).
+# The model predicts in each wrist's local frame using the continuous 6D
+# rotation; these revert transforms first convert the rotation xyz+6D -> xyz+ypr
+# and then project predictions + gt back to cam (head) frame for the cam-frame
+# MSE and the viz video. Each value resolves to a list[Transform] via its
+# ``_target_``. Must match the viz config mounted above.
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_wristframe_transform_list
