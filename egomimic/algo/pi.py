@@ -26,9 +26,10 @@ from egomimic.models.preprocess_pi_obs import (
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import (
-    ConverterRegistry,
     PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
+    PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D,
     PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D,
+    ConverterRegistry,
 )
 
 logger = logging.getLogger(__name__)
@@ -308,7 +309,9 @@ class PI(Algo):
                 f"and embodiment id {embodiment_id}"
             ) from exc
 
-    def _unnormalize_action(self, action: torch.Tensor, embodiment_id: int, ac_key: str):
+    def _unnormalize_action(
+        self, action: torch.Tensor, embodiment_id: int, ac_key: str
+    ):
         return self.norm_stats.unnormalize(
             {ac_key: action.clone(), "embodiment": embodiment_id},
             embodiment_id,
@@ -469,15 +472,14 @@ class PI(Algo):
                     num_steps=self.num_steps,
                 )
 
+                pred_actions = pred_actions.clone()
+
                 predictions = OrderedDict()
                 ref = _batch[ac_key]
                 B, T, D = ref.shape
 
                 converter = self.action_registry.get(embodiment_id, ac_key)
-                if (
-                    self.action_encoding
-                    == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D
-                ):
+                if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
                     pred_actions_orig = converter.from32_raw_rotation(
                         pred_actions,
                         stats=self._action_stats(embodiment_id, ac_key),
@@ -485,6 +487,15 @@ class PI(Algo):
                         unnormalize_non_rotation=True,
                     )
                     unnorm_actions = {ac_key: pred_actions_orig[:, :T, :D]}
+                elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
+                    # Extract the normalized xyz+6D(+gripper) action, then
+                    # unnormalize via the standard pipeline (stats were computed
+                    # over the 6D representation) to get raw 6D actions.
+                    pred_6d = converter.from32_norm_6d(pred_actions)
+                    predictions[ac_key] = pred_6d[:, :T, :D]
+                    unnorm_actions = self.norm_stats.unnormalize(
+                        predictions, embodiment_id
+                    )
                 elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
                     pred_actions_orig = converter.from32(pred_actions)
                     pred = pred_actions_orig[:, :T, :D]
@@ -578,6 +589,11 @@ class PI(Algo):
                 stats=self._action_stats(emb_id, ac_key),
                 norm_mode=self.norm_stats.norm_mode,
             )
+        elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
+            # Action is already a normalized xyz+6D(+gripper) chunk (the
+            # ypr->6D conversion happened in the CartesianYPRToRot6D data
+            # transform). Just pack it into the 32D vector.
+            action32 = converter.to32_norm_6d(action)
         elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
             action32 = converter.to32(action)
         else:

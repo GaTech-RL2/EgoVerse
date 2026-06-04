@@ -129,6 +129,61 @@ def _xyzypr_to_matrix(xyzypr: np.ndarray) -> np.ndarray:
     return mats
 
 
+def _ypr_to_rot6d(ypr: np.ndarray) -> np.ndarray:
+    """Convert euler ypr to the continuous 6D rotation representation.
+
+    args:
+        ypr: (..., 3) array of [yaw, pitch, roll] (radians, ZYX convention)
+    returns:
+        (..., 6) array = first two columns of the rotation matrix,
+        concatenated as [col0(3), col1(3)].
+
+    Matches the column convention used by the torch packers in
+    ``egomimic.utils.action_utils`` (``_ypr_to_matrix`` = Rz@Ry@Rx, and
+    ``to32`` taking ``R[..., 0]`` / ``R[..., 1]``).
+    """
+    ypr = np.asarray(ypr)
+    if ypr.shape[-1] != 3:
+        raise ValueError(f"Expected (..., 3) ypr, got shape {ypr.shape}")
+    dtype = ypr.dtype if np.issubdtype(ypr.dtype, np.floating) else np.float64
+    shape = ypr.shape[:-1]
+    flat = ypr.reshape(-1, 3).astype(np.float64)
+    mats = R.from_euler("ZYX", flat, degrees=False).as_matrix()  # (N, 3, 3)
+    six = np.concatenate([mats[:, :, 0], mats[:, :, 1]], axis=-1)  # cols 0,1
+    return six.reshape(*shape, 6).astype(dtype, copy=False)
+
+
+def _rot6d_to_ypr(six: np.ndarray) -> np.ndarray:
+    """Inverse of :func:`_ypr_to_rot6d`.
+
+    args:
+        six: (..., 6) array = [col0(3), col1(3)] of a rotation matrix.
+    returns:
+        (..., 3) array of [yaw, pitch, roll] (radians, ZYX convention).
+
+    Reconstructs a proper rotation via Gram-Schmidt (mirroring
+    ``_reconstruct_R_from_cols`` in ``action_utils``) before extracting euler
+    angles, so ``_rot6d_to_ypr(_ypr_to_rot6d(ypr)) == ypr``.
+    """
+    six = np.asarray(six)
+    if six.shape[-1] != 6:
+        raise ValueError(f"Expected (..., 6) rot6d, got shape {six.shape}")
+    dtype = six.dtype if np.issubdtype(six.dtype, np.floating) else np.float64
+    shape = six.shape[:-1]
+    flat = six.reshape(-1, 6).astype(np.float64)
+    c1 = flat[:, 0:3]
+    c2 = flat[:, 3:6]
+    eps = 1e-8
+    c1n = c1 / np.clip(np.linalg.norm(c1, axis=-1, keepdims=True), eps, None)
+    proj = np.sum(c2 * c1n, axis=-1, keepdims=True) * c1n
+    c2o = c2 - proj
+    c2n = c2o / np.clip(np.linalg.norm(c2o, axis=-1, keepdims=True), eps, None)
+    c3n = np.cross(c1n, c2n)
+    mats = np.stack([c1n, c2n, c3n], axis=-1)  # columns
+    ypr = R.from_matrix(mats).as_euler("ZYX", degrees=False)
+    return ypr.reshape(*shape, 3).astype(dtype, copy=False)
+
+
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:
     """
     args:
