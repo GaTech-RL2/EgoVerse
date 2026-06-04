@@ -1,0 +1,74 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'eva_bimanual'"
+        - "lambda row: row.get('task') == 'fold_clothes'"
+        - "lambda row: (row.get('processing_error') or '') == '' and (row.get('zarr_processing_error') or '') == ''"
+        - "lambda row: (row.get('num_frames') or -1) > 0"
+        - "lambda row: row.get('episode_hash') not in {'2025-09-20-18-44-29-000000', '2025-09-24-04-02-36-000000', '2025-10-13-00-26-50-123000', '2025-10-13-03-55-42-588000', '2025-10-29-22-02-32-491000', '2025-10-29-22-05-17-842000', '2025-10-29-22-06-00-422000', '2025-10-29-22-06-00-423000', '2025-11-11-22-57-35-210000', '2025-11-11-22-59-20-286000', '2026-01-20-21-28-58-868000'}"
+    mode: train
+    valid_ratio: 0.05
+  aria_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        keymap_mode: cartesian_pi
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'aria_bimanual'"
+        - "lambda row: row.get('task') == 'fold_clothes'"
+        - "lambda row: (row.get('processing_error') or '') == '' and (row.get('zarr_processing_error') or '') == ''"
+        - "lambda row: (row.get('num_frames') or -1) > 0"
+        - "lambda row: row.get('episode_hash') not in {'2025-09-20-17-42-51-000000', '2025-09-20-18-44-29-000000', '2025-09-20-19-04-22-000000', '2025-09-20-20-23-06-000000', '2025-09-20-20-55-13-000000', '2025-09-21-21-35-21-000000', '2025-09-21-22-21-41-000000', '2025-09-22-03-09-27-000000', '2025-09-22-03-13-58-000000', '2025-09-22-21-00-06-000000', '2025-09-23-19-32-44-000000', '2025-09-23-21-58-00-000000', '2025-09-24-04-02-36-000000', '2025-09-24-04-07-27-000000', '2025-09-24-15-01-42-000000', '2025-09-25-18-17-20-000000', '2025-09-25-19-11-49-000000', '2025-09-26-20-12-50-000000', '2025-09-27-20-24-52-000000', '2025-09-27-20-49-54-000000', '2025-10-03-17-06-02-000000', '2025-10-12-01-38-11-933000', '2025-10-12-04-18-32-000000', '2025-10-12-16-27-30-000000', '2025-10-13-00-01-37-879000', '2025-10-13-00-26-50-123000', '2025-10-13-00-27-04-770000', '2025-10-13-02-24-10-000000', '2025-10-13-03-55-42-588000', '2025-10-13-03-56-52-773000', '2025-10-14-02-53-00-652000', '2025-10-14-03-46-49-000000', '2025-10-14-04-00-10-000000', '2025-10-14-04-15-30-000000', '2025-10-14-04-21-05-000000', '2025-10-14-04-29-58-059000', '2025-10-29-21-54-36-213000', '2025-10-29-22-00-54-821000', '2025-10-29-22-01-11-720000', '2025-10-29-22-01-58-834000', '2025-10-29-22-02-01-699000', '2025-10-29-22-02-23-166000', '2025-10-29-22-02-26-821000', '2025-10-29-22-02-29-525000', '2025-10-29-22-02-32-490000', '2025-10-29-22-02-32-491000', '2025-10-29-22-04-01-785000', '2025-10-29-22-04-05-568000', '2025-10-29-22-05-17-804000', '2025-10-29-22-05-17-816000', '2025-10-29-22-05-17-818000', '2025-10-29-22-05-17-820000', '2025-10-29-22-05-17-830000', '2025-10-29-22-05-17-842000', '2025-10-29-22-06-00-406000', '2025-10-29-22-06-00-414000', '2025-10-29-22-06-00-418000', '2025-10-29-22-06-00-422000', '2025-10-29-22-06-00-423000', '2025-10-29-22-06-00-426000', '2025-10-29-22-06-00-429000', '2025-10-29-22-06-00-436000', '2025-10-29-22-06-00-462000', '2025-11-11-21-41-21-185000', '2025-11-11-21-47-01-466000', '2025-11-11-21-50-28-322000', '2025-11-11-21-52-08-271000', '2025-11-11-21-52-24-163000', '2025-11-11-21-53-45-616000', '2025-11-11-21-58-53-436000', '2025-11-11-22-02-04-599000', '2025-11-11-22-12-22-396000', '2025-11-11-22-16-59-783000', '2025-11-11-22-31-19-721000', '2025-11-11-22-38-54-397000', '2025-11-11-22-39-07-435000', '2025-11-11-22-44-33-571000', '2025-11-11-22-45-09-166000', '2025-11-11-22-46-01-494000', '2025-11-11-22-46-39-752000', '2025-11-11-22-57-35-210000', '2025-11-11-22-59-20-286000', '2025-11-11-22-59-43-138000', '2025-11-11-23-05-19-609000', '2025-11-22-23-48-44-089000', '2025-11-23-19-45-26-311000', '2025-11-23-19-45-45-117000', '2025-11-24-20-23-30-277000', '2025-11-24-20-23-46-303000', '2025-11-24-20-27-24-975000', '2025-12-09-23-02-21-846000', '2026-01-08-21-58-04-000000', '2026-01-08-22-41-22-000000', '2026-01-09-20-31-25-000000', '2026-01-20-21-28-58-868000', '2026-01-20-21-30-45-970000', '2026-01-20-21-32-08-684000'}"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+  aria_bimanual:
+    _target_: ${...train_datasets.aria_bimanual._target_}
+    resolver: ${...train_datasets.aria_bimanual.resolver}
+    filters: ${...train_datasets.aria_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.aria_bimanual.valid_ratio}
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 10
+  aria_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 10
+  aria_bimanual:
+    batch_size: 32
+    num_workers: 10

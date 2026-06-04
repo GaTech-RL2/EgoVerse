@@ -130,6 +130,13 @@ def _normalize_filter_row(
     if _is_missing_filter_value(normalized.get("is_deleted")):
         normalized["is_deleted"] = False
 
+    embodiment = _first_present(
+        normalized.get("embodiment"),
+        normalized.get("robot_type"),
+    )
+    if embodiment is not None:
+        normalized["embodiment"] = embodiment
+
     return normalized
 
 
@@ -1723,7 +1730,9 @@ class ZarrDataset(torch.utils.data.Dataset):
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             _ = origin  # preserved for symmetry with prior API
             return data
 

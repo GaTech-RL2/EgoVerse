@@ -178,8 +178,10 @@ class Embodiment(ABC):
 
         images = batch[image_key]
         actions = batch[action_key]
-        if annotation_key is not None:
+        if annotation_key is not None and annotation_key in batch:
             annotations = batch[annotation_key]
+        else:
+            annotation_key = None
         ims_list = []
         images = _to_numpy(images)
         actions = _to_numpy(actions)
