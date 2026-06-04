@@ -9,6 +9,8 @@ from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
+    CartesianRot6DToYPR,
+    CartesianYPRToRot6D,
     ConcatKeys,
     DeleteKeys,
     InterpolatePose,
@@ -191,10 +193,13 @@ class Human(Embodiment):
         include_aria_keypoints: bool = False,
         norm_mode: bool = False,
         annotation_key: str = None,
+        high_annotation_key=None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
-        (Aria=True). ``norm_mode``/``annotation_key`` behave as in the base.
+        (Aria=True). ``norm_mode``/``annotation_key``/``high_annotation_key``
+        behave as in the base (subtask mode splits the single annotation array
+        into a ``level == "low"`` target and a ``level == "high"`` prompt).
         """
         key_map = cls._get_keymap(
             keymap_mode,
@@ -206,6 +211,15 @@ class Human(Embodiment):
                 "key_type": "annotation_keys",
                 "zarr_key": annotation_key,
             }
+            if high_annotation_key is not None:
+                # Subtask mode: split the single annotation array into a
+                # low-level (target) and high-level (prompt) view.
+                key_map[annotation_key]["level"] = "low"
+                key_map[high_annotation_key] = {
+                    "key_type": "annotation_keys",
+                    "zarr_key": annotation_key,
+                    "level": "high",
+                }
         if norm_mode:
             to_delete = [
                 k
@@ -327,8 +341,10 @@ class Human(Embodiment):
         cls,
         mode: Literal[
             "cartesian",
+            "cartesian_6d",
             "cartesian_padded",
             "cartesian_wristframe_ypr",
+            "cartesian_wristframe_6d",
             "keypoints_headframe_ypr",
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
@@ -341,12 +357,26 @@ class Human(Embodiment):
         """
         if mode == "cartesian":
             return _build_human_cartesian_bimanual_transform_list(stride=stride)
+        if mode == "cartesian_6d":
+            # Head/camera-frame cartesian (12D xyz+ypr per arm) with rotation
+            # re-expressed as the continuous 6D representation (18D xyz+6d per
+            # arm) for pi0.5 normalized-rot6d encoding.
+            return _build_human_cartesian_bimanual_transform_list(
+                stride=stride
+            ) + [CartesianYPRToRot6D(action_key="actions_cartesian")]
         if mode == "cartesian_padded":
             return _build_human_cartesian_bimanual_transform_list(
                 stride=stride
             ) + [PadGripperZeros(action_key="actions_cartesian")]
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=stride)
+        if mode == "cartesian_wristframe_6d":
+            # Wrist-frame cartesian (12D xyz+ypr per arm) with rotation
+            # re-expressed as the continuous 6D representation (18D) for pi0.5
+            # normalized-rot6d encoding.
+            return _build_human_cartesian_eef_frame_transform_list(
+                stride=stride
+            ) + [CartesianYPRToRot6D(action_key="actions_cartesian")]
         if mode == "keypoints_headframe_ypr":
             return _build_human_keypoints_bimanual_transform_list(
                 stride=stride, is_quat=False
@@ -921,6 +951,38 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
         ),
     ]
     return transform_list
+
+
+def _build_human_cartesian_revert_6d_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+) -> list[Transform]:
+    """Revert head/camera-frame 6D-rotation cartesian actions back to ypr.
+
+    Used by the cam-frame 6D evaluator: the action chunk is already in
+    head/camera frame (produced by the ``cartesian_6d`` transform mode), so no
+    coordinate-frame change is needed — only the rotation representation is
+    converted from xyz+6D (9/arm) back to xyz+ypr (6/arm) so cam-frame MSE and
+    the viz video see the same ypr layout as the plain ``cartesian`` mode.
+    """
+    return [CartesianRot6DToYPR(action_key=action_key)]
+
+
+def _build_human_cartesian_revert_6d_wristframe_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+) -> list[Transform]:
+    """Revert wrist-frame 6D-rotation ARIA actions back to head/camera-frame ypr.
+
+    (1) ``CartesianRot6DToYPR`` converts the action rotation xyz+6D -> xyz+ypr;
+    (2) the standard eef-frame revert projects wrist-frame ypr actions back into
+    head frame using the proprio ``observations.state.ee_pose`` (left as ypr by
+    the 6D transform).
+    """
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        *_build_human_cartesian_revert_eef_frame_transform_list(is_quat=False),
+    ]
 
 
 def _build_human_cartesian_eef_frame_transform_list(
