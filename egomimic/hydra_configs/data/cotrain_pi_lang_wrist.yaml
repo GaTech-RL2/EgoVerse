@@ -8,10 +8,10 @@ train_datasets:
       key_map:
         keymap_mode: cartesian_wristframe_ypr
       transform_list:
-        mode: cartesian_wristframe_ypr
+        mode: cartesian_wristframe_6d
   aria_bimanual:
     resolver:
       key_map:
         keymap_mode: cartesian
       transform_list:
-        mode: cartesian_wristframe_ypr
+        mode: cartesian_wristframe_6d

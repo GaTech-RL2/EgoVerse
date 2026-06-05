@@ -5,6 +5,7 @@ from torchmetrics import MeanSquaredError
 
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
+from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
 
 class PIEvalVideo(EvalVideo):
@@ -27,24 +28,31 @@ class PIEvalVideo(EvalVideo):
         total_loss = None
         n_loss_embodiments = 0
 
-        # Bimanual 12-D layout from `HumanBimanualCartesianEuler.from32`:
-        # [L_xyz(3), L_ypr(3), R_xyz(3), R_ypr(3)]. Split lets us tell a
-        # translation problem apart from a rotation-reconstruction artifact
-        # (6D-cols → matrix → YPR can blow up near gimbal lock / ±π wrap).
+        # Split the bimanual cartesian vector into a translation MSE and a
+        # rotation MSE so a translation problem reads apart from a rotation
+        # one. Handles all four native widths via ``bimanual_cartesian_layout``:
+        #   - native model output: 18D (human) / 20D (robot) continuous 6D cols
+        #     — this metric is clean (6D has no ±π wrap).
+        #   - reverted cam-frame output: 12D (human) / 14D (robot) ypr — the
+        #     rotation MSE here keeps the old gimbal/±π caveat, but it's a
+        #     secondary viz metric.
+        # The metric keys keep the historical ``_ypr_`` name for dashboard
+        # continuity; it denotes "rotation channels" regardless of encoding.
         def _split_mse(pred_t, gt_t):
-            if pred_t.shape[-1] != 12:
+            layout = bimanual_cartesian_layout(pred_t.shape[-1])
+            if layout is None:
                 return None, None
-            xyz_idx = [0, 1, 2, 6, 7, 8]
-            ypr_idx = [3, 4, 5, 9, 10, 11]
+            xyz_idx = list(layout["xyz"])
+            rot_idx = list(layout["rot"])
             xyz = MeanSquaredError()(
                 pred_t[..., xyz_idx].cpu().contiguous(),
                 gt_t[..., xyz_idx].cpu().contiguous(),
             )
-            ypr = MeanSquaredError()(
-                pred_t[..., ypr_idx].cpu().contiguous(),
-                gt_t[..., ypr_idx].cpu().contiguous(),
+            rot = MeanSquaredError()(
+                pred_t[..., rot_idx].cpu().contiguous(),
+                gt_t[..., rot_idx].cpu().contiguous(),
             )
-            return xyz, ypr
+            return xyz, rot
 
         for embodiment_id, _batch in batch.items():
             _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)

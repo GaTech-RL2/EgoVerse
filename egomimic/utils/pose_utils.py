@@ -129,6 +129,72 @@ def _xyzypr_to_matrix(xyzypr: np.ndarray) -> np.ndarray:
     return mats
 
 
+def _matrix_to_xyz6d(mats: np.ndarray) -> np.ndarray:
+    """Continuous 6D rotation representation (Zhou et al. / 6DRepNet).
+
+    Takes the first two columns of each rotation matrix and prepends the
+    translation:
+
+    args:
+        mats: (B, 4, 4) array of SE3 transformation matrices
+    returns:
+        (B, 9) np.array of [[x, y, z, c1x, c1y, c1z, c2x, c2y, c2z]] where
+        c1 / c2 are the first / second columns of the rotation matrix.
+    """
+    if mats.ndim != 3 or mats.shape[-2:] != (4, 4):
+        raise ValueError(f"Expected (B, 4, 4) array, got shape {mats.shape}")
+
+    mats = np.asarray(mats)
+    dtype = mats.dtype if np.issubdtype(mats.dtype, np.floating) else np.float64
+
+    xyz = mats[:, :3, 3]
+    c1 = mats[:, :3, 0]
+    c2 = mats[:, :3, 1]
+
+    return np.concatenate([xyz, c1, c2], axis=-1).astype(dtype, copy=False)
+
+
+def _xyz6d_to_matrix(xyz6d: np.ndarray) -> np.ndarray:
+    """Inverse of :func:`_matrix_to_xyz6d`.
+
+    Reconstructs a proper rotation matrix from the first two (possibly
+    non-orthonormal) columns via Gram-Schmidt, exactly mirroring the torch
+    implementation ``egomimic.utils.action_utils._reconstruct_R_from_cols``
+    (same ``eps = 1e-8`` floor, same column order, ``c3 = c1 x c2``). The two
+    implementations must stay bit-compatible so train / eval / deploy agree.
+
+    args:
+        xyz6d: (B, 9) np.array of [[x, y, z, c1(3), c2(3)]]
+    returns:
+        (B, 4, 4) array of SE3 transformation matrices
+    """
+    if xyz6d.ndim != 2 or xyz6d.shape[-1] != 9:
+        raise ValueError(f"Expected (B, 9) array, got shape {xyz6d.shape}")
+
+    B = xyz6d.shape[0]
+    dtype = xyz6d.dtype if np.issubdtype(xyz6d.dtype, np.floating) else np.float64
+    xyz6d = xyz6d.astype(dtype, copy=False)
+
+    eps = 1e-8
+    xyz = xyz6d[:, :3]
+    c1 = xyz6d[:, 3:6]
+    c2 = xyz6d[:, 6:9]
+
+    # Gram-Schmidt (matches torch _reconstruct_R_from_cols).
+    c1n = c1 / np.clip(np.linalg.norm(c1, axis=-1, keepdims=True), eps, None)
+    proj = np.sum(c2 * c1n, axis=-1, keepdims=True) * c1n
+    c2o = c2 - proj
+    c2n = c2o / np.clip(np.linalg.norm(c2o, axis=-1, keepdims=True), eps, None)
+    c3n = np.cross(c1n, c2n)
+
+    mats = np.broadcast_to(np.eye(4, dtype=dtype), (B, 4, 4)).copy()
+    mats[:, :3, 0] = c1n
+    mats[:, :3, 1] = c2n
+    mats[:, :3, 2] = c3n
+    mats[:, :3, 3] = xyz
+    return mats
+
+
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:
     """
     args:
@@ -211,9 +277,76 @@ def _matrix_to_xyz(mats: np.ndarray) -> np.ndarray:
     return mats[:, :3, 3].astype(dtype, copy=False)
 
 
+# Native bimanual cartesian action / proprio layouts. Each vector is
+# [left arm | right arm]; per-arm blocks are one of:
+#   ypr: xyz(3) + ypr(3)            [+ gripper(1)]
+#   6d:  xyz(3) + col1(3) + col2(3) [+ gripper(1)]
+# Mapping width -> {xyz, rot, grip} channel indices. xyz/grip are bounded,
+# linearly-interpolated channels; the rot channels are either Euler (wrap at
+# +-pi) or continuous 6D columns (bounded in ~[-1, 1]). Both norm-stat bounds
+# checking and the eval MSE split consume this so they agree on which channel is
+# which.
+BIMANUAL_CARTESIAN_LAYOUTS = {
+    12: {  # human ypr:  [L xyz ypr | R xyz ypr]
+        "xyz": (0, 1, 2, 6, 7, 8),
+        "rot": (3, 4, 5, 9, 10, 11),
+        "grip": (),
+    },
+    14: {  # robot ypr:  [L xyz ypr g | R xyz ypr g]
+        "xyz": (0, 1, 2, 7, 8, 9),
+        "rot": (3, 4, 5, 10, 11, 12),
+        "grip": (6, 13),
+    },
+    18: {  # human 6d:   [L xyz c1 c2 | R xyz c1 c2]
+        "xyz": (0, 1, 2, 9, 10, 11),
+        "rot": (3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17),
+        "grip": (),
+    },
+    20: {  # robot 6d:   [L xyz c1 c2 g | R xyz c1 c2 g]
+        "xyz": (0, 1, 2, 10, 11, 12),
+        "rot": (3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18),
+        "grip": (9, 19),
+    },
+}
+
+
+def bimanual_cartesian_layout(width: int) -> dict | None:
+    """Index layout for a bimanual cartesian action/proprio vector.
+
+    Returns a dict with ``xyz`` / ``rot`` / ``grip`` index tuples, or ``None``
+    if ``width`` is not a recognized native width (12/14 ypr, 18/20 6D).
+    """
+    return BIMANUAL_CARTESIAN_LAYOUTS.get(int(width))
+
+
+def _sixd_cols_to_ypr(cols: np.ndarray) -> np.ndarray:
+    """Convert continuous 6D rotation columns to Euler ``ZYX`` (yaw, pitch, roll).
+
+    ``cols`` is a ``(..., 6)`` array of ``[c1(3), c2(3)]`` (the first two
+    columns of a rotation matrix). Returns a ``(..., 3)`` ypr array. A proper
+    rotation is reconstructed with the same Gram-Schmidt as
+    :func:`_xyz6d_to_matrix` so the visualization matches what train / eval
+    reconstruct from the model's 6D output.
+    """
+    cols = np.asarray(cols)
+    lead = cols.shape[:-1]
+    flat = cols.reshape(-1, 6)
+    if flat.shape[0] == 0:
+        return np.zeros((*lead, 3), dtype=flat.dtype)
+    # Reuse _xyz6d_to_matrix with a zero translation; only the rotation matters.
+    xyz6d = np.concatenate(
+        [np.zeros((flat.shape[0], 3), dtype=flat.dtype), flat], axis=-1
+    )
+    mats = _xyz6d_to_matrix(xyz6d)
+    ypr = R.from_matrix(mats[:, :3, :3]).as_euler("ZYX", degrees=False)
+    return ypr.reshape(*lead, 3)
+
+
 def _split_action_pose(actions):
     # 14D layout: [L xyz ypr g, R xyz ypr g]
     # 12D layout: [L xyz ypr, R xyz ypr]
+    # 20D layout: [L xyz c1 c2 g, R xyz c1 c2 g]  (continuous 6D rotation)
+    # 18D layout: [L xyz c1 c2, R xyz c1 c2]      (continuous 6D rotation)
     if actions.shape[-1] == 14:
         left_xyz = actions[..., :3]
         left_ypr = actions[..., 3:6]
@@ -224,6 +357,16 @@ def _split_action_pose(actions):
         left_ypr = actions[..., 3:6]
         right_xyz = actions[..., 6:9]
         right_ypr = actions[..., 9:12]
+    elif actions.shape[-1] == 20:
+        left_xyz = actions[..., :3]
+        left_ypr = _sixd_cols_to_ypr(actions[..., 3:9])
+        right_xyz = actions[..., 10:13]
+        right_ypr = _sixd_cols_to_ypr(actions[..., 13:19])
+    elif actions.shape[-1] == 18:
+        left_xyz = actions[..., :3]
+        left_ypr = _sixd_cols_to_ypr(actions[..., 3:9])
+        right_xyz = actions[..., 9:12]
+        right_ypr = _sixd_cols_to_ypr(actions[..., 12:18])
     else:
         raise ValueError(f"Unsupported action dim {actions.shape[-1]}")
     return left_xyz, left_ypr, right_xyz, right_ypr

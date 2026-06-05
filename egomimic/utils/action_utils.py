@@ -345,3 +345,62 @@ class HumanBimanualCartesianEuler(BaseActionConverter):
         R_R = _reconstruct_R_from_cols(R_c1, R_c2)
         R_ypr = _matrix_to_ypr(R_R)
         return torch.cat([L_xyz, L_ypr, R_xyz, R_ypr], dim=-1)  # (B,S,12)
+
+
+# ============================================================
+#                 6D ROTATION CONVERTERS
+# ============================================================
+# These consume the continuous 6D rotation representation that the data pipeline
+# now produces (the ``cartesian_6d`` / ``cartesian_wristframe_6d`` modes), rather
+# than Euler ypr. The native per-arm layout is already the model's 32-dim block
+# layout — ``[xyz(3), col1(3), col2(3), grip(1)]`` — so the converters are
+# trivial repacks: no trig, no Gram-Schmidt. Crucially, ``from32`` returns the
+# raw 6 column numbers WITHOUT re-orthonormalizing, so the subsequent
+# ``unnormalize`` operates on the exact values the norm stats were fit on.
+# Gram-Schmidt of a (possibly non-orthonormal) model prediction happens later,
+# in the ``xyz6d`` revert transform.
+
+
+class RobotBimanualCartesian6D(BaseActionConverter):
+    """
+    Input orig: (B,S,20) = [L: xyz(3) c1(3) c2(3) grip(1) | R: xyz(3) c1(3) c2(3) grip(1)]
+    32-pack:    left block 0..9, right block 10..19 (identical layout) -> pad to 32.
+    """
+
+    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+        actions = _ensure_bsd(actions)
+        if actions.shape[-1] != 20:
+            raise ValueError(
+                f"RobotBimanual6D: expected 20-dim, got {actions.shape[-1]}"
+            )
+        return _pad32(actions)
+
+    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
+        actions32 = _ensure_bsd(actions32)
+        return actions32[..., :20]  # (B,S,20)
+
+
+class HumanBimanualCartesian6D(BaseActionConverter):
+    """
+    Input orig: (B,S,18) = [L: xyz(3) c1(3) c2(3) | R: xyz(3) c1(3) c2(3)]  (no gripper)
+    32-pack:    left block 0..9 (grip=0), right block 10..19 (grip=0) -> pad to 32.
+    """
+
+    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+        actions = _ensure_bsd(actions)
+        if actions.shape[-1] != 18:
+            raise ValueError(
+                f"HumanBimanual6D: expected 18-dim, got {actions.shape[-1]}"
+            )
+        L, R = actions[..., :9], actions[..., 9:18]
+        g0L = torch.zeros_like(L[..., :1])
+        g0R = torch.zeros_like(R[..., :1])
+        Lblock = torch.cat([L, g0L], dim=-1)  # (B,S,10)
+        Rblock = torch.cat([R, g0R], dim=-1)  # (B,S,10)
+        return _pad32(torch.cat([Lblock, Rblock], dim=-1))
+
+    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
+        actions32 = _ensure_bsd(actions32)
+        L = actions32[..., 0:9]  # drop the grip slot at index 9
+        R = actions32[..., 10:19]  # drop the grip slot at index 19
+        return torch.cat([L, R], dim=-1)  # (B,S,18)

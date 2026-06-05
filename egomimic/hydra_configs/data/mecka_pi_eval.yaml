@@ -16,7 +16,7 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
-        mode: cartesian
+        mode: cartesian_6d
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
