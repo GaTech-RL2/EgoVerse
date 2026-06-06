@@ -2,7 +2,7 @@ defaults:
   - viz@viz_func: cartesian
   - _self_
 
-_target_: egomimic.eval.eval_hnet.HNetEvalVideo
+_target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
 
 # H-Net validation can be slow because each episode rolls out
 # autoregressively via ``policy.generate``. Cap the number of val batches

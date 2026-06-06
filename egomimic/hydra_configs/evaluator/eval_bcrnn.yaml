@@ -2,21 +2,21 @@
 # BoundaryStripEval because both probe H-Net stage internals (action_out
 # hook, chunker boundary tokens) that BC-RNN doesn't expose.
 
-_target_: egomimic.eval.eval_composite.EvalList
+_target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.eval_composite.EvalVideoList
+  - _target_: egomimic.eval.core.eval_composite.EvalVideoList
     pad_h: max
     limit_val_batches: 4
     evals:
-      - _target_: egomimic.eval.eval_hnet.HNetEvalVideo
+      - _target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
         limit_val_batches: 4
         max_videos: 2
         viz_func:
           pushshapes_sim:
             _target_: hydra.utils.get_method
             path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
-  - _target_: egomimic.eval.eval_sim.HNetSimEval
+  - _target_: egomimic.eval.core.eval_sim.HNetSimEval
     limit_val_batches: 4
     max_videos: 2
     embodiment_name: pushshapes_sim

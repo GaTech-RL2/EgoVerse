@@ -25,13 +25,13 @@ import cv2
 import numpy as np
 import torch
 
-from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.sampling import (
+from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
+from egomimic.models.diffusion.sampling import (
     sample as _sample,
     staircase_ar_schedule,
     vanilla_schedule,
 )
-from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 
@@ -150,7 +150,7 @@ class DFoTSpatialVideoRolloutEval(EvalVideo):
                 external_cond=cond_seq, cfg_scale=self.cfg_scale, device=device,
             )
 
-        from egomimic.algo.dfot.sampling import sample_step
+        from egomimic.models.diffusion.sampling import sample_step
         n_ctx = context_latent.shape[1]
         clean = -1 if discrete_ts is not None else 0.0
         schedule = schedule.clone()

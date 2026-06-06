@@ -19,7 +19,7 @@ from typing import Any, Dict, Tuple
 import numpy as np
 import torch
 
-from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 

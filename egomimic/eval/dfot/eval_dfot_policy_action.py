@@ -23,9 +23,9 @@ import cv2
 import numpy as np
 import torch
 
-from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.sampling import vanilla_schedule
-from egomimic.eval.eval_video import EvalVideo
+from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
+from egomimic.models.diffusion.sampling import vanilla_schedule
+from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 

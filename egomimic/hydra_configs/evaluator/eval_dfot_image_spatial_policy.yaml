@@ -1,10 +1,10 @@
 # Action-prediction eval for the 2D policy: clean obs history -> predict next
 # action chunk, compare predicted future actions to GT (action MSE) + decode
 # predicted latents into a [GT|pred] video.
-_target_: egomimic.eval.eval_composite.EvalList
+_target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.eval_dfot_policy_action.DFoTPolicyActionEval
+  - _target_: egomimic.eval.dfot.eval_dfot_policy_action.DFoTPolicyActionEval
     n_context_frames: 4
     rollout_steps: 32
     n_chunk_steps: 50

@@ -38,7 +38,7 @@ import matplotlib.cm as _cm
 import numpy as np
 import torch
 
-from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.core.eval_video import EvalVideo
 
 # Continuous greyscale: ``P(boundary) = 0`` → white (chunker quiet),
 # ``P(boundary) = 1`` → black (chunker fires a boundary here). Matches

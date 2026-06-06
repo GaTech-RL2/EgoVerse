@@ -3,10 +3,10 @@
 # Single sub-eval: DFoTPixelVideoRolloutEval -- generates video frames
 # directly from the pixel diffusion model + per-step MSE vs GT frames.
 
-_target_: egomimic.eval.eval_composite.EvalList
+_target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.eval_dfot_pixel_video_rollout.DFoTPixelVideoRolloutEval
+  - _target_: egomimic.eval.dfot.eval_dfot_pixel_video_rollout.DFoTPixelVideoRolloutEval
     rollout_steps: 9
     upscale_to: 384
     max_videos: 2

@@ -24,7 +24,7 @@ import cv2
 import numpy as np
 import torch
 
-from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 
@@ -133,8 +133,8 @@ class DFoTVideoRolloutEval(EvalVideo):
         ``"ar"`` builds a staircase schedule matrix and calls
         ``sample`` directly so the per-token noise pattern mirrors
         DFoT's training AR schedule."""
-        from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-        from egomimic.algo.dfot.sampling import (
+        from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
+        from egomimic.models.diffusion.sampling import (
             sample as _sample,
             staircase_ar_schedule,
         )

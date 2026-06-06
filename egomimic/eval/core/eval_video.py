@@ -4,7 +4,7 @@ from abc import abstractmethod
 import torch
 import torchvision.io as tvio
 
-from egomimic.eval.eval import Eval
+from egomimic.eval.core.eval import Eval
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 

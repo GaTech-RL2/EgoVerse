@@ -8,10 +8,10 @@
 #
 # Both run every val pass.
 
-_target_: egomimic.eval.eval_composite.EvalList
+_target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.eval_dfot_val.DFoTValEval
+  - _target_: egomimic.eval.tf.eval_dfot_val.DFoTValEval
     do_full_chunk: true
     do_ar: true
     n_chunk_steps: 50
@@ -27,7 +27,7 @@ evals:
     viz_func: null
     transform_lists: null
 
-  - _target_: egomimic.eval.eval_sim.PackedSimEval
+  - _target_: egomimic.eval.core.eval_sim.PackedSimEval
     env_kwargs:
       object_shape: "T"
       pusher_shape: "circle"

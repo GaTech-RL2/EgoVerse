@@ -7,7 +7,7 @@
 #
 # For now HPT only gets the closed-loop sim rollout, which IS algo-agnostic.
 
-_target_: egomimic.eval.eval_sim.HPTSimEval
+_target_: egomimic.eval.core.eval_sim.HPTSimEval
 limit_val_batches: 4
 embodiment_name: pushshapes_sim
 init_mode: replay

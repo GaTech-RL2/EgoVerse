@@ -6,33 +6,33 @@
 #   2. sim — SimRolloutEval closed-loop rollout, capped at 2 videos via
 #      max_videos so the saved .mp4 stays small regardless of batch size.
 
-_target_: egomimic.eval.eval_composite.EvalList
+_target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.eval_composite.EvalVideoList
+  - _target_: egomimic.eval.core.eval_composite.EvalVideoList
     pad_h: max
     limit_val_batches: 4
     evals:
-      - _target_: egomimic.eval.eval_hnet.HNetEvalVideo
+      - _target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
         limit_val_batches: 4
         max_videos: 2
         viz_func:
           pushshapes_sim:
             _target_: hydra.utils.get_method
             path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
-      - _target_: egomimic.eval.eval_pca_tokens.PCATokenEval
+      - _target_: egomimic.eval.probes.eval_pca_tokens.PCATokenEval
         limit_val_batches: 4
         max_videos: 2
         panel_h: 384
         panel_w: 384
         n_components: 2
-      - _target_: egomimic.eval.eval_boundary_strip.BoundaryStripEval
+      - _target_: egomimic.eval.probes.eval_boundary_strip.BoundaryStripEval
         limit_val_batches: 4
         max_videos: 2
         window: 256
         strip_width: 24
         pixels_per_step: 1
-  - _target_: egomimic.eval.eval_sim.HNetSimEval
+  - _target_: egomimic.eval.core.eval_sim.HNetSimEval
     limit_val_batches: 4
     max_videos: 2
     embodiment_name: pushshapes_sim

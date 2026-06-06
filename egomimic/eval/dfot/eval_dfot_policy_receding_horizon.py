@@ -29,7 +29,7 @@ from typing import Dict
 import numpy as np
 import torch
 
-from egomimic.eval.eval_dfot_policy_action import DFoTPolicyActionEval
+from egomimic.eval.dfot.eval_dfot_policy_action import DFoTPolicyActionEval
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 

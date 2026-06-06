@@ -39,7 +39,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.core.eval_video import EvalVideo
 
 
 def _pca_fit_transform(X: np.ndarray, k: int = 2) -> tuple[np.ndarray, np.ndarray]:

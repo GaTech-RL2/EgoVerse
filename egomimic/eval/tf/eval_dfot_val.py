@@ -34,13 +34,13 @@ import cv2
 import numpy as np
 import torch
 
-from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.sampling import (
+from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
+from egomimic.models.diffusion.sampling import (
     sample,
     staircase_ar_schedule,
     vanilla_schedule,
 )
-from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.core.eval_video import EvalVideo
 
 
 def _to_xy_pix(action_world: np.ndarray, img_hw: tuple, world_size: float) -> tuple:

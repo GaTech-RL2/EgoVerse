@@ -3,10 +3,10 @@
 # rollout), scores vs GT in normalized action space, pooled over all anchors x
 # max_episodes. Headline: rh_k1_action_mse_overall. Decoupled max_episodes (NOT
 # max_videos) so statistics aren't limited to 2 episodes.
-_target_: egomimic.eval.eval_composite.EvalList
+_target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.eval_dfot_policy_receding_horizon.DFoTPolicyRecedingHorizonEval
+  - _target_: egomimic.eval.dfot.eval_dfot_policy_receding_horizon.DFoTPolicyRecedingHorizonEval
     n_context_frames: 4
     n_chunk_steps: 50
     k_actions: [1, 2]

@@ -3,7 +3,7 @@
 # (driven by the model config's ``inference_mode`` — "ar" by default,
 # i.e. rolling causal-AR staircase).
 
-_target_: egomimic.eval.eval_sim.PackedSimEval
+_target_: egomimic.eval.core.eval_sim.PackedSimEval
 
 env_kwargs:
   object_shape: "T"

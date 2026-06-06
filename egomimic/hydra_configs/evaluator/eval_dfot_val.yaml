@@ -9,7 +9,7 @@
 # Does NOT touch a simulator — for closed-loop coverage use eval_dfot_sim
 # (or the composite eval_dfot_full which runs both).
 
-_target_: egomimic.eval.eval_dfot_val.DFoTValEval
+_target_: egomimic.eval.tf.eval_dfot_val.DFoTValEval
 
 # ---- mode toggles ----
 do_full_chunk: true

@@ -7,10 +7,10 @@
 # No DFoTValEval / HNetSimEval here because this variant doesn't
 # diffuse actions; sim env-rollout requires predicted actions.
 
-_target_: egomimic.eval.eval_composite.EvalList
+_target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.eval_dfot_spatial_video_rollout.DFoTSpatialVideoRolloutEval
+  - _target_: egomimic.eval.dfot.eval_dfot_spatial_video_rollout.DFoTSpatialVideoRolloutEval
     rollout_steps: 64
     upscale_to: 384
     max_videos: 2
