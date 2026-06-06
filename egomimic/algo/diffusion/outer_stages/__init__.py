@@ -21,14 +21,8 @@ from egomimic.algo.diffusion.outer_stages.obs_action_image_outer_stage import (
 from egomimic.algo.diffusion.outer_stages.obs_action_outer_stage import (
     ObsActionDFoTOuterStage,
 )
-from egomimic.algo.diffusion.outer_stages.pixel_obs_action_decoupled_outer_stage import (  # noqa: E501
-    PixelObsActionDecoupledDFoTOuterStage,
-)
-from egomimic.algo.diffusion.outer_stages.pixel_obs_action_policy_outer_stage import (  # noqa: E501
-    PixelObsActionPolicyDFoTOuterStage,
-)
-from egomimic.algo.diffusion.outer_stages.pixel_obs_action_regress_outer_stage import (  # noqa: E501
-    PixelObsActionRegressPolicyDFoTOuterStage,
+from egomimic.algo.diffusion.outer_stages.pixel_obs_action_outer_stage import (  # noqa: E501
+    PixelObsActionDFoTOuterStage,
 )
 from egomimic.algo.diffusion.outer_stages.pixel_spatial_outer_stage import (
     PixelSpatialDFoTOuterStage,
@@ -46,9 +40,7 @@ __all__ = [
     "ImageSpatialDFoTOuterStage",
     "ObsActionImageDFoTOuterStage",
     "ObsActionDFoTOuterStage",
-    "PixelObsActionDecoupledDFoTOuterStage",
-    "PixelObsActionPolicyDFoTOuterStage",
-    "PixelObsActionRegressPolicyDFoTOuterStage",
+    "PixelObsActionDFoTOuterStage",
     "PixelSpatialDFoTOuterStage",
     "PixelVideoDFoTOuterStage",
     "SpatialObsActionPolicyDFoTOuterStage",

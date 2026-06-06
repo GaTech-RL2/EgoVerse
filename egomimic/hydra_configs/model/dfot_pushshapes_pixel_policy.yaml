@@ -23,7 +23,8 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.diffusion.PixelObsActionPolicyDFoTOuterStage
+    _target_: egomimic.algo.diffusion.PixelObsActionDFoTOuterStage
+    pixel_mode: "policy"
     action_dim: 2
     action_channels: 2
     image_key: "front_img_1"
