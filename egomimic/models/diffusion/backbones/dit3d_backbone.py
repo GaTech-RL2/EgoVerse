@@ -30,7 +30,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, repeat
 
-from egomimic.algo.dfot.embeddings import (
+from egomimic.models.diffusion.embeddings import (
     RandomDropoutCondEmbedding,
     StochasticTimeEmbedding,
     get_timestep_embedding,

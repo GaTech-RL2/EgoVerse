@@ -28,8 +28,8 @@ from typing import Optional, Union
 
 import torch
 
-from .continuous_diffusion import ContinuousDiffusion
-from .discrete_diffusion import DiscreteDiffusion
+from egomimic.models.diffusion.diffusion.continuous_diffusion import ContinuousDiffusion
+from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
 
 
 # --------------------------------------------------------------------------- #
@@ -414,5 +414,5 @@ def ddpm_sample(
 
 
 # Online causal-AR rollout state is managed directly by ``DFoT._inference_step_ar``;
-# see ``egomimic/algo/dfot/algo.py``. There's no separate class — the AR buffer
+# see ``egomimic/algo/diffusion/algo.py``. There's no separate class — the AR buffer
 # advance is just one ``sample_step`` call plus front-pop/back-push bookkeeping.

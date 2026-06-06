@@ -27,8 +27,8 @@ from typing import List, Optional
 import torch
 import torch.nn as nn
 
-from egomimic.algo.dfot.outer_stage import DFoTOuterStage
-from egomimic.algo.vae.algo import load_pretrained_vae
+from egomimic.algo.diffusion.outer_stages.outer_stage import DFoTOuterStage
+from egomimic.algo.diffusion.vae_algo import load_pretrained_vae
 
 
 class ImageSpatialDFoTOuterStage(DFoTOuterStage):
@@ -292,7 +292,7 @@ class ImageSpatialDFoTOuterStage(DFoTOuterStage):
 
         # For discrete diffusion, q_sample needs explicit noise so we can
         # store it in q_state for compute_loss.
-        from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion as _DD
+        from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion as _DD
         if isinstance(self.diffusion, _DD):
             noise = torch.randn_like(latent).clamp_(
                 -self.diffusion.clip_noise, self.diffusion.clip_noise

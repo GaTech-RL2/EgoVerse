@@ -31,7 +31,7 @@ from typing import List
 
 import torch
 
-from egomimic.algo.dfot.outer_stage import DFoTOuterStage
+from egomimic.algo.diffusion.outer_stages.outer_stage import DFoTOuterStage
 
 
 class ObsActionDFoTOuterStage(DFoTOuterStage):

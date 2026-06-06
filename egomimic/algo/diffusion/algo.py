@@ -27,13 +27,13 @@ import torch.nn as nn
 from overrides import override
 
 from egomimic.algo.algo import Algo
-from egomimic.algo.dfot.backbone import DFoTBackbone
-from egomimic.algo.dfot.continuous_diffusion import ContinuousDiffusion
-from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.dfot.outer_stage import DFoTOuterStage, make_dfot_ctx
-from egomimic.algo.dfot.sampling import ddim_sample, ddpm_sample, sample_step
+from egomimic.models.diffusion.backbones.backbone import DFoTBackbone
+from egomimic.models.diffusion.diffusion.continuous_diffusion import ContinuousDiffusion
+from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
+from egomimic.algo.diffusion.outer_stages.outer_stage import DFoTOuterStage, make_dfot_ctx
+from egomimic.models.diffusion.sampling import ddim_sample, ddpm_sample, sample_step
 from egomimic.algo.loss import DFoTLoss, Loss
-from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
+from egomimic.models.hnet.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
 
@@ -421,7 +421,7 @@ class DFoT(Algo):
         n_steps = self.sampler_n_steps if self.sampler == "ddim" else (
             discrete_ts or self.sampler_n_steps
         )
-        from egomimic.algo.dfot.sampling import vanilla_schedule, sample as _sample
+        from egomimic.models.diffusion.sampling import vanilla_schedule, sample as _sample
         sm = vanilla_schedule(n_steps=n_steps, T=T, discrete_timesteps=discrete_ts)
         eta = 1.0 if self.sampler == "ddpm" else self.sampler_eta
         sample_kwargs = dict(
@@ -600,7 +600,7 @@ class DFoT(Algo):
         n_context OBSERVED frames (real RGB + executed-action planes) clean,
         denoise the next k frames' [RGB + action] jointly, read the committed
         frame's action planes by global-avg-pool -> action. Receding horizon."""
-        from egomimic.algo.dfot.sampling import vanilla_schedule
+        from egomimic.models.diffusion.sampling import vanilla_schedule
         import numpy as _np
 
         outer = self.outer_stage
@@ -686,7 +686,7 @@ class DFoT(Algo):
         n_context observed RGB frames clean, denoise the next k RGB frames,
         then read the action off each predicted frame via the outer stage's
         conv ``action_head``. Receding horizon."""
-        from egomimic.algo.dfot.sampling import vanilla_schedule
+        from egomimic.models.diffusion.sampling import vanilla_schedule
         import numpy as _np
 
         outer = self.outer_stage
@@ -865,7 +865,7 @@ class DFoT(Algo):
         the action at the current frame + the future frames, commit the whole
         chunk open-loop. Action never a clean input (no copy), no offset.
         sp_n_samples averages K diffusion samples (variance reduction)."""
-        from egomimic.algo.dfot.sampling import vanilla_schedule
+        from egomimic.models.diffusion.sampling import vanilla_schedule
 
         outer = self.outer_stage
         diff = self.diffusion
@@ -939,7 +939,7 @@ class DFoT(Algo):
         as clean context one tick later. This is the closed-loop form of the
         validated DFoTPolicyActionEval._rollout.
         """
-        from egomimic.algo.dfot.sampling import vanilla_schedule
+        from egomimic.models.diffusion.sampling import vanilla_schedule
 
         outer = self.outer_stage
         diff = self.diffusion
@@ -1030,7 +1030,7 @@ class DFoT(Algo):
         on its own schedule conditioned on the clean obs + state, and commit the
         action predicted at the current (last) frame. Causal: no future frames.
         """
-        from egomimic.algo.dfot.sampling import vanilla_schedule
+        from egomimic.models.diffusion.sampling import vanilla_schedule
 
         outer = self.outer_stage
         diff = self.diffusion

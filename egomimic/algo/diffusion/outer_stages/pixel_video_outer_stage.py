@@ -16,8 +16,8 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from egomimic.algo.dfot.outer_stage import DFoTOuterStage
-from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
+from egomimic.algo.diffusion.outer_stages.outer_stage import DFoTOuterStage
+from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
 
 
 class PixelVideoDFoTOuterStage(DFoTOuterStage):

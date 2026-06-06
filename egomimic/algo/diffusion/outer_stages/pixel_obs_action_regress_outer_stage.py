@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import torch
 import torch.nn as nn
 
-from egomimic.algo.dfot.pixel_spatial_outer_stage import PixelSpatialDFoTOuterStage
+from egomimic.algo.diffusion.outer_stages.pixel_spatial_outer_stage import PixelSpatialDFoTOuterStage
 
 
 class PixelObsActionRegressPolicyDFoTOuterStage(PixelSpatialDFoTOuterStage):

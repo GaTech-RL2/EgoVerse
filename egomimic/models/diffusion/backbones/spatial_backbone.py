@@ -53,11 +53,11 @@ import torch
 import torch.nn as nn
 from einops import rearrange
 
-from egomimic.algo.dfot.embeddings import (
+from egomimic.models.diffusion.embeddings import (
     RandomDropoutCondEmbedding,
     StochasticTimeEmbedding,
 )
-from egomimic.models.hnet_nets.isotropic_builder import build_isotropic
+from egomimic.models.hnet.isotropic_builder import build_isotropic
 
 
 class _PatchEmbed(nn.Module):

@@ -29,8 +29,8 @@ from typing import List
 
 import torch
 
-from egomimic.algo.dfot.obs_action_outer_stage import ObsActionDFoTOuterStage
-from egomimic.algo.vae.algo import load_pretrained_vae
+from egomimic.algo.diffusion.outer_stages.obs_action_outer_stage import ObsActionDFoTOuterStage
+from egomimic.algo.diffusion.vae_algo import load_pretrained_vae
 
 
 class ObsActionImageDFoTOuterStage(ObsActionDFoTOuterStage):

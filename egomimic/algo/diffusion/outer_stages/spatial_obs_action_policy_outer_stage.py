@@ -20,7 +20,7 @@ from types import SimpleNamespace
 import torch
 import torch.nn as nn
 
-from egomimic.algo.dfot.image_spatial_outer_stage import ImageSpatialDFoTOuterStage
+from egomimic.algo.diffusion.outer_stages.image_spatial_outer_stage import ImageSpatialDFoTOuterStage
 
 
 class SpatialObsActionPolicyDFoTOuterStage(ImageSpatialDFoTOuterStage):
@@ -83,7 +83,7 @@ class SpatialObsActionPolicyDFoTOuterStage(ImageSpatialDFoTOuterStage):
         """Noise ``x`` at level ``t`` and return a q_state dict. Discrete
         diffusion's ``q_sample`` returns a bare tensor, so we supply explicit
         noise and assemble the dict ourselves (matching ImageSpatial)."""
-        from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion as _DD
+        from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion as _DD
 
         if isinstance(self.diffusion, _DD):
             noise = torch.randn_like(x).clamp_(
