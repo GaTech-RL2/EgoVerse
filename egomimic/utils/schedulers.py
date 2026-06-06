@@ -9,10 +9,26 @@ from __future__ import annotations
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import (
     CosineAnnealingLR,
+    LambdaLR,
     LinearLR,
     LRScheduler,
     SequentialLR,
 )
+
+
+def constant_scheduler(optimizer: Optimizer) -> LRScheduler:
+    """Constant LR (no warmup, no decay) — robomimic BC study default.
+
+    robomimic's bc.json uses ``learning_rate.epoch_schedule=[]`` with a
+    MultiStepLR, which with an empty milestone list never decays — i.e. a
+    constant learning rate for the whole run. We replicate that exactly with a
+    LambdaLR whose factor is always 1.0. Works with ``scheduler_interval="step"``
+    (the EgoVerse pl_model default) — every step keeps base_lr unchanged.
+
+    Ported from EgoVerse2 (branch hpt-hnet-pusher-nc3) for the BC-RNN paper-exact
+    + tx configs, which target ``egomimic.utils.schedulers.constant_scheduler``.
+    """
+    return LambdaLR(optimizer, lr_lambda=lambda _step: 1.0)
 
 
 def warmup_cosine_scheduler(

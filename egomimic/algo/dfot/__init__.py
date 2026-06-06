@@ -53,3 +53,6 @@ __all__ = [
     "ddpm_sample",
 ]
 from egomimic.algo.dfot.pixel_video_outer_stage import PixelVideoDFoTOuterStage
+from egomimic.algo.dfot.pixel_obs_action_policy_outer_stage import PixelObsActionPolicyDFoTOuterStage
+from egomimic.algo.dfot.pixel_obs_action_regress_outer_stage import PixelObsActionRegressPolicyDFoTOuterStage
+from egomimic.algo.dfot.pixel_obs_action_decoupled_outer_stage import PixelObsActionDecoupledDFoTOuterStage  # noqa

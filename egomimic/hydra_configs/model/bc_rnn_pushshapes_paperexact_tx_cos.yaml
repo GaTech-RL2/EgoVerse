@@ -1,0 +1,124 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# BC-RNN-TRANSFORMER — the PAPER-EXACT BC-RNN recipe with ONE thing changed: the
+# recurrent core is swapped LSTM -> causal-attention TRANSFORMER (core:
+# transformer). EVERYTHING ELSE is byte-identical to
+# bc_rnn_pushshapes_paperexact.yaml (same obs encoder, same GMM head, same
+# minmax norm, same repeat_unmasked windows, same rnn_horizon=10, same eval crop)
+# so this isolates the effect of the history mechanism alone.
+#
+# The core lives under the ``lstm:`` slot (kept named ``lstm:`` so the shared
+# policy/state_dict plumbing is unchanged). Here its _target_ is TransformerCore
+# instead of LSTMCore, and ``core: transformer`` guards that the config + algo
+# agree. Default ``core: lstm`` everywhere else stays byte-identical.
+#
+# Inherited paper settings (unchanged from bc_rnn_pushshapes_paperexact):
+#  1. actor_layer_dims = ()  -> actor_mlp_dims: [] (head reads core.hidden_dim)
+#  3. paper-exact obs encoder (raw 2-dim low-dim + ReLU image + no fusion MLP,
+#       concat 64+2=66 feeds the core directly)
+#  4. eval-time RANDOM crop + v0.2 off-by-one
+#  5. window pad = repeat last frame, unmasked NLL (repeat_unmasked)
+#  6. fp32 (set in launcher: trainer.precision=32)
+#  7. no grad-spike clip (enable_grad_norm: false below)
+#
+# CORE SWAP (this file's only deviation from paperexact):
+#  * core: transformer
+#  * lstm._target_ = TransformerCore (d_model=448, n_layers=5, n_heads=8,
+#       ff_mult=4, dropout=0, max_window=10=rnn_horizon). Param-comparable to
+#       LSTM(1000)x2: core 12.11M vs 12.28M (ratio 0.99).
+#  * gmm_head.d_model = 448 (= core.hidden_dim = d_model, since actor_mlp is
+#       empty -> the head reads the core's per-step output directly).
+robomimic_model:
+  _target_: egomimic.algo.bc_rnn.BCRNN
+
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10
+  max_windows_per_batch: 256
+  # actor_layer_dims = () -> empty actor MLP (identity). gmm_head.d_model then
+  # equals the core's per-step output width (d_model=448).
+  actor_mlp_dims: []
+  # repeat-pad window tails (obs AND action) + include pad steps in the NLL with
+  # NO mask (robomimic pad_same=True, plain-mean loss).
+  pad_mode: repeat_unmasked
+  # CORE SWAP: causal-attention transformer over the rnn_horizon window.
+  core: transformer
+
+  obs_encoder:
+    _target_: egomimic.models.bc_rnn_nets.ObsEncoder
+    # paper-exact mode -> embed_dim is IGNORED (becomes the concat sum 64+2=66);
+    # low-dim raw (no MLP), ReLU on image, no fusion MLP.
+    embed_dim: 66
+    paper_exact: true
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64         # ignored in paper_exact (raw 2-dim fed through)
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.bc_rnn_nets.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        # crop 86x86 (round(96*76/84)), random at TRAIN, RANDOM at EVAL too
+        # (crop_eval_mode=random), corner sampled via v0.2 off-by-one.
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86
+        crop_eval_mode: random
+        crop_sample_mode: v02
+
+  # CORE: TransformerCore under the ``lstm:`` slot (the policy treats it
+  # polymorphically via the shared .input_dim/.hidden_dim/forward/init_hidden/
+  # step interface). input_dim = obs_encoder concat (64 img + 2 raw) = 66.
+  core_net:
+    _target_: egomimic.models.bc_rnn_nets.TransformerCore
+    input_dim: 66             # = obs_encoder concat (64 img + 2 raw)
+    d_model: 448              # transformer width = head input (param-matched)
+    n_layers: 5               # 12.11M core params ~= LSTM(1000)x2 12.28M
+    n_heads: 8                # 448 / 8 = 56 dim/head
+    ff_mult: 4                # FF hidden = 4*448 = 1792
+    dropout: 0.0              # paper-exact LSTM uses dropout 0 -> match
+    max_window: ${..rnn_horizon}  # inherits the ONE window number (override only for capacity pre-allocation, e.g. window curriculum)
+
+  gmm_head:
+    _target_: egomimic.models.bc_rnn_nets.GMMActionHead
+    d_model: 448              # = core.hidden_dim (no actor MLP)
+    action_dim: 2
+    num_modes: 5
+    min_std: 1.0e-4
+    std_activation: softplus
+    low_noise_eval: true
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+# disable the MAD-based grad-spike clip (robomimic never clips).
+enable_grad_norm: false
+
+# robomimic optimizer: Adam, lr 1e-4, L2=0 (no weight decay), CONSTANT lr.
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+# Warmup->cosine (the smooth-loss variant; vault default for non-replica runs).
+# Horizon in OPTIMIZER STEPS: 1800 epochs x 50 batches = 90,000.
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 90000
+  warmup_steps: 4500  # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6
+
+# ----- DELIBERATE TASK ADAPTATIONS (kept, identical to paperexact) -----
+# * MIN-MAX action normalization (norm_stats.norm_mode=minmax, set in launcher).
+#   Fresh full-data stats (sample_frac=1.0, no precomputed path).
+# * obs keys = agent xy (slice 0:2) + front_img_1; ar rollout eval path; packed
+#   pipeline cut into 10-step windows (repeat-pad in paper-exact mode).
