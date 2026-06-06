@@ -523,6 +523,17 @@ class WindowedBC(HNet):
         **kwargs,
     ):
         Algo.__init__(self)
+        # WindowedBC calls Algo.__init__ (not HNet.__init__), so HNet-base
+        # attributes that the INHERITED ``HNet.process_batch_for_training``
+        # (hnet.py:889) reads are never set. WindowedBC has no outer-stage and
+        # no train-only obs augmentation, so make ``train_obs_transforms`` an
+        # empty list: the ``if self.train_obs_transforms and ...`` guard then
+        # short-circuits on the falsy first operand and never touches the
+        # (nonexistent) ``self.outer_stage``. Without this, both the train and
+        # the closed-loop sim-eval validation paths raise AttributeError before
+        # any rollout — which is exactly what blocked BC-RNN sim eval (DESIGN
+        # step 10 headline). Pre-existing latent bug from the H-Net restructure.
+        self.train_obs_transforms: list = []
         # CONFIG-FACING name is ``core_net``; ``lstm`` is the DEPRECATED ALIAS
         # (kept so old configs / EgoVerse-pact-2 ported yamls keep working). Pass
         # exactly one of the two. Downstream code below keeps the local name
@@ -803,13 +814,27 @@ class WindowedBC(HNet):
         return unnorm
 
     @torch.no_grad()
-    def inference_step(self, obs_zarr, t, emb_id):
+    def inference_step(self, obs_zarr, t, emb_id, T_max=None):
+        """One closed-loop env-tick. Returns the absolute (action_dim,) action.
+
+        ``T_max`` is accepted to match the eval contract
+        (``PackedSimEval`` calls ``inference_step(obs_zarr, t, emb_id,
+        T_max=self.max_steps)`` — eval_sim.py:251). It is the *sim rollout
+        horizon* (max env steps), which is a different quantity from the
+        policy's internal action-queue length: the queue is sized by the
+        policy's ``action_horizon`` (how many actions one obs-step emits), not
+        by how long the episode runs. So we intentionally keep sizing
+        ``init_step_state`` from ``policy.action_horizon`` and only accept the
+        evaluator's ``T_max`` so the call signature matches (DESIGN step 10 /
+        PORT_NOTES item 2: "accept/ignore T_max"). DFoT's ``inference_step``
+        already takes ``T_max`` the same way; this closes the BC-RNN-only gap.
+        """
         policy = self.nets["policy"]
         if t == 0:
             device = next(policy.parameters()).device
-            T_max = int(getattr(policy, "action_horizon", 1024))
+            queue_len = int(getattr(policy, "action_horizon", 1024))
             self._sim_state = policy.init_step_state(
-                batch_size=1, T_max=T_max, device=device
+                batch_size=1, T_max=queue_len, device=device
             )
         embodiment_name = get_embodiment(emb_id).lower()
         ac_key = (

@@ -133,6 +133,33 @@ def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
     }
 
 
+def get_keymap_eval(action_horizon: int = 32, **kwargs) -> dict:
+    """``get_keymap`` plus a ``goal_pose`` passthrough for closed-loop sim eval.
+
+    ``PackedSimEval.batch_to_env_init`` (``egomimic/eval/core/eval_sim.py``)
+    reads ``batch["goal_pose"]`` to set the PushShapes env goal when the rollout
+    inits from a replayed val episode. The training keymap omits it (training
+    never uses the goal). ``goal_pose`` is declared with ``key_type:
+    "goal_keys"``, which is **not** in
+    ``MultiDataset.NORMALIZE_KEY_TYPES = ("proprio_keys", "action_keys")``, so
+    NormStats reads it into the packed batch and passes it straight through —
+    raw, un-normalized — to the evaluator. Same map serves both circle proxies.
+
+    NOTE: this intentionally omits EgoVerse2's extra ``init_action`` passthrough
+    (a raw-actions seed for delta-rollout integration). pact-2's eval stack uses
+    ``init_mode: "replay"`` and never reads ``init_action`` (verified: no
+    reference in ``egomimic/eval`` or ``egomimic/algo``), so adding it would be
+    dead weight. If a delta-rollout path lands later, re-add it then.
+    """
+    km = get_keymap(action_horizon=action_horizon)
+    km["goal_pose"] = {
+        "key_type": "goal_keys",
+        "zarr_key": "goal_pose",
+        "horizon": int(action_horizon),
+    }
+    return km
+
+
 # ---------------------------------------------------------------------- #
 # Validation viz
 # ---------------------------------------------------------------------- #
