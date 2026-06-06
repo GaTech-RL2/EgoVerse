@@ -31,7 +31,7 @@ import torch.nn as nn
 from egomimic.models.diffusion.backbones.backbone import DFoTBackbone
 from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
 from egomimic.algo.outer_stage import OuterStage
-from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.stems.cond_encoders import CondEncoderModule
 
 
 def make_dfot_ctx(

@@ -5,7 +5,7 @@ Designed to be instantiated via Hydra `_target_:`:
 
     img_encoders:
       front_cam:
-        _target_: egomimic.models.hnet.image_encoders.SimpleConv
+        _target_: egomimic.models.stems.image_encoders.SimpleConv
         in_channels: 3
         channels: [32, 64, 128]
         embed_dim: 256

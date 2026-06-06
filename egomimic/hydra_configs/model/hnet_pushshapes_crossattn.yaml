@@ -19,7 +19,7 @@ robomimic_model:
     action_head_type: linear
 
     cond_encoder:
-      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
       d_cond: 128
       output_key: "fused_cond"
       cond_proj_widths: [128, 128]
@@ -30,7 +30,7 @@ robomimic_model:
           widths: [128]
       img_encoders:
         front_img_1:
-          _target_: egomimic.models.hnet.image_encoders.SimpleConv
+          _target_: egomimic.models.stems.image_encoders.SimpleConv
           in_channels: 3
           channels: [32, 64, 128, 256]
           kernel_size: 3

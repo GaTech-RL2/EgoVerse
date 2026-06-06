@@ -21,7 +21,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.stems.cond_encoders import CondEncoderModule
 
 
 class InputModule(nn.Module):

@@ -29,7 +29,7 @@ robomimic_model:
     sample_n_frames: 9
 
     cond_encoder:
-      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
       d_cond: 256
       output_key: "fused_cond"
       cond_proj_widths: [256, 256]

@@ -21,7 +21,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from egomimic.algo.packed_base import HNetPolicy
-from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.hnet import (
     HNet as HNetCore,
 )
@@ -29,7 +29,7 @@ from egomimic.models.hnet.hnet import (
     chunk_stats_from_aux,
     ratio_loss_from_aux,
 )
-from egomimic.models.hnet.image_encoders import SimpleConv
+from egomimic.models.stems.image_encoders import SimpleConv
 from egomimic.models.hnet.stages import (
     ChunkerStage,
     ComputeStage,

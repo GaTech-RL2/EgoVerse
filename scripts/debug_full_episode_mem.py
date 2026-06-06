@@ -25,11 +25,11 @@ import torch
 import torch.nn as nn
 import zarr
 
-from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.context import HNetContext
 from egomimic.models.hnet.hnet import HNet as HNetCore
 from egomimic.models.hnet.hnet import ratio_loss_from_aux
-from egomimic.models.hnet.image_encoders import SimpleConv
+from egomimic.models.stems.image_encoders import SimpleConv
 from egomimic.models.hnet.stages import (
     ChunkerStage,
     ComputeStage,

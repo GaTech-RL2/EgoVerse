@@ -1,4 +1,3 @@
-from egomimic.models.hnet.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.context import HNetContext
 from egomimic.models.hnet.hnet import HNet, ratio_loss_from_aux
 from egomimic.models.hnet.stages import (
@@ -8,7 +7,6 @@ from egomimic.models.hnet.stages import (
 )
 
 __all__ = [
-    "CondEncoderModule",
     "HNetContext",
     "HNet",
     "ratio_loss_from_aux",

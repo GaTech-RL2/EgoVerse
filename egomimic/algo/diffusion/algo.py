@@ -33,7 +33,7 @@ from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffu
 from egomimic.algo.diffusion.outer_stages.outer_stage import DFoTOuterStage, make_dfot_ctx
 from egomimic.models.diffusion.sampling import ddim_sample, ddpm_sample, sample_step
 from egomimic.algo.loss import DFoTLoss, Loss
-from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
 

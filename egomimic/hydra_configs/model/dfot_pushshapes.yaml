@@ -53,7 +53,7 @@ robomimic_model:
     # encoder runs on the current env obs and is broadcast across the AR
     # buffer.
     cond_encoder:
-      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
       d_cond: 512
       output_key: "fused_cond"
       cond_proj_widths: [512, 512]
@@ -64,7 +64,7 @@ robomimic_model:
           widths: [256]
       img_encoders:
         front_img_1:
-          _target_: egomimic.models.hnet.image_encoders.SimpleConv
+          _target_: egomimic.models.stems.image_encoders.SimpleConv
           in_channels: 3
           channels: [64, 128, 256, 512]
           kernel_size: 3

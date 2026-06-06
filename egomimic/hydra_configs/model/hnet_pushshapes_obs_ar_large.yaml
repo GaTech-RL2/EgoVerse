@@ -21,7 +21,7 @@ robomimic_model:
       - _target_: egomimic.models.stems.input_modules.ObsToken
         d_model: 256
         obs_encoder:
-          _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
+          _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
           d_cond: 256
           output_key: "obs_token"
           cond_proj_widths: [384, 384]
@@ -32,7 +32,7 @@ robomimic_model:
               widths: [256, 256, 256]
           img_encoders:
             front_img_1:
-              _target_: egomimic.models.hnet.image_encoders.SimpleConv
+              _target_: egomimic.models.stems.image_encoders.SimpleConv
               in_channels: 3
               channels: [64, 128, 256, 512, 768]
               kernel_size: 3
@@ -41,7 +41,7 @@ robomimic_model:
               norm_groups: 8
 
     cond_encoder:
-      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
       d_cond: 256
       output_key: "fused_cond"
       cond_proj_widths: [256, 256]
@@ -52,7 +52,7 @@ robomimic_model:
           widths: [256]
       img_encoders:
         front_img_1:
-          _target_: egomimic.models.hnet.image_encoders.SimpleConv
+          _target_: egomimic.models.stems.image_encoders.SimpleConv
           in_channels: 3
           channels: [32, 64, 128, 256]
           kernel_size: 3

@@ -44,7 +44,7 @@ robomimic_model:
 
     # Empty cond_encoder -- no AdaLN cond. The image is in the bundle.
     cond_encoder:
-      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
       d_cond: 512
       output_key: "fused_cond"
       cond_proj_widths: [512, 512]

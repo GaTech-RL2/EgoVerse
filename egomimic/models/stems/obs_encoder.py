@@ -12,7 +12,7 @@ Shape contract: every value in ``obs`` is either
     auto-unsqueezed to T=1).
 Returns ``(B, T, embed_dim)``.
 
-Reuses ``egomimic.models.hnet.image_encoders`` (``SimpleConv`` /
+Reuses ``egomimic.models.stems.image_encoders`` (``SimpleConv`` /
 ``ResNetEncoder``) for vision -- they already obey the ``(..., C, H, W) ->
 (..., embed_dim)`` contract -- and a local MLP for the state, so no H-Net algo
 code is imported.

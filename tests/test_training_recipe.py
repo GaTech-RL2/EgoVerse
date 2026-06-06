@@ -564,7 +564,7 @@ class TestAlgoWiring:
         weight_decay=0.0,
     ):
         from egomimic.algo.packed_base import HNet as HNetAlgo
-        from egomimic.models.hnet.cond_encoders import CondEncoderModule
+        from egomimic.models.stems.cond_encoders import CondEncoderModule
 
         return HNetAlgo(
             action_dim=2,

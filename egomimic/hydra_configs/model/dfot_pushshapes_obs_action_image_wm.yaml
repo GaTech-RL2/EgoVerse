@@ -45,7 +45,7 @@ robomimic_model:
     # cond_encoder stays empty -- the image is in the bundle, and the action
     # is supplied directly as external_cond by the outer stage's encode().
     cond_encoder:
-      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
       d_cond: 512
       output_key: "fused_cond"
       cond_proj_widths: [512, 512]

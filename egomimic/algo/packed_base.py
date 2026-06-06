@@ -26,7 +26,7 @@ from egomimic.algo.algo import Algo
 from egomimic.algo.packed_outer_stage import HNetOuterStage
 from egomimic.models.stems.input_modules import ActionInToken, InputModule
 from egomimic.algo.loss import HNetLoss, Loss
-from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.context import HNetContext
 from egomimic.models.hnet.hnet import HNet as HNetCore
 from egomimic.models.hnet.hnet import chunk_stats_from_aux

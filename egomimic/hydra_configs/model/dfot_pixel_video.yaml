@@ -26,7 +26,7 @@ robomimic_model:
     video_key: "front_img_1"
 
     cond_encoder:
-      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
       d_cond: 256
       output_key: "fused_cond"
       cond_proj_widths: [256, 256]
