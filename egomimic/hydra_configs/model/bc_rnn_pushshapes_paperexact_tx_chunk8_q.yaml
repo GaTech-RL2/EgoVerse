@@ -43,7 +43,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 #  6. fp32 (set in launcher: trainer.precision=32)
 #  7. no grad-spike clip (enable_grad_norm: false below)
 robomimic_model:
-  _target_: egomimic.algo.bc_rnn.BCRNN
+  _target_: egomimic.algo.bc.WindowedBC
 
   action_dim: 2
   action_horizon: 1024

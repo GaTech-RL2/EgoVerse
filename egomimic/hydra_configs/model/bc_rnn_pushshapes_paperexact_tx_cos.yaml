@@ -29,7 +29,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 #  * gmm_head.d_model = 448 (= core.hidden_dim = d_model, since actor_mlp is
 #       empty -> the head reads the core's per-step output directly).
 robomimic_model:
-  _target_: egomimic.algo.bc_rnn.BCRNN
+  _target_: egomimic.algo.bc.WindowedBC
 
   action_dim: 2
   action_horizon: 1024
