@@ -65,7 +65,7 @@ robomimic_model:
   chunk_head: queries
 
   obs_encoder:
-    _target_: egomimic.models.bc_rnn_nets.ObsEncoder
+    _target_: egomimic.models.stems.obs_encoder.ObsEncoder
     # paper-exact mode -> embed_dim is IGNORED (becomes the concat sum 64+2=66);
     # low-dim raw (no MLP), ReLU on image, no fusion MLP.
     embed_dim: 66
@@ -77,7 +77,7 @@ robomimic_model:
         embed_dim: 64         # ignored in paper_exact (raw 2-dim fed through)
     img_encoders:
       front_img_1:
-        _target_: egomimic.models.bc_rnn_nets.visual_core.VisualCore
+        _target_: egomimic.models.stems.visual_core.VisualCore
         in_channels: 3
         image_size: 96
         num_kp: 32
@@ -95,7 +95,7 @@ robomimic_model:
   # polymorphically via the shared .input_dim/.hidden_dim/forward/init_hidden/
   # step interface). input_dim = obs_encoder concat (64 img + 2 raw) = 66.
   core_net:
-    _target_: egomimic.models.bc_rnn_nets.TransformerCore
+    _target_: egomimic.models.cores.transformer_core.TransformerCore
     input_dim: 66             # = obs_encoder concat (64 img + 2 raw)
     d_model: 448              # transformer width = head input (param-matched)
     n_layers: 5               # 12.11M core params ~= LSTM(1000)x2 12.28M
@@ -110,7 +110,7 @@ robomimic_model:
   # each refined query to per_step GMM params. d_model MUST equal the core's
   # per-step output width (448, no actor MLP). max_window MUST be >= rnn_horizon.
   query_decoder:
-    _target_: egomimic.models.bc_rnn_nets.QueryActionDecoder
+    _target_: egomimic.models.heads.query_decoder.QueryActionDecoder
     d_model: 448              # = core.hidden_dim (the features it cross-attends)
     chunk_len: 8              # MUST match robomimic_model.chunk_len
     per_step: 25              # = gmm_head: num_modes*(2*action_dim+1) = 5*(2*2+1)
@@ -122,7 +122,7 @@ robomimic_model:
     max_window: ${..rnn_horizon}  # inherits the ONE window number (override only for capacity pre-allocation, e.g. window curriculum)
 
   gmm_head:
-    _target_: egomimic.models.bc_rnn_nets.GMMActionHead
+    _target_: egomimic.models.heads.gmm_head.GMMActionHead
     d_model: 448              # = core.hidden_dim (no actor MLP)
     action_dim: 2
     num_modes: 5

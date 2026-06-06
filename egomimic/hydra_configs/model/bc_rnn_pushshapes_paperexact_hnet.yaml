@@ -51,7 +51,7 @@ robomimic_model:
   core: hnet
 
   obs_encoder:
-    _target_: egomimic.models.bc_rnn_nets.ObsEncoder
+    _target_: egomimic.models.stems.obs_encoder.ObsEncoder
     # paper-exact mode -> embed_dim is IGNORED (becomes the concat sum 64+2=66);
     # low-dim raw (no MLP), ReLU on image, no fusion MLP.
     embed_dim: 66
@@ -63,7 +63,7 @@ robomimic_model:
         embed_dim: 64         # ignored in paper_exact (raw 2-dim fed through)
     img_encoders:
       front_img_1:
-        _target_: egomimic.models.bc_rnn_nets.visual_core.VisualCore
+        _target_: egomimic.models.stems.visual_core.VisualCore
         in_channels: 3
         image_size: 96
         num_kp: 32
@@ -84,7 +84,7 @@ robomimic_model:
   # count. d_model=256 (multiple of 32 for the dechunk EMA headdim, divisible by
   # n_heads=8); outer 4 + 4 (enc/dec) + inner 6 = 14 "T" blocks @ d_int=768.
   core_net:
-    _target_: egomimic.models.bc_rnn_nets.HNetCore
+    _target_: egomimic.models.cores.hnet_core.HNetCore
     input_dim: 66                  # = obs_encoder concat (64 img + 2 raw)
     d_model: 256                   # H-Net working dim = head input (param-matched)
     n_heads: 8                     # 256 / 8 = 32 dim/head
@@ -103,7 +103,7 @@ robomimic_model:
     causal: true                   # MUST stay true for train==rollout parity
 
   gmm_head:
-    _target_: egomimic.models.bc_rnn_nets.GMMActionHead
+    _target_: egomimic.models.heads.gmm_head.GMMActionHead
     d_model: 256                   # = core.hidden_dim (no actor MLP)
     action_dim: 2
     num_modes: 5

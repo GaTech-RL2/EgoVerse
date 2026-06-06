@@ -32,7 +32,7 @@ robomimic_model:
   pad_mode: repeat_unmasked
 
   obs_encoder:
-    _target_: egomimic.models.bc_rnn_nets.ObsEncoder
+    _target_: egomimic.models.stems.obs_encoder.ObsEncoder
     # FIX 3: paper-exact mode -> embed_dim is IGNORED (becomes the concat sum
     # 64+2=66); low-dim raw (no MLP), ReLU on image, no fusion MLP.
     embed_dim: 66
@@ -44,7 +44,7 @@ robomimic_model:
         embed_dim: 64         # ignored in paper_exact (raw 2-dim fed through)
     img_encoders:
       front_img_1:
-        _target_: egomimic.models.bc_rnn_nets.visual_core.VisualCore
+        _target_: egomimic.models.stems.visual_core.VisualCore
         in_channels: 3
         image_size: 96
         num_kp: 32
@@ -61,14 +61,14 @@ robomimic_model:
         crop_sample_mode: v02
 
   core_net:
-    _target_: egomimic.models.bc_rnn_nets.LSTMCore
+    _target_: egomimic.models.cores.lstm_core.LSTMCore
     input_dim: 66             # FIX 3c: = obs_encoder concat (64 img + 2 raw)
     hidden_dim: 1000          # FIX 2: image datasets use RNN dim 1000
     num_layers: 2
     dropout: 0.0
 
   gmm_head:
-    _target_: egomimic.models.bc_rnn_nets.GMMActionHead
+    _target_: egomimic.models.heads.gmm_head.GMMActionHead
     d_model: 1000             # FIX 1+2: = lstm.hidden_dim (no actor MLP)
     action_dim: 2
     num_modes: 5

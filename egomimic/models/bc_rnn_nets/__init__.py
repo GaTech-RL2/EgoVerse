@@ -1,58 +1,71 @@
-"""BC-RNN network components (robomimic recipe).
+"""BC-RNN network components (robomimic recipe) — FACADE shim.
 
-A clean, self-contained package for the BC-RNN policy. Pieces:
+DESIGN.md step 6 relocated every member of this package to its ROLE home under
+``egomimic.models.{stems,cores,heads}`` via ``git mv`` (no behaviour change):
 
-* ``ObsEncoder``    -- per-frame obs (agent xy + front image) -> embedding.
-* ``LSTMCore``      -- LSTM over the obs-embedding sequence (the history
-                       mechanism; obs-only, NO past-action input).
-* ``TransformerCore`` -- drop-in swap for ``LSTMCore``: causal self-attention
-                       over the same rnn_horizon obs window (same interface;
-                       obs-only, NO past-action input). Selected via the
-                       ``core: transformer`` config knob.
-* ``HNetCore``      -- drop-in swap for ``LSTMCore``: the user's REAL
-                       hierarchical dynamic-chunking H-Net (an outer
-                       encoder/decoder around a ChunkerStage that dynamically
-                       chunks over frames, with an inner ComputeStage in the
-                       compressed space) over the same rnn_horizon obs window
-                       (same interface; obs-only, NO past-action input; CAUSAL).
-                       Selected via ``core: hnet``. NOTE (EgoVerse-pact-2,
-                       DESIGN.md steps 3-4): HNetCore now imports the CANONICAL
-                       H-Net stage tree at ``egomimic.models.hnet`` -- the pact
-                       SUPERSET (cross-attn + ``residual_scale`` +
-                       ``causal_conv1d`` + ``adaln_per_token``; verified the
-                       cross-attn / AdaLN / window flags all default OFF, so the
-                       obs-only core never touches the diverged paths and its
-                       fixed-seed forward is bit-identical to the old vendored
-                       copy). The former local
-                       ``bc_rnn_nets._hnet_vendored`` dup (an inferior subset)
-                       was deleted in the collapse; the legacy
-                       ``egomimic.models.hnet_nets`` import path stays alive via
-                       a thin facade shim until DESIGN.md step 13.
-* ``QueryActionDecoder`` -- ACT/HPT-style action-query chunk readout: chunk_len
-                       learnable queries refined by self-attn(queries) + causal
-                       cross-attn over the core's per-step features, then a
-                       SHARED projection to per-step GMM params. Selected via
-                       ``chunk_head: queries`` (transformer core only).
-* ``GMMActionHead`` -- diagonal Gaussian-mixture head decoding ONE action per
-                       step (or chunk_len actions when chunk_len>1) from the
-                       core's per-step feature (NLL train, mode-commit decode).
-* ``VisualCore`` / ``SpatialSoftmax`` -- robomimic image backbone (ResNet18 ->
-                       SpatialSoftmax -> Linear) with optional crop aug. Lives
-                       HERE (not in ``hnet_nets.image_encoders``) because the
-                       EgoVerse-pact tree's image_encoders.py diverged and lacks
-                       VisualCore; keeping it in the BC-RNN package makes this
-                       port self-contained. The model configs point
-                       ``front_img_1._target_`` at
-                       ``egomimic.models.bc_rnn_nets.visual_core.VisualCore``.
+  * ``ObsEncoder``        -> ``egomimic.models.stems.obs_encoder``
+  * ``VisualCore`` / ``SpatialSoftmax`` -> ``egomimic.models.stems.visual_core``
+  * ``LSTMCore``          -> ``egomimic.models.cores.lstm_core``
+  * ``TransformerCore``   -> ``egomimic.models.cores.transformer_core``
+  * ``HNetCore``          -> ``egomimic.models.cores.hnet_core``
+  * ``GMMActionHead``     -> ``egomimic.models.heads.gmm_head``
+  * ``QueryActionDecoder``-> ``egomimic.models.heads.query_decoder``
+
+The 7 BC-RNN model configs' ``_target_``s were flipped to the role paths in the
+same step. This package is kept ALIVE as a thin FACADE so every legacy import
+path the repo / external scratch / error-message hints use keeps working
+unchanged until the final flip (DESIGN.md step 13):
+
+  * ``from egomimic.models.bc_rnn_nets import GMMActionHead, HNetCore, ...``   (names)
+  * ``from egomimic.models.bc_rnn_nets.<sub> import ...``                      (submodules)
+  * ``_target_: egomimic.models.bc_rnn_nets.<sub>.<Class>``                    (yaml _target_)
+      <sub> in {obs_encoder, visual_core, lstm_core, transformer_core,
+                hnet_core, gmm_head, query_decoder}
+
+Mechanism (identical to the ``hnet_nets`` collapse shim from DESIGN.md step 3):
+each member module now lives under a role package; we import the real module and
+register it in ``sys.modules`` under the legacy ``egomimic.models.bc_rnn_nets.<sub>``
+key, so ``from egomimic.models.bc_rnn_nets.<sub> import X`` and a yaml
+``_target_: egomimic.models.bc_rnn_nets.<sub>.X`` both resolve to the SAME
+module object (identical symbols, including private ones the tests may import).
+No code is duplicated; this file forwards to the live role tree.
+
+ROLE-HOME ROUTING: the legacy single-file names map to their NEW role package,
+so e.g. ``bc_rnn_nets.visual_core`` aliases ``models.stems.visual_core``.
+
+DO NOT add logic here — it is a pure forwarder. When DESIGN.md step 13 flips
+every consumer to the role paths directly, this whole package is deleted.
 """
 
-from egomimic.models.bc_rnn_nets.gmm_head import GMMActionHead
-from egomimic.models.bc_rnn_nets.hnet_core import HNetCore
-from egomimic.models.bc_rnn_nets.lstm_core import LSTMCore
-from egomimic.models.bc_rnn_nets.obs_encoder import ObsEncoder
-from egomimic.models.bc_rnn_nets.query_decoder import QueryActionDecoder
-from egomimic.models.bc_rnn_nets.transformer_core import TransformerCore
-from egomimic.models.bc_rnn_nets.visual_core import SpatialSoftmax, VisualCore
+import importlib as _importlib
+import sys as _sys
+
+# Legacy ``bc_rnn_nets.<name>`` submodule  ->  its real role-package module.
+_SUBMODULE_HOMES = {
+    "obs_encoder": "egomimic.models.stems.obs_encoder",
+    "visual_core": "egomimic.models.stems.visual_core",
+    "lstm_core": "egomimic.models.cores.lstm_core",
+    "transformer_core": "egomimic.models.cores.transformer_core",
+    "hnet_core": "egomimic.models.cores.hnet_core",
+    "gmm_head": "egomimic.models.heads.gmm_head",
+    "query_decoder": "egomimic.models.heads.query_decoder",
+}
+
+for _legacy, _home in _SUBMODULE_HOMES.items():
+    _mod = _importlib.import_module(_home)
+    # Register the real module under the legacy dotted path so both
+    # ``import egomimic.models.bc_rnn_nets.<legacy>`` and a yaml
+    # ``_target_: egomimic.models.bc_rnn_nets.<legacy>.<Class>`` hit it.
+    _sys.modules[f"{__name__}.{_legacy}"] = _mod
+
+# Top-level name re-exports (mirror the pre-move ``bc_rnn_nets.__init__``).
+from egomimic.models.cores.hnet_core import HNetCore
+from egomimic.models.cores.lstm_core import LSTMCore
+from egomimic.models.cores.transformer_core import TransformerCore
+from egomimic.models.heads.gmm_head import GMMActionHead
+from egomimic.models.heads.query_decoder import QueryActionDecoder
+from egomimic.models.stems.obs_encoder import ObsEncoder
+from egomimic.models.stems.visual_core import SpatialSoftmax, VisualCore
 
 __all__ = [
     "ObsEncoder",
@@ -64,3 +77,5 @@ __all__ = [
     "VisualCore",
     "SpatialSoftmax",
 ]
+
+del _sys, _importlib, _legacy, _home, _mod, _SUBMODULE_HOMES
