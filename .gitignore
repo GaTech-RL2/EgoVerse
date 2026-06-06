@@ -55,3 +55,7 @@ curation_results/**
 # One-off plot artifacts.
 /variant_comparison.png
 external_ckpts/*.ckpt
+
+# Restructure scratch: archived root debris (DESIGN.md step 1). MOVES not deletes;
+# history preserved at old paths. See scratch/MANIFEST.md.
+/scratch/
