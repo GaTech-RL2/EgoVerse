@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.hpt.HPT
+  _target_: egomimic.algo.zoo.hpt.HPT
   # ``norm_stats`` is injected at runtime by pl_model._instantiate_model;
   # do not set it here. Replaces the old ``data_schematic`` arg.
 

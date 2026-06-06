@@ -14,7 +14,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # instead of LSTMCore/TransformerCore, and ``core: hnet`` guards that the config
 # + algo agree. Default ``core: lstm`` everywhere else stays byte-identical.
 #
-# CORE = the REAL H-Net (egomimic.models.hnet_nets stage tree):
+# CORE = the REAL H-Net (egomimic.models.hnet stage tree):
 #   in_proj 66 -> d_model
 #     -> EncoderDecoderStage(outer, CAUSAL)
 #         -> ChunkerStage(RoutingModule dynamic chunking over frames, CAUSAL)

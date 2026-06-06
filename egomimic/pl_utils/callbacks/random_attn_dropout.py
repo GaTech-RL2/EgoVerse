@@ -16,7 +16,7 @@ from __future__ import annotations
 import random
 import lightning.pytorch as pl
 
-from egomimic.models.hnet_nets.blocks import MultiHeadAttention
+from egomimic.models.hnet.blocks import MultiHeadAttention
 
 
 class RandomAttnDropoutScheduler(pl.Callback):

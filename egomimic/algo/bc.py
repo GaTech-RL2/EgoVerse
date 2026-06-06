@@ -2,10 +2,10 @@
 
 Canonical class names are ``WindowedBC`` (algo) and ``WindowedBCPolicy`` (the
 nn.Module). ``BCRNN`` / ``BCRNNPolicy`` are kept as module-level aliases at the
-bottom of this file for backward compatibility (old configs / ported yamls and
-the ``egomimic.algo.bc_rnn`` import-shim path). The module lives at
-``egomimic.algo.bc`` (flat, no package); ``egomimic.algo.bc_rnn`` is a thin
-re-export shim (DESIGN.md step 5, amended).
+bottom of this file for backward compatibility (old configs / ported yamls
+and saved checkpoints). The module lives at ``egomimic.algo.bc`` (flat, no
+package); the ``egomimic.algo.bc_rnn`` re-export shim was deleted at the
+DESIGN.md step-13 final flip.
 
 The RNN conditions on OBSERVATION HISTORY only: an LSTM is unrolled over the
 per-frame obs embeddings; the action is the OUTPUT decoded from each LSTM
@@ -48,14 +48,12 @@ import torch.nn as nn
 
 from egomimic.algo.algo import Algo
 from egomimic.algo.packed_base import HNet
-from egomimic.models.bc_rnn_nets import (
-    GMMActionHead,
-    HNetCore,
-    LSTMCore,
-    ObsEncoder,
-    QueryActionDecoder,
-    TransformerCore,
-)
+from egomimic.models.cores.hnet_core import HNetCore
+from egomimic.models.cores.lstm_core import LSTMCore
+from egomimic.models.cores.transformer_core import TransformerCore
+from egomimic.models.heads.gmm_head import GMMActionHead
+from egomimic.models.heads.query_decoder import QueryActionDecoder
+from egomimic.models.stems.obs_encoder import ObsEncoder
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
 
@@ -651,7 +649,7 @@ class WindowedBC(HNet):
                     "chunk_head='queries' but the object under the model "
                     f"'query_decoder:' slot is {type(query_decoder).__name__}, "
                     "not QueryActionDecoder. Point query_decoder._target_ at "
-                    "egomimic.models.bc_rnn_nets.QueryActionDecoder."
+                    "egomimic.models.heads.query_decoder.QueryActionDecoder."
                 )
             # the query decoder cross-attends over up to rnn_horizon context
             # features; mirror the core's max_window guard so a yaml-only
@@ -854,7 +852,7 @@ class WindowedBC(HNet):
 # Backward-compat aliases (DESIGN.md step 5, amended). The classes were renamed
 # BCRNN -> WindowedBC and BCRNNPolicy -> WindowedBCPolicy. These module-level
 # aliases keep the old names importable so existing configs (`_target_:
-# egomimic.algo.bc.BCRNN` or the `egomimic.algo.bc_rnn.BCRNN` shim path), saved
+# egomimic.algo.bc.BCRNN`), saved
 # checkpoints, and downstream code resolve unchanged. They are the SAME class
 # objects (``is`` identity), so isinstance / pickling / Hydra instantiate behave
 # identically regardless of which name is used.

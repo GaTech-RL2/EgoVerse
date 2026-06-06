@@ -6,7 +6,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # diffusion target. Contrast to Design A (broadcast channels, jointly diffused).
 
 robomimic_model:
-  _target_: egomimic.algo.dfot.DFoT
+  _target_: egomimic.algo.diffusion.DFoT
   action_dim: 2
   action_horizon: 9
 
@@ -22,7 +22,7 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.dfot.PixelObsActionRegressPolicyDFoTOuterStage
+    _target_: egomimic.algo.diffusion.PixelObsActionRegressPolicyDFoTOuterStage
     action_dim: 2
     action_loss_weight: 1.0
     head_width: 64
@@ -33,7 +33,7 @@ robomimic_model:
     sample_n_frames: 9
 
     cond_encoder:
-      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
       d_cond: 256
       output_key: "fused_cond"
       cond_proj_widths: [256, 256]
@@ -41,7 +41,7 @@ robomimic_model:
       img_encoders: {}
 
     backbone:
-      _target_: egomimic.algo.dfot.DFoTDiT3DBackbone
+      _target_: egomimic.models.diffusion.DFoTDiT3DBackbone
       latent_channels: 3          # RGB video only; action is a regression head
       latent_size: 96
       patch_size: 2
@@ -60,7 +60,7 @@ robomimic_model:
       causal: false
 
     diffusion:
-      _target_: egomimic.algo.dfot.discrete_diffusion.DiscreteDiffusion
+      _target_: egomimic.models.diffusion.diffusion.discrete_diffusion.DiscreteDiffusion
       action_dim: 3               # RGB channel count
       timesteps: 1000
       beta_schedule: "cosine"

@@ -25,12 +25,12 @@ import torch
 import torch.nn as nn
 import zarr
 
-from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
-from egomimic.models.hnet_nets.context import HNetContext
-from egomimic.models.hnet_nets.hnet import HNet as HNetCore
-from egomimic.models.hnet_nets.hnet import ratio_loss_from_aux
-from egomimic.models.hnet_nets.image_encoders import SimpleConv
-from egomimic.models.hnet_nets.stages import (
+from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.hnet.context import HNetContext
+from egomimic.models.hnet.hnet import HNet as HNetCore
+from egomimic.models.hnet.hnet import ratio_loss_from_aux
+from egomimic.models.hnet.image_encoders import SimpleConv
+from egomimic.models.hnet.stages import (
     ChunkerStage,
     ComputeStage,
     EncoderDecoderStage,
@@ -157,7 +157,7 @@ def _patch_router_to_all_boundaries(router):
     Saves the original forward and returns a function that restores it.
     """
 
-    from egomimic.models.hnet_nets.routing import RoutingModuleOutput
+    from egomimic.models.hnet.routing import RoutingModuleOutput
 
     original_forward = router.forward
 

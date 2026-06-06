@@ -13,8 +13,8 @@ from EgoVerse2 around 2026-05-18 and its own
 ``VisualCore`` / ``SpatialSoftmax`` / ``ResNetEncoder``. Rather than splice the
 class (and its closure) into a diverged foreign file, VisualCore lives here and
 the BC-RNN model configs point their ``front_img_1._target_`` at
-``egomimic.models.bc_rnn_nets.visual_core.VisualCore``. This keeps the BC-RNN
-package fully self-contained and touches ZERO of pact-2's existing classes.
+``egomimic.models.stems.visual_core.VisualCore`` (its role home). This keeps
+VisualCore self-contained and touches ZERO of pact-2's existing classes.
 
 Shape contract (matches SimpleConv): ``(..., C, H, W) -> (..., embed_dim)`` and
 exposes ``.embed_dim`` (== feature_dimension), so ``ObsEncoder`` can size the

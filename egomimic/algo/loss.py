@@ -95,7 +95,7 @@ class HNetLoss(Loss):
         super().__init__()
 
     def forward(self, batch: dict, ctx) -> torch.Tensor:
-        from egomimic.models.hnet_nets.hnet import ratio_loss_from_aux
+        from egomimic.models.hnet.hnet import ratio_loss_from_aux
 
         pred = batch["pred_action"]
         target = batch["actions"]

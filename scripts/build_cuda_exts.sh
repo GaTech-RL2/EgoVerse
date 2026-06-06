@@ -39,8 +39,8 @@ echo "=== installing flash-attn==2.7.4.post1 ==="
 
 echo "=== verifying kernel detection ==="
 .venv/bin/python -c "
-from egomimic.models.hnet_nets.blocks import has_flash_attn, has_mamba
-from egomimic.models.hnet_nets.routing import has_mamba_scan
+from egomimic.models.hnet.blocks import has_flash_attn, has_mamba
+from egomimic.models.hnet.routing import has_mamba_scan
 print('has_flash_attn:', has_flash_attn())
 print('has_mamba:    ', has_mamba())
 print('has_mamba_scan:', has_mamba_scan())

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import lightning.pytorch as pl
 
-from egomimic.models.hnet_nets.stages import ChunkerStage
+from egomimic.models.hnet.stages import ChunkerStage
 from egomimic.utils.schedulers import piecewise_linear
 
 

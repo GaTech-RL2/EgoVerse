@@ -13,7 +13,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # and used as the initial bundle prefix (handled by the eval).
 
 robomimic_model:
-  _target_: egomimic.algo.dfot.DFoT
+  _target_: egomimic.algo.diffusion.DFoT
   action_dim: 2
   action_horizon: 32
 
@@ -31,7 +31,7 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.dfot.ObsActionImageDFoTOuterStage
+    _target_: egomimic.algo.diffusion.ObsActionImageDFoTOuterStage
     action_dim: 2
     cond_output_key: "fused_cond"
 
@@ -44,7 +44,7 @@ robomimic_model:
 
     # Empty cond_encoder -- no AdaLN cond. The image is in the bundle.
     cond_encoder:
-      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
       d_cond: 512
       output_key: "fused_cond"
       cond_proj_widths: [512, 512]
@@ -53,7 +53,7 @@ robomimic_model:
 
     # Bundle width = 5 + 144 + 2 = 151.
     backbone:
-      _target_: egomimic.algo.dfot.DFoTBackbone
+      _target_: egomimic.models.diffusion.DFoTBackbone
       action_dim: 151
       action_horizon: 32
       d_model: 512
@@ -74,7 +74,7 @@ robomimic_model:
       causal: true
 
     diffusion:
-      _target_: egomimic.algo.dfot.continuous_diffusion.ContinuousDiffusion
+      _target_: egomimic.models.diffusion.diffusion.continuous_diffusion.ContinuousDiffusion
       action_dim: 151
       precond_scale: 0.25
       sigmoid_bias: -1.0

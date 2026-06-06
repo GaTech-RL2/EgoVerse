@@ -5,7 +5,7 @@ import torch
 import numpy as np
 device = "cuda"
 
-from egomimic.algo.vae.algo import load_pretrained_vae
+from egomimic.algo.diffusion.vae_algo import load_pretrained_vae
 vae = load_pretrained_vae("external_ckpts/vae_v5_last.ckpt").to(device).eval()
 
 # Use simplejpeg to decode the JPEG-stored images from zarr

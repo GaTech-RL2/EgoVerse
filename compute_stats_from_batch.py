@@ -8,7 +8,7 @@ from omegaconf import OmegaConf
 
 device = "cuda"
 
-from egomimic.algo.vae.algo import load_pretrained_vae
+from egomimic.algo.diffusion.vae_algo import load_pretrained_vae
 vae = load_pretrained_vae("external_ckpts/vae_v5_last.ckpt").to(device).eval()
 
 # Load a checkpoint to get norm_stats_state and config

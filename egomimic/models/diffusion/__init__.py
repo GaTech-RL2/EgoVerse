@@ -15,10 +15,9 @@ pre-train algo) lives at ``egomimic.algo.diffusion``.
   * embeddings  — timestep / Fourier / stochastic-time conditioning embeddings.
   * sampling    — DDIM/DDPM sampling + the causal/staircase AR schedules.
 
-The legacy ``egomimic.algo.dfot.<piece>`` import paths (incl. the yaml
-``_target_``s such as ``egomimic.algo.dfot.DFoTBackbone`` /
-``egomimic.algo.dfot.discrete_diffusion.DiscreteDiffusion``) stay ALIVE through
-the ``egomimic.algo.dfot`` facade shim until the final flip (DESIGN.md step 13).
+The legacy ``egomimic.algo.dfot`` facade shim (and the yaml ``_target_``s that
+routed through it) was deleted at the DESIGN.md step-13 final flip; the model
+pieces are now addressed at ``egomimic.models.diffusion.*`` directly.
 """
 
 from egomimic.models.diffusion.backbones.backbone import DFoTBackbone

@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.hnet.HNet
+  _target_: egomimic.algo.packed_base.HNet
   # ObsToken-as-input variant: per-frame obs embedding goes directly into
   # the trunk as the input token (no ActionInToken, no BOS, no previous-
   # action feedback). cond_encoder still produces fused_cond for AdaLN.
@@ -12,7 +12,7 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.hnet_outer_stage.HNetOuterStage
+    _target_: egomimic.algo.packed_outer_stage.HNetOuterStage
     action_dim: 2
     action_horizon: 1024
     d_model: 128
@@ -23,7 +23,7 @@ robomimic_model:
       - _target_: egomimic.models.stems.input_modules.ObsToken
         d_model: 128
         obs_encoder:
-          _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+          _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
           d_cond: 128
           output_key: "obs_token"
           cond_proj_widths: [128, 128]
@@ -34,7 +34,7 @@ robomimic_model:
               widths: [128]
           img_encoders:
             front_img_1:
-              _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+              _target_: egomimic.models.hnet.image_encoders.SimpleConv
               in_channels: 3
               channels: [32, 64, 128, 256]
               kernel_size: 3
@@ -43,7 +43,7 @@ robomimic_model:
               norm_groups: 8
 
     cond_encoder:
-      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
       d_cond: 128
       output_key: "fused_cond"
       cond_proj_widths: [128, 128]
@@ -54,7 +54,7 @@ robomimic_model:
           widths: [128]
       img_encoders:
         front_img_1:
-          _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+          _target_: egomimic.models.hnet.image_encoders.SimpleConv
           in_channels: 3
           channels: [32, 64, 128, 256]
           kernel_size: 3
@@ -63,9 +63,9 @@ robomimic_model:
           norm_groups: 8
 
     hnet:
-      _target_: egomimic.models.hnet_nets.hnet.HNet
+      _target_: egomimic.models.hnet.hnet.HNet
       stages:
-        - _target_: egomimic.models.hnet_nets.stages.EncoderDecoderStage
+        - _target_: egomimic.models.hnet.stages.EncoderDecoderStage
           input_hidden_dim: 128
           output_hidden_dim: 128
           cond_key: "fused_cond"
@@ -89,13 +89,13 @@ robomimic_model:
             rotary_emb_dim: 32
             dropout: 0.15
             resid_dropout: 0.2
-        - _target_: egomimic.models.hnet_nets.stages.ChunkerStage
+        - _target_: egomimic.models.hnet.stages.ChunkerStage
           input_hidden_dim: 128
           output_hidden_dim: 192
           target_compression_ratio: 8.0
           ratio_loss_weight: 0.03
           cond_key: "fused_cond"
-        - _target_: egomimic.models.hnet_nets.stages.ComputeStage
+        - _target_: egomimic.models.hnet.stages.ComputeStage
           input_hidden_dim: 192
           output_hidden_dim: 192
           cond_key: "fused_cond"

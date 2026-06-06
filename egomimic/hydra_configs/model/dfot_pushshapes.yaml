@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.dfot.DFoT
+  _target_: egomimic.algo.diffusion.DFoT
   # ``norm_stats`` is injected at runtime by
   # ``pl_model.ModelWrapper._instantiate_model``; do not set it here.
 
@@ -43,7 +43,7 @@ robomimic_model:
   # per-token noise at training time, runs q_sample, stores q_state on
   # ctx for the loss to read. Its inner_stage IS the backbone.
   outer_stage:
-    _target_: egomimic.algo.dfot.outer_stage.DFoTOuterStage
+    _target_: egomimic.algo.diffusion.outer_stages.outer_stage.DFoTOuterStage
     action_dim: 2
     cond_output_key: "fused_cond"
 
@@ -53,7 +53,7 @@ robomimic_model:
     # encoder runs on the current env obs and is broadcast across the AR
     # buffer.
     cond_encoder:
-      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
       d_cond: 512
       output_key: "fused_cond"
       cond_proj_widths: [512, 512]
@@ -64,7 +64,7 @@ robomimic_model:
           widths: [256]
       img_encoders:
         front_img_1:
-          _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+          _target_: egomimic.models.hnet.image_encoders.SimpleConv
           in_channels: 3
           channels: [64, 128, 256, 512]
           kernel_size: 3
@@ -77,7 +77,7 @@ robomimic_model:
     # packed batch_size=16 this should fill the GPU comfortably while
     # leaving headroom for activation memory at long episodes.
     backbone:
-      _target_: egomimic.algo.dfot.DFoTBackbone
+      _target_: egomimic.models.diffusion.DFoTBackbone
       action_dim: 2
       action_horizon: 32
       d_model: 512
@@ -106,7 +106,7 @@ robomimic_model:
     # implicitly by the default DFoTLoss (no loss block below -> the
     # algo class auto-builds DFoTLoss(outer_stage.diffusion)).
     diffusion:
-      _target_: egomimic.algo.dfot.continuous_diffusion.ContinuousDiffusion
+      _target_: egomimic.models.diffusion.diffusion.continuous_diffusion.ContinuousDiffusion
       action_dim: 2
       precond_scale: 0.25
       sigmoid_bias: -1.0

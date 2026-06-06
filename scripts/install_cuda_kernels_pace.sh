@@ -79,8 +79,8 @@ echo "=== verifying kernel detection ==="
 .venv/bin/python -c "
 import torch
 print('torch:', torch.__version__, 'cuda:', torch.version.cuda)
-from egomimic.models.hnet_nets.blocks import has_flash_attn, has_mamba
-from egomimic.models.hnet_nets.routing import has_mamba_scan
+from egomimic.models.hnet.blocks import has_flash_attn, has_mamba
+from egomimic.models.hnet.routing import has_mamba_scan
 fa, m, ms = has_flash_attn(), has_mamba(), has_mamba_scan()
 print(f'  has_flash_attn : {fa}')
 print(f'  has_mamba      : {m}')

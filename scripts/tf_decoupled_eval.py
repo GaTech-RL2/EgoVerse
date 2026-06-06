@@ -14,8 +14,8 @@ from omegaconf import OmegaConf
 from hydra.utils import instantiate
 
 from scripts.smoke_sim_eval import load_algo_from_ckpt
-from egomimic.algo.dfot.sampling import vanilla_schedule
-from egomimic.algo.dfot.discrete_diffusion import DiscreteDiffusion
+from egomimic.models.diffusion.sampling import vanilla_schedule
+from egomimic.algo.diffusion.discrete_diffusion import DiscreteDiffusion
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 

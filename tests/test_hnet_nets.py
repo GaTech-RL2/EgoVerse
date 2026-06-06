@@ -1,5 +1,5 @@
 """
-Unit tests for egomimic.models.hnet_nets.
+Unit tests for egomimic.models.hnet.
 
 CPU-only: every test runs against the pure-PyTorch fallback paths so the
 absence of flash_attn / mamba_ssm / causal_conv1d does not gate test
@@ -23,27 +23,27 @@ from __future__ import annotations
 import pytest
 import torch
 
-from egomimic.models.hnet_nets.blocks import (
+from egomimic.models.hnet.blocks import (
     AdaLNModulation,
     Isotropic,
     MultiHeadAttention,
     RMSNorm,
     _adaln,
 )
-from egomimic.models.hnet_nets.config import AttnConfig, HNetConfig, SSMConfig
-from egomimic.models.hnet_nets.context import HNetContext
-from egomimic.models.hnet_nets.hnet import (
+from egomimic.models.hnet.config import AttnConfig, HNetConfig, SSMConfig
+from egomimic.models.hnet.context import HNetContext
+from egomimic.models.hnet.hnet import (
     HNet,
     chunk_stats_from_aux,
     ratio_loss_from_aux,
 )
-from egomimic.models.hnet_nets.routing import (
+from egomimic.models.hnet.routing import (
     ChunkLayer,
     DeChunkLayer,
     RoutingModule,
     get_seq_idx,
 )
-from egomimic.models.hnet_nets.stages import (
+from egomimic.models.hnet.stages import (
     ChunkerStage,
     ComputeStage,
     EncoderDecoderStage,

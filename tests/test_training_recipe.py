@@ -26,8 +26,8 @@ import pytest
 import torch
 import torch.nn as nn
 
-from egomimic.models.hnet_nets.hnet import HNet, apply_optimization_params
-from egomimic.models.hnet_nets.stages import (
+from egomimic.models.hnet.hnet import HNet, apply_optimization_params
+from egomimic.models.hnet.stages import (
     ChunkerStage,
     ComputeStage,
     EncoderDecoderStage,
@@ -375,7 +375,7 @@ class TestParameterGroups:
         opt = torch.optim.AdamW(groups)
         # Forward/backward through the net to populate grads.
         x = torch.randn(1, 4, 32)
-        from egomimic.models.hnet_nets.context import HNetContext
+        from egomimic.models.hnet.context import HNetContext
 
         y = net(x, HNetContext())
         y.sum().backward()
@@ -564,7 +564,7 @@ class TestAlgoWiring:
         weight_decay=0.0,
     ):
         from egomimic.algo.packed_base import HNet as HNetAlgo
-        from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
+        from egomimic.models.hnet.cond_encoders import CondEncoderModule
 
         return HNetAlgo(
             action_dim=2,

@@ -9,7 +9,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # correct but blurry recons by 200ep.
 
 robomimic_model:
-  _target_: egomimic.algo.vae.VAE
+  _target_: egomimic.algo.diffusion.VAE
   image_key: "front_img_1"
   # Lower beta lets the encoder use more latent capacity for high-freq
   # edge info instead of compressing toward N(0, I). We don't need a

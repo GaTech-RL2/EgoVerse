@@ -5,7 +5,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # No packing, no per-episode loops. Matches reference exactly.
 
 robomimic_model:
-  _target_: egomimic.algo.dfot.DFoT
+  _target_: egomimic.algo.diffusion.DFoT
   action_dim: 2
   action_horizon: 9
 
@@ -21,12 +21,12 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.dfot.PixelVideoDFoTOuterStage
+    _target_: egomimic.algo.diffusion.PixelVideoDFoTOuterStage
     action_dim: 2
     video_key: "front_img_1"
 
     cond_encoder:
-      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
       d_cond: 256
       output_key: "fused_cond"
       cond_proj_widths: [256, 256]
@@ -34,7 +34,7 @@ robomimic_model:
       img_encoders: {}
 
     backbone:
-      _target_: egomimic.algo.dfot.DFoTDiT3DBackbone
+      _target_: egomimic.models.diffusion.DFoTDiT3DBackbone
       latent_channels: 3
       latent_size: 96
       patch_size: 2
@@ -53,7 +53,7 @@ robomimic_model:
       causal: false
 
     diffusion:
-      _target_: egomimic.algo.dfot.discrete_diffusion.DiscreteDiffusion
+      _target_: egomimic.models.diffusion.diffusion.discrete_diffusion.DiscreteDiffusion
       action_dim: 3
       timesteps: 1000
       beta_schedule: "cosine"

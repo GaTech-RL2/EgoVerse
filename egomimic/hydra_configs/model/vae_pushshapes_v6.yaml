@@ -10,7 +10,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # with their much larger latent space.
 
 robomimic_model:
-  _target_: egomimic.algo.vae.VAE
+  _target_: egomimic.algo.diffusion.VAE
   image_key: "front_img_1"
   beta: 0.001
   lpips_weight: 1.0

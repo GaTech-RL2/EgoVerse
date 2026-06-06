@@ -3,7 +3,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # DFoT video diffusion with DiT3D backbone + continuous diffusion + uniform weighting.
 
 robomimic_model:
-  _target_: egomimic.algo.dfot.DFoT
+  _target_: egomimic.algo.diffusion.DFoT
   action_dim: 2
   action_horizon: 32
 
@@ -19,7 +19,7 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.dfot.ImageSpatialDFoTOuterStage
+    _target_: egomimic.algo.diffusion.ImageSpatialDFoTOuterStage
     action_dim: 2
     bundle_obs_keys: ["state_agent_obj"]
     bundle_obs_dims: [5]
@@ -29,7 +29,7 @@ robomimic_model:
     cond_output_key: "fused_cond"
 
     cond_encoder:
-      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
       d_cond: 384
       output_key: "fused_cond"
       cond_proj_widths: [384, 384]
@@ -37,7 +37,7 @@ robomimic_model:
       img_encoders: {}
 
     backbone:
-      _target_: egomimic.algo.dfot.DFoTDiT3DBackbone
+      _target_: egomimic.models.diffusion.DFoTDiT3DBackbone
       latent_channels: 4
       latent_size: 6
       patch_size: 2
@@ -56,7 +56,7 @@ robomimic_model:
       causal: false
 
     diffusion:
-      _target_: egomimic.algo.dfot.continuous_diffusion.ContinuousDiffusion
+      _target_: egomimic.models.diffusion.diffusion.continuous_diffusion.ContinuousDiffusion
       action_dim: 4
       precond_scale: 0.25
       sigmoid_bias: -1.0

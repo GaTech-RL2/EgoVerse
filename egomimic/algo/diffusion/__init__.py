@@ -12,11 +12,10 @@ processes / embeddings / sampling) lives at ``egomimic.models.diffusion``.
                                          (spatial / pixel / obs-action / ...).
   * :class:`VAE` + ``load_pretrained_vae`` (``vae_algo``) — image VAE pre-train.
 
-The legacy ``egomimic.algo.dfot.<name>`` and ``egomimic.algo.vae.<name>`` import
-paths (incl. the yaml ``_target_``s such as ``egomimic.algo.dfot.DFoT`` /
-``egomimic.algo.dfot.outer_stage.DFoTOuterStage`` / ``egomimic.algo.vae.VAE``)
-stay ALIVE through the ``egomimic.algo.dfot`` + ``egomimic.algo.vae`` facade
-shims until the final flip (DESIGN.md step 13).
+The legacy ``egomimic.algo.dfot`` / ``egomimic.algo.vae`` facade shims (and the
+yaml ``_target_``s that routed through them) were deleted at the DESIGN.md
+step-13 final flip; every consumer now imports from ``egomimic.algo.diffusion``
+/ ``egomimic.models.diffusion`` directly.
 """
 
 from egomimic.algo.diffusion.algo import DFoT
@@ -55,7 +54,7 @@ from egomimic.algo.diffusion.vae_algo import VAE, load_pretrained_vae
 
 # Convenience re-exports of the model-half pieces some legacy code imports via
 # the algo namespace (kept here so ``from egomimic.algo.diffusion import
-# DFoTBackbone`` mirrors the old ``algo.dfot`` surface).
+# DFoTBackbone`` mirrors the model-half surface).
 from egomimic.models.diffusion import (
     ContinuousDiffusion,
     DFoTBackbone,

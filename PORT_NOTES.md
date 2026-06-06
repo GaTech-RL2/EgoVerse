@@ -405,3 +405,72 @@ works (guard-tested), so any not-yet-flipped consumer keeps composing. The §6
 eval-stack limitations (rollout_mode / T_max / get_keymap_eval) are **unchanged**
 — this sync touched only the core-slot naming + the window interpolation, not the
 eval path.
+
+
+---
+
+# STEP 13 — FINAL FLIP (DESIGN.md step 13 + amendments A & B)
+
+**Date:** 2026-06-06 · **Branch:** `elmo/dfot-obsactimg-pact` · local commit only (no push).
+**Goal:** `algo/` END-STATE clean — no shims, no dormant code, honest names everywhere.
+**Safety tag:** `pre-step13-flip` (rollback point; parity baseline).
+
+## What changed
+
+### 1. Config + import mirror (every shim-routed `_target_` / import flipped to its real home)
+Swept ALL hydra configs (model/, evaluator/, top-level) + every non-config importer
+(`.py`, `scripts/*.sh`, `.ipynb`, `tests/`). 66 files mechanically rewritten + 9
+manually (multi-name package imports / docstring prose). Canonical flip table:
+
+| shim path (old) | real home (new) |
+|---|---|
+| `egomimic.algo.hnet.HNet` | `egomimic.algo.packed_base.HNet` |
+| `egomimic.algo.hnet_outer_stage.*` | `egomimic.algo.packed_outer_stage.*` |
+| `egomimic.algo.bc_rnn.*` | `egomimic.algo.bc.*` |
+| `egomimic.algo.{act,hpt,pi}.*` | `egomimic.algo.zoo.{act,hpt,pi}.*` |
+| `egomimic.algo.input_modules.*` | `egomimic.models.stems.input_modules.*` |
+| `egomimic.algo.dfot.DFoT` / `<OuterStage>` | `egomimic.algo.diffusion.*` |
+| `egomimic.algo.dfot.outer_stage.*` | `egomimic.algo.diffusion.outer_stages.outer_stage.*` |
+| `egomimic.algo.dfot.{DFoTBackbone,DFoTDiT3DBackbone}` | `egomimic.models.diffusion.*` |
+| `egomimic.algo.dfot.{continuous,discrete}_diffusion.*` | `egomimic.models.diffusion.diffusion.*` |
+| `egomimic.algo.vae.VAE` / `vae.algo` | `egomimic.algo.diffusion.VAE` / `diffusion.vae_algo` |
+| `egomimic.models.hnet_nets.*` | `egomimic.models.hnet.*` |
+| `egomimic.models.bc_rnn_nets.<sub>.*` | `egomimic.models.{stems,cores,heads}.*` (role-routed) |
+
+### 2. Shims DELETED (grep-proven empty of live references first)
+`algo/{act,hpt,pi,bc_rnn,hnet,input_modules}.py`, `algo/dfot/`, `algo/vae/`,
+`models/hnet_nets/__init__.py`, `models/bc_rnn_nets/__init__.py`. Post-delete
+`git grep` of every shim path comes back clean (modulo past-tense provenance
+docstrings + DESIGN/PORT_NOTES historical mentions).
+
+### 3. AMENDMENT A — dormant-class purge
+`FlatFusedPolicy` (288 lines) + `HNetFused(HNet)` (15 lines) cut from
+`packed_base.py` → `scratch/flat_fused_quarantine/flat_fused_classes_from_packed_base.py`
+(manifest appended). Both were dead (no live `_target_` can construct them; their
+`FlatFusedOuterStage` + 3 fused configs were quarantined in PHASE 1).
+**`packed_base.py`: 1239 → 935 lines (−304).** Now carries only the live `HNet`
+algo base + `HNetPolicy`.
+
+### 4. AMENDMENT B — partner rename
+`git mv algo/hnet_outer_stage.py → algo/packed_outer_stage.py` (R098 rename).
+Importers (`packed_base.py`, scripts) + 7 hnet config `_target_`s flipped in the
+SAME commit. No shim.
+
+### 5. Hygiene
+`__pycache__/` added to `.gitignore`. `tests/` import the role/real homes directly
+(`algo.bc`, `algo.packed_base`, `algo.zoo.pi`, `models.{hnet,cores,heads,stems}`).
+
+## Verification (a40 alloc 3325557, pact-2 symlinked .venv, PYTHONPATH=pact-2)
+
+| check | result |
+|---|---|
+| model config compose (`--cfg job`) | **37/37 PASS, 0 FAIL** (7 BC + 7 HNet incl obs_ar/_large + 13 DFoT/pixel + 5 VAE + 4 zoo act/hpt + pi0.5_base) |
+| pytest tests/ — post-flip | **122 passed, 8 failed, 4 skipped** |
+| pytest tests/ — pre-flip baseline (tag) | **122 passed, 8 failed, 4 skipped** — IDENTICAL 8 (pre-existing `TestAlgoWiring` old-signature fails), **ZERO new** |
+| state_dict parity vs pre-flip worktree | LSTM (137 keys/23.5M), HNet (352/33.8M), chunk8-Q (220/26.6M) — **all `torch.equal`** |
+| SMOKE=1 sbatch train_bc_rnn_hnet.sh e2e | **TRAIN_EXIT=0** (job 3325560) |
+| `git grep _hnet_vendored` (code) | clean (docs only) |
+
+## git delta
+86 files changed, 263 insertions(+), 986 deletions(-) — 10 shims deleted, 1 rename
+(`hnet_outer_stage.py` → `packed_outer_stage.py`), 304 dormant lines quarantined.

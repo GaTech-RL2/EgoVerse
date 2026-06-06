@@ -24,13 +24,13 @@ import time
 import torch
 from torch.utils.data import DataLoader
 
-from egomimic.algo.hnet import HNet as HNetAlgo
-from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
-from egomimic.models.hnet_nets.hnet import (
+from egomimic.algo.packed_base import HNet as HNetAlgo
+from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.hnet.hnet import (
     HNet as HNetCore,
 )
-from egomimic.models.hnet_nets.image_encoders import SimpleConv
-from egomimic.models.hnet_nets.stages import (
+from egomimic.models.hnet.image_encoders import SimpleConv
+from egomimic.models.hnet.stages import (
     ChunkerStage,
     ComputeStage,
     EncoderDecoderStage,

@@ -30,9 +30,9 @@ import torch.nn as nn
 
 from egomimic.models.stems.input_modules import ActionInToken, InputModule
 from egomimic.algo.outer_stage import OuterStage
-from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
-from egomimic.models.hnet_nets.context import HNetContext
-from egomimic.models.hnet_nets.hnet import HNet as HNetCore
+from egomimic.models.hnet.cond_encoders import CondEncoderModule
+from egomimic.models.hnet.context import HNetContext
+from egomimic.models.hnet.hnet import HNet as HNetCore
 
 
 class HNetOuterStage(OuterStage):

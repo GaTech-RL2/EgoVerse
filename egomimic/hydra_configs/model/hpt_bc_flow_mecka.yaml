@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.hpt.HPT
+  _target_: egomimic.algo.zoo.hpt.HPT
   camera_transforms:
     mecka_bimanual:
       _target_: egomimic.utils.egomimicUtils.CameraTransforms

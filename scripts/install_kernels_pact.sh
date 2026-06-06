@@ -47,7 +47,7 @@ uv pip install --no-deps --no-build-isolation \
 .venv/bin/python -c "
 import torch
 print(\"torch:\", torch.__version__, \"cuda:\", torch.version.cuda)
-from egomimic.models.hnet_nets.blocks import has_flash_attn, has_mamba
-from egomimic.models.hnet_nets.routing import has_mamba_scan
+from egomimic.models.hnet.blocks import has_flash_attn, has_mamba
+from egomimic.models.hnet.routing import has_mamba_scan
 print(\"flash_attn:\", has_flash_attn(), \"mamba:\", has_mamba(), \"mamba_scan:\", has_mamba_scan())
 "

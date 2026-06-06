@@ -14,7 +14,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # so the action is jointly predicted.
 
 robomimic_model:
-  _target_: egomimic.algo.dfot.DFoT
+  _target_: egomimic.algo.diffusion.DFoT
   action_dim: 2
   action_horizon: 32
 
@@ -32,7 +32,7 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.dfot.ObsActionImageDFoTOuterStage
+    _target_: egomimic.algo.diffusion.ObsActionImageDFoTOuterStage
     action_dim: 2
     cond_output_key: "fused_cond"
     action_in_bundle: false      # <-- world model: action is conditioning
@@ -45,7 +45,7 @@ robomimic_model:
     # cond_encoder stays empty -- the image is in the bundle, and the action
     # is supplied directly as external_cond by the outer stage's encode().
     cond_encoder:
-      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      _target_: egomimic.models.hnet.cond_encoders.CondEncoderModule
       d_cond: 512
       output_key: "fused_cond"
       cond_proj_widths: [512, 512]
@@ -54,7 +54,7 @@ robomimic_model:
 
     # Bundle width = 5 + 144 = 149 (no action). Action (2D) -> external_cond.
     backbone:
-      _target_: egomimic.algo.dfot.DFoTBackbone
+      _target_: egomimic.models.diffusion.DFoTBackbone
       action_dim: 149
       action_horizon: 32
       d_model: 512
@@ -74,7 +74,7 @@ robomimic_model:
       causal: true
 
     diffusion:
-      _target_: egomimic.algo.dfot.continuous_diffusion.ContinuousDiffusion
+      _target_: egomimic.models.diffusion.diffusion.continuous_diffusion.ContinuousDiffusion
       action_dim: 149
       precond_scale: 0.25
       sigmoid_bias: -1.0
