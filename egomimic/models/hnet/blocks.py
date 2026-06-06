@@ -26,7 +26,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from egomimic.models.bc_rnn_nets._hnet_vendored.config import HNetConfig, get_stage_cfg
+from egomimic.models.hnet.config import HNetConfig, get_stage_cfg
 
 # Optional flash-attn varlen kernel.
 try:
@@ -137,7 +137,9 @@ def _rotate_half(x: torch.Tensor) -> torch.Tensor:
     return torch.cat((-x2, x1), dim=-1)
 
 
-def _apply_rotary(x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor) -> torch.Tensor:
+def _apply_rotary(
+    x: torch.Tensor, cos: torch.Tensor, sin: torch.Tensor
+) -> torch.Tensor:
     """Apply RoPE to the leading ``rotary_dim`` channels of ``x``.
 
     Mirrors ``flash_attn.layers.rotary.apply_rotary_emb_torch`` (non-interleaved,
@@ -277,20 +279,14 @@ class MultiHeadAttention(nn.Module):
             attn_mask = mask[:, None, None, :].to(dtype=torch.bool)
             attn_mask = attn_mask & attn_mask.transpose(-1, -2)
 
-        _W = getattr(self, "window", 0)
-        if _W > 0 and self.causal:
-            _p = torch.arange(q.shape[2], device=q.device)
-            _wm = ((_p[:, None] >= _p[None, :]) & (_p[:, None] - _p[None, :] < _W))[None, None]
-            attn_mask = _wm if attn_mask is None else (attn_mask & _wm)
-            out = F.scaled_dot_product_attention(
-                q, k, v, attn_mask=attn_mask,
-                dropout_p=self.dropout if self.training else 0.0, is_causal=False,
-            )
-        else:
-            out = F.scaled_dot_product_attention(
-                q, k, v, attn_mask=attn_mask,
-                dropout_p=self.dropout if self.training else 0.0, is_causal=self.causal,
-            )
+        out = F.scaled_dot_product_attention(
+            q,
+            k,
+            v,
+            attn_mask=attn_mask,
+            dropout_p=self.dropout if self.training else 0.0,
+            is_causal=self.causal,
+        )
         out = out.transpose(1, 2).reshape(B, L, D)
         return self.out_proj(out)
 
@@ -327,7 +323,6 @@ class MultiHeadAttention(nn.Module):
                 if max_seqlen is not None
                 else int((cu_seqlens[1:] - cu_seqlens[:-1]).max().item())
             )
-            _W = getattr(self, "window", 0)
             out = flash_attn_varlen_func(
                 q,
                 k,
@@ -338,7 +333,6 @@ class MultiHeadAttention(nn.Module):
                 max_seqlen_k=ms,
                 dropout_p=self.dropout if self.training else 0.0,
                 causal=self.causal,
-                window_size=((_W - 1, 0) if (_W > 0 and self.causal) else (-1, -1)),
             )
             # flash_attn returns (T_total, H, Dh)
             out = out.reshape(T_total, D)
@@ -355,9 +349,6 @@ class MultiHeadAttention(nn.Module):
         same_seq = seq_idx[:, None] == seq_idx[None, :]
         if self.causal:
             causal_mask = pos[:, None] >= pos[None, :]
-            _W = getattr(self, "window", 0)
-            if _W > 0:
-                causal_mask = causal_mask & (pos[:, None] - pos[None, :] < _W)
             attn_mask = (same_seq & causal_mask)[None, None]
         else:
             attn_mask = same_seq[None, None]
@@ -423,9 +414,6 @@ class MultiHeadAttention(nn.Module):
         max_T = cache.k.shape[2]
         pos = torch.arange(max_T, device=x.device)
         attn_mask = pos[None, :] < cache.offsets[:, None]
-        _W = getattr(self, "window", 0)
-        if _W > 0:
-            attn_mask = attn_mask & (pos[None, :] >= cache.offsets[:, None] - _W)
         attn_mask = attn_mask[:, None, None, :]
 
         # AR inference: never apply dropout regardless of training flag.
@@ -459,71 +447,9 @@ class CrossMultiHeadAttention(nn.Module):
         self.out_proj = nn.Linear(d_model, d_model, bias=True)
 
     def forward(self, x, cond_tokens, cu_seqlens=None, max_seqlen=None):
-        # PER-FRAME (run E): a 4D cond ``(B/T_total, L, M, d_cond)`` means each
-        # query token has its OWN private set of M spatial tokens (the spatial
-        # tokens of ITS frame). This is gated on rank=4 so the existing 3D
-        # chunk-path (a single shared (B, M, d_cond) set) stays byte-identical.
-        if cond_tokens.dim() == (4 if cu_seqlens is None else 3):
-            return self._forward_per_frame(x, cond_tokens, cu_seqlens)
         if cu_seqlens is not None:
             return self._forward_packed(x, cond_tokens, cu_seqlens, max_seqlen)
         return self._forward_padded(x, cond_tokens)
-
-    def _forward_per_frame(self, x, cond_tokens, cu_seqlens=None):
-        """Per-query-token-private cross-attention.
-
-        Padded:  x (B, L, d_model),       cond_tokens (B, L, M, d_cond).
-        Packed:  x (T_total, d_model),     cond_tokens (T_total, M, d_cond).
-
-        Query token i attends ONLY over its own frame's M spatial tokens — no
-        causal masking across frames (each token sees just its own frame, so
-        train (full seq) and AR-step (one token) are mathematically identical:
-        token i's output depends solely on x[i] and cond_tokens[i]).
-        """
-        if cu_seqlens is None:
-            B, L, _ = x.shape
-            M = cond_tokens.shape[2]
-            xf = x.reshape(B * L, 1, self.d_model)
-            cf = cond_tokens.reshape(B * L, M, self.d_cond)
-        else:
-            T_total = x.shape[0]
-            L = 1
-            M = cond_tokens.shape[1]
-            xf = x.reshape(T_total, 1, self.d_model)
-            cf = cond_tokens  # (T_total, M, d_cond)
-            B = T_total
-        N = xf.shape[0]
-        q = self.q_proj(xf).reshape(N, 1, self.num_heads, self.head_dim).transpose(1, 2)
-        kv = self.kv_proj(cf).reshape(N, M, 2, self.num_heads, self.head_dim)
-        k, v = kv.unbind(dim=2)
-        k = k.transpose(1, 2)
-        v = v.transpose(1, 2)
-        out = F.scaled_dot_product_attention(q, k, v)  # (N, H, 1, Dh)
-        out = out.transpose(1, 2).reshape(N, self.d_model)
-        out = self.out_proj(out)
-        if cu_seqlens is None:
-            return out.reshape(B, L, self.d_model)
-        return out  # (T_total, d_model)
-
-    def step_per_frame(self, x, cond_tokens):
-        """AR-step per-frame cross-attention (NO cache).
-
-        ``x``: (B, 1, d_model) current step's query token.
-        ``cond_tokens``: (B, M, d_cond) the current frame's M spatial tokens.
-
-        Identical math to ``_forward_per_frame`` for one query token, so the
-        AR rollout matches teacher-forced training exactly.
-        """
-        B = x.shape[0]
-        M = cond_tokens.shape[1]
-        q = self.q_proj(x).reshape(B, 1, self.num_heads, self.head_dim).transpose(1, 2)
-        kv = self.kv_proj(cond_tokens).reshape(B, M, 2, self.num_heads, self.head_dim)
-        k, v = kv.unbind(dim=2)
-        k = k.transpose(1, 2)
-        v = v.transpose(1, 2)
-        out = F.scaled_dot_product_attention(q, k, v)
-        out = out.transpose(1, 2).reshape(B, 1, self.d_model)
-        return self.out_proj(out)
 
     def _forward_padded(self, x, cond_tokens):
         B, T_q, _ = x.shape
@@ -560,9 +486,6 @@ class CrossMultiHeadAttention(nn.Module):
         same_seq = seq_idx[:, None] == seq_idx[None, :]
         if self.causal:
             causal_mask = pos[:, None] >= pos[None, :]
-            _W = getattr(self, "window", 0)
-            if _W > 0:
-                causal_mask = causal_mask & (pos[:, None] - pos[None, :] < _W)
             attn_mask = (same_seq & causal_mask)[None, None]
         else:
             attn_mask = same_seq[None, None]
@@ -648,6 +571,27 @@ class TransformerBlock(nn.Module):
         per-token shape contract as adaln. ``causal=True`` constrains the
         action token at position t to attend only to cond_<=t (matching
         teacher-forcing semantics).
+
+    Per-token AdaLN flag (``adaln_per_token``):
+      Optional, flag-gated contract for AdaLN. When ``False`` (default) the
+      block accepts the historical sequence-level cond shape ``(B, d_cond)``
+      and broadcasts (scale, shift) across all T tokens; per-token cond
+      ``(B, T, d_cond)`` is still accepted (the shape-flexible ``_adaln``
+      broadcasts correctly in both modes). When ``True`` the block REQUIRES
+      a per-token cond ``(B, T, d_cond)`` / ``(T_total, d_cond)`` and asserts
+      the contract — used by DFoT where every token has its own noise level.
+
+      Sanity check (padded mode, d_model=8, T=4)::
+
+          # Per-sequence (default): cond (B, d_cond) -> scale (B, d_model).
+          blk = TransformerBlock(d_model=8, num_heads=2, d_cond=4)
+          blk(torch.randn(2, 4, 8), cond=torch.randn(2, 4))   # OK
+
+          # Per-token (DFoT): cond (B, T, d_cond) -> scale (B, T, d_model).
+          blk = TransformerBlock(
+              d_model=8, num_heads=2, d_cond=4, adaln_per_token=True,
+          )
+          blk(torch.randn(2, 4, 8), cond=torch.randn(2, 4, 4))  # OK
     """
 
     def __init__(
@@ -661,6 +605,7 @@ class TransformerBlock(nn.Module):
         rotary_emb_dim: int = 0,
         dropout: float = 0.0,
         resid_dropout: float = 0.0,
+        adaln_per_token: bool = False,
     ):
         super().__init__()
         self.has_mlp = d_intermediate > 0
@@ -669,6 +614,11 @@ class TransformerBlock(nn.Module):
         self.cond_mode = cond_mode if self.has_cond else "none"
         if self.cond_mode not in ("adaln", "cross_attn", "none"):
             raise ValueError(f"Unknown cond_mode: {self.cond_mode}")
+        # ``adaln_per_token`` is a contract flag only — it doesn't change the
+        # AdaLN math (``_adaln`` already broadcasts shape-flexibly). When set,
+        # ``forward`` asserts the cond shape matches x's per-token layout so
+        # DFoT-style callers fail fast if they accidentally pass (B, d_cond).
+        self.adaln_per_token = bool(adaln_per_token)
         self.norm1 = RMSNorm(d_model)
         # F6: plumb rotary_emb_dim into the self-attn mixer. Cross-attn (cond
         # tokens) intentionally does NOT use RoPE — cond positions are per-
@@ -702,6 +652,12 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x, mask=None, cond=None, cu_seqlens=None, max_seqlen=None):
         # Self-attention.
+        if self.adaln_per_token and self.cond_mode == "adaln" and cond is not None:
+            assert cond.dim() == x.dim(), (
+                f"adaln_per_token=True requires cond shape matching x's "
+                f"per-token layout (got cond.dim()={cond.dim()}, "
+                f"x.dim()={x.dim()})"
+            )
         h = self.norm1(x)
         if self.cond_mode == "adaln" and cond is not None:
             s, b = self.adaln1(cond)
@@ -714,9 +670,7 @@ class TransformerBlock(nn.Module):
         if self.cond_mode == "cross_attn" and cond is not None:
             h = self.cross_norm(x)
             x = x + self.cross_resid_drop(
-                self.cross_attn(
-                    h, cond, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen
-                )
+                self.cross_attn(h, cond, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
             )
 
         # MLP.
@@ -772,26 +726,17 @@ class TransformerBlock(nn.Module):
 
         # Cross-attention.
         if self.cond_mode == "cross_attn" and cond is not None:
+            assert (
+                cross_cache is not None
+            ), "cond_mode=cross_attn requires a cross-attn cache"
+            # Accept both (B, d_cond) and (B, 1, d_cond) — the per-step cond
+            # slice from the policy comes through as 2D; cross_attn.step wants
+            # an explicit time dim.
+            cond_curr = cond.unsqueeze(1) if cond.dim() == 2 else cond
             h = self.cross_norm(x)
-            if cond.dim() == 3:
-                # PER-FRAME (run E): cond is (B, M, d_cond) — the current
-                # frame's M spatial tokens. No cache: each step attends over
-                # JUST its own frame's tokens (matches _forward_per_frame), so
-                # AR == teacher-forced exactly.
-                x = x + self.cross_resid_drop(
-                    self.cross_attn.step_per_frame(h, cond)
-                )
-            else:
-                assert (
-                    cross_cache is not None
-                ), "cond_mode=cross_attn requires a cross-attn cache"
-                # Accept both (B, d_cond) and (B, 1, d_cond) — the per-step cond
-                # slice from the policy comes through as 2D; cross_attn.step wants
-                # an explicit time dim.
-                cond_curr = cond.unsqueeze(1) if cond.dim() == 2 else cond
-                x = x + self.cross_resid_drop(
-                    self.cross_attn.step(h, cond_curr, cross_cache)
-                )
+            x = x + self.cross_resid_drop(
+                self.cross_attn.step(h, cond_curr, cross_cache)
+            )
 
         # MLP.
         if self.has_mlp:
@@ -839,7 +784,12 @@ class Mamba2Mixer(nn.Module):
             seq_idx so the inner scan resets at sub-sequence boundaries.
         """
         if cu_seqlens is not None:
-            x3 = x.unsqueeze(0)
+            # ``causal_conv1d`` (>=1.6) requires channel-last contiguous
+            # layout when ``seq_idx`` is provided. ``x.unsqueeze(0)`` gives a
+            # non-contiguous view; force a real contiguous copy in
+            # ``(1, T_total, D)`` layout so the conv kernel doesn't fail
+            # with ``seq_idx is only supported for channel last layout``.
+            x3 = x.unsqueeze(0).contiguous()
             pos = torch.arange(x3.shape[1], device=x.device)
             seq_idx = (pos[:, None] >= cu_seqlens[None, 1:]).sum(dim=-1).to(torch.int32)
             seq_idx = seq_idx.unsqueeze(0)  # (1, T_total)

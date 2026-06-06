@@ -3,7 +3,7 @@ Dev smoke test for the stage-based H-Net.
 
 Run via:
 
-    python -m egomimic.models.hnet_nets._smoke_stages
+    python -m egomimic.models.hnet._smoke_stages
 
 Builds a tiny 3-stage tree (EncoderDecoder → Chunker → Compute), runs a
 forward pass with dummy actions + cond_dict, verifies output shape and that
@@ -13,9 +13,9 @@ all T tokens and compares to the cached forward output.
 
 import torch
 
-from egomimic.models.hnet_nets.context import HNetContext
-from egomimic.models.hnet_nets.hnet import HNet, ratio_loss_from_aux
-from egomimic.models.hnet_nets.stages import (
+from egomimic.models.hnet.context import HNetContext
+from egomimic.models.hnet.hnet import HNet, ratio_loss_from_aux
+from egomimic.models.hnet.stages import (
     ChunkerStage,
     ComputeStage,
     EncoderDecoderStage,

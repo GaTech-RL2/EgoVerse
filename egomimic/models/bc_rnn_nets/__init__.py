@@ -15,16 +15,19 @@ A clean, self-contained package for the BC-RNN policy. Pieces:
                        chunks over frames, with an inner ComputeStage in the
                        compressed space) over the same rnn_horizon obs window
                        (same interface; obs-only, NO past-action input; CAUSAL).
-                       Selected via ``core: hnet``. NOTE (EgoVerse-pact-2): the
-                       H-Net machinery HNetCore imports lives in the LOCAL
-                       ``egomimic.models.bc_rnn_nets._hnet_vendored`` package
-                       (a verbatim vendored copy of EgoVerse2's
-                       ``hnet_nets/{context,hnet,stages,blocks,routing,config,
-                       isotropic_builder}.py``), NOT pact-2's own
-                       ``egomimic.models.hnet_nets`` -- the pact tree's
-                       hnet_nets diverged (PACT branch) so the core is decoupled
-                       from it, mirroring the ``visual_core`` precedent. See
-                       PORT_NOTES.md delta section.
+                       Selected via ``core: hnet``. NOTE (EgoVerse-pact-2,
+                       DESIGN.md steps 3-4): HNetCore now imports the CANONICAL
+                       H-Net stage tree at ``egomimic.models.hnet`` -- the pact
+                       SUPERSET (cross-attn + ``residual_scale`` +
+                       ``causal_conv1d`` + ``adaln_per_token``; verified the
+                       cross-attn / AdaLN / window flags all default OFF, so the
+                       obs-only core never touches the diverged paths and its
+                       fixed-seed forward is bit-identical to the old vendored
+                       copy). The former local
+                       ``bc_rnn_nets._hnet_vendored`` dup (an inferior subset)
+                       was deleted in the collapse; the legacy
+                       ``egomimic.models.hnet_nets`` import path stays alive via
+                       a thin facade shim until DESIGN.md step 13.
 * ``QueryActionDecoder`` -- ACT/HPT-style action-query chunk readout: chunk_len
                        learnable queries refined by self-attn(queries) + causal
                        cross-attn over the core's per-step features, then a

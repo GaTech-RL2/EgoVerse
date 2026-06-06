@@ -20,8 +20,8 @@ A spec dict looks like::
 
 from typing import Any, Dict
 
-from egomimic.models.bc_rnn_nets._hnet_vendored.blocks import Isotropic
-from egomimic.models.bc_rnn_nets._hnet_vendored.config import AttnConfig, HNetConfig, SSMConfig
+from egomimic.models.hnet.blocks import Isotropic
+from egomimic.models.hnet.config import AttnConfig, HNetConfig, SSMConfig
 
 
 def build_isotropic(

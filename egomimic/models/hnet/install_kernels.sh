@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Optional kernel deps for egomimic/models/hnet_nets.
+# Optional kernel deps for egomimic/models/hnet.
 #
 # The H-Net code runs without these (pure-PyTorch fallbacks), but installing
 # them unlocks:
@@ -18,7 +18,7 @@
 #   - ninja (for fused build)
 #
 # Usage:
-#   bash egomimic/models/hnet_nets/install_kernels.sh
+#   bash egomimic/models/hnet/install_kernels.sh
 #
 # Pinned versions reflect the upstream H-Net repo's known-good combo. Bump
 # them only if you've validated against your CUDA / PyTorch combo.
@@ -64,8 +64,8 @@ check("mamba_chunk_scan",   "from mamba_ssm.ops.triton.ssd_combined import mamba
 check("flash_attn_varlen",  "from flash_attn import flash_attn_varlen_func")
 
 import torch
-from egomimic.models.hnet_nets.blocks  import has_flash_attn, has_mamba
-from egomimic.models.hnet_nets.routing import has_mamba_scan
+from egomimic.models.hnet.blocks  import has_flash_attn, has_mamba
+from egomimic.models.hnet.routing import has_mamba_scan
 print(f"\nRuntime detection:")
 print(f"  has_flash_attn  = {has_flash_attn()}")
 print(f"  has_mamba       = {has_mamba()}")

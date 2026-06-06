@@ -96,9 +96,9 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from egomimic.models.bc_rnn_nets._hnet_vendored.context import HNetContext
-from egomimic.models.bc_rnn_nets._hnet_vendored.hnet import HNet
-from egomimic.models.bc_rnn_nets._hnet_vendored.stages import (
+from egomimic.models.hnet.context import HNetContext
+from egomimic.models.hnet.hnet import HNet
+from egomimic.models.hnet.stages import (
     ChunkerStage,
     ComputeStage,
     EncoderDecoderStage,

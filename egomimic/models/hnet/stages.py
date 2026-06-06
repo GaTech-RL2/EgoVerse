@@ -35,14 +35,14 @@ from typing import Any, Dict, Optional
 import torch
 import torch.nn as nn
 
-from egomimic.models.bc_rnn_nets._hnet_vendored.blocks import (
+from egomimic.models.hnet.blocks import (
     IsotropicInferenceParams,
     KVCache,
     MambaCache,
 )
-from egomimic.models.bc_rnn_nets._hnet_vendored.context import HNetContext
-from egomimic.models.bc_rnn_nets._hnet_vendored.isotropic_builder import build_isotropic
-from egomimic.models.bc_rnn_nets._hnet_vendored.routing import (
+from egomimic.models.hnet.context import HNetContext
+from egomimic.models.hnet.isotropic_builder import build_isotropic
+from egomimic.models.hnet.routing import (
     ChunkLayer,
     DeChunkLayer,
     DeChunkState,
@@ -287,7 +287,7 @@ class _BaseStage(nn.Module):
         outer stage gets ``lr_multipliers[stage_idx]``; ``inner_stage`` gets
         ``stage_idx + 1``. Indexing past the list is a config error.
         """
-        from egomimic.models.bc_rnn_nets._hnet_vendored.hnet import apply_optimization_params
+        from egomimic.models.hnet.hnet import apply_optimization_params
 
         if stage_idx >= len(lr_multipliers):
             raise IndexError(
@@ -481,6 +481,10 @@ class ChunkerStage(_BaseStage):
         nn.init.zeros_(self.residual_proj.weight)
         nn.init.zeros_(self.residual_proj.bias)
         self.residual_proj.weight._no_reinit = True
+        # Anneal-able scalar gate on the skip path; default 1.0 = upstream behaviour.
+        # A Lightning callback (ChunkerResidualScheduler) can drive this over training
+        # steps to suppress the skip path early so the inner trunk must do real work.
+        self.residual_scale: float = 1.0
 
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
         if ctx.packed:
@@ -493,7 +497,7 @@ class ChunkerStage(_BaseStage):
         mask = torch.ones(B, T, dtype=torch.bool, device=x.device)
 
         bpred = self.routing_module(x, mask=mask)
-        residual = self.residual_proj(x.float())
+        residual = self.residual_scale * self.residual_proj(x.float())
 
         chunked, _next_cu, next_max, next_mask = self.chunk_layer(
             x,
@@ -547,7 +551,7 @@ class ChunkerStage(_BaseStage):
         cu = ctx.cu_seqlens
 
         bpred = self.routing_module(x, cu_seqlens=cu)
-        residual = self.residual_proj(x.float())
+        residual = self.residual_scale * self.residual_proj(x.float())
 
         chunked, next_cu, next_max, _ = self.chunk_layer(
             x,
@@ -599,7 +603,7 @@ class ChunkerStage(_BaseStage):
 
     def step(self, x: torch.Tensor, ctx: HNetContext, state: ChunkerStageState):
         bpred = self.routing_module.step(x, state.routing_state)
-        residual = self.residual_proj(x.float())
+        residual = self.residual_scale * self.residual_proj(x.float())
 
         inner_in = self.chunk_layer.step(x, bpred.boundary_mask)
         if inner_in.shape[0] > 0:

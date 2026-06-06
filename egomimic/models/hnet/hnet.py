@@ -22,8 +22,8 @@ from typing import List
 import torch
 import torch.nn as nn
 
-from egomimic.models.bc_rnn_nets._hnet_vendored.context import HNetContext
-from egomimic.models.bc_rnn_nets._hnet_vendored.stages import _BaseStage
+from egomimic.models.hnet.context import HNetContext
+from egomimic.models.hnet.stages import _BaseStage
 
 
 def apply_optimization_params(param: torch.Tensor, **kwargs) -> None:
@@ -61,7 +61,7 @@ class HNet(nn.Module):
             # outer working dim (== input_hidden_dim). For ChunkerStage the
             # inner stage runs in the chunked space at output_hidden_dim
             # (after the explicit proj_in).
-            from egomimic.models.bc_rnn_nets._hnet_vendored.stages import ChunkerStage as _CS
+            from egomimic.models.hnet.stages import ChunkerStage as _CS
 
             expected = (
                 stages[i].output_hidden_dim
