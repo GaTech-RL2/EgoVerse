@@ -18,7 +18,7 @@ robomimic_model:
     action_head_type: linear
 
     input_modules:
-      - _target_: egomimic.algo.input_modules.ObsToken
+      - _target_: egomimic.models.stems.input_modules.ObsToken
         d_model: 256
         obs_encoder:
           _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule

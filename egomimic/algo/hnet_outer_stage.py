@@ -28,7 +28,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
-from egomimic.algo.input_modules import ActionInToken, InputModule
+from egomimic.models.stems.input_modules import ActionInToken, InputModule
 from egomimic.algo.outer_stage import OuterStage
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.models.hnet_nets.context import HNetContext

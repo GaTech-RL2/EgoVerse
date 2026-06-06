@@ -20,7 +20,7 @@ robomimic_model:
 
     # Single ObsToken input module (no ActionInToken).
     input_modules:
-      - _target_: egomimic.algo.input_modules.ObsToken
+      - _target_: egomimic.models.stems.input_modules.ObsToken
         d_model: 128
         obs_encoder:
           _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule

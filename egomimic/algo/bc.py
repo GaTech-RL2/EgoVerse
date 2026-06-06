@@ -47,7 +47,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.algo.algo import Algo
-from egomimic.algo.hnet import HNet
+from egomimic.algo.packed_base import HNet
 from egomimic.models.bc_rnn_nets import (
     GMMActionHead,
     HNetCore,
