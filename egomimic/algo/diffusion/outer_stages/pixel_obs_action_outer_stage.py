@@ -124,37 +124,10 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
         )
 
     # ------------------------------------------------------------------ #
-    # policy + regress: joint image/action frame sampling per packed episode
+    # joint image/action frame sampling per packed episode:
+    # ``_sample_windows_packed`` now lives on the parent
+    # ``PixelSpatialDFoTOuterStage`` (dedup collapse c7) — inherited here.
     # ------------------------------------------------------------------ #
-    def _sample_windows_packed(self, images, actions, cu):
-        """Frame-sample images AND actions IDENTICALLY per packed episode, so the
-        action at frame t always lines up with image t after cropping."""
-        b = cu.shape[0] - 1
-        n = self._sample_n_frames
-        mode = self._frame_sampling
-        img_crops, act_crops = [], []
-        for i in range(b):
-            s, e = int(cu[i].item()), int(cu[i + 1].item())
-            L = e - s
-            if mode == "fixed_window" and L > n:
-                st = int(torch.randint(0, L - n + 1, (1,)).item())
-                sl = slice(s + st, s + st + n)
-            elif mode == "start_to_end" and L > n:
-                st = int(torch.randint(0, L - n + 1, (1,)).item())
-                sl = slice(s + st, e)
-            elif mode == "random_subsample" and L > n:
-                idx = torch.randperm(L)[:n].sort().values
-                img_crops.append(images[s + idx])
-                act_crops.append(actions[s + idx])
-                continue
-            else:
-                sl = slice(s, e)
-            img_crops.append(images[sl])
-            act_crops.append(actions[sl])
-        new_cu = torch.zeros(b + 1, dtype=cu.dtype, device=cu.device)
-        for i, c in enumerate(img_crops):
-            new_cu[i + 1] = new_cu[i] + c.shape[0]
-        return torch.cat(img_crops, 0), torch.cat(act_crops, 0), new_cu
 
     # ------------------------------------------------------------------ #
     # decoupled: per-tensor q_state helper

@@ -405,17 +405,8 @@ class DFoT(Algo):
             sample_kwargs["action_dim"] = outer.bundle_dim
         return _sample(self.diffusion, self.backbone, **sample_kwargs)
 
-    @override
-    def compute_losses(self, predictions, batch):
-        total = torch.tensor(0.0, device=self.device)
-        loss_dict = OrderedDict()
-        for emb_id in batch.keys():
-            a = predictions[f"{emb_id}_action_loss"]
-            loss_dict[f"emb{emb_id}_action_loss"] = a
-            total = total + a
-        loss_dict["action_loss"] = total / max(len(batch), 1)
-        return loss_dict
-
+    # compute_losses is inherited from Algo (collapse c7 — the pure
+    # sum-per-embodiment {emb}_action_loss reducer is now the Algo default).
     # log_info is inherited from Algo (collapse c5 — byte-identical default).
 
     # ---- Sim eval hook ---- #

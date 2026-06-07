@@ -80,53 +80,64 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
             img = img.float()
         return img
 
+    def _sample_windows_packed(self, images, actions, cu):
+        """Frame-sample images (and OPTIONALLY actions) IDENTICALLY per packed
+        episode, so the action at frame t always lines up with image t after
+        cropping.
+
+        This is the SUPERSET sampler shared by the image-only base stage and
+        the image+action subclass (dedup collapse c7). Passing ``actions=None``
+        makes it the pure image-only frame sampler — the image cropping +
+        cu_seqlens are byte-identical whether or not actions are supplied (the
+        action branch performs no extra RNG draws), proven by
+        ``tests/test_c7_sampler_reducer_equality``.
+
+        Returns ``(sampled_images, sampled_actions_or_None, new_cu)``.
+        """
+        has_act = actions is not None
+        b = cu.shape[0] - 1
+        n = self._sample_n_frames
+        mode = self._frame_sampling
+        img_crops, act_crops = [], []
+        for i in range(b):
+            s, e = int(cu[i].item()), int(cu[i + 1].item())
+            L = e - s
+            if mode == "fixed_window" and L > n:
+                st = int(torch.randint(0, L - n + 1, (1,)).item())
+                sl = slice(s + st, s + st + n)
+            elif mode == "start_to_end" and L > n:
+                st = int(torch.randint(0, L - n + 1, (1,)).item())
+                sl = slice(s + st, e)
+            elif mode == "random_subsample" and L > n:
+                idx = torch.randperm(L)[:n].sort().values
+                img_crops.append(images[s + idx])
+                if has_act:
+                    act_crops.append(actions[s + idx])
+                continue
+            else:
+                sl = slice(s, e)
+            img_crops.append(images[sl])
+            if has_act:
+                act_crops.append(actions[sl])
+        new_cu = torch.zeros(b + 1, dtype=cu.dtype, device=cu.device)
+        for i, c in enumerate(img_crops):
+            new_cu[i + 1] = new_cu[i] + c.shape[0]
+        sampled_act = torch.cat(act_crops, 0) if has_act else None
+        return torch.cat(img_crops, 0), sampled_act, new_cu
+
     def _sample_frames_packed(
         self, images: torch.Tensor, cu_seqlens: torch.Tensor
     ):
-        """Sample frames from each packed episode according to frame_sampling mode.
+        """Image-only frame sampler — thin delegate to the action-aware
+        superset ``_sample_windows_packed`` with ``actions=None`` (dedup
+        collapse c7; the standalone duplicated loop was removed after proving
+        byte-identical output across all sampling modes).
 
         Returns:
             sampled: (T_new, C, H, W) re-packed sampled frames.
             new_cu: (B+1,) updated cu_seqlens.
         """
-        B = cu_seqlens.shape[0] - 1
-        n = self._sample_n_frames
-        mode = self._frame_sampling
-        crops = []
-
-        for i in range(B):
-            s, e = int(cu_seqlens[i].item()), int(cu_seqlens[i + 1].item())
-            ep_len = e - s
-
-            if mode == "fixed_window":
-                if ep_len <= n:
-                    crops.append(images[s:e])
-                else:
-                    start = torch.randint(0, ep_len - n + 1, (1,)).item()
-                    crops.append(images[s + start : s + start + n])
-
-            elif mode == "start_to_end":
-                if ep_len <= n:
-                    crops.append(images[s:e])
-                else:
-                    start = torch.randint(0, ep_len - n + 1, (1,)).item()
-                    crops.append(images[s + start : e])
-
-            elif mode == "random_subsample":
-                if ep_len <= n:
-                    crops.append(images[s:e])
-                else:
-                    indices = torch.randperm(ep_len)[:n].sort().values
-                    crops.append(images[s + indices])
-
-            else:
-                crops.append(images[s:e])
-
-        sampled = torch.cat(crops, dim=0)
-        lengths = [c.shape[0] for c in crops]
-        new_cu = torch.zeros(B + 1, dtype=cu_seqlens.dtype, device=cu_seqlens.device)
-        for i, l in enumerate(lengths):
-            new_cu[i + 1] = new_cu[i] + l
+        sampled, _, new_cu = self._sample_windows_packed(images, None, cu_seqlens)
         return sampled, new_cu
 
     def encode(self, batch: dict, ctx: SimpleNamespace) -> torch.Tensor:

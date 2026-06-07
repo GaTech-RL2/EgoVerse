@@ -1,5 +1,7 @@
 from collections import OrderedDict
 
+import torch
+
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 
@@ -117,8 +119,23 @@ class Algo:
         Returns:
             losses (dict): dictionary of losses computed over the batch
                 loss_key_name: torch.Tensor (1)
+
+        Default reducer (dedup collapse c7): sum each embodiment's
+        ``{emb_id}_action_loss`` prediction into the aggregate ``action_loss``
+        (mean over present embodiments), exposing each per-embodiment term as
+        ``emb{emb_id}_action_loss``. This is the pure skeleton shared by the
+        DFoT algo; subclasses whose loss carries *extra* terms (VAE
+        recon/kl/lpips, HNet ratio_loss, HPT/PI domain-count division) still
+        override with their own superset reducer.
         """
-        raise NotImplementedError("Must implement compute_losses in subclass")
+        total = torch.tensor(0.0, device=self.device)
+        loss_dict = OrderedDict()
+        for emb_id in batch.keys():
+            a = predictions[f"{emb_id}_action_loss"]
+            loss_dict[f"emb{emb_id}_action_loss"] = a
+            total = total + a
+        loss_dict["action_loss"] = total / max(len(batch), 1)
+        return loss_dict
 
     def log_info(self, info):
         """
