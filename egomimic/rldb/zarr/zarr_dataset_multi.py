@@ -34,12 +34,21 @@ from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
-import simplejpeg
 import torch
 import zarr
 from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+# Shared read/decode helpers used by BOTH loader paths (padded __getitem__ and
+# packed _read_span). See _common.py + tests/test_loader_equality.py.
+from egomimic.rldb.zarr._common import (
+    decode_jpeg_single,
+    decode_jpeg_window,
+    decode_json_array,
+    tag_embodiment,
+    tensorize_float32,
+)
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
@@ -1575,13 +1584,9 @@ class ZarrDataset(torch.utils.data.Dataset):
             arr = self.episode_reader.read({zarr_key: (start, end)})[zarr_key]
 
             if zarr_key in self._image_keys:
-                decoded_frames = []
-                for jpeg_bytes in arr:
-                    decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
-                    decoded_frames.append(np.transpose(decoded, (2, 0, 1)) / 255.0)
-                arr = np.stack(decoded_frames, axis=0)
+                arr = decode_jpeg_window(arr)
             elif zarr_key in self._json_keys:
-                arr = [self._decode_json_entry(v) for v in arr]
+                arr = decode_json_array(arr, self._decode_json_entry)
 
             data[k] = arr
 
@@ -1589,13 +1594,10 @@ class ZarrDataset(torch.utils.data.Dataset):
             for transform in self.transform:
                 data = transform.transform(data)
 
-        for k, v in list(data.items()):
-            if isinstance(v, np.ndarray) and v.dtype != object:
-                data[k] = torch.from_numpy(v).to(torch.float32)
+        tensorize_float32(data, skip_object_dtype=True)
 
         data["seq_len"] = seq_len
-        data["embodiment"] = get_embodiment_id(self.embodiment)
-        data["metadata.robot_name"] = get_embodiment_id(self.embodiment)
+        tag_embodiment(data, self.embodiment)
         if episode_idx is not None:
             data["episode_idx"] = int(episode_idx)
         return data
@@ -1659,26 +1661,20 @@ class ZarrDataset(torch.utils.data.Dataset):
                     try:
                         if horizon is not None and horizon > 1:
                             # Windowed image read: jpeg_bytes is an array of
-                            # per-frame JPEG buffers. Decode each frame
-                            # individually (simplejpeg can't vectorize across
-                            # the buffer-array dtype). Matches _read_span.
-                            frames = []
-                            for buf in jpeg_bytes:
-                                decoded = simplejpeg.decode_jpeg(buf, colorspace="RGB")
-                                frames.append(np.transpose(decoded, (2, 0, 1)) / 255.0)
-                            data[k] = np.stack(frames, axis=0)
+                            # per-frame JPEG buffers. decode_jpeg_window decodes
+                            # each frame individually (simplejpeg can't
+                            # vectorize across the buffer-array dtype) and
+                            # stacks — same path _read_span uses.
+                            data[k] = decode_jpeg_window(jpeg_bytes)
                         else:
-                            decoded = simplejpeg.decode_jpeg(
-                                jpeg_bytes, colorspace="RGB"
-                            )
-                            data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
+                            data[k] = decode_jpeg_single(jpeg_bytes)
                     except Exception:
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
-                        data[k] = [self._decode_json_entry(v) for v in data[k]]
+                        data[k] = decode_json_array(data[k], self._decode_json_entry)
                     else:
                         data[k] = self._decode_json_entry(data[k])
             if retry:
@@ -1688,12 +1684,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 for transform in self.transform or []:
                     data = transform.transform(data)
 
-            for k, v in data.items():
-                if isinstance(v, np.ndarray):
-                    data[k] = torch.from_numpy(v).to(torch.float32)
+            tensorize_float32(data, skip_object_dtype=False)
 
-            data["metadata.robot_name"] = get_embodiment_id(self.embodiment)
-            data["embodiment"] = get_embodiment_id(self.embodiment)
+            tag_embodiment(data, self.embodiment)
             _ = origin  # preserved for symmetry with prior API
             return data
 
