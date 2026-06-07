@@ -165,33 +165,9 @@ class DFoT(Algo):
         self.nets = nn.ModuleDict({"outer_stage": outer_stage, "loss": loss})
         self.nets = self.nets.float().to(self.device)
 
-        # Resolve per-embodiment keys via norm_stats (HNet-style).
-        self.embodiment_ids = {}
-        self.proprio_keys = {}
-        self.lang_keys = {}
-        self.camera_keys = {}
-        self.resolved_ac_keys = {}
-        for emb in self.domains:
-            emb_id = get_embodiment_id(emb)
-            self.embodiment_ids[emb] = emb_id
-            self.proprio_keys[emb_id] = []
-            self.lang_keys[emb_id] = []
-            self.camera_keys[emb_id] = []
-            for key in norm_stats.keys_of_type("action_keys", emb_id):
-                if (
-                    norm_stats.is_key_with_embodiment(key, emb_id)
-                    and key == self.ac_keys[emb]
-                ):
-                    self.resolved_ac_keys[emb_id] = key
-            for key in norm_stats.keys_of_type("proprio_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.proprio_keys[emb_id].append(key)
-            for key in norm_stats.keys_of_type("lang_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.lang_keys[emb_id].append(key)
-            for key in norm_stats.keys_of_type("camera_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.camera_keys[emb_id].append(key)
+        # Resolve per-embodiment keys via norm_stats (HNet-style). Shared
+        # base helper (collapse c5): see Algo._resolve_embodiment_keys.
+        self._resolve_embodiment_keys(norm_stats)
 
     # ----- Convenience accessors so the inference-path code paths
     # (forward_eval, _sample_chunk, _inference_step_ar, _inference_step_chunk)
@@ -267,16 +243,7 @@ class DFoT(Algo):
                     processed[emb_id][key] = value
         return processed
 
-    def _build_obs(self, _batch, emb_id):
-        obs = {}
-        for key in (
-            self.proprio_keys[emb_id]
-            + self.lang_keys[emb_id]
-            + self.camera_keys[emb_id]
-        ):
-            if key in _batch:
-                obs[key] = _batch[key]
-        return obs
+    # _build_obs is inherited from Algo (collapse c5 — byte-identical).
 
     def _encode_cond(self, obs: dict, T: int) -> Optional[torch.Tensor]:
         """Encode obs to per-token cond. Honors per-frame obs (no reduction)."""
@@ -449,13 +416,7 @@ class DFoT(Algo):
         loss_dict["action_loss"] = total / max(len(batch), 1)
         return loss_dict
 
-    @override
-    def log_info(self, info):
-        log = OrderedDict()
-        log["Loss"] = info["losses"]["action_loss"].item()
-        for k, v in info["losses"].items():
-            log[k] = v.item()
-        return log
+    # log_info is inherited from Algo (collapse c5 — byte-identical default).
 
     # ---- Sim eval hook ---- #
     #

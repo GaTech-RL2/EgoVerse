@@ -485,33 +485,9 @@ class HNet(Algo):
         self.nets = self.nets.float().to(self.device)
 
         # Resolve per-embodiment keys via norm_stats (which owns the
-        # MultiDataset key topology — same surface HPT uses).
-        self.embodiment_ids = {}
-        self.proprio_keys = {}
-        self.lang_keys = {}
-        self.camera_keys = {}
-        self.resolved_ac_keys = {}
-        for emb in self.domains:
-            emb_id = get_embodiment_id(emb)
-            self.embodiment_ids[emb] = emb_id
-            self.proprio_keys[emb_id] = []
-            self.lang_keys[emb_id] = []
-            self.camera_keys[emb_id] = []
-            for key in norm_stats.keys_of_type("action_keys", emb_id):
-                if (
-                    norm_stats.is_key_with_embodiment(key, emb_id)
-                    and key == self.ac_keys[emb]
-                ):
-                    self.resolved_ac_keys[emb_id] = key
-            for key in norm_stats.keys_of_type("proprio_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.proprio_keys[emb_id].append(key)
-            for key in norm_stats.keys_of_type("lang_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.lang_keys[emb_id].append(key)
-            for key in norm_stats.keys_of_type("camera_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.camera_keys[emb_id].append(key)
+        # MultiDataset key topology — same surface HPT uses). Shared base
+        # helper (collapse c5): see Algo._resolve_embodiment_keys.
+        self._resolve_embodiment_keys(norm_stats)
 
     # ----- Convenience accessors so code that references the old
     # ``self.outer_stage`` / cond_encoder / hnet keeps working via
@@ -612,16 +588,7 @@ class HNet(Algo):
                     processed[emb_id][key] = value
         return processed
 
-    def _build_obs(self, _batch, emb_id):
-        obs = {}
-        for key in (
-            self.proprio_keys[emb_id]
-            + self.lang_keys[emb_id]
-            + self.camera_keys[emb_id]
-        ):
-            if key in _batch:
-                obs[key] = _batch[key]
-        return obs
+    # _build_obs is inherited from Algo (collapse c5 — byte-identical).
 
     @override
     def forward_training(self, batch):
@@ -774,13 +741,7 @@ class HNet(Algo):
         loss_dict["action_loss"] = total / max(len(batch), 1)
         return loss_dict
 
-    @override
-    def log_info(self, info):
-        log = OrderedDict()
-        log["Loss"] = info["losses"]["action_loss"].item()
-        for k, v in info["losses"].items():
-            log[k] = v.item()
-        return log
+    # log_info is inherited from Algo (collapse c5 — byte-identical default).
 
     # ----- Sim eval hook (SimRolloutEval.inference_step contract) ----- #
     # Single entry point. t=0 is the universal reset signal (allocates a

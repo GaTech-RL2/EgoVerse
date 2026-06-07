@@ -54,7 +54,7 @@ from egomimic.models.cores.transformer_core import TransformerCore
 from egomimic.models.heads.gmm_head import GMMActionHead
 from egomimic.models.heads.query_decoder import QueryActionDecoder
 from egomimic.models.stems.obs_encoder import ObsEncoder
-from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
+from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
 def _pack_to_padded(x, cu_seqlens, B, T_max):
@@ -696,32 +696,9 @@ class WindowedBC(HNet):
         self.nets = nn.ModuleDict({"policy": policy})
         self.nets = self.nets.float().to(self.device)
 
-        self.embodiment_ids = {}
-        self.proprio_keys = {}
-        self.lang_keys = {}
-        self.camera_keys = {}
-        self.resolved_ac_keys = {}
-        for emb in self.domains:
-            emb_id = get_embodiment_id(emb)
-            self.embodiment_ids[emb] = emb_id
-            self.proprio_keys[emb_id] = []
-            self.lang_keys[emb_id] = []
-            self.camera_keys[emb_id] = []
-            for key in norm_stats.keys_of_type("action_keys", emb_id):
-                if (
-                    norm_stats.is_key_with_embodiment(key, emb_id)
-                    and key == self.ac_keys[emb]
-                ):
-                    self.resolved_ac_keys[emb_id] = key
-            for key in norm_stats.keys_of_type("proprio_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.proprio_keys[emb_id].append(key)
-            for key in norm_stats.keys_of_type("lang_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.lang_keys[emb_id].append(key)
-            for key in norm_stats.keys_of_type("camera_keys", emb_id):
-                if norm_stats.is_key_with_embodiment(key, emb_id):
-                    self.camera_keys[emb_id].append(key)
+        # Resolve per-embodiment keys via norm_stats. Shared base helper
+        # (collapse c5): see Algo._resolve_embodiment_keys.
+        self._resolve_embodiment_keys(norm_stats)
 
     def _unpack_obs_actions(self, _batch, emb_id):
         ac_key = self.resolved_ac_keys[emb_id]
