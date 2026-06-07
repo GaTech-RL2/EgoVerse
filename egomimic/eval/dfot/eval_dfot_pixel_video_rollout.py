@@ -27,6 +27,7 @@ from egomimic.models.diffusion.sampling import (
     vanilla_schedule,
 )
 from egomimic.eval.core.eval_video import EvalVideo
+from egomimic.eval.core.img_utils import img_chw_to_uint8
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 try:
@@ -39,12 +40,6 @@ try:
 except ImportError:
     _HAS_METRICS = False
 
-
-def _img_chw_to_uint8(img_chw: torch.Tensor) -> np.ndarray:
-    x = img_chw.detach().cpu().float().numpy()
-    x = np.clip(x, 0.0, 1.0)
-    x = (x * 255.0).astype(np.uint8)
-    return np.transpose(x, (1, 2, 0))
 
 
 class DFoTPixelVideoRolloutEval(EvalVideo):
@@ -325,10 +320,10 @@ class DFoTPixelVideoRolloutEval(EvalVideo):
 
             # Side-by-side mp4 frames.
             for t in range(pred_frames.shape[0]):
-                gt_t = _img_chw_to_uint8(
+                gt_t = img_chw_to_uint8(
                     gt_seq[t] / (255.0 if gt_seq.max() > 1.5 else 1.0)
                 )
-                pr_t = _img_chw_to_uint8(pred_frames[t])
+                pr_t = img_chw_to_uint8(pred_frames[t])
                 gt_t = cv2.resize(
                     gt_t, (self.upscale_to, self.upscale_to),
                     interpolation=cv2.INTER_NEAREST,

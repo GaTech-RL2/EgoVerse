@@ -25,15 +25,9 @@ import numpy as np
 import torch
 
 from egomimic.eval.core.eval_video import EvalVideo
+from egomimic.eval.core.img_utils import img_chw_to_uint8
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
-
-def _img_chw_to_uint8(img_chw: torch.Tensor) -> np.ndarray:
-    """``(C, H, W)`` float -> ``(H, W, C)`` uint8 in [0, 255]."""
-    x = img_chw.detach().cpu().float().numpy()
-    x = np.clip(x, 0.0, 1.0)
-    x = (x * 255.0).astype(np.uint8)
-    return np.transpose(x, (1, 2, 0))
 
 
 class DFoTVideoRolloutEval(EvalVideo):
@@ -242,14 +236,14 @@ class DFoTVideoRolloutEval(EvalVideo):
                 per_step_n[t] += 1
 
             # Prepend the GT t=0 frame for context.
-            t0_uint = _img_chw_to_uint8(img_chw)
+            t0_uint = img_chw_to_uint8(img_chw)
             t0_uint = cv2.resize(
                 t0_uint, (self.upscale_to, self.upscale_to),
                 interpolation=cv2.INTER_NEAREST,
             )
             all_frames.append(np.ascontiguousarray(t0_uint))
             for t in range(pred_frames.shape[0]):
-                f = _img_chw_to_uint8(pred_frames[t])
+                f = img_chw_to_uint8(pred_frames[t])
                 f = cv2.resize(
                     f, (self.upscale_to, self.upscale_to),
                     interpolation=cv2.INTER_NEAREST,

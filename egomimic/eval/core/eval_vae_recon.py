@@ -19,15 +19,9 @@ import numpy as np
 import torch
 
 from egomimic.eval.core.eval_video import EvalVideo
+from egomimic.eval.core.img_utils import img_chw_to_uint8
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
-
-def _to_uint8_hwc(img_chw: torch.Tensor) -> np.ndarray:
-    """(C, H, W) float [0,1] -> (H, W, C) uint8."""
-    x = img_chw.detach().cpu().float().numpy()
-    x = np.clip(x, 0.0, 1.0)
-    x = (x * 255.0).astype(np.uint8)
-    return np.transpose(x, (1, 2, 0))
 
 
 class VAEReconEval(EvalVideo):
@@ -89,8 +83,8 @@ class VAEReconEval(EvalVideo):
         # Stack [GT | recon] frame-by-frame.
         frames = []
         for i in range(x.shape[0]):
-            gt = _to_uint8_hwc(x[i])
-            rc = _to_uint8_hwc(x_rec[i])
+            gt = img_chw_to_uint8(x[i])
+            rc = img_chw_to_uint8(x_rec[i])
             gt = cv2.resize(
                 gt,
                 (self.upscale_to, self.upscale_to),

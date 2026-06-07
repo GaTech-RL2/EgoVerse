@@ -26,12 +26,9 @@ import torch
 from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
 from egomimic.models.diffusion.sampling import vanilla_schedule
 from egomimic.eval.core.eval_video import EvalVideo
+from egomimic.eval.core.img_utils import img_chw_to_uint8
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
-
-def _img_chw_to_uint8(img_chw: torch.Tensor) -> np.ndarray:
-    x = np.clip(img_chw.detach().cpu().float().numpy(), 0.0, 1.0)
-    return np.transpose((x * 255.0).astype(np.uint8), (1, 2, 0))
 
 
 class DFoTPolicyActionEval(EvalVideo):
@@ -175,8 +172,8 @@ class DFoTPolicyActionEval(EvalVideo):
             # ---- decode predicted latents -> [GT|pred] frames ----
             pred_frames = outer.vae.decode(outer.denormalize_latent(pred_lat.squeeze(0)))
             for t in range(pred_frames.shape[0]):
-                gt_t = cv2.resize(_img_chw_to_uint8(img_seq[t]), (self.upscale_to, self.upscale_to), interpolation=cv2.INTER_NEAREST)
-                pr_t = cv2.resize(_img_chw_to_uint8(pred_frames[t]), (self.upscale_to, self.upscale_to), interpolation=cv2.INTER_NEAREST)
+                gt_t = cv2.resize(img_chw_to_uint8(img_seq[t]), (self.upscale_to, self.upscale_to), interpolation=cv2.INTER_NEAREST)
+                pr_t = cv2.resize(img_chw_to_uint8(pred_frames[t]), (self.upscale_to, self.upscale_to), interpolation=cv2.INTER_NEAREST)
                 all_frames.append(np.concatenate([gt_t, pr_t], axis=1))
 
         for t in range(self.recon_loss_n_frames):
