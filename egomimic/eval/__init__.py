@@ -1,14 +1,17 @@
 """Backward-compat FACADE — ``egomimic/eval`` was CURATED into role buckets in
-DESIGN.md step 8: ``eval/{core,tf,dfot,probes,zoo}/``.
+DESIGN.md step 8 (the ``zoo`` bucket later dissolved into per-algo eval
+ folders ``eval/{hpt,pi,act}/`` — see DESIGN.md): ``eval/{core,tf,dfot,probes,hpt,pi,act}/``.
 
 Every evaluator module moved (via ``git mv``, no behaviour change) from the flat
-``egomimic/eval/eval_*.py`` layout into one of five role buckets:
+``egomimic/eval/eval_*.py`` layout into role buckets:
 
   * core/   — eval, eval_video, eval_composite, eval_sim, eval_hnet, eval_vae_recon
   * tf/     — eval_dfot_val, eval_dfot_controller_tf
   * dfot/   — the DFoT self/video/policy rollout evaluators
   * probes/ — eval_boundary_strip, eval_pca_tokens
-  * zoo/    — eval_act, eval_hpt, eval_pi
+  * hpt/    — eval_hpt   (peer per-algo eval folder; formerly zoo/)
+  * pi/     — eval_pi    (peer per-algo eval folder; formerly zoo/)
+  * act/    — eval_act   (peer per-algo eval folder; formerly zoo/)
 
 The EVALUATOR YAML ``_target_``s were edited to the new bucketed paths directly
 in the same step (DESIGN.md notes ``_target_`` resolution is weaker through
@@ -64,10 +67,10 @@ _MODULE_HOMES = {
     # probes/
     "eval_boundary_strip": "egomimic.eval.probes.eval_boundary_strip",
     "eval_pca_tokens": "egomimic.eval.probes.eval_pca_tokens",
-    # zoo/
-    "eval_act": "egomimic.eval.zoo.eval_act",
-    "eval_hpt": "egomimic.eval.zoo.eval_hpt",
-    "eval_pi": "egomimic.eval.zoo.eval_pi",
+    # per-algo eval folders (hpt/ pi/ act/)
+    "eval_act": "egomimic.eval.act.eval_act",
+    "eval_hpt": "egomimic.eval.hpt.eval_hpt",
+    "eval_pi": "egomimic.eval.pi.eval_pi",
 }
 
 for _legacy, _home in _MODULE_HOMES.items():

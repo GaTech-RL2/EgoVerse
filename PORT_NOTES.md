@@ -12,6 +12,54 @@ modification. No scratch left behind (`__pycache__` is gitignored).
 
 ---
 
+## ZOO DISSOLVE (2026-06-07) — act/hpt/pi promoted to first-class per-algo peers
+
+Pre-edit tag: `pre-dissolve-zoo` (= clean HEAD `5b1dc20b`). One commit, local-only
+(never pushed). The `zoo/` grouping was wrong — HPT and PI are *actively
+developed* algorithms benchmarked against the H-Net line, not a pen of frozen
+baselines. They are first-class peers of `bc`. So `algo/zoo/` and the mirrored
+`eval/zoo/` were **dissolved into per-algo folders**; `algo/` and `eval/` mirror
+each other. The principle is documented in **DESIGN.md §9.4**; old→new dotted
+paths for old-ckpt `_target_` resolution are in
+`scratch/hierarchy_path_map.txt` (ZOO DISSOLVE block).
+
+**Moves (all `git mv` → R-status renames):**
+
+| old | new |
+|---|---|
+| `egomimic/algo/zoo/hpt.py` | `egomimic/algo/hpt/hpt.py` |
+| `egomimic/algo/zoo/pi.py`  | `egomimic/algo/pi/pi.py` |
+| `egomimic/algo/zoo/act.py` | `egomimic/algo/act/act.py` |
+| `egomimic/eval/zoo/eval_hpt.py` | `egomimic/eval/hpt/eval_hpt.py` |
+| `egomimic/eval/zoo/eval_pi.py`  | `egomimic/eval/pi/eval_pi.py` |
+| `egomimic/eval/zoo/eval_act.py` | `egomimic/eval/act/eval_act.py` |
+
+Each new folder gets an `__init__.py` re-exporting its public class
+(`egomimic.algo.hpt.HPT`/`HPTModel`, `egomimic.algo.pi.PI`,
+`egomimic.algo.act.ACT`/`ACTModel`; `egomimic.eval.{hpt,pi,act}.<...>EvalVideo`).
+The two `zoo/__init__.py` files were `git rm`'d. The old `algo/zoo/__init__`
+PEP-562 lazy-PI shim is gone; **PI laziness is preserved** because the top-level
+`egomimic.algo.__init__` never imports `egomimic.algo.pi` eagerly (importing
+`egomimic.algo.pi` is what pulls optional `openpi`).
+
+**Mirrored in the SAME commit:** 16 yaml `_target_`s (12 hpt model configs →
+`egomimic.algo.hpt.hpt.HPT`; `act.yaml` → `egomimic.algo.act.act.ACT`;
+`pi0.5_base.yaml` → `egomimic.algo.pi.pi.PI`; `eval_hpt.yaml`/`eval_pi.yaml`
+evaluators → the per-algo eval dotted paths). Importers: `eval/__init__.py`
+`_MODULE_HOMES` facade (eval_{hpt,pi,act} basenames repointed),
+`algo/__init__.py` doc comments, `tests/test_pi.py` (`import egomimic.algo.pi.pi`).
+
+**Untouched:** `bc` (still `algo/bc/algo.py` — outside this task; not wrapped or
+unwrapped here) and the **shared spine** at `algo/` top
+(`algo.py`, `packed_base.py`, `loss.py`, `outer_stage.py`, `obs_transforms.py`,
+`packed_outer_stage.py`) — these are the contracts every algo composes against,
+neither zoo nor bc-specific, so never moved under a per-algo folder. The shared
+eval helper `eval/core/_viz_shared.py::cam_frame_mse_and_viz_batches` stays in
+`eval/core/`; its import path is unchanged and still resolves from the moved
+`eval_hpt.py`/`eval_pi.py`.
+
+---
+
 ## 1. Files ADDED (new, no merge)
 
 | Path | What |
@@ -427,7 +475,7 @@ manually (multi-name package imports / docstring prose). Canonical flip table:
 | `egomimic.algo.hnet.HNet` | `egomimic.algo.packed_base.HNet` |
 | `egomimic.algo.hnet_outer_stage.*` | `egomimic.algo.packed_outer_stage.*` |
 | `egomimic.algo.bc_rnn.*` | `egomimic.algo.bc.*` |
-| `egomimic.algo.{act,hpt,pi}.*` | `egomimic.algo.zoo.{act,hpt,pi}.*` |
+| `egomimic.algo.{act,hpt,pi}.*` (orig flat) and `egomimic.algo.zoo.{act,hpt,pi}.*` (interim) | `egomimic.algo.{hpt.hpt,pi.pi,act.act}.*` (first-class per-algo folders; `zoo/` dissolved — see DESIGN.md §9.4) |
 | `egomimic.algo.input_modules.*` | `egomimic.models.stems.input_modules.*` |
 | `egomimic.algo.dfot.DFoT` / `<OuterStage>` | `egomimic.algo.diffusion.*` |
 | `egomimic.algo.dfot.outer_stage.*` | `egomimic.algo.diffusion.outer_stages.outer_stage.*` |
@@ -458,7 +506,7 @@ SAME commit. No shim.
 
 ### 5. Hygiene
 `__pycache__/` added to `.gitignore`. `tests/` import the role/real homes directly
-(`algo.bc`, `algo.packed_base`, `algo.zoo.pi`, `models.{hnet,cores,heads,stems}`).
+(`algo.bc`, `algo.packed_base`, `algo.pi.pi`, `models.{hnet,cores,heads,stems}`).
 
 ## Verification (a40 alloc 3325557, pact-2 symlinked .venv, PYTHONPATH=pact-2)
 

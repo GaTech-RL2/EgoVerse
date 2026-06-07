@@ -33,13 +33,13 @@ egomimic/models/
 egomimic/algo/
   algo.py outer_stage.py loss.py            # SHARED spine, unchanged
   hnet.py hnet_outer_stage.py ...           # H-Net family base (bc/, hourglass/ subclass it)
-  bc/algo.py                                # kept bc_rnn.py; algo/bcrnn/ -> scratch
+  bc/algo.py                                # kept bc_rnn.py; left as-is by the zoo dissolve
   diffusion/{algo, outer_stages/, vae_algo} # <- algo/dfot
   hourglass/{algo, context}                 # *** NEW ***
-  zoo/{act,hpt,pi}
-egomimic/eval/{core,tf,dfot,probes,zoo}/     # curated, one class tree
+  hpt/hpt.py  pi/pi.py  act/act.py          # first-class per-algo peers (was zoo/; dissolved)
+egomimic/eval/{core,tf,dfot,probes, hpt,pi,act}/  # curated; eval mirrors algo (per-algo peers, was zoo/)
 egomimic/rldb/embodiment/{embodiment(+SMALL=16), pushshapes(+get_keymap_eval)}
-hydra_configs/model/{bc,diffusion,hourglass,hnet,vae,zoo}/
+hydra_configs/model/{bc,diffusion,hourglass,hnet,vae}/
 tests/  (consolidated)
 ROOT: scripts/{train,eval,install}/  scratch/(gitignored)  docs/  (HANDOFF.md deleted)
 ```
@@ -62,7 +62,7 @@ Trunk-core interchangeability reuses the existing LSTM/TX/HNet drop-in contract 
 1. **Algo spine** `Algo`/`OuterStage`/`{Loss,CompositeLoss,DFoTLoss,MSELoss}`; Hourglass subclasses `HNet` (as `BCRNN` does at `bc_rnn.py:483`) for per-emb norm + packed path. 2. **Eval** `PackedSimEval` already algo-agnostic; contract `inference_step(...,T_max)`+`forward_eval`; DFoT conforms, hourglass conforms day one, only BC-RNN gaps remain. 3. **Data** per-`dataset_name` blocks keyed on `EMBODIMENT` enum; 2nd embodiment = cloned block + one enum line. 4. **Encoder/compression/decoder** one `models/hnet/` + one `QueryActionDecoder`.
 
 ## 5. Ordered migration plan (each step independently verifiable; repo trainable throughout)
-Invariant after every step: 7 BC-RNN configs compose, DFoT/zoo import, `import egomimic` clean. Unit of work = `git mv`+shim.
+Invariant after every step: 7 BC-RNN configs compose, DFoT + the per-algo peers (hpt/pi/act) import, `import egomimic` clean. Unit of work = `git mv`+shim.
 
 - **0 Snapshot** (local commit, no push) — rollback point. *Verify: `git status` clean; BC-RNN composes.*
 - **1 Sweep root debris → `scratch/`** (40 `.sh`, 11 `patch_*.py`, 12 debug/test `.py`, 9 png/mp4; sibling-repo dead weight), gitignore after. *Verify: grep-clean, import clean.*
@@ -72,7 +72,7 @@ Invariant after every step: 7 BC-RNN configs compose, DFoT/zoo import, `import e
 - **5 Resolve BC-RNN algos:** keep `bc_rnn.py`→`algo/bc/algo.py`; quarantine `algo/bcrnn/`+yaml→scratch; shim. *Verify: 7 configs resolve.*
 - **6 Relocate model modules** → `models/{stems,cores,heads}`; `bc_rnn_nets/__init__` facade. *Verify: facade import + smoke train.*
 - **7 Relocate DFoT pieces** → `models/diffusion/`; `algo/dfot→algo/diffusion`; shim. *Verify: dfot/vae configs compose.*
-- **8 Home zoo + tests + curate eval/** (edit ~20 evaluator-yaml `_target_` directly — they don't resolve through `__init__` shims). *Verify: each evaluator yaml composes.*
+- **8 Home the per-algo peers (hpt/pi/act) + tests + curate eval/** (edit ~20 evaluator-yaml `_target_` directly — they don't resolve through `__init__` shims). *Verify: each evaluator yaml composes.* *(Originally grouped under a `zoo/` bucket; later dissolved into first-class per-algo folders — see §9.4.)*
 - **9 Add `get_keymap_eval`** (~17 lines; `goal_keys`∉NORMALIZE_KEY_TYPES, safe; serves both circles). *Verify: 6 launchers resolve, batch has `goal_pose`.*
 - **10 Close BC-RNN sim-eval gap:** add `T_max=None` to BC-RNN `inference_step`; strip `rollout_mode=ar` from launchers. *Verify: 1-batch sim eval logs coverage.*
 - **11 BUILD HOURGLASS:** `algo/hourglass/{algo,context}` = `Hourglass(HNet)` + `HourglassOuterStage`; `inference_step` with `T_max` as thin replay of outer-stage forward; `hourglass_pushshapes.yaml` (single-emb) + `train/hourglass.sh` (sibling-cd/venv header verbatim) + `eval_hourglass.yaml` (`EvalList[HNetEvalVideo + PackedSimEval]`). *Verify: CPU forward; **TF overlay renders BEFORE sim**.*
@@ -93,7 +93,7 @@ Steps 0+1 are hard prerequisites; stoppable after any step with a trainable tree
 - All scratch moves / deletes / `zarr.json` rewrites are **file/data writes — out of this read-only scope; recommended, to be executed in a write-enabled follow-up.**
 
 ## 8. Deliberately UNTOUCHED
-`algo/algo.py`, `outer_stage.py`, `loss.py` (the shared spine); `algo/hnet.py` (per-emb-norm/packed base); DFoT/PACT *behavior* (pure relocations behind shims); `pl_utils/`, `utils/`, `trainHydra.py` (only norm-stats loop, Step 12); the 7 BC-RNN + all DFoT/zoo config *behaviors*; the H-Net `step()==forward` train==rollout contract.
+`algo/algo.py`, `outer_stage.py`, `loss.py` (the shared spine); `algo/hnet.py` (per-emb-norm/packed base); DFoT/PACT *behavior* (pure relocations behind shims); `pl_utils/`, `utils/`, `trainHydra.py` (only norm-stats loop, Step 12); the 7 BC-RNN + all DFoT + hpt/pi/act config *behaviors*; the H-Net `step()==forward` train==rollout contract.
 
 ---
 
@@ -170,6 +170,41 @@ Sibling support packages reached by the pass: `egomimic/pl_utils/`
 (`robomimic_tensor_utils.py`, verbatim third-party), `egomimic/utils/` (generic
 helpers only), `egomimic/rldb/embodiment/` (sim-glue), `tests/` +
 `tests/regression/`.
+
+### 9.4 Algorithms are first-class peers under `algo/` (the dissolve of `zoo/`)
+
+There is **no `zoo/` grouping**. An earlier pass parked the comparison policies
+(ACT, HPT, PI) under `egomimic/algo/zoo/` as if they were a frozen pen of
+third-party baselines. That framing is wrong: **HPT and PI are actively
+developed in this repo** (the H-Net work is benchmarked directly against them),
+so they are first-class *algorithms* — peers of `bc`, not exhibits in a zoo. The
+`zoo/` bucket (both `algo/zoo/` and the mirrored `eval/zoo/`) was therefore
+**dissolved into per-algo folders**:
+
+- **Every algorithm is a first-class peer under `algo/`.** When an algorithm may
+  grow (its own model/head/config surface), it gets **its own folder**:
+  `algo/hpt/hpt.py`, `algo/pi/pi.py`, `algo/act/act.py` (each with an
+  `__init__.py` re-exporting its public class so `egomimic.algo.hpt.HPT` etc.
+  import cleanly). `bc` is the one exception that stays a single flat
+  module-home (no per-variant model surface to grow) and is **not wrapped** by
+  this pass.
+- **`eval/` mirrors `algo/`.** Each per-algo eval folder pairs with its algo:
+  `eval/hpt/eval_hpt.py`, `eval/pi/eval_pi.py`, `eval/act/eval_act.py`. Shared
+  eval machinery that any algo can call (e.g. the cam-frame MSE + viz helper
+  `eval/core/_viz_shared.py::cam_frame_mse_and_viz_batches`) stays flat in
+  `eval/core/` — it is not algo-specific.
+- **The shared spine stays flat at the `algo/` top.** `algo/algo.py`
+  (`Algo`/`PackedAlgoBase`), `packed_base.py`, `loss.py`, `outer_stage.py`,
+  `obs_transforms.py`, `packed_outer_stage.py` are the contracts every algo
+  composes against — they are **not** a baseline pen and **not** bc-specific, so
+  they are never moved under a per-algo folder.
+
+Rule for placing a new algorithm: give it `algo/<name>/<name>.py` +
+`__init__.py` re-export (and `eval/<name>/eval_<name>.py` if it ships an
+evaluator), point its config `_target_` at the new dotted path, and leave the
+shared spine alone. Old checkpoint `_target_`s that still name
+`egomimic.algo.zoo.*` / `egomimic.eval.zoo.*` resolve through
+`scratch/hierarchy_path_map.txt`.
 
 ---
 
