@@ -39,10 +39,11 @@ import torch
 
 from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.eval.core.img_utils import img_chw_to_uint8
+from egomimic.eval.dfot._base import DFoTVideoEvalMixin
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 
-class DFoTVideoRolloutEval(EvalVideo):
+class DFoTVideoRolloutEval(DFoTVideoEvalMixin, EvalVideo):
     """Family-agnostic DFoT video rollout — delegates the family-specific
     sampler + decode to ``outer_stage.rollout_video_episode``.
 
@@ -94,23 +95,18 @@ class DFoTVideoRolloutEval(EvalVideo):
         )
         if mode not in {"chunk", "ar"}:
             raise ValueError(f"mode must be 'chunk' or 'ar', got {mode!r}")
+        self.store_dfot_knobs(
+            embodiment_name=embodiment_name, image_key=image_key,
+            video_subdir=video_subdir, recon_loss_n_frames=recon_loss_n_frames,
+            upscale_to=upscale_to, n_chunk_steps=n_chunk_steps,
+        )
         self.rollout_steps = int(rollout_steps)
-        self.upscale_to = int(upscale_to)
-        self.embodiment_name = embodiment_name
-        self.image_key = str(image_key)
-        self.recon_loss_n_frames = int(recon_loss_n_frames)
         self.n_context_frames = int(n_context_frames)
         self.rollout_window = int(rollout_window)
         self.mode = mode
         self.ar_chunk_size = int(ar_chunk_size)
         self.ar_step_size = int(ar_step_size)
-        self.n_chunk_steps = int(n_chunk_steps)
         self.cfg_scale = float(cfg_scale)
-        self._video_subdir = str(video_subdir)
-
-    def video_dir(self):
-        import os
-        return os.path.join(self.root_dir(), self._video_subdir)
 
     # ------------------------------------------------------------------
     # Panel renderers — one per ``outer_stage.video_panel`` layout. Each

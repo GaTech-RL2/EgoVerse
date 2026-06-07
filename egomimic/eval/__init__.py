@@ -54,8 +54,12 @@ _MODULE_HOMES = {
     # aliases). Keep the legacy import names pointing at the unified module.
     "eval_dfot_pixel_video_rollout": "egomimic.eval.dfot.eval_dfot_video_rollout",  # noqa: E501
     "eval_dfot_spatial_video_rollout": "egomimic.eval.dfot.eval_dfot_video_rollout",  # noqa: E501
-    "eval_dfot_policy_action": "egomimic.eval.dfot.eval_dfot_policy_action",
-    "eval_dfot_policy_receding_horizon": "egomimic.eval.dfot.eval_dfot_policy_receding_horizon",  # noqa: E501
+    # COMBINE B: the policy-action + receding-horizon modules were merged into
+    # eval_dfot_policy (they share _rollout / _ddim_from_v). Keep the legacy
+    # import names pointing at the merged module.
+    "eval_dfot_policy": "egomimic.eval.dfot.eval_dfot_policy",
+    "eval_dfot_policy_action": "egomimic.eval.dfot.eval_dfot_policy",
+    "eval_dfot_policy_receding_horizon": "egomimic.eval.dfot.eval_dfot_policy",  # noqa: E501
     "eval_dfot_bundle_anchored": "egomimic.eval.dfot.eval_dfot_bundle_anchored",
     # probes/
     "eval_boundary_strip": "egomimic.eval.probes.eval_boundary_strip",

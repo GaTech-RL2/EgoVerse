@@ -4,7 +4,7 @@
 _target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.dfot.eval_dfot_policy_action.DFoTPolicyActionEval
+  - _target_: egomimic.eval.dfot.eval_dfot_policy.DFoTPolicyActionEval
     n_context_frames: 4
     rollout_steps: 32
     n_chunk_steps: 50

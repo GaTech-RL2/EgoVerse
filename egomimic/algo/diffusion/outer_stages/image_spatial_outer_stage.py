@@ -261,21 +261,13 @@ class ImageSpatialDFoTOuterStage(DFoTOuterStage):
                 external_cond=cond_seq, cfg_scale=ev.cfg_scale, device=device,
             )
 
-        from egomimic.models.diffusion.sampling import sample_step
-        n_ctx = context_latent.shape[1]
-        clean = -1 if discrete_ts is not None else 0.0
-        schedule = schedule.clone()
-        schedule[:, :n_ctx] = clean
-        x = torch.randn(batch_size, T, *bundle_shape, device=device)
-        x[:, :n_ctx] = context_latent
-        for s in range(schedule.shape[0] - 1):
-            x = sample_step(
-                algo.diffusion, algo.backbone, x=x,
-                current_levels=schedule[s], next_levels=schedule[s + 1],
-                external_cond=cond_seq, eta=0.0, cfg_scale=ev.cfg_scale,
-            )
-            x[:, :n_ctx] = context_latent
-        return x
+        from egomimic.eval.dfot._sampling import anchored_ddim_rollout
+        return anchored_ddim_rollout(
+            algo.diffusion, algo.backbone, schedule=schedule,
+            context=context_latent, total_T=T, trailing_shape=bundle_shape,
+            device=device, batch_size=batch_size, external_cond=cond_seq,
+            discrete_ts=discrete_ts, cfg_scale=ev.cfg_scale,
+        )
 
     def _build_cond_seq(
         self, algo, _batch: dict, emb_id: int, start: int, T: int

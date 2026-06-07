@@ -51,7 +51,7 @@ def test_touched_eval_modules_import():
         "egomimic.eval.core.img_utils",
         "egomimic.eval.core.eval_vae_recon",
         "egomimic.eval.dfot.eval_dfot_video_rollout",
-        "egomimic.eval.dfot.eval_dfot_policy_action",
+        "egomimic.eval.dfot.eval_dfot_policy",
         "egomimic.eval.dfot.eval_dfot_bundle_anchored",
     ]
     for m in mods:

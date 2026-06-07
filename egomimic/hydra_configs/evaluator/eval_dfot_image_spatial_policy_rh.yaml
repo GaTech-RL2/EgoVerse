@@ -6,7 +6,7 @@
 _target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.dfot.eval_dfot_policy_receding_horizon.DFoTPolicyRecedingHorizonEval
+  - _target_: egomimic.eval.dfot.eval_dfot_policy.DFoTPolicyRecedingHorizonEval
     n_context_frames: 4
     n_chunk_steps: 50
     k_actions: [1, 2]

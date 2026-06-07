@@ -11,7 +11,8 @@ curated here in DESIGN.md step 8 (``git mv``, no behaviour change):
     are compat aliases of it (the per-family modules were collapsed in
     COMBINE A).
   * :class:`DFoTPolicyActionEval` / :class:`DFoTPolicyRecedingHorizonEval` —
-    2D-policy action prediction (whole-horizon vs receding-horizon).
+    2D-policy action prediction (whole-horizon vs receding-horizon). COMBINE B
+    merged the two into ``eval_dfot_policy`` (they share ``_rollout``).
   * :class:`DFoTBundleAnchoredEval`     — anchored clean-history bundle rollout.
 """
 
@@ -21,8 +22,8 @@ from egomimic.eval.dfot.eval_dfot_video_rollout import (
     DFoTPixelVideoRolloutEval,
     DFoTSpatialVideoRolloutEval,
 )
-from egomimic.eval.dfot.eval_dfot_policy_action import DFoTPolicyActionEval
-from egomimic.eval.dfot.eval_dfot_policy_receding_horizon import (
+from egomimic.eval.dfot.eval_dfot_policy import (
+    DFoTPolicyActionEval,
     DFoTPolicyRecedingHorizonEval,
 )
 from egomimic.eval.dfot.eval_dfot_bundle_anchored import DFoTBundleAnchoredEval

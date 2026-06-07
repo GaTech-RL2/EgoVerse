@@ -4,7 +4,7 @@ Hoisted in dedup collapse c6: six evaluators
 (:mod:`eval.dfot.eval_dfot_video_rollout`,
 :mod:`eval.dfot.eval_dfot_pixel_video_rollout`,
 :mod:`eval.dfot.eval_dfot_spatial_video_rollout`,
-:mod:`eval.dfot.eval_dfot_policy_action`,
+:mod:`eval.dfot.eval_dfot_policy`,
 :mod:`eval.dfot.eval_dfot_bundle_anchored`,
 :mod:`eval.core.eval_vae_recon`) each carried a byte-for-byte equivalent
 ``(C, H, W)`` float-in-[0,1] -> ``(H, W, C)`` uint8-in-[0,255] converter under

@@ -18,14 +18,16 @@ import numpy as np
 import torch
 
 from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
-from egomimic.models.diffusion.sampling import sample as _sample, sample_step, vanilla_schedule
+from egomimic.models.diffusion.sampling import vanilla_schedule
 from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.eval.core.img_utils import img_chw_to_uint8
+from egomimic.eval.dfot._base import DFoTVideoEvalMixin
+from egomimic.eval.dfot._sampling import anchored_ddim_rollout
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 
 
-class DFoTBundleAnchoredEval(EvalVideo):
+class DFoTBundleAnchoredEval(DFoTVideoEvalMixin, EvalVideo):
     def __init__(
         self, n_context_frames: int = 4, rollout_steps: int = 32,
         n_chunk_steps: int = 50, embodiment_name: str = "pushshapes_sim",
@@ -36,34 +38,24 @@ class DFoTBundleAnchoredEval(EvalVideo):
     ):
         super().__init__(limit_val_batches=limit_val_batches, viz_func=viz_func,
                          transform_lists=transform_lists, max_videos=max_videos)
+        self.store_dfot_knobs(
+            embodiment_name=embodiment_name, image_key=image_key,
+            video_subdir=video_subdir, recon_loss_n_frames=recon_loss_n_frames,
+            upscale_to=upscale_to, n_chunk_steps=n_chunk_steps,
+        )
         self.n_context_frames = int(n_context_frames)
         self.rollout_steps = int(rollout_steps)
-        self.n_chunk_steps = int(n_chunk_steps)
-        self.embodiment_name = embodiment_name
-        self.image_key = str(image_key)
-        self.recon_loss_n_frames = int(recon_loss_n_frames)
-        self.upscale_to = int(upscale_to)
-        self._video_subdir = str(video_subdir)
-
-    def video_dir(self):
-        import os
-        return os.path.join(self.root_dir(), self._video_subdir)
 
     @torch.no_grad()
     def _rollout(self, algo, ctx_bundle, cond_seq, T, device):
         outer, diff = algo.outer_stage, algo.diffusion
-        n = ctx_bundle.shape[1]
         dts = int(diff.timesteps) if isinstance(diff, DiscreteDiffusion) else None
         sched = vanilla_schedule(self.n_chunk_steps, T, discrete_timesteps=dts).to(device)
-        clean = -1 if dts is not None else 0.0
-        sched = sched.clone(); sched[:, :n] = clean
-        x = torch.randn(1, T, outer.bundle_dim, device=device)
-        x[:, :n] = ctx_bundle
-        for s in range(sched.shape[0] - 1):
-            x = sample_step(diff, algo.backbone, x=x, current_levels=sched[s],
-                            next_levels=sched[s + 1], external_cond=cond_seq, eta=0.0)
-            x[:, :n] = ctx_bundle
-        return x
+        return anchored_ddim_rollout(
+            diff, algo.backbone, schedule=sched, context=ctx_bundle,
+            total_T=T, trailing_shape=(outer.bundle_dim,), device=device,
+            batch_size=1, external_cond=cond_seq, discrete_ts=dts,
+        )
 
     def compute_metrics_and_viz(self, batch):
         algo = self.model
