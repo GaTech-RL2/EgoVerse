@@ -747,59 +747,6 @@ class HNet(Algo):
             preds_padded[b, : e - s] = pred_packed[s:e]
         return preds_padded, seq_lens
 
-    @torch.no_grad()
-    def _ar_rollout_packed(self, _batch: dict, emb_id: int):
-        """Per-episode AR rollout for a packed validation batch.
-
-        For each sub-sequence ``[s, e)`` in ``cu_seqlens``:
-          1. Slice that episode's obs into ``(1, T_ep, ...)``.
-          2. Call ``policy.generate(obs_ep, batch_size=1, T=T_ep)`` to AR
-             rollout exactly ``T_ep`` steps from BOS.
-          3. Stash the prediction.
-
-        Returns:
-            preds_padded: ``(B, T_max, action_dim)`` (zero-padded past each
-                episode's length).
-            seq_lens:     ``(B,)`` long, the per-episode rollout lengths
-                (matches ``_batch['seq_lens']`` and used for masking the
-                padding in downstream MSE).
-        """
-        policy = self.outer_stage
-        cu = _batch["cu_seqlens"]
-        seq_lens = _batch["seq_lens"].clone()
-        B = int(seq_lens.shape[0])
-        T_max = int(seq_lens.max().item())
-        action_dim = policy.action_dim
-        device = self.device
-
-        # Gather the obs keys we need for the cond encoder.
-        obs_keys = (
-            self.proprio_keys[emb_id]
-            + self.lang_keys[emb_id]
-            + self.camera_keys[emb_id]
-        )
-        obs_keys = [k for k in obs_keys if k in _batch]
-
-        preds_padded = torch.zeros(B, T_max, action_dim, device=device)
-
-        for b in range(B):
-            s = int(cu[b].item())
-            e = int(cu[b + 1].item())
-            T_ep = e - s
-            # Slice each obs key to the episode's range and add a leading
-            # batch dim. The packed tensor is (T_total, ...) so slicing along
-            # dim 0 gives (T_ep, ...) → unsqueeze → (1, T_ep, ...).
-            obs_ep = {k: _batch[k][s:e].unsqueeze(0) for k in obs_keys}
-            a_ep = policy.generate(
-                obs_ep,
-                batch_size=1,
-                device=device,
-                T=T_ep,
-            )  # (1, T_ep, action_dim)
-            preds_padded[b, :T_ep] = a_ep.squeeze(0)
-
-        return preds_padded, seq_lens
-
     @override
     def compute_losses(self, predictions, batch):
         total = torch.tensor(0.0, device=self.device)

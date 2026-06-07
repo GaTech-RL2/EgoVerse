@@ -108,7 +108,7 @@ robomimic_model:
   # ---- loss: optional ----
   # If omitted, HNet.__init__ defaults to ``HNetLoss()`` (action MSE +
   # per-chunker ratio_loss_from_aux). Override here only if you want a
-  # different loss policy (e.g. CompositeLoss with extra terms).
+  # different loss policy (e.g. a custom Loss subclass with extra terms).
   # loss:
   #   _target_: egomimic.algo.loss.HNetLoss
 

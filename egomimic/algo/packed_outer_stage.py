@@ -23,7 +23,6 @@ DIFFERENCES VS HNetPolicy:
 
 from __future__ import annotations
 
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -219,71 +218,9 @@ class HNetOuterStage(OuterStage):
         return batch["pred_action"], ctx.aux
 
     # ------------------------------------------------------------------
-    # Inference: AR generate + step. Used by the algo class's closed-loop
+    # Inference: AR step. Used by the algo class's closed-loop
     # path; not part of the OuterStage abstract API.
     # ------------------------------------------------------------------
-
-    @torch.no_grad()
-    def generate(
-        self,
-        obs: dict,
-        batch_size: int,
-        device,
-        T: Optional[int] = None,
-    ) -> torch.Tensor:
-        """Offline AR rollout from BOS for ``T`` steps. Returns
-        ``(batch_size, T, action_dim)``. ``T`` defaults to
-        ``self.action_horizon`` when not given."""
-        if T is None:
-            T = self.action_horizon
-        cond_dict = self.cond_encoder.encode(obs, T)
-        actions = torch.zeros(batch_size, T, self.action_dim, device=device)
-        dtype = next(self.parameters()).dtype
-
-        inference_params = self.inner_stage.allocate_inference_cache(
-            batch_size=batch_size,
-            max_seqlen=T,
-            device=device,
-            dtype=dtype,
-        )
-
-        def slice_cond(t: int) -> dict:
-            return {k: v[:, t] if v.dim() == 3 else v for k, v in cond_dict.items()}
-
-        prev_a = None
-
-        def _step_obs(t: int) -> dict:
-            out = {}
-            for k, v in obs.items():
-                if torch.is_tensor(v) and v.dim() >= 3 and v.shape[1] == T:
-                    out[k] = v[:, t : t + 1]
-                else:
-                    out[k] = v.unsqueeze(1) if torch.is_tensor(v) else v
-            return out
-
-        for t in range(T):
-            cur = None
-            step_obs = _step_obs(t)
-            for mod in self.input_modules:
-                contrib = mod.step(
-                    prev_action_norm=prev_a,
-                    obs_norm=step_obs,
-                    t=t,
-                    B=batch_size,
-                    device=device,
-                    dtype=dtype,
-                )
-                cur = contrib if cur is None else cur + contrib
-            ctx = HNetContext(
-                cond_dict=slice_cond(t),
-                aux=[],
-                inference_params=inference_params,
-            )
-            h = self.inner_stage.step(cur, ctx)
-            a_t = self.action_out(h)
-            actions[:, t : t + 1] = a_t
-            prev_a = a_t
-        return actions
 
     @torch.no_grad()
     def init_step_state(self, batch_size: int, T_max: int, device, dtype=None) -> dict:

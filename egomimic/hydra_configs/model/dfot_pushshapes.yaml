@@ -118,8 +118,8 @@ robomimic_model:
   # ---- loss: optional ----
   # If omitted, DFoT.__init__ defaults to ``DFoTLoss(outer_stage.diffusion)``
   # (SNR-weighted epsilon-MSE). Override here only when you want a different
-  # loss policy (e.g. CompositeLoss with extra obs-reconstruction terms in
-  # the future fused-obs+action mode).
+  # loss policy (e.g. a custom Loss subclass adding obs-reconstruction
+  # terms in the future fused-obs+action mode).
   # loss:
   #   _target_: egomimic.algo.loss.DFoTLoss
 
