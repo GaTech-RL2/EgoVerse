@@ -101,7 +101,7 @@ Wired up since this section was first written:
 
 ### Smoke test
 
-`scripts/smoke_packed_dataset.py` — runs against the pushT
+`tests/regression/smoke_packed_dataset.py` — runs against the pushT
 `/coc/cedarp-dxu345-0/Tsim_datasets/test_demos` folder, builds a
 `ZarrEpisodePackedDataset` (defaults `chunking="none"`), packs all
 episodes through a `DataLoader(collate_fn=pack_collate)`, then writes:
@@ -129,7 +129,7 @@ shape: `circle/` (61 episodes, lengths 245–958 frames, median ~410) and
 what `LocalEpisodeResolver` should be pointed at directly (the resolver
 does not recurse one level). The training data config
 (`egomimic/hydra_configs/data/tsimulation.yaml`) and
-`scripts/smoke_packed_dataset.py` currently target `circle/`.
+`tests/regression/smoke_packed_dataset.py` currently target `circle/`.
 
 ## hnet_nets — kernel availability + fallback paths
 
@@ -529,7 +529,7 @@ Notes:
   ``action_horizon``, so a top-level interpolation source isn't an
   option. They must match.
 
-## Smoke scripts (`scripts/`)
+## Smoke scripts (`tests/regression/`; `debug_full_episode_mem.py` stays in `scripts/`)
 
 | Script | Purpose |
 |---|---|

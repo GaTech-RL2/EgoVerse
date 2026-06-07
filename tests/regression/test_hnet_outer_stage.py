@@ -5,6 +5,15 @@ Same hnet stage config, same input_modules, same cond_encoder — only the
 class wrapping them changes. The action_out and stages and input_modules
 all share the SAME instances between the two paths, so any output diff
 is a logic bug in the new class."""
+import pytest  # noqa: E402
+
+pytest.skip(
+    "manual regression smoke: hardcoded EgoVerse-clone-3 paths + configs "
+    "removed from this repo + needs GPU/checkpoints; run directly with "
+    "python, skipped under pytest collection",
+    allow_module_level=True,
+)
+
 import sys, torch, copy
 sys.path.insert(0, "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3")
 

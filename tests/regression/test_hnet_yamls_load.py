@@ -7,6 +7,15 @@ should also work but use ctx.aux=[] (no chunker).
 Padded mode hits a pre-existing torch SDPA bug for some causal+train
 configurations; packed mode matches production training and avoids
 that path."""
+import pytest  # noqa: E402
+
+pytest.skip(
+    "manual regression smoke: hardcoded EgoVerse-clone-3 paths + configs "
+    "removed from this repo + needs GPU/checkpoints; run directly with "
+    "python, skipped under pytest collection",
+    allow_module_level=True,
+)
+
 import sys, torch
 sys.path.insert(0, "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3")
 from pathlib import Path

@@ -13,7 +13,7 @@ from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
 sys.path.insert(0, str(Path(__file__).parent))
-from smoke_sim_eval import _MockTrainer, load_algo_from_ckpt  # type: ignore
+from egomimic.eval.core.ckpt_loading import _MockTrainer, load_algo_from_ckpt
 
 from egomimic.eval.eval_dfot_val import DFoTValEval
 from egomimic.eval.eval_sim import PackedSimEval

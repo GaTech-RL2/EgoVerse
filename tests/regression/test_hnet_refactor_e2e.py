@@ -1,5 +1,14 @@
 """End-to-end smoke: instantiate refactored HNet via hydra config,
 run forward_training, check the resulting predictions dict is well-formed."""
+import pytest  # noqa: E402
+
+pytest.skip(
+    "manual regression smoke: hardcoded EgoVerse-clone-3 paths + configs "
+    "removed from this repo + needs GPU/checkpoints; run directly with "
+    "python, skipped under pytest collection",
+    allow_module_level=True,
+)
+
 import sys, torch
 sys.path.insert(0, "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3")
 from omegaconf import OmegaConf

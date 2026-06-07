@@ -22,7 +22,7 @@ import torchvision.io as tvio
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
-from egomimic.eval.eval_sim import SimRolloutEval
+from egomimic.eval.core.eval_sim import SimRolloutEval
 
 
 def load_algo_from_ckpt(ckpt_path: str, config_path: str | None = None):
