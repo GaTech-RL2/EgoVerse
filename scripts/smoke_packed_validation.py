@@ -1,6 +1,6 @@
 """
 Validation smoke for packed H-Net training: runs one validation batch through
-``HNet.process_batch_for_training`` + ``HNet.forward_eval`` (per-episode AR
+``PackedAlgoBase.process_batch_for_training`` + ``PackedAlgoBase.forward_eval`` (per-episode AR
 rollout) + the new ``HNetEvalVideo.compute_metrics_and_viz``. Verifies that
 predicted-vs-GT MSE comes back finite, viz images are produced, and the
 graph doesn't crash on packed obs.
@@ -20,7 +20,7 @@ import time
 import torch
 from torch.utils.data import DataLoader
 
-from egomimic.algo.packed_base import HNet as HNetAlgo
+from egomimic.algo.packed_base import PackedAlgoBase as HNetAlgo
 from egomimic.eval.eval_hnet import HNetEvalVideo
 from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.hnet import HNet as HNetCore

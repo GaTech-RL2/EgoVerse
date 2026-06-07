@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.packed_base.HNet
+  _target_: egomimic.algo.packed_base.PackedAlgoBase
   # Larger obs-as-input H-Net: hidden dim 2x (128->256), depth 2x (T4->T8),
   # beefier obs encoder (deeper image conv, deeper proprio MLP).
 

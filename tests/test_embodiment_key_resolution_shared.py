@@ -4,16 +4,17 @@ Collapse c5 hoisted three byte-identical methods that used to be copy-pasted
 across the policy algos into the shared base ``Algo``:
 
   * ``_resolve_embodiment_keys`` — the per-embodiment key-resolution loop
-    (formerly duplicated in HNet ``packed_base.py``, DFoT
+    (formerly duplicated in PackedAlgoBase ``packed_base.py``, DFoT
     ``diffusion/algo.py``, and WindowedBC ``bc.py``).
   * ``_build_obs`` — assembles the obs dict from proprio/lang/camera keys
-    (formerly duplicated in HNet and DFoT; WindowedBC inherited HNet's).
+    (formerly duplicated in PackedAlgoBase and DFoT; WindowedBC inherited
+    PackedAlgoBase's).
   * ``log_info`` — surfaces ``action_loss`` as ``Loss`` plus every loss
-    under its own key (formerly duplicated in HNet and DFoT).
+    under its own key (formerly duplicated in PackedAlgoBase and DFoT).
 
 This test pins two invariants so a future edit can't silently re-diverge:
 
-  1. **Import-identity** — ``HNet`` / ``DFoT`` / ``WindowedBC`` all resolve the
+  1. **Import-identity** — ``PackedAlgoBase`` / ``DFoT`` / ``WindowedBC`` all resolve the
      SAME function object from ``Algo`` (no subclass re-introduces a private
      override of these three methods).
   2. **Behavioural equality on a fixed norm_stats fixture** — driving the
@@ -28,7 +29,7 @@ from __future__ import annotations
 import torch
 
 from egomimic.algo.algo import Algo
-from egomimic.algo.packed_base import HNet
+from egomimic.algo.packed_base import PackedAlgoBase
 from egomimic.algo.bc import WindowedBC
 from egomimic.algo.diffusion.algo import DFoT
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
@@ -80,14 +81,14 @@ def _resolve_on(cls) -> dict:
 def test_resolver_is_single_shared_function():
     # All three policy algos resolve the SAME function object from Algo —
     # i.e. none re-introduces a private copy of the shared helpers.
-    for cls in (HNet, WindowedBC, DFoT):
+    for cls in (PackedAlgoBase, WindowedBC, DFoT):
         assert cls._resolve_embodiment_keys is Algo._resolve_embodiment_keys, cls
         assert cls._build_obs is Algo._build_obs, cls
         assert cls.log_info is Algo.log_info, cls
 
 
 def test_resolver_produces_identical_keysets_across_algos():
-    ref = _resolve_on(HNet)
+    ref = _resolve_on(PackedAlgoBase)
 
     # The fixture must actually exercise every branch (else the test is vacuous).
     assert ref["embodiment_ids"] == {_EMB_NAME: _EMB_ID}
@@ -102,7 +103,7 @@ def test_resolver_produces_identical_keysets_across_algos():
         "observations.images.wrist_img",
     ]
 
-    # HNet == WindowedBC == DFoT, exactly.
+    # PackedAlgoBase == WindowedBC == DFoT, exactly.
     for cls in (WindowedBC, DFoT):
         assert _resolve_on(cls) == ref, cls
 
@@ -126,7 +127,7 @@ def test_build_obs_selects_identical_obs_across_algos():
     }
 
     results = []
-    for cls in (HNet, WindowedBC, DFoT):
+    for cls in (PackedAlgoBase, WindowedBC, DFoT):
         obj = object.__new__(cls)
         obj.domains = [_EMB_NAME]
         obj.ac_keys = {_EMB_NAME: _AC_KEY}

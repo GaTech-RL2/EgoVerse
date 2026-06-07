@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.packed_base.HNet
+  _target_: egomimic.algo.packed_base.PackedAlgoBase
 
   # Baseline arch + the H-Net paper's 3 training recipe tricks + lower LR.
   # Changes vs hnet_pushshapes.yaml:

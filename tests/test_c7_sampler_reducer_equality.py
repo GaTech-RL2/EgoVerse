@@ -19,11 +19,11 @@ c7 collapses two structural near-duplicates:
    a ``loss_dict`` ``torch.equal`` to the legacy DFoT output on fixed
    predictions.
 
-   NOTE: ``VAE`` / ``HNet`` / ``HPT`` / ``PI`` reducers are *supersets*
+   NOTE: ``VAE`` / ``PackedAlgoBase`` / ``HPT`` / ``PI`` reducers are *supersets*
    (recon/kl/vae, ratio_loss, domain-count division) — NOT folded onto the
    base. This test documents that distinction by asserting the base default
-   does NOT reproduce the HNet (ratio_loss) output, so a future edit that
-   wrongly deletes those overrides would fail here.
+   does NOT reproduce the PackedAlgoBase (ratio_loss) output, so a future edit
+   that wrongly deletes those overrides would fail here.
 
 The samplers are pure functions of (images, actions, cu_seqlens) plus the two
 scalar attributes ``_sample_n_frames`` / ``_frame_sampling`` — no nn modules —
@@ -37,7 +37,7 @@ import torch
 
 from egomimic.algo.algo import Algo
 from egomimic.algo.diffusion.algo import DFoT
-from egomimic.algo.packed_base import HNet
+from egomimic.algo.packed_base import PackedAlgoBase
 from egomimic.algo.diffusion.outer_stages.pixel_spatial_outer_stage import (
     PixelSpatialDFoTOuterStage,
 )
@@ -148,8 +148,9 @@ def test_base_reducer_equals_dfot_reducer():
 
 
 def test_hnet_reducer_is_NOT_the_base_default():
-    """Guard: HNet reducer adds ratio_loss -> it is a genuine superset, NOT
-    folded onto Algo. If a future edit deletes HNet.compute_losses this fails.
+    """Guard: PackedAlgoBase reducer adds ratio_loss -> it is a genuine superset,
+    NOT folded onto Algo. If a future edit deletes PackedAlgoBase.compute_losses
+    this fails.
     """
     emb_ids = [0]
     torch.manual_seed(11)
@@ -160,9 +161,9 @@ def test_hnet_reducer_is_NOT_the_base_default():
     }
     batch = OrderedDict({0: torch.zeros(1)})
 
-    hnet = object.__new__(HNet)
+    hnet = object.__new__(PackedAlgoBase)
     hnet.device = torch.device("cpu")
-    hnet_out = HNet.compute_losses(hnet, preds, batch)
+    hnet_out = PackedAlgoBase.compute_losses(hnet, preds, batch)
 
     base = object.__new__(Algo)
     base.device = torch.device("cpu")
@@ -179,4 +180,4 @@ if __name__ == "__main__":
     test_base_reducer_equals_dfot_reducer()
     print("PROOF2 base==DFoT reducer equality: PASS")
     test_hnet_reducer_is_NOT_the_base_default()
-    print("PROOF3 HNet reducer is genuine superset (not folded): PASS")
+    print("PROOF3 PackedAlgoBase reducer is genuine superset (not folded): PASS")

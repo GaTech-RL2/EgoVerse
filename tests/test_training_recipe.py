@@ -543,12 +543,12 @@ class TestRecipeFitsFlexibleConfigs:
 
 
 # =========================================================================== #
-# Algo wiring — opt-in via HNet.__init__ kwargs, disabled by default
+# Algo wiring — opt-in via PackedAlgoBase.__init__ kwargs, disabled by default
 # =========================================================================== #
 
 
 class TestAlgoWiring:
-    """The HNet algo accepts ``init_weights_range`` / ``lr_multipliers`` /
+    """The PackedAlgoBase algo accepts ``init_weights_range`` / ``lr_multipliers`` /
     ``use_parameter_groups`` / ``weight_decay`` as constructor kwargs.
     Defaults must reproduce "standard training": no init override, no LR
     multipliers stamped on params, no parameter_groups returned to the
@@ -563,7 +563,7 @@ class TestAlgoWiring:
         use_parameter_groups=False,
         weight_decay=0.0,
     ):
-        from egomimic.algo.packed_base import HNet as HNetAlgo
+        from egomimic.algo.packed_base import PackedAlgoBase as HNetAlgo
         from egomimic.models.stems.cond_encoders import CondEncoderModule
 
         return HNetAlgo(

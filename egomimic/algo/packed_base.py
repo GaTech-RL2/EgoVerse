@@ -408,10 +408,12 @@ class HNetPolicy(nn.Module):
         return a_t_norm
 
 
-class HNet(Algo):
+class PackedAlgoBase(Algo):
     """
-    H-Net policy Algo. Single-domain action-sequence model with per-frame
-    obs conditioning -- each action token sees the obs at its own timestep.
+    Packed-sequence policy Algo base. Single-domain action-sequence model with
+    per-frame obs conditioning -- each action token sees the obs at its own
+    timestep. Subclassed by WindowedBC (bc.py); the inner architecture is
+    supplied via ``outer_stage`` and may itself be an H-Net stage tree.
     """
 
     def __init__(
@@ -840,4 +842,10 @@ class HNet(Algo):
                 }
             )
         return groups
+
+
+# Compat alias: legacy name for PackedAlgoBase. Kept so OLD checkpoints/configs
+# whose resolved ``_target_`` still names ``egomimic.algo.packed_base.HNet``
+# continue to resolve. New code should use ``PackedAlgoBase``.
+HNet = PackedAlgoBase
 

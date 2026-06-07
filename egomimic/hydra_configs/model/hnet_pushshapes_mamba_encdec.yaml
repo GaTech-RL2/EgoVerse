@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.packed_base.HNet
+  _target_: egomimic.algo.packed_base.PackedAlgoBase
   # Same arch as hnet_pushshapes.yaml but with Mamba (M8) encoder/decoder
   # instead of T4 transformer blocks.
 

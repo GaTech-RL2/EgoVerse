@@ -4,8 +4,9 @@ End-to-end packed training smoke through the actual algo path.
 Unlike ``smoke_packed_training.py`` (which calls ``HNetPolicy.forward_packed``
 directly), this script wires the full Lightning-style flow:
 
-    pack_collate -> HNet.process_batch_for_training (incl. normalize via
-    norm_stats) -> HNet.forward_training -> HNet.compute_losses -> backward.
+    pack_collate -> PackedAlgoBase.process_batch_for_training (incl. normalize
+    via norm_stats) -> PackedAlgoBase.forward_training ->
+    PackedAlgoBase.compute_losses -> backward.
 
 This is the assertion that the legacy ``data_schematic`` removal didn't break
 anything: ``process_batch_for_training`` now resolves keys via
@@ -24,7 +25,7 @@ import time
 import torch
 from torch.utils.data import DataLoader
 
-from egomimic.algo.packed_base import HNet as HNetAlgo
+from egomimic.algo.packed_base import PackedAlgoBase as HNetAlgo
 from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.hnet import (
     HNet as HNetCore,
@@ -143,7 +144,7 @@ def main():
         num_workers=0,
     )
 
-    # 3. Build the algo (HNet), passing norm_stats — mirrors pl_model.
+    # 3. Build the algo (PackedAlgoBase), passing norm_stats — mirrors pl_model.
     img_enc = SimpleConv(
         in_channels=3,
         channels=[32, 64, 128, 256],

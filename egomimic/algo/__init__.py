@@ -1,5 +1,5 @@
 # Intentionally empty. Import algo classes via their submodule:
-#   from egomimic.algo.packed_base import HNet, HNetPolicy
+#   from egomimic.algo.packed_base import PackedAlgoBase, HNetPolicy
 #   from egomimic.algo.bc import WindowedBC
 #   from egomimic.algo.zoo.hpt import HPT
 #   from egomimic.algo.zoo.act import ACT

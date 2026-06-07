@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.packed_base.HNet
+  _target_: egomimic.algo.packed_base.PackedAlgoBase
   # ``norm_stats`` is injected at runtime by
   # ``pl_model.ModelWrapper._instantiate_model``; do not set it here.
 

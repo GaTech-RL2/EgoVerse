@@ -37,7 +37,7 @@ robomimic/models/policy_nets.py::RNNGMMActorNetwork):
   indefinitely). We replicate this exactly in ``WindowedBCPolicy.step`` via a step
   counter that re-inits (h, c) whenever ``counter % rnn_horizon == 0``.
 
-Reuses HNet batch processing.
+Reuses PackedAlgoBase batch processing.
 """
 
 from collections import OrderedDict
@@ -47,7 +47,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.algo.algo import Algo
-from egomimic.algo.packed_base import HNet
+from egomimic.algo.packed_base import PackedAlgoBase
 from egomimic.models.cores.hnet_core import HNetCore
 from egomimic.models.cores.lstm_core import LSTMCore
 from egomimic.models.cores.transformer_core import TransformerCore
@@ -496,7 +496,7 @@ class WindowedBCPolicy(nn.Module):
         return a.unsqueeze(1)  # (B, 1, D)
 
 
-class WindowedBC(HNet):
+class WindowedBC(PackedAlgoBase):
     def __init__(
         self,
         action_dim,
@@ -521,9 +521,10 @@ class WindowedBC(HNet):
         **kwargs,
     ):
         Algo.__init__(self)
-        # WindowedBC calls Algo.__init__ (not HNet.__init__), so HNet-base
-        # attributes that the INHERITED ``HNet.process_batch_for_training``
-        # (hnet.py:889) reads are never set. WindowedBC has no outer-stage and
+        # WindowedBC calls Algo.__init__ (not PackedAlgoBase.__init__), so
+        # PackedAlgoBase-base attributes that the INHERITED
+        # ``PackedAlgoBase.process_batch_for_training`` reads are never set.
+        # WindowedBC has no outer-stage and
         # no train-only obs augmentation, so make ``train_obs_transforms`` an
         # empty list: the ``if self.train_obs_transforms and ...`` guard then
         # short-circuits on the falsy first operand and never touches the
