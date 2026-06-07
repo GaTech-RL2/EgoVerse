@@ -97,6 +97,82 @@ Steps 0+1 are hard prerequisites; stoppable after any step with a trainable tree
 
 ---
 
+## 9. Hierarchy contract (post-pass, 2026-06-07)
+
+The hierarchy pass relocated every misplaced file under `egomimic/` to its
+semantic home via `git mv` (R-status renames only — no delete+recreate). The
+contract that governs *where a file lives* is below; treat it as the rule for
+placing any new file.
+
+### 9.1 Role-dirs vs subsystem-dirs asymmetry (intentional, not a smell)
+
+`egomimic/models/` contains **no loose `.py`** — only `__init__.py` and these
+subdirectories. Two kinds of subdir coexist on purpose:
+
+- **Role dirs** — `cores/`, `heads/`, `stems/` — slice models by their
+  *function in the hourglass* (encoder stem → core/trunk → decoder head). A
+  network class lands here based on the role it plays, regardless of which
+  algorithm family ships it. (e.g. `stems/resnet_conv.py`, `stems/hpt_stems.py`,
+  `cores/act_transformer.py`, `cores/hpt_transformer.py`, `heads/fm_policy.py`,
+  `heads/hpt_heads.py`.)
+- **Subsystem dirs** — `hnet/`, `diffusion/` — are self-contained *machinery
+  packages* that don't decompose cleanly into stem/core/head. `hnet/` is the
+  chunking/routing/isotropic compression machinery; `diffusion/` is the
+  backbones + noise schedules + sampling + VAE. They sit **beside** the role
+  dirs rather than being shredded across them, because their internal files
+  reference each other and only make sense as a unit.
+
+This asymmetry is deliberate: roles answer "what part of the pipeline is this?",
+subsystems answer "what cohesive engine is this?". Do not try to force
+`hnet/`/`diffusion/` internals into `cores|heads|stems` — that would scatter a
+tightly-coupled package for no gain.
+
+### 9.2 `scripts/` split — root launchers vs `egomimic/scripts/` data CLIs
+
+Two `scripts/` trees exist and mean different things:
+
+- **Root `scripts/`** — *launchers / ops* (`*.sh` sbatch wrappers, install
+  scripts, eval drivers, `scripts/ops/` env+docker+pull). These are
+  **run-as-script**, never imported. Regression smokes that are run-as-script
+  (not importable, GPU/clone-3-path dependent) live under
+  `scripts/`→ now `tests/regression/` with module-level `pytest.skip` guards.
+- **`egomimic/scripts/`** — *importable data CLIs* inside the package
+  (`run_conversion.py`, `data_visualization.py`, `aria_process/`,
+  `mps_process/`, `eva_process/`, language/embedding/mecka processors, …). These
+  are part of the installed package and may be imported by other package code.
+
+Rule of thumb: if it's `python foo.sh`/`sbatch foo.sh` glue → root `scripts/`;
+if it's `python -m egomimic.scripts.foo` and other modules import from it →
+`egomimic/scripts/`. A reusable *library* extracted out of a launcher goes to
+its semantic package home, not `scripts/` (e.g. the ckpt-loading lib went
+`scripts/smoke_sim_eval.py` → `egomimic/eval/core/ckpt_loading.py`).
+
+### 9.3 Final `egomimic/models/` tree (end state)
+
+```
+egomimic/models/
+  __init__.py                    # ONLY loose file under models/
+  cores/    act_transformer.py hnet_core.py hpt_transformer.py
+            lstm_core.py model_utils.py transformer_core.py
+  heads/    denoising_policy.py fm_policy.py gmm_head.py
+            hpt_heads.py query_decoder.py
+  stems/    cond_encoders.py hpt_stems.py image_encoders.py
+            input_modules.py obs_encoder.py resnet_conv.py visual_core.py
+  hnet/     blocks.py config.py context.py hnet.py isotropic_builder.py
+            routing.py stages.py install_kernels.sh        # SUBSYSTEM
+  diffusion/ denoising_nets.py embeddings.py image_vae.py sampling.py
+             backbones/{backbone,dit3d_backbone,spatial_backbone}.py
+             diffusion/{continuous,discrete}_diffusion.py noise_schedule.py   # SUBSYSTEM
+```
+
+Sibling support packages reached by the pass: `egomimic/pl_utils/`
+(lightning-hydra glue + `callbacks/`), `egomimic/vendored/`
+(`robomimic_tensor_utils.py`, verbatim third-party), `egomimic/utils/` (generic
+helpers only), `egomimic/rldb/embodiment/` (sim-glue), `tests/` +
+`tests/regression/`.
+
+---
+
 **Full doc on disk:** `/tmp/hourglass_design.md`
 
 **Most important thing to decide before approving:** the H-Net survivor direction. Both A and B proposed building on `_hnet_vendored` and deleting/relegating pact's `hnet_nets/`. On-disk verification shows the opposite is correct — pact's `hnet_nets/` is the cross-attn + residual_scale + causal_conv1d **superset**, so this design keeps it, deletes `_hnet_vendored`, and flips `hnet_core.py`'s import (Steps 3-4). If you have context that `_hnet_vendored` was intentionally the "blessed/verified" copy despite being the subset, that single decision flips and Steps 3-4 invert.

@@ -510,3 +510,130 @@ Determinism: trainHydra calls `L.seed_everything(cfg.seed, workers=True)` +
 `set_global_seed`; A40 training is fully deterministic (DFoT loss bit-identical
 across re-runs). BC smoke shows a tiny non-zero drift (~1e-5 scale) within the
 1e-3 gate tolerance.
+
+
+---
+
+# DEEP-CLEAN DEAD-CODE PURGE — RECORD (collapses c4–c7, 2026-06-06→07)
+
+The dedup gate record above (e4e55789) documents collapses **c1–c3** only. For
+completeness, the four follow-on collapses are recorded here. All
+behavior-preserving; each shipped its own equality/regression test.
+
+| # | commit | what | delta | retained-despite-map landmines |
+|---|---|---|---|---|
+| c4 | `2d249751` | dead-code purge: 5 of 6 zero-ref symbols deleted (`models/diffusion_policy.py`, `models/ddim_scheduler.py`, `models/hnet/_smoke_stages.py`, `CompositeLoss`/`MSELoss`, `_ar_rollout_packed`, `HNetOuterStage.generate`, `pl_data_utils` dead wrappers) | 9 files, +6 / −1116 | **`HNetPolicy` (packed_base.py) PROVEN ALIVE and RETAINED** — map claimed dead, implementer disproved. **`algo/obs_transforms.py` KEPT** — dead-in-practice but the designed config-reachable obs-noise extension point. |
+| c5 | `e131bdc4` | hoist shared embodiment-key resolution + `_build_obs` + `log_info` onto base `Algo` | 5 files, +221 / −116 | +`test_embodiment_key_resolution_shared.py` |
+| c6 | `d7e02a4b` | hoist 6 identical eval uint8 helpers → `eval/core/img_utils.img_chw_to_uint8` | 8 files, +103 / −46 | +`test_eval_img_utils.py` |
+| c7 | `37352ecd` | delegate image-only frame sampler to action-aware superset + hoist loss-reducer skeleton onto `Algo` | 5 files, +255 / −81 | +`test_c7_sampler_reducer_equality.py` |
+
+`37352ecd` (c7) is the **hierarchy-pass baseline** — `pre-models-hier` tags it.
+
+
+---
+
+# HIERARCHY PASS — RECORD (2026-06-07)
+
+Goal: every misplaced file under `egomimic/` (plus root launchers) relocated to
+its semantic home so `egomimic/models/` holds **zero loose `.py`** (role dirs +
+subsystem dirs only). See `DESIGN.md §9` for the placement contract.
+
+Each folder-group is **one independently-revertible commit**, tagged `pre-<group>-hier`
+beforehand. Every whole-file move is a `git mv` (R-status rename in `git show
+--stat`); file *splits* (one source → multiple role homes) necessarily appear as
+1 R + N adds and are itemized class-by-class in the path map below. Moved code
+is byte-identical modulo import lines; every importer + config `_target_` was
+updated in the SAME commit.
+
+## Group commits (on `elmo/dfot-obsactimg-pact`, NOT pushed)
+
+| group | commit | tag | whole-file R-renames | also |
+|---|---|---|---|---|
+| models | `44e837da` | `pre-models-hier` | 6 | act_nets/hpt_nets SPLIT → cores+heads+stems; denoising_nets/image_vae → diffusion/; 6 hpt + 3 denoising dead classes pruned |
+| algo | `474950d2` | `pre-algo-hier` | 0 (in-place class rename) | `packed_base.HNet → PackedAlgoBase` (+ `HNet=` compat alias kept); importers + 7 hnet config `_target_`s flipped |
+| utils | `9d124bb5` | `pre-utils-hier` | 6 | lightning-hydra tail → `pl_utils/`; `tensor_utils` → `vendored/`; `egomimicUtils` SPLIT (model helpers → `cores/model_utils`, draw fns → `viz_utils`); 3 dead modules deleted |
+| rldb | `19e097d1` | `pre-rldb-hier` | 1 | `zarr_write_test` → `scripts/eva_process/`; 6 dead modules/subpackages deleted |
+| eval+pl_utils | `10b2398c` | `pre-eval-plutils-hier` | 1 | `test_model_wrapper` → `tests/`; pushshapes sim-glue extracted → `rldb/embodiment/pushshapes_sim` (re-exported for back-compat) |
+| scripts | `342065fd` | `pre-scripts-tests-hier` | 17 | 13 regression smokes → `tests/regression/` (module-level skip guards); `smoke_sim_eval` lib → `eval/core/ckpt_loading` (5 importers updated); 3 ops launchers → `scripts/ops/`; 2 dead fused-config launchers deleted |
+
+**Total whole-file R-status renames: 31** (+ the algo class-rename group with 0 file moves; + 3 file splits itemized in the path map).
+
+## Gate-fix commit (this pass)
+
+Moving `test_model_wrapper.py` into `tests/` newly subjected it to `pytest tests/`
+collection (it lived under `egomimic/pl_utils/` at baseline, outside the
+collected tree, so its assertions were never exercised). One assertion was
+stale: it asserted `optimizers["lr_scheduler"]` *is* a `StepLR`, but
+`ModelWrapper.configure_optimizers()` returns the **Lightning scheduler-config
+dict** `{"scheduler": <StepLR>, "interval", "frequency"}` — the production
+contract is correct, the test was stale. Fixed the assertion to target the
+nested `["scheduler"]` key. Debug-the-assertion only; no production behavior
+changed.
+
+## Final-gate results (alloc 3325806, a40 brainiac, pact-2 symlinked .venv)
+
+| gate | result |
+|---|---|
+| `python -c "import egomimic"` | clean |
+| **pytest tests/** | **139 passed / 8 failed / 10 skipped** — 8 = same pre-existing fails (7 `TestAlgoWiring` old-HNet-signature + 1 `TestInferNormFromPacked` missing-zarr). **ZERO new failures.** Skips 4→10 from regression-test `pytest.skip` guards. |
+| **`ls egomimic/models/`** | `cores heads stems hnet diffusion __init__.py` — **zero loose `.py`** ✓ |
+
+(Compose sweep + both deterministic smokes recorded in the pass commit message /
+task report; baselines: compose 107/109, BC `TRAIN_EXIT=0`, DFoT NLL
+`0.28878551721572876` bit-identical.)
+
+## OLD-ckpt `_target_` path map (old dotted path → new dotted path)
+
+OLD runs' resolved configs name pre-pass dotted paths; at eval those must still
+resolve. The full map (every moved class) is below — also kept verbatim at
+`scratch/hierarchy_path_map.txt`.
+
+```
+# --- models/ group ---
+# act_nets.py SPLIT:
+egomimic.models.act_nets.{ResNet18Conv,CoordConv2d,ConvBase,Module}     -> egomimic.models.stems.resnet_conv.*
+egomimic.models.act_nets.{PositionalEncoding,Transformer,StyleEncoder}  -> egomimic.models.cores.act_transformer.*
+# hpt_nets.py SPLIT (6 dead classes pruned: STPolicyStem, AttentivePooling, vit_base_patch16, T5TokenizerWrapper, T5Encoder, L2Norm):
+egomimic.models.hpt_nets.{CrossAttention,Attention,MLP,BlockWithMasking,MultiheadAttention,SimpleTransformer} -> egomimic.models.cores.hpt_transformer.*
+egomimic.models.hpt_nets.{PolicyStem,MLPPolicyStem,ResNet}              -> egomimic.models.stems.hpt_stems.*
+egomimic.models.hpt_nets.{PolicyHead,MLPPolicyHead,TransformerDecoderBlock,MultiBlockTransformerDecoder} -> egomimic.models.heads.hpt_heads.*
+# whole-file moves:
+egomimic.models.fm_policy.FMPolicy            -> egomimic.models.heads.fm_policy.FMPolicy
+egomimic.models.denoising_policy.DenoisingPolicy -> egomimic.models.heads.denoising_policy.DenoisingPolicy
+egomimic.models.denoising_nets.*              -> egomimic.models.diffusion.denoising_nets.*  (PRUNED: ConditionalClassifier1D, CrossTransformerCfg2, CrossTransformerProj)
+egomimic.models.image_vae.ImageVAE           -> egomimic.models.diffusion.image_vae.ImageVAE
+egomimic.models.preprocess_pi_obs.*          -> egomimic.utils.preprocess_pi_obs.*
+
+# --- algo/ group (OLD path STILL RESOLVES via HNet=PackedAlgoBase alias) ---
+egomimic.algo.packed_base.HNet  -> egomimic.algo.packed_base.PackedAlgoBase
+# (HNetPolicy in same module UNCHANGED — landmine)
+
+# --- utils/ group ---
+egomimic.utils.timing_callback.WandbProfilerLogger -> egomimic.pl_utils.callbacks.timing_callback.WandbProfilerLogger  (only config _target_ that moved)
+egomimic.utils.instantiators.*  -> egomimic.pl_utils.instantiators.*
+egomimic.utils.logging_utils.*  -> egomimic.pl_utils.logging_utils.*
+egomimic.utils.rich_utils.*     -> egomimic.pl_utils.rich_utils.*
+egomimic.utils.utils.{extras,task_wrapper,get_metric_value} -> egomimic.pl_utils.utils.*
+egomimic.utils.tensor_utils.*   -> egomimic.vendored.robomimic_tensor_utils.*
+egomimic.utils.egomimicUtils.{get_sinusoid_encoding_table,reverse_kl_from_samples,frechet_gaussian_over_time,EinOpsRearrange,AlohaFK} -> egomimic.models.cores.model_utils.*
+egomimic.utils.egomimicUtils.{draw_actions,draw_dot_on_frame,draw_rotation_text,draw_annotation_text,miniviewer,fmt} -> egomimic.utils.viz_utils.*
+# egomimicUtils REMAINDER (ARIA/EXTRINSICS/INTRINSICS, geometry, str2bool, interpolate_*, CameraTransforms, download_from_huggingface, STD_SCALE) STAYS at egomimic.utils.egomimicUtils
+# DELETED dead (0 importers; scratch copies in scratch/utils_hier_deleted/): memory_utils, real_utils, obs_utils
+
+# --- rldb/ group ---
+egomimic.rldb.zarr.zarr_write_test -> egomimic.scripts.eva_process.zarr_write_test
+egomimic.rldb.{compression_utils,data_utils} -> DELETED (dead; superseded by pose_utils)
+egomimic.rldb.zarr.{benchmark_forward_pass,test_zarr} -> DELETED (dead/broken)
+egomimic.rldb.scripts[.utils] -> DELETED (dead subpackage; nds_pq/str2bool live in egomimicUtils)
+
+# --- eval + pl_utils group ---
+egomimic.pl_utils.test_model_wrapper -> test_model_wrapper  (file: egomimic/pl_utils/ -> tests/; top-level import, no __init__)
+egomimic.pl_utils.test_model_wrapper.DummyAlgo -> test_model_wrapper.DummyAlgo  (in-test _target_)
+egomimic.eval.core.eval_sim.{_env_to_zarr_pushshapes,_state_to_init,_ENV_TO_ZARR} -> egomimic.rldb.embodiment.pushshapes_sim.*  (legacy eval_sim facade still re-exports)
+
+# --- scripts/ group ---
+scripts.smoke_sim_eval{,.load_algo_from_ckpt,._MockTrainer} -> egomimic.eval.core.ckpt_loading.*  (5 importers updated)
+scripts/{test_dfot_inference,test_dfot_refactor_e2e,test_hnet_outer_stage,test_hnet_refactor_e2e,test_hnet_yamls_load,test_mamba_regression,smoke_packed_dataset,smoke_packed_norm_stats,smoke_packed_training,smoke_packed_training_e2e,smoke_packed_validation,smoke_composite_eval,smoke_teacher_eval}.py -> tests/regression/*  (file moves; pytest.skip guards added)
+{setup_nvm,run_eva_docker,pull_models}.sh -> scripts/ops/*
+scripts.sbatch_train_hnet_fused_{50,80}ep_cosine -> DELETED (ref removed model=hnet_pushshapes_fused; config quarantined in scratch/flat_fused_quarantine/)
+```
