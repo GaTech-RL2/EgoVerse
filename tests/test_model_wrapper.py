@@ -106,7 +106,12 @@ def test_model_wrapper_config_tree_builds_optimizer_and_scheduler():
     optimizers = wrapper.configure_optimizers()
 
     assert isinstance(optimizers["optimizer"], torch.optim.SGD)
-    assert isinstance(optimizers["lr_scheduler"], torch.optim.lr_scheduler.StepLR)
+    # configure_optimizers returns the Lightning scheduler-config dict, so the
+    # StepLR instance lives under the nested "scheduler" key (with interval/
+    # frequency siblings), not directly under "lr_scheduler".
+    assert isinstance(
+        optimizers["lr_scheduler"]["scheduler"], torch.optim.lr_scheduler.StepLR
+    )
 
 
 def test_model_wrapper_load_from_checkpoint_reconstructs_from_hparams(tmp_path: Path):
