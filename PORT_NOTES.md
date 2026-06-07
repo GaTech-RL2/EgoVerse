@@ -474,3 +474,39 @@ SAME commit. No shim.
 ## git delta
 86 files changed, 263 insertions(+), 986 deletions(-) — 10 shims deleted, 1 rename
 (`hnet_outer_stage.py` → `packed_outer_stage.py`), 304 dormant lines quarantined.
+
+
+---
+
+# DEDUP CAMPAIGN — GLOBAL ACCEPTANCE GATES (2026-06-06)
+
+Post-step-13 dedup campaign: 3 behavior-preserving collapses landed on
+`elmo/dfot-obsactimg-pact`, then verified against the pre-collapse baseline
+(`scratch/dedup_baseline/manifest.json`, captured at step-13 / f70565d7).
+
+## Collapses (all `torch.equal` behavioral-equality proven)
+
+| # | commit | what | line delta | proof |
+|---|---|---|---|---|
+| c1 | f06330c1 | unify 3 pixel-policy DFoT outer stages into one `pixel_mode`-parameterized `PixelObsActionDFoTOuterStage` | 9 files, +363 / −404 | state_dict torch.equal (policy 82 keys/7.33M, regress 90/7.40M, decoupled 87/7.32M, keys_identical) + forward parity all tensors torch.equal + 3 mirrored configs compose |
+| c2 | 32eb1fce | move `SimpleConv`+`CondEncoderModule` out of `models/hnet` → `models/stems/` (hnet now pure chunking machinery) | 35 files, +68 / −56 | cond_encoders.py byte-identical to pre-move source; 33 refs (13 py imports + 20 yaml `_target_`) updated; construction state_dict torch.equal + forward torch.equal |
+| c3 | c289657e | factor shared zarr read/decode into `rldb/zarr/_common.py` | 4 files, +382 / −33 | old-vs-new bit-identity (tag dedup-c3-pre via git archive): 33 comparisons x 3 episodes x 2 paths all torch.equal; +6 new permanent tests (`test_loader_equality.py`) |
+
+## Global gates (alloc 3325596, a40, pact-2 symlinked .venv)
+
+| gate | result |
+|---|---|
+| **1. FULL compose sweep** (model+evaluator+eval/viz+data) | **107/109 PASS (2 fails = PI viz evaluator/viz/pi_cartesian_lang{,_wrist}: pre-existing MissingConfigException on parent default evaluator/pi_cartesian; configs UNTOUCHED by all 3 collapses, NOT a regression)** |
+| **2. pytest tests/** | **128 passed / 8 failed / 4 skipped** — 8 = same pre-existing fails (7 TestAlgoWiring old-HNet-signature + 1 TestInferNormFromPacked missing-zarr); 128 = baseline 122 + 6 new c3 loader-equality tests. ZERO new failures. |
+| **3a. BC smoke** `SMOKE=1 sbatch train_bc_rnn_hnet.sh` (job 3325599) | **TRAIN_EXIT=0**, max_epochs=2 reached |
+| **3b. DFoT 1-ep pixel smoke** (srun on 3325596, exercises c1 unified stage) | **DFOT_TRAIN_EXIT=0**, max_epochs=1 reached |
+| **4. NLL vs baseline (step-aligned)** | DFoT: 0.28878551721572876 (post) vs 0.28878551721572876 (base) — **bit-identical, Δ=0.0**. BC: [1.3453296422958374, 0.17481404542922974] vs base [1.3453673124313354, 0.1749003529548645] — Δ ≈ 3.8e-5 / 9.0e-5, **well within 1e-3**. PASS. |
+
+`egomimic/models/hnet/` after c2 (pure chunking machinery — no encoder stems):
+`blocks.py config.py context.py hnet.py __init__.py install_kernels.sh
+isotropic_builder.py routing.py _smoke_stages.py stages.py`.
+
+Determinism: trainHydra calls `L.seed_everything(cfg.seed, workers=True)` +
+`set_global_seed`; A40 training is fully deterministic (DFoT loss bit-identical
+across re-runs). BC smoke shows a tiny non-zero drift (~1e-5 scale) within the
+1e-3 gate tolerance.
