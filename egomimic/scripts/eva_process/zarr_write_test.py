@@ -20,8 +20,8 @@ from pathlib import Path
 
 import numpy as np
 
-from egomimic.rldb.zarr import ZarrWriter
-from egomimic.scripts.eva_process.zarr_utils import EvaHD5Extractor
+from egomimic.rldb.zarr.zarr_writer import ZarrWriter
+from egomimic.scripts.eva_process.eva_utils import EvaHD5Extractor
 from egomimic.utils.egomimicUtils import EXTRINSICS
 
 
