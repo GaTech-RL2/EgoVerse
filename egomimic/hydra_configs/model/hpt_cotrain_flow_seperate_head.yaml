@@ -7,7 +7,7 @@ robomimic_model:
   head_specs:
     shared: null
     aria_bimanual: 
-      _target_: egomimic.models.fm_policy.FMPolicy
+      _target_: egomimic.models.heads.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
@@ -15,7 +15,7 @@ robomimic_model:
       infer_ac_dims:
         aria_bimanual: 12
       model:
-        _target_: egomimic.models.denoising_nets.CrossTransformer
+        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
@@ -27,7 +27,7 @@ robomimic_model:
         mlp_ratio: 4
 
     eva_bimanual: 
-      _target_: egomimic.models.fm_policy.FMPolicy
+      _target_: egomimic.models.heads.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
@@ -35,7 +35,7 @@ robomimic_model:
       infer_ac_dims:
         eva_bimanual: 14
       model:
-        _target_: egomimic.models.denoising_nets.CrossTransformer
+        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128

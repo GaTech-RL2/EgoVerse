@@ -14,7 +14,7 @@ from torch.utils.data import default_collate
 from robot_utils import RateLoop
 from scipy.spatial.transform import Rotation as R
 
-from egomimic.models.denoising_policy import DenoisingPolicy
+from egomimic.models.heads.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.pl_utils.pl_data_utils import build_tokenized_collate
 from egomimic.rldb.embodiment.embodiment import get_embodiment

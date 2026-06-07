@@ -31,7 +31,7 @@ import torch.nn as nn
 from overrides import override
 
 from egomimic.algo.algo import Algo
-from egomimic.models.image_vae import ImageVAE
+from egomimic.models.diffusion.image_vae import ImageVAE
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 

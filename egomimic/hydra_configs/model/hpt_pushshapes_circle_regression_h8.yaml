@@ -27,7 +27,7 @@ robomimic_model:
   - front_img_1
   shared_stem_specs:
     front_img_1:
-      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
       input_dim: 128
       output_dim: 128
       widths:
@@ -43,7 +43,7 @@ robomimic_model:
   stem_specs:
     pushshapes_sim:
       state_agent_obj:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
         input_dim: 5
         output_dim: 128
         widths:
@@ -58,7 +58,7 @@ robomimic_model:
             modality_embed_dim: 128
   head_specs:
     pushshapes_sim:
-      _target_: egomimic.models.hpt_nets.MLPPolicyHead
+      _target_: egomimic.models.heads.hpt_heads.MLPPolicyHead
       input_dim: 128
       output_dim: 16
       widths:
@@ -69,7 +69,7 @@ robomimic_model:
       tanh_end: false
   encoder_specs:
     front_img_1:
-      _target_: egomimic.models.hpt_nets.ResNet
+      _target_: egomimic.models.stems.hpt_stems.ResNet
       output_dim: 128
   train_image_augs:
     _target_: torchvision.transforms.Compose

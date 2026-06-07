@@ -16,7 +16,7 @@ from overrides import override
 from transformers import AutoTokenizer
 
 from egomimic.algo.algo import Algo
-from egomimic.models.preprocess_pi_obs import (
+from egomimic.utils.preprocess_pi_obs import (
     _concat_proprio,
     _empty_lang_placeholders,
     _ensure_bchw,

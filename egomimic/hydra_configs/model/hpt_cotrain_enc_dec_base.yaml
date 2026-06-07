@@ -37,7 +37,7 @@ robomimic_model:
 
   shared_stem_specs:
     front_img_1:
-      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
       input_dim: 256
       output_dim: 256
       widths: [256]
@@ -53,7 +53,7 @@ robomimic_model:
   stem_specs:
     aria_bimanual:
       state_ee_pose:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
         input_dim: 12
         output_dim: 256
         widths: [256]
@@ -68,7 +68,7 @@ robomimic_model:
     
     eva_bimanual:
       state_joint_positions:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
         input_dim: 14
         output_dim: 256
         widths: [256]
@@ -81,7 +81,7 @@ robomimic_model:
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 256
       right_wrist_img:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
         input_dim: 256
         output_dim: 256
         widths: [256]
@@ -94,7 +94,7 @@ robomimic_model:
             crossattn_modality_dropout: 0.1
             modality_embed_dim: 256
       left_wrist_img:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
         input_dim: 256
         output_dim: 256
         widths: [256]
@@ -108,7 +108,7 @@ robomimic_model:
             modality_embed_dim: 256
   head_specs:
     aria_bimanual:
-      _target_: egomimic.models.hpt_nets.MultiBlockTransformerDecoder
+      _target_: egomimic.models.heads.hpt_heads.MultiBlockTransformerDecoder
       input_dim: 256
       output_dim: 12
       action_horizon: 100
@@ -119,7 +119,7 @@ robomimic_model:
       num_layers: 8
       final_norm: true
     eva_bimanual:
-      _target_: egomimic.models.hpt_nets.MultiBlockTransformerDecoder
+      _target_: egomimic.models.heads.hpt_heads.MultiBlockTransformerDecoder
       input_dim: 256
       output_dim: 14
       action_horizon: 100
@@ -134,15 +134,15 @@ robomimic_model:
 
   encoder_specs:
     front_img_1:
-      _target_: egomimic.models.hpt_nets.ResNet
+      _target_: egomimic.models.stems.hpt_stems.ResNet
       output_dim: 256
       num_of_copy: 1
     right_wrist_img:
-      _target_: egomimic.models.hpt_nets.ResNet
+      _target_: egomimic.models.stems.hpt_stems.ResNet
       output_dim: 256
       num_of_copy: 1
     left_wrist_img:
-      _target_: egomimic.models.hpt_nets.ResNet
+      _target_: egomimic.models.stems.hpt_stems.ResNet
       output_dim: 256
       num_of_copy: 1
 

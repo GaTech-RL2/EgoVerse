@@ -24,7 +24,7 @@ robomimic_model:
   domains: ["pushshapes_sim"]
 
   vae:
-    _target_: egomimic.models.image_vae.ImageVAE
+    _target_: egomimic.models.diffusion.image_vae.ImageVAE
     in_channels: 3
     image_size: 96
     # Spatial latent params. The flat latent_dim arg is ignored when

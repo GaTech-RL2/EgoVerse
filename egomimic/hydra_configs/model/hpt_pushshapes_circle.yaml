@@ -34,7 +34,7 @@ robomimic_model:
 
   shared_stem_specs:
     front_img_1:
-      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
       input_dim: 128
       output_dim: 128
       widths: [128]
@@ -50,7 +50,7 @@ robomimic_model:
   stem_specs:
     pushshapes_sim:
       state_agent_obj:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
         input_dim: 5
         output_dim: 128
         widths: [128]
@@ -65,7 +65,7 @@ robomimic_model:
 
   head_specs:
     pushshapes_sim:
-      _target_: egomimic.models.fm_policy.FMPolicy
+      _target_: egomimic.models.heads.fm_policy.FMPolicy
       action_horizon: 32
       num_inference_steps: 50
       pooling: null
@@ -73,7 +73,7 @@ robomimic_model:
       infer_ac_dims:
         pushshapes_sim: 2
       model:
-        _target_: egomimic.models.denoising_nets.CrossTransformer
+        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
         nblocks: 4
         cond_dim: 128
         hidden_dim: 64
@@ -86,7 +86,7 @@ robomimic_model:
 
   encoder_specs:
     front_img_1:
-      _target_: egomimic.models.hpt_nets.ResNet
+      _target_: egomimic.models.stems.hpt_stems.ResNet
       output_dim: 128
 
   train_image_augs:
