@@ -203,6 +203,154 @@ class ImageSpatialDFoTOuterStage(DFoTOuterStage):
             return z * self._latent_std.to(z.device) + self._latent_mean.to(z.device)
         return z
 
+    # ------------------------------------------------------------------
+    # Video-rollout hook (COMBINE A — decode-on-outer-stage).
+    #
+    # This stage owns: building per-step (state,action) external_cond, the
+    # CONDITIONAL chunk/AR sampler (with optional GT-context anchoring), and
+    # the VAE decode of the predicted spatial latent. Moved byte-for-byte
+    # from the old ``eval_dfot_spatial_video_rollout.DFoTSpatialVideoRolloutEval``
+    # (``_rollout`` + ``_build_cond_seq`` + per-episode body). Side-by-side
+    # [GT|pred] panel; per-step MSE vs the per-timestep-aligned GT frames.
+    # ------------------------------------------------------------------
+
+    video_metric_prefix = "spatial"
+    video_panel = "sidebyside"
+    video_has_extra_metrics = False
+
+    @torch.no_grad()
+    def _rollout_latent(
+        self, ev, algo, cond_seq: torch.Tensor, device, context_latent=None,
+        batch_size: int = 1,
+    ) -> torch.Tensor:
+        """Returns predicted latent ``(batch_size, T, C, H, W)``.
+
+        If ``context_latent`` (1, n_ctx, C, H, W) is given, the first n_ctx
+        latents are seeded from GT and pinned clean across all sampling steps
+        (anchored conditional rollout — predict the continuation given the real
+        first frame[s] + the action sequence). Else the whole sequence is
+        generated from noise conditioned only on the actions."""
+        from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
+        from egomimic.models.diffusion.sampling import (
+            sample as _sample,
+            staircase_ar_schedule,
+            vanilla_schedule,
+        )
+
+        bundle_shape = self.bundle_shape
+        T = cond_seq.shape[1]
+        discrete_ts = (
+            int(algo.diffusion.timesteps)
+            if isinstance(algo.diffusion, DiscreteDiffusion)
+            else None
+        )
+        if ev.mode == "chunk":
+            schedule = vanilla_schedule(
+                n_steps=ev.n_chunk_steps, T=T, discrete_timesteps=discrete_ts,
+            ).to(device)
+        else:
+            schedule = staircase_ar_schedule(
+                T=T, chunk_size=ev.ar_chunk_size, step_size=ev.ar_step_size,
+                discrete_timesteps=discrete_ts,
+            ).to(device)
+
+        if context_latent is None:
+            return _sample(
+                algo.diffusion, algo.backbone, schedule_matrix=schedule,
+                x_shape=bundle_shape, batch_size=batch_size,
+                external_cond=cond_seq, cfg_scale=ev.cfg_scale, device=device,
+            )
+
+        from egomimic.models.diffusion.sampling import sample_step
+        n_ctx = context_latent.shape[1]
+        clean = -1 if discrete_ts is not None else 0.0
+        schedule = schedule.clone()
+        schedule[:, :n_ctx] = clean
+        x = torch.randn(batch_size, T, *bundle_shape, device=device)
+        x[:, :n_ctx] = context_latent
+        for s in range(schedule.shape[0] - 1):
+            x = sample_step(
+                algo.diffusion, algo.backbone, x=x,
+                current_levels=schedule[s], next_levels=schedule[s + 1],
+                external_cond=cond_seq, eta=0.0, cfg_scale=ev.cfg_scale,
+            )
+            x[:, :n_ctx] = context_latent
+        return x
+
+    def _build_cond_seq(
+        self, algo, _batch: dict, emb_id: int, start: int, T: int
+    ) -> torch.Tensor:
+        """``(1, T, state_action_proj_dim)`` projected cond over a slice
+        of the val batch starting at frame ``start``."""
+        ac_key = algo.resolved_ac_keys[emb_id]
+        pieces = []
+        for key in self.bundle_obs_keys:
+            pieces.append(_batch[key][start : start + T])
+        pieces.append(_batch[ac_key][start : start + T])
+        concat = torch.cat(pieces, dim=-1)  # (T, state_dim + action_dim)
+        cond = self.state_action_proj(concat)  # (T, cond_dim)
+        return cond.unsqueeze(0)                # (1, T, cond_dim)
+
+    @torch.no_grad()
+    def rollout_video_episode(
+        self, ev, algo, _batch, emb_id, ep_idx, ep_start, ep_len, device
+    ) -> SimpleNamespace:
+        """Per-episode world-model video rollout for the spatial stage."""
+        imgs = _batch[ev.image_key]
+        is_packed = _batch.get("_packed", False)
+        T_rollout = min(ev.rollout_steps, ep_len)
+
+        if is_packed:
+            start = ep_start
+            cond_seq = self._build_cond_seq(
+                algo, _batch, emb_id, start, T_rollout,
+            )
+            gt_seq = imgs[start : start + T_rollout]
+        else:
+            # Padded: take row ep_idx, first T_rollout frames.
+            ac_key = algo.resolved_ac_keys[emb_id]
+            pieces = []
+            for key in self.bundle_obs_keys:
+                pieces.append(_batch[key][ep_idx, :T_rollout])
+            pieces.append(_batch[ac_key][ep_idx, :T_rollout])
+            concat = torch.cat(pieces, dim=-1)
+            cond_seq = self.state_action_proj(concat).unsqueeze(0)
+            gt_seq = imgs[ep_idx, :T_rollout]
+
+        cond_seq = cond_seq.to(device).float()
+        # Optional GT context anchor: VAE-encode the first n_context frames
+        # to latents and pin them clean -> predict the continuation given
+        # the real frame(s) + the action sequence (the in-distribution task).
+        context_latent = None
+        if ev.n_context_frames > 0:
+            n_ctx = min(ev.n_context_frames, T_rollout)
+            ctx_img = gt_seq[:n_ctx].to(device).float()
+            if ctx_img.max() > 1.5:
+                ctx_img = ctx_img / 255.0
+            mu, _lv = self.vae.encode(ctx_img)
+            context_latent = self.normalize_latent(mu).unsqueeze(0)
+        # ---- Sampler returns (1, T, C, H, W) ----
+        pred_latent = self._rollout_latent(
+            ev, algo, cond_seq, device, context_latent=context_latent,
+        ).squeeze(0)
+        # ---- VAE decode -> pixel frames (T, 3, H, W) ----
+        pred_frames = self.vae.decode(self.denormalize_latent(pred_latent))
+
+        n_cmp = min(ev.recon_loss_n_frames, pred_frames.shape[0])
+        gt_f = gt_seq[:n_cmp].to(device).float()
+        if gt_f.max() > 1.5:
+            gt_f = gt_f / 255.0
+
+        return SimpleNamespace(
+            pred_frames=pred_frames,
+            gt_for_mse=gt_f,
+            # Raw GT slice (NOT pre-normalized) — the unified eval's
+            # side-by-side panel reproduces the original per-frame
+            # ``gt_seq[t] / (255 if gt_seq.max()>1.5 else 1)`` exactly.
+            gt_panel_raw=gt_seq,
+            extra_metrics={},
+        )
+
     def _build_latent(self, ctx: SimpleNamespace) -> torch.Tensor:
         """``image -> VAE.encode -> spatial latent``.
 

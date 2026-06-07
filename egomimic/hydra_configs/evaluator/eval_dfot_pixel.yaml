@@ -1,12 +1,15 @@
 # DFoT pixel-space evaluator (no VAE decode needed).
 #
-# Single sub-eval: DFoTPixelVideoRolloutEval -- generates video frames
-# directly from the pixel diffusion model + per-step MSE vs GT frames.
+# Single sub-eval: the family-agnostic DFoTVideoRolloutEval (COMBINE A),
+# dispatched onto PixelSpatialDFoTOuterStage's rollout_video_episode hook --
+# generates video frames directly from the pixel diffusion model (sliding-
+# window rollout anchored on the first GT frame) + per-step MSE + PSNR/SSIM/
+# LPIPS vs GT frames (metric prefix "pixel").
 
 _target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
-  - _target_: egomimic.eval.dfot.eval_dfot_pixel_video_rollout.DFoTPixelVideoRolloutEval
+  - _target_: egomimic.eval.dfot.eval_dfot_video_rollout.DFoTVideoRolloutEval
     rollout_steps: 9
     upscale_to: 384
     max_videos: 2
@@ -14,6 +17,8 @@ evals:
     embodiment_name: "pushshapes_sim"
     image_key: "front_img_1"
     recon_loss_n_frames: 9
+    n_context_frames: 1   # pixel-default: anchor on first GT frame (was the class default)
+    rollout_window: 9     # pixel-default sliding-window size (was the class default)
     mode: "chunk"
     n_chunk_steps: 50
     cfg_scale: 1.0

@@ -134,6 +134,129 @@ class ObsActionImageDFoTOuterStage(ObsActionDFoTOuterStage):
         return self._latent_shape
 
     # ------------------------------------------------------------------
+    # Video-rollout hook (COMBINE A — decode-on-outer-stage).
+    #
+    # The family-agnostic ``DFoTVideoRolloutEval`` calls this per episode.
+    # This stage owns: the UNCONDITIONAL chunk/AR bundle sampler, the
+    # latent-slice extraction, and the frozen-VAE decode that turn sampler
+    # output into pixel frames. Code below is moved byte-for-byte from the
+    # old ``eval_dfot_video_rollout.DFoTVideoRolloutEval._rollout`` +
+    # ``_decode_latents_to_frames`` + the per-episode body of its
+    # ``compute_metrics_and_viz`` (single-panel: t=0 GT prepended).
+    # ------------------------------------------------------------------
+
+    #: metric-key infix the unified eval uses (``Valid/embN_<prefix>_recon_mse_*``).
+    video_metric_prefix = "video"
+    #: panel layout the unified eval assembles for this family.
+    video_panel = "single_t0prepend"
+    #: this family compares preds against the GT episode's first-N frames
+    #: (unconditioned rollout — no per-step GT alignment guarantee).
+    video_has_extra_metrics = False
+
+    @torch.no_grad()
+    def _decode_latents_to_frames(
+        self, latent_flat: torch.Tensor
+    ) -> torch.Tensor:
+        """``(T, latent_flat_dim) -> (T, 3, H, W)``."""
+        c, h, w = self.latent_shape
+        z = latent_flat.view(-1, c, h, w)
+        # Frozen VAE on the right device.
+        return self.vae.decode(z)
+
+    @torch.no_grad()
+    def _rollout_bundle(self, ev, algo, device, cond) -> torch.Tensor:
+        """Sample a (T, bundle_dim) bundle. Mode = ``"chunk"`` uses
+        ``algo._sample_chunk`` (uniform per-token noise + DDIM). Mode =
+        ``"ar"`` builds a staircase schedule matrix and calls
+        ``sample`` directly so the per-token noise pattern mirrors
+        DFoT's training AR schedule."""
+        from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
+        from egomimic.models.diffusion.sampling import (
+            sample as _sample,
+            staircase_ar_schedule,
+        )
+
+        T = ev.rollout_steps
+        if ev.mode == "chunk":
+            bundle = algo._sample_chunk(B=1, T=T, cond=cond, device=device)
+            return bundle.squeeze(0)
+
+        # mode == "ar"
+        bundle_dim = int(algo.outer_stage.bundle_dim)
+        discrete_ts = (
+            int(algo.diffusion.timesteps)
+            if isinstance(algo.diffusion, DiscreteDiffusion)
+            else None
+        )
+        schedule = staircase_ar_schedule(
+            T=T,
+            chunk_size=ev.ar_chunk_size,
+            step_size=ev.ar_step_size,
+            discrete_timesteps=discrete_ts,
+        ).to(device)
+        ec = cond.unsqueeze(0) if cond is not None else None
+        bundle = _sample(
+            algo.diffusion,
+            algo.backbone,
+            schedule_matrix=schedule,
+            action_dim=bundle_dim,
+            batch_size=1,
+            external_cond=ec,
+            cfg_scale=ev.cfg_scale,
+            device=device,
+        ).squeeze(0)
+        return bundle
+
+    @torch.no_grad()
+    def rollout_video_episode(
+        self, ev, algo, _batch, emb_id, ep_idx, ep_start, ep_len, device
+    ) -> SimpleNamespace:
+        """Per-episode video rollout for the joint obs+action+image stage.
+
+        Returns a namespace the unified eval consumes:
+          * ``pred_frames`` ``(T,3,H,W)`` float in [0,1] — decoded preds.
+          * ``gt_for_mse``  ``(T,3,H,W)`` float in [0,1] — GT first-N frames
+            (this family's MSE is against the GT episode's leading frames;
+            the rollout is unconditioned so alignment is only distributional).
+          * ``gt_t0_chw``   the raw t=0 GT image to prepend as launch context.
+          * ``extra_metrics`` empty for this family.
+        """
+        imgs = _batch[ev.image_key]
+        is_packed = _batch.get("_packed", False)
+
+        # t=0 launch image for this episode.
+        if is_packed:
+            img_chw = imgs[ep_start]
+        else:
+            img_chw = imgs[ep_idx, 0]
+
+        # The model's _sample_chunk wants a cond tensor that matches the
+        # backbone's external_cond shape. For the obs+action+image
+        # variant the cond_encoder is usually empty (image is in the
+        # bundle, not the cond), so cond should be None.
+        cond = None
+        bundle_pred = self._rollout_bundle(ev, algo, device, cond)  # (T, bundle_dim)
+        latent_seq = bundle_pred[:, self.image_latent_slice]
+        pred_frames = self._decode_latents_to_frames(latent_seq)
+
+        n_cmp = min(ev.recon_loss_n_frames, pred_frames.shape[0])
+        if is_packed:
+            gt_seq = imgs[ep_start : ep_start + n_cmp]
+        else:
+            gt_seq = imgs[ep_idx, :n_cmp]
+        # GT in [0,1] float; predicted also in [0,1] from VAE sigmoid.
+        gt_f = gt_seq.to(device).float()
+        if gt_f.max() > 1.5:
+            gt_f = gt_f / 255.0
+
+        return SimpleNamespace(
+            pred_frames=pred_frames,
+            gt_for_mse=gt_f,
+            gt_t0_chw=img_chw,
+            extra_metrics={},
+        )
+
+    # ------------------------------------------------------------------
     # Override the parent's _build_bundle so the "_image_latent" entry
     # is computed from the image via the frozen VAE, not pulled from
     # ctx.obs directly.

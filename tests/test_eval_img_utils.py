@@ -44,14 +44,19 @@ def test_canonical_matches_every_original_body():
 
 
 def test_touched_eval_modules_import():
+    # COMBINE A: the pixel/spatial video-rollout modules were collapsed into
+    # the family-agnostic ``eval_dfot_video_rollout`` (which re-exports them as
+    # compat aliases). The converter all six shared still lives in img_utils.
     mods = [
         "egomimic.eval.core.img_utils",
         "egomimic.eval.core.eval_vae_recon",
         "egomimic.eval.dfot.eval_dfot_video_rollout",
-        "egomimic.eval.dfot.eval_dfot_pixel_video_rollout",
-        "egomimic.eval.dfot.eval_dfot_spatial_video_rollout",
         "egomimic.eval.dfot.eval_dfot_policy_action",
         "egomimic.eval.dfot.eval_dfot_bundle_anchored",
     ]
     for m in mods:
         importlib.import_module(m)
+    # the collapsed families resolve as aliases of the unified eval
+    uni = importlib.import_module("egomimic.eval.dfot.eval_dfot_video_rollout")
+    assert uni.DFoTPixelVideoRolloutEval is uni.DFoTVideoRolloutEval
+    assert uni.DFoTSpatialVideoRolloutEval is uni.DFoTVideoRolloutEval

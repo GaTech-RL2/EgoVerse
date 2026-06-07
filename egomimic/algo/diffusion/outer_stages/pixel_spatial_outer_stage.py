@@ -22,6 +22,18 @@ import torch.nn as nn
 from egomimic.algo.diffusion.outer_stages.outer_stage import DFoTOuterStage
 from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
 
+try:
+    from torchmetrics.image import (  # noqa: F401
+        PeakSignalNoiseRatio,
+        StructuralSimilarityIndexMeasure,
+    )
+    from torchmetrics.image.lpip import (  # noqa: F401
+        LearnedPerceptualImagePatchSimilarity,
+    )
+    _HAS_METRICS = True
+except ImportError:
+    _HAS_METRICS = False
+
 
 class PixelSpatialDFoTOuterStage(DFoTOuterStage):
 
@@ -213,3 +225,157 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
 
         self.decode(v_pred, batch, ctx)
         return v_pred
+
+    # ------------------------------------------------------------------
+    # Video-rollout hook (COMBINE A — decode-on-outer-stage).
+    #
+    # This stage owns the pixel-family rollout: a sliding-window DDIM rollout
+    # anchored on the first n_context GT frames (no VAE — output IS pixels),
+    # plus the PSNR/SSIM/LPIPS perceptual metrics. Moved byte-for-byte from
+    # ``eval_dfot_pixel_video_rollout.DFoTPixelVideoRolloutEval``
+    # (``_rollout_sliding_window`` + per-episode body). Side-by-side
+    # [GT|pred] panel.
+    # ------------------------------------------------------------------
+
+    video_metric_prefix = "pixel"
+    video_panel = "sidebyside"
+    video_has_extra_metrics = True
+
+    @torch.no_grad()
+    def _rollout_sliding_window(
+        self, ev, algo, total_frames: int, context_frames: torch.Tensor,
+        window_size: int, device,
+    ) -> torch.Tensor:
+        """Sliding window rollout matching the reference DFoT inference.
+
+        Args:
+            ev: the unified video-rollout eval (carries n_chunk_steps).
+            algo: the DFoT algo.
+            total_frames: total number of frames to generate.
+            context_frames: (n_context, C, H, W) initial context frames.
+            window_size: number of frames per denoising window.
+            device: torch device.
+
+        Returns:
+            (total_frames, C, H, W) generated frames.
+        """
+        from egomimic.models.diffusion.sampling import sample_step, vanilla_schedule
+
+        bundle_shape = self.bundle_shape
+        discrete_ts = (
+            int(algo.diffusion.timesteps)
+            if isinstance(algo.diffusion, DiscreteDiffusion)
+            else None
+        )
+
+        n_context = context_frames.shape[0]
+        generated = context_frames.clone()  # (n_context, C, H, W)
+
+        while generated.shape[0] < total_frames:
+            # How many context frames to use (up to window_size - 1)
+            c = min(generated.shape[0], window_size - 1)
+            # How many new frames to generate
+            h = min(total_frames - generated.shape[0], window_size - c)
+            T_window = c + h
+
+            # Build window: context + noise
+            context_part = generated[-c:]  # (c, C, H, W)
+            noise_part = torch.randn(h, *bundle_shape, device=device)
+            x = torch.cat([context_part, noise_part], dim=0).unsqueeze(0)  # (1, T_window, C, H, W)
+
+            # Build schedule
+            schedule = vanilla_schedule(
+                n_steps=ev.n_chunk_steps, T=T_window, discrete_timesteps=discrete_ts,
+            ).to(device)
+
+            # Context tokens get noise_level = -1 (clean) throughout
+            # Modify schedule: context columns stay at -1
+            for step_idx in range(schedule.shape[0]):
+                schedule[step_idx, :c] = -1 if discrete_ts else 0.0
+
+            # Run DDIM sampling
+            for s in range(schedule.shape[0] - 1):
+                x = sample_step(
+                    algo.diffusion, algo.backbone, x=x,
+                    current_levels=schedule[s],
+                    next_levels=schedule[s + 1],
+                    external_cond=None, eta=0.0,
+                )
+                # Revert context frames to clean values
+                x[0, :c] = context_part
+
+            # Append newly generated frames
+            new_frames = x[0, c:c + h]
+            generated = torch.cat([generated, new_frames.clamp(0, 1)], dim=0)
+
+        return generated[:total_frames]
+
+    @torch.no_grad()
+    def rollout_video_episode(
+        self, ev, algo, _batch, emb_id, ep_idx, ep_start, ep_len, device
+    ) -> SimpleNamespace:
+        """Per-episode pixel-space sliding-window rollout + perceptual metrics."""
+        imgs = _batch[ev.image_key]
+        is_packed = _batch.get("_packed", False)
+        T_rollout = min(ev.rollout_steps, ep_len)
+
+        if is_packed:
+            gt_seq = imgs[ep_start : ep_start + T_rollout]
+        else:
+            gt_seq = imgs[ep_idx, :T_rollout]
+
+        # GT normalization (also used to seed the context frame(s)).
+        gt_f = gt_seq[:T_rollout].to(device).float()
+        if gt_f.max() > 1.5:
+            gt_f = gt_f / 255.0
+
+        # Conditional rollout matching the reference DFoT prediction task:
+        # seed the first n_context GT frames, hold them clean (noise level
+        # -1) for the whole sampling trajectory, and predict the rest
+        # conditioned on them.
+        n_ctx = max(1, min(ev.n_context_frames, T_rollout))
+        pred_frames = self._rollout_sliding_window(
+            ev,
+            algo,
+            total_frames=T_rollout,
+            context_frames=gt_f[:n_ctx],
+            window_size=min(ev.rollout_window, T_rollout),
+            device=device,
+        )  # (T, 3, H, W)
+
+        # Clamp output to [0, 1].
+        pred_frames = pred_frames.clamp(0.0, 1.0)
+
+        n_cmp = min(ev.recon_loss_n_frames, pred_frames.shape[0])
+
+        # PSNR, SSIM, LPIPS per episode (averaged over frames).
+        extra = {}
+        if _HAS_METRICS and n_cmp > 0:
+            from torchmetrics.image import (
+                PeakSignalNoiseRatio,
+                StructuralSimilarityIndexMeasure,
+            )
+            from torchmetrics.image.lpip import (
+                LearnedPerceptualImagePatchSimilarity,
+            )
+            pred_cmp = pred_frames[:n_cmp].to(device)
+            gt_cmp = gt_f[:n_cmp].to(device)
+            psnr_fn = PeakSignalNoiseRatio(data_range=1.0).to(device)
+            extra["psnr"] = psnr_fn(pred_cmp, gt_cmp)
+            ssim_fn = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+            extra["ssim"] = ssim_fn(pred_cmp, gt_cmp)
+            try:
+                lpips_fn = LearnedPerceptualImagePatchSimilarity(
+                    net_type="alex", normalize=True).to(device)
+                extra["lpips"] = lpips_fn(pred_cmp, gt_cmp)
+            except Exception:
+                pass
+
+        return SimpleNamespace(
+            pred_frames=pred_frames,
+            gt_for_mse=gt_f[:n_cmp],
+            # Raw GT slice for the side-by-side panel (reproduces the
+            # original per-frame ``gt_seq[t] / (255 if max>1.5 else 1)``).
+            gt_panel_raw=gt_seq,
+            extra_metrics=extra,
+        )
