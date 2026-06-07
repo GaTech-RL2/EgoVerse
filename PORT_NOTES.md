@@ -643,3 +643,72 @@ scripts.sbatch_train_hnet_fused_{50,80}ep_cosine -> DELETED (ref removed model=h
 Six folder-group commits (`44e837da` models, `474950d2` algo class-rename, `9d124bb5` utils, `19e097d1` rldb, `10b2398c` eval/pl_utils, `342065fd` scripts/tests) moved every misplaced file to its semantic role home. **The complete 91-line dotted-path map (old → new, every moved class) is git-tracked at `scratch/hierarchy_path_map.txt`** — consult it when evaluating OLD runs whose resolved configs name pre-move `_target_` paths (only `egomimic.algo.packed_base.HNet` has a runtime compat alias; all other old paths must be remapped via the table).
 
 Headline moves: models/ loose files → cores/heads/stems/diffusion (act_nets + hpt_nets split by role; 9 dead classes pruned); `packed_base.HNet` → `PackedAlgoBase` (alias kept); utils junk drawer → pl_utils + vendored/robomimic_tensor_utils; egomimicUtils split (model math → cores/model_utils, drawing → viz_utils); regression scripts → tests/regression/ (collection-safe, skip-guarded); `smoke_sim_eval` → `eval/core/ckpt_loading`. Gates: tests 139/8/10 (zero new fails), compose 107/109 (2 pre-broken), BC smoke Δ≤9.3e-5, DFoT smoke bit-identical (0.28878551721572876).
+
+
+# DFoT EVALUATOR COMBINE — RECORD (combines A + B, 2026-06-07)
+
+Dedup-campaign DFoT-evaluator combine: collapse the near-duplicate
+`egomimic/eval/dfot/` evaluators into a family-agnostic skeleton + shared
+helpers, with the family-VARIANT sampler/decode pushed onto each outer stage's
+`rollout_video_episode` hook (decode-on-outer-stage). All on
+`elmo/dfot-obsactimg-pact`, NOT pushed. Tag before each combine
+(`pre-combineA-dfoteval`, `pre-combineB-dfoteval`).
+
+## Combine commits
+
+| combine | commit | tag | what |
+|---|---|---|---|
+| A | `c73a5543` | `pre-combineA-dfoteval` | video-rollout TRIO → 1 family-agnostic `DFoTVideoRolloutEval` (decode-on-outer-stage). `eval_dfot_pixel_video_rollout.py` (360) + `eval_dfot_spatial_video_rollout.py` (308) DELETED; their behaviour now lives on `PixelSpatialDFoTOuterStage.rollout_video_episode` / `ImageSpatialDFoTOuterStage.rollout_video_episode`. Old class names kept as compat aliases (`DFoTPixelVideoRolloutEval = DFoTSpatialVideoRolloutEval = DFoTVideoRolloutEval`) — pure `_target_` redirects. |
+| B | `7fde8626` | `pre-combineB-dfoteval` | policy PAIR merge (`eval_dfot_policy_action.py` 188 + `eval_dfot_policy_receding_horizon.py` 147 → one `eval_dfot_policy.py`, RH subclasses Action, shared `_rollout`/`_ddim_from_v`) + shared anchored-DDIM helper `_sampling.anchored_ddim_rollout` (adopted by `bundle_anchored` + `image_spatial` outer-stage anchored branch) + knob/path mixin `_base.DFoTVideoEvalMixin` (`store_dfot_knobs` + `video_dir`, adopted by every DFoT evaluator). |
+
+`eval_dfot_self_rollout.py` (361) was **NOT touched** (byte-identical
+`pre-combineA-dfoteval`..HEAD): its uint8 variant is genuinely different (checked
+in deep-clean collapse c6), so it stays a standalone evaluator.
+
+## eval/dfot/ before → after
+
+PRE-A: 7 evaluator files = 1784 lines (+ `__init__.py` 36).
+HEAD: 5 evaluator modules + 2 shared helpers + `__init__.py` = 1278 lines.
+Net **−506 lines (−28%)** across the 7-file set; 4 per-family modules deleted,
+2 reusable helpers (`_base.py` 53, `_sampling.py` 86) introduced.
+
+| file (eval/dfot/) | pre-A | HEAD | Δ |
+|---|---|---|---|
+| eval_dfot_video_rollout.py | 272 | 265 | −7 (now family-agnostic, drives all 3 video families) |
+| eval_dfot_spatial_video_rollout.py | 308 | — | −308 (DELETED → alias of video_rollout) |
+| eval_dfot_pixel_video_rollout.py | 360 | — | −360 (DELETED → alias of video_rollout) |
+| eval_dfot_policy_action.py | 188 | — | −188 (DELETED → merged into eval_dfot_policy) |
+| eval_dfot_policy_receding_horizon.py | 147 | — | −147 (DELETED → merged into eval_dfot_policy) |
+| eval_dfot_policy.py | — | 334 | +334 (NEW: Action + RH-subclass merged) |
+| eval_dfot_bundle_anchored.py | 148 | 140 | −8 (adopts `anchored_ddim_rollout` + mixin) |
+| eval_dfot_self_rollout.py | 361 | 361 | 0 (UNTOUCHED — genuinely different uint8 variant) |
+| _base.py | — | 53 | +53 (NEW: `DFoTVideoEvalMixin`) |
+| _sampling.py | — | 86 | +86 (NEW: `anchored_ddim_rollout`) |
+| **7-eval-file total** | **1784** | **1278** | **−506 (−28%)** |
+
+## `_target_` map (every config naming a moved/renamed evaluator class)
+
+LIVE configs (compose-sweep-exercised, used by scripts):
+```
+eval_dfot_image_spatial.yaml  -> DFoTVideoRolloutEval        (was spatial-family class)
+eval_dfot_pixel.yaml          -> DFoTVideoRolloutEval        (was pixel-family class)
+eval_dfot_obs_action_image.yaml -> DFoTVideoRolloutEval x2   (composite, unchanged target)
+eval_dfot_image_spatial_policy.yaml    -> DFoTPolicyActionEval            (now in eval_dfot_policy)
+eval_dfot_image_spatial_policy_rh.yaml -> DFoTPolicyRecedingHorizonEval   (now in eval_dfot_policy)
+eval_dfot_bundle_anchored.yaml -> DFoTBundleAnchoredEval     (module unchanged; adopts shared helpers)
+eval_dfot_obs_action.yaml      -> DFoTSelfRolloutEval        (UNTOUCHED module)
+```
+DEAD-but-on-disk configs (NOT archived — must still compose): all resolve via
+the compat aliases + the merged `eval_dfot_policy` module re-exports.
+`egomimic/eval/dfot/__init__.py` exports all 7 class names (incl. the 2 aliases)
+so every old `_target_` still imports.
+
+## Final-gate results (alloc 3326107, a40 megabot, pact-2 symlinked .venv)
+
+| gate | result |
+|---|---|
+| **pytest tests/** | **139 passed / 8 failed / 10 skipped** — same 8 pre-existing fails (7 `TestAlgoWiring` old-HNet-sig + 1 `TestInferNormFromPacked` missing-zarr). **ZERO new failures.** |
+| **compose sweep** | **TOTAL_PASS=107 / TOTAL_FAIL=2** — all 11 DFoT evaluator yamls compose (incl. dead-on-disk `image_spatial_policy`, `_policy_rh`, `bundle_anchored`, `obs_action`); the 2 fails are the pre-broken `viz/pi_cartesian_lang` + `viz/pi_cartesian_lang_wrist` (schema/structured provider), NOT DFoT. |
+| **real eval forward** | `evaluator=eval_dfot_image_spatial` + `eval_dfot_pixel` each built a REAL DFoT algo (random weights, fixed seed) and ran ONE `compute_metrics_and_viz` end-to-end through the unified eval + outer-stage decode hook. image_spatial: 11 finite metrics, mp4 (128,384,768,3)=599954 B. pixel: 13 finite metrics (incl PSNR/SSIM/LPIPS), mp4 (18,384,768,3)=288794 B. Both written, non-empty. |
+
+Harness: `scratch/gate3_real_eval_forward.py`; videos at `scratch/gate3_out/`.
