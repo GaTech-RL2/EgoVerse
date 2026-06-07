@@ -59,7 +59,7 @@ def _build_config_tree():
         {
             "model": {
                 "robomimic_model": {
-                    "_target_": "egomimic.pl_utils.test_model_wrapper.DummyAlgo",
+                    "_target_": "test_model_wrapper.DummyAlgo",
                     "norm_stats": None,
                     "value": 7,
                     "echo_value": "${model.robomimic_model.value}",
@@ -87,7 +87,7 @@ def test_model_wrapper_reconstructs_model_from_config_tree():
     )
 
     assert wrapper.model.__class__.__name__ == "DummyAlgo"
-    assert wrapper.model.__class__.__module__ == "egomimic.pl_utils.test_model_wrapper"
+    assert wrapper.model.__class__.__module__ == "test_model_wrapper"
     assert wrapper.model.echo_value == 7
     assert wrapper.model.norm_stats.key_shape("actions_cartesian", 8) == (
         2,
@@ -127,7 +127,7 @@ def test_model_wrapper_load_from_checkpoint_reconstructs_from_hparams(tmp_path: 
     loaded = ModelWrapper.load_from_checkpoint(str(ckpt_path), weights_only=False)
 
     assert loaded.model.__class__.__name__ == "DummyAlgo"
-    assert loaded.model.__class__.__module__ == "egomimic.pl_utils.test_model_wrapper"
+    assert loaded.model.__class__.__module__ == "test_model_wrapper"
     assert loaded.model.echo_value == 7
     torch.testing.assert_close(
         loaded.model.norm_stats.norm_stats[8]["actions_cartesian"]["mean"],

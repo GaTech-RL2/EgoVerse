@@ -38,7 +38,7 @@ import cv2
 import numpy as np
 import torch
 
-from egomimic.eval.core.eval_sim import _state_to_init
+from egomimic.rldb.embodiment.pushshapes_sim import _state_to_init
 from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 

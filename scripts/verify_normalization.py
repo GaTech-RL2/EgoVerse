@@ -79,7 +79,7 @@ def main():
     print(f"  raw env state (agent_pos + object_pose):")
     print(f"    agent_pos={obs_env['agent_pos']}  object_pose={obs_env['object_pose']}")
 
-    from egomimic.eval.eval_sim import _env_to_zarr_pushshapes
+    from egomimic.rldb.embodiment.pushshapes_sim import _env_to_zarr_pushshapes
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     obs_zarr = _env_to_zarr_pushshapes(obs_env, device)
     print(f"  obs_zarr (after _env_to_zarr_pushshapes) keys: {list(obs_zarr.keys())}")

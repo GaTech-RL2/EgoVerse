@@ -34,46 +34,16 @@ import torch
 from egomimic.eval.core.eval_video import EvalVideo
 
 
-# --------------------------------------------------------------------- #
-# Env-output → zarr-format conversion. Env-specific (NOT model-specific).
-# Add new entries when wiring a new simulator.
-# --------------------------------------------------------------------- #
-
-
-def _env_to_zarr_pushshapes(obs_env: dict, device: torch.device) -> dict:
-    """PushShapesEnv obs -> canonical zarr-key dict (B=1).
-
-    Keys match pushshapes.get_keymap:
-      state_agent_obj: (1, 5) = concat(pusher_xy, obj_xyangle)
-      front_img_1: (1, 3, H, W) float [0,1]
-    """
-    state_5 = np.concatenate(
-        [obs_env["agent_pos"], obs_env["object_pose"]], axis=0
-    ).astype(np.float32)
-    image_chw = np.transpose(obs_env["image"], (2, 0, 1)).astype(np.float32) / 255.0
-    return {
-        "state_agent_obj": torch.from_numpy(state_5).unsqueeze(0).to(device),
-        "front_img_1": torch.from_numpy(image_chw).unsqueeze(0).to(device),
-    }
-
-
-_ENV_TO_ZARR = {
-    "pushshapes_sim": _env_to_zarr_pushshapes,
-}
-
-
-def _state_to_init(state: np.ndarray) -> tuple:
-    """Split (5,) state vector into PushShapesEnv set_state args.
-    state = concat(pusher_xy, object_xyangle).
-    """
-    state = np.asarray(state, dtype=np.float32).reshape(-1)
-    if state.shape[0] < 5:
-        raise ValueError(f"expected state of len >= 5, got {state.shape}")
-    return (
-        (float(state[0]), float(state[1])),
-        (float(state[2]), float(state[3]), float(state[4])),
-    )
-
+# Env-output -> zarr-format conversion + state-split. PushShapes-specific
+# glue; the canonical home is the embodiment package. Re-exported here so the
+# legacy eval_sim._ENV_TO_ZARR / _state_to_init / _env_to_zarr_pushshapes
+# names (used internally + by eval_dfot_self_rollout and scripts/verify_*) keep
+# resolving unchanged.
+from egomimic.rldb.embodiment.pushshapes_sim import (  # noqa: E402,F401
+    _ENV_TO_ZARR,
+    _env_to_zarr_pushshapes,
+    _state_to_init,
+)
 
 # --------------------------------------------------------------------- #
 # Base sim eval — owns env loop only.
@@ -116,7 +86,7 @@ class SimRolloutEval(EvalVideo):
         if self.embodiment_name not in _ENV_TO_ZARR:
             raise ValueError(
                 f"No env-to-zarr converter for {self.embodiment_name!r}. "
-                f"Add to _ENV_TO_ZARR in eval_sim.py."
+                f"Add to _ENV_TO_ZARR in egomimic/rldb/embodiment/pushshapes_sim.py."
             )
         self.init_mode = str(init_mode)
         if self.init_mode not in {"replay", "random", "seeds"}:

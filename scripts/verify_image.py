@@ -32,7 +32,7 @@ def main():
 
     print("\n=== inference image ===")
     from Tsimulation.pushshapes import PushShapesEnv
-    from egomimic.eval.eval_sim import _env_to_zarr_pushshapes
+    from egomimic.rldb.embodiment.pushshapes_sim import _env_to_zarr_pushshapes
     env = PushShapesEnv(object_shape="T", pusher_shape="circle", obstacle_level=0, image_size=96, render_mode="rgb_array")
     env.reset(seed=0)
     obs_zarr = _env_to_zarr_pushshapes(env._get_obs(), torch.device("cpu"))
