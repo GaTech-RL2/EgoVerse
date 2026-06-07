@@ -17,7 +17,7 @@ import numpy as np
 import torch
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment
-from egomimic.utils.egomimicUtils import draw_dot_on_frame
+from egomimic.utils.viz_utils import draw_dot_on_frame
 
 # ImageNet normalization constants applied by eval_image_augs; we invert them
 # before rendering so the image looks correct in the viz frame.

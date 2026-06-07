@@ -17,7 +17,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from egomimic.models.cores.hpt_transformer import Attention, CrossAttention
-from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table
+from egomimic.models.cores.model_utils import get_sinusoid_encoding_table
 
 INIT_CONST = 0.02
 

@@ -4,7 +4,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from omegaconf import DictConfig
 
-from egomimic.utils import pylogger, rich_utils
+from egomimic.pl_utils import rich_utils
+from egomimic.utils import pylogger
 
 log = pylogger.RankedLogger(__name__, rank_zero_only=True)
 

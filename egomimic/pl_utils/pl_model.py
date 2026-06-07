@@ -9,7 +9,7 @@ import torch
 from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
-import egomimic.utils.tensor_utils as TensorUtils
+import egomimic.vendored.robomimic_tensor_utils as TensorUtils
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 

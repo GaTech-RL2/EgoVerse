@@ -5,7 +5,7 @@ from torchmetrics import MeanSquaredError
 
 from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
-from egomimic.utils.egomimicUtils import (
+from egomimic.models.cores.model_utils import (
     frechet_gaussian_over_time,
     reverse_kl_from_samples,
 )
