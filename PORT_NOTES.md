@@ -637,3 +637,9 @@ scripts/{test_dfot_inference,test_dfot_refactor_e2e,test_hnet_outer_stage,test_h
 {setup_nvm,run_eva_docker,pull_models}.sh -> scripts/ops/*
 scripts.sbatch_train_hnet_fused_{50,80}ep_cosine -> DELETED (ref removed model=hnet_pushshapes_fused; config quarantined in scratch/flat_fused_quarantine/)
 ```
+
+## Hierarchy pass — old→new path map (2026-06-07)
+
+Six folder-group commits (`44e837da` models, `474950d2` algo class-rename, `9d124bb5` utils, `19e097d1` rldb, `10b2398c` eval/pl_utils, `342065fd` scripts/tests) moved every misplaced file to its semantic role home. **The complete 91-line dotted-path map (old → new, every moved class) is git-tracked at `scratch/hierarchy_path_map.txt`** — consult it when evaluating OLD runs whose resolved configs name pre-move `_target_` paths (only `egomimic.algo.packed_base.HNet` has a runtime compat alias; all other old paths must be remapped via the table).
+
+Headline moves: models/ loose files → cores/heads/stems/diffusion (act_nets + hpt_nets split by role; 9 dead classes pruned); `packed_base.HNet` → `PackedAlgoBase` (alias kept); utils junk drawer → pl_utils + vendored/robomimic_tensor_utils; egomimicUtils split (model math → cores/model_utils, drawing → viz_utils); regression scripts → tests/regression/ (collection-safe, skip-guarded); `smoke_sim_eval` → `eval/core/ckpt_loading`. Gates: tests 139/8/10 (zero new fails), compose 107/109 (2 pre-broken), BC smoke Δ≤9.3e-5, DFoT smoke bit-identical (0.28878551721572876).
