@@ -123,6 +123,20 @@ class PerEmbodimentStage(_BaseStage):
             for emb, ss in self.sub_stages.items()
         }
 
+    def _allocate(self, batch_size, max_seqlen, dtype, device):
+        """AR-cache allocation (pact-2 scheme; called by ``HNet.root._allocate``).
+
+        Returns ``{emb: sub_stage_state}``. Each sub-stage's ``_allocate``
+        recurses into the SHARED inner trunk, so every embodiment gets its own
+        inner-cache copy — harmless (unlike weight init, these are just
+        per-rollout buffers, and only the active embodiment's cache is ever
+        advanced). ``step`` dispatches to ``state[ctx.embodiment_id]``.
+        """
+        return {
+            emb: ss._allocate(batch_size, max_seqlen, dtype, device)
+            for emb, ss in self.sub_stages.items()
+        }
+
     # ------------------------------------------------------------------ #
     # Init / LR plumbing
     # ------------------------------------------------------------------ #

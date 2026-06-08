@@ -711,6 +711,23 @@ class HNetOuterStage(nn.Module):
     # keep working with a minimal call-site rename.
     # ------------------------------------------------------------------
 
+    def _decode_pred_actions(self, raw: torch.Tensor) -> torch.Tensor:
+        """Map a head output to POINT actions for the (per-frame) eval path.
+
+        Non-GMM heads already emit point actions -> returned unchanged. The GMM
+        head emits flat mixture params: decode (sample under low-noise eval)
+        and, for a chunked head, take the action at chunk position 0 (the action
+        AT the current frame) so the teacher-forced overlay stays per-frame
+        ``(..., action_dim)``. Sim rollout uses the FULL chunk separately
+        (see ``inference_step`` open-loop buffer).
+        """
+        if self.action_head_type != "gmm":
+            return raw
+        a = self.action_out.decode(raw)
+        if int(getattr(self.action_out, "chunk_len", 1)) > 1:
+            a = a[..., 0, :]
+        return a
+
     def forward_padded(
         self, actions: torch.Tensor, obs: dict, embodiment_id: Optional[str] = None
     ):
@@ -720,7 +737,7 @@ class HNetOuterStage(nn.Module):
             cond_dict={}, aux=[], inference_params=None, embodiment_id=embodiment_id
         )
         self.forward(batch, ctx)
-        return batch["pred_action"], ctx.aux
+        return self._decode_pred_actions(batch["pred_action"]), ctx.aux
 
     def forward_packed(
         self,
@@ -741,7 +758,7 @@ class HNetOuterStage(nn.Module):
             embodiment_id=embodiment_id,
         )
         self.forward(batch, ctx)
-        return batch["pred_action"], ctx.aux
+        return self._decode_pred_actions(batch["pred_action"]), ctx.aux
 
     # ------------------------------------------------------------------
     # Inference: AR step. Used by the algo class's closed-loop
@@ -770,9 +787,18 @@ class HNetOuterStage(nn.Module):
         }
 
     @torch.no_grad()
-    def step(self, state: dict, obs_norm: dict, t: int) -> torch.Tensor:
-        """Single online AR step. Returns ``(B, 1, action_dim)``."""
-        cond_dict_seq = self.cond_encoder.encode(obs_norm, T_action=1)
+    def step(
+        self, state: dict, obs_norm: dict, t: int, embodiment_id: Optional[str] = None
+    ) -> torch.Tensor:
+        """Single online AR step. Returns ``(B, 1, action_dim)``.
+
+        ``embodiment_id`` (domain name) is threaded onto the per-step ctx so a
+        ``PerEmbodimentStage`` can dispatch to the right per-emb sub-stage in
+        the AR cache; None for single-embodiment models.
+        """
+        cond_dict_seq = self.cond_encoder.encode(
+            obs_norm, T_action=1, embodiment_id=embodiment_id
+        )
         cond_2d = {k: v.squeeze(1) for k, v in cond_dict_seq.items()}
 
         obs_step = {
@@ -802,6 +828,7 @@ class HNetOuterStage(nn.Module):
             cond_dict=cond_2d,
             aux=[],
             inference_params=state["params"],
+            embodiment_id=embodiment_id,
         )
         h = self.inner_stage.step(cur, ctx)
         a_t_norm = self.action_out(h)
@@ -1177,6 +1204,7 @@ class PackedAlgoBase(Algo):
         import numpy as np
 
         policy = self.outer_stage
+        is_gmm = getattr(policy, "action_head_type", None) == "gmm"
         if t == 0:
             device = next(self.outer_stage.parameters()).device
             default_T = int(getattr(policy, "action_horizon", 1024))
@@ -1186,16 +1214,47 @@ class PackedAlgoBase(Algo):
             self._sim_state = policy.init_step_state(
                 batch_size=1, T_max=T_max_use, device=device, dtype=torch.bfloat16
             )
+            # Open-loop action queue (mirrors WindowedBCPolicy.step): on an
+            # obs-step the model emits ``chunk_len`` actions that REPLACE the
+            # queue; intermediate frames pop one action with NO model call, so
+            # the model re-observes only every ``chunk_len`` frames
+            # (== obs_stride). chunk_len==1 / non-GMM => queue holds one action,
+            # i.e. re-predict every frame (the prior behaviour).
+            self._sim_action_queue: list = []
         embodiment_name = get_embodiment(emb_id).lower()
         ac_key = (
             self.ac_keys[embodiment_name]
             if embodiment_name in self.ac_keys
             else self.ac_keys[emb_id]
         )
-        obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
-        action_norm = policy.step(self._sim_state, obs_norm, t)
+
+        # OPEN-LOOP DISPENSE: queue non-empty => pop the next chunk action and
+        # step the env WITHOUT querying the model (and without advancing the AR
+        # cache / re-observing).
+        if self._sim_action_queue:
+            a_norm = self._sim_action_queue.pop(0)
+        else:
+            # Queue empty => OBS-STEP: re-observe, advance the AR cache one
+            # token, decode a fresh chunk, refill the queue.
+            obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
+            raw = policy.step(
+                self._sim_state, obs_norm, t,
+                embodiment_id=self.domain_by_id.get(emb_id),
+            )  # (B,1,*)
+            if is_gmm:
+                chunk = policy.action_out.decode(raw)  # (B,1,C,D) if C>1 else (B,1,D)
+                C = int(getattr(policy.action_out, "chunk_len", 1))
+                if C > 1:
+                    # (B,1,C,D) -> C tensors (B,1,D), one per chunk position.
+                    self._sim_action_queue = [chunk[..., j, :] for j in range(C)]
+                else:
+                    self._sim_action_queue = [chunk]
+            else:
+                self._sim_action_queue = [raw]  # one point action
+            a_norm = self._sim_action_queue.pop(0)
+
         action_unnorm = self.norm_stats.unnormalize(
-            {ac_key: action_norm.squeeze(0).squeeze(0)},
+            {ac_key: a_norm.squeeze(0).squeeze(0)},
             emb_id,
         )[ac_key]
         return action_unnorm.detach().cpu().numpy().reshape(-1).astype(np.float32)
