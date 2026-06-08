@@ -52,7 +52,7 @@ robomimic_model:
         size: 224
         interpolation: 3
 
-enable_grad_norm: false
+enable_grad_norm: true
 
 optimizer:
   _target_: torch.optim.AdamW
