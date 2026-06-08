@@ -1,0 +1,32 @@
+# RICL data: eva query loader + retrieved in-context demos from a bank.
+#
+# Inherits the eva-only pi query datasets (cartesian_pi) and swaps the datamodule
+# for RiclDataModuleWrapper, which wraps query samples to expose frame_idx and
+# attaches each sample's top-k retrieved (image, state, action) blocks from a
+# precomputed retrieval cache.
+#
+# Cross-embodiment (headline): bank = aria (human) -> bank_converter =
+# HumanBimanualCartesianEuler. For the D0 within-embodiment sanity (bank = eva),
+# override on the CLI: data.bank_converter._target_=egomimic.utils.action_utils.RobotBimanualCartesianEuler
+#
+# Build the cache first (see egomimic/ricl/README.md):
+#   python -m egomimic.ricl.retrieval --mode cross_similar -k 4 \
+#       --zarr-root '<.../{hash}.zarr>' --out <cache>
+# Then pass --/override at train time:
+#   data.retrieval_cache_dir=<cache> data.bank_zarr_root='<.../{hash}.zarr>'
+defaults:
+  - eva_pi
+  - _self_
+
+_target_: egomimic.pl_utils.pl_data_utils.RiclDataModuleWrapper
+
+# --- RICL wiring (must be provided at run time) ---
+retrieval_cache_dir: ???        # dir written by RetrievalCache.save
+bank_zarr_root: ???             # '{hash}' template -> each bank episode's zarr store
+num_retrieved_observations: 4
+bank_converter:
+  _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+image_hw: [224, 224]
+action_horizon: 1
+state_dim: 32
+action_dim: 32

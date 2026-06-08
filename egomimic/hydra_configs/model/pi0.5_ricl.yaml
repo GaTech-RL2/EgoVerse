@@ -1,0 +1,27 @@
+# pi0.5 + retrieval-based in-context learning (RICL).
+#
+# Inherits the single-eva pi0.5 setup (domains / converters / camera_transforms /
+# openpi-base pytorch_weight_path) and only:
+#   - swaps the algo target to PIRicl,
+#   - adds the RICL knobs (k, retrieved action steps),
+#   - bumps the token budget so the spliced retrieved (state, action) text fits.
+#
+# The query embodiment is eva; retrieved aria/eva blocks are pre-encoded into the
+# shared 32-D space by the bank provider (see data=cotrain_pi_ricl), so the algo
+# only needs the eva domain. Run:
+#   python -m egomimic.trainHydra model=pi0.5_ricl data=cotrain_pi_ricl \
+#       data.retrieval_cache_dir=<cache> data.bank_zarr_root='<.../{hash}.zarr>'
+defaults:
+  - pi0.5_bc_eva
+  - _self_
+
+robomimic_model:
+  _target_: egomimic.algo.pi_ricl.PIRicl
+  num_retrieved_observations: 4
+  retrieved_action_steps: 1
+  ricl_base_key: "base_0_rgb"
+  # k retrieved (state, action) blocks inflate the text prompt; widen the budget.
+  tokenizer_max_length: 512
+  config:
+    model:
+      max_token_len: 512

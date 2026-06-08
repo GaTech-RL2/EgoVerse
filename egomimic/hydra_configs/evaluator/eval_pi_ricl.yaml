@@ -1,0 +1,20 @@
+# RICL evaluator: retrieval (k) vs zero-context floor (k=0) on the eva query set.
+# Same viz / revert transforms as eval_pi, but the metrics report the bank-vs-floor
+# comparison (RICL/retrieval_*, RICL/floor_*, RICL/delta_*, RICL/retrieval_helps).
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
+_target_: egomimic.eval.pi_ricl_eval.PIRiclEval
+
+compute_floor: true
+gripper_threshold: 0.0
+gripper_indices: [6, 13]
+
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+  aria_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_aria_cartesian_revert_eef_frame_transform_list
+    is_quat: false
