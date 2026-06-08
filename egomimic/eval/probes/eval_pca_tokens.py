@@ -123,6 +123,7 @@ class PCATokenEval(EvalVideo):
         viz_func: dict | None = None,
         transform_lists: dict | None = None,
         max_videos: int | None = None,
+        n_extra_train_episodes: int = 0,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -133,6 +134,12 @@ class PCATokenEval(EvalVideo):
         self.panel_h = int(panel_h)
         self.panel_w = int(panel_w)
         self.n_components = int(n_components)
+        # Mix in N extra training episodes per emb into the PCA basis so
+        # the projection space has more than just the eval batch. Extras
+        # show up as background dots; only eval episodes get rendered as
+        # trajectory + current marker.
+        self.n_extra_train_episodes = int(n_extra_train_episodes)
+        self._extra_token_cache = None  # lazy: {emb_id: np.ndarray}
 
     # ------------------------------------------------------------------ #
 
@@ -189,7 +196,10 @@ class PCATokenEval(EvalVideo):
                 actions = _batch[ac_key]
                 cu = _batch["cu_seqlens"]
                 max_seqlen = int(_batch["max_seq_len"])
-                _pred, aux = policy.forward_packed(actions, obs, cu, max_seqlen)
+                domain_name = getattr(algo, "domain_by_id", {}).get(emb_id)
+                _pred, aux = policy.forward_packed(
+                    actions, obs, cu, max_seqlen, embodiment_id=domain_name
+                )
                 aux_list = aux
             finally:
                 for h in handles:
@@ -241,6 +251,80 @@ class PCATokenEval(EvalVideo):
 
     # ------------------------------------------------------------------ #
 
+    def _ensure_extra_tokens(self):
+        if self._extra_token_cache is not None:
+            return self._extra_token_cache
+        cache = {}
+        if self.n_extra_train_episodes <= 0:
+            self._extra_token_cache = cache
+            return cache
+        algo = self.model
+        domain_by_id = getattr(algo, "domain_by_id", {})
+        name_to_id = {v: k for k, v in domain_by_id.items()}
+        dm = self.trainer.datamodule
+        try:
+            train_obj = dm.train_dataloader()
+        except Exception as exc:
+            print(f"[PCATokenEval] failed to grab train_dataloader: {exc}", flush=True)
+            self._extra_token_cache = cache
+            return cache
+        # MultiDataModuleWrapper returns a CombinedLoader; the underlying
+        # per-emb DataLoaders live in .iterables (dict).
+        if hasattr(train_obj, "iterables") and isinstance(train_obj.iterables, dict):
+            train_loaders = train_obj.iterables
+        elif isinstance(train_obj, dict):
+            train_loaders = train_obj
+        else:
+            train_loaders = {None: train_obj}
+        print(
+            f"[PCATokenEval] resolved train_loaders for embs: {list(train_loaders.keys())}",
+            flush=True,
+        )
+        try:
+            device = next(algo.policy.parameters()).device
+        except StopIteration:
+            device = "cpu"
+        for emb_name, loader in train_loaders.items():
+            expected_emb_id = name_to_id.get(emb_name)
+            if expected_emb_id is None:
+                print(f"[PCATokenEval]   no emb_id for name={emb_name}, skip", flush=True)
+                continue
+            collected = []
+            n_eps_seen = 0
+            for raw_batch in loader:
+                # Route through algo.process_batch so we get the same
+                # {emb_id: {..., _packed: True}} structure validation uses.
+                try:
+                    processed = algo.process_batch_for_training({emb_name: raw_batch})
+                except Exception as exc:
+                    print(f"[PCATokenEval]   process_batch failed: {exc}", flush=True)
+                    break
+                emb_batch = processed.get(expected_emb_id)
+                if emb_batch is None or not emb_batch.get("_packed", False):
+                    continue
+                captured = self._capture_tokens({expected_emb_id: emb_batch})
+                rec = captured.get(expected_emb_id)
+                if rec is not None and rec.get("inner_tokens") is not None:
+                    collected.append(rec["inner_tokens"])
+                    n_eps_seen += int(emb_batch["seq_lens"].shape[0])
+                if n_eps_seen >= self.n_extra_train_episodes:
+                    break
+            if collected:
+                cache[expected_emb_id] = np.concatenate(collected, axis=0)
+                print(
+                    f"[PCATokenEval] cached {cache[expected_emb_id].shape[0]} extra tokens "
+                    f"from {n_eps_seen} train episodes for emb_id={expected_emb_id} ({emb_name})",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"[PCATokenEval]   collected 0 batches for emb {emb_name} "
+                    f"(loader len attempted, see process_batch errors above)",
+                    flush=True,
+                )
+        self._extra_token_cache = cache
+        return cache
+
     def compute_metrics_and_viz(
         self, batch: Dict[int, Dict[str, Any]]
     ) -> Tuple[Dict[str, torch.Tensor], Dict[int, np.ndarray]]:
@@ -248,27 +332,73 @@ class PCATokenEval(EvalVideo):
         images_dict: Dict[int, np.ndarray] = {}
         capture_by_emb = self._capture_tokens(batch)
 
+        # ------------------------------------------------------------------ #
+        # Pass 1: collect per-emb token streams + metadata. Then fit ONE PCA
+        # on the union so all embodiments live in the same projected space —
+        # required for cross-embodiment alignment viz (otherwise each emb
+        # has its own basis and a "circle vs stick" comparison is
+        # meaningless).
+        # ------------------------------------------------------------------ #
+        emb_records: Dict[int, dict] = {}
+        token_chunks: List[np.ndarray] = []
+        offsets: Dict[int, tuple[int, int]] = {}  # emb_id -> (start, end) in concat
+        running = 0
         for emb_id, _batch in batch.items():
             captured = capture_by_emb.get(emb_id)
             if captured is None:
                 continue
             tokens = captured["inner_tokens"]
-            bmask = captured.get("boundary_mask")
-            per_frame_fallback = captured.get("per_frame_fallback", False)
+            if tokens.size == 0:
+                continue
+            emb_records[emb_id] = {
+                "tokens": tokens,
+                "bmask": captured.get("boundary_mask"),
+                "per_frame_fallback": captured.get("per_frame_fallback", False),
+                "cu": _batch["cu_seqlens"],
+                "seq_lens": _batch["seq_lens"],
+            }
+            token_chunks.append(tokens)
+            offsets[emb_id] = (running, running + tokens.shape[0])
+            running += tokens.shape[0]
 
-            cu = _batch["cu_seqlens"]
-            seq_lens = _batch["seq_lens"]
+        if not token_chunks:
+            return metrics, images_dict
+
+        # Mix in extra training-set tokens (if configured) into the basis.
+        if self.n_extra_train_episodes > 0:
+            extras = self._ensure_extra_tokens()
+            for _emb_id, _extra in extras.items():
+                token_chunks.append(_extra)
+                running += _extra.shape[0]
+                # Extras are NOT registered in offsets -- only eval-batch
+                # episodes get rendered as trajectory.
+
+        # ONE PCA fit on the union of all embs' tokens.
+        all_tokens = np.concatenate(token_chunks, axis=0)
+        X_all, _ = _pca_fit_transform(all_tokens, k=self.n_components)
+        # Shared xlim / ylim so all per-emb panels render in the same axes.
+        x_min, x_max = X_all[:, 0].min(), X_all[:, 0].max()
+        y_min, y_max = X_all[:, 1].min(), X_all[:, 1].max()
+        pad_x = 0.05 * (x_max - x_min + 1e-9)
+        pad_y = 0.05 * (y_max - y_min + 1e-9)
+        xlim = (x_min - pad_x, x_max + pad_x)
+        ylim = (y_min - pad_y, y_max + pad_y)
+
+        for emb_id, _batch in batch.items():
+            rec = emb_records.get(emb_id)
+            if rec is None:
+                continue
+            tokens = rec["tokens"]
+            bmask = rec["bmask"]
+            per_frame_fallback = rec["per_frame_fallback"]
+            cu = rec["cu"]
+            seq_lens = rec["seq_lens"]
             B = int(seq_lens.shape[0])
             T_total = int(cu[-1].item())
 
-            # Global PCA fit on chunker tokens.
-            X_proj, _ = _pca_fit_transform(tokens, k=self.n_components)
-            x_min, x_max = X_proj[:, 0].min(), X_proj[:, 0].max()
-            y_min, y_max = X_proj[:, 1].min(), X_proj[:, 1].max()
-            pad_x = 0.05 * (x_max - x_min + 1e-9)
-            pad_y = 0.05 * (y_max - y_min + 1e-9)
-            xlim = (x_min - pad_x, x_max + pad_x)
-            ylim = (y_min - pad_y, y_max + pad_y)
+            # This emb's slice of the shared projection.
+            s, e = offsets[emb_id]
+            X_proj = X_all[s:e]
 
             # Build a packed frame-index → chunk-index lookup. The chunker
             # output has one token per True in ``boundary_mask`` (cumsum
@@ -287,11 +417,23 @@ class PCATokenEval(EvalVideo):
             for b in range(B_render):
                 s = int(cu[b].item())
                 e = int(cu[b + 1].item())
-                T_ep = e - s
                 ep_chunk_idx = global_chunk_idx[s:e]
                 if ep_chunk_idx.size == 0:
                     continue
                 ep_chunk_idx = np.clip(ep_chunk_idx, 0, tokens.shape[0] - 1)
+                # Pad to the full teacher-forced episode length (e - s) by
+                # repeating the last chunk index. bmask can be shorter than
+                # T_total in multi-stage hierarchies; without this padding,
+                # the PCA panel desyncs from the teacher-forcing panel and
+                # appears to "blank out" mid-episode in the composite.
+                T_ep_full = e - s
+                if ep_chunk_idx.shape[0] < T_ep_full:
+                    pad_n = T_ep_full - ep_chunk_idx.shape[0]
+                    last_v = ep_chunk_idx[-1]
+                    ep_chunk_idx = np.concatenate(
+                        [ep_chunk_idx, np.full(pad_n, last_v, dtype=ep_chunk_idx.dtype)]
+                    )
+                T_ep = ep_chunk_idx.shape[0]
                 title_prefix = f"PCA ep={b}"
                 for t in range(T_ep):
                     cur_idx = int(ep_chunk_idx[t])
@@ -305,7 +447,7 @@ class PCATokenEval(EvalVideo):
                     frame = _render_pca_frame(
                         fig_h=self.panel_h,
                         fig_w=self.panel_w,
-                        global_xy=X_proj,
+                        global_xy=X_all,
                         trail_xy=trail_xy,
                         current_xy=X_proj[cur_idx],
                         xlim=xlim,
@@ -313,9 +455,13 @@ class PCATokenEval(EvalVideo):
                         title=f"{title_prefix} t={t} chunk={cur_idx}",
                     )
                     frames.append(frame)
-                if b < B - 1:
-                    sep = np.zeros((5, self.panel_h, self.panel_w, 3), dtype=np.uint8)
-                    frames.extend(list(sep))
+                if b < B - 1 and len(frames) > 0:
+                    # Repeat the last rendered frame instead of inserting
+                    # 5 black frames between episodes; black separators
+                    # show up as "PCA goes dark" in the side-by-side
+                    # composite, which the user reads as a bug.
+                    last_frame = frames[-1]
+                    frames.extend([last_frame] * 5)
 
             if frames:
                 images_dict[emb_id] = np.stack(frames, axis=0)
