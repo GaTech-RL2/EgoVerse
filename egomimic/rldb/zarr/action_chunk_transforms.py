@@ -358,15 +358,20 @@ class PoseCoordinateFrameTransform(Transform):
 
     def transform(self, batch: dict) -> dict:
         pose_world = np.asarray(batch[self.pose_world])
+        # A single pose is 1D (D,); a short-term-memory history window is 2D
+        # (K, D). Re-express either as a (chunk, D) array for the chunk
+        # transform, then squeeze back only in the single-pose case so the
+        # default behaviour is byte-identical.
+        single = pose_world.ndim == 1
+        chunk_world = pose_world[None, :] if single else pose_world
         transformed = self._chunk_transform.transform(
             {
                 self.target_world: batch[self.target_world],
-                self.pose_world: pose_world[None, :],
+                self.pose_world: chunk_world,
             }
         )
-        batch[self.transformed_key_name] = np.asarray(
-            transformed[self.transformed_key_name]
-        )[0]
+        out = np.asarray(transformed[self.transformed_key_name])
+        batch[self.transformed_key_name] = out[0] if single else out
         return batch
 
 
@@ -638,12 +643,8 @@ class PadGripperZeros(Transform):
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 

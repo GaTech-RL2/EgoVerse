@@ -136,9 +136,24 @@ class Embodiment(ABC):
         )
 
     @classmethod
-    def get_keymap(cls, keymap_mode: str, norm_mode: bool = False, annotation_key=None):
+    def get_keymap(
+        cls,
+        keymap_mode: str,
+        norm_mode: bool = False,
+        annotation_key=None,
+        proprio_history: int = 1,
+    ):
         """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
         key_map = cls._get_keymap(keymap_mode)
+        # Short-term memory: when proprio_history>1, read a backward window of
+        # that many frames for every proprio key. The per-episode reader stacks
+        # them as a leading [K, ...] axis (current frame last), so the existing
+        # pose transforms + ConcatKeys emit observations.state.* of shape
+        # [K, D]. proprio_history=1 (default) is a byte-identical no-op.
+        if proprio_history and proprio_history > 1:
+            for entry in key_map.values():
+                if entry.get("key_type") == "proprio_keys":
+                    entry["history"] = proprio_history
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",

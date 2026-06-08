@@ -43,11 +43,20 @@ def _mask_from_batch(B: int, device) -> torch.Tensor:
 def _concat_proprio(
     batch: dict, proprio_keys: list[str], device: torch.device
 ) -> torch.Tensor:
-    """Concat all proprio tensors along last dim → [B, D] (D can be 0)."""
+    """Concat all proprio tensors along last dim → [B, D] (D can be 0).
+
+    With short-term memory enabled a proprio tensor is [B, K, D] (a backward
+    window of poses). The continuous ``state`` fed to the model stays the
+    current frame only, [B, D], so the model-facing observation is unchanged
+    (the history is consumed separately when building the prompt).
+    """
     parts = []
     for k in proprio_keys:
         if k in batch:
-            parts.append(batch[k].to(device))
+            v = batch[k].to(device)
+            if v.ndim == 3:  # [B, K, D] history window -> current frame [B, D]
+                v = v[:, -1, :]
+            parts.append(v)
     if not parts:
         # If no proprio, infer B from any tensor in batch (best-effort), else 0
         for v in batch.values():

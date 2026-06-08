@@ -1713,6 +1713,27 @@ class ZarrDataset(torch.utils.data.Dataset):
 
         return data
 
+    def _pad_sequences_left(self, data, history: int | None) -> dict:
+        """Front-pad a backward (history) window by repeating the FIRST frame.
+
+        Mirrors ``_pad_sequences`` but for short-term memory reads near the
+        start of an episode (``idx < history-1``), where the window is shorter
+        than ``history``. Padding the front keeps the current frame at row -1.
+        """
+        if history is None:
+            return data
+
+        for k in data:
+            if isinstance(data[k], np.ndarray):
+                seq_len = data[k].shape[0]
+                if seq_len < history:
+                    pad_len = history - seq_len
+                    first_frame = data[k][:1]
+                    padding = np.repeat(first_frame, pad_len, axis=0)
+                    data[k] = np.concatenate([padding, data[k]], axis=0)
+
+        return data
+
     def __getitem__(
         self,
         idx: int,
@@ -1752,6 +1773,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                 zarr_key = self.key_map[k]["zarr_key"]
                 key_type = self.key_map[k].get("key_type", None)
                 horizon = self.key_map[k].get("horizon", None)
+                # Short-term memory: read a backward window of `history` frames
+                # ending at (and inclusive of) the current frame. Mutually
+                # exclusive with `horizon` (forward action chunk).
+                history = self.key_map[k].get("history", None)
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
@@ -1760,11 +1785,15 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if horizon is not None:
                     end_idx = self._chunk_end_idx(idx, horizon, key_type)
                     read_interval = (idx, end_idx)
+                elif history is not None:
+                    start_idx = max(0, idx - history + 1)
+                    read_interval = (start_idx, idx + 1)  # last row == current frame
                 else:
                     read_interval = (idx, None)
                 read_dict = {zarr_key: read_interval}
                 raw_data = self.episode_reader.read(read_dict)
                 self._pad_sequences(raw_data, horizon)  # should be able to pad images
+                self._pad_sequences_left(raw_data, history)  # front-pad at ep start
                 data[k] = raw_data[zarr_key]
 
                 if zarr_key in self._image_keys:
@@ -1794,7 +1823,9 @@ class ZarrDataset(torch.utils.data.Dataset):
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             data["task"] = self.task or self.metadata.get("task_name", "unknown")
             _ = origin  # preserved for symmetry with prior API
             return data

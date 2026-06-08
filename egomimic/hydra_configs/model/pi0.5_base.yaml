@@ -39,6 +39,18 @@ robomimic_model:
   state_num_bins: 256
   control_mode: null
 
+  # Short-term memory (recent EE-pose history spliced into the prompt as a
+  # coarse "Prev:" delta block). OFF by default → behaviour unchanged. To
+  # enable, set prev_state_in_prompt=true, history_len=K (K>1), and match the
+  # data side so proprio arrives as [B,K,D], e.g.
+  #   +data.train_datasets.eva_bimanual.resolver.key_map.proprio_history=K
+  # (the get_keymap _target_ forwards proprio_history to every proprio key).
+  # Mind the token budget (tokenizer_max_length=128): keep K small and bins
+  # coarse, or bump tokenizer_max_length (<= model.max_token_len=180).
+  prev_state_in_prompt: false
+  history_len: 1
+  prev_state_num_bins: 64
+
   train_image_augs:
     _target_: torchvision.transforms.Compose
     transforms:
