@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 import torch
 
-# ``egomimic.algo.pi.pi`` (via algo/pi/pi.py) imports the optional ``openpi``
+# ``egomimic.algo.pi.algo`` (via algo/pi/pi.py) imports the optional ``openpi``
 # package, which is not installed in the default EgoVerse venv (see
 # egomimic/algo/__init__.py: "PI requires openpi"). Skip the whole module with a
 # clear reason rather than erroring at collection. Relocated from
@@ -11,8 +11,8 @@ import torch
 # algo now lives at egomimic/algo/pi/pi.py).
 pytest.importorskip("openpi", reason="PI algo requires the optional openpi package")
 
-import egomimic.algo.pi.pi as pi_module
-from egomimic.algo.pi.pi import PI
+import egomimic.algo.pi.algo as pi_module
+from egomimic.algo.pi.algo import PI
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 

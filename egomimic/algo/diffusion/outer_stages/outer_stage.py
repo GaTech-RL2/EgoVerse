@@ -11,7 +11,7 @@ Owns:
 The training-time ``forward`` does:
   encode -> q_sample -> backbone -> decode (writes batch['pred_v'])
 
-The DFoTLoss class (in egomimic/algo/loss.py) then reads ctx.q_state +
+The DFoTLoss class (in egomimic/algo/diffusion/algo.py) then reads ctx.q_state +
 batch['pred_v'] and produces the scalar SNR-weighted epsilon-MSE.
 
 Inference paths (closed-loop AR sample_step, chunk-mode plan-and-execute)
@@ -30,7 +30,6 @@ import torch.nn as nn
 
 from egomimic.models.diffusion.backbones.backbone import DFoTBackbone
 from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
-from egomimic.algo.outer_stage import OuterStage
 from egomimic.models.stems.cond_encoders import CondEncoderModule
 
 
@@ -56,7 +55,7 @@ def make_dfot_ctx(
     )
 
 
-class DFoTOuterStage(OuterStage):
+class DFoTOuterStage(nn.Module):
     """Training-time outer stage for DFoT.
 
     Subclass-specific contract:
@@ -86,7 +85,8 @@ class DFoTOuterStage(OuterStage):
         diffusion: nn.Module,  # ContinuousDiffusion or DiscreteDiffusion
         cond_output_key: str = "fused_cond",
     ):
-        super().__init__(inner_stage=backbone)
+        super().__init__()
+        self.inner_stage = backbone
         self.action_dim = int(action_dim)
         self.cond_encoder = cond_encoder
         self.diffusion = diffusion

@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.packed_base.PackedAlgoBase
+  _target_: egomimic.algo.hnet.PackedAlgoBase
 
   # Same arch / dims as hnet_pushshapes.yaml; the only difference is the
   # encoder/decoder use ``cond_mode: cross_attn`` instead of AdaLN.
@@ -12,7 +12,7 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.packed_outer_stage.HNetOuterStage
+    _target_: egomimic.algo.hnet.HNetOuterStage
     action_dim: 2
     action_horizon: 1024
     d_model: 128

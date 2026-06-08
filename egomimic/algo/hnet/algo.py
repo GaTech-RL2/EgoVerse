@@ -23,14 +23,55 @@ import torch.nn as nn
 from overrides import override
 
 from egomimic.algo.algo import Algo
-from egomimic.algo.packed_outer_stage import HNetOuterStage
 from egomimic.models.stems.input_modules import ActionInToken, InputModule
-from egomimic.algo.loss import HNetLoss, Loss
 from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.context import HNetContext
 from egomimic.models.hnet.hnet import HNet as HNetCore
 from egomimic.models.hnet.hnet import chunk_stats_from_aux
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
+
+
+class HNetLoss(nn.Module):
+    """Action-MSE + per-chunker ratio-loss regulariser.
+
+    Self-contained loss for the H-Net algo — lives here next to ``HNetPolicy``
+    (each model owns its own loss). Implements the ``forward(batch, ctx) ->
+    scalar`` contract the algo orchestrator calls.
+
+    Reads:
+      - ``batch["pred_action"]`` (per-token predicted actions; written by
+        ``HNetOuterStage.decode``)
+      - ``batch["actions"]`` (per-token GT actions)
+      - ``ctx.aux`` (list of chunker-stage auxiliaries; each chunker
+        contributes a ``ratio_loss`` * weight term)
+
+    The per-chunker weight lives inside each ChunkerStage's aux already
+    (see ``ratio_loss_from_aux``); this class just sums them onto the
+    action MSE.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, batch: dict, ctx) -> torch.Tensor:
+        from egomimic.models.hnet.hnet import ratio_loss_from_aux
+
+        pred = batch["pred_action"]
+        target = batch["actions"]
+        action_loss = torch.mean((pred - target) ** 2)
+
+        # Sum per-chunker boundary regularisers if any.
+        aux = getattr(ctx, "aux", None) or []
+        ratio_loss = (
+            ratio_loss_from_aux(aux, device=action_loss.device)
+            if aux
+            else torch.zeros((), device=action_loss.device, dtype=action_loss.dtype)
+        )
+        # Stash the per-term breakdown on ctx so the algo class's logging
+        # path can read them without recomputing.
+        ctx.action_loss = action_loss
+        ctx.ratio_loss = ratio_loss
+        return action_loss + ratio_loss
 
 
 class HNetPolicy(nn.Module):
@@ -408,6 +449,263 @@ class HNetPolicy(nn.Module):
         return a_t_norm
 
 
+class HNetOuterStage(nn.Module):
+    """Stage-based H-Net outer stage — the H-Net algo's outer stage.
+
+    Co-located with ``HNetPolicy`` / ``PackedAlgoBase`` (each model owns its own
+    pieces). Same responsibilities as the previous ``HNetPolicy``: input_modules
+    (per-token summed contributions), cond_encoder (obs → AdaLN cond_dict),
+    inner_stage = HNetCore (the stage tree), action_head decoding — reshaped into
+    the OuterStage encode → inner_stage → decode contract. ``forward_padded`` /
+    ``forward_packed`` / ``step`` mirror the prior ``HNetPolicy`` paths.
+
+    Args:
+        action_dim: action feature width.
+        action_horizon: kept for legacy compatibility; RoPE-based attention
+            doesn't actually clamp on this anymore, but it remains as a
+            "default rollout length" for ``generate``.
+        d_model: trunk hidden dim. Must match ``hnet.input_hidden_dim`` and
+            ``hnet.output_hidden_dim``.
+        cond_encoder: CondEncoderModule for obs → cond_dict (AdaLN).
+        hnet: HNetCore — the inner_stage (stage tree).
+        action_head_type: ``"linear"`` (single Linear) or ``"mlp"`` (2-layer).
+        input_modules: list of InputModule subclasses. Each emits a per-token
+            ``(B, T, d_model)`` contribution; they are summed before the
+            inner_stage. Default: ``[ActionInToken(action_dim, d_model)]``
+            (legacy AR behaviour with BOS + right-shifted actions).
+    """
+
+    def __init__(
+        self,
+        action_dim: int,
+        action_horizon: int,
+        d_model: int,
+        cond_encoder: CondEncoderModule,
+        hnet: HNetCore,
+        action_head_type: str = "linear",
+        input_modules: list | None = None,
+    ):
+        super().__init__()
+        self.inner_stage = hnet
+        self.action_dim = int(action_dim)
+        self.action_horizon = int(action_horizon)
+        self.d_model = int(d_model)
+
+        if input_modules is None:
+            input_modules = [ActionInToken(action_dim, d_model)]
+        for mod in input_modules:
+            if not isinstance(mod, InputModule):
+                raise TypeError(
+                    f"input_modules entries must subclass InputModule, got "
+                    f"{type(mod).__name__}"
+                )
+        self.input_modules = nn.ModuleList(input_modules)
+
+        if action_head_type == "linear":
+            self.action_out = nn.Linear(d_model, action_dim)
+        elif action_head_type == "mlp":
+            self.action_out = nn.Sequential(
+                nn.Linear(d_model, d_model),
+                nn.SiLU(),
+                nn.Linear(d_model, action_dim),
+            )
+        else:
+            raise ValueError(
+                f"action_head_type must be 'linear' or 'mlp', got {action_head_type!r}"
+            )
+        self.action_head_type = action_head_type
+
+        self.cond_encoder = cond_encoder
+
+        # Sanity-check inner_stage hidden-dim contract.
+        if self.inner_stage.input_hidden_dim != d_model:
+            raise ValueError(
+                f"hnet.input_hidden_dim ({self.inner_stage.input_hidden_dim}) "
+                f"must equal d_model ({d_model})."
+            )
+        if self.inner_stage.output_hidden_dim != d_model:
+            raise ValueError(
+                f"hnet.output_hidden_dim ({self.inner_stage.output_hidden_dim}) "
+                f"must equal d_model ({d_model})."
+            )
+
+    # ------------------------------------------------------------------
+    # OuterStage API.
+    # ------------------------------------------------------------------
+
+    def encode(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
+        """Build the per-token input tensor x by summing per-input-module
+        contributions. Reads actions + obs from batch; mode comes from
+        ``ctx.cu_seqlens`` (packed if set, padded otherwise).
+        """
+        is_packed = ctx.cu_seqlens is not None
+        if is_packed:
+            return self._encode_packed(batch, ctx)
+        return self._encode_padded(batch, ctx)
+
+    def _encode_padded(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
+        actions = batch["actions"]  # (B, T, A)
+        obs = batch["__obs"]
+        B, T, _ = actions.shape
+        device = actions.device
+        dtype = actions.dtype
+        x = None
+        for mod in self.input_modules:
+            contrib = mod.forward_padded(
+                actions=actions, obs=obs, B=B, T=T, device=device, dtype=dtype,
+            )
+            x = contrib if x is None else x + contrib
+        if x is None:
+            raise RuntimeError("input_modules produced no tokens")
+        # Build cond_dict from per-frame obs and stuff onto ctx so the
+        # inner stages (which read it via cond_key) get it.
+        cond_dict = self.cond_encoder.encode(obs, self.action_horizon)
+        ctx.cond_dict = cond_dict
+        return x
+
+    def _encode_packed(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
+        actions_packed = batch["actions"]  # (T_total, A)
+        obs_packed = batch["__obs"]
+        T_total = actions_packed.shape[0]
+        device = actions_packed.device
+        dtype = actions_packed.dtype
+        cu_seqlens = ctx.cu_seqlens.to(device=device, dtype=torch.long)
+
+        x_packed = None
+        for mod in self.input_modules:
+            contrib = mod.forward_packed(
+                actions_packed=actions_packed,
+                obs_packed=obs_packed,
+                cu_seqlens=cu_seqlens,
+                T_total=T_total,
+                device=device,
+                dtype=dtype,
+            )
+            x_packed = contrib if x_packed is None else x_packed + contrib
+        if x_packed is None:
+            raise RuntimeError("input_modules produced no tokens")
+
+        # Packed cond: fake batch=1 by unsqueezing each obs, then squeeze
+        # the leading dim back out.
+        obs_for_encode = {k: v.unsqueeze(0) for k, v in obs_packed.items()}
+        cond_padded = self.cond_encoder.encode(obs_for_encode, T_action=T_total)
+        cond_packed = {k: v.squeeze(0) for k, v in cond_padded.items()}
+        ctx.cond_dict = cond_packed
+        return x_packed
+
+    def decode(self, h: torch.Tensor, batch: dict, ctx: HNetContext) -> None:
+        """Apply the action head and write ``batch["pred_action"]``."""
+        batch["pred_action"] = self.action_out(h)
+
+    def forward(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
+        """Dispatch padded vs packed, run encode → inner_stage → decode.
+        Returns the post-trunk hidden tensor (the loss reads
+        ``batch["pred_action"]`` instead, so this return value is mostly
+        for diagnostic / downstream-stage chaining)."""
+        x = self.encode(batch, ctx)
+        h = self.inner_stage(x, ctx)
+        self.decode(h, batch, ctx)
+        return h
+
+    # ------------------------------------------------------------------
+    # Legacy bridge methods for code that calls (actions, obs[, cu, msl])
+    # and expects (pred, aux). These wrap the new (batch, ctx) API so the
+    # HNet algo class's forward_eval / _teacher_forced_packed / etc. can
+    # keep working with a minimal call-site rename.
+    # ------------------------------------------------------------------
+
+    def forward_padded(self, actions: torch.Tensor, obs: dict):
+        """Legacy bridge: padded (actions, obs) -> (pred, aux)."""
+        batch = {"actions": actions, "__obs": obs}
+        ctx = HNetContext(cond_dict={}, aux=[], inference_params=None)
+        self.forward(batch, ctx)
+        return batch["pred_action"], ctx.aux
+
+    def forward_packed(
+        self,
+        actions_packed: torch.Tensor,
+        obs_packed: dict,
+        cu_seqlens: torch.Tensor,
+        max_seqlen: int,
+    ):
+        """Legacy bridge: packed (...) -> (pred, aux)."""
+        batch = {"actions": actions_packed, "__obs": obs_packed}
+        ctx = HNetContext(
+            cond_dict={},
+            aux=[],
+            inference_params=None,
+            cu_seqlens=cu_seqlens,
+            max_seqlen=int(max_seqlen),
+        )
+        self.forward(batch, ctx)
+        return batch["pred_action"], ctx.aux
+
+    # ------------------------------------------------------------------
+    # Inference: AR step. Used by the algo class's closed-loop
+    # path; not part of the OuterStage abstract API.
+    # ------------------------------------------------------------------
+
+    @torch.no_grad()
+    def init_step_state(self, batch_size: int, T_max: int, device, dtype=None) -> dict:
+        """Allocate the AR inference state. Returns an opaque dict for
+        :meth:`step`."""
+        T_max = int(T_max)
+        dtype = dtype or next(self.parameters()).dtype
+        params = self.inner_stage.allocate_inference_cache(
+            batch_size=batch_size,
+            max_seqlen=T_max,
+            device=device,
+            dtype=dtype,
+        )
+        return {
+            "params": params,
+            "prev_action": None,
+            "batch_size": int(batch_size),
+            "device": device,
+            "dtype": dtype,
+            "T_max": T_max,
+        }
+
+    @torch.no_grad()
+    def step(self, state: dict, obs_norm: dict, t: int) -> torch.Tensor:
+        """Single online AR step. Returns ``(B, 1, action_dim)``."""
+        cond_dict_seq = self.cond_encoder.encode(obs_norm, T_action=1)
+        cond_2d = {k: v.squeeze(1) for k, v in cond_dict_seq.items()}
+
+        obs_step = {
+            k: v.unsqueeze(1) if (
+                torch.is_tensor(v)
+                and v.dim() < 5
+                and v.shape[0] == state["batch_size"]
+                and (v.dim() == 1 or v.shape[1] != 1)
+            ) else v
+            for k, v in obs_norm.items()
+        }
+        cur = None
+        for mod in self.input_modules:
+            contrib = mod.step(
+                prev_action_norm=state.get("prev_action"),
+                obs_norm=obs_step,
+                t=t,
+                B=state["batch_size"],
+                device=state["device"],
+                dtype=state["dtype"],
+            )
+            cur = contrib if cur is None else cur + contrib
+        if cur is None:
+            raise RuntimeError("input_modules produced no tokens at step")
+
+        ctx = HNetContext(
+            cond_dict=cond_2d,
+            aux=[],
+            inference_params=state["params"],
+        )
+        h = self.inner_stage.step(cur, ctx)
+        a_t_norm = self.action_out(h)
+        state["prev_action"] = a_t_norm
+        return a_t_norm
+
+
 class PackedAlgoBase(Algo):
     """
     Packed-sequence policy Algo base. Single-domain action-sequence model with
@@ -421,7 +719,7 @@ class PackedAlgoBase(Algo):
         outer_stage: HNetOuterStage,
         norm_stats,
         d_cond: int = None,
-        loss: Optional[Loss] = None,
+        loss: Optional[nn.Module] = None,
         domains: list = None,
         ac_keys: dict = None,
         device=None,
@@ -500,7 +798,7 @@ class PackedAlgoBase(Algo):
         return self.nets["outer_stage"]
 
     @property
-    def loss(self) -> Loss:
+    def loss(self) -> nn.Module:
         return self.nets["loss"]
 
     @property
@@ -844,8 +1142,8 @@ class PackedAlgoBase(Algo):
         return groups
 
 
-# Compat alias: legacy name for PackedAlgoBase. Kept so OLD checkpoints/configs
-# whose resolved ``_target_`` still names ``egomimic.algo.packed_base.HNet``
-# continue to resolve. New code should use ``PackedAlgoBase``.
+# Compat alias: legacy name for PackedAlgoBase. Kept for OLD checkpoints/configs
+# that referenced the ``HNet`` name (now reachable at
+# ``egomimic.algo.hnet.HNet``). New code should use ``PackedAlgoBase``.
 HNet = PackedAlgoBase
 

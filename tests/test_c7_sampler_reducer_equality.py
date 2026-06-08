@@ -37,7 +37,7 @@ import torch
 
 from egomimic.algo.algo import Algo
 from egomimic.algo.diffusion.algo import DFoT
-from egomimic.algo.packed_base import PackedAlgoBase
+from egomimic.algo.hnet import PackedAlgoBase
 from egomimic.algo.diffusion.outer_stages.pixel_spatial_outer_stage import (
     PixelSpatialDFoTOuterStage,
 )

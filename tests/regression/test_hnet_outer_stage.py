@@ -20,8 +20,8 @@ sys.path.insert(0, "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-cl
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
 
-from egomimic.algo.packed_base import HNetPolicy
-from egomimic.algo.packed_outer_stage import HNetOuterStage
+from egomimic.algo.hnet import HNetPolicy
+from egomimic.algo.hnet import HNetOuterStage
 from egomimic.models.stems.input_modules import ActionInToken
 from egomimic.models.hnet.context import HNetContext
 

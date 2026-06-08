@@ -3,9 +3,11 @@
 Canonical class names are ``WindowedBC`` (algo) and ``WindowedBCPolicy`` (the
 nn.Module). ``BCRNN`` / ``BCRNNPolicy`` are kept as module-level aliases at the
 bottom of this file for backward compatibility (old configs / ported yamls
-and saved checkpoints). The module lives at ``egomimic.algo.bc`` (flat, no
-package); the ``egomimic.algo.bc_rnn`` re-export shim was deleted at the
-DESIGN.md step-13 final flip.
+and saved checkpoints). The classes live in ``egomimic.algo.bc.algo`` and are
+re-exported by the ``egomimic.algo.bc`` package (one folder per model, peer of
+``hpt`` / ``act`` / ``pi``), so the canonical import path stays
+``egomimic.algo.bc.WindowedBC``; the ``egomimic.algo.bc_rnn`` re-export shim was
+deleted at the DESIGN.md step-13 final flip.
 
 The RNN conditions on OBSERVATION HISTORY only: an LSTM is unrolled over the
 per-frame obs embeddings; the action is the OUTPUT decoded from each LSTM
@@ -47,7 +49,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.algo.algo import Algo
-from egomimic.algo.packed_base import PackedAlgoBase
+from egomimic.algo.hnet import PackedAlgoBase
 from egomimic.models.cores.hnet_core import HNetCore
 from egomimic.models.cores.lstm_core import LSTMCore
 from egomimic.models.cores.transformer_core import TransformerCore

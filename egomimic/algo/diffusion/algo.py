@@ -32,7 +32,6 @@ from egomimic.models.diffusion.diffusion.continuous_diffusion import ContinuousD
 from egomimic.models.diffusion.diffusion.discrete_diffusion import DiscreteDiffusion
 from egomimic.algo.diffusion.outer_stages.outer_stage import DFoTOuterStage, make_dfot_ctx
 from egomimic.models.diffusion.sampling import ddim_sample, ddpm_sample, sample_step
-from egomimic.algo.loss import DFoTLoss, Loss
 from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
@@ -55,6 +54,47 @@ class _PackedBackboneWrapper:
             cu_seqlens=self.cu_seqlens,
             max_seqlen=self.max_seqlen,
         )
+
+
+class DFoTLoss(nn.Module):
+    """DFoT epsilon-MSE with sigmoid (SNR-style) weighting.
+
+    Self-contained loss for the ``DFoT`` algo (each model owns its own loss).
+    Implements the ``forward(batch, ctx) -> scalar`` contract the algo
+    orchestrator calls.
+
+    Reads:
+      - ``batch["pred_v"]``: v-prediction emitted by the DFoT backbone
+        (written by ``DFoTOuterStage.decode``).
+      - ``ctx.q_state``: dict produced by ``diffusion.q_sample`` during
+        ``DFoTOuterStage.encode``. Carries ``x_t``, ``noise``, ``alpha_t``,
+        ``sigma_t``, ``logsnr``.
+
+    The actual math lives in ``diffusion.compute_loss``; this class is the
+    interface that fits the OuterStage-orchestrated training loop and
+    reduces the per-token loss to a scalar.
+
+    ``diffusion`` is the same instance held by the outer stage — it has
+    no learnable params (in continuous mode) so this is a free reference,
+    not a duplicate submodule.
+    """
+
+    def __init__(self, diffusion: nn.Module):
+        super().__init__()
+        self.diffusion = diffusion
+
+    def forward(self, batch: dict, ctx) -> torch.Tensor:
+        # Structured-target outer stages (e.g. the 2D spatial-image + action
+        # policy) compute their own multi-term loss and stash it here, since a
+        # single (image, action) target can't flow through the scalar v-MSE
+        # path below. No-op for every existing 1D/spatial stage.
+        precomputed = getattr(ctx, "precomputed_loss", None)
+        if precomputed is not None:
+            return precomputed
+        v_pred = batch["pred_v"]
+        q_state = ctx.q_state
+        per_token = self.diffusion.compute_loss(v_pred, q_state)
+        return per_token.mean()
 
 
 class DFoT(Algo):
@@ -92,7 +132,7 @@ class DFoT(Algo):
         action_dim: int,
         action_horizon: int,
         norm_stats,
-        loss: Optional[Loss] = None,
+        loss: Optional[nn.Module] = None,
         sampler: str = "ddim",
         sampler_n_steps: int = 50,
         sampler_eta: float = 0.0,
@@ -114,7 +154,7 @@ class DFoT(Algo):
             outer_stage: ``DFoTOuterStage`` owning the cond_encoder + backbone
                 + diffusion submodules and implementing the training-path
                 encode -> q_sample -> backbone -> decode flow.
-            loss: ``Loss`` (typically ``DFoTLoss``) that consumes
+            loss: an ``nn.Module`` (typically ``DFoTLoss``) that consumes
                 ``batch['pred_v']`` + ``ctx.q_state`` and emits the scalar
                 training loss.
             sampler / sampler_n_steps / sampler_eta / inference_mode /
@@ -180,7 +220,7 @@ class DFoT(Algo):
         return self.nets["outer_stage"]
 
     @property
-    def loss(self) -> Loss:
+    def loss(self) -> nn.Module:
         return self.nets["loss"]
 
     @property

@@ -25,7 +25,7 @@ import time
 import torch
 from torch.utils.data import DataLoader
 
-from egomimic.algo.packed_base import PackedAlgoBase as HNetAlgo
+from egomimic.algo.hnet import PackedAlgoBase as HNetAlgo
 from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.hnet import (
     HNet as HNetCore,

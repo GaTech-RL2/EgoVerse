@@ -29,7 +29,7 @@ from __future__ import annotations
 import torch
 
 from egomimic.algo.algo import Algo
-from egomimic.algo.packed_base import PackedAlgoBase
+from egomimic.algo.hnet import PackedAlgoBase
 from egomimic.algo.bc import WindowedBC
 from egomimic.algo.diffusion.algo import DFoT
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id

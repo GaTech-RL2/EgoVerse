@@ -563,7 +563,7 @@ class TestAlgoWiring:
         use_parameter_groups=False,
         weight_decay=0.0,
     ):
-        from egomimic.algo.packed_base import PackedAlgoBase as HNetAlgo
+        from egomimic.algo.hnet import PackedAlgoBase as HNetAlgo
         from egomimic.models.stems.cond_encoders import CondEncoderModule
 
         return HNetAlgo(

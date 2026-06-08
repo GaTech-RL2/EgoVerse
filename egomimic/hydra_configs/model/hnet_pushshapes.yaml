@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.packed_base.PackedAlgoBase
+  _target_: egomimic.algo.hnet.PackedAlgoBase
   # ``norm_stats`` is injected at runtime by
   # ``pl_model.ModelWrapper._instantiate_model``; do not set it here.
 
@@ -18,7 +18,7 @@ robomimic_model:
   # inner_stage = HNetCore (the stage tree). Its forward dispatches
   # padded vs packed via ctx.cu_seqlens.
   outer_stage:
-    _target_: egomimic.algo.packed_outer_stage.HNetOuterStage
+    _target_: egomimic.algo.hnet.HNetOuterStage
     action_dim: 2
     # Upper bound on a single sub-sequence length in packed mode. RoPE
     # makes this not strictly clamping anymore, but it stays as the
@@ -110,7 +110,7 @@ robomimic_model:
   # per-chunker ratio_loss_from_aux). Override here only if you want a
   # different loss policy (e.g. a custom Loss subclass with extra terms).
   # loss:
-  #   _target_: egomimic.algo.loss.HNetLoss
+  #   _target_: egomimic.algo.hnet.HNetLoss
 
   # ---- training recipe (all OPT-IN; default disabled) ----
   init_weights_range: 0.02

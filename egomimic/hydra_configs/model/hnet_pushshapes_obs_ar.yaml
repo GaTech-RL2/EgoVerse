@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.packed_base.PackedAlgoBase
+  _target_: egomimic.algo.hnet.PackedAlgoBase
   # ObsToken-as-input variant: per-frame obs embedding goes directly into
   # the trunk as the input token (no ActionInToken, no BOS, no previous-
   # action feedback). cond_encoder still produces fused_cond for AdaLN.
@@ -12,7 +12,7 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.packed_outer_stage.HNetOuterStage
+    _target_: egomimic.algo.hnet.HNetOuterStage
     action_dim: 2
     action_horizon: 1024
     d_model: 128

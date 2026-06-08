@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.packed_base.PackedAlgoBase
+  _target_: egomimic.algo.hnet.PackedAlgoBase
 
   # Scaled-up version of hnet_pushshapes.yaml:
   #   - d_model 128 -> 256, num_heads 4 -> 8
@@ -15,7 +15,7 @@ robomimic_model:
     pushshapes_sim: "actions"
 
   outer_stage:
-    _target_: egomimic.algo.packed_outer_stage.HNetOuterStage
+    _target_: egomimic.algo.hnet.HNetOuterStage
     action_dim: 2
     action_horizon: 1024
     d_model: 256
