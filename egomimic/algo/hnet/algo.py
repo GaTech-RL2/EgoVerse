@@ -74,6 +74,80 @@ class HNetLoss(nn.Module):
         return action_loss + ratio_loss
 
 
+class GMMLoss(nn.Module):
+    """GMM negative-log-likelihood action loss + per-chunker ratio loss.
+
+    Drop-in peer of :class:`HNetLoss` for the H-Net algo when the outer stage
+    uses a GMM head (``action_head_type='gmm'``). Reads:
+      - ``batch["pred_action"]`` — flat GMM *params* (written by
+        ``HNetOuterStage.decode``).
+      - ``batch["actions"]`` — per-token GT actions.
+      - ``ctx.extras["gmm_head"]`` — the GMM head, reused for its (param-free)
+        ``.nll`` / chunk-splitting config.
+      - ``ctx.cu_seqlens`` — packed episode boundaries (None => padded).
+      - ``ctx.aux`` — per-chunker ratio-loss regularisers.
+
+    For ``chunk_len = C`` the target at obs-step ``t`` is the next ``C`` actions
+    ``actions[t : t+C]``, repeat-padded at the episode end (repeat-unmasked,
+    matching the robomimic BC-RNN chunked-GMM convention).
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def _chunked_targets_packed(actions: torch.Tensor, cu_seqlens, C: int):
+        # actions (T_total, D) -> (T_total, C, D), clamped within each episode.
+        T_total = actions.shape[0]
+        device = actions.device
+        cu = cu_seqlens.to(device=device, dtype=torch.long)
+        ep_end = torch.empty(T_total, dtype=torch.long, device=device)
+        for b in range(cu.shape[0] - 1):
+            ep_end[cu[b] : cu[b + 1]] = cu[b + 1]
+        t = torch.arange(T_total, device=device)
+        idx = t[:, None] + torch.arange(C, device=device)[None, :]
+        idx = torch.minimum(idx, (ep_end - 1)[:, None])
+        return actions[idx]
+
+    @staticmethod
+    def _chunked_targets_padded(actions: torch.Tensor, C: int):
+        # actions (B, T, D) -> (B, T, C, D), clamped to the last frame.
+        T = actions.shape[1]
+        device = actions.device
+        t = torch.arange(T, device=device)
+        idx = torch.clamp(t[:, None] + torch.arange(C, device=device)[None, :], max=T - 1)
+        return actions[:, idx]
+
+    def forward(self, batch: dict, ctx) -> torch.Tensor:
+        from egomimic.models.hnet.hnet import ratio_loss_from_aux
+
+        raw = batch["pred_action"]
+        actions = batch["actions"]
+        head = ctx.extras.get("gmm_head") if hasattr(ctx, "extras") else None
+        if head is None:
+            raise RuntimeError(
+                "GMMLoss requires ctx.extras['gmm_head'] (set action_head_type='gmm')."
+            )
+        C = int(head.chunk_len)
+        if getattr(ctx, "cu_seqlens", None) is not None:
+            target = self._chunked_targets_packed(actions, ctx.cu_seqlens, C)
+        else:
+            target = self._chunked_targets_padded(actions, C)
+        if C == 1:
+            target = target.squeeze(-2)  # head.nll expects (..., D) for chunk_len==1
+        action_loss = head.nll(raw, target)
+
+        aux = getattr(ctx, "aux", None) or []
+        ratio_loss = (
+            ratio_loss_from_aux(aux, device=action_loss.device)
+            if aux
+            else torch.zeros((), device=action_loss.device, dtype=action_loss.dtype)
+        )
+        ctx.action_loss = action_loss
+        ctx.ratio_loss = ratio_loss
+        return action_loss + ratio_loss
+
+
 class HNetPolicy(nn.Module):
     """
     action-tokenizer → stage-based H-Net → action-detokenizer.
@@ -484,6 +558,7 @@ class HNetOuterStage(nn.Module):
         hnet: HNetCore,
         action_head_type: str = "linear",
         input_modules: list | None = None,
+        gmm_head: nn.Module | None = None,
     ):
         super().__init__()
         self.inner_stage = hnet
@@ -509,9 +584,18 @@ class HNetOuterStage(nn.Module):
                 nn.SiLU(),
                 nn.Linear(d_model, action_dim),
             )
+        elif action_head_type == "gmm":
+            # GMM head (pre-instantiated via hydra, like WindowedBC). forward(h)
+            # emits flat GMM params (chunk_len * M * (2D+1)); GMMLoss reads them
+            # back through the same head's .nll. Pairs with chunk_len>1 for
+            # 1-obs -> N-action chunking.
+            if gmm_head is None:
+                raise ValueError("action_head_type='gmm' requires a gmm_head module")
+            self.action_out = gmm_head
         else:
             raise ValueError(
-                f"action_head_type must be 'linear' or 'mlp', got {action_head_type!r}"
+                f"action_head_type must be 'linear'|'mlp'|'gmm', got "
+                f"{action_head_type!r}"
             )
         self.action_head_type = action_head_type
 
@@ -600,8 +684,15 @@ class HNetOuterStage(nn.Module):
         return x_packed
 
     def decode(self, h: torch.Tensor, batch: dict, ctx: HNetContext) -> None:
-        """Apply the action head and write ``batch["pred_action"]``."""
+        """Apply the action head and write ``batch["pred_action"]``.
+
+        For the GMM head, ``pred_action`` holds the flat GMM *params* (not point
+        actions); the head is stashed on ``ctx.extras`` so ``GMMLoss`` can read
+        them back through the same head's ``.nll``.
+        """
         batch["pred_action"] = self.action_out(h)
+        if self.action_head_type == "gmm":
+            ctx.extras["gmm_head"] = self.action_out
 
     def forward(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
         """Dispatch padded vs packed, run encode → inner_stage → decode.

@@ -33,6 +33,7 @@ class EMBODIMENT(Enum):
     SCALE_LEFT_ARM = 14
     PUSHSHAPES_SIM = 15
     PUSHSHAPES_SIM_STICK = 16
+    PUSHSHAPES_SIM_SMALL_CIRCLE = 17
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

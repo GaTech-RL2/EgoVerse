@@ -7,6 +7,7 @@ Holds the packed-mode algo base + the stage-based H-Net pieces:
   :class:`egomimic.algo.bc.WindowedBC`.
 * :class:`HNetPolicy`     — the (legacy) flat H-Net policy.
 * :class:`HNetLoss`       — action-MSE + ratio-loss regulariser.
+* :class:`GMMLoss`        — GMM-NLL + ratio-loss (chunked GMM head).
 * :class:`HNetOuterStage` — the H-Net OuterStage (encode → stage-tree → decode).
 
 The classes live in ``algo.py``; re-exported here so the import path is
@@ -14,6 +15,7 @@ The classes live in ``algo.py``; re-exported here so the import path is
 """
 
 from egomimic.algo.hnet.algo import (
+    GMMLoss,
     HNet,
     HNetLoss,
     HNetOuterStage,
@@ -21,4 +23,11 @@ from egomimic.algo.hnet.algo import (
     PackedAlgoBase,
 )
 
-__all__ = ["PackedAlgoBase", "HNetPolicy", "HNetLoss", "HNetOuterStage", "HNet"]
+__all__ = [
+    "PackedAlgoBase",
+    "HNetPolicy",
+    "HNetLoss",
+    "GMMLoss",
+    "HNetOuterStage",
+    "HNet",
+]
