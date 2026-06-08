@@ -3,7 +3,7 @@ robomimic_model:
   _target_: egomimic.algo.pi.PI
   config:
     pytorch_training_precision: bfloat16
-    pytorch_weight_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
+    pytorch_weight_path: /storage/project/r-dxu345-0/rco3/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
     model:
       pi05: true
       action_dim: 32
@@ -63,10 +63,11 @@ optimizer:
   weight_decay: 1e-10
 
 scheduler:
-  _target_: transformers.get_cosine_schedule_with_warmup
+  _target_: transformers.optimization.get_cosine_with_min_lr_schedule_with_warmup
   _partial_: true
   num_warmup_steps: 1000
-  num_training_steps: 60000
+  num_training_steps: 200000
   num_cycles: 0.5
+  min_lr: 1e-5
 
 scheduler_interval: step

@@ -28,7 +28,7 @@ hydra:
     dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
 
 launch_params:
-  gpus_per_node: 1
+  gpus_per_node: 4
   nodes: 1
 
 seed: 42
@@ -39,5 +39,5 @@ norm_stats:
   sample_frac: 0.2
   num_workers: 6
   save_cache_dir: ${hydra:runtime.output_dir}
-  precomputed_norm_path: null
+  precomputed_norm_path: /storage/project/r-dxu345-0/rco3/EgoVerse/logs/norm_stats
 reject_outliers: true
