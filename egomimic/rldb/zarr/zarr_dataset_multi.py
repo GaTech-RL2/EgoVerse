@@ -1830,3 +1830,39 @@ class ZarrEpisode:
     def __repr__(self) -> str:
         """String representation of the episode."""
         return f"ZarrEpisode(path={self._path}, frames={len(self)})"
+
+
+class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
+    """Like LocalEpisodeResolver, but overrides the embodiment string read
+    from zarr metadata with a config-supplied value.
+
+    Cotrain use-case: the same on-disk dataset (e.g. PushShapes-style
+    pushshapes_sim) is split into multiple logical embodiments (circle,
+    stick) that share the metadata tag. The data-config supplies a per-folder
+    embodiment_override so the model dispatch can tell them apart.
+    """
+
+    def __init__(
+        self,
+        folder_path,
+        key_map=None,
+        transform_list=None,
+        norm_stats=None,
+        debug=None,
+        embodiment_override: str | None = None,
+    ):
+        super().__init__(
+            folder_path=folder_path,
+            key_map=key_map,
+            transform_list=transform_list,
+            norm_stats=norm_stats,
+            debug=debug,
+        )
+        self.embodiment_override = embodiment_override
+
+    def resolve(self, *args, **kwargs):
+        datasets = super().resolve(*args, **kwargs)
+        if self.embodiment_override is not None:
+            for ds in datasets.values():
+                ds.embodiment = self.embodiment_override
+        return datasets
