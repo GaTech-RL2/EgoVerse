@@ -99,7 +99,9 @@ class PIRicl(PI):
     # Splice retrieved (state, action) text into the prompt
     # ------------------------------------------------------------------
     @override
-    def _build_prompts(self, _batch, embodiment_name, batch_size):
+    def _build_prompts(
+        self, _batch, embodiment_name: str, batch_size: int
+    ) -> list[str]:
         prompts = super()._build_prompts(_batch, embodiment_name, batch_size)
         if "ricl_retrieved_state" not in _batch:
             return prompts  # zero-context (k=0) -> identical to base PI
