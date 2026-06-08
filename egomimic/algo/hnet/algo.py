@@ -558,8 +558,12 @@ class HNetOuterStage(nn.Module):
         if x is None:
             raise RuntimeError("input_modules produced no tokens")
         # Build cond_dict from per-frame obs and stuff onto ctx so the
-        # inner stages (which read it via cond_key) get it.
-        cond_dict = self.cond_encoder.encode(obs, self.action_horizon)
+        # inner stages (which read it via cond_key) get it. ``embodiment_id``
+        # is None for single-emb runs (CondEncoderModule ignores it) and the
+        # domain name in cotrain (MultiEmbodimentCondEncoder dispatches on it).
+        cond_dict = self.cond_encoder.encode(
+            obs, self.action_horizon, embodiment_id=ctx.embodiment_id
+        )
         ctx.cond_dict = cond_dict
         return x
 
@@ -588,7 +592,9 @@ class HNetOuterStage(nn.Module):
         # Packed cond: fake batch=1 by unsqueezing each obs, then squeeze
         # the leading dim back out.
         obs_for_encode = {k: v.unsqueeze(0) for k, v in obs_packed.items()}
-        cond_padded = self.cond_encoder.encode(obs_for_encode, T_action=T_total)
+        cond_padded = self.cond_encoder.encode(
+            obs_for_encode, T_action=T_total, embodiment_id=ctx.embodiment_id
+        )
         cond_packed = {k: v.squeeze(0) for k, v in cond_padded.items()}
         ctx.cond_dict = cond_packed
         return x_packed
@@ -614,10 +620,14 @@ class HNetOuterStage(nn.Module):
     # keep working with a minimal call-site rename.
     # ------------------------------------------------------------------
 
-    def forward_padded(self, actions: torch.Tensor, obs: dict):
+    def forward_padded(
+        self, actions: torch.Tensor, obs: dict, embodiment_id: Optional[str] = None
+    ):
         """Legacy bridge: padded (actions, obs) -> (pred, aux)."""
         batch = {"actions": actions, "__obs": obs}
-        ctx = HNetContext(cond_dict={}, aux=[], inference_params=None)
+        ctx = HNetContext(
+            cond_dict={}, aux=[], inference_params=None, embodiment_id=embodiment_id
+        )
         self.forward(batch, ctx)
         return batch["pred_action"], ctx.aux
 
@@ -627,6 +637,7 @@ class HNetOuterStage(nn.Module):
         obs_packed: dict,
         cu_seqlens: torch.Tensor,
         max_seqlen: int,
+        embodiment_id: Optional[str] = None,
     ):
         """Legacy bridge: packed (...) -> (pred, aux)."""
         batch = {"actions": actions_packed, "__obs": obs_packed}
@@ -636,6 +647,7 @@ class HNetOuterStage(nn.Module):
             inference_params=None,
             cu_seqlens=cu_seqlens,
             max_seqlen=int(max_seqlen),
+            embodiment_id=embodiment_id,
         )
         self.forward(batch, ctx)
         return batch["pred_action"], ctx.aux
@@ -755,6 +767,10 @@ class PackedAlgoBase(Algo):
         super().__init__()
         self.norm_stats = norm_stats
         self.domains = list(domains or [])
+        # Reverse map emb_id -> domain name, used in cotrain so forward_*
+        # can set ctx.embodiment_id for PerEmbodimentStage /
+        # MultiEmbodimentCondEncoder dispatch. Empty/identity for single-emb.
+        self.domain_by_id = {get_embodiment_id(emb): emb for emb in self.domains}
         self.ac_keys = dict(ac_keys or {})
         self.action_horizon = outer_stage.action_horizon
         self.d_cond = d_cond  # legacy field; not used by refactored code
@@ -916,6 +932,7 @@ class PackedAlgoBase(Algo):
                 inference_params=None,
                 cu_seqlens=_batch["cu_seqlens"] if is_packed else None,
                 max_seqlen=int(_batch["max_seq_len"]) if is_packed else None,
+                embodiment_id=self.domain_by_id.get(emb_id),
             )
             outer_stage(new_batch, ctx)
             total_loss = loss_fn(new_batch, ctx)
@@ -972,7 +989,9 @@ class PackedAlgoBase(Algo):
             # completeness.
             obs = self._build_obs(_batch, emb_id)
             actions = _batch[ac_key]
-            pred, _ = policy.forward_padded(actions, obs)
+            pred, _ = policy.forward_padded(
+                actions, obs, embodiment_id=self.domain_by_id.get(emb_id)
+            )
             preds = OrderedDict()
             preds[ac_key] = pred
             unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
@@ -996,7 +1015,9 @@ class PackedAlgoBase(Algo):
         cu = _batch["cu_seqlens"]
         max_seqlen = int(_batch["max_seq_len"])
         seq_lens = _batch["seq_lens"].clone()
-        pred_packed, _ = policy.forward_packed(actions, obs, cu, max_seqlen)
+        pred_packed, _ = policy.forward_packed(
+            actions, obs, cu, max_seqlen, embodiment_id=self.domain_by_id.get(emb_id)
+        )
 
         B = int(seq_lens.shape[0])
         T_max = int(seq_lens.max().item())

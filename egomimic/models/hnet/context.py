@@ -51,6 +51,10 @@ class HNetContext:
             (starts at 0). Setting this switches stages into packed mode.
         max_seqlen: optional int — longest subseq length, required when
             cu_seqlens is set (attention kernels need it).
+        embodiment_id: optional domain name (e.g. "pushshapes_sim_stick") for
+            the current batch. Set by the algo in cotrain so a
+            ``PerEmbodimentStage`` can dispatch to the matching per-emb
+            sub-stage. Left None for single-embodiment runs.
     """
 
     cond_dict: Dict[str, torch.Tensor] = field(default_factory=dict)
@@ -59,6 +63,7 @@ class HNetContext:
     extras: Dict[str, Any] = field(default_factory=dict)
     cu_seqlens: Optional[torch.Tensor] = None
     max_seqlen: Optional[int] = None
+    embodiment_id: Optional[str] = None
 
     @property
     def packed(self) -> bool:

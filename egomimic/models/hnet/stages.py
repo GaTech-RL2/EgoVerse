@@ -257,6 +257,17 @@ class _BaseStage(nn.Module):
             return None
         return ctx.cond_dict.get(self.cond_key)
 
+    @property
+    def inner_working_dim(self) -> int:
+        """Hidden dim at which this stage's inner_stage operates.
+
+        Default: ``input_hidden_dim``. ``ChunkerStage`` overrides to
+        ``output_hidden_dim`` (its inner trunk runs in the chunked space).
+        ``PerEmbodimentStage`` delegates to its wrapped sub-stage. Used by
+        ``HNet`` chain assembly for the dim-handoff check (no isinstance).
+        """
+        return self.input_hidden_dim
+
     # Subclasses implement these.
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:  # noqa: D401
         raise NotImplementedError
@@ -485,6 +496,11 @@ class ChunkerStage(_BaseStage):
         # A Lightning callback (ChunkerResidualScheduler) can drive this over training
         # steps to suppress the skip path early so the inner trunk must do real work.
         self.residual_scale: float = 1.0
+
+    @property
+    def inner_working_dim(self) -> int:
+        # Chunker's inner trunk runs in the chunked space at output_hidden_dim.
+        return self.output_hidden_dim
 
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
         if ctx.packed:
