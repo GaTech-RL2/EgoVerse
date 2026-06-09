@@ -1,0 +1,69 @@
+{
+  "description": "Intentionally-aligned eva(robot)<->aria(human) pick-and-place pairs from human_robot_pairs.json true_pairs_alignment. Pairing reconstructed via episode annotations + capture-time + user visual verification of side-by-side previews.",
+  "collection": "/storage/project/r-dxu345-0/agao81/pick_place/{hash}",
+  "alignment_set_1": {
+    "status": "COMPLETE (6/6 user-verified)",
+    "pairs": [
+      {
+        "object": "blue_marker",
+        "eva": "2026-04-14-03-33-23-804000",
+        "aria": "2026-04-26-21-45-39-000000"
+      },
+      {
+        "object": "corn",
+        "eva": "2026-04-14-03-36-19-145000",
+        "aria": "2026-04-14-03-39-11-000000"
+      },
+      {
+        "object": "blue_screwdriver",
+        "eva": "2026-04-14-03-46-38-679000",
+        "aria": "2026-04-14-03-48-32-000000"
+      },
+      {
+        "object": "brown_stuffed_entire",
+        "eva": "2026-04-14-04-01-06-517000",
+        "aria": "2026-04-14-04-03-19-000000"
+      },
+      {
+        "object": "yellow_stuffed",
+        "eva": "2026-04-14-04-04-24-675000",
+        "aria": "2026-04-14-04-06-40-000000"
+      },
+      {
+        "object": "brown_stuffed_middle",
+        "eva": "2026-04-14-04-04-45-909000",
+        "aria": "2026-04-26-21-49-23-000000"
+      }
+    ]
+  },
+  "alignment_set_2": {
+    "status": "COMPLETE (6/6 user-verified)",
+    "note": "human_robot_pairs.json mislabeled 3 of the 9 'eva_bimanual' entries: 04-28-18-000000, 04-29-46-000000, and 04-38-04-000000 are HUMAN captures (obs_keypoints/obs_eye_gaze/obs_head_pose, no robot cmd_* keys), not robot. Set 2 is therefore 6 robot eva <-> 6 human aria (3 same-session aria on 2026-04-14 + 3 recollected aria on 2026-04-26), matching the set 1 design. Pairs user-verified from side-by-side previews; objects not labeled (same green-cup pick-and-place across trials).",
+    "pairs": [
+      {
+        "eva": "2026-04-14-04-22-46-247000",
+        "aria": "2026-04-14-04-28-18-000000"
+      },
+      {
+        "eva": "2026-04-14-04-23-48-546000",
+        "aria": "2026-04-14-04-29-46-000000"
+      },
+      {
+        "eva": "2026-04-14-04-25-12-763000",
+        "aria": "2026-04-26-21-55-25-000000"
+      },
+      {
+        "eva": "2026-04-14-04-33-34-590000",
+        "aria": "2026-04-14-04-38-04-000000"
+      },
+      {
+        "eva": "2026-04-14-04-34-24-990000",
+        "aria": "2026-04-26-21-59-56-000000"
+      },
+      {
+        "eva": "2026-04-14-04-35-45-301000",
+        "aria": "2026-04-26-22-02-01-000000"
+      }
+    ]
+  }
+}

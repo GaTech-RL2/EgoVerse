@@ -31,8 +31,8 @@ class ZarrKeyTransform(ABC):
     Output naming: when ``output_keys`` is omitted, defaults are derived from
     each input key by replacing the leading dotted segment with
     :attr:`OUTPUT_PREFIX`. Subclasses must set OUTPUT_PREFIX to a non-empty
-    string to support this. Example: with ``OUTPUT_PREFIX = "dino"``,
-    ``images.front_1`` -> ``dino.front_1``. Pass ``output_keys``
+    string to support this. Example: with ``OUTPUT_PREFIX = "dinov2"``,
+    ``images.front_1`` -> ``dinov2.front_1``. Pass ``output_keys``
     explicitly to override.
     """
 
@@ -66,8 +66,8 @@ class ZarrKeyTransform(ABC):
         """
         Derive a default output key from an input key by swapping the leading
         dotted segment for ``cls.OUTPUT_PREFIX``. ``images.front_1`` becomes
-        ``dino.front_1`` for a transform whose ``OUTPUT_PREFIX`` is
-        ``"dino"``. If the input key has no dot, the prefix is prepended.
+        ``dinov2.front_1`` for a transform whose ``OUTPUT_PREFIX`` is
+        ``"dinov2"``. If the input key has no dot, the prefix is prepended.
         """
         if not cls.OUTPUT_PREFIX:
             raise ValueError(
@@ -91,38 +91,71 @@ class ZarrKeyTransform(ABC):
         Implementations are responsible for batching reads + GPU inference.
         """
 
-    def process_episode(self, episode_path: Path | str) -> None:
+    def process_episode(
+        self,
+        episode_path: Path | str,
+        output_store_path: Path | str | None = None,
+    ) -> None:
+        """Compute outputs from ``episode_path`` and write them to a store.
+
+        By default outputs are written back into the source store (in-place,
+        ``mode="a"``). When ``output_store_path`` is given, the source store is
+        read read-only and outputs are written to a *separate* per-episode store
+        at that path (created if absent) — used to mirror embeddings into a
+        writable folder when the canonical store is read-only. The mirror store
+        carries ``total_frames`` so it stays self-describing for downstream
+        readers that strip the chunk padding.
+        """
         episode_path = Path(episode_path)
         if not self._setup_done:
             self.setup()
             self._setup_done = True
 
-        store = zarr.open_group(str(episode_path), mode="a", zarr_format=3)
+        in_place = output_store_path is None
+        src = zarr.open_group(
+            str(episode_path), mode=("a" if in_place else "r"), zarr_format=3
+        )
 
         for k in self.input_keys:
-            if k not in store:
+            if k not in src:
                 raise KeyError(f"Input key '{k}' missing from {episode_path}")
 
-        existing = [k for k in self.output_keys if k in store]
+        out = (
+            src
+            if in_place
+            else zarr.open_group(str(output_store_path), mode="a", zarr_format=3)
+        )
+
+        existing = [k for k in self.output_keys if k in out]
         if existing and not self.overwrite:
             logger.info(
-                "Skipping %s — output keys already exist: %s", episode_path, existing
+                "Skipping %s — output keys already exist: %s",
+                output_store_path or episode_path,
+                existing,
             )
             return
         for k in existing:
-            del store[k]
+            del out[k]
 
-        outputs = self.compute(store)
+        outputs = self.compute(src)
 
         missing = set(self.output_keys) - set(outputs.keys())
         if missing:
             raise RuntimeError(f"compute() did not return expected outputs: {missing}")
 
+        if not in_place and "total_frames" in src.attrs:
+            out.attrs["total_frames"] = int(src.attrs["total_frames"])
+
         for key in self.output_keys:
-            self._write_numeric(store, key, np.asarray(outputs[key]))
+            self._write_numeric(out, key, np.asarray(outputs[key]))
 
         n = len(next(iter(outputs.values())))
-        logger.info("Wrote %s for %s (frames=%d)", self.output_keys, episode_path, n)
+        logger.info(
+            "Wrote %s for %s (frames=%d)",
+            self.output_keys,
+            output_store_path or episode_path,
+            n,
+        )
 
     def _write_numeric(self, store: zarr.Group, key: str, arr: np.ndarray) -> None:
         """Write a numeric (T, ...) array, padding to chunk_timesteps for shard alignment."""

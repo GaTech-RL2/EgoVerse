@@ -13,7 +13,7 @@ bidirectionally. So injecting k retrieved demonstrations is purely a matter of:
    binning pi0.5 already uses for the State block (``PI._discretize_state_for_sample``).
 
 Kept free of any ``openpi`` / ``egomimic.algo`` import so the logic is unit-testable
-on a CPU-only box (see ``egomimic/ricl/conditioning_test.py``). The pi0.5 image
+on a CPU-only box (see ``egomimic/ricl/tests/conditioning_test.py``). The pi0.5 image
 resize (``openpi.shared.image_tools.resize_with_pad_torch``) is imported lazily and
 falls back to ``F.interpolate`` when openpi is unavailable.
 """
@@ -58,21 +58,35 @@ def build_retrieved_prompt_block(
     actions,
     valid=None,
     *,
+    prompt: str = "",
     num_bins: int = 256,
     action_steps: int = 1,
-    label: str = "retrieved",
 ) -> str:
-    """Build the in-context text block for one sample's k retrieved demos.
+    """Build in-context demo *exemplars* for one sample's k retrieved demos.
+
+    Each demo is rendered as a self-contained ``State -> Action`` exemplar that
+    mirrors the pi0.5 query block format, so the model sees a sequence of
+    demonstrations followed by the query (prompt-structure RICL, after the
+    original ``ricl_openpi`` per-observation blocks — but flattened into one text
+    prefix, *no* attention-mask surgery)::
+
+        'Task: {prompt}, State: {s};\\nAction: {a}|'
+
+    The action carries the FULL retrieved chunk (``action_steps`` leading steps,
+    flattened over (step, dim)) so the discriminative *trajectory* — not just one
+    near-zero step — reaches the model. That is what lets a kNN-retrieved demo
+    differ from a random one; encoding a single step throws the signal away.
 
     Args:
         states:  ``(k, Ds)`` retrieved proprio (already in the query's normalized
                  convention so bins are comparable).
-        actions: ``(k, Ha, Da)`` or ``(k, Da)`` retrieved actions (normalized 32-D).
+        actions: ``(k, Ha, Da)`` or ``(k, Da)`` retrieved actions (same norm).
         valid:   ``(k,)`` bool/0-1 mask; falsy entries are skipped (padding).
-        action_steps: how many leading action steps to encode per demo (bounds tokens).
+        prompt:  the demos' task text (within-group retrieval -> the query's task).
+        action_steps: how many leading action steps to encode per demo.
 
     Returns:
-        e.g. ``"retrieved 0: state 12 200 ...; action 130 90 ...| retrieved 1: ..."``
+        e.g. ``"Task: idli, State: 12 200 ...;\\nAction: 130 90 ...| Task: idli, ..."``
         or ``""`` when no demo is valid.
     """
     states = _to_numpy(states)
@@ -83,37 +97,35 @@ def build_retrieved_prompt_block(
     else:
         valid = _to_numpy(valid).reshape(-1).astype(bool)
 
-    if actions.ndim == 3:  # (k, Ha, Da) -> keep leading `action_steps`
+    if actions.ndim == 3:  # (k, Ha, Da) -> keep leading `action_steps`, flatten
         actions = actions[:, :action_steps, :].reshape(k, -1)
     elif actions.ndim == 2:  # (k, Da)
         pass
     else:
         raise ValueError(f"actions must be (k,Ha,Da) or (k,Da), got {actions.shape}")
 
+    head = f"Task: {prompt}" if prompt else "Demo"
     pieces = []
     for i in range(k):
         if not valid[i]:
             continue
         s = " ".join(map(str, discretize_vector(states[i], num_bins)))
         a = " ".join(map(str, discretize_vector(actions[i], num_bins)))
-        pieces.append(f"{label} {i}: state {s}; action {a}")
-    return " | ".join(pieces)
+        pieces.append(f"{head}, State: {s}{PI05_ANCHOR}{a}|")
+    return " ".join(pieces)
 
 
 def splice_retrieved_into_prompt(prompt: str, retrieved_block: str) -> str:
-    """Insert the retrieved block into a base prompt, before the pi0.5 anchor.
+    """Prepend the retrieved demo exemplars in front of the query block.
 
-    The anchor (``;\\nAction: ``) must stay at the very end (it cues generation),
-    so the retrieved context is inserted just before it. If the prompt has no
-    anchor (blocks disabled), the block is appended.
+    In-context learning order is *demonstrations then query*: the demos go first,
+    then the full query block (which already ends with the pi0.5 anchor
+    ``;\\nAction: ``). The anchor must stay terminal to cue generation, so we never
+    touch the query's tail — we only prepend. Empty block -> passthrough.
     """
     if not retrieved_block:
         return prompt
-    ctx = f"Demos: {retrieved_block}"
-    if prompt.endswith(PI05_ANCHOR):
-        head = prompt[: -len(PI05_ANCHOR)]
-        return f"{head}, {ctx}{PI05_ANCHOR}"
-    return f"{prompt}, {ctx}"
+    return f"{retrieved_block} {prompt}"
 
 
 # ---------------------------------------------------------------------------
@@ -207,10 +219,14 @@ def estimate_prompt_tokens(
     action_dim: int = 32,
     base_prompt_tokens: int = 60,
 ) -> int:
-    """Rough upper bound on prompt tokens so configs can size ``max_token_len``.
+    """Rough ballpark of prompt tokens so configs can size ``max_token_len``.
 
-    Each discretized number is ~1-2 tokens; we estimate ~1.3. Used only for a
-    sanity warning in the algo, not for correctness.
+    NOTE: a loose under-estimate, not an upper bound — it assumes ~1.3 tokens per
+    discretized number, but 3-digit bin ids cost ~3-4 PaliGemma tokens each, so the
+    real worst case runs ~2.5x higher (k=4 @ 32/32 dims: this returns ~416 vs ~1147
+    measured). Used only for a soft warning in the algo; for the authoritative
+    check tokenize the real worst-case prompt with
+    ``egomimic/ricl/scripts/check_prompt_budget.py``.
     """
     per_demo_numbers = state_dim + action_steps * action_dim
     per_demo_tokens = int(1.3 * per_demo_numbers) + 6  # + label/separators

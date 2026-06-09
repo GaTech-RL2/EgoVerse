@@ -5,15 +5,12 @@
 # attaches each sample's top-k retrieved (image, state, action) blocks from a
 # precomputed retrieval cache.
 #
-# Cross-embodiment (headline): bank = aria (human) -> bank_converter =
-# HumanBimanualCartesianEuler. For the D0 within-embodiment sanity (bank = eva),
-# override on the CLI: data.bank_converter._target_=egomimic.utils.action_utils.RobotBimanualCartesianEuler
-#
-# Build the cache first (see egomimic/ricl/README.md):
-#   python -m egomimic.ricl.retrieval --mode cross_similar -k 4 \
-#       --zarr-root '<.../{hash}.zarr>' --out <cache>
-# Then pass --/override at train time:
-#   data.retrieval_cache_dir=<cache> data.bank_zarr_root='<.../{hash}.zarr>'
+# This base config wires the cross-embodiment headline setup (bank = aria) but
+# leaves the run-specific artifacts (cache / stats / scope) unset — use the
+# concrete experiment configs:
+#   data=cotrain_pi_ricl_d0   eva->eva within_alignment sanity (LOEO)
+#   data=cotrain_pi_ricl_d1   aria->eva cross_similar headline
+# Pipeline + commands: egomimic/ricl/D0_D1_RUNBOOK.md
 defaults:
   - eva_pi
   - _self_
@@ -24,9 +21,34 @@ _target_: egomimic.pl_utils.pl_data_utils.RiclDataModuleWrapper
 retrieval_cache_dir: ???        # dir written by RetrievalCache.save
 bank_zarr_root: ???             # '{hash}' template -> each bank episode's zarr store
 num_retrieved_observations: 4
+# norm_stats.json holding the BANK embodiment's stats. Must be the SAME file the
+# run passes as norm_stats.precomputed_norm_path: retrieved (state, action) are
+# normalized with it before discretization so their bins match the query State
+# block (then converted via bank_converter.to32, mirroring the query path).
+# null = raw bank values — smoke tests only.
+bank_norm_path: null
+bank_embodiment: aria_bimanual
+bank_norm_mode: quantile
 bank_converter:
   _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+# Bank (aria) per-frame loader runs the same keymap/transform as the query path,
+# so retrieved frames are built into base_0_rgb / observations.state.ee_pose /
+# actions_cartesian on the fly (these are never stored in the raw zarr).
+bank_keymap:
+  _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+  keymap_mode: cartesian_pi
+  annotation_key: annotations
+bank_transform_list:
+  _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+  mode: cartesian
 image_hw: [224, 224]
-action_horizon: 1
+# Gather the first 15 action steps of each retrieved demo's chunk (matches the
+# query prediction horizon and model retrieved_action_steps=15). Bank-frame actions
+# are sliced to this many leading steps before normalization.
+action_horizon: 15
+# Width of the retrieved (state, action) blocks discretized into the prompt text.
+# Override per experiment to match the embodiment's real occupied dims (shorter
+# prompt) or keep the 32-D shared layout. Re-check prompt budget with
+# egomimic/ricl/scripts/check_prompt_budget.py if you change k / dims / action_steps.
 state_dim: 32
 action_dim: 32

@@ -1047,6 +1047,11 @@ class MultiDataset(torch.utils.data.Dataset):
     @staticmethod
     def _iter_leaves(ds):
         """Yield non-MultiDataset leaves from possibly nested wrappers."""
+        # Unwrap dataset wrappers that hold a MultiDataset in ``.base`` (e.g.
+        # ricl's RiclQueryDataset) so key/shape inference reaches the real leaves.
+        base = getattr(ds, "base", None)
+        if isinstance(base, MultiDataset):
+            ds = base
         if isinstance(ds, MultiDataset):
             for child in ds.datasets.values():
                 yield from MultiDataset._iter_leaves(child)
@@ -1576,6 +1581,159 @@ class EvenStrideDataset(MultiDataset):
         return getattr(base, item)
 
 
+class SegmentFilteredDataset(MultiDataset):
+    """Wrap a ``MultiDataset`` and keep only frames inside selected CSV segments.
+
+    ``action_segments.csv`` rows define half-open ``[start, end)`` frame spans.
+    This wrapper is intentionally frame-level: episodes may contain both train
+    and eval tasks, so filtering by episode hash would leak held-out task
+    frames into training.
+    """
+
+    def __init__(
+        self,
+        base,
+        segments_csv: str,
+        by: list[str] | tuple[str, ...] = ("verb", "object", "hand"),
+        groups: list[list[str] | tuple[str, ...] | dict[str, str]] | None = None,
+    ):
+        if groups is None:
+            raise ValueError("SegmentFilteredDataset requires non-empty `groups`.")
+        gibd = getattr(base, "_global_indices_by_dataset", None)
+        if gibd is None:
+            raise ValueError(
+                f"SegmentFilteredDataset requires a MultiDataset exposing "
+                f"_global_indices_by_dataset, got {type(base).__name__}"
+            )
+
+        torch.utils.data.Dataset.__init__(self)
+        self.base = base
+        self.datasets = base.datasets
+        self.segments_csv = segments_csv
+        self.by = tuple(by)
+        self.groups = groups
+
+        intervals = self._load_intervals(segments_csv, self.by, groups)
+        keep: list[int] = []
+        keep_by_dataset: dict[str, list[int]] = {n: [] for n in base.datasets}
+
+        for ep_name, idxs in gibd.items():
+            spans = intervals.get(ep_name, [])
+            if not spans:
+                continue
+            chosen = [
+                gidx
+                for gidx in idxs
+                for _, local_idx in (base.index_map[gidx],)
+                if self._in_spans(int(local_idx), spans)
+            ]
+            if chosen:
+                logger.info(
+                    "SegmentFilteredDataset: %s -> %d / %d frames from %d segments",
+                    ep_name,
+                    len(chosen),
+                    len(idxs),
+                    len(spans),
+                )
+                keep.extend(chosen)
+                keep_by_dataset[ep_name] = chosen
+
+        if not keep:
+            raise ValueError(
+                f"SegmentFilteredDataset kept 0 frames from {segments_csv} "
+                f"for groups={groups!r}"
+            )
+
+        self.indices = sorted(keep)
+        self.index_map = [base.index_map[gidx] for gidx in self.indices]
+        self._global_indices_by_dataset = {n: [] for n in base.datasets}
+        for filtered_idx, (dataset_name, _) in enumerate(self.index_map):
+            self._global_indices_by_dataset[dataset_name].append(filtered_idx)
+
+        # Keep base's bad-frame fallback inside the selected task frames. The
+        # values remain global indices into base.index_map.
+        base._global_indices_by_dataset = {
+            n: idxs for n, idxs in keep_by_dataset.items() if idxs
+        }
+
+    @staticmethod
+    def _normalize_group(
+        group: list[str] | tuple[str, ...] | dict[str, str], by: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        if isinstance(group, dict):
+            return tuple(str(group[c]) for c in by)
+        if len(group) != len(by):
+            raise ValueError(f"group {group!r} does not match by={by!r}")
+        return tuple(str(v) for v in group)
+
+    @classmethod
+    def _load_intervals(
+        cls,
+        segments_csv: str,
+        by: tuple[str, ...],
+        groups: list[list[str] | tuple[str, ...] | dict[str, str]],
+    ) -> dict[str, list[tuple[int, int]]]:
+        df = pd.read_csv(segments_csv, dtype=str).fillna("-")
+        required = {"episode", "start", "end", *by}
+        missing = required - set(df.columns)
+        if missing:
+            raise ValueError(f"{segments_csv} missing columns {sorted(missing)}")
+
+        allowed = {cls._normalize_group(group, by) for group in groups}
+        intervals: dict[str, list[tuple[int, int]]] = {}
+        n_segments = 0
+        n_frames = 0
+        for row in df.to_dict(orient="records"):
+            key = tuple(str(row[c]) for c in by)
+            if key not in allowed:
+                continue
+            h = str(row["episode"])
+            start, end = int(row["start"]), int(row["end"])
+            if end <= start:
+                continue
+            intervals.setdefault(h, []).append((start, end))
+            n_segments += 1
+            n_frames += end - start
+
+        logger.info(
+            "SegmentFilteredDataset: matched %d segments / %d frames across %d episodes",
+            n_segments,
+            n_frames,
+            len(intervals),
+        )
+        return intervals
+
+    @staticmethod
+    def _in_spans(frame_idx: int, spans: list[tuple[int, int]]) -> bool:
+        return any(start <= frame_idx < end for start, end in spans)
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        return self.base[self.indices[idx]]
+
+    @classmethod
+    def _from_resolver(cls, resolver: EpisodeResolver, **kwargs):
+        segments_csv = kwargs.pop("segments_csv")
+        by = kwargs.pop("by", ("verb", "object", "hand"))
+        groups = kwargs.pop("groups")
+        base = MultiDataset._from_resolver(resolver, **kwargs)
+        return cls(base=base, segments_csv=segments_csv, by=by, groups=groups)
+
+    def set_data_schematic(self, data_schematic) -> None:
+        self.base.set_data_schematic(data_schematic)
+        self.data_schematic = data_schematic
+
+    def __getattr__(self, item):
+        if item == "base":
+            raise AttributeError(item)
+        base = self.__dict__.get("base")
+        if base is None:
+            raise AttributeError(item)
+        return getattr(base, item)
+
+
 class ZarrDataset(torch.utils.data.Dataset):
     """
     Base Zarr Dataset object, Just intializes as pass through to read from zarr episode
@@ -1749,9 +1907,17 @@ class ZarrDataset(torch.utils.data.Dataset):
             data = {}
             retry = False
             for k in self.key_map:
-                zarr_key = self.key_map[k]["zarr_key"]
-                key_type = self.key_map[k].get("key_type", None)
-                horizon = self.key_map[k].get("horizon", None)
+                spec = self.key_map[k]
+                zarr_key = spec["zarr_key"]
+                fallback_keys = spec.get("fallback_zarr_keys", [])
+                read_key = zarr_key
+                if read_key not in self.keys_dict:
+                    for candidate in fallback_keys:
+                        if candidate in self.keys_dict:
+                            read_key = candidate
+                            break
+                key_type = spec.get("key_type", None)
+                horizon = spec.get("horizon", None)
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
@@ -1762,12 +1928,12 @@ class ZarrDataset(torch.utils.data.Dataset):
                     read_interval = (idx, end_idx)
                 else:
                     read_interval = (idx, None)
-                read_dict = {zarr_key: read_interval}
+                read_dict = {read_key: read_interval}
                 raw_data = self.episode_reader.read(read_dict)
                 self._pad_sequences(raw_data, horizon)  # should be able to pad images
-                data[k] = raw_data[zarr_key]
+                data[k] = raw_data[read_key]
 
-                if zarr_key in self._image_keys:
+                if read_key in self._image_keys:
                     jpeg_bytes = data[k]
                     try:
                         decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
@@ -1776,7 +1942,7 @@ class ZarrDataset(torch.utils.data.Dataset):
                         retry = True
                         break
                     data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
-                elif zarr_key in self._json_keys:
+                elif read_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
                         data[k] = [self._decode_json_entry(v) for v in data[k]]
                     else:

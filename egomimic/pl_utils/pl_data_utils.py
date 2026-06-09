@@ -474,6 +474,15 @@ class RiclDataModuleWrapper(MultiDataModuleWrapper):
         bank_zarr_root: ``{hash}`` template -> each bank episode's zarr store.
         bank_converter: action converter applied to retrieved actions (-> 32-D),
             e.g. ``HumanBimanualCartesianEuler`` for an aria bank.
+        bank_norm_path: ``norm_stats.json`` (file or dir) holding the bank
+            embodiment's stats. MUST be the same file the run passes as
+            ``norm_stats.precomputed_norm_path`` — retrieved (state, action)
+            are normalized with these stats before discretization so their
+            bins match the query State block. Unset = raw values (smoke only).
+        bank_embodiment: embodiment name of the bank episodes (e.g.
+            ``aria_bimanual``) — selects which entry of the stats json applies.
+        bank_norm_mode: normalization formula, must match the training run's
+            ``norm_stats.norm_mode`` (default ``quantile``).
     """
 
     def __init__(
@@ -487,6 +496,11 @@ class RiclDataModuleWrapper(MultiDataModuleWrapper):
         num_retrieved_observations: int = 4,
         bank_zarr_root: str | None = None,
         bank_converter=None,
+        bank_keymap: dict | None = None,
+        bank_transform_list: list | None = None,
+        bank_norm_path: str | None = None,
+        bank_embodiment: str | None = None,
+        bank_norm_mode: str = "quantile",
         image_hw=(224, 224),
         action_horizon: int = 1,
         state_dim: int = 32,
@@ -502,6 +516,7 @@ class RiclDataModuleWrapper(MultiDataModuleWrapper):
             RiclQueryDataset,
             ZarrBankFrameProvider,
             build_ricl_collate,
+            load_bank_norm_stats,
         )
         from egomimic.ricl.retrieval import RetrievalCache
 
@@ -511,11 +526,28 @@ class RiclDataModuleWrapper(MultiDataModuleWrapper):
                 "to per-episode bank zarr stores) to load retrieved frames."
             )
 
+        bank_norm_stats = None
+        if bank_norm_path is not None:
+            if bank_embodiment is None:
+                raise ValueError(
+                    "bank_norm_path set but bank_embodiment is None — the stats "
+                    "json is keyed per embodiment (e.g. 'aria_bimanual')."
+                )
+            from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+            bank_norm_stats = load_bank_norm_stats(
+                bank_norm_path, get_embodiment_id(bank_embodiment)
+            )
+
         cache = RetrievalCache.load(retrieval_cache_dir)
         provider = ZarrBankFrameProvider(
             resolve_store=lambda h: bank_zarr_root.format(hash=h),
             converter=bank_converter,
+            keymap=bank_keymap,
+            transform_list=bank_transform_list,
             action_horizon=action_horizon,
+            norm_stats=bank_norm_stats,
+            norm_mode=bank_norm_mode,
         )
         # Surface frame_idx on query samples (retrieval cache is per-frame).
         self.train_datasets = {

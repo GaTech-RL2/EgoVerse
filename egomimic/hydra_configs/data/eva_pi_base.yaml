@@ -1,0 +1,47 @@
+# Eva-only pi0.5 base data config: single embodiment (eva_bimanual), no aria.
+# Self-contained root for eva-only pi finetune/eval recipes (mirrors
+# cotrain_pi_base but drops the aria_bimanual stream and uses the cartesian_pi
+# keymap). Default = all eva_bimanual episodes, 5% frame-level valid split.
+# Override `train_datasets.eva_bimanual.filters` to scope to a task/episode set.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'eva_bimanual'"
+    mode: train
+    valid_ratio: 0.05
+
+# Relative interpolations (`${...` = this config's root) — root-absolute
+# `${train_datasets...}` does not resolve once nested under `data` in the
+# composed train config.
+valid_datasets:
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6

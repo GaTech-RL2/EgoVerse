@@ -1,0 +1,22 @@
+# RICL trainer: STEP-based validation so the held-out RICL val-loss curve is
+# visible and early-stopping is possible.
+#
+# `ddp_pi` validates only every 200 EPOCHS, and `trainer/default.yaml` caps an
+# epoch at 100 train batches — so on the large RICL frame sets validation lands
+# roughly every ~20k steps, far too coarse to catch the early minimum the DROID
+# verification found (new-task val loss bottoms ~step 500, then overfits while
+# train loss keeps falling; see egomimic/ricl/DROID_VERIFICATION.md). Here we
+# validate every `val_check_interval` optimizer steps instead.
+#
+# Pair with `callbacks=checkpoints_ricl` (monitors Valid/action_loss) so the best
+# operating point + last.ckpt are saved without retraining.
+defaults:
+  - ddp_pi
+
+max_epochs: -1                 # disable the epoch cap; let max_steps govern
+min_epochs: null               # ddp_pi/default force min_epochs=2000 — drop it
+max_steps: 6000                # starting point; override per run (trainer.max_steps=...)
+limit_train_batches: 1.0       # default.yaml caps an epoch at 100 batches — lift it
+val_check_interval: 250        # validate every 250 optimizer steps
+check_val_every_n_epoch: null  # required so val_check_interval counts GLOBAL steps
+limit_val_batches: 20

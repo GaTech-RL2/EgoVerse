@@ -1,11 +1,13 @@
-"""RICL retrieval index: DINOv3(base_0_rgb) -> cKDTree -> per-query top-k cache. (P1)
+"""RICL retrieval index: DINOv2(base_0_rgb) -> cKDTree -> per-query top-k cache. (P1)
 
 Pipeline
 --------
-1. For every bank + query episode, take per-frame DINOv3 embeddings of the
-   ``base_0_rgb`` view (zarr ``observations.embeddings.dinov3.front_1``,
-   shape ``(T, 196, 768)``) and **mean-pool** the 196 patch tokens to ``(T, 768)``
-   (optionally L2-normalized so Euclidean ~= cosine).
+1. For every bank + query episode, take per-frame DINOv2 patch tokens of the
+   ``base_0_rgb`` view (zarr ``observations.embeddings.dinov2.front_1``,
+   shape ``(T, 256, 768)``) and pool the 16x16 patch grid into an 8x8 grid of
+   super-patches, concatenated to a ``(T, 49152)`` descriptor — ricl_openpi's
+   ``EMBEDDING_TYPE='64PATCHES'``. Raw L2 metric, **no** L2-normalization
+   (matching its autofaiss ``metric_type='l2'`` index).
 2. Per *task group* (from ``human_robot_pairs.json``) build a ``cKDTree`` over the
    bank frames and, for each query frame, store the top-k nearest bank frames.
 3. Save a cache keyed by query ``episode_hash`` that the RICL collate reads at
@@ -18,12 +20,13 @@ Design notes
 ------------
 - ``base_0_rgb`` is the only view both embodiments share (eva front exterior vs
   aria egocentric); see ``egomimic/algo/pi.py`` / ``rldb/embodiment/{eva,human}.py``.
-- Heavy deps (torch/transformers for DINOv3, zarr/boto3 for data) are imported
-  **lazily** so the pure index logic runs with just numpy+scipy. Run the
-  self-test with ``python -m egomimic.ricl.retrieval --smoke`` (no GPU / no data).
-- The encoder mirrors the in-repo pipeline
-  (``egomimic/scripts/embedding_process/dinov3_embedding.py``,
-  ``facebook/dinov3-vitb16-pretrain-lvd1689m``, 768-d).
+- Heavy deps (torch for DINOv2, zarr/boto3 for data) are imported **lazily** so
+  the pure index logic runs with just numpy+scipy. Run the self-test with
+  ``python -m egomimic.ricl.retrieval --smoke`` (no GPU / no data).
+- The encoder replicates ricl_openpi's reference
+  (``torch.hub dinov2_vitb14``, resize-with-pad 224, ImageNet normalize,
+  ``forward_features()['x_norm_patchtokens']``); the in-repo embed pass is
+  ``egomimic/scripts/embedding_process/dinov2_embedding.py``.
 """
 
 from __future__ import annotations
@@ -39,8 +42,9 @@ import numpy as np
 PAIRS_JSON_DEFAULT = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), "scripts", "human_robot_pairs.json"
 )
-DINOV3_ZARR_KEY = "observations.embeddings.dinov3.front_1"  # patch tokens (T, 196, 768)
-EMBED_DIM = 768
+DINOV2_ZARR_KEY = "observations.embeddings.dinov2.front_1"  # patch tokens (T, 256, 768)
+TOKEN_DIM = 768  # DINOv2 ViT-B/14 hidden dim
+EMBED_DIM = 64 * TOKEN_DIM  # 64-super-patch descriptor (ricl_openpi 64PATCHES)
 
 # ---------------------------------------------------------------------------
 # Pooling
@@ -48,21 +52,40 @@ EMBED_DIM = 768
 
 
 def pool_patch_embeddings(
-    emb, method: str = "mean", l2_normalize: bool = True
+    emb, method: str = "64patches", l2_normalize: bool = False
 ) -> np.ndarray:
-    """Pool per-frame patch-token embeddings to a single per-frame vector.
+    """Pool per-frame patch-token embeddings to a single per-frame descriptor.
 
     Args:
-        emb: ``(T, N, D)`` patch tokens (DINOv3) or already-pooled ``(T, D)``.
-        method: ``mean`` | ``max`` | ``cls`` (``cls`` = token 0).
-        l2_normalize: if True, unit-normalize each frame vector (cosine retrieval).
+        emb: ``(T, N, D)`` patch tokens (DINOv2: N=256, D=768) or already-pooled
+            ``(T, D')``.
+        method: ``64patches`` | ``mean`` | ``max`` | ``cls`` (``cls`` = token 0).
+            ``64patches`` replicates ricl_openpi's ``EMBEDDING_TYPE='64PATCHES'``:
+            the sqrt(N) x sqrt(N) patch grid is averaged into an 8x8 grid of
+            super-patches and concatenated -> ``(T, 64*D)``.
+        l2_normalize: if True, unit-normalize each frame vector (cosine
+            retrieval). ricl_openpi indexes RAW descriptors with an L2 metric,
+            so the default is False.
 
     Returns:
-        ``(T, D)`` float32.
+        ``(T, 64*D)`` float32 for ``64patches``, else ``(T, D)``.
     """
     emb = np.asarray(emb, dtype=np.float32)
     if emb.ndim == 3:
-        if method == "mean":
+        if method == "64patches":
+            t, n, d = emb.shape
+            side = int(round(n**0.5))
+            if side * side != n or side % 8 != 0:
+                raise ValueError(
+                    "64patches needs a square patch grid divisible into 8x8 "
+                    f"blocks; got N={n}"
+                )
+            blk = side // 8
+            # (T, 8, blk, 8, blk, D) -> mean each blk x blk block; row-major
+            # block order concatenated along features == ricl_openpi
+            # utils.embed()'s 64PATCHES loop.
+            v = emb.reshape(t, 8, blk, 8, blk, d).mean(axis=(2, 4)).reshape(t, 64 * d)
+        elif method == "mean":
             v = emb.mean(axis=1)
         elif method == "max":
             v = emb.max(axis=1)
@@ -215,14 +238,24 @@ def load_pairs(path: str = PAIRS_JSON_DEFAULT) -> dict:
         return json.load(f)
 
 
-def groups_from_pairs(pairs: dict, mode: str) -> list[TaskGroup]:
+def groups_from_pairs(pairs: dict, mode: str, loeo: bool = False) -> list[TaskGroup]:
     """Build retrieval scopes from the pairs JSON.
 
     Modes:
       - ``cross_similar``  : Tier-2. bank = [aria_hash], query = its eva matches.
       - ``cross_alignment``: Tier-1. bank = aria set, query = eva set (per set).
       - ``within_alignment``: D0 sanity. bank = eva set, query = eva set (per set).
+
+    ``loeo`` (``within_alignment`` only): leave-one-episode-out — expand each
+    alignment set into one group per query whose bank is the set minus that
+    episode, so no query can retrieve frames of itself. Without it every
+    within_alignment query trivially finds its own episode at distance ~0.
     """
+    if loeo and mode != "within_alignment":
+        raise ValueError(
+            "loeo only applies to within_alignment (the only mode whose "
+            f"queries appear in their own bank); got mode={mode!r}"
+        )
     groups: list[TaskGroup] = []
     if mode == "cross_similar":
         for entry in pairs["tiers"]["similar_task_language_pairs"]:
@@ -250,14 +283,25 @@ def groups_from_pairs(pairs: dict, mode: str) -> list[TaskGroup]:
             eva = [e["episode_hash"] for e in payload["eva_bimanual"]]
             aria = [e["episode_hash"] for e in payload.get("aria_bimanual", [])]
             bank = aria if mode == "cross_alignment" else eva
-            groups.append(
-                TaskGroup(
-                    group_id=f"{mode}:{set_name}",
-                    bank_hashes=bank,
-                    query_hashes=eva,
-                    meta={"set": set_name},
+            if loeo:
+                for qh in eva:
+                    groups.append(
+                        TaskGroup(
+                            group_id=f"{mode}:{set_name}:loeo:{qh}",
+                            bank_hashes=[h for h in bank if h != qh],
+                            query_hashes=[qh],
+                            meta={"set": set_name, "loeo": True},
+                        )
+                    )
+            else:
+                groups.append(
+                    TaskGroup(
+                        group_id=f"{mode}:{set_name}",
+                        bank_hashes=bank,
+                        query_hashes=eva,
+                        meta={"set": set_name},
+                    )
                 )
-            )
     else:
         raise ValueError(f"unknown mode {mode!r}")
     return groups
@@ -379,17 +423,17 @@ def build_cache(
 
 
 # ---------------------------------------------------------------------------
-# Vector providers (lazy: zarr / DINOv3)
+# Vector providers (lazy: zarr / DINOv2)
 # ---------------------------------------------------------------------------
 
 
-def make_zarr_dinov3_provider(
+def make_zarr_dinov2_provider(
     resolve_store: Callable[[str], str],
-    zarr_key: str = DINOV3_ZARR_KEY,
-    pool: str = "mean",
-    l2_normalize: bool = True,
+    zarr_key: str = DINOV2_ZARR_KEY,
+    pool: str = "64patches",
+    l2_normalize: bool = False,
 ):
-    """Provider that reads precomputed DINOv3 patch tokens from zarr and pools.
+    """Provider that reads precomputed DINOv2 patch tokens from zarr and pools.
 
     ``resolve_store(episode_hash) -> path/URL`` of the episode's zarr store.
     Requires ``zarr`` (and ``fsspec`` for remote stores) at call time.
@@ -399,29 +443,33 @@ def make_zarr_dinov3_provider(
         import zarr  # lazy
 
         store = zarr.open(resolve_store(episode_hash), mode="r")
-        arr = store[zarr_key][:]  # (T, 196, 768)
+        arr = store[zarr_key]  # (T_padded, 256, 768)
+        # _write_numeric pads up to a chunk multiple with zero rows; slice to
+        # the true length so padding frames never enter the index.
+        total = int(store.attrs.get("total_frames", arr.shape[0]))
+        arr = np.asarray(arr[:total])  # (T, 256, 768)
         return pool_patch_embeddings(arr, method=pool, l2_normalize=l2_normalize)
 
     return provider
 
 
-class DinoV3Embedder:
-    """On-the-fly DINOv3 encoder for ``base_0_rgb`` frames (lazy torch+transformers).
+class DinoV2Embedder:
+    """On-the-fly DINOv2 encoder for ``base_0_rgb`` frames (lazy torch).
 
-    Mirrors ``egomimic/scripts/embedding_process/dinov3_embedding.py``. Use when
+    Replicates ricl_openpi's reference encoder (``load_dinov2`` + ``embed``) via
+    ``egomimic/scripts/embedding_process/dinov2_embedding.py``. Use when
     precomputed zarr embeddings are unavailable. GPU strongly recommended; on an
     M4 this runs on MPS/CPU and is only practical for a handful of frames.
     """
 
     def __init__(
         self,
-        model_name: str = "facebook/dinov3-vitb16-pretrain-lvd1689m",
+        model_name: str = "dinov2_vitb14",
         device: str | None = None,
-        pool: str = "mean",
-        l2_normalize: bool = True,
+        pool: str = "64patches",
+        l2_normalize: bool = False,
     ):
         import torch  # lazy
-        from transformers import AutoImageProcessor, AutoModel  # lazy
 
         if device is None:
             device = (
@@ -432,23 +480,27 @@ class DinoV3Embedder:
         self.device = device
         self.pool = pool
         self.l2_normalize = l2_normalize
-        self.processor = AutoImageProcessor.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name).to(device).eval()
+        self.model = (
+            torch.hub.load("facebookresearch/dinov2", model_name).to(device).eval()
+        )
 
     def embed(self, images_thwc: np.ndarray, batch_size: int = 32) -> np.ndarray:
-        """Embed ``(T, H, W, 3)`` uint8/float frames -> ``(T, 768)`` pooled."""
+        """Embed ``(T, H, W, 3)`` uint8 frames -> ``(T, EMBED_DIM)`` pooled."""
         import torch  # lazy
 
+        from egomimic.scripts.embedding_process.dinov2_embedding import (
+            preprocess_dinov2,
+        )
+
+        images = np.asarray(images_thwc)
         out = []
         with torch.no_grad():
-            for i in range(0, len(images_thwc), batch_size):
-                chunk = list(images_thwc[i : i + batch_size])
-                inputs = self.processor(images=chunk, return_tensors="pt").to(
+            for i in range(0, len(images), batch_size):
+                pixel_values = preprocess_dinov2(images[i : i + batch_size]).to(
                     self.device
                 )
-                feats = self.model(**inputs).last_hidden_state  # (B, 1+reg+N, D)
-                # drop CLS + register tokens: keep the trailing patch grid
-                patches = feats[:, -(feats.shape[1] - 1) :, :]
+                feats = self.model.forward_features(pixel_values)
+                patches = feats["x_norm_patchtokens"]  # (B, 256, 768)
                 out.append(patches.float().cpu().numpy())
         emb = np.concatenate(out, axis=0)
         return pool_patch_embeddings(
@@ -475,22 +527,36 @@ def _synthetic_provider(dim: int = EMBED_DIM, frames: int = 24):
         v = centroid[None, :] + 0.05 * rng.standard_normal((frames, dim)).astype(
             np.float32
         )
-        return pool_patch_embeddings(v, method="mean", l2_normalize=True)
+        return pool_patch_embeddings(v)  # (T, dim) passthrough, raw L2
 
     return provider
 
 
 def _smoke() -> None:
     print("== RICL retrieval smoke (numpy+scipy, no GPU/data) ==")
-    # 1) pooling
+    # 1) pooling: 64patches must reproduce ricl_openpi utils.embed()'s
+    #    64PATCHES loop exactly (16x16 grid -> 8x8 blocks of 2x2, row-major,
+    #    concatenated along features; raw, not unit-normalized).
     emb = (
-        np.random.default_rng(0).standard_normal((7, 196, EMBED_DIM)).astype(np.float32)
+        np.random.default_rng(0).standard_normal((7, 256, TOKEN_DIM)).astype(np.float32)
     )
     pooled = pool_patch_embeddings(emb)
     assert pooled.shape == (7, EMBED_DIM), pooled.shape
-    assert np.allclose(np.linalg.norm(pooled, axis=-1), 1.0, atol=1e-5)
+    # block (0,0) = patches {(0,0),(0,1),(1,0),(1,1)} = flat [0, 1, 16, 17]
+    expect0 = emb[:, [0, 1, 16, 17], :].mean(axis=1)
+    assert np.allclose(pooled[:, :TOKEN_DIM], expect0, atol=1e-5)
+    # block (0,1) = patches {(0,2),(0,3),(1,2),(1,3)} = flat [2, 3, 18, 19]
+    expect1 = emb[:, [2, 3, 18, 19], :].mean(axis=1)
+    assert np.allclose(pooled[:, TOKEN_DIM : 2 * TOKEN_DIM], expect1, atol=1e-5)
+    # last block (7,7) = flat [238, 239, 254, 255]
+    expect63 = emb[:, [238, 239, 254, 255], :].mean(axis=1)
+    assert np.allclose(pooled[:, -TOKEN_DIM:], expect63, atol=1e-5)
+    assert not np.allclose(np.linalg.norm(pooled, axis=-1), 1.0, atol=1e-2)
+    normed = pool_patch_embeddings(emb, l2_normalize=True)
+    assert np.allclose(np.linalg.norm(normed, axis=-1), 1.0, atol=1e-5)
     print(
-        f"  pool_patch_embeddings: (7,196,{EMBED_DIM}) -> {pooled.shape} (unit-norm OK)"
+        f"  pool_patch_embeddings[64patches]: (7,256,{TOKEN_DIM}) -> {pooled.shape} "
+        "(matches ricl_openpi block order; raw by default)"
     )
 
     # 2) groups from the REAL pairs json
@@ -503,6 +569,19 @@ def _smoke() -> None:
             f"  groups_from_pairs[{mode}]: {len(groups)} groups, "
             f"{nb} bank-eps, {nq} unique query-eps"
         )
+
+    # 2b) leave-one-episode-out: one group per query, never containing itself
+    loeo_groups = groups_from_pairs(pairs, "within_alignment", loeo=True)
+    base_groups = groups_from_pairs(pairs, "within_alignment")
+    assert len(loeo_groups) == sum(len(g.query_hashes) for g in base_groups)
+    for g in loeo_groups:
+        assert len(g.query_hashes) == 1
+        assert g.query_hashes[0] not in g.bank_hashes, g.group_id
+        assert g.bank_hashes, f"{g.group_id}: empty bank"
+    print(
+        f"  groups_from_pairs[within_alignment, loeo]: {len(loeo_groups)} "
+        "per-query groups, no self-retrieval"
+    )
 
     # 3) build + query + roundtrip on a synthetic cross_similar cache
     groups = groups_from_pairs(pairs, "cross_similar")
@@ -549,6 +628,12 @@ def main() -> None:
         action="store_true",
         help="use a single global bank (union of all banks) for every query",
     )
+    p.add_argument(
+        "--loeo",
+        action="store_true",
+        help="within_alignment only: leave-one-episode-out (a query's own "
+        "episode is excluded from its bank)",
+    )
     p.add_argument("-k", type=int, default=4)
     p.add_argument("--out", default=None, help="output cache dir")
     p.add_argument(
@@ -564,8 +649,10 @@ def main() -> None:
         return
 
     pairs = load_pairs(args.pairs)
-    groups = groups_from_pairs(pairs, args.mode)
+    groups = groups_from_pairs(pairs, args.mode, loeo=args.loeo)
     if args.merge_bank:
+        if args.loeo:
+            raise SystemExit("--merge-bank would undo --loeo (banks re-merge)")
         groups = merge_bank(groups)
 
     if args.zarr_root is None:
@@ -574,9 +661,12 @@ def main() -> None:
             "build a real cache, or use --smoke for the offline self-test."
         )
 
-    provider = make_zarr_dinov3_provider(lambda h: args.zarr_root.format(hash=h))
+    provider = make_zarr_dinov2_provider(lambda h: args.zarr_root.format(hash=h))
     cache = build_cache(
-        groups, provider, k=args.k, meta={"mode": args.mode, "k": args.k}
+        groups,
+        provider,
+        k=args.k,
+        meta={"mode": args.mode, "k": args.k, "loeo": args.loeo},
     )
     out = args.out or f"retrieval_cache_{args.mode}_k{args.k}"
     cache.save(out)

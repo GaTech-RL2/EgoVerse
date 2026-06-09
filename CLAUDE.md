@@ -2,10 +2,41 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Maintaining this file
+
+Whenever you learn something important that would help future work in this repo — a non-obvious convention, a gotcha, a fix to a recurring problem, a corrected assumption, or a workflow that isn't documented here — update this CLAUDE.md to capture it. Keep additions concise and place them in the relevant section. Don't wait to be asked.
+
+## This branch: RICL (`ryanco/in-context-learning`)
+
+This branch exists for **one experiment — RICL** (retrieval-based in-context learning on
+pi0.5). Start at `egomimic/ricl/CLAUDE.md` (navigation) and `egomimic/ricl/README.md`
+(architecture). The RICL working set is: `egomimic/ricl/**`, `algo/pi_ricl.py` (+ its
+parent `algo/pi.py`), `eval/pi_ricl_eval.py`, `pl_utils/pl_data_utils.py`, the
+`*_ricl*` / `ricl_stats_*` / `eva_pi` / `pi0.5_ricl` configs,
+`scripts/embedding_process/zarr_embedding.py`, `scripts/human_robot_pairs.json`, and
+the shared infra `trainHydra.py` + `rldb/**` + `utils/action_utils.py`.
+
+**Not part of this branch — skip unless explicitly needed** (avoid filling context):
+other algos/models/evals (`algo/{act,hpt}.py`, `models/{act_nets,hpt_nets,denoising_*,
+diffusion_policy,ddim_scheduler}.py`, `eval/{eval_act,eval_hpt,eval_latent,eval_video}.py`);
+`egomimic/robot/**`; most `egomimic/scripts/*` subdirs (`aria_process`, `eva_process`,
+`tutorials`, `language_process`, `mecka_process`, `mps_process`, `data_download`,
+`data_upload`, `data_visualization`, `backfill_scripts`, `benchmark`, `plotting`,
+`calibrate_camera`, `evaluation`); `external/{lerobot,scale,rpl_vision_utils}/**`;
+all `*.ipynb`. **Never read into context**: venvs (`emimic/`, `.venv/`), caches
+(`**/__pycache__`, `.pytest_cache`, `.ruff_cache`, `egomimic.egg-info`), outputs
+(`outputs/`, `egomimic/logs/`, `egomimic/ricl/outputs/`, `egomimic/ricl/pg_tokenizer/`,
+`assets/`), any `*.zarr`, and the large data files noted in
+`egomimic/ricl/CLAUDE.md`.
 
 ## Environment
 
-- **You are on a shared SLURM cluster.** Do not run anything GPU- or CPU-intensive yourself unless told to (no training, no eval, no large data conversions, no full dataset loads, no heavy `pytest` runs that spin up models or pull data). Defer to the user to actually execute those commands — your job is to prepare the command and explain it. Lightweight read-only work (lint, type checks, small unit tests, file edits, single-file syntax checks) is fine on the login node.
+- **You are on a shared SLURM cluster.** Don't run GPU/CPU-intensive work on the login node. Grab an interactive node first with `salloc`, e.g.:
+  ```
+  salloc -A gts-dxu345-rl2 -N1 -q inferno -t 1:00:00 --mem=75G --gres=gpu:h200:1
+  ```
+  Always use the `inferno` queue (`-q inferno`) rather than `ember` — it's faster. Adjust `-t`, `--mem`, and `--gres` to the job. `salloc` is best for interactive / iterative work (smoke tests, debugging) where you hold the node and run into it repeatedly. For large or long-running jobs (real training runs), submit through Hydra's submitit launcher instead (`hydra/launcher/submitit.yaml`) so the job queues and runs unattended. Lightweight read-only work (lint, type checks, small unit tests, file edits, single-file syntax checks) is fine on the login node.
+- **Short GPU runs (eval-only, smoke, a few hundred forward passes): export `TORCH_COMPILE_DISABLE=1`.** pi0.5's `sample_actions` triggers a `torch.compile` max-autotune compile on the first call — minutes of warmup that only pays off across a long training run. Disabling it runs eager (slower per call, no warmup), a net win when you're not training for a while. Leave compile ON for real training.
 - Python 3.11. Activate the project venv before any Python tooling: `source emimic/bin/activate`.
 - Package is installed editable as `egomimic` (see `pyproject.toml`). Linting is `ruff` via pre-commit.
 - AWS/Cloudflare R2 credentials are required for SQL episode registry + data download. Bootstrap with `aws configure` then `./egomimic/utils/aws/setup_secret.sh` (writes `~/.egoverse_env`). `load_env()` from `egomimic.utils.aws.aws_data_utils` is called automatically at the top of `trainHydra.py`.

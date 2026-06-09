@@ -1,0 +1,61 @@
+# RICL training data: pi0.5 + retrieval finetuned on fold_clothes + bag_groceries
+# (eva_bimanual). Query = fold+bag frames; bank = fold+bag frames (set
+# retrieval_cache_dir to the foldbag train cache: query=foldbag/bank=foldbag/
+# LOSO-episode). The model learns the in-context mechanism on fold+bag; it is later
+# eval'd zero-shot on cup_on_saucer with a cup cache. 15-step chunks. eva's real
+# layout is 14-D, so discretize retrieved (state, action) blocks at width 14 (not
+# padded to 32). Splits: egomimic/ricl/foldbag_cup_splits.py.
+defaults:
+  - cotrain_pi_ricl
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+        chunk_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.foldbag_cup_splits', fromlist=['foldbag_train_episode_hashes']).foldbag_train_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('task') in {'fold_clothes', 'bag_groceries'} and row.get('episode_hash') in _eps"
+    mode: train
+    valid_ratio: 0.05
+  aria_bimanual: null
+
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: 0.05
+  aria_bimanual: null
+
+# Bank = eva (robot), same keymap/transform as the query path, 15-step chunks.
+bank_embodiment: eva_bimanual
+bank_zarr_root: ${paths.dataset_dir}/{hash}
+bank_converter:
+  _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+bank_keymap:
+  _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+  keymap_mode: cartesian_pi
+  annotation_key: annotations
+bank_transform_list:
+  _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+  mode: cartesian
+  chunk_length: 15
+
+# eva's real layout is 14-D (2 arms x [xyz, ypr, gripper]) for both the ee_pose
+# state and the per-step action; discretize the retrieved blocks at their true
+# width instead of padding to 32.
+state_dim: 14
+action_dim: 14

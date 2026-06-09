@@ -145,7 +145,14 @@ class ModelWrapper(LightningModule):
         info = {}
         info["losses"] = TensorUtils.detach(losses)
         for k, v in self.model.log_info(info).items():
-            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
+            self.log(
+                "Train/" + k,
+                v,
+                sync_dist=True,
+                on_step=True,
+                on_epoch=True,
+                prog_bar=(k == "Loss"),
+            )
 
         return losses["action_loss"]
 
@@ -221,19 +228,17 @@ class ModelWrapper(LightningModule):
         active = self.train_viz_evaluator if dataloader_idx == 1 else self.evaluator
         if active is None:
             return
-        # When val_dataloader returns a list of CombinedLoaders (valid + train_viz),
-        # Lightning wraps it in an outer sequential CombinedLoader. The outer iterator
-        # calls next() on each inner CombinedLoader, which itself yields a
-        # (batch_dict, batch_idx, dataloader_idx) triple — that triple lands here as
-        # `batch`. Unwrap to recover the dict.
-        if isinstance(batch, tuple) and len(batch) == 3 and isinstance(batch[0], dict):
-            batch = batch[0]
-        batch = self.model.process_batch_for_training(batch)
         print(
             f"[VAL_STEP] rank={self.global_rank}, batch_idx={batch_idx}, dataloader_idx={dataloader_idx}",
             flush=True,
         )
-        active.on_validation_step(batch, batch_idx, dataloader_idx)
+        # Evaluators that build their own conditions from the raw batch (e.g.
+        # PIRiclEval, which must strip ricl_* *before* the prompt is tokenized to
+        # get a genuine zero-context floor) receive it un-processed; everyone else
+        # gets the processed batch as before.
+        if not getattr(self.evaluator, "wants_raw_batch", False):
+            batch = self.model.process_batch_for_training(batch)
+        self.evaluator.on_validation_step(batch, batch_idx, dataloader_idx)
 
     def on_validation_end(self):
         print(f"[ON_VALIDATION_END] rank={self.global_rank}", flush=True)

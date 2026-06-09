@@ -95,3 +95,45 @@ def strip_ricl_keys(batch: dict) -> dict:
         else:
             out[emb_id] = sub
     return out
+
+
+def shuffle_ricl_keys(batch: dict, seed: int):
+    """Derangement-permute the per-query ``ricl_retrieved_*`` blocks across the batch.
+
+    A random-retrieval *control*: each query keeps its own target but receives
+    **another** query's k retrieved demos -> the same splice path, neighbors no
+    longer kNN-matched to the query. Comparing retrieval (kNN) vs random isolates
+    whether retrieval *quality* (similarity) matters, not just the presence of
+    in-context context.
+
+    Call this on the **raw** ``{emb_name: {key: tensor}}`` batch *before*
+    ``process_batch_for_training`` (like :func:`strip_ricl_keys`), so the shuffled
+    demos get spliced/tokenized into the prompt. Returns ``None`` if any embodiment
+    has batch size < 2 (a derangement is impossible, so the control is undefined).
+
+    The shift is a cyclic roll (offset in ``[1, B-1]``) -- a guaranteed derangement
+    (no query keeps its own neighbors) and deterministic given ``seed`` so the
+    comparison is reproducible.
+    """
+    import torch
+
+    out = {}
+    for emb_name, sub in batch.items():
+        if not isinstance(sub, dict):
+            out[emb_name] = sub
+            continue
+        ricl_keys = [k for k in sub if k.startswith("ricl_")]
+        if not ricl_keys:
+            out[emb_name] = dict(sub)
+            continue
+        ref = sub[ricl_keys[0]]
+        B = ref.shape[0]
+        if B < 2:
+            return None
+        offset = 1 + (seed % (B - 1))
+        perm = torch.roll(torch.arange(B, device=ref.device), shifts=offset)
+        new = dict(sub)
+        for k in ricl_keys:
+            new[k] = sub[k].index_select(0, perm)
+        out[emb_name] = new
+    return out

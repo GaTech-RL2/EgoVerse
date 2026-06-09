@@ -1,0 +1,22 @@
+# RICL eval: pickplace-trained RICL evaluated on the four HELD-OUT pick/place
+# segment groups WITH retrieved demos (set retrieval_cache_dir to the pickplace
+# eval cache: query=eval/bank=eval/LOSO-episode). valid = eval-group frames only
+# (never trained — frame-level disjoint from the train groups even in shared
+# pick_place episodes). train_datasets inherited (train groups), not iterated in
+# eval mode. Groups defined in egomimic/ricl/pickplace_splits.py.
+defaults:
+  - cotrain_pi_ricl_pickplace
+  - _self_
+
+valid_datasets:
+  eva_bimanual:
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.pickplace_splits', fromlist=['eval_episode_hashes']).eval_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('episode_hash') in _eps"
+    groups:
+      - ["pick", "croissant", "left"]
+      - ["pick", "doritos", "right"]
+      - ["place", "juice pouch", "left"]
+      - ["place", "pink mug", "right"]
+    mode: total

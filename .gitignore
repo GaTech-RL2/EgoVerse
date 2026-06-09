@@ -48,3 +48,13 @@ temp_dir/**
 scratch/
 external_ckpts/
 external/MANO/
+.venv/
+.venv
+__pycache__/
+
+# RICL: regenerable outputs + vendored model artifacts (kept on disk, not versioned)
+egomimic/ricl/outputs/
+egomimic/ricl/pg_tokenizer/
+
+# Vendored reference repo (pi0-FAST architecture reference), not our source
+external/ricl_openpi/
