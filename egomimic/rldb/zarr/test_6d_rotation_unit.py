@@ -28,7 +28,7 @@ from egomimic.rldb.embodiment.human import (
     Aria,
     Mecka,
     Scale,
-    _build_aria_cartesian_revert_eef_frame_transform_list,
+    _build_human_cartesian_revert_eef_frame_transform_list,
 )
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
@@ -436,7 +436,7 @@ def test_human_6d_revert_matches_ypr_revert():
         [_matrix_to_xyzypr(wrist_l), _matrix_to_xyzypr(wrist_r)], axis=-1
     )
     ypr_out = _run(
-        _build_aria_cartesian_revert_eef_frame_transform_list(rot_repr="ypr"),
+        _build_human_cartesian_revert_eef_frame_transform_list(rot_repr="ypr"),
         {"observations.state.ee_pose": obs_ypr, "actions_cartesian": act_ypr},
     )["actions_cartesian"]
 
@@ -448,7 +448,7 @@ def test_human_6d_revert_matches_ypr_revert():
         [_matrix_to_xyz6d(wrist_l), _matrix_to_xyz6d(wrist_r)], axis=-1
     )
     six_out = _run(
-        _build_aria_cartesian_revert_eef_frame_transform_list(rot_repr="6d"),
+        _build_human_cartesian_revert_eef_frame_transform_list(rot_repr="6d"),
         {"observations.state.ee_pose": obs_6d, "actions_cartesian": act_6d},
     )["actions_cartesian"]
 
@@ -518,7 +518,7 @@ def test_eva_6d_revert_orthonormalizes_noisy_model_output():
         [_matrix_to_xyz6d(obs_l[None])[0], _matrix_to_xyz6d(obs_r[None])[0]]
     )
     out = _run(
-        _build_aria_cartesian_revert_eef_frame_transform_list(rot_repr="6d"),
+        _build_human_cartesian_revert_eef_frame_transform_list(rot_repr="6d"),
         {
             "observations.state.ee_pose": obs_6d,
             "actions_cartesian": np.concatenate([noisy_l, noisy_r], axis=-1),
