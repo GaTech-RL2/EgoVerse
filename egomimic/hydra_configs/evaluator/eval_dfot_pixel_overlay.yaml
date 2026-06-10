@@ -11,6 +11,10 @@
 #   overlay_emb*_ep*.npz  per-step world-px arrays
 # Metrics: Valid/emb*_overlay_action_{mse,rmse}_px, _overlay_pred_std_px
 # (collapse check, 0 => constant action), _overlay_gt_std_px, _overlay_n_steps.
+#
+# K-chunk stacking (D07): no knob here — the eval reads the outer stage's
+# action_chunk_k and, at K>1, unrolls each keyframe's K-action chunk so the
+# metrics score the per-step world-px error of the full K*T action sequence.
 
 _target_: egomimic.eval.core.eval_composite.EvalList
 

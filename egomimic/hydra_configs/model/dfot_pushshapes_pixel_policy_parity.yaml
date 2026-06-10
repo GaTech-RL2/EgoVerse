@@ -1,17 +1,27 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
-# DFoT pixel-space OBS+ACTION policy — UPSTREAM-PARITY recipe.
+# DFoT pixel-space OBS+ACTION policy — UPSTREAM-PARITY recipe (K4nf256 replica).
 # Non-default variant of dfot_pushshapes_pixel_policy.yaml expressing the
-# validated pureDF pusht recipe through the parity knobs; every delta is
-# tagged with its Port Parity Checklist D-number.
+# validated pureDF pusht K4nf256 recipe through the parity knobs; every delta
+# is tagged with its Port Parity Checklist D-number. D07: K=4 action-chunk
+# stacking — keyframes at env-stride 4, each carrying its 4 actions as 2K=8
+# broadcast planes (bundle = 3 RGB + 8 = 11 channels, upstream
+# observation_shape [11, 64, 64]).
 #
 # REQUIRED COMPANION OVERRIDES — these keys live outside the model package
-# (trainer/ group and the primary config merge after the model group, so a
-# model yaml cannot carry them). Launch from the repo root with:
+# (data/ and trainer/ groups and the primary config merge after the model
+# group, so a model yaml cannot carry them). Launch from the repo root with:
+#   data=tsimulation_k4              # D07/D08/D26 — K=4 keyframe dataset
+#                                    # (action_chunk_k must MATCH this yaml's;
+#                                    # incoming_meanpad pairing + train-side
+#                                    # phase aug live there)
 #   trainer.gradient_clip_val=10.0   # D09 — knob exposed in trainer/default.yaml
 #   norm_stats.norm_mode=minmax      # D03b — fixed minmax action norm
 #   norm_stats.precomputed_norm_path=$PWD/egomimic/hydra_configs/data/norm_stats_pushshapes_fixed512.json
 #                                    # D03b — exact /512 world-coord stats (no data-dependent min/max)
+#                                    # NOTE: stays per-step 2-dim at K>1 — the
+#                                    # algo tiles stats across K via a reshape
+#                                    # seam (do NOT build an 8-dim stats json)
 #   reject_outliers=false            # D30 — no upstream analog
 # Delete any cached norm_stats from earlier runs so stats regenerate.
 #
@@ -20,7 +30,8 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # decoupled} route context through outer_stage.to_model_range) all honor
 # image_range. Judge this recipe by the overlay first (checklist §4 step 3:
 # no sim until overlay tracks GT). When running the overlay against this
-# recipe, set n_context_frames: 8 to match sp_n_context.
+# recipe, set n_context_frames: 8 to match sp_n_context; the overlay
+# auto-detects K from the stage's action_chunk_k (no eval-side knob).
 
 robomimic_model:
   _target_: egomimic.algo.diffusion.DFoT
@@ -33,7 +44,8 @@ robomimic_model:
 
   inference_mode: "pixel_policy"  # D01 — grounded windowed inference, not obs-blind chunk
   cfg_scale: 1.0
-  sp_n_context: 8                 # D13 — n_ctx + sp_commit(1) == trained window T=9 (default 4 gave T=5)
+  sp_n_context: 8                 # D13 — n_ctx + sp_commit(1) == trained window T=9 (keyframes at K>1; default 4 gave T=5)
+  sp_commit: 1                    # D07 — one keyframe chunk per replan tick: commit sp_commit*K = 4 actions open-loop, re-ground on the real obs at the next keyframe (upstream df_pusht.py:107-131)
 
   domains: ["pushshapes_sim"]
   ac_keys:
@@ -43,7 +55,8 @@ robomimic_model:
     _target_: egomimic.algo.diffusion.PixelObsActionDFoTOuterStage
     pixel_mode: "policy"
     action_dim: 2
-    action_channels: 2
+    action_chunk_k: 4             # D07 — K=4 chunk per keyframe (must match data=tsimulation_k4)
+    action_channels: 8            # D07 — K*action_dim broadcast planes
     image_key: "front_img_1"
     image_channels: 3
     image_size: 96
@@ -63,7 +76,7 @@ robomimic_model:
 
     backbone:
       _target_: egomimic.models.diffusion.DFoTDiT3DBackbone
-      latent_channels: 5          # 3 RGB + 2 broadcast action planes
+      latent_channels: 11         # D07 — 3 RGB + 2K=8 broadcast action planes
       latent_size: 96
       patch_size: 2
       action_horizon: 9
@@ -82,7 +95,7 @@ robomimic_model:
 
     diffusion:
       _target_: egomimic.models.diffusion.diffusion.discrete_diffusion.DiscreteDiffusion
-      action_dim: 5               # diffused per-token channel count (3+2)
+      action_dim: 11              # D07 — diffused per-token channel count (3+2K)
       timesteps: 1000
       beta_schedule: "cosine"
       objective: "pred_x0"                # D04 — validated objective (was pred_v)

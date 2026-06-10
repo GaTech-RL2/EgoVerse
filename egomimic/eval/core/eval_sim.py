@@ -18,6 +18,11 @@ Design:
     position, action-chunk buffer. The eval class never touches these.
     t=0 is the universal reset signal that tells the algo to wipe
     any prior rollout state and start fresh.
+  * Return contract: (action_dim,) = one action for this env step
+    (the legacy path; algos with internal queues dispense one per
+    call). A flat (K*2,) return with K>1 is a time-ordered K-chunk
+    executed open-loop: the env steps K times before the model is
+    queried (and observes) again — upstream keyframe semantics.
   * Obs translation: _env_to_zarr_dict(obs_env) converts the env's
     native obs into a canonical zarr-key dict (same shape as what the
     dataset emits). The algo then applies its own keymap + transforms.
@@ -226,18 +231,35 @@ class SimRolloutEval(EvalVideo):
             raise RuntimeError(
                 f"Algo {type(algo).__name__} does not implement inference_step — "
                 "required for SimRolloutEval. Must return np.float32 (action_dim,) "
-                "in absolute frame from (obs_zarr, t, emb_id)."
+                "in absolute frame from (obs_zarr, t, emb_id), or a flat "
+                "(K*2,) time-ordered chunk to commit K steps open-loop."
             )
 
         frames: List[np.ndarray] = []
         action_history: List[np.ndarray] = []
         coverage = 0.0
         best_coverage = 0.0
+        pending: List[np.ndarray] = []  # open-loop tail of a committed K-chunk
         for t in range(self.max_steps):
-            obs_env = env._get_obs()
-            obs_zarr = self._env_to_zarr_dict(obs_env, device)
-            action_xy = algo.inference_step(obs_zarr, t, emb_id, T_max=self.max_steps)
-            action_xy = np.asarray(action_xy, dtype=np.float32).reshape(-1)[:2]
+            if not pending:
+                obs_env = env._get_obs()
+                obs_zarr = self._env_to_zarr_dict(obs_env, device)
+                ret = algo.inference_step(obs_zarr, t, emb_id, T_max=self.max_steps)
+                ret = np.asarray(ret, dtype=np.float32).reshape(-1)
+                if ret.size > 2 and ret.size % 2 == 0:
+                    # K-chunk contract (D07): a flat (K*2,) return is K xy
+                    # actions in time order, executed open-loop — the model is
+                    # re-queried (and re-observes) only at the next keyframe,
+                    # mirroring upstream df_pusht.py's commit-K-then-re-ground
+                    # loop. Algos that dispense one action per call via an
+                    # internal queue (DFoT._pp_queue, HNet._sim_action_queue,
+                    # HPT chunk buffer) return (2,) and take the branch below.
+                    pending = [row.copy() for row in ret.reshape(-1, 2)]
+                else:
+                    # legacy single-action contract: one (action_dim,) action
+                    # per env step (odd sizes keep the historical [:2] cut).
+                    pending = [ret[:2]]
+            action_xy = pending.pop(0)
             action_history.append(action_xy.copy())
             _, _, terminated, _, info = env.step(action_xy)
             coverage = float(info.get("coverage", 0.0))

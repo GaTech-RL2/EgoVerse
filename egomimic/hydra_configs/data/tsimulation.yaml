@@ -36,6 +36,18 @@ train_datasets:
     # sorted episodes for validation (holdout_split picks the side).
     val_holdout_first_n: 0
     holdout_split: "train"
+    # D07 — K action-chunk stacking: >1 emits keyframes every K post-stride
+    # frames, each carrying its K actions flattened to K*action_dim
+    # (time-major). Must match the model's action_chunk_k. Composes
+    # multiplicatively with temporal_stride; parity recipe uses this alone.
+    action_chunk_k: 1
+    # D26 — per-sample random phase in [0, K) when true (upstream
+    # drop_front). No-op (and no RNG) at action_chunk_k=1.
+    chunk_phase_aug: false
+    # D08 — "current" = keyframe t carries actions [t, t+K) (K=1-compatible
+    # generalization of frame-t <-> actions[t]); "incoming_meanpad" =
+    # upstream-exact incoming chunk + mean-padded first keyframe.
+    action_pairing: "current"
 
 valid_datasets:
   pushshapes_sim:
@@ -57,6 +69,11 @@ valid_datasets:
     tail_mode: "drop"
     val_holdout_first_n: 0
     holdout_split: "val"
+    # D07/D26/D08 — keep train and valid K-stacking knobs in lockstep (see
+    # train_datasets entry); defaults reproduce prior behavior exactly.
+    action_chunk_k: 1
+    chunk_phase_aug: false
+    action_pairing: "current"
 
 # A40 baseline (44.4 GiB): one full episode at T~958 peaks at ~1.8 GiB,
 # so 8 episodes packed should land in 12–16 GiB worst case. Headroom for

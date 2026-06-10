@@ -235,6 +235,44 @@ class DFoT(Algo):
     def diffusion(self) -> nn.Module:
         return self.outer_stage.diffusion
 
+    @property
+    def _chunk_k(self) -> int:
+        """K action-chunk stacking factor (D07). 1 = historic per-frame
+        actions; >1 = each frame is a keyframe carrying K actions flattened
+        time-major into the last dim (K * action_dim)."""
+        return int(getattr(self.outer_stage, "action_chunk_k", 1))
+
+    # ---- K-chunk norm-stat tiling seam (D07) ----------------------------- #
+    # norm_stats carries per-step (action_dim,) stats; K-stacked tensors are
+    # (..., K*action_dim). Tiling = a reshape round-trip through (..., K, A)
+    # so the (A,)-shaped stats broadcast across K — no K*A stats json needed.
+
+    def _chunked_action_norm_seam(self, data: dict, emb_id, inverse: bool) -> dict:
+        """normalize/unnormalize ``data`` with K-stacked action tensors
+        reshaped to (..., K, A) for the duration of the stats application.
+        Only called when ``self._chunk_k > 1`` (K=1 keeps the direct call)."""
+        K = self._chunk_k
+        A = int(getattr(self.outer_stage, "action_dim", self.action_dim))
+        # "actions" covers the resolved_ac_keys.get(emb_id, "actions") fallback
+        # used by the forward paths; the shape check below keeps this safe.
+        ac_keys = (
+            set(self.ac_keys.values())
+            | set(self.resolved_ac_keys.values())
+            | {"actions"}
+        )
+        data = dict(data)
+        stacked = {}
+        for key in ac_keys:
+            val = data.get(key)
+            if torch.is_tensor(val) and val.shape[-1] == K * A:
+                stacked[key] = val.shape
+                data[key] = val.reshape(*val.shape[:-1], K, A)
+        fn = self.norm_stats.unnormalize if inverse else self.norm_stats.normalize
+        out = fn(data, emb_id)
+        for key, shape in stacked.items():
+            out[key] = out[key].reshape(*shape)
+        return out
+
     # Packed-mode metadata that must NOT go through zarr_key_to_keyname
     # resolution (these are bookkeeping, not feature tensors).
     _PACKED_META_KEYS = ("cu_seqlens", "max_seq_len", "seq_lens")
@@ -271,7 +309,12 @@ class DFoT(Algo):
                 cu = processed[emb_id].get("cu_seqlens")
                 if cu is not None and torch.is_tensor(cu):
                     processed[emb_id]["seq_lens"] = (cu[1:] - cu[:-1]).to(torch.int64)
-            processed[emb_id] = self.norm_stats.normalize(processed[emb_id], emb_id)
+            if self._chunk_k > 1:
+                processed[emb_id] = self._chunked_action_norm_seam(
+                    processed[emb_id], emb_id, inverse=False
+                )
+            else:
+                processed[emb_id] = self.norm_stats.normalize(processed[emb_id], emb_id)
             processed[emb_id]["embodiment"] = torch.tensor(
                 [emb_id], device=self.device, dtype=torch.int64
             )
@@ -396,17 +439,23 @@ class DFoT(Algo):
                 sampled = self._sample_chunk(B, T, cond=cond, device=actions.device)
                 # _sample_chunk returns the full bundle; pick out the action
                 # slice (channel axis for 5-D pixel bundles — D02) so
-                # unnormalize sees an action-shaped tensor.
+                # unnormalize sees an action-shaped tensor. At K>1 the pooled
+                # planes keep all K*A dims (time-major chunk layout).
                 sampled = self._extract_bundle_actions(
                     sampled,
                     self.outer_stage.action_slice,
                     action_dim=int(
                         getattr(self.outer_stage, "action_dim", self.action_dim)
-                    ),
+                    ) * self._chunk_k,
                 )
                 preds = OrderedDict()
                 preds[ac_key] = sampled
-                unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
+                if self._chunk_k > 1:
+                    unnorm_actions = self._chunked_action_norm_seam(
+                        preds, emb_id, inverse=True
+                    )
+                else:
+                    unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
                 for key, val in unnorm_actions.items():
                     unnorm[f"emb{emb_id}_{key}"] = val
         return unnorm
@@ -622,7 +671,14 @@ class DFoT(Algo):
         rides as broadcast channels inside the diffused frame. Pin the last
         n_context OBSERVED frames (real RGB + executed-action planes) clean,
         denoise the next k frames' [RGB + action] jointly, read the committed
-        frame's action planes by global-avg-pool -> action. Receding horizon."""
+        frame's action planes by global-avg-pool -> action. Receding horizon.
+
+        K>1 (action_chunk_k on the outer stage): grounded AR mirroring
+        upstream df_pusht.py:107-131 — frames are KEYFRAMES at env-stride K,
+        each carrying a K-action chunk in 2K planes. Per model tick, ground
+        on the real keyframe obs, commit all sp_commit*K actions open-loop
+        (one env action per call via the queue), re-ground at the next
+        replan keyframe."""
         from egomimic.models.diffusion.sampling import vanilla_schedule
         import numpy as _np
 
@@ -632,6 +688,7 @@ class DFoT(Algo):
         ac_key = self.ac_keys[get_embodiment(emb_id).lower()]
         n_ctx = max(1, int(getattr(self, "sp_n_context", 1)))
         k = max(1, int(getattr(self, "sp_commit", 1)))
+        Kc = self._chunk_k
         n_steps = int(self.sampler_n_steps)
         Ci = int(outer._image_channels)
         Ca = int(outer._action_channels)
@@ -640,8 +697,8 @@ class DFoT(Algo):
         C = Ci + Ca
 
         if t == 0 or not hasattr(self, "_pp_rgb"):
-            self._pp_rgb = []     # observed RGB, each (Ci,H,W) in model range
-            self._pp_act = []     # executed NORMALIZED actions, each (A,)
+            self._pp_rgb = []     # observed keyframe RGB, each (Ci,H,W) in model range
+            self._pp_act = []     # executed NORMALIZED per-keyframe actions, each (Kc*A,)
             self._pp_queue = []   # pending committed unnorm actions
 
         img = obs_zarr[outer.image_key].float().to(device)
@@ -652,7 +709,10 @@ class DFoT(Algo):
         # D03 seam: context pins must live in the stage's model range
         # ("01" = identity pass-through, "pm1" = [-1, 1]).
         img = outer.to_model_range(img)
-        self._pp_rgb.append(img)
+        # K>1: only env ticks at the keyframe stride are keyframe obs; the
+        # model never sees mid-chunk frames (matches the K-strided dataset).
+        if Kc == 1 or t % Kc == 0:
+            self._pp_rgb.append(img)
 
         if self._pp_queue:
             return self._pp_queue.pop(0)
@@ -680,6 +740,10 @@ class DFoT(Algo):
                     a = self.norm_stats.normalize({ac_key: _xy}, emb_id)[ac_key][0][:A]
                 except Exception:
                     pass
+                if Kc > 1:
+                    # hold-position pseudo-chunk: tile the per-step pseudo
+                    # action across K so the plane layout stays (Kc*A,).
+                    a = a.repeat(Kc)
             ctx_frames.append(torch.cat([rgb, act_plane(a)], dim=0))
         ctx_stack = torch.stack(ctx_frames, dim=0).unsqueeze(0)   # (1,n_ctx,C,H,W)
 
@@ -697,9 +761,19 @@ class DFoT(Algo):
             x[:, :n_ctx] = ctx_stack
 
         pred_planes = x[0, n_ctx:n_ctx + k, Ci:Ci + Ca]          # (k,Ca,H,W)
-        pred_norm = pred_planes.mean(dim=(2, 3))[:, :A]          # (k,A) global-avg-pool
-        for j in range(k):
-            self._pp_act.append(pred_norm[j].detach())
+        if Kc > 1:
+            # Grounded AR (upstream df_pusht.py:117-125): unstack each
+            # keyframe's 2K planes into its K-action chunk and commit ALL
+            # k*Kc actions open-loop, time-major. Per-step (A,) norm stats
+            # apply row-wise — the chunk is unstacked before unnormalize.
+            acts_chunk = outer.decode_action_planes(pred_planes)  # (k,Kc,A)
+            for j in range(k):
+                self._pp_act.append(acts_chunk[j].reshape(-1).detach())
+            pred_norm = acts_chunk.reshape(k * Kc, A)
+        else:
+            pred_norm = pred_planes.mean(dim=(2, 3))[:, :A]      # (k,A) global-avg-pool
+            for j in range(k):
+                self._pp_act.append(pred_norm[j].detach())
         unnorm = self.norm_stats.unnormalize({ac_key: pred_norm}, emb_id)[ac_key]
         unnorm_np = unnorm.detach().cpu().numpy()
         for row in unnorm_np[1:]:
@@ -711,7 +785,9 @@ class DFoT(Algo):
         """Closed-loop controller for Design B (regression). Pin the last
         n_context observed RGB frames clean, denoise the next k RGB frames,
         then read the action off each predicted frame via the outer stage's
-        conv ``action_head``. Receding horizon."""
+        conv ``action_head``. Receding horizon. K>1: frames are keyframes at
+        env-stride K; the head emits each keyframe's K-action chunk, all
+        committed open-loop."""
         from egomimic.models.diffusion.sampling import vanilla_schedule
         import numpy as _np
 
@@ -721,6 +797,7 @@ class DFoT(Algo):
         ac_key = self.ac_keys[get_embodiment(emb_id).lower()]
         n_ctx = max(1, int(getattr(self, "sp_n_context", 1)))
         k = max(1, int(getattr(self, "sp_commit", 1)))
+        Kc = self._chunk_k
         n_steps = int(self.sampler_n_steps)
         Ci = int(outer._image_channels)
         H = W = int(outer._image_size)
@@ -737,7 +814,8 @@ class DFoT(Algo):
         # D03 seam: context pins must live in the stage's model range
         # ("01" = identity pass-through, "pm1" = [-1, 1]).
         img = outer.to_model_range(img)
-        self._pr_rgb.append(img)
+        if Kc == 1 or t % Kc == 0:
+            self._pr_rgb.append(img)
 
         if self._pr_queue:
             return self._pr_queue.pop(0)
@@ -762,7 +840,12 @@ class DFoT(Algo):
             x[:, :n_ctx] = ctx_stack
 
         pred_frames = x[0, n_ctx:n_ctx + k]               # (k, Ci, H, W) predicted clean frames
-        pred_norm = outer.action_head(pred_frames)        # (k, A)
+        pred_norm = outer.action_head(pred_frames)        # (k, Kc*A)
+        if Kc > 1:
+            # unstack each keyframe's K-chunk time-major; per-step (A,) norm
+            # stats then apply row-wise.
+            A = int(outer.action_dim)
+            pred_norm = pred_norm.reshape(k * Kc, A)
         unnorm = self.norm_stats.unnormalize({ac_key: pred_norm}, emb_id)[ac_key]
         unnorm_np = unnorm.detach().cpu().numpy()
         for row in unnorm_np[1:]:
@@ -847,7 +930,10 @@ class DFoT(Algo):
             self._sim_state = {"chunk": None, "chunk_idx": 0}
         state = self._sim_state
 
-        if state["chunk"] is None or state["chunk_idx"] >= self.action_horizon:
+        # K>1: each of the action_horizon model frames is a keyframe carrying
+        # K env actions, so one plan serves action_horizon * K env ticks.
+        n_plan_actions = self.action_horizon * self._chunk_k
+        if state["chunk"] is None or state["chunk_idx"] >= n_plan_actions:
             obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
             cond = self._encode_cond(obs_norm, self.action_horizon)
             sampled = self._sample_chunk(
@@ -861,8 +947,13 @@ class DFoT(Algo):
                 self.outer_stage.action_slice,
                 action_dim=int(
                     getattr(self.outer_stage, "action_dim", self.action_dim)
-                ),
+                ) * self._chunk_k,
             )
+            if self._chunk_k > 1:
+                # unstack (1, T, K*A) -> (1, T*K, A) time-major so the
+                # per-step (A,) norm stats apply row-wise.
+                A = int(getattr(self.outer_stage, "action_dim", self.action_dim))
+                sampled_actions = sampled_actions.reshape(1, -1, A)
             chunk_world = self.norm_stats.unnormalize(
                 {ac_key: sampled_actions.squeeze(0)}, emb_id
             )[ac_key]
@@ -910,7 +1001,9 @@ class DFoT(Algo):
         action are denoised (model predicts future obs as a world-model), read
         the action at the current frame + the future frames, commit the whole
         chunk open-loop. Action never a clean input (no copy), no offset.
-        sp_n_samples averages K diffusion samples (variance reduction)."""
+        sp_n_samples averages K diffusion samples (variance reduction).
+        action_chunk_k>1: frames are keyframes at env-stride K; each action
+        token is a K-action chunk (width K*A), all committed open-loop."""
         from egomimic.models.diffusion.sampling import vanilla_schedule
 
         outer = self.outer_stage
@@ -919,9 +1012,11 @@ class DFoT(Algo):
         ac_key = self.ac_keys[get_embodiment(emb_id).lower()]
         n_ctx = max(1, int(getattr(self, "sp_n_context", 1)))
         k = max(1, int(getattr(self, "sp_commit", 1)))
+        Kc = self._chunk_k
         n_steps = int(self.sampler_n_steps)
         n_samp = max(1, int(getattr(self, "sp_n_samples", 1)))
         A = int(outer.action_dim)
+        Aw = A * Kc                       # action-token width (== A at K=1)
         Ci = int(outer._image_channels)
         H = W = int(outer._image_size)
 
@@ -937,7 +1032,8 @@ class DFoT(Algo):
         # D03 seam: context pins must live in the stage's model range
         # ("01" = identity pass-through, "pm1" = [-1, 1]).
         img = outer.to_model_range(img)
-        self._pd_rgb.append(img)
+        if Kc == 1 or t % Kc == 0:
+            self._pd_rgb.append(img)
 
         if self._pd_queue:
             return self._pd_queue.pop(0)
@@ -955,7 +1051,7 @@ class DFoT(Algo):
         ctx_b = rgb_ctx.expand(n_samp, -1, -1, -1, -1)
         x_obs = torch.randn(n_samp, T, Ci, H, W, device=device)
         x_obs[:, :n_ctx] = ctx_b
-        x_act = torch.randn(n_samp, T, A, device=device)
+        x_act = torch.randn(n_samp, T, Aw, device=device)
         for st in range(sched.shape[0] - 1):
             o_lev = obs_sched[st].unsqueeze(0).expand(n_samp, -1)
             a_lev = sched[st].unsqueeze(0).expand(n_samp, -1)
@@ -966,7 +1062,11 @@ class DFoT(Algo):
             x_obs[:, :n_ctx] = ctx_b
             x_act = self._struct_ddim_step(diff, x_act, v_act, sched[st], sched[st + 1], eta=float(getattr(self, "sampler_eta", 0.0)))
 
-        chunk = x_act[:, n_ctx - 1:].mean(0)  # (k, A): current + (k-1) future actions
+        chunk = x_act[:, n_ctx - 1:].mean(0)  # (k, Aw): current + (k-1) future keyframes
+        if Kc > 1:
+            # unstack each keyframe's K-chunk time-major; per-step (A,) norm
+            # stats then apply row-wise.
+            chunk = chunk.reshape(k * Kc, A)
         unnorm = self.norm_stats.unnormalize({ac_key: chunk}, emb_id)[ac_key]
         unnorm_np = unnorm.detach().cpu().numpy()
         for row in unnorm_np[1:]:

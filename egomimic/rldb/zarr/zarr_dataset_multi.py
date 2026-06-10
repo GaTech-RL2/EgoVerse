@@ -1536,6 +1536,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         *,
         episode_idx: int | None = None,
         stride: int = 1,
+        action_stride: int | None = None,
     ) -> dict:
         """Read a variable-length span ``[start, end)`` for every key in ``key_map``.
 
@@ -1553,6 +1554,16 @@ class ZarrDataset(torch.utils.data.Dataset):
                 frame — byte-identical to the pre-stride behavior. Raw JPEG
                 buffers are subsampled BEFORE decode, so skipped frames pay
                 no decode cost.
+            action_stride: When set, keys with ``key_type == "action_keys"``
+                are read at THIS stride while every other per-frame key is
+                read at ``stride``. Used by the K action-chunk stacking path
+                (``ZarrEpisodePackedDataset``, ``action_chunk_k > 1``): obs
+                keys at keyframe rate ``stride = ts*K``, actions at the
+                full post-``ts`` rate so the caller can stack K of them per
+                keyframe. NOTE: the returned action arrays then have first
+                dim ``len(range(start, end, action_stride))`` ≠ ``seq_len``;
+                the CALLER owns re-aligning them. ``None`` (default) reads
+                actions at ``stride`` — byte-identical to prior behavior.
 
         Returns a dict containing:
           - per-frame tensors of shape ``(ceil((end - start) / stride), ...)``
@@ -1578,6 +1589,10 @@ class ZarrDataset(torch.utils.data.Dataset):
             )
         if stride < 1:
             raise ValueError(f"_read_span stride must be >= 1, got {stride}")
+        if action_stride is not None and action_stride < 1:
+            raise ValueError(
+                f"_read_span action_stride must be >= 1, got {action_stride}"
+            )
 
         seq_len = len(range(start, end, stride))
         data: dict = {}
@@ -1594,10 +1609,14 @@ class ZarrDataset(torch.utils.data.Dataset):
             if key_type == "metadata_keys":
                 continue
 
+            key_stride = stride
+            if action_stride is not None and key_type == "action_keys":
+                key_stride = action_stride
+
             arr = self.episode_reader.read({zarr_key: (start, end)})[zarr_key]
-            if stride != 1:
+            if key_stride != 1:
                 # Subsample raw frames (JPEG buffers included) pre-decode.
-                arr = arr[::stride]
+                arr = arr[::key_stride]
 
             if zarr_key in self._image_keys:
                 arr = decode_jpeg_window(arr)

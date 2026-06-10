@@ -1,0 +1,71 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# K=4 keyframe variant of tsimulation.yaml — the data half of the pureDF
+# K4nf256 parity recipe (Port Parity Checklist D07/D08/D14/D17/D26).
+# Companion model config: model=dfot_pushshapes_pixel_policy_parity
+# (its outer_stage.action_chunk_k MUST match action_chunk_k here).
+#
+# Deltas vs tsimulation.yaml, each tagged:
+# - D07  action_chunk_k: 4 — keyframes at env-stride 4, each carrying its
+#        4 actions as a (K*action_dim,) time-major row.
+# - D08  action_pairing: incoming_meanpad — upstream-exact convention
+#        (chunk that LED INTO each keyframe; first keyframe mean-padded).
+#        Pending the D08 lag-scan probe: if the zarr stores outgoing
+#        actions, flip to "current" and document.
+# - D26  chunk_phase_aug: true on TRAIN only (upstream drop_front in [0,K));
+#        valid stays deterministic phase 0.
+# - D14  val_holdout_first_n: 22 on BOTH entries (~5% of the 450-episode
+#        circle/basic set, mirroring upstream's disjoint first-5% val split).
+# - D17  tail_mode: hold_pad + min_seq_len in KEYFRAME units (16 keyframes
+#        = 64 raw frames) — upstream pads every episode, drops none.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle/basic
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 16          # D17 — keyframe units at K=4 (= 64 raw frames)
+    max_seq_len: 1024
+    temporal_stride: 1
+    tail_mode: "hold_pad"    # D17 — pad short episodes, never drop
+    val_holdout_first_n: 22  # D14 — first ~5% of sorted episodes -> val only
+    holdout_split: "train"
+    action_chunk_k: 4        # D07
+    chunk_phase_aug: true    # D26 — train-side phase augmentation
+    action_pairing: "incoming_meanpad"  # D08 — upstream-exact
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle/basic
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 16
+    max_seq_len: 1024
+    temporal_stride: 1
+    tail_mode: "hold_pad"
+    val_holdout_first_n: 22
+    holdout_split: "val"
+    action_chunk_k: 4
+    chunk_phase_aug: false   # D26 — deterministic phase 0 for val
+    action_pairing: "incoming_meanpad"
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 4

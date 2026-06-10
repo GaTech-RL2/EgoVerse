@@ -48,6 +48,8 @@ TailMode = Literal["drop", "hold_pad"]
 
 HoldoutSplit = Literal["train", "val"]
 
+ActionPairing = Literal["current", "incoming_meanpad"]
+
 
 class ZarrEpisodePackedDataset(Dataset):
     """One sample per episode (or per chunk of a long episode).
@@ -93,6 +95,38 @@ class ZarrEpisodePackedDataset(Dataset):
             ``val_holdout_first_n == 0``. ``episode_idx`` assignment stays
             anchored to the FULL sorted key list, so an episode keeps the
             same index on both sides of the split.
+        action_chunk_k: K action-chunk stacking (D07, upstream pureDF
+            ``pusht_dataset.py``). At ``K > 1`` the sample is emitted at
+            keyframe rate — obs keys keep every K-th post-stride frame —
+            and each keyframe's action row is the K post-stride actions of
+            its chunk flattened TIME-MAJOR into ``K*action_dim`` values
+            (``[a0_d0, a0_d1, a1_d0, ...]``). Composes multiplicatively
+            with ``temporal_stride`` (keyframes every ``temporal_stride*K``
+            raw frames; the K stacked actions are the ``temporal_stride``-d
+            ones between keyframes); the parity recipe uses
+            ``action_chunk_k`` alone (``temporal_stride=1``).
+            ``min_seq_len`` / ``max_seq_len`` are interpreted in EMITTED
+            keyframes. ``1`` (default) is byte-identical to prior behavior.
+        chunk_phase_aug: D26 phase-shift augmentation. When True and
+            ``action_chunk_k > 1``, each read drops a per-sample uniform
+            random number of leading post-stride frames in ``[0, K)``
+            (upstream ``drop_front``) before chunking. False (default)
+            draws NO RNG; also a no-op (no RNG) at K=1, mirroring
+            upstream's ``randint(K) if K > 1 else 0``.
+        action_pairing: which action chunk a keyframe carries.
+            ``"current"`` (default): keyframe t carries post-stride actions
+            ``[t, t+K)`` starting AT the keyframe — the K=1-compatible
+            generalization of today's frame-t ↔ ``actions[t]`` pairing; the
+            trailing partial chunk repeat-pads the final action row.
+            ``"incoming_meanpad"``: upstream-exact incoming convention
+            (``pusht_dataset.py.__getitem__``): drop the LAST post-stride
+            frame (upstream ``drop_back=1``), keyframe count floors to
+            ``(L-1)//K``, keyframe i ≥ 1 carries actions ``[(i-1)K, iK)``
+            (the chunk that LED INTO it), and keyframe 0's row is the
+            per-dim mean of the sample's post-stride actions tiled across
+            the K slots (upstream pads with the dataset action mean — the
+            normalization midpoint, exactly 0 post-norm; the per-sample
+            mean is the dataset-local analog, ≈0 after algo-side norm).
     """
 
     def __init__(
@@ -106,6 +140,9 @@ class ZarrEpisodePackedDataset(Dataset):
         tail_mode: TailMode = "drop",
         val_holdout_first_n: int = 0,
         holdout_split: HoldoutSplit = "train",
+        action_chunk_k: int = 1,
+        chunk_phase_aug: bool = False,
+        action_pairing: ActionPairing = "current",
     ):
         if not datasets:
             raise ValueError("ZarrEpisodePackedDataset received an empty datasets dict")
@@ -123,6 +160,10 @@ class ZarrEpisodePackedDataset(Dataset):
             )
         if holdout_split not in ("train", "val"):
             raise ValueError(f"Unknown holdout_split: {holdout_split}")
+        if action_chunk_k < 1:
+            raise ValueError(f"action_chunk_k must be >= 1, got {action_chunk_k}")
+        if action_pairing not in ("current", "incoming_meanpad"):
+            raise ValueError(f"Unknown action_pairing: {action_pairing}")
 
         self.max_seq_len = max_seq_len
         self.min_seq_len = min_seq_len
@@ -132,6 +173,14 @@ class ZarrEpisodePackedDataset(Dataset):
         self.tail_mode = tail_mode
         self.val_holdout_first_n = val_holdout_first_n
         self.holdout_split = holdout_split
+        self.action_chunk_k = action_chunk_k
+        self.chunk_phase_aug = chunk_phase_aug
+        self.action_pairing = action_pairing
+        # K=1 + "current" must take the EXACT pre-knob code path (no chunk
+        # post-processing, no extra _read_span kwargs, no RNG). incoming
+        # pairing is a behavior change even at K=1 (drop_back + mean-pad
+        # keyframe 0), so it routes through the chunk path too.
+        self._chunk_active = action_chunk_k > 1 or action_pairing != "current"
 
         # Stable episode-index assignment: sorted by key, over the FULL
         # episode set (pre-holdout) so episode_idx is split-invariant.
@@ -174,10 +223,35 @@ class ZarrEpisodePackedDataset(Dataset):
         """Post-stride frame count of a raw span of ``n_raw_frames`` frames."""
         return -(-n_raw_frames // self.temporal_stride)
 
+    def _emitted_len_bounds(self, n_raw_frames: int) -> tuple[int, int]:
+        """(min, max) EMITTED sample length (keyframes) of a raw span.
+
+        With the chunk path inactive both bounds equal ``_strided_len``.
+        Otherwise the length depends on the per-read phase p (0 when
+        ``chunk_phase_aug`` is off): post-phase virtual length ``V - p``,
+        then ``ceil(·/K)`` for "current" or ``(· - 1) // K`` (drop_back=1 +
+        floor) for "incoming_meanpad". min is at p=K-1, max at p=0.
+        """
+        v_frames = self._strided_len(n_raw_frames)
+        if not self._chunk_active:
+            return v_frames, v_frames
+        k = self.action_chunk_k
+        phases = range(k) if (self.chunk_phase_aug and k > 1) else range(1)
+        lens = []
+        for p in phases:
+            v = v_frames - p
+            if self.action_pairing == "incoming_meanpad":
+                lens.append(max((v - 1) // k, 0))
+            else:
+                lens.append(max(-(-v // k), 0))
+        return min(lens), max(lens)
+
     def _build_index(self) -> list[tuple[str, int, int]]:
         """Index spans are (key, raw_start, raw_end); length checks are in
-        post-stride frames. ``tail_mode="hold_pad"`` keeps under-length
-        samples (padded at read time) instead of dropping them.
+        EMITTED frames (post-stride frames; keyframes when chunking actions).
+        ``tail_mode="hold_pad"`` keeps under-length samples (padded at read
+        time) instead of dropping them — but spans that can emit ZERO
+        keyframes under some phase are always dropped (nothing to pad).
         """
         index: list[tuple[str, int, int]] = []
         max_len = self.max_seq_len
@@ -185,11 +259,12 @@ class ZarrEpisodePackedDataset(Dataset):
         for key in self._episode_keys:
             ds = self.datasets[key]
             episode_len = int(ds.total_frames)
-            if self._strided_len(episode_len) < self.min_seq_len and not hold_pad:
+            lo, hi = self._emitted_len_bounds(episode_len)
+            if lo < 1 or (lo < self.min_seq_len and not hold_pad):
                 continue
 
             if max_len is None or self.chunking == "none":
-                if max_len is not None and self._strided_len(episode_len) > max_len:
+                if max_len is not None and hi > max_len:
                     raise ValueError(
                         f"Episode {key} has {episode_len} frames > max_seq_len="
                         f"{max_len} but chunking='none'. Either enable "
@@ -198,11 +273,16 @@ class ZarrEpisodePackedDataset(Dataset):
                 index.append((key, 0, episode_len))
                 continue
 
-            # Sequential chunking: max_len post-stride frames per chunk.
-            raw_chunk_len = max_len * self.temporal_stride
+            # Sequential chunking: max_len emitted frames per chunk (raw
+            # span scales by stride AND chunk K). NOTE: with
+            # action_pairing="incoming_meanpad" every chunk re-introduces a
+            # mean-pad first keyframe; the parity recipe uses
+            # chunking="none" (whole episodes).
+            raw_chunk_len = max_len * self.temporal_stride * self.action_chunk_k
             for start in range(0, episode_len, raw_chunk_len):
                 end = min(start + raw_chunk_len, episode_len)
-                if self._strided_len(end - start) < self.min_seq_len and not hold_pad:
+                lo, _hi = self._emitted_len_bounds(end - start)
+                if lo < 1 or (lo < self.min_seq_len and not hold_pad):
                     continue
                 index.append((key, start, end))
 
@@ -221,6 +301,9 @@ class ZarrEpisodePackedDataset(Dataset):
         tail_mode: TailMode = "drop",
         val_holdout_first_n: int = 0,
         holdout_split: HoldoutSplit = "train",
+        action_chunk_k: int = 1,
+        chunk_phase_aug: bool = False,
+        action_pairing: ActionPairing = "current",
         **resolve_kwargs,
     ) -> "ZarrEpisodePackedDataset":
         """Build from an ``EpisodeResolver`` (mirrors ``MultiDataset._from_resolver``)."""
@@ -238,6 +321,9 @@ class ZarrEpisodePackedDataset(Dataset):
             tail_mode=tail_mode,
             val_holdout_first_n=val_holdout_first_n,
             holdout_split=holdout_split,
+            action_chunk_k=action_chunk_k,
+            chunk_phase_aug=chunk_phase_aug,
+            action_pairing=action_pairing,
         )
 
     @classmethod
@@ -256,6 +342,9 @@ class ZarrEpisodePackedDataset(Dataset):
         tail_mode: TailMode = "drop",
         val_holdout_first_n: int = 0,
         holdout_split: HoldoutSplit = "train",
+        action_chunk_k: int = 1,
+        chunk_phase_aug: bool = False,
+        action_pairing: ActionPairing = "current",
         filters=None,
     ) -> "ZarrEpisodePackedDataset":
         """Convenience factory that discovers all episodes under a local folder.
@@ -279,6 +368,9 @@ class ZarrEpisodePackedDataset(Dataset):
             tail_mode=tail_mode,
             val_holdout_first_n=val_holdout_first_n,
             holdout_split=holdout_split,
+            action_chunk_k=action_chunk_k,
+            chunk_phase_aug=chunk_phase_aug,
+            action_pairing=action_pairing,
             filters=filters,
         )
 
@@ -333,6 +425,100 @@ class ZarrEpisodePackedDataset(Dataset):
         data["seq_len"] = self.min_seq_len
         return data
 
+    def _read_chunked(self, ds: ZarrDataset, start: int, end: int, *, episode_idx: int) -> dict:
+        """Read span ``[start, end)`` at keyframe rate and stack K actions
+        per keyframe. Mirrors upstream pureDF ``pusht_dataset.py.__getitem__``
+        operating on the post-``temporal_stride`` ("virtual") frame stream.
+        """
+        k, ts = self.action_chunk_k, self.temporal_stride
+        # Upstream drop_front: per-sample phase in [0, K) virtual frames.
+        # Single conditional RNG draw — none at K=1 or with the aug off.
+        phase = int(np.random.randint(k)) if (self.chunk_phase_aug and k > 1) else 0
+        raw_start = start + phase * ts
+        if raw_start >= end:
+            raise ValueError(
+                f"chunk phase {phase} emptied span [{start}, {end}) at "
+                f"temporal_stride={ts} — index gating should prevent this"
+            )
+        data = ds._read_span(
+            raw_start,
+            end,
+            episode_idx=episode_idx,
+            stride=ts * k,
+            action_stride=ts,
+        )
+        data = self._stack_action_chunks(ds, data)
+        # Provenance: first EMITTED raw frame (phase-shifted), not the index
+        # span start. __getitem__ only fills chunk_offset when unset.
+        data["chunk_offset"] = int(raw_start)
+        return data
+
+    def _stack_action_chunks(self, ds: ZarrDataset, data: dict) -> dict:
+        """Stack the full-rate action keys of a keyframe-rate span read into
+        ``(T_keyframes, K*action_dim)`` rows (time-major within the chunk:
+        ``[a0_d0, a0_d1, a1_d0, ...]``, upstream channel order) and trim every
+        other per-frame tensor to the emitted keyframe count. Mutates and
+        returns ``data``; updates ``"seq_len"``.
+        """
+        k = self.action_chunk_k
+        action_keys = [
+            name
+            for name, spec in ds.key_map.items()
+            if spec.get("key_type") == "action_keys" and name in data
+        ]
+        if not action_keys:
+            raise ValueError(
+                "action_chunk_k / action_pairing need at least one "
+                "key_type='action_keys' entry in key_map"
+            )
+        n_obs = int(data["seq_len"])  # keyframe-rate read length
+        v_len = int(data[action_keys[0]].shape[0])  # virtual (post-stride) length
+
+        if self.action_pairing == "incoming_meanpad":
+            # Upstream: drop_back=1, n_stacked = floor(T'/K); keyframe i>=1
+            # carries acts[(i-1)K : iK], keyframe 0 the mean pad.
+            n_key = (v_len - 1) // k
+            if n_key < 1:
+                raise ValueError(
+                    f"span too short for incoming_meanpad at K={k}: "
+                    f"{v_len} post-stride frames"
+                )
+        else:  # "current": keyframe i carries acts[iK : iK+K).
+            n_key = -(-v_len // k)
+
+        for name in action_keys:
+            acts = data[name]
+            if acts.shape[0] != v_len:
+                raise ValueError(
+                    f"action key {name!r} length {acts.shape[0]} != {v_len}"
+                )
+            if self.action_pairing == "incoming_meanpad":
+                trimmed = acts[: v_len - 1]  # drop_back=1 virtual frame
+                chunks = trimmed[: (n_key - 1) * k].reshape(n_key - 1, -1)
+                mean_row = trimmed.mean(dim=0).repeat(k).reshape(1, -1)
+                data[name] = torch.cat([mean_row, chunks], dim=0)
+            else:
+                pad_n = n_key * k - v_len
+                if pad_n:
+                    # Trailing partial chunk: hold the final action row
+                    # (upstream repeat-pad convention).
+                    acts = torch.cat(
+                        [acts, acts[-1:].repeat(pad_n, *([1] * (acts.ndim - 1)))],
+                        dim=0,
+                    )
+                data[name] = acts.reshape(n_key, -1)
+
+        if n_key != n_obs:
+            # incoming_meanpad floors the keyframe count below the ceil-len
+            # obs read — trim the remaining per-frame tensors to match.
+            for name, value in list(data.items()):
+                if name in action_keys or name == "seq_len":
+                    continue
+                if _is_per_frame_tensor(value, n_obs):
+                    data[name] = value[:n_key]
+        data["seq_len"] = n_key
+        return data
+
     def __getitem__(self, i: int) -> dict:
         attempts = 0
         max_attempts = self.max_resample_attempts or len(self.index)
@@ -346,12 +532,17 @@ class ZarrEpisodePackedDataset(Dataset):
             key, start, end = self.index[idx]
             ds = self.datasets[key]
             try:
-                data = ds._read_span(
-                    start,
-                    end,
-                    episode_idx=self._episode_idx_by_key[key],
-                    **span_kwargs,
-                )
+                if self._chunk_active:
+                    data = self._read_chunked(
+                        ds, start, end, episode_idx=self._episode_idx_by_key[key]
+                    )
+                else:
+                    data = ds._read_span(
+                        start,
+                        end,
+                        episode_idx=self._episode_idx_by_key[key],
+                        **span_kwargs,
+                    )
             except Exception as e:
                 attempts += 1
                 if attempts >= max_attempts:
@@ -385,7 +576,8 @@ class ZarrEpisodePackedDataset(Dataset):
 
             if self.tail_mode == "hold_pad":
                 data = self._hold_pad_to_min(data)
-            data["chunk_offset"] = int(start)
+            if "chunk_offset" not in data:
+                data["chunk_offset"] = int(start)
             return data
 
 

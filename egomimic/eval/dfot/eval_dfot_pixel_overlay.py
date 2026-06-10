@@ -23,6 +23,14 @@ Outputs per validation pass:
 ``action_history="pred"`` (default) feeds the model's own committed actions
 back into the context — upstream-faithful (GT obs, autoregressive action).
 ``action_history="gt"`` is the fully teacher-forced variant.
+
+K-chunk stacking (D07): when the outer stage carries ``action_chunk_k = K > 1``
+(action planes = ``K*action_dim`` per keyframe, batch rows ``K*A`` wide at
+keyframe stride K), each predicted keyframe decodes to a K-action chunk which
+is unrolled in time order — metrics/plots score per-step world-px error over
+the unrolled ``K*T`` action sequence, and the npz ``steps`` array holds
+unrolled per-action indices (``keyframe*K + chunk_i``). ``K=1`` (or a stage
+without the knob) is byte-identical to the legacy per-frame behavior.
 """
 
 from __future__ import annotations
@@ -62,6 +70,7 @@ def decode_action_planes(
     image_channels: int,
     action_channels: int,
     action_dim: int,
+    chunk_k: int = 1,
 ) -> torch.Tensor:
     """``(..., C, H, W) -> (..., A)``: mask the action planes out of the joint
     bundle ON THE CHANNEL AXIS and spatial-mean each plane (prediction error
@@ -70,9 +79,19 @@ def decode_action_planes(
     The channel axis is third-from-last regardless of leading batch/time dims,
     so this is safe for (T,C,H,W) and (B,T,C,H,W) bundles alike — the D02
     failure mode (``[..., slice]`` hitting image WIDTH) cannot occur here.
+
+    ``chunk_k > 1`` (D07 K-stacking): each frame's planes carry a stacked
+    K-action chunk (``K*action_dim`` channels, time-major like upstream
+    ``pusht_dataset.py``); the decode unstacks to ``(..., K, action_dim)``.
+    ``chunk_k=1`` keeps the legacy ``(..., A)`` shape and values exactly.
     """
     planes = bundle[..., image_channels : image_channels + action_channels, :, :]
-    return planes.mean(dim=(-2, -1))[..., :action_dim]
+    pooled = planes.mean(dim=(-2, -1))
+    if chunk_k <= 1:
+        return pooled[..., :action_dim]
+    return pooled[..., : chunk_k * action_dim].reshape(
+        *pooled.shape[:-1], chunk_k, action_dim
+    )
 
 
 def overlay_metrics(pred_world: np.ndarray, gt_world: np.ndarray) -> Dict[str, "np.ndarray | np.floating"]:
@@ -232,6 +251,9 @@ class DFoTPixelPolicyOverlayEval(DFoTVideoEvalMixin, EvalVideo):
         Ci = int(outer._image_channels)
         Ca = int(outer._action_channels)
         A = int(outer.action_dim)
+        # D07 K-stacking: each (key)frame carries a stacked K-action chunk
+        # (K*A plane channels, batch action rows are K*A wide). K=1 = legacy.
+        K = max(1, int(getattr(outer, "action_chunk_k", 1)))
         n_ctx = max(1, self.n_context_frames)
         k = self.commit_k
 
@@ -271,8 +293,9 @@ class DFoTPixelPolicyOverlayEval(DFoTVideoEvalMixin, EvalVideo):
             # action history fed into the context: GT, or overwritten by the
             # model's own committed predictions ("pred" = upstream-faithful).
             act_used = act_seq.clone()
-            pred_steps: List[int] = []
-            pred_rows: List[torch.Tensor] = []
+            kf_steps: List[int] = []   # predicted (key)frame indices in the sequence
+            pred_steps: List[int] = []  # unrolled per-action step indices (kf*K + i)
+            pred_rows: List[torch.Tensor] = []  # one (K*A,) chunk row per keyframe
             for a in range(n_ctx, L - k + 1, k):
                 ctx_rgb = img_seq[a - n_ctx : a]
                 ctx_act = act_used[a - n_ctx : a]
@@ -280,17 +303,24 @@ class DFoTPixelPolicyOverlayEval(DFoTVideoEvalMixin, EvalVideo):
                     [ctx_rgb, actions_to_planes(ctx_act, Ca, h, w)], dim=1
                 ).unsqueeze(0)  # (1, n_ctx, Ci+Ca, H, W)
                 pred = self._predict_window(algo, ctx_bundle, k, device)
-                pred_norm = decode_action_planes(pred, Ci, Ca, A)  # (k, A)
+                # (k, A) at K=1; (k, K, A) chunk unstack at K>1.
+                pred_norm = decode_action_planes(pred, Ci, Ca, A, chunk_k=K)
                 if self.action_history == "pred":
-                    act_used[a : a + k, :A] = pred_norm
+                    act_used[a : a + k, : K * A] = pred_norm.reshape(k, K * A)
                 for j in range(k):
-                    pred_steps.append(a + j)
-                    pred_rows.append(pred_norm[j])
+                    kf_steps.append(a + j)
+                    pred_steps.extend((a + j) * K + i for i in range(K))
+                    pred_rows.append(pred_norm[j].reshape(K * A))
             if not pred_rows:
                 continue
 
-            pred_norm_all = torch.stack(pred_rows, dim=0)  # (N, A)
-            gt_norm_all = act_seq[pred_steps, :A]
+            # Unroll keyframe chunks to per-action rows in time order: the
+            # score is per-step world-px error over the K*T action sequence.
+            # Unnormalizing the unrolled (N*K, A) rows applies the per-
+            # underlying-dim norm_stats to every chunk slot (== tiling the
+            # A-dim stats across K). K=1 reduces to the legacy (N, A) path.
+            pred_norm_all = torch.stack(pred_rows, dim=0).reshape(-1, A)  # (N*K, A)
+            gt_norm_all = act_seq[kf_steps, : K * A].reshape(-1, A)
             pred_world = algo.norm_stats.unnormalize({ac_key: pred_norm_all}, emb_id)[ac_key]
             gt_world = algo.norm_stats.unnormalize({ac_key: gt_norm_all}, emb_id)[ac_key]
             pred_world = pred_world.detach().cpu().numpy()

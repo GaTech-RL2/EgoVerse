@@ -23,10 +23,21 @@ identical duck-typed attribute surface consumed by the algo inference paths
 ``decouple_action_noise`` for decoupled, plus the mode-correct ``action_slice``).
 
 Per-mode kwargs (all accepted; only the selected mode's are used):
-  * policy:    ``action_channels`` (default = ``action_dim``)
+  * policy:    ``action_channels`` (default = ``action_chunk_k * action_dim``)
   * regress:   ``action_loss_weight`` (default 1.0), ``head_width`` (default 64)
   * decoupled: ``action_loss_weight`` (default 1.0),
                ``decouple_action_noise`` (default True)
+
+K action-chunk stacking (D07): ``action_chunk_k`` (default 1 = historic
+behavior, bit-identical). At K>1 each incoming "frame" is a KEYFRAME whose
+action tensor is the K-step chunk flattened time-major
+``[a0_x, a0_y, a1_x, a1_y, ...]`` (last dim = K*action_dim), mirroring
+upstream ``pusht_dataset.py`` — so the policy bundle becomes
+``image_channels + K*action_dim`` planes and ``decode_action_planes``
+unstacks predictions to ``(..., K, action_dim)`` (upstream
+``unpack_channels`` semantics). Normalization stays per underlying action
+dim; the algo tiles the (action_dim,)-shaped norm stats across K via a
+reshape seam (no K*action_dim stats json).
 """
 
 from __future__ import annotations
@@ -55,6 +66,8 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
         action_loss_weight: float = 1.0,
         # --- decoupled ---
         decouple_action_noise: bool = True,
+        # --- all modes: K action-chunk stacking (D07) ---
+        action_chunk_k: int = 1,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -63,9 +76,23 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
                 f"pixel_mode must be one of {_PIXEL_MODES}; got {pixel_mode!r}"
             )
         self.pixel_mode = str(pixel_mode)
+        if int(action_chunk_k) < 1:
+            raise ValueError(f"action_chunk_k must be >= 1; got {action_chunk_k}")
+        self.action_chunk_k = int(action_chunk_k)
 
         if self.pixel_mode == "policy":
-            Ca = int(action_channels) if action_channels is not None else self.action_dim
+            Ca = (
+                int(action_channels)
+                if action_channels is not None
+                else self.action_dim * self.action_chunk_k
+            )
+            if self.action_chunk_k > 1 and Ca != self.chunk_action_width:
+                # The K>1 plane layout is FIXED time-major [a0x, a0y, a1x, ...];
+                # an unrelated channel count would silently misalign decode.
+                raise ValueError(
+                    f"action_channels ({Ca}) must equal action_chunk_k * "
+                    f"action_dim ({self.chunk_action_width}) when action_chunk_k > 1."
+                )
             if Ca < self.action_dim:
                 raise ValueError(
                     f"action_channels ({Ca}) must be >= action_dim ({self.action_dim}); "
@@ -88,20 +115,47 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
                 nn.Conv2d(head_width, head_width, 3, stride=2, padding=1), nn.SiLU(),   # H/4
                 nn.Conv2d(head_width, head_width, 3, stride=2, padding=1), nn.SiLU(),   # H/8
                 nn.AdaptiveAvgPool2d(1), nn.Flatten(),
-                nn.Linear(head_width, self.action_dim),
+                # K>1: the head regresses the whole K-chunk (time-major flat)
+                nn.Linear(head_width, self.action_dim * self.action_chunk_k),
             )
 
         else:  # decoupled
             self.action_loss_weight = float(action_loss_weight)
             self.decouple_action_noise = bool(decouple_action_noise)
             bb_at = int(getattr(self.inner_stage, "action_token_dim", 0))
-            if bb_at != self.action_dim:
+            if bb_at != self.action_dim * self.action_chunk_k:
                 raise ValueError(
-                    f"backbone.action_token_dim ({bb_at}) must equal action_dim "
-                    f"({self.action_dim}) for the decoupled pixel policy."
+                    f"backbone.action_token_dim ({bb_at}) must equal "
+                    f"action_chunk_k * action_dim "
+                    f"({self.action_dim * self.action_chunk_k}) for the "
+                    f"decoupled pixel policy."
                 )
 
     # ------------------------------------------------------------------ #
+    @property
+    def chunk_action_width(self) -> int:
+        """Width of one keyframe's flattened action chunk: K * action_dim."""
+        return self.action_chunk_k * self.action_dim
+
+    def decode_action_planes(self, planes: torch.Tensor) -> torch.Tensor:
+        """``(..., C_a, H, W)`` predicted action planes -> ``(..., K, action_dim)``
+        actions via per-channel spatial mean (upstream ``unpack_channels``;
+        channel order is time-major ``[a0_x, a0_y, a1_x, a1_y, ...]``)."""
+        vals = planes.mean(dim=(-2, -1))  # (..., C_a)
+        return vals.reshape(
+            *vals.shape[:-1], self.action_chunk_k, self.action_dim
+        )
+
+    def _validate_chunk_actions(self, actions: torch.Tensor) -> None:
+        """K>1 layout guard: the incoming action tensor must carry the full
+        flattened chunk (last dim == K*action_dim, time-major)."""
+        if actions.shape[-1] != self.chunk_action_width:
+            raise ValueError(
+                f"action tensor last dim ({actions.shape[-1]}) must equal "
+                f"action_chunk_k * action_dim ({self.chunk_action_width}); "
+                f"expected the K-stacked time-major layout from the dataset."
+            )
+
     @property
     def action_slice(self) -> slice:
         if self.pixel_mode == "policy":
@@ -187,6 +241,8 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
                 f"(ctx.action_key={ac_key!r}); keys: {list(batch.keys())}"
             )
         actions = batch[ac_key].to(images.device).float()
+        if self.action_chunk_k > 1:
+            self._validate_chunk_actions(actions)
 
         if ctx.is_packed:
             if self._frame_sampling != "full" and self.training:
@@ -231,6 +287,8 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
         if ac_key is None or ac_key not in batch:
             raise KeyError(f"regress policy needs action key (ctx.action_key={ac_key!r})")
         actions = batch[ac_key].to(images.device).float()
+        if self.action_chunk_k > 1:
+            self._validate_chunk_actions(actions)
 
         if ctx.is_packed:
             if self._frame_sampling != "full" and self.training:
@@ -258,6 +316,8 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
                 f"(ctx.action_key={ac_key!r}); keys: {list(batch.keys())}"
             )
         actions = batch[ac_key].to(images.device).float()
+        if self.action_chunk_k > 1:
+            self._validate_chunk_actions(actions)
 
         if ctx.is_packed:
             t = self._sample_noise_levels((images.shape[0],), images.device)
@@ -310,8 +370,8 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
             bb, tt = pred_x0.shape[:2]
             ap = self.action_head(pred_x0.reshape(bb * tt, *pred_x0.shape[2:])).reshape(bb, tt, -1)
         else:
-            ap = self.action_head(pred_x0)                       # (T, A)
-        gta = gt_actions[..., : self.action_dim]
+            ap = self.action_head(pred_x0)                       # (T, K*A)
+        gta = gt_actions[..., : self.action_dim * self.action_chunk_k]
         action_loss = ((ap - gta) ** 2).mean()
 
         ctx.precomputed_loss = video_loss + self.action_loss_weight * action_loss
