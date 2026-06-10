@@ -25,13 +25,24 @@ from egomimic.algo.diffusion.outer_stages.image_spatial_outer_stage import Image
 
 class SpatialObsActionPolicyDFoTOuterStage(ImageSpatialDFoTOuterStage):
     def __init__(self, *args, action_loss_weight: float = 1.0,
-                 decouple_action_noise: bool = False, **kwargs):
+                 decouple_action_noise: bool = False,
+                 bivariate_weighting: dict | None = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_loss_weight = float(action_loss_weight)
         # When True, the action token carries an INDEPENDENT per-frame noise
         # level (never reliably clean) so the model must predict a_t from obs
         # and cannot copy a_{t-1}. Cut-action-input fix for closed-loop rollout.
         self.decouple_action_noise = bool(decouple_action_noise)
+        # Bivariate fused-SNR weighting (kwargs forwarded verbatim to
+        # DiscreteDiffusion.compute_bivariate_fused_weights); padded (B, T)
+        # batches only, requires decoupled noise.
+        self.bivariate_weighting = (
+            dict(bivariate_weighting) if bivariate_weighting else None
+        )
+        if self.bivariate_weighting is not None and not self.decouple_action_noise:
+            raise ValueError(
+                "bivariate_weighting requires decouple_action_noise=True"
+            )
 
         # State-only conditioning MLP. The parent's ``state_action_proj`` mixes
         # the action into the cond, but here the action is a TARGET, so we
@@ -127,8 +138,26 @@ class SpatialObsActionPolicyDFoTOuterStage(ImageSpatialDFoTOuterStage):
             v_latent = torch.cat(vlat, dim=0)
             v_action = torch.cat(vact, dim=0)
 
-        latent_loss = self.diffusion.compute_loss(v_latent, ctx.q_state).mean()
-        action_loss = self.diffusion.compute_loss(v_action, ctx.q_action).mean()
+        if self.bivariate_weighting is not None:
+            # Joint bivariate fused-SNR weights over both streams' (B, T)
+            # levels, applied to uniform per-token v-MSEs (see the pixel
+            # decoupled stage for the padded-only constraint).
+            w_obs, w_act = self.diffusion.compute_bivariate_fused_weights(
+                ctx.q_state["k"], ctx.q_action["k"], **self.bivariate_weighting
+            )
+            latent_loss = (
+                self.diffusion.compute_loss(
+                    v_latent, ctx.q_state, weighting_strategy="uniform"
+                ) * w_obs
+            ).mean()
+            action_loss = (
+                self.diffusion.compute_loss(
+                    v_action, ctx.q_action, weighting_strategy="uniform"
+                ) * w_act
+            ).mean()
+        else:
+            latent_loss = self.diffusion.compute_loss(v_latent, ctx.q_state).mean()
+            action_loss = self.diffusion.compute_loss(v_action, ctx.q_action).mean()
         ctx.precomputed_loss = latent_loss + self.action_loss_weight * action_loss
         batch["pred_v"] = v_latent
         return v_latent

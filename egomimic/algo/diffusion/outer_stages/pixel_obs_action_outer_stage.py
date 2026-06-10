@@ -66,6 +66,7 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
         action_loss_weight: float = 1.0,
         # --- decoupled ---
         decouple_action_noise: bool = True,
+        bivariate_weighting: dict | None = None,
         # --- all modes: K action-chunk stacking (D07) ---
         action_chunk_k: int = 1,
         **kwargs,
@@ -122,6 +123,17 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
         else:  # decoupled
             self.action_loss_weight = float(action_loss_weight)
             self.decouple_action_noise = bool(decouple_action_noise)
+            # Bivariate fused-SNR weighting (kwargs forwarded verbatim to
+            # DiscreteDiffusion.compute_bivariate_fused_weights). Requires
+            # decoupled noise — with one shared k the two streams' histories
+            # are identical and the scheme degenerates silently.
+            self.bivariate_weighting = (
+                dict(bivariate_weighting) if bivariate_weighting else None
+            )
+            if self.bivariate_weighting is not None and not self.decouple_action_noise:
+                raise ValueError(
+                    "bivariate_weighting requires decouple_action_noise=True"
+                )
             bb_at = int(getattr(self.inner_stage, "action_token_dim", 0))
             if bb_at != self.action_dim * self.action_chunk_k:
                 raise ValueError(
@@ -408,14 +420,29 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
             v_img = torch.cat(vi, dim=0)
             v_act = torch.cat(va, dim=0)
 
-        # Per-group weighting-strategy overrides (decoupling seam): image and
-        # action terms can weight their noise levels independently.
-        img_loss = self._diffusion_group_loss(
-            v_img, ctx.q_state, self.image_loss_weighting
-        ).mean()
-        act_loss = self._diffusion_group_loss(
-            v_act, ctx.q_action, self.action_loss_weighting
-        ).mean()
+        if self.bivariate_weighting is not None:
+            # Bivariate fused-SNR: one joint weight computation over BOTH
+            # streams' (B, T) noise levels (cross-modal context), applied to
+            # uniform per-token v-MSEs. Padded windows only — the EMA needs a
+            # real time axis (the core rejects 1-D k from packed batches).
+            w_obs, w_act = self.diffusion.compute_bivariate_fused_weights(
+                ctx.q_state["k"], ctx.q_action["k"], **self.bivariate_weighting
+            )
+            img_loss = (
+                self._diffusion_group_loss(v_img, ctx.q_state, "uniform") * w_obs
+            ).mean()
+            act_loss = (
+                self._diffusion_group_loss(v_act, ctx.q_action, "uniform") * w_act
+            ).mean()
+        else:
+            # Per-group weighting-strategy overrides (decoupling seam): image
+            # and action terms can weight their noise levels independently.
+            img_loss = self._diffusion_group_loss(
+                v_img, ctx.q_state, self.image_loss_weighting
+            ).mean()
+            act_loss = self._diffusion_group_loss(
+                v_act, ctx.q_action, self.action_loss_weighting
+            ).mean()
         ctx.precomputed_loss = img_loss + self.action_loss_weight * act_loss
         batch["pred_v"] = v_img
         return v_img
