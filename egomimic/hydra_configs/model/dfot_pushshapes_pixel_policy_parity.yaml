@@ -13,8 +13,9 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # group, so a model yaml cannot carry them). Launch from the repo root with:
 #   data=tsimulation_k4              # D07/D08/D26 — K=4 keyframe dataset
 #                                    # (action_chunk_k must MATCH this yaml's;
-#                                    # incoming_meanpad pairing + train-side
-#                                    # phase aug live there)
+#                                    # "current" pairing [probe-verified:
+#                                    # zarr actions are outgoing targets] +
+#                                    # train-side phase aug live there)
 #   trainer.gradient_clip_val=10.0   # D09 — knob exposed in trainer/default.yaml
 #   norm_stats.norm_mode=minmax      # D03b — fixed minmax action norm
 #   norm_stats.precomputed_norm_path=$PWD/egomimic/hydra_configs/data/norm_stats_pushshapes_fixed512.json
@@ -24,6 +25,16 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 #                                    # seam (do NOT build an 8-dim stats json)
 #   reject_outliers=false            # D30 — no upstream analog
 # Delete any cached norm_stats from earlier runs so stats regenerate.
+#
+# ⚠ LAUNCH BLOCKERS verified 2026-06-10 (scratch/parity_probes_2026-06-10.md):
+# 1. export PYTHONPATH=/coc/flash7/paphiwetsa3/projects/EgoVerse-pact-2 in
+#    EVERY launch/eval — the shared .venv's editable egomimic points at
+#    EgoVerse-pact and silently swaps the codebase otherwise.
+# 2. On skynet add:
+#    data.train_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+#    data.valid_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+# 3. Budget the full 100k steps before judging — every prior "bad" ckpt
+#    trained only 12k-24k steps (probe P3).
 #
 # Training, the overlay eval (evaluator=eval_dfot_pixel_overlay) and the
 # closed-loop pixel inference paths (_inference_step_pixel_{policy,regress,
