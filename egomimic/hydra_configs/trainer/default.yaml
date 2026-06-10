@@ -10,6 +10,10 @@ devices: 1
 
 # mixed precision for extra speed-up
 precision: bf16
+
+# global-norm gradient clipping; null = disabled (current behavior).
+# Parity recipe (D09) sets 10.0 via override.
+gradient_clip_val: null
 limit_train_batches: 100
 limit_val_batches: 80
 # perform a validation loop every N training epochs

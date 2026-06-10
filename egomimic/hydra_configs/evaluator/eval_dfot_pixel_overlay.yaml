@@ -1,0 +1,30 @@
+# Teacher-forced action OVERLAY eval for the pixel obs+action policy (D06).
+#
+# VAL-ONLY — the skip-sim counterpart of eval_dfot_sim: dense per-step
+# world-px action signal (replay a val episode with GT obs history through
+# the pixel_policy windowed denoiser, decode action planes, compare vs GT).
+# Use this as the cheap iteration yardstick; run the sim eval only once the
+# overlay looks tight.
+#
+# Artifacts per epoch under videos_pixel_overlay/epoch_N/:
+#   overlay_emb*_ep*.png  pred-vs-GT trajectory + per-step error panel
+#   overlay_emb*_ep*.npz  per-step world-px arrays
+# Metrics: Valid/emb*_overlay_action_{mse,rmse}_px, _overlay_pred_std_px
+# (collapse check, 0 => constant action), _overlay_gt_std_px, _overlay_n_steps.
+
+_target_: egomimic.eval.core.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.dfot.eval_dfot_pixel_overlay.DFoTPixelPolicyOverlayEval
+    n_context_frames: 4      # MUST match the checkpoint's sp_n_context
+                             # (algo default 4; parity recipe uses 8)
+    commit_k: 1              # matches algo default sp_commit
+    n_chunk_steps: 50
+    action_history: "pred"   # upstream-faithful: GT obs, AR action feedback
+    max_episodes: 2
+    max_replay_steps: null   # replay the whole episode
+    embodiment_name: "pushshapes_sim"
+    image_key: "front_img_1"
+    limit_val_batches: 1
+    max_videos: 2
+    video_subdir: "videos_pixel_overlay"

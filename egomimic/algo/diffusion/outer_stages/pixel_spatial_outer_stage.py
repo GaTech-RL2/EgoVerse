@@ -9,6 +9,18 @@ Training frame sampling modes (``frame_sampling`` config):
   - ``"random_subsample"``: sample ``sample_n_frames`` frames uniformly
     at random (not necessarily consecutive) from the episode, sorted
     by time. Preserves temporal coverage but with gaps.
+
+Parity knobs (defaults reproduce historic behavior exactly):
+  - ``image_range``: ``"01"`` (default) diffuses images in [0, 1];
+    ``"pm1"`` maps to [-1, 1] right after the /255 extraction and inverts
+    at every decode/rollout/viz seam (D03).
+  - ``image_loss_weight`` / ``action_loss_weight_group`` /
+    ``image_loss_weighting`` / ``action_loss_weighting``: when ANY is set,
+    the training loss becomes separate means over image vs action bundle
+    channels, each with its own per-call weighting-strategy override,
+    combined as ``image_loss_weight*img + action_loss_weight_group*act``
+    (D16). Unset weights default to 1.0; unset strategies use the
+    diffusion core's configured strategy. All None -> single-mean path.
 """
 
 from __future__ import annotations
@@ -49,6 +61,11 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
         frame_sampling: str = "full",
         sample_n_frames: int = 9,
         cond_output_key: str = "fused_cond",
+        image_range: str = "01",
+        image_loss_weight: Optional[float] = None,
+        action_loss_weight_group: Optional[float] = None,
+        image_loss_weighting: Optional[str] = None,
+        action_loss_weighting: Optional[str] = None,
     ):
         super().__init__(
             action_dim=action_dim,
@@ -63,6 +80,28 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
         self._frame_sampling = str(frame_sampling)
         self._sample_n_frames = int(sample_n_frames)
         self._bundle_shape = (self._image_channels, self._image_size, self._image_size)
+        if image_range not in ("01", "pm1"):
+            raise ValueError(f"image_range must be '01' or 'pm1'; got {image_range!r}")
+        self.image_range = str(image_range)
+        # Per-group loss knobs (D16 + decoupling seam). All None -> the loss
+        # flows through DFoTLoss's single-mean path bit-identically; setting
+        # ANY of them switches to separate image/action group means combined
+        # as image_loss_weight*img + action_loss_weight_group*act.
+        for s in (image_loss_weighting, action_loss_weighting):
+            if s == "fused_min_snr":
+                raise ValueError(
+                    "fused_min_snr cannot be used as a per-group weighting "
+                    "override; it couples weights across the time axis"
+                )
+        self.image_loss_weight = (
+            None if image_loss_weight is None else float(image_loss_weight)
+        )
+        self.action_loss_weight_group = (
+            None if action_loss_weight_group is None
+            else float(action_loss_weight_group)
+        )
+        self.image_loss_weighting = image_loss_weighting
+        self.action_loss_weighting = action_loss_weighting
 
     @property
     def bundle_shape(self) -> tuple:
@@ -77,6 +116,31 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
     def action_slice(self) -> slice:
         return slice(0, 0)
 
+    # ------------------------------------------------------------------
+    # Image-range seam (D03). The model diffuses images in "model range":
+    # [0, 1] (image_range="01", default — historic behavior) or [-1, 1]
+    # (image_range="pm1", upstream-parity). Public so inference/eval code
+    # that fabricates image context or decodes sampled frames can route
+    # through the same mapping.
+    # ------------------------------------------------------------------
+
+    def to_model_range(self, img01: torch.Tensor) -> torch.Tensor:
+        """Map images from [0, 1] into the diffusion model range."""
+        if self.image_range == "pm1":
+            return img01 * 2.0 - 1.0
+        return img01
+
+    def from_model_range(self, x: torch.Tensor) -> torch.Tensor:
+        """Map images from the diffusion model range back to [0, 1]."""
+        if self.image_range == "pm1":
+            return (x + 1.0) / 2.0
+        return x
+
+    @property
+    def model_range_bounds(self) -> tuple:
+        """(lo, hi) clamp bounds of valid images in model range."""
+        return (-1.0, 1.0) if self.image_range == "pm1" else (0.0, 1.0)
+
     def _extract_images(self, ctx: SimpleNamespace) -> torch.Tensor:
         if self.image_key not in ctx.obs:
             raise KeyError(
@@ -90,7 +154,7 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
             img = img.float() / 255.0
         else:
             img = img.float()
-        return img
+        return self.to_model_range(img)
 
     def _sample_windows_packed(self, images, actions, cu):
         """Frame-sample images (and OPTIONALLY actions) IDENTICALLY per packed
@@ -203,6 +267,76 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
         ctx.latent_clean = images
         return x_t
 
+    # ------------------------------------------------------------------
+    # Per-group loss split (D16 + decoupling seam). Image channels and
+    # action-plane channels of the jointly-diffused bundle get separate
+    # means (each with its own per-call weighting-strategy override),
+    # combined as image_loss_weight*img + action_loss_weight_group*act.
+    # Disabled (all knobs None) -> ``forward`` leaves ``ctx.precomputed_loss``
+    # unset and DFoTLoss runs the historic single-mean path bit-identically.
+    # ------------------------------------------------------------------
+
+    @property
+    def _group_loss_enabled(self) -> bool:
+        return any(
+            v is not None
+            for v in (
+                self.image_loss_weight,
+                self.action_loss_weight_group,
+                self.image_loss_weighting,
+                self.action_loss_weighting,
+            )
+        )
+
+    def _diffusion_group_loss(
+        self, v_pred: torch.Tensor, q_state: dict, strategy: Optional[str]
+    ) -> torch.Tensor:
+        """``diffusion.compute_loss`` with an optional per-call weighting
+        override. Only forwards the kwarg when a strategy is actually set so
+        the default path stays byte-identical to the historic call."""
+        if strategy is None:
+            return self.diffusion.compute_loss(v_pred, q_state)
+        return self.diffusion.compute_loss(
+            v_pred, q_state, weighting_strategy=strategy
+        )
+
+    @staticmethod
+    def _slice_q_state(q_state: dict, ch_slice: slice) -> dict:
+        """Channel-slice the spatial tensors of a q_state dict (axis -3 of
+        (..., C, H, W)); per-token entries (k, time_cond, ...) pass through."""
+        out = dict(q_state)
+        for key in ("x_t", "noise", "x_start"):
+            val = out.get(key)
+            if torch.is_tensor(val):
+                out[key] = val[..., ch_slice, :, :]
+        return out
+
+    def _compute_group_loss(self, v_pred: torch.Tensor, q_state: dict) -> torch.Tensor:
+        c_img = self._image_channels
+        c_total = int(v_pred.shape[-3])
+        w_img = 1.0 if self.image_loss_weight is None else self.image_loss_weight
+        w_act = (
+            1.0 if self.action_loss_weight_group is None
+            else self.action_loss_weight_group
+        )
+
+        img_sl = slice(0, c_img)
+        img_loss = self._diffusion_group_loss(
+            v_pred[..., img_sl, :, :],
+            self._slice_q_state(q_state, img_sl),
+            self.image_loss_weighting,
+        ).mean()
+        loss = w_img * img_loss
+        if c_total > c_img:
+            act_sl = slice(c_img, c_total)
+            act_loss = self._diffusion_group_loss(
+                v_pred[..., act_sl, :, :],
+                self._slice_q_state(q_state, act_sl),
+                self.action_loss_weighting,
+            ).mean()
+            loss = loss + w_act * act_loss
+        return loss
+
     def forward(self, batch: dict, ctx: SimpleNamespace) -> torch.Tensor:
         x_t = self.encode(batch, ctx)
         time_cond = ctx.q_state["time_cond"]
@@ -224,6 +358,8 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
             v_pred = torch.cat(pieces, dim=0)
 
         self.decode(v_pred, batch, ctx)
+        if self._group_loss_enabled:
+            ctx.precomputed_loss = self._compute_group_loss(v_pred, ctx.q_state)
         return v_pred
 
     # ------------------------------------------------------------------
@@ -299,16 +435,43 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
                     algo.diffusion, algo.backbone, x=x,
                     current_levels=schedule[s],
                     next_levels=schedule[s + 1],
-                    external_cond=None, eta=0.0,
+                    external_cond=None, eta=float(getattr(algo, "sampler_eta", 0.0)),
                 )
                 # Revert context frames to clean values
                 x[0, :c] = context_part
 
-            # Append newly generated frames
+            # Append newly generated frames. Image channels clamp to the
+            # model range; extra bundle channels (action planes in the policy
+            # bundle) are not pixel-valued and stay unclamped.
             new_frames = x[0, c:c + h]
-            generated = torch.cat([generated, new_frames.clamp(0, 1)], dim=0)
+            lo, hi = self.model_range_bounds
+            c_img = self._image_channels
+            if new_frames.shape[1] > c_img:
+                new_frames = torch.cat(
+                    [new_frames[:, :c_img].clamp(lo, hi), new_frames[:, c_img:]],
+                    dim=1,
+                )
+            else:
+                new_frames = new_frames.clamp(lo, hi)
+            generated = torch.cat([generated, new_frames], dim=0)
 
         return generated[:total_frames]
+
+    def _make_rollout_context(
+        self, ctx_imgs, _batch, algo, emb_id, ep_idx, ep_start, is_packed,
+    ) -> torch.Tensor:
+        """Build the (n_ctx, C_bundle, H, W) clean-context bundle from the
+        model-range GT context images. Base stage: bundle == image channels;
+        if the bundle carries extra (non-image) channels, pad them with zeros
+        so the cat against bundle-shaped noise can't crash (D06). Subclasses
+        with a structured bundle override to fill those channels properly."""
+        c_bundle = int(self.bundle_shape[0])
+        c_img = int(ctx_imgs.shape[1])
+        if c_bundle <= c_img:
+            return ctx_imgs
+        n_ctx, _, h, w = ctx_imgs.shape
+        pad = ctx_imgs.new_zeros(n_ctx, c_bundle - c_img, h, w)
+        return torch.cat([ctx_imgs, pad], dim=1)
 
     @torch.no_grad()
     def rollout_video_episode(
@@ -324,7 +487,8 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
         else:
             gt_seq = imgs[ep_idx, :T_rollout]
 
-        # GT normalization (also used to seed the context frame(s)).
+        # GT normalization (also used to seed the context frame(s)). gt_f
+        # stays in [0, 1] for metrics/panels; context converts to model range.
         gt_f = gt_seq[:T_rollout].to(device).float()
         if gt_f.max() > 1.5:
             gt_f = gt_f / 255.0
@@ -334,17 +498,22 @@ class PixelSpatialDFoTOuterStage(DFoTOuterStage):
         # -1) for the whole sampling trajectory, and predict the rest
         # conditioned on them.
         n_ctx = max(1, min(ev.n_context_frames, T_rollout))
+        context_frames = self._make_rollout_context(
+            self.to_model_range(gt_f[:n_ctx]),
+            _batch, algo, emb_id, ep_idx, ep_start, is_packed,
+        )
         pred_frames = self._rollout_sliding_window(
             ev,
             algo,
             total_frames=T_rollout,
-            context_frames=gt_f[:n_ctx],
+            context_frames=context_frames,
             window_size=min(ev.rollout_window, T_rollout),
             device=device,
-        )  # (T, 3, H, W)
+        )  # (T, C_bundle, H, W)
 
-        # Clamp output to [0, 1].
-        pred_frames = pred_frames.clamp(0.0, 1.0)
+        # Decode: keep image channels, map back to [0, 1] for metrics/viz.
+        pred_frames = pred_frames[:, : self._image_channels]
+        pred_frames = self.from_model_range(pred_frames).clamp(0.0, 1.0)
 
         n_cmp = min(ev.recon_loss_n_frames, pred_frames.shape[0])
 

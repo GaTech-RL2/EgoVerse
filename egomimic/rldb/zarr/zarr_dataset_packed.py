@@ -44,6 +44,10 @@ logger = logging.getLogger(__name__)
 
 ChunkingMode = Literal["sequential", "none"]
 
+TailMode = Literal["drop", "hold_pad"]
+
+HoldoutSplit = Literal["train", "val"]
+
 
 class ZarrEpisodePackedDataset(Dataset):
     """One sample per episode (or per chunk of a long episode).
@@ -56,17 +60,39 @@ class ZarrEpisodePackedDataset(Dataset):
         datasets: dict of episode-key -> per-episode ``ZarrDataset``. Same
             shape returned by ``LocalEpisodeResolver.resolve`` /
             ``S3EpisodeResolver.resolve``.
-        max_seq_len: hard cap on sample length. With ``chunking="sequential"``
-            an episode longer than this is split into consecutive chunks of
-            length ``max_seq_len`` (last chunk may be shorter). ``None``
-            disables chunking.
-        min_seq_len: drop chunks shorter than this. Useful for the trailing
-            chunk of an episode.
+        max_seq_len: hard cap on sample length (in post-stride frames). With
+            ``chunking="sequential"`` an episode longer than this is split
+            into consecutive chunks of length ``max_seq_len`` (last chunk may
+            be shorter). ``None`` disables chunking.
+        min_seq_len: drop chunks shorter than this (in post-stride frames).
+            Useful for the trailing chunk of an episode. See ``tail_mode``
+            for the pad-instead-of-drop alternative.
         chunking: ``"sequential"`` for consecutive non-overlapping chunks,
             ``"none"`` to emit each episode as a single sample (raises if
             ``max_seq_len`` is exceeded — caller should pre-filter).
         max_resample_attempts: per ``__getitem__`` cap on resampling after a
             read failure (bad JPEG, transform failure, etc.).
+        temporal_stride: keep every ``temporal_stride``-th frame of each
+            sample (keyframe subsampling, applied at read time via
+            ``_read_span(..., stride=...)``). ``1`` (default) reads every
+            frame — byte-identical to pre-knob behavior. Index spans stay in
+            raw-frame coordinates; ``max_seq_len`` / ``min_seq_len`` are
+            interpreted in post-stride frames.
+        tail_mode: ``"drop"`` (default) silently drops samples shorter than
+            ``min_seq_len`` at index-build time (current behavior).
+            ``"hold_pad"`` keeps them and repeat-pads each short sample up to
+            ``min_seq_len`` at read time by holding the final frame — final
+            observation AND final action row repeat, mirroring the upstream
+            pureDF repeat-pad convention.
+        val_holdout_first_n: when ``> 0``, the FIRST n episodes in sorted-key
+            order form a held-out validation pool. Which side this instance
+            keeps is selected by ``holdout_split``. ``0`` (default) disables
+            the split entirely (current behavior: all episodes).
+        holdout_split: ``"train"`` keeps everything EXCEPT the held-out pool;
+            ``"val"`` keeps ONLY the held-out pool. Ignored when
+            ``val_holdout_first_n == 0``. ``episode_idx`` assignment stays
+            anchored to the FULL sorted key list, so an episode keeps the
+            same index on both sides of the split.
     """
 
     def __init__(
@@ -76,6 +102,10 @@ class ZarrEpisodePackedDataset(Dataset):
         min_seq_len: int = 1,
         chunking: ChunkingMode = "sequential",
         max_resample_attempts: int | None = None,
+        temporal_stride: int = 1,
+        tail_mode: TailMode = "drop",
+        val_holdout_first_n: int = 0,
+        holdout_split: HoldoutSplit = "train",
     ):
         if not datasets:
             raise ValueError("ZarrEpisodePackedDataset received an empty datasets dict")
@@ -83,18 +113,49 @@ class ZarrEpisodePackedDataset(Dataset):
             raise ValueError(f"min_seq_len must be >= 1, got {min_seq_len}")
         if chunking not in ("sequential", "none"):
             raise ValueError(f"Unknown chunking mode: {chunking}")
+        if temporal_stride < 1:
+            raise ValueError(f"temporal_stride must be >= 1, got {temporal_stride}")
+        if tail_mode not in ("drop", "hold_pad"):
+            raise ValueError(f"Unknown tail_mode: {tail_mode}")
+        if val_holdout_first_n < 0:
+            raise ValueError(
+                f"val_holdout_first_n must be >= 0, got {val_holdout_first_n}"
+            )
+        if holdout_split not in ("train", "val"):
+            raise ValueError(f"Unknown holdout_split: {holdout_split}")
 
-        self.datasets = datasets
         self.max_seq_len = max_seq_len
         self.min_seq_len = min_seq_len
         self.chunking = chunking
         self.max_resample_attempts = max_resample_attempts
+        self.temporal_stride = temporal_stride
+        self.tail_mode = tail_mode
+        self.val_holdout_first_n = val_holdout_first_n
+        self.holdout_split = holdout_split
 
-        # Stable episode-index assignment: sorted by key.
-        self._episode_keys: list[str] = sorted(datasets.keys())
+        # Stable episode-index assignment: sorted by key, over the FULL
+        # episode set (pre-holdout) so episode_idx is split-invariant.
+        all_keys: list[str] = sorted(datasets.keys())
         self._episode_idx_by_key: dict[str, int] = {
-            key: i for i, key in enumerate(self._episode_keys)
+            key: i for i, key in enumerate(all_keys)
         }
+
+        if val_holdout_first_n > 0:
+            if holdout_split == "val":
+                kept = all_keys[:val_holdout_first_n]
+            else:
+                kept = all_keys[val_holdout_first_n:]
+            if not kept:
+                raise ValueError(
+                    f"val_holdout_first_n={val_holdout_first_n} with "
+                    f"holdout_split={holdout_split!r} left no episodes "
+                    f"(total={len(all_keys)})."
+                )
+            self.datasets = {key: datasets[key] for key in kept}
+            self._episode_keys: list[str] = kept
+        else:
+            self.datasets = datasets
+            self._episode_keys = all_keys
 
         self.index: list[tuple[str, int, int]] = self._build_index()
         if not self.index:
@@ -109,17 +170,26 @@ class ZarrEpisodePackedDataset(Dataset):
     # Construction helpers
     # ------------------------------------------------------------------ #
 
+    def _strided_len(self, n_raw_frames: int) -> int:
+        """Post-stride frame count of a raw span of ``n_raw_frames`` frames."""
+        return -(-n_raw_frames // self.temporal_stride)
+
     def _build_index(self) -> list[tuple[str, int, int]]:
+        """Index spans are (key, raw_start, raw_end); length checks are in
+        post-stride frames. ``tail_mode="hold_pad"`` keeps under-length
+        samples (padded at read time) instead of dropping them.
+        """
         index: list[tuple[str, int, int]] = []
         max_len = self.max_seq_len
+        hold_pad = self.tail_mode == "hold_pad"
         for key in self._episode_keys:
             ds = self.datasets[key]
             episode_len = int(ds.total_frames)
-            if episode_len < self.min_seq_len:
+            if self._strided_len(episode_len) < self.min_seq_len and not hold_pad:
                 continue
 
             if max_len is None or self.chunking == "none":
-                if max_len is not None and episode_len > max_len:
+                if max_len is not None and self._strided_len(episode_len) > max_len:
                     raise ValueError(
                         f"Episode {key} has {episode_len} frames > max_seq_len="
                         f"{max_len} but chunking='none'. Either enable "
@@ -128,10 +198,11 @@ class ZarrEpisodePackedDataset(Dataset):
                 index.append((key, 0, episode_len))
                 continue
 
-            # Sequential chunking.
-            for start in range(0, episode_len, max_len):
-                end = min(start + max_len, episode_len)
-                if end - start < self.min_seq_len:
+            # Sequential chunking: max_len post-stride frames per chunk.
+            raw_chunk_len = max_len * self.temporal_stride
+            for start in range(0, episode_len, raw_chunk_len):
+                end = min(start + raw_chunk_len, episode_len)
+                if self._strided_len(end - start) < self.min_seq_len and not hold_pad:
                     continue
                 index.append((key, start, end))
 
@@ -146,6 +217,10 @@ class ZarrEpisodePackedDataset(Dataset):
         min_seq_len: int = 1,
         chunking: ChunkingMode = "sequential",
         max_resample_attempts: int | None = None,
+        temporal_stride: int = 1,
+        tail_mode: TailMode = "drop",
+        val_holdout_first_n: int = 0,
+        holdout_split: HoldoutSplit = "train",
         **resolve_kwargs,
     ) -> "ZarrEpisodePackedDataset":
         """Build from an ``EpisodeResolver`` (mirrors ``MultiDataset._from_resolver``)."""
@@ -159,6 +234,10 @@ class ZarrEpisodePackedDataset(Dataset):
             min_seq_len=min_seq_len,
             chunking=chunking,
             max_resample_attempts=max_resample_attempts,
+            temporal_stride=temporal_stride,
+            tail_mode=tail_mode,
+            val_holdout_first_n=val_holdout_first_n,
+            holdout_split=holdout_split,
         )
 
     @classmethod
@@ -173,6 +252,10 @@ class ZarrEpisodePackedDataset(Dataset):
         min_seq_len: int = 1,
         chunking: ChunkingMode = "sequential",
         max_resample_attempts: int | None = None,
+        temporal_stride: int = 1,
+        tail_mode: TailMode = "drop",
+        val_holdout_first_n: int = 0,
+        holdout_split: HoldoutSplit = "train",
         filters=None,
     ) -> "ZarrEpisodePackedDataset":
         """Convenience factory that discovers all episodes under a local folder.
@@ -192,6 +275,10 @@ class ZarrEpisodePackedDataset(Dataset):
             min_seq_len=min_seq_len,
             chunking=chunking,
             max_resample_attempts=max_resample_attempts,
+            temporal_stride=temporal_stride,
+            tail_mode=tail_mode,
+            val_holdout_first_n=val_holdout_first_n,
+            holdout_split=holdout_split,
             filters=filters,
         )
 
@@ -221,10 +308,40 @@ class ZarrEpisodePackedDataset(Dataset):
     def __len__(self) -> int:
         return len(self.index)
 
+    def _hold_pad_to_min(self, data: dict) -> dict:
+        """Repeat-pad a short sample up to ``min_seq_len`` by holding the
+        final frame: every per-frame value (observations AND the action row)
+        repeats its last entry, mirroring the upstream pureDF repeat-pad.
+        Mutates and returns ``data``; updates ``"seq_len"``.
+        """
+        seq_len = int(data["seq_len"])
+        pad_n = self.min_seq_len - seq_len
+        if pad_n <= 0:
+            return data
+        for k, v in list(data.items()):
+            if k == "seq_len" or not _is_per_frame_tensor(v, seq_len):
+                continue
+            if isinstance(v, torch.Tensor):
+                last = v[-1:]
+                data[k] = torch.cat(
+                    [v, last.repeat(pad_n, *([1] * (v.ndim - 1)))], dim=0
+                )
+            else:  # np.ndarray (object-dtype values _read_span left raw)
+                data[k] = np.concatenate(
+                    [v, np.repeat(v[-1:], pad_n, axis=0)], axis=0
+                )
+        data["seq_len"] = self.min_seq_len
+        return data
+
     def __getitem__(self, i: int) -> dict:
         attempts = 0
         max_attempts = self.max_resample_attempts or len(self.index)
         idx = i
+        # Only forward ``stride`` when active so duck-typed datasets without
+        # the kwarg keep working at the default.
+        span_kwargs = (
+            {"stride": self.temporal_stride} if self.temporal_stride != 1 else {}
+        )
         while True:
             key, start, end = self.index[idx]
             ds = self.datasets[key]
@@ -233,6 +350,7 @@ class ZarrEpisodePackedDataset(Dataset):
                     start,
                     end,
                     episode_idx=self._episode_idx_by_key[key],
+                    **span_kwargs,
                 )
             except Exception as e:
                 attempts += 1
@@ -265,6 +383,8 @@ class ZarrEpisodePackedDataset(Dataset):
                 idx = next_idx
                 continue
 
+            if self.tail_mode == "hold_pad":
+                data = self._hold_pad_to_min(data)
             data["chunk_offset"] = int(start)
             return data
 

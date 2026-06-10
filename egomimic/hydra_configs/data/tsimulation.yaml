@@ -26,6 +26,16 @@ train_datasets:
     chunking: "none"
     min_seq_len: 64
     max_seq_len: 1024
+    # Parity knobs (defaults reproduce prior behavior exactly):
+    # D07 — >1 keeps every Nth frame (keyframe subsampling at read time).
+    temporal_stride: 1
+    # D17 — "hold_pad" repeat-pads episodes < min_seq_len (held final
+    # frame + action) instead of dropping them.
+    tail_mode: "drop"
+    # D14 — set the SAME n on train and valid to hold out the first n
+    # sorted episodes for validation (holdout_split picks the side).
+    val_holdout_first_n: 0
+    holdout_split: "train"
 
 valid_datasets:
   pushshapes_sim:
@@ -40,6 +50,13 @@ valid_datasets:
     chunking: "none"
     min_seq_len: 64
     max_seq_len: 1024
+    # Parity knobs — see train_datasets entry. holdout_split is pre-set to
+    # "val" so flipping val_holdout_first_n>0 on BOTH entries is the whole
+    # split change; at val_holdout_first_n=0 it is a no-op (all episodes).
+    temporal_stride: 1
+    tail_mode: "drop"
+    val_holdout_first_n: 0
+    holdout_split: "val"
 
 # A40 baseline (44.4 GiB): one full episode at T~958 peaks at ~1.8 GiB,
 # so 8 episodes packed should land in 12–16 GiB worst case. Headroom for

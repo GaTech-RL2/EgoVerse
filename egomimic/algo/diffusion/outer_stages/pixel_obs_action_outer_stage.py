@@ -130,6 +130,35 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
     # ------------------------------------------------------------------ #
 
     # ------------------------------------------------------------------ #
+    # video-rollout context (D06): the policy bundle is image + action
+    # planes, so the clean GT context must be bundle-shaped before it's
+    # cat'd against bundle-shaped noise. Fill the action planes with the
+    # episode's GT actions (training pairing: frame t <-> actions[t]) when
+    # the batch carries them; zeros otherwise.
+    # ------------------------------------------------------------------ #
+    def _make_rollout_context(
+        self, ctx_imgs, _batch, algo, emb_id, ep_idx, ep_start, is_packed,
+    ) -> torch.Tensor:
+        if self.pixel_mode != "policy":
+            # regress/decoupled bundles are image-only — base behavior.
+            return super()._make_rollout_context(
+                ctx_imgs, _batch, algo, emb_id, ep_idx, ep_start, is_packed
+            )
+        n_ctx, _, h, w = ctx_imgs.shape
+        acts = None
+        ac_key = (getattr(algo, "resolved_ac_keys", None) or {}).get(emb_id)
+        if ac_key is not None and ac_key in _batch:
+            a = _batch[ac_key]
+            a_seq = a[ep_start : ep_start + n_ctx] if is_packed else a[ep_idx, :n_ctx]
+            if a_seq.shape[0] == n_ctx and a_seq.shape[-1] >= self._action_channels:
+                acts = a_seq.to(ctx_imgs.device).float()
+        if acts is None:
+            planes = ctx_imgs.new_zeros(n_ctx, self._action_channels, h, w)
+        else:
+            planes = self._action_to_planes(acts, h, w)
+        return torch.cat([ctx_imgs, planes], dim=1)
+
+    # ------------------------------------------------------------------ #
     # decoupled: per-tensor q_state helper
     # ------------------------------------------------------------------ #
     def _qstate(self, x: torch.Tensor, t: torch.Tensor) -> dict:
@@ -271,7 +300,9 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
                                                external_cond=None).squeeze(0))
             v_pred = torch.cat(pieces, dim=0)
 
-        video_loss = self.diffusion.compute_loss(v_pred, ctx.q_state).mean()
+        video_loss = self._diffusion_group_loss(
+            v_pred, ctx.q_state, self.image_loss_weighting
+        ).mean()
 
         # predicted clean frame -> regress action
         pred_x0 = self.diffusion.predict_start_from_v(ctx.q_state["x_t"], ctx.q_state["k"], v_pred)
@@ -317,8 +348,14 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
             v_img = torch.cat(vi, dim=0)
             v_act = torch.cat(va, dim=0)
 
-        img_loss = self.diffusion.compute_loss(v_img, ctx.q_state).mean()
-        act_loss = self.diffusion.compute_loss(v_act, ctx.q_action).mean()
+        # Per-group weighting-strategy overrides (decoupling seam): image and
+        # action terms can weight their noise levels independently.
+        img_loss = self._diffusion_group_loss(
+            v_img, ctx.q_state, self.image_loss_weighting
+        ).mean()
+        act_loss = self._diffusion_group_loss(
+            v_act, ctx.q_action, self.action_loss_weighting
+        ).mean()
         ctx.precomputed_loss = img_loss + self.action_loss_weight * act_loss
         batch["pred_v"] = v_img
         return v_img

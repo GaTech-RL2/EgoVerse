@@ -1,0 +1,13 @@
+{
+  "_comment": "Fixed minmax action norm stats for the upstream-parity DFoT recipe (Port Parity Checklist D03b). Under norm_mode=minmax this reproduces upstream's absolute /512 world-coord scaling exactly: 2*((x-0)/(512-0+1e-6))-1. quantile_1/quantile_99 mirror min/max so MultiDataset._check_bounds passes any in-range sample. Embodiment key '15' = Embodiment.PUSHSHAPES_SIM. Use via norm_stats.precomputed_norm_path=<this file>.",
+  "stats": {
+    "15": {
+      "actions": {
+        "min": [0.0, 0.0],
+        "max": [512.0, 512.0],
+        "quantile_1": [0.0, 0.0],
+        "quantile_99": [512.0, 512.0]
+      }
+    }
+  }
+}

@@ -8,6 +8,7 @@ machinery (channels/HxW), DDIM logic is provided separately in
 ``(B, T)`` and action tensor ``x`` of shape ``(B, T, action_dim)``.
 """
 
+import warnings
 from collections import namedtuple
 from typing import Literal, Optional
 
@@ -21,6 +22,9 @@ from .noise_schedule import make_beta_schedule
 ModelPrediction = namedtuple(
     "ModelPrediction", ["pred_noise", "pred_x_start", "model_out"]
 )
+
+# Once-per-process guard for the fused_min_snr 1-D-k fallback warning.
+_FUSED_MIN_SNR_1D_K_WARNED = False
 
 
 def _extract(a: torch.Tensor, k: torch.Tensor, x_shape: torch.Size) -> torch.Tensor:
@@ -43,10 +47,15 @@ class DiscreteDiffusion(nn.Module):
         beta_schedule: 'cosine' | 'linear' | 'alphas_cumprod_linear'.
         schedule_fn_kwargs: extra kwargs to ``make_beta_schedule``.
         objective: 'pred_noise' | 'pred_x0' | 'pred_v'.
-        loss_weighting_strategy: 'uniform' | 'min_snr' | 'sigmoid'.
+        loss_weighting_strategy: 'uniform' | 'min_snr' | 'sigmoid' | 'constant'.
         snr_clip: SNR clip used by 'min_snr' weighting.
         sigmoid_bias: bias used by 'sigmoid' weighting.
         clip_noise: clip ε samples to ``[-clip_noise, clip_noise]``.
+        constant_weight: weight returned at every ``k`` by the 'constant'
+            strategy (no objective-dependent factor; upstream parity = 2.5).
+        max_beta: when set, clamp betas to ``<= max_beta`` before deriving
+            alphas (upstream parity = 0.999, keeps terminal SNR > 0);
+            ``None`` keeps the schedule untouched.
     """
 
     def __init__(
@@ -56,12 +65,14 @@ class DiscreteDiffusion(nn.Module):
         beta_schedule: str = "cosine",
         schedule_fn_kwargs: Optional[dict] = None,
         objective: Literal["pred_noise", "pred_x0", "pred_v"] = "pred_v",
-        loss_weighting_strategy: Literal["uniform", "min_snr", "fused_min_snr", "sigmoid"] = "min_snr",
+        loss_weighting_strategy: Literal["uniform", "min_snr", "fused_min_snr", "sigmoid", "constant"] = "min_snr",
         snr_clip: float = 5.0,
         cum_snr_decay: float = 0.96,
         use_causal_mask: bool = False,
         sigmoid_bias: float = -1.0,
         clip_noise: float = 20.0,
+        constant_weight: float = 1.0,
+        max_beta: Optional[float] = None,
     ):
         super().__init__()
         self.action_dim = int(action_dim)
@@ -73,6 +84,8 @@ class DiscreteDiffusion(nn.Module):
         self.use_causal_mask = bool(use_causal_mask)
         self.sigmoid_bias = float(sigmoid_bias)
         self.clip_noise = float(clip_noise)
+        self.constant_weight = float(constant_weight)
+        self.max_beta = None if max_beta is None else float(max_beta)
 
         betas = make_beta_schedule(
             schedule=beta_schedule,
@@ -80,6 +93,8 @@ class DiscreteDiffusion(nn.Module):
             zero_terminal_snr=self.objective != "pred_noise",
             **(schedule_fn_kwargs or {}),
         )
+        if self.max_beta is not None:
+            betas = betas.clamp(max=self.max_beta)
 
         alphas = 1.0 - betas
         alphas_cumprod = torch.cumprod(alphas, dim=0)
@@ -116,11 +131,10 @@ class DiscreteDiffusion(nn.Module):
 
         snr = alphas_cumprod / (1 - alphas_cumprod)
         reg("snr", snr)
-        if loss_weighting_strategy in ("min_snr", "fused_min_snr"):
-            clipped_snr = snr.clone().clamp_(max=self.snr_clip)
-            reg("clipped_snr", clipped_snr)
-        if loss_weighting_strategy == "sigmoid":
-            reg("logsnr", torch.log(snr))
+        # Registered unconditionally (persistent=False) so per-call strategy
+        # overrides work regardless of the ctor strategy.
+        reg("clipped_snr", snr.clone().clamp_(max=self.snr_clip))
+        reg("logsnr", torch.log(snr))
 
     # ---- closed-form predictions ---- #
 
@@ -194,10 +208,38 @@ class DiscreteDiffusion(nn.Module):
             raise ValueError(f"unknown objective {self.objective}")
         return ModelPrediction(pred_noise, x_start, model_out)
 
-    def compute_loss_weights(self, k: torch.Tensor) -> torch.Tensor:
-        strategy = self.loss_weighting_strategy
+    def compute_loss_weights(
+        self, k: torch.Tensor, strategy: Optional[str] = None
+    ) -> torch.Tensor:
+        """Per-token loss weights at noise levels ``k``.
+
+        Args:
+            k: (B,) or (B, T) long tensor of noise levels.
+            strategy: optional per-call override of the ctor
+                ``loss_weighting_strategy`` (e.g. per modality group);
+                ``None`` uses the ctor strategy on the identical code path.
+                'fused_min_snr' is rejected as an override — it couples
+                weights across the time axis and must never be applied
+                per-modality.
+        """
+        if strategy == "fused_min_snr":
+            raise ValueError(
+                "fused_min_snr cannot be requested as a per-call override; "
+                "it couples weights across the time axis"
+            )
+        if strategy is None:
+            strategy = self.loss_weighting_strategy
+        if strategy == "bivariate_fused":
+            raise ValueError(
+                "bivariate_fused needs two noise-level streams; call "
+                "compute_bivariate_fused_weights(k_obs, k_act) directly"
+            )
         if strategy == "uniform":
             return torch.ones_like(k, dtype=torch.float32)
+        if strategy == "constant":
+            # No objective-dependent factor — mirrors the upstream constant
+            # weight (diffusion_transition.py: snr_clip * 0.5 at every t).
+            return torch.full_like(k, self.constant_weight, dtype=torch.float32)
         snr = self.snr[k]
         if strategy == "min_snr":
             clipped_snr = self.clipped_snr[k]
@@ -207,6 +249,15 @@ class DiscreteDiffusion(nn.Module):
             epsilon_weighting = torch.sigmoid(self.sigmoid_bias - logsnr)
         elif strategy == "fused_min_snr":
             if k.dim() == 1:
+                global _FUSED_MIN_SNR_1D_K_WARNED
+                if not _FUSED_MIN_SNR_1D_K_WARNED:
+                    _FUSED_MIN_SNR_1D_K_WARNED = True
+                    warnings.warn(
+                        "loss_weighting_strategy='fused_min_snr' received 1-D k "
+                        "(packed/flat batch): falling back to plain min_snr — "
+                        "cum_snr_decay is inactive.",
+                        stacklevel=2,
+                    )
                 clipped_snr = self.clipped_snr[k]
                 epsilon_weighting = clipped_snr / snr.clamp(min=1e-8)
             else:
@@ -247,7 +298,115 @@ class DiscreteDiffusion(nn.Module):
             return epsilon_weighting * snr / (snr + 1)
         raise ValueError(f"unknown objective {self.objective}")
 
-    def compute_loss(self, v_pred: torch.Tensor, q_state: dict) -> torch.Tensor:
+    def compute_bivariate_fused_weights(
+        self,
+        k_obs: torch.Tensor,
+        k_act: torch.Tensor,
+        *,
+        fusion_mode: str = "blend",
+        gamma_obs: Optional[float] = None,
+        gamma_act: float = 0.90,
+        lambda_blend: float = 0.9,
+        mu: float = 0.5,
+        kappa: float = 1.0,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Bivariate fused-SNR loss weights for decoupled obs/action noise.
+
+        Generalizes 'fused_min_snr' to two per-frame noise-level streams
+        (same-frame obs and action at independent levels). Per stream m, a
+        cumulated history S̄_m is an EMA of the normalized clipped SNR with
+        its own decay ``gamma_m`` (forward-only when ``use_causal_mask``,
+        else forward/backward averaged — must match the trunk's attention).
+        Histories are γ-transported and blended into one context
+        ``S̄_h = λ·(γ_o·S̄_o) + (1−λ)·(γ_a·S̄_a)``; fusion then follows the
+        upstream two-term noisy-OR shape (own-frame term undamped,
+        diffusion_transition.py:254-255):
+
+          obs:              S'_o = 1 − (1 − S_o)(1 − S̄_h)
+          act ("blend"):    S'_a = 1 − (1 − S_a)(1 − [μ·S_o + (1−μ)·S̄_h])
+          act ("product"):  S'_a = 1 − (1 − S_a)(1 − κ·S_o)(1 − S̄_h)
+
+        "blend" keeps the fusion two-term with a convex context (current obs
+        vs history budgeted by ``mu`` — total cross-signal cannot inflate);
+        "product" treats current obs as a third independent source damped by
+        ``kappa``. Returns per-token weights ``(w_obs, w_act)`` mapped through
+        the same clipped/unclipped min-SNR tracks and objective factor as
+        'fused_min_snr'.
+
+        DORMANT: nothing selects this yet; intended caller is the decoupled
+        two-stream outer stage once parity training lands. Both ``k`` tensors
+        must be (B, T) — the time axis is required.
+        """
+        if fusion_mode not in ("blend", "product"):
+            raise ValueError(f"unknown fusion_mode {fusion_mode!r}")
+        if k_obs.dim() != 2 or k_act.dim() != 2:
+            raise ValueError(
+                "bivariate_fused requires (B, T) noise levels for both "
+                f"streams; got {tuple(k_obs.shape)} / {tuple(k_act.shape)}"
+            )
+        g_o = self.cum_snr_decay if gamma_obs is None else float(gamma_obs)
+        g_a = float(gamma_act)
+        snr_clip = self.snr_clip
+
+        def _ema(x: torch.Tensor, decay: float) -> torch.Tensor:
+            def one_dir(reverse: bool) -> torch.Tensor:
+                xx = x.flip(1) if reverse else x
+                cum = torch.zeros_like(xx)
+                for t in range(xx.shape[1]):
+                    if t == 0:
+                        cum[:, t] = xx[:, t]
+                    else:
+                        cum[:, t] = decay * cum[:, t - 1] + (1 - decay) * xx[:, t]
+                cum = torch.nn.functional.pad(cum[:, :-1], (1, 0, 0, 0), value=0.0)
+                return cum.flip(1) if reverse else cum
+
+            if self.use_causal_mask:
+                return one_dir(False)
+            return (one_dir(False) + one_dir(True)) * 0.5
+
+        def _tracks(k: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+            return self.snr[k] / snr_clip, self.clipped_snr[k] / snr_clip
+
+        ns_o, ncs_o = _tracks(k_obs)
+        ns_a, ncs_a = _tracks(k_act)
+        s_h = lambda_blend * (g_o * _ema(ncs_o, g_o)) \
+            + (1 - lambda_blend) * (g_a * _ema(ncs_a, g_a))
+
+        def _to_weights(fused: torch.Tensor, clipped_fused: torch.Tensor) -> torch.Tensor:
+            snr = fused * snr_clip
+            clipped = clipped_fused * snr_clip
+            eps_w = clipped / snr.clamp(min=1e-8)
+            if self.objective == "pred_noise":
+                return eps_w
+            if self.objective == "pred_x0":
+                return eps_w * snr
+            if self.objective == "pred_v":
+                return eps_w * snr / (snr + 1)
+            raise ValueError(f"unknown objective {self.objective}")
+
+        w_obs = _to_weights(
+            1 - (1 - ns_o) * (1 - s_h),
+            1 - (1 - ncs_o) * (1 - s_h),
+        )
+        if fusion_mode == "blend":
+            ctx = mu * ncs_o + (1 - mu) * s_h
+            w_act = _to_weights(
+                1 - (1 - ns_a) * (1 - ctx),
+                1 - (1 - ncs_a) * (1 - ctx),
+            )
+        else:
+            w_act = _to_weights(
+                1 - (1 - ns_a) * (1 - kappa * ncs_o) * (1 - s_h),
+                1 - (1 - ncs_a) * (1 - kappa * ncs_o) * (1 - s_h),
+            )
+        return w_obs, w_act
+
+    def compute_loss(
+        self,
+        v_pred: torch.Tensor,
+        q_state: dict,
+        weighting_strategy: Optional[str] = None,
+    ) -> torch.Tensor:
         """Compute weighted per-token MSE given the backbone's output and
         the q_state dict from encode. Matches ContinuousDiffusion.compute_loss
         interface so DFoTLoss works with both.
@@ -256,6 +415,9 @@ class DiscreteDiffusion(nn.Module):
             v_pred: model output (B, T, ...) — interpretation depends on objective.
             q_state: dict with 'x_t' (noised), 'k' (timesteps), 'noise' (eps),
                      'x_start' (clean target).
+            weighting_strategy: optional per-call override of the ctor
+                ``loss_weighting_strategy`` (e.g. per modality group);
+                ``None`` uses the ctor strategy on the identical code path.
         """
         k = q_state["k"]
         noise = q_state["noise"]
@@ -273,7 +435,7 @@ class DiscreteDiffusion(nn.Module):
         n_trailing = per_element.dim() - k.dim()
         for _ in range(n_trailing):
             per_element = per_element.mean(dim=-1)
-        w = self.compute_loss_weights(k)
+        w = self.compute_loss_weights(k, strategy=weighting_strategy)
         return per_element * w
 
     def forward(

@@ -395,8 +395,15 @@ class DFoT(Algo):
                 unnorm[f"emb{emb_id}_loss"] = loss.mean()
                 sampled = self._sample_chunk(B, T, cond=cond, device=actions.device)
                 # _sample_chunk returns the full bundle; pick out the action
-                # slice so unnormalize sees an action-shaped tensor.
-                sampled = sampled[..., self.outer_stage.action_slice]
+                # slice (channel axis for 5-D pixel bundles — D02) so
+                # unnormalize sees an action-shaped tensor.
+                sampled = self._extract_bundle_actions(
+                    sampled,
+                    self.outer_stage.action_slice,
+                    action_dim=int(
+                        getattr(self.outer_stage, "action_dim", self.action_dim)
+                    ),
+                )
                 preds = OrderedDict()
                 preds[ac_key] = sampled
                 unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
@@ -444,6 +451,30 @@ class DFoT(Algo):
         else:
             sample_kwargs["action_dim"] = outer.bundle_dim
         return _sample(self.diffusion, self.backbone, **sample_kwargs)
+
+    @staticmethod
+    def _extract_bundle_actions(
+        sampled: torch.Tensor,
+        action_slice: slice,
+        action_dim: Optional[int] = None,
+    ) -> torch.Tensor:
+        """Pick the action portion out of a sampled diffusion bundle.
+
+        3-D ``(B, T, D)`` bundles keep the legacy trailing-axis slice
+        (byte-identical to ``sampled[..., action_slice]``). 5-D pixel bundles
+        ``(B, T, C, H, W)`` carry the action as broadcast channel planes, so
+        the slice must hit the CHANNEL axis — ``sampled[..., action_slice]``
+        lands on image width (D02) — and the planes decode to an action
+        vector by global-avg-pool, mirroring the validated
+        ``_inference_step_pixel_policy`` decode.
+        """
+        if sampled.dim() == 5:
+            planes = sampled[:, :, action_slice]  # (B, T, C_a, H, W)
+            actions = planes.mean(dim=(-2, -1))   # (B, T, C_a)
+            if action_dim is not None:
+                actions = actions[..., :action_dim]
+            return actions
+        return sampled[..., action_slice]
 
     # compute_losses is inherited from Algo (collapse c7 — the pure
     # sum-per-embodiment {emb}_action_loss reducer is now the Algo default).
@@ -609,7 +640,7 @@ class DFoT(Algo):
         C = Ci + Ca
 
         if t == 0 or not hasattr(self, "_pp_rgb"):
-            self._pp_rgb = []     # observed RGB, each (Ci,H,W) in [0,1]
+            self._pp_rgb = []     # observed RGB, each (Ci,H,W) in model range
             self._pp_act = []     # executed NORMALIZED actions, each (A,)
             self._pp_queue = []   # pending committed unnorm actions
 
@@ -618,6 +649,9 @@ class DFoT(Algo):
             img = img / 255.0
         if img.dim() == 4:
             img = img[0]
+        # D03 seam: context pins must live in the stage's model range
+        # ("01" = identity pass-through, "pm1" = [-1, 1]).
+        img = outer.to_model_range(img)
         self._pp_rgb.append(img)
 
         if self._pp_queue:
@@ -659,7 +693,7 @@ class DFoT(Algo):
         for s in range(sched.shape[0] - 1):
             klev = sched[s].clamp_min(0).long().unsqueeze(0)
             v = self.backbone(x, klev, external_cond=None)
-            x = self._struct_ddim_step(diff, x, v, sched[s], sched[s + 1])
+            x = self._struct_ddim_step(diff, x, v, sched[s], sched[s + 1], eta=float(getattr(self, "sampler_eta", 0.0)))
             x[:, :n_ctx] = ctx_stack
 
         pred_planes = x[0, n_ctx:n_ctx + k, Ci:Ci + Ca]          # (k,Ca,H,W)
@@ -700,6 +734,9 @@ class DFoT(Algo):
             img = img / 255.0
         if img.dim() == 4:
             img = img[0]
+        # D03 seam: context pins must live in the stage's model range
+        # ("01" = identity pass-through, "pm1" = [-1, 1]).
+        img = outer.to_model_range(img)
         self._pr_rgb.append(img)
 
         if self._pr_queue:
@@ -721,7 +758,7 @@ class DFoT(Algo):
         for sidx in range(sched.shape[0] - 1):
             klev = sched[sidx].clamp_min(0).long().unsqueeze(0)
             v = self.backbone(x, klev, external_cond=None)
-            x = self._struct_ddim_step(diff, x, v, sched[sidx], sched[sidx + 1])
+            x = self._struct_ddim_step(diff, x, v, sched[sidx], sched[sidx + 1], eta=float(getattr(self, "sampler_eta", 0.0)))
             x[:, :n_ctx] = ctx_stack
 
         pred_frames = x[0, n_ctx:n_ctx + k]               # (k, Ci, H, W) predicted clean frames
@@ -817,8 +854,15 @@ class DFoT(Algo):
                 B=1, T=self.action_horizon, cond=cond, device=device
             )
             # Slice action portion out of the (potentially joint) bundle
-            # before unnormalizing. For vanilla DFoT action_slice is full.
-            sampled_actions = sampled[..., self.outer_stage.action_slice]
+            # before unnormalizing — channel axis + avg-pool decode for 5-D
+            # pixel bundles (D02). For vanilla DFoT action_slice is full.
+            sampled_actions = self._extract_bundle_actions(
+                sampled,
+                self.outer_stage.action_slice,
+                action_dim=int(
+                    getattr(self.outer_stage, "action_dim", self.action_dim)
+                ),
+            )
             chunk_world = self.norm_stats.unnormalize(
                 {ac_key: sampled_actions.squeeze(0)}, emb_id
             )[ac_key]
@@ -833,10 +877,12 @@ class DFoT(Algo):
     # ------------------------------------------------------------------ #
     # Closed-loop controller for the 2D spatial obs+action policy.
     # ------------------------------------------------------------------ #
-    def _struct_ddim_step(self, diff, x, v, cur, nxt):
-        """One eta=0 DDIM step from a v-prediction (discrete diffusion).
+    def _struct_ddim_step(self, diff, x, v, cur, nxt, eta: float = 0.0):
+        """One DDIM step from a v-prediction (discrete diffusion).
         ``cur``/``nxt`` are (T,) per-token levels; ``x`` is (1, T, *trailing).
-        Mirrors DFoTPolicyActionEval._ddim_from_v exactly."""
+        At ``eta=0`` (default) mirrors DFoTPolicyActionEval._ddim_from_v
+        exactly; ``eta>0`` adds the stochastic DDIM noise term (D27 — the
+        validated pureDF runs sample every rollout/val path at eta=1.0)."""
         T = x.shape[1]
         pad = x.dim() - 2
         kBT = cur.clamp_min(0).long().unsqueeze(0)
@@ -845,8 +891,16 @@ class DFoT(Algo):
         an = diff.alphas_cumprod[nxt.clamp_min(0).long()]
         an = torch.where(nxt < 0, torch.ones_like(an), an)
         an = an.reshape(1, T, *([1] * pad))
-        c = (1.0 - an).clamp_min(0.0).sqrt()
-        return x0 * an.sqrt() + eps * c
+        if eta <= 0.0:
+            c = (1.0 - an).clamp_min(0.0).sqrt()
+            return x0 * an.sqrt() + eps * c
+        ac = diff.alphas_cumprod[cur.clamp_min(0).long()]
+        ac = ac.reshape(1, T, *([1] * pad))
+        sigma = eta * ((1.0 - an) / (1.0 - ac).clamp_min(1e-12)).sqrt() \
+            * (1.0 - ac / an.clamp_min(1e-12)).clamp_min(0.0).sqrt()
+        c = (1.0 - an - sigma**2).clamp_min(0.0).sqrt()
+        z = torch.randn_like(x).clamp_(-diff.clip_noise, diff.clip_noise)
+        return x0 * an.sqrt() + eps * c + sigma * z
 
     @torch.no_grad()
     def _inference_step_pixel_decoupled(self, obs_zarr, t, emb_id):
@@ -880,6 +934,9 @@ class DFoT(Algo):
             img = img / 255.0
         if img.dim() == 4:
             img = img[0]
+        # D03 seam: context pins must live in the stage's model range
+        # ("01" = identity pass-through, "pm1" = [-1, 1]).
+        img = outer.to_model_range(img)
         self._pd_rgb.append(img)
 
         if self._pd_queue:
@@ -905,9 +962,9 @@ class DFoT(Algo):
             v_img, v_act = self.backbone(
                 x_obs, o_lev, external_cond=None, action=x_act, action_noise_levels=a_lev,
             )
-            x_obs = self._struct_ddim_step(diff, x_obs, v_img, obs_sched[st], obs_sched[st + 1])
+            x_obs = self._struct_ddim_step(diff, x_obs, v_img, obs_sched[st], obs_sched[st + 1], eta=float(getattr(self, "sampler_eta", 0.0)))
             x_obs[:, :n_ctx] = ctx_b
-            x_act = self._struct_ddim_step(diff, x_act, v_act, sched[st], sched[st + 1])
+            x_act = self._struct_ddim_step(diff, x_act, v_act, sched[st], sched[st + 1], eta=float(getattr(self, "sampler_eta", 0.0)))
 
         chunk = x_act[:, n_ctx - 1:].mean(0)  # (k, A): current + (k-1) future actions
         unnorm = self.norm_stats.unnormalize({ac_key: chunk}, emb_id)[ac_key]
@@ -992,8 +1049,8 @@ class DFoT(Algo):
         for s in range(sched.shape[0] - 1):
             klev = sched[s].clamp_min(0).long().unsqueeze(0)
             v_lat, v_act = self.backbone(x_lat, klev, external_cond=cond, action=x_act)
-            x_lat = self._struct_ddim_step(diff, x_lat, v_lat, sched[s], sched[s + 1])
-            x_act = self._struct_ddim_step(diff, x_act, v_act, sched[s], sched[s + 1])
+            x_lat = self._struct_ddim_step(diff, x_lat, v_lat, sched[s], sched[s + 1], eta=float(getattr(self, "sampler_eta", 0.0)))
+            x_act = self._struct_ddim_step(diff, x_act, v_act, sched[s], sched[s + 1], eta=float(getattr(self, "sampler_eta", 0.0)))
             x_lat[:, :n_ctx] = latent_ctx.unsqueeze(0)
             x_act[:, :n_ctx] = act_ctx.unsqueeze(0)
 
@@ -1073,7 +1130,7 @@ class DFoT(Algo):
                 x_lat, obs_levels, external_cond=cond, action=x_act,
                 action_noise_levels=act_sched[s].unsqueeze(0),
             )
-            x_act = self._struct_ddim_step(diff, x_act, v_act, act_sched[s], act_sched[s + 1])
+            x_act = self._struct_ddim_step(diff, x_act, v_act, act_sched[s], act_sched[s + 1], eta=float(getattr(self, "sampler_eta", 0.0)))
 
         pred_norm = x_act[0, -1]                             # action at the current frame
         unnorm = self.norm_stats.unnormalize(

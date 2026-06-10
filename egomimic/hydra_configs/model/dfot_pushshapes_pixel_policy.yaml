@@ -15,7 +15,7 @@ robomimic_model:
   sampler_n_steps: 50
   sampler_eta: 0.0
 
-  inference_mode: "chunk"
+  inference_mode: "pixel_policy"  # D01 fix: chunk mode sampled actions obs-blind
   cfg_scale: 1.0
 
   domains: ["pushshapes_sim"]
@@ -84,4 +84,4 @@ scheduler:
   max_steps: 100000
   warmup_steps: 1000
   warmup_start_factor: 0.01
-  eta_min: 2.0e-4
+  eta_min: 2.0e-4  # NOTE (D05): == lr, so the cosine is flat. Family-wide setting across all 5 pixel configs (rev-2 audit: deliberate-looking, unvalidated). The validated cosine schedule lives in dfot_pushshapes_pixel_policy_parity.yaml; left unchanged here to keep this config reproducible.

@@ -1535,6 +1535,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         end: int,
         *,
         episode_idx: int | None = None,
+        stride: int = 1,
     ) -> dict:
         """Read a variable-length span ``[start, end)`` for every key in ``key_map``.
 
@@ -1543,13 +1544,23 @@ class ZarrDataset(torch.utils.data.Dataset):
         for packed dataloaders that batch multiple variable-length samples
         into a single stream.
 
+        Args:
+            start: First frame (inclusive).
+            end: Last frame (exclusive).
+            episode_idx: Optional provenance index stamped into the sample.
+            stride: Keep every ``stride``-th frame of the span, starting at
+                ``start`` (keyframe subsampling). ``1`` (default) reads every
+                frame — byte-identical to the pre-stride behavior. Raw JPEG
+                buffers are subsampled BEFORE decode, so skipped frames pay
+                no decode cost.
+
         Returns a dict containing:
-          - per-frame tensors of shape ``(end - start, ...)`` for camera /
-            proprio / action keys
+          - per-frame tensors of shape ``(ceil((end - start) / stride), ...)``
+            for camera / proprio / action keys
           - the configured annotation key (``key_type == "annotation_keys"``)
-            → ``list[str]`` of annotation texts whose spans overlap
-            ``[start, end)``
-          - ``"seq_len"`` (int)
+            → ``list[str]`` of annotation texts whose spans overlap the RAW
+            span ``[start, end)``
+          - ``"seq_len"`` (int, post-stride frame count)
           - ``"embodiment"`` and ``"metadata.robot_name"`` (int embodiment id)
           - ``"episode_idx"`` if provided
 
@@ -1565,8 +1576,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                 f"_read_span out of range [0, {self.total_frames}): "
                 f"start={start}, end={end}"
             )
+        if stride < 1:
+            raise ValueError(f"_read_span stride must be >= 1, got {stride}")
 
-        seq_len = end - start
+        seq_len = len(range(start, end, stride))
         data: dict = {}
 
         for k in self.key_map:
@@ -1582,6 +1595,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 continue
 
             arr = self.episode_reader.read({zarr_key: (start, end)})[zarr_key]
+            if stride != 1:
+                # Subsample raw frames (JPEG buffers included) pre-decode.
+                arr = arr[::stride]
 
             if zarr_key in self._image_keys:
                 arr = decode_jpeg_window(arr)

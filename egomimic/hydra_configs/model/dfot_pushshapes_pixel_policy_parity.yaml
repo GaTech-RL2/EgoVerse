@@ -1,0 +1,107 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# DFoT pixel-space OBS+ACTION policy — UPSTREAM-PARITY recipe.
+# Non-default variant of dfot_pushshapes_pixel_policy.yaml expressing the
+# validated pureDF pusht recipe through the parity knobs; every delta is
+# tagged with its Port Parity Checklist D-number.
+#
+# REQUIRED COMPANION OVERRIDES — these keys live outside the model package
+# (trainer/ group and the primary config merge after the model group, so a
+# model yaml cannot carry them). Launch from the repo root with:
+#   trainer.gradient_clip_val=10.0   # D09 — knob exposed in trainer/default.yaml
+#   norm_stats.norm_mode=minmax      # D03b — fixed minmax action norm
+#   norm_stats.precomputed_norm_path=$PWD/egomimic/hydra_configs/data/norm_stats_pushshapes_fixed512.json
+#                                    # D03b — exact /512 world-coord stats (no data-dependent min/max)
+#   reject_outliers=false            # D30 — no upstream analog
+# Delete any cached norm_stats from earlier runs so stats regenerate.
+#
+# Training, the overlay eval (evaluator=eval_dfot_pixel_overlay) and the
+# closed-loop pixel inference paths (_inference_step_pixel_{policy,regress,
+# decoupled} route context through outer_stage.to_model_range) all honor
+# image_range. Judge this recipe by the overlay first (checklist §4 step 3:
+# no sim until overlay tracks GT). When running the overlay against this
+# recipe, set n_context_frames: 8 to match sp_n_context.
+
+robomimic_model:
+  _target_: egomimic.algo.diffusion.DFoT
+  action_dim: 2
+  action_horizon: 9
+
+  sampler: "ddim"
+  sampler_n_steps: 25             # D20 — validated 25 DDIM steps (was 50)
+  sampler_eta: 1.0                # D27 — validated runs use stochastic DDIM eta=1.0 on every rollout/val path (now honored by all pixel/spatial controllers + video rollout)
+
+  inference_mode: "pixel_policy"  # D01 — grounded windowed inference, not obs-blind chunk
+  cfg_scale: 1.0
+  sp_n_context: 8                 # D13 — n_ctx + sp_commit(1) == trained window T=9 (default 4 gave T=5)
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  outer_stage:
+    _target_: egomimic.algo.diffusion.PixelObsActionDFoTOuterStage
+    pixel_mode: "policy"
+    action_dim: 2
+    action_channels: 2
+    image_key: "front_img_1"
+    image_channels: 3
+    image_size: 96
+    frame_sampling: "fixed_window"
+    sample_n_frames: 9
+    image_range: "pm1"            # D03a — diffuse RGB in [-1,1] (x*2-1 at encode, inverted at decode)
+    image_loss_weight: 0.5        # D16 — 50/50 image/action group loss split
+    action_loss_weight_group: 0.5 # D16
+
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: "fused_cond"
+      cond_proj_widths: [256, 256]
+      obs_specs: {}
+      img_encoders: {}
+
+    backbone:
+      _target_: egomimic.models.diffusion.DFoTDiT3DBackbone
+      latent_channels: 5          # 3 RGB + 2 broadcast action planes
+      latent_size: 96
+      patch_size: 2
+      action_horizon: 9
+      d_model: 256
+      d_cond: 256
+      cond_dim: 0
+      depth: 6
+      num_heads: 4
+      mlp_ratio: 4.0
+      time_embed_dim: 64
+      cond_emb_dim: 0
+      use_fourier_time: false
+      stochastic_time_p: 0.0
+      cond_dropout_prob: 0.0
+      causal: false
+
+    diffusion:
+      _target_: egomimic.models.diffusion.diffusion.discrete_diffusion.DiscreteDiffusion
+      action_dim: 5               # diffused per-token channel count (3+2)
+      timesteps: 1000
+      beta_schedule: "cosine"
+      objective: "pred_x0"                # D04 — validated objective (was pred_v)
+      loss_weighting_strategy: "constant" # D04 — constant weight at every k (was fused_min_snr, silently min_snr)
+      constant_weight: 2.5                # D04 — upstream snr_clip * 0.5
+      max_beta: 0.999                     # D15 — finite terminal SNR; required with pred_x0 (inf recip-alpha at k=999)
+      clip_noise: 20.0
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5.0e-5            # D05 — validated peak (was 2e-4)
+  weight_decay: 1.0e-4  # D09 — validated decay (was 0.0)
+  betas: [0.9, 0.999]   # D09 — validated beta2 (was 0.99)
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 100000     # upstream MAXSTEPS default; set to the real run length per D10's step-count read
+  warmup_steps: 2500    # D05/D23 — validated warmup
+  warmup_start_factor: 0.01
+  eta_min: 5.0e-6       # D05 — validated cosine floor (was 2e-4 == lr, a dead cosine)

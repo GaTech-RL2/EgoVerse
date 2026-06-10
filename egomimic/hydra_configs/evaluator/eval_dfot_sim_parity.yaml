@@ -1,0 +1,29 @@
+# Closed-loop sim eval, UPSTREAM-PARITY variant (D06/D19 alignment).
+#
+# NON-default: eval_dfot_sim.yaml keeps the legacy final-value/0.7/2-episode
+# metric. This variant scores the way the validated pureDF runs did
+# (df_pusht.py run_sim_eval): best-so-far coverage, success threshold 0.5,
+# 20 fixed seeds. Comparable to upstream "SIM COVERAGE mean / >=0.5
+# success-rate over 20 seeds" printouts.
+
+_target_: egomimic.eval.core.eval_sim.PackedSimEval
+
+env_kwargs:
+  object_shape: "T"
+  pusher_shape: "circle"
+  obstacle_level: 0
+  image_size: 96
+
+init_mode: "seeds"
+init_seeds: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+n_eval_episodes: 20
+coverage_agg: "best"
+coverage_threshold: 0.5
+max_steps: 1200
+video_fps: 30
+# one val batch -> exactly one pass over the 20 seeds (seeds cycle per
+# rollout, so >1 batches would re-run the same seeds and 4x the cost)
+limit_val_batches: 1
+max_videos: 2
+viz_func: null
+transform_lists: null

@@ -33,6 +33,7 @@ class ContinuousDiffusion(nn.Module):
         logsnr_max: float = 15.0,
         shift: float = 1.0,
         loss_weighting: str = "sigmoid",
+        constant_weight: float = 1.0,
     ):
         super().__init__()
         self.action_dim = int(action_dim)
@@ -40,6 +41,8 @@ class ContinuousDiffusion(nn.Module):
         self.sigmoid_bias = float(sigmoid_bias)
         self.clip_noise = float(clip_noise)
         self.loss_weighting = str(loss_weighting)
+        # Weight returned at every noise level by the 'constant' strategy.
+        self.constant_weight = float(constant_weight)
         self.schedule = CosineNoiseSchedule(
             logsnr_min=logsnr_min, logsnr_max=logsnr_max, shift=shift
         )
@@ -83,12 +86,56 @@ class ContinuousDiffusion(nn.Module):
             "time_cond": self.precond_scale * logsnr,
         }
 
-    def compute_loss(self, v_pred: torch.Tensor, q_state: dict) -> torch.Tensor:
+    def compute_loss_weights(
+        self, logsnr: torch.Tensor, strategy: Optional[str] = None
+    ) -> torch.Tensor:
+        """Per-token loss weights at the given log-SNR levels (continuous-time
+        analog of ``DiscreteDiffusion.compute_loss_weights``; there is no
+        discrete ``k`` here).
+
+        Args:
+            logsnr: (B, T) per-token log-SNR (from ``q_sample``'s state).
+            strategy: optional per-call override of the ctor
+                ``loss_weighting``; ``None`` uses the ctor value. Any value
+                other than 'uniform'/'constant' weights by
+                ``sigmoid(sigmoid_bias - logsnr)``, matching ``compute_loss``.
+        """
+        if strategy == "fused_min_snr":
+            raise ValueError(
+                "fused_min_snr cannot be requested as a per-call override; "
+                "it couples weights across the time axis"
+            )
+        if strategy is None:
+            strategy = self.loss_weighting
+        if strategy == "uniform":
+            return torch.ones_like(logsnr)
+        if strategy == "constant":
+            return torch.full_like(logsnr, self.constant_weight)
+        return torch.sigmoid(self.sigmoid_bias - logsnr)
+
+    def compute_loss(
+        self,
+        v_pred: torch.Tensor,
+        q_state: dict,
+        weighting_strategy: Optional[str] = None,
+    ) -> torch.Tensor:
         """Per-token SNR-weighted noise-MSE (matches reference: v_pred is
         converted to noise_pred, then MSE against actual noise). The
         alpha_t^2 factor from the conversion provides implicit
         downweighting of noisy timesteps. Caller reduces (``.mean()``).
+
+        ``weighting_strategy`` optionally overrides the ctor
+        ``loss_weighting`` per call (e.g. per modality group); ``None`` uses
+        the ctor value on the identical code path.
         """
+        if weighting_strategy == "fused_min_snr":
+            raise ValueError(
+                "fused_min_snr cannot be requested as a per-call override; "
+                "it couples weights across the time axis"
+            )
+        strategy = (
+            self.loss_weighting if weighting_strategy is None else weighting_strategy
+        )
         x_t = q_state["x_t"]
         alpha_t = q_state["alpha_t"]
         sigma_t = q_state["sigma_t"]
@@ -96,8 +143,10 @@ class ContinuousDiffusion(nn.Module):
         logsnr = q_state["logsnr"]
         noise_pred = alpha_t * v_pred + sigma_t * x_t
         loss = F.mse_loss(noise_pred, noise.detach(), reduction="none")
-        if self.loss_weighting == "uniform":
+        if strategy == "uniform":
             return loss
+        if strategy == "constant":
+            return loss * self.constant_weight
         loss_weight = self._broadcast(
             torch.sigmoid(self.sigmoid_bias - logsnr), v_pred
         )

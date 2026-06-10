@@ -69,6 +69,8 @@ class SimRolloutEval(EvalVideo):
         init_seeds: list[int] | None = None,
         max_steps: int = 200,
         coverage_threshold: float = 0.7,
+        coverage_agg: str = "final",
+        n_eval_episodes: int | None = None,
         video_fps: int = 30,
         max_videos: int | None = None,
         limit_val_batches: int = 4,
@@ -100,6 +102,20 @@ class SimRolloutEval(EvalVideo):
             )
         self.max_steps = int(max_steps)
         self.coverage_threshold = float(coverage_threshold)
+        # "final" = coverage at the last env step (legacy default);
+        # "best" = best-so-far coverage over the rollout (upstream-pureDF
+        # convention — score the peak, not where the policy happens to end).
+        self.coverage_agg = str(coverage_agg)
+        if self.coverage_agg not in {"final", "best"}:
+            raise ValueError(
+                f"coverage_agg must be final/best, got {self.coverage_agg!r}"
+            )
+        # None = legacy behavior (roll out only the rendered episodes,
+        # i.e. min(batch episodes, max_videos)). When set, exactly this many
+        # episodes are rolled out for the coverage metric (capped by the
+        # batch's episode count in replay mode); rendering stays capped by
+        # max_videos.
+        self.n_eval_episodes = int(n_eval_episodes) if n_eval_episodes is not None else None
         self.video_fps = int(video_fps)
         self.limit_val_batches = int(limit_val_batches)
         self._env = None
@@ -200,6 +216,7 @@ class SimRolloutEval(EvalVideo):
         env_init_dict: dict | None,
         emb_id: int,
         ep_idx: int,
+        render: bool = True,
     ) -> Tuple[float, List[np.ndarray]]:
         env = self._get_env()
         self._init_env(env, env_init_dict, ep_seed_offset=ep_idx)
@@ -215,6 +232,7 @@ class SimRolloutEval(EvalVideo):
         frames: List[np.ndarray] = []
         action_history: List[np.ndarray] = []
         coverage = 0.0
+        best_coverage = 0.0
         for t in range(self.max_steps):
             obs_env = env._get_obs()
             obs_zarr = self._env_to_zarr_dict(obs_env, device)
@@ -223,12 +241,15 @@ class SimRolloutEval(EvalVideo):
             action_history.append(action_xy.copy())
             _, _, terminated, _, info = env.step(action_xy)
             coverage = float(info.get("coverage", 0.0))
-            frame = env.render()
+            best_coverage = max(best_coverage, coverage)
+            frame = env.render() if render else None
             if frame is not None:
                 frame = self._draw_action_overlay(frame, action_xy, action_history)
                 frames.append(np.ascontiguousarray(frame))
             if terminated:
                 break
+        if self.coverage_agg == "best":
+            return best_coverage, frames
         return coverage, frames
 
     def compute_metrics_and_viz(
@@ -239,25 +260,39 @@ class SimRolloutEval(EvalVideo):
         images_dict: Dict[int, np.ndarray] = {}
 
         for emb_id, _batch in batch.items():
-            B = self._infer_n_episodes(_batch)
+            if self.n_eval_episodes is not None:
+                # Explicit episode budget: roll out exactly this many (capped
+                # by batch episodes in replay mode — replay needs an init per
+                # episode); rendering stays capped by max_videos below.
+                B = self.n_eval_episodes
+                if self.init_mode == "replay":
+                    B = min(B, self._infer_n_episodes(_batch))
+                B_render = min(B, self.max_videos) if self.max_videos is not None else B
+                n_rollouts = B
+            else:
+                # Legacy default: only the rendered episodes are rolled out.
+                B = self._infer_n_episodes(_batch)
+                B_render = min(B, self.max_videos) if self.max_videos is not None else B
+                n_rollouts = B_render
             if B == 0:
                 continue
-            B_render = min(B, self.max_videos) if self.max_videos is not None else B
 
             ep_coverages: List[float] = []
             ep_successes: List[float] = []
             ep_frames: List[np.ndarray] = []
 
-            for b in range(B_render):
+            for b in range(n_rollouts):
                 env_init = (
                     self.batch_to_env_init(_batch, b, emb_id)
                     if self.init_mode == "replay"
                     else None
                 )
-                cov, frames = self._rollout_one(env_init, emb_id, b)
+                cov, frames = self._rollout_one(
+                    env_init, emb_id, b, render=(b < B_render)
+                )
                 ep_coverages.append(cov)
                 ep_successes.append(float(cov >= self.coverage_threshold))
-                if frames:
+                if frames and b < B_render:
                     ep_frames.extend(frames)
                     if b < B_render - 1:
                         H, W, _ = frames[0].shape

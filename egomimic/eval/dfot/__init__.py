@@ -14,6 +14,8 @@ curated here in DESIGN.md step 8 (``git mv``, no behaviour change):
     2D-policy action prediction (whole-horizon vs receding-horizon). COMBINE B
     merged the two into ``eval_dfot_policy`` (they share ``_rollout``).
   * :class:`DFoTBundleAnchoredEval`     — anchored clean-history bundle rollout.
+  * :class:`DFoTPixelPolicyOverlayEval` — teacher-forced GT-grounded action
+    overlay for the pixel obs+action policy (D06 dense-signal yardstick).
 """
 
 from egomimic.eval.dfot.eval_dfot_self_rollout import DFoTSelfRolloutEval
@@ -27,6 +29,7 @@ from egomimic.eval.dfot.eval_dfot_policy import (
     DFoTPolicyRecedingHorizonEval,
 )
 from egomimic.eval.dfot.eval_dfot_bundle_anchored import DFoTBundleAnchoredEval
+from egomimic.eval.dfot.eval_dfot_pixel_overlay import DFoTPixelPolicyOverlayEval
 
 __all__ = [
     "DFoTSelfRolloutEval",
@@ -36,4 +39,5 @@ __all__ = [
     "DFoTPolicyActionEval",
     "DFoTPolicyRecedingHorizonEval",
     "DFoTBundleAnchoredEval",
+    "DFoTPixelPolicyOverlayEval",
 ]
