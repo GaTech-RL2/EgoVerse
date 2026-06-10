@@ -1206,13 +1206,19 @@ class PackedAlgoBase(Algo):
         policy = self.outer_stage
         is_gmm = getattr(policy, "action_head_type", None) == "gmm"
         if t == 0:
-            device = next(self.outer_stage.parameters()).device
+            _p0 = next(self.outer_stage.parameters())
+            device = _p0.device
             default_T = int(getattr(policy, "action_horizon", 1024))
             T_max_use = int(T_max) if T_max is not None else default_T
             import torch
 
+            # Allocate the AR inference cache in the model's ACTUAL parameter
+            # dtype rather than a hardcoded bf16. Hardcoding bf16 crashed fp32
+            # runs (precision=32): the cached last_hidden_state (bf16) hit the
+            # fp32 routing q_proj weight -> "mat1 and mat2 same dtype" error.
+            _infer_dtype = _p0.dtype
             self._sim_state = policy.init_step_state(
-                batch_size=1, T_max=T_max_use, device=device, dtype=torch.bfloat16
+                batch_size=1, T_max=T_max_use, device=device, dtype=_infer_dtype
             )
             # Open-loop action queue (mirrors WindowedBCPolicy.step): on an
             # obs-step the model emits ``chunk_len`` actions that REPLACE the

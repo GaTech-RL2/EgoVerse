@@ -59,6 +59,15 @@ PUSHER_RADIUS = 15.0
 STICK_HALF_LEN = 30.0
 STICK_HALF_THICK = 5.0
 
+# Per-variant circle-pusher radii (world units). The default "circle" keeps the
+# canonical PUSHER_RADIUS so all existing behaviour is byte-identical. The
+# "circle_small" radius (5.0) was determined empirically from the
+# new_circle_small__3 dataset. Ported from EgoVerse2.
+PUSHER_RADII = {
+    "circle": PUSHER_RADIUS,
+    "circle_small": 5.0,
+}
+
 
 def _rect_verts(cx: float, cy: float, w: float, h: float) -> list[tuple[float, float]]:
     hw, hh = w / 2.0, h / 2.0
@@ -96,16 +105,22 @@ def make_object(
 
 
 def make_pusher(
-    shape: Literal["circle", "stick"],
+    shape: Literal["circle", "circle_small", "stick"],
     space: pymunk.Space,
     position: tuple[float, float],
+    radius: float = PUSHER_RADIUS,
 ) -> tuple[pymunk.Body, list[pymunk.Shape]]:
-    """Create a KINEMATIC pusher whose position/velocity is driven by env.step()."""
+    """Create a KINEMATIC pusher whose position/velocity is driven by env.step().
+
+    ``radius`` controls the circle-pusher disk size (default PUSHER_RADIUS=15.0,
+    so the default ``shape='circle'`` path is byte-identical to before). The
+    "circle_small" shape is a circle with the smaller PUSHER_RADII radius.
+    """
     body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     body.position = position
 
-    if shape == "circle":
-        s = pymunk.Circle(body, PUSHER_RADIUS)
+    if shape in ("circle", "circle_small"):
+        s = pymunk.Circle(body, radius)
         s.friction = OBJECT_FRICTION
         space.add(body, s)
         return body, [s]
@@ -124,7 +139,9 @@ def make_pusher(
         space.add(body, rect, end_a, end_b)
         return body, [rect, end_a, end_b]
 
-    raise ValueError(f"unknown pusher shape '{shape}', valid: ['circle', 'stick']")
+    raise ValueError(
+        f"unknown pusher shape '{shape}', valid: ['circle', 'circle_small', 'stick']"
+    )
 
 
 def aabb(shape: str) -> tuple[float, float, float, float]:

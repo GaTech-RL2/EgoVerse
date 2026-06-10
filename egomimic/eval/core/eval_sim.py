@@ -70,6 +70,7 @@ class SimRolloutEval(EvalVideo):
         self,
         env_kwargs: dict | None = None,
         embodiment_name: str = "pushshapes_sim",
+        eval_embodiment_id: int | None = None,
         init_mode: str = "replay",
         init_seeds: list[int] | None = None,
         max_steps: int = 200,
@@ -90,6 +91,13 @@ class SimRolloutEval(EvalVideo):
         )
         self.env_kwargs = dict(env_kwargs or {})
         self.embodiment_name = str(embodiment_name)
+        # When set, process_batch rolls out ONLY this integer embodiment index
+        # (position in the model's `domains` list). Used for cotrain where the
+        # val batch carries multiple embodiments but the env (pusher_shape) +
+        # zarr converter are configured for a single target embodiment.
+        self.eval_embodiment_id = (
+            int(eval_embodiment_id) if eval_embodiment_id is not None else None
+        )
         if self.embodiment_name not in _ENV_TO_ZARR:
             raise ValueError(
                 f"No env-to-zarr converter for {self.embodiment_name!r}. "
@@ -282,6 +290,11 @@ class SimRolloutEval(EvalVideo):
         images_dict: Dict[int, np.ndarray] = {}
 
         for emb_id, _batch in batch.items():
+            if (
+                self.eval_embodiment_id is not None
+                and int(emb_id) != self.eval_embodiment_id
+            ):
+                continue
             if self.n_eval_episodes is not None:
                 # Explicit episode budget: roll out exactly this many (capped
                 # by batch episodes in replay mode — replay needs an init per

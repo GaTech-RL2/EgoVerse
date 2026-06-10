@@ -161,8 +161,19 @@ class DFoTPixelPolicyOverlayEval(DFoTVideoEvalMixin, EvalVideo):
         T = x.shape[1]
         pad = x.dim() - 2
         kBT = cur.clamp_min(0).long().unsqueeze(0)
-        x0 = diff.predict_start_from_v(x, kBT, v)
-        eps = diff.predict_noise_from_v(x, kBT, v)
+        # Objective dispatch (mirrors DiscreteDiffusion.model_predictions).
+        # Hardcoded pred_v here + a pred_x0-trained model negates x0 at
+        # zero-terminal SNR (mirror-through-center bug, found 2026-06-10).
+        obj = getattr(diff, "objective", "pred_v")
+        if obj == "pred_x0":
+            x0 = v
+            eps = diff.predict_noise_from_start(x, kBT, v)
+        elif obj == "pred_noise":
+            eps = v
+            x0 = diff.predict_start_from_noise(x, kBT, v)
+        else:
+            x0 = diff.predict_start_from_v(x, kBT, v)
+            eps = diff.predict_noise_from_v(x, kBT, v)
         an = diff.alphas_cumprod[nxt.clamp_min(0).long()]
         an = torch.where(nxt < 0, torch.ones_like(an), an)
         an = an.reshape(1, T, *([1] * pad))

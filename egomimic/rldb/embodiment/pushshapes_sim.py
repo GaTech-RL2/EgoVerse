@@ -40,6 +40,9 @@ def _env_to_zarr_pushshapes(obs_env: dict, device: torch.device) -> dict:
 
 _ENV_TO_ZARR = {
     "pushshapes_sim": _env_to_zarr_pushshapes,
+    # Small-circle cotrain embodiment: identical obs layout (5-dim state +
+    # front_img_1), only the pusher disk radius differs at the env level.
+    "pushshapes_sim_small_circle": _env_to_zarr_pushshapes,
 }
 
 
