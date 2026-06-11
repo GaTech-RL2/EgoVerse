@@ -4,6 +4,14 @@ defaults:
 
 _target_: egomimic.eval.eval_pi.PIEvalVideo
 
+# When true, key the buffer by (embodiment, task) and emit one mp4 per task
+# in on_validation_end. Opt-in for eval-only runs that span multiple tasks.
+one_video_per_task: false
+
+# Cap each (embodiment, task) video at this many frames. Only takes effect
+# when one_video_per_task=true. Set null to disable.
+max_frames_per_task: 1000
+
 # Per-embodiment revert transform. Applied once during validation to project
 # the model's wrist-frame action chunks back to cam (head) frame, then reused
 # for both the cam-frame MSE and the viz video. Each value resolves to a

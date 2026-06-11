@@ -1,0 +1,45 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Eval-only variant of mecka_pi: train side is unchanged (single task), but the
+# valid filter is broadened to all mecka tasks so eval mode can score across
+# them. Use together with evaluator.one_video_per_task=true.
+
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['episode_hash'] in {'69b9a059c69a19757c9ec3e7', '69b979626e470e7c633d794d', '693a33831eb710720c250034', '696da1be2ddbc19f3c9b0899', '692eaa836974927fef249cfc'}"
+        # cleaning_shoes, dishwashing, potting_plants, folding_clothes, cup_on_saucer
+    mode: train
+
+valid_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['episode_hash'] in {'69b9a059c69a19757c9ec3e7', '69b979626e470e7c633d794d', '693a33831eb710720c250034', '696da1be2ddbc19f3c9b0899', '692eaa836974927fef249cfc'}"
+        # cleaning_shoes, dishwashing, potting_plants, folding_clothes, cup_on_saucer
+    mode: valid
+
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10

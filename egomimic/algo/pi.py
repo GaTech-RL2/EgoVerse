@@ -352,6 +352,10 @@ class PI(Algo):
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
                 [embodiment_id], device=self.device, dtype=torch.int64
             )
+            # Forward per-sample task tags (list[str], length B) so EvalVideo's
+            # one_video_per_task bucketing can read batch[emb]["task"].
+            if "task" in _batch:
+                processed_batch[embodiment_id]["task"] = _batch["task"]
 
             for key, value in processed_batch[embodiment_id].items():
                 if isinstance(value, torch.Tensor):

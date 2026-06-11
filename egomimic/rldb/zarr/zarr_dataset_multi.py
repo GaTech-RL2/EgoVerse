@@ -1724,6 +1724,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             data["embodiment"] = get_embodiment_id(self.embodiment)
             ep_name = Path(self.episode_path).name
             data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["task"] = self.metadata.get("task_name", "unknown")
             _ = origin  # preserved for symmetry with prior API
             return data
 
