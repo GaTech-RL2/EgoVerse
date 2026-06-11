@@ -22,7 +22,7 @@ train_datasets:
       filter_lambdas:
         - "lambda row: row['lab'] == 'mecka' and row['episode_hash'] in {'69b9a059c69a19757c9ec3e7', '69b979626e470e7c633d794d', '693a33831eb710720c250034', '696da1be2ddbc19f3c9b0899', '692eaa836974927fef249cfc'}"
         # cleaning_shoes, dishwashing, potting_plants, folding_clothes, cup_on_saucer
-    mode: train
+    mode: total
 
 valid_datasets:
   mecka_bimanual:
@@ -33,7 +33,7 @@ valid_datasets:
       filter_lambdas:
         - "lambda row: row['lab'] == 'mecka' and row['episode_hash'] in {'69b9a059c69a19757c9ec3e7', '69b979626e470e7c633d794d', '693a33831eb710720c250034', '696da1be2ddbc19f3c9b0899', '692eaa836974927fef249cfc'}"
         # cleaning_shoes, dishwashing, potting_plants, folding_clothes, cup_on_saucer
-    mode: valid
+    mode: total
 
 train_dataloader_params:
   mecka_bimanual:
@@ -43,3 +43,20 @@ valid_dataloader_params:
   mecka_bimanual:
     batch_size: 32
     num_workers: 10
+
+# Optional train-set visualization loader. When set, ModelWrapper drives a
+# second pass through these datasets each validation epoch and routes them to
+# the TrainVizEvalVideo wrapper (videos under `videos_train_viz/`, metrics
+# prefixed with `train_viz/`). Uncomment together with
+# `+evaluator@train_viz_evaluator=train_viz_pi`.
+#
+# train_viz_datasets:
+#   mecka_bimanual:
+#     _target_: ${data.train_datasets.mecka_bimanual._target_}
+#     resolver: ${data.train_datasets.mecka_bimanual.resolver}
+#     filters: ${data.train_datasets.mecka_bimanual.filters}
+#     mode: train
+# train_viz_dataloader_params:
+#   mecka_bimanual:
+#     batch_size: 32
+#     num_workers: 10

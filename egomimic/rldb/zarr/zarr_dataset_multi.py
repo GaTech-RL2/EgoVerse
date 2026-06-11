@@ -199,7 +199,12 @@ class EpisodeResolver:
         self.key_map = key_map
         self.transform_list = transform_list
 
-    def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
+    def _load_zarr_datasets(
+        self,
+        search_path: Path,
+        valid_folder_names: set[str],
+        hash_to_task: dict[str, str] | None = None,
+    ):
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
         are present in the valid_folder_names set.
@@ -207,6 +212,12 @@ class EpisodeResolver:
         Args:
             search_path (Path): The root directory to search for Zarr datasets.
             valid_folder_names (set[str]): A set of valid folder names (episode hashes without ".zarr") to filter datasets.
+            hash_to_task (dict[str, str] | None): Optional override mapping
+                ``episode_hash`` → ``task`` (the SQL column). When provided,
+                each ``ZarrDataset`` receives the authoritative task name from
+                the episode registry, which can disagree with the in-zarr
+                ``task_name`` attribute (zarr writer defaults to ``"debug"``
+                when the producer doesn't set it).
         Returns:
             dict[str, ZarrDataset]: a dictionary mapping string keys to constructed zarr datasets from valid filters.
         """
@@ -230,6 +241,7 @@ class EpisodeResolver:
                     p,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
+                    task=(hash_to_task or {}).get(name),
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -286,7 +298,7 @@ class S3EpisodeResolver(EpisodeResolver):
 
         logger.info(f"Filters: {filters}")
 
-        filtered_paths = self.sync_from_filters(
+        filtered_paths, hash_to_task = self.sync_from_filters(
             bucket_name=self.bucket_name,
             filters=filters,
             local_dir=self.folder_path,
@@ -303,6 +315,7 @@ class S3EpisodeResolver(EpisodeResolver):
         datasets = self._load_zarr_datasets(
             search_path=self.folder_path,
             valid_folder_names=valid_hashes,
+            hash_to_task=hash_to_task,
         )
 
         return datasets
@@ -335,7 +348,10 @@ class S3EpisodeResolver(EpisodeResolver):
             lambda row: filters.matches(_normalize_filter_row(row.to_dict())),
             axis=1,
         )
-        output = df.loc[mask, ["zarr_processed_path", "episode_hash"]]
+        cols = ["zarr_processed_path", "episode_hash"]
+        if "task" in df.columns:
+            cols.append("task")
+        output = df.loc[mask, cols]
         n_matched_sql = len(output)
 
         output = output[
@@ -354,9 +370,21 @@ class S3EpisodeResolver(EpisodeResolver):
                 logger.info("Debug mode: limiting to %d datasets.", k)
             output = output.iloc[:k]
 
-        paths = list(output.itertuples(index=False, name=None))
+        hash_to_task: dict[str, str] = {}
+        if "task" in output.columns:
+            hash_to_task = {
+                str(h): str(t)
+                for h, t in zip(output["episode_hash"], output["task"])
+                if t is not None and str(t) != "nan"
+            }
+
+        paths = list(
+            output[["zarr_processed_path", "episode_hash"]].itertuples(
+                index=False, name=None
+            )
+        )
         logger.info(f"Paths: {paths}")
-        return paths
+        return paths, hash_to_task
 
     @classmethod
     def _sync_s3_to_local(
@@ -464,15 +492,15 @@ class S3EpisodeResolver(EpisodeResolver):
             numworkers: Number of parallel workers for s5cmd.
 
         Returns:
-            List[(processed_path, episode_hash)]
+            tuple[list[(processed_path, episode_hash)], dict[hash, task]]
         """
         filters = _ensure_dataset_filter(filters)
 
         # 1) Resolve episodes from DB
-        filtered_paths = cls._get_filtered_paths(filters, debug=debug)
+        filtered_paths, hash_to_task = cls._get_filtered_paths(filters, debug=debug)
         if not filtered_paths:
             logger.warning("No episodes matched filters.")
-            return []
+            return [], {}
 
         # 2) Logging
         logger.info(
@@ -487,7 +515,7 @@ class S3EpisodeResolver(EpisodeResolver):
             numworkers=numworkers,
         )
 
-        return filtered_paths
+        return filtered_paths, hash_to_task
 
 
 # ---------------------------------------------------------------------------
@@ -1520,18 +1548,23 @@ class ZarrDataset(torch.utils.data.Dataset):
         Episode_path: Path,
         key_map: dict,
         transform_list: list | None = None,
+        task: str | None = None,
     ):
         """
         Args:
             episode_path: just a path to the designated zarr episode
             key_map: dict mapping from dataset keys to zarr keys and horizon info, e.g. {"obs/image/front": {"zarr_key": "observations.images.front", "horizon": 4}, ...}
             transform_list: list of Transform objects to apply to the data after loading, e.g. for action chunk transformations. Should be in order of application.
+            task: optional authoritative task name (typically the SQL ``task``
+                column). When set, it overrides the in-zarr ``task_name`` attr
+                — older episodes default that attr to ``"debug"``.
         """
         self.episode_path = Episode_path
         self.metadata = None
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
+        self.task = task
         self.init_episode()
 
         self.key_map = key_map
@@ -1724,7 +1757,7 @@ class ZarrDataset(torch.utils.data.Dataset):
             data["embodiment"] = get_embodiment_id(self.embodiment)
             ep_name = Path(self.episode_path).name
             data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
-            data["task"] = self.metadata.get("task_name", "unknown")
+            data["task"] = self.task or self.metadata.get("task_name", "unknown")
             _ = origin  # preserved for symmetry with prior API
             return data
 

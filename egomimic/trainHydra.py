@@ -95,12 +95,26 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.data.valid_datasets[dataset_name]
         )
 
+    train_viz_datasets = {}
+    if cfg.data.get("train_viz_datasets") is not None:
+        for dataset_name in cfg.data.train_viz_datasets:
+            cfg_entry = cfg.data.train_viz_datasets[dataset_name]
+            if cfg_entry is None:
+                train_viz_datasets[dataset_name] = None
+                continue
+            train_viz_datasets[dataset_name] = hydra.utils.instantiate(cfg_entry)
+
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     assert (
         "MultiDataModuleWrapper" in cfg.data._target_
     ), "cfg.data._target_ must be 'MultiDataModuleWrapper'"
+    datamodule_kwargs = dict(
+        train_datasets=train_datasets, valid_datasets=valid_datasets
+    )
+    if train_viz_datasets:
+        datamodule_kwargs["train_viz_datasets"] = train_viz_datasets
     datamodule: LightningDataModule = hydra.utils.instantiate(
-        cfg.data, train_datasets=train_datasets, valid_datasets=valid_datasets
+        cfg.data, **datamodule_kwargs
     )
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from
@@ -147,6 +161,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for ds in datamodule.train_datasets.values():
         ds.set_norm_stats_from(norm_stats)
     for ds in datamodule.valid_datasets.values():
+        ds.set_norm_stats_from(norm_stats)
+    for ds in getattr(datamodule, "train_viz_datasets", {}).values():
         ds.set_norm_stats_from(norm_stats)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
@@ -230,6 +246,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.trainer = trainer
             eval_obj.model = model.model
             model.evaluator = eval_obj
+        if cfg.get("train_viz_evaluator") is not None:
+            train_viz_eval_obj: Eval = hydra.utils.instantiate(cfg.train_viz_evaluator)
+            train_viz_eval_obj.trainer = trainer
+            train_viz_eval_obj.model = model.model
+            model.train_viz_evaluator = train_viz_eval_obj
         log.info("Starting training!")
         trainer.fit(
             model=model,
@@ -241,6 +262,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         eval_obj.trainer = trainer
         eval_obj.model = model.model
         model.evaluator = eval_obj
+        if cfg.get("train_viz_evaluator") is not None:
+            train_viz_eval_obj: Eval = hydra.utils.instantiate(cfg.train_viz_evaluator)
+            train_viz_eval_obj.trainer = trainer
+            train_viz_eval_obj.model = model.model
+            model.train_viz_evaluator = train_viz_eval_obj
 
         if hasattr(eval_obj, "run"):
             eval_obj.run(trainer, model, datamodule, cfg)

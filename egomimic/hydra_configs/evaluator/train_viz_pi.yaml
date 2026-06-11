@@ -1,0 +1,19 @@
+# Wraps the canonical Pi evaluator (eval_pi) so it can run a second time
+# against the `train_viz` dataloader. The wrapped `base` evaluator owns
+# compute_metrics_and_viz; this wrapper writes videos to `videos_train_viz/`
+# and prefixes metric keys with `train_viz/`.
+#
+# Enable via `+evaluator@train_viz_evaluator=train_viz_pi` together with a
+# data config that defines `train_viz_datasets` and
+# `train_viz_dataloader_params`.
+
+defaults:
+  - /evaluator@base: eval_pi
+  - _self_
+
+_target_: egomimic.eval.eval_train_viz.TrainVizEvalVideo
+
+# Cap on validation batches consumed from the train_viz loader per epoch.
+# Train data is iterated as a "spot check"; keep this small relative to the
+# canonical valid loader's limit_val_batches.
+limit_val_batches: 50

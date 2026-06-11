@@ -15,6 +15,11 @@ description: test
 ckpt_path: null
 mode: train
 
+# Optional second evaluator that runs against the train_viz dataloader.
+# Set via override, e.g. `+train_viz_evaluator=train_viz_pi`, together with a
+# data config that defines `train_viz_datasets`.
+train_viz_evaluator: null
+
 hydra:
   run:
     # Dir should be experiment_name/description_{timestamp}
