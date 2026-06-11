@@ -9,6 +9,7 @@ from __future__ import annotations
 import random
 
 import pytest
+import torch
 
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
@@ -103,3 +104,53 @@ def test_retry_exhausts_when_everything_is_bad():
 
     with pytest.raises(RuntimeError, match="Entire MultiDataset bad"):
         mds[0]
+
+
+def _cartesian_stats(low: float = -1.0, high: float = 1.0) -> dict:
+    q_low = torch.full((1, 12), low)
+    q_high = torch.full((1, 12), high)
+    return {
+        "quantile_0_01": q_low,
+        "quantile_99_99": q_high,
+        "quantile_1": q_low,
+        "quantile_99": q_high,
+    }
+
+
+def _make_cartesian_mds(reject_outliers: bool) -> MultiDataset:
+    mds = MultiDataset(
+        datasets={"ep": _DummyLeaf("ep", 1)},
+        mode="total",
+        reject_outliers=reject_outliers,
+    )
+    mds.key_types = {9: {"actions_cartesian": "action_keys"}}
+    mds.zarr_keys = {9: {"actions_cartesian": "actions_cartesian"}}
+    mds.norm_stats = {9: {"actions_cartesian": _cartesian_stats()}}
+    return mds
+
+
+def test_cartesian_rotation_columns_are_not_quantile_checked():
+    mds = _make_cartesian_mds(reject_outliers=True)
+    actions = torch.zeros(1, 12)
+    actions[..., list(MultiDataset.CARTESIAN_ACTION_YPR_INDICES)] = 10.0
+    data = {"embodiment": 9, "actions_cartesian": actions}
+
+    assert mds._check_bounds(data, _DummyLeaf("ep", 1), 0, "ep") is None
+
+
+def test_reject_outliers_false_accepts_finite_xyz_quantile_violation():
+    mds = _make_cartesian_mds(reject_outliers=False)
+    actions = torch.zeros(1, 12)
+    actions[..., 0] = 2.0
+    data = {"embodiment": 9, "actions_cartesian": actions}
+
+    assert mds._check_bounds(data, _DummyLeaf("ep", 1), 0, "ep") is None
+
+
+def test_reject_outliers_true_rejects_xyz_quantile_violation():
+    mds = _make_cartesian_mds(reject_outliers=True)
+    actions = torch.zeros(1, 12)
+    actions[..., 0] = 2.0
+    data = {"embodiment": 9, "actions_cartesian": actions}
+
+    assert "Bounds violation" in mds._check_bounds(data, _DummyLeaf("ep", 1), 0, "ep")

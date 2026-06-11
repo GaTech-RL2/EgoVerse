@@ -119,9 +119,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from
     # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
+    reject_outliers = OmegaConf.select(cfg, "reject_outliers", default=True)
     norm_stats = MultiDataset(
         state={},
         norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
+        reject_outliers=reject_outliers,
     )
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
