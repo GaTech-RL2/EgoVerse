@@ -134,6 +134,11 @@ def _viz_batch(
     """Visualize one batch and return a list of uint8 HWC numpy frames."""
     from egomimic.utils.type_utils import _to_numpy
 
+    if image_key not in batch:
+        matches = [k for k in batch if k.rsplit(".", 1)[-1] == image_key]
+        if matches:
+            image_key = matches[0]
+
     if action_key in batch:
         vis_batch = embodiment_cls.viz_transformed_batch(
             batch,
