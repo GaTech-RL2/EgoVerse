@@ -249,13 +249,39 @@ EXTRINSICS = {
         "right": np.eye(4),
     },
 }
+# For accurate intrinsics use the per-episode metdata. 
+MICROAGI_INTRINSICS = np.array(
+    [
+        [347.5209147135417, 0.0, 323.0985514322917, 0],
+        [0.0, 347.50667317708336, 177.64398193359373, 0],
+        [0.0, 0.0, 1.0, 0],
+    ]
+)
 
 INTRINSICS = {
     "base": ARIA_INTRINSICS,
     "base_half": ARIA_INTRINSICS_HALF,
     "mecka": MECKA_INTRINSICS,
     "scale": SCALE_INTRINSICS,
+    "microagi": MICROAGI_INTRINSICS,
 }
+
+
+def intrinsics_from_metadata(metadata) -> np.ndarray | None:
+    """Build a 3x4 intrinsics matrix from episode zarr attrs, if present.
+
+    attrs["intrinsics"] is either {"K": row-major 3x3, "width", ...} or a
+    bare 3x3 nested list, at the stored image resolution. Returns None when
+    the episode carries no calibration, so callers can fall back to the
+    per-embodiment INTRINSICS entry.
+    """
+    info = (metadata or {}).get("intrinsics")
+    if isinstance(info, dict):
+        info = info.get("K")
+    if info is None:
+        return None
+    K = np.asarray(info, dtype=np.float64).reshape(3, 3)
+    return np.concatenate([K, np.zeros((3, 1))], axis=1)
 
 ARIA_T_RGB_CPF = np.array(
     [

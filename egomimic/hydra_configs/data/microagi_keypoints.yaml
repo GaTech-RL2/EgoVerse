@@ -1,0 +1,32 @@
+# MicroAGI keypoints (wrist-frame) data config; mirrors aria_keypoints.yaml.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  microagi_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Microagi.get_keymap
+        keymap_mode: keypoints
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Microagi.get_transform_list
+        mode: keypoints_wristframe_ypr
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'microagi_bimanual'"
+    mode: total
+
+valid_datasets:
+  microagi_bimanual: ${train_datasets.microagi_bimanual}
+
+train_dataloader_params:
+  microagi_bimanual:
+    batch_size: 32
+    num_workers: 6
+valid_dataloader_params:
+  microagi_bimanual:
+    batch_size: 32
+    num_workers: 6
