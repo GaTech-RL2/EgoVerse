@@ -6,7 +6,8 @@ becomes its own `episode_{N:06d}.zarr` under the output directory.
 
 Episode commits are atomic: data is buffered in memory and only written
 to disk in `commit_episode`. Crash mid-episode leaves the on-disk store
-untouched.
+untouched. Because commits are bulk writes, the resulting episode layout
+matches the repo's compact one-chunk-per-array format.
 """
 
 from __future__ import annotations
@@ -27,7 +28,11 @@ ACTION_KEY = "actions"
 REWARD_KEY = "reward"
 GOAL_KEY = "goal_pose"
 
-_EPISODE_RE = re.compile(r"^episode_[A-Za-z0-9]+_[A-Za-z0-9]+_obs\d+_(\d+)\.zarr$")
+# Non-greedy ``.+?`` for the object_shape + pusher_shape prefix so pusher names
+# containing ``_`` (e.g. ``circle_small``) still match. Anchored by ``_obs\d+_``
+# on the right so we don't over-match into the obstacle level / tag / index.
+_EPISODE_RE = re.compile(r"^episode_.+?_obs\d+_(\d+)\.zarr$")
+_TAGGED_EPISODE_RE_TMPL = r"^episode_.+?_obs\d+_{tag}_(\d+)\.zarr$"
 
 
 class ZarrDemoWriter:
@@ -42,6 +47,7 @@ class ZarrDemoWriter:
         task_name: str = "pushshapes",
         embodiment: str = "pushshapes_sim",
         chunk_timesteps: int = 100,
+        tag: str | None = None,
     ):
         self.path = Path(path)
         self.path.mkdir(parents=True, exist_ok=True)
@@ -53,6 +59,14 @@ class ZarrDemoWriter:
         self._object_shape = env_args.get("object_shape", "obj")
         self._pusher_shape = env_args.get("pusher_shape", "pusher")
         self._obstacle_level = env_args.get("obstacle_level", 0)
+        # Optional filename tag — keeps mixed-purpose datasets distinguishable
+        # and indexed independently in the same folder.
+        if tag is not None:
+            if not re.match(r"^[A-Za-z0-9]+$", tag):
+                raise ValueError(
+                    f"tag must be alphanumeric ([A-Za-z0-9]+), got {tag!r}"
+                )
+        self._tag = tag
         self.task_description = json.dumps(
             {"env_args": env_args, "version": "0.3"}, separators=(",", ":")
         )
@@ -130,9 +144,10 @@ class ZarrDemoWriter:
             self._buffer = None
             return -1
 
+        tag_part = f"_{self._tag}" if self._tag else ""
         ep_path = self.path / (
             f"episode_{self._object_shape}_{self._pusher_shape}"
-            f"_obs{self._obstacle_level}_{self._episode_idx:06d}.zarr"
+            f"_obs{self._obstacle_level}{tag_part}_{self._episode_idx:06d}.zarr"
         )
         images = np.stack(self._buffer[IMAGE_KEY], axis=0)
         numeric = {
@@ -147,15 +162,22 @@ class ZarrDemoWriter:
         if self._episode_init is not None:
             metadata_override = {"episode_init": json.dumps(self._episode_init)}
 
-        ZarrWriter.create_and_write(
+        # The arena is an orthographic 512x512 top-down render, so there is no
+        # pinhole camera to calibrate. create_and_write() requires a validated
+        # 3x4 K, so go through the constructor -- where intrinsics is optional
+        # -- keeping episodes consistent with the existing dataset, which
+        # carries no intrinsics key.
+        writer = ZarrWriter(
             episode_path=ep_path,
-            numeric_data=numeric,
-            image_data={IMAGE_KEY: images},
             embodiment=self.embodiment,
             fps=self.fps,
             task_name=self.task_name,
             task_description=self.task_description,
             chunk_timesteps=self.chunk_timesteps,
+        )
+        writer.write(
+            numeric_data=numeric,
+            image_data={IMAGE_KEY: images},
             metadata_override=metadata_override,
         )
 
@@ -182,14 +204,21 @@ class ZarrDemoWriter:
 
         Only directories matching the regex are considered — stray files or
         unrelated subdirs are ignored. Returns 0 on a fresh output dir.
+        When ``tag`` was supplied, only episodes carrying the same tag in
+        their filename are counted (so tagged + untagged sequences advance
+        independently in a mixed-purpose folder).
         """
         if not self.path.exists():
             return 0
+        if self._tag is not None:
+            pattern = re.compile(_TAGGED_EPISODE_RE_TMPL.format(tag=re.escape(self._tag)))
+        else:
+            pattern = _EPISODE_RE
         max_idx = -1
         for entry in self.path.iterdir():
             if not entry.is_dir():
                 continue
-            m = _EPISODE_RE.match(entry.name)
+            m = pattern.match(entry.name)
             if m:
                 max_idx = max(max_idx, int(m.group(1)))
         return max_idx + 1

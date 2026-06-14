@@ -109,6 +109,9 @@ Metadata in `store.attrs`: `embodiment="pushshapes_sim"`,
 `task_name="pushshapes"`, `task_description` (JSON of env args),
 `total_frames`, `fps`, `features`.
 
+New bulk-written collections use the compact one-chunk-per-array Zarr layout,
+matching the output of `scripts/rechunk_zarr_dataset.py`.
+
 Full schema rationale is in [`SCHEMA_NOTES.md`](SCHEMA_NOTES.md).
 
 ## Plugging into EgoVerse training

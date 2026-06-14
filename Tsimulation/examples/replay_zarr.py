@@ -83,30 +83,59 @@ def replay_one(episode_path: Path, tol: float) -> dict:
         op = (float(s0[2]), float(s0[3]), float(s0[4]))
         gp = (float(goal_pose[0]), float(goal_pose[1]), float(goal_pose[2]))
     env.set_state(agent_pos=ap, object_pose=op, goal_pose=gp)
-
-    drift = []
-    max_cov = 0.0
-    for i in range(len(actions)):
-        obs, _, term, _, info = env.step(actions[i])
-        max_cov = max(max_cov, info["coverage"])
-        if i + 1 < len(states):
-            live = np.concatenate([obs["agent_pos"], obs["object_pose"]])
-            drift.append(float(np.linalg.norm(states[i + 1] - live)))
-        if term:
-            break
-
+    metrics = _replay_step_loop(env, actions, states)
     env.close()
-    drift = np.asarray(drift) if drift else np.zeros(1)
     stored_max = float(reward.max())
-
     return {
         "name": episode_path.name,
         "T": len(actions),
         "stored_cov": stored_max,
-        "replay_cov": max_cov,
-        "drift_mean": float(drift.mean()),
-        "drift_max": float(drift.max()),
-        "ok": max_cov >= stored_max - tol,
+        "replay_cov": metrics["replay_cov"],
+        "drift_mean": metrics["drift_mean"],
+        "drift_max": metrics["drift_max"],
+        "ok": metrics["replay_cov"] >= stored_max - tol,
+    }
+
+
+def _replay_step_loop(
+    env,
+    actions: np.ndarray,
+    recorded_states: np.ndarray,
+    *,
+    early_stop_drift: float | None = None,
+) -> dict:
+    """Step ``actions`` through ``env`` (already reset + set_state'd) and
+    track per-step drift between the post-step env state and
+    ``recorded_states[t+1]`` (L2 norm on the 5-vec
+    ``[pusher_xy, obj_xy, obj_theta]``).
+
+    Optional ``early_stop_drift`` short-circuits the loop on the first
+    frame where drift exceeds the threshold — used by the collector's
+    pre-commit validation.
+
+    Returns ``{drift_max, drift_mean, replay_cov, early_stop_frame}``.
+    """
+    drifts: list[float] = []
+    max_cov = 0.0
+    early_stop_frame: int | None = None
+    for i in range(len(actions)):
+        obs, _, term, _, info = env.step(actions[i])
+        max_cov = max(max_cov, info["coverage"])
+        if i + 1 < len(recorded_states):
+            live = np.concatenate([obs["agent_pos"], obs["object_pose"]])
+            d = float(np.linalg.norm(recorded_states[i + 1] - live))
+            drifts.append(d)
+            if early_stop_drift is not None and d > early_stop_drift:
+                early_stop_frame = i
+                break
+        if term:
+            break
+    drift_arr = np.asarray(drifts) if drifts else np.zeros(1)
+    return {
+        "drift_max": float(drift_arr.max()),
+        "drift_mean": float(drift_arr.mean()),
+        "replay_cov": float(max_cov),
+        "early_stop_frame": early_stop_frame,
     }
 
 

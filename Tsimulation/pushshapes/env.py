@@ -34,11 +34,13 @@ from Tsimulation.pushshapes.render import (
     to_image_obs,
 )
 from Tsimulation.pushshapes.shapes import (
-    PUSHER_RADIUS,
     SHAPES,
     make_object,
     make_pusher,
+    pusher_radius,
 )
+
+_VALID_PUSHERS = ("circle", "circle_small", "stick")
 
 # Tunables not exposed via __init__ — surfaced here for visibility.
 _MIN_TARGET_DIST = 1e-3  # below this, treat pusher as on-target
@@ -74,9 +76,9 @@ class PushShapesEnv(gym.Env):
 
         if object_shape not in SHAPES:
             raise ValueError(f"object_shape {object_shape!r} not in {list(SHAPES)}")
-        if pusher_shape not in ("circle", "stick"):
+        if pusher_shape not in _VALID_PUSHERS:
             raise ValueError(
-                f"pusher_shape {pusher_shape!r} not in ('circle', 'stick')"
+                f"pusher_shape {pusher_shape!r} not in {_VALID_PUSHERS}"
             )
         if obstacle_level not in OBSTACLE_LEVELS:
             raise ValueError(
@@ -475,7 +477,7 @@ class PushShapesEnv(gym.Env):
         object_pos: tuple[float, float],
     ) -> tuple[float, float]:
         m = self.SPAWN_MARGIN
-        radius = PUSHER_RADIUS + 5.0
+        radius = pusher_radius(self.pusher_shape) + 5.0
         for _ in range(_SPAWN_MAX_TRIES):
             x = float(self._np_random.uniform(m, self.WORLD_SIZE - m))
             y = float(self._np_random.uniform(m, self.WORLD_SIZE - m))
