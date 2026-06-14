@@ -1,0 +1,116 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.AdamW",
+    "lr": 0.0001,
+    "weight_decay": 0.0001
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.hnet.HNet",
+    "ac_keys": {
+      "pushshapes_sim": "actions"
+    },
+    "action_dim": 2,
+    "action_horizon": 1024,
+    "cond_encoder": {
+      "_target_": "egomimic.models.hnet_nets.cond_encoders.CondEncoderModule",
+      "cond_proj_widths": [
+        256,
+        256
+      ],
+      "d_cond": 256,
+      "img_encoders": {
+        "front_img_1": {
+          "_target_": "egomimic.models.hnet_nets.image_encoders.SimpleConv",
+          "channels": [
+            32,
+            64,
+            128,
+            256
+          ],
+          "embed_dim": 256,
+          "in_channels": 3,
+          "kernel_size": 3,
+          "norm_groups": 8,
+          "stride": 2
+        }
+      },
+      "obs_specs": {
+        "state_agent_obj": {
+          "embed_dim": 128,
+          "input_dim": 5,
+          "widths": [
+            256
+          ]
+        }
+      },
+      "output_key": "fused_cond"
+    },
+    "d_cond": 256,
+    "d_model": 256,
+    "domains": [
+      "pushshapes_sim"
+    ],
+    "hnet": {
+      "_target_": "egomimic.models.hnet_nets.hnet.HNet",
+      "stages": [
+        {
+          "_target_": "egomimic.models.hnet_nets.stages.EncoderDecoderStage",
+          "causal": true,
+          "cond_key": "fused_cond",
+          "d_cond": 256,
+          "decoder": {
+            "arch_layout": "T4",
+            "cond": true,
+            "d_intermediate": 1024,
+            "d_model": 256,
+            "num_heads": 8
+          },
+          "encoder": {
+            "arch_layout": "T4",
+            "cond": true,
+            "d_intermediate": 1024,
+            "d_model": 256,
+            "num_heads": 8
+          },
+          "input_hidden_dim": 256,
+          "output_hidden_dim": 256
+        },
+        {
+          "_target_": "egomimic.models.hnet_nets.stages.ChunkerStage",
+          "cond_key": "fused_cond",
+          "input_hidden_dim": 256,
+          "output_hidden_dim": 384,
+          "ratio_loss_weight": 0.03,
+          "target_compression_ratio": 8.0
+        },
+        {
+          "_target_": "egomimic.models.hnet_nets.stages.ComputeStage",
+          "causal": true,
+          "cond_key": "fused_cond",
+          "d_cond": 256,
+          "input_hidden_dim": 384,
+          "main_network": {
+            "arch_layout": "T4",
+            "cond": false,
+            "d_intermediate": 1536,
+            "d_model": 384,
+            "num_heads": 8
+          },
+          "output_hidden_dim": 384
+        }
+      ]
+    },
+    "init_weights_range": null,
+    "lr_multipliers": null,
+    "use_parameter_groups": false,
+    "weight_decay": 0.0
+  },
+  "scheduler": {
+    "_partial_": true,
+    "_target_": "torch.optim.lr_scheduler.LinearLR",
+    "end_factor": 1,
+    "start_factor": 1
+  }
+}

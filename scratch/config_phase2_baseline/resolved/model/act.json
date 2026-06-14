@@ -1,0 +1,104 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.AdamW",
+    "lr": 5e-05,
+    "weight_decay": 0.0001
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.act.ACT",
+    "backbones": [
+      {
+        "_target_": "egomimic.models.act_nets.ResNet18Conv",
+        "input_coord_conv": false,
+        "pretrained": true
+      },
+      {
+        "_target_": "egomimic.models.act_nets.ResNet18Conv",
+        "input_coord_conv": false,
+        "pretrained": true
+      },
+      {
+        "_target_": "egomimic.models.act_nets.ResNet18Conv",
+        "input_coord_conv": false,
+        "pretrained": true
+      }
+    ],
+    "camera_transforms": {
+      "_target_": "egomimic.utils.egomimicUtils.CameraTransforms",
+      "extrinsics_key": "ariaJul29",
+      "intrinsics_key": "base"
+    },
+    "chunk_size": 100,
+    "eval_image_augs": {
+      "_target_": "torchvision.transforms.Compose",
+      "transforms": [
+        {
+          "_target_": "torchvision.transforms.Normalize",
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        }
+      ]
+    },
+    "kl_weight": 20,
+    "latent_dim": 32,
+    "style_encoder": {
+      "_target_": "egomimic.models.act_nets.StyleEncoder",
+      "act_len": 100,
+      "d_ff": 3200,
+      "dropout": 0.1,
+      "h": 8,
+      "hidden_dim": 512,
+      "latent_dim": 32,
+      "num_layers": 4
+    },
+    "train_image_augs": {
+      "_target_": "torchvision.transforms.Compose",
+      "transforms": [
+        {
+          "_target_": "torchvision.transforms.ColorJitter",
+          "brightness": 0.1,
+          "contrast": 0.1,
+          "hue": 0.05,
+          "saturation": 0.1
+        },
+        {
+          "_target_": "torchvision.transforms.Normalize",
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        }
+      ]
+    },
+    "transformer": {
+      "_target_": "egomimic.models.act_nets.Transformer",
+      "d": 512,
+      "d_ff": 3200,
+      "dropout": 0.1,
+      "h": 8,
+      "num_layers": 7
+    }
+  },
+  "scheduler": {
+    "_partial_": true,
+    "_target_": "torch.optim.lr_scheduler.LinearLR",
+    "end_factor": 1,
+    "start_factor": 1
+  }
+}

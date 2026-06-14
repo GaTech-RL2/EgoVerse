@@ -1,0 +1,15 @@
+{
+  "os":  "Linux-6.8.0-117-generic-x86_64-with-glibc2.39",
+  "python":  "CPython 3.11.14",
+  "startedAt":  "2026-06-10T05:43:59.773413Z",
+  "program":  "<stdin>",
+  "git":  {
+    "remote":  "git@github.com:GaTech-RL2/EgoVerse.git",
+    "commit":  "7df436fd2fa1d97a47cf1dbeed639633e1e601b5"
+  },
+  "email":  "elmoworld2005@gmail.com",
+  "root":  "/coc/flash7/paphiwetsa3/projects/EgoVerse2",
+  "host":  "voltron.cc.gatech.edu",
+  "executable":  "/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python",
+  "writerId":  "7oe3l1jka6scinwb9timgwk4aos43bg5"
+}

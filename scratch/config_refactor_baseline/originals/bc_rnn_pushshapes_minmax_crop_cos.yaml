@@ -1,0 +1,74 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.bc_rnn.BCRNN
+
+  # BC-RNN minmax+crop recipe (see bc_rnn_pushshapes_minmax_crop.yaml) but with
+  # the warmup->cosine LR schedule instead of robomimic's constant 1e-4.
+  # ONLY the scheduler differs from minmax_crop (run 3310863) -- this is the
+  # "minmax + crop + cosine" single-knob ablation.
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10           # robomimic rnn.horizon: 10-step train windows + rollout hidden re-init cadence
+  max_windows_per_batch: 256
+  actor_mlp_dims: [1024, 1024]
+
+  obs_encoder:
+    _target_: egomimic.models.bc_rnn_nets.ObsEncoder
+    embed_dim: 128
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64
+        widths: [128]
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        # robomimic CropRandomizer equivalent: random 86x86 crop of 96 @train,
+        # center crop @eval (76/84 paper ratio). Same as minmax_crop config.
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86
+
+  core_net:
+    _target_: egomimic.models.bc_rnn_nets.LSTMCore
+    input_dim: 128            # must equal obs_encoder.embed_dim
+    hidden_dim: 400           # robomimic rnn.hidden_dim
+    num_layers: 2             # robomimic rnn.num_layers
+    dropout: 0.0
+
+  gmm_head:
+    _target_: egomimic.models.bc_rnn_nets.GMMActionHead
+    d_model: 1024             # = actor_mlp_dims[-1]
+    action_dim: 2
+    num_modes: 5
+    min_std: 1.0e-4
+    std_activation: softplus
+    low_noise_eval: true
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+# MIN-MAX action normalization set in the launcher (norm_stats.norm_mode=minmax),
+# fresh full-data stats (no precomputed path) -- see train_bc_rnn_minmax_crop.sh.
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+# Warmup->cosine (the non-exact LR ablation; identical block to
+# bc_rnn_pushshapes_cos.yaml / run 3308727).
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 4800   # = 600 epochs x 8 batches/epoch (scheduler_interval=step)
+  warmup_steps: 240 # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6

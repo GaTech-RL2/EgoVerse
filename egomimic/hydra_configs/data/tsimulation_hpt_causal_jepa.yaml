@@ -1,0 +1,39 @@
+# Causal per-frame loader (== tsimulation_hpt_causal) but with the JEPA keymap:
+# get_keymap_causal_jepa adds a `future_front_img_1` key windowed [t, t+k] whose
+# last frame is o_{t+k} (the action-conditioned JEPA target). action_horizon=8
+# (act8) -> a cheap 9-frame future window. Everything else is identical to the
+# causal config; this is a NEW, opt-in data config (live runs use the plain ones).
+defaults:
+  - _tsim_perframe_base
+  - _self_
+
+train_datasets:
+  pushshapes_sim:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_inmem.InMemoryLocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_causal_jepa
+        action_horizon: 8
+
+valid_datasets:
+  pushshapes_sim:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_inmem.InMemoryLocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_causal_jepa
+        action_horizon: 8
+
+train_dataloader_params:
+  pushshapes_sim:
+    num_workers: 10
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    num_workers: 10
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4

@@ -1,0 +1,12 @@
+{
+  "check_val_every_n_epoch": 2,
+  "defaults": [
+    "ddp"
+  ],
+  "limit_train_batches": 2,
+  "limit_val_batches": 3,
+  "max_epochs": 4,
+  "min_epochs": 4,
+  "profiler": "simple",
+  "strategy": "ddp_find_unused_parameters_true"
+}

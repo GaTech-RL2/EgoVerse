@@ -1,0 +1,12 @@
+# Shared base for single-node SimRolloutEval-style evaluators on pushshapes_sim.
+# Factors out the PushShapesEnv constructor kwargs + the embodiment name that
+# every closed-loop sim evaluator repeats verbatim. Inheritors add their own
+# _target_ and per-run knobs (init_mode / max_steps / coverage_threshold / ...)
+# as CONCRETE top-level keys so script overrides (evaluator.max_steps=, etc.)
+# still compose. NOT used by eval_hnet_sim (kept standalone — 91 script refs).
+embodiment_name: pushshapes_sim
+env_kwargs:
+  object_shape: T
+  pusher_shape: circle
+  obstacle_level: 0
+  image_size: 96

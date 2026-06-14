@@ -1,0 +1,41 @@
+{
+  "aria_bimanual": {
+    "_partial_": true,
+    "_target_": "egomimic.rldb.embodiment.human.Aria.viz_gt_preds",
+    "action_key": "actions_cartesian",
+    "annotation_key": "sampled_prompt",
+    "image_key": "observations.images.front_img_1",
+    "mode": "traj"
+  },
+  "eva_bimanual": {
+    "_partial_": true,
+    "_target_": "egomimic.rldb.embodiment.eva.Eva.viz_gt_preds",
+    "action_key": "actions_cartesian",
+    "annotation_key": "sampled_prompt",
+    "image_key": "observations.images.front_img_1",
+    "mode": "traj"
+  },
+  "mecka_bimanual": {
+    "_partial_": true,
+    "_target_": "egomimic.rldb.embodiment.human.Mecka.viz_gt_preds",
+    "action_key": "actions_cartesian",
+    "annotation_key": "sampled_prompt",
+    "image_key": "observations.images.front_img_1",
+    "mode": "traj"
+  },
+  "pushshapes_sim": {
+    "_partial_": true,
+    "_target_": "egomimic.rldb.embodiment.pushshapes.viz_gt_preds",
+    "action_key": "actions",
+    "image_key": "front_img_1",
+    "mode": "traj"
+  },
+  "scale_bimanual": {
+    "_partial_": true,
+    "_target_": "egomimic.rldb.embodiment.human.Scale.viz_gt_preds",
+    "action_key": "actions_cartesian",
+    "annotation_key": "sampled_prompt",
+    "image_key": "observations.images.front_img_1",
+    "mode": "traj"
+  }
+}

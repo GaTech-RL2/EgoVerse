@@ -1,0 +1,137 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# BC-RNN-HNET-CHUNK8 — the exact H-Net TWIN of bc_rnn_pushshapes_paperexact_tx_chunk8
+# (the bcrnnTxC8 run). Pure config composition: this is a byte-for-byte clone of
+# bc_rnn_pushshapes_paperexact_hnet.yaml (same real dynamic-chunking H-Net core,
+# same obs encoder, same GMM head, same minmax norm, same repeat_unmasked windows,
+# same rnn_horizon=10, same eval crop, same warmup->cosine LR peak 1e-4) with ONLY
+# OBSERVATION STRIDING + ACTION CHUNKING added on top (exactly the two knobs the
+# tx_chunk8 config adds over tx_cos):
+#   * obs_stride: 8   -> the policy observes/encodes only every 8 env frames; the
+#       H-Net history is over the SUBSAMPLED obs (rnn_horizon=10 obs-steps = 80
+#       env frames of context).
+#   * chunk_len: 8    -> each obs-step predicts the NEXT 8 actions (its target is
+#       the 8 GT actions at frames [s+8k, s+8k+8) for obs-step k). At rollout the
+#       8 predicted actions are QUEUED and popped one per env frame.
+#   * chunk_head: linear (default) -> the wide-Linear GMM head reads out all 8
+#       chunk GMMs from each obs-step feature (the byte-identical chunk readout).
+#
+# SINGLE-KNOB vs bcrnnTxC8: identical recipe, ONLY the core differs
+# (TransformerCore -> HNetCore). SINGLE-KNOB vs bcrnnHnet (paperexact_hnet):
+# identical recipe, ONLY obs_stride/chunk_len 1/1 -> 8/8.
+#
+# CORE = the REAL dynamic-chunking H-Net (egomimic.models.bc_rnn_nets.HNetCore;
+# outer enc/dec Isotropic + ChunkerStage RoutingModule dynamic chunking + inner
+# ComputeStage, all CAUSAL). NO learned absolute position table and RoPE off
+# (rotary_emb_dim=0) -> the core is position-encoding-free; rollout step() replays
+# the SAME forward over a rolling buffer so train == rollout (~1e-6).
+robomimic_model:
+  _target_: egomimic.algo.bc_rnn.BCRNN
+
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10
+  max_windows_per_batch: 256
+  # actor_layer_dims = () -> empty actor MLP (identity). gmm_head.d_model then
+  # equals the core's per-step output width (d_model=256).
+  actor_mlp_dims: []
+  # repeat-pad window tails (obs AND action) + include pad steps in the NLL with
+  # NO mask (robomimic pad_same=True, plain-mean loss).
+  pad_mode: repeat_unmasked
+  # CORE: the real dynamic-chunking H-Net over the rnn_horizon window.
+  core: hnet
+  # OBS STRIDING + ACTION CHUNKING (the only deviation from *_hnet.yaml).
+  obs_stride: 8
+  chunk_len: 8
+  # window_anchor: uniform (default, the bcrnnTxC8 semantics — all valid (b,s)
+  # start frames, subsampled to max_windows_per_batch). The fullhist variant flips
+  # this to 'start'; here it stays uniform.
+  window_anchor: uniform
+
+  obs_encoder:
+    _target_: egomimic.models.bc_rnn_nets.ObsEncoder
+    # paper-exact mode -> embed_dim is IGNORED (becomes the concat sum 64+2=66);
+    # low-dim raw (no MLP), ReLU on image, no fusion MLP.
+    embed_dim: 66
+    paper_exact: true
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64         # ignored in paper_exact (raw 2-dim fed through)
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        # crop 86x86 (round(96*76/84)), random at TRAIN, RANDOM at EVAL too
+        # (crop_eval_mode=random), corner sampled via v0.2 off-by-one.
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86
+        crop_eval_mode: random
+        crop_sample_mode: v02
+
+  # CORE: HNetCore under the ``core_net:`` slot (the policy treats it polymorphically
+  # via the shared .input_dim/.hidden_dim/forward/init_hidden/step interface).
+  # input_dim = obs_encoder concat (64 img + 2 raw) = 66. Identical to the
+  # paperexact_hnet core block.
+  core_net:
+    _target_: egomimic.models.bc_rnn_nets.HNetCore
+    input_dim: 66                  # = obs_encoder concat (64 img + 2 raw)
+    d_model: 256                   # H-Net working dim = head input (param-matched)
+    n_heads: 8                     # 256 / 8 = 32 dim/head
+    d_intermediate: 768            # SwiGLU FFN hidden (3 * d_model)
+    outer_layers: 4                # T blocks in EACH of outer encoder + decoder
+    inner_layers: 6                # T blocks in the inner ComputeStage
+    target_compression_ratio: 2.0  # NO-OP in BC-RNN (ratio/aux loss never read)
+    ratio_loss_weight: 0.03        # INERT in BC-RNN (algo doesn't read ctx.aux)
+    max_window: ${..rnn_horizon}  # inherits the ONE window number (= rnn_horizon)
+    dropout: 0.0                   # paper-exact LSTM uses dropout 0 -> match
+    resid_dropout: 0.0
+    rotary_emb_dim: 0              # RoPE off (position-encoding-free; window short)
+    causal: true                   # MUST stay true for train==rollout parity
+
+  gmm_head:
+    _target_: egomimic.models.bc_rnn_nets.GMMActionHead
+    d_model: 256                   # = core.hidden_dim (no actor MLP)
+    action_dim: 2
+    num_modes: 5
+    min_std: 1.0e-4
+    std_activation: softplus
+    low_noise_eval: true
+    chunk_len: 8                   # MUST match robomimic_model.chunk_len above
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+# disable the MAD-based grad-spike clip (robomimic never clips).
+enable_grad_norm: false
+
+# robomimic optimizer: Adam, lr 1e-4, L2=0 (no weight decay), CONSTANT lr.
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+# Warmup->cosine (the smooth-loss variant; identical to *_hnet / *_tx_chunk8).
+# Horizon in OPTIMIZER STEPS: 1800 epochs x 50 batches = 90,000.
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 90000
+  warmup_steps: 4500  # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6
+
+# ----- DELIBERATE TASK ADAPTATIONS (kept, identical to paperexact) -----
+# * MIN-MAX action normalization (norm_stats.norm_mode=minmax, set in launcher).
+#   Fresh full-data stats (sample_frac=1.0, no precomputed path).
+# * obs keys = agent xy (slice 0:2) + front_img_1; ar rollout eval path; packed
+#   pipeline cut into 10-step (obs-step) windows; obs_stride=8 subsamples obs and
+#   chunk_len=8 makes each obs-step predict the next 8 actions (queued at rollout).

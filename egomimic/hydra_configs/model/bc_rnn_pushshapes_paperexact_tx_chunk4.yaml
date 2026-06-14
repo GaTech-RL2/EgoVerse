@@ -1,0 +1,21 @@
+# BC-RNN-TRANSFORMER-CHUNK4: bc_rnn_pushshapes_paperexact_tx_cos + OBSERVATION
+# STRIDING + ACTION CHUNKING at stride/chunk 4 (the chunk8 recipe with 8 -> 4).
+#   * obs_stride: 4 -> the policy observes/encodes only every 4 env frames; the
+#       transformer history is over the SUBSAMPLED obs (rnn_horizon=10 obs-steps
+#       = 40 env frames of context).
+#   * chunk_len: 4  -> each obs-step predicts the NEXT 4 actions (target = the
+#       4 GT actions at frames [s+4k, s+4k+4) for obs-step k). At rollout the
+#       4 predicted actions are QUEUED and popped one per env frame (env fps
+#       UNCHANGED; model invoked once every 4 env frames).
+# extends bc_rnn_pushshapes_paperexact_tx_cos
+defaults:
+  - bc_rnn_pushshapes_paperexact_tx_cos
+  - _self_
+
+robomimic_model:
+  # OBS STRIDING + ACTION CHUNKING (the only deviation from _tx_cos): 4/4.
+  obs_stride: 4
+  chunk_len: 4
+
+  gmm_head:
+    chunk_len: ${..chunk_len}   # MUST match robomimic_model.chunk_len (= 4)

@@ -1,0 +1,13 @@
+{
+  "_target_": "lightning.pytorch.trainer.Trainer",
+  "accelerator": "cpu",
+  "check_val_every_n_epoch": 100,
+  "default_root_dir": "${paths.output_dir}",
+  "deterministic": false,
+  "devices": 1,
+  "limit_train_batches": 100,
+  "limit_val_batches": 80,
+  "max_epochs": 2000,
+  "min_epochs": 2000,
+  "precision": "bf16"
+}

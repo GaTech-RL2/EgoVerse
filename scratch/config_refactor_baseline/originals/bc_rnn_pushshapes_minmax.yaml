@@ -1,0 +1,107 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.bc_rnn.BCRNN
+
+  # BC-RNN (robomimic BC_RNN_GMM EXACT-REPLICA recipe): per-frame obs -> LSTM
+  # over obs history -> GMM head decoding ONE action per step. NO past-action
+  # input. norm_stats is injected by pl_model._instantiate_model.
+  #
+  # robomimic study defaults matched (bc.json template + algo/bc.py +
+  # models/policy_nets.py + models/obs_core.py::VisualCore):
+  #   rnn.horizon=10, rnn.hidden_dim=400, rnn.num_layers=2, rnn_type=LSTM
+  #   gmm.num_modes=5, gmm.min_std=1e-4, gmm.std_activation=softplus,
+  #     gmm.low_noise_eval=true
+  #   actor_layer_dims=[1024,1024]  (our fusion/obs MLP analogue)
+  #   VisualCore: ResNet18Conv backbone -> SpatialSoftmax(num_kp=32) ->
+  #     Flatten -> Linear(feature_dimension=64)
+  #   learning_rate.initial=1e-4, epoch_schedule=[] (=> CONSTANT lr, no decay)
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10           # robomimic rnn.horizon: 10-step train windows + rollout hidden re-init cadence
+  # robomimic SequenceDataset batches a fixed number of randomly-sampled
+  # (demo, start) length-10 windows. We sample this many windows per packed
+  # batch (uniform over valid starts, no replacement) -> bounds memory (one
+  # frame can appear in up to rnn_horizon windows; enumerating all => OOM).
+  max_windows_per_batch: 256
+  # robomimic actor_layer_dims (=mlp_layer_dims): a per-step MLP inserted
+  # between the LSTM output and the GMM decoder (RNN_MIMO_MLP per_step_net).
+  # study default [1024, 1024], ReLU. gmm_head.d_model below MUST equal the
+  # last dim (1024).
+  actor_mlp_dims: [1024, 1024]
+
+  obs_encoder:
+    _target_: egomimic.models.bc_rnn_nets.ObsEncoder
+    embed_dim: 128
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64
+        widths: [128]
+    img_encoders:
+      front_img_1:
+        # robomimic VisualCore: ResNet18Conv -> SpatialSoftmax(num_kp=32) ->
+        # Linear(feature_dimension=64). pretrained=False matches ResNet18Conv
+        # default (bc.json passes no backbone_kwargs).
+        _target_: egomimic.models.hnet_nets.image_encoders.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+
+  core_net:
+    _target_: egomimic.models.bc_rnn_nets.LSTMCore
+    input_dim: 128            # must equal obs_encoder.embed_dim
+    hidden_dim: 400           # robomimic rnn.hidden_dim
+    num_layers: 2             # robomimic rnn.num_layers
+    dropout: 0.0
+
+  gmm_head:
+    _target_: egomimic.models.bc_rnn_nets.GMMActionHead
+    d_model: 1024             # = actor_mlp_dims[-1] (robomimic per-step MLP output)
+    action_dim: 2
+    num_modes: 5              # robomimic gmm.num_modes
+    min_std: 1.0e-4           # robomimic gmm.min_std: std=softplus(raw)+min_std
+    std_activation: softplus  # robomimic gmm.std_activation
+    low_noise_eval: true      # robomimic gmm.low_noise_eval: eval std=1e-4, SAMPLE
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+# ----- DELIBERATE TASK ADAPTATIONS (kept, not from robomimic) -----
+# * MIN-MAX action normalization upstream (norm_stats.norm_mode=minmax): raw
+#   0-512px cursor actions are mapped EXACTLY into [-1,+1] via
+#   x_norm = 2*(x - min)/(max - min) - 1. This is the robomimic-faithful choice:
+#   the GMM head tanh-squashes mode means to (-1,1), so action targets MUST lie
+#   within [-1,1]. The previous quantile mode (q1->-1, q99->+1) pushed ~2% of
+#   tail/edge actions OUTSIDE [-1,1] where the tanh'd means can never reach.
+#   NOTE: the norm_mode=minmax override is set in the launcher
+#   (scripts/train_bc_rnn_minmax.sh -> norm_stats.norm_mode=minmax), since
+#   norm_mode is a norm_stats/data-side setting, not a model param.
+# * obs keys = agent xy (input_slice 0:2) + front_img_1; ar rollout eval path;
+#   batch assembled from our packed pipeline but cut into 10-step windows.
+
+# robomimic optimizer: torch.optim.Adam, lr initial=1e-4, regularization.L2=0
+# (NO weight decay), learning_rate.epoch_schedule=[] => CONSTANT lr (no decay).
+# This REVERTS the warmup-cosine + AdamW(wd=1e-4) used by the non-exact config.
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+# Constant-LR schedule (robomimic exact-replica): LambdaLR with factor 1.0.
+scheduler:
+  _target_: egomimic.utils.schedulers.constant_scheduler
+  _partial_: true
+
+# ----- (alternative) warmup-cosine schedule, kept for non-exact experiments -----
+# scheduler:
+#   _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+#   _partial_: true
+#   max_steps: 4800   # = 600 epochs x 8 batches/epoch
+#   warmup_steps: 240  # 5% warmup
+#   warmup_start_factor: 0.1
+#   eta_min: 1.0e-5

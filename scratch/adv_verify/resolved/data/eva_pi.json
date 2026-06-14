@@ -1,0 +1,29 @@
+{
+  "defaults": [
+    "cotrain_pi_base",
+    "_self_"
+  ],
+  "train_datasets": {
+    "aria_bimanual": null,
+    "eva_bimanual": {
+      "filters": {
+        "_target_": "egomimic.rldb.filters.DatasetFilter",
+        "filter_lambdas": [
+          "lambda row: row.get('embodiment') == 'eva_bimanual'"
+        ]
+      },
+      "mode": "total",
+      "resolver": {
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver",
+        "folder_path": "${paths.dataset_dir}",
+        "key_map": {
+          "keymap_mode": "cartesian_pi"
+        }
+      }
+    }
+  },
+  "valid_datasets": {
+    "aria_bimanual": null,
+    "eva_bimanual": "${train_datasets.eva_bimanual}"
+  }
+}

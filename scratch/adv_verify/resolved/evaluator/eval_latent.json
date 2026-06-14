@@ -1,0 +1,14 @@
+{
+  "_target_": "egomimic.eval.eval_latent.PILatentEvalVideo",
+  "color_by": "embodiment",
+  "compute_pca": false,
+  "compute_pca_umap": true,
+  "compute_tsne_2d": true,
+  "compute_tsne_3d": false,
+  "compute_umap": true,
+  "emit_combined": true,
+  "limit_val_batches": 16,
+  "pca_for_downstream": false,
+  "pca_n_components": 50,
+  "save_plots": true
+}

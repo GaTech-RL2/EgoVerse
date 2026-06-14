@@ -1,0 +1,37 @@
+# ABSTRACT BASE (underscore-prefixed, NEVER launched) — intersection payload of
+# the WINDOWED HNetFusedClosedLoop lineage (hnet_pushshapes_fused_windowed +
+# resnet / resnet_cos15 / crossattn_resnet / crossattn_resnet_lowlr).
+#
+# HNetFusedClosedLoop = Path A/B unified windowed K-curriculum AR over the flat
+# fused backbone. obs_source=demo (A, teacher-forced obs, fast) | sim (B,
+# closed-loop, set via OBS=sim at launch).
+#
+# Holds ONLY what is byte-identical across ALL 5 windowed leaves: the targets,
+# the d_model/arch scalars, action_horizon 1024, obs_source/image_key, the K
+# curriculum + max_windows, domains/ac_keys, and the AdamW optimizer SKELETON.
+# The cond_encoder (SimpleConv vs ResNet vs Spatial), cond_mode (only the
+# crossattn leaves), lr, and scheduler (LinearLR vs warmup_cosine) vary, so they
+# live in the leaves / intermediate bases — never here (merge cannot DELETE keys).
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  # Path A/B unified windowed K-curriculum AR. obs_source=demo (A, fast) | sim (B).
+  _target_: egomimic.algo.hnet_closedloop.HNetFusedClosedLoop
+  action_dim: 2
+  action_horizon: 1024
+  d_model: 128
+  d_cond: 128
+  obs_source: demo            # A=demo (teacher-forced obs, no sim) | B=sim (closed-loop)
+  image_key: front_img_1
+  k_schedule: [[0,1],[50,2],[100,4],[150,8],[250,16],[400,32]]
+  max_windows: 128        # cap windows/batch (speed/mem vs coverage); 128 chosen
+  arch_layout: T8
+  num_heads: 4
+  d_intermediate: 512
+  domains: [pushshapes_sim]
+  ac_keys:
+    pushshapes_sim: actions
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  weight_decay: 0.0001

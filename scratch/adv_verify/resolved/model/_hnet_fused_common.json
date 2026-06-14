@@ -1,0 +1,23 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.AdamW",
+    "weight_decay": 0.0001
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.hnet.HNetFused",
+    "ac_keys": {
+      "pushshapes_sim": "actions"
+    },
+    "action_dim": 2,
+    "arch_layout": "T8",
+    "d_cond": 128,
+    "d_intermediate": 512,
+    "d_model": 128,
+    "domains": [
+      "pushshapes_sim"
+    ],
+    "num_heads": 4
+  }
+}

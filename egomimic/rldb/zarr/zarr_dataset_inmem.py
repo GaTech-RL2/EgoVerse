@@ -70,15 +70,35 @@ class InMemoryZarrDataset(ZarrDataset):
         raw float32 (normalization is applied later by ``MultiDataset``)
     """
 
-    def __init__(self, Episode_path, key_map, transform_list=None):
+    def __init__(
+        self,
+        Episode_path,
+        key_map,
+        transform_list=None,
+        pad_with_last_action: bool = False,
+    ):
         # Base init opens the zarr store, reads metadata, sets total_frames,
         # _image_keys / _json_keys, key_map, etc.
         super().__init__(Episode_path, key_map, transform_list=transform_list)
+        # If True, replace each episode's trailing all-zero (0,0) action rows
+        # with that episode's last *nonzero* action row, at LOAD time (in-RAM
+        # only; the on-disk zarr is never touched). Default False = existing
+        # behavior. NOTE: in new_circle_3 the (0,0) tails already sit *past*
+        # metadata['total_frames'] (set to the trimmed real length), so the
+        # samplable window [0, total_frames) and its repeat-last padding never
+        # read them — making this flag effectively a no-op for the loss under
+        # correct metadata. It is a defensive safety net: if an episode's
+        # total_frames ever failed to trim (== raw array length), this flag
+        # guarantees the chunk windows still see the last real action, not
+        # (0,0). Applied after _preload so it operates on the in-RAM array.
+        self.pad_with_last_action = bool(pad_with_last_action)
         # Preloaded per-key arrays:
         #   image keys   -> uint8 ndarray (T, 3, H, W)
         #   other keys   -> float32 ndarray (T, ...)
         self._mem: dict[str, np.ndarray] = {}
         self._preload()
+        if self.pad_with_last_action:
+            self._pad_action_tail_with_last_real()
         # Optional idle-tail / (0,0)-garbage filter (EGOVERSE_TRIM_IDLE=1).
         # The pushshapes demos record the cursor at (0,0) when it parks/leaves
         # the screen (mostly an idle tail at episode end). Those frames teach a
@@ -138,6 +158,34 @@ class InMemoryZarrDataset(ZarrDataset):
         self._valid_indices = [i for i in range(tail_start) if not zero[i]]
         if not self._valid_indices:             # safety: never empty
             self._valid_indices = list(range(tail_start))
+
+    def _pad_action_tail_with_last_real(self) -> None:
+        """In-RAM: replace the trailing all-zero (0,0) action rows of this
+        episode with the episode's last *nonzero* action row (vectorized).
+
+        Operates only on ``self._mem['actions']`` (decoded into RAM at
+        construction). The on-disk zarr is never written. No-op if there is no
+        ``actions`` key, no trailing zero run, or no nonzero action at all.
+        """
+        act = self._mem.get("actions")
+        if act is None:
+            return
+        a = np.asarray(act, dtype=np.float32)
+        flat = a.reshape(len(a), -1)
+        # A frame is "zero" if all its action components are ~0 (matches the
+        # (0,0) garbage definition used by _build_valid_indices, generalized to
+        # any action dim).
+        zero = np.all(np.abs(flat) < 1.0, axis=1)
+        nz = np.where(~zero)[0]
+        if len(nz) == 0:
+            return  # degenerate episode: nothing real to copy from
+        last_real = int(nz[-1])
+        # Only overwrite the *trailing* contiguous zero run (rows after the last
+        # nonzero frame). Interior scattered zeros are left untouched so this
+        # stays a pure "tail pad", not a global zero-fill.
+        if last_real + 1 < len(a):
+            a[last_real + 1 :] = a[last_real]
+            self._mem["actions"] = a
 
     def __len__(self):
         if getattr(self, "_valid_indices", None) is not None:
@@ -223,6 +271,39 @@ class InMemoryZarrDataset(ZarrDataset):
 
 
 class InMemoryLocalEpisodeResolver(LocalEpisodeResolver):
-    """LocalEpisodeResolver that loads :class:`InMemoryZarrDataset` leaves."""
+    """LocalEpisodeResolver that loads :class:`InMemoryZarrDataset` leaves.
+
+    ``pad_with_last_action`` (default False) is forwarded to every leaf: when
+    True, each episode's trailing all-zero (0,0) action rows are replaced in
+    RAM with that episode's last nonzero action at load time (the on-disk zarr
+    is untouched). See ``InMemoryZarrDataset`` for the no-op-under-correct-
+    metadata caveat. Settable from the data config, e.g.::
+
+        resolver:
+          _target_: ...InMemoryLocalEpisodeResolver
+          folder_path: /coc/.../new_circle_3
+          pad_with_last_action: true
+    """
 
     _dataset_class = InMemoryZarrDataset
+
+    def __init__(
+        self,
+        folder_path,
+        key_map=None,
+        transform_list=None,
+        norm_stats=None,
+        debug=None,
+        pad_with_last_action: bool = False,
+    ):
+        super().__init__(
+            folder_path,
+            key_map=key_map,
+            transform_list=transform_list,
+            norm_stats=norm_stats,
+            debug=debug,
+        )
+        self.pad_with_last_action = bool(pad_with_last_action)
+
+    def _extra_dataset_kwargs(self) -> dict:
+        return {"pad_with_last_action": self.pad_with_last_action}

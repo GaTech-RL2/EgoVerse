@@ -1,0 +1,15 @@
+# Windowed K-curriculum AR with the ResNet18 SPATIAL cond_encoder.
+# AdamW 1e-4 + flat LinearLR. All cond payload lives in the intermediate base.
+# extends _hnet_fused_windowed_resnet
+defaults:
+  - _hnet_fused_windowed_resnet
+  - _self_
+
+optimizer:
+  lr: 1e-4
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1

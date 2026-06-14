@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --job-name=smoke_gmm
+#SBATCH --partition=overcap
+#SBATCH --account=overcap
+#SBATCH --qos=scavenger_qos
+#SBATCH --time=0:40:00
+#SBATCH --gres=gpu:a40:1
+#SBATCH --cpus-per-task=16
+#SBATCH --mem=64G
+#SBATCH --output=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/sbatch/smoke_gmm_%j.out
+#SBATCH --error=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/sbatch/smoke_gmm_%j.err
+export OBS=sim
+export CHUNK_ROLLOUT=true
+export CHUNK_SIZE=32
+export MODEL=hnet_pushshapes_fused_windowed_resnet
+export KFIX=1
+export SMOKE=1
+export ACTION_HEAD=gmm
+export GMM_MODES=5
+export EPOCHS=5
+export VALEVERY=5
+export MAXW=16
+export WANDB_MODE=offline
+export DESC=smoke_gmm
+bash /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/train_windowed_gmm.sh

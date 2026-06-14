@@ -1,0 +1,35 @@
+# BC-RNN-TRANSFORMER-CHUNK32-QUERIES: the CHUNK32 recipe (obs_stride=32/
+# chunk_len=32 on tx_cos) with ONE change -- the chunk readout is an ACT/HPT-style
+# ACTION-QUERY DECODER instead of the flat wide-linear gmm_head projection.
+#
+# SINGLE-KNOB vs bcrnnTxC32 (bc_rnn_pushshapes_paperexact_tx_chunk32): same
+# obs_stride=32/chunk_len=32 and everything else; ONLY chunk_head: queries (+ the
+# query_decoder: slot). Isolates the READOUT SHAPE (linear vs action-queries) --
+# NOT capacity (the query decoder adds ~1-3M params). Exactly mirrors the
+# chunk8 -> chunk8_q readout swap, dialed to chunk size 32 (the chunk_len /
+# query_decoder.chunk_len interpolations already track chunk_len, so 32 GMMs are
+# produced).
+# extends bc_rnn_pushshapes_paperexact_tx_chunk32
+defaults:
+  - bc_rnn_pushshapes_paperexact_tx_chunk32
+  - _self_
+
+robomimic_model:
+  # CHUNK READOUT SWAP (the ONLY deviation from _tx_chunk32): ACT/HPT-style
+  # action-query decoder instead of the flat wide-linear gmm_head projection.
+  chunk_head: queries
+
+  # ACTION-QUERY DECODER (the readout for chunk_head: queries). Refines chunk_len
+  # learnable queries via self-attn(queries) + causal cross-attn over the
+  # transformer's per-obs-step features h_0..h_k, then a SHARED projection maps
+  # each refined query to per_step GMM params.
+  query_decoder:
+    _target_: egomimic.models.bc_rnn_nets.QueryActionDecoder
+    d_model: ${..core_net.d_model}   # = core.d_model 448 (the features it cross-attends)
+    chunk_len: ${..chunk_len}        # MUST match robomimic_model.chunk_len (= 32)
+    per_step: 25              # = gmm_head num_modes*(2*action_dim+1) = 5*(2*2+1)
+    n_layers: 1               # 1 block = 3.24M added params (n_layers=2 -> 6.46M)
+    n_heads: 8                # 448 / 8 = 56 dim/head
+    ff_mult: 4                # FF hidden = 4*448 = 1792
+    dropout: 0.0              # match the core (paper-exact dropout 0)
+    max_window: ${..rnn_horizon}  # inherits the ONE window number (override only for capacity pre-allocation, e.g. window curriculum)

@@ -1,0 +1,29 @@
+# ABSTRACT BASE (underscore-prefixed, NEVER launched) — windowed lineage with a
+# ResNet18 SPATIAL cond_encoder, shared by hnet_pushshapes_fused_windowed_resnet
+# (flat 1e-4 LinearLR) and hnet_pushshapes_fused_windowed_resnet_cos15 (hotter
+# 1.5e-4 warmup->cosine). extends _hnet_fused_windowed_common.
+# Holds the cond_encoder only; the leaves add optimizer.lr + scheduler.
+defaults:
+  - _hnet_fused_windowed_common
+  - _self_
+
+robomimic_model:
+  cond_encoder:
+    _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+    d_cond: 128
+    output_key: fused_cond
+    cond_proj_widths: [128, 128]
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        embed_dim: 64
+        widths: [128]
+        input_slice: [0, 2]
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.ResNetEncoder
+        in_channels: 3
+        embed_dim: 128
+        resnet_model: resnet18
+        pretrained: true
+        spatial: true

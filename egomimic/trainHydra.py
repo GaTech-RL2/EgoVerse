@@ -230,11 +230,23 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.trainer = trainer
             eval_obj.model = model.model
             model.evaluator = eval_obj
+        init_ckpt = cfg.get("init_ckpt", None)
+        if init_ckpt:
+            log.info(
+                f"[init_ckpt] weights-only load from {init_ckpt} (strict=False); "
+                "fresh optim/sched/epoch"
+            )
+            _sd = torch.load(init_ckpt, map_location="cpu", weights_only=False)
+            _sd = _sd.get("state_dict", _sd)
+            _miss, _unexp = model.load_state_dict(_sd, strict=False)
+            log.info(
+                f"[init_ckpt] missing={len(_miss)} unexpected={len(_unexp)}"
+            )
         log.info("Starting training!")
         trainer.fit(
             model=model,
             datamodule=datamodule,
-            ckpt_path=cfg.get("ckpt_path"),
+            ckpt_path=None if init_ckpt else cfg.get("ckpt_path"),
             weights_only=False,
         )
     elif mode == "eval":

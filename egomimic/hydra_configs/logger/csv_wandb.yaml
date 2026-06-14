@@ -1,0 +1,24 @@
+# Combined CSV + W&B logger. instantiate_loggers iterates the keys and builds
+# every sub-config that has a _target_, so this gives BOTH a local metrics.csv
+# AND the remote wandb dashboard from a single logger=csv_wandb selection.
+# Mandatory for real runs (RL2 CLAUDE.md, 2026-06-13): csv-only = no remote view.
+csv:
+  _target_: lightning.pytorch.loggers.CSVLogger
+  save_dir: "${paths.output_dir}/csv_logs"
+  name: "lightning_logs"
+  version: null
+  flush_logs_every_n_steps: 1
+
+wandb:
+  _target_: lightning.pytorch.loggers.wandb.WandbLogger
+  save_dir: "${paths.output_dir}"
+  offline: False
+  id: "${name}_${description}_${now:%Y-%m-%d_%H-%M-%S}"
+  anonymous: null
+  project: "zarr_test"
+  log_model: False
+  prefix: ""
+  entity: "rl2-group"
+  group: ""
+  tags: []
+  job_type: ""

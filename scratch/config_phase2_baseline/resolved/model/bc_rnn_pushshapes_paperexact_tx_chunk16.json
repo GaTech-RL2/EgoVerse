@@ -1,0 +1,86 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "enable_grad_norm": false,
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.Adam",
+    "lr": 0.0001,
+    "weight_decay": 0.0
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.bc_rnn.BCRNN",
+    "ac_keys": {
+      "pushshapes_sim": "actions"
+    },
+    "action_dim": 2,
+    "action_horizon": 1024,
+    "actor_mlp_dims": [],
+    "chunk_len": 16,
+    "core": "transformer",
+    "core_net": {
+      "_target_": "egomimic.models.bc_rnn_nets.TransformerCore",
+      "d_model": 448,
+      "dropout": 0.0,
+      "ff_mult": 4,
+      "input_dim": 66,
+      "max_window": 10,
+      "n_heads": 8,
+      "n_layers": 5
+    },
+    "domains": [
+      "pushshapes_sim"
+    ],
+    "gmm_head": {
+      "_target_": "egomimic.models.bc_rnn_nets.GMMActionHead",
+      "action_dim": 2,
+      "chunk_len": 16,
+      "d_model": 448,
+      "low_noise_eval": true,
+      "min_std": 0.0001,
+      "num_modes": 5,
+      "std_activation": "softplus"
+    },
+    "max_windows_per_batch": 256,
+    "obs_encoder": {
+      "_target_": "egomimic.models.bc_rnn_nets.ObsEncoder",
+      "embed_dim": 66,
+      "img_encoders": {
+        "front_img_1": {
+          "_target_": "egomimic.models.hnet_nets.image_encoders.VisualCore",
+          "crop_aug": true,
+          "crop_eval_mode": "random",
+          "crop_height": 86,
+          "crop_sample_mode": "v02",
+          "crop_width": 86,
+          "feature_dimension": 64,
+          "image_size": 96,
+          "in_channels": 3,
+          "num_kp": 32,
+          "pretrained": false
+        }
+      },
+      "obs_specs": {
+        "state_agent_obj": {
+          "embed_dim": 64,
+          "input_dim": 2,
+          "input_slice": [
+            0,
+            2
+          ]
+        }
+      },
+      "paper_exact": true
+    },
+    "obs_stride": 16,
+    "pad_mode": "repeat_unmasked",
+    "rnn_horizon": 10
+  },
+  "scheduler": {
+    "_partial_": true,
+    "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+    "eta_min": 1e-06,
+    "max_steps": 90000,
+    "warmup_start_factor": 0.1,
+    "warmup_steps": 4500
+  }
+}

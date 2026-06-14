@@ -1,0 +1,29 @@
+{
+  "defaults": [
+    "cotrain_pi_base",
+    "_self_"
+  ],
+  "train_datasets": {
+    "aria_bimanual": {
+      "filters": {
+        "_target_": "egomimic.rldb.filters.DatasetFilter",
+        "filter_lambdas": [
+          "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
+        ]
+      }
+    },
+    "eva_bimanual": {
+      "filters": {
+        "_target_": "egomimic.rldb.filters.DatasetFilter",
+        "filter_lambdas": [
+          "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
+        ]
+      },
+      "resolver": {
+        "key_map": {
+          "keymap_mode": "cartesian_pi"
+        }
+      }
+    }
+  }
+}

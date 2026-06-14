@@ -1,0 +1,40 @@
+# BC-RNN-HNET-CHUNK8-FULLHIST-RATIO (variant A+ratio, the bcrnnHnetC8FHR run):
+# the full-history H-Net recipe (bc_rnn_pushshapes_paperexact_hnet_chunk8_fullhist)
+# with the H-Net PAPER ratio loss ACTIVATED. SINGLE-KNOB vs bcrnnHnetC8FH: ONLY
+# collect_ratio_loss false -> true (every other knob -- rnn_horizon 80,
+# window_anchor start, obs_stride/chunk_len 8/8, the warmup->cosine schedule,
+# minmax norm, all paper-exact obs/head settings -- is inherited unchanged).
+#
+# WHAT THE KNOB DOES: with collect_ratio_loss=true the BCRNN algo reads the
+# HNetCore chunker's auxiliary RATIO LOSS each forward (core._last_ratio_loss,
+# already weighted by core_net.ratio_loss_weight=0.03) and emits it as
+# ratio_loss; the inherited HNet.compute_losses then optimizes
+# action_loss + ratio_loss. This makes the chunker's boundary RoutingModule
+# actually LEARN to compress toward the target chunk length (the paper formula:
+#   N = target_compression_ratio, F = boundary fraction, G = mean boundary prob,
+#   L = weight * N/(N-1) * ((N-1)*F*G + (1-F)*(1-G))   -- ratio_loss_from_aux).
+# On bcrnnHnetC8FH (and every other config) the knob stays false -> the chunker
+# is driven purely by obs-embedding cos-sim and the ratio term is INERT (the
+# 0.0 placeholder), byte-identical to before.
+#
+# The ratio knobs (target_compression_ratio=2.0, ratio_loss_weight=0.03) are
+# inherited from bc_rnn_pushshapes_paperexact_hnet's core_net block; they are
+# surfaced here as an EXPLICIT, redundant re-statement ONLY for legibility of
+# the active recipe -- they resolve to the identical values with or without
+# these lines (OmegaConf merge over the same path), so they change nothing.
+# extends bc_rnn_pushshapes_paperexact_hnet_chunk8_fullhist
+defaults:
+  - bc_rnn_pushshapes_paperexact_hnet_chunk8_fullhist
+  - _self_
+
+robomimic_model:
+  # THE FLIP: activate the H-Net paper ratio loss (the only deviation from
+  # bcrnnHnetC8FH). DEFAULT in every other config stays false (inert chunker
+  # aux), so this leaf is the unique ratio-on run.
+  collect_ratio_loss: true
+
+  core_net:
+    # Inherited from bc_rnn_pushshapes_paperexact_hnet; re-stated for legibility
+    # of the ACTIVE recipe (these resolve identically with or without the lines).
+    target_compression_ratio: 2.0   # paper ratio-loss target N (avg chunk len)
+    ratio_loss_weight: 0.03         # alpha on the ratio loss (paper/as configured)

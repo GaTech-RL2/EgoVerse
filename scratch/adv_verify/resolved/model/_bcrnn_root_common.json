@@ -1,0 +1,30 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.Adam",
+    "lr": 0.0001,
+    "weight_decay": 0.0
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.bc_rnn.BCRNN",
+    "ac_keys": {
+      "pushshapes_sim": "actions"
+    },
+    "action_dim": 2,
+    "action_horizon": 1024,
+    "domains": [
+      "pushshapes_sim"
+    ],
+    "gmm_head": {
+      "_target_": "egomimic.models.bc_rnn_nets.GMMActionHead",
+      "action_dim": 2,
+      "low_noise_eval": true,
+      "min_std": 0.0001,
+      "num_modes": 5,
+      "std_activation": "softplus"
+    },
+    "max_windows_per_batch": 256,
+    "rnn_horizon": 10
+  }
+}

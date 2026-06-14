@@ -781,7 +781,10 @@ class HPTModel(nn.Module):
         self.load_trunk(os.path.join(checkpoint_path, "trunk.pth"))
 
 
-class HPT(Algo):
+from egomimic.algo.jepa_mixin import JEPAMixin, _cfg_get as _jepa_cfg_get
+
+
+class HPT(JEPAMixin, Algo):
     """ """
 
     def __init__(
@@ -956,6 +959,48 @@ class HPT(Algo):
 
         self.training_step = 0
 
+        # --- Optional action-conditioned JEPA auxiliary (default OFF) ----------
+        # `jepa` arrives via **kwargs from model.robomimic_model.jepa. When absent
+        # or enabled=false this is a no-op and HPT trains exactly as before.
+        jepa_cfg = kwargs.get("jepa", None)
+        _jepa_ah = int(_jepa_cfg_get(jepa_cfg, "action_horizon", 32))
+        _jepa_ad = int(_jepa_cfg_get(jepa_cfg, "action_dim", 2))
+        self._jepa_setup(jepa_cfg, action_dim=_jepa_ad, action_horizon=_jepa_ah)
+
+    # ------------------------------------------------------------------ #
+    # JEPA family hooks (HPT anchors the auxiliary on its image encoder). #
+    # ------------------------------------------------------------------ #
+    def _jepa_cam_modality(self) -> str:
+        # pushshapes has a single camera; take the first registered image encoder.
+        return next(iter(self.nets["policy"].encoders.keys()))
+
+    def _jepa_online_encoder(self):
+        return self.nets["policy"].encoders[self._jepa_cam_modality()]
+
+    def _jepa_latent_dim(self) -> int:
+        enc = self._jepa_online_encoder()
+        # ResNet/SimpleConv image stems expose out_dim (== projected output_dim).
+        return int(getattr(enc, "out_dim"))
+
+    def _jepa_encode(self, encoder, img):
+        # img (B, 3, H, W) -> encoder expects [B, T, N, 3, H, W] -> (B, M, out_dim)
+        if img.dim() == 4:
+            img = img.unsqueeze(1).unsqueeze(1)
+        feat = encoder(img)
+        return feat.mean(dim=1)  # mean-pool spatial tokens -> (B, out_dim)
+
+    def _jepa_extract(self, per_emb_batch):
+        self._jepa_debug_keys_once(per_emb_batch)
+        cam = self._jepa_cam_modality()
+        obs_t = per_emb_batch.get(cam, None)
+        fut = per_emb_batch.get(f"future_{cam}", None)
+        if obs_t is None or fut is None:
+            return None
+        obs_future = fut[:, -1] if fut.dim() == 5 else fut  # (B,k+1,3,H,W) -> o_{t+k}
+        ac_key = self.ac_keys[get_embodiment_id(self.domains[0])]
+        action_chunk = per_emb_batch[ac_key]  # (B, k, action_dim)
+        return obs_t, obs_future, action_chunk, None
+
     def _build_prompts(self, _batch, batch_size: int) -> list[str]:
         """Sample one annotation per batch item, falling back to default_prompt
         on empty / missing annotations. Mirrors the Pi algo flow.
@@ -1016,7 +1061,14 @@ class HPT(Algo):
                 continue
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
+                # JEPA future-obs target keys (opt-in; no live config produces them)
+                # are kept verbatim so the JEPA hook can find them by name.
+                if isinstance(key, str) and key.startswith("future_"):
+                    processed_batch[embodiment_id][key] = value
+                    continue
                 key_name = self.norm_stats.zarr_key_to_keyname(key, embodiment_id)
+                if key_name is None:
+                    key_name = key  # unrecognized key: keep under its own name
                 if key is not None:
                     processed_batch[embodiment_id][key_name] = value
 
@@ -1093,6 +1145,15 @@ class HPT(Algo):
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
+
+            # Optional action-conditioned JEPA auxiliary (default OFF).
+            if self.jepa is not None:
+                jl = self._jepa_loss_for_batch(_batch)
+                if jl is not None:
+                    predictions[f"{embodiment_name}_jepa_loss"] = jl
+
+        # EMA-update the JEPA target encoder once per training batch.
+        self._jepa_ema_step()
 
         if self.ot:
             ot_loss, avg_feat_distance = self._forward_ot(
@@ -1201,6 +1262,13 @@ class HPT(Algo):
             scaled_bc_loss = bc_weight * bc_loss
             total_action_loss += scaled_bc_loss
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
+
+            # Fold in the optional JEPA auxiliary (default OFF -> key absent).
+            jkey = f"{embodiment_name}_jepa_loss"
+            if jkey in predictions:
+                jl = predictions[jkey]
+                total_action_loss += self.jepa_lambda * jl
+                loss_dict[jkey] = jl  # logged under Train/<emb>_jepa_loss
 
         if self.ot:
             loss_dict["ot_loss"] = predictions["ot_loss"]

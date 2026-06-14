@@ -1,0 +1,105 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            hhd0z85s54d9kz04obrhbx84cvykziud:
+                cpu_count: 64
+                cpu_count_logical: 128
+                cudaVersion: "13.0"
+                disk:
+                    /:
+                        total: "942725181440"
+                        used: "35499241472"
+                email: elmoworld2005@gmail.com
+                executable: /coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python
+                git:
+                    commit: 7df436fd2fa1d97a47cf1dbeed639633e1e601b5
+                    remote: git@github.com:GaTech-RL2/EgoVerse.git
+                gpu: NVIDIA A40
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 10752
+                      memoryTotal: "48305799168"
+                      name: NVIDIA A40
+                      uuid: GPU-cd5b40be-f86d-0076-a041-0f37897a0730
+                host: protocol.cc.gatech.edu
+                memory:
+                    total: "540840349696"
+                os: Linux-6.8.0-111-generic-x86_64-with-glibc2.39
+                program: <stdin>
+                python: CPython 3.11.14
+                root: /coc/flash7/paphiwetsa3/projects/EgoVerse2
+                slurm:
+                    conf: /opt/slurm/configs/slurm.conf
+                    cpu_bind: quiet,mask_cpu:0x00000000000000FF00000000000000FF
+                    cpu_bind_list: 0x00000000000000FF00000000000000FF
+                    cpu_bind_type: 'mask_cpu:'
+                    cpu_bind_verbose: quiet
+                    cpus_on_node: "16"
+                    distribution: cyclic
+                    gpus_on_node: "1"
+                    gtids: "0"
+                    job_cpus_per_node: "16"
+                    job_end_time: "1781248318"
+                    job_gid: "2626"
+                    job_id: "3330844"
+                    job_name: bash
+                    job_nodelist: protocol
+                    job_partition: overcap
+                    job_start_time: "1781075518"
+                    job_uid: "3346154"
+                    job_user: paphiwetsa3
+                    jobid: "3330844"
+                    launch_node_ipaddr: 130.207.124.148
+                    localid: "0"
+                    mem_per_node: "65536"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: protocol
+                    nprocs: "1"
+                    ntasks: "1"
+                    oom_kill_step: "0"
+                    prio_process: "0"
+                    procid: "0"
+                    script_context: prolog_task
+                    srun_comm_host: 130.207.124.148
+                    srun_comm_port: "7523"
+                    step_gpus: "0"
+                    step_id: "1"
+                    step_launcher_port: "7523"
+                    step_nodelist: protocol
+                    step_num_nodes: "1"
+                    step_num_tasks: "1"
+                    step_tasks_per_node: "1"
+                    stepid: "1"
+                    task_pid: "159617"
+                    tasks_per_node: "1"
+                    topology_addr: protocol
+                    topology_addr_pattern: node
+                    umask: "0022"
+                startedAt: "2026-06-10T07:20:15.797090Z"
+                writerId: hhd0z85s54d9kz04obrhbx84cvykziud
+        m: []
+        python_version: 3.11.14
+        t:
+            "3":
+                - 2
+                - 5
+                - 13
+                - 14
+                - 16
+                - 61
+                - 62
+            "4": 3.11.14
+            "5": 0.26.1
+            "12": 0.26.1
+            "13": linux-x86_64
+oneshot:
+    value: true
+source_desc:
+    value: bc_rnn_tx_smallcircle_c8_resume_ep699
+source_job:
+    value: "3330844"
+source_wandb_file:
+    value: /coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/bcrnnTxSmallC8_nc3/bc_rnn_tx_smallcircle_c8_resume_ep699_2026-06-10_03-12-32/wandb/run-20260610_031250-bcrnnTxSmallC8_nc3_bc_rnn_tx_smallcircle_c8_resume_ep699_2026-06-10_03-12-32/run-bcrnnTxSmallC8_nc3_bc_rnn_tx_smallcircle_c8_resume_ep699_2026-06-10_03-12-32.wandb

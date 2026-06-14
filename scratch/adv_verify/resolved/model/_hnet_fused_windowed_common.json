@@ -1,0 +1,53 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.AdamW",
+    "weight_decay": 0.0001
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.hnet_closedloop.HNetFusedClosedLoop",
+    "ac_keys": {
+      "pushshapes_sim": "actions"
+    },
+    "action_dim": 2,
+    "action_horizon": 1024,
+    "arch_layout": "T8",
+    "d_cond": 128,
+    "d_intermediate": 512,
+    "d_model": 128,
+    "domains": [
+      "pushshapes_sim"
+    ],
+    "image_key": "front_img_1",
+    "k_schedule": [
+      [
+        0,
+        1
+      ],
+      [
+        50,
+        2
+      ],
+      [
+        100,
+        4
+      ],
+      [
+        150,
+        8
+      ],
+      [
+        250,
+        16
+      ],
+      [
+        400,
+        32
+      ]
+    ],
+    "max_windows": 128,
+    "num_heads": 4,
+    "obs_source": "demo"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "enable_grad_norm": false,
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.AdamW",
+    "betas": [
+      0.9,
+      0.999
+    ],
+    "eps": 1e-08,
+    "lr": 3e-05,
+    "weight_decay": 0.0
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.pi.PI",
+    "ac_keys": {
+      "aria_bimanual": "actions_cartesian",
+      "eva_bimanual": "actions_cartesian"
+    },
+    "action_converters": {
+      "fallback": {
+        "_target_": "egomimic.utils.action_utils.BaseActionConverter"
+      },
+      "rules": {
+        "ARIA_BIMANUAL": {
+          "_target_": "egomimic.utils.action_utils.HumanBimanualCartesianEuler"
+        },
+        "EVA_BIMANUAL": {
+          "_target_": "egomimic.utils.action_utils.RobotBimanualCartesianEuler"
+        }
+      }
+    },
+    "annotation_key": "annotations",
+    "camera_transforms": {
+      "aria_bimanual": {
+        "_target_": "egomimic.utils.egomimicUtils.CameraTransforms",
+        "extrinsics_key": "ariaJun7",
+        "intrinsics_key": "base"
+      },
+      "eva_bimanual": {
+        "_target_": "egomimic.utils.egomimicUtils.CameraTransforms",
+        "extrinsics_key": "x5Dec13_2",
+        "intrinsics_key": "base"
+      }
+    },
+    "config": {
+      "model": {
+        "action_dim": 32,
+        "action_horizon": 100,
+        "max_token_len": 180,
+        "pi05": true
+      },
+      "pytorch_training_precision": "bfloat16",
+      "pytorch_weight_path": "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/projects/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
+    },
+    "control_mode": null,
+    "default_prompt": "This is a bad action.",
+    "domains": [
+      "eva_bimanual",
+      "aria_bimanual"
+    ],
+    "embodiment_label": true,
+    "eval_image_augs": {
+      "_target_": "torchvision.transforms.Compose",
+      "transforms": [
+        {
+          "_target_": "torchvision.transforms.Resize",
+          "interpolation": 3,
+          "size": 224
+        }
+      ]
+    },
+    "proprio_in_prompt": true,
+    "sampling_mode": "random",
+    "state_num_bins": 256,
+    "tokenizer_max_length": 128,
+    "tokenizer_model_name": "google/paligemma-3b-mix-224",
+    "train_image_augs": {
+      "_target_": "torchvision.transforms.Compose",
+      "transforms": [
+        {
+          "_target_": "torchvision.transforms.Resize",
+          "interpolation": 3,
+          "size": 224
+        }
+      ]
+    }
+  },
+  "scheduler": {
+    "_partial_": true,
+    "_target_": "transformers.get_cosine_schedule_with_warmup",
+    "num_cycles": 0.5,
+    "num_training_steps": 60000,
+    "num_warmup_steps": 2000
+  },
+  "scheduler_interval": "step"
+}

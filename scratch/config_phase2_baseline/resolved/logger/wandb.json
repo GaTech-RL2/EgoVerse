@@ -1,0 +1,16 @@
+{
+  "wandb": {
+    "_target_": "lightning.pytorch.loggers.wandb.WandbLogger",
+    "anonymous": null,
+    "entity": "rl2-group",
+    "group": "",
+    "id": "${name}_${description}_${now:%Y-%m-%d_%H-%M-%S}",
+    "job_type": "",
+    "log_model": false,
+    "offline": false,
+    "prefix": "",
+    "project": "zarr_test",
+    "save_dir": "${paths.output_dir}",
+    "tags": []
+  }
+}

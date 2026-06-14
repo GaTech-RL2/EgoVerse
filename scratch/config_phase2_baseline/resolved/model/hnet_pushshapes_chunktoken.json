@@ -1,0 +1,62 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.AdamW",
+    "lr": 0.0001,
+    "weight_decay": 0.0001
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.hnet_chunk.HNetChunkToken",
+    "ac_keys": {
+      "pushshapes_sim": "actions"
+    },
+    "action_dim": 2,
+    "action_horizon": 1024,
+    "arch_layout": "T4",
+    "backbone": "flat",
+    "channels": [
+      32,
+      64,
+      128,
+      256
+    ],
+    "chunk_compress_ratio": 4.0,
+    "chunk_k": 32,
+    "d_intermediate": 512,
+    "d_model": 128,
+    "domains": [
+      "pushshapes_sim"
+    ],
+    "dropout": 0.1,
+    "encoder": "conv",
+    "image_size": 96,
+    "img_key": "front_img_1",
+    "in_channels": 3,
+    "input_slice": [
+      0,
+      2
+    ],
+    "kernel_size": 3,
+    "norm_groups": 8,
+    "num_heads": 4,
+    "pretrained": true,
+    "proprio_dim": 2,
+    "proprio_key": "state_agent_obj",
+    "ratio_loss_weight": 0.03,
+    "readout": "mean_pool",
+    "resid_dropout": 0.1,
+    "resnet_model": "resnet18",
+    "stem": "none",
+    "stem_latents": 16,
+    "stride": 2
+  },
+  "scheduler": {
+    "_partial_": true,
+    "_target_": "egomimic.utils.schedulers.warmup_cosine_scheduler",
+    "eta_min": 1e-05,
+    "max_steps": 400,
+    "warmup_start_factor": 0.1,
+    "warmup_steps": 24
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "_target_": "egomimic.eval.eval_sim.HNetSimEval",
+  "chunk_k": 32,
+  "coverage_threshold": 0.7,
+  "delta_action": false,
+  "env_kwargs": {
+    "image_size": 96,
+    "object_shape": "T",
+    "obstacle_level": 0,
+    "pusher_shape": "circle"
+  },
+  "goal_in_obs": false,
+  "init_mode": "seeds",
+  "init_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "limit_val_batches": 4,
+  "max_steps": 1200,
+  "rollout_mode": "ar",
+  "temporal_ensemble": false,
+  "transform_lists": null,
+  "video_fps": 30,
+  "viz_func": null
+}

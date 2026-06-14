@@ -1,0 +1,42 @@
+{
+  "_target_": "egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper",
+  "train_dataloader_params": {
+    "scale_bimanual": {
+      "batch_size": 32,
+      "num_workers": 10
+    }
+  },
+  "train_datasets": {
+    "scale_bimanual": {
+      "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver",
+      "filters": {
+        "_target_": "egomimic.rldb.filters.DatasetFilter",
+        "filter_lambdas": [
+          "lambda row: row['episode_hash'] in {'2026-03-16-01-22-26-448000'}"
+        ]
+      },
+      "mode": "total",
+      "resolver": {
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver",
+        "folder_path": "${paths.dataset_dir}",
+        "key_map": {
+          "_target_": "egomimic.rldb.embodiment.human.Scale.get_keymap",
+          "mode": "cartesian"
+        },
+        "transform_list": {
+          "_target_": "egomimic.rldb.embodiment.human.Scale.get_transform_list",
+          "mode": "cartesian"
+        }
+      }
+    }
+  },
+  "valid_dataloader_params": {
+    "scale_bimanual": {
+      "batch_size": 32,
+      "num_workers": 10
+    }
+  },
+  "valid_datasets": {
+    "scale_bimanual": "${train_datasets.scale_bimanual}"
+  }
+}

@@ -22,6 +22,13 @@ import torch.nn as nn
 from overrides import override
 
 from egomimic.algo.algo import Algo
+from egomimic.models.hnet_nets.action_heads import (
+    action_head_decode,
+    action_head_decode_chunk,
+    action_head_loss,
+    action_head_raw,
+    configure_action_head,
+)
 from egomimic.models.hnet_nets.cond_encoders import CondEncoderModule
 from egomimic.models.hnet_nets.context import HNetContext
 from egomimic.models.hnet_nets.hnet import HNet as HNetCore
@@ -43,6 +50,76 @@ def _apply_token_dropout(x, bos, p, training):
     return torch.where(drop, bos_b, x)
 
 
+def _action_head_cfg(kwargs):
+    """Pull the swappable-action-head knobs out of the algo ``**kwargs`` into
+    a cfg dict consumed by ``configure_action_head``. Defaults reproduce the
+    continuous MSE head (no behavior change for existing runs)."""
+    cfg = {
+        "mode": str(kwargs.get("action_head", "continuous")),
+        "n_bins": int(kwargs.get("n_bins", 256) or 256),
+        "bin_min": float(kwargs.get("bin_min", -4.0)),
+        "bin_max": float(kwargs.get("bin_max", 4.0)),
+        "sample_temp": float(kwargs.get("sample_temp", 1.0)),
+        # One-shot action chunk: K=1 (default) keeps the single next-action head;
+        # K>1 makes each timestep predict the next K actions in one shot.
+        "chunk_k": int(kwargs.get("chunk_k", 1) or 1),
+        # GMM head knobs (only consulted when action_head=gmm). None/absent ->
+        # default 5; an explicit 0 must survive so configure_action_head's
+        # ``M < 1`` guard can raise (the old ``or 5`` swallowed a falsy 0).
+        "gmm_num_modes": (
+            int(kwargs["gmm_num_modes"])
+            if kwargs.get("gmm_num_modes") is not None
+            else 5
+        ),
+        "gmm_sample": bool(kwargs.get("gmm_sample", False)),
+    }
+    # Std clamp bounds are optional; pass them through only if set so the head
+    # falls back to its [-5, 2] log-std defaults otherwise.
+    if kwargs.get("gmm_min_std", None) is not None:
+        cfg["gmm_min_std"] = float(kwargs["gmm_min_std"])
+    if kwargs.get("gmm_max_std", None) is not None:
+        cfg["gmm_max_std"] = float(kwargs["gmm_max_std"])
+    return cfg
+
+
+def resolve_embodiment_keys(algo, norm_stats):
+    """Populate ``algo.{embodiment_ids, proprio_keys, lang_keys, camera_keys,
+    resolved_ac_keys}`` from the ``norm_stats`` (MultiDataset) key topology.
+
+    Factored out so additional H-Net-family algos (e.g. the chunk-token
+    baseline) reuse the exact resolution logic instead of re-copying it.
+    ``HNet`` / ``HNetFused`` keep their own inline copies for now to avoid
+    re-touching already-validated ``__init__`` paths; unifying them onto this
+    helper is a safe future cleanup.
+    """
+    algo.embodiment_ids = {}
+    algo.proprio_keys = {}
+    algo.lang_keys = {}
+    algo.camera_keys = {}
+    algo.resolved_ac_keys = {}
+    for emb in algo.domains:
+        emb_id = get_embodiment_id(emb)
+        algo.embodiment_ids[emb] = emb_id
+        algo.proprio_keys[emb_id] = []
+        algo.lang_keys[emb_id] = []
+        algo.camera_keys[emb_id] = []
+        for key in norm_stats.keys_of_type("action_keys", emb_id):
+            if (
+                norm_stats.is_key_with_embodiment(key, emb_id)
+                and key == algo.ac_keys[emb]
+            ):
+                algo.resolved_ac_keys[emb_id] = key
+        for key in norm_stats.keys_of_type("proprio_keys", emb_id):
+            if norm_stats.is_key_with_embodiment(key, emb_id):
+                algo.proprio_keys[emb_id].append(key)
+        for key in norm_stats.keys_of_type("lang_keys", emb_id):
+            if norm_stats.is_key_with_embodiment(key, emb_id):
+                algo.lang_keys[emb_id].append(key)
+        for key in norm_stats.keys_of_type("camera_keys", emb_id):
+            if norm_stats.is_key_with_embodiment(key, emb_id):
+                algo.camera_keys[emb_id].append(key)
+
+
 class HNetPolicy(nn.Module):
     """
     action-tokenizer → stage-based H-Net → action-detokenizer.
@@ -58,6 +135,7 @@ class HNetPolicy(nn.Module):
         d_model: int,
         cond_encoder: CondEncoderModule,
         hnet: HNetCore,
+        action_head_cfg: Optional[dict] = None,
     ):
         super().__init__()
         self.action_dim = action_dim
@@ -65,7 +143,7 @@ class HNetPolicy(nn.Module):
         self.d_model = d_model
 
         self.action_in = nn.Linear(action_dim, d_model)
-        self.action_out = nn.Linear(d_model, action_dim)
+        configure_action_head(self, d_model, action_dim, action_head_cfg)
         self.bos = nn.Parameter(torch.zeros(1, 1, d_model))
         nn.init.normal_(self.bos, std=0.02)
         # F6: positional information is now carried by RoPE inside each
@@ -112,7 +190,7 @@ class HNetPolicy(nn.Module):
 
         ctx = self._build_ctx(obs)
         h = self.hnet(x, ctx)
-        return self.action_out(h), ctx.aux
+        return action_head_raw(self, h), ctx.aux
 
     def forward_packed(
         self,
@@ -193,7 +271,7 @@ class HNetPolicy(nn.Module):
             max_seqlen=int(max_seqlen),
         )
         h = self.hnet(x_packed, ctx)  # (T_total, D)
-        return self.action_out(h), ctx.aux
+        return action_head_raw(self, h), ctx.aux
 
     @torch.no_grad()
     def generate(
@@ -240,7 +318,7 @@ class HNetPolicy(nn.Module):
                 inference_params=inference_params,
             )
             h = self.hnet.step(cur, ctx)
-            a_t = self.action_out(h)
+            a_t = action_head_decode(self, action_head_raw(self, h))
             actions[:, t : t + 1] = a_t
             if t < T - 1:
                 cur = self.action_in(a_t)
@@ -293,7 +371,7 @@ class HNetPolicy(nn.Module):
             inference_params=state["params"],
         )
         h = self.hnet.step(state["cur"], ctx)
-        a_t_norm = self.action_out(h)
+        a_t_norm = action_head_decode(self, action_head_raw(self, h))
 
         # F6: no per-step pos_emb add; the next-token input is just the
         # projected predicted action. RoPE is applied inside each MHA.step
@@ -341,6 +419,10 @@ class FlatFusedPolicy(nn.Module):
         d_intermediate: int = 512,
         dropout: float = 0.0,
         resid_dropout: float = 0.0,
+        action_head_cfg: Optional[dict] = None,
+        cond_mode: str = "adaln",
+        spatial_cond_key: str = "spatial_cond_tokens",
+        hist_spatial_mode: str = "current",
     ):
         super().__init__()
         from egomimic.models.hnet_nets.isotropic_builder import build_isotropic
@@ -350,9 +432,41 @@ class FlatFusedPolicy(nn.Module):
         self.d_model = d_model
         self.d_cond = d_cond
         self.cond_encoder = cond_encoder
+        # cond_mode (run D): "adaln" (default) = input-layer fused cond token,
+        # backbone unconditioned (byte-identical to before this knob). When
+        # "cross_attn", the backbone blocks gain an extra cross-attention layer
+        # whose K/V are the per-frame SPATIAL cond tokens (HPT-style image
+        # localization). The pooled fused_cond input token is STILL used (so the
+        # [c_0, BOS] layout / pos_emb are unchanged); cross-attn ADDS spatial
+        # conditioning on top. Only the chunk paths (chunk_forward_history +
+        # generate chunk_k>1) thread the spatial cond -- the AR/interleaved
+        # paths are not used by run D and stay adaln-only.
+        self.cond_mode = str(cond_mode)
+        self.spatial_cond_key = str(spatial_cond_key)
+        if self.cond_mode not in ("adaln", "cross_attn"):
+            raise ValueError(f"FlatFusedPolicy: unknown cond_mode {self.cond_mode!r}")
+        # hist_spatial_mode (D-fullhist-v2): how the obs-history chunk paths feed
+        # SPATIAL cross-attn cond when n_obs_history N>1 (cross_attn only).
+        #   "current" (default, byte-identical to run D / D-fullhist): ALL N+1
+        #     tokens (incl. the N history cond tokens) cross-attend over the
+        #     CURRENT frame's (frame N-1) M spatial tokens -- past frames get
+        #     only their pooled fused_cond input token (a "gist"), no spatial
+        #     detail. Built as a shared rank-3 (B, M, d_cond) set.
+        #   "per_frame": token i (cond c_i) cross-attends over FRAME i's own M
+        #     spatial tokens for i in 0..N-1; the trailing BOS (token N) reads
+        #     the CURRENT frame (N-1). Built as a rank-4 (B, N+1, M, d_cond) set
+        #     -> CrossAttention._forward_per_frame (each token attends ONLY its
+        #     own frame). Makes every frame's processing IDENTICAL (same encoders,
+        #     same spatial cross-attn), with BOS reading the present. At N=1 this
+        #     degenerates to "current" (single frame is the current frame).
+        self.hist_spatial_mode = str(hist_spatial_mode)
+        if self.hist_spatial_mode not in ("current", "per_frame"):
+            raise ValueError(
+                f"FlatFusedPolicy: unknown hist_spatial_mode {self.hist_spatial_mode!r}"
+            )
 
         self.action_in = nn.Linear(action_dim, d_model)
-        self.action_out = nn.Linear(d_model, action_dim)
+        configure_action_head(self, d_model, action_dim, action_head_cfg)
         self.cond_in = nn.Linear(d_cond, d_model)
         self.bos = nn.Parameter(torch.zeros(1, 1, d_model))
         nn.init.normal_(self.bos, std=0.02)
@@ -360,19 +474,24 @@ class FlatFusedPolicy(nn.Module):
         self.pos_emb = nn.Parameter(torch.zeros(1, 2 * action_horizon, d_model))
         nn.init.normal_(self.pos_emb, std=0.02)
 
-        # Single Isotropic stack, causal, no per-block cond (the fusion happens
-        # at the input layer).
+        # Single Isotropic stack, causal. adaln: no per-block cond (fusion at the
+        # input layer). cross_attn: per-block cross-attention over the spatial
+        # cond tokens (cond=True, cond_mode=cross_attn). Cross-attn causal is
+        # auto-disabled inside the block when T_q != T_k (action/BOS tokens vs
+        # M spatial tokens), giving HPT-style full attention to localize.
+        _cross = self.cond_mode == "cross_attn"
         self.backbone = build_isotropic(
             {
                 "arch_layout": arch_layout,
                 "d_model": d_model,
                 "d_intermediate": d_intermediate,
                 "num_heads": num_heads,
-                "cond": False,
+                "cond": _cross,
+                "cond_mode": self.cond_mode,
                 "dropout": dropout,
                 "resid_dropout": resid_dropout,
             },
-            d_cond=0,
+            d_cond=(d_cond if _cross else 0),
             causal=True,
         )
 
@@ -385,6 +504,92 @@ class FlatFusedPolicy(nn.Module):
             )
         return c  # (B, T, d_cond)
 
+    def _encode_spatial_cond(self, obs: dict, T: int):
+        """Return the per-frame SPATIAL cond tokens (B, T, n_spatial, d_cond)
+        for cross_attn mode, or None for adaln. Requires the cond_encoder to
+        emit ``spatial_cond_key`` (a SpatialCondEncoderModule). Reuses the same
+        cond_dict the pooled fused_cond came from -- one encode call upstream
+        would suffice, but the chunk paths call _encode_cond separately, so we
+        re-encode here (cheap: same image forward). Kept separate + gated so the
+        adaln path never touches it."""
+        if self.cond_mode != "cross_attn":
+            return None
+        cond_dict = self.cond_encoder.encode(obs, T)
+        sp = cond_dict.get(self.spatial_cond_key)
+        if sp is None:
+            raise KeyError(
+                f"cond_mode=cross_attn requires '{self.spatial_cond_key}' from the "
+                "cond_encoder (use SpatialCondEncoderModule with spatial_img_encoders)."
+            )
+        return sp  # (B, T, n_spatial, d_cond)
+
+    def _hist_spatial_cond(self, sp, N: int, dtype):
+        """Build the SPATIAL cross-attn cond for the obs-history chunk paths
+        (``chunk_forward_history`` + ``generate`` chunk_k>1), shared by both so
+        train==eval. ``sp``: the encoded per-frame spatial tokens
+        ``(B, N, M, d_cond)`` (from ``_encode_spatial_cond``) or ``None`` (adaln).
+
+        Returns the ``cond`` arg for ``self.backbone(x, cond=...)`` over the
+        length-``N+1`` token stream ``[c_0..c_{N-1}, BOS]``:
+          - ``None`` if ``sp is None`` (adaln -> backbone byte-identical).
+          - ``hist_spatial_mode="current"``: a shared rank-3 ``(B, M, d_cond)``
+            == ``sp[:, N-1]`` (the current frame). EVERY token cross-attends over
+            this single set. BYTE-IDENTICAL to the pre-v2 path.
+          - ``hist_spatial_mode="per_frame"``: a rank-4 ``(B, N+1, M, d_cond)``
+            where token i gets frame i's M tokens for i in 0..N-1 and the trailing
+            BOS (token N) gets the CURRENT frame (N-1). CrossAttention's rank-4
+            ``_forward_per_frame`` makes each token attend ONLY its own frame, so
+            every frame is processed identically. At N=1 the two stacked frames
+            are both frame 0 -> mathematically the same single set as "current".
+        """
+        if sp is None:
+            return None
+        if self.hist_spatial_mode == "current":
+            return sp[:, N - 1].to(dtype)  # (B, M, d_cond) shared over all tokens
+        # per_frame: stack frame i for token i (i<N) + current frame for the BOS.
+        cur = sp[:, N - 1 : N]                       # (B, 1, M, d_cond)
+        cond = torch.cat([sp, cur], dim=1)           # (B, N+1, M, d_cond)
+        return cond.to(dtype)
+
+    def chunk_forward_history(self, obs_hist: dict) -> torch.Tensor:
+        """OBS-HISTORY chunk forward (teacher-forced, batched, WITH grad).
+
+        ``obs_hist``: dict of per-key tensors carrying an N-frame history axis
+        for the CURRENT chunk anchor. Each value is either ``(B, N, ...)`` (the
+        last N obs frames, oldest->newest, frame N-1 == the current frame) or a
+        single-frame ``(B, ...)`` (encoded as N=1). Returns the RAW chunk-head
+        output ``(B, K, A[/params])`` read at a TRAILING BOS that has attended
+        (causally) over all N cond tokens.
+
+        Token layout (length N+1, NO interleaved action tokens -- OBS ONLY, so
+        no past-action copying): ``[c_0, c_1, ..., c_{N-1}, BOS]`` with pos_emb
+        indices ``0..N``. For N=1 this is ``[c_0, BOS]`` at pos_emb ``[0,1]`` --
+        BYTE-IDENTICAL to the single-frame ``forward(dummy, obs)`` T=1 path
+        (cond@0, BOS@1, read@BOS). The chunk loss consumes the raw params.
+        """
+        # _encode_cond returns (B, N, d_cond): a per-key (B, N, ...) obs is
+        # encoded frame-wise; a single-frame (B, ...) obs broadcasts to T=1.
+        any_v = next(iter(obs_hist.values()))
+        N = any_v.shape[1] if any_v.dim() >= 3 else 1
+        c = self._encode_cond(obs_hist, N)          # (B, N, d_cond)
+        B = c.shape[0]
+        c_tok = self.cond_in(c)                     # (B, N, d_model)
+        bos = self.bos.expand(B, 1, -1)             # (B, 1, d_model)
+        x = torch.cat([c_tok, bos], dim=1)          # (B, N+1, d_model)
+        x = x + self.pos_emb[:, : N + 1].to(x.dtype)
+        # cross_attn: spatial cross-attn cond over the [c_0..c_{N-1}, BOS] stream.
+        #   "current" (default): every token reads the CURRENT frame's M tokens
+        #     (shared (B, M, d_cond)) -- past frames contribute only their pooled
+        #     fused_cond input token. adaln: cond=None -> backbone unchanged.
+        #   "per_frame" (D-fullhist-v2): token i reads FRAME i's M tokens, BOS
+        #     reads the current frame ((B, N+1, M, d_cond)) -> uniform per-frame
+        #     spatial processing. See _hist_spatial_cond.
+        _sp = self._encode_spatial_cond(obs_hist, N)
+        _cond = self._hist_spatial_cond(_sp, N, x.dtype)
+        x = self.backbone(x, cond=_cond)            # causal: BOS attends over c_0..c_{N-1}
+        raw = action_head_raw(self, x[:, N : N + 1])  # (B, 1, K, A[/params])
+        return raw[:, 0]                            # (B, K, A[/params])
+
     def forward(self, actions: torch.Tensor, obs: dict):
         """Padded teacher-forced forward.
 
@@ -395,6 +600,15 @@ class FlatFusedPolicy(nn.Module):
         B, T, _ = actions.shape
         c = self._encode_cond(obs, T)  # (B, T, d_cond)
         c_tok = self.cond_in(c)  # (B, T, d_model)
+        if getattr(self, "reactive", False):
+            # REACTIVE: no obs/action history -- predict a_t from c_t alone,
+            # each timestep an independent [cond, BOS] pair.
+            _bos = self.bos.expand(B, T, -1)
+            _x = torch.stack([c_tok, _bos], dim=2).reshape(B * T, 2, self.d_model)
+            _x = _x + self.pos_emb[:, :2].to(_x.dtype)
+            _x = self.backbone(_x)
+            _pred = action_head_raw(self, _x[:, 1])
+            return _pred.reshape(B, T, *_pred.shape[1:]), []
         a_tok = self.action_in(actions)  # (B, T, d_model)
         # Shift: BOS at position 0, a_0..a_{T-2} after.
         a_shifted = torch.cat([self.bos.expand(B, -1, -1), a_tok[:, :-1]], dim=1)
@@ -410,9 +624,30 @@ class FlatFusedPolicy(nn.Module):
         x[:, 1::2] = a_shifted
         x = x + self.pos_emb[:, : 2 * T].to(x.dtype)
 
-        x = self.backbone(x)  # (B, 2T, d_model)
-        pred = self.action_out(x[:, 1::2])  # (B, T, action_dim)
+        # cross_attn (run E): each of the 2T interleaved tokens cross-attends
+        # over ITS OWN frame's M spatial tokens. Token 2t (cond) and 2t+1
+        # (action->predicts a_t) both belong to frame t, so both get frame t's
+        # spatial set. Build (B, 2T, M, d_cond) by repeating each frame's M
+        # tokens twice along the sequence axis. adaln: cond stays None ->
+        # self.backbone(x) byte-identical.
+        _cond = self._per_frame_cond_interleaved(obs, T, x.dtype)
+        x = self.backbone(x, cond=_cond)  # (B, 2T, d_model)
+        pred = action_head_raw(self, x[:, 1::2])  # (B, T, action_dim[, n_bins])
         return pred, []
+
+    def _per_frame_cond_interleaved(self, obs, T, dtype):
+        """Build the per-token spatial cond for the 2T interleaved stream.
+
+        Returns ``(B, 2T, M, d_cond)`` (each frame's M tokens repeated for its
+        [cond, action] token pair) for cond_mode=cross_attn, else ``None`` so
+        the adaln backbone call is byte-identical."""
+        sp = self._encode_spatial_cond(obs, T)  # (B, T, M, d_cond) or None
+        if sp is None:
+            return None
+        B, _T, M, dc = sp.shape
+        # Repeat each frame twice along the seq axis: frame t -> positions 2t, 2t+1.
+        cond = sp.unsqueeze(2).expand(B, T, 2, M, dc).reshape(B, 2 * T, M, dc)
+        return cond.to(dtype)
 
     def forward_packed(
         self,
@@ -442,6 +677,19 @@ class FlatFusedPolicy(nn.Module):
             0
         )  # (T_total, d_cond)
         c_tok = self.cond_in(cond_seq)  # (T_total, d_model)
+        if getattr(self, "reactive", False):
+            # REACTIVE (packed): no obs/action history. Each packed frame t
+            # is an independent [c_t, BOS] 2-token sequence -> predict a_t
+            # (or its K-chunk) from c_t alone. Matches generate()/step()'s
+            # current-frame [c_t,BOS] @ pos 0/1 so train == eval. cu_seqlens
+            # is irrelevant here (no cross-frame attention); the chunk loss
+            # still uses cu_seqlens to window targets within each episode.
+            _bos = self.bos.expand(T_total, 1, -1)  # (T_total, 1, d_model)
+            _x = torch.cat([c_tok.unsqueeze(1), _bos], dim=1)  # (T_total, 2, d_model)
+            _x = _x + self.pos_emb[:, :2].to(_x.dtype)
+            _x = self.backbone(_x)  # plain batched, no cu_seqlens
+            _pred = action_head_raw(self, _x[:, 1])  # (T_total, [K,] A)
+            return _pred, []
         a_tok = self.action_in(actions_packed)  # (T_total, d_model)
 
         # Build BOS-shifted actions per sub-sequence.
@@ -490,16 +738,32 @@ class FlatFusedPolicy(nn.Module):
         x[target_c] = x[target_c] + self.pos_emb[0, pos_c].to(x.dtype)
         x[target_a] = x[target_a] + self.pos_emb[0, pos_a].to(x.dtype)
 
+        # cross_attn (run E): per-token spatial cond aligned to the doubled
+        # packed stream. Each source frame t's M spatial tokens go to BOTH its
+        # cond slot (target_c) and action slot (target_a). adaln -> None.
+        _cond_packed = None
+        if self.cond_mode == "cross_attn":
+            sp = self._encode_spatial_cond(obs_for_encode, T_total)  # (1, T_total, M, dc)
+            sp = sp.squeeze(0)  # (T_total, M, dc)
+            M = sp.shape[1]
+            dc = sp.shape[2]
+            _cond_packed = torch.zeros(
+                new_T_total, M, dc, device=device, dtype=a_tok.dtype
+            )
+            _cond_packed[target_c] = sp.to(a_tok.dtype)
+            _cond_packed[target_a] = sp.to(a_tok.dtype)
+
         # Run the backbone on the doubled packed stream.
         out = self.backbone(
             x,
+            cond=_cond_packed,
             cu_seqlens=new_cu,
             max_seqlen=2 * int(max_seqlen),
         )
 
         # Predictions: out at action positions (target_a). action_out projects
         # to (T_total, action_dim). Order matches actions_packed.
-        pred = self.action_out(out[target_a])
+        pred = action_head_raw(self, out[target_a])
         return pred, []
 
     @torch.no_grad()
@@ -521,9 +785,70 @@ class FlatFusedPolicy(nn.Module):
         if T > self.action_horizon:
             raise ValueError(f"generate T={T} exceeds action_horizon")
 
+        # chunk_k>1: return the trained chunk head's ONE-SHOT K-action plan from the
+        # current obs, so chunk_te + temporal-ensemble uses ALL K actions (not just a_0).
+        _K = getattr(self, "_act_chunk_k", 1)
+        if _K > 1:
+            # OBS-HISTORY: obs may carry an N-frame axis ((B, N, ...)). Encode N
+            # cond tokens, step them at pos_emb 0..N-1, then BOS at pos_emb N and
+            # read the chunk there. N=1 (single-frame obs) reproduces the original
+            # [cond@0, BOS@1] two-token path BYTE-IDENTICALLY (train==eval).
+            _any = next(iter(obs.values()))
+            _N = _any.shape[1] if _any.dim() >= 3 else 1
+            _c = self.cond_in(self._encode_cond(obs, _N))   # (B, N, d_model)
+            _dt = _c.dtype
+            if self.cond_mode == "cross_attn":
+                # cross_attn: one-shot batched [c_0..c_{N-1}, BOS] forward with
+                # the spatial cond tokens as cross-attn K/V -- IDENTICAL math to
+                # chunk_forward_history (via the SHARED _hist_spatial_cond) so
+                # eval == train, including hist_spatial_mode={current,per_frame}.
+                # (The AR-step KV-cache cross-attn accumulates one cond/step,
+                # which is for per-frame cond, NOT a fixed M-token spatial set;
+                # the chunk head is a single one-shot read, so a plain forward is
+                # correct.)
+                _bos = self.bos.expand(batch_size, 1, -1).to(_dt)
+                _x = torch.cat([_c, _bos], dim=1)            # (B, N+1, d_model)
+                _x = _x + self.pos_emb[:, : _N + 1].to(_dt)
+                _sp = self._encode_spatial_cond(obs, _N)
+                _cond = self._hist_spatial_cond(_sp, _N, _dt)
+                _x = self.backbone(_x, cond=_cond)
+                _h = _x[:, _N : _N + 1]                      # (B, 1, d_model) at BOS
+            else:
+                _p = self.backbone.allocate_inference_cache(batch_size, _N + 1, device, _dt)
+                for _i in range(_N):
+                    self.backbone.step(
+                        _c[:, _i : _i + 1] + self.pos_emb[:, _i : _i + 1].to(_dt), _p
+                    )
+                _h = self.backbone.step(
+                    self.bos.expand(batch_size, -1, -1).to(_dt)
+                    + self.pos_emb[:, _N : _N + 1].to(_dt),
+                    _p,
+                )
+            # Decode the full K-step chunk (mode-committing for discrete/gmm;
+            # identity for continuous, which reproduces the old explicit
+            # reshape to (B, K, action_dim)). _h is (B, 1, d_model) so raw
+            # carries a singleton T axis -> squeeze it before decode.
+            _raw = action_head_raw(self, _h)  # (B, 1, K, action_dim[/n_bins/params])
+            _chunk = action_head_decode_chunk(self, _raw.squeeze(1))  # (B, K, action_dim)
+            return _chunk[:, :T]
+
+        if getattr(self, "reactive", False):
+            _rc = self._encode_cond(obs, 1)
+            _rct = self.cond_in(_rc.squeeze(1)).unsqueeze(1)
+            _rbos = self.bos.expand(batch_size, 1, -1)
+            _rx = (torch.cat([_rct, _rbos], dim=1) + self.pos_emb[:, :2]).to(_rct.dtype)
+            _rx = self.backbone(_rx)
+            _ra = action_head_decode(self, action_head_raw(self, _rx[:, 1:2]))
+            return _ra.expand(batch_size, T, self.action_dim)
+
         cond_seq = self._encode_cond(obs, T)  # (B, T, d_cond)
         c_tok = self.cond_in(cond_seq)  # (B, T, d_model)
         dtype = c_tok.dtype
+
+        # cross_attn (run E): per-frame spatial cond (B, T, M, d_cond). Each AR
+        # step feeds frame t's M tokens to BOTH the cond-step and action-step
+        # (matches forward's per-frame cross-attn). adaln -> None.
+        sp_seq = self._encode_spatial_cond(obs, T)  # (B, T, M, dc) or None
 
         # Allocate the backbone's inference cache sized for the doubled stream.
         params = self.backbone.allocate_inference_cache(
@@ -536,13 +861,14 @@ class FlatFusedPolicy(nn.Module):
         actions = torch.zeros(batch_size, T, self.action_dim, device=device)
         a_prev = self.bos.expand(batch_size, -1, -1).to(dtype)  # (B, 1, d_model)
         for t in range(T):
+            _cond_t = sp_seq[:, t].to(dtype) if sp_seq is not None else None  # (B,M,dc)
             # Cond step.
             x_c = c_tok[:, t : t + 1] + self.pos_emb[:, 2 * t : 2 * t + 1].to(dtype)
-            _ = self.backbone.step(x_c, params)
+            _ = self.backbone.step(x_c, params, cond=_cond_t)
             # Action step.
             x_a = a_prev + self.pos_emb[:, 2 * t + 1 : 2 * t + 2].to(dtype)
-            h = self.backbone.step(x_a, params)
-            a_t = self.action_out(h)  # (B, 1, action_dim)
+            h = self.backbone.step(x_a, params, cond=_cond_t)
+            a_t = action_head_decode(self, action_head_raw(self, h))  # (B, 1, action_dim)
             actions[:, t : t + 1] = a_t
             # Prepare next-step's a_prev (a_t becomes a_{t-1} for the next outer step).
             a_prev = self.action_in(a_t)
@@ -582,16 +908,27 @@ class FlatFusedPolicy(nn.Module):
         action_dim)``. Mutates ``state`` in place.
         """
         dtype = state["dtype"]
+        if getattr(self, "reactive", False):
+            _cs = self._encode_cond(obs_norm, T=1)
+            _ct = self.cond_in(_cs.squeeze(1)).unsqueeze(1)
+            _bos = self.bos.expand(_ct.shape[0], 1, -1)
+            _x = (torch.cat([_ct, _bos], dim=1) + self.pos_emb[:, :2]).to(dtype)
+            _x = self.backbone(_x)
+            return action_head_decode(self, action_head_raw(self, _x[:, 1:2]))
         cond_seq = self._encode_cond(obs_norm, T=1)  # (B, 1, d_cond)
         fused = cond_seq.squeeze(1)  # (B, d_cond)
+        # cross_attn (run E): current frame's M spatial tokens (B, M, d_cond),
+        # fed to both the cond-step and action-step. adaln -> None.
+        _sp = self._encode_spatial_cond(obs_norm, T=1)  # (B, 1, M, dc) or None
+        _cond_t = _sp[:, 0].to(dtype) if _sp is not None else None
         c_tok = (
             self.cond_in(fused).unsqueeze(1) + self.pos_emb[:, 2 * t : 2 * t + 1]
         ).to(dtype)
-        _ = self.backbone.step(c_tok, state["params"])
+        _ = self.backbone.step(c_tok, state["params"], cond=_cond_t)
 
         a_tok = (state["a_prev_emb"] + self.pos_emb[:, 2 * t + 1 : 2 * t + 2]).to(dtype)
-        h = self.backbone.step(a_tok, state["params"])
-        a_t_norm = self.action_out(h)
+        h = self.backbone.step(a_tok, state["params"], cond=_cond_t)
+        a_t_norm = action_head_decode(self, action_head_raw(self, h))
         state["a_prev_emb"] = self.action_in(a_t_norm).to(dtype)
         return a_t_norm
 
@@ -669,6 +1006,7 @@ class HNet(Algo):
             d_model=d_model,
             cond_encoder=cond_encoder,
             hnet=hnet,
+            action_head_cfg=_action_head_cfg(kwargs),
         )
         policy.token_dropout_p = float(kwargs.get("token_dropout_p", 0.0) or 0.0)
         self.train_mode = str(kwargs.get("train_mode", "tf"))
@@ -823,6 +1161,9 @@ class HNet(Algo):
                 # learns to recover from its own errors. Loss target stays GT.
                 with torch.no_grad():
                     pred1, _ = _fwd(actions)
+                    # Decode to continuous before feeding back as prev-action
+                    # input (pred1 is logits when the head is discrete).
+                    pred1 = action_head_decode(policy, pred1)
                 _ss = float(getattr(self, "ss_prob", 0.5))
                 _mask = torch.rand(actions.shape[:-1] + (1,), device=actions.device) < _ss
                 mixed = torch.where(_mask, pred1.detach(), actions)
@@ -830,17 +1171,17 @@ class HNet(Algo):
             else:
                 pred, aux = _fwd(actions)
 
-            mse = nn.functional.mse_loss(pred, actions)
-            rloss = ratio_loss_from_aux(aux, device=mse.device)
+            aloss = action_head_loss(policy, pred, actions, cu_seqlens=cu_seqlens)
+            rloss = ratio_loss_from_aux(aux, device=aloss.device)
             predictions[f"{emb_id}_pred"] = pred
-            predictions[f"{emb_id}_action_loss"] = mse
+            predictions[f"{emb_id}_action_loss"] = aloss
             predictions[f"{emb_id}_ratio_loss"] = rloss
 
             # Per-chunker stats for logging. avg_chunk_len = T / max(#boundaries, 1)
             # so it == 1/F when F>0 and falls back to T when F==0 (no compression).
             stats = chunk_stats_from_aux(aux)
             for k, v in stats.items():
-                predictions[f"{emb_id}_{k}"] = torch.tensor(v, device=mse.device)
+                predictions[f"{emb_id}_{k}"] = torch.tensor(v, device=aloss.device)
         return predictions
 
     @override
@@ -880,6 +1221,7 @@ class HNet(Algo):
             obs = self._build_obs(_batch, emb_id)
             actions = _batch[ac_key]
             pred, _ = policy(actions, obs)
+            pred = action_head_decode(policy, pred)
             preds = OrderedDict()
             preds[ac_key] = pred
             unnorm_actions = self.norm_stats.unnormalize(preds, emb_id)
@@ -904,6 +1246,7 @@ class HNet(Algo):
         max_seqlen = int(_batch["max_seq_len"])
         seq_lens = _batch["seq_lens"].clone()
         pred_packed, _ = policy.forward_packed(actions, obs, cu, max_seqlen)
+        pred_packed = action_head_decode(policy, pred_packed)
 
         B = int(seq_lens.shape[0])
         T_max = int(seq_lens.max().item())
@@ -1159,8 +1502,15 @@ class HNetFused(HNet):
             d_intermediate=d_intermediate,
             dropout=dropout,
             resid_dropout=resid_dropout,
+            action_head_cfg=_action_head_cfg(kwargs),
+            cond_mode=str(kwargs.get("cond_mode", "adaln")),
+            spatial_cond_key=str(
+                kwargs.get("spatial_cond_key", "spatial_cond_tokens")
+            ),
+            hist_spatial_mode=str(kwargs.get("hist_spatial_mode", "current")),
         )
         policy.token_dropout_p = float(kwargs.get("token_dropout_p", 0.0) or 0.0)
+        policy.reactive = bool(kwargs.get("reactive", False))
         self.train_mode = str(kwargs.get("train_mode", "tf"))
         self.ss_prob = float(kwargs.get("ss_prob", 0.5) or 0.5)
         _win = int(kwargs.get("window_size", 0) or 0)

@@ -1,0 +1,67 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet_chunk.HNetChunkToken
+
+  # =====================================================================
+  # PRESET: "full HPT-like" — every slot set to HPT's choice. This is the
+  # same modular policy as hnet_pushshapes_chunktoken.yaml; only the SLOT
+  # selections differ (encoder=resnet, stem=cross_attn, readout=action_token).
+  # Flip any line to build a different variant. See base config for all options.
+  # =====================================================================
+
+  action_dim: 2
+  chunk_k: 32
+  d_model: 128
+
+  proprio_dim: 2
+  input_slice: [0, 2]
+  proprio_key: "state_agent_obj"
+  img_key: "front_img_1"
+
+  # SLOT 1: encoder = HPT's ResNet (pretrained)
+  encoder: "resnet"
+  resnet_model: "resnet18"
+  pretrained: true
+  in_channels: 3
+  image_size: 96
+
+  # SLOT 2: stem = HPT cross-attention (16 latents)
+  stem: "cross_attn"
+  stem_latents: 16
+
+  # SLOT 3: trunk
+  arch_layout: "T6"           # 6 blocks, matching HPT trunk depth
+  num_heads: 4
+  d_intermediate: 512
+  dropout: 0.1
+  resid_dropout: 0.1
+
+  # SLOT 4: readout = HPT action-token query readout
+  readout: "action_token"
+
+  # ---- SLOT 5: backbone topology ----  options: flat | hnet_chunked
+  backbone: "flat"            # flat = HPT-style flat trunk (DEFAULT; old runs byte-identical)
+  #   hnet_chunked: insert H-Net dynamic chunker (router -> chunk -> inner -> dechunk) mid-trunk,
+  #                 keeping the HPT-like encoder/stem/readout/chunk+TE parts unchanged.
+  #                 arch_layout is split enc/inner/dec (e.g. T6 -> T2/T2/T2).
+  chunk_compress_ratio: 4.0   # (hnet_chunked) target token compression ratio for the ratio loss
+  ratio_loss_weight: 0.03     # (hnet_chunked) weight of the boundary ratio auxiliary loss
+
+  action_horizon: 1024
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 4e-4                     # HPT's LR
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 400
+  warmup_steps: 24
+  warmup_start_factor: 0.1
+  eta_min: 4.0e-6

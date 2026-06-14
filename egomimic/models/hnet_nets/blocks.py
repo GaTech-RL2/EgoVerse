@@ -459,9 +459,71 @@ class CrossMultiHeadAttention(nn.Module):
         self.out_proj = nn.Linear(d_model, d_model, bias=True)
 
     def forward(self, x, cond_tokens, cu_seqlens=None, max_seqlen=None):
+        # PER-FRAME (run E): a 4D cond ``(B/T_total, L, M, d_cond)`` means each
+        # query token has its OWN private set of M spatial tokens (the spatial
+        # tokens of ITS frame). This is gated on rank=4 so the existing 3D
+        # chunk-path (a single shared (B, M, d_cond) set) stays byte-identical.
+        if cond_tokens.dim() == (4 if cu_seqlens is None else 3):
+            return self._forward_per_frame(x, cond_tokens, cu_seqlens)
         if cu_seqlens is not None:
             return self._forward_packed(x, cond_tokens, cu_seqlens, max_seqlen)
         return self._forward_padded(x, cond_tokens)
+
+    def _forward_per_frame(self, x, cond_tokens, cu_seqlens=None):
+        """Per-query-token-private cross-attention.
+
+        Padded:  x (B, L, d_model),       cond_tokens (B, L, M, d_cond).
+        Packed:  x (T_total, d_model),     cond_tokens (T_total, M, d_cond).
+
+        Query token i attends ONLY over its own frame's M spatial tokens — no
+        causal masking across frames (each token sees just its own frame, so
+        train (full seq) and AR-step (one token) are mathematically identical:
+        token i's output depends solely on x[i] and cond_tokens[i]).
+        """
+        if cu_seqlens is None:
+            B, L, _ = x.shape
+            M = cond_tokens.shape[2]
+            xf = x.reshape(B * L, 1, self.d_model)
+            cf = cond_tokens.reshape(B * L, M, self.d_cond)
+        else:
+            T_total = x.shape[0]
+            L = 1
+            M = cond_tokens.shape[1]
+            xf = x.reshape(T_total, 1, self.d_model)
+            cf = cond_tokens  # (T_total, M, d_cond)
+            B = T_total
+        N = xf.shape[0]
+        q = self.q_proj(xf).reshape(N, 1, self.num_heads, self.head_dim).transpose(1, 2)
+        kv = self.kv_proj(cf).reshape(N, M, 2, self.num_heads, self.head_dim)
+        k, v = kv.unbind(dim=2)
+        k = k.transpose(1, 2)
+        v = v.transpose(1, 2)
+        out = F.scaled_dot_product_attention(q, k, v)  # (N, H, 1, Dh)
+        out = out.transpose(1, 2).reshape(N, self.d_model)
+        out = self.out_proj(out)
+        if cu_seqlens is None:
+            return out.reshape(B, L, self.d_model)
+        return out  # (T_total, d_model)
+
+    def step_per_frame(self, x, cond_tokens):
+        """AR-step per-frame cross-attention (NO cache).
+
+        ``x``: (B, 1, d_model) current step's query token.
+        ``cond_tokens``: (B, M, d_cond) the current frame's M spatial tokens.
+
+        Identical math to ``_forward_per_frame`` for one query token, so the
+        AR rollout matches teacher-forced training exactly.
+        """
+        B = x.shape[0]
+        M = cond_tokens.shape[1]
+        q = self.q_proj(x).reshape(B, 1, self.num_heads, self.head_dim).transpose(1, 2)
+        kv = self.kv_proj(cond_tokens).reshape(B, M, 2, self.num_heads, self.head_dim)
+        k, v = kv.unbind(dim=2)
+        k = k.transpose(1, 2)
+        v = v.transpose(1, 2)
+        out = F.scaled_dot_product_attention(q, k, v)
+        out = out.transpose(1, 2).reshape(B, 1, self.d_model)
+        return self.out_proj(out)
 
     def _forward_padded(self, x, cond_tokens):
         B, T_q, _ = x.shape
@@ -710,17 +772,26 @@ class TransformerBlock(nn.Module):
 
         # Cross-attention.
         if self.cond_mode == "cross_attn" and cond is not None:
-            assert (
-                cross_cache is not None
-            ), "cond_mode=cross_attn requires a cross-attn cache"
-            # Accept both (B, d_cond) and (B, 1, d_cond) — the per-step cond
-            # slice from the policy comes through as 2D; cross_attn.step wants
-            # an explicit time dim.
-            cond_curr = cond.unsqueeze(1) if cond.dim() == 2 else cond
             h = self.cross_norm(x)
-            x = x + self.cross_resid_drop(
-                self.cross_attn.step(h, cond_curr, cross_cache)
-            )
+            if cond.dim() == 3:
+                # PER-FRAME (run E): cond is (B, M, d_cond) — the current
+                # frame's M spatial tokens. No cache: each step attends over
+                # JUST its own frame's tokens (matches _forward_per_frame), so
+                # AR == teacher-forced exactly.
+                x = x + self.cross_resid_drop(
+                    self.cross_attn.step_per_frame(h, cond)
+                )
+            else:
+                assert (
+                    cross_cache is not None
+                ), "cond_mode=cross_attn requires a cross-attn cache"
+                # Accept both (B, d_cond) and (B, 1, d_cond) — the per-step cond
+                # slice from the policy comes through as 2D; cross_attn.step wants
+                # an explicit time dim.
+                cond_curr = cond.unsqueeze(1) if cond.dim() == 2 else cond
+                x = x + self.cross_resid_drop(
+                    self.cross_attn.step(h, cond_curr, cross_cache)
+                )
 
         # MLP.
         if self.has_mlp:

@@ -1,0 +1,17 @@
+# BC-RNN-TRANSFORMER + warmup->cosine LR (run 3324263): the TransformerCore
+# paper-exact recipe with the smooth-loss warmup->cosine schedule (peak 1e-4)
+# instead of the constant LR. ONLY the scheduler differs from
+# bc_rnn_pushshapes_paperexact_tx. extends _bcrnn_paperexact_tx_common
+defaults:
+  - _bcrnn_paperexact_tx_common
+  - _self_
+
+# Warmup->cosine (the smooth-loss variant; vault default for non-replica runs).
+# Horizon in OPTIMIZER STEPS: 1800 epochs x 50 batches = 90,000.
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 90000
+  warmup_steps: 4500  # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6

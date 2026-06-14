@@ -1,0 +1,53 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Fast in-memory variant of tsimulation_hpt.yaml. Identical batch contract
+# (per-frame obs + length-`action_horizon` action chunk for pushshapes_sim),
+# but each episode is decoded into RAM once at construction by
+# InMemoryZarrDataset, so __getitem__ is a slice + uint8->float cast with no
+# per-sample JPEG decode. The decode happens in the parent process before the
+# DataLoader forks, so the image buffers are shared to workers copy-on-write.
+#
+# Only difference from tsimulation_hpt.yaml: the resolver _target_, the
+# folder_path (new_circle_3), and tuned dataloader params. Everything
+# downstream (normalize / bounds / collate / norm_stats / model) is unchanged.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_inmem.InMemoryLocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/new_circle_3
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_inmem.InMemoryLocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/new_circle_3
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 10
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 10
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4

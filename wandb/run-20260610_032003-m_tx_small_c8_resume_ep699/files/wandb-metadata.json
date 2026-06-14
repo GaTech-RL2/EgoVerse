@@ -1,0 +1,63 @@
+{
+  "os":  "Linux-6.8.0-111-generic-x86_64-with-glibc2.39",
+  "python":  "CPython 3.11.14",
+  "startedAt":  "2026-06-10T07:20:03.694090Z",
+  "program":  "<stdin>",
+  "git":  {
+    "remote":  "git@github.com:GaTech-RL2/EgoVerse.git",
+    "commit":  "7df436fd2fa1d97a47cf1dbeed639633e1e601b5"
+  },
+  "email":  "elmoworld2005@gmail.com",
+  "root":  "/coc/flash7/paphiwetsa3/projects/EgoVerse2",
+  "host":  "protocol.cc.gatech.edu",
+  "executable":  "/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "disk":  {
+    "/":  {
+      "total":  "942725181440",
+      "used":  "35499147264"
+    }
+  },
+  "memory":  {
+    "total":  "540840349696"
+  },
+  "slurm":  {
+    "cluster_name":  "skynet",
+    "conf":  "/opt/slurm/configs/slurm.conf",
+    "cpus_on_node":  "1",
+    "cpus_per_task":  "1",
+    "gtids":  "0",
+    "job_account":  "overcap",
+    "job_cpus_per_node":  "1",
+    "job_end_time":  "1781248798",
+    "job_gid":  "2626",
+    "job_id":  "3330848",
+    "job_name":  "smallResumeMirrorP",
+    "job_nodelist":  "protocol",
+    "job_num_nodes":  "1",
+    "job_partition":  "overcap",
+    "job_qos":  "scavenger_qos",
+    "job_start_time":  "1781075998",
+    "job_uid":  "3346154",
+    "job_user":  "paphiwetsa3",
+    "jobid":  "3330848",
+    "localid":  "0",
+    "mem_per_node":  "2048",
+    "nnodes":  "1",
+    "nodeid":  "0",
+    "nodelist":  "protocol",
+    "oom_kill_step":  "0",
+    "prio_process":  "0",
+    "procid":  "0",
+    "script_context":  "prolog_task",
+    "submit_dir":  "/coc/flash7/paphiwetsa3/projects/EgoVerse2",
+    "submit_host":  "sky1.cc.gatech.edu",
+    "task_pid":  "159543",
+    "tasks_per_node":  "1",
+    "topology_addr":  "protocol",
+    "topology_addr_pattern":  "node",
+    "tres_per_task":  "cpu=1"
+  },
+  "writerId":  "47h4aewt2d5cslkj0hqm04o3gr365159"
+}

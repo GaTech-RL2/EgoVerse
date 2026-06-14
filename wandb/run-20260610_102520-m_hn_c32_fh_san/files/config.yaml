@@ -1,0 +1,39 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            z5pjqtxdubo3wksi8o7ncixcg7dwd7ls:
+                email: elmoworld2005@gmail.com
+                executable: /coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python
+                git:
+                    commit: 7df436fd2fa1d97a47cf1dbeed639633e1e601b5
+                    remote: git@github.com:GaTech-RL2/EgoVerse.git
+                host: cortana.cc.gatech.edu
+                os: Linux-6.8.0-111-generic-x86_64-with-glibc2.39
+                program: <stdin>
+                python: CPython 3.11.14
+                root: /coc/flash7/paphiwetsa3/projects/EgoVerse2
+                startedAt: "2026-06-10T14:25:20.130962Z"
+                writerId: z5pjqtxdubo3wksi8o7ncixcg7dwd7ls
+        m: []
+        python_version: 3.11.14
+        t:
+            "3":
+                - 2
+                - 5
+                - 13
+                - 14
+                - 15
+                - 16
+                - 61
+                - 62
+            "4": 3.11.14
+            "5": 0.26.1
+            "12": 0.26.1
+            "13": linux-x86_64
+negative_metrics:
+    value: logged as Mirror/neg_<original_key_with_slashes_as_underscores>
+source_run_id:
+    value: bcrnnHnetC32FH_nc3_bc_rnn_hnet_chunk32_fullhist_2026-06-10_01-44-49
+source_wandb_file:
+    value: /coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/bcrnnHnetC32FH_nc3/bc_rnn_hnet_chunk32_fullhist_2026-06-10_01-44-49/wandb/run-20260610_014934-bcrnnHnetC32FH_nc3_bc_rnn_hnet_chunk32_fullhist_2026-06-10_01-44-49/run-bcrnnHnetC32FH_nc3_bc_rnn_hnet_chunk32_fullhist_2026-06-10_01-44-49.wandb

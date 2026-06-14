@@ -1,0 +1,100 @@
+# Cotrain pick_place dataset with object_gen monitoring.
+#
+# Same train set as cotrain_pickplace_qwen.yaml. Valid additionally includes
+# aria_bimanual object_gen episodes (36 ep) — a subset of train, used for
+# monitoring object_gen-specific train loss (NOT held-out generalization).
+#
+#   train = 216 eva_bimanual + 105 aria_bimanual = 321 episodes
+#   valid = 12 eva_bimanual alignment + ~36 aria_bimanual object_gen = ~48 ep
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pickplace_qwen
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: dense-language
+      filter_lambdas:
+        - "lambda row: row.get('task') == 'pick_place' and row.get('embodiment') == 'eva_bimanual' and (row.get('zarr_processed_path') or '') != '' and 'alignment' not in ((row.get('task_description') or '').lower())"
+    mode: total
+  aria_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pickplace_qwen
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: cartesian_padded
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: dense-language
+      filter_lambdas:
+        - "lambda row: row.get('task') == 'pick_place' and row.get('embodiment') == 'aria_bimanual' and (row.get('zarr_processed_path') or '') != '' and any(s in ((row.get('task_description') or '').lower()) for s in ('base', 'object')) and (row.get('episode_hash') or '') not in ('2026-04-26-00-17-53-000000', '2026-04-26-00-27-26-000000', '2026-05-01-02-52-58-000000')"
+    mode: total
+
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pickplace_qwen
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: dense-language
+      filter_lambdas:
+        - "lambda row: row.get('task') == 'pick_place' and row.get('embodiment') == 'eva_bimanual' and (row.get('zarr_processed_path') or '') != '' and 'alignment' in ((row.get('task_description') or '').lower())"
+    mode: total
+  aria_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3AnnotationCutoffEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pickplace_qwen
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        mode: cartesian_padded
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: dense-language
+      filter_lambdas:
+        - "lambda row: row.get('task') == 'pick_place' and row.get('embodiment') == 'aria_bimanual' and (row.get('zarr_processed_path') or '') != '' and 'object' in ((row.get('task_description') or '').lower())"
+    mode: total
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+  aria_bimanual:
+    batch_size: 32
+    num_workers: 6
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+  aria_bimanual:
+    batch_size: 32
+    num_workers: 6

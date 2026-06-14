@@ -1,0 +1,38 @@
+2026-06-10 01:51:15 INFO open for scan: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/run-debug_live_history_2026_06_10_0125.wandb
+2026-06-10 01:51:16 INFO watching files in: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files
+2026-06-10 01:51:16 INFO run started: debug_resync_history_20260610_015113 with start time 1781069774.074599
+2026-06-10 01:51:16 INFO saving file wandb-metadata.json with policy now
+2026-06-10 01:51:17 INFO saving file wandb-metadata.json with policy now
+2026-06-10 01:51:17 INFO saving file requirements.txt with policy now
+2026-06-10 01:51:17 INFO Uploaded file /tmp/tmp40zagpekwandb/iwd17hb9-wandb-metadata.json
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO Uploaded file /tmp/tmp40zagpekwandb/u3mwdbnv-requirements.txt
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO file/dir modified: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/wandb-metadata.json
+2026-06-10 01:51:17 INFO file/dir modified: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/config.yaml
+2026-06-10 01:51:17 INFO file/dir modified: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/wandb-summary.json
+2026-06-10 01:51:17 INFO Uploaded file /tmp/tmp40zagpekwandb/coinpqh9-wandb-metadata.json
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO saving file wandb-summary.json with policy end
+2026-06-10 01:51:17 INFO shutting down sender
+2026-06-10 01:51:17 INFO shutting down directory watcher
+2026-06-10 01:51:18 INFO file/dir modified: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/config.yaml
+2026-06-10 01:51:18 INFO file/dir modified: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/wandb-summary.json
+2026-06-10 01:51:18 INFO scan: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files
+2026-06-10 01:51:18 INFO scan save: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/wandb-metadata.json wandb-metadata.json
+2026-06-10 01:51:18 INFO scan save: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/wandb-summary.json wandb-summary.json
+2026-06-10 01:51:18 INFO scan save: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/requirements.txt requirements.txt
+2026-06-10 01:51:18 INFO scan save: /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/config.yaml config.yaml
+2026-06-10 01:51:18 INFO shutting down file pusher
+2026-06-10 01:51:18 INFO waiting for file pusher
+2026-06-10 01:51:18 INFO Uploaded file /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/config.yaml
+2026-06-10 01:51:18 INFO Uploaded file /coc/flash7/paphiwetsa3/projects/EgoVerse2/wandb/run-20260610_013613-debug_live_history_2026_06_10_0125/files/wandb-summary.json
+2026-06-10 01:51:18 INFO file stream finish called
+2026-06-10 01:51:19 INFO file stream finish is done

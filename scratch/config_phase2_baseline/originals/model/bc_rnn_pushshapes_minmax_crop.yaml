@@ -1,0 +1,15 @@
+# BC-RNN minmax + CROP_AUG (run 3310863): adds the robomimic CropRandomizer
+# equivalent (random 86x86 crop of 96 @train, center crop @eval; 76/84 paper
+# ratio, round(96*76/84)=86). The ONLY model delta vs bc_rnn_pushshapes_minmax.
+# minmax stays a launcher norm_stats override. extends _bcrnn_common
+defaults:
+  - _bcrnn_common
+  - _self_
+
+robomimic_model:
+  obs_encoder:
+    img_encoders:
+      front_img_1:
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86

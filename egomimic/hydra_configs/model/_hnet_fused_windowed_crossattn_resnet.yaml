@@ -1,0 +1,57 @@
+# ABSTRACT BASE (underscore-prefixed, NEVER launched) — windowed lineage with
+# HPT-style SPATIAL + CROSS-ATTENTION conditioning (run D's verified "eyes"),
+# shared by hnet_pushshapes_fused_windowed_crossattn_resnet (flat 1e-4 LinearLR)
+# and hnet_pushshapes_fused_windowed_crossattn_resnet_lowlr (2.5e-5 warmup->cosine).
+# extends _hnet_fused_windowed_common.
+#
+# B's recipe (closed-loop chunk + GMM, NO obs-history) with cond_mode=cross_attn
+# and a SpatialCondEncoderModule emitting per-frame spatial cond tokens (ResNet
+# return_tokens=true). The pooled fused_cond is KEPT (input-layer cond token /
+# pos_emb unchanged); cross-attn ADDS spatial localization on top. The leaves add
+# only optimizer.lr + scheduler.
+defaults:
+  - _hnet_fused_windowed_common
+  - _self_
+
+robomimic_model:
+  cond_mode: cross_attn       # run D lever: cross-attn over spatial cond tokens
+  cond_encoder:
+    _target_: egomimic.models.hnet_nets.cond_encoders.SpatialCondEncoderModule
+    d_cond: 128
+    output_key: fused_cond
+    spatial_output_key: spatial_cond_tokens
+    cond_proj_widths: [128, 128]
+    # Spatial-token compression DISABLED: an UNtrained latent compressor averages
+    # over the spatial tokens at init (near-uniform attention) -> it reintroduces
+    # the obs-blindness this variant is meant to remove (verified: with
+    # compression, the pred is invariant to the T's location at init; raw tokens
+    # localize from epoch 0). The backbone's per-block cross-attn already attends
+    # directly over the (pos-emb'd) ResNet spatial tokens, which IS the HPT-style
+    # localization. Compression stays available (set compress_tokens: 16) for a
+    # future trained-compressor variant.
+    compress_tokens: null
+    compress_heads: 4
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        embed_dim: 64
+        widths: [128]
+        input_slice: [0, 2]
+    # Pooled image encoder feeds the (untouched) fused_cond input token.
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.ResNetEncoder
+        in_channels: 3
+        embed_dim: 128
+        resnet_model: resnet18
+        pretrained: true
+        spatial: false
+    # Spatial image encoder feeds the NEW cross-attn cond tokens.
+    spatial_img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.ResNetEncoder
+        in_channels: 3
+        embed_dim: 128
+        resnet_model: resnet18
+        pretrained: true
+        return_tokens: true

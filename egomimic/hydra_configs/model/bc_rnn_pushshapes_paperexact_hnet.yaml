@@ -1,0 +1,55 @@
+# BC-RNN-HNET: the paper-exact recipe with the core swapped LSTM -> the user's
+# REAL hierarchical dynamic-chunking H-Net (HNetCore, d_model=256). Isolates the
+# history mechanism; pairs single-knob with the TX-cos run 3324263 (same
+# warmup->cosine, only the core differs LSTM/TX/H-Net). Root of the H-Net subtree.
+#
+# CORE = the REAL dynamic-chunking H-Net (egomimic.models.bc_rnn_nets.HNetCore):
+#   in_proj 66 -> d_model -> EncoderDecoderStage(outer, CAUSAL) ->
+#   ChunkerStage(RoutingModule dynamic chunking, CAUSAL) -> ComputeStage(inner,
+#   CAUSAL) -> (B,T,d_model) per-step features for the GMM head. CAUSALITY is
+#   make-or-break: causal=True everywhere + DeChunkLayer EMA left-to-right
+#   recurrence -> output at k uses only positions <= k; rollout step() replays the
+#   SAME forward over a rolling buffer so train == rollout (~1e-6).
+# extends _bcrnn_paperexact_common
+defaults:
+  - _bcrnn_paperexact_common
+  - _self_
+
+robomimic_model:
+  # CORE SWAP: the real dynamic-chunking H-Net over the rnn_horizon window.
+  core: hnet
+
+  # CORE: HNetCore (polymorphic via .input_dim/.hidden_dim/forward/init_hidden/
+  # step). input_dim = obs_encoder concat (64 img + 2 raw) = 66. Defaults
+  # param-matched to LSTM(1000)x2 12.28M / TX(448,5L) 12.11M. d_model=256
+  # (multiple of 32 for the dechunk EMA headdim, divisible by n_heads=8); outer
+  # 4 + 4 (enc/dec) + inner 6 = 14 "T" blocks @ d_int=768.
+  core_net:
+    _target_: egomimic.models.bc_rnn_nets.HNetCore
+    input_dim: 66                  # = obs_encoder concat (64 img + 2 raw)
+    d_model: 256                   # H-Net working dim = head input (param-matched)
+    n_heads: 8                     # 256 / 8 = 32 dim/head
+    d_intermediate: 768            # SwiGLU FFN hidden (3 * d_model)
+    outer_layers: 4                # T blocks in EACH of outer encoder + decoder
+    inner_layers: 6                # T blocks in the inner ComputeStage
+    target_compression_ratio: 2.0  # NO-OP in BC-RNN (ratio/aux loss never read;
+                                   # chunk length driven by obs-embedding cos-sim)
+    ratio_loss_weight: 0.03        # INERT in BC-RNN (algo doesn't read ctx.aux)
+    max_window: ${..rnn_horizon}  # inherits the ONE window number (= rnn_horizon)
+    dropout: 0.0                   # paper-exact LSTM uses dropout 0 -> match
+    resid_dropout: 0.0
+    rotary_emb_dim: 0              # RoPE off (position-encoding-free; window short)
+    causal: true                   # MUST stay true for train==rollout parity
+
+  gmm_head:
+    d_model: ${..core_net.d_model}   # = core.d_model 256 (no actor MLP)
+
+# Warmup->cosine (the smooth-loss variant; pairs single-knob with TX-cos 3324263).
+# Horizon in OPTIMIZER STEPS: 1800 epochs x 50 batches = 90,000.
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 90000
+  warmup_steps: 4500  # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6

@@ -61,6 +61,16 @@ logger = logging.getLogger(__name__)
 SEED = 42
 
 
+def _unwrap_single_jpeg_buffer(buf):
+    """Return the actual JPEG byte buffer from scalar/length-1 object arrays."""
+    if isinstance(buf, np.ndarray) and buf.dtype == object:
+        if buf.shape == ():
+            return buf.item()
+        if buf.size == 1:
+            return buf.reshape(-1)[0]
+    return buf
+
+
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     """
     Split a list of dataset names into train/valid sets.
@@ -214,6 +224,17 @@ class EpisodeResolver:
         self.key_map = key_map
         self.transform_list = transform_list
 
+    def _extra_dataset_kwargs(self) -> dict:
+        """Extra kwargs splatted into the per-episode dataset constructor.
+
+        Base resolver passes nothing extra (so ``ZarrDataset`` is unaffected).
+        Subclasses whose ``_dataset_class`` accepts additional options (e.g.
+        ``InMemoryZarrDataset(pad_with_last_action=...)``) override this to
+        forward them. Keeping it a hook means the construction loop in
+        ``_load_zarr_datasets`` stays generic.
+        """
+        return {}
+
     def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
@@ -245,6 +266,7 @@ class EpisodeResolver:
                     p,
                     key_map=self.key_map,
                     transform_list=self.transform_list,
+                    **self._extra_dataset_kwargs(),
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -1875,7 +1897,8 @@ class ZarrDataset(torch.utils.data.Dataset):
                             data[k] = np.stack(frames, axis=0)
                         else:
                             decoded = simplejpeg.decode_jpeg(
-                                jpeg_bytes, colorspace="RGB"
+                                _unwrap_single_jpeg_buffer(jpeg_bytes),
+                                colorspace="RGB",
                             )
                             data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
                     except Exception:

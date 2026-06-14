@@ -1,0 +1,23 @@
+{
+  "aria_bimanual": {
+    "_partial_": true,
+    "_target_": "egomimic.rldb.embodiment.human.Aria.viz_gt_preds",
+    "action_key": "actions_cartesian",
+    "image_key": "base_0_rgb",
+    "mode": "traj"
+  },
+  "eva_bimanual": {
+    "_partial_": true,
+    "_target_": "egomimic.rldb.embodiment.eva.Eva.viz_gt_preds",
+    "action_key": "actions_cartesian",
+    "image_key": "base_0_rgb",
+    "mode": "traj"
+  },
+  "scale_bimanual": {
+    "_partial_": true,
+    "_target_": "egomimic.rldb.embodiment.human.Scale.viz_gt_preds",
+    "action_key": "actions_cartesian",
+    "image_key": "base_0_rgb",
+    "mode": "traj"
+  }
+}

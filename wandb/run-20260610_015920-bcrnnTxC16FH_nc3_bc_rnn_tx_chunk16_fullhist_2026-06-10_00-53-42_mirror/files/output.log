@@ -1,0 +1,4 @@
+MIRROR_START source=bcrnnTxC16FH_nc3_bc_rnn_tx_chunk16_fullhist_2026-06-10_00-53-42 mirror=bcrnnTxC16FH_nc3_bc_rnn_tx_chunk16_fullhist_2026-06-10_00-53-42_mirror url=https://wandb.ai/rl2-group/zarr_test_history_debug/runs/bcrnnTxC16FH_nc3_bc_rnn_tx_chunk16_fullhist_2026-06-10_00-53-42_mirror
+MIRROR_POLL source=bcrnnTxC16FH_nc3_bc_rnn_tx_chunk16_fullhist_2026-06-10_00-53-42 rows=23 new=23 logged=23
+MIRROR_POLL source=bcrnnTxC16FH_nc3_bc_rnn_tx_chunk16_fullhist_2026-06-10_00-53-42 rows=23 new=0 logged=0 empty_cycles=1
+MIRROR_POLL source=bcrnnTxC16FH_nc3_bc_rnn_tx_chunk16_fullhist_2026-06-10_00-53-42 rows=24 new=1 logged=1

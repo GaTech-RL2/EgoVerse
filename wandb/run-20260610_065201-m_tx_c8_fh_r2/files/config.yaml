@@ -1,0 +1,82 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            6w1brumkt093nki2jf45bic7n1f97iyd:
+                cpu_count: 28
+                cpu_count_logical: 56
+                disk:
+                    /:
+                        total: "249656872960"
+                        used: "76574208000"
+                email: elmoworld2005@gmail.com
+                executable: /coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python
+                git:
+                    commit: 7df436fd2fa1d97a47cf1dbeed639633e1e601b5
+                    remote: git@github.com:GaTech-RL2/EgoVerse.git
+                host: cortana.cc.gatech.edu
+                memory:
+                    total: "404302962688"
+                os: Linux-6.8.0-111-generic-x86_64-with-glibc2.39
+                program: <stdin>
+                python: CPython 3.11.14
+                root: /coc/flash7/paphiwetsa3/projects/EgoVerse2
+                slurm:
+                    array_job_id: "3330833"
+                    array_task_count: "2"
+                    array_task_id: "1"
+                    array_task_max: "1"
+                    array_task_min: "0"
+                    array_task_step: "1"
+                    cluster_name: skynet
+                    conf: /opt/slurm/configs/slurm.conf
+                    cpus_on_node: "1"
+                    cpus_per_task: "1"
+                    gtids: "0"
+                    job_account: overcap
+                    job_cpus_per_node: "1"
+                    job_end_time: "1781247610"
+                    job_gid: "2626"
+                    job_id: "3330833"
+                    job_name: txRelMirror
+                    job_nodelist: cortana
+                    job_num_nodes: "1"
+                    job_partition: overcap
+                    job_qos: scavenger_qos
+                    job_start_time: "1781074810"
+                    job_uid: "3346154"
+                    job_user: paphiwetsa3
+                    jobid: "3330833"
+                    localid: "0"
+                    mem_per_node: "2048"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: cortana
+                    oom_kill_step: "0"
+                    prio_process: "0"
+                    procid: "0"
+                    script_context: prolog_task
+                    submit_dir: /coc/flash7/paphiwetsa3/projects/EgoVerse2
+                    submit_host: sky1.cc.gatech.edu
+                    task_pid: "4009131"
+                    tasks_per_node: "1"
+                    topology_addr: cortana
+                    topology_addr_pattern: node
+                    tres_per_task: cpu=1
+                startedAt: "2026-06-10T10:52:01.269009Z"
+                writerId: 6w1brumkt093nki2jf45bic7n1f97iyd
+        m: []
+        python_version: 3.11.14
+        t:
+            "3":
+                - 2
+                - 5
+                - 13
+                - 14
+                - 15
+                - 61
+                - 62
+            "4": 3.11.14
+            "5": 0.26.1
+            "12": 0.26.1
+            "13": linux-x86_64

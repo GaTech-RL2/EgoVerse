@@ -1,0 +1,17 @@
+# Run D: B's recipe (closed-loop chunk + GMM, NO obs-history) with HPT-style
+# SPATIAL + CROSS-ATTENTION conditioning instead of the pooled-MLP cond.
+# Pooled fused_cond KEPT; cross-attn ADDS spatial localization on top.
+# AdamW 1e-4 + flat LinearLR. All cond payload lives in the intermediate base.
+# extends _hnet_fused_windowed_crossattn_resnet
+defaults:
+  - _hnet_fused_windowed_crossattn_resnet
+  - _self_
+
+optimizer:
+  lr: 1e-4
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1

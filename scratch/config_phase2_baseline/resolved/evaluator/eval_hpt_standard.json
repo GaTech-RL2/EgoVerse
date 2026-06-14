@@ -1,0 +1,14 @@
+{
+  "_target_": "egomimic.eval.eval_sim.SimRolloutEval",
+  "coverage_threshold": 0.7,
+  "embodiment_name": "pushshapes_sim",
+  "env_kwargs": {
+    "image_size": 96,
+    "object_shape": "T",
+    "obstacle_level": 0,
+    "pusher_shape": "circle"
+  },
+  "init_mode": "replay",
+  "limit_val_batches": 4,
+  "max_steps": null
+}

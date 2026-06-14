@@ -1,0 +1,28 @@
+{
+  "defaults": [
+    "cotrain_pi_lang",
+    "_self_"
+  ],
+  "train_datasets": {
+    "aria_bimanual": {
+      "resolver": {
+        "key_map": {
+          "keymap_mode": "cartesian"
+        },
+        "transform_list": {
+          "mode": "cartesian_wristframe_ypr"
+        }
+      }
+    },
+    "eva_bimanual": {
+      "resolver": {
+        "key_map": {
+          "keymap_mode": "cartesian_wristframe_ypr"
+        },
+        "transform_list": {
+          "mode": "cartesian_wristframe_ypr"
+        }
+      }
+    }
+  }
+}

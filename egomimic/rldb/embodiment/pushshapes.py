@@ -272,3 +272,42 @@ def viz_gt_preds(
             _draw_traj(frame, pred_actions[i], scale, _PRED_COLOR)
         frames.append(frame)
     return np.stack(frames, axis=0)
+
+
+def get_keymap_causal_eval(action_horizon: int = 32, **kwargs) -> dict:
+    """Causal training keymap (single current frame, no goal as model input)
+    PLUS a raw ``goal_pose`` passthrough so SimRolloutEval's replay init can set
+    the PushShapes env goal to the DATASET's recorded target (fixed [256,256,pi/4]
+    for pushshapes_paper; per-episode for circle_3000). Without this the eval
+    batch omits goal_pose -> replay sets goal_pose=None -> env samples a RANDOM
+    goal (OOD for fixed-goal models). Added 2026-06-13.
+    """
+    km = get_keymap_causal(action_horizon=action_horizon)
+    km["goal_pose"] = {
+        "key_type": "goal_keys",
+        "zarr_key": "goal_pose",
+        "horizon": int(action_horizon),
+    }
+    return km
+
+
+def get_keymap_causal_jepa(action_horizon: int = 32, **kwargs) -> dict:
+    """Causal training keymap (obs = current frame, actions = chunk of length k)
+    PLUS a ``future_front_img_1`` key windowed over ``[t, t+k]`` so that index -1 is
+    o_{t+k} — the action-conditioned JEPA target (the observation AFTER the executed
+    chunk). Leaves ``get_keymap_causal`` (used by live runs) completely untouched;
+    this is a NEW, opt-in keymap referenced only by the JEPA data config.
+
+    Implementation note: the loaders window strictly forward with repeat-last
+    padding, and offer no per-key start offset, so a ``horizon = k+1`` window is the
+    cheapest way to surface frame t+k (take the last element model-side). Near the
+    episode end the last frame is repeat-clamped; the JEPA hook can mask those, or
+    accept the small fraction of static targets. Added for the JEPA experiment.
+    """
+    km = get_keymap_causal(action_horizon=action_horizon)
+    km["future_front_img_1"] = {
+        "key_type": "camera_keys",
+        "zarr_key": "observations.images.front_img_1",
+        "horizon": int(action_horizon) + 1,  # reads t..t+k ; [-1] = o_{t+k}
+    }
+    return km

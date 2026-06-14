@@ -1,0 +1,26 @@
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[build] run=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC200Causal_pushshapesPaper/hpt_flow_pushshapes_paper_causal_obs1_act32_2026-06-13_06-03-25
+        ckpt=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC200Causal_pushshapesPaper/hpt_flow_pushshapes_paper_causal_obs1_act32_2026-06-13_06-03-25/checkpoints/last.ckpt
+        data=/coc/flash7/paphiwetsa3/datasets/pushshapes_paper
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[FMPolicy] Total trainable parameters: 1.09M
+[ckpt] missing=0 unexpected=0
+[cfg] K=32 ac_key=actions cam_keys=['front_img_1'] proprio_keys=['state_agent_obj']
+[data] 200 episodes total
+
+[ep 0] episode_T_circle_obs0_000000.zarr T0=237 -> T=237
+  [SANITY t=0] img 96x96
+    GT[0:5]   = [[377.0, 442.5], [378.5, 439.5], [379.5, 425.0], [378.0, 414.0], [375.0, 404.5]]
+    PRED[0:5] = [[387.6000061035156, 399.20001220703125], [381.0, 404.20001220703125], [387.1000061035156, 392.1000061035156], [394.79998779296875, 401.8999938964844], [382.3999938964844, 367.70001220703125]]
+    GT range  x[99.5,379.5] y[16.5,442.5]
+    PRED rng  x[301.2,394.8] y[124.3,404.2]
+    chunk0 mean-L2 err = 25.10px
+  [ep 0] 8 chunks  mean per-chunk L2 = 13.52px  (per-chunk: [25.1, 11.6, 9.2, 14.7, 10.2, 12.8, 17.4, 7.1])
+  [saved sanity] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/sanity/SANITY_c200causal_ep0.png
+
+=== SUMMARY c200causal ===
+per-episode mean L2: [13.52]
+OVERALL mean per-chunk L2 = 13.52px
+SANITY_DONE_EXIT=0

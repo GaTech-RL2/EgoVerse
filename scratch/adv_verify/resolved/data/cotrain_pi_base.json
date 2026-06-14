@@ -1,0 +1,79 @@
+{
+  "_target_": "egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper",
+  "train_dataloader_params": {
+    "aria_bimanual": {
+      "batch_size": 32,
+      "num_workers": 6
+    },
+    "eva_bimanual": {
+      "batch_size": 32,
+      "num_workers": 6
+    }
+  },
+  "train_datasets": {
+    "aria_bimanual": {
+      "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver",
+      "filters": null,
+      "mode": "train",
+      "resolver": {
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver",
+        "folder_path": "${paths.dataset_dir}",
+        "key_map": {
+          "_target_": "egomimic.rldb.embodiment.human.Aria.get_keymap",
+          "annotation_key": "annotations",
+          "keymap_mode": "cartesian"
+        },
+        "transform_list": {
+          "_target_": "egomimic.rldb.embodiment.human.Aria.get_transform_list",
+          "mode": "cartesian"
+        }
+      },
+      "valid_ratio": 0.05
+    },
+    "eva_bimanual": {
+      "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver",
+      "filters": null,
+      "mode": "train",
+      "resolver": {
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver",
+        "folder_path": "${paths.dataset_dir}",
+        "key_map": {
+          "_target_": "egomimic.rldb.embodiment.eva.Eva.get_keymap",
+          "annotation_key": "annotations",
+          "keymap_mode": "cartesian"
+        },
+        "transform_list": {
+          "_target_": "egomimic.rldb.embodiment.eva.Eva.get_transform_list",
+          "mode": "cartesian"
+        }
+      },
+      "valid_ratio": 0.05
+    }
+  },
+  "valid_dataloader_params": {
+    "aria_bimanual": {
+      "batch_size": 32,
+      "num_workers": 6
+    },
+    "eva_bimanual": {
+      "batch_size": 32,
+      "num_workers": 6
+    }
+  },
+  "valid_datasets": {
+    "aria_bimanual": {
+      "_target_": "${train_datasets.aria_bimanual._target_}",
+      "filters": "${train_datasets.aria_bimanual.filters}",
+      "mode": "valid",
+      "resolver": "${train_datasets.aria_bimanual.resolver}",
+      "valid_ratio": "${train_datasets.aria_bimanual.valid_ratio}"
+    },
+    "eva_bimanual": {
+      "_target_": "${train_datasets.eva_bimanual._target_}",
+      "filters": "${train_datasets.eva_bimanual.filters}",
+      "mode": "valid",
+      "resolver": "${train_datasets.eva_bimanual.resolver}",
+      "valid_ratio": "${train_datasets.eva_bimanual.valid_ratio}"
+    }
+  }
+}

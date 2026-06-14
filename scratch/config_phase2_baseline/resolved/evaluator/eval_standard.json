@@ -1,0 +1,50 @@
+{
+  "_target_": "egomimic.eval.eval_composite.EvalList",
+  "evals": [
+    {
+      "_target_": "egomimic.eval.eval_composite.EvalListSideBySide",
+      "evals": [
+        {
+          "_target_": "egomimic.eval.eval_hnet.HNetEvalVideo",
+          "limit_val_batches": 4,
+          "viz_func": {
+            "pushshapes_sim": {
+              "_target_": "hydra.utils.get_method",
+              "path": "egomimic.rldb.embodiment.pushshapes.viz_gt_preds"
+            }
+          }
+        },
+        {
+          "_target_": "egomimic.eval.eval_pca_tokens.PCATokenEval",
+          "limit_val_batches": 4,
+          "n_components": 2,
+          "panel_h": 384,
+          "panel_w": 384
+        },
+        {
+          "_target_": "egomimic.eval.eval_boundary_strip.BoundaryStripEval",
+          "limit_val_batches": 4,
+          "pixels_per_step": 1,
+          "strip_width": 24,
+          "window": 256
+        }
+      ],
+      "limit_val_batches": 4,
+      "pad_h": "max"
+    },
+    {
+      "_target_": "egomimic.eval.eval_sim.SimRolloutEval",
+      "coverage_threshold": 0.7,
+      "embodiment_name": "pushshapes_sim",
+      "env_kwargs": {
+        "image_size": 96,
+        "object_shape": "T",
+        "obstacle_level": 0,
+        "pusher_shape": "circle"
+      },
+      "init_mode": "replay",
+      "limit_val_batches": 4,
+      "max_steps": null
+    }
+  ]
+}

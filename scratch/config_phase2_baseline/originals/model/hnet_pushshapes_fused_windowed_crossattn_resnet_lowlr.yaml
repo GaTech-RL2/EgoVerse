@@ -1,0 +1,68 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  # Run D-v2: identical to run D (hnet_pushshapes_fused_windowed_crossattn_resnet)
+  # but LOWER LR (2.5e-5 vs 1e-4) + warmup->cosine decay over the full 4800-step
+  # horizon (user request: stabilize the flat-LR "peaked then degraded" pattern).
+  # Pair with +trainer.gradient_clip_val=1.0 at launch.
+  _target_: egomimic.algo.hnet_closedloop.HNetFusedClosedLoop
+  action_dim: 2
+  action_horizon: 1024
+  d_model: 128
+  d_cond: 128
+  cond_mode: cross_attn       # run D lever: cross-attn over spatial cond tokens
+  obs_source: demo            # A=demo | B=sim (set via OBS=sim at launch)
+  image_key: front_img_1
+  k_schedule: [[0,1],[50,2],[100,4],[150,8],[250,16],[400,32]]
+  max_windows: 128
+  cond_encoder:
+    _target_: egomimic.models.hnet_nets.cond_encoders.SpatialCondEncoderModule
+    d_cond: 128
+    output_key: fused_cond
+    spatial_output_key: spatial_cond_tokens
+    cond_proj_widths: [128, 128]
+    # Spatial-token compression DISABLED (untrained compressor averages tokens
+    # -> reintroduces obs-blindness; raw pos-emb'd tokens localize from epoch 0).
+    compress_tokens: null
+    compress_heads: 4
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        embed_dim: 64
+        widths: [128]
+        input_slice: [0, 2]
+    # Pooled image encoder feeds the (untouched) fused_cond input token.
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.ResNetEncoder
+        in_channels: 3
+        embed_dim: 128
+        resnet_model: resnet18
+        pretrained: true
+        spatial: false
+    # Spatial image encoder feeds the NEW cross-attn cond tokens.
+    spatial_img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.ResNetEncoder
+        in_channels: 3
+        embed_dim: 128
+        resnet_model: resnet18
+        pretrained: true
+        return_tokens: true
+  arch_layout: T8
+  num_heads: 4
+  d_intermediate: 512
+  domains: [pushshapes_sim]
+  ac_keys:
+    pushshapes_sim: actions
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 2.5e-5
+  weight_decay: 0.0001
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 4800   # 600 epochs x 8 batches/epoch
+  warmup_steps: 240 # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6

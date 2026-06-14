@@ -1,0 +1,95 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            yeo1gte09rpb848efcoarp0vkti3v6r6:
+                cpu_count: 48
+                cpu_count_logical: 96
+                cudaVersion: "13.2"
+                disk:
+                    /:
+                        total: "942725181440"
+                        used: "38235602944"
+                email: elmoworld2005@gmail.com
+                executable: /coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python
+                git:
+                    commit: 7df436fd2fa1d97a47cf1dbeed639633e1e601b5
+                    remote: git@github.com:GaTech-RL2/EgoVerse.git
+                gpu: NVIDIA A40
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 10752
+                      memoryTotal: "48305799168"
+                      name: NVIDIA A40
+                      uuid: GPU-47e865c8-fe99-e986-6e55-40ab0f6f5a05
+                host: voltron.cc.gatech.edu
+                memory:
+                    total: "270257422336"
+                os: Linux-6.8.0-117-generic-x86_64-with-glibc2.39
+                program: <stdin>
+                python: CPython 3.11.14
+                root: /coc/flash7/paphiwetsa3/projects/EgoVerse2
+                slurm:
+                    conf: /opt/slurm/configs/slurm.conf
+                    cpu_bind: quiet,mask_cpu:0x00000001FE0000000001FE00
+                    cpu_bind_list: 0x00000001FE0000000001FE00
+                    cpu_bind_type: 'mask_cpu:'
+                    cpu_bind_verbose: quiet
+                    cpus_on_node: "16"
+                    distribution: cyclic
+                    gpus_on_node: "1"
+                    gtids: "0"
+                    job_cpus_per_node: "16"
+                    job_end_time: "1781238855"
+                    job_gid: "2626"
+                    job_id: "3330344"
+                    job_name: bash
+                    job_nodelist: voltron
+                    job_partition: overcap
+                    job_start_time: "1781066055"
+                    job_uid: "3346154"
+                    job_user: paphiwetsa3
+                    jobid: "3330344"
+                    launch_node_ipaddr: 130.207.124.148
+                    localid: "0"
+                    mem_per_node: "65536"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: voltron
+                    nprocs: "1"
+                    ntasks: "1"
+                    oom_kill_step: "0"
+                    prio_process: "0"
+                    procid: "0"
+                    script_context: prolog_task
+                    srun_comm_host: 130.207.124.148
+                    srun_comm_port: "7707"
+                    step_gpus: "3"
+                    step_id: "23"
+                    step_launcher_port: "7707"
+                    step_nodelist: voltron
+                    step_num_nodes: "1"
+                    step_num_tasks: "1"
+                    step_tasks_per_node: "1"
+                    stepid: "23"
+                    task_pid: "2500722"
+                    tasks_per_node: "1"
+                    topology_addr: voltron
+                    topology_addr_pattern: node
+                    umask: "0022"
+                startedAt: "2026-06-10T05:56:11.063724Z"
+                writerId: yeo1gte09rpb848efcoarp0vkti3v6r6
+        m: []
+        python_version: 3.11.14
+        t:
+            "3":
+                - 2
+                - 13
+                - 14
+                - 15
+                - 61
+            "4": 3.11.14
+            "5": 0.26.1
+            "12": 0.26.1
+            "13": linux-x86_64

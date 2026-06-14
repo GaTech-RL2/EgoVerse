@@ -1,0 +1,12 @@
+# BC-RNN-TRANSFORMER (constant LR): the paper-exact recipe with the core swapped
+# LSTM -> causal-attention TransformerCore (d_model=448), isolating the history
+# mechanism. ONLY the core differs from bc_rnn_pushshapes_paperexact; LR stays the
+# robomimic constant 1e-4. extends _bcrnn_paperexact_tx_common
+defaults:
+  - _bcrnn_paperexact_tx_common
+  - _self_
+
+# Constant-LR schedule (robomimic exact-replica): LambdaLR factor 1.0.
+scheduler:
+  _target_: egomimic.utils.schedulers.constant_scheduler
+  _partial_: true

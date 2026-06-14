@@ -1,0 +1,11 @@
+# BC-RNN-TRANSFORMER + warmup->cosine LR, LOW PEAK (2.5e-5): same as
+# bc_rnn_pushshapes_paperexact_tx_cos but peak LR 2.5e-5 (4x below the tx_cos
+# run's 1e-4) for the transformer's fluctuating loss; same warmup->cosine shape.
+# ONLY optimizer.lr differs. extends _bcrnn_paperexact_tx_cos
+defaults:
+  - bc_rnn_pushshapes_paperexact_tx_cos
+  - _self_
+
+optimizer:
+  # Low-LR variant: peak 2.5e-5 (4x below tx_cos's 1e-4).
+  lr: 2.5e-5

@@ -3,17 +3,17 @@
 # batches (pad_mask, (B,S,D)) while SimRolloutEval needs packed batches
 # (cu_seqlens) — they can't share one data config, so for rollout videos we run
 # SimRolloutEval alone. coverage_threshold=0.8 = the success criterion.
+# env_kwargs + embodiment_name come from _sim_rollout_base.
+
+defaults:
+  - _sim_rollout_base
+  - _self_
+
 _target_: egomimic.eval.eval_sim.SimRolloutEval
 limit_val_batches: 8
-embodiment_name: pushshapes_sim
 init_mode: seeds
 max_steps: null          # use recorded episode length
 coverage_threshold: 0.8
-env_kwargs:
-  object_shape: T
-  pusher_shape: circle
-  obstacle_level: 0
-  image_size: 96
 
 temporal_ensemble: true
 te_m: 0.01

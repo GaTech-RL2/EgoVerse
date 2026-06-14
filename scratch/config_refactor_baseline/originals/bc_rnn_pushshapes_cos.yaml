@@ -1,0 +1,66 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.bc_rnn.BCRNN
+
+  # BC-RNN exact-replica MODEL (see bc_rnn_pushshapes.yaml) but with the
+  # warmup->cosine LR schedule instead of robomimic's constant 1e-4.
+  # ONLY the optimizer/scheduler differ from the exact replica — this is the
+  # "exact code + cosine LR" ablation run alongside job 3308726.
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10           # robomimic rnn.horizon: 10-step train windows + rollout hidden re-init cadence
+  max_windows_per_batch: 256
+  actor_mlp_dims: [1024, 1024]
+
+  obs_encoder:
+    _target_: egomimic.models.bc_rnn_nets.ObsEncoder
+    embed_dim: 128
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64
+        widths: [128]
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.hnet_nets.image_encoders.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+
+  core_net:
+    _target_: egomimic.models.bc_rnn_nets.LSTMCore
+    input_dim: 128            # must equal obs_encoder.embed_dim
+    hidden_dim: 400           # robomimic rnn.hidden_dim
+    num_layers: 2             # robomimic rnn.num_layers
+    dropout: 0.0
+
+  gmm_head:
+    _target_: egomimic.models.bc_rnn_nets.GMMActionHead
+    d_model: 1024             # = actor_mlp_dims[-1]
+    action_dim: 2
+    num_modes: 5
+    min_std: 1.0e-4
+    std_activation: softplus
+    low_noise_eval: true
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+# Warmup->cosine (the non-exact LR ablation; everything else identical).
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 4800   # = 600 epochs x 8 batches/epoch
+  warmup_steps: 240 # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6

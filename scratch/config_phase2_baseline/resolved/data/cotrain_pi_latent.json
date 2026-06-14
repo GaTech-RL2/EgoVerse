@@ -1,0 +1,96 @@
+{
+  "_shuffle_custom": false,
+  "_shuffle_pairs": false,
+  "_shuffle_random": true,
+  "_target_": "egomimic.eval.latent_dataset.build_MultiDataModuleWrapper",
+  "annotation_key": "annotations",
+  "custom_hashes": {
+    "aria": [],
+    "eva": []
+  },
+  "default_prompt": "",
+  "defaults": [
+    "cotrain_pi_base",
+    "_self_"
+  ],
+  "frames_per_episode": 128,
+  "latent_mode": "random",
+  "model_name": "google/paligemma-3b-mix-224",
+  "pair_hashes": {
+    "aria": [
+      "2026-04-14-03-39-11-000000",
+      "2026-04-14-04-03-19-000000"
+    ],
+    "eva": [
+      "2026-04-14-04-01-06-517000",
+      "2026-04-14-03-36-19-145000"
+    ]
+  },
+  "sampling_mode": "random",
+  "stride": null,
+  "train_datasets": {
+    "aria_bimanual": {
+      "_target_": "egomimic.eval.latent_dataset.build_dataset",
+      "embodiment": "aria_bimanual",
+      "frames_per_episode": "${data.frames_per_episode}",
+      "hashes": "${oc.select:data.${data.latent_mode}_hashes.aria, []}",
+      "mode": "${data.latent_mode}",
+      "resolver": {
+        "require_annotations": true
+      },
+      "stride": "${data.stride}",
+      "task": "pick_place"
+    },
+    "eva_bimanual": {
+      "_target_": "egomimic.eval.latent_dataset.build_dataset",
+      "embodiment": "eva_bimanual",
+      "frames_per_episode": "${data.frames_per_episode}",
+      "hashes": "${oc.select:data.${data.latent_mode}_hashes.eva, []}",
+      "mode": "${data.latent_mode}",
+      "resolver": {
+        "require_annotations": true
+      },
+      "stride": "${data.stride}",
+      "task": "pick_place"
+    }
+  },
+  "use_tokenizer": true,
+  "valid_dataloader_params": {
+    "aria_bimanual": {
+      "batch_size": "${oc.select:n_latents,500}",
+      "num_workers": 6,
+      "shuffle": "${oc.select:data._shuffle_${data.latent_mode}, true}"
+    },
+    "eva_bimanual": {
+      "batch_size": "${oc.select:n_latents,500}",
+      "num_workers": 6,
+      "shuffle": "${oc.select:data._shuffle_${data.latent_mode}, true}"
+    }
+  },
+  "valid_datasets": {
+    "aria_bimanual": {
+      "_target_": "egomimic.eval.latent_dataset.build_dataset",
+      "embodiment": "aria_bimanual",
+      "frames_per_episode": "${data.frames_per_episode}",
+      "hashes": "${oc.select:data.${data.latent_mode}_hashes.aria, []}",
+      "mode": "${data.latent_mode}",
+      "resolver": {
+        "require_annotations": true
+      },
+      "stride": "${data.stride}",
+      "task": "pick_place"
+    },
+    "eva_bimanual": {
+      "_target_": "egomimic.eval.latent_dataset.build_dataset",
+      "embodiment": "eva_bimanual",
+      "frames_per_episode": "${data.frames_per_episode}",
+      "hashes": "${oc.select:data.${data.latent_mode}_hashes.eva, []}",
+      "mode": "${data.latent_mode}",
+      "resolver": {
+        "require_annotations": true
+      },
+      "stride": "${data.stride}",
+      "task": "pick_place"
+    }
+  }
+}

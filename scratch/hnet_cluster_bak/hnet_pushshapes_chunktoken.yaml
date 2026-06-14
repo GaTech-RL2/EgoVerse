@@ -1,0 +1,75 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet_chunk.HNetChunkToken
+
+  # =====================================================================
+  # MODULAR / CONFIG-DRIVEN POLICY. Every architectural slot is a YAML knob
+  # below — mix and match freely, no code edits. Each slot lists its options.
+  # Pipeline:  image+proprio -> [encoder] -> obs tokens -> [stem] -> trunk
+  #            -> [readout] -> 32-action chunk  (+ temporal-ensemble rollout)
+  # =====================================================================
+
+  action_dim: 2
+  chunk_k: 32                 # actions predicted per one-shot chunk
+  d_model: 128
+
+  # ---- proprio slot ----
+  proprio_dim: 2
+  input_slice: [0, 2]         # which state dims to use (pusher xy)
+  proprio_key: "state_agent_obj"
+  img_key: "front_img_1"
+
+  # ---- SLOT 1: image encoder ----  options: conv | resnet
+  encoder: "conv"
+  #   conv:   from-scratch GroupNorm convnet (these knobs apply)
+  in_channels: 3
+  channels: [32, 64, 128, 256]
+  kernel_size: 3
+  stride: 2
+  image_size: 96
+  norm_groups: 8
+  #   resnet: HPT's ResNet backbone (these knobs apply)
+  resnet_model: "resnet18"
+  pretrained: true
+
+  # ---- SLOT 2: obs-token pooling / stem ----  options: none | cross_attn
+  stem: "none"
+  stem_latents: 16            # (cross_attn) number of learned latent tokens
+
+  # ---- SLOT 3: trunk transformer ----
+  arch_layout: "T4"           # e.g. T4 = 4 transformer blocks
+  num_heads: 4
+  d_intermediate: 512
+  dropout: 0.1
+  resid_dropout: 0.1
+
+  # ---- SLOT 4: action readout ----  options: mean_pool | action_token
+  readout: "mean_pool"
+
+  # ---- SLOT 5: backbone topology ----  options: flat | hnet_chunked
+  backbone: "flat"            # flat = HPT-style flat trunk (DEFAULT; old runs byte-identical)
+  #   hnet_chunked: insert H-Net dynamic chunker (router -> chunk -> inner -> dechunk) mid-trunk,
+  #                 keeping the HPT-like encoder/stem/readout/chunk+TE parts unchanged.
+  #                 arch_layout is split enc/inner/dec (e.g. T6 -> T2/T2/T2).
+  chunk_compress_ratio: 4.0   # (hnet_chunked) target token compression ratio for the ratio loss
+  ratio_loss_weight: 0.03     # (hnet_chunked) weight of the boundary ratio auxiliary loss
+
+  action_horizon: 1024        # rollout-length cap only (Markovian model)
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 400
+  warmup_steps: 24
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

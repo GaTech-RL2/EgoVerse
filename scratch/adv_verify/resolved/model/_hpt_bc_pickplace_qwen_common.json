@@ -1,0 +1,192 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.AdamW",
+    "lr": 0.0002,
+    "weight_decay": 0.0001
+  },
+  "robomimic_model": {
+    "6dof": true,
+    "_target_": "egomimic.algo.hpt.HPT",
+    "ac_keys": {
+      "eva_bimanual": "actions_cartesian"
+    },
+    "annotation_key": "annotations",
+    "annotation_modality": "annotation",
+    "annotation_sampling_mode": "random",
+    "camera_transforms": {
+      "eva_bimanual": {
+        "_target_": "egomimic.utils.egomimicUtils.CameraTransforms",
+        "extrinsics_key": "x5Dec13_2",
+        "intrinsics_key": "base"
+      }
+    },
+    "default_prompt": "",
+    "diffusion": true,
+    "domains": [
+      "eva_bimanual"
+    ],
+    "encoder_specs": {
+      "front_img_1": {
+        "_target_": "egomimic.models.hpt_nets.ResNet",
+        "num_of_copy": 1,
+        "output_dim": 256
+      }
+    },
+    "eval_image_augs": {
+      "_target_": "torchvision.transforms.Compose",
+      "transforms": [
+        {
+          "_target_": "torchvision.transforms.Normalize",
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        }
+      ]
+    },
+    "head_specs": {
+      "eva_bimanual": {
+        "_target_": "egomimic.models.fm_policy.FMPolicy",
+        "action_horizon": 100,
+        "infer_ac_dims": {
+          "eva_bimanual": 14
+        },
+        "model": {
+          "_target_": "egomimic.models.denoising_nets.CrossTransformer",
+          "act_dim": 14,
+          "act_seq": 100,
+          "cond_dim": 256,
+          "dropout": 0.1,
+          "hidden_dim": 128,
+          "mlp_layers": 4,
+          "mlp_ratio": 4,
+          "n_heads": 4,
+          "nblocks": 6
+        },
+        "num_inference_steps": 50,
+        "pooling": null,
+        "time_dist": "beta"
+      }
+    },
+    "multitask": false,
+    "pretrained": false,
+    "pretrained_checkpoint": "",
+    "reverse_kl_samples": 8,
+    "shared_obs_keys": [
+      "front_img_1",
+      "annotation"
+    ],
+    "shared_stem_specs": {
+      "annotation": {
+        "dtype": "float16",
+        "freeze": true,
+        "max_length": 128,
+        "model_name": "Qwen/Qwen3-Embedding-0.6B",
+        "output_dim": 256,
+        "specs": {
+          "cross_attn": {
+            "crossattn_dim_head": 64,
+            "crossattn_heads": 8,
+            "crossattn_latent": 16,
+            "crossattn_modality_dropout": 0.1,
+            "modality_embed_dim": 256
+          },
+          "random_horizon_masking": false
+        }
+      },
+      "front_img_1": {
+        "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+        "input_dim": 256,
+        "output_dim": 256,
+        "specs": {
+          "cross_attn": {
+            "crossattn_dim_head": 64,
+            "crossattn_heads": 8,
+            "crossattn_latent": 16,
+            "crossattn_modality_dropout": 0.1,
+            "modality_embed_dim": 256
+          },
+          "random_horizon_masking": false
+        },
+        "widths": [
+          256
+        ]
+      }
+    },
+    "stem_specs": {
+      "eva_bimanual": {
+        "state_ee_pose": {
+          "_target_": "egomimic.models.hpt_nets.MLPPolicyStem",
+          "input_dim": 14,
+          "output_dim": 256,
+          "specs": {
+            "cross_attn": {
+              "crossattn_dim_head": 64,
+              "crossattn_heads": 8,
+              "crossattn_latent": 16,
+              "crossattn_modality_dropout": 0.1,
+              "modality_embed_dim": 256
+            },
+            "random_horizon_masking": false
+          },
+          "widths": [
+            256
+          ]
+        }
+      }
+    },
+    "train_image_augs": {
+      "_target_": "torchvision.transforms.Compose",
+      "transforms": [
+        {
+          "_target_": "torchvision.transforms.ColorJitter",
+          "brightness": 0.1,
+          "contrast": 0.1,
+          "hue": 0.05,
+          "saturation": 0.1
+        },
+        {
+          "_target_": "torchvision.transforms.Normalize",
+          "mean": [
+            0.485,
+            0.456,
+            0.406
+          ],
+          "std": [
+            0.229,
+            0.224,
+            0.225
+          ]
+        }
+      ]
+    },
+    "trunk": {
+      "action_horizon": 64,
+      "drop_path": 0.1,
+      "embed_dim": 256,
+      "no_trunk": false,
+      "num_blocks": 16,
+      "num_heads": 8,
+      "observation_horizon": 1,
+      "token_postprocessing": "action_token",
+      "use_domain_embedding": true,
+      "weight_init_style": "pytorch"
+    }
+  },
+  "scheduler": {
+    "_partial_": true,
+    "_target_": "egomimic.utils.scheduler_utils.warmup_then_cosine",
+    "eta_min": 1e-05,
+    "total_epochs": 2000,
+    "warmup_epochs": 100
+  },
+  "scheduler_interval": "epoch"
+}

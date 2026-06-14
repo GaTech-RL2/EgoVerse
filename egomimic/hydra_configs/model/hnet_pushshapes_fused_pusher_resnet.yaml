@@ -1,0 +1,45 @@
+# Fused-tokens PUSHER variant with a ResNet18 image encoder (~2x vision helper,
+# drop-in for SimpleConv). action_horizon 400, AdamW 1e-4 + flat LinearLR.
+# extends _hnet_fused_common
+defaults:
+  - _hnet_fused_common
+  - _self_
+
+robomimic_model:
+  action_horizon: 400
+
+  cond_encoder:
+    _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+    d_cond: 128
+    output_key: fused_cond
+    cond_proj_widths:
+    - 128
+    - 128
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        embed_dim: 64
+        widths:
+        - 128
+        input_slice:
+        - 0
+        - 2
+    img_encoders:
+      front_img_1:
+        # ResNet encoder option (drop-in for SimpleConv) — ~2x vision helper.
+        _target_: egomimic.models.hnet_nets.image_encoders.ResNetEncoder
+        in_channels: 3
+        embed_dim: 128
+        resnet_model: resnet18
+        pretrained: true
+        spatial: false
+        image_size: 96
+
+optimizer:
+  lr: 1e-4
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1

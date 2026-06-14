@@ -1,10 +1,13 @@
-_target_: egomimic.pl_utils.pl_model.ModelWrapper
+# Fused-tokens variant for the PUSHER task: action_horizon 400 (not 1024),
+# SimpleConv pooled cond (agent xy), AdamW 1e-4 + flat LinearLR. No dropout/F22.
+# extends _hnet_fused_common
+defaults:
+  - _hnet_fused_common
+  - _self_
+
 robomimic_model:
-  _target_: egomimic.algo.hnet.HNetFused
-  action_dim: 2
   action_horizon: 400
-  d_model: 128
-  d_cond: 128
+
   cond_encoder:
     _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
     d_cond: 128
@@ -34,18 +37,10 @@ robomimic_model:
         stride: 2
         embed_dim: 128
         norm_groups: 8
-  arch_layout: T8
-  num_heads: 4
-  d_intermediate: 512
-  domains:
-  - pushshapes_sim
-  ac_keys:
-    pushshapes_sim: actions
+
 optimizer:
-  _target_: torch.optim.AdamW
-  _partial_: true
   lr: 1e-4
-  weight_decay: 0.0001
+
 scheduler:
   _target_: torch.optim.lr_scheduler.LinearLR
   _partial_: true

@@ -1,0 +1,47 @@
+{
+  "_target_": "egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper",
+  "train_dataloader_params": {
+    "pushshapes_sim": {
+      "batch_size": 128,
+      "num_workers": 8
+    }
+  },
+  "train_datasets": {
+    "pushshapes_sim": {
+      "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver",
+      "mode": "total",
+      "resolver": {
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver",
+        "folder_path": "/coc/cedarp-dxu345-0/Tsim_datasets2/circle",
+        "key_map": {
+          "_target_": "egomimic.rldb.embodiment.pushshapes.get_keymap",
+          "action_horizon": 32
+        },
+        "transform_list": null
+      },
+      "skip_bounds_check": true
+    }
+  },
+  "valid_dataloader_params": {
+    "pushshapes_sim": {
+      "batch_size": 128,
+      "num_workers": 8
+    }
+  },
+  "valid_datasets": {
+    "pushshapes_sim": {
+      "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver",
+      "mode": "total",
+      "resolver": {
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver",
+        "folder_path": "/coc/cedarp-dxu345-0/Tsim_datasets2/circle",
+        "key_map": {
+          "_target_": "egomimic.rldb.embodiment.pushshapes.get_keymap",
+          "action_horizon": 32
+        },
+        "transform_list": null
+      },
+      "skip_bounds_check": true
+    }
+  }
+}

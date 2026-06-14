@@ -1,0 +1,59 @@
+{
+  "_target_": "egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper",
+  "train_dataloader_params": {
+    "pushshapes_sim": {
+      "batch_size": 8,
+      "num_workers": 2
+    }
+  },
+  "train_datasets": {
+    "pushshapes_sim": {
+      "_target_": "egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver",
+      "chunking": "none",
+      "max_seq_len": null,
+      "min_seq_len": 64,
+      "resolver": {
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver",
+        "folder_path": "/coc/cedarp-dxu345-0/Tsim_datasets2/circle",
+        "key_map": {
+          "_target_": "egomimic.rldb.embodiment.pushshapes.get_keymap",
+          "action_horizon": 1024
+        },
+        "transform_list": [
+          {
+            "_target_": "egomimic.rldb.zarr.action_chunk_transforms.DeltaAction",
+            "input_key": "actions"
+          }
+        ]
+      }
+    }
+  },
+  "valid_dataloader_params": {
+    "pushshapes_sim": {
+      "batch_size": 8,
+      "num_workers": 2
+    }
+  },
+  "valid_datasets": {
+    "pushshapes_sim": {
+      "_target_": "egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver",
+      "chunking": "none",
+      "max_seq_len": null,
+      "min_seq_len": 64,
+      "resolver": {
+        "_target_": "egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver",
+        "folder_path": "/coc/cedarp-dxu345-0/Tsim_datasets2/circle",
+        "key_map": {
+          "_target_": "egomimic.rldb.embodiment.pushshapes.get_keymap",
+          "action_horizon": 1024
+        },
+        "transform_list": [
+          {
+            "_target_": "egomimic.rldb.zarr.action_chunk_transforms.DeltaAction",
+            "input_key": "actions"
+          }
+        ]
+      }
+    }
+  }
+}

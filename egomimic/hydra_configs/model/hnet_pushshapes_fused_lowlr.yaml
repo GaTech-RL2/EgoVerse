@@ -1,15 +1,14 @@
-_target_: egomimic.pl_utils.pl_model.ModelWrapper
-robomimic_model:
-  _target_: egomimic.algo.hnet.HNetFused
+# Fused-tokens variant (current best) with LOWER LR (5e-5, half of 1e-4) + flat
+# LinearLR (no decay), to reduce the slight val-MSE drift seen late in training.
+# The 3 H-Net tricks don't apply (no chunker/stages) so only the LR knob changes;
+# this leaf carries NO dropout / F22 (its base _hnet_fused_common omits them).
+# extends _hnet_fused_common
+defaults:
+  - _hnet_fused_common
+  - _self_
 
-  # Fused tokens variant (current best) with lower LR to see if the slight
-  # val MSE drift between ep 49 -> 99 (399 -> 799 in the previous run)
-  # can be reduced. The 3 H-Net tricks don't apply directly (no chunker /
-  # no stages) so only the LR knob changes.
-  action_dim: 2
+robomimic_model:
   action_horizon: 1024
-  d_model: 128
-  d_cond: 128
 
   cond_encoder:
     _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
@@ -17,6 +16,11 @@ robomimic_model:
     output_key: "fused_cond"
     cond_proj_widths: [128, 128]
     obs_specs:
+      # DRIFT WARNING (provenance, NOT a bug): this HNetFused-algo config feeds the
+      # FULL 5-dim state_agent_obj (input_dim: 5, no input_slice) -- DIVERGES from
+      # the BC-RNN family base (_bcrnn_common / _bcrnn_paperexact_common), which
+      # uses input_dim: 2 + input_slice: [0, 2] (agent xy only). Kept as-is to
+      # preserve the original run; do NOT "fix" it to match the BC family.
       state_agent_obj:
         input_dim: 5
         embed_dim: 64
@@ -31,19 +35,8 @@ robomimic_model:
         embed_dim: 128
         norm_groups: 8
 
-  arch_layout: "T8"
-  num_heads: 4
-  d_intermediate: 512
-
-  domains: ["pushshapes_sim"]
-  ac_keys:
-    pushshapes_sim: "actions"
-
 optimizer:
-  _target_: torch.optim.AdamW
-  _partial_: true
   lr: 5.0e-5         # half of baseline 1e-4
-  weight_decay: 0.0001
 
 scheduler:
   _target_: torch.optim.lr_scheduler.LinearLR

@@ -1,0 +1,95 @@
+============ RUN A: c3000 causal (anim) ============
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[build] run=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC3000Causal/hpt_flow_circle_3000_causal_obs1_act32_2026-06-13_03-08-51
+        ckpt=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC3000Causal/hpt_flow_circle_3000_causal_obs1_act32_2026-06-13_03-08-51/checkpoints/epoch_epoch=1799.ckpt
+        data=/coc/flash7/paphiwetsa3/datasets/circle_3000
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[FMPolicy] Total trainable parameters: 1.09M
+[ckpt] missing=0 unexpected=0
+[cfg] K=32 ac_key=actions cam_keys=['front_img_1'] proprio_keys=['state_agent_obj']
+[data] 3040 episodes total
+
+[ep 0] episode_T_circle_obs0_000000.zarr T0=300 -> T=290
+  [ep 0] 10 chunks  mean per-chunk L2 = 13.16px  (per-chunk: [20.2, 13.5, 24.7, 19.2, 11.9, 14.9, 9.5, 2.5, 9.1, 6.0])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath_anim/tfpath_anim_c3000_ep0.mp4  (290 frames @ 12.0fps)
+
+[ep 1] episode_T_circle_obs0_000001.zarr T0=300 -> T=281
+  [ep 1] 9 chunks  mean per-chunk L2 = 18.94px  (per-chunk: [55.8, 47.4, 7.9, 10.9, 9.7, 7.5, 4.4, 15.6, 11.4])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath_anim/tfpath_anim_c3000_ep1.mp4  (281 frames @ 12.0fps)
+
+[ep 2] episode_T_circle_obs0_000002.zarr T0=400 -> T=321
+  [ep 2] 11 chunks  mean per-chunk L2 = 21.95px  (per-chunk: [100.6, 24.1, 14.7, 14.8, 9.4, 14.3, 14.2, 17.9, 8.1, 9.2, 14.2])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath_anim/tfpath_anim_c3000_ep2.mp4  (321 frames @ 12.0fps)
+
+[ep 3] episode_T_circle_obs0_000003.zarr T0=300 -> T=297
+  [ep 3] 10 chunks  mean per-chunk L2 = 32.32px  (per-chunk: [213.4, 21.6, 12.9, 13.5, 15.0, 4.2, 18.7, 13.3, 6.7, 4.0])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath_anim/tfpath_anim_c3000_ep3.mp4  (297 frames @ 12.0fps)
+
+[ep 4] episode_T_circle_obs0_000004.zarr T0=300 -> T=229
+  [ep 4] 8 chunks  mean per-chunk L2 = 31.33px  (per-chunk: [153.4, 27.7, 14.5, 18.1, 10.9, 6.0, 13.0, 6.9])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath_anim/tfpath_anim_c3000_ep4.mp4  (229 frames @ 12.0fps)
+
+=== SUMMARY c3000 ===
+per-episode mean L2: [13.16, 18.94, 21.95, 32.32, 31.33]
+OVERALL mean per-chunk L2 = 23.54px
+RUN_A_EXIT=0
+============ RUN B: c200 causal pushshapes_paper (anim) ============
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[build] run=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC200Causal_pushshapesPaper/hpt_flow_pushshapes_paper_causal_obs1_act32_2026-06-13_06-03-25
+        ckpt=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC200Causal_pushshapesPaper/hpt_flow_pushshapes_paper_causal_obs1_act32_2026-06-13_06-03-25/checkpoints/last.ckpt
+        data=/coc/flash7/paphiwetsa3/datasets/pushshapes_paper
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[FMPolicy] Total trainable parameters: 1.09M
+[ckpt] missing=0 unexpected=0
+[cfg] K=32 ac_key=actions cam_keys=['front_img_1'] proprio_keys=['state_agent_obj']
+[data] 200 episodes total
+
+[ep 0] episode_T_circle_obs0_000000.zarr T0=237 -> T=237
+  [ep 0] 8 chunks  mean per-chunk L2 = 11.02px  (per-chunk: [19.8, 7.4, 8.6, 7.6, 13.7, 10.5, 18.2, 2.3])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath_anim/tfpath_anim_c200causal_ep0.mp4  (237 frames @ 12.0fps)
+
+[ep 1] episode_T_circle_obs0_000001.zarr T0=200 -> T=200
+  [ep 1] 7 chunks  mean per-chunk L2 = 6.66px  (per-chunk: [11.2, 8.0, 9.2, 4.5, 5.6, 5.1, 3.0])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath_anim/tfpath_anim_c200causal_ep1.mp4  (200 frames @ 12.0fps)
+
+[ep 2] episode_T_circle_obs0_000002.zarr T0=251 -> T=251
+  [ep 2] 8 chunks  mean per-chunk L2 = 9.74px  (per-chunk: [8.8, 7.7, 8.7, 4.2, 9.5, 7.4, 26.7, 5.0])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath_anim/tfpath_anim_c200causal_ep2.mp4  (251 frames @ 12.0fps)
+
+[ep 3] episode_T_circle_obs0_000003.zarr T0=129 -> T=129
+  [ep 3] 5 chunks  mean per-chunk L2 = 8.10px  (per-chunk: [14.0, 6.9, 7.8, 3.2, 8.6])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath_anim/tfpath_anim_c200causal_ep3.mp4  (129 frames @ 12.0fps)
+
+[ep 4] episode_T_circle_obs0_000004.zarr T0=216 -> T=216
+  [ep 4] 7 chunks  mean per-chunk L2 = 10.67px  (per-chunk: [10.4, 10.5, 13.4, 6.6, 18.8, 6.3, 8.7])
+IMAGEIO FFMPEG_WRITER WARNING: input image is not divisible by macro_block_size=16, resizing from (600, 600) to (608, 608) to ensure video compatibility with most codecs and players. To prevent resizing, make your input image divisible by the macro_block_size or set the macro_block_size to 1 (risking incompatibility).
+Multiple -pix_fmt options specified for stream 0, only the last option '-pix_fmt yuv420p' will be used.
+  [saved anim] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath_anim/tfpath_anim_c200causal_ep4.mp4  (216 frames @ 12.0fps)
+
+=== SUMMARY c200causal ===
+per-episode mean L2: [11.02, 6.66, 9.74, 8.1, 10.67]
+OVERALL mean per-chunk L2 = 9.24px
+RUN_B_EXIT=0
+ALL_DONE

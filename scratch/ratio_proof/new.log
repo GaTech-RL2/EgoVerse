@@ -1,0 +1,31 @@
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[rank: 0] Seed set to 12345
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+  0%|          | 0/257788 [00:00<?, ?sample/s] 54%|█████▍    | 139199/257788 [03:08<02:40, 739.12sample/s]100%|██████████| 257788/257788 [03:11<00:00, 1596.43sample/s]100%|██████████| 257788/257788 [03:12<00:00, 1337.60sample/s]
+[rank: 0] Seed set to 12345
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[rank: 0] Seed set to 12345
+[new] core type           : HNetCore
+[new] collect_ratio_loss  : True
+[rank: 0] Seed set to 12345
+[rank: 0] Seed set to 12345
+[rank: 0] Seed set to 12345
+[rank: 0] Seed set to 12345
+[new] 15 action_loss(false)=14.5338439941 ratio(false)=0.0000000000
+[new] RATIO-ON: action_loss=14.5338439941 ratio_loss(weighted)=0.0584733188
+[new] action_loss knob-on == knob-off : True
+[new] ratio finite=True nonzero=True
+[new] ratio_loss_weight=0.03  -> raw_unweighted_ratio=1.9491106272
+[new] weighted_ratio / action_loss = 4.023252e-03
+[new] router param names (2): ['hnet.stages.0.inner_stage.routing_module.q_proj_layer.weight', 'hnet.stages.0.inner_stage.routing_module.k_proj_layer.weight']
+[new] --- grad-flow knob ON  (total=a+r, r=0.05847332) ---
+[new]   ON  hnet.stages.0.inner_stage.routing_module.q_proj_layer.weight: grad_abs_sum=0.2758111357688904
+[new]   ON  hnet.stages.0.inner_stage.routing_module.k_proj_layer.weight: grad_abs_sum=0.23573796451091766
+[new] --- grad-flow knob OFF (total=a+r, r=0.00000000) ---
+[new]   OFF hnet.stages.0.inner_stage.routing_module.q_proj_layer.weight: grad_abs_sum=0.16194413602352142
+[new]   OFF hnet.stages.0.inner_stage.routing_module.k_proj_layer.weight: grad_abs_sum=0.09063881635665894
+[new] SAVED /coc/flash7/paphiwetsa3/projects/EgoVerse2/scratch/ratio_proof/out_new.pt

@@ -1,0 +1,75 @@
+============ RUN A: c3000 causal ============
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[build] run=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC3000Causal/hpt_flow_circle_3000_causal_obs1_act32_2026-06-13_03-08-51
+        ckpt=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC3000Causal/hpt_flow_circle_3000_causal_obs1_act32_2026-06-13_03-08-51/checkpoints/epoch_epoch=1799.ckpt
+        data=/coc/flash7/paphiwetsa3/datasets/circle_3000
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[FMPolicy] Total trainable parameters: 1.09M
+[ckpt] missing=0 unexpected=0
+[cfg] K=32 ac_key=actions cam_keys=['front_img_1'] proprio_keys=['state_agent_obj']
+[data] 3040 episodes total
+
+[ep 0] episode_T_circle_obs0_000000.zarr T0=300 -> T=290
+  [ep 0] 10 chunks  mean per-chunk L2 = 28.23px  (per-chunk: [155.7, 18.6, 37.7, 13.1, 15.1, 15.7, 4.3, 11.5, 9.7, 0.8])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath/tfpath_c3000_ep0.png
+
+[ep 1] episode_T_circle_obs0_000001.zarr T0=300 -> T=281
+  [ep 1] 9 chunks  mean per-chunk L2 = 27.34px  (per-chunk: [90.8, 61.8, 21.0, 17.3, 9.6, 10.1, 10.9, 16.8, 7.8])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath/tfpath_c3000_ep1.png
+
+[ep 2] episode_T_circle_obs0_000002.zarr T0=400 -> T=321
+  [ep 2] 11 chunks  mean per-chunk L2 = 16.72px  (per-chunk: [69.1, 14.9, 14.3, 16.2, 7.0, 13.0, 15.8, 16.6, 6.3, 6.3, 4.4])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath/tfpath_c3000_ep2.png
+
+[ep 3] episode_T_circle_obs0_000003.zarr T0=300 -> T=297
+  [ep 3] 10 chunks  mean per-chunk L2 = 25.69px  (per-chunk: [151.6, 10.7, 13.8, 16.9, 9.0, 8.3, 16.8, 19.5, 6.1, 4.1])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath/tfpath_c3000_ep3.png
+
+[ep 4] episode_T_circle_obs0_000004.zarr T0=300 -> T=229
+  [ep 4] 8 chunks  mean per-chunk L2 = 20.52px  (per-chunk: [48.9, 29.1, 27.5, 18.1, 9.4, 12.1, 8.5, 10.6])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c3000_tfpath/tfpath_c3000_ep4.png
+
+=== SUMMARY c3000 ===
+per-episode mean L2: [28.23, 27.34, 16.72, 25.69, 20.52]
+OVERALL mean per-chunk L2 = 23.70px
+RUN_A_EXIT=0
+============ RUN B: c200 causal pushshapes_paper ============
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[build] run=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC200Causal_pushshapesPaper/hpt_flow_pushshapes_paper_causal_obs1_act32_2026-06-13_06-03-25
+        ckpt=/coc/flash7/paphiwetsa3/projects/EgoVerse2/logs/hptFlowC200Causal_pushshapesPaper/hpt_flow_pushshapes_paper_causal_obs1_act32_2026-06-13_06-03-25/checkpoints/last.ckpt
+        data=/coc/flash7/paphiwetsa3/datasets/pushshapes_paper
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[FMPolicy] Total trainable parameters: 1.09M
+[ckpt] missing=0 unexpected=0
+[cfg] K=32 ac_key=actions cam_keys=['front_img_1'] proprio_keys=['state_agent_obj']
+[data] 200 episodes total
+
+[ep 0] episode_T_circle_obs0_000000.zarr T0=237 -> T=237
+  [ep 0] 8 chunks  mean per-chunk L2 = 11.81px  (per-chunk: [19.4, 8.9, 6.5, 13.7, 7.7, 14.1, 16.8, 7.4])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath/tfpath_c200causal_ep0.png
+
+[ep 1] episode_T_circle_obs0_000001.zarr T0=200 -> T=200
+  [ep 1] 7 chunks  mean per-chunk L2 = 6.78px  (per-chunk: [11.3, 9.0, 7.2, 7.9, 4.8, 4.0, 3.3])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath/tfpath_c200causal_ep1.png
+
+[ep 2] episode_T_circle_obs0_000002.zarr T0=251 -> T=251
+  [ep 2] 8 chunks  mean per-chunk L2 = 10.22px  (per-chunk: [6.9, 6.4, 8.9, 6.2, 13.8, 4.5, 26.1, 9.0])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath/tfpath_c200causal_ep2.png
+
+[ep 3] episode_T_circle_obs0_000003.zarr T0=129 -> T=129
+  [ep 3] 5 chunks  mean per-chunk L2 = 11.07px  (per-chunk: [22.0, 7.5, 8.5, 4.1, 13.2])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath/tfpath_c200causal_ep3.png
+
+[ep 4] episode_T_circle_obs0_000004.zarr T0=216 -> T=216
+  [ep 4] 7 chunks  mean per-chunk L2 = 10.25px  (per-chunk: [15.0, 5.1, 11.6, 7.5, 17.0, 7.5, 8.1])
+  [saved] /coc/flash7/paphiwetsa3/projects/EgoVerse2/scripts/tf_path_out/c200causal_tfpath/tfpath_c200causal_ep4.png
+
+=== SUMMARY c200causal ===
+per-episode mean L2: [11.81, 6.78, 10.22, 11.07, 10.25]
+OVERALL mean per-chunk L2 = 10.03px
+RUN_B_EXIT=0
+ALL_DONE

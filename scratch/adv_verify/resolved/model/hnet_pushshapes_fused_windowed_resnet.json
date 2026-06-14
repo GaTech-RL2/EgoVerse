@@ -1,0 +1,92 @@
+{
+  "_target_": "egomimic.pl_utils.pl_model.ModelWrapper",
+  "optimizer": {
+    "_partial_": true,
+    "_target_": "torch.optim.AdamW",
+    "lr": 0.0001,
+    "weight_decay": 0.0001
+  },
+  "robomimic_model": {
+    "_target_": "egomimic.algo.hnet_closedloop.HNetFusedClosedLoop",
+    "ac_keys": {
+      "pushshapes_sim": "actions"
+    },
+    "action_dim": 2,
+    "action_horizon": 1024,
+    "arch_layout": "T8",
+    "cond_encoder": {
+      "_target_": "egomimic.models.hnet_nets.cond_encoders.CondEncoderModule",
+      "cond_proj_widths": [
+        128,
+        128
+      ],
+      "d_cond": 128,
+      "img_encoders": {
+        "front_img_1": {
+          "_target_": "egomimic.models.hnet_nets.image_encoders.ResNetEncoder",
+          "embed_dim": 128,
+          "in_channels": 3,
+          "pretrained": true,
+          "resnet_model": "resnet18",
+          "spatial": true
+        }
+      },
+      "obs_specs": {
+        "state_agent_obj": {
+          "embed_dim": 64,
+          "input_dim": 2,
+          "input_slice": [
+            0,
+            2
+          ],
+          "widths": [
+            128
+          ]
+        }
+      },
+      "output_key": "fused_cond"
+    },
+    "d_cond": 128,
+    "d_intermediate": 512,
+    "d_model": 128,
+    "domains": [
+      "pushshapes_sim"
+    ],
+    "image_key": "front_img_1",
+    "k_schedule": [
+      [
+        0,
+        1
+      ],
+      [
+        50,
+        2
+      ],
+      [
+        100,
+        4
+      ],
+      [
+        150,
+        8
+      ],
+      [
+        250,
+        16
+      ],
+      [
+        400,
+        32
+      ]
+    ],
+    "max_windows": 128,
+    "num_heads": 4,
+    "obs_source": "demo"
+  },
+  "scheduler": {
+    "_partial_": true,
+    "_target_": "torch.optim.lr_scheduler.LinearLR",
+    "end_factor": 1,
+    "start_factor": 1
+  }
+}

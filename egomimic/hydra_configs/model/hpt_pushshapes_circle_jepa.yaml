@@ -1,0 +1,28 @@
+# HPT pushshapes circle + action-conditioned JEPA auxiliary (Flavor B world model).
+# Extends hpt_pushshapes_circle and ONLY adds: (1) act8 head (action_horizon=8 to
+# match the cheap k+1 JEPA future window) and (2) the `jepa` block (enabled here;
+# absent => OFF everywhere else). No existing config is modified.
+defaults:
+  - hpt_pushshapes_circle
+  - _self_
+
+robomimic_model:
+  head_specs:
+    pushshapes_sim:
+      action_horizon: 8
+      model:
+        act_seq: 8
+
+  # ---- JEPA auxiliary (opt-in). HPT anchors it on the image encoder. ----
+  jepa:
+    enabled: true
+    lambda: 1.0            # weight of L_jepa added to the flow loss
+    action_dim: 2
+    action_horizon: 8      # must match head_specs.*.action_horizon + data keymap
+    hidden_dim: 512
+    n_layers: 2
+    ema_decay: 0.996       # target-encoder EMA (collapse prevention)
+    loss_type: smooth_l1   # smooth_l1 | mse | cosine
+    normalize_targets: true
+    var_coef: 1.0          # VICReg variance hinge (anti-collapse; 0 disables)
+    cov_coef: 0.04         # VICReg covariance decorrelation

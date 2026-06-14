@@ -1,0 +1,40 @@
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+[probe] device=cuda
+  0%|          | 0/257788 [00:00<?, ?sample/s] 54%|█████▍    | 139199/257788 [03:48<03:14, 610.28sample/s]100%|██████████| 257788/257788 [03:51<00:00, 1323.85sample/s]100%|██████████| 257788/257788 [03:52<00:00, 1108.43sample/s]
+/coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/lib/python3.11/site-packages/timm/models/layers/__init__.py:49: FutureWarning: Importing from timm.models.layers is deprecated, please import via timm.layers
+  warnings.warn(f"Importing from {__name__} is deprecated, please import via timm.layers", FutureWarning)
+[probe] PARENT collect_ratio_loss = False  core=HNetCore
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+Failed to read metadata for /coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs: No group found in store '/coc/flash7/paphiwetsa3/datasets/new_circle_3/training_logs' at path ''
+  0%|          | 0/257788 [00:00<?, ?sample/s] 54%|█████▍    | 139199/257788 [03:11<02:43, 726.32sample/s]100%|██████████| 257788/257788 [03:15<00:00, 1569.64sample/s]100%|██████████| 257788/257788 [03:16<00:00, 1314.83sample/s]
+[probe] LEAF collect_ratio_loss = True  core=HNetCore  w=0.03  tcr=2.0
+[probe] emb_ids=[15]  len(batch)=1
+[P0] PARENT emb15 ratio_loss==0.0 : True (val=0.0000000000)
+[P0] LEAF(knob=false) emb15 ratio_loss==0.0 : True (val=0.0000000000)
+[P0] LEAF same-seed action_loss True=14.6398773193 False=14.6398773193 byte-identical : True
+[P0] LEAF(false) optimized action_loss == emb action_loss (no ratio added) : True
+[P1] LEAF emb15 ratio_loss=0.0583536364 finite=True nonzero=True
+[P2] by-hand (a+r)/1=14.6982309557 vs compute_losses action_loss=14.6982307434 match=True
+[P2] emb15 weighted=0.0583536364 weight=0.03 raw_unweighted=1.9451212138 weighted/raw=0.030000(==weight)
+[P3] emb15 action_loss ON=14.6398773193 OFF=14.6398773193 invariant=True
+[P4] knob ON total=14.62976360
+[P4]   ON  policy.lstm.hnet.stages.0.inner_stage.routing_module.q_proj_layer.weight: grad_abs_sum=0.20747330784797668
+[P4]   ON  policy.lstm.hnet.stages.0.inner_stage.routing_module.k_proj_layer.weight: grad_abs_sum=0.191496342420578
+[P4] knob OFF total=14.57137775
+[P4]   OFF policy.lstm.hnet.stages.0.inner_stage.routing_module.q_proj_layer.weight: grad_abs_sum=0.10412948578596115
+[P4]   OFF policy.lstm.hnet.stages.0.inner_stage.routing_module.k_proj_layer.weight: grad_abs_sum=0.06652756035327911
+[P4] router grad present+nonzero ON : True
+[P4] router grad DIFFERS ON vs OFF : True
+
+[probe] ===== SUMMARY =====
+[probe] P0 default-path identity : True
+[probe] P1 ratio finite nonzero  : True
+[probe] P2 no double-weight      : True
+[probe] P3 action_loss invariant : True
+[probe] P4 grad ON + differs      : True
+[probe] OVERALL_RUNTIME_OK : True

@@ -1,0 +1,95 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            srb7g7t8dj32kb7mpnkqii48o0kxs1ub:
+                cpu_count: 64
+                cpu_count_logical: 128
+                cudaVersion: "13.0"
+                disk:
+                    /:
+                        total: "233904164864"
+                        used: "35533766656"
+                email: elmoworld2005@gmail.com
+                executable: /coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python
+                git:
+                    commit: 7df436fd2fa1d97a47cf1dbeed639633e1e601b5
+                    remote: git@github.com:GaTech-RL2/EgoVerse.git
+                gpu: NVIDIA A40
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 10752
+                      memoryTotal: "48305799168"
+                      name: NVIDIA A40
+                      uuid: GPU-952d6fed-686b-c542-54fb-16c6b19aa461
+                host: randotron.cc.gatech.edu
+                memory:
+                    total: "540840370176"
+                os: Linux-6.8.0-111-generic-x86_64-with-glibc2.39
+                program: <stdin>
+                python: CPython 3.11.14
+                root: /coc/flash7/paphiwetsa3/projects/EgoVerse2
+                slurm:
+                    conf: /opt/slurm/configs/slurm.conf
+                    cpu_bind: quiet,mask_cpu:0x0000000000001E1E0000000000001E1E
+                    cpu_bind_list: 0x0000000000001E1E0000000000001E1E
+                    cpu_bind_type: 'mask_cpu:'
+                    cpu_bind_verbose: quiet
+                    cpus_on_node: "16"
+                    distribution: cyclic
+                    gpus_on_node: "1"
+                    gtids: "0"
+                    job_cpus_per_node: "16"
+                    job_end_time: "1781239996"
+                    job_gid: "2626"
+                    job_id: "3330346"
+                    job_name: bash
+                    job_nodelist: randotron
+                    job_partition: overcap
+                    job_start_time: "1781067196"
+                    job_uid: "3346154"
+                    job_user: paphiwetsa3
+                    jobid: "3330346"
+                    launch_node_ipaddr: 130.207.124.148
+                    localid: "0"
+                    mem_per_node: "65536"
+                    nnodes: "1"
+                    nodeid: "0"
+                    nodelist: randotron
+                    nprocs: "1"
+                    ntasks: "1"
+                    oom_kill_step: "0"
+                    prio_process: "0"
+                    procid: "0"
+                    script_context: prolog_task
+                    srun_comm_host: 130.207.124.148
+                    srun_comm_port: "7762"
+                    step_gpus: "1"
+                    step_id: "8"
+                    step_launcher_port: "7762"
+                    step_nodelist: randotron
+                    step_num_nodes: "1"
+                    step_num_tasks: "1"
+                    step_tasks_per_node: "1"
+                    stepid: "8"
+                    task_pid: "2545025"
+                    tasks_per_node: "1"
+                    topology_addr: randotron
+                    topology_addr_pattern: node
+                    umask: "0022"
+                startedAt: "2026-06-10T06:08:58.491259Z"
+                writerId: srb7g7t8dj32kb7mpnkqii48o0kxs1ub
+        m: []
+        python_version: 3.11.14
+        t:
+            "3":
+                - 2
+                - 13
+                - 14
+                - 15
+                - 61
+            "4": 3.11.14
+            "5": 0.26.1
+            "12": 0.26.1
+            "13": linux-x86_64

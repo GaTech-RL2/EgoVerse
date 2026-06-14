@@ -1,0 +1,6 @@
+{
+  "dataset_dir": "/coc/flash7/scratch/egoverseS3ZarrDataset",
+  "log_dir": "${paths.root_dir}/logs/",
+  "output_dir": "${hydra:runtime.output_dir}",
+  "work_dir": "${hydra:runtime.cwd}"
+}

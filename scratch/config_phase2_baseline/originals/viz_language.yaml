@@ -1,0 +1,11 @@
+defaults:
+  - data: cotrain_pi_lang
+  - evaluator/viz@viz_func: cotrain_lang
+  - _self_
+
+output_dir: ./lang_viz_output
+split: train  # train, valid, or both
+max_episodes: 3 # limit episodes loaded per embodiment (null = all)
+max_batches: 1000
+fps: 30
+frames_per_file: 1000

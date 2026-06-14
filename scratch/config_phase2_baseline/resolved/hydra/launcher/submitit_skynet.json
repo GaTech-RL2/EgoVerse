@@ -1,0 +1,18 @@
+{
+  "_target_": "hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher",
+  "account": "rl2-lab",
+  "additional_parameters": {
+    "requeue": true
+  },
+  "cpus_per_task": 12,
+  "defaults": [
+    "submitit_slurm"
+  ],
+  "gres": "gpu:l40s:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}",
+  "name": "${hydra.job.name}",
+  "nodes": "${launch_params.nodes}",
+  "partition": "rl2-lab",
+  "qos": "short",
+  "tasks_per_node": "${launch_params.gpus_per_node}",
+  "timeout_min": 2880
+}

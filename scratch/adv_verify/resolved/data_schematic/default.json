@@ -1,0 +1,120 @@
+{
+  "_target_": "egomimic.rldb.zarr.utils.DataSchematic",
+  "norm_mode": "quantile",
+  "schematic_dict": {
+    "aria_bimanual": {
+      "actions_cartesian": {
+        "key_type": "action_keys",
+        "zarr_key": "actions_cartesian"
+      },
+      "actions_keypoints": {
+        "key_type": "action_keys",
+        "zarr_key": "actions_keypoints"
+      },
+      "ee_pose": {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state.ee_pose"
+      },
+      "embodiment": {
+        "key_type": "metadata_keys",
+        "zarr_key": "metadata.embodiment"
+      },
+      "front_img_1": {
+        "key_type": "camera_keys",
+        "zarr_key": "observations.images.front_img_1"
+      },
+      "state_keypoints": {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state.keypoints"
+      }
+    },
+    "eva_bimanual": {
+      "actions_cartesian": {
+        "key_type": "action_keys",
+        "zarr_key": "actions_cartesian"
+      },
+      "actions_joints": {
+        "key_type": "action_keys",
+        "zarr_key": "actions_joints"
+      },
+      "ee_pose": {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state.ee_pose"
+      },
+      "embodiment": {
+        "key_type": "metadata_keys",
+        "zarr_key": "metadata.embodiment"
+      },
+      "front_img_1": {
+        "key_type": "camera_keys",
+        "zarr_key": "observations.images.front_img_1"
+      },
+      "joint_positions": {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state.joint_positions"
+      },
+      "left_wrist_img": {
+        "key_type": "camera_keys",
+        "zarr_key": "observations.images.left_wrist_img"
+      },
+      "right_wrist_img": {
+        "key_type": "camera_keys",
+        "zarr_key": "observations.images.right_wrist_img"
+      }
+    },
+    "mecka_bimanual": {
+      "actions_cartesian": {
+        "key_type": "action_keys",
+        "zarr_key": "actions_cartesian"
+      },
+      "ee_pose": {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state.ee_pose"
+      },
+      "embodiment": {
+        "key_type": "metadata_keys",
+        "zarr_key": "metadata.embodiment"
+      },
+      "front_img_1": {
+        "key_type": "camera_keys",
+        "zarr_key": "observations.images.front_img_1"
+      }
+    },
+    "pushshapes_sim": {
+      "actions": {
+        "key_type": "action_keys",
+        "zarr_key": "actions"
+      },
+      "embodiment": {
+        "key_type": "metadata_keys",
+        "zarr_key": "metadata.embodiment"
+      },
+      "front_img_1": {
+        "key_type": "camera_keys",
+        "zarr_key": "observations.images.front_img_1"
+      },
+      "state_agent_obj": {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state"
+      }
+    },
+    "scale_bimanual": {
+      "actions_cartesian": {
+        "key_type": "action_keys",
+        "zarr_key": "actions_cartesian"
+      },
+      "ee_pose": {
+        "key_type": "proprio_keys",
+        "zarr_key": "observations.state.ee_pose"
+      },
+      "embodiment": {
+        "key_type": "metadata_keys",
+        "zarr_key": "metadata.embodiment"
+      },
+      "front_img_1": {
+        "key_type": "camera_keys",
+        "zarr_key": "observations.images.front_img_1"
+      }
+    }
+  }
+}

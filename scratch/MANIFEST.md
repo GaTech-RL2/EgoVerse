@@ -1,0 +1,57 @@
+# Cleanup manifest — 2026-06-05
+
+Untracked scratch organized out of repo root and scripts/. MOVES ONLY (no deletions).
+Everything here is preserved; ask Claude for the request-delete list when ready to purge.
+
+- `_dbg_adaln.py` → `scratch/debug/`
+- `_dbg_adaln2.py` → `scratch/debug/`
+- `_dbg_ca.py` → `scratch/debug/`
+- `_dbg_comp2.py` → `scratch/debug/`
+- `_dbg_compress.py` → `scratch/debug/`
+- `_dbg_img.py` → `scratch/debug/`
+- `_dbg_pos.py` → `scratch/debug/`
+- `_verify_D.py` → `scratch/debug/`
+- `verify_history.py` → `scratch/debug/`
+- `diag_obs_sensitivity.py` → `scratch/debug/`
+- `gt_replay_diag.py` → `scratch/debug/`
+- `find_env.py` → `scratch/debug/`
+- `dtype_check.py` → `scratch/debug/`
+- `recheck.py` → `scratch/debug/`
+- `test_inmem_equiv.py` → `scratch/tests/`
+- `test_trim.py` → `scratch/tests/`
+- `test_disc_head.py` → `scratch/tests/`
+- `test_chunk.py` → `scratch/tests/`
+- `test_gmm_head.py` → `scratch/tests/`
+- `smoke_hnet_chunked.py` → `scratch/tests/`
+- `patch_eval_rollout.py` → `scratch/patches/`
+- `patch_packed_eval.py` → `scratch/patches/`
+- `patch_goal_keymap.py` → `scratch/patches/`
+- `patch_causal_keymap.py` → `scratch/patches/`
+- `patch_trim.py` → `scratch/patches/`
+- `analyze_data.py` → `scratch/analysis/`
+- `analyze_data2.py` → `scratch/analysis/`
+- `compare_data.py` → `scratch/analysis/`
+- `cmp2.py` → `scratch/analysis/`
+- `plot_tfdump_skynet.py` → `scratch/analysis/`
+- `plot_tfdump_curr.py` → `scratch/analysis/`
+- `plot_chunkA_tfdump_skynet.py` → `scratch/analysis/`
+- `plot_chunkA_tfdump_obsonly.py` → `scratch/analysis/`
+- `plot_chunkB_tfdump_skynet.py` → `scratch/analysis/`
+- `plot_chunkAcf_tfdump_skynet.py` → `scratch/analysis/`
+- `scripted_expert_eval.py` → `scratch/analysis/`
+- `replay_demo_eval.py` → `scratch/analysis/`
+- `bench_reg_fp32.sbatch` → `scratch/sbatch_oneshot/`
+- `bench_reg_fp32_4gpu.sbatch` → `scratch/sbatch_oneshot/`
+- `prod_diff_fp32_4gpu.sbatch` → `scratch/sbatch_oneshot/`
+- `prod_reg_fp32_4gpu.sbatch` → `scratch/sbatch_oneshot/`
+- `prod_reg_causal_4gpu.sbatch` → `scratch/sbatch_oneshot/`
+- `prod_reg_causal2k_4gpu.sbatch` → `scratch/sbatch_oneshot/`
+- `prod_diff_causal_4gpu.sbatch` → `scratch/sbatch_oneshot/`
+- `prod_reg_causal_trim_4gpu.sbatch` → `scratch/sbatch_oneshot/`
+- `prod_reg_circle_4gpu.sbatch` → `scratch/sbatch_oneshot/`
+- `smoke_dagger.sbatch` → `scratch/sbatch_oneshot/`
+- `launch_dagger.sbatch` → `scratch/sbatch_oneshot/`
+- `3305184` → `scratch/slurm_logs/`
+- `3305675` → `scratch/slurm_logs/`
+- `3305712` → `scratch/slurm_logs/`
+- `replay_demo_out/` → `scratch/` (one-shot replay-eval output dir)

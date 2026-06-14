@@ -1,0 +1,17 @@
+{
+  "defaults": [
+    {
+      "data": "cotrain_pi_lang"
+    },
+    {
+      "evaluator/viz@viz_func": "cotrain_lang"
+    },
+    "_self_"
+  ],
+  "fps": 30,
+  "frames_per_file": 1000,
+  "max_batches": 1000,
+  "max_episodes": 3,
+  "output_dir": "./lang_viz_output",
+  "split": "train"
+}

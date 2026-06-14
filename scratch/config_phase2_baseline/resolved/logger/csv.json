@@ -1,0 +1,9 @@
+{
+  "csv": {
+    "_target_": "lightning.pytorch.loggers.CSVLogger",
+    "flush_logs_every_n_steps": 1,
+    "name": "lightning_logs",
+    "save_dir": "${paths.output_dir}/csv_logs",
+    "version": null
+  }
+}

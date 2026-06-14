@@ -1,0 +1,14 @@
+{
+  "aria_bimanual": {
+    "annotation_key": "sampled_prompt",
+    "image_key": "base_0_rgb"
+  },
+  "defaults": [
+    "cartesian_wrist",
+    "_self_"
+  ],
+  "eva_bimanual": {
+    "annotation_key": "sampled_prompt",
+    "image_key": "base_0_rgb"
+  }
+}

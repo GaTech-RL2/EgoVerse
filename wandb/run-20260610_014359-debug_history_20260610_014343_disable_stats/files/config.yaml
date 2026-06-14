@@ -1,0 +1,30 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            7oe3l1jka6scinwb9timgwk4aos43bg5:
+                email: elmoworld2005@gmail.com
+                executable: /coc/flash7/paphiwetsa3/projects/EgoVerse7/.venv/bin/python
+                git:
+                    commit: 7df436fd2fa1d97a47cf1dbeed639633e1e601b5
+                    remote: git@github.com:GaTech-RL2/EgoVerse.git
+                host: voltron.cc.gatech.edu
+                os: Linux-6.8.0-117-generic-x86_64-with-glibc2.39
+                program: <stdin>
+                python: CPython 3.11.14
+                root: /coc/flash7/paphiwetsa3/projects/EgoVerse2
+                startedAt: "2026-06-10T05:43:59.773413Z"
+                writerId: 7oe3l1jka6scinwb9timgwk4aos43bg5
+        m: []
+        python_version: 3.11.14
+        t:
+            "3":
+                - 2
+                - 13
+                - 14
+                - 15
+                - 61
+            "4": 3.11.14
+            "5": 0.26.1
+            "12": 0.26.1
+            "13": linux-x86_64
