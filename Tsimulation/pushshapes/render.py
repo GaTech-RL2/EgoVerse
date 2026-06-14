@@ -16,10 +16,10 @@ import pygame
 import pymunk
 
 from Tsimulation.pushshapes.shapes import (
-    PUSHER_RADIUS,
     SHAPES,
     STICK_HALF_LEN,
     STICK_HALF_THICK,
+    pusher_radius,
 )
 
 BG_COLOR = (240, 240, 240)
@@ -84,7 +84,6 @@ def draw_arena(
     pusher_pos: tuple[float, float],
     pusher_angle: float,
     obstacle_segments: Iterable[pymunk.Segment],
-    pusher_radius: float = PUSHER_RADIUS,
 ) -> None:
     """Composite the full scene onto `surface` (in-place)."""
     surface.fill(BG_COLOR)
@@ -121,7 +120,7 @@ def draw_arena(
         )
 
     # Pusher.
-    _draw_pusher(surface, pusher_shape, pusher_pos, pusher_angle, pusher_radius)
+    _draw_pusher(surface, pusher_shape, pusher_pos, pusher_angle)
 
 
 def _draw_pusher(
@@ -129,12 +128,14 @@ def _draw_pusher(
     pusher_shape: str,
     pos: tuple[float, float],
     angle: float,
-    radius: float = PUSHER_RADIUS,
 ) -> None:
     px, py = pos
     if pusher_shape in ("circle", "circle_small"):
         pygame.draw.circle(
-            surface, PUSHER_COLOR, (int(px), int(py)), int(radius)
+            surface,
+            PUSHER_COLOR,
+            (int(px), int(py)),
+            max(1, int(round(pusher_radius(pusher_shape)))),
         )
         return
 

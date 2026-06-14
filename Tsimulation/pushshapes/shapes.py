@@ -56,19 +56,26 @@ SHAPES: dict[str, list[tuple[float, float, float, float]]] = {
 OBJECT_DENSITY = 0.30
 OBJECT_FRICTION = 0.6
 PUSHER_RADIUS = 15.0
+PUSHER_RADIUS_SMALL = 5.0  # circle_small: 3x smaller than the standard circle
 STICK_HALF_LEN = 30.0
 STICK_HALF_THICK = 5.0
 
-# Per-variant circle-pusher radii (world units). The default "circle" keeps the
-# canonical PUSHER_RADIUS so all existing behaviour is byte-identical. The
-# "circle_small" radius (5.0) was determined empirically from the
-# new_circle_small__3 dataset: the firm-contact center-to-object-surface gap
-# floors at ~4.82 world, calibrated against the big "circle" set whose floor
-# (~14.82) sits ~0.18 under the known PUSHER_RADIUS=15.0 -> small ~= 5.0.
-PUSHER_RADII = {
+# Per-shape effective pusher radius — used by env spawn-clearance and renderer.
+# Stick uses its end-cap radius (the largest contact circle on its body).
+_PUSHER_RADII: dict[str, float] = {
     "circle": PUSHER_RADIUS,
-    "circle_small": 5.0,
+    "circle_small": PUSHER_RADIUS_SMALL,
+    "stick": STICK_HALF_THICK,
 }
+
+
+def pusher_radius(shape: str) -> float:
+    """Effective contact radius for ``shape``. Raises on unknown shapes."""
+    if shape not in _PUSHER_RADII:
+        raise ValueError(
+            f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"
+        )
+    return _PUSHER_RADII[shape]
 
 
 def _rect_verts(cx: float, cy: float, w: float, h: float) -> list[tuple[float, float]]:
@@ -110,19 +117,13 @@ def make_pusher(
     shape: Literal["circle", "circle_small", "stick"],
     space: pymunk.Space,
     position: tuple[float, float],
-    radius: float = PUSHER_RADIUS,
 ) -> tuple[pymunk.Body, list[pymunk.Shape]]:
-    """Create a KINEMATIC pusher whose position/velocity is driven by env.step().
-
-    ``radius`` controls the circle-pusher disk size (default PUSHER_RADIUS=15.0,
-    so the default ``shape='circle'`` path is byte-identical to before). The
-    "circle_small" shape is a circle with the smaller PUSHER_RADII radius.
-    """
+    """Create a KINEMATIC pusher whose position/velocity is driven by env.step()."""
     body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     body.position = position
 
     if shape in ("circle", "circle_small"):
-        s = pymunk.Circle(body, radius)
+        s = pymunk.Circle(body, pusher_radius(shape))
         s.friction = OBJECT_FRICTION
         space.add(body, s)
         return body, [s]
@@ -142,7 +143,7 @@ def make_pusher(
         return body, [rect, end_a, end_b]
 
     raise ValueError(
-        f"unknown pusher shape '{shape}', valid: ['circle', 'circle_small', 'stick']"
+        f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"
     )
 
 

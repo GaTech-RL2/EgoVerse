@@ -34,12 +34,13 @@ from Tsimulation.pushshapes.render import (
     to_image_obs,
 )
 from Tsimulation.pushshapes.shapes import (
-    PUSHER_RADII,
-    PUSHER_RADIUS,
     SHAPES,
     make_object,
     make_pusher,
+    pusher_radius,
 )
+
+_VALID_PUSHERS = ("circle", "circle_small", "stick")
 
 # Tunables not exposed via __init__ — surfaced here for visibility.
 _MIN_TARGET_DIST = 1e-3  # below this, treat pusher as on-target
@@ -70,16 +71,14 @@ class PushShapesEnv(gym.Env):
         render_mode: str | None = None,
         image_size: int = 96,
         seed: int | None = None,
-        pusher_radius: float | None = None,
     ):
         super().__init__()
 
         if object_shape not in SHAPES:
             raise ValueError(f"object_shape {object_shape!r} not in {list(SHAPES)}")
-        if pusher_shape not in ("circle", "circle_small", "stick"):
+        if pusher_shape not in _VALID_PUSHERS:
             raise ValueError(
-                f"pusher_shape {pusher_shape!r} not in "
-                "('circle', 'circle_small', 'stick')"
+                f"pusher_shape {pusher_shape!r} not in {_VALID_PUSHERS}"
             )
         if obstacle_level not in OBSTACLE_LEVELS:
             raise ValueError(
@@ -95,15 +94,6 @@ class PushShapesEnv(gym.Env):
         self.obstacle_level = obstacle_level
         self.render_mode = render_mode
         self.image_size = int(image_size)
-        # Resolve the circle-pusher disk radius. Explicit ``pusher_radius`` wins;
-        # otherwise look up the per-variant default (circle -> 15.0,
-        # circle_small -> 5.0). For the default ``pusher_shape='circle'`` with no
-        # explicit radius this is exactly PUSHER_RADIUS -> byte-identical path.
-        self.pusher_radius = float(
-            pusher_radius
-            if pusher_radius is not None
-            else PUSHER_RADII.get(pusher_shape, PUSHER_RADIUS)
-        )
 
         self.action_space = spaces.Box(
             low=0.0, high=float(self.WORLD_SIZE), shape=(2,), dtype=np.float64
@@ -208,9 +198,7 @@ class PushShapesEnv(gym.Env):
         self._object_body, _ = make_object(
             self.object_shape, self._space, object_pos, object_angle
         )
-        self._pusher_body, _ = make_pusher(
-            self.pusher_shape, self._space, pusher_pos, radius=self.pusher_radius
-        )
+        self._pusher_body, _ = make_pusher(self.pusher_shape, self._space, pusher_pos)
 
         self._goal_pose = (float(goal_pos[0]), float(goal_pos[1]), float(goal_angle))
         self._goal_polygon = self._build_object_polygon(goal_pos, goal_angle)
@@ -405,7 +393,6 @@ class PushShapesEnv(gym.Env):
             pusher_pos=(pusher.position.x, pusher.position.y),
             pusher_angle=pusher.angle,
             obstacle_segments=self._obstacle_segments,
-            pusher_radius=self.pusher_radius,
         )
         return self._world_surface
 
@@ -490,7 +477,7 @@ class PushShapesEnv(gym.Env):
         object_pos: tuple[float, float],
     ) -> tuple[float, float]:
         m = self.SPAWN_MARGIN
-        radius = PUSHER_RADIUS + 5.0
+        radius = pusher_radius(self.pusher_shape) + 5.0
         for _ in range(_SPAWN_MAX_TRIES):
             x = float(self._np_random.uniform(m, self.WORLD_SIZE - m))
             y = float(self._np_random.uniform(m, self.WORLD_SIZE - m))

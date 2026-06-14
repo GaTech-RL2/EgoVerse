@@ -20,7 +20,11 @@ from Tsimulation.pushshapes.env import PushShapesEnv
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--object", default="T", choices=["T", "U", "Z"])
-    p.add_argument("--pusher", default="circle", choices=["circle", "stick"])
+    p.add_argument(
+        "--pusher",
+        default="circle",
+        choices=["circle", "circle_small", "stick"],
+    )
     p.add_argument("--obstacles", type=int, default=0, choices=[0, 1, 2, 3])
     p.add_argument("--steps", type=int, default=100)
     p.add_argument("--seed", type=int, default=0)
