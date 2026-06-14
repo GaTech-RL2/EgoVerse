@@ -56,8 +56,26 @@ SHAPES: dict[str, list[tuple[float, float, float, float]]] = {
 OBJECT_DENSITY = 0.30
 OBJECT_FRICTION = 0.6
 PUSHER_RADIUS = 15.0
+PUSHER_RADIUS_SMALL = 5.0  # circle_small: 3x smaller than the standard circle
 STICK_HALF_LEN = 30.0
 STICK_HALF_THICK = 5.0
+
+# Per-shape effective pusher radius — used by env spawn-clearance and renderer.
+# Stick uses its end-cap radius (the largest contact circle on its body).
+_PUSHER_RADII: dict[str, float] = {
+    "circle": PUSHER_RADIUS,
+    "circle_small": PUSHER_RADIUS_SMALL,
+    "stick": STICK_HALF_THICK,
+}
+
+
+def pusher_radius(shape: str) -> float:
+    """Effective contact radius for ``shape``. Raises on unknown shapes."""
+    if shape not in _PUSHER_RADII:
+        raise ValueError(
+            f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"
+        )
+    return _PUSHER_RADII[shape]
 
 
 def _rect_verts(cx: float, cy: float, w: float, h: float) -> list[tuple[float, float]]:
@@ -96,7 +114,7 @@ def make_object(
 
 
 def make_pusher(
-    shape: Literal["circle", "stick"],
+    shape: Literal["circle", "circle_small", "stick"],
     space: pymunk.Space,
     position: tuple[float, float],
 ) -> tuple[pymunk.Body, list[pymunk.Shape]]:
@@ -104,8 +122,8 @@ def make_pusher(
     body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     body.position = position
 
-    if shape == "circle":
-        s = pymunk.Circle(body, PUSHER_RADIUS)
+    if shape in ("circle", "circle_small"):
+        s = pymunk.Circle(body, pusher_radius(shape))
         s.friction = OBJECT_FRICTION
         space.add(body, s)
         return body, [s]
@@ -124,7 +142,9 @@ def make_pusher(
         space.add(body, rect, end_a, end_b)
         return body, [rect, end_a, end_b]
 
-    raise ValueError(f"unknown pusher shape '{shape}', valid: ['circle', 'stick']")
+    raise ValueError(
+        f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"
+    )
 
 
 def aabb(shape: str) -> tuple[float, float, float, float]:

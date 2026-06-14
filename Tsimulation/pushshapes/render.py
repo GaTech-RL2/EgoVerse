@@ -16,10 +16,10 @@ import pygame
 import pymunk
 
 from Tsimulation.pushshapes.shapes import (
-    PUSHER_RADIUS,
     SHAPES,
     STICK_HALF_LEN,
     STICK_HALF_THICK,
+    pusher_radius,
 )
 
 BG_COLOR = (240, 240, 240)
@@ -130,9 +130,12 @@ def _draw_pusher(
     angle: float,
 ) -> None:
     px, py = pos
-    if pusher_shape == "circle":
+    if pusher_shape in ("circle", "circle_small"):
         pygame.draw.circle(
-            surface, PUSHER_COLOR, (int(px), int(py)), int(PUSHER_RADIUS)
+            surface,
+            PUSHER_COLOR,
+            (int(px), int(py)),
+            max(1, int(round(pusher_radius(pusher_shape)))),
         )
         return
 
