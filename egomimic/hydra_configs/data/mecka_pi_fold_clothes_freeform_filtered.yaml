@@ -1,0 +1,54 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Visualization task allowlist consumed by evaluator.tasks by default.
+viz_tasks: [folding_clothes]
+
+# Like mecka_pi_fold_clothes_freeform.yaml, but restricted to the 179
+# episodes marked "accept" (latest decision wins) in
+# data_quality_review/mecka_folding_clothes_decisions.jsonl.
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian_6d
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['task'] == 'folding_clothes' and row['episode_hash'] in {'692de240996d7b24ba715c0f', '696bd310a907c8962e22a9fa', '696bd77693818b7b258ec43b', '696bd78eb0b2b22cc0d1f867', '696d0d524b2b73eea2f1cc51', '696d0f02c7470f85da9346db', '696d0f031244464a4aac1b8f', '696d0fdafad368fca385f5a5', '696d0fe4a199224e8d66242c', '696d119e1fe17643f95f9fb9', '696d119fc0c2d9149de65a2f', '696d2fb388af7cc080636a98', '696d327667df29fbace8f267', '696d8e837d42972c2ce7decf', '696d8eb6bcbf0c32b4b22a20', '696da40edc787523fe33b60b', '696dce7f80f51286a174d3bf', '696dd090a56f03a27e59f69c', '696e3f575495dfdd91c9205e', '696e632d52cb044323851277', '696e634bd4beb7b75cdb20d9', '696e757efea209e4672a3608', '696e757ff885878a682d978e', '6971825cf8a169e07da41094', '69718a3ee23b35ecc6ffedc4', '69718c153cee844b7d27f9ec', '697298da3825a1eb490788b0', '6972b304f1a4d4b92baba501', '69730ed796f1bc436f1e9074', '69b1c4dc1b7bf3cf07b4c1e3', '69b1c5933787b8c726e3dc0b', '69b1e127bbf6e05cf50b8579', '69b1e2191c6c05bcabe09dcd', '69b20b64b75f730c0941a071', '69b331bfc45a40a0cc480646', '69b33c636d8e889d7aa560a6', '69b36456806f8dde7843c8cd', '69b36788846a8cd39d79fa5f', '69b36adc1d815aa785771b6e', '69b3aa8c1e56f6bdf5a3766f', '69b3e5a200e6d908f86d7ec0', '69b42182fd7b6f90a9fb4eea', '69b493cf09ee8318e185a190', '69b4948bd0962527244f2b40', '69b494f9690ce5eb0225ca23', '69b49520ba5771467aa5c4a7', '69b495b2a506f1c6355d0475', '69b495dccc419d655dacddb0', '69b49c72246ccb645e50d68f', '69b4a0d42e9983f31a0b56bc', '69b4a1d27e46044c0318caa8', '69b4abebd673f8a5bdac0a63', '69b4b2e1ecc2eafbfae25d1d', '69b4b3125058b9f00b9fa573', '69b4b9cc970f3d65c454a159', '69b4be42f9274b0a852547ca', '69b4c6774e1b15ae18625e56', '69b5037d8faeb1c44a3ebe77', '69b507d79f66a2746698fb11', '69b554d4ae7c8a432518f9d6', '69b554d746452e48802c28f9', '69b555abee737c3c1639205b', '69b55a265907c64c2ffa35f2', '69b684dccd225473d6956765', '69b68626af933f49003771c9', '69b687cc15c15130fd7d5792', '69b687f602c15af4600ee75a', '69b689040362172e4a330f89', '69b68a0de9a7a1d4e945b540', '69b68b72d0ec56f9fd959a01', '69b68b893c4071bc885c80a3', '69b68c03e14e59c96aca2789', '69b68d3c863376b642ddc393', '69b68ddab3c6644588cd1ef4', '69b68f44359fa4d3b056169a', '69b690daeae2ffd4a8721274', '69b693eef572e72a4e66a23a', '69b694724d8c5f73d519add8', '69b695e85f1d2dd786b35eee', '69b696114f8988c123b33745', '69b69a485b8909b6ece0d093', '69b69abc67f8c87f5b771b39', '69b69b0aa967df5ed187371e', '69b69b4ff2710b05b13a6e0e', '69b69b8e5b47da978eb918f6', '69b6abd2341121416d110fc4', '69b6c6070d8cea8c65e3dd0f', '69b6d576f7de7d351cd43419', '69b6d8002e7226cb41a3edc4', '69b84262cdbc7aede694381e', '69b8446ffb1a61ea23a43d40', '69b8515ccdbc7aede6943906', '69b85e165dd104abd036bd65', '69b85e92c5ab7070deca4907', '69b879cc4763c6a9d3add60d', '69b87ba3044006a7f056eea5', '69b87eee19aecd94aedc36b4', '69b8836035183530d04484ca', '69b88fed7f0dd9337697cd81', '69b8b05611d8df1e277c15b5', '69b8bcb844a2e80ec56560ed', '69b8c5be52c2c675c36ca19c', '69b8eb6aa8f416005104fd69', '69b8f01e6be1c6d054a42f98', '69b8f43f4b754305a80bf456', '69b8f63aa8f5c8c8ef9bae19', '69b8f7ca6a6fcc387e6fc89d', '69b90379a89e9b47645a9db3', '69b90c01020e9efa2add534b', '69b90c8cb1ffd7875e7cd0a9', '69b918e86be1c6d054a430f9', '69b91a05de59539246182a53', '69b91cc62030ce071fb4928d', '69b91f3ce3e5accb88abd186', '69b926fdfe7b4065d8ee60b6', '69b9272ce02b54ac36b081e8', '69b92908b1ffd7875e7cd19d', '69b93ba25088ac62355d6cfa', '69b93bfffe5dea81e80546a7', '69b93c898973f21812765cc3', '69b93f85aacf0a241873b767', '69b95578a7178c0e45b56e83', '69b955cd3d7564e60197052a', '69b955e72565bc2e9320ae7c', '69b957d0507132953a1af187', '69b958b394c5e2cd4f0fd687', '69b9598994c5e2cd4f0fd691', '69b95f5887a8695556dc140b', '69b95ff1cf3be3afac7d7767', '69b960a0984ca3f76894d0ea', '69b961c7c5133d089fd7ca48', '69b961edd1b1254fcf5880d0', '69b96fe02030ce071fb49642', '69b97081b13a790889c05698', '69b971414458d25a26dc6cd3', '69b97901571aa3769df5698f', '69b97a9f2030ce071fb496dd', '69b97bfcadb6e6a77d24037f', '69b97e763eb66861b6b67463', '69b97eb7e9e449ce481f0d16', '69b980da304dcbe492f247ba', '69b9814aeccb0b08b29a4fd3', '69b98d4721ace8909aabcb4e', '69b98ed9daa94436aeb8f252', '69b9982e0708f95ac3fce45c', '69b999bceddc130379669eae', '69b99c0e3673ca659e070ac9', '69b9a13ad056890bb2ca258a', '69b9a1754458d25a26dc6e58', '69b9a5ad4a24dede6ab84f25', '69b9a5d574d8ca57221c4671', '69b9a67c99baab7f4f63f49a', '69b9aa6441b2115214eb1083', '69b9ab17eecdb2675227fb13', '69b9ab2e66541bb0435c0563', '69b9ab50332eddd8ed1a35f6', '69b9abc3aa6e21f31eb6ba25', '69b9ac3630e465706c590ffc', '69b9ac42a3eedf54151c6464', '69b9ad1a332eddd8ed1a3604', '69b9aea354b561b4d199a27c', '69b9b0c7137fadc2c6df9077', '69b9b0d99dcb1b5e480db006', '69b9b1c455ee96e0d7396949', '69b9b260c004b8e369a3d517', '69b9b2924673c55fc915ba66', '69b9e59388fdab48150e3d07', '69b9e68cd8d59e6ae34c0e1b', '69b9fab7f4432734dc1b3b25', '69ba0421ad41965cca81ccca', '69ba06f4862b272d33cfec6f', '69bacdb87f9d2a9ee33a6ccf', '69bad48044b0fc7135f86330', '69bad84c337db01471731db7', '69bada5b790ccc5cb89c1083', '69badbf27e311f13fc6df09b', '69baf4d8935a9aa010abb230', '69bb01bf11e9b1cd78d2945d', '69bb0e1f7fcc76cdadcc00bb'}"
+    mode: train
+
+valid_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
+    mode: valid
+
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10
+
+# `+evaluator@train_viz_evaluator=train_viz_pi`.
+train_viz_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
+    mode: train
+train_viz_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10

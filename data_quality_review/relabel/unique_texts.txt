@@ -1,0 +1,2447 @@
+56	fold shirt
+30	fold cloth
+22	adjust shirt
+22	adjust cloth
+21	adjust cloth on table
+18	no action
+17	smoothen shirt
+15	smoothen t-shirt on table
+14	fold t-shirt
+13	adjust shirt on table
+12	iron shirt
+11	fold shirt, adjust shirt
+11	place folded cloth into plastic bag
+11	place iron on table
+10	fold garment
+9	fold cloth on table
+9	fold checkered cloth
+9	wipe table with cloth
+9	fold white garment
+8	iron t-shirt
+8	pick up plastic bag
+7	adjust cloth, fold cloth
+7	smoothen shirt on table
+7	pick up iron
+7	straighten shirt
+7	fold shirt, smoothen shirt
+7	place lint roller on table, adjust pants
+6	fold handkerchief
+6	smoothen garment
+6	place cloth on table
+6	spread shirt on table
+6	fold black shirt
+6	adjust shirt, smoothen shirt
+6	fold shirt on table
+6	smoothen black t-shirt, fold black t-shirt
+6	fold blue shirt
+6	fold white shirt
+6	fold shorts
+6	smoothen striped shirt on table
+6	fold striped shirt on table
+5	place hanger on rack
+5	smoothen costume
+5	button shirt
+5	pick up cloth
+5	smoothen red shirt
+5	smoothen t-shirt
+5	pick up cloth, adjust cloth
+5	smoothen cloth on bed
+5	fold fabric
+5	pick up plastic bag, open plastic bag
+5	place lint roller on table
+5	pick up lint roller, roll pants with lint roller
+5	clean white shirt with lint roller
+5	pick up cloth from basket, place cloth on table
+4	smooth cloth
+4	flip t-shirt
+4	spread t-shirt on table
+4	pick up folded cloth, place folded cloth on stack
+4	smooth t-shirt, adjust t-shirt
+4	fold pants
+4	fold cloth, adjust cloth
+4	smoothen folded shirt
+4	adjust t-shirt on table
+4	fold fabric, place fabric on stack
+4	adjust plastic bag
+4	rotate shirt, smoothen shirt
+4	fold green t-shirt
+4	pick up toothbrush, brush yellow cloth with toothbrush
+4	adjust garment on table
+4	pick up lint roller, smooth cloth with lint roller
+4	place plastic bag on stack
+4	fold cloth and adjust cloth
+4	fold pink cloth
+4	pick up cloth from pile
+4	pick up lint roller from table
+4	use lint roller on shirt
+4	fold bottom of shirt upward
+4	insert towel into plastic bag
+4	move cloth on table
+4	smoothen cloth
+4	fold patterned cloth
+4	pick up lint roller, pull forth and back lint roller on shirt
+4	fold striped cloth
+4	adjust shirt, button shirt
+4	clean t-shirt with lint roller
+4	fold green shirt on table
+4	fold shirt on bed
+4	fold white cloth
+4	fold black clothing
+4	pick up shirt
+3	flip folded shirt, adjust folded shirt
+3	adjust jacket on table
+3	spread cloth on table
+3	fold red shirt
+3	fold t-shirt, smooth t-shirt
+3	adjust garment and smoothen garment
+3	fold pink t-shirt
+3	pick up plastic bag, place plastic bag on table
+3	fold yellow cloth
+3	pick up fabric, adjust fabric
+3	pick up tape dispenser, adjust tape dispenser
+3	adjust pants
+3	pick up folded black shirt, place folded black shirt on stack
+3	spread shirt flat on table
+3	smooth yellow shirt
+3	insert folded cloth into plastic bag
+3	adjust garment
+3	fold yellow t-shirt
+3	pick up cloth, fold cloth
+3	insert cloth into plastic bag
+3	clean garment with lint roller
+3	adjust bag
+3	fold the checkered cloth into a rectangle
+3	fold black garment
+3	fold green garment
+3	fold white shirt, smoothen white shirt
+3	fold t-shirt on table
+3	smoothen striped shirt
+3	pick up plastic bag, adjust plastic bag
+3	fold kitchen towel
+3	straighten shirt on surface
+3	smoothen folded shirt on table using lint roller, place lint roller on table
+3	clean green fabric with lint roll
+3	adjust lint roller on table, spread out jacket on table
+3	pick up lint roller from table, roll lint roller on cloth on table
+3	smoothen garment, adjust garment
+3	fold green shirt
+3	pick up brown cloth
+3	spread brown cloth on table
+3	manipulate black garment
+3	adjust pink garment
+3	adjust and smoothen black cloth
+3	spread green shirt on table
+3	adjust folded shirt
+3	pick up cloth from rack
+3	move stack of clothes on table
+3	adjust striped shirt
+3	pick up black clothing from bed
+3	place black clothing into drawer
+3	remove black clothing from drawer
+3	adjust underwear
+3	adjust black clothing over washing machine tub
+2	pick up box, place box on table, open box
+2	place box on table, insert cloth into box
+2	pick up cloth, place cloth on table
+2	grab cloth from rack, place cloth on pile
+2	adjust blue sleeping bag, unzip blue sleeping bag
+2	smooth and adjust folded shirt
+2	fold jacket sleeve, adjust jacket sleeve on table
+2	fold shirt, smooth shirt
+2	smoothen hoodie
+2	adjust hoodie
+2	fold costume sleeve
+2	fold right sleeve of shirt
+2	unfold shirt
+2	smooth red shirt
+2	fold and smoothen t-shirt on table
+2	pick up t-shirt
+2	flip cloth, adjust cloth
+2	adjust and smooth folded t-shirt
+2	fold white fabric piece on table
+2	pick up t-shirt, place t-shirt on table
+2	pick up pants
+2	fold pant
+2	fold garment and adjust garment
+2	pick up folded pink t-shirt and place folded pink t-shirt on stack
+2	pick up pink t-shirt, place pink t-shirt on table, straighten pink t-shirt
+2	flip pink t-shirt, straighten pink t-shirt
+2	smoothen shirt with lint roller
+2	fold handkerchief on table
+2	fold hem of green shirt
+2	move folded cloth into plastic bag
+2	adjust cloth, place cloth on table
+2	hold plastic bag, adjust cloth
+2	spread cloth on bed
+2	smoothen and adjust cloth on bed
+2	fold cloth on bed, adjust and smoothen cloth on bed
+2	fold cloth on bed
+2	unfold t-shirt, smooth t-shirt, fold t-shirt, smooth t-shirt
+2	smooth t-shirt, rotate t-shirt, smooth t-shirt
+2	fold and smoothen shirt
+2	pick up fabric, fold fabric
+2	pick up tape dispenser, cut tape from tape dispenser
+2	pick up lint roller, clean shirt with lint roller
+2	place folded checkered cloth into plastic bag
+2	pick up lint roller
+2	wipe pants with lint roller, place lint roller on table
+2	fold sleeve of red shirt, smoothen red shirt
+2	reposition black t-shirt on folding table, fold black t-shirt
+2	fold yellow shirt
+2	place folded garment on stack
+2	fasten button of shirt
+2	pick up lint roller from table, roll lint roller on shirt
+2	flip shirt
+2	smoothen green t-shirt
+2	smoothen t-shirt, fold t-shirt
+2	pick up iron, iron shirt
+2	place iron on table, adjust t-shirt
+2	smoothen yellow t-shirt
+2	straighten green t-shirt, smoothen green t-shirt
+2	straighten yellow t-shirt, smoothen yellow t-shirt
+2	place cloth on table, fold cloth
+2	flip cloth and adjust cloth
+2	pick up plastic bag, place folded cloth in plastic bag
+2	pick up checkered cloth
+2	pick up and fold cloth
+2	pick up handkerchief from pile
+2	adjust handkerchief on desk
+2	adjust and smooth cloth on table
+2	smooth cloth on table
+2	fold cloth into small square
+2	fold cloth, place cloth on table
+2	adjust pants on table
+2	pick up iron from table, iron pants on table
+2	place iron aside on table
+2	adjust shirt, fold shirt
+2	move shirt on table
+2	pick up blue and white napkin, fold blue and white napkin
+2	adjust plastic bag on table
+2	unhang shorts from hanger
+2	adjust shorts, fold shorts
+2	pick up hanger from rack
+2	adjust folded cloth, pick up plastic bag
+2	place cloth in plastic bag, reposition plastic bag on table
+2	place shirt on table
+2	clean garment with lint roller, place lint roller on table
+2	wipe cloth on table with toothbrush
+2	place striped cloth on table, fold striped cloth on table
+2	insert the folded cloth into the plastic bag
+2	pick up and spread out checkered cloth
+2	smooth out shirt on table
+2	pick up and open plastic bag
+2	place folded cloth into bag
+2	pick up fabric from pile and spread on table
+2	place folded napkin into plastic bag
+2	place bagged napkin onto stack
+2	fold bottom of t-shirt upwards
+2	place cloth into plastic bag
+2	move plastic bag on table
+2	fold striped shirt
+2	move plastic bag with handkerchief on pile
+2	place cloth in plastic bag
+2	place packaged towel on stack
+2	adjust kitchen towel
+2	open plastic bag
+2	straighten shirt on surface, move shirt on surface
+2	fold shirt on surface, straighten shirt on surface
+2	fold grey garment
+2	place packed cloth into box
+2	clean cloth with toothbrush
+2	adjust cloth on table, fold cloth
+2	adjust shorts on table
+2	place patterned cloth into plastic bag
+2	fold checkered cloth on table
+2	package folded checkered cloth into plastic bag
+2	place packaged checkered cloth on stack
+2	fold grey checkered napkin
+2	pick up spray bottle, spray white garment with water bottle
+2	iron shirt on table
+2	adjust trousers
+2	adjust fabric on stack of fabrics
+2	use lint roller to smoothen shirt on table, place lint roller on table
+2	fold shirt on table, pick up lint roller from table
+2	fold grey shirt
+2	adjust garments
+2	fold tan garment
+2	smooth out wrinkles on shirt with hands
+2	place folded cloth on plastic bag
+2	fold towel on table
+2	pack folded cloth with plastic bag
+2	seal plastic bag
+2	place down lint roller, fold shirt on table
+2	fold checkered fabric
+2	fold garment on floral surface
+2	move cloth into plastic bag
+2	pick up cloth, place cloth on stack
+2	pick up white fabric, fold white fabric
+2	fold white fabric piece
+2	place white fabric piece in bag
+2	fold black checkered cloth on table
+2	fold grey striped cloth
+2	clean folded garment with lint roller
+2	pick up white garment, place white garment on table
+2	apply tape on white garment
+2	pick up lint roller, roll lint roller on shirt
+2	fold clothes on table
+2	flip blue garments, adjust buttons
+2	straighten folded shirt
+2	pick up folded shirt from table, place folded shirt on stack
+2	smoothen folded garment
+2	fold folded garment
+2	smoothen folded garment, fold folded garment
+2	fold brown shirt
+2	flip pink cloth
+2	adjust brown cloth
+2	fold brown cloth
+2	fold brown cloth, smoothen brown cloth
+2	fold and adjust pink garment
+2	move folded shirt onto stack
+2	fold black t-shirt
+2	smoothen and adjust black cloth
+2	smooth white shirt on table
+2	fold and adjust white shirt on table
+2	fold black cloth
+2	place pillow in pillow case
+2	unfold swamp green pant on table
+2	fold swamp green pant on table
+2	move cloth into basket
+2	fold cloth, smoothen cloth
+2	move stack on table
+2	pick up cloth from table, place cloth on shelf
+2	pick up cloth, place cloth on bed
+2	slide cloth on bed
+2	adjust cloth on bed
+2	fold shirts
+2	wipe plate with cloth
+2	button pink garment, adjust pink garment on floor
+2	clean table with cloth
+2	adjust yellow clothing, button yellow clothing
+2	pick up clothes, place clothes on pile of clothes
+2	fold orange shirt
+2	smoothen folded orange shirt
+2	smoothen garment, fold garment
+2	fold black underwear, move black underwear to stack of clothes
+2	move purple cloth on bed
+2	fold purple cloth
+2	adjust pink cloth on bed, smoothen pink cloth on bed
+2	flip green shirt, straighten green shirt
+2	adjust stack of clothes on table
+2	straighten blue shirt
+2	pick up black shorts
+2	fold gray garment
+2	adjust beige cloth
+2	smoothen shirt, fold shirt
+2	smoothen blue shirt
+2	fold black patterned shirt
+2	pick up folded shirt, place folded shirt on stack
+2	move socks to stack
+2	fold sides of shirt inward
+2	adjust items in drawer
+2	remove white clothing from drawer
+2	spread gray garment on table
+2	adjust grey t-shirt
+2	fold side of white shirt, adjust folded side of white shirt
+2	pick up white garment, adjust white garment
+2	rummage cloths in green basket
+2	place shirt in drawer, adjust shirt in drawer
+2	invert pink garment
+2	fold and adjust shirt
+2	align and adjust shirt
+2	place underwear on stack
+2	roll lint roller on shirt, place lint roller on table
+2	hang shirt on rack
+2	pick up shirt, arrange shirt
+2	fold side of shirt towards middle
+2	pick up hanger from drying rack
+2	pick up folded cloth from chair, place folded cloth in drawer
+2	pick up shirt and spread shirt on table
+2	move folded white garment on table
+2	clean glass tabletop with patterned cloth
+1	move folded shirt onto surface
+1	pick up box, close box, rotate and adjust box
+1	move box to stack of boxes
+1	adjust cloth, fold and straighten cloth
+1	flip cloth, adjust and straighten cloth, fold cloth
+1	lift up box, close box
+1	rotate box, move box to stack of boxes
+1	hold cloth, fold cloth on stack clothes
+1	adjust cloth, place cloth on stack clothes, pick up cloth from stack of clothes
+1	adjust cloth, fold cloth, adjust cloth, place cloth on stack clothes in green bag
+1	pick up brown hoodie from rack, place brown hoodie on stack clothes
+1	remove hanger from hoodie
+1	fold brown hoodie, place brown hoodie in green bag
+1	pick up white shirt from rack
+1	remove hanger from white shirt
+1	fixing button on white shirt
+1	fold cloth, adjust cloth, place cloth on pile
+1	remove hanger from cloth
+1	hold cloth, fold cloth, place cloth on pile
+1	unbutton cloth
+1	remove hanger from cloth and place on rack
+1	hold cloth, button up cloth
+1	spread checkered cloth on table, smoothen checkered cloth on table
+1	fold checkered cloth on table, adjust checkered cloth on table
+1	pull out plastic bag from bunch
+1	rotate pink checkered cloth, spread pink checkered cloth on table
+1	adjust pink checkered cloth, fold pink checkered cloth
+1	flip folded pink checkered cloth, smooth pink checkered cloth
+1	fold pink checkered cloth, rotate pink checkered cloth
+1	move folded pink checkered cloth into plastic bag
+1	move plastic bag on stack
+1	adjust plastic bags on table
+1	adjust yellow and blue checkered cloth
+1	adjust blue checkered cloth, rotate blue checkered cloth
+1	spread blue checkered cloth on table, smooth blue checkered cloth
+1	fold blue checkered cloth
+1	hold pouch bag, adjust blue sleeping bag, adjust pouch bag
+1	adjust pouch bag, fold pouch bag
+1	adjust pouch bag, roll pouch bag, pick up rolled pouch bag
+1	adjust drawstring, wrap drawstring around rolled pouch bag, tie drawstring
+1	place rolled pouch bag on floor
+1	adjust blue sleeping bag, unroll blue sleeping bag
+1	adjust blue sleeping bag
+1	unstrap blue sleeping bag, unzip blue sleeping bag
+1	adjust folded shirt, adjust drawstrings of folded shirt
+1	adjust drawstrings of folded shirt
+1	adjust and straighten drawstrings on folded shirt
+1	adjust drawstrings and collar of folded shirt
+1	adjust collar and drawstrings of folded shirt
+1	move folded shirt aside
+1	grab and slide plastic bag from underneath pile of clothing
+1	adjust plastic bag, grab and fold folded shirt in half
+1	open plastic bag, insert folded shirt inside plastic bag
+1	adjust folded shirt inside plastic bag
+1	flip and compress packaged shirt
+1	flip packaged shirt, pick up blue tag
+1	zip up jacket
+1	adjust jacket, zip up jacket
+1	fold jacket sleeve, adjust jacket on table
+1	smooth shirt, fold shirt, smooth shirt, pick up thread from shirt and throw aside
+1	fold shirt, adjust shirt, fold shirt, smooth shirt
+1	smoothen hoodie on table
+1	fold hoodie and smoothen hoodie
+1	fold and adjust hoodie
+1	fold and adjust hood of hoodie
+1	smoothen hoodie, adjust hood of hoodie, straighten edges of hoodie
+1	fold hoodie
+1	rotate hoodie, adjust folded hoodie
+1	flip hoodie
+1	adjust folded hoodie
+1	adjust drawstrings on hoodie
+1	adjust blue cloth in plastic bag, close plastic bag, press down plastic bag
+1	pick up blue cloth in plastic bag, place blue cloth in plastic bag on stack
+1	move camouflage shirt from pile to table
+1	adjust camouflage shirt on table, adjust stack of cards on table, adjust camouflage shirt on table
+1	adjust camouflage shirt on table
+1	fold and adjust camouflage shirt on table
+1	zip costume
+1	flip and adjust costume on table
+1	align costume and adjust stack of tag
+1	adjust sleeve of costume
+1	smooth costume
+1	fold costume in half
+1	smooth folded costume
+1	fold and align sleeve of costume
+1	adjust costume on table
+1	adjust costume, adjust cards on table
+1	reposition costume on table
+1	fold costume
+1	fold left side of shirt, smooth shirt
+1	fold left sleeve side of shirt
+1	smooth shirt sleeve
+1	fold shirt, pick up shirt
+1	place shirt on stack
+1	pick up shirt from bag
+1	reposition shirt, button shirt
+1	pick up bag
+1	open bag
+1	fold bottom of red shirt
+1	fold sleeves of red shirt
+1	fold red shirt in half
+1	fold red shirt into square
+1	smooth folded red shirt
+1	place red shirt on stack
+1	pick up maroon shirt from basket
+1	smooth maroon shirt
+1	flip t-shirt on table
+1	move t-shirt to stack
+1	adjust folded cloth on table, pick up folded cloth
+1	place folded cloth on stack, pick up cloth
+1	flip red shirt
+1	adjust red shirt
+1	smooth folded t-shirt
+1	flip folded t-shirt
+1	place folded t-shirt on folded t-shirt
+1	pick up t-shirt, place t-shirt on table, adjust t-shirt
+1	adjust t-shirt on table, smooth and adjust t-shirt
+1	flip t-shirt, adjust and smooth t-shirt
+1	adjust folded white fabric piece, adjust plastic bag
+1	adjust folded white fabric piece, lift plastic bag edge
+1	insert folded white fabric piece into plastic bag, adjust plastic bag
+1	pick up white fabric piece, place white fabric piece on table
+1	pick up white fabric piece, stack white fabric piece on table
+1	flip white fabric piece, adjust white fabric piece
+1	smooth out green t-shirt on table, flip green t-shirt and smooth out green t-shirt on table
+1	fold and smooth out green t-shirt, adjust green t-shirt
+1	adjust green t-shirt, fold green t-shirt, smoothen and straighten green t-shirt
+1	adjust green t-shirt on table, flip and smooth out green t-shirt on table
+1	pick up and place folded green t-shirt on stack
+1	smooth folded t-shirt, pick up and place folded t-shirt on stack
+1	pick up t-shirt and spread t-shirt on table
+1	fold t-shirt in half lengthwise, adjust and smoothen t-shirt
+1	unfold right half and smooth t-shirt, fold right half and smoothen t-shirt
+1	pick up folded t-shirt, place folded t-shirt on stack
+1	pick up t-shirt and spread t-shirt on table, smoothen t-shirt
+1	flip t-shirt on table, smoothen t-shirt
+1	smoothen and adjust t-shirt
+1	move t-shirt on stack
+1	adjust and straighten t-shirt
+1	flip t-shirt, straighten t-shirt
+1	adjust t-shirt
+1	fold t-shirt, flip folded t-shirt, smoothen folded t-shirt
+1	move folded t-shirt on stack of t-shirts
+1	pick up t-shirt from pile, adjust t-shirt, spread t-shirt on table, smoothen t-shirt
+1	flip t-shirt, smoothen t-shirt
+1	smoothen t-shirt and fold t-shirt
+1	flip folded t-shirt, smoothen folded t-shirt
+1	smooth shirt, pick up folded shirt, place folded shirt on stack
+1	pick up shirt, place shirt on table, adjust shirt, smooth shirt
+1	flip shirt, adjust shirt, smooth shirt
+1	adjust shirt, fold shirt, smooth shirt
+1	smooth shirt, adjust shirt, fold shirt
+1	smooth shirt, adjust shirt
+1	smooth shirt, fold shirt, adjust shirt
+1	smooth shirt, flip shirt, adjust shirt
+1	pick up folded shirt, place folded shirt on stack, pick up shirt
+1	flip the folded shirt, adjust folded shirt
+1	move folded shirt
+1	pick up shirt, lay shirt on table
+1	turn shirt over, fold shirt
+1	smooth t-shirt on table, reposition t-shirt on table
+1	fold side of t-shirt, smooth t-shirt
+1	fold bottom of t-shirt, reposition t-shirt on table
+1	pick up folded t-shit, place folded t-shirt on left stack
+1	pick up t-shirt from right pile
+1	smooth t-shirt table
+1	smooth t-shirt, flip t-shirt on table
+1	place pants on table
+1	pull out cloth from pile, place cloth on table
+1	pick up cloth, stack cloth on table
+1	pull out pant from pile, place white cloth on pile
+1	straighten pant on table
+1	pick up cloth stack, place cloth stack pant, move cloth stack on table
+1	move plastic bag from stack, place folded handkerchief in plastic bag
+1	flip packaged handkerchief, pick up packaged handkerchief
+1	smoothen the shirt on table
+1	spray liquid on shirt, place spray bottle on table
+1	smoothen the shirt on the table
+1	picking up iron, iron the shirt, place iron on table
+1	fold shirt, pick up shirt, place shirt on stack
+1	adjust garment and fold garment
+1	smoothen garment and fold garment
+1	smoothen garment and adjust garment
+1	fold garment and smoothen garment
+1	fold pink t-shirt on table, straighten pink t-shirt
+1	adjust shirt, flip shirt on table, pick up shirt, place shirt on stack
+1	adjust shirt, pick up shirt from pile
+1	spread shirt, place shirt on table, smoothen shirt, flip shirt
+1	adjust shirt, smoothen shirt, fold shirt, rotate shirt
+1	fold shirt, adjust shirt, flip shirt pick up shirt
+1	place shirt on stack, pick up shirt from pile
+1	move shirts onto pile
+1	spread shirt on table, adjust shirt, smoothen shirt, flip shirt
+1	smoothen shirt on table, adjust shirt, fold shirt
+1	flip shirt, adjust shirt on counter
+1	fold shirt, smoothen shirt with lint roller
+1	adjust fabric a d adjust lint roller on table
+1	pick up lint roller, adjust fabric, clean fabric with lint roller
+1	clean fabric with lint roller
+1	clean fabric with lint roller, adjust fabric, clean fabric with lint roller
+1	unfold handkerchief from table, smoothen handkerchief on table
+1	pick up plastic bag from pack of plastic bags on table
+1	move aside pack of plastic bag
+1	adjust plastic bag, place handkerchief on plastic bag
+1	pick up plastic bag with handkerchief from table, adjust handkerchief into plastic bag
+1	place plastic bag with handkerchief on table, adjust handkerchief into plastic bag
+1	place plastic bag with handkerchief on stack
+1	smooth and fold side of green shirt
+1	fold side of green shirt
+1	fold, smooth, rotate green shirt
+1	place green shirt aside
+1	pick up pink shirt and olace it on table
+1	adjust and smooth pink shirt on table
+1	smooth pink shirt on table
+1	rotate and straighten pink shirt on table
+1	fold side of pink shirt
+1	smooth and fold hem of pink shirt
+1	fold side and hem of pink shirt
+1	fold and smooth pink shirt in half
+1	smooth and move pink shirt aside
+1	hold plastic bag
+1	move cloth from table to pile
+1	straighten cloth
+1	spread cloth on table, fold cloth
+1	pick up cloth, align cloth
+1	place cloth on table, spread cloth
+1	adjust cloth, spread cloth
+1	adjust cloth, pick up plastic bag
+1	adjust plastic bag, place plastic bag on table
+1	place cloth on table, adjust cloth on table
+1	place cloth in plastic bag, adjust plastic bag
+1	pick up packed cloth, adjust packed cloth
+1	place packed cloth on table, adjust packed cloth on table
+1	pick up packed cloth, place packed cloth on pile
+1	adjust packed cloth
+1	pick up clothes, remove clothes from table
+1	adjust cloth on table, spread cloth on table
+1	fold cloth, align cloth
+1	adjust shirt, smooth shirt, fold shirt
+1	fold cloth on bed, smoothen cloth on bed
+1	adjust and smoothen sweatshirt on table
+1	smoothen sweatshirt on table, rotate sweatshirt on table
+1	adjust sweatshirt, fold sweatshirt on table, adjust sweatshirt
+1	pick up and flip sweatshirt on table, rotate sweatshirt on table, adjust sweatshirt, smoothen sweatshirt
+1	adjust string of sweatshirt, smoothen sweatshirt, pick up and place sweatshirt on table, adjust string of sweatshirt
+1	pick up plastic bag on from stack on table, place plastic bag on table, pull sweatshirt on table
+1	pick up bunch of tags and place on stack, adjust stack of tags on table
+1	fold sweatshirt, pick up plastic bag, pick up and place sweatshirt into plastic bag, adjust sweatshirt in plastic bag
+1	place folded black cloth on stack of clothes
+1	move yellow cloth to table
+1	roll yellow cloth with lint roller
+1	fold cream colored cloth
+1	move dark yellow cloth to table
+1	fold dark yellow clothing on surface
+1	roll dark yellow cloth with lint roller
+1	adjust black jacket
+1	fold black jacket, place folded black jacket on stack of folded clothing
+1	pick up white shirt from pile of clothing, place white shirt on table, adjust white shirt
+1	fold white shirt, place folded white shirt on stack of folded clothing
+1	pick up green bodysuit, place green bodysuit on table, adjust green bodysuit
+1	fold green bodysuit, pick up folded green bodysuit, place folded green bodysuit on stack of clothing
+1	pick up folded green bodysuit, place folded green bodysuit on table
+1	pick orange tag gun from table, place orange tag gun on table
+1	pick up folded green bodysuit
+1	pick up beige shirt and straighten
+1	straighten beige cloth, fold beige long sleeves
+1	place folded beige shirt in table, adjust folded beige cloth, move orange labelling printer
+1	pick up orange labeling printer, place orange labelling printer on table
+1	smoothen folded beige shirt
+1	pick up folded grey shirt from stack, place grey shirt on folded beige shirt, pick up folded shirts, put folded shirts on stack
+1	pick up white shirt and place white shirt on table
+1	straighten white shirt, fold white shirt
+1	place folded white shirt in shirt stack, pick up grey shirt
+1	pick up grey shirt from pile, pick up orange labeling printer, put price tag on white shirt
+1	adjust grey shirt
+1	place black shirt on folding table, adjust green cloth
+1	fold black shirt, hold and flip folded shirt
+1	move black shirt, pick and place white shirt on table, fold white shirt, place white shirt on black shirt
+1	pick up folded shirts, place shirts on stack
+1	picu up yellow patterned shirt, place yellow patterned shirt on folding table, button yellow shirt
+1	adjust yellow shirt
+1	straighten and fold yellow shirt
+1	adjust folded yellow shirt
+1	pick up label gun and tag yellow shirt
+1	move shirt to folded stack
+1	unfold sweater, remove tag from sweater
+1	pull sweater, adjust tag on collar, align sweater, feel fonts on sweater, adjust sweater ends, adjust sweater sleeve
+1	pick up sweater, place sweater on pile
+1	pick folded shirt from stack, place on table, remove tag, place tag on table, unfold shirt, adjust shirt
+1	feel fonts on shirt, adjust shirt, remove tags from shirt, place tags on table
+1	flip shirt, adjust shirt sleeves, realign shirt, adjust shirt sleeve, pick up shirt, place shirt on pile
+1	pick up folded shirt from stack, place shirt on table, adjust shirt, remove tags from shirt, place tags on table
+1	pick up shirt, place shirt on table, adjust shirt, feel shirt font
+1	smoothen garment, fold garment, adjust garment
+1	fold garment sleeve, smoothen garment
+1	smoothen garment, fold garment, smoothen garment
+1	fold garment, smoothen garment, adjust garment
+1	flip garment, rotate garment, smoothen garment
+1	adjust garment, pick up bag, open bag, adjust garment
+1	fold garment, insert garment into bag, unfold garment inside bag
+1	adjust garment inside
+1	smoothen folded shirt, rotate folded shirt, flip folded shirt over, rotate folded shirt, smoothen folded shirt
+1	place folded shirt on stack, smoothen folded shirt
+1	pick up shirt from basket
+1	unfold shirt, spread shirt on table, smoothen shirt
+1	flip shirt over
+1	smooth t-shirt on a flat surface
+1	fold t-shirt, smooth t-shirt, unfold t-shirt
+1	smooth t-shirt, fold t-shirt, smooth t-shirt
+1	fold t-shirt, rotate t-shirt, smooth t-shirt
+1	adjust t-shirt, smooth t-shirt
+1	smooth pink t shirt on table
+1	flip t-shirt and smooth
+1	fold and adjust left side of pink t-shirt, smooth folded side of t-shirt
+1	smooth pink shirt, fold pink t shirt, unfold t shirt, smooth t shift fold t shirt
+1	smooth pink t-shirt, adjust left side of fold pink t-shirt, smooth pink t-shirt
+1	unfold and smoothen shirt
+1	fold and smoothen folded shirt
+1	adjust and smoothen folded shirt
+1	flip and smoothen folded shirt
+1	place folded shirt on pile of shirts, pick shirt from basket
+1	pick up shirt, flip and spread shirt on table
+1	spread and smoothen shirt on table
+1	pick up t-shirt, place t-shirt on table edge
+1	flip red t-shirt, smoothen red t-shirt
+1	smoothen red t-shirt
+1	fold red t-shirt, smoothen red t-shirt
+1	adjust fabric on stack
+1	fold fabric, tap fabric
+1	place fabric on stack, pick up fabric
+1	adjust fabric
+1	fold fabric, tap fabric, place fabric on stack
+1	pick up fabric, place fabric on pile
+1	pick up fabric, place fabric on table
+1	pick up fabric fold fabric
+1	pick up yellow garment to table, adjust yellow garment
+1	adjust yellow garment, zip yellow garment
+1	flip over yellow garment on table, adjust yellow garment
+1	move tape dispenser aside, adjust yellow garment
+1	fold yellow garment, adjust yellow garment
+1	place tape dispenser on table, put tape on yellow garment
+1	adjust yellow garment
+1	move yellow garment to stack of clothes, move brown garment to table
+1	adjust brown garment, move tape dispenser aside
+1	adjust brown garment, fold brown garment
+1	place tape dispenser aside, put tape on brown garment
+1	button shirt, adjust shirt
+1	adjust shirt and clean shirt with lint roller
+1	adjust plastic bag, place packaged checkered cloth on stack
+1	pick up checkered cloth from pile, place checkered cloth on table
+1	pick up plastic bag from stack
+1	place t-shirt on table, adjust shirt
+1	adjust t-shirt, smoothen t-shirt
+1	iron t-shirt, place iron down
+1	fold t-shirt sleeves inward, fold t-shirt
+1	smoothen folded t-shirt, reposition folded t-shirt
+1	pick up folded t-shirt, place folded t-shirt into plastic bag
+1	fold plastic bag opening, flatten plastic bag
+1	flip bagged t-shirt, place bagged t-shirt down
+1	pick up box, place box down
+1	open box
+1	pick up bagged t-shirt, place bagged t-shirt into box
+1	close box
+1	pick up packaged box, place packaged box on stack of boxes
+1	adjust hoodie zipper
+1	zip up hoodie
+1	remove tape from hoodie
+1	attach sticker onto plastic sheet
+1	straighten hoodie on table
+1	fold hoodie on table
+1	flip hoodie on table, adjust hoodie
+1	apply tape onto hoodie
+1	place tape dispenser on shelf
+1	move hoodie onto pile
+1	slide pants on table
+1	wipe pants with lint roller
+1	fold pants, pick up lint roller
+1	pick up lint roller, wipe pants with lint roller
+1	place yellow shirt on stack
+1	flip shirt, adjust shirt
+1	fold shirt sleeve
+1	flip shirt, smoothen shirt
+1	fold bottom edge of shirt upwards
+1	smoothen folded shirt, flip folded shirt
+1	adjust folded shirt, pick up folded shirt
+1	fold and smoothen red shirt
+1	fold red shirt, smoothen red shirt
+1	adjust sleeve of red shirt, smoothen red shirt
+1	reposition folded red shirt, smoothen folded red shirt
+1	flip folded red shirt, smoothen folded red shirt
+1	reposition black t-shirt, pick up black t-shirt from folding table
+1	place black t-shirt on stack, pick up black t-shirt from stack
+1	place black t-shirt on folding table, reposition black t-shirt on folding table
+1	smoothen black t-shirt, reposition black t-shirt on folding table
+1	pick up black t-shirt from folding table, place black t-shirt on stack
+1	pick up green t-shirt from stack, place green t-shirt on folding table
+1	adjust green t-shirt on folding table, smoothen green t-shirt
+1	reposition green t-shirt on folding table, smoothen green t-shirt
+1	unfold yellow shirt, fold yellow shirt
+1	move yellow shirt
+1	pick up yellow shirt, place yellow shirt on stack of shirts
+1	fold black shirt, smooth black shirt
+1	move cloth from pile to table, fold cloth on table
+1	pick up teal garment
+1	adjust teal garment, fold teal garment
+1	adjust shirt, fasten button on shirt
+1	smoothen shirt, fasten button of shirt
+1	reposition the shirt on the surface
+1	fold the collar of the shirt
+1	adjust shirt, adjust collar
+1	adjust shirt, remove lint from shirt
+1	zip up folded maroon garment and place folded maroon garment on closet shelf
+1	fold grey pants and place folded grey pants on bed
+1	fold brown pants and place folded brown pants on closet shelf
+1	unfold t-shirt, adjust t-shirt, smoothen t-shirt
+1	adjust folded t-shirt on table, smoothen folded t-shirt on table, adjust folded t-shirt on table
+1	fold t-shirt on table, smoothen folded t-shirt on table
+1	retrieve cloth from pile and lay flat on table
+1	fold cloth in half lengthwise
+1	fold cloth strip into rectangle
+1	roll lint roller on shirt
+1	clean shirt with lint roller, adjust shirt
+1	clean shirt with lint roller, adjust shirt and place lint roller onto shirt
+1	place lint roller on counter, adjust shirt
+1	move lint roller on counter, adjust shirt
+1	fold black t shirt
+1	move folded black t-shirt on table, grab plastic bag
+1	open plastic bag, insert folded black t-shirt inside plastic bag
+1	adjust table mat
+1	place shirt in bag
+1	lift up box set on table
+1	pack shirt into box
+1	set box on floor
+1	adjust clothes
+1	smoothen black t-shirt, adjust black t-shirt
+1	adjust black t-shirt, smoothen black t-shirt
+1	pick up green t-shirt
+1	place green t-shirt on black t-shirt, adjust green t-shirt
+1	spread green t-shirt, adjust green t-shirt
+1	brush yellow cloth with toothbrush, place toothbrush on table
+1	pick up plastic bag, place plastic wrapper on table
+1	pick up yellow cloth, place yellow cloth on plastic wrapper
+1	move yellow cloth and plastic wrapper on table
+1	place toothbrush on table, fold yellow cloth
+1	place toothbrush on table, pick up plastic cup from basket
+1	pick up plastic bag, place down plastic bag on table
+1	move pink cloth on plastic bag, adjust cloth on table
+1	pick up green pen, flatten pink cloth with green pen
+1	place green pen on table, roll pink cloth
+1	pick up yellow container, place down yellow container on table
+1	remove yellow container cap, place pink cloth in yellow container
+1	pick up cap, seal yellow container with cap
+1	move yellow container on table
+1	gold shirt, flip shirt
+1	move shirt on pile
+1	place iron table, fold t-shirt
+1	smooth t-shirt
+1	pick up iron from table, iron t-shirt
+1	place iron on table, fold t-shirt
+1	fold black shorts
+1	lift up black shirt set on table
+1	lift up tool tag black shirt
+1	lift up white shirt fold it
+1	lift up plastic bag unseal it
+1	lift up folded white shirt push into plastic bag
+1	lift up folded black shirt push into plastic bag
+1	lift up folded black shorts push into plastic bag
+1	adjust inside plastic bag
+1	unfold shirt, fold shirt
+1	reposition shirt on table, adjust shirt
+1	iron white t shirt
+1	fold white t shirt
+1	set folded t shirt in plastic bag
+1	button garment
+1	flip folded garment, press folded garment
+1	move folded garment from table to stack
+1	move garment from pile to table
+1	adjust garment on table, unfold garment
+1	fold bottom of t-shirt up
+1	pick up iron and iron folded part of t-shirt
+1	apply glue to paper with toothbrush
+1	place toothbrush on board
+1	fold paper in half
+1	fold shirt, smooth t-shirt on table
+1	pick up iron, iron t-shirt
+1	flip t-shirt over and smooth t-shirt
+1	fold t-shirt and smooth t-shirt
+1	fold bottom side of t-shirt upward, smooth folded t-shirt
+1	pick up iron from table, iron folded t-shirt
+1	unfold bottom side of t-shirt, fold bottom side of t-shirt upwards
+1	smooth folded section
+1	fold left side of t-shirt inward, smooth left side fold
+1	fold right side of t-shirt inward, smooth right side fold
+1	fold t-shirt in half
+1	move shirt to table
+1	open buttons of shirt
+1	close buttons of shirt
+1	move shirt to stack
+1	flip yellow t-shirt
+1	pick yellow t-shirt, place yellow t-shirt on stack
+1	adjust green t-shirt
+1	flip green t-shirt
+1	pick up green t-shirt, pace green t-shirt on stack
+1	move cloth from stack to shelf
+1	place pant on table, fold pants in half
+1	place cloth on shelf
+1	pick up tank top and spread it out on table
+1	place lint roller on table, fold cloth
+1	place lint roller on table, flip cloth
+1	place lint roller on table, adjust cloth
+1	place lint roller on table, pick up plastic bag
+1	place clothing in plastic bag
+1	close plastic bag
+1	pick up packaged cloth, place packaged cloth onto stack
+1	pick up plastic bag, pick up cloth
+1	place and adjust plastic bag on stack
+1	pick up cloth and spread on table
+1	flip and adjust cloth
+1	fold cloth and adjust
+1	use lint roller on garment
+1	place garment inside plastic bag
+1	seal plastic bag with garment inside
+1	pick up and prepare plastic bag
+1	insert folded napkin into plastic bag
+1	seal plastic bag and place it aside
+1	pick up and unfold cloth napkin
+1	smooth out and fold cloth napkin
+1	place plastic bag on stack and grab cloth
+1	pick up plastic bag and adjust plastic bag
+1	pick up plastic bags and adjust plastic bags
+1	organize plastic bags
+1	place plastic bags on stack and adjust plastic bags
+1	arrange plastic bags
+1	fold and smoothen cloth
+1	adjust stacks of cloths on table
+1	move plastic bag from stack to table surface
+1	fold cloth on table surface
+1	move packaged cloth to stack
+1	put folded cloth into bag and place on stack
+1	place packed handkerchief on stack, adjust plastic bag
+1	move handkerchief on pile
+1	smoothen handkerchief
+1	fold handkerchief, smoothen handkerchief
+1	fold handkerchief, flip handkerchief
+1	adjust handkerchief
+1	move plastic bag on desk
+1	pack folded cloth into plastic bag
+1	spread and adjust cloth on table
+1	fold cloth in half
+1	insert cloth into plastic bag and place on stack
+1	place cloth in clear plastic bag
+1	place packed cloth on stack
+1	adjust cloth on table, fold cloth on table
+1	adjust t-shirt on the table
+1	fold t-shirt upward on table, smoothen folded t-shirt
+1	pick up iron and iron lower folded part of t-shirt
+1	adjust fold t-shirt upward, smoothen folded t-shirt
+1	fold left t-shirt inward, adjust folded t-shirt
+1	fold sleeve t-shirt outward, adjust folded sleeve
+1	fold right t-shirt inward, adjust folded t-shirt
+1	fold sleeve t-shirt outward
+1	adjust blue shirt
+1	clean blue shirt with lint roller
+1	clean blue shirt wit lint roller
+1	pick up spray bottle from table, spray pants with spray bottle
+1	pick up spray bottle, spray pants with bottle
+1	place spray bottle aside on table
+1	smoothen cloth, adjust cloth
+1	place cloth into plastic bag, flip plastic bag with cloth
+1	pick up plastic bag with cloth, place plastic bag on top of stack
+1	press stack of plastic bags with cloths
+1	place cloth on working table
+1	manipulate cloth on table
+1	spread and smooth black t-shirt on table
+1	fold left side of t-shirt towards center and smooth
+1	fold right side of t-shirt towards center and smooth
+1	fold bottom part of t-shirt upward
+1	place iron on shirt sleeve
+1	adjust shirt sleeve, place iron on table
+1	pick up shirt, fold shirt
+1	unfold shirt, place shirt on table
+1	straighten shirt sleeve
+1	fold pink shirt, place pink shit on stack of clothes
+1	pick up beige hoodie, place beige hoodie on table
+1	fold beige hoodie, place beige hoodie on stack of clothes
+1	pick up white shirt, place white shirt on table
+1	fold black clothing on table
+1	insert black clothing into pouch
+1	move packaged napkins onto stack
+1	package blue and white napkin in plastic bag
+1	adjust blue and white napkin
+1	place packaged handkerchief on table
+1	package handkerchief in plastic bag
+1	stack packaged handkerchief on table
+1	iron t-shirt with pressing iron
+1	adjust hangers on rack
+1	pick up ranger from rack
+1	place shorts on table, flip shorts on table
+1	adjust shorts tag on table
+1	smooth shorts
+1	move shorts from table to stack
+1	place shorts on table, smooth shorts
+1	fold striped cloth on table
+1	pick up checker cloth, place checker cloth on table
+1	straighten and fold checker cloth
+1	adjust and smooth shirt on table
+1	fold shirt upwards
+1	adjust and smooth folded shirt
+1	smooth ironed shirt
+1	pick up and rotate shirt
+1	clean garment with lint roller, adjust garment
+1	move bag from stack onto garment
+1	rotate garment and bag, adjust lint roller
+1	move bag from garment onto stack, flip garment
+1	fold garment on table
+1	smooth garment
+1	smooth garment, pick up lint roller
+1	flip garment, pick up lint roller
+1	adjust garment, place lint roller on table
+1	move bag from stack onto table
+1	adjust bag and garment
+1	open bag, adjust garment
+1	move folded garment from table into bag
+1	clean bag with lint roller, place lint roller on table
+1	seal bag, smooth bag
+1	move packed garment from table into container
+1	unfold cloth on table, pick up toothbrush
+1	place toothbrush on table
+1	iron the t-shirt, place iron on board
+1	fold the bottom of the t-shirt
+1	smoothen and fold t-shirt
+1	pick up and open the packaging bag
+1	place the t-shirt into the packaging bag, seal bag and place it aside
+1	pick up plastic bag, put striped cloth in plastic bag
+1	pick up striped cloth, place striped cloth on stack of striped cloth
+1	pick up striped cloth, fold striped cloth
+1	put striped cloth in plastic bag
+1	hold folded white garment
+1	move white garment from pile to table
+1	slide folded white garment on table
+1	move black and grey garment from pile to table
+1	fold black and grey garment
+1	move black and grey garment to stack
+1	adjust pants on the table
+1	fold pants, place pants on table
+1	adjust pants, pick up lint roller
+1	roll pants with lint roller
+1	pick up and open a plastic bag
+1	insert the folded cloth into the plastic bag, flip plastic bag
+1	place the packaged cloth on the stack
+1	pick up a plastic bag
+1	fold checkered napkin
+1	pick up plastic bad, pack folded napkin into plastic bag
+1	place packed napkin on stack, pick up striped napkin
+1	fold striped napkin
+1	fold red checkered cloth
+1	place red checkered cloth in plastic bag
+1	move plastic bag onto stack
+1	adjust stack of plastic bags
+1	pick up grey checkered cloth, adjust and place grey checkered cloth on table
+1	pick up storage bag
+1	place garment into storage bag
+1	adjust garment within bag
+1	secure storage bag closure
+1	place storage bag into the bin
+1	fold right side of shirt
+1	fold left side of shirt
+1	fold shirt again to compact size
+1	use lint roller on folded shirt
+1	fold left sleeve of shirt
+1	fold shirt upward again
+1	smooth out folded shirt
+1	fold shirt in half vertically
+1	package shirt into plastic bag
+1	pick up box
+1	adjust jeans on table, unfold jeans on table
+1	smoothen jeans, unfold jeans
+1	pick up jeans from table
+1	pick up hanger, place jeans on hanger
+1	hang jeans on clothes rack
+1	pick up box from stack, place box on table
+1	lift box
+1	open box lid
+1	pick up packaged garment from box
+1	place packaged garment on table
+1	close box lid
+1	iron and fold shirt
+1	fold checkered towel
+1	move checkered towel into plastic packet
+1	move paper towel to stack of paper towels
+1	pick up checkered towel, adjust checkered towel
+1	place cloth strips on table
+1	unfold cloth strips
+1	fold cloth strip
+1	smoothen cloth on table, fold cloth on table
+1	pick up packed cloth and place packed cloth on stack
+1	pick up cloth from stack, place cloth on table
+1	place bagged fabric into box
+1	move fabric from pile to fabric on table, fold fabric pieces
+1	pick up plastic bag from stack, put folded fabric into plastic bag
+1	place plastic bag on pile of fabrics
+1	fold fabric piece, pick up fabric from pile and spread on table
+1	fold fabrics on table, adjust plastic bag
+1	put folded fabric into plastic bag, place plastic bag on pile of fabrics
+1	pick up fabric from pile and spread on table, pick up fabric from pile
+1	place fabric on fabric, fold fabric pieces
+1	adjust checkered cloth on table, rotate checkered cloth
+1	adjust checkered cloth on table, fold checkered cloth on table
+1	rotate checkered cloth, pick white nylon
+1	adjust napkin inside plastic bag
+1	smooth and flatten bagged napkin
+1	place stack of napkins into box
+1	pick up napkin from pile
+1	straighten and lay out napkin
+1	fold napkin on table
+1	pick up and start folding cloth
+1	finish folding cloth into small rectangle
+1	use lint roller onto clean flat shirt
+1	fold shirt into a vertical strip
+1	use lint roller on vertical strip of shirt
+1	fold shirt into a compact rectangle
+1	use lint roller on fully folded shirt
+1	fold and smoothen pink cloth
+1	pick up plastic bag, place pink cloth in plastic bag
+1	place pink cloth in plastic bag on pile
+1	pick up and spread checkered cloth
+1	fold and flatten checkered cloth
+1	open plastic bag, place cloth into plastic bag
+1	place plastic bag on pile
+1	pick up yellow striped cloth
+1	fold yellow striped cloth
+1	fold yellow striped cloth, place folded yellow cloth into plastic bag
+1	iron folded section of t-shirt
+1	fold sides of t-shirt inwards
+1	fold t-shirt upwards
+1	smooth t-shirt with hands
+1	fold bottom part of shirt
+1	fold left side of shirt inwards
+1	fold right side of shirt inwards
+1	fold bottom of shirt upwards, smoothen shirt
+1	adjust folded shirt, flatten folded shirt
+1	adjust cloth in plastic bag
+1	place packaged cloth onto stack
+1	pick up stack of packaged cloths
+1	lean stack of packaged cloths onto cardboard box
+1	take cloth from pile, spread cloth on table
+1	iron t-shirt on wooden table, place iron on table
+1	fold sleeves of t-shirt
+1	fold t-shirt into square shape
+1	spread checkered cloth flat
+1	adjust stack of packaged items
+1	spread white shirt on table
+1	adjust white shirt sleeve
+1	place iron down
+1	place folded t-shirt aside
+1	iron striped shirt
+1	insert folded striped shirt into plastic bag
+1	spread out cloth on table
+1	move handkerchief
+1	fold pants on table
+1	clean pants with lint roller
+1	fold and clean pants with lint roller
+1	pick up towel, place towel in stack
+1	adjust plastic bags in stack, pick up towel
+1	place towel on table, fold towel
+1	pick up plastic bag from stack, place plastic bag on table
+1	place plastic bag with cloth on stack from table, adjust plastic bag with cloth
+1	pick up cloth from pile, adjust cloth
+1	adjust cloth on
+1	smoothen cloth, rotate cloth
+1	smoothen cloth, move cloth on table
+1	pick up plastic bag from table, open plastic bag
+1	place plastic bag on table, move cloth on table
+1	lift cloth
+1	rotate plastic bag with cloth, adjust plastic bag with cloth
+1	flip plastic bag with cloth on table
+1	adjust plastic bag with cloth
+1	place plastic bag with cloth on stack from table
+1	pick up and fold pink garment
+1	flip and smooth pink garment
+1	pick up and place pink garment on pile
+1	pick up and adjust blue patterned garment
+1	fold blue patterned garment and place on stack
+1	pick up and unfold grey garment
+1	flip and fold grey garment
+1	fold and smoothen grey garment
+1	fold towel
+1	place packed cloth on stack, grab cloth
+1	put folded cloth into plastic bag
+1	pick up towel and spread it flat
+1	fold towel lengthwise into strip
+1	fold towel strip in half
+1	fold towel into small square
+1	insert folded towel into plastic bag
+1	adjust folded t-shirt, place folded t-shirt on table
+1	pick t-shirt from pile
+1	smoothen t-shirt, pick up tape roll
+1	place plastic bag with folded cloth on stack of folded cloth, pick up plastic bag
+1	pick up clothes from pile, place cloth on pile
+1	unfold cloth on table
+1	manipulate clear plastic bag, place checkered cloth in clear plastic bag
+1	arrange packaged cloth on pile, position cloth on mat
+1	pick up plastic bag and put cloth into plastic bag
+1	pick up clear plastic bag, place folded towel into clear plastic bag
+1	pick up packaged towel and place on stack on the table
+1	pick up towel from pile on the table, spread out towel on the table
+1	fold towel into half on the table, smoothen folded towel
+1	flip folded towel on the table, adjust folded towel on table
+1	remove plastic bag from bag of plastic bags
+1	adjust plastic bag, place handkerchief in plastic bag
+1	adjust checkered towel and rotate checkered towel on the table
+1	fold checkered towel, flip folded checkered towel on the table
+1	pick up and open clear plastic bag
+1	adjust folded towel on table, flip clear plastic bag
+1	pick up folded towel, place folded towel inside clear plastic bag
+1	pick up packaged towel, place packaged towel on stack on the table
+1	pick up checkered towel from pile on the table, spread out checkered towel on the table
+1	search for cloth in pile
+1	pick up cloth and spread flat
+1	fold cloth into a long strip
+1	fold cloth into a small square
+1	place packaged cloth on stack
+1	remove hanger from shorts, hang hanger on rack
+1	spread out shorts, fold shorts
+1	lay shorts on rack, fold shorts on rack
+1	pick up folded shorts from rack, place folded shorts on pile on rack
+1	pick up hanger with black shorts from rack
+1	remove hanger from black shorts, hang hanger on rack
+1	spread out black shorts, fold black shorts
+1	lay black shorts on rack, fold black shorts on rack
+1	pick up black folded shorts from rack, place black folded shorts on pile on rack
+1	adjust packaged cloth and set aside
+1	pick up cloth and lay flat on table
+1	fold blue shirt, smoothen blue shirt on table
+1	pick up iron and place iron on shirt
+1	fold shirt, adjust sleeves
+1	adjust stack of packaged cloth
+1	pick up and unfold cloth
+1	fold cloth, pick up bag
+1	insert cloth on bag
+1	smoothen kitchen towel, adjust kitchen towel
+1	smoothen kitchen towel, pick up kitchen towel, flip kitchen towel
+1	place kitchen towel on table, smoothen kitchen towel
+1	pick up plastic bag, adjust kitchen towel, place plastic bag on table
+1	open plastic bag, place kitchen towel in plastic bag
+1	adjust plastic bag, pick up plastic bag
+1	place plastic bag, on stack, pick up kitchen towel
+1	drop kitchen towel on table, pick up kitchen towel
+1	spread out kitchen towel, drop kitchen towel on table
+1	pick up stack, place stack on stack
+1	adjust kitchen towel, pick up kitchen towel
+1	drop kitchen towel on table, smoothen kitchen towel
+1	smoothen kitchen towel, move kitchen towel aside, move plastic bag
+1	place kitchen towel in plastic bag
+1	fold black and white towel
+1	rotate black and white towel, pick up plastic bag
+1	package black and white towel into plastic bag
+1	pick up packaged towel, place packaged towel on stack
+1	pick up yellow and white towel, place yellow and white towel on table
+1	fold yellow and white towel
+1	adjust yellow shirt on shelf
+1	pick up blue cloth from pile, adjust blue cloth on shelf
+1	fold blue cloth on shelf
+1	adjust blue cloth on shelf, place blue cloth on pile
+1	pick up grey cloth from pile, adjust grey cloth on shelf
+1	fold grey cloth on shelf
+1	adjust grey cloth on shelf, place grey cloth on pile
+1	sort through blue fabric scraps on table
+1	select and adjust blue fabric scrap
+1	select specific fabric scrap in pile
+1	fold fabric scrap into small rectangular shape
+1	fold and smoothen fabric scrap
+1	pick up plastic bag, place folded fabric into plastic bag
+1	iron shirt on surface, place iron on surface
+1	fold shirt on surface
+1	move shirt on surface
+1	pick up plastic bag from pile, rotate plastic bag on surface
+1	open plastic bag on surface
+1	fold white underwear
+1	fold pink underwear
+1	fold cream white underwear
+1	fold green underwear
+1	fold grey underwear
+1	pick up grey garment from pile
+1	unzip grey garment, adjust grey garment
+1	adjust grey garment, zip grey garment
+1	arrange grey garment on surface
+1	pick up folded grey garment, place grey garment on pile
+1	place plastic bag down and pick up pink checkered cloth
+1	spread pink checkered cloth
+1	fold pink checkered cloth
+1	insert pink checkered cloth into plastic bag
+1	pick up plastic bag, flip plastic bag
+1	move cloth to plastic bag
+1	move plastic bag to stack
+1	pick up cloth and plastic bag
+1	pick up paper from chair and place on table
+1	pick up cloth and place on paper
+1	place cloth in container
+1	fold green pants on table, place green pants on cloth pile
+1	pick up blue sweater, adjust black cloth
+1	unfold blue sweater, adjust blue t-shirt
+1	spread blue sweater on table, smoothen blue sweater
+1	fold blue sweater on table, place blue sweater on cloth pile
+1	move black short, pick up black short
+1	unfold black short, place black short on table
+1	adjust black short, flip black short
+1	fold black short on table, pick up black short
+1	place black short on cloth pile, move flowered pants
+1	spread flowered pants on table, fold flowered pants on table
+1	place flowered pants on cloth pile
+1	pick up plastic bag, adjust small cloth
+1	insert small cloth into plastic bag
+1	move packaged cloth on stack
+1	move checkered cloth into plastic bag
+1	adjust checkered cloth in plastic bag
+1	place checkered cloth in plastic bag on stack
+1	pick up checkered cloth, strengthen checkered cloth
+1	strengthen checkered cloth
+1	fold kitchen cloth, pick up plastic bag
+1	insert kitchen cloth into plastic bag
+1	adjust kitchen cloth into plastic bag
+1	flip plastic bag, place plastic bag on stack
+1	place cloth on table and adjust cloth on pile
+1	fold kitchen cloth
+1	spread shorts on table
+1	zip up shorts
+1	clean front of shorts with lint roller
+1	turn over shorts
+1	adjust back of shorts on table
+1	clean back of shorts with lint roller
+1	fold shorts vertically
+1	fold shorts horizontally
+1	clean folded shorts with lint roller
+1	pick patterned cloth from pile
+1	pick up checkered cloth from pile, spread checkered cloth on table
+1	flatten shirt on table and fold shirt in half
+1	iron the lower portion of shirt
+1	flatten shirt with hands
+1	fold shirt sleeves and adjust shirt sleeves
+1	fold shirt and adjust shirt
+1	fold shirt and place shirt on corner of table
+1	pick up plastic bag, adjust grey checkered napkin
+1	pick up and place folded grey checkered napkin into plastic bag
+1	rotate and place packaged grey checkered napkin on table
+1	pick up grey checkered napkin and place on stack
+1	adjust stack of packaged napkins
+1	pick up checkered napkins, reposition pink checkered napkin
+1	reposition pink checkered napkin, place grey checkered napkin on stack
+1	flip grey checkered napkin
+1	pick up checkered cloth and spread out checkered cloth
+1	fold checkered cloth into square
+1	pick up pink cloth and fold pink cloth
+1	smoothen folded pink cloth and adjust the folded pink cloth
+1	smooth folded part, fold shirt
+1	place folded shirt inside plastic bag, adjust and seal plastic bag
+1	pick up cardboard box
+1	place cardboard box on table, open cardboard box
+1	place cloth on stack
+1	pick up plastic bag from stack, insert folded cloth into the plastic bag
+1	place packaged cloth on stack of packaged cloths
+1	place spray bottle on table, smooth out white garment on surface
+1	place spray bottle on table, pick up iron
+1	iron white garment
+1	flatten shirt on table
+1	iron shirt and place iron back
+1	adjust bottom edge of shirt
+1	fold left side of shirt and sleeve inward
+1	smooth and align the folded left side
+1	fold right side of shirt and sleeve inward
+1	fold shirt into a rectangle
+1	adjust shirt on table, fold bottom of shirt
+1	smoothen shirt, pick up iron
+1	place iron on table, pick up shirt
+1	adjust shirt, place shirt on table
+1	fold towel in half and smooth out
+1	fold towel into a square
+1	pick up plastic bag, insert towel into plastic bag
+1	adjust bag and set aside
+1	pick up towel
+1	clean trousers using duster and lint roller
+1	fold fabric on table
+1	place folded fabric inside plastic bag, place packaged fabric inside box
+1	place folded fabric inside plastic bag
+1	adjust shirt on table, fold shirt on table
+1	adjust shirt on table, fold sleeve of shirt
+1	unfold shirt on table, use lint roller to smoothen
+1	place lint roller on table, fold shirt on table
+1	fold shirt, adjust shirt on table
+1	pick up lint roller from table, smoothen shirt with lint roller
+1	place roller on table, adjust shirt on table
+1	smoothen folded shirt on table using lint roller
+1	flip folded shirt on table, pick up lint roller from table
+1	pick up folded shirt from table, insert folded shirt into plastic bag
+1	seal plastic bag of shirt, smoothen plastic bag of shirt
+1	place plastic bag of shirt into pile
+1	adjust stack of packaged towels on the surface
+1	grasp towel from pile and spread it flat
+1	fold towel into small sections
+1	fold towel into a square shape
+1	insert folded towel into clear plastic bag
+1	pick up grey shirt, place grey shirt on table
+1	unfold grey shirt
+1	flatten grey shirt
+1	flip grey shirt, adjust grey shirt
+1	pick up grey shirt, place grey shirt on stack
+1	pick up tan garment, place tan garment on table
+1	unfold tan garment
+1	flip tan garment, adjust tan garment
+1	pick up and spread white cloth
+1	fold white cloth into long strip
+1	fold white cloth into final rectangular shape
+1	smooth folded part of shirt with hands
+1	iron the folded section of shirt
+1	place iron down and lift shirt from table
+1	move handkerchief on table, grab handkerchief
+1	move plastic bag on table, insert handkerchief in plastic bag
+1	adjust plastic bag and move on stack
+1	grab handkerchief
+1	fold pink cloth, pick up plastic bag
+1	insert cloth in plastic bag
+1	fold green cloth
+1	fold cloth and place in plastic bag
+1	pick up cloth from pile, fold cloth
+1	pick up towel from pile, fold towel on table
+1	fold cloth strip into a square
+1	pick up plastic bag from pile on table, adjust plastic bag open
+1	place folded towel in plastic bag
+1	place plastic bag with towel on pile on table
+1	adjust towel and fold towel
+1	place folded towel into plastic bag
+1	flatten and adjust shirt on table
+1	fold bottom of t-shirt, smoothen t-shirt
+1	iron folded t-shirt
+1	slide folded t-shirt aside
+1	pick up plastic bag, unzip plastic bag
+1	insert folded t-shirt into plastic bag
+1	fold plastic bag
+1	fold green fabric
+1	flip green fabric
+1	move lint roll on stack of plastic bag
+1	insert green fabric into plastic bag
+1	fold fabric package, unfold fabric package
+1	smoothen fabric package
+1	seal fabric package
+1	adjust fabric package
+1	pick up fabric package, place fabric package on stack
+1	adjust fabric packages on stack
+1	adjust packaged cloth
+1	place packaged cloths on stack
+1	pick up cloth and fold cloth
+1	place down lint roller, fold shirts hand on table
+1	place down lint roller, adjust shirt on table
+1	pick up plastic bag, place folded shirt on plastic bag
+1	place packaged shirt on table, seal and press down folded shirt on plastic bag
+1	pick up packaged shirt from table
+1	place iron on table, smoothen t-shirt
+1	stack the folded cloth on the table
+1	pick up and open the plastic bag
+1	pick up a new checkered cloth from the pile
+1	fold the checkered cloth into a square
+1	flatten the folded checkered cloth with hands
+1	place the folded cloth aside on the table
+1	unfold and begin folding a new checkered cloth
+1	pick up cloth, spread cloth on table
+1	smooth out cloth on table, fold cloth in half
+1	adjust edges of cloth, fold cloth in half
+1	pick up plastic bag, put cloth in plastic bag
+1	adjust stack of plastic bags, place stack of plastic bags down
+1	pack cloth in plastic bag
+1	stack packed cloth, pick up a piece of cloth from pile
+1	unfold and spread out the cloth on workbench
+1	fold the cloth into a square on workbench, pick up plastic bag
+1	place folded fabric on stack
+1	unfold checkered fabric and prepare checkered fabric
+1	fold checkered fabric into rectangle
+1	fold small white fabric
+1	place white fabric on table
+1	move and adjust stack of fabrics
+1	fold checkered napkins
+1	move jacket from pile to table, spread out jacket on table
+1	adjust lint roller on table, loosen buttons on jacket
+1	adjust lint roller on table, adjust jacket on table
+1	button jacket and adjust jacket
+1	pick up bag, open bag
+1	place striped cloth into bag
+1	reposition bag
+1	pick up striped cloth, adjust striped cloth
+1	pick up bag, place striped cloth into bag
+1	adjust handkerchief, fold handkerchief
+1	align handkerchief, adjust handkerchief
+1	fold handkerchief, straighten handkerchief
+1	adjust handkerchief, pick up plastic bag
+1	adjust plastic bag, adjust handkerchief
+1	park handkerchief in plastic bag
+1	place plastic bag with handkerchief on pile
+1	place iron on table, adjust shirt
+1	fold bottom of shirt
+1	place packed towel on pile
+1	pick up towel and spread towel on table
+1	pick up plastic bag and flip towel on table
+1	flip packed towel and adjust towel on plastic bag
+1	pick up and spread out fabric
+1	flatten and align fabric on surface
+1	fold fabric into small square
+1	place fabric in plastic bag
+1	pick plastic bag, place plastic bag on stack and adjust cloth
+1	move cloth from pile
+1	place folded white fabric into bag
+1	place folded fabric into bag
+1	pick up box and place on table
+1	open box on table
+1	remove bagged shirt from box
+1	close the box lid, pick up box
+1	place box on stack
+1	adjust plastic bag on table, open plastic bag
+1	remove shirt from plastic bag, close plastic bag
+1	adjust plastic bag, move plastic bag to stack of empty plastic bags on table
+1	smoothen plastic bag on stack of empty plastic bags on table
+1	unfold and smoothen shirt on table, pick up shirt from table
+1	place bagged cloth on stack
+1	pick up checkered cloth, lay out a checkered cloth
+1	fold checkered cloth into strip
+1	adjust cloth on table, smoothen cloth
+1	pick up cloth from table, adjust cloth
+1	pick up cloth from table
+1	adjust cloth on table, lift cloth on table
+1	pick up plastic bag from table, move cloth on table
+1	place plastic bag on table, flip cloth
+1	place cloth on plastic bag
+1	adjust plastic bag on table, place cloth on plastic bag
+1	adjust cloth on plastic bag
+1	move cloth on plastic bag
+1	roll lint roller on cloth on table, place down lint roller on table
+1	place down lint roller on table, fold cloth on table
+1	place down lint roller on table, pick up plastic bag from table
+1	pick up cloth from table, place cloth into plastic bag
+1	place plastic package on table, adjust plastic package on table
+1	pick up plastic package from table, throw plastic package on floor
+1	pick up brown cloth from orange stand, adjust brown cloth on table
+1	pick up lint roller from table, roll lint roller on brown cloth on table
+1	pick up and adjust white fabric piece
+1	pick up and adjust white face piece
+1	pick up and flatten checkered cloth
+1	fold sides of checkered cloth inwards
+1	fold cloth into a compact square
+1	place folded cloth inside plastic bag
+1	pick up cloth and start folding
+1	unfold fabric, smoothen fabric
+1	fold fabric, smoothen fabric
+1	fold fabric, pick up plastic bag
+1	place fabric in plastic bag, place plastic bag on stack
+1	fold pink dress and place on stack
+1	fold green pants and place on stack
+1	fold pink and white top
+1	insert black checkered cloth into plastic bag
+1	place packaged black checkered cloth on table
+1	adjust folded napkin
+1	pick up plastic bag from table
+1	open plastic bag, place napkin into plastic bag
+1	adjust plastic bag, place plastic bag on stack
+1	pick up and adjust napkin on table
+1	adjust clothes on rack
+1	pick up shorts and place on table
+1	adjust and smoothen shorts
+1	iron shorts
+1	adjust and fold shorts
+1	pick up striped cloth, fold cloth
+1	pick up napkin and spread on table
+1	smooth and align napkin on surface
+1	fold napkin into small rectangle
+1	pick up packaged napkin and place on packaged napkin stack
+1	open plastic bag and insert folded napkin
+1	adjust napkin inside bag and flatten plastic bag
+1	smooth out garment on table
+1	fold sleeve of garment and clean sleeve of garment with lint roller
+1	fold garment and clean folded garment with lint roller
+1	flip over folded garment and clean folded garment with lint roller
+1	pick up handkerchief and adjust it on table
+1	fold black and white napkin
+1	pick up and unfold pink checkered napkin
+1	fold pink checkered napkin
+1	pick up blue garment, place blue garment on table
+1	remove tape from blue garment, manipulating removed tape
+1	adjust blue garment, fold blue garment
+1	hold blue garment, adjust blue garment
+1	hold tape dispenser, apply tape on blue garment
+1	adjust tape dispenser, remove tape on blue garment
+1	pick up dispenser, adjust tape dispenser
+1	hold tape dispenser, apply tape on blue garment, place dispenser on table
+1	adjust white garment, fold white garment
+1	pick up white garment, place white garment on top of blue garment
+1	iron t-shirt, place iron on table
+1	fold t-shirt, pick up iron
+1	iron the folded section of the t-shirt
+1	place iron down on table, fold t-shirt
+1	pick up plastic bag and unzip
+1	straighten checkered cloth on table, fold checkered cloth
+1	pick up plastic bag, place plastic bag on checkered cloth
+1	adjust plastic bag, adjust checkered cloth
+1	place checkered cloth in plastic bags, adjust plastic bag
+1	pick up plastic bag, place plastic bag on pile, pick up checkered cloth
+1	place folded checkered cloth in plastic bag, place plastic bag on stack
+1	place folded checkered cloth in plastic bag
+1	roll lint roller on shirt, place lint roller aside
+1	adjust shirt, unbutton shirt
+1	place lint roller on table, fold shirt sleeve
+1	straighten black shirt, flip black shirt
+1	pick up black shirt from stack, place black shirt on stack
+1	adjust black shirt
+1	smooth wrinkles on black shirt
+1	adjust alignment of black shirt
+1	place tagger on table
+1	adjust and move orange shirt
+1	reposition yellow garment on work surface
+1	flatten and fold yellow garment
+1	finish folding yellow garment and stack on shelf
+1	spread out and fold pants
+1	pick up tagger and tag pants
+1	complete folding pants
+1	smoothen out cloth on table
+1	fold cloth in half and smoothen cloth
+1	fold cloth into small rectangle
+1	adjust and flatten folded cloth
+1	pick up plastic bag and insert folded cloth into plastic bag
+1	smooth and fold fabric
+1	adjust folded fabric, pick up plastic bag
+1	insert folded fabric into plastic bag
+1	adjust packaged folded fabric, flip packaged folded fabric
+1	adjust packaged folded fabric
+1	move packaged folded fabric onto stack, adjust stack
+1	pick up fabric, spread fabric on table
+1	move packaged towel to pile
+1	pull kitchen towel, adjust kitchen towel
+1	flip kitchen towel, smoothen kitchen towel
+1	fold kitchen towel into square
+1	pack towel in plastic bag
+1	fold fabric, place fabric on table
+1	put folded fabric in plastic bag
+1	pick up fabric from pile, adjust pile
+1	fold t-shirt, clean t-shirt with lint roller
+1	place folded t-shirt into plastic bag
+1	fold black garment, twist garment in half
+1	place black garment on shelf
+1	pick up blue garment, place blue garment on surface
+1	fold sleeves of blue garment, adjust buttons
+1	adjust button of blue garment, fold to half
+1	place blue garment on shelf
+1	pick up white hat
+1	fold and shape white hat
+1	fold clothes
+1	place folded clothes on table
+1	adjust container cover, pick up blue clothes
+1	adjust blue clothes
+1	fold blue clothes
+1	place folded clothes in container
+1	move folded clothes to container
+1	fold tan pants
+1	place folded tan pants on stack
+1	move blue jeans on bed
+1	adjust blue jeans
+1	zip blue jeans zipper
+1	button blue jeans
+1	fold blue jeans
+1	flip blue jeans
+1	place folded blue jeans on stack
+1	pick up clothes from floor and place on bed
+1	fold small light-colored garment on bed
+1	reposition and arrange clothes on bed
+1	stack and organize clothing items on bed
+1	spread out and fold grey garment
+1	flip folded shirt on table
+1	slide folded shirt on table
+1	press folded shirt on table
+1	press folded shirt on stack
+1	smoothen folded garment, adjust folded garment
+1	fold plaid shirt
+1	place plaid shirt in closet
+1	place white shirt in closet
+1	pick up grey garment and place on table
+1	spread out grey garment on table surface
+1	smoothen out wrinkles from grey garment
+1	adjust shirt, spread shirt on table
+1	rotate shirt, spread shirt on table
+1	flip shirt, move shirt to stack
+1	move cloth on sack
+1	button blue blouse
+1	straighten blue blouse
+1	fold blue blouse
+1	rummage through clothing in laundry basket, pick up clothing from laundry basket
+1	pull clothing from laundry basket onto cloth surface, adjust clothing on cloth surface
+1	fold sleeve of clothing on cloth surface, adjust clothing on cloth surface
+1	press clothing on cloth surface
+1	fold sleeve of clothing on cloth surface, smoothen clothing on cloth surface
+1	adjust clothing on cloth surface, fold clothing on cloth surface
+1	fold folded clothing on cloth surface, press folded clothing on cloth surface
+1	move folded clothing on cloth surface
+1	flip folded clothing on cloth surface, adjust folded clothing on cloth surface
+1	fold folded clothing on cloth surface
+1	pick up and spread beige shirt
+1	fold beige shirt
+1	place beige shirt in closet
+1	pick up and spread blue shirt
+1	place blue shirt in closet
+1	move green shirt to stack
+1	fold light-colored cloth
+1	move folded light cloth on table
+1	move cloths on top of light-colored cloth on table
+1	fold dark patterned cloth
+1	flip dark patterned cloth, fold dark patterned cloth
+1	pick up dark patterned cloth, place dark patterned cloth on table
+1	fold dark patterned cloth, move dark patterned cloth to stack of cloths on table
+1	adjust folded brown shirt on stack
+1	pick up blue garment
+1	spread pink cloth on table
+1	fold pink cloth, adjust pink cloth
+1	fold pink cloth, press pink cloth
+1	move pink cloth onto stack
+1	adjust stack
+1	pick up brown cloth, place brown cloth on table
+1	open brown cloth
+1	adjust brown cloth, smoothen brown cloth
+1	move brown cloth onto stack
+1	pick up beige cloth
+1	smoothen and adjust black garment
+1	fold short
+1	adjust folded short
+1	adjust grey shirt on surface
+1	spread grey shirt flat on bed
+1	adjust and fold shirt
+1	place folded grey shirt onto stack
+1	pick up black and white polka dot cloth
+1	spread out and adjust polka dot cloth
+1	spread and flatten pink garment on surface
+1	fold side of t-shirt on table
+1	smoothen t-shirt inward, fold t-shirt from bottom upward
+1	adjust folded part of t-shirt, smoothen folded part of t-shirt
+1	fold top of t-shirt downwards
+1	adjust folded t-shirt, smooth adjust folded t-shirt
+1	pick up folded t-shirt, place folded t-shirt on stack of folded clothes
+1	spread out red shirt on table, fold red shirt on table
+1	adjust red cloth on table, fold side of red shirt
+1	fold sleeve of white-red shirt, adjust bottom part of white-red cloth
+1	fold white-red shirt from bottom upward, adjust folded white-red shirt
+1	flip folded white-red shirt on table, reposition folded white-red shirt on table
+1	smoothen white-red shirt, reposition white-red shirt on table
+1	pick up grey shirt from stack of clothes, spread grey shirt on table
+1	fold sides of grey shirt, adjust grey shirt
+1	adjust grey shirt, fold sleeve of grey shirt
+1	adjust cloth on table, align bottom side of grey shirt
+1	fold bottom of grey shirt upwards, flip folded grey shirt on table
+1	move shirt onto table, adjust shirt on table
+1	pick up shirt, place shirt on ironing board
+1	spread shirt on ironing board, smoothen shirt on ironing board
+1	smoothen shirt, flip shirt on ironing board
+1	pick up folded shirt, place folded shirt on shelf
+1	spread and smooth shorts on table
+1	adjust and flatten shorts
+1	fold shorts in half and smooth
+1	place folded shorts on stack
+1	spread and smooth t-shirt on table
+1	adjust shirt, pick up shirt
+1	place shirt on pile of cloth
+1	fold white shirt on table
+1	move folded white shirt on pile
+1	adjust pink garment, fold pink garment
+1	fold pink garment, adjust pink garment
+1	fold pink garment, smoothen pink garment
+1	pick up and adjust black t-shirt
+1	place black t-shirt on spin tub
+1	pick up and adjust purple t-shirt
+1	fold and unfold purple t-shirt
+1	fold purple t-shirt
+1	place purple t-shirt in spin tub
+1	hold folded blue cloth, smoothen folded blue cloth
+1	adjust and smoothen folded blue cloth
+1	place folded blue cloth on stack
+1	pick up and adjust black cloth on table
+1	smoothen black cloth
+1	fold and adjust black cloth
+1	smoothen and fold black cloth
+1	adjust bed sheet, adjust garments
+1	pick up black cloth, place black cloth on bed
+1	move black cloth onto shelf
+1	adjust clothes on shelf
+1	move chair aside
+1	move hangers onto bed
+1	open closet door
+1	adjust cloth on pile, pick up pant from pile on bed
+1	adjust pant, unbutton pant
+1	unzip pant, adjust pant
+1	adjust pant, rotate pant
+1	zip up pant, button pant
+1	adjust pant, fold pant
+1	move folded shirt to stack
+1	move folded swamp green pant on table
+1	move folded swamp green pant down
+1	unfold salmon pink pant on table
+1	adjust salmon pink pant on table
+1	fold salmon pink pant
+1	move folded salmon pink pant down
+1	unfold grey pant on table
+1	fold grey pant on table
+1	move folded grey pant on shelf
+1	pick up and place striped shirt on table
+1	button striped shirt
+1	rotate folded shirt
+1	turn over folded shirt
+1	fold brown garment
+1	pick up shirt, place shirt on pile
+1	adjust purple garment
+1	straighten and smoothen purple garment
+1	spread purple garment flat on surface
+1	fold sides of garment inwards
+1	move cloth cloth into basket
+1	pick up pink garment
+1	fold pink garment and place pink garment on stack
+1	pick up and spread out black garment
+1	pick up black garment and place on bed
+1	fold the striped t-shirt
+1	pick up striped t-shirt, place striped t-shirt into basket
+1	pick up grey t-shirt, adjust grey t-shirt
+1	fold grey t-shirt
+1	move grey t-shirt from table to stack
+1	pick up blue t-shirt, place blue t-shirt on table
+1	fold blue t-shirt
+1	pick up yellow shirt from basket
+1	place yellow shirt onto shelf
+1	pick up black garment from basket
+1	place black garment into cabinet
+1	remove threads from cloth, smoothen cloth
+1	pick up stack of clothes, place stack on shelf
+1	adjust black striped shirt
+1	move brown shirt on ironing board
+1	adjust brown shirt on ironing board
+1	smoothen brown shirt on ironing board
+1	straighten blue pant, smooth blue pant, fold blue pant, pick up blue pant, place blue pant in stack
+1	pick up patterned pant, fold patterned pant, place patterned pant on table
+1	fold patterned pant, pick up blue pant, place blue pant in stack
+1	pick up patterned t-shirt, spread patterned t-shirt, place patterned t-shirt on table, adjust patterned t-shirt
+1	flip cloth on bed
+1	move cloth on bed
+1	press cloth on bed
+1	pick up paper strip from pile, place paper strip on table
+1	pick up plate from pile, place plate on table
+1	pick up plate
+1	spread cloth flat on pillow
+1	adjust cloth, smoothen cloth
+1	pick up cloths
+1	arrange clothes on pillow
+1	smoothen shirt and adjust shirt on table
+1	flip folded shirt
+1	flip shirt, fold shirt
+1	move folded shirt from table to shelf
+1	button pink garment, adjust pink garment on floor, button pink garment
+1	adjust pink garment on floor, button pink garment, adjust pink garment on floor
+1	button shirt on bed
+1	move folded shirt on pile on shelf
+1	lift brown cloth
+1	straighten brown cloth, fold cloth
+1	fold brown cloth, smoothen cloth
+1	place folded cloth on bed
+1	pick up blue short from stack on bed, lay and straighten blue short on bed
+1	fold short, place folded blue short on stack on bed
+1	pick up pink short from stack on bed, lay pink short on bed
+1	fold pink short, place folded pink short on stack on table
+1	adjust patterned cloth on table
+1	adjust patterned cloth, fold patterned cloth
+1	fold patterned cloth, place folded patterned cloth on stack
+1	adjust clothing, fold clothing
+1	adjust clothing, straighten clothing
+1	smoothen clothing, flip clothing
+1	smoothen clothing, adjust clothing
+1	flatten folded clothing, rotate folded clothing
+1	pick up folded clothing
+1	place folded clothing on stack of clothes, flatten folded clothing
+1	pick up yellow clothing on pile, place yellow clothing on table
+1	adjust yellow clothing
+1	unfold sleeve on yellow clothing, adjust yellow clothing
+1	unfold sleeve on yellow clothing
+1	lay shirt on table
+1	pick up grey pants from chair
+1	place grey pants on surface, adjust grey pants on surface
+1	adjust grey pants on surface
+1	adjust grey pants on surface, fold grey pants
+1	adjust grey pants, fold grey pants
+1	fold grey pants, adjust grey pants
+1	pick up grey pants, place grey pants on stack
+1	pick up white cloth, place white cloth on stack
+1	adjust yellow cloth on wooden surface
+1	smoothen yellow cloth, adjust yellow cloth
+1	pick up yellow cloth, place yellow cloth on stack
+1	move white cloth to wooden surface
+1	adjust white cloth on wooden surface
+1	spread jersey on bed
+1	smooth and flatten jersey
+1	fold sides and sleeves of jersey inward
+1	fold jersey in half
+1	move folded jersey aside
+1	adjust white shirt, pick up white shirt
+1	place white shirt on bed, adjust shirt
+1	pick up white shirt, place white shirt on bed
+1	adjust white shirt
+1	fold white shirt and adjust white shirt
+1	smooth white shirt, adjust white shirt
+1	flip white shirt and smooth white shirt
+1	pick up white shirt, place white shirt on pile of clothes
+1	press white cloth on pile of clothes
+1	unfold black garment and shake black garment
+1	fold black garment into small square
+1	move folded black garment on laundry stack
+1	pick up striped shirt and spread striped shirt on bed
+1	button up striped shirt, adjust striped shirt
+1	iron shirt with iron, adjust shirt
+1	iron shirt with iron
+1	iron shirt with iron, place iron on table
+1	fold shirt, unfold shirt
+1	adjust and fold shirt, adjust shirt
+1	fold and adjust shirt, move shirt on table
+1	pick up folded garment, place garment on table
+1	pick up patterned garment from basket
+1	spread out patterned garment on mat
+1	pick up folded garment, place garment on stack
+1	adjust patterned garment on table
+1	fold patterned garment
+1	pick out gray shirt
+1	spread gray shirt
+1	spread gray shirt, adjust gray shirt
+1	button up gray shirt
+1	fold pink shorts from pile on table
+1	place folded pink pants on pile
+1	fold blue shorts from hangar on table
+1	place folded blue shorts on pile
+1	move clothes to table
+1	fold black underwear on table
+1	place folded black underwear on pile
+1	fold black top, move black top to stack of clothes
+1	pick up underwear on hanger, move hanger to stack of clothes
+1	fold underwear, move underwear to stack of clothes
+1	fold bra, move bra to stack of clothes
+1	pick up patterned shirt and place on stack
+1	pick up black garment from laundry basket
+1	place black garment on table, adjust garments
+1	smoothen black garment, fold and flip black garment
+1	fold and flip black garment, pick up black garment and place on stack
+1	pick up brown shorts from laundry basket, place brown shorts on table
+1	adjust and smoothen brown shorts, flip brown shorts
+1	move patterned cloth to table
+1	move patterned cloth on table
+1	move brown cloth to table
+1	pick up pillow, place pillow on floor
+1	fold pink pillowcase
+1	fold purple pillowcase
+1	fold blue blanket
+1	pick up blue bedsheet, place blue bedsheet on pile
+1	adjust purple cloth on bed
+1	flip purple cloth on bed, smoothen purple cloth
+1	flip purple cloth on bed
+1	move purple cloth to stack
+1	reposition pink cloth on bed
+1	move pink cloth on bed
+1	flip pink cloth on bed
+1	flip pink cloth on bed, smoothen pink cloth on bed
+1	pick up green shirt from pile
+1	spread green shirt on bed, reposition green shirt
+1	straighten green shirt
+1	reposition and spread green shirt on bed
+1	fold green shirt, adjust green shirt
+1	rotate folded green shirt, pick up green shirt
+1	pick up garment from laundry basket
+1	spread out garment on surface
+1	straighten garment
+1	flip garment over
+1	straighten white shirt on table
+1	fasten buttons of white shirt
+1	straighten white shirt, smoothen white shirt
+1	smoothen folded cloth
+1	move folded cloth to stack
+1	reposition cloth on table
+1	spread cloth
+1	adjust top part of brown garment
+1	spread brown garment flat on table
+1	smooth surface of brown garment
+1	align edges of brown garment
+1	fold left side of brown garment
+1	fold right side of brown garment
+1	smooth center of folded garment
+1	fold bottom edge of brown garment
+1	pick up garment from floor, adjust garment, place garment on table
+1	fold garment, move garment on table
+1	pick up garment from floor, place garment on table, adjust garment
+1	fold garment, smooth garment, move garment on stack
+1	pick up garment from floor
+1	fold both sides of blue garment inwards
+1	smooth and align the folded blue garment
+1	fold the bottom half of blue garment upwards
+1	fold blue garment again to form a square shape
+1	stack the folded blue garment with cloths
+1	fold light grey garment, place light grey garment on pile
+1	pick up patterned shorts, adjust patterned shorts on table
+1	turn patterned shorts on table, fold patterned short
+1	unfold patterned shorts, smoothen patterned shorts
+1	fold patterned shorts, smoothen patterned shorts
+1	adjust patterned shorts on table, place patterned shorts on pile
+1	move shorts on stack
+1	smoothen green cloth on table
+1	fold green cloth on table
+1	move folded green cloth to stack
+1	move red shirt to table
+1	smoothen red shirt on table, rotate red shirt on table
+1	fold red shirt, smoothen folded red shirt on table
+1	smoothen striped cloth, adjust striped cloth
+1	pick up grey cloth, place grey cloth on striped cloth
+1	pick up blue and black clothes, place blue and black clothes on table
+1	pick up red striped cloth, place red striped cloth on table
+1	pick up tan cloth, place tan cloth on red striped cloth
+1	pick up light blue cloth, place light blue cloth on stack
+1	pick up green shirt, place green shirt in basket
+1	pick up blue shirt, place blue shirt on washing machine
+1	spread black shirt on washing machine
+1	lay blue shirt on washing machine
+1	fold the red garment in half
+1	fold the red garment into a small square
+1	place the red garment onto the stack of clothes
+1	pick up the grey garment from the basket
+1	fold the grey garment into a small square
+1	place the grey garment onto the stack of clothes
+1	adjust black t-shirt, place black t-shirt on washing machine
+1	pick up black t-shirt
+1	place black t-shirt in basket, adjust black t-shirt
+1	remove black shorts from washing machine tub
+1	place black shorts on washing machine, adjust black shorts
+1	shake black shorts
+1	fold black shorts on washing machine
+1	place black shorts in basket, adjust black shorts
+1	place orange garment on table
+1	fold orange garment
+1	place folded orange garment in closet
+1	pick up gray garment from basket
+1	straighten gray garment, place gray garment on table
+1	place patterned shirt on table, fold patterned shirt
+1	flip patterned shirt, place patterned shirt on stack
+1	place hanger on table, pick up beige cloth
+1	place beige cloth on table and fold beige cloth
+1	flip beige cloth, place beige cloth on stack
+1	pick up small white cloth, fold small white cloth
+1	place small white cloth on table, pick up white garment
+1	adjust white garment
+1	pick up shirt, adjust shirt
+1	straighten shirt, fold shirt
+1	adjust shirt, fold sleeve
+1	flatten shirt, fold sleeve
+1	adjust cloth pile, pick up striped garment
+1	spread striped garment on pillow
+1	fold striped garment, smoothen garment
+1	smoothen striped garment, fold striped garment
+1	move folded striped garment stack, pick up red garment
+1	spread red garment on pillow
+1	fold red garment, smoothen red garment
+1	adjust red garment, fold red garment
+1	smoothen red garment, fold red garment
+1	pick up folded red garment
+1	fold cloth on table, move cloth on stack of cloth on table
+1	adjust stack of clot on table, move cloth on table
+1	adjust cloth, spread cloth on table
+1	smooth and adjust folded shirt, fold shirt, smooth out shirt, lift shirt
+1	turn shirt, fold collar, pick up shirt, place shirt on stack, press shirt on stack
+1	pick up blue shirt, place shirt on table, spread blue shirt
+1	adjust shirt, fold blue shirt, smooth out shirt
+1	fold blue shirt on table
+1	flip blue shirt on table
+1	move folded blue shirt on stack
+1	spread shirt on table, button shirt
+1	flip shirt on table, adjust shirt on table
+1	spread shirt on table, smooth shirt on table
+1	adjust shirt on table, smooth shirt on table
+1	fold shirt on table, smooth shirt on table
+1	move shirt onto pile
+1	flatten shirt
+1	move shirt onto table
+1	move t-shirt on table
+1	straighten t-shirt
+1	move t-shirt
+1	move t-shirt onto stack
+1	adjust striped shirt on table
+1	adjust striped shirt and smoothen striped shirt on table
+1	smoothen striped shirt on table and adjust striped shirt
+1	flip striped shirt on table
+1	adjust striped shirt collar and fold striped shirt collar
+1	button shirt, adjust shirt on table
+1	move checkered garment on bed
+1	fold checkered garment on bed
+1	place folded checkered garment on clothes stack
+1	straighten and layout tan garment on bed
+1	place folded tan garment on clothes stack
+1	move white garment on bed
+1	place folded white garment on clothes stack
+1	arrange socks on bed
+1	fold green shorts
+1	fold patterned t-shirt
+1	fold light blue cloth
+1	fold sleeves of shirt
+1	adjust folded shirt, flip folded shirt on table
+1	adjust folded shirt, smooth folded shirt
+1	flatten and fold blue garment in half
+1	fold blue garment into a square
+1	place folded blue garment on stack
+1	lay out shirt and fold sleeves
+1	fold shirt into a final square
+1	place folded shirt on stack
+1	pick up green clothing from bed
+1	fold green clothing
+1	place green clothing into drawer
+1	adjust clothing in drawer
+1	pick up green cloth from bed
+1	place green cloth into drawer
+1	adjust clothes in drawer
+1	remove purple clothing from drawer
+1	remove pink clothing from drawer
+1	remove patterned clothing from drawer
+1	remove blue clothing from drawer, remove black clothing from drawer
+1	remove maroon clothing from drawer, remove green clothing from drawer
+1	remove red clothing from drawer, remove maroon clothing from drawer
+1	remove blue clothing from drawer
+1	remove white clothing from drawer, remove black clothing from drawer
+1	fold black clothing, place black clothing in drawer
+1	place package in drawer
+1	fold red clothing, place red clothing in drawer
+1	fold maroon clothing
+1	adjust clothes on table
+1	fold gray garment on table
+1	turn over shirt
+1	pick up folded red shirt, place folded red shirt on bed
+1	pick up folded shirt, place folded shirt on folded red shirt
+1	pick up folded shirts, place folded shirts on bed
+1	pick up blue garment from pile
+1	fold blue garment on bed
+1	place blue garment on table, close drawer
+1	fold bottom of shirt, align edges of shirt
+1	perform final fold, press shirt flat
+1	pick up folded shirt, present the folded shirt
+1	fold and smooth grey shirt
+1	flip grey t-shirt
+1	move grey t-shirt to stack
+1	adjust stack of clothes
+1	adjust blue t-shirt on glass-topped table
+1	spread and adjust white long-sleeved shirt on glass table
+1	fold sleeve of white shirt, smoothen folded sleeve of white shirt
+1	adjust and fold sleeve of white shirt
+1	adjust shirt, move folded shirt on stack
+1	pick up red shirt and spread on table
+1	smooth out red shirt on table
+1	flip red shirt, adjust red shirt on table
+1	adjust and flatten orange shirt on table
+1	fold orange shirt on table
+1	adjust and press folded shirt
+1	flip and adjust folded shirt
+1	smoothen folded white garment, move folded white garment to pile of folded garments
+1	pick up tool from floor, place tool in cabinet
+1	close cabinet
+1	pick up cloth and fold cloth on rug
+1	place folded cloth onto the bed
+1	pick up keys from the bed
+1	place keys on cabinet
+1	place cloth on pile on bed, adjust cloth
+1	fold cloth on bed, place cloth on pile on bed
+1	pick up clothes from bed, adjust clothes on bed
+1	fold cloth and place cloth on stack on bed
+1	adjust black cloth
+1	move black cloth on table, unfold black cloth
+1	fold black cloth, place black cloth on pile
+1	pick up white cloth from pile
+1	unfold white cloth, button white cloth
+1	adjust white cloth
+1	pick up pants and spread on bed
+1	fold pants on bed
+1	place folded pants in storage space
+1	pick up shirt and spread on bed
+1	place folded shirt in storage space
+1	arrange pillows on bed
+1	place white garment on table, fold white garment
+1	move white garment onto stack
+1	pick up garment from basket, adjust garment
+1	place garment on table, fold garment
+1	move garment on table
+1	pick up drawer organizer from cupboard
+1	open dresser drawer
+1	move grey garment to table, fold grey garment
+1	move grey garment to drawer
+1	move pattered garment to table, fold patterned garment
+1	move patterned garment to drawer
+1	grab cloth, fold cloth
+1	move cloth to drawer
+1	move black garment on table, fold black garment
+1	move black garment to drawer
+1	fold green patterned garment
+1	move green patterned garment to drawer
+1	pick up patterned garment
+1	place patterned garment on shelf
+1	pick up shorts
+1	place shorts onto stack
+1	move black cloth onto bed
+1	pick up patterned cloth
+1	pick up shorts in green basket
+1	move shorts onto stack
+1	pick up grey cloth
+1	fold grey cloth on bed
+1	move grey cloth onto stack
+1	adjust sleeve of shirt on table
+1	fold shirt on table, adjust shirt
+1	fold shirt on table, straighten shirt on table
+1	fold patterned shirt
+1	pick up patterned shirt, place patterned shirt on stack on table
+1	pick up red shirt from basket and place red shirt on table
+1	spread out and flatten red shirt
+1	fold red shirt on table
+1	fold long sleeve shirt
+1	adjust shirt and smooth shirt
+1	fold shirt and smooth shirt
+1	smooth shirt and unfold shirt
+1	rotate shirt and smooth shirt
+1	adjust red shirt on table, pick up shirt
+1	place shirt on pile of clothes, adjust pile of clothes
+1	pick up shirt, place shirt on table
+1	move folded blue shirt to stack
+1	adjust shirt on table, fold left side and sleeve of shirt
+1	adjust left side and sleeve of shirt
+1	adjust folded shirt on table, flip folded shirt, adjust shirt collar
+1	press folded shirt on table, pick up folded shirt, place folded shirt on stack
+1	open drawer, adjust shirt in drawer
+1	open drawer, pick up shirt from drawer
+1	place shirt on bed, adjust shirt on bed
+1	close drawer
+1	pick up shirt, place shirt in drawer
+1	place shirt on bed, close drawer
+1	open drawer
+1	close drawer filled with clothes
+1	place shirt on bed, adjust shirt
+1	unbutton shirt
+1	flip shirt, flatten shirt on bed
+1	adjust shirt on bed
+1	adjust patterned folded cloth on table
+1	pick up pink garment, adjust cloths on table
+1	spread pink garment on table
+1	spread shirt on surface
+1	smooth and adjust fabric of shirt
+1	fold sleeve of cloth
+1	smooth blue striped shirt on table, unfold blue striped shirt
+1	fold blue stripped shirt
+1	untangle pink garment
+1	spread out pink garment on bed
+1	fold pink garment, place pink garment on stack
+1	fold teal striped shirt
+1	smoothen folded teal striped shirt, flip teal striped shirt
+1	adjust teal striped shirt
+1	pick up teal striped shirt, place teal striped shirt on stack
+1	pick up blue striped shirt, place blue striped shirt on table
+1	button up blue striped shirt
+1	pick up shorts, place shorts on table
+1	fold shorts in half
+1	smoothen folded shorts, move folded shorts on table
+1	move folded t-shirt to stack
+1	flip folded cloth on table, adjust collar of folded cloth on table
+1	smoothen folded cloth on table
+1	move folded cloth on table
+1	pick up shirt from pile, place shirt on table
+1	adjust shirt, smooth shirt
+1	fasten buttons on shirt
+1	arrange shirt on table
+1	straighten shirt on table
+1	pick up blue sweatshirt from pile, place blue sweatshirt on table
+1	spread blue sweatshirt on table
+1	fold blue sweatshirt on table
+1	move folded blue sweatshirt aside
+1	fold black short
+1	place black short on stack, pick up blue short short
+1	fold blue short on table
+1	close drawer, adjust underwear
+1	place underwear on stack, pick up underwear
+1	pick up underwear
+1	adjust shirt on table, adjust lint roller on table
+1	adjust shirt on table, pick up lint roller
+1	roll lint roll on shirt, adjust shirt
+1	place lint roller on shirt, adjust shirt
+1	pick up lint roller from shirt, roll lint roller on shirt
+1	place lint roller on table, fold shirt
+1	adjust shirt, pick up lint roller from table
+1	roll lint roll on folded shirt
+1	pick up lint roll, roll lint roll on shirt
+1	place lint roll on table, adjust shirt on table
+1	lint roll folded shirt surface
+1	lint roll shirt
+1	lint roll folded shirt
+1	pick up and spread black garment on bed
+1	smoothen and adjust sleeves of black garment
+1	adjust black garment on bed
+1	smoothen fabric
+1	sort through pile of clothes
+1	fold black pant, set black pant aside
+1	pick up blue shirt, place blue shirt on the black pant
+1	unfold blue jean, straighten blue jean
+1	fold blue jean, set blue jeans aside
+1	adjust grey cloth
+1	place grey pants on stool
+1	adjust grey cloth, pick up grey cloth
+1	fold grey pant, adjust grey pant
+1	place grey pant on stool, fold grey pant
+1	place grey pant inside closet
+1	pick up black cloth from bed, adjust black cloth
+1	place black cloth on stool, adjust black cloth
+1	adjust cloth, pick up cloth from stool
+1	fold black cloth, place black cloth on stool
+1	adjust black cloth, fold black cloth
+1	adjust black cloth, place black cloth in closet
+1	pick up black cloth, adjust black cloth
+1	place black cloth on stool, fold black cloth
+1	move black cloth to closet
+1	move white shirt from stack to table, unfold and spread white shirt on table
+1	close shirt buttons, smooth wrinkles and align top of shirt
+1	spread out shirt on table, adjust shirt, smooth out shirt on table
+1	smooth out shirt, fold left sleeve and side of shirt inward
+1	adjust white shirt, reposition white shirt
+1	pick up folded white shirt, place folded white shirt on stack
+1	pick up red hanger with clothes
+1	remove clothes from clothes pegs on hanger
+1	drop red hanger
+1	pick up cloth, adjust clothes on table
+1	place cloth on table, adjust clothes on table
+1	fold cloth, reposition cloth
+1	fold cloth, reposition cloth on table
+1	pick up clothes, place down clothes
+1	fold cloth, place down cloth
+1	adjust cloth, reposition cloth
+1	reposition clothes on table, fold cloth
+1	reposition stack of cloth on table
+1	pick up white shirt from basket
+1	spread out white shirt on mat
+1	fold white shirt, place white shirt on stack
+1	pick up striped shirt from basket
+1	spread out striped shirt, smooth stripped shirt
+1	fold stripped shirt, place stripped shirt on stack
+1	pick up grey shirt from chair and fold grey shirt on bed
+1	pick up brown shirt and place onto grey shirt on bed
+1	pick up white shirt from chair, smoothen and fold white shirt
+1	place white shirt onto pile on bed
+1	pick up black tan pants from chair, fold and place on bed
+1	fold brown tan pants on bed, move pile of clothes on bed
+1	pull garment from clothes pile on bed
+1	spread garment flat on bed
+1	fold and adjust garment on bed
+1	flip folded garment on bed and straighten folded garment on bed
+1	pick up and place folded garment on bed
+1	fold garment on bed
+1	pick up folded garment from bed, place folded garment on stack of clothes
+1	pick up hanger, place shirt on hanger
+1	pick up trousers, arrange trousers
+1	pick up hanger, place trousers on hanger
+1	hang trousers on rack
+1	fold bottom of shirt upwards
+1	smooth shirt on table
+1	fold sleeve back over shirt
+1	fold bottom of shirt up to collar
+1	pick up light blue jeans
+1	place light blue jeans on board, smooth light blue jeans
+1	adjust light blue jeans
+1	fold light blue jeans
+1	flip folded jeans on board
+1	move folded jeans to folded stack
+1	pick up dark blue jeans
+1	place dark blue jeans on board, adjust dark blue jeans
+1	fold dark blue jeans
+1	pick up and adjust socks, place socks on table
+1	pair and fold socks
+1	sort and align socks on table
+1	pick up socks and place on table, pair socks and place on table
+1	pick up and align socks, pair socks and place on table
+1	pick up and pair socks, fold and place socks on table
+1	fold shorts on table, smooth folded shorts
+1	pick up folded shorts, place folded shorts on stack
+1	smooth table sheet
+1	spread grey shirt on table, adjust grey shirt on table
+1	adjust grey shirt on table, smooth grey shirt on table
+1	fold grey shirt on table, smooth grey shirt on table
+1	doyin pick up grey hood from drying rack
+1	spread grey hood on drying rack
+1	fold grey hood into a square
+1	place folded grey hood on drying rack
+1	pick up blue hood from drying rack
+1	spread blue hood on drying rack
+1	fold blue hood into a square, place blue hood on stack of clothes
+1	pick up grey hood, place grey hood on stack of clothes
+1	place folded cloth into drawer, adjust folded cloth in drawer
+1	pick up clothing
+1	unfold cloth
+1	move folded cloth from bed into drawer
+1	spread shirt on the table, fold the right side of the shirt
+1	fold the right arm of the shirt
+1	fold the left side of the shirt inward
+1	fold the shirt from bottom
+1	align, smoothen shirt
+1	fold the shirt from the bottom
+1	fold jeans
+1	move hanged shirt from pile to bed
+1	remove hanger from shirt
+1	spread shirt on bed
+1	pick up yellow cloth from stack on bed, turn inside out of yellow cloth
+1	fold yellow cloth, place folded yellow cloth on stack on bed
+1	pick up brown yellow cloth from stack on bed, fold brown cloth
+1	place folded brown cloth on stack on bed
+1	pick up white pajama from stack on bed, turn white pajama inside out
+1	fold white pajama, place folded white pajama on stack on bed
+1	pick up underwear from stack on bed, fold underwear
+1	place folded underwear on stack on bed
+1	pick up white cloth from stack on bed, fold white cloth
+1	place folded white cloth on stack on bed
+1	pick up cloth from stack on bed, turn cloth inside out
+1	fold cloth, place folded cloth on stack on bed
+1	pick up bra from stack on bed, fold bra
+1	place folded bra on stack on bed
+1	pick up yellow underwear from stack on bed, turn yellow underwear inside out
+1	fold yellow underwear, place folded yellow underwear on stack on bed
+1	pick up towel from hanger, place hanger on hanging line
+1	fold towel and place on stool
+1	pick up towel from stool, fold towel
+1	place towel on stool
+1	pick up short from hanger, place hanger on hanging line
+1	adjust short, fold short
+1	place short on towel on stool
+1	adjust clothes on pile
+1	adjust clothes on pile, pick up white garment
+1	place folded garment in drawer
+1	pick up blue trousers from clothes pile
+1	turn legs of blue trouser inside out
+1	adjust blue trouser
+1	lay blue trouser on bed
+1	fold blue trouser
+1	flip folded blue trouser
+1	pick up folded blue shirt, place folded blue shirt on folded blue trouser
+1	move stack of folded blue clothes
+1	place folded cloth on chair, adjust cloth
+1	spread cloth on chair, tie belt of cloth
+1	pick up cloth from chair, fold cloth
+1	adjust black clothing
+1	pick up black clothing from washing machine, adjust black clothing over washing machine tub
+1	pick up black clothing, adjust black clothing
+1	place black clothing in yellow bag
+1	adjust garment, fold garment
+1	adjust garment, flip garment
+1	unfold garment, fold garment
+1	flip garment, adjust garment
+1	move garment onto stack
+1	fold shirt on table, move folded shirt to stack
+1	fold shirt on table, pick up folded shirt
+1	place blue cloth in basket, press clothes in basket
+1	pick up black cloth from washing machine
+1	shake black cloth
+1	place folded black cloth in basket
+1	pick up red cloth from washing machine
+1	adjust red cloth
+1	fold red cloth
+1	place folded red cloth in basket
+1	pick up white cloth from washing machine
+1	unfold white cloth
+1	adjust folded white cloth
+1	place white garment on table
+1	move white garment on table
+1	spread white garment on table, fold white garment
+1	move light gray garment on table
+1	unfold light gray garment
+1	fold light gray garment
+1	move stack of garment on folded light gray garment
+1	move stack of garments on table
+1	pick up stack of garments, place gray garment on table
+1	unfold white garment
+1	move folded white garment on stack of folded garments
+1	move gray garment on table
+1	move stack of garments on folded gray garment
+1	pick up stack of garments
+1	pick up pink shirt and spread pink shirt on board
+1	fold pink shirt and flip pink shirt on board
+1	place folded pink shirt on pile
+1	pick up white shirt and spread white shirt on board
+1	fold white shirt and flip white shirt on board
+1	place folded white shirt on pile
+1	pick up white tank top and spread white tank top on table
+1	fold white tank top and flip white tank top on board
+1	remove dirt on white tank top and place folded white tank top on pile

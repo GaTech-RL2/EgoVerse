@@ -182,6 +182,35 @@ def get_fallback_idx(
     return random.choice(valid_candidates), attempts
 
 
+def _load_annotation_overrides(
+    annotation_override_path: str | Path | None,
+) -> dict[str, list[dict]]:
+    """Load a sidecar relabel map ``{episode_hash: [{start_idx, end_idx, text, ...}]}``.
+
+    Returns an empty dict when no path is given, so callers can unconditionally do
+    ``self.annotation_overrides.get(hash)``. The map lets a data config swap the
+    in-zarr ``annotations`` array for LLM-relabeled spans at load time without
+    rewriting any zarr store (produced by
+    ``egomimic/scripts/data_quality/relabel_utils.py``).
+    """
+    if not annotation_override_path:
+        return {}
+    path = Path(annotation_override_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"annotation_override_path not found: {path}")
+    with path.open("r") as f:
+        overrides = json.load(f)
+    if not isinstance(overrides, dict):
+        raise ValueError(
+            "annotation_override_path must be a JSON object mapping episode_hash "
+            f"-> list of spans, got {type(overrides).__name__}: {path}"
+        )
+    logger.info(
+        "Loaded annotation overrides for %d episodes from %s", len(overrides), path
+    )
+    return overrides
+
+
 class EpisodeResolver:
     """
     Base class for episode resolution utilities.
@@ -195,10 +224,13 @@ class EpisodeResolver:
         folder_path: Path,
         key_map: dict | None = None,
         transform_list: list | None = None,
+        annotation_override_path: str | Path | None = None,
     ):
         self.folder_path = Path(folder_path)
         self.key_map = key_map
         self.transform_list = transform_list
+        # episode_hash -> relabeled spans; empty dict when no override configured.
+        self.annotation_overrides = _load_annotation_overrides(annotation_override_path)
 
     def _load_zarr_datasets(
         self,
@@ -243,6 +275,7 @@ class EpisodeResolver:
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                     task=(hash_to_task or {}).get(name),
+                    annotation_override=self.annotation_overrides.get(name),
                 )
                 datasets[name] = ds_obj
             except Exception as e:
@@ -272,6 +305,7 @@ class S3EpisodeResolver(EpisodeResolver):
         transform_list: list | None = None,
         debug: int | bool | None = None,
         norm_stats: dict | None = None,
+        annotation_override_path: str | Path | None = None,
     ):
         self.bucket_name = bucket_name
         self.main_prefix = main_prefix
@@ -280,6 +314,7 @@ class S3EpisodeResolver(EpisodeResolver):
             folder_path,
             key_map=key_map,
             transform_list=transform_list,
+            annotation_override_path=annotation_override_path,
         )
 
     def resolve(
@@ -647,8 +682,14 @@ class LocalEpisodeResolver(EpisodeResolver):
         key_map: dict | None = None,
         transform_list: list | None = None,
         debug=False,
+        annotation_override_path: str | Path | None = None,
     ):
-        super().__init__(folder_path, key_map, transform_list)
+        super().__init__(
+            folder_path,
+            key_map,
+            transform_list,
+            annotation_override_path=annotation_override_path,
+        )
         self.debug = debug
 
     @staticmethod
@@ -1587,6 +1628,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         key_map: dict,
         transform_list: list | None = None,
         task: str | None = None,
+        annotation_override: list[dict] | None = None,
     ):
         """
         Args:
@@ -1596,12 +1638,19 @@ class ZarrDataset(torch.utils.data.Dataset):
             task: optional authoritative task name (typically the SQL ``task``
                 column). When set, it overrides the in-zarr ``task_name`` attr
                 — older episodes default that attr to ``"debug"``.
+            annotation_override: optional list of relabeled annotation spans
+                ``[{text, start_idx, end_idx, ...}]`` for this episode. When set,
+                it replaces the in-zarr ``annotations`` array as the source for
+                ``_load_annotations`` (and thus the per-frame language prompt),
+                without touching the zarr store. See
+                ``egomimic/scripts/data_quality/relabel_utils.py``.
         """
         self.episode_path = Episode_path
         self.metadata = None
         self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
+        self._annotation_override = annotation_override
         self.task = task
         self.init_episode()
 
@@ -1665,6 +1714,14 @@ class ZarrDataset(torch.utils.data.Dataset):
             {"text": str, "start_idx": int, "end_idx": int}
         """
         if self._annotations is not None:
+            return self._annotations
+
+        # A sidecar relabel map (e.g. LLM-distilled task labels) takes precedence
+        # over the in-zarr annotations and never reads the store.
+        if self._annotation_override is not None:
+            self._annotations = [
+                d for d in self._annotation_override if isinstance(d, dict)
+            ]
             return self._annotations
 
         raw = self.episode_reader._store["annotations"][:]
@@ -1794,7 +1851,9 @@ class ZarrDataset(torch.utils.data.Dataset):
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             data["task"] = self.task or self.metadata.get("task_name", "unknown")
             _ = origin  # preserved for symmetry with prior API
             return data

@@ -1,0 +1,62 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Visualization task allowlist consumed by evaluator.tasks by default.
+viz_tasks: [folding_clothes]
+
+# Like mecka_pi_fold_clothes_freeform.yaml, but the per-frame language prompt is
+# sourced from an LLM-distilled sidecar (`annotation_override_path`) instead of the
+# verbose in-zarr `annotations`. The map is produced by:
+#   1) egomimic/scripts/data_quality/export_segments.py        -> segments.json
+#   2) the relabel Claude workflow + relabel_utils.py merge     -> relabel_map.json
+# No zarr store is modified; episodes without an override entry fall back to their
+# original in-zarr annotations. Override on the CLI with:
+#   data.train_datasets.mecka_bimanual.resolver.annotation_override_path=/abs/path/relabel_map.json
+# To also restrict to the 179 human-accepted episodes, swap the filter clause for
+# the `episode_hash in {...}` set from mecka_pi_fold_clothes_freeform_filtered.yaml.
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      annotation_override_path: ${paths.work_dir}/data_quality_review/mecka_folding_clothes_relabel_map.json
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian_6d
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['task'] == 'folding_clothes'"
+    mode: train
+
+valid_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
+    mode: valid
+
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10
+
+# `+evaluator@train_viz_evaluator=train_viz_pi`.
+train_viz_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
+    mode: train
+train_viz_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10

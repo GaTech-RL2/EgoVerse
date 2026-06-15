@@ -1,0 +1,64 @@
+{
+  "labels": [
+    {
+      "label": "fold_garment",
+      "description": "Folding a garment or piece of fabric, in whole or in part: fold in half, fold sleeves/sides/hem/bottom inward or upward, fold into a square/rectangle/strip, or any additional fold of an already-folded item. The dominant action in the dataset."
+    },
+    {
+      "label": "smooth_garment",
+      "description": "Smoothing, flattening, straightening, spreading, or laying a garment flat (e.g. smoothen, smooth out wrinkles, flatten, straighten, spread on table/bed) to prepare or finish it, without folding it."
+    },
+    {
+      "label": "adjust_garment",
+      "description": "Repositioning, aligning, arranging, rotating, or otherwise nudging a garment in place on the surface without folding, smoothing, flipping, picking up, or placing it elsewhere. Use for generic 'adjust'/'reposition'/'rotate'/'move on table' actions."
+    },
+    {
+      "label": "flip_garment",
+      "description": "Flipping, turning over, inverting, or turning inside out a garment or folded item to expose the other side."
+    },
+    {
+      "label": "unfold_garment",
+      "description": "Unfolding, opening up, spreading out a previously folded garment, or unzipping/unbuttoning to open it up (as opposed to fastening). Reverses a fold."
+    },
+    {
+      "label": "pick_up_garment",
+      "description": "Picking up, grabbing, lifting, retrieving, or pulling a garment or fabric out of a pile/basket/rack/drawer/washer as the primary action (not immediately placing it elsewhere)."
+    },
+    {
+      "label": "place_garment",
+      "description": "Placing, moving, stacking, or setting a garment down onto a stack, pile, table, shelf, drawer, bed, closet, or other surface (not into a bag/box/container)."
+    },
+    {
+      "label": "clean_garment",
+      "description": "Cleaning, de-linting, or removing debris from a garment: rolling/using a lint roller, brushing with a toothbrush, wiping, removing lint/threads/tape, or spraying with water."
+    },
+    {
+      "label": "iron_garment",
+      "description": "Ironing or pressing a garment with an iron, including picking up or setting down the iron as part of the ironing motion."
+    },
+    {
+      "label": "open_container",
+      "description": "Picking up, opening, unzipping, or preparing an empty bag, box, or container (plastic bag, storage bag, box, drawer, pouch) to receive a garment."
+    },
+    {
+      "label": "insert_in_container",
+      "description": "Inserting, packing, or putting a folded garment into a bag, box, or container, including sealing/closing/zipping the container and placing the packaged item onto a stack."
+    },
+    {
+      "label": "fasten_garment",
+      "description": "Fastening or closing parts of a garment: buttoning, zipping up, tying drawstrings/belts, or otherwise securing fasteners (the opposite of unfasten/unfold)."
+    },
+    {
+      "label": "hang_garment",
+      "description": "Hanging or unhanging a garment, or handling hangers and racks: hang shirt on rack, place garment on hanger, remove hanger from garment, pick up/place hanger."
+    },
+    {
+      "label": "no_action",
+      "description": "No meaningful manipulation occurs in the segment (idle/empty)."
+    },
+    {
+      "label": "other_manipulation",
+      "description": "Rare or ambiguous manipulation that does not fit any other label: handling tools/tags (tag gun, label printer, tape dispenser, cards), pairing/sorting socks, moving non-garment objects, or otherwise unclassifiable actions."
+    }
+  ]
+}
