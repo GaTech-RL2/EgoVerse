@@ -104,8 +104,38 @@ class TestBivariateWiring:
         params = inspect.signature(src).parameters
         assert "bivariate_weighting" in params
 
-    def test_packed_batch_raises(self):
-        torch.manual_seed(0)
+    def test_packed_per_episode(self):
+        # Packed batches now work: bivariate weights are computed per episode
+        # over cu_seqlens (the cum-SNR EMA must not cross episode boundaries),
+        # and the stage loss matches that manual per-episode computation.
+        T1, T2 = 5, 7
+        torch.manual_seed(7)
+        imgs = torch.randint(0, 256, (T1 + T2, C_IMG, HW, HW), dtype=torch.uint8)
+        actions = torch.randn(T1 + T2, A)
+        batch = {IMG_KEY: imgs, AC_KEY: actions, "_packed": True}
+        cu = torch.tensor([0, T1, T1 + T2], dtype=torch.long)
+        ctx = make_dfot_ctx(
+            is_packed=True, action_key=AC_KEY, obs={IMG_KEY: imgs},
+            cu_seqlens=cu, max_seqlen=T2,
+        )
         stage = _make_stage("decoupled", bivariate_weighting=dict(BIV))
-        with pytest.raises(ValueError, match=r"\(B, T\)"):
-            _run(stage, padded=False)
+        torch.manual_seed(123)
+        stage.forward(batch, ctx)          # must NOT raise (was the old failure)
+        diff = stage.diffusion
+
+        # Manual: per-episode weights from each cu span, concatenated flat.
+        k_obs, k_act = ctx.q_state["k"], ctx.q_action["k"]
+        assert k_obs.dim() == 1 and k_obs.shape[0] == T1 + T2   # genuinely packed
+        wo, wa = [], []
+        for i in range(2):
+            s, e = int(cu[i]), int(cu[i + 1])
+            o, a = diff.compute_bivariate_fused_weights(
+                k_obs[s:e].unsqueeze(0), k_act[s:e].unsqueeze(0), **BIV)
+            wo.append(o.squeeze(0)); wa.append(a.squeeze(0))
+        w_obs, w_act = torch.cat(wo), torch.cat(wa)
+        v_img = ctx.q_state["x_t"] * 0.5
+        v_act = ctx.q_action["x_t"] * 0.5
+        l_img = diff.compute_loss(v_img, ctx.q_state, weighting_strategy="uniform")
+        l_act = diff.compute_loss(v_act, ctx.q_action, weighting_strategy="uniform")
+        expected = (l_img * w_obs).mean() + stage.action_loss_weight * (l_act * w_act).mean()
+        assert torch.allclose(ctx.precomputed_loss, expected, atol=1e-6)

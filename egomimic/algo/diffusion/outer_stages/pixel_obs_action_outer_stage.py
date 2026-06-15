@@ -391,6 +391,32 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
         batch["pred_action"] = ap
         return v_pred
 
+    def _bivariate_weights(self, ctx: SimpleNamespace):
+        """``(w_obs, w_act)`` for the bivariate fused-SNR loss, laid out to
+        match ``q_state['k']``.
+
+        Padded batches pass the ``(B, T)`` levels straight through. PACKED
+        batches compute weights PER EPISODE over each ``cu_seqlens`` span (the
+        cumulative-SNR EMA must not bleed across episode boundaries — and the
+        core rejects 1-D packed ``k`` anyway), then concatenate back to the
+        flat ``(sum T_i,)`` token layout the per-token loss uses."""
+        k_obs, k_act = ctx.q_state["k"], ctx.q_action["k"]
+        if not ctx.is_packed:
+            return self.diffusion.compute_bivariate_fused_weights(
+                k_obs, k_act, **self.bivariate_weighting
+            )
+        cu = ctx.cu_seqlens
+        wo, wa = [], []
+        for i in range(cu.shape[0] - 1):
+            s, e = int(cu[i].item()), int(cu[i + 1].item())
+            o, a = self.diffusion.compute_bivariate_fused_weights(
+                k_obs[s:e].unsqueeze(0), k_act[s:e].unsqueeze(0),
+                **self.bivariate_weighting,
+            )
+            wo.append(o.squeeze(0))
+            wa.append(a.squeeze(0))
+        return torch.cat(wo, dim=0), torch.cat(wa, dim=0)
+
     def _forward_decoupled(self, batch: dict, ctx: SimpleNamespace) -> torch.Tensor:
         x_t, x_t_a = self.encode(batch, ctx)
         time_cond = ctx.q_state["time_cond"]
@@ -421,13 +447,10 @@ class PixelObsActionDFoTOuterStage(PixelSpatialDFoTOuterStage):
             v_act = torch.cat(va, dim=0)
 
         if self.bivariate_weighting is not None:
-            # Bivariate fused-SNR: one joint weight computation over BOTH
-            # streams' (B, T) noise levels (cross-modal context), applied to
-            # uniform per-token v-MSEs. Padded windows only — the EMA needs a
-            # real time axis (the core rejects 1-D k from packed batches).
-            w_obs, w_act = self.diffusion.compute_bivariate_fused_weights(
-                ctx.q_state["k"], ctx.q_action["k"], **self.bivariate_weighting
-            )
+            # Bivariate fused-SNR: joint cross-modal weights over both streams'
+            # noise levels, applied to uniform per-token v-MSEs. Works for
+            # padded (B,T) and packed (per-episode over cu_seqlens) batches.
+            w_obs, w_act = self._bivariate_weights(ctx)
             img_loss = (
                 self._diffusion_group_loss(v_img, ctx.q_state, "uniform") * w_obs
             ).mean()
