@@ -39,6 +39,12 @@ robomimic_model:
   state_num_bins: 256
   control_mode: null
 
+  # Stochastic samples per eval batch for the reverse-KL metric (>1 enables it;
+  # each sample is a full flow-matching rollout). 1 disables it. Off by default
+  # because each extra sample adds a full sampling pass per eval batch and
+  # dominates validation time on large flow models; raise (e.g. 8) to enable.
+  reverse_kl_samples: 1
+
   train_image_augs:
     _target_: torchvision.transforms.Compose
     transforms:
@@ -52,7 +58,7 @@ robomimic_model:
         size: 224
         interpolation: 3
 
-enable_grad_norm: false
+enable_grad_norm: true
 
 optimizer:
   _target_: torch.optim.AdamW
@@ -66,7 +72,7 @@ scheduler:
   _target_: transformers.optimization.get_cosine_with_min_lr_schedule_with_warmup
   _partial_: true
   num_warmup_steps: 1000
-  num_training_steps: 200000
+  num_training_steps: 150000
   num_cycles: 0.5
   min_lr: 1e-5
 

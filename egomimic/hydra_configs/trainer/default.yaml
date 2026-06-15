@@ -11,9 +11,9 @@ devices: 1
 # mixed precision for extra speed-up
 precision: bf16
 limit_train_batches: 100
-limit_val_batches: 80
+limit_val_batches: 200
 # perform a validation loop every N training epochs
-check_val_every_n_epoch: 50
+check_val_every_n_epoch: 25
 
 # set True to to ensure deterministic results
 # makes training slower but gives more reproducibility than just setting seeds

@@ -5,3 +5,8 @@ defaults:
   - override trainer: ddp_pi
   - override evaluator: eval_pi
   - override hydra/launcher: submitit_pace
+  - _self_
+
+# Pi runs get a pre-fit baseline (val metrics + viz) at epoch 0 by default.
+# Override with `val_at_start=false` to skip.
+val_at_start: true

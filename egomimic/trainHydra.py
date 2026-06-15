@@ -189,11 +189,17 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     else:
         raise ValueError("Config must specify either `mode` or `train`/`eval` booleans")
 
-    # In eval mode, apply trainer overrides from the eval object and disable logger
+    # In eval mode, apply trainer overrides from the eval object. By default the
+    # logger is disabled (metrics only print / land in callback_metrics); set
+    # `eval_logger=true` to keep the configured logger (e.g. wandb) so the
+    # Valid/* metrics from PIEvalVideo are pushed to the dashboard. Videos are
+    # always written to disk regardless of the logger.
     if mode == "eval":
         eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
+        keep_logger = cfg.get("eval_logger", False)
         log.info(
-            "Eval mode: applying trainer overrides from eval config, disabling logger"
+            "Eval mode: applying trainer overrides from eval config; "
+            + ("keeping logger" if keep_logger else "disabling logger")
         )
         with open_dict(cfg):
             for k, v in eval_obj.override_dict.items():
@@ -201,7 +207,8 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             cfg.trainer.devices = 1
             cfg.trainer.num_nodes = 1
             cfg.trainer.num_sanity_val_steps = 0
-            cfg.logger = None
+            if not keep_logger:
+                cfg.logger = None
 
     log.info("Instantiating loggers...")
     logger: List[Logger] = instantiate_loggers(cfg.get("logger"))
@@ -230,10 +237,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
 
-    if (
+    is_requeue = bool(
         os.environ.get("SLURM_JOB_ID")
         and os.environ.get("SLURM_RESTART_COUNT", "0") != "0"
-    ):
+    )
+    if is_requeue:
         last_ckpt_path = os.path.join(
             trainer.default_root_dir, "checkpoints", "last.ckpt"
         )
@@ -253,6 +261,11 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             train_viz_eval_obj.trainer = trainer
             train_viz_eval_obj.model = model.model
             model.train_viz_evaluator = train_viz_eval_obj
+        if cfg.get("val_at_start", False) and not is_requeue:
+            log.info(
+                "val_at_start: running validation + viz at epoch 0 (pre-fit baseline)"
+            )
+            trainer.validate(model=model, datamodule=datamodule)
         log.info("Starting training!")
         trainer.fit(
             model=model,
