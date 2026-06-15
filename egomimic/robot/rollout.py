@@ -315,7 +315,21 @@ class PolicyRollout(Rollout):
     @classmethod
     def _patch_checkpoint_paths(cls, ckpt_path):
         """Rewrite pytorch_weight_path in the checkpoint's saved config
-        to point to the local base model weights. Returns (patched_path, cfg)."""
+        to point to the local base model weights. Returns (patched_path, cfg).
+
+        Memory note: torch.load loads the entire checkpoint into RAM (~14GB
+        for pi05). We immediately get a second copy when ModelWrapper.load_from_checkpoint
+        runs on the patched file. To avoid OOM we:
+          - Reuse an existing ``.patched`` file when present, skipping the
+            load+save entirely on subsequent launches.
+          - Explicitly ``del`` the in-RAM checkpoint and trigger gc before
+            returning so the patched copy is freed before the main load runs.
+        """
+        patched_path = ckpt_path + ".patched"
+        if os.path.isfile(patched_path):
+            print(f"[rollout] Reusing existing patched checkpoint: {patched_path}")
+            return patched_path, None
+        import gc
         import torch as _torch
         from omegaconf import OmegaConf
         cfg, ckpt = cls._load_checkpoint_cfg(ckpt_path)
@@ -326,14 +340,17 @@ class PolicyRollout(Rollout):
         config = robomimic.get("config", {})
         old_path = config.get("pytorch_weight_path")
         if old_path is None or old_path == cls.LOCAL_WEIGHT_PATH:
+            del ckpt
+            gc.collect()
             return ckpt_path, cfg
         print(f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}")
         config["pytorch_weight_path"] = cls.LOCAL_WEIGHT_PATH
         ckpt["hyper_parameters"]["config_tree"] = OmegaConf.create(cfg)
-        patched_path = ckpt_path + ".patched"
         _torch.save(ckpt, patched_path)
         print(f"[rollout] Patched checkpoint saved to {patched_path}")
-        return patched_path, cfg
+        del ckpt, cfg
+        gc.collect()
+        return patched_path, None
 
     def _apply_annotation_to_algo(self):
         """Wire the rollout-time annotation into the loaded algo.
@@ -741,7 +758,9 @@ class PolicyRollout(Rollout):
             print(f"[rollout] viz failed at step {step_i}: {e}")
 
     def _load_policy(self):
+        import gc
         patched_path, _ = self._patch_checkpoint_paths(self.policy_path)
+        gc.collect()
         policy = ModelWrapper.load_from_checkpoint(
             patched_path, weights_only=False, map_location="cpu"
         )
