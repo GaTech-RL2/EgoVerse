@@ -1,0 +1,77 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# K=4 keyframe variant of tsimulation.yaml — the data half of the pureDF
+# K4nf256 parity recipe (Port Parity Checklist D07/D08/D14/D17/D26).
+# Companion model config: model=dfot_pushshapes_pixel_policy_parity
+# (its outer_stage.action_chunk_k MUST match action_chunk_k here).
+#
+# Deltas vs tsimulation.yaml, each tagged:
+# - D07  action_chunk_k: 15 — keyframes at env-stride 15, each carrying its
+#        4 actions as a (K*action_dim,) time-major row.
+# - D08  action_pairing: "current" — RESOLVED by the 2026-06-10 lag-scan
+#        probe: zarr actions[t] are OUTGOING absolute target positions
+#        (argmin-MAE lag +2, |a|~position scale, cos(step, a-pos)~0.96), so
+#        frame t pairs with the chunk leaving it. incoming_meanpad would
+#        bake a K-step action/obs misalignment into training.
+# - D26  chunk_phase_aug: true on TRAIN only (upstream drop_front in [0,K));
+#        valid stays deterministic phase 0.
+# - D14  val_holdout_first_n: 37 on BOTH entries (5% of the 750-episode
+#        circle_750 source set, mirroring upstream's disjoint first-5% split).
+# - D17  tail_mode: hold_pad + min_seq_len in KEYFRAME units (16 keyframes
+#        = 64 raw frames) — upstream pads every episode, drops none.
+# - D28  dataset = pushT/circle_750/circle: the EXACT zarr source of
+#        upstream's npz training set (same schema as circle/basic; probe
+#        2026-06-10) — removes the obstacle-mix confounder (circle_750 is
+#        53% obs0 vs circle/basic's 22%). Skynet override:
+#        resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/circle_750/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 20          # D17 — keyframe units at K=15 (20 keyframes = 300 raw frames)
+    max_seq_len: 1024
+    temporal_stride: 1
+    tail_mode: "hold_pad"    # D17 — pad short episodes, never drop
+    val_holdout_first_n: 37  # D14 — first 5% of the 750 source episodes -> val only
+    holdout_split: "train"
+    action_chunk_k: 15        # D07
+    chunk_phase_aug: true    # D26 — train-side phase augmentation
+    action_pairing: "current"  # D08 — zarr stores outgoing targets (probe 2026-06-10)
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/circle_750/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 20
+    max_seq_len: 1024
+    temporal_stride: 1
+    tail_mode: "hold_pad"
+    val_holdout_first_n: 37
+    holdout_split: "val"
+    action_chunk_k: 15
+    chunk_phase_aug: false   # D26 — deterministic phase 0 for val
+    action_pairing: "current"
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 4

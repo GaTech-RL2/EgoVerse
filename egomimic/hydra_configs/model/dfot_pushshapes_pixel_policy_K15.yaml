@@ -1,0 +1,131 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# DFoT pixel-space OBS+ACTION policy — UPSTREAM-PARITY recipe (K4nf256 replica).
+# Non-default variant of dfot_pushshapes_pixel_policy.yaml expressing the
+# validated pureDF pusht K4nf256 recipe through the parity knobs; every delta
+# is tagged with its Port Parity Checklist D-number. D07: K=4 action-chunk
+# stacking — keyframes at env-stride 4, each carrying its 4 actions as 2K=8
+# broadcast planes (bundle = 3 RGB + 8 = 11 channels, upstream
+# observation_shape [11, 64, 64]).
+#
+# REQUIRED COMPANION OVERRIDES — these keys live outside the model package
+# (data/ and trainer/ groups and the primary config merge after the model
+# group, so a model yaml cannot carry them). Launch from the repo root with:
+#   data=tsimulation_k4              # D07/D08/D26 — K=4 keyframe dataset
+#                                    # (action_chunk_k must MATCH this yaml's;
+#                                    # "current" pairing [probe-verified:
+#                                    # zarr actions are outgoing targets] +
+#                                    # train-side phase aug live there)
+#   trainer.gradient_clip_val=10.0   # D09 — knob exposed in trainer/default.yaml
+#   norm_stats.norm_mode=minmax      # D03b — fixed minmax action norm
+#   norm_stats.precomputed_norm_path=$PWD/egomimic/hydra_configs/data/norm_stats_pushshapes_fixed512.json
+#                                    # D03b — exact /512 world-coord stats (no data-dependent min/max)
+#                                    # NOTE: stays per-step 2-dim at K>1 — the
+#                                    # algo tiles stats across K via a reshape
+#                                    # seam (do NOT build an 8-dim stats json)
+#   reject_outliers=false            # D30 — no upstream analog
+# Delete any cached norm_stats from earlier runs so stats regenerate.
+#
+# ⚠ LAUNCH BLOCKERS verified 2026-06-10 (scratch/parity_probes_2026-06-10.md):
+# 1. export PYTHONPATH=/coc/flash7/paphiwetsa3/projects/EgoVerse-pact-2 in
+#    EVERY launch/eval — the shared .venv's editable egomimic points at
+#    EgoVerse-pact and silently swaps the codebase otherwise.
+# 2. On skynet add:
+#    data.train_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+#    data.valid_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+# 3. Budget the full 100k steps before judging — every prior "bad" ckpt
+#    trained only 12k-24k steps (probe P3).
+#
+# Training, the overlay eval (evaluator=eval_dfot_pixel_overlay) and the
+# closed-loop pixel inference paths (_inference_step_pixel_{policy,regress,
+# decoupled} route context through outer_stage.to_model_range) all honor
+# image_range. Judge this recipe by the overlay first (checklist §4 step 3:
+# no sim until overlay tracks GT). When running the overlay against this
+# recipe, set n_context_frames: 8 to match sp_n_context; the overlay
+# auto-detects K from the stage's action_chunk_k (no eval-side knob).
+
+robomimic_model:
+  _target_: egomimic.algo.diffusion.DFoT
+  action_dim: 2
+  action_horizon: 20
+
+  sampler: "ddim"
+  sampler_n_steps: 25             # D20 — validated 25 DDIM steps (was 50)
+  sampler_eta: 0.0                # D27 — CORRECTED 2026-06-13: upstream SIM (run_sim_eval->ddim_sample) uses ddim_sampling_eta=0.0 (deterministic). The fair parity sim is run with model.robomimic_model.sampler_eta=0.0 override. eta=1.0 here is NOT the validated sim setting; honored by all pixel/spatial controllers if used.
+
+  inference_mode: "pixel_policy"  # D01 — grounded windowed inference, not obs-blind chunk
+  cfg_scale: 1.0
+  sp_n_context: 19                 # D13 — n_ctx + sp_commit(1) == trained window 20 (K15nf20)
+  sp_commit: 1                    # D07 — one keyframe chunk per replan tick: commit sp_commit*K = 4 actions open-loop, re-ground on the real obs at the next keyframe (upstream df_pusht.py:107-131)
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  outer_stage:
+    _target_: egomimic.algo.diffusion.PixelObsActionDFoTOuterStage
+    pixel_mode: "policy"
+    action_dim: 2
+    action_chunk_k: 15             # D07 — K=15 action chunk per keyframe (K15nf20 = upstream 0.77-coverage recipe; must match data=tsimulation_k15)
+    action_channels: 30            # D07 — K*action_dim = 30 broadcast planes
+    image_key: "front_img_1"
+    image_channels: 3
+    image_size: 96
+    frame_sampling: "fixed_window"
+    sample_n_frames: 20
+    image_range: "pm1"            # D03a — diffuse RGB in [-1,1] (x*2-1 at encode, inverted at decode)
+    image_loss_weight: 0.5        # D16 — 50/50 image/action group loss split
+    action_loss_weight_group: 0.5 # D16
+
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: "fused_cond"
+      cond_proj_widths: [256, 256]
+      obs_specs: {}
+      img_encoders: {}
+
+    backbone:
+      _target_: egomimic.models.diffusion.DFoTDiT3DBackbone
+      latent_channels: 33         # D07 — 3 RGB + 2K=30 broadcast action planes = 33ch
+      latent_size: 96
+      patch_size: 4
+      action_horizon: 20
+      d_model: 256
+      d_cond: 256
+      cond_dim: 0
+      depth: 6
+      num_heads: 4
+      mlp_ratio: 4.0
+      time_embed_dim: 64
+      cond_emb_dim: 0
+      use_fourier_time: false
+      stochastic_time_p: 0.0
+      cond_dropout_prob: 0.0
+      causal: false
+
+    diffusion:
+      _target_: egomimic.models.diffusion.diffusion.discrete_diffusion.DiscreteDiffusion
+      action_dim: 33              # D07 — diffused per-token channel count 3+30=33
+      timesteps: 1000
+      beta_schedule: "cosine"
+      objective: "pred_x0"                # D04 — validated objective (was pred_v)
+      loss_weighting_strategy: "constant" # D04 — constant weight at every k (was fused_min_snr, silently min_snr)
+      constant_weight: 2.5                # D04 — upstream snr_clip * 0.5
+      max_beta: 0.999                     # D15 — finite terminal SNR; required with pred_x0 (inf recip-alpha at k=999)
+      clip_noise: 20.0
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5.0e-5            # D05 — validated peak (was 2e-4)
+  weight_decay: 1.0e-4  # D09 — validated decay (was 0.0)
+  betas: [0.9, 0.999]   # D09 — validated beta2 (was 0.99)
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 100000     # upstream MAXSTEPS default; set to the real run length per D10's step-count read
+  warmup_steps: 2500    # D05/D23 — validated warmup
+  warmup_start_factor: 0.01
+  eta_min: 5.0e-6       # D05 — validated cosine floor (was 2e-4 == lr, a dead cosine)
