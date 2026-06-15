@@ -3,3 +3,8 @@ defaults:
   - _self_
 
 _target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+# Validation metrics log every validation (controlled by trainer
+# check_val_every_n_epoch); viz video rendering only runs on epochs divisible by
+# this. Set to a multiple of check_val_every_n_epoch so viz lands on a val epoch.
+viz_every_n_epochs: 200

@@ -137,6 +137,12 @@ class PI(Algo):
 
         self.num_steps = getattr(self.config, "num_sampling_steps", 10)
         self.is_6dof = kwargs.get("is_6dof", True)
+        # Number of stochastic action-chunk samples drawn per eval batch for the
+        # reverse-KL metric. >1 enables it (each sample is a full flow-matching
+        # rollout, so this multiplies eval sampling cost); 1 disables it.
+        # Disabled by default — each extra sample adds a full sampling pass per
+        # eval batch, which dominates validation time on large flow models.
+        self.rkl_samples = kwargs.get("reverse_kl_samples", 1)
 
         self.action_converters = action_converters
 
@@ -461,21 +467,57 @@ class PI(Algo):
                     num_steps=self.num_steps,
                 )
 
-                predictions = OrderedDict()
-                ref = _batch[ac_key]
-                B, T, D = ref.shape
-
-                converter = self.action_registry.get(embodiment_id, ac_key)
-                pred_actions_orig = converter.from32(pred_actions)
-
-                pred = pred_actions_orig[:, :T, :D]
-                predictions[ac_key] = pred
-
-                unnorm_actions = self.norm_stats.unnormalize(predictions, embodiment_id)
-                for key in unnorm_actions:
-                    unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
+                pred = self._postprocess_sampled_actions(
+                    pred_actions, _batch, embodiment_id, ac_key
+                )
+                unnorm_preds[f"{embodiment_name}_{ac_key}"] = pred
 
         return unnorm_preds
+
+    def _postprocess_sampled_actions(self, pred_actions, _batch, embodiment_id, ac_key):
+        """Turn raw ``sample_actions`` output into an unnormalized action chunk:
+        ``from32`` -> slice to ``(B, T, D)`` -> ``norm_stats.unnormalize``. Shared
+        by ``forward_eval`` and ``sample_action_chunks`` so the reverse-KL samples
+        go through the identical pipeline as the headline prediction."""
+        ref = _batch[ac_key]
+        B, T, D = ref.shape
+        converter = self.action_registry.get(embodiment_id, ac_key)
+        pred_actions_orig = converter.from32(pred_actions)
+        pred = pred_actions_orig[:, :T, :D]
+        unnorm = self.norm_stats.unnormalize(OrderedDict({ac_key: pred}), embodiment_id)
+        return unnorm[ac_key]
+
+    @torch.no_grad()
+    def sample_action_chunks(self, _batch, embodiment_id, M):
+        """Draw ``M`` independent stochastic action chunks for one embodiment's
+        batch and return them stacked as ``(M, B, T, D)``, unnormalized, on
+        ``self.device``. Each ``sample_actions`` call with ``noise=None`` draws
+        fresh Gaussian noise, so the ``M`` chunks are independent policy samples.
+
+        ``_batch`` must be the normalized batch element (same obs space as
+        ``forward_eval``); do not pass an unnormalized batch.
+        """
+        proprio_keys = self.proprio_keys[embodiment_id]
+        lang_keys = self.lang_keys[embodiment_id]
+        ac_key = self.ac_keys[embodiment_id]
+        camera_keys = self.camera_keys.get(embodiment_id, self.pi_cam_keys)
+        embodiment_name = get_embodiment(embodiment_id).lower()
+        processed_obs, _ = self._robomimic_to_pi_data(
+            _batch, camera_keys, proprio_keys, lang_keys, ac_key, embodiment_name
+        )
+        samples = []
+        for _ in range(int(M)):
+            pred_actions = self.nets["policy"].sample_actions(
+                device=self.device,
+                observation=processed_obs,
+                noise=None,
+                num_steps=self.num_steps,
+            )
+            pred = self._postprocess_sampled_actions(
+                pred_actions, _batch, embodiment_id, ac_key
+            )
+            samples.append(pred.unsqueeze(0))
+        return torch.cat(samples, dim=0)
 
     @override
     def compute_losses(self, predictions, batch):

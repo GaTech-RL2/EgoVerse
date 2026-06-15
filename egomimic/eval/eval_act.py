@@ -11,7 +11,7 @@ class ACTEvalVideo(EvalVideo):
     and draws predicted/ground-truth trajectories on the visualization image.
     """
 
-    def compute_metrics_and_viz(self, batch):
+    def compute_metrics_and_viz(self, batch, do_viz=True):
         algo = self.model
         preds = algo.forward_eval(batch)
         # ground truth normalized; unnormalize for direct comparison.
@@ -29,7 +29,9 @@ class ACTEvalVideo(EvalVideo):
                 preds[ac_key][:, -1].cpu(), batch[ac_key][:, -1].cpu()
             )
 
-        ims = {algo.embodiment_id: self._visualize_preds(preds, batch)}
+        ims = {}
+        if do_viz:
+            ims = {algo.embodiment_id: self._visualize_preds(preds, batch)}
         return metrics, ims
 
     def _visualize_preds(self, predictions, batch):

@@ -39,6 +39,12 @@ robomimic_model:
   state_num_bins: 256
   control_mode: null
 
+  # Stochastic samples per eval batch for the reverse-KL metric (>1 enables it;
+  # each sample is a full flow-matching rollout). 1 disables it. Off by default
+  # because each extra sample adds a full sampling pass per eval batch and
+  # dominates validation time on large flow models; raise (e.g. 8) to enable.
+  reverse_kl_samples: 1
+
   train_image_augs:
     _target_: torchvision.transforms.Compose
     transforms:

@@ -15,10 +15,20 @@ description: test
 ckpt_path: null
 mode: train
 
+# When mode=eval, keep the configured logger (e.g. wandb) so validation metrics
+# are pushed to the dashboard instead of only printing. Set false to restore the
+# historical "eval disables logger" behavior.
+eval_logger: true
+
 # Optional second evaluator that runs against the train_viz dataloader.
 # Set via override, e.g. `+train_viz_evaluator=train_viz_pi`, together with a
 # data config that defines `train_viz_datasets`.
 train_viz_evaluator: null
+
+# When true, run a single validation pass (metrics + viz) at epoch 0 before any
+# parameter updates, as a pre-fit baseline. Uses the in-memory init weights, so
+# this is the untrained/pretrained-backbone baseline. Skipped on SLURM requeue.
+val_at_start: false
 
 hydra:
   run:
