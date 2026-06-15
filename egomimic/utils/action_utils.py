@@ -1,6 +1,18 @@
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 import torch
+
+PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D = "cartesian_ypr_raw_rot6d"
+PI05_CARTESIAN_ACTION_ENCODING_LEGACY = "legacy_normalized_ypr_rot6d"
+# Actions arrive already in xyz+6D(+gripper) layout (the ypr->6D conversion is
+# done by the ``CartesianYPRToRot6D`` data transform) and already normalized by
+# the standard MultiDataset pipeline. The forward pass only *packs* the
+# normalized 6D action into the 32D vector (see ``to32_norm_6d`` below).
+PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D = "cartesian_normalized_rot6d"
+
+# Bimanual robot Cartesian layout: [x, y, z, yaw, pitch, roll, gripper] x 2.
+ROBOT_BIMANUAL_CARTESIAN_ROT_DIMS = (3, 4, 5, 10, 11, 12)
+ROBOT_BIMANUAL_CARTESIAN_NON_ROT_DIMS = (0, 1, 2, 6, 7, 8, 9, 13)
 
 
 # ---------- registry that stores *objects* ----------
@@ -41,6 +53,77 @@ def _pad32(x: torch.Tensor) -> torch.Tensor:
         pad = torch.zeros(B, S, 32 - D, dtype=x.dtype, device=x.device)
         return torch.cat([x, pad], dim=-1)
     return x[..., :32]
+
+
+def _stat_tensor(stats: dict[str, Any], key: str, ref: torch.Tensor) -> torch.Tensor:
+    value = torch.as_tensor(stats[key], device=ref.device, dtype=torch.float32)
+    return value.to(dtype=ref.dtype if ref.is_floating_point() else torch.float32)
+
+
+def _apply_norm_one(
+    tensor: torch.Tensor,
+    stats: dict[str, Any],
+    norm_mode: str,
+) -> torch.Tensor:
+    if norm_mode == "zscore":
+        mean = _stat_tensor(stats, "mean", tensor)
+        std = _stat_tensor(stats, "std", tensor)
+        return (tensor - mean) / (std + 1e-6)
+    if norm_mode == "minmax":
+        mn = _stat_tensor(stats, "min", tensor)
+        mx = _stat_tensor(stats, "max", tensor)
+        return 2.0 * ((tensor - mn) / (mx - mn + 1e-6)) - 1.0
+    if norm_mode == "quantile":
+        q1 = _stat_tensor(stats, "quantile_1", tensor)
+        q99 = _stat_tensor(stats, "quantile_99", tensor)
+        return 2.0 * ((tensor - q1) / (q99 - q1 + 1e-6)) - 1.0
+    raise ValueError(f"Invalid normalization mode: {norm_mode}")
+
+
+def _apply_unnorm_one(
+    tensor: torch.Tensor,
+    stats: dict[str, Any],
+    norm_mode: str,
+) -> torch.Tensor:
+    if norm_mode == "zscore":
+        mean = _stat_tensor(stats, "mean", tensor)
+        std = _stat_tensor(stats, "std", tensor)
+        return tensor * (std + 1e-6) + mean
+    if norm_mode == "minmax":
+        mn = _stat_tensor(stats, "min", tensor)
+        mx = _stat_tensor(stats, "max", tensor)
+        return (tensor + 1) * 0.5 * (mx - mn + 1e-6) + mn
+    if norm_mode == "quantile":
+        q1 = _stat_tensor(stats, "quantile_1", tensor)
+        q99 = _stat_tensor(stats, "quantile_99", tensor)
+        return (tensor + 1) * 0.5 * (q99 - q1 + 1e-6) + q1
+    raise ValueError(f"Invalid normalization mode: {norm_mode}")
+
+
+def _normalize_robot_bimanual_non_rot(
+    raw_actions: torch.Tensor,
+    stats: dict[str, Any],
+    norm_mode: str,
+) -> torch.Tensor:
+    normalized = raw_actions.clone()
+    all_dims = _apply_norm_one(raw_actions, stats, norm_mode)
+    normalized[..., ROBOT_BIMANUAL_CARTESIAN_NON_ROT_DIMS] = all_dims[
+        ..., ROBOT_BIMANUAL_CARTESIAN_NON_ROT_DIMS
+    ]
+    return normalized
+
+
+def _unnormalize_robot_bimanual_non_rot(
+    model_actions: torch.Tensor,
+    stats: dict[str, Any],
+    norm_mode: str,
+) -> torch.Tensor:
+    raw_actions = model_actions.clone()
+    all_dims = _apply_unnorm_one(model_actions, stats, norm_mode)
+    raw_actions[..., ROBOT_BIMANUAL_CARTESIAN_NON_ROT_DIMS] = all_dims[
+        ..., ROBOT_BIMANUAL_CARTESIAN_NON_ROT_DIMS
+    ]
+    return raw_actions
 
 
 def _ypr_to_matrix(ypr: torch.Tensor, degrees: bool = False) -> torch.Tensor:
@@ -137,6 +220,53 @@ class BaseActionConverter:
     def from32(self, actions32: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError
 
+    def to32_raw_rotation(
+        self,
+        raw_actions: torch.Tensor,
+        *,
+        normalized_actions: torch.Tensor | None = None,
+        stats: dict[str, Any] | None = None,
+        norm_mode: str = "quantile",
+    ) -> torch.Tensor:
+        """Pack actions with raw YPR rotations and normalized non-rotation dims."""
+        del normalized_actions, stats, norm_mode
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support raw-rotation action encoding"
+        )
+
+    def from32_raw_rotation(
+        self,
+        actions32: torch.Tensor,
+        *,
+        stats: dict[str, Any] | None = None,
+        norm_mode: str = "quantile",
+        unnormalize_non_rotation: bool = False,
+    ) -> torch.Tensor:
+        """Decode actions whose 6D rotation columns represent raw YPR rotations."""
+        del stats, norm_mode, unnormalize_non_rotation
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support raw-rotation action decoding"
+        )
+
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        """Pack an already-normalized xyz+6D(+gripper) action into the 32D vector.
+
+        The ypr->6D conversion happens upstream in the ``CartesianYPRToRot6D``
+        data transform and the result is normalized by the standard data
+        pipeline, so this is a pure rearrange (no rotation math, no
+        normalization).
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support normalized-rot6d encoding"
+        )
+
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
+        """Inverse of :meth:`to32_norm_6d`: extract the normalized xyz+6D(+gripper)
+        action from the 32D vector (pure rearrange)."""
+        raise NotImplementedError(
+            f"{type(self).__name__} does not support normalized-rot6d decoding"
+        )
+
 
 # ============================================================
 #                     ROBOT CONVERTERS
@@ -210,7 +340,7 @@ class RobotBimanualCartesianEuler(BaseActionConverter):
     32-pack:    left block 0..9, right block 10..19
     """
 
-    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+    def to20(self, actions: torch.Tensor) -> torch.Tensor:
         actions = _ensure_bsd(actions)
         if actions.shape[-1] != 14:
             raise ValueError(f"RobotBimanual: expected 14-dim, got {actions.shape[-1]}")
@@ -228,12 +358,19 @@ class RobotBimanualCartesianEuler(BaseActionConverter):
         R_c1, R_c2 = R_R[..., 0], R_R[..., 1]
         right_block = torch.cat([R_xyz, R_c1, R_c2, R_g], dim=-1)  # (B,S,10)
 
-        return _pad32(torch.cat([left_block, right_block], dim=-1))  # (B,S,20+) -> 32
+        return torch.cat([left_block, right_block], dim=-1)  # (B,S,20)
 
-    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        Lb = actions32[..., 0:10]
-        Rb = actions32[..., 10:20]
+    def to32(self, actions: torch.Tensor) -> torch.Tensor:
+        return _pad32(self.to20(actions))
+
+    def from20(self, actions20: torch.Tensor) -> torch.Tensor:
+        actions20 = _ensure_bsd(actions20)
+        if actions20.shape[-1] < 20:
+            raise ValueError(
+                f"RobotBimanual: expected at least 20 dims, got {actions20.shape[-1]}"
+            )
+        Lb = actions20[..., 0:10]
+        Rb = actions20[..., 10:20]
 
         # left
         L_xyz, L_c1, L_c2, L_g = Lb[..., 0:3], Lb[..., 3:6], Lb[..., 6:9], Lb[..., 9:10]
@@ -248,6 +385,114 @@ class RobotBimanualCartesianEuler(BaseActionConverter):
         L7 = torch.cat([L_xyz, L_ypr, L_g], dim=-1)
         R7 = torch.cat([R_xyz, R_ypr, R_g], dim=-1)
         return torch.cat([L7, R7], dim=-1)  # (B,S,14)
+
+    def from32(self, actions32: torch.Tensor) -> torch.Tensor:
+        return self.from20(actions32)
+
+    def to20_raw_rotation(
+        self,
+        raw_actions: torch.Tensor,
+        *,
+        normalized_actions: torch.Tensor | None = None,
+        stats: dict[str, Any] | None = None,
+        norm_mode: str = "quantile",
+    ) -> torch.Tensor:
+        raw_actions = _ensure_bsd(raw_actions)
+        if raw_actions.shape[-1] != 14:
+            raise ValueError(
+                f"RobotBimanual: expected 14-dim, got {raw_actions.shape[-1]}"
+            )
+        if normalized_actions is None:
+            if stats is None:
+                raise ValueError(
+                    "stats are required when normalized_actions is omitted"
+                )
+            model_actions = _normalize_robot_bimanual_non_rot(
+                raw_actions, stats, norm_mode
+            )
+        else:
+            normalized_actions = _ensure_bsd(normalized_actions).to(raw_actions.device)
+            if normalized_actions.shape != raw_actions.shape:
+                raise ValueError(
+                    "normalized_actions must match raw_actions shape; got "
+                    f"{tuple(normalized_actions.shape)} vs {tuple(raw_actions.shape)}"
+                )
+            model_actions = raw_actions.clone()
+            model_actions[..., ROBOT_BIMANUAL_CARTESIAN_NON_ROT_DIMS] = (
+                normalized_actions[..., ROBOT_BIMANUAL_CARTESIAN_NON_ROT_DIMS]
+            )
+        return self.to20(model_actions)
+
+    def from20_raw_rotation(
+        self,
+        actions20: torch.Tensor,
+        *,
+        stats: dict[str, Any] | None = None,
+        norm_mode: str = "quantile",
+        unnormalize_non_rotation: bool = False,
+    ) -> torch.Tensor:
+        model_actions = self.from20(actions20)
+        if not unnormalize_non_rotation:
+            return model_actions
+        if model_actions.shape[-1] != 14:
+            raise ValueError(
+                "RobotBimanual raw-rotation decoding expected 14D Cartesian actions; "
+                f"got {model_actions.shape[-1]} dims"
+            )
+        if stats is None:
+            raise ValueError("stats are required to unnormalize non-rotation dims")
+        return _unnormalize_robot_bimanual_non_rot(model_actions, stats, norm_mode)
+
+    def to32_raw_rotation(
+        self,
+        raw_actions: torch.Tensor,
+        *,
+        normalized_actions: torch.Tensor | None = None,
+        stats: dict[str, Any] | None = None,
+        norm_mode: str = "quantile",
+    ) -> torch.Tensor:
+        return _pad32(
+            self.to20_raw_rotation(
+                raw_actions,
+                normalized_actions=normalized_actions,
+                stats=stats,
+                norm_mode=norm_mode,
+            )
+        )
+
+    def from32_raw_rotation(
+        self,
+        actions32: torch.Tensor,
+        *,
+        stats: dict[str, Any] | None = None,
+        norm_mode: str = "quantile",
+        unnormalize_non_rotation: bool = False,
+    ) -> torch.Tensor:
+        return self.from20_raw_rotation(
+            actions32,
+            stats=stats,
+            norm_mode=norm_mode,
+            unnormalize_non_rotation=unnormalize_non_rotation,
+        )
+
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        # actions: (B,S,20) = [L xyz(3) 6d(6) g(1), R xyz(3) 6d(6) g(1)] — already
+        # the canonical 32D block layout (left 0..9, right 10..19), just pad.
+        actions = _ensure_bsd(actions)
+        if actions.shape[-1] != 20:
+            raise ValueError(
+                f"RobotBimanual.to32_norm_6d expected 20-dim, got {actions.shape[-1]}"
+            )
+        return _pad32(actions)
+
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
+        actions32 = _ensure_bsd(actions32)
+        if actions32.shape[-1] < 20:
+            raise ValueError(
+                f"RobotBimanual.from32_norm_6d expected >=20 dims, got "
+                f"{actions32.shape[-1]}"
+            )
+        return actions32[..., 0:20]
 
 
 # ============================================================
@@ -345,3 +590,30 @@ class HumanBimanualCartesianEuler(BaseActionConverter):
         R_R = _reconstruct_R_from_cols(R_c1, R_c2)
         R_ypr = _matrix_to_ypr(R_R)
         return torch.cat([L_xyz, L_ypr, R_xyz, R_ypr], dim=-1)  # (B,S,12)
+
+    def to32_norm_6d(self, actions: torch.Tensor) -> torch.Tensor:
+        # actions: (B,S,18) = [L xyz(3) 6d(6), R xyz(3) 6d(6)]. Human has no
+        # gripper, so insert a zero gripper slot at the end of each arm block to
+        # match the 32D block layout [xyz(3) c1(3) c2(3) g(1)] x 2.
+        actions = _ensure_bsd(actions)
+        if actions.shape[-1] != 18:
+            raise ValueError(
+                f"HumanBimanual.to32_norm_6d expected 18-dim, got {actions.shape[-1]}"
+            )
+        L = actions[..., 0:9]
+        R = actions[..., 9:18]
+        g0 = torch.zeros_like(actions[..., :1])
+        Lblock = torch.cat([L, g0], dim=-1)  # (B,S,10)
+        Rblock = torch.cat([R, g0], dim=-1)  # (B,S,10)
+        return _pad32(torch.cat([Lblock, Rblock], dim=-1))
+
+    def from32_norm_6d(self, actions32: torch.Tensor) -> torch.Tensor:
+        actions32 = _ensure_bsd(actions32)
+        if actions32.shape[-1] < 20:
+            raise ValueError(
+                f"HumanBimanual.from32_norm_6d expected >=20 dims, got "
+                f"{actions32.shape[-1]}"
+            )
+        L = actions32[..., 0:9]  # drop left gripper slot at idx 9
+        R = actions32[..., 10:19]  # drop right gripper slot at idx 19
+        return torch.cat([L, R], dim=-1)  # (B,S,18)
