@@ -1,0 +1,48 @@
+# Fused-tokens variant for the PUSHER task: action_horizon 400 (not 1024),
+# SimpleConv pooled cond (agent xy), AdamW 1e-4 + flat LinearLR. No dropout/F22.
+# extends _hnet_fused_common
+defaults:
+  - _hnet_fused_common
+  - _self_
+
+robomimic_model:
+  action_horizon: 400
+
+  cond_encoder:
+    _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+    d_cond: 128
+    output_key: fused_cond
+    cond_proj_widths:
+    - 128
+    - 128
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        embed_dim: 64
+        widths:
+        - 128
+        input_slice:
+        - 0
+        - 2
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.image_encoders.SimpleConv
+        in_channels: 3
+        channels:
+        - 32
+        - 64
+        - 128
+        - 256
+        kernel_size: 3
+        stride: 2
+        embed_dim: 128
+        norm_groups: 8
+
+optimizer:
+  lr: 1e-4
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1
