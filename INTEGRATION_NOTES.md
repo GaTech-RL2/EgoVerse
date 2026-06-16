@@ -155,3 +155,18 @@ that would risk gmm's working sim-eval and needs the pushshapes sim env to verif
 - Verified: pytest 150 pass (0 new regress); compose (circle+circle_small, 30 levels,
   seed_base 777); GPU e2e on test_demos (reduced to 3 levels x 2 pushers) EXIT=0 —
   ran per-level rollouts, env recreated per level, on_fit_end clean.
+
+## Config coverage audit (answer to "do all my configs work")
+Hydra-composed EVERY launchable config + imported every _target_ (incl.
+Class.classmethod): **model 105/105, data 44/44, evaluator 30/30 — 0 failures.**
+- Ported the EV2 bc_rnn_pushshapes sweep (26: hnet/tx chunk4/8/16/32 x q/non-q,
+  fullhist, minmax/cos) + hnet_pushshapes_goal + hpt_pushshapes_simpleconv
+  (+ models/stems/simple_conv_encoder.py) + Qwen/causal/perframe data + eval_latent/
+  eval_hpt_wrist/_revert_transform_base evaluators.
+- STILL EXCLUDED by scope (intentional): *_windowed* (closed-loop) model+bases,
+  *_jepa (model + data). Those are the only EV2 configs absent.
+- "Work" here = composes + all targets import (structural + import correctness).
+  Full per-config TRAIN needs that config's dataset; the eva/aria/mecka/scale/qwen
+  configs point at S3/storage paths not on this cluster, so can't be trained here.
+  Representative end-to-end trains DID pass: hnet_pushshapes, _crossattn, fused,
+  chunktoken, + cotrain level-sweep eval (EXIT=0).
