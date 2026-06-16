@@ -16,24 +16,34 @@ from egomimic.utils.viz_utils import (
 
 
 class EMBODIMENT(Enum):
-    EVE_RIGHT_ARM = 0
-    EVE_LEFT_ARM = 1
-    EVE_BIMANUAL = 2
-    ARIA_RIGHT_ARM = 3
-    ARIA_LEFT_ARM = 4
-    ARIA_BIMANUAL = 5
-    EVA_RIGHT_ARM = 6
-    EVA_LEFT_ARM = 7
-    EVA_BIMANUAL = 8
-    MECKA_BIMANUAL = 9
-    MECKA_RIGHT_ARM = 10
-    MECKA_LEFT_ARM = 11
-    SCALE_BIMANUAL = 12
-    SCALE_RIGHT_ARM = 13
-    SCALE_LEFT_ARM = 14
+    # All human demonstration data is one embodiment (HUMAN_*); the robot Eva is
+    # the only non-human embodiment. There is NO vendor/source notion at the
+    # embodiment level — the data source is recorded only in the SQL `lab` field.
+    HUMAN_RIGHT_ARM = 1
+    HUMAN_LEFT_ARM = 2
+    HUMAN_BIMANUAL = 3
+    EVA_RIGHT_ARM = 4
+    EVA_LEFT_ARM = 5
+    EVA_BIMANUAL = 6
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
+
+
+def _intrinsics_from_batch(batch, i: int):
+    """Return per-sample intrinsics from batch, or None if missing/NaN sentinel."""
+    K = batch.get("intrinsics") if isinstance(batch, dict) else None
+    if K is None:
+        return None
+    K_i = K[i]
+    if isinstance(K_i, torch.Tensor):
+        if torch.isnan(K_i).any():
+            return None
+        return K_i.detach().cpu().numpy()
+    K_i = np.asarray(K_i)
+    if np.isnan(K_i).any():
+        return None
+    return K_i
 
 
 def get_embodiment(index):
@@ -41,14 +51,14 @@ def get_embodiment(index):
 
 
 def get_embodiment_id(embodiment_name):
-    embodiment_name = embodiment_name.upper()
-    return EMBODIMENT[embodiment_name].value
+    return EMBODIMENT[embodiment_name.upper()].value
 
 
 class Embodiment(ABC):
     """Base embodiment class. An embodiment is responsible for defining the transform pipeline that converts between the raw data in the dataset and the canonical representation used by the model."""
 
-    VIZ_INTRINSICS_KEY = "base"
+    INTRINSICS = None
+    EXTRINSICS = None
     VIZ_IMAGE_KEY = "observations.images.front_img_1"
 
     @staticmethod
@@ -70,7 +80,6 @@ class Embodiment(ABC):
         if transform_list is not None:
             batch = cls.apply_transform(batch, transform_list)
         image_key = image_key or cls.VIZ_IMAGE_KEY
-        intrinsics_key = cls.VIZ_INTRINSICS_KEY
         mode = (mode or "traj").lower()
         B = batch[image_key].shape[0]
         image = _to_numpy(batch[image_key][0])
@@ -85,7 +94,7 @@ class Embodiment(ABC):
             image=image,
             viz_data=viz_data,
             mode=mode,
-            intrinsics_key=intrinsics_key,
+            intrinsics=_intrinsics_from_batch(batch, 0),
             **kwargs,
         )
 
@@ -95,22 +104,22 @@ class Embodiment(ABC):
         image,
         viz_data,
         mode=Literal["traj", "traj+rotation", "axes", "annotations"],
-        intrinsics_key=None,
+        intrinsics=None,
         **kwargs,
     ):
-        intrinsics_key = intrinsics_key or cls.VIZ_INTRINSICS_KEY
+        K = intrinsics if intrinsics is not None else cls.INTRINSICS
         if mode == "traj":
             return _viz_traj(
                 image=image,
                 actions=viz_data,
-                intrinsics_key=intrinsics_key,
+                intrinsics=K,
                 **kwargs,
             )
         if mode == "traj+rotation":
             vis = _viz_traj(
                 image=image,
                 actions=viz_data,
-                intrinsics_key=intrinsics_key,
+                intrinsics=K,
                 **kwargs,
             )
             return _viz_rotation_txt(
@@ -122,7 +131,7 @@ class Embodiment(ABC):
             return _viz_axes(
                 image=image,
                 actions=viz_data,
-                intrinsics_key=intrinsics_key,
+                intrinsics=K,
                 **kwargs,
             )
         if mode == "annotations":
@@ -188,11 +197,14 @@ class Embodiment(ABC):
             image = images[i]
             action = actions[i]
             pred_action = pred_actions[i]
+            K_i = _intrinsics_from_batch(batch, i)
             ims = cls.viz(
-                image, action, mode=mode, color="Greens", alpha=gt_alpha, **kwargs
+                image, action, mode=mode, color="Greens", alpha=gt_alpha,
+                intrinsics=K_i, **kwargs
             )
             ims = cls.viz(
-                ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha, **kwargs
+                ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha,
+                intrinsics=K_i, **kwargs
             )
             if annotation_key is not None:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)

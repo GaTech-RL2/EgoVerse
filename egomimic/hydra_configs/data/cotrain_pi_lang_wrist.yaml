@@ -9,7 +9,7 @@ train_datasets:
         keymap_mode: cartesian_wristframe_ypr
       transform_list:
         mode: cartesian_wristframe_ypr
-  aria_bimanual:
+  human_bimanual:
     resolver:
       key_map:
         keymap_mode: cartesian

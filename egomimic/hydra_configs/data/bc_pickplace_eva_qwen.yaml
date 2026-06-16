@@ -1,5 +1,5 @@
 # BC eva-only pick_place dataset for the HPT + Qwen-annotation experiment.
-# Same filters as cotrain_pickplace_qwen but aria_bimanual stripped out.
+# Same filters as cotrain_pickplace_qwen but human_bimanual stripped out.
 #   train = 216 eva_bimanual
 #   valid = 12  eva_bimanual alignment
 # Persistent zarr cache is shared with cotrain (no re-sync).

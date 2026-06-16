@@ -5,6 +5,12 @@ This repository contains the data processing, training and evaluation code for E
 ---
 
 ## Change Log
+### Mandatory Camera Intrinsics + Human Embodiment Collapse [06/16/2026]
+- Camera **intrinsics are now MANDATORY** in every episode's `zarr.json`, stored as a `{camera_key: 3×4 K}` dict (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is missing or not a non-empty dict. `extrinsics` (robots) is now strictly `None` or a non-empty dict.
+- **Embodiments collapsed**: all human demonstration data is a single `human_*` embodiment (`human_right_arm`/`human_left_arm`/`human_bimanual`, ids 1–3); the robot Eva is `eva_*` (ids 4–6). Vendor labels (`aria_*`, `mecka_*`, `scale_*`, `lightwheel_*`) are **removed** at the embodiment level — the data source now lives only in the SQL `lab` field. Conversion scripts write `human_*`.
+- **Aria processing**: fixed the right-hand EE-pose and wrist-pose orientations (each had a distinct right-hand mirror vs the left).
+- **Action required**: re-process and re-upload data so `zarr.json` includes intrinsics — see [CONTRIBUTING_DATA.md](./CONTRIBUTING_DATA.md). Mecka and Scale will be asked to add intrinsics to their exports.
+
 ### Mecka Data Reprocessing [04/01/2026]
 Mecka removed some poorer quality episodes and replaced them with higher quality alternatives.
 

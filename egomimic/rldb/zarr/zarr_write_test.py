@@ -22,7 +22,7 @@ import numpy as np
 
 from egomimic.rldb.zarr import ZarrWriter
 from egomimic.scripts.eva_process.zarr_utils import EvaHD5Extractor
-from egomimic.utils.egomimicUtils import EXTRINSICS
+from egomimic.rldb.embodiment.eva import Eva
 
 
 def is_image_array(arr) -> bool:
@@ -137,13 +137,7 @@ def convert_hdf5_to_zarr(
         print(f"Error: HDF5 file not found at {hdf5_path}")
         return None
 
-    # Get camera extrinsics
-    if extrinsics_key not in EXTRINSICS:
-        print(f"Error: Unknown extrinsics key '{extrinsics_key}'")
-        print(f"Available keys: {list(EXTRINSICS.keys())}")
-        return None
-
-    extrinsics = EXTRINSICS[extrinsics_key]
+    extrinsics = Eva.EXTRINSICS
 
     # Process episode using EvaHD5Extractor
     print("\nProcessing episode with EvaHD5Extractor...")
@@ -280,6 +274,10 @@ def convert_hdf5_to_zarr(
                 embodiment=embodiment,
                 task_name="debug",
                 task_description="",
+                # intrinsics are mandatory; debug placeholder {camera_key: 3x4} dict
+                intrinsics={
+                    "front_1": [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]]
+                },
             )
     except Exception as e:
         print(f"\n❌ ERROR writing Zarr file: {e}")

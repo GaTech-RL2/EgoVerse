@@ -1,56 +1,40 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
+# Embodiment collapse: mecka + scale are both `human_bimanual` now, so they can no
+# longer be separate cotrain domains. Merged into ONE human_bimanual dataset that
+# loads both labs. JUDGMENT CALL to sanity-check: mecka data carries a head pose
+# and scale does not, so the merged keymap uses has_head_pose=false (scale-
+# compatible) for a consistent representation across both sources.
 train_datasets:
-  mecka_bimanual:
+  human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}
       key_map:
-        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        has_head_pose: false
       transform_list:
-        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        stride: 1
     filters:
-      lab: "mecka"
-      task: "fold_clothes"
-    mode: train
-  scale_bimanual:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
-    resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: ${paths.dataset_dir}
-      key_map:
-        _target_: egomimic.rldb.embodiment.human.Scale.get_keymap
-      transform_list:
-        _target_: egomimic.rldb.embodiment.human.Scale.get_transform_list
-    filters:
-      lab: "scale"
-      task: "flagship_fold_clothes"
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: (row['lab'] == 'mecka' and row['task'] == 'fold_clothes') or (row['lab'] == 'scale' and row['task'] == 'flagship_fold_clothes')"
     mode: train
 
 valid_datasets:
-  mecka_bimanual:
-    _target_: ${train_datasets.mecka_bimanual._target_}
-    resolver: ${train_datasets.mecka_bimanual.resolver}
-    filters: ${train_datasets.mecka_bimanual.filters}
-    mode: valid
-  scale_bimanual:
-    _target_: ${train_datasets.scale_bimanual._target_}
-    resolver: ${train_datasets.scale_bimanual.resolver}
-    filters: ${train_datasets.scale_bimanual.filters}
+  human_bimanual:
+    _target_: ${train_datasets.human_bimanual._target_}
+    resolver: ${train_datasets.human_bimanual.resolver}
+    filters: ${train_datasets.human_bimanual.filters}
     mode: valid
 
 train_dataloader_params:
-  mecka_bimanual:
-    batch_size: 32
-    num_workers: 10
-  scale_bimanual:
+  human_bimanual:
     batch_size: 32
     num_workers: 10
 valid_dataloader_params:
-  mecka_bimanual:
-    batch_size: 32
-    num_workers: 10
-  scale_bimanual:
+  human_bimanual:
     batch_size: 32
     num_workers: 10

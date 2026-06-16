@@ -3,17 +3,14 @@ defaults:
   - _self_
 
 robomimic_model:
-  camera_transforms:
-    _target_: egomimic.utils.egomimicUtils.CameraTransforms
-    intrinsics_key: "base" # change to base_half if using half res
-    extrinsics_key: "ariaJun7"
+  camera_transforms: {}
   ac_keys:
-    aria_bimanual: "actions_cartesian"
-  domains: ["aria_bimanual"]
+    human_bimanual: "actions_cartesian"
+  domains: ["human_bimanual"]
 
   action_converters:
     rules:
-      ARIA_BIMANUAL:
+      HUMAN_BIMANUAL:
         _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
     # optional fallback if no match is found
     fallback:

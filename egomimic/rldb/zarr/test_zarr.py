@@ -8,11 +8,11 @@ from scipy.spatial.transform import Rotation as R
 from egomimic.rldb.utils import S3RLDBDataset
 from egomimic.rldb.zarr.action_chunk_transforms import (
     _matrix_to_xyzypr,
-    build_aria_bimanual_transform_list,
+    build_human_bimanual_transform_list,
     build_eva_bimanual_transform_list,
 )
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, ZarrDataset
-from egomimic.utils.egomimicUtils import EXTRINSICS
+from egomimic.rldb.embodiment.eva import Eva
 
 ZARR_EPISODE_PATH = Path(
     "/coc/flash7/rco3/EgoVerse/egomimic/rldb/zarr/zarr/new/1769460905119.zarr"
@@ -39,7 +39,7 @@ ARIA_ZARR_EPISODE_PATH = Path(
     "/coc/flash7/scratch/egoverseDebugDatasets/proc_zarr/1764285211791.zarr/"
 )
 ARIA_LEROBOT_EPISODE_HASH = "2025-11-27-23-13-31-791000"
-ARIA_EMBODIMENT = "aria_bimanual"
+ARIA_EMBODIMENT = "human_bimanual"
 ARIA_ACTION_HORIZON_REAL = 30
 ARIA_ACTION_CHUNK_LENGTH = 100
 ARIA_ACTION_STRIDE = 3
@@ -54,7 +54,7 @@ SCALE_LEROBOT_EPISODE_HASH = "697c1e6c0cac8cd3c4873844"
 SCALE_ZARR_EPISODE_PATH = Path(
     "/nethome/agao81/flash/EgoVerse/external/scale/scripts/datasets/2026-02-20-18-52-08-062985/697c1e6c0cac8cd3c4873844_episode_000000.zarr"
 )
-SCALE_EMBODIMENT = "scale_bimanual"
+SCALE_EMBODIMENT = "human_bimanual"
 SCALE_CACHE_ROOT = "/coc/flash7/scratch/.cache"
 SCALE_ACTION_HORIZON_REAL = 30
 SCALE_ACTION_CHUNK_LENGTH = 100
@@ -194,7 +194,7 @@ def _build_zarr_dataset_eva() -> MultiDataset:
         },
     }
 
-    extrinsics = EXTRINSICS["x5Dec13_2"]
+    extrinsics = Eva.EXTRINSICS
     left_extrinsics_pose = _matrix_to_xyzypr(extrinsics["left"][None, :])[0]
     right_extrinsics_pose = _matrix_to_xyzypr(extrinsics["right"][None, :])[0]
 
@@ -238,7 +238,7 @@ def _build_zarr_dataset_aria() -> MultiDataset:
         "obs_head_pose": {"zarr_key": "obs_head_pose"},
     }
 
-    transform_list = build_aria_bimanual_transform_list(
+    transform_list = build_human_bimanual_transform_list(
         chunk_length=ARIA_ACTION_CHUNK_LENGTH,
         stride=ARIA_ACTION_STRIDE,
         left_action_world="left.action_ee_pose",
@@ -396,7 +396,7 @@ def _build_zarr_dataset_scale() -> MultiDataset:
         "obs_head_pose": {"zarr_key": "obs_head_pose"},
     }
 
-    transform_list = build_aria_bimanual_transform_list(
+    transform_list = build_human_bimanual_transform_list(
         chunk_length=SCALE_ACTION_CHUNK_LENGTH,
         stride=SCALE_ACTION_STRIDE,
         left_action_world="left.action_ee_pose",

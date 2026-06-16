@@ -14,8 +14,8 @@ train_datasets:
       filter_lambdas:
         - "lambda row: row.get('embodiment') == 'eva_bimanual'"
     mode: total
-  aria_bimanual: null
+  human_bimanual: null
 
 valid_datasets:
   eva_bimanual: ${train_datasets.eva_bimanual}
-  aria_bimanual: null
+  human_bimanual: null

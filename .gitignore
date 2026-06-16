@@ -46,5 +46,6 @@ log_conversion/**
 debug_model_inputs/**
 temp_dir/**
 scratch/
+sample_data/
 external_ckpts/
 external/MANO/

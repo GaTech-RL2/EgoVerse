@@ -1,7 +1,13 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
+# Canonical human (ex-aria) cartesian data config, keyed by the collapsed
+# embodiment human_bimanual. Loads once the aria episodes are reprocessed to the
+# new format (embodiment="human_bimanual" + intrinsics in zarr.json).
+# NOTE: the filter still selects on the SQL value 'aria_bimanual' because the SQL
+# embodiment column has NOT been renamed yet (deferred). Update the lambda to
+# robot_name == 'human_bimanual' when the SQL column is migrated.
 train_datasets:
-  human_bimanual:
+  human_bimanual: &hb
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
@@ -12,15 +18,15 @@ train_datasets:
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         mode: cartesian
-        stride: 1
+        stride: 3
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['episode_hash'] == '69199812208123403bbdb24f'"
+        - "lambda row: row['robot_name'] == 'aria_bimanual' and row['zarr_processed_path'] != ''"
     mode: total
 
 valid_datasets:
-  human_bimanual: ${train_datasets.human_bimanual}
+  human_bimanual: *hb
 
 train_dataloader_params:
   human_bimanual:

@@ -7,7 +7,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     ConcatKeys,
     InterpolatePose,
     XYZWXYZ_to_XYZYPR,
-    build_aria_bimanual_transform_list,
+    build_human_bimanual_transform_list,
     build_eva_bimanual_transform_list,
 )
 from egomimic.utils.pose_utils import _xyzwxyz_to_matrix
@@ -283,10 +283,10 @@ def test_eva_builder_orders_xyzwxyz_to_xyzypr_after_interpolate_before_concat() 
     }
 
 
-def test_aria_builder_orders_xyzwxyz_to_xyzypr_after_interpolate_before_concat() -> (
+def test_human_builder_orders_xyzwxyz_to_xyzypr_after_interpolate_before_concat() -> (
     None
 ):
-    transform_list = build_aria_bimanual_transform_list(target_world_is_quat=True)
+    transform_list = build_human_bimanual_transform_list(target_world_is_quat=True)
     converter_indices = [
         i for i, t in enumerate(transform_list) if isinstance(t, XYZWXYZ_to_XYZYPR)
     ]
@@ -473,8 +473,8 @@ def test_eva_transform_list_stepwise_keys_and_shapes() -> None:
     )
 
 
-def test_aria_transform_list_stepwise_keys_and_shapes() -> None:
-    transform_list = build_aria_bimanual_transform_list(
+def test_human_transform_list_stepwise_keys_and_shapes() -> None:
+    transform_list = build_human_bimanual_transform_list(
         chunk_length=4,
         stride=2,
         target_world_is_quat=True,

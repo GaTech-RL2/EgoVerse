@@ -6,7 +6,7 @@ import imageio_ffmpeg
 import mediapy as mpy
 import torch
 
-from egomimic.rldb.embodiment.human import Mecka
+from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, S3EpisodeResolver
 from egomimic.utils.aws.aws_data_utils import load_env
@@ -33,8 +33,8 @@ def main() -> None:
     episode_hash = mecka_df.iloc[0]["episode_hash"]
     print(f"Using mecka episode: {episode_hash} (of {len(mecka_df)} candidates)")
 
-    key_map = Mecka.get_keymap(mode="keypoints")
-    transform_list = Mecka.get_transform_list(mode="keypoints_headframe_ypr")
+    key_map = Human.get_keymap(keymap_mode="keypoints")
+    transform_list = Human.get_transform_list(mode="keypoints_headframe_ypr", stride=1)
 
     resolver = S3EpisodeResolver(
         str(CACHE_DIR), key_map=key_map, transform_list=transform_list
@@ -49,7 +49,7 @@ def main() -> None:
 
     frames = []
     for i, batch in enumerate(loader):
-        vis = Mecka.viz_transformed_batch(
+        vis = Human.viz_transformed_batch(
             batch, mode="keypoints", viz_batch_key="actions_keypoints"
         )
         frames.append(vis)

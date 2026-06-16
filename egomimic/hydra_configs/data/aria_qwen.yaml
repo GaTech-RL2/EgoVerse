@@ -5,35 +5,36 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
-  aria_bimanual:
+  human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}
       key_map:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: cartesian
         annotation_key: annotations
       transform_list:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
         mode: cartesian
+        stride: 3
     filters: null
     mode: train
     valid_ratio: 0.05
 
 valid_datasets:
-  aria_bimanual:
-    _target_: ${train_datasets.aria_bimanual._target_}
-    resolver: ${train_datasets.aria_bimanual.resolver}
-    filters: ${train_datasets.aria_bimanual.filters}
+  human_bimanual:
+    _target_: ${train_datasets.human_bimanual._target_}
+    resolver: ${train_datasets.human_bimanual.resolver}
+    filters: ${train_datasets.human_bimanual.filters}
     mode: valid
-    valid_ratio: ${train_datasets.aria_bimanual.valid_ratio}
+    valid_ratio: ${train_datasets.human_bimanual.valid_ratio}
 
 train_dataloader_params:
-  aria_bimanual:
+  human_bimanual:
     batch_size: 32
     num_workers: 10
 valid_dataloader_params:
-  aria_bimanual:
+  human_bimanual:
     batch_size: 32
     num_workers: 10

@@ -12,7 +12,7 @@ train_datasets:
       project_name: "dense-language"
       filter_lambdas:
         - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
-  aria_bimanual: null
+  human_bimanual: null
 
 valid_datasets:
   eva_bimanual:
@@ -21,4 +21,4 @@ valid_datasets:
       project_name: "dense-language"
       filter_lambdas:
         - "lambda row: row['robot_name'] == 'eva_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"
-  aria_bimanual: null
+  human_bimanual: null

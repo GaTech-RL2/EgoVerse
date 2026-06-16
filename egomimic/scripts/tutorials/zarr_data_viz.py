@@ -4,7 +4,7 @@ import mediapy as mpy
 import numpy as np
 import torch
 
-from egomimic.rldb.embodiment.human import Aria
+from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     MultiDataset,
@@ -18,8 +18,8 @@ mpy.set_ffmpeg(imageio_ffmpeg.get_ffmpeg_exe())
 TEMP_DIR = "/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/temp_data"  # replace with your own temp directory for caching S3 data
 load_env()
 
-key_map = Aria.get_keymap(keymap_mode="cartesian")
-transform_list = Aria.get_transform_list(mode="cartesian")
+key_map = Human.get_keymap(keymap_mode="cartesian")
+transform_list = Human.get_transform_list(mode="cartesian", stride=3)
 
 resolver = S3EpisodeResolver(TEMP_DIR, key_map=key_map, transform_list=transform_list)
 filters = DatasetFilter(
@@ -34,7 +34,7 @@ loader = torch.utils.data.DataLoader(multi_ds, batch_size=1, shuffle=False)
 images = []
 
 for i, batch in enumerate(loader):
-    vis = Aria.viz_transformed_batch(batch, mode="traj")
+    vis = Human.viz_transformed_batch(batch, mode="traj")
     images.append(vis)
     if i > 900:
         break

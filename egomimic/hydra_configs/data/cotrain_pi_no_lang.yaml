@@ -11,7 +11,7 @@ train_datasets:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
         - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
-  aria_bimanual:
+  human_bimanual:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:

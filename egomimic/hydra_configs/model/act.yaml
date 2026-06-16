@@ -1,10 +1,7 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.act.ACT
-  camera_transforms:
-    _target_: egomimic.utils.egomimicUtils.CameraTransforms
-    intrinsics_key: "base" # change to base_half if using half res images
-    extrinsics_key: "ariaJul29"
+  camera_transforms: {}
   backbones: # Directly instantiate the backbones, there must be same number of backbones as there are cam_keys
     - _target_: egomimic.models.act_nets.ResNet18Conv
       pretrained: true

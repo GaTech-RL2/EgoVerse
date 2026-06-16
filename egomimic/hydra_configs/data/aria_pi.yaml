@@ -1,15 +1,16 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 train_datasets:
-  aria_bimanual:
+  human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}
       key_map:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_keymap
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
       transform_list:
-        _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        stride: 3
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
@@ -17,13 +18,13 @@ train_datasets:
     mode: total
 
 valid_datasets:
-  aria_bimanual: ${train_datasets.aria_bimanual}
+  human_bimanual: ${train_datasets.human_bimanual}
 
 train_dataloader_params:
-  aria_bimanual:
+  human_bimanual:
     batch_size: 32
     num_workers: 10
 valid_dataloader_params:
-  aria_bimanual:
+  human_bimanual:
     batch_size: 32
     num_workers: 10

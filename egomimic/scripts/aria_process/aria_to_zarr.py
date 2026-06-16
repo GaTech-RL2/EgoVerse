@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
+from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.scripts.aria_process.aria_utils import AriaVRSExtractor
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
@@ -108,11 +109,15 @@ class DatasetConverter:
         self.feats_to_zarr_keys = {}
 
         if self.arm == "both":
-            self.embodiment = "aria_bimanual"
+            self.embodiment = "human_bimanual"
         elif self.arm == "right":
-            self.embodiment = "aria_right_arm"
+            self.embodiment = "human_right_arm"
         elif self.arm == "left":
-            self.embodiment = "aria_left_arm"
+            self.embodiment = "human_left_arm"
+        else:
+            raise ValueError(
+                f"Unsupported arm: {self.arm!r} (expected 'both', 'right', or 'left')"
+            )
 
     def extract_episode(
         self,
@@ -174,6 +179,7 @@ class DatasetConverter:
             task_name=task_name,
             task_description=task_description,
             chunk_timesteps=chunk_timesteps,
+            intrinsics={"front_1": ARIA_INTRINSICS},
         )
         if self.save_mp4:
             mp4_path = output_dir / f"{episode_name}.mp4"

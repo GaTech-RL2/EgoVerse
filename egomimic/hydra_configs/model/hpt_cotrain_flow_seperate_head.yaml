@@ -2,18 +2,18 @@ defaults:
   - hpt_cotrain_enc_dec_base
 
 robomimic_model:
-  domains: ["eva_bimanual", "aria_bimanual"]
+  domains: ["eva_bimanual", "human_bimanual"]
   diffusion: true 
   head_specs:
     shared: null
-    aria_bimanual: 
+    human_bimanual: 
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        aria_bimanual: 12
+        human_bimanual: 12
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6

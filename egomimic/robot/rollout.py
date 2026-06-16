@@ -20,8 +20,8 @@ from egomimic.pl_utils.pl_data_utils import build_tokenized_collate
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 from egomimic.rldb.embodiment.eva import Eva
+from egomimic.rldb.embodiment.human import Human
 from egomimic.utils.egomimicUtils import (
-    CameraTransforms,
     cam_frame_to_base_frame,
     draw_actions,
     interpolate_arr,
@@ -127,14 +127,11 @@ def viz_rot_ee_pose(image, eepose, action_image_path, rot_image_path):
         right_xyz = arr[:, 6:9]
     action_xyz = np.hstack([left_xyz, right_xyz]).astype(np.float32, copy=False)
 
-    camera_transforms = CameraTransforms(
-        intrinsics_key="base", extrinsics_key="x5Dec13_2"
-    )
     im_action = visualize_actions(
         img.copy(),
         action_xyz,
-        camera_transforms.extrinsics,
-        camera_transforms.intrinsics,
+        Eva.EXTRINSICS,
+        Human.INTRINSICS,
         arm="both",
     )
     cv2.imwrite(action_image_path, im_action)
@@ -243,7 +240,6 @@ class PolicyRollout(Rollout):
         policy_path,
         query_frequency,
         cartesian,
-        extrinsics_key,
         resampled_action_len=None,
         debug=False,
         annotation_path=None,
@@ -255,9 +251,7 @@ class PolicyRollout(Rollout):
         self.cartesian = cartesian
         self.embodiment_id = EMBODIMENT_MAP[self.arm]
         self.embodiment_name = get_embodiment(self.embodiment_id)
-        self.extrinsics = CameraTransforms(
-            intrinsics_key="base", extrinsics_key=extrinsics_key
-        ).extrinsics
+        self.extrinsics = Eva.EXTRINSICS
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.policy_device = self.device
         print(f"[rollout] Loading policy from {self.policy_path}")
@@ -636,7 +630,6 @@ def main(
             policy_path=policy_path,
             query_frequency=query_frequency,
             cartesian=cartesian,
-            extrinsics_key="x5Dec13_2",
             resampled_action_len=resampled_action_len,
             debug=debug,
             annotation_path=annotation_path,

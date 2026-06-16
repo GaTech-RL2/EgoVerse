@@ -1,17 +1,9 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hpt.HPT
-  camera_transforms:
-    aria_bimanual:
-      _target_: egomimic.utils.egomimicUtils.CameraTransforms
-      intrinsics_key: "base" # change to base_half if using half res
-      extrinsics_key: "x5Dec13_2"
-    eva_bimanual:
-      _target_: egomimic.utils.egomimicUtils.CameraTransforms
-      intrinsics_key: "base" # change to base_half if using half res
-      extrinsics_key: "x5Dec13_2"
+  camera_transforms: {}
   ac_keys:
-    aria_bimanual: "actions_keypoints"
+    human_bimanual: "actions_keypoints"
 
   diffusion: true
   reverse_kl_samples: 8
@@ -31,18 +23,18 @@ robomimic_model:
   multitask: false
   pretrained: false
   pretrained_checkpoint: null
-  domains: ["aria_bimanual"]
+  domains: ["human_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
   head_specs:
-    aria_bimanual: 
+    human_bimanual: 
       _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        aria_bimanual: 138
+        human_bimanual: 138
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
@@ -71,7 +63,7 @@ robomimic_model:
           modality_embed_dim: 256
 
   stem_specs:
-    aria_bimanual:
+    human_bimanual:
       state_keypoints: 
         _target_: egomimic.models.hpt_nets.MLPPolicyStem
         input_dim: 138

@@ -80,11 +80,11 @@ train_datasets:
     hashes: ${oc.select:data.${data.latent_mode}_hashes.eva, []}
     resolver:
       require_annotations: true
-  aria_bimanual:
+  human_bimanual:
     _target_: egomimic.eval.latent_dataset.build_dataset
     mode: ${data.latent_mode}
     task: pick_place
-    embodiment: aria_bimanual
+    embodiment: human_bimanual
     frames_per_episode: ${data.frames_per_episode}
     stride: ${data.stride}
     hashes: ${oc.select:data.${data.latent_mode}_hashes.aria, []}
@@ -102,11 +102,11 @@ valid_datasets:
     hashes: ${oc.select:data.${data.latent_mode}_hashes.eva, []}
     resolver:
       require_annotations: true
-  aria_bimanual:
+  human_bimanual:
     _target_: egomimic.eval.latent_dataset.build_dataset
     mode: ${data.latent_mode}
     task: pick_place
-    embodiment: aria_bimanual
+    embodiment: human_bimanual
     frames_per_episode: ${data.frames_per_episode}
     stride: ${data.stride}
     hashes: ${oc.select:data.${data.latent_mode}_hashes.aria, []}
@@ -128,7 +128,7 @@ valid_dataloader_params:
     batch_size: ${oc.select:n_latents,500}
     num_workers: 6
     shuffle: ${oc.select:data._shuffle_${data.latent_mode}, true}
-  aria_bimanual:
+  human_bimanual:
     batch_size: ${oc.select:n_latents,500}
     num_workers: 6
     shuffle: ${oc.select:data._shuffle_${data.latent_mode}, true}

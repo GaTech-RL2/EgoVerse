@@ -157,7 +157,7 @@ Key field notes:
 - `lab`: short, stable, lowercase string. Once set, do not change it (used in filters).
 - `task`: high-level `task_name` that groups related episodes. Before inventing a new name, check the existing tasks in the episode registry via [`sql_tutorial.ipynb`](egomimic/scripts/tutorials/sql_tutorial.ipynb) (`df.groupby("task").size()`) and reuse one if your episode fits. If no existing task matches, canonicalize your new `task_name` to a short, stable, lowercase string that names a semantically meaningful category (e.g. `fold_clothes`, `object_in_container`) — not a one-off trial description. Put trial-specific detail in `task_description`, `scene`, and `objects`.
 - `embodiment`: must be one of the strings in §8.
-- `robot_name`: finer-grained variant; use the format `<platform>_<config>` (e.g. `aria_bimanual`, `aria_right_arm`).
+- `robot_name`: the same `human_*` / `eva_*` string as `embodiment` (there is no per-platform variant — record your lab/hardware in the `lab` field, not here).
 
 ### 4.2 Inserting a Row
 
@@ -178,8 +178,8 @@ row = TableRow(
     operator       = operator_hash,
     lab            = "rl2",
     task           = "fold_clothes",
-    embodiment     = "aria",
-    robot_name     = "aria_bimanual",
+    embodiment     = "human_bimanual",
+    robot_name     = "human_bimanual",
     task_description = "folding a 2T baby shirt on a blue table",
     scene          = "kitchen_A",
     objects        = "baby_shirt_2T",
@@ -196,7 +196,7 @@ add_episode(engine, row)
 ```python
 from egomimic.utils.aws.aws_sql import update_episode
 
-row.zarr_processed_path = "s3://rldb/processed_v3/aria/2026-03-15-14-22-10-000000.zarr"
+row.zarr_processed_path = "s3://rldb/processed_v3/human/2026-03-15-14-22-10-000000.zarr"
 row.num_frames = 2712
 update_episode(engine, row)
 ```
@@ -307,11 +307,17 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 
 ```python
 {
-    "embodiment":        str,   # e.g. "aria_bimanual"  (must match DB row)
+    "embodiment":        str,   # e.g. "human_bimanual"  (must match DB row)
     "total_frames":      int,   # number of valid frames (not padded)
     "fps":               int,   # capture frame rate (typically 30)
     "task_name":         str,   # e.g. "fold_clothes"  (must match DB row)
     "task_description":  str,   # free-text description of the trial
+    "intrinsics":        dict,  # MANDATORY: {camera_key: 3x4 K matrix} dict (single-camera =
+                                #   one entry, e.g. {"front_1": K}; 3x4 = the 3x3 pinhole K
+                                #   with a zero last column). Projection uses the "front" entry.
+    "extrinsics":  dict | None, # None, or a non-empty dict of 4x4 world<-cam transforms.
+                                #   Robots key per-arm, e.g. {"left": T, "right": T}.
+                                #   Egocentric human contributors omit it (None).
     "features": {
         "<key>": {
             "dtype":  str,        # numpy dtype string, or "jpeg" for images, "json" for annotations
@@ -332,6 +338,8 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 - `fps` must be the actual capture rate of `images.front_1`. Do not set to a target rate if the actual rate differs.
 - `features` must have one entry per array key present in the store.
 - `embodiment` and `task_name` must exactly match the values in the DB row for this episode.
+- `intrinsics` is **mandatory** and is always a `{camera_key: 3×4 K matrix}` dict in `zarr.attrs` (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is not a non-empty dict.
+- `extrinsics` is **either `None` or a non-empty `dict`** of 4×4 world↔cam transforms (robots key per-arm, e.g. `{"left": T, "right": T}`); egocentric human contributors omit it (`None`). `ZarrWriter.create_and_write` raises if it is anything other than `None` or a non-empty dict.
 
 ### 5.4 Storage / Chunking
 
@@ -344,6 +352,39 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 - **Zarr format version**: always **v3** (`zarr_format=3`).
 
 See example usage in eva_to_zarr.py and aria_to_zarr.py.
+
+#### Camera intrinsics & extrinsics — **how to store them**
+
+Do **not** hand-write these into `zarr.attrs` yourself. Pass them to `ZarrWriter.create_and_write` (or the `ZarrWriter(...)` constructor) via the `intrinsics=` / `extrinsics=` arguments; the writer serializes them into `zarr.attrs` under the `"intrinsics"` / `"extrinsics"` keys (§5.3).
+
+- **`intrinsics` is a REQUIRED `dict`** of the form `{camera_key: 3x4 K matrix}` — `create_and_write` raises a `ValueError` if it is not a non-empty dict. **Single-camera setups still use a dict — just one entry**, e.g. `{"front_1": K}`. (Always a dict, so downstream code has one clear structure to handle.)
+- Each value is a **3×4** K matrix: the standard 3×3 pinhole matrix with an appended **zero column** (i.e. `[K | 0]`). A bare 3×3 is rejected on the projection path — pad it with `np.hstack([K_3x3, np.zeros((3, 1))])`.
+- **Multi-camera rigs:** add one entry per camera, e.g. `{"front_1": K_front, "left_wrist": K_lw, "right_wrist": K_rw}`. The training/viz projection uses the **front-camera** entry (the key containing `front`), so make sure that one is present and correct.
+- **`extrinsics`** is **`None` or a non-empty `dict`** of 4×4 world↔cam transforms — `create_and_write` raises on anything else. **Robots** key it **per-arm**, e.g. `{"left": T_left, "right": T_right}`; egocentric **human** contributors pass `None` (omit it).
+
+```python
+import numpy as np
+from egomimic.rldb.zarr.zarr_writer import ZarrWriter
+
+# fx=fy=248.57, cx=320, cy=180  ->  3x4 K (note the zero last column)
+K_front = np.array([
+    [248.57,   0.0,   320.0, 0.0],
+    [  0.0,  248.57,  180.0, 0.0],
+    [  0.0,    0.0,     1.0, 0.0],
+])
+
+ZarrWriter.create_and_write(
+    episode_path="path/to/<episode_hash>.zarr",
+    embodiment="human_bimanual",
+    numeric_data=numeric_arrays,        # left/right.obs_ee_pose, obs_head_pose, ...
+    image_data=image_arrays,            # images.front_1, ...
+    intrinsics={"front_1": K_front},    # REQUIRED — always a {camera_key: 3x4} dict
+    # extrinsics=...,                   # REQUIRED for robot embodiments only
+    fps=30,
+    task_name="...",
+    task_description="...",
+)
+```
 
 ### 5.5 Episode Preview MP4 (sibling artifact)
 
@@ -453,7 +494,7 @@ annotations = [
 
 writer = ZarrWriter(
     episode_path="path/to/<episode_hash>.zarr",
-    embodiment="aria_bimanual",
+    embodiment="human_bimanual",
     fps=30,
     task_name="fold_clothes",
     task_description="folding a 2T baby shirt",
@@ -479,24 +520,35 @@ If you are delivering data through Scale AI, annotations are generated via the S
 
 ## 8. Embodiment Identifiers
 
-The `embodiment` field in the DB row and in `zarr.attrs` must be one of the following strings. The `robot_name` field is the same string (fine-grained variant names are allowed in `robot_name` but `embodiment` must match this list exactly).
+The `embodiment` field in the DB row and in `zarr.attrs` must be exactly one of the strings below. **All human demonstration data is a single `human` embodiment — there is no per-vendor or per-hardware embodiment.** The lab / hardware that produced the data is recorded separately in the SQL `lab` field, never in `embodiment`. Only the robot **Eva** is a distinct non-human embodiment.
 
-| `embodiment` string | Integer ID | Description |
+| `embodiment` string | Integer id | Description |
 |---|---|---|
-| `aria_bimanual` | 5 | Project Aria glasses + two-arm human demonstration |
-| `aria_right_arm` | 3 | Project Aria glasses + right arm only |
-| `aria_left_arm` | 4 | Project Aria glasses + left arm only |
-| `eva_bimanual` | 8 | Eva camera + bimanual robot |
-| `eva_right_arm` | 6 | Eva camera + right arm robot |
-| `eva_left_arm` | 7 | Eva camera + left arm robot |
-| `mecka_bimanual` | 9 | Mecka AI hardware + bimanual |
-| `mecka_right_arm` | 10 | Mecka AI hardware + right arm |
-| `mecka_left_arm` | 11 | Mecka AI hardware + left arm |
-| `scale_bimanual` | 12 | Scale AI EgoDex + bimanual |
-| `scale_right_arm` | 13 | Scale AI EgoDex + right arm |
-| `scale_left_arm` | 14 | Scale AI EgoDex + left arm |
+| `human_right_arm` | 1 | Egocentric human demonstration, right arm only |
+| `human_left_arm` | 2 | Egocentric human demonstration, left arm only |
+| `human_bimanual` | 3 | Egocentric human demonstration, two-arm |
+| `eva_right_arm` | 4 | Eva camera + right-arm robot |
+| `eva_left_arm` | 5 | Eva camera + left-arm robot |
+| `eva_bimanual` | 6 | Eva camera + bimanual robot |
 
-**If your hardware is not in this list**, contact the consortium leads to register a new embodiment identifier before submitting data.
+If you are contributing egocentric human data, you use `human_bimanual` (or the single-arm variants) regardless of your hardware — set the `lab` field (e.g. `lab="microagi"`) to identify your source.
+
+### 8.1 Using the `Human` embodiment (no subclass, no per-vendor identifier)
+
+There is a **single concrete `Human` embodiment class** ([`egomimic/rldb/embodiment/human.py`](egomimic/rldb/embodiment/human.py)) shared by all human data. You do **not** write a per-vendor subclass, and there is **no per-vendor embodiment identifier** — every human contributor uses `human_*` and records their source in the `lab` field. Camera intrinsics travel with the data (`zarr.attrs`, §5.3 / §5.4); per-vendor structural choices are passed as explicit arguments from the data config:
+
+- `Human.get_keymap(keymap_mode="cartesian"|"keypoints", has_head_pose=<bool>, include_aria_keypoints=<bool>)`
+- `Human.get_transform_list(mode="cartesian"|"keypoints_headframe_ypr"|..., stride=<int>)`
+
+Onboarding human data is just two steps:
+
+1. Write `embodiment="human_bimanual"` (or `human_left_arm` / `human_right_arm`) in the DB row and in `zarr.attrs`; record your lab/hardware in the `lab` field.
+2. Add a data config under [`egomimic/hydra_configs/data/`](egomimic/hydra_configs/data/) whose `key_map` / `transform_list` point at `Human.get_keymap` / `Human.get_transform_list` with the args your data needs. Copy `aria.yaml` (head-mounted, `stride: 3`) or `scale.yaml` (no head pose: `has_head_pose: false`, `stride: 1`).
+
+Notes:
+- Camera **intrinsics are MANDATORY** and live in `zarr.attrs` as a `{camera_key: 3x4}` dict (§5.4). You no longer declare an `INTRINSICS` constant in code.
+- `has_head_pose=False` if your data has no `obs_head_pose`; `stride` is the action-chunk stride (`3` for ~30 fps egocentric, `1` for already-downsampled data).
+- **Robots** subclass `Embodiment` directly and keep their own intrinsics/extrinsics + pipeline — see `Eva` in [`egomimic/rldb/embodiment/eva.py`](egomimic/rldb/embodiment/eva.py).
 
 ---
 
@@ -510,14 +562,12 @@ s3://rldb/processed_v3/<embodiment_prefix>/<episode_hash>.zarr/
 
 | Embodiment | `<embodiment_prefix>` |
 |---|---|
-| `aria_*` | `aria` |
+| `human_*` | `human` |
 | `eva_*` | `eva` |
-| `mecka_*` | `mecka` |
-| `scale_*` | `scale` |
 
 Examples:
 ```
-s3://rldb/processed_v3/aria/2026-03-15-14-22-10-000000.zarr/
+s3://rldb/processed_v3/human/2026-03-15-14-22-10-000000.zarr/
 s3://rldb/processed_v3/eva/2025-11-04-09-30-00-000000.zarr/
 ```
 
@@ -529,7 +579,7 @@ s3://rldb/processed_v3/eva/2025-11-04-09-30-00-000000.zarr/
 # Upload a local .zarr directory
 s5cmd --endpoint-url $AWS_ENDPOINT_URL_S3 \
       sync "/local/processed/2026-03-15-14-22-10-000000.zarr/*" \
-           "s3://rldb/processed_v3/aria/2026-03-15-14-22-10-000000.zarr/"
+           "s3://rldb/processed_v3/human/2026-03-15-14-22-10-000000.zarr/"
 ```
 
 Or using the Python utility:
@@ -540,7 +590,7 @@ load_env()
 upload_dir_to_s3(
     local_dir = "/local/processed/2026-03-15-14-22-10-000000.zarr",
     bucket    = "rldb",
-    prefix    = "processed_v3/aria/2026-03-15-14-22-10-000000.zarr",
+    prefix    = "processed_v3/human/2026-03-15-14-22-10-000000.zarr",
 )
 ```
 
@@ -562,7 +612,7 @@ def upload_one(local_zarr_path: str, s3_prefix: str):
 tasks = [
     upload_one.remote(
         f"/local/processed/{h}.zarr",
-        f"processed_v3/aria/{h}.zarr"
+        f"processed_v3/human/{h}.zarr"
     )
     for h in episode_hashes
 ]
@@ -604,6 +654,35 @@ def validate_episode(zarr_path: str) -> tuple[list[str], list[str]]:
         errors.append(f"Unexpected fps={meta['fps']}. Expected 30 or 60.")
     else:
         successes.append(f"fps={meta['fps']} is valid")
+
+    # ── Embodiment identifier (must resolve to a valid id; see §8) ──────────
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+    try:
+        get_embodiment_id(meta.get("embodiment", ""))
+        successes.append(f"embodiment={meta.get('embodiment')} is a valid identifier")
+    except (KeyError, AttributeError):
+        errors.append(f"embodiment={meta.get('embodiment')!r} is not a valid identifier (see §8)")
+
+    # ── Camera intrinsics (MANDATORY; {camera_key: 3x4 K matrix} dict) ──────
+    intr = meta.get("intrinsics")
+    if not isinstance(intr, dict) or not intr:
+        errors.append("intrinsics: missing or not a non-empty {camera_key: 3x4} dict")
+    else:
+        if not any("front" in str(k).lower() for k in intr):
+            errors.append(f"intrinsics: no front-camera entry (keys: {list(intr)})")
+        for cam, K in intr.items():
+            if np.asarray(K, dtype=float).shape != (3, 4):
+                errors.append(f"intrinsics['{cam}']: expected 3x4 K, got shape {np.asarray(K).shape}")
+            else:
+                successes.append(f"intrinsics['{cam}']: 3x4 OK")
+
+    # ── Camera extrinsics (OPTIONAL; None, or a non-empty dict of transforms) ─
+    if "extrinsics" in meta and meta["extrinsics"] is not None:
+        extr = meta["extrinsics"]
+        if not isinstance(extr, dict) or not extr:
+            errors.append("extrinsics: present but not a non-empty dict (must be None or a dict)")
+        else:
+            successes.append(f"extrinsics: non-empty dict OK (keys: {list(extr)})")
 
     # ── Frame counts ────────────────────────────────────────────────────────
     features = meta.get("features", {})
@@ -737,11 +816,20 @@ Verify the episode loads correctly through the full training pipeline before upl
 from pathlib import Path
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.rldb.embodiment.human import Aria
+from egomimic.rldb.embodiment.human import Human
 import torch
 
-key_map = Aria.get_keymap(keymap_mode="cartesian")
-transform_list = Aria.get_transform_list(mode="cartesian")
+# cartesian mode re-expresses every pose relative to obs_head_pose, so the
+# cartesian transform REQUIRES a head pose. Head-mounted (Aria) data uses it
+# directly; head-pose-less data (e.g. Scale/Mecka — scale.yaml sets
+# has_head_pose: false) cannot run the cartesian transform, so load it with
+# transform_list=None to validate the raw episode (the §10.1 checks are the
+# primary validation in that case).
+HAS_HEAD_POSE = True   # set False for head-pose-less data (e.g. Scale/Mecka)
+key_map = Human.get_keymap(keymap_mode="cartesian", has_head_pose=HAS_HEAD_POSE)
+transform_list = (
+    Human.get_transform_list(mode="cartesian", stride=3) if HAS_HEAD_POSE else None
+)
 
 resolver = LocalEpisodeResolver(
     folder_path    = Path("/local/processed"),
@@ -762,10 +850,46 @@ for batch in loader:
     pass
 ```
 
-Expected output for a valid Aria bimanual episode in cartesian mode:
+Expected output for a valid human bimanual episode in cartesian mode:
 - `actions_cartesian`: `(B, 100, 12)` — 100-step action chunk, 6 DOF × 2 arms
 - `observations.state.ee_pose`: `(B, 12)` — current EEF poses, 6 DOF × 2 arms
 - `observations.images.front_img_1`: `(B, 3, H, W)` — normalized RGB in `[0, 1]`
+
+### 10.3 Visual Verification
+
+After the load test passes, render a quick trajectory overlay on a local episode — it projects the action chunk onto the egocentric image using the per-episode intrinsics from `zarr.attrs`, so a wrong K matrix or coordinate frame shows up immediately as an overlay floating off the hands. (This step uses the cartesian `actions_cartesian` chunk, so it applies to head-mounted data with a head pose; head-pose-less data has no cartesian chunk to project — rely on §10.1 + the §10.2 raw load for those.)
+
+```python
+import imageio, torch
+from egomimic.rldb.embodiment.human import Human
+from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
+from egomimic.rldb.filters import DatasetFilter
+
+resolver = LocalEpisodeResolver(
+    folder_path    = "/local/processed",
+    key_map        = Human.get_keymap(keymap_mode="cartesian"),
+    transform_list = Human.get_transform_list(mode="cartesian", stride=3),
+)
+filters = DatasetFilter(filter_lambdas=[
+    "lambda row: row['episode_hash'] == '2026-03-15-14-22-10-000000'"
+])
+ds = MultiDataset._from_resolver(resolver, filters=filters, mode="total")
+loader = torch.utils.data.DataLoader(ds, batch_size=1)
+
+frames = [
+    Human.viz_transformed_batch(b, mode="traj", viz_batch_key="actions_cartesian")
+    for b in loader
+]
+imageio.mimsave("overlay_check.mp4", frames, fps=30)
+```
+
+Then confirm:
+
+- Trajectories project onto the hands/end-effectors in-frame (not floating off-screen or stuck at the principal point).
+- Left/right arms are not swapped.
+- Keypoints (if present) form anatomically plausible hand skeletons.
+
+Do not upload an episode whose visualization is visibly misaligned.
 
 ---
 
@@ -784,7 +908,11 @@ Complete every item before considering an episode ready for upload.
 - [ ] All `obs_keypoints` arrays have shape `(T, 63)`.
 - [ ] `features` dict in `zarr.attrs` has one entry per array key.
 - [ ] `embodiment` and `task_name` in `zarr.attrs` match the DB row values.
+- [ ] `intrinsics` is present in `zarr.attrs` as a `{camera_key: 3×4}` dict (single-camera = one entry) — **mandatory**.
+- [ ] `extrinsics` is present in `zarr.attrs` for robot embodiments.
 - [ ] All episode succeeds on zarr validation check code
+- [ ] An embodiment class is registered in `egomimic/rldb/embodiment/` (§8.1).
+- [ ] A sample episode has been visually verified via `zarr_data_viz.ipynb` (§10.3).
 
 **Coordinate frames**
 - [ ] All poses are in the SLAM world frame (not head frame, not camera frame).

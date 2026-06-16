@@ -5,22 +5,22 @@ eva_bimanual:
   action_key: actions_cartesian
   annotation_key: sampled_prompt
   mode: traj
-aria_bimanual:
-  _target_: egomimic.rldb.embodiment.human.Aria.viz_gt_preds
+human_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
   _partial_: true
   image_key: observations.images.front_img_1
   action_key: actions_cartesian
   annotation_key: sampled_prompt
   mode: traj
-mecka_bimanual:
-  _target_: egomimic.rldb.embodiment.human.Mecka.viz_gt_preds
+human_right_arm:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
   _partial_: true
   image_key: observations.images.front_img_1
   action_key: actions_cartesian
   annotation_key: sampled_prompt
   mode: traj
-scale_bimanual:
-  _target_: egomimic.rldb.embodiment.human.Scale.viz_gt_preds
+human_left_arm:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
   _partial_: true
   image_key: observations.images.front_img_1
   action_key: actions_cartesian

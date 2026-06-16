@@ -1547,10 +1547,13 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.total_frames = self.metadata["total_frames"]
         self.embodiment = self.metadata["embodiment"]
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
-
-        # Detect JPEG-encoded image keys from metadata
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
+
+    @property
+    def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
+        """Pass-through to ZarrEpisode.intrinsics (read from zarr metadata)."""
+        return self.episode_reader.intrinsics
 
     def _detect_image_keys(self) -> set[str]:
         """
@@ -1722,6 +1725,30 @@ class ZarrDataset(torch.utils.data.Dataset):
                     data[k] = torch.from_numpy(v).to(torch.float32)
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
+            # Per-episode camera intrinsics travel with the batch so a single
+            # data-driven embodiment can project without a hardcoded class const.
+            # Single-camera -> (3,4) K matrix; no/multi-camera -> NaN sentinel,
+            # which _intrinsics_from_batch treats as "fall back to cls.INTRINSICS".
+            K = self.intrinsics
+            if isinstance(K, dict):
+                # Multi-camera rig: project against the front camera (viz/projection
+                # target the front image). Prefer a "front"-keyed entry, else the
+                # first available camera.
+                K = next(
+                    (v for k, v in K.items() if "front" in str(k).lower()),
+                    next(iter(K.values()), None) if K else None,
+                )
+            if K is not None:
+                K = np.asarray(K, dtype=np.float32)
+                if K.shape == (3, 3):
+                    # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
+                    # some contributors store 3x3 (e.g. microagi).
+                    K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
+                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                    K = np.full((3, 4), np.nan, dtype=np.float32)
+            else:
+                K = np.full((3, 4), np.nan, dtype=np.float32)
+            data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
             data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
             _ = origin  # preserved for symmetry with prior API
@@ -1805,6 +1832,23 @@ class ZarrEpisode:
         self._store = zarr.open_group(str(self._path), mode="r")
         self.metadata = dict(self._store.attrs)
         self.keys = self.metadata["features"]
+
+    @property
+    def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
+        """
+        Camera intrinsics persisted in zarr metadata, deserialized to ndarray(s).
+
+        Returns:
+            - np.ndarray for a single-camera episode,
+            - dict[str, np.ndarray] for multi-camera episodes,
+            - None if no intrinsics were written.
+        """
+        raw = self.metadata.get("intrinsics")
+        if raw is None:
+            return None
+        if isinstance(raw, dict):
+            return {k: np.asarray(v) for k, v in raw.items()}
+        return np.asarray(raw)
 
     def read(
         self, keys_with_ranges: dict[str, tuple[int, int | None]]

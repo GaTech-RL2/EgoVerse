@@ -4,7 +4,5 @@ defaults:
 
 eva_bimanual:
   annotation_key: sampled_prompt
-aria_bimanual:
-  annotation_key: sampled_prompt
-scale_bimanual:
+human_bimanual:
   annotation_key: sampled_prompt

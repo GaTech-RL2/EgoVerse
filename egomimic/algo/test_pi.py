@@ -50,7 +50,7 @@ def _make_predictions(embodiment_name):
 
 def test_visualize_preds_supports_single_transform_object(monkeypatch):
     shared_transform = _make_transform("shared")
-    pi = _make_pi(shared_transform, ["aria_bimanual"])
+    pi = _make_pi(shared_transform, ["human_bimanual"])
 
     draw_calls = []
 
@@ -63,7 +63,7 @@ def test_visualize_preds_supports_single_transform_object(monkeypatch):
     monkeypatch.setattr(pi_module, "draw_actions", fake_draw_actions)
 
     ims = pi.visualize_preds(
-        _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
+        _make_predictions("human_bimanual"), _make_batch("human_bimanual")
     )
 
     assert ims.shape == (1, 4, 4, 3)
@@ -78,8 +78,8 @@ def test_visualize_preds_supports_single_transform_object(monkeypatch):
 
 def test_visualize_preds_raises_clear_error_for_missing_embodiment():
     pi = _make_pi(
-        {"aria_bimanual": _make_transform("aria")},
-        ["aria_bimanual", "eva_bimanual"],
+        {"human_bimanual": _make_transform("aria")},
+        ["human_bimanual", "eva_bimanual"],
     )
 
     with pytest.raises(KeyError) as exc_info:
@@ -90,15 +90,15 @@ def test_visualize_preds_raises_clear_error_for_missing_embodiment():
     assert "Missing camera transform for embodiment 'eva_bimanual'" in str(
         exc_info.value
     )
-    assert "aria_bimanual" in str(exc_info.value)
+    assert "human_bimanual" in str(exc_info.value)
 
 
 def test_visualize_preds_rejects_invalid_camera_transform_shape():
-    pi = _make_pi({"aria_bimanual": {"extrinsics": {}}}, ["aria_bimanual"])
+    pi = _make_pi({"human_bimanual": {"extrinsics": {}}}, ["human_bimanual"])
 
     with pytest.raises(TypeError) as exc_info:
         pi.visualize_preds(
-            _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
+            _make_predictions("human_bimanual"), _make_batch("human_bimanual")
         )
 
     assert "camera_transforms must be a CameraTransforms instance or a mapping" in str(
@@ -110,8 +110,8 @@ def test_visualize_preds_uses_embodiment_specific_camera_transform(monkeypatch):
     aria_transform = _make_transform("aria")
     eva_transform = _make_transform("eva")
     pi = _make_pi(
-        {"aria_bimanual": aria_transform, "eva_bimanual": eva_transform},
-        ["aria_bimanual", "eva_bimanual"],
+        {"human_bimanual": aria_transform, "eva_bimanual": eva_transform},
+        ["human_bimanual", "eva_bimanual"],
     )
 
     draw_calls = []
@@ -134,7 +134,7 @@ def test_visualize_preds_uses_embodiment_specific_camera_transform(monkeypatch):
     monkeypatch.setattr(pi_module, "draw_actions", fake_draw_actions)
 
     ims = pi.visualize_preds(
-        _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
+        _make_predictions("human_bimanual"), _make_batch("human_bimanual")
     )
 
     assert ims.shape == (1, 4, 4, 3)

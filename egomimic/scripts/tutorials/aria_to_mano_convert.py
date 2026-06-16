@@ -37,7 +37,11 @@ import mediapy as mpy
 import numpy as np
 import torch
 
-from egomimic.rldb.embodiment.human import Aria, Mecka
+from egomimic.rldb.embodiment.human import (
+    ARIA_FINGER_EDGE_RANGES,
+    ARIA_FINGER_EDGES,
+    Human,
+)
 from egomimic.scripts.aria_process.aria_utils import fit_mano_to_aria_batched
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, S3EpisodeResolver
@@ -73,8 +77,8 @@ def fetch_episode_loader():
     episode_hash = aria_df.iloc[0]["episode_hash"]
     print(f"Aria episode: {episode_hash} (of {len(aria_df)})")
 
-    key_map = Aria.get_keymap(keymap_mode="keypoints")
-    transform_list = Aria.get_transform_list(mode="keypoints_headframe_ypr")
+    key_map = Human.get_keymap(keymap_mode="keypoints")
+    transform_list = Human.get_transform_list(mode="keypoints_headframe_ypr", stride=3)
     resolver = S3EpisodeResolver(
         str(CACHE_DIR), key_map=key_map, transform_list=transform_list
     )
@@ -152,19 +156,23 @@ def render_side_by_side(rows, mano_left_canonical, mano_right_canonical):
     n = len(rows)
     for i, row in enumerate(rows):
         batch = row["batch"]
-        aria_vis = Aria.viz_transformed_batch(
-            batch, mode="keypoints", viz_batch_key="actions_keypoints"
+        aria_vis = Human.viz_transformed_batch(
+            batch,
+            mode="keypoints",
+            viz_batch_key="actions_keypoints",
+            finger_edges=ARIA_FINGER_EDGES,
+            finger_edge_ranges=ARIA_FINGER_EDGE_RANGES,
         )
         left_flat = mano_left_canonical[i].reshape(-1).numpy()
         right_flat = mano_right_canonical[i].reshape(-1).numpy()
         viz_data = np.concatenate([left_flat, right_flat])  # (126,)
-        image_t = batch[Aria.VIZ_IMAGE_KEY][0]
+        image_t = batch[Human.VIZ_IMAGE_KEY][0]
         if image_t.ndim == 3 and image_t.shape[0] in (1, 3):
             image_t = image_t.permute(1, 2, 0)
         image = image_t.numpy()
         if image.dtype != np.uint8:
             image = (image * 255.0).clip(0, 255).astype(np.uint8)
-        mano_vis = Mecka.viz(
+        mano_vis = Human.viz(
             image=image, viz_data=viz_data, mode="keypoints", intrinsics_key="base"
         )
 
