@@ -1,0 +1,10 @@
+# BC HPT (eva-only, robot data) + Qwen3-Embedding (per-token hidden states) text stem.
+# extends _hpt_bc_pickplace_qwen_common (only the annotation encoder class differs).
+defaults:
+  - _hpt_bc_pickplace_qwen_common
+  - _self_
+
+robomimic_model:
+  shared_stem_specs:
+    annotation:
+      _target_: egomimic.models.stems.text_encoders.QwenPerTokenEncoder

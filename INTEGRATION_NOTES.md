@@ -26,5 +26,19 @@ as integration proceeds:
 regression I introduced and must fix. The 11 non-CUDA, non-data-hash failures
 above should ideally become passes by end of integration.
 
+### Known-flaky (pre-existing, NOT a regression)
+- `tests/test_core_defaults_byte_identical.py::test_tx_matches_reference_fingerprint`
+  — fails on the **pristine untouched EgoVerse-gmm** too (verified in isolation).
+  Its `tx` forward checksum is ~1e-6 with a near-zero-tight tolerance, so float/
+  threading nondeterminism flips it pass/fail run-to-run. Ignore for regression
+  accounting (params ARE byte-identical; only the tiny forward sum drifts).
+
 ## Progress log
 - Stage 0 ✅ copy + git baseline + sanity import OK.
+- Stage 1 ✅ conflict edits (_cut_windows window_anchor, SimpleConv spatial/tokens,
+  ResNetEncoder); compat conflicts verified no-op. Smoke OK.
+- Stage 2 ✅ Qwen/T5 conditioning: text_encoders.py, HPT annotation params +
+  _build_prompts + stem_process list branch + _robomimic injection;
+  scheduler_utils.warmup_then_cosine; model+data Qwen configs (gmm paths).
+  Smoke: QwenPooled/PerToken compute_latent -> (2,16,256), _build_prompts logic OK.
+  Full pytest: 149 passed / 16 pre-existing fails (+ the flaky tx fingerprint) — no new regressions.

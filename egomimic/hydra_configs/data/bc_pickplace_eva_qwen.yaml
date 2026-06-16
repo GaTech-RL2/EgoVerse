@@ -1,0 +1,10 @@
+# BC eva-only pick_place dataset for the HPT + Qwen-annotation experiment.
+# This leaf is _pickplace_qwen_base verbatim (eva_bimanual train 'alignment'
+# NOT IN, valid 'alignment' IN, batch 32 / workers 6) with NO aria_bimanual
+# blocks.
+#   train = 216 eva_bimanual
+#   valid = 12  eva_bimanual alignment
+# Persistent zarr cache is shared with cotrain (no re-sync).
+defaults:
+  - _pickplace_qwen_base
+  - _self_
