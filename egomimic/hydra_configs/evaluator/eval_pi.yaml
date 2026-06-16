@@ -4,6 +4,8 @@ defaults:
 
 _target_: egomimic.eval.eval_pi.PIEvalVideo
 
+viz_every_n_epochs: 200
+
 # Per-embodiment revert transform. Applied once during validation to project
 # the model's wrist-frame action chunks back to cam (head) frame, then reused
 # for both the cam-frame MSE and the viz video. Each value resolves to a
