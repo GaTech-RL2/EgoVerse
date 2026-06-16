@@ -181,3 +181,37 @@ def filter_df_annotations(
     annotation_df = build_df_from_tasks(tasks)
     available = set(get_available_hashes(annotation_df))
     return episode_df[episode_df["episode_hash"].isin(available)].reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Additive merge from EgoVerse2: resilient GET wrapper. Added as an available
+# symbol; gmm's existing requests.get call sites are left unchanged so behavior
+# is byte-identical unless a caller opts in to this wrapper.
+# ---------------------------------------------------------------------------
+import time as _time  # noqa: E402
+
+_MAX_RETRIES = 5
+_RETRY_BACKOFF_S = 5.0
+
+
+def _requests_get_with_retry(*args, **kwargs):
+    """``requests.get`` with retries on transient ReadTimeout / ConnectionError.
+
+    api.scale.com routinely 60s-times-out under load. Each task-list page hits
+    the API once, so a long-running launch will trip a retry several times.
+    """
+    last_exc = None
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            return requests.get(*args, **kwargs)
+        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
+            last_exc = e
+            if attempt == _MAX_RETRIES:
+                raise
+            wait = _RETRY_BACKOFF_S * attempt
+            print(
+                f"[scale_utils] {type(e).__name__} on attempt {attempt}/{_MAX_RETRIES}; "
+                f"retrying in {wait:.1f}s"
+            )
+            _time.sleep(wait)
+    raise last_exc  # pragma: no cover

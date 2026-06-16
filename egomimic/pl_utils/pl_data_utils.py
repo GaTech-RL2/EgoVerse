@@ -281,3 +281,146 @@ def build_tokenized_collate(
         return collated
 
     return _collate
+
+
+# ---------------------------------------------------------------------------
+# Additive merge from EgoVerse2: legacy data-module wrappers. These are
+# DEPRECATED (not used by trainHydra.py, which uses MultiDataModuleWrapper) but
+# ported for API parity. Their deps (annotation_collate, build_tokenized_collate,
+# DataLoader, CombinedLoader) already exist above.
+# ---------------------------------------------------------------------------
+class RLDBModule(LightningDataModule):
+    """Deprecated and is not supported by trainHydra.py"""
+
+    def __init__(
+        self,
+        train_dataset,
+        valid_dataset,
+        train_dataloader_kwargs,
+        valid_dataloader_kwargs,
+    ):
+        cprint(
+            "RLDBModule is deprecated and is not supported by trainHydra.py. Use MultiDataModuleWrapper instead",
+            "red",
+        )
+        super().__init__()
+        self.train_dataloader_kwargs = train_dataloader_kwargs
+        self.valid_dataloader_kwargs = valid_dataloader_kwargs
+        self.train_dataset = train_dataset
+        self.valid_dataset = valid_dataset
+
+    def train_dataloader(self):
+        return DataLoader(
+            self.train_dataset, shuffle=True, **self.train_dataloader_kwargs
+        )
+
+    def val_dataloader(self):
+        return DataLoader(
+            self.val_dataset, shuffle=False, **self.valid_dataloader_kwargs
+        )
+
+
+class DualDataModuleWrapper(LightningDataModule):
+    """Same as DataModuleWrapper but two train datasets and two valid datasets.
+
+    Deprecated and is not supported by trainHydra.py.
+    """
+
+    def __init__(
+        self,
+        train_dataset1,
+        valid_dataset1,
+        train_dataset2,
+        valid_dataset2,
+        train_dataloader_params,
+        valid_dataloader_params,
+        collate_max_length=128,
+        model_name="google/paligemma-3b-mix-224",
+    ):
+        cprint(
+            "DualDataModuleWrapper is deprecated and is not supported by trainHydra.py. Use MultiDataModuleWrapper instead",
+            "red",
+        )
+        super().__init__()
+        self.train_dataset1 = train_dataset1
+        self.valid_dataset1 = valid_dataset1
+        self.train_dataset2 = train_dataset2
+        self.valid_dataset2 = valid_dataset2
+        self.train_dataloader_params = train_dataloader_params
+        self.valid_dataloader_params = valid_dataloader_params
+        self.collate_fn = build_tokenized_collate(
+            max_length=collate_max_length,
+            model_name=model_name,
+        )
+
+    def train_dataloader(self):
+        new_dataloader1 = DataLoader(
+            dataset=self.train_dataset1,
+            collate_fn=self.collate_fn,
+            **self.train_dataloader_params,
+        )
+        new_dataloader2 = DataLoader(
+            dataset=self.train_dataset2,
+            collate_fn=self.collate_fn,
+            **self.train_dataloader_params,
+        )
+        return [new_dataloader1, new_dataloader2]
+
+    def val_dataloader(self):
+        new_dataloader1 = DataLoader(
+            dataset=self.valid_dataset1,
+            collate_fn=self.collate_fn,
+            shuffle=False,
+            **self.valid_dataloader_params,
+        )
+        new_dataloader2 = DataLoader(
+            dataset=self.valid_dataset2,
+            collate_fn=self.collate_fn,
+            shuffle=False,
+            **self.valid_dataloader_params,
+        )
+        return [new_dataloader1, new_dataloader2]
+
+
+class DataModuleWrapper(LightningDataModule):
+    """Wrapper around a LightningDataModule that refreshes the data loader.
+
+    Deprecated; use MultiDataModuleWrapper for trainHydra.py.
+    """
+
+    def __init__(
+        self,
+        train_dataset,
+        valid_dataset,
+        train_dataloader_params,
+        valid_dataloader_params,
+        collate_max_length=128,
+        model_name="google/paligemma-3b-mix-224",
+        sampling_mode: Literal["first", "random"] = "random",
+        annotation_key=None,
+    ):
+        super().__init__()
+        self.train_dataset = train_dataset
+        self.valid_dataset = valid_dataset
+        self.train_dataloader_params = train_dataloader_params
+        self.valid_dataloader_params = valid_dataloader_params
+        self.collate_fn = build_tokenized_collate(
+            max_length=collate_max_length,
+            model_name=model_name,
+            sampling_mode=sampling_mode,
+            annotation_key=annotation_key,
+        )
+
+    def train_dataloader(self):
+        return DataLoader(
+            dataset=self.train_dataset,
+            collate_fn=self.collate_fn,
+            **self.train_dataloader_params,
+        )
+
+    def val_dataloader_1(self):
+        return DataLoader(
+            dataset=self.valid_dataset,
+            collate_fn=self.collate_fn,
+            **self.valid_dataloader_params,
+        )

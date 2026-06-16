@@ -1866,3 +1866,217 @@ class LocalEpisodeResolverWithEmbodimentOverride(LocalEpisodeResolver):
             for ds in datasets.values():
                 ds.embodiment = self.embodiment_override
         return datasets
+
+
+# ===========================================================================
+# Additive merge from EgoVerse2: safe S3 resolver + even-stride dataset +
+# helpers. New symbols only — gmm's existing classes are untouched.
+# ===========================================================================
+import simplejpeg  # noqa: E402  (used by _jpeg_probe_failed below)
+
+
+def _unwrap_single_jpeg_buffer(buf):
+    """Return the actual JPEG byte buffer from scalar/length-1 object arrays."""
+    if isinstance(buf, np.ndarray) and buf.dtype == object:
+        if buf.shape == ():
+            return buf.item()
+        if buf.size == 1:
+            return buf.reshape(-1)[0]
+    return buf
+
+
+def _jpeg_probe_failed(ds_obj: "ZarrDataset"):
+    """Try decoding 5 sampled frames per image key. If every probe fails
+    for a key, return (key, reason); else None."""
+    image_keys = getattr(ds_obj, "_image_keys", None) or set()
+    for img_key in image_keys:
+        try:
+            arr = ds_obj.episode_reader._store[img_key]
+            n = arr.shape[0] if hasattr(arr, "shape") else len(arr)
+            if n == 0:
+                return (img_key, "empty")
+            probe_idx = sorted({0, n // 4, n // 2, 3 * n // 4, n - 1})
+            ok_any = False
+            last_err = ""
+            for i in probe_idx:
+                try:
+                    simplejpeg.decode_jpeg(arr[i : i + 1][0], colorspace="RGB")
+                    ok_any = True
+                    break
+                except Exception as e:
+                    last_err = str(e)
+            if not ok_any:
+                return (img_key, f"all probes failed: {last_err}")
+        except Exception as e:
+            return (img_key, str(e))
+    return None
+
+
+def _has_annotation(ds_obj: "ZarrDataset", annotation_key: str = "annotations") -> bool:
+    try:
+        arr = ds_obj.episode_reader._store[annotation_key]
+    except Exception:
+        return False
+    try:
+        n = arr.shape[0] if hasattr(arr, "shape") else len(arr)
+    except Exception:
+        return False
+    return n > 0
+
+
+class SafeS3EpisodeResolver(S3EpisodeResolver):
+    """Drop-in replacement for `S3EpisodeResolver` that filters unusable
+    episodes after the underlying resolver has discovered them. Skips
+    episodes that:
+      - are missing any keymap-required key,
+      - have unrecoverably-corrupt JPEG image streams (verified by
+        spot-decoding a handful of frames), or
+      - (optionally) lack a non-empty language-annotation field."""
+
+    def __init__(
+        self,
+        *args,
+        require_annotations: bool = False,
+        annotation_key: str = "annotations",
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+        self.require_annotations = require_annotations
+        self.annotation_key = annotation_key
+
+    def resolve(self, filters=None):
+        datasets = super().resolve(filters=filters)
+        if self.key_map is None:
+            return datasets
+
+        required = {
+            spec["zarr_key"]
+            for spec in self.key_map.values()
+            if isinstance(spec, dict)
+            and spec.get("key_type") != "annotation_keys"
+            and spec.get("zarr_key") is not None
+        }
+
+        kept = {}
+        for ep_hash, ds_obj in datasets.items():
+            available = set(getattr(ds_obj, "keys_dict", {}))
+            missing = required - available
+            if missing:
+                logger.warning(
+                    "SafeS3EpisodeResolver: skipping %s (missing %s)",
+                    ep_hash,
+                    sorted(missing),
+                )
+                continue
+            bad = _jpeg_probe_failed(ds_obj)
+            if bad is not None:
+                logger.warning(
+                    "SafeS3EpisodeResolver: skipping %s (JPEG probe failed for %s: %s)",
+                    ep_hash,
+                    bad[0],
+                    bad[1],
+                )
+                continue
+            if self.require_annotations and not _has_annotation(
+                ds_obj, self.annotation_key
+            ):
+                logger.warning(
+                    "SafeS3EpisodeResolver: skipping %s (no '%s' field)",
+                    ep_hash,
+                    self.annotation_key,
+                )
+                continue
+            kept[ep_hash] = ds_obj
+
+        if not kept:
+            logger.warning(
+                "SafeS3EpisodeResolver: every episode was filtered out — "
+                "the keymap may demand a key your data does not have, or "
+                "require_annotations=true is too strict."
+            )
+        return kept
+
+
+def _evenly_spaced_indices(n: int, k: int) -> list:
+    if n <= 0:
+        return []
+    if k >= n:
+        return list(range(n))
+    if k == 1:
+        return [n // 2]
+    return [int(round(i * (n - 1) / (k - 1))) for i in range(k)]
+
+
+def _strided_indices(n: int, stride: int) -> list:
+    if n <= 0 or stride <= 0:
+        return []
+    return list(range(0, n, stride))
+
+
+class EvenStrideDataset(MultiDataset):
+    """Wraps a `MultiDataset` to subsample frames per underlying episode.
+    Pass exactly one of `frames_per_episode` (K evenly-spaced) or
+    `stride` (every Sth frame). Subclasses `MultiDataset` so trainHydra's
+    isinstance check passes; we skip the parent `__init__` and adopt its
+    class identity only, delegating to `self.base`."""
+
+    def __init__(
+        self, base, frames_per_episode: int | None = None, stride: int | None = None
+    ):
+        if (frames_per_episode is None) == (stride is None):
+            raise ValueError(
+                "EvenStrideDataset requires exactly ONE of "
+                "`frames_per_episode` or `stride` to be set "
+                f"(got frames_per_episode={frames_per_episode}, stride={stride})."
+            )
+        gibd = getattr(base, "_global_indices_by_dataset", None)
+        if gibd is None:
+            raise ValueError(
+                f"EvenStrideDataset requires a MultiDataset exposing "
+                f"_global_indices_by_dataset, got {type(base).__name__}"
+            )
+        torch.utils.data.Dataset.__init__(self)
+        self.base = base
+        self.frames_per_episode = frames_per_episode
+        self.stride = stride
+        self.datasets = base.datasets
+
+        keep = []
+        for ep_name, idxs in gibd.items():
+            n = len(idxs)
+            if stride is not None:
+                picks = _strided_indices(n, stride)
+                rule = f"stride={stride}"
+            else:
+                picks = _evenly_spaced_indices(n, frames_per_episode)
+                rule = f"k={frames_per_episode}"
+            chosen = [idxs[i] for i in picks]
+            actual_stride = n / max(1, len(chosen))
+            logger.info(
+                "EvenStrideDataset: %s -> %d / %d frames (%s, actual stride ~%.1f)",
+                ep_name,
+                len(chosen),
+                n,
+                rule,
+                actual_stride,
+            )
+            keep.extend(chosen)
+        self.indices = sorted(keep)
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        return self.base[self.indices[idx]]
+
+    def set_data_schematic(self, data_schematic) -> None:
+        self.base.set_data_schematic(data_schematic)
+        self.data_schematic = data_schematic
+
+    def __getattr__(self, item):
+        if item == "base":
+            raise AttributeError(item)
+        base = self.__dict__.get("base")
+        if base is None:
+            raise AttributeError(item)
+        return getattr(base, item)
