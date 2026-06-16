@@ -70,7 +70,8 @@ def _pack_to_padded(x, cu_seqlens, B, T_max):
 
 
 def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
-                 pad_mode="zero_masked", obs_stride=1, chunk_len=1):
+                 pad_mode="zero_masked", obs_stride=1, chunk_len=1,
+                 window_anchor="uniform"):
     """Sample length-`horizon` windows from padded episodes.
 
     robomimic SequenceDataset serves length-`seq_length` (=rnn.horizon)
@@ -113,18 +114,38 @@ def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
     C = int(chunk_len)
     seq_lens = mask.sum(dim=1).to(torch.long)  # (B,)
 
-    # enumerate all valid (episode, start) pairs. starts are uniform over all
-    # in-episode start frames s in [0, L-1] (tails handled by padding below);
-    # this is UNCHANGED by striding/chunking -- s still indexes a real frame.
-    pairs = []
-    for b in range(B):
-        L = int(seq_lens[b].item())
-        for s in range(L):
-            pairs.append((b, s))
-    if max_windows is not None and len(pairs) > int(max_windows):
-        # uniform sample WITHOUT replacement over valid starts (robomimic-style)
-        idx = torch.randperm(len(pairs), device=actions_padded.device)[: int(max_windows)]
-        pairs = [pairs[int(i)] for i in idx]
+    # WINDOW ANCHORING (single knob; default 'uniform' is byte-identical):
+    #   'uniform' (default, pre-existing): enumerate all valid (episode, start)
+    #     pairs with start s in [0, L-1] (a uniform sample over start frames,
+    #     robomimic-style); tails handled by padding below. s indexes a real
+    #     frame and is UNCHANGED by striding/chunking.
+    #   'start' (full-history): exactly ONE window per episode, anchored at frame
+    #     0 -> pairs == [(b, 0) for each episode b]. The window then spans frames
+    #     0, sigma, 2*sigma, ... (length-H over the SUBSAMPLED obs), repeat-padded
+    #     at the tail. This makes the training context semantics match a
+    #     NEVER-RESET rollout (the buffer is never re-zeroed mid-episode), which
+    #     is the point of the full-history variant. No max_windows subsample is
+    #     applied (there are at most B windows, one per episode in the batch).
+    if window_anchor not in ("uniform", "start"):
+        raise ValueError(
+            f"window_anchor must be uniform|start, got {window_anchor!r}"
+        )
+    if window_anchor == "start":
+        # one (b, 0) per episode; no random subsample (<= B windows total).
+        pairs = [(b, 0) for b in range(B)]
+    else:
+        # enumerate all valid (episode, start) pairs. starts are uniform over all
+        # in-episode start frames s in [0, L-1] (tails handled by padding below);
+        # this is UNCHANGED by striding/chunking -- s still indexes a real frame.
+        pairs = []
+        for b in range(B):
+            L = int(seq_lens[b].item())
+            for s in range(L):
+                pairs.append((b, s))
+        if max_windows is not None and len(pairs) > int(max_windows):
+            # uniform sample WITHOUT replacement over valid starts (robomimic-style)
+            idx = torch.randperm(len(pairs), device=actions_padded.device)[: int(max_windows)]
+            pairs = [pairs[int(i)] for i in idx]
 
     # pad_mode (robomimic SequenceDataset boundary handling):
     #   "zero_masked" (default, pre-existing): window tails past the episode end
