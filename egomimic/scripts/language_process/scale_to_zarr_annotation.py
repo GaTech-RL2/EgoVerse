@@ -14,7 +14,6 @@ import os
 from subprocess import run
 
 import hydra
-import pandas as pd
 from omegaconf import OmegaConf
 from scaleapi import ScaleClient
 
@@ -22,6 +21,7 @@ from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.scripts.language_process.converter import (
     HardCodedConverter,
     PickPlaceLLMConverter,
+    SortConverter,
 )
 from egomimic.utils.scale_utils import (
     build_df_from_tasks,
@@ -29,7 +29,6 @@ from egomimic.utils.scale_utils import (
     get_available_hashes,
     get_episode_hash_to_tid,
     get_tasks,
-    get_tid_to_episode_hash,
     load_scale_annotation_csv,
 )
 
@@ -51,13 +50,25 @@ if __name__ == "__main__":
         "--conversion-mode",
         type=str,
         required=True,
-        choices=["pick_place_llm", "hardcoded"],
+        choices=["pick_place_llm", "sort_llm", "hardcoded"],
     )
     parser.add_argument(
         "-s", "--scale-api-key", default=os.environ.get("SCALE_API_KEY", "")
     )
     parser.add_argument("--prompt-filepath", type=str, required=True)
     parser.add_argument("--augment-prompt-filepath", type=str, default=None)
+    parser.add_argument(
+        "--sort-prompt-filepath",
+        type=str,
+        default=None,
+        help="High-level sort instruction prompt (required for --conversion-mode sort_llm).",
+    )
+    parser.add_argument(
+        "--sort-augment-prompt-filepath",
+        type=str,
+        default=None,
+        help="High-level sort augmentation prompt (optional, used by sort_llm).",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.scale_annotation_dir, exist_ok=True)
@@ -108,6 +119,16 @@ if __name__ == "__main__":
             args.scale_annotation_dir,
             args.prompt_filepath,
             augment_prompt_filepath=args.augment_prompt_filepath,
+        )
+    elif args.conversion_mode == "sort_llm":
+        # High-level sort text is read from the annotation's "Sorting" track;
+        # sort_prompt_filepath is only an optional LLM-generation fallback.
+        converter = SortConverter(
+            args.scale_annotation_dir,
+            args.prompt_filepath,
+            args.sort_prompt_filepath,
+            augment_prompt_filepath=args.augment_prompt_filepath,
+            sort_augment_prompt_filepath=args.sort_augment_prompt_filepath,
         )
     elif args.conversion_mode == "hardcoded":
         converter = HardCodedConverter(args.scale_annotation_dir)

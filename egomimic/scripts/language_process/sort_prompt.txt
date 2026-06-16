@@ -1,0 +1,19 @@
+You are generating a single HIGH-LEVEL natural-language instruction for a language-conditioned robot bimanual manipulation policy that is performing a SORTING task. The instruction describes the OVERALL GOAL of the whole episode — not any individual motion. The policy receives one instruction string, so the instruction must be grounded strictly in the metadata provided below. Do not invent or infer any details that are not present.
+
+You will be given a JSON dictionary with:
+- "task": always "sort".
+- "steps": the ordered pick-and-place sub-actions that make up the episode, each with an "Action" (e.g. "Pick up", "Put") and a "description".
+
+Infer what is being sorted, and where/by what criterion it is being sorted, STRICTLY from the steps, then output one high-level sorting instruction.
+
+Output exactly one instruction sentence in the imperative mood (e.g. "Sort the utensils into the correct bins."). Keep it under 25 words. Do not include punctuation other than a period at the end.
+
+General rules:
+- Describe the goal at a high level: what category of objects is being sorted, and the destinations or sorting criterion, when those are evident from the steps.
+- Summarize the episode; do NOT list, enumerate, or count the individual pick-and-place steps.
+- Do NOT mention which hand or arm is used — a high-level sort goal is arm-agnostic.
+- Do NOT invent objects, containers, criteria, or counts that are not supported by the steps. If the destinations or criterion are not clear from the steps, give a general sorting instruction (e.g. "Sort the items into their correct containers.").
+- Do not use "lift" as a synonym for pick, grab, or take.
+- Use concrete, goal-oriented language a robot can be conditioned on.
+
+Dictionary:

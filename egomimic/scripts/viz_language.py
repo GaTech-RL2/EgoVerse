@@ -57,6 +57,26 @@ def _extract_annotation(batch: dict, annotation_key: str) -> list[str]:
     return texts
 
 
+def _sample_balanced_annotations(texts: list[str], per_type: int = 3) -> list[str]:
+    """Show both granularities for a frame.
+
+    The SortConverter writes, per pick-and-place clip, ``[low-level pick/place
+    …, high-level sort …]`` (equal halves) over the same span — so for a frame
+    the active annotations arrive midpoint-split into pick/place (first half)
+    then sort (second half). Showing *all* of them (~26) overflows the strip and
+    can hide one granularity, so sample up to ``per_type`` of each and label
+    them, guaranteeing both the pick/place and the sort instructions are shown.
+    """
+    n = len(texts)
+    if n == 0:
+        return []
+    half = n // 2
+    pick = texts[:half][:per_type]
+    srt = texts[half:][:per_type]
+    labeled = [f"[pick/place] {t}" for t in pick] + [f"[sort] {t}" for t in srt]
+    return labeled if labeled else texts[:per_type]
+
+
 _COMPACT_MAX_CHARS = 120
 _COMPACT_FONT = cv2.FONT_HERSHEY_SIMPLEX
 _COMPACT_SCALE = 0.35
@@ -161,6 +181,7 @@ def _run_viz_for_datasets(
     max_batches: int,
     fps: int,
     frames_per_file: int,
+    sample_per_type: int = 3,
 ) -> None:
     for embodiment_name, dataset in datasets.items():
         embodiment_cls = _EMBODIMENT_CLASSES.get(embodiment_name.lower())
@@ -215,7 +236,9 @@ def _run_viz_for_datasets(
                 if ann_key is not None:
                     fresh = _extract_annotation(batch, ann_key)
                     if fresh:
-                        carried_annotation = fresh
+                        carried_annotation = _sample_balanced_annotations(
+                            fresh, sample_per_type
+                        )
                 try:
                     frames = _viz_batch(
                         embodiment_cls,
@@ -260,6 +283,7 @@ def main(cfg: DictConfig) -> None:
     max_batches = cfg.get("max_batches", 500)
     fps = cfg.get("fps", 30)
     frames_per_file = cfg.get("frames_per_file", 1000)
+    sample_per_type = cfg.get("annotation_sample_per_type", 3)
     annotation_key = OmegaConf.select(cfg, "data.annotation_key", default=None)
     viz_cfg = cfg.viz_func
 
@@ -294,6 +318,7 @@ def main(cfg: DictConfig) -> None:
             max_batches=max_batches,
             fps=fps,
             frames_per_file=frames_per_file,
+            sample_per_type=sample_per_type,
         )
 
 
