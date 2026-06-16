@@ -1,0 +1,14 @@
+# BC-RNN-TRANSFORMER-CHUNK4-QUERIES: the chunk8-queries recipe with the chunk
+# size dialed from 8 -> 4 (obs_stride=4/chunk_len=4). SINGLE-KNOB vs
+# bc_rnn_pushshapes_paperexact_tx_chunk8_q: ONLY the chunk size changes -- the
+# action-query readout (chunk_head: queries + query_decoder) and everything else
+# are inherited; the query_decoder.chunk_len / gmm_head.chunk_len interpolations
+# already track chunk_len, so 4 GMMs (not 8) are produced with no other edit.
+# extends bc_rnn_pushshapes_paperexact_tx_chunk8_q
+defaults:
+  - bc_rnn_pushshapes_paperexact_tx_chunk8_q
+  - _self_
+
+robomimic_model:
+  obs_stride: 4
+  chunk_len: 4

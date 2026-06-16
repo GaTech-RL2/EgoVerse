@@ -1,0 +1,79 @@
+# ABSTRACT BASE (underscore-prefixed, NEVER launched) — shared payload of the
+# NON-paperexact BC-RNN lineage (bc_rnn_pushshapes + minmax/crop/cos variants).
+#
+# BC-RNN (robomimic BC_RNN_GMM EXACT-REPLICA recipe): per-frame obs -> LSTM over
+# obs history -> GMM head decoding ONE action per step. NO past-action input.
+# norm_stats is injected by pl_model._instantiate_model.
+#
+# robomimic study defaults matched (bc.json template + algo/bc.py +
+# models/policy_nets.py + models/obs_core.py::VisualCore):
+#   rnn.horizon=10, rnn.hidden_dim=400, rnn.num_layers=2, rnn_type=LSTM
+#   gmm.num_modes=5, gmm.min_std=1e-4, gmm.std_activation=softplus,
+#     gmm.low_noise_eval=true
+#   actor_layer_dims=[1024,1024]  (our fusion/obs MLP analogue)
+#   VisualCore: ResNet18Conv -> SpatialSoftmax(num_kp=32) -> Linear(feature_dim=64)
+#   learning_rate.initial=1e-4, epoch_schedule=[] (=> CONSTANT lr, no decay)
+#
+# Shared with the paper-exact lineage (action scalars, GMM-head scalar block,
+# domains/ac_keys, the constant-LR optimizer) lives in _bcrnn_root_common and is
+# inherited via the defaults list. This base adds ONLY the non-paperexact deltas:
+# the embed-128 obs encoder, the LSTM(400) core, actor_mlp_dims=[1024,1024], the
+# gmm_head.d_model that follows, and the constant-LR scheduler. Leaves add ONLY
+# their own delta (crop_aug for *_crop, warmup-cosine scheduler for *_cos).
+# Launched roots/leaves reference THIS file via their defaults list; this file is
+# never launched.
+#
+# ----- DELIBERATE TASK ADAPTATIONS (kept, not from robomimic) -----
+# * Action normalization upstream (norm_stats): raw 0-512px cursor actions need
+#   it; robomimic action spaces are pre-normalized to [-1,1]. minmax vs quantile
+#   is a norm_stats/data-side launcher override (norm_stats.norm_mode), NOT a
+#   model param -- see the per-leaf headers and scripts/train_bc_rnn_*.sh.
+# * obs keys = agent xy (input_slice 0:2) + front_img_1; ar rollout eval path;
+#   batch assembled from our packed pipeline but cut into 10-step windows.
+# extends _bcrnn_root_common
+defaults:
+  - _bcrnn_root_common
+  - _self_
+
+robomimic_model:
+  # robomimic actor_layer_dims (=mlp_layer_dims): per-step MLP between the LSTM
+  # output and the GMM decoder (RNN_MIMO_MLP per_step_net). study default
+  # [1024, 1024], ReLU. gmm_head.d_model MUST equal the last dim (1024).
+  actor_mlp_dims: [1024, 1024]
+
+  obs_encoder:
+    _target_: egomimic.models.stems.obs_encoder.ObsEncoder
+    embed_dim: 128
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64
+        widths: [128]
+    img_encoders:
+      front_img_1:
+        # robomimic VisualCore: ResNet18Conv -> SpatialSoftmax(num_kp=32) ->
+        # Linear(feature_dimension=64). pretrained=False matches ResNet18Conv
+        # default (bc.json passes no backbone_kwargs).
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+
+  core_net:
+    _target_: egomimic.models.cores.lstm_core.LSTMCore
+    input_dim: 128            # must equal obs_encoder.embed_dim
+    hidden_dim: 400           # robomimic rnn.hidden_dim
+    num_layers: 2             # robomimic rnn.num_layers
+    dropout: 0.0
+
+  gmm_head:
+    d_model: 1024             # = actor_mlp_dims[-1] (robomimic per-step MLP output)
+
+# Constant-LR schedule (robomimic exact-replica): LambdaLR with factor 1.0.
+# The *_cos leaves OVERRIDE this with warmup_cosine_scheduler.
+scheduler:
+  _target_: egomimic.utils.schedulers.constant_scheduler
+  _partial_: true

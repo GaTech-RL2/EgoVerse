@@ -1,0 +1,30 @@
+# BC-RNN-TRANSFORMER-CHUNK8-FULLHIST (the bcrnnTxC8FH run): the bcrnnTxC8 recipe
+# (bc_rnn_pushshapes_paperexact_tx_chunk8) with TWO things changed for
+# FULL-EPISODE HISTORY -- the exact Transformer TWIN of
+# bc_rnn_pushshapes_paperexact_hnet_chunk8_fullhist. SINGLE-KNOB vs bcrnnTxC8:
+# ONLY rnn_horizon 10->80 + window_anchor uniform->start.
+#   * rnn_horizon: 10 -> 80 obs-steps. With obs_stride=8 that is 80*8 = 640 env
+#     frames of context, covering both the longest demo episode (max 600 frames
+#     over new_circle_3) AND the 400-step rollout. Sized as
+#     max(50, ceil(max_demo_len/8), ceil(400/8)) = max(50,75,50) = 75, rounded UP
+#     to a multiple of 8 = 80. max_window inherits this via ${..rnn_horizon}.
+#     UNLIKE the H-Net core, the TransformerCore has a LEARNED positional table
+#     sized by max_window, so this horizon DOES change one parameter shape: the
+#     pos-emb row count grows 10 -> 80 (+70 rows). NO other shape changes.
+#   * window_anchor: uniform -> start. Exactly ONE window per episode anchored at
+#     frame 0, so each training window spans frames 0,8,...,8*79 over the
+#     subsampled obs (repeat-padded at the tail). This makes the train context
+#     match a NEVER-RESET rollout (the rollout buffer re-zeros every
+#     rnn_horizon=80 obs-steps = 640 env frames > the 400-step rollout).
+# extends bc_rnn_pushshapes_paperexact_tx_chunk8
+defaults:
+  - bc_rnn_pushshapes_paperexact_tx_chunk8
+  - _self_
+
+robomimic_model:
+  # FULL-EPISODE HISTORY horizon: 80 obs-steps = 640 env frames (covers max demo
+  # 600 frames AND the 400-step rollout). max_window inherits this via ${..rnn_horizon}.
+  rnn_horizon: 80
+  # window_anchor: START (the full-history flip) -- one window per episode anchored
+  # at frame 0 so the train context matches a never-reset rollout.
+  window_anchor: start

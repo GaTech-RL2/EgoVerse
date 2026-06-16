@@ -1,0 +1,24 @@
+# BC-RNN minmax + crop + warmup->cosine LR: the "minmax + crop + cosine"
+# single-knob ablation (only the scheduler differs from minmax_crop, constant ->
+# warmup_cosine 4800/240). minmax stays a launcher norm_stats override.
+# extends _bcrnn_common
+defaults:
+  - _bcrnn_common
+  - _self_
+
+robomimic_model:
+  obs_encoder:
+    img_encoders:
+      front_img_1:
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86
+
+# Warmup->cosine (the non-exact LR ablation; identical block to bc_rnn_pushshapes_cos).
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 4800   # = 600 epochs x 8 batches/epoch (scheduler_interval=step)
+  warmup_steps: 240 # 5% warmup
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6
