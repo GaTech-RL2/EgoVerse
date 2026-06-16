@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import signal
 from typing import Any, Dict, List, Optional, Tuple
@@ -11,10 +12,12 @@ from lightning.pytorch.loggers import Logger
 from lightning.pytorch.plugins.environments import SLURMEnvironment
 from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
+from torch.utils.data import DataLoader
 
 import egomimic.utils.hydra_resolvers  # noqa: F401  -- registers OmegaConf resolvers
 from egomimic.eval.eval import Eval
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.rldb.filters import DatasetFilter, EpisodeHashFilter
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
@@ -60,6 +63,84 @@ def _log_dataset_frame_counts(train_datasets: dict, valid_datasets: dict) -> Non
         intfmt=",",
     )
     log.info("Dataset frame counts:\n" + table)
+
+
+def _build_viz_episode_dataloaders(cfg, datamodule, norm_stats):
+    """Build per-episode viz dataloaders from ``cfg.evaluator.viz_episodes``.
+
+    ``viz_episodes`` is a path to a JSON file holding either a flat list of
+    episode hashes (applied to every valid embodiment) or a dict
+    ``embodiment_name -> list[hash]``. For each valid dataset, the matching
+    episodes are resolved (``mode="total"``) and one dataloader is built per
+    episode; the evaluator caps each episode's viz pass at ``limit_val_batches``.
+    Returns ``{embodiment_name: {episode_hash: DataLoader}}`` ({} when unset).
+    """
+    viz_episodes = OmegaConf.select(cfg, "evaluator.viz_episodes", default=None)
+    if not viz_episodes:
+        return {}
+
+    with open(viz_episodes) as f:
+        data = json.load(f)
+    hashes_by_name = (
+        {name: set(v) for name, v in data.items()} if isinstance(data, dict) else None
+    )
+    all_hashes = None if isinstance(data, dict) else set(data)
+
+    viz_dataloaders = {}
+    for name, vcfg in cfg.data.valid_datasets.items():
+        if vcfg is None:
+            continue
+        hashes = (
+            all_hashes if all_hashes is not None else hashes_by_name.get(name, set())
+        )
+        if not hashes:
+            continue
+        resolver = hydra.utils.instantiate(vcfg.resolver)
+        # Scope to this embodiment by the SQL ``embodiment`` field (the valid
+        # dataset key, matching what the data configs already filter on) so a
+        # curated hash from another embodiment isn't loaded with this dataset's
+        # keymap. Deliberately NOT the val dataset's own filter — curated viz
+        # episodes need not belong to the val split.
+        emb_filter = DatasetFilter(
+            filter_lambdas=[f"lambda row: row.get('embodiment') == {name!r}"]
+        )
+        viz_filter = EpisodeHashFilter(hashes, base=emb_filter)
+        try:
+            viz_ds = MultiDataset._from_resolver(
+                resolver, filters=viz_filter, mode="total"
+            )
+        except ValueError as e:
+            # resolve() raises when the filter matches no episodes (e.g. a
+            # flat list that doesn't include any of this embodiment's hashes).
+            log.warning(
+                f"viz_episodes: no curated episodes resolved for <{name}> "
+                f"({len(hashes)} hashes requested): {e}"
+            )
+            continue
+        viz_ds.set_norm_stats_from(norm_stats)
+
+        params = dict(datamodule.valid_dataloader_params.get(name, {}))
+        params.pop("shuffle", None)
+        loaders = {}
+        for episode_hash, child in viz_ds.datasets.items():
+            single = MultiDataset(
+                datasets={episode_hash: child},
+                mode="total",
+                norm_mode=norm_stats.norm_mode,
+            )
+            single.set_norm_stats_from(norm_stats)
+            loaders[episode_hash] = DataLoader(
+                single,
+                shuffle=False,
+                collate_fn=datamodule.collate_fn,
+                **params,
+            )
+        if loaders:
+            viz_dataloaders[name] = loaders
+            log.info(
+                f"viz_episodes: built {len(loaders)} per-episode viz loaders for <{name}>"
+            )
+    return viz_dataloaders
 
 
 @task_wrapper
@@ -149,6 +230,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     for ds in datamodule.valid_datasets.values():
         ds.set_norm_stats_from(norm_stats)
 
+    # Curated per-episode viz loaders (empty unless evaluator.viz_episodes is set).
+    viz_episode_loaders = (
+        _build_viz_episode_dataloaders(cfg, datamodule, norm_stats)
+        if cfg.get("evaluator") is not None
+        else {}
+    )
+
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
         config_tree=_build_model_config_tree(cfg),
@@ -229,6 +317,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             eval_obj.trainer = trainer
             eval_obj.model = model.model
+            eval_obj.viz_dataloaders = viz_episode_loaders
             model.evaluator = eval_obj
         log.info("Starting training!")
         trainer.fit(
@@ -240,6 +329,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model
+        eval_obj.viz_dataloaders = viz_episode_loaders
         model.evaluator = eval_obj
 
         if hasattr(eval_obj, "run"):
