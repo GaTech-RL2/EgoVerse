@@ -398,9 +398,28 @@ def stage_full(args):
     val_cl = CombinedLoader({R.EMB_NAME: val_loader}, "max_size_cycle")
 
     algo = build_model(args)
-    optimizer = functools.partial(
-        torch.optim.AdamW, lr=args.lr, betas=(0.9, 0.95), eps=1e-8, weight_decay=1e-10
-    )
+    if args.adam8bit:
+        # 8-bit AdamW (bitsandbytes): optimizer state ~7GB vs ~29GB for fp32 moments,
+        # so the 3.6B pi0.5 full fine-tune fits on a single <=48GB GPU (a40/l40s).
+        # Required on this cluster (no >48GB GPU); H200 runs can keep plain AdamW.
+        import bitsandbytes as bnb
+
+        optimizer = functools.partial(
+            bnb.optim.AdamW8bit,
+            lr=args.lr,
+            betas=(0.9, 0.95),
+            eps=1e-8,
+            weight_decay=1e-10,
+        )
+        print("[full] optimizer: 8-bit AdamW (bitsandbytes)", flush=True)
+    else:
+        optimizer = functools.partial(
+            torch.optim.AdamW,
+            lr=args.lr,
+            betas=(0.9, 0.95),
+            eps=1e-8,
+            weight_decay=1e-10,
+        )
     scheduler = functools.partial(
         get_cosine_schedule_with_warmup,
         num_warmup_steps=args.warmup_steps,
@@ -523,6 +542,11 @@ def build_argparser():
     p.add_argument("--max-steps", type=int, default=4000)
     p.add_argument("--warmup-steps", type=int, default=200)
     p.add_argument("--lr", type=float, default=3e-5)
+    p.add_argument(
+        "--adam8bit",
+        action="store_true",
+        help="use 8-bit AdamW (bitsandbytes) to fit the optimizer state on <=48GB GPUs",
+    )
     p.add_argument("--val-every", type=int, default=250)
     p.add_argument("--limit-val-batches", type=int, default=10)
     p.add_argument("--log-every", type=int, default=10)

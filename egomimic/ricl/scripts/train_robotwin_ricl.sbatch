@@ -17,6 +17,7 @@ set -uo pipefail
 cd /coc/flash7/rco3/EgoVerse
 mkdir -p egomimic/ricl/outputs/robotwin_train
 source emimic/bin/activate
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 echo "host=$(hostname) gpu=${CUDA_VISIBLE_DEVICES:-?}"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
@@ -28,12 +29,13 @@ python -u egomimic/ricl/scripts/train_robotwin_ricl.py --stage full \
   --embed "${EMBED:-dinov2}" \
   --k "${K:-4}" \
   --action-horizon "${ACTION_HORIZON:-15}" \
-  --batch-size "${BATCH_SIZE:-4}" \
-  --num-workers "${NUM_WORKERS:-8}" \
+  --batch-size "${BATCH_SIZE:-2}" \
+  --num-workers "${NUM_WORKERS:-6}" \
   --devices 1 \
   --max-steps "${MAX_STEPS:-4000}" \
   --warmup-steps "${WARMUP_STEPS:-200}" \
   --lr "${LR:-3e-5}" \
+  --adam8bit \
   --val-every "${VAL_EVERY:-250}" \
   --limit-val-batches "${LIMIT_VAL:-10}" \
   --ckpt-every "${CKPT_EVERY:-1000}" \
