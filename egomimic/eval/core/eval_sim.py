@@ -99,6 +99,14 @@ class SimRolloutEval(EvalVideo):
         chunk_k: int = 32,
         goal_in_obs: bool = False,
         fixed_goal=None,
+        # --- Obstacle-level sweep (cotrain "1 seed per level"): when set, run
+        # ONE rollout per level in ``obstacle_levels``, recreating the env at
+        # that level and resetting with seed = ``level_seed_base + level``
+        # (matches Tsimulation render_level_settings: SEED_BASE=777). Overrides
+        # the data-driven episode count + init_mode for this evaluator. Default
+        # None = no sweep (byte-identical gmm behavior). ---
+        obstacle_levels=None,
+        level_seed_base: int = 777,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -159,6 +167,11 @@ class SimRolloutEval(EvalVideo):
                 "autoregressive rollout is used. See INTEGRATION_NOTES.md (#13).",
                 RuntimeWarning,
             )
+        # Obstacle-level sweep: list of levels to visit, 1 rollout each.
+        self.obstacle_levels = (
+            [int(x) for x in obstacle_levels] if obstacle_levels else None
+        )
+        self.level_seed_base = int(level_seed_base)
         self._env = None
         self._init_counter = 0
 
@@ -179,6 +192,13 @@ class SimRolloutEval(EvalVideo):
         agent_pos + object_pose (+ optional goal_pose).
         For random/seeds modes, env_init_dict is None.
         """
+        # Obstacle-level sweep: episode ep_seed_offset visits level
+        # obstacle_levels[ep_seed_offset], seed = level_seed_base + level. Takes
+        # precedence over init_mode (env was recreated at this level upstream).
+        if self.obstacle_levels is not None:
+            level = int(self.obstacle_levels[ep_seed_offset])
+            env.reset(seed=int(self.level_seed_base + level))
+            return
         if self.init_mode == "random":
             env.reset(seed=ep_seed_offset)
         elif self.init_mode == "seeds":
@@ -275,7 +295,17 @@ class SimRolloutEval(EvalVideo):
         emb_id: int,
         ep_idx: int,
     ) -> Tuple[float, List[np.ndarray]]:
-        env = self._get_env()
+        if self.obstacle_levels is not None:
+            # Sweep: build a fresh env at this episode's obstacle level (do not
+            # reuse the cached single-level env).
+            kwargs = dict(self.env_kwargs)
+            kwargs["obstacle_level"] = int(self.obstacle_levels[ep_idx])
+            kwargs.setdefault("render_mode", "rgb_array")
+            from Tsimulation.pushshapes import PushShapesEnv
+
+            env = PushShapesEnv(**kwargs)
+        else:
+            env = self._get_env()
         self._init_env(env, env_init_dict, ep_seed_offset=ep_idx)
         device = self.trainer.lightning_module.device
         algo = self.model
@@ -351,13 +381,21 @@ class SimRolloutEval(EvalVideo):
 
         for emb_id, _batch in batch.items():
             B = self._infer_n_episodes(_batch)
+            # Obstacle-level sweep: one rollout per level, independent of the
+            # data-driven episode count (env is generated from level+seed, the
+            # val batch only supplies emb_id).
+            if self.obstacle_levels is not None:
+                B = len(self.obstacle_levels)
             if B == 0:
                 continue
             # Seed-mode inits are indexed per (embodiment, episode): episode i
             # of EVERY embodiment uses init_seeds[i], so inits stay paired
             # across embodiments and across runs regardless of batch makeup.
             self._init_counter = 0
-            B_render = min(B, self.max_videos) if self.max_videos is not None else B
+            if self.obstacle_levels is not None:
+                B_render = B  # evaluate ALL levels (max_videos doesn't cap the sweep)
+            else:
+                B_render = min(B, self.max_videos) if self.max_videos is not None else B
 
             ep_coverages: List[float] = []
             ep_successes: List[float] = []

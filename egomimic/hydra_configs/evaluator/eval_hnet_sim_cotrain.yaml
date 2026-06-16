@@ -1,23 +1,16 @@
-# Cotrain sim rollout eval: regular circle + small circle pushers.
-# (Corrected: EgoVerse2's old stick pusher is gone; cotrain is circle +
-# circle_small. Both use the pushshapes_sim embodiment; only pusher_shape
-# differs.)
+# Cotrain sim rollout eval: regular circle + small circle, swept over the 30
+# obstacle levels with ONE seed per level (cotrain "30 seeds, 1 per layer").
 #
-# ============================ READ ME ============================
-# The "30 seeds, 1 per obstacle-level" cotrain protocol is NOT achievable by
-# config alone: SimRolloutEval cycles ``init_seeds`` over a rollout count that
-# is DATA-/``limit_val_batches``-driven (see _infer_n_episodes), at a SINGLE
-# fixed ``obstacle_level``. To actually sweep obstacle_level 0..29 with one seed
-# per level needs either (a) a small additive ``obstacle_levels``/``level_seed_base``
-# sweep feature on SimRolloutEval, or (b) a 30-entry-per-pusher EvalList.
-# I have NOT guessed that yet because the exact protocol (seed convention, count,
-# whether videos are capped) lives in your uncommitted ``cotrainLvl`` launch and
-# getting it wrong would change reported coverage. Paste that launch command and
-# I'll bake it in exactly.
+# Mechanism: SimRolloutEval.obstacle_levels=[0..29] runs one rollout per level,
+# recreating the env at that obstacle_level and resetting with
+# seed = level_seed_base + level (777 + L, the Tsimulation render_level_settings
+# convention). The val batch only supplies the embodiment id. Two sub-evals =
+# the two cotrain pushers (regular circle + small circle); both use the
+# pushshapes_sim embodiment, differing only in pusher_shape.
 #
-# Until then this config provides the corrected PUSHER set (circle + circle_small)
-# with the 30-seed pool at obstacle_level 0 (seeds cycled per the data-driven
-# rollout count).
+# If your protocol uses a different seed-per-level convention, override
+# evaluator.evals.<i>.level_seed_base (or paste your cotrainLvl launch command
+# and I'll match it exactly).
 _target_: egomimic.eval.core.eval_composite.EvalList
 
 evals:
@@ -25,25 +18,23 @@ evals:
     embodiment_name: pushshapes_sim
     limit_val_batches: 4
     max_videos: 4
-    init_mode: seeds
-    init_seeds: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]   # 30-seed pool
+    obstacle_levels: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]
+    level_seed_base: 777
     max_steps: 1200
     coverage_threshold: 0.8
     env_kwargs:
       object_shape: "T"
       pusher_shape: "circle"        # regular circle
-      obstacle_level: 0
       image_size: 96
   - _target_: egomimic.eval.core.eval_sim.HNetSimEval
     embodiment_name: pushshapes_sim
     limit_val_batches: 4
     max_videos: 4
-    init_mode: seeds
-    init_seeds: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]   # 30-seed pool
+    obstacle_levels: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]
+    level_seed_base: 777
     max_steps: 1200
     coverage_threshold: 0.8
     env_kwargs:
       object_shape: "T"
       pusher_shape: "circle_small"  # small circle
-      obstacle_level: 0
       image_size: 96

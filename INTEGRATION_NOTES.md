@@ -140,3 +140,18 @@ that would risk gmm's working sim-eval and needs the pushshapes sim env to verif
   replay variant=4.
 - Caveat (#13): temporal_ensemble/chunk-openloop rollout branches are accepted but
   fall back to gmm's AR rollout; the SEED protocol (the ask) is fully active.
+
+## Cotrain "30 levels, 1 seed per level" sweep (built on request)
+- `eval/core/eval_sim.py SimRolloutEval`: additive opt-ins `obstacle_levels` +
+  `level_seed_base` (default None => byte-identical gmm behavior). When set, runs
+  ONE rollout per level: env recreated at that `obstacle_level`, reset with
+  `seed = level_seed_base + level` (777+L, the render_level_settings convention);
+  episode count = len(obstacle_levels), independent of the val data.
+- `evaluator/eval_hnet_sim_cotrain.yaml`: EvalList of 2 HNetSimEval (regular
+  circle + small circle = pusher_shape circle / circle_small, same pushshapes_sim
+  embodiment), each obstacle_levels=[0..29], level_seed_base=777 => 30 levels x
+  2 pushers, 1 seed/level. (Stick pusher retired; _VALID_PUSHERS=circle/circle_small/stick.)
+- BC eval stays 20 fixed seeds (eval_hnet_sim.yaml, init_mode=seeds, [0..19]).
+- Verified: pytest 150 pass (0 new regress); compose (circle+circle_small, 30 levels,
+  seed_base 777); GPU e2e on test_demos (reduced to 3 levels x 2 pushers) EXIT=0 —
+  ran per-level rollouts, env recreated per level, on_fit_end clean.
