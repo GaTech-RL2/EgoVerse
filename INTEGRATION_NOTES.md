@@ -45,6 +45,30 @@ above should ideally become passes by end of integration.
   equivalent (its own diffusion package, denoising/fm policy heads), keep gmm's
   and skip EV2's redundant copy.
 
+## Stage 3d resolution (mostly no-op)
+- **bc_rnn**: gmm's `algo/bc/algo.py` already IS EV2's bc_rnn (WindowedBC/Policy +
+  BCRNN/BCRNNPolicy aliases + step/init_step_state/inference_step). Only delta was
+  `_cut_windows(window_anchor=...)` — added in Stage 1. Nothing more to port.
+- **act_nets**: gmm covers EV2 `act_nets.py` via `models/cores/act_transformer.py`
+  (PositionalEncoding/Transformer/StyleEncoder) + `models/stems/resnet_conv.py`
+  (Module/ConvBase/CoordConv2d/ResNet18Conv). Nothing to port.
+- **diffusion**: gmm has denoising_nets/denoising_policy/fm_policy + functional
+  ddim_sample/ddpm_sample. EV2's `ddim_scheduler.DDIMScheduler` + `diffusion_policy.
+  DiffusionPolicy` are redundant diffusion-head alternatives -> SKIP per the
+  "only port what gmm lacks" decision. Qwen config uses gmm's FMPolicy, unaffected.
+
+## Conflict #13 SimRolloutEval resolution (partial, documented)
+gmm's `eval/core/eval_sim.py` SimRolloutEval (with rollout_timeout_s /
+report_max_coverage / rng_pairing robustness features) is kept CANONICAL and
+behaviorally UNCHANGED. EV2's diverged SimRolloutEval is built around DAgger
+(excluded by scope) + temporal-ensemble / chunk-openloop / delta-action / goal
+rollout modes. Decision: the EV2 opt-in PARAMS are added to gmm's SimRolloutEval
+(defaults reproduce gmm; a RuntimeWarning fires if a non-default EV2 mode is set)
+so EV2 sim-eval configs instantiate and RUN (via gmm's AR rollout). The EV2
+TE/chunk-openloop rollout BRANCHES were NOT grafted onto gmm's diverged rollout —
+that would risk gmm's working sim-eval and needs the pushshapes sim env to verify.
+`eval/core/eval_hnet_sim.py` re-exports gmm's SimRolloutEval as HNetSimEval.
+
 ## Progress log
 - Stage 0 ✅ copy + git baseline + sanity import OK.
 - Stage 1 ✅ conflict edits (_cut_windows window_anchor, SimpleConv spatial/tokens,

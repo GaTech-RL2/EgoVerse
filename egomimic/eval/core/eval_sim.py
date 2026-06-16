@@ -86,6 +86,19 @@ class SimRolloutEval(EvalVideo):
         viz_func: dict | None = None,
         transform_lists: dict | None = None,
         rng_pairing: bool = False,
+        # --- EgoVerse2 sim-eval opt-ins (accepted for config parity). Defaults
+        # reproduce gmm's autoregressive rollout exactly. The EV2 temporal-
+        # ensemble / chunk-openloop / delta-action / goal rollout BRANCHES were
+        # not grafted onto gmm's (diverged) rollout — setting any non-default
+        # emits a warning and falls back to gmm's AR rollout. See
+        # INTEGRATION_NOTES.md (#13). DAgger paths are intentionally omitted. ---
+        temporal_ensemble: bool = False,
+        te_m: float = 0.01,
+        delta_action: bool = False,
+        rollout_mode: str = "ar",
+        chunk_k: int = 32,
+        goal_in_obs: bool = False,
+        fixed_goal=None,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -122,6 +135,30 @@ class SimRolloutEval(EvalVideo):
         # for the same episode index. Off by default: numbers from unpaired
         # evals stay reproducible.
         self.rng_pairing = bool(rng_pairing)
+        # EgoVerse2 sim-eval opt-ins (stored for config parity).
+        self.temporal_ensemble = bool(temporal_ensemble)
+        self.te_m = float(te_m)
+        self.delta_action = bool(delta_action)
+        self.rollout_mode = str(rollout_mode)
+        self.chunk_k = int(chunk_k)
+        self.goal_in_obs = bool(goal_in_obs)
+        self.fixed_goal = fixed_goal
+        if (
+            temporal_ensemble
+            or delta_action
+            or goal_in_obs
+            or rollout_mode != "ar"
+            or fixed_goal is not None
+        ):
+            import warnings
+
+            warnings.warn(
+                "SimRolloutEval: EgoVerse2 opt-ins (temporal_ensemble / "
+                "chunk-openloop / delta_action / goal rollout) are accepted for "
+                "config parity but NOT active in this merged build — gmm's "
+                "autoregressive rollout is used. See INTEGRATION_NOTES.md (#13).",
+                RuntimeWarning,
+            )
         self._env = None
         self._init_counter = 0
 

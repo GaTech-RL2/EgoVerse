@@ -1,0 +1,102 @@
+/* Minimal / refined styling for the Latent Inspector.
+   Dash auto-loads any *.css under inspector_lib/assets/ at app start.
+   Inline styles in views.py handle layout & color tokens; this file adds
+   the things inline styles can't express: hover/focus pseudo-classes,
+   selection rings, custom scrollbars. */
+
+/* Reset: kill the default body margin so the slate header truly spans
+   edge-to-edge, and lock the root to 100vw/100vh so flex layouts size
+   against a known viewport. */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+#react-entry-point, #_dash-app-content {
+    height: 100%;
+    width: 100%;
+}
+
+/* Card hover: border accent + tiny lift via background tint instead of
+   a real shadow (shadows feel heavier than they need to here). */
+button[id*='"role":"browser_row"']:hover,
+button[id*='"role":"browser_knn"']:hover,
+button[id*='"role":"knn_row"']:hover {
+    border-color: #0d9488 !important;
+    background: #f0fdfa !important;
+}
+
+button[id*='"role":"browser_row"']:focus-visible,
+button[id*='"role":"browser_knn"']:focus-visible,
+button[id*='"role":"knn_row"']:focus-visible {
+    outline: 2px solid #0d9488;
+    outline-offset: 2px;
+}
+
+/* Dropdowns: subtle borders, no heavy inner shadows. */
+.Select-control,
+.Select-menu-outer {
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+}
+.Select-control:hover {
+    border-color: #cbd5e1 !important;
+}
+
+/* Inputs: match the card aesthetic — flat, 1px border, no inset shadow. */
+input[type="text"], input[type="number"] {
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #1e293b;
+    font-family: inherit;
+    transition: border-color 0.12s ease;
+}
+input[type="text"]:focus, input[type="number"]:focus {
+    outline: none;
+    border-color: #0d9488;
+}
+
+/* Scrollbars: thin, recede, match the slate palette. WebKit + Firefox. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+*::-webkit-scrollbar-track {
+    background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Selection: subtle teal tint instead of browser blue. */
+::selection {
+    background: rgba(13, 148, 136, 0.18);
+    color: #134e4a;
+}
+
+/* Tame the "Load more" button hover. */
+#browser_load_more:hover {
+    border-color: #0d9488 !important;
+    color: #0d9488 !important;
+}
+
+/* Radio + checkbox labels: tighter rhythm, consistent feel. */
+.dash-checklist label,
+.dash-radio-items label {
+    cursor: pointer;
+    padding: 2px 0;
+}
+.dash-checklist input,
+.dash-radio-items input {
+    accent-color: #0d9488;
+}
