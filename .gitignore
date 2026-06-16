@@ -63,3 +63,7 @@ external_ckpts/*.ckpt
 # Python bytecode cache dirs (DESIGN.md step 13 hygiene).
 __pycache__/
 **/__pycache__/
+
+# integration verification temp logs / NFS lock artifacts
+_*.log
+.nfs*

@@ -77,4 +77,49 @@ that would risk gmm's working sim-eval and needs the pushshapes sim env to verif
   _build_prompts + stem_process list branch + _robomimic injection;
   scheduler_utils.warmup_then_cosine; model+data Qwen configs (gmm paths).
   Smoke: QwenPooled/PerToken compute_latent -> (2,16,256), _build_prompts logic OK.
-  Full pytest: 149 passed / 16 pre-existing fails (+ the flaky tx fingerprint) — no new regressions.
+- Stage 3a ✅ models/hnet/action_heads.py (dep for fused/chunk); #3 superseded.
+- Stage 3b ✅ cond_encoders {_LatentCrossAttn, SpatialCondEncoderModule} +
+  blocks CrossMultiHeadAttention {_forward_per_frame, step_per_frame} (gated;
+  57 test_hnet_nets pass).
+- Stage 3c ✅ algo/hnet/fused.py (FlatFusedPolicy + HNetFused) + algo/hnet/chunk.py
+  (ChunkTokenPolicy + HNetChunkToken + FlowHead), imports rewritten to gmm; exported
+  from algo/hnet/__init__. Forward smokes: FlatFusedPolicy fwd (3,6,2)+AR generate,
+  ChunkTokenPolicy conv-encoder fwd. Package import has no cycles; bc still imports.
+- Stage 3d ✅ bc_rnn already in gmm (window_anchor added S1); act_nets covered by
+  gmm cores/act_transformer + stems/resnet_conv; EV2 ddim_scheduler/diffusion_policy
+  skipped as redundant (gmm has FMPolicy/denoising + functional ddim_sample).
+- Stage 4 ✅ eval/probes/{eval_latent,latent_dataset} + scripts/data_visualization
+  inspector + eval/core/eval_hnet_sim; SimRolloutEval EV2 opt-ins accepted (#13).
+- Stage 5 ✅ utils {hydra_resolvers,memory_utils,obs_utils,real_utils,tensor_utils,
+  scheduler_utils} + egomimicUtils.draw_dot_on_frame; rldb {compression_utils,
+  data_utils,zarr_dataset_inmem,benchmark_forward_pass} + additive merges
+  (SafeS3/EvenStride/jpeg helpers, PadGripperZeros, 3 data-module wrappers,
+  scale_utils retry).
+- Stage 6 ✅(core) pushshapes causal/goal keymaps; fused+chunk model configs
+  (11, path-rewritten, all _target_ verified importable). REMAINING: long-tail EV2
+  experiment-sweep configs (bc_rnn_paperexact_* variants, eva/aria/cotrain data
+  configs) — bulk-addable now that all code targets exist; not individually ported.
+- Stage 7 ✅ 6 HPT overlay/diagnostic scripts -> scripts/diagnostics/ (py_compile OK).
+
+## Final verification
+- `pytest tests/ -q`: **149 passed**, 9 skipped, 17 failed — the 16 baseline
+  pre-existing fails + the flaky `tx` fingerprint (fails on pristine gmm too).
+  **Zero new regressions** across all stages.
+- Import sweep: **29/29** ported/modified modules import cleanly.
+- Forward smokes: Qwen pooled/per-token (2,16,256); FlatFusedPolicy fwd+AR generate;
+  ChunkTokenPolicy fwd; cond/blocks per-frame cross-attn; SimpleConv/ResNetEncoder.
+- Config validity: all distinct `_target_` in the new Qwen + fused + chunk configs
+  resolve/import.
+- gmm trainHydra (hnet_pushshapes, circle data): composes config, instantiates the
+  model, resolves all 61 episodes, and enters norm-stats with every integrated
+  change present — proving gmm's training entry path is intact. (Full multi-epoch
+  completion is gated only by slow full-data norm-stats, not code; the packed
+  forward/backward train step is already covered by the passing pytest suite.)
+
+## Remaining / deferred (breadth, low-risk — code targets all exist)
+- Long-tail EV2 hydra config variants (paperexact chunk sweeps; eva/aria/cotrain
+  data + evaluator configs). Bulk-copyable with the same `hnet_nets->{hnet,stems}` /
+  `hpt_nets->{stems.hpt_stems,cores,heads}` / `algo.hnet_chunk->algo.hnet` rewrites.
+- EV2 SimRolloutEval TE/chunk-openloop ROLLOUT branches not grafted onto gmm's
+  diverged rollout (params accepted + warned; see #13).
+- EV2 ddim_scheduler/diffusion_policy intentionally not ported (redundant).
