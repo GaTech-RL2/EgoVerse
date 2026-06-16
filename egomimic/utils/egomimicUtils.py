@@ -947,3 +947,40 @@ def get_gaze_endpoint(yaw_rads, pitch_rads, depth, T_cam_cpf):
     endpoint_cpf_h = np.concatenate([gaze_vec_cpf, np.array([1.0], dtype=np.float64)])
     endpoint_cam_h = T_cam_cpf @ endpoint_cpf_h
     return endpoint_cam_h[:3]
+
+
+def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=5):
+    """
+    frame: (H, W, C) numpy array
+    pixel_vals: (N, 2) numpy array of pixel values to draw on frame
+    Drawn in light to dark order
+
+    Ported from EgoVerse2 utils/egomimicUtils.py (additive merge; dep of
+    utils/real_utils.py).
+    """
+    frame = frame.astype(np.uint8).copy()
+    if isinstance(pixel_vals, tuple):
+        pixel_vals = [pixel_vals]
+
+    # get purples color palette, and color the circles accordingly
+    color_palette = plt.get_cmap(palette)
+    color_palette = color_palette(np.linspace(0, 1, len(pixel_vals)))
+    color_palette = (color_palette[:, :3] * 255).astype(np.uint8)
+    color_palette = color_palette.tolist()
+
+    for i, pixel_val in enumerate(pixel_vals):
+        try:
+            frame = cv2.circle(
+                frame,
+                (int(pixel_val[0]), int(pixel_val[1])),
+                dot_size,
+                color_palette[i],
+                -1,
+            )
+        except Exception:
+            print("Got bad pixel_val: ", pixel_val)
+        if show:
+            plt.imshow(frame)
+            plt.show()
+
+    return frame
