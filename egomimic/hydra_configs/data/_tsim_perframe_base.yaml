@@ -1,0 +1,52 @@
+# Shared per-frame (HPT-style) pushshapes_sim data skeleton.
+#
+# Consumed via `defaults: [_tsim_perframe_base, _self_]` by tsimulation_hpt,
+# tsimulation_hpt_fast, tsimulation_hpt_causal. Each sample is one frame with
+# obs (image + state) and an action chunk of length action_horizon (32);
+# returns (B, T_chunk, ...) tensors that fit HPT's chunked-action head directly.
+#
+# This base is tsimulation_hpt verbatim (Local resolver, Tsim_datasets2/circle,
+# get_keymap, batch 128 / workers 8, NO perf knobs). Leaves override only what
+# differs: resolver._target_ (Local vs InMemory), resolver.folder_path,
+# key_map._target_ (get_keymap vs get_keymap_causal), dataloader num_workers,
+# and the perf knobs (pin_memory/persistent_workers/prefetch_factor) which the
+# fast/causal in-memory leaves add and tsimulation_hpt does not set.
+#
+# train and valid are SEPARATE CONCRETE blocks (no ${...} interpolation) so
+# launchers can override valid resolver sub-keys directly.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 8
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 8

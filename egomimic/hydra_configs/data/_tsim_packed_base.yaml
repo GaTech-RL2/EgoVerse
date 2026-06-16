@@ -1,0 +1,57 @@
+# Shared packed-episode (varlen / cu_seqlens) pushshapes_sim data skeleton.
+#
+# Consumed via `defaults: [_tsim_packed_base, _self_]` by tsimulation and
+# tsimulation_delta. Each sample is one full episode (chunking="none"); the
+# DataLoader's pack_collate concatenates batch_size episodes into a single
+# flat stream with cu_seqlens boundaries (HNetPolicy.forward_packed).
+#
+# NOTE: action_horizon is hard-coded as 1024 here (both keymap calls) AND in
+# egomimic/hydra_configs/model/hnet_pushshapes.yaml -- the two must match. The
+# longest episode in Tsim_datasets2/circle is 958 frames; 1024 leaves room.
+#
+# train and valid are kept as SEPARATE CONCRETE blocks (no ${...} interpolation)
+# so launchers can override valid resolver sub-keys directly
+# (data.valid_datasets.pushshapes_sim.resolver.folder_path=..., key_map._target_=...).
+# The fullhist_ratio launcher additionally ~deletes + re-adds the whole valid
+# node, which also requires it to be concrete.
+#
+# A40 baseline (44.4 GiB): one full episode at T~958 peaks at ~1.8 GiB, so 8
+# episodes packed land in 12-16 GiB worst case.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: null
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: null
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 2
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 2

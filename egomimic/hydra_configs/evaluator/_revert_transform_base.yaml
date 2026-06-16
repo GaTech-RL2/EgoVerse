@@ -1,0 +1,13 @@
+# Shared per-embodiment revert-transform block for wrist-frame evaluators.
+# Applied once during validation to project the model's wrist-frame action
+# chunks back to cam (head) frame, then reused for both the cam-frame MSE and
+# the viz video. Each value resolves to a list[Transform] via its ``_target_``.
+# Inheritors (eval_pi, eval_hpt_wrist) mount their own viz_func + _target_ and
+# pull this block in verbatim via the defaults list.
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
+    is_quat: false
+  aria_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_aria_cartesian_revert_eef_frame_transform_list
+    is_quat: false
