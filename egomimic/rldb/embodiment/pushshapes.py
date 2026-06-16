@@ -274,3 +274,64 @@ def viz_gt_preds(
             frame = _draw_chunk(frame, pred_actions[i], scale, _PRED_PALETTE)
         frames.append(frame)
     return np.stack(frames, axis=0)
+
+
+# ===========================================================================
+# Additive merge from EgoVerse2: causal / goal-conditioned keymaps. Self-
+# contained dict builders (same zarr keys as gmm's get_keymap). The JEPA
+# variant (get_keymap_causal_jepa) is intentionally omitted (JEPA out of scope).
+# ===========================================================================
+def get_keymap_causal(action_horizon: int = 32, **kwargs) -> dict:
+    """Causal keymap: obs is the SINGLE current frame (horizon 1), actions are a
+    chunk of length ``action_horizon`` (train == closed-loop inference)."""
+    return {
+        "front_img_1": {
+            "key_type": "camera_keys",
+            "zarr_key": "observations.images.front_img_1",
+            "horizon": 1,
+        },
+        "state_agent_obj": {
+            "key_type": "proprio_keys",
+            "zarr_key": "observations.state",
+            "horizon": 1,
+        },
+        "actions": {
+            "key_type": "action_keys",
+            "zarr_key": "actions",
+            "horizon": int(action_horizon),
+        },
+    }
+
+
+def get_keymap_goal(action_horizon: int = 32, **kwargs) -> dict:
+    """``get_keymap`` + ``goal_obs`` as a normalized proprio model input."""
+    km = get_keymap(action_horizon=action_horizon)
+    km["goal_obs"] = {
+        "key_type": "proprio_keys",
+        "zarr_key": "goal_pose",
+        "horizon": int(action_horizon),
+    }
+    return km
+
+
+def get_keymap_goal_eval(action_horizon: int = 32, **kwargs) -> dict:
+    """``get_keymap_goal`` + raw ``goal_pose`` passthrough for sim env init."""
+    km = get_keymap_goal(action_horizon=action_horizon)
+    km["goal_pose"] = {
+        "key_type": "goal_keys",
+        "zarr_key": "goal_pose",
+        "horizon": int(action_horizon),
+    }
+    return km
+
+
+def get_keymap_causal_eval(action_horizon: int = 32, **kwargs) -> dict:
+    """Causal training keymap + raw ``goal_pose`` passthrough so SimRolloutEval's
+    replay init can set the PushShapes env goal to the dataset's recorded target."""
+    km = get_keymap_causal(action_horizon=action_horizon)
+    km["goal_pose"] = {
+        "key_type": "goal_keys",
+        "zarr_key": "goal_pose",
+        "horizon": int(action_horizon),
+    }
+    return km
