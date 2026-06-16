@@ -39,6 +39,33 @@ class DatasetFilter:
         return True
 
 
+class EpisodeHashFilter(DatasetFilter):
+    """Keep only episodes whose ``episode_hash`` is in a curated set.
+
+    Used to scope a viz dataset to a list of episode hashes (e.g. a curation
+    ``kept_hashes.json``) without materializing a long lambda-string filter. An
+    optional ``base`` filter is ANDed in so any existing embodiment/quality
+    constraints from the source dataset config are preserved.
+    """
+
+    def __init__(self, hashes, base: DatasetFilter | None = None) -> None:
+        super().__init__(filter_lambdas=None)
+        self.hashes = set(hashes)
+        self.base = base
+
+    def __repr__(self) -> str:
+        return f"EpisodeHashFilter(n_hashes={len(self.hashes)}, base={self.base!r})"
+
+    def matches(self, row: Mapping[str, Any]) -> bool:
+        if row.get("is_deleted", False):
+            return False
+        if row.get("episode_hash") not in self.hashes:
+            return False
+        if self.base is not None and not self.base.matches(row):
+            return False
+        return True
+
+
 class ScaleAnnotationDatasetFilter(DatasetFilter):
     def __init__(
         self, project_name: str, filter_lambdas: Sequence[str] | None = None

@@ -5,3 +5,4 @@ defaults:
 _target_: egomimic.eval.eval_hpt.HPTEvalVideo
 
 viz_every_n_epochs: 200
+viz_episodes: null
