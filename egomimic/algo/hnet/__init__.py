@@ -23,6 +23,16 @@ from egomimic.algo.hnet.algo import (
     PackedAlgoBase,
 )
 
+# EV2-ported flat-fused + chunk-token H-Net families (new classes; do not
+# clash with gmm's PackedAlgoBase/HNetPolicy above). ``fused`` carries EV2's
+# own HNet-algo machinery internally; only the public new classes are exported.
+from egomimic.algo.hnet.fused import FlatFusedPolicy, HNetFused
+from egomimic.algo.hnet.chunk import (
+    ChunkTokenPolicy,
+    FlowHead,
+    HNetChunkToken,
+)
+
 __all__ = [
     "PackedAlgoBase",
     "HNetPolicy",
@@ -30,4 +40,9 @@ __all__ = [
     "GMMLoss",
     "HNetOuterStage",
     "HNet",
+    "FlatFusedPolicy",
+    "HNetFused",
+    "ChunkTokenPolicy",
+    "HNetChunkToken",
+    "FlowHead",
 ]
