@@ -1,0 +1,7 @@
+benchmark_files/
+*.egg-info
+*.parquet
+*.pyc
+*.hdf5
+*/lerobot
+*/zarr

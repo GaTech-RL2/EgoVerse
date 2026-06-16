@@ -1,0 +1,65 @@
+*.pth
+*.pyc
+egomimic.egg-info/
+*.hdf5
+*.out.*
+egomimic/debug
+trained_models_highlevel/
+trained_models_lowlevel/
+egomimic/scripts/exps
+*.ipynb_checkpoints
+*.mp4
+egomimic/scripts/hand_process/stereo_depth.ipynb
+egomimic/scripts/hand_process/triangulation.py
+egomimic/scripts/figures
+egomimic/**/*.png
+egomimic/**/*.jpg
+egomimic/**/*.svg
+act/detr/detr.egg-info/PKG-INFO
+egomimic/v_3_after.png
+egomimic/v_3.png
+egomimic/scripts/masking/overlays/
+debug_ims/*
+egomimic/scripts/aloha_process/datasetFig
+egomimic/outputs
+outputs/
+logs/
+emimic/
+emimic.egg-info/
+pyproject.bak
+egomimic/algo/pi_checkpoints/*
+egomimic/scripts/tsne/*
+lerobot_test/
+**/lerobot_test/
+**/lerobot_test/**
+**/robot/models/**
+**/robot/models/
+external/scale/scripts/datasets
+_turbojpeg_lib/
+external/scale/scripts/scale_data/
+*.zarr
+**/*.zarr
+.codex
+annotations/**
+annotations_test/**
+log_conversion/**
+debug_model_inputs/**
+temp_dir/**
+curation_results/**
+# Project-local CUDA 12.4 toolkit installed via micromamba (used to build
+# flash-attn, mamba_ssm, causal_conv1d against torch 2.6.0+cu124). See
+# CLAUDE.md "Installing the CUDA kernels". ~1.6GB.
+/cuda-12.4/
+/.micromamba/
+
+# One-off plot artifacts.
+/variant_comparison.png
+external_ckpts/*.ckpt
+
+# Restructure scratch: archived root debris (DESIGN.md step 1). MOVES not deletes;
+# history preserved at old paths. See scratch/MANIFEST.md.
+/scratch/
+
+# Python bytecode cache dirs (DESIGN.md step 13 hygiene).
+__pycache__/
+**/__pycache__/

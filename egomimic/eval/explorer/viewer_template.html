@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chunkviz Explorer</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1b212b; --border:#2a313c;
+    --ink:#e6edf3; --muted:#8b949e; --accent:#3b82f6; --gold:#f5c518;
+    --red:#dc2626; --blue:#1f77b4; --orange:#ff7f0e;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  #app{display:grid;grid-template-rows:auto 1fr;height:100%}
+  header{display:flex;gap:14px;align-items:center;padding:8px 14px;
+    background:var(--panel);border-bottom:1px solid var(--border)}
+  header h1{font-size:14px;margin:0;font-weight:600;letter-spacing:.2px}
+  header .sp{flex:1}
+  select,button,input[type=range]{font:inherit;color:var(--ink)}
+  select{background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+    padding:4px 8px}
+  .btn{background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+    padding:5px 10px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .seg{display:flex;gap:0;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+  .seg .btn{border:0;border-radius:0;border-right:1px solid var(--border)}
+  .seg .btn:last-child{border-right:0}
+  main{display:grid;grid-template-columns:1.4fr .8fr;grid-template-rows:auto auto 1fr;
+    gap:10px;padding:10px;min-height:0}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    padding:10px;min-height:0;display:flex;flex-direction:column}
+  .card h2{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.7px;
+    color:var(--muted);font-weight:600}
+  #videoCard{grid-row:1}
+  #clipCard{grid-column:2;grid-row:1/3;min-height:0}
+  #timelineCard{grid-column:1/3;grid-row:2}
+  #pcaCard{grid-column:1/3;grid-row:3;min-height:220px}
+  #videoWrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;
+    background:#000;border-radius:8px;overflow:hidden;min-height:260px}
+  #video{max-width:100%;max-height:100%;image-rendering:auto}
+  #transport{display:flex;gap:8px;align-items:center;margin-top:8px}
+  #transport .time{color:var(--muted);font-variant-numeric:tabular-nums;min-width:96px}
+  #cliplist{overflow:auto;flex:1;border:1px solid var(--border);border-radius:8px}
+  .clip{display:flex;align-items:center;gap:8px;padding:6px 9px;cursor:pointer;
+    border-bottom:1px solid var(--border)}
+  .clip:hover{background:var(--panel2)}
+  .clip.active{background:#243043}
+  .clip .sw{width:10px;height:18px;border-radius:3px;flex:0 0 auto}
+  .clip .rng{font-variant-numeric:tabular-nums;color:var(--muted);min-width:70px}
+  .clip .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  canvas{display:block;width:100%}
+  #timeline{cursor:crosshair}
+  .hint{color:var(--muted);font-size:11px;margin-top:6px}
+  input[type=range]{accent-color:var(--accent)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Chunkviz Explorer</h1>
+    <label>emb <select id="embSel"></select></label>
+    <label>episode <select id="epSel"></select></label>
+    <span class="seg" id="layerSeg">
+      <button class="btn on" data-layer="chunks">colored chunks</button>
+      <button class="btn" data-layer="prob">P(boundary)</button>
+      <button class="btn" data-layer="crisp">crisp</button>
+    </span>
+    <span class="sp"></span>
+    <span class="hint">space play/pause · ←/→ step · click/drag timeline to seek</span>
+  </header>
+  <main>
+    <section class="card" id="videoCard">
+      <h2>Rollout</h2>
+      <div id="videoWrap"><canvas id="video"></canvas></div>
+      <div id="transport">
+        <button class="btn" id="toStart">⏮</button>
+        <button class="btn" id="playBtn">▶</button>
+        <button class="btn" id="stepB">◀</button>
+        <button class="btn" id="stepF">▶|</button>
+        <input type="range" id="scrub" min="0" value="0" style="flex:1"/>
+        <span class="time" id="timeLbl">0 / 0</span>
+        <label class="hint">fps <input type="range" id="fps" min="2" max="30" value="12" style="width:80px"></label>
+      </div>
+    </section>
+
+    <section class="card" id="clipCard">
+      <h2 style="display:flex;align-items:center;gap:8px">
+        <span>Chunks — click to jump</span>
+        <select id="clipStageSel" style="margin-left:auto;text-transform:none;letter-spacing:0"></select>
+      </h2>
+      <div id="cliplist"></div>
+    </section>
+
+    <section class="card" id="timelineCard">
+      <h2>Boundary timeline</h2>
+      <canvas id="timeline" height="150"></canvas>
+    </section>
+
+    <section class="card" id="pcaCard">
+      <h2>PCA — high-level chunk tokens (grey all · blue this episode · orange recent · red current)</h2>
+      <canvas id="pca"></canvas>
+    </section>
+  </main>
+</div>
+
+<script>
+const PALETTE = [
+  [31,119,180],[255,127,14],[44,160,44],[214,39,40],[148,103,189],
+  [140,86,75],[227,119,194],[23,190,207],[188,189,34],[120,120,120]
+];
+const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
+const DATA = /*__CHUNKVIZ_DATA__*/;
+
+const S = { emb:null, ep:0, frame:0, layer:"chunks", playing:false, fps:12,
+            frames:[], _raf:null, _acc:0, _last:0, drag:false, clipStage:0 };
+
+const $ = id => document.getElementById(id);
+
+function embObj(){ return DATA.embs[S.emb]; }
+function epObj(){ return embObj().episodes[S.ep]; }
+function T(){ return epObj().topcid.length; }
+
+// ---- chunk runs (contiguous chunk ids for the chosen stage) ----
+function chunkRuns(stage){
+  const row = epObj().cid[stage], runs=[]; let st=0;
+  for(let t=1;t<=row.length;t++){
+    if(t===row.length || row[t]!==row[st]){ runs.push({a:st,b:t-1,id:row[st]}); st=t; }
+  }
+  return runs;
+}
+
+// ---- selectors ----
+function fillSelectors(){
+  const e=$("embSel"); e.innerHTML="";
+  DATA.emb_ids.forEach(id=>{ const o=document.createElement("option");
+    o.value=id;o.textContent="emb "+id;e.appendChild(o); });
+  e.value=S.emb;
+  const ep=$("epSel"); ep.innerHTML="";
+  embObj().episodes.forEach((_,i)=>{ const o=document.createElement("option");
+    o.value=i;o.textContent="ep "+i;ep.appendChild(o); });
+  ep.value=S.ep;
+  // chunk-list stage dropdown (last stage = most-compressed / high-level)
+  const labels=embObj().labels, cs=$("clipStageSel"); cs.innerHTML="";
+  labels.forEach((nm,i)=>{ const o=document.createElement("option");
+    o.value=i; o.textContent = nm + (i===labels.length-1?" (high-level)":"");
+    cs.appendChild(o); });
+  if(S.clipStage>=labels.length) S.clipStage=labels.length-1;
+  cs.value=S.clipStage;
+}
+
+// ---- video frames ----
+function loadFrames(){
+  S.frames = (epObj().frames||[]).map(src=>{ if(!src) return null;
+    const im=new Image(); im.src=src; return im; });
+}
+function drawVideo(){
+  const c=$("video"), w=c.parentElement.clientWidth, h=c.parentElement.clientHeight;
+  c.width=w; c.height=h; const x=c.getContext("2d");
+  x.fillStyle="#000"; x.fillRect(0,0,w,h);
+  const im=S.frames[S.frame];
+  if(im && im.complete && im.naturalWidth){
+    const s=Math.min(w/im.naturalWidth,h/im.naturalHeight);
+    const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
+    x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh);
+  } else {
+    x.fillStyle="#444"; x.font="13px sans-serif"; x.textAlign="center";
+    x.fillText(im?"loading…":"no trajectory frames",w/2,h/2);
+  }
+}
+
+// ---- clip list ----
+function buildClips(){
+  const box=$("cliplist"); box.innerHTML="";
+  chunkRuns(S.clipStage).forEach(r=>{
+    const d=document.createElement("div"); d.className="clip"; d.dataset.a=r.a; d.dataset.b=r.b;
+    const sw=document.createElement("div"); sw.className="sw";
+    sw.style.background=rgb(PALETTE[r.id%PALETTE.length]);
+    const rng=document.createElement("div"); rng.className="rng"; rng.textContent=`${r.a}–${r.b}`;
+    const nm=document.createElement("div"); nm.className="nm";
+    nm.textContent=`chunk ${r.id}  ·  ${r.b-r.a+1} frames`;
+    d.append(sw,rng,nm);
+    d.onclick=()=>seek(r.a);
+    box.appendChild(d);
+  });
+}
+function highlightClip(){
+  document.querySelectorAll(".clip").forEach(d=>{
+    const a=+d.dataset.a,b=+d.dataset.b;
+    const on=S.frame>=a&&S.frame<=b; d.classList.toggle("active",on);
+    if(on && !d._seen){ d.scrollIntoView({block:"nearest"}); }
+    d._seen=on;
+  });
+}
+
+// ---- timeline ----
+const LABW=78, BAND=30, GAP=6, RULER=22;
+function tlGeom(){
+  const c=$("timeline"); const w=c.parentElement.clientWidth-20;
+  const ep=epObj(), ns=embObj().labels.length;
+  const h=RULER+ns*(BAND+GAP);
+  c.width=w; c.height=h; return {c,w,h,ns,plotW:w-LABW};
+}
+function fx(f,plotW){ return LABW + (T()<=1?0:f/(T()-1))*plotW; }
+function drawTimeline(){
+  const {c,w,h,ns,plotW}=tlGeom(); const x=c.getContext("2d");
+  const ep=epObj(), labels=embObj().labels;
+  x.fillStyle="#0c0f14"; x.fillRect(0,0,w,h);
+  // ruler
+  x.fillStyle="#8b949e"; x.font="10px sans-serif"; x.textAlign="center";
+  const step=niceStep(T(),plotW);
+  for(let f=0;f<T();f+=step){ const px=fx(f,plotW);
+    x.fillRect(px,RULER-6,1,6); x.fillText(f,px,RULER-9);
+  }
+  // tracks
+  for(let s=0;s<ns;s++){
+    const y=RULER+s*(BAND+GAP);
+    x.fillStyle="#cbd5e1"; x.textAlign="left"; x.font="11px sans-serif";
+    x.fillText(labels[s], 6, y+BAND/2+4);
+    const cid=ep.cid[s], prob=ep.prob[s];
+    for(let f=0;f<T();f++){
+      const px=fx(f,plotW), px2=fx(f+1,plotW), bw=Math.max(1,px2-px+0.5);
+      let col;
+      if(S.layer==="chunks"){ col=rgb(PALETTE[cid[f]%PALETTE.length]); }
+      else if(S.layer==="prob"){ const g=Math.round(255*(1-Math.min(1,Math.max(0,prob[f])))); col=`rgb(${g},${g},${g})`; }
+      else { const crisp = f===0 || cid[f]!==cid[f-1]; col = crisp?"#dc2626":"#f3f4f6"; }
+      x.fillStyle=col; x.fillRect(px,y,bw,BAND);
+    }
+    x.strokeStyle="#2a313c"; x.strokeRect(LABW,y,plotW,BAND);
+  }
+  // playhead
+  const ph=fx(S.frame,plotW);
+  x.fillStyle="#f5c518"; x.fillRect(ph-1,RULER-4,2,h-RULER+4);
+  x.beginPath(); x.moveTo(ph-5,RULER-4); x.lineTo(ph+5,RULER-4); x.lineTo(ph,RULER+3);
+  x.closePath(); x.fill();
+}
+function niceStep(n,plotW){
+  const target=Math.max(40, plotW/12); // ~12 ticks
+  const raw=n*target/plotW; const pw=Math.pow(10,Math.floor(Math.log10(raw)));
+  for(const m of [1,2,5,10]) if(pw*m>=raw) return Math.max(1,Math.round(pw*m));
+  return Math.max(1,Math.round(pw*10));
+}
+function timelineSeek(ev){
+  const {plotW}=tlGeom(); const r=$("timeline").getBoundingClientRect();
+  const rel=ev.clientX-r.left-LABW; if(rel<0) return;
+  seek(Math.round(rel/plotW*(T()-1)));
+}
+
+// ---- PCA ----
+function drawPCA(){
+  const c=$("pca"); const w=c.parentElement.clientWidth-20;
+  const h=Math.max(200,c.parentElement.clientHeight-30); c.width=w;c.height=h;
+  const x=c.getContext("2d"); x.fillStyle="#0c0f14"; x.fillRect(0,0,w,h);
+  const pts=embObj().pca; if(!pts.length) return;
+  let xmin=1e9,xmax=-1e9,ymin=1e9,ymax=-1e9;
+  for(const p of pts){ xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);
+    ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]); }
+  // EQUAL ASPECT: PC1/PC2 share units, so one scale for both axes (a square
+  // data mapping centered in the canvas) — never stretch to fill the rect.
+  const pad=24, dw=(xmax-xmin)||1, dh=(ymax-ymin)||1;
+  const sc=Math.min((w-2*pad)/dw,(h-2*pad)/dh);
+  const ox=(w-dw*sc)/2, oy=(h-dh*sc)/2;
+  const sx=v=>ox+(v-xmin)*sc, sy=v=>h-oy-(v-ymin)*sc;
+  // all
+  x.fillStyle="rgba(150,150,150,.5)";
+  for(const p of pts){ x.beginPath();x.arc(sx(p[0]),sy(p[1]),2,0,7);x.fill(); }
+  // this episode
+  const tc=epObj().topcid, uniq=[...new Set(tc)];
+  x.fillStyle="#1f77b4";
+  for(const id of uniq){ const p=pts[id]; if(!p)continue;
+    x.beginPath();x.arc(sx(p[0]),sy(p[1]),3.5,0,7);x.fill(); }
+  // recent trail (dedup consecutive over last 40 frames)
+  const lo=Math.max(0,S.frame-40); const seq=[];
+  for(let f=lo;f<=S.frame;f++){ const id=tc[f]; if(!seq.length||seq[seq.length-1]!==id)seq.push(id); }
+  x.strokeStyle="#ff7f0e"; x.lineWidth=2; x.beginPath();
+  seq.forEach((id,i)=>{ const p=pts[id]; if(!p)return;
+    const X=sx(p[0]),Y=sy(p[1]); i?x.lineTo(X,Y):x.moveTo(X,Y); }); x.stroke();
+  x.fillStyle="#ff7f0e";
+  for(const id of seq){ const p=pts[id]; if(!p)continue;
+    x.beginPath();x.arc(sx(p[0]),sy(p[1]),3,0,7);x.fill(); }
+  // current
+  const cp=pts[tc[S.frame]];
+  if(cp){ x.fillStyle="#dc2626"; x.beginPath();x.arc(sx(cp[0]),sy(cp[1]),7,0,7);x.fill();
+    x.strokeStyle="#fff";x.lineWidth=2;x.stroke(); }
+}
+
+// ---- render / state ----
+function renderAll(){ drawVideo(); drawTimeline(); drawPCA(); highlightClip();
+  const t=T(); $("scrub").max=t-1; $("scrub").value=S.frame; $("timeLbl").textContent=`${S.frame} / ${t-1}`; }
+function seek(f){ S.frame=Math.max(0,Math.min(T()-1,f|0)); renderAll(); }
+function setEmb(e){ S.emb=String(e); S.ep=0; fillSelectors(); changeEp(0); }
+function changeEp(i){ S.ep=+i; S.frame=0; loadFrames(); buildClips(); renderAll();
+  // redraw video as frames decode
+  S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; }); }
+
+// ---- playback ----
+function tick(ts){ if(!S.playing){return;} if(!S._last)S._last=ts;
+  S._acc+=(ts-S._last)/1000; S._last=ts;
+  const dt=1/S.fps;
+  while(S._acc>=dt){ S._acc-=dt; S.frame=(S.frame+1)%T(); }
+  renderAll(); S._raf=requestAnimationFrame(tick);
+}
+function play(on){ S.playing=on; $("playBtn").textContent=on?"⏸":"▶";
+  $("playBtn").classList.toggle("on",on);
+  if(on){ S._last=0; S._raf=requestAnimationFrame(tick); } else cancelAnimationFrame(S._raf); }
+
+// ---- wire up ----
+function init(){
+  S.emb=String(DATA.emb_ids[0]);
+  S.clipStage=embObj().labels.length-1;   // default = high-level (last stage)
+  fillSelectors(); loadFrames(); buildClips(); renderAll();
+  S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; });
+
+  $("embSel").onchange=e=>setEmb(e.target.value);
+  $("epSel").onchange=e=>changeEp(e.target.value);
+  $("clipStageSel").onchange=e=>{ S.clipStage=+e.target.value; buildClips(); highlightClip(); };
+  $("layerSeg").onclick=e=>{ const b=e.target.closest("[data-layer]"); if(!b)return;
+    S.layer=b.dataset.layer;
+    document.querySelectorAll("#layerSeg .btn").forEach(x=>x.classList.toggle("on",x===b));
+    drawTimeline(); };
+  $("playBtn").onclick=()=>play(!S.playing);
+  $("toStart").onclick=()=>{play(false);seek(0);};
+  $("stepB").onclick=()=>{play(false);seek(S.frame-1);};
+  $("stepF").onclick=()=>{play(false);seek(S.frame+1);};
+  $("scrub").oninput=e=>{play(false);seek(+e.target.value);};
+  $("fps").oninput=e=>S.fps=+e.target.value;
+
+  const tl=$("timeline");
+  tl.onmousedown=e=>{S.drag=true;play(false);timelineSeek(e);};
+  window.addEventListener("mousemove",e=>{if(S.drag)timelineSeek(e);});
+  window.addEventListener("mouseup",()=>S.drag=false);
+
+  window.addEventListener("keydown",e=>{
+    if(e.code==="Space"){e.preventDefault();play(!S.playing);}
+    else if(e.code==="ArrowRight"){play(false);seek(S.frame+1);}
+    else if(e.code==="ArrowLeft"){play(false);seek(S.frame-1);}
+    else if(e.code==="Home"){play(false);seek(0);}
+  });
+  window.addEventListener("resize",renderAll);
+}
+init();
+</script>
+</body>
+</html>

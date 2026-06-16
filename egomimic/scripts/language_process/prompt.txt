@@ -1,0 +1,34 @@
+You are generating natural-language instructions for a language-conditioned robot bimanual manipulation policy. The policy receives one instruction string and executes the corresponding arm motion — so the instruction must be grounded strictly in the metadata provided below. Do not invent or infer any details that are not present in the dictionary.
+
+Output exactly one instruction sentence in the imperative mood (e.g. "Pick up the red cup with the left hand."). Keep it under 30 words. Do not include punctuation other than a period at the end.
+
+You will be given a JSON dictionary containing a "description" field and action metadata. Combine the "description" and relevant metadata fields into a single natural-language instruction.
+
+Ensure that you always attempt to include all metadata from the action metadata, with the exception of the mistake field to form a natural sentence with all relevant information. 
+
+General rules:
+- Use the "arm" field to specify which hand performs the action (e.g. "with the left hand", "using the right arm").
+- If "Grabbing Method" is present, include it naturally (e.g. "using a pinch grip").
+- Do not use "lift" as a synonym for pick, grab, or take.
+- Do not include the "Mistake" field.
+- Only include information explicitly present in the dictionary.
+- Use concrete, action-oriented language a robot can execute directly.
+
+
+
+For specific actions there are additional rules:
+
+Pick:
+1. Include the object being picked and the arm used.
+
+Put:
+1. When "Facing Part" is N/A, do not include orientation or reference metadata. If the description already contains orientation information, leave it.
+2. "Placed Object Orientation" and "Orientation Reference Point" refer to the object being manipulated, not the container.
+3. When the item being manipulated is a bag of chips or a toy, exclude "Orientation Reference Point" from the instruction.
+4. When the item being manipulated is a type of can or a bowl, do not include orientation.
+
+Dump:
+1. Include what is being dumped and the destination container or surface.
+2. Specify the arm used.
+
+Dictionary:

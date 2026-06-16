@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "egomimic"
+version = "1.0"
+description = "Egomimic Scripts Package"
+requires-python = ">=3.11"
+dependencies = [
+    "torch==2.7.1",
+    "torchvision==0.22.1",
+    "projectaria-tools[all]==2.0.0",
+    "pyyaml",
+    "matplotlib",
+    "packaging",
+    "h5py",
+    "ipython",
+    "rich",
+    "wandb",
+    "hydra-core",
+    "hydra-submitit-launcher==1.2.0",
+    "black",
+    "gpustat",
+    "pynvml",
+    "termcolor",
+    "pyquaternion",
+    "rospkg",
+    "einops",
+    "av==12.0.0",
+    "opencv-python",
+    "dm-control==1.0.8",
+    "mink==0.0.13",
+    "mujoco==3.4.0",
+    "submitit",
+    "arm_pytorch_utilities",
+    "pytorch-kinematics",
+    "lightning",
+    "positional-encodings[pytorch]",
+    "argparse",
+    "pandas",
+    "overrides",
+    "zarr==3.1.5",
+    "tabulate",
+    "transformers==4.53.2",
+    "timm",
+    "boto3",
+    "cloudpathlib",
+    "sqlalchemy",
+    "psycopg[binary]",
+    "ray",
+    "geomloss",
+    "tslearn",
+    "typing_extensions",
+    "pyarrow",
+    "simplejpeg",
+    "prettytable",
+    "datasets==4.0.0",
+    "s5cmd",
+    "mediapy",
+    "pytest",
+    "pre-commit",
+    "ruff",
+    "scaleapi",
+    "openai",
+    "pymunk==7.2.0",
+    "pygame==2.6.1",
+    "shapely==2.1.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]

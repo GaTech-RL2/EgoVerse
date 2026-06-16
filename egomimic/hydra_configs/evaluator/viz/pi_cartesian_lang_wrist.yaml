@@ -1,0 +1,10 @@
+defaults:
+  - cartesian_wrist
+  - _self_
+
+eva_bimanual:
+  image_key: base_0_rgb
+  annotation_key: sampled_prompt
+aria_bimanual:
+  image_key: base_0_rgb
+  annotation_key: sampled_prompt

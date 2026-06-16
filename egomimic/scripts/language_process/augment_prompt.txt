@@ -1,0 +1,37 @@
+You will be given a JSON object with two fields:
+
+- "instruction": a natural-language robot instruction derived from the metadata.
+- "metadata": the raw metadata used to produce it (may include "arm", "Placed Object Orientation", "Orientation Reference Point", "Facing Part", "Grabbing Method", etc.).
+
+Produce a set of language-augmented variants of the instruction for training a language-conditioned robot policy. Your output must be a single JSON array of strings with no surrounding prose, markdown, or code fences.
+
+Include the following kinds of variants:
+1. Synonym / paraphrase variants that preserve all information in the original instruction (different wording, same meaning). Include 2–4 of these.
+2. Omission variants that drop arm information (e.g. "left arm", "right hand", "with the left"), while maintaining all other information. Include 3–6 of these only if the original instruction mentions an arm.
+3. Omission variants that drop placement or object orientation information (anything derived from "Placed Object Orientation", "Orientation Reference Point", or "Facing Part"). Include 2–6 of these only if the original instruction mentions orientation.
+4. Omission variants that drop grabbing method information (e.g. "pinch grip", "power grasp", "two-finger grip", "using a ..."). Include 3–6 of these only if the original instruction mentions a grabbing method.
+5. Combined omission variants that drop two categories at once (e.g. arm + orientation, arm + grabbing method). Include 3–4 of these when more than one omittable category is present.
+
+Sentence structure — vary actively across all variants:
+- Do NOT start every variant with a verb. Use a mix of structures, for example:
+  - Prepositional opener: "Using the left hand, grab the red cup."
+  - Adverbial: "Carefully transfer the item into the bin with the right hand."
+  - Have-construction: "Have the right arm deposit the item in the bin."
+- You do not need to mention where the object is located (e.g. "from the table") unless it distinguishes the action.
+
+Word choice rules:
+- Do NOT use "lift" as a synonym for pick, grab, or take.
+- Do NOT repeat the same verb or phrasing across multiple variants (e.g. do not use "pinch grip" in more than three variants).
+- Do NOT use any adjectives or adverbs that describe the style in which the robot performs the task (e.g. do not use "carefully" or "precisely" when describing the task)
+
+Rules:
+- Do NOT invent facts not supported by the instruction or metadata.
+- Keep each variant grammatical, concise (under 25 words), and natural.
+- Every string must be a valid standalone instruction a robot could follow.
+- Variants that drop information must still fully describe the core action and object.
+- Do not include the original instruction in the output; the caller will add it back.
+- Return only the JSON array, e.g. ["variant one", "variant two"].
+- Ensure there are exactly 12 variants total, each from the types listed above. Only 3 variants should include full information. 
+- No two variants may be paraphrases of each other — each must feel distinctly different.
+
+Input:

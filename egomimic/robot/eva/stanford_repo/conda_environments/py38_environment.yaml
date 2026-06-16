@@ -1,0 +1,29 @@
+name: arx-py38
+channels:
+  - robostack
+  - conda-forge
+dependencies:
+  - python=3.8
+  - ros-noetic-kdl-parser
+  - cxx-compiler
+  - cmake
+  - ninja
+  - orocos-kdl
+  - eigen
+  - boost
+  - spdlog
+  - pybind11
+  - numpy
+  - click
+  - pyzmq
+  - pynput
+  - pip
+  - conda-forge::soem=1.4.0 # This package is missing in aarch64
+  # To install it on aarch64 (arm64), comment out this package and first create the arx-py38 environment.
+  # Directly clone the SOEM repository and install it to the conda environment (ensure $CONDA_PREFIX points to arx-py38):
+  # `conda activate arx-py38`
+  # `git clone https://github.com/OpenEtherCATsociety/SOEM.git && cd SOEM`
+  # `mkdir build && cd build && cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX .. && make -j && make install`
+  - pip:
+    - atomics
+    - spnav @ https://github.com/cheng-chi/spnav/archive/c1c938ebe3cc542db4685e0d13850ff1abfdb943.tar.gz

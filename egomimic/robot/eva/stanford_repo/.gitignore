@@ -1,0 +1,5 @@
+build
+__pycache__
+*cpython*.so
+python/data
+build*

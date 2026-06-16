@@ -1,0 +1,99 @@
+# Launch with AWS_PROFILE=clusterv2 ray up egomimic/scripts/mps_process/mps-cluster.yaml
+cluster_name: mps-ray-cluster
+
+provider:
+  type: aws
+  region: us-east-2
+  cache_stopped_nodes: false
+
+auth:
+  ssh_user: ubuntu
+  ssh_private_key: ~/.ssh/rldb-base-pem.pem
+
+file_mounts:
+  "/home/ubuntu/EgoVerse": "../EgoVerse"
+
+rsync_exclude:
+  - "emimic/"
+  - "**/__pycache__/"
+  - "*.pyc"
+  - "logs/"
+  - "external/openpi"
+
+max_workers: 15
+idle_timeout_minutes: 10
+
+available_node_types:
+  head_node:
+    node_config:
+      InstanceType: t3a.2xlarge
+      KeyName: rldb-base-pem
+      ImageId: ami-087b7d87e62c00ebf
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 500 }
+    resources: { CPU: 4 }
+    min_workers: 0
+    max_workers: 0
+  
+  worker_node:
+    node_config:
+      InstanceType: t3a.2xlarge
+      KeyName: rldb-base-pem
+      ImageId: ami-087b7d87e62c00ebf
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: 50 }
+    resources:
+      CPU: 8
+      memory: 34359738368
+    min_workers: 0
+    max_workers: 15
+
+head_node_type: head_node
+
+initialization_commands:
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get update -yq
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3 curl wget awscli
+  - |
+      cat <<'EOF' | sudo tee /usr/local/bin/aws >/dev/null
+      #!/usr/bin/env bash
+      export PYTHONNOUSERSITE=1
+      exec /usr/bin/aws "$@"
+      EOF
+      sudo chmod +x /usr/local/bin/aws
+      aws --version
+  - |
+      cd ~/EgoVerse
+      pip3 install --no-input -r requirements-ray.txt
+      pip3 install --no-input -e .
+  - |
+      python3 -m pip install --no-input \
+        --index-url https://test.pypi.org/simple/ \
+        --extra-index-url https://pypi.org/simple/ \
+        projectaria-mps==1.0.2a2
+  - aria_mps --help >/dev/null 2>&1 && echo "✅ aria_mps CLI detected" || echo "⚠️ aria_mps CLI not found"
+  - sudo apt-get autoremove -yq
+  - sudo apt-get clean -yq
+
+
+setup_commands:
+  - |
+      chmod +x ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+      PYTHONNOUSERSITE=1 R2_SECRET_NAME=r2/rldb/credentials DB_SECRET_NAME=rds/appdb/appuser REGION=us-east-2 \
+        bash ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+
+  - |
+      chmod +x /home/ubuntu/EgoVerse/egomimic/scripts/mps_process/run_mps.sh \
+        && echo "✅ run_mps.sh marked executable" \
+        || echo "⚠️ run_mps.sh not found"
+
+  - |
+      (crontab -l 2>/dev/null \
+        | grep -v '/run_mps\.sh' \
+        | grep -v 'CRON_TZ=America/New_York' ; \
+       echo 'CRON_TZ=America/New_York'; \
+       echo '0 22 * * * flock -n /tmp/run_mps.lock /bin/bash -lc "set -a; . /home/ubuntu/.egoverse_env; set +a; /bin/bash /home/ubuntu/EgoVerse/egomimic/scripts/mps_process/run_mps.sh" >> /home/ubuntu/daily_mps.log 2>&1') \
+       | crontab - || true
+
+  - crontab -l || true

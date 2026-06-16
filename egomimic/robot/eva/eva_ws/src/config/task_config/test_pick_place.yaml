@@ -1,0 +1,4 @@
+dataset_dir: /home/rl2-bonjour/Eva_Clean/EgoVerse-Eva/data
+dataset_name: test_pick_place
+episode_len: 700
+hz: 50

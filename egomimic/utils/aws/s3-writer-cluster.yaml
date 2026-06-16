@@ -1,0 +1,72 @@
+# ───────────────── s3-writer-cluster.yaml ─────────────────
+# Launch with AWS_PROFILE=clusterv2 ray up egomimic/utils/aws/s3-writer-cluster.yaml.  Launch from ./EgoVerse
+cluster_name: s3-writer-cluster
+
+provider:
+  type: aws
+  region: us-east-2
+  cache_stopped_nodes: false
+
+auth:
+  ssh_user: ubuntu
+  ssh_private_key: ~/.ssh/rldb-base-pem.pem
+
+file_mounts:
+  "/home/ubuntu/EgoVerse": "../EgoVerse"
+
+rsync_exclude:
+  - "emimic/"
+  - "**/__pycache__/"
+  - "*.pyc"
+  - "logs/"
+
+max_workers: 0
+idle_timeout_minutes: 10
+
+available_node_types:
+  head_node:
+    node_config:
+      InstanceType: t3.xlarge
+      KeyName: rldb-base-pem
+      ImageId: ami-087b7d87e62c00ebf
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 50 }
+    resources: { CPU: 4 }
+    min_workers: 0
+    max_workers: 0
+
+head_node_type: head_node
+
+# ───────── PACKAGES + SETUP ─────────────────────────────
+initialization_commands:
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get update -yq
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq python3-pip python3-dev git fuse3 unzip
+  - sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq libgl1 libpq-dev
+  - curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+  - sudo unzip -qq /tmp/awscliv2.zip -d /tmp
+  - sudo /tmp/aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update || true
+  - |
+      cd ~/EgoVerse
+      pip3 install --no-input -r requirements-ray.txt
+      pip3 install --no-input -e .
+
+setup_commands:
+  # ───── Setup AWS secret + env file ─────
+  - |
+      echo "Running setup_secret.sh..."
+      chmod +x ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+      R2_SECRET_NAME=r2/rldb/credentials DB_SECRET_NAME=rds/appdb/appuser REGION=us-east-2 \
+        bash ~/EgoVerse/egomimic/utils/aws/setup_secret.sh
+
+  # ───── Make run_s3_writer.sh executable ─────
+  - |
+      chmod +x ~/EgoVerse/egomimic/utils/aws/run_s3_writer.sh
+
+  # ───── Install hourly cron for run_s3_writer.sh ─────
+  - |
+      (crontab -l 2>/dev/null | grep -v run_s3_writer.sh ; \
+       echo 'CRON_TZ=America/New_York'; \
+       echo '*/30 * * * * flock -n /tmp/run_s3_writer.lock /home/ubuntu/EgoVerse/egomimic/utils/aws/run_s3_writer.sh > /home/ubuntu/s3_writer.log 2>&1') \
+       | crontab - || true
+  - crontab -l || true

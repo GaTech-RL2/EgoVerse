@@ -1,0 +1,22 @@
+    ├─ cuda-nvcc =* * is not installable because it requires
+    │  └─ gcc_linux-64 =* *, which does not exist (perhaps a missing channel);
+    └─ cuda-nvrtc-dev =* * is not installable because it requires
+       └─ libgcc-ng >=11.2.0 *, which does not exist (perhaps a missing channel).
+critical libmamba Could not solve for environment specs
+scripts/install_kernels_pact.sh: line 19: ./cuda-12.6/bin/nvcc: No such file or directory
+/coc/flash7/paphiwetsa3/projects/EgoVerse-pact/.venv/bin/python: No module named pip
+/coc/flash7/paphiwetsa3/projects/EgoVerse-pact/.venv/bin/python: No module named pip
+/coc/flash7/paphiwetsa3/projects/EgoVerse-pact/.venv/bin/python: No module named pip
+/coc/flash7/paphiwetsa3/projects/EgoVerse-pact/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+torch 2.7.1+cu126 / cuda 12.6 / avail True
+=== causal_conv1d 1.6.2.post1 ===
+/coc/flash7/paphiwetsa3/projects/EgoVerse-pact/.venv/bin/python: No module named pip
+=== mamba_ssm 2.3.2.post1 ===
+/coc/flash7/paphiwetsa3/projects/EgoVerse-pact/.venv/bin/python: No module named pip
+=== flash-attn 2.7.4.post1 (slow: 15-30 min on A40) ===
+/coc/flash7/paphiwetsa3/projects/EgoVerse-pact/.venv/bin/python: No module named pip
+/coc/flash7/paphiwetsa3/projects/EgoVerse-pact/.venv/lib/python3.11/site-packages/torch/cuda/__init__.py:61: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+torch: 2.7.1+cu126 cuda: 12.6
+flash_attn: False mamba: False mamba_scan: False

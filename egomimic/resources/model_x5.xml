@@ -1,0 +1,108 @@
+<mujoco model="x5_scene">
+  <compiler angle="radian" meshdir="../robot/eva/stanford_repo/models/meshes" autolimits="true"/>
+
+  <option timestep="0.002" integrator="implicitfast"/>
+
+  <visual>
+    <headlight ambient="0.5 0.5 0.5" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3"/>
+    <map force="0.1" znear="0.01"/>
+    <quality shadowsize="2048"/>
+  </visual>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" width="512" height="512" rgb1=".1 .2 .3" rgb2=".2 .3 .4"/>
+    <material name="grid" texture="grid" texrepeat="1 1" texuniform="true" reflectance=".2"/>
+    <mesh name="base_link" file="X5/base_link.STL"/>
+    <mesh name="link1" file="X5/link1.STL"/>
+    <mesh name="link2" file="X5/link2.STL"/>
+    <mesh name="link3" file="X5/link3.STL"/>
+    <mesh name="link4" file="X5/link4.STL"/>
+    <mesh name="link5" file="X5/link5.STL"/>
+    <mesh name="link6" file="X5/link6.STL"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+    <geom name="floor" pos="0 0 0" size="0 0 0.05" type="plane" material="grid" condim="3"/>
+
+    <!-- FIXED: remove +0.5 base offset -->
+    <body name="base_link" pos="0 0 0">
+      <inertial pos="-3.764e-5 0.00006519 0.03037877" mass="0.428"
+                diaginertia="0.00060832 0.00060728 1.917e-4"/>
+      <geom type="mesh" mesh="base_link" rgba="0.75294 0.75294 0.75294 1"/>
+
+      <body name="link1" pos="0 0 0.0603">
+        <inertial pos="0.00571213 0.0002547 0.01750661" mass="0.064"
+                  diaginertia="0.00008 0.00007 0.00003"/>
+        <joint name="joint1" type="hinge" axis="0 0 1" range="-10 10" damping="0.5"/>
+        <geom type="mesh" mesh="link1" rgba="0.75294 0.75294 0.75294 1"/>
+
+        <body name="link2" pos="0.02 0 0.0402">
+          <inertial pos="-0.13225701 0.00072373 4.274e-5" mass="1.165"
+                    diaginertia="0.03683489 0.03669927 0.00057063"/>
+          <joint name="joint2" type="hinge" axis="0 1 0" range="0 3.14" damping="0.5"/>
+          <geom type="mesh" mesh="link2" rgba="0.75294 0.75294 0.75294 1"/>
+
+          <body name="link3" pos="-0.264 0 0" quat="0 1 0 0">
+            <inertial pos="0.19096098 0.00069065 -0.05342172" mass="0.546"
+                      diaginertia="0.02486615 0.02329476 0.00178249"/>
+            <joint name="joint3" type="hinge" axis="0 1 0" range="0 3.14" damping="0.3"/>
+            <geom type="mesh" mesh="link3" rgba="0.75294 0.75294 0.75294 1"/>
+            <geom type="cylinder" pos="0.15 0 -0.055" size="0.02 0.075"
+                  quat="0.707107 0 0.707107 0" rgba="0.75294 0.75294 0.75294 0.3"/>
+
+            <body name="link4" pos="0.245 0 -0.056">
+              <inertial pos="0.03092317 0.0066107 -0.03138504" mass="0.080971"
+                        diaginertia="0.00021182 0.00017832 0.00011328"/>
+              <joint name="joint4" type="hinge" axis="0 1 0"
+                     range="-1.57079632679 1.57079632679" damping="0.3"/>
+              <geom type="mesh" mesh="link4" rgba="0.89804 0.91765 0.92941 1"/>
+              <geom type="cylinder" pos="0.06575 -0.001 -0.02" size="0.025 0.025"
+                    rgba="0.89804 0.91765 0.92941 0.3"/>
+
+              <body name="link5" pos="0.06575 -0.001 -0.0825">
+                <inertial pos="0.0040681 0.00000885 0.05120675" mass="0.655"
+                          diaginertia="0.00255018 0.00254972 0.00026961"/>
+                <joint name="joint5" type="hinge" axis="0 0 1" range="-1.67 1.67" damping="0.5"/>
+                <geom type="mesh" mesh="link5" rgba="0.75294 0.75294 0.75294 1"/>
+                <geom type="cylinder" pos="0.055 0.00 0.083" size="0.02 0.0125"
+                      quat="0.707107 0 0.707107 0" rgba="0.75294 0.75294 0.75294 0.3"/>
+
+                <body name="link6" pos="0.02845 0 0.0825" quat="0 1 0 0">
+                  <inertial pos="0.05435277 0 0" mass="0.581"
+                            diaginertia="0.00045 0.00029 0.00028"/>
+                  <joint name="joint6" type="hinge" axis="1 0 0" range="-1.57 1.57" damping="0.5"/>
+                  <geom type="mesh" mesh="link6" rgba="0.89804 0.91765 0.92941 1"/>
+
+                  <!-- FIXED: remove +0.145 m offset -->
+                  <body name="eef_link" pos="0 0 0">
+                    <!-- renamed TCP site -->
+                    <site name="tcp_match_trac" type="sphere" size="0.01" pos="0 0 0" rgba="1 0 0 1"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <!-- mocap target remains -->
+    <body name="target" mocap="true">
+      <geom type="sphere" size="0.02" rgba="0 1 0 0.3" contype="0" conaffinity="0"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="joint1" joint="joint1" kp="50" ctrlrange="-10 10"/>
+    <position name="joint2" joint="joint2" kp="50" ctrlrange="0 3.14"/>
+    <position name="joint3" joint="joint3" kp="30" ctrlrange="0 3.14"/>
+    <position name="joint4" joint="joint4" kp="30" ctrlrange="-1.57079632679 1.57079632679"/>
+    <position name="joint5" joint="joint5" kp="50" ctrlrange="-1.67 1.67"/>
+    <position name="joint6" joint="joint6" kp="50" ctrlrange="-1.57 1.57"/>
+  </actuator>
+
+  <keyframe>
+    <key name="home" qpos="0 0 0 0 0 0"/>
+  </keyframe>
+</mujoco>

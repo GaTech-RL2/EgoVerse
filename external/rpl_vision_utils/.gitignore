@@ -1,0 +1,4 @@
+*__pycache__*
+*/logs/*
+*.egg-info/*
+saved_figs/*
