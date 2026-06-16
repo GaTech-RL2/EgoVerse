@@ -221,7 +221,7 @@ class PILatentEvalVideo(EvalVideo):
                 exist_ok=True,
             )
 
-    def compute_metrics_and_viz(self, batch):
+    def compute_metrics_and_viz(self, batch, do_viz=True):
         algo = self.model
         metrics = {}
         images_dict = {}
@@ -282,7 +282,7 @@ class PILatentEvalVideo(EvalVideo):
                         unnorm_batch[ac_key][:, -1].cpu(),
                     )
 
-                if self.viz_func is not None:
+                if do_viz and self.viz_func is not None:
                     images_dict[embodiment_id] = self._visualize_preds(
                         unnorm_preds, unnorm_batch
                     )
