@@ -23,6 +23,36 @@ resolve `episode_lists/`, `pg_tokenizer/`, `outputs/` relative to the parent dir
   builder over the pre-pooled `top_image_embeddings`; runnable `--build-cache`),
   `droid_eval.py` (`DroidRiclEval` retrieval vs a *true* zero-context floor,
   paired flow-loss; `DroidRiclModelWrapper`).
+- RoboTwin integration (joint-space shim mirroring DROID + a reusable Zarr
+  converter; goal/steps in `robotwin_setup.md`): `robotwin_data.py`
+  (`RoboTwinCorpus` reads RoboTwin HDF5 — `joint_action/vector` + `endpose` +
+  `observation/<cam>/rgb` — query dataset, bank provider, within-task LOO cache;
+  **detects the embodiment's qpos dim + gripper slots** — `aloha-agilex` is 6-DOF
+  -> 14-D, slots 6/13 — so don't hardcode 16/(7,15)), `robotwin_eval.py`
+  (`RoboTwinRiclEval`/`RoboTwinRiclModelWrapper`, thin `DroidRiclEval` subclass for
+  RoboTwin's dim/grippers). Scripts: `scripts/download_robotwin.py`
+  (HF zip slice from `dataset/<task>/<embodiment>_<setting>_<N>.zip` — the bimanual
+  embodiment is `aloha-agilex`, smallest is `clean_50` ~230 MB; plus a `--mode
+  synthetic` fixture for tests), `scripts/robotwin_to_zarr.py` (HDF5 ->
+  `eva_bimanual` cartesian Zarr via `ZarrWriter`; needs `endpose`; cmd==obs pose,
+  chunked at load like aria), `scripts/train_robotwin_ricl.py` (`--stage cpu` = fast
+  data-path/collate smoke with `--embed fake`; `--stage full` = GPU training via
+  submitit). Tests: `tests/{robotwin_data_test.py,robotwin_to_zarr_test.py}` build a
+  synthetic 6-DOF fixture. Reusable-corpus path: `hydra_configs/data/robotwin_local.yaml`
+  (`LocalEpisodeResolver` + `Eva` keymap/transform, no SQL/S3) +
+  `tests/robotwin_zarr_multidataset_test.py` (converts fixture -> Zarr -> loads via
+  `MultiDataset._from_resolver` + replicates trainHydra norm-stats wiring). Closed-loop
+  eval: `robotwin_adapter.py` (model-free glue — `obs_to_state`,
+  `quantile_norm`/`unnorm`, `state_to_model_input`, `unnormalize_action`,
+  `OnlineRetriever`; unit-tested in `tests/robotwin_adapter_test.py` with the model/sim
+  mocked) and `robotwin_policy.py` — the deploy contract (`encode_obs`/`get_model`/`eval`/
+  `reset_model` + `PIRiclPolicy` backed by EgoVerse `PIRicl`), the **source of truth**.
+  RoboTwin loads it via a **thin shim** at `policy/pi_ricl_egoverse/`
+  (`__init__.py` = `from .deploy_policy import *`; `deploy_policy.py` = `from
+  egomimic.ricl.robotwin_policy import *`; + `deploy_policy.yml`/`eval.sh`) that lives in
+  the **`GaTech-RL2/RoboTwin` fork** = the `external/RoboTwin` submodule (matches the
+  `GaTech-RL2/openpi` pattern; new-cluster setup = `git submodule update --init
+  external/RoboTwin`). Driven by RoboTwin's SAPIEN `script/eval_policy.py`.
 - Embedding -> index: embed a corpus with
   `egomimic/scripts/embedding_process/zarr_embedding.py` — supports SQL-registry
   filters (`--filter-lambda` + `--sync-root`) and writes to a writable mirror

@@ -1,3 +1,6 @@
 [submodule "external/openpi"]
 	path = external/openpi
 	url = https://github.com/GaTech-RL2/openpi.git
+[submodule "external/RoboTwin"]
+	path = external/RoboTwin
+	url = https://github.com/GaTech-RL2/RoboTwin.git

@@ -31,11 +31,7 @@ all `*.ipynb`. **Never read into context**: venvs (`emimic/`, `.venv/`), caches
 
 ## Environment
 
-- **You are on a shared SLURM cluster.** Don't run GPU/CPU-intensive work on the login node. Grab an interactive node first with `salloc`, e.g.:
-  ```
-  salloc -A gts-dxu345-rl2 -N1 -q inferno -t 1:00:00 --mem=75G --gres=gpu:h200:1
-  ```
-  Always use the `inferno` queue (`-q inferno`) rather than `ember` — it's faster. Adjust `-t`, `--mem`, and `--gres` to the job. `salloc` is best for interactive / iterative work (smoke tests, debugging) where you hold the node and run into it repeatedly. For large or long-running jobs (real training runs), submit through Hydra's submitit launcher instead (`hydra/launcher/submitit.yaml`) so the job queues and runs unattended. Lightweight read-only work (lint, type checks, small unit tests, file edits, single-file syntax checks) is fine on the login node.
+- **You are on a MacBook Pro (M4).** This is the local dev box — code editing, lint, type checks, small unit tests, and other lightweight read-only work run here. GPU/CPU-intensive work (training, embedding, real eval) runs on the cluster: submit through Hydra's submitit launcher (`hydra/launcher/submitit.yaml`) so the job queues and runs unattended.
 - **Short GPU runs (eval-only, smoke, a few hundred forward passes): export `TORCH_COMPILE_DISABLE=1`.** pi0.5's `sample_actions` triggers a `torch.compile` max-autotune compile on the first call — minutes of warmup that only pays off across a long training run. Disabling it runs eager (slower per call, no warmup), a net win when you're not training for a while. Leave compile ON for real training.
 - Python 3.11. Activate the project venv before any Python tooling: `source emimic/bin/activate`.
 - Package is installed editable as `egomimic` (see `pyproject.toml`). Linting is `ruff` via pre-commit.
