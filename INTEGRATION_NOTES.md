@@ -33,6 +33,18 @@ above should ideally become passes by end of integration.
   threading nondeterminism flips it pass/fail run-to-run. Ignore for regression
   accounting (params ARE byte-identical; only the tiny forward sum drifts).
 
+## Mid-integration scope decisions (user-confirmed)
+- **H-Net**: gmm already reimplemented EV2's GMM/discrete/chunk action heads via
+  `HNetOuterStage(action_head_type=...)` + `GMMLoss` (not EV2's `action_heads.py`
+  free-functions). Decision: port EV2's genuinely-new `FlatFusedPolicy`/`HNetFused`
+  + `ChunkTokenPolicy`/`HNetChunkToken` as NEW classes (they use the copied
+  `models/hnet/action_heads.py`), reconciled against gmm's refactored internals.
+  Conflict #3 (HNetPolicy.action_head_cfg): NO edit — gmm's HNetPolicy/OuterStage
+  mechanism supersedes EV2's; gmm's path stays byte-identical.
+- **Duplicates**: only port EV2 modules gmm LACKS. Where gmm already has an
+  equivalent (its own diffusion package, denoising/fm policy heads), keep gmm's
+  and skip EV2's redundant copy.
+
 ## Progress log
 - Stage 0 ✅ copy + git baseline + sanity import OK.
 - Stage 1 ✅ conflict edits (_cut_windows window_anchor, SimpleConv spatial/tokens,
