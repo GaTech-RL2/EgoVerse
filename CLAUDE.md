@@ -31,7 +31,15 @@ all `*.ipynb`. **Never read into context**: venvs (`emimic/`, `.venv/`), caches
 
 ## Environment
 
-- **You are on a MacBook Pro (M4).** This is the local dev box — code editing, lint, type checks, small unit tests, and other lightweight read-only work run here. GPU/CPU-intensive work (training, embedding, real eval) runs on the cluster: submit through Hydra's submitit launcher (`hydra/launcher/submitit.yaml`) so the job queues and runs unattended.
+- **You are on a Linux SLURM cluster (Georgia Tech; working dir under `/coc/...`).** The login/dev node handles code editing, lint, type checks, and small read-only work. For GPU/CPU-intensive work you have two options:
+  - **Interactive** (debugging, smoke tests, short eval): grab a node with `salloc`. Partitions/accounts: `rl2-lab` (GPUs: `a40`, `l40s`) and `hoffman-lab` (GPU: `a40`; also CPU-only nodes). Examples:
+    - `salloc -p rl2-lab -A rl2-lab --gres=gpu:a40:1 -c12`
+    - `salloc -p rl2-lab -A rl2-lab --gres=gpu:l40s:1 -c12 --mem=100G`
+    - `salloc -p hoffman-lab -A hoffman-lab --gres=gpu:a40:1 -c12 --mem=100G`
+    - `salloc -p hoffman-lab -A hoffman-lab --gres=gpu:a40:4 -c12 --mem=100G` (multi-GPU)
+    - `salloc -p hoffman-lab -A hoffman-lab -c36 --mem=100G` (CPU-only, e.g. data/embedding prep)
+  - **Unattended** (real training, long embedding/eval jobs): submit through Hydra's submitit launcher (`hydra/launcher/submitit.yaml`, default partition/account `rl2-lab`, `gpu:a40`; `submitit_skynet.yaml` uses `gpu:l40s`) so the job queues and runs without a held terminal.
+  - Check cluster GPU availability before sizing a request: `gpu_usage -l` (list/free GPUs), `gpu_usage -u` (per-user usage).
 - **Short GPU runs (eval-only, smoke, a few hundred forward passes): export `TORCH_COMPILE_DISABLE=1`.** pi0.5's `sample_actions` triggers a `torch.compile` max-autotune compile on the first call — minutes of warmup that only pays off across a long training run. Disabling it runs eager (slower per call, no warmup), a net win when you're not training for a while. Leave compile ON for real training.
 - Python 3.11. Activate the project venv before any Python tooling: `source emimic/bin/activate`.
 - Package is installed editable as `egomimic` (see `pyproject.toml`). Linting is `ruff` via pre-commit.

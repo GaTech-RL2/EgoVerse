@@ -33,9 +33,9 @@ from egomimic.ricl import robotwin_data as R
 RICL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Local (gitignored) PaliGemma tokenizer — avoids the gated HF download (cluster).
 TOKENIZER_DIR = os.path.join(RICL_DIR, "pg_tokenizer")
-CKPT_DIR = (
-    "/storage/project/r-dxu345-0/rco3/EgoVerse/egomimic/algo/"
-    "pi_checkpoints/pi05_base_pytorch"
+CKPT_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(RICL_DIR)),
+    "egomimic/algo/pi_checkpoints/pi05_base_pytorch",
 )
 DEFAULT_OUT = os.path.join(RICL_DIR, "outputs", "robotwin_train")
 
