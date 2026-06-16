@@ -36,9 +36,14 @@ resolve `episode_lists/`, `pg_tokenizer/`, `outputs/` relative to the parent dir
   synthetic` fixture for tests), `scripts/robotwin_to_zarr.py` (HDF5 ->
   `eva_bimanual` cartesian Zarr via `ZarrWriter`; needs `endpose`; cmd==obs pose,
   chunked at load like aria), `scripts/train_robotwin_ricl.py` (`--stage cpu` = fast
-  data-path/collate smoke with `--embed fake`; `--stage full` = GPU training via
-  submitit). Tests: `tests/{robotwin_data_test.py,robotwin_to_zarr_test.py}` build a
-  synthetic 6-DOF fixture. Reusable-corpus path: `hydra_configs/data/robotwin_local.yaml`
+  data-path/collate smoke with `--embed fake`; `--stage full` = GPU training on a
+  Lightning `Trainer` — NOT submitit; launch via `scripts/train_robotwin_ricl.sbatch`
+  [this cluster: hoffman-lab a40] and it saves `quantiles.json` beside the checkpoints
+  for eval), `scripts/build_robotwin_bank_index.py` (consolidated DINOv2 bank index over
+  a `RoboTwinCorpus`, built with the SAME `.embed` as eval's `OnlineRetriever`; output
+  format = `build_embedding_index.build_retrieval_index`). Tests:
+  `tests/{robotwin_data_test.py,robotwin_to_zarr_test.py,robotwin_bank_index_test.py}`
+  build a synthetic 6-DOF fixture. Reusable-corpus path: `hydra_configs/data/robotwin_local.yaml`
   (`LocalEpisodeResolver` + `Eva` keymap/transform, no SQL/S3) +
   `tests/robotwin_zarr_multidataset_test.py` (converts fixture -> Zarr -> loads via
   `MultiDataset._from_resolver` + replicates trainHydra norm-stats wiring). Closed-loop
@@ -52,7 +57,13 @@ resolve `episode_lists/`, `pg_tokenizer/`, `outputs/` relative to the parent dir
   egomimic.ricl.robotwin_policy import *`; + `deploy_policy.yml`/`eval.sh`) that lives in
   the **`GaTech-RL2/RoboTwin` fork** = the `external/RoboTwin` submodule (matches the
   `GaTech-RL2/openpi` pattern; new-cluster setup = `git submodule update --init
-  external/RoboTwin`). Driven by RoboTwin's SAPIEN `script/eval_policy.py`.
+  external/RoboTwin`). Driven by RoboTwin's SAPIEN `script/eval_policy.py`. The shim's
+  `deploy_policy.yml` needs four artifacts: `egoverse_checkpoint` (trained `.ckpt`),
+  `bank_root` (a RoboTwin task dir), `bank_index_dir` (`build_robotwin_bank_index.py`
+  output), `quantiles_path` (the `quantiles.json` the trainer saves). Sim deps
+  (sapien/mplib/curobo/pytorch3d) install **selectively** — do NOT run RoboTwin's
+  `script/_install.sh` (it pins `torch==2.4.1`, breaking emimic's 2.7.1). Eval task
+  config = `demo_clean` (matches the `clean` data slice).
 - Embedding -> index: embed a corpus with
   `egomimic/scripts/embedding_process/zarr_embedding.py` — supports SQL-registry
   filters (`--filter-lambda` + `--sync-root`) and writes to a writable mirror

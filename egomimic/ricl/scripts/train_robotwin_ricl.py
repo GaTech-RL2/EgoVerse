@@ -429,6 +429,11 @@ def stage_full(args):
 
     os.makedirs(args.out, exist_ok=True)
     logger = CSVLogger(args.out, name=args.name, flush_logs_every_n_steps=10)
+    # Persist the TRAIN corpus's norm quantiles next to the checkpoints so the
+    # closed-loop eval (robotwin_policy.PIRiclPolicy) normalizes identically to
+    # training. Pair (quantiles.json, checkpoint) when wiring deploy_policy.yml.
+    corpus.save_quantiles(os.path.join(logger.log_dir, "quantiles.json"))
+    print(f"[full] saved quantiles -> {logger.log_dir}/quantiles.json", flush=True)
     ckpt_cb = ModelCheckpoint(
         dirpath=os.path.join(logger.log_dir, "checkpoints"),
         filename="step{step}-{Valid/action_loss:.4f}",

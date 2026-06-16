@@ -28,7 +28,15 @@ module imports without a GPU/checkpoint (the model-free glue is exercised by
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
+
+# Vendored (gitignored) PaliGemma tokenizer — same one training uses; avoids a
+# gated HF download on the eval node. Override via usr_args["tokenizer"].
+DEFAULT_TOKENIZER_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "pg_tokenizer"
+)
 
 __all__ = [
     "encode_obs",
@@ -91,6 +99,7 @@ class PIRiclPolicy:
         self.pi0_step = int(usr_args.get("pi0_step", 50))
         self.action_horizon = int(usr_args.get("action_horizon", 15))
         self.k = int(usr_args.get("k", 4))
+        self.tokenizer_dir = usr_args.get("tokenizer") or DEFAULT_TOKENIZER_DIR
 
         # Norm quantiles from training (so eval normalizes identically).
         self.quantiles = R.load_quantiles(usr_args["quantiles_path"])
@@ -155,7 +164,7 @@ class PIRiclPolicy:
             config=config,
             ac_keys={R.EMB_NAME: R.AC_KEY},
             action_converters=converters,
-            tokenizer_model_name=None,
+            tokenizer_model_name=self.tokenizer_dir,
             tokenizer_max_length=4608,
             sampling_mode="random",
             annotation_key="annotations",
