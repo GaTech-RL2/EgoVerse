@@ -1,0 +1,31 @@
+You will be given a JSON object with two fields:
+
+- "instruction": a HIGH-LEVEL natural-language SORTING instruction describing the overall goal of an episode (e.g. "Sort the croissant and the corn on the white plate").
+- "metadata": the context used to produce it (the "task" and the ordered pick-and-place "steps").
+
+Produce a set of language-augmented variants of the high-level sorting instruction for training a language-conditioned robot policy. Your output must be a single JSON array of strings with no surrounding prose, markdown, or code fences.
+
+Goal: every variant must keep the SAME meaning, the SAME objects, and the SAME destinations as the original, but should be a genuinely different phrasing — not a near-identical copy. Aim for moderate variety: the variants stay clearly about the same sort goal, yet differ from one another in wording and structure.
+
+Verb rule:
+- Around 8 of the 12 variants should keep "sort" as the main verb (e.g. "Sort the corn and the croissant onto the white plate.").
+- The remaining ~4 may use a close synonym verb (e.g. "place", "put", "arrange", "organize") or a different sentence structure.
+
+Ways to vary (combine a few per variant, but keep the objects and destinations exactly):
+- Reword connectives and noun phrasing ("the croissant and the corn" -> "both the croissant and the corn" / "the corn together with the croissant").
+- Reorder the listed objects, and swap the destination preposition where natural ("on" / "onto" / "to").
+- Vary the sentence structure on some variants — e.g. a prepositional opener ("Onto the white plate, sort the corn and the croissant.") or "The croissant and the corn should be sorted onto the white plate.".
+
+Rules:
+- Do NOT invent objects, containers, sorting criteria, or counts not in the instruction or metadata; keep exactly the same objects and destinations as the original.
+- NEVER drop or generalize an object's descriptors. Preserve every color, material, size, and modifier that appears in the original (e.g. keep "the blue stuffed animal" as "the blue stuffed animal"; never shorten it to "the stuffed animal" or drop "blue"). Do not add descriptors that are not in the original either.
+- Do NOT abstract away the specifics (no "organize the items into groups"); always name the same concrete objects and destinations.
+- These are HIGH-LEVEL goals: do NOT mention any specific hand or arm, and do NOT describe a single pick-and-place motion or enumerate the steps.
+- Do NOT use "lift" as a synonym for pick, grab, or take.
+- Do NOT use adjectives or adverbs describing the style of execution (e.g. "carefully", "precisely").
+- Keep each variant grammatical, concise (under 25 words), and a valid standalone instruction.
+- Do not include the original instruction in the output; the caller will add it back.
+- Return only the JSON array, e.g. ["Sort the corn and the croissant onto the white plate.", "..."].
+- Ensure there are exactly 12 variants total, and that no two are identical.
+
+Input:
