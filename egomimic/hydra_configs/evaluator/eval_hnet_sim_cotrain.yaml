@@ -1,0 +1,38 @@
+# Cotrain sim eval: closed-loop rollout for both circle and stick pushers.
+# Ported from EgoVerse2 (eval_composite.EvalList -> egomimic.eval.core) and set
+# to the 30-seed cotrain protocol (1 seed per level => 30 distinct env seeds,
+# each seed generating a distinct level/layout). init_mode=seeds cycles
+# init_seeds per rollout.
+#
+# NOTE: EgoVerse2's committed eval_hnet_sim_cotrain.yaml used init_mode=replay
+# with obstacle_level 0 (no 30-seed list); the 30-seeds-per-level protocol was
+# applied at launch. This config bakes that protocol in. If your "level" means
+# obstacle_level 0..29 (not seed-generated layouts), tell me and I'll restructure
+# to iterate obstacle_level instead.
+_target_: egomimic.eval.core.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    limit_val_batches: 4
+    embodiment_name: pushshapes_sim
+    init_mode: seeds
+    init_seeds: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]   # 30 seeds, 1 per level
+    max_steps: null
+    coverage_threshold: 0.7
+    env_kwargs:
+      object_shape: T
+      pusher_shape: circle
+      obstacle_level: 0
+      image_size: 96
+  - _target_: egomimic.eval.core.eval_sim.SimRolloutEval
+    limit_val_batches: 4
+    embodiment_name: pushshapes_sim_stick
+    init_mode: seeds
+    init_seeds: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29]   # 30 seeds, 1 per level
+    max_steps: null
+    coverage_threshold: 0.7
+    env_kwargs:
+      object_shape: T
+      pusher_shape: stick
+      obstacle_level: 0
+      image_size: 96

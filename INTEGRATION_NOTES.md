@@ -123,3 +123,20 @@ that would risk gmm's working sim-eval and needs the pushshapes sim env to verif
 - EV2 SimRolloutEval TE/chunk-openloop ROLLOUT branches not grafted onto gmm's
   diverged rollout (params accepted + warned; see #13).
 - EV2 ddim_scheduler/diffusion_policy intentionally not ported (redundant).
+
+## Eval seed protocol (ported from EgoVerse2 on request)
+- `evaluator/eval_hnet_sim.yaml` switched to EV2's protocol: `init_mode: seeds`,
+  `init_seeds: [0..19]` (**20-seed eval**) + EV2 rollout-mode knobs. gmm's original
+  4-seed replay config preserved as `evaluator/eval_hnet_sim_replay.yaml`.
+- `evaluator/eval_sim_only.yaml` + `evaluator/_sim_rollout_base.yaml` ported from
+  EV2 (path-rewritten to eval.core), 20-seed suite.
+- `evaluator/eval_hnet_sim_cotrain.yaml` ported (circle+stick EvalList) set to the
+  **30-seed cotrain protocol** (1 seed/level => init_seeds [0..29], seeds mode) for
+  both pushers. NOTE: EV2's committed cotrain config used replay/obstacle_level 0;
+  the 30-seeds-per-level protocol was a launch-time override, so this bakes the
+  described protocol in. If "level" means obstacle_level 0..29 (not seed-generated
+  layouts), the config needs restructuring to iterate obstacle_level.
+- Hydra-compose verified: eval_hnet_sim=20 seeds, eval_sim_only=20, cotrain=30×2,
+  replay variant=4.
+- Caveat (#13): temporal_ensemble/chunk-openloop rollout branches are accepted but
+  fall back to gmm's AR rollout; the SEED protocol (the ask) is fully active.
