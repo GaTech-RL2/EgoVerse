@@ -202,3 +202,126 @@ class MultiEmbodimentCondEncoder(nn.Module):
                 f"available: {list(self.encoders.keys())}."
             )
         return self.encoders[embodiment_id].encode(obs, T_action)
+
+
+# ===========================================================================
+# Additive merge from EgoVerse2: spatial (cross-attention) conditioning. New
+# symbols only; the pooled CondEncoderModule / MultiEmbodimentCondEncoder paths
+# above are untouched. Used by the EV2 fused / crossattn H-Net policies.
+# ===========================================================================
+class _LatentCrossAttn(nn.Module):
+    """HPT-style latent compressor: ``n_latents`` learnable queries cross-attend
+    over a variable-length set of spatial tokens to produce a fixed small set
+    of cond tokens (localizes the T / goal like HPT's ``compute_latent``)."""
+
+    def __init__(self, d_cond: int, n_latents: int, num_heads: int = 4):
+        super().__init__()
+        assert d_cond % num_heads == 0
+        self.d_cond = int(d_cond)
+        self.n_latents = int(n_latents)
+        self.num_heads = int(num_heads)
+        self.head_dim = self.d_cond // self.num_heads
+        self.latents = nn.Parameter(torch.zeros(1, self.n_latents, self.d_cond))
+        nn.init.normal_(self.latents, std=0.02)
+        self.q_proj = nn.Linear(self.d_cond, self.d_cond)
+        self.kv_proj = nn.Linear(self.d_cond, 2 * self.d_cond)
+        self.out_proj = nn.Linear(self.d_cond, self.d_cond)
+
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+        # tokens: (BT, M, d_cond) -> (BT, n_latents, d_cond).
+        import torch.nn.functional as F
+
+        BT = tokens.shape[0]
+        q = self.q_proj(self.latents.expand(BT, -1, -1))
+        q = q.reshape(BT, self.n_latents, self.num_heads, self.head_dim).transpose(1, 2)
+        kv = self.kv_proj(tokens).reshape(
+            BT, tokens.shape[1], 2, self.num_heads, self.head_dim
+        )
+        k, v = kv.unbind(dim=2)
+        k = k.transpose(1, 2)
+        v = v.transpose(1, 2)
+        o = F.scaled_dot_product_attention(q, k, v)
+        o = o.transpose(1, 2).reshape(BT, self.n_latents, self.d_cond)
+        return self.out_proj(o)
+
+
+class SpatialCondEncoderModule(CondEncoderModule):
+    """CondEncoderModule that ALSO emits per-frame SPATIAL cond tokens for the
+    cross-attention conditioning path. Keeps the parent's pooled ``fused_cond``
+    UNTOUCHED and ADDS ``cond_dict[spatial_output_key] = (B, T, n_spatial,
+    d_cond)`` built from a separate set of ``return_tokens=True`` image encoders
+    (+ learnable spatial pos-emb, optional latent compression)."""
+
+    def __init__(
+        self,
+        d_cond: int,
+        obs_specs=None,
+        img_encoders=None,
+        cond_proj_widths=None,
+        output_key: str = "fused_cond",
+        per_obs_keys: bool = False,
+        spatial_img_encoders=None,
+        spatial_output_key: str = "spatial_cond_tokens",
+        compress_tokens=None,
+        compress_heads: int = 4,
+    ):
+        super().__init__(
+            d_cond=d_cond,
+            obs_specs=obs_specs,
+            img_encoders=img_encoders,
+            cond_proj_widths=cond_proj_widths,
+            output_key=output_key,
+            per_obs_keys=per_obs_keys,
+        )
+        self.spatial_output_key = spatial_output_key
+        spatial_img_encoders = spatial_img_encoders or {}
+        self.spatial_img_keys = sorted(spatial_img_encoders.keys())
+        self.spatial_img_encoders = nn.ModuleDict(
+            {k: spatial_img_encoders[k] for k in self.spatial_img_keys}
+        )
+        self.spatial_proj = nn.ModuleDict()
+        self.spatial_pos_emb = nn.ParameterDict()
+        for k in self.spatial_img_keys:
+            enc = self.spatial_img_encoders[k]
+            ed = int(getattr(enc, "embed_dim", self.d_cond))
+            self.spatial_proj[k] = (
+                nn.Identity() if ed == self.d_cond else nn.Linear(ed, self.d_cond)
+            )
+            n_tok = int(getattr(enc, "n_tokens", 0) or 0)
+            if n_tok > 0:
+                pe = nn.Parameter(torch.zeros(1, n_tok, self.d_cond))
+                nn.init.normal_(pe, std=0.02)
+                self.spatial_pos_emb[k] = pe
+        self.compress_tokens = int(compress_tokens) if compress_tokens else 0
+        if self.compress_tokens > 0:
+            self.compressor = _LatentCrossAttn(
+                self.d_cond, self.compress_tokens, num_heads=int(compress_heads)
+            )
+        else:
+            self.compressor = None
+
+    def encode(self, obs, T_action: int, embodiment_id=None):
+        out = super().encode(obs, T_action, embodiment_id)  # fused_cond untouched
+        if not self.spatial_img_keys:
+            return out
+        tok_per_key = []
+        B = T = None
+        for key in self.spatial_img_keys:
+            if key not in obs:
+                continue
+            x = obs[key]
+            if x.dim() == 4:  # (B, C, H, W) -> (B, T, C, H, W)
+                x = x.unsqueeze(1).expand(-1, T_action, -1, -1, -1)
+            tok = self.spatial_img_encoders[key](x)  # (B, T, M, E)
+            tok = self.spatial_proj[key](tok)  # (B, T, M, d_cond)
+            B, T = tok.shape[0], tok.shape[1]
+            M = tok.shape[2]
+            if key in self.spatial_pos_emb:
+                tok = tok + self.spatial_pos_emb[key].unsqueeze(1).to(tok.dtype)
+            if self.compressor is not None:
+                tok = self.compressor(tok.reshape(B * T, M, self.d_cond))
+                tok = tok.reshape(B, T, self.compress_tokens, self.d_cond)
+            tok_per_key.append(tok)
+        if tok_per_key:
+            out[self.spatial_output_key] = torch.cat(tok_per_key, dim=2)
+        return out
