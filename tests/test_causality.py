@@ -22,7 +22,6 @@ import torch
 
 from egomimic.models.cores.hnet_core import HNetCore
 from egomimic.models.cores.transformer_core import TransformerCore
-from egomimic.models.heads.query_decoder import QueryActionDecoder
 
 INPUT_DIM = 66
 B, T = 2, 10
@@ -93,42 +92,3 @@ def test_tx_future_perturbation_no_leak():
             assert torch.allclose(out1[:, k], out2[:, k], atol=1e-5, rtol=0), (
                 f"future-perturb leaked to k={k}"
             )
-
-
-# --------------------------------------------------------------------------- #
-# (4) QueryActionDecoder future-perturbation EXACT-ZERO.
-#     Perturbing a future CONTEXT feature must leave earlier obs-steps' GMM
-#     params BITWISE unchanged (torch.equal) — the causal key-padding mask.
-# --------------------------------------------------------------------------- #
-def test_query_decoder_future_perturbation_exact_zero():
-    d_model = 64
-    chunk_len = 8
-    per_step = 5 * (2 * 2 + 1)  # num_modes=5, action_dim=2 => 25
-    _seed(0)
-    dec = QueryActionDecoder(
-        d_model=d_model,
-        chunk_len=chunk_len,
-        per_step=per_step,
-        max_window=T,
-    ).cpu().eval()
-
-    _seed(3)
-    h = torch.randn(B, T, d_model)  # per-step core features h_0..h_{T-1}
-    with torch.no_grad():
-        out1 = dec(h)  # (B, T, chunk_len*per_step)
-        h2 = h.clone()
-        h2[:, T - 1] = torch.randn(B, d_model) * 13.0  # perturb LAST context pos
-        out2 = dec(h2)
-    # Every obs-step k < T-1 must be EXACTLY unchanged (causal mask disallows the
-    # future context position T-1 for those obs-steps).
-    for k in range(T - 1):
-        assert torch.equal(out1[:, k], out2[:, k]), (
-            f"query decoder: future-context perturbation changed obs-step k={k} "
-            f"(maxdiff {(out1[:, k] - out2[:, k]).abs().max().item():.2e}); "
-            f"causal key-padding mask is not exact-zero"
-        )
-    # Sanity: the LAST obs-step DID change (it legitimately sees position T-1).
-    assert not torch.equal(out1[:, T - 1], out2[:, T - 1]), (
-        "query decoder: perturbing context T-1 left obs-step T-1 unchanged — "
-        "the context is not actually being attended"
-    )

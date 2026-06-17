@@ -30,7 +30,6 @@ BC_RNN_CONFIGS = [
     "bc_rnn_pushshapes_paperexact_hnet",
     "bc_rnn_pushshapes_paperexact_tx",
     "bc_rnn_pushshapes_paperexact_tx_chunk8",
-    "bc_rnn_pushshapes_paperexact_tx_chunk8_q",
     "bc_rnn_pushshapes_paperexact_tx_cos",
     "bc_rnn_pushshapes_paperexact_tx_cos_lowlr",
 ]

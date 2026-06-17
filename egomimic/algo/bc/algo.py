@@ -54,7 +54,6 @@ from egomimic.models.cores.hnet_core import HNetCore
 from egomimic.models.cores.lstm_core import LSTMCore
 from egomimic.models.cores.transformer_core import TransformerCore
 from egomimic.models.heads.gmm_head import GMMActionHead
-from egomimic.models.heads.query_decoder import QueryActionDecoder
 from egomimic.models.stems.obs_encoder import ObsEncoder
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
@@ -293,7 +292,7 @@ class WindowedBCPolicy(nn.Module):
     def __init__(self, obs_encoder, core_net=None, gmm_head=None, action_dim=None,
                  action_horizon=None, rnn_horizon=10, actor_mlp_dims=(1024, 1024),
                  core="lstm", obs_stride=1, chunk_len=1, chunk_head="linear",
-                 query_decoder=None, lstm=None):
+                 lstm=None):
         super().__init__()
         # CONFIG-FACING name is ``core_net``; ``lstm`` is the DEPRECATED ALIAS
         # (kept so old configs / EgoVerse-pact-2 ported yamls keep working). Pass
@@ -365,65 +364,20 @@ class WindowedBCPolicy(nn.Module):
                 "both in the config (model.robomimic_model.chunk_len and "
                 "model.robomimic_model.gmm_head.chunk_len)."
             )
-        # CHUNK READOUT SELECTION (single knob; default byte-identical):
-        #   "linear"  -> the chunk_len GMMs are read out by the gmm_head's wide
-        #     Linear(d_model -> chunk_len*per_step) of EACH obs-step feature h_k
-        #     (the pre-existing path; with chunk_head="linear" NOTHING about the
-        #     module graph or the forward changes, so the live chunk8 build is
-        #     byte-for-byte identical -- proven by torch.equal).
-        #   "queries" -> an ACT/HPT-style QueryActionDecoder refines chunk_len
-        #     learnable query embeddings (self-attention among queries + causal
-        #     cross-attention over h_0..h_k) and a SHARED Linear(d_model ->
-        #     per_step) maps each refined query to its GMM params. The flat
-        #     output layout (.., chunk_len*per_step) is IDENTICAL to the linear
-        #     head's, so gmm_head.nll / decode / _make_dist are reused unchanged.
-        if chunk_head not in ("linear", "queries"):
+        # CHUNK READOUT: the chunk_len GMMs are read out by the gmm_head's wide
+        # Linear(d_model -> chunk_len*per_step) of each obs-step feature h_k.
+        # Only this flat-linear GMM chunk head is supported (the ACT/HPT-style
+        # query-decoder "queries" head was removed from the codebase).
+        if chunk_head != "linear":
             raise ValueError(
-                f"chunk_head must be linear|queries, got {chunk_head!r}"
+                f"chunk_head must be 'linear' (the 'queries'/query-decoder head "
+                f"was removed); got {chunk_head!r}"
             )
-        self.chunk_head = str(chunk_head)
-        self.query_decoder = None
-        if self.chunk_head == "queries":
-            if query_decoder is None:
-                raise ValueError(
-                    "chunk_head='queries' requires a query_decoder module "
-                    "(instantiated by WindowedBC under the model 'query_decoder:' "
-                    "slot); none was passed."
-                )
-            # the decoder consumes the core's per-step features (d_model) and
-            # emits the SAME flat per-obs-step GMM-param layout the gmm_head
-            # would (chunk_len * per_step). Guard the dims so a yaml mismatch
-            # fails at construction, not at the first forward.
-            if int(query_decoder.chunk_len) != self.chunk_len:
-                raise ValueError(
-                    f"query_decoder.chunk_len ({query_decoder.chunk_len}) must "
-                    f"equal policy.chunk_len ({self.chunk_len})."
-                )
-            if int(query_decoder.per_step) != int(gmm_head.per_step):
-                raise ValueError(
-                    f"query_decoder.per_step ({query_decoder.per_step}) must "
-                    f"equal gmm_head.per_step ({gmm_head.per_step}) = "
-                    "num_modes*(2*action_dim+1)."
-                )
-            if int(query_decoder.d_model) != int(head_in):
-                raise ValueError(
-                    f"query_decoder.d_model ({query_decoder.d_model}) must equal "
-                    f"the core feature width feeding the readout ({head_in})."
-                )
-            self.query_decoder = query_decoder
+        self.chunk_head = "linear"
 
     def _readout(self, feats):
-        """Map per-obs-step core features ``(.., d_model)`` -> flat GMM params.
-
-        ``chunk_head=="linear"`` (default): the pre-existing path -- the wide
-        gmm_head projection of each obs-step feature. BYTE-IDENTICAL.
-
-        ``chunk_head=="queries"``: route through the QueryActionDecoder, which
-        returns the SAME flat ``(.., chunk_len*per_step)`` layout the gmm_head
-        would, so all downstream nll/decode code is unchanged.
-        """
-        if self.chunk_head == "queries":
-            return self.query_decoder(feats)
+        """Map per-obs-step core features ``(.., d_model)`` -> flat GMM params
+        via the wide gmm_head projection (the flat-linear chunk head)."""
         return self.gmm_head(feats)
 
     def forward(self, obs):
@@ -476,30 +430,8 @@ class WindowedBCPolicy(nn.Module):
                     B, device=emb_t.device, dtype=emb_t.dtype
                 )
             state["counter"] = counter + 1
-            if self.chunk_head == "queries":
-                # the query decoder needs the FULL causal context h_0..h_k for
-                # the current buffer (not just the last feature h_t). Grow the
-                # core's rolling obs buffer by ONE frame manually (the same cat
-                # the core's ``step`` would do internally) and encode it ONCE via
-                # the core's forward to get the per-step features h_0..h_k
-                # (B, S, hidden) -- the SAME features training row k cross-attends
-                # over. This avoids the redundant double-encode of calling
-                # ``self.lstm.step`` (which would _encode the buffer just to
-                # return h_t = out[:, -1], which the queries path discards) and
-                # THEN re-encoding the same buffer for the full context. One
-                # encode now serves both: ctx_feats[:, -1] IS h_t, and the full
-                # ctx_feats is the causal context. (No core change; the buffer
-                # layout {"obs": (B, S, input_dim)} matches TransformerCore.step.)
-                prev = state["hidden"].get("obs", None)
-                emb_step = emb_t.unsqueeze(1)  # (B, 1, input_dim)
-                buf = emb_step if prev is None else torch.cat([prev, emb_step], dim=1)
-                state["hidden"] = {"obs": buf}  # grown buffer (B, S, input_dim)
-                ctx_feats, _ = self.lstm(buf)  # (B, S, hidden) -- single encode
-                ctx_feats = self.actor_mlp(ctx_feats)
-                raw = self.query_decoder.forward_step(ctx_feats)  # (B, C*P)
-            else:
-                h_t, state["hidden"] = self.lstm.step(emb_t, state["hidden"])
-                raw = self.gmm_head(self.actor_mlp(h_t))
+            h_t, state["hidden"] = self.lstm.step(emb_t, state["hidden"])
+            raw = self.gmm_head(self.actor_mlp(h_t))
             chunk = self.gmm_head.decode(raw)  # (B,D) if C==1 else (B,C,D)
             if self.chunk_len > 1:
                 # (B, C, D) -> list of C tensors (B, D), one per chunk position.
@@ -536,7 +468,6 @@ class WindowedBC(PackedAlgoBase):
         obs_stride=1,
         chunk_len=1,
         chunk_head="linear",
-        query_decoder=None,
         lstm=None,
         domains=None,
         ac_keys=None,
@@ -646,53 +577,14 @@ class WindowedBC(PackedAlgoBase):
                 f">= rnn_horizon ({self.rnn_horizon}); set core_net.max_window = "
                 f"rnn_horizon in the config (they default to 10/10)."
             )
-        # chunk_head: "linear" (default, byte-identical) | "queries" (ACT/HPT
-        # action-query readout). The actual decoder OBJECT is instantiated by
-        # Hydra under the model ``query_decoder:`` slot (a QueryActionDecoder);
-        # this string guards that the config + algo agree and is threaded to the
-        # policy. With "linear" the query_decoder slot is ignored (and may be
-        # absent) so the live chunk8 build is byte-identical.
-        if chunk_head not in ("linear", "queries"):
+        # Only the flat-linear GMM chunk head is supported (the ACT/HPT-style
+        # query-decoder "queries" head was removed from the codebase).
+        if chunk_head != "linear":
             raise ValueError(
-                f"chunk_head must be linear|queries, got {chunk_head!r}"
+                f"chunk_head must be 'linear' (the 'queries'/query-decoder head "
+                f"was removed); got {chunk_head!r}"
             )
-        self.chunk_head = str(chunk_head)
-        if self.chunk_head == "queries":
-            # NOTE: chunk_len == 1 with chunk_head='queries' is INTENTIONALLY
-            # permitted (a single-query ACT-style readout is a legitimate
-            # degenerate config: one learnable query cross-attending the causal
-            # context, one shared GMM projection). The absence of a chunk_len>1
-            # guard here is deliberate, not an oversight.
-            if query_decoder is None:
-                raise ValueError(
-                    "chunk_head='queries' requires the model 'query_decoder:' "
-                    "slot to instantiate a QueryActionDecoder; none was passed."
-                )
-            if not isinstance(query_decoder, QueryActionDecoder):
-                raise ValueError(
-                    "chunk_head='queries' but the object under the model "
-                    f"'query_decoder:' slot is {type(query_decoder).__name__}, "
-                    "not QueryActionDecoder. Point query_decoder._target_ at "
-                    "egomimic.models.heads.query_decoder.QueryActionDecoder."
-                )
-            # the query decoder cross-attends over up to rnn_horizon context
-            # features; mirror the core's max_window guard so a yaml-only
-            # rnn_horizon bump fails at construction, not the first forward.
-            if int(query_decoder.max_window) < self.rnn_horizon:
-                raise ValueError(
-                    f"query_decoder.max_window ({query_decoder.max_window}) must "
-                    f">= rnn_horizon ({self.rnn_horizon}); set "
-                    "query_decoder.max_window = rnn_horizon in the config."
-                )
-            # queries only make sense for the transformer core (it produces the
-            # per-step causal features h_0..h_k the decoder cross-attends over,
-            # and the rollout re-encodes its obs buffer to recover them).
-            if not _is_tx:
-                raise ValueError(
-                    "chunk_head='queries' is only supported with "
-                    "core='transformer' (the query decoder cross-attends over "
-                    f"the transformer's per-step features); core is {self.core!r}."
-                )
+        self.chunk_head = "linear"
         self.max_windows_per_batch = (
             None if max_windows_per_batch is None else int(max_windows_per_batch)
         )
@@ -715,7 +607,6 @@ class WindowedBC(PackedAlgoBase):
             obs_stride=obs_stride,
             chunk_len=chunk_len,
             chunk_head=chunk_head,
-            query_decoder=query_decoder,
         )
         self.nets = nn.ModuleDict({"policy": policy})
         self.nets = self.nets.float().to(self.device)
