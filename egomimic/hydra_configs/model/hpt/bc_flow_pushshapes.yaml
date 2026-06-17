@@ -2,7 +2,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hpt.algo.HPT
-  data_schematic: _${data.dataset.data_schematic}
 
   camera_transforms: null
 
