@@ -2,6 +2,9 @@
 
 RoboTwin docs: https://robotwin-platform.github.io/doc/usage/robotwin-install.html
 
+**Fresh cluster from scratch?** See `robotwin_new_cluster_setup.md` (full install guide).
+This file is the per-run cheatsheet + current status.
+
 **Status: training + closed-loop eval both verified on the Georgia Tech SLURM cluster**
 (`/coc/flash7/rco3/EgoVerse`). A 250-step checkpoint scored 1/10 on `beat_block_hammer`
 (undertrained — train longer for a real number; the pipeline is the deliverable).
