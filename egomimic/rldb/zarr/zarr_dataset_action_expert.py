@@ -64,10 +64,9 @@ class ZarrActionExpertDataset(ZarrDataset):
 
     def _load_annotation_map(self) -> dict[int, int]:
         """Build {frame_idx -> annotation_index} for every frame inside an annotation span."""
-        raw = self.episode_reader._store["annotations"][:]
-        decoded = [self._decode_json_entry(x) for x in raw]
-        self._annotations = [d for d in decoded if isinstance(d, dict)]
-        for i, ann in enumerate(self._annotations):
+        # Go through the base loader rather than overwriting ``self._annotations``
+        annotations = self._load_annotations("annotations")
+        for i, ann in enumerate(annotations):
             start_idx = int(ann.get("start_idx", -1))
             end_idx = int(ann.get("end_idx", -1))
             for idx in range(start_idx, end_idx + 1):
@@ -145,7 +144,7 @@ class ZarrActionExpertDataset(ZarrDataset):
           - Actions:              <key>  (t..EOS, padded to horizon)
         """
         t = self._valid_frame_indices[index]
-        ann = self._annotations[self.annotation_map[t]]
+        ann = self._load_annotations("annotations")[self.annotation_map[t]]
         bos, eos = int(ann["start_idx"]), int(ann["end_idx"])
 
         try:

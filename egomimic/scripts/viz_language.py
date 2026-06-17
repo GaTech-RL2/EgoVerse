@@ -296,6 +296,8 @@ def main(cfg: DictConfig) -> None:
     for split_name, split_ds_cfgs in splits_to_run:
         datasets = {}
         for name, ds_cfg in split_ds_cfgs.items():
+            if ds_cfg is None:  # config may null out an embodiment (e.g. sort_convert)
+                continue
             ds = hydra.utils.instantiate(ds_cfg)
             if max_episodes is not None:
                 keys = list(ds.datasets.keys())[:max_episodes]

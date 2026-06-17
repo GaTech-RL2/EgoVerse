@@ -1,0 +1,29 @@
+defaults:
+  - sort_pi_subtask
+  - _self_
+
+# Conversion-only data config for the scale->bucket->zarr scripts.
+#
+# Selects the dense-language `task == 'sort'` episodes. NOTE: in the SQL episode
+# table these carry embodiment `'aria'` (zarr at s3://rldb/processed_v3/aria/...),
+# NOT `'aria_bimanual'` — so the `sort_pi_subtask` training filter
+# (`embodiment == 'aria_bimanual'`) matches none of them. This config fixes the
+# embodiment predicate so the real sort episodes are selected, synced, and
+# annotated. Pair with the scripts' `--dataset-dir` to resolve folder_path.
+#
+# Only the aria group is populated (all 41 dense-language sort episodes are
+# 'aria'); eva + valid groups are nulled so instantiation doesn't error on an
+# empty match.
+train_datasets:
+  eva_bimanual: null
+  aria_bimanual:
+    # Conversion wants every matched episode in one split (no train/valid
+    # holdout), so valid_ratio=0 keeps all episodes under the train dataset.
+    valid_ratio: 0.0
+    filters:
+      filter_lambdas:
+        - "lambda row: (row['task'] == 'sort') & (row.get('embodiment') in ('aria', 'aria_bimanual')) & (row['zarr_processed_path'] != '')"
+
+valid_datasets:
+  eva_bimanual: null
+  aria_bimanual: null

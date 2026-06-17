@@ -4,6 +4,14 @@ from abc import abstractmethod
 
 from openai import OpenAI
 
+# Annotation granularity tags written into each zarr annotation entry. The PI
+# subtask-prediction pipeline conditions on the HIGH-level instruction and
+# predicts the LOW-level one; see ``egomimic/algo/pi.py``. Pick-and-place
+# (non-sort) data is tagged LOW only and reused as both granularities at
+# read time (the high pool simply falls back to the low pool).
+LEVEL_HIGH = "high"
+LEVEL_LOW = "low"
+
 
 def micro_seconds_to_frames(micro_seconds: int, fps: int) -> int:
     return micro_seconds / 1000000 * fps
@@ -56,7 +64,12 @@ class PickPlaceLLMConverter(LLMConverter):
             base_instruction = self.scale_annotation_to_str(prompt_dict)
             instructions = self.augment_instruction(base_instruction, prompt_dict)
             for instruction in instructions:
-                zarr_annotations_list.append((instruction, start_idx, end_idx))
+                # Pick-and-place clips are the LOW-level (subtask) granularity;
+                # with no sort track they double as the high-level prompt via
+                # the read-time fallback in the dataset / PI algo.
+                zarr_annotations_list.append(
+                    (instruction, start_idx, end_idx, LEVEL_LOW)
+                )
         return zarr_annotations_list
 
     def _iter_pick_place_clips(self, annotation_dict: dict):
@@ -268,8 +281,17 @@ class SortConverter(PickPlaceLLMConverter):
             low_balanced, high_balanced = self.balance_instructions(
                 low_pool, high_rotated
             )
-            for instruction in (*low_balanced, *high_balanced):
-                zarr_annotations_list.append((instruction, start_idx, end_idx))
+            # Tag the granularity so the dataset can serve the high-level sort
+            # goal as the conditioning prompt and the low-level pick-and-place
+            # phrasing as the subtask-prediction target.
+            for instruction in low_balanced:
+                zarr_annotations_list.append(
+                    (instruction, start_idx, end_idx, LEVEL_LOW)
+                )
+            for instruction in high_balanced:
+                zarr_annotations_list.append(
+                    (instruction, start_idx, end_idx, LEVEL_HIGH)
+                )
         return zarr_annotations_list
 
     def _iter_sort_clips(self, annotation_dict: dict) -> list[tuple[str, float, float]]:

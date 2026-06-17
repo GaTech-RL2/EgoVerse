@@ -141,10 +141,24 @@ def process_episode(
     )
     annotations = converter.convert(tid)
 
-    payload = [
-        {"text": text, "start_idx": int(start_idx), "end_idx": int(end_idx)}
-        for text, start_idx, end_idx in annotations
-    ]
+    # Converters emit (text, start, end) or (text, start, end, level); carry the
+    # high/low ``level`` tag through the S3 round-trip so the sort hierarchy is
+    # preserved (a 3-tuple defaults to "low"). bucket_to_zarr rebuilds the tag.
+    payload = []
+    for ann in annotations:
+        if len(ann) == 4:
+            text, start_idx, end_idx, level = ann
+        else:
+            text, start_idx, end_idx = ann
+            level = "low"
+        payload.append(
+            {
+                "text": text,
+                "start_idx": int(start_idx),
+                "end_idx": int(end_idx),
+                "level": level or "low",
+            }
+        )
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
     print(f"[OK] {episode_hash} -> s3://{bucket}/{key} ({len(payload)} entries)")
@@ -227,6 +241,15 @@ if __name__ == "__main__":
         default=1,
         help="CPUs reserved per Ray task (default: 1)",
     )
+    parser.add_argument(
+        "--dataset-dir",
+        type=str,
+        default=None,
+        help="Resolve the config's ${paths.dataset_dir} (resolver folder_path). "
+        "Required when the dataset config inherits folder_path: ${paths.dataset_dir} "
+        "(e.g. the cotrain-derived sort configs) since load_config composes only the "
+        "data group and has no paths node.",
+    )
     args = parser.parse_args()
 
     bucket, prefix = parse_s3_uri(args.bucket)
@@ -250,6 +273,22 @@ if __name__ == "__main__":
     rel_path = os.path.relpath(abs_cfg_path, HYDRA_CONFIG_DIR)
     config_name = os.path.splitext(rel_path)[0]
     dataset_cfg = load_config(config_name)
+
+    # load_config composes only the `data` group, so ${paths.dataset_dir} (the
+    # resolver folder_path inherited from cotrain_pi_base) has no node to resolve
+    # against. Overwrite each train resolver's folder_path with --dataset-dir so
+    # the real resolver runs unmodified (valid resolvers interpolate from train).
+    if args.dataset_dir is not None:
+        from omegaconf import OmegaConf
+
+        OmegaConf.set_struct(dataset_cfg, False)
+        for _name in list((dataset_cfg.get("train_datasets") or {}).keys()):
+            _ds = dataset_cfg.train_datasets[_name]
+            if _ds is None:
+                continue
+            _res = _ds.get("resolver")
+            if _res is not None and "folder_path" in _res:
+                _res.folder_path = args.dataset_dir
 
     train_datasets = {}
     train_hashes = set()

@@ -1,0 +1,52 @@
+defaults:
+  - cotrain_pi_latent
+  - _self_
+
+# 6D-rotation latent eval. Same latent sampling (random/pairs/custom) as
+# cotrain_pi_latent, but the cartesian action chunk is the continuous 6D
+# representation (`cartesian_6d`) and the keymap uses pi-style cam keys
+# (`cartesian_pi` → base_0_rgb). Pair with model=pi0.5_cotrain_eva_aria_6d so the
+# action is packed by `to32_norm_6d`, matching how the 6D checkpoints were
+# trained → faithful action-expert latents (paligemma latents are unaffected).
+#
+# Resolver `_target_` is overridden to SafeS3EpisodeResolver — cotrain_pi_base
+# defaults to the plain S3EpisodeResolver, which (a) does not accept
+# `require_annotations` and (b) does not drop episodes missing keymap-required
+# keys / with corrupt JPEGs (one such aria episode crashes the loader after
+# exhausting per-sample retries). Safe filters those out and honors
+# require_annotations. We do NOT need the annotation-cutoff (chunk-clamping)
+# resolver here: latents are captured during sample_actions, which denoises from
+# noise conditioned only on the prefix (images + language + state) and never
+# consumes the dataset action chunk — so chunk clamping has no effect on the
+# captured latents.
+# `exclude_hashes`: eva episodes with corrupt (zero-norm) quaternions that crash
+# the quat->ypr step of the cartesian transform. The per-sample retry can't
+# escape a fully-bad episode (its fallback pool is that episode's own frames),
+# so the loader eventually raises — drop them here.
+_bad_eva_hashes: &bad_eva_hashes
+  - "2026-04-22-02-30-32-296000"
+
+train_datasets:
+  eva_bimanual:
+    exclude_hashes: *bad_eva_hashes
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      key_map: {keymap_mode: cartesian_pi}
+      transform_list: {mode: cartesian_6d}
+  aria_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      key_map: {keymap_mode: cartesian_pi}
+      transform_list: {mode: cartesian_6d}
+valid_datasets:
+  eva_bimanual:
+    exclude_hashes: *bad_eva_hashes
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      key_map: {keymap_mode: cartesian_pi}
+      transform_list: {mode: cartesian_6d}
+  aria_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.SafeS3EpisodeResolver
+      key_map: {keymap_mode: cartesian_pi}
+      transform_list: {mode: cartesian_6d}

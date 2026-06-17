@@ -145,14 +145,37 @@ class Embodiment(ABC):
         )
 
     @classmethod
-    def get_keymap(cls, keymap_mode: str, norm_mode: bool = False, annotation_key=None):
-        """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model."""
+    def get_keymap(
+        cls,
+        keymap_mode: str,
+        norm_mode: bool = False,
+        annotation_key=None,
+        high_annotation_key=None,
+    ):
+        """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model.
+
+        When ``high_annotation_key`` is given (hierarchical / subtask-prediction
+        runs), the primary ``annotation_key`` is pinned to the ``"low"``
+        granularity (the subtask-prediction target) and a second key is
+        registered that reads the *same* zarr annotation array but filtered to
+        the ``"high"`` granularity (the conditioning prompt). Both point at the
+        same ``zarr_key`` so only one annotation array is stored per episode.
+        """
         key_map = cls._get_keymap(keymap_mode)
         if annotation_key is not None and not norm_mode:
             key_map[annotation_key] = {
                 "key_type": "annotation_keys",
                 "zarr_key": annotation_key,
             }
+            if high_annotation_key is not None:
+                # Subtask mode: split the single annotation array into a
+                # low-level (target) and high-level (prompt) view.
+                key_map[annotation_key]["level"] = "low"
+                key_map[high_annotation_key] = {
+                    "key_type": "annotation_keys",
+                    "zarr_key": annotation_key,
+                    "level": "high",
+                }
         if norm_mode:
             to_delete = [
                 k
@@ -189,6 +212,11 @@ class Embodiment(ABC):
         actions = batch[action_key]
         if annotation_key is not None:
             annotations = batch[annotation_key]
+        # Decoded subtask predictions (hierarchical models): one string per batch
+        # item, overlaid as a "[pred]" line next to the GT prompt so the predicted
+        # subtask can be eyeballed against the conditioning text. None for
+        # non-subtask models (key absent from predictions).
+        subtask_pred = predictions.get(f"{embodiment_name}_subtask_pred")
         ims_list = []
         images = _to_numpy(images)
         actions = _to_numpy(actions)
@@ -206,8 +234,13 @@ class Embodiment(ABC):
                 ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha,
                 intrinsics=K_i, **kwargs
             )
+            overlay_texts = []
             if annotation_key is not None:
-                ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)
+                overlay_texts.append(annotations[i])
+            if subtask_pred is not None and i < len(subtask_pred):
+                overlay_texts.append(f"[pred] {subtask_pred[i]}")
+            if overlay_texts:
+                ims = cls.viz(ims, overlay_texts, mode="annotations", **kwargs)
             ims_list.append(ims)
         ims = np.stack(ims_list, axis=0)
         return ims
