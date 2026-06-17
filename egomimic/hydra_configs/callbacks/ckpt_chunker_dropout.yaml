@@ -1,13 +1,11 @@
+# Checkpoints (every_n_epochs=20) + chunker residual scheduler + random
+# attention-dropout. model_checkpoint (+ wandb_profiler) come from checkpoints;
+# only every_n_epochs is overridden here.
 defaults:
-  - defaults
+  - checkpoints
   - _self_
 
 model_checkpoint:
-  _target_: lightning.pytorch.callbacks.ModelCheckpoint
-  dirpath: ${paths.output_dir}/checkpoints
-  filename: "epoch_{epoch}"
-  save_last: true
-  save_top_k: -1
   every_n_epochs: 20
 
 chunker_residual_scheduler:

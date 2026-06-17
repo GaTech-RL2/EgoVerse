@@ -1,40 +1,10 @@
-_target_: egomimic.pl_utils.pl_model.ModelWrapper
-
-# VAE v5: same architecture as v4 (spatial latent + residual + NN-Upsample
-# + beta=0 + LPIPS@1.0) but with VGG-net LPIPS instead of AlexNet.
-# VGG has finer-grained spatial features before pooling, generally
-# preferred in production VAE training (SDXL uses VGG). Costs ~3x more
-# LPIPS compute per step but well within H200 budget.
+# VAE v5: same architecture as v4 (spatial latent + residual + NN-Upsample +
+# beta=0 + LPIPS@1.0) but with VGG-net LPIPS instead of AlexNet. VGG has
+# finer-grained spatial features before pooling (SDXL uses VGG); ~3x more LPIPS
+# compute per step but well within H200 budget.
+defaults:
+  - vae_pushshapes_v4
+  - _self_
 
 robomimic_model:
-  _target_: egomimic.algo.diffusion.VAE
-  image_key: "front_img_1"
-  beta: 0.0
-  lpips_weight: 1.0
   lpips_net: "vgg"   # <- only change vs v4
-  domains: ["pushshapes_sim"]
-
-  vae:
-    _target_: egomimic.models.diffusion.image_vae.ImageVAE
-    in_channels: 3
-    image_size: 96
-    latent_dim: 128
-    spatial_latent: true
-    latent_channels: 4
-    channels: [64, 128, 256, 512]
-    decoder_upsample: "nearest"
-    residual: true
-
-optimizer:
-  _target_: torch.optim.AdamW
-  _partial_: true
-  lr: 1.0e-4
-  weight_decay: 0.0
-
-scheduler:
-  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
-  _partial_: true
-  max_steps: 3200
-  warmup_steps: 100
-  warmup_start_factor: 0.1
-  eta_min: 1.0e-5

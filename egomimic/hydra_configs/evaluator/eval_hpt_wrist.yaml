@@ -3,7 +3,7 @@ defaults:
   - _revert_transform_base
   - _self_
 
-_target_: egomimic.eval.eval_hpt.HPTEvalVideo
+_target_: egomimic.eval.hpt.eval_hpt.HPTEvalVideo
 
 # transform_lists (per-embodiment revert transform) come from
 # _revert_transform_base. Must match whichever viz config is mounted above.
