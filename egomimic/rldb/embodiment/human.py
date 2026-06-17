@@ -31,11 +31,26 @@ class Human(Embodiment):
     # MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, 9-12 middle, 13-16 ring, 17-20 pinky.
     # Subclasses with non-MANO conventions (e.g. Aria) override these.
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -111,7 +126,9 @@ class Human(Embodiment):
         ],
     ) -> list[Transform]:
         if mode == "cartesian":
-            return _build_human_cartesian_bimanual_transform_list(stride=cls.ACTION_STRIDE)
+            return _build_human_cartesian_bimanual_transform_list(
+                stride=cls.ACTION_STRIDE
+            )
         if mode == "cartesian_padded":
             return _build_human_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
@@ -121,7 +138,9 @@ class Human(Embodiment):
                 stride=cls.ACTION_STRIDE, rot_repr="6d"
             )
         if mode == "cartesian_wristframe_ypr":
-            return _build_human_cartesian_eef_frame_transform_list(stride=cls.ACTION_STRIDE)
+            return _build_human_cartesian_eef_frame_transform_list(
+                stride=cls.ACTION_STRIDE
+            )
         if mode == "cartesian_wristframe_6d":
             return _build_human_cartesian_eef_frame_transform_list(
                 stride=cls.ACTION_STRIDE, rot_repr="6d"
@@ -150,11 +169,25 @@ class Aria(Human):
     ACTION_STRIDE = 3
     # Aria's 21-keypoint layout is NOT MANO: 0-4 are fingertips, 5 is the palm root.
     FINGER_EDGES = [
-        (5, 6), (6, 7), (7, 0),               # thumb
-        (5, 8), (8, 9), (9, 10), (10, 1),     # index
-        (5, 11), (11, 12), (12, 13), (13, 2), # middle
-        (5, 14), (14, 15), (15, 16), (16, 3), # ring
-        (5, 17), (17, 18), (18, 19), (19, 4), # pinky
+        (5, 6),
+        (6, 7),
+        (7, 0),  # thumb
+        (5, 8),
+        (8, 9),
+        (9, 10),
+        (10, 1),  # index
+        (5, 11),
+        (11, 12),
+        (12, 13),
+        (13, 2),  # middle
+        (5, 14),
+        (14, 15),
+        (15, 16),
+        (16, 3),  # ring
+        (5, 17),
+        (17, 18),
+        (18, 19),
+        (19, 4),  # pinky
     ]
     FINGER_EDGE_RANGES = [
         ("thumb", 0, 3),
@@ -363,6 +396,7 @@ class Mecka(Human):
         annotations: bool = False,
         norm_mode: bool = False,
         annotation_key: str | None = None,
+        proprio_history: int = 1,
     ):
         if mode is None:
             mode = keymap_mode or "cartesian"
@@ -465,6 +499,26 @@ class Mecka(Human):
             for key in list(key_map):
                 if key_map[key].get("key_type") in ("camera_keys", "annotation_keys"):
                     del key_map[key]
+        # Short-term memory: when proprio_history>1, read a backward window of
+        # that many frames for the EE/keypoint observation poses (current frame
+        # last). proprio_history=1 is a byte-identical no-op.
+        #
+        # `obs_head_pose` is EXCLUDED: it is the coordinate REFERENCE frame
+        # (target_world for the head-frame transforms), not a model observation.
+        # It must stay single-frame so each windowed EE pose is re-expressed in
+        # the *current* head frame; giving it a window makes target_world (K, 7)
+        # and breaks the (B, 7)-only frame math. The reader's `horizon` branch
+        # also takes precedence, so keypoints-mode keys with a horizon are
+        # unaffected.
+        history_exclude = {"obs_head_pose"}
+        if proprio_history and proprio_history > 1:
+            for name, entry in key_map.items():
+                if (
+                    entry.get("key_type") == "proprio_keys"
+                    and name not in history_exclude
+                    and entry.get("zarr_key") not in history_exclude
+                ):
+                    entry["history"] = proprio_history
         return key_map
 
 

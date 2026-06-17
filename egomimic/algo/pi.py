@@ -70,6 +70,15 @@ class PI(Algo):
         state_num_bins: int = 256,
         control_mode: dict[str, str] | None = None,
         proprio_keys_for_prompt: list[str] | None = None,
+        # ---------------------------
+        # Short-term memory: splice a "Prev:" block of the recent EE-pose
+        # history (as coarse delta bins) into the prompt. `history_len` (K)
+        # must match the data-side `proprio_history` so proprio arrives as
+        # [B, K, D]. All off by default → behaviour unchanged.
+        # ---------------------------
+        prev_state_in_prompt: bool = False,
+        history_len: int = 1,
+        prev_state_num_bins: int = 64,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
@@ -93,6 +102,13 @@ class PI(Algo):
             else ["observations.state.ee_pose"]
         )
         self._state_bin_edges = np.linspace(-1.0, 1.0, state_num_bins + 1)[:-1]
+
+        # Short-term memory knobs (coarser bins than the current-state block
+        # since deltas are small and we want to spend fewer prompt tokens).
+        self.prev_state_in_prompt = prev_state_in_prompt
+        self.history_len = history_len
+        self.prev_state_num_bins = prev_state_num_bins
+        self._prev_bin_edges = np.linspace(-1.0, 1.0, prev_state_num_bins + 1)[:-1]
 
         self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
@@ -228,6 +244,56 @@ class PI(Algo):
         bins = np.digitize(state, bins=self._state_bin_edges) - 1
         return " ".join(map(str, bins.tolist()))
 
+    # Cap on how many past frames the "Prev:" block encodes, to bound prompt
+    # token growth even when history_len is large.
+    _PREV_MAX_FRAMES = 2
+
+    def _discretize_prev_states_for_sample(self, _batch, sample_idx: int) -> list[str]:
+        """Encode the recent EE-pose *history* for sample i as coarse delta bins,
+        one bin-string PER past frame.
+
+        Each proprio value is a ``[K, D]`` backward window (current frame last,
+        normalized like the "State:" block). We take up to ``_PREV_MAX_FRAMES``
+        of the most-recent previous frames; for each, encode its displacement
+        from the current frame (``prev - cur``, small magnitudes) concatenated
+        across proprio keys, clip to [-1, 1] and digitize into
+        ``prev_state_num_bins`` (coarser) bins.
+
+        Returns a list ordered MOST-RECENT-FIRST: element 0 is one step back
+        (rendered ``Prev1:``), element 1 is two steps back (``Prev2:``), etc.
+        Empty list when no history window is present (K < 2), so no "Prev*"
+        block is emitted.
+        """
+        # Per-key delta windows, each (P, D) ordered oldest..newest.
+        per_key = []
+        for k in self.proprio_keys_for_prompt:
+            if k not in _batch:
+                continue
+            v = _batch[k]
+            if isinstance(v, torch.Tensor):
+                v = v[sample_idx].detach().cpu().numpy()
+            else:
+                v = np.asarray(v)[sample_idx]
+            v = np.asarray(v, dtype=np.float32)
+            if v.ndim < 2 or v.shape[0] < 2:
+                continue  # single frame -> no history for this key
+            cur = v[-1]
+            prev = v[:-1][-self._PREV_MAX_FRAMES :]  # (P, D) oldest..newest
+            per_key.append(prev - cur[None, :])
+        if not per_key:
+            return []
+        n_prev = max(arr.shape[0] for arr in per_key)
+        out = []
+        # f = 1 -> newest past frame (arr[-1]); f = 2 -> arr[-2]; ...
+        for f in range(1, n_prev + 1):
+            parts = [arr[-f].reshape(-1) for arr in per_key if f <= arr.shape[0]]
+            if not parts:
+                continue
+            deltas = np.clip(np.concatenate(parts, axis=-1), -1.0, 1.0)
+            bins = np.digitize(deltas, bins=self._prev_bin_edges) - 1
+            out.append(" ".join(map(str, bins.tolist())))
+        return out
+
     def _build_prompts(
         self, _batch, embodiment_name: str, batch_size: int
     ) -> list[str]:
@@ -250,8 +316,12 @@ class PI(Algo):
                 else:  # "first"
                     prompts.append(sample[0])
 
+        prev_active = self.prev_state_in_prompt and self.history_len > 1
         any_block_active = (
-            self.proprio_in_prompt or self.embodiment_label or bool(self.control_mode)
+            self.proprio_in_prompt
+            or self.embodiment_label
+            or bool(self.control_mode)
+            or prev_active
         )
         if not any_block_active:
             return prompts
@@ -264,6 +334,13 @@ class PI(Algo):
                 blocks.append(f"Embodiment: {emb_name}")
             if self.control_mode:
                 blocks.append(f"Control mode: {self._control_mode_for(emb_name)}")
+            # History first: Prev1 (one step back) .. PrevN (oldest), then the
+            # current State block.
+            if prev_active:
+                for j, prev_str in enumerate(
+                    self._discretize_prev_states_for_sample(_batch, i), start=1
+                ):
+                    blocks.append(f"Prev{j}: {prev_str}")
             if self.proprio_in_prompt:
                 state_str = self._discretize_state_for_sample(_batch, i)
                 if state_str is not None:
@@ -282,6 +359,21 @@ class PI(Algo):
             return_tensors="pt",
         )
         attention_mask = enc["attention_mask"].bool()
+        # Cheap truncation guard: a row with no padding filled the whole window
+        # and was likely truncated, dropping the trailing "Action:" anchor.
+        if (
+            self.tokenizer_max_length is not None
+            and attention_mask.all(dim=1).any()
+            and not getattr(self, "_prompt_trunc_warned", False)
+        ):
+            logger.warning(
+                "Some prompts fill the entire tokenizer window "
+                "(max_length=%s) and may be truncated past the 'Action:' "
+                "anchor. Raise tokenizer_max_length or lower history_len / "
+                "prev_state_num_bins / state_num_bins.",
+                self.tokenizer_max_length,
+            )
+            self._prompt_trunc_warned = True
         token_loss_mask = attention_mask.clone()
         token_loss_mask[:, -1] = False
         return {

@@ -1,148 +1,125 @@
-from types import SimpleNamespace
-
-import pytest
+import numpy as np
 import torch
 
-import egomimic.algo.pi as pi_module
 from egomimic.algo.pi import PI
-from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+# NOTE: the former ``test_visualize_preds_*`` tests were removed: visualization
+# was moved off the ``PI`` algo into the external evaluators (commit
+# "Refactor Eval: Metrics are computed in external eval class"), so the
+# ``PI.visualize_preds`` method and ``pi.draw_actions`` import they exercised no
+# longer exist.
 
 
-class _StubNormStats:
-    def __init__(self, viz_img_keys):
-        self._viz_img_keys = viz_img_keys
-
-    def viz_img_key(self):
-        return self._viz_img_keys
+# ---------------------------------------------------------------------------
+# Short-term memory: "Prev:" prompt block built from recent EE-pose history.
+# These exercise prompt assembly only (no tokenizer / model / data).
+# ---------------------------------------------------------------------------
 
 
-def _make_transform(name):
-    return SimpleNamespace(
-        extrinsics={"name": f"{name}_extrinsics"},
-        intrinsics={"name": f"{name}_intrinsics"},
-    )
-
-
-def _make_pi(camera_transforms, domains):
+def _make_prompt_pi(**overrides):
+    """Bare PI with just the attributes the prompt-assembly methods read."""
     pi = object.__new__(PI)
-    pi.domains = domains
-    pi.camera_transforms = camera_transforms
-    pi.is_6dof = False
-    pi.ac_keys = {get_embodiment_id(domain): "actions_cartesian" for domain in domains}
-    pi.norm_stats = _StubNormStats(
-        {get_embodiment_id(domain): "front_img_1" for domain in domains}
-    )
+    pi.annotation_key = None
+    pi.default_prompt = "do task"
+    pi.sampling_mode = "first"
+    pi.proprio_in_prompt = True
+    pi.embodiment_label = False
+    pi.control_mode = None
+    pi.prev_state_in_prompt = False
+    pi.history_len = 1
+    pi.proprio_keys_for_prompt = ["observations.state.ee_pose"]
+    pi.state_num_bins = 256
+    pi.prev_state_num_bins = 64
+    pi._state_bin_edges = np.linspace(-1.0, 1.0, 256 + 1)[:-1]
+    pi._prev_bin_edges = np.linspace(-1.0, 1.0, 64 + 1)[:-1]
+    for key, val in overrides.items():
+        setattr(pi, key, val)
     return pi
 
 
-def _make_batch(embodiment_name):
-    embodiment_id = get_embodiment_id(embodiment_name)
+def _hist_batch(prev=0.4, cur=0.5, dim=4):
+    # [B=1, K=2, D]: row 0 is the previous frame, row 1 (last) is the current.
     return {
-        "embodiment": torch.tensor([embodiment_id]),
-        "front_img_1": torch.zeros(1, 3, 4, 4),
-        "actions_cartesian": torch.zeros(1, 2, 6),
+        "observations.state.ee_pose": torch.tensor(
+            [[[prev] * dim, [cur] * dim]], dtype=torch.float32
+        )
     }
 
 
-def _make_predictions(embodiment_name):
-    return {f"{embodiment_name}_actions_cartesian": torch.ones(1, 2, 6)}
+def test_prev_block_absent_when_disabled():
+    pi = _make_prompt_pi(prev_state_in_prompt=False, history_len=2)
+    out = pi._build_prompts(_hist_batch(), "eva_bimanual", 1)
+    assert len(out) == 1
+    assert "Prev1:" not in out[0]
+    assert "State:" in out[0]
+    assert out[0].endswith(";\nAction: ")
 
 
-def test_visualize_preds_supports_single_transform_object(monkeypatch):
-    shared_transform = _make_transform("shared")
-    pi = _make_pi(shared_transform, ["aria_bimanual"])
-
-    draw_calls = []
-
-    def fake_draw_actions(
-        im, ac_type, color, actions, extrinsics, intrinsics, arm="both", **kwargs
-    ):
-        draw_calls.append((extrinsics, intrinsics))
-        return im
-
-    monkeypatch.setattr(pi_module, "draw_actions", fake_draw_actions)
-
-    ims = pi.visualize_preds(
-        _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
-    )
-
-    assert ims.shape == (1, 4, 4, 3)
-    assert len(draw_calls) == 2
-    assert all(
-        extrinsics is shared_transform.extrinsics for extrinsics, _ in draw_calls
-    )
-    assert all(
-        intrinsics is shared_transform.intrinsics for _, intrinsics in draw_calls
-    )
+def test_prev_block_present_and_ordered_when_enabled():
+    pi = _make_prompt_pi(prev_state_in_prompt=True, history_len=2)
+    out = pi._build_prompts(_hist_batch(), "eva_bimanual", 1)[0]
+    assert "State:" in out and "Prev1:" in out
+    assert out.index("Prev1:") < out.index("State:")  # recent motion then current
+    assert out.endswith(";\nAction: ")
 
 
-def test_visualize_preds_raises_clear_error_for_missing_embodiment():
-    pi = _make_pi(
-        {"aria_bimanual": _make_transform("aria")},
-        ["aria_bimanual", "eva_bimanual"],
-    )
+def test_prev_delta_bins_zero_motion_is_center_bin():
+    pi = _make_prompt_pi(prev_state_in_prompt=True, history_len=2)
+    # K=2 window -> one past frame -> a single-element list.
+    s = pi._discretize_prev_states_for_sample(_hist_batch(prev=0.3, cur=0.3, dim=3), 0)
+    center = int(np.digitize(0.0, np.linspace(-1.0, 1.0, 65)[:-1]) - 1)
+    assert s == [" ".join([str(center)] * 3)]
 
-    with pytest.raises(KeyError) as exc_info:
-        pi.visualize_preds(
-            _make_predictions("eva_bimanual"), _make_batch("eva_bimanual")
+
+def test_prev_delta_bins_known_value():
+    pi = _make_prompt_pi(prev_state_in_prompt=True, history_len=2)
+    s = pi._discretize_prev_states_for_sample(_hist_batch(prev=0.4, cur=0.5, dim=2), 0)
+    edges = np.linspace(-1.0, 1.0, 65)[:-1]
+    expected = int(np.digitize(0.4 - 0.5, edges) - 1)  # delta = prev - cur
+    assert s == [" ".join([str(expected)] * 2)]
+
+
+def test_prev_returns_empty_without_history():
+    pi = _make_prompt_pi(prev_state_in_prompt=True, history_len=2)
+    # Single-frame proprio [B, D] -> per-sample [D] -> no history window.
+    batch = {
+        "observations.state.ee_pose": torch.tensor(
+            [[0.5, 0.5, 0.5]], dtype=torch.float32
         )
-
-    assert "Missing camera transform for embodiment 'eva_bimanual'" in str(
-        exc_info.value
-    )
-    assert "aria_bimanual" in str(exc_info.value)
+    }
+    assert pi._discretize_prev_states_for_sample(batch, 0) == []
+    assert "Prev1:" not in pi._build_prompts(batch, "eva_bimanual", 1)[0]
 
 
-def test_visualize_preds_rejects_invalid_camera_transform_shape():
-    pi = _make_pi({"aria_bimanual": {"extrinsics": {}}}, ["aria_bimanual"])
-
-    with pytest.raises(TypeError) as exc_info:
-        pi.visualize_preds(
-            _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
-        )
-
-    assert "camera_transforms must be a CameraTransforms instance or a mapping" in str(
-        exc_info.value
-    )
+def test_prev_caps_number_of_past_frames():
+    pi = _make_prompt_pi(prev_state_in_prompt=True, history_len=5)
+    # K=5 window -> 4 past frames, but only _PREV_MAX_FRAMES are encoded, each
+    # as its own Prev<j> bin-string of width `dim`.
+    dim = 2
+    window = torch.arange(5 * dim, dtype=torch.float32).reshape(1, 5, dim) / 100.0
+    s = pi._discretize_prev_states_for_sample({"observations.state.ee_pose": window}, 0)
+    assert len(s) == PI._PREV_MAX_FRAMES
+    assert all(len(frame.split()) == dim for frame in s)
 
 
-def test_visualize_preds_uses_embodiment_specific_camera_transform(monkeypatch):
-    aria_transform = _make_transform("aria")
-    eva_transform = _make_transform("eva")
-    pi = _make_pi(
-        {"aria_bimanual": aria_transform, "eva_bimanual": eva_transform},
-        ["aria_bimanual", "eva_bimanual"],
-    )
+def test_tokenize_truncation_warns_once():
+    pi = object.__new__(PI)
+    pi.tokenizer_max_length = 4
+    pi._prompt_trunc_warned = False
 
-    draw_calls = []
+    def fake_tokenizer(prompts, padding, truncation, max_length, return_tensors):
+        n = len(prompts)
+        # No padding column -> the window is full -> truncation suspected.
+        return {
+            "input_ids": torch.ones(n, 4, dtype=torch.long),
+            "attention_mask": torch.ones(n, 4, dtype=torch.long),
+        }
 
-    def fake_draw_actions(
-        im, ac_type, color, actions, extrinsics, intrinsics, arm="both", **kwargs
-    ):
-        draw_calls.append(
-            {
-                "ac_type": ac_type,
-                "color": color,
-                "extrinsics": extrinsics,
-                "intrinsics": intrinsics,
-                "arm": arm,
-                "shape": tuple(actions.shape),
-            }
-        )
-        return im
-
-    monkeypatch.setattr(pi_module, "draw_actions", fake_draw_actions)
-
-    ims = pi.visualize_preds(
-        _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
-    )
-
-    assert ims.shape == (1, 4, 4, 3)
-    assert len(draw_calls) == 2
-    assert all(call["extrinsics"] is aria_transform.extrinsics for call in draw_calls)
-    assert all(call["intrinsics"] is aria_transform.intrinsics for call in draw_calls)
-    assert all(call["arm"] == "both" for call in draw_calls)
-    assert all(call["shape"] == (2, 6) for call in draw_calls)
-    assert all(
-        call["extrinsics"] is not eva_transform.extrinsics for call in draw_calls
-    )
+    pi.tokenizer = fake_tokenizer
+    out = pi._tokenize_prompts(["a"])
+    assert pi._prompt_trunc_warned is True
+    assert out["tokenized_prompt"].shape == (1, 4)
+    # token_loss_mask masks out the final (anchor) position.
+    assert out["token_loss_mask"][0, -1].item() is False
+    pi._tokenize_prompts(["b"])  # stays warned, no crash
+    assert pi._prompt_trunc_warned is True
