@@ -187,7 +187,13 @@ class PIRiclPolicy:
             if k.startswith("model.")
         } or state_dict
         algo.nets["policy"].load_state_dict(weights, strict=False)
-        algo.eval()
+        # Standalone deploy (no Lightning ModelWrapper): place the model on GPU, set
+        # eval mode, and set algo.device so process_batch_for_training builds its
+        # tensors on the right device. (PIRicl is not an nn.Module; nets is.)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        algo.nets.to(device)
+        algo.nets.eval()
+        algo.device = device
         return algo
 
     def set_language(self, instruction: str) -> None:
@@ -220,13 +226,19 @@ class PIRiclPolicy:
                 "left_wrist_0_rgb": torch.as_tensor(w["left_wrist_0_rgb"])[None],
                 "right_wrist_0_rgb": torch.as_tensor(w["right_wrist_0_rgb"])[None],
                 R.STATE_KEY: torch.as_tensor(state32, dtype=torch.float32)[None],
+                # Dummy action target (shape only): process_batch_for_training infers
+                # (B, horizon) from the action key; sample_actions ignores its values.
+                R.AC_KEY: torch.zeros(1, self.action_horizon, 32, dtype=torch.float32),
                 "annotations": [[self.instruction or ""]],
                 "episode_hash": ["__live__"],
                 "frame_idx": [0],
                 **ricl,
             }
         }
-        with torch.no_grad():
+        # The model is built in bfloat16; training ran under Lightning bf16-mixed
+        # autocast, so mirror that here (inputs are float32 -> autocast casts them).
+        dev_type = "cuda" if str(self.algo.device).startswith("cuda") else "cpu"
+        with torch.no_grad(), torch.autocast(dev_type, dtype=torch.bfloat16):
             proc = self.algo.process_batch_for_training(raw)
             preds = self.algo.forward_eval(proc)
         pred = preds[f"{R.EMB_NAME}_{R.AC_KEY}"][0].detach().cpu().numpy()  # (H, 32)
