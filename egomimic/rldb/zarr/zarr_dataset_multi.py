@@ -1696,33 +1696,56 @@ class ZarrDataset(torch.utils.data.Dataset):
             return json.loads(value)
         return value
 
-    def _load_annotations(self) -> list[dict]:
+    def _load_annotations(self, zarr_key: str = "annotations") -> list[dict]:
         """
-        Load and cache decoded language annotations.
+        Load and cache decoded language annotations from ``zarr_key``.
+
+        Reads the configured annotation array rather than a hard-coded name, so
+        a key_map whose annotation entries point at a non-``"annotations"`` array
+        (and the high/low subtask split, which points both views at the same
+        array) resolve correctly. Cached per ``zarr_key``.
 
         Expected format per entry:
-            {"text": str, "start_idx": int, "end_idx": int}
+            {"text": str, "start_idx": int, "end_idx": int, "level": str}
         """
-        if self._annotations is not None:
-            return self._annotations
+        if self._annotations is None:
+            self._annotations = {}
+        cached = self._annotations.get(zarr_key)
+        if cached is not None:
+            return cached
 
-        raw = self.episode_reader._store["annotations"][:]
-
+        raw = self.episode_reader._store[zarr_key][:]
         decoded = [self._decode_json_entry(x) for x in raw]
-        self._annotations = [d for d in decoded if isinstance(d, dict)]
-        return self._annotations
+        anns = [d for d in decoded if isinstance(d, dict)]
+        self._annotations[zarr_key] = anns
+        return anns
 
-    def _annotation_text_for_frame(self, frame_idx: int) -> str:
+    def _annotation_text_for_frame(
+        self, frame_idx: int, level: str | None = None, zarr_key: str = "annotations"
+    ) -> list[str]:
         """
         Resolve language annotation text for a frame from span annotations.
+
+        Args:
+            frame_idx: Frame to resolve.
+            zarr_key: Annotation array to read (defaults to ``"annotations"``).
+            level: Optional granularity filter (``"high"`` / ``"low"``). When
+                ``None`` (the default, legacy single-key behavior) every span
+                covering the frame is returned regardless of granularity. When
+                set, only spans whose ``level`` matches are returned; entries
+                with no ``level`` field (legacy ``annotation_v1`` stores) are
+                treated as ``"low"``.
         """
-        annotations = self._load_annotations()
+        annotations = self._load_annotations(zarr_key)
         valid_annotations = []
         for ann in annotations:
             start_idx = int(ann.get("start_idx", -1))
             end_idx = int(ann.get("end_idx", -1))
-            if start_idx <= frame_idx < end_idx:
-                valid_annotations.append(ann.get("text", ""))
+            if not (start_idx <= frame_idx < end_idx):
+                continue
+            if level is not None and ann.get("level", "low") != level:
+                continue
+            valid_annotations.append(ann.get("text", ""))
         return valid_annotations
 
     def __len__(self) -> int:
@@ -1793,7 +1816,14 @@ class ZarrDataset(torch.utils.data.Dataset):
                 horizon = self.key_map[k].get("horizon", None)
 
                 if key_type == "annotation_keys":
-                    data[k] = self._annotation_text_for_frame(idx)
+                    # A key_map entry may pin a granularity (e.g. a high-level
+                    # key reading the same zarr array, filtered to "high"); when
+                    # absent we return every span covering the frame (legacy).
+                    data[k] = self._annotation_text_for_frame(
+                        idx,
+                        level=self.key_map[k].get("level"),
+                        zarr_key=zarr_key,
+                    )
                     continue
 
                 if horizon is not None:

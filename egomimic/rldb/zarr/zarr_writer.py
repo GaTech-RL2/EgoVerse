@@ -625,7 +625,7 @@ class ZarrWriter:
     def append_annotations(
         self,
         annotation_key: str,
-        annotations: list[tuple[str, int, int]],
+        annotations: list[tuple],
         mode: Literal["w", "a"] = "a",
     ) -> None:
         """
@@ -633,7 +633,9 @@ class ZarrWriter:
 
         Args:
             annotation_key: Key to write annotations to.
-            annotations: List of (text, start_idx, end_idx) tuples.
+            annotations: List of ``(text, start_idx, end_idx)`` or
+                ``(text, start_idx, end_idx, level)`` tuples (``level`` defaults
+                to ``"low"``).
         """
         annotation_exists = self.check_key_exists(self.episode_path, annotation_key)
         if annotation_exists:
@@ -648,7 +650,7 @@ class ZarrWriter:
     def _write_annotations(
         self,
         store: zarr.Group,
-        annotations: list[tuple[str, int, int]],
+        annotations: list[tuple],
         annotation_key: str = "annotations",
     ) -> None:
         """
@@ -656,7 +658,11 @@ class ZarrWriter:
 
         Args:
             store: Zarr group to write to.
-            annotations: List of (text, start_idx, end_idx) tuples.
+            annotations: List of ``(text, start_idx, end_idx)`` or
+                ``(text, start_idx, end_idx, level)`` tuples. ``level`` is the
+                annotation granularity (``"high"``/``"low"``); when omitted it
+                defaults to ``"low"`` (the action / subtask granularity that
+                also serves as the high-level prompt for non-hierarchical data).
         """
         encoded = np.array(
             [
@@ -665,11 +671,14 @@ class ZarrWriter:
                         "text": text,
                         "start_idx": int(start_idx),
                         "end_idx": int(end_idx),
+                        "level": level,
                     },
                     ensure_ascii=False,
                     separators=(",", ":"),
                 ).encode("utf-8")
-                for text, start_idx, end_idx in annotations
+                for text, start_idx, end_idx, level in (
+                    self._normalize_annotation(a) for a in annotations
+                )
             ],
             dtype=object,
         )
@@ -697,8 +706,22 @@ class ZarrWriter:
             "dtype": "json",
             "shape": [n_annotations],
             "names": ["json"],
-            "format": "annotation_v1",
+            "format": "annotation_v2",
         }
+
+    @staticmethod
+    def _normalize_annotation(annotation: tuple) -> tuple[str, int, int, str]:
+        """Coerce a 3- or 4-tuple annotation into ``(text, start, end, level)``.
+
+        Legacy 3-tuples (``text, start, end``) default to the ``"low"``
+        granularity, preserving backward compatibility with callers / converters
+        that predate the high/low subtask split.
+        """
+        if len(annotation) == 4:
+            text, start_idx, end_idx, level = annotation
+            return text, start_idx, end_idx, level or "low"
+        text, start_idx, end_idx = annotation
+        return text, start_idx, end_idx, "low"
 
     def _build_metadata(
         self, metadata_override: dict[str, Any] | None = None
