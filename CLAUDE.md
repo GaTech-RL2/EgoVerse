@@ -2,6 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+
 ## Environment
 
 - **You are on a shared SLURM cluster.** Do not run anything GPU- or CPU-intensive yourself unless told to (no training, no eval, no large data conversions, no full dataset loads, no heavy `pytest` runs that spin up models or pull data). Defer to the user to actually execute those commands — your job is to prepare the command and explain it. Lightweight read-only work (lint, type checks, small unit tests, file edits, single-file syntax checks) is fine on the login node.
