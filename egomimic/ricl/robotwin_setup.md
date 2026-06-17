@@ -5,14 +5,15 @@ RoboTwin docs: https://robotwin-platform.github.io/doc/usage/robotwin-install.ht
 **Fresh cluster from scratch?** See `robotwin_new_cluster_setup.md` (full install guide).
 This file is the per-run cheatsheet + current status.
 
-**Status: training + closed-loop eval both verified on the Georgia Tech SLURM cluster**
-(`/coc/flash7/rco3/EgoVerse`). A 250-step checkpoint scored 1/10 on `beat_block_hammer`
+**Status: training + closed-loop eval both verified end-to-end.** Commands below target
+the Georgia Tech PACE cluster (repo at `/storage/project/r-dxu345-0/rco3/EgoVerse`).
+A 250-step checkpoint scored 1/10 on `beat_block_hammer`
 (undertrained — train longer for a real number; the pipeline is the deliverable).
 
 Setup once per cluster: `git submodule update --init external/RoboTwin`; vendor the
 PaliGemma tokenizer to `pg_tokenizer/` (gitignored) via
 `AutoTokenizer.from_pretrained("google/paligemma-3b-mix-224").save_pretrained(...)`
-(already in the HF cache here). pi0.5 base ckpt: `egomimic/algo/pi_checkpoints/pi05_base_pytorch`.
+(check the HF cache first). pi0.5 base ckpt: `egomimic/algo/pi_checkpoints/pi05_base_pytorch`.
 **Install packages with `uv pip install` — the venv has no `pip`.**
 
 ## TODO 1 — data → zarr → train  (DONE)
@@ -24,18 +25,18 @@ python -m egomimic.ricl.scripts.robotwin_to_zarr \
   --root egomimic/ricl/outputs/robotwin_raw/extracted --out egomimic/ricl/outputs/robotwin_zarr --limit 5  # optional validation
 python egomimic/ricl/scripts/train_robotwin_ricl.py --stage cpu \
   --root egomimic/ricl/outputs/robotwin_raw/extracted --embed fake          # CPU smoke
-sbatch egomimic/ricl/scripts/train_robotwin_ricl.sbatch                      # GPU training (hoffman-lab a40, 8-bit AdamW)
+sbatch egomimic/ricl/scripts/train_robotwin_ricl.sbatch                      # GPU training (gpu-h200, qos inferno)
 ```
 The trainer reads the HDF5 corpus directly (`--root` = parent of the nested
 `<task>/data`). Writes checkpoints + `quantiles.json` under
-`outputs/robotwin_train/robotwin_ricl/version_*/`. **8-bit AdamW (`--adam8bit`, in the
-sbatch) is required** — full fp32 AdamW of the 3.6B model OOMs on this cluster's 48GB GPUs.
+`outputs/robotwin_train/robotwin_ricl/version_*/`. The h200's ~141 GB fits full fp32
+AdamW of the 3.6 B model (~57 GB), so no 8-bit optimizer is needed.
 
 ## TODO 2 — closed-loop eval on RoboTwin  (DONE)
 
-1. Build the demo-bank DINOv2 index (GPU; `overcap` partition has spare GPUs):
+1. Build the demo-bank DINOv2 index (GPU):
    ```bash
-   sbatch -p overcap -A overcap --gres=gpu:a40:1 -c8 --mem=64G --wrap=\
+   sbatch -p gpu-h200 -A gts-dxu345-rl2 -q inferno --gres=gpu:h200:1 -c8 --mem=64G --wrap=\
      "emimic/bin/python egomimic/ricl/scripts/build_robotwin_bank_index.py \
         --root egomimic/ricl/outputs/robotwin_raw/extracted \
         --out egomimic/ricl/outputs/robotwin_bank_index --embed dinov2"
@@ -59,8 +60,7 @@ sbatch) is required** — full fp32 AdamW of the 3.6B model OOMs on this cluster
    - `task_config/demo_clean.yml`: `eval_video_log: false` (skip per-episode ffmpeg).
    - `policy/pi_ricl_egoverse/deploy_policy.yml`: set absolute `egoverse_checkpoint`,
      `bank_root`, `bank_index_dir`, `quantiles_path`.
-4. Run (uses a known-good node; `overcap`/some nodes have a CUDA driver too old for
-   torch cu126 — exclude bad ones like ig-88):
+4. Run:
    ```bash
    CKPT=<abs .ckpt> EVAL_TEST_NUM=10 sbatch egomimic/ricl/scripts/eval_robotwin_ricl.sbatch
    ```

@@ -38,7 +38,7 @@ resolve `episode_lists/`, `pg_tokenizer/`, `outputs/` relative to the parent dir
   chunked at load like aria), `scripts/train_robotwin_ricl.py` (`--stage cpu` = fast
   data-path/collate smoke with `--embed fake`; `--stage full` = GPU training on a
   Lightning `Trainer` — NOT submitit; launch via `scripts/train_robotwin_ricl.sbatch`
-  [this cluster: hoffman-lab a40] and it saves `quantiles.json` beside the checkpoints
+  [PACE: gpu-h200, qos inferno] and it saves `quantiles.json` beside the checkpoints
   for eval), `scripts/build_robotwin_bank_index.py` (consolidated DINOv2 bank index over
   a `RoboTwinCorpus`, built with the SAME `.embed` as eval's `OnlineRetriever`; output
   format = `build_embedding_index.build_retrieval_index`). Tests:
@@ -64,6 +64,20 @@ resolve `episode_lists/`, `pg_tokenizer/`, `outputs/` relative to the parent dir
   (sapien/mplib/curobo/pytorch3d) install **selectively** — do NOT run RoboTwin's
   `script/_install.sh` (it pins `torch==2.4.1`, breaking emimic's 2.7.1). Eval task
   config = `demo_clean` (matches the `clean` data slice).
+  **Cross-embodiment RICL** (retrieve from embodiment A, predict embodiment B —
+  arx-x5 and aloha-agilex share the identical 14-D dual-arm layout): `robotwin_data.
+  build_cross_embodiment_retrieval_cache` (per emb-B query frame, kNN emb-A frames of
+  the SAME task; no leave-one-out — different corpora) + `train_robotwin_ricl.
+  build_data_xemb` (gated by `--bank-root`/`--eval-bank-root`; query/target = emb B
+  with its own quantiles, in-context bank = emb A with ITS own quantiles, so the
+  spliced demo is encoded in emb-A units). Pass `BANK_ROOT`/`EVAL_BANK_ROOT` to
+  `train_robotwin_ricl.sbatch` (also `NO_RANDOM=1` — the xemb path builds no
+  random-control caches). The run saves `bank_quantiles.json` (emb-A) beside
+  `quantiles.json` (emb-B). Closed-loop: `scripts/eval_xemb_compare.sbatch` (sim
+  controls emb B; cross-emb retrieves the emb-A bank, passing `bank_quantiles_path`
+  to `robotwin_policy` so retrieved demos normalize in emb-A units — the one deploy
+  change cross-embodiment needs). Result: arx-x5 demos cut held-out aloha action
+  loss ~40% (helps 100% of frames).
 - Embedding -> index: embed a corpus with
   `egomimic/scripts/embedding_process/zarr_embedding.py` — supports SQL-registry
   filters (`--filter-lambda` + `--sync-root`) and writes to a writable mirror

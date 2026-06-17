@@ -1,8 +1,8 @@
 # RoboTwin pi0.5 RICL — new-cluster setup
 
 End-to-end guide to stand up **training + closed-loop eval** of EgoVerse's pi0.5 RICL
-on RoboTwin 2.0 on a fresh SLURM/GPU cluster. Verified on the Georgia Tech cluster
-(`/coc/...`). For the per-run command cheatsheet see `robotwin_setup.md`; for code
+on RoboTwin 2.0 on a fresh SLURM/GPU cluster. Verified on the Georgia Tech PACE cluster
+(`/storage/project/r-dxu345-0/...`). For the per-run command cheatsheet see `robotwin_setup.md`; for code
 layout see `CLAUDE.md`.
 
 Throughout, let `REPO=/path/to/EgoVerse` and run from `$REPO`.
@@ -15,8 +15,8 @@ Throughout, let `REPO=/path/to/EgoVerse` and run from `$REPO`.
 - Python 3.11, the project venv managed by **`uv`** (no `pip` inside it — see G2).
 - AWS/R2 creds only if you also pull the SQL episode registry; **not needed** for the
   RoboTwin path (it's local HDF5/zarr).
-- GPU memory ≥ 24 GB. With ≤ 48 GB you must use 8-bit AdamW (step 6); ≥ 80 GB can use
-  plain AdamW.
+- GPU memory: the h200s here (~141 GB) run full fp32 AdamW of the 3.6 B model (~57 GB)
+  comfortably (step 6).
 
 ---
 
@@ -98,21 +98,18 @@ trainer's recursive `**/data` glob finds it, so always pass `--root .../extracte
 
 ## 6. Train (TODO 1)
 
-8-bit AdamW (bitsandbytes) is **required on ≤48 GB GPUs** — full fp32 AdamW of the
-3.6 B model needs ~57 GB (G3):
-
-```bash
-uv pip install bitsandbytes
-```
+The h200's ~141 GB fits full fp32 AdamW of the 3.6 B model (~57 GB), so no 8-bit
+optimizer is needed. (On a ≤ 48 GB GPU, add `--adam8bit` to the sbatch — it needs
+`uv pip install bitsandbytes`.)
 
 Edit `egomimic/ricl/scripts/train_robotwin_ricl.sbatch` for your cluster
-(`--partition`/`--account`/`--gres`, the `cd $REPO`, and `source emimic/bin/activate`),
-then:
+(`--partition`/`--account`/`--gres`, the `cd $REPO`, and `source emimic/bin/activate`);
+it ships preset for PACE (`gpu-h200` / `gts-dxu345-rl2` / `qos inferno`). Then:
 ```bash
 sbatch egomimic/ricl/scripts/train_robotwin_ricl.sbatch
 # knobs via env: CKPT_EVERY, VAL_EVERY, MAX_STEPS, BATCH_SIZE, EMBED, ROOT
 ```
-The sbatch sets `--adam8bit`, `--batch-size 2`, and
+The sbatch sets `--batch-size 2` and
 `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`. `--embed dinov2` builds the
 retrieval cache via DINOv2 (`torch.hub`; pre-cache if compute nodes are offline).
 Outputs: `egomimic/ricl/outputs/robotwin_train/robotwin_ricl/version_*/`
@@ -124,7 +121,7 @@ Outputs: `egomimic/ricl/outputs/robotwin_train/robotwin_ricl/version_*/`
 
 ### 7a. Demo-bank DINOv2 index
 ```bash
-sbatch -p <gpu-partition> -A <account> --gres=gpu:a40:1 -c8 --mem=64G --wrap=\
+sbatch -p gpu-h200 -A gts-dxu345-rl2 -q inferno --gres=gpu:h200:1 -c8 --mem=64G --wrap=\
  "emimic/bin/python egomimic/ricl/scripts/build_robotwin_bank_index.py \
     --root egomimic/ricl/outputs/robotwin_raw/extracted \
     --out egomimic/ricl/outputs/robotwin_bank_index --embed dinov2"
@@ -175,20 +172,20 @@ Success: log shows `Render Well` then `Success rate: k/n` per episode and `eval 
 
 - **G1 — bad GPU node.** `nvidia-smi` shows the GPU but torch errors `No CUDA GPUs are
   available` → that node's driver is too old for torch cu126. Exclude it:
-  `sbatch --exclude=<node> ...`. (Seen on `ig-88`.)
+  `sbatch --exclude=<node> ...`.
 - **G2 — venv has no `pip`.** Use `uv pip install`. Bare `pip` silently hits a stray
   system Python; `python -m pip` says "No module named pip".
-- **G3 — GPU memory ceiling.** No GPU > 48 GB here. Full fp32 AdamW of the 3.6 B model
-  OOMs even at batch 1 → use `--adam8bit`. Never install RoboTwin's `requirements.txt`
-  wholesale (pins `torch==2.4.1`, breaks the shared env). Verify torch unchanged after
-  every sim-dep install (`uv pip install --dry-run ...` first).
+- **G3 — RoboTwin deps pin old torch.** Never install RoboTwin's `requirements.txt` or
+  `_install.sh` wholesale (pins `torch==2.4.1`, breaks the shared env). Install sim deps
+  selectively and verify torch is unchanged after every install (`uv pip install
+  --dry-run ...` first).
 - **G4 — `sbatch --wrap` uses `dash`.** `source` fails; call `emimic/bin/python` (or
   `. emimic/bin/activate`) directly.
 - **G5 — torch.compile.** Leave compile ON for training; set `TORCH_COMPILE_DISABLE=1`
   for eval/smoke (avoids minutes of max-autotune warmup).
-- **G6 — 1 GPU per account (QOS).** A 2nd concurrent GPU request fails `QOSGrpGRES`;
-  grab spare/idle GPUs via the preemptible `overcap` partition+account
-  (`-p overcap -A overcap`). Some interactive `srun` QOS can't get `l40s` — use `sbatch`.
+- **G6 — inferno preemption.** The shared `inferno`/`gpu-h200` queue preempts
+  allocations mid-run, which can wedge a held `salloc`/`srun`. Submit unattended jobs
+  with `sbatch`, not interactive `salloc`.
 - **G7 — buffered logs.** Run `python -u`; otherwise stdout (episode prints) only flushes
   on exit when redirected to a file.
 - **G8 — `--root` nesting.** Always point data `--root` at `.../extracted` (the recursive

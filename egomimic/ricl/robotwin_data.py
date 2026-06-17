@@ -275,6 +275,19 @@ class RoboTwinCorpus:
             json.dump(payload, f, indent=2)
 
 
+def save_quantiles(quantiles: dict, path: str) -> None:
+    """Persist a ``{which: (q01, q99)}`` quantile dict to JSON (standalone analog of
+    ``RoboTwinCorpus.save_quantiles`` — used to save the cross-embodiment BANK
+    corpus's quantiles next to the trained checkpoint)."""
+    payload = {
+        k: {"q01": np.asarray(q01).tolist(), "q99": np.asarray(q99).tolist()}
+        for k, (q01, q99) in quantiles.items()
+    }
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(payload, f, indent=2)
+
+
 def load_quantiles(path: str) -> dict:
     with open(path) as f:
         payload = json.load(f)
@@ -472,6 +485,81 @@ def build_robotwin_retrieval_cache(
                 bf.astype(np.int32),
                 dist.astype(np.float32),
                 group_id=f"{g}:loeo:{qh}",
+            )
+    return cache
+
+
+def build_cross_embodiment_retrieval_cache(
+    query_corpus: RoboTwinCorpus,
+    bank_corpus: RoboTwinCorpus,
+    k: int,
+    query_embeddings_provider: Callable[[str], np.ndarray],
+    bank_embeddings_provider: Callable[[str], np.ndarray],
+):
+    """Cross-EMBODIMENT retrieval cache: each QUERY frame (embodiment B) retrieves
+    its top-k BANK frames (embodiment A) of the SAME task, by head-image L2.
+
+    Unlike ``build_robotwin_retrieval_cache`` (within-corpus leave-one-out), query
+    and bank are DIFFERENT corpora (different embodiments doing the same tasks).
+    Groups are matched by ``group_id`` (task name), so the two corpora must use a
+    parallel ``<task>/data`` layout. No leave-one-out — the embodiments don't share
+    episodes, so a query frame can never retrieve "itself". The retrieved demos thus
+    show a *different robot* (emb A) performing the query's task; the model must
+    transfer that guidance to predict emb B's actions.
+
+    The cached bank refs (``episode_hash``/``frame_idx``) resolve against
+    ``bank_corpus`` — pair this with ``make_robotwin_bank_provider(bank_corpus, ...)``
+    so the spliced demo image/state/action come from embodiment A (its own quantiles).
+    """
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    cache = RetrievalCache(
+        k=k,
+        meta={"source": "robotwin_xemb", "k": k, "loeo": False, "device": device},
+    )
+    q_emb = {
+        h: np.asarray(query_embeddings_provider(h), dtype=np.float32)
+        for h in query_corpus.hashes
+    }
+    b_emb = {
+        h: np.asarray(bank_embeddings_provider(h), dtype=np.float32)
+        for h in bank_corpus.hashes
+    }
+    for g, qhs in query_corpus.group_to_hashes.items():
+        bhs = bank_corpus.group_to_hashes.get(g)
+        if not bhs:
+            logger.warning(
+                "cross-emb: query group %s has no matching bank group; skipping", g
+            )
+            continue
+        vecs, ref_hash, ref_frame = [], [], []
+        for h in bhs:
+            v = b_emb[h]
+            vecs.append(v)
+            ref_hash.append(np.full(v.shape[0], h))
+            ref_frame.append(np.arange(v.shape[0], dtype=np.int32))
+        ref_hash = np.concatenate(ref_hash)
+        ref_frame = np.concatenate(ref_frame)
+        bank = torch.from_numpy(np.concatenate(vecs, axis=0)).to(device)  # (N, D)
+        kk = min(k, int(ref_hash.shape[0]))
+        for qh in qhs:
+            qv = torch.from_numpy(q_emb[qh]).to(device)  # (Tq, D)
+            d = torch.cdist(qv, bank)  # (Tq, N) raw L2
+            dist, top = torch.topk(d, kk, dim=1, largest=False)  # ascending
+            top = top.cpu().numpy()
+            dist = dist.cpu().numpy().astype(np.float32)
+            bh = ref_hash[top]
+            bf = ref_frame[top]
+            if kk < k:  # pad to fixed width
+                pad = k - kk
+                bh = np.pad(bh, ((0, 0), (0, pad)), constant_values="")
+                bf = np.pad(bf, ((0, 0), (0, pad)), constant_values=-1)
+                dist = np.pad(dist, ((0, 0), (0, pad)), constant_values=np.inf)
+            cache.add(
+                qh,
+                bh.astype("U"),
+                bf.astype(np.int32),
+                dist.astype(np.float32),
+                group_id=f"{g}:xemb:{qh}",
             )
     return cache
 

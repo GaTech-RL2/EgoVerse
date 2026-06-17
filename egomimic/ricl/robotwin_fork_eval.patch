@@ -1,0 +1,180 @@
+diff --git a/envs/robot/planner.py b/envs/robot/planner.py
+index 21ae432..6b9d6e4 100644
+--- a/envs/robot/planner.py
++++ b/envs/robot/planner.py
+@@ -271,9 +271,40 @@ try:
+             return result_p, result_q
+     
+ except Exception as e:
+-    print('[planner.py]: Something wrong happened when importing CuroboPlanner! Please check if Curobo is installed correctly. If the problem still exists, you can install Curobo from https://github.com/NVlabs/curobo manually.')
+-    print('Exception traceback:')
+-    traceback.print_exc()
++    # EgoVerse patch: curobo is intentionally NOT installed for policy eval (the
++    # policy drives the arms directly in joint space, so no arm motion planning is
++    # needed). Provide an in-process stub so envs/robot import cleanly and the robot
++    # can still build a "planner". Only gripper interpolation is exercised at eval.
++    print('[planner.py]: Curobo unavailable — using EgoVerse no-op CuroboPlanner stub '
++          '(policy eval needs no arm motion planning).')
++
++    class CuroboPlanner:
++        def __init__(self, robot_origion_pose, active_joints_name, all_joints, yml_path=None):
++            self.robot_origion_pose = robot_origion_pose
++            self.active_joints_name = active_joints_name
++            self.all_joints = all_joints
++            self.yml_path = yml_path
++
++        def plan_grippers(self, now_val, target_val):
++            # Identical to the real CuroboPlanner.plan_grippers (linear interpolation).
++            num_step = 200
++            dis_val = target_val - now_val
++            step = dis_val / num_step
++            res = {}
++            vals = np.linspace(now_val, target_val, num_step)
++            res["num_step"] = num_step
++            res["per_step"] = step
++            res["result"] = vals
++            return res
++
++        def update_point_cloud(self, *args, **kwargs):
++            return None
++
++        def __getattr__(self, name):
++            # Any unused arm-planning method (plan_path/plan_pose/plan_batch/...) is a no-op.
++            def _noop(*args, **kwargs):
++                return {"status": "Fail"}
++            return _noop
+ 
+ 
+ # ********************** MplibPlanner **********************
+diff --git a/envs/robot/robot.py b/envs/robot/robot.py
+index 9dfc08f..ad0b648 100644
+--- a/envs/robot/robot.py
++++ b/envs/robot/robot.py
+@@ -259,6 +259,9 @@ class Robot:
+         abs_right_curobo_yml_path = os.path.join(CONFIGS.ROOT_PATH, self.right_curobo_yml_path)
+ 
+         self.communication_flag = (abs_left_curobo_yml_path != abs_right_curobo_yml_path)
++        # EgoVerse patch: force the in-process (stub) CuroboPlanner instead of curobo
++        # worker subprocesses — policy eval needs no arm motion planning.
++        self.communication_flag = False
+ 
+         if self.is_dual_arm:
+             abs_left_curobo_yml_path = abs_left_curobo_yml_path.replace("curobo.yml", "curobo_left.yml")
+diff --git a/script/eval_policy.py b/script/eval_policy.py
+index eded198..4459103 100644
+--- a/script/eval_policy.py
++++ b/script/eval_policy.py
+@@ -160,6 +160,10 @@ def main(usr_args):
+     st_seed = 100000 * (1 + seed)
+     suc_nums = []
+     test_num = 100
++    # EgoVerse patch: bound the number of policy rollouts via env (fast eval).
++    _env_test_num = os.environ.get("EVAL_TEST_NUM")
++    if _env_test_num:
++        test_num = int(_env_test_num)
+     topk = 1
+ 
+     model = get_model(usr_args)
+@@ -197,7 +201,9 @@ def eval_policy(task_name,
+     print(f"\033[34mTask Name: {args['task_name']}\033[0m")
+     print(f"\033[34mPolicy Name: {args['policy_name']}\033[0m")
+ 
+-    expert_check = True
++    # EgoVerse patch: skip the curobo-based expert solvability run — we eval the
++    # policy directly (no motion planning / curobo installed).
++    expert_check = False
+     TASK_ENV.suc = 0
+     TASK_ENV.test_num = 0
+ 
+@@ -253,10 +259,41 @@ def eval_policy(task_name,
+ 
+         args["render_freq"] = render_freq
+ 
+-        TASK_ENV.setup_demo(now_ep_num=now_id, seed=now_seed, is_test=True, **args)
+-        episode_info_list = [episode_info["info"]]
+-        results = generate_episode_descriptions(args["task_name"], episode_info_list, test_num)
+-        instruction = np.random.choice(results[0][instruction_type])
++        # EgoVerse patch: with expert_check disabled the early try/except above is
++        # skipped, so this setup_demo is the only scene init. Guard it — RoboTwin's
++        # physics-settling check raises UnStableError for some random object
++        # placements (intended to be resampled, common under domain randomization),
++        # and other init errors shouldn't crash the whole eval. Resample a fresh
++        # seed instead. succ_seed was already incremented above for the no-expert
++        # path, so undo it before retrying.
++        try:
++            TASK_ENV.setup_demo(now_ep_num=now_id, seed=now_seed, is_test=True, **args)
++        except UnStableError as e:
++            try:
++                TASK_ENV.close_env()
++            except Exception:
++                pass
++            succ_seed -= 1
++            now_seed += 1
++            print(f"unstable scene, resampling seed: {e}")
++            continue
++        except Exception as e:
++            try:
++                TASK_ENV.close_env()
++            except Exception:
++                pass
++            succ_seed -= 1
++            now_seed += 1
++            print(f"scene init error, resampling seed: {e}")
++            continue
++        if expert_check:
++            episode_info_list = [episode_info["info"]]
++            results = generate_episode_descriptions(args["task_name"], episode_info_list, test_num)
++            instruction = np.random.choice(results[0][instruction_type])
++        else:
++            # EgoVerse patch: no expert run → no episode_info; use the task name
++            # (underscores -> spaces) as the language instruction.
++            instruction = args["task_name"].replace("_", " ")
+         TASK_ENV.set_instruction(instruction=instruction)  # set language instruction
+ 
+         if TASK_ENV.eval_video_path is not None:
+@@ -290,12 +327,19 @@ def eval_policy(task_name,
+ 
+         succ = False
+         reset_func(model)
+-        while TASK_ENV.take_action_cnt < TASK_ENV.step_lim:
+-            observation = TASK_ENV.get_obs()
+-            eval_func(TASK_ENV, model, observation)
+-            if TASK_ENV.eval_success:
+-                succ = True
+-                break
++        try:
++            while TASK_ENV.take_action_cnt < TASK_ENV.step_lim:
++                observation = TASK_ENV.get_obs()
++                eval_func(TASK_ENV, model, observation)
++                if TASK_ENV.eval_success:
++                    succ = True
++                    break
++        except Exception as e:
++            # EgoVerse patch: some tasks' check_success references expert-only state
++            # (e.g. self.arm_tag, set in play_once which no-expert eval never runs).
++            # Count the episode as a failure instead of crashing the multi-task eval.
++            print(f"eval step error, counting as failure: {e}")
++            succ = False
+         # task_total_reward += TASK_ENV.episode_score
+         if TASK_ENV.eval_video_path is not None:
+             TASK_ENV._del_eval_video_ffmpeg()
+diff --git a/task_config/demo_clean.yml b/task_config/demo_clean.yml
+index 7e0de0a..4b29be2 100644
+--- a/task_config/demo_clean.yml
++++ b/task_config/demo_clean.yml
+@@ -34,4 +34,4 @@ pcd_crop: true
+ save_path: ./data
+ clear_cache_freq: 5
+ collect_data: true
+-eval_video_log: true
++eval_video_log: false
+diff --git a/task_config/demo_randomized.yml b/task_config/demo_randomized.yml
+index d3fc5ed..d921d05 100644
+--- a/task_config/demo_randomized.yml
++++ b/task_config/demo_randomized.yml
+@@ -34,4 +34,4 @@ pcd_crop: true
+ save_path: ./data
+ clear_cache_freq: 5
+ collect_data: true
+-eval_video_log: true
++eval_video_log: false

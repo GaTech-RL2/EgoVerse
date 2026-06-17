@@ -2,12 +2,13 @@
 #SBATCH --job-name=robotwin_eval
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=8
+#SBATCH --cpus-per-task=4
 #SBATCH --mem=64G
-#SBATCH --partition=hoffman-lab
-#SBATCH --account=hoffman-lab
-#SBATCH --gres=gpu:a40:1
-#SBATCH --exclude=ig-88
+# Eval is inference-only — a 48GB l40s loads pi0.5 fine and schedules faster than h200.
+#SBATCH --partition=gpu-l40s
+#SBATCH --account=gts-dxu345-rl2
+#SBATCH --gres=gpu:l40s:1
+#SBATCH --qos=inferno
 #SBATCH --time=01:00:00
 #SBATCH --output=egomimic/ricl/outputs/robotwin_eval/slurm_%j.out
 #SBATCH --error=egomimic/ricl/outputs/robotwin_eval/slurm_%j.err
@@ -18,7 +19,7 @@
 #   TASK / TASK_CONFIG / CKPT / SEED overridable via env vars.
 set -uo pipefail
 mkdir -p egomimic/ricl/outputs/robotwin_eval
-cd /coc/flash7/rco3/EgoVerse
+cd /storage/project/r-dxu345-0/rco3/EgoVerse2
 source emimic/bin/activate
 
 TASK="${TASK:-beat_block_hammer}"

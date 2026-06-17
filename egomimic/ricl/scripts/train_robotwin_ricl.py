@@ -96,9 +96,90 @@ def _combined_collate(primary, variants):
     return collate
 
 
+def build_data_xemb(args):
+    """Cross-EMBODIMENT data path.
+
+    Query/target = embodiment B (``--root`` / ``--eval-root``): the model predicts
+    THIS embodiment's actions. In-context bank = embodiment A (``--bank-root`` /
+    ``--eval-bank-root``): the retrieved demos show a *different* robot performing the
+    same task. Retrieval matches by task name across the two corpora (no leave-one-out;
+    the embodiments share no episodes). Each side keeps its OWN quantiles — the spliced
+    demo is encoded in emb-A units, the query/target proprio in emb-B units. Requires a
+    held-out eval split (``--eval-root`` + ``--eval-bank-root``)."""
+    if not (args.eval_root and args.eval_bank_root):
+        raise SystemExit(
+            "--bank-root (cross-embodiment) requires --eval-root and --eval-bank-root"
+        )
+    # Embodiment B (predicted): train + held-out eval queries; eval shares train norm.
+    query_corpus = R.RoboTwinCorpus(args.root)
+    eval_query_corpus = R.RoboTwinCorpus(
+        args.eval_root, quantiles=query_corpus.quantiles
+    )
+    # Embodiment A (in-context bank): own quantiles (demo encoded in emb-A units).
+    bank_corpus = R.RoboTwinCorpus(args.bank_root)
+    eval_bank_corpus = R.RoboTwinCorpus(
+        args.eval_bank_root, quantiles=bank_corpus.quantiles
+    )
+    q_embed = _make_embed_provider(args, query_corpus)
+    b_embed = _make_embed_provider(args, bank_corpus)
+    eq_embed = _make_embed_provider(args, eval_query_corpus)
+    eb_embed = _make_embed_provider(args, eval_bank_corpus)
+
+    train_cache = R.build_cross_embodiment_retrieval_cache(
+        query_corpus,
+        bank_corpus,
+        k=args.k,
+        query_embeddings_provider=q_embed,
+        bank_embeddings_provider=b_embed,
+    )
+    eval_cache = R.build_cross_embodiment_retrieval_cache(
+        eval_query_corpus,
+        eval_bank_corpus,
+        k=args.k,
+        query_embeddings_provider=eq_embed,
+        bank_embeddings_provider=eb_embed,
+    )
+    train_provider = R.make_robotwin_bank_provider(
+        bank_corpus, action_horizon=args.action_horizon
+    )
+    eval_provider = R.make_robotwin_bank_provider(
+        eval_bank_corpus, action_horizon=args.action_horizon
+    )
+    train_collate = _make_collate(
+        args, train_cache, train_provider, query_corpus.state_dim
+    )
+    val_collate = _make_collate(
+        args, eval_cache, eval_provider, eval_query_corpus.state_dim
+    )
+    if args.no_incontext:
+        from egomimic.pl_utils.pl_data_utils import annotation_collate
+
+        train_collate = annotation_collate
+        print("[data] NO-INCONTEXT baseline: plain pi0.5 finetune collate", flush=True)
+
+    train_hashes = [h for hs in query_corpus.group_to_hashes.values() for h in hs]
+    val_hashes = [h for hs in eval_query_corpus.group_to_hashes.values() for h in hs]
+    train_ds = R.RoboTwinQueryDataset(query_corpus, train_hashes, args.action_horizon)
+    val_ds = R.RoboTwinQueryDataset(eval_query_corpus, val_hashes, args.action_horizon)
+    # Expose the in-context bank's (emb A) quantiles so stage_full persists them
+    # beside the checkpoint — the closed-loop eval needs them to normalize retrieved
+    # demos identically to training (see robotwin_policy ``bank_quantiles_path``).
+    query_corpus.bank_quantiles = bank_corpus.quantiles
+    print(
+        f"[data] CROSS-EMBODIMENT: predict emb-B ({args.root}) | retrieve emb-A "
+        f"bank ({args.bank_root}); train {len(query_corpus.group_to_hashes)} tasks "
+        f"({len(train_hashes)} eps) | eval {len(eval_query_corpus.group_to_hashes)} "
+        f"held-out tasks ({len(val_hashes)} eps)",
+        flush=True,
+    )
+    return query_corpus, train_cache, train_collate, val_collate, train_ds, val_ds
+
+
 def build_data(args):
     from egomimic.ricl.retrieval import RetrievalCache
 
+    if args.bank_root:
+        return build_data_xemb(args)
     corpus = R.RoboTwinCorpus(args.root)
     embed = _make_embed_provider(args, corpus)
     if args.cache_dir and os.path.isdir(args.cache_dir):
@@ -453,6 +534,15 @@ def stage_full(args):
     # training. Pair (quantiles.json, checkpoint) when wiring deploy_policy.yml.
     corpus.save_quantiles(os.path.join(logger.log_dir, "quantiles.json"))
     print(f"[full] saved quantiles -> {logger.log_dir}/quantiles.json", flush=True)
+    if getattr(corpus, "bank_quantiles", None) is not None:
+        # Cross-embodiment: persist the in-context bank (emb A) quantiles too.
+        R.save_quantiles(
+            corpus.bank_quantiles, os.path.join(logger.log_dir, "bank_quantiles.json")
+        )
+        print(
+            f"[full] saved BANK quantiles -> {logger.log_dir}/bank_quantiles.json",
+            flush=True,
+        )
     ckpt_cb = ModelCheckpoint(
         dirpath=os.path.join(logger.log_dir, "checkpoints"),
         filename="step{step}-{Valid/action_loss:.4f}",
@@ -506,6 +596,19 @@ def build_argparser():
         "--root", required=True, help="RoboTwin task root (parent of <task>/data)"
     )
     p.add_argument("--eval-root", default="", help="separate new-task eval root")
+    p.add_argument(
+        "--bank-root",
+        default="",
+        help="CROSS-EMBODIMENT: in-context retrieval bank (embodiment A) for the TRAIN "
+        "tasks. When set, --root/--eval-root are the predicted embodiment B and demos "
+        "are retrieved cross-corpus by task. Requires --eval-bank-root.",
+    )
+    p.add_argument(
+        "--eval-bank-root",
+        default="",
+        help="CROSS-EMBODIMENT: in-context retrieval bank (embodiment A) for the "
+        "held-out EVAL tasks.",
+    )
     p.add_argument(
         "--cache-dir", default="", help="load a prebuilt retrieval cache from here"
     )

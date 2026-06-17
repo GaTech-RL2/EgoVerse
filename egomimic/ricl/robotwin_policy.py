@@ -102,13 +102,30 @@ class PIRiclPolicy:
         self.tokenizer_dir = usr_args.get("tokenizer") or DEFAULT_TOKENIZER_DIR
         # Plain-finetune baseline (ablation): no online retrieval, no spliced demos —
         # PIRicl runs as base pi0.5 when no ricl_retrieved_* keys are present.
-        self.no_incontext = bool(usr_args.get("no_incontext", False))
+        # Accept a yaml bool or a string override ("true"/"1"/...).
+        _ni = usr_args.get("no_incontext", False)
+        self.no_incontext = (
+            _ni
+            if isinstance(_ni, bool)
+            else str(_ni).strip().lower() in ("1", "true", "yes")
+        )
 
-        # Norm quantiles from training (so eval normalizes identically).
+        # Norm quantiles from training (so eval normalizes identically). These apply
+        # to the QUERY state input + the model's action output (the predicted
+        # embodiment). For CROSS-EMBODIMENT eval the in-context bank is a DIFFERENT
+        # embodiment, so its demos must be normalized with that embodiment's own
+        # quantiles — pass ``bank_quantiles_path`` (defaults to ``quantiles_path`` for
+        # the same-embodiment case, preserving existing behavior).
         self.quantiles = R.load_quantiles(usr_args["quantiles_path"])
+        bank_quantiles = (
+            R.load_quantiles(usr_args["bank_quantiles_path"])
+            if usr_args.get("bank_quantiles_path")
+            else self.quantiles
+        )
 
-        # state_dim/gripper layout from the corpus (cheap; reads headers only).
-        bank_corpus = R.RoboTwinCorpus(usr_args["bank_root"], quantiles=self.quantiles)
+        # state_dim/gripper layout from the corpus (cheap; reads headers only). The
+        # bank corpus normalizes retrieved demos with the BANK embodiment's quantiles.
+        bank_corpus = R.RoboTwinCorpus(usr_args["bank_root"], quantiles=bank_quantiles)
         self.state_dim = bank_corpus.state_dim
         self.gripper_slots = bank_corpus.gripper_slots
         if self.no_incontext:
