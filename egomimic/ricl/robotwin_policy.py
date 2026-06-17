@@ -100,26 +100,33 @@ class PIRiclPolicy:
         self.action_horizon = int(usr_args.get("action_horizon", 15))
         self.k = int(usr_args.get("k", 4))
         self.tokenizer_dir = usr_args.get("tokenizer") or DEFAULT_TOKENIZER_DIR
+        # Plain-finetune baseline (ablation): no online retrieval, no spliced demos —
+        # PIRicl runs as base pi0.5 when no ricl_retrieved_* keys are present.
+        self.no_incontext = bool(usr_args.get("no_incontext", False))
 
         # Norm quantiles from training (so eval normalizes identically).
         self.quantiles = R.load_quantiles(usr_args["quantiles_path"])
 
-        # Demo bank: a RoboTwin corpus + its consolidated DINOv2 index, queried online.
+        # state_dim/gripper layout from the corpus (cheap; reads headers only).
         bank_corpus = R.RoboTwinCorpus(usr_args["bank_root"], quantiles=self.quantiles)
         self.state_dim = bank_corpus.state_dim
         self.gripper_slots = bank_corpus.gripper_slots
-        bank_provider = R.make_robotwin_bank_provider(
-            bank_corpus, action_horizon=self.action_horizon
-        )
-        index = build_retrieval_index(usr_args["bank_index_dir"])
-        self.retriever = A.OnlineRetriever(
-            index,
-            bank_provider,
-            DinoV2Embedder(),
-            k=self.k,
-            action_horizon=self.action_horizon,
-            state_dim=self.state_dim,
-        )
+        if self.no_incontext:
+            self.retriever = None
+        else:
+            # Demo bank: RoboTwin corpus + consolidated DINOv2 index, queried online.
+            bank_provider = R.make_robotwin_bank_provider(
+                bank_corpus, action_horizon=self.action_horizon
+            )
+            index = build_retrieval_index(usr_args["bank_index_dir"])
+            self.retriever = A.OnlineRetriever(
+                index,
+                bank_provider,
+                DinoV2Embedder(),
+                k=self.k,
+                action_horizon=self.action_horizon,
+                state_dim=self.state_dim,
+            )
 
         self.algo = self._load_algo(usr_args["egoverse_checkpoint"])
         self.observation_window = None
@@ -173,7 +180,7 @@ class PIRiclPolicy:
             embodiment_label=True,
             state_num_bins=256,
             proprio_keys_for_prompt=[R.PROMPT_STATE_KEY],
-            num_retrieved_observations=self.k,
+            num_retrieved_observations=(0 if self.no_incontext else self.k),
             retrieved_action_steps=self.action_horizon,
             ricl_base_key="base_0_rgb",
             image_resolution=(224, 224),
@@ -218,7 +225,8 @@ class PIRiclPolicy:
         w = self.observation_window
         A = self._A
 
-        ricl = self.retriever.retrieve(w["base_0_rgb"])  # ricl_retrieved_* (batch 1)
+        # Plain baseline: no retrieval -> no ricl_retrieved_* keys -> PIRicl == base pi0.5.
+        ricl = {} if self.no_incontext else self.retriever.retrieve(w["base_0_rgb"])
         state32 = A.state_to_model_input(w["state"], self.quantiles["state"])
         raw = {
             R.EMB_NAME: {

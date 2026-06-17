@@ -36,6 +36,7 @@ python -u egomimic/ricl/scripts/train_robotwin_ricl.py --stage full \
   --warmup-steps "${WARMUP_STEPS:-200}" \
   --lr "${LR:-3e-5}" \
   --adam8bit \
+  ${NO_INCONTEXT:+--no-incontext} \
   --val-every "${VAL_EVERY:-250}" \
   --limit-val-batches "${LIMIT_VAL:-10}" \
   --ckpt-every "${CKPT_EVERY:-1000}" \
