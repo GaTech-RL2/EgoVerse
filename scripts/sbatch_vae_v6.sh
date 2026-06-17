@@ -22,7 +22,7 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=vae_pretrain description=vae_v6_kl0.001_400ep \
   mode=train \
-  data=tsimulation_full \
+  data=tsimulation/full \
   data.train_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle \
   data.train_dataloader_params.pushshapes_sim.batch_size=2 \

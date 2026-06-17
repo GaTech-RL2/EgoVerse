@@ -21,7 +21,7 @@ srun .venv/bin/python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=refactor_smoke description=hnet_base_debug \
   mode=train \
-  data=tsimulation_full \
+  data=tsimulation/full \
   model=hnet/pushshapes \
   norm_stats.sample_frac=0.1 \
   trainer=debug \

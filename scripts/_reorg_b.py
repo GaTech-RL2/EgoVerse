@@ -29,8 +29,21 @@ RULES = {
         ("pi", r"^pi0\.5_", r"^pi0\.5_"),
         ("vae", r"^vae_", r"^vae_"),
     ],
+    "data": [
+        ("tsimulation", r"^_?tsim", r"^(_?)tsim(ulation)?_?"),
+        ("gmm", r"^gmm_", r"^gmm_"),
+        ("cotrain", r"^cotrain_", r"^cotrain_"),
+        ("aria", r"^aria", r"^aria_?"),
+        ("eva", r"^eva", r"^eva_?"),
+        ("mecka", r"^mecka", r"^mecka_?"),
+        ("scale", r"^scale", r"^scale_?"),
+    ],
 }[GROUP]
-KEEP_FLAT = {"act", "egobridge", "industry_eva_pi", "video_clips", "__init__"}
+KEEP_FLAT = {
+    "model": {"act", "egobridge", "__init__"},
+    "data": {"_pickplace_qwen_base", "bc_pickplace_eva_qwen",
+             "industry_eva_pi", "video_clips", "__init__"},
+}[GROUP]
 
 
 def fam_of(stem):

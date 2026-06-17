@@ -24,7 +24,7 @@ srun .venv/bin/python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=refactor_smoke description=dfot_debug \
   mode=train \
-  data=tsimulation_full \
+  data=tsimulation/full \
   model=dfot/pushshapes \
   norm_stats.sample_frac=0.1 \
   evaluator=eval_dfot_full \

@@ -50,7 +50,7 @@ fi
 
 srun --kill-on-bad-exit=1 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
-  name=${NAME} description=${DESC} mode=train data=tsimulation \
+  name=${NAME} description=${DESC} mode=train data=tsimulation/tsimulation \
   model=bc_rnn/pushshapes_paperexact_tx \
   evaluator=eval_hnet_sim \
   evaluator.max_steps=${MAXSTEPS} evaluator.coverage_threshold=0.8 ${SEEDS} \

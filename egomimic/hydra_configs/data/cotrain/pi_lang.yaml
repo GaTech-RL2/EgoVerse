@@ -1,0 +1,4 @@
+# @package data
+defaults:
+  - cotrain/_pi_lang_base
+  - _self_

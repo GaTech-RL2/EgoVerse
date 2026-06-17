@@ -1,0 +1,87 @@
+# @package data
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Cotrain on the pushT dataset: circle (750 ep) + stick (312 ep), SKYNET paths.
+# Both share the same on-disk schema (`actions`, `observations.state`,
+# `observations.images.front_img_1`). The stick zarrs carry
+# `attrs["embodiment"]="pushshapes_sim"` (same tag as circle), so stick uses
+# `LocalEpisodeResolverWithEmbodimentOverride` to remap its embodiment to
+# `"pushshapes_sim_stick"` (enum id 16) at resolve time — no zarr rewriting.
+#
+# Packed dataloading (chunking="none" → one full episode per sample);
+# `pack_collate` concatenates `batch_size` episodes into one flat stream with
+# `cu_seqlens` boundaries. The algo's `forward_training` iterates
+# per-embodiment and sets `ctx.embodiment_id` (domain name) so the per-emb
+# cond encoder + PerEmbodimentStage outer levels route correctly.
+#
+# action_horizon=1024 is the pos_emb cap; longest circle episode ~958,
+# longest stick ~657, so 1024 leaves headroom.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/pushT/stick_312/stick
+      embodiment_override: "pushshapes_sim_stick"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+  pushshapes_sim_stick:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/pushT/stick_312/stick
+      embodiment_override: "pushshapes_sim_stick"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 1024
+      transform_list: null
+    chunking: "sequential"
+    min_seq_len: 64
+    max_seq_len: 1024
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 4
+  pushshapes_sim_stick:
+    batch_size: 8
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 4
+  pushshapes_sim_stick:
+    batch_size: 8
+    num_workers: 4

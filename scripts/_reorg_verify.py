@@ -11,21 +11,35 @@ import sys
 GROUP = sys.argv[1]
 BASE = f"/coc/flash7/paphiwetsa3/reorg_verify/{GROUP}_base"
 
-MODEL_RULES = [
-    ("bc_rnn", r"^_?bc_?rnn_", r"^(_?)bc_?rnn_"),
-    ("dfot", r"^dfot_", r"^dfot_"),
-    ("hnet", r"^_?hnet_", r"^(_?)hnet_"),
-    ("hpt", r"^_?hpt_", r"^(_?)hpt_"),
-    ("pi", r"^pi0\.5_", r"^pi0\.5_"),
-    ("vae", r"^vae_", r"^vae_"),
-]
-KEEP_FLAT = {"act", "egobridge", "industry_eva_pi", "video_clips"}
+RULES = {
+    "model": [
+        ("bc_rnn", r"^_?bc_?rnn_", r"^(_?)bc_?rnn_"),
+        ("dfot", r"^dfot_", r"^dfot_"),
+        ("hnet", r"^_?hnet_", r"^(_?)hnet_"),
+        ("hpt", r"^_?hpt_", r"^(_?)hpt_"),
+        ("pi", r"^pi0\.5_", r"^pi0\.5_"),
+        ("vae", r"^vae_", r"^vae_"),
+    ],
+    "data": [
+        ("tsimulation", r"^_?tsim", r"^(_?)tsim(ulation)?_?"),
+        ("gmm", r"^gmm_", r"^gmm_"),
+        ("cotrain", r"^cotrain_", r"^cotrain_"),
+        ("aria", r"^aria", r"^aria_?"),
+        ("eva", r"^eva", r"^eva_?"),
+        ("mecka", r"^mecka", r"^mecka_?"),
+        ("scale", r"^scale", r"^scale_?"),
+    ],
+}[GROUP]
+KEEP_FLAT = {
+    "model": {"act", "egobridge"},
+    "data": {"_pickplace_qwen_base", "bc_pickplace_eva_qwen", "industry_eva_pi", "video_clips"},
+}[GROUP]
 
 
 def newname(stem):
     if stem in KEEP_FLAT:
         return stem
-    for f, m, s in MODEL_RULES:
+    for f, m, s in RULES:
         if re.match(m, stem):
             has = "(_?)" in s
             n = re.sub(s, (r"\1" if has else ""), stem) or f

@@ -26,7 +26,7 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=imgsp_2dwm description=imgsp_2dwm_real \
   mode=train \
-  data=tsimulation_full \
+  data=tsimulation/full \
   data.train_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle \
   model=dfot/pushshapes_image_spatial \

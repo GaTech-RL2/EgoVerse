@@ -141,7 +141,7 @@ in pact-2 and the import succeeds (verified, §verification).
 
 ## 3. Launcher path rewrites (EgoVerse2 → EgoVerse-pact-2)
 Each of the 5 launchers had exactly these path substitutions; everything else
-(config-name, `data=tsimulation`, `model=...`, `evaluator=eval_hnet_sim`, the
+(config-name, `data=tsimulation/tsimulation`, `model=...`, `evaluator=eval_hnet_sim`, the
 override block, `norm_stats.norm_mode=minmax`, dataset `new_circle_3`, keymap) is
 unchanged from EgoVerse2:
 - `cd /…/EgoVerse2` → `cd /…/EgoVerse-pact-2`
@@ -166,7 +166,7 @@ unchanged from EgoVerse2:
   visual_core.py, schedulers.py) compile. PASS.
 - **Import**: `from egomimic.algo.bc_rnn import BCRNN` + all bc_rnn_nets exports +
   `constant_scheduler`/`warmup_cosine_scheduler`. PASS.
-- **Hydra composition** (`--cfg job` of `train_zarr_cartesian` + `data=tsimulation`
+- **Hydra composition** (`--cfg job` of `train_zarr_cartesian` + `data=tsimulation/tsimulation`
   + `evaluator=eval_hnet_sim` + `norm_stats.norm_mode=minmax`): ALL 5 model configs
   compose cleanly (rc=0) — each resolves `_target_: …bc_rnn.BCRNN`, the right
   `core:`, `chunk_len: 8` for chunk8, `enable_grad_norm: false`, `norm_mode: minmax`.
@@ -258,7 +258,7 @@ captured at sync start).
 |------------------------|------------------|
 | `bc_rnn_pushshapes_paperexact_hnet.yaml` → `hydra_configs/model/` | `front_img_1._target_`: `…hnet_nets.image_encoders.VisualCore` → `…bc_rnn_nets.visual_core.VisualCore` (matches the original port's image-encoder rewrite). Resolves `core: hnet`, `lstm._target_: …bc_rnn_nets.HNetCore`, d_model=256. |
 | `bc_rnn_pushshapes_paperexact_tx_chunk8_q.yaml` → `hydra_configs/model/` | Same `front_img_1._target_` rewrite. Resolves `chunk_head: queries`, `query_decoder._target_: …bc_rnn_nets.QueryActionDecoder` (chunk_len=8, per_step=25, d_model=448). |
-| `train_bc_rnn_hnet.sh` → `scripts/` | `cd …/EgoVerse2`→`…/EgoVerse-pact-2`; `source …/EgoVerse7/.venv`→`…/EgoVerse-pact-2/.venv`; `#SBATCH --output/--error` → pact-2 `logs/sbatch/`. Everything else (data=tsimulation, evaluator=eval_hnet_sim, rollout_mode=ar, get_keymap_eval, norm_mode=minmax) unchanged from EV2 — same as the original port's launchers (subject to the §6 eval limitations below). |
+| `train_bc_rnn_hnet.sh` → `scripts/` | `cd …/EgoVerse2`→`…/EgoVerse-pact-2`; `source …/EgoVerse7/.venv`→`…/EgoVerse-pact-2/.venv`; `#SBATCH --output/--error` → pact-2 `logs/sbatch/`. Everything else (data=tsimulation/tsimulation, evaluator=eval_hnet_sim, rollout_mode=ar, get_keymap_eval, norm_mode=minmax) unchanged from EV2 — same as the original port's launchers (subject to the §6 eval limitations below). |
 | `train_bc_rnn_tx_chunk8q.sh` → `scripts/` | Same 3 path rewrites. |
 
 ## D4. ⚠️ THE CAREFUL PART — hnet_nets compatibility verdict: **VENDORED**
@@ -327,7 +327,7 @@ in lockstep — a one-line-per-file change.
 - **Import**: `egomimic.algo.bc_rnn` (BCRNN, BCRNNPolicy) + all 8 bc_rnn_nets
   `__all__` exports + vendored `HNet/stages/context`. `HNetCore.HNet` confirmed
   bound to the **vendored** module (decoupled from pact hnet_nets). PASS.
-- **Hydra compose** (`train_zarr_cartesian` + data=tsimulation +
+- **Hydra compose** (`train_zarr_cartesian` + data=tsimulation/tsimulation +
   evaluator=eval_hnet_sim + norm_stats.norm_mode=minmax, WITHOUT the eval-only
   overrides pact-2 lacks — see §6): both new configs compose (rc=0). hnet →
   `core=hnet`/`HNetCore`; chunk8-Q → `chunk_head=queries`/`QueryActionDecoder`
@@ -423,7 +423,7 @@ pact-2 (they were never ported, §4) — nothing else to flip.
 
 ## DS3. Verification (a40 alloc, pact-2 symlinked .venv, PYTHONPATH=pact-2)
 - **py_compile** `egomimic/algo/bc_rnn.py`: PASS.
-- **Hydra compose** (`train_zarr_cartesian` + data=tsimulation +
+- **Hydra compose** (`train_zarr_cartesian` + data=tsimulation/tsimulation +
   evaluator=eval_hnet_sim, the groups every launcher passes): `paperexact`,
   `_hnet`, `_tx_chunk8_q` all compose (rc=0). Every `max_window` under
   `robomimic_model` **resolves to 10** via `${..rnn_horizon}`; the core object

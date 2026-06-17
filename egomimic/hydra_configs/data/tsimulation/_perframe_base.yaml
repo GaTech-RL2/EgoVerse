@@ -1,0 +1,54 @@
+# @package data
+# Shared per-frame (HPT-style) pushshapes_sim data skeleton.
+#
+# Consumed via `defaults: [_tsim_perframe_base, _self_]` by tsimulation_hpt_fast
+# and tsimulation_hpt_causal. Each sample is one frame with obs (image + state)
+# and an action chunk of length action_horizon (32); returns (B, T_chunk, ...)
+# tensors that fit HPT's chunked-action head directly.
+#
+# Uses get_keymap_hpt (SINGLE-FRAME obs) to match the canonical tsimulation_hpt
+# contract -- HPT must condition on the current obs only; windowed obs lets the
+# model cheat at train time (see pushshapes.get_keymap_hpt docstring). Leaves
+# override only what differs: resolver._target_ (Local vs InMemory),
+# resolver.folder_path, key_map._target_ (causal overrides to get_keymap_causal),
+# dataloader num_workers, and the perf knobs (pin_memory/persistent_workers/
+# prefetch_factor) which the fast/causal in-memory leaves add.
+#
+# train and valid are SEPARATE CONCRETE blocks (no ${...} interpolation) so
+# launchers can override valid resolver sub-keys directly.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/cedarp-dxu345-0/Tsim_datasets2/circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 8
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 8

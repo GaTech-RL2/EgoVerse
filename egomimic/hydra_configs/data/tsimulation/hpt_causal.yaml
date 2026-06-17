@@ -1,0 +1,42 @@
+# @package data
+# Causal in-memory variant of tsimulation_hpt.yaml. Identical to
+# tsimulation_hpt_fast (InMemoryLocalEpisodeResolver on new_circle_3, per-frame
+# obs + length-action_horizon action chunk, workers 10 + perf knobs), EXCEPT
+# the keymap is get_keymap_causal instead of get_keymap.
+#
+# Everything downstream (normalize / bounds / collate / norm_stats / model) is
+# unchanged. Only differences from _tsim_perframe_base: resolver _target_
+# (InMemory), folder_path (new_circle_3), key_map._target_ (get_keymap_causal),
+# and tuned dataloader params.
+defaults:
+  - tsimulation/_perframe_base
+  - _self_
+
+train_datasets:
+  pushshapes_sim:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_inmem.InMemoryLocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/new_circle_3
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_causal
+
+valid_datasets:
+  pushshapes_sim:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_inmem.InMemoryLocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/new_circle_3
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_causal
+
+train_dataloader_params:
+  pushshapes_sim:
+    num_workers: 10
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    num_workers: 10
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4

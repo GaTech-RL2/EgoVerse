@@ -1,0 +1,16 @@
+# @package data
+# Same packed-episode loader as tsimulation.yaml, but pointed at the
+# new_circle_3 dataset dir instead of circle/basic. See tsimulation.yaml for
+# the action_horizon / packed-dataloading notes.
+defaults:
+  - tsimulation/tsimulation
+  - _self_
+
+train_datasets:
+  pushshapes_sim:
+    resolver:
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/new_circle_3
+valid_datasets:
+  pushshapes_sim:
+    resolver:
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/new_circle_3

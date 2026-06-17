@@ -11,7 +11,7 @@ export PYTHONPATH=.
   name=hpt_variants \
   description=hpt_160ep_cosine_lr1e5_keymapfix_pace \
   mode=train \
-  data=tsimulation_hpt \
+  data=tsimulation/hpt \
   model=hpt/pushshapes_circle \
   model.optimizer.lr=1e-5 \
   '~model.scheduler' \

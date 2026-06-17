@@ -4,7 +4,7 @@ defaults:
   - trainer: ddp
   - debug: null
   - logger: wandb
-  - data: eva
+  - data: eva/eva
   - callbacks: checkpoints
   - evaluator: eval_hpt
   - override hydra/launcher: submitit

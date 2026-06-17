@@ -20,7 +20,7 @@ DESC="hnet_obs_ar_large_240ep_pace_a100_${TS}"
   name=hnet_variants \
   description="${DESC}" \
   mode=train \
-  data=tsimulation \
+  data=tsimulation/tsimulation \
   model=hnet/pushshapes_obs_ar_large \
   model.scheduler.max_steps=1920 \
   data.train_datasets.pushshapes_sim.resolver.folder_path=/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/circle_750/circle data.valid_datasets.pushshapes_sim.resolver.folder_path=/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/circle_750/circle \

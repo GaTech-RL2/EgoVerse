@@ -1,0 +1,18 @@
+# @package data
+defaults:
+  - cotrain/_pi_lang_base
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian_wristframe_ypr
+      transform_list:
+        mode: cartesian_wristframe_ypr
+  aria_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian
+      transform_list:
+        mode: cartesian_wristframe_ypr

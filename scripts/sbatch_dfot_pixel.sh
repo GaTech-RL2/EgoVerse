@@ -23,7 +23,7 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=pact_pixel_dfot description=pixel_dfot_9frame_postfix \
   mode=train \
-  data=tsimulation_full \
+  data=tsimulation/full \
   data.train_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle \
   data.valid_datasets.pushshapes_sim.resolver.folder_path=/coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle \
   model=dfot/pushshapes_pixel \
