@@ -1,0 +1,113 @@
+# @package model
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hpt.algo.HPT
+  camera_transforms: null
+  diffusion: false
+  6dof: false
+  ac_keys:
+    pushshapes_sim: actions
+  trunk:
+    embed_dim: 128
+    num_blocks: 6
+    num_heads: 4
+    token_postprocessing: action_token
+    observation_horizon: 1
+    action_horizon: 32
+    no_trunk: false
+    use_domain_embedding: true
+    drop_path: 0.1
+    weight_init_style: pytorch
+  multitask: false
+  pretrained: false
+  pretrained_checkpoint: ''
+  reverse_kl_samples: 8
+  domains:
+  - pushshapes_sim
+  shared_obs_keys:
+  - front_img_1
+  shared_stem_specs:
+    front_img_1:
+      _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+      input_dim: 128
+      output_dim: 128
+      widths:
+      - 128
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 4
+          crossattn_dim_head: 32
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 128
+  stem_specs:
+    pushshapes_sim:
+      state_agent_obj:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 5
+        output_dim: 128
+        widths:
+        - 128
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 128
+  head_specs:
+    pushshapes_sim:
+      _target_: egomimic.models.heads.hpt_heads.MLPPolicyHead
+      input_dim: 128
+      output_dim: 64
+      widths:
+      - 256
+      - 256
+      dropout: false
+      ln: true
+      tanh_end: false
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.stems.hpt_stems.ResNet
+      output_dim: 128
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+    - _target_: torchvision.transforms.ColorJitter
+      brightness: 0.1
+      contrast: 0.1
+      saturation: 0.1
+      hue: 0.05
+    - _target_: torchvision.transforms.Normalize
+      mean:
+      - 0.485
+      - 0.456
+      - 0.406
+      std:
+      - 0.229
+      - 0.224
+      - 0.225
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+    - _target_: torchvision.transforms.Normalize
+      mean:
+      - 0.485
+      - 0.456
+      - 0.406
+      std:
+      - 0.229
+      - 0.224
+      - 0.225
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1

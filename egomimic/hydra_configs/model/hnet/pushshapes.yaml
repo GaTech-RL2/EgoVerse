@@ -1,0 +1,138 @@
+# @package model
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  # ``norm_stats`` is injected at runtime by
+  # ``pl_model.ModelWrapper._instantiate_model``; do not set it here.
+
+  # ``d_cond`` is legacy; the new algo class accepts it for back-compat but
+  # uses outer_stage.cond_encoder.d_cond as the source of truth.
+  d_cond: 128
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  # ---- outer_stage: owns the modality boundary + the H-Net trunk ----
+  # HNetOuterStage holds cond_encoder (obs -> AdaLN cond_dict),
+  # input_modules (per-token contributions summed), action_out head, and
+  # inner_stage = HNetCore (the stage tree). Its forward dispatches
+  # padded vs packed via ctx.cu_seqlens.
+  outer_stage:
+    _target_: egomimic.algo.hnet.HNetOuterStage
+    action_dim: 2
+    # Upper bound on a single sub-sequence length in packed mode. RoPE
+    # makes this not strictly clamping anymore, but it stays as the
+    # "default rollout length" for ``generate``.
+    action_horizon: 1024
+    d_model: 128
+    action_head_type: linear
+
+    # ---- conditioning encoder ----
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 128
+      output_key: "fused_cond"
+      cond_proj_widths: [128, 128]
+      obs_specs:
+        state_agent_obj:
+          input_dim: 5
+          embed_dim: 64
+          widths: [128]
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.image_encoders.SimpleConv
+          in_channels: 3
+          channels: [32, 64, 128, 256]
+          kernel_size: 3
+          stride: 2
+          embed_dim: 128
+          norm_groups: 8
+
+    # ---- stage-based H-Net (inner_stage) ----
+    # The list below is wired into a chain at construction:
+    #   stages[0] (outer encoder/decoder)
+    #     └─ stages[1] (chunker, compression ratio 8)
+    #           └─ stages[2] (inner compute, terminal)
+    # Each stage declares its input_hidden_dim / output_hidden_dim
+    # explicitly; ChunkerStage handles the outer→inner dim bridge via
+    # explicit Linear projections (NO padding-based dim bridging).
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+        - _target_: egomimic.models.hnet.stages.EncoderDecoderStage
+          input_hidden_dim: 128
+          output_hidden_dim: 128
+          cond_key: "fused_cond"
+          d_cond: 128
+          causal: true
+          encoder:
+            arch_layout: "T4"
+            d_model: 128
+            d_intermediate: 512
+            num_heads: 4
+            cond: true
+            rotary_emb_dim: 32
+            dropout: 0.15
+            resid_dropout: 0.2
+          decoder:
+            arch_layout: "T4"
+            d_model: 128
+            d_intermediate: 512
+            num_heads: 4
+            cond: true
+            rotary_emb_dim: 32
+            dropout: 0.15
+            resid_dropout: 0.2
+        - _target_: egomimic.models.hnet.stages.ChunkerStage
+          input_hidden_dim: 128
+          output_hidden_dim: 192
+          target_compression_ratio: 8.0
+          ratio_loss_weight: 0.03
+          cond_key: "fused_cond"
+        - _target_: egomimic.models.hnet.stages.ComputeStage
+          input_hidden_dim: 192
+          output_hidden_dim: 192
+          cond_key: "fused_cond"
+          d_cond: 128
+          causal: true
+          main_network:
+            arch_layout: "T4"
+            d_model: 192
+            d_intermediate: 768
+            num_heads: 4
+            cond: false
+            rotary_emb_dim: 48
+            dropout: 0.15
+            resid_dropout: 0.2
+
+  # ---- loss: optional ----
+  # If omitted, HNet.__init__ defaults to ``HNetLoss()`` (action MSE +
+  # per-chunker ratio_loss_from_aux). Override here only if you want a
+  # different loss policy (e.g. a custom Loss subclass with extra terms).
+  # loss:
+  #   _target_: egomimic.algo.hnet.HNetLoss
+
+  # ---- training recipe (all OPT-IN; default disabled) ----
+  init_weights_range: 0.02
+  lr_multipliers: [3.0, 1.7, 0.9]
+  use_parameter_groups: true
+  weight_decay: 0.01
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 4e-5
+  weight_decay: 0.0001
+
+scheduler:
+  # Linear warmup -> cosine annealing.
+  # Defaults assume 50 epochs x 8 steps/epoch (H-Net with limit_train_batches=8)
+  # = 400 total steps. Override max_steps / warmup_steps at launch if the
+  # batch budget differs.
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 400
+  warmup_steps: 24            # ~3 epochs
+  warmup_start_factor: 0.1
+  eta_min: 4.0e-6             # 1/10 of starting lr -> well below 1/5 floor

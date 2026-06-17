@@ -64,7 +64,7 @@ Reference run: - `batch_size = 32`\
 ## 2. Launch training
 
 ``` bash
-/python trainHydra.py   --config-name=train_zarr_cartesian   data=aria model=hpt_bc_flow_aria
+/python trainHydra.py   --config-name=train_zarr_cartesian   data=aria model=hpt/bc_flow_aria
 ```
 
 ------------------------------------------------------------------------
@@ -86,7 +86,7 @@ Match this to your `sbatch` configuration: - partition\
 ## 2. Submit job
 
 ``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=aria model=hpt_bc_flow_aria   -m
+python trainHydra.py   --config-name=train_zarr_cartesian   data=aria model=hpt/bc_flow_aria   -m
 ```
 
 The `-m` flag enables Hydra multirun mode and triggers the Submitit
@@ -111,13 +111,13 @@ Modify: - `folder_path`\
 Interactive:
 
 ``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=eva_human_cotrain model=hpt_cotrain_flow_shared_head
+python trainHydra.py   --config-name=train_zarr_cartesian   data=eva_human_cotrain model=hpt/cotrain_flow_shared_head
 ```
 
 SLURM:
 
 ``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=eva_human_cotrain model=hpt_cotrain_flow_shared_head   -m
+python trainHydra.py   --config-name=train_zarr_cartesian   data=eva_human_cotrain model=hpt/cotrain_flow_shared_head   -m
 ```
 
 ------------------------------------------------------------------------

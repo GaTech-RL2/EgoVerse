@@ -21,7 +21,7 @@ KM=egomimic.rldb.embodiment.pushshapes.get_keymap_eval
 # budget EPOCHS/LTB, fp32 trainer.precision=32, no grad clip, repeat-pad
 # unmasked windows, raw low-dim obs + ReLU image + no fusion MLP, no actor MLP,
 # eval RANDOM crop with v0.2 off-by-one, minmax norm fresh full-data stats) --
-# the ONLY change is model=bc_rnn_pushshapes_paperexact_tx_cos_lowlr, which swaps the
+# the ONLY change is model=bc_rnn/pushshapes_paperexact_tx_cos_lowlr, which swaps the
 # recurrent core LSTM(1000)x2 -> causal-attention TRANSFORMER (d_model=448,
 # 5 layers, 8 heads). This isolates the effect of the history mechanism alone.
 #
@@ -51,7 +51,7 @@ fi
 srun --kill-on-bad-exit=1 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=${NAME} description=${DESC} mode=train data=tsimulation \
-  model=bc_rnn_pushshapes_paperexact_tx_cos_lowlr \
+  model=bc_rnn/pushshapes_paperexact_tx_cos_lowlr \
   evaluator=eval_hnet_sim \
   evaluator.max_steps=${MAXSTEPS} evaluator.coverage_threshold=0.8 ${SEEDS} \
   callbacks=checkpoints callbacks.model_checkpoint.every_n_epochs=${VALEVERY} \

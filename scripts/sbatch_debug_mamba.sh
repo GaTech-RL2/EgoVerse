@@ -22,7 +22,7 @@ srun .venv/bin/python -m egomimic.trainHydra \
   name=refactor_smoke description=mamba_debug \
   mode=train \
   data=tsimulation_full \
-  model=hnet_pushshapes_mamba_encdec \
+  model=hnet/pushshapes_mamba_encdec \
   norm_stats.sample_frac=0.1 \
   trainer=debug \
   trainer.max_epochs=2 trainer.min_epochs=2 \

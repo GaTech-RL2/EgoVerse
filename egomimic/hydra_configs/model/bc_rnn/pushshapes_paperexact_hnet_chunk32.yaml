@@ -1,0 +1,18 @@
+# @package model
+# BC-RNN-HNET-CHUNK32 (the bcrnnHnetC32_nc3 run): single-knob clone of
+# bc_rnn_pushshapes_paperexact_hnet_chunk8 with ONLY obs_stride/chunk_len 8 -> 32.
+# Core stays the REAL dynamic-chunking H-Net (HNetCore, d_model=256, LINEAR
+# chunk head, rnn_horizon=10). obs_stride=32 -> policy observes every 32 env
+# frames; chunk_len=32 -> each obs-step predicts the NEXT 32 actions.
+# extends bc_rnn_pushshapes_paperexact_hnet_chunk8
+defaults:
+  - bc_rnn/_pushshapes_paperexact_hnet_chunk8_base
+  - _self_
+
+robomimic_model:
+  # OBS STRIDING + ACTION CHUNKING (the only deviation from _hnet_chunk8.yaml).
+  obs_stride: 32
+  chunk_len: 32
+
+  gmm_head:
+    chunk_len: ${..chunk_len}   # MUST match robomimic_model.chunk_len (= 32)

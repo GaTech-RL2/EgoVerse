@@ -23,7 +23,7 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   name=dfot_pixel_clean description=pixel_clean_fused_min_snr \
   mode=train \
   data=video_clips \
-  model=dfot_pixel_video \
+  model=dfot/pixel_video \
   evaluator=eval_dfot_pixel \
   callbacks=checkpoints \
   callbacks.model_checkpoint.every_n_epochs=100 \

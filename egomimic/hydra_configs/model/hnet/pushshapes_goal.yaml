@@ -1,0 +1,17 @@
+# @package model
+# Stage-tree H-Net pushshapes + GOAL conditioning. Identical to the baseline
+# (hnet_pushshapes) in every dim/recipe; the ONLY difference is an extra
+# ``goal_obs`` entry in the conditioning encoder's obs_specs (3-dim goal vector,
+# embed 64). OmegaConf merges this into the inherited obs_specs dict.
+# extends _hnet_pushshapes_stage_common
+defaults:
+  - hnet/_pushshapes_stage_common
+  - _self_
+
+robomimic_model:
+  cond_encoder:
+    obs_specs:
+      goal_obs:
+        input_dim: 3
+        embed_dim: 64
+        widths: [128]

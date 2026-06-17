@@ -1,0 +1,67 @@
+# @package model
+# ABSTRACT BASE (underscore-prefixed, NEVER launched) — the original "fused"
+# recipe shared by hnet_pushshapes_fused (empty delta) and hnet_pushshapes_fused_goal
+# (adds a goal_obs spec). extends _hnet_fused_common.
+#
+# Adds, on top of the flat-common skeleton: the SimpleConv pooled cond_encoder
+# (agent xy, input_slice [0,2]), action_horizon 1024, the stronger pushshapes
+# dropout (0.15 attn / 0.2 resid), the F22 paper stability knobs (absorbed by
+# **kwargs in HNetFused today — kept for structural parity), AdamW lr 4e-5, and
+# the warmup->cosine scheduler (max 400 steps).
+defaults:
+  - _fused_common
+  - _self_
+
+robomimic_model:
+  action_horizon: 1024
+
+  cond_encoder:
+    _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+    d_cond: 128
+    output_key: "fused_cond"
+    cond_proj_widths: [128, 128]
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]
+        embed_dim: 64
+        widths: [128]
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.image_encoders.SimpleConv
+        in_channels: 3
+        channels: [32, 64, 128, 256]
+        kernel_size: 3
+        stride: 2
+        embed_dim: 128
+        norm_groups: 8
+
+  # Stronger-than-default dropout: the obs/action conditioning signal in
+  # pushshapes is very strong, so we regularise the flat backbone.
+  dropout: 0.15           # attention dropout (inside MHA)
+  resid_dropout: 0.2      # residual-branch dropout (attn/ffn outputs)
+
+  # F22: paper's stability recipe knobs. NOTE — ``HNetFused`` does NOT have a
+  # multi-stage chunker hierarchy (single flat backbone), so these are
+  # currently *absorbed by **kwargs* and have no effect on the fused variant.
+  # Kept in the yaml so the two configs stay structurally parallel and so
+  # they take effect immediately if/when HNetFused gains stage-tree support.
+  init_weights_range: 0.02
+  lr_multipliers: [1.0]
+  use_parameter_groups: true
+  weight_decay: 0.01
+
+optimizer:
+  lr: 4e-5
+
+scheduler:
+  # Linear warmup -> cosine annealing.
+  # Defaults assume 50 epochs x 8 steps/epoch (H-Net with limit_train_batches=8)
+  # = 400 total steps. Override max_steps / warmup_steps at launch if the
+  # batch budget differs.
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 400
+  warmup_steps: 24            # ~3 epochs
+  warmup_start_factor: 0.1
+  eta_min: 4.0e-6             # 1/10 of starting lr -> well below 1/5 floor

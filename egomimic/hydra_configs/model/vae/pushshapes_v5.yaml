@@ -1,0 +1,4 @@
+# @package model
+defaults:
+  - vae/_pushshapes_v5_base
+  - _self_

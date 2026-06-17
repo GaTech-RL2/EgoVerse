@@ -1,0 +1,116 @@
+# @package model
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# DFoT with joint obs+action diffusion forcing.
+#
+# Mirrors the df_planning pattern from buoyancy99/diffusion-forcing: per
+# step, the diffused target is concat([state, action]) instead of just
+# action. The backbone is a "world model + policy" jointly: it denoises
+# the next state alongside the next action, with per-token independent
+# noise levels (DFoT semantics preserved).
+#
+# Bundle layout (PushShapes):
+#   state_agent_obj (5D) || actions (2D) = 7D per step
+#
+# Image obs (front_img_1) stays in the AdaLN conditioning path — it's
+# observed every tick, not diffused. The cond_encoder below therefore
+# has NO obs_specs (state goes into the bundle, not into cond) and
+# only img_encoders.
+
+robomimic_model:
+  _target_: egomimic.algo.diffusion.DFoT
+  action_dim: 2
+  action_horizon: 32
+
+  sampler: "ddim"
+  sampler_n_steps: 50
+  sampler_eta: 0.0
+
+  inference_mode: "ar"
+  ar_inference_chunk_size: 1
+  ar_inference_step_size: 1
+  cfg_scale: 1.0
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  outer_stage:
+    _target_: egomimic.algo.diffusion.ObsActionDFoTOuterStage
+    action_dim: 2
+    cond_output_key: "fused_cond"
+
+    # Which obs keys to include in the diffusion bundle (concatenated
+    # last-dim, in order, with action appended after). Each entry's dim
+    # below must match the obs tensor's trailing dim coming from the
+    # data loader.
+    bundle_obs_keys: ["state_agent_obj"]
+    bundle_obs_dims: [5]
+
+    # cond_encoder: image-only. state_agent_obj is in the bundle, so we
+    # do NOT also feed it through the AdaLN cond path (that would be
+    # double-counting). If you want a cond term that doesn't appear in
+    # the bundle, add it under obs_specs.
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 512
+      output_key: "fused_cond"
+      cond_proj_widths: [512, 512]
+      obs_specs: {}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.image_encoders.SimpleConv
+          in_channels: 3
+          channels: [64, 128, 256, 512]
+          kernel_size: 3
+          stride: 2
+          embed_dim: 256
+          norm_groups: 8
+
+    # Backbone width = bundle width = obs(5) + action(2) = 7. The output
+    # projection produces v of the same shape, and DFoTLoss reduces MSE
+    # over all 7 dims (obs and action contribute jointly to the loss).
+    backbone:
+      _target_: egomimic.models.diffusion.DFoTBackbone
+      action_dim: 7
+      action_horizon: 32
+      d_model: 512
+      d_cond: 512
+      cond_dim: 512
+      time_embed_dim: 512
+      cond_emb_dim: 512
+      use_fourier_time: true
+      stochastic_time_p: 0.0
+      cond_dropout_prob: 0.1
+      arch_layout: "T12"
+      num_heads: 8
+      d_intermediate: 2048
+      rotary_emb_dim: 64
+      dropout: 0.1
+      resid_dropout: 0.1
+      causal: true
+
+    # Continuous diffusion sized to the bundle width too.
+    diffusion:
+      _target_: egomimic.models.diffusion.diffusion.continuous_diffusion.ContinuousDiffusion
+      action_dim: 7
+      precond_scale: 0.25
+      sigmoid_bias: -1.0
+      clip_noise: 20.0
+      logsnr_min: -15.0
+      logsnr_max: 15.0
+      shift: 1.0
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

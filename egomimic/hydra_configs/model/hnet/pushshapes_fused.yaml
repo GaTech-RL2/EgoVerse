@@ -1,0 +1,8 @@
+# @package model
+# Fused-tokens ROOT (current best flat variant): SimpleConv pooled cond, T8 flat
+# backbone, dropout 0.15/0.2, F22 knobs, AdamW 4e-5 + warmup->cosine (400 steps).
+# All payload lives in _hnet_fused_simpleconv; this root adds NO delta.
+# extends _hnet_fused_simpleconv
+defaults:
+  - hnet/_fused_simpleconv
+  - _self_

@@ -12,7 +12,7 @@ export PYTHONPATH=.
   description=hpt_160ep_cosine_lr1e5_keymapfix_pace \
   mode=train \
   data=tsimulation_hpt \
-  model=hpt_pushshapes_circle \
+  model=hpt/pushshapes_circle \
   model.optimizer.lr=1e-5 \
   '~model.scheduler' \
   +model.scheduler._target_=egomimic.utils.schedulers.warmup_cosine_scheduler \

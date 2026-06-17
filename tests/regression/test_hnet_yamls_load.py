@@ -42,16 +42,16 @@ _emb.get_embodiment_id = lambda n: 0 if n == "pushshapes_sim" else orig(n)
 YAML_DIR = Path("/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3/"
                 "egomimic/hydra_configs/model")
 CONFIGS = [
-    "hnet_pushshapes.yaml",
-    "hnet_pushshapes_big.yaml",
-    "hnet_pushshapes_crossattn.yaml",
-    "hnet_pushshapes_mamba_encdec.yaml",
-    "hnet_pushshapes_obs_ar.yaml",
-    "hnet_pushshapes_obs_ar_large.yaml",
-    "hnet_pushshapes_recipe.yaml",
-    "hnet_pushshapes_fused.yaml",
-    "hnet_pushshapes_fused_lowlr.yaml",
-    "hnet_pushshapes_fused_pusher.yaml",
+    "hnet/pushshapes.yaml",
+    "hnet/pushshapes_big.yaml",
+    "hnet/pushshapes_crossattn.yaml",
+    "hnet/pushshapes_mamba_encdec.yaml",
+    "hnet/pushshapes_obs_ar.yaml",
+    "hnet/pushshapes_obs_ar_large.yaml",
+    "hnet/pushshapes_recipe.yaml",
+    "hnet/pushshapes_fused.yaml",
+    "hnet/pushshapes_fused_lowlr.yaml",
+    "hnet/pushshapes_fused_pusher.yaml",
 ]
 
 

@@ -1,0 +1,33 @@
+# @package model
+# ABSTRACT BASE (underscore-prefixed, NEVER launched) — intersection payload of
+# the FLAT HNetFused lineage (hnet_pushshapes_fused + goal/lowlr/pusher/
+# pusher_resnet/ar_crossattn_resnet).
+#
+# HNetFused = flat transformer over an interleaved [c_0, BOS, c_1, a_0, ...]
+# sequence (length 2T). No chunker, no AdaLN — conditioning is fed in-band as obs
+# tokens; causal masking + odd-position extraction give per-step actions.
+#
+# Holds ONLY what is byte-identical across ALL 6 flat leaves: the ModelWrapper +
+# HNetFused targets, the d_model/d_cond/arch scalars, domains/ac_keys, and the
+# AdamW optimizer SKELETON (lr is per-leaf). action_horizon (1024 vs 400 pusher),
+# the cond_encoder (SimpleConv vs ResNet vs Spatial), scheduler (warmup_cosine vs
+# LinearLR), and the dropout/F22 knobs vary across leaves, so they live in the
+# leaves / intermediate bases — never here (yaml-merge cannot DELETE keys).
+# Leaves reference this via their defaults list; this file is never launched.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.HNetFused
+  action_dim: 2
+  d_model: 128
+  d_cond: 128
+  arch_layout: T8
+  num_heads: 4
+  d_intermediate: 512
+  domains: [pushshapes_sim]
+  ac_keys:
+    pushshapes_sim: actions
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  weight_decay: 0.0001

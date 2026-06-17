@@ -23,7 +23,7 @@ DESC="hnet_obs_ar_chunkresid12_240ep_pace_a100_${TS}"
   description="${DESC}" \
   mode=train \
   data=tsimulation \
-  model=hnet_pushshapes_obs_ar \
+  model=hnet/pushshapes_obs_ar \
   model.scheduler.max_steps=1920 \
   data.train_datasets.pushshapes_sim.resolver.folder_path=/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/circle_750/circle data.valid_datasets.pushshapes_sim.resolver.folder_path=/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/circle_750/circle \
   evaluator=eval_hnet_full \

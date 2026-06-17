@@ -1,0 +1,26 @@
+# @package model
+# BC-RNN PAPER-EXACT (LSTM) — robomimic v0.2.0 BC_RNN_GMM image recipe as
+# emitted by the paper config generator. The full paper-exact payload (obs
+# encoder, GMM-head scalars, minmax norm, repeat_unmasked windows, rnn_horizon=10,
+# eval crop, Adam optimizer, enable_grad_norm=false) comes from
+# _bcrnn_paperexact_common; this leaf supplies the LSTM core (hidden 1000 x2),
+# the matching gmm_head.d_model, and the constant-LR (exact-replica) schedule.
+defaults:
+  - bc_rnn/_paperexact_common
+  - _self_
+
+robomimic_model:
+  core_net:
+    _target_: egomimic.models.cores.lstm_core.LSTMCore
+    input_dim: 66             # = obs_encoder concat (64 img + 2 raw)
+    hidden_dim: 1000          # FIX 2: image datasets use RNN dim 1000
+    num_layers: 2
+    dropout: 0.0
+
+  gmm_head:
+    d_model: 1000             # FIX 1+2: = lstm.hidden_dim (no actor MLP)
+
+# Constant-LR schedule (robomimic exact-replica): LambdaLR factor 1.0.
+scheduler:
+  _target_: egomimic.utils.schedulers.constant_scheduler
+  _partial_: true

@@ -1,0 +1,10 @@
+# @package model
+# BC-RNN exact-replica + MIN-MAX action norm (run 3309075). Resolved-IDENTICAL to
+# bc_rnn_pushshapes: minmax is a norm_stats/data-side launcher override
+# (scripts/train_bc_rnn_minmax.sh -> norm_stats.norm_mode=minmax), NOT a model
+# param -- raw 0-512px cursor actions map exactly into [-1,+1] so the GMM head's
+# tanh'd mode means can reach every target. NO model delta.
+# extends _bcrnn_common
+defaults:
+  - bc_rnn/_common
+  - _self_

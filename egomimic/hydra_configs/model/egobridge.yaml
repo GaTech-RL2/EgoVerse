@@ -1,5 +1,5 @@
 defaults:
-  - hpt_cotrain_flow_shared_head
+  - hpt/_cotrain_flow_shared_head_base
 
 robomimic_model:
   ot: true

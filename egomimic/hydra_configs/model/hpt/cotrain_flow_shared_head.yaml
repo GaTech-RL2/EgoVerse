@@ -1,0 +1,4 @@
+# @package model
+defaults:
+  - hpt/_cotrain_flow_shared_head_base
+  - _self_

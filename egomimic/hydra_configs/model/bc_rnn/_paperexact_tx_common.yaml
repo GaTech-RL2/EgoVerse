@@ -1,0 +1,40 @@
+# @package model
+# ABSTRACT BASE (underscore-prefixed, NEVER launched) — the PAPER-EXACT BC-RNN
+# recipe with the recurrent core swapped LSTM -> causal-attention TRANSFORMER.
+# Shared by the whole TX subtree (_tx, _tx_cos, _tx_cos_lowlr, _tx_chunk*).
+#
+# CORE SWAP (the only structural change vs _bcrnn_paperexact_common):
+#  * core: transformer  -- guards that the config + algo agree (default ``lstm``).
+#  * core_net._target_ = TransformerCore (d_model=448, n_layers=5, n_heads=8,
+#       ff_mult=4, dropout=0, max_window=rnn_horizon). Param-comparable to
+#       LSTM(1000)x2: core 12.11M vs 12.28M (ratio 0.99).
+#  * gmm_head.d_model = 448 (= core.d_model; actor_mlp is empty so the head reads
+#       the core's per-step output directly). Interpolated to stay coupled.
+#
+# Everything else (obs encoder, GMM base, minmax norm, repeat_unmasked windows,
+# rnn_horizon=10, eval crop, optimizer) is inherited from _bcrnn_paperexact_common
+# byte-identically, so a TX leaf isolates the effect of the history mechanism. The
+# core lives under the ``core_net:`` slot (``lstm`` is the deprecated alias; the
+# policy treats it polymorphically via the shared .input_dim/.hidden_dim/forward/
+# init_hidden/step interface). The scheduler is chosen per-leaf (constant for
+# _tx, warmup-cosine for the _cos descendants).
+defaults:
+  - _paperexact_common
+  - _self_
+
+robomimic_model:
+  # CORE SWAP: causal-attention transformer over the rnn_horizon window.
+  core: transformer
+
+  core_net:
+    _target_: egomimic.models.cores.transformer_core.TransformerCore
+    input_dim: 66             # = obs_encoder concat (64 img + 2 raw)
+    d_model: 448              # transformer width = head input (param-matched)
+    n_layers: 5               # 12.11M core params ~= LSTM(1000)x2 12.28M
+    n_heads: 8                # 448 / 8 = 56 dim/head
+    ff_mult: 4                # FF hidden = 4*448 = 1792
+    dropout: 0.0              # paper-exact LSTM uses dropout 0 -> match
+    max_window: ${..rnn_horizon}  # inherits the ONE window number (override only for capacity pre-allocation, e.g. window curriculum)
+
+  gmm_head:
+    d_model: ${..core_net.d_model}   # = core.d_model 448 (no actor MLP)

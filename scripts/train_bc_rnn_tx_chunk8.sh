@@ -21,7 +21,7 @@ KM=egomimic.rldb.embodiment.pushshapes.get_keymap_eval
 # budget EPOCHS/LTB, fp32 trainer.precision=32, no grad clip, repeat-pad unmasked
 # windows, raw low-dim obs + ReLU image + no fusion MLP, no actor MLP, eval RANDOM
 # crop with v0.2 off-by-one, minmax norm fresh full-data stats, warmup->cosine LR
-# peak 1e-4) -- the ONLY change is model=bc_rnn_pushshapes_paperexact_tx_chunk8,
+# peak 1e-4) -- the ONLY change is model=bc_rnn/pushshapes_paperexact_tx_chunk8,
 # which adds OBS STRIDING (obs_stride=8) + ACTION CHUNKING (chunk_len=8) on top of
 # the TransformerCore. So TXcos (3324263) vs this run isolates stride/chunk alone.
 #
@@ -50,7 +50,7 @@ fi
 srun --kill-on-bad-exit=1 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=${NAME} description=${DESC} mode=train data=tsimulation \
-  model=bc_rnn_pushshapes_paperexact_tx_chunk8 \
+  model=bc_rnn/pushshapes_paperexact_tx_chunk8 \
   evaluator=eval_hnet_sim \
   evaluator.max_steps=${MAXSTEPS} evaluator.coverage_threshold=0.8 ${SEEDS} \
   callbacks=checkpoints callbacks.model_checkpoint.every_n_epochs=${VALEVERY} \

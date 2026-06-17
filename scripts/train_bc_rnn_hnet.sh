@@ -22,7 +22,7 @@ KM=egomimic.rldb.embodiment.pushshapes.get_keymap_eval
 # windows, raw low-dim obs + ReLU image + no fusion MLP, no actor MLP, eval
 # RANDOM crop with v0.2 off-by-one, minmax norm fresh full-data stats, same
 # warmup->cosine schedule) -- the ONLY change is
-# model=bc_rnn_pushshapes_paperexact_hnet, which swaps the recurrent core
+# model=bc_rnn/pushshapes_paperexact_hnet, which swaps the recurrent core
 # LSTM(1000)x2 / TX(448,5L) -> the user's REAL hierarchical dynamic-chunking
 # H-Net (outer enc/dec + ChunkerStage dynamic chunking + inner ComputeStage,
 # all CAUSAL). This isolates the effect of the history mechanism alone and pairs
@@ -54,7 +54,7 @@ fi
 srun --kill-on-bad-exit=1 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=${NAME} description=${DESC} mode=train data=tsimulation \
-  model=bc_rnn_pushshapes_paperexact_hnet \
+  model=bc_rnn/pushshapes_paperexact_hnet \
   evaluator=eval_hnet_sim \
   evaluator.max_steps=${MAXSTEPS} evaluator.coverage_threshold=0.8 ${SEEDS} \
   callbacks=checkpoints callbacks.model_checkpoint.every_n_epochs=${VALEVERY} \

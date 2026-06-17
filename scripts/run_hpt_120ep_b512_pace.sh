@@ -14,7 +14,7 @@ export PYTHONPATH=.
   data=tsimulation_hpt \
   data.train_dataloader_params.pushshapes_sim.batch_size=32 \
   data.valid_dataloader_params.pushshapes_sim.batch_size=32 \
-  model=hpt_pushshapes_circle_regression \
+  model=hpt/pushshapes_circle_regression \
   +norm_stats.precomputed_norm_path=/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse7/logs/hpt_variants/hpt_120ep_b512_lr1e5_keymapfix_pace_2026-05-19_02-10-03/norm_stats \
   model.optimizer.lr=1.5e-5 \
   '~model.scheduler' \

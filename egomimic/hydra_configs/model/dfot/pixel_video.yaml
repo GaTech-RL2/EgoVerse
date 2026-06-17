@@ -1,0 +1,80 @@
+# @package model
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# DFoT pixel-space video diffusion — clean implementation.
+# Uses ZarrVideoClipDataset for (B, 9, 3, 96, 96) batches.
+# No packing, no per-episode loops. Matches reference exactly.
+
+robomimic_model:
+  _target_: egomimic.algo.diffusion.DFoT
+  action_dim: 2
+  action_horizon: 9
+
+  sampler: "ddim"
+  sampler_n_steps: 50
+  sampler_eta: 0.0
+
+  inference_mode: "chunk"
+  cfg_scale: 1.0
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  outer_stage:
+    _target_: egomimic.algo.diffusion.PixelVideoDFoTOuterStage
+    action_dim: 2
+    video_key: "front_img_1"
+
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: "fused_cond"
+      cond_proj_widths: [256, 256]
+      obs_specs: {}
+      img_encoders: {}
+
+    backbone:
+      _target_: egomimic.models.diffusion.DFoTDiT3DBackbone
+      latent_channels: 3
+      latent_size: 96
+      patch_size: 2
+      action_horizon: 9
+      d_model: 256
+      d_cond: 256
+      cond_dim: 0
+      depth: 6
+      num_heads: 4
+      mlp_ratio: 4.0
+      time_embed_dim: 64
+      cond_emb_dim: 0
+      use_fourier_time: false
+      stochastic_time_p: 0.0
+      cond_dropout_prob: 0.0
+      causal: false
+
+    diffusion:
+      _target_: egomimic.models.diffusion.diffusion.discrete_diffusion.DiscreteDiffusion
+      action_dim: 3
+      timesteps: 1000
+      beta_schedule: "cosine"
+      objective: "pred_v"
+      loss_weighting_strategy: "fused_min_snr"
+      snr_clip: 5.0
+      cum_snr_decay: 0.96
+      clip_noise: 20.0
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 2.0e-4
+  weight_decay: 0.0
+  betas: [0.9, 0.99]
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 100000
+  warmup_steps: 1000
+  warmup_start_factor: 0.01
+  eta_min: 2.0e-4

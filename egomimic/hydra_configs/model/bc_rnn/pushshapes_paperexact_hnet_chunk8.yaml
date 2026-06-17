@@ -1,0 +1,4 @@
+# @package model
+defaults:
+  - bc_rnn/_pushshapes_paperexact_hnet_chunk8_base
+  - _self_

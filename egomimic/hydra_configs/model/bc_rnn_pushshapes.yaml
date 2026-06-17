@@ -1,7 +1,0 @@
-# BC-RNN exact-replica ROOT (run 3308726): robomimic BC_RNN_GMM, constant 1e-4 LR,
-# embed-128 obs encoder, LSTM(400)x2 core, quantile action norm (launcher default).
-# All shared payload lives in _bcrnn_common.yaml; this root adds NO delta.
-# extends _bcrnn_common
-defaults:
-  - _bcrnn_common
-  - _self_

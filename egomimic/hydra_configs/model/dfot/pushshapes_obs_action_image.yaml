@@ -1,0 +1,99 @@
+# @package model
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# Joint obs+action+image diffusion forcing.
+# Per step the diffusion target is concat([state, vae_latent_flat, action]).
+# A frozen pretrained ImageVAE (spatial latent 4x6x6) supplies the latent.
+#
+# Bundle layout per step:
+#   state_agent_obj (5D) || vae_latent_flat (4*6*6 = 144D) || actions (2D) = 151D
+#
+# cond_encoder is intentionally empty: the image already lives in the
+# bundle via its VAE encoding; AdaLN-conditioning on it again would
+# double-count. At inference the t=0 image is encoded by the same VAE
+# and used as the initial bundle prefix (handled by the eval).
+
+robomimic_model:
+  _target_: egomimic.algo.diffusion.DFoT
+  action_dim: 2
+  action_horizon: 32
+
+  sampler: "ddim"
+  sampler_n_steps: 50
+  sampler_eta: 0.0
+
+  inference_mode: "ar"
+  ar_inference_chunk_size: 1
+  ar_inference_step_size: 1
+  cfg_scale: 1.0
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  outer_stage:
+    _target_: egomimic.algo.diffusion.ObsActionImageDFoTOuterStage
+    action_dim: 2
+    cond_output_key: "fused_cond"
+
+    # State is the only "real" obs key in the bundle. Image latent is
+    # added automatically (144D) by the outer stage.
+    bundle_obs_keys: ["state_agent_obj"]
+    bundle_obs_dims: [5]
+    image_key: "front_img_1"
+    vae_checkpoint_path: /coc/flash7/paphiwetsa3/projects/EgoVerse-pact/external_ckpts/vae_v5_last.ckpt
+
+    # Empty cond_encoder -- no AdaLN cond. The image is in the bundle.
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 512
+      output_key: "fused_cond"
+      cond_proj_widths: [512, 512]
+      obs_specs: {}
+      img_encoders: {}
+
+    # Bundle width = 5 + 144 + 2 = 151.
+    backbone:
+      _target_: egomimic.models.diffusion.DFoTBackbone
+      action_dim: 151
+      action_horizon: 32
+      d_model: 512
+      d_cond: 512
+      # No external cond -- image is in the bundle, not via AdaLN.
+      cond_dim: 0
+      time_embed_dim: 512
+      cond_emb_dim: 0
+      use_fourier_time: true
+      stochastic_time_p: 0.0
+      cond_dropout_prob: 0.0   # no cond -> CFG meaningless
+      arch_layout: "T12"
+      num_heads: 8
+      d_intermediate: 2048
+      rotary_emb_dim: 64
+      dropout: 0.1
+      resid_dropout: 0.1
+      causal: true
+
+    diffusion:
+      _target_: egomimic.models.diffusion.diffusion.continuous_diffusion.ContinuousDiffusion
+      action_dim: 151
+      precond_scale: 0.25
+      sigmoid_bias: -1.0
+      clip_noise: 20.0
+      logsnr_min: -15.0
+      logsnr_max: 15.0
+      shift: 1.0
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

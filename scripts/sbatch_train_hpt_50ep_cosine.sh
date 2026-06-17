@@ -31,7 +31,7 @@ srun --kill-on-bad-exit=1 .venv/bin/python -m egomimic.trainHydra \
   description=hpt_50ep_cosine_lr4e5 \
   mode=train \
   data=tsimulation_hpt \
-  model=hpt_pushshapes_circle \
+  model=hpt/pushshapes_circle \
   model.optimizer.lr=4e-5 \
   '~model.scheduler' \
   +model.scheduler._target_=egomimic.utils.schedulers.warmup_cosine_scheduler \

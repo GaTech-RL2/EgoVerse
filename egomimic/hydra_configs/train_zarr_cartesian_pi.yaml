@@ -1,6 +1,6 @@
 defaults:
   - train_zarr_cartesian
-  - override model: pi0.5_bc_eva
+  - override model: pi/bc_eva
   - override data: eva_pi
   - override trainer: ddp_pi
   - override evaluator: eval_pi
