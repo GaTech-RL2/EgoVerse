@@ -1,3 +1,4 @@
+# @package evaluator
 # DFoT val-data evaluator. Teacher-forced action prediction over val
 # episodes with two modes overlaid in a single mp4 per episode:
 #   * full_chunk: one-shot DDIM denoising over the entire episode action

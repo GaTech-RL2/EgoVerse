@@ -1,3 +1,4 @@
+# @package evaluator
 # Teacher-forced sanity check for the spatial_rh closed-loop controller.
 _target_: egomimic.eval.core.eval_composite.EvalList
 evals:

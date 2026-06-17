@@ -1,3 +1,4 @@
+# @package evaluator
 # Cross-embodiment cotrain eval, ONE video with one ROW per embodiment.
 # Wraps the per-embodiment EvalListSideBySide composite (traj + PCA +
 # boundary strip below) in CombinedRowsEval, which vstacks the

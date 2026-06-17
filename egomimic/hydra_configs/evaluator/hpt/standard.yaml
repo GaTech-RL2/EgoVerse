@@ -1,3 +1,4 @@
+# @package evaluator
 # Standard validation evaluator for HPT on pushshapes_sim.
 #
 # Skips the composite (trajectory-overlay + PCA + boundary-strip) since:

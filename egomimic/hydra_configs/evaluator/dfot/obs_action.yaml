@@ -1,3 +1,4 @@
+# @package evaluator
 # DFoT obs+action evaluator. Two independent sub-evals, each writes
 # its own mp4 (no composite/side-by-side panel).
 #

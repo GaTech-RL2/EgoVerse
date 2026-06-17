@@ -1,3 +1,4 @@
+# @package evaluator
 # Cotrain sim rollout eval: regular circle + small circle, swept over the 30
 # obstacle levels with ONE seed per level (cotrain "30 seeds, 1 per layer").
 #

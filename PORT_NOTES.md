@@ -141,7 +141,7 @@ in pact-2 and the import succeeds (verified, §verification).
 
 ## 3. Launcher path rewrites (EgoVerse2 → EgoVerse-pact-2)
 Each of the 5 launchers had exactly these path substitutions; everything else
-(config-name, `data=tsimulation/tsimulation`, `model=...`, `evaluator=eval_hnet_sim`, the
+(config-name, `data=tsimulation/tsimulation`, `model=...`, `evaluator=hnet/sim`, the
 override block, `norm_stats.norm_mode=minmax`, dataset `new_circle_3`, keymap) is
 unchanged from EgoVerse2:
 - `cd /…/EgoVerse2` → `cd /…/EgoVerse-pact-2`
@@ -167,7 +167,7 @@ unchanged from EgoVerse2:
 - **Import**: `from egomimic.algo.bc_rnn import BCRNN` + all bc_rnn_nets exports +
   `constant_scheduler`/`warmup_cosine_scheduler`. PASS.
 - **Hydra composition** (`--cfg job` of `train_zarr_cartesian` + `data=tsimulation/tsimulation`
-  + `evaluator=eval_hnet_sim` + `norm_stats.norm_mode=minmax`): ALL 5 model configs
+  + `evaluator=hnet/sim` + `norm_stats.norm_mode=minmax`): ALL 5 model configs
   compose cleanly (rc=0) — each resolves `_target_: …bc_rnn.BCRNN`, the right
   `core:`, `chunk_len: 8` for chunk8, `enable_grad_norm: false`, `norm_mode: minmax`.
 - **GPU construction + forward + rollout** (built LSTM, TX, TX-chunk8 policies
@@ -258,7 +258,7 @@ captured at sync start).
 |------------------------|------------------|
 | `bc_rnn_pushshapes_paperexact_hnet.yaml` → `hydra_configs/model/` | `front_img_1._target_`: `…hnet_nets.image_encoders.VisualCore` → `…bc_rnn_nets.visual_core.VisualCore` (matches the original port's image-encoder rewrite). Resolves `core: hnet`, `lstm._target_: …bc_rnn_nets.HNetCore`, d_model=256. |
 | `bc_rnn_pushshapes_paperexact_tx_chunk8_q.yaml` → `hydra_configs/model/` | Same `front_img_1._target_` rewrite. Resolves `chunk_head: queries`, `query_decoder._target_: …bc_rnn_nets.QueryActionDecoder` (chunk_len=8, per_step=25, d_model=448). |
-| `train_bc_rnn_hnet.sh` → `scripts/` | `cd …/EgoVerse2`→`…/EgoVerse-pact-2`; `source …/EgoVerse7/.venv`→`…/EgoVerse-pact-2/.venv`; `#SBATCH --output/--error` → pact-2 `logs/sbatch/`. Everything else (data=tsimulation/tsimulation, evaluator=eval_hnet_sim, rollout_mode=ar, get_keymap_eval, norm_mode=minmax) unchanged from EV2 — same as the original port's launchers (subject to the §6 eval limitations below). |
+| `train_bc_rnn_hnet.sh` → `scripts/` | `cd …/EgoVerse2`→`…/EgoVerse-pact-2`; `source …/EgoVerse7/.venv`→`…/EgoVerse-pact-2/.venv`; `#SBATCH --output/--error` → pact-2 `logs/sbatch/`. Everything else (data=tsimulation/tsimulation, evaluator=hnet/sim, rollout_mode=ar, get_keymap_eval, norm_mode=minmax) unchanged from EV2 — same as the original port's launchers (subject to the §6 eval limitations below). |
 | `train_bc_rnn_tx_chunk8q.sh` → `scripts/` | Same 3 path rewrites. |
 
 ## D4. ⚠️ THE CAREFUL PART — hnet_nets compatibility verdict: **VENDORED**
@@ -328,7 +328,7 @@ in lockstep — a one-line-per-file change.
   `__all__` exports + vendored `HNet/stages/context`. `HNetCore.HNet` confirmed
   bound to the **vendored** module (decoupled from pact hnet_nets). PASS.
 - **Hydra compose** (`train_zarr_cartesian` + data=tsimulation/tsimulation +
-  evaluator=eval_hnet_sim + norm_stats.norm_mode=minmax, WITHOUT the eval-only
+  evaluator=hnet/sim + norm_stats.norm_mode=minmax, WITHOUT the eval-only
   overrides pact-2 lacks — see §6): both new configs compose (rc=0). hnet →
   `core=hnet`/`HNetCore`; chunk8-Q → `chunk_head=queries`/`QueryActionDecoder`
   (chunk_len=8, per_step=25, d_model=448). Both: image `_target_` rewritten to
@@ -424,7 +424,7 @@ pact-2 (they were never ported, §4) — nothing else to flip.
 ## DS3. Verification (a40 alloc, pact-2 symlinked .venv, PYTHONPATH=pact-2)
 - **py_compile** `egomimic/algo/bc_rnn.py`: PASS.
 - **Hydra compose** (`train_zarr_cartesian` + data=tsimulation/tsimulation +
-  evaluator=eval_hnet_sim, the groups every launcher passes): `paperexact`,
+  evaluator=hnet/sim, the groups every launcher passes): `paperexact`,
   `_hnet`, `_tx_chunk8_q` all compose (rc=0). Every `max_window` under
   `robomimic_model` **resolves to 10** via `${..rnn_horizon}`; the core object
   now lives under `core_net:` (slot key confirmed flipped lstm→core_net).
@@ -757,6 +757,6 @@ so every old `_target_` still imports.
 |---|---|
 | **pytest tests/** | **139 passed / 8 failed / 10 skipped** — same 8 pre-existing fails (7 `TestAlgoWiring` old-HNet-sig + 1 `TestInferNormFromPacked` missing-zarr). **ZERO new failures.** |
 | **compose sweep** | **TOTAL_PASS=107 / TOTAL_FAIL=2** — all 11 DFoT evaluator yamls compose (incl. dead-on-disk `image_spatial_policy`, `_policy_rh`, `bundle_anchored`, `obs_action`); the 2 fails are the pre-broken `viz/pi_cartesian_lang` + `viz/pi_cartesian_lang_wrist` (schema/structured provider), NOT DFoT. |
-| **real eval forward** | `evaluator=eval_dfot_image_spatial` + `eval_dfot_pixel` each built a REAL DFoT algo (random weights, fixed seed) and ran ONE `compute_metrics_and_viz` end-to-end through the unified eval + outer-stage decode hook. image_spatial: 11 finite metrics, mp4 (128,384,768,3)=599954 B. pixel: 13 finite metrics (incl PSNR/SSIM/LPIPS), mp4 (18,384,768,3)=288794 B. Both written, non-empty. |
+| **real eval forward** | `evaluator=dfot/image_spatial` + `eval_dfot_pixel` each built a REAL DFoT algo (random weights, fixed seed) and ran ONE `compute_metrics_and_viz` end-to-end through the unified eval + outer-stage decode hook. image_spatial: 11 finite metrics, mp4 (128,384,768,3)=599954 B. pixel: 13 finite metrics (incl PSNR/SSIM/LPIPS), mp4 (18,384,768,3)=288794 B. Both written, non-empty. |
 
 Harness: `scratch/gate3_real_eval_forward.py`; videos at `scratch/gate3_out/`.

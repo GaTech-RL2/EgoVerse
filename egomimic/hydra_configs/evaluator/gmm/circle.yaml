@@ -1,3 +1,4 @@
+# @package evaluator
 # Combined eval: overlay(traj)+PCA+boundary-strip-below + open-loop-8 sim.
 _target_: egomimic.eval.core.eval_composite.EvalList
 evals:

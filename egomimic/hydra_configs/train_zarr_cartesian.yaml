@@ -6,7 +6,7 @@ defaults:
   - logger: wandb
   - data: eva/eva
   - callbacks: checkpoints
-  - evaluator: eval_hpt
+  - evaluator: hpt/hpt
   - override hydra/launcher: submitit
   - _self_
 

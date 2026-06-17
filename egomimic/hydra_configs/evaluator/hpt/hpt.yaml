@@ -1,3 +1,4 @@
+# @package evaluator
 defaults:
   - viz@viz_func: cartesian
   - _self_

@@ -1,3 +1,4 @@
+# @package evaluator
 # DFoT pixel-space evaluator (no VAE decode needed).
 #
 # Single sub-eval: the family-agnostic DFoTVideoRolloutEval (COMBINE A),

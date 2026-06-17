@@ -1,3 +1,4 @@
+# @package evaluator
 # DFoT obs+action+image evaluator: video self-rollout only.
 #
 # DFoTVideoRolloutEval picks the first ``max_videos`` val episodes,

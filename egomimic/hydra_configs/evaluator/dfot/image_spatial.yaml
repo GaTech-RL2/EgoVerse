@@ -1,3 +1,4 @@
+# @package evaluator
 # DFoT image-spatial evaluator (plan A: world-model only).
 #
 # Single sub-eval: the family-agnostic DFoTVideoRolloutEval (COMBINE A),

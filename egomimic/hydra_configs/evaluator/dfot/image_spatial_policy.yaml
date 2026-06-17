@@ -1,3 +1,4 @@
+# @package evaluator
 # Action-prediction eval for the 2D policy: clean obs history -> predict next
 # action chunk, compare predicted future actions to GT (action MSE) + decode
 # predicted latents into a [GT|pred] video.

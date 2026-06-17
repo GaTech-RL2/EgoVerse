@@ -1,6 +1,4 @@
-# gmm ORIGINAL replay variant (4-seed). Preserved when eval_hnet_sim.yaml
-# was switched to EgoVerse2 20-seed protocol. Use evaluator=eval_hnet_sim_replay
-# for the gmm default behavior.
+# @package evaluator
 _target_: egomimic.eval.core.eval_sim.HNetSimEval
 
 # Closed-loop sim eval. For each val episode, resets PushShapesEnv (init
@@ -20,8 +18,8 @@ env_kwargs:
 #     match to current teacher-forced eval semantics).
 #   random: env.reset(seed=ep_idx) per rollout (random goal etc).
 #   seeds:  cycle through ``init_seeds`` per rollout (reproducible suite).
-init_mode: "replay"
-init_seeds: [0, 1, 2, 3]
+init_mode: seeds
+init_seeds: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]   # EgoVerse2 20-seed eval suite
 
 # ---- Rollout knobs ----
 # When null, replay mode uses the recorded episode length; random/seeds
@@ -39,3 +37,12 @@ limit_val_batches: 4
 # the sim's own rendered frames are the viz. Leave null.
 viz_func: null
 transform_lists: null
+
+# EgoVerse2 rollout-mode knobs (config-driven). delta/TE/chunk branches are
+# accepted by SimRolloutEval but fall back to gmm's AR rollout (see #13);
+# defaults below reproduce gmm behavior.
+delta_action: false
+temporal_ensemble: false
+rollout_mode: ar
+chunk_k: 32
+goal_in_obs: false

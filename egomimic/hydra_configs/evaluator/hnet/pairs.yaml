@@ -1,3 +1,4 @@
+# @package evaluator
 # Eval composite for cross-embodiment alignment viz on matched pair episodes.
 # Rows = embodiments (pushshapes_sim, pushshapes_sim_stick),
 # Cols = [teacher-forced traj viz, PCA (shared basis), boundary strips].

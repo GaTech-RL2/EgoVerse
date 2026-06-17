@@ -38,11 +38,20 @@ RULES = {
         ("mecka", r"^mecka", r"^mecka_?"),
         ("scale", r"^scale", r"^scale_?"),
     ],
+    "evaluator": [
+        ("dfot", r"^eval_dfot_", r"^eval_dfot_?"),
+        ("hnet", r"^eval_hnet", r"^eval_hnet_?"),
+        ("hpt", r"^eval_hpt", r"^eval_hpt_?"),
+        ("gmm", r"^gmm_eval", r"^gmm_eval_?"),
+    ],
 }[GROUP]
 KEEP_FLAT = {
     "model": {"act", "egobridge", "__init__"},
     "data": {"_pickplace_qwen_base", "bc_pickplace_eva_qwen",
              "industry_eva_pi", "video_clips", "__init__"},
+    # evaluator singletons + bases stay flat (don't match a family rule anyway);
+    # viz/ is already a subfolder and is left untouched.
+    "evaluator": {"_revert_transform_base", "_sim_rollout_base", "__init__"},
 }[GROUP]
 
 

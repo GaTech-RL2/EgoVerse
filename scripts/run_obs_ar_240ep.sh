@@ -27,7 +27,7 @@ DESC="hnet_obs_ar_240ep_pace_a100_${TS}"
   model=hnet/pushshapes_obs_ar \
   model.scheduler.max_steps=1920 \
   data.train_datasets.pushshapes_sim.resolver.folder_path=/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/circle_750/circle data.valid_datasets.pushshapes_sim.resolver.folder_path=/storage/home/hcoda1/4/paphiwetsa3/r-dxu345-0/datasets/pushT/circle_750/circle \
-  evaluator=eval_hnet_full \
+  evaluator=hnet/full \
   callbacks=checkpoints \
   ++callbacks.model_checkpoint.every_n_epochs=60 \
   trainer=debug \

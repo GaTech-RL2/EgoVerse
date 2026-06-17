@@ -503,7 +503,7 @@ Working invocation for the pushshapes packed run (debug-sized — 4 epochs,
 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=hnet_smoke description=trainhydra_test mode=train \
-  data=tsimulation/tsimulation model=hnet/pushshapes evaluator=eval_hnet \
+  data=tsimulation/tsimulation model=hnet/pushshapes evaluator=hnet/hnet \
   trainer=debug logger=debug '~callbacks'
 ```
 

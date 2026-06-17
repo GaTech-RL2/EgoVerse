@@ -1,3 +1,4 @@
+# @package evaluator
 # Composite DFoT evaluator: teacher-forced val viz + closed-loop sim eval.
 #   1. eval_dfot_val — full-chunk DDIM + staircase-AR overlaid on GT env
 #      frames. Tells us "given the right obs, does the model predict the

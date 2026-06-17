@@ -52,7 +52,7 @@ srun --kill-on-bad-exit=1 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=${NAME} description=${DESC} mode=train data=tsimulation/tsimulation \
   model=bc_rnn/pushshapes_paperexact_tx_cos_lowlr \
-  evaluator=eval_hnet_sim \
+  evaluator=hnet/sim \
   evaluator.max_steps=${MAXSTEPS} evaluator.coverage_threshold=0.8 ${SEEDS} \
   callbacks=checkpoints callbacks.model_checkpoint.every_n_epochs=${VALEVERY} \
   trainer=debug trainer.precision=32 trainer.max_epochs=${EPOCHS} trainer.min_epochs=${EPOCHS} \

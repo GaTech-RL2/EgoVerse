@@ -1,3 +1,4 @@
+# @package evaluator
 # Combined eval: overlay(traj)+PCA+boundary-strip-below + open-loop-8 sim.
 _target_: egomimic.eval.core.eval_composite.EvalList
 evals:
@@ -10,9 +11,6 @@ evals:
         limit_val_batches: 2
         max_videos: 2
         viz_func:
-          pushshapes_sim:
-            _target_: hydra.utils.get_method
-            path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
           pushshapes_sim_small_circle:
             _target_: hydra.utils.get_method
             path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds

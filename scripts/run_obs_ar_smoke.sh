@@ -23,7 +23,7 @@ echo "==using=="; which python; "$VENV/bin/python" -c "import sys; print(sys.pre
   data=tsimulation/tsimulation \
   model=hnet/pushshapes_obs_ar \
   norm_stats.precomputed_norm_path=logs/hnet_variants/hnet_baseline_pace_l40s_2026-05-19_04-15-39_2026-05-19_04-15-55/norm_stats \
-  evaluator=eval_hnet_full \
+  evaluator=hnet/full \
   callbacks=checkpoints \
   trainer=debug \
   trainer.max_epochs=2 \

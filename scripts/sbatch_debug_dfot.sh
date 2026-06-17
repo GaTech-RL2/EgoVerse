@@ -27,7 +27,7 @@ srun .venv/bin/python -m egomimic.trainHydra \
   data=tsimulation/full \
   model=dfot/pushshapes \
   norm_stats.sample_frac=0.1 \
-  evaluator=eval_dfot_full \
+  evaluator=dfot/full \
   callbacks=checkpoints \
   callbacks.model_checkpoint.every_n_epochs=2 \
   trainer=debug \

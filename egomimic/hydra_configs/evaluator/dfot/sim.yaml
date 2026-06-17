@@ -1,3 +1,4 @@
+# @package evaluator
 # Closed-loop sim eval for DFoT. Uses the algo-agnostic PackedSimEval
 # class with PushShapesEnv; the model side runs ``DFoT.inference_step``
 # (driven by the model config's ``inference_mode`` — "ar" by default,

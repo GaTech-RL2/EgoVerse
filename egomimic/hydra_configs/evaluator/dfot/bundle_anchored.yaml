@@ -1,3 +1,4 @@
+# @package evaluator
 _target_: egomimic.eval.core.eval_composite.EvalList
 evals:
   - _target_: egomimic.eval.dfot.eval_dfot_bundle_anchored.DFoTBundleAnchoredEval

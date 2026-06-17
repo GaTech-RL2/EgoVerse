@@ -29,10 +29,17 @@ RULES = {
         ("mecka", r"^mecka", r"^mecka_?"),
         ("scale", r"^scale", r"^scale_?"),
     ],
+    "evaluator": [
+        ("dfot", r"^eval_dfot_", r"^eval_dfot_?"),
+        ("hnet", r"^eval_hnet", r"^eval_hnet_?"),
+        ("hpt", r"^eval_hpt", r"^eval_hpt_?"),
+        ("gmm", r"^gmm_eval", r"^gmm_eval_?"),
+    ],
 }[GROUP]
 KEEP_FLAT = {
     "model": {"act", "egobridge"},
     "data": {"_pickplace_qwen_base", "bc_pickplace_eva_qwen", "industry_eva_pi", "video_clips"},
+    "evaluator": {"_revert_transform_base", "_sim_rollout_base"},
 }[GROUP]
 
 

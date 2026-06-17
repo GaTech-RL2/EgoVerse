@@ -1,3 +1,4 @@
+# @package evaluator
 # Receding-horizon action eval for the 2D policy. Slides an anchor across each
 # episode, predicts the next k=1,2 actions from CLEAN GT history (short T=n_ctx+k
 # rollout), scores vs GT in normalized action space, pooled over all anchors x
