@@ -12,7 +12,7 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: cartesian
+        mode: cartesian_6d
     filters: null
     mode: train
     valid_ratio: 0.05
@@ -27,7 +27,7 @@ train_datasets:
         annotation_key: annotations
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Aria.get_transform_list
-        mode: cartesian
+        mode: cartesian_6d
     filters: null
     mode: train
     valid_ratio: 0.05

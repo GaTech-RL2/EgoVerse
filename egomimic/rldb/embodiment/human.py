@@ -16,6 +16,8 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     Reshape,
     SplitKeys,
     Transform,
+    XYZ6D_to_XYZYPR,
+    XYZWXYZ_to_XYZ6D,
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.viz_utils import (
@@ -99,7 +101,9 @@ class Human(Embodiment):
         mode: Literal[
             "cartesian",
             "cartesian_padded",
+            "cartesian_6d",
             "cartesian_wristframe_ypr",
+            "cartesian_wristframe_6d",
             "keypoints_headframe_ypr",
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
@@ -112,8 +116,16 @@ class Human(Embodiment):
             return _build_human_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE
             ) + [PadGripperZeros(action_key="actions_cartesian")]
+        if mode == "cartesian_6d":
+            return _build_human_cartesian_bimanual_transform_list(
+                stride=cls.ACTION_STRIDE, rot_repr="6d"
+            )
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=cls.ACTION_STRIDE)
+        if mode == "cartesian_wristframe_6d":
+            return _build_human_cartesian_eef_frame_transform_list(
+                stride=cls.ACTION_STRIDE, rot_repr="6d"
+            )
         if mode == "keypoints_headframe_ypr":
             return _build_human_keypoints_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE, is_quat=False
@@ -328,13 +340,19 @@ class Mecka(Human):
     @classmethod
     def get_transform_list(
         cls,
-        mode: Literal["cartesian",] = "cartesian",
+        mode: Literal["cartesian", "cartesian_6d"] = "cartesian",
         chunk_length: int = 100,
     ) -> list[Transform]:
         if mode == "cartesian":
-            return _build_aria_cartesian_bimanual_transform_list(
+            return _build_human_cartesian_bimanual_transform_list(
                 stride=cls.ACTION_STRIDE,
                 chunk_length=chunk_length,
+            )
+        elif mode == "cartesian_6d":
+            return _build_human_cartesian_bimanual_transform_list(
+                stride=cls.ACTION_STRIDE,
+                chunk_length=chunk_length,
+                rot_repr="6d",
             )
 
     @classmethod
@@ -959,6 +977,7 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
     left_action_headframe: str = "left.action_ee_pose_headframe",
     right_action_headframe: str = "right.action_ee_pose_headframe",
     is_quat: bool = False,
+    rot_repr: str = "ypr",
 ) -> list[Transform]:
     """Revert wrist-frame ARIA cartesian actions back to head (camera) frame.
 
@@ -966,9 +985,16 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
     action chunks live in each side's wrist frame, the proprio ee-poses live in
     headframe (= Aria camera frame). Re-composes ``target_headframe @ chunk_wristframe``
     so action chunks are back in headframe / camera frame.
+
+    ``rot_repr="6d"`` reverts a model 6D prediction (per-arm width 9, ``xyz6d``
+    coordinate transform with Gram-Schmidt), then collapses back to ypr.
     """
-    pose_shape = 7 if is_quat else 6
-    mode = "xyzwxyz" if is_quat else "xyzypr"
+    if rot_repr == "6d":
+        pose_shape = 9
+        mode = "xyz6d"
+    else:
+        pose_shape = 7 if is_quat else 6
+        mode = "xyzwxyz" if is_quat else "xyzypr"
     transform_list = [
         SplitKeys(
             input_key=obs_key,
@@ -998,12 +1024,18 @@ def _build_human_cartesian_revert_eef_frame_transform_list(
             mode=mode,
             inverse=False,
         ),
+    ]
+    if rot_repr == "6d":
+        transform_list.append(
+            XYZ6D_to_XYZYPR(keys=[left_action_headframe, right_action_headframe])
+        )
+    transform_list.append(
         ConcatKeys(
             key_list=[left_action_headframe, right_action_headframe],
             new_key_name=action_key,
             delete_old_keys=True,
         ),
-    ]
+    )
     return transform_list
 
 
@@ -1027,6 +1059,7 @@ def _build_human_cartesian_eef_frame_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    rot_repr: str = "ypr",
 ) -> list[Transform]:
     """ARIA bimanual cartesian pipeline expressed in the current wrist frame.
 
@@ -1034,7 +1067,7 @@ def _build_human_cartesian_eef_frame_transform_list(
     ``obs_head_pose``), then headframe → wristframe (via the proprio
     ``*.obs_ee_pose_headframe`` for each side). Proprio ee-poses remain in
     headframe (wristframe of the wrist itself is identity). All retained poses
-    are converted to xyz-ypr.
+    are converted to xyz-ypr, or to continuous 6D columns when ``rot_repr="6d"``.
     """
     keys_to_delete = list(
         {
@@ -1102,7 +1135,7 @@ def _build_human_cartesian_eef_frame_transform_list(
             transformed_key_name=right_action_wristframe,
             mode="xyzwxyz",
         ),
-        XYZWXYZ_to_XYZYPR(
+        (XYZWXYZ_to_XYZ6D if rot_repr == "6d" else XYZWXYZ_to_XYZYPR)(
             keys=[
                 left_action_wristframe,
                 right_action_wristframe,
@@ -1143,12 +1176,14 @@ def _build_human_cartesian_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 3,
     delete_target_world: bool = True,
+    rot_repr: str = "ypr",
 ) -> list[Transform]:
     """Canonical ARIA bimanual transform pipeline used by tests and notebooks.
 
     Aria human data does not have commanded ee poses; action chunks are built
     from stacked observed ee poses (typically with a horizon on
     ``left/right.action_ee_pose`` mapped from ``left/right.obs_ee_pose``).
+    ``rot_repr="6d"`` emits continuous 6D rotation columns instead of ypr.
     """
     keys_to_delete = list(
         {
@@ -1207,7 +1242,7 @@ def _build_human_cartesian_bimanual_transform_list(
 
     if target_world_is_quat:
         transform_list.append(
-            XYZWXYZ_to_XYZYPR(
+            (XYZWXYZ_to_XYZ6D if rot_repr == "6d" else XYZWXYZ_to_XYZYPR)(
                 keys=[
                     left_action_headframe,
                     right_action_headframe,

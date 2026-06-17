@@ -26,8 +26,10 @@ from egomimic.utils.pose_utils import (
     _interpolate_quat_wxyz,
     _interpolate_xyz,
     _matrix_to_xyz,
+    _matrix_to_xyz6d,
     _matrix_to_xyzwxyz,
     _matrix_to_xyzypr,
+    _xyz6d_to_matrix,
     _xyz_to_matrix,
     _xyzwxyz_to_matrix,
     _xyzypr_to_matrix,
@@ -149,7 +151,7 @@ class ActionChunkCoordinateFrameTransform(Transform):
         chunk_world: str,
         transformed_key_name: str,
         extra_batch_key: dict = None,
-        mode: Literal["xyz", "xyzwxyz", "xyzypr"] = "xyzwxyz",
+        mode: Literal["xyz", "xyzwxyz", "xyzypr", "xyz6d"] = "xyzwxyz",
         inverse: bool = True,
     ):
         """
@@ -196,14 +198,24 @@ class ActionChunkCoordinateFrameTransform(Transform):
             to_matrix_fn = _xyzwxyz_to_matrix
         elif self.mode == "xyzypr":
             to_matrix_fn = _xyzypr_to_matrix
+        elif self.mode == "xyz6d":
+            # Gram-Schmidt re-orthonormalization happens here when reverting a
+            # (possibly non-orthonormal) model 6D prediction back to a frame.
+            to_matrix_fn = _xyz6d_to_matrix
         elif self.mode == "xyz":
             to_matrix_fn = _xyz_to_matrix
         else:
             raise ValueError(f"Invalid mode: {self.mode}")
 
-        target_world_to_matrix_fn = (
-            _xyzwxyz_to_matrix if target_world.shape[-1] == 7 else _xyzypr_to_matrix
-        )
+        # Dispatch the target-world parser by its width: 7 -> xyz+quat(wxyz),
+        # 9 -> xyz+6D columns, else xyz+ypr.
+        target_width = target_world.shape[-1]
+        if target_width == 7:
+            target_world_to_matrix_fn = _xyzwxyz_to_matrix
+        elif target_width == 9:
+            target_world_to_matrix_fn = _xyz6d_to_matrix
+        else:
+            target_world_to_matrix_fn = _xyzypr_to_matrix
         # Convert to SE3 for transformation
         target_se3 = SE3.from_matrix(
             target_world_to_matrix_fn(target_world[None, :])[0]
@@ -223,6 +235,8 @@ class ActionChunkCoordinateFrameTransform(Transform):
             chunk_in_target_frame = _matrix_to_xyzwxyz(chunk_mats)
         elif self.mode == "xyzypr":
             chunk_in_target_frame = _matrix_to_xyzypr(chunk_mats)
+        elif self.mode == "xyz6d":
+            chunk_in_target_frame = _matrix_to_xyz6d(chunk_mats)
         elif self.mode == "xyz":
             chunk_in_target_frame = _matrix_to_xyz(chunk_mats)
         else:
@@ -384,6 +398,95 @@ class XYZWXYZ_to_XYZYPR(Transform):
                     f"XYZWXYZ_to_XYZYPR expects key '{key}' to have shape (7,) "
                     f"or (T, 7), got {value.shape}"
                 )
+        return batch
+
+
+class XYZWXYZ_to_XYZ6D(Transform):
+    """Convert listed keys from xyz+quat(wxyz) to xyz+6D-columns in-place.
+
+    The 6D representation (Zhou et al. / 6DRepNet) is the first two columns of
+    the rotation matrix and is continuous everywhere (no +-pi wraparound),
+    which is what makes per-dimension normalization meaningful.
+    """
+
+    def __init__(self, keys: list[str]):
+        self.keys = list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = np.asarray(batch[key])
+            if value.ndim == 1 and value.shape[0] == 7:
+                batch[key] = _matrix_to_xyz6d(_xyzwxyz_to_matrix(value[None, :]))[0]
+            elif value.ndim == 2 and value.shape[1] == 7:
+                batch[key] = _matrix_to_xyz6d(_xyzwxyz_to_matrix(value))
+            else:
+                raise ValueError(
+                    f"XYZWXYZ_to_XYZ6D expects key '{key}' to have shape (7,) "
+                    f"or (T, 7), got {value.shape}"
+                )
+        return batch
+
+
+class XYZ6D_to_XYZYPR(Transform):
+    """Convert listed keys from xyz+6D-columns to xyz+ypr in-place.
+
+    Runs Gram-Schmidt (via ``_xyz6d_to_matrix``) to re-orthonormalize the two
+    columns, then reads Euler angles off the matrix. Used at the tail of the
+    revert pipelines so downstream viz / deploy keep seeing ypr while the model
+    natively predicts 6D.
+    """
+
+    def __init__(self, keys: list[str]):
+        self.keys = list(keys)
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            value = np.asarray(batch[key])
+            if value.ndim == 1 and value.shape[0] == 9:
+                batch[key] = _matrix_to_xyzypr(_xyz6d_to_matrix(value[None, :]))[0]
+            elif value.ndim == 2 and value.shape[1] == 9:
+                batch[key] = _matrix_to_xyzypr(_xyz6d_to_matrix(value))
+            else:
+                raise ValueError(
+                    f"XYZ6D_to_XYZYPR expects key '{key}' to have shape (9,) "
+                    f"or (T, 9), got {value.shape}"
+                )
+        return batch
+
+
+class QuaternionPoseToXYZ6D(Transform):
+    """Convert a single pose from xyz + quat(wxyz) to xyz + 6D-columns."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.shape != (7,):
+            raise ValueError(
+                f"QuaternionPoseToXYZ6D expects shape (7,), got {pose.shape} for key "
+                f"'{self.pose_key}'"
+            )
+        batch[self.output_key] = _matrix_to_xyz6d(_xyzwxyz_to_matrix(pose[None, :]))[0]
+        return batch
+
+
+class BatchQuaternionPoseToXYZ6D(Transform):
+    """Convert a batch of poses from xyz + quat(wxyz) to xyz + 6D-columns."""
+
+    def __init__(self, pose_key: str, output_key: str):
+        self.pose_key = pose_key
+        self.output_key = output_key
+
+    def transform(self, batch: dict) -> dict:
+        pose = np.asarray(batch[self.pose_key])
+        if pose.ndim != 2 or pose.shape[-1] != 7:
+            raise ValueError(
+                f"BatchQuaternionPoseToXYZ6D expects shape (N, 7), got {pose.shape} "
+                f"for key '{self.pose_key}'"
+            )
+        batch[self.output_key] = _matrix_to_xyz6d(_xyzwxyz_to_matrix(pose))
         return batch
 
 

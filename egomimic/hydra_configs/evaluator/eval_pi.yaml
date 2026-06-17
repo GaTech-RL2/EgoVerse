@@ -20,7 +20,7 @@ max_frames_per_task: 1000
 transform_lists:
   eva_bimanual:
     _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
-    is_quat: false
+    rot_repr: "6d"
   aria_bimanual:
-    _target_: egomimic.rldb.embodiment.human._build_aria_cartesian_revert_eef_frame_transform_list
-    is_quat: false
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
+    rot_repr: "6d"

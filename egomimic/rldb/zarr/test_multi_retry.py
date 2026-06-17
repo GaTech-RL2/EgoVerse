@@ -154,3 +154,55 @@ def test_reject_outliers_true_rejects_xyz_quantile_violation():
     data = {"embodiment": 9, "actions_cartesian": actions}
 
     assert "Bounds violation" in mds._check_bounds(data, _DummyLeaf("ep", 1), 0, "ep")
+
+
+# --- 6D (18D human / 20D robot) bounds checks: rotation columns excluded -----
+from egomimic.utils.pose_utils import bimanual_cartesian_layout  # noqa: E402
+
+
+def _make_cartesian_mds_width(reject_outliers: bool, width: int) -> MultiDataset:
+    mds = MultiDataset(
+        datasets={"ep": _DummyLeaf("ep", 1)},
+        mode="total",
+        reject_outliers=reject_outliers,
+    )
+    q_low = torch.full((1, width), -1.0)
+    q_high = torch.full((1, width), 1.0)
+    stats = {
+        "quantile_0_01": q_low,
+        "quantile_99_99": q_high,
+        "quantile_1": q_low,
+        "quantile_99": q_high,
+    }
+    mds.key_types = {9: {"actions_cartesian": "action_keys"}}
+    mds.zarr_keys = {9: {"actions_cartesian": "actions_cartesian"}}
+    mds.norm_stats = {9: {"actions_cartesian": stats}}
+    return mds
+
+
+@pytest.mark.parametrize("width", [18, 20])
+def test_6d_rotation_columns_are_not_quantile_checked(width):
+    mds = _make_cartesian_mds_width(reject_outliers=True, width=width)
+    actions = torch.zeros(1, width)
+    # Push every rotation column way out of [-1, 1]; must still pass.
+    actions[..., list(bimanual_cartesian_layout(width)["rot"])] = 9.0
+    data = {"embodiment": 9, "actions_cartesian": actions}
+    assert mds._check_bounds(data, _DummyLeaf("ep", 1), 0, "ep") is None
+
+
+@pytest.mark.parametrize("width", [18, 20])
+def test_6d_xyz_outlier_still_rejected(width):
+    mds = _make_cartesian_mds_width(reject_outliers=True, width=width)
+    actions = torch.zeros(1, width)
+    actions[..., bimanual_cartesian_layout(width)["xyz"][0]] = 5.0
+    data = {"embodiment": 9, "actions_cartesian": actions}
+    assert "Bounds violation" in mds._check_bounds(data, _DummyLeaf("ep", 1), 0, "ep")
+
+
+def test_6d_robot_gripper_outlier_still_rejected():
+    # 20D robot keeps grippers in the bounds check.
+    mds = _make_cartesian_mds_width(reject_outliers=True, width=20)
+    actions = torch.zeros(1, 20)
+    actions[..., bimanual_cartesian_layout(20)["grip"][0]] = 5.0
+    data = {"embodiment": 9, "actions_cartesian": actions}
+    assert "Bounds violation" in mds._check_bounds(data, _DummyLeaf("ep", 1), 0, "ep")

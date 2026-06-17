@@ -14,7 +14,7 @@ robomimic_model:
   action_converters:
     rules:
       MECKA_BIMANUAL:
-        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesian6D
     # optional fallback if no match is found
     fallback:
       _target_: egomimic.utils.action_utils.BaseActionConverter

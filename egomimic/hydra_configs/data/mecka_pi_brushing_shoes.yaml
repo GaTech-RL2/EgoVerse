@@ -1,5 +1,8 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
+# Visualization task allowlist consumed by evaluator.tasks by default.
+viz_tasks: [brushing_shoes]
+
 train_datasets:
   mecka_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -16,7 +19,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['lab'] == 'mecka' and row['task'] == 'fold_clothes'"
+        - "lambda row: row['lab'] == 'mecka' and row['task'] == 'brushing_shoes'"
     mode: train
 
 valid_datasets:
@@ -31,6 +34,18 @@ train_dataloader_params:
     batch_size: 64
     num_workers: 10
 valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 64
+    num_workers: 10
+
+# `+evaluator@train_viz_evaluator=train_viz_pi`.
+train_viz_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
+    mode: train
+train_viz_dataloader_params:
   mecka_bimanual:
     batch_size: 64
     num_workers: 10

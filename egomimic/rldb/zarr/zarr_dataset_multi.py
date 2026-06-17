@@ -48,6 +48,7 @@ from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
 )
+from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
 if TYPE_CHECKING:
     # Annotation-only import — avoids a runtime circular import with
@@ -911,11 +912,19 @@ class MultiDataset(torch.utils.data.Dataset):
                     logger.warning(prefix)
                 return prefix
 
-            is_cartesian_action = (
-                key_type == "action_keys"
-                and key_name == "actions_cartesian"
-                and arr.shape[-1] == 12
-            )
+            # The bimanual cartesian action chunk and the ee_pose proprio share a
+            # [L | R] layout whose rotation channels are either Euler ypr (wraps
+            # at ±π) or continuous 6D columns. In both cases quantile bounds on
+            # the rotation channels are meaningless and reject otherwise-valid
+            # frames, so we only bounds-check the translation (and gripper)
+            # channels. ``bimanual_cartesian_layout`` recognizes widths
+            # 12/14 (ypr) and 18/20 (6D); any other width falls through to a
+            # full-vector check.
+            cartesian_layout = None
+            if (key_type == "action_keys" and key_name == "actions_cartesian") or (
+                key_type == "proprio_keys" and key_name == "observations.state.ee_pose"
+            ):
+                cartesian_layout = bimanual_cartesian_layout(arr.shape[-1])
             if not self.reject_outliers:
                 continue
 
@@ -933,11 +942,13 @@ class MultiDataset(torch.utils.data.Dataset):
             except RuntimeError:
                 continue
 
-            if is_cartesian_action:
-                xyz_idx = list(self.CARTESIAN_ACTION_XYZ_INDICES)
-                arr_for_quantiles = arr[..., xyz_idx]
-                q_low = q_low[..., xyz_idx]
-                q_high = q_high[..., xyz_idx]
+            if cartesian_layout is not None:
+                check_idx = list(cartesian_layout["xyz"]) + list(
+                    cartesian_layout["grip"]
+                )
+                arr_for_quantiles = arr[..., check_idx]
+                q_low = q_low[..., check_idx]
+                q_high = q_high[..., check_idx]
             else:
                 arr_for_quantiles = arr
 
