@@ -1,48 +1,29 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
-
-# Per-frame loader for HPT-style training on pushshapes_sim. Each sample
-# is one frame with obs (image + state) and an action chunk of length
-# ``action_horizon`` (32 by default). Unlike ``tsimulation.yaml`` which
-# packs full episodes into a single varlen stream, this returns
-# (B, T_chunk, ...) tensors that fit HPT's chunked-action head directly.
+# Same per-frame HPT loader as tsimulation_hpt.yaml, pointed at the
+# basic_success dataset dir, with 8 dataloader workers.
+#
+# NOTE: this variant overrides the keymap back to get_keymap (WINDOWED obs),
+# unlike the get_keymap_hpt used by tsimulation_hpt. Windowed obs lets HPT cheat
+# at train time (see pushshapes.get_keymap_hpt docstring) -- preserved here as
+# the pre-existing behavior; this likely wants get_keymap_hpt instead.
+defaults:
+  - tsimulation_hpt
+  - _self_
 
 train_datasets:
   pushshapes_sim:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: /coc/flash7/paphiwetsa3/datasets/circle/basic_success
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
-        action_horizon: 32
-      transform_list: null
-    mode: total
-    skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
-                              # (per-frame loader + reused norm stats causes
-                              # ~1-2% of frames to fail bounds; resampling
-                              # each one stalls data loading).
-
 valid_datasets:
   pushshapes_sim:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: /coc/flash7/paphiwetsa3/datasets/circle/basic_success
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
-        action_horizon: 32
-      transform_list: null
-    mode: total
-    skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
-                              # (per-frame loader + reused norm stats causes
-                              # ~1-2% of frames to fail bounds; resampling
-                              # each one stalls data loading).
-
 train_dataloader_params:
   pushshapes_sim:
-    batch_size: 128
     num_workers: 8
 valid_dataloader_params:
   pushshapes_sim:
-    batch_size: 128
     num_workers: 8

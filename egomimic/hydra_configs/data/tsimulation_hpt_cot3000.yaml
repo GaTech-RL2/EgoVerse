@@ -1,28 +1,19 @@
-_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
-
 # HPT cotrain on two pushshapes embodiments: big circle (circle_3000,
 # pushshapes_sim) + small circle (small_circle_3000,
-# pushshapes_sim_small_circle). Cloned from tsimulation_hpt_nc3.yaml and
-# extended with a second embodiment, following the per-embodiment
-# dataloader_params structure of gmm_cotrain.yaml.
+# pushshapes_sim_small_circle). The pushshapes_sim per-frame HPT block comes
+# from tsimulation_hpt (only folder_path overridden to circle_3000); this leaf
+# adds the second embodiment and its dataloader params (cf. gmm_cotrain.yaml).
 #
 # Both embodiments use the HPT per-frame loader (get_keymap_hpt): SINGLE-frame
-# obs (front_img_1 + state_agent_obj) + an action_horizon-long action chunk.
-# This is required by HPT's "one current obs -> predict next action_horizon
-# actions" contract (see pushshapes.get_keymap_hpt docstring).
+# obs + an action_horizon-long action chunk, per HPT's contract.
+defaults:
+  - tsimulation_hpt
+  - _self_
 
 train_datasets:
   pushshapes_sim:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle_3000
-      key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
-        action_horizon: 32
-      transform_list: null
-    mode: total
-    skip_bounds_check: true
   pushshapes_sim_small_circle:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
@@ -38,16 +29,8 @@ train_datasets:
 
 valid_datasets:
   pushshapes_sim:
-    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
       folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle_3000
-      key_map:
-        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
-        action_horizon: 32
-      transform_list: null
-    mode: total
-    skip_bounds_check: true
   pushshapes_sim_small_circle:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
@@ -62,16 +45,10 @@ valid_datasets:
     skip_bounds_check: true
 
 train_dataloader_params:
-  pushshapes_sim:
-    batch_size: 128
-    num_workers: 4
   pushshapes_sim_small_circle:
     batch_size: 128
     num_workers: 4
 valid_dataloader_params:
-  pushshapes_sim:
-    batch_size: 128
-    num_workers: 4
   pushshapes_sim_small_circle:
     batch_size: 128
     num_workers: 4
