@@ -1,0 +1,323 @@
+{
+  "episodes": [
+    {
+      "episode_hash": "69b9b0d99dcb1b5e480db006",
+      "labels": [
+        "place_garment",
+        "fasten_garment",
+        "smooth_garment",
+        "smooth_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9b1c455ee96e0d7396949",
+      "labels": [
+        "smooth_garment",
+        "fasten_garment",
+        "adjust_garment",
+        "smooth_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9b260c004b8e369a3d517",
+      "labels": [
+        "place_garment",
+        "smooth_garment",
+        "fold_garment",
+        "adjust_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9b2924673c55fc915ba66",
+      "labels": [
+        "fold_garment",
+        "place_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9b60aa51108e7b73009d1",
+      "labels": [
+        "adjust_garment",
+        "adjust_garment",
+        "adjust_garment",
+        "place_garment",
+        "adjust_garment",
+        "place_garment",
+        "pick_up_garment",
+        "place_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9c8f8a6f41015b5203409",
+      "labels": [
+        "adjust_garment",
+        "adjust_garment",
+        "adjust_garment",
+        "clean_garment",
+        "adjust_garment",
+        "clean_garment",
+        "clean_garment",
+        "clean_garment",
+        "clean_garment",
+        "fold_garment",
+        "adjust_garment",
+        "clean_garment",
+        "fold_garment",
+        "clean_garment",
+        "clean_garment",
+        "adjust_garment",
+        "clean_garment",
+        "clean_garment",
+        "clean_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9c95b347986ddc8b9eb25",
+      "labels": [
+        "smooth_garment",
+        "smooth_garment",
+        "adjust_garment",
+        "smooth_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9e074a5d0498b3beb60bf",
+      "labels": [
+        "other_manipulation",
+        "fold_garment",
+        "place_garment",
+        "unfold_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9e2e42420a65b8f3b0d54",
+      "labels": [
+        "adjust_garment",
+        "place_garment",
+        "adjust_garment",
+        "fold_garment",
+        "fold_garment",
+        "place_garment",
+        "pick_up_garment",
+        "place_garment",
+        "adjust_garment",
+        "fold_garment",
+        "fold_garment",
+        "place_garment",
+        "pick_up_garment",
+        "fold_garment",
+        "place_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9e545bbb970524d3cf45d",
+      "labels": [
+        "smooth_garment",
+        "fasten_garment",
+        "smooth_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9e59388fdab48150e3d07",
+      "labels": [
+        "adjust_garment",
+        "fold_garment",
+        "fold_garment",
+        "place_garment",
+        "hang_garment",
+        "hang_garment",
+        "hang_garment",
+        "adjust_garment",
+        "place_garment",
+        "fold_garment",
+        "fold_garment",
+        "fold_garment",
+        "place_garment",
+        "pick_up_garment",
+        "fold_garment",
+        "fold_garment",
+        "adjust_garment",
+        "fold_garment",
+        "fold_garment",
+        "place_garment",
+        "adjust_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9e68cd8d59e6ae34c0e1b",
+      "labels": [
+        "pick_up_garment",
+        "smooth_garment",
+        "fold_garment",
+        "pick_up_garment",
+        "smooth_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9e6a0055065a1832b56b5",
+      "labels": [
+        "fold_garment",
+        "place_garment",
+        "fold_garment",
+        "place_garment",
+        "fold_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69b9fab7f4432734dc1b3b25",
+      "labels": [
+        "pick_up_garment",
+        "smooth_garment",
+        "fold_garment",
+        "flip_garment",
+        "place_garment",
+        "fold_garment",
+        "place_garment"
+      ]
+    },
+    {
+      "episode_hash": "69ba00b5afb568e39e92f340",
+      "labels": [
+        "hang_garment",
+        "adjust_garment",
+        "hang_garment",
+        "hang_garment",
+        "adjust_garment",
+        "hang_garment",
+        "hang_garment",
+        "adjust_garment"
+      ]
+    },
+    {
+      "episode_hash": "69ba0421ad41965cca81ccca",
+      "labels": [
+        "smooth_garment",
+        "fold_garment",
+        "smooth_garment",
+        "fold_garment",
+        "fold_garment",
+        "fold_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69ba06f4862b272d33cfec6f",
+      "labels": [
+        "pick_up_garment",
+        "place_garment",
+        "adjust_garment",
+        "fold_garment",
+        "flip_garment",
+        "place_garment",
+        "no_action",
+        "pick_up_garment",
+        "place_garment",
+        "fold_garment",
+        "no_action"
+      ]
+    },
+    {
+      "episode_hash": "69ba09ef8914508abf138bca",
+      "labels": [
+        "place_garment",
+        "fold_garment",
+        "other_manipulation",
+        "place_garment",
+        "place_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69bacdb87f9d2a9ee33a6ccf",
+      "labels": [
+        "fold_garment",
+        "place_garment",
+        "smooth_garment",
+        "smooth_garment",
+        "smooth_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69bad48044b0fc7135f86330",
+      "labels": [
+        "pick_up_garment",
+        "smooth_garment",
+        "fold_garment",
+        "place_garment",
+        "pick_up_garment",
+        "smooth_garment",
+        "fold_garment",
+        "place_garment"
+      ]
+    },
+    {
+      "episode_hash": "69bad84c337db01471731db7",
+      "labels": [
+        "place_garment",
+        "pick_up_garment",
+        "unfold_garment",
+        "adjust_garment",
+        "fold_garment",
+        "place_garment"
+      ]
+    },
+    {
+      "episode_hash": "69bad9296984eb7262b04a2a",
+      "labels": [
+        "fold_garment",
+        "fold_garment",
+        "fold_garment",
+        "fold_garment",
+        "smooth_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69bada5b790ccc5cb89c1083",
+      "labels": [
+        "fold_garment",
+        "fold_garment"
+      ]
+    },
+    {
+      "episode_hash": "69badbf27e311f13fc6df09b",
+      "labels": [
+        "place_garment",
+        "hang_garment",
+        "smooth_garment",
+        "smooth_garment",
+        "fold_garment",
+        "place_garment"
+      ]
+    },
+    {
+      "episode_hash": "69badd72cc766ab7cf35ea9d",
+      "labels": [
+        "flip_garment",
+        "fold_garment",
+        "fold_garment",
+        "place_garment",
+        "flip_garment",
+        "fold_garment",
+        "fold_garment",
+        "place_garment",
+        "fold_garment",
+        "place_garment",
+        "flip_garment",
+        "fold_garment",
+        "fold_garment",
+        "place_garment",
+        "flip_garment",
+        "fold_garment"
+      ]
+    }
+  ]
+}

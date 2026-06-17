@@ -1,0 +1,1287 @@
+[
+  {
+    "episode_hash": "696d0f02c7470f85da9346db",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2983,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 189,
+        "text": "smooth folded t-shirt, pick up and place folded t-shirt on stack"
+      },
+      {
+        "start_idx": 189,
+        "end_idx": 620,
+        "text": "pick up t-shirt and spread t-shirt on table"
+      },
+      {
+        "start_idx": 620,
+        "end_idx": 1287,
+        "text": "fold t-shirt in half lengthwise, adjust and smoothen t-shirt"
+      },
+      {
+        "start_idx": 1287,
+        "end_idx": 2340,
+        "text": "unfold right half and smooth t-shirt, fold right half and smoothen t-shirt"
+      },
+      {
+        "start_idx": 2340,
+        "end_idx": 2400,
+        "text": "pick up folded t-shirt, place folded t-shirt on stack"
+      },
+      {
+        "start_idx": 2400,
+        "end_idx": 2919,
+        "text": "pick up t-shirt and spread t-shirt on table, smoothen t-shirt"
+      },
+      {
+        "start_idx": 2919,
+        "end_idx": 2983,
+        "text": "flip t-shirt on table, smoothen t-shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d0f031244464a4aac1b8f",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2983,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 471,
+        "text": "smoothen and adjust t-shirt"
+      },
+      {
+        "start_idx": 471,
+        "end_idx": 1703,
+        "text": "fold t-shirt"
+      },
+      {
+        "start_idx": 1703,
+        "end_idx": 1785,
+        "text": "move t-shirt on stack"
+      },
+      {
+        "start_idx": 1785,
+        "end_idx": 1863,
+        "text": "pick up t-shirt, place t-shirt on table"
+      },
+      {
+        "start_idx": 1863,
+        "end_idx": 2562,
+        "text": "adjust and straighten t-shirt"
+      },
+      {
+        "start_idx": 2562,
+        "end_idx": 2970,
+        "text": "flip t-shirt, straighten t-shirt"
+      },
+      {
+        "start_idx": 2970,
+        "end_idx": 2983,
+        "text": "adjust t-shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d0fdafad368fca385f5a5",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2983,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 170,
+        "text": "smoothen t-shirt"
+      },
+      {
+        "start_idx": 170,
+        "end_idx": 470,
+        "text": "fold t-shirt, flip folded t-shirt, smoothen folded t-shirt"
+      },
+      {
+        "start_idx": 470,
+        "end_idx": 549,
+        "text": "move folded t-shirt on stack of t-shirts"
+      },
+      {
+        "start_idx": 549,
+        "end_idx": 1230,
+        "text": "pick up t-shirt from pile, adjust t-shirt, spread t-shirt on table, smoothen t-shirt"
+      },
+      {
+        "start_idx": 1230,
+        "end_idx": 1380,
+        "text": "flip t-shirt, smoothen t-shirt"
+      },
+      {
+        "start_idx": 1380,
+        "end_idx": 2676,
+        "text": "smoothen t-shirt and fold t-shirt"
+      },
+      {
+        "start_idx": 2676,
+        "end_idx": 2983,
+        "text": "flip folded t-shirt, smoothen folded t-shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d0fe4a199224e8d66242c",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2983,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 131,
+        "text": "smooth shirt, pick up folded shirt, place folded shirt on stack"
+      },
+      {
+        "start_idx": 131,
+        "end_idx": 813,
+        "text": "pick up shirt, place shirt on table, adjust shirt, smooth shirt"
+      },
+      {
+        "start_idx": 813,
+        "end_idx": 1292,
+        "text": "flip shirt, adjust shirt, smooth shirt"
+      },
+      {
+        "start_idx": 1292,
+        "end_idx": 1718,
+        "text": "adjust shirt, fold shirt, smooth shirt"
+      },
+      {
+        "start_idx": 1718,
+        "end_idx": 1863,
+        "text": "fold shirt, smooth shirt"
+      },
+      {
+        "start_idx": 1863,
+        "end_idx": 2046,
+        "text": "smooth shirt, adjust shirt, fold shirt"
+      },
+      {
+        "start_idx": 2046,
+        "end_idx": 2214,
+        "text": "smooth shirt, adjust shirt"
+      },
+      {
+        "start_idx": 2214,
+        "end_idx": 2445,
+        "text": "smooth shirt, fold shirt, adjust shirt"
+      },
+      {
+        "start_idx": 2445,
+        "end_idx": 2580,
+        "text": "fold shirt, adjust shirt"
+      },
+      {
+        "start_idx": 2580,
+        "end_idx": 2898,
+        "text": "smooth shirt, flip shirt, adjust shirt"
+      },
+      {
+        "start_idx": 2898,
+        "end_idx": 2983,
+        "text": "pick up folded shirt, place folded shirt on stack, pick up shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d119e1fe17643f95f9fb9",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2983,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 284,
+        "text": "flip the folded shirt, adjust folded shirt"
+      },
+      {
+        "start_idx": 284,
+        "end_idx": 336,
+        "text": "move folded shirt"
+      },
+      {
+        "start_idx": 336,
+        "end_idx": 519,
+        "text": "pick up shirt, lay shirt on table"
+      },
+      {
+        "start_idx": 519,
+        "end_idx": 1320,
+        "text": "straighten shirt"
+      },
+      {
+        "start_idx": 1320,
+        "end_idx": 2916,
+        "text": "turn shirt over, fold shirt"
+      },
+      {
+        "start_idx": 2916,
+        "end_idx": 2983,
+        "text": "flip folded shirt, adjust folded shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d119fc0c2d9149de65a2f",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2980,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 63,
+        "text": "smooth t-shirt on table, reposition t-shirt on table"
+      },
+      {
+        "start_idx": 63,
+        "end_idx": 633,
+        "text": "fold side of t-shirt, smooth t-shirt"
+      },
+      {
+        "start_idx": 633,
+        "end_idx": 741,
+        "text": "fold bottom of t-shirt, reposition t-shirt on table"
+      },
+      {
+        "start_idx": 741,
+        "end_idx": 1146,
+        "text": "fold t-shirt, smooth t-shirt"
+      },
+      {
+        "start_idx": 1146,
+        "end_idx": 1200,
+        "text": "pick up folded t-shit, place folded t-shirt on left stack"
+      },
+      {
+        "start_idx": 1200,
+        "end_idx": 1230,
+        "text": "pick up t-shirt from right pile"
+      },
+      {
+        "start_idx": 1230,
+        "end_idx": 1374,
+        "text": "spread t-shirt on table"
+      },
+      {
+        "start_idx": 1374,
+        "end_idx": 1839,
+        "text": "smooth t-shirt table"
+      },
+      {
+        "start_idx": 1839,
+        "end_idx": 2427,
+        "text": "smooth t-shirt, flip t-shirt on table"
+      },
+      {
+        "start_idx": 2427,
+        "end_idx": 2980,
+        "text": "fold t-shirt, smooth t-shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d2fb388af7cc080636a98",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2245,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 120,
+        "text": "pick up pants"
+      },
+      {
+        "start_idx": 120,
+        "end_idx": 660,
+        "text": "fold pants"
+      },
+      {
+        "start_idx": 660,
+        "end_idx": 699,
+        "text": "place pants on table"
+      },
+      {
+        "start_idx": 699,
+        "end_idx": 879,
+        "text": "pull out cloth from pile, place cloth on table"
+      },
+      {
+        "start_idx": 879,
+        "end_idx": 1272,
+        "text": "fold cloth"
+      },
+      {
+        "start_idx": 1272,
+        "end_idx": 1340,
+        "text": "pick up cloth, stack cloth on table"
+      },
+      {
+        "start_idx": 1340,
+        "end_idx": 1470,
+        "text": "pull out pant from pile, place white cloth on pile"
+      },
+      {
+        "start_idx": 1470,
+        "end_idx": 1704,
+        "text": "straighten pant on table"
+      },
+      {
+        "start_idx": 1704,
+        "end_idx": 2130,
+        "text": "fold pant"
+      },
+      {
+        "start_idx": 2130,
+        "end_idx": 2229,
+        "text": "pick up cloth stack, place cloth stack pant, move cloth stack on table"
+      },
+      {
+        "start_idx": 2229,
+        "end_idx": 2245,
+        "text": "pick up cloth"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d30391b5841990138a18b",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2803,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 1797,
+        "text": "fold handkerchief"
+      },
+      {
+        "start_idx": 1797,
+        "end_idx": 2081,
+        "text": "fold handkerchief"
+      },
+      {
+        "start_idx": 2081,
+        "end_idx": 2721,
+        "text": "move plastic bag from stack, place folded handkerchief in plastic bag"
+      },
+      {
+        "start_idx": 2721,
+        "end_idx": 2803,
+        "text": "flip packaged handkerchief, pick up packaged handkerchief"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d3055d878202cf6c99df7",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 3286,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 69,
+        "text": "smoothen the shirt on table"
+      },
+      {
+        "start_idx": 69,
+        "end_idx": 429,
+        "text": "spray liquid on shirt, place spray bottle on table"
+      },
+      {
+        "start_idx": 429,
+        "end_idx": 510,
+        "text": "smoothen the shirt on the table"
+      },
+      {
+        "start_idx": 510,
+        "end_idx": 2145,
+        "text": "picking up iron, iron the shirt, place iron on table"
+      },
+      {
+        "start_idx": 2145,
+        "end_idx": 3286,
+        "text": "fold shirt, pick up shirt, place shirt on stack"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d327667df29fbace8f267",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2383,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 132,
+        "text": "adjust garment and fold garment"
+      },
+      {
+        "start_idx": 132,
+        "end_idx": 630,
+        "text": "adjust garment and smoothen garment"
+      },
+      {
+        "start_idx": 630,
+        "end_idx": 813,
+        "text": "fold garment and adjust garment"
+      },
+      {
+        "start_idx": 813,
+        "end_idx": 1314,
+        "text": "smoothen garment and fold garment"
+      },
+      {
+        "start_idx": 1314,
+        "end_idx": 1635,
+        "text": "adjust garment and smoothen garment"
+      },
+      {
+        "start_idx": 1635,
+        "end_idx": 1860,
+        "text": "fold garment and adjust garment"
+      },
+      {
+        "start_idx": 1860,
+        "end_idx": 1929,
+        "text": "smoothen garment and adjust garment"
+      },
+      {
+        "start_idx": 1929,
+        "end_idx": 2012,
+        "text": "smoothen garment"
+      },
+      {
+        "start_idx": 2012,
+        "end_idx": 2169,
+        "text": "fold garment and smoothen garment"
+      },
+      {
+        "start_idx": 2169,
+        "end_idx": 2337,
+        "text": "adjust garment and smoothen garment"
+      },
+      {
+        "start_idx": 2337,
+        "end_idx": 2383,
+        "text": "fold garment"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d8e837d42972c2ce7decf",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2983,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 309,
+        "text": "fold pink t-shirt on table, straighten pink t-shirt"
+      },
+      {
+        "start_idx": 309,
+        "end_idx": 360,
+        "text": "pick up folded pink t-shirt and place folded pink t-shirt on stack"
+      },
+      {
+        "start_idx": 360,
+        "end_idx": 798,
+        "text": "pick up pink t-shirt, place pink t-shirt on table, straighten pink t-shirt"
+      },
+      {
+        "start_idx": 798,
+        "end_idx": 992,
+        "text": "flip pink t-shirt, straighten pink t-shirt"
+      },
+      {
+        "start_idx": 992,
+        "end_idx": 1764,
+        "text": "fold pink t-shirt"
+      },
+      {
+        "start_idx": 1764,
+        "end_idx": 1869,
+        "text": "pick up folded pink t-shirt and place folded pink t-shirt on stack"
+      },
+      {
+        "start_idx": 1869,
+        "end_idx": 2337,
+        "text": "pick up pink t-shirt, place pink t-shirt on table, straighten pink t-shirt"
+      },
+      {
+        "start_idx": 2337,
+        "end_idx": 2558,
+        "text": "flip pink t-shirt, straighten pink t-shirt"
+      },
+      {
+        "start_idx": 2558,
+        "end_idx": 2983,
+        "text": "fold pink t-shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d8eb6bcbf0c32b4b22a20",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2983,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 231,
+        "text": "adjust shirt, flip shirt on table, pick up shirt, place shirt on stack"
+      },
+      {
+        "start_idx": 231,
+        "end_idx": 345,
+        "text": "adjust shirt, pick up shirt from pile"
+      },
+      {
+        "start_idx": 345,
+        "end_idx": 758,
+        "text": "spread shirt, place shirt on table, smoothen shirt, flip shirt"
+      },
+      {
+        "start_idx": 758,
+        "end_idx": 1574,
+        "text": "adjust shirt, smoothen shirt, fold shirt, rotate shirt"
+      },
+      {
+        "start_idx": 1574,
+        "end_idx": 1995,
+        "text": "fold shirt, adjust shirt, flip shirt pick up shirt"
+      },
+      {
+        "start_idx": 1995,
+        "end_idx": 2130,
+        "text": "place shirt on stack, pick up shirt from pile"
+      },
+      {
+        "start_idx": 2130,
+        "end_idx": 2216,
+        "text": "move shirts onto pile"
+      },
+      {
+        "start_idx": 2216,
+        "end_idx": 2621,
+        "text": "spread shirt on table, adjust shirt, smoothen shirt, flip shirt"
+      },
+      {
+        "start_idx": 2621,
+        "end_idx": 2983,
+        "text": "smoothen shirt on table, adjust shirt, fold shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d92ebdd1a587f40c9b67f",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2983,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 315,
+        "text": "smoothen shirt with lint roller"
+      },
+      {
+        "start_idx": 315,
+        "end_idx": 909,
+        "text": "flip shirt, adjust shirt on counter"
+      },
+      {
+        "start_idx": 909,
+        "end_idx": 2145,
+        "text": "smoothen shirt with lint roller"
+      },
+      {
+        "start_idx": 2145,
+        "end_idx": 2983,
+        "text": "fold shirt, smoothen shirt with lint roller"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696d953676ff4b529c5066c2",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 3520,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 80,
+        "text": "adjust fabric a d adjust lint roller on table"
+      },
+      {
+        "start_idx": 80,
+        "end_idx": 1670,
+        "text": "pick up lint roller, adjust fabric, clean fabric with lint roller"
+      },
+      {
+        "start_idx": 1670,
+        "end_idx": 1760,
+        "text": "clean fabric with lint roller"
+      },
+      {
+        "start_idx": 1760,
+        "end_idx": 3520,
+        "text": "clean fabric with lint roller, adjust fabric, clean fabric with lint roller"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696da1be2ddbc19f3c9b0899",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2986,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 438,
+        "text": "unfold handkerchief from table, smoothen handkerchief on table"
+      },
+      {
+        "start_idx": 438,
+        "end_idx": 1140,
+        "text": "fold handkerchief on table"
+      },
+      {
+        "start_idx": 1140,
+        "end_idx": 1386,
+        "text": "pick up plastic bag from pack of plastic bags on table"
+      },
+      {
+        "start_idx": 1386,
+        "end_idx": 1416,
+        "text": "move aside pack of plastic bag"
+      },
+      {
+        "start_idx": 1416,
+        "end_idx": 2616,
+        "text": "adjust plastic bag, place handkerchief on plastic bag"
+      },
+      {
+        "start_idx": 2616,
+        "end_idx": 2691,
+        "text": "pick up plastic bag with handkerchief from table, adjust handkerchief into plastic bag"
+      },
+      {
+        "start_idx": 2691,
+        "end_idx": 2910,
+        "text": "place plastic bag with handkerchief on table, adjust handkerchief into plastic bag"
+      },
+      {
+        "start_idx": 2910,
+        "end_idx": 2986,
+        "text": "place plastic bag with handkerchief on stack"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696da40edc787523fe33b60b",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2510,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 129,
+        "text": "smooth and fold side of green shirt"
+      },
+      {
+        "start_idx": 129,
+        "end_idx": 240,
+        "text": "fold hem of green shirt"
+      },
+      {
+        "start_idx": 240,
+        "end_idx": 390,
+        "text": "fold side of green shirt"
+      },
+      {
+        "start_idx": 390,
+        "end_idx": 480,
+        "text": "fold hem of green shirt"
+      },
+      {
+        "start_idx": 480,
+        "end_idx": 900,
+        "text": "fold, smooth, rotate green shirt"
+      },
+      {
+        "start_idx": 900,
+        "end_idx": 939,
+        "text": "place green shirt aside"
+      },
+      {
+        "start_idx": 939,
+        "end_idx": 1100,
+        "text": "pick up pink shirt and olace it on table"
+      },
+      {
+        "start_idx": 1100,
+        "end_idx": 1380,
+        "text": "adjust and smooth pink shirt on table"
+      },
+      {
+        "start_idx": 1380,
+        "end_idx": 1560,
+        "text": "smooth pink shirt on table"
+      },
+      {
+        "start_idx": 1560,
+        "end_idx": 1740,
+        "text": "rotate and straighten pink shirt on table"
+      },
+      {
+        "start_idx": 1740,
+        "end_idx": 1860,
+        "text": "fold side of pink shirt"
+      },
+      {
+        "start_idx": 1860,
+        "end_idx": 1959,
+        "text": "smooth and fold hem of pink shirt"
+      },
+      {
+        "start_idx": 1959,
+        "end_idx": 2169,
+        "text": "fold side and hem of pink shirt"
+      },
+      {
+        "start_idx": 2169,
+        "end_idx": 2490,
+        "text": "fold and smooth pink shirt in half"
+      },
+      {
+        "start_idx": 2490,
+        "end_idx": 2510,
+        "text": "smooth and move pink shirt aside"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696dcd6ccdaff5670111ce7c",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2986,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 60,
+        "text": "hold plastic bag"
+      },
+      {
+        "start_idx": 60,
+        "end_idx": 153,
+        "text": "pick up cloth"
+      },
+      {
+        "start_idx": 153,
+        "end_idx": 186,
+        "text": "move cloth from table to pile"
+      },
+      {
+        "start_idx": 186,
+        "end_idx": 267,
+        "text": "place cloth on table"
+      },
+      {
+        "start_idx": 267,
+        "end_idx": 888,
+        "text": "straighten cloth"
+      },
+      {
+        "start_idx": 888,
+        "end_idx": 2400,
+        "text": "fold cloth"
+      },
+      {
+        "start_idx": 2400,
+        "end_idx": 2523,
+        "text": "pick up plastic bag, place plastic bag on table"
+      },
+      {
+        "start_idx": 2523,
+        "end_idx": 2986,
+        "text": "move folded cloth into plastic bag"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696dcd733eec4106b2aa4cbc",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2986,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 51,
+        "text": "adjust cloth, place cloth on table"
+      },
+      {
+        "start_idx": 51,
+        "end_idx": 255,
+        "text": "spread cloth on table, fold cloth"
+      },
+      {
+        "start_idx": 255,
+        "end_idx": 312,
+        "text": "pick up cloth, align cloth"
+      },
+      {
+        "start_idx": 312,
+        "end_idx": 447,
+        "text": "place cloth on table, spread cloth"
+      },
+      {
+        "start_idx": 447,
+        "end_idx": 639,
+        "text": "fold cloth, adjust cloth"
+      },
+      {
+        "start_idx": 639,
+        "end_idx": 765,
+        "text": "fold cloth, adjust cloth"
+      },
+      {
+        "start_idx": 765,
+        "end_idx": 819,
+        "text": "adjust cloth, spread cloth"
+      },
+      {
+        "start_idx": 819,
+        "end_idx": 978,
+        "text": "adjust cloth, pick up plastic bag"
+      },
+      {
+        "start_idx": 978,
+        "end_idx": 1035,
+        "text": "adjust plastic bag, place plastic bag on table"
+      },
+      {
+        "start_idx": 1035,
+        "end_idx": 1173,
+        "text": "pick up cloth, adjust cloth"
+      },
+      {
+        "start_idx": 1173,
+        "end_idx": 1227,
+        "text": "place cloth on table, adjust cloth on table"
+      },
+      {
+        "start_idx": 1227,
+        "end_idx": 1317,
+        "text": "hold plastic bag, adjust cloth"
+      },
+      {
+        "start_idx": 1317,
+        "end_idx": 1428,
+        "text": "pick up cloth, adjust cloth"
+      },
+      {
+        "start_idx": 1428,
+        "end_idx": 1482,
+        "text": "place cloth on table"
+      },
+      {
+        "start_idx": 1482,
+        "end_idx": 1557,
+        "text": "hold plastic bag, adjust cloth"
+      },
+      {
+        "start_idx": 1557,
+        "end_idx": 1941,
+        "text": "place cloth in plastic bag, adjust plastic bag"
+      },
+      {
+        "start_idx": 1941,
+        "end_idx": 1985,
+        "text": "pick up packed cloth, adjust packed cloth"
+      },
+      {
+        "start_idx": 1985,
+        "end_idx": 2076,
+        "text": "place packed cloth on table, adjust packed cloth on table"
+      },
+      {
+        "start_idx": 2076,
+        "end_idx": 2106,
+        "text": "pick up packed cloth, place packed cloth on pile"
+      },
+      {
+        "start_idx": 2106,
+        "end_idx": 2142,
+        "text": "adjust packed cloth"
+      },
+      {
+        "start_idx": 2142,
+        "end_idx": 2250,
+        "text": "pick up clothes, remove clothes from table"
+      },
+      {
+        "start_idx": 2250,
+        "end_idx": 2412,
+        "text": "adjust cloth, place cloth on table"
+      },
+      {
+        "start_idx": 2412,
+        "end_idx": 2802,
+        "text": "adjust cloth on table, spread cloth on table"
+      },
+      {
+        "start_idx": 2802,
+        "end_idx": 2986,
+        "text": "fold cloth, align cloth"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696dce7f80f51286a174d3bf",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2686,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 155,
+        "text": "adjust shirt"
+      },
+      {
+        "start_idx": 155,
+        "end_idx": 255,
+        "text": "fold shirt"
+      },
+      {
+        "start_idx": 255,
+        "end_idx": 2686,
+        "text": "adjust shirt, smooth shirt, fold shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696dce84f6b4ab314ae7a214",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2686,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 249,
+        "text": "spread cloth on bed"
+      },
+      {
+        "start_idx": 249,
+        "end_idx": 579,
+        "text": "smoothen and adjust cloth on bed"
+      },
+      {
+        "start_idx": 579,
+        "end_idx": 870,
+        "text": "fold cloth on bed, adjust and smoothen cloth on bed"
+      },
+      {
+        "start_idx": 870,
+        "end_idx": 1290,
+        "text": "fold cloth on bed, smoothen cloth on bed"
+      },
+      {
+        "start_idx": 1290,
+        "end_idx": 1539,
+        "text": "fold cloth on bed"
+      },
+      {
+        "start_idx": 1539,
+        "end_idx": 1700,
+        "text": "smoothen cloth on bed"
+      },
+      {
+        "start_idx": 1700,
+        "end_idx": 2304,
+        "text": "smoothen and adjust cloth on bed"
+      },
+      {
+        "start_idx": 2304,
+        "end_idx": 2686,
+        "text": "fold cloth on bed, adjust and smoothen cloth on bed"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696dd090a56f03a27e59f69c",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 3283,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 429,
+        "text": "adjust and smoothen sweatshirt on table"
+      },
+      {
+        "start_idx": 429,
+        "end_idx": 723,
+        "text": "smoothen sweatshirt on table, rotate sweatshirt on table"
+      },
+      {
+        "start_idx": 723,
+        "end_idx": 1331,
+        "text": "adjust sweatshirt, fold sweatshirt on table, adjust sweatshirt"
+      },
+      {
+        "start_idx": 1331,
+        "end_idx": 2004,
+        "text": "pick up and flip sweatshirt on table, rotate sweatshirt on table, adjust sweatshirt, smoothen sweatshirt"
+      },
+      {
+        "start_idx": 2004,
+        "end_idx": 2367,
+        "text": "adjust string of sweatshirt, smoothen sweatshirt, pick up and place sweatshirt on table, adjust string of sweatshirt"
+      },
+      {
+        "start_idx": 2367,
+        "end_idx": 2561,
+        "text": "pick up plastic bag on from stack on table, place plastic bag on table, pull sweatshirt on table"
+      },
+      {
+        "start_idx": 2561,
+        "end_idx": 2850,
+        "text": "pick up bunch of tags and place on stack, adjust stack of tags on table"
+      },
+      {
+        "start_idx": 2850,
+        "end_idx": 3283,
+        "text": "fold sweatshirt, pick up plastic bag, pick up and place sweatshirt into plastic bag, adjust sweatshirt in plastic bag"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696e3f575495dfdd91c9205e",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 3076,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 33,
+        "text": "place folded black cloth on stack of clothes"
+      },
+      {
+        "start_idx": 33,
+        "end_idx": 228,
+        "text": "move yellow cloth to table"
+      },
+      {
+        "start_idx": 228,
+        "end_idx": 1020,
+        "text": "fold yellow cloth"
+      },
+      {
+        "start_idx": 1020,
+        "end_idx": 1062,
+        "text": "roll yellow cloth with lint roller"
+      },
+      {
+        "start_idx": 1062,
+        "end_idx": 1428,
+        "text": "fold cream colored cloth"
+      },
+      {
+        "start_idx": 1428,
+        "end_idx": 1485,
+        "text": "move dark yellow cloth to table"
+      },
+      {
+        "start_idx": 1485,
+        "end_idx": 3021,
+        "text": "fold dark yellow clothing on surface"
+      },
+      {
+        "start_idx": 3021,
+        "end_idx": 3054,
+        "text": "roll dark yellow cloth with lint roller"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696e5d79fdf195647b323774",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2473,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 354,
+        "text": "adjust black jacket"
+      },
+      {
+        "start_idx": 354,
+        "end_idx": 780,
+        "text": "fold black jacket, place folded black jacket on stack of folded clothing"
+      },
+      {
+        "start_idx": 780,
+        "end_idx": 1035,
+        "text": "pick up white shirt from pile of clothing, place white shirt on table, adjust white shirt"
+      },
+      {
+        "start_idx": 1035,
+        "end_idx": 1359,
+        "text": "fold white shirt, place folded white shirt on stack of folded clothing"
+      },
+      {
+        "start_idx": 1359,
+        "end_idx": 1674,
+        "text": "pick up green bodysuit, place green bodysuit on table, adjust green bodysuit"
+      },
+      {
+        "start_idx": 1674,
+        "end_idx": 2264,
+        "text": "fold green bodysuit, pick up folded green bodysuit, place folded green bodysuit on stack of clothing"
+      },
+      {
+        "start_idx": 2264,
+        "end_idx": 2294,
+        "text": "pick up folded green bodysuit, place folded green bodysuit on table"
+      },
+      {
+        "start_idx": 2294,
+        "end_idx": 2370,
+        "text": "pick orange tag gun from table, place orange tag gun on table"
+      },
+      {
+        "start_idx": 2370,
+        "end_idx": 2473,
+        "text": "pick up folded green bodysuit"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696e632d52cb044323851277",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2743,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 90,
+        "text": "pick up beige shirt and straighten"
+      },
+      {
+        "start_idx": 90,
+        "end_idx": 920,
+        "text": "straighten beige cloth, fold beige long sleeves"
+      },
+      {
+        "start_idx": 920,
+        "end_idx": 1059,
+        "text": "place folded beige shirt in table, adjust folded beige cloth, move orange labelling printer"
+      },
+      {
+        "start_idx": 1059,
+        "end_idx": 1130,
+        "text": "pick up orange labeling printer, place orange labelling printer on table"
+      },
+      {
+        "start_idx": 1130,
+        "end_idx": 1269,
+        "text": "smoothen folded beige shirt"
+      },
+      {
+        "start_idx": 1269,
+        "end_idx": 1410,
+        "text": "pick up folded grey shirt from stack, place grey shirt on folded beige shirt, pick up folded shirts, put folded shirts on stack"
+      },
+      {
+        "start_idx": 1410,
+        "end_idx": 1470,
+        "text": "pick up white shirt and place white shirt on table"
+      },
+      {
+        "start_idx": 1470,
+        "end_idx": 2150,
+        "text": "straighten white shirt, fold white shirt"
+      },
+      {
+        "start_idx": 2150,
+        "end_idx": 2220,
+        "text": "place folded white shirt in shirt stack, pick up grey shirt"
+      },
+      {
+        "start_idx": 2220,
+        "end_idx": 2340,
+        "text": "pick up grey shirt from pile, pick up orange labeling printer, put price tag on white shirt"
+      },
+      {
+        "start_idx": 2340,
+        "end_idx": 2743,
+        "text": "adjust grey shirt"
+      }
+    ]
+  },
+  {
+    "episode_hash": "696e634bd4beb7b75cdb20d9",
+    "lab": "mecka",
+    "task": "folding_clothes",
+    "total_frames": 2533,
+    "segments": [
+      {
+        "start_idx": 0,
+        "end_idx": 39,
+        "text": "place black shirt on folding table, adjust green cloth"
+      },
+      {
+        "start_idx": 39,
+        "end_idx": 339,
+        "text": "fold black shirt, hold and flip folded shirt"
+      },
+      {
+        "start_idx": 339,
+        "end_idx": 534,
+        "text": "move black shirt, pick and place white shirt on table, fold white shirt, place white shirt on black shirt"
+      },
+      {
+        "start_idx": 534,
+        "end_idx": 630,
+        "text": "pick up folded shirts, place shirts on stack"
+      },
+      {
+        "start_idx": 630,
+        "end_idx": 1269,
+        "text": "picu up yellow patterned shirt, place yellow patterned shirt on folding table, button yellow shirt"
+      },
+      {
+        "start_idx": 1269,
+        "end_idx": 1370,
+        "text": "adjust yellow shirt"
+      },
+      {
+        "start_idx": 1370,
+        "end_idx": 2270,
+        "text": "straighten and fold yellow shirt"
+      },
+      {
+        "start_idx": 2270,
+        "end_idx": 2370,
+        "text": "adjust folded yellow shirt"
+      },
+      {
+        "start_idx": 2370,
+        "end_idx": 2460,
+        "text": "pick up label gun and tag yellow shirt"
+      },
+      {
+        "start_idx": 2460,
+        "end_idx": 2533,
+        "text": "move shirt to folded stack"
+      }
+    ]
+  }
+]

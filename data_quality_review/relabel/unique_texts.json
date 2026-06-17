@@ -1,0 +1,9790 @@
+[
+  {
+    "text": "fold shirt",
+    "count": 56
+  },
+  {
+    "text": "fold cloth",
+    "count": 30
+  },
+  {
+    "text": "adjust shirt",
+    "count": 22
+  },
+  {
+    "text": "adjust cloth",
+    "count": 22
+  },
+  {
+    "text": "adjust cloth on table",
+    "count": 21
+  },
+  {
+    "text": "no action",
+    "count": 18
+  },
+  {
+    "text": "smoothen shirt",
+    "count": 17
+  },
+  {
+    "text": "smoothen t-shirt on table",
+    "count": 15
+  },
+  {
+    "text": "fold t-shirt",
+    "count": 14
+  },
+  {
+    "text": "adjust shirt on table",
+    "count": 13
+  },
+  {
+    "text": "iron shirt",
+    "count": 12
+  },
+  {
+    "text": "fold shirt, adjust shirt",
+    "count": 11
+  },
+  {
+    "text": "place folded cloth into plastic bag",
+    "count": 11
+  },
+  {
+    "text": "place iron on table",
+    "count": 11
+  },
+  {
+    "text": "fold garment",
+    "count": 10
+  },
+  {
+    "text": "fold cloth on table",
+    "count": 9
+  },
+  {
+    "text": "fold checkered cloth",
+    "count": 9
+  },
+  {
+    "text": "wipe table with cloth",
+    "count": 9
+  },
+  {
+    "text": "fold white garment",
+    "count": 9
+  },
+  {
+    "text": "iron t-shirt",
+    "count": 8
+  },
+  {
+    "text": "pick up plastic bag",
+    "count": 8
+  },
+  {
+    "text": "adjust cloth, fold cloth",
+    "count": 7
+  },
+  {
+    "text": "smoothen shirt on table",
+    "count": 7
+  },
+  {
+    "text": "pick up iron",
+    "count": 7
+  },
+  {
+    "text": "straighten shirt",
+    "count": 7
+  },
+  {
+    "text": "fold shirt, smoothen shirt",
+    "count": 7
+  },
+  {
+    "text": "place lint roller on table, adjust pants",
+    "count": 7
+  },
+  {
+    "text": "fold handkerchief",
+    "count": 6
+  },
+  {
+    "text": "smoothen garment",
+    "count": 6
+  },
+  {
+    "text": "place cloth on table",
+    "count": 6
+  },
+  {
+    "text": "spread shirt on table",
+    "count": 6
+  },
+  {
+    "text": "fold black shirt",
+    "count": 6
+  },
+  {
+    "text": "adjust shirt, smoothen shirt",
+    "count": 6
+  },
+  {
+    "text": "fold shirt on table",
+    "count": 6
+  },
+  {
+    "text": "smoothen black t-shirt, fold black t-shirt",
+    "count": 6
+  },
+  {
+    "text": "fold blue shirt",
+    "count": 6
+  },
+  {
+    "text": "fold white shirt",
+    "count": 6
+  },
+  {
+    "text": "fold shorts",
+    "count": 6
+  },
+  {
+    "text": "smoothen striped shirt on table",
+    "count": 6
+  },
+  {
+    "text": "fold striped shirt on table",
+    "count": 6
+  },
+  {
+    "text": "place hanger on rack",
+    "count": 5
+  },
+  {
+    "text": "smoothen costume",
+    "count": 5
+  },
+  {
+    "text": "button shirt",
+    "count": 5
+  },
+  {
+    "text": "pick up cloth",
+    "count": 5
+  },
+  {
+    "text": "smoothen red shirt",
+    "count": 5
+  },
+  {
+    "text": "smoothen t-shirt",
+    "count": 5
+  },
+  {
+    "text": "pick up cloth, adjust cloth",
+    "count": 5
+  },
+  {
+    "text": "smoothen cloth on bed",
+    "count": 5
+  },
+  {
+    "text": "fold fabric",
+    "count": 5
+  },
+  {
+    "text": "pick up plastic bag, open plastic bag",
+    "count": 5
+  },
+  {
+    "text": "place lint roller on table",
+    "count": 5
+  },
+  {
+    "text": "pick up lint roller, roll pants with lint roller",
+    "count": 5
+  },
+  {
+    "text": "clean white shirt with lint roller",
+    "count": 5
+  },
+  {
+    "text": "pick up cloth from basket, place cloth on table",
+    "count": 5
+  },
+  {
+    "text": "smooth cloth",
+    "count": 4
+  },
+  {
+    "text": "flip t-shirt",
+    "count": 4
+  },
+  {
+    "text": "spread t-shirt on table",
+    "count": 4
+  },
+  {
+    "text": "pick up folded cloth, place folded cloth on stack",
+    "count": 4
+  },
+  {
+    "text": "smooth t-shirt, adjust t-shirt",
+    "count": 4
+  },
+  {
+    "text": "fold pants",
+    "count": 4
+  },
+  {
+    "text": "fold cloth, adjust cloth",
+    "count": 4
+  },
+  {
+    "text": "smoothen folded shirt",
+    "count": 4
+  },
+  {
+    "text": "adjust t-shirt on table",
+    "count": 4
+  },
+  {
+    "text": "fold fabric, place fabric on stack",
+    "count": 4
+  },
+  {
+    "text": "adjust plastic bag",
+    "count": 4
+  },
+  {
+    "text": "rotate shirt, smoothen shirt",
+    "count": 4
+  },
+  {
+    "text": "fold green t-shirt",
+    "count": 4
+  },
+  {
+    "text": "pick up toothbrush, brush yellow cloth with toothbrush",
+    "count": 4
+  },
+  {
+    "text": "adjust garment on table",
+    "count": 4
+  },
+  {
+    "text": "pick up lint roller, smooth cloth with lint roller",
+    "count": 4
+  },
+  {
+    "text": "place plastic bag on stack",
+    "count": 4
+  },
+  {
+    "text": "fold cloth and adjust cloth",
+    "count": 4
+  },
+  {
+    "text": "fold pink cloth",
+    "count": 4
+  },
+  {
+    "text": "pick up cloth from pile",
+    "count": 4
+  },
+  {
+    "text": "pick up lint roller from table",
+    "count": 4
+  },
+  {
+    "text": "use lint roller on shirt",
+    "count": 4
+  },
+  {
+    "text": "fold bottom of shirt upward",
+    "count": 4
+  },
+  {
+    "text": "insert towel into plastic bag",
+    "count": 4
+  },
+  {
+    "text": "move cloth on table",
+    "count": 4
+  },
+  {
+    "text": "smoothen cloth",
+    "count": 4
+  },
+  {
+    "text": "fold patterned cloth",
+    "count": 4
+  },
+  {
+    "text": "pick up lint roller, pull forth and back lint roller on shirt",
+    "count": 4
+  },
+  {
+    "text": "fold striped cloth",
+    "count": 4
+  },
+  {
+    "text": "adjust shirt, button shirt",
+    "count": 4
+  },
+  {
+    "text": "clean t-shirt with lint roller",
+    "count": 4
+  },
+  {
+    "text": "fold green shirt on table",
+    "count": 4
+  },
+  {
+    "text": "fold shirt on bed",
+    "count": 4
+  },
+  {
+    "text": "fold white cloth",
+    "count": 4
+  },
+  {
+    "text": "fold black clothing",
+    "count": 4
+  },
+  {
+    "text": "pick up shirt",
+    "count": 4
+  },
+  {
+    "text": "flip folded shirt, adjust folded shirt",
+    "count": 3
+  },
+  {
+    "text": "adjust jacket on table",
+    "count": 3
+  },
+  {
+    "text": "spread cloth on table",
+    "count": 3
+  },
+  {
+    "text": "fold red shirt",
+    "count": 3
+  },
+  {
+    "text": "fold t-shirt, smooth t-shirt",
+    "count": 3
+  },
+  {
+    "text": "adjust garment and smoothen garment",
+    "count": 3
+  },
+  {
+    "text": "fold pink t-shirt",
+    "count": 3
+  },
+  {
+    "text": "pick up plastic bag, place plastic bag on table",
+    "count": 3
+  },
+  {
+    "text": "fold yellow cloth",
+    "count": 3
+  },
+  {
+    "text": "pick up fabric, adjust fabric",
+    "count": 3
+  },
+  {
+    "text": "pick up tape dispenser, adjust tape dispenser",
+    "count": 3
+  },
+  {
+    "text": "adjust pants",
+    "count": 3
+  },
+  {
+    "text": "pick up folded black shirt, place folded black shirt on stack",
+    "count": 3
+  },
+  {
+    "text": "spread shirt flat on table",
+    "count": 3
+  },
+  {
+    "text": "smooth yellow shirt",
+    "count": 3
+  },
+  {
+    "text": "insert folded cloth into plastic bag",
+    "count": 3
+  },
+  {
+    "text": "adjust garment",
+    "count": 3
+  },
+  {
+    "text": "fold yellow t-shirt",
+    "count": 3
+  },
+  {
+    "text": "pick up cloth, fold cloth",
+    "count": 3
+  },
+  {
+    "text": "insert cloth into plastic bag",
+    "count": 3
+  },
+  {
+    "text": "clean garment with lint roller",
+    "count": 3
+  },
+  {
+    "text": "adjust bag",
+    "count": 3
+  },
+  {
+    "text": "fold the checkered cloth into a rectangle",
+    "count": 3
+  },
+  {
+    "text": "fold black garment",
+    "count": 3
+  },
+  {
+    "text": "fold green garment",
+    "count": 3
+  },
+  {
+    "text": "fold white shirt, smoothen white shirt",
+    "count": 3
+  },
+  {
+    "text": "fold t-shirt on table",
+    "count": 3
+  },
+  {
+    "text": "smoothen striped shirt",
+    "count": 3
+  },
+  {
+    "text": "pick up plastic bag, adjust plastic bag",
+    "count": 3
+  },
+  {
+    "text": "fold kitchen towel",
+    "count": 3
+  },
+  {
+    "text": "straighten shirt on surface",
+    "count": 3
+  },
+  {
+    "text": "smoothen folded shirt on table using lint roller, place lint roller on table",
+    "count": 3
+  },
+  {
+    "text": "clean green fabric with lint roll",
+    "count": 3
+  },
+  {
+    "text": "adjust lint roller on table, spread out jacket on table",
+    "count": 3
+  },
+  {
+    "text": "pick up lint roller from table, roll lint roller on cloth on table",
+    "count": 3
+  },
+  {
+    "text": "smoothen garment, adjust garment",
+    "count": 3
+  },
+  {
+    "text": "fold green shirt",
+    "count": 3
+  },
+  {
+    "text": "pick up brown cloth",
+    "count": 3
+  },
+  {
+    "text": "spread brown cloth on table",
+    "count": 3
+  },
+  {
+    "text": "manipulate black garment",
+    "count": 3
+  },
+  {
+    "text": "adjust pink garment",
+    "count": 3
+  },
+  {
+    "text": "adjust and smoothen black cloth",
+    "count": 3
+  },
+  {
+    "text": "spread green shirt on table",
+    "count": 3
+  },
+  {
+    "text": "adjust folded shirt",
+    "count": 3
+  },
+  {
+    "text": "pick up cloth from rack",
+    "count": 3
+  },
+  {
+    "text": "move stack of clothes on table",
+    "count": 3
+  },
+  {
+    "text": "adjust striped shirt",
+    "count": 3
+  },
+  {
+    "text": "pick up black clothing from bed",
+    "count": 3
+  },
+  {
+    "text": "place black clothing into drawer",
+    "count": 3
+  },
+  {
+    "text": "remove black clothing from drawer",
+    "count": 3
+  },
+  {
+    "text": "adjust underwear",
+    "count": 3
+  },
+  {
+    "text": "adjust black clothing over washing machine tub",
+    "count": 3
+  },
+  {
+    "text": "pick up box, place box on table, open box",
+    "count": 2
+  },
+  {
+    "text": "place box on table, insert cloth into box",
+    "count": 2
+  },
+  {
+    "text": "pick up cloth, place cloth on table",
+    "count": 2
+  },
+  {
+    "text": "grab cloth from rack, place cloth on pile",
+    "count": 2
+  },
+  {
+    "text": "adjust blue sleeping bag, unzip blue sleeping bag",
+    "count": 2
+  },
+  {
+    "text": "smooth and adjust folded shirt",
+    "count": 2
+  },
+  {
+    "text": "fold jacket sleeve, adjust jacket sleeve on table",
+    "count": 2
+  },
+  {
+    "text": "fold shirt, smooth shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen hoodie",
+    "count": 2
+  },
+  {
+    "text": "adjust hoodie",
+    "count": 2
+  },
+  {
+    "text": "fold costume sleeve",
+    "count": 2
+  },
+  {
+    "text": "fold right sleeve of shirt",
+    "count": 2
+  },
+  {
+    "text": "unfold shirt",
+    "count": 2
+  },
+  {
+    "text": "smooth red shirt",
+    "count": 2
+  },
+  {
+    "text": "fold and smoothen t-shirt on table",
+    "count": 2
+  },
+  {
+    "text": "pick up t-shirt",
+    "count": 2
+  },
+  {
+    "text": "flip cloth, adjust cloth",
+    "count": 2
+  },
+  {
+    "text": "adjust and smooth folded t-shirt",
+    "count": 2
+  },
+  {
+    "text": "fold white fabric piece on table",
+    "count": 2
+  },
+  {
+    "text": "pick up t-shirt, place t-shirt on table",
+    "count": 2
+  },
+  {
+    "text": "pick up pants",
+    "count": 2
+  },
+  {
+    "text": "fold pant",
+    "count": 2
+  },
+  {
+    "text": "fold garment and adjust garment",
+    "count": 2
+  },
+  {
+    "text": "pick up folded pink t-shirt and place folded pink t-shirt on stack",
+    "count": 2
+  },
+  {
+    "text": "pick up pink t-shirt, place pink t-shirt on table, straighten pink t-shirt",
+    "count": 2
+  },
+  {
+    "text": "flip pink t-shirt, straighten pink t-shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen shirt with lint roller",
+    "count": 2
+  },
+  {
+    "text": "fold handkerchief on table",
+    "count": 2
+  },
+  {
+    "text": "fold hem of green shirt",
+    "count": 2
+  },
+  {
+    "text": "move folded cloth into plastic bag",
+    "count": 2
+  },
+  {
+    "text": "adjust cloth, place cloth on table",
+    "count": 2
+  },
+  {
+    "text": "hold plastic bag, adjust cloth",
+    "count": 2
+  },
+  {
+    "text": "spread cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "smoothen and adjust cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "fold cloth on bed, adjust and smoothen cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "fold cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "unfold t-shirt, smooth t-shirt, fold t-shirt, smooth t-shirt",
+    "count": 2
+  },
+  {
+    "text": "smooth t-shirt, rotate t-shirt, smooth t-shirt",
+    "count": 2
+  },
+  {
+    "text": "fold and smoothen shirt",
+    "count": 2
+  },
+  {
+    "text": "pick up fabric, fold fabric",
+    "count": 2
+  },
+  {
+    "text": "pick up tape dispenser, cut tape from tape dispenser",
+    "count": 2
+  },
+  {
+    "text": "pick up lint roller, clean shirt with lint roller",
+    "count": 2
+  },
+  {
+    "text": "place folded checkered cloth into plastic bag",
+    "count": 2
+  },
+  {
+    "text": "pick up lint roller",
+    "count": 2
+  },
+  {
+    "text": "wipe pants with lint roller, place lint roller on table",
+    "count": 2
+  },
+  {
+    "text": "fold sleeve of red shirt, smoothen red shirt",
+    "count": 2
+  },
+  {
+    "text": "reposition black t-shirt on folding table, fold black t-shirt",
+    "count": 2
+  },
+  {
+    "text": "fold yellow shirt",
+    "count": 2
+  },
+  {
+    "text": "place folded garment on stack",
+    "count": 2
+  },
+  {
+    "text": "fasten button of shirt",
+    "count": 2
+  },
+  {
+    "text": "pick up lint roller from table, roll lint roller on shirt",
+    "count": 2
+  },
+  {
+    "text": "flip shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen green t-shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen t-shirt, fold t-shirt",
+    "count": 2
+  },
+  {
+    "text": "pick up iron, iron shirt",
+    "count": 2
+  },
+  {
+    "text": "place iron on table, adjust t-shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen yellow t-shirt",
+    "count": 2
+  },
+  {
+    "text": "straighten green t-shirt, smoothen green t-shirt",
+    "count": 2
+  },
+  {
+    "text": "straighten yellow t-shirt, smoothen yellow t-shirt",
+    "count": 2
+  },
+  {
+    "text": "place cloth on table, fold cloth",
+    "count": 2
+  },
+  {
+    "text": "flip cloth and adjust cloth",
+    "count": 2
+  },
+  {
+    "text": "pick up plastic bag, place folded cloth in plastic bag",
+    "count": 2
+  },
+  {
+    "text": "pick up checkered cloth",
+    "count": 2
+  },
+  {
+    "text": "pick up and fold cloth",
+    "count": 2
+  },
+  {
+    "text": "pick up handkerchief from pile",
+    "count": 2
+  },
+  {
+    "text": "adjust handkerchief on desk",
+    "count": 2
+  },
+  {
+    "text": "adjust and smooth cloth on table",
+    "count": 2
+  },
+  {
+    "text": "smooth cloth on table",
+    "count": 2
+  },
+  {
+    "text": "fold cloth into small square",
+    "count": 2
+  },
+  {
+    "text": "fold cloth, place cloth on table",
+    "count": 2
+  },
+  {
+    "text": "adjust pants on table",
+    "count": 2
+  },
+  {
+    "text": "pick up iron from table, iron pants on table",
+    "count": 2
+  },
+  {
+    "text": "place iron aside on table",
+    "count": 2
+  },
+  {
+    "text": "adjust shirt, fold shirt",
+    "count": 2
+  },
+  {
+    "text": "move shirt on table",
+    "count": 2
+  },
+  {
+    "text": "pick up blue and white napkin, fold blue and white napkin",
+    "count": 2
+  },
+  {
+    "text": "adjust plastic bag on table",
+    "count": 2
+  },
+  {
+    "text": "unhang shorts from hanger",
+    "count": 2
+  },
+  {
+    "text": "adjust shorts, fold shorts",
+    "count": 2
+  },
+  {
+    "text": "pick up hanger from rack",
+    "count": 2
+  },
+  {
+    "text": "adjust folded cloth, pick up plastic bag",
+    "count": 2
+  },
+  {
+    "text": "place cloth in plastic bag, reposition plastic bag on table",
+    "count": 2
+  },
+  {
+    "text": "place shirt on table",
+    "count": 2
+  },
+  {
+    "text": "clean garment with lint roller, place lint roller on table",
+    "count": 2
+  },
+  {
+    "text": "wipe cloth on table with toothbrush",
+    "count": 2
+  },
+  {
+    "text": "place striped cloth on table, fold striped cloth on table",
+    "count": 2
+  },
+  {
+    "text": "insert the folded cloth into the plastic bag",
+    "count": 2
+  },
+  {
+    "text": "pick up and spread out checkered cloth",
+    "count": 2
+  },
+  {
+    "text": "smooth out shirt on table",
+    "count": 2
+  },
+  {
+    "text": "pick up and open plastic bag",
+    "count": 2
+  },
+  {
+    "text": "place folded cloth into bag",
+    "count": 2
+  },
+  {
+    "text": "pick up fabric from pile and spread on table",
+    "count": 2
+  },
+  {
+    "text": "place folded napkin into plastic bag",
+    "count": 2
+  },
+  {
+    "text": "place bagged napkin onto stack",
+    "count": 2
+  },
+  {
+    "text": "fold bottom of t-shirt upwards",
+    "count": 2
+  },
+  {
+    "text": "place cloth into plastic bag",
+    "count": 2
+  },
+  {
+    "text": "move plastic bag on table",
+    "count": 2
+  },
+  {
+    "text": "fold striped shirt",
+    "count": 2
+  },
+  {
+    "text": "move plastic bag with handkerchief on pile",
+    "count": 2
+  },
+  {
+    "text": "place cloth in plastic bag",
+    "count": 2
+  },
+  {
+    "text": "place packaged towel on stack",
+    "count": 2
+  },
+  {
+    "text": "adjust kitchen towel",
+    "count": 2
+  },
+  {
+    "text": "open plastic bag",
+    "count": 2
+  },
+  {
+    "text": "straighten shirt on surface, move shirt on surface",
+    "count": 2
+  },
+  {
+    "text": "fold shirt on surface, straighten shirt on surface",
+    "count": 2
+  },
+  {
+    "text": "fold grey garment",
+    "count": 2
+  },
+  {
+    "text": "place packed cloth into box",
+    "count": 2
+  },
+  {
+    "text": "clean cloth with toothbrush",
+    "count": 2
+  },
+  {
+    "text": "adjust cloth on table, fold cloth",
+    "count": 2
+  },
+  {
+    "text": "adjust shorts on table",
+    "count": 2
+  },
+  {
+    "text": "place patterned cloth into plastic bag",
+    "count": 2
+  },
+  {
+    "text": "fold checkered cloth on table",
+    "count": 2
+  },
+  {
+    "text": "package folded checkered cloth into plastic bag",
+    "count": 2
+  },
+  {
+    "text": "place packaged checkered cloth on stack",
+    "count": 2
+  },
+  {
+    "text": "fold grey checkered napkin",
+    "count": 2
+  },
+  {
+    "text": "pick up spray bottle, spray white garment with water bottle",
+    "count": 2
+  },
+  {
+    "text": "iron shirt on table",
+    "count": 2
+  },
+  {
+    "text": "adjust trousers",
+    "count": 2
+  },
+  {
+    "text": "adjust fabric on stack of fabrics",
+    "count": 2
+  },
+  {
+    "text": "use lint roller to smoothen shirt on table, place lint roller on table",
+    "count": 2
+  },
+  {
+    "text": "fold shirt on table, pick up lint roller from table",
+    "count": 2
+  },
+  {
+    "text": "fold grey shirt",
+    "count": 2
+  },
+  {
+    "text": "adjust garments",
+    "count": 2
+  },
+  {
+    "text": "fold tan garment",
+    "count": 2
+  },
+  {
+    "text": "smooth out wrinkles on shirt with hands",
+    "count": 2
+  },
+  {
+    "text": "place folded cloth on plastic bag",
+    "count": 2
+  },
+  {
+    "text": "fold towel on table",
+    "count": 2
+  },
+  {
+    "text": "pack folded cloth with plastic bag",
+    "count": 2
+  },
+  {
+    "text": "seal plastic bag",
+    "count": 2
+  },
+  {
+    "text": "place down lint roller, fold shirt on table",
+    "count": 2
+  },
+  {
+    "text": "fold checkered fabric",
+    "count": 2
+  },
+  {
+    "text": "fold garment on floral surface",
+    "count": 2
+  },
+  {
+    "text": "move cloth into plastic bag",
+    "count": 2
+  },
+  {
+    "text": "pick up cloth, place cloth on stack",
+    "count": 2
+  },
+  {
+    "text": "pick up white fabric, fold white fabric",
+    "count": 2
+  },
+  {
+    "text": "fold white fabric piece",
+    "count": 2
+  },
+  {
+    "text": "place white fabric piece in bag",
+    "count": 2
+  },
+  {
+    "text": "fold black checkered cloth on table",
+    "count": 2
+  },
+  {
+    "text": "fold grey striped cloth",
+    "count": 2
+  },
+  {
+    "text": "clean folded garment with lint roller",
+    "count": 2
+  },
+  {
+    "text": "pick up white garment, place white garment on table",
+    "count": 2
+  },
+  {
+    "text": "apply tape on white garment",
+    "count": 2
+  },
+  {
+    "text": "pick up lint roller, roll lint roller on shirt",
+    "count": 2
+  },
+  {
+    "text": "fold clothes on table",
+    "count": 2
+  },
+  {
+    "text": "flip blue garments, adjust buttons",
+    "count": 2
+  },
+  {
+    "text": "straighten folded shirt",
+    "count": 2
+  },
+  {
+    "text": "pick up folded shirt from table, place folded shirt on stack",
+    "count": 2
+  },
+  {
+    "text": "smoothen folded garment",
+    "count": 2
+  },
+  {
+    "text": "fold folded garment",
+    "count": 2
+  },
+  {
+    "text": "smoothen folded garment, fold folded garment",
+    "count": 2
+  },
+  {
+    "text": "fold brown shirt",
+    "count": 2
+  },
+  {
+    "text": "flip pink cloth",
+    "count": 2
+  },
+  {
+    "text": "adjust brown cloth",
+    "count": 2
+  },
+  {
+    "text": "fold brown cloth",
+    "count": 2
+  },
+  {
+    "text": "fold brown cloth, smoothen brown cloth",
+    "count": 2
+  },
+  {
+    "text": "fold and adjust pink garment",
+    "count": 2
+  },
+  {
+    "text": "move folded shirt onto stack",
+    "count": 2
+  },
+  {
+    "text": "fold black t-shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen and adjust black cloth",
+    "count": 2
+  },
+  {
+    "text": "smooth white shirt on table",
+    "count": 2
+  },
+  {
+    "text": "fold and adjust white shirt on table",
+    "count": 2
+  },
+  {
+    "text": "fold black cloth",
+    "count": 2
+  },
+  {
+    "text": "place pillow in pillow case",
+    "count": 2
+  },
+  {
+    "text": "unfold swamp green pant on table",
+    "count": 2
+  },
+  {
+    "text": "fold swamp green pant on table",
+    "count": 2
+  },
+  {
+    "text": "move cloth into basket",
+    "count": 2
+  },
+  {
+    "text": "fold cloth, smoothen cloth",
+    "count": 2
+  },
+  {
+    "text": "move stack on table",
+    "count": 2
+  },
+  {
+    "text": "pick up cloth from table, place cloth on shelf",
+    "count": 2
+  },
+  {
+    "text": "pick up cloth, place cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "slide cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "adjust cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "fold shirts",
+    "count": 2
+  },
+  {
+    "text": "wipe plate with cloth",
+    "count": 2
+  },
+  {
+    "text": "button pink garment, adjust pink garment on floor",
+    "count": 2
+  },
+  {
+    "text": "clean table with cloth",
+    "count": 2
+  },
+  {
+    "text": "adjust yellow clothing, button yellow clothing",
+    "count": 2
+  },
+  {
+    "text": "pick up clothes, place clothes on pile of clothes",
+    "count": 2
+  },
+  {
+    "text": "fold orange shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen folded orange shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen garment, fold garment",
+    "count": 2
+  },
+  {
+    "text": "fold black underwear, move black underwear to stack of clothes",
+    "count": 2
+  },
+  {
+    "text": "move purple cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "fold purple cloth",
+    "count": 2
+  },
+  {
+    "text": "adjust pink cloth on bed, smoothen pink cloth on bed",
+    "count": 2
+  },
+  {
+    "text": "flip green shirt, straighten green shirt",
+    "count": 2
+  },
+  {
+    "text": "adjust stack of clothes on table",
+    "count": 2
+  },
+  {
+    "text": "straighten blue shirt",
+    "count": 2
+  },
+  {
+    "text": "pick up black shorts",
+    "count": 2
+  },
+  {
+    "text": "fold gray garment",
+    "count": 2
+  },
+  {
+    "text": "adjust beige cloth",
+    "count": 2
+  },
+  {
+    "text": "smoothen shirt, fold shirt",
+    "count": 2
+  },
+  {
+    "text": "smoothen blue shirt",
+    "count": 2
+  },
+  {
+    "text": "fold black patterned shirt",
+    "count": 2
+  },
+  {
+    "text": "pick up folded shirt, place folded shirt on stack",
+    "count": 2
+  },
+  {
+    "text": "move socks to stack",
+    "count": 2
+  },
+  {
+    "text": "fold sides of shirt inward",
+    "count": 2
+  },
+  {
+    "text": "adjust items in drawer",
+    "count": 2
+  },
+  {
+    "text": "remove white clothing from drawer",
+    "count": 2
+  },
+  {
+    "text": "spread gray garment on table",
+    "count": 2
+  },
+  {
+    "text": "adjust grey t-shirt",
+    "count": 2
+  },
+  {
+    "text": "fold side of white shirt, adjust folded side of white shirt",
+    "count": 2
+  },
+  {
+    "text": "pick up white garment, adjust white garment",
+    "count": 2
+  },
+  {
+    "text": "rummage cloths in green basket",
+    "count": 2
+  },
+  {
+    "text": "place shirt in drawer, adjust shirt in drawer",
+    "count": 2
+  },
+  {
+    "text": "invert pink garment",
+    "count": 2
+  },
+  {
+    "text": "fold and adjust shirt",
+    "count": 2
+  },
+  {
+    "text": "align and adjust shirt",
+    "count": 2
+  },
+  {
+    "text": "place underwear on stack",
+    "count": 2
+  },
+  {
+    "text": "roll lint roller on shirt, place lint roller on table",
+    "count": 2
+  },
+  {
+    "text": "hang shirt on rack",
+    "count": 2
+  },
+  {
+    "text": "pick up shirt, arrange shirt",
+    "count": 2
+  },
+  {
+    "text": "fold side of shirt towards middle",
+    "count": 2
+  },
+  {
+    "text": "pick up hanger from drying rack",
+    "count": 2
+  },
+  {
+    "text": "pick up folded cloth from chair, place folded cloth in drawer",
+    "count": 2
+  },
+  {
+    "text": "pick up shirt and spread shirt on table",
+    "count": 2
+  },
+  {
+    "text": "move folded white garment on table",
+    "count": 2
+  },
+  {
+    "text": "clean glass tabletop with patterned cloth",
+    "count": 2
+  },
+  {
+    "text": "move folded shirt onto surface",
+    "count": 1
+  },
+  {
+    "text": "pick up box, close box, rotate and adjust box",
+    "count": 1
+  },
+  {
+    "text": "move box to stack of boxes",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, fold and straighten cloth",
+    "count": 1
+  },
+  {
+    "text": "flip cloth, adjust and straighten cloth, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "lift up box, close box",
+    "count": 1
+  },
+  {
+    "text": "rotate box, move box to stack of boxes",
+    "count": 1
+  },
+  {
+    "text": "hold cloth, fold cloth on stack clothes",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, place cloth on stack clothes, pick up cloth from stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, fold cloth, adjust cloth, place cloth on stack clothes in green bag",
+    "count": 1
+  },
+  {
+    "text": "pick up brown hoodie from rack, place brown hoodie on stack clothes",
+    "count": 1
+  },
+  {
+    "text": "remove hanger from hoodie",
+    "count": 1
+  },
+  {
+    "text": "fold brown hoodie, place brown hoodie in green bag",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt from rack",
+    "count": 1
+  },
+  {
+    "text": "remove hanger from white shirt",
+    "count": 1
+  },
+  {
+    "text": "fixing button on white shirt",
+    "count": 1
+  },
+  {
+    "text": "fold cloth, adjust cloth, place cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "remove hanger from cloth",
+    "count": 1
+  },
+  {
+    "text": "hold cloth, fold cloth, place cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "unbutton cloth",
+    "count": 1
+  },
+  {
+    "text": "remove hanger from cloth and place on rack",
+    "count": 1
+  },
+  {
+    "text": "hold cloth, button up cloth",
+    "count": 1
+  },
+  {
+    "text": "spread checkered cloth on table, smoothen checkered cloth on table",
+    "count": 1
+  },
+  {
+    "text": "fold checkered cloth on table, adjust checkered cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pull out plastic bag from bunch",
+    "count": 1
+  },
+  {
+    "text": "rotate pink checkered cloth, spread pink checkered cloth on table",
+    "count": 1
+  },
+  {
+    "text": "adjust pink checkered cloth, fold pink checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "flip folded pink checkered cloth, smooth pink checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "fold pink checkered cloth, rotate pink checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "move folded pink checkered cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "move plastic bag on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bags on table",
+    "count": 1
+  },
+  {
+    "text": "adjust yellow and blue checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust blue checkered cloth, rotate blue checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "spread blue checkered cloth on table, smooth blue checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "fold blue checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "hold pouch bag, adjust blue sleeping bag, adjust pouch bag",
+    "count": 1
+  },
+  {
+    "text": "adjust pouch bag, fold pouch bag",
+    "count": 1
+  },
+  {
+    "text": "adjust pouch bag, roll pouch bag, pick up rolled pouch bag",
+    "count": 1
+  },
+  {
+    "text": "adjust drawstring, wrap drawstring around rolled pouch bag, tie drawstring",
+    "count": 1
+  },
+  {
+    "text": "place rolled pouch bag on floor",
+    "count": 1
+  },
+  {
+    "text": "adjust blue sleeping bag, unroll blue sleeping bag",
+    "count": 1
+  },
+  {
+    "text": "adjust blue sleeping bag",
+    "count": 1
+  },
+  {
+    "text": "unstrap blue sleeping bag, unzip blue sleeping bag",
+    "count": 1
+  },
+  {
+    "text": "adjust folded shirt, adjust drawstrings of folded shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust drawstrings of folded shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust and straighten drawstrings on folded shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust drawstrings and collar of folded shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust collar and drawstrings of folded shirt",
+    "count": 1
+  },
+  {
+    "text": "move folded shirt aside",
+    "count": 1
+  },
+  {
+    "text": "grab and slide plastic bag from underneath pile of clothing",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, grab and fold folded shirt in half",
+    "count": 1
+  },
+  {
+    "text": "open plastic bag, insert folded shirt inside plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust folded shirt inside plastic bag",
+    "count": 1
+  },
+  {
+    "text": "flip and compress packaged shirt",
+    "count": 1
+  },
+  {
+    "text": "flip packaged shirt, pick up blue tag",
+    "count": 1
+  },
+  {
+    "text": "zip up jacket",
+    "count": 1
+  },
+  {
+    "text": "adjust jacket, zip up jacket",
+    "count": 1
+  },
+  {
+    "text": "fold jacket sleeve, adjust jacket on table",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt, fold shirt, smooth shirt, pick up thread from shirt and throw aside",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, adjust shirt, fold shirt, smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen hoodie on table",
+    "count": 1
+  },
+  {
+    "text": "fold hoodie and smoothen hoodie",
+    "count": 1
+  },
+  {
+    "text": "fold and adjust hoodie",
+    "count": 1
+  },
+  {
+    "text": "fold and adjust hood of hoodie",
+    "count": 1
+  },
+  {
+    "text": "smoothen hoodie, adjust hood of hoodie, straighten edges of hoodie",
+    "count": 1
+  },
+  {
+    "text": "fold hoodie",
+    "count": 1
+  },
+  {
+    "text": "rotate hoodie, adjust folded hoodie",
+    "count": 1
+  },
+  {
+    "text": "flip hoodie",
+    "count": 1
+  },
+  {
+    "text": "adjust folded hoodie",
+    "count": 1
+  },
+  {
+    "text": "adjust drawstrings on hoodie",
+    "count": 1
+  },
+  {
+    "text": "adjust blue cloth in plastic bag, close plastic bag, press down plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up blue cloth in plastic bag, place blue cloth in plastic bag on stack",
+    "count": 1
+  },
+  {
+    "text": "move camouflage shirt from pile to table",
+    "count": 1
+  },
+  {
+    "text": "adjust camouflage shirt on table, adjust stack of cards on table, adjust camouflage shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust camouflage shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold and adjust camouflage shirt on table",
+    "count": 1
+  },
+  {
+    "text": "zip costume",
+    "count": 1
+  },
+  {
+    "text": "flip and adjust costume on table",
+    "count": 1
+  },
+  {
+    "text": "align costume and adjust stack of tag",
+    "count": 1
+  },
+  {
+    "text": "adjust sleeve of costume",
+    "count": 1
+  },
+  {
+    "text": "smooth costume",
+    "count": 1
+  },
+  {
+    "text": "fold costume in half",
+    "count": 1
+  },
+  {
+    "text": "smooth folded costume",
+    "count": 1
+  },
+  {
+    "text": "fold and align sleeve of costume",
+    "count": 1
+  },
+  {
+    "text": "adjust costume on table",
+    "count": 1
+  },
+  {
+    "text": "adjust costume, adjust cards on table",
+    "count": 1
+  },
+  {
+    "text": "reposition costume on table",
+    "count": 1
+  },
+  {
+    "text": "fold costume",
+    "count": 1
+  },
+  {
+    "text": "fold left side of shirt, smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "fold left sleeve side of shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt sleeve",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, pick up shirt",
+    "count": 1
+  },
+  {
+    "text": "place shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt from bag",
+    "count": 1
+  },
+  {
+    "text": "reposition shirt, button shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up bag",
+    "count": 1
+  },
+  {
+    "text": "open bag",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of red shirt",
+    "count": 1
+  },
+  {
+    "text": "fold sleeves of red shirt",
+    "count": 1
+  },
+  {
+    "text": "fold red shirt in half",
+    "count": 1
+  },
+  {
+    "text": "fold red shirt into square",
+    "count": 1
+  },
+  {
+    "text": "smooth folded red shirt",
+    "count": 1
+  },
+  {
+    "text": "place red shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up maroon shirt from basket",
+    "count": 1
+  },
+  {
+    "text": "smooth maroon shirt",
+    "count": 1
+  },
+  {
+    "text": "flip t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "move t-shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "adjust folded cloth on table, pick up folded cloth",
+    "count": 1
+  },
+  {
+    "text": "place folded cloth on stack, pick up cloth",
+    "count": 1
+  },
+  {
+    "text": "flip red shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust red shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "place folded t-shirt on folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up t-shirt, place t-shirt on table, adjust t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust t-shirt on table, smooth and adjust t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip t-shirt, adjust and smooth t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust folded white fabric piece, adjust plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust folded white fabric piece, lift plastic bag edge",
+    "count": 1
+  },
+  {
+    "text": "insert folded white fabric piece into plastic bag, adjust plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up white fabric piece, place white fabric piece on table",
+    "count": 1
+  },
+  {
+    "text": "pick up white fabric piece, stack white fabric piece on table",
+    "count": 1
+  },
+  {
+    "text": "flip white fabric piece, adjust white fabric piece",
+    "count": 1
+  },
+  {
+    "text": "smooth out green t-shirt on table, flip green t-shirt and smooth out green t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold and smooth out green t-shirt, adjust green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust green t-shirt, fold green t-shirt, smoothen and straighten green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust green t-shirt on table, flip and smooth out green t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up and place folded green t-shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "smooth folded t-shirt, pick up and place folded t-shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up t-shirt and spread t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt in half lengthwise, adjust and smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "unfold right half and smooth t-shirt, fold right half and smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded t-shirt, place folded t-shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up t-shirt and spread t-shirt on table, smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip t-shirt on table, smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen and adjust t-shirt",
+    "count": 1
+  },
+  {
+    "text": "move t-shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust and straighten t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip t-shirt, straighten t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt, flip folded t-shirt, smoothen folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "move folded t-shirt on stack of t-shirts",
+    "count": 1
+  },
+  {
+    "text": "pick up t-shirt from pile, adjust t-shirt, spread t-shirt on table, smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip t-shirt, smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen t-shirt and fold t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip folded t-shirt, smoothen folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt, pick up folded shirt, place folded shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, place shirt on table, adjust shirt, smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "flip shirt, adjust shirt, smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, fold shirt, smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt, adjust shirt, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt, fold shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt, flip shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shirt, place folded shirt on stack, pick up shirt",
+    "count": 1
+  },
+  {
+    "text": "flip the folded shirt, adjust folded shirt",
+    "count": 1
+  },
+  {
+    "text": "move folded shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, lay shirt on table",
+    "count": 1
+  },
+  {
+    "text": "turn shirt over, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth t-shirt on table, reposition t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold side of t-shirt, smooth t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of t-shirt, reposition t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up folded t-shit, place folded t-shirt on left stack",
+    "count": 1
+  },
+  {
+    "text": "pick up t-shirt from right pile",
+    "count": 1
+  },
+  {
+    "text": "smooth t-shirt table",
+    "count": 1
+  },
+  {
+    "text": "smooth t-shirt, flip t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "place pants on table",
+    "count": 1
+  },
+  {
+    "text": "pull out cloth from pile, place cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth, stack cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pull out pant from pile, place white cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "straighten pant on table",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth stack, place cloth stack pant, move cloth stack on table",
+    "count": 1
+  },
+  {
+    "text": "move plastic bag from stack, place folded handkerchief in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "flip packaged handkerchief, pick up packaged handkerchief",
+    "count": 1
+  },
+  {
+    "text": "smoothen the shirt on table",
+    "count": 1
+  },
+  {
+    "text": "spray liquid on shirt, place spray bottle on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen the shirt on the table",
+    "count": 1
+  },
+  {
+    "text": "picking up iron, iron the shirt, place iron on table",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, pick up shirt, place shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust garment and fold garment",
+    "count": 1
+  },
+  {
+    "text": "smoothen garment and fold garment",
+    "count": 1
+  },
+  {
+    "text": "smoothen garment and adjust garment",
+    "count": 1
+  },
+  {
+    "text": "fold garment and smoothen garment",
+    "count": 1
+  },
+  {
+    "text": "fold pink t-shirt on table, straighten pink t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, flip shirt on table, pick up shirt, place shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, pick up shirt from pile",
+    "count": 1
+  },
+  {
+    "text": "spread shirt, place shirt on table, smoothen shirt, flip shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, smoothen shirt, fold shirt, rotate shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, adjust shirt, flip shirt pick up shirt",
+    "count": 1
+  },
+  {
+    "text": "place shirt on stack, pick up shirt from pile",
+    "count": 1
+  },
+  {
+    "text": "move shirts onto pile",
+    "count": 1
+  },
+  {
+    "text": "spread shirt on table, adjust shirt, smoothen shirt, flip shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen shirt on table, adjust shirt, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "flip shirt, adjust shirt on counter",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, smoothen shirt with lint roller",
+    "count": 1
+  },
+  {
+    "text": "adjust fabric a d adjust lint roller on table",
+    "count": 1
+  },
+  {
+    "text": "pick up lint roller, adjust fabric, clean fabric with lint roller",
+    "count": 1
+  },
+  {
+    "text": "clean fabric with lint roller",
+    "count": 1
+  },
+  {
+    "text": "clean fabric with lint roller, adjust fabric, clean fabric with lint roller",
+    "count": 1
+  },
+  {
+    "text": "unfold handkerchief from table, smoothen handkerchief on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from pack of plastic bags on table",
+    "count": 1
+  },
+  {
+    "text": "move aside pack of plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, place handkerchief on plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag with handkerchief from table, adjust handkerchief into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag with handkerchief on table, adjust handkerchief into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag with handkerchief on stack",
+    "count": 1
+  },
+  {
+    "text": "smooth and fold side of green shirt",
+    "count": 1
+  },
+  {
+    "text": "fold side of green shirt",
+    "count": 1
+  },
+  {
+    "text": "fold, smooth, rotate green shirt",
+    "count": 1
+  },
+  {
+    "text": "place green shirt aside",
+    "count": 1
+  },
+  {
+    "text": "pick up pink shirt and olace it on table",
+    "count": 1
+  },
+  {
+    "text": "adjust and smooth pink shirt on table",
+    "count": 1
+  },
+  {
+    "text": "smooth pink shirt on table",
+    "count": 1
+  },
+  {
+    "text": "rotate and straighten pink shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold side of pink shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth and fold hem of pink shirt",
+    "count": 1
+  },
+  {
+    "text": "fold side and hem of pink shirt",
+    "count": 1
+  },
+  {
+    "text": "fold and smooth pink shirt in half",
+    "count": 1
+  },
+  {
+    "text": "smooth and move pink shirt aside",
+    "count": 1
+  },
+  {
+    "text": "hold plastic bag",
+    "count": 1
+  },
+  {
+    "text": "move cloth from table to pile",
+    "count": 1
+  },
+  {
+    "text": "straighten cloth",
+    "count": 1
+  },
+  {
+    "text": "spread cloth on table, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth, align cloth",
+    "count": 1
+  },
+  {
+    "text": "place cloth on table, spread cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, spread cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, place plastic bag on table",
+    "count": 1
+  },
+  {
+    "text": "place cloth on table, adjust cloth on table",
+    "count": 1
+  },
+  {
+    "text": "place cloth in plastic bag, adjust plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up packed cloth, adjust packed cloth",
+    "count": 1
+  },
+  {
+    "text": "place packed cloth on table, adjust packed cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up packed cloth, place packed cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "adjust packed cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up clothes, remove clothes from table",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth on table, spread cloth on table",
+    "count": 1
+  },
+  {
+    "text": "fold cloth, align cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, smooth shirt, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "fold cloth on bed, smoothen cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "adjust and smoothen sweatshirt on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen sweatshirt on table, rotate sweatshirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust sweatshirt, fold sweatshirt on table, adjust sweatshirt",
+    "count": 1
+  },
+  {
+    "text": "pick up and flip sweatshirt on table, rotate sweatshirt on table, adjust sweatshirt, smoothen sweatshirt",
+    "count": 1
+  },
+  {
+    "text": "adjust string of sweatshirt, smoothen sweatshirt, pick up and place sweatshirt on table, adjust string of sweatshirt",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag on from stack on table, place plastic bag on table, pull sweatshirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up bunch of tags and place on stack, adjust stack of tags on table",
+    "count": 1
+  },
+  {
+    "text": "fold sweatshirt, pick up plastic bag, pick up and place sweatshirt into plastic bag, adjust sweatshirt in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place folded black cloth on stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "move yellow cloth to table",
+    "count": 1
+  },
+  {
+    "text": "roll yellow cloth with lint roller",
+    "count": 1
+  },
+  {
+    "text": "fold cream colored cloth",
+    "count": 1
+  },
+  {
+    "text": "move dark yellow cloth to table",
+    "count": 1
+  },
+  {
+    "text": "fold dark yellow clothing on surface",
+    "count": 1
+  },
+  {
+    "text": "roll dark yellow cloth with lint roller",
+    "count": 1
+  },
+  {
+    "text": "adjust black jacket",
+    "count": 1
+  },
+  {
+    "text": "fold black jacket, place folded black jacket on stack of folded clothing",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt from pile of clothing, place white shirt on table, adjust white shirt",
+    "count": 1
+  },
+  {
+    "text": "fold white shirt, place folded white shirt on stack of folded clothing",
+    "count": 1
+  },
+  {
+    "text": "pick up green bodysuit, place green bodysuit on table, adjust green bodysuit",
+    "count": 1
+  },
+  {
+    "text": "fold green bodysuit, pick up folded green bodysuit, place folded green bodysuit on stack of clothing",
+    "count": 1
+  },
+  {
+    "text": "pick up folded green bodysuit, place folded green bodysuit on table",
+    "count": 1
+  },
+  {
+    "text": "pick orange tag gun from table, place orange tag gun on table",
+    "count": 1
+  },
+  {
+    "text": "pick up folded green bodysuit",
+    "count": 1
+  },
+  {
+    "text": "pick up beige shirt and straighten",
+    "count": 1
+  },
+  {
+    "text": "straighten beige cloth, fold beige long sleeves",
+    "count": 1
+  },
+  {
+    "text": "place folded beige shirt in table, adjust folded beige cloth, move orange labelling printer",
+    "count": 1
+  },
+  {
+    "text": "pick up orange labeling printer, place orange labelling printer on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded beige shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded grey shirt from stack, place grey shirt on folded beige shirt, pick up folded shirts, put folded shirts on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt and place white shirt on table",
+    "count": 1
+  },
+  {
+    "text": "straighten white shirt, fold white shirt",
+    "count": 1
+  },
+  {
+    "text": "place folded white shirt in shirt stack, pick up grey shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up grey shirt from pile, pick up orange labeling printer, put price tag on white shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust grey shirt",
+    "count": 1
+  },
+  {
+    "text": "place black shirt on folding table, adjust green cloth",
+    "count": 1
+  },
+  {
+    "text": "fold black shirt, hold and flip folded shirt",
+    "count": 1
+  },
+  {
+    "text": "move black shirt, pick and place white shirt on table, fold white shirt, place white shirt on black shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shirts, place shirts on stack",
+    "count": 1
+  },
+  {
+    "text": "picu up yellow patterned shirt, place yellow patterned shirt on folding table, button yellow shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust yellow shirt",
+    "count": 1
+  },
+  {
+    "text": "straighten and fold yellow shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust folded yellow shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up label gun and tag yellow shirt",
+    "count": 1
+  },
+  {
+    "text": "move shirt to folded stack",
+    "count": 1
+  },
+  {
+    "text": "unfold sweater, remove tag from sweater",
+    "count": 1
+  },
+  {
+    "text": "pull sweater, adjust tag on collar, align sweater, feel fonts on sweater, adjust sweater ends, adjust sweater sleeve",
+    "count": 1
+  },
+  {
+    "text": "pick up sweater, place sweater on pile",
+    "count": 1
+  },
+  {
+    "text": "pick folded shirt from stack, place on table, remove tag, place tag on table, unfold shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "feel fonts on shirt, adjust shirt, remove tags from shirt, place tags on table",
+    "count": 1
+  },
+  {
+    "text": "flip shirt, adjust shirt sleeves, realign shirt, adjust shirt sleeve, pick up shirt, place shirt on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shirt from stack, place shirt on table, adjust shirt, remove tags from shirt, place tags on table",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, place shirt on table, adjust shirt, feel shirt font",
+    "count": 1
+  },
+  {
+    "text": "smoothen garment, fold garment, adjust garment",
+    "count": 1
+  },
+  {
+    "text": "fold garment sleeve, smoothen garment",
+    "count": 1
+  },
+  {
+    "text": "smoothen garment, fold garment, smoothen garment",
+    "count": 1
+  },
+  {
+    "text": "fold garment, smoothen garment, adjust garment",
+    "count": 1
+  },
+  {
+    "text": "flip garment, rotate garment, smoothen garment",
+    "count": 1
+  },
+  {
+    "text": "adjust garment, pick up bag, open bag, adjust garment",
+    "count": 1
+  },
+  {
+    "text": "fold garment, insert garment into bag, unfold garment inside bag",
+    "count": 1
+  },
+  {
+    "text": "adjust garment inside",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded shirt, rotate folded shirt, flip folded shirt over, rotate folded shirt, smoothen folded shirt",
+    "count": 1
+  },
+  {
+    "text": "place folded shirt on stack, smoothen folded shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt from basket",
+    "count": 1
+  },
+  {
+    "text": "unfold shirt, spread shirt on table, smoothen shirt",
+    "count": 1
+  },
+  {
+    "text": "flip shirt over",
+    "count": 1
+  },
+  {
+    "text": "smooth t-shirt on a flat surface",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt, smooth t-shirt, unfold t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth t-shirt, fold t-shirt, smooth t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt, rotate t-shirt, smooth t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust t-shirt, smooth t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth pink t shirt on table",
+    "count": 1
+  },
+  {
+    "text": "flip t-shirt and smooth",
+    "count": 1
+  },
+  {
+    "text": "fold and adjust left side of pink t-shirt, smooth folded side of t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth pink shirt, fold pink t shirt, unfold t shirt, smooth t shift fold t shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth pink t-shirt, adjust left side of fold pink t-shirt, smooth pink t-shirt",
+    "count": 1
+  },
+  {
+    "text": "unfold and smoothen shirt",
+    "count": 1
+  },
+  {
+    "text": "fold and smoothen folded shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust and smoothen folded shirt",
+    "count": 1
+  },
+  {
+    "text": "flip and smoothen folded shirt",
+    "count": 1
+  },
+  {
+    "text": "place folded shirt on pile of shirts, pick shirt from basket",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, flip and spread shirt on table",
+    "count": 1
+  },
+  {
+    "text": "spread and smoothen shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up t-shirt, place t-shirt on table edge",
+    "count": 1
+  },
+  {
+    "text": "flip red t-shirt, smoothen red t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen red t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold red t-shirt, smoothen red t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust fabric on stack",
+    "count": 1
+  },
+  {
+    "text": "fold fabric, tap fabric",
+    "count": 1
+  },
+  {
+    "text": "place fabric on stack, pick up fabric",
+    "count": 1
+  },
+  {
+    "text": "adjust fabric",
+    "count": 1
+  },
+  {
+    "text": "fold fabric, tap fabric, place fabric on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up fabric, place fabric on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up fabric, place fabric on table",
+    "count": 1
+  },
+  {
+    "text": "pick up fabric fold fabric",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow garment to table, adjust yellow garment",
+    "count": 1
+  },
+  {
+    "text": "adjust yellow garment, zip yellow garment",
+    "count": 1
+  },
+  {
+    "text": "flip over yellow garment on table, adjust yellow garment",
+    "count": 1
+  },
+  {
+    "text": "move tape dispenser aside, adjust yellow garment",
+    "count": 1
+  },
+  {
+    "text": "fold yellow garment, adjust yellow garment",
+    "count": 1
+  },
+  {
+    "text": "place tape dispenser on table, put tape on yellow garment",
+    "count": 1
+  },
+  {
+    "text": "adjust yellow garment",
+    "count": 1
+  },
+  {
+    "text": "move yellow garment to stack of clothes, move brown garment to table",
+    "count": 1
+  },
+  {
+    "text": "adjust brown garment, move tape dispenser aside",
+    "count": 1
+  },
+  {
+    "text": "adjust brown garment, fold brown garment",
+    "count": 1
+  },
+  {
+    "text": "place tape dispenser aside, put tape on brown garment",
+    "count": 1
+  },
+  {
+    "text": "button shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt and clean shirt with lint roller",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, place packaged checkered cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up checkered cloth from pile, place checkered cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from stack",
+    "count": 1
+  },
+  {
+    "text": "place t-shirt on table, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust t-shirt, smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "iron t-shirt, place iron down",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt sleeves inward, fold t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded t-shirt, reposition folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded t-shirt, place folded t-shirt into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold plastic bag opening, flatten plastic bag",
+    "count": 1
+  },
+  {
+    "text": "flip bagged t-shirt, place bagged t-shirt down",
+    "count": 1
+  },
+  {
+    "text": "pick up box, place box down",
+    "count": 1
+  },
+  {
+    "text": "open box",
+    "count": 1
+  },
+  {
+    "text": "pick up bagged t-shirt, place bagged t-shirt into box",
+    "count": 1
+  },
+  {
+    "text": "close box",
+    "count": 1
+  },
+  {
+    "text": "pick up packaged box, place packaged box on stack of boxes",
+    "count": 1
+  },
+  {
+    "text": "adjust hoodie zipper",
+    "count": 1
+  },
+  {
+    "text": "zip up hoodie",
+    "count": 1
+  },
+  {
+    "text": "remove tape from hoodie",
+    "count": 1
+  },
+  {
+    "text": "attach sticker onto plastic sheet",
+    "count": 1
+  },
+  {
+    "text": "straighten hoodie on table",
+    "count": 1
+  },
+  {
+    "text": "fold hoodie on table",
+    "count": 1
+  },
+  {
+    "text": "flip hoodie on table, adjust hoodie",
+    "count": 1
+  },
+  {
+    "text": "apply tape onto hoodie",
+    "count": 1
+  },
+  {
+    "text": "place tape dispenser on shelf",
+    "count": 1
+  },
+  {
+    "text": "move hoodie onto pile",
+    "count": 1
+  },
+  {
+    "text": "slide pants on table",
+    "count": 1
+  },
+  {
+    "text": "wipe pants with lint roller",
+    "count": 1
+  },
+  {
+    "text": "fold pants, pick up lint roller",
+    "count": 1
+  },
+  {
+    "text": "pick up lint roller, wipe pants with lint roller",
+    "count": 1
+  },
+  {
+    "text": "place yellow shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "flip shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt sleeve",
+    "count": 1
+  },
+  {
+    "text": "flip shirt, smoothen shirt",
+    "count": 1
+  },
+  {
+    "text": "fold bottom edge of shirt upwards",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded shirt, flip folded shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust folded shirt, pick up folded shirt",
+    "count": 1
+  },
+  {
+    "text": "fold and smoothen red shirt",
+    "count": 1
+  },
+  {
+    "text": "fold red shirt, smoothen red shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust sleeve of red shirt, smoothen red shirt",
+    "count": 1
+  },
+  {
+    "text": "reposition folded red shirt, smoothen folded red shirt",
+    "count": 1
+  },
+  {
+    "text": "flip folded red shirt, smoothen folded red shirt",
+    "count": 1
+  },
+  {
+    "text": "reposition black t-shirt, pick up black t-shirt from folding table",
+    "count": 1
+  },
+  {
+    "text": "place black t-shirt on stack, pick up black t-shirt from stack",
+    "count": 1
+  },
+  {
+    "text": "place black t-shirt on folding table, reposition black t-shirt on folding table",
+    "count": 1
+  },
+  {
+    "text": "smoothen black t-shirt, reposition black t-shirt on folding table",
+    "count": 1
+  },
+  {
+    "text": "pick up black t-shirt from folding table, place black t-shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up green t-shirt from stack, place green t-shirt on folding table",
+    "count": 1
+  },
+  {
+    "text": "adjust green t-shirt on folding table, smoothen green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "reposition green t-shirt on folding table, smoothen green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "unfold yellow shirt, fold yellow shirt",
+    "count": 1
+  },
+  {
+    "text": "move yellow shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow shirt, place yellow shirt on stack of shirts",
+    "count": 1
+  },
+  {
+    "text": "fold black shirt, smooth black shirt",
+    "count": 1
+  },
+  {
+    "text": "move cloth from pile to table, fold cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up teal garment",
+    "count": 1
+  },
+  {
+    "text": "adjust teal garment, fold teal garment",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, fasten button on shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen shirt, fasten button of shirt",
+    "count": 1
+  },
+  {
+    "text": "reposition the shirt on the surface",
+    "count": 1
+  },
+  {
+    "text": "fold the collar of the shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, adjust collar",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, remove lint from shirt",
+    "count": 1
+  },
+  {
+    "text": "zip up folded maroon garment and place folded maroon garment on closet shelf",
+    "count": 1
+  },
+  {
+    "text": "fold grey pants and place folded grey pants on bed",
+    "count": 1
+  },
+  {
+    "text": "fold brown pants and place folded brown pants on closet shelf",
+    "count": 1
+  },
+  {
+    "text": "unfold t-shirt, adjust t-shirt, smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust folded t-shirt on table, smoothen folded t-shirt on table, adjust folded t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt on table, smoothen folded t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "retrieve cloth from pile and lay flat on table",
+    "count": 1
+  },
+  {
+    "text": "fold cloth in half lengthwise",
+    "count": 1
+  },
+  {
+    "text": "fold cloth strip into rectangle",
+    "count": 1
+  },
+  {
+    "text": "roll lint roller on shirt",
+    "count": 1
+  },
+  {
+    "text": "clean shirt with lint roller, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "clean shirt with lint roller, adjust shirt and place lint roller onto shirt",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on counter, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "move lint roller on counter, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "fold black t shirt",
+    "count": 1
+  },
+  {
+    "text": "move folded black t-shirt on table, grab plastic bag",
+    "count": 1
+  },
+  {
+    "text": "open plastic bag, insert folded black t-shirt inside plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust table mat",
+    "count": 1
+  },
+  {
+    "text": "place shirt in bag",
+    "count": 1
+  },
+  {
+    "text": "lift up box set on table",
+    "count": 1
+  },
+  {
+    "text": "pack shirt into box",
+    "count": 1
+  },
+  {
+    "text": "set box on floor",
+    "count": 1
+  },
+  {
+    "text": "adjust clothes",
+    "count": 1
+  },
+  {
+    "text": "smoothen black t-shirt, adjust black t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust black t-shirt, smoothen black t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "place green t-shirt on black t-shirt, adjust green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "spread green t-shirt, adjust green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "brush yellow cloth with toothbrush, place toothbrush on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, place plastic wrapper on table",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow cloth, place yellow cloth on plastic wrapper",
+    "count": 1
+  },
+  {
+    "text": "move yellow cloth and plastic wrapper on table",
+    "count": 1
+  },
+  {
+    "text": "place toothbrush on table, fold yellow cloth",
+    "count": 1
+  },
+  {
+    "text": "place toothbrush on table, pick up plastic cup from basket",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, place down plastic bag on table",
+    "count": 1
+  },
+  {
+    "text": "move pink cloth on plastic bag, adjust cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up green pen, flatten pink cloth with green pen",
+    "count": 1
+  },
+  {
+    "text": "place green pen on table, roll pink cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow container, place down yellow container on table",
+    "count": 1
+  },
+  {
+    "text": "remove yellow container cap, place pink cloth in yellow container",
+    "count": 1
+  },
+  {
+    "text": "pick up cap, seal yellow container with cap",
+    "count": 1
+  },
+  {
+    "text": "move yellow container on table",
+    "count": 1
+  },
+  {
+    "text": "gold shirt, flip shirt",
+    "count": 1
+  },
+  {
+    "text": "move shirt on pile",
+    "count": 1
+  },
+  {
+    "text": "place iron table, fold t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up iron from table, iron t-shirt",
+    "count": 1
+  },
+  {
+    "text": "place iron on table, fold t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold black shorts",
+    "count": 1
+  },
+  {
+    "text": "lift up black shirt set on table",
+    "count": 1
+  },
+  {
+    "text": "lift up tool tag black shirt",
+    "count": 1
+  },
+  {
+    "text": "lift up white shirt fold it",
+    "count": 1
+  },
+  {
+    "text": "lift up plastic bag unseal it",
+    "count": 1
+  },
+  {
+    "text": "lift up folded white shirt push into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "lift up folded black shirt push into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "lift up folded black shorts push into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust inside plastic bag",
+    "count": 1
+  },
+  {
+    "text": "unfold shirt, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "reposition shirt on table, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "iron white t shirt",
+    "count": 1
+  },
+  {
+    "text": "fold white t shirt",
+    "count": 1
+  },
+  {
+    "text": "set folded t shirt in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "button garment",
+    "count": 1
+  },
+  {
+    "text": "flip folded garment, press folded garment",
+    "count": 1
+  },
+  {
+    "text": "move folded garment from table to stack",
+    "count": 1
+  },
+  {
+    "text": "move garment from pile to table",
+    "count": 1
+  },
+  {
+    "text": "adjust garment on table, unfold garment",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of t-shirt up",
+    "count": 1
+  },
+  {
+    "text": "pick up iron and iron folded part of t-shirt",
+    "count": 1
+  },
+  {
+    "text": "apply glue to paper with toothbrush",
+    "count": 1
+  },
+  {
+    "text": "place toothbrush on board",
+    "count": 1
+  },
+  {
+    "text": "fold paper in half",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, smooth t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up iron, iron t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip t-shirt over and smooth t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt and smooth t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold bottom side of t-shirt upward, smooth folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up iron from table, iron folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "unfold bottom side of t-shirt, fold bottom side of t-shirt upwards",
+    "count": 1
+  },
+  {
+    "text": "smooth folded section",
+    "count": 1
+  },
+  {
+    "text": "fold left side of t-shirt inward, smooth left side fold",
+    "count": 1
+  },
+  {
+    "text": "fold right side of t-shirt inward, smooth right side fold",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt in half",
+    "count": 1
+  },
+  {
+    "text": "move shirt to table",
+    "count": 1
+  },
+  {
+    "text": "open buttons of shirt",
+    "count": 1
+  },
+  {
+    "text": "close buttons of shirt",
+    "count": 1
+  },
+  {
+    "text": "move shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "flip yellow t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick yellow t-shirt, place yellow t-shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip green t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up green t-shirt, pace green t-shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "move cloth from stack to shelf",
+    "count": 1
+  },
+  {
+    "text": "place pant on table, fold pants in half",
+    "count": 1
+  },
+  {
+    "text": "place cloth on shelf",
+    "count": 1
+  },
+  {
+    "text": "pick up tank top and spread it out on table",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on table, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on table, flip cloth",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on table, adjust cloth",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on table, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place clothing in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "close plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up packaged cloth, place packaged cloth onto stack",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, pick up cloth",
+    "count": 1
+  },
+  {
+    "text": "place and adjust plastic bag on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth and spread on table",
+    "count": 1
+  },
+  {
+    "text": "flip and adjust cloth",
+    "count": 1
+  },
+  {
+    "text": "fold cloth and adjust",
+    "count": 1
+  },
+  {
+    "text": "use lint roller on garment",
+    "count": 1
+  },
+  {
+    "text": "place garment inside plastic bag",
+    "count": 1
+  },
+  {
+    "text": "seal plastic bag with garment inside",
+    "count": 1
+  },
+  {
+    "text": "pick up and prepare plastic bag",
+    "count": 1
+  },
+  {
+    "text": "insert folded napkin into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "seal plastic bag and place it aside",
+    "count": 1
+  },
+  {
+    "text": "pick up and unfold cloth napkin",
+    "count": 1
+  },
+  {
+    "text": "smooth out and fold cloth napkin",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag on stack and grab cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag and adjust plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bags and adjust plastic bags",
+    "count": 1
+  },
+  {
+    "text": "organize plastic bags",
+    "count": 1
+  },
+  {
+    "text": "place plastic bags on stack and adjust plastic bags",
+    "count": 1
+  },
+  {
+    "text": "arrange plastic bags",
+    "count": 1
+  },
+  {
+    "text": "fold and smoothen cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust stacks of cloths on table",
+    "count": 1
+  },
+  {
+    "text": "move plastic bag from stack to table surface",
+    "count": 1
+  },
+  {
+    "text": "fold cloth on table surface",
+    "count": 1
+  },
+  {
+    "text": "move packaged cloth to stack",
+    "count": 1
+  },
+  {
+    "text": "put folded cloth into bag and place on stack",
+    "count": 1
+  },
+  {
+    "text": "place packed handkerchief on stack, adjust plastic bag",
+    "count": 1
+  },
+  {
+    "text": "move handkerchief on pile",
+    "count": 1
+  },
+  {
+    "text": "smoothen handkerchief",
+    "count": 1
+  },
+  {
+    "text": "fold handkerchief, smoothen handkerchief",
+    "count": 1
+  },
+  {
+    "text": "fold handkerchief, flip handkerchief",
+    "count": 1
+  },
+  {
+    "text": "adjust handkerchief",
+    "count": 1
+  },
+  {
+    "text": "move plastic bag on desk",
+    "count": 1
+  },
+  {
+    "text": "pack folded cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "spread and adjust cloth on table",
+    "count": 1
+  },
+  {
+    "text": "fold cloth in half",
+    "count": 1
+  },
+  {
+    "text": "insert cloth into plastic bag and place on stack",
+    "count": 1
+  },
+  {
+    "text": "place cloth in clear plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place packed cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth on table, fold cloth on table",
+    "count": 1
+  },
+  {
+    "text": "adjust t-shirt on the table",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt upward on table, smoothen folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up iron and iron lower folded part of t-shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust fold t-shirt upward, smoothen folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold left t-shirt inward, adjust folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve t-shirt outward, adjust folded sleeve",
+    "count": 1
+  },
+  {
+    "text": "fold right t-shirt inward, adjust folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve t-shirt outward",
+    "count": 1
+  },
+  {
+    "text": "adjust blue shirt",
+    "count": 1
+  },
+  {
+    "text": "clean blue shirt with lint roller",
+    "count": 1
+  },
+  {
+    "text": "clean blue shirt wit lint roller",
+    "count": 1
+  },
+  {
+    "text": "pick up spray bottle from table, spray pants with spray bottle",
+    "count": 1
+  },
+  {
+    "text": "pick up spray bottle, spray pants with bottle",
+    "count": 1
+  },
+  {
+    "text": "place spray bottle aside on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen cloth, adjust cloth",
+    "count": 1
+  },
+  {
+    "text": "place cloth into plastic bag, flip plastic bag with cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag with cloth, place plastic bag on top of stack",
+    "count": 1
+  },
+  {
+    "text": "press stack of plastic bags with cloths",
+    "count": 1
+  },
+  {
+    "text": "place cloth on working table",
+    "count": 1
+  },
+  {
+    "text": "manipulate cloth on table",
+    "count": 1
+  },
+  {
+    "text": "spread and smooth black t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold left side of t-shirt towards center and smooth",
+    "count": 1
+  },
+  {
+    "text": "fold right side of t-shirt towards center and smooth",
+    "count": 1
+  },
+  {
+    "text": "fold bottom part of t-shirt upward",
+    "count": 1
+  },
+  {
+    "text": "place iron on shirt sleeve",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt sleeve, place iron on table",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "unfold shirt, place shirt on table",
+    "count": 1
+  },
+  {
+    "text": "straighten shirt sleeve",
+    "count": 1
+  },
+  {
+    "text": "fold pink shirt, place pink shit on stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "pick up beige hoodie, place beige hoodie on table",
+    "count": 1
+  },
+  {
+    "text": "fold beige hoodie, place beige hoodie on stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt, place white shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold black clothing on table",
+    "count": 1
+  },
+  {
+    "text": "insert black clothing into pouch",
+    "count": 1
+  },
+  {
+    "text": "move packaged napkins onto stack",
+    "count": 1
+  },
+  {
+    "text": "package blue and white napkin in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust blue and white napkin",
+    "count": 1
+  },
+  {
+    "text": "place packaged handkerchief on table",
+    "count": 1
+  },
+  {
+    "text": "package handkerchief in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "stack packaged handkerchief on table",
+    "count": 1
+  },
+  {
+    "text": "iron t-shirt with pressing iron",
+    "count": 1
+  },
+  {
+    "text": "adjust hangers on rack",
+    "count": 1
+  },
+  {
+    "text": "pick up ranger from rack",
+    "count": 1
+  },
+  {
+    "text": "place shorts on table, flip shorts on table",
+    "count": 1
+  },
+  {
+    "text": "adjust shorts tag on table",
+    "count": 1
+  },
+  {
+    "text": "smooth shorts",
+    "count": 1
+  },
+  {
+    "text": "move shorts from table to stack",
+    "count": 1
+  },
+  {
+    "text": "place shorts on table, smooth shorts",
+    "count": 1
+  },
+  {
+    "text": "fold striped cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up checker cloth, place checker cloth on table",
+    "count": 1
+  },
+  {
+    "text": "straighten and fold checker cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust and smooth shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold shirt upwards",
+    "count": 1
+  },
+  {
+    "text": "adjust and smooth folded shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth ironed shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up and rotate shirt",
+    "count": 1
+  },
+  {
+    "text": "clean garment with lint roller, adjust garment",
+    "count": 1
+  },
+  {
+    "text": "move bag from stack onto garment",
+    "count": 1
+  },
+  {
+    "text": "rotate garment and bag, adjust lint roller",
+    "count": 1
+  },
+  {
+    "text": "move bag from garment onto stack, flip garment",
+    "count": 1
+  },
+  {
+    "text": "fold garment on table",
+    "count": 1
+  },
+  {
+    "text": "smooth garment",
+    "count": 1
+  },
+  {
+    "text": "smooth garment, pick up lint roller",
+    "count": 1
+  },
+  {
+    "text": "flip garment, pick up lint roller",
+    "count": 1
+  },
+  {
+    "text": "adjust garment, place lint roller on table",
+    "count": 1
+  },
+  {
+    "text": "move bag from stack onto table",
+    "count": 1
+  },
+  {
+    "text": "adjust bag and garment",
+    "count": 1
+  },
+  {
+    "text": "open bag, adjust garment",
+    "count": 1
+  },
+  {
+    "text": "move folded garment from table into bag",
+    "count": 1
+  },
+  {
+    "text": "clean bag with lint roller, place lint roller on table",
+    "count": 1
+  },
+  {
+    "text": "seal bag, smooth bag",
+    "count": 1
+  },
+  {
+    "text": "move packed garment from table into container",
+    "count": 1
+  },
+  {
+    "text": "unfold cloth on table, pick up toothbrush",
+    "count": 1
+  },
+  {
+    "text": "place toothbrush on table",
+    "count": 1
+  },
+  {
+    "text": "iron the t-shirt, place iron on board",
+    "count": 1
+  },
+  {
+    "text": "fold the bottom of the t-shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen and fold t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up and open the packaging bag",
+    "count": 1
+  },
+  {
+    "text": "place the t-shirt into the packaging bag, seal bag and place it aside",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, put striped cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up striped cloth, place striped cloth on stack of striped cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up striped cloth, fold striped cloth",
+    "count": 1
+  },
+  {
+    "text": "put striped cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "hold folded white garment",
+    "count": 1
+  },
+  {
+    "text": "move white garment from pile to table",
+    "count": 1
+  },
+  {
+    "text": "slide folded white garment on table",
+    "count": 1
+  },
+  {
+    "text": "move black and grey garment from pile to table",
+    "count": 1
+  },
+  {
+    "text": "fold black and grey garment",
+    "count": 1
+  },
+  {
+    "text": "move black and grey garment to stack",
+    "count": 1
+  },
+  {
+    "text": "adjust pants on the table",
+    "count": 1
+  },
+  {
+    "text": "fold pants, place pants on table",
+    "count": 1
+  },
+  {
+    "text": "adjust pants, pick up lint roller",
+    "count": 1
+  },
+  {
+    "text": "roll pants with lint roller",
+    "count": 1
+  },
+  {
+    "text": "pick up and open a plastic bag",
+    "count": 1
+  },
+  {
+    "text": "insert the folded cloth into the plastic bag, flip plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place the packaged cloth on the stack",
+    "count": 1
+  },
+  {
+    "text": "pick up a plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold checkered napkin",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bad, pack folded napkin into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place packed napkin on stack, pick up striped napkin",
+    "count": 1
+  },
+  {
+    "text": "fold striped napkin",
+    "count": 1
+  },
+  {
+    "text": "fold red checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "place red checkered cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "move plastic bag onto stack",
+    "count": 1
+  },
+  {
+    "text": "adjust stack of plastic bags",
+    "count": 1
+  },
+  {
+    "text": "pick up grey checkered cloth, adjust and place grey checkered cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up storage bag",
+    "count": 1
+  },
+  {
+    "text": "place garment into storage bag",
+    "count": 1
+  },
+  {
+    "text": "adjust garment within bag",
+    "count": 1
+  },
+  {
+    "text": "secure storage bag closure",
+    "count": 1
+  },
+  {
+    "text": "place storage bag into the bin",
+    "count": 1
+  },
+  {
+    "text": "fold right side of shirt",
+    "count": 1
+  },
+  {
+    "text": "fold left side of shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt again to compact size",
+    "count": 1
+  },
+  {
+    "text": "use lint roller on folded shirt",
+    "count": 1
+  },
+  {
+    "text": "fold left sleeve of shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt upward again",
+    "count": 1
+  },
+  {
+    "text": "smooth out folded shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt in half vertically",
+    "count": 1
+  },
+  {
+    "text": "package shirt into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up box",
+    "count": 1
+  },
+  {
+    "text": "adjust jeans on table, unfold jeans on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen jeans, unfold jeans",
+    "count": 1
+  },
+  {
+    "text": "pick up jeans from table",
+    "count": 1
+  },
+  {
+    "text": "pick up hanger, place jeans on hanger",
+    "count": 1
+  },
+  {
+    "text": "hang jeans on clothes rack",
+    "count": 1
+  },
+  {
+    "text": "pick up box from stack, place box on table",
+    "count": 1
+  },
+  {
+    "text": "lift box",
+    "count": 1
+  },
+  {
+    "text": "open box lid",
+    "count": 1
+  },
+  {
+    "text": "pick up packaged garment from box",
+    "count": 1
+  },
+  {
+    "text": "place packaged garment on table",
+    "count": 1
+  },
+  {
+    "text": "close box lid",
+    "count": 1
+  },
+  {
+    "text": "iron and fold shirt",
+    "count": 1
+  },
+  {
+    "text": "fold checkered towel",
+    "count": 1
+  },
+  {
+    "text": "move checkered towel into plastic packet",
+    "count": 1
+  },
+  {
+    "text": "move paper towel to stack of paper towels",
+    "count": 1
+  },
+  {
+    "text": "pick up checkered towel, adjust checkered towel",
+    "count": 1
+  },
+  {
+    "text": "place cloth strips on table",
+    "count": 1
+  },
+  {
+    "text": "unfold cloth strips",
+    "count": 1
+  },
+  {
+    "text": "fold cloth strip",
+    "count": 1
+  },
+  {
+    "text": "smoothen cloth on table, fold cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up packed cloth and place packed cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth from stack, place cloth on table",
+    "count": 1
+  },
+  {
+    "text": "place bagged fabric into box",
+    "count": 1
+  },
+  {
+    "text": "move fabric from pile to fabric on table, fold fabric pieces",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from stack, put folded fabric into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag on pile of fabrics",
+    "count": 1
+  },
+  {
+    "text": "fold fabric piece, pick up fabric from pile and spread on table",
+    "count": 1
+  },
+  {
+    "text": "fold fabrics on table, adjust plastic bag",
+    "count": 1
+  },
+  {
+    "text": "put folded fabric into plastic bag, place plastic bag on pile of fabrics",
+    "count": 1
+  },
+  {
+    "text": "pick up fabric from pile and spread on table, pick up fabric from pile",
+    "count": 1
+  },
+  {
+    "text": "place fabric on fabric, fold fabric pieces",
+    "count": 1
+  },
+  {
+    "text": "adjust checkered cloth on table, rotate checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust checkered cloth on table, fold checkered cloth on table",
+    "count": 1
+  },
+  {
+    "text": "rotate checkered cloth, pick white nylon",
+    "count": 1
+  },
+  {
+    "text": "adjust napkin inside plastic bag",
+    "count": 1
+  },
+  {
+    "text": "smooth and flatten bagged napkin",
+    "count": 1
+  },
+  {
+    "text": "place stack of napkins into box",
+    "count": 1
+  },
+  {
+    "text": "pick up napkin from pile",
+    "count": 1
+  },
+  {
+    "text": "straighten and lay out napkin",
+    "count": 1
+  },
+  {
+    "text": "fold napkin on table",
+    "count": 1
+  },
+  {
+    "text": "pick up and start folding cloth",
+    "count": 1
+  },
+  {
+    "text": "finish folding cloth into small rectangle",
+    "count": 1
+  },
+  {
+    "text": "use lint roller onto clean flat shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt into a vertical strip",
+    "count": 1
+  },
+  {
+    "text": "use lint roller on vertical strip of shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt into a compact rectangle",
+    "count": 1
+  },
+  {
+    "text": "use lint roller on fully folded shirt",
+    "count": 1
+  },
+  {
+    "text": "fold and smoothen pink cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, place pink cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place pink cloth in plastic bag on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up and spread checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "fold and flatten checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "open plastic bag, place cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow striped cloth",
+    "count": 1
+  },
+  {
+    "text": "fold yellow striped cloth",
+    "count": 1
+  },
+  {
+    "text": "fold yellow striped cloth, place folded yellow cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "iron folded section of t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold sides of t-shirt inwards",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt upwards",
+    "count": 1
+  },
+  {
+    "text": "smooth t-shirt with hands",
+    "count": 1
+  },
+  {
+    "text": "fold bottom part of shirt",
+    "count": 1
+  },
+  {
+    "text": "fold left side of shirt inwards",
+    "count": 1
+  },
+  {
+    "text": "fold right side of shirt inwards",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of shirt upwards, smoothen shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust folded shirt, flatten folded shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place packaged cloth onto stack",
+    "count": 1
+  },
+  {
+    "text": "pick up stack of packaged cloths",
+    "count": 1
+  },
+  {
+    "text": "lean stack of packaged cloths onto cardboard box",
+    "count": 1
+  },
+  {
+    "text": "take cloth from pile, spread cloth on table",
+    "count": 1
+  },
+  {
+    "text": "iron t-shirt on wooden table, place iron on table",
+    "count": 1
+  },
+  {
+    "text": "fold sleeves of t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt into square shape",
+    "count": 1
+  },
+  {
+    "text": "spread checkered cloth flat",
+    "count": 1
+  },
+  {
+    "text": "adjust stack of packaged items",
+    "count": 1
+  },
+  {
+    "text": "spread white shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust white shirt sleeve",
+    "count": 1
+  },
+  {
+    "text": "place iron down",
+    "count": 1
+  },
+  {
+    "text": "place folded t-shirt aside",
+    "count": 1
+  },
+  {
+    "text": "iron striped shirt",
+    "count": 1
+  },
+  {
+    "text": "insert folded striped shirt into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "spread out cloth on table",
+    "count": 1
+  },
+  {
+    "text": "move handkerchief",
+    "count": 1
+  },
+  {
+    "text": "fold pants on table",
+    "count": 1
+  },
+  {
+    "text": "clean pants with lint roller",
+    "count": 1
+  },
+  {
+    "text": "fold and clean pants with lint roller",
+    "count": 1
+  },
+  {
+    "text": "pick up towel, place towel in stack",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bags in stack, pick up towel",
+    "count": 1
+  },
+  {
+    "text": "place towel on table, fold towel",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from stack, place plastic bag on table",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag with cloth on stack from table, adjust plastic bag with cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth from pile, adjust cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth on",
+    "count": 1
+  },
+  {
+    "text": "smoothen cloth, rotate cloth",
+    "count": 1
+  },
+  {
+    "text": "smoothen cloth, move cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from table, open plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag on table, move cloth on table",
+    "count": 1
+  },
+  {
+    "text": "lift cloth",
+    "count": 1
+  },
+  {
+    "text": "rotate plastic bag with cloth, adjust plastic bag with cloth",
+    "count": 1
+  },
+  {
+    "text": "flip plastic bag with cloth on table",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag with cloth",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag with cloth on stack from table",
+    "count": 1
+  },
+  {
+    "text": "pick up and fold pink garment",
+    "count": 1
+  },
+  {
+    "text": "flip and smooth pink garment",
+    "count": 1
+  },
+  {
+    "text": "pick up and place pink garment on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up and adjust blue patterned garment",
+    "count": 1
+  },
+  {
+    "text": "fold blue patterned garment and place on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up and unfold grey garment",
+    "count": 1
+  },
+  {
+    "text": "flip and fold grey garment",
+    "count": 1
+  },
+  {
+    "text": "fold and smoothen grey garment",
+    "count": 1
+  },
+  {
+    "text": "fold towel",
+    "count": 1
+  },
+  {
+    "text": "place packed cloth on stack, grab cloth",
+    "count": 1
+  },
+  {
+    "text": "put folded cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up towel and spread it flat",
+    "count": 1
+  },
+  {
+    "text": "fold towel lengthwise into strip",
+    "count": 1
+  },
+  {
+    "text": "fold towel strip in half",
+    "count": 1
+  },
+  {
+    "text": "fold towel into small square",
+    "count": 1
+  },
+  {
+    "text": "insert folded towel into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust folded t-shirt, place folded t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick t-shirt from pile",
+    "count": 1
+  },
+  {
+    "text": "smoothen t-shirt, pick up tape roll",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag with folded cloth on stack of folded cloth, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up clothes from pile, place cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "unfold cloth on table",
+    "count": 1
+  },
+  {
+    "text": "manipulate clear plastic bag, place checkered cloth in clear plastic bag",
+    "count": 1
+  },
+  {
+    "text": "arrange packaged cloth on pile, position cloth on mat",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag and put cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up clear plastic bag, place folded towel into clear plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up packaged towel and place on stack on the table",
+    "count": 1
+  },
+  {
+    "text": "pick up towel from pile on the table, spread out towel on the table",
+    "count": 1
+  },
+  {
+    "text": "fold towel into half on the table, smoothen folded towel",
+    "count": 1
+  },
+  {
+    "text": "flip folded towel on the table, adjust folded towel on table",
+    "count": 1
+  },
+  {
+    "text": "remove plastic bag from bag of plastic bags",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, place handkerchief in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust checkered towel and rotate checkered towel on the table",
+    "count": 1
+  },
+  {
+    "text": "fold checkered towel, flip folded checkered towel on the table",
+    "count": 1
+  },
+  {
+    "text": "pick up and open clear plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust folded towel on table, flip clear plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up folded towel, place folded towel inside clear plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up packaged towel, place packaged towel on stack on the table",
+    "count": 1
+  },
+  {
+    "text": "pick up checkered towel from pile on the table, spread out checkered towel on the table",
+    "count": 1
+  },
+  {
+    "text": "search for cloth in pile",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth and spread flat",
+    "count": 1
+  },
+  {
+    "text": "fold cloth into a long strip",
+    "count": 1
+  },
+  {
+    "text": "fold cloth into a small square",
+    "count": 1
+  },
+  {
+    "text": "place packaged cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "remove hanger from shorts, hang hanger on rack",
+    "count": 1
+  },
+  {
+    "text": "spread out shorts, fold shorts",
+    "count": 1
+  },
+  {
+    "text": "lay shorts on rack, fold shorts on rack",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shorts from rack, place folded shorts on pile on rack",
+    "count": 1
+  },
+  {
+    "text": "pick up hanger with black shorts from rack",
+    "count": 1
+  },
+  {
+    "text": "remove hanger from black shorts, hang hanger on rack",
+    "count": 1
+  },
+  {
+    "text": "spread out black shorts, fold black shorts",
+    "count": 1
+  },
+  {
+    "text": "lay black shorts on rack, fold black shorts on rack",
+    "count": 1
+  },
+  {
+    "text": "pick up black folded shorts from rack, place black folded shorts on pile on rack",
+    "count": 1
+  },
+  {
+    "text": "adjust packaged cloth and set aside",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth and lay flat on table",
+    "count": 1
+  },
+  {
+    "text": "fold blue shirt, smoothen blue shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up iron and place iron on shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, adjust sleeves",
+    "count": 1
+  },
+  {
+    "text": "adjust stack of packaged cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up and unfold cloth",
+    "count": 1
+  },
+  {
+    "text": "fold cloth, pick up bag",
+    "count": 1
+  },
+  {
+    "text": "insert cloth on bag",
+    "count": 1
+  },
+  {
+    "text": "smoothen kitchen towel, adjust kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "smoothen kitchen towel, pick up kitchen towel, flip kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "place kitchen towel on table, smoothen kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, adjust kitchen towel, place plastic bag on table",
+    "count": 1
+  },
+  {
+    "text": "open plastic bag, place kitchen towel in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag, on stack, pick up kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "drop kitchen towel on table, pick up kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "spread out kitchen towel, drop kitchen towel on table",
+    "count": 1
+  },
+  {
+    "text": "pick up stack, place stack on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust kitchen towel, pick up kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "drop kitchen towel on table, smoothen kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "smoothen kitchen towel, move kitchen towel aside, move plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place kitchen towel in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold black and white towel",
+    "count": 1
+  },
+  {
+    "text": "rotate black and white towel, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "package black and white towel into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up packaged towel, place packaged towel on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow and white towel, place yellow and white towel on table",
+    "count": 1
+  },
+  {
+    "text": "fold yellow and white towel",
+    "count": 1
+  },
+  {
+    "text": "adjust yellow shirt on shelf",
+    "count": 1
+  },
+  {
+    "text": "pick up blue cloth from pile, adjust blue cloth on shelf",
+    "count": 1
+  },
+  {
+    "text": "fold blue cloth on shelf",
+    "count": 1
+  },
+  {
+    "text": "adjust blue cloth on shelf, place blue cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up grey cloth from pile, adjust grey cloth on shelf",
+    "count": 1
+  },
+  {
+    "text": "fold grey cloth on shelf",
+    "count": 1
+  },
+  {
+    "text": "adjust grey cloth on shelf, place grey cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "sort through blue fabric scraps on table",
+    "count": 1
+  },
+  {
+    "text": "select and adjust blue fabric scrap",
+    "count": 1
+  },
+  {
+    "text": "select specific fabric scrap in pile",
+    "count": 1
+  },
+  {
+    "text": "fold fabric scrap into small rectangular shape",
+    "count": 1
+  },
+  {
+    "text": "fold and smoothen fabric scrap",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, place folded fabric into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "iron shirt on surface, place iron on surface",
+    "count": 1
+  },
+  {
+    "text": "fold shirt on surface",
+    "count": 1
+  },
+  {
+    "text": "move shirt on surface",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from pile, rotate plastic bag on surface",
+    "count": 1
+  },
+  {
+    "text": "open plastic bag on surface",
+    "count": 1
+  },
+  {
+    "text": "fold white underwear",
+    "count": 1
+  },
+  {
+    "text": "fold pink underwear",
+    "count": 1
+  },
+  {
+    "text": "fold cream white underwear",
+    "count": 1
+  },
+  {
+    "text": "fold green underwear",
+    "count": 1
+  },
+  {
+    "text": "fold grey underwear",
+    "count": 1
+  },
+  {
+    "text": "pick up grey garment from pile",
+    "count": 1
+  },
+  {
+    "text": "unzip grey garment, adjust grey garment",
+    "count": 1
+  },
+  {
+    "text": "adjust grey garment, zip grey garment",
+    "count": 1
+  },
+  {
+    "text": "arrange grey garment on surface",
+    "count": 1
+  },
+  {
+    "text": "pick up folded grey garment, place grey garment on pile",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag down and pick up pink checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "spread pink checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "fold pink checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "insert pink checkered cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, flip plastic bag",
+    "count": 1
+  },
+  {
+    "text": "move cloth to plastic bag",
+    "count": 1
+  },
+  {
+    "text": "move plastic bag to stack",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth and plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up paper from chair and place on table",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth and place on paper",
+    "count": 1
+  },
+  {
+    "text": "place cloth in container",
+    "count": 1
+  },
+  {
+    "text": "fold green pants on table, place green pants on cloth pile",
+    "count": 1
+  },
+  {
+    "text": "pick up blue sweater, adjust black cloth",
+    "count": 1
+  },
+  {
+    "text": "unfold blue sweater, adjust blue t-shirt",
+    "count": 1
+  },
+  {
+    "text": "spread blue sweater on table, smoothen blue sweater",
+    "count": 1
+  },
+  {
+    "text": "fold blue sweater on table, place blue sweater on cloth pile",
+    "count": 1
+  },
+  {
+    "text": "move black short, pick up black short",
+    "count": 1
+  },
+  {
+    "text": "unfold black short, place black short on table",
+    "count": 1
+  },
+  {
+    "text": "adjust black short, flip black short",
+    "count": 1
+  },
+  {
+    "text": "fold black short on table, pick up black short",
+    "count": 1
+  },
+  {
+    "text": "place black short on cloth pile, move flowered pants",
+    "count": 1
+  },
+  {
+    "text": "spread flowered pants on table, fold flowered pants on table",
+    "count": 1
+  },
+  {
+    "text": "place flowered pants on cloth pile",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, adjust small cloth",
+    "count": 1
+  },
+  {
+    "text": "insert small cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "move packaged cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "move checkered cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust checkered cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place checkered cloth in plastic bag on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up checkered cloth, strengthen checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "strengthen checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "fold kitchen cloth, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "insert kitchen cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust kitchen cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "flip plastic bag, place plastic bag on stack",
+    "count": 1
+  },
+  {
+    "text": "place cloth on table and adjust cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "fold kitchen cloth",
+    "count": 1
+  },
+  {
+    "text": "spread shorts on table",
+    "count": 1
+  },
+  {
+    "text": "zip up shorts",
+    "count": 1
+  },
+  {
+    "text": "clean front of shorts with lint roller",
+    "count": 1
+  },
+  {
+    "text": "turn over shorts",
+    "count": 1
+  },
+  {
+    "text": "adjust back of shorts on table",
+    "count": 1
+  },
+  {
+    "text": "clean back of shorts with lint roller",
+    "count": 1
+  },
+  {
+    "text": "fold shorts vertically",
+    "count": 1
+  },
+  {
+    "text": "fold shorts horizontally",
+    "count": 1
+  },
+  {
+    "text": "clean folded shorts with lint roller",
+    "count": 1
+  },
+  {
+    "text": "pick patterned cloth from pile",
+    "count": 1
+  },
+  {
+    "text": "pick up checkered cloth from pile, spread checkered cloth on table",
+    "count": 1
+  },
+  {
+    "text": "flatten shirt on table and fold shirt in half",
+    "count": 1
+  },
+  {
+    "text": "iron the lower portion of shirt",
+    "count": 1
+  },
+  {
+    "text": "flatten shirt with hands",
+    "count": 1
+  },
+  {
+    "text": "fold shirt sleeves and adjust shirt sleeves",
+    "count": 1
+  },
+  {
+    "text": "fold shirt and adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt and place shirt on corner of table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, adjust grey checkered napkin",
+    "count": 1
+  },
+  {
+    "text": "pick up and place folded grey checkered napkin into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "rotate and place packaged grey checkered napkin on table",
+    "count": 1
+  },
+  {
+    "text": "pick up grey checkered napkin and place on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust stack of packaged napkins",
+    "count": 1
+  },
+  {
+    "text": "pick up checkered napkins, reposition pink checkered napkin",
+    "count": 1
+  },
+  {
+    "text": "reposition pink checkered napkin, place grey checkered napkin on stack",
+    "count": 1
+  },
+  {
+    "text": "flip grey checkered napkin",
+    "count": 1
+  },
+  {
+    "text": "pick up checkered cloth and spread out checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "fold checkered cloth into square",
+    "count": 1
+  },
+  {
+    "text": "pick up pink cloth and fold pink cloth",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded pink cloth and adjust the folded pink cloth",
+    "count": 1
+  },
+  {
+    "text": "smooth folded part, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "place folded shirt inside plastic bag, adjust and seal plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up cardboard box",
+    "count": 1
+  },
+  {
+    "text": "place cardboard box on table, open cardboard box",
+    "count": 1
+  },
+  {
+    "text": "place cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from stack, insert folded cloth into the plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place packaged cloth on stack of packaged cloths",
+    "count": 1
+  },
+  {
+    "text": "place spray bottle on table, smooth out white garment on surface",
+    "count": 1
+  },
+  {
+    "text": "place spray bottle on table, pick up iron",
+    "count": 1
+  },
+  {
+    "text": "iron white garment",
+    "count": 1
+  },
+  {
+    "text": "flatten shirt on table",
+    "count": 1
+  },
+  {
+    "text": "iron shirt and place iron back",
+    "count": 1
+  },
+  {
+    "text": "adjust bottom edge of shirt",
+    "count": 1
+  },
+  {
+    "text": "fold left side of shirt and sleeve inward",
+    "count": 1
+  },
+  {
+    "text": "smooth and align the folded left side",
+    "count": 1
+  },
+  {
+    "text": "fold right side of shirt and sleeve inward",
+    "count": 1
+  },
+  {
+    "text": "fold shirt into a rectangle",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt on table, fold bottom of shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen shirt, pick up iron",
+    "count": 1
+  },
+  {
+    "text": "place iron on table, pick up shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, place shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold towel in half and smooth out",
+    "count": 1
+  },
+  {
+    "text": "fold towel into a square",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, insert towel into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust bag and set aside",
+    "count": 1
+  },
+  {
+    "text": "pick up towel",
+    "count": 1
+  },
+  {
+    "text": "clean trousers using duster and lint roller",
+    "count": 1
+  },
+  {
+    "text": "fold fabric on table",
+    "count": 1
+  },
+  {
+    "text": "place folded fabric inside plastic bag, place packaged fabric inside box",
+    "count": 1
+  },
+  {
+    "text": "place folded fabric inside plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt on table, fold shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt on table, fold sleeve of shirt",
+    "count": 1
+  },
+  {
+    "text": "unfold shirt on table, use lint roller to smoothen",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on table, fold shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up lint roller from table, smoothen shirt with lint roller",
+    "count": 1
+  },
+  {
+    "text": "place roller on table, adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded shirt on table using lint roller",
+    "count": 1
+  },
+  {
+    "text": "flip folded shirt on table, pick up lint roller from table",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shirt from table, insert folded shirt into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "seal plastic bag of shirt, smoothen plastic bag of shirt",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag of shirt into pile",
+    "count": 1
+  },
+  {
+    "text": "adjust stack of packaged towels on the surface",
+    "count": 1
+  },
+  {
+    "text": "grasp towel from pile and spread it flat",
+    "count": 1
+  },
+  {
+    "text": "fold towel into small sections",
+    "count": 1
+  },
+  {
+    "text": "fold towel into a square shape",
+    "count": 1
+  },
+  {
+    "text": "insert folded towel into clear plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up grey shirt, place grey shirt on table",
+    "count": 1
+  },
+  {
+    "text": "unfold grey shirt",
+    "count": 1
+  },
+  {
+    "text": "flatten grey shirt",
+    "count": 1
+  },
+  {
+    "text": "flip grey shirt, adjust grey shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up grey shirt, place grey shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up tan garment, place tan garment on table",
+    "count": 1
+  },
+  {
+    "text": "unfold tan garment",
+    "count": 1
+  },
+  {
+    "text": "flip tan garment, adjust tan garment",
+    "count": 1
+  },
+  {
+    "text": "pick up and spread white cloth",
+    "count": 1
+  },
+  {
+    "text": "fold white cloth into long strip",
+    "count": 1
+  },
+  {
+    "text": "fold white cloth into final rectangular shape",
+    "count": 1
+  },
+  {
+    "text": "smooth folded part of shirt with hands",
+    "count": 1
+  },
+  {
+    "text": "iron the folded section of shirt",
+    "count": 1
+  },
+  {
+    "text": "place iron down and lift shirt from table",
+    "count": 1
+  },
+  {
+    "text": "move handkerchief on table, grab handkerchief",
+    "count": 1
+  },
+  {
+    "text": "move plastic bag on table, insert handkerchief in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag and move on stack",
+    "count": 1
+  },
+  {
+    "text": "grab handkerchief",
+    "count": 1
+  },
+  {
+    "text": "fold pink cloth, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "insert cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold green cloth",
+    "count": 1
+  },
+  {
+    "text": "fold cloth and place in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth from pile, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up towel from pile, fold towel on table",
+    "count": 1
+  },
+  {
+    "text": "fold cloth strip into a square",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from pile on table, adjust plastic bag open",
+    "count": 1
+  },
+  {
+    "text": "place folded towel in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag with towel on pile on table",
+    "count": 1
+  },
+  {
+    "text": "adjust towel and fold towel",
+    "count": 1
+  },
+  {
+    "text": "place folded towel into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "flatten and adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of t-shirt, smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "iron folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "slide folded t-shirt aside",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, unzip plastic bag",
+    "count": 1
+  },
+  {
+    "text": "insert folded t-shirt into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold green fabric",
+    "count": 1
+  },
+  {
+    "text": "flip green fabric",
+    "count": 1
+  },
+  {
+    "text": "move lint roll on stack of plastic bag",
+    "count": 1
+  },
+  {
+    "text": "insert green fabric into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold fabric package, unfold fabric package",
+    "count": 1
+  },
+  {
+    "text": "smoothen fabric package",
+    "count": 1
+  },
+  {
+    "text": "seal fabric package",
+    "count": 1
+  },
+  {
+    "text": "adjust fabric package",
+    "count": 1
+  },
+  {
+    "text": "pick up fabric package, place fabric package on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust fabric packages on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust packaged cloth",
+    "count": 1
+  },
+  {
+    "text": "place packaged cloths on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth and fold cloth",
+    "count": 1
+  },
+  {
+    "text": "place down lint roller, fold shirts hand on table",
+    "count": 1
+  },
+  {
+    "text": "place down lint roller, adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, place folded shirt on plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place packaged shirt on table, seal and press down folded shirt on plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up packaged shirt from table",
+    "count": 1
+  },
+  {
+    "text": "place iron on table, smoothen t-shirt",
+    "count": 1
+  },
+  {
+    "text": "stack the folded cloth on the table",
+    "count": 1
+  },
+  {
+    "text": "pick up and open the plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up a new checkered cloth from the pile",
+    "count": 1
+  },
+  {
+    "text": "fold the checkered cloth into a square",
+    "count": 1
+  },
+  {
+    "text": "flatten the folded checkered cloth with hands",
+    "count": 1
+  },
+  {
+    "text": "place the folded cloth aside on the table",
+    "count": 1
+  },
+  {
+    "text": "unfold and begin folding a new checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth, spread cloth on table",
+    "count": 1
+  },
+  {
+    "text": "smooth out cloth on table, fold cloth in half",
+    "count": 1
+  },
+  {
+    "text": "adjust edges of cloth, fold cloth in half",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, put cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust stack of plastic bags, place stack of plastic bags down",
+    "count": 1
+  },
+  {
+    "text": "pack cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "stack packed cloth, pick up a piece of cloth from pile",
+    "count": 1
+  },
+  {
+    "text": "unfold and spread out the cloth on workbench",
+    "count": 1
+  },
+  {
+    "text": "fold the cloth into a square on workbench, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place folded fabric on stack",
+    "count": 1
+  },
+  {
+    "text": "unfold checkered fabric and prepare checkered fabric",
+    "count": 1
+  },
+  {
+    "text": "fold checkered fabric into rectangle",
+    "count": 1
+  },
+  {
+    "text": "fold small white fabric",
+    "count": 1
+  },
+  {
+    "text": "place white fabric on table",
+    "count": 1
+  },
+  {
+    "text": "move and adjust stack of fabrics",
+    "count": 1
+  },
+  {
+    "text": "fold checkered napkins",
+    "count": 1
+  },
+  {
+    "text": "move jacket from pile to table, spread out jacket on table",
+    "count": 1
+  },
+  {
+    "text": "adjust lint roller on table, loosen buttons on jacket",
+    "count": 1
+  },
+  {
+    "text": "adjust lint roller on table, adjust jacket on table",
+    "count": 1
+  },
+  {
+    "text": "button jacket and adjust jacket",
+    "count": 1
+  },
+  {
+    "text": "pick up bag, open bag",
+    "count": 1
+  },
+  {
+    "text": "place striped cloth into bag",
+    "count": 1
+  },
+  {
+    "text": "reposition bag",
+    "count": 1
+  },
+  {
+    "text": "pick up striped cloth, adjust striped cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up bag, place striped cloth into bag",
+    "count": 1
+  },
+  {
+    "text": "adjust handkerchief, fold handkerchief",
+    "count": 1
+  },
+  {
+    "text": "align handkerchief, adjust handkerchief",
+    "count": 1
+  },
+  {
+    "text": "fold handkerchief, straighten handkerchief",
+    "count": 1
+  },
+  {
+    "text": "adjust handkerchief, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, adjust handkerchief",
+    "count": 1
+  },
+  {
+    "text": "park handkerchief in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag with handkerchief on pile",
+    "count": 1
+  },
+  {
+    "text": "place iron on table, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of shirt",
+    "count": 1
+  },
+  {
+    "text": "place packed towel on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up towel and spread towel on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag and flip towel on table",
+    "count": 1
+  },
+  {
+    "text": "flip packed towel and adjust towel on plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up and spread out fabric",
+    "count": 1
+  },
+  {
+    "text": "flatten and align fabric on surface",
+    "count": 1
+  },
+  {
+    "text": "fold fabric into small square",
+    "count": 1
+  },
+  {
+    "text": "place fabric in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick plastic bag, place plastic bag on stack and adjust cloth",
+    "count": 1
+  },
+  {
+    "text": "move cloth from pile",
+    "count": 1
+  },
+  {
+    "text": "place folded white fabric into bag",
+    "count": 1
+  },
+  {
+    "text": "place folded fabric into bag",
+    "count": 1
+  },
+  {
+    "text": "pick up box and place on table",
+    "count": 1
+  },
+  {
+    "text": "open box on table",
+    "count": 1
+  },
+  {
+    "text": "remove bagged shirt from box",
+    "count": 1
+  },
+  {
+    "text": "close the box lid, pick up box",
+    "count": 1
+  },
+  {
+    "text": "place box on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag on table, open plastic bag",
+    "count": 1
+  },
+  {
+    "text": "remove shirt from plastic bag, close plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, move plastic bag to stack of empty plastic bags on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen plastic bag on stack of empty plastic bags on table",
+    "count": 1
+  },
+  {
+    "text": "unfold and smoothen shirt on table, pick up shirt from table",
+    "count": 1
+  },
+  {
+    "text": "place bagged cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up checkered cloth, lay out a checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "fold checkered cloth into strip",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth on table, smoothen cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth from table, adjust cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth from table",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth on table, lift cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from table, move cloth on table",
+    "count": 1
+  },
+  {
+    "text": "place plastic bag on table, flip cloth",
+    "count": 1
+  },
+  {
+    "text": "place cloth on plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag on table, place cloth on plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth on plastic bag",
+    "count": 1
+  },
+  {
+    "text": "move cloth on plastic bag",
+    "count": 1
+  },
+  {
+    "text": "roll lint roller on cloth on table, place down lint roller on table",
+    "count": 1
+  },
+  {
+    "text": "place down lint roller on table, fold cloth on table",
+    "count": 1
+  },
+  {
+    "text": "place down lint roller on table, pick up plastic bag from table",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth from table, place cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place plastic package on table, adjust plastic package on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic package from table, throw plastic package on floor",
+    "count": 1
+  },
+  {
+    "text": "pick up brown cloth from orange stand, adjust brown cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up lint roller from table, roll lint roller on brown cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up and adjust white fabric piece",
+    "count": 1
+  },
+  {
+    "text": "pick up and adjust white face piece",
+    "count": 1
+  },
+  {
+    "text": "pick up and flatten checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "fold sides of checkered cloth inwards",
+    "count": 1
+  },
+  {
+    "text": "fold cloth into a compact square",
+    "count": 1
+  },
+  {
+    "text": "place folded cloth inside plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth and start folding",
+    "count": 1
+  },
+  {
+    "text": "unfold fabric, smoothen fabric",
+    "count": 1
+  },
+  {
+    "text": "fold fabric, smoothen fabric",
+    "count": 1
+  },
+  {
+    "text": "fold fabric, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place fabric in plastic bag, place plastic bag on stack",
+    "count": 1
+  },
+  {
+    "text": "fold pink dress and place on stack",
+    "count": 1
+  },
+  {
+    "text": "fold green pants and place on stack",
+    "count": 1
+  },
+  {
+    "text": "fold pink and white top",
+    "count": 1
+  },
+  {
+    "text": "insert black checkered cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "place packaged black checkered cloth on table",
+    "count": 1
+  },
+  {
+    "text": "adjust folded napkin",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag from table",
+    "count": 1
+  },
+  {
+    "text": "open plastic bag, place napkin into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, place plastic bag on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up and adjust napkin on table",
+    "count": 1
+  },
+  {
+    "text": "adjust clothes on rack",
+    "count": 1
+  },
+  {
+    "text": "pick up shorts and place on table",
+    "count": 1
+  },
+  {
+    "text": "adjust and smoothen shorts",
+    "count": 1
+  },
+  {
+    "text": "iron shorts",
+    "count": 1
+  },
+  {
+    "text": "adjust and fold shorts",
+    "count": 1
+  },
+  {
+    "text": "pick up striped cloth, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up napkin and spread on table",
+    "count": 1
+  },
+  {
+    "text": "smooth and align napkin on surface",
+    "count": 1
+  },
+  {
+    "text": "fold napkin into small rectangle",
+    "count": 1
+  },
+  {
+    "text": "pick up packaged napkin and place on packaged napkin stack",
+    "count": 1
+  },
+  {
+    "text": "open plastic bag and insert folded napkin",
+    "count": 1
+  },
+  {
+    "text": "adjust napkin inside bag and flatten plastic bag",
+    "count": 1
+  },
+  {
+    "text": "smooth out garment on table",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve of garment and clean sleeve of garment with lint roller",
+    "count": 1
+  },
+  {
+    "text": "fold garment and clean folded garment with lint roller",
+    "count": 1
+  },
+  {
+    "text": "flip over folded garment and clean folded garment with lint roller",
+    "count": 1
+  },
+  {
+    "text": "pick up handkerchief and adjust it on table",
+    "count": 1
+  },
+  {
+    "text": "fold black and white napkin",
+    "count": 1
+  },
+  {
+    "text": "pick up and unfold pink checkered napkin",
+    "count": 1
+  },
+  {
+    "text": "fold pink checkered napkin",
+    "count": 1
+  },
+  {
+    "text": "pick up blue garment, place blue garment on table",
+    "count": 1
+  },
+  {
+    "text": "remove tape from blue garment, manipulating removed tape",
+    "count": 1
+  },
+  {
+    "text": "adjust blue garment, fold blue garment",
+    "count": 1
+  },
+  {
+    "text": "hold blue garment, adjust blue garment",
+    "count": 1
+  },
+  {
+    "text": "hold tape dispenser, apply tape on blue garment",
+    "count": 1
+  },
+  {
+    "text": "adjust tape dispenser, remove tape on blue garment",
+    "count": 1
+  },
+  {
+    "text": "pick up dispenser, adjust tape dispenser",
+    "count": 1
+  },
+  {
+    "text": "hold tape dispenser, apply tape on blue garment, place dispenser on table",
+    "count": 1
+  },
+  {
+    "text": "adjust white garment, fold white garment",
+    "count": 1
+  },
+  {
+    "text": "pick up white garment, place white garment on top of blue garment",
+    "count": 1
+  },
+  {
+    "text": "iron t-shirt, place iron on table",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt, pick up iron",
+    "count": 1
+  },
+  {
+    "text": "iron the folded section of the t-shirt",
+    "count": 1
+  },
+  {
+    "text": "place iron down on table, fold t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag and unzip",
+    "count": 1
+  },
+  {
+    "text": "straighten checkered cloth on table, fold checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, place plastic bag on checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust plastic bag, adjust checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "place checkered cloth in plastic bags, adjust plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag, place plastic bag on pile, pick up checkered cloth",
+    "count": 1
+  },
+  {
+    "text": "place folded checkered cloth in plastic bag, place plastic bag on stack",
+    "count": 1
+  },
+  {
+    "text": "place folded checkered cloth in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "roll lint roller on shirt, place lint roller aside",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, unbutton shirt",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on table, fold shirt sleeve",
+    "count": 1
+  },
+  {
+    "text": "straighten black shirt, flip black shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up black shirt from stack, place black shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust black shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth wrinkles on black shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust alignment of black shirt",
+    "count": 1
+  },
+  {
+    "text": "place tagger on table",
+    "count": 1
+  },
+  {
+    "text": "adjust and move orange shirt",
+    "count": 1
+  },
+  {
+    "text": "reposition yellow garment on work surface",
+    "count": 1
+  },
+  {
+    "text": "flatten and fold yellow garment",
+    "count": 1
+  },
+  {
+    "text": "finish folding yellow garment and stack on shelf",
+    "count": 1
+  },
+  {
+    "text": "spread out and fold pants",
+    "count": 1
+  },
+  {
+    "text": "pick up tagger and tag pants",
+    "count": 1
+  },
+  {
+    "text": "complete folding pants",
+    "count": 1
+  },
+  {
+    "text": "smoothen out cloth on table",
+    "count": 1
+  },
+  {
+    "text": "fold cloth in half and smoothen cloth",
+    "count": 1
+  },
+  {
+    "text": "fold cloth into small rectangle",
+    "count": 1
+  },
+  {
+    "text": "adjust and flatten folded cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up plastic bag and insert folded cloth into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "smooth and fold fabric",
+    "count": 1
+  },
+  {
+    "text": "adjust folded fabric, pick up plastic bag",
+    "count": 1
+  },
+  {
+    "text": "insert folded fabric into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "adjust packaged folded fabric, flip packaged folded fabric",
+    "count": 1
+  },
+  {
+    "text": "adjust packaged folded fabric",
+    "count": 1
+  },
+  {
+    "text": "move packaged folded fabric onto stack, adjust stack",
+    "count": 1
+  },
+  {
+    "text": "pick up fabric, spread fabric on table",
+    "count": 1
+  },
+  {
+    "text": "move packaged towel to pile",
+    "count": 1
+  },
+  {
+    "text": "pull kitchen towel, adjust kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "flip kitchen towel, smoothen kitchen towel",
+    "count": 1
+  },
+  {
+    "text": "fold kitchen towel into square",
+    "count": 1
+  },
+  {
+    "text": "pack towel in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold fabric, place fabric on table",
+    "count": 1
+  },
+  {
+    "text": "put folded fabric in plastic bag",
+    "count": 1
+  },
+  {
+    "text": "pick up fabric from pile, adjust pile",
+    "count": 1
+  },
+  {
+    "text": "fold t-shirt, clean t-shirt with lint roller",
+    "count": 1
+  },
+  {
+    "text": "place folded t-shirt into plastic bag",
+    "count": 1
+  },
+  {
+    "text": "fold black garment, twist garment in half",
+    "count": 1
+  },
+  {
+    "text": "place black garment on shelf",
+    "count": 1
+  },
+  {
+    "text": "pick up blue garment, place blue garment on surface",
+    "count": 1
+  },
+  {
+    "text": "fold sleeves of blue garment, adjust buttons",
+    "count": 1
+  },
+  {
+    "text": "adjust button of blue garment, fold to half",
+    "count": 1
+  },
+  {
+    "text": "place blue garment on shelf",
+    "count": 1
+  },
+  {
+    "text": "pick up white hat",
+    "count": 1
+  },
+  {
+    "text": "fold and shape white hat",
+    "count": 1
+  },
+  {
+    "text": "fold clothes",
+    "count": 1
+  },
+  {
+    "text": "place folded clothes on table",
+    "count": 1
+  },
+  {
+    "text": "adjust container cover, pick up blue clothes",
+    "count": 1
+  },
+  {
+    "text": "adjust blue clothes",
+    "count": 1
+  },
+  {
+    "text": "fold blue clothes",
+    "count": 1
+  },
+  {
+    "text": "place folded clothes in container",
+    "count": 1
+  },
+  {
+    "text": "move folded clothes to container",
+    "count": 1
+  },
+  {
+    "text": "fold tan pants",
+    "count": 1
+  },
+  {
+    "text": "place folded tan pants on stack",
+    "count": 1
+  },
+  {
+    "text": "move blue jeans on bed",
+    "count": 1
+  },
+  {
+    "text": "adjust blue jeans",
+    "count": 1
+  },
+  {
+    "text": "zip blue jeans zipper",
+    "count": 1
+  },
+  {
+    "text": "button blue jeans",
+    "count": 1
+  },
+  {
+    "text": "fold blue jeans",
+    "count": 1
+  },
+  {
+    "text": "flip blue jeans",
+    "count": 1
+  },
+  {
+    "text": "place folded blue jeans on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up clothes from floor and place on bed",
+    "count": 1
+  },
+  {
+    "text": "fold small light-colored garment on bed",
+    "count": 1
+  },
+  {
+    "text": "reposition and arrange clothes on bed",
+    "count": 1
+  },
+  {
+    "text": "stack and organize clothing items on bed",
+    "count": 1
+  },
+  {
+    "text": "spread out and fold grey garment",
+    "count": 1
+  },
+  {
+    "text": "flip folded shirt on table",
+    "count": 1
+  },
+  {
+    "text": "slide folded shirt on table",
+    "count": 1
+  },
+  {
+    "text": "press folded shirt on table",
+    "count": 1
+  },
+  {
+    "text": "press folded shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded garment, adjust folded garment",
+    "count": 1
+  },
+  {
+    "text": "fold plaid shirt",
+    "count": 1
+  },
+  {
+    "text": "place plaid shirt in closet",
+    "count": 1
+  },
+  {
+    "text": "place white shirt in closet",
+    "count": 1
+  },
+  {
+    "text": "pick up grey garment and place on table",
+    "count": 1
+  },
+  {
+    "text": "spread out grey garment on table surface",
+    "count": 1
+  },
+  {
+    "text": "smoothen out wrinkles from grey garment",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, spread shirt on table",
+    "count": 1
+  },
+  {
+    "text": "rotate shirt, spread shirt on table",
+    "count": 1
+  },
+  {
+    "text": "flip shirt, move shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "move cloth on sack",
+    "count": 1
+  },
+  {
+    "text": "button blue blouse",
+    "count": 1
+  },
+  {
+    "text": "straighten blue blouse",
+    "count": 1
+  },
+  {
+    "text": "fold blue blouse",
+    "count": 1
+  },
+  {
+    "text": "rummage through clothing in laundry basket, pick up clothing from laundry basket",
+    "count": 1
+  },
+  {
+    "text": "pull clothing from laundry basket onto cloth surface, adjust clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve of clothing on cloth surface, adjust clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "press clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve of clothing on cloth surface, smoothen clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "adjust clothing on cloth surface, fold clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "fold folded clothing on cloth surface, press folded clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "move folded clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "flip folded clothing on cloth surface, adjust folded clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "fold folded clothing on cloth surface",
+    "count": 1
+  },
+  {
+    "text": "pick up and spread beige shirt",
+    "count": 1
+  },
+  {
+    "text": "fold beige shirt",
+    "count": 1
+  },
+  {
+    "text": "place beige shirt in closet",
+    "count": 1
+  },
+  {
+    "text": "pick up and spread blue shirt",
+    "count": 1
+  },
+  {
+    "text": "place blue shirt in closet",
+    "count": 1
+  },
+  {
+    "text": "move green shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "fold light-colored cloth",
+    "count": 1
+  },
+  {
+    "text": "move folded light cloth on table",
+    "count": 1
+  },
+  {
+    "text": "move cloths on top of light-colored cloth on table",
+    "count": 1
+  },
+  {
+    "text": "fold dark patterned cloth",
+    "count": 1
+  },
+  {
+    "text": "flip dark patterned cloth, fold dark patterned cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up dark patterned cloth, place dark patterned cloth on table",
+    "count": 1
+  },
+  {
+    "text": "fold dark patterned cloth, move dark patterned cloth to stack of cloths on table",
+    "count": 1
+  },
+  {
+    "text": "adjust folded brown shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up blue garment",
+    "count": 1
+  },
+  {
+    "text": "spread pink cloth on table",
+    "count": 1
+  },
+  {
+    "text": "fold pink cloth, adjust pink cloth",
+    "count": 1
+  },
+  {
+    "text": "fold pink cloth, press pink cloth",
+    "count": 1
+  },
+  {
+    "text": "move pink cloth onto stack",
+    "count": 1
+  },
+  {
+    "text": "adjust stack",
+    "count": 1
+  },
+  {
+    "text": "pick up brown cloth, place brown cloth on table",
+    "count": 1
+  },
+  {
+    "text": "open brown cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust brown cloth, smoothen brown cloth",
+    "count": 1
+  },
+  {
+    "text": "move brown cloth onto stack",
+    "count": 1
+  },
+  {
+    "text": "pick up beige cloth",
+    "count": 1
+  },
+  {
+    "text": "smoothen and adjust black garment",
+    "count": 1
+  },
+  {
+    "text": "fold short",
+    "count": 1
+  },
+  {
+    "text": "adjust folded short",
+    "count": 1
+  },
+  {
+    "text": "adjust grey shirt on surface",
+    "count": 1
+  },
+  {
+    "text": "spread grey shirt flat on bed",
+    "count": 1
+  },
+  {
+    "text": "adjust and fold shirt",
+    "count": 1
+  },
+  {
+    "text": "place folded grey shirt onto stack",
+    "count": 1
+  },
+  {
+    "text": "pick up black and white polka dot cloth",
+    "count": 1
+  },
+  {
+    "text": "spread out and adjust polka dot cloth",
+    "count": 1
+  },
+  {
+    "text": "spread and flatten pink garment on surface",
+    "count": 1
+  },
+  {
+    "text": "fold side of t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen t-shirt inward, fold t-shirt from bottom upward",
+    "count": 1
+  },
+  {
+    "text": "adjust folded part of t-shirt, smoothen folded part of t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold top of t-shirt downwards",
+    "count": 1
+  },
+  {
+    "text": "adjust folded t-shirt, smooth adjust folded t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded t-shirt, place folded t-shirt on stack of folded clothes",
+    "count": 1
+  },
+  {
+    "text": "spread out red shirt on table, fold red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust red cloth on table, fold side of red shirt",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve of white-red shirt, adjust bottom part of white-red cloth",
+    "count": 1
+  },
+  {
+    "text": "fold white-red shirt from bottom upward, adjust folded white-red shirt",
+    "count": 1
+  },
+  {
+    "text": "flip folded white-red shirt on table, reposition folded white-red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen white-red shirt, reposition white-red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up grey shirt from stack of clothes, spread grey shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold sides of grey shirt, adjust grey shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust grey shirt, fold sleeve of grey shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth on table, align bottom side of grey shirt",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of grey shirt upwards, flip folded grey shirt on table",
+    "count": 1
+  },
+  {
+    "text": "move shirt onto table, adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, place shirt on ironing board",
+    "count": 1
+  },
+  {
+    "text": "spread shirt on ironing board, smoothen shirt on ironing board",
+    "count": 1
+  },
+  {
+    "text": "smoothen shirt, flip shirt on ironing board",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shirt, place folded shirt on shelf",
+    "count": 1
+  },
+  {
+    "text": "spread and smooth shorts on table",
+    "count": 1
+  },
+  {
+    "text": "adjust and flatten shorts",
+    "count": 1
+  },
+  {
+    "text": "fold shorts in half and smooth",
+    "count": 1
+  },
+  {
+    "text": "place folded shorts on stack",
+    "count": 1
+  },
+  {
+    "text": "spread and smooth t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, pick up shirt",
+    "count": 1
+  },
+  {
+    "text": "place shirt on pile of cloth",
+    "count": 1
+  },
+  {
+    "text": "fold white shirt on table",
+    "count": 1
+  },
+  {
+    "text": "move folded white shirt on pile",
+    "count": 1
+  },
+  {
+    "text": "adjust pink garment, fold pink garment",
+    "count": 1
+  },
+  {
+    "text": "fold pink garment, adjust pink garment",
+    "count": 1
+  },
+  {
+    "text": "fold pink garment, smoothen pink garment",
+    "count": 1
+  },
+  {
+    "text": "pick up and adjust black t-shirt",
+    "count": 1
+  },
+  {
+    "text": "place black t-shirt on spin tub",
+    "count": 1
+  },
+  {
+    "text": "pick up and adjust purple t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold and unfold purple t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold purple t-shirt",
+    "count": 1
+  },
+  {
+    "text": "place purple t-shirt in spin tub",
+    "count": 1
+  },
+  {
+    "text": "hold folded blue cloth, smoothen folded blue cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust and smoothen folded blue cloth",
+    "count": 1
+  },
+  {
+    "text": "place folded blue cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up and adjust black cloth on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen black cloth",
+    "count": 1
+  },
+  {
+    "text": "fold and adjust black cloth",
+    "count": 1
+  },
+  {
+    "text": "smoothen and fold black cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust bed sheet, adjust garments",
+    "count": 1
+  },
+  {
+    "text": "pick up black cloth, place black cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "move black cloth onto shelf",
+    "count": 1
+  },
+  {
+    "text": "adjust clothes on shelf",
+    "count": 1
+  },
+  {
+    "text": "move chair aside",
+    "count": 1
+  },
+  {
+    "text": "move hangers onto bed",
+    "count": 1
+  },
+  {
+    "text": "open closet door",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth on pile, pick up pant from pile on bed",
+    "count": 1
+  },
+  {
+    "text": "adjust pant, unbutton pant",
+    "count": 1
+  },
+  {
+    "text": "unzip pant, adjust pant",
+    "count": 1
+  },
+  {
+    "text": "adjust pant, rotate pant",
+    "count": 1
+  },
+  {
+    "text": "zip up pant, button pant",
+    "count": 1
+  },
+  {
+    "text": "adjust pant, fold pant",
+    "count": 1
+  },
+  {
+    "text": "move folded shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "move folded swamp green pant on table",
+    "count": 1
+  },
+  {
+    "text": "move folded swamp green pant down",
+    "count": 1
+  },
+  {
+    "text": "unfold salmon pink pant on table",
+    "count": 1
+  },
+  {
+    "text": "adjust salmon pink pant on table",
+    "count": 1
+  },
+  {
+    "text": "fold salmon pink pant",
+    "count": 1
+  },
+  {
+    "text": "move folded salmon pink pant down",
+    "count": 1
+  },
+  {
+    "text": "unfold grey pant on table",
+    "count": 1
+  },
+  {
+    "text": "fold grey pant on table",
+    "count": 1
+  },
+  {
+    "text": "move folded grey pant on shelf",
+    "count": 1
+  },
+  {
+    "text": "pick up and place striped shirt on table",
+    "count": 1
+  },
+  {
+    "text": "button striped shirt",
+    "count": 1
+  },
+  {
+    "text": "rotate folded shirt",
+    "count": 1
+  },
+  {
+    "text": "turn over folded shirt",
+    "count": 1
+  },
+  {
+    "text": "fold brown garment",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, place shirt on pile",
+    "count": 1
+  },
+  {
+    "text": "adjust purple garment",
+    "count": 1
+  },
+  {
+    "text": "straighten and smoothen purple garment",
+    "count": 1
+  },
+  {
+    "text": "spread purple garment flat on surface",
+    "count": 1
+  },
+  {
+    "text": "fold sides of garment inwards",
+    "count": 1
+  },
+  {
+    "text": "move cloth cloth into basket",
+    "count": 1
+  },
+  {
+    "text": "pick up pink garment",
+    "count": 1
+  },
+  {
+    "text": "fold pink garment and place pink garment on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up and spread out black garment",
+    "count": 1
+  },
+  {
+    "text": "pick up black garment and place on bed",
+    "count": 1
+  },
+  {
+    "text": "fold the striped t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up striped t-shirt, place striped t-shirt into basket",
+    "count": 1
+  },
+  {
+    "text": "pick up grey t-shirt, adjust grey t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold grey t-shirt",
+    "count": 1
+  },
+  {
+    "text": "move grey t-shirt from table to stack",
+    "count": 1
+  },
+  {
+    "text": "pick up blue t-shirt, place blue t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold blue t-shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow shirt from basket",
+    "count": 1
+  },
+  {
+    "text": "place yellow shirt onto shelf",
+    "count": 1
+  },
+  {
+    "text": "pick up black garment from basket",
+    "count": 1
+  },
+  {
+    "text": "place black garment into cabinet",
+    "count": 1
+  },
+  {
+    "text": "remove threads from cloth, smoothen cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up stack of clothes, place stack on shelf",
+    "count": 1
+  },
+  {
+    "text": "adjust black striped shirt",
+    "count": 1
+  },
+  {
+    "text": "move brown shirt on ironing board",
+    "count": 1
+  },
+  {
+    "text": "adjust brown shirt on ironing board",
+    "count": 1
+  },
+  {
+    "text": "smoothen brown shirt on ironing board",
+    "count": 1
+  },
+  {
+    "text": "straighten blue pant, smooth blue pant, fold blue pant, pick up blue pant, place blue pant in stack",
+    "count": 1
+  },
+  {
+    "text": "pick up patterned pant, fold patterned pant, place patterned pant on table",
+    "count": 1
+  },
+  {
+    "text": "fold patterned pant, pick up blue pant, place blue pant in stack",
+    "count": 1
+  },
+  {
+    "text": "pick up patterned t-shirt, spread patterned t-shirt, place patterned t-shirt on table, adjust patterned t-shirt",
+    "count": 1
+  },
+  {
+    "text": "flip cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "move cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "press cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up paper strip from pile, place paper strip on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plate from pile, place plate on table",
+    "count": 1
+  },
+  {
+    "text": "pick up plate",
+    "count": 1
+  },
+  {
+    "text": "spread cloth flat on pillow",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, smoothen cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up cloths",
+    "count": 1
+  },
+  {
+    "text": "arrange clothes on pillow",
+    "count": 1
+  },
+  {
+    "text": "smoothen shirt and adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "flip folded shirt",
+    "count": 1
+  },
+  {
+    "text": "flip shirt, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "move folded shirt from table to shelf",
+    "count": 1
+  },
+  {
+    "text": "button pink garment, adjust pink garment on floor, button pink garment",
+    "count": 1
+  },
+  {
+    "text": "adjust pink garment on floor, button pink garment, adjust pink garment on floor",
+    "count": 1
+  },
+  {
+    "text": "button shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "move folded shirt on pile on shelf",
+    "count": 1
+  },
+  {
+    "text": "lift brown cloth",
+    "count": 1
+  },
+  {
+    "text": "straighten brown cloth, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "fold brown cloth, smoothen cloth",
+    "count": 1
+  },
+  {
+    "text": "place folded cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up blue short from stack on bed, lay and straighten blue short on bed",
+    "count": 1
+  },
+  {
+    "text": "fold short, place folded blue short on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up pink short from stack on bed, lay pink short on bed",
+    "count": 1
+  },
+  {
+    "text": "fold pink short, place folded pink short on stack on table",
+    "count": 1
+  },
+  {
+    "text": "adjust patterned cloth on table",
+    "count": 1
+  },
+  {
+    "text": "adjust patterned cloth, fold patterned cloth",
+    "count": 1
+  },
+  {
+    "text": "fold patterned cloth, place folded patterned cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust clothing, fold clothing",
+    "count": 1
+  },
+  {
+    "text": "adjust clothing, straighten clothing",
+    "count": 1
+  },
+  {
+    "text": "smoothen clothing, flip clothing",
+    "count": 1
+  },
+  {
+    "text": "smoothen clothing, adjust clothing",
+    "count": 1
+  },
+  {
+    "text": "flatten folded clothing, rotate folded clothing",
+    "count": 1
+  },
+  {
+    "text": "pick up folded clothing",
+    "count": 1
+  },
+  {
+    "text": "place folded clothing on stack of clothes, flatten folded clothing",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow clothing on pile, place yellow clothing on table",
+    "count": 1
+  },
+  {
+    "text": "adjust yellow clothing",
+    "count": 1
+  },
+  {
+    "text": "unfold sleeve on yellow clothing, adjust yellow clothing",
+    "count": 1
+  },
+  {
+    "text": "unfold sleeve on yellow clothing",
+    "count": 1
+  },
+  {
+    "text": "lay shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up grey pants from chair",
+    "count": 1
+  },
+  {
+    "text": "place grey pants on surface, adjust grey pants on surface",
+    "count": 1
+  },
+  {
+    "text": "adjust grey pants on surface",
+    "count": 1
+  },
+  {
+    "text": "adjust grey pants on surface, fold grey pants",
+    "count": 1
+  },
+  {
+    "text": "adjust grey pants, fold grey pants",
+    "count": 1
+  },
+  {
+    "text": "fold grey pants, adjust grey pants",
+    "count": 1
+  },
+  {
+    "text": "pick up grey pants, place grey pants on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up white cloth, place white cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust yellow cloth on wooden surface",
+    "count": 1
+  },
+  {
+    "text": "smoothen yellow cloth, adjust yellow cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow cloth, place yellow cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "move white cloth to wooden surface",
+    "count": 1
+  },
+  {
+    "text": "adjust white cloth on wooden surface",
+    "count": 1
+  },
+  {
+    "text": "spread jersey on bed",
+    "count": 1
+  },
+  {
+    "text": "smooth and flatten jersey",
+    "count": 1
+  },
+  {
+    "text": "fold sides and sleeves of jersey inward",
+    "count": 1
+  },
+  {
+    "text": "fold jersey in half",
+    "count": 1
+  },
+  {
+    "text": "move folded jersey aside",
+    "count": 1
+  },
+  {
+    "text": "adjust white shirt, pick up white shirt",
+    "count": 1
+  },
+  {
+    "text": "place white shirt on bed, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt, place white shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "adjust white shirt",
+    "count": 1
+  },
+  {
+    "text": "fold white shirt and adjust white shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth white shirt, adjust white shirt",
+    "count": 1
+  },
+  {
+    "text": "flip white shirt and smooth white shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt, place white shirt on pile of clothes",
+    "count": 1
+  },
+  {
+    "text": "press white cloth on pile of clothes",
+    "count": 1
+  },
+  {
+    "text": "unfold black garment and shake black garment",
+    "count": 1
+  },
+  {
+    "text": "fold black garment into small square",
+    "count": 1
+  },
+  {
+    "text": "move folded black garment on laundry stack",
+    "count": 1
+  },
+  {
+    "text": "pick up striped shirt and spread striped shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "button up striped shirt, adjust striped shirt",
+    "count": 1
+  },
+  {
+    "text": "iron shirt with iron, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "iron shirt with iron",
+    "count": 1
+  },
+  {
+    "text": "iron shirt with iron, place iron on table",
+    "count": 1
+  },
+  {
+    "text": "fold shirt, unfold shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust and fold shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "fold and adjust shirt, move shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up folded garment, place garment on table",
+    "count": 1
+  },
+  {
+    "text": "pick up patterned garment from basket",
+    "count": 1
+  },
+  {
+    "text": "spread out patterned garment on mat",
+    "count": 1
+  },
+  {
+    "text": "pick up folded garment, place garment on stack",
+    "count": 1
+  },
+  {
+    "text": "adjust patterned garment on table",
+    "count": 1
+  },
+  {
+    "text": "fold patterned garment",
+    "count": 1
+  },
+  {
+    "text": "pick out gray shirt",
+    "count": 1
+  },
+  {
+    "text": "spread gray shirt",
+    "count": 1
+  },
+  {
+    "text": "spread gray shirt, adjust gray shirt",
+    "count": 1
+  },
+  {
+    "text": "button up gray shirt",
+    "count": 1
+  },
+  {
+    "text": "fold pink shorts from pile on table",
+    "count": 1
+  },
+  {
+    "text": "place folded pink pants on pile",
+    "count": 1
+  },
+  {
+    "text": "fold blue shorts from hangar on table",
+    "count": 1
+  },
+  {
+    "text": "place folded blue shorts on pile",
+    "count": 1
+  },
+  {
+    "text": "move clothes to table",
+    "count": 1
+  },
+  {
+    "text": "fold black underwear on table",
+    "count": 1
+  },
+  {
+    "text": "place folded black underwear on pile",
+    "count": 1
+  },
+  {
+    "text": "fold black top, move black top to stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "pick up underwear on hanger, move hanger to stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "fold underwear, move underwear to stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "fold bra, move bra to stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "pick up patterned shirt and place on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up black garment from laundry basket",
+    "count": 1
+  },
+  {
+    "text": "place black garment on table, adjust garments",
+    "count": 1
+  },
+  {
+    "text": "smoothen black garment, fold and flip black garment",
+    "count": 1
+  },
+  {
+    "text": "fold and flip black garment, pick up black garment and place on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up brown shorts from laundry basket, place brown shorts on table",
+    "count": 1
+  },
+  {
+    "text": "adjust and smoothen brown shorts, flip brown shorts",
+    "count": 1
+  },
+  {
+    "text": "move patterned cloth to table",
+    "count": 1
+  },
+  {
+    "text": "move patterned cloth on table",
+    "count": 1
+  },
+  {
+    "text": "move brown cloth to table",
+    "count": 1
+  },
+  {
+    "text": "pick up pillow, place pillow on floor",
+    "count": 1
+  },
+  {
+    "text": "fold pink pillowcase",
+    "count": 1
+  },
+  {
+    "text": "fold purple pillowcase",
+    "count": 1
+  },
+  {
+    "text": "fold blue blanket",
+    "count": 1
+  },
+  {
+    "text": "pick up blue bedsheet, place blue bedsheet on pile",
+    "count": 1
+  },
+  {
+    "text": "adjust purple cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "flip purple cloth on bed, smoothen purple cloth",
+    "count": 1
+  },
+  {
+    "text": "flip purple cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "move purple cloth to stack",
+    "count": 1
+  },
+  {
+    "text": "reposition pink cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "move pink cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "flip pink cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "flip pink cloth on bed, smoothen pink cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up green shirt from pile",
+    "count": 1
+  },
+  {
+    "text": "spread green shirt on bed, reposition green shirt",
+    "count": 1
+  },
+  {
+    "text": "straighten green shirt",
+    "count": 1
+  },
+  {
+    "text": "reposition and spread green shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "fold green shirt, adjust green shirt",
+    "count": 1
+  },
+  {
+    "text": "rotate folded green shirt, pick up green shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up garment from laundry basket",
+    "count": 1
+  },
+  {
+    "text": "spread out garment on surface",
+    "count": 1
+  },
+  {
+    "text": "straighten garment",
+    "count": 1
+  },
+  {
+    "text": "flip garment over",
+    "count": 1
+  },
+  {
+    "text": "straighten white shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fasten buttons of white shirt",
+    "count": 1
+  },
+  {
+    "text": "straighten white shirt, smoothen white shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded cloth",
+    "count": 1
+  },
+  {
+    "text": "move folded cloth to stack",
+    "count": 1
+  },
+  {
+    "text": "reposition cloth on table",
+    "count": 1
+  },
+  {
+    "text": "spread cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust top part of brown garment",
+    "count": 1
+  },
+  {
+    "text": "spread brown garment flat on table",
+    "count": 1
+  },
+  {
+    "text": "smooth surface of brown garment",
+    "count": 1
+  },
+  {
+    "text": "align edges of brown garment",
+    "count": 1
+  },
+  {
+    "text": "fold left side of brown garment",
+    "count": 1
+  },
+  {
+    "text": "fold right side of brown garment",
+    "count": 1
+  },
+  {
+    "text": "smooth center of folded garment",
+    "count": 1
+  },
+  {
+    "text": "fold bottom edge of brown garment",
+    "count": 1
+  },
+  {
+    "text": "pick up garment from floor, adjust garment, place garment on table",
+    "count": 1
+  },
+  {
+    "text": "fold garment, move garment on table",
+    "count": 1
+  },
+  {
+    "text": "pick up garment from floor, place garment on table, adjust garment",
+    "count": 1
+  },
+  {
+    "text": "fold garment, smooth garment, move garment on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up garment from floor",
+    "count": 1
+  },
+  {
+    "text": "fold both sides of blue garment inwards",
+    "count": 1
+  },
+  {
+    "text": "smooth and align the folded blue garment",
+    "count": 1
+  },
+  {
+    "text": "fold the bottom half of blue garment upwards",
+    "count": 1
+  },
+  {
+    "text": "fold blue garment again to form a square shape",
+    "count": 1
+  },
+  {
+    "text": "stack the folded blue garment with cloths",
+    "count": 1
+  },
+  {
+    "text": "fold light grey garment, place light grey garment on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up patterned shorts, adjust patterned shorts on table",
+    "count": 1
+  },
+  {
+    "text": "turn patterned shorts on table, fold patterned short",
+    "count": 1
+  },
+  {
+    "text": "unfold patterned shorts, smoothen patterned shorts",
+    "count": 1
+  },
+  {
+    "text": "fold patterned shorts, smoothen patterned shorts",
+    "count": 1
+  },
+  {
+    "text": "adjust patterned shorts on table, place patterned shorts on pile",
+    "count": 1
+  },
+  {
+    "text": "move shorts on stack",
+    "count": 1
+  },
+  {
+    "text": "smoothen green cloth on table",
+    "count": 1
+  },
+  {
+    "text": "fold green cloth on table",
+    "count": 1
+  },
+  {
+    "text": "move folded green cloth to stack",
+    "count": 1
+  },
+  {
+    "text": "move red shirt to table",
+    "count": 1
+  },
+  {
+    "text": "smoothen red shirt on table, rotate red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold red shirt, smoothen folded red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen striped cloth, adjust striped cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up grey cloth, place grey cloth on striped cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up blue and black clothes, place blue and black clothes on table",
+    "count": 1
+  },
+  {
+    "text": "pick up red striped cloth, place red striped cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up tan cloth, place tan cloth on red striped cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up light blue cloth, place light blue cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up green shirt, place green shirt in basket",
+    "count": 1
+  },
+  {
+    "text": "pick up blue shirt, place blue shirt on washing machine",
+    "count": 1
+  },
+  {
+    "text": "spread black shirt on washing machine",
+    "count": 1
+  },
+  {
+    "text": "lay blue shirt on washing machine",
+    "count": 1
+  },
+  {
+    "text": "fold the red garment in half",
+    "count": 1
+  },
+  {
+    "text": "fold the red garment into a small square",
+    "count": 1
+  },
+  {
+    "text": "place the red garment onto the stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "pick up the grey garment from the basket",
+    "count": 1
+  },
+  {
+    "text": "fold the grey garment into a small square",
+    "count": 1
+  },
+  {
+    "text": "place the grey garment onto the stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "adjust black t-shirt, place black t-shirt on washing machine",
+    "count": 1
+  },
+  {
+    "text": "pick up black t-shirt",
+    "count": 1
+  },
+  {
+    "text": "place black t-shirt in basket, adjust black t-shirt",
+    "count": 1
+  },
+  {
+    "text": "remove black shorts from washing machine tub",
+    "count": 1
+  },
+  {
+    "text": "place black shorts on washing machine, adjust black shorts",
+    "count": 1
+  },
+  {
+    "text": "shake black shorts",
+    "count": 1
+  },
+  {
+    "text": "fold black shorts on washing machine",
+    "count": 1
+  },
+  {
+    "text": "place black shorts in basket, adjust black shorts",
+    "count": 1
+  },
+  {
+    "text": "place orange garment on table",
+    "count": 1
+  },
+  {
+    "text": "fold orange garment",
+    "count": 1
+  },
+  {
+    "text": "place folded orange garment in closet",
+    "count": 1
+  },
+  {
+    "text": "pick up gray garment from basket",
+    "count": 1
+  },
+  {
+    "text": "straighten gray garment, place gray garment on table",
+    "count": 1
+  },
+  {
+    "text": "place patterned shirt on table, fold patterned shirt",
+    "count": 1
+  },
+  {
+    "text": "flip patterned shirt, place patterned shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "place hanger on table, pick up beige cloth",
+    "count": 1
+  },
+  {
+    "text": "place beige cloth on table and fold beige cloth",
+    "count": 1
+  },
+  {
+    "text": "flip beige cloth, place beige cloth on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up small white cloth, fold small white cloth",
+    "count": 1
+  },
+  {
+    "text": "place small white cloth on table, pick up white garment",
+    "count": 1
+  },
+  {
+    "text": "adjust white garment",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "straighten shirt, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, fold sleeve",
+    "count": 1
+  },
+  {
+    "text": "flatten shirt, fold sleeve",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth pile, pick up striped garment",
+    "count": 1
+  },
+  {
+    "text": "spread striped garment on pillow",
+    "count": 1
+  },
+  {
+    "text": "fold striped garment, smoothen garment",
+    "count": 1
+  },
+  {
+    "text": "smoothen striped garment, fold striped garment",
+    "count": 1
+  },
+  {
+    "text": "move folded striped garment stack, pick up red garment",
+    "count": 1
+  },
+  {
+    "text": "spread red garment on pillow",
+    "count": 1
+  },
+  {
+    "text": "fold red garment, smoothen red garment",
+    "count": 1
+  },
+  {
+    "text": "adjust red garment, fold red garment",
+    "count": 1
+  },
+  {
+    "text": "smoothen red garment, fold red garment",
+    "count": 1
+  },
+  {
+    "text": "pick up folded red garment",
+    "count": 1
+  },
+  {
+    "text": "fold cloth on table, move cloth on stack of cloth on table",
+    "count": 1
+  },
+  {
+    "text": "adjust stack of clot on table, move cloth on table",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, spread cloth on table",
+    "count": 1
+  },
+  {
+    "text": "smooth and adjust folded shirt, fold shirt, smooth out shirt, lift shirt",
+    "count": 1
+  },
+  {
+    "text": "turn shirt, fold collar, pick up shirt, place shirt on stack, press shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up blue shirt, place shirt on table, spread blue shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, fold blue shirt, smooth out shirt",
+    "count": 1
+  },
+  {
+    "text": "fold blue shirt on table",
+    "count": 1
+  },
+  {
+    "text": "flip blue shirt on table",
+    "count": 1
+  },
+  {
+    "text": "move folded blue shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "spread shirt on table, button shirt",
+    "count": 1
+  },
+  {
+    "text": "flip shirt on table, adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "spread shirt on table, smooth shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt on table, smooth shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold shirt on table, smooth shirt on table",
+    "count": 1
+  },
+  {
+    "text": "move shirt onto pile",
+    "count": 1
+  },
+  {
+    "text": "flatten shirt",
+    "count": 1
+  },
+  {
+    "text": "move shirt onto table",
+    "count": 1
+  },
+  {
+    "text": "move t-shirt on table",
+    "count": 1
+  },
+  {
+    "text": "straighten t-shirt",
+    "count": 1
+  },
+  {
+    "text": "move t-shirt",
+    "count": 1
+  },
+  {
+    "text": "move t-shirt onto stack",
+    "count": 1
+  },
+  {
+    "text": "adjust striped shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust striped shirt and smoothen striped shirt on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen striped shirt on table and adjust striped shirt",
+    "count": 1
+  },
+  {
+    "text": "flip striped shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust striped shirt collar and fold striped shirt collar",
+    "count": 1
+  },
+  {
+    "text": "button shirt, adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "move checkered garment on bed",
+    "count": 1
+  },
+  {
+    "text": "fold checkered garment on bed",
+    "count": 1
+  },
+  {
+    "text": "place folded checkered garment on clothes stack",
+    "count": 1
+  },
+  {
+    "text": "straighten and layout tan garment on bed",
+    "count": 1
+  },
+  {
+    "text": "place folded tan garment on clothes stack",
+    "count": 1
+  },
+  {
+    "text": "move white garment on bed",
+    "count": 1
+  },
+  {
+    "text": "place folded white garment on clothes stack",
+    "count": 1
+  },
+  {
+    "text": "arrange socks on bed",
+    "count": 1
+  },
+  {
+    "text": "fold green shorts",
+    "count": 1
+  },
+  {
+    "text": "fold patterned t-shirt",
+    "count": 1
+  },
+  {
+    "text": "fold light blue cloth",
+    "count": 1
+  },
+  {
+    "text": "fold sleeves of shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust folded shirt, flip folded shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust folded shirt, smooth folded shirt",
+    "count": 1
+  },
+  {
+    "text": "flatten and fold blue garment in half",
+    "count": 1
+  },
+  {
+    "text": "fold blue garment into a square",
+    "count": 1
+  },
+  {
+    "text": "place folded blue garment on stack",
+    "count": 1
+  },
+  {
+    "text": "lay out shirt and fold sleeves",
+    "count": 1
+  },
+  {
+    "text": "fold shirt into a final square",
+    "count": 1
+  },
+  {
+    "text": "place folded shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up green clothing from bed",
+    "count": 1
+  },
+  {
+    "text": "fold green clothing",
+    "count": 1
+  },
+  {
+    "text": "place green clothing into drawer",
+    "count": 1
+  },
+  {
+    "text": "adjust clothing in drawer",
+    "count": 1
+  },
+  {
+    "text": "pick up green cloth from bed",
+    "count": 1
+  },
+  {
+    "text": "place green cloth into drawer",
+    "count": 1
+  },
+  {
+    "text": "adjust clothes in drawer",
+    "count": 1
+  },
+  {
+    "text": "remove purple clothing from drawer",
+    "count": 1
+  },
+  {
+    "text": "remove pink clothing from drawer",
+    "count": 1
+  },
+  {
+    "text": "remove patterned clothing from drawer",
+    "count": 1
+  },
+  {
+    "text": "remove blue clothing from drawer, remove black clothing from drawer",
+    "count": 1
+  },
+  {
+    "text": "remove maroon clothing from drawer, remove green clothing from drawer",
+    "count": 1
+  },
+  {
+    "text": "remove red clothing from drawer, remove maroon clothing from drawer",
+    "count": 1
+  },
+  {
+    "text": "remove blue clothing from drawer",
+    "count": 1
+  },
+  {
+    "text": "remove white clothing from drawer, remove black clothing from drawer",
+    "count": 1
+  },
+  {
+    "text": "fold black clothing, place black clothing in drawer",
+    "count": 1
+  },
+  {
+    "text": "place package in drawer",
+    "count": 1
+  },
+  {
+    "text": "fold red clothing, place red clothing in drawer",
+    "count": 1
+  },
+  {
+    "text": "fold maroon clothing",
+    "count": 1
+  },
+  {
+    "text": "adjust clothes on table",
+    "count": 1
+  },
+  {
+    "text": "fold gray garment on table",
+    "count": 1
+  },
+  {
+    "text": "turn over shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded red shirt, place folded red shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shirt, place folded shirt on folded red shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shirts, place folded shirts on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up blue garment from pile",
+    "count": 1
+  },
+  {
+    "text": "fold blue garment on bed",
+    "count": 1
+  },
+  {
+    "text": "place blue garment on table, close drawer",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of shirt, align edges of shirt",
+    "count": 1
+  },
+  {
+    "text": "perform final fold, press shirt flat",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shirt, present the folded shirt",
+    "count": 1
+  },
+  {
+    "text": "fold and smooth grey shirt",
+    "count": 1
+  },
+  {
+    "text": "flip grey t-shirt",
+    "count": 1
+  },
+  {
+    "text": "move grey t-shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "adjust stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "adjust blue t-shirt on glass-topped table",
+    "count": 1
+  },
+  {
+    "text": "spread and adjust white long-sleeved shirt on glass table",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve of white shirt, smoothen folded sleeve of white shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust and fold sleeve of white shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, move folded shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up red shirt and spread on table",
+    "count": 1
+  },
+  {
+    "text": "smooth out red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "flip red shirt, adjust red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust and flatten orange shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold orange shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust and press folded shirt",
+    "count": 1
+  },
+  {
+    "text": "flip and adjust folded shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded white garment, move folded white garment to pile of folded garments",
+    "count": 1
+  },
+  {
+    "text": "pick up tool from floor, place tool in cabinet",
+    "count": 1
+  },
+  {
+    "text": "close cabinet",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth and fold cloth on rug",
+    "count": 1
+  },
+  {
+    "text": "place folded cloth onto the bed",
+    "count": 1
+  },
+  {
+    "text": "pick up keys from the bed",
+    "count": 1
+  },
+  {
+    "text": "place keys on cabinet",
+    "count": 1
+  },
+  {
+    "text": "place cloth on pile on bed, adjust cloth",
+    "count": 1
+  },
+  {
+    "text": "fold cloth on bed, place cloth on pile on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up clothes from bed, adjust clothes on bed",
+    "count": 1
+  },
+  {
+    "text": "fold cloth and place cloth on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "adjust black cloth",
+    "count": 1
+  },
+  {
+    "text": "move black cloth on table, unfold black cloth",
+    "count": 1
+  },
+  {
+    "text": "fold black cloth, place black cloth on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up white cloth from pile",
+    "count": 1
+  },
+  {
+    "text": "unfold white cloth, button white cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust white cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up pants and spread on bed",
+    "count": 1
+  },
+  {
+    "text": "fold pants on bed",
+    "count": 1
+  },
+  {
+    "text": "place folded pants in storage space",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt and spread on bed",
+    "count": 1
+  },
+  {
+    "text": "place folded shirt in storage space",
+    "count": 1
+  },
+  {
+    "text": "arrange pillows on bed",
+    "count": 1
+  },
+  {
+    "text": "place white garment on table, fold white garment",
+    "count": 1
+  },
+  {
+    "text": "move white garment onto stack",
+    "count": 1
+  },
+  {
+    "text": "pick up garment from basket, adjust garment",
+    "count": 1
+  },
+  {
+    "text": "place garment on table, fold garment",
+    "count": 1
+  },
+  {
+    "text": "move garment on table",
+    "count": 1
+  },
+  {
+    "text": "pick up drawer organizer from cupboard",
+    "count": 1
+  },
+  {
+    "text": "open dresser drawer",
+    "count": 1
+  },
+  {
+    "text": "move grey garment to table, fold grey garment",
+    "count": 1
+  },
+  {
+    "text": "move grey garment to drawer",
+    "count": 1
+  },
+  {
+    "text": "move pattered garment to table, fold patterned garment",
+    "count": 1
+  },
+  {
+    "text": "move patterned garment to drawer",
+    "count": 1
+  },
+  {
+    "text": "grab cloth, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "move cloth to drawer",
+    "count": 1
+  },
+  {
+    "text": "move black garment on table, fold black garment",
+    "count": 1
+  },
+  {
+    "text": "move black garment to drawer",
+    "count": 1
+  },
+  {
+    "text": "fold green patterned garment",
+    "count": 1
+  },
+  {
+    "text": "move green patterned garment to drawer",
+    "count": 1
+  },
+  {
+    "text": "pick up patterned garment",
+    "count": 1
+  },
+  {
+    "text": "place patterned garment on shelf",
+    "count": 1
+  },
+  {
+    "text": "pick up shorts",
+    "count": 1
+  },
+  {
+    "text": "place shorts onto stack",
+    "count": 1
+  },
+  {
+    "text": "move black cloth onto bed",
+    "count": 1
+  },
+  {
+    "text": "pick up patterned cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up shorts in green basket",
+    "count": 1
+  },
+  {
+    "text": "move shorts onto stack",
+    "count": 1
+  },
+  {
+    "text": "pick up grey cloth",
+    "count": 1
+  },
+  {
+    "text": "fold grey cloth on bed",
+    "count": 1
+  },
+  {
+    "text": "move grey cloth onto stack",
+    "count": 1
+  },
+  {
+    "text": "adjust sleeve of shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold shirt on table, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt on table, straighten shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold patterned shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up patterned shirt, place patterned shirt on stack on table",
+    "count": 1
+  },
+  {
+    "text": "pick up red shirt from basket and place red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "spread out and flatten red shirt",
+    "count": 1
+  },
+  {
+    "text": "fold red shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold long sleeve shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt and smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "fold shirt and smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt and unfold shirt",
+    "count": 1
+  },
+  {
+    "text": "rotate shirt and smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust red shirt on table, pick up shirt",
+    "count": 1
+  },
+  {
+    "text": "place shirt on pile of clothes, adjust pile of clothes",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, place shirt on table",
+    "count": 1
+  },
+  {
+    "text": "move folded blue shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt on table, fold left side and sleeve of shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust left side and sleeve of shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust folded shirt on table, flip folded shirt, adjust shirt collar",
+    "count": 1
+  },
+  {
+    "text": "press folded shirt on table, pick up folded shirt, place folded shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "open drawer, adjust shirt in drawer",
+    "count": 1
+  },
+  {
+    "text": "open drawer, pick up shirt from drawer",
+    "count": 1
+  },
+  {
+    "text": "place shirt on bed, adjust shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "close drawer",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt, place shirt in drawer",
+    "count": 1
+  },
+  {
+    "text": "place shirt on bed, close drawer",
+    "count": 1
+  },
+  {
+    "text": "open drawer",
+    "count": 1
+  },
+  {
+    "text": "close drawer filled with clothes",
+    "count": 1
+  },
+  {
+    "text": "place shirt on bed, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "unbutton shirt",
+    "count": 1
+  },
+  {
+    "text": "flip shirt, flatten shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "adjust patterned folded cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up pink garment, adjust cloths on table",
+    "count": 1
+  },
+  {
+    "text": "spread pink garment on table",
+    "count": 1
+  },
+  {
+    "text": "spread shirt on surface",
+    "count": 1
+  },
+  {
+    "text": "smooth and adjust fabric of shirt",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve of cloth",
+    "count": 1
+  },
+  {
+    "text": "smooth blue striped shirt on table, unfold blue striped shirt",
+    "count": 1
+  },
+  {
+    "text": "fold blue stripped shirt",
+    "count": 1
+  },
+  {
+    "text": "untangle pink garment",
+    "count": 1
+  },
+  {
+    "text": "spread out pink garment on bed",
+    "count": 1
+  },
+  {
+    "text": "fold pink garment, place pink garment on stack",
+    "count": 1
+  },
+  {
+    "text": "fold teal striped shirt",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded teal striped shirt, flip teal striped shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust teal striped shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up teal striped shirt, place teal striped shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up blue striped shirt, place blue striped shirt on table",
+    "count": 1
+  },
+  {
+    "text": "button up blue striped shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up shorts, place shorts on table",
+    "count": 1
+  },
+  {
+    "text": "fold shorts in half",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded shorts, move folded shorts on table",
+    "count": 1
+  },
+  {
+    "text": "move folded t-shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "flip folded cloth on table, adjust collar of folded cloth on table",
+    "count": 1
+  },
+  {
+    "text": "smoothen folded cloth on table",
+    "count": 1
+  },
+  {
+    "text": "move folded cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up shirt from pile, place shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, smooth shirt",
+    "count": 1
+  },
+  {
+    "text": "fasten buttons on shirt",
+    "count": 1
+  },
+  {
+    "text": "arrange shirt on table",
+    "count": 1
+  },
+  {
+    "text": "straighten shirt on table",
+    "count": 1
+  },
+  {
+    "text": "pick up blue sweatshirt from pile, place blue sweatshirt on table",
+    "count": 1
+  },
+  {
+    "text": "spread blue sweatshirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold blue sweatshirt on table",
+    "count": 1
+  },
+  {
+    "text": "move folded blue sweatshirt aside",
+    "count": 1
+  },
+  {
+    "text": "fold black short",
+    "count": 1
+  },
+  {
+    "text": "place black short on stack, pick up blue short short",
+    "count": 1
+  },
+  {
+    "text": "fold blue short on table",
+    "count": 1
+  },
+  {
+    "text": "close drawer, adjust underwear",
+    "count": 1
+  },
+  {
+    "text": "place underwear on stack, pick up underwear",
+    "count": 1
+  },
+  {
+    "text": "pick up underwear",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt on table, adjust lint roller on table",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt on table, pick up lint roller",
+    "count": 1
+  },
+  {
+    "text": "roll lint roll on shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on shirt, adjust shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up lint roller from shirt, roll lint roller on shirt",
+    "count": 1
+  },
+  {
+    "text": "place lint roller on table, fold shirt",
+    "count": 1
+  },
+  {
+    "text": "adjust shirt, pick up lint roller from table",
+    "count": 1
+  },
+  {
+    "text": "roll lint roll on folded shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up lint roll, roll lint roll on shirt",
+    "count": 1
+  },
+  {
+    "text": "place lint roll on table, adjust shirt on table",
+    "count": 1
+  },
+  {
+    "text": "lint roll folded shirt surface",
+    "count": 1
+  },
+  {
+    "text": "lint roll shirt",
+    "count": 1
+  },
+  {
+    "text": "lint roll folded shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up and spread black garment on bed",
+    "count": 1
+  },
+  {
+    "text": "smoothen and adjust sleeves of black garment",
+    "count": 1
+  },
+  {
+    "text": "adjust black garment on bed",
+    "count": 1
+  },
+  {
+    "text": "smoothen fabric",
+    "count": 1
+  },
+  {
+    "text": "sort through pile of clothes",
+    "count": 1
+  },
+  {
+    "text": "fold black pant, set black pant aside",
+    "count": 1
+  },
+  {
+    "text": "pick up blue shirt, place blue shirt on the black pant",
+    "count": 1
+  },
+  {
+    "text": "unfold blue jean, straighten blue jean",
+    "count": 1
+  },
+  {
+    "text": "fold blue jean, set blue jeans aside",
+    "count": 1
+  },
+  {
+    "text": "adjust grey cloth",
+    "count": 1
+  },
+  {
+    "text": "place grey pants on stool",
+    "count": 1
+  },
+  {
+    "text": "adjust grey cloth, pick up grey cloth",
+    "count": 1
+  },
+  {
+    "text": "fold grey pant, adjust grey pant",
+    "count": 1
+  },
+  {
+    "text": "place grey pant on stool, fold grey pant",
+    "count": 1
+  },
+  {
+    "text": "place grey pant inside closet",
+    "count": 1
+  },
+  {
+    "text": "pick up black cloth from bed, adjust black cloth",
+    "count": 1
+  },
+  {
+    "text": "place black cloth on stool, adjust black cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, pick up cloth from stool",
+    "count": 1
+  },
+  {
+    "text": "fold black cloth, place black cloth on stool",
+    "count": 1
+  },
+  {
+    "text": "adjust black cloth, fold black cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust black cloth, place black cloth in closet",
+    "count": 1
+  },
+  {
+    "text": "pick up black cloth, adjust black cloth",
+    "count": 1
+  },
+  {
+    "text": "place black cloth on stool, fold black cloth",
+    "count": 1
+  },
+  {
+    "text": "move black cloth to closet",
+    "count": 1
+  },
+  {
+    "text": "move white shirt from stack to table, unfold and spread white shirt on table",
+    "count": 1
+  },
+  {
+    "text": "close shirt buttons, smooth wrinkles and align top of shirt",
+    "count": 1
+  },
+  {
+    "text": "spread out shirt on table, adjust shirt, smooth out shirt on table",
+    "count": 1
+  },
+  {
+    "text": "smooth out shirt, fold left sleeve and side of shirt inward",
+    "count": 1
+  },
+  {
+    "text": "adjust white shirt, reposition white shirt",
+    "count": 1
+  },
+  {
+    "text": "pick up folded white shirt, place folded white shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up red hanger with clothes",
+    "count": 1
+  },
+  {
+    "text": "remove clothes from clothes pegs on hanger",
+    "count": 1
+  },
+  {
+    "text": "drop red hanger",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth, adjust clothes on table",
+    "count": 1
+  },
+  {
+    "text": "place cloth on table, adjust clothes on table",
+    "count": 1
+  },
+  {
+    "text": "fold cloth, reposition cloth",
+    "count": 1
+  },
+  {
+    "text": "fold cloth, reposition cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up clothes, place down clothes",
+    "count": 1
+  },
+  {
+    "text": "fold cloth, place down cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust cloth, reposition cloth",
+    "count": 1
+  },
+  {
+    "text": "reposition clothes on table, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "reposition stack of cloth on table",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt from basket",
+    "count": 1
+  },
+  {
+    "text": "spread out white shirt on mat",
+    "count": 1
+  },
+  {
+    "text": "fold white shirt, place white shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up striped shirt from basket",
+    "count": 1
+  },
+  {
+    "text": "spread out striped shirt, smooth stripped shirt",
+    "count": 1
+  },
+  {
+    "text": "fold stripped shirt, place stripped shirt on stack",
+    "count": 1
+  },
+  {
+    "text": "pick up grey shirt from chair and fold grey shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up brown shirt and place onto grey shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt from chair, smoothen and fold white shirt",
+    "count": 1
+  },
+  {
+    "text": "place white shirt onto pile on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up black tan pants from chair, fold and place on bed",
+    "count": 1
+  },
+  {
+    "text": "fold brown tan pants on bed, move pile of clothes on bed",
+    "count": 1
+  },
+  {
+    "text": "pull garment from clothes pile on bed",
+    "count": 1
+  },
+  {
+    "text": "spread garment flat on bed",
+    "count": 1
+  },
+  {
+    "text": "fold and adjust garment on bed",
+    "count": 1
+  },
+  {
+    "text": "flip folded garment on bed and straighten folded garment on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up and place folded garment on bed",
+    "count": 1
+  },
+  {
+    "text": "fold garment on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up folded garment from bed, place folded garment on stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "pick up hanger, place shirt on hanger",
+    "count": 1
+  },
+  {
+    "text": "pick up trousers, arrange trousers",
+    "count": 1
+  },
+  {
+    "text": "pick up hanger, place trousers on hanger",
+    "count": 1
+  },
+  {
+    "text": "hang trousers on rack",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of shirt upwards",
+    "count": 1
+  },
+  {
+    "text": "smooth shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold sleeve back over shirt",
+    "count": 1
+  },
+  {
+    "text": "fold bottom of shirt up to collar",
+    "count": 1
+  },
+  {
+    "text": "pick up light blue jeans",
+    "count": 1
+  },
+  {
+    "text": "place light blue jeans on board, smooth light blue jeans",
+    "count": 1
+  },
+  {
+    "text": "adjust light blue jeans",
+    "count": 1
+  },
+  {
+    "text": "fold light blue jeans",
+    "count": 1
+  },
+  {
+    "text": "flip folded jeans on board",
+    "count": 1
+  },
+  {
+    "text": "move folded jeans to folded stack",
+    "count": 1
+  },
+  {
+    "text": "pick up dark blue jeans",
+    "count": 1
+  },
+  {
+    "text": "place dark blue jeans on board, adjust dark blue jeans",
+    "count": 1
+  },
+  {
+    "text": "fold dark blue jeans",
+    "count": 1
+  },
+  {
+    "text": "pick up and adjust socks, place socks on table",
+    "count": 1
+  },
+  {
+    "text": "pair and fold socks",
+    "count": 1
+  },
+  {
+    "text": "sort and align socks on table",
+    "count": 1
+  },
+  {
+    "text": "pick up socks and place on table, pair socks and place on table",
+    "count": 1
+  },
+  {
+    "text": "pick up and align socks, pair socks and place on table",
+    "count": 1
+  },
+  {
+    "text": "pick up and pair socks, fold and place socks on table",
+    "count": 1
+  },
+  {
+    "text": "fold shorts on table, smooth folded shorts",
+    "count": 1
+  },
+  {
+    "text": "pick up folded shorts, place folded shorts on stack",
+    "count": 1
+  },
+  {
+    "text": "smooth table sheet",
+    "count": 1
+  },
+  {
+    "text": "spread grey shirt on table, adjust grey shirt on table",
+    "count": 1
+  },
+  {
+    "text": "adjust grey shirt on table, smooth grey shirt on table",
+    "count": 1
+  },
+  {
+    "text": "fold grey shirt on table, smooth grey shirt on table",
+    "count": 1
+  },
+  {
+    "text": "doyin pick up grey hood from drying rack",
+    "count": 1
+  },
+  {
+    "text": "spread grey hood on drying rack",
+    "count": 1
+  },
+  {
+    "text": "fold grey hood into a square",
+    "count": 1
+  },
+  {
+    "text": "place folded grey hood on drying rack",
+    "count": 1
+  },
+  {
+    "text": "pick up blue hood from drying rack",
+    "count": 1
+  },
+  {
+    "text": "spread blue hood on drying rack",
+    "count": 1
+  },
+  {
+    "text": "fold blue hood into a square, place blue hood on stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "pick up grey hood, place grey hood on stack of clothes",
+    "count": 1
+  },
+  {
+    "text": "place folded cloth into drawer, adjust folded cloth in drawer",
+    "count": 1
+  },
+  {
+    "text": "pick up clothing",
+    "count": 1
+  },
+  {
+    "text": "unfold cloth",
+    "count": 1
+  },
+  {
+    "text": "move folded cloth from bed into drawer",
+    "count": 1
+  },
+  {
+    "text": "spread shirt on the table, fold the right side of the shirt",
+    "count": 1
+  },
+  {
+    "text": "fold the right arm of the shirt",
+    "count": 1
+  },
+  {
+    "text": "fold the left side of the shirt inward",
+    "count": 1
+  },
+  {
+    "text": "fold the shirt from bottom",
+    "count": 1
+  },
+  {
+    "text": "align, smoothen shirt",
+    "count": 1
+  },
+  {
+    "text": "fold the shirt from the bottom",
+    "count": 1
+  },
+  {
+    "text": "fold jeans",
+    "count": 1
+  },
+  {
+    "text": "move hanged shirt from pile to bed",
+    "count": 1
+  },
+  {
+    "text": "remove hanger from shirt",
+    "count": 1
+  },
+  {
+    "text": "spread shirt on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow cloth from stack on bed, turn inside out of yellow cloth",
+    "count": 1
+  },
+  {
+    "text": "fold yellow cloth, place folded yellow cloth on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up brown yellow cloth from stack on bed, fold brown cloth",
+    "count": 1
+  },
+  {
+    "text": "place folded brown cloth on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up white pajama from stack on bed, turn white pajama inside out",
+    "count": 1
+  },
+  {
+    "text": "fold white pajama, place folded white pajama on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up underwear from stack on bed, fold underwear",
+    "count": 1
+  },
+  {
+    "text": "place folded underwear on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up white cloth from stack on bed, fold white cloth",
+    "count": 1
+  },
+  {
+    "text": "place folded white cloth on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth from stack on bed, turn cloth inside out",
+    "count": 1
+  },
+  {
+    "text": "fold cloth, place folded cloth on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up bra from stack on bed, fold bra",
+    "count": 1
+  },
+  {
+    "text": "place folded bra on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up yellow underwear from stack on bed, turn yellow underwear inside out",
+    "count": 1
+  },
+  {
+    "text": "fold yellow underwear, place folded yellow underwear on stack on bed",
+    "count": 1
+  },
+  {
+    "text": "pick up towel from hanger, place hanger on hanging line",
+    "count": 1
+  },
+  {
+    "text": "fold towel and place on stool",
+    "count": 1
+  },
+  {
+    "text": "pick up towel from stool, fold towel",
+    "count": 1
+  },
+  {
+    "text": "place towel on stool",
+    "count": 1
+  },
+  {
+    "text": "pick up short from hanger, place hanger on hanging line",
+    "count": 1
+  },
+  {
+    "text": "adjust short, fold short",
+    "count": 1
+  },
+  {
+    "text": "place short on towel on stool",
+    "count": 1
+  },
+  {
+    "text": "adjust clothes on pile",
+    "count": 1
+  },
+  {
+    "text": "adjust clothes on pile, pick up white garment",
+    "count": 1
+  },
+  {
+    "text": "place folded garment in drawer",
+    "count": 1
+  },
+  {
+    "text": "pick up blue trousers from clothes pile",
+    "count": 1
+  },
+  {
+    "text": "turn legs of blue trouser inside out",
+    "count": 1
+  },
+  {
+    "text": "adjust blue trouser",
+    "count": 1
+  },
+  {
+    "text": "lay blue trouser on bed",
+    "count": 1
+  },
+  {
+    "text": "fold blue trouser",
+    "count": 1
+  },
+  {
+    "text": "flip folded blue trouser",
+    "count": 1
+  },
+  {
+    "text": "pick up folded blue shirt, place folded blue shirt on folded blue trouser",
+    "count": 1
+  },
+  {
+    "text": "move stack of folded blue clothes",
+    "count": 1
+  },
+  {
+    "text": "place folded cloth on chair, adjust cloth",
+    "count": 1
+  },
+  {
+    "text": "spread cloth on chair, tie belt of cloth",
+    "count": 1
+  },
+  {
+    "text": "pick up cloth from chair, fold cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust black clothing",
+    "count": 1
+  },
+  {
+    "text": "pick up black clothing from washing machine, adjust black clothing over washing machine tub",
+    "count": 1
+  },
+  {
+    "text": "pick up black clothing, adjust black clothing",
+    "count": 1
+  },
+  {
+    "text": "place black clothing in yellow bag",
+    "count": 1
+  },
+  {
+    "text": "adjust garment, fold garment",
+    "count": 1
+  },
+  {
+    "text": "adjust garment, flip garment",
+    "count": 1
+  },
+  {
+    "text": "unfold garment, fold garment",
+    "count": 1
+  },
+  {
+    "text": "flip garment, adjust garment",
+    "count": 1
+  },
+  {
+    "text": "move garment onto stack",
+    "count": 1
+  },
+  {
+    "text": "fold shirt on table, move folded shirt to stack",
+    "count": 1
+  },
+  {
+    "text": "fold shirt on table, pick up folded shirt",
+    "count": 1
+  },
+  {
+    "text": "place blue cloth in basket, press clothes in basket",
+    "count": 1
+  },
+  {
+    "text": "pick up black cloth from washing machine",
+    "count": 1
+  },
+  {
+    "text": "shake black cloth",
+    "count": 1
+  },
+  {
+    "text": "place folded black cloth in basket",
+    "count": 1
+  },
+  {
+    "text": "pick up red cloth from washing machine",
+    "count": 1
+  },
+  {
+    "text": "adjust red cloth",
+    "count": 1
+  },
+  {
+    "text": "fold red cloth",
+    "count": 1
+  },
+  {
+    "text": "place folded red cloth in basket",
+    "count": 1
+  },
+  {
+    "text": "pick up white cloth from washing machine",
+    "count": 1
+  },
+  {
+    "text": "unfold white cloth",
+    "count": 1
+  },
+  {
+    "text": "adjust folded white cloth",
+    "count": 1
+  },
+  {
+    "text": "place white garment on table",
+    "count": 1
+  },
+  {
+    "text": "move white garment on table",
+    "count": 1
+  },
+  {
+    "text": "spread white garment on table, fold white garment",
+    "count": 1
+  },
+  {
+    "text": "move light gray garment on table",
+    "count": 1
+  },
+  {
+    "text": "unfold light gray garment",
+    "count": 1
+  },
+  {
+    "text": "fold light gray garment",
+    "count": 1
+  },
+  {
+    "text": "move stack of garment on folded light gray garment",
+    "count": 1
+  },
+  {
+    "text": "move stack of garments on table",
+    "count": 1
+  },
+  {
+    "text": "pick up stack of garments, place gray garment on table",
+    "count": 1
+  },
+  {
+    "text": "unfold white garment",
+    "count": 1
+  },
+  {
+    "text": "move folded white garment on stack of folded garments",
+    "count": 1
+  },
+  {
+    "text": "move gray garment on table",
+    "count": 1
+  },
+  {
+    "text": "move stack of garments on folded gray garment",
+    "count": 1
+  },
+  {
+    "text": "pick up stack of garments",
+    "count": 1
+  },
+  {
+    "text": "pick up pink shirt and spread pink shirt on board",
+    "count": 1
+  },
+  {
+    "text": "fold pink shirt and flip pink shirt on board",
+    "count": 1
+  },
+  {
+    "text": "place folded pink shirt on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up white shirt and spread white shirt on board",
+    "count": 1
+  },
+  {
+    "text": "fold white shirt and flip white shirt on board",
+    "count": 1
+  },
+  {
+    "text": "place folded white shirt on pile",
+    "count": 1
+  },
+  {
+    "text": "pick up white tank top and spread white tank top on table",
+    "count": 1
+  },
+  {
+    "text": "fold white tank top and flip white tank top on board",
+    "count": 1
+  },
+  {
+    "text": "remove dirt on white tank top and place folded white tank top on pile",
+    "count": 1
+  }
+]
