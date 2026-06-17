@@ -39,7 +39,7 @@ export TORCH_COMPILE_DISABLE=1
 export EVAL_TEST_NUM="${EVAL_TEST_NUM:-10}"
 
 cd external/RoboTwin
-python script/eval_policy.py --config policy/pi_ricl_egoverse/deploy_policy.yml \
+python -u script/eval_policy.py --config policy/pi_ricl_egoverse/deploy_policy.yml \
   --overrides \
   --task_name "${TASK}" \
   --task_config "${TASK_CONFIG}" \
