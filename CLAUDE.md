@@ -36,6 +36,17 @@ all `*.ipynb`. **Never read into context**: venvs (`emimic/`, `.venv/`), caches
   salloc -A gts-dxu345-rl2 -N1 -q inferno -t 1:00:00 --mem=75G --gres=gpu:h200:1
   ```
   Always use the `inferno` queue (`-q inferno`) rather than `ember` — it's faster. Adjust `-t`, `--mem`, and `--gres` to the job. `salloc` is best for interactive / iterative work (smoke tests, debugging) where you hold the node and run into it repeatedly. For large or long-running jobs (real training runs), submit through Hydra's submitit launcher instead (`hydra/launcher/submitit.yaml`) so the job queues and runs unattended. Lightweight read-only work (lint, type checks, small unit tests, file edits, single-file syntax checks) is fine on the login node.
+- **Pick the GPU variant by job — don't always queue for `h200`.** `gpu-h200` is the most contended partition, so jobs sit. Choose by what the job needs to fit in VRAM (pi0.5 is 3.6 B params ≈ **14.5 GB fp32 / ~7 GB bf16** for the weights alone). Each type is its own partition `gpu-<type>` with `--gres=gpu:<type>:N`, same `-A gts-dxu345-rl2 -q inferno`:
+  | partition | `--gres` type | GPU mem | use for |
+  |---|---|---|---|
+  | `gpu-h200` | `h200` | 141 GB | **pi0.5 full fp32 AdamW training** (model+optimizer ≈ 57 GB) |
+  | `gpu-rtxpro-blackwell` | `rtx_pro_6000_blackwell` | 96 GB | training (newer, fewer nodes) |
+  | `gpu-h100` | `h100` | 80 GB | training |
+  | `gpu-l40s` | `l40s` | 48 GB | **pi0.5 eval/inference** (the eval sbatch was originally sized for a 48 GB a40) |
+  | `gpu-a100` | `a100` | 40 GB | **pi0.5 eval/inference**; training only with `--adam8bit` + small batch |
+  | `gpu-rtx6000` | `rtx_6000` | 24 GB | small / bf16-only inference — tight for pi0.5, plentiful nodes |
+  | `gpu-v100` | `v100` | 16 GB | too small to load pi0.5 comfortably — avoid |
+  Rule of thumb: **training needs ≥80 GB** (h200/h100/blackwell); **eval/inference fits 40–48 GB** (l40s/a100, with room for DINOv2 retrieval + SAPIEN) and those queues schedule far faster than h200. **Each partition caps the CPU:GPU ratio differently** — `gpu-h200` is 8:1, `gpu-l40s` is **4:1** — so `--cpus-per-task` must be ≤ ratio × #GPUs or the job is rejected with "Invalid generic resource (gres) specification" (e.g. 8 CPUs / 1 l40s fails; use 4). Validate a header without queuing via `sbatch --test-only <script>`.
 - **Short GPU runs (eval-only, smoke, a few hundred forward passes): export `TORCH_COMPILE_DISABLE=1`.** pi0.5's `sample_actions` triggers a `torch.compile` max-autotune compile on the first call — minutes of warmup that only pays off across a long training run. Disabling it runs eager (slower per call, no warmup), a net win when you're not training for a while. Leave compile ON for real training.
 - Python 3.11. Activate the project venv before any Python tooling: `source emimic/bin/activate`.
 - Package is installed editable as `egomimic` (see `pyproject.toml`). Linting is `ruff` via pre-commit.

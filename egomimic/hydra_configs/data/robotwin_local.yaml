@@ -1,0 +1,36 @@
+# RoboTwin reusable-corpus data recipe: load converted local .zarr stores (no S3/SQL)
+# through the standard MultiDataset pipeline as eva_bimanual cartesian episodes, so
+# RoboTwin can cotrain alongside the eva/human corpus. Produce the stores first with
+# `egomimic/ricl/scripts/robotwin_to_zarr.py` and point `paths.dataset_dir` at the
+# output dir. Mirrors `data/eva.yaml` but uses LocalEpisodeResolver + the PI image
+# keymap (`cartesian_pi` -> base_0_rgb / *_wrist_0_rgb) and a no-op filter.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${paths.dataset_dir} # dir of converted RoboTwin <hash>.zarr stores
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas: [] # load every local .zarr (all are RoboTwin eva_bimanual)
+    mode: total
+
+valid_datasets:
+  eva_bimanual: ${train_datasets.eva_bimanual}
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 8
+    num_workers: 4
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 8
+    num_workers: 4
