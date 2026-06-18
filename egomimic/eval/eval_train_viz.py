@@ -30,6 +30,7 @@ class TrainVizEvalVideo(EvalVideo):
             transform_lists=base.transform_lists,
             one_video_per_task=base.one_video_per_task,
             max_frames_per_task=base.max_frames_per_task,
+            viz_every_n_epochs=base.viz_every_n_epochs,
         )
 
     @property

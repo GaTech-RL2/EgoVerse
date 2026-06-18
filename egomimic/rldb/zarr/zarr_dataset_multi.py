@@ -61,6 +61,20 @@ logger = logging.getLogger(__name__)
 
 SEED = 42
 
+# Process-level caches that let the train / valid / norm-stats resolve passes
+# reuse work instead of repeating it. Each training run instantiates the data
+# graph three times over the *same* episode set (train split, valid split, and
+# a norm-stats-only copy), and previously each pass re-queried the SQL registry,
+# re-ran the s5cmd sync, and re-opened every episode's zarr store from scratch.
+#
+# `_SYNC_CACHE` memoizes (filtered_paths, hash_to_task) by sync request so the
+# SQL query + s5cmd sync run once. `_EPISODE_CACHE` memoizes opened
+# `ZarrEpisode` objects by path; episodes are immutable read-only stores, so the
+# same instance is shared across passes and `MultiDataset`s (the 2nd/3rd passes
+# become O(1) cache hits instead of a Lustre metadata read per episode).
+_SYNC_CACHE: dict[tuple, tuple] = {}
+_EPISODE_CACHE: dict[str, "ZarrEpisode"] = {}
+
 
 def split_dataset_names(dataset_names, valid_ratio=0.2, seed=SEED):
     """
@@ -497,10 +511,20 @@ class S3EpisodeResolver(EpisodeResolver):
         """
         filters = _ensure_dataset_filter(filters)
 
+        # Reuse the SQL query + sync across the train/valid/norm-stats passes,
+        # which call this with an identical request. `repr(filters)` captures
+        # the filter lambdas by source so distinct filter sets don't collide.
+        cache_key = (bucket_name, str(local_dir), repr(filters), debug)
+        cached = _SYNC_CACHE.get(cache_key)
+        if cached is not None:
+            logger.info("Reusing cached S3 sync result for filters %s.", filters)
+            return cached
+
         # 1) Resolve episodes from DB
         filtered_paths, hash_to_task = cls._get_filtered_paths(filters, debug=debug)
         if not filtered_paths:
             logger.warning("No episodes matched filters.")
+            _SYNC_CACHE[cache_key] = ([], {})
             return [], {}
 
         # 2) Logging
@@ -516,7 +540,9 @@ class S3EpisodeResolver(EpisodeResolver):
             numworkers=numworkers,
         )
 
-        return filtered_paths, hash_to_task
+        result = (filtered_paths, hash_to_task)
+        _SYNC_CACHE[cache_key] = result
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -1055,11 +1081,20 @@ class MultiDataset(torch.utils.data.Dataset):
 
     def populate_from_datasets(self, datasets: dict | None = None) -> None:
         """
-        Populate per-embodiment key inventory by walking leaves and probing
-        one post-transform sample per leaf. ``datasets`` defaults to
+        Populate per-embodiment key inventory by walking leaves and probing a
+        single post-transform sample *per embodiment*. ``datasets`` defaults to
         ``self.datasets`` so the typical call is just ``mds.populate_from_datasets()``.
+
+        All leaves of a given embodiment share the same ``key_map`` and
+        ``transform_list``, so they yield an identical post-transform key
+        schema; probing one successfully is enough. Once an embodiment is
+        probed we skip its remaining leaves, which avoids reading frame 0 of
+        every episode through the full transform stack (tens of thousands of
+        serial zarr reads at startup). Leaves whose probe *fails* do not mark
+        the embodiment as probed, so a later leaf still gets a chance.
         """
         graph = datasets if datasets is not None else self.datasets
+        probed: set[int] = set()
         for ds in graph.values():
             for leaf in self._iter_leaves(ds):
                 emb = getattr(leaf, "embodiment", None)
@@ -1067,6 +1102,10 @@ class MultiDataset(torch.utils.data.Dataset):
                 if emb is None or key_map is None:
                     continue
                 emb_id = emb if isinstance(emb, int) else get_embodiment_id(emb)
+                # One successful probe per embodiment is sufficient (uniform
+                # schema across leaves); skip the rest to avoid redundant I/O.
+                if emb_id in probed:
+                    continue
                 self.embodiments.add(emb_id)
                 self.key_types.setdefault(emb_id, {})
                 self.zarr_keys.setdefault(emb_id, {})
@@ -1091,6 +1130,10 @@ class MultiDataset(torch.utils.data.Dataset):
                         )
                         self.zarr_keys[emb_id][key_name] = info["zarr_key"]
                     continue
+
+                # Successful probe: remaining leaves of this embodiment are
+                # redundant and can be skipped.
+                probed.add(emb_id)
 
                 # Identity zarr_keys map (data_key is the algo-side name).
                 for data_key in sample_keys:
@@ -1613,7 +1656,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         inits the zarr episode and all the metadata associated, as well as total_frames for len
         """
-        self.episode_reader = ZarrEpisode(self.episode_path)
+        self.episode_reader = ZarrEpisode.open(self.episode_path)
         self.metadata = self.episode_reader.metadata
         self.total_frames = self.metadata["total_frames"]
         self.embodiment = self.metadata["embodiment"]
@@ -1794,7 +1837,9 @@ class ZarrDataset(torch.utils.data.Dataset):
 
             data["embodiment"] = get_embodiment_id(self.embodiment)
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             data["task"] = self.task or self.metadata.get("task_name", "unknown")
             _ = origin  # preserved for symmetry with prior API
             return data
@@ -1877,6 +1922,23 @@ class ZarrEpisode:
         self._store = zarr.open_group(str(self._path), mode="r")
         self.metadata = dict(self._store.attrs)
         self.keys = self.metadata["features"]
+
+    @classmethod
+    def open(cls, path: str | Path) -> "ZarrEpisode":
+        """Return a process-cached ZarrEpisode for ``path``.
+
+        Episodes are immutable, read-only stores, so the same instance is
+        safely shared across the train/valid/norm-stats resolve passes and
+        across ``MultiDataset``s. This collapses the 2nd and 3rd passes'
+        per-episode ``zarr.open_group`` + attribute reads into O(1) lookups.
+        Direct construction (``ZarrEpisode(path)``) bypasses the cache.
+        """
+        key = str(Path(path))
+        cached = _EPISODE_CACHE.get(key)
+        if cached is None:
+            cached = cls(path)
+            _EPISODE_CACHE[key] = cached
+        return cached
 
     def read(
         self, keys_with_ranges: dict[str, tuple[int, int | None]]

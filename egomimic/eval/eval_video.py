@@ -63,7 +63,14 @@ class EvalVideo(Eval):
     def _should_viz(self) -> bool:
         if not self.viz_every_n_epochs or self.viz_every_n_epochs <= 0:
             return False
-        return (self.trainer.current_epoch % self.viz_every_n_epochs) == 0
+        # Lightning runs validation when (current_epoch + 1) is a multiple of
+        # check_val_every_n_epoch, so validation epochs are 49, 99, 149, ...
+        # for check_val_every_n_epoch=50. Gate viz on the completed-epoch count
+        # (current_epoch + 1) so viz_every_n_epochs aligns with those validation
+        # runs instead of raw epoch index (which would never match). Always viz
+        # on the very first validation (epoch 0 / val_at_start).
+        epoch = self.trainer.current_epoch
+        return epoch == 0 or ((epoch + 1) % self.viz_every_n_epochs) == 0
 
     @abstractmethod
     def compute_metrics_and_viz(self, batch, do_viz=True):

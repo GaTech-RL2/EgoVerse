@@ -16,4 +16,4 @@ _target_: egomimic.eval.eval_train_viz.TrainVizEvalVideo
 # Cap on validation batches consumed from the train_viz loader per epoch.
 # Train data is iterated as a "spot check"; keep this small relative to the
 # canonical valid loader's limit_val_batches.
-limit_val_batches: 50
+limit_val_batches: 100
