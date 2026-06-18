@@ -1,0 +1,40 @@
+defaults:
+  - _self_
+
+# Per-episode eval: iterates the validation MultiDataset one episode at a time
+# and writes one stats record per episode (per_episode_stats/episodes.jsonl +
+# summary.{json,csv}). Driven by the mode=eval `run()` hook in trainHydra.py;
+# does NOT use trainer.validate. See egomimic/eval/eval_pi_per_episode.py.
+_target_: egomimic.eval.eval_pi_per_episode.PIEvalVideoPerEpisode
+
+# Which datamodule.valid_datasets entry to iterate (also the embodiment-name key
+# consumed by process_batch_for_training).
+dataset_name: mecka_bimanual
+
+# Output dir (under the eval run's hydra output_dir) + per-episode seed base.
+output_subdir: per_episode_stats
+seed: 42
+
+# Cap frames scored per episode (evenly spaced). null = every frame. Set this to
+# bound runtime: folding_clothes averages ~2440 frames/episode (1.13M total), so
+# scoring every frame on 1 GPU is ~33h. A few hundred frames/episode gives an
+# ample per-episode estimate (frames are highly autocorrelated).
+max_frames_per_episode: null
+
+# Episode sharding for multi-GPU runs. Each process scores
+# sorted(episodes)[shard_index::num_shards] and writes
+# episodes.shard{i}of{n}.jsonl; merge the shard files after all finish.
+# num_shards=1 -> single episodes.jsonl + summary (no merge).
+num_shards: 1
+shard_index: 0
+
+# No viz: run() always calls compute_metrics_and_viz(do_viz=False), so no
+# viz_func is needed and no videos are written.
+viz_every_n_epochs: 0
+one_video_per_task: false
+
+# CRITICAL: empty so compute_metrics_and_viz skips the cam-frame revert+MSE
+# branch (eval_pi.py:142-171). The default eval_pi.yaml wires a 6D revert
+# transform, which is WRONG for a 12-dim euler checkpoint. Native-frame metrics
+# (paired/final/xyz/ypr/Frechet) handle 12-dim euler correctly.
+transform_lists: {}
