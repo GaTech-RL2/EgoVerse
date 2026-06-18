@@ -53,7 +53,7 @@ class TrainVizEvalVideo(EvalVideo):
     def video_dir(self):
         return os.path.join(self.root_dir(), "videos_train_viz")
 
-    def compute_metrics_and_viz(self, batch):
-        metrics, images_dict = self.base.compute_metrics_and_viz(batch)
+    def compute_metrics_and_viz(self, batch, do_viz=True):
+        metrics, images_dict = self.base.compute_metrics_and_viz(batch, do_viz=do_viz)
         metrics = {f"train_viz/{k}": v for k, v in metrics.items()}
         return metrics, images_dict

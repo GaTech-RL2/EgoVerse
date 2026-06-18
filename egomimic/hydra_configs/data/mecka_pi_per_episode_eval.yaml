@@ -1,0 +1,53 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Per-episode eval variant of mecka_pi for the OLD EULER checkpoint.
+#
+# Differences vs mecka_pi.yaml:
+#   - transform_list.mode = cartesian  (12-dim EULER, NOT cartesian_6d) so the
+#     data matches the euler checkpoint + its euler norm stats.
+#   - filter = mecka folding_clothes.
+#   - valid mode = total  -> ALL matching episodes (not the held-out split).
+#   - train mode = percent (tiny) -> kept non-empty only for shape inference
+#     (trainHydra.py reads train_datasets[name][0]); norm values come from
+#     norm_stats.precomputed_norm_path, so train size doesn't affect them.
+#
+# Still required on the CLI (lives in the model config, not here):
+#   model.robomimic_model.action_converters.rules.MECKA_BIMANUAL._target_=\
+#     egomimic.utils.action_utils.HumanBimanualCartesianEuler
+#   norm_stats.precomputed_norm_path=<old run>/norm_stats/norm_stats.json
+
+train_datasets:
+  mecka_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['lab'] == 'mecka' and row['task'] == 'folding_clothes'"
+    mode: percent
+    percent: 0.02
+
+valid_datasets:
+  mecka_bimanual:
+    _target_: ${data.train_datasets.mecka_bimanual._target_}
+    resolver: ${data.train_datasets.mecka_bimanual.resolver}
+    filters: ${data.train_datasets.mecka_bimanual.filters}
+    mode: total
+
+train_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  mecka_bimanual:
+    batch_size: 32
+    num_workers: 10
