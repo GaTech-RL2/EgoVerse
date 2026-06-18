@@ -39,6 +39,7 @@ class Eva(Embodiment):
             "cartesian_wristframe_6d",
             "cartesian_wristframe_quat",
         ],
+        chunk_length: int = 100,
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_eva_bimanual_transform_list(is_quat=True)
@@ -49,7 +50,9 @@ class Eva(Embodiment):
         elif mode == "cartesian_wristframe_6d":
             return _build_eva_bimanual_eef_frame_transform_list(rot_repr="6d")
         elif mode == "cartesian_wristframe_quat":
-            return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+            return _build_eva_bimanual_eef_frame_transform_list(
+                is_quat=True, chunk_length=chunk_length
+            )
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
@@ -87,6 +90,7 @@ class Eva(Embodiment):
             "right.obs_gripper": {
                 "key_type": "proprio_keys",
                 "zarr_key": "right.obs_gripper",
+                "fallback_zarr_keys": ["right.gripper"],
             },
             "left.obs_ee_pose": {
                 "key_type": "proprio_keys",
@@ -95,15 +99,18 @@ class Eva(Embodiment):
             "left.obs_gripper": {
                 "key_type": "proprio_keys",
                 "zarr_key": "left.obs_gripper",
+                "fallback_zarr_keys": ["left.gripper"],
             },
             "right.cmd_gripper": {
                 "key_type": "action_keys",
                 "zarr_key": "right.cmd_gripper",
+                "fallback_zarr_keys": ["right.gripper"],
                 "horizon": 45,
             },
             "left.cmd_gripper": {
                 "key_type": "action_keys",
                 "zarr_key": "left.cmd_gripper",
+                "fallback_zarr_keys": ["left.gripper"],
                 "horizon": 45,
             },
             "right.cmd_ee_pose": {

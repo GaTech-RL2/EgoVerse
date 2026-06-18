@@ -113,6 +113,10 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     )
     if train_viz_datasets:
         datamodule_kwargs["train_viz_datasets"] = train_viz_datasets
+    assert any(
+        name in cfg.data._target_
+        for name in ("MultiDataModuleWrapper", "RiclDataModuleWrapper")
+    ), "cfg.data._target_ must be a MultiDataModuleWrapper (or subclass)"
     datamodule: LightningDataModule = hydra.utils.instantiate(
         cfg.data, **datamodule_kwargs
     )

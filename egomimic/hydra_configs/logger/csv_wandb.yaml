@@ -1,0 +1,22 @@
+# CSV + Weights & Biases. instantiate_loggers() iterates every top-level key
+# here, so both loggers run together. W&B logs into the "ricl" project.
+
+csv:
+  _target_: lightning.pytorch.loggers.csv_logs.CSVLogger
+  save_dir: "${paths.output_dir}"
+  name: "csv"
+  version: ""
+
+wandb:
+  _target_: lightning.pytorch.loggers.wandb.WandbLogger
+  save_dir: "${paths.output_dir}"
+  offline: False
+  id: "${name}_${description}_${now:%Y-%m-%d_%H-%M-%S}" # pass correct id to resume experiment!
+  anonymous: null
+  project: "ricl"
+  log_model: False # upload lightning ckpts
+  prefix: ""
+  entity: "rl2-group" # wandb team
+  group: ""
+  tags: []
+  job_type: ""

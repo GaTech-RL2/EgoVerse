@@ -1,0 +1,2785 @@
+{
+  "anchor": {
+    "scene": "pick_place_diverse",
+    "object": "blue marker"
+  },
+  "episodes": {
+    "2026-03-03-05-03-57-023000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "bell pepper",
+        "croissant",
+        "pen",
+        "pink cup"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-03-05-11-26-461000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "bell pepper",
+        "bread",
+        "green bowl",
+        "orange screwdriver",
+        "pink mug"
+      ],
+      "num_picks": 6
+    },
+    "2026-03-03-05-15-53-096000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "bell pepper",
+        "croissant",
+        "green bowl",
+        "orange screwdriver",
+        "pink mug"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-03-05-20-29-363000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "green bowl",
+        "white coffee cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-03-05-27-14-876000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "green bowl",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 6
+    },
+    "2026-03-03-05-29-34-981000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "green bowl",
+        "pink plate",
+        "white mug",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-03-05-32-38-565000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "beige bowl",
+        "blue screwdriver",
+        "green bag of chips",
+        "white canister"
+      ],
+      "num_picks": 6
+    },
+    "2026-03-03-05-35-22-081000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "bag of chips",
+        "bowl",
+        "cabbage",
+        "canister",
+        "plate",
+        "screwdriver"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-03-05-42-25-155000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "bag of chips",
+        "blue plate",
+        "brown bowl",
+        "cabbage",
+        "white coffee pod"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-03-05-47-21-437000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "canned goods",
+        "green mug",
+        "stuffed toy",
+        "white cup",
+        "white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-03-05-50-12-790000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "canned goods",
+        "stuffed toy",
+        "white cup",
+        "white mug"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-03-05-52-32-417000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick place play data with large task variations",
+      "objects": [
+        "canned goods",
+        "coffee cup",
+        "cup",
+        "green coffee cup",
+        "stuffed toy",
+        "white coffee cup"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-03-06-37-47-140000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "blue marker",
+        "carrot",
+        "doritos",
+        "green bowl",
+        "pink stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-03-06-40-10-619000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "blue marker",
+        "carrot",
+        "green bowl",
+        "pink stuffed toy",
+        "red bag of chips"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-03-06-43-14-995000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "blue marker",
+        "carrot",
+        "doritos",
+        "green bowl",
+        "pink teddy bear"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-03-06-48-23-857000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "blue soda can",
+        "corn",
+        "eggplant",
+        "white cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-03-06-50-42-588000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "corn",
+        "eggplant",
+        "soda can",
+        "soda cup",
+        "white coffee cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-03-06-53-17-768000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "corn",
+        "eggplant",
+        "white coffee cup"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-03-06-56-07-657000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "asparagus",
+        "canned goods",
+        "juice pouch",
+        "red marker"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-03-06-58-23-150000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "asparagus",
+        "canned goods",
+        "juice pouch",
+        "red marker"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-03-07-01-06-642000": {
+      "scene": "pick_place_div_scene",
+      "task_description": "pick and place with large task variations",
+      "objects": [
+        "asparagus",
+        "juice pack",
+        "red marker"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-20-06-41-409000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "green bowl",
+        "red bell pepper",
+        "red screwdriver"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-14-20-11-52-724000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "green bowl",
+        "orange screwdriver"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-20-14-30-527000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "green bowl",
+        "pink plate",
+        "red bell pepper",
+        "screwdriver"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-20-17-36-029000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "bag of chips",
+        "coffee cup",
+        "croissant",
+        "green bowl",
+        "red marker",
+        "stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-20-20-01-584000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "doritos",
+        "gray stuffed toy",
+        "green bowl",
+        "red marker",
+        "white coffee cup"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-14-20-23-53-031000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "green bowl",
+        "juice bag",
+        "red chips",
+        "white mug"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-20-29-51-405000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "asparagus",
+        "bowl",
+        "carrot",
+        "corn",
+        "eggplant",
+        "green bag of chips",
+        "green cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-20-32-15-833000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "asparagus",
+        "bag of chips",
+        "beige bowl",
+        "carrot",
+        "corn",
+        "eggplant"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-14-20-34-43-723000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "asparagus",
+        "bag of chips",
+        "beige bowl",
+        "corn"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-14-20-38-10-457000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "large canned goods",
+        "pink mug",
+        "purple plate",
+        "small canned goods",
+        "soda can"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-14-20-40-25-366000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "big canned goods",
+        "blue soda can",
+        "pink coffee cup",
+        "small canned goods"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-20-42-46-713000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "blue soda can",
+        "pink cup",
+        "white canned goods",
+        "white plate"
+      ],
+      "num_picks": 7
+    },
+    "2026-03-14-20-55-04-184000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "bowl",
+        "canned goods",
+        "pen",
+        "pink stuffed toy",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-20-57-22-308000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "canned goods",
+        "green bowl",
+        "pink stuffed toy",
+        "screwdriver",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-14-20-59-52-076000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place large number of objects",
+      "objects": [
+        "canned goods",
+        "pink stuffed toy",
+        "screwdriver",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-22-49-48-005000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "blue screwdriver",
+        "green bowl",
+        "green cup",
+        "orange screwdriver",
+        "pink cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-22-51-57-252000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "blue screwdriver",
+        "green bowl",
+        "light green mug",
+        "orange screwdriver",
+        "pink mug",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-14-22-54-05-800000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "blue screwdriver",
+        "green bowl",
+        "green mug",
+        "pink mug",
+        "red screwdriver",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-22-59-04-407000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "bag of chips",
+        "blue marker",
+        "canned goods",
+        "purple plate"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-23-02-36-892000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "bag of chips",
+        "blue marker",
+        "bowl",
+        "green can",
+        "green canned goods"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-23-05-08-540000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "blue marker",
+        "canned goods",
+        "green bag of chips",
+        "silver bowl"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-14-23-08-21-998000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "carrot",
+        "pink bowl",
+        "pink stuffed toy",
+        "white mug"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-23-11-09-545000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "carrot",
+        "carrot toy",
+        "pink stuffed toy"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-14-23-13-42-698000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "blue stuffed toy",
+        "carrot",
+        "pink bowl",
+        "pink stuffed toy"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-23-17-15-904000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "asparagus",
+        "juice pouch",
+        "red bell pepper",
+        "small white coffee cup",
+        "white mug"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-23-19-41-404000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "asparagus",
+        "juice pouch",
+        "red bell pepper",
+        "white cup"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-14-23-22-18-269000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "asparagus",
+        "big white mug",
+        "juice pack",
+        "small white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-14-23-25-39-446000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "bag of chips",
+        "corn",
+        "croissant",
+        "eggplant"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-23-30-45-788000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "bag of chips",
+        "corn",
+        "croissant",
+        "eggplant",
+        "pink plate"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-23-33-12-351000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "bag of chips",
+        "corn",
+        "croissant",
+        "eggplant"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-14-23-41-03-851000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "beige bowl",
+        "cabbage",
+        "canned goods",
+        "pepsi can",
+        "stuffed toy",
+        "white coffee pod"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-14-23-43-33-660000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "beige bowl",
+        "blue soda can",
+        "gray stuffed toy",
+        "green cabbage",
+        "yellow can"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-14-23-45-55-986000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place on variety of objects",
+      "objects": [
+        "beige bowl",
+        "cabbage",
+        "canister",
+        "canned goods",
+        "stuffed toy"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-15-23-25-31-934000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "beige bowl",
+        "bell pepper",
+        "eggplant",
+        "gray stuffed toy",
+        "juice pack",
+        "white cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-15-23-28-01-570000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "beige bowl",
+        "bell pepper",
+        "juice pouch",
+        "stuffed toy",
+        "white bowl",
+        "white cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-15-23-30-29-803000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "beige bowl",
+        "eggplant",
+        "juice pack",
+        "red bell pepper",
+        "white cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-15-23-33-57-140000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "blue stuffed toy",
+        "corn",
+        "croissant",
+        "silver bowl",
+        "white coffee cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-15-23-36-23-243000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "blue stuffed toy",
+        "bread",
+        "corn",
+        "stainless bowl",
+        "stuffed toy",
+        "white mug"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-15-23-39-06-936000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "blue stuffed toy",
+        "corn",
+        "croissant",
+        "white mug"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-15-23-43-06-366000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "pink bowl",
+        "pink stuffed toy",
+        "red bag of chips",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-15-23-45-35-137000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "bag of chips",
+        "blue marker",
+        "blue screwdriver",
+        "green asparagus",
+        "green bowl",
+        "pink bowl",
+        "pink toy",
+        "yellow toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-15-23-49-02-171000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "asparagus",
+        "bag of chips",
+        "blue marker",
+        "blue screwdriver",
+        "green bowl",
+        "pink stuffed toy",
+        "screwdriver"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-15-23-54-15-293000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "blue soda can",
+        "cabbage",
+        "carrot",
+        "green mug",
+        "pink mug"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-15-23-56-59-781000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "blue soda can",
+        "green cabbage",
+        "light green mug",
+        "pink mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-15-23-59-50-076000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place diversity day 3 data collection",
+      "objects": [
+        "blue soda can",
+        "cabbage",
+        "green cup",
+        "pink cup"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-16-01-09-25-900000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "pink bowl",
+        "red marker",
+        "silver bowl",
+        "white coffee cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-01-11-55-594000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "coffee cup",
+        "pink bowl",
+        "red marker",
+        "stainless bowl"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-01-14-08-782000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "cup",
+        "marker",
+        "pink bowl",
+        "silver bowl"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-01-17-36-624000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "bag of chips",
+        "croissant",
+        "pink mug",
+        "white plate",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-01-22-26-448000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "bag of chips",
+        "croissant",
+        "pink cup",
+        "pink plate"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-01-24-52-050000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "bag of chips",
+        "bread",
+        "pink plate",
+        "white plate"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-16-01-28-13-201000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "carrot",
+        "doritos",
+        "eggplant",
+        "juice pouch",
+        "light khaki bowl"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-01-35-03-121000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "bag of chips",
+        "bag of juice",
+        "bowl",
+        "carrot",
+        "coffee cup",
+        "eggplant"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-01-38-30-250000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "bag of juice",
+        "carrot",
+        "coffee cup",
+        "eggplant"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-01-44-28-902000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "asparagus",
+        "blue screwdriver",
+        "orange screwdriver",
+        "yogurt"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-01-47-54-984000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "asparagus",
+        "blue screwdriver",
+        "green bowl",
+        "orange screwdriver",
+        "white canister"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-01-50-34-036000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "asparagus",
+        "blue screwdriver",
+        "canister",
+        "green bowl",
+        "orange screwdriver"
+      ],
+      "num_picks": 8
+    },
+    "2026-03-16-01-55-05-813000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "blue marker",
+        "canned goods",
+        "corn",
+        "green cabbage",
+        "pink stuffed toy",
+        "red bell pepper",
+        "white coffee cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-01-57-33-654000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "bell pepper",
+        "blue marker",
+        "cabbage",
+        "canned goods",
+        "pink stuffed toy",
+        "small white mug"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-02-00-05-454000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "cabbage",
+        "canned goods",
+        "corn",
+        "pink stuffed toy"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-02-03-42-045000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "canned goods",
+        "pepsi can",
+        "stuffed toy",
+        "white cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-02-06-02-007000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "blue can",
+        "gray stuffed toy",
+        "white cup",
+        "yellow canned goods"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-02-08-19-887000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick_place",
+      "objects": [
+        "cup",
+        "soda can",
+        "stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-02-54-51-058000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "juice pouch",
+        "pink bowl",
+        "pink pouch",
+        "yogurt"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-02-57-04-244000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "canister",
+        "green bowl",
+        "juice pouch",
+        "pink bowl",
+        "pink plate"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-02-59-15-406000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "blue stuffed toy",
+        "brown stuffed toy",
+        "green bowl",
+        "juice bag",
+        "pink bowl"
+      ],
+      "num_picks": 12
+    },
+    "2026-03-16-03-13-48-270000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "blue marker",
+        "doritos",
+        "eggplant",
+        "green mug",
+        "red marker"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-03-16-02-581000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "blue marker",
+        "doritos",
+        "eggplant",
+        "green mug",
+        "red marker"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-03-26-31-137000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "doritos",
+        "eggplant",
+        "green coffee cup",
+        "red marker",
+        "violet plate"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-03-30-50-354000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "blue screwdriver",
+        "gray stuffed toy",
+        "orange screwdriver",
+        "white cup",
+        "white mug"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-03-33-11-859000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "beige mug",
+        "blue screwdriver",
+        "orange screwdriver",
+        "stuffed toy",
+        "white mug"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-03-35-33-596000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "blue marker",
+        "blue screwdriver",
+        "orange screwdriver",
+        "stuffed toy",
+        "white cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-03-38-45-473000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "bag of chips",
+        "bell pepper",
+        "cabbage",
+        "pink stuffed toy",
+        "silver bowl"
+      ],
+      "num_picks": 12
+    },
+    "2026-03-16-03-41-01-678000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "bowl",
+        "cabbage",
+        "red bell pepper",
+        "snack pouch",
+        "stuffed toy"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-03-43-21-495000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "bag of chips",
+        "bell pepper",
+        "cabbage",
+        "pink stuffed toy",
+        "stainless bowl",
+        "white plate"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-03-46-31-025000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "asparagus",
+        "bread",
+        "carrot",
+        "pink cup",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-03-48-47-173000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "asparagus",
+        "bread",
+        "carrot",
+        "pink cup",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-03-16-03-55-01-379000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "asparagus",
+        "carrot",
+        "croissant",
+        "pink cup",
+        "soda can",
+        "white cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-03-58-16-144000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "big can",
+        "corn",
+        "small can",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 9
+    },
+    "2026-03-16-04-00-31-037000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "big canned goods",
+        "corn",
+        "small canned goods",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-03-16-04-02-45-158000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick and place day 3 of data collection",
+      "objects": [
+        "corn",
+        "white canned goods",
+        "yellow canned goods",
+        "yellow duck toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-09-18-59-29-349000": {
+      "scene": "pick_place_diverse",
+      "task_description": "day 4 of data collection (recollect)",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-09-19-25-09-382000": {
+      "scene": "pick_place_diverse",
+      "task_description": "day 4 of data collection (recollect)",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-09-22-41-27-066000": {
+      "scene": "pick_place_diverse",
+      "task_description": "day 4 of data collection (recollect)",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-10-18-51-28-744000": {
+      "scene": "pick_place_diverse",
+      "task_description": "day 4 of data collection (recollect)",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-10-18-55-18-412000": {
+      "scene": "pick_place_diverse",
+      "task_description": "day 4 of data collection (recollect)",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-14-01-20-42-745000": {
+      "scene": "pick_place_diverse",
+      "task_description": "pick place recollect day 4",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-14-03-33-23-804000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 1",
+      "objects": [
+        "blue marker"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-03-36-19-145000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 1",
+      "objects": [
+        "corn"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-03-46-38-679000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 1",
+      "objects": [
+        "blue screwdriver"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-01-06-517000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 1",
+      "objects": [
+        "brown stuffed toy"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-04-24-675000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 1",
+      "objects": [
+        "yellow stuffed toy"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-04-45-909000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 1",
+      "objects": [
+        "brown stuffed toy"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-22-46-247000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [
+        "blue stuffed toy"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-23-48-546000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [
+        "blue soda can"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-25-12-763000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [
+        "beige bowl"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-28-18-000000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-14-04-29-46-000000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-14-04-33-34-590000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [
+        "white mug"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-34-24-990000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [
+        "green cabbage"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-35-45-301000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [
+        "blue soda can"
+      ],
+      "num_picks": 1
+    },
+    "2026-04-14-04-38-04-000000": {
+      "scene": "pick_place_diverse",
+      "task_description": "alignment data set 2",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-04-21-03-32-03-298000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "green bowl",
+        "pink bowl",
+        "pink coffee cup",
+        "red bag of chips",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-03-35-01-274000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "doritos",
+        "green bowl",
+        "pink bowl",
+        "pink mug",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-03-38-31-054000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "green bowl",
+        "pink bowl",
+        "pink coffee cup",
+        "red bag of chips",
+        "white coffee cup",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-03-41-00-325000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue marker",
+        "blue screwdriver",
+        "gray stuffed toy",
+        "juice pouch",
+        "red marker",
+        "white cup"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-03-48-00-324000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue marker",
+        "blue screwdriver",
+        "gray stuffed toy",
+        "juice pouch",
+        "red marker",
+        "white mug"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-03-50-57-718000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "juice pouch",
+        "red marker",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-04-08-55-290000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "beige bowl",
+        "corn",
+        "green mug",
+        "white cup",
+        "yogurt"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-21-04-17-23-858000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "beige bowl",
+        "brown stuffed toy",
+        "corn",
+        "green mug",
+        "white cup",
+        "yogurt"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-04-19-41-976000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "beige bowl",
+        "brown stuffed toy",
+        "corn",
+        "green coffee cup",
+        "white coffee cup"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-21-04-23-29-156000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue stuffed toy",
+        "croissant",
+        "orange screwdriver",
+        "pink plate"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-04-26-06-285000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue stuffed toy",
+        "croissant",
+        "orange screwdriver",
+        "white plate"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-21-04-28-28-519000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue stuffed toy",
+        "croissant",
+        "pink plate",
+        "screwdriver",
+        "white plate"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-05-15-41-561000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "cabbage",
+        "carrot",
+        "green bag of chips",
+        "silver bowl",
+        "tomato"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-05-18-34-680000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "cabbage",
+        "carrot",
+        "green bag of chips",
+        "silver bowl",
+        "tomato"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-05-21-14-485000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "cabbage",
+        "carrot",
+        "green bag of chips",
+        "silver bowl",
+        "tomato"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-05-34-03-612000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "canned goods",
+        "eggplant",
+        "pink stuffed toy",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-05-36-12-002000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "canned goods",
+        "eggplant",
+        "pink stuffed toy",
+        "white mug"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-05-40-09-356000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "eggplant",
+        "pink stuffed toy",
+        "white canned goods",
+        "white mug"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-18-43-51-459000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "canned goods",
+        "carrot",
+        "croissant",
+        "pink bowl",
+        "pink stuffed toy",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-18-46-01-782000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "canned goods",
+        "carrot",
+        "croissant",
+        "pink bowl",
+        "pink stuffed toy",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-18-48-18-231000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "croissant",
+        "pink bowl",
+        "pink stuffed toy",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-18-54-28-704000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue stuffed toy",
+        "eggplant",
+        "green bag of chips",
+        "orange screwdriver",
+        "silver bowl"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-18-56-40-558000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue stuffed toy",
+        "eggplant",
+        "green bag of chips",
+        "orange screwdriver",
+        "pink plate",
+        "silver bowl"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-19-02-44-418000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue stuffed toy",
+        "eggplant",
+        "green bag of chips",
+        "orange screwdriver",
+        "pink plate",
+        "silver bowl"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-19-05-51-882000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "coffee pod",
+        "gray stuffed toy",
+        "green coffee cup",
+        "white coffee cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-19-11-09-622000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "beige bowl",
+        "coffee pod",
+        "gray stuffed toy",
+        "green mug",
+        "white coffee cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-21-19-15-16-930000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "beige bowl",
+        "coffee pod",
+        "green mug",
+        "white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-21-19-26-39-915000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "corn",
+        "red marker",
+        "tomato",
+        "white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-21-19-31-09-126000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "pink mug",
+        "red marker",
+        "tomato",
+        "white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-21-19-33-23-568000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "corn",
+        "pink mug",
+        "red marker",
+        "tomato"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-21-19-46-01-388000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "green bowl",
+        "white cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-19-48-12-404000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "cabbage",
+        "green bowl",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-19-50-19-707000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue marker",
+        "blue screwdriver",
+        "cabbage",
+        "green bowl",
+        "white cup"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-19-54-35-034000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "brown stuffed toy",
+        "doritos",
+        "juice pouch",
+        "white coffee cup"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-21-19-58-50-895000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "brown stuffed toy",
+        "doritos",
+        "juice pouch",
+        "white coffee cup"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-20-01-00-040000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "brown stuffed toy",
+        "doritos",
+        "juice pouch",
+        "white cup"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-21-44-50-400000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "croissant",
+        "doritos",
+        "pink bowl",
+        "pink stuffed toy",
+        "white canned goods"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-21-21-47-08-082000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "canned goods",
+        "croissant",
+        "pink bowl",
+        "pink stuffed toy"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-21-50-40-835000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "croissant",
+        "doritos",
+        "pink bowl",
+        "pink stuffed toy",
+        "white canned goods"
+      ],
+      "num_picks": 14
+    },
+    "2026-04-21-21-54-48-935000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "beige bowl",
+        "cabbage",
+        "green bag of chips",
+        "juice pouch"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-21-21-56-58-170000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "beige bowl",
+        "cabbage",
+        "gray stuffed toy",
+        "green bag of chips",
+        "juice pouch"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-21-21-59-28-113000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "bag of juice",
+        "beige bowl",
+        "cabbage",
+        "gray stuffed toy",
+        "green bag of chips"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-22-03-39-663000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "brown stuffed toy",
+        "corn",
+        "small white cup",
+        "tomato",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-22-07-19-157000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "corn",
+        "orange screwdriver",
+        "pink plate",
+        "tomato",
+        "white cup",
+        "white mug",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-22-09-28-505000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "corn",
+        "tomato",
+        "white coffee cup",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-22-13-59-980000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "carrot",
+        "green bowl",
+        "green mug",
+        "white coffee cup",
+        "white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-21-22-16-25-261000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "carrot",
+        "green bowl",
+        "green mug",
+        "white coffee cup",
+        "white mug"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-21-22-18-34-313000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "carrot",
+        "green bowl",
+        "green mug",
+        "white coffee cup",
+        "white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-21-22-21-29-310000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "blue stuffed toy",
+        "pink mug",
+        "red marker"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-22-23-37-686000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "blue stuffed toy",
+        "pink mug",
+        "red marker"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-22-33-16-132000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "blue stuffed toy",
+        "coffee pod",
+        "pink mug",
+        "red marker"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-22-50-45-117000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "eggplant",
+        "silver bowl"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-22-52-52-055000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "eggplant",
+        "silver bowl"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-21-22-55-55-374000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "eggplant",
+        "silver bowl"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-21-23-54-17-885000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "cabbage",
+        "croissant",
+        "green bag of chips",
+        "green bowl",
+        "pink mug"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-21-23-56-26-195000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "cabbage",
+        "croissant",
+        "green bag of chips",
+        "green bowl",
+        "pink mug",
+        "silver bowl"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-21-23-58-38-546000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "cabbage",
+        "green bag of chips",
+        "green bowl",
+        "pink mug",
+        "silver bowl"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-22-00-06-03-204000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "corn",
+        "eggplant",
+        "juice pouch",
+        "pink bowl",
+        "pink stuffed toy"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-22-00-08-20-380000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "corn",
+        "eggplant",
+        "juice pouch",
+        "pink bowl",
+        "pink stuffed toy"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-22-00-28-39-586000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "bag of juice",
+        "corn",
+        "eggplant",
+        "pink bowl"
+      ],
+      "num_picks": 14
+    },
+    "2026-04-22-02-25-58-535000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "beige bowl",
+        "coffee pod",
+        "white cup",
+        "white mug"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-22-02-28-17-111000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "beige bowl",
+        "white cup",
+        "white mug",
+        "white plate"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-22-02-30-32-296000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "beige bowl",
+        "coffee pod",
+        "white cup",
+        "white mug",
+        "white plate"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-22-02-35-17-392000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue stuffed toy",
+        "doritos",
+        "orange screwdriver",
+        "pink plate",
+        "white mug",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-22-02-37-29-474000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue stuffed toy",
+        "doritos",
+        "orange screwdriver",
+        "white coffee cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-22-02-44-14-010000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue stuffed toy",
+        "doritos",
+        "screwdriver",
+        "white coffee cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-22-02-50-42-144000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "brown stuffed toy",
+        "carrot",
+        "green mug",
+        "white coffee cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-22-02-55-57-557000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "brown stuffed toy",
+        "carrot",
+        "green mug",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-22-02-58-16-127000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "asparagus",
+        "blue marker",
+        "blue screwdriver",
+        "brown stuffed toy",
+        "carrot",
+        "green mug",
+        "white canned goods",
+        "white mug"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-22-03-02-02-854000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "gray stuffed toy",
+        "red marker",
+        "tomato"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-22-03-04-16-390000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "gray stuffed toy",
+        "red marker",
+        "tomato"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-22-03-06-24-661000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "blue soda can",
+        "gray stuffed toy",
+        "red marker",
+        "tomato"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-22-04-17-55-743000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "eggplant",
+        "green bowl",
+        "red marker",
+        "silver bowl",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 14
+    },
+    "2026-04-22-04-20-24-543000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "eggplant",
+        "green bowl",
+        "pink plate",
+        "red marker",
+        "silver bowl",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 14
+    },
+    "2026-04-22-04-22-48-946000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "eggplant",
+        "green bowl",
+        "pink plate",
+        "red marker",
+        "silver bowl",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 14
+    },
+    "2026-04-22-05-02-17-179000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "brown stuffed toy",
+        "coffee pod",
+        "doritos",
+        "tomato",
+        "white coffee cup"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-22-05-14-00-019000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "brown stuffed toy",
+        "coffee pod",
+        "doritos",
+        "tomato",
+        "white coffee cup"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-22-05-16-38-928000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "brown stuffed toy",
+        "coffee pod",
+        "doritos",
+        "tomato",
+        "white mug"
+      ],
+      "num_picks": 14
+    },
+    "2026-04-23-03-32-31-333000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "cabbage",
+        "croissant",
+        "juice pouch",
+        "pink stuffed toy",
+        "white mug"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-23-03-34-42-011000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "bag of juice",
+        "croissant",
+        "green cabbage",
+        "white coffee cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-23-03-37-30-664000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "asparagus",
+        "blue stuffed toy",
+        "corn",
+        "green bag of chips",
+        "green mug",
+        "orange screwdriver",
+        "pink bowl"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-23-03-39-40-493000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "asparagus",
+        "blue stuffed toy",
+        "corn",
+        "green bag of chips",
+        "green mug",
+        "orange screwdriver",
+        "pink bowl"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-23-03-42-31-355000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "asparagus",
+        "blue stuffed toy",
+        "corn",
+        "green bag of chips",
+        "green coffee cup",
+        "pink bowl",
+        "screwdriver"
+      ],
+      "num_picks": 14
+    },
+    "2026-04-23-03-45-22-234000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "beige bowl",
+        "blue marker",
+        "carrot",
+        "gray stuffed toy"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-23-03-48-33-728000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "beige bowl",
+        "blue marker",
+        "carrot",
+        "gray stuffed toy",
+        "white cup"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-23-03-52-30-479000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "beige bowl",
+        "blue marker",
+        "carrot",
+        "gray stuffed toy",
+        "white cup"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-23-03-58-10-520000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "canned goods",
+        "pink coffee cup",
+        "white coffee cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-23-04-00-38-547000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "canned goods",
+        "pink mug",
+        "white coffee cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-23-04-03-27-173000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "pink mug",
+        "white coffee cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-23-05-00-08-228000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 1",
+      "objects": [
+        "bag of juice",
+        "cabbage",
+        "croissant",
+        "pink stuffed toy",
+        "white mug"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-24-03-32-21-466000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "beige bowl",
+        "blue marker",
+        "corn",
+        "croissant",
+        "gray stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-24-03-34-27-275000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "beige bowl",
+        "blue marker",
+        "corn",
+        "croissant",
+        "gray stuffed toy"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-24-03-36-34-784000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "beige bowl",
+        "blue marker",
+        "corn",
+        "croissant",
+        "gray stuffed toy"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-24-03-44-57-502000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "coffee pod",
+        "green bag of chips",
+        "silver bowl",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-24-03-47-18-893000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "green bag of chips",
+        "silver bowl",
+        "white cup",
+        "yellow stuffed toy"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-24-03-50-07-606000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "coffee pod",
+        "green bag of chips",
+        "silver bowl",
+        "white coffee cup",
+        "white cup"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-24-03-54-56-066000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "orange screwdriver",
+        "pink bowl",
+        "pink mug",
+        "red marker",
+        "white coffee cup"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-24-03-57-13-805000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "orange screwdriver",
+        "pink bowl",
+        "pink mug",
+        "red marker",
+        "white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-24-04-01-56-892000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "asparagus",
+        "orange screwdriver",
+        "pink mug",
+        "red marker",
+        "white coffee cup"
+      ],
+      "num_picks": 9
+    },
+    "2026-04-24-04-05-21-616000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue screwdriver",
+        "blue stuffed toy",
+        "green mug",
+        "pink stuffed toy",
+        "white mug"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-24-04-07-53-200000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue screwdriver",
+        "cabbage",
+        "pink stuffed toy",
+        "white mug"
+      ],
+      "num_picks": 8
+    },
+    "2026-04-24-04-11-59-499000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "green cabbage",
+        "green coffee cup",
+        "pink stuffed toy",
+        "screwdriver"
+      ],
+      "num_picks": 10
+    },
+    "2026-04-24-04-14-43-402000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "doritos",
+        "green bowl",
+        "juice pouch",
+        "toy tomato",
+        "white plate"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-24-04-17-50-937000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "doritos",
+        "green bowl",
+        "juice pouch",
+        "pink plate"
+      ],
+      "num_picks": 14
+    },
+    "2026-04-24-04-27-06-747000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "doritos",
+        "green bowl",
+        "juice pouch",
+        "white plate"
+      ],
+      "num_picks": 13
+    },
+    "2026-04-24-04-31-36-072000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "brown stuffed toy",
+        "eggplant",
+        "white canned goods"
+      ],
+      "num_picks": 12
+    },
+    "2026-04-24-04-34-32-314000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "brown stuffed toy",
+        "canned goods",
+        "eggplant"
+      ],
+      "num_picks": 11
+    },
+    "2026-04-24-04-37-15-697000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 2 data collection day 2",
+      "objects": [
+        "blue soda can",
+        "brown stuffed toy",
+        "canned goods",
+        "eggplant"
+      ],
+      "num_picks": 10
+    },
+    "2026-05-11-21-14-21-049000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-21-17-50-946000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-21-21-28-627000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-21-29-40-946000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-21-31-52-999000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-21-35-55-684000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-21-39-00-800000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-21-56-11-085000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-21-59-56-771000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-03-57-414000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-09-45-789000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-12-02-421000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-19-50-654000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-22-19-366000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-26-50-596000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-34-50-472000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-37-04-384000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    },
+    "2026-05-11-22-41-48-826000": {
+      "scene": "pick_place_diverse",
+      "task_description": "set 3 base data",
+      "objects": [],
+      "num_picks": 0
+    }
+  }
+}

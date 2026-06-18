@@ -1,0 +1,21 @@
+# Baseline eval: pickplace-trained baseline (no retrieval) evaluated zero-context
+# on the four HELD-OUT eval segment groups. valid = eval-group frames only (never
+# trained). train_datasets inherited (train groups), not iterated in eval mode.
+# Mirror of cotrain_pi_ricl_pickplace_eval without the retrieval path. Groups
+# defined in egomimic/ricl/pickplace_splits.py.
+defaults:
+  - eva_pi_pickplace
+  - _self_
+
+valid_datasets:
+  eva_bimanual:
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.pickplace_splits', fromlist=['eval_episode_hashes']).eval_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('episode_hash') in _eps"
+    groups:
+      - ["pick", "croissant", "left"]
+      - ["pick", "doritos", "right"]
+      - ["place", "juice pouch", "left"]
+      - ["place", "pink mug", "right"]
+    mode: total

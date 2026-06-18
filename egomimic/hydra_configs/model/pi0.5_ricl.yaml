@@ -1,0 +1,41 @@
+# pi0.5 + retrieval-based in-context learning (RICL).
+#
+# Inherits the single-eva pi0.5 setup (domains / converters / camera_transforms /
+# openpi-base pytorch_weight_path) and only:
+#   - swaps the algo target to PIRicl,
+#   - adds the RICL knobs (k, retrieved action steps),
+#   - bumps the token budget so the spliced retrieved (state, action) text fits.
+#
+# The query embodiment is eva; retrieved aria/eva blocks are pre-encoded into the
+# shared 32-D space by the bank provider (see data=cotrain_pi_ricl), so the algo
+# only needs the eva domain. Run:
+#   python -m egomimic.trainHydra model=pi0.5_ricl data=cotrain_pi_ricl \
+#       data.retrieval_cache_dir=<cache> data.bank_zarr_root='<.../{hash}.zarr>'
+defaults:
+  - pi0.5_bc_eva
+  - _self_
+
+robomimic_model:
+  _target_: egomimic.algo.pi_ricl.PIRicl
+  num_retrieved_observations: 4
+  # Each retrieved demo carries the FULL 15-step action chunk (matches the query
+  # prediction horizon set below via config.model.action_horizon=15), so the
+  # in-context exemplar shows a whole trajectory rather than a single next action.
+  retrieved_action_steps: 15
+  ricl_base_key: "base_0_rgb"
+  # k retrieved (state, action) blocks inflate the text prompt. They're kept at the
+  # full 32-D openpi layout (data/cotrain_pi_ricl.yaml) to stay in pi0.5's pretrained
+  # distribution, so the prompt is long: at k=4 with retrieved_action_steps=15 the
+  # worst case is ~8377 tokens (measured by
+  # egomimic/ricl/scripts/check_prompt_budget.py --action-steps 15 against the real
+  # PaliGemma tokenizer). Truncation drops the trailing `;\nAction:` anchor, so do
+  # NOT let the prompt exceed this — raise it (and re-run the budget check) if you
+  # raise k / retrieved_action_steps. 8704 clears the worst case with margin.
+  tokenizer_max_length: 8704
+  config:
+    model:
+      max_token_len: 8704
+      # Predict a 15-step action chunk (down from the base 100) so the query
+      # prediction horizon matches the retrieved demos' action chunk. The query
+      # data transform (chunk_length) and the sliced norm stats must agree.
+      action_horizon: 15

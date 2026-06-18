@@ -1,0 +1,15 @@
+# Baseline OOD eval: (fold+bag)-trained baseline evaluated zero-context on
+# cup_on_saucer (no retrieval). valid = the 100 held-out cup_on_saucer eval
+# episodes (never trained). train_datasets inherited (fold+bag) but not iterated in
+# eval mode. Splits: egomimic/ricl/foldbag_cup_splits.py.
+defaults:
+  - eva_pi_foldbag
+  - _self_
+
+valid_datasets:
+  eva_bimanual:
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.foldbag_cup_splits', fromlist=['cup_eval_episode_hashes']).cup_eval_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('task') == 'cup_on_saucer' and row.get('episode_hash') in _eps"
+    mode: total

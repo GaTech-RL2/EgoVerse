@@ -16,6 +16,8 @@ train_datasets:
     mode: total
   aria_bimanual: null
 
+# Relative interpolation: resolves whether or not this config is nested
+# under `data` (root-absolute ${train_datasets...} does not).
 valid_datasets:
-  eva_bimanual: ${train_datasets.eva_bimanual}
+  eva_bimanual: ${..train_datasets.eva_bimanual}
   aria_bimanual: null

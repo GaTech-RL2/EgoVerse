@@ -453,3 +453,122 @@ def build_tokenized_collate(
         return collated
 
     return _collate
+
+
+class RiclDataModuleWrapper(MultiDataModuleWrapper):
+    """``MultiDataModuleWrapper`` that attaches retrieved in-context demos (RICL).
+
+    On top of the base behaviour it (1) wraps every query dataset in
+    :class:`egomimic.ricl.data.RiclQueryDataset` so samples expose ``frame_idx``,
+    and (2) swaps the collate for one that, per query sample, reads a precomputed
+    retrieval cache and loads its top-k bank frames into ``ricl_*`` batch keys
+    consumed by :class:`egomimic.algo.pi_ricl.PIRicl`.
+
+    Build the cache first with ``python -m egomimic.ricl.retrieval`` (see
+    ``egomimic/ricl/README.md``). Samples whose episode isn't in the cache fall
+    back to the zero-context behaviour (all retrieved slots masked out).
+
+    Args (beyond the base four):
+        retrieval_cache_dir: dir written by ``RetrievalCache.save``.
+        num_retrieved_observations: k.
+        bank_zarr_root: ``{hash}`` template -> each bank episode's zarr store.
+        bank_converter: action converter applied to retrieved actions (-> 32-D),
+            e.g. ``HumanBimanualCartesianEuler`` for an aria bank.
+        bank_norm_path: ``norm_stats.json`` (file or dir) holding the bank
+            embodiment's stats. MUST be the same file the run passes as
+            ``norm_stats.precomputed_norm_path`` — retrieved (state, action)
+            are normalized with these stats before discretization so their
+            bins match the query State block. Unset = raw values (smoke only).
+        bank_embodiment: embodiment name of the bank episodes (e.g.
+            ``aria_bimanual``) — selects which entry of the stats json applies.
+        bank_norm_mode: normalization formula, must match the training run's
+            ``norm_stats.norm_mode`` (default ``quantile``).
+    """
+
+    def __init__(
+        self,
+        train_datasets: dict,
+        valid_datasets: dict,
+        train_dataloader_params: dict,
+        valid_dataloader_params: dict,
+        *,
+        retrieval_cache_dir: str,
+        num_retrieved_observations: int = 4,
+        bank_zarr_root: str | None = None,
+        bank_converter=None,
+        bank_keymap: dict | None = None,
+        bank_transform_list: list | None = None,
+        bank_norm_path: str | None = None,
+        bank_embodiment: str | None = None,
+        bank_norm_mode: str = "quantile",
+        image_hw=(224, 224),
+        action_horizon: int = 1,
+        state_dim: int = 32,
+        action_dim: int = 32,
+    ):
+        super().__init__(
+            train_datasets,
+            valid_datasets,
+            train_dataloader_params,
+            valid_dataloader_params,
+        )
+        from egomimic.ricl.data import (
+            RiclQueryDataset,
+            ZarrBankFrameProvider,
+            build_ricl_collate,
+            load_bank_norm_stats,
+        )
+        from egomimic.ricl.retrieval import RetrievalCache
+
+        if bank_zarr_root is None:
+            raise ValueError(
+                "RiclDataModuleWrapper requires bank_zarr_root ('{hash}' template "
+                "to per-episode bank zarr stores) to load retrieved frames."
+            )
+
+        bank_norm_stats = None
+        if bank_norm_path is not None:
+            if bank_embodiment is None:
+                raise ValueError(
+                    "bank_norm_path set but bank_embodiment is None — the stats "
+                    "json is keyed per embodiment (e.g. 'aria_bimanual')."
+                )
+            from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+
+            bank_norm_stats = load_bank_norm_stats(
+                bank_norm_path, get_embodiment_id(bank_embodiment)
+            )
+
+        cache = RetrievalCache.load(retrieval_cache_dir)
+        provider = ZarrBankFrameProvider(
+            resolve_store=lambda h: bank_zarr_root.format(hash=h),
+            converter=bank_converter,
+            keymap=bank_keymap,
+            transform_list=bank_transform_list,
+            action_horizon=action_horizon,
+            norm_stats=bank_norm_stats,
+            norm_mode=bank_norm_mode,
+        )
+        # Surface frame_idx on query samples (retrieval cache is per-frame).
+        self.train_datasets = {
+            k: RiclQueryDataset(v) for k, v in self.train_datasets.items()
+        }
+        self.valid_datasets = {
+            k: RiclQueryDataset(v) for k, v in self.valid_datasets.items()
+        }
+        self.collate_fn = build_ricl_collate(
+            cache,
+            provider,
+            k=num_retrieved_observations,
+            base_collate=annotation_collate,
+            image_hw=tuple(image_hw),
+            state_dim=state_dim,
+            action_dim=action_dim,
+            action_horizon=action_horizon,
+        )
+        logger.info(
+            "RiclDataModuleWrapper: k=%d, cache=%s, %d cached query episodes",
+            num_retrieved_observations,
+            retrieval_cache_dir,
+            len(cache.query_hashes),
+        )

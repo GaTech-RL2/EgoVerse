@@ -1,0 +1,35 @@
+# Standalone norm-stats scope for the pickplace RICL/baseline runs.
+# Consumed by egomimic.ricl.scripts.compute_norm_stats via load_config_from_path,
+# so paths are ABSOLUTE (no ${paths.*} interpolation) and there is no defaults
+# chain. Stats are computed over exactly the training distribution: the four
+# train-group segments inside the TRAIN episodes (train_episode_hashes), so the
+# held-out valid/eval groups never enter the stats. chunk_length=15 -> actions
+# come out (15, 14), matching the 15-step prediction horizon (no slicing needed).
+# One file feeds both the query path (precomputed_norm_path) and, for RICL, the
+# retrieval bank (bank_norm_path).
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.SegmentFilteredDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+        chunk_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.pickplace_splits', fromlist=['train_episode_hashes']).train_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('episode_hash') in _eps"
+    mode: total
+    segments_csv: /storage/project/r-dxu345-0/rco3/EgoVerse2/egomimic/ricl/episode_lists/action_segments.csv
+    by: ["verb", "object", "hand"]
+    groups:
+      - ["pick", "blue stuffed toy", "left"]
+      - ["pick", "white cup", "right"]
+      - ["place", "eggplant", "left"]
+      - ["place", "green bowl", "right"]

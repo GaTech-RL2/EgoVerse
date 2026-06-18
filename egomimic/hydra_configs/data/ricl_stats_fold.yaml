@@ -1,0 +1,23 @@
+# Standalone norm-stats scope for the fold_clothes RICL/baseline runs.
+# Consumed by egomimic.ricl.scripts.compute_norm_stats (absolute paths). Uses
+# chunk_length=15 so actions_cartesian stats come out as (15, 14) — matching the
+# 15-step prediction horizon, no slicing needed.
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+        chunk_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.fold_cup_splits', fromlist=['fold_train_episode_hashes']).fold_train_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('task') == 'fold_clothes' and row.get('episode_hash') in _eps"
+    mode: total

@@ -1,0 +1,51 @@
+# Baseline training data: plain pi0.5 finetune (NO retrieval) on the four
+# pick/place train segment groups (eva_bimanual). Same train/valid split and
+# 15-step chunks as cotrain_pi_ricl_pickplace, so the only difference vs RICL is
+# the retrieval mechanism. Groups defined in egomimic/ricl/pickplace_splits.py.
+defaults:
+  - eva_pi
+  - _self_
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.SegmentFilteredDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+        chunk_length: 15  # predict a 15-step action chunk (matches RICL for a fair compare)
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.pickplace_splits', fromlist=['train_episode_hashes']).train_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('episode_hash') in _eps"
+    mode: total
+    segments_csv: &segments_csv ${paths.work_dir}/egomimic/ricl/episode_lists/action_segments.csv
+    by: &segment_by ["verb", "object", "hand"]
+    groups: &train_groups
+      - ["pick", "blue stuffed toy", "left"]
+      - ["pick", "white cup", "right"]
+      - ["place", "eggplant", "left"]
+      - ["place", "green bowl", "right"]
+  aria_bimanual: null
+
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.SegmentFilteredDataset._from_resolver
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.pickplace_splits', fromlist=['valid_episode_hashes']).valid_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('episode_hash') in _eps"
+    mode: total
+    segments_csv: *segments_csv
+    by: *segment_by
+    groups: *train_groups
+  aria_bimanual: null

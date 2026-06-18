@@ -1,0 +1,5068 @@
+{
+  "task": "pick_place",
+  "method": "human(aria)<->robot(eva) pairing for side-by-side eval",
+  "tiers": {
+    "true_pairs_alignment": {
+      "alignment_set_1": {
+        "eva_bimanual": [
+          {
+            "episode_hash": "2026-04-14-03-33-23-804000",
+            "num_frames": 293
+          },
+          {
+            "episode_hash": "2026-04-14-03-36-19-145000",
+            "num_frames": 287
+          },
+          {
+            "episode_hash": "2026-04-14-03-46-38-679000",
+            "num_frames": 332
+          },
+          {
+            "episode_hash": "2026-04-14-04-01-06-517000",
+            "num_frames": 259
+          },
+          {
+            "episode_hash": "2026-04-14-04-04-24-675000",
+            "num_frames": 240
+          },
+          {
+            "episode_hash": "2026-04-14-04-04-45-909000",
+            "num_frames": 234
+          }
+        ],
+        "aria_bimanual": [
+          {
+            "episode_hash": "2026-04-14-03-39-11-000000",
+            "num_frames": 161
+          },
+          {
+            "episode_hash": "2026-04-14-03-48-32-000000",
+            "num_frames": 158
+          },
+          {
+            "episode_hash": "2026-04-14-04-03-19-000000",
+            "num_frames": 123
+          },
+          {
+            "episode_hash": "2026-04-14-04-06-40-000000",
+            "num_frames": 162
+          },
+          {
+            "episode_hash": "2026-04-26-21-45-39-000000",
+            "num_frames": 155
+          },
+          {
+            "episode_hash": "2026-04-26-21-49-23-000000",
+            "num_frames": 137
+          }
+        ]
+      },
+      "alignment_set_2": {
+        "eva_bimanual": [
+          {
+            "episode_hash": "2026-04-14-04-22-46-247000",
+            "num_frames": 249
+          },
+          {
+            "episode_hash": "2026-04-14-04-23-48-546000",
+            "num_frames": 291
+          },
+          {
+            "episode_hash": "2026-04-14-04-25-12-763000",
+            "num_frames": 327
+          },
+          {
+            "episode_hash": "2026-04-14-04-28-18-000000",
+            "num_frames": 134
+          },
+          {
+            "episode_hash": "2026-04-14-04-29-46-000000",
+            "num_frames": 183
+          },
+          {
+            "episode_hash": "2026-04-14-04-33-34-590000",
+            "num_frames": 299
+          },
+          {
+            "episode_hash": "2026-04-14-04-34-24-990000",
+            "num_frames": 362
+          },
+          {
+            "episode_hash": "2026-04-14-04-35-45-301000",
+            "num_frames": 343
+          },
+          {
+            "episode_hash": "2026-04-14-04-38-04-000000",
+            "num_frames": 162
+          }
+        ],
+        "aria_bimanual": [
+          {
+            "episode_hash": "2026-04-26-21-55-25-000000",
+            "num_frames": 164
+          },
+          {
+            "episode_hash": "2026-04-26-21-59-56-000000",
+            "num_frames": 154
+          },
+          {
+            "episode_hash": "2026-04-26-22-02-01-000000",
+            "num_frames": 168
+          }
+        ]
+      },
+      "note": "Same scenes recorded by robot and human. Set 1 was an interleaved same-session capture on 2026-04-14 (pair eva<->aria by capture time); set-2 aria was recollected 2026-04-26. aria-alignment episodes have no language annotations."
+    },
+    "similar_task_language_pairs": [
+      {
+        "aria_hash": "2026-03-16-18-14-40-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "bell pepper",
+          "brown plush",
+          "gray plush",
+          "green bowl",
+          "purple plate",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-05-20-29-363000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "brown plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-20-01-584000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "gray plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "doritos",
+              "gray plush",
+              "green bowl",
+              "red marker",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-25-31-934000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "bell pepper",
+              "gray plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "bell pepper",
+              "eggplant",
+              "gray plush",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-16-18-21-34-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "doritos",
+          "white cup"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-03-16-18-37-11-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "asparagus",
+          "beige bowl",
+          "cabbage",
+          "carrot",
+          "corn",
+          "silver bowl"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-20-32-15-833000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.571,
+            "shared_objects": [
+              "asparagus",
+              "beige bowl",
+              "carrot",
+              "corn"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "beige bowl",
+              "carrot",
+              "corn",
+              "eggplant"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-34-43-723000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "asparagus",
+              "beige bowl",
+              "corn"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "beige bowl",
+              "corn"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-05-15-41-561000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "cabbage",
+              "carrot",
+              "silver bowl"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "cabbage",
+              "carrot",
+              "green chips",
+              "silver bowl"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-16-18-50-09-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "asparagus",
+          "beige bowl",
+          "cabbage",
+          "carrot",
+          "corn",
+          "silver bowl"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-20-32-15-833000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.571,
+            "shared_objects": [
+              "asparagus",
+              "beige bowl",
+              "carrot",
+              "corn"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "beige bowl",
+              "carrot",
+              "corn",
+              "eggplant"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-34-43-723000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "asparagus",
+              "beige bowl",
+              "corn"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "beige bowl",
+              "corn"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-05-15-41-561000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "cabbage",
+              "carrot",
+              "silver bowl"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "cabbage",
+              "carrot",
+              "green chips",
+              "silver bowl"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-16-19-22-17-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "cabbage",
+          "corn",
+          "pink bowl",
+          "pink plush",
+          "silver bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-16-01-55-05-813000",
+            "eva_desc": "pick_place",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "cabbage",
+              "corn",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "cabbage",
+              "corn",
+              "pink plush",
+              "red bell pepper",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-02-00-05-454000",
+            "eva_desc": "pick_place",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "cabbage",
+              "corn",
+              "pink plush"
+            ],
+            "eva_demo": [
+              "cabbage",
+              "corn",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-36-23-243000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "corn",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "silver bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-16-22-50-08-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "blue plush",
+          "blue screwdriver",
+          "blue soda can",
+          "croissant",
+          "pink plate",
+          "soda can",
+          "white cannedgoods",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-04-23-29-156000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "blue plush",
+              "croissant",
+              "pink plate"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "croissant",
+              "orange screwdriver",
+              "pink plate"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-04-28-28-519000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "blue plush",
+              "croissant",
+              "pink plate"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "croissant",
+              "pink plate",
+              "white plate"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-05-29-34-981000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.273,
+            "shared_objects": [
+              "blue plush",
+              "pink plate",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-16-22-56-21-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "eggplant",
+          "green cup",
+          "red marker",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-16-03-13-48-270000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "eggplant",
+              "green cup",
+              "red marker"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "doritos",
+              "eggplant",
+              "green cup",
+              "red marker"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-16-02-581000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "eggplant",
+              "green cup",
+              "red marker"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "doritos",
+              "eggplant",
+              "green cup",
+              "red marker"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-26-31-137000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "eggplant",
+              "green cup",
+              "red marker"
+            ],
+            "eva_demo": [
+              "doritos",
+              "eggplant",
+              "green cup",
+              "red marker",
+              "violet plate"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-16-23-04-10-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "asparagus",
+          "red bell pepper"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-03-17-01-32-38-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "asparagus",
+          "blue marker",
+          "corn",
+          "green bowl",
+          "red marker",
+          "red screwdriver"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-49-02-171000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "blue marker",
+              "green bowl"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-03-50-57-718000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "blue marker",
+              "red marker"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "red marker",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-46-01-388000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "blue marker",
+              "green bowl"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "green bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-01-42-37-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "beige plate",
+          "bell pepper",
+          "blue plush",
+          "eggplant"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-03-17-01-52-08-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "cabbage",
+          "croissant",
+          "gray plush",
+          "white cup",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-23-03-34-42-011000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.6,
+            "shared_objects": [
+              "cabbage",
+              "croissant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "cabbage",
+              "croissant",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-32-31-333000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "cabbage",
+              "croissant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "cabbage",
+              "croissant",
+              "pink plush",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-01-59-29-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "blue soda can",
+          "carrot",
+          "pink cup",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-23-03-58-10-520000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.75,
+            "shared_objects": [
+              "blue soda can",
+              "pink cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "pink cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-04-03-27-173000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.75,
+            "shared_objects": [
+              "blue soda can",
+              "pink cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "pink cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-46-31-025000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.6,
+            "shared_objects": [
+              "carrot",
+              "pink cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "pink cup",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-02-13-58-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "blue marker",
+          "blue plate",
+          "pink bowl",
+          "pink cup",
+          "pink plate",
+          "red chips",
+          "red marker"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-10-18-51-28-744000",
+            "eva_desc": "day 4 of data collection (recollect)",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue plate",
+              "pink plate",
+              "red marker"
+            ],
+            "eva_demo": [
+              "blue plate",
+              "pink plate",
+              "red marker",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-03-32-03-298000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "pink bowl",
+              "pink cup",
+              "red chips"
+            ],
+            "eva_demo": [
+              "green bowl",
+              "pink bowl",
+              "pink cup",
+              "red chips",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-24-03-54-56-066000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "pink bowl",
+              "pink cup",
+              "red marker"
+            ],
+            "eva_demo": [
+              "orange screwdriver",
+              "pink bowl",
+              "pink cup",
+              "red marker",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-02-20-38-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "asparagus",
+          "blue plush",
+          "eggplant",
+          "green bowl",
+          "green cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-20-29-51-405000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "eggplant",
+              "green cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "corn",
+              "eggplant",
+              "green chips",
+              "green cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-37-30-664000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "blue plush",
+              "green cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue plush",
+              "green chips",
+              "green cup",
+              "orange screwdriver",
+              "pink bowl"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-42-31-355000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "blue plush",
+              "green cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue plush",
+              "corn",
+              "green chips",
+              "green cup",
+              "pink bowl"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-02-35-26-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "corn",
+          "red bell pepper",
+          "white coffee",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-16-01-55-05-813000",
+            "eva_desc": "pick_place",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "corn",
+              "red bell pepper",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "cabbage",
+              "corn",
+              "pink plush",
+              "red bell pepper",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-02-47-25-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "blue soda can",
+          "gray plush",
+          "white cup"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-03-17-02-53-23-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "beige bowl",
+          "cabbage",
+          "white cup"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-03-17-03-03-52-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "doritos",
+          "green chips",
+          "pink bowl",
+          "pink plush",
+          "silver bowl",
+          "white cannedgoods"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-21-44-50-400000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.571,
+            "shared_objects": [
+              "doritos",
+              "pink bowl",
+              "pink plush",
+              "white cannedgoods"
+            ],
+            "eva_demo": [
+              "croissant",
+              "doritos",
+              "pink bowl",
+              "pink plush",
+              "white cannedgoods"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-21-50-40-835000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.571,
+            "shared_objects": [
+              "doritos",
+              "pink bowl",
+              "pink plush",
+              "white cannedgoods"
+            ],
+            "eva_demo": [
+              "croissant",
+              "doritos",
+              "pink bowl",
+              "pink plush",
+              "white cannedgoods"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-04-17-00-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "asparagus",
+          "brown plush",
+          "corn",
+          "croissant",
+          "white plate",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-16-01-17-36-624000",
+            "eva_desc": "pick_place",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "croissant",
+              "white plate",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "croissant",
+              "pink cup",
+              "white plate",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-22-03-39-663000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "brown plush",
+              "corn",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "brown plush",
+              "corn",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-16-51-33-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "asparagus",
+          "brown plush",
+          "corn",
+          "orange screwdriver",
+          "red marker",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-24-04-01-56-892000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.571,
+            "shared_objects": [
+              "asparagus",
+              "orange screwdriver",
+              "red marker",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "orange screwdriver",
+              "pink cup",
+              "red marker",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-26-39-915000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "corn",
+              "red marker",
+              "white cup"
+            ],
+            "eva_demo": [
+              "corn",
+              "red marker",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-22-03-39-663000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "brown plush",
+              "corn",
+              "white cup"
+            ],
+            "eva_demo": [
+              "brown plush",
+              "corn",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-17-30-47-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "cabbage",
+          "croissant",
+          "doritos",
+          "green bowl",
+          "green chips",
+          "pink bowl"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-23-54-17-885000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.571,
+            "shared_objects": [
+              "cabbage",
+              "croissant",
+              "green bowl",
+              "green chips"
+            ],
+            "eva_demo": [
+              "cabbage",
+              "croissant",
+              "green bowl",
+              "green chips",
+              "pink cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-03-35-01-274000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "doritos",
+              "green bowl",
+              "pink bowl"
+            ],
+            "eva_demo": [
+              "doritos",
+              "green bowl",
+              "pink bowl",
+              "pink cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-21-44-50-400000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "croissant",
+              "doritos",
+              "pink bowl"
+            ],
+            "eva_demo": [
+              "croissant",
+              "doritos",
+              "pink bowl",
+              "pink plush",
+              "white cannedgoods"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-17-43-07-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "blue plate",
+          "eggplant",
+          "gray plush",
+          "pink cup",
+          "silver bowl"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-03-17-17-50-47-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "beige bowl",
+          "blue plush",
+          "brown plush",
+          "corn",
+          "orange screwdriver",
+          "red marker pen",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-04-17-23-858000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "beige bowl",
+              "brown plush",
+              "corn",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "brown plush",
+              "corn",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-04-19-41-976000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "beige bowl",
+              "brown plush",
+              "corn",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "brown plush",
+              "corn",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-11-52-724000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue plush",
+              "brown plush",
+              "orange screwdriver"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "orange screwdriver"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-17-57-37-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "asparagus",
+          "carrot",
+          "red bell pepper",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-23-17-15-904000",
+            "eva_desc": "pick and place on variety of objects",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.75,
+            "shared_objects": [
+              "asparagus",
+              "red bell pepper",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "red bell pepper",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-23-19-41-404000",
+            "eva_desc": "pick and place on variety of objects",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.75,
+            "shared_objects": [
+              "asparagus",
+              "red bell pepper",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "red bell pepper",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-46-31-025000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.6,
+            "shared_objects": [
+              "asparagus",
+              "carrot",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "pink cup",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-03-17-18-09-03-000000",
+        "aria_desc": "set 1 base data",
+        "aria_scene": [
+          "blue marker",
+          "blue screwdriver",
+          "blue soda can",
+          "pink plate",
+          "white cannedgoods"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-58-16-127000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.375,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "blue marker",
+              "blue screwdriver",
+              "white cannedgoods"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup",
+              "white cannedgoods",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-25-21-07-46-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "carrot",
+          "doritos",
+          "pink cup",
+          "silver bowl",
+          "yellow plush"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-04-25-21-14-12-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue plush",
+          "green bowl",
+          "pink plate",
+          "white cup",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-05-29-34-981000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.571,
+            "shared_objects": [
+              "blue plush",
+              "green bowl",
+              "pink plate",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-04-28-28-519000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue plush",
+              "pink plate",
+              "white plate"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "croissant",
+              "pink plate",
+              "white plate"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-05-20-29-363000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-26-00-04-43-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "beige bowl",
+          "corn",
+          "eggplant",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-06-53-17-768000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.75,
+            "shared_objects": [
+              "corn",
+              "eggplant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "corn",
+              "eggplant",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-48-23-857000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.6,
+            "shared_objects": [
+              "corn",
+              "eggplant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "corn",
+              "eggplant",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-30-29-803000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.6,
+            "shared_objects": [
+              "beige bowl",
+              "eggplant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "eggplant",
+              "red bell pepper",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-26-00-17-53-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "asparagus",
+          "blue marker",
+          "blue screwdriver",
+          "brown plush",
+          "gray plush",
+          "orange screwdriver",
+          "pink plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-49-02-171000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "pink plush"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-50-42-144000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-55-57-557000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-26-00-27-26-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue soda can",
+          "croissant",
+          "green chips",
+          "green cup",
+          "red marker",
+          "white cup"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-04-26-01-39-50-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue plush",
+          "brown plush",
+          "cabbage",
+          "green bowl",
+          "green cup",
+          "silver bowl",
+          "white cup",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-05-20-29-363000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-05-29-34-981000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.4,
+            "shared_objects": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-01-09-25-900000",
+            "eva_desc": "pick_place",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.4,
+            "shared_objects": [
+              "blue plush",
+              "brown plush",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "pink bowl",
+              "red marker",
+              "silver bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-26-01-46-37-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "corn",
+          "doritos",
+          "green chips"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-04-26-02-11-35-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue soda can",
+          "gray plush",
+          "pink bowl",
+          "pink plate",
+          "red marker",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-10-18-55-18-412000",
+            "eva_desc": "day 4 of data collection (recollect)",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "pink plate",
+              "red marker",
+              "white cup"
+            ],
+            "eva_demo": [
+              "pink plate",
+              "red marker",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-03-02-02-854000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue soda can",
+              "gray plush",
+              "red marker"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "gray plush",
+              "red marker"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-03-04-16-390000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue soda can",
+              "gray plush",
+              "red marker"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "gray plush",
+              "red marker"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-26-02-27-49-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "beige bowl",
+          "blue screwdriver",
+          "orange screwdriver",
+          "pink cup",
+          "pink plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-22-49-48-005000",
+            "eva_desc": "pick and place on variety of objects",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue screwdriver",
+              "orange screwdriver",
+              "pink cup"
+            ],
+            "eva_demo": [
+              "blue screwdriver",
+              "green bowl",
+              "green cup",
+              "orange screwdriver",
+              "pink cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-22-51-57-252000",
+            "eva_desc": "pick and place on variety of objects",
+            "n_shared": 3,
+            "containment": 0.429,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "blue screwdriver",
+              "orange screwdriver",
+              "pink cup"
+            ],
+            "eva_demo": [
+              "blue screwdriver",
+              "green bowl",
+              "green cup",
+              "orange screwdriver",
+              "pink cup",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-26-02-40-10-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "asparagus",
+          "blue marker",
+          "carrot",
+          "coffee pod",
+          "white coffee",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-58-16-127000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.5,
+            "jaccard": 0.4,
+            "shared_objects": [
+              "asparagus",
+              "blue marker",
+              "carrot",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup",
+              "white cannedgoods",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-46-31-025000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "asparagus",
+              "carrot",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "pink cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-48-47-173000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "asparagus",
+              "carrot",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "pink cup",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-26-02-48-32-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "croissant",
+          "eggplant",
+          "white cup",
+          "yellow plush"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-04-26-21-41-04-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "brown plush",
+          "cabbage",
+          "coffee pod",
+          "pink bowl"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-04-29-00-47-16-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "asparagus",
+          "doritos",
+          "eggplant",
+          "green chips",
+          "pink bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-03-35-01-274000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "doritos",
+              "pink bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "doritos",
+              "green bowl",
+              "pink bowl",
+              "pink cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-29-51-405000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "asparagus",
+              "eggplant",
+              "green chips"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "corn",
+              "eggplant",
+              "green chips",
+              "green cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-37-30-664000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "asparagus",
+              "green chips",
+              "pink bowl"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue plush",
+              "green chips",
+              "green cup",
+              "orange screwdriver",
+              "pink bowl"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-00-53-44-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue marker",
+          "blue screwdriver",
+          "brown plush",
+          "cabbage",
+          "green cup",
+          "red marker",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-50-42-144000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 5,
+            "containment": 0.833,
+            "jaccard": 0.625,
+            "shared_objects": [
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "green cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-58-16-127000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 5,
+            "containment": 0.625,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "green cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup",
+              "white cannedgoods",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-09-18-59-29-349000",
+            "eva_desc": "day 4 of data collection (recollect)",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue marker",
+              "blue screwdriver",
+              "cabbage",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "blue screwdriver",
+              "cabbage",
+              "coffee pod",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-01-00-58-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "beige bowl",
+          "coffee pod",
+          "corn",
+          "pink plate",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-22-07-19-157000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "corn",
+              "pink plate",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "corn",
+              "orange screwdriver",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-01-11-18-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "croissant",
+          "gray plush",
+          "green bowl",
+          "pink plush",
+          "white cup",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-23-05-00-08-228000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "croissant",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "croissant",
+              "pink plush",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-57-22-308000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "green bowl",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "green bowl",
+              "pink plush",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-32-31-333000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "croissant",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "cabbage",
+              "croissant",
+              "pink plush",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-01-19-57-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue plush",
+          "silver bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-36-23-243000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.75,
+            "shared_objects": [
+              "blue plush",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "silver bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-33-57-140000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.6,
+            "shared_objects": [
+              "blue plush",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "croissant",
+              "silver bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-01-09-25-900000",
+            "eva_desc": "pick_place",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue plush",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "pink bowl",
+              "red marker",
+              "silver bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-01-27-16-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue soda can",
+          "carrot",
+          "orange screwdriver",
+          "pink cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-54-15-293000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue soda can",
+              "carrot",
+              "pink cup"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "cabbage",
+              "carrot",
+              "green cup",
+              "pink cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-01-37-06-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "carrot",
+          "eggplant",
+          "pink plate",
+          "pink plush",
+          "silver bowl",
+          "white cup",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-05-34-03-612000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "eggplant",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "eggplant",
+              "pink plush",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-05-36-12-002000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "eggplant",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "eggplant",
+              "pink plush",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-05-40-09-356000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "eggplant",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "eggplant",
+              "pink plush",
+              "white cannedgoods",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-02-09-59-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue marker",
+          "blue plush",
+          "brown plush",
+          "corn",
+          "doritos",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-36-23-243000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue plush",
+              "corn",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "silver bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-39-06-936000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue plush",
+              "corn",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "croissant",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-54-35-034000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "brown plush",
+              "doritos",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "brown plush",
+              "doritos",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-02-23-53-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "beige bowl",
+          "cabbage",
+          "coffee pod",
+          "green bowl",
+          "red marker",
+          "white cup",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-25-58-535000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "beige bowl",
+              "coffee pod",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "coffee pod",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-57-22-308000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "green bowl",
+              "pink plush",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-15-16-930000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "beige bowl",
+              "coffee pod",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "coffee pod",
+              "green cup",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-02-31-22-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "asparagus",
+          "blue screwdriver",
+          "gray plush",
+          "green chips",
+          "green cup",
+          "orange screwdriver",
+          "pink bowl"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-23-03-37-30-664000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 5,
+            "containment": 0.833,
+            "jaccard": 0.625,
+            "shared_objects": [
+              "asparagus",
+              "green chips",
+              "green cup",
+              "orange screwdriver",
+              "pink bowl"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue plush",
+              "green chips",
+              "green cup",
+              "orange screwdriver",
+              "pink bowl"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-39-40-493000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 5,
+            "containment": 0.714,
+            "jaccard": 0.556,
+            "shared_objects": [
+              "asparagus",
+              "green chips",
+              "green cup",
+              "orange screwdriver",
+              "pink bowl"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue plush",
+              "corn",
+              "green chips",
+              "green cup",
+              "orange screwdriver",
+              "pink bowl"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-42-31-355000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "asparagus",
+              "green chips",
+              "green cup",
+              "pink bowl"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue plush",
+              "corn",
+              "green chips",
+              "green cup",
+              "pink bowl"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-04-29-02-38-27-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "blue soda can",
+          "croissant"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-04-29-02-49-49-000000",
+        "aria_desc": "set 2 base data",
+        "aria_scene": [
+          "pink cup",
+          "white cup"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-01-02-52-58-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "blue plush",
+          "carrot",
+          "corn",
+          "croissant"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-39-06-936000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.6,
+            "shared_objects": [
+              "blue plush",
+              "corn",
+              "croissant"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "croissant",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-33-57-140000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue plush",
+              "corn",
+              "croissant"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "croissant",
+              "silver bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-03-06-14-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "green bowl",
+          "green chips",
+          "orange screwdriver",
+          "pink cup",
+          "pink plush",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-22-51-57-252000",
+            "eva_desc": "pick and place on variety of objects",
+            "n_shared": 4,
+            "containment": 0.571,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "green bowl",
+              "orange screwdriver",
+              "pink cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue screwdriver",
+              "green bowl",
+              "green cup",
+              "orange screwdriver",
+              "pink cup",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-05-11-26-461000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "green bowl",
+              "orange screwdriver",
+              "pink cup"
+            ],
+            "eva_demo": [
+              "bell pepper",
+              "green bowl",
+              "orange screwdriver",
+              "pink cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-57-22-308000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "green bowl",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "green bowl",
+              "pink plush",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-03-14-46-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "blue marker",
+          "blue screwdriver",
+          "green cup",
+          "pink plate",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-50-42-144000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue marker",
+              "blue screwdriver",
+              "green cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-55-57-557000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue marker",
+              "blue screwdriver",
+              "green cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-58-16-127000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.375,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "blue marker",
+              "blue screwdriver",
+              "green cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup",
+              "white cannedgoods",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-03-21-19-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "asparagus",
+          "blue soda can",
+          "eggplant",
+          "red marker",
+          "silver bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-06-48-23-857000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue soda can",
+              "eggplant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "corn",
+              "eggplant",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-03-50-57-718000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "red marker",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "red marker",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-22-50-45-117000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "eggplant",
+              "silver bowl"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "eggplant",
+              "silver bowl"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-03-29-52-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "brown plush",
+          "cabbage",
+          "gray plush",
+          "pink bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-16-01-09-25-900000",
+            "eva_desc": "pick_place",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "brown plush",
+              "pink bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "pink bowl",
+              "red marker",
+              "silver bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-03-36-41-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "beige bowl",
+          "coffee pod",
+          "doritos",
+          "yellow plush"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-01-03-50-46-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "cabbage",
+          "coffee pod",
+          "gray plush",
+          "green bowl",
+          "pink bowl",
+          "pink plush",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-20-57-22-308000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "green bowl",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "green bowl",
+              "pink plush",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-05-51-882000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "coffee pod",
+              "gray plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "coffee pod",
+              "gray plush",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-32-31-333000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "cabbage",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "cabbage",
+              "croissant",
+              "pink plush",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-03-58-36-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "green chips",
+          "pink plate",
+          "silver bowl",
+          "white cup",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-24-03-47-18-893000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "green chips",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "green chips",
+              "silver bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-24-03-50-07-606000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "green chips",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "coffee pod",
+              "green chips",
+              "silver bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-24-03-44-57-502000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "green chips",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "coffee pod",
+              "green chips",
+              "silver bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-04-25-10-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "blue plush",
+          "blue screwdriver",
+          "blue soda can",
+          "brown plush",
+          "croissant",
+          "doritos",
+          "pink cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-19-54-35-034000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue soda can",
+              "brown plush",
+              "doritos"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "brown plush",
+              "doritos",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-58-50-895000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue soda can",
+              "brown plush",
+              "doritos"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "brown plush",
+              "doritos",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-20-01-00-040000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue soda can",
+              "brown plush",
+              "doritos"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "brown plush",
+              "doritos",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-04-32-27-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "asparagus",
+          "beige bowl",
+          "eggplant",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-30-29-803000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.6,
+            "shared_objects": [
+              "beige bowl",
+              "eggplant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "eggplant",
+              "red bell pepper",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-32-15-833000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "asparagus",
+              "beige bowl",
+              "eggplant"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "beige bowl",
+              "carrot",
+              "corn",
+              "eggplant"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-25-31-934000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "beige bowl",
+              "eggplant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "bell pepper",
+              "eggplant",
+              "gray plush",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-04-38-56-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "blue marker",
+          "corn",
+          "green cup",
+          "orange screwdriver"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-23-03-39-40-493000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.429,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "corn",
+              "green cup",
+              "orange screwdriver"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue plush",
+              "corn",
+              "green chips",
+              "green cup",
+              "orange screwdriver",
+              "pink bowl"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-01-04-53-06-000000",
+        "aria_desc": "set 2 base data color correct",
+        "aria_scene": [
+          "carrot",
+          "red marker",
+          "white cup",
+          "yellow plush"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-02-01-29-52-000000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "blue marker",
+          "coffee pod",
+          "corn",
+          "green bowl"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-02-01-44-47-284000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "cabbage",
+          "doritos",
+          "gray plush",
+          "pink cup",
+          "pink plate",
+          "pink plush",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-35-17-392000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "doritos",
+              "pink plate",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "doritos",
+              "orange screwdriver",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-01-48-58-000000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "blue soda can",
+          "brown plush",
+          "eggplant",
+          "orange screwdriver",
+          "red marker",
+          "white cup",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-24-04-34-32-314000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue soda can",
+              "brown plush",
+              "eggplant"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "brown plush",
+              "eggplant"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-24-04-37-15-697000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue soda can",
+              "brown plush",
+              "eggplant"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "brown plush",
+              "eggplant"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-48-23-857000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue soda can",
+              "eggplant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue soda can",
+              "corn",
+              "eggplant",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-01-49-24-234000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "asparagus",
+          "blue plush",
+          "blue screwdriver",
+          "croissant",
+          "green cup",
+          "silver bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-33-57-140000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "blue plush",
+              "croissant",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "croissant",
+              "silver bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-50-42-144000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "asparagus",
+              "blue screwdriver",
+              "green cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-58-16-127000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.5,
+            "jaccard": 0.364,
+            "shared_objects": [
+              "asparagus",
+              "blue screwdriver",
+              "green cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup",
+              "white cannedgoods",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-01-59-59-188000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "beige bowl",
+          "carrot",
+          "green chips",
+          "pink bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-23-03-48-33-728000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "beige bowl",
+              "carrot",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "blue marker",
+              "carrot",
+              "gray plush",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-23-03-52-30-479000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "beige bowl",
+              "carrot",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "blue marker",
+              "carrot",
+              "gray plush",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-02-04-24-935000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "blue soda can",
+          "soda cannedgoods",
+          "white plate"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-02-02-09-15-939000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "beige bowl",
+          "brown plush",
+          "carrot",
+          "eggplant"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-20-32-15-833000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "beige bowl",
+              "carrot",
+              "eggplant"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "beige bowl",
+              "carrot",
+              "corn",
+              "eggplant"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-02-14-15-901000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "blue plush",
+          "cabbage",
+          "coffee pod",
+          "green cup",
+          "pink bowl",
+          "red marker",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-16-01-09-25-900000",
+            "eva_desc": "pick_place",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "blue plush",
+              "pink bowl",
+              "red marker",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "pink bowl",
+              "red marker",
+              "silver bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-05-51-882000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "coffee pod",
+              "green cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "coffee pod",
+              "gray plush",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-15-16-930000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "coffee pod",
+              "green cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "coffee pod",
+              "green cup",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-02-27-46-670000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "blue marker",
+          "doritos",
+          "green bowl",
+          "orange screwdriver",
+          "pink plate",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-35-17-392000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.667,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "doritos",
+              "orange screwdriver",
+              "pink plate",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "doritos",
+              "orange screwdriver",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-24-04-17-50-937000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "doritos",
+              "green bowl",
+              "pink plate"
+            ],
+            "eva_demo": [
+              "doritos",
+              "green bowl",
+              "pink plate"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-37-47-140000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue marker",
+              "doritos",
+              "green bowl"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-02-32-43-873000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "blue screwdriver",
+          "corn",
+          "green chips",
+          "pink cup",
+          "pink plush",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-24-04-07-53-200000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue screwdriver",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue screwdriver",
+              "cabbage",
+              "pink plush",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-01-55-05-813000",
+            "eva_desc": "pick_place",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "corn",
+              "pink plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "cabbage",
+              "corn",
+              "pink plush",
+              "red bell pepper",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-22-51-57-252000",
+            "eva_desc": "pick and place on variety of objects",
+            "n_shared": 3,
+            "containment": 0.429,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "blue screwdriver",
+              "pink cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue screwdriver",
+              "green bowl",
+              "green cup",
+              "orange screwdriver",
+              "pink cup",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-02-37-11-786000",
+        "aria_desc": "set 1 base data recollect color correct",
+        "aria_scene": [
+          "asparagus",
+          "croissant",
+          "gray plush",
+          "silver bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-33-57-140000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "croissant",
+              "silver bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "croissant",
+              "silver bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-55-01-379000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "croissant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "croissant",
+              "pink cup",
+              "soda can",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-02-58-30-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "corn",
+          "green bell pepper",
+          "green bowl",
+          "pink plate",
+          "red plush"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-02-03-05-08-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "beige bowl",
+          "blue cup",
+          "cabbage",
+          "coffee pod",
+          "white cup",
+          "yellow plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-25-58-535000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 1.0,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "beige bowl",
+              "coffee pod",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "coffee pod",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-15-16-930000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "beige bowl",
+              "coffee pod",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "coffee pod",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-30-32-296000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "beige bowl",
+              "coffee pod",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "coffee pod",
+              "white cup",
+              "white plate"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-03-12-15-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue cup",
+          "eggplant",
+          "green bell pepper",
+          "red bell pepper",
+          "white plate",
+          "yellow plate"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-02-03-31-25-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "doritos",
+          "plug adaptor",
+          "silver bowl",
+          "white cup",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-44-14-010000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "doritos",
+              "white cup",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "doritos",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-24-03-47-18-893000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.5,
+            "shared_objects": [
+              "silver bowl",
+              "white cup",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "green chips",
+              "silver bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-37-29-474000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "doritos",
+              "white cup",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "doritos",
+              "orange screwdriver",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-04-02-02-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "asparagus",
+          "blue cup",
+          "carrot",
+          "gray plush",
+          "pink plush"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-02-04-11-11-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "croissant",
+          "green bell pepper",
+          "green bowl",
+          "green chips",
+          "green cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-23-54-17-885000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "croissant",
+              "green bowl",
+              "green chips"
+            ],
+            "eva_demo": [
+              "cabbage",
+              "croissant",
+              "green bowl",
+              "green chips",
+              "pink cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-23-56-26-195000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "croissant",
+              "green bowl",
+              "green chips"
+            ],
+            "eva_demo": [
+              "croissant",
+              "green bowl",
+              "green chips",
+              "pink cup",
+              "silver bowl"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-04-20-00-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "blue screwdriver",
+          "brown plush",
+          "plug adaptor",
+          "white cup",
+          "yellow plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-22-02-50-42-144000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue screwdriver",
+              "brown plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "green cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-58-16-127000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.375,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "blue screwdriver",
+              "brown plush",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup",
+              "white cannedgoods",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-04-27-07-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "bell pepper",
+          "blue cup",
+          "blue plush",
+          "green bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-05-20-29-363000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-05-29-34-981000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-02-04-35-06-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "fuchsia pink plush",
+          "orange screwdriver",
+          "plug adaptor",
+          "red marker",
+          "yellow plate"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-02-05-02-30-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "blue cup",
+          "blue marker",
+          "green bell pepper",
+          "pink plush"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-02-05-13-40-000000",
+        "aria_desc": "set 1 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue marker",
+          "charger head",
+          "green bowl",
+          "yellow plate"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-03-23-47-09-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "asparagus",
+          "eggplant",
+          "green bell pepper",
+          "green bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-19-46-01-388000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "asparagus",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "green bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-48-12-404000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "asparagus",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "cabbage",
+              "green bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-03-23-54-55-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "dark pink plush",
+          "gray plush",
+          "green cup",
+          "light pink plush",
+          "pink cup",
+          "yellow plate"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-04-00-04-03-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue cup",
+          "cabbage",
+          "green chips",
+          "pink bowl",
+          "plug adaptor",
+          "white cup"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-04-00-13-46-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "blue cup",
+          "blue plush",
+          "corn",
+          "pink plate",
+          "red plush",
+          "white cup",
+          "yellow plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-36-23-243000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue plush",
+              "corn",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "silver bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-39-06-936000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue plush",
+              "corn",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "croissant",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-33-57-140000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "blue plush",
+              "corn",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "corn",
+              "croissant",
+              "silver bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-04-00-31-50-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "adapter",
+          "blue screwdriver",
+          "coffee pod",
+          "doritos",
+          "green bell pepper"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-04-00-43-53-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue marker",
+          "carrot",
+          "green bowl",
+          "orange screwdriver",
+          "red marker",
+          "white plate"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-06-37-47-140000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "blue marker",
+              "carrot",
+              "green bowl"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-40-10-619000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "blue marker",
+              "carrot",
+              "green bowl"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "green bowl",
+              "pink plush",
+              "red chips"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-43-14-995000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "blue marker",
+              "carrot",
+              "green bowl"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-04-00-53-21-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "croissant",
+          "plug adaptor",
+          "red plush",
+          "silver bowl",
+          "yellow plate",
+          "yellow plush"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-04-01-02-48-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "bell pepper",
+          "brown plush",
+          "food tong",
+          "green bowl",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-05-20-29-363000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "brown plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-05-29-34-981000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "brown plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-04-01-17-01-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "beige bowl",
+          "blue cup",
+          "blue soda can",
+          "brown plush",
+          "soda can"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-04-01-29-04-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue cup",
+          "green bowl",
+          "white cup"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-04-01-39-06-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "dark pink plush",
+          "gray plush",
+          "pink plush",
+          "plug adaptor",
+          "white plate",
+          "yellow plate"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-04-02-07-48-000000",
+        "aria_desc": "set 2 object gen eval",
+        "aria_scene": [
+          "blue marker",
+          "blue screwdriver",
+          "carrot",
+          "doritos",
+          "green bell pepper"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-06-37-47-140000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue marker",
+              "carrot",
+              "doritos"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-43-14-995000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.429,
+            "shared_objects": [
+              "blue marker",
+              "carrot",
+              "doritos"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-22-02-55-57-557000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "blue marker",
+              "blue screwdriver",
+              "carrot"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "brown plush",
+              "carrot",
+              "green cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-05-20-16-14-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "blue cup",
+          "green bell pepper",
+          "green bowl",
+          "green cup",
+          "pink bowl",
+          "red bell pepper"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-05-20-24-33-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "fuchsia pink plush",
+          "gray plush",
+          "green bowl",
+          "plug adaptor",
+          "white cup",
+          "yellow plate",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-14-20-57-22-308000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "green bowl",
+              "pink plush",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-05-20-29-363000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "white cup",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-14-20-20-01-584000",
+            "eva_desc": "pick place large number of objects",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "gray plush",
+              "green bowl",
+              "white cup"
+            ],
+            "eva_demo": [
+              "doritos",
+              "gray plush",
+              "green bowl",
+              "red marker",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-05-20-40-39-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "beige bowl",
+          "corn",
+          "dark pink plush",
+          "light pink plush",
+          "white plate",
+          "yellow plate"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-05-20-48-13-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "bell pepper",
+          "blue cup",
+          "brown plush",
+          "eggplant",
+          "pink plate",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-25-31-934000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.375,
+            "shared_objects": [
+              "bell pepper",
+              "eggplant",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "bell pepper",
+              "eggplant",
+              "gray plush",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-05-29-34-981000",
+            "eva_desc": "pick place play data with large task variations",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "brown plush",
+              "pink plate",
+              "white cup"
+            ],
+            "eva_demo": [
+              "blue plush",
+              "brown plush",
+              "green bowl",
+              "pink plate",
+              "white cup",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-05-20-58-15-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue adaptor",
+          "blue screwdriver",
+          "cabbage",
+          "green bowl",
+          "green chips",
+          "plug adaptor"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-04-21-19-50-19-707000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "blue screwdriver",
+              "cabbage",
+              "green bowl"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "blue screwdriver",
+              "cabbage",
+              "green bowl",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-23-54-17-885000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "cabbage",
+              "green bowl",
+              "green chips"
+            ],
+            "eva_demo": [
+              "cabbage",
+              "croissant",
+              "green bowl",
+              "green chips",
+              "pink cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-19-48-12-404000",
+            "eva_desc": "set 2 data collection day 2",
+            "n_shared": 3,
+            "containment": 0.5,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "blue screwdriver",
+              "cabbage",
+              "green bowl"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "cabbage",
+              "green bowl",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-05-21-06-41-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "asparagus",
+          "blue marker",
+          "blue plush",
+          "green bowl",
+          "pink plush",
+          "red marker",
+          "silver bowl"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-49-02-171000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "asparagus",
+              "blue marker",
+              "green bowl",
+              "pink plush"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-37-47-140000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "blue marker",
+              "green bowl",
+              "pink plush"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-40-10-619000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 3,
+            "containment": 0.6,
+            "jaccard": 0.3,
+            "shared_objects": [
+              "blue marker",
+              "green bowl",
+              "pink plush"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "green bowl",
+              "pink plush",
+              "red chips"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-05-21-22-07-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "blue cup",
+          "coffee pod",
+          "croissant",
+          "green bell pepper"
+        ],
+        "matches": []
+      },
+      {
+        "aria_hash": "2026-05-05-21-33-54-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue soda can",
+          "carrot",
+          "doritos",
+          "green bowl",
+          "pink cup",
+          "pink plush",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-03-06-37-47-140000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-03-06-43-14-995000",
+            "eva_desc": "pick and place with large task variations",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "carrot",
+              "doritos",
+              "green bowl",
+              "pink plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-04-21-03-35-01-274000",
+            "eva_desc": "set 2 data collection day 1",
+            "n_shared": 4,
+            "containment": 0.8,
+            "jaccard": 0.444,
+            "shared_objects": [
+              "doritos",
+              "green bowl",
+              "pink cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "doritos",
+              "green bowl",
+              "pink bowl",
+              "pink cup",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-05-21-57-44-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue marker",
+          "dark pink plush",
+          "lgiht pink plush",
+          "light pink plush",
+          "pink plate",
+          "pink plush",
+          "white plate",
+          "yellow plate",
+          "yellow plush"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-43-06-366000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.429,
+            "jaccard": 0.214,
+            "shared_objects": [
+              "blue marker",
+              "pink plush",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "blue marker",
+              "blue screwdriver",
+              "pink bowl",
+              "pink plush",
+              "red chips",
+              "yellow plush"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-15-23-45-35-137000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.429,
+            "jaccard": 0.214,
+            "shared_objects": [
+              "blue marker",
+              "pink plush",
+              "yellow plush"
+            ],
+            "eva_demo": [
+              "blue marker",
+              "blue screwdriver",
+              "green asparagus",
+              "green bowl",
+              "pink bowl",
+              "pink plush",
+              "yellow plush"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-05-22-09-18-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "beige bowl",
+          "blue cup",
+          "carrot",
+          "green bell pepper",
+          "green bowl",
+          "pink cup",
+          "red bell pepper",
+          "white cup"
+        ],
+        "matches": [
+          {
+            "eva_hash": "2026-03-15-23-30-29-803000",
+            "eva_desc": "pick and place diversity day 3 data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "beige bowl",
+              "red bell pepper",
+              "white cup"
+            ],
+            "eva_demo": [
+              "beige bowl",
+              "eggplant",
+              "red bell pepper",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-46-31-025000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "carrot",
+              "pink cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "pink cup",
+              "white cup"
+            ]
+          },
+          {
+            "eva_hash": "2026-03-16-03-48-47-173000",
+            "eva_desc": "pick and place day 3 of data collection",
+            "n_shared": 3,
+            "containment": 0.75,
+            "jaccard": 0.333,
+            "shared_objects": [
+              "carrot",
+              "pink cup",
+              "white cup"
+            ],
+            "eva_demo": [
+              "asparagus",
+              "carrot",
+              "pink cup",
+              "white cup"
+            ]
+          }
+        ]
+      },
+      {
+        "aria_hash": "2026-05-05-22-16-59-000000",
+        "aria_desc": "set 3 object gen eval",
+        "aria_scene": [
+          "allen wrench",
+          "blue cup",
+          "dark pink plush",
+          "green bell pepper",
+          "green bowl",
+          "plug adaptor"
+        ],
+        "matches": []
+      }
+    ]
+  },
+  "summary": {
+    "eva_episodes_matched_on": 195,
+    "aria_episodes": 106,
+    "best_match_object_overlap_histogram": {
+      "5": 2,
+      "4": 17,
+      "3": 53,
+      "0": 34
+    },
+    "min_shared_objects": 3,
+    "topk_per_aria": 3
+  },
+  "notes": "Object-set CONTAINMENT matching on normalized dense-language objects. Similar-task pairs share objects, NOT the same physical scene. For true same-scene pairs use tiers.true_pairs_alignment."
+}

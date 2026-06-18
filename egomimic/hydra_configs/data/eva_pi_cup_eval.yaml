@@ -1,0 +1,14 @@
+# Baseline OOD eval: fold-trained baseline evaluated on cup_on_saucer (no retrieval).
+# valid = all cup_on_saucer frames (held out of training). train_datasets inherited
+# (fold) but not iterated in eval mode.
+defaults:
+  - eva_pi_fold
+  - _self_
+
+valid_datasets:
+  eva_bimanual:
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.fold_cup_splits', fromlist=['cup_eval_episode_hashes']).cup_eval_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('task') == 'cup_on_saucer' and row.get('episode_hash') in _eps"
+    mode: total

@@ -1,0 +1,40 @@
+# Baseline training data: plain pi0.5 finetune on fold_clothes + bag_groceries
+# (eva_bimanual). Full-episode tasks (not segment-filtered). 15-step action chunk.
+# A 5% frame-level valid split monitors convergence; the real held-out eval is
+# cup_on_saucer (eva_pi_foldbag_cup_eval). Splits: egomimic/ricl/foldbag_cup_splits.py.
+defaults:
+  - eva_pi
+  - _self_
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+        chunk_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row, _eps=__import__('egomimic.ricl.foldbag_cup_splits', fromlist=['foldbag_train_episode_hashes']).foldbag_train_episode_hashes(): row.get('embodiment') == 'eva_bimanual' and row.get('task') in {'fold_clothes', 'bag_groceries'} and row.get('episode_hash') in _eps"
+    mode: train
+    valid_ratio: 0.05
+  aria_bimanual: null
+
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: 0.05
+  aria_bimanual: null

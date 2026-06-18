@@ -1,0 +1,28 @@
+# RICL checkpointing: keep the BEST (lowest held-out RICL val loss) + last.ckpt.
+#
+# `callbacks=checkpoints` saves every 100 epochs with no `monitor` (keeps all,
+# tracks nothing), so it can't capture the early-stopping operating point. This
+# tracks `Valid/action_loss` — the scalar PIRiclEval surfaces (egomimic/eval/
+# pi_ricl_eval.py:200) — and keeps the single best + `last.ckpt`. The DROID
+# verification found new-task val loss bottoms early then overfits
+# (egomimic/ricl/DROID_VERIFICATION.md), so "best by val loss" + "last" is exactly
+# what's wanted: a finished run can be re-evaluated / resumed from the best step
+# without retraining.
+#
+# Pair with `trainer=ddp_pi_ricl` (step-based validation) so the monitored metric
+# updates often enough for the best checkpoint to be meaningful.
+defaults:
+  - defaults
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  # `/` in the metric name is a placeholder key, not a path separator, when
+  # auto_insert_metric_name=False (yields e.g. `step1500-0.0467.ckpt`).
+  filename: "step{step}-{Valid/action_loss:.4f}"
+  monitor: "Valid/action_loss"
+  mode: "min"
+  save_top_k: 1
+  save_last: true
+  auto_insert_metric_name: false
