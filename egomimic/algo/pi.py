@@ -200,6 +200,17 @@ class PI(Algo):
         self.nets = nn.ModuleDict()
         self.nets["policy"] = self.model
 
+        # external/openpi PI0Pytorch.__init__ wraps sample_actions in
+        # torch.compile(mode="max-autotune"). That cudagraph capture does an
+        # in-place write on inference tensors and crashes under Lightning's
+        # inference_mode during validation; it's also net-negative for eval
+        # (>25 min first compile, per-batch-size recompile). Training never
+        # calls sample_actions, so unwrap it here once for all eval/inference
+        # paths. Mirrors egomimic/robot/rollout.py and eval_pi_per_episode.py.
+        pi0 = self.nets["policy"]
+        if "sample_actions" in vars(pi0):
+            del pi0.sample_actions
+
     def _control_mode_for(self, emb_name: str | None) -> str:
         if self.control_mode and emb_name is not None:
             for key, val in self.control_mode.items():

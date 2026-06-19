@@ -4,7 +4,13 @@ defaults:
 strategy: ddp_find_unused_parameters_true
 limit_train_batches: 2
 limit_val_batches: 3
-check_val_every_n_epoch: 2
+# Validate every epoch over 2 epochs so a debug run always exercises BOTH:
+#   current_epoch=0 -> viz validation    (0 % viz_every_n_epochs == 0)  [cudagraph warmup]
+#   current_epoch=1 -> no-viz validation (1 % viz_every_n_epochs != 0)  [the path that crashed]
+# This is the exact ordering that crashed the Pi flow-matching eval (compiled
+# sample_actions + cudagraph capture under inference_mode). Keeping both in the
+# default debug schedule guards against re-introducing the compiled eval path.
+check_val_every_n_epoch: 1
 profiler: simple
-max_epochs: 4
-min_epochs: 4
+max_epochs: 2
+min_epochs: 2
