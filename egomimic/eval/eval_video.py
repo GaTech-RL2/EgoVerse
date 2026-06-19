@@ -24,11 +24,16 @@ class EvalVideo(Eval):
         transform_lists: dict | None = None,
         one_video_per_task: bool = False,
         max_frames_per_task: int | None = 1000,
+        viz_every_n_epochs: int = 1,
     ):
         super().__init__()
         self.trainer = None
         self.model = None
         self.viz_func = viz_func
+        # Validation metrics log every validation; viz video rendering only
+        # happens on epochs divisible by this (viz is far more expensive than
+        # the metrics). <=0 disables viz entirely.
+        self.viz_every_n_epochs = viz_every_n_epochs
         # Per-embodiment list[Transform] applied once during eval to project
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
@@ -55,14 +60,21 @@ class EvalVideo(Eval):
     def video_dir(self):
         return os.path.join(self.root_dir(), "videos")
 
+    def _should_viz(self) -> bool:
+        if not self.viz_every_n_epochs or self.viz_every_n_epochs <= 0:
+            return False
+        return (self.trainer.current_epoch % self.viz_every_n_epochs) == 0
+
     @abstractmethod
-    def compute_metrics_and_viz(self, batch):
+    def compute_metrics_and_viz(self, batch, do_viz=True):
         """
         Run the model's eval forward and compute metrics and visualization frames.
 
         Args:
             batch (dict): processed batch produced by the algo's
                 `process_batch_for_training`.
+            do_viz (bool): when False, skip producing viz frames (the expensive
+                part); metrics are still computed and returned.
         Returns:
             metrics (dict[str, torch.Tensor | float])
             images_dict (dict[embodiment_id, np.ndarray (B, H, W, 3)])
@@ -70,7 +82,7 @@ class EvalVideo(Eval):
         raise NotImplementedError
 
     def on_validation_start(self):
-        if self.trainer.is_global_zero:
+        if self.trainer.is_global_zero and self._should_viz():
             os.makedirs(
                 os.path.join(self.video_dir(), f"epoch_{self.trainer.current_epoch}"),
                 exist_ok=True,
@@ -82,6 +94,8 @@ class EvalVideo(Eval):
         return re.sub(r"[^\w.-]+", "_", str(task)).strip("_") or "unknown"
 
     def on_validation_end(self):
+        if not self._should_viz():
+            return
         for key, buffer in self.val_image_buffer.items():
             if self.one_video_per_task:
                 embodiment_id, task = key
@@ -113,7 +127,8 @@ class EvalVideo(Eval):
             self.val_image_buffer[key] = []
 
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
-        metrics, images_dict = self.compute_metrics_and_viz(batch)
+        do_viz = self._should_viz()
+        metrics, images_dict = self.compute_metrics_and_viz(batch, do_viz=do_viz)
 
         device = self.trainer.lightning_module.device
         metrics = {
@@ -121,7 +136,7 @@ class EvalVideo(Eval):
             for k, v in metrics.items()
         }
 
-        ## images is now a dict
+        ## images is now a dict (empty when do_viz is False)
         for embodiment_id, images in images_dict.items():
             os.makedirs(
                 os.path.join(

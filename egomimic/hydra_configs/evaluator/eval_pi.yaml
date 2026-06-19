@@ -8,6 +8,11 @@ _target_: egomimic.eval.eval_pi.PIEvalVideo
 # in on_validation_end. Opt-in for eval-only runs that span multiple tasks.
 one_video_per_task: false
 
+# Validation metrics log every validation (controlled by trainer
+# check_val_every_n_epoch); viz video rendering only runs on epochs divisible by
+# this. Set to a multiple of check_val_every_n_epoch so viz lands on a val epoch.
+viz_every_n_epochs: 100
+
 # Cap each (embodiment, task) video at this many frames. Only takes effect
 # when one_video_per_task=true. Set null to disable.
 max_frames_per_task: 1000

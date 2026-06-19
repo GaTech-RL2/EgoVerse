@@ -16,7 +16,7 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: row['lab'] == 'mecka' and row['task'] == 'fold_clothes'"
+        - "lambda row: row['lab'] == 'mecka'"
     mode: train
 
 valid_datasets:
