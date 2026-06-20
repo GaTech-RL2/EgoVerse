@@ -413,7 +413,11 @@ class HPTModel(nn.Module):
 
         blocks = self.trunk["trunk"].blocks
         for blk in list(blocks)[depth:]:
-            cut_tokens = blk(cut_tokens, attn_mask=None)
+            cut_tokens = blk(
+                cut_tokens,
+                attn_mask=None,
+                key_padding_mask=getattr(self, "_ricl_key_padding_mask", None),
+            )
 
         if self.trunk["trunk"].post_transformer_layer is not None:
             cut_tokens = self.trunk["trunk"].post_transformer_layer(cut_tokens)
@@ -485,7 +489,13 @@ class HPTModel(nn.Module):
         trunk_tokens = self.preprocess_tokens(domain, stem_tokens)
 
         if not self.no_trunk:
-            trunk_tokens, block_outputs = self.trunk["trunk"](trunk_tokens)
+            # RICL subclasses stash a per-sample (B, L) key_padding_mask in
+            # stem_process to hide invalid retrieved-demo token spans; absent /
+            # None for plain HPT (then the trunk behaves exactly as before).
+            trunk_tokens, block_outputs = self.trunk["trunk"](
+                trunk_tokens,
+                key_padding_mask=getattr(self, "_ricl_key_padding_mask", None),
+            )
 
         proc_tokens = self.postprocess_tokens(trunk_tokens)
         return proc_tokens, block_outputs
@@ -784,6 +794,10 @@ class HPTModel(nn.Module):
 class HPT(Algo):
     """ """
 
+    # Inner model class; RICL subclasses override with an HPTModel subclass that
+    # adds retrieved-demo stems + masking. Plain HPT is unaffected.
+    model_cls = HPTModel
+
     def __init__(
         self,
         norm_stats,
@@ -850,7 +864,7 @@ class HPT(Algo):
         self.is_6dof = kwargs.get("6dof", False)
         self.kinematics_solver = kwargs.get("kinematics_solver", None)
 
-        model = HPTModel(**trunk)
+        model = self.model_cls(**trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
 
         self.multitask = kwargs.get("multitask", False)
