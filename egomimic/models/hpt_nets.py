@@ -13,6 +13,7 @@ from torch import einsum
 from torchvision import transforms
 from transformers import T5Model, T5Tokenizer
 
+from egomimic.models.denoising_nets import Conv1dBlock
 from egomimic.utils.egomimicUtils import get_sinusoid_encoding_table
 
 
@@ -187,9 +188,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -226,14 +227,21 @@ class BlockWithMasking(nn.Module):
                 requires_grad=True,
             )
 
-    def forward(self, x: torch.Tensor, attn_mask: torch.Tensor):
+    def forward(
+        self,
+        x: torch.Tensor,
+        attn_mask: torch.Tensor = None,
+        key_padding_mask: torch.Tensor = None,
+    ):
         if self.layer_scale_type is None:
-            x = x + self.drop_path(self.attn(self.norm_1(x), attn_mask))
+            x = x + self.drop_path(
+                self.attn(self.norm_1(x), attn_mask, key_padding_mask)
+            )
             x = x + self.drop_path(self.mlp(self.norm_2(x)))
         else:
             x = (
                 x
-                + self.drop_path(self.attn(self.norm_1(x), attn_mask))
+                + self.drop_path(self.attn(self.norm_1(x), attn_mask, key_padding_mask))
                 * self.layer_scale_gamma1
             )
             x = x + self.drop_path(self.mlp(self.norm_2(x))) * self.layer_scale_gamma2
@@ -244,8 +252,23 @@ _LAYER_NORM = partial(nn.LayerNorm, eps=1e-6)
 
 
 class MultiheadAttention(nn.MultiheadAttention):
-    def forward(self, x: torch.Tensor, attn_mask: torch.Tensor):
-        return super().forward(x, x, x, need_weights=False, attn_mask=attn_mask)[0]
+    def forward(
+        self,
+        x: torch.Tensor,
+        attn_mask: torch.Tensor = None,
+        key_padding_mask: torch.Tensor = None,
+    ):
+        # key_padding_mask: (B, L) bool, True = ignore that key position (per-sample).
+        # x is (L, B, D) here (trunk runs batch_first=False via the b l d -> l b d
+        # pre-layer), so key_padding_mask shape (B, L) is correct.
+        return super().forward(
+            x,
+            x,
+            x,
+            need_weights=False,
+            attn_mask=attn_mask,
+            key_padding_mask=key_padding_mask,
+        )[0]
 
 
 class SimpleTransformer(nn.Module):
@@ -308,6 +331,7 @@ class SimpleTransformer(nn.Module):
         self,
         tokens: torch.Tensor,
         attn_mask: torch.Tensor = None,
+        key_padding_mask: torch.Tensor = None,
         use_checkpoint: bool = False,
         checkpoint_every_n: int = 1,
         checkpoint_blk_ids: Optional[List[int]] = None,
@@ -315,7 +339,8 @@ class SimpleTransformer(nn.Module):
         """
         Inputs
         - tokens: data of shape N x L x D (or L x N x D depending on the attention implementation)
-        - attn: mask of shape L x L
+        - attn_mask: mask of shape L x L (shared across the batch)
+        - key_padding_mask: mask of shape N x L, True = ignore that key (per-sample)
 
         Output
         - x: data of shape N x L x D (or L x N x D depending on the attention implementation)
@@ -334,10 +359,12 @@ class SimpleTransformer(nn.Module):
         for blk_id, blk in enumerate(self.blocks):
             if use_checkpoint and blk_id in checkpoint_blk_ids:
                 tokens = checkpoint.checkpoint(
-                    blk, tokens, attn_mask, use_reentrant=False
+                    blk, tokens, attn_mask, key_padding_mask, use_reentrant=False
                 )
             else:
-                tokens = blk(tokens, attn_mask=attn_mask)
+                tokens = blk(
+                    tokens, attn_mask=attn_mask, key_padding_mask=key_padding_mask
+                )
             block_outputs.append(tokens)
         if self.post_transformer_layer:
             tokens = self.post_transformer_layer(tokens)
@@ -658,6 +685,74 @@ class ResNet(PolicyStem):
         return feat
 
 
+class ActionChunkStem(PolicyStem):
+    """Encoder for a *retrieved* action chunk used in RICL.
+
+    Plain HPT never ingests an action chunk as input (actions only appear as
+    learnable query tokens + head outputs), so this is a dedicated stem. It maps
+    one chunk ``(B, Ha, Da)`` to a feature sequence ``(B, Ha, output_dim)`` that
+    the inherited cross-attention pool (:meth:`PolicyStem.compute_latent`) turns
+    into a fixed ``crossattn_latent`` token block, exactly like every other stem.
+
+    ``temporal_encoder='conv'`` (default) stacks Conv1dBlocks over the time axis
+    (``Ha``-agnostic, preserves local temporal structure, light). ``'transformer'``
+    embeds each step + sinusoidal position and runs a couple of self-attn layers.
+    Avoid flattening the chunk to one vector: the per-step trajectory is exactly
+    the in-context signal RICL is meant to exploit.
+    """
+
+    def __init__(
+        self,
+        action_dim: int = 32,
+        output_dim: int = 256,
+        hidden_dim: int = 256,
+        num_layers: int = 2,
+        kernel_size: int = 3,
+        temporal_encoder: str = "conv",
+        n_heads: int = 8,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.temporal_encoder = temporal_encoder
+        if temporal_encoder == "conv":
+            chans = [action_dim] + [hidden_dim] * (num_layers - 1) + [output_dim]
+            self.convs = nn.ModuleList(
+                [
+                    Conv1dBlock(chans[i], chans[i + 1], kernel_size=kernel_size)
+                    for i in range(len(chans) - 1)
+                ]
+            )
+        elif temporal_encoder == "transformer":
+            self.in_proj = nn.Linear(action_dim, output_dim)
+            layer = nn.TransformerEncoderLayer(
+                d_model=output_dim,
+                nhead=n_heads,
+                dim_feedforward=output_dim * 4,
+                dropout=0.1,
+                batch_first=True,
+                activation="gelu",
+            )
+            self.encoder = nn.TransformerEncoder(layer, num_layers=num_layers)
+        else:
+            raise ValueError(
+                f"ActionChunkStem: unknown temporal_encoder {temporal_encoder!r} "
+                "(expected 'conv' or 'transformer')"
+            )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (B, Ha, Da) -> (B, Ha, output_dim)
+        if self.temporal_encoder == "conv":
+            x = x.transpose(1, 2)  # (B, Da, Ha)
+            for conv in self.convs:
+                x = conv(x)
+            return x.transpose(1, 2)  # (B, Ha, output_dim)
+        # transformer
+        h = self.in_proj(x)  # (B, Ha, output_dim)
+        pos = get_sinusoid_encoding_table(0, h.shape[1], h.shape[-1]).to(h)
+        h = h + pos  # (1, Ha, D) broadcasts over batch
+        return self.encoder(h)
+
+
 def _qwen_last_token_pool(
     last_hidden_states: torch.Tensor, attention_mask: torch.Tensor
 ) -> torch.Tensor:
@@ -670,7 +765,9 @@ def _qwen_last_token_pool(
     if left_padded:
         return last_hidden_states[:, -1]
     seq_lens = attention_mask.sum(dim=1) - 1
-    batch_idx = torch.arange(last_hidden_states.size(0), device=last_hidden_states.device)
+    batch_idx = torch.arange(
+        last_hidden_states.size(0), device=last_hidden_states.device
+    )
     return last_hidden_states[batch_idx, seq_lens]
 
 

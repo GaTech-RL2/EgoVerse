@@ -1,0 +1,206 @@
+# HptRicl (eva->eva oracle) = HPT + Qwen text stem + retrieval-based in-context
+# learning. Forks hpt_bc_pickplace_qwen_pooled: same trunk/query stems/Qwen
+# annotation stem + FMPolicy head, plus THREE dedicated retrieved-demo stems
+# (ricl_image / ricl_state / ricl_action) whose tokens are flat-concatenated into
+# the trunk (no trunk architecture surgery; k=0 == plain HPT). See
+# egomimic/algo/hpt_ricl.py.
+#
+# Pair with: data=cotrain_hpt_ricl_pickplace, evaluator=eval_hpt_ricl.
+#   query + bank = eva_bimanual pick/place segment groups, 15-step chunks.
+# Retrieved (state, action) are fed in the 32-D shared space (data sets
+# state_dim/action_dim=32); query state/action stay 14-D (actions_cartesian).
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hpt_ricl.HptRicl
+
+  # k retrieved in-context demos per query (also set in trunk for the model's
+  # demo-index embedding table; keep the two in sync).
+  num_retrieved_observations: 4
+
+  camera_transforms:
+    eva_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "base"
+      extrinsics_key: "x5Dec13_2"
+
+  diffusion: true
+  6dof: true
+
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+
+  annotation_key: "annotations"
+  annotation_sampling_mode: "random"
+  annotation_modality: "annotation"
+  default_prompt: ""
+
+  trunk:
+    embed_dim: 256
+    num_blocks: 16
+    num_heads: 8
+    token_postprocessing: "action_token"
+    observation_horizon: 1
+    action_horizon: 64        # number of learnable action-query (cond) tokens
+    no_trunk: false
+    use_domain_embedding: true
+    drop_path: 0.1
+    weight_init_style: "pytorch"
+    # RICL: size of the learned demo-index embedding table (== k above).
+    num_retrieved_observations: 4
+
+  multitask: false
+  pretrained: false
+  pretrained_checkpoint: ""
+  reverse_kl_samples: 8
+
+  domains: ["eva_bimanual"]
+  shared_obs_keys: ["front_img_1", "annotation"]
+
+  shared_stem_specs:
+    front_img_1:
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
+      input_dim: 256
+      output_dim: 256
+      widths: [256]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 8
+          crossattn_dim_head: 64
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 256
+    annotation:
+      _target_: egomimic.models.hpt_nets.QwenPooledEncoder
+      model_name: "Qwen/Qwen3-Embedding-0.6B"
+      max_length: 128
+      freeze: true
+      dtype: "float16"
+      output_dim: 256
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 8
+          crossattn_dim_head: 64
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 256
+
+  stem_specs:
+    eva_bimanual:
+      state_ee_pose:               # query proprio (14-D)
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 14
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      ricl_image:                  # retrieved-demo image pooling head
+        # NOTE: no encoder_specs entry -> HptRiclModel runs the SHARED front_img_1
+        # ResNet on retrieved frames, then this separate cross-attn head pools.
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 256
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      ricl_state:                  # retrieved-demo state (32-D shared space)
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 32
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+      ricl_action:                 # retrieved-demo action chunk (new stem)
+        _target_: egomimic.models.hpt_nets.ActionChunkStem
+        action_dim: 32
+        output_dim: 256
+        hidden_dim: 256
+        num_layers: 2
+        kernel_size: 3
+        temporal_encoder: conv     # 'transformer' is a drop-in alternative
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+
+  head_specs:
+    eva_bimanual:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      action_horizon: 15          # predict a 15-step chunk (matches data chunk_length)
+      num_inference_steps: 50
+      pooling: null
+      time_dist: "beta"
+      infer_ac_dims:
+        eva_bimanual: 14
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        act_dim: 14
+        act_seq: 15               # == FMPolicy.action_horizon / data chunk_length
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+
+  encoder_specs:
+    front_img_1:                   # shared by query + retrieved image stems
+      _target_: egomimic.models.hpt_nets.ResNet
+      output_dim: 256
+      num_of_copy: 1
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 2e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: egomimic.utils.scheduler_utils.warmup_then_cosine
+  _partial_: true
+  warmup_epochs: 100
+  total_epochs: 2000
+  eta_min: 1.0e-5
+scheduler_interval: epoch

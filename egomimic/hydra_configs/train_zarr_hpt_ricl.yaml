@@ -1,0 +1,48 @@
+# Top-level config: HPT + RICL (eva->eva oracle) on eva pick/place segments.
+# Forks train_zarr_cartesian.yaml, swapping in the RICL model / data / evaluator.
+#
+# Run-time overrides required:
+#   data.retrieval_cache_dir=<pickplace train retrieval cache>
+#   norm_stats.precomputed_norm_path=<eva norm_stats.json dir>   # == bank stats
+# (data.bank_norm_path mirrors norm_stats.precomputed_norm_path for eva->eva.)
+defaults:
+  - model: hpt_ricl_pickplace_qwen
+  - paths: default
+  - trainer: ddp
+  - debug: null
+  - logger: wandb
+  - data: cotrain_hpt_ricl_pickplace
+  - callbacks: checkpoints
+  - evaluator: eval_hpt_ricl
+  - override hydra/launcher: submitit
+  - _self_
+
+name: test
+description: test
+ckpt_path: null
+mode: train
+
+train_viz_evaluator: null
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ./logs/${name}/${description}_${now:%Y-%m-%d_%H-%M-%S}
+
+launch_params:
+  gpus_per_node: 4
+  nodes: 1
+
+seed: 42
+
+# Normalization and norm-stat cache. precomputed_norm_path MUST be the eva (bank)
+# stats — RICL requires the query and bank stats to match so retrieved blocks land
+# in the same normalized space as the query (see RiclDataModuleWrapper).
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.2
+  num_workers: 6
+  save_cache_dir: ${hydra:runtime.output_dir}
+  precomputed_norm_path: /storage/project/r-dxu345-0/rco3/EgoVerse/logs/norm_stats
+reject_outliers: true

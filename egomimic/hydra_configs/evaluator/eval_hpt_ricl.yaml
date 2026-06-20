@@ -1,0 +1,16 @@
+# HPT RICL evaluator: retrieval (k) vs zero-context floor (k=0) on the eva query
+# set. Same cartesian viz as eval_hpt; metrics report the comparison
+# (RICL/retrieval_*, RICL/floor_*, RICL/delta_*, RICL/retrieval_helps).
+# v1 = retrieval vs floor; flip compute_random / compute_flow_loss on for the
+# fuller ablation set.
+defaults:
+  - viz@viz_func: cartesian
+  - _self_
+
+_target_: egomimic.eval.hpt_ricl_eval.HptRiclEval
+
+compute_floor: true
+compute_flow_loss: false
+compute_random: false
+gripper_threshold: 0.0
+gripper_indices: [6, 13]

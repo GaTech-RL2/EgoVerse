@@ -1,0 +1,34 @@
+# HPT RICL training data (eva->eva oracle). Reuses the pi RICL pickplace recipe
+# verbatim (RiclDataModuleWrapper + query train/valid segment splits + eva bank
+# wiring + retrieval cache) and changes only what HPT needs:
+#   - query camera keymap cartesian_pi -> cartesian, so the query image batch key
+#     ends in `front_img_1` (HPT stem name) instead of pi's `base_0_rgb`. Proprio/
+#     action keys are identical across modes. The bank loader stays cartesian_pi
+#     (base_0_rgb); retrieved frames are repackaged into model-agnostic ricl_*
+#     keys regardless of the bank's internal naming.
+#   - retrieved (state, action) widths -> 32-D shared space (the retrieved stems
+#     are separate/learned; keeps the model config identical for a later aria->eva
+#     run). The pi config truncates these to eva's 14-D for prompt discretization.
+#
+# Provide at run time: retrieval_cache_dir (pickplace train cache), and the eva
+# norm stats via norm_stats.precomputed_norm_path (bank_norm_path mirrors it).
+defaults:
+  - cotrain_pi_ricl_pickplace
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian
+
+# Feed retrieved encoders the full 32-D shared space (overrides the pi config's
+# 14-D discretization width). ZarrBankFrameProvider's RobotBimanualCartesianEuler
+# already emits 32-D; this keeps it untruncated.
+state_dim: 32
+action_dim: 32
+
+# eva->eva oracle: query and bank are the same embodiment, so the bank's norm
+# stats == the query's precomputed stats. (For a cross-embodiment aria->eva run,
+# set this to the BANK's own stats file instead.)
+bank_norm_path: ${norm_stats.precomputed_norm_path}
