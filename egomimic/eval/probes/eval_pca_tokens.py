@@ -208,14 +208,35 @@ class PCATokenEval(EvalVideo):
             # Pick inner if available; else fallback to outer per-frame.
             if captured_inner:
                 tokens = captured_inner[-1]
-                # Extract boundary_mask from the first chunker stage.
-                bmask = None
+                # The frame->chunk map needs a FRAME-resolution mask with one
+                # True per TOP-level chunk (== one per inner token). The raw
+                # innermost bpred mask is on the COMPRESSED axis (one entry per
+                # outer chunk), so cumsum-slicing it by frame indices misaligns.
+                # Compose the crisp top-level chunk-start mask at frame
+                # resolution instead (same as the boundary-strip Top->frm row).
+                from egomimic.eval.probes.eval_boundary_strip import (
+                    _compose_top_boundary_frames,
+                )
+                T_total = int(cu[-1].item())
+                _bprobs = []
                 for entry in aux_list:
                     bp = entry.get("bpred") if isinstance(entry, dict) else None
                     if bp is None:
                         continue
-                    bmask = bp.boundary_mask.detach().cpu().to(torch.bool)
-                    break
+                    _bprobs.append((
+                        bp.boundary_prob[..., 1].detach().cpu(),
+                        bp.boundary_mask.detach().cpu().to(torch.bool),
+                    ))
+                bmask = None
+                _composed = _compose_top_boundary_frames(_bprobs, T_total)
+                if _composed is not None:
+                    bmask = _composed[1].to(torch.bool)
+                else:
+                    # single-chunker model: its own mask is already frame-res
+                    for _p, _m in _bprobs:
+                        if _m.shape[0] == T_total:
+                            bmask = _m
+                            break
                 out[emb_id] = {
                     "inner_tokens": tokens.numpy(),
                     "boundary_mask": bmask.numpy() if bmask is not None else None,
@@ -231,23 +252,23 @@ class PCATokenEval(EvalVideo):
 
     @staticmethod
     def _find_inner_main_network(policy):
-        """Walk ``policy.hnet.stages`` from the inside out to find the
-        innermost ``ComputeStage``'s ``main_network``. Returns ``None``
-        for flat policies / policies without a chunker.
+        """Find the innermost ``ComputeStage``'s ``main_network`` by walking
+        the FULL module tree. The HNet stage hierarchy is NESTED (each stage
+        wraps the next via ``inner_stage`` and/or a ``stages`` list), and the
+        HNet is not necessarily at ``policy.hnet`` (e.g. ``HNetOuterStage``
+        keeps it at ``policy.inner_stage``). So we search by STRUCTURE, not a
+        fixed attribute path: the deepest module exposing a ``main_network``
+        submodule is the innermost (most-compressed) ComputeStage. Returns
+        ``None`` for flat policies / policies without a chunker.
         """
-        hnet = getattr(policy, "hnet", None)
-        if hnet is None:
-            return None
-        stages = getattr(hnet, "stages", None)
-        if not stages:
-            return None
-        # Walk in reverse; first stage with a ``main_network`` attribute is
-        # the innermost ComputeStage.
-        for stage in reversed(stages):
-            mn = getattr(stage, "main_network", None)
-            if mn is not None:
-                return mn
-        return None
+        best = None  # (depth, module)
+        for name, mod in policy.named_modules():
+            mn = getattr(mod, "main_network", None)
+            if isinstance(mn, torch.nn.Module):
+                depth = name.count(".")
+                if best is None or depth > best[0]:
+                    best = (depth, mn)
+        return best[1] if best is not None else None
 
     # ------------------------------------------------------------------ #
 

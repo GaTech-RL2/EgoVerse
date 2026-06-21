@@ -26,6 +26,7 @@ Design:
 from __future__ import annotations
 
 import os
+import signal as _signal
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
@@ -50,6 +51,14 @@ from egomimic.rldb.embodiment.pushshapes_sim import (  # noqa: E402,F401
 # --------------------------------------------------------------------- #
 
 
+class _RolloutTimeout(Exception):
+    """Raised by the per-rollout SIGALRM watchdog (sim-eval hang guard)."""
+
+
+def _rollout_alarm_handler(signum, frame):
+    raise _RolloutTimeout()
+
+
 class SimRolloutEval(EvalVideo):
     """Generic env-loop driver. Model-agnostic.
 
@@ -68,12 +77,15 @@ class SimRolloutEval(EvalVideo):
         init_mode: str = "replay",
         init_seeds: list[int] | None = None,
         max_steps: int = 200,
+        rollout_timeout_s: int = 120,
+        report_max_coverage: bool = False,
         coverage_threshold: float = 0.7,
         video_fps: int = 30,
         max_videos: int | None = None,
         limit_val_batches: int = 4,
         viz_func: dict | None = None,
         transform_lists: dict | None = None,
+        rng_pairing: bool = False,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -99,9 +111,17 @@ class SimRolloutEval(EvalVideo):
                 f"max_steps must be > 0 (got {max_steps}). No fallback to dataloader seq_len."
             )
         self.max_steps = int(max_steps)
+        self.rollout_timeout_s = int(rollout_timeout_s)  # 0 disables the watchdog
+        self.report_max_coverage = bool(report_max_coverage)  # peak vs final IoU
         self.coverage_threshold = float(coverage_threshold)
         self.video_fps = int(video_fps)
         self.limit_val_batches = int(limit_val_batches)
+        # Reseed the sampler RNG per episode (inside fork_rng, so any outer
+        # RNG stream — e.g. a training run whose val invokes this eval — is
+        # untouched). Makes stochastic-head sampling noise paired across runs
+        # for the same episode index. Off by default: numbers from unpaired
+        # evals stay reproducible.
+        self.rng_pairing = bool(rng_pairing)
         self._env = None
         self._init_counter = 0
 
@@ -201,6 +221,23 @@ class SimRolloutEval(EvalVideo):
         emb_id: int,
         ep_idx: int,
     ) -> Tuple[float, List[np.ndarray]]:
+        if not self.rng_pairing:
+            return self._rollout_one_impl(env_init_dict, emb_id, ep_idx)
+        device = self.trainer.lightning_module.device
+        devices = [device.index or 0] if device.type == "cuda" else []
+        with torch.random.fork_rng(devices=devices):
+            seed = 20000 + 97 * ep_idx
+            torch.manual_seed(seed)
+            if device.type == "cuda":
+                torch.cuda.manual_seed_all(seed)
+            return self._rollout_one_impl(env_init_dict, emb_id, ep_idx)
+
+    def _rollout_one_impl(
+        self,
+        env_init_dict: dict | None,
+        emb_id: int,
+        ep_idx: int,
+    ) -> Tuple[float, List[np.ndarray]]:
         env = self._get_env()
         self._init_env(env, env_init_dict, ep_seed_offset=ep_idx)
         device = self.trainer.lightning_module.device
@@ -215,21 +252,56 @@ class SimRolloutEval(EvalVideo):
         frames: List[np.ndarray] = []
         action_history: List[np.ndarray] = []
         coverage = 0.0
-        for t in range(self.max_steps):
-            obs_env = env._get_obs()
-            obs_zarr = self._env_to_zarr_dict(obs_env, device)
-            action_xy = algo.inference_step(obs_zarr, t, emb_id, T_max=self.max_steps)
-            action_xy = np.asarray(action_xy, dtype=np.float32).reshape(-1)[:2]
-            action_history.append(action_xy.copy())
-            _, _, terminated, _, info = env.step(action_xy)
-            coverage = float(info.get("coverage", 0.0))
-            frame = env.render()
-            if frame is not None:
-                frame = self._draw_action_overlay(frame, action_xy, action_history)
-                frames.append(np.ascontiguousarray(frame))
-            if terminated:
-                break
-        return coverage, frames
+        max_coverage = 0.0  # peak IoU over the rollout (for report_max_coverage)
+        # Per-rollout SIGALRM watchdog: a single env.step() can wedge inside the
+        # pymunk C solver (e.g. a NaN kinematic velocity) and never return, so the
+        # max_steps cap never triggers -> the whole val hangs at 0% CPU. The alarm
+        # aborts a stuck rollout (logs 0-coverage) and lets the val finish. Runs on
+        # the main thread (Lightning calls this inline), so SIGALRM is valid here.
+        prev_handler = None
+        if self.rollout_timeout_s > 0:
+            prev_handler = _signal.signal(_signal.SIGALRM, _rollout_alarm_handler)
+            _signal.alarm(self.rollout_timeout_s)
+        try:
+            for t in range(self.max_steps):
+                obs_env = env._get_obs()
+                obs_zarr = self._env_to_zarr_dict(obs_env, device)
+                action_xy = algo.inference_step(obs_zarr, t, emb_id, T_max=self.max_steps)
+                action_xy = np.asarray(action_xy, dtype=np.float32).reshape(-1)[:2]
+                if not np.all(np.isfinite(action_xy)):
+                    # Non-finite action (late-training instability) poisons the
+                    # pymunk solver — np.clip does NOT sanitize NaN, so a NaN
+                    # velocity wedges _space.step. Abort the rollout as 0-coverage.
+                    print(
+                        f"[sim] WARNING: non-finite action t={t} emb{emb_id} "
+                        f"ep{ep_idx} (raw={action_xy.tolist()}); abort 0-cov."
+                    )
+                    coverage = 0.0
+                    break
+                action_history.append(action_xy.copy())
+                _, _, terminated, _, info = env.step(action_xy)
+                coverage = float(info.get("coverage", 0.0))
+                max_coverage = max(max_coverage, coverage)
+                frame = env.render()
+                if frame is not None:
+                    frame = self._draw_action_overlay(frame, action_xy, action_history)
+                    frames.append(np.ascontiguousarray(frame))
+                if terminated:
+                    break
+        except _RolloutTimeout:
+            print(
+                f"[sim] WATCHDOG: rollout emb{emb_id} ep{ep_idx} exceeded "
+                f"{self.rollout_timeout_s}s; logging 0-coverage and continuing."
+            )
+            coverage = 0.0
+        finally:
+            if self.rollout_timeout_s > 0:
+                _signal.alarm(0)
+                if prev_handler is not None:
+                    _signal.signal(_signal.SIGALRM, prev_handler)
+        # report_max_coverage: peak IoU over the rollout ("did it ever align?"),
+        # vs the default final-step IoU which penalizes post-alignment overshoot.
+        return (max_coverage if self.report_max_coverage else coverage), frames
 
     def compute_metrics_and_viz(
         self, batch: Dict[int, Dict[str, Any]]
@@ -237,16 +309,23 @@ class SimRolloutEval(EvalVideo):
         device = self.trainer.lightning_module.device
         metrics: Dict[str, torch.Tensor] = {}
         images_dict: Dict[int, np.ndarray] = {}
+        self._last_per_ep_frames = {}
+        self._last_per_ep_coverages = {}
 
         for emb_id, _batch in batch.items():
             B = self._infer_n_episodes(_batch)
             if B == 0:
                 continue
+            # Seed-mode inits are indexed per (embodiment, episode): episode i
+            # of EVERY embodiment uses init_seeds[i], so inits stay paired
+            # across embodiments and across runs regardless of batch makeup.
+            self._init_counter = 0
             B_render = min(B, self.max_videos) if self.max_videos is not None else B
 
             ep_coverages: List[float] = []
             ep_successes: List[float] = []
             ep_frames: List[np.ndarray] = []
+            per_ep_frames: List[np.ndarray] = []
 
             for b in range(B_render):
                 env_init = (
@@ -258,12 +337,23 @@ class SimRolloutEval(EvalVideo):
                 ep_coverages.append(cov)
                 ep_successes.append(float(cov >= self.coverage_threshold))
                 if frames:
+                    per_ep_frames.append(np.stack(frames, axis=0))
                     ep_frames.extend(frames)
                     if b < B_render - 1:
                         H, W, _ = frames[0].shape
                         sep = np.zeros((5, H, W, 3), dtype=np.uint8)
                         ep_frames.extend(list(sep))
 
+            # Per-episode values to stdout so offline eval logs carry the full
+            # DISTRIBUTION (means hide bimodality; success-rate alone hides
+            # the near-miss mass). Parse with: grep '\[sim\] .* ep_coverages'.
+            if ep_coverages:
+                print(
+                    f"[sim] emb{emb_id} ep_coverages: "
+                    + ",".join(f"{c:.4f}" for c in ep_coverages)
+                )
+            self._last_per_ep_frames[emb_id] = per_ep_frames
+            self._last_per_ep_coverages[emb_id] = list(ep_coverages)
             mean_cov = float(np.mean(ep_coverages)) if ep_coverages else 0.0
             success_rate = float(np.mean(ep_successes)) if ep_successes else 0.0
             metrics[f"Valid/emb{emb_id}_sim_coverage"] = torch.tensor(

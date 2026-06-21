@@ -93,8 +93,53 @@ def _compose_bprobs_to_frame_level(bprobs, T_total):
     return out
 
 
+def _compose_top_boundary_frames(bprobs, T_total):
+    """Crisp frame-level segmentation by the TOP (innermost) chunker.
+
+    Unlike ``_compose_bprobs_to_frame_level`` (which REPLICATES each inner
+    token's signal across its whole frame span — good for confidence reading,
+    bad for seeing where high-level chunks actually start), this returns a
+    frame-level ``(prob, mask)`` where ``mask[t]`` is True iff frame ``t``
+    STARTS a top-level chunk: t starts a token at every stage going up AND
+    the top stage fires at that token. ``prob[t]`` carries the top stage's
+    P(boundary) on chunk-start frames, 0 elsewhere.
+
+    Returns None when there is only one (frame-level) stage — nothing to
+    compose.
+    """
+    import numpy as _np
+    import torch as _torch
+    if not bprobs:
+        return None
+    outer_idx = None
+    for i, (_p, m) in enumerate(bprobs):
+        if m.shape[0] == T_total:
+            outer_idx = i
+            break
+    if outer_idx is None or outer_idx == 0:
+        return None
+    crisp = bprobs[outer_idx][1].numpy().astype(bool)
+    cur_map = _np.maximum(_np.cumsum(crisp) - 1, 0)
+    top_prob = None
+    for inner_i in range(outer_idx - 1, -1, -1):
+        prob_i, mask_i = bprobs[inner_i]
+        m = mask_i.numpy().astype(bool)
+        if m.shape[0] == 0:
+            return None
+        idx = _np.clip(cur_map, 0, m.shape[0] - 1)
+        crisp = crisp & m[idx]
+        local_map = _np.maximum(_np.cumsum(m) - 1, 0)
+        cur_map = local_map[idx]
+        top_prob = prob_i.numpy()[idx]
+    prob_out = _np.where(crisp, _np.clip(top_prob, 0.0, 1.0), 0.0).astype(
+        _np.float32
+    )
+    return (_torch.from_numpy(prob_out), _torch.from_numpy(crisp))
+
+
 def _render_stage_label(stage_idx, h, w):
-    """White label panel with 'Stage k' text centred. Returns (h, w, 3) uint8."""
+    """White label panel with 'Stage k' text centred (or a custom string if
+    ``stage_idx`` is a str). Returns (h, w, 3) uint8."""
     try:
         from PIL import Image, ImageDraw, ImageFont
     except ImportError:
@@ -114,7 +159,7 @@ def _render_stage_label(stage_idx, h, w):
             continue
     if font is None:
         font = ImageFont.load_default()
-    text = f"Stage {stage_idx}"
+    text = stage_idx if isinstance(stage_idx, str) else f"Stage {stage_idx}"
     bbox = draw.textbbox((0, 0), text, font=font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
     draw.text(((w - tw) // 2, (h - th) // 2), text, fill=(20, 20, 20), font=font)
@@ -136,6 +181,10 @@ class BoundaryStripEval(EvalVideo):
         frame: ``"black"`` (default) or ``"clamp"`` (repeat last value).
       chunker_idx: which chunker's bpred to render. ``None`` = stack all
         chunkers' strips top-to-bottom.
+      composed_strip: when True (default) and the model has >1 chunker
+        stage, append a "Top→frame" row: crisp red dividers at exactly the
+        frames where a TOP-level chunk starts (composed through all stages)
+        — the highest-level segmentation projected to frame resolution.
     """
 
     def __init__(
@@ -145,6 +194,7 @@ class BoundaryStripEval(EvalVideo):
         pixels_per_step: int = 1,
         future_pad: str = "black",
         chunker_idx: int | None = None,
+        composed_strip: bool = True,
         limit_val_batches: int = 4,
         viz_func: dict | None = None,
         transform_lists: dict | None = None,
@@ -163,6 +213,7 @@ class BoundaryStripEval(EvalVideo):
             raise ValueError("future_pad must be 'black' or 'clamp'")
         self.future_pad = future_pad
         self.chunker_idx = chunker_idx
+        self.composed_strip = bool(composed_strip)
 
     # ------------------------------------------------------------------ #
 
@@ -306,15 +357,27 @@ class BoundaryStripEval(EvalVideo):
             seq_lens = _batch["seq_lens"]
             B = int(seq_lens.shape[0])
             T_total = int(cu[-1].item())
+            # Crisp top-level chunk starts at frame level (from the RAW
+            # per-stage masks, before the replicating upsample below).
+            composed = (
+                _compose_top_boundary_frames(bprobs, T_total)
+                if self.composed_strip and self.chunker_idx is None
+                else None
+            )
             # Upsample inner chunkers (prob, mask) to frame resolution.
             bprobs = _compose_bprobs_to_frame_level(bprobs, T_total)
             # Display order: OUTER chunker (frame-level natively) on top as
             # "Stage 0", inner chunkers below. aux list is innermost-first,
-            # so reverse for the display.
+            # so reverse for the display. Each display item: (label, prob, mask).
             if self.chunker_idx is None:
-                display_chunkers = list(reversed(bprobs))
+                display_chunkers = [
+                    (ci, p, m) for ci, (p, m) in enumerate(reversed(bprobs))
+                ]
             else:
-                display_chunkers = [bprobs[self.chunker_idx]]
+                _p, _m = bprobs[self.chunker_idx]
+                display_chunkers = [(self.chunker_idx, _p, _m)]
+            if composed is not None:
+                display_chunkers.append(("Top→frm", composed[0], composed[1]))
 
             B_render = min(B, self.max_videos) if self.max_videos is not None else B
             ep_widths = []
@@ -335,7 +398,7 @@ class BoundaryStripEval(EvalVideo):
                 T_ep_b = e_ - s_
                 # Build per-chunker rows for THIS episode only.
                 chunker_rows = []
-                for ci, (prob, mask) in enumerate(display_chunkers):
+                for ci, prob, mask in display_chunkers:
                     bp_arr = prob[s_:e_].numpy().astype(np.float32)
                     bm_arr = mask[s_:e_].numpy().astype(bool)
                     if bp_arr.shape[0] < T_ep_b:
@@ -394,6 +457,19 @@ class BoundaryStripEval(EvalVideo):
                 )
                 metrics[f"Valid/emb{emb_id}_chunker{ci}_boundary_mask_rate"] = (
                     torch.tensor(rate_mask, device=self.trainer.lightning_module.device)
+                )
+            # Composed top-level metrics: chunks-per-frame and its inverse,
+            # the average TOP-level chunk length in FRAMES — the single most
+            # interpretable router-health number (compare to the configured
+            # per-stage targets multiplied out, e.g. 2x2 looks x 8 = 32f).
+            if composed is not None:
+                top_rate = float(composed[1].float().mean().item())
+                metrics[f"Valid/emb{emb_id}_top_chunk_rate"] = torch.tensor(
+                    top_rate, device=self.trainer.lightning_module.device
+                )
+                metrics[f"Valid/emb{emb_id}_top_chunk_len_frames"] = torch.tensor(
+                    (1.0 / top_rate) if top_rate > 0 else float(T_total),
+                    device=self.trainer.lightning_module.device,
                 )
 
         return metrics, images_dict

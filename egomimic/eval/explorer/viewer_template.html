@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chunkviz Explorer</title>
+<style>
+  :root{
+    --bg:#0b0e14; --bg2:#0a0d12; --panel:#141a22; --panel2:#1b222d;
+    --border:#283139; --border-soft:#1f262f;
+    --ink:#e9eff6; --ink2:#b3bdc9; --muted:#7e8893;
+    --accent:#4c8dff; --accent-press:#3b7af0;
+    --gold:#f5c518; --red:#dc2626; --blue:#4c9aff; --orange:#ff9d3b;
+    --elev:0 1px 2px rgba(0,0,0,.45), 0 6px 20px rgba(0,0,0,.30);
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font:13.5px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  ::selection{background:rgba(76,141,255,.35)}
+  /* scrollbars */
+  *::-webkit-scrollbar{width:10px;height:10px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:#2c3743;border-radius:6px;border:2px solid var(--panel)}
+  *::-webkit-scrollbar-thumb:hover{background:#3a4654}
+  #app{display:grid;grid-template-rows:auto 1fr;height:100%}
+  /* ---- header: title · mode · grouped context controls ---- */
+  header{display:flex;gap:12px;align-items:center;padding:11px 18px;
+    background:linear-gradient(180deg,#161d26,#121821);
+    border-bottom:1px solid var(--border);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+  header h1{font-size:14.5px;margin:0;font-weight:700;letter-spacing:.2px;white-space:nowrap;
+    display:flex;align-items:center;gap:9px;color:var(--ink)}
+  header h1::before{content:"";width:9px;height:9px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 10px rgba(76,141,255,.8)}
+  .sp{flex:1}
+  .vdiv{width:1px;align-self:stretch;background:var(--border);margin:2px 4px}
+  .grp{display:flex;align-items:center;gap:7px}
+  .lbl{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;font-weight:600}
+  select,button,input[type=range]{font:inherit;color:var(--ink)}
+  select{appearance:none;-webkit-appearance:none;background:var(--panel2)
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="%237e8893" stroke-width="1.5" stroke-linecap="round"/></svg>')
+      no-repeat right 9px center;
+    border:1px solid var(--border);border-radius:7px;padding:5px 26px 5px 10px;cursor:pointer;
+    transition:border-color .12s,box-shadow .12s}
+  select:hover{border-color:#3a4654}
+  select:focus-visible,.btn:focus-visible{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(76,141,255,.25)}
+  .btn{background:var(--panel2);border:1px solid var(--border);border-radius:7px;
+    padding:5px 11px;cursor:pointer;transition:background .12s,border-color .12s,color .12s}
+  .btn:hover{border-color:#3a4654;background:#222b37}
+  .btn:active{transform:translateY(.5px)}
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;
+    box-shadow:0 1px 6px rgba(76,141,255,.4)}
+  .btn.on:hover{background:var(--accent-press);border-color:var(--accent-press)}
+  .seg{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;
+    background:var(--panel2)}
+  .seg .btn{border:0;border-radius:0;border-right:1px solid var(--border);background:transparent}
+  .seg .btn:last-child{border-right:0}
+  /* range sliders */
+  input[type=range]{-webkit-appearance:none;appearance:none;height:18px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:3px;
+    background:#2c3743}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;margin-top:-5px;
+    width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #0b0e14;
+    box-shadow:0 1px 4px rgba(0,0,0,.5)}
+  input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:#2c3743}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:var(--accent);border:2px solid #0b0e14}
+  /* single: video | PCA (square) | clips ; full-width timeline below */
+  main{display:grid;grid-template-columns:1.3fr 1fr 0.74fr;
+    grid-template-rows:minmax(360px,1fr) auto;gap:12px;padding:12px;height:100%;min-height:0}
+  .card{background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);
+    padding:13px;min-height:0;display:flex;flex-direction:column;box-shadow:var(--elev)}
+  .card h2{margin:0 0 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--muted);font-weight:700;display:flex;align-items:center;gap:8px}
+  #videoCard{grid-column:1;grid-row:1}
+  #pcaCard{grid-column:2;grid-row:1;min-height:0}
+  #clipCard{grid-column:3;grid-row:1;min-height:0}
+  #timelineCard{grid-column:1/4;grid-row:2}
+  #videoWrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;
+    background:var(--bg2);border:1px solid var(--border-soft);border-radius:9px;overflow:hidden;min-height:300px;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+  #video{max-width:100%;max-height:100%;image-rendering:auto}
+  #transport{display:flex;gap:9px;align-items:center;margin-top:11px}
+  #transport .time{color:var(--ink2);font-variant-numeric:tabular-nums;min-width:78px;text-align:center;font-size:12px}
+  #cliplist{overflow:auto;flex:1;border:1px solid var(--border-soft);border-radius:9px;background:var(--bg2)}
+  .clip{display:flex;align-items:center;gap:9px;padding:7px 11px;cursor:pointer;
+    border-bottom:1px solid var(--border-soft);transition:background .1s}
+  .clip:hover{background:var(--panel2)}
+  .clip.active{background:#1d2c40;box-shadow:inset 3px 0 0 var(--accent)}
+  .clip .nm{color:var(--ink2)}
+  .clip .sw{width:11px;height:20px;border-radius:3px;flex:0 0 auto}
+  .clip .rng{font-variant-numeric:tabular-nums;color:var(--muted);min-width:74px}
+  .clip .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  canvas{display:block;width:100%}
+  #timeline{cursor:crosshair}
+  .hint{color:var(--muted);font-size:11px}
+  input[type=range]{accent-color:var(--accent)}
+  /* ---- compare / alignment view (hidden until toggled) ---- */
+  #compareView{grid-row:2;grid-column:1;min-height:0;overflow:auto;padding:12px;
+    flex-direction:column;gap:12px}
+  .grpA{color:var(--blue);font-weight:700}
+  .grpB{color:var(--orange);font-weight:700}
+  .cmpToolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+  .cmpGrp{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:9px;
+    background:var(--panel2);border:1px solid var(--border)}
+  .cmpGrp.a{box-shadow:inset 3px 0 0 var(--blue)}
+  .cmpGrp.b{box-shadow:inset 3px 0 0 var(--orange)}
+  .cmpGrp .tag{font-weight:800;font-size:13px}
+  .playGrp{display:flex;align-items:center;gap:10px;padding:6px 12px;border-radius:9px;
+    background:var(--panel2);border:1px solid var(--border)}
+  #cmpPhase{width:300px}
+  #cmpLbl{color:var(--ink);font-variant-numeric:tabular-nums;min-width:150px;font-size:12px}
+  .cmpGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .cmpCol{gap:10px}
+  .cmpTraj{background:var(--bg2);border:1px solid var(--border-soft);border-radius:9px;
+    height:340px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Chunkviz Explorer</h1>
+    <span class="grp" id="modelGrp" style="display:none"><span class="lbl">model</span><select id="modelSel"></select></span>
+    <span class="seg" id="modeSeg">
+      <button class="btn on" data-mode="single">single</button>
+      <button class="btn" data-mode="compare">compare</button>
+    </span>
+    <span class="vdiv" id="ctxDiv"></span>
+    <span class="grp" id="ctxSingle">
+      <span class="lbl">emb</span><select id="embSel"></select>
+      <span class="lbl" style="margin-left:6px">episode</span><select id="epSel"></select>
+      <span class="lbl" style="margin-left:10px">layer</span>
+      <span class="seg" id="layerSeg">
+        <button class="btn on" data-layer="chunks">colored chunks</button>
+        <button class="btn" data-layer="prob">P(boundary)</button>
+        <button class="btn" data-layer="crisp">crisp</button>
+      </span>
+    </span>
+    <span class="sp"></span>
+    <span class="hint" id="ctxHint">space play · ←/→ step · click/drag timeline to seek</span>
+  </header>
+  <main id="singleMain">
+    <section class="card" id="videoCard">
+      <h2>Rollout</h2>
+      <div id="videoWrap"><canvas id="video"></canvas></div>
+      <div id="transport">
+        <button class="btn" id="toStart">⏮</button>
+        <button class="btn" id="playBtn">▶</button>
+        <button class="btn" id="stepB">◀</button>
+        <button class="btn" id="stepF">▶|</button>
+        <input type="range" id="scrub" min="0" value="0" style="flex:1"/>
+        <span class="time" id="timeLbl">0 / 0</span>
+        <label class="hint">fps <input type="range" id="fps" min="2" max="30" value="12" style="width:80px"></label>
+      </div>
+    </section>
+
+    <section class="card" id="clipCard">
+      <h2 style="display:flex;align-items:center;gap:8px">
+        <span>Chunks — click to jump</span>
+        <select id="clipStageSel" style="margin-left:auto;text-transform:none;letter-spacing:0"></select>
+      </h2>
+      <div id="cliplist"></div>
+    </section>
+
+    <section class="card" id="timelineCard">
+      <h2>Boundary timeline</h2>
+      <canvas id="timeline" height="150"></canvas>
+    </section>
+
+    <section class="card" id="pcaCard">
+      <h2>PCA — high-level chunk tokens (grey all · blue this episode · orange recent · red current)</h2>
+      <canvas id="pca"></canvas>
+    </section>
+  </main>
+
+  <section id="compareView" style="display:none">
+    <div class="cmpToolbar">
+      <div class="cmpGrp a"><span class="tag grpA">A</span>
+        <span class="lbl">emb</span><select id="aEmb"></select>
+        <span class="lbl">ep</span><select id="aEp"></select></div>
+      <div class="cmpGrp b"><span class="tag grpB">B</span>
+        <span class="lbl">emb</span><select id="bEmb"></select>
+        <span class="lbl">ep</span><select id="bEp"></select></div>
+      <span class="sp"></span>
+      <div class="playGrp">
+        <button class="btn" id="cmpPlay">▶ play</button>
+        <span class="lbl">phase</span>
+        <input type="range" id="cmpPhase" min="0" max="1000" value="0">
+        <span id="cmpLbl"></span>
+        <span class="vdiv"></span>
+        <span class="lbl">fps</span><input type="range" id="cmpFps" min="2" max="40" value="10" style="width:80px">
+        <span class="vdiv"></span>
+        <span class="lbl">PCA</span>
+        <span class="seg" id="pcaModeSeg">
+          <button class="btn on" data-pca="raw">raw</button>
+          <button class="btn" data-pca="meandiff">−emb mean</button>
+          <button class="btn" data-pca="lda">−emb LDA</button>
+        </span>
+      </div>
+    </div>
+    <div class="cmpGrid">
+      <section class="card cmpCol">
+        <h2><span class="grpA">A</span> — rollout + chunk strips (all stages)</h2>
+        <div class="cmpTraj"><canvas id="aTraj"></canvas></div>
+        <canvas id="aStrip" height="84"></canvas>
+      </section>
+      <section class="card cmpCol">
+        <h2><span class="grpB">B</span> — rollout + chunk strips (all stages)</h2>
+        <div class="cmpTraj"><canvas id="bTraj"></canvas></div>
+        <canvas id="bStrip" height="84"></canvas>
+      </section>
+    </div>
+    <section class="card">
+      <h2>Shared PCA — chunk tokens in one cross-embodiment basis &nbsp;·&nbsp;
+        <span style="color:#8b949e">grey = all episodes</span> &nbsp;·&nbsp;
+        <span class="grpA">A blue</span> &nbsp;·&nbsp; <span class="grpB">B orange</span>
+        &nbsp;·&nbsp; <span style="color:#8b949e">faint = full path, bold = up to current phase, ring = now</span></h2>
+      <canvas id="cmpPca" height="380"></canvas>
+    </section>
+  </section>
+</div>
+
+<script>
+const PALETTE = [
+  [31,119,180],[255,127,14],[44,160,44],[214,39,40],[148,103,189],
+  [140,86,75],[227,119,194],[23,190,207],[188,189,34],[120,120,120]
+];
+const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
+const MODELS = /*__CHUNKVIZ_DATA__*/;
+const MODEL_NAMES = Object.keys(MODELS);
+let DATA = MODELS[MODEL_NAMES[0]];   // active model; swapped by the model dropdown
+
+const S = { emb:null, ep:0, frame:0, layer:"chunks", playing:false, fps:12,
+            frames:[], _raf:null, _acc:0, _last:0, drag:false, clipStage:0, mode:"single" };
+
+const $ = id => document.getElementById(id);
+
+function embObj(){ return DATA.embs[S.emb]; }
+function epObj(){ return embObj().episodes[S.ep]; }
+function T(){ return epObj().topcid.length; }
+
+// ---- chunk runs (contiguous chunk ids for the chosen stage) ----
+function chunkRuns(stage){
+  const row = epObj().cid[stage], runs=[]; let st=0;
+  for(let t=1;t<=row.length;t++){
+    if(t===row.length || row[t]!==row[st]){ runs.push({a:st,b:t-1,id:row[st]}); st=t; }
+  }
+  return runs;
+}
+
+// ---- selectors ----
+function fillSelectors(){
+  const e=$("embSel"); e.innerHTML="";
+  DATA.emb_ids.forEach(id=>{ const o=document.createElement("option");
+    o.value=id;o.textContent="emb "+id;e.appendChild(o); });
+  e.value=S.emb;
+  const ep=$("epSel"); ep.innerHTML="";
+  embObj().episodes.forEach((_,i)=>{ const o=document.createElement("option");
+    o.value=i;o.textContent="ep "+i;ep.appendChild(o); });
+  ep.value=S.ep;
+  // chunk-list stage dropdown (last stage = most-compressed / high-level)
+  const labels=embObj().labels, cs=$("clipStageSel"); cs.innerHTML="";
+  labels.forEach((nm,i)=>{ const o=document.createElement("option");
+    o.value=i; o.textContent = nm + (i===labels.length-1?" (high-level)":"");
+    cs.appendChild(o); });
+  if(S.clipStage>=labels.length) S.clipStage=labels.length-1;
+  cs.value=S.clipStage;
+}
+
+// ---- video frames ----
+function loadFrames(){
+  S.frames = (epObj().frames||[]).map(src=>{ if(!src) return null;
+    const im=new Image(); im.src=src; return im; });
+}
+function drawVideo(){
+  const c=$("video"), w=c.parentElement.clientWidth, h=c.parentElement.clientHeight;
+  c.width=w; c.height=h; const x=c.getContext("2d");
+  x.fillStyle="#000"; x.fillRect(0,0,w,h);
+  const im=S.frames[S.frame];
+  if(im && im.complete && im.naturalWidth){
+    const s=Math.min(w/im.naturalWidth,h/im.naturalHeight);
+    const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
+    x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh);
+  } else {
+    x.fillStyle="#444"; x.font="13px sans-serif"; x.textAlign="center";
+    x.fillText(im?"loading…":"no trajectory frames",w/2,h/2);
+  }
+}
+
+// ---- clip list ----
+function buildClips(){
+  const box=$("cliplist"); box.innerHTML="";
+  chunkRuns(S.clipStage).forEach(r=>{
+    const d=document.createElement("div"); d.className="clip"; d.dataset.a=r.a; d.dataset.b=r.b;
+    const sw=document.createElement("div"); sw.className="sw";
+    sw.style.background=rgb(PALETTE[r.id%PALETTE.length]);
+    const rng=document.createElement("div"); rng.className="rng"; rng.textContent=`${r.a}–${r.b}`;
+    const nm=document.createElement("div"); nm.className="nm";
+    nm.textContent=`chunk ${r.id}  ·  ${r.b-r.a+1} frames`;
+    d.append(sw,rng,nm);
+    d.onclick=()=>seek(r.a);
+    box.appendChild(d);
+  });
+}
+function highlightClip(){
+  document.querySelectorAll(".clip").forEach(d=>{
+    const a=+d.dataset.a,b=+d.dataset.b;
+    const on=S.frame>=a&&S.frame<=b; d.classList.toggle("active",on);
+    if(on && !d._seen){ d.scrollIntoView({block:"nearest"}); }
+    d._seen=on;
+  });
+}
+
+// ---- timeline ----
+const LABW=78, BAND=30, GAP=6, RULER=22;
+function tlGeom(){
+  const c=$("timeline"); const w=c.parentElement.clientWidth-20;
+  const ep=epObj(), ns=embObj().labels.length;
+  const h=RULER+ns*(BAND+GAP);
+  c.width=w; c.height=h; return {c,w,h,ns,plotW:w-LABW};
+}
+function fx(f,plotW){ return LABW + (T()<=1?0:f/(T()-1))*plotW; }
+function drawTimeline(){
+  const {c,w,h,ns,plotW}=tlGeom(); const x=c.getContext("2d");
+  const ep=epObj(), labels=embObj().labels;
+  x.fillStyle="#0a0d12"; x.fillRect(0,0,w,h);
+  // ruler
+  x.fillStyle="#8b949e"; x.font="10px sans-serif"; x.textAlign="center";
+  const step=niceStep(T(),plotW);
+  for(let f=0;f<T();f+=step){ const px=fx(f,plotW);
+    x.fillRect(px,RULER-6,1,6); x.fillText(f,px,RULER-9);
+  }
+  // tracks
+  for(let s=0;s<ns;s++){
+    const y=RULER+s*(BAND+GAP);
+    x.fillStyle="#cbd5e1"; x.textAlign="left"; x.font="11px sans-serif";
+    x.fillText(labels[s], 6, y+BAND/2+4);
+    const cid=ep.cid[s], prob=ep.prob[s];
+    for(let f=0;f<T();f++){
+      const px=fx(f,plotW), px2=fx(f+1,plotW), bw=Math.max(1,px2-px+0.5);
+      let col;
+      if(S.layer==="chunks"){ col=rgb(PALETTE[cid[f]%PALETTE.length]); }
+      else if(S.layer==="prob"){ const g=Math.round(255*(1-Math.min(1,Math.max(0,prob[f])))); col=`rgb(${g},${g},${g})`; }
+      else { const crisp = f===0 || cid[f]!==cid[f-1]; col = crisp?"#dc2626":"#f3f4f6"; }
+      x.fillStyle=col; x.fillRect(px,y,bw,BAND);
+    }
+    x.strokeStyle="#2a313c"; x.strokeRect(LABW,y,plotW,BAND);
+  }
+  // playhead
+  const ph=fx(S.frame,plotW);
+  x.fillStyle="#f5c518"; x.fillRect(ph-1,RULER-4,2,h-RULER+4);
+  x.beginPath(); x.moveTo(ph-5,RULER-4); x.lineTo(ph+5,RULER-4); x.lineTo(ph,RULER+3);
+  x.closePath(); x.fill();
+}
+function niceStep(n,plotW){
+  const target=Math.max(40, plotW/12); // ~12 ticks
+  const raw=n*target/plotW; const pw=Math.pow(10,Math.floor(Math.log10(raw)));
+  for(const m of [1,2,5,10]) if(pw*m>=raw) return Math.max(1,Math.round(pw*m));
+  return Math.max(1,Math.round(pw*10));
+}
+function timelineSeek(ev){
+  const {plotW}=tlGeom(); const r=$("timeline").getBoundingClientRect();
+  const rel=ev.clientX-r.left-LABW; if(rel<0) return;
+  seek(Math.round(rel/plotW*(T()-1)));
+}
+
+// ---- PCA ----
+function drawPCA(){
+  const c=$("pca"); const w=c.parentElement.clientWidth-20;
+  const h=Math.max(200,c.parentElement.clientHeight-30); c.width=w;c.height=h;
+  const x=c.getContext("2d"); x.fillStyle="#0a0d12"; x.fillRect(0,0,w,h);
+  const pts=embObj().pca; if(!pts.length) return;
+  let xmin=1e9,xmax=-1e9,ymin=1e9,ymax=-1e9;
+  for(const p of pts){ xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);
+    ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]); }
+  // EQUAL ASPECT: PC1/PC2 share units, so one scale for both axes (a square
+  // data mapping centered in the canvas) — never stretch to fill the rect.
+  const pad=24, dw=(xmax-xmin)||1, dh=(ymax-ymin)||1;
+  const sc=Math.min((w-2*pad)/dw,(h-2*pad)/dh);
+  const ox=(w-dw*sc)/2, oy=(h-dh*sc)/2;
+  const sx=v=>ox+(v-xmin)*sc, sy=v=>h-oy-(v-ymin)*sc;
+  // all
+  x.fillStyle="rgba(150,150,150,.5)";
+  for(const p of pts){ x.beginPath();x.arc(sx(p[0]),sy(p[1]),2,0,7);x.fill(); }
+  // this episode
+  const tc=epObj().topcid, uniq=[...new Set(tc)];
+  x.fillStyle="#4c9aff";
+  for(const id of uniq){ const p=pts[id]; if(!p)continue;
+    x.beginPath();x.arc(sx(p[0]),sy(p[1]),3.5,0,7);x.fill(); }
+  // recent trail (dedup consecutive over last 40 frames)
+  const lo=Math.max(0,S.frame-40); const seq=[];
+  for(let f=lo;f<=S.frame;f++){ const id=tc[f]; if(!seq.length||seq[seq.length-1]!==id)seq.push(id); }
+  x.strokeStyle="#ff9d3b"; x.lineWidth=2; x.beginPath();
+  seq.forEach((id,i)=>{ const p=pts[id]; if(!p)return;
+    const X=sx(p[0]),Y=sy(p[1]); i?x.lineTo(X,Y):x.moveTo(X,Y); }); x.stroke();
+  x.fillStyle="#ff9d3b";
+  for(const id of seq){ const p=pts[id]; if(!p)continue;
+    x.beginPath();x.arc(sx(p[0]),sy(p[1]),3,0,7);x.fill(); }
+  // current
+  const cp=pts[tc[S.frame]];
+  if(cp){ x.fillStyle="#dc2626"; x.beginPath();x.arc(sx(cp[0]),sy(cp[1]),7,0,7);x.fill();
+    x.strokeStyle="#fff";x.lineWidth=2;x.stroke(); }
+}
+
+// ---- render / state ----
+function renderAll(){ drawVideo(); drawTimeline(); drawPCA(); highlightClip();
+  const t=T(); $("scrub").max=t-1; $("scrub").value=S.frame; $("timeLbl").textContent=`${S.frame} / ${t-1}`; }
+function seek(f){ S.frame=Math.max(0,Math.min(T()-1,f|0)); renderAll(); }
+function setEmb(e){ S.emb=String(e); S.ep=0; fillSelectors(); changeEp(0); }
+function changeEp(i){ S.ep=+i; S.frame=0; loadFrames(); buildClips(); renderAll();
+  // redraw video as frames decode
+  S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; }); }
+
+// ---- playback ----
+function tick(ts){ if(!S.playing){return;} if(!S._last)S._last=ts;
+  S._acc+=(ts-S._last)/1000; S._last=ts;
+  const dt=1/S.fps;
+  while(S._acc>=dt){ S._acc-=dt; S.frame=(S.frame+1)%T(); }
+  renderAll(); S._raf=requestAnimationFrame(tick);
+}
+function play(on){ S.playing=on; $("playBtn").textContent=on?"⏸":"▶";
+  $("playBtn").classList.toggle("on",on);
+  if(on){ S._last=0; S._raf=requestAnimationFrame(tick); } else cancelAnimationFrame(S._raf); }
+
+// ---- wire up ----
+function init(){
+  S.emb=String(DATA.emb_ids[0]);
+  S.clipStage=embObj().labels.length-1;   // default = high-level (last stage)
+  fillSelectors(); loadFrames(); buildClips(); renderAll();
+  S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; });
+
+  $("embSel").onchange=e=>setEmb(e.target.value);
+  $("epSel").onchange=e=>changeEp(e.target.value);
+  $("clipStageSel").onchange=e=>{ S.clipStage=+e.target.value; buildClips(); highlightClip(); };
+  $("layerSeg").onclick=e=>{ const b=e.target.closest("[data-layer]"); if(!b)return;
+    S.layer=b.dataset.layer;
+    document.querySelectorAll("#layerSeg .btn").forEach(x=>x.classList.toggle("on",x===b));
+    drawTimeline(); };
+  $("playBtn").onclick=()=>play(!S.playing);
+  $("toStart").onclick=()=>{play(false);seek(0);};
+  $("stepB").onclick=()=>{play(false);seek(S.frame-1);};
+  $("stepF").onclick=()=>{play(false);seek(S.frame+1);};
+  $("scrub").oninput=e=>{play(false);seek(+e.target.value);};
+  $("fps").oninput=e=>S.fps=+e.target.value;
+
+  const tl=$("timeline");
+  tl.onmousedown=e=>{S.drag=true;play(false);timelineSeek(e);};
+  window.addEventListener("mousemove",e=>{if(S.drag)timelineSeek(e);});
+  window.addEventListener("mouseup",()=>S.drag=false);
+
+  window.addEventListener("keydown",e=>{
+    if(S.mode==="compare"){ if(e.code==="Space"){e.preventDefault();cmpPlay(!SC.playing);} return; }
+    if(e.code==="Space"){e.preventDefault();play(!S.playing);}
+    else if(e.code==="ArrowRight"){play(false);seek(S.frame+1);}
+    else if(e.code==="ArrowLeft"){play(false);seek(S.frame-1);}
+    else if(e.code==="Home"){play(false);seek(0);}
+  });
+  window.addEventListener("resize",()=>{ S.mode==="compare"?renderCmp():renderAll(); });
+
+  // model selector (only shown when the file holds >1 model)
+  const _ms=$("modelSel"); _ms.innerHTML="";
+  MODEL_NAMES.forEach(nm=>{ const o=document.createElement("option");
+    o.value=nm; o.textContent=nm; _ms.appendChild(o); });
+  _ms.value=MODEL_NAMES[0];
+  $("modelGrp").style.display=MODEL_NAMES.length>1?"":"none";
+  _ms.onchange=e=>switchModel(e.target.value);
+
+  initCompare();
+  $("modeSeg").onclick=e=>{ const b=e.target.closest("[data-mode]");
+    if(!b||b.disabled) return; setMode(b.dataset.mode); };
+}
+
+// ===== compare / alignment mode (self-contained; single view untouched) =====
+const SC = { aEmb:null, aEp:0, bEmb:null, bEp:0, phase:0, playing:false,
+             fps:10, _raf:null, _last:0, pcaMode:"raw" };
+function cmpEnabled(){ return !!(DATA.pca_shared && DATA.pca_shared.length); }
+function sharedPca(){
+  if(SC.pcaMode==="meandiff" && DATA.pca_shared_meandiff) return DATA.pca_shared_meandiff;
+  if(SC.pcaMode==="lda" && DATA.pca_shared_lda) return DATA.pca_shared_lda;
+  return DATA.pca_shared;
+}
+function updatePcaModeAvail(){
+  ["meandiff","lda"].forEach(m=>{ const b=document.querySelector('[data-pca="'+m+'"]');
+    if(!b) return; const has=!!(DATA["pca_shared_"+m] && DATA["pca_shared_"+m].length);
+    b.disabled=!has; b.style.opacity=has?1:.4; });
+  if(SC.pcaMode!=="raw" && !((DATA["pca_shared_"+SC.pcaMode]||[]).length)){
+    SC.pcaMode="raw";
+    document.querySelectorAll("#pcaModeSeg .btn").forEach(x=>x.classList.toggle("on",x.dataset.pca==="raw"));
+  }
+}
+
+function epOf(emb,ep){ return DATA.embs[emb].episodes[ep]; }
+function offOf(emb){ const o=DATA.embs[emb].pca_offset; return o==null?0:o; }
+function cmpFrames(emb,ep){ const e=epOf(emb,ep);
+  if(!e._imgs){ e._imgs=(e.frames||[]).map(s=>{ if(!s)return null;
+    const im=new Image(); im.src=s; return im; }); }
+  return e._imgs; }
+function phaseFrame(emb,ep){ const T=epOf(emb,ep).topcid.length; return Math.round(SC.phase*(T-1)); }
+
+function cmpFillSel(){
+  for(const [sel,val] of [["aEmb",SC.aEmb],["bEmb",SC.bEmb]]){
+    const el=$(sel); el.innerHTML="";
+    DATA.emb_ids.forEach(id=>{ const o=document.createElement("option");
+      o.value=id;o.textContent="emb "+id;el.appendChild(o); }); el.value=val;
+  }
+  for(const [sel,emb,val] of [["aEp",SC.aEmb,SC.aEp],["bEp",SC.bEmb,SC.bEp]]){
+    const el=$(sel); el.innerHTML="";
+    DATA.embs[emb].episodes.forEach((_,i)=>{ const o=document.createElement("option");
+      o.value=i;o.textContent="ep "+i;el.appendChild(o); }); el.value=val;
+  }
+}
+function drawCmpTraj(canvasId,emb,ep){
+  const c=$(canvasId),w=c.parentElement.clientWidth,h=c.parentElement.clientHeight;
+  c.width=w;c.height=h;const x=c.getContext("2d");x.fillStyle="#000";x.fillRect(0,0,w,h);
+  const im=cmpFrames(emb,ep)[phaseFrame(emb,ep)];
+  if(im&&im.complete&&im.naturalWidth){ const s=Math.min(w/im.naturalWidth,h/im.naturalHeight);
+    x.drawImage(im,(w-im.naturalWidth*s)/2,(h-im.naturalHeight*s)/2,im.naturalWidth*s,im.naturalHeight*s);
+  } else { x.fillStyle="#444";x.font="12px sans-serif";x.textAlign="center";
+    x.fillText(im?"loading…":"no frames",w/2,h/2); }
+}
+function drawCmpStrip(canvasId,emb,ep,accent){
+  const c=$(canvasId),w=c.parentElement.clientWidth;const e=epOf(emb,ep);
+  const ns=e.cid.length, band=20, gap=5, padL=54, H=ns*(band+gap)+2;
+  c.width=w;c.height=H;const x=c.getContext("2d");const T=e.cid[0].length;
+  x.fillStyle="#0a0d12";x.fillRect(0,0,w,H);
+  const plotW=w-padL;
+  for(let s=0;s<ns;s++){
+    const y=s*(band+gap)+2,row=e.cid[s];
+    x.fillStyle="#cbd5e1";x.font="10px sans-serif";x.textAlign="left";
+    x.fillText("Stage "+s,4,y+band/2+3);
+    for(let f=0;f<T;f++){ const px=padL+f/T*plotW,px2=padL+(f+1)/T*plotW;
+      x.fillStyle=rgb(PALETTE[row[f]%PALETTE.length]);x.fillRect(px,y,Math.max(1,px2-px+0.5),band); }
+  }
+  const ph=padL+SC.phase*plotW;x.fillStyle=accent;x.fillRect(ph-1,0,2,H);
+}
+function drawSideTrail(x,sx,sy,emb,ep,col){
+  const pts=sharedPca(),e=epOf(emb,ep),tc=e.topcid,off=offOf(emb),f=phaseFrame(emb,ep);
+  const dedup=(hi)=>{const s=[];for(let i=0;i<=hi;i++){if(!s.length||s[s.length-1]!==tc[i])s.push(tc[i]);}return s;};
+  const full=dedup(tc.length-1), upto=dedup(f);
+  x.globalAlpha=.22;x.strokeStyle=col;x.lineWidth=1.5;x.beginPath();
+  full.forEach((id,i)=>{const p=pts[off+id];if(!p)return;const X=sx(p[0]),Y=sy(p[1]);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  x.globalAlpha=1;x.strokeStyle=col;x.lineWidth=2.5;x.beginPath();
+  upto.forEach((id,i)=>{const p=pts[off+id];if(!p)return;const X=sx(p[0]),Y=sy(p[1]);i?x.lineTo(X,Y):x.moveTo(X,Y);});x.stroke();
+  x.fillStyle=col;for(const id of upto){const p=pts[off+id];if(!p)continue;x.beginPath();x.arc(sx(p[0]),sy(p[1]),3,0,7);x.fill();}
+  const cp=pts[off+tc[f]];if(cp){x.fillStyle=col;x.beginPath();x.arc(sx(cp[0]),sy(cp[1]),7,0,7);x.fill();
+    x.strokeStyle="#fff";x.lineWidth=2;x.stroke();}
+}
+function drawCmpPca(){
+  const c=$("cmpPca"),w=c.parentElement.clientWidth-20,h=360;c.width=w;c.height=h;
+  const x=c.getContext("2d");x.fillStyle="#0a0d12";x.fillRect(0,0,w,h);
+  const pts=sharedPca();if(!pts||!pts.length)return;
+  let xmin=1e9,xmax=-1e9,ymin=1e9,ymax=-1e9;
+  for(const p of pts){xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);}
+  const pad=24,dw=(xmax-xmin)||1,dh=(ymax-ymin)||1,sc=Math.min((w-2*pad)/dw,(h-2*pad)/dh);
+  const ox=(w-dw*sc)/2,oy=(h-dh*sc)/2,sx=v=>ox+(v-xmin)*sc,sy=v=>h-oy-(v-ymin)*sc;
+  x.fillStyle="rgba(150,150,150,.4)";
+  for(const p of pts){x.beginPath();x.arc(sx(p[0]),sy(p[1]),1.8,0,7);x.fill();}
+  drawSideTrail(x,sx,sy,SC.aEmb,SC.aEp,"#4c9aff");
+  drawSideTrail(x,sx,sy,SC.bEmb,SC.bEp,"#ff9d3b");
+}
+function renderCmp(){
+  drawCmpTraj("aTraj",SC.aEmb,SC.aEp); drawCmpTraj("bTraj",SC.bEmb,SC.bEp);
+  drawCmpStrip("aStrip",SC.aEmb,SC.aEp,"#4c9aff"); drawCmpStrip("bStrip",SC.bEmb,SC.bEp,"#ff9d3b");
+  drawCmpPca();
+  $("cmpPhase").value=Math.round(SC.phase*1000);
+  $("cmpLbl").textContent=`phase ${(SC.phase*100).toFixed(0)}%  ·  A f${phaseFrame(SC.aEmb,SC.aEp)}  ·  B f${phaseFrame(SC.bEmb,SC.bEp)}`;
+}
+function cmpTick(ts){ if(!SC.playing)return; if(!SC._last)SC._last=ts;
+  const dt=(ts-SC._last)/1000;SC._last=ts;
+  const Tmax=Math.max(epOf(SC.aEmb,SC.aEp).topcid.length,epOf(SC.bEmb,SC.bEp).topcid.length);
+  SC.phase+=SC.fps*dt/Math.max(1,Tmax-1);
+  if(SC.phase>=1){SC.phase=1;renderCmp();cmpPlay(false);return;}
+  renderCmp();SC._raf=requestAnimationFrame(cmpTick);
+}
+function cmpPlay(on){ SC.playing=on;$("cmpPlay").textContent=on?"⏸":"▶";$("cmpPlay").classList.toggle("on",on);
+  if(on){ if(SC.phase>=1)SC.phase=0; SC._last=0; SC._raf=requestAnimationFrame(cmpTick); } else cancelAnimationFrame(SC._raf); }
+function updateCmpAvail(){
+  const cb=document.querySelector('[data-mode=compare]'); const ok=cmpEnabled();
+  cb.disabled=!ok; cb.style.opacity=ok?1:.45;
+  cb.title= ok ? "" : "needs a cross-emb export (this model has no shared PCA)";
+}
+function initCompare(){
+  if(cmpEnabled()){
+    SC.aEmb=String(DATA.emb_ids[0]);
+    SC.bEmb=String(DATA.emb_ids[DATA.emb_ids.length>1?1:0]);
+    if(SC.bEmb===SC.aEmb && DATA.embs[SC.bEmb].episodes.length>1) SC.bEp=1;
+    cmpFillSel();
+  }
+  $("aEmb").onchange=e=>{SC.aEmb=e.target.value;SC.aEp=0;cmpFillSel();renderCmp();};
+  $("bEmb").onchange=e=>{SC.bEmb=e.target.value;SC.bEp=0;cmpFillSel();renderCmp();};
+  $("aEp").onchange=e=>{SC.aEp=+e.target.value;renderCmp();};
+  $("bEp").onchange=e=>{SC.bEp=+e.target.value;renderCmp();};
+  $("cmpPhase").oninput=e=>{cmpPlay(false);SC.phase=+e.target.value/1000;renderCmp();};
+  $("cmpPlay").onclick=()=>cmpPlay(!SC.playing);
+  $("cmpFps").oninput=e=>SC.fps=+e.target.value;
+  $("pcaModeSeg").onclick=e=>{ const b=e.target.closest("[data-pca]"); if(!b||b.disabled) return;
+    SC.pcaMode=b.dataset.pca;
+    document.querySelectorAll("#pcaModeSeg .btn").forEach(x=>x.classList.toggle("on",x===b));
+    renderCmp(); };
+  updatePcaModeAvail();
+  updateCmpAvail();
+}
+function switchModel(name){
+  if(!(name in MODELS)) return;
+  DATA = MODELS[name];
+  // reset + rebuild single view
+  S.emb=String(DATA.emb_ids[0]); S.ep=0; S.frame=0;
+  S.clipStage=embObj().labels.length-1;
+  fillSelectors(); loadFrames(); buildClips();
+  S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; });
+  // reset compare view (if this model supports it)
+  if(cmpEnabled()){
+    SC.aEmb=String(DATA.emb_ids[0]);
+    SC.bEmb=String(DATA.emb_ids[DATA.emb_ids.length>1?1:0]);
+    SC.aEp=0; SC.bEp=0; SC.phase=0; cmpFillSel();
+  }
+  updatePcaModeAvail();
+  updateCmpAvail();
+  if(S.mode==="compare" && !cmpEnabled()) setMode("single");
+  else if(S.mode==="compare") renderCmp();
+  else renderAll();
+}
+function setMode(m){
+  S.mode=m; const single=m==="single";
+  if(!single) play(false); else cmpPlay(false);
+  $("singleMain").style.display=single?"":"none";
+  $("compareView").style.display=single?"none":"flex";
+  document.querySelectorAll("#modeSeg .btn").forEach(b=>b.classList.toggle("on",b.dataset.mode===m));
+  $("ctxSingle").style.display=single?"":"none";
+  $("ctxDiv").style.display=single?"":"none";
+  $("ctxHint").textContent=single
+    ? "space play · ←/→ step · click/drag timeline to seek"
+    : "pick A & B episodes · drag phase (or space) to scrub both together";
+  if(single) renderAll(); else renderCmp();
+}
+init();
+</script>
+</body>
+</html>
