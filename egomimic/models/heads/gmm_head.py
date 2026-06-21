@@ -36,7 +36,6 @@ range EXACTLY into [-1,+1] so robomimic's tanh assumption holds for every
 target. The unnormalization back to pixels happens in the algo, unchanged.
 """
 
-import math
 from typing import Optional
 
 import torch
@@ -92,6 +91,8 @@ class GMMActionHead(nn.Module):
         std_activation: str = "softplus",
         low_noise_eval: bool = True,
         chunk_len: int = 1,
+        head_hidden_dim: int | None = None,
+        head_n_layers: int = 0,
     ):
         super().__init__()
         if num_modes < 1:
@@ -111,15 +112,31 @@ class GMMActionHead(nn.Module):
         self.low_noise_eval = bool(low_noise_eval)
         # per_step = params for ONE GMM (M means + M scales + M logits over D).
         self.per_step = self.num_modes * (2 * self.action_dim + 1)
-        # proj emits chunk_len independent GMMs. chunk_len==1 => out_features ==
-        # per_step (identical nn.Linear shape + init draw as the original head).
-        self.proj = nn.Linear(d_model, self.chunk_len * self.per_step)
+        # Optional MLP trunk BEFORE the projection (capacity knob, 2026-06-11).
+        # Default (head_hidden_dim None / head_n_layers 0) -> nn.Identity, so the
+        # proj keeps the EXACT original nn.Linear shape + init draw (byte-
+        # identical to pre-existing heads). When set, build head_n_layers
+        # Linear+GELU blocks of width head_hidden_dim feeding the projection.
+        if head_hidden_dim and head_n_layers > 0:
+            layers = []
+            in_dim = d_model
+            for _ in range(int(head_n_layers)):
+                layers += [nn.Linear(in_dim, int(head_hidden_dim)), nn.GELU()]
+                in_dim = int(head_hidden_dim)
+            self.trunk = nn.Sequential(*layers)
+            proj_in = int(head_hidden_dim)
+        else:
+            self.trunk = nn.Identity()
+            proj_in = d_model
+        # proj emits chunk_len independent GMMs. chunk_len==1 + Identity trunk =>
+        # out_features == per_step (identical to the original head).
+        self.proj = nn.Linear(proj_in, self.chunk_len * self.per_step)
 
     # ---- params ----------------------------------------------------------
 
     def forward(self, h: torch.Tensor) -> torch.Tensor:
         """Hidden ``(..., d_model)`` -> flat GMM params ``(..., M*(2D+1))``."""
-        return self.proj(h)
+        return self.proj(self.trunk(h))
 
     def _make_dist(self, raw: torch.Tensor) -> D.MixtureSameFamily:
         """Flat params -> a MixtureSameFamily distribution.

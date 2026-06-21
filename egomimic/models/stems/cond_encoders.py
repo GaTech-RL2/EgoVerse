@@ -179,6 +179,7 @@ class MultiEmbodimentCondEncoder(nn.Module):
         self.encoders = nn.ModuleDict(encoders)
         first = next(iter(self.encoders.values()))
         self.output_key = first.output_key
+        self.d_cond = first.d_cond  # ObsToken checks obs_encoder.d_cond == d_model
         for emb, enc in self.encoders.items():
             if enc.output_key != self.output_key:
                 raise ValueError(

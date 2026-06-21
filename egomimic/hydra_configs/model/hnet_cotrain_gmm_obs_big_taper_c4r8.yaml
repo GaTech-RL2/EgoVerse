@@ -1,15 +1,14 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 
-# Cotrain GMM/ResNet H-Net — mimics WindowedBC (BC-RNN-GMM) on the HNet algo
-# with FULL-EPISODE teacher forcing (not 10-step windows):
-#   * INPUT = obs (ResNet image + proprio) fed as the H-Net input tokens via
-#     ObsToken — NO past-action input, NO AdaLN (every stage cond_key=null).
-#   * CORE  = per-embodiment OUTER ChunkerStage (PerEmbodimentStage) -> shared
-#     INNER ChunkerStage -> shared ComputeStage trunk. Output is per-frame
-#     (dechunked back to full resolution).
-#   * HEAD  = GMM (5 modes), chunk_len=8 -> each obs-step predicts the next 8
-#     actions. Loss = GMMLoss (GMM-NLL over the 8-action chunks + ratio loss).
-#   * COTRAIN on circle + small-circle (per-emb outer chunker, shared trunk).
+# TAPERED-DIM variant of hnet_cotrain_gmm_obs_big (2026-06-15). Hourglass dims
+# widen toward the trunk: fine 256 = mid 256 -> trunk 512. The H-Net OuterStage
+# forces fine==mid (hnet.output_hidden_dim must equal d_model), so only the
+# trunk widens; Stage 1 projects 256->512 via proj_in/proj_out. Rationale: most
+# tokens live at the fine level (cheap to keep narrow), the few coarse tokens
+# get more capacity for abstract trunk reasoning. chunk_len=4;
+# target_compression_ratio=4.0 (per request, vs 2.0 base) -> ~4 tokens/chunk
+# per level. NOTE: action head reads the dechunked FINE level (d_model=256), so
+# the output path is intentionally the narrow level (watch for under-capacity).
 robomimic_model:
   _target_: egomimic.algo.hnet.PackedAlgoBase
   d_cond: 256
@@ -19,7 +18,6 @@ robomimic_model:
     pushshapes_sim: "actions"
     pushshapes_sim_small_circle: "actions"
 
-  # GMM-NLL loss over 8-action chunks (reads ctx.extras['gmm_head']).
   loss:
     _target_: egomimic.algo.hnet.GMMLoss
 
@@ -30,20 +28,18 @@ robomimic_model:
     d_model: 256
     action_head_type: gmm
 
-    # GMM head: 5-mode mixture, chunk_len=8 (1 obs -> 8 actions).
     gmm_head:
       _target_: egomimic.models.heads.gmm_head.GMMActionHead
       d_model: 256
       action_dim: 2
-      num_modes: 5
-      chunk_len: 8
+      num_modes: 32
+      chunk_len: 4
       min_std: 1.0e-4
       std_activation: softplus
       low_noise_eval: true
+      head_hidden_dim: 1024
+      head_n_layers: 3
 
-    # OuterStage requires a cond_encoder; here it's a no-op (empty specs ->
-    # produces no fused_cond) because conditioning enters as INPUT via ObsToken
-    # and every stage runs unconditioned (cond_key=null).
     cond_encoder:
       _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
       d_cond: 256
@@ -51,8 +47,6 @@ robomimic_model:
       obs_specs: {}
       img_encoders: {}
 
-    # OBS-AS-INPUT: ObsToken owns its own CondEncoderModule (ResNet image +
-    # proprio) at d_model and feeds the per-frame embedding as the input token.
     input_modules:
       - _target_: egomimic.models.stems.input_modules.ObsToken
         d_model: 256
@@ -64,15 +58,15 @@ robomimic_model:
           obs_specs:
             state_agent_obj:
               input_dim: 5
-              embed_dim: 64
-              widths: [128]
+              embed_dim: 96
+              widths: [192]
           img_encoders:
             front_img_1:
               _target_: egomimic.models.stems.visual_core.VisualCore
               in_channels: 3
               image_size: 96
-              num_kp: 32
-              feature_dimension: 64
+              num_kp: 48
+              feature_dimension: 96
               pretrained: false
               crop_aug: true
               crop_height: 86
@@ -80,10 +74,10 @@ robomimic_model:
               crop_eval_mode: random
               crop_sample_mode: v02
 
-    # 2-level chunking H-Net (all cond_key=null — no AdaLN):
-    #   [0] PerEmbodimentStage(ChunkerStage)  outer, PER-EMB
-    #     -> [1] ChunkerStage                 inner, SHARED
-    #         -> [2] ComputeStage             trunk, SHARED (terminal)
+    # Tapered 2-level chunking H-Net (cond_key=null — no AdaLN):
+    #   [0] PerEmbodimentStage(ChunkerStage)  fine 256 -> inner 384, PER-EMB
+    #     -> [1] ChunkerStage                 mid  384 -> inner 512, SHARED
+    #         -> [2] ComputeStage             trunk 512, SHARED (terminal)
     hnet:
       _target_: egomimic.models.hnet.hnet.HNet
       stages:
@@ -93,33 +87,33 @@ robomimic_model:
               _target_: egomimic.models.hnet.stages.ChunkerStage
               input_hidden_dim: 256
               output_hidden_dim: 256
-              target_compression_ratio: 2.0
+              target_compression_ratio: 8.0
               ratio_loss_weight: 0.03
               cond_key: null
             pushshapes_sim_small_circle:
               _target_: egomimic.models.hnet.stages.ChunkerStage
               input_hidden_dim: 256
               output_hidden_dim: 256
-              target_compression_ratio: 2.0
+              target_compression_ratio: 8.0
               ratio_loss_weight: 0.03
               cond_key: null
         - _target_: egomimic.models.hnet.stages.ChunkerStage
           input_hidden_dim: 256
-          output_hidden_dim: 256
-          target_compression_ratio: 2.0
+          output_hidden_dim: 512
+          target_compression_ratio: 8.0
           ratio_loss_weight: 0.03
           cond_key: null
         - _target_: egomimic.models.hnet.stages.ComputeStage
-          input_hidden_dim: 256
-          output_hidden_dim: 256
+          input_hidden_dim: 512
+          output_hidden_dim: 512
           cond_key: null
           d_cond: 0
           causal: true
           main_network:
-            arch_layout: "T4"
-            d_model: 256
-            d_intermediate: 768
-            num_heads: 8
+            arch_layout: "T6"
+            d_model: 512
+            d_intermediate: 1536
+            num_heads: 16
             cond: false
             rotary_emb_dim: 32
             dropout: 0.0
@@ -133,8 +127,6 @@ optimizer:
   lr: 1.0e-4
   weight_decay: 0.0
 
-# Warmup -> cosine (project default for fresh launches). max_steps =
-# epochs * limit_train_batches; tune at launch.
 scheduler:
   _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
   _partial_: true

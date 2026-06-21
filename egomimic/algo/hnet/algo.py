@@ -23,11 +23,11 @@ import torch.nn as nn
 from overrides import override
 
 from egomimic.algo.algo import Algo
-from egomimic.models.stems.input_modules import ActionInToken, InputModule
-from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.context import HNetContext
 from egomimic.models.hnet.hnet import HNet as HNetCore
 from egomimic.models.hnet.hnet import chunk_stats_from_aux
+from egomimic.models.stems.cond_encoders import CondEncoderModule
+from egomimic.models.stems.input_modules import ActionInToken, InputModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
 
@@ -115,7 +115,9 @@ class GMMLoss(nn.Module):
         T = actions.shape[1]
         device = actions.device
         t = torch.arange(T, device=device)
-        idx = torch.clamp(t[:, None] + torch.arange(C, device=device)[None, :], max=T - 1)
+        idx = torch.clamp(
+            t[:, None] + torch.arange(C, device=device)[None, :], max=T - 1
+        )
         return actions[:, idx]
 
     def forward(self, batch: dict, ctx) -> torch.Tensor:
@@ -129,7 +131,12 @@ class GMMLoss(nn.Module):
                 "GMMLoss requires ctx.extras['gmm_head'] (set action_head_type='gmm')."
             )
         C = int(head.chunk_len)
-        if getattr(ctx, "cu_seqlens", None) is not None:
+        if batch.get("chunk_targets") is not None:
+            # obs_stride path: targets were pre-built at the strided token
+            # frames (FULL-resolution actions[f:f+C] per kept token), so the
+            # (T_strided, C, D) targets already align with the strided preds.
+            target = batch["chunk_targets"]
+        elif getattr(ctx, "cu_seqlens", None) is not None:
             target = self._chunked_targets_packed(actions, ctx.cu_seqlens, C)
         else:
             target = self._chunked_targets_padded(actions, C)
@@ -559,6 +566,7 @@ class HNetOuterStage(nn.Module):
         action_head_type: str = "linear",
         input_modules: list | None = None,
         gmm_head: nn.Module | None = None,
+        gmm_heads: dict | None = None,  # per-embodiment heads {domain: head}
     ):
         super().__init__()
         self.inner_stage = hnet
@@ -588,10 +596,17 @@ class HNetOuterStage(nn.Module):
             # GMM head (pre-instantiated via hydra, like WindowedBC). forward(h)
             # emits flat GMM params (chunk_len * M * (2D+1)); GMMLoss reads them
             # back through the same head's .nll. Pairs with chunk_len>1 for
-            # 1-obs -> N-action chunking.
-            if gmm_head is None:
-                raise ValueError("action_head_type='gmm' requires a gmm_head module")
-            self.action_out = gmm_head
+            # 1-obs -> N-action chunking. gmm_heads (dict domain->head) makes the
+            # head PER-EMBODIMENT, dispatched on ctx.embodiment_id in decode()
+            # (so only the high-level trunk is shared between embodiments).
+            if gmm_heads is not None:
+                self.action_out = nn.ModuleDict(dict(gmm_heads))
+            elif gmm_head is not None:
+                self.action_out = gmm_head
+            else:
+                raise ValueError(
+                    "action_head_type='gmm' requires gmm_head or gmm_heads"
+                )
         else:
             raise ValueError(
                 f"action_head_type must be 'linear'|'mlp'|'gmm', got "
@@ -636,7 +651,13 @@ class HNetOuterStage(nn.Module):
         x = None
         for mod in self.input_modules:
             contrib = mod.forward_padded(
-                actions=actions, obs=obs, B=B, T=T, device=device, dtype=dtype,
+                actions=actions,
+                obs=obs,
+                B=B,
+                T=T,
+                device=device,
+                dtype=dtype,
+                embodiment_id=ctx.embodiment_id,
             )
             x = contrib if x is None else x + contrib
         if x is None:
@@ -668,6 +689,7 @@ class HNetOuterStage(nn.Module):
                 T_total=T_total,
                 device=device,
                 dtype=dtype,
+                embodiment_id=ctx.embodiment_id,
             )
             x_packed = contrib if x_packed is None else x_packed + contrib
         if x_packed is None:
@@ -690,9 +712,15 @@ class HNetOuterStage(nn.Module):
         actions); the head is stashed on ``ctx.extras`` so ``GMMLoss`` can read
         them back through the same head's ``.nll``.
         """
-        batch["pred_action"] = self.action_out(h)
+        head = (
+            self.action_out[ctx.embodiment_id]
+            if isinstance(self.action_out, nn.ModuleDict)
+            else self.action_out
+        )
+        self._cur_head = head  # remember for the per-frame eval decode path
+        batch["pred_action"] = head(h)
         if self.action_head_type == "gmm":
-            ctx.extras["gmm_head"] = self.action_out
+            ctx.extras["gmm_head"] = head
 
     def forward(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
         """Dispatch padded vs packed, run encode → inner_stage → decode.
@@ -723,8 +751,15 @@ class HNetOuterStage(nn.Module):
         """
         if self.action_head_type != "gmm":
             return raw
-        a = self.action_out.decode(raw)
-        if int(getattr(self.action_out, "chunk_len", 1)) > 1:
+        head = getattr(self, "_cur_head", None)
+        if head is None or isinstance(head, nn.ModuleDict):
+            head = (
+                next(iter(self.action_out.values()))
+                if isinstance(self.action_out, nn.ModuleDict)
+                else self.action_out
+            )
+        a = head.decode(raw)
+        if int(getattr(head, "chunk_len", 1)) > 1:
             a = a[..., 0, :]
         return a
 
@@ -802,12 +837,14 @@ class HNetOuterStage(nn.Module):
         cond_2d = {k: v.squeeze(1) for k, v in cond_dict_seq.items()}
 
         obs_step = {
-            k: v.unsqueeze(1) if (
+            k: v.unsqueeze(1)
+            if (
                 torch.is_tensor(v)
                 and v.dim() < 5
                 and v.shape[0] == state["batch_size"]
                 and (v.dim() == 1 or v.shape[1] != 1)
-            ) else v
+            )
+            else v
             for k, v in obs_norm.items()
         }
         cur = None
@@ -836,6 +873,63 @@ class HNetOuterStage(nn.Module):
         return a_t_norm
 
 
+def _stride_packed(obs, actions, cu_seqlens, sigma, C):
+    """Subsample a packed batch's obs-token stream to every ``sigma``-th frame
+    within each episode, and build the matching ``(T_strided, C, D)`` GMM
+    targets from FULL-resolution actions.
+
+    Args:
+        obs: dict of per-frame packed tensors, each ``(T_total, ...)`` (plus any
+            non-per-frame entries, which are passed through untouched).
+        actions: ``(T_total, D)`` packed FULL-resolution actions.
+        cu_seqlens: ``(B+1,)`` packed episode boundaries (frame units).
+        sigma: obs stride (>= 1). Token k of episode ``[s, e)`` reads frame
+            ``s + sigma*k`` for k = 0 .. ceil((e-s)/sigma)-1.
+        C: chunk_len. Target for the token at frame ``f`` is ``actions[f:f+C]``,
+            clamped to the episode's last frame (repeat-unmasked tail).
+
+    Returns ``(strided_obs, new_cu, new_max_seqlen, chunk_targets, sidx, ep_end)``
+    where ``sidx`` is the ``(T_strided,)`` original-frame index of each kept
+    token and ``ep_end`` is the ``(T_strided,)`` exclusive episode-end frame of
+    each token (used by the eval to clamp the tiled per-frame reconstruction).
+    """
+    dev = actions.device
+    cu = cu_seqlens.to(device=dev, dtype=torch.long)
+    T_total = int(actions.shape[0])
+    idx_list, ep_end_list, new_cu = [], [], [0]
+    for b in range(int(cu.numel()) - 1):
+        s, e = int(cu[b].item()), int(cu[b + 1].item())
+        fr = torch.arange(s, e, sigma, device=dev)
+        idx_list.append(fr)
+        ep_end_list.append(torch.full_like(fr, e))
+        new_cu.append(new_cu[-1] + int(fr.numel()))
+    sidx = (
+        torch.cat(idx_list)
+        if idx_list
+        else torch.empty(0, dtype=torch.long, device=dev)
+    )
+    ep_end = (
+        torch.cat(ep_end_list)
+        if ep_end_list
+        else torch.empty(0, dtype=torch.long, device=dev)
+    )
+    new_cu_t = torch.tensor(new_cu, device=dev, dtype=torch.long)
+    # Strided obs: gather per-frame tensors at sidx; pass through anything whose
+    # leading dim isn't T_total (e.g. scalar/meta tensors).
+    strided_obs = {}
+    for k, v in obs.items():
+        if torch.is_tensor(v) and v.dim() >= 1 and v.shape[0] == T_total:
+            strided_obs[k] = v[sidx]
+        else:
+            strided_obs[k] = v
+    # Chunk targets: for each kept frame f, actions[f:f+C] clamped to ep_end-1.
+    tgt_idx = sidx[:, None] + torch.arange(C, device=dev)[None, :]
+    tgt_idx = torch.minimum(tgt_idx, (ep_end - 1)[:, None])
+    chunk_targets = actions[tgt_idx]  # (T_strided, C, D)
+    new_max = int((new_cu_t[1:] - new_cu_t[:-1]).max().item()) if sidx.numel() else 0
+    return strided_obs, new_cu_t, new_max, chunk_targets, sidx, ep_end
+
+
 class PackedAlgoBase(Algo):
     """
     Packed-sequence policy Algo base. Single-domain action-sequence model with
@@ -858,6 +952,7 @@ class PackedAlgoBase(Algo):
         use_parameter_groups: bool = False,
         weight_decay: float = 0.0,
         train_obs_transforms: list | None = None,
+        obs_stride: int = 1,
         **kwargs,
     ):
         """
@@ -901,6 +996,34 @@ class PackedAlgoBase(Algo):
         self.lr_multipliers = list(lr_multipliers) if lr_multipliers else None
         self.weight_decay = float(weight_decay)
         self.train_obs_transforms = list(train_obs_transforms or [])
+        # obs_stride: subsample the obs-token stream fed to the chunker so
+        # routed tokens are ``obs_stride`` sim-frames apart (mirrors the
+        # working WindowedBC/HNetCore recipe). With stride > 1 the RoutingModule
+        # sees temporally-spaced tokens (consecutive cos_sim < 1) so boundaries
+        # can fire; stride == 1 (default) preserves the original per-frame path
+        # byte-for-byte. Each kept token still predicts the next chunk_len
+        # actions at FULL frame resolution, so with obs_stride == chunk_len the
+        # 8-action chunks tile the episode exactly (like obs_stride=8/chunk_len=8
+        # on the RNN side).
+        self.obs_stride = int(obs_stride)
+        if self.obs_stride < 1:
+            raise ValueError(f"obs_stride must be >= 1, got {self.obs_stride}")
+        # Only the obs_stride == chunk_len, GMM-head recipe is validated (the
+        # 8-action chunks then tile the episode exactly). Fail loud on the
+        # un-validated variants (sigma<C overlaps, sigma>C leaves gaps,
+        # non-GMM has no chunk fan-out) instead of corrupting metrics silently.
+        if self.obs_stride > 1:
+            _ah = getattr(outer_stage, "action_head_type", None)
+            _C = int(getattr(getattr(outer_stage, "action_out", None), "chunk_len", 1))
+            if _ah != "gmm":
+                raise ValueError(
+                    f"obs_stride>1 currently requires action_head_type='gmm' (got {_ah!r})."
+                )
+            if self.obs_stride != _C:
+                raise ValueError(
+                    f"obs_stride ({self.obs_stride}) must equal the GMM head chunk_len "
+                    f"({_C}) so the strided action chunks tile the episode exactly."
+                )
 
         # Apply opt-in training recipe BEFORE moving to device.
         # outer_stage.inner_stage is the HNetCore (stage tree) for the
@@ -1044,12 +1167,31 @@ class PackedAlgoBase(Algo):
             is_packed = _batch.get("_packed", False)
 
             new_batch = {"actions": actions, "__obs": obs}
+            cu_for_ctx = _batch["cu_seqlens"] if is_packed else None
+            max_for_ctx = int(_batch["max_seq_len"]) if is_packed else None
+            # obs_stride: decimate the obs-token stream (and align the GMM
+            # targets) so the chunker's RoutingModule sees tokens ``obs_stride``
+            # frames apart. See PackedAlgoBase.__init__ note. stride==1 leaves
+            # the original per-frame path untouched.
+            if is_packed and self.obs_stride > 1:
+                # For action_head_type='gmm', the head IS outer_stage.action_out
+                # (no separate .gmm_head attr); chunk_len lives there.
+                head = getattr(outer_stage, "action_out", None)
+                C = int(getattr(head, "chunk_len", 1))
+                sobs, scu, smax, chunk_targets, sidx, _ = _stride_packed(
+                    obs, actions, _batch["cu_seqlens"], self.obs_stride, C
+                )
+                new_batch["actions"] = actions[sidx]  # strided, for shape only
+                new_batch["__obs"] = sobs
+                new_batch["chunk_targets"] = chunk_targets  # FULL-res targets
+                cu_for_ctx = scu
+                max_for_ctx = smax
             ctx = HNetContext(
                 cond_dict={},
                 aux=[],
                 inference_params=None,
-                cu_seqlens=_batch["cu_seqlens"] if is_packed else None,
-                max_seqlen=int(_batch["max_seq_len"]) if is_packed else None,
+                cu_seqlens=cu_for_ctx,
+                max_seqlen=max_for_ctx,
                 embodiment_id=self.domain_by_id.get(emb_id),
             )
             outer_stage(new_batch, ctx)
@@ -1133,9 +1275,50 @@ class PackedAlgoBase(Algo):
         cu = _batch["cu_seqlens"]
         max_seqlen = int(_batch["max_seq_len"])
         seq_lens = _batch["seq_lens"].clone()
-        pred_packed, _ = policy.forward_packed(
-            actions, obs, cu, max_seqlen, embodiment_id=self.domain_by_id.get(emb_id)
-        )
+        if self.obs_stride > 1:
+            # obs_stride eval: run the H-Net on the strided token stream, decode
+            # the FULL chunk per kept token, and tile each chunk back over
+            # [f:f+C] to reconstruct a per-frame (T_total, action_dim) prediction
+            # aligned with the original GT. paired-MSE stays like-for-like and
+            # the downstream metric/viz code is untouched. (Mirrors how the sim
+            # inference_step rolls out: re-observe every chunk_len frames.)
+            head = getattr(policy, "action_out", None)
+            C = int(getattr(head, "chunk_len", 1))
+            sobs, scu, smax, _, sidx, ep_end = _stride_packed(
+                obs, actions, cu, self.obs_stride, C
+            )
+            new_batch = {"actions": actions[sidx], "__obs": sobs}
+            ctx = HNetContext(
+                cond_dict={},
+                aux=[],
+                inference_params=None,
+                cu_seqlens=scu,
+                max_seqlen=smax,
+                embodiment_id=self.domain_by_id.get(emb_id),
+            )
+            policy(new_batch, ctx)
+            raw = new_batch["pred_action"]  # (T_strided, C*P)
+            if hasattr(head, "decode"):
+                dec = head.decode(raw)
+                chunk = dec if dec.dim() == 3 else dec.unsqueeze(-2)  # (Ts, C, D)
+            else:
+                chunk = raw.unsqueeze(-2)  # point head, C==1
+            dev = actions.device
+            T_total = int(actions.shape[0])
+            pred_packed = actions.new_zeros((T_total, policy.action_dim))
+            fill = sidx[:, None] + torch.arange(C, device=dev)[None, :]  # (Ts, C)
+            valid = fill < ep_end[:, None]
+            pred_packed[fill.clamp(max=T_total - 1)[valid]] = chunk[valid].to(
+                pred_packed.dtype
+            )
+        else:
+            pred_packed, _ = policy.forward_packed(
+                actions,
+                obs,
+                cu,
+                max_seqlen,
+                embodiment_id=self.domain_by_id.get(emb_id),
+            )
 
         B = int(seq_lens.shape[0])
         T_max = int(seq_lens.max().item())
@@ -1209,10 +1392,19 @@ class PackedAlgoBase(Algo):
             device = next(self.outer_stage.parameters()).device
             default_T = int(getattr(policy, "action_horizon", 1024))
             T_max_use = int(T_max) if T_max is not None else default_T
-            import torch
 
+            # Run the AR rollout in the MODEL's own dtype (fp32 when loaded
+            # .float(), like training + teacher-forced overlay + txar's sim),
+            # NOT a hardcoded bf16. The old bf16 hardcode made the closed-loop
+            # sim a strictly lower-precision model than training — bf16 error in
+            # the routing cos_sim / DeChunk EMA carry compounded over the rollout
+            # and uniquely degraded the H-Net (txar's init_step_state defaults to
+            # fp32, hence "txar works, H-Net doesn't"). Match training precision.
             self._sim_state = policy.init_step_state(
-                batch_size=1, T_max=T_max_use, device=device, dtype=torch.bfloat16
+                batch_size=1,
+                T_max=T_max_use,
+                device=device,
+                dtype=next(policy.parameters()).dtype,
             )
             # Open-loop action queue (mirrors WindowedBCPolicy.step): on an
             # obs-step the model emits ``chunk_len`` actions that REPLACE the
@@ -1238,7 +1430,9 @@ class PackedAlgoBase(Algo):
             # token, decode a fresh chunk, refill the queue.
             obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
             raw = policy.step(
-                self._sim_state, obs_norm, t,
+                self._sim_state,
+                obs_norm,
+                t,
                 embodiment_id=self.domain_by_id.get(emb_id),
             )  # (B,1,*)
             if is_gmm:
@@ -1246,7 +1440,16 @@ class PackedAlgoBase(Algo):
                 C = int(getattr(policy.action_out, "chunk_len", 1))
                 if C > 1:
                     # (B,1,C,D) -> C tensors (B,1,D), one per chunk position.
-                    self._sim_action_queue = [chunk[..., j, :] for j in range(C)]
+                    # RE-PLAN CADENCE = the ARCHITECTURE's obs_stride. A model
+                    # trained at obs_stride=sigma re-observes every sigma frames
+                    # at inference: keep ``sigma`` chunk actions (capped at C),
+                    # then the queue empties and the model re-observes. This ties
+                    # the train and sim cadence to ONE config knob so they can't
+                    # desync (obs_stride=1 => open-loop-1, re-observe every frame;
+                    # obs_stride=C => open-loop-C). The sim harness stays fully
+                    # arch-agnostic — it just calls inference_step every frame.
+                    n_keep = max(1, min(int(getattr(self, "obs_stride", 1)), C))
+                    self._sim_action_queue = [chunk[..., j, :] for j in range(n_keep)]
                 else:
                     self._sim_action_queue = [chunk]
             else:
@@ -1317,4 +1520,3 @@ class PackedAlgoBase(Algo):
 # that referenced the ``HNet`` name (now reachable at
 # ``egomimic.algo.hnet.HNet``). New code should use ``PackedAlgoBase``.
 HNet = PackedAlgoBase
-

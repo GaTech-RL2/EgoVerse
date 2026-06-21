@@ -84,6 +84,7 @@ def draw_arena(
     pusher_pos: tuple[float, float],
     pusher_angle: float,
     obstacle_segments: Iterable[pymunk.Segment],
+    pusher_radius: float = PUSHER_RADIUS,
 ) -> None:
     """Composite the full scene onto `surface` (in-place)."""
     surface.fill(BG_COLOR)
@@ -120,7 +121,7 @@ def draw_arena(
         )
 
     # Pusher.
-    _draw_pusher(surface, pusher_shape, pusher_pos, pusher_angle)
+    _draw_pusher(surface, pusher_shape, pusher_pos, pusher_angle, pusher_radius)
 
 
 def _draw_pusher(
@@ -128,12 +129,11 @@ def _draw_pusher(
     pusher_shape: str,
     pos: tuple[float, float],
     angle: float,
+    radius: float = PUSHER_RADIUS,
 ) -> None:
     px, py = pos
-    if pusher_shape == "circle":
-        pygame.draw.circle(
-            surface, PUSHER_COLOR, (int(px), int(py)), int(PUSHER_RADIUS)
-        )
+    if pusher_shape in ("circle", "circle_small"):
+        pygame.draw.circle(surface, PUSHER_COLOR, (int(px), int(py)), int(radius))
         return
 
     # stick: rectangle body + two end-cap circles, drawn at current angle.
