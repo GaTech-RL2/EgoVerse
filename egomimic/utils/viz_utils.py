@@ -240,12 +240,16 @@ def _viz_axes(image, actions, intrinsics, axis_len_m=0.04, **kwargs):
             return frame
 
         cv2.circle(frame, (x0, y0), 4, anchor_color, -1)
+        # Painter's algorithm: draw the axes far->near (by each tip's camera-z
+        # depth) so the axis closest to the camera ends up on top, instead of a
+        # fixed x->y->z order that can hide a near axis behind a far one.
         axis_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-        for i, color in enumerate(axis_colors, start=1):
+        draw_order = sorted((1, 2, 3), key=lambda i: -float(axis_points_cam[i][2]))
+        for i in draw_order:
             x1, y1 = pts[i]
             if 0 <= x1 < w and 0 <= y1 < h:
-                cv2.line(frame, (x0, y0), (x1, y1), color, 2)
-                cv2.circle(frame, (x1, y1), 2, color, -1)
+                cv2.line(frame, (x0, y0), (x1, y1), axis_colors[i - 1], 2)
+                cv2.circle(frame, (x1, y1), 2, axis_colors[i - 1], -1)
 
         cv2.putText(
             frame,

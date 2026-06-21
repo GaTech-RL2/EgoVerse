@@ -8,7 +8,7 @@ This repository contains the data processing, training and evaluation code for E
 ### Mandatory Camera Intrinsics + Human Embodiment Collapse [06/16/2026]
 - Camera **intrinsics are now MANDATORY** in every episode's `zarr.json`, stored as a `{camera_key: 3×4 K}` dict (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is missing or not a non-empty dict. `extrinsics` (robots) is now strictly `None` or a non-empty dict.
 - **Embodiments collapsed**: all human demonstration data is a single `human_*` embodiment (`human_right_arm`/`human_left_arm`/`human_bimanual`, ids 1–3); the robot Eva is `eva_*` (ids 4–6). Vendor labels (`aria_*`, `mecka_*`, `scale_*`, `lightwheel_*`) are **removed** at the embodiment level — the data source now lives only in the SQL `lab` field. Conversion scripts write `human_*`.
-- **Aria processing**: fixed the right-hand EE-pose and wrist-pose orientations (each had a distinct right-hand mirror vs the left).
+- **Aria processing**: fixed the right-hand EE-pose and wrist-pose orientations (each had a distinct right-hand mirror vs the left) — so that, after reprocessing, human (aria) hand orientations follow the **same canonical right-handed convention as the robot (Eva)**, whose tool frame is mapped into that convention via `R_t_e` in `eva_to_zarr.py`. Human and robot EE orientations are now defined consistently for joint training / visualization.
 - **Action required**: re-process and re-upload data so `zarr.json` includes intrinsics — see [CONTRIBUTING_DATA.md](./CONTRIBUTING_DATA.md). Mecka and Scale will be asked to add intrinsics to their exports.
 
 ### Mecka Data Reprocessing [04/01/2026]
@@ -104,6 +104,21 @@ Visit https://partners.mecka.ai/egoverse to view our entire dataset in the web!
 To visualize data programatically see [``zarr_data_viz.ipynb``](./egomimic/scripts/tutorials/zarr_data_viz.ipynb)
 
 To programatically view the SQL table of all episodes + metadata see [``sql_tutorial.ipynb``](./egomimic/scripts/tutorials//sql_tutorial.ipynb)
+
+#### Interactive Dataset Browser
+
+`latent_inspector.py` also ships a local web app for browsing a **folder of per-episode zarrs** — scrub any episode, overlay the recorded actions (cartesian trajectory / orientation axes / MANO keypoints), and toggle language annotations. Frames are rendered server-side using each episode's `zarr.json` camera intrinsics, so it works for any embodiment (the overlay is drawn by that episode's embodiment class, e.g. `Human`/`Eva`; human poses are projected in the head frame).
+
+```bash
+python egomimic/scripts/data_visualization/latent_inspector.py \
+    --dataset-path /path/to/folder_of_zarrs \
+    --host 127.0.0.1 --port 8050
+# then open http://localhost:8050
+```
+
+`--dataset-path` is a directory of `<episode>.zarr` stores (each with `images.front_1`, `left/right.obs_ee_pose`, `obs_head_pose`, optional `*.obs_keypoints` and `annotations`, and `intrinsics` in its `zarr.json`). In the browser: pick an episode (searchable by filename or annotation text), scrub the frame slider or press ▶ to play, choose an overlay (None / Cartesian / Orientation / Keypoints), and toggle annotations on/off.
+
+To browse data on a remote machine, run the app there and forward the port — `ssh -L 8050:<node>:8050 <host>` — then open `http://localhost:8050` (rendering locally is far more responsive than over the tunnel).
 
 ### Data Downloading
 While our training pipeline automatically downloads data, you can manually download data via [``sync_s3.py``](./egomimic/scripts/data_download/sync_s3.py)

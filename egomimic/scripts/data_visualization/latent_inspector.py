@@ -40,7 +40,7 @@ _HERE = _os.path.dirname(_os.path.abspath(__file__))
 if _HERE not in _sys.path:
     _sys.path.insert(0, _HERE)
 
-from inspector_lib.app import build_app  # noqa: E402
+from inspector_lib.app import build_app, build_dataset_app  # noqa: E402
 from inspector_lib.io import (  # noqa: E402
     discover_runs,
     list_layer_csvs,
@@ -67,10 +67,18 @@ def main():
         help="Single per-run CSV directory (e.g. logs/.../latents/epoch_0). "
         "Use this if you only want one run available.",
     )
+    src.add_argument(
+        "--dataset-path",
+        default=None,
+        help="Launch the DATASET BROWSER instead of the latent scatter: a "
+        "folder of per-episode zarrs. Browse/search any episode, overlay "
+        "actions (cartesian/orientation/keypoint), toggle annotations.",
+    )
     p.add_argument(
         "--zarr-root",
-        required=True,
-        help="Root dir containing per-episode zarrs (e.g. /storage/.../agao81/pick_place).",
+        default=None,
+        help="Root dir containing per-episode zarrs (required for the latent "
+        "scatter/browser; not needed with --dataset-path).",
     )
     p.add_argument(
         "--image-key",
@@ -95,6 +103,21 @@ def main():
         "--host", default="0.0.0.0", help="Set to 127.0.0.1 to bind localhost only."
     )
     args = p.parse_args()
+
+    # ----- Dataset Browser mode (no latents/zarr-root needed) -------------
+    if args.dataset_path:
+        app = build_dataset_app(
+            dataset_path=os.path.abspath(args.dataset_path.rstrip("/")),
+            image_key=args.image_key,
+            lang_key=args.lang_key,
+        )
+        logger.info("Starting Dataset Browser on http://%s:%d", args.host, args.port)
+        app.run(host=args.host, port=args.port, debug=False, threaded=True)
+        return
+
+    if not args.zarr_root:
+        raise SystemExit("--zarr-root is required for the latent scatter/browser "
+                         "(omit it only with --dataset-path).")
 
     if args.root:
         runs = discover_runs(args.root)

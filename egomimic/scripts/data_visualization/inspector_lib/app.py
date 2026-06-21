@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 
 from .caches import LayerStore
+from .dataset_view import DatasetView, list_episodes, render_frame_jpeg
 from .thumbnails import (
     ThumbnailService,
 )
@@ -931,4 +932,134 @@ def build_app(
                     params["token"] = str(cur["token"])
         return ("?" + urlencode(params)) if params else ""
 
+    return app
+
+
+def _header_bar(title: str, sub: str, path_label: str, path_value: str):
+    """The shared slate header bar (teal dot + title + sub, path pill on the
+    right). Mirrors build_app's header so both apps look identical."""
+    from dash import html
+
+    return html.Div(
+        style={
+            "background": "linear-gradient(180deg, #0f172a 0%, #111c33 100%)",
+            "color": "white",
+            "padding": "14px 28px",
+            "display": "flex",
+            "alignItems": "center",
+            "justifyContent": "space-between",
+            "gap": "24px",
+            "borderBottom": f"2px solid {ACCENT}",
+            "width": "100%",
+            "boxSizing": "border-box",
+            "flexShrink": "0",
+        },
+        children=[
+            html.Div(
+                style={"display": "flex", "alignItems": "center", "gap": "12px",
+                       "minWidth": "0"},
+                children=[
+                    html.Span(style={"width": "10px", "height": "10px",
+                                     "borderRadius": "999px", "background": ACCENT,
+                                     "boxShadow": "0 0 0 4px rgba(13, 148, 136, 0.15)",
+                                     "flexShrink": "0"}),
+                    html.Div(style={"display": "flex", "flexDirection": "column"},
+                             children=[
+                        html.Div(title, style={"fontSize": "15px", "fontWeight": 600,
+                                               "letterSpacing": "-0.01em",
+                                               "lineHeight": "1.2"}),
+                        html.Div(sub, style={"fontSize": "11px", "color": "#94a3b8",
+                                             "marginTop": "2px",
+                                             "letterSpacing": "0.02em"}),
+                    ]),
+                ],
+            ),
+            html.Div(
+                style={"display": "flex", "alignItems": "center", "gap": "8px",
+                       "minWidth": "0", "maxWidth": "60%"},
+                children=[
+                    html.Span(path_label, style={"fontSize": "10px", "fontWeight": 600,
+                              "letterSpacing": "0.06em", "textTransform": "uppercase",
+                              "color": "#94a3b8", "flexShrink": "0"}),
+                    html.Span(path_value, title=path_value,
+                              style={"fontSize": "12px", "color": "#e2e8f0",
+                                     "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                                     "background": "rgba(255, 255, 255, 0.06)",
+                                     "padding": "4px 10px", "borderRadius": "6px",
+                                     "border": "1px solid rgba(255, 255, 255, 0.08)",
+                                     "overflow": "hidden", "textOverflow": "ellipsis",
+                                     "whiteSpace": "nowrap", "direction": "rtl",
+                                     "textAlign": "left", "minWidth": "0"}),
+                ],
+            ),
+        ],
+    )
+
+
+def build_dataset_app(
+    dataset_path: str,
+    image_key: str = "images.front_1",
+    lang_key: str | None = None,
+):
+    """Standalone **Dataset Browser**: scrub/search any episode in
+    `dataset_path`, overlay recorded actions (cartesian/orientation/keypoint),
+    and toggle language annotations. Reuses the inspector theme + zarr IO +
+    the `DatasetView`. Returns a configured `dash.Dash`."""
+    import dash
+    from dash import html
+
+    eps = list_episodes(dataset_path)
+    if not eps:
+        logger.warning("No episodes found under %s", dataset_path)
+
+    app = dash.Dash(__name__, title="Dataset Browser")
+    view = DatasetView(
+        app=app, dataset_root=dataset_path, image_key=image_key,
+        lang_key=lang_key,
+    )
+
+    # Pre-pay the one-time heavy egomimic projection import (and warm the first
+    # episode's frame 0) on a startup daemon thread, so the user's very first
+    # frame isn't a ~15s cold import.
+    if eps:
+        import threading as _threading
+
+        def _startup_warm():
+            try:
+                render_frame_jpeg(
+                    dataset_path, eps[0], 0, overlay="cartesian", annotate=False,
+                    image_key=image_key)
+            except Exception:
+                logger.debug("startup warm failed", exc_info=True)
+
+        _threading.Thread(target=_startup_warm, daemon=True).start()
+
+    app.layout = html.Div(
+        style={
+            "display": "flex", "flexDirection": "column", "height": "100vh",
+            "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+            "background": CANVAS, "color": TEXT,
+        },
+        children=[
+            _header_bar("Dataset Browser",
+                        f"{len(eps)} episode{'s' if len(eps) != 1 else ''} discovered",
+                        "folder_path", dataset_path),
+            html.Div(
+                style={"display": "flex", "flexDirection": "row", "flex": "1",
+                       "minHeight": "0"},
+                children=[
+                    html.Div(
+                        style={"width": "300px", "padding": "16px",
+                               "background": "#f1f5f9",
+                               "borderRight": f"1px solid {BORDER}",
+                               "overflowY": "auto"},
+                        children=[view.sidebar_card(visible=True)],
+                    ),
+                    view.panel(visible=True),
+                ],
+            ),
+        ],
+    )
+
+    view.register()
     return app
