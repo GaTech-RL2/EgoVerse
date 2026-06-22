@@ -762,7 +762,7 @@ class AriaVRSExtractor:
                 world_wrist_T = sp.SE3.from_matrix(
                     T_rot_orientation(
                         world_wrist_T.to_matrix(),
-                        T_ROT_CAM @ RIGHT_WRIST_ORIENTATION_FIX,
+                        T_ROT_CAM,
                     )
                 )
                 wrist_quat_and_translation = quat_translation_swap(
@@ -955,7 +955,7 @@ class AriaVRSExtractor:
                 right_T_t = world_device_T_t @ right_T_t
                 right_T_t = sp.SE3.from_matrix(
                     T_rot_orientation(
-                        right_T_t.to_matrix(), T_ROT_CAM @ RIGHT_HAND_ORIENTATION_FIX
+                        right_T_t.to_matrix(), T_ROT_CAM
                     )
                 )
                 right_quat_and_translation = quat_translation_swap(
