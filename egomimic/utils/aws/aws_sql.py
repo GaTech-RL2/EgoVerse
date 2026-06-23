@@ -37,12 +37,9 @@ class TableRow:
     task_description: str = ""
     scene: str = ""
     objects: str = ""
-    processed_path: str = ""  # Updateable
     zarr_processed_path: str = ""  # Updateable
     zarr_mp4_path: str = ""  # Updateable
-    processing_error: str = ""  # Updateable
     zarr_processing_error: str = ""  # Updateable
-    mp4_path: str = ""  # Updateable
     is_deleted: bool = False
     is_eval: bool = False
     eval_score: float = -1
