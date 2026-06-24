@@ -1,12 +1,12 @@
 
-source /coc/flash7/zhenyang/EgoVerse/emimic/bin/activate
+source /home/aloha/RB_Y1_workspace/EgoVerse/emimic/bin/activate
 
 # Define the base name for this dataset (unified naming)
-# DATASET_NAME="RBY1_0418_rotatebox"
-# RAW_DATA_PATH="../datasets/0418_ye_rotatebox_raw/robot_data_0418_rotate_no_mobile.hdf5"
-DATASET_NAME="RBY1_0423_cart_mobile_v6_delta"
-RAW_DATA_PATH="../datasets/0423_zhenyang_pushing_cart/0423_v6/robot_data_0423_cart_mobile_fix_aprtag_v6.hdf5" # 0423_converted/robot_data_0423_cart_mobile_v3.hdf5"
-BLACK_IMAGE=false
+# DATASET_NAME="RBY1_robot_data_mink_elbow"
+# RAW_DATA_PATH="../SEW-Geometric-Teleop/projects/collected_data/robot_data_mink_elbow.hdf5"
+DATASET_NAME="RBY1_robot_data_mink_elbow"
+RAW_DATA_PATH="../SEW-Geometric-Teleop/projects/collected_data/robot_data_mink_elbow.hdf5"
+BLACK_IMAGE=true
 DELTA_ACTIONS=false
 FPS=10
 
@@ -15,7 +15,7 @@ python egomimic/rldb/scripts/robomimic_hd5.py \
     --name "${DATASET_NAME}_raw" \
     --raw-path ${RAW_DATA_PATH} \
     --dataset-repo-id "${DATASET_NAME}_raw" \
-    --config-path ./egomimic/rldb/configs/RBY1_SEW_lowdim_HDF5_config.json \
+    --config-path ./egomimic/rldb/configs/RBY1_SEW_lowdim_no_apriltag_HDF5_config.json \
     --output-dir ./datasets/${DATASET_NAME}_lerobot_raw \
     --fps ${FPS} \
     --ignore_episode_keys
