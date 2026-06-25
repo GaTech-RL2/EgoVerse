@@ -18,7 +18,7 @@ from torch.utils.data import default_collate
 from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.pl_utils.pl_data_utils import annotation_collate
-from egomimic.rldb.embodiment.embodiment import get_embodiment
+from egomimic.rldb.embodiment.embodiment import EMBODIMENT, get_embodiment
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 from egomimic.utils.egomimicUtils import (
@@ -154,10 +154,13 @@ DEFAULT_RESAMPLE_LENGTH = 45
 RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
 
+# Sourced from the EMBODIMENT enum so the rollout doesn't drift when
+# the enum is renumbered (e.g. the intrinsic-zarr collapse moved EVA
+# from 6/7/8 to 4/5/6). Reads the int value of each enum member.
 EMBODIMENT_MAP = {
-    "both": 8,
-    "left": 7,
-    "right": 6,
+    "both": EMBODIMENT.EVA_BIMANUAL.value,
+    "left": EMBODIMENT.EVA_LEFT_ARM.value,
+    "right": EMBODIMENT.EVA_RIGHT_ARM.value,
 }
 
 TEMP_DIR = "/home/robot/temp_dir"
