@@ -805,7 +805,8 @@ class PolicyRollout(Rollout):
         return out.astype(np.float32, copy=False)
 
     def rollout_step(self, i, obs):
-        if i % self.query_frequency == 0:
+        if i % self.query_frequency == 0 or getattr(self, "_force_replan", False):
+            self._force_replan = False
             start_infer_t = time.time()
             transform_list_batch = self.process_obs_for_transform_list(obs)
             for transform in self.transform_list:
@@ -1151,6 +1152,7 @@ def main(
         print("  a <path>     : load new annotation file")
         print(f"  v            : toggle prediction viz @ 640x480 (currently {viz_state})")
         print(f"  m            : toggle prediction viz @ model res 224x224 (currently {viz_model_state})")
+        print("  p            : replan now (force re-prediction on next step)")
         print("  r            : restart rollout")
         print("  q            : quit")
 
@@ -1192,8 +1194,18 @@ def main(
                     continue
                 policy.viz_model_enabled = not policy.viz_model_enabled
                 print(f"[rollout] viz_model now {'ON' if policy.viz_model_enabled else 'OFF'}")
+            elif cmd == "p":
+                if rollout_type != "policy" or not isinstance(policy, PolicyRollout):
+                    print("Replan is only supported for policy rollouts.")
+                    continue
+                # Force the next rollout_step to call forward_eval regardless
+                # of the i % query_frequency gate. For PI hierarchical models
+                # this re-decodes the subtask; for plain PI/HPT it just
+                # re-samples actions.
+                policy._force_replan = True
+                print("[rollout] replan queued for next step")
             else:
-                print(f"Unknown command: '{cmd}'. Use c / a <path> / v / m / r / q.")
+                print(f"Unknown command: '{cmd}'. Use c / a <path> / v / m / p / r / q.")
 
     try:
         with _KeyPoll() as kp:
