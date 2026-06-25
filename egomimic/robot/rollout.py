@@ -361,8 +361,12 @@ class PolicyRollout(Rollout):
         that follows the same naming conventions. Algos that have none of
         these attributes are left untouched.
 
-          - ``annotation_key="annotations"`` matches the key inserted into
-            each per-step sample in ``process_obs_for_transform_list``.
+          - Respects the model's existing ``annotation_key`` (don't
+            override). For subtask models the trained key is
+            ``annotations_high`` (the high-level goal the user types);
+            ``annotations`` is reserved for the low-level subtask the
+            model *predicts*. Overriding to ``"annotations"`` would
+            clobber the wrong slot.
           - ``sampling_mode="first"`` / ``annotation_sampling_mode="first"``
             make inference deterministic.
           - ``default_prompt=self.annotation`` is the fallback path for
@@ -371,8 +375,6 @@ class PolicyRollout(Rollout):
         model = getattr(self.policy, "model", None)
         if model is None:
             return
-        if hasattr(model, "annotation_key"):
-            model.annotation_key = "annotations"
         if hasattr(model, "sampling_mode"):
             model.sampling_mode = "first"
         if hasattr(model, "annotation_sampling_mode"):
@@ -1000,8 +1002,14 @@ class PolicyRollout(Rollout):
             data["metadata.robot_name"] = "eva_left_arm"
         
         if self.annotation is not None:
-            data["annotations"] = [self.annotation]
-
+            # Respect the model's configured annotation_key. For the legacy
+            # PI/HPT models this is "annotations"; for subtask-prediction PI
+            # models the high-level goal lives under "annotations_high" while
+            # "annotations" is reserved for the predicted low-level subtask.
+            model = getattr(self.policy, "model", None)
+            ann_key = getattr(model, "annotation_key", None) or "annotations"
+            data[ann_key] = [self.annotation]
+        
         return data
 
     def load_annotation(self, annotation_path):
