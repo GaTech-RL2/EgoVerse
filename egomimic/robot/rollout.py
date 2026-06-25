@@ -174,19 +174,6 @@ def _build_robot_interface(arms_list, offline_debug=False, offline_episode_path=
     return ARXInterface(arms=arms_list)
 
 
-def _get_model_xml_path():
-    candidates = [
-        "/home/robot/robot_ws/egomimic/resources/model_x5.xml",
-        os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "resources", "model_x5.xml")
-        ),
-    ]
-    for candidate in candidates:
-        if os.path.exists(candidate):
-            return candidate
-    return candidates[-1]
-
-
 class _KeyPoll:
     def __enter__(self):
         self.fd = sys.stdin.fileno()
