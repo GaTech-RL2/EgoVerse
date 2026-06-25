@@ -839,9 +839,17 @@ class PolicyRollout(Rollout):
                 print(f"[rollout][proprio-debug] full prompt: {prompts[0] if prompts else None!r}")
                 self._proprio_debug_printed = True
 
-            preds = self.policy.model.forward_eval(processed_batch)[
-                f"{embodiment_name}_actions_cartesian"
-            ]
+            fwd_out = self.policy.model.forward_eval(processed_batch)
+            preds = fwd_out[f"{embodiment_name}_actions_cartesian"]
+            # Hierarchical-subtask PI models (subtask_prediction=true in the
+            # algo config) decode a subtask autoregressively from the
+            # high-level prompt and condition actions on it. The decoded
+            # text shows up in fwd_out under `<emb>_subtask_pred`. For
+            # plain PI / HPT models the key is absent — handle both.
+            subtask_text = fwd_out.get(f"{embodiment_name}_subtask_pred")
+            if subtask_text is not None:
+                first = subtask_text[0] if hasattr(subtask_text, "__getitem__") else subtask_text
+                print(f"[rollout][subtask] step={i} predicted={first!r}")
             # Wrist-frame models: revert preds to cam frame BEFORE viz and
             # BEFORE the cam→base post-processing. For cam-frame models
             # (no transform_lists in config), revert is None and these
