@@ -1,0 +1,26 @@
+# @package _global_
+# In-domain chunk-4 table cell: dualstream_cotrain with the DUAL-*H-NET* core
+# (v3). Two genuinely-separate dynamic-chunking H-Nets replace the two
+# transformer trunks of the 2trunk variant: a shared embodiment-AGNOSTIC H-Net
+# and a per-embodiment SPECIFIC H-Net, both fed the same observations (via the
+# dual encoders) and feeding the shared partitioned GMM head. Fully independent
+# (no cross-stream attention); each inner H-Net does its own dynamic chunking.
+defaults:
+  - override /model: hnet_dualstream_dualhnet
+  - override /data: indomain_c4_cotrain
+  - override /evaluator: gmm_eval_firstend
+  - override /logger: csv_wandb
+
+name: indomain_c4
+description: dualstream_cotrain_dualhnet
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

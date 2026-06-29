@@ -423,6 +423,55 @@ class MultiHeadAttention(nn.Module):
         out = out.transpose(1, 2).reshape(B, 1, D)
         return self.out_proj(out)
 
+    def forward_masked(
+        self,
+        x,
+        attn_mask_2d,
+        cu_seqlens=None,
+        rope_positions: Optional[torch.Tensor] = None,
+    ):
+        """Eager-SDPA single-sequence attention with an ARBITRARY boolean
+        (L, L) mask (``True`` = query i ALLOWED to attend key j — SDPA bool
+        semantics). Purely additive: reuses ``self.qkv`` / ``self.out_proj`` /
+        ``self.rotary_emb`` exactly like ``_forward_packed`` but drives SDPA
+        with a caller-supplied mask instead of the block-diagonal/causal one.
+
+        Used by the register masked-transformer interface, whose down/inner/up
+        pattern is realized as a single (L,L) mask that flash-attn cannot take.
+        ``cu_seqlens`` is accepted for signature parity / future batched use but
+        the mask already encodes subseq isolation, so it is unused here.
+
+        x: (L, D). attn_mask_2d: (L, L) bool. rope_positions: (L,) long or None
+        (None => no RoPE even if the module has a rotary cache; the register
+        trunk relies on member-phase features + the structural mask for order,
+        keeping TF/AR phase reproducible). Returns (L, D).
+        """
+        L, D = x.shape
+        qkv = self.qkv(x).reshape(L, 3, self.num_heads, self.head_dim)
+        q, k, v = qkv.unbind(dim=1)  # each (L, H, Dh)
+        if self.rotary_emb is not None and rope_positions is not None:
+            cos, sin = self.rotary_emb.get(rope_positions, q.dtype)  # (L, dim/2)
+            cos = cos[:, None, :]
+            sin = sin[:, None, :]
+            q = _apply_rotary(q, cos, sin)
+            k = _apply_rotary(k, cos, sin)
+        # (L, H, Dh) -> (1, H, L, Dh)
+        q_ = q.transpose(0, 1).unsqueeze(0)
+        k_ = k.transpose(0, 1).unsqueeze(0)
+        v_ = v.transpose(0, 1).unsqueeze(0)
+        # Bool mask broadcast over the (1, H) leading dims: (1, 1, L, L).
+        attn_mask = attn_mask_2d.to(dtype=torch.bool)[None, None]
+        out = F.scaled_dot_product_attention(
+            q_,
+            k_,
+            v_,
+            attn_mask=attn_mask,
+            dropout_p=self.dropout if self.training else 0.0,
+            is_causal=False,
+        )
+        out = out.squeeze(0).transpose(0, 1).reshape(L, D)
+        return self.out_proj(out)
+
 
 class CrossMultiHeadAttention(nn.Module):
     """Cross-attention: queries from x, keys/values from cond_tokens.

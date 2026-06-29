@@ -476,7 +476,9 @@ class HNetPolicy(nn.Module):
         }
 
     @torch.no_grad()
-    def step(self, state: dict, obs_norm: dict, t: int) -> torch.Tensor:
+    def step(
+        self, state: dict, obs_norm: dict, t: int, embodiment_id: Optional[str] = None
+    ) -> torch.Tensor:
         """Single AR step. Returns normalized action ``(B, 1, action_dim)``.
 
         ``obs_norm`` is a dict of single-frame, normalized obs tensors
@@ -511,6 +513,7 @@ class HNetPolicy(nn.Module):
                 B=state["batch_size"],
                 device=state["device"],
                 dtype=state["dtype"],
+                embodiment_id=embodiment_id,
             )
             cur = contrib if cur is None else cur + contrib
         if cur is None:
@@ -522,7 +525,12 @@ class HNetPolicy(nn.Module):
             inference_params=state["params"],
         )
         h = self.hnet.step(cur, ctx)
-        a_t_norm = self.action_out(h)
+        _head = (
+            self.action_out[embodiment_id]
+            if isinstance(self.action_out, nn.ModuleDict)
+            else self.action_out
+        )
+        a_t_norm = _head(h)
 
         # F6: no per-step pos_emb add. Cache the prediction so the next
         # step's ActionInToken (if any) can read it.
@@ -717,7 +725,9 @@ class HNetOuterStage(nn.Module):
             if isinstance(self.action_out, nn.ModuleDict)
             else self.action_out
         )
-        self._cur_head = head  # remember for the per-frame eval decode path
+        object.__setattr__(
+            self, "_cur_head", head
+        )  # NOT a registered submodule: self._cur_head=head adds duplicate _cur_head.* keys to state_dict and breaks strict resume
         batch["pred_action"] = head(h)
         if self.action_head_type == "gmm":
             ctx.extras["gmm_head"] = head
@@ -856,6 +866,7 @@ class HNetOuterStage(nn.Module):
                 B=state["batch_size"],
                 device=state["device"],
                 dtype=state["dtype"],
+                embodiment_id=embodiment_id,
             )
             cur = contrib if cur is None else cur + contrib
         if cur is None:
@@ -868,7 +879,12 @@ class HNetOuterStage(nn.Module):
             embodiment_id=embodiment_id,
         )
         h = self.inner_stage.step(cur, ctx)
-        a_t_norm = self.action_out(h)
+        _head = (
+            self.action_out[embodiment_id]
+            if isinstance(self.action_out, nn.ModuleDict)
+            else self.action_out
+        )
+        a_t_norm = _head(h)
         state["prev_action"] = a_t_norm
         return a_t_norm
 
@@ -952,7 +968,8 @@ class PackedAlgoBase(Algo):
         use_parameter_groups: bool = False,
         weight_decay: float = 0.0,
         train_obs_transforms: list | None = None,
-        obs_stride: int = 1,
+        episode_level_transforms: list | None = None,
+        obs_stride: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -996,6 +1013,7 @@ class PackedAlgoBase(Algo):
         self.lr_multipliers = list(lr_multipliers) if lr_multipliers else None
         self.weight_decay = float(weight_decay)
         self.train_obs_transforms = list(train_obs_transforms or [])
+        self.episode_level_transforms = list(episode_level_transforms or [])
         # obs_stride: subsample the obs-token stream fed to the chunker so
         # routed tokens are ``obs_stride`` sim-frames apart (mirrors the
         # working WindowedBC/HNetCore recipe). With stride > 1 the RoutingModule
@@ -1005,23 +1023,42 @@ class PackedAlgoBase(Algo):
         # actions at FULL frame resolution, so with obs_stride == chunk_len the
         # 8-action chunks tile the episode exactly (like obs_stride=8/chunk_len=8
         # on the RNN side).
+        # Resolve the action head's chunk_len, robust to per-embodiment
+        # ModuleDict heads (getattr on the dict itself returns no chunk_len).
+        _ao = getattr(outer_stage, "action_out", None)
+        if isinstance(_ao, nn.ModuleDict):
+            _cls = sorted({int(getattr(h, "chunk_len", 1)) for h in _ao.values()})
+            if len(_cls) > 1:
+                raise ValueError(
+                    f"per-embodiment heads have heterogeneous chunk_len {_cls}; "
+                    f"the obs_stride<->chunk_len coupling is ambiguous."
+                )
+            _C = _cls[0] if _cls else 1
+        else:
+            _C = int(getattr(_ao, "chunk_len", 1))
+        # DEFAULT obs_stride to chunk_len: a chunked head emits chunk_len actions
+        # per obs-step, so the policy must re-observe every chunk_len frames.
+        # Defaulting here means a chunked model can NEVER be silently trained /
+        # eval'd at dense stride-1 (the bug that tanked dual-stream closed-loop:
+        # trained dense @1 but eval'd @chunk_len=4). Explicit obs_stride wins.
+        if obs_stride is None:
+            obs_stride = _C
         self.obs_stride = int(obs_stride)
         if self.obs_stride < 1:
             raise ValueError(f"obs_stride must be >= 1, got {self.obs_stride}")
         # Only the obs_stride == chunk_len, GMM-head recipe is validated (the
-        # 8-action chunks then tile the episode exactly). Fail loud on the
+        # chunk_len actions then tile the episode exactly). Fail loud on the
         # un-validated variants (sigma<C overlaps, sigma>C leaves gaps,
         # non-GMM has no chunk fan-out) instead of corrupting metrics silently.
         if self.obs_stride > 1:
             _ah = getattr(outer_stage, "action_head_type", None)
-            _C = int(getattr(getattr(outer_stage, "action_out", None), "chunk_len", 1))
             if _ah != "gmm":
                 raise ValueError(
                     f"obs_stride>1 currently requires action_head_type='gmm' (got {_ah!r})."
                 )
             if self.obs_stride != _C:
                 raise ValueError(
-                    f"obs_stride ({self.obs_stride}) must equal the GMM head chunk_len "
+                    f"obs_stride ({self.obs_stride}) must equal the action chunk_len "
                     f"({_C}) so the strided action chunks tile the episode exactly."
                 )
 
@@ -1098,6 +1135,20 @@ class PackedAlgoBase(Algo):
         processed = {}
         for emb_name, _batch in batch.items():
             emb_id = get_embodiment_id(emb_name)
+            # Episode-level transforms (e.g. PadHoldStill) — PRE-norm, may
+            # change length (updates cu_seqlens). Train-only, packed-only.
+            if (
+                self.episode_level_transforms
+                and self.outer_stage.training
+                and "cu_seqlens" in _batch
+            ):
+                from egomimic.algo.hnet.episode_transforms import (
+                    apply_episode_level_transforms,
+                )
+
+                _batch = apply_episode_level_transforms(
+                    _batch, self.episode_level_transforms
+                )
             processed[emb_id] = {}
             # Detect packed batches by the presence of cu_seqlens. Packed and
             # padded batches have a different key topology; treat them
@@ -1177,6 +1228,11 @@ class PackedAlgoBase(Algo):
                 # For action_head_type='gmm', the head IS outer_stage.action_out
                 # (no separate .gmm_head attr); chunk_len lives there.
                 head = getattr(outer_stage, "action_out", None)
+                # Per-embodiment ModuleDict heads share chunk_len; index in so we
+                # don't read chunk_len off the ModuleDict itself (=> 1), which
+                # would build 1-action targets instead of C-action chunks.
+                if isinstance(head, nn.ModuleDict):
+                    head = next(iter(head.values()))
                 C = int(getattr(head, "chunk_len", 1))
                 sobs, scu, smax, chunk_targets, sidx, _ = _stride_packed(
                     obs, actions, _batch["cu_seqlens"], self.obs_stride, C
@@ -1283,6 +1339,12 @@ class PackedAlgoBase(Algo):
             # the downstream metric/viz code is untouched. (Mirrors how the sim
             # inference_step rolls out: re-observe every chunk_len frames.)
             head = getattr(policy, "action_out", None)
+            # Resolve the per-embodiment head (action_out is a ModuleDict in the
+            # dual-stream); reading chunk_len/decode off the ModuleDict gives
+            # chunk_len=1 and no .decode, so raw GMM params (C*M*(2D+1)) get
+            # written into action slots -> shape mismatch [.,640] vs [.,2].
+            if isinstance(head, nn.ModuleDict):
+                head = head[self.domain_by_id.get(emb_id)]
             C = int(getattr(head, "chunk_len", 1))
             sobs, scu, smax, _, sidx, ep_end = _stride_packed(
                 obs, actions, cu, self.obs_stride, C
@@ -1436,8 +1498,13 @@ class PackedAlgoBase(Algo):
                 embodiment_id=self.domain_by_id.get(emb_id),
             )  # (B,1,*)
             if is_gmm:
-                chunk = policy.action_out.decode(raw)  # (B,1,C,D) if C>1 else (B,1,D)
-                C = int(getattr(policy.action_out, "chunk_len", 1))
+                _ah = (
+                    policy.action_out[self.domain_by_id.get(emb_id)]
+                    if isinstance(policy.action_out, nn.ModuleDict)
+                    else policy.action_out
+                )
+                chunk = _ah.decode(raw)  # (B,1,C,D) if C>1 else (B,1,D)
+                C = int(getattr(_ah, "chunk_len", 1))
                 if C > 1:
                     # (B,1,C,D) -> C tensors (B,1,D), one per chunk position.
                     # RE-PLAN CADENCE = the ARCHITECTURE's obs_stride. A model

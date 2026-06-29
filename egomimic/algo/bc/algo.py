@@ -53,9 +53,7 @@ from egomimic.algo.hnet import PackedAlgoBase
 from egomimic.models.cores.hnet_core import HNetCore
 from egomimic.models.cores.lstm_core import LSTMCore
 from egomimic.models.cores.transformer_core import TransformerCore
-from egomimic.models.heads.gmm_head import GMMActionHead
 from egomimic.models.heads.query_decoder import QueryActionDecoder
-from egomimic.models.stems.obs_encoder import ObsEncoder
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
@@ -69,8 +67,16 @@ def _pack_to_padded(x, cu_seqlens, B, T_max):
     return out
 
 
-def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
-                 pad_mode="zero_masked", obs_stride=1, chunk_len=1):
+def _cut_windows(
+    obs_padded,
+    actions_padded,
+    mask,
+    horizon,
+    max_windows=None,
+    pad_mode="zero_masked",
+    obs_stride=1,
+    chunk_len=1,
+):
     """Sample length-`horizon` windows from padded episodes.
 
     robomimic SequenceDataset serves length-`seq_length` (=rnn.horizon)
@@ -123,7 +129,9 @@ def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
             pairs.append((b, s))
     if max_windows is not None and len(pairs) > int(max_windows):
         # uniform sample WITHOUT replacement over valid starts (robomimic-style)
-        idx = torch.randperm(len(pairs), device=actions_padded.device)[: int(max_windows)]
+        idx = torch.randperm(len(pairs), device=actions_padded.device)[
+            : int(max_windows)
+        ]
         pairs = [pairs[int(i)] for i in idx]
 
     # pad_mode (robomimic SequenceDataset boundary handling):
@@ -187,8 +195,9 @@ def _cut_windows(obs_padded, actions_padded, mask, horizon, max_windows=None,
     return obs_w, act_w, mask_w
 
 
-def _cut_windows_strided(obs_padded, actions_padded, seq_lens, pairs, H, sigma,
-                         C, repeat):
+def _cut_windows_strided(
+    obs_padded, actions_padded, seq_lens, pairs, H, sigma, C, repeat
+):
     """Strided-obs + action-chunking window cut (obs_stride>1 or chunk_len>1).
 
     For window start s and each obs-step k in [0, H):
@@ -269,18 +278,28 @@ class WindowedBCPolicy(nn.Module):
     LSTM hidden every ``rnn_horizon`` steps (robomimic get_action semantics).
     """
 
-    def __init__(self, obs_encoder, core_net=None, gmm_head=None, action_dim=None,
-                 action_horizon=None, rnn_horizon=10, actor_mlp_dims=(1024, 1024),
-                 core="lstm", obs_stride=1, chunk_len=1, chunk_head="linear",
-                 query_decoder=None, lstm=None):
+    def __init__(
+        self,
+        obs_encoder,
+        core_net=None,
+        gmm_head=None,
+        action_dim=None,
+        action_horizon=None,
+        rnn_horizon=10,
+        actor_mlp_dims=(1024, 1024),
+        core="lstm",
+        obs_stride=1,
+        chunk_len=1,
+        chunk_head="linear",
+        query_decoder=None,
+        lstm=None,
+    ):
         super().__init__()
         # CONFIG-FACING name is ``core_net``; ``lstm`` is the DEPRECATED ALIAS
         # (kept so old configs / EgoVerse-pact-2 ported yamls keep working). Pass
         # exactly one of the two.
         if core_net is not None and lstm is not None:
-            raise ValueError(
-                "pass core_net OR lstm (deprecated alias), not both"
-            )
+            raise ValueError("pass core_net OR lstm (deprecated alias), not both")
         core_net = core_net if core_net is not None else lstm
         if core_net is None:
             raise ValueError("pass core_net (or the deprecated lstm alias)")
@@ -357,9 +376,7 @@ class WindowedBCPolicy(nn.Module):
         #     output layout (.., chunk_len*per_step) is IDENTICAL to the linear
         #     head's, so gmm_head.nll / decode / _make_dist are reused unchanged.
         if chunk_head not in ("linear", "queries"):
-            raise ValueError(
-                f"chunk_head must be linear|queries, got {chunk_head!r}"
-            )
+            raise ValueError(f"chunk_head must be linear|queries, got {chunk_head!r}")
         self.chunk_head = str(chunk_head)
         self.query_decoder = None
         if self.chunk_head == "queries":
@@ -423,8 +440,14 @@ class WindowedBCPolicy(nn.Module):
         # actions emitted by the last obs-step that have not yet been consumed by
         # the env (chunk_len rollout). Both 1/1 defaults reduce to the prior
         # single-step semantics: every env step is an obs step, queue len 1.
-        return {"hidden": None, "dtype": dtype, "T_max": int(T_max),
-                "counter": 0, "queue": [], "last_action": None}
+        return {
+            "hidden": None,
+            "dtype": dtype,
+            "T_max": int(T_max),
+            "counter": 0,
+            "queue": [],
+            "last_action": None,
+        }
 
     @torch.no_grad()
     def step(self, state, obs_norm, t):
@@ -442,7 +465,7 @@ class WindowedBCPolicy(nn.Module):
         non-obs env step it pops the next queued action WITHOUT any model call.
         Episode start (t==0) is obs step 0 (counter==0 -> buffer re-init).
         """
-        is_obs_step = (t % self.obs_stride == 0)
+        is_obs_step = t % self.obs_stride == 0
         if is_obs_step:
             emb = self.obs_encoder(obs_norm)
             emb_t = emb[:, 0]
@@ -535,15 +558,19 @@ class WindowedBC(PackedAlgoBase):
         # any rollout — which is exactly what blocked BC-RNN sim eval (DESIGN
         # step 10 headline). Pre-existing latent bug from the H-Net restructure.
         self.train_obs_transforms: list = []
+        # Same gap for the episode-level transforms branch added later to
+        # PackedAlgoBase.process_batch_for_training (reads
+        # self.episode_level_transforms BEFORE the train_obs_transforms guard).
+        # WindowedBC has none, so set empty; else the train/val path raises
+        # AttributeError. (Owner-matched fix, ported from EgoVerse-gmm.)
+        self.episode_level_transforms: list = []
         # CONFIG-FACING name is ``core_net``; ``lstm`` is the DEPRECATED ALIAS
         # (kept so old configs / EgoVerse-pact-2 ported yamls keep working). Pass
         # exactly one of the two. Downstream code below keeps the local name
         # ``lstm`` (and the attribute stays ``self.lstm``) for state_dict
         # stability across cores.
         if core_net is not None and lstm is not None:
-            raise ValueError(
-                "pass core_net OR lstm (deprecated alias), not both"
-            )
+            raise ValueError("pass core_net OR lstm (deprecated alias), not both")
         lstm = core_net if core_net is not None else lstm
         if lstm is None:
             raise ValueError("pass core_net (or the deprecated lstm alias)")
@@ -632,9 +659,7 @@ class WindowedBC(PackedAlgoBase):
         # policy. With "linear" the query_decoder slot is ignored (and may be
         # absent) so the live chunk8 build is byte-identical.
         if chunk_head not in ("linear", "queries"):
-            raise ValueError(
-                f"chunk_head must be linear|queries, got {chunk_head!r}"
-            )
+            raise ValueError(f"chunk_head must be linear|queries, got {chunk_head!r}")
         self.chunk_head = str(chunk_head)
         if self.chunk_head == "queries":
             # NOTE: chunk_len == 1 with chunk_head='queries' is INTENTIONALLY
@@ -737,7 +762,10 @@ class WindowedBC(PackedAlgoBase):
                 _batch, emb_id
             )
             obs_w, act_w, mask_w = _cut_windows(
-                obs_padded, actions_padded, mask, H,
+                obs_padded,
+                actions_padded,
+                mask,
+                H,
                 max_windows=self.max_windows_per_batch,
                 pad_mode=self.pad_mode,
                 obs_stride=self.obs_stride,
@@ -747,9 +775,7 @@ class WindowedBC(PackedAlgoBase):
             aloss = policy.gmm_head.nll(raw, act_w, mask=mask_w)
             predictions[f"{emb_id}_pred"] = raw
             predictions[f"{emb_id}_action_loss"] = aloss
-            predictions[f"{emb_id}_ratio_loss"] = torch.tensor(
-                0.0, device=aloss.device
-            )
+            predictions[f"{emb_id}_ratio_loss"] = torch.tensor(0.0, device=aloss.device)
         return predictions
 
     @torch.no_grad()
@@ -823,7 +849,8 @@ class WindowedBC(PackedAlgoBase):
         obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
         action_norm = policy.step(self._sim_state, obs_norm, t)
         action_unnorm = self.norm_stats.unnormalize(
-            {ac_key: action_norm.squeeze(0).squeeze(0)}, emb_id,
+            {ac_key: action_norm.squeeze(0).squeeze(0)},
+            emb_id,
         )[ac_key]
         return action_unnorm.detach().cpu().numpy().reshape(-1).astype(np.float32)
 
