@@ -1,10 +1,14 @@
 line-length = 88
 
+# Honor `exclude` even when files are passed explicitly (e.g. by pre-commit).
+force-exclude = true
+
 exclude = [
   "external",
   "egomimic/robot/eva/stanford_repo",
   "*.ipynb",
-  "egomimic/robot/oculus_reader"
+  "egomimic/robot/oculus_reader",
+  "egomimic/models/wan"
 ]
 
 [lint]

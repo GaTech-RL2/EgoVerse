@@ -1,0 +1,6 @@
+defaults:
+  - train_zarr_cartesian
+  - override model: wam_bc_human_wan21_1_3b
+  - override data: mecka_wam       # WAM frame-clip + aligned action/state pipeline
+  - override evaluator: eval_wam
+  - _self_

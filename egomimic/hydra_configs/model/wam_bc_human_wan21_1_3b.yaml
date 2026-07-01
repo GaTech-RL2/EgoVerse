@@ -1,0 +1,57 @@
+# WAM (World-Action Model) — dreamzero CausalWanModel on the 1.3B Wan2.1 T2V
+# backbone, human (mecka) embodiment. ONE joint DiT forward over
+# [video latent | action | state] predicts video + action velocities
+# (rectified flow). The pretrained video DiT is loaded + frozen; the
+# state/action/decoder register modules train. Validation samples action + a
+# future frame; WAMEvalVideo renders both.
+#
+# Frame<->action alignment (k=4 predicted latent frames; pair with data=mecka_wam):
+#   cam clip 17 frames -> 5 latent frames (1 cond + 4 predicted)
+#   action_horizon=16  (num_action_per_block=4 x 4 blocks)
+#   state_horizon=4    (num_state_per_block=1 x 4 blocks)
+#   => num_image_blocks == num_action_blocks == num_state_blocks == 4
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.wam.WAM
+
+  domains: ["human_bimanual"]
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+
+  action_dim: 12
+  action_horizon: 16
+  state_dim: 12
+  frame_size: 256          # world-model input resolution (-> 16x16 = 256 video tokens)
+  num_video_frames: 5      # 1 conditioning + 4 predicted latent frames (cam_horizon=17 -> 5 latents)
+  world_loss_weight: 1.0
+  num_inference_steps: 16
+
+  # --- CausalWanModel DiT (1.3B Wan2.1 T2V, joint video+action) -----------
+  dit:
+    _target_: egomimic.models.wam_nets.build_wam_dit
+    checkpoint_path: /storage/home/hcoda1/5/acheluva3/r-dxu345-0/EgoVerse/egomimic/algo/wan_checkpoints/Wan2.1-T2V-1.3B/diffusion_pytorch_model.safetensors
+    action_dim: 12
+    max_state_dim: 12
+    num_action_per_block: 4     # 4 actions per predicted-frame block (x4 blocks = 16)
+    num_state_per_block: 1      # 1 state obs per predicted-frame block (x4 = state_horizon 4)
+    frame_seqlen: 256           # (frame_size/8/2)^2 = 16*16
+    freeze_video: true          # train state/action/decoder; freeze pretrained blocks
+    lora: true                  # dreamzero-style LoRA adapters on the DiT blocks
+
+  # --- Wan VAE (frozen): frame <-> latent ---------------------------------
+  vae:
+    _target_: egomimic.models.wam_nets.build_wan_vae
+    checkpoint_path: /storage/home/hcoda1/5/acheluva3/r-dxu345-0/EgoVerse/egomimic/algo/wan_checkpoints/Wan2.1-T2V-1.3B/Wan2.1_VAE.pth
+    z_dim: 16
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 1e-6
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1e-5

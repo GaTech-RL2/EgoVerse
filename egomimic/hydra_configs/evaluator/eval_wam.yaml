@@ -1,0 +1,7 @@
+# WAM evaluator: visualizes predicted vs GT actions, and (when the WAN world
+# model exposes a decode path) the predicted future-frame "dream" videos.
+defaults:
+  - viz@viz_func: wam_cartesian
+  - _self_
+
+_target_: egomimic.eval.eval_wam.WAMEvalVideo

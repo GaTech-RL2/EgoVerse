@@ -366,6 +366,29 @@ class DeleteKeys(Transform):
         return batch
 
 
+class SubsampleKeys(Transform):
+    """Subsample given batch keys along axis 0 by ``stride``.
+
+    Use to temporally downsample a video clip (e.g. aria 30 fps -> 5 fps by
+    stride=6) after the zarr read but before the model consumes it. Works on
+    numpy arrays and torch tensors alike (both support ``x[::stride]``).
+    """
+
+    def __init__(self, keys: list[str], stride: int = 1):
+        if stride <= 0:
+            raise ValueError(f"stride must be positive, got {stride}")
+        self.keys = list(keys)
+        self.stride = int(stride)
+
+    def transform(self, batch: dict) -> dict:
+        if self.stride <= 1:
+            return batch
+        for key in self.keys:
+            if key in batch:
+                batch[key] = batch[key][:: self.stride]
+        return batch
+
+
 class XYZWXYZ_to_XYZYPR(Transform):
     """Convert listed keys from xyz+quat(wxyz) to xyz+ypr in-place."""
 
@@ -535,12 +558,8 @@ class PadGripperZeros(Transform):
             )
         pad_shape = (*arr.shape[:-1], 1)
         pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
+        padded = np.concatenate((arr[..., :6], pad, arr[..., 6:], pad), axis=-1)
+        batch[self.action_key] = torch.from_numpy(padded) if is_tensor else padded
         return batch
 
 

@@ -1,0 +1,41 @@
+# WAM data — ARIA fold_clothes (lab=rl2). Same universal human_bimanual WAM
+# pipeline as mecka_wam (frame CLIP + frame-aligned action/state chunks via the
+# ZarrWamDataset + S3WamEpisodeResolver, head-frame transform), differing ONLY
+# in the DB filter (aria_bimanual / rl2 / fold_clothes -> 572 processed eps).
+# Dataset key stays `human_bimanual` so the model/eval configs are unchanged.
+# Alignment (k=4 predicted latent frames, Wan VAE 4x temporal):
+#   cam_horizon=17 pixel frames -> 5 latent frames (1 cond + 4 predicted)
+#   action_horizon=16  (num_action_per_block=4 x 4 blocks)
+#   state_horizon=4    (1 state obs per predicted frame)
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_wam.WamMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_wam.S3WamEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/aria_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_keymap
+        cam_horizon: 17
+        action_horizon: 16
+        state_horizon: 4
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_transform_list
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'aria_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: total
+
+valid_datasets:
+  human_bimanual: ${data.train_datasets.human_bimanual}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 4
+    num_workers: 10
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 4
+    num_workers: 10

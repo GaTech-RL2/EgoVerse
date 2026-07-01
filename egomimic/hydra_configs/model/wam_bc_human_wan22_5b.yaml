@@ -1,0 +1,65 @@
+# WAM (World-Action Model) — dreamzero CausalWanModel on the Wan2.2 TI2V-5B
+# backbone, human (mecka/aria) embodiment. ONE joint DiT forward over
+# [video latent | action | state] predicts video + action velocities
+# (rectified flow). The pretrained Wan2.2 5B video DiT is loaded from the
+# sharded safetensors dir; the state/action/decoder register modules stay fresh.
+#
+# 5B differences vs the Wan2.1 T2V-1.3B config:
+#   - VAE38 (z_dim=48, 16x spatial) instead of Wan2.1 VAE (z_dim=16, 8x)
+#   - DiT: dim=3072, ffn_dim=14336, num_heads=24, num_layers=30, in_dim=48
+#   - model_type="ti2v" (uses i2v cross-attn shape; concat_first_frame_latent=False)
+#   - Rectangular frames: 160x320 (H=160, W=320) so VAE38 latent 10x20 = 200,
+#     DiT patchify (1,2,2) -> 5x10 = 50 tokens/frame (frame_seqlen=50).
+#
+# Frame<->action alignment (k=4 predicted latent frames; pair with data=mecka_wam
+# or aria_wam, both use cam_horizon=17 -> 5 latent frames with VAE 4x temporal):
+#   cam clip 17 frames -> 5 latent frames (1 cond + 4 predicted)
+#   action_horizon=16  (num_action_per_block=4 x 4 blocks)
+#   state_horizon=4    (num_state_per_block=1 x 4 blocks)
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.wam.WAM
+
+  domains: ["human_bimanual"]
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+
+  action_dim: 12
+  action_horizon: 16
+  state_dim: 12
+  frame_size: [160, 320]   # (H, W) — even latent dims with VAE38 16x → 10x20
+  num_video_frames: 5      # 1 conditioning + 4 predicted latent frames
+  world_loss_weight: 1.0
+  num_inference_steps: 16
+
+  # --- CausalWanModel DiT (Wan2.2 TI2V-5B, joint video+action) -----------
+  dit:
+    _target_: egomimic.models.wam_nets.build_wam_dit
+    preset: "5B"
+    checkpoint_path: /storage/home/hcoda1/5/acheluva3/r-dxu345-0/EgoVerse/egomimic/algo/wan_checkpoints/Wan2.2-TI2V-5B
+    action_dim: 12
+    max_state_dim: 12
+    num_action_per_block: 4     # 4 actions per predicted-frame block (x4 blocks = 16)
+    num_state_per_block: 1      # 1 state obs per predicted-frame block (x4 = state_horizon 4)
+    frame_seqlen: 50            # 10x20 latent / (2x2 patch) = 50
+    freeze_video: true          # train state/action/decoder; freeze pretrained blocks
+    lora: true                  # dreamzero-style LoRA adapters on the DiT blocks
+
+  # --- Wan2.2 VideoVAE38 (frozen): frame <-> latent (z_dim=48, 16x spatial) --
+  vae:
+    _target_: egomimic.models.wam_nets.build_wan_vae_38
+    checkpoint_path: /storage/home/hcoda1/5/acheluva3/r-dxu345-0/EgoVerse/egomimic/algo/wan_checkpoints/Wan2.2-TI2V-5B/Wan2.2_VAE.pth
+    z_dim: 48
+    dim: 160
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 1e-6
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1e-5
