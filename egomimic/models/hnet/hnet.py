@@ -97,10 +97,14 @@ class HNet(nn.Module):
     @property
     def output_hidden_dim(self) -> int:
         # Chain is recursive (stages[i].inner_stage = stages[i+1]) so the
-        # end-to-end output dim is the outermost stage's output dim, not the
-        # innermost. EncoderDecoder/Compute/Chunker stages each guarantee that
-        # they return to their own output_hidden_dim before their forward ends.
-        return self.stages[0].output_hidden_dim
+        # end-to-end output dim is the OUTERMOST stage's *actual returned* dim.
+        # Most stages return at their output_hidden_dim, but a ChunkerStage
+        # DECHUNKS back to its input_hidden_dim before returning — so we read
+        # ``end_to_end_output_dim`` (polymorphic: ChunkerStage -> input dim,
+        # others -> output dim). Backward-compatible: every existing root stage
+        # is dim-preserving (input==output) so this value is unchanged; it only
+        # lets a tapering chunker (256->512) sit at the chain root.
+        return self.stages[0].end_to_end_output_dim
 
     def forward(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
         return self.root(x, ctx)
@@ -183,15 +187,14 @@ def chunk_stats_from_aux(aux: List[dict]) -> dict:
         and ``num_tokens`` (one chunk covering everything) when F == 0.
 
     Returns a dict with keys per chunker (``avg_chunk_len_0``,
-    ``boundary_rate_0``, ...) plus aggregate ``avg_chunk_len`` /
-    ``boundary_rate`` averaged across chunkers. All values are Python
+    ``boundary_rate_0``, ...) plus aggregate ``boundary_rate`` averaged
+    across chunkers. All values are Python
     floats — these are pure logging stats, not loss terms.
     """
     out: dict = {}
     if not aux:
         return out
     rates = []
-    lens = []
     for i, entry in enumerate(aux):
         bm = entry["bpred"].boundary_mask
         n = max(bm.numel(), 1)
@@ -201,9 +204,7 @@ def chunk_stats_from_aux(aux: List[dict]) -> dict:
         out[f"boundary_rate_{i}"] = f
         out[f"avg_chunk_len_{i}"] = avg_len
         rates.append(f)
-        lens.append(avg_len)
     out["boundary_rate"] = sum(rates) / len(rates)
-    out["avg_chunk_len"] = sum(lens) / len(lens)
     return out
 
 

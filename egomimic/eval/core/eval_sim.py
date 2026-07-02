@@ -86,6 +86,7 @@ class SimRolloutEval(EvalVideo):
         viz_func: dict | None = None,
         transform_lists: dict | None = None,
         rng_pairing: bool = False,
+        run_full_horizon: bool = False,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -122,6 +123,10 @@ class SimRolloutEval(EvalVideo):
         # for the same episode index. Off by default: numbers from unpaired
         # evals stay reproducible.
         self.rng_pairing = bool(rng_pairing)
+        # If True, ignore the env terminated (coverage>=0.95) early-stop so
+        # every episode runs the full max_steps -> true uncapped peak +
+        # uniform length.
+        self.run_full_horizon = bool(run_full_horizon)
         self._env = None
         self._init_counter = 0
 
@@ -286,7 +291,7 @@ class SimRolloutEval(EvalVideo):
                 if frame is not None:
                     frame = self._draw_action_overlay(frame, action_xy, action_history)
                     frames.append(np.ascontiguousarray(frame))
-                if terminated:
+                if terminated and not self.run_full_horizon:
                     break
         except _RolloutTimeout:
             print(

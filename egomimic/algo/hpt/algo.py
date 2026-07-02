@@ -358,7 +358,19 @@ class HPTModel(nn.Module):
         feat_dict = {}
         for modality in self.modalities.get(domain, []) + self.shared_keys:
             if modality not in data:
-                continue
+                # A registered modality missing from the batch is a wiring bug,
+                # not a benign skip: the silent `continue` here is what let the
+                # "state_state_agent_obj" double-prefix drop ALL proprio
+                # unnoticed for an entire training run (the only symptom was a
+                # DDP unused-parameters crash, which got masked by
+                # find_unused_parameters_true). Fail loudly instead.
+                raise KeyError(
+                    f"stem_process: registered modality {modality!r} for domain "
+                    f"{domain!r} is missing from data (available: "
+                    f"{sorted(data.keys())}). A registered stem would receive "
+                    f"no input — check the key translation in "
+                    f"_robomimic_to_hpt_data."
+                )
             if modality in self.shared_keys:
                 domain = "shared"
 
@@ -1214,7 +1226,17 @@ class HPT(Algo):
             }
         state = self._sim_state
 
-        if state["action_chunk"] is None or state["chunk_idx"] >= chunk_size:
+        # Replan cadence: by default consume the full action_horizon chunk
+        # open-loop (chunk_size steps between looks). ``self.replan_every``
+        # (eval-time knob, settable by the standalone evaluator) re-plans after
+        # only the first N actions of each chunk — receding-horizon execution.
+        # replan_every=1 = re-plan every env step (the cadence the 0.323
+        # reference HPT used); the chunk positions executed (0..N-1) are the
+        # best-trained ones, so no retrain is needed.
+        replan_every = min(
+            int(getattr(self, "replan_every", 0) or chunk_size), chunk_size
+        )
+        if state["action_chunk"] is None or state["chunk_idx"] >= replan_every:
             cam_keys = self.camera_keys[emb_id]
             proprio_keys = self.proprio_keys[emb_id]
             ac_key = self.ac_keys[embodiment_name]
@@ -1243,6 +1265,7 @@ class HPT(Algo):
             )
             actions = policy_module.forward(embodiment_name, data)
             chunk = actions.get(embodiment_name)
+            if chunk is None and "shared" in actions: chunk = actions["shared"]  # cotrain shared-head keys output as shared, not embodiment name
             if chunk is None:
                 raise RuntimeError(
                     f"policy.forward did not return key {embodiment_name!r}"
@@ -1288,11 +1311,18 @@ class HPT(Algo):
 
         # MultiDataset emits dotted batch keys (e.g. "observations.state.ee_pose"),
         # but HPT stems are registered under the last segment ("state_ee_pose",
-        # "front_img_1"). Translate via rsplit; no-op on already-flat keys.
+        # "front_img_1"). Translate via rsplit. Keys that are already flat AND
+        # already carry the "state_" prefix (e.g. pushshapes "state_agent_obj")
+        # must NOT be prefixed again: the old unconditional f"state_{short}"
+        # produced "state_state_agent_obj", which matches no registered stem and
+        # silently dropped ALL proprio from the trunk (train + eval) — the
+        # policy trained image-only. Found 2026-06-09.
         for key in proprio_keys:
             if key in batch:
                 short = key.rsplit(".", 1)[-1]
-                data[f"state_{short}"] = batch[key].unsqueeze(1)
+                if not short.startswith("state_"):
+                    short = f"state_{short}"
+                data[short] = batch[key].unsqueeze(1)
 
         for key in cam_keys:
             if key in batch:

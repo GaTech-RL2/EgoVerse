@@ -89,6 +89,12 @@ class PerEmbodimentStage(_BaseStage):
         sub = next(iter(self.sub_stages.values()))
         return sub.inner_working_dim
 
+    @property
+    def end_to_end_output_dim(self) -> int:
+        """Delegate to a representative sub-stage (all parallel, same I/O)."""
+        sub = next(iter(self.sub_stages.values()))
+        return sub.end_to_end_output_dim
+
     # ------------------------------------------------------------------ #
     # Dispatch
     # ------------------------------------------------------------------ #

@@ -10,7 +10,6 @@ ALL variants start ``~= up + residual`` at init (the extra path is zero-gated)
 so the change is training-stable from step 0. Add a new variant by registering
 it in ``_MIXERS``.  See vault: 30_Projects/RL2/Transformer HNet/Findings.md.
 """
-
 import torch
 import torch.nn as nn
 
@@ -64,9 +63,7 @@ class AttnMixer(nn.Module):
 
 
 _MIXERS = {
-    "additive": AdditiveMixer,
-    "add": AdditiveMixer,
-    "none": AdditiveMixer,
+    "additive": AdditiveMixer, "add": AdditiveMixer, "none": AdditiveMixer,
     "mlp": MLPMixer,
     "attn": AttnMixer,
 }

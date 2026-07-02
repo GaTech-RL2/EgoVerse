@@ -101,6 +101,10 @@ def main():
     parser.add_argument("--embodiment-name", default="pushshapes_sim",
                         help="Which embodiment to roll out (e.g. pushshapes_sim_small_circle for the small run).")
     parser.add_argument("--pusher", default="circle", help="env pusher_shape")
+    parser.add_argument("--obstacle-level", type=int, default=0,
+                        help="env obstacle_level (0-29 with the ported 30-level obstacles.py)")
+    parser.add_argument("--coverage-threshold", type=float, default=0.7,
+                        help="episode early-stop + success cutoff; 0.95 for true peak + SR@0.95")
     parser.add_argument(
         "--obs-stride",
         type=int,
@@ -132,6 +136,12 @@ def main():
         action="store_true",
         help="Reseed the sampler RNG per episode (inside fork_rng) so GMM "
         "sampling noise is paired across runs for the same episode index.",
+    )
+    parser.add_argument(
+        "--full-horizon",
+        action="store_true",
+        help="Ignore the env terminated (coverage>=0.95) early-stop so every "
+        "episode runs the full --max-steps -> true uncapped peak + uniform length.",
     )
     parser.add_argument(
         "--only-emb",
@@ -236,15 +246,16 @@ def main():
         print(f"[sim] init_mode=seeds  seeds={init_seeds[0]}..{init_seeds[-1]}")
     eval_cls = HPTSimEval if args.eval_class == "hpt" else PackedSimEval
     sim_eval = eval_cls(
-        env_kwargs={"object_shape": "T", "pusher_shape": args.pusher},
+        env_kwargs={"object_shape": "T", "pusher_shape": args.pusher, "obstacle_level": args.obstacle_level},
         embodiment_name=args.embodiment_name,
         init_mode=args.init_mode,
         init_seeds=init_seeds,
         max_steps=args.max_steps,
         report_max_coverage=args.max_coverage,
-        coverage_threshold=0.7,
+        coverage_threshold=args.coverage_threshold,
         limit_val_batches=args.n_episodes,
         rng_pairing=args.rng_pairing,
+        run_full_horizon=args.full_horizon,
     )
     sim_eval.trainer = _MockTrainer(args.out_dir, device)
     sim_eval.model = algo

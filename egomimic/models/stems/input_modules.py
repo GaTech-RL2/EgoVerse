@@ -18,7 +18,6 @@ double-counting.
 encoder (``MultiEmbodimentCondEncoder``) can route the obs to the right
 embodiment's encoder. Modules whose encoder is shared accept-and-ignore it.
 """
-
 from __future__ import annotations
 
 from typing import Optional
@@ -104,22 +103,12 @@ class ActionInToken(InputModule):
         return x
 
     def forward_packed(
-        self,
-        *,
-        actions_packed,
-        obs_packed,
-        cu_seqlens,
-        T_total,
-        device,
-        dtype,
+        self, *, actions_packed, obs_packed, cu_seqlens, T_total, device, dtype,
         embodiment_id=None,
     ):
         a_emb = self.action_in(actions_packed)  # (T_total, D)
         x_shifted = torch.cat(
-            [
-                torch.zeros(1, self.d_model, device=device, dtype=a_emb.dtype),
-                a_emb[:-1],
-            ],
+            [torch.zeros(1, self.d_model, device=device, dtype=a_emb.dtype), a_emb[:-1]],
             dim=0,
         )
         bos = self.bos.squeeze(0).squeeze(0).to(a_emb.dtype)  # (D,)
@@ -128,9 +117,7 @@ class ActionInToken(InputModule):
         x_shifted[starts] = bos
         return x_shifted
 
-    def step(
-        self, *, prev_action_norm, obs_norm, t, B, device, dtype, embodiment_id=None
-    ):
+    def step(self, *, prev_action_norm, obs_norm, t, B, device, dtype, embodiment_id=None):
         if t == 0 or prev_action_norm is None:
             return self.bos.expand(B, 1, self.d_model).to(dtype)
         return self.action_in(prev_action_norm).to(dtype)
@@ -180,14 +167,7 @@ class ObsToken(InputModule):
         return c.to(dtype)
 
     def forward_packed(
-        self,
-        *,
-        actions_packed,
-        obs_packed,
-        cu_seqlens,
-        T_total,
-        device,
-        dtype,
+        self, *, actions_packed, obs_packed, cu_seqlens, T_total, device, dtype,
         embodiment_id=None,
     ):
         obs_for_encode = {k: v.unsqueeze(0) for k, v in obs_packed.items()}
@@ -196,8 +176,6 @@ class ObsToken(InputModule):
         )  # (1, T_total, D)
         return c_padded.squeeze(0).to(dtype)
 
-    def step(
-        self, *, prev_action_norm, obs_norm, t, B, device, dtype, embodiment_id=None
-    ):
+    def step(self, *, prev_action_norm, obs_norm, t, B, device, dtype, embodiment_id=None):
         c_seq = self._encode(obs_norm, T_action=1, embodiment_id=embodiment_id)
         return c_seq.to(dtype)
