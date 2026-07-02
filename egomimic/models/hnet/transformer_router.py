@@ -57,7 +57,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .blocks import IsotropicInferenceParams, KVCache, MultiHeadAttention, RMSNorm
+from .blocks import (
+    IsotropicInferenceParams,
+    KVCache,
+    MultiHeadAttention,
+    RMSNorm,
+    StateRowMixin,
+)
 from .routing import RoutingModuleOutput, get_seq_idx
 
 
@@ -98,7 +104,7 @@ def _g_dwell(
 
 
 @dataclass
-class PhaseSummaryRouterState:
+class PhaseSummaryRouterState(StateRowMixin):
     """AR state for ``PhaseSummaryRouter`` (mirror of ``ScanRouterState``).
 
     ``has_seen_tokens`` forces a boundary on the first step of each episode

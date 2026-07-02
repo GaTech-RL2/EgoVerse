@@ -21,6 +21,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from egomimic.models.hnet.blocks import StateRowMixin
+
 # Optional Mamba2 selective-scan kernel for the DeChunkLayer EMA.
 try:
     from einops import rearrange, repeat  # type: ignore
@@ -49,13 +51,13 @@ class RoutingModuleOutput:
 
 
 @dataclass
-class RoutingModuleState:
+class RoutingModuleState(StateRowMixin):
     has_seen_tokens: torch.Tensor  # (B,) bool
     last_hidden_state: torch.Tensor  # (B, D)
 
 
 @dataclass
-class DeChunkState:
+class DeChunkState(StateRowMixin):
     last_value: torch.Tensor  # (B, D)
 
 

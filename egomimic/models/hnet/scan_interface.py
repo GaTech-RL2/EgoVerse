@@ -43,6 +43,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .blocks import StateRowMixin
 from .routing import DeChunkLayer, RoutingModuleOutput, get_seq_idx
 
 try:  # RMSNorm for the gated decoder-end normalization (paper "network norm").
@@ -98,7 +99,7 @@ def _causal_phase_scalar(offset: torch.Tensor) -> torch.Tensor:
 
 
 @dataclass
-class ScanRouterState:
+class ScanRouterState(StateRowMixin):
     """AR state for ``ScanRouter``. ``has_seen_tokens`` forces a boundary on
     the first step of each episode (subseq start), mirroring the packed
     forward's ``boundary_prob[cu_seqlens[:-1]] = 1.0``. ``gru_h`` is the GRU
@@ -107,6 +108,8 @@ class ScanRouterState:
     Mamba path it stashes the previous step's mixer output (the GRU path reads
     it directly from ``gru_h``)."""
 
+    _DIM1_FIELDS = ("gru_h",)
+
     has_seen_tokens: torch.Tensor  # (B,) bool
     gru_h: Optional[torch.Tensor] = None  # (1, B, d_state) GRU carry
     mamba_cache: Optional["object"] = None  # MambaCache on the CUDA path
@@ -114,7 +117,7 @@ class ScanRouterState:
 
 
 @dataclass
-class ChunkScanEncoderState:
+class ChunkScanEncoderState(StateRowMixin):
     """AR state for ``ChunkScanEncoder``. Per-chunk GRU carry + running offset
     + a FIXED-capacity buffer of this chunk's per-token GRU outputs (needed to
     extract the m sub-latents at chunk completion, when the full chunk length
@@ -123,13 +126,15 @@ class ChunkScanEncoderState:
     length the AR path can summarize exactly; a chunk longer than ``cap``
     triggers an assert (raise ``max_chunk_len`` in the config / allocate)."""
 
+    _DIM1_FIELDS = ("gru_h",)
+
     gru_h: torch.Tensor  # (1, B, H) per-chunk GRU carry
     offset: torch.Tensor  # (B,) running position within the current chunk
     buf: torch.Tensor  # (B, cap, H) per-token outputs of the current chunk
 
 
 @dataclass
-class SplineUpsamplerState:
+class SplineUpsamplerState(StateRowMixin):
     """AR state for ``SplineUpsampler``. ``prev_inner_sub`` is the most
     recently COMPLETED chunk's inner-processed m sub-latents (B, m, d_inner),
     used as the basis for the current chunk's tokens (shift-by-one). Zero
@@ -726,7 +731,7 @@ class SplineUpsampler(nn.Module):
 
 
 @dataclass
-class MSublatentDeChunkerState:
+class MSublatentDeChunkerState(StateRowMixin):
     """AR state for ``MSublatentDeChunker.step`` (DECHUNK-AR). Mirrors
     ``SplineUpsamplerState`` plus a chunk-rate EMA carry (``ema_prev``)."""
     prev_inner_sub: torch.Tensor  # (B, m, d_inner) POST-EMA sub-latents = W_v basis source (shift-by-one)

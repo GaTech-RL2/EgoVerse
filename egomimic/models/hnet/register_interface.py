@@ -34,7 +34,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from egomimic.models.hnet.blocks import MultiHeadAttention, RMSNorm
+from egomimic.models.hnet.blocks import MultiHeadAttention, RMSNorm, StateRowMixin
 
 
 def _fourier_phase(phase: torch.Tensor, n_freqs: int = 4) -> torch.Tensor:
@@ -266,7 +266,7 @@ class RegisterInterface(nn.Module):
 
 
 @dataclass
-class RegisterTrunkState:
+class RegisterTrunkState(StateRowMixin):
     """Per-layer KV caches for the register AR step.
 
     Two caches per layer:
