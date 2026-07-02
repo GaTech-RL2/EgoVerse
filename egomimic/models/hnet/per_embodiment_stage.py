@@ -52,18 +52,14 @@ class PerEmbodimentStage(_BaseStage):
     def __init__(self, sub_stages: dict[str, _BaseStage]):
         if not sub_stages:
             raise ValueError("PerEmbodimentStage requires at least one sub-stage.")
-        dims = {
-            (ss.input_hidden_dim, ss.output_hidden_dim) for ss in sub_stages.values()
-        }
+        dims = {(ss.input_hidden_dim, ss.output_hidden_dim) for ss in sub_stages.values()}
         if len(dims) != 1:
             raise ValueError(
                 f"All per-embodiment sub-stages must share input/output hidden "
                 f"dims; got {dims}."
             )
         in_dim, out_dim = next(iter(dims))
-        super().__init__(
-            input_hidden_dim=in_dim, output_hidden_dim=out_dim, cond_key=None
-        )
+        super().__init__(input_hidden_dim=in_dim, output_hidden_dim=out_dim, cond_key=None)
         self.sub_stages = nn.ModuleDict(sub_stages)
 
     # ------------------------------------------------------------------ #

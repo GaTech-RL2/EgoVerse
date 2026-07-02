@@ -22,6 +22,11 @@ from egomimic.pl_utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
 from egomimic.pl_utils.utils import extras, task_wrapper
 
+# Gated TF32: NO-OP unless EGOMIMIC_TF32=1 in env. Enables TensorFloat-32 matmuls
+# (~1.5-2x on A40 tensor cores) without changing other experiments numerics.
+if os.environ.get("EGOMIMIC_TF32") == "1":
+    torch.set_float32_matmul_precision("high")
+
 OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)
 
@@ -103,9 +108,26 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
 
     # Stats-only MultiDataset (no graph of its own; explicitly populated from
     # datamodule.train_datasets). MultiDataset now owns NormStats's role too.
+    _norm_mode = OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile")
+    # FIX #6: GMM action heads assume targets pre-normalized to [-1,1] (robomimic
+    # tanh on the mode means). norm_mode="quantile" (the yaml default — the
+    # "quantile trap") maps q1/q99 -> -1/+1, leaving ~2% tail actions OUTSIDE
+    # [-1,1] that the tanh'd means can never reach (see gmm_head.py header).
+    # minmax maps the FULL action range into [-1,+1]. Fail fast so a launch that
+    # forgets ``norm_stats.norm_mode=minmax`` can't silently train a broken GMM.
+    _head_type = OmegaConf.select(
+        cfg, "model.robomimic_model.outer_stage.action_head_type", default=None
+    )
+    if _head_type == "gmm" and _norm_mode != "minmax":
+        raise ValueError(
+            f"GMM action head requires norm_stats.norm_mode='minmax' (got "
+            f"'{_norm_mode}'). The quantile mapping leaves tail actions outside "
+            f"[-1,1] that the GMM tanh means cannot reach. Set "
+            f"norm_stats.norm_mode=minmax (launcher or config)."
+        )
     norm_stats = MultiDataset(
         state={},
-        norm_mode=OmegaConf.select(cfg, "norm_stats.norm_mode", default="quantile"),
+        norm_mode=_norm_mode,
     )
     norm_stats.populate_from_datasets(datamodule.train_datasets)
 
@@ -150,6 +172,7 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = ModelWrapper(
         config_tree=_build_model_config_tree(cfg),
+        enable_grad_norm=cfg.model.get("enable_grad_norm", True),
         norm_stats_state=norm_stats.to_state(),
         scheduler_interval=cfg.model.get("scheduler_interval", "step"),
     )

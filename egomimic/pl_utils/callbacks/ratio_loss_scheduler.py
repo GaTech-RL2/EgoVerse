@@ -11,7 +11,6 @@ Epoch-based so "halfway through training" is robust to the exact steps/epoch.
 By default switches at ``switch_fraction * trainer.max_epochs``. Config-gated;
 compose via ``callbacks=[checkpoints, ratio_loss_scheduler]``.
 """
-
 from __future__ import annotations
 
 from typing import Optional
@@ -53,15 +52,10 @@ class RatioLossScheduler(pl.Callback):
             if isinstance(m, ChunkerStage):
                 m.ratio_loss_weight = value
                 n += 1
-        print(
-            f"[RatioLossScheduler] set ratio_loss_weight={value} on {n} ChunkerStage(s)",
-            flush=True,
-        )
+        print(f"[RatioLossScheduler] set ratio_loss_weight={value} on {n} ChunkerStage(s)", flush=True)
 
     def on_train_epoch_start(self, trainer, pl_module):
         sw = self._switch_epoch(trainer)
         value = self.on_value if int(trainer.current_epoch) < sw else self.off_value
         self._apply(pl_module, value)
-        pl_module.log(
-            self.log_key, float(value), on_step=False, on_epoch=True, prog_bar=False
-        )
+        pl_module.log(self.log_key, float(value), on_step=False, on_epoch=True, prog_bar=False)

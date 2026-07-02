@@ -42,11 +42,6 @@ from egomimic.models.hnet.blocks import (
 )
 from egomimic.models.hnet.context import HNetContext
 from egomimic.models.hnet.isotropic_builder import build_isotropic
-from egomimic.models.hnet.register_interface import (
-    RegisterInterface,
-    RegisterTrunk,
-    RegisterTrunkState,
-)
 from egomimic.models.hnet.routing import (
     ChunkLayer,
     DeChunkLayer,
@@ -66,6 +61,11 @@ from egomimic.models.hnet.scan_interface import (
 from egomimic.models.hnet.transformer_router import (
     PhaseSummaryRouter,
     PhaseSummaryRouterState,
+)
+from egomimic.models.hnet.register_interface import (
+    RegisterInterface,
+    RegisterTrunk,
+    RegisterTrunkState,
 )
 
 # --------------------------------------------------------------------------- #
@@ -679,9 +679,9 @@ class ChunkerStage(_BaseStage):
         #     params created, live-job requeue safe). Used only on the scan
         #     down-encoder / scan router respectively. ---
         encoder_layernorm: bool = False,  # ChunkScanEncoder post-GRU LayerNorm
-        router_n_layer: int = 1,  # ScanRouter MambaBlock-stack depth
-        router_use_block: bool = False,  # ScanRouter: wrap scan in MambaBlock(s)
-        router_has_mlp: bool = False,  # ScanRouter MambaBlock: add SwiGLU MLP
+        router_n_layer: int = 1,          # ScanRouter MambaBlock-stack depth
+        router_use_block: bool = False,   # ScanRouter: wrap scan in MambaBlock(s)
+        router_has_mlp: bool = False,     # ScanRouter MambaBlock: add SwiGLU MLP
         router_mlp_dim: Optional[int] = None,  # SwiGLU width (None -> d_model)
         # --- PhaseSummaryRouter ("transformer" / PSER) knobs. Used ONLY when
         #     router_interface == "transformer"; ignored otherwise so existing
@@ -852,8 +852,9 @@ class ChunkerStage(_BaseStage):
         # running state + m sub-latents, so the encoder must run whenever the
         # DOWN side is scan OR the UP side is spline. The register interface is
         # fused (own trunk) and bypasses scan/spline entirely.
-        self._needs_scan_encoder = chunk_interface != "register" and (
-            (down_interface == "scan") or (up_interface == "spline")
+        self._needs_scan_encoder = (
+            chunk_interface != "register"
+            and ((down_interface == "scan") or (up_interface == "spline"))
         )
         self.scan_down = (
             ChunkScanEncoder(
@@ -960,8 +961,7 @@ class ChunkerStage(_BaseStage):
             self.proj_in = None
             self.proj_out = (
                 nn.Linear(self.output_hidden_dim, self.input_hidden_dim)
-                if self.input_hidden_dim != self.output_hidden_dim
-                else None
+                if self.input_hidden_dim != self.output_hidden_dim else None
             )
         elif self.trunk_chunk_rate and self.register_interface is not None:
             # FIX 1: trunk runs at chunk-rate over the concat'd m sub-latents, so
@@ -988,11 +988,9 @@ class ChunkerStage(_BaseStage):
         self.residual_scale: float = 1.0
         # FIX 2: swappable residual mixer (out = mix(up, residual)).
         from egomimic.models.hnet.residual_mixer import build_residual_mixer
-
         self.residual_mixer_kind = str(residual_mixer)
         self.residual_mixer = build_residual_mixer(
-            residual_mixer, self.input_hidden_dim, **(residual_mixer_kwargs or {})
-        )
+            residual_mixer, self.input_hidden_dim, **(residual_mixer_kwargs or {}))
 
     @property
     def inner_working_dim(self) -> int:
@@ -1028,11 +1026,8 @@ class ChunkerStage(_BaseStage):
         return self._forward_padded(x, ctx)
 
     def _forward_padded(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
-        if (
-            self.down_interface != "first_token"
-            or self.up_interface != "duplicate"
-            or self.router_interface != "cossim"
-        ):
+        if (self.down_interface != "first_token" or self.up_interface != "duplicate"
+                or self.router_interface != "cossim"):
             raise NotImplementedError(
                 "scan/spline/scan-router interfaces are implemented for PACKED "
                 "training only; padded forward not supported yet."
@@ -1110,7 +1105,9 @@ class ChunkerStage(_BaseStage):
 
         # --- REGISTER DOWN-ONLY encoder (chunker) + separate up/inner/router. --
         if self.down_interface == "register":
-            return self._forward_packed_register_down(x, ctx, cu, bpred, residual, cp)
+            return self._forward_packed_register_down(
+                x, ctx, cu, bpred, residual, cp
+            )
 
         # --- DOWN: produce the inner-stage input + (optionally) scan features. --
         h_tok = sub_latents = None
@@ -1150,12 +1147,12 @@ class ChunkerStage(_BaseStage):
             inner_sub = sub_latents.clone()
             inner_sub[:, -1] = inner_out
             up = self.spline_up(
-                inner_sub,  # (N, m, D_in)
-                h_tok,  # (T, D_in)
-                x,  # (T, D_in) outer query
+                inner_sub,            # (N, m, D_in)
+                h_tok,                # (T, D_in)
+                x,                    # (T, D_in) outer query
                 bpred.boundary_mask,
                 bpred.boundary_prob,
-                cu,  # TOKEN-space cu_seqlens
+                cu,                   # TOKEN-space cu_seqlens
                 causal_phase=cp,
             )
             # SplineUpsampler already applies the confidence gate c_t internally
@@ -1200,7 +1197,9 @@ class ChunkerStage(_BaseStage):
         runs as a single (L,L) attention. ``cp`` selects the prefix-causal member
         phase so this forward is directly comparable to the AR ``step`` (GATE-1).
         """
-        stream = self.register_interface(x, bpred.boundary_mask, cu, causal_phase=cp)
+        stream = self.register_interface(
+            x, bpred.boundary_mask, cu, causal_phase=cp
+        )
         trunk_out = self.register_trunk(stream)  # (L, D_in)
         up = trunk_out[stream.member_idx]  # (T, D_in) member outputs, token order
         # Confidence gate (mirrors SplineUpsampler / the plan): keeps the p_t
@@ -1266,9 +1265,7 @@ class ChunkerStage(_BaseStage):
         if self.proj_out is not None:
             chunked = self.proj_out(chunked)
         if self.trunk_chunk_rate:
-            chunked = chunked.reshape(
-                -1, chunked.shape[-1] // m
-            )  # (N, m*D) -> (N*m, D)
+            chunked = chunked.reshape(-1, chunked.shape[-1] // m)  # (N, m*D) -> (N*m, D)
         inner_out = chunked  # (N*m, D_in)
         if self.up_interface == "spline":
             raise NotImplementedError(
@@ -1297,7 +1294,7 @@ class ChunkerStage(_BaseStage):
                 inner_sub,
                 bpred.boundary_mask,
                 bpred.boundary_prob,
-                cu,  # TOKEN-space cu_seqlens (phase machinery)
+                cu,                      # TOKEN-space cu_seqlens (phase machinery)
                 chunk_cu_seqlens=chunk_cu,  # CHUNK-space cu_seqlens (chunk-rate EMA)
                 causal_phase=cp,
             )
@@ -1349,11 +1346,8 @@ class ChunkerStage(_BaseStage):
         # The scan/spline AR orchestration is required iff the DOWN or UP
         # interface is scan/spline. The router choice (cossim|scan|transformer)
         # is orthogonal — any router can drive either down/up path.
-        is_scan = (
-            self.down_interface == "scan"
-            or self.up_interface == "spline"
-            or self.router_interface == "scan"
-        )
+        is_scan = (self.down_interface == "scan" or self.up_interface == "spline"
+                   or self.router_interface == "scan")
         if is_scan:
             return self._step_scan(x, ctx, state)
         return self._step_first_token(x, ctx, state)
@@ -1368,9 +1362,8 @@ class ChunkerStage(_BaseStage):
         is_start = torch.isin(pos, cu[:-1])
         # first chunk of each sequence has no prev -> this stage's learned no_prev
         # token (per-emb: each embodiment's ChunkerStage owns its own no_prev).
-        prev_end = torch.where(
-            is_start.unsqueeze(-1), self.no_prev.to(prev_end.dtype), prev_end
-        )
+        prev_end = torch.where(is_start.unsqueeze(-1),
+                               self.no_prev.to(prev_end.dtype), prev_end)
         cat = torch.cat([chunked, prev_end], dim=-1).float()
         return self.prev_end_combine(cat).to(chunked.dtype)
 
@@ -1381,11 +1374,9 @@ class ChunkerStage(_BaseStage):
         inner_in = self.chunk_layer.step(x, bpred.boundary_mask)
         if self.grab_prev_end:
             if inner_in.shape[0] > 0:
-                prev_end = (
-                    state.prev_x[bpred.boundary_mask]
-                    if state.prev_x is not None
-                    else self.no_prev.to(inner_in.dtype).expand_as(inner_in)
-                )
+                prev_end = (state.prev_x[bpred.boundary_mask]
+                            if state.prev_x is not None
+                            else self.no_prev.to(inner_in.dtype).expand_as(inner_in))
                 cat = torch.cat([inner_in, prev_end], dim=-1).float()
                 inner_in = self.prev_end_combine(cat).to(x.dtype)  # concat -> trunk dim
             state.prev_x = x  # update for next step (every step, boundary or not)
@@ -1567,7 +1558,7 @@ class ChunkerStage(_BaseStage):
           * msublatent dechunker decodes x_t against the cached PREVIOUS chunk's
             basis + the prefix-causal phase; out = residual_mixer(up, residual).
         x may be (B,1,D) or (B,D); returns (B,1,D)."""
-        x_t = x.squeeze(1) if x.dim() == 3 else x  # (B, D_in)
+        x_t = x.squeeze(1) if x.dim() == 3 else x          # (B, D_in)
         B = x_t.shape[0]
         residual = self.residual_scale * self.residual_proj(x_t.float())  # (B, D_in)
         m = self.register_interface.m
@@ -1575,44 +1566,39 @@ class ChunkerStage(_BaseStage):
         mstate = state.msublatent_state
 
         bpred = self._router.step(x_t, state.routing_state)
-        boundary_t = bpred.boundary_mask  # (B,)
-        boundary_prob_t = bpred.boundary_prob  # (B, 2)
+        boundary_t = bpred.boundary_mask                   # (B,)
+        boundary_prob_t = bpred.boundary_prob              # (B, 2)
 
         # --- finalize the just-completed chunk (returns its post-trunk m reps) ---
         finished_mask = boundary_t & (rstate.mem_fill > 0)
         reg_reps = self.register_trunk.finalize_chunk(
             rstate, finished_mask, self.register_interface
-        )  # (B, m, D_in)
+        )                                                  # (B, m, D_in)
 
         if bool(finished_mask.any()):
-            reg_sub = reg_reps  # (B, m, D_in)
+            reg_sub = reg_reps                             # (B, m, D_in)
             D_in = reg_sub.shape[-1]
             if self.trunk_chunk_rate:
                 # Fix-1: concat the m sub-latents -> one chunk token -> 1 inner step.
                 inner_out = self._inner_step_rows(
                     reg_sub.reshape(B, m * D_in), ctx, state, finished_mask
-                )  # (B, m*D_in)
+                )                                          # (B, m*D_in)
                 inner_sub = inner_out.reshape(B, m, D_in)
             else:
                 # pre-Fix-1: inner stage at REGISTER rate -- the m registers run
                 # one-by-one (causal over the register stream / inner KV cache).
-                inner_sub = torch.stack(
-                    [
-                        self._inner_step_rows(reg_sub[:, j], ctx, state, finished_mask)
-                        for j in range(m)
-                    ],
-                    dim=1,
-                )  # (B, m, D_in)
+                inner_sub = torch.stack([
+                    self._inner_step_rows(reg_sub[:, j], ctx, state, finished_mask)
+                    for j in range(m)
+                ], dim=1)                                  # (B, m, D_in)
             inner_sub = torch.where(
                 finished_mask.view(B, 1, 1), inner_sub.to(reg_sub.dtype), reg_sub
             )
             # chunk-rate EMA + promote as the upcoming chunk's msublatent basis.
-            self.msublatent_up.update_prev(
-                mstate, inner_sub, boundary_prob_t, finished_mask
-            )
+            self.msublatent_up.update_prev(mstate, inner_sub, boundary_prob_t, finished_mask)
 
         # --- DOWN: emit x_t into the (reset) open chunk; trunk_out discarded. ---
-        offset = rstate.mem_fill  # (B,)
+        offset = rstate.mem_fill                           # (B,)
         mem_emb = self.register_interface.member_embed_from_offset(x_t, offset)
         _ = self.register_trunk.step_member(mem_emb, rstate, m)
         rstate.offset = rstate.mem_fill
@@ -1622,13 +1608,11 @@ class ChunkerStage(_BaseStage):
         up = self.msublatent_up.step(boundary_t, boundary_prob_t, mstate)  # (B, D_in)
         out = self.residual_mixer(up.float(), residual).to(x_t.dtype)
 
-        ctx.register_aux(
-            {
-                "bpred": bpred,
-                "target_ratio": self.target_compression_ratio,
-                "weight": self.ratio_loss_weight,
-            }
-        )
+        ctx.register_aux({
+            "bpred": bpred,
+            "target_ratio": self.target_compression_ratio,
+            "weight": self.ratio_loss_weight,
+        })
         return out.unsqueeze(1)
 
     def _inner_step_rows(self, inner_in, ctx, state, finished_mask):

@@ -62,16 +62,13 @@ class ModelWrapper(LightningModule):
         # threads a mutable HNetContext + many .item()/dynamic packed shapes, so
         # compile will graph-break heavily; measure before trusting any speedup.
         import os
-
         if os.environ.get("EGO_COMPILE", "0") == "1":
             _mode = os.environ.get("EGO_COMPILE_MODE", "default")
             self.model.nets["outer_stage"] = torch.compile(
                 self.model.nets["outer_stage"], dynamic=True, mode=_mode
             )
             self.nets = self.model.nets
-            print(
-                f"[ModelWrapper] torch.compile(outer_stage, dynamic=True, mode={_mode}) ENABLED"
-            )
+            print(f"[ModelWrapper] torch.compile(outer_stage, dynamic=True, mode={_mode}) ENABLED")
         try:
             self.params = self.model.nets["policy"].params
         except Exception:
@@ -91,7 +88,9 @@ class ModelWrapper(LightningModule):
         cfg = self._as_config(config_tree)
         if cfg is not None and OmegaConf.select(cfg, "model") is not None:
             self.log_per_layer_grad_norms = bool(
-                OmegaConf.select(cfg, "model.log_per_layer_grad_norms", default=False)
+                OmegaConf.select(
+                    cfg, "model.log_per_layer_grad_norms", default=False
+                )
             )
 
         self.epoch_memory_stats = []  # Store memory stats per epoch

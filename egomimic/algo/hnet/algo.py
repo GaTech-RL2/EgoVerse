@@ -23,11 +23,11 @@ import torch.nn as nn
 from overrides import override
 
 from egomimic.algo.algo import Algo
+from egomimic.models.stems.input_modules import ActionInToken, InputModule
+from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.hnet.context import HNetContext
 from egomimic.models.hnet.hnet import HNet as HNetCore
 from egomimic.models.hnet.hnet import chunk_stats_from_aux
-from egomimic.models.stems.cond_encoders import CondEncoderModule
-from egomimic.models.stems.input_modules import ActionInToken, InputModule
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 
 
@@ -115,9 +115,7 @@ class GMMLoss(nn.Module):
         T = actions.shape[1]
         device = actions.device
         t = torch.arange(T, device=device)
-        idx = torch.clamp(
-            t[:, None] + torch.arange(C, device=device)[None, :], max=T - 1
-        )
+        idx = torch.clamp(t[:, None] + torch.arange(C, device=device)[None, :], max=T - 1)
         return actions[:, idx]
 
     def forward(self, batch: dict, ctx) -> torch.Tensor:
@@ -511,6 +509,7 @@ class HNetPolicy(nn.Module):
                 B=state["batch_size"],
                 device=state["device"],
                 dtype=state["dtype"],
+                embodiment_id=embodiment_id,
             )
             cur = contrib if cur is None else cur + contrib
         if cur is None:
@@ -522,7 +521,8 @@ class HNetPolicy(nn.Module):
             inference_params=state["params"],
         )
         h = self.hnet.step(cur, ctx)
-        a_t_norm = self.action_out(h)
+        _head = self.action_out[embodiment_id] if isinstance(self.action_out, nn.ModuleDict) else self.action_out
+        a_t_norm = _head(h)
 
         # F6: no per-step pos_emb add. Cache the prediction so the next
         # step's ActionInToken (if any) can read it.
@@ -605,8 +605,7 @@ class HNetOuterStage(nn.Module):
                 self.action_out = gmm_head
             else:
                 raise ValueError(
-                    "action_head_type='gmm' requires gmm_head or gmm_heads"
-                )
+                    "action_head_type='gmm' requires gmm_head or gmm_heads")
         else:
             raise ValueError(
                 f"action_head_type must be 'linear'|'mlp'|'gmm', got "
@@ -651,12 +650,7 @@ class HNetOuterStage(nn.Module):
         x = None
         for mod in self.input_modules:
             contrib = mod.forward_padded(
-                actions=actions,
-                obs=obs,
-                B=B,
-                T=T,
-                device=device,
-                dtype=dtype,
+                actions=actions, obs=obs, B=B, T=T, device=device, dtype=dtype,
                 embodiment_id=ctx.embodiment_id,
             )
             x = contrib if x is None else x + contrib
@@ -712,12 +706,9 @@ class HNetOuterStage(nn.Module):
         actions); the head is stashed on ``ctx.extras`` so ``GMMLoss`` can read
         them back through the same head's ``.nll``.
         """
-        head = (
-            self.action_out[ctx.embodiment_id]
-            if isinstance(self.action_out, nn.ModuleDict)
-            else self.action_out
-        )
-        self._cur_head = head  # remember for the per-frame eval decode path
+        head = (self.action_out[ctx.embodiment_id]
+                if isinstance(self.action_out, nn.ModuleDict) else self.action_out)
+        object.__setattr__(self, "_cur_head", head)  # NOT a registered submodule: self._cur_head=head adds duplicate _cur_head.* keys to state_dict and breaks strict resume
         batch["pred_action"] = head(h)
         if self.action_head_type == "gmm":
             ctx.extras["gmm_head"] = head
@@ -753,11 +744,8 @@ class HNetOuterStage(nn.Module):
             return raw
         head = getattr(self, "_cur_head", None)
         if head is None or isinstance(head, nn.ModuleDict):
-            head = (
-                next(iter(self.action_out.values()))
-                if isinstance(self.action_out, nn.ModuleDict)
-                else self.action_out
-            )
+            head = (next(iter(self.action_out.values()))
+                    if isinstance(self.action_out, nn.ModuleDict) else self.action_out)
         a = head.decode(raw)
         if int(getattr(head, "chunk_len", 1)) > 1:
             a = a[..., 0, :]
@@ -837,14 +825,12 @@ class HNetOuterStage(nn.Module):
         cond_2d = {k: v.squeeze(1) for k, v in cond_dict_seq.items()}
 
         obs_step = {
-            k: v.unsqueeze(1)
-            if (
+            k: v.unsqueeze(1) if (
                 torch.is_tensor(v)
                 and v.dim() < 5
                 and v.shape[0] == state["batch_size"]
                 and (v.dim() == 1 or v.shape[1] != 1)
-            )
-            else v
+            ) else v
             for k, v in obs_norm.items()
         }
         cur = None
@@ -856,6 +842,7 @@ class HNetOuterStage(nn.Module):
                 B=state["batch_size"],
                 device=state["device"],
                 dtype=state["dtype"],
+                embodiment_id=embodiment_id,
             )
             cur = contrib if cur is None else cur + contrib
         if cur is None:
@@ -868,7 +855,8 @@ class HNetOuterStage(nn.Module):
             embodiment_id=embodiment_id,
         )
         h = self.inner_stage.step(cur, ctx)
-        a_t_norm = self.action_out(h)
+        _head = self.action_out[embodiment_id] if isinstance(self.action_out, nn.ModuleDict) else self.action_out
+        a_t_norm = _head(h)
         state["prev_action"] = a_t_norm
         return a_t_norm
 
@@ -903,16 +891,8 @@ def _stride_packed(obs, actions, cu_seqlens, sigma, C):
         idx_list.append(fr)
         ep_end_list.append(torch.full_like(fr, e))
         new_cu.append(new_cu[-1] + int(fr.numel()))
-    sidx = (
-        torch.cat(idx_list)
-        if idx_list
-        else torch.empty(0, dtype=torch.long, device=dev)
-    )
-    ep_end = (
-        torch.cat(ep_end_list)
-        if ep_end_list
-        else torch.empty(0, dtype=torch.long, device=dev)
-    )
+    sidx = torch.cat(idx_list) if idx_list else torch.empty(0, dtype=torch.long, device=dev)
+    ep_end = torch.cat(ep_end_list) if ep_end_list else torch.empty(0, dtype=torch.long, device=dev)
     new_cu_t = torch.tensor(new_cu, device=dev, dtype=torch.long)
     # Strided obs: gather per-frame tensors at sidx; pass through anything whose
     # leading dim isn't T_total (e.g. scalar/meta tensors).
@@ -952,7 +932,8 @@ class PackedAlgoBase(Algo):
         use_parameter_groups: bool = False,
         weight_decay: float = 0.0,
         train_obs_transforms: list | None = None,
-        obs_stride: int = 1,
+        episode_level_transforms: list | None = None,
+        obs_stride: int = None,
         **kwargs,
     ):
         """
@@ -996,6 +977,7 @@ class PackedAlgoBase(Algo):
         self.lr_multipliers = list(lr_multipliers) if lr_multipliers else None
         self.weight_decay = float(weight_decay)
         self.train_obs_transforms = list(train_obs_transforms or [])
+        self.episode_level_transforms = list(episode_level_transforms or [])
         # obs_stride: subsample the obs-token stream fed to the chunker so
         # routed tokens are ``obs_stride`` sim-frames apart (mirrors the
         # working WindowedBC/HNetCore recipe). With stride > 1 the RoutingModule
@@ -1005,6 +987,19 @@ class PackedAlgoBase(Algo):
         # actions at FULL frame resolution, so with obs_stride == chunk_len the
         # 8-action chunks tile the episode exactly (like obs_stride=8/chunk_len=8
         # on the RNN side).
+        # Resolve the GMM head chunk_len once. ``action_out`` is an nn.ModuleDict
+        # of per-embodiment GMM heads for the indomain_c4 cells, and the dict
+        # itself has no .chunk_len (it lives on the member heads), so read it
+        # from a member head when action_out is a ModuleDict; previously this
+        # fell back to 1 and silently mis-trained chunk_len>1 models.
+        _ao = getattr(outer_stage, "action_out", None)
+        if isinstance(_ao, nn.ModuleDict):
+            _ao = next(iter(_ao.values()), None)
+        _cl = int(getattr(_ao, "chunk_len", 1))
+        if obs_stride is None:
+            # default to the GMM head chunk_len so the validated obs_stride==chunk_len
+            # recipe holds when unset.
+            obs_stride = _cl
         self.obs_stride = int(obs_stride)
         if self.obs_stride < 1:
             raise ValueError(f"obs_stride must be >= 1, got {self.obs_stride}")
@@ -1014,7 +1009,7 @@ class PackedAlgoBase(Algo):
         # non-GMM has no chunk fan-out) instead of corrupting metrics silently.
         if self.obs_stride > 1:
             _ah = getattr(outer_stage, "action_head_type", None)
-            _C = int(getattr(getattr(outer_stage, "action_out", None), "chunk_len", 1))
+            _C = _cl
             if _ah != "gmm":
                 raise ValueError(
                     f"obs_stride>1 currently requires action_head_type='gmm' (got {_ah!r})."
@@ -1098,6 +1093,12 @@ class PackedAlgoBase(Algo):
         processed = {}
         for emb_name, _batch in batch.items():
             emb_id = get_embodiment_id(emb_name)
+            # Episode-level transforms (e.g. PadHoldStill) — PRE-norm, may
+            # change length (updates cu_seqlens). Train-only, packed-only.
+            if (self.episode_level_transforms and self.outer_stage.training
+                    and "cu_seqlens" in _batch):
+                from egomimic.algo.hnet.episode_transforms import apply_episode_level_transforms
+                _batch = apply_episode_level_transforms(_batch, self.episode_level_transforms)
             processed[emb_id] = {}
             # Detect packed batches by the presence of cu_seqlens. Packed and
             # padded batches have a different key topology; treat them
@@ -1177,6 +1178,8 @@ class PackedAlgoBase(Algo):
                 # For action_head_type='gmm', the head IS outer_stage.action_out
                 # (no separate .gmm_head attr); chunk_len lives there.
                 head = getattr(outer_stage, "action_out", None)
+                if isinstance(head, nn.ModuleDict):
+                    head = next(iter(head.values()))
                 C = int(getattr(head, "chunk_len", 1))
                 sobs, scu, smax, chunk_targets, sidx, _ = _stride_packed(
                     obs, actions, _batch["cu_seqlens"], self.obs_stride, C
@@ -1283,6 +1286,8 @@ class PackedAlgoBase(Algo):
             # the downstream metric/viz code is untouched. (Mirrors how the sim
             # inference_step rolls out: re-observe every chunk_len frames.)
             head = getattr(policy, "action_out", None)
+            if isinstance(head, nn.ModuleDict):
+                head = head[self.domain_by_id.get(emb_id)]
             C = int(getattr(head, "chunk_len", 1))
             sobs, scu, smax, _, sidx, ep_end = _stride_packed(
                 obs, actions, cu, self.obs_stride, C
@@ -1313,11 +1318,7 @@ class PackedAlgoBase(Algo):
             )
         else:
             pred_packed, _ = policy.forward_packed(
-                actions,
-                obs,
-                cu,
-                max_seqlen,
-                embodiment_id=self.domain_by_id.get(emb_id),
+                actions, obs, cu, max_seqlen, embodiment_id=self.domain_by_id.get(emb_id)
             )
 
         B = int(seq_lens.shape[0])
@@ -1392,6 +1393,7 @@ class PackedAlgoBase(Algo):
             device = next(self.outer_stage.parameters()).device
             default_T = int(getattr(policy, "action_horizon", 1024))
             T_max_use = int(T_max) if T_max is not None else default_T
+            import torch
 
             # Run the AR rollout in the MODEL's own dtype (fp32 when loaded
             # .float(), like training + teacher-forced overlay + txar's sim),
@@ -1401,9 +1403,7 @@ class PackedAlgoBase(Algo):
             # and uniquely degraded the H-Net (txar's init_step_state defaults to
             # fp32, hence "txar works, H-Net doesn't"). Match training precision.
             self._sim_state = policy.init_step_state(
-                batch_size=1,
-                T_max=T_max_use,
-                device=device,
+                batch_size=1, T_max=T_max_use, device=device,
                 dtype=next(policy.parameters()).dtype,
             )
             # Open-loop action queue (mirrors WindowedBCPolicy.step): on an
@@ -1430,14 +1430,14 @@ class PackedAlgoBase(Algo):
             # token, decode a fresh chunk, refill the queue.
             obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
             raw = policy.step(
-                self._sim_state,
-                obs_norm,
-                t,
+                self._sim_state, obs_norm, t,
                 embodiment_id=self.domain_by_id.get(emb_id),
             )  # (B,1,*)
             if is_gmm:
-                chunk = policy.action_out.decode(raw)  # (B,1,C,D) if C>1 else (B,1,D)
-                C = int(getattr(policy.action_out, "chunk_len", 1))
+                _ah = (policy.action_out[self.domain_by_id.get(emb_id)]
+                       if isinstance(policy.action_out, nn.ModuleDict) else policy.action_out)
+                chunk = _ah.decode(raw)  # (B,1,C,D) if C>1 else (B,1,D)
+                C = int(getattr(_ah, "chunk_len", 1))
                 if C > 1:
                     # (B,1,C,D) -> C tensors (B,1,D), one per chunk position.
                     # RE-PLAN CADENCE = the ARCHITECTURE's obs_stride. A model
@@ -1520,3 +1520,4 @@ class PackedAlgoBase(Algo):
 # that referenced the ``HNet`` name (now reachable at
 # ``egomimic.algo.hnet.HNet``). New code should use ``PackedAlgoBase``.
 HNet = PackedAlgoBase
+

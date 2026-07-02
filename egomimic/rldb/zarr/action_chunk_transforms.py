@@ -567,3 +567,4 @@ class NumpyToTensor(Transform):
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
         return batch
+
