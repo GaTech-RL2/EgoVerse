@@ -56,12 +56,43 @@ class ModelWrapper(LightningModule):
         self.nets = (
             self.model.nets
         )  # to ensure the lightning module has access to the model's parameters
+        # Optional torch.compile of the heavy net (the HNetOuterStage that
+        # forward_training calls via the `outer_stage` property). Env-gated and
+        # default-off so all existing runs are byte-identical. NOTE: the H-Net
+        # threads a mutable HNetContext + many .item()/dynamic packed shapes, so
+        # compile will graph-break heavily; measure before trusting any speedup.
+        import os
+
+        if os.environ.get("EGO_COMPILE", "0") == "1":
+            _mode = os.environ.get("EGO_COMPILE_MODE", "default")
+            self.model.nets["outer_stage"] = torch.compile(
+                self.model.nets["outer_stage"], dynamic=True, mode=_mode
+            )
+            self.nets = self.model.nets
+            print(
+                f"[ModelWrapper] torch.compile(outer_stage, dynamic=True, mode={_mode}) ENABLED"
+            )
         try:
             self.params = self.model.nets["policy"].params
         except Exception:
             pass
         self.enable_grad_norm = enable_grad_norm
         self.grad_norm_history = deque(maxlen=self.grad_norm_mad_window)
+
+        # Optional PER-LEAF raw grad-norm logging. Gated by a model-config flag
+        # so default runs are byte-identical (no new columns, no extra compute).
+        # Read from the config tree the same way ``scheduler`` is, with a hard
+        # default of False. Enable via CLI/config override
+        # ``model.log_per_layer_grad_norms=true``. When on, logs one grad-norm
+        # per parameterized LEAF module (every nn.Linear / norm / conv /
+        # embedding / direct-param block) rather than a handful of coarse
+        # depth-collapsed groups.
+        self.log_per_layer_grad_norms = False
+        cfg = self._as_config(config_tree)
+        if cfg is not None and OmegaConf.select(cfg, "model") is not None:
+            self.log_per_layer_grad_norms = bool(
+                OmegaConf.select(cfg, "model.log_per_layer_grad_norms", default=False)
+            )
 
         self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
@@ -144,7 +175,62 @@ class ModelWrapper(LightningModule):
 
         return losses["action_loss"]
 
+    @staticmethod
+    def _grad_norm_group_key(name: str) -> str:
+        """Derive a PER-LEAF module-group key from a parameter name.
+
+        Robust to ANY arch: the key is simply the OWNING MODULE PATH, i.e. the
+        full dotted ``named_parameters`` path with the trailing tensor name
+        (``.weight`` / ``.bias`` / ``.A_log`` / ...) stripped. This yields one
+        group per parameterized leaf module -- every ``nn.Linear``,
+        ``LayerNorm`` / ``RMSNorm``, conv, embedding, and any module that owns
+        parameters directly -- so a leaf's weight + bias combine in quadrature
+        while siblings stay separate. No depth collapsing: the residual /
+        projection linears (taper ``proj_in`` / ``proj_out``, dechunker
+        ``w_v`` / ``w_h`` / ``w_o`` / gate-MLP / FiLM-MLP, router ``W_in`` +
+        head, every block's ``attn.{q,k,v,out}_proj`` + ``mlp.*``) each get
+        their own entry instead of being bucketed into one trunk group.
+        """
+        path = name.rsplit(".", 1)[0]  # drop trailing tensor name -> owning module
+        return path if path else name
+
+    def _log_per_layer_grad_norms(self):
+        """Log the L2 norm of each LEAF module's raw parameter grads.
+
+        Computed from ``.grad`` after backward and before any clipping, so it
+        mirrors ``policy_grad_norms_raw`` and reflects the raw per-leaf learning
+        signal. Iterates ``self.nets.named_parameters()`` (the policy's
+        ModuleDict — the canonical learnable-parameter tree, same source the
+        optimizer's ``parameter_groups`` walks), groups each param under its
+        owning leaf-module path, and logs the per-leaf norm under
+        ``Train/grad_norm/<full.module.path>``. The quadrature sum over ALL
+        per-leaf norms equals ``policy_grad_norms_raw``.
+        """
+        sq_sums: "OrderedDict[str, torch.Tensor]" = OrderedDict()
+        for name, p in self.nets.named_parameters():
+            if p.grad is None:
+                continue
+            key = self._grad_norm_group_key(name)
+            sq = p.grad.detach().pow(2).sum()
+            if key in sq_sums:
+                sq_sums[key] = sq_sums[key] + sq
+            else:
+                sq_sums[key] = sq
+        for key, sq in sq_sums.items():
+            self.log(
+                f"Train/grad_norm/{key}",
+                torch.sqrt(sq),
+                on_step=False,
+                on_epoch=True,
+                sync_dist=True,
+            )
+
     def on_after_backward(self):
+        # Per-layer raw grad norms are gated by their own flag and taken here
+        # (after backward, before any clipping) independent of the global
+        # grad-norm/MAD machinery below.
+        if self.log_per_layer_grad_norms:
+            self._log_per_layer_grad_norms()
         if not self.enable_grad_norm:
             return
         grad_norm = torch.nn.utils.clip_grad_norm_(

@@ -735,10 +735,18 @@ class ChunkerStage(_BaseStage):
         #     replacing additive `up + residual`. "additive" (default = current)
         #     | "mlp" | "attn"; mlp/attn start ~= additive. See residual_mixer.py.
         residual_mixer: str = "additive",
+        # extra kwargs forwarded to the mixer ctor (e.g. {n_layers: 4,
+        # hidden_mult: 4.0} for mlp). Empty = the mixer's own defaults.
+        residual_mixer_kwargs: dict | None = None,
         # first_token chunker: also fold in the PREVIOUS chunk's end token (the
         # token just before each boundary) via a zero-init proj (starts as
         # first-token-only). Causal; gives the high-level each chunk's start+end.
         grab_prev_end: bool = False,
+        # Depth of the prev_end_combine downsampler MLP (used ONLY when
+        # grab_prev_end is True). DEFAULT 3 reproduces the original hardcoded
+        # 3-Linear MLP exactly (byte-identical params). n_layers=4 adds one
+        # extra hidden Linear+GELU.
+        prev_end_combine_n_layers: int = 3,
     ):
         super().__init__(input_hidden_dim, output_hidden_dim, cond_key=cond_key)
         self.target_compression_ratio = float(target_compression_ratio)
@@ -836,6 +844,7 @@ class ChunkerStage(_BaseStage):
         # below -- it REPLACES proj_in (2*input -> trunk dim), preserving both
         # boundary tokens instead of summing them (no info-lossy add).
         self.grab_prev_end = bool(grab_prev_end)
+        self.prev_end_combine_n_layers = int(prev_end_combine_n_layers)
         if self.grab_prev_end and down_interface != "first_token":
             raise ValueError("grab_prev_end requires down_interface='first_token'")
 
@@ -932,13 +941,18 @@ class ChunkerStage(_BaseStage):
             # (= trunk dim). REPLACES proj_in: the combine IS the bridge, so both
             # boundary tokens are preserved (no info-lossy sum). proj_out stays.
             _h = 2 * self.input_hidden_dim
-            self.prev_end_combine = nn.Sequential(
-                nn.Linear(2 * self.input_hidden_dim, _h),
-                nn.GELU(),
-                nn.Linear(_h, _h),
-                nn.GELU(),
-                nn.Linear(_h, self.output_hidden_dim),
-            )
+            # Configurable-depth MLP. n_layers counts Linear layers:
+            #   first Linear(2*input -> _h) + GELU,
+            #   (n_layers - 2) x [Linear(_h -> _h) + GELU],
+            #   final Linear(_h -> output).
+            # n_layers=3 reproduces the original 3-Linear MLP exactly.
+            _n = self.prev_end_combine_n_layers
+            assert _n >= 2, f"prev_end_combine_n_layers must be >= 2, got {_n}"
+            _layers = [nn.Linear(2 * self.input_hidden_dim, _h), nn.GELU()]
+            for _ in range(_n - 2):
+                _layers += [nn.Linear(_h, _h), nn.GELU()]
+            _layers += [nn.Linear(_h, self.output_hidden_dim)]
+            self.prev_end_combine = nn.Sequential(*_layers)
             # Learned "no previous chunk" token: fed as the prev-end half for the
             # first chunk of a sequence (instead of zeros) -> unambiguous BOS-like
             # signal the MLP can key on.
@@ -977,7 +991,7 @@ class ChunkerStage(_BaseStage):
 
         self.residual_mixer_kind = str(residual_mixer)
         self.residual_mixer = build_residual_mixer(
-            residual_mixer, self.input_hidden_dim
+            residual_mixer, self.input_hidden_dim, **(residual_mixer_kwargs or {})
         )
 
     @property
