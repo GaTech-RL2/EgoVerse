@@ -1,0 +1,64 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# PUSHSHAPES TABLE FEED -- BIG-ONLY  (in-domain, chunk-4 families).
+#
+# Feeds ONE domain: pushshapes_sim -> circle_3000 (big circle, 3040 ep).
+# Packed full-episode teacher forcing (chunking="none" -> one full episode per
+# packed sample); pack_collate concatenates batch_size episodes into a single
+# flat stream with cu_seqlens boundaries. Action chunking (chunk-4) is handled
+# in the model head / GMMLoss, NOT here.
+#
+# For the H-Net firstend pyramid + Tx WindowedBC families (both consume the
+# ZarrEpisodePackedDataset packed loader + get_keymap windowed obs). The model
+# keeps BOTH heads (pushshapes_sim + pushshapes_sim_small_circle); this feed
+# only provides big-circle data, so the small-circle head gets no gradient.
+#
+# circle_3000 episodes are tagged embodiment="pushshapes_sim" on disk, so the
+# plain LocalEpisodeResolver routes them correctly (no override needed).
+#
+# action_horizon=2560 is the keymap obs/action window cap (matches the firstend
+# model's outer_stage.action_horizon=2560). Longest episode here is ~500 frames,
+# so 2560 leaves ample headroom; max_seq_len=2560 packs whole episodes.
+
+train_datasets:
+  pushshapes_sim:                       # big circle
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000_plus_gen
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000_plus_gen
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 8
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
