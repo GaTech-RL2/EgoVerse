@@ -332,6 +332,17 @@ class PI(Algo):
             # left in `_batch` by `annotation_collate`, plus per-sample proprio
             # tensors from `_batch` for the optional State block.
             prompts = self._build_prompts(_batch, embodiment_name, B)
+            if (
+                os.environ.get("PI_DEBUG_PROMPTS")
+                and getattr(self, "_debug_prompt_count", 0) < 3
+            ):
+                logger.info(
+                    "[PI_DEBUG_PROMPTS %d] %s prompt[0]: %r",
+                    getattr(self, "_debug_prompt_count", 0),
+                    embodiment_name,
+                    prompts[0],
+                )
+                self._debug_prompt_count = getattr(self, "_debug_prompt_count", 0) + 1
             processed_batch[embodiment_id]["sampled_prompt"] = prompts
             processed_batch[embodiment_id].update(self._tokenize_prompts(prompts))
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(

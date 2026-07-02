@@ -31,8 +31,9 @@ seed: 42
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
   norm_mode: quantile
-  sample_frac: 1.0
-  num_workers: 4
+  sample_frac: 0.2
+  num_workers: 6
   save_cache_dir: ${hydra:runtime.output_dir}
   precomputed_norm_path: null
+  # precomputed_norm_path: /storage/project/r-dxu345-0/rco3/EgoVerse/logs/norm_stats
 reject_outliers: true
