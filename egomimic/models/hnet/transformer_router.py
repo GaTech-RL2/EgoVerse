@@ -55,17 +55,9 @@ from typing import List, Optional
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-from .blocks import (
-    IsotropicInferenceParams,
-    KVCache,
-    MultiHeadAttention,
-    RMSNorm,
-    StateRowMixin,
-)
+from .blocks import KVCache, MultiHeadAttention, RMSNorm
 from .routing import RoutingModuleOutput, get_seq_idx
-
 
 # --------------------------------------------------------------------------- #
 # Duration prior.
@@ -104,7 +96,7 @@ def _g_dwell(
 
 
 @dataclass
-class PhaseSummaryRouterState(StateRowMixin):
+class PhaseSummaryRouterState:
     """AR state for ``PhaseSummaryRouter`` (mirror of ``ScanRouterState``).
 
     ``has_seen_tokens`` forces a boundary on the first step of each episode
@@ -116,11 +108,11 @@ class PhaseSummaryRouterState(StateRowMixin):
     """
 
     has_seen_tokens: torch.Tensor  # (B,) bool
-    kv: List[KVCache]              # per-layer KV caches
-    last_cut_pos: torch.Tensor    # (B,) long — position of the current segment start
-    t_idx: torch.Tensor           # (B,) long — running token position within the subseq
-    seg_sum: torch.Tensor         # (B, d_model) sum of h over the open segment
-    seg_count: torch.Tensor       # (B,) long — # tokens in the open segment
+    kv: List[KVCache]  # per-layer KV caches
+    last_cut_pos: torch.Tensor  # (B,) long — position of the current segment start
+    t_idx: torch.Tensor  # (B,) long — running token position within the subseq
+    seg_sum: torch.Tensor  # (B, d_model) sum of h over the open segment
+    seg_count: torch.Tensor  # (B,) long — # tokens in the open segment
 
 
 class PhaseSummaryRouter(nn.Module):
@@ -180,9 +172,7 @@ class PhaseSummaryRouter(nn.Module):
         #    Pre-norm self-attn + GELU MLP, mirroring TransformerBlock's structure
         #    but kept self-contained here so PSER owns its stack. Attention is the
         #    repo's MultiHeadAttention with RoPE + KV-cache .step().
-        self.attn_norms = nn.ModuleList(
-            [RMSNorm(d_model) for _ in range(self.depth)]
-        )
+        self.attn_norms = nn.ModuleList([RMSNorm(d_model) for _ in range(self.depth)])
         self.attns = nn.ModuleList(
             [
                 MultiHeadAttention(
@@ -196,9 +186,7 @@ class PhaseSummaryRouter(nn.Module):
                 for _ in range(self.depth)
             ]
         )
-        self.mlp_norms = nn.ModuleList(
-            [RMSNorm(d_model) for _ in range(self.depth)]
-        )
+        self.mlp_norms = nn.ModuleList([RMSNorm(d_model) for _ in range(self.depth)])
         ff_dim = int(ff_mult * d_model)
         self.mlps = nn.ModuleList(
             [
@@ -237,7 +225,9 @@ class PhaseSummaryRouter(nn.Module):
     # Shared logit core (TF parallel pass AND AR step read THIS exact fn).
     # ------------------------------------------------------------------ #
 
-    def _logit(self, h: torch.Tensor, r: torch.Tensor, tau: torch.Tensor) -> torch.Tensor:
+    def _logit(
+        self, h: torch.Tensor, r: torch.Tensor, tau: torch.Tensor
+    ) -> torch.Tensor:
         """ell from post-LayerNorm h, running segment summary r (= h's mean over
         the open segment, BEFORE the current token), and dwell tau.
 
@@ -372,7 +362,7 @@ class PhaseSummaryRouter(nn.Module):
         as in upstream); every other position carries the sigmoid(MLP) gradient.
         """
         ell = self.logit_mlp(h).squeeze(-1) / self.T_temp  # (T,)
-        p = torch.sigmoid(ell)                             # (T,)
+        p = torch.sigmoid(ell)  # (T,)
         # Force a boundary at the first token of every subseq (upstream parity:
         # ``boundary_prob[cu_seqlens[:-1]] = 1.0``). Clone first so the in-place
         # scatter is autograd-safe.
@@ -419,7 +409,9 @@ class PhaseSummaryRouter(nn.Module):
             seg_count=torch.zeros(batch_size, device=device, dtype=torch.long),
         )
 
-    def _encode_step(self, x_t: torch.Tensor, state: PhaseSummaryRouterState) -> torch.Tensor:
+    def _encode_step(
+        self, x_t: torch.Tensor, state: PhaseSummaryRouterState
+    ) -> torch.Tensor:
         """One AR token through W_in + causal layers (KV-cache) + head LayerNorm.
         x_t: (B, D). Returns post-LayerNorm h_t (B, D). RoPE is applied inside
         each attention at the per-row position ``cache.offsets`` (== t_idx)."""
@@ -430,7 +422,9 @@ class PhaseSummaryRouter(nn.Module):
             x = x + self.mlps[i](self.mlp_norms[i](x))
         return self.head_norm(x.squeeze(1))  # (B, D)
 
-    def step(self, x_t: torch.Tensor, state: PhaseSummaryRouterState) -> RoutingModuleOutput:
+    def step(
+        self, x_t: torch.Tensor, state: PhaseSummaryRouterState
+    ) -> RoutingModuleOutput:
         """One AR step. ``x_t``: (B, 1, D) or (B, D). Returns a per-batch
         RoutingModuleOutput. Boundary forced True on the first step of each
         episode (``has_seen_tokens`` False). Reads p_t from the SAME ``_logit``
