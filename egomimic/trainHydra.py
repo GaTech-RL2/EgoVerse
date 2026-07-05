@@ -13,14 +13,14 @@ from omegaconf import DictConfig, OmegaConf, open_dict
 from tabulate import tabulate
 
 from egomimic.eval.eval import Eval
+from egomimic.pl_utils.instantiators import instantiate_callbacks, instantiate_loggers
+from egomimic.pl_utils.logging_utils import log_hyperparameters
 from egomimic.pl_utils.pl_model import ModelWrapper
+from egomimic.pl_utils.utils import extras, task_wrapper
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
-from egomimic.pl_utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.pl_utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
-from egomimic.pl_utils.utils import extras, task_wrapper
 
 # Gated TF32: NO-OP unless EGOMIMIC_TF32=1 in env. Enables TensorFloat-32 matmuls
 # (~1.5-2x on A40 tensor cores) without changing other experiments numerics.
@@ -240,8 +240,13 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         last_ckpt_path = os.path.join(
             trainer.default_root_dir, "checkpoints", "last.ckpt"
         )
-        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
-        cfg.ckpt_path = last_ckpt_path
+        if os.path.exists(last_ckpt_path):
+            log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
+            cfg.ckpt_path = last_ckpt_path
+        else:
+            log.info(
+                f"SLURM requeue but no {last_ckpt_path}; keeping ckpt_path={cfg.get('ckpt_path')}"
+            )
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 

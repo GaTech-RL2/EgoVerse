@@ -1,8 +1,15 @@
-"""Module-tree ACTIVE param count for the chunkchunk_trunk H-Net.
+"""Module-tree ACTIVE param count for per-embodiment H-Net chains.
 
 Active = all shared modules + exactly ONE embodiment's branch of every
-per-emb container (PerEmbodimentStage.sub_stages / MultiEmbodimentCondEncoder.encoders
-/ gmm_heads ModuleDict). Walks the tree by IDENTITY, not names.
+per-emb ModuleDict container (PerEmbodimentStage.sub_stages /
+MultiEmbodimentCondEncoder.encoders / gmm_heads / any ModuleDict keyed by
+embodiment names).
+
+Counting is IDENTITY-DEDUPED: params are collected into an {id: numel} dict,
+so the HNet chain wiring (which registers the whole downstream chain as an
+``inner_stage`` child of every stage AND of every per-emb sub-stage) cannot
+double-count or double-subtract anything. The old subtraction-based version
+went negative on exactly these chains.
 """
 
 import sys
@@ -20,73 +27,67 @@ outer = instantiate(cfg.robomimic_model.outer_stage)
 M = 1e6
 
 
-def n_params(mod):
-    return sum(p.numel() for p in mod.parameters())
+def _is_per_emb(child):
+    return isinstance(child, torch.nn.ModuleDict) and EMB in child
 
 
-def active_params(mod):
-    """Recurse; at any per-emb dict container keep only EMB's branch."""
-    kids = dict(mod.named_children())
-    # per-emb containers in this codebase
-    for attr in ("sub_stages", "encoders"):
-        sub = getattr(mod, attr, None)
-        if isinstance(sub, torch.nn.ModuleDict) and EMB in sub:
-            others = {k: v for k, v in sub.items() if k != EMB}
-            total = n_params(mod)
-            dead = sum(n_params(v) for v in others.values())
-            # recurse into the kept branch for nested per-emb containers
-            kept = sub[EMB]
-            kept_total = n_params(kept)
-            kept_active = active_params(kept)
-            return total - dead - (kept_total - kept_active)
-    tot = 0
-    counted = set()
-    for name, k in kids.items():
-        tot += active_params(k)
-        counted.add(name)
-    # direct parameters on this module
-    tot += sum(p.numel() for n, p in mod.named_parameters(recurse=False))
-    return tot
+def collect(mod, active_only, skip_chain, out=None):
+    """{id(param): numel} over the tree.
+
+    active_only: at any per-emb ModuleDict descend only into the EMB branch.
+    skip_chain:  don't follow child edges named 'inner_stage' (used ONLY for
+                 the per-stage breakdown, where each stage must be counted
+                 without the downstream chain it aliases; totals never need
+                 it because the id-dict dedupes).
+    """
+    if out is None:
+        out = {}
+    for _, p in mod.named_parameters(recurse=False):
+        out[id(p)] = p.numel()
+    for name, child in mod.named_children():
+        if skip_chain and name == "inner_stage":
+            continue
+        if active_only and _is_per_emb(child):
+            collect(child[EMB], active_only, skip_chain, out)
+            continue
+        collect(child, active_only, skip_chain, out)
+    return out
 
 
-def report(label, mod):
-    if mod is None:
-        return 0
-    a = active_params(mod)
-    t = n_params(mod)
-    print(f"{label:42s} active {a/M:8.2f}M   total {t/M:8.2f}M")
-    return a
+def msum(ids):
+    return sum(ids.values()) / M
 
 
-print("=== component breakdown ===")
-tot = 0
-tot += report("obs encoders (input_modules)", outer.input_modules)
+total_ids = collect(outer, active_only=False, skip_chain=False)
+active_ids = collect(outer, active_only=True, skip_chain=False)
+
+print("=== component breakdown (own params, chain links excluded) ===")
 hnet = outer.inner_stage
+if outer.input_modules is not None:
+    ids_a = collect(outer.input_modules, True, True)
+    ids_t = collect(outer.input_modules, False, True)
+    print(
+        f"{'obs encoders (input_modules)':42s} active {msum(ids_a):8.2f}M   total {msum(ids_t):8.2f}M"
+    )
 for i, st in enumerate(hnet.stages):
-    # count each stage's OWN params (exclude the chained inner_stage)
-    class Own(torch.nn.Module):
-        def __init__(self, s):
-            super().__init__()
-            for n, c in s.named_children():
-                if n != "inner_stage":
-                    self.add_module(n, c)
-            self._direct = [p for _, p in s.named_parameters(recurse=False)]
-
-    own = Own(st)
-    tot += report(f"stage[{i}] {type(st).__name__}", own)
-# heads
+    ids_a = collect(st, True, True)
+    ids_t = collect(st, False, True)
+    print(
+        f"stage[{i}] {type(st).__name__:32s} active {msum(ids_a):8.2f}M   total {msum(ids_t):8.2f}M"
+    )
 gh = getattr(outer, "gmm_heads", None) or getattr(outer, "action_out", None)
-if isinstance(gh, torch.nn.ModuleDict):
-    a = n_params(gh[EMB]) if EMB in gh else 0
-    print(f"{'gmm head (1 emb)':42s} active {a/M:8.2f}M   total {n_params(gh)/M:8.2f}M")
-    tot += a
-else:
-    tot += report("action head", gh)
-print(f"{'TOTAL ACTIVE (1 emb)':42s} {tot/M:8.2f}M")
-print(f"{'TOTAL (all params)':42s} {n_params(outer)/M:8.2f}M")
+if gh is not None:
+    ids_a = collect(gh, True, True)
+    ids_t = collect(gh, False, True)
+    print(
+        f"{'action head(s)':42s} active {msum(ids_a):8.2f}M   total {msum(ids_t):8.2f}M"
+    )
+
+print(f"\n{'TOTAL ACTIVE (1 emb)':42s} {msum(active_ids):8.2f}M")
+print(f"{'TOTAL (all params)':42s} {msum(total_ids):8.2f}M")
 
 # fine-grained chunker internals for the budget-swap design
-print("\n=== chunker internals (per emb, level 0 + 1) ===")
+print("\n=== chunker internals (per emb, per level) ===")
 for i, st in enumerate(hnet.stages):
     sub = getattr(st, "sub_stages", None)
     if isinstance(sub, torch.nn.ModuleDict) and EMB in sub:
@@ -94,7 +95,7 @@ for i, st in enumerate(hnet.stages):
         for name, child in ch.named_children():
             if name == "inner_stage":
                 continue
-            print(f"  L{i}.{name:24s} {n_params(child)/M:7.3f}M")
+            print(f"  L{i}.{name:24s} {msum(collect(child, True, True)):7.3f}M")
         d = sum(p.numel() for _, p in ch.named_parameters(recurse=False))
         if d:
             print(f"  L{i}.<direct params>          {d/M:7.3f}M")
