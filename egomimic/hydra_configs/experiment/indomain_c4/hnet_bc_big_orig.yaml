@@ -1,0 +1,23 @@
+# @package _global_
+# FAITHFUL replica of the ORIGINAL 0.886 hnet_bc_big (2026-06-24 interleaved
+# pyramid: Compute-T9 -> Chunk -> Compute-T9 -> Chunk -> Compute-T9). Model
+# subtree extracted byte-exact from logs/_broken_hnet_pyramid/..._21-25-30.
+defaults:
+  - override /model: hnet_bc_big_orig_pyramid
+  - override /data: indomain_c4_big
+  - override /evaluator: gmm_eval_firstend
+  - override /logger: csv_wandb
+
+name: indomain_c4
+description: hnet_bc_big_orig
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax
