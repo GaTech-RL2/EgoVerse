@@ -19,7 +19,7 @@ Tensor shape conventions (match upstream):
 """
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Dict, Optional, Union
 
 import torch
@@ -55,8 +55,189 @@ def has_mamba() -> bool:
     return _HAS_MAMBA
 
 
+# --------------------------------------------------------------------------- #
+# Row-ownership machinery for inference-state dataclasses.
+#
+# Every state dataclass that crosses the stage tree's per-batch slice/scatter
+# boundary (``stages._slice_state`` / ``stages._scatter_state``) owns its own
+# row semantics via ``StateRowMixin``:
+#
+#   narrow(idx)      -> deep, row-sliced copy (rows where the (B,) bool mask
+#                       ``idx`` is True), recursing into nested states.
+#   merge_(sub, idx) -> writes ``sub``'s rows back into ``self`` IN PLACE.
+#
+# Both methods iterate ``dataclasses.fields`` and dispatch generically
+# (tensor / nested state / dict / list / None), so a newly added field is
+# either handled or fails LOUDLY (TypeError) — never silently skipped.
+# ``merge_`` additionally MATERIALIZES tensor fields that are still None on
+# the persistent side (lazily-created carries like ChunkerStageState.prev_x
+# used to be dropped by the old ``if both non-None`` scatter guards), and
+# always ends with a cheap invariant check that nothing carried by the
+# sub-state got lost.
+# --------------------------------------------------------------------------- #
+
+
+def _narrow_value(v: Any, idx: torch.Tensor, owner: str, name: str) -> Any:
+    """Row-slice one field value; tensors are batched on dim 0 by default."""
+    if v is None:
+        return None
+    if isinstance(v, torch.Tensor):
+        return v[idx].clone()
+    if isinstance(v, dict):
+        return {
+            k: _narrow_value(x, idx, owner, f"{name}[{k!r}]") for k, x in v.items()
+        }
+    if isinstance(v, (list, tuple)):
+        vals = [_narrow_value(x, idx, owner, f"{name}[{i}]") for i, x in enumerate(v)]
+        return tuple(vals) if isinstance(v, tuple) else vals
+    narrow = getattr(v, "narrow", None)
+    if callable(narrow):
+        return narrow(idx)
+    raise TypeError(
+        f"{owner}.{name}: cannot row-slice value of type {type(v).__name__}; "
+        f"give it a narrow/merge_ pair (StateRowMixin) or handle it explicitly."
+    )
+
+
+def _merge_value(
+    mine: Any, theirs: Any, idx: torch.Tensor, owner: str, name: str
+) -> Any:
+    """Write ``theirs``'s rows into ``mine`` in place. Returns the (possibly
+    newly materialized) persistent-side value; callers must store it back if
+    it differs from ``mine``."""
+    if theirs is None:
+        # Sub-state carries nothing for this field -> leave the persistent
+        # side untouched (matches the old ``if ... is None: return`` guards).
+        return mine
+    if mine is None:
+        if isinstance(theirs, torch.Tensor):
+            # Materialize-on-merge: the sub-state lazily created this tensor
+            # (e.g. prev_x on a state allocated by an old code path). Allocate
+            # the full-batch buffer and write the active rows so the carry is
+            # NOT dropped.
+            mine = torch.zeros(
+                idx.shape[0],
+                *theirs.shape[1:],
+                dtype=theirs.dtype,
+                device=theirs.device,
+            )
+            mine[idx] = theirs
+            return mine
+        raise AssertionError(
+            f"{owner}.{name}: persistent state is None but the sliced sub-state "
+            f"carries a {type(theirs).__name__}; nested states must be "
+            f"allocated up front (allocate_inference_cache/_allocate)."
+        )
+    if isinstance(mine, torch.Tensor):
+        mine[idx] = theirs.to(mine.dtype)
+        return mine
+    if isinstance(mine, dict):
+        for k in mine:
+            sub_v = theirs.get(k) if isinstance(theirs, dict) else theirs
+            merged = _merge_value(mine[k], sub_v, idx, owner, f"{name}[{k!r}]")
+            if merged is not mine[k]:
+                mine[k] = merged
+        return mine
+    if isinstance(mine, tuple):
+        raise TypeError(
+            f"{owner}.{name}: tuple fields cannot be merged in place; use a list."
+        )
+    if isinstance(mine, list):
+        for i, (c, d) in enumerate(zip(mine, theirs)):
+            merged = _merge_value(c, d, idx, owner, f"{name}[{i}]")
+            if merged is not c:
+                mine[i] = merged
+        return mine
+    merge = getattr(mine, "merge_", None)
+    if callable(merge):
+        merge(theirs, idx)
+        return mine
+    raise TypeError(
+        f"{owner}.{name}: cannot merge value of type {type(mine).__name__}; "
+        f"give it a narrow/merge_ pair (StateRowMixin) or handle it explicitly."
+    )
+
+
+class StateRowMixin:
+    """``narrow``/``merge_`` over ``dataclasses.fields`` for state dataclasses.
+
+    Per-class hooks (plain class attributes, NOT dataclass fields):
+      * ``_DIM1_FIELDS``: names of fields whose batch dim is 1, not 0 (GRU
+        hiddens shaped (num_layers, B, H)): sliced ``v[:, idx]`` and merged
+        ``v[:, idx] = sub``.
+      * ``_META_FIELDS``: non-batched metadata; copied through ``_narrow_meta``
+        on narrow and left untouched by merge_.
+    """
+
+    _DIM1_FIELDS: tuple = ()
+    _META_FIELDS: tuple = ()
+
+    def _narrow_meta(self, name: str, value: Any, idx: torch.Tensor) -> Any:
+        return value
+
+    def narrow(self, idx: torch.Tensor):
+        cls_name = type(self).__name__
+        all_fields = fields(self)
+        handled = set()
+        kwargs = {}
+        for f in all_fields:
+            v = getattr(self, f.name)
+            if f.name in self._META_FIELDS:
+                kwargs[f.name] = self._narrow_meta(f.name, v, idx)
+            elif f.name in self._DIM1_FIELDS:
+                kwargs[f.name] = None if v is None else v[:, idx].clone()
+            else:
+                kwargs[f.name] = _narrow_value(v, idx, cls_name, f.name)
+            handled.add(f.name)
+        missing = {f.name for f in all_fields} - handled
+        assert not missing, f"{cls_name}.narrow: unhandled fields {sorted(missing)}"
+        return type(self)(**kwargs)
+
+    def merge_(self, sub, idx: torch.Tensor) -> None:
+        cls_name = type(self).__name__
+        all_fields = fields(self)
+        handled = set()
+        for f in all_fields:
+            mine = getattr(self, f.name)
+            theirs = getattr(sub, f.name)
+            if f.name in self._META_FIELDS:
+                handled.add(f.name)  # metadata: merge is a no-op by contract
+                continue
+            if f.name in self._DIM1_FIELDS:
+                if theirs is not None:
+                    if mine is None:
+                        # Materialize-on-merge, dim-1 batched analogue.
+                        mine = torch.zeros(
+                            theirs.shape[0],
+                            idx.shape[0],
+                            *theirs.shape[2:],
+                            dtype=theirs.dtype,
+                            device=theirs.device,
+                        )
+                        setattr(self, f.name, mine)
+                    mine[:, idx] = theirs.to(mine.dtype)
+                handled.add(f.name)
+                continue
+            merged = _merge_value(mine, theirs, idx, cls_name, f.name)
+            if merged is not mine:
+                setattr(self, f.name, merged)
+            handled.add(f.name)
+        missing = {f.name for f in all_fields} - handled
+        assert not missing, f"{cls_name}.merge_: unhandled fields {sorted(missing)}"
+        # Post-merge invariant (always on, cheap attribute checks): nothing the
+        # sub-state carries may remain missing on the persistent side — a None
+        # here means a write-back was silently dropped (the prev_x bug class).
+        for f in all_fields:
+            if getattr(sub, f.name) is not None:
+                assert getattr(self, f.name) is not None, (
+                    f"{cls_name}.merge_: field {f.name!r} is non-None on the "
+                    f"sliced sub-state but None on the persistent state; the "
+                    f"write-back was dropped."
+                )
+
+
 @dataclass
-class KVCache:
+class KVCache(StateRowMixin):
     """Per-attention-layer K/V cache with per-batch-element fill counters."""
 
     k: torch.Tensor  # (B, num_heads, max_seqlen, head_dim)
@@ -70,7 +251,7 @@ class KVCache:
 
 
 @dataclass
-class MambaCache:
+class MambaCache(StateRowMixin):
     """Per-SSM-layer state for Mamba2 step inference."""
 
     conv_state: torch.Tensor  # (B, conv_dim, d_conv - 1)
@@ -85,12 +266,22 @@ LayerCache = Union[KVCache, MambaCache]
 
 
 @dataclass
-class IsotropicInferenceParams:
+class IsotropicInferenceParams(StateRowMixin):
     """One per-layer cache (KV or Mamba) per layer index."""
 
     layer_caches: Dict[int, Any] = field(default_factory=dict)
     max_seqlen: int = 0
     batch_size: int = 0
+
+    # max_seqlen is copied through narrow; batch_size is recomputed to the
+    # sliced row count (matches the old stages._slice_iso_params). merge_
+    # leaves both untouched (matches the old _scatter_iso_params).
+    _META_FIELDS = ("max_seqlen", "batch_size")
+
+    def _narrow_meta(self, name: str, value: Any, idx: torch.Tensor) -> Any:
+        if name == "batch_size":
+            return int(idx.sum().item())
+        return value
 
 
 class RMSNorm(nn.Module):
