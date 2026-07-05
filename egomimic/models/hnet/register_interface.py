@@ -34,7 +34,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from egomimic.models.hnet.blocks import MultiHeadAttention, RMSNorm, StateRowMixin
+from egomimic.models.hnet.blocks import MultiHeadAttention, RMSNorm
 
 
 def _fourier_phase(phase: torch.Tensor, n_freqs: int = 4) -> torch.Tensor:
@@ -45,12 +45,12 @@ def _fourier_phase(phase: torch.Tensor, n_freqs: int = 4) -> torch.Tensor:
 
 @dataclass
 class RegisterStream:
-    aug_hidden: torch.Tensor      # (L, D) interleaved members+registers
-    attn_mask: torch.Tensor       # (L, L) bool, True = ALLOWED
-    member_idx: torch.Tensor      # (T,) aug positions of original members
-    reg_idx: torch.Tensor         # (m*N,) aug positions of registers
-    seg_id_aug: torch.Tensor      # (L,) chunk id per aug position
-    is_register: torch.Tensor     # (L,) bool
+    aug_hidden: torch.Tensor  # (L, D) interleaved members+registers
+    attn_mask: torch.Tensor  # (L, L) bool, True = ALLOWED
+    member_idx: torch.Tensor  # (T,) aug positions of original members
+    reg_idx: torch.Tensor  # (m*N,) aug positions of registers
+    seg_id_aug: torch.Tensor  # (L,) chunk id per aug position
+    is_register: torch.Tensor  # (L,) bool
     aug_cu_seqlens: torch.Tensor  # (B+1,) subseq boundaries in aug space
     # (m*N,) subseq id per register token, in reg_idx (chunk-major) order. Used
     # by the DOWN-only encoder to build register-rate cu_seqlens. Optional so
@@ -73,9 +73,15 @@ class RegisterInterface(nn.Module):
         register outputs in the DOWN-only path.
     """
 
-    def __init__(self, d_model: int, m: int = 4, n_phase_freqs: int = 4,
-                 component_end_norm: bool = False,
-                 device=None, dtype=None):
+    def __init__(
+        self,
+        d_model: int,
+        m: int = 4,
+        n_phase_freqs: int = 4,
+        component_end_norm: bool = False,
+        device=None,
+        dtype=None,
+    ):
         super().__init__()
         fk = {"device": device, "dtype": dtype}
         self.d_model = d_model
@@ -116,12 +122,13 @@ class RegisterInterface(nn.Module):
         boundary_mask = boundary_mask.clone()
         if T > 0:
             boundary_mask[cu_seqlens[:-1]] = True
-        seg = (boundary_mask.cumsum(0) - 1)  # (T,) chunk id, global, >= 0
+        seg = boundary_mask.cumsum(0) - 1  # (T,) chunk id, global, >= 0
         N = int(seg[-1].item()) + 1
         m = self.m
         # subseq id per token.
-        tok_seq = (torch.arange(T, device=device)[:, None]
-                   >= cu_seqlens[None, 1:]).sum(-1)
+        tok_seq = (torch.arange(T, device=device)[:, None] >= cu_seqlens[None, 1:]).sum(
+            -1
+        )
         # First token position of each chunk == the boundary positions, in chunk
         # order. With every subseq start forced True above, ``boundary_mask`` has
         # exactly N True entries (one per chunk) so ``nonzero`` yields the N chunk
@@ -131,7 +138,9 @@ class RegisterInterface(nn.Module):
         # writes raced, giving wrong/negative ``offset`` -> negative ``member_idx``
         # -> uncovered ``seq_aug`` slots -> the bincount crash). Indices here are
         # unique, so CPU and GPU agree exactly.
-        first_pos = boundary_mask.nonzero(as_tuple=False).flatten()  # (N,) min pos per chunk
+        first_pos = boundary_mask.nonzero(
+            as_tuple=False
+        ).flatten()  # (N,) min pos per chunk
         # subseq id per chunk = subseq of its first token (deterministic gather).
         chunk_seq = tok_seq[first_pos]  # (N,)
         # member offset within chunk.
@@ -146,8 +155,9 @@ class RegisterInterface(nn.Module):
         chunk_aug_start = F.pad(block_sizes.cumsum(0), (1, 0))[:N]  # (N,)
         member_idx = chunk_aug_start[seg] + offset  # (T,)
         reg_local = torch.arange(m, device=device)
-        reg_idx = (chunk_aug_start[:, None] + chunk_len[:, None]
-                   + reg_local[None, :]).reshape(-1)  # (m*N,)
+        reg_idx = (
+            chunk_aug_start[:, None] + chunk_len[:, None] + reg_local[None, :]
+        ).reshape(-1)  # (m*N,)
         # seg/register/phase in aug space. ``zeros`` (not ``empty``) so an
         # uncovered slot — impossible now that ``offset``/``member_idx`` are
         # correct, but cheap insurance — is a valid non-negative bincount input
@@ -162,7 +172,7 @@ class RegisterInterface(nn.Module):
             o = offset.float()
             phase = o / (o + 1.0)
         else:
-            phase = (offset.float() / chunk_len[seg].clamp(min=1).float())
+            phase = offset.float() / chunk_len[seg].clamp(min=1).float()
         # aug subseq id + cu. ``zeros`` (not ``empty``) for the same insurance.
         seq_aug = torch.zeros(L, dtype=torch.long, device=device)
         seq_aug[member_idx] = tok_seq
@@ -171,24 +181,41 @@ class RegisterInterface(nn.Module):
         counts = torch.bincount(seq_aug, minlength=B)
         aug_cu = F.pad(counts.cumsum(0), (1, 0))
         return dict(
-            L=L, N=N, seg_aug=seg_aug, is_reg=is_reg, member_idx=member_idx,
-            reg_idx=reg_idx, phase=phase, seq_aug=seq_aug, aug_cu=aug_cu,
-            offset=offset, seg=seg, chunk_len=chunk_len,
-            chunk_aug_start=chunk_aug_start, tok_seq=tok_seq,
+            L=L,
+            N=N,
+            seg_aug=seg_aug,
+            is_reg=is_reg,
+            member_idx=member_idx,
+            reg_idx=reg_idx,
+            phase=phase,
+            seq_aug=seq_aug,
+            aug_cu=aug_cu,
+            offset=offset,
+            seg=seg,
+            chunk_len=chunk_len,
+            chunk_aug_start=chunk_aug_start,
+            tok_seq=tok_seq,
         )
 
     @torch.no_grad()
     def _build_mask(self, lay):
         """(L, L) bool, True = query i ALLOWED to attend key j."""
-        seg = lay["seg_aug"]; is_reg = lay["is_reg"]; seq = lay["seq_aug"]
-        L = lay["L"]; device = seg.device
+        seg = lay["seg_aug"]
+        is_reg = lay["is_reg"]
+        seq = lay["seq_aug"]
+        L = lay["L"]
+        device = seg.device
         same_subseq = seq[:, None] == seq[None, :]
-        seg_i = seg[:, None]; seg_j = seg[None, :]
-        regi = is_reg[:, None]; regj = is_reg[None, :]
-        memi = ~regi; memj = ~regj
+        seg_i = seg[:, None]
+        seg_j = seg[None, :]
+        regi = is_reg[:, None]
+        regj = is_reg[None, :]
+        memi = ~regi
+        memj = ~regj
         # aug position for member causal-prefix test
         augpos = torch.arange(L, device=device)
-        pos_i = augpos[:, None]; pos_j = augpos[None, :]
+        pos_i = augpos[:, None]
+        pos_j = augpos[None, :]
 
         # 1 down: register i attends member j of same chunk
         down = regi & memj & (seg_i == seg_j)
@@ -203,10 +230,12 @@ class RegisterInterface(nn.Module):
         allow = allow | torch.eye(L, dtype=torch.bool, device=device)
         return allow
 
-    def forward(self, hidden_states, boundary_mask, cu_seqlens,
-                causal_phase: bool = False) -> RegisterStream:
+    def forward(
+        self, hidden_states, boundary_mask, cu_seqlens, causal_phase: bool = False
+    ) -> RegisterStream:
         lay = self._layout(boundary_mask, cu_seqlens, causal_phase=causal_phase)
-        L = lay["L"]; device = hidden_states.device
+        L = lay["L"]
+        device = hidden_states.device
         aug = hidden_states.new_zeros(L, self.d_model)
         # members: token + phase projection
         ph = self.phase_proj(_fourier_phase(lay["phase"], self.n_phase_freqs))
@@ -216,9 +245,13 @@ class RegisterInterface(nn.Module):
         aug[lay["reg_idx"]] = reg_init.to(aug.dtype)
         mask = self._build_mask(lay)
         return RegisterStream(
-            aug_hidden=aug, attn_mask=mask, member_idx=lay["member_idx"],
-            reg_idx=lay["reg_idx"], seg_id_aug=lay["seg_aug"],
-            is_register=lay["is_reg"], aug_cu_seqlens=lay["aug_cu"],
+            aug_hidden=aug,
+            attn_mask=mask,
+            member_idx=lay["member_idx"],
+            reg_idx=lay["reg_idx"],
+            seg_id_aug=lay["seg_aug"],
+            is_register=lay["is_reg"],
+            aug_cu_seqlens=lay["aug_cu"],
             # subseq id per register, in reg_idx (chunk-major) order — for the
             # DOWN-only encoder's register-rate cu_seqlens.
             seq_aug_per_register=lay["seq_aug"][lay["reg_idx"]],
@@ -246,8 +279,10 @@ class RegisterInterface(nn.Module):
     def register_init(self, batch_size: int, device, dtype) -> torch.Tensor:
         """The learned m-register initial content tiled for ``batch_size``
         chunks: (B, m, D). Matches the TF ``register_emb.repeat`` content."""
-        return self.register_emb[None].to(device=device, dtype=dtype).expand(
-            batch_size, self.m, self.d_model
+        return (
+            self.register_emb[None]
+            .to(device=device, dtype=dtype)
+            .expand(batch_size, self.m, self.d_model)
         )
 
 
@@ -266,7 +301,7 @@ class RegisterInterface(nn.Module):
 
 
 @dataclass
-class RegisterTrunkState(StateRowMixin):
+class RegisterTrunkState:
     """Per-layer KV caches for the register AR step.
 
     Two caches per layer:
@@ -282,14 +317,14 @@ class RegisterTrunkState(StateRowMixin):
     inputs of the open chunk (needed to recompute the chunk through the trunk
     at finalization, where registers attend members' per-layer reps)."""
 
-    reg_k: list      # depth x (B, H, cap_reg, Dh)
-    reg_v: list      # depth x (B, H, cap_reg, Dh)
+    reg_k: list  # depth x (B, H, cap_reg, Dh)
+    reg_v: list  # depth x (B, H, cap_reg, Dh)
     reg_fill: torch.Tensor  # (B,) long — # finalized register slots
-    mem_k: list      # depth x (B, H, cap_mem, Dh)
-    mem_v: list      # depth x (B, H, cap_mem, Dh)
+    mem_k: list  # depth x (B, H, cap_mem, Dh)
+    mem_v: list  # depth x (B, H, cap_mem, Dh)
     mem_fill: torch.Tensor  # (B,) long — # members in the open chunk
-    mem_x: torch.Tensor     # (B, cap_mem, D) post-phase member inputs (open chunk)
-    offset: torch.Tensor    # (B,) long — running offset within the open chunk
+    mem_x: torch.Tensor  # (B, cap_mem, D) post-phase member inputs (open chunk)
+    offset: torch.Tensor  # (B,) long — running offset within the open chunk
     has_seen: torch.Tensor  # (B,) bool
 
 
@@ -330,7 +365,10 @@ class RegisterTrunk(nn.Module):
         self.attns = nn.ModuleList(
             [
                 MultiHeadAttention(
-                    d_model, n_heads, causal=False, dropout=0.0,
+                    d_model,
+                    n_heads,
+                    causal=False,
+                    dropout=0.0,
                     rotary_emb_dim=self.rotary_emb_dim,
                     rotary_emb_base=rotary_emb_base,
                 )
@@ -432,9 +470,9 @@ class RegisterTrunk(nn.Module):
     def encode_down(
         self,
         interface: "RegisterInterface",
-        hidden_states: torch.Tensor,   # (T, D)
-        boundary_mask: torch.Tensor,   # (T,) bool
-        cu_seqlens: torch.Tensor,      # (B+1,)
+        hidden_states: torch.Tensor,  # (T, D)
+        boundary_mask: torch.Tensor,  # (T,) bool
+        cu_seqlens: torch.Tensor,  # (B+1,)
         causal_phase: bool = False,
     ):
         """DOWN-only forward: returns ``(reg_tokens, next_cu, next_max, stream)``.
@@ -453,8 +491,8 @@ class RegisterTrunk(nn.Module):
         stream = interface(
             hidden_states, boundary_mask, cu_seqlens, causal_phase=causal_phase
         )
-        trunk_out = self.forward(stream)             # (L, D)
-        reg_tokens = trunk_out[stream.reg_idx]        # (N*m, D), chunk-major
+        trunk_out = self.forward(stream)  # (L, D)
+        reg_tokens = trunk_out[stream.reg_idx]  # (N*m, D), chunk-major
         if interface.end_norm is not None:
             reg_tokens = interface.end_norm(reg_tokens)
         # register-rate cu_seqlens: m registers per chunk. ``reg_idx`` is built
@@ -465,7 +503,7 @@ class RegisterTrunk(nn.Module):
         # per subseq) and equals m * (chunks per subseq) because every chunk
         # contributes exactly m registers and no chunk straddles a subseq (the
         # layout forces a boundary at each subseq start).
-        reg_seq = stream.seq_aug_per_register      # (N*m,) subseq id per register
+        reg_seq = stream.seq_aug_per_register  # (N*m,) subseq id per register
         B = cu_seqlens.shape[0] - 1
         counts = torch.bincount(reg_seq, minlength=B)  # registers per subseq
         next_cu = F.pad(counts.cumsum(0), (1, 0))
@@ -493,9 +531,11 @@ class RegisterTrunk(nn.Module):
             for _ in range(self.depth)
         ]
         return RegisterTrunkState(
-            reg_k=mk(cap_reg), reg_v=mk(cap_reg),
+            reg_k=mk(cap_reg),
+            reg_v=mk(cap_reg),
             reg_fill=torch.zeros(batch_size, device=device, dtype=torch.long),
-            mem_k=mk(cap_mem), mem_v=mk(cap_mem),
+            mem_k=mk(cap_mem),
+            mem_v=mk(cap_mem),
             mem_fill=torch.zeros(batch_size, device=device, dtype=torch.long),
             mem_x=torch.zeros(batch_size, cap_mem, d_model, device=device, dtype=dtype),
             offset=torch.zeros(batch_size, device=device, dtype=torch.long),
@@ -540,9 +580,13 @@ class RegisterTrunk(nn.Module):
             state.mem_k[i][bidx, :, slot] = k.squeeze(2).to(state.mem_k[i].dtype)
             state.mem_v[i][bidx, :, slot] = v.squeeze(2).to(state.mem_v[i].dtype)
             attn_out = self._attend(
-                q, state, i,
-                reg_lo=reg_lo, reg_hi=reg_hi,
-                mem_lo=None, mem_hi=mem_hi,
+                q,
+                state,
+                i,
+                reg_lo=reg_lo,
+                reg_hi=reg_hi,
+                mem_lo=None,
+                mem_hi=mem_hi,
             )  # (B, 1, D)
             x = x + self.attns[i].out_proj(attn_out)
             x = x + self.mlps[i](self.mlp_norms[i](x))
@@ -550,8 +594,12 @@ class RegisterTrunk(nn.Module):
         state.mem_fill = state.mem_fill + 1
         return x.squeeze(1)
 
-    def finalize_chunk(self, state: RegisterTrunkState, finished_mask,
-                       reg_interface: "RegisterInterface"):
+    def finalize_chunk(
+        self,
+        state: RegisterTrunkState,
+        finished_mask,
+        reg_interface: "RegisterInterface",
+    ):
         """Finalize the just-completed chunk's m registers for the rows in
         ``finished_mask`` and append their per-layer KV to the register cache.
 
@@ -578,10 +626,15 @@ class RegisterTrunk(nn.Module):
             # the j<seg_i part) + this chunk's members (down) + the m same-chunk
             # registers (the seg_j==seg_i part of inner, mutually visible).
             attn_out = self._attend(
-                q, state, i,
-                reg_lo=None, reg_hi=state.reg_fill,
-                mem_lo=None, mem_hi=state.mem_fill,
-                extra_k=k, extra_v=v,  # full m x m visibility
+                q,
+                state,
+                i,
+                reg_lo=None,
+                reg_hi=state.reg_fill,
+                mem_lo=None,
+                mem_hi=state.mem_fill,
+                extra_k=k,
+                extra_v=v,  # full m x m visibility
             )  # (B, m, D)
             x = x + self.attns[i].out_proj(attn_out)
             x = x + self.mlps[i](self.mlp_norms[i](x))
@@ -598,9 +651,7 @@ class RegisterTrunk(nn.Module):
                 fk[bidx, :, pos] = torch.where(wmask, kj, fk[bidx, :, pos])
                 fv[bidx, :, pos] = torch.where(wmask, vj, fv[bidx, :, pos])
         # bump register fill + reset member cache for finalized rows.
-        state.reg_fill = torch.where(
-            finished_mask, state.reg_fill + m, state.reg_fill
-        )
+        state.reg_fill = torch.where(finished_mask, state.reg_fill + m, state.reg_fill)
         state.mem_fill = torch.where(
             finished_mask, torch.zeros_like(state.mem_fill), state.mem_fill
         )
@@ -609,8 +660,18 @@ class RegisterTrunk(nn.Module):
         # msublatent dechunker consume these; caller reads only finished rows.
         return x
 
-    def _attend(self, q, state, layer, reg_lo, reg_hi, mem_lo, mem_hi,
-                extra_k=None, extra_v=None):
+    def _attend(
+        self,
+        q,
+        state,
+        layer,
+        reg_lo,
+        reg_hi,
+        mem_lo,
+        mem_hi,
+        extra_k=None,
+        extra_v=None,
+    ):
         """SDPA of ``q`` (B, H, n, Dh) over the concatenation of
         [register-cache slots in [reg_lo, reg_hi)] ++ [member-cache slots in
         [mem_lo, mem_hi)] ++ optional ``extra`` KV (the m same-chunk registers,
@@ -625,21 +686,32 @@ class RegisterTrunk(nn.Module):
         def _window(kc, vc, lo, hi):
             cap = kc.shape[2]
             ar = torch.arange(cap, device=device)[None, :]  # (1, cap)
-            lo_t = torch.zeros(B, 1, dtype=torch.long, device=device) if lo is None else lo[:, None]
+            lo_t = (
+                torch.zeros(B, 1, dtype=torch.long, device=device)
+                if lo is None
+                else lo[:, None]
+            )
             valid = (ar >= lo_t) & (ar < hi[:, None])  # (B, cap)
-            keys.append(kc); vals.append(vc); masks.append(valid)
+            keys.append(kc)
+            vals.append(vc)
+            masks.append(valid)
 
         if reg_hi is not None:
             _window(state.reg_k[layer], state.reg_v[layer], reg_lo, reg_hi)
         if mem_hi is not None:
             _window(state.mem_k[layer], state.mem_v[layer], mem_lo, mem_hi)
         if extra_k is not None:
-            keys.append(extra_k); vals.append(extra_v)
-            masks.append(torch.ones(B, extra_k.shape[2], dtype=torch.bool, device=device))
+            keys.append(extra_k)
+            vals.append(extra_v)
+            masks.append(
+                torch.ones(B, extra_k.shape[2], dtype=torch.bool, device=device)
+            )
 
         K = torch.cat(keys, dim=2)  # (B, H, S, Dh)
         V = torch.cat(vals, dim=2)
         M = torch.cat(masks, dim=1)  # (B, S)
         attn_mask = M[:, None, None, :]  # broadcast over (H, n)
-        out = F.scaled_dot_product_attention(q, K, V, attn_mask=attn_mask, dropout_p=0.0)
+        out = F.scaled_dot_product_attention(
+            q, K, V, attn_mask=attn_mask, dropout_p=0.0
+        )
         return out.transpose(1, 2).reshape(B, n, H * Dh)

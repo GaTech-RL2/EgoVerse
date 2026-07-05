@@ -37,40 +37,44 @@ import torch.nn as nn
 
 from egomimic.models.hnet.blocks import (
     IsotropicInferenceParams,
-    StateRowMixin,
+    KVCache,
+    MambaCache,
 )
 from egomimic.models.hnet.context import HNetContext
 from egomimic.models.hnet.isotropic_builder import build_isotropic
+from egomimic.models.hnet.register_interface import (
+    RegisterInterface,
+    RegisterTrunk,
+    RegisterTrunkState,
+)
 from egomimic.models.hnet.routing import (
     ChunkLayer,
     DeChunkLayer,
     DeChunkState,
     RoutingModule,
+    RoutingModuleState,
 )
 from egomimic.models.hnet.scan_interface import (
     ChunkScanEncoder,
     ChunkScanEncoderState,
     MSublatentDeChunker,
     ScanRouter,
+    ScanRouterState,
     SplineUpsampler,
     SplineUpsamplerState,
 )
-from egomimic.models.hnet.transformer_router import PhaseSummaryRouter
-from egomimic.models.hnet.register_interface import (
-    RegisterInterface,
-    RegisterTrunk,
-    RegisterTrunkState,
+from egomimic.models.hnet.transformer_router import (
+    PhaseSummaryRouter,
+    PhaseSummaryRouterState,
 )
 
 # --------------------------------------------------------------------------- #
-# Inference-state dataclasses (one per stage type). Each owns its per-batch
-# row semantics via StateRowMixin: ``narrow(idx)`` (row-sliced deep copy) and
-# ``merge_(sub, idx)`` (in-place write-back). See blocks.StateRowMixin.
+# Inference-state dataclasses (one per stage type).
 # --------------------------------------------------------------------------- #
 
 
 @dataclass
-class EncoderDecoderStageState(StateRowMixin):
+class EncoderDecoderStageState:
     encoder_state: Optional[IsotropicInferenceParams] = None
     inner_state: Optional[Any] = None
     decoder_state: Optional[IsotropicInferenceParams] = None
@@ -79,10 +83,9 @@ class EncoderDecoderStageState(StateRowMixin):
 
 
 @dataclass
-class ChunkerStageState(StateRowMixin):
-    # routing_state is a RoutingModuleState (cossim router), a ScanRouterState
-    # (scan router) or a PhaseSummaryRouterState (PSER); all carry their own
-    # narrow/merge_ so they slice/scatter generically.
+class ChunkerStageState:
+    # routing_state is a RoutingModuleState (cossim router) or a
+    # ScanRouterState (scan router); both are sliced/scattered generically.
     routing_state: Optional[Any] = None
     inner_state: Optional[Any] = None
     dechunk_state: Optional[DeChunkState] = None
@@ -90,22 +93,18 @@ class ChunkerStageState(StateRowMixin):
     scan_enc_state: Optional[ChunkScanEncoderState] = None
     spline_state: Optional[SplineUpsamplerState] = None
     # Register masked-transformer interface state (None unless
-    # chunk_interface == "register" or down_interface == "register").
+    # chunk_interface == "register").
     reg_trunk_state: Optional[RegisterTrunkState] = None
     # grab_prev_end: previous step's input token (B, D) for the first_token
-    # chunker's "first + prev-chunk-end" combine at AR rollout. EAGERLY
-    # allocated by _allocate (zeros) when grab_prev_end is on, so merge_
-    # write-back propagates for chunkers below a slice/scatter boundary.
+    # chunker's "first + prev-chunk-end" combine at AR rollout. None until 1st step.
     prev_x: Optional[torch.Tensor] = None
-    # (B,) bool: True once prev_x holds a REAL previous token for that row.
-    # Rows still False read the learned no_prev embedding instead.
-    prev_x_valid: Optional[torch.Tensor] = None
-    # up_interface == "msublatent" dechunker state (None otherwise).
-    msublatent_state: Optional[Any] = None
+    # Router pre-net KV cache (IsotropicInferenceParams; None unless
+    # router_pre_layout is set on the ChunkerStage).
+    router_pre_state: Optional[Any] = None
 
 
 @dataclass
-class ComputeStageState(StateRowMixin):
+class ComputeStageState:
     main_state: Optional[IsotropicInferenceParams] = None
     inner_state: Optional[Any] = None
 
@@ -144,41 +143,283 @@ def _build_padded_valid_mask(shape, device) -> torch.Tensor:
 
 
 # --------------------------------------------------------------------------- #
-# Per-batch slice/scatter during step(): thin wrappers only. Row semantics
-# live on the state dataclasses themselves (StateRowMixin.narrow/merge_), so
-# there is no per-type switchboard here to fall out of sync with the fields.
+# Per-batch slice/scatter helpers for nested inference state during step().
+# Reused (and slightly simplified) from the previous monolithic HNet.
 # --------------------------------------------------------------------------- #
 
 
+def _slice_iso_params(params: Optional[IsotropicInferenceParams], mask: torch.Tensor):
+    if params is None:
+        return None
+    new = IsotropicInferenceParams(
+        layer_caches={},
+        max_seqlen=params.max_seqlen,
+        batch_size=int(mask.sum().item()),
+    )
+    for k, c in params.layer_caches.items():
+        if isinstance(c, KVCache):
+            new.layer_caches[k] = KVCache(
+                k=c.k[mask].clone(),
+                v=c.v[mask].clone(),
+                offsets=c.offsets[mask].clone(),
+            )
+        elif isinstance(c, MambaCache):
+            new.layer_caches[k] = MambaCache(
+                conv_state=c.conv_state[mask].clone(),
+                ssm_state=c.ssm_state[mask].clone(),
+            )
+        else:
+            raise TypeError(f"Unknown layer cache type: {type(c)}")
+    return new
+
+
+def _scatter_iso_params(
+    params: Optional[IsotropicInferenceParams],
+    sub: Optional[IsotropicInferenceParams],
+    mask: torch.Tensor,
+):
+    if params is None or sub is None:
+        return
+    for k, c in params.layer_caches.items():
+        s = sub.layer_caches[k]
+        if isinstance(c, KVCache):
+            c.k[mask] = s.k.to(c.k.dtype)
+            c.v[mask] = s.v.to(c.v.dtype)
+            c.offsets[mask] = s.offsets
+        elif isinstance(c, MambaCache):
+            c.conv_state[mask] = s.conv_state.to(c.conv_state.dtype)
+            c.ssm_state[mask] = s.ssm_state.to(c.ssm_state.dtype)
+        else:
+            raise TypeError(f"Unknown layer cache type: {type(c)}")
+
+
+def _slice_routing_state(rs: Any, mask: torch.Tensor):
+    """Slice a RoutingModuleState (cossim) or ScanRouterState (scan)."""
+    if rs is None:
+        return None
+    if isinstance(rs, RoutingModuleState):
+        return RoutingModuleState(
+            has_seen_tokens=rs.has_seen_tokens[mask].clone(),
+            last_hidden_state=rs.last_hidden_state[mask].clone(),
+        )
+    if isinstance(rs, ScanRouterState):
+        return ScanRouterState(
+            has_seen_tokens=rs.has_seen_tokens[mask].clone(),
+            gru_h=(rs.gru_h[:, mask].clone() if rs.gru_h is not None else None),
+            mamba_cache=_slice_mamba_cache(rs.mamba_cache, mask),
+            h_prev=(rs.h_prev[mask].clone() if rs.h_prev is not None else None),
+        )
+    if isinstance(rs, PhaseSummaryRouterState):
+        return PhaseSummaryRouterState(
+            has_seen_tokens=rs.has_seen_tokens[mask].clone(),
+            kv=[
+                KVCache(
+                    k=c.k[mask].clone(),
+                    v=c.v[mask].clone(),
+                    offsets=c.offsets[mask].clone(),
+                )
+                for c in rs.kv
+            ],
+            last_cut_pos=rs.last_cut_pos[mask].clone(),
+            t_idx=rs.t_idx[mask].clone(),
+            seg_sum=rs.seg_sum[mask].clone(),
+            seg_count=rs.seg_count[mask].clone(),
+        )
+    raise TypeError(f"Unknown routing state type: {type(rs)}")
+
+
+def _slice_mamba_cache(cache, mask: torch.Tensor):
+    if cache is None:
+        return None
+    # MambaCache: conv_state / ssm_state batched on dim 0.
+    return MambaCache(
+        conv_state=cache.conv_state[mask].clone(),
+        ssm_state=cache.ssm_state[mask].clone(),
+    )
+
+
+def _slice_scan_enc_state(s: Optional[ChunkScanEncoderState], mask: torch.Tensor):
+    if s is None:
+        return None
+    return ChunkScanEncoderState(
+        gru_h=s.gru_h[:, mask].clone(),
+        offset=s.offset[mask].clone(),
+        buf=s.buf[mask].clone(),
+    )
+
+
+def _slice_spline_state(s: Optional[SplineUpsamplerState], mask: torch.Tensor):
+    if s is None:
+        return None
+    return SplineUpsamplerState(
+        prev_inner_sub=s.prev_inner_sub[mask].clone(),
+        have_prev=s.have_prev[mask].clone(),
+        offset=s.offset[mask].clone(),
+    )
+
+
+def _slice_reg_trunk_state(s: Optional[RegisterTrunkState], mask: torch.Tensor):
+    if s is None:
+        return None
+    return RegisterTrunkState(
+        reg_k=[t[mask].clone() for t in s.reg_k],
+        reg_v=[t[mask].clone() for t in s.reg_v],
+        reg_fill=s.reg_fill[mask].clone(),
+        mem_k=[t[mask].clone() for t in s.mem_k],
+        mem_v=[t[mask].clone() for t in s.mem_v],
+        mem_fill=s.mem_fill[mask].clone(),
+        mem_x=s.mem_x[mask].clone(),
+        offset=s.offset[mask].clone(),
+        has_seen=s.has_seen[mask].clone(),
+    )
+
+
+def _scatter_reg_trunk_state(s: Optional[RegisterTrunkState], sub, mask: torch.Tensor):
+    if s is None or sub is None:
+        return
+    for c, d in zip(s.reg_k, sub.reg_k):
+        c[mask] = d.to(c.dtype)
+    for c, d in zip(s.reg_v, sub.reg_v):
+        c[mask] = d.to(c.dtype)
+    s.reg_fill[mask] = sub.reg_fill
+    for c, d in zip(s.mem_k, sub.mem_k):
+        c[mask] = d.to(c.dtype)
+    for c, d in zip(s.mem_v, sub.mem_v):
+        c[mask] = d.to(c.dtype)
+    s.mem_fill[mask] = sub.mem_fill
+    s.mem_x[mask] = sub.mem_x.to(s.mem_x.dtype)
+    s.offset[mask] = sub.offset
+    s.has_seen[mask] = sub.has_seen
+
+
 def _slice_state(state: Any, mask: torch.Tensor):
-    """Generic batch-dim slice for any stage state (delegates to .narrow)."""
+    """Generic batch-dim slice for any stage state dataclass."""
     if state is None:
         return None
+    if isinstance(state, IsotropicInferenceParams):
+        return _slice_iso_params(state, mask)
+    if isinstance(state, EncoderDecoderStageState):
+        return EncoderDecoderStageState(
+            encoder_state=_slice_iso_params(state.encoder_state, mask),
+            inner_state=_slice_state(state.inner_state, mask),
+            decoder_state=_slice_iso_params(state.decoder_state, mask),
+        )
+    if isinstance(state, ChunkerStageState):
+        ds = state.dechunk_state
+        if ds is not None:
+            ds = DeChunkState(last_value=ds.last_value[mask].clone())
+        return ChunkerStageState(
+            routing_state=_slice_routing_state(state.routing_state, mask),
+            inner_state=_slice_state(state.inner_state, mask),
+            dechunk_state=ds,
+            scan_enc_state=_slice_scan_enc_state(state.scan_enc_state, mask),
+            spline_state=_slice_spline_state(state.spline_state, mask),
+            reg_trunk_state=_slice_reg_trunk_state(state.reg_trunk_state, mask),
+            prev_x=(state.prev_x[mask].clone() if state.prev_x is not None else None),
+            router_pre_state=_slice_iso_params(state.router_pre_state, mask),
+        )
+    if isinstance(state, ComputeStageState):
+        return ComputeStageState(
+            main_state=_slice_iso_params(state.main_state, mask),
+            inner_state=_slice_state(state.inner_state, mask),
+        )
     if isinstance(state, dict):
         # PerEmbodimentStage holds per-embodiment sub-states in a dict keyed by
         # embodiment_id. Slice each independently — all sub-states share the
         # same batch dim, so the boundary mask applies elementwise. (None subs
         # are handled by the early return above.)
         return {k: _slice_state(v, mask) for k, v in state.items()}
-    narrow = getattr(state, "narrow", None)
-    if not callable(narrow):
-        raise TypeError(f"Unknown stage state type (no .narrow): {type(state)}")
-    return narrow(mask)
+    raise TypeError(f"Unknown stage state type: {type(state)}")
+
+
+def _scatter_routing_state(rs: Any, sub: Any, mask: torch.Tensor):
+    if rs is None or sub is None:
+        return
+    if isinstance(rs, RoutingModuleState):
+        rs.has_seen_tokens[mask] = sub.has_seen_tokens
+        rs.last_hidden_state[mask] = sub.last_hidden_state.to(
+            rs.last_hidden_state.dtype
+        )
+        return
+    if isinstance(rs, ScanRouterState):
+        rs.has_seen_tokens[mask] = sub.has_seen_tokens
+        if rs.gru_h is not None and sub.gru_h is not None:
+            rs.gru_h[:, mask] = sub.gru_h.to(rs.gru_h.dtype)
+        if rs.h_prev is not None and sub.h_prev is not None:
+            rs.h_prev[mask] = sub.h_prev.to(rs.h_prev.dtype)
+        if rs.mamba_cache is not None and sub.mamba_cache is not None:
+            rs.mamba_cache.conv_state[mask] = sub.mamba_cache.conv_state.to(
+                rs.mamba_cache.conv_state.dtype
+            )
+            rs.mamba_cache.ssm_state[mask] = sub.mamba_cache.ssm_state.to(
+                rs.mamba_cache.ssm_state.dtype
+            )
+        return
+    if isinstance(rs, PhaseSummaryRouterState):
+        rs.has_seen_tokens[mask] = sub.has_seen_tokens
+        for c, s in zip(rs.kv, sub.kv):
+            c.k[mask] = s.k.to(c.k.dtype)
+            c.v[mask] = s.v.to(c.v.dtype)
+            c.offsets[mask] = s.offsets
+        rs.last_cut_pos[mask] = sub.last_cut_pos
+        rs.t_idx[mask] = sub.t_idx
+        rs.seg_sum[mask] = sub.seg_sum.to(rs.seg_sum.dtype)
+        rs.seg_count[mask] = sub.seg_count
+        return
+    raise TypeError(f"Unknown routing state type: {type(rs)}")
+
+
+def _scatter_scan_enc_state(s: Any, sub: Any, mask: torch.Tensor):
+    if s is None or sub is None:
+        return
+    s.gru_h[:, mask] = sub.gru_h.to(s.gru_h.dtype)
+    s.offset[mask] = sub.offset
+    s.buf[mask] = sub.buf.to(s.buf.dtype)
+
+
+def _scatter_spline_state(s: Any, sub: Any, mask: torch.Tensor):
+    if s is None or sub is None:
+        return
+    s.prev_inner_sub[mask] = sub.prev_inner_sub.to(s.prev_inner_sub.dtype)
+    s.have_prev[mask] = sub.have_prev
+    s.offset[mask] = sub.offset
 
 
 def _scatter_state(state: Any, sub: Any, mask: torch.Tensor):
-    """In-place row write-back of ``sub`` into ``state`` (delegates to .merge_)."""
     if state is None or sub is None:
+        return
+    if isinstance(state, IsotropicInferenceParams):
+        _scatter_iso_params(state, sub, mask)
+        return
+    if isinstance(state, EncoderDecoderStageState):
+        _scatter_iso_params(state.encoder_state, sub.encoder_state, mask)
+        _scatter_state(state.inner_state, sub.inner_state, mask)
+        _scatter_iso_params(state.decoder_state, sub.decoder_state, mask)
+        return
+    if isinstance(state, ChunkerStageState):
+        _scatter_routing_state(state.routing_state, sub.routing_state, mask)
+        _scatter_state(state.inner_state, sub.inner_state, mask)
+        if state.dechunk_state is not None and sub.dechunk_state is not None:
+            state.dechunk_state.last_value[mask] = sub.dechunk_state.last_value.to(
+                state.dechunk_state.last_value.dtype
+            )
+        _scatter_scan_enc_state(state.scan_enc_state, sub.scan_enc_state, mask)
+        _scatter_spline_state(state.spline_state, sub.spline_state, mask)
+        _scatter_reg_trunk_state(state.reg_trunk_state, sub.reg_trunk_state, mask)
+        if state.prev_x is not None and sub.prev_x is not None:
+            state.prev_x[mask] = sub.prev_x.to(state.prev_x.dtype)
+        _scatter_iso_params(state.router_pre_state, sub.router_pre_state, mask)
+        return
+    if isinstance(state, ComputeStageState):
+        _scatter_iso_params(state.main_state, sub.main_state, mask)
+        _scatter_state(state.inner_state, sub.inner_state, mask)
         return
     if isinstance(state, dict):
         # PerEmbodimentStage per-embodiment sub-states (mirror of _slice_state).
         for k in state:
             _scatter_state(state[k], sub.get(k) if isinstance(sub, dict) else sub, mask)
         return
-    merge = getattr(state, "merge_", None)
-    if not callable(merge):
-        raise TypeError(f"Unknown stage state type (no .merge_): {type(state)}")
-    merge(sub, mask)
+    raise TypeError(f"Unknown stage state type: {type(state)}")
 
 
 # --------------------------------------------------------------------------- #
@@ -443,9 +684,9 @@ class ChunkerStage(_BaseStage):
         #     params created, live-job requeue safe). Used only on the scan
         #     down-encoder / scan router respectively. ---
         encoder_layernorm: bool = False,  # ChunkScanEncoder post-GRU LayerNorm
-        router_n_layer: int = 1,          # ScanRouter MambaBlock-stack depth
-        router_use_block: bool = False,   # ScanRouter: wrap scan in MambaBlock(s)
-        router_has_mlp: bool = False,     # ScanRouter MambaBlock: add SwiGLU MLP
+        router_n_layer: int = 1,  # ScanRouter MambaBlock-stack depth
+        router_use_block: bool = False,  # ScanRouter: wrap scan in MambaBlock(s)
+        router_has_mlp: bool = False,  # ScanRouter MambaBlock: add SwiGLU MLP
         router_mlp_dim: Optional[int] = None,  # SwiGLU width (None -> d_model)
         # --- PhaseSummaryRouter ("transformer" / PSER) knobs. Used ONLY when
         #     router_interface == "transformer"; ignored otherwise so existing
@@ -506,11 +747,13 @@ class ChunkerStage(_BaseStage):
         # token just before each boundary) via a zero-init proj (starts as
         # first-token-only). Causal; gives the high-level each chunk's start+end.
         grab_prev_end: bool = False,
-        # Depth of the prev_end_combine downsampler MLP (used ONLY when
-        # grab_prev_end is True). DEFAULT 3 reproduces the original hardcoded
-        # 3-Linear MLP exactly (byte-identical params). n_layers=4 adds one
-        # extra hidden Linear+GELU.
-        prev_end_combine_n_layers: int = 3,
+        # --- Router pre-net (ported from EgoVerse-gmm-rp): optional small
+        #     CAUSAL transformer PRIVATE to the boundary router. The router
+        #     reads router_pre(x) instead of x; residual/STE/chunk/dechunk/
+        #     trunk paths still consume raw x. Isotropic arch_layout string
+        #     (e.g. "T1"/"T2"); DEFAULT None => no module, byte-identical. ---
+        router_pre_layout: Optional[str] = None,
+        router_pre_detach: bool = False,
     ):
         super().__init__(input_hidden_dim, output_hidden_dim, cond_key=cond_key)
         self.target_compression_ratio = float(target_compression_ratio)
@@ -601,6 +844,29 @@ class ChunkerStage(_BaseStage):
             if router_interface == "transformer"
             else None
         )
+        if router_pre_layout is not None and (
+            router_interface != "cossim" or down_interface != "first_token"
+        ):
+            raise NotImplementedError(
+                "router_pre is only wired for the cossim/first_token path."
+            )
+        self.router_pre_detach = bool(router_pre_detach)
+        self.router_pre = (
+            build_isotropic(
+                {
+                    "arch_layout": router_pre_layout,
+                    "d_model": self.input_hidden_dim,
+                    "d_intermediate": 3 * self.input_hidden_dim,
+                    "num_heads": max(1, self.input_hidden_dim // 64),
+                    "cond": False,
+                    "rotary_emb_dim": 64,
+                },
+                d_cond=0,
+                causal=True,
+            )
+            if router_pre_layout is not None
+            else None
+        )
         self.chunk_layer = ChunkLayer()
         self.dechunk_layer = DeChunkLayer(self.input_hidden_dim)
         # grab_prev_end: first_token chunker also folds in the previous chunk's
@@ -608,7 +874,6 @@ class ChunkerStage(_BaseStage):
         # below -- it REPLACES proj_in (2*input -> trunk dim), preserving both
         # boundary tokens instead of summing them (no info-lossy add).
         self.grab_prev_end = bool(grab_prev_end)
-        self.prev_end_combine_n_layers = int(prev_end_combine_n_layers)
         if self.grab_prev_end and down_interface != "first_token":
             raise ValueError("grab_prev_end requires down_interface='first_token'")
 
@@ -616,9 +881,8 @@ class ChunkerStage(_BaseStage):
         # running state + m sub-latents, so the encoder must run whenever the
         # DOWN side is scan OR the UP side is spline. The register interface is
         # fused (own trunk) and bypasses scan/spline entirely.
-        self._needs_scan_encoder = (
-            chunk_interface != "register"
-            and ((down_interface == "scan") or (up_interface == "spline"))
+        self._needs_scan_encoder = chunk_interface != "register" and (
+            (down_interface == "scan") or (up_interface == "spline")
         )
         self.scan_down = (
             ChunkScanEncoder(
@@ -706,18 +970,13 @@ class ChunkerStage(_BaseStage):
             # (= trunk dim). REPLACES proj_in: the combine IS the bridge, so both
             # boundary tokens are preserved (no info-lossy sum). proj_out stays.
             _h = 2 * self.input_hidden_dim
-            # Configurable-depth MLP. n_layers counts Linear layers:
-            #   first Linear(2*input -> _h) + GELU,
-            #   (n_layers - 2) x [Linear(_h -> _h) + GELU],
-            #   final Linear(_h -> output).
-            # n_layers=3 reproduces the original 3-Linear MLP exactly.
-            _n = self.prev_end_combine_n_layers
-            assert _n >= 2, f"prev_end_combine_n_layers must be >= 2, got {_n}"
-            _layers = [nn.Linear(2 * self.input_hidden_dim, _h), nn.GELU()]
-            for _ in range(_n - 2):
-                _layers += [nn.Linear(_h, _h), nn.GELU()]
-            _layers += [nn.Linear(_h, self.output_hidden_dim)]
-            self.prev_end_combine = nn.Sequential(*_layers)
+            self.prev_end_combine = nn.Sequential(
+                nn.Linear(2 * self.input_hidden_dim, _h),
+                nn.GELU(),
+                nn.Linear(_h, _h),
+                nn.GELU(),
+                nn.Linear(_h, self.output_hidden_dim),
+            )
             # Learned "no previous chunk" token: fed as the prev-end half for the
             # first chunk of a sequence (instead of zeros) -> unambiguous BOS-like
             # signal the MLP can key on.
@@ -725,7 +984,8 @@ class ChunkerStage(_BaseStage):
             self.proj_in = None
             self.proj_out = (
                 nn.Linear(self.output_hidden_dim, self.input_hidden_dim)
-                if self.input_hidden_dim != self.output_hidden_dim else None
+                if self.input_hidden_dim != self.output_hidden_dim
+                else None
             )
         elif self.trunk_chunk_rate and self.register_interface is not None:
             # FIX 1: trunk runs at chunk-rate over the concat'd m sub-latents, so
@@ -752,9 +1012,11 @@ class ChunkerStage(_BaseStage):
         self.residual_scale: float = 1.0
         # FIX 2: swappable residual mixer (out = mix(up, residual)).
         from egomimic.models.hnet.residual_mixer import build_residual_mixer
+
         self.residual_mixer_kind = str(residual_mixer)
         self.residual_mixer = build_residual_mixer(
-            residual_mixer, self.input_hidden_dim, **(residual_mixer_kwargs or {}))
+            residual_mixer, self.input_hidden_dim, **(residual_mixer_kwargs or {})
+        )
 
     @property
     def inner_working_dim(self) -> int:
@@ -790,8 +1052,11 @@ class ChunkerStage(_BaseStage):
         return self._forward_padded(x, ctx)
 
     def _forward_padded(self, x: torch.Tensor, ctx: HNetContext) -> torch.Tensor:
-        if (self.down_interface != "first_token" or self.up_interface != "duplicate"
-                or self.router_interface != "cossim"):
+        if (
+            self.down_interface != "first_token"
+            or self.up_interface != "duplicate"
+            or self.router_interface != "cossim"
+        ):
             raise NotImplementedError(
                 "scan/spline/scan-router interfaces are implemented for PACKED "
                 "training only; padded forward not supported yet."
@@ -800,7 +1065,14 @@ class ChunkerStage(_BaseStage):
         B, T, _ = x.shape
         mask = torch.ones(B, T, dtype=torch.bool, device=x.device)
 
-        bpred = self.routing_module(x, mask=mask)
+        r_in = x
+        if self.router_pre is not None:
+            # Router pre-net: ONLY the router input changes; residual/chunk/
+            # dechunk below still consume raw x.
+            if self.router_pre_detach:
+                r_in = r_in.detach()
+            r_in = self.router_pre(r_in, mask=mask)
+        bpred = self.routing_module(r_in, mask=mask)
         residual = self.residual_scale * self.residual_proj(x.float())
 
         chunked, _next_cu, next_max, next_mask = self.chunk_layer(
@@ -855,7 +1127,14 @@ class ChunkerStage(_BaseStage):
         cu = ctx.cu_seqlens
 
         router = self._router
-        bpred = router(x, cu_seqlens=cu)
+        r_in = x
+        if self.router_pre is not None:
+            # Router pre-net (packed): private causal transform of x for the
+            # router only; everything below still uses raw x.
+            if self.router_pre_detach:
+                r_in = r_in.detach()
+            r_in = self.router_pre(r_in, cu_seqlens=cu, max_seqlen=ctx.max_seqlen)
+        bpred = router(r_in, cu_seqlens=cu)
         residual = self.residual_scale * self.residual_proj(x.float())
 
         # Test hook: run the scan/spline TF forward under the PREFIX-CAUSAL
@@ -869,9 +1148,7 @@ class ChunkerStage(_BaseStage):
 
         # --- REGISTER DOWN-ONLY encoder (chunker) + separate up/inner/router. --
         if self.down_interface == "register":
-            return self._forward_packed_register_down(
-                x, ctx, cu, bpred, residual, cp
-            )
+            return self._forward_packed_register_down(x, ctx, cu, bpred, residual, cp)
 
         # --- DOWN: produce the inner-stage input + (optionally) scan features. --
         h_tok = sub_latents = None
@@ -889,6 +1166,8 @@ class ChunkerStage(_BaseStage):
                 chunked = self._combine_prev_end_tf(chunked, x, bpred.boundary_mask, cu)
 
         if self.proj_in is not None:
+            # Chunkviz interface: chunk-rate tokens BEFORE the trunk lift.
+            viz_chunk_tokens = chunked
             chunked = self.proj_in(chunked)
 
         if self.inner_stage is not None:
@@ -911,12 +1190,12 @@ class ChunkerStage(_BaseStage):
             inner_sub = sub_latents.clone()
             inner_sub[:, -1] = inner_out
             up = self.spline_up(
-                inner_sub,            # (N, m, D_in)
-                h_tok,                # (T, D_in)
-                x,                    # (T, D_in) outer query
+                inner_sub,  # (N, m, D_in)
+                h_tok,  # (T, D_in)
+                x,  # (T, D_in) outer query
                 bpred.boundary_mask,
                 bpred.boundary_prob,
-                cu,                   # TOKEN-space cu_seqlens
+                cu,  # TOKEN-space cu_seqlens
                 causal_phase=cp,
             )
             # SplineUpsampler already applies the confidence gate c_t internally
@@ -946,6 +1225,8 @@ class ChunkerStage(_BaseStage):
                 # ``RoutingModule._forward_packed``). Pass cu_seqlens through
                 # so the ratio loss can exclude those synthetic positions.
                 "cu_seqlens": cu,
+                # Chunkviz interface (consumed by Algo.collect_chunkviz).
+                "viz_tokens": viz_chunk_tokens,
             }
         )
         return out
@@ -961,9 +1242,7 @@ class ChunkerStage(_BaseStage):
         runs as a single (L,L) attention. ``cp`` selects the prefix-causal member
         phase so this forward is directly comparable to the AR ``step`` (GATE-1).
         """
-        stream = self.register_interface(
-            x, bpred.boundary_mask, cu, causal_phase=cp
-        )
+        stream = self.register_interface(x, bpred.boundary_mask, cu, causal_phase=cp)
         trunk_out = self.register_trunk(stream)  # (L, D_in)
         up = trunk_out[stream.member_idx]  # (T, D_in) member outputs, token order
         # Confidence gate (mirrors SplineUpsampler / the plan): keeps the p_t
@@ -1029,7 +1308,9 @@ class ChunkerStage(_BaseStage):
         if self.proj_out is not None:
             chunked = self.proj_out(chunked)
         if self.trunk_chunk_rate:
-            chunked = chunked.reshape(-1, chunked.shape[-1] // m)  # (N, m*D) -> (N*m, D)
+            chunked = chunked.reshape(
+                -1, chunked.shape[-1] // m
+            )  # (N, m*D) -> (N*m, D)
         inner_out = chunked  # (N*m, D_in)
         if self.up_interface == "spline":
             raise NotImplementedError(
@@ -1058,7 +1339,7 @@ class ChunkerStage(_BaseStage):
                 inner_sub,
                 bpred.boundary_mask,
                 bpred.boundary_prob,
-                cu,                      # TOKEN-space cu_seqlens (phase machinery)
+                cu,  # TOKEN-space cu_seqlens (phase machinery)
                 chunk_cu_seqlens=chunk_cu,  # CHUNK-space cu_seqlens (chunk-rate EMA)
                 causal_phase=cp,
             )
@@ -1110,8 +1391,11 @@ class ChunkerStage(_BaseStage):
         # The scan/spline AR orchestration is required iff the DOWN or UP
         # interface is scan/spline. The router choice (cossim|scan|transformer)
         # is orthogonal — any router can drive either down/up path.
-        is_scan = (self.down_interface == "scan" or self.up_interface == "spline"
-                   or self.router_interface == "scan")
+        is_scan = (
+            self.down_interface == "scan"
+            or self.up_interface == "spline"
+            or self.router_interface == "scan"
+        )
         if is_scan:
             return self._step_scan(x, ctx, state)
         return self._step_first_token(x, ctx, state)
@@ -1126,65 +1410,34 @@ class ChunkerStage(_BaseStage):
         is_start = torch.isin(pos, cu[:-1])
         # first chunk of each sequence has no prev -> this stage's learned no_prev
         # token (per-emb: each embodiment's ChunkerStage owns its own no_prev).
-        prev_end = torch.where(is_start.unsqueeze(-1),
-                               self.no_prev.to(prev_end.dtype), prev_end)
+        prev_end = torch.where(
+            is_start.unsqueeze(-1), self.no_prev.to(prev_end.dtype), prev_end
+        )
         cat = torch.cat([chunked, prev_end], dim=-1).float()
         return self.prev_end_combine(cat).to(chunked.dtype)
 
     def _step_first_token(self, x, ctx, state: ChunkerStageState):
-        bpred = self._router.step(x, state.routing_state)
+        r_in = x
+        if self.router_pre is not None:
+            # Advance the pre-net's private KV cache one token; feed the router
+            # the pre-net output. Raw x still feeds residual/chunk_layer below.
+            if self.router_pre_detach:
+                r_in = r_in.detach()
+            r_in = self.router_pre.step(r_in, state.router_pre_state)
+        bpred = self._router.step(r_in, state.routing_state)
         residual = self.residual_scale * self.residual_proj(x.float())
 
         inner_in = self.chunk_layer.step(x, bpred.boundary_mask)
         if self.grab_prev_end:
             if inner_in.shape[0] > 0:
-                if state.prev_x is None:
-                    # Legacy fallback (state allocated by an old code path,
-                    # before the eager _allocate): no prev-token carry yet ->
-                    # every row uses the learned no_prev token, as before.
-                    prev_end = self.no_prev.to(inner_in.dtype).expand_as(inner_in)
-                else:
-                    # prev_x is stored canonically as (B, D); reshape the
-                    # selected rows to inner_in's layout ((k, D) or (k, 1, D)).
-                    pv = state.prev_x[bpred.boundary_mask].reshape(inner_in.shape)
-                    if state.prev_x_valid is None:
-                        # Legacy fallback: carry without validity bits -> old
-                        # unconditional read.
-                        prev_end = pv
-                    else:
-                        # Per-row validity: rows that have not yet seen a real
-                        # previous token at THIS level read the learned no_prev
-                        # embedding. This (plus eager allocation + in-place
-                        # writes) is what bootstraps prev_x for chunkers BELOW
-                        # a slice/scatter boundary, where the old lazy
-                        # `state.prev_x = x` write-back was silently dropped.
-                        valid = state.prev_x_valid[bpred.boundary_mask].view(
-                            -1, *([1] * (inner_in.dim() - 1))
-                        )
-                        prev_end = torch.where(
-                            valid,
-                            pv.to(inner_in.dtype),
-                            self.no_prev.to(inner_in.dtype).expand_as(pv),
-                        )
+                prev_end = (
+                    state.prev_x[bpred.boundary_mask]
+                    if state.prev_x is not None
+                    else self.no_prev.to(inner_in.dtype).expand_as(inner_in)
+                )
                 cat = torch.cat([inner_in, prev_end], dim=-1).float()
                 inner_in = self.prev_end_combine(cat).to(x.dtype)  # concat -> trunk dim
-            # Update the carry for the next step (every step, boundary or not).
-            # Strictly IN PLACE so an outer merge_ write-back propagates to the
-            # persistent state instead of mutating only the sliced copy.
-            x_rows = x.reshape(x.shape[0], -1)  # canonical (B, D)
-            if state.prev_x is None:
-                # Legacy-allocated state: create the carry here; the outer
-                # merge_ materializes the persistent-side buffer (zeros + row
-                # write), so the write-back is no longer dropped.
-                state.prev_x = x_rows.clone()
-            else:
-                state.prev_x.copy_(x_rows)
-            if state.prev_x_valid is None:
-                state.prev_x_valid = torch.ones(
-                    x.shape[0], dtype=torch.bool, device=x.device
-                )
-            else:
-                state.prev_x_valid.fill_(True)
+            state.prev_x = x  # update for next step (every step, boundary or not)
         if inner_in.shape[0] > 0:
             if self.proj_in is not None:
                 inner_in = self.proj_in(inner_in)
@@ -1363,7 +1616,7 @@ class ChunkerStage(_BaseStage):
           * msublatent dechunker decodes x_t against the cached PREVIOUS chunk's
             basis + the prefix-causal phase; out = residual_mixer(up, residual).
         x may be (B,1,D) or (B,D); returns (B,1,D)."""
-        x_t = x.squeeze(1) if x.dim() == 3 else x          # (B, D_in)
+        x_t = x.squeeze(1) if x.dim() == 3 else x  # (B, D_in)
         B = x_t.shape[0]
         residual = self.residual_scale * self.residual_proj(x_t.float())  # (B, D_in)
         m = self.register_interface.m
@@ -1371,39 +1624,44 @@ class ChunkerStage(_BaseStage):
         mstate = state.msublatent_state
 
         bpred = self._router.step(x_t, state.routing_state)
-        boundary_t = bpred.boundary_mask                   # (B,)
-        boundary_prob_t = bpred.boundary_prob              # (B, 2)
+        boundary_t = bpred.boundary_mask  # (B,)
+        boundary_prob_t = bpred.boundary_prob  # (B, 2)
 
         # --- finalize the just-completed chunk (returns its post-trunk m reps) ---
         finished_mask = boundary_t & (rstate.mem_fill > 0)
         reg_reps = self.register_trunk.finalize_chunk(
             rstate, finished_mask, self.register_interface
-        )                                                  # (B, m, D_in)
+        )  # (B, m, D_in)
 
         if bool(finished_mask.any()):
-            reg_sub = reg_reps                             # (B, m, D_in)
+            reg_sub = reg_reps  # (B, m, D_in)
             D_in = reg_sub.shape[-1]
             if self.trunk_chunk_rate:
                 # Fix-1: concat the m sub-latents -> one chunk token -> 1 inner step.
                 inner_out = self._inner_step_rows(
                     reg_sub.reshape(B, m * D_in), ctx, state, finished_mask
-                )                                          # (B, m*D_in)
+                )  # (B, m*D_in)
                 inner_sub = inner_out.reshape(B, m, D_in)
             else:
                 # pre-Fix-1: inner stage at REGISTER rate -- the m registers run
                 # one-by-one (causal over the register stream / inner KV cache).
-                inner_sub = torch.stack([
-                    self._inner_step_rows(reg_sub[:, j], ctx, state, finished_mask)
-                    for j in range(m)
-                ], dim=1)                                  # (B, m, D_in)
+                inner_sub = torch.stack(
+                    [
+                        self._inner_step_rows(reg_sub[:, j], ctx, state, finished_mask)
+                        for j in range(m)
+                    ],
+                    dim=1,
+                )  # (B, m, D_in)
             inner_sub = torch.where(
                 finished_mask.view(B, 1, 1), inner_sub.to(reg_sub.dtype), reg_sub
             )
             # chunk-rate EMA + promote as the upcoming chunk's msublatent basis.
-            self.msublatent_up.update_prev(mstate, inner_sub, boundary_prob_t, finished_mask)
+            self.msublatent_up.update_prev(
+                mstate, inner_sub, boundary_prob_t, finished_mask
+            )
 
         # --- DOWN: emit x_t into the (reset) open chunk; trunk_out discarded. ---
-        offset = rstate.mem_fill                           # (B,)
+        offset = rstate.mem_fill  # (B,)
         mem_emb = self.register_interface.member_embed_from_offset(x_t, offset)
         _ = self.register_trunk.step_member(mem_emb, rstate, m)
         rstate.offset = rstate.mem_fill
@@ -1413,11 +1671,13 @@ class ChunkerStage(_BaseStage):
         up = self.msublatent_up.step(boundary_t, boundary_prob_t, mstate)  # (B, D_in)
         out = self.residual_mixer(up.float(), residual).to(x_t.dtype)
 
-        ctx.register_aux({
-            "bpred": bpred,
-            "target_ratio": self.target_compression_ratio,
-            "weight": self.ratio_loss_weight,
-        })
+        ctx.register_aux(
+            {
+                "bpred": bpred,
+                "target_ratio": self.target_compression_ratio,
+                "weight": self.ratio_loss_weight,
+            }
+        )
         return out.unsqueeze(1)
 
     def _inner_step_rows(self, inner_in, ctx, state, finished_mask):
@@ -1473,12 +1733,9 @@ class ChunkerStage(_BaseStage):
         dechunk_state = self.dechunk_layer.allocate_inference_cache(
             batch_size, max_seqlen, device, dtype
         )
-        # Register trunk state: needed by BOTH register uses — the fused
-        # interface (_step_register) and the down-only register chunker
-        # (_step_register_down reads state.reg_trunk_state but the old
-        # allocation gated on the fused interface only, leaving it None).
+        # Register trunk state (only on the fused register interface).
         reg_trunk_state = None
-        if self._register_chunker:
+        if self.chunk_interface == "register":
             # cap_mem: longest open chunk == full episode (single-chunk init).
             # cap_reg: at most one chunk per token across the episode, each
             # contributing m registers -> max_seqlen * m (loose but exact bound).
@@ -1490,25 +1747,10 @@ class ChunkerStage(_BaseStage):
                 device=device,
                 dtype=dtype,
             )
-        # grab_prev_end: EAGERLY allocate the prev-token carry + per-row
-        # validity bits. The old lazy creation (`state.prev_x = x` on first
-        # step) left the PERSISTENT state's prev_x None for chunkers below a
-        # slice/scatter boundary, and the old scatter guard silently dropped
-        # the sub-state's write-back — so the "[first_token ; prev_chunk_end]"
-        # combine fed the learned no_prev embedding on EVERY chunk at rollout.
-        prev_x = None
-        prev_x_valid = None
-        if self.grab_prev_end:
-            prev_x = torch.zeros(
-                batch_size, self.input_hidden_dim, dtype=dtype, device=device
-            )
-            prev_x_valid = torch.zeros(batch_size, dtype=torch.bool, device=device)
-        # msublatent up-interface state (was never allocated before: the
-        # `state.msublatent_state` read in _step_register_down was dormant).
-        msublatent_state = None
-        if self.up_interface == "msublatent":
-            msublatent_state = self.msublatent_up.allocate_inference_cache(
-                batch_size, self.input_hidden_dim, device, dtype
+        router_pre_state = None
+        if self.router_pre is not None:
+            router_pre_state = self.router_pre.allocate_inference_cache(
+                batch_size, max_seqlen, device, dtype
             )
         return ChunkerStageState(
             routing_state=routing_state,
@@ -1521,9 +1763,7 @@ class ChunkerStage(_BaseStage):
             scan_enc_state=scan_enc_state,
             spline_state=spline_state,
             reg_trunk_state=reg_trunk_state,
-            prev_x=prev_x,
-            prev_x_valid=prev_x_valid,
-            msublatent_state=msublatent_state,
+            router_pre_state=router_pre_state,
         )
 
     def _init_weights(self, initializer_range: float, parent_residuals: int) -> int:
@@ -1545,6 +1785,13 @@ class ChunkerStage(_BaseStage):
                 nn.init.normal_(m.weight, mean=0.0, std=initializer_range)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
+        # Router pre-net: PRIVATE residual stream feeding only the boundary
+        # router — init like any Isotropic stack scaled by its OWN depth; it
+        # does not feed the task residual stream (no n_residuals contribution).
+        if self.router_pre is not None:
+            _init_isotropic_linears(
+                self.router_pre, initializer_range, self.router_pre.height
+            )
         # Only fold the trunk's residual count + apply its scaled init when the
         # gate is ON. With it OFF, ``n_residuals`` is left at ``parent_residuals``
         # exactly as before, so the inner_stage's init scaling is BYTE-UNCHANGED

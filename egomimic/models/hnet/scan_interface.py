@@ -43,7 +43,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .blocks import StateRowMixin
 from .routing import DeChunkLayer, RoutingModuleOutput, get_seq_idx
 
 try:  # RMSNorm for the gated decoder-end normalization (paper "network norm").
@@ -99,7 +98,7 @@ def _causal_phase_scalar(offset: torch.Tensor) -> torch.Tensor:
 
 
 @dataclass
-class ScanRouterState(StateRowMixin):
+class ScanRouterState:
     """AR state for ``ScanRouter``. ``has_seen_tokens`` forces a boundary on
     the first step of each episode (subseq start), mirroring the packed
     forward's ``boundary_prob[cu_seqlens[:-1]] = 1.0``. ``gru_h`` is the GRU
@@ -108,8 +107,6 @@ class ScanRouterState(StateRowMixin):
     Mamba path it stashes the previous step's mixer output (the GRU path reads
     it directly from ``gru_h``)."""
 
-    _DIM1_FIELDS = ("gru_h",)
-
     has_seen_tokens: torch.Tensor  # (B,) bool
     gru_h: Optional[torch.Tensor] = None  # (1, B, d_state) GRU carry
     mamba_cache: Optional["object"] = None  # MambaCache on the CUDA path
@@ -117,7 +114,7 @@ class ScanRouterState(StateRowMixin):
 
 
 @dataclass
-class ChunkScanEncoderState(StateRowMixin):
+class ChunkScanEncoderState:
     """AR state for ``ChunkScanEncoder``. Per-chunk GRU carry + running offset
     + a FIXED-capacity buffer of this chunk's per-token GRU outputs (needed to
     extract the m sub-latents at chunk completion, when the full chunk length
@@ -126,15 +123,13 @@ class ChunkScanEncoderState(StateRowMixin):
     length the AR path can summarize exactly; a chunk longer than ``cap``
     triggers an assert (raise ``max_chunk_len`` in the config / allocate)."""
 
-    _DIM1_FIELDS = ("gru_h",)
-
     gru_h: torch.Tensor  # (1, B, H) per-chunk GRU carry
     offset: torch.Tensor  # (B,) running position within the current chunk
     buf: torch.Tensor  # (B, cap, H) per-token outputs of the current chunk
 
 
 @dataclass
-class SplineUpsamplerState(StateRowMixin):
+class SplineUpsamplerState:
     """AR state for ``SplineUpsampler``. ``prev_inner_sub`` is the most
     recently COMPLETED chunk's inner-processed m sub-latents (B, m, d_inner),
     used as the basis for the current chunk's tokens (shift-by-one). Zero
@@ -193,11 +188,19 @@ class ScanRouter(nn.Module):
     tests, NOT the training path). ``backend='auto'`` picks at call time.
     """
 
-    def __init__(self, d_model: int, d_state: Optional[int] = None,
-                 mlp_hidden: int = 128, backend: str = "auto",
-                 n_layer: int = 1, use_block: bool = False,
-                 has_mlp: bool = False, mlp_dim: Optional[int] = None,
-                 device=None, dtype=None):
+    def __init__(
+        self,
+        d_model: int,
+        d_state: Optional[int] = None,
+        mlp_hidden: int = 128,
+        backend: str = "auto",
+        n_layer: int = 1,
+        use_block: bool = False,
+        has_mlp: bool = False,
+        mlp_dim: Optional[int] = None,
+        device=None,
+        dtype=None,
+    ):
         super().__init__()
         fk = {"device": device, "dtype": dtype}
         if backend not in ("auto", "mamba", "gru"):
@@ -247,9 +250,7 @@ class ScanRouter(nn.Module):
                     self.d_state = d_model
                 else:
                     # Mixer outputs (T, d_model): scan state dim == d_model.
-                    self._mamba = Mamba2Mixer(
-                        d_model=d_model, layer_idx=0, **fk
-                    )
+                    self._mamba = Mamba2Mixer(d_model=d_model, layer_idx=0, **fk)
                     self.d_state = d_model
             except Exception:
                 if backend == "mamba":
@@ -271,9 +272,8 @@ class ScanRouter(nn.Module):
     def _scan(self, hidden_states, cu_seqlens, seq_id, offset, seq_len):
         """Returns per-token state AFTER consuming x_t, (T, d_state)."""
         use_mamba = (
-            (self._mamba is not None or self.blocks is not None)
-            and hidden_states.is_cuda
-        )
+            self._mamba is not None or self.blocks is not None
+        ) and hidden_states.is_cuda
         if self.backend == "gru":
             use_mamba = False
         if use_mamba:
@@ -340,9 +340,7 @@ class ScanRouter(nn.Module):
             mamba_cache = self._mamba.allocate_inference_cache(
                 batch_size, 1, device, dtype
             )
-            h_prev = torch.zeros(
-                batch_size, self.d_state, device=device, dtype=dtype
-            )
+            h_prev = torch.zeros(batch_size, self.d_state, device=device, dtype=dtype)
         elif self.blocks is not None:
             # Block-stack path: one MambaCache per block's mixer (a list stashed
             # in the same ``mamba_cache`` field). ``h_prev`` stashes the previous
@@ -351,9 +349,7 @@ class ScanRouter(nn.Module):
                 blk.mixer.allocate_inference_cache(batch_size, 1, device, dtype)
                 for blk in self.blocks
             ]
-            h_prev = torch.zeros(
-                batch_size, self.d_state, device=device, dtype=dtype
-            )
+            h_prev = torch.zeros(batch_size, self.d_state, device=device, dtype=dtype)
         return ScanRouterState(
             has_seen_tokens=torch.zeros(batch_size, device=device, dtype=torch.bool),
             gru_h=gru_h,
@@ -428,9 +424,16 @@ class ChunkScanEncoder(nn.Module):
     kept for the upsampler.
     """
 
-    def __init__(self, d_model: int, d_out: int, m_sublatents: int = 4,
-                 n_phase_freqs: int = 4, layernorm: bool = False,
-                 device=None, dtype=None):
+    def __init__(
+        self,
+        d_model: int,
+        d_out: int,
+        m_sublatents: int = 4,
+        n_phase_freqs: int = 4,
+        layernorm: bool = False,
+        device=None,
+        dtype=None,
+    ):
         super().__init__()
         fk = {"device": device, "dtype": dtype}
         self.m = int(m_sublatents)
@@ -495,8 +498,10 @@ class ChunkScanEncoder(nn.Module):
         N = seg_len.shape[0]
         ks = torch.arange(1, self.m + 1, device=seg_len.device)  # (m,)
         ends = (
-            torch.ceil(seg_len[:, None].float() * ks[None, :] / self.m) - 1
-        ).long().clamp(min=0)  # (N, m)
+            (torch.ceil(seg_len[:, None].float() * ks[None, :] / self.m) - 1)
+            .long()
+            .clamp(min=0)
+        )  # (N, m)
         sub_latents = outs[torch.arange(N, device=outs.device)[:, None], ends]
         chunk_summary = sub_latents[:, -1]
         next_cu = F.pad(boundary_mask.cumsum(0)[cu_seqlens[1:] - 1], (1, 0))
@@ -505,12 +510,16 @@ class ChunkScanEncoder(nn.Module):
 
     # --------------------------- AR inference --------------------------- #
 
-    def allocate_inference_cache(self, batch_size, device, dtype=None, max_chunk_len=256):
+    def allocate_inference_cache(
+        self, batch_size, device, dtype=None, max_chunk_len=256
+    ):
         H = self.gru.hidden_size
         return ChunkScanEncoderState(
             gru_h=torch.zeros(1, batch_size, H, device=device, dtype=dtype),
             offset=torch.zeros(batch_size, device=device, dtype=torch.long),
-            buf=torch.zeros(batch_size, int(max_chunk_len), H, device=device, dtype=dtype),
+            buf=torch.zeros(
+                batch_size, int(max_chunk_len), H, device=device, dtype=dtype
+            ),
         )
 
     def _sub_positions(self, length: int) -> torch.Tensor:
@@ -605,9 +614,16 @@ class SplineUpsampler(nn.Module):
     zeroed there (gate path only).
     """
 
-    def __init__(self, d_inner: int, d_state: int, d_model: int,
-                 m_sublatents: int = 4, n_phase_freqs: int = 4,
-                 device=None, dtype=None):
+    def __init__(
+        self,
+        d_inner: int,
+        d_state: int,
+        d_model: int,
+        m_sublatents: int = 4,
+        n_phase_freqs: int = 4,
+        device=None,
+        dtype=None,
+    ):
         super().__init__()
         fk = {"device": device, "dtype": dtype}
         self.m = int(m_sublatents)
@@ -684,7 +700,8 @@ class SplineUpsampler(nn.Module):
         if finished_mask.any():
             m = finished_mask.view(-1, 1, 1)
             state.prev_inner_sub = torch.where(
-                m, finished_inner_sub.to(state.prev_inner_sub.dtype),
+                m,
+                finished_inner_sub.to(state.prev_inner_sub.dtype),
                 state.prev_inner_sub,
             )
             state.have_prev = state.have_prev | finished_mask
@@ -731,13 +748,16 @@ class SplineUpsampler(nn.Module):
 
 
 @dataclass
-class MSublatentDeChunkerState(StateRowMixin):
+class MSublatentDeChunkerState:
     """AR state for ``MSublatentDeChunker.step`` (DECHUNK-AR). Mirrors
     ``SplineUpsamplerState`` plus a chunk-rate EMA carry (``ema_prev``)."""
-    prev_inner_sub: torch.Tensor  # (B, m, d_inner) POST-EMA sub-latents = W_v basis source (shift-by-one)
-    ema_prev: torch.Tensor        # (B, m*d_inner)  chunk-rate EMA carry
-    offset: torch.Tensor          # (B,) long       within-chunk phase index (prefix-causal)
-    have_prev: torch.Tensor       # (B,) bool       a completed previous chunk exists
+
+    prev_inner_sub: (
+        torch.Tensor
+    )  # (B, m, d_inner) POST-EMA sub-latents = W_v basis source (shift-by-one)
+    ema_prev: torch.Tensor  # (B, m*d_inner)  chunk-rate EMA carry
+    offset: torch.Tensor  # (B,) long       within-chunk phase index (prefix-causal)
+    have_prev: torch.Tensor  # (B,) bool       a completed previous chunk exists
 
 
 class MSublatentDeChunker(nn.Module):
@@ -783,10 +803,19 @@ class MSublatentDeChunker(nn.Module):
     chunk-rate EMA.
     """
 
-    def __init__(self, d_inner: int, d_model: int, m_sublatents: int = 4,
-                 n_phase_freqs: int = 4, component_end_norm: bool = False,
-                 dtype=torch.bfloat16, block_size: int = 256, headdim: int = 32,
-                 device=None, _dtype=None):
+    def __init__(
+        self,
+        d_inner: int,
+        d_model: int,
+        m_sublatents: int = 4,
+        n_phase_freqs: int = 4,
+        component_end_norm: bool = False,
+        dtype=torch.bfloat16,
+        block_size: int = 256,
+        headdim: int = 32,
+        device=None,
+        _dtype=None,
+    ):
         super().__init__()
         fk = {"device": device, "dtype": _dtype}
         self.m = int(m_sublatents)
@@ -820,7 +849,9 @@ class MSublatentDeChunker(nn.Module):
         # component end). DEFAULT OFF -> no new param, byte-identical when unset.
         self.component_end_norm = bool(component_end_norm)
         if self.component_end_norm:
-            assert RMSNorm is not None, "RMSNorm unavailable; cannot enable component_end_norm"
+            assert (
+                RMSNorm is not None
+            ), "RMSNorm unavailable; cannot enable component_end_norm"
             # Repo RMSNorm takes (d_model, eps) only — no device/dtype kwargs
             # (matches register_interface's ``RMSNorm(d_model)`` construction).
             self.end_norm = RMSNorm(d_model)
@@ -844,9 +875,9 @@ class MSublatentDeChunker(nn.Module):
     def forward(
         self,
         inner_sub_latents: torch.Tensor,  # (N, m, d_inner) inner-processed regs
-        boundary_mask: torch.Tensor,      # (T_total,) bool, subseq starts True
-        boundary_prob: torch.Tensor,      # (T_total, 2)
-        cu_seqlens: torch.Tensor,         # (B+1,) TOKEN-space (phase machinery)
+        boundary_mask: torch.Tensor,  # (T_total,) bool, subseq starts True
+        boundary_prob: torch.Tensor,  # (T_total, 2)
+        cu_seqlens: torch.Tensor,  # (B+1,) TOKEN-space (phase machinery)
         chunk_cu_seqlens: Optional[torch.Tensor] = None,  # (B+1,) CHUNK-space (EMA)
         causal_phase: bool = False,
         return_diagnostics: bool = False,
@@ -885,7 +916,7 @@ class MSublatentDeChunker(nn.Module):
         device = boundary_mask.device
         T = boundary_mask.shape[0]
         N, m, D_in = inner_sub_latents.shape
-        seg_id = boundary_mask.cumsum(0) - 1                  # (T,) chunk id
+        seg_id = boundary_mask.cumsum(0) - 1  # (T,) chunk id
 
         # FIX #5: guard the N-coupling. The dechunker derives N from the raw
         # ``boundary_mask`` (subseq starts forced True upstream), while the
@@ -903,18 +934,21 @@ class MSublatentDeChunker(nn.Module):
         #     m-mix. Chunk-space boundary probs = boundary_prob[...,-1] at the
         #     boundary positions (one per chunk), exactly as the canonical
         #     DeChunkLayer._forward_packed gathers them. ---
-        sub_flat = inner_sub_latents.reshape(N, m * D_in)     # (N, m*d_inner)
+        sub_flat = inner_sub_latents.reshape(N, m * D_in)  # (N, m*d_inner)
         p_chunk = torch.clamp(
             boundary_prob[..., -1][boundary_mask], min=1e-4, max=1 - 1e-4
         )  # (N,) chunk-rate boundary probs
         from .routing import _HAS_MAMBA_SCAN  # module-level kernel availability flag
+
         if _HAS_MAMBA_SCAN and sub_flat.is_cuda and N > 0:
             pos = torch.arange(N, device=device)
             seq_idx = (
-                pos[:, None] >= chunk_cu_seqlens[None, 1:]
-            ).sum(dim=-1).to(torch.int32)
+                (pos[:, None] >= chunk_cu_seqlens[None, 1:]).sum(dim=-1).to(torch.int32)
+            )
             ema_flat = self.ema._ema_kernel(
-                sub_flat.unsqueeze(0), p_chunk.unsqueeze(0), seq_idx=seq_idx.unsqueeze(0)
+                sub_flat.unsqueeze(0),
+                p_chunk.unsqueeze(0),
+                seq_idx=seq_idx.unsqueeze(0),
             ).squeeze(0)
         else:
             ema_flat = self.ema._ema_loop(
@@ -924,16 +958,16 @@ class MSublatentDeChunker(nn.Module):
                     chunk_cu_seqlens[1:-1] if chunk_cu_seqlens.numel() > 2 else None
                 ),
             ).squeeze(0)
-        ema_sub = ema_flat.reshape(N, m, D_in)                # (N, m, d_inner)
+        ema_sub = ema_flat.reshape(N, m, D_in)  # (N, m, d_inner)
 
         # --- phase m-mix to fine tokens (AFTER the EMA). ---
         offset, len_tok, _seg_len = _segment_meta(seg_id)
         phase = _phase_from_offset_len(offset, len_tok, causal_phase)
-        pf = _fourier_phase(phase, self.n_phase_freqs)        # (T, 2*n_freqs)
-        basis_all = self.w_v(ema_sub)                         # (N, m, d_model)
-        basis_tok = basis_all[seg_id]                         # (T, m, d_model)
-        w = torch.softmax(self.w_weights(pf), dim=-1)         # (T, m)
-        out = torch.einsum("tm,tmd->td", w, basis_tok)        # (T, d_model)
+        pf = _fourier_phase(phase, self.n_phase_freqs)  # (T, 2*n_freqs)
+        basis_all = self.w_v(ema_sub)  # (N, m, d_model)
+        basis_tok = basis_all[seg_id]  # (T, m, d_model)
+        w = torch.softmax(self.w_weights(pf), dim=-1)  # (T, m)
+        out = torch.einsum("tm,tmd->td", w, basis_tok)  # (T, d_model)
 
         # --- FIX #4: c_t straight-through gate (paper form). _ste(c) has forward
         #     value == 1 (output UNSCALED in the forward pass; no attenuation),
@@ -941,6 +975,7 @@ class MSublatentDeChunker(nn.Module):
         #     paths. (Previously: ``out = ema * c`` literal multiply, which
         #     attenuated the forward output.) ---
         from .stages import _ste  # canonical _STE (forward==1, grad pass-through)
+
         p = boundary_prob[..., -1]
         c = torch.where(boundary_mask, p, 1.0 - p).clamp(1e-4, 1 - 1e-4)  # (T,)
         out = out * _ste(c).unsqueeze(-1)
@@ -955,7 +990,7 @@ class MSublatentDeChunker(nn.Module):
             # retention ratio = how much within-chunk structure survives the
             # (now chunk-rate, pre-m-mix) EMA. Both are pre-c_t-gate (the STE
             # gate is forward-identity, so it does not change the variance).
-            basis_no_ema = self.w_v(inner_sub_latents)[seg_id]   # (T, m, d_model)
+            basis_no_ema = self.w_v(inner_sub_latents)[seg_id]  # (T, m, d_model)
             out_no_ema = torch.einsum("tm,tmd->td", w, basis_no_ema)  # (T, d_model)
             diag = {
                 # Final output within-chunk variance (post chunk-rate EMA, post m-mix).
@@ -974,8 +1009,12 @@ class MSublatentDeChunker(nn.Module):
 
     def allocate_inference_cache(self, batch_size, d_inner, device, dtype=None):
         return MSublatentDeChunkerState(
-            prev_inner_sub=torch.zeros(batch_size, self.m, d_inner, device=device, dtype=dtype),
-            ema_prev=torch.zeros(batch_size, self.m * d_inner, device=device, dtype=dtype),
+            prev_inner_sub=torch.zeros(
+                batch_size, self.m, d_inner, device=device, dtype=dtype
+            ),
+            ema_prev=torch.zeros(
+                batch_size, self.m * d_inner, device=device, dtype=dtype
+            ),
             offset=torch.zeros(batch_size, device=device, dtype=torch.long),
             have_prev=torch.zeros(batch_size, device=device, dtype=torch.bool),
         )
@@ -990,15 +1029,22 @@ class MSublatentDeChunker(nn.Module):
         if not finished_mask.any():
             return
         B = finished_mask.shape[0]
-        sub_flat = finished_inner_sub.reshape(B, -1).to(state.ema_prev.dtype)  # (B, m*d_inner)
+        sub_flat = finished_inner_sub.reshape(B, -1).to(
+            state.ema_prev.dtype
+        )  # (B, m*d_inner)
         p = torch.zeros(B, device=sub_flat.device, dtype=state.ema_prev.dtype)
-        p[finished_mask] = boundary_prob_t[finished_mask, -1].clamp(1e-4, 1 - 1e-4).to(p.dtype)
+        p[finished_mask] = (
+            boundary_prob_t[finished_mask, -1].clamp(1e-4, 1 - 1e-4).to(p.dtype)
+        )
         p_b = p.unsqueeze(-1)
-        new_ema = p_b * sub_flat + (1 - p_b) * state.ema_prev                  # (B, m*d_inner)
-        state.ema_prev = torch.where(finished_mask.unsqueeze(-1), new_ema, state.ema_prev)
+        new_ema = p_b * sub_flat + (1 - p_b) * state.ema_prev  # (B, m*d_inner)
+        state.ema_prev = torch.where(
+            finished_mask.unsqueeze(-1), new_ema, state.ema_prev
+        )
         fm = finished_mask.view(B, 1, 1)
         state.prev_inner_sub = torch.where(
-            fm, state.ema_prev.reshape(B, self.m, -1).to(state.prev_inner_sub.dtype),
+            fm,
+            state.ema_prev.reshape(B, self.m, -1).to(state.prev_inner_sub.dtype),
             state.prev_inner_sub,
         )
         state.have_prev = state.have_prev | finished_mask
@@ -1011,15 +1057,20 @@ class MSublatentDeChunker(nn.Module):
         ``causal_phase=True`` (the prefix phase ``o/(o+1)``)."""
         B = boundary_t.shape[0]
         if boundary_t.any():  # reset within-chunk phase at chunk starts
-            state.offset = torch.where(boundary_t, torch.zeros_like(state.offset), state.offset)
-        phase = _causal_phase_scalar(state.offset)            # (B,)
-        pf = _fourier_phase(phase, self.n_phase_freqs)        # (B, 2*nf)
-        basis = self.w_v(state.prev_inner_sub)                # (B, m, d_model)
-        basis = basis * state.have_prev.view(B, 1, 1).to(basis.dtype)  # zero if no prev chunk
-        w = torch.softmax(self.w_weights(pf), dim=-1)         # (B, m)
-        out = torch.einsum("bm,bmd->bd", w, basis)            # (B, d_model)
+            state.offset = torch.where(
+                boundary_t, torch.zeros_like(state.offset), state.offset
+            )
+        phase = _causal_phase_scalar(state.offset)  # (B,)
+        pf = _fourier_phase(phase, self.n_phase_freqs)  # (B, 2*nf)
+        basis = self.w_v(state.prev_inner_sub)  # (B, m, d_model)
+        basis = basis * state.have_prev.view(B, 1, 1).to(
+            basis.dtype
+        )  # zero if no prev chunk
+        w = torch.softmax(self.w_weights(pf), dim=-1)  # (B, m)
+        out = torch.einsum("bm,bmd->bd", w, basis)  # (B, d_model)
         # c_t straight-through gate (forward value == 1; matches TF order: gate then end_norm).
         from .stages import _ste
+
         p = boundary_prob_t[..., -1]
         c = torch.where(boundary_t, p, 1.0 - p).clamp(1e-4, 1 - 1e-4)
         out = out * _ste(c).unsqueeze(-1)
@@ -1041,10 +1092,10 @@ def _within_chunk_var(x: torch.Tensor, seg_id: torch.Tensor) -> float:
     counts = torch.bincount(seg_id, minlength=N).clamp(min=1).float()  # (N,)
     sum_ = torch.zeros(N, D, device=xf.device, dtype=xf.dtype)
     sum_.index_add_(0, seg_id, xf)
-    mean = sum_ / counts[:, None]                                      # (N, D)
+    mean = sum_ / counts[:, None]  # (N, D)
     sq = torch.zeros(N, D, device=xf.device, dtype=xf.dtype)
     sq.index_add_(0, seg_id, xf * xf)
-    var = sq / counts[:, None] - mean * mean                          # (N, D)
+    var = sq / counts[:, None] - mean * mean  # (N, D)
     # Average over chunks of length > 1 only (length-1 chunks have no spread).
     multi = torch.bincount(seg_id, minlength=N) > 1
     if multi.any():
