@@ -92,15 +92,43 @@ def main():
     )
     parser.add_argument("--n-episodes", type=int, default=2)
     parser.add_argument("--max-steps", type=int, default=200)
-    parser.add_argument("--max-coverage", action="store_true",
-                        help="report PEAK IoU over the rollout (did it ever align?) "
-                             "instead of the default final-step IoU")
+    parser.add_argument(
+        "--max-coverage",
+        action="store_true",
+        help="report PEAK IoU over the rollout (did it ever align?) "
+        "instead of the default final-step IoU",
+    )
     parser.add_argument("--out-dir", default="sim_smoke_out")
-    parser.add_argument("--per-episode-videos", action="store_true",
-                        help="write one mp4 per episode, named ep{i}_cov{c}.mp4")
-    parser.add_argument("--embodiment-name", default="pushshapes_sim",
-                        help="Which embodiment to roll out (e.g. pushshapes_sim_small_circle for the small run).")
+    parser.add_argument(
+        "--per-episode-videos",
+        action="store_true",
+        help="write one mp4 per episode, named ep{i}_cov{c}.mp4",
+    )
+    parser.add_argument(
+        "--embodiment-name",
+        default="pushshapes_sim",
+        help="Which embodiment to roll out (e.g. pushshapes_sim_small_circle for the small run).",
+    )
     parser.add_argument("--pusher", default="circle", help="env pusher_shape")
+    parser.add_argument(
+        "--obstacle-level",
+        type=int,
+        default=0,
+        help="env obstacle_level (0-29 with the ported 30-level obstacles.py)",
+    )
+    parser.add_argument(
+        "--coverage-threshold",
+        type=float,
+        default=0.7,
+        help="episode early-stop + success cutoff; 0.95 for true peak + SR@0.95",
+    )
+    parser.add_argument(
+        "--full-horizon",
+        action="store_true",
+        help="run the full max_steps; ignore the env success-termination "
+        "(0.95) so every episode yields the uncapped true peak and "
+        "uniform-length rollouts",
+    )
     parser.add_argument(
         "--obs-stride",
         type=int,
@@ -181,12 +209,15 @@ def main():
     # override it for this eval to probe a different cadence on the same ckpt.
     if args.obs_stride is not None:
         algo.obs_stride = int(args.obs_stride)
-        print(f"[sim] obs_stride override = {algo.obs_stride} "
-              f"(re-observe every {algo.obs_stride} frame(s))")
+        print(
+            f"[sim] obs_stride override = {algo.obs_stride} "
+            f"(re-observe every {algo.obs_stride} frame(s))"
+        )
     if args.replan_every is not None:
         algo.replan_every = int(args.replan_every)
         print(f"[sim] replan_every override = {algo.replan_every}")
     import torch as _torch
+
     _torch.manual_seed(int(args.seed))
 
     # Build the dataset from the full hydra .hydra/config.yaml (the ckpt's
@@ -236,15 +267,20 @@ def main():
         print(f"[sim] init_mode=seeds  seeds={init_seeds[0]}..{init_seeds[-1]}")
     eval_cls = HPTSimEval if args.eval_class == "hpt" else PackedSimEval
     sim_eval = eval_cls(
-        env_kwargs={"object_shape": "T", "pusher_shape": args.pusher},
+        env_kwargs={
+            "object_shape": "T",
+            "pusher_shape": args.pusher,
+            "obstacle_level": args.obstacle_level,
+        },
         embodiment_name=args.embodiment_name,
         init_mode=args.init_mode,
         init_seeds=init_seeds,
         max_steps=args.max_steps,
         report_max_coverage=args.max_coverage,
-        coverage_threshold=0.7,
+        coverage_threshold=args.coverage_threshold,
         limit_val_batches=args.n_episodes,
         rng_pairing=args.rng_pairing,
+        run_full_horizon=args.full_horizon,
     )
     sim_eval.trainer = _MockTrainer(args.out_dir, device)
     sim_eval.model = algo
@@ -268,7 +304,9 @@ def main():
                     _b[k] = v[:new_end].contiguous()
             print(f"[batch] trimmed to {new_B} episodes  T_total={new_end}")
 
-    print("[rollout] starting sim eval (fp32 — inference_step now matches model dtype) ...")
+    print(
+        "[rollout] starting sim eval (fp32 — inference_step now matches model dtype) ..."
+    )
     # NO autocast: the model is fp32 and inference_step now allocates the AR
     # state in the model's dtype (fp32), so the whole rollout is pure fp32 —
     # consistent with training, the teacher-forced overlay, and txar's sim. (The
@@ -301,7 +339,9 @@ def main():
                     continue
                 c = covs[i] if i < len(covs) else 0.0
                 fp = out_dir / f"ep{i:02d}_emb{emb_id}_cov{c:.3f}.mp4"
-                tvio.write_video(str(fp), torch.from_numpy(ims), fps=30, video_codec="h264")
+                tvio.write_video(
+                    str(fp), torch.from_numpy(ims), fps=30, video_codec="h264"
+                )
                 print(f"  wrote {fp}  cov={c:.4f}  shape={ims.shape}")
 
     print("\n=== SMOKE PASSED ===")

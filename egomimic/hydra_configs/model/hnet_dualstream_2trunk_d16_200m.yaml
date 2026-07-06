@@ -1,6 +1,12 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hnet.PackedAlgoBase
+  # Re-plan cadence == the GMM head chunk_len (=4): each kept obs-token predicts
+  # chunk_len actions, so re-observe every chunk_len frames. The algo now also
+  # DEFAULTS obs_stride to chunk_len, but we set it explicitly so the coupling
+  # is visible at the config level (mirrors the Tx cotrain config). Omitting it
+  # used to silently default to 1 (dense) and broke stride-4 closed-loop eval.
+  obs_stride: 4
   # Two-trunk dual-stream (v2): A and S each get their OWN weights. Option-2
   # sizing = shrink width so the TWO trunks together (~190M) match the 200M
   # baseline core (bc_rnn_..._tx_cotrain_c4_200M: d1408/8L = ~190M). d_cond
@@ -160,7 +166,7 @@ robomimic_model:
         low_noise_eval: true
         head_hidden_dim: 512
         head_n_layers: 3
-enable_grad_norm: true
+enable_grad_norm: false   # MAD clamper freezes median->starves grads (2026-06-25); no-clip default
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true

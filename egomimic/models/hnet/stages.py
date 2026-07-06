@@ -735,6 +735,9 @@ class ChunkerStage(_BaseStage):
         #     replacing additive `up + residual`. "additive" (default = current)
         #     | "mlp" | "attn"; mlp/attn start ~= additive. See residual_mixer.py.
         residual_mixer: str = "additive",
+        # extra kwargs forwarded to the mixer ctor (e.g. {n_layers: 4,
+        # hidden_mult: 4.0} for mlp). Empty = the mixer's own defaults.
+        residual_mixer_kwargs: dict | None = None,
         # first_token chunker: also fold in the PREVIOUS chunk's end token (the
         # token just before each boundary) via a zero-init proj (starts as
         # first-token-only). Causal; gives the high-level each chunk's start+end.
@@ -977,7 +980,7 @@ class ChunkerStage(_BaseStage):
 
         self.residual_mixer_kind = str(residual_mixer)
         self.residual_mixer = build_residual_mixer(
-            residual_mixer, self.input_hidden_dim
+            residual_mixer, self.input_hidden_dim, **(residual_mixer_kwargs or {})
         )
 
     @property
@@ -1501,7 +1504,6 @@ class ChunkerStage(_BaseStage):
 
         ``x`` may be (B, 1, D) or (B, D); returns (B, 1, D)."""
         x_t = x.squeeze(1) if x.dim() == 3 else x  # (B, D_in)
-        B = x_t.shape[0]
         residual = self.residual_scale * self.residual_proj(x_t.float())  # (B, D_in)
 
         bpred = self._router.step(x_t, state.routing_state)

@@ -34,7 +34,6 @@ import torch
 
 from egomimic.eval.core.eval_video import EvalVideo
 
-
 # Env-output -> zarr-format conversion + state-split. PushShapes-specific
 # glue; the canonical home is the embodiment package. Re-exported here so the
 # legacy eval_sim._ENV_TO_ZARR / _state_to_init / _env_to_zarr_pushshapes
@@ -86,6 +85,7 @@ class SimRolloutEval(EvalVideo):
         viz_func: dict | None = None,
         transform_lists: dict | None = None,
         rng_pairing: bool = False,
+        run_full_horizon: bool = False,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -114,6 +114,7 @@ class SimRolloutEval(EvalVideo):
         self.rollout_timeout_s = int(rollout_timeout_s)  # 0 disables the watchdog
         self.report_max_coverage = bool(report_max_coverage)  # peak vs final IoU
         self.coverage_threshold = float(coverage_threshold)
+        self.run_full_horizon = bool(run_full_horizon)
         self.video_fps = int(video_fps)
         self.limit_val_batches = int(limit_val_batches)
         # Reseed the sampler RNG per episode (inside fork_rng, so any outer
@@ -165,7 +166,9 @@ class SimRolloutEval(EvalVideo):
     def _env_to_zarr_dict(self, obs_env: dict, device: torch.device) -> dict:
         return _ENV_TO_ZARR[self.embodiment_name](obs_env, device)
 
-    def batch_to_env_init(self, batch: Dict[str, Any], b_idx: int, emb_id: int) -> dict | None:
+    def batch_to_env_init(
+        self, batch: Dict[str, Any], b_idx: int, emb_id: int
+    ) -> dict | None:
         raise NotImplementedError("subclass me")
 
     def _infer_n_episodes(self, batch: Dict[str, Any]) -> int:
@@ -205,13 +208,19 @@ class SimRolloutEval(EvalVideo):
                 px, py = int(a[0] * scale), int(a[1] * scale)
                 pts.append((px, py))
             for i in range(len(pts) - 1):
-                cv2.line(out, pts[i], pts[i + 1], color=(255, 255, 0), thickness=2)  # cyan-ish (BGR/RGB readable)
+                cv2.line(
+                    out, pts[i], pts[i + 1], color=(255, 255, 0), thickness=2
+                )  # cyan-ish (BGR/RGB readable)
         # Current action: bright YELLOW dot with black outline (high
         # contrast against the env's red pusher and any other env colors).
         cx, cy = int(action_xy[0] * scale), int(action_xy[1] * scale)
         if 0 <= cx < w and 0 <= cy < h:
-            cv2.circle(out, (cx, cy), radius=5, color=(0, 0, 0), thickness=-1)        # black halo
-            cv2.circle(out, (cx, cy), radius=4, color=(0, 255, 255), thickness=-1)    # yellow fill
+            cv2.circle(
+                out, (cx, cy), radius=5, color=(0, 0, 0), thickness=-1
+            )  # black halo
+            cv2.circle(
+                out, (cx, cy), radius=4, color=(0, 255, 255), thickness=-1
+            )  # yellow fill
         return out
 
     @torch.no_grad()
@@ -266,7 +275,9 @@ class SimRolloutEval(EvalVideo):
             for t in range(self.max_steps):
                 obs_env = env._get_obs()
                 obs_zarr = self._env_to_zarr_dict(obs_env, device)
-                action_xy = algo.inference_step(obs_zarr, t, emb_id, T_max=self.max_steps)
+                action_xy = algo.inference_step(
+                    obs_zarr, t, emb_id, T_max=self.max_steps
+                )
                 action_xy = np.asarray(action_xy, dtype=np.float32).reshape(-1)[:2]
                 if not np.all(np.isfinite(action_xy)):
                     # Non-finite action (late-training instability) poisons the
@@ -286,7 +297,7 @@ class SimRolloutEval(EvalVideo):
                 if frame is not None:
                     frame = self._draw_action_overlay(frame, action_xy, action_history)
                     frames.append(np.ascontiguousarray(frame))
-                if terminated:
+                if terminated and not self.run_full_horizon:
                     break
         except _RolloutTimeout:
             print(
