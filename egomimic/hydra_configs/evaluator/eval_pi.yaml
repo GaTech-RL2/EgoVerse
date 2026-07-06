@@ -2,7 +2,7 @@ defaults:
   - viz@viz_func: pi_cartesian_lang
   - _self_
 
-_target_: egomimic.eval.eval_pi.PIEvalVideo
+_target_: egomimic.eval.pi.eval_pi.PIEvalVideo
 
 # Per-embodiment revert transform. Applied once during validation to project
 # the model's wrist-frame action chunks back to cam (head) frame, then reused

@@ -17,10 +17,10 @@ from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.zarr.utils import set_global_seed
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 from egomimic.utils.aws.aws_data_utils import load_env
-from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
-from egomimic.utils.logging_utils import log_hyperparameters
+from egomimic.pl_utils.instantiators import instantiate_callbacks, instantiate_loggers
+from egomimic.pl_utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger
-from egomimic.utils.utils import extras, task_wrapper
+from egomimic.pl_utils.utils import extras, task_wrapper
 
 OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)

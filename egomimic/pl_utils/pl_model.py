@@ -9,7 +9,7 @@ import torch
 from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
-import egomimic.utils.tensor_utils as TensorUtils
+import egomimic.vendored.robomimic_tensor_utils as TensorUtils
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
@@ -220,15 +220,16 @@ class ModelWrapper(LightningModule):
         if self.evaluator is not None:
             self.evaluator.on_validation_end()
 
-        print(
-            f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
-            flush=True,
-        )
-        torch.distributed.barrier()
-        print(
-            f"Rank {self.global_rank} on validation end, all ranks synchronized",
-            flush=True,
-        )
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            print(
+                f"Rank {self.global_rank} on validation end, waiting for all ranks to synchronize",
+                flush=True,
+            )
+            torch.distributed.barrier()
+            print(
+                f"Rank {self.global_rank} on validation end, all ranks synchronized",
+                flush=True,
+            )
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
@@ -242,12 +243,35 @@ class ModelWrapper(LightningModule):
         config_tree = getattr(self.hparams, "config_tree", None)
         if config_tree is not None:
             cfg = self._as_config(config_tree)
-            optimizer = hydra.utils.instantiate(
-                cfg.model.optimizer,
-                params=self.trainer.model.parameters(),
+            # Optional hook: algos with custom parameter groups (e.g. H-Net's
+            # per-stage LR multipliers + WD=0 on biases/norms) can return a
+            # ``list[dict]`` here. Returning ``None`` falls back to flat
+            # ``self.trainer.model.parameters()``.
+            groups = None
+            param_groups_fn = getattr(self.model, "parameter_groups", None)
+            if callable(param_groups_fn):
+                try:
+                    base_lr = float(
+                        OmegaConf.select(cfg, "model.optimizer.lr", default=1e-4)
+                    )
+                    groups = param_groups_fn(base_lr=base_lr)
+                except TypeError:
+                    # Method exists but doesn't accept base_lr — skip.
+                    groups = None
+
+            params_arg = (
+                groups if groups is not None else self.trainer.model.parameters()
             )
-            if callable(optimizer):
-                optimizer = optimizer()
+            # When ``params_arg`` is a ``list[dict]`` of param groups, passing
+            # it through ``hydra.utils.instantiate`` (a kwarg to a _partial_
+            # target) wraps the dicts as OmegaConf ``DictConfig`` objects,
+            # which trips AdamW's tensor-type check. Instantiate the partial
+            # first, then call it with the native-Python params arg.
+            optimizer_partial = hydra.utils.instantiate(cfg.model.optimizer)
+            if callable(optimizer_partial):
+                optimizer = optimizer_partial(params=params_arg)
+            else:
+                optimizer = optimizer_partial
             scheduler_cfg = cfg.model.get("scheduler")
             if scheduler_cfg is not None:
                 scheduler = hydra.utils.instantiate(
@@ -279,14 +303,16 @@ class ModelWrapper(LightningModule):
 
     def on_fit_start(self):
         self.model.device = self.device
-        print(
-            f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
-            flush=True,
-        )
-        torch.distributed.barrier()
-        print(
-            f"Rank {self.global_rank} on fit start, all ranks synchronized", flush=True
-        )
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            print(
+                f"Rank {self.global_rank} on fit start, waiting for all ranks to synchronize",
+                flush=True,
+            )
+            torch.distributed.barrier()
+            print(
+                f"Rank {self.global_rank} on fit start, all ranks synchronized",
+                flush=True,
+            )
 
     def on_train_epoch_start(self):
         for i, param_group in enumerate(self.optimizers().param_groups):
