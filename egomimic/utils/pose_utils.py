@@ -184,6 +184,47 @@ def _rot6d_to_ypr(six: np.ndarray) -> np.ndarray:
     return ypr.reshape(*shape, 3).astype(dtype, copy=False)
 
 
+# [left arm | right arm]; per-arm blocks are one of:
+#   ypr: xyz(3) + ypr(3)            [+ gripper(1)]
+#   6d:  xyz(3) + col1(3) + col2(3) [+ gripper(1)]
+# Mapping width -> {xyz, rot, grip} channel indices. xyz/grip are bounded,
+# linearly-interpolated channels; the rot channels are either Euler (wrap at
+# +-pi) or continuous 6D columns (bounded in ~[-1, 1]), so quantile bounds on
+# them are meaningless — norm-stat bounds checking consumes this to know which
+# channel is which.
+BIMANUAL_CARTESIAN_LAYOUTS = {
+    12: {  # human ypr:  [L xyz ypr | R xyz ypr]
+        "xyz": (0, 1, 2, 6, 7, 8),
+        "rot": (3, 4, 5, 9, 10, 11),
+        "grip": (),
+    },
+    14: {  # robot ypr:  [L xyz ypr g | R xyz ypr g]
+        "xyz": (0, 1, 2, 7, 8, 9),
+        "rot": (3, 4, 5, 10, 11, 12),
+        "grip": (6, 13),
+    },
+    18: {  # human 6d:   [L xyz c1 c2 | R xyz c1 c2]
+        "xyz": (0, 1, 2, 9, 10, 11),
+        "rot": (3, 4, 5, 6, 7, 8, 12, 13, 14, 15, 16, 17),
+        "grip": (),
+    },
+    20: {  # robot 6d:   [L xyz c1 c2 g | R xyz c1 c2 g]
+        "xyz": (0, 1, 2, 10, 11, 12),
+        "rot": (3, 4, 5, 6, 7, 8, 13, 14, 15, 16, 17, 18),
+        "grip": (9, 19),
+    },
+}
+
+
+def bimanual_cartesian_layout(width: int) -> dict | None:
+    """Index layout for a bimanual cartesian action/proprio vector.
+
+    Returns a dict with ``xyz`` / ``rot`` / ``grip`` index tuples, or ``None``
+    if ``width`` is not a recognized native width (12/14 ypr, 18/20 6D).
+    """
+    return BIMANUAL_CARTESIAN_LAYOUTS.get(int(width))
+
+
 def _matrix_to_xyzwxyz(mats: np.ndarray) -> np.ndarray:
     """
     args:

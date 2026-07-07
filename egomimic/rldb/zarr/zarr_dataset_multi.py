@@ -48,6 +48,7 @@ from egomimic.utils.aws.aws_sql import (
     create_default_engine,
     episode_table_to_df,
 )
+from egomimic.utils.pose_utils import bimanual_cartesian_layout
 
 if TYPE_CHECKING:
     # Annotation-only import — avoids a runtime circular import with
@@ -886,8 +887,28 @@ class MultiDataset(torch.utils.data.Dataset):
                     logger.warning(prefix)
                 return prefix
 
-            below = arr < q_low
-            above = arr > q_high
+            # The bimanual cartesian action chunk and the ee_pose proprio share
+            # a [L | R] layout whose rotation channels are either Euler ypr
+            # (wraps at ±π) or continuous 6D columns. In both cases quantile
+            # bounds on the rotation channels are meaningless and reject
+            # otherwise-valid frames, so only the translation (and gripper)
+            # channels are bounds-checked. Unrecognized widths fall through to
+            # a full-vector check; NaN/Inf above still covers the full vector.
+            cartesian_layout = None
+            if zarr_key in ("actions_cartesian", "observations.state.ee_pose"):
+                cartesian_layout = bimanual_cartesian_layout(arr.shape[-1])
+            if cartesian_layout is not None:
+                check_idx = list(cartesian_layout["xyz"]) + list(
+                    cartesian_layout["grip"]
+                )
+                arr_q = arr[..., check_idx]
+                q_low = q_low[..., check_idx]
+                q_high = q_high[..., check_idx]
+            else:
+                arr_q = arr
+
+            below = arr_q < q_low
+            above = arr_q > q_high
             if torch.any(below) or torch.any(above):
                 prefix = f"Bounds violation in {zarr_key} ep={episode_name} frame={idx}"
                 warn_key = f"bounds:{episode_name}:{zarr_key}"
@@ -897,7 +918,7 @@ class MultiDataset(torch.utils.data.Dataset):
                     n_above = int(above.sum().item())
                     logger.warning(
                         f"{prefix} | n_below={n_below} n_above={n_above} "
-                        f"arr_range=[{arr.min().item():.4f}, {arr.max().item():.4f}]"
+                        f"arr_range=[{arr_q.min().item():.4f}, {arr_q.max().item():.4f}]"
                     )
                 return prefix
         return None
@@ -1757,7 +1778,10 @@ class ZarrDataset(torch.utils.data.Dataset):
                     # Normalize a 3x3 K to the canonical 3x4 (zeros last column);
                     # some contributors store 3x3 (e.g. microagi).
                     K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
-                if K.shape != (3, 4):  # unexpected -> sentinel (viz falls back to const)
+                if K.shape != (
+                    3,
+                    4,
+                ):  # unexpected -> sentinel (viz falls back to const)
                     K = np.full((3, 4), np.nan, dtype=np.float32)
             else:
                 K = np.full((3, 4), np.nan, dtype=np.float32)
