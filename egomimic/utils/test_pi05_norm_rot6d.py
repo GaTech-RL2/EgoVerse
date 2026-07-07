@@ -232,6 +232,73 @@ def test_bounds_check_full_vector_for_other_keys():
     )
 
 
+def test_rotate_local_frame_flips_left_wrist_convention():
+    # Right-multiplying by Rz(180°) must flip the pose's own x/y axes, keep z
+    # (knuckle-forward) and the position, skip zero-quat padding rows, and
+    # handle both (7,) poses and (T, 7) chunks.
+    from scipy.spatial.transform import Rotation as R
+
+    from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
+
+    rng = np.random.default_rng(4)
+    q = R.random(3, random_state=5)
+    chunk = np.zeros((4, 7))
+    chunk[:3, :3] = rng.uniform(-1, 1, size=(3, 3))
+    chunk[:3, 3:] = q.as_quat()[:, [3, 0, 1, 2]]  # wxyz; row 3 stays zero-padded
+
+    t = RotateLocalFrame(keys=["k"])
+    out = t.transform({"k": chunk.copy()})["k"]
+
+    np.testing.assert_allclose(out[:, :3], chunk[:, :3])  # positions unchanged
+    np.testing.assert_allclose(out[3], np.zeros(7))  # padding untouched
+    R_old = q.as_matrix()
+    R_new = R.from_quat(out[:3, [4, 5, 6, 3]]).as_matrix()
+    np.testing.assert_allclose(R_new[:, :, 0], -R_old[:, :, 0], atol=1e-12)  # x flip
+    np.testing.assert_allclose(R_new[:, :, 1], -R_old[:, :, 1], atol=1e-12)  # y flip
+    np.testing.assert_allclose(R_new[:, :, 2], R_old[:, :, 2], atol=1e-12)  # z kept
+
+    single = t.transform({"k": chunk[0].copy()})["k"]
+    np.testing.assert_allclose(single, out[0], atol=1e-12)
+
+
+def test_fix_mecka_left_wrist_flag_prepends_correction():
+    from egomimic.rldb.embodiment.human import Human
+    from egomimic.rldb.zarr.action_chunk_transforms import RotateLocalFrame
+
+    tl = Human.get_transform_list(
+        "cartesian_wristframe_6d", stride=1, fix_mecka_left_wrist=True
+    )
+    assert isinstance(tl[0], RotateLocalFrame)
+    assert set(tl[0].keys) == {"left.action_ee_pose", "left.obs_ee_pose"}
+    # default off — other vendors' data must be untouched
+    tl_off = Human.get_transform_list("cartesian_wristframe_6d", stride=1)
+    assert not isinstance(tl_off[0], RotateLocalFrame)
+    with pytest.raises(ValueError, match="keypoints"):
+        Human.get_transform_list("keypoints_headframe_ypr", fix_mecka_left_wrist=True)
+
+
+def test_vendor_embodiment_names_collapse_to_human():
+    # Mirror episodes written by the vendor-split registry carry names like
+    # MECKA_BIMANUAL in their zarr metadata; locally all human demo data is
+    # one embodiment, so these must resolve to the HUMAN_* ids.
+    from egomimic.rldb.embodiment.embodiment import EMBODIMENT, get_embodiment_id
+
+    for vendor in ("mecka", "scale", "aria", "lightwheel"):
+        assert (
+            get_embodiment_id(f"{vendor}_bimanual") == EMBODIMENT.HUMAN_BIMANUAL.value
+        )
+        assert (
+            get_embodiment_id(f"{vendor}_right_arm") == EMBODIMENT.HUMAN_RIGHT_ARM.value
+        )
+        assert (
+            get_embodiment_id(f"{vendor}_left_arm") == EMBODIMENT.HUMAN_LEFT_ARM.value
+        )
+    assert get_embodiment_id("human_bimanual") == EMBODIMENT.HUMAN_BIMANUAL.value
+    assert get_embodiment_id("eva_bimanual") == EMBODIMENT.EVA_BIMANUAL.value
+    with pytest.raises(KeyError):
+        get_embodiment_id("yam_bimanual")  # robot names are never aliased
+
+
 def test_base_converter_rejects_norm_6d_encoding():
     converter = BaseActionConverter()
     with pytest.raises(NotImplementedError, match="normalized-rot6d"):

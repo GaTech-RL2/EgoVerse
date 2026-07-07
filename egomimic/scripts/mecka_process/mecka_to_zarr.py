@@ -241,10 +241,16 @@ def compute_hand_pose_xyzquat(keypoints: np.ndarray, hand_index: int) -> np.ndar
 
     rot_matrix = np.column_stack([forward, right, up])
 
-    if hand_index == 0:
-        rot_matrix = rot_matrix @ rot_left
-    else:
-        rot_matrix = rot_matrix @ rot_right
+    # Same axis relabel for BOTH hands: ``up = cross(thumb_dir, pinky_dir)``
+    # already mirrors chirality between left and right (thumb/pinky are
+    # anatomically swapped), so the frames come out anatomically mirrored for
+    # free. The old ``rot_left`` (= rot_right @ diag(-1, -1, 1)) flipped x/y a
+    # second time, double-mirroring the left hand onto the right hand's
+    # spatial convention. Data converted with the old code is corrected at
+    # train time by RotateLocalFrame (Rz(180°) right-multiply on the left
+    # pose) — see Human.get_transform_list(fix_mecka_left_wrist=True).
+    del rot_left, hand_index  # convention no longer differs per hand
+    rot_matrix = rot_matrix @ rot_right
 
     quat_xyzw = Rotation.from_matrix(rot_matrix).as_quat()  # SciPy returns (x, y, z, w)
     quat_wxyz = np.array([quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]])

@@ -609,6 +609,77 @@ class ConcatKeys(Transform):
         return batch
 
 
+class RotateLocalFrame(Transform):
+    """Right-multiply listed xyz+quat(wxyz) pose keys by a constant LOCAL
+    rotation: ``R_new = R_old @ R_fix``. Relabels the pose's own axes without
+    moving its origin. Handles ``(7,)`` poses and ``(T, 7)`` chunks.
+
+    Used to retroactively fix the mecka LEFT wrist-frame convention without
+    reconverting the zarrs: ``compute_hand_pose_xyzquat`` built the palm
+    normal as ``cross(thumb_dir, pinky_dir)``, which already mirrors chirality
+    between hands, and then ``rot_left`` flipped x/y again — double-mirroring
+    the left hand onto the right hand's spatial convention. Since
+    ``rot_left == rot_right @ diag(-1, -1, 1)``, right-multiplying the stored
+    left pose by Rz(180°) (the default ``quat_wxyz``) is exactly equivalent to
+    reconverting with ``rot_right`` for both hands.
+    """
+
+    def __init__(
+        self,
+        keys: list[str],
+        quat_wxyz: tuple[float, float, float, float] = (0.0, 0.0, 0.0, 1.0),
+    ):
+        self.keys = list(keys)
+        self.quat_wxyz = tuple(float(v) for v in quat_wxyz)
+        w, x, y, z = self.quat_wxyz
+        self._fix = R.from_quat([x, y, z, w])  # scipy xyzw
+
+    def transform(self, batch: dict) -> dict:
+        for key in self.keys:
+            pose = np.asarray(batch[key])
+            if pose.shape[-1] != 7:
+                raise ValueError(
+                    f"RotateLocalFrame expects xyz+quat(wxyz) with last dim 7, "
+                    f"got {pose.shape} for '{key}'"
+                )
+            flat = pose.reshape(-1, 7).astype(np.float64, copy=True)
+            # Zero-norm quats mark padded/invalid frames — leave them alone.
+            valid = np.linalg.norm(flat[:, 3:7], axis=-1) > 1e-6
+            if valid.any():
+                q_xyzw = flat[valid][:, [4, 5, 6, 3]]
+                rotated = (R.from_quat(q_xyzw) * self._fix).as_quat()  # xyzw
+                flat[np.flatnonzero(valid), 3:7] = rotated[:, [3, 0, 1, 2]]
+            batch[key] = flat.reshape(pose.shape)
+        return batch
+
+
+class UnpadGripperZeros(Transform):
+    """Inverse of :class:`PadGripperZeros`: drop the per-arm zero gripper
+    slots. 14 -> 12 (ypr: drop 6, 13) or 20 -> 18 (6D: drop 9, 19). Widths 12
+    and 18 pass through unchanged, so revert pipelines work whether or not the
+    forward pipeline padded (``pad_proprio_gripper``)."""
+
+    def __init__(self, action_key: str = "observations.state.ee_pose"):
+        self.action_key = action_key
+
+    def transform(self, batch: dict) -> dict:
+        arr = batch[self.action_key]
+        is_tensor = isinstance(arr, torch.Tensor)
+        a = arr.cpu().numpy() if is_tensor else np.asarray(arr)
+        D = a.shape[-1]
+        if D in (12, 18):
+            return batch
+        if D == 14:
+            keep = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12]
+        elif D == 20:
+            keep = [i for i in range(20) if i not in (9, 19)]
+        else:
+            raise ValueError(f"UnpadGripperZeros: unexpected width {a.shape}")
+        out = a[..., keep]
+        batch[self.action_key] = torch.from_numpy(out) if is_tensor else out
+        return batch
+
+
 class PadGripperZeros(Transform):
     """Pad a 12D bimanual cartesian action chunk to 14D by inserting a zero
     gripper slot at position 6 (end of left arm) and position 13 (end of right
@@ -625,6 +696,12 @@ class PadGripperZeros(Transform):
         actions = batch[self.action_key]
         is_tensor = isinstance(actions, torch.Tensor)
         arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
+        if arr.shape[-1] == 18:
+            # 6D layout: [L xyz 6d | R xyz 6d] -> insert grip zeros at 9, 19
+            zero = np.zeros_like(arr[..., :1])
+            out = np.concatenate([arr[..., 0:9], zero, arr[..., 9:18], zero], axis=-1)
+            batch[self.action_key] = torch.from_numpy(out) if is_tensor else out
+            return batch
         if arr.shape[-1] != 12:
             raise ValueError(
                 f"PadGripperZeros expects last-dim 12, got {arr.shape} for "

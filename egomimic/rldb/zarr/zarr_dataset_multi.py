@@ -1233,7 +1233,10 @@ class MultiDataset(torch.utils.data.Dataset):
                     x = batch[zarr_key][:take]
                     if hasattr(x, "detach"):
                         x = x.detach().cpu().numpy()
-                    collected[k].append(x)
+                    # float32: stats are consumed as float32 anyway, and the
+                    # float64 poses double the stacked-sample footprint (an
+                    # (N, 100, 18) action stack at large N is tens of GB).
+                    collected[k].append(np.asarray(x, dtype=np.float32))
                 cur += take
                 pbar.update(take)
         return collected

@@ -4,10 +4,11 @@ defaults:
 
 # pi0.5 BC on mecka data alone (stored as human_bimanual — all human demo data
 # is one embodiment locally). Normalized continuous-6D rotation encoding:
-# actions arrive already in xyz+6D layout (18D per arm pair, no gripper) and
-# the proprio ee_pose arrives 6D-encoded too (via the `cartesian_6d` transform
-# mode); the forward pass only packs them into the 32D vector.
-# Pairs with data=mecka_all_pi_6d and evaluator=eval_pi_camframe_6d.
+# actions arrive already in xyz+6D layout (18D per arm pair, no gripper,
+# wrist-relative via the `cartesian_wristframe_6d` transform mode) and the
+# head-frame proprio ee_pose arrives 6D-encoded too; the forward pass only
+# packs them into the 32D vector.
+# Pairs with data=mecka_all_pi_6d and evaluator=eval_pi_wristframe_6d.
 robomimic_model:
   camera_transforms: {}
   ac_keys:
