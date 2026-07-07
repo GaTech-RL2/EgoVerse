@@ -1,0 +1,57 @@
+# @package _global_
+# NEW PATTERN experiment: whole-body 49-D action from REAL image + proprio (no april_tag).
+# Vanilla (flat) CrossTransformer head.
+# Run with:  python egomimic/trainHydra.py --config-name=experiments/wholebody_image/wb_img_proprio_vanilla \
+#              name=<DS> description=<desc> \
+#              data.train_datasets.dataset1.datasets.rl2_lab.folder_path=./datasets/<DS>_human_data \
+#              data.valid_datasets.dataset1.datasets.eth_lab.folder_path=./datasets/<DS>_human_data
+defaults:
+  - /train
+  - override /model: experiments/wholebody_image/rby1_wb_img_proprio_act32_vanilla
+  - override /data: experiments/wholebody_image/rby1_wb_img_act32
+  - _self_
+
+name: RBY1_wb_img_proprio_act32_vanilla
+description: "wb_img+proprio_49d_vanilla"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+trainer:
+  max_epochs: 1000   # capped at 1000 (was 2000); enough. Running jobs are stopped at 1000 by the monitor.
+
+logger:
+  wandb:
+    entity: null          # null => log to YOUR personal wandb account (from ~/.netrc key)
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1

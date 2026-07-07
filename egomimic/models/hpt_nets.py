@@ -681,6 +681,122 @@ class ResNet(PolicyStem):
         return feat
 
 
+class LoRALinear(nn.Module):
+    """Low-rank adapter around a FROZEN nn.Linear: y = W x + (B A) x * (alpha/rank).
+
+    The base weight is never modified (delete the adapter to recover the exact
+    pretrained layer). B is zero-init so training starts at the identity."""
+
+    def __init__(self, base: nn.Linear, rank: int, alpha: float = 32.0):
+        super().__init__()
+        self.base = base
+        self.lora_A = nn.Parameter(torch.zeros(rank, base.in_features))
+        self.lora_B = nn.Parameter(torch.zeros(base.out_features, rank))
+        nn.init.kaiming_uniform_(self.lora_A, a=5**0.5)
+        self.scale = alpha / rank
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.base(x) + F.linear(F.linear(x, self.lora_A), self.lora_B) * self.scale
+
+
+class DINOv2(PolicyStem):
+    def __init__(
+        self,
+        output_dim: int = 10,
+        model_name: str = "vit_small_patch14_dinov2.lvd142m",
+        img_size: int = 224,
+        freeze_backbone: bool = True,
+        feature_indices: Optional[List[int]] = None,
+        neck_blocks: int = 0,
+        lora_rank: int = 0,
+        lora_alpha: float = 32.0,
+        **kwargs,
+    ) -> None:
+        """DINOv2 ViT Encoder for Images (drop-in for ResNet).
+
+        Consumes the same ImageNet-normalized [B, T, N, 3, H, W] tensor and returns
+        patch tokens [B, M, output_dim] (M = T*N*256 for ViT-S/14 at 224x224).
+        Default frozen: DINOv2's viewpoint-robust features come from pretraining;
+        only the projection is trained. Requires HF_HUB_OFFLINE=1 + a warm HF cache
+        on compute nodes without egress.
+
+        Optional capacity knobs (all default-off; used by the round-4 variants):
+          feature_indices: block indices whose patch tokens are concatenated
+              (e.g. [5, 8, 11] -> 3*384=1152-d per token) instead of the last layer.
+          neck_blocks: N trainable transformer blocks over the projected tokens
+              (backbone stays untouched; capacity added AFTER it).
+          lora_rank: if >0, inject LoRALinear (rank, lora_alpha) on attn qkv+proj of
+              every block. Base weights stay frozen; only adapters train.
+        """
+        super().__init__(**kwargs)
+        import timm
+
+        self.net = timm.create_model(
+            model_name, pretrained=True, num_classes=0, img_size=img_size
+        )
+        self.freeze_backbone = freeze_backbone
+        if freeze_backbone:
+            for param in self.net.parameters():
+                param.requires_grad = False
+            self.net.eval()
+        self.feature_indices = list(feature_indices) if feature_indices else None
+        self.lora_rank = lora_rank
+        if lora_rank > 0:
+            # Inject AFTER freezing: adapter params are new -> trainable.
+            for blk in self.net.blocks:
+                blk.attn.qkv = LoRALinear(blk.attn.qkv, lora_rank, lora_alpha)
+                blk.attn.proj = LoRALinear(blk.attn.proj, lora_rank, lora_alpha)
+        self.out_dim = output_dim
+        in_dim = self.net.num_features * (len(self.feature_indices) if self.feature_indices else 1)
+        self.proj = nn.Linear(in_dim, output_dim)
+        if neck_blocks > 0:
+            self.neck = nn.TransformerEncoder(
+                nn.TransformerEncoderLayer(
+                    d_model=output_dim, nhead=8, dim_feedforward=4 * output_dim,
+                    dropout=0.1, batch_first=True, norm_first=True,
+                ),
+                num_layers=neck_blocks,
+            )
+        else:
+            self.neck = None
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        if self.freeze_backbone:
+            self.net.eval()
+        return self
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Image tensor with shape [B, T, N, 3, H, W]
+        Returns:
+            Patch-token tensor with shape [B, M, output_dim]
+        """
+        B, *_, H, W = x.shape
+        x = x.reshape(-1, 3, H, W)
+        # LoRA needs gradients flowing through backbone ACTIVATIONS to reach the
+        # adapters, so no_grad is only valid for the pure-frozen (no-LoRA) case.
+        backbone_grad = torch.is_grad_enabled() and (
+            not self.freeze_backbone or self.lora_rank > 0
+        )
+        with torch.set_grad_enabled(backbone_grad):
+            if self.feature_indices is not None:
+                feats = self.net.forward_intermediates(
+                    x, indices=self.feature_indices, output_fmt="NLC",
+                    intermediates_only=True,
+                )
+                feat = torch.cat(feats, dim=-1)  # (B*, 256, 384*k) patch tokens only
+            else:
+                feat = self.net.forward_features(x)
+                feat = feat[:, self.net.num_prefix_tokens :]  # drop CLS, keep patch tokens
+        feat = feat.reshape(B, -1, feat.shape[-1])  # concat time/views along tokens
+        feat = self.proj(feat)
+        if self.neck is not None:
+            feat = self.neck(feat)
+        return feat
+
+
 class TinyCNN(PolicyStem):
     def __init__(
         self,
