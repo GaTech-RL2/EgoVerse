@@ -33,7 +33,7 @@ robomimic_model:
   tokenizer_max_length: 128
   sampling_mode: "random"
   annotation_key: "annotations"
-  default_prompt: "This is a bad action."
+  default_prompt: ""
   proprio_in_prompt: true
   embodiment_label: true
   state_num_bins: 256

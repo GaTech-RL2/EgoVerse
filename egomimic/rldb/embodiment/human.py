@@ -17,8 +17,10 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
     PoseCoordinateFrameTransform,
     QuaternionPoseToYPR,
     Reshape,
+    RotateLocalFrame,
     SplitKeys,
     Transform,
+    UnpadGripperZeros,
     XYZWXYZ_to_XYZYPR,
 )
 from egomimic.utils.viz_utils import (
@@ -383,28 +385,66 @@ class Human(Embodiment):
             "keypoints_wristframe_quat",
         ],
         stride: int = 3,
+        fix_mecka_left_wrist: bool = False,
+        pad_proprio_gripper: bool = False,
     ) -> list[Transform]:
         """Transform pipeline. ``stride`` is the per-vendor action stride
         (Aria/LightWheel=3, Scale/Mecka=1), supplied by the data config.
+
+        ``fix_mecka_left_wrist`` retroactively corrects the LEFT wrist-frame
+        convention of mecka zarrs converted before the ``rot_left`` fix in
+        ``mecka_to_zarr.compute_hand_pose_xyzquat`` (which double-mirrored the
+        left hand onto the right hand's spatial convention): the raw left pose
+        keys are right-multiplied by Rz(180°) before any frame math, exactly
+        equivalent to reconverting. Set it from mecka data configs only —
+        do NOT enable for aria/scale (different converters) or for mecka data
+        reconverted after the fix (it would double-flip).
         """
+        prefix: list[Transform] = []
+        if fix_mecka_left_wrist:
+            if mode.startswith("keypoints"):
+                raise ValueError(
+                    "fix_mecka_left_wrist only applies to cartesian modes "
+                    "(keypoints modes never read the constructed wrist pose)"
+                )
+            prefix = [
+                RotateLocalFrame(keys=["left.action_ee_pose", "left.obs_ee_pose"])
+            ]
         if mode == "cartesian":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride)
+            return prefix + _build_human_cartesian_bimanual_transform_list(
+                stride=stride
+            )
         if mode == "cartesian_6d":
             # Head/camera-frame cartesian (12D xyz+ypr per arm) with rotation
             # re-expressed as the continuous 6D representation (18D xyz+6d per
             # arm) for pi0.5 normalized-rot6d encoding. The proprio ee_pose is
             # 6D-encoded too: normalized YPR saturates yaw/roll at ±π
             # (wraparound), so per-dim normalization needs the continuous rep.
-            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
-                CartesianYPRToRot6D(action_key="actions_cartesian"),
-                CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
-            ]
+            return (
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(stride=stride)
+                + [
+                    CartesianYPRToRot6D(action_key="actions_cartesian"),
+                    CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
+                ]
+                # 18 -> 20: zero grip slots at 9/19 so the proprio State: bins
+                # align positionally with the robot 20-dim layout in the prompt.
+                + (
+                    [PadGripperZeros(action_key="observations.state.ee_pose")]
+                    if pad_proprio_gripper
+                    else []
+                )
+            )
         if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
-                PadGripperZeros(action_key="actions_cartesian")
-            ]
+            return (
+                prefix
+                + _build_human_cartesian_bimanual_transform_list(stride=stride)
+                + [PadGripperZeros(action_key="actions_cartesian")]
+            )
         if mode == "cartesian_wristframe_ypr":
-            return _build_human_cartesian_eef_frame_transform_list(stride=stride)
+            return prefix + _build_human_cartesian_eef_frame_transform_list(
+                stride=stride
+            )
         if mode == "cartesian_wristframe_6d":
             # Wrist-frame cartesian (12D xyz+ypr per arm) with rotation
             # re-expressed as the continuous 6D representation (18D) for pi0.5
@@ -412,10 +452,21 @@ class Human(Embodiment):
             # 6D-encoded too (see cartesian_6d) — extra important here since
             # the proprio is the only head-frame signal the model sees with
             # wrist-relative action targets.
-            return _build_human_cartesian_eef_frame_transform_list(stride=stride) + [
-                CartesianYPRToRot6D(action_key="actions_cartesian"),
-                CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
-            ]
+            return (
+                prefix
+                + _build_human_cartesian_eef_frame_transform_list(stride=stride)
+                + [
+                    CartesianYPRToRot6D(action_key="actions_cartesian"),
+                    CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
+                ]
+                # 18 -> 20: zero grip slots at 9/19 so the proprio State: bins
+                # align positionally with the robot 20-dim layout in the prompt.
+                + (
+                    [PadGripperZeros(action_key="observations.state.ee_pose")]
+                    if pad_proprio_gripper
+                    else []
+                )
+            )
         if mode == "keypoints_headframe_ypr":
             return _build_human_keypoints_bimanual_transform_list(
                 stride=stride, is_quat=False
@@ -1010,6 +1061,7 @@ def _build_human_cartesian_revert_6d_transform_list(
     return [
         CartesianRot6DToYPR(action_key=action_key),
         CartesianRot6DToYPR(action_key=obs_key),
+        UnpadGripperZeros(action_key=obs_key),
     ]
 
 
@@ -1030,6 +1082,9 @@ def _build_human_cartesian_revert_6d_wristframe_transform_list(
     return [
         CartesianRot6DToYPR(action_key=action_key),
         CartesianRot6DToYPR(action_key=obs_key),
+        # padded proprio arrives 20-dim -> 14 after 6D->ypr; the eef revert's
+        # SplitKeys expects the gripperless 12-dim layout (no-op if unpadded).
+        UnpadGripperZeros(action_key=obs_key),
         *_build_human_cartesian_revert_eef_frame_transform_list(is_quat=False),
     ]
 
