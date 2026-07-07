@@ -64,17 +64,25 @@ class Eva(Embodiment):
             # Camera-frame cartesian (14D xyz+ypr+gripper per arm) with the
             # rotation re-expressed as the continuous 6D representation
             # (20D xyz+6d+gripper per arm) for pi0.5 normalized-rot6d encoding.
+            # The proprio ee_pose is 6D-encoded too: normalized YPR proprio
+            # saturates yaw/roll at ±π (wraparound), so per-dim normalization
+            # is only meaningful on the continuous rep — same fix as actions.
             return _build_eva_bimanual_transform_list(is_quat=True) + [
-                CartesianYPRToRot6D(action_key="actions_cartesian")
+                CartesianYPRToRot6D(action_key="actions_cartesian"),
+                CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
             ]
         elif mode == "cartesian_wristframe_ypr":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
         elif mode == "cartesian_wristframe_6d":
             # Wrist-frame cartesian (14D xyz+ypr+gripper per arm) with the
             # rotation re-expressed as the continuous 6D representation
-            # (20D) for pi0.5 normalized-rot6d encoding.
+            # (20D) for pi0.5 normalized-rot6d encoding. The cam-frame proprio
+            # ee_pose is 6D-encoded too (see cartesian_6d) — extra important
+            # here since the proprio is the only cam-frame signal the model
+            # sees with wrist-relative action targets.
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=False) + [
-                CartesianYPRToRot6D(action_key="actions_cartesian")
+                CartesianYPRToRot6D(action_key="actions_cartesian"),
+                CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
             ]
         elif mode == "cartesian_wristframe_quat":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
@@ -174,6 +182,7 @@ class Eva(Embodiment):
 def _build_eva_cartesian_revert_6d_transform_list(
     *,
     action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
 ) -> list[Transform]:
     """Revert camera-frame 6D-rotation EVA cartesian actions back to ypr.
 
@@ -181,25 +190,34 @@ def _build_eva_cartesian_revert_6d_transform_list(
     frame (produced by the ``cartesian_6d`` transform mode), so only the
     rotation representation is converted from xyz+6D (+gripper, 10/arm) back to
     xyz+ypr (+gripper, 7/arm) so cam-frame MSE and the viz video see the same
-    ypr layout as the plain ``cartesian`` mode.
+    ypr layout as the plain ``cartesian`` mode. The proprio ee_pose (also
+    6D-encoded by the ``cartesian_6d`` mode) is reverted the same way.
     """
-    return [CartesianRot6DToYPR(action_key=action_key)]
+    return [
+        CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
+    ]
 
 
 def _build_eva_cartesian_revert_6d_wristframe_transform_list(
     *,
     action_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
 ) -> list[Transform]:
     """Revert wrist-frame 6D-rotation EVA actions back to camera-frame ypr.
 
-    Two stages for the cam-frame 6D wristframe evaluator: (1) convert the action
-    rotation from xyz+6D (+gripper) back to xyz+ypr (+gripper) via
-    ``CartesianRot6DToYPR``; (2) project the wrist-frame ypr actions back into
-    camera frame using the standard eef-frame revert (which reads the proprio
-    ``observations.state.ee_pose``, left untouched as ypr by the 6D transform).
+    Three stages for the cam-frame 6D wristframe evaluator: (1) convert the
+    action rotation from xyz+6D (+gripper) back to xyz+ypr (+gripper) via
+    ``CartesianRot6DToYPR`` (Gram-Schmidt re-orthonormalizes the possibly
+    non-orthonormal model prediction); (2) likewise revert the proprio
+    ``observations.state.ee_pose`` (6D-encoded by the ``cartesian_wristframe_6d``
+    mode) back to ypr; (3) project the wrist-frame ypr actions back into camera
+    frame using the standard eef-frame revert, which reads that ypr proprio to
+    define the frame.
     """
     return [
         CartesianRot6DToYPR(action_key=action_key),
+        CartesianRot6DToYPR(action_key=obs_key),
         *_build_eva_bimanual_revert_eef_frame_transform_list(is_quat=False),
     ]
 
