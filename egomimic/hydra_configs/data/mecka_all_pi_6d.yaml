@@ -70,3 +70,4 @@ valid_dataloader_params:
   human_bimanual:
     batch_size: 64
     num_workers: 6
+    shuffle: false

@@ -49,7 +49,12 @@ class EvalVideo(Eval):
     def _should_viz(self) -> bool:
         if not self.viz_every_n_epochs or self.viz_every_n_epochs <= 0:
             return False
-        return (self.trainer.current_epoch % self.viz_every_n_epochs) == 0
+        # Lightning runs validation when (current_epoch + 1) is a multiple of
+        # check_val_every_n_epoch, with current_epoch still the pre-increment
+        # value during the val hooks (19, 39, ...). Gate on the same (+1)
+        # convention — a plain `current_epoch % n` never aligns with a
+        # validation epoch unless check_val_every_n_epoch == 1.
+        return (self.trainer.current_epoch + 1) % self.viz_every_n_epochs == 0
 
     @abstractmethod
     def compute_metrics_and_viz(self, batch, do_viz=True):
