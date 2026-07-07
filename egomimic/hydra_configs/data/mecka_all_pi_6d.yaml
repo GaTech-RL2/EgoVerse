@@ -1,0 +1,52 @@
+# MECKA_ALL_PI_6D — pi0.5 on ALL mecka episodes in the SQL table (filters
+# lab=mecka with no task filter), stored under the human_bimanual embodiment.
+#
+# Head/cam-frame cartesian actions with the continuous 6D rotation
+# representation (18D = xyz+6D per arm, no gripper); the proprio ee_pose is
+# 6D-encoded the same way. stride=1: mecka actions are recorded at the target
+# rate (Aria uses 3). Language prompts are sampled from the `annotations`
+# track; prompt assembly (proprio-in-prompt on, embodiment label off) lives in
+# model=pi0.5_bc_mecka_6d, which this config pairs with, alongside
+# evaluator=eval_pi_camframe_6d (reverts 6D -> ypr for cam-frame MSE + viz).
+#
+# Validation/checkpoint cadence stays the epoch-based trainer default — no
+# step-based val_check_interval / every_n_train_steps overrides here.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_6d
+        stride: 1
+    filters:
+      lab: "mecka"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 6
