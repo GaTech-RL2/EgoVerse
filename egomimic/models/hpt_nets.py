@@ -710,6 +710,8 @@ class DINOv2(PolicyStem):
         neck_blocks: int = 0,
         lora_rank: int = 0,
         lora_alpha: float = 32.0,
+        proj_blocks: int = 0,
+        proj_hidden: int = 1024,
         **kwargs,
     ) -> None:
         """DINOv2 ViT Encoder for Images (drop-in for ResNet).
@@ -727,6 +729,9 @@ class DINOv2(PolicyStem):
               (backbone stays untouched; capacity added AFTER it).
           lora_rank: if >0, inject LoRALinear (rank, lora_alpha) on attn qkv+proj of
               every block. Base weights stay frozen; only adapters train.
+          proj_blocks: if >0, append N trainable residual MLP blocks after the linear
+              projection (per-token: x + W2(GELU(W1(LN(x)))), hidden=proj_hidden) —
+              a deeper projection head with NO cross-token mixing.
         """
         super().__init__(**kwargs)
         import timm
@@ -759,6 +764,18 @@ class DINOv2(PolicyStem):
             )
         else:
             self.neck = None
+        if proj_blocks > 0:
+            self.proj_mlp = nn.ModuleList(
+                nn.Sequential(
+                    nn.LayerNorm(output_dim),
+                    nn.Linear(output_dim, proj_hidden),
+                    nn.GELU(),
+                    nn.Linear(proj_hidden, output_dim),
+                )
+                for _ in range(proj_blocks)
+            )
+        else:
+            self.proj_mlp = None
 
     def train(self, mode: bool = True):
         super().train(mode)
@@ -794,6 +811,9 @@ class DINOv2(PolicyStem):
         feat = self.proj(feat)
         if self.neck is not None:
             feat = self.neck(feat)
+        if getattr(self, "proj_mlp", None) is not None:
+            for blk in self.proj_mlp:
+                feat = feat + blk(feat)  # residual, per-token
         return feat
 
 
