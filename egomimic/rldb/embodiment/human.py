@@ -242,6 +242,98 @@ class Aria(Human):
             }
 
 
+class Microagi(Human):
+    VIZ_INTRINSICS_KEY = "microagi"
+    ACTION_STRIDE = 3
+
+    @classmethod
+    def _get_keymap(
+        cls,
+        keymap_mode: Literal["cartesian", "cartesian_pi", "keypoints"],
+    ):
+        # Layout is intentionally identical to Aria's; kept as its own copy so
+        # MicroAGI is a Human sibling rather than coupled to Aria's keymap.
+        if keymap_mode in ("cartesian", "cartesian_pi"):
+            front_key = (
+                "base_0_rgb" if keymap_mode == "cartesian_pi" else cls.VIZ_IMAGE_KEY
+            )
+            return {
+                front_key: {
+                    "key_type": "camera_keys",
+                    "zarr_key": "images.front_1",
+                },
+                "right.action_ee_pose": {
+                    "key_type": "action_keys",
+                    "zarr_key": "right.obs_ee_pose",
+                    "horizon": 30,
+                },
+                "left.action_ee_pose": {
+                    "key_type": "action_keys",
+                    "zarr_key": "left.obs_ee_pose",
+                    "horizon": 30,
+                },
+                "right.obs_ee_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_ee_pose",
+                },
+                "left.obs_ee_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_ee_pose",
+                },
+                "obs_head_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "obs_head_pose",
+                },
+            }
+        elif keymap_mode == "keypoints":
+            return {
+                cls.VIZ_IMAGE_KEY: {
+                    "key_type": "camera_keys",
+                    "zarr_key": "images.front_1",
+                },
+                "left.action_keypoints": {
+                    "key_type": "action_keys",
+                    "zarr_key": "left.obs_keypoints",
+                    "horizon": 30,
+                },
+                "right.action_keypoints": {
+                    "key_type": "action_keys",
+                    "zarr_key": "right.obs_keypoints",
+                    "horizon": 30,
+                },
+                "left.action_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_wrist_pose",
+                    "horizon": 30,
+                },
+                "right.action_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_wrist_pose",
+                    "horizon": 30,
+                },
+                "left.obs_keypoints": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_keypoints",
+                },
+                "right.obs_keypoints": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_keypoints",
+                },
+                "left.obs_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "left.obs_wrist_pose",
+                },
+                "right.obs_wrist_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "right.obs_wrist_pose",
+                },
+                "obs_head_pose": {
+                    "key_type": "proprio_keys",
+                    "zarr_key": "obs_head_pose",
+                },
+            }
+
+
 class Scale(Human):
     VIZ_INTRINSICS_KEY = "scale"
     ACTION_STRIDE = 1

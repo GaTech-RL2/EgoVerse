@@ -1,3 +1,4 @@
+aws
 *.pth
 *.pyc
 egomimic.egg-info/

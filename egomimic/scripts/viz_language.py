@@ -19,8 +19,9 @@ from omegaconf import DictConfig, OmegaConf
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.embodiment.human import Aria, Mecka, Scale
+from egomimic.rldb.embodiment.human import Aria, Mecka, Microagi, Scale
 from egomimic.utils.aws.aws_data_utils import load_env
+from egomimic.utils.egomimicUtils import intrinsics_from_metadata
 from egomimic.utils.viz_utils import _prepare_viz_image
 
 OmegaConf.register_new_resolver("eval", eval)
@@ -38,6 +39,9 @@ _EMBODIMENT_CLASSES: dict[str, type[Embodiment]] = {
     "mecka_bimanual": Mecka,
     "mecka_right_arm": Mecka,
     "mecka_left_arm": Mecka,
+    "microagi_bimanual": Microagi,
+    "microagi_right_arm": Microagi,
+    "microagi_left_arm": Microagi,
 }
 
 
@@ -125,9 +129,15 @@ def _viz_batch(
     annotations: list[str],
     mode: str,
     viz_transform_list=None,
+    intrinsics=None,
 ) -> list:
     """Visualize one batch and return a list of uint8 HWC numpy frames."""
     from egomimic.utils.type_utils import _to_numpy
+
+    if image_key not in batch:
+        matches = [k for k in batch if k.rsplit(".", 1)[-1] == image_key]
+        if matches:
+            image_key = matches[0]
 
     if action_key in batch:
         vis_batch = embodiment_cls.viz_transformed_batch(
@@ -137,6 +147,7 @@ def _viz_batch(
             image_key=image_key,
             color="Greens",
             transform_list=viz_transform_list,
+            intrinsics=intrinsics,
         )
         frames = vis_batch if isinstance(vis_batch, list) else [vis_batch]
     else:
@@ -208,6 +219,9 @@ def _run_viz_for_datasets(
         file_counter = 0
         print(f"  {len(dataset.datasets)} episode(s) found")
         for ep_name, ep_ds in dataset.datasets.items():
+            # Per-episode calibration (zarr attrs["intrinsics"]) when the
+            # episode carries it; None falls back to INTRINSICS[VIZ_INTRINSICS_KEY].
+            ep_intrinsics = intrinsics_from_metadata(getattr(ep_ds, "metadata", None))
             ep_loader = torch.utils.data.DataLoader(
                 ep_ds, batch_size=1, shuffle=False, num_workers=0
             )
@@ -231,6 +245,7 @@ def _run_viz_for_datasets(
                         carried_annotation,
                         mode,
                         viz_transform_list,
+                        intrinsics=ep_intrinsics,
                     )
                 except Exception as e:
                     print(f"  [warn] {ep_name} batch {batch_idx} failed: {e}")

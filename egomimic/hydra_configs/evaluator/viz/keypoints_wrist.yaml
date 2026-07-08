@@ -22,3 +22,9 @@ scale_bimanual:
   image_key: front_img_1
   action_key: actions_keypoints
   mode: keypoints
+microagi_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Microagi.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_keypoints
+  mode: keypoints

@@ -49,6 +49,20 @@ def _prepare_viz_image(img):
     return img
 
 
+def _resolve_intrinsics(intrinsics, intrinsics_key):
+    """Prefer an explicit (per-episode) intrinsics matrix over the keyed constant.
+
+    Accepts 3x3 or 3x4; pads 3x3 with a zero column since
+    cam_frame_to_cam_pixels expects 3x4.
+    """
+    if intrinsics is None:
+        return INTRINSICS[intrinsics_key]
+    intrinsics = np.asarray(intrinsics, dtype=np.float64)
+    if intrinsics.shape == (3, 3):
+        intrinsics = np.concatenate([intrinsics, np.zeros((3, 1))], axis=1)
+    return intrinsics
+
+
 def _format_rotation_values(rot):
     rot = np.asarray(rot).reshape(-1)
     return ", ".join(f"{value:.2f}" for value in rot)
@@ -139,14 +153,14 @@ def _viz_rotation_txt(image, actions, **kwargs):
     return vis
 
 
-def _viz_traj(image, actions, intrinsics_key, **kwargs):
+def _viz_traj(image, actions, intrinsics_key, intrinsics=None, **kwargs):
     color = kwargs.get("color", "Blues")
     alpha = kwargs.get("alpha", 1.0)
     if not ColorPalette.is_valid(color):
         raise ValueError(f"Invalid color palette: {color}")
 
     image = _prepare_viz_image(image)
-    intrinsics = INTRINSICS[intrinsics_key]
+    intrinsics = _resolve_intrinsics(intrinsics, intrinsics_key)
     left_xyz, _, right_xyz, _ = _split_action_pose(actions)
 
     base = image.copy()
@@ -175,10 +189,10 @@ def _viz_traj(image, actions, intrinsics_key, **kwargs):
     return vis
 
 
-def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
+def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, intrinsics=None, **kwargs):
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
-    intrinsics = INTRINSICS[intrinsics_key]
+    intrinsics = _resolve_intrinsics(intrinsics, intrinsics_key)
     left_xyz, left_ypr, right_xyz, right_ypr = _split_action_pose(actions)
     base = image.copy()
     vis = base.copy()
@@ -276,13 +290,14 @@ def _viz_keypoints(
     colors,
     edge_ranges,
     dot_color=None,
+    intrinsics=None,
     **kwargs,
 ):
     """Visualize all 21 MANO keypoints per hand, projected onto the image."""
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
 
-    intrinsics = INTRINSICS[intrinsics_key]
+    intrinsics = _resolve_intrinsics(intrinsics, intrinsics_key)
 
     base = image.copy()
     vis = base.copy()
