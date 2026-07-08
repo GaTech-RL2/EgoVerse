@@ -156,6 +156,9 @@ class HPTModel(nn.Module):
         self._proprio_null_tokens_raw = {}
         self._proprio_dropout_p_per_key = {}  # null_key -> dropout probability
         self._proprio_noise_std_per_key = {}   # null_key -> Gaussian noise std
+        self._proprio_noise_raw_per_key = {}   # null_key -> raw-space (rad) noise std
+        self._proprio_noise_vec_per_key = {}   # null_key -> per-dim normalized noise tensor
+        self._proprio_clamp_per_key = {}       # null_key -> clamp bound on normalized proprio
 
         self.stems = {}
         self.heads = {}
@@ -237,6 +240,17 @@ class HPTModel(nn.Module):
                 # Per-key noise std in normalized space (0.0 = disabled).
                 self._proprio_noise_std_per_key[null_key] = (
                     getattr(specs, "noise_std", 0.0) if specs is not None else 0.0
+                )
+                # Per-key noise std in RAW units (rad); converted to a per-dim normalized
+                # vector by the algo once norm stats are available (see HPT init).
+                self._proprio_noise_raw_per_key[null_key] = (
+                    getattr(specs, "noise_std_raw", 0.0) if specs is not None else 0.0
+                )
+                # Per-key clamp on normalized proprio, applied at train AND eval. Guards
+                # near-static joints whose quantile range ~0 maps small raw offsets to
+                # huge normalized values (the live-proprio cliff). None = disabled.
+                self._proprio_clamp_per_key[null_key] = (
+                    getattr(specs, "proprio_clamp", None) if specs is not None else None
                 )
 
     def init_domain_head(self, domain_name, head_spec):
@@ -429,6 +443,23 @@ class HPTModel(nn.Module):
                 if self.training and noise_std > 0.0:
                     data[key] = data[key] + torch.randn_like(data[key]) * noise_std
                     # DEBUG: print("[NOISE] {} range after noise: [{:.3f}, {:.3f}]".format(null_key, data[key].min().item(), data[key].max().item()))
+
+                # Step 1b: per-dim noise vector (raw-space sigma converted via norm stats),
+                # trains tolerance to a uniform rad-level error on every joint.
+                # getattr guards: old ckpts unpickle whole HPTModel objects (no __init__),
+                # so these dicts may not exist on them.
+                noise_vec = getattr(self, "_proprio_noise_vec_per_key", {}).get(null_key)
+                if self.training and noise_vec is not None:
+                    nv = noise_vec.to(device=data[key].device, dtype=data[key].dtype)
+                    data[key] = data[key] + torch.randn_like(data[key]) * nv
+
+                # Step 1c: clamp normalized proprio (train AND eval). Near-static joints
+                # (quantile range ~0) map tiny raw offsets to huge normalized values at
+                # deploy time; the clamp bounds them so they read as "saturated", which
+                # training (with capped noise) teaches the model to ignore.
+                clamp_val = getattr(self, "_proprio_clamp_per_key", {}).get(null_key)
+                if clamp_val is not None:
+                    data[key] = data[key].clamp(-clamp_val, clamp_val)
 
                 # Step 2: Proprio dropout. Replaces the entire proprio tensor for a random
                 # fraction of samples with a learned null token, forcing the model to use
@@ -984,6 +1015,41 @@ class HPT(Algo):
             model.init_encoder(modality, encoder_cfg)
 
         model.finalize_modules()
+
+        # Convert per-key raw-space proprio noise (noise_std_raw, in rad) into per-dim
+        # normalized noise vectors. Quantile norm maps [q1, q99] -> [-1, 1], so a raw
+        # sigma corresponds to 2*sigma/(q99-q1) normalized per joint. Capped at 1.0:
+        # near-static joints (range ~0) would otherwise explode; capped noise instead
+        # teaches the model to ignore those uninformative dims.
+        for null_key, raw_sigma in getattr(model, "_proprio_noise_raw_per_key", {}).items():
+            if raw_sigma <= 0.0 or "_state_" not in null_key:
+                continue
+            domain, batch_key = null_key.split("_state_", 1)
+            try:
+                embodiment_id = get_embodiment_id(domain)
+                stats = self.data_schematic.norm_stats[embodiment_id][batch_key]
+                q_range = (stats["quantile_99"] - stats["quantile_1"]).float()
+            except (KeyError, TypeError, AttributeError):
+                cprint(
+                    f"[ProprioNoise] no quantile stats for {null_key}; skipping raw-noise vector",
+                    color="yellow",
+                )
+                continue
+            if self.data_schematic.norm_mode != "quantile":
+                cprint(
+                    f"[ProprioNoise] norm_mode={self.data_schematic.norm_mode} != quantile; "
+                    f"skipping raw-noise vector for {null_key}",
+                    color="yellow",
+                )
+                continue
+            vec = torch.clamp(2.0 * raw_sigma / (q_range + 1e-6), max=1.0)
+            model._proprio_noise_vec_per_key[null_key] = vec
+            cprint(
+                f"[ProprioNoise] {null_key}: raw sigma={raw_sigma} rad -> normalized vec "
+                f"min={vec.min():.3f} med={vec.median():.3f} max={vec.max():.3f} "
+                f"(capped dims: {(vec >= 1.0).sum().item()}/{vec.numel()})",
+                color="cyan",
+            )
 
         self.ac_keys = {}
         self.camera_keys = {}
