@@ -64,9 +64,26 @@
   wedged on 07-03: "CUDA device busy" at init).
 - WandB: personal account (entity null), project `sew_policy`, run id `aria_egoposer_firm_<desc>`.
 
-## Currently running
-- Nothing. R4 completed + gate-evaluated 2026-07-07. Deploy pair:
-  **crop100_2k (primary, real proprio) + dino_lora_2k (A/B, real proprio required).**
+## Currently running (submitted 2026-07-08 — ROUND 5 encoder ablations, same R3 recipe)
+- job 3441899 → `logs/aria_egoposer_firm/dino_mlp_2k` — frozen ViT-S + deep residual-MLP
+  projection head (4 blocks 256↔1024; 2.2M vision-trainable, per-token, no spatial mixing)
+- job 3441900 → `logs/aria_egoposer_firm/dino_full_2k` — ViT-S FULLY unfrozen (21.7M;
+  lr=1e-4 same recipe — aggressive for a ViT, treated as an ablation finding either way)
+- job 3441901 → `logs/aria_egoposer_firm/dinob_lora_2k` — frozen ViT-B/14 (86M) + LoRA r16
+  (1.1M trainable) — scales up the R4 winner
+- Gate on completion: same profile eval (clean/shift/pzero/noise) + compare vs dino_lora_2k.
+- Deferred: Adapt3R-style 3D representations until point-cloud infra exists (RGB first).
+
+## Hardware rollouts (2026-07-07, 1 rollout each — see ai_docs/presentation_rollout_0707.md)
+- crop100_2k: nav ✓ (smooth, safe-mode off) / manip ✗ (skipped grasp, went straight to pour)
+- dino_neck_2k: nav ✗ (offset, clipped whiteboard) / not reached
+- dino_lora_2k: nav ✓ (smoothest of all) / manip ✗ (acted as if task done, backed away)
+- Diagnosis: perspective+appearance gap (human-head vs robot-head views) + no task-progress
+  signal (memoryless policy). Attention maps: ResNet=scene-blob, LoRA=diffuse-global,
+  neck=object-centric — none has both scene and object reading.
+
+## Previous deploy pair (still current until R5 gate)
+- **crop100_2k (primary, real proprio) + dino_lora_2k (A/B, real proprio required).**
 - If vision-only DINO is ever revisited: both a 1.9M trainable neck and r16 LoRA failed
   the pzero gate identically → next rung is unfreezing the last 2 ViT blocks (~3.6M,
   real invariance risk) or a frozen ViT-B/14; weigh against crop100 already covering
