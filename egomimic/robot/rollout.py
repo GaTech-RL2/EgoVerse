@@ -13,7 +13,6 @@ import numpy as np
 import torch
 from robot_utils import RateLoop
 from scipy.spatial.transform import Rotation as R
-from torch.utils.data import default_collate
 
 from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
