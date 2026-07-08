@@ -193,7 +193,22 @@ layer worked). Only crop100 can run vision-only. The two DINO variants failed th
 /coc/flash7/czhang883/deliverables_0707/side_by_side_training_vs_live.gif
 /coc/flash7/czhang883/deliverables_0707/arch_pipeline.png
 /coc/flash7/czhang883/deliverables_0707/arch_encoders.png
-/coc/flash7/czhang883/deliverables_0707/attention_maps_grid.png
+/coc/flash7/czhang883/deliverables_0707/attention_maps_grid.png          (6-frame sampler)
+/coc/flash7/czhang883/deliverables_0707/paired_raw_strip.png             (phase-aligned frames, human vs robot)
+/coc/flash7/czhang883/deliverables_0707/attn_pair_crop100.png            (per-model: human row vs robot row, all 18 cols)
+/coc/flash7/czhang883/deliverables_0707/attn_pair_dino_lora.png
+/coc/flash7/czhang883/deliverables_0707/attn_pair_dino_neck.png
+/coc/flash7/czhang883/deliverables_0707/attn_gif_crop100.gif             (animated rollout attention, per model)
+/coc/flash7/czhang883/deliverables_0707/attn_gif_dino_lora.gif
+/coc/flash7/czhang883/deliverables_0707/attn_gif_dino_neck.gif
 /coc/flash7/czhang883/Documents/EgoVerse/ai_docs/presentation_rollout_0707.md   (this file)
 ```
+
+**Attention-map method (for the slide footnote):** not Grad-CAM and not gradient-based —
+we read out the policy's own Perceiver-style *stem cross-attention*: 16 learned query
+tokens attend over the vision encoder's spatial tokens (ResNet 7×7 / DINO 16×16);
+softmax(QKᵀ/√d) captured with a forward hook during normal inference, averaged over
+queries and heads. Works identically for CNN and ViT variants because the attention
+lives in the policy's image stem, not the backbone. Human/robot rows are phase-aligned
+by detecting table arrival in the demo (95% of cumulative base path).
 Checkpoints: `/coc/flash7/czhang883/Documents/EgoVerse/logs/aria_egoposer_firm/{crop100_2k,dino_lora_2k,dino_neck_2k}/checkpoints/last.ckpt`
