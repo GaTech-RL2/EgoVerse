@@ -64,13 +64,8 @@ ARGS=(
   "model.optimizer.lr=$LR"
   "norm_stats.precomputed_norm_path=$NORM_PATH"
   model.robomimic_model.config.pytorch_weight_path=/storage/project/r-dxu345-0/agao81/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
-  # val every 50 epochs (5k steps); viz stays 100 (fires every 2nd val);
-  # ckpt every 100 epochs (10k steps), keep 3 most recent (top-k by step).
-  trainer.check_val_every_n_epoch=50
-  callbacks.model_checkpoint.every_n_epochs=100
-  callbacks.model_checkpoint.save_top_k=3
-  +callbacks.model_checkpoint.monitor=step
-  +callbacks.model_checkpoint.mode=max
+  # cadence (val 50 / viz 100 / ckpt 100 top-3) is the config default now
+  # (trainer/ddp_pi.yaml + callbacks/checkpoints.yaml).
   name=pi05_mecka_all_6d
   description=pi05_mecka_all_6d_bs64x4_constlr_wrist6d
 )

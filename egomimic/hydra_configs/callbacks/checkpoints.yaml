@@ -7,6 +7,10 @@ model_checkpoint:
   dirpath: ${paths.output_dir}/checkpoints
   filename: "epoch_{epoch}"
   save_last: true
-  save_top_k: -1
-  every_n_epochs: 50
+  # keep the 3 most recent (top-k by global step); every 100 epochs so saves
+  # land alongside the viz-enabled vals (check_val 50 x viz_every 100).
+  save_top_k: 3
+  monitor: step
+  mode: max
+  every_n_epochs: 100
   save_on_train_epoch_end: true
