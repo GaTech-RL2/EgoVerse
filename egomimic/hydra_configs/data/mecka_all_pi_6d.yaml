@@ -64,10 +64,10 @@ valid_datasets:
 train_dataloader_params:
   human_bimanual:
     batch_size: 64
-    num_workers: 6
+    num_workers: 8
 
 valid_dataloader_params:
   human_bimanual:
     batch_size: 64
-    num_workers: 6
+    num_workers: 8
     shuffle: false

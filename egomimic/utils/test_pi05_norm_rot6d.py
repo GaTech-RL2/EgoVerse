@@ -305,3 +305,65 @@ def test_base_converter_rejects_norm_6d_encoding():
         converter.to32_norm_6d(torch.zeros(1, 1, 20))
     with pytest.raises(NotImplementedError, match="normalized-rot6d"):
         converter.from32_norm_6d(torch.zeros(1, 1, 32))
+
+
+def test_unpad_gripper_zeros_inverts_pad_and_noops_unpadded():
+    from egomimic.rldb.zarr.action_chunk_transforms import (
+        PadGripperZeros,
+        UnpadGripperZeros,
+    )
+
+    rng = np.random.default_rng(6)
+    for width in (12, 18):
+        v = rng.uniform(-1, 1, size=(width,))
+        padded = PadGripperZeros(action_key="k").transform({"k": v.copy()})["k"]
+        assert padded.shape == (width + 2,)
+        back = UnpadGripperZeros(action_key="k").transform({"k": padded.copy()})["k"]
+        np.testing.assert_allclose(back, v)
+        # no-op on already-unpadded widths
+        same = UnpadGripperZeros(action_key="k").transform({"k": v.copy()})["k"]
+        np.testing.assert_allclose(same, v)
+
+
+def test_human_6d_reverts_unpad_proprio():
+    from egomimic.rldb.embodiment.human import (
+        _build_human_cartesian_revert_6d_transform_list,
+        _build_human_cartesian_revert_6d_wristframe_transform_list,
+    )
+    from egomimic.rldb.zarr.action_chunk_transforms import UnpadGripperZeros
+
+    for build in (
+        _build_human_cartesian_revert_6d_transform_list,
+        _build_human_cartesian_revert_6d_wristframe_transform_list,
+    ):
+        assert any(isinstance(t, UnpadGripperZeros) for t in build()), build.__name__
+
+
+def test_fallback_widens_to_global_after_local_attempts():
+    # A wholly-bad episode must not exhaust the sampler: retries stay inside
+    # the failing episode for GLOBAL_FALLBACK_ATTEMPTS, then widen to the full
+    # index space, and only a systemic failure (MAX_FALLBACK_ATTEMPTS) raises.
+    from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+
+    md = MultiDataset.__new__(MultiDataset)
+    md.index_map = [("bad", i) for i in range(10)] + [("good", i) for i in range(1000)]
+    md._global_indices_by_dataset = {
+        "bad": list(range(10)),
+        "good": list(range(10, 1010)),
+    }
+
+    attempts = None
+    seen_local, seen_global = set(), set()
+    for _ in range(md.GLOBAL_FALLBACK_ATTEMPTS):
+        idx, attempts = md._next_after_failure(0, "bad", attempts, reason="r")
+        seen_local.add(md.index_map[idx][0])
+    assert seen_local == {"bad"}, "early retries must stay within the episode"
+
+    for _ in range(200):
+        idx, attempts = md._next_after_failure(idx, "bad", attempts, reason="r")
+        seen_global.add(md.index_map[idx][0])
+    assert "good" in seen_global, "post-threshold retries must sample globally"
+
+    with pytest.raises(RuntimeError, match="consecutive bad samples"):
+        while True:
+            idx, attempts = md._next_after_failure(idx, "bad", attempts, reason="r")
