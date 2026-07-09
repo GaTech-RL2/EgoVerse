@@ -652,6 +652,7 @@ class TransformerBlock(nn.Module):
         dropout: float = 0.0,
         resid_dropout: float = 0.0,
         adaln_per_token: bool = False,
+        moe: Optional[dict] = None,
     ):
         super().__init__()
         self.has_mlp = d_intermediate > 0
@@ -683,7 +684,16 @@ class TransformerBlock(nn.Module):
         self.attn_resid_drop = nn.Dropout(self.resid_dropout)
         if self.has_mlp:
             self.norm2 = RMSNorm(d_model)
-            self.mlp = SwiGLU(d_model, d_intermediate)
+            if moe is not None:
+                # Swap the dense SwiGLU FFN for a Mixture-of-Experts FFN. Same
+                # (x -> x) call contract, so forward/step below are unchanged.
+                # Lazy import to avoid a load-time cycle (moe_ffn imports SwiGLU
+                # from this module).
+                from egomimic.models.hnet.moe_ffn import MoEFFN
+
+                self.mlp = MoEFFN(d_model, d_intermediate, **dict(moe))
+            else:
+                self.mlp = SwiGLU(d_model, d_intermediate)
             self.ffn_resid_drop = nn.Dropout(self.resid_dropout)
         if self.cond_mode == "adaln":
             self.adaln1 = AdaLNModulation(d_cond, d_model)
@@ -961,6 +971,12 @@ class Isotropic(nn.Module):
             if hasattr(config, "ssm_cfg")
             else {}
         )
+        # Optional per-stage Mixture-of-Experts FFN config (dict or None).
+        # None => dense SwiGLU MLP (default; keeps existing stacks unchanged).
+        moe_cfg = None
+        _moe_list = getattr(config, "moe", None)
+        if _moe_list and len(_moe_list) > stage_idx:
+            moe_cfg = _moe_list[stage_idx]
 
         layout = config.arch_layout
         for _ in range(stage_idx):
@@ -991,6 +1007,7 @@ class Isotropic(nn.Module):
                         rotary_emb_dim=rotary_emb_dim,
                         dropout=attn_dropout,
                         resid_dropout=resid_dropout,
+                        moe=moe_cfg,
                     )
                 else:  # 'm' or 'M'
                     blk = MambaBlock(

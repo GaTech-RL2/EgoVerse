@@ -67,11 +67,13 @@ class HNetLoss(nn.Module):
             if aux
             else torch.zeros((), device=action_loss.device, dtype=action_loss.dtype)
         )
+        moe_aux = _moe_aux_from_ctx(ctx, action_loss)
         # Stash the per-term breakdown on ctx so the algo class's logging
         # path can read them without recomputing.
         ctx.action_loss = action_loss
         ctx.ratio_loss = ratio_loss
-        return action_loss + ratio_loss
+        ctx.moe_aux_loss = moe_aux
+        return action_loss + ratio_loss + moe_aux
 
 
 class GMMLoss(nn.Module):
@@ -148,9 +150,23 @@ class GMMLoss(nn.Module):
             if aux
             else torch.zeros((), device=action_loss.device, dtype=action_loss.dtype)
         )
+        moe_aux = _moe_aux_from_ctx(ctx, action_loss)
         ctx.action_loss = action_loss
         ctx.ratio_loss = ratio_loss
-        return action_loss + ratio_loss
+        ctx.moe_aux_loss = moe_aux
+        return action_loss + ratio_loss + moe_aux
+
+
+def _moe_aux_from_ctx(ctx, ref: torch.Tensor) -> torch.Tensor:
+    """Sum the per-MoE-layer load-balance losses that ``ComputeStage`` published
+    on ``ctx.extras['moe_aux']`` this forward. Returns a 0-dim zero (no MoE) so
+    dense models are byte-identical. Also stashes ``ctx.moe_entries`` (the raw
+    per-layer diagnostics) for the algo's logging path."""
+    entries = (getattr(ctx, "extras", None) or {}).get("moe_aux", []) or []
+    ctx.moe_entries = entries
+    if not entries:
+        return torch.zeros((), device=ref.device, dtype=ref.dtype)
+    return torch.stack([e["aux_loss"].to(ref.dtype) for e in entries]).sum()
 
 
 class HNetPolicy(nn.Module):
@@ -933,7 +949,7 @@ class PackedAlgoBase(Algo):
         weight_decay: float = 0.0,
         train_obs_transforms: list | None = None,
         episode_level_transforms: list | None = None,
-        obs_stride: int = None,
+        obs_stride: Optional[int] = None,
         **kwargs,
     ):
         """
@@ -987,36 +1003,42 @@ class PackedAlgoBase(Algo):
         # actions at FULL frame resolution, so with obs_stride == chunk_len the
         # 8-action chunks tile the episode exactly (like obs_stride=8/chunk_len=8
         # on the RNN side).
-        # Resolve the GMM head chunk_len once. ``action_out`` is an nn.ModuleDict
-        # of per-embodiment GMM heads for the indomain_c4 cells, and the dict
-        # itself has no .chunk_len (it lives on the member heads), so read it
-        # from a member head when action_out is a ModuleDict; previously this
-        # fell back to 1 and silently mis-trained chunk_len>1 models.
+        # Resolve the action head's chunk_len, robust to per-embodiment
+        # ModuleDict heads (getattr on the dict itself returns no chunk_len).
         _ao = getattr(outer_stage, "action_out", None)
         if isinstance(_ao, nn.ModuleDict):
-            _ao = next(iter(_ao.values()), None)
-        _cl = int(getattr(_ao, "chunk_len", 1))
+            _cls = sorted({int(getattr(h, "chunk_len", 1)) for h in _ao.values()})
+            if len(_cls) > 1:
+                raise ValueError(
+                    f"per-embodiment heads have heterogeneous chunk_len {_cls}; "
+                    f"the obs_stride<->chunk_len coupling is ambiguous."
+                )
+            _C = _cls[0] if _cls else 1
+        else:
+            _C = int(getattr(_ao, "chunk_len", 1))
+        # DEFAULT obs_stride to chunk_len: a chunked head emits chunk_len actions
+        # per obs-step, so the policy must re-observe every chunk_len frames.
+        # Defaulting here means a chunked model can NEVER be silently trained /
+        # eval'd at dense stride-1 (the bug that tanked dual-stream closed-loop:
+        # trained dense @1 but eval'd @chunk_len=4). Explicit obs_stride wins.
         if obs_stride is None:
-            # default to the GMM head chunk_len so the validated obs_stride==chunk_len
-            # recipe holds when unset.
-            obs_stride = _cl
+            obs_stride = _C
         self.obs_stride = int(obs_stride)
         if self.obs_stride < 1:
             raise ValueError(f"obs_stride must be >= 1, got {self.obs_stride}")
         # Only the obs_stride == chunk_len, GMM-head recipe is validated (the
-        # 8-action chunks then tile the episode exactly). Fail loud on the
+        # chunk_len actions then tile the episode exactly). Fail loud on the
         # un-validated variants (sigma<C overlaps, sigma>C leaves gaps,
         # non-GMM has no chunk fan-out) instead of corrupting metrics silently.
         if self.obs_stride > 1:
             _ah = getattr(outer_stage, "action_head_type", None)
-            _C = _cl
             if _ah != "gmm":
                 raise ValueError(
                     f"obs_stride>1 currently requires action_head_type='gmm' (got {_ah!r})."
                 )
             if self.obs_stride != _C:
                 raise ValueError(
-                    f"obs_stride ({self.obs_stride}) must equal the GMM head chunk_len "
+                    f"obs_stride ({self.obs_stride}) must equal the action chunk_len "
                     f"({_C}) so the strided action chunks tile the episode exactly."
                 )
 
@@ -1178,6 +1200,9 @@ class PackedAlgoBase(Algo):
                 # For action_head_type='gmm', the head IS outer_stage.action_out
                 # (no separate .gmm_head attr); chunk_len lives there.
                 head = getattr(outer_stage, "action_out", None)
+                # Per-embodiment ModuleDict heads share chunk_len; index in so we
+                # don't read chunk_len off the ModuleDict itself (=> 1), which
+                # would build 1-action targets instead of C-action chunks.
                 if isinstance(head, nn.ModuleDict):
                     head = next(iter(head.values()))
                 C = int(getattr(head, "chunk_len", 1))
@@ -1209,6 +1234,23 @@ class PackedAlgoBase(Algo):
             predictions[f"{emb_id}_pred"] = pred
             predictions[f"{emb_id}_action_loss"] = mse
             predictions[f"{emb_id}_ratio_loss"] = rloss
+
+            # MoE load-balance aux (0 for dense models) + routing diagnostics.
+            moe_aux = getattr(ctx, "moe_aux_loss", None)
+            if moe_aux is not None:
+                predictions[f"{emb_id}_moe_aux_loss"] = moe_aux
+                moe_entries = getattr(ctx, "moe_entries", None) or []
+                if moe_entries:
+                    fracs = torch.stack([e["expert_frac"] for e in moe_entries])
+                    # min/max per-expert routing fraction across all MoE layers
+                    # (balanced == 1/num_experts; collapse -> max toward 1, min -> 0)
+                    predictions[f"{emb_id}_moe_frac_min"] = fracs.min().to(mse.device)
+                    predictions[f"{emb_id}_moe_frac_max"] = fracs.max().to(mse.device)
+                    predictions[f"{emb_id}_moe_gate_entropy"] = (
+                        torch.stack([e["gate_entropy"] for e in moe_entries])
+                        .mean()
+                        .to(mse.device)
+                    )
 
             # Per-chunker stats for logging.
             stats = chunk_stats_from_aux(ctx.aux)
@@ -1263,6 +1305,58 @@ class PackedAlgoBase(Algo):
         return unnorm
 
     @torch.no_grad()
+    @torch.no_grad()
+    def collect_chunkviz(self, batch):
+        """Consistent chunkviz interface (user rule 2026-07-04).
+
+        ONE teacher-forced packed forward per embodiment; every chunker level
+        publishes its ``bpred`` (+ ``viz_tokens``: the canonical per-chunk
+        representation — the AGNOSTIC (A) chunk tokens on dual-stream levels,
+        the pre-lift chunk tokens on single-stream levels) into ``ctx.aux``.
+        Exporters/probes consume THIS instead of module-type hooks.
+
+        Returns ``{emb_id: {"levels": [(prob_packed, mask_packed), ...],
+                            "tokens": float32 ndarray | None}}`` where
+        ``tokens`` is the TOP (fewest-chunks) level's viz_tokens.
+        """
+        out = {}
+        for emb_id, _batch in batch.items():
+            if not _batch.get("_packed", False):
+                continue
+            ac_key = self.resolved_ac_keys[emb_id]
+            obs = self._build_obs(_batch, emb_id)
+            ctx = HNetContext(
+                cond_dict={},
+                aux=[],
+                inference_params=None,
+                cu_seqlens=_batch["cu_seqlens"],
+                max_seqlen=int(_batch["max_seq_len"]),
+                embodiment_id=self.domain_by_id.get(emb_id),
+            )
+            self.outer_stage({"actions": _batch[ac_key], "__obs": obs}, ctx)
+            levels, best = [], None
+            for entry in ctx.aux:
+                bp = entry.get("bpred") if isinstance(entry, dict) else None
+                if bp is None:
+                    continue
+                levels.append(
+                    (
+                        bp.boundary_prob[..., 1].detach().float().cpu(),
+                        bp.boundary_mask.detach().cpu().to(torch.bool),
+                    )
+                )
+                vt = entry.get("viz_tokens")
+                if vt is not None and (best is None or vt.shape[0] < best.shape[0]):
+                    best = vt
+            out[emb_id] = {
+                "levels": levels,
+                "tokens": (
+                    None if best is None
+                    else best.detach().float().cpu().numpy()
+                ),
+            }
+        return out
+
     def _teacher_forced_packed(self, _batch: dict, emb_id: int):
         """Single-pass teacher-forced eval for a packed validation batch.
 
@@ -1286,6 +1380,10 @@ class PackedAlgoBase(Algo):
             # the downstream metric/viz code is untouched. (Mirrors how the sim
             # inference_step rolls out: re-observe every chunk_len frames.)
             head = getattr(policy, "action_out", None)
+            # Resolve the per-embodiment head (action_out is a ModuleDict in the
+            # dual-stream); reading chunk_len/decode off the ModuleDict gives
+            # chunk_len=1 and no .decode, so raw GMM params (C*M*(2D+1)) get
+            # written into action slots -> shape mismatch [.,640] vs [.,2].
             if isinstance(head, nn.ModuleDict):
                 head = head[self.domain_by_id.get(emb_id)]
             C = int(getattr(head, "chunk_len", 1))
@@ -1350,6 +1448,14 @@ class PackedAlgoBase(Algo):
             # is already a properly-weighted sum.
             total = total + a + r
 
+            # MoE load-balance aux (present only for MoE models; absent =>
+            # dense model, byte-identical). Baked weight already applied in
+            # MoEFFN, so add it straight onto the backprop total.
+            m = predictions.get(f"{emb_id}_moe_aux_loss", None)
+            if m is not None:
+                loss_dict[f"emb{emb_id}_moe_aux_loss"] = m
+                total = total + m
+
             # Pass non-loss stats through to logging (boundary_rate /
             # avg_chunk_len, per-chunker and aggregate). They are 0-dim
             # tensors so log_info.item() still works.
@@ -1358,7 +1464,7 @@ class PackedAlgoBase(Algo):
                 if not key.startswith(prefix):
                     continue
                 tail = key[len(prefix) :]
-                if tail in ("pred", "action_loss", "ratio_loss"):
+                if tail in ("pred", "action_loss", "ratio_loss", "moe_aux_loss"):
                     continue
                 loss_dict[f"emb{emb_id}_{tail}"] = value
         loss_dict["action_loss"] = total / max(len(batch), 1)

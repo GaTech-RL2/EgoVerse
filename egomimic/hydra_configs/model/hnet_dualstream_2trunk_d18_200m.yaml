@@ -160,7 +160,7 @@ robomimic_model:
         low_noise_eval: true
         head_hidden_dim: 512
         head_n_layers: 3
-enable_grad_norm: true
+enable_grad_norm: false   # MAD clamper freezes median->starves grads (2026-06-25); no-clip default
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true

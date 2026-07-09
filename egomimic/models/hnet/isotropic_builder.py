@@ -55,6 +55,11 @@ def build_isotropic(
     # 0.0 — yaml specs that omit them are unaffected.
     attn_dropout = float(spec.get("dropout", 0.0) or 0.0)
     resid_dropout = float(spec.get("resid_dropout", 0.0) or 0.0)
+    # Optional Mixture-of-Experts FFN. ``spec["moe"]`` (dict or None) swaps this
+    # stack's block MLPs for MoEFFN. None / absent => dense SwiGLU (default).
+    moe_spec = spec.get("moe", None)
+    if moe_spec is not None:
+        moe_spec = dict(moe_spec)  # DictConfig -> plain dict for MoEFFN(**kwargs)
 
     # Wrap the per-stage scalars into the list-indexed config Isotropic expects.
     cfg = HNetConfig(
@@ -68,6 +73,7 @@ def build_isotropic(
             resid_dropout=[resid_dropout],
         ),
         ssm_cfg=SSMConfig(**{k: [v] for k, v in ssm_kwargs.items()}),
+        moe=[moe_spec],
     )
     return Isotropic(
         cfg,

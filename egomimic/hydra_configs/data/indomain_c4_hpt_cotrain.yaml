@@ -82,15 +82,15 @@ valid_datasets:
 
 train_dataloader_params:
   pushshapes_sim:
-    batch_size: 64
+    batch_size: 128
     num_workers: 4
   pushshapes_sim_small_circle:
-    batch_size: 64
+    batch_size: 128
     num_workers: 4
 valid_dataloader_params:
   pushshapes_sim:
-    batch_size: 64
+    batch_size: 128
     num_workers: 4
   pushshapes_sim_small_circle:
-    batch_size: 64
+    batch_size: 128
     num_workers: 4

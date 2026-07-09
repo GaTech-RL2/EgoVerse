@@ -78,26 +78,26 @@ valid_datasets:
 
 train_dataloader_params:
   pushshapes_sim:
-    batch_size: 8
+    batch_size: 16
     num_workers: 8
     pin_memory: true
     persistent_workers: true
     prefetch_factor: 4
   pushshapes_sim_small_circle:
-    batch_size: 8
+    batch_size: 16
     num_workers: 8
     pin_memory: true
     persistent_workers: true
     prefetch_factor: 4
 valid_dataloader_params:
   pushshapes_sim:
-    batch_size: 8
+    batch_size: 16
     num_workers: 8
     pin_memory: true
     persistent_workers: true
     prefetch_factor: 4
   pushshapes_sim_small_circle:
-    batch_size: 8
+    batch_size: 16
     num_workers: 8
     pin_memory: true
     persistent_workers: true

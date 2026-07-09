@@ -105,34 +105,21 @@ def main():
     batch = algo.process_batch_for_training(batch)
 
     evaluator = instantiate(full.evaluator)
-    # Construct probes directly so export works even when the run's evaluator omits
-    # them (the minimal first_token gmm_eval_firstend ships only HNetEvalVideo).
-    from egomimic.eval.probes.eval_boundary_strip import BoundaryStripEval
-    strip_eval = find_by_type(evaluator, "BoundaryStripEval") or BoundaryStripEval()
-    pca_eval = find_by_type(evaluator, "PCATokenEval")
-    if pca_eval is None:
-        try:
-            from egomimic.eval.probes.eval_pca_tokens import PCATokenEval
-            pca_eval = PCATokenEval()
-        except Exception:
-            pca_eval = None
     traj_eval = find_by_type(evaluator, "HNetEvalVideo")
-    for e in (strip_eval, pca_eval, traj_eval):
-        if e is not None:
-            e.trainer = _MockTrainer(".", device)
-            e.model = algo
+    if traj_eval is not None:
+        traj_eval.trainer = _MockTrainer(".", device)
+        traj_eval.model = algo
 
-    bprob_by_emb = strip_eval._run_forward_and_collect_bprobs(batch)
-    # PCA hooks the inner trunk's main_network; that lookup is None on first_token,
-    # so make PCA optional and still export the boundary strip.
-    pca_out = None
-    if pca_eval is not None:
-        try:
-            pca_out = pca_eval._capture_tokens(batch)
-        except Exception as exc:  # noqa: BLE001
-            print(f"[warn] PCA capture failed ({type(exc).__name__}: {exc}); "
-                  f"boundary strip only")
-            pca_out = None
+    # Consistent chunkviz interface (user rule 2026-07-04): ONE call on the
+    # algo; every chunker level publishes bpred + viz_tokens via ctx.aux
+    # (dual-stream levels publish the AGNOSTIC (A) chunk tokens only).
+    viz = algo.collect_chunkviz(batch)
+    bprob_by_emb = {e: v["levels"] for e, v in viz.items()}
+    pca_out = {
+        e: {"inner_tokens": v["tokens"]}
+        for e, v in viz.items()
+        if v["tokens"] is not None
+    } or None
 
     # trajectory frames (per-frame, episodes concatenated with 5-frame black sep)
     traj_imgs = {}

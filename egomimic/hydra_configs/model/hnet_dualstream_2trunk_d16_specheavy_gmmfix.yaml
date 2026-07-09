@@ -1,0 +1,150 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  # SPECIFIC-HEAVY mirror of the agheavy ablation: per-stream d_model SWAPPED so the
+  # SPECIFIC stream d_S=896 (per-emb) dominates and the AGNOSTIC stream d_A=256 (shared)
+  # is small -> specific ~= 89% of trunk params. Active-param-matched to agheavy
+  # (active path = 1 agnostic + 1 specific stream either way; gate input d_A+d_S=1152
+  # unchanged). Tests whether the gate STILL routes to agnostic (intrinsic dominance)
+  # or finally uses the now-bigger specific modes. asym comm kept (specific reads agnostic).
+  obs_stride: 4
+  d_cond: 256
+  # else hnet.init_weights is a no-op (algo.py:1034) -> trains from PyTorch defaults
+  init_weights_range: 0.02
+  domains:
+  - pushshapes_sim
+  - pushshapes_sim_small_circle
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_small_circle: actions
+  loss:
+    _target_: egomimic.algo.hnet.GMMLoss
+  outer_stage:
+    _target_: egomimic.algo.hnet.dual_stream_outer.MultiStreamOuterStage
+    action_dim: 2
+    action_horizon: 2560
+    d_model: 256          # == agnostic stream d_A (the flowing x / hnet hidden)
+    action_head_type: gmm
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: fused_cond
+      obs_specs: {}
+      img_encoders: {}
+    # SPECIFIC stream S: per-embodiment obs encoder, width d_S=896 (HEAVY).
+    input_modules:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 896
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          pushshapes_sim:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 896
+            output_key: fused_cond
+            cond_proj_widths: [256, 256]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+          pushshapes_sim_small_circle:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 896
+            output_key: fused_cond
+            cond_proj_widths: [256, 256]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+    # AGNOSTIC stream A: a SINGLE shared CondEncoderModule, width d_A=256 (SMALL).
+    agnostic_obs_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: fused_cond
+      cond_proj_widths: [256, 256]
+      obs_specs:
+        state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 86
+          crop_width: 86
+          crop_eval_mode: random
+          crop_sample_mode: v02
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+      # Modular multi-stream trunk. stream 0 = agnostic (d256/4h/d_int512, SMALL),
+      # stream 1 = specific (d896/8h/d_int2560, HEAVY). asym comm (specific->agnostic).
+      - _target_: egomimic.models.hnet.multi_stream_trunk.MultiStreamComputeStage
+        input_hidden_dim: 256
+        output_hidden_dim: 256
+        mask_mode: asym
+        causal: true
+        n_layers: 16
+        rotary_emb_dim: 64
+        dropout: 0.0
+        streams_cfg:
+        - {d_model: 256, num_heads: 4, d_intermediate: 512}
+        - {d_model: 896, num_heads: 8, d_intermediate: 2560}
+    # GMM FIX: dual partitioned head as a parallel circuit -- shared agnostic-mode
+    # decode (a_top, k=12) + per-emb specific-mode decode (s, k=20, HEAVY) + per-emb
+    # 3-layer MLP gate. a_top at d_A=256, s at d_S=896.
+    gmm_head:
+      _target_: egomimic.models.heads.partitioned_gmm_head.DualPartitionedGMMHead
+      d_model: 256
+      d_model_a: 256
+      d_model_s: 896
+      action_dim: 2
+      k_agnostic: 12
+      k_specific: 20
+      chunk_len: 4
+      min_std: 0.0001
+      std_activation: softplus
+      low_noise_eval: true
+      head_hidden_dim: 512
+      head_n_layers: 3
+      gate_n_layers: 3
+      share_agnostic: true
+      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 2000
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

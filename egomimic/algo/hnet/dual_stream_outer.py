@@ -51,9 +51,7 @@ class DualStreamOuterStage(HNetOuterStage):
             Wrapped in an ``ObsToken`` internally. Required.
     """
 
-    def __init__(
-        self, *args, agnostic_obs_encoder: Optional[CondEncoderModule] = None, **kwargs
-    ):
+    def __init__(self, *args, agnostic_obs_encoder: Optional[CondEncoderModule] = None, **kwargs):
         super().__init__(*args, **kwargs)
         if agnostic_obs_encoder is None:
             raise ValueError(
@@ -70,9 +68,7 @@ class DualStreamOuterStage(HNetOuterStage):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _within_episode_time_pos(
-        cu_seqlens: torch.Tensor, T_total: int, device
-    ) -> torch.Tensor:
+    def _within_episode_time_pos(cu_seqlens: torch.Tensor, T_total: int, device) -> torch.Tensor:
         """Per-token within-episode time index (0..len-1 per episode)."""
         cu = cu_seqlens.to(device=device, dtype=torch.long)
         t = torch.arange(T_total, device=device, dtype=torch.long)
@@ -168,7 +164,12 @@ class DualStreamOuterStage(HNetOuterStage):
         # duplicate _cur_head.* keys in state_dict.
         object.__setattr__(self, "_cur_head", head)
         head._emb_id = ctx.embodiment_id  # label for the mode-weighting probe
-        batch["pred_action"] = head(A_top, S)
+        # emb-partitioned head (shared-agnostic + per-emb specific/gate) needs emb_id;
+        # legacy per-emb-ModuleDict head takes (A_top, S) only.
+        if getattr(head, "is_emb_partitioned", False):
+            batch["pred_action"] = head(A_top, S, ctx.embodiment_id)
+        else:
+            batch["pred_action"] = head(A_top, S)
         ctx.extras["gmm_head"] = head
 
     # ------------------------------------------------------------------
@@ -210,7 +211,7 @@ class DualStreamOuterStage(HNetOuterStage):
         )
         return {
             "params": params,
-            "obs_prefix": [],  # list of per-frame obs dicts (each value (…,))
+            "obs_prefix": [],   # list of per-frame obs dicts (each value (…,))
             "batch_size": int(batch_size),
             "device": device,
             "dtype": dtype,
@@ -299,12 +300,72 @@ class DualStreamOuterStage(HNetOuterStage):
         # Take the LAST timestep of each stream and add a (B=1, T=1) lead so the
         # head emits raw shaped (1, 1, C*per_step) -> decode -> (1, 1, C, D).
         a_top_last = A_top[T_total - 1].reshape(1, 1, -1)  # (1, 1, d_model)
-        s_last = S[T_total - 1].reshape(1, 1, -1)  # (1, 1, d_model)
+        s_last = S[T_total - 1].reshape(1, 1, -1)          # (1, 1, d_model)
 
         head = (
             self.action_out[embodiment_id]
             if isinstance(self.action_out, torch.nn.ModuleDict)
             else self.action_out
         )
-        raw = head(a_top_last, s_last)  # (1, 1, chunk_len*per_step)
+        if getattr(head, "is_emb_partitioned", False):
+            raw = head(a_top_last, s_last, embodiment_id)
+        else:
+            raw = head(a_top_last, s_last)  # (1, 1, chunk_len*per_step)
         return raw
+
+
+class MultiStreamOuterStage(DualStreamOuterStage):
+    """Per-stream-dim variant: the agnostic stream A (width d_A) and specific
+    stream S (width d_S) are kept SEPARATE (different widths, so no concat) and
+    handed to MultiStreamComputeStage via ctx.extras['ms']. Only ``encode`` is
+    overridden; ``decode`` / ``step`` / ``init_step_state`` are inherited (they
+    call self.encode + self.inner_stage + the per-stream partitioned GMM head).
+    """
+
+    def encode(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
+        if not ctx.packed:
+            raise NotImplementedError("MultiStreamOuterStage supports the PACKED path only.")
+        actions_packed = batch["actions"]
+        obs_packed = batch["__obs"]
+        T_total = actions_packed.shape[0]
+        device = actions_packed.device
+        dtype = actions_packed.dtype
+        cu_seqlens = ctx.cu_seqlens.to(device=device, dtype=torch.long)
+
+        # SPECIFIC stream S (width d_S): sum the per-embodiment input_modules.
+        S = None
+        for mod in self.input_modules:
+            contrib = mod.forward_packed(
+                actions_packed=actions_packed, obs_packed=obs_packed,
+                cu_seqlens=cu_seqlens, T_total=T_total, device=device, dtype=dtype,
+                embodiment_id=ctx.embodiment_id,
+            )
+            S = contrib if S is None else S + contrib
+        if S is None:
+            raise RuntimeError("input_modules produced no specific tokens")
+
+        # AGNOSTIC stream A (width d_A): the shared ObsToken.
+        A = self.agnostic_input.forward_packed(
+            actions_packed=actions_packed, obs_packed=obs_packed,
+            cu_seqlens=cu_seqlens, T_total=T_total, device=device, dtype=dtype,
+            embodiment_id=ctx.embodiment_id,
+        )
+
+        time_pos = self._within_episode_time_pos(cu_seqlens, T_total, device)
+        # Keep A, S SEPARATE (different widths) -> list for MultiStreamComputeStage.
+        ctx.extras["ms"] = {
+            "streams": [A, S],
+            "T_total": int(T_total),
+            "cu_seqlens": cu_seqlens,
+            "time_pos": time_pos,
+        }
+
+        # cond_dict (mirror parent; unused by the trunk but read downstream).
+        obs_for_encode = {k: v.unsqueeze(0) for k, v in obs_packed.items()}
+        cond_padded = self.cond_encoder.encode(
+            obs_for_encode, T_action=T_total, embodiment_id=ctx.embodiment_id
+        )
+        ctx.cond_dict = {k: v.squeeze(0) for k, v in cond_padded.items()}
+        # Return A as the flowing x (the stage ignores x, reads ctx.extras['ms']);
+        # its width == outer d_model so HNetOuterStage's dim-check passes.
+        return A

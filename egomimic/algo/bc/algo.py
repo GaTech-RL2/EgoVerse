@@ -537,11 +537,9 @@ class WindowedBC(PackedAlgoBase):
         self.train_obs_transforms: list = []
         # Same gap for the episode-level transforms branch added later to
         # PackedAlgoBase.process_batch_for_training (reads
-        # self.episode_level_transforms at the top of the loop, BEFORE the
-        # train_obs_transforms guard). WindowedBC has no episode-level
-        # transforms, so set it empty too; otherwise the VALIDATION path
-        # (pl_model.validation_step -> process_batch_for_training) raises
-        # AttributeError: WindowedBC has no attribute episode_level_transforms.
+        # self.episode_level_transforms BEFORE the train_obs_transforms guard).
+        # WindowedBC has none, so set empty; else the train/val path raises
+        # AttributeError. (Owner-matched fix, ported from EgoVerse-gmm.)
         self.episode_level_transforms: list = []
         # CONFIG-FACING name is ``core_net``; ``lstm`` is the DEPRECATED ALIAS
         # (kept so old configs / EgoVerse-pact-2 ported yamls keep working). Pass

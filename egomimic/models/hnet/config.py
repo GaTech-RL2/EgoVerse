@@ -47,6 +47,11 @@ class HNetConfig:
     attn_cfg: Any = field(default_factory=AttnConfig)
     ssm_cfg: Any = field(default_factory=SSMConfig)
     target_compression_ratios: List[float] = field(default_factory=list)
+    # Optional per-stage Mixture-of-Experts FFN config. Each entry is either
+    # ``None`` (dense SwiGLU MLP — the default, keeps every existing config
+    # byte-identical) or a dict ``{num_experts, top_k, aux_weight}`` that swaps
+    # that stage's block MLP for an :class:`MoEFFN`. Indexed by ``stage_idx``.
+    moe: List[Any] = field(default_factory=list)
     # AdaLN conditioning placement. Each list holds the stage indices that
     # should receive cond at that position. Defaults: outer encoder only.
     cond_encoder_stages: List[int] = field(default_factory=lambda: [0])
@@ -72,6 +77,7 @@ class HNetConfig:
             ),
             cond_encoder_stages=list(cfg.get("cond_encoder_stages", [0])),
             cond_decoder_stages=list(cfg.get("cond_decoder_stages", [])),
+            moe=list(cfg.get("moe", [])),
         )
 
 

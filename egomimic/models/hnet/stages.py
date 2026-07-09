@@ -41,6 +41,7 @@ from egomimic.models.hnet.blocks import (
     MambaCache,
 )
 from egomimic.models.hnet.context import HNetContext
+from egomimic.models.hnet.moe_ffn import MoEFFN
 from egomimic.models.hnet.isotropic_builder import build_isotropic
 from egomimic.models.hnet.routing import (
     ChunkLayer,
@@ -98,6 +99,9 @@ class ChunkerStageState:
     # grab_prev_end: previous step's input token (B, D) for the first_token
     # chunker's "first + prev-chunk-end" combine at AR rollout. None until 1st step.
     prev_x: Optional[torch.Tensor] = None
+    # Router pre-net KV cache (IsotropicInferenceParams; None unless
+    # router_pre_layout is set on the ChunkerStage).
+    router_pre_state: Optional[Any] = None
 
 
 @dataclass
@@ -313,6 +317,7 @@ def _slice_state(state: Any, mask: torch.Tensor):
             spline_state=_slice_spline_state(state.spline_state, mask),
             reg_trunk_state=_slice_reg_trunk_state(state.reg_trunk_state, mask),
             prev_x=(state.prev_x[mask].clone() if state.prev_x is not None else None),
+            router_pre_state=_slice_iso_params(state.router_pre_state, mask),
         )
     if isinstance(state, ComputeStageState):
         return ComputeStageState(
@@ -404,6 +409,7 @@ def _scatter_state(state: Any, sub: Any, mask: torch.Tensor):
         _scatter_reg_trunk_state(state.reg_trunk_state, sub.reg_trunk_state, mask)
         if state.prev_x is not None and sub.prev_x is not None:
             state.prev_x[mask] = sub.prev_x.to(state.prev_x.dtype)
+        _scatter_iso_params(state.router_pre_state, sub.router_pre_state, mask)
         return
     if isinstance(state, ComputeStageState):
         _scatter_iso_params(state.main_state, sub.main_state, mask)
@@ -742,11 +748,13 @@ class ChunkerStage(_BaseStage):
         # token just before each boundary) via a zero-init proj (starts as
         # first-token-only). Causal; gives the high-level each chunk's start+end.
         grab_prev_end: bool = False,
-        # Depth of the prev_end_combine downsampler MLP (used ONLY when
-        # grab_prev_end is True). DEFAULT 3 reproduces the original hardcoded
-        # 3-Linear MLP exactly (byte-identical params). n_layers=4 adds one
-        # extra hidden Linear+GELU.
-        prev_end_combine_n_layers: int = 3,
+        # --- Router pre-net (ported from EgoVerse-gmm-rp): optional small
+        #     CAUSAL transformer PRIVATE to the boundary router. The router
+        #     reads router_pre(x) instead of x; residual/STE/chunk/dechunk/
+        #     trunk paths still consume raw x. Isotropic arch_layout string
+        #     (e.g. "T1"/"T2"); DEFAULT None => no module, byte-identical. ---
+        router_pre_layout: Optional[str] = None,
+        router_pre_detach: bool = False,
     ):
         super().__init__(input_hidden_dim, output_hidden_dim, cond_key=cond_key)
         self.target_compression_ratio = float(target_compression_ratio)
@@ -837,6 +845,29 @@ class ChunkerStage(_BaseStage):
             if router_interface == "transformer"
             else None
         )
+        if router_pre_layout is not None and (
+            router_interface != "cossim" or down_interface != "first_token"
+        ):
+            raise NotImplementedError(
+                "router_pre is only wired for the cossim/first_token path."
+            )
+        self.router_pre_detach = bool(router_pre_detach)
+        self.router_pre = (
+            build_isotropic(
+                {
+                    "arch_layout": router_pre_layout,
+                    "d_model": self.input_hidden_dim,
+                    "d_intermediate": 3 * self.input_hidden_dim,
+                    "num_heads": max(1, self.input_hidden_dim // 64),
+                    "cond": False,
+                    "rotary_emb_dim": 64,
+                },
+                d_cond=0,
+                causal=True,
+            )
+            if router_pre_layout is not None
+            else None
+        )
         self.chunk_layer = ChunkLayer()
         self.dechunk_layer = DeChunkLayer(self.input_hidden_dim)
         # grab_prev_end: first_token chunker also folds in the previous chunk's
@@ -844,7 +875,6 @@ class ChunkerStage(_BaseStage):
         # below -- it REPLACES proj_in (2*input -> trunk dim), preserving both
         # boundary tokens instead of summing them (no info-lossy add).
         self.grab_prev_end = bool(grab_prev_end)
-        self.prev_end_combine_n_layers = int(prev_end_combine_n_layers)
         if self.grab_prev_end and down_interface != "first_token":
             raise ValueError("grab_prev_end requires down_interface='first_token'")
 
@@ -942,18 +972,11 @@ class ChunkerStage(_BaseStage):
             # (= trunk dim). REPLACES proj_in: the combine IS the bridge, so both
             # boundary tokens are preserved (no info-lossy sum). proj_out stays.
             _h = 2 * self.input_hidden_dim
-            # Configurable-depth MLP. n_layers counts Linear layers:
-            #   first Linear(2*input -> _h) + GELU,
-            #   (n_layers - 2) x [Linear(_h -> _h) + GELU],
-            #   final Linear(_h -> output).
-            # n_layers=3 reproduces the original 3-Linear MLP exactly.
-            _n = self.prev_end_combine_n_layers
-            assert _n >= 2, f"prev_end_combine_n_layers must be >= 2, got {_n}"
-            _layers = [nn.Linear(2 * self.input_hidden_dim, _h), nn.GELU()]
-            for _ in range(_n - 2):
-                _layers += [nn.Linear(_h, _h), nn.GELU()]
-            _layers += [nn.Linear(_h, self.output_hidden_dim)]
-            self.prev_end_combine = nn.Sequential(*_layers)
+            self.prev_end_combine = nn.Sequential(
+                nn.Linear(2 * self.input_hidden_dim, _h), nn.GELU(),
+                nn.Linear(_h, _h), nn.GELU(),
+                nn.Linear(_h, self.output_hidden_dim),
+            )
             # Learned "no previous chunk" token: fed as the prev-end half for the
             # first chunk of a sequence (instead of zeros) -> unambiguous BOS-like
             # signal the MLP can key on.
@@ -1036,7 +1059,14 @@ class ChunkerStage(_BaseStage):
         B, T, _ = x.shape
         mask = torch.ones(B, T, dtype=torch.bool, device=x.device)
 
-        bpred = self.routing_module(x, mask=mask)
+        r_in = x
+        if self.router_pre is not None:
+            # Router pre-net: ONLY the router input changes; residual/chunk/
+            # dechunk below still consume raw x.
+            if self.router_pre_detach:
+                r_in = r_in.detach()
+            r_in = self.router_pre(r_in, mask=mask)
+        bpred = self.routing_module(r_in, mask=mask)
         residual = self.residual_scale * self.residual_proj(x.float())
 
         chunked, _next_cu, next_max, next_mask = self.chunk_layer(
@@ -1091,7 +1121,16 @@ class ChunkerStage(_BaseStage):
         cu = ctx.cu_seqlens
 
         router = self._router
-        bpred = router(x, cu_seqlens=cu)
+        r_in = x
+        if self.router_pre is not None:
+            # Router pre-net (packed): private causal transform of x for the
+            # router only; everything below still uses raw x.
+            if self.router_pre_detach:
+                r_in = r_in.detach()
+            r_in = self.router_pre(
+                r_in, cu_seqlens=cu, max_seqlen=ctx.max_seqlen
+            )
+        bpred = router(r_in, cu_seqlens=cu)
         residual = self.residual_scale * self.residual_proj(x.float())
 
         # Test hook: run the scan/spline TF forward under the PREFIX-CAUSAL
@@ -1124,6 +1163,14 @@ class ChunkerStage(_BaseStage):
             if self.grab_prev_end:
                 chunked = self._combine_prev_end_tf(chunked, x, bpred.boundary_mask, cu)
 
+        # Chunkviz interface: chunk-rate tokens BEFORE the trunk lift. Captured
+        # unconditionally so it is always bound for the ctx.register_aux below.
+        # In the grab_prev_end path proj_in is None (the lift to output_hidden_dim
+        # happens inside the prev-end combine MLP), which previously left this
+        # variable undefined -> UnboundLocalError. viz_tokens is chunkviz-only
+        # (never touches the loss), so this is behavior-preserving for the
+        # proj_in!=None case (still the pre-proj tokens).
+        viz_chunk_tokens = chunked
         if self.proj_in is not None:
             chunked = self.proj_in(chunked)
 
@@ -1182,6 +1229,8 @@ class ChunkerStage(_BaseStage):
                 # ``RoutingModule._forward_packed``). Pass cu_seqlens through
                 # so the ratio loss can exclude those synthetic positions.
                 "cu_seqlens": cu,
+                # Chunkviz interface (consumed by Algo.collect_chunkviz).
+                "viz_tokens": viz_chunk_tokens,
             }
         )
         return out
@@ -1368,7 +1417,14 @@ class ChunkerStage(_BaseStage):
         return self.prev_end_combine(cat).to(chunked.dtype)
 
     def _step_first_token(self, x, ctx, state: ChunkerStageState):
-        bpred = self._router.step(x, state.routing_state)
+        r_in = x
+        if self.router_pre is not None:
+            # Advance the pre-net's private KV cache one token; feed the router
+            # the pre-net output. Raw x still feeds residual/chunk_layer below.
+            if self.router_pre_detach:
+                r_in = r_in.detach()
+            r_in = self.router_pre.step(r_in, state.router_pre_state)
+        bpred = self._router.step(r_in, state.routing_state)
         residual = self.residual_scale * self.residual_proj(x.float())
 
         inner_in = self.chunk_layer.step(x, bpred.boundary_mask)
@@ -1682,6 +1738,11 @@ class ChunkerStage(_BaseStage):
                 device=device,
                 dtype=dtype,
             )
+        router_pre_state = None
+        if self.router_pre is not None:
+            router_pre_state = self.router_pre.allocate_inference_cache(
+                batch_size, max_seqlen, device, dtype
+            )
         return ChunkerStageState(
             routing_state=routing_state,
             inner_state=(
@@ -1693,6 +1754,7 @@ class ChunkerStage(_BaseStage):
             scan_enc_state=scan_enc_state,
             spline_state=spline_state,
             reg_trunk_state=reg_trunk_state,
+            router_pre_state=router_pre_state,
         )
 
     def _init_weights(self, initializer_range: float, parent_residuals: int) -> int:
@@ -1714,6 +1776,13 @@ class ChunkerStage(_BaseStage):
                 nn.init.normal_(m.weight, mean=0.0, std=initializer_range)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
+        # Router pre-net: PRIVATE residual stream feeding only the boundary
+        # router — init like any Isotropic stack scaled by its OWN depth; it
+        # does not feed the task residual stream (no n_residuals contribution).
+        if self.router_pre is not None:
+            _init_isotropic_linears(
+                self.router_pre, initializer_range, self.router_pre.height
+            )
         # Only fold the trunk's residual count + apply its scaled init when the
         # gate is ON. With it OFF, ``n_residuals`` is left at ``parent_residuals``
         # exactly as before, so the inner_stage's init scaling is BYTE-UNCHANGED
@@ -1789,9 +1858,31 @@ class ComputeStage(_BaseStage):
         else:
             mask = torch.ones(x.shape[:2], dtype=torch.bool, device=x.device)
             x = self.main_network(x, mask=mask, cond=cond)
+        self._collect_moe_aux(ctx)
         if self.inner_stage is not None:
             x = self.inner_stage(x, ctx)
         return x
+
+    def _collect_moe_aux(self, ctx: HNetContext) -> None:
+        """Piggyback the ctx-aux mechanism (cf. ChunkerStage.register_aux /
+        ``ratio_loss_from_aux``): after this stage's main_network runs, publish
+        each MoE FFN's stashed load-balance loss + routing diagnostics onto
+        ``ctx.extras["moe_aux"]`` so the Loss can sum them. No-op (and thus
+        byte-identical) for dense-FFN stacks, which contain no ``MoEFFN``."""
+        moe_layers = [m for m in self.main_network.modules() if isinstance(m, MoEFFN)]
+        if not moe_layers:
+            return
+        sink = ctx.extras.setdefault("moe_aux", [])
+        for m in moe_layers:
+            if m.last_aux_loss is None:
+                continue
+            sink.append(
+                {
+                    "aux_loss": m.last_aux_loss,
+                    "expert_frac": m.last_expert_frac,
+                    "gate_entropy": m.last_gate_entropy,
+                }
+            )
 
     def step(self, x: torch.Tensor, ctx: HNetContext, state: ComputeStageState):
         cond = self._get_cond(ctx)

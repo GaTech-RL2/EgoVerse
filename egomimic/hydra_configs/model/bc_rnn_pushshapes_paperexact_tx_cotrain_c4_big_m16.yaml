@@ -85,7 +85,7 @@ robomimic_model:
     _target_: egomimic.models.heads.gmm_head.GMMActionHead
     d_model: 936              # = core.hidden_dim (no actor MLP)
     action_dim: 2
-    num_modes: 5
+    num_modes: 16
     min_std: 1.0e-4
     std_activation: softplus
     low_noise_eval: true

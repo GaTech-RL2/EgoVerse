@@ -38,12 +38,8 @@ class TwoStreamAttention(nn.Module):
         self.out_A = nn.Linear(d_model, d_model, bias=True)
         self.out_S = nn.Linear(d_model, d_model, bias=True)
         self.rotary_emb_dim = int(rotary_emb_dim)
-        assert (
-            self.rotary_emb_dim <= self.head_dim
-        ), "rotary_emb_dim must be <= head_dim"
-        self.rotary = (
-            _RotaryCache(self.rotary_emb_dim) if self.rotary_emb_dim > 0 else None
-        )
+        assert self.rotary_emb_dim <= self.head_dim, "rotary_emb_dim must be <= head_dim"
+        self.rotary = _RotaryCache(self.rotary_emb_dim) if self.rotary_emb_dim > 0 else None
 
     def forward(self, A, S, allow_mask, rope_positions):
         # A, S: (T, d_model) packed. allow_mask: (2T, 2T) bool. rope_positions: (2T,)
@@ -56,7 +52,7 @@ class TwoStreamAttention(nn.Module):
         v = torch.cat([va, vs], 0)
         if self.rotary is not None:
             cos, sin = self.rotary.get(rope_positions, q.dtype)  # (2T, dim/2)
-            cos, sin = cos[:, None, :], sin[:, None, :]  # broadcast over heads
+            cos, sin = cos[:, None, :], sin[:, None, :]          # broadcast over heads
             q = _apply_rotary(q, cos, sin)
             k = _apply_rotary(k, cos, sin)
         # SDPA over the packed 2T sequence: (1, H, 2T, Dh)
@@ -64,9 +60,7 @@ class TwoStreamAttention(nn.Module):
         k = k.permute(1, 0, 2)[None]
         v = v.permute(1, 0, 2)[None]
         out = F.scaled_dot_product_attention(
-            q,
-            k,
-            v,
+            q, k, v,
             attn_mask=allow_mask[None, None],  # (1,1,2T,2T) bool: True = attend
             dropout_p=self.dropout if self.training else 0.0,
         )
@@ -96,20 +90,14 @@ class TwoStreamBlock(nn.Module):
 class TwoStreamTrunk(nn.Module):
     """N two-stream blocks + final per-stream norms. Separate weights throughout."""
 
-    def __init__(
-        self, d_model, num_heads, d_intermediate, n_layers, rotary_emb_dim, dropout=0.0
-    ):
+    def __init__(self, d_model, num_heads, d_intermediate, n_layers, rotary_emb_dim, dropout=0.0):
         super().__init__()
         self.d_model = int(d_model)
         self.n_layers = int(n_layers)
-        self.blocks = nn.ModuleList(
-            [
-                TwoStreamBlock(
-                    d_model, num_heads, d_intermediate, rotary_emb_dim, dropout
-                )
-                for _ in range(int(n_layers))
-            ]
-        )
+        self.blocks = nn.ModuleList([
+            TwoStreamBlock(d_model, num_heads, d_intermediate, rotary_emb_dim, dropout)
+            for _ in range(int(n_layers))
+        ])
         self.norm_f_A, self.norm_f_S = RMSNorm(d_model), RMSNorm(d_model)
 
     @property

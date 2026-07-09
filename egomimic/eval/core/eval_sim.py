@@ -115,6 +115,7 @@ class SimRolloutEval(EvalVideo):
         self.rollout_timeout_s = int(rollout_timeout_s)  # 0 disables the watchdog
         self.report_max_coverage = bool(report_max_coverage)  # peak vs final IoU
         self.coverage_threshold = float(coverage_threshold)
+        self.run_full_horizon = bool(run_full_horizon)
         self.video_fps = int(video_fps)
         self.limit_val_batches = int(limit_val_batches)
         # Reseed the sampler RNG per episode (inside fork_rng, so any outer
@@ -123,10 +124,6 @@ class SimRolloutEval(EvalVideo):
         # for the same episode index. Off by default: numbers from unpaired
         # evals stay reproducible.
         self.rng_pairing = bool(rng_pairing)
-        # If True, ignore the env terminated (coverage>=0.95) early-stop so
-        # every episode runs the full max_steps -> true uncapped peak +
-        # uniform length.
-        self.run_full_horizon = bool(run_full_horizon)
         self._env = None
         self._init_counter = 0
 

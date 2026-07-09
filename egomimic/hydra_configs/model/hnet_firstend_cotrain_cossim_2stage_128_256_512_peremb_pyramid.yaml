@@ -193,7 +193,7 @@ robomimic_model:
         _target_: egomimic.models.heads.gmm_head.GMMActionHead
         d_model: 128
         action_dim: 2
-        num_modes: 16
+        num_modes: 32
         chunk_len: 4
         min_std: 0.0001
         std_activation: softplus
@@ -204,7 +204,7 @@ robomimic_model:
         _target_: egomimic.models.heads.gmm_head.GMMActionHead
         d_model: 128
         action_dim: 2
-        num_modes: 16
+        num_modes: 32
         chunk_len: 4
         min_std: 0.0001
         std_activation: softplus

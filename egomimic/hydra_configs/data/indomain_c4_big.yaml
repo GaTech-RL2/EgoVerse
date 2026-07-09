@@ -25,7 +25,7 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000_plus_gen
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
         action_horizon: 2560
@@ -39,7 +39,7 @@ valid_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
-      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000_plus_gen
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000
       key_map:
         _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
         action_horizon: 2560
@@ -50,14 +50,14 @@ valid_datasets:
 
 train_dataloader_params:
   pushshapes_sim:
-    batch_size: 8
+    batch_size: 16
     num_workers: 8
     pin_memory: true
     persistent_workers: true
     prefetch_factor: 4
 valid_dataloader_params:
   pushshapes_sim:
-    batch_size: 8
+    batch_size: 16
     num_workers: 8
     pin_memory: true
     persistent_workers: true

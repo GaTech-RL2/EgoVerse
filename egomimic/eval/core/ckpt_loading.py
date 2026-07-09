@@ -105,6 +105,10 @@ def main():
                         help="env obstacle_level (0-29 with the ported 30-level obstacles.py)")
     parser.add_argument("--coverage-threshold", type=float, default=0.7,
                         help="episode early-stop + success cutoff; 0.95 for true peak + SR@0.95")
+    parser.add_argument("--full-horizon", action="store_true",
+                        help="run the full max_steps; ignore the env success-termination "
+                             "(0.95) so every episode yields the uncapped true peak and "
+                             "uniform-length rollouts")
     parser.add_argument(
         "--obs-stride",
         type=int,
@@ -136,12 +140,6 @@ def main():
         action="store_true",
         help="Reseed the sampler RNG per episode (inside fork_rng) so GMM "
         "sampling noise is paired across runs for the same episode index.",
-    )
-    parser.add_argument(
-        "--full-horizon",
-        action="store_true",
-        help="Ignore the env terminated (coverage>=0.95) early-stop so every "
-        "episode runs the full --max-steps -> true uncapped peak + uniform length.",
     )
     parser.add_argument(
         "--only-emb",

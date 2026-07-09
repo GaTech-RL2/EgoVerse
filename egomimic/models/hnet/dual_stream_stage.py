@@ -129,8 +129,8 @@ class DualStreamComputeStage(_BaseStage):
         tp = time_pos.to(device=device, dtype=torch.long)
         tp2 = torch.cat([tp, tp], dim=0)  # (2T,)
 
-        same_episode = ep2[:, None] == ep2[None, :]  # (2T, 2T)
-        time_causal = tp2[None, :] <= tp2[:, None]  # key time <= query time
+        same_episode = ep2[:, None] == ep2[None, :]      # (2T, 2T)
+        time_causal = tp2[None, :] <= tp2[:, None]       # key time <= query time
 
         is_agnostic = torch.zeros(L, dtype=torch.bool, device=device)
         is_agnostic[:T_total] = True  # first half = agnostic stream
@@ -208,9 +208,7 @@ class DualStreamComputeStage(_BaseStage):
     def _allocate(self, batch_size, max_seqlen, dtype, device):
         return None  # recompute-over-prefix: nothing to cache.
 
-    def allocate_inference_cache(
-        self, batch_size, max_seqlen=None, device=None, dtype=None
-    ):
+    def allocate_inference_cache(self, batch_size, max_seqlen=None, device=None, dtype=None):
         return None
 
     # ------------------------------------------------------------------

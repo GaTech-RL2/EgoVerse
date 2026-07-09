@@ -9,7 +9,7 @@
 # no gradient.
 
 defaults:
-  - override /model: hnet_cotrain_cossim_chunkchunk_trunk_200M
+  - override /model: hnet_firstend_cotrain_cossim_2stage_128_256_512_peremb_pyramid
   - override /data: indomain_c4_big
   - override /evaluator: gmm_eval_firstend
   - override /logger: csv_wandb
