@@ -1,0 +1,28 @@
+# @package _global_
+# In-domain chunk-4 table cell: dualstream_cotrain with the HYBRID dual-stream +
+# CORAL core (v4). Per-embodiment dynamic-chunking SPECIFIC H-Nets (as in
+# dualhnet) + ONE shared CHUNKER-FREE transformer AGNOSTIC trunk. The agnostic
+# trunk attends ONE-WAY (detached) to the specific trunks' compressed tokens by
+# borrowing the specific chunk boundaries to compress itself, cross-attending,
+# and duplicate-dechunking back to full resolution. A_top -> GMM agnostic modes
+# + an auxiliary CORAL loss that aligns A_top across embodiments (cov + mean).
+# Both streams are fed the same observations.
+defaults:
+  - override /model: hnet_dualstream_hybrid_coral
+  - override /data: indomain_c4_cotrain
+  - override /evaluator: gmm_eval_firstend
+  - override /logger: csv_wandb
+
+name: indomain_c4
+description: dualstream_cotrain_hybrid_coral
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

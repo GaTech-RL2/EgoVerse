@@ -970,6 +970,8 @@ class PackedAlgoBase(Algo):
         train_obs_transforms: list | None = None,
         episode_level_transforms: list | None = None,
         obs_stride: Optional[int] = None,
+        coral_weight: float = 0.0,
+        coral_include_mean: bool = True,
         **kwargs,
     ):
         """
@@ -1014,6 +1016,13 @@ class PackedAlgoBase(Algo):
         self.weight_decay = float(weight_decay)
         self.train_obs_transforms = list(train_obs_transforms or [])
         self.episode_level_transforms = list(episode_level_transforms or [])
+        # CORAL aux loss (opt-in; default OFF so non-hybrid configs are unaffected).
+        # When > 0, an embodiment-agnostic-trunk alignment term is added in
+        # compute_losses over the per-embodiment ``agnostic_repr`` features that a
+        # HybridDualStreamCoralStage stashes on ctx.extras. include_mean adds the
+        # first-order mean-alignment term on top of the covariance term.
+        self.coral_weight = float(coral_weight)
+        self.coral_include_mean = bool(coral_include_mean)
         # obs_stride: subsample the obs-token stream fed to the chunker so
         # routed tokens are ``obs_stride`` sim-frames apart (mirrors the
         # working WindowedBC/HNetCore recipe). With stride > 1 the RoutingModule
@@ -1263,6 +1272,14 @@ class PackedAlgoBase(Algo):
             predictions[f"{emb_id}_action_loss"] = mse
             predictions[f"{emb_id}_ratio_loss"] = rloss
 
+            # CORAL: capture the embodiment-agnostic trunk representation (grad
+            # intact) so compute_losses can align it across embodiments. Only a
+            # HybridDualStreamCoralStage stashes this; absent otherwise (no-op).
+            if getattr(self, "coral_weight", 0.0) > 0.0:
+                agn = ctx.extras.get("agnostic_repr")
+                if agn is not None:
+                    predictions[f"{emb_id}_agnostic_repr"] = agn
+
             # Per-chunker stats for logging.
             stats = chunk_stats_from_aux(ctx.aux)
             for k, v in stats.items():
@@ -1419,10 +1436,31 @@ class PackedAlgoBase(Algo):
                 if not key.startswith(prefix):
                     continue
                 tail = key[len(prefix) :]
-                if tail in ("pred", "action_loss", "ratio_loss"):
+                if tail in ("pred", "action_loss", "ratio_loss", "agnostic_repr"):
                     continue
                 loss_dict[f"emb{emb_id}_{tail}"] = value
-        loss_dict["action_loss"] = total / max(len(batch), 1)
+        total = total / max(len(batch), 1)
+
+        # CORAL aux: align the embodiment-agnostic trunk features across
+        # embodiments (opt-in; coral_weight > 0). The per-embodiment features were
+        # stashed in forward_training. Added to the optimized total and logged.
+        # getattr-guarded so objects built via object.__new__ (tests) or resumed
+        # from a pre-CORAL checkpoint default to CORAL-off.
+        coral_weight = getattr(self, "coral_weight", 0.0)
+        if coral_weight > 0.0:
+            from egomimic.algo.hnet.coral import coral_loss
+
+            feats = {
+                emb_id: predictions.get(f"{emb_id}_agnostic_repr")
+                for emb_id in batch.keys()
+            }
+            coral = coral_loss(
+                feats, include_mean=getattr(self, "coral_include_mean", True)
+            ).to(total.device)
+            loss_dict["coral_loss"] = coral.detach()
+            total = total + coral_weight * coral
+
+        loss_dict["action_loss"] = total
         return loss_dict
 
     # log_info is inherited from Algo (collapse c5 — byte-identical default).
