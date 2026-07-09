@@ -2,13 +2,13 @@
 #SBATCH -A gts-dxu345-rl2
 #SBATCH -q inferno
 #SBATCH -N1
-#SBATCH --ntasks-per-node=8
+#SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=515750M
-#SBATCH --gres=gpu:h200:8
+#SBATCH --mem=257875M
+#SBATCH --gres=gpu:h200:4
 #SBATCH --time=72:00:00
-#SBATCH --job-name=pi05_mecka_all_6d
-#SBATCH --output=/storage/project/r-dxu345-0/agao81/EgoVerse/logs/pi05_mecka_all_6d_%j.log
+#SBATCH --job-name=pi05_mecka_4g
+#SBATCH --output=/storage/project/r-dxu345-0/agao81/EgoVerse/logs/pi05_mecka_4g_%j.log
 
 # Full pi0.5 BC on ALL SQL mecka episodes (cartesian_6d, 6D proprio), 8xH200.
 #
@@ -55,8 +55,9 @@ ARGS=(
   data=mecka_all_pi_6d
   model=pi0.5_bc_mecka_6d
   evaluator=eval_pi_wristframe_6d
-  launch_params.gpus_per_node=8
+  launch_params.gpus_per_node=4
   "model.optimizer.lr=$LR"
+  data.train_dataloader_params.human_bimanual.batch_size=128
   "norm_stats.precomputed_norm_path=$NORM_PATH"
   model.robomimic_model.config.pytorch_weight_path=/storage/project/r-dxu345-0/agao81/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
   # val every 50 epochs (5k steps); viz stays 100 (fires every 2nd val);
@@ -67,7 +68,7 @@ ARGS=(
   +callbacks.model_checkpoint.monitor=step
   +callbacks.model_checkpoint.mode=max
   name=pi05_mecka_all_6d
-  description=pi05_mecka_all_6d_bs64x8_constlr_wrist6d
+  description=pi05_mecka_all_6d_bs128x4_constlr_wrist6d
 )
 # Lightning names checkpoints "epoch_epoch=..." — quote so hydra's grammar
 # doesn't choke on '='.
