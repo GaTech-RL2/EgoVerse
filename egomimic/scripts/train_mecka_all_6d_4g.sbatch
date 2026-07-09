@@ -10,7 +10,12 @@
 #SBATCH --job-name=pi05_mecka_4g
 #SBATCH --output=/storage/project/r-dxu345-0/agao81/EgoVerse/logs/pi05_mecka_4g_%j.log
 
-# Full pi0.5 BC on ALL SQL mecka episodes (cartesian_6d, 6D proprio), 8xH200.
+# Full pi0.5 BC on ALL SQL mecka episodes (cartesian_6d, 6D proprio), 4xH200.
+#
+# 4 GPUs, not 8: the 8-rank shape hits a pathological NCCL slowdown on these
+# HGX nodes (12.6 s/step vs 3.6 s/step measured at 4 ranks on the same
+# hardware/strategy — see legacy run obj_gen_..._9368273). bs64/GPU -> global
+# batch 256.
 #
 # Cadence (epoch = limit_train_batches = 100 steps):
 #   val every 50 epochs (5k steps, 80 batches, no shuffle)
@@ -57,7 +62,6 @@ ARGS=(
   evaluator=eval_pi_wristframe_6d
   launch_params.gpus_per_node=4
   "model.optimizer.lr=$LR"
-  data.train_dataloader_params.human_bimanual.batch_size=128
   "norm_stats.precomputed_norm_path=$NORM_PATH"
   model.robomimic_model.config.pytorch_weight_path=/storage/project/r-dxu345-0/agao81/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
   # val every 50 epochs (5k steps); viz stays 100 (fires every 2nd val);
@@ -68,7 +72,7 @@ ARGS=(
   +callbacks.model_checkpoint.monitor=step
   +callbacks.model_checkpoint.mode=max
   name=pi05_mecka_all_6d
-  description=pi05_mecka_all_6d_bs128x4_constlr_wrist6d
+  description=pi05_mecka_all_6d_bs64x4_constlr_wrist6d
 )
 # Lightning names checkpoints "epoch_epoch=..." — quote so hydra's grammar
 # doesn't choke on '='.
