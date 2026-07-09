@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
+from typing import Any
 
 from hydra import compose, initialize_config_dir
 from hydra.core.global_hydra import GlobalHydra
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 HYDRA_CONFIG_DIR = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "hydra_configs"
@@ -72,6 +73,51 @@ def find_hydra_config_dir(config_path: str | Path) -> str:
         f"Could not locate a 'hydra_configs/' ancestor for {config_path}. "
         "Pass a config that lives under a hydra_configs/ directory."
     )
+
+
+def find_run_snapshot_path(start_path: str | Path) -> str | None:
+    """Walk up from ``start_path`` looking for a sibling ``.hydra/config.yaml``.
+
+    Hydra writes the fully-composed config snapshot for a training run into
+    ``<run_dir>/.hydra/config.yaml``. Given a path inside that run (e.g. a
+    checkpoint at ``<run_dir>/checkpoints/foo.ckpt``), this returns the
+    snapshot path, or ``None`` if no ancestor has one.
+    """
+    d = os.path.dirname(os.path.abspath(str(start_path)))
+    seen: set[str] = set()
+    while d and d not in seen:
+        seen.add(d)
+        candidate = os.path.join(d, ".hydra", "config.yaml")
+        if os.path.isfile(candidate):
+            return candidate
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+    return None
+
+
+def load_run_snapshot(
+    start_path: str | Path,
+    *,
+    resolve: bool = False,
+) -> dict[str, Any] | None:
+    """Load the fully-composed hydra config snapshot for a training run.
+
+    Walks up from ``start_path`` (typically a checkpoint path) to find the
+    nearest ``<run_dir>/.hydra/config.yaml`` and loads it as a plain dict.
+
+    ``resolve`` defaults to ``False`` because run snapshots often contain
+    interpolations like ``${data.dataset.data_schematic}`` that reference
+    runtime-only nodes and would crash on resolution. Set ``resolve=True``
+    only when the caller knows all interpolations are self-contained.
+
+    Returns ``None`` if no snapshot is found in any ancestor.
+    """
+    snapshot = find_run_snapshot_path(start_path)
+    if snapshot is None:
+        return None
+    return OmegaConf.to_container(OmegaConf.load(snapshot), resolve=resolve)
 
 
 def load_config_from_path(

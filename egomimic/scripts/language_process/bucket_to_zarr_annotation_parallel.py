@@ -71,8 +71,16 @@ def process_episode(
     obj = s3.get_object(Bucket=bucket, Key=key)
     payload = json.loads(obj["Body"].read().decode("utf-8"))
 
+    # Carry the high/low ``level`` tag through to the writer (legacy payloads
+    # without it default to "low"). Keeps the sort hierarchy intact across the
+    # bucket round-trip; ZarrWriter persists it as annotation_v2.
     annotations = [
-        (entry["text"], int(entry["start_idx"]), int(entry["end_idx"]))
+        (
+            entry["text"],
+            int(entry["start_idx"]),
+            int(entry["end_idx"]),
+            entry.get("level", "low"),
+        )
         for entry in payload
     ]
 

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "egomimic"
 version = "1.0"
 description = "Egomimic Scripts Package"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "torch==2.7.1",
     "torchvision==0.22.1",
@@ -40,7 +40,6 @@ dependencies = [
     "argparse",
     "pandas",
     "overrides",
-    "zarr==3.1.5",
     "tabulate",
     "transformers==4.53.2",
     "timm",

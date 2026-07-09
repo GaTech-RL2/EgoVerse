@@ -13,12 +13,11 @@ import numpy as np
 import torch
 from robot_utils import RateLoop
 from scipy.spatial.transform import Rotation as R
-from torch.utils.data import default_collate
 
 from egomimic.models.denoising_policy import DenoisingPolicy
-from egomimic.pl_utils.pl_data_utils import build_tokenized_collate
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.embodiment.embodiment import get_embodiment
+from egomimic.pl_utils.pl_data_utils import annotation_collate
+from egomimic.rldb.embodiment.embodiment import EMBODIMENT, get_embodiment
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 from egomimic.utils.egomimicUtils import (
@@ -154,10 +153,13 @@ DEFAULT_RESAMPLE_LENGTH = 45
 RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
 
+# Sourced from the EMBODIMENT enum so the rollout doesn't drift when
+# the enum is renumbered (e.g. the intrinsic-zarr collapse moved EVA
+# from 6/7/8 to 4/5/6). Reads the int value of each enum member.
 EMBODIMENT_MAP = {
-    "both": 8,
-    "left": 7,
-    "right": 6,
+    "both": EMBODIMENT.EVA_BIMANUAL.value,
+    "left": EMBODIMENT.EVA_LEFT_ARM.value,
+    "right": EMBODIMENT.EVA_RIGHT_ARM.value,
 }
 
 TEMP_DIR = "/home/robot/temp_dir"
@@ -172,19 +174,6 @@ def _build_robot_interface(arms_list, offline_debug=False, offline_episode_path=
     from robot_interface import ARXInterface
 
     return ARXInterface(arms=arms_list)
-
-
-def _get_model_xml_path():
-    candidates = [
-        "/home/robot/robot_ws/egomimic/resources/model_x5.xml",
-        os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "resources", "model_x5.xml")
-        ),
-    ]
-    for candidate in candidates:
-        if os.path.exists(candidate):
-            return candidate
-    return candidates[-1]
 
 
 class _KeyPoll:
@@ -259,10 +248,29 @@ class PolicyRollout(Rollout):
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
         self.debug = debug
-        self.transform_list = Eva.get_transform_list(mode="cartesian_wristframe_ypr")
+        self.transform_list = self._build_transform_list_from_config()
         self.annotation = None
-        self._tokenizer = None
-        self.collate_fn = default_collate
+        self.collate_fn = annotation_collate
+        self._proprio_debug_printed = False
+        # Prediction visualizer. Built from ``evaluator.viz_func`` in the
+        # checkpoint's .hydra/config.yaml so the rollout uses whatever viz
+        # the training pipeline declared (image_key / action_key / mode).
+        self.viz_func = self._build_viz_func_from_config()
+        # Two independent viz modes — both off by default; toggle from the
+        # intervention menu. ``viz_enabled`` saves at the intrinsics' native
+        # 640x480 (matches what training viz uses). ``viz_model_enabled``
+        # saves at 224x224-with-pad — i.e. the exact tensor the model sees
+        # after resize_with_pad_torch — and uses scaled intrinsics so the
+        # projection still lands on the right pixels at that resolution.
+        self.viz_enabled = False
+        self.viz_model_enabled = False
+        self.viz_model_target = 224
+        # Revert transform_list. For wrist-frame models, the training
+        # pipeline declares an ``evaluator.transform_lists.<emb>`` block
+        # that converts model output from wrist frame back to cam frame
+        # before viz/MSE. The rollout needs the same conversion so the
+        # cam→base post-processing and the viz projection both work.
+        self.revert_transform_list = self._build_revert_transform_from_config()
         if annotation_path is not None:
             if not os.path.isfile(annotation_path):
                 print(
@@ -271,51 +279,479 @@ class PolicyRollout(Rollout):
             else:
                 with open(annotation_path, "r") as f:
                     self.annotation = f.read().strip()
-                self.collate_fn = build_tokenized_collate(
-                    max_length=128,
-                    model_name="google/paligemma-3b-mix-224",
-                    sampling_mode="first",
-                    annotation_key="annotations",
-                    default_prompt=self.annotation,
-                )
+                self._apply_annotation_to_algo()
 
     LOCAL_WEIGHT_PATH = (
         "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
     )
 
     @classmethod
-    def _patch_checkpoint_paths(cls, ckpt_path):
-        """Rewrite pytorch_weight_path in the checkpoint's saved config
-        to point to the local base model weights."""
+    def _load_checkpoint_cfg(cls, ckpt_path):
+        """Load the saved hydra config tree from a checkpoint as a plain dict."""
         import torch as _torch
         from omegaconf import DictConfig, OmegaConf
 
         ckpt = _torch.load(ckpt_path, map_location="cpu", weights_only=False)
         ht = ckpt.get("hyper_parameters", {}).get("config_tree")
         if ht is None:
-            return ckpt_path
+            return None, ckpt
         if isinstance(ht, DictConfig):
             cfg = OmegaConf.to_container(ht, resolve=True)
         else:
             cfg = ht
+        return cfg, ckpt
+
+    @classmethod
+    def _patch_checkpoint_paths(cls, ckpt_path):
+        """Rewrite pytorch_weight_path in the checkpoint's saved config
+        to point to the local base model weights. Returns (patched_path, cfg).
+
+        Memory note: torch.load loads the entire checkpoint into RAM (~14GB
+        for pi05). We immediately get a second copy when ModelWrapper.load_from_checkpoint
+        runs on the patched file. To avoid OOM we:
+          - Reuse an existing ``.patched`` file when present, skipping the
+            load+save entirely on subsequent launches.
+          - Explicitly ``del`` the in-RAM checkpoint and trigger gc before
+            returning so the patched copy is freed before the main load runs.
+        """
+        patched_path = ckpt_path + ".patched"
+        if os.path.isfile(patched_path):
+            print(f"[rollout] Reusing existing patched checkpoint: {patched_path}")
+            return patched_path, None
+        import gc
+        import torch as _torch
+        from omegaconf import OmegaConf
+        cfg, ckpt = cls._load_checkpoint_cfg(ckpt_path)
+        if cfg is None:
+            return ckpt_path, None
         # Navigate to pytorch_weight_path in the config
         robomimic = cfg.get("model", {}).get("robomimic_model", {})
         config = robomimic.get("config", {})
         old_path = config.get("pytorch_weight_path")
         if old_path is None or old_path == cls.LOCAL_WEIGHT_PATH:
-            return ckpt_path
-        print(
-            f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}"
-        )
+            del ckpt
+            gc.collect()
+            return ckpt_path, cfg
+        print(f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}")
         config["pytorch_weight_path"] = cls.LOCAL_WEIGHT_PATH
         ckpt["hyper_parameters"]["config_tree"] = OmegaConf.create(cfg)
-        patched_path = ckpt_path + ".patched"
         _torch.save(ckpt, patched_path)
         print(f"[rollout] Patched checkpoint saved to {patched_path}")
-        return patched_path
+        del ckpt, cfg
+        gc.collect()
+        return patched_path, None
+
+    def _apply_annotation_to_algo(self):
+        """Wire the rollout-time annotation into the loaded algo.
+
+        Duck-typed: sets whichever of the standard annotation knobs the
+        model actually has, so this works for PI (``sampling_mode``),
+        QWEN-HPT (``annotation_sampling_mode``), and any future variant
+        that follows the same naming conventions. Algos that have none of
+        these attributes are left untouched.
+
+          - Respects the model's existing ``annotation_key`` (don't
+            override). For subtask models the trained key is
+            ``annotations_high`` (the high-level goal the user types);
+            ``annotations`` is reserved for the low-level subtask the
+            model *predicts*. Overriding to ``"annotations"`` would
+            clobber the wrong slot.
+          - ``sampling_mode="first"`` / ``annotation_sampling_mode="first"``
+            make inference deterministic.
+          - ``default_prompt=self.annotation`` is the fallback path for
+            edge cases (e.g. the annotations key gets dropped).
+        """
+        model = getattr(self.policy, "model", None)
+        if model is None:
+            return
+        if hasattr(model, "sampling_mode"):
+            model.sampling_mode = "first"
+        if hasattr(model, "annotation_sampling_mode"):
+            model.annotation_sampling_mode = "first"
+        if self.annotation is not None and hasattr(model, "default_prompt"):
+            model.default_prompt = self.annotation
+
+    def _build_transform_list_from_config(self):
+        """Build the rollout transform_list from the training config so the
+        live observations are pre-processed in the same coordinate frame /
+        action representation the model was trained on. Reads the eva
+        embodiment's ``transform_list`` block from the .hydra/config.yaml
+        next to the checkpoint. Falls back to the legacy hardcoded
+        ``cartesian_wristframe_ypr`` if nothing is found.
+        """
+        import yaml
+        ckpt_dir = os.path.dirname(self.policy_path)
+        candidates = [
+            os.path.join(ckpt_dir, "..", ".hydra", "config.yaml"),
+            os.path.join(ckpt_dir, ".hydra", "config.yaml"),
+        ]
+        cfg = None
+        for p in candidates:
+            p = os.path.normpath(p)
+            if os.path.isfile(p):
+                with open(p) as f:
+                    cfg = yaml.safe_load(f)
+                break
+        if cfg is None:
+            print("[rollout] WARNING: no .hydra/config.yaml found — falling back to mode='cartesian_wristframe_ypr'")
+            return Eva.get_transform_list(mode="cartesian_wristframe_ypr")
+
+        # Pull the eva embodiment's transform_list block out of either
+        # ``data.train_datasets.eva_bimanual.resolver.transform_list`` (the
+        # MultiDataModuleWrapper layout) or a similar nested path. We only
+        # need ``mode`` (or to detect a direct _target_ to the builder fn).
+        train_datasets = (
+            (cfg.get("data") or {}).get("train_datasets") or {}
+        )
+        eva_block = (
+            train_datasets.get("eva_bimanual")
+            or train_datasets.get("eva_right_arm")
+            or train_datasets.get("eva_left_arm")
+            or {}
+        )
+        resolver = eva_block.get("resolver") or {}
+        tl = resolver.get("transform_list") or {}
+
+        target = tl.get("_target_", "")
+        mode = tl.get("mode")
+
+        # Mode-based call: Eva.get_transform_list(mode=...)
+        if "Eva.get_transform_list" in target and mode:
+            print(f"[rollout] Using transform_list mode='{mode}' (from {os.path.relpath(p)})")
+            return Eva.get_transform_list(mode=mode)
+
+        # Direct call to the canonical eva-bimanual builder: equivalent to mode='cartesian'
+        if target.endswith("_build_eva_bimanual_transform_list"):
+            print(f"[rollout] Using mode='cartesian' (config calls _build_eva_bimanual_transform_list)")
+            return Eva.get_transform_list(mode="cartesian")
+
+        print(f"[rollout] WARNING: could not parse eva transform_list from config (target={target!r}, mode={mode!r}) — falling back to 'cartesian_wristframe_ypr'")
+        return Eva.get_transform_list(mode="cartesian_wristframe_ypr")
+
+    def _build_viz_func_from_config(self):
+        """Instantiate the prediction visualizer from ``evaluator.viz_func``
+        in the training .hydra/config.yaml. Returns a callable taking
+        ``(predictions, batch)`` and producing a numpy image stack, or
+        ``None`` if no viz_func is declared / the config can't be read.
+        """
+        import yaml
+        from hydra.utils import instantiate
+        ckpt_dir = os.path.dirname(self.policy_path)
+        candidates = [
+            os.path.normpath(os.path.join(ckpt_dir, "..", ".hydra", "config.yaml")),
+            os.path.normpath(os.path.join(ckpt_dir, ".hydra", "config.yaml")),
+        ]
+        self._viz_image_key = None
+        self._viz_action_key = "actions_cartesian"
+        self._viz_annotation_key = None
+        cfg = None
+        for p in candidates:
+            if os.path.isfile(p):
+                with open(p) as f:
+                    cfg = yaml.safe_load(f)
+                break
+        if cfg is None:
+            return None
+        viz_block = ((cfg.get("evaluator") or {}).get("viz_func") or {})
+        # Pick the eva entry that matches the active arm config.
+        for emb_name in ("eva_bimanual", "eva_right_arm", "eva_left_arm"):
+            entry = viz_block.get(emb_name)
+            if entry:
+                try:
+                    fn = instantiate(entry)
+                except Exception as e:
+                    print(f"[rollout] WARNING: failed to instantiate viz_func from config: {e}")
+                    return None
+                print(
+                    f"[rollout] viz_func loaded: {entry.get('_target_')} "
+                    f"image_key={entry.get('image_key')!r} "
+                    f"action_key={entry.get('action_key')!r} "
+                    f"mode={entry.get('mode')!r}"
+                )
+                self._viz_image_key = entry.get("image_key")
+                self._viz_action_key = entry.get("action_key", "actions_cartesian")
+                self._viz_annotation_key = entry.get("annotation_key")
+                return fn
+        return None
+
+    def _build_revert_transform_from_config(self):
+        """Instantiate the revert transform_list from
+        ``evaluator.transform_lists.<embodiment>`` in the training
+        .hydra/config.yaml. The revert takes wrist-frame model output and
+        produces cam-frame actions using the current ``observations.state.ee_pose``
+        as the reference. Returns a list of Transform objects, or ``None``
+        if the config has no transform_lists block (i.e. the model was
+        trained directly in cam frame and no revert is needed).
+        """
+        import yaml
+        from hydra.utils import instantiate
+        ckpt_dir = os.path.dirname(self.policy_path)
+        candidates = [
+            os.path.normpath(os.path.join(ckpt_dir, "..", ".hydra", "config.yaml")),
+            os.path.normpath(os.path.join(ckpt_dir, ".hydra", "config.yaml")),
+        ]
+        cfg = None
+        for p in candidates:
+            if os.path.isfile(p):
+                with open(p) as f:
+                    cfg = yaml.safe_load(f)
+                break
+        if cfg is None:
+            return None
+        block = ((cfg.get("evaluator") or {}).get("transform_lists") or {})
+        for emb_name in ("eva_bimanual", "eva_right_arm", "eva_left_arm"):
+            entry = block.get(emb_name)
+            if entry:
+                try:
+                    fn = instantiate(entry)
+                except Exception as e:
+                    print(f"[rollout] WARNING: failed to instantiate revert transform_list: {e}")
+                    return None
+                print(
+                    f"[rollout] revert transform_list loaded: "
+                    f"{entry.get('_target_')!r}"
+                )
+                return fn
+        return None
+
+    def _apply_revert_to_actions(self, preds, batch_unnorm):
+        """Apply the revert transform to convert wrist-frame model output
+        to cam frame. Reads ``observations.state.ee_pose`` from
+        ``batch_unnorm`` as the reference frame and returns a new preds
+        tensor with the same shape as the input. No-op if no revert is
+        configured.
+        """
+        if self.revert_transform_list is None:
+            return preds
+        from egomimic.rldb.embodiment.embodiment import Embodiment
+        obs_key = "observations.state.ee_pose"
+        if obs_key not in batch_unnorm:
+            print(
+                f"[rollout] WARNING: '{obs_key}' missing from batch — "
+                "cannot revert wristframe actions"
+            )
+            return preds
+        # Build a minimal batch with the predictions plugged in as the
+        # action chunk plus the obs_ee_pose reference. apply_transform
+        # splits per-sample and re-batches.
+        pred_batch = {
+            "actions_cartesian": preds.detach().cpu().float(),
+            obs_key: batch_unnorm[obs_key],
+        }
+        reverted = Embodiment.apply_transform(pred_batch, self.revert_transform_list)
+        out = reverted["actions_cartesian"]
+        if not isinstance(out, torch.Tensor):
+            out = torch.as_tensor(out)
+        return out.to(preds.device, dtype=preds.dtype)
+
+    def _save_viz_model_res(self, batch_for_model, preds, embodiment_name, step_i):
+        """Save the prediction viz at the model's input resolution
+        (224x224 with padding, mirroring resize_with_pad_torch). Uses
+        scaled-and-padded intrinsics so the cam-frame xyz projection still
+        lands on the correct pixel even though the image is small.
+        Written to ``debug/viz_model_<step_i>.png`` (separate from the
+        ``viz_<step_i>.png`` files produced by the standard viz mode).
+        """
+        if self.viz_func is None:
+            print("[rollout] viz_model toggle is on but no viz_func is configured — skipping")
+            return
+        try:
+            import torch.nn.functional as F
+            from egomimic.utils import egomimicUtils
+
+            batch = dict(batch_for_model)
+            img_key = self._viz_image_key
+            if not (img_key and img_key in batch):
+                print(f"[rollout] viz_model: '{img_key}' not in batch — skipping")
+                return
+            img_t = batch[img_key]
+            if isinstance(img_t, torch.Tensor):
+                if img_t.dim() == 3:
+                    img_t = img_t.unsqueeze(0)
+                if img_t.shape[1] != 3 and img_t.shape[-1] == 3:
+                    img_t = img_t.permute(0, 3, 1, 2)
+            src_h, src_w = img_t.shape[-2:]
+
+            # resize_with_pad to target x target
+            target = int(self.viz_model_target)
+            ratio = max(src_w / target, src_h / target)
+            resized_h = int(src_h / ratio)
+            resized_w = int(src_w / ratio)
+            img_resized = F.interpolate(
+                img_t.float(), size=(resized_h, resized_w),
+                mode="bilinear", align_corners=False,
+            )
+            pad_h0 = (target - resized_h) // 2
+            pad_h1 = target - resized_h - pad_h0
+            pad_w0 = (target - resized_w) // 2
+            pad_w1 = target - resized_w - pad_w0
+            img_padded = F.pad(
+                img_resized, (pad_w0, pad_w1, pad_h0, pad_h1),
+                mode="constant", value=0,
+            )
+            batch[img_key] = img_padded
+
+            # Scale intrinsics to match the resize+pad. The base intrinsics
+            # are calibrated for cx*2 x cy*2 (e.g. 640x480 for ARIA).
+            # Scale them up to the source camera resolution first, then
+            # apply the resize-with-pad scaling on top.
+            orig_K = egomimicUtils.INTRINSICS["base"].copy()
+            ref_w = float(orig_K[0, 2] * 2.0)
+            ref_h = float(orig_K[1, 2] * 2.0)
+            cam_scale_x = src_w / ref_w
+            cam_scale_y = src_h / ref_h
+            fx = orig_K[0, 0] * cam_scale_x
+            fy = orig_K[1, 1] * cam_scale_y
+            cx = orig_K[0, 2] * cam_scale_x
+            cy = orig_K[1, 2] * cam_scale_y
+            new_fx, new_fy = fx / ratio, fy / ratio
+            new_cx = cx / ratio + pad_w0
+            new_cy = cy / ratio + pad_h0
+            scaled_K = np.array([
+                [new_fx, 0.0, new_cx, 0.0],
+                [0.0, new_fy, new_cy, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+            ])
+
+            # viz_gt_preds expects batch["embodiment"][0].item() to work.
+            emb = batch.get("embodiment")
+            if not isinstance(emb, torch.Tensor):
+                batch["embodiment"] = torch.tensor(
+                    [int(self.embodiment_id)], dtype=torch.int64
+                )
+            predictions = {
+                f"{embodiment_name}_{self._viz_action_key}": preds.detach(),
+            }
+            # Swap in scaled intrinsics for the duration of the viz_func call,
+            # then restore. viz_func reads INTRINSICS["base"] internally.
+            # ``pred_alpha=0.0`` makes the red prediction overlay fully
+            # transparent — model-res viz shows the image as the model sees
+            # it, without the prediction trajectory drawn on top.
+            try:
+                egomimicUtils.INTRINSICS["base"] = scaled_K
+                ims = self.viz_func(predictions, batch, pred_alpha=0.0)
+            finally:
+                egomimicUtils.INTRINSICS["base"] = orig_K
+
+            ims = np.asarray(ims)
+            out_im = ims[0] if ims.ndim == 4 else ims
+            out_im = cv2.cvtColor(out_im, cv2.COLOR_RGB2BGR)
+            out_dir = os.path.abspath("debug")
+            os.makedirs(out_dir, exist_ok=True)
+            out_path = os.path.join(out_dir, f"viz_model_{step_i:06d}.png")
+            cv2.imwrite(out_path, out_im)
+            print(f"[rollout] saved viz_model -> {out_path}")
+        except Exception as e:
+            print(f"[rollout] viz_model failed at step {step_i}: {e}")
+
+    def _save_viz(self, batch_for_model, preds, embodiment_name, step_i):
+        """Render and save a per-inference prediction visualization to
+        ``debug/viz_<step_i>.png``. Caller is expected to have already
+        unnormalized the batch and applied any revert transform_list so
+        both ``batch[actions_cartesian]`` and ``preds`` are in cam frame.
+        """
+        if self.viz_func is None:
+            print("[rollout] viz toggle is on but no viz_func is configured — skipping")
+            return
+        try:
+            batch = dict(batch_for_model)
+            # viz_gt_preds projects cam-frame xyz via INTRINSICS["base"]
+            # (= ARIA_INTRINSICS, calibrated for 640x480). If the live
+            # camera publishes at a different resolution (e.g. configs.yaml
+            # has Aria front at 960x720), the projection lands in the wrong
+            # pixels even though the xyz values are correct. Resize the
+            # image to the intrinsics' native size so they match.
+            img_key = self._viz_image_key
+            if img_key and img_key in batch:
+                import torch.nn.functional as F
+                img_t = batch[img_key]
+                if isinstance(img_t, torch.Tensor):
+                    # Force BCHW: collated transform_list image is [B, C, H, W].
+                    if img_t.dim() == 3:
+                        img_t = img_t.unsqueeze(0)
+                    if img_t.shape[1] != 3 and img_t.shape[-1] == 3:
+                        img_t = img_t.permute(0, 3, 1, 2)
+                    if img_t.shape[-2:] != (480, 640):
+                        img_t = F.interpolate(
+                            img_t.float(), size=(480, 640),
+                            mode="bilinear", align_corners=False,
+                        )
+                    batch[img_key] = img_t
+            # viz_gt_preds expects batch["embodiment"][0].item() to work,
+            # so make sure embodiment is a tensor with a batch dim.
+            emb = batch.get("embodiment")
+            if not isinstance(emb, torch.Tensor):
+                batch["embodiment"] = torch.tensor(
+                    [int(self.embodiment_id)], dtype=torch.int64
+                )
+            # If the viz_func config sets ``annotation_key`` (the partial
+            # will then do ``batch[annotation_key]`` unconditionally), make
+            # sure the key exists. Use the loaded rollout annotation when
+            # present, else an empty string so the text overlay just draws
+            # blank.
+            ak = self._viz_annotation_key
+            if ak and ak not in batch:
+                batch[ak] = [self.annotation if self.annotation is not None else ""]
+            predictions = {
+                f"{embodiment_name}_{self._viz_action_key}": preds.detach(),
+            }
+            if not getattr(self, "_viz_debug_printed", False):
+                act_key = self._viz_action_key
+                gt = batch.get(act_key)
+                pred_t = predictions[f"{embodiment_name}_{act_key}"]
+                img = batch.get(self._viz_image_key)
+                print(
+                    f"[rollout][viz-debug] image_key={self._viz_image_key!r} "
+                    f"action_key={act_key!r}"
+                )
+                if isinstance(img, torch.Tensor):
+                    print(
+                        f"[rollout][viz-debug] image shape={tuple(img.shape)} "
+                        f"dtype={img.dtype} min={img.float().min().item():.3f} "
+                        f"max={img.float().max().item():.3f}"
+                    )
+                if isinstance(pred_t, torch.Tensor):
+                    pf = pred_t.float()[0]  # (T, D)
+                    T = pf.shape[0]
+                    print(
+                        f"[rollout][viz-debug] pred shape={tuple(pred_t.shape)} "
+                        f"L_xyz t=0:    {pf[0,    :3].tolist()}\n"
+                        f"[rollout][viz-debug]                     "
+                        f"L_xyz t={T//2}:  {pf[T//2, :3].tolist()}\n"
+                        f"[rollout][viz-debug]                     "
+                        f"L_xyz t={T-1}: {pf[-1,   :3].tolist()}\n"
+                        f"[rollout][viz-debug]                     "
+                        f"R_xyz t=0:    {pf[0,    7:10].tolist()}\n"
+                        f"[rollout][viz-debug]                     "
+                        f"R_xyz t={T-1}: {pf[-1,   7:10].tolist()}"
+                    )
+                if isinstance(gt, torch.Tensor):
+                    gf = gt.float()[0]
+                    print(
+                        f"[rollout][viz-debug] GT (current EE held) "
+                        f"L_xyz: {gf[0, :3].tolist()} "
+                        f"R_xyz: {gf[0, 7:10].tolist()}"
+                    )
+                self._viz_debug_printed = True
+            ims = self.viz_func(predictions, batch)
+            ims = np.asarray(ims)
+            out_dir = os.path.abspath("debug")
+            os.makedirs(out_dir, exist_ok=True)
+            out_path = os.path.join(out_dir, f"viz_{step_i:06d}.png")
+            # viz_gt_preds returns RGB (matches the training-eval pipeline,
+            # which writes via TensorBoard). cv2.imwrite expects BGR, so
+            # swap channels here to avoid the inverted-colors save bug.
+            out_im = ims[0] if ims.ndim == 4 else ims
+            out_im = cv2.cvtColor(out_im, cv2.COLOR_RGB2BGR)
+            cv2.imwrite(out_path, out_im)
+            print(f"[rollout] saved viz -> {out_path}")
+        except Exception as e:
+            print(f"[rollout] viz failed at step {step_i}: {e}")
 
     def _load_policy(self):
-        patched_path = self._patch_checkpoint_paths(self.policy_path)
+        import gc
+        patched_path, _ = self._patch_checkpoint_paths(self.policy_path)
+        gc.collect()
         policy = ModelWrapper.load_from_checkpoint(
             patched_path, weights_only=False, map_location="cpu"
         )
@@ -371,11 +807,21 @@ class PolicyRollout(Rollout):
         return out.astype(np.float32, copy=False)
 
     def rollout_step(self, i, obs):
-        if i % self.query_frequency == 0:
+        if i % self.query_frequency == 0 or getattr(self, "_force_replan", False):
+            self._force_replan = False
             start_infer_t = time.time()
             transform_list_batch = self.process_obs_for_transform_list(obs)
             for transform in self.transform_list:
                 transform_list_batch = transform.transform(transform_list_batch)
+            # Match training: MultiDataset.__getitem__ normalizes the
+            # post-transform sample before it reaches the model. build_tokenized_collate
+            # also normalized proprio before discretizing into the State block,
+            # which the algo-side _discretize_state_for_sample no longer does. Both
+            # paths assume normalized inputs, so normalize the single sample here
+            # using the model's own norm_stats (a MultiDataset).
+            transform_list_batch = self.policy.model.norm_stats.normalize(
+                transform_list_batch, self.embodiment_id
+            )
             transform_list_batch = self.collate_fn([transform_list_batch])
             if self.arm == "both":
                 embodiment_name = "eva_bimanual"
@@ -387,10 +833,48 @@ class PolicyRollout(Rollout):
             batch = {
                 embodiment_name: transform_list_batch,
             }
+
             processed_batch = self.policy.model.process_batch_for_training(batch)
-            preds = self.policy.model.forward_eval(processed_batch)[
-                f"{embodiment_name}_actions_cartesian"
-            ]
+
+            if not self._proprio_debug_printed:
+                emb_id = next(iter(processed_batch))
+                prompts = processed_batch[emb_id].get("sampled_prompt", None)
+                print(f"[rollout][proprio-debug] full prompt: {prompts[0] if prompts else None!r}")
+                self._proprio_debug_printed = True
+
+            fwd_out = self.policy.model.forward_eval(processed_batch)
+            preds = fwd_out[f"{embodiment_name}_actions_cartesian"]
+            # Hierarchical-subtask PI models (subtask_prediction=true in the
+            # algo config) decode a subtask autoregressively from the
+            # high-level prompt and condition actions on it. The decoded
+            # text shows up in fwd_out under `<emb>_subtask_pred`. For
+            # plain PI / HPT models the key is absent — handle both.
+            subtask_text = fwd_out.get(f"{embodiment_name}_subtask_pred")
+            if subtask_text is not None:
+                first = subtask_text[0] if hasattr(subtask_text, "__getitem__") else subtask_text
+                print(f"[rollout][subtask] step={i} predicted={first!r}")
+            # Wrist-frame models: revert preds to cam frame BEFORE viz and
+            # BEFORE the cam→base post-processing. For cam-frame models
+            # (no transform_lists in config), revert is None and these
+            # calls are no-ops.
+            batch_for_viz = self.policy.model.norm_stats.unnormalize(
+                dict(transform_list_batch), self.embodiment_id
+            )
+            if self.revert_transform_list is not None:
+                preds = self._apply_revert_to_actions(preds, batch_for_viz)
+                from egomimic.rldb.embodiment.embodiment import Embodiment
+                gt_only = {
+                    k: v for k, v in batch_for_viz.items()
+                    if k in ("actions_cartesian", "observations.state.ee_pose")
+                }
+                gt_reverted = Embodiment.apply_transform(
+                    gt_only, self.revert_transform_list
+                )
+                batch_for_viz = {**batch_for_viz, **gt_reverted}
+            if self.viz_enabled:
+                self._save_viz(batch_for_viz, preds, embodiment_name, i)
+            if self.viz_model_enabled:
+                self._save_viz_model_res(batch_for_viz, preds, embodiment_name, i)
             self.actions = preds.detach().cpu().numpy().squeeze()
             self.debug_actions = self.actions.copy()
             if self.cartesian:
@@ -503,25 +987,36 @@ class PolicyRollout(Rollout):
             left_cmd_ee_pose = torch.from_numpy(left_xyzwxyz).view(1, 7).repeat(45, 1)
             data["left.cmd_ee_pose"] = left_cmd_ee_pose
 
+        # `embodiment` must be the integer id (the string lives in
+        # metadata.robot_name). Downstream lookups call int() on it.
         if self.arm == "both":
-            data["embodiment"] = ["eva_bimanual"]
+            data["embodiment"] = self.embodiment_id
+            data["metadata.robot_name"] = "eva_bimanual"
         elif self.arm == "right":
-            data["embodiment"] = ["eva_right_arm"]
+            data["embodiment"] = self.embodiment_id
+            data["metadata.robot_name"] = "eva_right_arm"
         elif self.arm == "left":
-            data["embodiment"] = "eva_left_arm"
-
+            data["embodiment"] = self.embodiment_id
+            data["metadata.robot_name"] = "eva_left_arm"
+        
         if self.annotation is not None:
-            data["annotations"] = [self.annotation]
-
+            # Respect the model's configured annotation_key. For the legacy
+            # PI/HPT models this is "annotations"; for subtask-prediction PI
+            # models the high-level goal lives under "annotations_high" while
+            # "annotations" is reserved for the predicted low-level subtask.
+            model = getattr(self.policy, "model", None)
+            ann_key = getattr(model, "annotation_key", None) or "annotations"
+            data[ann_key] = [self.annotation]
+        
         return data
 
     def load_annotation(self, annotation_path):
-        """Load a new annotation file, building the tokenized collate only if needed.
+        """Load a new annotation file.
 
-        The annotation text flows through data["annotations"] at each inference
-        step, so updating self.annotation is sufficient when the tokenized
-        collate already exists.  We only build it when the collate is still the
-        plain default_collate (i.e. no annotation was provided at init time).
+        The annotation text flows through ``data["annotations"]`` at each
+        inference step and is consumed by ``PI.process_batch_for_training``,
+        so updating ``self.annotation`` is sufficient. We also re-apply it to
+        the algo so ``default_prompt`` stays in sync as a fallback.
 
         Returns True on success, False if the file could not be loaded.
         """
@@ -530,17 +1025,8 @@ class PolicyRollout(Rollout):
             return False
         with open(annotation_path, "r") as f:
             self.annotation = f.read().strip()
-        if self.collate_fn is default_collate:
-            self.collate_fn = build_tokenized_collate(
-                max_length=128,
-                model_name="google/paligemma-3b-mix-224",
-                sampling_mode="first",
-                annotation_key="annotations",
-                default_prompt=self.annotation,
-            )
-        print(
-            f"[rollout] Loaded new annotation from {annotation_path}: '{self.annotation}'"
-        )
+        self._apply_annotation_to_algo()
+        print(f"[rollout] Loaded new annotation from {annotation_path}: '{self.annotation}'")
         return True
 
     def reset(self):
@@ -657,9 +1143,18 @@ def main(
         """
         # Restore normal terminal so the user can type freely
         termios.tcsetattr(kp.fd, termios.TCSADRAIN, kp.old)
+        viz_state = (
+            "ON" if (isinstance(policy, PolicyRollout) and policy.viz_enabled) else "OFF"
+        )
+        viz_model_state = (
+            "ON" if (isinstance(policy, PolicyRollout) and policy.viz_model_enabled) else "OFF"
+        )
         print("\n--- INTERVENTION (rollout paused) ---")
         print("  c            : continue rollout")
         print("  a <path>     : load new annotation file")
+        print(f"  v            : toggle prediction viz @ 640x480 (currently {viz_state})")
+        print(f"  m            : toggle prediction viz @ model res 224x224 (currently {viz_model_state})")
+        print("  p            : replan now (force re-prediction on next step)")
         print("  r            : restart rollout")
         print("  q            : quit")
 
@@ -689,8 +1184,30 @@ def main(
                     print("Annotation loading is only supported for policy rollouts.")
                     continue
                 policy.load_annotation(ann_path)
+            elif cmd == "v":
+                if rollout_type != "policy" or not isinstance(policy, PolicyRollout):
+                    print("Prediction viz is only supported for policy rollouts.")
+                    continue
+                policy.viz_enabled = not policy.viz_enabled
+                print(f"[rollout] viz now {'ON' if policy.viz_enabled else 'OFF'}")
+            elif cmd == "m":
+                if rollout_type != "policy" or not isinstance(policy, PolicyRollout):
+                    print("Prediction viz is only supported for policy rollouts.")
+                    continue
+                policy.viz_model_enabled = not policy.viz_model_enabled
+                print(f"[rollout] viz_model now {'ON' if policy.viz_model_enabled else 'OFF'}")
+            elif cmd == "p":
+                if rollout_type != "policy" or not isinstance(policy, PolicyRollout):
+                    print("Replan is only supported for policy rollouts.")
+                    continue
+                # Force the next rollout_step to call forward_eval regardless
+                # of the i % query_frequency gate. For PI hierarchical models
+                # this re-decodes the subtask; for plain PI/HPT it just
+                # re-samples actions.
+                policy._force_replan = True
+                print("[rollout] replan queued for next step")
             else:
-                print(f"Unknown command: '{cmd}'. Use c / a <path> / r / q.")
+                print(f"Unknown command: '{cmd}'. Use c / a <path> / v / m / p / r / q.")
 
     try:
         with _KeyPoll() as kp:

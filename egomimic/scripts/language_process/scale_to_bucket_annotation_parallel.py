@@ -124,10 +124,24 @@ def process_episode(
     )
     annotations = converter.convert(tid)
 
-    payload = [
-        {"text": text, "start_idx": int(start_idx), "end_idx": int(end_idx)}
-        for text, start_idx, end_idx in annotations
-    ]
+    # Converters emit (text, start, end) or (text, start, end, level); carry the
+    # high/low ``level`` tag through the S3 round-trip so the sort hierarchy is
+    # preserved (a 3-tuple defaults to "low"). bucket_to_zarr rebuilds the tag.
+    payload = []
+    for ann in annotations:
+        if len(ann) == 4:
+            text, start_idx, end_idx, level = ann
+        else:
+            text, start_idx, end_idx = ann
+            level = "low"
+        payload.append(
+            {
+                "text": text,
+                "start_idx": int(start_idx),
+                "end_idx": int(end_idx),
+                "level": level or "low",
+            }
+        )
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
     print(f"[OK] {episode_hash} -> s3://{bucket}/{key} ({len(payload)} entries)")

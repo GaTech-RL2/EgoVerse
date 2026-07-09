@@ -16,6 +16,7 @@ from overrides import override
 from transformers import AutoTokenizer
 
 from egomimic.algo.algo import Algo
+from egomimic.models.pi0_subtask import PI0SubtaskPytorch
 from egomimic.models.preprocess_pi_obs import (
     _concat_proprio,
     _empty_lang_placeholders,
@@ -25,7 +26,12 @@ from egomimic.models.preprocess_pi_obs import (
     _to_minus1_1,
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.action_utils import ConverterRegistry
+from egomimic.utils.action_utils import (
+    PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
+    PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D,
+    PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D,
+    ConverterRegistry,
+)
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -70,6 +76,18 @@ class PI(Algo):
         state_num_bins: int = 256,
         control_mode: dict[str, str] | None = None,
         proprio_keys_for_prompt: list[str] | None = None,
+        action_encoding: str = PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
+        # ---------------------------
+        # Hierarchical subtask prediction (sort regime). When enabled, the
+        # high-level (sort) annotation conditions the model and the low-level
+        # (pick-and-place) annotation is predicted as language tokens. See
+        # ``egomimic/models/pi0_subtask.py``.
+        # ---------------------------
+        subtask_prediction: bool = False,
+        subtask_key: str | None = None,
+        subtask_anchor: str = "Subtask: ",
+        subtask_loss_weight: float = 1.0,
+        max_subtask_len: int = 48,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
@@ -81,6 +99,11 @@ class PI(Algo):
         self.sampling_mode = sampling_mode
         self.annotation_key = annotation_key
         self.default_prompt = default_prompt
+        self.subtask_prediction = subtask_prediction
+        self.subtask_key = subtask_key
+        self.subtask_anchor = subtask_anchor
+        self.subtask_loss_weight = subtask_loss_weight
+        self.max_subtask_len = max_subtask_len
         self.proprio_in_prompt = proprio_in_prompt
         self.embodiment_label = embodiment_label
         self.state_num_bins = state_num_bins
@@ -103,6 +126,7 @@ class PI(Algo):
             "pi_cam_keys", ["base_0_rgb", "left_wrist_0_rgb", "right_wrist_0_rgb"]
         )
         self.config = config
+        self.action_encoding = action_encoding
 
         self.ac_keys = ac_keys
 
@@ -168,7 +192,15 @@ class PI(Algo):
             pi05=getattr(config.model, "pi05", False),
         )
 
-        self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg)
+        if self.subtask_prediction:
+            # Hierarchical variant: adds the subtask LM head + autoregressive
+            # subtask decoding at inference. The auxiliary head reuses
+            # PaliGemma's tied lm_head, so pretrained weights load unchanged.
+            self.model = PI0SubtaskPytorch(model_cfg)
+            self.model.max_subtask_len = self.max_subtask_len
+            self.model.subtask_eos_id = self.tokenizer.eos_token_id
+        else:
+            self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg)
 
         if self.config.pytorch_weight_path is not None:
             model_path = os.path.join(
@@ -230,6 +262,38 @@ class PI(Algo):
         bins = np.digitize(state, bins=self._state_bin_edges) - 1
         return " ".join(map(str, bins.tolist()))
 
+    def _sample_from_annotation(self, key: str | None, _batch, batch_size: int):
+        """Sample one annotation string per item from the raw list field
+        ``key`` (``list[list[str]]``). Returns ``None`` per item when that
+        item's list is empty / the key is absent, so callers can apply their
+        own fallback (e.g. high→low for sort-less episodes)."""
+        if key is None or key not in _batch:
+            return [None] * batch_size
+        out = []
+        for sample in _batch[key]:
+            if not sample:
+                out.append(None)
+            elif self.sampling_mode == "random":
+                out.append(sample[random.randint(0, len(sample) - 1)])
+            else:  # "first"
+                out.append(sample[0])
+        return out
+
+    def _prompt_blocks(self, prompt: str, emb_name: str, _batch, i: int) -> str:
+        """Render the comma-joined pi0.5 prompt blocks (``Task``, optional
+        ``Embodiment`` / ``Control mode`` / ``State``) for sample ``i`` without
+        the trailing anchor."""
+        blocks = [f"Task: {prompt}"]
+        if self.embodiment_label:
+            blocks.append(f"Embodiment: {emb_name}")
+        if self.control_mode:
+            blocks.append(f"Control mode: {self._control_mode_for(emb_name)}")
+        if self.proprio_in_prompt:
+            state_str = self._discretize_state_for_sample(_batch, i)
+            if state_str is not None:
+                blocks.append(f"State: {state_str}")
+        return ", ".join(blocks)
+
     def _build_prompts(
         self, _batch, embodiment_name: str, batch_size: int
     ) -> list[str]:
@@ -240,17 +304,8 @@ class PI(Algo):
         ``build_tokenized_collate``. Embodiment is known per-batch (one
         DataLoader per embodiment), so we don't re-derive it per sample.
         """
-        if self.annotation_key is None or self.annotation_key not in _batch:
-            prompts = [self.default_prompt] * batch_size
-        else:
-            prompts = []
-            for sample in _batch[self.annotation_key]:
-                if not sample:
-                    prompts.append(self.default_prompt)
-                elif self.sampling_mode == "random":
-                    prompts.append(sample[random.randint(0, len(sample) - 1)])
-                else:  # "first"
-                    prompts.append(sample[0])
+        sampled = self._sample_from_annotation(self.annotation_key, _batch, batch_size)
+        prompts = [self.default_prompt if p is None else p for p in sampled]
 
         any_block_active = (
             self.proprio_in_prompt or self.embodiment_label or bool(self.control_mode)
@@ -261,17 +316,47 @@ class PI(Algo):
         emb_name = embodiment_name.lower().replace("_", " ")
         spliced = []
         for i, prompt in enumerate(prompts):
-            blocks = [f"Task: {prompt}"]
-            if self.embodiment_label:
-                blocks.append(f"Embodiment: {emb_name}")
-            if self.control_mode:
-                blocks.append(f"Control mode: {self._control_mode_for(emb_name)}")
-            if self.proprio_in_prompt:
-                state_str = self._discretize_state_for_sample(_batch, i)
-                if state_str is not None:
-                    blocks.append(f"State: {state_str}")
-            spliced.append(", ".join(blocks) + ";\nAction: ")
+            spliced.append(
+                self._prompt_blocks(prompt, emb_name, _batch, i) + ";\nAction: "
+            )
         return spliced
+
+    def _build_subtask_prompts(
+        self, _batch, embodiment_name: str, batch_size: int
+    ) -> tuple[list[str], list[str | None]]:
+        """Assemble the (high-level prefix, low-level subtask-target) pair per
+        item for hierarchical training.
+
+        The high-level prompt comes from ``annotation_key`` (the sort goal); the
+        low-level subtask target comes from ``subtask_key`` (pick-and-place).
+        For sort-less episodes the high list is empty, so the high prompt falls
+        back to the sampled low instruction — i.e. the single pick-and-place
+        annotation is used as *both* the high-level and low-level instruction.
+        The rendered prefix ends with ``subtask_anchor`` (where decoding begins).
+        """
+        high = self._sample_from_annotation(self.annotation_key, _batch, batch_size)
+        low = self._sample_from_annotation(self.subtask_key, _batch, batch_size)
+
+        emb_name = embodiment_name.lower().replace("_", " ")
+        prefixes: list[str] = []
+        targets: list[str | None] = []
+        for i in range(batch_size):
+            low_i = low[i]
+            # high falls back to low (sort-less episode), then to default_prompt.
+            high_i = high[i] if high[i] is not None else low_i
+            if high_i is None:
+                high_i = self.default_prompt
+            # The subtask anchor is appended at tokenization time (as protected
+            # tokens), so it is never lost to truncation — see
+            # ``_encode_prefix_with_anchor``.
+            prefixes.append(self._prompt_blocks(high_i, emb_name, _batch, i) + ";\n")
+            # The subtask target is always the low-level pick-and-place phrasing.
+            # When the episode has no sort goal, ``high_i`` was set to this same
+            # instruction above, so the model conditions on and predicts the
+            # same text ("use as both"). ``None`` ⇒ no subtask to predict for
+            # this frame (zero LM loss; nothing decoded at inference).
+            targets.append(low_i)
+        return prefixes, targets
 
     def _tokenize_prompts(self, prompts: list[str]) -> dict:
         enc = self.tokenizer(
@@ -292,6 +377,114 @@ class PI(Algo):
             "token_loss_mask": token_loss_mask.requires_grad_(False),
             "token_ar_mask": attention_mask.clone().requires_grad_(False),
         }
+
+    def _encode_prefix_with_anchor(self, prefix_text: str) -> list[int]:
+        """Tokenize ``prefix_text`` and append the subtask anchor, guaranteeing
+        the anchor survives truncation to ``tokenizer_max_length``.
+
+        The anchor (``subtask_anchor``, e.g. ``"Subtask: "``) is where decoding
+        begins, so it must never be cut. We reserve room for it and truncate the
+        high-level block tail instead. Returns the token-id list (length ≤ L).
+        """
+        L = self.tokenizer_max_length
+        anchor_ids = self.tokenizer(self.subtask_anchor, add_special_tokens=False)[
+            "input_ids"
+        ]
+        blocks = self.tokenizer(prefix_text, add_special_tokens=True)["input_ids"]
+        blocks = blocks[: max(0, L - len(anchor_ids))]
+        return (blocks + anchor_ids)[:L]
+
+    def _tokenize_prompts_with_subtask(
+        self, prefixes: list[str], subtasks: list[str | None]
+    ) -> dict:
+        """Tokenize the hierarchical sequence ``[prefix][anchor][subtask]<eos>``
+        per item.
+
+        The prefix (high-level instruction + anchor) is bidirectional with no
+        loss; the subtask (low-level instruction + EOS) is the autoregressive
+        target. Returns the same field names as :meth:`_tokenize_prompts` but
+        with ``token_ar_mask`` = 0 over the prefix / 1 over the subtask, and
+        ``token_loss_mask`` True only on subtask tokens. Sequences are
+        right-padded to ``tokenizer_max_length``; the prefix (incl. anchor) is
+        never truncated away (subtask is dropped first if space is tight).
+        """
+        L = self.tokenizer_max_length
+        B = len(prefixes)
+        pad_id = self.tokenizer.pad_token_id or 0
+        eos_id = self.tokenizer.eos_token_id
+
+        ids = torch.full((B, L), pad_id, dtype=torch.long)
+        attn = torch.zeros((B, L), dtype=torch.bool)
+        ar = torch.zeros((B, L), dtype=torch.bool)
+        loss = torch.zeros((B, L), dtype=torch.bool)
+
+        for i in range(B):
+            pre = self._encode_prefix_with_anchor(prefixes[i])
+            sub = []
+            if subtasks[i]:
+                sub = self.tokenizer(subtasks[i], add_special_tokens=False)["input_ids"]
+                if eos_id is not None:
+                    sub = sub + [eos_id]
+            sub = sub[: max(0, L - len(pre))]
+            n_pre, n = len(pre), len(pre) + len(sub)
+            ids[i, :n] = torch.tensor(pre + sub, dtype=torch.long)
+            attn[i, :n] = True
+            ar[i, n_pre:n] = True  # subtask tokens are causal
+            loss[i, n_pre:n] = True  # subtask tokens are CE targets
+        return {
+            "tokenized_prompt": ids.requires_grad_(False),
+            "tokenized_mask": attn.requires_grad_(False),
+            "token_loss_mask": loss.requires_grad_(False),
+            "token_ar_mask": ar.requires_grad_(False),
+        }
+
+    def _tokenize_highonly(self, prefixes: list[str]) -> dict:
+        """Tokenize just the high-level prefix (+ anchor) for autoregressive
+        subtask decoding at inference. All tokens bidirectional (``ar`` = 0),
+        no loss. Uses the same anchor-preserving encoder as the full sequence so
+        the decode seed always ends in the anchor. Written under ``*_hl`` keys
+        so it coexists with the full sequence used for the training/val loss."""
+        L = self.tokenizer_max_length
+        B = len(prefixes)
+        pad_id = self.tokenizer.pad_token_id or 0
+        ids = torch.full((B, L), pad_id, dtype=torch.long)
+        attn = torch.zeros((B, L), dtype=torch.bool)
+        for i in range(B):
+            pre = self._encode_prefix_with_anchor(prefixes[i])
+            ids[i, : len(pre)] = torch.tensor(pre, dtype=torch.long)
+            attn[i, : len(pre)] = True
+        return {
+            "tokenized_prompt_hl": ids.requires_grad_(False),
+            "tokenized_mask_hl": attn.requires_grad_(False),
+            "token_ar_mask_hl": torch.zeros_like(attn).requires_grad_(False),
+        }
+
+    def _decode_subtask_text(self, subtask_ids, subtask_mask) -> list[str]:
+        """Detokenize per-sample decoded subtask ids (``[B, T]`` + bool mask)
+        into strings for logging."""
+        texts = []
+        for i in range(subtask_ids.shape[0]):
+            keep = subtask_mask[i].to(torch.bool)
+            toks = subtask_ids[i][keep].tolist()
+            texts.append(self.tokenizer.decode(toks, skip_special_tokens=True))
+        return texts
+
+    def _action_stats(self, embodiment_id: int, ac_key: str) -> dict:
+        try:
+            return self.norm_stats.norm_stats[embodiment_id][ac_key]
+        except KeyError as exc:
+            raise KeyError(
+                f"Missing norm stats for action key {ac_key!r} "
+                f"and embodiment id {embodiment_id}"
+            ) from exc
+
+    def _unnormalize_action(
+        self, action: torch.Tensor, embodiment_id: int, ac_key: str
+    ):
+        return self.norm_stats.unnormalize(
+            {ac_key: action.clone(), "embodiment": embodiment_id},
+            embodiment_id,
+        )[ac_key].to(action.device)
 
     @override
     def process_batch_for_training(self, batch):
@@ -333,9 +526,25 @@ class PI(Algo):
             # Build prompts + tokenize. Reads raw `annotations` (list[list[str]])
             # left in `_batch` by `annotation_collate`, plus per-sample proprio
             # tensors from `_batch` for the optional State block.
-            prompts = self._build_prompts(_batch, embodiment_name, B)
-            processed_batch[embodiment_id]["sampled_prompt"] = prompts
-            processed_batch[embodiment_id].update(self._tokenize_prompts(prompts))
+            if self.subtask_prediction:
+                # Hierarchical: condition on the high-level prefix and predict
+                # the low-level subtask. The "full" tokenization (prefix +
+                # subtask) drives the training/val loss; the "high-only" one
+                # (`*_hl` keys) seeds autoregressive subtask decoding at
+                # inference (rollout has no subtask target, so it carries an
+                # empty subtask ⇒ zero LM loss).
+                prefixes, targets = self._build_subtask_prompts(
+                    _batch, embodiment_name, B
+                )
+                processed_batch[embodiment_id]["sampled_prompt"] = prefixes
+                processed_batch[embodiment_id].update(
+                    self._tokenize_prompts_with_subtask(prefixes, targets)
+                )
+                processed_batch[embodiment_id].update(self._tokenize_highonly(prefixes))
+            else:
+                prompts = self._build_prompts(_batch, embodiment_name, B)
+                processed_batch[embodiment_id]["sampled_prompt"] = prompts
+                processed_batch[embodiment_id].update(self._tokenize_prompts(prompts))
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(
                 B, S, 1, device=self.device
             )
@@ -388,12 +597,19 @@ class PI(Algo):
 
             losses = self.nets["policy"].forward(processed_obs, action)
 
-            if isinstance(losses, list | tuple):
-                losses = torch.stack(losses)
-            elif not isinstance(losses, torch.Tensor):
-                losses = torch.tensor(losses, device=action.device, dtype=torch.float32)
-
-            loss = losses.mean()
+            if self.subtask_prediction:
+                # PI0SubtaskPytorch returns (action_mse[B,H,D], subtask_ce).
+                action_mse, subtask_ce = losses
+                loss = action_mse.mean()
+                predictions[f"{embodiment_name}_subtask_loss"] = subtask_ce
+            else:
+                if isinstance(losses, list | tuple):
+                    losses = torch.stack(losses)
+                elif not isinstance(losses, torch.Tensor):
+                    losses = torch.tensor(
+                        losses, device=action.device, dtype=torch.float32
+                    )
+                loss = losses.mean()
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
@@ -433,32 +649,87 @@ class PI(Algo):
 
                 # Flow-matching val loss — same call as forward_training.
                 losses = self.nets["policy"].forward(processed_obs, action)
-                if isinstance(losses, (list, tuple)):
-                    losses = torch.stack(losses)
-                elif not isinstance(losses, torch.Tensor):
-                    losses = torch.tensor(
-                        losses, device=action.device, dtype=torch.float32
-                    )
-                unnorm_preds[f"{embodiment_name}_loss"] = losses.mean()
+                if self.subtask_prediction:
+                    action_mse, subtask_ce = losses
+                    unnorm_preds[f"{embodiment_name}_loss"] = action_mse.mean()
+                    unnorm_preds[f"{embodiment_name}_subtask_loss"] = subtask_ce
+                else:
+                    if isinstance(losses, (list, tuple)):
+                        losses = torch.stack(losses)
+                    elif not isinstance(losses, torch.Tensor):
+                        losses = torch.tensor(
+                            losses, device=action.device, dtype=torch.float32
+                        )
+                    unnorm_preds[f"{embodiment_name}_loss"] = losses.mean()
 
-                pred_actions = self.nets["policy"].sample_actions(
-                    device=self.device,
-                    observation=processed_obs,
-                    noise=None,
-                    num_steps=self.num_steps,
-                )
+                if self.subtask_prediction:
+                    # Hierarchical inference: decode the subtask from the
+                    # high-only prefix, then condition action sampling on the
+                    # realized [high + subtask] prefix.
+                    sample_obs, _ = self._robomimic_to_pi_data(
+                        _batch,
+                        camera_keys,
+                        proprio_keys,
+                        lang_keys,
+                        ac_key,
+                        embodiment_name,
+                        lang_prefix="hl",
+                    )
+                    pred_actions, subtask_ids, subtask_mask = self.nets[
+                        "policy"
+                    ].sample_actions(
+                        device=self.device,
+                        observation=sample_obs,
+                        noise=None,
+                        num_steps=self.num_steps,
+                        return_subtask=True,
+                    )
+                    unnorm_preds[f"{embodiment_name}_subtask_pred"] = (
+                        self._decode_subtask_text(subtask_ids, subtask_mask)
+                    )
+                else:
+                    pred_actions = self.nets["policy"].sample_actions(
+                        device=self.device,
+                        observation=processed_obs,
+                        noise=None,
+                        num_steps=self.num_steps,
+                    )
+
+                pred_actions = pred_actions.clone()
 
                 predictions = OrderedDict()
                 ref = _batch[ac_key]
                 B, T, D = ref.shape
 
                 converter = self.action_registry.get(embodiment_id, ac_key)
-                pred_actions_orig = converter.from32(pred_actions)
-
-                pred = pred_actions_orig[:, :T, :D]
-                predictions[ac_key] = pred
-
-                unnorm_actions = self.norm_stats.unnormalize(predictions, embodiment_id)
+                if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
+                    pred_actions_orig = converter.from32_raw_rotation(
+                        pred_actions,
+                        stats=self._action_stats(embodiment_id, ac_key),
+                        norm_mode=self.norm_stats.norm_mode,
+                        unnormalize_non_rotation=True,
+                    )
+                    unnorm_actions = {ac_key: pred_actions_orig[:, :T, :D]}
+                elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
+                    # Extract the normalized xyz+6D(+gripper) action, then
+                    # unnormalize via the standard pipeline (stats were computed
+                    # over the 6D representation) to get raw 6D actions.
+                    pred_6d = converter.from32_norm_6d(pred_actions)
+                    predictions[ac_key] = pred_6d[:, :T, :D]
+                    unnorm_actions = self.norm_stats.unnormalize(
+                        predictions, embodiment_id
+                    )
+                elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
+                    pred_actions_orig = converter.from32(pred_actions)
+                    pred = pred_actions_orig[:, :T, :D]
+                    predictions[ac_key] = pred
+                    unnorm_actions = self.norm_stats.unnormalize(
+                        predictions, embodiment_id
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
+                    )
                 for key in unnorm_actions:
                     unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
 
@@ -478,6 +749,7 @@ class PI(Algo):
         """
         loss_dict = OrderedDict()
         total_action_loss = None
+        total_subtask_loss = None
 
         for embodiment_id, _batch in batch.items():
             embodiment_name = get_embodiment(embodiment_id).lower()
@@ -487,8 +759,25 @@ class PI(Algo):
             total_action_loss += bc_loss
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
 
+            subtask_key = f"{embodiment_name}_subtask_loss"
+            if subtask_key in predictions:
+                sub_loss = predictions[subtask_key]
+                if total_subtask_loss is None:
+                    total_subtask_loss = torch.tensor(0.0, device=sub_loss.device)
+                total_subtask_loss += sub_loss
+                loss_dict[subtask_key] = sub_loss  # for logging
+
         # in the case we put all embodiments in one batch, get rid of this norm.
-        loss_dict["action_loss"] = total_action_loss / len(self.domains)
+        action_loss = total_action_loss / len(self.domains)
+        if total_subtask_loss is not None:
+            # Hierarchical training: action flow-matching + weighted subtask CE.
+            subtask_loss = total_subtask_loss / len(self.domains)
+            loss_dict["subtask_loss"] = subtask_loss
+            loss_dict["action_loss"] = (
+                action_loss + self.subtask_loss_weight * subtask_loss
+            )
+        else:
+            loss_dict["action_loss"] = action_loss
 
         return loss_dict
 
@@ -513,9 +802,25 @@ class PI(Algo):
         return log
 
     def _robomimic_to_pi_data(
-        self, batch, cam_keys, proprio_keys, lang_keys, ac_key, embodiment
+        self,
+        batch,
+        cam_keys,
+        proprio_keys,
+        lang_keys,
+        ac_key,
+        embodiment,
+        lang_prefix="full",
     ):
-        """ """
+        """Wrap a processed batch into a ``_SimpleObservation`` + 32D actions.
+
+        ``lang_prefix`` selects which tokenization to feed the model:
+          - ``"full"``  → the ``[prefix][subtask]`` sequence (training/val loss).
+          - ``"hl"``    → the high-only prefix (``*_hl`` keys) used to seed
+            autoregressive subtask decoding at inference; the loss mask is
+            zeroed so it never contributes a language loss.
+        Only meaningful when ``subtask_prediction`` is on; otherwise ``"full"``
+        reads the single tokenization built by :meth:`_tokenize_prompts`.
+        """
         if ac_key not in batch:
             raise KeyError(f"Missing action key '{ac_key}' in batch")
 
@@ -533,7 +838,25 @@ class PI(Algo):
 
         emb_id = get_embodiment_id(embodiment)  # embodiment is a name string
         converter = self.action_registry.get(emb_id, ac_key)
-        action32 = converter.to32(action)
+        if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
+            raw_action = self._unnormalize_action(action, emb_id, ac_key)
+            action32 = converter.to32_raw_rotation(
+                raw_action,
+                normalized_actions=action,
+                stats=self._action_stats(emb_id, ac_key),
+                norm_mode=self.norm_stats.norm_mode,
+            )
+        elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
+            # Action is already a normalized xyz+6D(+gripper) chunk (the
+            # ypr->6D conversion happened in the CartesianYPRToRot6D data
+            # transform). Just pack it into the 32D vector.
+            action32 = converter.to32_norm_6d(action)
+        elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
+            action32 = converter.to32(action)
+        else:
+            raise ValueError(
+                f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
+            )
 
         # OpenPI expects a fixed camera tuple. Human datasets only provide
         # `base_0_rgb`, so duplicate that view into the missing wrist slots and
@@ -574,12 +897,29 @@ class PI(Algo):
             for k in images.keys()
         }
 
-        has_lang = "tokenized_prompt" in batch and batch["tokenized_prompt"].numel() > 0
+        if lang_prefix == "hl":
+            prompt_key, mask_key, ar_key = (
+                "tokenized_prompt_hl",
+                "tokenized_mask_hl",
+                "token_ar_mask_hl",
+            )
+        else:
+            prompt_key, mask_key, ar_key = (
+                "tokenized_prompt",
+                "tokenized_mask",
+                "token_ar_mask",
+            )
+        has_lang = prompt_key in batch and batch[prompt_key].numel() > 0
         if has_lang:
-            tokenized_prompt = batch["tokenized_prompt"].to(device)
-            tokenized_prompt_mask = batch["tokenized_mask"].to(device)
-            token_ar_mask = batch["token_ar_mask"].to(device)
-            token_loss_mask = batch["token_loss_mask"].to(device)
+            tokenized_prompt = batch[prompt_key].to(device)
+            tokenized_prompt_mask = batch[mask_key].to(device)
+            token_ar_mask = batch[ar_key].to(device)
+            # The high-only prefix carries no subtask target, so it has no loss
+            # mask; zero it to match the prompt length.
+            if lang_prefix == "hl" or "token_loss_mask" not in batch:
+                token_loss_mask = torch.zeros_like(tokenized_prompt_mask)
+            else:
+                token_loss_mask = batch["token_loss_mask"].to(device)
         else:
             tokenized_prompt, tokenized_prompt_mask, token_ar_mask, token_loss_mask = (
                 _empty_lang_placeholders(B, device)

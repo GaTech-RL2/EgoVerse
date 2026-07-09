@@ -1,0 +1,26 @@
+defaults:
+  - pi0.5_cotrain_eva_aria_6d
+  - _self_
+
+# PI0.5 with hierarchical subtask prediction (sort regime). The model conditions
+# on the HIGH-level sort instruction and predicts the LOW-level pick-and-place
+# instruction as language tokens (auxiliary cross-entropy), in addition to the
+# action flow-matching loss. At inference the subtask is decoded
+# autoregressively and the action expert is conditioned on the realized
+# [high + subtask] prefix. See egomimic/models/pi0_subtask.py and
+# egomimic/algo/pi.py.
+#
+# Pair with data config `sort_pi_subtask` (registers the `annotations_high`
+# high-level view of the annotation array).
+robomimic_model:
+  subtask_prediction: true
+  # High-level (sort) goal conditions the model; low-level (pick-and-place) is
+  # the prediction target. Both read the same zarr `annotations` array, split by
+  # the `level` tag the SortConverter writes (see get_keymap high_annotation_key).
+  annotation_key: "annotations_high"
+  subtask_key: "annotations"
+  subtask_anchor: "Subtask: "
+  # Relative weight of the subtask CE loss vs. the action flow-matching loss.
+  subtask_loss_weight: 1.0
+  # Max autoregressively-decoded subtask length (tokens) at inference.
+  max_subtask_len: 48
