@@ -1131,6 +1131,23 @@ class ChunkerStage(_BaseStage):
             chunked = self.proj_out(chunked)
         inner_out = chunked  # (N, D_in)
 
+        # OPT-IN trunk-exposure hook (used by HybridDualStreamCoralStage). When a
+        # caller seeds ``ctx.extras['_expose_chunk_trunk']`` with a list, we append
+        # this chunker's compressed trunk tokens + the token-space boundary_mask +
+        # the chunked-space cu_seqlens so an OUTER stage can compress a parallel
+        # full-res stream at the SAME boundaries and cross-attend to ``inner_out``.
+        # Absent the key (every other config) this is a no-op. Only the
+        # first_token/duplicate path stashes (the validated dual-stream recipe).
+        _expose = ctx.extras.get("_expose_chunk_trunk")
+        if _expose is not None and self.down_interface != "scan":
+            _expose.append(
+                {
+                    "trunk": inner_out,  # (M, D_in) compressed trunk tokens
+                    "boundary_mask": bpred.boundary_mask,  # (T_total,) bool
+                    "next_cu": next_cu,  # (B+1,) chunked-space cu_seqlens
+                }
+            )
+
         # --- UP: spline (B') or duplicate-broadcast (upstream DeChunkLayer). ----
         if self.up_interface == "spline":
             # m inner-sub-latents = encoder's m raw sub-latents with the LAST
