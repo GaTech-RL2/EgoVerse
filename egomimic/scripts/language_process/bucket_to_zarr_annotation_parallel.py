@@ -6,6 +6,12 @@ Counterpart to scale_to_bucket_annotation_parallel.py. Each Ray task:
 
 Episodes that already have ``annotation_key`` in their Zarr are skipped (unless --overwrite).
 
+Role-keyed scheme: run once per role (--annotation-key annotations_task, then
+annotations_subtask) against the SAME bucket state — the per-key skip is
+independent, so mixing runs after a bucket regeneration can pair a task array
+with a subtask array from different converter runs; pass --overwrite on both
+after regenerating.
+
 Example usage:
 python egomimic/scripts/language_process/bucket_to_zarr_annotation_parallel.py \
 --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \

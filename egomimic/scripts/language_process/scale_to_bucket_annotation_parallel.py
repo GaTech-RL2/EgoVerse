@@ -4,8 +4,12 @@ Ray-parallel: download Scale annotations, run conversion, upload result JSON to 
 Each episode is processed as an independent Ray task:
   download Scale annotation -> convert via LLM/hardcoded -> upload JSON to bucket.
 
-The uploaded object key is: {prefix}/{episode_hash}_{annotation_key}.json
-Episodes whose object already exists in the bucket are skipped (unless --overwrite).
+Uploads ONE JSON PER ROLE KEY: {prefix}/{episode_hash}_annotations_task.json
+(+ _annotations_subtask.json where the converter emits it) — entries are plain
+{text, start_idx, end_idx}; the role lives in the key name (see converter.py).
+An episode is skipped only when EVERY role key it would produce already exists
+(unless --overwrite); a partial upload is regenerated whole so the roles never
+come from different converter runs.
 
 Example usage:
 python egomimic/scripts/language_process/scale_to_bucket_annotation_parallel.py \
@@ -129,6 +133,26 @@ def process_episode(
     from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
 
     s3 = get_boto3_s3_client()
+
+    # Early skip BEFORE the (expensive) download + LLM conversion: the role
+    # keys each mode emits are known up front for the LLM converters, so an
+    # idempotent re-run costs one head_object per key instead of the full
+    # base-instruction + augmentation generation. `hardcoded` keys are
+    # converter-determined, so it falls through to the post-convert check.
+    if not overwrite:
+        expected = None
+        if conversion_mode == "pick_place_llm":
+            expected = ["annotations_task"] + (
+                ["annotations_subtask"] if subtask_copy else []
+            )
+        elif conversion_mode == "sort_llm":
+            expected = ["annotations_task", "annotations_subtask"]
+        if expected and all(
+            s3_object_exists(s3, bucket, object_key(prefix, episode_hash, k))
+            for k in expected
+        ):
+            print(f"[SKIP] {episode_hash} -> all of {expected} already exist")
+            return episode_hash
 
     client = ScaleClient(scale_api_key)
     download_scale_annotation(client, tid, scale_annotation_dir)
