@@ -90,7 +90,10 @@ class SigmoidRoutingModule(nn.Module):
     def forward(self, hidden_states, mask=None, cu_seqlens=None, inference_params=None):
         assert cu_seqlens is not None, "SigmoidRoutingModule is packed-only"
         z = self.score(self.norm(hidden_states)).squeeze(-1) / self.temperature
-        p = torch.sigmoid(z)
+        # fp32 probs: under bf16 autocast, 1-1e-4 rounds to 1.0 and the dechunk
+        # EMA's dt = log(1/(1-p)) becomes inf -> NaN. The cos core emits fp32;
+        # match that contract.
+        p = torch.sigmoid(z.float())
         p = p.clone()
         p[cu_seqlens[:-1]] = 1.0  # forced boundary at every subseq start
         boundary_prob = torch.stack(((1 - p), p), dim=-1)
@@ -439,7 +442,7 @@ class DeChunkLayer(nn.Module):
         M = hidden_states.shape[1]
 
         # Gather boundary probs in chunked order (boundaries first within each row).
-        p_full = torch.clamp(boundary_prob[..., -1], min=1e-4, max=1 - 1e-4)
+        p_full = torch.clamp(boundary_prob[..., -1].float(), min=1e-4, max=1 - 1e-4)
         token_idx = (
             torch.arange(L, device=device)[None, :] + (~boundary_mask).long() * L
         )
@@ -469,8 +472,8 @@ class DeChunkLayer(nn.Module):
 
         # Chunked-space boundary probs.
         p_packed = torch.clamp(
-            boundary_prob[..., -1][boundary_mask], min=1e-4, max=1 - 1e-4
-        )  # (M_total,)
+            boundary_prob[..., -1][boundary_mask].float(), min=1e-4, max=1 - 1e-4
+        )  # (M_total,) fp32: bf16 cannot represent 1-1e-4 (rounds to 1.0 -> inf dt)
 
         M_total = hidden_states.shape[0]
         if _HAS_MAMBA_SCAN and hidden_states.is_cuda and M_total > 0:
