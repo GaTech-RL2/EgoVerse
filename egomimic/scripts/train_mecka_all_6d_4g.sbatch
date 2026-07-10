@@ -4,7 +4,10 @@
 #SBATCH -N1
 #SBATCH --ntasks-per-node=4
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=257875M
+# 500G host RAM: 8 workers/rank fork the 41k-episode dataset and
+# refcount-driven CoW drift pushed each rank tree to ~75GB (~300GB total) —
+# the default 252GB allocation OOM-killed the run at step 5298 (job 10894868).
+#SBATCH --mem=500G
 #SBATCH --gres=gpu:h200:4
 #SBATCH --time=72:00:00
 #SBATCH --job-name=pi05_mecka_4g
@@ -65,7 +68,10 @@ ARGS=(
   "norm_stats.precomputed_norm_path=$NORM_PATH"
   model.robomimic_model.config.pytorch_weight_path=/storage/project/r-dxu345-0/agao81/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
   # cadence (val 50 / viz 100 / ckpt 100 top-3) is the config default now
-  # (trainer/ddp_pi.yaml + callbacks/checkpoints.yaml).
+  # (trainer/ddp_pi.yaml + callbacks/checkpoints.yaml). At 4-GPU pace
+  # 100 epochs is ~10h wall, and two crashes have now landed before the
+  # first save — checkpoint every 50 epochs (~5h) to bound the loss.
+  callbacks.model_checkpoint.every_n_epochs=50
   name=pi05_mecka_all_6d
   description=pi05_mecka_all_6d_bs64x4_constlr_wrist6d
 )
