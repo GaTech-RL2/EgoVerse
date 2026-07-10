@@ -44,6 +44,7 @@ class PipelineAlgo(Algo):
         action_horizon: int = 2560,
         train_obs_transforms: list | None = None,
         episode_level_transforms: list | None = None,
+        init_ckpt: str | None = None,
         **kwargs,
     ):
         super().__init__()
@@ -61,6 +62,21 @@ class PipelineAlgo(Algo):
         self.episode_level_transforms = list(episode_level_transforms or [])
         self._resolve_embodiment_keys(norm_stats)
         self.nets = nn.ModuleDict({"policy": Pipeline(list(stages))})
+        if init_ckpt:
+            _ck = torch.load(init_ckpt, map_location="cpu", weights_only=False)
+            _sd = _ck.get("state_dict", _ck)
+            _new = {}
+            for _k, _v in _sd.items():
+                for _pfx in ("nets.", "model.nets."):
+                    if _k.startswith(_pfx):
+                        _new[_k[len(_pfx):]] = _v
+                        break
+                else:
+                    _new[_k] = _v
+            _miss, _unexp = self.nets.load_state_dict(_new, strict=False)
+            print(f"[init_ckpt] {init_ckpt}: missing={len(_miss)} unexpected={len(_unexp)}")
+            assert not _miss, f"init_ckpt missing keys: {_miss[:5]}"
+
         self.nets.to(self.device)
         # replan cadence for closed-loop AR = the TargetBuilder's stride
         # (introspected -> train/inference cadence can never desync).

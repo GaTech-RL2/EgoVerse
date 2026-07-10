@@ -407,7 +407,7 @@ class RatioLoss(Stage):
     """H-Net chunker ratio loss from the accumulated aux/chunker records."""
 
     reads = ["aux/chunker"]
-    writes = ["loss/ratio"]
+    writes = ["loss/ratio", "loss/dec", "log/*"]
 
     def forward(self, batch: dict) -> dict:
         aux = [{"bpred": _B(rec), "target_ratio": rec["target_ratio"],
@@ -418,6 +418,26 @@ class RatioLoss(Stage):
             dev = rec["boundary_prob"].device
             break
         batch["loss/ratio"] = ratio_loss_from_aux(aux, device=dev)
+        # Decisiveness term: L_dec = mean(1-(2p-1)^2) is 1.0 at p=0.5, 0 at
+        # p in {0,1}. Closes the ratio loss's threshold-riding loophole (a
+        # point-mass at p=0.5 scores 0.75 < the honest optimum 1.0); with
+        # near-binary probs G~F and the honest F=1/N becomes the true minimum.
+        dec_total = None
+        for i, rec in enumerate(batch.get("aux/chunker", [])):
+            p_b = rec["boundary_prob"][..., -1]
+            valid = torch.ones_like(p_b, dtype=torch.bool)
+            valid[rec["cu_seqlens"][:-1]] = False  # exclude forced subseq starts
+            pv = p_b[valid]
+            if pv.numel() == 0:
+                continue
+            dec_i = (1.0 - (2.0 * pv - 1.0).pow(2)).mean()
+            batch[f"log/L{i}_frac_indecisive"] = float(((pv - 0.5).abs() < 0.05).float().mean())
+            batch[f"log/L{i}_dec"] = float(dec_i)
+            w = float(rec.get("dec_weight", 0.0))
+            if w > 0:
+                dec_total = w * dec_i if dec_total is None else dec_total + w * dec_i
+        if dec_total is not None:
+            batch["loss/dec"] = dec_total
         return batch
 
 
