@@ -55,7 +55,11 @@ def list_old_annotation_objects(s3, bucket: str, prefix: str) -> list[str]:
     don't match)."""
     keys = []
     paginator = s3.get_paginator("list_objects_v2")
-    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+    # Exact-directory scoping: S3 prefixes are STRING prefixes, so a bare
+    # "scale_annotations" would also sweep sibling sets like
+    # "scale_annotations_sort/". Run once per annotation set instead.
+    list_prefix = prefix + "/" if prefix else ""
+    for page in paginator.paginate(Bucket=bucket, Prefix=list_prefix):
         for obj in page.get("Contents", []):
             k = obj["Key"]
             if k.endswith(OLD_SUFFIX) and not (
@@ -188,7 +192,9 @@ def main() -> None:
         is_sort = any(e.get("level") == "high" for e in payload)
         n_sort += is_sort
         n_pp += not is_sort
-        n_eva += subtask_copy
+        # subtask_copy only APPLIES to non-sort episodes (sort has real
+        # high/low structure regardless of embodiment).
+        n_eva += (not is_sort) and subtask_copy
 
         base = key[: -len(OLD_SUFFIX)]
         new_keys = {f"{base}_{name}.json": entries for name, entries in keyed.items()}
@@ -202,14 +208,14 @@ def main() -> None:
                 except s3.exceptions.ClientError:
                     pass
             if len(existing) == len(new_keys):
-                print(f"[SKIP] {ep} -> new keys already exist")
+                print(f"[SKIP] {key} -> new keys already exist")
                 n_skipped += 1
                 continue
 
         counts = {nk.rsplit("_", 1)[-1][:-5]: len(v) for nk, v in new_keys.items()}
         tag = "sort" if is_sort else ("pp+evacopy" if subtask_copy else "pp")
         if args.dry_run:
-            print(f"[DRY] {ep} ({tag}, emb={emb}) -> {counts}")
+            print(f"[DRY] {key} ({tag}, emb={emb}) -> {counts}")
             continue
 
         for nk, entries in new_keys.items():
@@ -222,7 +228,7 @@ def main() -> None:
         if args.delete_old:
             s3.delete_object(Bucket=bucket, Key=key)
             n_deleted += 1
-        print(f"[OK] {ep} ({tag}, emb={emb}) -> {counts}"
+        print(f"[OK] {key} ({tag}, emb={emb}) -> {counts}"
               + (" [old deleted]" if args.delete_old else ""))
 
     print(
