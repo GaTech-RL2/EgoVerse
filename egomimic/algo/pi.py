@@ -1,6 +1,5 @@
 import logging
 import os
-import random
 from collections import OrderedDict
 from typing import Literal
 
@@ -24,6 +23,7 @@ from egomimic.models.preprocess_pi_obs import (
     _SimpleObservation,
     _to_minus1_1,
 )
+from egomimic.rldb.annotation_processing import AnnotationProcessor
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import ConverterRegistry
 
@@ -64,6 +64,12 @@ class PI(Algo):
         tokenizer_max_length: int = 128,
         sampling_mode: Literal["first", "random"] = "random",
         annotation_key: str | None = None,
+        # Modular annotation processing: a hydra-instantiated
+        # AnnotationProcessor that turns the raw batch annotation lists into
+        # per-role sampled strings (see egomimic/rldb/annotation_processing.py).
+        # When None, a default processor is built from annotation_key +
+        # sampling_mode, so existing configs behave identically.
+        annotation_processor: AnnotationProcessor | None = None,
         default_prompt: str = "",
         proprio_in_prompt: bool = False,
         embodiment_label: bool = False,
@@ -80,6 +86,11 @@ class PI(Algo):
         self.tokenizer_max_length = tokenizer_max_length
         self.sampling_mode = sampling_mode
         self.annotation_key = annotation_key
+        self.annotation_processor = (
+            annotation_processor
+            if annotation_processor is not None
+            else AnnotationProcessor(key=annotation_key, strategy=sampling_mode)
+        )
         self.default_prompt = default_prompt
         self.proprio_in_prompt = proprio_in_prompt
         self.embodiment_label = embodiment_label
@@ -233,24 +244,16 @@ class PI(Algo):
     def _build_prompts(
         self, _batch, embodiment_name: str, batch_size: int
     ) -> list[str]:
-        """Sample one prompt per item from the raw annotation lists and
+        """Sample one prompt per item via the annotation processor and
         splice in any of the active blocks. Returns ``batch_size`` strings.
 
-        Mirrors the prompt assembly previously done in
-        ``build_tokenized_collate``. Embodiment is known per-batch (one
-        DataLoader per embodiment), so we don't re-derive it per sample.
+        Sampling lives in ``self.annotation_processor`` (role ``task``);
+        ``None`` per item (no annotation / missing key) falls back to
+        ``default_prompt``. Embodiment is known per-batch (one DataLoader
+        per embodiment), so we don't re-derive it per sample.
         """
-        if self.annotation_key is None or self.annotation_key not in _batch:
-            prompts = [self.default_prompt] * batch_size
-        else:
-            prompts = []
-            for sample in _batch[self.annotation_key]:
-                if not sample:
-                    prompts.append(self.default_prompt)
-                elif self.sampling_mode == "random":
-                    prompts.append(sample[random.randint(0, len(sample) - 1)])
-                else:  # "first"
-                    prompts.append(sample[0])
+        sampled = self.annotation_processor(_batch, batch_size)["task"]
+        prompts = [self.default_prompt if p is None else p for p in sampled]
 
         any_block_active = (
             self.proprio_in_prompt or self.embodiment_label or bool(self.control_mode)

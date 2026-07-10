@@ -254,9 +254,16 @@ def _extract_list_keys(batch):
     This lets ``default_collate`` handle tensors / numbers while variable-length
     annotation lists (``key_type == "annotation_keys"``) are preserved as
     ``list[list[str]]``.
+
+    List keys are UNIONED across the whole batch (not just ``batch[0]``) and
+    missing items fill ``[]``: annotation keys are per-episode (e.g. only sort
+    episodes carry ``annotations_subtask``), so samples in one batch may
+    legitimately differ in which keys they emit.
     """
-    list_keys = {k for k in batch[0] if isinstance(batch[0][k], list)}
-    return {k: [sample.pop(k) for sample in batch] for k in list_keys}
+    list_keys = {
+        k for sample in batch for k in sample if isinstance(sample[k], list)
+    }
+    return {k: [sample.pop(k, []) for sample in batch] for k in list_keys}
 
 
 def _extract_keys(batch, keys):

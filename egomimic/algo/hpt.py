@@ -15,6 +15,7 @@ from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
 from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
+from egomimic.rldb.annotation_processing import AnnotationProcessor
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.egomimicUtils import (
     STD_SCALE,
@@ -817,6 +818,9 @@ class HPT(Algo):
         # ---------------------------
         annotation_key: str | None = None,
         annotation_sampling_mode: Literal["random", "first"] = "random",
+        # Optional hydra-instantiated AnnotationProcessor; when None one is
+        # built from annotation_key + annotation_sampling_mode (back-compat).
+        annotation_processor=None,
         annotation_modality: str = "annotation",
         default_prompt: str = "",
         # ---------------------------
@@ -828,6 +832,13 @@ class HPT(Algo):
         self.norm_stats = norm_stats
         self.annotation_key = annotation_key
         self.annotation_sampling_mode = annotation_sampling_mode
+        self.annotation_processor = (
+            annotation_processor
+            if annotation_processor is not None
+            else AnnotationProcessor(
+                key=annotation_key, strategy=annotation_sampling_mode
+            )
+        )
         self.annotation_modality = annotation_modality
         self.default_prompt = default_prompt
 
@@ -956,20 +967,12 @@ class HPT(Algo):
         self.training_step = 0
 
     def _build_prompts(self, _batch, batch_size: int) -> list[str]:
-        """Sample one annotation per batch item, falling back to default_prompt
-        on empty / missing annotations. Mirrors the Pi algo flow.
+        """Sample one annotation per batch item via the annotation processor,
+        falling back to default_prompt on empty / missing annotations.
+        Mirrors the Pi algo flow.
         """
-        if self.annotation_key is None or self.annotation_key not in _batch:
-            return [self.default_prompt] * batch_size
-        prompts = []
-        for sample in _batch[self.annotation_key]:
-            if not sample:
-                prompts.append(self.default_prompt)
-            elif self.annotation_sampling_mode == "random":
-                prompts.append(sample[random.randint(0, len(sample) - 1)])
-            else:  # "first"
-                prompts.append(sample[0])
-        return prompts
+        sampled = self.annotation_processor(_batch, batch_size)["task"]
+        return [self.default_prompt if p is None else p for p in sampled]
 
     @override
     def process_batch_for_training(self, batch):

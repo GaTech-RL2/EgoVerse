@@ -1598,27 +1598,40 @@ class ZarrDataset(torch.utils.data.Dataset):
             return json.loads(value)
         return value
 
-    def _load_annotations(self) -> list[dict]:
+    def _annotation_zarr_keys(self) -> list[str]:
+        """All annotation arrays present in this episode. The annotation ROLE
+        is encoded in the key NAME (``annotations``, ``annotations_task``,
+        ``annotations_subtask``, ...) — entries are plain
+        ``{"text", "start_idx", "end_idx"}`` spans with no level field."""
+        return sorted(k for k in self.keys_dict if k.startswith("annotations"))
+
+    def _load_annotations(self, zarr_key: str = "annotations") -> list[dict]:
         """
-        Load and cache decoded language annotations.
+        Load and cache decoded language annotations for ``zarr_key``.
 
         Expected format per entry:
             {"text": str, "start_idx": int, "end_idx": int}
         """
-        if self._annotations is not None:
-            return self._annotations
+        if self._annotations is None:
+            self._annotations = {}
+        if zarr_key not in self._annotations:
+            if zarr_key in self.keys_dict:
+                raw = self.episode_reader._store[zarr_key][:]
+                decoded = [self._decode_json_entry(x) for x in raw]
+                self._annotations[zarr_key] = [
+                    d for d in decoded if isinstance(d, dict)
+                ]
+            else:
+                self._annotations[zarr_key] = []
+        return self._annotations[zarr_key]
 
-        raw = self.episode_reader._store["annotations"][:]
-
-        decoded = [self._decode_json_entry(x) for x in raw]
-        self._annotations = [d for d in decoded if isinstance(d, dict)]
-        return self._annotations
-
-    def _annotation_text_for_frame(self, frame_idx: int) -> str:
+    def _annotation_text_for_frame(
+        self, frame_idx: int, zarr_key: str = "annotations"
+    ) -> list[str]:
         """
-        Resolve language annotation text for a frame from span annotations.
+        Resolve language annotation texts for a frame from span annotations.
         """
-        annotations = self._load_annotations()
+        annotations = self._load_annotations(zarr_key)
         valid_annotations = []
         for ann in annotations:
             start_idx = int(ann.get("start_idx", -1))
@@ -1695,7 +1708,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 horizon = self.key_map[k].get("horizon", None)
 
                 if key_type == "annotation_keys":
-                    data[k] = self._annotation_text_for_frame(idx)
+                    # Honor the declared zarr_key (previously hardcoded to
+                    # "annotations") so keymaps can alias any annotation array.
+                    data[k] = self._annotation_text_for_frame(idx, zarr_key)
                     continue
 
                 if horizon is not None:
@@ -1724,6 +1739,17 @@ class ZarrDataset(torch.utils.data.Dataset):
                         data[k] = self._decode_json_entry(data[k])
             if retry:
                 continue
+
+            # Fetch ALL annotation keys present in the episode (role encoded in
+            # the key name: annotations, annotations_task, annotations_subtask,
+            # ...). Keymap-declared aliases above take precedence; everything
+            # else is emitted under its zarr name so annotation processors can
+            # pick roles by key without keymap registration. Episodes lacking a
+            # key simply don't emit it — annotation_collate unions across the
+            # batch and fills [] for missing items.
+            for ann_key in self._annotation_zarr_keys():
+                if ann_key not in data:
+                    data[ann_key] = self._annotation_text_for_frame(idx, ann_key)
 
             if self.transform:
                 for transform in self.transform or []:
