@@ -187,7 +187,9 @@ class PipelineAlgo(Algo):
         }
         for k in prefix[0].keys():
             vs = [f[k] for f in prefix]
-            b[f"obs/{k}"] = (torch.stack(vs, 0).to(dev)
+            # env->zarr frames carry B=1 (e.g. (1,5), (1,3,H,W)) -> cat
+            # along dim0 gives the packed (T, ...) layout the encoders expect.
+            b[f"obs/{k}"] = (torch.cat(vs, 0).to(dev)
                              if torch.is_tensor(vs[0]) else vs[-1])
         if state["plan"] is None:
             runnable, excluded = self.policy.plan(list(b.keys()))

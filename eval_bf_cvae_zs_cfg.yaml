@@ -1,0 +1,386 @@
+model:
+  _target_: egomimic.pl_utils.pl_model.ModelWrapper
+  robomimic_model:
+    _target_: egomimic.pipeline.algo.PipelineAlgo
+    action_horizon: 2560
+    domains:
+    - pushshapes_sim
+    - pushshapes_sim_small_circle
+    ac_keys:
+      pushshapes_sim: actions
+      pushshapes_sim_small_circle: actions
+    stages:
+    - _target_: egomimic.pipeline.stages_io.TargetBuilder
+      chunk_len: 4
+      stride: 4
+    - _target_: egomimic.pipeline.stages_io.ObsEncoders
+      agnostic:
+        _target_: egomimic.models.stems.input_modules.ObsToken
+        d_model: 256
+        obs_encoder:
+          _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+          d_cond: 256
+          output_key: fused_cond
+          cond_proj_widths:
+          - 256
+          - 256
+          obs_specs:
+            state_agent_obj:
+              input_dim: 2
+              input_slice:
+              - 0
+              - 2
+              embed_dim: 64
+          img_encoders:
+            front_img_1:
+              _target_: egomimic.models.stems.visual_core.VisualCore
+              in_channels: 3
+              image_size: 96
+              num_kp: 32
+              feature_dimension: 64
+              pretrained: false
+              crop_aug: true
+              crop_height: 86
+              crop_width: 86
+              crop_eval_mode: random
+              crop_sample_mode: v02
+      specific:
+      - _target_: egomimic.models.stems.input_modules.ObsToken
+        d_model: 64
+        obs_encoder:
+          _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+          encoders:
+            pushshapes_sim:
+              _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+              d_cond: 64
+              output_key: fused_cond
+              cond_proj_widths:
+              - 64
+              - 64
+              obs_specs:
+                state_agent_obj:
+                  input_dim: 2
+                  input_slice:
+                  - 0
+                  - 2
+                  embed_dim: 64
+              img_encoders:
+                front_img_1:
+                  _target_: egomimic.models.stems.visual_core.VisualCore
+                  in_channels: 3
+                  image_size: 96
+                  num_kp: 32
+                  feature_dimension: 64
+                  pretrained: false
+                  crop_aug: true
+                  crop_height: 86
+                  crop_width: 86
+                  crop_eval_mode: random
+                  crop_sample_mode: v02
+            pushshapes_sim_small_circle:
+              _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+              d_cond: 64
+              output_key: fused_cond
+              cond_proj_widths:
+              - 64
+              - 64
+              obs_specs:
+                state_agent_obj:
+                  input_dim: 2
+                  input_slice:
+                  - 0
+                  - 2
+                  embed_dim: 64
+              img_encoders:
+                front_img_1:
+                  _target_: egomimic.models.stems.visual_core.VisualCore
+                  in_channels: 3
+                  image_size: 96
+                  num_kp: 32
+                  feature_dimension: 64
+                  pretrained: false
+                  crop_aug: true
+                  crop_height: 86
+                  crop_width: 86
+                  crop_eval_mode: random
+                  crop_sample_mode: v02
+    - _target_: egomimic.pipeline.stages_io.CVAEPosterior
+      src_dim: 64
+      src_key: S
+      action_dim: 2
+      chunk_len: 4
+      z_dim: 32
+      enc_d_model: 256
+      enc_n_layers: 10
+      enc_n_heads: 4
+      enc_ffn_dim: 1024
+      beta: 10.0
+      free_bits: 0.5
+      zero_z_prob: 0.1
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_small_circle
+    - _target_: egomimic.pipeline.stages_hnet.DualstreamTrunk
+      init_range: 0.02
+      levels:
+      - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel
+        mask_mode: sym
+        allow_agnostic_cross: true
+        causal: true
+        n_layers: 8
+        rotary_emb_dim: 64
+        adaln_cond: cvae_z
+        adaln_dim: 32
+        embodiments:
+        - pushshapes_sim
+        - pushshapes_sim_small_circle
+        streams_cfg:
+        - d_model: 256
+          num_heads: 4
+          d_intermediate: 1024
+        - d_model: 64
+          num_heads: 2
+          d_intermediate: 256
+      - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel
+        d_a: 256
+        d_s: 64
+        apex_a: 512
+        apex_s: 128
+        dual_inner: true
+        target_compression_ratio: 3.0
+        ratio_loss_weight: 1.0
+        grab_prev_end: true
+        residual_mixer: mlp
+        residual_mixer_kwargs:
+          n_layers: 4
+        embodiments:
+        - pushshapes_sim
+        - pushshapes_sim_small_circle
+        router_per_emb: true
+        router_fusion: mlp
+      - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel
+        mask_mode: sym
+        allow_agnostic_cross: true
+        causal: true
+        n_layers: 8
+        rotary_emb_dim: 64
+        adaln_cond: cvae_z
+        adaln_dim: 32
+        embodiments:
+        - pushshapes_sim
+        - pushshapes_sim_small_circle
+        streams_cfg:
+        - d_model: 512
+          num_heads: 8
+          d_intermediate: 2048
+        - d_model: 128
+          num_heads: 4
+          d_intermediate: 512
+      - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel
+        d_a: 512
+        d_s: 128
+        apex_a: 1024
+        dual_inner: false
+        target_compression_ratio: 3.0
+        ratio_loss_weight: 1.0
+        grab_prev_end: true
+        residual_mixer: mlp
+        residual_mixer_kwargs:
+          n_layers: 4
+        embodiments:
+        - pushshapes_sim
+        - pushshapes_sim_small_circle
+        router_per_emb: true
+        router_fusion: mlp
+      - _target_: egomimic.pipeline.stages_hnet.ApexLevel
+        causal: true
+        main_network:
+          arch_layout: T10
+          d_model: 1024
+          d_intermediate: 1536
+          num_heads: 16
+          cond: false
+          rotary_emb_dim: 64
+          dropout: 0.0
+          resid_dropout: 0.0
+    - _target_: egomimic.pipeline.stages_io.CVAEHead
+      d_a: 256
+      d_s: 64
+      action_dim: 2
+      chunk_len: 4
+      z_dim: 32
+      mixer_hidden_dim: 1024
+      mixer_n_layers: 3
+      dec_hidden_dim: 1024
+      dec_n_layers: 4
+      band_weight: 1.0
+      band_c_lo: 0.05
+      band_c_hi: 10.0
+      band_d_cap: 6.0
+      band_stopgrad: true
+    - _target_: egomimic.pipeline.stages_io.RatioLoss
+  enable_grad_norm: false
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    weight_decay: 0.0
+  scheduler:
+    _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+    _partial_: true
+    max_steps: 1000
+    warmup_steps: 50
+    warmup_start_factor: 0.1
+    eta_min: 1.0e-06
+paths:
+  log_dir: ${paths.root_dir}/logs/
+  output_dir: ${hydra:runtime.output_dir}
+  work_dir: ${hydra:runtime.cwd}
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: ${paths.output_dir}
+  max_epochs: 1000
+  min_epochs: 1000
+  accelerator: gpu
+  devices: ${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}
+  precision: bf16
+  limit_train_batches: 100
+  limit_val_batches: 80
+  check_val_every_n_epoch: 500
+  deterministic: false
+  strategy: auto
+  num_nodes: ${launch_params.nodes}
+  sync_batchnorm: true
+  num_sanity_val_steps: 0
+logger:
+  csv:
+    _target_: lightning.pytorch.loggers.CSVLogger
+    save_dir: ${paths.output_dir}/csv_logs
+    name: lightning_logs
+    version: null
+    flush_logs_every_n_steps: 1
+  wandb:
+    project: pushshapes-indomain-c4
+data:
+  _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+  train_datasets:
+    pushshapes_sim:
+      _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+        folder_path: /coc/flash7/paphiwetsa3/datasets/probe_1ep_circle
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+          action_horizon: 2560
+        transform_list: null
+      chunking: none
+      min_seq_len: 64
+      max_seq_len: 2560
+    pushshapes_sim_small_circle:
+      _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+        folder_path: /coc/flash7/paphiwetsa3/datasets/probe_1ep_smallcircle
+        embodiment_override: pushshapes_sim_small_circle
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+          action_horizon: 2560
+        transform_list: null
+      chunking: none
+      min_seq_len: 64
+      max_seq_len: 2560
+  valid_datasets:
+    pushshapes_sim:
+      _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+        folder_path: /coc/flash7/paphiwetsa3/datasets/probe_1ep_circle
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+          action_horizon: 2560
+        transform_list: null
+      chunking: none
+      min_seq_len: 64
+      max_seq_len: 2560
+    pushshapes_sim_small_circle:
+      _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+        folder_path: /coc/flash7/paphiwetsa3/datasets/probe_1ep_smallcircle
+        embodiment_override: pushshapes_sim_small_circle
+        key_map:
+          _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+          action_horizon: 2560
+        transform_list: null
+      chunking: none
+      min_seq_len: 64
+      max_seq_len: 2560
+  train_dataloader_params:
+    pushshapes_sim:
+      batch_size: 4
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+    pushshapes_sim_small_circle:
+      batch_size: 4
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+  valid_dataloader_params:
+    pushshapes_sim:
+      batch_size: 4
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+    pushshapes_sim_small_circle:
+      batch_size: 4
+      num_workers: 2
+      pin_memory: true
+      persistent_workers: true
+      prefetch_factor: 4
+callbacks:
+  wandb_profiler:
+    _target_: egomimic.pl_utils.callbacks.timing_callback.WandbProfilerLogger
+    log_every_n_steps: 100
+  model_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${paths.output_dir}/checkpoints
+    filename: epoch_{epoch}
+    save_last: true
+    save_top_k: 1
+    every_n_epochs: 500
+evaluator:
+  _target_: egomimic.eval.core.eval_composite.EvalList
+  evals:
+  - _target_: egomimic.eval.core.eval_composite.EvalVideoList
+    pad_h: max
+    limit_val_batches: 2
+    evals:
+    - _target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
+      limit_val_batches: 2
+      max_videos: 2
+      viz_func:
+        pushshapes_sim:
+          _target_: hydra.utils.get_method
+          path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+        pushshapes_sim_small_circle:
+          _target_: hydra.utils.get_method
+          path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+name: debug
+description: bf_overfit_cvae_zs
+ckpt_path: null
+mode: train
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+seed: 42
+norm_stats:
+  norm_mode: minmax
+  sample_frac: 1.0
+  num_workers: 4
+  save_cache_dir: ${hydra:runtime.output_dir}
+  precomputed_norm_path: /coc/flash7/paphiwetsa3/projects/EgoVerse-gmm-dualstream/logs/indomain_c4/dualstream_cotrain_m16_sym_2026-06-24_15-12-49/norm_stats/norm_stats.json
+reject_outliers: true
