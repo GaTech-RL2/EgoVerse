@@ -172,8 +172,9 @@ class GMMHead(Stage):
             with torch.no_grad():
                 probs = torch.softmax(logits.float(), -1)
                 batch["log/w_agnostic"] = float(probs[..., : self.Ka].sum(-1).mean())
-        with torch.no_grad():
-            batch["pred_action"] = dist.sample().clamp(-1.0, 1.0)  # (T, C, D)
+        if not self.training:
+            with torch.no_grad():
+                batch["pred_action"] = dist.sample().clamp(-1.0, 1.0)  # (T, C, D)
         return batch
 
 
