@@ -64,7 +64,25 @@
   wedged on 07-03: "CUDA device busy" at init).
 - WandB: personal account (entity null), project `sew_policy`, run id `aria_egoposer_firm_<desc>`.
 
-## Currently running (submitted 2026-07-08 — ROUND 5 encoder ablations, same R3 recipe)
+## ROUND 5 RESULTS (2026-07-10 — encoder ablations, same R3 recipe)
+
+| ckpt (`logs/aria_egoposer_firm/…/last.ckpt`) | trainable vision | clean | shift10/20 | pzero | noise ≤3° |
+|---|---|---|---|---|---|
+| **dino_full_2k** (ViT-S fully unfrozen) | 21.7M (100%) | **0.0119** | 0.013/0.015 ✓ | **0.067** ✗ | 0.013-0.016 ✓ |
+| dinob_lora_2k (frozen ViT-B + LoRA r16) | 1.1M | 0.0155 | 0.017/0.020 ✓ | 0.098 ✗ | 0.017-0.020 ✓ |
+| dino_mlp_2k (frozen ViT-S + 4-block res-MLP head) | 2.2M | 0.0180 | 0.021/0.019 ✓ | 0.091 ✗ | 0.017-0.022 ✓ |
+
+**Findings:** (1) **dino_full is the new best DINO** — full fine-tuning at lr 1e-4 did NOT
+wreck the ViT (heavy crop aug regularized it); it ties crop100's clean accuracy (0.0119
+vs 0.0126) and has the best DINO vision-only score. (2) Clear monotone trend: the more
+the backbone adapts (frozen < adapters < full FT), the better BOTH clean and pzero.
+(3) Vision-only gate (≤0.03) still unbroken by any DINO (best 0.067 vs ResNet 0.016).
+(4) ViT-B+LoRA beats ViT-S+LoRA on everything → scale helps, but less than unfreezing.
+**Caveat:** shift-flatness only tests translation; whether full-FT preserved DINOv2's
+VIEWPOINT invariance (the reason to use DINO) is unknown until hardware A/B.
+**New deploy A/B suggestion: crop100_2k (primary) + dino_full_2k (challenger).**
+
+## Previous round-5 run notes (submitted 2026-07-08)
 - job 3441899 → `logs/aria_egoposer_firm/dino_mlp_2k` — frozen ViT-S + deep residual-MLP
   projection head (4 blocks 256↔1024; 2.2M vision-trainable, per-token, no spatial mixing)
 - job 3441900 → `logs/aria_egoposer_firm/dino_full_2k` — ViT-S FULLY unfrozen (21.7M;
