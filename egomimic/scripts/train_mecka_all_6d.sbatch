@@ -4,9 +4,15 @@
 #SBATCH -N1
 #SBATCH --ntasks-per-node=8
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=515750M
+# 1TB: 8 ranks x ~75GB/rank tree (8 workers fork the 41k-episode dataset;
+# refcount CoW drift — see the 4g OOM at 63GB/rank, job 10894868).
+#SBATCH --mem=1000G
 #SBATCH --gres=gpu:h200:8
 #SBATCH --time=72:00:00
+# atl1-1-01-009-16-0: 5x backward slowdown at 8 ranks (12.6 s/step vs 3.05
+# on healthy nodes; raw NCCL allreduce fine at 476GB/s). Both slow runs sat
+# on this node; matrix probe 10923198 exonerated the config.
+#SBATCH --exclude=atl1-1-01-009-16-0
 #SBATCH --job-name=pi05_mecka_all_6d
 #SBATCH --output=/storage/project/r-dxu345-0/agao81/EgoVerse/logs/pi05_mecka_all_6d_%j.log
 
@@ -44,6 +50,23 @@ NORM_PATH="${NORM_PATH-/storage/project/r-dxu345-0/agao81/norm_stats/mecka_all_6
 CKPT_PATH="${CKPT_PATH-}"
 LR="${LR-5e-5}"
 
+# Handoff from a still-running lower-GPU job: cancel it AT START TIME and
+# resume from the freshest checkpoint it produced (resolved now, not at
+# submission). Prefer the newest epoch_*.ckpt — it is written before
+# last.ckpt at each save event, so it is complete once last.ckpt exists.
+HANDOFF_JOB="${HANDOFF_JOB-}"
+RESUME_DIR="${RESUME_DIR-}"
+if [[ -n "$HANDOFF_JOB" ]]; then
+  scancel "$HANDOFF_JOB" 2>/dev/null || true
+  echo "[handoff] cancelled $HANDOFF_JOB; letting checkpoint writes settle"
+  sleep 120
+fi
+if [[ -z "$CKPT_PATH" && -n "$RESUME_DIR" ]]; then
+  CKPT_PATH=$(ls -t "$RESUME_DIR"/epoch_*.ckpt 2>/dev/null | head -1 || true)
+  [[ -z "$CKPT_PATH" && -f "$RESUME_DIR/last.ckpt" ]] && CKPT_PATH="$RESUME_DIR/last.ckpt"
+  echo "[handoff] resuming from: ${CKPT_PATH:-<none found - fresh start>}"
+fi
+
 if [[ ! -f "$NORM_PATH/norm_stats.json" ]]; then
   echo "ERROR: precomputed norm stats not found: $NORM_PATH/norm_stats.json" >&2
   echo "Run egomimic/scripts/norm_mecka_all_6d.sbatch first." >&2
@@ -60,7 +83,9 @@ ARGS=(
   "norm_stats.precomputed_norm_path=$NORM_PATH"
   model.robomimic_model.config.pytorch_weight_path=/storage/project/r-dxu345-0/agao81/EgoVerse/egomimic/algo/pi_checkpoints/pi05_base_pytorch
   # cadence (val 50 / viz 100 / ckpt 100 top-3) is the config default now
-  # (trainer/ddp_pi.yaml + callbacks/checkpoints.yaml).
+  # (trainer/ddp_pi.yaml + callbacks/checkpoints.yaml). Checkpoint every 50
+  # epochs (~4h at 8-GPU pace) to bound crash loss — same policy as the 4g run.
+  callbacks.model_checkpoint.every_n_epochs=50
   name=pi05_mecka_all_6d
   description=pi05_mecka_all_6d_bs64x8_constlr_wrist6d
 )
