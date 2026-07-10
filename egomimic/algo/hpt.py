@@ -832,6 +832,9 @@ class HPT(Algo):
         self.norm_stats = norm_stats
         self.annotation_key = annotation_key
         self.annotation_sampling_mode = annotation_sampling_mode
+        # An explicitly-provided processor must not be silently ignored when
+        # annotation_key is None (the prompt gate below also honors it).
+        self._explicit_annotation_processor = annotation_processor is not None
         self.annotation_processor = (
             annotation_processor
             if annotation_processor is not None
@@ -1014,7 +1017,9 @@ class HPT(Algo):
 
             # Sample one annotation per item (random/first, default fallback for
             # empty). Stays as list[str]; the Qwen stem owns tokenization.
-            if self.annotation_key is not None:
+            # Also fires when an annotation_processor was explicitly provided
+            # (its key config lives inside the processor, not annotation_key).
+            if self.annotation_key is not None or self._explicit_annotation_processor:
                 processed_batch[embodiment_id]["sampled_prompt"] = self._build_prompts(
                     _batch, B
                 )

@@ -63,11 +63,16 @@ class ZarrActionExpertDataset(ZarrDataset):
     # --- episode setup -----------------------------------------------------
 
     def _load_annotation_map(self) -> dict[int, int]:
-        """Build {frame_idx -> annotation_index} for every frame inside an annotation span."""
-        raw = self.episode_reader._store["annotations"][:]
-        decoded = [self._decode_json_entry(x) for x in raw]
-        self._annotations = [d for d in decoded if isinstance(d, dict)]
-        for i, ann in enumerate(self._annotations):
+        """Build {frame_idx -> annotation_index} for every frame inside an annotation span.
+
+        Uses the base class's per-key annotation cache (``_load_annotations``
+        returns the decoded list for one zarr key). The entries are kept on a
+        SEPARATE attribute: the base ``self._annotations`` is a
+        ``{zarr_key: list}`` cache dict, and clobbering it with a list breaks
+        the base readers (``_annotation_text_for_frame``).
+        """
+        self._ann_entries = self._load_annotations("annotations")
+        for i, ann in enumerate(self._ann_entries):
             start_idx = int(ann.get("start_idx", -1))
             end_idx = int(ann.get("end_idx", -1))
             for idx in range(start_idx, end_idx + 1):
@@ -145,7 +150,7 @@ class ZarrActionExpertDataset(ZarrDataset):
           - Actions:              <key>  (t..EOS, padded to horizon)
         """
         t = self._valid_frame_indices[index]
-        ann = self._annotations[self.annotation_map[t]]
+        ann = self._ann_entries[self.annotation_map[t]]
         bos, eos = int(ann["start_idx"]), int(ann["end_idx"])
 
         try:
