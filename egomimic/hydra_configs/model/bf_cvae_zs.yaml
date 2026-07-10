@@ -111,7 +111,8 @@ robomimic_model:
       mask_mode: sym
       allow_agnostic_cross: true
       causal: true
-      n_layers: 8
+      n_layers: 4
+      decoder_layout: T4
       rotary_emb_dim: 64
       adaln_cond: cvae_z
       adaln_dim: 32
@@ -133,11 +134,13 @@ robomimic_model:
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
       router_per_emb: true
       router_fusion: mlp
+      router_pre_layout: T4
     - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L1 A512/S128 x8
       mask_mode: sym
       allow_agnostic_cross: true
       causal: true
-      n_layers: 8
+      n_layers: 4
+      decoder_layout: T4
       rotary_emb_dim: 64
       adaln_cond: cvae_z
       adaln_dim: 32
@@ -158,6 +161,7 @@ robomimic_model:
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
       router_per_emb: true
       router_fusion: mlp
+      router_pre_layout: T4
     - _target_: egomimic.pipeline.stages_hnet.ApexLevel        # 1024 T10 agnostic-only
       causal: true
       main_network:
