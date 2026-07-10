@@ -53,7 +53,7 @@ for ok, v in osd.items():
 
 # canonical new keys only: templates built pre-fix carry nested duplicates
 # (levels.{i}.inner.*) — drop them from the requirement AND the output.
-dupes = [k for k in tsd if ".levels." in k and ".inner." in k]
+dupes = [k for k in tsd if (".levels." in k and ".inner." in k) or ".stages.2.root." in k]
 for k in dupes:
     del tsd[k]
 print(f"dropped {len(dupes)} duplicate template keys (pre-fix registration)")

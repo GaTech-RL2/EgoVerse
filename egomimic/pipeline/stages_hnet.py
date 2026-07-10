@@ -362,7 +362,7 @@ class DualstreamTrunk(Stage):
             # every level's params under levels.{i}.inner.* (the old code's
             # nested double-registration pathology — kill it for real).
             object.__setattr__(levels[i], "inner", levels[i + 1])
-        self.root = levels[0]
+        object.__setattr__(self, "root", levels[0])  # non-registered ref (levels owns them)
         if init_range:
             self.root._init_weights(float(init_range), 0)
 
