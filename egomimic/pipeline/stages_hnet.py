@@ -159,7 +159,7 @@ class DualChunkerLevel(Stage):
         self.ratio_loss_weight = float(ratio_loss_weight)
         self.grab_prev_end = bool(grab_prev_end)
         self._embs = list(embodiments) if embodiments else None
-        self.inner: Optional[Stage] = None
+        object.__setattr__(self, "inner", None)  # NON-registered ref
 
         router_embs = self._embs if router_per_emb else None
         self._router = per_emb(
