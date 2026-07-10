@@ -66,6 +66,44 @@ def get_seq_idx(cu_seqlens: torch.Tensor) -> torch.Tensor:
     return (pos[:, None] >= cu_seqlens[None, 1:]).sum(dim=-1)
 
 
+class SigmoidRoutingModule(nn.Module):
+    """Contextual sigmoid boundary scorer: p_t = sigmoid(MLP(norm(h_t)) / tau).
+
+    Scores each (prenet-contextualized) token as an event on its own merits --
+    no neighbor cos-similarity, which suits smooth action trajectories where
+    adjacent tokens are always similar. Packed interface only (batchflow train
+    and the dense-prefix rollout both call the packed path)."""
+
+    def __init__(self, d_model: int, temperature: float = 1.0):
+        super().__init__()
+        self.norm = nn.LayerNorm(d_model, elementwise_affine=False)
+        self.score = nn.Sequential(
+            nn.Linear(d_model, d_model // 2), nn.GELU(),
+            nn.Linear(d_model // 2, 1),
+        )
+        for m in self.score:
+            if isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, mean=0.0, std=0.02)
+                nn.init.zeros_(m.bias)
+        self.temperature = float(temperature)
+
+    def forward(self, hidden_states, mask=None, cu_seqlens=None, inference_params=None):
+        assert cu_seqlens is not None, "SigmoidRoutingModule is packed-only"
+        z = self.score(self.norm(hidden_states)).squeeze(-1) / self.temperature
+        p = torch.sigmoid(z)
+        p = p.clone()
+        p[cu_seqlens[:-1]] = 1.0  # forced boundary at every subseq start
+        boundary_prob = torch.stack(((1 - p), p), dim=-1)
+        selected_idx = torch.argmax(boundary_prob, dim=-1)
+        boundary_mask = selected_idx == 1
+        selected_probs = boundary_prob.gather(dim=-1, index=selected_idx.unsqueeze(-1))
+        return RoutingModuleOutput(
+            boundary_prob=boundary_prob,
+            boundary_mask=boundary_mask,
+            selected_probs=selected_probs,
+        )
+
+
 class RoutingModule(nn.Module):
     def __init__(self, d_model, device=None, dtype=None):
         super().__init__()

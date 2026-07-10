@@ -64,7 +64,7 @@ class DualStreamRouter(nn.Module):
 
     def __init__(self, d_a, d_s, d_router=None, n_layers=4, fusion="residual_mlp",
                  router_pre_layout=None, router_pre_detach=False,
-                 hidden_mult=4.0):
+                 hidden_mult=4.0, router_core="cossim"):
         super().__init__()
         d_router = int(d_router) if d_router else int(d_a)
         self.d_a, self.d_s, self.d_router = int(d_a), int(d_s), d_router
@@ -121,7 +121,13 @@ class DualStreamRouter(nn.Module):
             if router_pre_layout is not None
             else None
         )
-        self.router = RoutingModule(d_router)  # cossim core
+        if router_core == "cossim":
+            self.router = RoutingModule(d_router)
+        elif router_core == "sigmoid":
+            from egomimic.models.hnet.routing import SigmoidRoutingModule
+            self.router = SigmoidRoutingModule(d_router)
+        else:
+            raise ValueError(f"router_core must be 'cossim'|'sigmoid', got {router_core!r}")
 
     @staticmethod
     def _build_mlp(d_in, d_out, n_layers, hidden):

@@ -151,6 +151,7 @@ class DualChunkerLevel(Stage):
                  embodiments: Optional[List[str]] = None, router_per_emb: bool = True,
                  router_fusion: str = "residual_mlp", d_router: Optional[int] = None,
                  router_pre_layout: Optional[str] = None, router_pre_detach: bool = False,
+                 router_core: str = "cossim",
                  router_mixer_n_layers: int = 4, router_hidden_mult: float = 4.0):
         super().__init__()
         d_s = int(d_s) if d_s is not None else int(d_a)
@@ -169,6 +170,7 @@ class DualChunkerLevel(Stage):
         router_embs = self._embs if router_per_emb else None
         self._router = per_emb(
             lambda: DualStreamRouter(d_a, d_s, d_router=d_router,
+                                     router_core=router_core,
                                      router_pre_layout=router_pre_layout,
                                      router_pre_detach=router_pre_detach,
                                      n_layers=router_mixer_n_layers,
