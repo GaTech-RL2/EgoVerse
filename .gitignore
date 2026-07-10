@@ -5,3 +5,4 @@ logs/
 eval_bf/
 wandb/
 __pycache__/
+bf_viz/
