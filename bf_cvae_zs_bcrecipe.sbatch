@@ -28,7 +28,7 @@ srun .venv/bin/python -m egomimic.trainHydra --config-name=train_zarr_cartesian 
   trainer=ddp_pi description=$CELL \
   launch_params.gpus_per_node=1 launch_params.nodes=1 ++trainer.strategy=auto \
   model.enable_grad_norm=false \
-  norm_stats.precomputed_norm_path=/coc/flash7/paphiwetsa3/projects/EgoVerse-gmm-dualstream/logs/indomain_c4/dualstream_cotrain_m16_sym_2026-06-24_15-12-49/norm_stats/norm_stats.json \
+  norm_stats.precomputed_norm_path=/coc/flash7/paphiwetsa3/datasets/pushshapes_norm_stats_ws512.json \
   trainer.max_epochs=3000 trainer.min_epochs=3000 \
   ++trainer.limit_train_batches=100 trainer.limit_val_batches=100000 \
   trainer.check_val_every_n_epoch=250 \
