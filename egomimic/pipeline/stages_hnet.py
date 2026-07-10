@@ -145,6 +145,7 @@ class DualChunkerLevel(Stage):
                  apex_s: Optional[int] = None, dual_inner: bool = False,
                  target_compression_ratio: float = 8.0, ratio_loss_weight: float = 0.03,
                  decisiveness_loss_weight: float = 0.0,
+                 spread_loss_weight: float = 0.0, spread_alpha: float = 0.5,
                  grab_prev_end: bool = True, residual_mixer: str = "mlp",
                  residual_mixer_kwargs: Optional[dict] = None,
                  embodiments: Optional[List[str]] = None, router_per_emb: bool = True,
@@ -159,6 +160,8 @@ class DualChunkerLevel(Stage):
         self.target_compression_ratio = float(target_compression_ratio)
         self.ratio_loss_weight = float(ratio_loss_weight)
         self.decisiveness_loss_weight = float(decisiveness_loss_weight)
+        self.spread_loss_weight = float(spread_loss_weight)
+        self.spread_alpha = float(spread_alpha)
         self.grab_prev_end = bool(grab_prev_end)
         self._embs = list(embodiments) if embodiments else None
         object.__setattr__(self, "inner", None)  # NON-registered ref
@@ -285,6 +288,8 @@ class DualChunkerLevel(Stage):
             "target_ratio": self.target_compression_ratio,
             "ratio_weight": self.ratio_loss_weight,
             "dec_weight": self.decisiveness_loss_weight,
+            "spread_weight": self.spread_loss_weight,
+            "spread_alpha": self.spread_alpha,
             "tokens": A_ch,               # chunkviz PCA reads A tokens ONLY
         })
         return batch

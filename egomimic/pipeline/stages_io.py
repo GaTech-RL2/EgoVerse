@@ -436,6 +436,17 @@ class RatioLoss(Stage):
             w = float(rec.get("dec_weight", 0.0))
             if w > 0:
                 dec_total = w * dec_i if dec_total is None else dec_total + w * dec_i
+            # Distribution-level alternative: variance floor. Var(p) <= G(1-G)
+            # with equality iff mass sits at {0,1}; requiring alpha of that
+            # maximum kills the p=0.5 point-mass without taxing individual
+            # ambiguous frames (unlike the frame-wise dec term).
+            w_s = float(rec.get("spread_weight", 0.0))
+            if w_s > 0:
+                g_d = pv.mean().detach()
+                target = float(rec.get("spread_alpha", 0.5)) * g_d * (1.0 - g_d)
+                spread_i = F.relu(target - pv.var(unbiased=False))
+                batch[f"log/L{i}_pvar"] = float(pv.var(unbiased=False))
+                dec_total = w_s * spread_i if dec_total is None else dec_total + w_s * spread_i
         if dec_total is not None:
             batch["loss/dec"] = dec_total
         return batch
