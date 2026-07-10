@@ -384,9 +384,14 @@ class CVAEHead(Stage):
             r_perm = packed.seg_mean(
                 self._l1(self._decode(hb, packed.broadcast_per_episode(zb[perm], cu)), target), cu)
             gap = r_perm - r_true
-            l_use = F.relu(self.c_lo * d.clamp(max=self.d_cap) - gap).mean()
-            l_sm = F.relu(gap - self.c_hi * d).mean()
+            u_pair = F.relu(self.c_lo * d.clamp(max=self.d_cap) - gap)
+            s_pair = F.relu(gap - self.c_hi * d)
+            l_use, l_sm = u_pair.mean(), s_pair.mean()
             batch["loss/band"] = self.band_weight * (l_use + l_sm)
+            # fraction of pairs with an active hinge -> should trend to 0 as
+            # the posterior calibrates (guardrail firing = exception, not norm)
+            batch["log/band_use_rate"] = float((u_pair > 0).float().mean())
+            batch["log/band_smooth_rate"] = float((s_pair > 0).float().mean())
             batch["log/gap"] = float(gap.mean())
             batch["log/zdist"] = float(d.mean())
             batch["log/L_use"] = float(l_use)
