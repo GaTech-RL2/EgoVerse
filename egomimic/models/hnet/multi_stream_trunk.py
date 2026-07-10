@@ -223,12 +223,28 @@ class MultiStreamTrunk(nn.Module):
 
     def __init__(self, streams_cfg: List[dict], adjacency: List[List[int]], n_layers,
                  rotary_emb_dim, dropout=0.0, embodiments: Optional[List[str]] = None,
-                 allow_agnostic_cross: bool = False):
+                 allow_agnostic_cross: bool = False, adaln_dim: Optional[int] = None):
         super().__init__()
         self.n_streams = len(streams_cfg)
         self.n_layers = int(n_layers)
         self.streams_cfg = streams_cfg
         self.embodiments = list(embodiments) if embodiments else None
+        # AdaLN conditioning on the SPECIFIC streams only (batchflow cvae_zs):
+        # per-block, per-S-stream Linear(adaln_dim -> 2*d_s) producing (gamma,
+        # beta); applied BEFORE each block as x_s <- x_s*(1+gamma)+beta.
+        # adaLN-zero init => identity at start; A (idx 0) NEVER modulated.
+        self.adaln_dim = int(adaln_dim) if adaln_dim else None
+        if self.adaln_dim:
+            def _zero_lin(d_out):
+                m = nn.Linear(self.adaln_dim, d_out)
+                nn.init.zeros_(m.weight); nn.init.zeros_(m.bias)
+                m.weight._no_reinit = True
+                return m
+            self.adaln = nn.ModuleList([
+                nn.ModuleList([_zero_lin(2 * int(streams_cfg[i]["d_model"]))
+                               for i in range(1, len(streams_cfg))])
+                for _ in range(int(n_layers))
+            ])
         self.blocks = nn.ModuleList([
             MultiStreamBlock(streams_cfg, adjacency, rotary_emb_dim, dropout, embodiments=embodiments,
                              allow_agnostic_cross=allow_agnostic_cross)
@@ -246,8 +262,14 @@ class MultiStreamTrunk(nn.Module):
         return 2 * self.n_layers
 
     def forward(self, xs: List[torch.Tensor], mask, rope_positions,
-                emb_id: Optional[str] = None) -> List[torch.Tensor]:
-        for blk in self.blocks:
+                emb_id: Optional[str] = None,
+                cond: Optional[torch.Tensor] = None) -> List[torch.Tensor]:
+        for li, blk in enumerate(self.blocks):
+            if cond is not None and self.adaln_dim:
+                for i in range(1, len(xs)):
+                    g, b = self.adaln[li][i - 1](cond).chunk(2, -1)
+                    xs = list(xs)
+                    xs[i] = xs[i] * (1 + g) + b
             xs = blk(xs, mask, rope_positions, emb_id)
         return [pick(self.norm_f[i], emb_id)(xs[i]) for i in range(len(xs))]
 

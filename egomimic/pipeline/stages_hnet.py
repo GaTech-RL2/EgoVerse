@@ -57,7 +57,8 @@ class DualTrunkLevel(Stage):
     def __init__(self, streams_cfg, adjacency=None, n_layers=6, rotary_emb_dim=0,
                  mask_mode="asym", causal=True, dropout=0.0,
                  embodiments: Optional[List[str]] = None,
-                 allow_agnostic_cross: bool = False, decoder_layout=None):
+                 allow_agnostic_cross: bool = False, decoder_layout=None,
+                 adaln_cond: Optional[str] = None, adaln_dim: Optional[int] = None):
         super().__init__()
         streams_cfg = [dict(s) for s in streams_cfg]
         N = len(streams_cfg)
@@ -66,14 +67,18 @@ class DualTrunkLevel(Stage):
                          if mask_mode == "sym"
                          else [[] if i == 0 else [0] for i in range(N)])
         self.causal = bool(causal)
+        self.adaln_cond = str(adaln_cond) if adaln_cond else None
+        ad = int(adaln_dim) if (adaln_cond and adaln_dim) else None
         self.trunk = MultiStreamTrunk(streams_cfg, adjacency, n_layers, rotary_emb_dim,
                                       dropout, embodiments=embodiments,
-                                      allow_agnostic_cross=allow_agnostic_cross)
+                                      allow_agnostic_cross=allow_agnostic_cross,
+                                      adaln_dim=ad)
         dec_n = self._dec_layers(decoder_layout)
         self.decoder_trunk = (MultiStreamTrunk(streams_cfg, adjacency, dec_n,
                                                rotary_emb_dim, dropout,
                                                embodiments=embodiments,
-                                               allow_agnostic_cross=allow_agnostic_cross)
+                                               allow_agnostic_cross=allow_agnostic_cross,
+                                               adaln_dim=ad)
                               if dec_n is not None else None)
         self.inner: Optional[Stage] = None  # wired by DualstreamTrunk
 
@@ -91,7 +96,12 @@ class DualTrunkLevel(Stage):
         cu, tp, emb = batch["cu_seqlens"], batch["time_pos"], batch["embodiment"]
         mask = build_same_episode_causal_mask(A.shape[0], cu, tp, self.causal, A.device)
         rope = tp.to(device=A.device, dtype=torch.long)
-        tops = self.trunk([A, S], mask, rope, emb)
+        cond = None
+        if self.adaln_cond and self.adaln_cond in batch:
+            # per-episode z -> per-token at THIS level's resolution (works at
+            # every pyramid level: z is episode-constant, cu is this level's).
+            cond = packed.broadcast_per_episode(batch[self.adaln_cond], cu)
+        tops = self.trunk([A, S], mask, rope, emb, cond=cond)
         batch["A"], batch["S"] = tops[0], tops[1]
         if self.inner is not None:
             batch = self.inner(batch)
@@ -99,7 +109,7 @@ class DualTrunkLevel(Stage):
             # decode-side trunk on the chunker's (already residual-mixed) output;
             # same resolution => same mask/rope. No extra residual (the single
             # STE-gated skip lives inside the chunker).
-            douts = self.decoder_trunk([batch["A"], batch["S"]], mask, rope, emb)
+            douts = self.decoder_trunk([batch["A"], batch["S"]], mask, rope, emb, cond=cond)
             batch["A"], batch["S"] = douts[0], douts[1]
         return batch
 

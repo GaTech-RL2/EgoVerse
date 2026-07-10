@@ -228,12 +228,14 @@ class CVAEPosterior(Stage):
                  src_key: str = "S", z_dim: int = 32, enc_d_model: int = 256,
                  enc_n_layers: int = 10, enc_n_heads: int = 4, enc_ffn_dim: int = 1024,
                  beta: float = 10.0, free_bits: float = 0.5,
-                 embodiments: Optional[List[str]] = None, logvar_clamp: float = 8.0):
+                 embodiments: Optional[List[str]] = None, logvar_clamp: float = 8.0,
+                 zero_z_prob: float = 0.0):
         super().__init__()
         E = int(enc_d_model)
         self.src_key = str(src_key)
         self.reads = [self.src_key, "target", "cu_seqlens", "embodiment"]
         self.z_dim, self.beta, self.free_bits = int(z_dim), float(beta), float(free_bits)
+        self.zero_z_prob = float(zero_z_prob)
         self.logvar_clamp = float(logvar_clamp)
         self.enc_n_heads = int(enc_n_heads)
         C, D = int(chunk_len), int(action_dim)
@@ -286,6 +288,11 @@ class CVAEPosterior(Stage):
         mu, logvar = self.head(self.norm_f(x)[:, 0]).chunk(2, -1)
         logvar = logvar.clamp(-self.logvar_clamp, self.logvar_clamp)
         z = mu + torch.exp(0.5 * logvar) * torch.randn_like(mu) if self.training else mu
+        if self.training and self.zero_z_prob > 0:
+            # z->0 sampling: train the canonical (z=0) path the rollout uses —
+            # mitigates the trunk train/test z-shift (cvae_zs design).
+            keep = (torch.rand(z.shape[0], device=z.device) >= self.zero_z_prob)
+            z = z * keep.unsqueeze(-1).to(z.dtype)
 
         kl_dim = 0.5 * (mu.pow(2) + logvar.exp() - logvar - 1.0)
         kl = torch.clamp(kl_dim.mean(0), min=self.free_bits).sum()
