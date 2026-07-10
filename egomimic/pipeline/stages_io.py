@@ -318,7 +318,8 @@ class CVAEHead(Stage):
 
     reads = ["a_top", "s", "cu_seqlens"]
     writes = ["pred_action", "loss/recon", "loss/band", "log/recon", "log/gap",
-              "log/zdist", "log/L_use", "log/L_smooth"]
+              "log/zdist", "log/L_use", "log/L_smooth",
+              "log/band_use_rate", "log/band_smooth_rate"]
 
     def __init__(self, d_a: int, d_s: int, action_dim: int = 2, chunk_len: int = 4,
                  z_dim: int = 32, mixer_hidden_dim: int = 1024, mixer_n_layers: int = 3,
