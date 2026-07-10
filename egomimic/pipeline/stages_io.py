@@ -106,6 +106,53 @@ class TargetBuilder(Stage):
 # --------------------------------------------------------------------------- #
 # GMM head (sym_w1 / prenet_decoder gate arm)
 # --------------------------------------------------------------------------- #
+class RegressionHead(Stage):
+    """Deterministic action head — the GMM-ablation twin. Mirrors GMMHead's
+    partition (shared A MLP on a_top + per-emb S MLP on s, additive fusion,
+    tanh squash) with the mixture removed. Train: loss/mse. Rollout/eval:
+    pred_action (T, C, D)."""
+
+    reads = ["a_top", "s", "embodiment"]
+    writes = ["pred_action", "loss/mse", "log/mse", "log/l1"]
+
+    def __init__(self, d_a: int, d_s: int, action_dim: int, chunk_len: int,
+                 embodiments: Optional[List[str]] = None,
+                 head_hidden_dim: int = 512, head_n_layers: int = 3,
+                 squash: bool = True):
+        super().__init__()
+        self.D, self.C = int(action_dim), int(chunk_len)
+        self.squash = bool(squash)
+        embs = [str(e) for e in embodiments] if embodiments else ["shared"]
+        C, D = self.C, self.D
+
+        def _mlp(d_in, hidden, n, d_out):
+            layers, cur = [], d_in
+            for _ in range(int(n)):
+                layers += [nn.Linear(cur, hidden), nn.GELU()]
+                cur = hidden
+            layers += [nn.Linear(cur, d_out)]
+            return nn.Sequential(*layers)
+
+        self.A_head = _mlp(d_a, head_hidden_dim, head_n_layers, C * D)
+        self.S_head = nn.ModuleDict(
+            {e: _mlp(d_s, head_hidden_dim, head_n_layers, C * D) for e in embs})
+
+    def forward(self, batch: dict) -> dict:
+        a_top, s, emb = batch["a_top"], batch["s"], batch["embodiment"]
+        e = emb if emb in self.S_head else next(iter(self.S_head))
+        lead = a_top.shape[:-1]
+        raw = (self.A_head(a_top) + self.S_head[e](s)).reshape(*lead, self.C, self.D)
+        pred = torch.tanh(raw) if self.squash else raw
+        if "target" in batch:
+            mse = F.mse_loss(pred, batch["target"])
+            batch["loss/mse"] = mse
+            batch["log/mse"] = float(mse)
+            batch["log/l1"] = float(F.l1_loss(pred, batch["target"]))
+        if not self.training:
+            batch["pred_action"] = pred.detach()
+        return batch
+
+
 class GMMHead(Stage):
     """Partitioned GMM head as one stage: k_agnostic modes from a_top (shared)
     + k_specific modes from s (per-emb) + per-emb gate. Train: loss/nll.
