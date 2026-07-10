@@ -80,7 +80,7 @@ class DualTrunkLevel(Stage):
                                                allow_agnostic_cross=allow_agnostic_cross,
                                                adaln_dim=ad)
                               if dec_n is not None else None)
-        self.inner: Optional[Stage] = None  # wired by DualstreamTrunk
+        object.__setattr__(self, "inner", None)  # NON-registered ref (wired by DualstreamTrunk)
 
     @staticmethod
     def _dec_layers(layout):
@@ -356,9 +356,12 @@ class DualstreamTrunk(Stage):
 
     def __init__(self, levels: List[Stage], init_range: Optional[float] = 0.02):
         super().__init__()
-        self.levels = nn.ModuleList(levels)
+        self.levels = nn.ModuleList(levels)   # the ONLY registration (canonical keys)
         for i in range(len(levels) - 1):
-            levels[i].inner = levels[i + 1]
+            # non-registered reference: the recursion chain must NOT duplicate
+            # every level's params under levels.{i}.inner.* (the old code's
+            # nested double-registration pathology — kill it for real).
+            object.__setattr__(levels[i], "inner", levels[i + 1])
         self.root = levels[0]
         if init_range:
             self.root._init_weights(float(init_range), 0)

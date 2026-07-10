@@ -62,6 +62,12 @@ class PipelineAlgo(Algo):
         self._resolve_embodiment_keys(norm_stats)
         self.nets = nn.ModuleDict({"policy": Pipeline(list(stages))})
         self.nets.to(self.device)
+        # replan cadence for closed-loop AR = the TargetBuilder's stride
+        # (introspected -> train/inference cadence can never desync).
+        self.replan_stride = 1
+        for s in self.nets["policy"].stages:
+            if type(s).__name__ == "TargetBuilder":
+                self.replan_stride = int(s.stride)
 
     # ------------------------------------------------------------------ #
     @property
@@ -171,7 +177,9 @@ class PipelineAlgo(Algo):
         T = len(prefix)
         dev, dt = state["device"], state["dtype"]
         b = {
-            "actions": torch.zeros((T, 1), device=dev, dtype=dt),  # shape donor only
+            # NO "actions" key: plan() then provably excludes TargetBuilder,
+            # posterior and every loss stage -> DENSE full-rate prefix, exactly
+            # the old rollout semantics (stride cadence lives in the queue).
             "cu_seqlens": torch.tensor([0, T], device=dev, dtype=torch.long),
             "max_seq_len": T,
             "embodiment": embodiment_id,
@@ -190,3 +198,34 @@ class PipelineAlgo(Algo):
         for stage in state["plan"]:
             b = stage(b)
         return b["pred_action"][T - 1]  # (C, D) decoded chunk at the last token
+
+    # ------------------------------------------------------------------ #
+    # Sim-eval entry (PackedSimEval calls this every env frame).
+    # ------------------------------------------------------------------ #
+    def inference_step(self, obs_zarr: dict, t: int, emb_id: int, T_max=None):
+        import numpy as np
+        from egomimic.rldb.embodiment.embodiment import get_embodiment
+
+        if t == 0:
+            device = next(self.nets.parameters()).device
+            self._sim_state = self.init_step_state(
+                batch_size=1, T_max=int(T_max or self.action_horizon),
+                device=device, dtype=next(self.nets.parameters()).dtype)
+            self._sim_action_queue: list = []
+        embodiment_name = get_embodiment(emb_id).lower()
+        ac_key = (self.ac_keys[embodiment_name] if embodiment_name in self.ac_keys
+                  else self.ac_keys[emb_id])
+        if self._sim_action_queue:
+            a_norm = self._sim_action_queue.pop(0)
+        else:
+            obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
+            chunk = self.step(self._sim_state, obs_norm, t,
+                              embodiment_id=self.domain_by_id.get(emb_id))
+            if chunk.dim() == 2:  # (C, D): keep replan_stride actions
+                n_keep = max(1, min(self.replan_stride, chunk.shape[0]))
+                self._sim_action_queue = [chunk[j] for j in range(n_keep)]
+            else:  # (D,)
+                self._sim_action_queue = [chunk]
+            a_norm = self._sim_action_queue.pop(0)
+        out = self.norm_stats.unnormalize({ac_key: a_norm}, emb_id)[ac_key]
+        return out.detach().cpu().numpy().reshape(-1).astype(np.float32)

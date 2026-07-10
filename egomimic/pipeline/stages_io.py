@@ -33,7 +33,7 @@ class ObsEncoders(Stage):
     sum into S (per-emb routing handled inside MultiEmbodimentCondEncoder).
     Writes A, S, time_pos."""
 
-    reads = ["obs/*", "actions", "cu_seqlens", "embodiment"]
+    reads = ["obs/*", "cu_seqlens", "embodiment"]   # actions NOT required (rollout)
     writes = ["A", "S", "time_pos"]
 
     def __init__(self, agnostic: nn.Module, specific: List[nn.Module]):
@@ -44,12 +44,17 @@ class ObsEncoders(Stage):
     def forward(self, batch: dict) -> dict:
         obs_packed = {k.split("/", 1)[1]: v for k, v in batch.items()
                       if k.startswith("obs/")}
-        actions = batch["actions"]
-        cu = batch["cu_seqlens"].to(device=actions.device, dtype=torch.long)
-        T = actions.shape[0]
+        ref = next(v for v in obs_packed.values() if torch.is_tensor(v))
+        T, dev = ref.shape[0], ref.device
+        dt = torch.float32 if not ref.is_floating_point() else ref.dtype
+        # actions donor optional: ObsToken reads it only for T/device/dtype.
+        actions = batch.get("actions")
+        if actions is None:
+            actions = torch.zeros((T, 1), device=dev, dtype=dt)
+        cu = batch["cu_seqlens"].to(device=dev, dtype=torch.long)
         emb = batch["embodiment"]
         kw = dict(actions_packed=actions, obs_packed=obs_packed, cu_seqlens=cu,
-                  T_total=T, device=actions.device, dtype=actions.dtype,
+                  T_total=T, device=dev, dtype=actions.dtype,
                   embodiment_id=emb)
         S = None
         for mod in self.specific:
