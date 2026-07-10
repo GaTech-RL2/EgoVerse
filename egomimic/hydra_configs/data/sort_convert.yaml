@@ -22,7 +22,7 @@ train_datasets:
     valid_ratio: 0.0
     filters:
       filter_lambdas:
-        - "lambda row: (row['task'] == 'sort') & (row.get('embodiment') in ('aria', 'aria_bimanual')) & (row['zarr_processed_path'] != '')"
+        - "lambda row: (row['task'] == 'sort') & (row.get('embodiment') == 'human_bimanual' and row.get('lab') == 'rl2') & (row['zarr_processed_path'] != '')"
 
 valid_datasets:
   eva_bimanual: null
