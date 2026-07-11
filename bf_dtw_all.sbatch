@@ -28,10 +28,10 @@ for split in ("train_datasets", "valid_datasets"):
         v["resolver"]["folder_path"] = ds + ("/probe_sub_small" if "small" in fp else "/probe_sub_circle")
 for split in ("train_dataloader_params", "valid_dataloader_params"):
     for k, v in c["data"].get(split, {}).items():
-        v["batch_size"] = 6; v["num_workers"] = 2
+        v["batch_size"] = 20; v["num_workers"] = 2
 yaml.safe_dump(c, open(sys.argv[2], "w"))
 PYCFG
   echo "== $ARM ($(basename $CK) @ $(basename $D))"
-  $PY scripts/bf_dtw_latent.py --ckpt "$CK" --config-path "$CFG" --n-episodes 6 --evr 0.95 --good-eps 3,7,0 2>&1 | grep -E "bfdtw|=|DONE|Error|Traceback" | head -14
+  $PY scripts/bf_dtw_latent.py --ckpt "$CK" --config-path "$CFG" --n-episodes 20 --evr 0.95 --good-eps 3,7,0 2>&1 | grep -E "bfdtw|=|DONE|Error|Traceback" | head -14
 done
 echo BF_DTW_SWEEP_DONE
