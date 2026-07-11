@@ -259,13 +259,27 @@ def compute_dtw_from_apex(apex_by_emb, evr_threshold=0.95,
     pca = fit_pca(pooled, evr_threshold)
 
     n_pairs = min(len(a_eps), len(b_eps))
+    # Whitening: divide each retained PCA coordinate by the pooled per-dim std
+    # so DTW distances are in units of the latent cloud's own spread -- the
+    # unwhitened numbers are NOT comparable across models (scale leaks through
+    # PCA). ``dtw`` keeps the legacy unwhitened value; ``dtw_w`` is the
+    # whitened one; ``align_ratio`` = whitened aligned-pair DTW / mean
+    # mismatched-pair DTW (scale-free null: <<1 = real alignment, ~1 = none).
+    proj_a = [project(e, pca) for e in a_eps[:n_pairs]]
+    proj_b = [project(e, pca) for e in b_eps[:n_pairs]]
+    _std = np.concatenate(proj_a + proj_b, 0).std(0) + 1e-8
+    wa = [pa / _std for pa in proj_a]
+    wb = [pb / _std for pb in proj_b]
     per_pair = []
     for i in range(n_pairs):
-        pa = project(a_eps[i], pca)
-        pb = project(b_eps[i], pca)
+        d_w = dtw_normalized(wa[i], wb[i])
+        null = [dtw_normalized(wa[i], wb[j]) for j in range(n_pairs) if j != i]
         per_pair.append({
             "pair": i,
-            "dtw": dtw_normalized(pa, pb),
+            "dtw": dtw_normalized(proj_a[i], proj_b[i]),
+            "dtw_w": d_w,
+            "null_w": float(np.mean(null)) if null else float("nan"),
+            "align_ratio": float(d_w / np.mean(null)) if null else float("nan"),
             "len_a": len(a_eps[i]),
             "len_b": len(b_eps[i]),
         })
@@ -280,6 +294,10 @@ def compute_dtw_from_apex(apex_by_emb, evr_threshold=0.95,
         "good_eps": list(good_eps),
         "mean_dtw_good": float(np.mean(sel)) if sel else float("nan"),
         "mean_dtw_all": float(np.mean([p["dtw"] for p in per_pair])) if per_pair else float("nan"),
+        "mean_dtw_w_good": float(np.mean([p["dtw_w"] for p in per_pair if p["pair"] in set(good_eps)])) if per_pair else float("nan"),
+        "mean_dtw_w_all": float(np.mean([p["dtw_w"] for p in per_pair])) if per_pair else float("nan"),
+        "mean_align_ratio_good": float(np.mean([p["align_ratio"] for p in per_pair if p["pair"] in set(good_eps)])) if per_pair else float("nan"),
+        "mean_align_ratio_all": float(np.mean([p["align_ratio"] for p in per_pair])) if per_pair else float("nan"),
     }
 
 

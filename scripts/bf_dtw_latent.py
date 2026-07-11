@@ -51,7 +51,7 @@ def main():
                     break
         assert cu is not None, f"no chunk cu matches apex token count {M}"
         eps = [toks[cu[i]:cu[i + 1]] for i in range(len(cu) - 1)][: a.n_episodes]
-        apex_by_emb[emb_id] = eps
+        apex_by_emb[emb_id] = {"eps": eps}
         print(f"[bfdtw] emb{emb_id}: {len(eps)} eps, apex lens {[len(e) for e in eps]}")
 
     good = [int(x) for x in a.good_eps.replace(" ", "").split(",") if x] or None
