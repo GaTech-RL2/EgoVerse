@@ -48,6 +48,14 @@ class PI0SubtaskPytorch(PI0Pytorch):
         # Populated by PI after construction (tokenizer-owned values).
         self.subtask_eos_id: int | None = None
         self.max_subtask_len: int = DEFAULT_MAX_SUBTASK_LEN
+        # When False, the action expert (suffix) is masked off the
+        # ``Task: <instruction>`` tokens (+"Subtask:" anchor) via the
+        # tokenization-time ``token_gate_mask``; it still attends every obs
+        # token — images AND the Embodiment/Control-mode/State proprio blocks —
+        # and the predicted subtask. Set by PI from the model config. See
+        # forward / sample_actions where the (suffix, instruction) mask block
+        # is zeroed. The subtask LM head conditions on the instruction either way.
+        self.action_expert_sees_lang: bool = True
 
     # ------------------------------------------------------------------ #
     # embedding helpers (shared by training forward and AR-decode)
@@ -121,6 +129,54 @@ class PI0SubtaskPytorch(PI0Pytorch):
             image_embs, image_pad, lang_tokens, lang_masks, lang_ar_mask
         )
 
+    # ------------------------------------------------------------------ #
+    # optional gating: hide the Task instruction from the action expert
+    # ------------------------------------------------------------------ #
+    def _prefix_hide_cols(self, token_gate_mask, lang_pad_masks, num_img):
+        """Boolean ``[B, prefix_len]`` columns the action expert must not
+        attend: the ``Task: <instruction>`` (+``Subtask:`` anchor) tokens marked
+        by ``token_gate_mask`` (built at tokenization from the instruction's
+        char span — see ``PI._encode_prefix_with_anchor``), ANDed with the real
+        (non-pad) positions. Image columns and the Embodiment/Control-mode/
+        State proprio blocks are never hidden — those are obs, not instruction.
+        """
+        bsize = token_gate_mask.shape[0]
+        img = torch.zeros(
+            bsize, num_img, dtype=torch.bool, device=token_gate_mask.device
+        )
+        return torch.cat(
+            [img, token_gate_mask.bool() & lang_pad_masks.bool()], dim=1
+        )
+
+    def _hide_cols_from_suffix(self, att_2d_masks, hide_cols):
+        """Zero the ``(suffix row, hidden col)`` block of the full 2D mask so
+        the action expert cannot attend the instruction, while still attending
+        images, State, and the subtask. Prefix rows are untouched, so the
+        subtask LM head's conditioning on the instruction is unchanged.
+        """
+        bsize, seqlen, _ = att_2d_masks.shape
+        prefix_len = hide_cols.shape[1]
+        device = att_2d_masks.device
+        cols = torch.zeros(bsize, seqlen, dtype=torch.bool, device=device)
+        cols[:, :prefix_len] = hide_cols.to(device)
+        rows = torch.zeros(bsize, seqlen, dtype=torch.bool, device=device)
+        rows[:, prefix_len:] = True
+        return att_2d_masks & ~(rows[:, :, None] & cols[:, None, :])
+
+    def _require_gate(self, observation):
+        """Fetch ``token_gate_mask`` off the RAW observation (openpi's
+        preprocess drops unknown fields; token tensors pass through unchanged,
+        so alignment holds). Hard-fails when gating is on but the mask is
+        missing — silently hiding nothing (or everything) would be worse."""
+        gate = getattr(observation, "token_gate_mask", None)
+        if gate is None:
+            raise RuntimeError(
+                "action_expert_sees_lang=False but the observation carries no "
+                "token_gate_mask — the batch was not tokenized by the subtask "
+                "path of PI.process_batch_for_training."
+            )
+        return gate
+
     def _preprocess_with_masks(self, observation, *, train):
         """Like the parent's ``_preprocess_observation`` but also returns the
         subtask ``token_ar_mask`` / ``token_loss_mask`` (preserved through
@@ -186,6 +242,18 @@ class PI0SubtaskPytorch(PI0Pytorch):
         pad_masks = torch.cat([prefix_pad_masks, suffix_pad_masks], dim=1)
         att_masks = torch.cat([prefix_att_masks, suffix_att_masks], dim=1)
         att_2d_masks = make_att_2d_masks(pad_masks, att_masks)
+        if not self.action_expert_sees_lang:
+            # Hide the Task instruction (+anchor) from the action suffix only —
+            # via the tokenization-time gate, NOT an ar-mask heuristic, so the
+            # Embodiment/Control-mode/State proprio blocks stay visible. Prefix
+            # rows (incl. subtask->instruction) and position_ids (built from
+            # pad_masks below) are untouched.
+            hide_cols = self._prefix_hide_cols(
+                self._require_gate(observation),
+                lang_masks,
+                num_img=prefix_pad_masks.shape[1] - lang_tokens.shape[1],
+            )
+            att_2d_masks = self._hide_cols_from_suffix(att_2d_masks, hide_cols)
         position_ids = torch.cumsum(pad_masks, dim=1) - 1
         att_2d_masks_4d = self._prepare_attention_masks_4d(att_2d_masks)
 
@@ -349,13 +417,40 @@ class PI0SubtaskPytorch(PI0Pytorch):
             use_cache=True,
         )
 
+        # Optionally hide the Task instruction from the action expert. The KV
+        # cache above still holds every prefix token (subtask decode + KV
+        # positions unchanged); only the denoise attention skips the instruction
+        # columns, so obs (images + State block) + decoded subtask stay visible.
+        attn_prefix_pad_masks = prefix_pad_masks
+        if not self.action_expert_sees_lang:
+            gate = self._require_gate(observation).bool()
+            # cur_tokens grew by the decoded-subtask columns; the gate did not —
+            # pad it with False (decoded subtask must stay visible).
+            grown = cur_tokens.shape[1] - gate.shape[1]
+            gate_full = torch.cat(
+                [
+                    gate.to(device=device),
+                    torch.zeros(bsize, grown, dtype=torch.bool, device=device),
+                ],
+                dim=1,
+            )
+            hide_cols = self._prefix_hide_cols(
+                gate_full, cur_mask, num_img=image_embs.shape[1]
+            )
+            attn_prefix_pad_masks = prefix_pad_masks & ~hide_cols
+
         dt = torch.tensor(-1.0 / num_steps, dtype=torch.float32, device=device)
         x_t = noise
         time = torch.tensor(1.0, dtype=torch.float32, device=device)
         while time >= -dt / 2:
             expanded_time = time.expand(bsize)
             v_t = self.denoise_step(
-                state, prefix_pad_masks, past_key_values, x_t, expanded_time
+                state,
+                prefix_pad_masks,
+                past_key_values,
+                x_t,
+                expanded_time,
+                attn_prefix_pad_masks=attn_prefix_pad_masks,
             )
             x_t = x_t + dt * v_t
             time += dt
@@ -369,6 +464,54 @@ class PI0SubtaskPytorch(PI0Pytorch):
             subtask_mask = cur_mask & cur_ar
             return x_t, cur_tokens, subtask_mask
         return x_t
+
+    def denoise_step(
+        self,
+        state,
+        prefix_pad_masks,
+        past_key_values,
+        x_t,
+        timestep,
+        attn_prefix_pad_masks=None,
+    ):
+        """Parent ``denoise_step`` with the suffix->prefix ATTENTION mask
+        decoupled from the position/length mask.
+
+        ``attn_prefix_pad_masks`` (defaults to ``prefix_pad_masks``) governs
+        which prefix tokens the action expert attends; ``prefix_pad_masks`` still
+        sets the KV position offset, so hiding the language instruction never
+        shifts the suffix's ``position_ids``.
+        """
+        if attn_prefix_pad_masks is None:
+            attn_prefix_pad_masks = prefix_pad_masks
+        suffix_embs, suffix_pad_masks, suffix_att_masks, adarms_cond = (
+            self.embed_suffix(state, x_t, timestep)
+        )
+        suffix_len = suffix_pad_masks.shape[1]
+        bsize, prefix_len = prefix_pad_masks.shape
+        prefix_pad_2d_masks = attn_prefix_pad_masks[:, None, :].expand(
+            bsize, suffix_len, prefix_len
+        )
+        suffix_att_2d_masks = make_att_2d_masks(suffix_pad_masks, suffix_att_masks)
+        full_att_2d_masks = torch.cat([prefix_pad_2d_masks, suffix_att_2d_masks], dim=2)
+        # positions come from the TRUE prefix length, not the (possibly gated)
+        # attention mask, so masking the instruction leaves KV offsets intact.
+        prefix_offsets = torch.sum(prefix_pad_masks, dim=-1)[:, None]
+        position_ids = prefix_offsets + torch.cumsum(suffix_pad_masks, dim=1) - 1
+        full_att_2d_masks_4d = self._prepare_attention_masks_4d(full_att_2d_masks)
+        self.paligemma_with_expert.gemma_expert.model.config._attn_implementation = "eager"  # noqa: SLF001, E501
+        outputs_embeds, _ = self.paligemma_with_expert.forward(
+            attention_mask=full_att_2d_masks_4d,
+            position_ids=position_ids,
+            past_key_values=past_key_values,
+            inputs_embeds=[None, suffix_embs],
+            use_cache=False,
+            adarms_cond=[None, adarms_cond],
+        )
+        suffix_out = outputs_embeds[1][:, -self.config.action_horizon :].to(
+            dtype=torch.float32
+        )
+        return self.action_out_proj(suffix_out)
 
     def _decode_next_token(self, image_embs, image_pad, cur_tokens, cur_mask, cur_ar):
         """One greedy decoding step: forward the current prefix and read the

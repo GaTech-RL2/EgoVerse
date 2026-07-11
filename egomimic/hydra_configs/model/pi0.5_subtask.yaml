@@ -24,3 +24,13 @@ robomimic_model:
   subtask_loss_weight: 1.0
   # Max autoregressively-decoded subtask length (tokens) at inference.
   max_subtask_len: 48
+  # Toggle whether the action expert may attend the "Task: <instruction>"
+  # tokens (+ the "Subtask:" anchor). false -> those tokens are masked from the
+  # suffix rows only; the action expert STILL sees all obs — images and the
+  # Embodiment/Control-mode/State proprio blocks — plus the predicted subtask,
+  # and the subtask LM head still conditions on the instruction. true
+  # reproduces prior behavior exactly (no gate is even computed). Note this is
+  # an attention-level ablation, not an information bottleneck: instruction
+  # info can still reach the suffix indirectly through image/subtask hidden
+  # states (they attend the instruction in the shared prefix forward).
+  action_expert_sees_lang: true

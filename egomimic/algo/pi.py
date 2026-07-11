@@ -88,6 +88,11 @@ class PI(Algo):
         subtask_anchor: str = "Subtask: ",
         subtask_loss_weight: float = 1.0,
         max_subtask_len: int = 48,
+        # When False, the action expert cannot attend the HIGH-level language
+        # instruction (+anchor): it still sees all obs and the predicted
+        # subtask, but the instruction is masked from the suffix rows. The
+        # subtask LM head still conditions on the instruction either way.
+        action_expert_sees_lang: bool = True,
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
@@ -104,6 +109,7 @@ class PI(Algo):
         self.subtask_anchor = subtask_anchor
         self.subtask_loss_weight = subtask_loss_weight
         self.max_subtask_len = max_subtask_len
+        self.action_expert_sees_lang = action_expert_sees_lang
         self.proprio_in_prompt = proprio_in_prompt
         self.embodiment_label = embodiment_label
         self.state_num_bins = state_num_bins
@@ -199,6 +205,7 @@ class PI(Algo):
             self.model = PI0SubtaskPytorch(model_cfg)
             self.model.max_subtask_len = self.max_subtask_len
             self.model.subtask_eos_id = self.tokenizer.eos_token_id
+            self.model.action_expert_sees_lang = self.action_expert_sees_lang
         else:
             self.model = openpi.models_pytorch.pi0_pytorch.PI0Pytorch(model_cfg)
 
@@ -323,7 +330,7 @@ class PI(Algo):
 
     def _build_subtask_prompts(
         self, _batch, embodiment_name: str, batch_size: int
-    ) -> tuple[list[str], list[str | None]]:
+    ) -> tuple[list[str], list[str | None], list[int]]:
         """Assemble the (high-level prefix, low-level subtask-target) pair per
         item for hierarchical training.
 
@@ -333,6 +340,14 @@ class PI(Algo):
         back to the sampled low instruction — i.e. the single pick-and-place
         annotation is used as *both* the high-level and low-level instruction.
         The rendered prefix ends with ``subtask_anchor`` (where decoding begins).
+
+        Also returns ``instr_char_lens``: per item, the char length of the
+        leading ``Task: <instruction>`` block inside the rendered prefix (the
+        instruction is always the FIRST block; Embodiment/Control-mode/State
+        follow). Used to build ``token_gate_mask`` when
+        ``action_expert_sees_lang`` is off — only these chars (+ the anchor)
+        are hidden from the action expert; the State proprio block stays
+        visible.
         """
         high = self._sample_from_annotation(self.annotation_key, _batch, batch_size)
         low = self._sample_from_annotation(self.subtask_key, _batch, batch_size)
@@ -340,6 +355,7 @@ class PI(Algo):
         emb_name = embodiment_name.lower().replace("_", " ")
         prefixes: list[str] = []
         targets: list[str | None] = []
+        instr_char_lens: list[int] = []
         for i in range(batch_size):
             low_i = low[i]
             # high falls back to low (sort-less episode), then to default_prompt.
@@ -350,13 +366,16 @@ class PI(Algo):
             # tokens), so it is never lost to truncation — see
             # ``_encode_prefix_with_anchor``.
             prefixes.append(self._prompt_blocks(high_i, emb_name, _batch, i) + ";\n")
+            # ``Task: <instruction>`` is the first block rendered by
+            # ``_prompt_blocks``, so its char span is exactly [0, this length).
+            instr_char_lens.append(len(f"Task: {high_i}"))
             # The subtask target is always the low-level pick-and-place phrasing.
             # When the episode has no sort goal, ``high_i`` was set to this same
             # instruction above, so the model conditions on and predicts the
             # same text ("use as both"). ``None`` ⇒ no subtask to predict for
             # this frame (zero LM loss; nothing decoded at inference).
             targets.append(low_i)
-        return prefixes, targets
+        return prefixes, targets, instr_char_lens
 
     def _tokenize_prompts(self, prompts: list[str]) -> dict:
         enc = self.tokenizer(
@@ -378,24 +397,56 @@ class PI(Algo):
             "token_ar_mask": attention_mask.clone().requires_grad_(False),
         }
 
-    def _encode_prefix_with_anchor(self, prefix_text: str) -> list[int]:
+    def _encode_prefix_with_anchor(
+        self, prefix_text: str, instr_chars: int | None = None
+    ) -> tuple[list[int], list[bool] | None]:
         """Tokenize ``prefix_text`` and append the subtask anchor, guaranteeing
         the anchor survives truncation to ``tokenizer_max_length``.
 
         The anchor (``subtask_anchor``, e.g. ``"Subtask: "``) is where decoding
         begins, so it must never be cut. We reserve room for it and truncate the
-        high-level block tail instead. Returns the token-id list (length ≤ L).
+        high-level block tail instead. Returns ``(ids, gate)`` with length ≤ L.
+
+        ``gate`` (only built when ``instr_chars`` is given; else ``None``) marks
+        the tokens the action expert must not attend under
+        ``action_expert_sees_lang=False``: tokens whose char span overlaps the
+        leading ``Task: <instruction>`` block ``[0, instr_chars)`` plus the
+        anchor tokens. BOS (empty span) and the Embodiment/Control-mode/State
+        blocks stay ``False`` (visible) — proprio is obs, not instruction.
         """
         L = self.tokenizer_max_length
         anchor_ids = self.tokenizer(self.subtask_anchor, add_special_tokens=False)[
             "input_ids"
         ]
-        blocks = self.tokenizer(prefix_text, add_special_tokens=True)["input_ids"]
-        blocks = blocks[: max(0, L - len(anchor_ids))]
-        return (blocks + anchor_ids)[:L]
+        if instr_chars is None:
+            blocks = self.tokenizer(prefix_text, add_special_tokens=True)["input_ids"]
+            blocks = blocks[: max(0, L - len(anchor_ids))]
+            return (blocks + anchor_ids)[:L], None
+
+        if not getattr(self.tokenizer, "is_fast", False):
+            raise RuntimeError(
+                "action_expert_sees_lang=False needs a fast tokenizer "
+                "(return_offsets_mapping) to locate the Task-instruction tokens; "
+                f"{type(self.tokenizer).__name__} is not fast."
+            )
+        enc = self.tokenizer(
+            prefix_text, add_special_tokens=True, return_offsets_mapping=True
+        )
+        blocks = enc["input_ids"]
+        # A token is instruction iff its char span overlaps [0, instr_chars).
+        # BOS/specials carry an empty (0, 0) span -> no overlap -> visible.
+        gate = [s < instr_chars and e > s for (s, e) in enc["offset_mapping"]]
+        keep = max(0, L - len(anchor_ids))
+        blocks, gate = blocks[:keep], gate[:keep]
+        ids = (blocks + anchor_ids)[:L]
+        gate = (gate + [True] * len(anchor_ids))[:L]  # anchor is hidden too
+        return ids, gate
 
     def _tokenize_prompts_with_subtask(
-        self, prefixes: list[str], subtasks: list[str | None]
+        self,
+        prefixes: list[str],
+        subtasks: list[str | None],
+        instr_char_lens: list[int] | None = None,
     ) -> dict:
         """Tokenize the hierarchical sequence ``[prefix][anchor][subtask]<eos>``
         per item.
@@ -407,6 +458,11 @@ class PI(Algo):
         ``token_loss_mask`` True only on subtask tokens. Sequences are
         right-padded to ``tokenizer_max_length``; the prefix (incl. anchor) is
         never truncated away (subtask is dropped first if space is tight).
+
+        ``token_gate_mask`` marks the ``Task: <instruction>`` (+anchor) tokens
+        to hide from the action expert when ``action_expert_sees_lang`` is off;
+        it is all-False (nothing hidden) when ``instr_char_lens`` is ``None``
+        (toggle on — skips the extra offsets tokenization pass entirely).
         """
         L = self.tokenizer_max_length
         B = len(prefixes)
@@ -417,46 +473,89 @@ class PI(Algo):
         attn = torch.zeros((B, L), dtype=torch.bool)
         ar = torch.zeros((B, L), dtype=torch.bool)
         loss = torch.zeros((B, L), dtype=torch.bool)
+        gate = torch.zeros((B, L), dtype=torch.bool)
 
         for i in range(B):
-            pre = self._encode_prefix_with_anchor(prefixes[i])
+            pre, pre_gate = self._encode_prefix_with_anchor(
+                prefixes[i],
+                None if instr_char_lens is None else instr_char_lens[i],
+            )
             sub = []
             if subtasks[i]:
                 sub = self.tokenizer(subtasks[i], add_special_tokens=False)["input_ids"]
                 if eos_id is not None:
                     sub = sub + [eos_id]
+            sub_full = len(sub)
             sub = sub[: max(0, L - len(pre))]
+            if len(sub) < sub_full:
+                # EOS is the LAST subtask token, so any truncation drops it
+                # first: the sample trains continuation-without-stop (greedy
+                # decode then runs to max_subtask_len for such prompts). If the
+                # whole subtask is gone the frame silently contributes zero CE.
+                # Surface it — silent label corruption is worse than log spam.
+                self._subtask_trunc_count = (
+                    getattr(self, "_subtask_trunc_count", 0) + 1
+                )
+                if self._subtask_trunc_count == 1 or (
+                    self._subtask_trunc_count % 500 == 0
+                ):
+                    logger.warning(
+                        "Subtask target truncated (%s): prefix=%d + subtask=%d "
+                        "> max_length=%d — EOS dropped%s. Occurrence #%d. "
+                        "Consider a shorter prompt (proprio_in_prompt?) or a "
+                        "larger tokenizer_max_length.",
+                        subtasks[i][:60],
+                        len(pre),
+                        sub_full,
+                        L,
+                        "; ENTIRE subtask dropped (zero CE)" if not sub else "",
+                        self._subtask_trunc_count,
+                    )
             n_pre, n = len(pre), len(pre) + len(sub)
             ids[i, :n] = torch.tensor(pre + sub, dtype=torch.long)
             attn[i, :n] = True
             ar[i, n_pre:n] = True  # subtask tokens are causal
             loss[i, n_pre:n] = True  # subtask tokens are CE targets
+            if pre_gate is not None:
+                gate[i, :n_pre] = torch.tensor(pre_gate, dtype=torch.bool)
         return {
             "tokenized_prompt": ids.requires_grad_(False),
             "tokenized_mask": attn.requires_grad_(False),
             "token_loss_mask": loss.requires_grad_(False),
             "token_ar_mask": ar.requires_grad_(False),
+            "token_gate_mask": gate.requires_grad_(False),
         }
 
-    def _tokenize_highonly(self, prefixes: list[str]) -> dict:
+    def _tokenize_highonly(
+        self, prefixes: list[str], instr_char_lens: list[int] | None = None
+    ) -> dict:
         """Tokenize just the high-level prefix (+ anchor) for autoregressive
         subtask decoding at inference. All tokens bidirectional (``ar`` = 0),
         no loss. Uses the same anchor-preserving encoder as the full sequence so
         the decode seed always ends in the anchor. Written under ``*_hl`` keys
-        so it coexists with the full sequence used for the training/val loss."""
+        so it coexists with the full sequence used for the training/val loss.
+        ``token_gate_mask_hl`` mirrors :meth:`_tokenize_prompts_with_subtask`'s
+        ``token_gate_mask`` (all-False when ``instr_char_lens`` is ``None``)."""
         L = self.tokenizer_max_length
         B = len(prefixes)
         pad_id = self.tokenizer.pad_token_id or 0
         ids = torch.full((B, L), pad_id, dtype=torch.long)
         attn = torch.zeros((B, L), dtype=torch.bool)
+        gate = torch.zeros((B, L), dtype=torch.bool)
         for i in range(B):
-            pre = self._encode_prefix_with_anchor(prefixes[i])
+            pre, pre_gate = self._encode_prefix_with_anchor(
+                prefixes[i],
+                None if instr_char_lens is None else instr_char_lens[i],
+            )
             ids[i, : len(pre)] = torch.tensor(pre, dtype=torch.long)
             attn[i, : len(pre)] = True
+            if pre_gate is not None:
+                gate[i, : len(pre)] = torch.tensor(pre_gate, dtype=torch.bool)
         return {
             "tokenized_prompt_hl": ids.requires_grad_(False),
             "tokenized_mask_hl": attn.requires_grad_(False),
             "token_ar_mask_hl": torch.zeros_like(attn).requires_grad_(False),
+            "token_gate_mask_hl": gate.requires_grad_(False),
         }
 
     def _decode_subtask_text(self, subtask_ids, subtask_mask) -> list[str]:
@@ -533,14 +632,20 @@ class PI(Algo):
                 # (`*_hl` keys) seeds autoregressive subtask decoding at
                 # inference (rollout has no subtask target, so it carries an
                 # empty subtask ⇒ zero LM loss).
-                prefixes, targets = self._build_subtask_prompts(
+                prefixes, targets, instr_lens = self._build_subtask_prompts(
                     _batch, embodiment_name, B
                 )
+                # Instruction token spans are only located (extra offsets
+                # tokenization pass) when the action expert must not see them.
+                if self.action_expert_sees_lang:
+                    instr_lens = None
                 processed_batch[embodiment_id]["sampled_prompt"] = prefixes
                 processed_batch[embodiment_id].update(
-                    self._tokenize_prompts_with_subtask(prefixes, targets)
+                    self._tokenize_prompts_with_subtask(prefixes, targets, instr_lens)
                 )
-                processed_batch[embodiment_id].update(self._tokenize_highonly(prefixes))
+                processed_batch[embodiment_id].update(
+                    self._tokenize_highonly(prefixes, instr_lens)
+                )
             else:
                 prompts = self._build_prompts(_batch, embodiment_name, B)
                 processed_batch[embodiment_id]["sampled_prompt"] = prompts
@@ -915,16 +1020,18 @@ class PI(Algo):
         }
 
         if lang_prefix == "hl":
-            prompt_key, mask_key, ar_key = (
+            prompt_key, mask_key, ar_key, gate_key = (
                 "tokenized_prompt_hl",
                 "tokenized_mask_hl",
                 "token_ar_mask_hl",
+                "token_gate_mask_hl",
             )
         else:
-            prompt_key, mask_key, ar_key = (
+            prompt_key, mask_key, ar_key, gate_key = (
                 "tokenized_prompt",
                 "tokenized_mask",
                 "token_ar_mask",
+                "token_gate_mask",
             )
         has_lang = prompt_key in batch and batch[prompt_key].numel() > 0
         if has_lang:
@@ -937,10 +1044,16 @@ class PI(Algo):
                 token_loss_mask = torch.zeros_like(tokenized_prompt_mask)
             else:
                 token_loss_mask = batch["token_loss_mask"].to(device)
+            token_gate_mask = (
+                batch[gate_key].to(device)
+                if gate_key in batch
+                else torch.zeros_like(tokenized_prompt_mask)
+            )
         else:
             tokenized_prompt, tokenized_prompt_mask, token_ar_mask, token_loss_mask = (
                 _empty_lang_placeholders(B, device)
             )
+            token_gate_mask = torch.zeros_like(tokenized_prompt_mask)
 
         # ---- Wrap into simple observation (helpers) ----
         observation = _SimpleObservation(
@@ -951,6 +1064,11 @@ class PI(Algo):
             tokenized_prompt_mask=tokenized_prompt_mask,
             token_ar_mask=token_ar_mask,
             token_loss_mask=token_loss_mask,
+            # Instruction-token gate for action_expert_sees_lang=False. Rides on
+            # the raw observation (openpi's preprocess drops unknown fields, so
+            # the model reads it via getattr before preprocessing; token fields
+            # pass through preprocessing unchanged, so alignment holds).
+            token_gate_mask=token_gate_mask,
         )
 
         # Do NOT call _preprocessing here; the PI model does it internally.
