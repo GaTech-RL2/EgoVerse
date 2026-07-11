@@ -105,11 +105,15 @@ def process_episode(
         prompt_filepath,
         augment_prompt_filepath=augment_prompt_filepath,
     )
-    annotation = converter.convert(tid)
+    keyed = converter.convert(tid)
 
-    writer.append_annotations(
-        annotation_key=annotation_key, annotations=annotation, mode="w"
-    )
+    # Converters emit {annotation_key_name: [(text, start, end), ...]} — one
+    # list per role-named zarr key (see converter.py). Every emitted role is
+    # injected under its own key name.
+    for ann_key, annotation in keyed.items():
+        writer.append_annotations(
+            annotation_key=ann_key, annotations=annotation, mode="w"
+        )
     print(f"[OK] {episode_hash} -> {episode_path}")
     return episode_hash
 

@@ -120,25 +120,31 @@ if __name__ == "__main__":
             tid = get_episode_hash_to_tid(df, episode_hash)
             if tid is None:
                 continue
-            annotation = converter.convert(tid)
+            keyed = converter.convert(tid)
             writer = ZarrWriter(
                 episode_path=zarr_dataset.episode_path,
                 verbose=True,
             )
-            writer.append_annotations(
-                annotation_key="annotations", annotations=annotation, mode="w"
-            )
+            # Converters emit {annotation_key_name: [(text, start, end), ...]}
+            # — one list per role-named zarr key (see converter.py).
+            for ann_key, annotation in keyed.items():
+                writer.append_annotations(
+                    annotation_key=ann_key, annotations=annotation, mode="w"
+                )
 
     for dataset_name in valid_datasets:
         for episode_hash, zarr_dataset in valid_datasets[dataset_name].datasets.items():
             tid = get_episode_hash_to_tid(df, episode_hash)
             if tid is None:
                 continue
-            annotation = converter.convert(tid)
+            keyed = converter.convert(tid)
             writer = ZarrWriter(
                 episode_path=zarr_dataset.episode_path,
                 verbose=True,
             )
-            writer.append_annotations(
-                annotation_key="annotations", annotations=annotation, mode="w"
-            )
+            # Converters emit {annotation_key_name: [(text, start, end), ...]}
+            # — one list per role-named zarr key (see converter.py).
+            for ann_key, annotation in keyed.items():
+                writer.append_annotations(
+                    annotation_key=ann_key, annotations=annotation, mode="w"
+                )

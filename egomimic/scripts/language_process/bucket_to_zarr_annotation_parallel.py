@@ -6,6 +6,12 @@ Counterpart to scale_to_bucket_annotation_parallel.py. Each Ray task:
 
 Episodes that already have ``annotation_key`` in their Zarr are skipped (unless --overwrite).
 
+Role-keyed scheme: run once per role (--annotation-key annotations_task, then
+annotations_subtask) against the SAME bucket state — the per-key skip is
+independent, so mixing runs after a bucket regeneration can pair a task array
+with a subtask array from different converter runs; pass --overwrite on both
+after regenerating.
+
 Example usage:
 python egomimic/scripts/language_process/bucket_to_zarr_annotation_parallel.py \
 --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \
@@ -71,6 +77,9 @@ def process_episode(
     obj = s3.get_object(Bucket=bucket, Key=key)
     payload = json.loads(obj["Body"].read().decode("utf-8"))
 
+    # Plain span entries — the annotation ROLE lives in the key NAME
+    # (annotations_task / annotations_subtask / ...), selected per run via
+    # --annotation-key; entries carry no level field.
     annotations = [
         (entry["text"], int(entry["start_idx"]), int(entry["end_idx"]))
         for entry in payload
@@ -116,6 +125,13 @@ if __name__ == "__main__":
         default=1,
         help="CPUs reserved per Ray task (default: 1)",
     )
+    parser.add_argument(
+        "--dataset-dir",
+        type=str,
+        default=None,
+        help="Resolve the config's ${paths.dataset_dir} (resolver folder_path). "
+        "Required when the dataset config inherits folder_path: ${paths.dataset_dir}.",
+    )
     args = parser.parse_args()
 
     bucket, prefix = parse_s3_uri(args.bucket)
@@ -130,6 +146,22 @@ if __name__ == "__main__":
     rel_path = os.path.relpath(abs_cfg_path, HYDRA_CONFIG_DIR)
     config_name = os.path.splitext(rel_path)[0]
     dataset_cfg = load_config(config_name)
+
+    # load_config composes only the `data` group, so ${paths.dataset_dir} (the
+    # resolver folder_path inherited from cotrain_pi_base) has no node to resolve
+    # against. Overwrite each train resolver's folder_path with --dataset-dir so
+    # the real resolver runs unmodified (valid resolvers interpolate from train).
+    if args.dataset_dir is not None:
+        from omegaconf import OmegaConf
+
+        OmegaConf.set_struct(dataset_cfg, False)
+        for _name in list((dataset_cfg.get("train_datasets") or {}).keys()):
+            _ds = dataset_cfg.train_datasets[_name]
+            if _ds is None:
+                continue
+            _res = _ds.get("resolver")
+            if _res is not None and "folder_path" in _res:
+                _res.folder_path = args.dataset_dir
 
     train_datasets = {}
     for dataset_name in dataset_cfg.train_datasets:

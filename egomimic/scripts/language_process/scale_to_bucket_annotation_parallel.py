@@ -4,8 +4,12 @@ Ray-parallel: download Scale annotations, run conversion, upload result JSON to 
 Each episode is processed as an independent Ray task:
   download Scale annotation -> convert via LLM/hardcoded -> upload JSON to bucket.
 
-The uploaded object key is: {prefix}/{episode_hash}_{annotation_key}.json
-Episodes whose object already exists in the bucket are skipped (unless --overwrite).
+Uploads ONE JSON PER ROLE KEY: {prefix}/{episode_hash}_annotations_task.json
+(+ _annotations_subtask.json where the converter emits it) — entries are plain
+{text, start_idx, end_idx}; the role lives in the key name (see converter.py).
+An episode is skipped only when EVERY role key it would produce already exists
+(unless --overwrite); a partial upload is regenerated whole so the roles never
+come from different converter runs.
 
 Example usage:
 python egomimic/scripts/language_process/scale_to_bucket_annotation_parallel.py \
@@ -72,10 +76,14 @@ def _make_converter(
     annotation_dir: str,
     prompt_filepath: str,
     augment_prompt_filepath: str | None = None,
+    sort_prompt_filepath: str | None = None,
+    sort_augment_prompt_filepath: str | None = None,
+    subtask_copy: bool = False,
 ):
     from egomimic.scripts.language_process.converter import (
         HardCodedConverter,
         PickPlaceLLMConverter,
+        SortConverter,
     )
 
     if conversion_mode == "pick_place_llm":
@@ -83,6 +91,18 @@ def _make_converter(
             annotation_dir,
             prompt_filepath,
             augment_prompt_filepath=augment_prompt_filepath,
+            # eva regime: identical task instruction and subtask target.
+            subtask_copy=subtask_copy,
+        )
+    elif conversion_mode == "sort_llm":
+        # Task-level sort text is read from the annotation's "Sorting" track;
+        # sort_prompt_filepath is only an optional LLM-generation fallback.
+        return SortConverter(
+            annotation_dir,
+            prompt_filepath,
+            sort_prompt_filepath,
+            augment_prompt_filepath=augment_prompt_filepath,
+            sort_augment_prompt_filepath=sort_augment_prompt_filepath,
         )
     elif conversion_mode == "hardcoded":
         return HardCodedConverter(annotation_dir)
@@ -99,19 +119,40 @@ def process_episode(
     prompt_filepath: str,
     bucket: str,
     prefix: str,
-    annotation_key: str = "annotations",
     overwrite: bool = False,
     augment_prompt_filepath: str | None = None,
+    sort_prompt_filepath: str | None = None,
+    sort_augment_prompt_filepath: str | None = None,
+    subtask_copy: bool = False,
 ) -> str:
-    """Self-contained Ray task: download, convert, and upload one episode's annotations."""
+    """Self-contained Ray task: download, convert, and upload one episode's
+    annotations — ONE JSON PER ROLE KEY (``{hash}_annotations_task.json``,
+    ``{hash}_annotations_subtask.json``, ...), entries are plain
+    ``{text, start_idx, end_idx}`` (role lives in the key name, no level field).
+    """
     from egomimic.utils.aws.aws_data_utils import get_boto3_s3_client
 
     s3 = get_boto3_s3_client()
-    key = object_key(prefix, episode_hash, annotation_key)
 
-    if not overwrite and s3_object_exists(s3, bucket, key):
-        print(f"[SKIP] {episode_hash} -> s3://{bucket}/{key} already exists")
-        return episode_hash
+    # Early skip BEFORE the (expensive) download + LLM conversion: the role
+    # keys each mode emits are known up front for the LLM converters, so an
+    # idempotent re-run costs one head_object per key instead of the full
+    # base-instruction + augmentation generation. `hardcoded` keys are
+    # converter-determined, so it falls through to the post-convert check.
+    if not overwrite:
+        expected = None
+        if conversion_mode == "pick_place_llm":
+            expected = ["annotations_task"] + (
+                ["annotations_subtask"] if subtask_copy else []
+            )
+        elif conversion_mode == "sort_llm":
+            expected = ["annotations_task", "annotations_subtask"]
+        if expected and all(
+            s3_object_exists(s3, bucket, object_key(prefix, episode_hash, k))
+            for k in expected
+        ):
+            print(f"[SKIP] {episode_hash} -> all of {expected} already exist")
+            return episode_hash
 
     client = ScaleClient(scale_api_key)
     download_scale_annotation(client, tid, scale_annotation_dir)
@@ -121,16 +162,39 @@ def process_episode(
         scale_annotation_dir,
         prompt_filepath,
         augment_prompt_filepath=augment_prompt_filepath,
+        sort_prompt_filepath=sort_prompt_filepath,
+        sort_augment_prompt_filepath=sort_augment_prompt_filepath,
+        subtask_copy=subtask_copy,
     )
-    annotations = converter.convert(tid)
+    keyed = converter.convert(tid)
+    if not keyed:
+        print(f"[EMPTY] {episode_hash} -> converter produced no annotations")
+        return episode_hash
 
-    payload = [
-        {"text": text, "start_idx": int(start_idx), "end_idx": int(end_idx)}
-        for text, start_idx, end_idx in annotations
-    ]
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    s3.put_object(Bucket=bucket, Key=key, Body=body, ContentType="application/json")
-    print(f"[OK] {episode_hash} -> s3://{bucket}/{key} ({len(payload)} entries)")
+    # Skip only when EVERY role key already exists — a partial upload (e.g.
+    # task present, subtask missing) is regenerated whole so the two roles
+    # never come from different converter runs.
+    keys = {ann_key: object_key(prefix, episode_hash, ann_key) for ann_key in keyed}
+    if not overwrite and all(
+        s3_object_exists(s3, bucket, k) for k in keys.values()
+    ):
+        print(f"[SKIP] {episode_hash} -> all of {sorted(keys)} already exist")
+        return episode_hash
+
+    for ann_key, entries in keyed.items():
+        payload = [
+            {"text": text, "start_idx": int(start_idx), "end_idx": int(end_idx)}
+            for text, start_idx, end_idx in entries
+        ]
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        s3.put_object(
+            Bucket=bucket, Key=keys[ann_key], Body=body,
+            ContentType="application/json",
+        )
+        print(
+            f"[OK] {episode_hash} -> s3://{bucket}/{keys[ann_key]} "
+            f"({len(payload)} entries)"
+        )
     return episode_hash
 
 
@@ -162,14 +226,32 @@ if __name__ == "__main__":
         "--conversion-mode",
         type=str,
         required=True,
-        choices=["pick_place_llm", "hardcoded"],
+        choices=["pick_place_llm", "sort_llm", "hardcoded"],
     )
     parser.add_argument(
         "-s", "--scale-api-key", default=os.environ.get("SCALE_API_KEY", "")
     )
     parser.add_argument("--prompt-filepath", type=str, required=True)
     parser.add_argument("--augment-prompt-filepath", type=str, default=None)
-    parser.add_argument("--annotation-key", type=str, default="annotations")
+    parser.add_argument(
+        "--sort-prompt-filepath",
+        type=str,
+        default=None,
+        help="High-level sort instruction prompt (required for --conversion-mode sort_llm).",
+    )
+    parser.add_argument(
+        "--sort-augment-prompt-filepath",
+        type=str,
+        default=None,
+        help="High-level sort augmentation prompt (optional, used by sort_llm).",
+    )
+    parser.add_argument(
+        "--subtask-copy",
+        action="store_true",
+        help="pick_place_llm only: ALSO write the task instructions verbatim "
+        "under annotations_subtask (eva regime — identical task prompt and "
+        "subtask target).",
+    )
     parser.add_argument(
         "--bucket",
         type=str,
@@ -198,6 +280,15 @@ if __name__ == "__main__":
         default=1,
         help="CPUs reserved per Ray task (default: 1)",
     )
+    parser.add_argument(
+        "--dataset-dir",
+        type=str,
+        default=None,
+        help="Resolve the config's ${paths.dataset_dir} (resolver folder_path). "
+        "Required when the dataset config inherits folder_path: ${paths.dataset_dir} "
+        "(e.g. the cotrain-derived sort configs) since load_config composes only the "
+        "data group and has no paths node.",
+    )
     args = parser.parse_args()
 
     bucket, prefix = parse_s3_uri(args.bucket)
@@ -221,6 +312,22 @@ if __name__ == "__main__":
     rel_path = os.path.relpath(abs_cfg_path, HYDRA_CONFIG_DIR)
     config_name = os.path.splitext(rel_path)[0]
     dataset_cfg = load_config(config_name)
+
+    # load_config composes only the `data` group, so ${paths.dataset_dir} (the
+    # resolver folder_path inherited from cotrain_pi_base) has no node to resolve
+    # against. Overwrite each train resolver's folder_path with --dataset-dir so
+    # the real resolver runs unmodified (valid resolvers interpolate from train).
+    if args.dataset_dir is not None:
+        from omegaconf import OmegaConf
+
+        OmegaConf.set_struct(dataset_cfg, False)
+        for _name in list((dataset_cfg.get("train_datasets") or {}).keys()):
+            _ds = dataset_cfg.train_datasets[_name]
+            if _ds is None:
+                continue
+            _res = _ds.get("resolver")
+            if _res is not None and "folder_path" in _res:
+                _res.folder_path = args.dataset_dir
 
     train_datasets = {}
     train_hashes = set()
@@ -281,9 +388,11 @@ if __name__ == "__main__":
             prompt_filepath=args.prompt_filepath,
             bucket=bucket,
             prefix=prefix,
-            annotation_key=args.annotation_key,
             overwrite=args.overwrite,
             augment_prompt_filepath=args.augment_prompt_filepath,
+            sort_prompt_filepath=args.sort_prompt_filepath,
+            sort_augment_prompt_filepath=args.sort_augment_prompt_filepath,
+            subtask_copy=args.subtask_copy,
         )
         pending[ref] = ep_hash
 
