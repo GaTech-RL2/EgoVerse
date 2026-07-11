@@ -279,7 +279,8 @@ def repair_pairing_by_fingerprint(apex_by_emb, folder_by_emb):
 
 
 def compute_dtw_from_apex(apex_by_emb, evr_threshold=0.95,
-                          emb_a=CIRCLE_EMB, emb_b=SMALL_EMB, good_eps=None):
+                          emb_a=CIRCLE_EMB, emb_b=SMALL_EMB, good_eps=None,
+                          pair_labels=None):
     """apex_by_emb (from collect_apex_tokens) -> results dict.
 
     Fits ONE PCA on the pooled apex tokens over BOTH embs + ALL episodes, then
@@ -312,7 +313,7 @@ def compute_dtw_from_apex(apex_by_emb, evr_threshold=0.95,
         d_w = dtw_normalized(wa[i], wb[i])
         null = [dtw_normalized(wa[i], wb[j]) for j in range(n_pairs) if j != i]
         per_pair.append({
-            "pair": i,
+            "pair": (pair_labels[i] if pair_labels is not None else i),
             "dtw": dtw_normalized(proj_a[i], proj_b[i]),
             "dtw_w": d_w,
             "null_w": float(np.mean(null)) if null else float("nan"),
@@ -424,7 +425,7 @@ def run_dtw_eval(ckpt, config_path, n_episodes=6, evr=0.95, good_eps=None,
 
     pairing_ok = verify_pairing(config_path, n_episodes) if verify else None
 
-    res = compute_dtw_from_apex(apex, evr_threshold=evr, good_eps=good_eps)
+    res = compute_dtw_from_apex(apex, evr_threshold=evr, good_eps=good_eps, pair_labels=_file_idx)
     res["pairing_verified"] = pairing_ok
 
     print(f"\n=== DTW-LATENT (apex agnostic tokens; emb{CIRCLE_EMB} circle <-> "
