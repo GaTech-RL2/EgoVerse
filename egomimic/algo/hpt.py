@@ -15,7 +15,7 @@ from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
 from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
-from egomimic.rldb.annotation_processing import AnnotationProcessor
+from egomimic.rldb.annotation_processing import DefaultAnnotationProcessor
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.egomimicUtils import (
     STD_SCALE,
@@ -838,7 +838,7 @@ class HPT(Algo):
         self.annotation_processor = (
             annotation_processor
             if annotation_processor is not None
-            else AnnotationProcessor(
+            else DefaultAnnotationProcessor(
                 key=annotation_key, strategy=annotation_sampling_mode
             )
         )

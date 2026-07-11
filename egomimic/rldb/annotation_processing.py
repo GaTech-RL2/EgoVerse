@@ -5,14 +5,16 @@ Annotation ROLE is encoded in the zarr key NAME (e.g. ``annotations_task``,
 entries are plain ``{"text", "start_idx", "end_idx"}`` spans. ``ZarrDataset``
 fetches every ``annotations*`` key into the batch (``list[list[str]]`` per
 key after ``annotation_collate``); a processor then turns those raw lists
-into per-role sampled strings inside ``process_batch_for_training``.
+into per-role outputs inside ``process_batch_for_training``.
 
-Processors are hydra-instantiable and return ``{role: list[str | None]}``:
-``None`` marks "no annotation for this item" so the algo can apply its own
-fallback (``default_prompt`` for prompts, no-loss for prediction targets).
-
-- :class:`AnnotationProcessor` — default: samples ONE annotation per item
-  from a single key with a ``first`` / ``random`` strategy (role ``task``).
+- :class:`AnnotationProcessor` — the ABSTRACT contract: batch in,
+  ``{role: per-item outputs}`` out. It deliberately does NOT prescribe what
+  a per-item output is (one string, several candidates, a structured
+  target, ...) — that is a policy of the concrete processor, agreed upon
+  with the consuming algo.
+- :class:`DefaultAnnotationProcessor` — the default policy: sample ONE
+  annotation string per item from a single key with a ``first`` / ``random``
+  strategy (role ``task``).
 - :class:`SubtaskAnnotationProcessor` — hierarchical: samples the
   conditioning instruction from ``task_key`` and the prediction target from
   ``subtask_key`` (roles ``task`` + ``subtask``). No cross-role fallback:
@@ -22,11 +24,32 @@ fallback (``default_prompt`` for prompts, no-loss for prediction targets).
 from __future__ import annotations
 
 import random
+from abc import ABC, abstractmethod
 from typing import Literal
 
 
-class AnnotationProcessor:
-    """Sample one annotation string per item from ``batch[key]``.
+class AnnotationProcessor(ABC):
+    """Abstract contract: turn raw batch annotation fields into per-role outputs.
+
+    ``__call__(batch, batch_size)`` returns ``{role: outputs}`` where
+    ``outputs`` is a length-``batch_size`` sequence, one entry per batch
+    item. The ENTRY TYPE is processor-defined — the default samplers emit
+    ``str | None`` (``None`` = "no annotation for this item", so the algo
+    can apply its own fallback), but a subclass may emit candidate lists,
+    structured targets, or anything else its consuming algo expects. Keep
+    new processors hydra-instantiable.
+    """
+
+    #: role names this processor emits (documentation; subclasses override)
+    roles: tuple[str, ...] = ()
+
+    @abstractmethod
+    def __call__(self, batch, batch_size: int) -> dict[str, list]:
+        ...
+
+
+class DefaultAnnotationProcessor(AnnotationProcessor):
+    """Default policy: sample ONE annotation string per item from ``batch[key]``.
 
     ``batch[key]`` is the raw ``list[list[str]]`` left by
     ``annotation_collate`` (outer = batch items, inner = all annotation texts
@@ -34,8 +57,7 @@ class AnnotationProcessor:
     missing/``None`` key — yield ``None``.
     """
 
-    #: roles this processor emits (subclasses extend)
-    roles: tuple[str, ...] = ("task",)
+    roles = ("task",)
 
     def __init__(
         self,
@@ -57,11 +79,11 @@ class AnnotationProcessor:
             return [None] * batch_size
         return [self._sample_one(texts) for texts in batch[key]]
 
-    def __call__(self, batch, batch_size: int) -> dict[str, list[str | None]]:
+    def __call__(self, batch, batch_size: int) -> dict[str, list]:
         return {"task": self._sample_key(batch, self.key, batch_size)}
 
 
-class SubtaskAnnotationProcessor(AnnotationProcessor):
+class SubtaskAnnotationProcessor(DefaultAnnotationProcessor):
     """Sample the (task instruction, subtask target) pair from role-named keys.
 
     - ``task`` (from ``task_key``): the conditioning instruction — populated
@@ -90,7 +112,7 @@ class SubtaskAnnotationProcessor(AnnotationProcessor):
         self.subtask_key = subtask_key
         self.tie_identical = tie_identical
 
-    def __call__(self, batch, batch_size: int) -> dict[str, list[str | None]]:
+    def __call__(self, batch, batch_size: int) -> dict[str, list]:
         task = self._sample_key(batch, self.task_key, batch_size)
         subtask = self._sample_key(batch, self.subtask_key, batch_size)
         if self.tie_identical and self.task_key in batch and self.subtask_key in batch:

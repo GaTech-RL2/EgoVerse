@@ -23,7 +23,10 @@ from egomimic.models.preprocess_pi_obs import (
     _SimpleObservation,
     _to_minus1_1,
 )
-from egomimic.rldb.annotation_processing import AnnotationProcessor
+from egomimic.rldb.annotation_processing import (
+    AnnotationProcessor,
+    DefaultAnnotationProcessor,
+)
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import ConverterRegistry
 
@@ -89,7 +92,7 @@ class PI(Algo):
         self.annotation_processor = (
             annotation_processor
             if annotation_processor is not None
-            else AnnotationProcessor(key=annotation_key, strategy=sampling_mode)
+            else DefaultAnnotationProcessor(key=annotation_key, strategy=sampling_mode)
         )
         self.default_prompt = default_prompt
         self.proprio_in_prompt = proprio_in_prompt
