@@ -58,7 +58,8 @@ class DualTrunkLevel(Stage):
                  mask_mode="asym", causal=True, dropout=0.0,
                  embodiments: Optional[List[str]] = None,
                  allow_agnostic_cross: bool = False, decoder_layout=None,
-                 adaln_cond: Optional[str] = None, adaln_dim: Optional[int] = None):
+                 adaln_cond: Optional[str] = None, adaln_dim: Optional[int] = None
+                 attn_dropout: float = 0.0, ffn_dropout: float = 0.0,):
         super().__init__()
         streams_cfg = [dict(s) for s in streams_cfg]
         N = len(streams_cfg)
@@ -70,11 +71,13 @@ class DualTrunkLevel(Stage):
         self.adaln_cond = str(adaln_cond) if adaln_cond else None
         ad = int(adaln_dim) if (adaln_cond and adaln_dim) else None
         self.trunk = MultiStreamTrunk(streams_cfg, adjacency, n_layers, rotary_emb_dim,
+                                      dropout=attn_dropout, ffn_dropout=ffn_dropout,
                                       dropout, embodiments=embodiments,
                                       allow_agnostic_cross=allow_agnostic_cross,
                                       adaln_dim=ad)
         dec_n = self._dec_layers(decoder_layout)
         self.decoder_trunk = (MultiStreamTrunk(streams_cfg, adjacency, dec_n,
+                                               dropout=attn_dropout, ffn_dropout=ffn_dropout,
                                                rotary_emb_dim, dropout,
                                                embodiments=embodiments,
                                                allow_agnostic_cross=allow_agnostic_cross,

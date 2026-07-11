@@ -13,6 +13,8 @@ class AttnConfig:
     # residual add in each TransformerBlock.
     dropout: List[float] = field(default_factory=list)
     resid_dropout: List[float] = field(default_factory=list)
+    # FFN dropout on the gated SwiGLU activation (not the residual path).
+    ffn_dropout: List[float] = field(default_factory=list)
 
 
 @dataclass

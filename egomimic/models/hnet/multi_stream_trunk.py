@@ -70,7 +70,8 @@ _pick = pick  # backward-compatible alias
 class IntraStreamModule(nn.Module):
     """Self-attention + SwiGLU MLP within ONE stream (its own d_model)."""
 
-    def __init__(self, d_model, num_heads, d_intermediate, rotary_emb_dim, dropout=0.0):
+    def __init__(self, d_model, num_heads, d_intermediate, rotary_emb_dim, dropout=0.0,
+                 ffn_dropout=0.0):
         super().__init__()
         assert d_model % num_heads == 0, "d_model must be divisible by num_heads"
         self.d_model, self.num_heads, self.head_dim = d_model, num_heads, d_model // num_heads
@@ -82,7 +83,7 @@ class IntraStreamModule(nn.Module):
         assert self.rotary_emb_dim <= self.head_dim, "rotary_emb_dim must be <= head_dim"
         self.rotary = _RotaryCache(self.rotary_emb_dim) if self.rotary_emb_dim > 0 else None
         self.norm_mlp = RMSNorm(d_model)
-        self.mlp = SwiGLU(d_model, d_intermediate)
+        self.mlp = SwiGLU(d_model, d_intermediate, dropout=ffn_dropout)
 
     def forward(self, x, mask, rope_positions):
         T, H, Dh = x.shape[0], self.num_heads, self.head_dim
@@ -150,7 +151,7 @@ class MultiStreamBlock(nn.Module):
     """
 
     def __init__(self, streams_cfg: List[dict], adjacency: List[List[int]], rotary_emb_dim,
-                 dropout=0.0, embodiments: Optional[List[str]] = None,
+                 dropout=0.0, ffn_dropout=0.0, embodiments: Optional[List[str]] = None,
                  allow_agnostic_cross: bool = False):
         super().__init__()
         self.adjacency = [list(a) for a in adjacency]
@@ -179,7 +180,8 @@ class MultiStreamBlock(nn.Module):
 
         def _mk_intra(i):
             s = streams_cfg[i]
-            return IntraStreamModule(s["d_model"], s["num_heads"], s["d_intermediate"], _rot(s), dropout)
+            return IntraStreamModule(s["d_model"], s["num_heads"], s["d_intermediate"], _rot(s), dropout,
+                                      ffn_dropout=ffn_dropout)
 
         def _mk_inter(i, srcs):
             src_dims = [streams_cfg[j]["d_model"] for j in srcs]
@@ -222,7 +224,8 @@ class MultiStreamTrunk(nn.Module):
     """
 
     def __init__(self, streams_cfg: List[dict], adjacency: List[List[int]], n_layers,
-                 rotary_emb_dim, dropout=0.0, embodiments: Optional[List[str]] = None,
+                 rotary_emb_dim, dropout=0.0, ffn_dropout=0.0,
+                 embodiments: Optional[List[str]] = None,
                  allow_agnostic_cross: bool = False, adaln_dim: Optional[int] = None):
         super().__init__()
         self.n_streams = len(streams_cfg)
@@ -246,7 +249,8 @@ class MultiStreamTrunk(nn.Module):
                 for _ in range(int(n_layers))
             ])
         self.blocks = nn.ModuleList([
-            MultiStreamBlock(streams_cfg, adjacency, rotary_emb_dim, dropout, embodiments=embodiments,
+            MultiStreamBlock(streams_cfg, adjacency, rotary_emb_dim, dropout, ffn_dropout=ffn_dropout,
+                             embodiments=embodiments,
                              allow_agnostic_cross=allow_agnostic_cross)
             for _ in range(int(n_layers))
         ])

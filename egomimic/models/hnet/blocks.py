@@ -595,14 +595,16 @@ class CrossMultiHeadAttention(nn.Module):
 
 
 class SwiGLU(nn.Module):
-    def __init__(self, d_model, d_intermediate):
+    def __init__(self, d_model, d_intermediate, dropout=0.0):
         super().__init__()
         self.fc1 = nn.Linear(d_model, 2 * d_intermediate, bias=False)
         self.fc2 = nn.Linear(d_intermediate, d_model, bias=False)
+        # FFN dropout on the gated activation (NOT the residual path).
+        self.drop = nn.Dropout(float(dropout))
 
     def forward(self, x):
         a, b = self.fc1(x).chunk(2, dim=-1)
-        return self.fc2(F.silu(a) * b)
+        return self.fc2(self.drop(F.silu(a) * b))
 
 
 class TransformerBlock(nn.Module):
@@ -651,6 +653,7 @@ class TransformerBlock(nn.Module):
         rotary_emb_dim: int = 0,
         dropout: float = 0.0,
         resid_dropout: float = 0.0,
+        ffn_dropout: float = 0.0,
         adaln_per_token: bool = False,
         moe: Optional[dict] = None,
     ):
@@ -693,7 +696,7 @@ class TransformerBlock(nn.Module):
 
                 self.mlp = MoEFFN(d_model, d_intermediate, **dict(moe))
             else:
-                self.mlp = SwiGLU(d_model, d_intermediate)
+                self.mlp = SwiGLU(d_model, d_intermediate, dropout=ffn_dropout)
             self.ffn_resid_drop = nn.Dropout(self.resid_dropout)
         if self.cond_mode == "adaln":
             self.adaln1 = AdaLNModulation(d_cond, d_model)
@@ -966,6 +969,7 @@ class Isotropic(nn.Module):
         # don't set them in their AttnConfig stay unaffected).
         attn_dropout = float(attn_cfg.get("dropout", 0.0) or 0.0)
         resid_dropout = float(attn_cfg.get("resid_dropout", 0.0) or 0.0)
+        ffn_dropout = float(attn_cfg.get("ffn_dropout", 0.0) or 0.0)
         ssm_cfg = (
             get_stage_cfg(config.ssm_cfg, stage_idx)
             if hasattr(config, "ssm_cfg")
@@ -1007,6 +1011,7 @@ class Isotropic(nn.Module):
                         rotary_emb_dim=rotary_emb_dim,
                         dropout=attn_dropout,
                         resid_dropout=resid_dropout,
+                        ffn_dropout=ffn_dropout,
                         moe=moe_cfg,
                     )
                 else:  # 'm' or 'M'

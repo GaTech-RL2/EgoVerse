@@ -55,6 +55,7 @@ def build_isotropic(
     # 0.0 — yaml specs that omit them are unaffected.
     attn_dropout = float(spec.get("dropout", 0.0) or 0.0)
     resid_dropout = float(spec.get("resid_dropout", 0.0) or 0.0)
+    ffn_dropout = float(spec.get("ffn_dropout", 0.0) or 0.0)
     # Optional Mixture-of-Experts FFN. ``spec["moe"]`` (dict or None) swaps this
     # stack's block MLPs for MoEFFN. None / absent => dense SwiGLU (default).
     moe_spec = spec.get("moe", None)
@@ -71,6 +72,7 @@ def build_isotropic(
             rotary_emb_dim=[rotary_emb_dim],
             dropout=[attn_dropout],
             resid_dropout=[resid_dropout],
+            ffn_dropout=[ffn_dropout],
         ),
         ssm_cfg=SSMConfig(**{k: [v] for k, v in ssm_kwargs.items()}),
         moe=[moe_spec],
