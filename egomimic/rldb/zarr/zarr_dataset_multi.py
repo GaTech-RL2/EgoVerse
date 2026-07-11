@@ -1682,8 +1682,6 @@ class ZarrDataset(torch.utils.data.Dataset):
             end_idx = int(ann.get("end_idx", -1))
             if not (start_idx <= frame_idx < end_idx):
                 continue
-            if level is not None and ann.get("level", "low") != level:
-                continue
             valid_annotations.append(ann.get("text", ""))
         return valid_annotations
 
