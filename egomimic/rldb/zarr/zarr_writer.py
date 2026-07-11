@@ -644,6 +644,14 @@ class ZarrWriter:
                 self.remove_key(self.episode_path, annotation_key)
         store = zarr.open(str(self.episode_path), mode="a", zarr_format=3)
         self._write_annotations(store, annotations, annotation_key)
+        # Post-hoc injection into an EXISTING episode: merge the new key into
+        # the persisted ``features`` attrs so metadata-based key listings see
+        # it. (_write_annotations only updates self._features, which fresh
+        # writers never flush for appends — historically injected annotation
+        # arrays were invisible to ``features`` readers.)
+        feats = dict(store.attrs.get("features", {}))
+        feats[annotation_key] = self._features[annotation_key]
+        store.attrs["features"] = feats
 
     def _write_annotations(
         self,

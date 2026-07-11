@@ -495,6 +495,22 @@ class S3EpisodeResolver(EpisodeResolver):
 # (missing required keymap keys, corrupt JPEGs, or — optionally — episodes
 # without a language-annotation field).
 # ---------------------------------------------------------------------------
+def _tensor_only_collate(batch):
+    """``default_collate`` with list-valued keys dropped.
+
+    ZarrDataset emits every ``annotations*`` array as a variable-length
+    ``list[str]`` per sample; the norm-stats loader only needs the numeric
+    fields and torch's default_collate rejects ragged lists ("each element in
+    list of batch should be of equal size"). Module-level so DataLoader
+    workers can pickle it.
+    """
+    batch = [
+        {k: v for k, v in sample.items() if not isinstance(v, list)}
+        for sample in batch
+    ]
+    return torch.utils.data.default_collate(batch)
+
+
 def _jpeg_probe_failed(ds_obj: "ZarrDataset") -> tuple[str, str] | None:
     """Try decoding 5 sampled frames per image key. If every probe fails
     for a key, return (key, reason); else None."""
@@ -1140,6 +1156,10 @@ class MultiDataset(torch.utils.data.Dataset):
             num_workers=num_workers,
             shuffle=True,
             generator=torch.Generator().manual_seed(seed),
+            # Norm stats only touch numeric fields; drop the variable-length
+            # annotation lists the dataset now always emits (default_collate
+            # would crash on ragged / per-episode-differing list keys).
+            collate_fn=_tensor_only_collate,
         )
         N = len(dataset)
         if N <= 0:
@@ -1558,6 +1578,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
         self._image_keys = self._detect_image_keys()
         self._json_keys = self._detect_json_keys()
+        self._annotation_keys_cache = None  # rebuilt per episode open
 
     @property
     def intrinsics(self) -> np.ndarray | dict[str, np.ndarray] | None:
@@ -1598,27 +1619,59 @@ class ZarrDataset(torch.utils.data.Dataset):
             return json.loads(value)
         return value
 
-    def _load_annotations(self) -> list[dict]:
+    def _annotation_zarr_keys(self) -> list[str]:
+        """All annotation arrays present in this episode. The annotation ROLE
+        is encoded in the key NAME (``annotations``, ``annotations_task``,
+        ``annotations_subtask``, ...) — entries are plain
+        ``{"text", "start_idx", "end_idx"}`` spans with no level field.
+
+        Listed from the actual zarr STORE, not the ``features`` attrs metadata:
+        annotation arrays injected post-hoc (``ZarrWriter.append_annotations``
+        via bucket_to_zarr) historically never updated ``features``, so a
+        metadata-based listing would silently miss them.
         """
-        Load and cache decoded language annotations.
+        if getattr(self, "_annotation_keys_cache", None) is None:
+            try:
+                names = list(self.episode_reader._store.array_keys())
+            except Exception:
+                names = list(self.keys_dict)
+            self._annotation_keys_cache = sorted(
+                k for k in names if k.startswith("annotations")
+            )
+        return self._annotation_keys_cache
+
+    def _load_annotations(self, zarr_key: str = "annotations") -> list[dict]:
+        """
+        Load and cache decoded language annotations for ``zarr_key``.
 
         Expected format per entry:
             {"text": str, "start_idx": int, "end_idx": int}
-        """
-        if self._annotations is not None:
-            return self._annotations
 
-        raw = self.episode_reader._store["annotations"][:]
-
-        decoded = [self._decode_json_entry(x) for x in raw]
-        self._annotations = [d for d in decoded if isinstance(d, dict)]
-        return self._annotations
-
-    def _annotation_text_for_frame(self, frame_idx: int) -> str:
+        Reads the store directly (an absent array yields ``[]``) — gating on
+        the ``features`` metadata would miss post-hoc injected annotation
+        arrays, which don't appear there.
         """
-        Resolve language annotation text for a frame from span annotations.
+        if self._annotations is None:
+            self._annotations = {}
+        if zarr_key not in self._annotations:
+            try:
+                raw = self.episode_reader._store[zarr_key][:]
+            except KeyError:
+                self._annotations[zarr_key] = []
+            else:
+                decoded = [self._decode_json_entry(x) for x in raw]
+                self._annotations[zarr_key] = [
+                    d for d in decoded if isinstance(d, dict)
+                ]
+        return self._annotations[zarr_key]
+
+    def _annotation_text_for_frame(
+        self, frame_idx: int, zarr_key: str = "annotations"
+    ) -> list[str]:
         """
-        annotations = self._load_annotations()
+        Resolve language annotation texts for a frame from span annotations.
+        """
+        annotations = self._load_annotations(zarr_key)
         valid_annotations = []
         for ann in annotations:
             start_idx = int(ann.get("start_idx", -1))
@@ -1695,7 +1748,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 horizon = self.key_map[k].get("horizon", None)
 
                 if key_type == "annotation_keys":
-                    data[k] = self._annotation_text_for_frame(idx)
+                    # Honor the declared zarr_key (previously hardcoded to
+                    # "annotations") so keymaps can alias any annotation array.
+                    data[k] = self._annotation_text_for_frame(idx, zarr_key)
                     continue
 
                 if horizon is not None:
@@ -1724,6 +1779,17 @@ class ZarrDataset(torch.utils.data.Dataset):
                         data[k] = self._decode_json_entry(data[k])
             if retry:
                 continue
+
+            # Fetch ALL annotation keys present in the episode (role encoded in
+            # the key name: annotations, annotations_task, annotations_subtask,
+            # ...). Keymap-declared aliases above take precedence; everything
+            # else is emitted under its zarr name so annotation processors can
+            # pick roles by key without keymap registration. Episodes lacking a
+            # key simply don't emit it — annotation_collate unions across the
+            # batch and fills [] for missing items.
+            for ann_key in self._annotation_zarr_keys():
+                if ann_key not in data:
+                    data[ann_key] = self._annotation_text_for_frame(idx, ann_key)
 
             if self.transform:
                 for transform in self.transform or []:
@@ -1783,15 +1849,24 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
     def _build_frame_to_ann_end(self) -> dict[int, int]:
         """Map ``frame_idx -> ann_end`` (exclusive) for every frame inside an
         annotation span. Annotations use half-open ``[start_idx, end_idx)``.
+
+        Spans are unioned across ALL annotation keys present in the episode
+        (``annotations``, ``annotations_task``, ``annotations_subtask``, ...),
+        keeping the furthest end per frame — role-keyed episodes carry no
+        plain ``annotations`` array, so a single hardcoded key would silently
+        disable the EOS clamp for them. Legacy episodes behave identically
+        (their only key is ``annotations``).
         """
         mapping: dict[int, int] = {}
-        for ann in self._load_annotations():
-            start_idx = int(ann.get("start_idx", -1))
-            end_idx = int(ann.get("end_idx", -1))
-            if start_idx < 0 or end_idx <= start_idx:
-                continue
-            for idx in range(start_idx, end_idx):
-                mapping[idx] = end_idx
+        for ann_key in self._annotation_zarr_keys() or ["annotations"]:
+            for ann in self._load_annotations(ann_key):
+                start_idx = int(ann.get("start_idx", -1))
+                end_idx = int(ann.get("end_idx", -1))
+                if start_idx < 0 or end_idx <= start_idx:
+                    continue
+                for idx in range(start_idx, end_idx):
+                    if end_idx > mapping.get(idx, -1):
+                        mapping[idx] = end_idx
         return mapping
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
