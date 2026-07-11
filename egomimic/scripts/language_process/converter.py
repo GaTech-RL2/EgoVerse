@@ -20,7 +20,7 @@ def micro_seconds_to_frames(micro_seconds: int, fps: int) -> int:
     return micro_seconds / 1000000 * fps
 
 
-class ScaleToZarrAnnotationConverter:
+class ScaleAnnotationConverter:
     def __init__(self, scale_annotation_dir: str):
         self.scale_annotation_dir = scale_annotation_dir
 
@@ -37,7 +37,7 @@ class ScaleToZarrAnnotationConverter:
         pass
 
 
-class LLMConverter(ScaleToZarrAnnotationConverter):
+class LLMConverter(ScaleAnnotationConverter):
     def __init__(self, scale_annotation_dir: str, prompt_filepath: str):
         super().__init__(scale_annotation_dir)
         self.client = OpenAI()
@@ -406,6 +406,6 @@ class SortConverter(PickPlaceLLMConverter):
         return low_list[:k], high_list[:k]
 
 
-class HardCodedConverter(ScaleToZarrAnnotationConverter):
+class HardCodedConverter(ScaleAnnotationConverter):
     def scale_to_str_format(self, annotation: dict) -> dict:
         pass
