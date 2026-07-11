@@ -8,6 +8,8 @@ single pose vector, same per-arm layout as one action row), and the 6D revert
 lists convert it back before the eef-frame revert reads it.
 """
 
+import math
+
 import numpy as np
 import pytest
 import torch
@@ -367,3 +369,32 @@ def test_fallback_widens_to_global_after_local_attempts():
     with pytest.raises(RuntimeError, match="consecutive bad samples"):
         while True:
             idx, attempts = md._next_after_failure(idx, "bad", attempts, reason="r")
+
+
+def test_wrap_aware_mse_handles_pi_boundary():
+    # A yaw of +pi-eps vs -pi+eps is physically ~perfect: wrapped MSE ~0,
+    # unwrapped ~(2pi)^2 on that dim. xyz errors must pass through untouched,
+    # and 6D-rotation widths (18) must not be wrapped at all.
+    import torch
+
+    from egomimic.eval.eval_pi import _wrap_aware_mse
+
+    eps = 1e-3
+    gt = torch.zeros(2, 12)
+    pred = torch.zeros(2, 12)
+    pred[:, 3] = math.pi - eps  # L yaw
+    gt[:, 3] = -math.pi + eps
+    wrapped, nowrap = _wrap_aware_mse(pred, gt)
+    assert wrapped < 1e-4, f"wrap failed: {wrapped}"
+    assert nowrap > 3.0, f"nowrap should show inflation: {nowrap}"
+
+    # translation error passes through identically
+    pred2 = torch.zeros(2, 12)
+    pred2[:, 0] = 0.5
+    w2, nw2 = _wrap_aware_mse(pred2, torch.zeros(2, 12))
+    assert torch.isclose(w2, nw2) and torch.isclose(w2, torch.tensor(0.25 / 12))
+
+    # 6D width: no angle dims -> wrapped == unwrapped even for large values
+    pred3 = torch.full((2, 18), 4.0)
+    w3, nw3 = _wrap_aware_mse(pred3, torch.zeros(2, 18))
+    assert torch.isclose(w3, nw3)

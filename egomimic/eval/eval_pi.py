@@ -1,10 +1,32 @@
 import copy
+import math
 
 import torch
 from torchmetrics import MeanSquaredError
 
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
+from egomimic.utils.pose_utils import bimanual_cartesian_layout
+
+
+def _wrap_aware_mse(pred: torch.Tensor, gt: torch.Tensor):
+    """(wrapped, unwrapped) MSE over a bimanual cartesian YPR vector.
+
+    Euler angles wrap at ±π: a prediction of +π-ε against a target of -π+ε is
+    physically near-perfect but scores ~(2π)² per dim unwrapped, and a handful
+    of wrap events dominates the batch average. Wrap the rotation-dim errors
+    to (-π, π] before squaring; positions/grippers are untouched. Falls back
+    to plain MSE when the trailing width has no known layout.
+    """
+    diff = (pred - gt).float()
+    nowrap = diff.pow(2).mean()
+    layout = bimanual_cartesian_layout(diff.shape[-1])
+    # 6D-rotation layouts (18/20) have no angle dims — only wrap YPR widths.
+    if layout is None or len(layout["rot"]) != 6:
+        return nowrap, nowrap
+    rot = list(layout["rot"])
+    diff[..., rot] = torch.remainder(diff[..., rot] + math.pi, 2 * math.pi) - math.pi
+    return diff.pow(2).mean(), nowrap
 
 
 class PIEvalVideo(EvalVideo):
@@ -63,17 +85,20 @@ class PIEvalVideo(EvalVideo):
                 gt_batch_viz = {**_batch, **gt_t}
                 pred_batch_viz = {**_batch, **pred_t}
 
-                # ``.contiguous()`` because ``apply_transform`` returns CPU tensors,
-                # so ``.cpu()`` here is a no-op and ``[:, -1]`` leaves a non-contiguous
-                # view that torchmetrics' MSE doesn't accept.
-                metrics[f"Valid/{pred_key}_cam_paired_mse_avg"] = mse(
-                    pred_batch_viz[ac_key].cpu().contiguous(),
-                    gt_batch_viz[ac_key].cpu().contiguous(),
+                # Cam-frame vectors are xyz+YPR — wrap angle errors to ±π so
+                # boundary predictions don't blow up the MSE. The unwrapped
+                # value is kept as ``*_nowrap`` to quantify the inflation.
+                paired_w, paired_nw = _wrap_aware_mse(
+                    pred_batch_viz[ac_key].cpu(), gt_batch_viz[ac_key].cpu()
                 )
-                metrics[f"Valid/{pred_key}_cam_final_mse_avg"] = mse(
-                    pred_batch_viz[ac_key][:, -1].cpu().contiguous(),
-                    gt_batch_viz[ac_key][:, -1].cpu().contiguous(),
+                final_w, final_nw = _wrap_aware_mse(
+                    pred_batch_viz[ac_key][:, -1].cpu(),
+                    gt_batch_viz[ac_key][:, -1].cpu(),
                 )
+                metrics[f"Valid/{pred_key}_cam_paired_mse_avg"] = paired_w
+                metrics[f"Valid/{pred_key}_cam_final_mse_avg"] = final_w
+                metrics[f"Valid/{pred_key}_cam_paired_mse_nowrap"] = paired_nw
+                metrics[f"Valid/{pred_key}_cam_final_mse_nowrap"] = final_nw
 
                 preds_for_viz = dict(preds)
                 preds_for_viz[pred_key] = pred_batch_viz[ac_key]
