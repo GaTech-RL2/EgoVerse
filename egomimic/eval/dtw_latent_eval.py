@@ -241,6 +241,43 @@ def dtw_normalized(A, B):
 # --------------------------------------------------------------------------- #
 # High-level: apex tokens -> per-pair normalized DTW
 # --------------------------------------------------------------------------- #
+def repair_pairing_by_fingerprint(apex_by_emb, folder_by_emb):
+    """Dataloader batch order is NOT filename order (verified 2026-07-11), so
+    index-pairing across embs was broken. Re-key each collected episode to its
+    FILE index by matching its frame length against the sorted files'
+    total_frames (unique fingerprint; ambiguous/absent lengths are dropped
+    with a warning). Returns {emb: {"eps": [...aligned by common file idx]}}
+    plus the common file indices (which is what good_eps refers to)."""
+    import glob as _glob
+    import zarr as _zarr
+    by_idx = {}
+    for emb, folder in folder_by_emb.items():
+        files = sorted(_glob.glob(str(folder) + "/*.zarr"))
+        raw = []
+        for f in files:
+            z = _zarr.open(f, mode="r")
+            raw.append(int(z.attrs.get("total_frames") or z["actions"].shape[0]))
+        rec = apex_by_emb[emb]
+        cu = list(rec["frame_cu"])
+        lens = [int(cu[i + 1] - cu[i]) for i in range(len(rec["eps"]))]
+        idx_map = {}
+        for i, L in enumerate(lens):
+            cand = [k for k, rl in enumerate(raw) if rl == L]
+            if len(cand) == 1:
+                idx_map[cand[0]] = rec["eps"][i]
+            else:
+                print(f"  [pairing] emb{emb} episode with {L} frames: "
+                      f"{len(cand)} file candidates -- dropped")
+        by_idx[emb] = idx_map
+    embs = sorted(by_idx)
+    common = sorted(set(by_idx[embs[0]]) & set(by_idx[embs[1]]))
+    print(f"  [pairing] matched file indices across embs: {common}")
+    out = {e: dict(apex_by_emb[e]) for e in embs}
+    for e in embs:
+        out[e]["eps"] = [by_idx[e][k] for k in common]
+    return out, common
+
+
 def compute_dtw_from_apex(apex_by_emb, evr_threshold=0.95,
                           emb_a=CIRCLE_EMB, emb_b=SMALL_EMB, good_eps=None):
     """apex_by_emb (from collect_apex_tokens) -> results dict.
@@ -374,6 +411,12 @@ def run_dtw_eval(ckpt, config_path, n_episodes=6, evr=0.95, good_eps=None,
     batch = algo.process_batch_for_training(batch)
 
     apex = collect_apex_tokens(algo, batch, n_episodes=n_episodes)
+    _folders = {}
+    for _k, _v in full.data.get("valid_datasets", {}).items():
+        _fp = _v["resolver"]["folder_path"]
+        _folders[SMALL_EMB if "small" in str(_fp) else CIRCLE_EMB] = _fp
+    apex, _file_idx = repair_pairing_by_fingerprint(apex, _folders)
+    print(f"  [pairing] good_eps now refer to FILE indices; matched={_file_idx}")
     for e, rec in sorted(apex.items()):
         lens = [len(x) for x in rec["eps"]]
         print(f"emb{e}: apex d={rec['d']} compute_stages={rec['n_stages']} "
