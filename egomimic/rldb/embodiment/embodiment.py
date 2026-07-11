@@ -150,16 +150,13 @@ class Embodiment(ABC):
         keymap_mode: str,
         norm_mode: bool = False,
         annotation_key=None,
-        high_annotation_key=None,
     ):
         """Returns a dictionary mapping from the raw keys in the dataset to the canonical keys used by the model.
 
-        When ``high_annotation_key`` is given (hierarchical / subtask-prediction
-        runs), the primary ``annotation_key`` is pinned to the ``"low"``
-        granularity (the subtask-prediction target) and a second key is
-        registered that reads the *same* zarr annotation array but filtered to
-        the ``"high"`` granularity (the conditioning prompt). Both point at the
-        same ``zarr_key`` so only one annotation array is stored per episode.
+        Role-named annotation arrays (``annotations_task`` /
+        ``annotations_subtask``) need no registration here — ZarrDataset
+        fetches every ``annotations*`` key automatically; ``annotation_key``
+        remains only as a legacy alias registration.
         """
         key_map = cls._get_keymap(keymap_mode)
         if annotation_key is not None and not norm_mode:
@@ -167,15 +164,6 @@ class Embodiment(ABC):
                 "key_type": "annotation_keys",
                 "zarr_key": annotation_key,
             }
-            if high_annotation_key is not None:
-                # Subtask mode: split the single annotation array into a
-                # low-level (target) and high-level (prompt) view.
-                key_map[annotation_key]["level"] = "low"
-                key_map[high_annotation_key] = {
-                    "key_type": "annotation_keys",
-                    "zarr_key": annotation_key,
-                    "level": "high",
-                }
         if norm_mode:
             to_delete = [
                 k

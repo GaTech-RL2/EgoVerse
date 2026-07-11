@@ -283,23 +283,6 @@ class PI(Algo):
         bins = np.digitize(state, bins=self._state_bin_edges) - 1
         return " ".join(map(str, bins.tolist()))
 
-    def _sample_from_annotation(self, key: str | None, _batch, batch_size: int):
-        """Sample one annotation string per item from the raw list field
-        ``key`` (``list[list[str]]``). Returns ``None`` per item when that
-        item's list is empty / the key is absent, so callers can apply their
-        own fallback (e.g. high→low for sort-less episodes)."""
-        if key is None or key not in _batch:
-            return [None] * batch_size
-        out = []
-        for sample in _batch[key]:
-            if not sample:
-                out.append(None)
-            elif self.sampling_mode == "random":
-                out.append(sample[random.randint(0, len(sample) - 1)])
-            else:  # "first"
-                out.append(sample[0])
-        return out
-
     def _prompt_blocks(self, prompt: str, emb_name: str, _batch, i: int) -> str:
         """Render the comma-joined pi0.5 prompt blocks (``Task``, optional
         ``Embodiment`` / ``Control mode`` / ``State``) for sample ``i`` without
@@ -349,12 +332,16 @@ class PI(Algo):
         """Assemble the (high-level prefix, low-level subtask-target) pair per
         item for hierarchical training.
 
-        The high-level prompt comes from ``annotation_key`` (the sort goal); the
-        low-level subtask target comes from ``subtask_key`` (pick-and-place).
-        For sort-less episodes the high list is empty, so the high prompt falls
-        back to the sampled low instruction — i.e. the single pick-and-place
-        annotation is used as *both* the high-level and low-level instruction.
-        The rendered prefix ends with ``subtask_anchor`` (where decoding begins).
+        Roles come from ``self.annotation_processor`` (a
+        ``SubtaskAnnotationProcessor`` reading the role-named keys): ``task``
+        is the conditioning instruction (sort goal / pick_place instruction),
+        ``subtask`` the prediction target (sort decompositions; eva carries an
+        identical copy of its instruction). There is deliberately NO
+        task<-subtask fallback: role-keyed data guarantees a task instruction
+        wherever a subtask exists, and the old fallback spliced the GT subtask
+        verbatim into the eval prompt for sort-less episodes (label leak).
+        A missing task falls back to ``default_prompt`` only. The rendered
+        prefix ends with ``subtask_anchor`` (where decoding begins).
 
         Also returns ``instr_char_lens``: per item, the char length of the
         leading ``Task: <instruction>`` block inside the rendered prefix (the
@@ -364,8 +351,9 @@ class PI(Algo):
         are hidden from the action expert; the State proprio block stays
         visible.
         """
-        high = self._sample_from_annotation(self.annotation_key, _batch, batch_size)
-        low = self._sample_from_annotation(self.subtask_key, _batch, batch_size)
+        roles = self.annotation_processor(_batch, batch_size)
+        high = roles.get("task", [None] * batch_size)
+        low = roles.get("subtask", [None] * batch_size)
 
         emb_name = embodiment_name.lower().replace("_", " ")
         prefixes: list[str] = []
@@ -373,10 +361,7 @@ class PI(Algo):
         instr_char_lens: list[int] = []
         for i in range(batch_size):
             low_i = low[i]
-            # high falls back to low (sort-less episode), then to default_prompt.
-            high_i = high[i] if high[i] is not None else low_i
-            if high_i is None:
-                high_i = self.default_prompt
+            high_i = high[i] if high[i] is not None else self.default_prompt
             # The subtask anchor is appended at tokenization time (as protected
             # tokens), so it is never lost to truncation — see
             # ``_encode_prefix_with_anchor``.
@@ -384,11 +369,8 @@ class PI(Algo):
             # ``Task: <instruction>`` is the first block rendered by
             # ``_prompt_blocks``, so its char span is exactly [0, this length).
             instr_char_lens.append(len(f"Task: {high_i}"))
-            # The subtask target is always the low-level pick-and-place phrasing.
-            # When the episode has no sort goal, ``high_i`` was set to this same
-            # instruction above, so the model conditions on and predicts the
-            # same text ("use as both"). ``None`` ⇒ no subtask to predict for
-            # this frame (zero LM loss; nothing decoded at inference).
+            # ``None`` ⇒ no subtask to predict for this frame (zero LM loss;
+            # nothing decoded at inference).
             targets.append(low_i)
         return prefixes, targets, instr_char_lens
 

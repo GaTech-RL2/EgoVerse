@@ -4,9 +4,10 @@ defaults:
 
 # Subtask-prediction run on sort + pick_place, WRIST-FRAME 6D.
 #
-# Inherits sort_pi_subtask, so it KEEPS the high/low annotation split:
-#   annotations_high (level=high) -> conditioning prompt
-#   annotations      (level=low)  -> subtask prediction target
+# Inherits sort_pi_subtask. Role-named annotation arrays (injected into the
+# *_rolekeys dataset copies by migrate_zarr_annotation_keys.py):
+#   annotations_task    -> conditioning prompt (sort goal / pp instruction)
+#   annotations_subtask -> subtask prediction target (sort; eva = task copy)
 # (sort episodes carry real high+low; pick_place have only low -> high->low
 # fallback uses the pick-place text as both.)
 #
@@ -17,7 +18,7 @@ defaults:
 train_datasets:
   eva_bimanual:
     resolver:
-      folder_path: /storage/project/r-dxu345-0/agao81/EgoVerse/datasets/sortpp_eva_new
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/sortpp_eva_rolekeys
       transform_list:
         mode: cartesian_wristframe_6d
     filters:
@@ -25,7 +26,7 @@ train_datasets:
         - "lambda row: row.get('task') == 'pick_place' and row.get('embodiment') in ('eva', 'eva_bimanual') and (row.get('zarr_processed_path') or '') != '' and 'alignment' not in ((row.get('task_description') or '').lower()) and (row.get('episode_hash') or '') != '2026-04-22-02-30-32-296000' and not (row.get('episode_hash') or '').startswith('2026-05-11') and not (isinstance(row.get('processing_error'), str) and row.get('processing_error').strip()) and not (isinstance(row.get('zarr_processing_error'), str) and row.get('zarr_processing_error').strip())"
   human_bimanual:
     resolver:
-      folder_path: /storage/project/r-dxu345-0/agao81/EgoVerse/datasets/sortpp_aria_new
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/sortpp_aria_rolekeys
       transform_list:
         mode: cartesian_wristframe_6d
     filters:

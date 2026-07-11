@@ -193,13 +193,12 @@ class Human(Embodiment):
         include_aria_keypoints: bool = False,
         norm_mode: bool = False,
         annotation_key: str = None,
-        high_annotation_key=None,
     ):
         """Build the keymap. Per-vendor knobs are explicit args from the data
         config: ``has_head_pose`` (Scale=False) and ``include_aria_keypoints``
-        (Aria=True). ``norm_mode``/``annotation_key``/``high_annotation_key``
-        behave as in the base (subtask mode splits the single annotation array
-        into a ``level == "low"`` target and a ``level == "high"`` prompt).
+        (Aria=True). ``norm_mode``/``annotation_key`` behave as in the base
+        (role-named annotation arrays are fetched automatically by
+        ZarrDataset; no registration needed).
         """
         key_map = cls._get_keymap(
             keymap_mode,
@@ -211,15 +210,6 @@ class Human(Embodiment):
                 "key_type": "annotation_keys",
                 "zarr_key": annotation_key,
             }
-            if high_annotation_key is not None:
-                # Subtask mode: split the single annotation array into a
-                # low-level (target) and high-level (prompt) view.
-                key_map[annotation_key]["level"] = "low"
-                key_map[high_annotation_key] = {
-                    "key_type": "annotation_keys",
-                    "zarr_key": annotation_key,
-                    "level": "high",
-                }
         if norm_mode:
             to_delete = [
                 k

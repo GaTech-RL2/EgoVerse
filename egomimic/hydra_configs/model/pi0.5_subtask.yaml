@@ -10,15 +10,22 @@ defaults:
 # [high + subtask] prefix. See egomimic/models/pi0_subtask.py and
 # egomimic/algo/pi.py.
 #
-# Pair with data config `sort_pi_subtask` (registers the `annotations_high`
-# high-level view of the annotation array).
+# Pair with data config `sort_pi_subtask` / `sort_pp_subtask_6d` (role-named
+# annotation arrays annotations_task / annotations_subtask, fetched
+# automatically by ZarrDataset).
 robomimic_model:
   subtask_prediction: true
-  # High-level (sort) goal conditions the model; low-level (pick-and-place) is
-  # the prediction target. Both read the same zarr `annotations` array, split by
-  # the `level` tag the SortConverter writes (see get_keymap high_annotation_key).
-  annotation_key: "annotations_high"
-  subtask_key: "annotations"
+  # Role-named annotation keys: the task instruction (sort goal / pick_place
+  # instruction) conditions the model; the subtask decomposition is the
+  # prediction target. Sampled per frame by the processor (no cross-role
+  # fallback; eva carries an identical task/subtask copy, kept textually
+  # identical by tie_identical).
+  annotation_processor:
+    _target_: egomimic.rldb.annotation_processing.SubtaskAnnotationProcessor
+    task_key: "annotations_task"
+    subtask_key: "annotations_subtask"
+    strategy: "random"
+    tie_identical: true
   subtask_anchor: "Subtask: "
   # Relative weight of the subtask CE loss vs. the action flow-matching loss.
   subtask_loss_weight: 1.0

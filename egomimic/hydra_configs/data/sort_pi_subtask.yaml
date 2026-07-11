@@ -10,34 +10,23 @@ defaults:
 # Inheriting the plain `cotrain_pi_lang` (ypr) parent would crash in
 # to32_norm_6d on the first batch.
 #
-# Two changes vs. the parent:
-#   1. resolver key_map registers a high-level view of the annotation array
-#      (`annotations_high`), filtered to the `level == "high"` sort goals the
-#      SortConverter writes. The primary `annotations` key is pinned to
-#      `level == "low"` (pick-and-place) inside get_keymap when
-#      `high_annotation_key` is set.
-#   2. filters select both SORT episodes (task == 'sort', which carry the
-#      high-level "Sorting" track -> real high != low training signal) and
-#      pick_place episodes (high == low via the use-as-both fallback). Without
-#      this override the inherited filter is `task == 'pick_place'` only, so no
-#      episode would have a high-level track and the subtask objective would
-#      degenerate to high == low for every frame.
+# One change vs. the parent: filters select both SORT episodes (task ==
+# 'sort', which carry real sort goals -> task != subtask training signal) and
+# pick_place episodes (task-only conditioning; no subtask target unless the
+# episode carries an injected copy). Annotation ROLES come from the role-named
+# zarr keys (annotations_task / annotations_subtask, fetched automatically by
+# ZarrDataset) and are sampled by the model config's SubtaskAnnotationProcessor
+# — no keymap registration or level filtering.
 #
 # Pair with model config `pi0.5_subtask`.
 train_datasets:
   eva_bimanual:
-    resolver:
-      key_map:
-        high_annotation_key: annotations_high
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
       filter_lambdas:
         - "lambda row: (row.get('embodiment') == 'eva_bimanual') & (row['task'] in ('sort', 'pick_place')) & (row['zarr_processed_path'] != '')"
   human_bimanual:
-    resolver:
-      key_map:
-        high_annotation_key: annotations_high
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
