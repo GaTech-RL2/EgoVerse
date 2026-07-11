@@ -1,18 +1,42 @@
-"""DTW-latent alignment eval for BATCHFLOW ckpts.
+"""DTW-latent alignment eval for BATCHFLOW ckpts (v3).
 
-Collector: run the pipeline per emb on the aligned probe subsets, read
-``apex/tokens`` + the chunk-space cu whose total matches the apex token count,
-split per episode. PCA fit on ALL episodes pooled; norm-DTW reported on the
-good episodes [3,7,0] and on all pairs (protocol per user / dtw_latent_eval).
-Core math (fit_pca / dtw_normalized / compute_dtw_from_apex) reused unchanged.
+Tiers: APEX tokens (skipped if median len < 4 -- collapsed seam) and the
+BOTTOM chunker level (largest token count; alive in all arms). Episode
+pairing by stride-aware frame-length fingerprint (seed cu is stride-4).
 """
 import argparse
+import glob as globlib
+import numpy as np
 import torch
+import zarr as zarrlib
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
 
 from egomimic.eval.core.ckpt_loading import load_algo_from_ckpt
-from egomimic.eval.dtw_latent_eval import compute_dtw_from_apex
+from egomimic.eval.dtw_latent_eval import compute_dtw_from_apex, CIRCLE_EMB, SMALL_EMB
+
+
+def file_index_map(folder, lens, strides=(1, 4)):
+    files = sorted(globlib.glob(str(folder) + "/*.zarr"))
+    raw = []
+    for f in files:
+        z = zarrlib.open(f, mode="r")
+        raw.append(int(z.attrs.get("total_frames") or z["actions"].shape[0]))
+    best = None
+    for s in strides:
+        m = {}
+        ok = 0
+        for i, L in enumerate(lens):
+            cand = [k for k, r in enumerate(raw)
+                    if L in (r // s, (r + s - 1) // s, r // s + 1)]
+            if len(cand) == 1:
+                m[i] = cand[0]
+                ok += 1
+        if best is None or ok > best[1]:
+            best = (m, ok, s)
+    m, ok, s = best
+    print(f"  [pairing] stride={s}: matched {ok}/{len(lens)} episodes")
+    return m
 
 
 def main():
@@ -34,41 +58,74 @@ def main():
     batch = first[0] if isinstance(first, tuple) else first
     batch = algo.process_batch_for_training(batch)
 
-    apex_by_emb = {}
-    for emb_id, eb in batch.items():
-        seed = algo._seed(emb_id, eb)
-        seed = {k: (v.cuda() if torch.is_tensor(v) else v) for k, v in seed.items()}
-        with torch.no_grad():
-            b = algo.policy(seed)
-        toks = b["apex/tokens"].float().cpu().numpy()
-        M = toks.shape[0]
-        cu = None
-        for k in b:
-            if k.startswith("chunk/L") and k.endswith("/cu_seqlens"):
-                c = b[k].cpu().numpy()
-                if int(c[-1]) == M:
-                    cu = c
-                    break
-        assert cu is not None, f"no chunk cu matches apex token count {M}"
-        eps = [toks[cu[i]:cu[i + 1]] for i in range(len(cu) - 1)][: a.n_episodes]
-        frame_cu = seed["cu_seqlens"].cpu().numpy().tolist()[: a.n_episodes + 1]
-        apex_by_emb[emb_id] = {"eps": eps, "frame_cu": frame_cu}
-        print(f"[bfdtw] emb{emb_id}: {len(eps)} eps, apex lens {[len(e) for e in eps]}")
-
-    from egomimic.eval.dtw_latent_eval import repair_pairing_by_fingerprint, CIRCLE_EMB, SMALL_EMB
     folders = {}
     for k, v in cfg.data.get("valid_datasets", {}).items():
         fp = v["resolver"]["folder_path"]
         folders[SMALL_EMB if "small" in str(fp) else CIRCLE_EMB] = fp
-    apex_by_emb, file_idx = repair_pairing_by_fingerprint(apex_by_emb, folders)
-    good = [int(x) for x in a.good_eps.replace(" ", "").split(",") if x] or None
-    res = compute_dtw_from_apex(apex_by_emb, evr_threshold=a.evr, good_eps=good,
-                                pair_labels=file_idx)
-    for k, v in res.items():
-        if isinstance(v, (int, float)):
-            print(f"  {k} = {v:.4f}" if isinstance(v, float) else f"  {k} = {v}")
-        elif isinstance(v, list) and v and isinstance(v[0], (int, float)):
-            print(f"  {k} = {[round(float(x), 4) for x in v]}")
+
+    tiers = {"apex": {}, "bottom": {}}
+    for emb_id, eb in batch.items():
+        seed = algo._seed(emb_id, eb)
+        seed = {k: (v.cuda() if torch.is_tensor(v) else v) for k, v in seed.items()}
+        frame_cu = seed["cu_seqlens"].cpu().numpy().tolist()
+        with torch.no_grad():
+            b = algo.policy(seed)
+        lens = [int(frame_cu[i + 1] - frame_cu[i])
+                for i in range(min(len(frame_cu) - 1, a.n_episodes))]
+        idx_map = file_index_map(folders[emb_id], lens)
+
+        def split(toks, cu):
+            return [toks[cu[i]:cu[i + 1]] for i in range(min(len(cu) - 1, a.n_episodes))]
+
+        # apex tier
+        toks = b["apex/tokens"].float().cpu().numpy()
+        cu = None
+        for k in b:
+            if k.startswith("chunk/L") and k.endswith("/cu_seqlens"):
+                c = b[k].cpu().numpy()
+                if int(c[-1]) == toks.shape[0]:
+                    cu = c
+                    break
+        if cu is not None:
+            eps = split(toks, cu)
+            tiers["apex"][emb_id] = (eps, idx_map)
+        # bottom tier: chunk level with the LARGEST token count
+        cand = []
+        for k in b:
+            if k.startswith("chunk/L") and k.endswith("/tokens"):
+                lvl = k[: -len("/tokens")]
+                t = b[k].float().cpu().numpy()
+                c = b[lvl + "/cu_seqlens"].cpu().numpy()
+                if int(c[-1]) == t.shape[0]:
+                    cand.append((t.shape[0], t, c, lvl))
+        if cand:
+            _, t, c, lvl = max(cand, key=lambda x: x[0])
+            print(f"  [bottom] emb{emb_id}: using {lvl} ({t.shape[0]} tokens)")
+            tiers["bottom"][emb_id] = (split(t, c), idx_map)
+
+    good = [int(x) for x in a.good_eps.replace(" ", "").split(",") if x]
+    for tier, d in tiers.items():
+        if len(d) < 2:
+            print(f"== {tier}: missing an emb, skipped")
+            continue
+        embs = sorted(d)
+        common = sorted(set(d[embs[0]][1].values()) & set(d[embs[1]][1].values()))
+        apex_by_emb = {}
+        for e in embs:
+            eps_list, imap = d[e]
+            inv = {v: k for k, v in imap.items()}
+            apex_by_emb[e] = {"eps": [eps_list[inv[fi]] for fi in common]}
+        lens0 = [len(x) for x in apex_by_emb[embs[0]]["eps"]]
+        print(f"== {tier}: pairs={common} lens(emb{embs[0]})={lens0}")
+        if not common or int(np.median([len(x) for x in apex_by_emb[embs[0]]["eps"]])) < 4:
+            print(f"== {tier}: DEGENERATE (median len < 4) -- N/A")
+            continue
+        res = compute_dtw_from_apex(apex_by_emb, evr_threshold=a.evr,
+                                    good_eps=good, pair_labels=common)
+        for k in ("pca_k", "mean_dtw_w_good", "mean_dtw_w_all",
+                  "mean_align_ratio_good", "mean_align_ratio_all"):
+            v = res.get(k)
+            print(f"  {tier}/{k} = {v:.4f}" if isinstance(v, float) else f"  {tier}/{k} = {v}")
     print("BF_DTW_DONE")
 
 
