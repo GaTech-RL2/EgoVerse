@@ -205,6 +205,11 @@ class Embodiment(ABC):
         # subtask can be eyeballed against the conditioning text. None for
         # non-subtask models (key absent from predictions).
         subtask_pred = predictions.get(f"{embodiment_name}_subtask_pred")
+        # GT subtask (the sampled CE target carried by process_batch as
+        # ``gt_subtask``): overlaid as a "[gt]" line under the "[pred]" one so
+        # prediction vs ground truth reads directly off the video. Items
+        # without a subtask show "(none)".
+        gt_subtask = batch.get("gt_subtask")
         ims_list = []
         images = _to_numpy(images)
         actions = _to_numpy(actions)
@@ -227,6 +232,11 @@ class Embodiment(ABC):
                 overlay_texts.append(annotations[i])
             if subtask_pred is not None and i < len(subtask_pred):
                 overlay_texts.append(f"[pred] {subtask_pred[i]}")
+                if gt_subtask is not None and i < len(gt_subtask):
+                    gt_i = gt_subtask[i]
+                    overlay_texts.append(
+                        f"[gt] {gt_i}" if gt_i is not None else "[gt] (none)"
+                    )
             if overlay_texts:
                 ims = cls.viz(ims, overlay_texts, mode="annotations", **kwargs)
             ims_list.append(ims)

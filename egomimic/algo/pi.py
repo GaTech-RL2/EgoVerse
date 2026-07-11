@@ -637,6 +637,16 @@ class PI(Algo):
                 if self.action_expert_sees_lang:
                     instr_lens = None
                 processed_batch[embodiment_id]["sampled_prompt"] = prefixes
+                # Carry the GT subtask through to eval: the SAMPLED target (one
+                # string|None per item — what the CE trains on; viz shows it as
+                # the [gt] line) and the FULL candidate lists (all paraphrases
+                # active at the frame; decode metrics match against ANY).
+                processed_batch[embodiment_id]["gt_subtask"] = targets
+                processed_batch[embodiment_id]["gt_subtask_all"] = [
+                    list(x) for x in _batch.get(
+                        "annotations_subtask", [[]] * B
+                    )
+                ]
                 processed_batch[embodiment_id].update(
                     self._tokenize_prompts_with_subtask(prefixes, targets, instr_lens)
                 )
