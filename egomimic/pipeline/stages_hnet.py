@@ -58,7 +58,7 @@ class DualTrunkLevel(Stage):
                  mask_mode="asym", causal=True, dropout=0.0,
                  embodiments: Optional[List[str]] = None,
                  allow_agnostic_cross: bool = False, decoder_layout=None,
-                 adaln_cond: Optional[str] = None, adaln_dim: Optional[int] = None
+                 adaln_cond: Optional[str] = None, adaln_dim: Optional[int] = None,
                  attn_dropout: float = 0.0, ffn_dropout: float = 0.0,):
         super().__init__()
         streams_cfg = [dict(s) for s in streams_cfg]
