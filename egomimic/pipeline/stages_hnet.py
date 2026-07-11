@@ -345,6 +345,8 @@ class ApexLevel(Stage):
                               max_seqlen=batch["max_seq_len"])
         batch["x"] = y
         batch["apex/tokens"] = y
+        if "aux/apex" in batch:
+            batch["aux/apex"].append(y)
         return batch
 
     def _init_weights(self, rng: float, parent_residuals: int) -> int:
@@ -381,8 +383,11 @@ class DualstreamTrunk(Stage):
 
     def forward(self, batch: dict) -> dict:
         batch.setdefault("aux/chunker", [])
+        batch.setdefault("aux/apex", [])
         batch = self.root(batch)
         batch["a_top"], batch["s"] = batch["A"], batch["S"]
+        if batch.get("aux/apex"):
+            batch["apex/tokens"] = batch["aux/apex"][-1]
         for i, rec in enumerate(batch["aux/chunker"]):
             batch[f"chunk/L{i}/boundary_mask"] = rec["boundary_mask"]
             batch[f"chunk/L{i}/boundary_prob"] = rec["boundary_prob"]

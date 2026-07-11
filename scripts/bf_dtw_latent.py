@@ -51,11 +51,19 @@ def main():
                     break
         assert cu is not None, f"no chunk cu matches apex token count {M}"
         eps = [toks[cu[i]:cu[i + 1]] for i in range(len(cu) - 1)][: a.n_episodes]
-        apex_by_emb[emb_id] = {"eps": eps}
+        frame_cu = seed["cu_seqlens"].cpu().numpy().tolist()[: a.n_episodes + 1]
+        apex_by_emb[emb_id] = {"eps": eps, "frame_cu": frame_cu}
         print(f"[bfdtw] emb{emb_id}: {len(eps)} eps, apex lens {[len(e) for e in eps]}")
 
+    from egomimic.eval.dtw_latent_eval import repair_pairing_by_fingerprint, CIRCLE_EMB, SMALL_EMB
+    folders = {}
+    for k, v in cfg.data.get("valid_datasets", {}).items():
+        fp = v["resolver"]["folder_path"]
+        folders[SMALL_EMB if "small" in str(fp) else CIRCLE_EMB] = fp
+    apex_by_emb, file_idx = repair_pairing_by_fingerprint(apex_by_emb, folders)
     good = [int(x) for x in a.good_eps.replace(" ", "").split(",") if x] or None
-    res = compute_dtw_from_apex(apex_by_emb, evr_threshold=a.evr, good_eps=good)
+    res = compute_dtw_from_apex(apex_by_emb, evr_threshold=a.evr, good_eps=good,
+                                pair_labels=file_idx)
     for k, v in res.items():
         if isinstance(v, (int, float)):
             print(f"  {k} = {v:.4f}" if isinstance(v, float) else f"  {k} = {v}")
