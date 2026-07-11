@@ -94,7 +94,7 @@ robomimic_model:
       allow_agnostic_cross: true
       causal: true
       n_layers: 8
-      attn_dropout: 0.1
+      dropout: 0.1
       ffn_dropout: 0.1
       rotary_emb_dim: 64
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
@@ -120,7 +120,7 @@ robomimic_model:
       allow_agnostic_cross: true
       causal: true
       n_layers: 8
-      attn_dropout: 0.1
+      dropout: 0.1
       ffn_dropout: 0.1
       rotary_emb_dim: 64
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
