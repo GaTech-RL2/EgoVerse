@@ -1,0 +1,40 @@
+defaults:
+  - cotrain_pi_base
+  - _self_
+
+# Wristframe variant of motion_gen_pi_lang: annotated-only eva + annotated-only
+# aria (base/object descriptions). Actions are expressed in each wrist's own
+# frame (cartesian_wristframe_ypr) instead of the head/camera frame. Pair with
+# evaluator=eval_pi so the revert transform projects predictions back to cam
+# frame for the viz video.
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      folder_path: /storage/home/hcoda1/5/agao81/r-dxu345-0/pick_place
+      key_map:
+        keymap_mode: cartesian_pi
+      transform_list:
+        mode: cartesian_wristframe_ypr
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
+      filter_lambdas:
+        - "lambda row: row.get('task') == 'pick_place' and row.get('embodiment') == 'eva_bimanual' and (row.get('zarr_processed_path') or '') != '' and 'alignment' not in ((row.get('task_description') or '').lower()) and (row.get('episode_hash') or '') != '2026-04-22-02-30-32-296000'"
+  aria_bimanual:
+    resolver:
+      folder_path: /storage/home/hcoda1/5/agao81/r-dxu345-0/pick_place
+      key_map:
+        keymap_mode: cartesian_pi
+      transform_list:
+        mode: cartesian_wristframe_ypr
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
+      filter_lambdas:
+        # Exclude these aria episodes: every base_0_rgb JPEG decode fails
+        # (entire episode is corrupted), exhausts random-retry budget at train time.
+        #   2026-04-26-00-17-53-000000
+        #   2026-04-26-00-27-26-000000
+        #   2026-05-01-02-52-58-000000
+        - "lambda row: row.get('task') == 'pick_place' and row.get('embodiment') == 'human_bimanual' and row.get('lab') == 'rl2' and (row.get('zarr_processed_path') or '') != '' and any(s in ((row.get('task_description') or '').lower()) for s in ('base', 'object')) and (row.get('episode_hash') or '') not in ('2026-04-26-00-17-53-000000', '2026-04-26-00-27-26-000000', '2026-05-01-02-52-58-000000')"

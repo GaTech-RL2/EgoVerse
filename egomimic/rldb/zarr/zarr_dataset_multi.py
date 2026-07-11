@@ -1279,6 +1279,8 @@ class MultiDataset(torch.utils.data.Dataset):
     # ---- normalize / unnormalize ----
 
     def _apply_norm_one(self, tensor, stats):
+        if self.norm_mode == "none":
+            return tensor
         if self.norm_mode == "zscore":
             mean = torch.as_tensor(
                 stats["mean"], device=tensor.device, dtype=torch.float32
@@ -1306,6 +1308,8 @@ class MultiDataset(torch.utils.data.Dataset):
         raise ValueError(f"Invalid normalization mode: {self.norm_mode}")
 
     def _apply_unnorm_one(self, tensor, stats):
+        if self.norm_mode == "none":
+            return tensor
         if self.norm_mode == "zscore":
             mean = torch.as_tensor(
                 stats["mean"], device=tensor.device, dtype=torch.float32
@@ -1676,8 +1680,11 @@ class ZarrDataset(torch.utils.data.Dataset):
         for ann in annotations:
             start_idx = int(ann.get("start_idx", -1))
             end_idx = int(ann.get("end_idx", -1))
-            if start_idx <= frame_idx < end_idx:
-                valid_annotations.append(ann.get("text", ""))
+            if not (start_idx <= frame_idx < end_idx):
+                continue
+            if level is not None and ann.get("level", "low") != level:
+                continue
+            valid_annotations.append(ann.get("text", ""))
         return valid_annotations
 
     def __len__(self) -> int:
@@ -1825,7 +1832,9 @@ class ZarrDataset(torch.utils.data.Dataset):
                 K = np.full((3, 4), np.nan, dtype=np.float32)
             data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             ep_name = Path(self.episode_path).name
-            data["episode_hash"] = ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            data["episode_hash"] = (
+                ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
+            )
             _ = origin  # preserved for symmetry with prior API
             return data
 
@@ -1858,15 +1867,28 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         (their only key is ``annotations``).
         """
         mapping: dict[int, int] = {}
+        n_spans = 0
         for ann_key in self._annotation_zarr_keys() or ["annotations"]:
             for ann in self._load_annotations(ann_key):
                 start_idx = int(ann.get("start_idx", -1))
                 end_idx = int(ann.get("end_idx", -1))
                 if start_idx < 0 or end_idx <= start_idx:
                     continue
+                n_spans += 1
                 for idx in range(start_idx, end_idx):
                     if end_idx > mapping.get(idx, -1):
                         mapping[idx] = end_idx
+        # One-time per-episode visibility into annotation-cutoff usage: if
+        # spans/frames_covered are 0 the cutoff is a no-op (episode has no
+        # usable annotations); >0 confirms chunks are clamped at EOS.
+        ep = Path(self.episode_path).name
+        logger.info(
+            "[AnnotationCutoff] ep=%s spans=%d frames_covered=%d/%d",
+            ep,
+            n_spans,
+            len(mapping),
+            self.total_frames,
+        )
         return mapping
 
     def _chunk_end_idx(self, start_idx: int, horizon: int, key_type: str | None) -> int:
@@ -1881,10 +1903,66 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         return min(end_idx, ann_end)
 
 
+def _episode_has_annotation_spans(ds: "ZarrDataset") -> bool:
+    """True if the episode has at least one usable ``[start_idx, end_idx)`` span.
+
+    Many Scale-"completed" episodes have an empty (or span-less) zarr
+    ``annotations`` array because the annotation-injection step lagged; the
+    AnnotationCutoff is a no-op for those, so they should be dropped when the
+    point of the run is to clamp chunks at annotation boundaries.
+    """
+    try:
+        anns = ds._load_annotations()
+    except Exception:
+        return False
+    return any(
+        isinstance(a, dict)
+        and 0 <= int(a.get("start_idx", -1)) < int(a.get("end_idx", -1))
+        for a in anns
+    )
+
+
 class S3AnnotationCutoffEpisodeResolver(S3EpisodeResolver):
-    """S3EpisodeResolver that loads ZarrAnnotationCutoffDataset instances."""
+    """S3EpisodeResolver that loads ZarrAnnotationCutoffDataset instances.
+
+    When ``require_annotations`` is set (default), episodes whose zarr
+    ``annotations`` array has no usable span are dropped — otherwise the
+    annotation cutoff would silently no-op on them.
+    """
 
     _dataset_class = ZarrAnnotationCutoffDataset
+
+    def __init__(self, *args, require_annotations: bool = True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.require_annotations = require_annotations
+
+    def resolve(self, filters=None):
+        datasets = super().resolve(filters=filters)
+        if not self.require_annotations:
+            return datasets
+        kept = {
+            h: ds for h, ds in datasets.items() if _episode_has_annotation_spans(ds)
+        }
+        dropped = sorted(set(datasets) - set(kept))
+        if dropped:
+            logger.warning(
+                "[AnnotationCutoff] dropped %d/%d episodes with no usable "
+                "annotation spans (e.g. %s)",
+                len(dropped),
+                len(datasets),
+                dropped[:5],
+            )
+        logger.info(
+            "[AnnotationCutoff] kept %d/%d episodes with usable annotations",
+            len(kept),
+            len(datasets),
+        )
+        if not kept:
+            raise ValueError(
+                "[AnnotationCutoff] no resolved episodes contain usable annotation "
+                "spans — check the filter / annotation injection for this dataset."
+            )
+        return kept
 
 
 class LocalAnnotationCutoffEpisodeResolver(LocalEpisodeResolver):
