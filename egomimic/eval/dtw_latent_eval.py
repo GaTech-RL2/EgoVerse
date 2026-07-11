@@ -390,11 +390,16 @@ def run_dtw_eval(ckpt, config_path, n_episodes=6, evr=0.95, good_eps=None,
           f">= {evr}  (apex dim={res['pca_dim']})")
     for p in res["per_pair"]:
         print(f"  pair {p['pair']:2d}: norm-DTW={p['dtw']:.4f}  "
-        print(f"          whitened={p.get('dtw_w', float('nan')):.4f}  null={p.get('null_w', float('nan')):.4f}  align_ratio={p.get('align_ratio', float('nan')):.4f}")
               f"(len circle={p['len_a']}, small={p['len_b']})")
+        print(f"           whitened={p.get('dtw_w', float('nan')):.4f}  "
+              f"null={p.get('null_w', float('nan')):.4f}  "
+              f"align_ratio={p.get('align_ratio', float('nan')):.4f}")
     print(f"  good_eps={res['good_eps']}  mean norm-DTW (good)={res['mean_dtw_good']:.4f}  "
-    print(f"  WHITENED mean (good)={res.get('mean_dtw_w_good', float('nan')):.4f} | (all)={res.get('mean_dtw_w_all', float('nan')):.4f}  ALIGN-RATIO (good)={res.get('mean_align_ratio_good', float('nan')):.4f} | (all)={res.get('mean_align_ratio_all', float('nan')):.4f}")
           f"| mean (all)={res['mean_dtw_all']:.4f}")
+    print(f"  WHITENED mean (good)={res.get('mean_dtw_w_good', float('nan')):.4f} "
+          f"| (all)={res.get('mean_dtw_w_all', float('nan')):.4f}  "
+          f"ALIGN-RATIO (good)={res.get('mean_align_ratio_good', float('nan')):.4f} "
+          f"| (all)={res.get('mean_align_ratio_all', float('nan')):.4f}")
     return res
 
 
