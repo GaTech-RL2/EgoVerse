@@ -87,6 +87,8 @@ def main():
             fig.suptitle(f"{args.tag} — emb{emb_id} TF overlay (mse {mse:.6f})", y=1.05)
             outp = f"{args.out_dir}/{args.tag}_overlay_emb{emb_id}.png"
             fig.savefig(outp, dpi=130, bbox_inches="tight")
+            _pm = ((pred - tgt) ** 2).mean(axis=(1, 2))
+            print(f"  first-chunk mse={_pm[0]:.6f}  rest mse={_pm[1:].mean():.6f}  first/rest={_pm[0] / max(_pm[1:].mean(), 1e-9):.1f}x")
             print("wrote", outp, "T=", T, "mse=", mse)
     print("BF_OVERLAY_DONE")
 
