@@ -99,10 +99,27 @@ def main():
                 if int(c[-1]) == t.shape[0]:
                     cand.append((t.shape[0], t, c, lvl))
         if cand:
-            _, t, c, lvl = max(cand, key=lambda x: x[0])
-            print(f"  [bottom] emb{emb_id}: using {lvl} ({t.shape[0]} tokens)")
-            tiers["bottom"][emb_id] = (split(t, c), idx_map)
+            tiers.setdefault("_bottom_cand", {})[emb_id] = {
+                lvl: (n, t, c) for n, t, c, lvl in cand}
+            tiers["_bottom_idx", emb_id] = idx_map
 
+    # bottom tier: pick ONE level shared by both embs (max combined tokens,
+    # matching dims) -- per-emb argmax can pick different pyramid levels.
+    bc = tiers.pop("_bottom_cand", {})
+    if len(bc) == 2:
+        embs_b = sorted(bc)
+        shared = [l for l in bc[embs_b[0]] if l in bc[embs_b[1]]
+                  and bc[embs_b[0]][l][1].shape[1] == bc[embs_b[1]][l][1].shape[1]]
+        if shared:
+            lvl = max(shared, key=lambda l: bc[embs_b[0]][l][0] + bc[embs_b[1]][l][0])
+            print(f"  [bottom] shared level {lvl}")
+            for e in embs_b:
+                n, t, c = bc[e][lvl]
+                def _split(toks, cu):
+                    return [toks[cu[i]:cu[i + 1]] for i in range(min(len(cu) - 1, a.n_episodes))]
+                tiers["bottom"][e] = (_split(t, c), tiers[("_bottom_idx", e)])
+    for k in [k for k in list(tiers) if isinstance(k, tuple)]:
+        tiers.pop(k)
     good = [int(x) for x in a.good_eps.replace(" ", "").split(",") if x]
     for tier, d in tiers.items():
         if len(d) < 2:
