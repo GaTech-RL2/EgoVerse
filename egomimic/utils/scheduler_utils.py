@@ -52,3 +52,41 @@ def warmup_then_cosine(
         schedulers=[warmup, cosine],
         milestones=[warmup_epochs],
     )
+
+
+def warmup_then_cosine_min_lr(
+    optimizer: torch.optim.Optimizer,
+    num_warmup_steps: int,
+    num_training_steps: int,
+    min_lr_rate: float = 0.1,
+    last_epoch: int = -1,
+    **_unused,
+) -> torch.optim.lr_scheduler.LambdaLR:
+    """Linear warmup -> cosine decay to ``min_lr_rate * peak_lr``, CONSTANT at
+    the floor beyond ``num_training_steps`` (never re-oscillates).
+
+    Implemented as a ``LambdaLR`` deliberately: lambdas are NOT serialized in
+    the scheduler ``state_dict``, so resuming a checkpoint keeps THIS schedule
+    with the restored step position. (``CosineAnnealingLR``-based schedules
+    restore ``T_max``/``eta_min`` from the checkpoint on ``load_state_dict``,
+    silently reverting a mid-run schedule change.)
+
+    ``**_unused`` swallows leftover kwargs merged in from a parent hydra
+    config's scheduler node (e.g. ``num_cycles``).
+    """
+    import math
+
+    def lr_lambda(step: int) -> float:
+        if step < num_warmup_steps:
+            return step / max(1, num_warmup_steps)
+        if step >= num_training_steps:
+            return min_lr_rate
+        progress = (step - num_warmup_steps) / max(
+            1, num_training_steps - num_warmup_steps
+        )
+        cos = 0.5 * (1.0 + math.cos(math.pi * progress))
+        return min_lr_rate + (1.0 - min_lr_rate) * cos
+
+    return torch.optim.lr_scheduler.LambdaLR(
+        optimizer, lr_lambda, last_epoch=last_epoch
+    )

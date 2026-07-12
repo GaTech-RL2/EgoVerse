@@ -13,6 +13,19 @@ defaults:
 # Pair with data config `sort_pi_subtask` / `sort_pp_subtask_6d` (role-named
 # annotation arrays annotations_task / annotations_subtask, fetched
 # automatically by ZarrDataset).
+# LR schedule override (2026-07-12): the inherited pi0.5_base cosine hits LR=0
+# at 60k steps (= epoch 600 at 100 steps/epoch) and stays there — everything
+# after is dead compute. Replace with a min-LR cosine ending at 100k steps
+# (= epoch 1000): decay to 10% of peak (3e-6 at lr=3e-5) and hold. Pair with
+# trainer.max_epochs=1000. LambdaLR-based so a mid-run checkpoint resume keeps
+# THIS schedule (see warmup_then_cosine_min_lr docstring).
+scheduler:
+  _target_: egomimic.utils.scheduler_utils.warmup_then_cosine_min_lr
+  _partial_: true
+  num_warmup_steps: 2000
+  num_training_steps: 100000
+  min_lr_rate: 0.1
+
 robomimic_model:
   subtask_prediction: true
   # Role-named annotation keys: the task instruction (sort goal / pick_place
