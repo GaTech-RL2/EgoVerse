@@ -56,6 +56,12 @@ def main():
                 for stage in runnable:
                     out = stage(out)
                 out["actions"] = gt_actions
+                # GT chunks at FULL rate (no TargetBuilder in the rollout plan)
+                from egomimic.pipeline import packed as _packed
+                _C = next(st.chunk_len for st in algo.policy.stages
+                          if hasattr(st, "chunk_len"))
+                _cu = out["cu_seqlens"].to(gt_actions.device)
+                out["target"] = _packed.chunk_targets(gt_actions, _cu, _C)
             else:
                 out = algo.policy(seeded)
             pred = out["pred_action"].float().cpu().numpy()   # (T_kept, C, D)
