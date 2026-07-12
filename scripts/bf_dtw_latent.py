@@ -134,9 +134,14 @@ def main():
             apex_by_emb[e] = {"eps": [eps_list[inv[fi]] for fi in common]}
         lens0 = [len(x) for x in apex_by_emb[embs[0]]["eps"]]
         print(f"== {tier}: pairs={common} lens(emb{embs[0]})={lens0}")
-        if not common or int(np.median([len(x) for x in apex_by_emb[embs[0]]["eps"]])) < 4:
-            print(f"== {tier}: DEGENERATE (median len < 4) -- N/A")
+        if not common:
+            print(f"== {tier}: no matched pairs -- N/A")
             continue
+        med = int(np.median(lens0))
+        # ALWAYS compute (user rule 2026-07-12) -- flag degeneracy instead of
+        # skipping. With 1-token episodes DTW reduces to plain L2 between the
+        # single apex tokens; interpret with the flag in mind.
+        print(f"  {tier}/degenerate = {med < 4} (median_len={med})")
         res = compute_dtw_from_apex(apex_by_emb, evr_threshold=a.evr,
                                     good_eps=good, pair_labels=common)
         for k in ("pca_k", "mean_dtw_w_good", "mean_dtw_w_all",
