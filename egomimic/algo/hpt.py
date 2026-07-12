@@ -812,7 +812,10 @@ class HPTModel(nn.Module):
         if self.shared_action:
             action["shared"] = self.heads["shared"](features)
 
-        if domain in self.auxiliary_ac_keys:
+        # Auxiliary heads (e.g. world-model targets) are TRAIN-time representation
+        # shaping; skip them at inference unless explicitly enabled (EgoWAM-style:
+        # the world head is dropped at deployment).
+        if domain in self.auxiliary_ac_keys and getattr(self, "aux_heads_at_inference", False):
             for key in self.auxiliary_ac_keys[domain]:
                 if f"{domain}_{key}" in self.heads:
                     action[key] = self.heads[f"{domain}_{key}"](features)

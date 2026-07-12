@@ -123,7 +123,7 @@ robomimic_model:
       pooling: null
       time_dist: beta
       infer_ac_dims:
-        rby1: 12288               # 16 x 768
+        rby1: 768                 # per-token dim (16 tokens via action_horizon)
       model:
         _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 3
