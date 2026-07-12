@@ -1605,7 +1605,10 @@ class HPT(Algo):
         data["embodiment"] = batch["embodiment"]
 
         for aux_ac_key in aux_ac_keys:
-            data[aux_ac_key] = batch[aux_ac_key]
+            # guard: aux keys (e.g. world-model targets) exist only in training
+            # batches, not in serving/eval observations
+            if aux_ac_key in batch:
+                data[aux_ac_key] = batch[aux_ac_key]
 
         if self.shared_ac_key:
             data["action"] = batch[self.shared_ac_key]

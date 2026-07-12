@@ -1,0 +1,57 @@
+# WAM variant of rby1_wb_img_act32: identical, plus the EgoWAM-style world-model
+# target `obs.dino_wm` (DINOv2-B 4x4x768 per-token-LN features, precomputed by
+# add_dino_wm_target.py) read at delta_timestamps [1.0] = features of the frame
+# 1.0s in the FUTURE (EgoWAM's human-data horizon). Dataset must be the *_wam copy.
+# Data module for the whole-body + REAL image policy (no april_tag).
+# Mirrors rby1_0423_push_cart_human_act32_base_torso_head_arm_hand.yaml but is
+# embodiment/keys-agnostic about april_tag (the schematic in the experiment config
+# selects which obs keys are used). The dataset MUST be produced WITHOUT --black-image
+# so obs.aria_image is a REAL frame.
+#
+# folder_path is a PLACEHOLDER: the training sbatch overrides it via Hydra CLI
+#   data.train_datasets.dataset1.datasets.rl2_lab.folder_path=...
+#   data.valid_datasets.dataset1.datasets.eth_lab.folder_path=...
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+zero_obs: false
+zero_obs_use_numpy: false
+
+train_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      rl2_lab:
+        _target_: egomimic.rldb.utils.FolderRLDBDataset
+        folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/WB_IMG_PLACEHOLDER_human_data  # TODO: overridden by sbatch
+        embodiment: rby1
+        mode: train
+        local_files_only: true
+        delta_timestamps:
+          "actions.joint_base_torso_head_arm_hand": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1]
+          "obs.dino_wm": [1.0]
+    embodiment: rby1
+
+valid_datasets:
+  dataset1:
+    _target_: egomimic.rldb.utils.MultiRLDBDataset
+    datasets:
+      eth_lab:
+        _target_: egomimic.rldb.utils.FolderRLDBDataset
+        folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/WB_IMG_PLACEHOLDER_human_data  # TODO: overridden by sbatch
+        embodiment: rby1
+        mode: valid
+        local_files_only: true
+        delta_timestamps:
+          "actions.joint_base_torso_head_arm_hand": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1]
+          "obs.dino_wm": [1.0]
+    embodiment: rby1
+
+train_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8
+
+valid_dataloader_params:
+  dataset1:
+    batch_size: 32
+    num_workers: 8
