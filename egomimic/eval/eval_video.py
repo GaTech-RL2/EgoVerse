@@ -70,6 +70,17 @@ class EvalVideo(Eval):
         """
         raise NotImplementedError
 
+    def _video_fps(self, source_fps: int = 30) -> int:
+        """Playback fps compensating for the DistributedSampler stride.
+
+        Distributed validation deals the (unshuffled) val indices round-robin,
+        so rank 0's consecutive rendered frames are ``world_size`` source
+        frames apart. Writing them at the raw source fps produces a
+        world_size-times timelapse; scale playback down to restore wall-clock
+        pacing."""
+        world = max(1, int(getattr(self.trainer, "world_size", 1) or 1))
+        return max(1, round(source_fps / world))
+
     def on_validation_start(self):
         if self.trainer.is_global_zero and self._should_viz():
             os.makedirs(
@@ -97,7 +108,9 @@ class EvalVideo(Eval):
                     str(get_embodiment(key)),
                     f"validation_video_{self.val_counter[key]}.mp4",
                 )
-                tvio.write_video(path, frames, fps=30, video_codec="h264")
+                tvio.write_video(
+                    path, frames, fps=self._video_fps(), video_codec="h264"
+                )
 
             self.val_counter[key] = 0
             self.val_image_buffer[key] = []
@@ -138,7 +151,9 @@ class EvalVideo(Eval):
                         str(get_embodiment(key)),
                         f"validation_video_{self.val_counter[key]}.mp4",
                     )
-                    tvio.write_video(path, frames, fps=30, video_codec="h264")
+                    tvio.write_video(
+                        path, frames, fps=self._video_fps(), video_codec="h264"
+                    )
                     self.val_image_buffer[key].clear()
                     self.val_counter[key] += 1
 
