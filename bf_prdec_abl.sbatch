@@ -11,7 +11,7 @@
 #SBATCH --time=6-12:00:00
 #SBATCH --requeue
 #SBATCH --open-mode=append
-#SBATCH --exclude=cyborg,ig-88,hk47,spd-13,sonny,kitt,cheetah,heistotron,megazord,puma,baymax,deebot
+#SBATCH --exclude=omgwth,cyborg,ig-88,hk47,spd-13,sonny,kitt,cheetah,heistotron,megazord,puma,baymax,deebot
 #SBATCH --output=bf_abl_%x_%j.out
 # CVAE_ZS (v2, PRIORITY ARM) — full pushT cotrain on the BATCHFLOW code.
 # z-in-S via AdaLN (adaLN-zero, A untouched), raw-S pre-trunk posterior,

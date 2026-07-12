@@ -14,7 +14,7 @@ PY=.venv/bin/python
 DS=/coc/flash7/paphiwetsa3/datasets
 mkdir -p eval_bf/dtw
 for ARM in bf_prdec_ctrl bf_prdec_dec1 bf_prdec_sig bf_prdec_sig_var4 bf_prdec_var4 bf_symw1_gmm bf_symw1_gmm_do1 bf_symw1_reg bf_prdec_nopre_gmm bf_cvae_zs_bcrecipe bf_cvae_bcrecipe; do
-  D=$(ls -dt logs/indomain_c4/${ARM}_2026-07-10_1[4-9]* 2>/dev/null | head -1)
+  D=$(ls -dt logs/indomain_c4/${ARM}_2026-07-1* 2>/dev/null | head -1)
   CK=$(ls -t $D/checkpoints/last.ckpt 2>/dev/null | head -1)
   [ -z "$CK" ] && { echo "== $ARM: NO CKPT"; continue; }
   CFG=eval_bf/dtw/${ARM}_dtwcfg.yaml
@@ -32,6 +32,6 @@ for split in ("train_dataloader_params", "valid_dataloader_params"):
 yaml.safe_dump(c, open(sys.argv[2], "w"))
 PYCFG
   echo "== $ARM ($(basename $CK) @ $(basename $D))"
-  $PY scripts/bf_dtw_latent.py --ckpt "$CK" --config-path "$CFG" --n-episodes 20 --evr 0.95 --good-eps 3,7,0 2>&1 | grep -E "bfdtw|=|DONE|Error|Traceback" | head -14
+  $PY scripts/bf_dtw_latent.py --ckpt "$CK" --config-path "$CFG" --n-episodes 20 --evr 0.95 --good-eps 3,7,0 2>&1 | grep -E "bfdtw|=|DONE|Error|Traceback" | head -40
 done
 echo BF_DTW_SWEEP_DONE
