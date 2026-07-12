@@ -13,7 +13,7 @@ export PYTHONPATH=. MUJOCO_GL=egl
 PY=.venv/bin/python
 DS=/coc/flash7/paphiwetsa3/datasets
 mkdir -p eval_bf/dtw
-for ARM in bf_prdec_ctrl bf_prdec_dec1 bf_prdec_sig bf_prdec_sig_var4 bf_prdec_var4 bf_symw1_gmm bf_symw1_reg bf_cvae_zs_bcrecipe; do
+for ARM in bf_prdec_ctrl bf_prdec_dec1 bf_prdec_sig bf_prdec_sig_var4 bf_prdec_var4 bf_symw1_gmm bf_symw1_gmm_do1 bf_symw1_reg bf_prdec_nopre_gmm bf_cvae_zs_bcrecipe bf_cvae_bcrecipe; do
   D=$(ls -dt logs/indomain_c4/${ARM}_2026-07-10_1[4-9]* 2>/dev/null | head -1)
   CK=$(ls -t $D/checkpoints/last.ckpt 2>/dev/null | head -1)
   [ -z "$CK" ] && { echo "== $ARM: NO CKPT"; continue; }
