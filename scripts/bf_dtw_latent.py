@@ -73,6 +73,7 @@ def main():
         lens = [int(frame_cu[i + 1] - frame_cu[i])
                 for i in range(min(len(frame_cu) - 1, a.n_episodes))]
         idx_map = file_index_map(folders[emb_id], lens)
+        tiers.setdefault("_frames", {})[emb_id] = dict(zip(range(len(lens)), lens))
 
         def split(toks, cu):
             return [toks[cu[i]:cu[i + 1]] for i in range(min(len(cu) - 1, a.n_episodes))]
@@ -121,7 +122,9 @@ def main():
     for k in [k for k in list(tiers) if isinstance(k, tuple)]:
         tiers.pop(k)
     good = [int(x) for x in a.good_eps.replace(" ", "").split(",") if x]
-    for tier, d in tiers.items():
+    for tier, d in list(tiers.items()):
+        if tier == "_frames":
+            continue
         if len(d) < 2:
             print(f"== {tier}: missing an emb, skipped")
             continue
@@ -134,6 +137,15 @@ def main():
             apex_by_emb[e] = {"eps": [eps_list[inv[fi]] for fi in common]}
         lens0 = [len(x) for x in apex_by_emb[embs[0]]["eps"]]
         print(f"== {tier}: pairs={common} lens(emb{embs[0]})={lens0}")
+        frames = tiers.get("_frames", {})
+        for e in embs:
+            eps_list, imap = d[e]
+            inv = {v: k for k, v in imap.items()}
+            fr = frames.get(e, {})
+            ratios = [fr[inv[fi]] / max(len(eps_list[inv[fi]]), 1)
+                      for fi in common if inv.get(fi) in fr]
+            if ratios:
+                print(f"  {tier}/avg_chunk_len_emb{e} = {float(np.mean(ratios)):.1f} frames/token")
         if not common:
             print(f"== {tier}: no matched pairs -- N/A")
             continue
