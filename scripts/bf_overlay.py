@@ -25,6 +25,7 @@ def main():
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--out-dir", default="bf_viz")
     ap.add_argument("--tag", default="bf")
+    ap.add_argument("--zero-z", action="store_true")
     args = ap.parse_args()
 
     algo, _ = load_algo_from_ckpt(args.ckpt)
@@ -44,7 +45,19 @@ def main():
         proc = algo.process_batch_for_training(raw_batch)
         for emb_id, _b in proc.items():
             seeded = algo._seed(emb_id, _b)
-            out = algo.policy(seeded)
+            if args.zero_z:
+                # rollout-path probe: drop actions -> plan() excludes the
+                # posterior (and TargetBuilder) -> CVAEHead decodes with z=0,
+                # teacher-forced obs. Isolates z-starvation from closed-loop
+                # compounding. Full-rate obs (no stride decimation).
+                gt_actions = seeded.pop("actions")
+                runnable, _ = algo.policy.plan(list(seeded.keys()))
+                out = seeded
+                for stage in runnable:
+                    out = stage(out)
+                out["actions"] = gt_actions
+            else:
+                out = algo.policy(seeded)
             pred = out["pred_action"].float().cpu().numpy()   # (T_kept, C, D)
             tgt = out["target"].float().cpu().numpy()          # (T_kept, C, D)
             cu = out["cu_seqlens"].cpu().numpy()
