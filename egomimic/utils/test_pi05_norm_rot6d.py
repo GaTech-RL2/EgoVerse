@@ -398,3 +398,22 @@ def test_wrap_aware_mse_handles_pi_boundary():
     pred3 = torch.full((2, 18), 4.0)
     w3, nw3 = _wrap_aware_mse(pred3, torch.zeros(2, 18))
     assert torch.isclose(w3, nw3)
+
+
+def test_video_fps_compensates_for_world_size():
+    # Distributed val strides an episode's frames by world_size on each rank;
+    # playback fps must scale down to keep videos wall-clock real-time.
+    from types import SimpleNamespace
+
+    from egomimic.eval.eval_video import EvalVideo
+
+    class _Stub(EvalVideo):
+        def compute_metrics_and_viz(self, batch, do_viz=True):
+            raise NotImplementedError
+
+    ev = _Stub.__new__(_Stub)
+    for world, expected in [(1, 30), (2, 15), (4, 8), (8, 4)]:
+        ev.trainer = SimpleNamespace(world_size=world)
+        assert ev._video_fps() == expected, (world, ev._video_fps())
+    ev.trainer = SimpleNamespace()  # no world_size attr -> assume 1
+    assert ev._video_fps() == 30
