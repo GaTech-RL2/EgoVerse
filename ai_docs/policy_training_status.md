@@ -82,6 +82,25 @@ the backbone adapts (frozen < adapters < full FT), the better BOTH clean and pze
 VIEWPOINT invariance (the reason to use DINO) is unknown until hardware A/B.
 **New deploy A/B suggestion: crop100_2k (primary) + dino_full_2k (challenger).**
 
+## ROUND 6 RESULTS (2026-07-13 — EgoWAM-style world-model co-training, arXiv:2607.08436)
+World head (train-only, dropped at inference) predicts future (t+1.0s) DINOv2-B 4x4x768
+features via flow matching, lambda=1, through the auxiliary-head machinery. Dataset:
+`datasets/aria_egoposer_firm_wam` (precomputed targets, add_dino_wm_target.py).
+
+| ckpt (`logs/aria_egoposer_firm_wam/…/last.ckpt`) | clean | shift20 | pzero | noise 3° |
+|---|---|---|---|---|
+| wam_res_2k (ResNet + world head) | 0.0257 | 0.0109 | 0.0256 | 0.0251 |
+| wam_dinofull_2k (ViT-S FT + world head) | 0.0143 | 0.0126 | **0.0504** | 0.0165 |
+
+**Findings:** (1) World co-training improved the ViT's vision-only score 25% (0.067→0.050,
+best DINO-family yet) at a small clean cost (0.012→0.014). (2) It HURT the ResNet
+(clean doubled to 0.026; the 11M encoder likely lacks capacity for both tasks at
+lambda=1 on 30 demos) — though wam_res became notably proprio-independent (pzero≈clean)
+and oddly shift-favoring. (3) No offline in-dist metric beats crop100 — but EgoWAM's
+claimed gains are OOD/hardware generalization, which offline in-dist CANNOT measure;
+wam_dinofull is the right candidate to A/B on hardware against dino_full/crop100.
+Ideas if pursued further: lambda<1 for ResNet, or a wider trunk.
+
 ## Previous round-5 run notes (submitted 2026-07-08)
 - job 3441899 → `logs/aria_egoposer_firm/dino_mlp_2k` — frozen ViT-S + deep residual-MLP
   projection head (4 blocks 256↔1024; 2.2M vision-trainable, per-token, no spatial mixing)
