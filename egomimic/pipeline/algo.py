@@ -191,11 +191,24 @@ class PipelineAlgo(Algo):
             idxs = sorted({int(k.split("/")[1][1:]) for k in b
                            if k.startswith("chunk/L") and k.endswith("/cu_seqlens")})
             levels, best = [], None
-            for i in reversed(idxs):  # deepest-first storage -> bottom..top
+            # compose contract: INNERMOST FIRST; flattened records are already
+            # deepest-first (chunk/L0 = seam), so ascending order is correct.
+            for i in idxs:
                 prob = b[f"chunk/L{i}/boundary_prob"]
                 mask = b[f"chunk/L{i}/boundary_mask"]
                 levels.append((prob[..., 1].detach().float().cpu(),
                                mask.detach().cpu().to(torch.bool)))
+            # OUTERMOST pseudo-level: TargetBuilder's fixed stride decimation
+            # exposed on the RAW frame grid so composition can anchor
+            # (mask len == T_total). Kept frames: every `stride`-th per episode.
+            stride = next((int(st.stride) for st in self.policy.stages
+                           if hasattr(st, "stride")), 1)
+            raw_cu = seed["cu_seqlens"].cpu()
+            T_raw = int(raw_cu[-1])
+            keep = torch.zeros(T_raw, dtype=torch.bool)
+            for _e in range(len(raw_cu) - 1):
+                keep[int(raw_cu[_e]):int(raw_cu[_e + 1]):stride] = True
+            levels.append((keep.float(), keep))
             toks = b.get("apex/tokens")
             if toks is not None:
                 best = toks.detach().float().cpu().numpy()
