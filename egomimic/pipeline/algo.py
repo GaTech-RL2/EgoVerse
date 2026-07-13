@@ -170,6 +170,38 @@ class PipelineAlgo(Algo):
                 losses[k] = v
         return losses
 
+    def collect_chunkviz(self, batch):
+        """Chunkviz interface parity with the old algo (user rule 2026-07-04).
+
+        Returns {emb_id: {"levels": [(prob_packed, mask_packed), ...bottom->TOP],
+                          "tokens": top-level tokens ndarray | None}}.
+        Flattened chunk/L{i} records are DEEPEST-FIRST (inner recursion appends
+        before the outer level), so reverse to put the OUTER level LAST as
+        per_frame_chunk_ids expects.
+        """
+        out = {}
+        for emb_id, _b in batch.items():
+            if not _b.get("_packed", False):
+                continue
+            seed = self._seed(emb_id, _b)
+            seed = {k: (v.to(self.device) if torch.is_tensor(v) else v)
+                    for k, v in seed.items()}
+            with torch.no_grad():
+                b = self.policy(seed)
+            idxs = sorted({int(k.split("/")[1][1:]) for k in b
+                           if k.startswith("chunk/L") and k.endswith("/cu_seqlens")})
+            levels, best = [], None
+            for i in reversed(idxs):  # deepest-first storage -> bottom..top
+                prob = b[f"chunk/L{i}/boundary_prob"]
+                mask = b[f"chunk/L{i}/boundary_mask"]
+                levels.append((prob[..., 1].detach().float().cpu(),
+                               mask.detach().cpu().to(torch.bool)))
+            toks = b.get("apex/tokens")
+            if toks is not None:
+                best = toks.detach().float().cpu().numpy()
+            out[emb_id] = {"levels": levels, "tokens": best}
+        return out
+
     def forward_eval(self, batch):
         """Teacher-forced eval: same pipeline; pred_action is already decoded."""
         predictions = OrderedDict()
