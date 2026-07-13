@@ -7,6 +7,7 @@ from torchmetrics import MeanSquaredError
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.utils.metrics import (
+    dtw_distance,
     frechet_gaussian_over_time,
     reverse_kl_from_samples,
 )
@@ -118,6 +119,13 @@ class PIEvalVideo(EvalVideo):
                 metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = fd.mean().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
+
+                # DTW: trajectory similarity tolerant to temporal misalignment
+                # — a correct motion executed early/late scores near zero here
+                # while paired MSE penalizes it. Normalized per path step, so
+                # units are avg per-frame euclidean distance in native space.
+                dtw = dtw_distance(preds[pred_key], _batch[ac_key])
+                metrics[f"Valid/{pred_key}_dtw_avg"] = dtw.mean().item()
 
                 if getattr(algo, "rkl_samples", 1) and algo.rkl_samples > 1:
                     M = int(algo.rkl_samples)

@@ -110,3 +110,41 @@ def frechet_gaussian_over_time(
             "max": dist.max().item(),
         }
     return dist
+
+
+# ---- moved from egomimicUtils.py (deleted on main in #561; code unchanged) ----
+
+def dtw_distance(pred: torch.Tensor, tgt: torch.Tensor, normalize: bool = True):
+    """Batched dynamic-time-warping distance between (B, T1, D) and (B, T2, D)
+    trajectories.
+
+    Local cost is the euclidean distance between D-dim frames; the classic
+    DTW recurrence runs as a wavefront over the 2T-1 anti-diagonals of the
+    cost grid so the whole batch advances in vectorized steps (no per-cell
+    python loop). Unlike paired MSE, DTW forgives temporal misalignment: a
+    correct trajectory executed slightly early/late scores near zero.
+
+    Args:
+        pred/tgt: (B, T, D) action chunks (any device).
+        normalize: divide the accumulated path cost by (T1 + T2), giving a
+            per-step average frame distance comparable across chunk lengths.
+    Returns:
+        (B,) distances.
+    """
+    B, T1, _ = pred.shape
+    _, T2, _ = tgt.shape
+    C = torch.cdist(pred.float(), tgt.float())  # (B, T1, T2)
+    acc = torch.full((B, T1 + 1, T2 + 1), float("inf"), device=C.device, dtype=C.dtype)
+    acc[:, 0, 0] = 0.0
+    for k in range(2, T1 + T2 + 1):
+        i = torch.arange(max(1, k - T2), min(T1, k - 1) + 1, device=C.device)
+        j = k - i
+        prev = torch.minimum(
+            torch.minimum(acc[:, i - 1, j], acc[:, i, j - 1]),
+            acc[:, i - 1, j - 1],
+        )
+        acc[:, i, j] = C[:, i - 1, j - 1] + prev
+    out = acc[:, T1, T2]
+    if normalize:
+        out = out / (T1 + T2)
+    return out
