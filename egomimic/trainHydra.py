@@ -242,6 +242,29 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
     if mode == "train":
+        # Finetune initialization: load WEIGHTS ONLY from a Lightning ckpt
+        # (fresh optimizer/scheduler/epoch counters — unlike ckpt_path, which
+        # restores full training state). Shape-mismatched entries are skipped
+        # so a checkpoint from a different embodiment mix still initializes
+        # the shared trunk.
+        init_ckpt = cfg.get("init_weights_ckpt")
+        if init_ckpt:
+            ckpt_sd = torch.load(init_ckpt, map_location="cpu", weights_only=False)[
+                "state_dict"
+            ]
+            own_sd = model.state_dict()
+            filtered = {
+                k: v
+                for k, v in ckpt_sd.items()
+                if k in own_sd and own_sd[k].shape == v.shape
+            }
+            skipped = sorted(set(ckpt_sd) - set(filtered))
+            model.load_state_dict(filtered, strict=False)
+            log.info(
+                f"init_weights_ckpt: loaded {len(filtered)} tensors from "
+                f"{init_ckpt}; skipped {len(skipped)} (missing/shape-mismatch)"
+                + (f": {skipped[:5]}..." if skipped else "")
+            )
         if cfg.get("evaluator") is not None:
             eval_obj: Eval = hydra.utils.instantiate(cfg.evaluator)
             eval_obj.trainer = trainer
