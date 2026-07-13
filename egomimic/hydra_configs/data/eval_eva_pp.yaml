@@ -1,0 +1,11 @@
+defaults:
+  - sort_pp_subtask_6d
+  - _self_
+
+# IN-DOMAIN BC reference eval (eva pick_place only): same distribution the eva
+# side trained on — the baseline against which the held-out robot-sort eval
+# (eval_eva_sort) is read. Uses the training data copy. human_bimanual nulled.
+train_datasets:
+  human_bimanual: null
+valid_datasets:
+  human_bimanual: null

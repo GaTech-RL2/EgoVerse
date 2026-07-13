@@ -1,0 +1,28 @@
+defaults:
+  - sort_pp_subtask_6d
+  - _self_
+
+# ROBOT SORT eval (eva only): eva sort episodes are fully HELD-OUT from
+# training (the eva train filter is pick_place-only; sort supervision comes
+# from aria) — this config measures zero-shot transfer of the sort hierarchy
+# to the robot embodiment. Episodes sync into a dedicated dir; role keys
+# injected from the migrated bucket JSONs. human_bimanual nulled.
+train_datasets:
+  eva_bimanual:
+    resolver:
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/sortpp_evasort_rolekeys
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') in ('eva', 'eva_bimanual') and 'sort' in (row.get('task') or '') and row.get('task') != 'sort the stationery into containers' and (row.get('zarr_processed_path') or '') != ''"
+  human_bimanual: null
+
+valid_datasets:
+  eva_bimanual:
+    resolver:
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/sortpp_evasort_rolekeys
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') in ('eva', 'eva_bimanual') and 'sort' in (row.get('task') or '') and row.get('task') != 'sort the stationery into containers' and (row.get('zarr_processed_path') or '') != ''"
+  human_bimanual: null
