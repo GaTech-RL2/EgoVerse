@@ -3,6 +3,14 @@ defaults:
 
 strategy: ddp_find_unused_parameters_true
 
+# Validate under torch.no_grad instead of torch.inference_mode: the compiled
+# pi sampler (max-autotune -> cudagraphs) does in-place setup on its static
+# buffers during graph capture, which is illegal on inference tensors
+# ("Inplace update to inference tensor outside InferenceMode"). Triggered by
+# the M-sample val metrics' repeated sample_actions calls. no_grad is
+# functionally equivalent for eval and creates no inference tensors.
+inference_mode: false
+
 accelerator: gpu
 devices: ${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}
 num_nodes: ${launch_params.nodes}
