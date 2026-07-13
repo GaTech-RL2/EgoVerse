@@ -131,6 +131,24 @@ def main():
             print(f"[warn] trajectory eval failed: {exc}")
             traj_imgs = {}
 
+    if not traj_imgs:
+        # Batchflow fallback: the old HNetEvalVideo doesn't run on PipelineAlgo.
+        # Use the batch's own camera frames (full-rate, same grid as frame cu).
+        import torch as _torch
+        for _emb, _b in batch.items():
+            _img = _b.get("front_img_1")
+            if _img is None:
+                _img = next((v for k, v in _b.items()
+                             if "img" in str(k) and _torch.is_tensor(v)
+                             and v.dim() == 4), None)
+            if _img is not None:
+                _arr = (_img.detach().float().cpu().numpy().transpose(0, 2, 3, 1)
+                        * 255.0).clip(0, 255).astype("uint8")
+                traj_imgs[_emb] = _arr
+        if traj_imgs:
+            print(f"[traj fallback] batch obs frames: "
+                  f"{[(e, v.shape) for e, v in traj_imgs.items()]}")
+
     data = {}
     emb_ids = sorted(bprob_by_emb)
     data["emb_ids"] = np.array(emb_ids, dtype=np.int64)
