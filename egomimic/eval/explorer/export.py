@@ -115,6 +115,7 @@ def main():
     # (dual-stream levels publish the AGNOSTIC (A) chunk tokens only).
     viz = algo.collect_chunkviz(batch)
     bprob_by_emb = {e: v["levels"] for e, v in viz.items()}
+    anchor_by_emb = {e: bool(v.get("anchor", False)) for e, v in viz.items()}
     pca_out = {
         e: {"inner_tokens": v["tokens"]}
         for e, v in viz.items()
@@ -148,6 +149,20 @@ def main():
         if traj_imgs:
             print(f"[traj fallback] batch obs frames: "
                   f"{[(e, v.shape) for e, v in traj_imgs.items()]}")
+            for _emb, _fr in traj_imgs.items():
+                _H = _fr.shape[1]
+                def _paint(fr, xy, color):
+                    px = ((xy + 1.0) * 0.5 * (_H - 1)).round().astype(int).clip(0, _H - 1)
+                    for _t in range(min(len(fr), len(px))):
+                        y, x = px[_t, 1], px[_t, 0]
+                        fr[_t, max(y-1,0):y+2, max(x-1,0):x+2] = color
+                _gt = viz[_emb].get("gt_frame")
+                _pd = viz[_emb].get("pred_frame")
+                if _gt is not None:
+                    _paint(_fr, _gt, (0, 255, 0))
+                if _pd is not None:
+                    _paint(_fr, _pd, (255, 40, 40))
+            print("[traj fallback] overlays painted (GT green, pred red)")
 
     data = {}
     emb_ids = sorted(bprob_by_emb)
@@ -157,9 +172,14 @@ def main():
         cu = batch[emb]["cu_seqlens"]
         T_total = int(cu[-1].item())
         stages = per_frame_chunk_ids(bprobs, T_total)
-        labels = [s[0] for s in stages]
-        cids = np.stack([s[1] for s in stages], 0)
         comp = list(reversed(_compose_bprobs_to_frame_level(bprobs, T_total)))
+        if anchor_by_emb.get(emb):
+            # first (outermost) stage is the fixed stride ANCHOR -- composition
+            # only, not a learned chunker: exclude from display.
+            stages = stages[1:]
+            comp = comp[1:]
+        labels = [f"Stage {i}" for i in range(len(stages))]
+        cids = np.stack([s[1] for s in stages], 0)
         probs = np.stack([comp[i][0].numpy()[:T_total] for i in range(len(stages))], 0)
         crisp = np.zeros_like(cids, dtype=bool)
         crisp[:, 0] = True

@@ -189,6 +189,7 @@ class PipelineAlgo(Algo):
             # capture the RAW frame cu BEFORE the forward: TargetBuilder
             # rebinds seed["cu_seqlens"] to the decimated grid inside.
             raw_cu = seed["cu_seqlens"].cpu()
+            gt_actions = seed["actions"].detach().float().cpu()
             with torch.no_grad():
                 b = self.policy(seed)
             idxs = sorted({int(k.split("/")[1][1:]) for k in b
@@ -214,7 +215,29 @@ class PipelineAlgo(Algo):
             toks = b.get("apex/tokens")
             if toks is not None:
                 best = toks.detach().float().cpu().numpy()
-            out[emb_id] = {"levels": levels, "tokens": best}
+            entry = {"levels": levels, "tokens": best, "anchor": True,
+                     "gt_frame": gt_actions.numpy()}
+            # tile pred chunks (kept grid, chunk C) back to the raw frame grid
+            pred = b.get("pred_action")
+            if pred is not None:
+                import numpy as np
+                pred = pred.detach().float().cpu().numpy()  # (T_kept, C, D)
+                stride = next((int(st.stride) for st in self.policy.stages
+                               if hasattr(st, "stride")), 1)
+                kept_cu = b["cu_seqlens"].cpu().numpy()
+                T_raw = int(raw_cu[-1])
+                pf = np.zeros((T_raw, pred.shape[-1]), dtype=np.float32)
+                C = pred.shape[1]
+                for e in range(len(raw_cu) - 1):
+                    a0, b0 = int(raw_cu[e]), int(raw_cu[e + 1])
+                    k0 = int(kept_cu[e])
+                    for f in range(a0, b0):
+                        j = k0 + (f - a0) // stride
+                        j = min(j, int(kept_cu[e + 1]) - 1)
+                        off = min((f - a0) % stride, C - 1)
+                        pf[f] = pred[j, off]
+                entry["pred_frame"] = pf
+            out[emb_id] = entry
         return out
 
     def forward_eval(self, batch):
