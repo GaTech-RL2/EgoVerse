@@ -27,6 +27,8 @@ class MultiDataModuleWrapper(LightningDataModule):
         valid_datasets: dict,
         train_dataloader_params: dict,
         valid_dataloader_params: dict,
+        train_viz_datasets: dict | None = None,
+        train_viz_dataloader_params: dict | None = None,
     ):
         """
         Args:
@@ -34,6 +36,11 @@ class MultiDataModuleWrapper(LightningDataModule):
             valid_datasets: dictionary of valid datasets
             train_dataloader_params: dictionary of train dataloader parameters
             valid_dataloader_params: dictionary of valid dataloader parameters
+            train_viz_datasets: optional dict of datasets iterated like a
+                second val loader. Used by TrainVizEvalVideo to visualize the
+                policy on training data alongside the canonical validation.
+            train_viz_dataloader_params: dict of per-dataset DataLoader kwargs
+                for the train_viz loader.
 
         Tokenization (sampling a prompt from per-sample annotation lists,
         splicing in embodiment / control-mode / proprio blocks, and running
@@ -50,6 +57,10 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.valid_datasets = {k: v for k, v in valid_datasets.items() if v is not None}
         self.train_dataloader_params = train_dataloader_params
         self.valid_dataloader_params = valid_dataloader_params
+        self.train_viz_datasets = {
+            k: v for k, v in (train_viz_datasets or {}).items() if v is not None
+        }
+        self.train_viz_dataloader_params = train_viz_dataloader_params or {}
         self.collate_fn = annotation_collate
 
     def train_dataloader(self):
@@ -69,13 +80,13 @@ class MultiDataModuleWrapper(LightningDataModule):
 
         return CombinedLoader(iterables, "max_size_cycle")
 
-    def val_dataloader(self):
+    def _build_val_style_loader(self, datasets: dict, params: dict, kind: str):
         iterables = dict()
-        for dataset_name, dataset in self.valid_datasets.items():
-            dataset_params = self.valid_dataloader_params.get(dataset_name)
+        for dataset_name, dataset in datasets.items():
+            dataset_params = params.get(dataset_name)
             if dataset_params is None or len(dataset_params) == 0:
                 raise ValueError(
-                    f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config valid_dataloader_params."
+                    f"No dataloader params found for dataset {dataset_name}. Please add {dataset_name} into your data config {kind}_dataloader_params."
                 )
             dataset_params = dict(dataset_params)
             shuffle = dataset_params.pop("shuffle", False)
@@ -85,8 +96,23 @@ class MultiDataModuleWrapper(LightningDataModule):
                 collate_fn=self.collate_fn,
                 **dataset_params,
             )
-
         return CombinedLoader(iterables, "max_size_cycle")
+
+    def val_dataloader(self):
+        valid_loader = self._build_val_style_loader(
+            self.valid_datasets, self.valid_dataloader_params, kind="valid"
+        )
+        if not self.train_viz_datasets:
+            return valid_loader
+        # When train_viz_datasets is configured, return a list so Lightning
+        # populates dataloader_idx (0=valid, 1=train_viz) and ModelWrapper can
+        # dispatch to self.train_viz_evaluator.
+        train_viz_loader = self._build_val_style_loader(
+            self.train_viz_datasets,
+            self.train_viz_dataloader_params,
+            kind="train_viz",
+        )
+        return [valid_loader, train_viz_loader]
 
 
 

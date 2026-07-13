@@ -78,6 +78,9 @@ ARGS=(
   data=mecka_all_pi_6d
   model=pi0.5_bc_mecka_6d
   evaluator=eval_pi_wristframe_6d
+  # Second eval head: spot-check metrics + videos on TRAIN data each val
+  # (train_viz/ prefix, videos_train_viz/). Loader defined in the data config.
+  +evaluator@train_viz_evaluator=train_viz_pi_wristframe_6d
   launch_params.gpus_per_node=8
   "model.optimizer.lr=$LR"
   "norm_stats.precomputed_norm_path=$NORM_PATH"

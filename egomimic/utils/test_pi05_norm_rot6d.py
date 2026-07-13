@@ -417,3 +417,53 @@ def test_video_fps_compensates_for_world_size():
         assert ev._video_fps() == expected, (world, ev._video_fps())
     ev.trainer = SimpleNamespace()  # no world_size attr -> assume 1
     assert ev._video_fps() == 30
+
+
+def test_frechet_and_reverse_kl_helpers():
+    from egomimic.utils.metrics import (
+        frechet_gaussian_over_time,
+        reverse_kl_from_samples,
+    )
+
+    B, T, D = 4, 10, 6
+    torch.manual_seed(0)
+    pred = torch.randn(B, T, D)
+    fd = frechet_gaussian_over_time(pred, pred.clone())
+    assert fd.shape == (B,)
+    assert fd.max() < 1e-2, "identical distributions must score ~0"
+    fd_shift = frechet_gaussian_over_time(pred + 5.0, pred)
+    assert (fd_shift > fd).all(), "mean shift must increase the distance"
+
+    samples = torch.randn(3, B, T, D)
+    rkl = reverse_kl_from_samples(samples, pred)
+    assert rkl.ndim == 0 and torch.isfinite(rkl)
+
+
+def test_train_viz_wrapper_prefixes_and_disables_rkl():
+    from egomimic.eval.eval_train_viz import TrainVizEvalVideo
+    from egomimic.eval.eval_video import EvalVideo
+
+    class _Base(EvalVideo):
+        def __init__(self):
+            super().__init__(viz_func={}, transform_lists={}, viz_every_n_epochs=7)
+            self.seen_rkl = None
+
+        def compute_metrics_and_viz(self, batch, do_viz=True):
+            self.seen_rkl = self.model.rkl_samples
+            return {"Valid/x": 1.0}, {}
+
+    class _Algo:
+        rkl_samples = 8
+
+    base = _Base()
+    tv = TrainVizEvalVideo(base)
+    tv.model = _Algo()  # property setter forwards to base too
+    metrics, _ = tv.compute_metrics_and_viz({}, do_viz=False)
+    assert set(metrics) == {"train_viz/Valid/x"}, metrics
+    assert base.seen_rkl == 1, "M-sample metrics must be forced off in train viz"
+    assert tv.model.rkl_samples == 8, "rkl_samples must be restored after the call"
+    assert tv.viz_every_n_epochs == 7, "wrapper inherits the base viz gate"
+    from types import SimpleNamespace
+
+    tv.trainer = SimpleNamespace(default_root_dir="/tmp/run")
+    assert tv.video_dir().endswith("videos_train_viz")
