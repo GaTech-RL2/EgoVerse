@@ -467,3 +467,39 @@ def test_train_viz_wrapper_prefixes_and_disables_rkl():
 
     tv.trainer = SimpleNamespace(default_root_dir="/tmp/run")
     assert tv.video_dir().endswith("videos_train_viz")
+
+
+def test_dtw_distance_matches_bruteforce_and_tolerates_shift():
+    from egomimic.utils.metrics import dtw_distance
+
+    def _dtw_ref(x, y):
+        t1, t2 = len(x), len(y)
+        cost = np.linalg.norm(x[:, None, :] - y[None, :, :], axis=-1)
+        acc = np.full((t1 + 1, t2 + 1), np.inf)
+        acc[0, 0] = 0.0
+        for i in range(1, t1 + 1):
+            for j in range(1, t2 + 1):
+                acc[i, j] = cost[i - 1, j - 1] + min(
+                    acc[i - 1, j], acc[i, j - 1], acc[i - 1, j - 1]
+                )
+        return acc[t1, t2]
+
+    torch.manual_seed(3)
+    pred = torch.randn(3, 9, 4)
+    tgt = torch.randn(3, 9, 4)
+    got = dtw_distance(pred, tgt, normalize=False)
+    for b in range(3):
+        ref = _dtw_ref(pred[b].numpy(), tgt[b].numpy())
+        assert abs(got[b].item() - ref) < 1e-4, (b, got[b].item(), ref)
+
+    # identical trajectories -> 0
+    assert dtw_distance(pred, pred.clone()).max() < 1e-6
+
+    # a time-shifted copy of the same smooth trajectory: DTW must forgive the
+    # shift (score far below the paired per-step distance of the shifted pair)
+    t = torch.linspace(0, 6.28, 40)
+    traj = torch.stack([torch.sin(t), torch.cos(t)], dim=-1)[None]  # (1, 40, 2)
+    shifted = torch.roll(traj, shifts=3, dims=1)
+    dtw_shift = dtw_distance(traj, shifted, normalize=False).item()
+    paired = (traj - shifted).norm(dim=-1).sum().item()
+    assert dtw_shift < 0.5 * paired, (dtw_shift, paired)
