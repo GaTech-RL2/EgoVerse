@@ -1,0 +1,31 @@
+defaults:
+  - pi0.5_base
+  - _self_
+
+# pi0.5 finetune on the abc EVA robot data (eva_bimanual, 20D native with
+# grippers). Normalized continuous-6D rotation encoding, wrist-relative
+# actions via the `cartesian_wristframe_6d` transform mode. Initialize from a
+# mecka-pretrained checkpoint via `init_weights_ckpt` (weights only — fresh
+# optimizer/scheduler). Pairs with data=abc_eva_pi_6d and
+# evaluator=eval_pi_wristframe_6d.
+robomimic_model:
+  camera_transforms: {}
+  config:
+    # M-sample val metrics (reverse KL, best/mean/worst-of-M, diversity).
+    reverse_kl_samples: 4
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+  domains: ["eva_bimanual"]
+
+  action_encoding: "cartesian_normalized_rot6d"
+  # Keep the discretized-proprio "State: <bins>" prompt block; eva's native
+  # 20D proprio aligns positionally with the padded 20D used for mecka
+  # pretraining. No embodiment label in the prompt.
+  embodiment_label: false
+
+  action_converters:
+    rules:
+      EVA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter
