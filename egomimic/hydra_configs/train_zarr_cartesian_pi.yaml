@@ -5,3 +5,10 @@ defaults:
   - override trainer: ddp_pi
   - override evaluator: eval_pi
   - override hydra/launcher: submitit_pace
+  - _self_
+
+# Pi runs get a pre-fit baseline (val metrics; viz still gates on
+# viz_every_n_epochs) at epoch 0 by default — on checkpoint resumes this
+# surfaces the current metric values immediately instead of waiting a full
+# val interval. Override with `val_at_start=false` to skip.
+val_at_start: true
