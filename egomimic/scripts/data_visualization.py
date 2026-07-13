@@ -5,13 +5,12 @@ import numpy as np
 import torch
 import torchvision.io as io
 
-from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.utils import RLDBDataset
 from egomimic.utils.egomimicUtils import (
+    CameraTransforms,
     cam_frame_to_base_frame,
-    draw_actions,
 )
+from egomimic.utils.viz_utils import draw_actions
 
 # Load dataset
 root = "/home/robot/robot_ws/lerobot_data/lerobot_test"
@@ -31,8 +30,7 @@ print(dataset.embodiment)
 
 data_loader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
 
-_intrinsics = Human.INTRINSICS
-_extrinsics = Eva.EXTRINSICS
+camera_transforms = CameraTransforms(intrinsics_key="base", extrinsics_key="x5Nov18_3")
 
 
 def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
@@ -66,15 +64,15 @@ for i, data in enumerate(data_loader):
     ims = (data[image_key].permute(0, 2, 3, 1).cpu().numpy() * 255.0).astype(np.uint8)
     actions = data[actions_key].cpu().numpy()
     base_actions = cam_frame_to_base_frame(
-        actions.squeeze(), _extrinsics["left"]
+        actions.squeeze(), camera_transforms.extrinsics["left"]
     )
     actions = actions[..., :3]
 
     ims_viz = visualize_actions(
         ims,
         actions,
-        _extrinsics,
-        _intrinsics,
+        camera_transforms.extrinsics,
+        camera_transforms.intrinsics,
         arm="left",
     )
 

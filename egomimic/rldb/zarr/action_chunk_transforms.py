@@ -366,6 +366,30 @@ class DeleteKeys(Transform):
         return batch
 
 
+class DeltaAction(Transform):
+    """Per-step delta: ``out[t] = arr[t] - arr[t-1]``, with ``out[0] = 0``.
+
+    Operates on any tensor-like ``(T, ...)`` value where time is the leading
+    dim. Used to convert absolute action targets into velocity-style targets
+    so the model learns small smooth quantities. To recover absolute actions
+    at inference, integrate (cumulative sum) the predicted deltas and add the
+    initial state.
+    """
+
+    def __init__(self, input_key: str, output_key: str | None = None):
+        self.input_key = input_key
+        self.output_key = output_key or input_key
+
+    def transform(self, batch: dict) -> dict:
+        arr = np.asarray(batch[self.input_key])
+        delta = np.empty_like(arr)
+        delta[0] = 0
+        if arr.shape[0] > 1:
+            delta[1:] = arr[1:] - arr[:-1]
+        batch[self.output_key] = delta
+        return batch
+
+
 class XYZWXYZ_to_XYZYPR(Transform):
     """Convert listed keys from xyz+quat(wxyz) to xyz+ypr in-place."""
 
@@ -512,38 +536,6 @@ class ConcatKeys(Transform):
         return batch
 
 
-class PadGripperZeros(Transform):
-    """Pad a 12D bimanual cartesian action chunk to 14D by inserting a zero
-    gripper slot at position 6 (end of left arm) and position 13 (end of right
-    arm), matching the canonical [L xyz ypr g, R xyz ypr g] layout used by Eva.
-
-    Used so aria (which has no gripper signal) can share an FM denoiser head
-    sized for 14D actions without needing in-model padding branches.
-    """
-
-    def __init__(self, action_key: str = "actions_cartesian"):
-        self.action_key = action_key
-
-    def transform(self, batch: dict) -> dict:
-        actions = batch[self.action_key]
-        is_tensor = isinstance(actions, torch.Tensor)
-        arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
-        if arr.shape[-1] != 12:
-            raise ValueError(
-                f"PadGripperZeros expects last-dim 12, got {arr.shape} for "
-                f"'{self.action_key}'"
-            )
-        pad_shape = (*arr.shape[:-1], 1)
-        pad = np.zeros(pad_shape, dtype=arr.dtype)
-        padded = np.concatenate(
-            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
-        )
-        batch[self.action_key] = (
-            torch.from_numpy(padded) if is_tensor else padded
-        )
-        return batch
-
-
 class Reshape(Transform):
     def __init__(self, input_key: str, output_key: str, shape: tuple):
         self.input_key = input_key
@@ -575,3 +567,4 @@ class NumpyToTensor(Transform):
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
         return batch
+

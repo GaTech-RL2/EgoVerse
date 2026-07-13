@@ -1,0 +1,129 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# FINAL BC-CIRCLE (single embodiment = circle_3000 only).
+# Same fixed arch as hnet_regdown_msub_cotrain.yaml (DOWN-only register encoder
+# + bespoke m-sublatents dechunker, taper 256->512, transformer router
+# prefix_global @ pser_T_temp=2.0, reg_m=4, reg_trunk_depth=2,
+# reg_trunk_residual_init=true, component_end_norm=true, ComputeStage T6 @512,
+# GMM head), but a SINGLE embodiment so the per-embodiment wrapper is dropped:
+# ``domains: ["pushshapes_sim"]`` + a PLAIN ChunkerStage directly in
+# ``hnet.stages`` (mirrors hnet_gmm_obs_circle.yaml's "plain ChunkerStage, no
+# PerEmbodimentStage" pattern). Launcher: regdown_msub_bc_circle.sh
+# (max_epochs=2000, warmup-cosine to 200k, reg-off@ep500, per-leaf grad-norms).
+# Config #4 (bf16) reuses THIS exact model config; only the launcher precision
+# differs (bf16-mixed so flash-attn engages).
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  d_cond: 256
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  loss:
+    _target_: egomimic.algo.hnet.GMMLoss
+
+  outer_stage:
+    _target_: egomimic.algo.hnet.HNetOuterStage
+    action_dim: 2
+    action_horizon: 2560
+    d_model: 256
+    action_head_type: gmm
+
+    gmm_head:
+      _target_: egomimic.models.heads.gmm_head.GMMActionHead
+      d_model: 256
+      action_dim: 2
+      num_modes: 32
+      chunk_len: 4
+      min_std: 1.0e-4
+      std_activation: softplus
+      low_noise_eval: true
+      head_hidden_dim: 1024
+      head_n_layers: 3
+
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: "fused_cond"
+      obs_specs: {}
+      img_encoders: {}
+
+    input_modules:
+      - _target_: egomimic.models.stems.input_modules.ObsToken
+        d_model: 256
+        obs_encoder:
+          _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+          d_cond: 256
+          output_key: "fused_cond"
+          cond_proj_widths: [256, 256]
+          obs_specs:
+            state_agent_obj:
+              input_dim: 5
+              embed_dim: 96
+              widths: [192]
+          img_encoders:
+            front_img_1:
+              _target_: egomimic.models.stems.visual_core.VisualCore
+              in_channels: 3
+              image_size: 96
+              num_kp: 48
+              feature_dimension: 96
+              pretrained: false
+              crop_aug: true
+              crop_height: 86
+              crop_width: 86
+              crop_eval_mode: random
+              crop_sample_mode: v02
+
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+        - _target_: egomimic.models.hnet.stages.ChunkerStage
+          input_hidden_dim: 256
+          output_hidden_dim: 512
+          target_compression_ratio: 8.0
+          ratio_loss_weight: 0.03
+          cond_key: null
+          down_interface: register
+          up_interface: msublatent
+          router_interface: transformer
+          pser_variant: prefix_global
+          pser_T_temp: 2.0
+          reg_m: 4
+          reg_trunk_depth: 2
+          reg_trunk_n_heads: 8
+          reg_trunk_ff_mult: 4
+          component_end_norm: true
+          reg_trunk_residual_init: true   # FIX #7: ON for the new arch
+        - _target_: egomimic.models.hnet.stages.ComputeStage
+          input_hidden_dim: 512
+          output_hidden_dim: 512
+          cond_key: null
+          d_cond: 0
+          causal: true
+          main_network:
+            arch_layout: "T6"
+            d_model: 512
+            d_intermediate: 1536
+            num_heads: 16
+            cond: false
+            rotary_emb_dim: 32
+            dropout: 0.0
+            resid_dropout: 0.0
+
+enable_grad_norm: true
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 200000
+  warmup_steps: 2000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6

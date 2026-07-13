@@ -1,0 +1,20 @@
+# Checkpoints + per-batch random attention-dropout.
+# Use for DFoT runs where we want to kill the long-sequence copy-from-clean-
+# neighbor shortcut by training the attn under a mix of dropout regimes.
+defaults:
+  - defaults
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch}"
+  save_last: true
+  save_top_k: -1
+  every_n_epochs: 100
+
+random_attn_dropout:
+  _target_: egomimic.pl_utils.callbacks.random_attn_dropout.RandomAttnDropoutScheduler
+  dropout_values: [0.1, 0.5, 0.8, 0.9, 0.95, 0.97, 0.98]
+  weights: [1, 1, 1, 1, 1, 1, 1]
+  seed: 0

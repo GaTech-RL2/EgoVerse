@@ -1,0 +1,20 @@
+# first_token + duplicate evaluator. TF overlay (GT-vs-pred) only. The register-arch
+# probes (PCA/boundary/trunk-HF) hook msublatent_up / inner_module which are None on
+# the first_token path -> dropped here. Chunk-len blow-up is a TRAIN metric, logged
+# every epoch regardless, so this is enough for the stability check.
+_target_: egomimic.eval.core.eval_composite.EvalList
+evals:
+  - _target_: egomimic.eval.core.eval_composite.EvalVideoList
+    pad_h: max
+    limit_val_batches: 2
+    evals:
+      - _target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
+        limit_val_batches: 2
+        max_videos: 2
+        viz_func:
+          pushshapes_sim:
+            _target_: hydra.utils.get_method
+            path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+          pushshapes_sim_small_circle:
+            _target_: hydra.utils.get_method
+            path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds

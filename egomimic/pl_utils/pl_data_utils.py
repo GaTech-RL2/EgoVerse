@@ -10,41 +10,24 @@ from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
 from transformers import AutoTokenizer
 
+from egomimic.rldb.zarr.zarr_dataset_packed import (
+    ZarrEpisodePackedDataset,
+    pack_collate,
+)
+
 logger = logging.getLogger(__name__)
 
 
-class RLDBModule(LightningDataModule):
+def _collate_fn_for(dataset) -> "callable":
+    """Pick a collate fn based on the dataset type.
+
+    Packed datasets (variable-length samples flattened along time) need
+    ``pack_collate`` to emit ``cu_seqlens``; everything else falls back to
+    ``annotation_collate``.
     """
-    Deprecated and is not supported by trainHydra.py
-    """
-
-    def __init__(
-        self,
-        train_dataset,
-        valid_dataset,
-        train_dataloader_kwargs,
-        valid_dataloader_kwargs,
-    ):
-        cprint(
-            "RLDBModule is deprecated and is not supported by trainHydra.py. Use MultiDataModuleWrapper instead",
-            "red",
-        )
-
-        super().__init__()
-        self.train_dataloader_kwargs = train_dataloader_kwargs
-        self.valid_dataloader_kwargs = valid_dataloader_kwargs
-        self.train_dataset = train_dataset
-        self.valid_dataset = valid_dataset
-
-    def train_dataloader(self):
-        return DataLoader(
-            self.train_dataset, shuffle=True, **self.train_dataloader_kwargs
-        )
-
-    def val_dataloader(self):
-        return DataLoader(
-            self.val_dataset, shuffle=False, **self.valid_dataloader_kwargs
-        )
+    if isinstance(dataset, ZarrEpisodePackedDataset):
+        return pack_collate
+    return annotation_collate
 
 
 class MultiDataModuleWrapper(LightningDataModule):
@@ -96,7 +79,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=True,
-                collate_fn=self.collate_fn,
+                collate_fn=_collate_fn_for(dataset),
                 **dataset_params,
             )
 
@@ -115,137 +98,11 @@ class MultiDataModuleWrapper(LightningDataModule):
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=shuffle,
-                collate_fn=self.collate_fn,
+                collate_fn=_collate_fn_for(dataset),
                 **dataset_params,
             )
 
         return CombinedLoader(iterables, "max_size_cycle")
-
-
-class DualDataModuleWrapper(LightningDataModule):
-    """
-    Same as DataModuleWrapper but there are two train datasets and two valid datasets
-    """
-
-    """
-    Deprecated and is not supported by trainHydra.py
-    """
-
-    def __init__(
-        self,
-        train_dataset1,
-        valid_dataset1,
-        train_dataset2,
-        valid_dataset2,
-        train_dataloader_params,
-        valid_dataloader_params,
-        collate_max_length=128,
-        model_name="google/paligemma-3b-mix-224",
-    ):
-        """
-        Args:
-            data_module_fn (function): function that returns a LightningDataModule
-        """
-        cprint(
-            "DualDataModuleWrapper is deprecated and is not supported by trainHydra.py. Use MultiDataModuleWrapper instead",
-            "red",
-        )
-
-        super().__init__()
-        self.train_dataset1 = train_dataset1
-        self.valid_dataset1 = valid_dataset1
-        self.train_dataset2 = train_dataset2
-        self.valid_dataset2 = valid_dataset2
-        self.train_dataloader_params = train_dataloader_params
-        self.valid_dataloader_params = valid_dataloader_params
-        self.collate_fn = build_tokenized_collate(
-            max_length=collate_max_length,
-            model_name=model_name,
-        )
-
-    def train_dataloader(self):
-        new_dataloader1 = DataLoader(
-            dataset=self.train_dataset1,
-            collate_fn=self.collate_fn,
-            **self.train_dataloader_params,
-        )
-        new_dataloader2 = DataLoader(
-            dataset=self.train_dataset2,
-            collate_fn=self.collate_fn,
-            **self.train_dataloader_params,
-        )
-        return [new_dataloader1, new_dataloader2]
-
-    ## to change embodiment sampling freq, just change the batch_size
-    def val_dataloader(self):
-        new_dataloader1 = DataLoader(
-            dataset=self.valid_dataset1,
-            collate_fn=self.collate_fn,
-            shuffle=False,
-            **self.valid_dataloader_params,
-        )
-        new_dataloader2 = DataLoader(
-            dataset=self.valid_dataset2,
-            collate_fn=self.collate_fn,
-            shuffle=False,
-            **self.valid_dataloader_params,
-        )
-        return [new_dataloader1, new_dataloader2]
-
-    # def val_dataloader(self):
-    #     new_dataloader1 = DataLoader(dataset=self.valid_dataset1, **self.valid_dataloader_params)
-    #     new_dataloader2 = DataLoader(dataset=self.valid_dataset2, **self.valid_dataloader_params)
-    #     return [new_dataloader1, new_dataloader2]
-
-
-class DataModuleWrapper(LightningDataModule):
-    """
-    Wrapper around a LightningDataModule that allows for the data loader to be refreshed
-    constantly.
-    """
-
-    def __init__(
-        self,
-        train_dataset,
-        valid_dataset,
-        train_dataloader_params,
-        valid_dataloader_params,
-        collate_max_length=128,
-        model_name="google/paligemma-3b-mix-224",
-        sampling_mode: Literal["first", "random"] = "random",
-        annotation_key=None,
-    ):
-        """
-        Args:
-            data_module_fn (function): function that returns a LightningDataModule
-        """
-        super().__init__()
-        self.train_dataset = train_dataset
-        self.valid_dataset = valid_dataset
-        self.train_dataloader_params = train_dataloader_params
-        self.valid_dataloader_params = valid_dataloader_params
-        self.collate_fn = build_tokenized_collate(
-            max_length=collate_max_length,
-            model_name=model_name,
-            sampling_mode=sampling_mode,
-            annotation_key=annotation_key,
-        )
-
-    def train_dataloader(self):
-        new_dataloader = DataLoader(
-            dataset=self.train_dataset,
-            collate_fn=self.collate_fn,
-            **self.train_dataloader_params,
-        )
-        return new_dataloader
-
-    def val_dataloader_1(self):
-        new_dataloader = DataLoader(
-            dataset=self.valid_dataset,
-            collate_fn=self.collate_fn,
-            **self.valid_dataloader_params,
-        )
-        return new_dataloader
 
 
 def _extract_list_keys(batch):
@@ -333,11 +190,9 @@ def build_tokenized_collate(
             for key, val in control_mode.items():
                 if key.lower() in emb_name:
                     return val
-        raise ValueError(
-            f"control_mode has no entry matching embodiment {emb_name!r} "
-            f"(declared keys: {sorted(control_mode or {})}). Control modes "
-            "are declared per-embodiment in the data yaml; there is no fallback."
-        )
+        if emb_name is not None and "aria" in emb_name:
+            return "cam frame xyzypr per arm"
+        return "cam frame xyzypr gripper per arm"
 
     def _discretize_sample_state(sample):
         if not proprio_keys:
