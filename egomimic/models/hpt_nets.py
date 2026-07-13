@@ -817,6 +817,42 @@ class DINOv2(PolicyStem):
         return feat
 
 
+class LingBotVision(PolicyStem):
+    """FROZEN LingBot-Vision encoder (Robbyant; masked-boundary-modeling SSL ViT).
+
+    Drop-in for ResNet/DINOv2: consumes ImageNet-normalized [B, T, N, 3, H, W],
+    returns patch tokens [B, M, output_dim] (M = T*N*196 for ViT-*/16 at 224).
+    Backbone is always frozen (policy conditions on its features); only the
+    projection trains. Requires `pip install -e lingbot-vision` (repo checkout)
+    and a warm HF cache for robbyant/lingbot-vision-vit-<variant> weights.
+    """
+
+    def __init__(self, output_dim: int = 10, variant: str = "large", **kwargs) -> None:
+        super().__init__(**kwargs)
+        from lingbot_vision.loader import load_pretrained_backbone
+
+        self.net, feat_dim = load_pretrained_backbone(variant=variant)
+        for param in self.net.parameters():
+            param.requires_grad = False
+        self.net.eval()
+        self.out_dim = output_dim
+        self.proj = nn.Linear(feat_dim, output_dim)
+
+    def train(self, mode: bool = True):
+        super().train(mode)
+        self.net.eval()
+        return self
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """[B, T, N, 3, H, W] (ImageNet-normalized) -> [B, M, output_dim]."""
+        B, *_, H, W = x.shape
+        x = x.reshape(-1, 3, H, W)
+        with torch.no_grad():
+            feat = self.net(x, is_training=True)["x_norm_patchtokens"]
+        feat = feat.reshape(B, -1, feat.shape[-1])
+        return self.proj(feat)
+
+
 class TinyCNN(PolicyStem):
     def __init__(
         self,
