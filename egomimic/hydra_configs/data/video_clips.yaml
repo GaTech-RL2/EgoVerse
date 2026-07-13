@@ -1,0 +1,40 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_video_clip_dataset.ZarrVideoClipDataset
+    folder_path: /coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+    n_frames: 9
+    split: "train"
+    # Dummy resolver for trainHydra compatibility
+    resolver:
+      folder_path: ${..folder_path}
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 9
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_video_clip_dataset.ZarrVideoClipDataset
+    folder_path: /coc/flash7/paphiwetsa3/datasets/pushT/circle_750/circle
+    n_frames: 9
+    split: "valid"
+    resolver:
+      folder_path: ${..folder_path}
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 9
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 4
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true

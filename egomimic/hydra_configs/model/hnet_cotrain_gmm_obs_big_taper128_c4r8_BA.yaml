@@ -1,0 +1,154 @@
+# B+A: scan downsampler + spline upsampler (full interface swap).
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# TAPER 128->256->512 variant (2026-06-16, from hnet_cotrain_gmm_obs_big_taper_c8r2).
+# Three-level hourglass: fine 128 -> mid 256 -> trunk 512. The H-Net OuterStage
+# forces the OUTERMOST stage back to d_model (=128), so the two dim-steps live in
+# the inner ChunkerStages (128->256, then 256->512). This ADDS one chunker level
+# vs the 256->512 taper => 3 chunker levels @ ratio 2.0 = ~8x total compression
+# (was ~4x). Action head decodes from the FINE level (now d_model=128) -- watch
+# for under-capacity (head MLP widens 128->1024). chunk_len=8, ratio=2.0 (c4r8).
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  d_cond: 256
+
+  domains: ["pushshapes_sim", "pushshapes_sim_small_circle"]
+  ac_keys:
+    pushshapes_sim: "actions"
+    pushshapes_sim_small_circle: "actions"
+
+  loss:
+    _target_: egomimic.algo.hnet.GMMLoss
+
+  outer_stage:
+    _target_: egomimic.algo.hnet.HNetOuterStage
+    action_dim: 2
+    action_horizon: 2560
+    d_model: 128
+    action_head_type: gmm
+
+    gmm_head:
+      _target_: egomimic.models.heads.gmm_head.GMMActionHead
+      d_model: 128
+      action_dim: 2
+      num_modes: 32
+      chunk_len: 4
+      min_std: 1.0e-4
+      std_activation: softplus
+      low_noise_eval: true
+      head_hidden_dim: 1024
+      head_n_layers: 3
+
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: "fused_cond"
+      obs_specs: {}
+      img_encoders: {}
+
+    input_modules:
+      - _target_: egomimic.models.stems.input_modules.ObsToken
+        d_model: 128
+        obs_encoder:
+          _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+          d_cond: 128
+          output_key: "fused_cond"
+          cond_proj_widths: [256, 256]
+          obs_specs:
+            state_agent_obj:
+              input_dim: 5
+              embed_dim: 96
+              widths: [192]
+          img_encoders:
+            front_img_1:
+              _target_: egomimic.models.stems.visual_core.VisualCore
+              in_channels: 3
+              image_size: 96
+              num_kp: 48
+              feature_dimension: 96
+              pretrained: false
+              crop_aug: true
+              crop_height: 86
+              crop_width: 86
+              crop_eval_mode: random
+              crop_sample_mode: v02
+
+    # 3-level tapered chunking (cond_key=null -> no AdaLN):
+    #   [0] PerEmbodimentStage(ChunkerStage)  fine 128 -> 128, PER-EMB (==d_model)
+    #   [1] ChunkerStage                       128 -> 256, SHARED
+    #   [2] ChunkerStage                       256 -> 512, SHARED  (NEW level)
+    #   [3] ComputeStage                       trunk 512, SHARED (terminal)
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+        - _target_: egomimic.models.hnet.per_embodiment_stage.PerEmbodimentStage
+          sub_stages:
+            pushshapes_sim:
+              _target_: egomimic.models.hnet.stages.ChunkerStage
+              input_hidden_dim: 128
+              output_hidden_dim: 128
+              target_compression_ratio: 8.0
+              ratio_loss_weight: 0.03
+              cond_key: null
+              down_interface: scan
+              up_interface: spline
+              m_sublatents: 4
+            pushshapes_sim_small_circle:
+              _target_: egomimic.models.hnet.stages.ChunkerStage
+              input_hidden_dim: 128
+              output_hidden_dim: 128
+              target_compression_ratio: 8.0
+              ratio_loss_weight: 0.03
+              cond_key: null
+              down_interface: scan
+              up_interface: spline
+              m_sublatents: 4
+        - _target_: egomimic.models.hnet.stages.ChunkerStage
+          input_hidden_dim: 128
+          output_hidden_dim: 256
+          target_compression_ratio: 8.0
+          ratio_loss_weight: 0.03
+          cond_key: null
+          down_interface: scan
+          up_interface: spline
+          m_sublatents: 4
+        - _target_: egomimic.models.hnet.stages.ChunkerStage
+          input_hidden_dim: 256
+          output_hidden_dim: 512
+          target_compression_ratio: 8.0
+          ratio_loss_weight: 0.03
+          cond_key: null
+          down_interface: scan
+          up_interface: spline
+          m_sublatents: 4
+        - _target_: egomimic.models.hnet.stages.ComputeStage
+          input_hidden_dim: 512
+          output_hidden_dim: 512
+          cond_key: null
+          d_cond: 0
+          causal: true
+          main_network:
+            arch_layout: "T6"
+            d_model: 512
+            d_intermediate: 1536
+            num_heads: 16
+            cond: false
+            rotary_emb_dim: 32
+            dropout: 0.0
+            resid_dropout: 0.0
+
+enable_grad_norm: false
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 200000
+  warmup_steps: 2000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-6

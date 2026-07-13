@@ -1,0 +1,237 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  # v2 TAPERED dual-stream firstend, HEAVY-AGNOSTIC (~200M):
+  #   dual obs encoder (A 256 / S 64)
+  #   -> DualBundleComputeStage(A256/S64)                 [dual compute, level 0]
+  #   -> DualStreamChunkerStage(256->512 / 64->128, dual) [taper, dual inner]
+  #   -> DualBundleComputeStage(A512/S128)                [dual compute, level 1]
+  #   -> DualStreamChunkerStage(512->1024 / 128, SEAM)    [taper, agnostic-only inner]
+  #   -> ComputeStage(1024)                               [AGNOSTIC-ONLY apex trunk]
+  #   -> PartitionedGMMActionHead(a 256 / s 64, k_agnostic 24 / k_specific 8 (total 32 modes))
+  obs_stride: 4
+  d_cond: 256
+  # MUST be set or PackedAlgoBase never calls hnet.init_weights (algo.py:1034) ->
+  # the model would train from raw PyTorch default init. Matches the standard configs.
+  init_weights_range: 0.02
+  domains:
+  - pushshapes_sim
+  - pushshapes_sim_small_circle
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_small_circle: actions
+  loss:
+    _target_: egomimic.algo.hnet.GMMLoss
+  outer_stage:
+    _target_: egomimic.algo.hnet.dual_stream_chunked_outer.DualStreamChunkedOuterStage
+    action_dim: 2
+    action_horizon: 2560
+    d_model: 256          # d_a level 0 (agnostic encoder out == outer)
+    action_head_type: gmm
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: fused_cond
+      obs_specs: {}
+      img_encoders: {}
+    # SPECIFIC stream S (per-emb), width d_s level 0 = 64.
+    input_modules:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 64
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          pushshapes_sim:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 64
+            output_key: fused_cond
+            cond_proj_widths: [64, 64]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+          pushshapes_sim_small_circle:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 64
+            output_key: fused_cond
+            cond_proj_widths: [64, 64]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+    # AGNOSTIC stream A (shared), width d_a level 0 = 256.
+    agnostic_obs_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: fused_cond
+      cond_proj_widths: [256, 256]
+      obs_specs:
+        state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 86
+          crop_width: 86
+          crop_eval_mode: random
+          crop_sample_mode: v02
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+      # --- level 0: dual compute (A256 / S64) ---
+      - _target_: egomimic.models.hnet.dual_stream_pyramid.DualBundleComputeStage
+        input_hidden_dim: 256
+        output_hidden_dim: 256
+        mask_mode: asym
+        causal: true
+        n_layers: 8
+        rotary_emb_dim: 64
+        # SPECIFIC stream (idx>=1) is per-embodiment; must match domains above.
+        embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+        streams_cfg:
+        - {d_model: 256, num_heads: 4, d_intermediate: 1024}
+        - {d_model: 64, num_heads: 2, d_intermediate: 256}
+      # --- chunker 0: taper 256->512 / 64->128, DUAL inner ---
+      - _target_: egomimic.models.hnet.dual_stream_chunker.DualStreamChunkerStage
+        input_hidden_dim: 256
+        s_hidden_dim: 64
+        output_hidden_dim: 512
+        s_output_hidden_dim: 128
+        dual_inner: true
+        target_compression_ratio: 3.0
+        ratio_loss_weight: 1.0
+        down_interface: first_token
+        up_interface: duplicate
+        router_interface: cossim
+        grab_prev_end: true
+        residual_mixer: mlp
+        residual_mixer_kwargs: {n_layers: 4}
+        a_to_s_inject: false
+        cond_key: null
+        # per-emb SPECIFIC S-path; must match domains above.
+        embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+        # dual-stream router: fuse A + S via a 4-layer MLP head -> ONE boundary (warm start == route-on-A).
+        dual_router: true
+        # router_per_emb: true = a full router PER embodiment (emb-specific boundaries);
+        # false = ONE shared "combined" router. Flip to A/B the two.
+        router_per_emb: true
+        # router_fusion: residual_mlp = proj_a(A)+proj_s(S)+MLP (warm start == route-on-A);
+        # mlp = pure MLP over concat[A,S] (no warm start, simpler/cheaper). A/B knob.
+        router_fusion: mlp
+      # --- level 1: dual compute (A512 / S128) ---
+      - _target_: egomimic.models.hnet.dual_stream_pyramid.DualBundleComputeStage
+        input_hidden_dim: 512
+        output_hidden_dim: 512
+        mask_mode: asym
+        causal: true
+        n_layers: 8
+        rotary_emb_dim: 64
+        # SPECIFIC stream (idx>=1) is per-embodiment; must match domains above.
+        embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+        streams_cfg:
+        - {d_model: 512, num_heads: 8, d_intermediate: 2048}
+        - {d_model: 128, num_heads: 4, d_intermediate: 512}
+      # --- chunker 1: taper 512->1024 (A only into apex), AGNOSTIC SEAM ---
+      - _target_: egomimic.models.hnet.dual_stream_chunker.DualStreamChunkerStage
+        input_hidden_dim: 512
+        s_hidden_dim: 128
+        output_hidden_dim: 1024
+        dual_inner: false
+        target_compression_ratio: 3.0
+        ratio_loss_weight: 1.0
+        down_interface: first_token
+        up_interface: duplicate
+        router_interface: cossim
+        grab_prev_end: true
+        residual_mixer: mlp
+        residual_mixer_kwargs: {n_layers: 4}
+        a_to_s_inject: false
+        cond_key: null
+        # per-emb SPECIFIC S-path (seam: only S is per-emb; A->apex is shared).
+        embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+        # dual-stream router: fuse A + S via a 4-layer MLP head -> ONE boundary (warm start == route-on-A).
+        dual_router: true
+        # router_per_emb: true = a full router PER embodiment (emb-specific boundaries);
+        # false = ONE shared "combined" router. Flip to A/B the two.
+        router_per_emb: true
+        # router_fusion: residual_mlp = proj_a(A)+proj_s(S)+MLP (warm start == route-on-A);
+        # mlp = pure MLP over concat[A,S] (no warm start, simpler/cheaper). A/B knob.
+        router_fusion: mlp
+      # --- AGNOSTIC-ONLY APEX trunk (1024 x12L) ---
+      - _target_: egomimic.models.hnet.stages.ComputeStage
+        input_hidden_dim: 1024
+        output_hidden_dim: 1024
+        cond_key: null
+        d_cond: 0
+        causal: true
+        main_network:
+          arch_layout: T10
+          d_model: 1024
+          d_intermediate: 1536
+          num_heads: 16
+          cond: false
+          rotary_emb_dim: 64
+          dropout: 0.0
+          resid_dropout: 0.0
+    # Dual partitioned GMM head (ONE module, dispatched on emb_id):
+    #   agnostic-mode decode (a_top, 24 modes) SHARED  [share_agnostic: true]
+    #   specific-mode decode (s, 8 modes) PER-EMB
+    #   gate (logits over all 32 modes from [a_top;s]) PER-EMB 3-layer MLP
+    # A/B: share_agnostic: false -> agnostic head per-emb (legacy fully-per-emb).
+    gmm_head:
+      _target_: egomimic.models.heads.partitioned_gmm_head.DualPartitionedGMMHead
+      d_model: 256
+      d_model_a: 256
+      d_model_s: 64
+      action_dim: 2
+      k_agnostic: 24
+      k_specific: 8
+      chunk_len: 4
+      min_std: 0.0001
+      std_activation: softplus
+      low_noise_eval: true
+      head_hidden_dim: 512
+      head_n_layers: 3
+      gate_n_layers: 3
+      share_agnostic: true
+      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 2000
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06
