@@ -373,11 +373,12 @@ class CVAEHead(Stage):
                  dec_hidden_dim: int = 1024, dec_n_layers: int = 4,
                  band_weight: float = 1.0, band_c_lo: float = 0.05,
                  band_c_hi: float = 10.0, band_d_cap: float = 6.0,
-                 band_stopgrad: bool = True):
+                 band_stopgrad: bool = True, rollout_z_scale: float = 0.0):
         super().__init__()
         self.D, self.C, self.z_dim = int(action_dim), int(chunk_len), int(z_dim)
         self.d_cond = int(d_a) + int(d_s)
         self.band_weight, self.band_stopgrad = float(band_weight), bool(band_stopgrad)
+        self.rollout_z_scale = float(rollout_z_scale)
         self.c_lo, self.c_hi, self.d_cap = float(band_c_lo), float(band_c_hi), float(band_d_cap)
         mh, mn = int(mixer_hidden_dim), max(1, int(mixer_n_layers))
         layers, cur = [], self.d_cond + self.z_dim
@@ -406,7 +407,15 @@ class CVAEHead(Stage):
         h = torch.cat([batch["a_top"], batch["s"]], -1)
         z_tok = batch.get("cvae_z_tok")
         if z_tok is None:
-            z_tok = h.new_zeros(*h.shape[:-1], self.z_dim)  # canonical strategy
+            if not self.training and self.rollout_z_scale > 0:
+                # prior-sample ablation: one z ~ N(0, scale^2 I) per forward
+                # (rollout is B=1 recompute-over-prefix -> fresh z per replan),
+                # broadcast across tokens. Tests whether the z=0 conditional
+                # mean is what kills closed-loop coverage. Default 0.0 = z=0.
+                z1 = h.new_empty(1, self.z_dim).normal_() * self.rollout_z_scale
+                z_tok = z1.expand(*h.shape[:-1], self.z_dim)
+            else:
+                z_tok = h.new_zeros(*h.shape[:-1], self.z_dim)  # canonical strategy
         pred = self._decode(h, z_tok)
         batch["pred_action"] = pred.clamp(-1.0, 1.0)
         if "target" not in batch:
