@@ -43,6 +43,20 @@ def _within_episode_time_pos(cu: torch.Tensor, T: int, device) -> torch.Tensor:
     return torch.arange(T, device=device, dtype=torch.long) - cu[:-1][seg]
 
 
+def _ste_scaled(x: torch.Tensor, gain: float) -> torch.Tensor:
+    """Paper STE confidence gate with a scalable backward.
+
+    Forward multiplier is EXACTLY 1 for any gain (gain*x + (1-gain*x) == 1);
+    backward grad w.r.t. x is `gain` instead of 1 — amplifies the task-driven
+    decisiveness pressure on the router without touching activations or adding
+    a loss term. gain=1.0 == the canonical `_ste`.
+    """
+    if gain == 1.0:
+        return _ste(x)
+    gx = gain * x
+    return gx + (1.0 - gx).detach()
+
+
 # --------------------------------------------------------------------------- #
 # Levels — nested inside DualstreamTrunk. Each is a Stage (same convention),
 # with `.inner` wired by DualstreamTrunk.
@@ -155,7 +169,8 @@ class DualChunkerLevel(Stage):
                  router_fusion: str = "residual_mlp", d_router: Optional[int] = None,
                  router_pre_layout: Optional[str] = None, router_pre_detach: bool = False,
                  router_core: str = "cossim",
-                 router_mixer_n_layers: int = 4, router_hidden_mult: float = 4.0):
+                 router_mixer_n_layers: int = 4, router_hidden_mult: float = 4.0,
+                 ste_gain: float = 1.0):
         super().__init__()
         d_s = int(d_s) if d_s is not None else int(d_a)
         apex_s = int(apex_s) if apex_s is not None else d_s
@@ -166,6 +181,7 @@ class DualChunkerLevel(Stage):
         self.decisiveness_loss_weight = float(decisiveness_loss_weight)
         self.spread_loss_weight = float(spread_loss_weight)
         self.spread_alpha = float(spread_alpha)
+        self.ste_gain = float(ste_gain)
         self.grab_prev_end = bool(grab_prev_end)
         self._embs = list(embodiments) if embodiments else None
         object.__setattr__(self, "inner", None)  # NON-registered ref
@@ -280,9 +296,10 @@ class DualChunkerLevel(Stage):
         S_dech = self.dechunk_S(S_inner if self.dual_inner else S_in, bmask, bprob,
                                 cu_seqlens=next_cu)
 
-        batch["A"] = self.residual_mixer_A(A_dech.float() * _ste(sprob), resA).to(A.dtype)
+        batch["A"] = self.residual_mixer_A(
+            A_dech.float() * _ste_scaled(sprob, self.ste_gain), resA).to(A.dtype)
         batch["S"] = pick(self.residual_mixer_S, emb)(
-            S_dech.float() * _ste(sprob), resS).to(S.dtype)
+            S_dech.float() * _ste_scaled(sprob, self.ste_gain), resS).to(S.dtype)
 
         batch["aux/chunker"].append({
             "boundary_mask": bmask,
