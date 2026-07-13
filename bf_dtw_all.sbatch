@@ -15,8 +15,16 @@ DS=/coc/flash7/paphiwetsa3/datasets
 mkdir -p eval_bf/dtw
 for ARM in bf_prdec_ctrl bf_prdec_dec1 bf_prdec_sig bf_prdec_sig_var4 bf_prdec_var4 bf_symw1_gmm bf_symw1_gmm_do1 bf_symw1_reg bf_prdec_nopre_gmm bf_cvae_zs_bcrecipe bf_cvae_bcrecipe bf_cvae_zs_do1 bf_cvae_zs_dec1 bf_cvae_zs_var4; do
   D=$(ls -dt logs/indomain_c4/${ARM}_2026-07-1* 2>/dev/null | head -1)
-  CK=$(ls -t $D/checkpoints/last.ckpt 2>/dev/null | head -1)
-  [ -z "$CK" ] && { echo "== $ARM: NO CKPT"; continue; }
+  CK_SRC=$(ls -t $D/checkpoints/last.ckpt 2>/dev/null | head -1)
+  [ -z "$CK_SRC" ] && { echo "== $ARM: NO CKPT"; continue; }
+  # PROVENANCE RULE (2026-07-13): never eval a moving last.ckpt — it drifted
+  # 500 epochs mid-sweep once (job 3478027 read ep1499 labeled as ep999).
+  # Snap it and tag with the TRUE epoch read from the ckpt itself.
+  cp -p "$CK_SRC" "eval_bf/dtw/${ARM}_lastsnap.ckpt"
+  EPO=$($PY -c "import torch;print(int(torch.load('eval_bf/dtw/${ARM}_lastsnap.ckpt',map_location='cpu').get('epoch',-1)))")
+  CK=eval_bf/${ARM}_ep${EPO}_snap.ckpt
+  if [ -f "$CK" ]; then rm -f "eval_bf/dtw/${ARM}_lastsnap.ckpt"; else mv "eval_bf/dtw/${ARM}_lastsnap.ckpt" "$CK"; fi
+  echo "== $ARM ckpt=$CK (epoch=$EPO)"
   CFG=eval_bf/dtw/${ARM}_dtwcfg.yaml
   $PY - "$D/.hydra/config.yaml" "$CFG" "$DS" <<'PYCFG'
 import sys, yaml

@@ -52,9 +52,13 @@ def build(data_path: str, frame_stride: int) -> dict:
             frames = []
             if key + "traj" in d:
                 frames = [jpeg_uri(b) for b in d[key + "traj"][::st]]
-            episodes.append(
-                {"cid": cid, "prob": prob, "topcid": topcid, "frames": frames}
-            )
+            ep_entry = {"cid": cid, "prob": prob, "topcid": topcid, "frames": frames}
+            # per-frame GT/pred xy for the viewer overlay (path / dot toggle)
+            for nm in ("gt", "pred"):
+                if key + nm in d:
+                    ep_entry[nm] = np.round(
+                        d[key + nm][::st].astype(float), 4).tolist()
+            episodes.append(ep_entry)
         emb_entry = {"labels": labels, "pca": pca, "episodes": episodes}
         # per-emb start index into the shared PCA array (chunk id c of this emb
         # -> shared row pca_offset + c). Present only on cross-emb exports.

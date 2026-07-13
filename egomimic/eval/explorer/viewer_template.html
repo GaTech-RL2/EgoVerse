@@ -153,6 +153,7 @@
         <button class="btn" id="playBtn">▶</button>
         <button class="btn" id="stepB">◀</button>
         <button class="btn" id="stepF">▶|</button>
+        <button class="btn" id="ovBtn" title="overlay: per-frame dot / full-episode TF path / off (key: o)">ov: dot</button>
         <input type="range" id="scrub" min="0" value="0" style="flex:1"/>
         <span class="time" id="timeLbl">0 / 0</span>
         <label class="hint">fps <input type="range" id="fps" min="2" max="30" value="12" style="width:80px"></label>
@@ -238,7 +239,8 @@ const MODEL_NAMES = Object.keys(MODELS);
 let DATA = MODELS[MODEL_NAMES[0]];   // active model; swapped by the model dropdown
 
 const S = { emb:null, ep:0, frame:0, layer:"chunks", playing:false, fps:12,
-            frames:[], _raf:null, _acc:0, _last:0, drag:false, clipStage:0, mode:"single" };
+            frames:[], _raf:null, _acc:0, _last:0, drag:false, clipStage:0, mode:"single",
+            overlay:"dot" };  // "dot" per-frame | "path" full-episode TF | "off"
 
 const $ = id => document.getElementById(id);
 
@@ -279,6 +281,32 @@ function loadFrames(){
   S.frames = (epObj().frames||[]).map(src=>{ if(!src) return null;
     const im=new Image(); im.src=src; return im; });
 }
+// GT (green) / teacher-forced pred (red) overlay, drawn client-side over the
+// frame rect. Modes: "dot" = per-frame position (+ short trail), "path" =
+// full-episode TF trajectory polyline + current position, "off".
+function drawOverlay(x, ep, f, rx, ry, rw, rh){
+  if(S.overlay==="off" || !ep) return;
+  const one=(pts,col)=>{
+    if(!pts || !pts.length) return;
+    const PX=p=>rx+(p[0]+1)*0.5*(rw-1), PY=p=>ry+(p[1]+1)*0.5*(rh-1);
+    if(S.overlay==="path"){
+      x.globalAlpha=.8; x.strokeStyle=col; x.lineWidth=1.5; x.beginPath();
+      for(let i=0;i<pts.length;i++){ const X=PX(pts[i]),Y=PY(pts[i]);
+        i?x.lineTo(X,Y):x.moveTo(X,Y); }
+      x.stroke(); x.globalAlpha=1;
+    } else {  // dot: 12-frame trail behind the current position
+      x.globalAlpha=.5; x.strokeStyle=col; x.lineWidth=1.2; x.beginPath();
+      let st=false;
+      for(let i=Math.max(0,f-12);i<=Math.min(f,pts.length-1);i++){
+        const X=PX(pts[i]),Y=PY(pts[i]); st?x.lineTo(X,Y):x.moveTo(X,Y); st=true; }
+      x.stroke(); x.globalAlpha=1;
+    }
+    const p=pts[Math.min(f,pts.length-1)];
+    x.fillStyle=col; x.beginPath();
+    x.arc(PX(p),PY(p),S.overlay==="path"?3:4,0,6.283); x.fill();
+  };
+  one(ep.gt,"#22c55e"); one(ep.pred,"#f43f5e");
+}
 function drawVideo(){
   const c=$("video"), w=c.parentElement.clientWidth, h=c.parentElement.clientHeight;
   c.width=w; c.height=h; const x=c.getContext("2d");
@@ -288,6 +316,7 @@ function drawVideo(){
     const s=Math.min(w/im.naturalWidth,h/im.naturalHeight);
     const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
     x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh);
+    drawOverlay(x, epObj(), S.frame, (w-dw)/2, (h-dh)/2, dw, dh);
   } else {
     x.fillStyle="#444"; x.font="13px sans-serif"; x.textAlign="center";
     x.fillText(im?"loading…":"no trajectory frames",w/2,h/2);
@@ -455,7 +484,15 @@ function init(){
   window.addEventListener("mousemove",e=>{if(S.drag)timelineSeek(e);});
   window.addEventListener("mouseup",()=>S.drag=false);
 
+  const cycleOverlay=()=>{
+    S.overlay = S.overlay==="dot" ? "path" : (S.overlay==="path" ? "off" : "dot");
+    $("ovBtn").textContent = "ov: "+S.overlay;
+    $("ovBtn").classList.toggle("on", S.overlay!=="off");
+    S.mode==="compare" ? renderCmp() : drawVideo();
+  };
+  $("ovBtn").onclick=cycleOverlay;
   window.addEventListener("keydown",e=>{
+    if(e.code==="KeyO"){ cycleOverlay(); return; }
     if(S.mode==="compare"){ if(e.code==="Space"){e.preventDefault();cmpPlay(!SC.playing);} return; }
     if(e.code==="Space"){e.preventDefault();play(!S.playing);}
     else if(e.code==="ArrowRight"){play(false);seek(S.frame+1);}
@@ -525,9 +562,11 @@ function cmpFillSel(){
 function drawCmpTraj(canvasId,emb,ep,phase){
   const c=$(canvasId),w=c.parentElement.clientWidth,h=c.parentElement.clientHeight;
   c.width=w;c.height=h;const x=c.getContext("2d");x.fillStyle="#000";x.fillRect(0,0,w,h);
-  const im=cmpFrames(emb,ep)[phaseFrame(emb,ep,phase)];
+  const f=phaseFrame(emb,ep,phase), im=cmpFrames(emb,ep)[f];
   if(im&&im.complete&&im.naturalWidth){ const s=Math.min(w/im.naturalWidth,h/im.naturalHeight);
-    x.drawImage(im,(w-im.naturalWidth*s)/2,(h-im.naturalHeight*s)/2,im.naturalWidth*s,im.naturalHeight*s);
+    const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
+    x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh);
+    drawOverlay(x, epOf(emb,ep), f, (w-dw)/2, (h-dh)/2, dw, dh);
   } else { x.fillStyle="#444";x.font="12px sans-serif";x.textAlign="center";
     x.fillText(im?"loading…":"no frames",w/2,h/2); }
 }

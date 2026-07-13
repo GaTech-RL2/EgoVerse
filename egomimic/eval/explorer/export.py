@@ -132,9 +132,12 @@ def main():
             print(f"[warn] trajectory eval failed: {exc}")
             traj_imgs = {}
 
+    traj_from_batch = False  # batch frames are contiguous: NO 5-frame separators
     if not traj_imgs:
         # Batchflow fallback: the old HNetEvalVideo doesn't run on PipelineAlgo.
         # Use the batch's own camera frames (full-rate, same grid as frame cu).
+        # Overlays are NOT baked here — gt/pred xy go into the npz per episode
+        # and the viewer draws them (toggleable: full-episode path / per-frame).
         import torch as _torch
         for _emb, _b in batch.items():
             _img = _b.get("front_img_1")
@@ -147,22 +150,9 @@ def main():
                         * 255.0).clip(0, 255).astype("uint8")
                 traj_imgs[_emb] = _arr
         if traj_imgs:
+            traj_from_batch = True
             print(f"[traj fallback] batch obs frames: "
                   f"{[(e, v.shape) for e, v in traj_imgs.items()]}")
-            for _emb, _fr in traj_imgs.items():
-                _H = _fr.shape[1]
-                def _paint(fr, xy, color):
-                    px = ((xy + 1.0) * 0.5 * (_H - 1)).round().astype(int).clip(0, _H - 1)
-                    for _t in range(min(len(fr), len(px))):
-                        y, x = px[_t, 1], px[_t, 0]
-                        fr[_t, max(y-1,0):y+2, max(x-1,0):x+2] = color
-                _gt = viz[_emb].get("gt_frame")
-                _pd = viz[_emb].get("pred_frame")
-                if _gt is not None:
-                    _paint(_fr, _gt, (0, 255, 0))
-                if _pd is not None:
-                    _paint(_fr, _pd, (255, 40, 40))
-            print("[traj fallback] overlays painted (GT green, pred red)")
 
     data = {}
     emb_ids = sorted(bprob_by_emb)
@@ -212,11 +202,23 @@ def main():
             data[f"emb{emb}_ep{i}_prob"] = probs[:, s:e].astype(np.float32)
             data[f"emb{emb}_ep{i}_crisp"] = crisp[:, s:e]
             data[f"emb{emb}_ep{i}_topcid"] = top_cid[s:e].astype(np.int64)
-            # trajectory slice for this episode
+            # per-frame GT/pred xy (action-norm space, [-1,1]) for the viewer's
+            # overlay modes (full-episode teacher-forced path / per-frame dot)
+            _gtf = viz[emb].get("gt_frame")
+            _pdf = viz[emb].get("pred_frame")
+            if _gtf is not None:
+                data[f"emb{emb}_ep{i}_gt"] = np.asarray(_gtf, np.float32)[s:e, :2]
+            if _pdf is not None:
+                data[f"emb{emb}_ep{i}_pred"] = np.asarray(_pdf, np.float32)[s:e, :2]
+            # trajectory slice for this episode. Batch-frame fallback stacks are
+            # contiguous (sep=0); only HNetEvalVideo stacks carry the 5-frame
+            # black separator between episodes (a +5 applied to the contiguous
+            # fallback drifted the video 5 frames per episode — the "~30 frames
+            # of the next episode" artifact, fixed 2026-07-13).
             if traj_stack is not None and seq_lens is not None:
                 T_b = int(seq_lens[i])
                 ep_fr = traj_stack[traj_offset:traj_offset + T_b]
-                traj_offset += T_b + 5  # 5-frame black separator
+                traj_offset += T_b + (0 if traj_from_batch else 5)
                 if ep_fr.shape[0] > 0:
                     data[f"emb{emb}_ep{i}_traj"] = jpeg_frames(ep_fr)
         print(f"emb{emb}: stages={labels} T_total={T_total} n_chunks={xy.shape[0]} "
