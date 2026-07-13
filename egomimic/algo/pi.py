@@ -144,6 +144,10 @@ class PI(Algo):
 
         self.num_steps = getattr(self.config, "num_sampling_steps", 10)
         self.is_6dof = kwargs.get("is_6dof", True)
+        # Stochastic action-chunk samples drawn per eval batch for the
+        # reverse-KL / best-of-M metrics. >1 enables them; each sample is a
+        # full flow-matching rollout, so this multiplies eval sampling cost.
+        self.rkl_samples = getattr(self.config, "reverse_kl_samples", 1)
 
         self.action_converters = action_converters
 
@@ -474,43 +478,76 @@ class PI(Algo):
 
                 pred_actions = pred_actions.clone()
 
-                predictions = OrderedDict()
-                ref = _batch[ac_key]
-                B, T, D = ref.shape
-
-                converter = self.action_registry.get(embodiment_id, ac_key)
-                if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
-                    pred_actions_orig = converter.from32_raw_rotation(
-                        pred_actions,
-                        stats=self._action_stats(embodiment_id, ac_key),
-                        norm_mode=self.norm_stats.norm_mode,
-                        unnormalize_non_rotation=True,
-                    )
-                    unnorm_actions = {ac_key: pred_actions_orig[:, :T, :D]}
-                elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
-                    # Extract the normalized xyz+6D(+gripper) action, then
-                    # unnormalize via the standard pipeline (stats were computed
-                    # over the 6D representation) to get raw 6D actions.
-                    pred_6d = converter.from32_norm_6d(pred_actions)
-                    predictions[ac_key] = pred_6d[:, :T, :D]
-                    unnorm_actions = self.norm_stats.unnormalize(
-                        predictions, embodiment_id
-                    )
-                elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
-                    pred_actions_orig = converter.from32(pred_actions)
-                    pred = pred_actions_orig[:, :T, :D]
-                    predictions[ac_key] = pred
-                    unnorm_actions = self.norm_stats.unnormalize(
-                        predictions, embodiment_id
-                    )
-                else:
-                    raise ValueError(
-                        f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
-                    )
+                unnorm_actions = self._postprocess_sampled_actions(
+                    pred_actions, _batch, embodiment_id, ac_key
+                )
                 for key in unnorm_actions:
                     unnorm_preds[f"{embodiment_name}_{key}"] = unnorm_actions[key]
 
         return unnorm_preds
+
+    def _postprocess_sampled_actions(self, pred_actions, _batch, embodiment_id, ac_key):
+        """Raw ``sample_actions`` output -> unnormalized action dict, honoring
+        ``action_encoding``. Shared by ``forward_eval`` and
+        ``sample_action_chunks`` so stochastic metric samples go through the
+        identical pipeline as the headline prediction."""
+        ref = _batch[ac_key]
+        _, T, D = ref.shape
+        converter = self.action_registry.get(embodiment_id, ac_key)
+        predictions = OrderedDict()
+        if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
+            pred_actions_orig = converter.from32_raw_rotation(
+                pred_actions,
+                stats=self._action_stats(embodiment_id, ac_key),
+                norm_mode=self.norm_stats.norm_mode,
+                unnormalize_non_rotation=True,
+            )
+            return {ac_key: pred_actions_orig[:, :T, :D]}
+        if self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
+            # Extract the normalized xyz+6D(+gripper) action, then unnormalize
+            # via the standard pipeline (stats were computed over the 6D
+            # representation) to get raw 6D actions.
+            pred_6d = converter.from32_norm_6d(pred_actions)
+            predictions[ac_key] = pred_6d[:, :T, :D]
+        elif self.action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
+            predictions[ac_key] = converter.from32(pred_actions)[:, :T, :D]
+        else:
+            raise ValueError(
+                f"Unsupported PI0.5 action_encoding: {self.action_encoding!r}"
+            )
+        return self.norm_stats.unnormalize(predictions, embodiment_id)
+
+    @torch.no_grad()
+    def sample_action_chunks(self, _batch, embodiment_id, M):
+        """Draw ``M`` independent stochastic action chunks for one embodiment's
+        batch, stacked as ``(M, B, T, D)``, unnormalized, on ``self.device``.
+        Each ``sample_actions`` call with ``noise=None`` draws fresh Gaussian
+        noise, so the chunks are independent policy samples.
+
+        ``_batch`` must be the normalized batch element (same obs space as
+        ``forward_eval``); do not pass an unnormalized batch.
+        """
+        proprio_keys = self.proprio_keys[embodiment_id]
+        lang_keys = self.lang_keys[embodiment_id]
+        ac_key = self.ac_keys[embodiment_id]
+        camera_keys = self.camera_keys.get(embodiment_id, self.pi_cam_keys)
+        embodiment_name = get_embodiment(embodiment_id).lower()
+        processed_obs, _ = self._robomimic_to_pi_data(
+            _batch, camera_keys, proprio_keys, lang_keys, ac_key, embodiment_name
+        )
+        samples = []
+        for _ in range(int(M)):
+            pred_actions = self.nets["policy"].sample_actions(
+                device=self.device,
+                observation=processed_obs,
+                noise=None,
+                num_steps=self.num_steps,
+            )
+            unnorm = self._postprocess_sampled_actions(
+                pred_actions, _batch, embodiment_id, ac_key
+            )
+            samples.append(unnorm[ac_key].unsqueeze(0))
+        return torch.cat(samples, dim=0).to(self.device)
 
     @override
     def compute_losses(self, predictions, batch):
