@@ -186,6 +186,9 @@ class PipelineAlgo(Algo):
             seed = self._seed(emb_id, _b)
             seed = {k: (v.to(self.device) if torch.is_tensor(v) else v)
                     for k, v in seed.items()}
+            # capture the RAW frame cu BEFORE the forward: TargetBuilder
+            # rebinds seed["cu_seqlens"] to the decimated grid inside.
+            raw_cu = seed["cu_seqlens"].cpu()
             with torch.no_grad():
                 b = self.policy(seed)
             idxs = sorted({int(k.split("/")[1][1:]) for k in b
@@ -203,7 +206,6 @@ class PipelineAlgo(Algo):
             # (mask len == T_total). Kept frames: every `stride`-th per episode.
             stride = next((int(st.stride) for st in self.policy.stages
                            if hasattr(st, "stride")), 1)
-            raw_cu = seed["cu_seqlens"].cpu()
             T_raw = int(raw_cu[-1])
             keep = torch.zeros(T_raw, dtype=torch.bool)
             for _e in range(len(raw_cu) - 1):
