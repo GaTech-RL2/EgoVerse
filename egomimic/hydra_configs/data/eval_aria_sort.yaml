@@ -11,7 +11,11 @@ train_datasets:
   eva_bimanual: null
   human_bimanual:
     filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
+      # Keep the parent's ScaleAnnotationDatasetFilter _target_: swapping to
+      # plain DatasetFilter leaves the parent's project_name merged in ->
+      # TypeError at instantiation (hydra parent-merge leftover).
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
       filter_lambdas:
         - "lambda row: row.get('embodiment') == 'human_bimanual' and row.get('lab') == 'rl2' and row.get('task') == 'sort' and (row.get('zarr_processed_path') or '') != '' and (row.get('episode_hash') or '') not in ('2026-04-26-00-17-53-000000', '2026-04-26-00-27-26-000000', '2026-05-01-02-52-58-000000')"
 
@@ -19,6 +23,10 @@ valid_datasets:
   eva_bimanual: null
   human_bimanual:
     filters:
-      _target_: egomimic.rldb.filters.DatasetFilter
+      # Keep the parent's ScaleAnnotationDatasetFilter _target_: swapping to
+      # plain DatasetFilter leaves the parent's project_name merged in ->
+      # TypeError at instantiation (hydra parent-merge leftover).
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
       filter_lambdas:
         - "lambda row: row.get('embodiment') == 'human_bimanual' and row.get('lab') == 'rl2' and row.get('task') == 'sort' and (row.get('zarr_processed_path') or '') != '' and (row.get('episode_hash') or '') not in ('2026-04-26-00-17-53-000000', '2026-04-26-00-27-26-000000', '2026-05-01-02-52-58-000000')"
