@@ -137,6 +137,7 @@ robomimic_model:
       target_compression_ratio: 3.0
       ratio_loss_weight: 0.0
       hard_band_weight: 1.0
+      hard_band_window: 4
       grab_prev_end: true
       residual_mixer: mlp
       residual_mixer_kwargs: {n_layers: 4}
