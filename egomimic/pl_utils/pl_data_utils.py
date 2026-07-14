@@ -132,9 +132,49 @@ def _extract_keys(batch, keys):
     return {k: [sample.pop(k) for sample in batch] for k in keys}
 
 
+# Target spatial size (H, W) for all camera images before collation. ABC-130k/eva
+# episodes were captured at mixed widths (640 vs 848, both 480 tall), so a shuffled
+# batch can mix resolutions, which default_collate cannot stack ("Trying to resize
+# storage that is not resizable"). Resizing every camera image to one fixed size
+# here makes the batch stackable; the model still resize_with_pad's to 224x224
+# afterwards, so this only needs to unify shapes.
+_IMAGE_TARGET_HW = (480, 640)
+
+
+def _resize_image_keys(batch, size=_IMAGE_TARGET_HW):
+    """In-place resize of every camera-image tensor in *batch* to a fixed (H, W).
+
+    Camera images are identified by the substring ``"images"`` in the key
+    (dataset-style keymaps, ``observations.images.*``) or the ``"_rgb"`` suffix
+    (PI/PaliGemma-style keymaps, ``base_0_rgb`` / ``*_wrist_0_rgb``). Each image
+    is ``(C, H, W)`` or ``(T, C, H, W)``; only the trailing two spatial dims are
+    resized (bilinear, per-channel — equivalent to resizing the image). Tensors
+    already at the target size are skipped.
+    """
+    th, tw = size
+    for sample in batch:
+        for k in list(sample.keys()):
+            if "images" not in k and not k.endswith("_rgb"):
+                continue
+            v = sample[k]
+            if not isinstance(v, torch.Tensor) or v.ndim < 2:
+                continue
+            if v.shape[-2] == th and v.shape[-1] == tw:
+                continue
+            orig_dtype = v.dtype
+            x = v.float()
+            lead = x.shape[:-2]  # leading (non-spatial) dims, e.g. (C,) or (T, C)
+            x4 = x.reshape(-1, 1, x.shape[-2], x.shape[-1])  # (N, 1, H, W)
+            x4 = torch.nn.functional.interpolate(
+                x4, size=(th, tw), mode="bilinear", align_corners=False
+            )
+            sample[k] = x4.reshape(*lead, th, tw).to(orig_dtype)
+
+
 def annotation_collate(batch):
     """Collate that preserves variable-length list-valued keys (e.g. annotation_keys)."""
     extracted = _extract_list_keys(batch)
+    _resize_image_keys(batch)
     collated = default_collate(batch)
     collated.update(extracted)
     return collated

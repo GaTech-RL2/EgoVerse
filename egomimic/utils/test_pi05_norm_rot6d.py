@@ -503,3 +503,42 @@ def test_dtw_distance_matches_bruteforce_and_tolerates_shift():
     dtw_shift = dtw_distance(traj, shifted, normalize=False).item()
     paired = (traj - shifted).norm(dim=-1).sum().item()
     assert dtw_shift < 0.5 * paired, (dtw_shift, paired)
+
+
+def test_resize_image_keys_unifies_mixed_resolutions():
+    # abc eva ships 480x640 / 480x848 / 720x1280 episodes; the collate-level
+    # resize must unify camera images (both dataset-style "images" keys and
+    # PI-style "*_rgb" keys) so default_collate can stack, while leaving
+    # non-image tensors untouched.
+    from torch.utils.data._utils.collate import default_collate
+
+    from egomimic.pl_utils.pl_data_utils import _resize_image_keys
+
+    batch = [
+        {
+            "base_0_rgb": torch.rand(3, 480, 640),
+            "observations.images.left_wrist_img": torch.rand(3, 480, 848),
+            "actions_cartesian": torch.rand(100, 20),
+        },
+        {
+            "base_0_rgb": torch.rand(3, 720, 1280),
+            "observations.images.left_wrist_img": torch.rand(3, 480, 640),
+            "actions_cartesian": torch.rand(100, 20),
+        },
+    ]
+    _resize_image_keys(batch)
+    for sample in batch:
+        assert sample["base_0_rgb"].shape == (3, 480, 640)
+        assert sample["observations.images.left_wrist_img"].shape == (3, 480, 640)
+        assert sample["actions_cartesian"].shape == (100, 20), "non-image resized!"
+    stacked = default_collate(batch)
+    assert stacked["base_0_rgb"].shape == (2, 3, 480, 640)
+
+    # (T, C, H, W) temporal stacks resize only the trailing spatial dims,
+    # and dtype is preserved.
+    b2 = [
+        {"images.front_1": torch.randint(0, 255, (4, 3, 480, 848), dtype=torch.uint8)}
+    ]
+    _resize_image_keys(b2)
+    assert b2[0]["images.front_1"].shape == (4, 3, 480, 640)
+    assert b2[0]["images.front_1"].dtype == torch.uint8
