@@ -712,6 +712,7 @@ class DINOv2(PolicyStem):
         lora_alpha: float = 32.0,
         proj_blocks: int = 0,
         proj_hidden: int = 1024,
+        conv_neck_blocks: int = 0,
         **kwargs,
     ) -> None:
         """DINOv2 ViT Encoder for Images (drop-in for ResNet).
@@ -764,6 +765,12 @@ class DINOv2(PolicyStem):
             )
         else:
             self.neck = None
+        if conv_neck_blocks > 0:
+            # ResNet-style trainable conv head over the frozen token grid;
+            # REPLACES the linear projection path.
+            self.conv_neck = ConvNeck(self.net.num_features, output_dim, conv_neck_blocks)
+        else:
+            self.conv_neck = None
         if proj_blocks > 0:
             self.proj_mlp = nn.ModuleList(
                 nn.Sequential(
@@ -808,6 +815,8 @@ class DINOv2(PolicyStem):
                 feat = self.net.forward_features(x)
                 feat = feat[:, self.net.num_prefix_tokens :]  # drop CLS, keep patch tokens
         feat = feat.reshape(B, -1, feat.shape[-1])  # concat time/views along tokens
+        if getattr(self, "conv_neck", None) is not None:
+            return self.conv_neck(feat)
         feat = self.proj(feat)
         if self.neck is not None:
             feat = self.neck(feat)
@@ -815,6 +824,31 @@ class DINOv2(PolicyStem):
             for blk in self.proj_mlp:
                 feat = feat + blk(feat)  # residual, per-token
         return feat
+
+
+class ConvNeck(nn.Module):
+    """ResNet-style trainable conv head over a FROZEN backbone's token grid.
+
+    Reshapes (B, N, C) patch tokens (N must be a square grid) into a 2-D feature
+    map, projects 1x1 to out_dim, runs `blocks` torchvision BasicBlocks (3x3,
+    stride 1, BN+ReLU, residual) at full grid resolution, and flattens back to
+    (B, N, out_dim). 9 blocks @256ch ~= 10.6M params ~= ResNet-18's budget,
+    giving conv-prior task adaptation while the backbone stays untouched."""
+
+    def __init__(self, in_dim: int, out_dim: int = 256, blocks: int = 9):
+        super().__init__()
+        from torchvision.models.resnet import BasicBlock
+
+        self.inp = nn.Conv2d(in_dim, out_dim, 1)
+        self.blocks = nn.Sequential(*[BasicBlock(out_dim, out_dim) for _ in range(blocks)])
+
+    def forward(self, tokens: torch.Tensor) -> torch.Tensor:
+        B, N, C = tokens.shape
+        side = int(round(N ** 0.5))
+        assert side * side == N, f"ConvNeck needs a square token grid, got N={N}"
+        x = tokens.transpose(1, 2).reshape(B, C, side, side)
+        x = self.blocks(self.inp(x))
+        return x.flatten(2).transpose(1, 2)  # (B, N, out_dim)
 
 
 class LingBotVision(PolicyStem):
@@ -827,7 +861,8 @@ class LingBotVision(PolicyStem):
     and a warm HF cache for robbyant/lingbot-vision-vit-<variant> weights.
     """
 
-    def __init__(self, output_dim: int = 10, variant: str = "large", **kwargs) -> None:
+    def __init__(self, output_dim: int = 10, variant: str = "large",
+                 conv_neck_blocks: int = 0, **kwargs) -> None:
         super().__init__(**kwargs)
         from lingbot_vision.loader import load_pretrained_backbone
 
@@ -836,6 +871,7 @@ class LingBotVision(PolicyStem):
             param.requires_grad = False
         self.net.eval()
         self.out_dim = output_dim
+        self.conv_neck = ConvNeck(feat_dim, output_dim, conv_neck_blocks) if conv_neck_blocks > 0 else None
         self.proj = nn.Linear(feat_dim, output_dim)
 
     def train(self, mode: bool = True):
@@ -850,6 +886,8 @@ class LingBotVision(PolicyStem):
         with torch.no_grad():
             feat = self.net(x, is_training=True)["x_norm_patchtokens"]
         feat = feat.reshape(B, -1, feat.shape[-1])
+        if self.conv_neck is not None:
+            return self.conv_neck(feat)
         return self.proj(feat)
 
 
