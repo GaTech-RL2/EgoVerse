@@ -1,0 +1,19 @@
+defaults:
+  - viz@viz_func: pi_cartesian_lang
+  - _self_
+
+_target_: egomimic.eval.eval_pi.PIEvalVideo
+
+viz_every_n_epochs: 100
+
+# Keypoint-gripper variant of eval_pi_wristframe_6d: human actions carry real
+# grip channels in the 20D robot layout (data configs with
+# `keypoint_gripper: true`), so the human revert drops the ACTION grip slots
+# first (UnpadGripperZeros 20 -> 18) before the standard wristframe 6D revert.
+# Grippers are scored by the native-frame metrics; cam-frame MSE/viz is
+# pose-only.
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva._build_eva_cartesian_revert_6d_wristframe_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_6d_wristframe_grip_transform_list

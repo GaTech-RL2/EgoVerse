@@ -1,0 +1,70 @@
+# ARIA_FOLD_PI_6D_GRIP — aria fold_clothes episodes (709 in SQL, paths under
+# processed_v3/aria/) with the KEYPOINT PSEUDO-GRIPPER:
+#
+#   - wrist-frame cartesian actions, continuous 6D rotation, PLUS a per-arm
+#     grip channel derived from the MANO hand keypoints (pinch/curl heuristic,
+#     KeypointsToGripper) inserted at the robot-layout slots 9/19 -> actions
+#     AND proprio are 20D, layout-identical to eva robot data. Use the ROBOT
+#     converter (model=pi0.5_ft_aria_fold_grip).
+#   - NO fix_mecka_left_wrist: verified on-data that raw aria already has the
+#     target left-wrist convention (aria was the reference mecka was fixed
+#     toward; applying the Rz(180) here would flip it wrong).
+#   - stride 3 (aria default).
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+        include_grip_keypoints: true
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_wristframe_6d
+        keypoint_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: '/aria/' in str(row.get('zarr_processed_path', ''))"
+        - "lambda row: str(row.get('task', '')) == 'fold_clothes'"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+train_viz_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+
+train_viz_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 64
+    num_workers: 8
+    shuffle: false

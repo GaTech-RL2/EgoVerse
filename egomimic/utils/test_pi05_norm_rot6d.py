@@ -542,3 +542,100 @@ def test_resize_image_keys_unifies_mixed_resolutions():
     _resize_image_keys(b2)
     assert b2[0]["images.front_1"].shape == (4, 3, 480, 640)
     assert b2[0]["images.front_1"].dtype == torch.uint8
+
+
+def _hand(pinch_m, curl_ratio):
+    # Synthetic 21-kp hand with controlled pinch distance and curl ratio:
+    # wrist at origin, middle MCP 10cm out (hand size 0.1).
+    kp = np.zeros((21, 3))
+    kp[9] = [0.10, 0.0, 0.0]
+    kp[5], kp[13], kp[17] = [0.09, 0.02, 0], [0.09, -0.02, 0], [0.08, -0.04, 0]
+    palm = np.mean([kp[5], kp[9], kp[13], kp[17]], axis=0)
+    for t in (8, 12, 16, 20):  # fingertips at the target curl radius
+        kp[t] = palm + np.array([curl_ratio * 0.1, 0, 0])
+    kp[4] = kp[8] + np.array([0, pinch_m, 0])  # thumb tip at pinch distance
+    return kp
+
+
+def test_keypoints_to_gripper_pinch_and_curl():
+    from egomimic.rldb.zarr.action_chunk_transforms import KeypointsToGripper
+
+    t = KeypointsToGripper(chunk_length=10, stride=1)
+    # open hand: wide pinch + extended fingers
+    assert t._openness(_hand(0.12, 1.5)) == 1.0
+    # pinch closed even with extended fingers
+    assert t._openness(_hand(0.005, 1.5)) == 0.0
+    # power grasp: fist curls while pinch stays wide
+    assert t._openness(_hand(0.12, 0.65)) == 0.0
+    # untracked hand reads fully open
+    assert t._openness(np.zeros((21, 3))) == 1.0
+
+    # end-to-end: horizon series + obs frame -> chunked grip + scalar
+    batch = {
+        "left.action_grip_keypoints": np.stack([_hand(0.12, 1.5)] * 6).reshape(6, 63),
+        "left.obs_grip_keypoints": _hand(0.005, 1.5).reshape(63),
+    }
+    out = t.transform(batch)
+    assert out["left.action_grip"].shape == (10, 1)
+    np.testing.assert_allclose(out["left.action_grip"], 1.0)
+    assert out["left.obs_grip"].shape == (1,) and out["left.obs_grip"][0] == 0.0
+    assert "left.action_grip_keypoints" not in out
+
+
+def test_insert_gripper_channels_layout():
+    from egomimic.rldb.zarr.action_chunk_transforms import InsertGripperChannels
+    from egomimic.utils.pose_utils import bimanual_cartesian_layout
+
+    T = 4
+    actions = np.arange(T * 18, dtype=np.float64).reshape(T, 18)
+    batch = {
+        "actions_cartesian": actions.copy(),
+        "left.action_grip": np.full((T, 1), 0.25),
+        "right.action_grip": np.full((T, 1), 0.75),
+    }
+    out = InsertGripperChannels(
+        action_key="actions_cartesian",
+        left_grip_key="left.action_grip",
+        right_grip_key="right.action_grip",
+    ).transform(batch)
+    a = out["actions_cartesian"]
+    assert a.shape == (T, 20)
+    grip_idx = bimanual_cartesian_layout(20)["grip"]
+    np.testing.assert_allclose(a[:, grip_idx[0]], 0.25)
+    np.testing.assert_allclose(a[:, grip_idx[1]], 0.75)
+    # non-grip channels preserved in order
+    keep = [i for i in range(20) if i not in grip_idx]
+    np.testing.assert_allclose(a[:, keep], actions)
+    assert "left.action_grip" not in out
+
+
+def test_keypoint_gripper_transform_list_wiring():
+    from egomimic.rldb.embodiment.human import (
+        Human,
+        _build_human_cartesian_revert_6d_wristframe_grip_transform_list,
+    )
+    from egomimic.rldb.zarr.action_chunk_transforms import (
+        InsertGripperChannels,
+        KeypointsToGripper,
+        UnpadGripperZeros,
+    )
+
+    tl = Human.get_transform_list("cartesian_wristframe_6d", keypoint_gripper=True)
+    assert isinstance(tl[0], KeypointsToGripper), "grip extraction must run first"
+    inserts = [t for t in tl if isinstance(t, InsertGripperChannels)]
+    assert {t.action_key for t in inserts} == {
+        "actions_cartesian",
+        "observations.state.ee_pose",
+    }
+    with pytest.raises(ValueError):
+        Human.get_transform_list(
+            "cartesian_wristframe_6d", keypoint_gripper=True, pad_proprio_gripper=True
+        )
+
+    rl = _build_human_cartesian_revert_6d_wristframe_grip_transform_list()
+    assert isinstance(rl[0], UnpadGripperZeros)
+    assert rl[0].action_key == "actions_cartesian"
+
+    km = Human.get_keymap("cartesian_pi", include_grip_keypoints=True)
+    assert km["left.action_grip_keypoints"]["horizon"] == Human.ACTION_HORIZON
+    assert km["right.obs_grip_keypoints"]["zarr_key"] == "right.obs_keypoints"

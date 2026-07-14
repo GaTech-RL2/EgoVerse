@@ -760,3 +760,105 @@ class NumpyToTensor(Transform):
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
         return batch
+
+
+class KeypointsToGripper(Transform):
+    """Derive a pseudo-gripper openness [0, 1] per hand from 21-keypoint
+    MANO hands: closed if pinching OR fisted.
+
+        pinch = ||thumb_tip - index_tip||            (meters)
+        curl  = mean fingertip-to-palm-center dist / hand size
+        open  = clip(min(pinch_open, curl_open) / 0.35, 0, 1)
+
+    Constants calibrated on aria bag_groceries / fold_clothes viz: pinch
+    opens over 1.5->10 cm, curl over 0.70->1.50, and the raw combined signal
+    saturates around 0.35 (treated as fully open). Distances are relative, so
+    the world/head frame of the keypoints is irrelevant.
+
+    Consumes ``left/right.action_grip_keypoints`` ((T_raw, 63), the raw
+    action-horizon series) and ``left/right.obs_grip_keypoints`` ((63,), the
+    current frame), producing ``left/right.action_grip`` ((chunk_length, 1),
+    strided + linearly interpolated exactly like the pose chunker) and
+    ``left/right.obs_grip`` ((1,)). Frames with no tracked hand (all-zero
+    keypoints) read fully open (relaxed hand).
+    """
+
+    PINCH_RANGE = (0.015, 0.10)
+    CURL_RANGE = (0.70, 1.50)
+    OPEN_SCALE = 0.35
+
+    def __init__(self, chunk_length: int = 100, stride: int = 3):
+        self.chunk_length = int(chunk_length)
+        self.stride = int(stride)
+
+    def _openness(self, kp: np.ndarray) -> np.ndarray:
+        """kp: (..., 21, 3) -> (...,) openness in [0, 1]."""
+        pinch = np.linalg.norm(kp[..., 4, :] - kp[..., 8, :], axis=-1)
+        hand = np.linalg.norm(kp[..., 9, :] - kp[..., 0, :], axis=-1) + 1e-9
+        palm = kp[..., (5, 9, 13, 17), :].mean(axis=-2)
+        tips = kp[..., (8, 12, 16, 20), :]
+        curl = np.linalg.norm(tips - palm[..., None, :], axis=-1).mean(axis=-1) / hand
+        p_lo, p_hi = self.PINCH_RANGE
+        c_lo, c_hi = self.CURL_RANGE
+        p_open = np.clip((pinch - p_lo) / (p_hi - p_lo), 0.0, 1.0)
+        c_open = np.clip((curl - c_lo) / (c_hi - c_lo), 0.0, 1.0)
+        openness = np.clip(np.minimum(p_open, c_open) / self.OPEN_SCALE, 0.0, 1.0)
+        invalid = np.abs(kp).sum(axis=(-1, -2)) < 1e-9
+        return np.where(invalid, 1.0, openness)
+
+    def transform(self, batch: dict) -> dict:
+        from egomimic.utils.pose_utils import _interpolate_linear
+
+        for side in ("left", "right"):
+            act_key = f"{side}.action_grip_keypoints"
+            obs_key = f"{side}.obs_grip_keypoints"
+            if act_key in batch:
+                kp = np.asarray(batch.pop(act_key), dtype=np.float64)
+                kp = kp.reshape(kp.shape[0], 21, 3)
+                series = self._openness(kp)[:: self.stride][:, None]  # (T', 1)
+                batch[f"{side}.action_grip"] = _interpolate_linear(
+                    series, self.chunk_length
+                )
+            if obs_key in batch:
+                kp = np.asarray(batch.pop(obs_key), dtype=np.float64).reshape(21, 3)
+                batch[f"{side}.obs_grip"] = np.array(
+                    [self._openness(kp)], dtype=np.float64
+                ).reshape(1)
+        return batch
+
+
+class InsertGripperChannels(Transform):
+    """Insert per-arm grip channels into an 18D human xyz+6D vector at the
+    robot-layout slots -> 20D [L xyz c1 c2 g | R xyz c1 c2 g] (grips at
+    9/19). Works for (T, 18) action chunks with (T, 1) grip series and (18,)
+    proprio vectors with (1,) grips. Makes human pseudo-gripper data
+    layout-identical to eva robot data."""
+
+    def __init__(
+        self,
+        action_key: str,
+        left_grip_key: str,
+        right_grip_key: str,
+        delete_grip_keys: bool = True,
+    ):
+        self.action_key = action_key
+        self.left_grip_key = left_grip_key
+        self.right_grip_key = right_grip_key
+        self.delete_grip_keys = delete_grip_keys
+
+    def transform(self, batch: dict) -> dict:
+        arr = np.asarray(batch[self.action_key])
+        if arr.shape[-1] != 18:
+            raise ValueError(
+                f"InsertGripperChannels expects width 18, got {arr.shape} "
+                f"for key '{self.action_key}'"
+            )
+        lg = np.asarray(batch[self.left_grip_key]).reshape(arr.shape[:-1] + (1,))
+        rg = np.asarray(batch[self.right_grip_key]).reshape(arr.shape[:-1] + (1,))
+        batch[self.action_key] = np.concatenate(
+            [arr[..., :9], lg, arr[..., 9:], rg], axis=-1
+        )
+        if self.delete_grip_keys:
+            batch.pop(self.left_grip_key, None)
+            batch.pop(self.right_grip_key, None)
+        return batch
