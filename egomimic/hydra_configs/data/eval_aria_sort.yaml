@@ -5,10 +5,11 @@ defaults:
 # ARIA SORT-ONLY eval: human side restricted to task=='sort' (the 21 episodes
 # with real sort goals + subtask decompositions), so eval videos/metrics are
 # guaranteed to carry the sort instruction and a real [gt] target (modulo
-# frames outside annotation spans). eva nulled — the pp in-domain reference
-# comes from the mixed-split eval instead.
+# frames outside annotation spans). eva KEEPS the parent's pp split: PI
+# instantiation iterates every domain in the MODEL config, and a nulled
+# dataset crashes it (ConfigKeyError: Missing key 6 = EVA_BIMANUAL); one
+# 2-sample eva batch is harmless and doubles as the in-domain reference.
 train_datasets:
-  eva_bimanual: null
   human_bimanual:
     filters:
       # Keep the parent's ScaleAnnotationDatasetFilter _target_: swapping to
@@ -20,7 +21,6 @@ train_datasets:
         - "lambda row: row.get('embodiment') == 'human_bimanual' and row.get('lab') == 'rl2' and row.get('task') == 'sort' and (row.get('zarr_processed_path') or '') != '' and (row.get('episode_hash') or '') not in ('2026-04-26-00-17-53-000000', '2026-04-26-00-27-26-000000', '2026-05-01-02-52-58-000000')"
 
 valid_datasets:
-  eva_bimanual: null
   human_bimanual:
     filters:
       # Keep the parent's ScaleAnnotationDatasetFilter _target_: swapping to
