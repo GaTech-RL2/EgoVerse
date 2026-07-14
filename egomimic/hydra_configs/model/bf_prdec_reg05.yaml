@@ -109,7 +109,7 @@ robomimic_model:
       apex_s: 128
       dual_inner: true
       target_compression_ratio: 3.0
-      ratio_loss_weight: 0.03
+      ratio_loss_weight: 0.5
       grab_prev_end: true
       residual_mixer: mlp
       residual_mixer_kwargs: {n_layers: 4}
@@ -134,7 +134,7 @@ robomimic_model:
       apex_a: 1024
       dual_inner: false
       target_compression_ratio: 3.0
-      ratio_loss_weight: 0.03
+      ratio_loss_weight: 0.5
       grab_prev_end: true
       residual_mixer: mlp
       residual_mixer_kwargs: {n_layers: 4}
