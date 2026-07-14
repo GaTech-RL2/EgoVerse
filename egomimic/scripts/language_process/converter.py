@@ -53,7 +53,7 @@ class PickPlaceLLMConverter(LLMConverter):
         scale_annotation_dir: str,
         prompt_filepath: str,
         augment_prompt_filepath: str | None = None,
-        subtask_copy: bool = False,
+        subtask_copy: bool = True,
     ):
         super().__init__(scale_annotation_dir, prompt_filepath)
         if augment_prompt_filepath is not None:
@@ -61,8 +61,9 @@ class PickPlaceLLMConverter(LLMConverter):
                 self.augment_prompt_template = f.read()
         else:
             self.augment_prompt_template = None
-        # When True, the task instructions are ALSO written verbatim under the
-        # subtask key (eva regime: identical task prompt and subtask target).
+        # When True (default — policy 2026-07-13), the task instructions are
+        # ALSO written verbatim under the subtask key: on pick_place the
+        # subtask target IS the instruction (identical copy, all embodiments).
         self.subtask_copy = subtask_copy
 
     def scale_to_str_format(self, annotation_dict: dict) -> dict[str, list]:

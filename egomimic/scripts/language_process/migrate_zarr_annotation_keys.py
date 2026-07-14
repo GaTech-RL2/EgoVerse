@@ -46,6 +46,14 @@ def main() -> None:
         action="store_true",
         help="Rewrite role keys even when annotations_task already exists.",
     )
+    parser.add_argument(
+        "--copy-missing-subtask",
+        action="store_true",
+        help="Backfill mode: for episodes that HAVE annotations_task but no "
+        "annotations_subtask (pp episodes migrated under the old no-copy "
+        "policy), write annotations_subtask as an identical copy of the task "
+        "entries. Sort episodes (subtask already present) untouched.",
+    )
     args = parser.parse_args()
 
     import zarr
@@ -67,6 +75,28 @@ def main() -> None:
         path = os.path.join(root, ep)
         g = zarr.open(path, mode="r")
         arrays = set(g.array_keys())
+        if args.copy_missing_subtask:
+            if "annotations_task" not in arrays or "annotations_subtask" in arrays:
+                n_skip += 1
+                continue
+            raw = [
+                _decode(x) for x in g["annotations_task"][:]
+            ]
+            entries = [
+                (d["text"], int(d["start_idx"]), int(d["end_idx"]))
+                for d in raw if isinstance(d, dict)
+            ]
+            if args.dry_run:
+                print(f"[DRY] {ep} <- subtask copy of {len(entries)} task entries")
+                continue
+            from egomimic.rldb.zarr.zarr_writer import ZarrWriter as _ZW
+            _ZW(episode_path=path, verbose=False).append_annotations(
+                annotation_key="annotations_subtask", annotations=entries, mode="w"
+            )
+            print(f"[OK] {ep} <- subtask copy ({len(entries)} entries)")
+            n_pp += 1
+            n_eva_copy += 1
+            continue
         if "annotations" not in arrays:
             print(f"[NOANN] {ep} — no legacy annotations array")
             n_noann += 1

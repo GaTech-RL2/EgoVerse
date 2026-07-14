@@ -114,10 +114,15 @@ def split_payload(payload: list[dict], subtask_copy: bool) -> dict[str, list[dic
     rest = [plain(e) for e in payload if e.get("level") != "high"]
     if highs:  # sort episode
         return {"annotations_task": highs, "annotations_subtask": rest}
-    keyed = {"annotations_task": rest}
-    if subtask_copy:
-        keyed["annotations_subtask"] = [dict(e) for e in rest]
-    return keyed
+    # pick_place: the subtask target IS the task instruction (identical copy,
+    # ALL embodiments — policy 2026-07-13: an unanchored decode on pp episodes
+    # produced scattered predictions; copying anchors it). ``subtask_copy``
+    # retained for API compat but no longer gates the copy.
+    _ = subtask_copy
+    return {
+        "annotations_task": rest,
+        "annotations_subtask": [dict(e) for e in rest],
+    }
 
 
 def main() -> None:
