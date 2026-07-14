@@ -170,7 +170,9 @@ class DualChunkerLevel(Stage):
                  router_pre_layout: Optional[str] = None, router_pre_detach: bool = False,
                  router_core: str = "cossim",
                  router_mixer_n_layers: int = 4, router_hidden_mult: float = 4.0,
-                 ste_gain: float = 1.0):
+                 ste_gain: float = 1.0,
+                 hard_band_weight: float = 0.0, hard_band_lo: float = 0.25,
+                 hard_band_hi: float = 0.45, hard_band_window: int = 12):
         super().__init__()
         d_s = int(d_s) if d_s is not None else int(d_a)
         apex_s = int(apex_s) if apex_s is not None else d_s
@@ -182,6 +184,13 @@ class DualChunkerLevel(Stage):
         self.spread_loss_weight = float(spread_loss_weight)
         self.spread_alpha = float(spread_alpha)
         self.ste_gain = float(ste_gain)
+        # hard-band reg: constrains REALIZED (hard) boundary decisions — rate
+        # band + min-one-boundary-per-window — instead of prob densities.
+        # Replaces the ratio loss (set ratio_loss_weight: 0.0 alongside).
+        self.hard_band_weight = float(hard_band_weight)
+        self.hard_band_lo = float(hard_band_lo)
+        self.hard_band_hi = float(hard_band_hi)
+        self.hard_band_window = int(hard_band_window)
         self.grab_prev_end = bool(grab_prev_end)
         self._embs = list(embodiments) if embodiments else None
         object.__setattr__(self, "inner", None)  # NON-registered ref
@@ -312,6 +321,10 @@ class DualChunkerLevel(Stage):
             "dec_weight": self.decisiveness_loss_weight,
             "spread_weight": self.spread_loss_weight,
             "spread_alpha": self.spread_alpha,
+            "hb_weight": self.hard_band_weight,
+            "hb_lo": self.hard_band_lo,
+            "hb_hi": self.hard_band_hi,
+            "hb_window": self.hard_band_window,
             "tokens": A_ch,               # chunkviz PCA reads A tokens ONLY
         })
         return batch

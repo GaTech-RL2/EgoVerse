@@ -503,6 +503,38 @@ class RatioLoss(Stage):
                 spread_i = F.relu(target - pv.var(unbiased=False))
                 batch[f"log/L{i}_pvar"] = float(pv.var(unbiased=False))
                 dec_total = w_s * spread_i if dec_total is None else dec_total + w_s * spread_i
+            # Hard-band reg (ratio-loss replacement): constrain the REALIZED
+            # boundary decisions — the statistic eval actually uses — via STE.
+            # (a) rate band [lo, hi] on the hard boundary rate: zero force
+            #     inside the band (flat feasible basin, task owns the router);
+            # (b) >= 1 hard boundary per `window` tokens within each episode
+            #     (bans all-merge locally). Hedging at p~0.5 makes the realized
+            #     stats flap -> violations kick probs ACROSS the threshold, so
+            #     the 0.5 fence is unstable here rather than optimal.
+            w_hb = float(rec.get("hb_weight", 0.0))
+            if w_hb > 0:
+                p_all = rec["boundary_prob"][..., -1]
+                b_ste = (p_all > 0.5).float() + (p_all - p_all.detach())
+                cu_hb = rec["cu_seqlens"]
+                Fr = b_ste[valid].mean()  # forced starts excluded from the rate
+                lo, hi = float(rec.get("hb_lo", 0.25)), float(rec.get("hb_hi", 0.45))
+                l_rate = F.relu(Fr - hi) + F.relu(lo - Fr)
+                W = max(2, int(rec.get("hb_window", 12)))
+                l_win = p_all.new_zeros(())
+                nwin = 0
+                for _e in range(len(cu_hb) - 1):
+                    seg = b_ste[int(cu_hb[_e]):int(cu_hb[_e + 1])]
+                    k = seg.numel() // W
+                    if k > 0:
+                        wsum = seg[: k * W].reshape(k, W).sum(-1)
+                        l_win = l_win + F.relu(1.0 - wsum).sum()
+                        nwin += k
+                if nwin:
+                    l_win = l_win / nwin
+                hb_i = w_hb * (l_rate + l_win)
+                batch[f"log/L{i}_hb_rate"] = float(Fr)
+                batch[f"log/L{i}_hb_winviol"] = float(l_win)
+                dec_total = hb_i if dec_total is None else dec_total + hb_i
         if dec_total is not None:
             batch["loss/dec"] = dec_total
         return batch
