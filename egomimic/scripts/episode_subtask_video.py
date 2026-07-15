@@ -77,6 +77,14 @@ def main():
     total = leaf.total_frames
     print(f"[ok] episode {ep_key}: {total} frames")
 
+    # Fetch samples through the MultiDataset wrapper (normalization + the
+    # extra fields process_batch expects) — indexing the leaf directly skips
+    # both. index_map: global idx -> (episode, local frame); invert for ours.
+    ep_global = {}
+    for gi, (name, li) in enumerate(ds.index_map):
+        if name == ep_key:
+            ep_global[li] = gi
+
     # raw images + gt spans straight from the zarr
     g = zarr.open(str(leaf.episode_path), mode="r")
     imgs = g["images.front_1"]
@@ -95,7 +103,7 @@ def main():
 
     def decode_at(f):
         """One AR subtask decode at frame ``f`` through the standard pipeline."""
-        sample = leaf[f]
+        sample = ds[ep_global[f]]
         batch = annotation_collate([sample])
         with torch.no_grad():
             pb = algo.process_batch_for_training(
