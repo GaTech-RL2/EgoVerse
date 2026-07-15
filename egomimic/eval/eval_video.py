@@ -20,6 +20,8 @@ class EvalVideo(Eval):
         limit_val_batches: int = 400,
         viz_func: dict = None,
         transform_lists: dict | None = None,
+    
+        video_buffer_frames: int = 1000,
     ):
         super().__init__()
         self.trainer = None
@@ -31,6 +33,12 @@ class EvalVideo(Eval):
         self.transform_lists = transform_lists or {}
         self.val_image_buffer = {}
         self.val_counter = {}
+        # Frames buffered per embodiment before an mp4 is written mid-val.
+        # Small evals (batch_size 2, one batch) never reach the historical
+        # hardcoded 1000, and the on_validation_end flush has proven fragile
+        # in eval mode — pass a small value (e.g. +evaluator.video_buffer_frames=2)
+        # to force the reliable mid-val write path.
+        self.video_buffer_frames = video_buffer_frames
         self.override_dict = {
             "strategy": "ddp_find_unused_parameters_true",
             "limit_train_batches": 0,
@@ -111,7 +119,7 @@ class EvalVideo(Eval):
                 self.val_image_buffer[key] = []
                 self.val_counter[key] = 0
             self.val_image_buffer[key].extend(torch.from_numpy(images))
-            if len(self.val_image_buffer[key]) >= 1000:
+            if len(self.val_image_buffer[key]) >= self.video_buffer_frames:
                 frames = torch.stack(self.val_image_buffer[key])
                 path = os.path.join(
                     self.video_dir(),
