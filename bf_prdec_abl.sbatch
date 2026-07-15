@@ -17,7 +17,7 @@
 # z-in-S via AdaLN (adaLN-zero, A untouched), raw-S pre-trunk posterior,
 # z->0 sampling 0.1, band sg=on, fb=0.5. bcrecipe bs16/ltb100/3000ep.
 # Ladder: GMM bcrecipe (0.809/0.448@999) -> CVAE v1 (running) -> THIS.
-MODEL=${MODEL:?}; NAME=${NAME:?}
+MODEL=${MODEL:?}; NAME=${NAME:?}; EXTRA=${EXTRA:-}
 cd /coc/flash7/paphiwetsa3/projects/EgoVerse-batchflow
 export PYTHONPATH=. MUJOCO_GL=egl
 CELL=$NAME
@@ -35,4 +35,5 @@ srun .venv/bin/python -m egomimic.trainHydra --config-name=train_zarr_cartesian 
   trainer.check_val_every_n_epoch=250 \
   +model.scheduler_interval=epoch model.scheduler.max_steps=3000 model.scheduler.warmup_steps=150 \
   callbacks.model_checkpoint.save_last=true callbacks.model_checkpoint.save_top_k=-1 \
-  callbacks.model_checkpoint.every_n_epochs=500 ++callbacks.model_checkpoint.save_on_train_epoch_end=true
+  callbacks.model_checkpoint.every_n_epochs=500 ++callbacks.model_checkpoint.save_on_train_epoch_end=true \
+  $EXTRA

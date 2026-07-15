@@ -25,7 +25,8 @@ from omegaconf import OmegaConf
 from egomimic.eval.core.eval_sim import HPTSimEval, PackedSimEval
 
 
-def load_algo_from_ckpt(ckpt_path: str, config_path: str | None = None):
+def load_algo_from_ckpt(ckpt_path: str, config_path: str | None = None,
+                        use_ema: bool = False):
     """Reconstruct the algo + load its weights from the lightning ckpt."""
     print(f"[load] ckpt: {ckpt_path}")
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
@@ -54,6 +55,14 @@ def load_algo_from_ckpt(ckpt_path: str, config_path: str | None = None):
 
     # Strip "nets." prefix or "model.nets." prefix when loading.
     state_dict = ckpt["state_dict"]
+    if use_ema:
+        ema = ckpt.get("ema_state_dict")
+        if ema is None:
+            raise SystemExit("--use-ema: checkpoint has no ema_state_dict "
+                             "(was the run trained with EMACallback?)")
+        state_dict = dict(state_dict)
+        state_dict.update(ema)  # float params/buffers -> EMA; int buffers stay live
+        print(f"[load] using EMA weights ({len(ema)} tensors)")
     new_sd = {}
     for k, v in state_dict.items():
         for prefix in ("nets.", "model.nets."):
@@ -85,6 +94,8 @@ class _MockTrainer:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ckpt", required=True)
+    parser.add_argument("--use-ema", action="store_true",
+                        help="load ema_state_dict weights (EMACallback runs)")
     parser.add_argument(
         "--config-path",
         default=None,
@@ -180,7 +191,8 @@ def main():
             args.config_path = str(guessed)
             print(f"[config] using {args.config_path}")
 
-    algo, _ = load_algo_from_ckpt(args.ckpt, args.config_path)
+    algo, _ = load_algo_from_ckpt(args.ckpt, args.config_path,
+                                  use_ema=args.use_ema)
     # HNet algo doesn't inherit nn.Module — move the inner ModuleDict.
     algo.nets = algo.nets.to(device)
     algo.device = device

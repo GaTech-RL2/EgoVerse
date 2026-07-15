@@ -124,9 +124,19 @@ class VisualCore(nn.Module):
         crop_width: int = None,
         crop_eval_mode: str = "center",
         crop_sample_mode: str = "inclusive",
+        norm_layer: str = "batch",
     ):
         super().__init__()
         import torchvision
+
+        # norm_layer: "batch" (default, byte-identical to before this knob) or
+        # "group" -> every BatchNorm2d in the backbone is replaced with
+        # GroupNorm(C//16, C) (diffusion-policy's obs_encoder_group_norm swap).
+        # Required when training with EMACallback: EMA-averaged conv weights +
+        # live BN running stats mismatch; GroupNorm has no running stats.
+        if norm_layer not in ("batch", "group"):
+            raise ValueError(f"norm_layer must be batch|group, got {norm_layer!r}")
+        self.norm_layer = str(norm_layer)
 
         # crop_eval_mode (robomimic CropRandomizer.forward_in, v0.2
         # base_nets.py:1351): v0.2 crops RANDOMLY and UNCONDITIONALLY -- there is
@@ -183,6 +193,15 @@ class VisualCore(nn.Module):
             )
         # ResNet18Conv backbone: cut avgpool + fc (last two children).
         self.backbone = nn.Sequential(*list(pretrained_model.children())[:-2])
+        if self.norm_layer == "group":
+            def _swap_bn(mod: nn.Module) -> None:
+                for name, child in mod.named_children():
+                    if isinstance(child, nn.BatchNorm2d):
+                        c = child.num_features
+                        setattr(mod, name, nn.GroupNorm(max(1, c // 16), c))
+                    else:
+                        _swap_bn(child)
+            _swap_bn(self.backbone)
         with torch.no_grad():
             _f = self.backbone(
                 torch.zeros(1, in_channels, backbone_size_h, backbone_size_w)
