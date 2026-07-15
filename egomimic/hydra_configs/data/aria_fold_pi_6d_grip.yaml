@@ -18,7 +18,11 @@ train_datasets:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
       _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      # Dedicated, decode-verified copy (sync_aria_fold_fresh.py). The shared
+      # mirror holds stale/corrupt partial copies of several aria episodes
+      # (old syncs; "already present" skips kept them), which caused a
+      # decode-retry storm that dragged the first finetune to ~21 s/step.
+      folder_path: /storage/project/r-dxu345-0/agao81/ariaFoldZarrDatasets
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: cartesian_pi
