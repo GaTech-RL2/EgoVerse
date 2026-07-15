@@ -88,6 +88,29 @@ def main():
     # raw images + gt spans straight from the zarr
     g = zarr.open(str(leaf.episode_path), mode="r")
     imgs = g["images.front_1"]
+
+    def read_frame(f):
+        # Same read pattern as ZarrDataset: ragged-bytes element via
+        # arr[f:f+1][0] + simplejpeg (arr[f] returns a different object
+        # that cv2.imdecode can't parse).
+        payload = imgs[f : f + 1][0]
+        try:
+            import simplejpeg
+
+            rgb = simplejpeg.decode_jpeg(payload, colorspace="RGB")
+            return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+        except Exception:
+            pass
+        arr = np.asarray(payload)
+        if arr.ndim >= 2:  # stored already-decoded
+            return cv2.cvtColor(arr.astype(np.uint8), cv2.COLOR_RGB2BGR)
+        im = cv2.imdecode(np.frombuffer(bytes(payload), np.uint8), cv2.IMREAD_COLOR)
+        if im is None:
+            raise RuntimeError(
+                f"frame {f}: undecodable payload type={type(payload)} "
+                f"shape={getattr(arr, 'shape', '?')} dtype={getattr(arr, 'dtype', '?')}"
+            )
+        return im
     gt_spans = []
     if "annotations_subtask" in set(g.array_keys()):
         for x in g["annotations_subtask"][:]:
@@ -118,10 +141,7 @@ def main():
         return prompt_show, (pred[0] if pred else "<none>")
 
     # ---- render ----
-    raw0 = imgs[0]
-    im0 = cv2.imdecode(
-        np.frombuffer(bytes(raw0), np.uint8), cv2.IMREAD_COLOR
-    )
+    im0 = read_frame(0)
     H, W = im0.shape[:2]
     pad = 110  # black text band below the frame
     vw = cv2.VideoWriter(
@@ -135,7 +155,7 @@ def main():
             except Exception as e:  # keep rendering; mark decode failure
                 pred = f"<decode error: {type(e).__name__}>"
             print(f"[{f}/{n}] pred={pred[:70]!r}", flush=True)
-        im = cv2.imdecode(np.frombuffer(bytes(imgs[f]), np.uint8), cv2.IMREAD_COLOR)
+        im = read_frame(f)
         canvas = np.zeros((H + pad, W, 3), np.uint8)
         canvas[:H] = im
         gt = gt_at(f)
