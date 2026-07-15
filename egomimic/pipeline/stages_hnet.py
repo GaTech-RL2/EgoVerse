@@ -73,7 +73,7 @@ class DualTrunkLevel(Stage):
                  embodiments: Optional[List[str]] = None,
                  allow_agnostic_cross: bool = False, decoder_layout=None,
                  adaln_cond: Optional[str] = None, adaln_dim: Optional[int] = None,
-                 ffn_dropout: float = 0.0):
+                 ffn_dropout: float = 0.0, attn_window: Optional[int] = None):
         super().__init__()
         streams_cfg = [dict(s) for s in streams_cfg]
         N = len(streams_cfg)
@@ -82,6 +82,10 @@ class DualTrunkLevel(Stage):
                          if mask_mode == "sym"
                          else [[] if i == 0 else [0] for i in range(N)])
         self.causal = bool(causal)
+        # attn_window: sliding causal window in THIS level's tokens for both
+        # the encode and decode trunks (None = full within-episode history).
+        # Apex stays full-history — set this only on non-apex levels.
+        self.attn_window = int(attn_window) if attn_window is not None else None
         self.adaln_cond = str(adaln_cond) if adaln_cond else None
         ad = int(adaln_dim) if (adaln_cond and adaln_dim) else None
         self.trunk = MultiStreamTrunk(streams_cfg, adjacency, n_layers, rotary_emb_dim,
@@ -111,7 +115,8 @@ class DualTrunkLevel(Stage):
     def forward(self, batch: dict) -> dict:
         A, S = batch["A"], batch["S"]
         cu, tp, emb = batch["cu_seqlens"], batch["time_pos"], batch["embodiment"]
-        mask = build_same_episode_causal_mask(A.shape[0], cu, tp, self.causal, A.device)
+        mask = build_same_episode_causal_mask(A.shape[0], cu, tp, self.causal,
+                                              A.device, window=self.attn_window)
         rope = tp.to(device=A.device, dtype=torch.long)
         cond = None
         if self.adaln_cond and self.adaln_cond in batch:

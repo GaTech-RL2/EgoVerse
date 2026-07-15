@@ -74,6 +74,7 @@ def build_same_episode_causal_mask(
     time_pos: torch.Tensor,
     causal: bool,
     device,
+    window: "int | None" = None,
 ) -> torch.Tensor:
     """``(T_total, T_total)`` bool allow-mask: same-episode AND (optionally)
     time-causal, with the diagonal always allowed.
@@ -82,6 +83,11 @@ def build_same_episode_causal_mask(
     episode boundaries + within-episode time index). Factored verbatim from
     ``MultiStreamComputeStage._build_mask`` so every dual-stream stage builds the
     mask identically (single source of truth).
+
+    ``window``: sliding causal window in THIS grid's tokens — token i may
+    attend only to j with ``tp[i] - tp[j] < window`` (plus same-episode +
+    causal). ``None`` (default) = full within-episode history, byte-identical
+    to before this knob. Only meaningful with ``causal=True``.
     """
     cu = cu_seqlens.to(device=device, dtype=torch.long)
     ep = torch.zeros(T_total, dtype=torch.long, device=device)
@@ -91,6 +97,8 @@ def build_same_episode_causal_mask(
     same_ep = ep[:, None] == ep[None, :]
     if causal:
         time_ok = tp[None, :] <= tp[:, None]
+        if window is not None:
+            time_ok = time_ok & ((tp[:, None] - tp[None, :]) < int(window))
     else:
         time_ok = torch.ones(T_total, T_total, dtype=torch.bool, device=device)
     allow = (same_ep & time_ok) | torch.eye(T_total, dtype=torch.bool, device=device)
