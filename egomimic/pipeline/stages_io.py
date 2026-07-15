@@ -53,6 +53,13 @@ class ObsEncoders(Stage):
             actions = torch.zeros((T, 1), device=dev, dtype=dt)
         cu = batch["cu_seqlens"].to(device=dev, dtype=torch.long)
         emb = batch["embodiment"]
+        # episode-consistent crop support: stamp the frame-grid cu on any
+        # VisualCore configured with crop_scope="episode" (duck-typed; the
+        # attribute is consumed inside VisualCore._crop and revalidated by
+        # length there, so stale stamps from other embs are harmless).
+        for m in self.modules():
+            if getattr(m, "crop_scope", None) == "episode":
+                m._episode_cu = cu
         kw = dict(actions_packed=actions, obs_packed=obs_packed, cu_seqlens=cu,
                   T_total=T, device=dev, dtype=actions.dtype,
                   embodiment_id=emb)

@@ -124,6 +124,7 @@ class VisualCore(nn.Module):
         crop_width: int = None,
         crop_eval_mode: str = "center",
         crop_sample_mode: str = "inclusive",
+        crop_scope: str = "frame",
         norm_layer: str = "batch",
     ):
         super().__init__()
@@ -137,6 +138,16 @@ class VisualCore(nn.Module):
         if norm_layer not in ("batch", "group"):
             raise ValueError(f"norm_layer must be batch|group, got {norm_layer!r}")
         self.norm_layer = str(norm_layer)
+        # crop_scope: "frame" (default, robomimic/DP behavior — every frame
+        # draws its own crop) or "episode" — ONE crop position per episode,
+        # shared by all its frames (keeps within-episode motion cues exact).
+        # "episode" needs episode boundaries: the packed pipeline's ObsEncoders
+        # stage stamps `self._episode_cu` (frame-grid cu_seqlens) before the
+        # encoder call; when absent or mismatched, falls back to per-frame.
+        if crop_scope not in ("frame", "episode"):
+            raise ValueError(f"crop_scope must be frame|episode, got {crop_scope!r}")
+        self.crop_scope = str(crop_scope)
+        self._episode_cu = None
 
         # crop_eval_mode (robomimic CropRandomizer.forward_in, v0.2
         # base_nets.py:1351): v0.2 crops RANDOMLY and UNCONDITIONALLY -- there is
@@ -230,28 +241,44 @@ class VisualCore(nn.Module):
         # Random crop at TRAIN always; at EVAL only when crop_eval_mode="random".
         do_random = self.training or (self.crop_eval_mode == "random")
         if do_random:
+            # crop_scope="episode": draw one corner per episode segment and
+            # broadcast to its frames (packed rows). Requires _episode_cu with
+            # cu[-1] == N (stamped by ObsEncoders); else per-frame fallback.
+            seg = None
+            if self.crop_scope == "episode":
+                cu = self._episode_cu
+                if cu is not None and int(cu[-1]) == N:
+                    cu = cu.to(device=x.device, dtype=torch.long)
+                    n_ep = cu.numel() - 1
+                    reps = (cu[1:] - cu[:-1])
+                    seg = torch.repeat_interleave(
+                        torch.arange(n_ep, device=x.device), reps)  # (N,) ep id
+            N_draw = int(seg.max()) + 1 if seg is not None else N
             # robomimic samples a random crop position PER image in the batch.
             if self.crop_sample_mode == "v02":
                 # v0.2 obs_utils.py:686-687: corner = floor(rand * max_sample),
                 # i.e. in {0..max-1} (EXCLUSIVE upper) -- matches the paper.
                 if max_h > 0:
-                    h0 = (max_h * torch.rand(N, device=x.device)).long()
+                    h0 = (max_h * torch.rand(N_draw, device=x.device)).long()
                 else:
-                    h0 = torch.zeros(N, dtype=torch.long, device=x.device)
+                    h0 = torch.zeros(N_draw, dtype=torch.long, device=x.device)
                 if max_w > 0:
-                    w0 = (max_w * torch.rand(N, device=x.device)).long()
+                    w0 = (max_w * torch.rand(N_draw, device=x.device)).long()
                 else:
-                    w0 = torch.zeros(N, dtype=torch.long, device=x.device)
+                    w0 = torch.zeros(N_draw, dtype=torch.long, device=x.device)
             else:
                 # inclusive (pre-existing): corner in {0..max} via randint.
                 if max_h > 0:
-                    h0 = torch.randint(0, max_h + 1, (N,), device=x.device)
+                    h0 = torch.randint(0, max_h + 1, (N_draw,), device=x.device)
                 else:
-                    h0 = torch.zeros(N, dtype=torch.long, device=x.device)
+                    h0 = torch.zeros(N_draw, dtype=torch.long, device=x.device)
                 if max_w > 0:
-                    w0 = torch.randint(0, max_w + 1, (N,), device=x.device)
+                    w0 = torch.randint(0, max_w + 1, (N_draw,), device=x.device)
                 else:
-                    w0 = torch.zeros(N, dtype=torch.long, device=x.device)
+                    w0 = torch.zeros(N_draw, dtype=torch.long, device=x.device)
+            if seg is not None:
+                # broadcast the per-episode corner to each of its frames
+                h0, w0 = h0[seg], w0[seg]
             # gather per-sample crops (vectorized via advanced indexing on rows).
             rows = h0[:, None] + torch.arange(ch, device=x.device)[None, :]  # (N, ch)
             cols = w0[:, None] + torch.arange(cw, device=x.device)[None, :]  # (N, cw)
