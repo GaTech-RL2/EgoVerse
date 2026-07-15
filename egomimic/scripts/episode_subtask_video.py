@@ -37,6 +37,14 @@ def main():
     ap.add_argument("--embodiment", default="human_bimanual")
     ap.add_argument("--episode-index", type=int, default=0)
     ap.add_argument("--episode-hash", type=str, default=None)
+    ap.add_argument(
+        "--mode",
+        choices=("interval", "stride"),
+        default="interval",
+        help="interval: one decode per GT annotation interval, at its middle "
+        "frame, held across the interval (falls back to stride if the episode "
+        "has no annotations); stride: decode every --stride frames",
+    )
     ap.add_argument("--stride", type=int, default=30)
     ap.add_argument("--fps", type=int, default=30)
     ap.add_argument("--max-frames", type=int, default=2400)
@@ -140,6 +148,34 @@ def main():
         prompt_show = prompt.split(", State:")[0]
         return prompt_show, (pred[0] if pred else "<none>")
 
+    # Distinct annotation intervals: paraphrase augmentation writes many
+    # entries over the SAME (start, end) span — the distinct spans are the
+    # real segmentation the annotator drew.
+    intervals = sorted({(s, e) for s, e, _ in gt_spans if s < n})
+
+    interval_preds = {}
+    if args.mode == "interval" and intervals:
+        # One decode per interval, at its MIDDLE frame (the best-grounded
+        # observation for that phase); held across the whole interval.
+        for k, (s, e) in enumerate(intervals):
+            mid = min(max((s + e) // 2, 0), n - 1)
+            try:
+                interval_preds[(s, e)] = decode_at(mid)
+            except Exception as exc:
+                interval_preds[(s, e)] = ("", f"<decode error: {type(exc).__name__}>")
+            print(
+                f"[interval {k + 1}/{len(intervals)} f{s}-{e} @mid f{mid}] "
+                f"pred={interval_preds[(s, e)][1][:70]!r}",
+                flush=True,
+            )
+
+    def pred_at(f):
+        """(prompt, pred) of the covering interval; latest-starting wins."""
+        cover = [iv for iv in intervals if iv[0] <= f < iv[1]]
+        if not cover:
+            return "", "(no annotation interval)"
+        return interval_preds[max(cover, key=lambda iv: iv[0])]
+
     # ---- render ----
     im0 = read_frame(0)
     H, W = im0.shape[:2]
@@ -148,13 +184,17 @@ def main():
         args.out, cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (W, H + pad)
     )
     prompt_show, pred = "", ""
+    stride_mode = not (args.mode == "interval" and intervals)
     for f in range(n):
-        if f % args.stride == 0:
-            try:
-                prompt_show, pred = decode_at(f)
-            except Exception as e:  # keep rendering; mark decode failure
-                pred = f"<decode error: {type(e).__name__}>"
-            print(f"[{f}/{n}] pred={pred[:70]!r}", flush=True)
+        if stride_mode:
+            if f % args.stride == 0:
+                try:
+                    prompt_show, pred = decode_at(f)
+                except Exception as e:  # keep rendering; mark decode failure
+                    pred = f"<decode error: {type(e).__name__}>"
+                print(f"[{f}/{n}] pred={pred[:70]!r}", flush=True)
+        else:
+            prompt_show, pred = pred_at(f)
         im = read_frame(f)
         canvas = np.zeros((H + pad, W, 3), np.uint8)
         canvas[:H] = im
