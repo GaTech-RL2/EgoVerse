@@ -78,7 +78,7 @@ def _make_converter(
     augment_prompt_filepath: str | None = None,
     sort_prompt_filepath: str | None = None,
     sort_augment_prompt_filepath: str | None = None,
-    subtask_copy: bool = False,
+    subtask_copy: bool = True,
 ):
     from egomimic.scripts.language_process.converter import (
         HardCodedConverter,
@@ -123,7 +123,7 @@ def process_episode(
     augment_prompt_filepath: str | None = None,
     sort_prompt_filepath: str | None = None,
     sort_augment_prompt_filepath: str | None = None,
-    subtask_copy: bool = False,
+    subtask_copy: bool = True,
 ) -> str:
     """Self-contained Ray task: download, convert, and upload one episode's
     annotations — ONE JSON PER ROLE KEY (``{hash}_annotations_task.json``,
@@ -247,10 +247,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--subtask-copy",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help="pick_place_llm only: ALSO write the task instructions verbatim "
         "under annotations_subtask (eva regime — identical task prompt and "
-        "subtask target).",
+        "subtask target). Default True, matching PickPlaceLLMConverter's own "
+        "default and the two-stage bucket_to_zarr sbatch (which unconditionally "
+        "injects annotations_subtask). Pass --no-subtask-copy to emit only "
+        "annotations_task.",
     )
     parser.add_argument(
         "--bucket",
