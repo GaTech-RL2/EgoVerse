@@ -127,8 +127,10 @@ def main():
                 gt_spans.append((int(d["start_idx"]), int(d["end_idx"]), d["text"]))
 
     def gt_at(f):
-        texts = [t for s, e, t in gt_spans if s <= f < e]
-        return texts[0] if texts else None
+        # Uses the SAME frame->interval assignment as pred_at (frame_iv, built
+        # below), so the [gt] and [pred] overlays can never disagree.
+        iv = frame_iv[f]
+        return gt_text.get(iv) if iv is not None else None
 
     n = min(total, args.max_frames)
 
@@ -152,6 +154,24 @@ def main():
     # entries over the SAME (start, end) span — the distinct spans are the
     # real segmentation the annotator drew.
     intervals = sorted({(s, e) for s, e, _ in gt_spans if s < n})
+    _iv_set = set(intervals)
+    gt_text = {}
+    for _s, _e, _t in gt_spans:
+        if (_s, _e) in _iv_set:
+            gt_text.setdefault((_s, _e), _t)  # first paraphrase = representative
+
+    # Single shared frame -> interval assignment, used by BOTH gt_at and
+    # pred_at. THE FIX: pred_at previously chose the latest-starting covering
+    # interval while gt_at chose the first-in-list one, so wherever two
+    # annotation spans overlap the prediction could flip partway through an
+    # interval and desync from the gt line (read as a second consecutive
+    # prediction under one instruction). Now every frame maps to exactly one
+    # interval and the overlay changes ONLY at a real boundary. Half-open
+    # spans; on overlap the later-starting span deterministically owns it.
+    frame_iv = [None] * n
+    for _s, _e in intervals:  # ascending start; later overwrites earlier on overlap
+        for _f in range(max(_s, 0), min(_e, n)):
+            frame_iv[_f] = (_s, _e)
 
     interval_preds = {}
     if args.mode == "interval" and intervals:
@@ -170,11 +190,13 @@ def main():
             )
 
     def pred_at(f):
-        """(prompt, pred) of the covering interval; latest-starting wins."""
-        cover = [iv for iv in intervals if iv[0] <= f < iv[1]]
-        if not cover:
+        """(prompt, pred) of the frame's assigned interval — the SAME assignment
+        gt_at uses, so both overlays hold across the interval and change only at
+        a real boundary."""
+        iv = frame_iv[f]
+        if iv is None:
             return "", "(no annotation interval)"
-        return interval_preds[max(cover, key=lambda iv: iv[0])]
+        return interval_preds.get(iv, ("", "(no annotation interval)"))
 
     # ---- render ----
     im0 = read_frame(0)
