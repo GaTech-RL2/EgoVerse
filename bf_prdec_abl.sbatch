@@ -23,7 +23,7 @@ export PYTHONPATH=. MUJOCO_GL=egl
 CELL=$NAME
 LAST=$(ls -t logs/indomain_c4/${CELL}_2026*/checkpoints/last.ckpt 2>/dev/null | head -1)
 RES=""; [ -n "$LAST" ] && RES="ckpt_path=$LAST"; echo "[${LAST:+RESUME}${LAST:-FRESH}] $CELL"
-srun .venv/bin/python -m egomimic.trainHydra --config-name=train_zarr_cartesian $RES \
+srun .venv/bin/python -m egomimic.trainHydra --config-name=train_zarr_cartesian $RES ++model.log_per_layer_grad_norms=true \
   +experiment=indomain_c4/dualstream_cotrain_2trunk_d16_200m \
   model=$MODEL \
   trainer=ddp_pi description=$CELL \

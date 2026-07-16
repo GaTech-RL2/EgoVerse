@@ -486,6 +486,7 @@ class RatioLoss(Stage):
         # point-mass at p=0.5 scores 0.75 < the honest optimum 1.0); with
         # near-binary probs G~F and the honest F=1/N becomes the true minimum.
         dec_total = None
+        _rates = []
         for i, rec in enumerate(batch.get("aux/chunker", [])):
             p_b = rec["boundary_prob"][..., -1]
             valid = torch.ones_like(p_b, dtype=torch.bool)
@@ -493,15 +494,21 @@ class RatioLoss(Stage):
             pv = p_b[valid]
             if pv.numel() == 0:
                 continue
-            # restored metrics (2026-07-15): explicit avg chunk length in this
-            # level's TOKENS (1/hard-rate; frames = tokens x grid stride factor)
-            hard_rate = float((pv > 0.5).float().mean())
-            batch[f"log/L{i}_avg_chunk_len_tok"] = (1.0 / hard_rate) if hard_rate > 0 else float(pv.numel())
-            dec_i = (1.0 - (2.0 * pv - 1.0).pow(2)).mean()
-            batch[f"log/L{i}_frac_indecisive"] = float(((pv - 0.5).abs() < 0.05).float().mean())
-            batch[f"log/L{i}_dec"] = float(dec_i)
+            # Chunk stats, old-repo semantics (chunk_stats_from_aux in
+            # EgoVerse-gmm hnet.py): hard boundary mask with forced subseq
+            # starts counted as boundaries; avg_chunk_len = n_tok / max(n_b, 1).
+            bm = (p_b > 0.5).clone()
+            bm[rec["cu_seqlens"][:-1]] = True
+            n_tok = max(bm.numel(), 1)
+            n_b = int(bm.sum().item())
+            f_hard = n_b / n_tok
+            batch[f"log/L{i}_boundary_rate"] = f_hard
+            batch[f"log/L{i}_avg_chunk_len"] = n_tok / max(n_b, 1)
+            _rates.append(f_hard)
             w = float(rec.get("dec_weight", 0.0))
             if w > 0:
+                dec_i = (1.0 - (2.0 * pv - 1.0).pow(2)).mean()
+                batch[f"log/L{i}_dec"] = float(dec_i)
                 dec_total = w * dec_i if dec_total is None else dec_total + w * dec_i
             # Distribution-level alternative: variance floor. Var(p) <= G(1-G)
             # with equality iff mass sits at {0,1}; requiring alpha of that
@@ -546,6 +553,8 @@ class RatioLoss(Stage):
                 batch[f"log/L{i}_hb_rate"] = float(Fr)
                 batch[f"log/L{i}_hb_winviol"] = float(l_win)
                 dec_total = hb_i if dec_total is None else dec_total + hb_i
+        if _rates:
+            batch["log/boundary_rate"] = sum(_rates) / len(_rates)
         if dec_total is not None:
             batch["loss/dec"] = dec_total
         return batch
