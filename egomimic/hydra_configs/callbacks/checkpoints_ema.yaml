@@ -5,3 +5,7 @@ defaults:
 ema:
   _target_: egomimic.pl_utils.ema_callback.EMACallback
   decay: 0.9999
+
+gradnorm:
+  _target_: egomimic.pl_utils.gradnorm_callback.GradNormLogger
+  every_n_steps: 50

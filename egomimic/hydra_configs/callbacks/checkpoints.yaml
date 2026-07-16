@@ -9,3 +9,6 @@ model_checkpoint:
   save_last: true
   save_top_k: -1
   every_n_epochs: 100
+gradnorm:
+  _target_: egomimic.pl_utils.gradnorm_callback.GradNormLogger
+  every_n_steps: 50

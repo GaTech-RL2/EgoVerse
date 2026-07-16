@@ -493,6 +493,10 @@ class RatioLoss(Stage):
             pv = p_b[valid]
             if pv.numel() == 0:
                 continue
+            # restored metrics (2026-07-15): explicit avg chunk length in this
+            # level's TOKENS (1/hard-rate; frames = tokens x grid stride factor)
+            hard_rate = float((pv > 0.5).float().mean())
+            batch[f"log/L{i}_avg_chunk_len_tok"] = (1.0 / hard_rate) if hard_rate > 0 else float(pv.numel())
             dec_i = (1.0 - (2.0 * pv - 1.0).pow(2)).mean()
             batch[f"log/L{i}_frac_indecisive"] = float(((pv - 0.5).abs() < 0.05).float().mean())
             batch[f"log/L{i}_dec"] = float(dec_i)
