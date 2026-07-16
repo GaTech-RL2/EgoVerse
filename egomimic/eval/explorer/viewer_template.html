@@ -119,6 +119,8 @@
   .cmpTraj{background:var(--bg2);border:1px solid var(--border-soft);border-radius:9px;
     height:340px;display:flex;align-items:center;justify-content:center;overflow:hidden;
     box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+  #pca,#cmpPca{cursor:grab}
+  #pca:active,#cmpPca:active{cursor:grabbing}
 </style>
 </head>
 <body>
@@ -137,9 +139,9 @@
       <span class="lbl" style="margin-left:10px">layer</span>
       <span class="seg" id="layerSeg">
         <button class="btn on" data-layer="chunks">colored chunks</button>
-        <button class="btn" data-layer="prob">P(boundary)</button>
         <button class="btn" data-layer="crisp">crisp</button>
       </span>
+      <button class="btn on" id="probBtn" title="show a P(boundary) band under each stage band">P(boundary)</button>
     </span>
     <span class="sp"></span>
     <span class="hint" id="ctxHint">space play · ←/→ step · click/drag timeline to seek</span>
@@ -174,7 +176,7 @@
     </section>
 
     <section class="card" id="pcaCard">
-      <h2>PCA — high-level chunk tokens (grey all · blue this episode · orange recent · red current)</h2>
+      <h2>PCA — high-level chunk tokens (grey all · blue this episode · orange recent · red current) · wheel zoom · drag pan · dblclick reset</h2>
       <canvas id="pca"></canvas>
     </section>
   </main>
@@ -204,6 +206,8 @@
           <button class="btn" data-pca="meandiff">−emb mean</button>
           <button class="btn" data-pca="lda">−emb LDA</button>
         </span>
+        <span class="vdiv"></span>
+        <button class="btn on" id="cmpProbBtn" title="show a P(boundary) band under each stage band">P(boundary)</button>
       </div>
     </div>
     <div class="cmpGrid">
@@ -222,7 +226,8 @@
       <h2>Shared PCA — chunk tokens in one cross-embodiment basis &nbsp;·&nbsp;
         <span style="color:#8b949e">grey = all episodes</span> &nbsp;·&nbsp;
         <span class="grpA">A blue</span> &nbsp;·&nbsp; <span class="grpB">B orange</span>
-        &nbsp;·&nbsp; <span style="color:#8b949e">faint = full path, bold = up to current phase, ring = now</span></h2>
+        &nbsp;·&nbsp; <span style="color:#8b949e">faint = full path, bold = up to current phase, ring = now</span>
+        &nbsp;·&nbsp; <span style="color:#8b949e">wheel zoom · drag pan · dblclick reset</span></h2>
       <canvas id="cmpPca" height="380"></canvas>
     </section>
   </section>
@@ -240,7 +245,24 @@ let DATA = MODELS[MODEL_NAMES[0]];   // active model; swapped by the model dropd
 
 const S = { emb:null, ep:0, frame:0, layer:"chunks", playing:false, fps:12,
             frames:[], _raf:null, _acc:0, _last:0, drag:false, clipStage:0, mode:"single",
-            overlay:"dot" };  // "dot" per-frame | "path" full-episode TF | "off"
+            overlay:"dot",     // "dot" per-frame | "path" full-episode TF | "off"
+            showProb:true };   // extra P(boundary) band under each stage band
+// pan/zoom state for the two PCA canvases (screen-space affine: p' = p*k + o).
+const PZ = { k:1, ox:0, oy:0, drag:null };   // single-view #pca
+const CZ = { k:1, ox:0, oy:0, drag:null };   // compare #cmpPca
+function resetZoom(z){ z.k=1; z.ox=0; z.oy=0; z.drag=null; }
+function wireZoom(canvas, z, redraw){
+  canvas.addEventListener("wheel", e=>{ e.preventDefault();
+    const r=canvas.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+    const f=Math.exp(-e.deltaY*0.0015);
+    z.ox=mx-(mx-z.ox)*f; z.oy=my-(my-z.oy)*f; z.k*=f; redraw(); }, {passive:false});
+  canvas.addEventListener("mousedown", e=>{ z.drag=[e.clientX,e.clientY]; e.preventDefault(); });
+  window.addEventListener("mousemove", e=>{ if(!z.drag) return;
+    z.ox+=e.clientX-z.drag[0]; z.oy+=e.clientY-z.drag[1];
+    z.drag=[e.clientX,e.clientY]; redraw(); });
+  window.addEventListener("mouseup", ()=>{ z.drag=null; });
+  canvas.addEventListener("dblclick", ()=>{ resetZoom(z); redraw(); });
+}
 
 const $ = id => document.getElementById(id);
 
@@ -348,16 +370,17 @@ function highlightClip(){
 }
 
 // ---- timeline ----
-const LABW=78, BAND=30, GAP=6, RULER=22;
+const LABW=78, BAND=30, PBAND=13, GAP=6, RULER=22;
 function tlGeom(){
   const c=$("timeline"); const w=c.parentElement.clientWidth-20;
   const ep=epObj(), ns=embObj().labels.length;
-  const h=RULER+ns*(BAND+GAP);
-  c.width=w; c.height=h; return {c,w,h,ns,plotW:w-LABW};
+  const rowH=BAND+(S.showProb?PBAND+2:0);
+  const h=RULER+ns*(rowH+GAP);
+  c.width=w; c.height=h; return {c,w,h,ns,rowH,plotW:w-LABW};
 }
 function fx(f,plotW){ return LABW + (T()<=1?0:f/(T()-1))*plotW; }
 function drawTimeline(){
-  const {c,w,h,ns,plotW}=tlGeom(); const x=c.getContext("2d");
+  const {c,w,h,ns,rowH,plotW}=tlGeom(); const x=c.getContext("2d");
   const ep=epObj(), labels=embObj().labels;
   x.fillStyle="#0a0d12"; x.fillRect(0,0,w,h);
   // ruler
@@ -366,9 +389,9 @@ function drawTimeline(){
   for(let f=0;f<T();f+=step){ const px=fx(f,plotW);
     x.fillRect(px,RULER-6,1,6); x.fillText(f,px,RULER-9);
   }
-  // tracks
+  // tracks: chunk/crisp band + (optional) P(boundary) band per stage
   for(let s=0;s<ns;s++){
-    const y=RULER+s*(BAND+GAP);
+    const y=RULER+s*(rowH+GAP);
     x.fillStyle="#cbd5e1"; x.textAlign="left"; x.font="11px sans-serif";
     x.fillText(labels[s], 6, y+BAND/2+4);
     const cid=ep.cid[s], prob=ep.prob[s];
@@ -376,11 +399,15 @@ function drawTimeline(){
       const px=fx(f,plotW), px2=fx(f+1,plotW), bw=Math.max(1,px2-px+0.5);
       let col;
       if(S.layer==="chunks"){ col=rgb(PALETTE[cid[f]%PALETTE.length]); }
-      else if(S.layer==="prob"){ const g=Math.round(255*(1-Math.min(1,Math.max(0,prob[f])))); col=`rgb(${g},${g},${g})`; }
       else { const crisp = f===0 || cid[f]!==cid[f-1]; col = crisp?"#dc2626":"#f3f4f6"; }
       x.fillStyle=col; x.fillRect(px,y,bw,BAND);
+      if(S.showProb && prob){
+        const g=Math.round(255*(1-Math.min(1,Math.max(0,prob[f]))));
+        x.fillStyle=`rgb(${g},${g},${g})`; x.fillRect(px,y+BAND+2,bw,PBAND);
+      }
     }
     x.strokeStyle="#2a313c"; x.strokeRect(LABW,y,plotW,BAND);
+    if(S.showProb) x.strokeRect(LABW,y+BAND+2,plotW,PBAND);
   }
   // playhead
   const ph=fx(S.frame,plotW);
@@ -414,7 +441,7 @@ function drawPCA(){
   const pad=24, dw=(xmax-xmin)||1, dh=(ymax-ymin)||1;
   const sc=Math.min((w-2*pad)/dw,(h-2*pad)/dh);
   const ox=(w-dw*sc)/2, oy=(h-dh*sc)/2;
-  const sx=v=>ox+(v-xmin)*sc, sy=v=>h-oy-(v-ymin)*sc;
+  const sx=v=>(ox+(v-xmin)*sc)*PZ.k+PZ.ox, sy=v=>(h-oy-(v-ymin)*sc)*PZ.k+PZ.oy;
   // all
   x.fillStyle="rgba(150,150,150,.5)";
   for(const p of pts){ x.beginPath();x.arc(sx(p[0]),sy(p[1]),2,0,7);x.fill(); }
@@ -442,7 +469,7 @@ function drawPCA(){
 function renderAll(){ drawVideo(); drawTimeline(); drawPCA(); highlightClip();
   const t=T(); $("scrub").max=t-1; $("scrub").value=S.frame; $("timeLbl").textContent=`${S.frame} / ${t-1}`; }
 function seek(f){ S.frame=Math.max(0,Math.min(T()-1,f|0)); renderAll(); }
-function setEmb(e){ S.emb=String(e); S.ep=0; fillSelectors(); changeEp(0); }
+function setEmb(e){ S.emb=String(e); S.ep=0; resetZoom(PZ); fillSelectors(); changeEp(0); }
 function changeEp(i){ S.ep=+i; S.frame=0; loadFrames(); buildClips(); renderAll();
   // redraw video as frames decode
   S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; }); }
@@ -472,6 +499,9 @@ function init(){
     S.layer=b.dataset.layer;
     document.querySelectorAll("#layerSeg .btn").forEach(x=>x.classList.toggle("on",x===b));
     drawTimeline(); };
+  $("probBtn").onclick=()=>{ S.showProb=!S.showProb;
+    $("probBtn").classList.toggle("on",S.showProb); drawTimeline(); };
+  wireZoom($("pca"), PZ, drawPCA);
   $("playBtn").onclick=()=>play(!S.playing);
   $("toStart").onclick=()=>{play(false);seek(0);};
   $("stepB").onclick=()=>{play(false);seek(S.frame-1);};
@@ -519,7 +549,7 @@ function init(){
 // pairs) + INDEPENDENT per-emb time (SC.aPhase / SC.bPhase in [0,1]) so each
 // timeline scrubs its own episode's frames/PCA-highlight separately.
 const SC = { aEmb:null, bEmb:null, ep:0, aPhase:0, bPhase:0, playing:false,
-             fps:10, _raf:null, _last:0, pcaMode:"raw" };
+             fps:10, _raf:null, _last:0, pcaMode:"raw", showProb:true };
 function cmpEnabled(){ return !!(DATA.pca_shared && DATA.pca_shared.length); }
 function sharedPca(){
   if(SC.pcaMode==="meandiff" && DATA.pca_shared_meandiff) return DATA.pca_shared_meandiff;
@@ -572,16 +602,21 @@ function drawCmpTraj(canvasId,emb,ep,phase){
 }
 function drawCmpStrip(canvasId,emb,ep,accent,phase){
   const c=$(canvasId),w=c.parentElement.clientWidth;const e=epOf(emb,ep);
-  const ns=e.cid.length, band=20, gap=5, padL=54, H=ns*(band+gap)+2;
+  const showP=SC.showProb&&!!e.prob;
+  const ns=e.cid.length, band=20, pband=showP?12:0, pgap=showP?2:0, gap=5, padL=54;
+  const rowH=band+pband+pgap, H=ns*(rowH+gap)+2;
   c.width=w;c.height=H;const x=c.getContext("2d");const T=e.cid[0].length;
   x.fillStyle="#0a0d12";x.fillRect(0,0,w,H);
   const plotW=w-padL;
   for(let s=0;s<ns;s++){
-    const y=s*(band+gap)+2,row=e.cid[s];
+    const y=s*(rowH+gap)+2,row=e.cid[s],prow=e.prob?e.prob[s]:null;
     x.fillStyle="#cbd5e1";x.font="10px sans-serif";x.textAlign="left";
     x.fillText("Stage "+s,4,y+band/2+3);
-    for(let f=0;f<T;f++){ const px=padL+f/T*plotW,px2=padL+(f+1)/T*plotW;
-      x.fillStyle=rgb(PALETTE[row[f]%PALETTE.length]);x.fillRect(px,y,Math.max(1,px2-px+0.5),band); }
+    for(let f=0;f<T;f++){ const px=padL+f/T*plotW,px2=padL+(f+1)/T*plotW,bw=Math.max(1,px2-px+0.5);
+      x.fillStyle=rgb(PALETTE[row[f]%PALETTE.length]);x.fillRect(px,y,bw,band);
+      if(showP&&prow){ const g=Math.round(255*(1-Math.min(1,Math.max(0,prow[f]))));
+        x.fillStyle=`rgb(${g},${g},${g})`;x.fillRect(px,y+band+pgap,bw,pband); } }
+    if(showP){ x.strokeStyle="#2a313c";x.strokeRect(padL,y+band+pgap,plotW,pband); }
   }
   const ph=padL+phase*plotW;x.fillStyle=accent;x.fillRect(ph-1,0,2,H);
 }
@@ -619,7 +654,8 @@ function drawCmpPca(){
   let xmin=1e9,xmax=-1e9,ymin=1e9,ymax=-1e9;
   for(const p of pts){xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);}
   const pad=24,dw=(xmax-xmin)||1,dh=(ymax-ymin)||1,sc=Math.min((w-2*pad)/dw,(h-2*pad)/dh);
-  const ox=(w-dw*sc)/2,oy=(h-dh*sc)/2,sx=v=>ox+(v-xmin)*sc,sy=v=>h-oy-(v-ymin)*sc;
+  const ox=(w-dw*sc)/2,oy=(h-dh*sc)/2;
+  const sx=v=>(ox+(v-xmin)*sc)*CZ.k+CZ.ox,sy=v=>(h-oy-(v-ymin)*sc)*CZ.k+CZ.oy;
   x.fillStyle="rgba(150,150,150,.4)";
   for(const p of pts){x.beginPath();x.arc(sx(p[0]),sy(p[1]),1.8,0,7);x.fill();}
   drawSideTrail(x,sx,sy,SC.aEmb,SC.ep,"#4c9aff",SC.aPhase);
@@ -673,12 +709,16 @@ function initCompare(){
     SC.pcaMode=b.dataset.pca;
     document.querySelectorAll("#pcaModeSeg .btn").forEach(x=>x.classList.toggle("on",x===b));
     renderCmp(); };
+  $("cmpProbBtn").onclick=()=>{ SC.showProb=!SC.showProb;
+    $("cmpProbBtn").classList.toggle("on",SC.showProb); renderCmp(); };
+  wireZoom($("cmpPca"), CZ, drawCmpPca);
   updatePcaModeAvail();
   updateCmpAvail();
 }
 function switchModel(name){
   if(!(name in MODELS)) return;
   DATA = MODELS[name];
+  resetZoom(PZ); resetZoom(CZ);
   // reset + rebuild single view
   S.emb=String(DATA.emb_ids[0]); S.ep=0; S.frame=0;
   S.clipStage=embObj().labels.length-1;
