@@ -96,7 +96,7 @@ robomimic_model:
       allow_agnostic_cross: true
       causal: true
       n_layers: 6
- T2
+      decoder_layout: T2
       rotary_emb_dim: 64
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
       streams_cfg:
@@ -121,7 +121,7 @@ robomimic_model:
       allow_agnostic_cross: true
       causal: true
       n_layers: 6
- T2
+      decoder_layout: T2
       rotary_emb_dim: 64
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
       streams_cfg:
