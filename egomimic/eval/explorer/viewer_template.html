@@ -266,6 +266,29 @@ function wireZoom(canvas, z, redraw){
 
 const $ = id => document.getElementById(id);
 
+// P(boundary) is one value PER TOKEN (e.g. C4 anchor = one router decision per
+// 4 frames), replicated across frames by the export -> a step function. For a
+// CONTINUOUS heat strip, resample by linearly interpolating between successive
+// decisions (each constant-value run sampled at its center). Cached per row.
+const _sprobCache = new WeakMap();
+function smoothRow(row){
+  if(!row || row.length<3) return row ? row.slice() : row;
+  let c=_sprobCache.get(row); if(c) return c;
+  const T=row.length, cx=[], cv=[]; let st=0;
+  for(let t=1;t<=T;t++){
+    if(t===T || row[t]!==row[st]){ cx.push((st+t-1)/2); cv.push(row[st]); st=t; }
+  }
+  const out=new Array(T);
+  if(cx.length<2){ out.fill(cv[0]??0); _sprobCache.set(row,out); return out; }
+  let k=0;
+  for(let f=0;f<T;f++){
+    while(k<cx.length-2 && f>cx[k+1]) k++;
+    const x0=cx[k],x1=cx[k+1],v0=cv[k],v1=cv[k+1];
+    out[f] = f<=x0 ? v0 : (f>=x1 ? v1 : v0+(v1-v0)*((f-x0)/(x1-x0)));
+  }
+  _sprobCache.set(row,out); return out;
+}
+
 function embObj(){ return DATA.embs[S.emb]; }
 function epObj(){ return embObj().episodes[S.ep]; }
 function T(){ return epObj().topcid.length; }
@@ -395,14 +418,15 @@ function drawTimeline(){
     x.fillStyle="#cbd5e1"; x.textAlign="left"; x.font="11px sans-serif";
     x.fillText(labels[s], 6, y+BAND/2+4);
     const cid=ep.cid[s], prob=ep.prob[s];
+    const sprob=(S.showProb && prob)?smoothRow(prob):null;
     for(let f=0;f<T();f++){
       const px=fx(f,plotW), px2=fx(f+1,plotW), bw=Math.max(1,px2-px+0.5);
       let col;
       if(S.layer==="chunks"){ col=rgb(PALETTE[cid[f]%PALETTE.length]); }
       else { const crisp = f===0 || cid[f]!==cid[f-1]; col = crisp?"#dc2626":"#f3f4f6"; }
       x.fillStyle=col; x.fillRect(px,y,bw,BAND);
-      if(S.showProb && prob){
-        const g=Math.round(255*(1-Math.min(1,Math.max(0,prob[f]))));
+      if(sprob){
+        const g=Math.round(255*(1-Math.min(1,Math.max(0,sprob[f]))));
         x.fillStyle=`rgb(${g},${g},${g})`; x.fillRect(px,y+BAND+2,bw,PBAND);
       }
     }
@@ -610,11 +634,12 @@ function drawCmpStrip(canvasId,emb,ep,accent,phase){
   const plotW=w-padL;
   for(let s=0;s<ns;s++){
     const y=s*(rowH+gap)+2,row=e.cid[s],prow=e.prob?e.prob[s]:null;
+    const sprow=(showP&&prow)?smoothRow(prow):null;
     x.fillStyle="#cbd5e1";x.font="10px sans-serif";x.textAlign="left";
     x.fillText("Stage "+s,4,y+band/2+3);
     for(let f=0;f<T;f++){ const px=padL+f/T*plotW,px2=padL+(f+1)/T*plotW,bw=Math.max(1,px2-px+0.5);
       x.fillStyle=rgb(PALETTE[row[f]%PALETTE.length]);x.fillRect(px,y,bw,band);
-      if(showP&&prow){ const g=Math.round(255*(1-Math.min(1,Math.max(0,prow[f]))));
+      if(sprow){ const g=Math.round(255*(1-Math.min(1,Math.max(0,sprow[f]))));
         x.fillStyle=`rgb(${g},${g},${g})`;x.fillRect(px,y+band+pgap,bw,pband); } }
     if(showP){ x.strokeStyle="#2a313c";x.strokeRect(padL,y+band+pgap,plotW,pband); }
   }
