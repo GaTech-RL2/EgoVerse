@@ -65,8 +65,19 @@ class PILatentEvalVideo(EvalVideo):
         pca_for_downstream: bool = False,
         emit_combined: bool = True,
         color_by: str = "embodiment",  # "embodiment" or "hash"
+        layer_subset: list | None = None,  # e.g. [paligemma_layer_00, ...]; None = all
+        front_tokens_only: bool = False,  # keep only camera slot 0 (front) img tokens
+        capture_lang: bool = True,  # False: skip _lang slices (2.5x img size, mostly pad)
     ):
         super().__init__(limit_val_batches=limit_val_batches)
+        # Optional whitelist of layer names to capture (huge RAM/disk savings:
+        # all 36 layers is ~12x the June-standard 3-layer subset).
+        self.layer_subset = set(layer_subset) if layer_subset else None
+        # PI pads the prefix to len(pi_cam_keys) camera slots; missing
+        # cameras are zero images whose tokens are attention-masked but
+        # still produce k_proj rows. front_tokens_only drops those slots.
+        self.front_tokens_only = front_tokens_only
+        self.capture_lang = capture_lang
         self.compute_umap = compute_umap
         self.compute_tsne_2d = compute_tsne_2d
         self.compute_tsne_3d = compute_tsne_3d
@@ -115,6 +126,7 @@ class PILatentEvalVideo(EvalVideo):
         # to slice image tokens vs language tokens.
         self._n_img_tokens = None
         self._n_lang_tokens = None
+        self._n_images = None
         self._orig_embed_prefix = None
         self.save_plots = save_plots
 
@@ -130,9 +142,13 @@ class PILatentEvalVideo(EvalVideo):
         paligemma = pi_model.paligemma_with_expert.paligemma.language_model
         expert = pi_model.paligemma_with_expert.gemma_expert.model
         for idx, layer in enumerate(paligemma.layers):
-            yield f"paligemma_layer_{idx:02d}", layer.self_attn.k_proj, True
+            name = f"paligemma_layer_{idx:02d}"
+            if self.layer_subset is None or name in self.layer_subset:
+                yield name, layer.self_attn.k_proj, True
         for idx, layer in enumerate(expert.layers):
-            yield f"expert_layer_{idx:02d}", layer.self_attn.k_proj, False
+            name = f"expert_layer_{idx:02d}"
+            if self.layer_subset is None or name in self.layer_subset:
+                yield name, layer.self_attn.k_proj, False
 
     def _register_hooks(self):
         self._hook_handles = []
@@ -149,6 +165,10 @@ class PILatentEvalVideo(EvalVideo):
             if self._capture_active:
                 self._n_lang_tokens = int(lang_masks.shape[1])
                 self._n_img_tokens = int(embs.shape[1]) - self._n_lang_tokens
+                try:
+                    self._n_images = len(images)
+                except TypeError:
+                    self._n_images = None
             return embs, pad, att
 
         pi_model.embed_prefix = wrapped_embed_prefix
@@ -161,8 +181,8 @@ class PILatentEvalVideo(EvalVideo):
                     img_key = f"{layer_name}_img"
                     lang_key = f"{layer_name}_lang"
                     combined_key = f"{layer_name}_combined"
-                    already = (
-                        img_key in self._step_capture and lang_key in self._step_capture
+                    already = img_key in self._step_capture and (
+                        not self.capture_lang or lang_key in self._step_capture
                     )
                     if self.emit_combined:
                         already = already and combined_key in self._step_capture
@@ -171,8 +191,19 @@ class PILatentEvalVideo(EvalVideo):
                     if self._n_img_tokens is None or self._n_lang_tokens is None:
                         return
                     n_img = self._n_img_tokens
+                    if (
+                        self.front_tokens_only
+                        and getattr(self, "_n_images", None)
+                        and n_img % self._n_images == 0
+                    ):
+                        # keep only camera slot 0 (front); the rest are
+                        # zero-padded wrist slots.
+                        n_img = n_img // self._n_images
                     self._step_capture[img_key] = out[:, :n_img].detach()
-                    self._step_capture[lang_key] = out[:, n_img:].detach()
+                    if self.capture_lang:
+                        self._step_capture[lang_key] = out[
+                            :, self._n_img_tokens :
+                        ].detach()
                     if self.emit_combined:
                         self._step_capture[combined_key] = out.detach()
                 else:
@@ -272,6 +303,7 @@ class PILatentEvalVideo(EvalVideo):
                 self._step_capture = {}
                 self._n_img_tokens = None
                 self._n_lang_tokens = None
+                self._n_images = None
                 self._capture_active = True
                 pred_actions = algo.nets["policy"].sample_actions(
                     device=algo.device,

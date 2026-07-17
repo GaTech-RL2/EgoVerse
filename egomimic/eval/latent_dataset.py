@@ -43,7 +43,11 @@ from __future__ import annotations
 import logging
 
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.rldb.zarr.zarr_dataset_multi import EvenStrideDataset, MultiDataset
+from egomimic.rldb.zarr.zarr_dataset_multi import (
+    AnnotatedFramesDataset,
+    EvenStrideDataset,
+    MultiDataset,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +62,7 @@ _LATENT_CONFIG_KEYS = frozenset(
         "custom_hashes",
         "frames_per_episode",
         "stride",
+        "annotated_frames_only",
         "_shuffle_random",
         "_shuffle_pairs",
         "_shuffle_custom",
@@ -84,12 +89,20 @@ def build_dataset(
     frames_per_episode: int | None = 128,
     stride: int | None = None,
     valid_ratio: float = 0.05,
+    annotated_frames_only: bool = False,
     filters=None,  # base yaml may pass filters=null; ignored — we build our own
 ):
     """Build a dataset object based on `mode`:
       - 'random' -> MultiDataset filtered by (task, embodiment)
       - 'pairs' / 'custom' -> EvenStrideDataset on the supplied hash list,
         subsampled by `frames_per_episode` (default) or `stride` (if set).
+
+    ``annotated_frames_only=True`` wraps the resolved dataset in
+    ``AnnotatedFramesDataset`` so only frames covered by an annotation span
+    (any ``annotations*`` array — legacy flat or role-keyed) are sampled.
+    Latent banks extracted this way contain no unannotated frames, so KNN
+    over them is annotation-clean at the source. Applied BEFORE the stride
+    subsampling so the stride walks annotated frames.
 
     Unknown `mode` values raise. Extra kwargs are NOT accepted (no silent
     swallowing) — typos in yaml fail loudly.
@@ -106,13 +119,21 @@ def build_dataset(
         if excl:
             lam += f" and row['episode_hash'] not in {excl!r}"
         filters = DatasetFilter(filter_lambdas=[lam])
-        logger.info("[build_dataset] %s | random mode | filter=%s", embodiment, lam)
-        return MultiDataset._from_resolver(
+        logger.info(
+            "[build_dataset] %s | random mode | annotated_frames_only=%s | filter=%s",
+            embodiment,
+            annotated_frames_only,
+            lam,
+        )
+        ds = MultiDataset._from_resolver(
             resolver,
             filters=filters,
             mode="total",
             valid_ratio=valid_ratio,
         )
+        if annotated_frames_only:
+            ds = AnnotatedFramesDataset(ds)
+        return ds
 
     if mode in ("pairs", "custom"):
         if not hashes:
@@ -130,11 +151,12 @@ def build_dataset(
             sub_kwargs = {"frames_per_episode": frames_per_episode}
             rule = f"frames_per_episode={frames_per_episode}"
         logger.info(
-            "[build_dataset] %s | %s mode | %d hashes | %s",
+            "[build_dataset] %s | %s mode | %d hashes | %s | annotated_frames_only=%s",
             embodiment,
             mode,
             len(hashes),
             rule,
+            annotated_frames_only,
         )
         base = MultiDataset._from_resolver(
             resolver,
@@ -142,6 +164,8 @@ def build_dataset(
             mode="total",
             valid_ratio=valid_ratio,
         )
+        if annotated_frames_only:
+            base = AnnotatedFramesDataset(base)
         return EvenStrideDataset(base, **sub_kwargs)
 
     raise ValueError(
@@ -188,4 +212,24 @@ def from_resolver(
     )
     if frames_per_episode is None and stride is None:
         return base
+    return EvenStrideDataset(base, frames_per_episode=frames_per_episode, stride=stride)
+
+
+def build_even_stride(
+    base,
+    stride=None,
+    frames_per_episode=None,
+    annotated_frames_only: bool = False,
+    **_ignored,
+):
+    """Yaml-merge-friendly EvenStrideDataset factory.
+
+    Data configs that override a parent dataset entry inherit the parent's
+    keys (resolver/filters/mode/valid_ratio) via OmegaConf merge; accept and
+    drop them here so the wrapper can be declared as a plain override.
+    ``annotated_frames_only=True`` inserts an ``AnnotatedFramesDataset``
+    under the stride so only annotation-covered frames are sampled.
+    """
+    if annotated_frames_only:
+        base = AnnotatedFramesDataset(base)
     return EvenStrideDataset(base, frames_per_episode=frames_per_episode, stride=stride)

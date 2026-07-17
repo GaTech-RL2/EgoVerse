@@ -19,46 +19,63 @@ logger = logging.getLogger(__name__)
 # Sized to hold every episode of a large run at once (full-cotrain latent
 # runs span >1000 recordings) — eviction thrash here means re-opening zarrs
 # over NFS on every click.
+def _annotation_array_keys(grp) -> list[str]:
+    """All annotation arrays present in this episode. The annotation ROLE is
+    encoded in the key NAME (``annotations``, ``annotations_task``,
+    ``annotations_subtask``, ...) — entries are plain
+    ``{"text", "start_idx", "end_idx"}`` spans with no level field. Listed
+    from the actual zarr store so post-hoc injected arrays (which never
+    updated the ``features`` attrs) are still found."""
+    try:
+        names = list(grp.array_keys())
+    except Exception:
+        names = ["annotations"]
+    return sorted(k for k in names if str(k).startswith("annotations"))
+
+
 @lru_cache(maxsize=4096)
 def annotation_intervals(
     zarr_root: str, video_hash: str
 ) -> tuple[tuple[int, int, str, str], ...]:
     """Return (start_idx, end_idx, lower_text, original_text) tuples parsed
-    from this recording's `annotations` zarr array. Sorted by start_idx.
-    Cached because we call this once per (video_hash) for filtering and
-    once per click for the language prompt display."""
+    from EVERY `annotations*` zarr array of this recording (legacy flat
+    `annotations` plus role-keyed `annotations_task` / `annotations_subtask`
+    arrays), unioned and sorted by start_idx. Cached because we call this
+    once per (video_hash) for filtering and once per click for the language
+    prompt display."""
     grp = open_zarr_for_hash(zarr_root, video_hash)
     if grp is None:
         return tuple()
-    try:
-        ann = grp["annotations"]
-    except Exception:
-        return tuple()
     out: list[tuple[int, int, str, str]] = []
-    for i in range(getattr(ann, "shape", (0,))[0]):
-        raw = ann[i]
-        # Same unwrap dance as test_zarr.validate_episode.
-        while isinstance(raw, np.ndarray):
-            raw = raw.item() if raw.shape == () else raw.flat[0]
-        if isinstance(raw, np.bytes_):
-            raw = bytes(raw)
-        if isinstance(raw, (bytes, bytearray)):
-            try:
-                raw = raw.decode("utf-8", errors="replace")
-            except Exception:
-                continue
+    for ann_key in _annotation_array_keys(grp):
         try:
-            import json as _json
-
-            rec = _json.loads(raw)
-            s = int(rec["start_idx"])
-            e = int(rec["end_idx"])
-            t_orig = str(rec.get("text", "")).strip()
-            if e > s:
-                out.append((s, e, t_orig.lower(), t_orig))
+            ann = grp[ann_key]
         except Exception:
             continue
-    return tuple(sorted(out))
+        for i in range(getattr(ann, "shape", (0,))[0]):
+            raw = ann[i]
+            # Same unwrap dance as test_zarr.validate_episode.
+            while isinstance(raw, np.ndarray):
+                raw = raw.item() if raw.shape == () else raw.flat[0]
+            if isinstance(raw, np.bytes_):
+                raw = bytes(raw)
+            if isinstance(raw, (bytes, bytearray)):
+                try:
+                    raw = raw.decode("utf-8", errors="replace")
+                except Exception:
+                    continue
+            try:
+                import json as _json
+
+                rec = _json.loads(raw)
+                s = int(rec["start_idx"])
+                e = int(rec["end_idx"])
+                t_orig = str(rec.get("text", "")).strip()
+                if e > s:
+                    out.append((s, e, t_orig.lower(), t_orig))
+            except Exception:
+                continue
+    return tuple(sorted(set(out)))
 
 
 def lang_for_frame(intervals: tuple, frame: int, *, original: bool = False) -> str:

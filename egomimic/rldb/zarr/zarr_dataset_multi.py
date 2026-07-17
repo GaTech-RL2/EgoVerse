@@ -524,15 +524,27 @@ def _jpeg_probe_failed(ds_obj: "ZarrDataset") -> tuple[str, str] | None:
 
 
 def _has_annotation(ds_obj: "ZarrDataset", annotation_key: str = "annotations") -> bool:
-    try:
-        arr = ds_obj.episode_reader._store[annotation_key]
-    except Exception:
-        return False
-    try:
-        n = arr.shape[0] if hasattr(arr, "shape") else len(arr)
-    except Exception:
-        return False
-    return n > 0
+    store = ds_obj.episode_reader._store
+    check_keys = [annotation_key]
+    # Role-keyed fallback: when the default flat `annotations` array is
+    # absent (episodes converted to annotations_task / annotations_subtask),
+    # any non-empty `annotations*` array counts as annotated.
+    if annotation_key == "annotations":
+        try:
+            names = list(store.array_keys())
+        except Exception:
+            names = []
+        if annotation_key not in names:
+            check_keys = sorted(k for k in names if str(k).startswith("annotations"))
+    for key in check_keys:
+        try:
+            arr = store[key]
+            n = arr.shape[0] if hasattr(arr, "shape") else len(arr)
+        except Exception:
+            continue
+        if n > 0:
+            return True
+    return False
 
 
 class SafeS3EpisodeResolver(S3EpisodeResolver):
@@ -1852,6 +1864,141 @@ class ZarrAnnotationCutoffDataset(ZarrDataset):
         if ann_end is None:
             return end_idx
         return min(end_idx, ann_end)
+
+
+def _annotation_span_union(ds: "ZarrDataset") -> list[tuple[int, int]]:
+    """Usable ``[start_idx, end_idx)`` spans unioned across EVERY
+    ``annotations*`` array of the episode — the legacy flat ``annotations``
+    plus the role-keyed ``annotations_task`` / ``annotations_subtask``
+    arrays. Listed from the actual zarr store (not the ``features`` attrs
+    metadata): post-hoc injected annotation arrays never updated
+    ``features``, so a metadata-based listing would silently miss them."""
+    try:
+        store = ds.episode_reader._store
+        names = list(store.array_keys())
+    except Exception:
+        return []
+    spans: set[tuple[int, int]] = set()
+    for key in sorted(k for k in names if str(k).startswith("annotations")):
+        try:
+            raw = store[key][:]
+        except Exception:
+            continue
+        for x in raw:
+            try:
+                rec = ZarrDataset._decode_json_entry(x)
+            except Exception:
+                continue
+            if not isinstance(rec, dict):
+                continue
+            s = int(rec.get("start_idx", -1))
+            e = int(rec.get("end_idx", -1))
+            if 0 <= s < e:
+                spans.add((s, e))
+    return sorted(spans)
+
+
+class AnnotatedFramesDataset(MultiDataset):
+    """Wraps a `MultiDataset` to keep ONLY frames covered by at least one
+    annotation span (unioned across every ``annotations*`` array, so the
+    role-keyed annotations_task / annotations_subtask scheme works too).
+
+    Built for the latent-eval KNN path: a bank extracted through this
+    wrapper contains no unannotated frames, so the KNN over it is
+    annotation-clean at the source and needs no downstream filtering.
+    Episodes with no usable span are dropped entirely (logged).
+
+    Subclasses `MultiDataset` the same way `EvenStrideDataset` does: skip
+    the parent `__init__`, adopt its class identity, delegate to
+    ``self.base``. Compose as ``EvenStrideDataset(AnnotatedFramesDataset(x))``
+    so the stride runs over annotated frames."""
+
+    def __init__(self, base):
+        gibd = getattr(base, "_global_indices_by_dataset", None)
+        if gibd is None:
+            raise ValueError(
+                f"AnnotatedFramesDataset requires a MultiDataset exposing "
+                f"_global_indices_by_dataset, got {type(base).__name__}"
+            )
+        torch.utils.data.Dataset.__init__(self)
+        self.base = base
+        self.datasets = base.datasets
+
+        keep: list[int] = []
+        kept_by_ep: dict[str, list[int]] = {}
+        n_total = 0
+        n_episodes_dropped = 0
+        for ep_name, idxs in gibd.items():
+            n = len(idxs)
+            n_total += n
+            leaf = self.datasets.get(ep_name)
+            if leaf is None or not hasattr(leaf, "episode_reader"):
+                # Nested MultiDataset leaf — no per-episode store to read;
+                # pass its frames through unfiltered rather than guessing.
+                logger.warning(
+                    "AnnotatedFramesDataset: %s is not a leaf episode; "
+                    "keeping all %d frames unfiltered",
+                    ep_name,
+                    n,
+                )
+                keep.extend(idxs)
+                kept_by_ep[ep_name] = list(idxs)
+                continue
+            spans = _annotation_span_union(leaf)
+            mask = np.zeros(n, dtype=bool)
+            for s, e in spans:
+                mask[max(0, s) : min(n, e)] = True
+            covered = np.flatnonzero(mask)
+            if covered.size == 0:
+                n_episodes_dropped += 1
+                logger.warning(
+                    "AnnotatedFramesDataset: %s has no annotated frames "
+                    "(%d spans) — episode dropped",
+                    ep_name,
+                    len(spans),
+                )
+                continue
+            logger.info(
+                "AnnotatedFramesDataset: %s -> %d / %d frames annotated " "(%d spans)",
+                ep_name,
+                covered.size,
+                n,
+                len(spans),
+            )
+            kept = [idxs[i] for i in covered]
+            keep.extend(kept)
+            kept_by_ep[ep_name] = kept
+        if not keep:
+            raise ValueError(
+                "AnnotatedFramesDataset: every frame was filtered out — no "
+                "resolved episode has a usable annotation span. Check the "
+                "dataset's annotation injection (annotations / "
+                "annotations_task / annotations_subtask arrays)."
+            )
+        logger.info(
+            "AnnotatedFramesDataset: kept %d/%d frames (%d episodes dropped)",
+            len(keep),
+            n_total,
+            n_episodes_dropped,
+        )
+        self.indices = sorted(keep)
+        # Re-expose the per-episode global-index map in THIS wrapper's index
+        # space (positions into self.indices, temporal order preserved) so
+        # EvenStrideDataset can wrap AnnotatedFramesDataset directly.
+        pos_of = {base_idx: pos for pos, base_idx in enumerate(self.indices)}
+        self._global_indices_by_dataset = {
+            ep: [pos_of[i] for i in kept] for ep, kept in kept_by_ep.items()
+        }
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        return self.base[self.indices[idx]]
+
+    def set_data_schematic(self, data_schematic) -> None:
+        self.base.set_data_schematic(data_schematic)
+        self.data_schematic = data_schematic
 
 
 def _episode_has_annotation_spans(ds: "ZarrDataset") -> bool:

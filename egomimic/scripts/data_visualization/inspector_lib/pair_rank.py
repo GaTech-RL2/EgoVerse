@@ -74,9 +74,10 @@ def _build_pairing(zarr_root, data):
     ids = _row_action_ids(zarr_root, data)
     embs = data["embs"]
 
-    # action id -> representative row (first occurrence)
+    # action id -> representative row (first occurrence). id -1 marks rows
+    # outside every annotation span — excluded from pairing entirely.
     _, first_pos = np.unique(ids, return_index=True)
-    rep_row = {int(ids[i]): int(i) for i in first_pos}
+    rep_row = {int(ids[i]): int(i) for i in first_pos if int(ids[i]) >= 0}
 
     # action id -> paired opposite-embodiment action id (None when no twin)
     pair_of: dict[int, int | None] = {}
@@ -129,7 +130,9 @@ def _places_for_coords(
     n_opp_actions_seen = []
     for emb in np.unique(embs[qidx]):
         q_e = qidx[embs[qidx] == emb]
-        opp_rows = np.where(embs != emb)[0]
+        # Opposite-embodiment rows, minus rows whose frame is outside every
+        # annotation span (action id -1) — those are filtered from ranking.
+        opp_rows = np.where((embs != emb) & (ids >= 0))[0]
         if opp_rows.size == 0:
             continue
         # Sort opposite rows by action id so per-action mins reduce with

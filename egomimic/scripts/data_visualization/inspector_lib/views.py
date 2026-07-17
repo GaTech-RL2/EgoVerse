@@ -124,6 +124,27 @@ def _action_key(zarr_root: str, video_hash: str, frame_idx: int):
     return (str(video_hash), -1, -1)
 
 
+def _frames_look_like_source_indices(hashes, frames: np.ndarray, uniq) -> bool:
+    """False when the frame_idx column is the legacy per-run sample counter
+    (or missing entirely), i.e. rows CANNOT be mapped to annotation spans.
+
+    Legacy banks (pre source-frame_idx eval_latent) wrote a global 0..K-1
+    sample counter: the value set is contiguous from 0 and every value
+    belongs to exactly one recording. True source indices repeat across
+    recordings (every episode has a frame 0 / stride multiples) and are not
+    a contiguous 0..K-1 run."""
+    if frames.size == 0 or int(frames.min()) < 0:
+        return False
+    vals = np.unique(frames)
+    if int(vals[0]) != 0 or int(vals[-1]) != int(vals.size) - 1:
+        return True
+    per_hash_unique = 0
+    for h in uniq:
+        hmask = np.asarray(hashes == h)
+        per_hash_unique += int(np.unique(frames[hmask]).size)
+    return per_hash_unique != int(vals.size)
+
+
 # (cache_key, n_rows) -> (N,) int64 action ids. Small: a few layers' worth of
 # int arrays. Keyed per (run, layer) so LayerStore cache turnover can't serve
 # stale rows.
@@ -133,7 +154,15 @@ _ACTION_IDS_CACHE_MAX = 8
 
 def _row_action_ids(zarr_root: str, data: dict, cache_key: tuple | None = None):
     """(N,) int array assigning every row its action-instance id (recording +
-    first covering annotation interval; whole recording when uncovered).
+    first covering annotation interval). Rows NOT covered by any annotation
+    span get id ``-1`` — `_dedupe_neighbors_by_action` and pair_rank treat
+    those as filtered-out, so unannotated frames never surface as KNN
+    neighbors or pair-rank candidates.
+
+    Exception: legacy banks whose frame_idx column is the per-run sample
+    counter (detected via `_frames_look_like_source_indices`) cannot be
+    mapped to spans at all; they keep the old whole-recording fallback id
+    (no filtering) and log a warning — re-extract to get true frame indices.
 
     Built vectorized per unique recording with the intervals prefetched in
     parallel — per-row python/zarr lookups made click latency scale with both
@@ -155,6 +184,17 @@ def _row_action_ids(zarr_root: str, data: dict, cache_key: tuple | None = None):
     with ThreadPoolExecutor(max_workers=min(16, max(1, len(uniq)))) as ex:
         list(ex.map(lambda h: annotation_intervals(zarr_root, h), uniq))
 
+    src_frames = _frames_look_like_source_indices(hashes, frames, uniq)
+    if not src_frames:
+        logger.warning(
+            "_row_action_ids: frame_idx looks like the legacy per-run sample "
+            "counter (or is missing) for %s — rows cannot be mapped to "
+            "annotation spans, so unannotated frames are NOT filtered from "
+            "the KNN. Re-extract the bank with the source-frame_idx "
+            "eval_latent to enable annotation filtering.",
+            cache_key,
+        )
+
     ids = np.full(n, -1, dtype=np.int64)
     next_id = 0
     for h in uniq:
@@ -175,9 +215,22 @@ def _row_action_ids(zarr_root: str, data: dict, cache_key: tuple | None = None):
                 assigned |= sel
             next_id += 1
         rest = hmask & ~assigned
-        if rest.any():
-            ids[rest] = next_id  # whole-recording fallback action
+        if rest.any() and not src_frames:
+            ids[rest] = next_id  # legacy whole-recording fallback action
+        # With true source frames, `rest` rows stay -1: unannotated frames
+        # are excluded from KNN results and pair ranking.
         next_id += 1
+
+    if src_frames:
+        n_filtered = int((ids < 0).sum())
+        if n_filtered:
+            logger.info(
+                "_row_action_ids: %d/%d rows outside every annotation span "
+                "(excluded from KNN) for %s",
+                n_filtered,
+                n,
+                cache_key,
+            )
 
     if key is not None:
         _ACTION_IDS_CACHE[key] = ids
@@ -192,12 +245,16 @@ def _dedupe_neighbors_by_action(
     """Keep only the nearest row per action instance, up to k rows.
     `candidates` is an iterable of (distance, row_idx) pairs already sorted
     by ascending distance; consumed lazily, so callers can pass a generator
-    over a full argsort without materializing it."""
+    over a full argsort without materializing it. Rows with action id -1
+    (frame not covered by any annotation span) are dropped outright —
+    unannotated frames must not surface as KNN neighbors."""
     ids = _row_action_ids(zarr_root, data, cache_key=cache_key)
     seen: set = set()
     out: list[tuple[float, int]] = []
     for dist, ridx in candidates:
         a = int(ids[ridx])
+        if a < 0:
+            continue
         if a in seen:
             continue
         seen.add(a)
@@ -1843,6 +1900,13 @@ class BrowserView:
             if pair_mode == "same":
                 mask_out = np.asarray(data["embs"] != src_emb)
                 mask_out[src_idx] = True
+                # Same-mode results are not action-deduped, so apply the
+                # annotation filter directly: rows whose frame is outside
+                # every annotation span (action id -1) never surface.
+                mask_out |= (
+                    _row_action_ids(self.zarr_root, data, cache_key=(run_path, layer))
+                    < 0
+                )
                 # Exclude the clicked frame's own ACTION: rows from the same
                 # recording whose frame falls inside any annotation interval
                 # covering the clicked frame. Otherwise the list is just the

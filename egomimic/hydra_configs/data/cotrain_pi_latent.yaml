@@ -63,6 +63,12 @@ custom_hashes:
 frames_per_episode: 128
 stride: null
 
+# Keep ONLY frames covered by an annotation span (any `annotations*`
+# array — legacy flat or role-keyed annotations_task/annotations_subtask).
+# On by default: the latent bank then contains no unannotated frames, so
+# the precomputed / inspector KNN is annotation-clean at the source.
+annotated_frames_only: true
+
 # ----- Dataset builders -----------------------------------------------------
 # A single Python factory dispatches on `mode` and chooses between
 # MultiDataset (random) and EvenStrideDataset (pairs / custom). The
@@ -77,6 +83,7 @@ train_datasets:
     embodiment: eva_bimanual
     frames_per_episode: ${data.frames_per_episode}
     stride: ${data.stride}
+    annotated_frames_only: ${data.annotated_frames_only}
     hashes: ${oc.select:data.${data.latent_mode}_hashes.eva, []}
     resolver:
       require_annotations: true
@@ -87,6 +94,7 @@ train_datasets:
     embodiment: human_bimanual
     frames_per_episode: ${data.frames_per_episode}
     stride: ${data.stride}
+    annotated_frames_only: ${data.annotated_frames_only}
     hashes: ${oc.select:data.${data.latent_mode}_hashes.aria, []}
     resolver:
       require_annotations: true
@@ -99,6 +107,7 @@ valid_datasets:
     embodiment: eva_bimanual
     frames_per_episode: ${data.frames_per_episode}
     stride: ${data.stride}
+    annotated_frames_only: ${data.annotated_frames_only}
     hashes: ${oc.select:data.${data.latent_mode}_hashes.eva, []}
     resolver:
       require_annotations: true
@@ -109,6 +118,7 @@ valid_datasets:
     embodiment: human_bimanual
     frames_per_episode: ${data.frames_per_episode}
     stride: ${data.stride}
+    annotated_frames_only: ${data.annotated_frames_only}
     hashes: ${oc.select:data.${data.latent_mode}_hashes.aria, []}
     resolver:
       require_annotations: true
