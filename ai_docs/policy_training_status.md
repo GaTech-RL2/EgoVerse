@@ -1,6 +1,6 @@
 # RBY1 Whole-Body Image Policy — Training Status (single source of truth)
 
-> **For any agent working in this repo.** Last updated 2026-07-05. This documents the
+> **For any agent working in this repo.** Last updated 2026-07-16. This documents the
 > full training-round history, every checkpoint on disk, measured error profiles, the
 > code/config changes each round introduced, and what is currently running. The deploy
 > contract + serve instructions live in `ai_docs/deployment_plan.md` (§1 contract,
@@ -11,8 +11,10 @@
 - **Deployable now: `logs/aria_egoposer_firm/crop100_2k/checkpoints/last.ckpt`** —
   robust to image framing shifts, to ≥3° proprio error, AND to zeroed proprio. Send
   real live proprio (§1 contract; raw fisheye 224² uint8 BGR image).
-- Round 4 in progress (2 jobs): give the DINO variant enough trainable vision capacity
-  to also work vision-only.
+- Rounds 3–7 complete (no jobs running). **R7 breakthrough: frozen-backbone + conv-neck
+  policies (`d3_convneck_2k`, `lingbot_convneck_2k`) are the first non-ResNet ckpts to
+  PASS the vision-only gate (pzero 0.026 / 0.023 ≤ 0.03).** Full 12-ckpt comparison chart:
+  `/coc/flash7/czhang883/deliverables_0707/results_overview_all_rounds.png`.
 - Data: `datasets/aria_egoposer_firm` (30 clean demos, 16,566 frames, LeRobot v2),
   built from `.../SEW-Geometric-Teleop/artifacts/aria_egoposer/aria_egoposer_train_firm.hdf5`.
   The older `datasets/aria_egoposer` is CONTAMINATED (right-arm IK corruption, 10/30 eps).
@@ -100,6 +102,31 @@ and oddly shift-favoring. (3) No offline in-dist metric beats crop100 — but Eg
 claimed gains are OOD/hardware generalization, which offline in-dist CANNOT measure;
 wam_dinofull is the right candidate to A/B on hardware against dino_full/crop100.
 Ideas if pursued further: lambda<1 for ResNet, or a wider trunk.
+
+## ROUND 7 RESULTS (2026-07-16 — new backbones: DINOv3 + LingBot-Vision, frozen; same R3 recipe)
+Backbones: DINOv3-S/16 (timm `vit_small_patch16_dinov3`, 384-d) and LingBot-Vision ViT-L/16
+(`robbyant/lingbot-vision-vit-large`, 1024-d, masked-boundary-modeling SSL). Per user
+instruction backbones stay FROZEN; capacity added on top: LoRA r16 (adapters) or
+**ConvNeck** (`hpt_nets.ConvNeck`: token grid → 14×14 map → 9 torchvision BasicBlocks
+@256ch ≈ 10.8M ≈ ResNet-18 budget → tokens).
+
+| ckpt (`logs/aria_egoposer_firm/…/last.ckpt`) | trainable vision | clean | shift10/20 | pzero | noise ≤3° |
+|---|---|---|---|---|---|
+| d3_lora_2k (frozen DINOv3-S + LoRA r16) | 0.54M | 0.0141 | 0.013/0.015 ✓ | 0.0556 ✗ | 0.014-0.015 ✓ |
+| **d3_convneck_2k** (frozen DINOv3-S + 9-block ConvNeck) | 10.8M | 0.0182 | 0.017/0.016 ✓ | **0.0261 ✓** | 0.018-0.019 ✓ |
+| **lingbot_convneck_2k** (frozen LingBot-L + 9-block ConvNeck) | 11.2M | 0.0198 | 0.016/0.014 ✓ | **0.0230 ✓** | 0.018-0.020 ✓ |
+
+**Findings:** (1) **First non-ResNet ckpts to PASS the vision-only gate (≤0.03)** —
+both ConvNeck variants, with backbones fully frozen. The ResNet's vision-only advantage
+was therefore the *conv prior + trainable capacity*, NOT backbone fine-tuning; and it
+can be had while preserving the frozen SSL backbone's (viewpoint-)invariances.
+(2) Backbone-quality effect at fixed adapter capacity: DINOv3+LoRA halves DINOv2+LoRA's
+pzero (0.122→0.056) and beats it on every condition — gram-anchored dense features
+transfer better. (3) Trade-off: ConvNeck costs ~0.004-0.006 clean MAE vs the best FT
+models; lingbot_convneck has the best pzero (0.0230) and shift profile of any DINO-family
+ckpt but the weakest clean of the three. (4) Hardware A/B candidates from R7:
+**d3_convneck_2k / lingbot_convneck_2k** (frozen invariances + passes vision-only) vs
+crop100 — offline in-dist cannot rank them further.
 
 ## Previous round-5 run notes (submitted 2026-07-08)
 - job 3441899 → `logs/aria_egoposer_firm/dino_mlp_2k` — frozen ViT-S + deep residual-MLP
