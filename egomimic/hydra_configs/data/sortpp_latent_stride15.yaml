@@ -6,6 +6,14 @@
 #   build_even_stride(15)  -> every 15th frame (KNN bank; front_1 is the only camera)
 # The nulled resolver/filters/mode/valid_ratio keys neutralize the parent entry's
 # keys that OmegaConf merges in (build_even_stride ignores leftovers).
+#
+# WARNING (audit 2026-07-17): every episode in sortpp_aria_fixed has an EMPTY
+# `annotations` array — the July-7 fulldata bank's aria half therefore has no
+# annotation coverage at all. With annotated_frames_only: true this config
+# now fails loudly on that folder (AnnotatedFramesDataset drops everything).
+# Annotated aria variants in the same datasets dir: sortpp_aria_new (flat
+# `annotations`) and sortpp_aria_rolekeys (flat + annotations_task /
+# annotations_subtask). Point human_bimanual folder_path at one of those.
 defaults:
 - cotrain_sort_pp_lang_6d
 - _self_
