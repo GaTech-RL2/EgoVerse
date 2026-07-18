@@ -55,8 +55,8 @@ class DatasetConverter:
         convert_mano: bool = True,
         mano_model_dir: str | None = None,
         mano_device: str | None = None,
-        mano_n_iters: int = 400,
-        mano_lr: float = 0.02,
+        mano_n_iters: int = 2400,
+        mano_lr: float = 0.05,
         mano_beta_reg: float = 0.01,
         mano_chunk_size: int = 512,
     ):
@@ -318,7 +318,7 @@ def argument_parse():
     parser.add_argument(
         "--mano-iters", type=int, default=400, help="Adam iterations per MANO fit chunk."
     )
-    parser.add_argument("--mano-lr", type=float, default=0.02, help="MANO fit learning rate.")
+    parser.add_argument("--mano-lr", type=float, default=0.05, help="MANO fit learning rate.")
     parser.add_argument(
         "--mano-beta-reg", type=float, default=0.01, help="L2 regularization on MANO shape betas."
     )

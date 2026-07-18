@@ -104,8 +104,8 @@ def fit_mano_to_aria_batched(
     is_rhand: bool,
     model_dir: str | None = None,
     device: torch.device | str | None = None,
-    n_iters: int = 400,
-    lr: float = 0.02,
+    n_iters: int = 2400,
+    lr: float = 0.05,
     beta_reg: float = 0.01,
     verbose: bool = False,
 ) -> torch.Tensor:
@@ -147,6 +147,11 @@ def fit_mano_to_aria_batched(
     t_global = init_translation.detach().clone().requires_grad_(True)
 
     opt = torch.optim.Adam([theta, beta, R_global, t_global], lr=lr)
+    # Cosine-decay the LR: constant high LR oscillates at long budgets;
+    # decay converges the large-global-rotation tail (see 2026-07 sweep).
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(
+        opt, T_max=n_iters, eta_min=lr * 0.05
+    )
 
     aria_idx_t = torch.tensor(ARIA_IDX_USED, device=device, dtype=torch.long)
     mano_idx_t = torch.tensor(MANO_IDX_TARGET, device=device, dtype=torch.long)
@@ -171,6 +176,7 @@ def fit_mano_to_aria_batched(
         opt.zero_grad(set_to_none=True)
         loss.backward()
         opt.step()
+        sched.step()
         if verbose and (step % 50 == 0 or step == n_iters - 1):
             print(f"    iter {step:4d}  pos={pos_loss.item():.5f}  reg={reg_loss.item():.5f}")
 
@@ -196,8 +202,8 @@ def convert_aria_keypoints_to_mano(
     is_rhand: bool,
     model_dir: str | None = None,
     device: torch.device | str | None = None,
-    n_iters: int = 400,
-    lr: float = 0.02,
+    n_iters: int = 2400,
+    lr: float = 0.05,
     beta_reg: float = 0.01,
     chunk_size: int = 512,
     verbose: bool = False,
