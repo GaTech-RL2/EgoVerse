@@ -1,9 +1,14 @@
+import argparse
 import asyncio
 
 from abstract_upload import Uploader
 
+# Robot configurations the aria hardware can record. This is the metadata
+# `embodiment` (→ SQL embodiment column), NOT the capture device ("aria").
+ARIA_EMBODIMENTS = ("human_bimanual", "human_left_arm", "human_right_arm")
 
-def aria_uploader():
+
+def aria_uploader(embodiment="human_bimanual"):
     def collect_files(local_dir):
         """
         Discover VRS files with their corresponding JSON companion files.
@@ -25,16 +30,29 @@ def aria_uploader():
         return file_paths
 
     uploader = Uploader(
-        embodiment="aria",  # Embodiment name
+        embodiment=embodiment,  # robot config recorded → metadata.embodiment
         datatype=".vrs",  # Main data file extension
         collect_files=collect_files,
+        device="aria",  # raw capture source → s3://rldb/raw_v2/aria/
     )
 
     return uploader
 
 
 def main():
-    uploader = aria_uploader()
+    parser = argparse.ArgumentParser(
+        description="Upload raw aria (.vrs) recordings to s3://rldb/raw_v2/aria/."
+    )
+    parser.add_argument(
+        "--embodiment",
+        default="human_bimanual",
+        choices=ARIA_EMBODIMENTS,
+        help="Robot embodiment recorded by the aria hardware; written to "
+        "metadata.embodiment (the raw S3 path stays raw_v2/aria/ regardless). "
+        "Default: human_bimanual.",
+    )
+    args = parser.parse_args()
+    uploader = aria_uploader(embodiment=args.embodiment)
     asyncio.run(uploader.run())
 
 

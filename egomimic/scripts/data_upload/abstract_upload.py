@@ -10,14 +10,25 @@ from egomimic.utils.aws.aws_sql import TableRow
 
 
 class Uploader:
-    def __init__(self, embodiment, datatype, collect_files):
-        """Initialize upload template with S3 configuration and metadata settings."""
+    def __init__(self, embodiment, datatype, collect_files, device=None):
+        """Initialize upload template with S3 configuration and metadata settings.
+
+        ``embodiment`` is the ROBOT configuration recorded (e.g. ``human_bimanual``)
+        and is written to ``metadata.embodiment`` (→ the SQL ``embodiment`` column).
+        ``device`` is the raw CAPTURE SOURCE (e.g. ``aria``) and only decides the
+        raw-bucket layout (``raw_v2/<device>/``). They are decoupled because aria
+        hardware records human_bimanual / human_left_arm / human_right_arm robots,
+        so the path must stay ``raw_v2/aria/`` while the embodiment varies. When
+        ``device`` is omitted it falls back to ``embodiment`` (unchanged for the
+        eva/eve uploaders, where source and embodiment coincide).
+        """
 
         self.embodiment = embodiment
+        self.device = device or embodiment
         self.datatype = datatype
         self.s3 = get_boto3_s3_client()
         self.bucket_name = "rldb"
-        self.s3_base_prefix = f"raw_v2/{embodiment}/"
+        self.s3_base_prefix = f"raw_v2/{self.device}/"
 
         self.collect_files = collect_files
         self.local_dir = None
