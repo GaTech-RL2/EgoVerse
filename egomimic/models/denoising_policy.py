@@ -36,6 +36,10 @@ class DenoisingPolicy(nn.Module):
         self.padding = kwargs.get("padding", None)
         self.pooling = kwargs.get("pooling", None)
         self.model_type = kwargs.get("model_type", None)
+        # Optional {block_name: [start, end]} over the action dim; when set,
+        # compute_loss also stashes per-block detached losses for logging.
+        self.loss_block_slices = kwargs.get("loss_block_slices", None)
+        self.last_block_losses = None
 
         if not infer_ac_dims:
             raise ValueError("infer_ac_dims must be a non-empty dict")
@@ -123,4 +127,11 @@ class DenoisingPolicy(nn.Module):
     def compute_loss(self, global_cond, data):
         actions, global_cond = self.preprocess_compute_loss(global_cond, data)
         pred, target = self.predict(actions, global_cond)
-        return self.loss_fn(pred, target)
+        loss = self.loss_fn(pred, target)
+        if getattr(self, "loss_block_slices", None) and pred.shape == target.shape:
+            self.last_block_losses = {
+                name: F.mse_loss(pred[..., a:b], target[..., a:b]).detach()
+                for name, (a, b) in self.loss_block_slices.items()
+                if b <= pred.shape[-1]
+            }
+        return loss

@@ -1,0 +1,82 @@
+# @package _global_
+# PICKPLACE V1: whole-body 49-D policy on the nav_pick_and_place human data,
+# crop100 recipe + full training diagnostics:
+#   * VALIDATION = the 5-demo REAL-ROBOT teleop set (datasets/rby1_teleop_pickplace_val),
+#     never trained on. Real measured proprio -> honest val, unlike human data
+#     where proprio == action. Val every 50 epochs.
+#   * per-block train losses (Train/rby1_loss/<block>) + per-block val MAE
+#     (Valid/..._<block>_mae_avg) + nav/manip phase split (Valid/..._manip_*/_nav_*)
+#   * AugImageLogger: 1 PNG grid of post-augmentation network inputs every 100
+#     epochs -> <run>/aug_debug/ + one small WandB image (quota-frugal)
+# Launch (once final data is ready):
+#   sbatch --exclude=puma,deebot,qt-1,sonny,cyborg,crushinator,ig-88 \
+#     --export=ALL,DATASET_NAME=aria_pickplace,RAW_DATA_PATH=<final_cut.hdf5>,TRAIN_CONFIG=experiments/wholebody_image/wb_img_proprio_pickplace_v1,DESCRIPTION=pickplace_v1_2k,VAL_DATASET_DIR=/coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val \
+#     submit_wb_img_training.sbatch
+defaults:
+  - /train
+  - override /model: experiments/wholebody_image/rby1_wb_img_proprio_act32_pickplace
+  - override /data: experiments/wholebody_image/rby1_wb_img_act32
+  - _self_
+
+name: RBY1_wb_img_pickplace_v1
+description: "wb_img_pickplace_v1_2k"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+trainer:
+  max_epochs: 2000
+  check_val_every_n_epoch: 50
+
+callbacks:
+  aug_image_logger:
+    _target_: egomimic.pl_utils.aug_image_logger.AugImageLogger
+    every_n_epochs: 100
+    n_images: 8
+
+logger:
+  wandb:
+    entity: null
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data:
+  valid_datasets:
+    dataset1:
+      datasets:
+        eth_lab:
+          # External teleop validation set: use ALL its episodes (no split).
+          # folder_path is overridden by the sbatch via VAL_DATASET_DIR.
+          folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val
+          mode: train
+          valid_ratio: 0.0
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1

@@ -71,6 +71,53 @@ def dexmimicgen_joint47_block_metrics(pred, target, metric_prefix):
     return metrics
 
 
+# RBY1 whole-body 49-D layout of actions.joint_base_torso_head_arm_hand
+# (built by egoengine_lerobot_extract_arm_hand.py; base = per-step deltas).
+RBY1_JOINT49_BLOCKS = {
+    "base": slice(0, 3),
+    "torso": slice(3, 9),
+    "head": slice(9, 11),
+    "l_arm": slice(11, 18),
+    "r_arm": slice(18, 25),
+    "l_hand": slice(25, 37),
+    "r_hand": slice(37, 49),
+}
+
+
+def rby1_joint49_block_metrics(pred, target, metric_prefix, sample_mask=None):
+    """Block-wise MAE/MSE for the RBY1 49-D whole-body action (unnormalized).
+
+    sample_mask: optional (B,) bool tensor restricting the metrics to a subset of
+    samples (used for nav/manip phase splits). Returns {} if the mask is empty.
+    """
+    if pred.shape[-1] != 49 or target.shape[-1] != 49:
+        return {}
+    if sample_mask is not None:
+        if sample_mask.sum() == 0:
+            return {}
+        pred = pred[sample_mask]
+        target = target[sample_mask]
+
+    metrics = {}
+    err = pred - target
+    metrics[f"{metric_prefix}_mae_avg"] = err.abs().mean()
+    for name, sl in RBY1_JOINT49_BLOCKS.items():
+        block_err = err[..., sl]
+        metrics[f"{metric_prefix}_{name}_mae_avg"] = block_err.abs().mean()
+        metrics[f"{metric_prefix}_{name}_mse_avg"] = block_err.square().mean()
+    return metrics
+
+
+def rby1_manip_phase_mask(gt_actions, base_disp_thresh):
+    """(B,) bool: True where the GT chunk is a 'manipulation phase' sample —
+    the base barely moves over the action horizon. gt_actions must be the
+    UNNORMALIZED 49-D chunk (B, T, 49) whose base block holds per-step deltas."""
+    if gt_actions.shape[-1] != 49:
+        return None
+    xy_disp = gt_actions[..., 0:2].abs().sum(dim=(1, 2))  # total |dx|+|dy| (m)
+    return xy_disp < base_disp_thresh
+
+
 class HPTModel(nn.Module):
     """
     Heterogenous Pretrained Transformer (HPT) implementation based on the HPT paper, with additional modifications.
@@ -767,8 +814,12 @@ class HPTModel(nn.Module):
         action_loss = torch.tensor(0.0, device=self.device)
         shared_action_loss = torch.tensor(0.0, device=self.device)
         auxiliary_action_loss = torch.tensor(0.0, device=self.device)
+        self.last_block_losses = None
         if domain in self.heads:
             action_loss += self.heads[domain].compute_loss(features, data)
+            self.last_block_losses = getattr(
+                self.heads[domain], "last_block_losses", None
+            )
 
         if self.shared_action:
             shared_action_loss = self.heads["shared"].compute_loss(features, data)
@@ -969,6 +1020,9 @@ class HPT(Algo):
         self.shared_ac_key = kwargs.get("shared_ac_key", None)
         self.is_6dof = kwargs.get("6dof", False)
         self.kinematics_solver = kwargs.get("kinematics_solver", None)
+        # nav/manip phase split for validation metrics: a val sample counts as
+        # "manip" when the GT chunk's total base |dx|+|dy| is below this (meters)
+        self.manip_base_disp_thresh = kwargs.get("manip_base_disp_thresh", 0.05)
 
         model = HPTModel(**trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
@@ -1195,6 +1249,10 @@ class HPT(Algo):
 
             predictions[f"{embodiment_name}_{ac_key}"] = _batch[ac_key]
             predictions[f"{embodiment_name}_loss"] = loss
+            block_losses = getattr(self.nets["policy"], "last_block_losses", None)
+            if block_losses:
+                for block_name, block_loss in block_losses.items():
+                    predictions[f"{embodiment_name}_loss/{block_name}"] = block_loss
 
         if self.ot:
             ot_loss, avg_feat_distance = self._forward_ot(
@@ -1300,6 +1358,36 @@ class HPT(Algo):
                         f"Valid/{embodiment_name}_{ac_key}",
                     )
                 )
+                _pred49 = preds[f"{embodiment_name}_{ac_key}"].cpu()
+                _gt49 = _batch[ac_key].cpu()
+                metrics.update(
+                    rby1_joint49_block_metrics(
+                        _pred49, _gt49, f"Valid/{embodiment_name}_{ac_key}"
+                    )
+                )
+                manip_mask = rby1_manip_phase_mask(
+                    _gt49, getattr(self, "manip_base_disp_thresh", 0.05)
+                )
+                if manip_mask is not None:
+                    metrics[f"Valid/{embodiment_name}_{ac_key}_manip_frac"] = (
+                        manip_mask.float().mean()
+                    )
+                    metrics.update(
+                        rby1_joint49_block_metrics(
+                            _pred49,
+                            _gt49,
+                            f"Valid/{embodiment_name}_{ac_key}_manip",
+                            sample_mask=manip_mask,
+                        )
+                    )
+                    metrics.update(
+                        rby1_joint49_block_metrics(
+                            _pred49,
+                            _gt49,
+                            f"Valid/{embodiment_name}_{ac_key}_nav",
+                            sample_mask=~manip_mask,
+                        )
+                    )
                 fd = frechet_gaussian_over_time(
                     preds[f"{embodiment_name}_{ac_key}"], _batch[ac_key]
                 )
@@ -1515,6 +1603,10 @@ class HPT(Algo):
             scaled_bc_loss = bc_weight * bc_loss
             total_action_loss += scaled_bc_loss
             loss_dict[f"{embodiment_name}_loss"] = bc_loss  # for logging
+            for pred_key, pred_val in predictions.items():
+                # per-block diagnostic losses stashed by forward_training (detached)
+                if pred_key.startswith(f"{embodiment_name}_loss/"):
+                    loss_dict[pred_key] = pred_val
 
         if self.ot:
             loss_dict["ot_loss"] = predictions["ot_loss"]

@@ -30,6 +30,8 @@
 # Optional:
 #   FPS                    default 10
 #   EXTRA_HYDRA_OVERRIDES  extra space-separated Hydra overrides appended after the standard ones
+#   VAL_DATASET_DIR        external validation LeRobot folder (e.g. the teleop set);
+#                          defaults to FINAL_DIR (legacy behavior: val = split of train data)
 
 set -e
 REPO_DIR=/coc/flash7/czhang883/Documents/EgoVerse
@@ -185,10 +187,12 @@ if [ -f "${AUTO_CKPT}" ]; then
     EXTRA_HYDRA_OVERRIDES="${EXTRA_HYDRA_OVERRIDES} ckpt_path=${AUTO_CKPT}"
 fi
 echo "[Step 3] Training config=${TRAIN_CONFIG}, dataset=${DATASET_NAME}, description=${DESCRIPTION}"
+VAL_DIR="${VAL_DATASET_DIR:-${FINAL_DIR}}"
+echo "[Step 3] Validation dataset: ${VAL_DIR}"
 CUDA_LAUNCH_BLOCKING=1 HYDRA_FULL_ERROR=1 python egomimic/trainHydra.py \
     --config-name="${TRAIN_CONFIG}" \
     name="${DATASET_NAME}" \
     "description=\"${DESCRIPTION}\"" \
     data.train_datasets.dataset1.datasets.rl2_lab.folder_path="${FINAL_DIR}" \
-    data.valid_datasets.dataset1.datasets.eth_lab.folder_path="${FINAL_DIR}" \
+    data.valid_datasets.dataset1.datasets.eth_lab.folder_path="${VAL_DIR}" \
     ${EXTRA_HYDRA_OVERRIDES}
