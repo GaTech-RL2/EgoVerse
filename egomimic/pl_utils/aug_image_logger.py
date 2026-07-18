@@ -53,7 +53,10 @@ class AugImageLogger(Callback):
         rows = [raw]
         if augs is not None:
             with torch.no_grad():
-                auged = augs(raw)
+                # per-image draws: batched application would share ONE random
+                # crop across the whole grid and misrepresent the distribution
+                # (training itself applies one draw per batch — unchanged here)
+                auged = torch.stack([augs(img.unsqueeze(0))[0] for img in raw])
             # undo the ImageNet Normalize (last transform) for display
             auged = auged * IMAGENET_STD + IMAGENET_MEAN
             rows.append(auged.clamp(0, 1))
