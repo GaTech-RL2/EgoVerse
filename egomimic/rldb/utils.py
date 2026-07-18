@@ -1340,6 +1340,22 @@ class DataSchematic(object):
             q1 = np.percentile(column_data, 1, axis=0)
             q99 = np.percentile(column_data, 99, axis=0)
 
+            # Sparse-active dims (constant for >99% of frames, active in brief
+            # bursts — e.g. a grasp joint without firm-grasp injection) collapse
+            # the quantile range to ~0, so (x-q1)/(q99-q1+1e-6) explodes to ~1e6
+            # on the active frames and poisons the loss. Fall back to min/max
+            # for those dims; truly-constant dims (full range 0) stay untouched.
+            full_range = maxv - minv
+            degenerate = (q99 - q1) < 0.05 * full_range
+            if np.any(degenerate):
+                logger.warning(
+                    f"[NormStats] {column}: quantile range collapsed on dims "
+                    f"{np.where(degenerate.reshape(-1))[0].tolist()} "
+                    "(sparse-active); using min/max for those dims"
+                )
+                q1 = np.where(degenerate, minv, q1)
+                q99 = np.where(degenerate, maxv, q99)
+
             self.norm_stats[embodiment][column] = {
                 "mean": torch.from_numpy(mean).float(),
                 "std": torch.from_numpy(std).float(),
