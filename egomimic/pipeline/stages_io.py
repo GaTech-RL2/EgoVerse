@@ -470,7 +470,8 @@ class RatioLoss(Stage):
     """H-Net chunker ratio loss from the accumulated aux/chunker records."""
 
     reads = ["aux/chunker"]
-    writes = ["loss/ratio", "loss/dec", "log/*"]
+    writes = ["loss/ratio", "loss/dec", "loss/seam_recon", "loss/cons",
+              "loss/topk", "loss/softrate", "log/*"]
 
     def forward(self, batch: dict) -> dict:
         aux = [{"bpred": _B(rec), "target_ratio": rec["target_ratio"],
@@ -486,8 +487,33 @@ class RatioLoss(Stage):
         # point-mass at p=0.5 scores 0.75 < the honest optimum 1.0); with
         # near-binary probs G~F and the honest F=1/N becomes the true minimum.
         dec_total = None
+        rec_total = None
+        cons_total = None
+        tk_total = None
+        srate_total = None
         _rates = []
         for i, rec in enumerate(batch.get("aux/chunker", [])):
+            # Deep-supervision recon term (computed inside DualChunkerLevel —
+            # dense dL/dp through the p-gated dechunk EMA). Assembled FIRST,
+            # before the empty-valid `continue` below: the recon loss covers
+            # ALL positions, so it must stay active even when a level has zero
+            # unforced tokens (e.g. the seam at init, when the bottom router
+            # still fires only at forced episode starts).
+            rl_rec = rec.get("recon_loss", None)
+            w_rec = float(rec.get("recon_weight", 0.0))
+            if rl_rec is not None and w_rec > 0:
+                batch[f"log/L{i}_recon"] = float(rl_rec)
+                rec_total = (w_rec * rl_rec if rec_total is None
+                             else rec_total + w_rec * rl_rec)
+            # Consistency-under-noise (computed inside the chunker, like recon
+            # — and like recon it covers ALL positions, so assemble before the
+            # empty-valid continue).
+            rl_cons = rec.get("cons_loss", None)
+            w_cons = float(rec.get("cons_weight", 0.0))
+            if rl_cons is not None and w_cons > 0:
+                batch[f"log/L{i}_cons"] = float(rl_cons)
+                cons_total = (w_cons * rl_cons if cons_total is None
+                              else cons_total + w_cons * rl_cons)
             p_b = rec["boundary_prob"][..., -1]
             valid = torch.ones_like(p_b, dtype=torch.bool)
             valid[rec["cu_seqlens"][:-1]] = False  # exclude forced subseq starts
@@ -521,6 +547,99 @@ class RatioLoss(Stage):
                 spread_i = F.relu(target - pv.var(unbiased=False))
                 batch[f"log/L{i}_pvar"] = float(pv.var(unbiased=False))
                 dec_total = w_s * spread_i if dec_total is None else dec_total + w_s * spread_i
+            # Top-K hinge (targeted ratio replacement, fence-combat 2026-07-18):
+            # rank the valid probs; the top K=M/N are asked to clear 0.5+m
+            # (up-hinge), the rest to clear 0.5-m (down-hinge); tokens already
+            # clear get ZERO gradient (free to sharpen under the task). Rate is
+            # enforced by RANK (structural), so there is no flat valley at
+            # F=1/N and no uniform push. Anti-merge is built in (the up-hinge
+            # always demands K boundaries). Pair with ratio_loss_weight: 0.0.
+            w_tk = float(rec.get("topk_weight", 0.0))
+            if w_tk > 0 and pv.numel() > 0:
+                m_tk = float(rec.get("topk_margin", 0.1))
+                K = max(1, int(round(pv.numel() / float(rec["target_ratio"]))))
+                order = torch.argsort(pv, descending=True)
+                l_up = F.relu((0.5 + m_tk) - pv[order[:K]]).sum()
+                l_dn = F.relu(pv[order[K:]] - (0.5 - m_tk)).sum()
+                tk_i = w_tk * (l_up + l_dn) / max(pv.numel(), 1)
+                batch[f"log/L{i}_topk"] = float(tk_i)
+                tk_total = tk_i if tk_total is None else tk_total + tk_i
+            # Soft-rate + indecision reg (user-designed dynamic ratio-loss
+            # replacement, 2026-07-18). Term 1: rate via DIFFERENTIABLE soft
+            # count — the correction's per-token magnitude carries sigma'
+            # ((p-0.5)/tau), so it lands on undecided tokens and exempts
+            # confident ones (and releases recruits once past the threshold
+            # region instead of parking them at 0.5). Term 2: dead-zoned
+            # indecision tax — only tokens with p(1-p) > c pay, pushed toward
+            # their nearest extreme with force |1-2p|; direction at the exact
+            # 0.5 tie is supplied by term 1's rate need. Pair with
+            # ratio_loss_weight: 0.0 on the same level (this REPLACES it).
+            # Softrate v2 (2026-07-18 final design): endpoint-calibrated votes
+            # (targets exactly feasible, live gradient on all of [0,1]),
+            # PER-EPISODE thermostats (episode mean preserves the 1/M force
+            # scale), both terms share one weight, NO indecision tax. Replaces
+            # v1 when softrate_vote == "endpoint".
+            if str(rec.get("softrate_vote", "sigmoid")) == "endpoint":
+                w_sr2v = float(rec.get("softrate_weight", 0.0))
+                if w_sr2v > 0 and pv.numel() > 0:
+                    tau_v2 = float(rec.get("softrate_tau", 0.12))
+                    c1v = float(rec.get("softrate_center", 0.7))
+                    c2v = float(rec.get("softrate2_center", 0.3))
+                    inv_n = 1.0 / float(rec["target_ratio"])
+                    _s = lambda x: 1.0 / (1.0 + __import__("math").exp(-x))
+                    lo1v, hi1v = _s(-c1v / tau_v2), _s((1 - c1v) / tau_v2)
+                    lo2v, hi2v = _s((c2v - 1) / tau_v2), _s(c2v / tau_v2)
+                    cu_v2 = rec["cu_seqlens"]
+                    ep_terms, sf_l, sb_l = [], [], []
+                    for _b in range(len(cu_v2) - 1):
+                        seg = p_b[cu_v2[_b]:cu_v2[_b + 1]]
+                        vseg = valid[cu_v2[_b]:cu_v2[_b + 1]]
+                        pe = seg[vseg]
+                        if pe.numel() == 0:
+                            continue
+                        u_v = (torch.sigmoid((pe - c1v) / tau_v2) - lo1v) / (hi1v - lo1v)
+                        d_v = (torch.sigmoid((c2v - pe) / tau_v2) - lo2v) / (hi2v - lo2v)
+                        sf, sb = u_v.mean(), d_v.mean()
+                        ep_terms.append((sf - inv_n) ** 2 + (sb - (1.0 - inv_n)) ** 2)
+                        sf_l.append(float(sf)); sb_l.append(float(sb))
+                    if ep_terms:
+                        sr_v2 = w_sr2v * torch.stack(ep_terms).mean()
+                        mean_sf = sum(sf_l) / len(sf_l)
+                        batch[f"log/L{i}_softF"] = mean_sf
+                        batch[f"log/L{i}_softB2"] = sum(sb_l) / len(sb_l)
+                        batch[f"log/L{i}_srdiv"] = abs(f_hard - mean_sf)
+                        _pc = pv.clamp(1e-6, 1 - 1e-6)
+                        _al = (_pc / (1 - _pc)).log().abs()
+                        batch[f"log/L{i}_abslogit_mean"] = float(_al.mean())
+                        batch[f"log/L{i}_abslogit_p99"] = float(_al.quantile(0.99))
+                        srate_total = (sr_v2 if srate_total is None
+                                       else srate_total + sr_v2)
+            w_sr = float(rec.get("softrate_weight", 0.0))
+            w_ind = float(rec.get("indecision_weight", 0.0))
+            if (w_sr > 0 or w_ind > 0) and pv.numel() > 0 and str(rec.get("softrate_vote", "sigmoid")) != "endpoint":
+                tau_sr = float(rec.get("softrate_tau", 0.15))
+                ctr_sr = float(rec.get("softrate_center", 0.5))
+                c_dz = float(rec.get("indecision_deadzone", 0.21))
+                inv_n = 1.0 / float(rec["target_ratio"])
+                soft_f = torch.sigmoid((pv - ctr_sr) / tau_sr).mean()
+                sr_i = w_sr * (soft_f - inv_n) ** 2
+                # Second thermostat (user term, 2026-07-18): demand (N-1)/N of
+                # tokens confidently BELOW center2 — softB = mean sigma((c2-p)/tau),
+                # loss (softB - (N-1)/N)^2. With term 1 this pins BOTH tails and
+                # empties the (center2, center) band: a forbidden zone under the
+                # decision line. Identity: == (softF_c2 - 1/N)^2 by 1-s(x)=s(-x).
+                w_sr2 = float(rec.get("softrate2_weight", 0.0))
+                if w_sr2 > 0:
+                    c2 = float(rec.get("softrate2_center", 0.3))
+                    soft_b2 = torch.sigmoid((c2 - pv) / tau_sr).mean()
+                    sr_i = sr_i + w_sr2 * (soft_b2 - (1.0 - inv_n)) ** 2
+                    batch[f"log/L{i}_softB2"] = float(soft_b2)
+                ind_i = w_ind * F.relu(pv * (1.0 - pv) - c_dz).mean()
+                batch[f"log/L{i}_softF"] = float(soft_f)
+                batch[f"log/L{i}_indec"] = float(ind_i)
+                sr_total_i = sr_i + ind_i
+                srate_total = (sr_total_i if srate_total is None
+                               else srate_total + sr_total_i)
             # Hard-band reg (ratio-loss replacement): constrain the REALIZED
             # boundary decisions — the statistic eval actually uses — via STE.
             # (a) rate band [lo, hi] on the hard boundary rate: zero force
@@ -557,6 +676,14 @@ class RatioLoss(Stage):
             batch["log/boundary_rate"] = sum(_rates) / len(_rates)
         if dec_total is not None:
             batch["loss/dec"] = dec_total
+        if rec_total is not None:
+            batch["loss/seam_recon"] = rec_total
+        if cons_total is not None:
+            batch["loss/cons"] = cons_total
+        if tk_total is not None:
+            batch["loss/topk"] = tk_total
+        if srate_total is not None:
+            batch["loss/softrate"] = srate_total
         return batch
 
 

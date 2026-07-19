@@ -108,10 +108,23 @@ class SigmoidRoutingModule(nn.Module):
 
 
 class RoutingModule(nn.Module):
-    def __init__(self, d_model, device=None, dtype=None):
+    def __init__(self, d_model, device=None, dtype=None, temp: float = 1.0,
+                 sample_train: bool = False):
         super().__init__()
         factory_kwargs = {"device": device, "dtype": dtype}
         self.d_model = d_model
+        # Cosine temperature (fence-combat knob, 2026-07-18): p = clamp((1 -
+        # cos/temp)/2). temp < 1 amplifies small adjacent-token cosine
+        # differences into larger prob swings — same evidence, bigger p
+        # response, ±ε fence widened 1/temp×. Default 1.0 = byte-identical.
+        self.temp = float(temp)
+        # Sampled routing (fence-combat knob, 2026-07-18): during TRAINING,
+        # select boundaries by Bernoulli(p) instead of argmax (packed path
+        # only — batchflow training is packed). Hedging at p≈0.5 then makes
+        # the realized grouping flip batch-to-batch → loss variance → the
+        # task itself pays for indecision. Eval/probe (module.eval()) stays
+        # deterministic argmax. Default False = byte-identical.
+        self.sample_train = bool(sample_train)
         self.q_proj_layer = nn.Linear(d_model, d_model, bias=False, **factory_kwargs)
         self.k_proj_layer = nn.Linear(d_model, d_model, bias=False, **factory_kwargs)
         # F9 (upstream parity): identity init for q/k is intentional in the
@@ -169,7 +182,7 @@ class RoutingModule(nn.Module):
             F.normalize(self.q_proj_layer(hidden_states[:, :-1]), dim=-1),
             F.normalize(self.k_proj_layer(hidden_states[:, 1:]), dim=-1),
         )
-        boundary_prob = torch.clamp(((1 - cos_sim) / 2), min=0.0, max=1.0)
+        boundary_prob = torch.clamp(((1 - cos_sim / self.temp) / 2), min=0.0, max=1.0)
         boundary_prob = F.pad(boundary_prob, (1, 0), "constant", 1.0)  # PAD Prob 1.0
         boundary_prob = torch.stack(((1 - boundary_prob), boundary_prob), dim=-1)
 
@@ -216,7 +229,7 @@ class RoutingModule(nn.Module):
             F.normalize(self.q_proj_layer(hidden_states[:-1]), dim=-1)
             * F.normalize(self.k_proj_layer(hidden_states[1:]), dim=-1)
         ).sum(dim=-1)
-        boundary_prob = torch.clamp(((1 - cos_sim) / 2), min=0.0, max=1.0)
+        boundary_prob = torch.clamp(((1 - cos_sim / self.temp) / 2), min=0.0, max=1.0)
         boundary_prob = F.pad(boundary_prob, (1, 0), "constant", 1.0)
         # Force boundary at the first token of every subseq
         boundary_prob = boundary_prob.clone()
@@ -225,7 +238,13 @@ class RoutingModule(nn.Module):
         boundary_prob = torch.stack(
             ((1 - boundary_prob), boundary_prob), dim=-1
         )  # (T_total, 2)
-        selected_idx = torch.argmax(boundary_prob, dim=-1)
+        if self.sample_train and self.training:
+            # Bernoulli(p) selection; forced starts have p=1.0 exactly, and
+            # u ~ U[0,1) < 1.0 always -> they stay boundaries by construction.
+            u = torch.rand_like(boundary_prob[..., -1])
+            selected_idx = (u < boundary_prob[..., -1]).long()
+        else:
+            selected_idx = torch.argmax(boundary_prob, dim=-1)
         boundary_mask = selected_idx == 1  # (T_total,)
         selected_probs = boundary_prob.gather(
             dim=-1, index=selected_idx.unsqueeze(-1)
@@ -245,7 +264,7 @@ class RoutingModule(nn.Module):
             F.normalize(self.q_proj_layer(inference_params.last_hidden_state), dim=-1),
             F.normalize(self.k_proj_layer(hidden_states), dim=-1),
         )
-        boundary_prob = torch.clamp(((1 - cos_sim) / 2), min=0.0, max=1.0)
+        boundary_prob = torch.clamp(((1 - cos_sim / self.temp) / 2), min=0.0, max=1.0)
         inference_params.last_hidden_state.copy_(
             hidden_states.to(inference_params.last_hidden_state.dtype)
         )

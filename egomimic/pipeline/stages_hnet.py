@@ -177,7 +177,16 @@ class DualChunkerLevel(Stage):
                  router_mixer_n_layers: int = 4, router_hidden_mult: float = 4.0,
                  ste_gain: float = 1.0,
                  hard_band_weight: float = 0.0, hard_band_lo: float = 0.25,
-                 hard_band_hi: float = 0.45, hard_band_window: int = 12):
+                 hard_band_hi: float = 0.45, hard_band_window: int = 12,
+                 recon_loss_weight: float = 0.0, recon_hidden_mult: float = 2.0,
+                 router_temp: float = 1.0, router_sample: bool = False,
+                 cons_loss_weight: float = 0.0, cons_noise_std: float = 0.1,
+                 topk_loss_weight: float = 0.0, topk_margin: float = 0.1,
+                 softrate_weight: float = 0.0, softrate_tau: float = 0.15,
+                 softrate_vote: str = "sigmoid",
+                 softrate_center: float = 0.5,
+                 softrate2_weight: float = 0.0, softrate2_center: float = 0.3,
+                 indecision_weight: float = 0.0, indecision_deadzone: float = 0.21):
         super().__init__()
         d_s = int(d_s) if d_s is not None else int(d_a)
         apex_s = int(apex_s) if apex_s is not None else d_s
@@ -200,6 +209,47 @@ class DualChunkerLevel(Stage):
         self._embs = list(embodiments) if embodiments else None
         object.__setattr__(self, "inner", None)  # NON-registered ref
 
+        # Deep supervision at this level (fence-combat, 2026-07-18): dechunk
+        # the RAW selected chunk tokens back to this level's input grid via the
+        # p-gated EMA (dense grad on boundary_prob) and reconstruct the level
+        # INPUT with a small MLP. One summary token must then explain every
+        # token in its span — boundary placement becomes consequential
+        # (rate-distortion pressure the action loss doesn't supply at the
+        # seam). Weight 0.0 (default) = no module, byte-identical.
+        self.recon_loss_weight = float(recon_loss_weight)
+        if self.recon_loss_weight > 0:
+            _rh = int(int(d_a) * float(recon_hidden_mult))
+            self.recon_head = nn.Sequential(
+                nn.Linear(int(d_a), _rh), nn.GELU(), nn.Linear(_rh, int(d_a)))
+        else:
+            self.recon_head = None
+        # Consistency-under-noise (fence-combat, 2026-07-18): second router
+        # pass on input-noised A/S; loss = mean (p1-p2)^2. Near-0.5 probs flip
+        # under noise -> penalized; margined probs don't -> free. Manufactures
+        # margin exactly where decisions are unstable. ⚠️ minimized by a
+        # data-independent router (constant p / clamp-saturated all-low) — keep
+        # the ratio loss ON alongside (its F<1/N branch opposes all-merge).
+        self.cons_loss_weight = float(cons_loss_weight)
+        self.cons_noise_std = float(cons_noise_std)
+        # Top-K hinge (targeted ratio replacement) params ride the aux record;
+        # the loss itself is computed in RatioLoss where valid-masking lives.
+        self.topk_loss_weight = float(topk_loss_weight)
+        self.topk_margin = float(topk_margin)
+        # Soft-rate + indecision reg (user-designed, 2026-07-18) — a DYNAMIC
+        # ratio-loss replacement: rate via a differentiable soft count
+        # (correction concentrated on undecided tokens via sigma', confident
+        # tokens exempt) + a dead-zoned per-token indecision tax pushing
+        # fence-sitters toward their nearest extreme. Params ride the aux
+        # record; computed in RatioLoss. Defaults 0.0 = byte-identical.
+        self.softrate_weight = float(softrate_weight)
+        self.softrate_tau = float(softrate_tau)
+        self.softrate_center = float(softrate_center)
+        self.softrate2_weight = float(softrate2_weight)
+        self.softrate_vote = str(softrate_vote)
+        self.softrate2_center = float(softrate2_center)
+        self.indecision_weight = float(indecision_weight)
+        self.indecision_deadzone = float(indecision_deadzone)
+
         router_embs = self._embs if router_per_emb else None
         self._router = per_emb(
             lambda: DualStreamRouter(d_a, d_s, d_router=d_router,
@@ -208,7 +258,9 @@ class DualChunkerLevel(Stage):
                                      router_pre_detach=router_pre_detach,
                                      n_layers=router_mixer_n_layers,
                                      fusion=router_fusion,
-                                     hidden_mult=router_hidden_mult),
+                                     hidden_mult=router_hidden_mult,
+                                     router_temp=router_temp,
+                                     router_sample=router_sample),
             router_embs)
         self.chunk_layer = ChunkLayer()
         self.dechunk_A = DeChunkLayer(d_a)
@@ -270,6 +322,20 @@ class DualChunkerLevel(Stage):
                                         max_seqlen=batch["max_seq_len"])
         bmask, bprob, sprob = bpred.boundary_mask, bpred.boundary_prob, bpred.selected_probs
 
+        # Consistency-under-noise (see __init__): agreement between this pass
+        # and a second pass on input-noised streams. Forced starts are 1.0 in
+        # both -> zero contribution; no self.training gate so the gradient
+        # probe (eval mode) can measure the force.
+        cons_loss = None
+        if self.cons_loss_weight > 0:
+            _nA = (A.float() + self.cons_noise_std * A.float().std()
+                   * torch.randn_like(A.float())).to(A.dtype)
+            _nS = (S.float() + self.cons_noise_std * S.float().std()
+                   * torch.randn_like(S.float())).to(S.dtype)
+            _bp2 = pick(self._router, emb)(_nA, _nS, cu_seqlens=cu,
+                                           max_seqlen=batch["max_seq_len"])
+            cons_loss = ((bprob[..., -1] - _bp2.boundary_prob[..., -1]) ** 2).mean()
+
         resA = self.residual_proj_A(A.float())
         resS = pick(self.residual_proj_S, emb)(S.float())
 
@@ -310,6 +376,17 @@ class DualChunkerLevel(Stage):
         S_dech = self.dechunk_S(S_inner if self.dual_inner else S_in, bmask, bprob,
                                 cu_seqlens=next_cu)
 
+        # Deep supervision (see __init__): reconstruct the level INPUT from the
+        # RAW chunked tokens dechunked back to the input grid. Uses the same
+        # p-gated EMA dechunk as the main path — dense dL/dp on every token —
+        # but bypasses the inner/apex so nothing can compensate for bad
+        # grouping: recon quality is a direct function of boundary placement.
+        recon_loss = None
+        if self.recon_head is not None:
+            _rec = self.dechunk_A(A_ch, bmask, bprob, cu_seqlens=next_cu)
+            recon_loss = nn.functional.mse_loss(
+                self.recon_head(_rec.float()), A.float().detach())
+
         batch["A"] = self.residual_mixer_A(
             A_dech.float() * _ste_scaled(sprob, self.ste_gain), resA).to(A.dtype)
         batch["S"] = pick(self.residual_mixer_S, emb)(
@@ -330,6 +407,20 @@ class DualChunkerLevel(Stage):
             "hb_lo": self.hard_band_lo,
             "hb_hi": self.hard_band_hi,
             "hb_window": self.hard_band_window,
+            "recon_loss": recon_loss,
+            "recon_weight": self.recon_loss_weight,
+            "cons_loss": cons_loss,
+            "cons_weight": self.cons_loss_weight,
+            "topk_weight": self.topk_loss_weight,
+            "topk_margin": self.topk_margin,
+            "softrate_weight": self.softrate_weight,
+            "softrate_vote": self.softrate_vote,
+            "softrate_tau": self.softrate_tau,
+            "softrate_center": self.softrate_center,
+            "softrate2_weight": self.softrate2_weight,
+            "softrate2_center": self.softrate2_center,
+            "indecision_weight": self.indecision_weight,
+            "indecision_deadzone": self.indecision_deadzone,
             "tokens": A_ch,               # chunkviz PCA reads A tokens ONLY
         })
         return batch

@@ -269,6 +269,45 @@ class ZarrEpisodePackedDataset(Dataset):
             return data
 
 
+class ZarrAnnotationSpanPackedDataset(ZarrEpisodePackedDataset):
+    """One packed sample per annotation span ``{text, start_idx, end_idx}``
+    (span-as-episode). Reads the hardcoded ``annotations`` zarr key via each
+    episode dataset's ``_load_annotations`` and packs the [start, end) window at
+    native per-frame resolution. Ported from EgoVerse-gmm-dualstream for the
+    robot-human fold cotrain (paired with fold_span_transforms)."""
+
+    def _build_index(self) -> list[tuple[str, int, int]]:
+        index: list[tuple[str, int, int]] = []
+        seen: set = set()
+        for key in self._episode_keys:
+            ds = self.datasets[key]
+            try:
+                anns = ds._load_annotations()
+            except Exception as e:
+                logger.warning(
+                    "episode %s: annotations load failed (%s); skipping", key, e)
+                continue
+            total_frames = int(ds.total_frames)
+            for ann in anns:
+                start = max(int(ann.get("start_idx", -1)), 0)
+                end = min(int(ann.get("end_idx", -1)), total_frames)
+                if end <= start or (key, start, end) in seen:
+                    continue
+                seen.add((key, start, end))
+                if end - start < self.min_seq_len:
+                    continue
+                if self.max_seq_len is not None and end - start > self.max_seq_len:
+                    if self.chunking == "sequential":
+                        for s in range(start, end, self.max_seq_len):
+                            e = min(s + self.max_seq_len, end)
+                            if e - s >= self.min_seq_len:
+                                index.append((key, s, e))
+                        continue
+                    end = start + self.max_seq_len
+                index.append((key, start, end))
+        return index
+
+
 # ---------------------------------------------------------------------- #
 # Pack collator
 # ---------------------------------------------------------------------- #
@@ -390,5 +429,6 @@ def pack_collate(batch: list[dict]) -> dict:
 
 __all__ = [
     "ZarrEpisodePackedDataset",
+    "ZarrAnnotationSpanPackedDataset",
     "pack_collate",
 ]

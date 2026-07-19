@@ -64,7 +64,8 @@ class DualStreamRouter(nn.Module):
 
     def __init__(self, d_a, d_s, d_router=None, n_layers=4, fusion="residual_mlp",
                  router_pre_layout=None, router_pre_detach=False,
-                 hidden_mult=4.0, router_core="cossim"):
+                 hidden_mult=4.0, router_core="cossim", router_temp: float = 1.0,
+                 router_sample: bool = False):
         super().__init__()
         d_router = int(d_router) if d_router else int(d_a)
         self.d_a, self.d_s, self.d_router = int(d_a), int(d_s), d_router
@@ -122,10 +123,12 @@ class DualStreamRouter(nn.Module):
             else None
         )
         if router_core == "cossim":
-            self.router = RoutingModule(d_router)
+            self.router = RoutingModule(d_router, temp=router_temp,
+                                        sample_train=router_sample)
         elif router_core == "sigmoid":
+            assert not router_sample, "router_sample supports cossim core only"
             from egomimic.models.hnet.routing import SigmoidRoutingModule
-            self.router = SigmoidRoutingModule(d_router)
+            self.router = SigmoidRoutingModule(d_router, temperature=router_temp)
         else:
             raise ValueError(f"router_core must be 'cossim'|'sigmoid', got {router_core!r}")
 

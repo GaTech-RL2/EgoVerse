@@ -283,6 +283,7 @@ class PipelineAlgo(Algo):
             if excluded:
                 names = [(type(s).__name__, miss) for s, miss in excluded]
                 print(f"[PipelineAlgo.step] plan excluded (train-only): {names}")
+        b["rollout_t"] = t   # streaming heads (SDPHead) key on this
         for stage in state["plan"]:
             b = stage(b)
         return b["pred_action"][T - 1]  # (C, D) decoded chunk at the last token

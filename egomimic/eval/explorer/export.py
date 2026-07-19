@@ -73,7 +73,7 @@ def _pca2(X):
     """2D PCA scores of rows of X (centered)."""
     Xc = X - X.mean(0, keepdims=True)
     _u, _s, Vt = np.linalg.svd(Xc, full_matrices=False)
-    return np.round(Xc @ Vt[:2].T, 3).astype(np.float32)
+    return (Xc @ Vt[:2].T).astype(np.float64)  # NO rounding (3dp lattice showed as a grid under zoom); float64 like shared PCA
 
 
 def _project_out(X, dirs):

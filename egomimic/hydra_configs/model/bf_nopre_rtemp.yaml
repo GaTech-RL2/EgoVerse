@@ -1,6 +1,6 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
-# FENCE-COMBAT ARM B (2026-07-18): bf_prdec_nopre + var4 router-prob spread
-# loss (w_s=4.0 alpha=0.5, BOTH chunkers — family var4 recipe).
+# FENCE-COMBAT ARM C (2026-07-18): bf_prdec_nopre + SEAM router temperature
+# 0.25 (p = clamp((1-cos/temp)/2) -> 4x wider prob response, same evidence).
 # Single-delta twin of bf_prdec_nopre_gmm.
 # BATCHFLOW flat config — prenet_decoder dualstream (gate arm 2):
 # sym_w1 + param-neutral encoder->decoder split (4L enc + T4 dec per trunk
@@ -119,8 +119,6 @@ robomimic_model:
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
       router_per_emb: true
       router_fusion: mlp
-      spread_loss_weight: 4.0
-      spread_alpha: 0.5
     - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L1 A512/S128 x8
       mask_mode: sym
       allow_agnostic_cross: true
@@ -145,8 +143,7 @@ robomimic_model:
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
       router_per_emb: true
       router_fusion: mlp
-      spread_loss_weight: 4.0
-      spread_alpha: 0.5
+      router_temp: 0.25
     - _target_: egomimic.pipeline.stages_hnet.ApexLevel        # 1024 T10 agnostic-only
       causal: true
       main_network:

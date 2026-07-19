@@ -39,7 +39,7 @@ def build(data_path: str, frame_stride: int) -> dict:
     st = max(1, int(frame_stride))
     for emb in emb_ids:
         labels = [str(x) for x in d[f"emb{emb}_labels"]]
-        pca = np.round(d[f"emb{emb}_pca_xy"].astype(float), 3).tolist()
+        pca = d[f"emb{emb}_pca_xy"].astype(float).tolist()  # full precision (zoom-safe)
         nep = int(d[f"emb{emb}_n_episodes"])
         episodes = []
         for ep in range(nep):
@@ -47,7 +47,7 @@ def build(data_path: str, frame_stride: int) -> dict:
             if key + "cid" not in d:
                 continue
             cid = d[key + "cid"][:, ::st].astype(int).tolist()
-            prob = np.round(d[key + "prob"][:, ::st].astype(float), 3).tolist()
+            prob = d[key + "prob"][:, ::st].astype(float).tolist()  # FULL float precision (user: as fine-grain as possible); canvas 1/256 is the only quantization
             topcid = d[key + "topcid"][::st].astype(int).tolist()
             frames = []
             if key + "traj" in d:
@@ -56,8 +56,7 @@ def build(data_path: str, frame_stride: int) -> dict:
             # per-frame GT/pred xy for the viewer overlay (path / dot toggle)
             for nm in ("gt", "pred"):
                 if key + nm in d:
-                    ep_entry[nm] = np.round(
-                        d[key + nm][::st].astype(float), 4).tolist()
+                    ep_entry[nm] = d[key + nm][::st].astype(float).tolist()  # full precision
             episodes.append(ep_entry)
         emb_entry = {"labels": labels, "pca": pca, "episodes": episodes}
         # per-emb start index into the shared PCA array (chunk id c of this emb
@@ -70,12 +69,12 @@ def build(data_path: str, frame_stride: int) -> dict:
               f"episodes={len(episodes)} frames={nfr} (stride {st})")
     # shared cross-embodiment PCA (one basis) — drives the alignment compare view
     if "pca_shared_xy" in d:
-        out["pca_shared"] = np.round(d["pca_shared_xy"].astype(float), 3).tolist()
+        out["pca_shared"] = d["pca_shared_xy"].astype(float).tolist()  # full precision
         out["pca_shared_emb"] = d["pca_shared_emb"].astype(int).tolist()
         for _k, _src in (("pca_shared_meandiff", "pca_shared_meandiff_xy"),
                          ("pca_shared_lda", "pca_shared_lda_xy")):
             if _src in d:
-                out[_k] = np.round(d[_src].astype(float), 3).tolist()
+                out[_k] = d[_src].astype(float).tolist()  # full precision
         print(f"shared PCA: {len(out['pca_shared'])} chunks "
               f"(compare/alignment view enabled)")
     return out

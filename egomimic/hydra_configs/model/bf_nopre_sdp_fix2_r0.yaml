@@ -1,7 +1,4 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
-# FENCE-COMBAT ARM B (2026-07-18): bf_prdec_nopre + var4 router-prob spread
-# loss (w_s=4.0 alpha=0.5, BOTH chunkers — family var4 recipe).
-# Single-delta twin of bf_prdec_nopre_gmm.
 # BATCHFLOW flat config — prenet_decoder dualstream (gate arm 2):
 # sym_w1 + param-neutral encoder->decoder split (4L enc + T4 dec per trunk
 # level) + T4 causal router prenet in both chunkers. The model IS the
@@ -112,15 +109,13 @@ robomimic_model:
       apex_s: 128
       dual_inner: true
       target_compression_ratio: 3.0
-      ratio_loss_weight: 1.0
+      ratio_loss_weight: 0.0
       grab_prev_end: true
       residual_mixer: mlp
       residual_mixer_kwargs: {n_layers: 4}
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
       router_per_emb: true
       router_fusion: mlp
-      spread_loss_weight: 4.0
-      spread_alpha: 0.5
     - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L1 A512/S128 x8
       mask_mode: sym
       allow_agnostic_cross: true
@@ -138,15 +133,13 @@ robomimic_model:
       apex_a: 1024
       dual_inner: false
       target_compression_ratio: 3.0
-      ratio_loss_weight: 1.0
+      ratio_loss_weight: 0.0
       grab_prev_end: true
       residual_mixer: mlp
       residual_mixer_kwargs: {n_layers: 4}
       embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
       router_per_emb: true
       router_fusion: mlp
-      spread_loss_weight: 4.0
-      spread_alpha: 0.5
     - _target_: egomimic.pipeline.stages_hnet.ApexLevel        # 1024 T10 agnostic-only
       causal: true
       main_network:
@@ -159,20 +152,23 @@ robomimic_model:
         dropout: 0.0
         resid_dropout: 0.0
   # --- head (24 agnostic + 8 specific modes, matching the old sym_w1) ---
-  - _target_: egomimic.pipeline.stages_io.GMMHead
+  - _target_: egomimic.pipeline.stages_flow.SDPHead
     d_a: 256
     d_s: 64
     action_dim: 2
     chunk_len: 4
-    k_agnostic: 24
-    k_specific: 8
     embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
-    head_hidden_dim: 512
-    head_n_layers: 3
-    gate_n_layers: 3
-    min_std: 0.0001
-    low_noise_eval: true
-    squash_means: true
+    buffer_chunks: 4
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    regime_weights: [0.7, 0.15, 0.15]
+    end_mode: pusher_hold
+    d_model_a: 256
+    d_model_s: 128
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+    mask_mode: asym
   # --- losses are stages ---
   - _target_: egomimic.pipeline.stages_io.RatioLoss
 enable_grad_norm: false

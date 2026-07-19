@@ -1,25 +1,32 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
-# FENCE-COMBAT ARM B (2026-07-18): bf_prdec_nopre + var4 router-prob spread
-# loss (w_s=4.0 alpha=0.5, BOTH chunkers — family var4 recipe).
-# Single-delta twin of bf_prdec_nopre_gmm.
-# BATCHFLOW flat config — prenet_decoder dualstream (gate arm 2):
-# sym_w1 + param-neutral encoder->decoder split (4L enc + T4 dec per trunk
-# level) + T4 causal router prenet in both chunkers. The model IS the
-# stages list: TargetBuilder -> ObsEncoders -> DualstreamTrunk -> GMMHead ->
-# RatioLoss. Dims byte-copied from hnet_dualstream_firstend_tapered_200m_sym_w1.
+# BATCHFLOW flat config — HETERO-ACTION-DIM robot-human SDP (NO-DUAL variant).
+#   * SDP-fix2ada arch (adaLN-Zero denoiser, end_mode=masked, TEDi streaming
+#     buffer, no prev-action proprio), same tapered dualstream trunk as
+#     bf_nopre_sdp_fix2ada_r001.
+#   * domains eva_bimanual (action_dim 14, cartesian) + human_bimanual
+#     (action_dim 138, head-frame keypoints) — DIFFERENT action dims.
+#   * hetero-D handled by per-emb 3-layer SiLU E_e (dim_e -> latent 192) / D_e
+#     (latent 192 -> dim_e); the SHARED denoiser core runs entirely in the
+#     latent. Noise/x_t/loss stay in the ORIGINAL per-emb dim.
+#   * NO-DUAL: single shared denoiser stream (SingleStreamDenoiserV2) at width
+#     d_model_a=256; A/S survive only as a_top vs s conditioning; E_e/D_e are
+#     the ONLY per-emb parts. d_model_s is accepted-but-unused here.
+#   * per-emb SPECIFIC obs encoders (eva: front_1 + state_ee_pose(14);
+#     human: front_1 + state_keypoints(138) + obs_head_pose(7)) + SHARED
+#     image-only AGNOSTIC encoder (front_1). No prev-action proprio.
 robomimic_model:
   _target_: egomimic.pipeline.algo.PipelineAlgo
   action_horizon: 2560
-  domains: [pushshapes_sim, pushshapes_sim_small_circle]
+  domains: [eva_bimanual, human_bimanual]
   ac_keys:
-    pushshapes_sim: actions
-    pushshapes_sim_small_circle: actions
+    eva_bimanual: actions_cartesian
+    human_bimanual: actions_keypoints
   stages:
-  # --- stride + targets as data (was obs_stride: 4) ---
+  # --- stride + targets as data ---
   - _target_: egomimic.pipeline.stages_io.TargetBuilder
     chunk_len: 4
     stride: 4
-  # --- A (shared) + S (per-emb) obs encoders ---
+  # --- A (shared, image-only) + S (per-emb) obs encoders ---
   - _target_: egomimic.pipeline.stages_io.ObsEncoders
     agnostic:
       _target_: egomimic.models.stems.input_modules.ObsToken
@@ -29,19 +36,18 @@ robomimic_model:
         d_cond: 256
         output_key: fused_cond
         cond_proj_widths: [256, 256]
-        obs_specs:
-          state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+        obs_specs: {}
         img_encoders:
           front_img_1:
             _target_: egomimic.models.stems.visual_core.VisualCore
             in_channels: 3
-            image_size: 96
+            image_size: 480
             num_kp: 32
             feature_dimension: 64
             pretrained: false
             crop_aug: true
-            crop_height: 86
-            crop_width: 86
+            crop_height: 128
+            crop_width: 128
             crop_eval_mode: random
             crop_sample_mode: v02
     specific:
@@ -50,58 +56,59 @@ robomimic_model:
       obs_encoder:
         _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
         encoders:
-          pushshapes_sim:
+          eva_bimanual:
             _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
             d_cond: 64
             output_key: fused_cond
             cond_proj_widths: [64, 64]
             obs_specs:
-              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+              state_ee_pose: {input_dim: 14, input_slice: [0, 14], embed_dim: 64}
             img_encoders:
               front_img_1:
                 _target_: egomimic.models.stems.visual_core.VisualCore
                 in_channels: 3
-                image_size: 96
+                image_size: 480
                 num_kp: 32
                 feature_dimension: 64
                 pretrained: false
                 crop_aug: true
-                crop_height: 86
-                crop_width: 86
+                crop_height: 128
+                crop_width: 128
                 crop_eval_mode: random
                 crop_sample_mode: v02
-          pushshapes_sim_small_circle:
+          human_bimanual:
             _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
             d_cond: 64
             output_key: fused_cond
             cond_proj_widths: [64, 64]
             obs_specs:
-              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+              state_keypoints: {input_dim: 138, input_slice: [0, 138], embed_dim: 64}
+              obs_head_pose: {input_dim: 7, input_slice: [0, 7], embed_dim: 64}
             img_encoders:
               front_img_1:
                 _target_: egomimic.models.stems.visual_core.VisualCore
                 in_channels: 3
-                image_size: 96
+                image_size: 480
                 num_kp: 32
                 feature_dimension: 64
                 pretrained: false
                 crop_aug: true
-                crop_height: 86
-                crop_width: 86
+                crop_height: 128
+                crop_width: 128
                 crop_eval_mode: random
                 crop_sample_mode: v02
-  # --- the pyramid (one pipeline stage; levels nest internally) ---
+  # --- the pyramid (same tapered dualstream topology as bf_nopre_sdp_fix2ada) ---
   - _target_: egomimic.pipeline.stages_hnet.DualstreamTrunk
     init_range: 0.02
     levels:
-    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L0 A256/S64 x8
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L0 A256/S64 x4
       mask_mode: sym
       allow_agnostic_cross: true
       causal: true
       n_layers: 4
       decoder_layout: T4
       rotary_emb_dim: 64
-      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+      embodiments: [eva_bimanual, human_bimanual]
       streams_cfg:
       - {d_model: 256, num_heads: 4, d_intermediate: 1024}
       - {d_model: 64, num_heads: 2, d_intermediate: 256}
@@ -112,23 +119,21 @@ robomimic_model:
       apex_s: 128
       dual_inner: true
       target_compression_ratio: 3.0
-      ratio_loss_weight: 1.0
+      ratio_loss_weight: 0.001
       grab_prev_end: true
       residual_mixer: mlp
       residual_mixer_kwargs: {n_layers: 4}
-      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+      embodiments: [eva_bimanual, human_bimanual]
       router_per_emb: true
       router_fusion: mlp
-      spread_loss_weight: 4.0
-      spread_alpha: 0.5
-    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L1 A512/S128 x8
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L1 A512/S128 x4
       mask_mode: sym
       allow_agnostic_cross: true
       causal: true
       n_layers: 4
       decoder_layout: T4
       rotary_emb_dim: 64
-      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+      embodiments: [eva_bimanual, human_bimanual]
       streams_cfg:
       - {d_model: 512, num_heads: 8, d_intermediate: 2048}
       - {d_model: 128, num_heads: 4, d_intermediate: 512}
@@ -138,15 +143,13 @@ robomimic_model:
       apex_a: 1024
       dual_inner: false
       target_compression_ratio: 3.0
-      ratio_loss_weight: 1.0
+      ratio_loss_weight: 0.001
       grab_prev_end: true
       residual_mixer: mlp
       residual_mixer_kwargs: {n_layers: 4}
-      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+      embodiments: [eva_bimanual, human_bimanual]
       router_per_emb: true
       router_fusion: mlp
-      spread_loss_weight: 4.0
-      spread_alpha: 0.5
     - _target_: egomimic.pipeline.stages_hnet.ApexLevel        # 1024 T10 agnostic-only
       causal: true
       main_network:
@@ -158,21 +161,29 @@ robomimic_model:
         rotary_emb_dim: 64
         dropout: 0.0
         resid_dropout: 0.0
-  # --- head (24 agnostic + 8 specific modes, matching the old sym_w1) ---
-  - _target_: egomimic.pipeline.stages_io.GMMHead
+  # --- HETERO-D SDP head: dual_stream + per-emb E_e/D_e + latent core ---
+  - _target_: egomimic.pipeline.stages_flow.SDPHead
     d_a: 256
     d_s: 64
-    action_dim: 2
+    action_dim: 14                 # nominal scalar (per-emb dims live in action_dims)
+    action_dims: {eva_bimanual: 14, human_bimanual: 138}
+    latent_dim: 192                # RAE: >= max action_dim (138)
+    dual_stream: false
+    enc_hidden: 256                # E_e / D_e 3-layer SiLU hidden width
     chunk_len: 4
-    k_agnostic: 24
-    k_specific: 8
-    embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
-    head_hidden_dim: 512
-    head_n_layers: 3
-    gate_n_layers: 3
-    min_std: 0.0001
-    low_noise_eval: true
-    squash_means: true
+    embodiments: [eva_bimanual, human_bimanual]
+    buffer_chunks: 4
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    regime_weights: [0.7, 0.15, 0.15]
+    end_mode: masked
+    denoiser_arch: adaln
+    d_model_a: 256
+    d_model_s: 192
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+    mask_mode: asym
   # --- losses are stages ---
   - _target_: egomimic.pipeline.stages_io.RatioLoss
 enable_grad_norm: false

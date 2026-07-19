@@ -142,6 +142,7 @@
         <button class="btn" data-layer="crisp">crisp</button>
       </span>
       <button class="btn on" id="probBtn" title="show a P(boundary) band under each stage band">P(boundary)</button>
+      <button class="btn" id="probCtrBtn" title="auto-contrast the P(boundary) band: per-strip min-max stretch (forced 1.0 start-boundaries excluded, still black); true range printed at right">P-contrast</button>
     </span>
     <span class="sp"></span>
     <span class="hint" id="ctxHint">space play · ←/→ step · click/drag timeline to seek</span>
@@ -208,6 +209,8 @@
         </span>
         <span class="vdiv"></span>
         <button class="btn on" id="cmpProbBtn" title="show a P(boundary) band under each stage band">P(boundary)</button>
+        <button class="btn" id="cmpProbCtrBtn" title="auto-contrast the P(boundary) band: per-strip min-max stretch (forced 1.0 start-boundaries excluded); true range printed at right">P-contrast</button>
+        <button class="btn on" id="cmpOvBtn" title="overlay: per-frame dot / full-episode TF path / off (key: o)">ov: dot</button>
       </div>
     </div>
     <div class="cmpGrid">
@@ -246,7 +249,7 @@ let DATA = MODELS[MODEL_NAMES[0]];   // active model; swapped by the model dropd
 const S = { emb:null, ep:0, frame:0, layer:"chunks", playing:false, fps:12,
             frames:[], _raf:null, _acc:0, _last:0, drag:false, clipStage:0, mode:"single",
             overlay:"dot",     // "dot" per-frame | "path" full-episode TF | "off"
-            showProb:true };   // extra P(boundary) band under each stage band
+            showProb:true, probContrast:false };   // extra P(boundary) band under each stage band
 // pan/zoom state for the two PCA canvases (screen-space affine: p' = p*k + o).
 const PZ = { k:1, ox:0, oy:0, drag:null };   // single-view #pca
 const CZ = { k:1, ox:0, oy:0, drag:null };   // compare #cmpPca
@@ -395,6 +398,10 @@ function drawTimeline(){
     x.fillStyle="#cbd5e1"; x.textAlign="left"; x.font="11px sans-serif";
     x.fillText(labels[s], 6, y+BAND/2+4);
     const cid=ep.cid[s], prob=ep.prob[s];
+    let pmn=0,pmx=1;
+    if(S.probContrast && prob){ pmn=1;pmx=0;
+      for(let f=0;f<T();f++){ const v=prob[f]; if(v<0.99){ if(v<pmn)pmn=v; if(v>pmx)pmx=v; } }
+      if(pmx<=pmn){ pmn=0; pmx=1; } }
     for(let f=0;f<T();f++){
       const px=fx(f,plotW), px2=fx(f+1,plotW), bw=Math.max(1,px2-px+0.5);
       let col;
@@ -402,12 +409,16 @@ function drawTimeline(){
       else { const crisp = f===0 || cid[f]!==cid[f-1]; col = crisp?"#dc2626":"#f3f4f6"; }
       x.fillStyle=col; x.fillRect(px,y,bw,BAND);
       if(S.showProb && prob){
-        const g=Math.round(255*(1-Math.min(1,Math.max(0,prob[f]))));
+        let pv=Math.min(1,Math.max(0,prob[f]));
+        if(S.probContrast) pv = prob[f]>=0.99 ? 1 : Math.min(1,Math.max(0,(prob[f]-pmn)/(pmx-pmn)));
+        const g=Math.round(255*(1-pv));
         x.fillStyle=`rgb(${g},${g},${g})`; x.fillRect(px,y+BAND+2,bw,PBAND);
       }
     }
     x.strokeStyle="#2a313c"; x.strokeRect(LABW,y,plotW,BAND);
     if(S.showProb) x.strokeRect(LABW,y+BAND+2,plotW,PBAND);
+    if(S.showProb && S.probContrast && prob){ x.fillStyle="#8aa0b8"; x.font="9px sans-serif"; x.textAlign="right";
+      x.fillText("["+pmn.toFixed(3)+"\u2013"+pmx.toFixed(3)+"]", LABW+plotW-3, y+BAND+2+PBAND-3); x.textAlign="left"; }
   }
   // playhead
   const ph=fx(S.frame,plotW);
@@ -501,6 +512,8 @@ function init(){
     drawTimeline(); };
   $("probBtn").onclick=()=>{ S.showProb=!S.showProb;
     $("probBtn").classList.toggle("on",S.showProb); drawTimeline(); };
+  $("probCtrBtn").onclick=()=>{ S.probContrast=!S.probContrast;
+    $("probCtrBtn").classList.toggle("on",S.probContrast); drawTimeline(); };
   wireZoom($("pca"), PZ, drawPCA);
   $("playBtn").onclick=()=>play(!S.playing);
   $("toStart").onclick=()=>{play(false);seek(0);};
@@ -518,9 +531,12 @@ function init(){
     S.overlay = S.overlay==="dot" ? "path" : (S.overlay==="path" ? "off" : "dot");
     $("ovBtn").textContent = "ov: "+S.overlay;
     $("ovBtn").classList.toggle("on", S.overlay!=="off");
+    $("cmpOvBtn").textContent = "ov: "+S.overlay;
+    $("cmpOvBtn").classList.toggle("on", S.overlay!=="off");
     S.mode==="compare" ? renderCmp() : drawVideo();
   };
   $("ovBtn").onclick=cycleOverlay;
+  $("cmpOvBtn").onclick=cycleOverlay;
   window.addEventListener("keydown",e=>{
     if(e.code==="KeyO"){ cycleOverlay(); return; }
     if(S.mode==="compare"){ if(e.code==="Space"){e.preventDefault();cmpPlay(!SC.playing);} return; }
@@ -610,11 +626,16 @@ function drawCmpStrip(canvasId,emb,ep,accent,phase){
   const plotW=w-padL;
   for(let s=0;s<ns;s++){
     const y=s*(rowH+gap)+2,row=e.cid[s],prow=e.prob?e.prob[s]:null;
+    let pmn=0,pmx=1; if(S.probContrast&&prow){ pmn=1;pmx=0;
+      for(let f=0;f<T;f++){ const v=prow[f]; if(v<0.99){ if(v<pmn)pmn=v; if(v>pmx)pmx=v; } }
+      if(pmx<=pmn){ pmn=0; pmx=1; } }
     x.fillStyle="#cbd5e1";x.font="10px sans-serif";x.textAlign="left";
     x.fillText("Stage "+s,4,y+band/2+3);
     for(let f=0;f<T;f++){ const px=padL+f/T*plotW,px2=padL+(f+1)/T*plotW,bw=Math.max(1,px2-px+0.5);
       x.fillStyle=rgb(PALETTE[row[f]%PALETTE.length]);x.fillRect(px,y,bw,band);
-      if(showP&&prow){ const g=Math.round(255*(1-Math.min(1,Math.max(0,prow[f]))));
+      if(showP&&prow){ let pv=Math.min(1,Math.max(0,prow[f]));
+        if(S.probContrast) pv=prow[f]>=0.99?1:Math.min(1,Math.max(0,(prow[f]-pmn)/(pmx-pmn)));
+        const g=Math.round(255*(1-pv));
         x.fillStyle=`rgb(${g},${g},${g})`;x.fillRect(px,y+band+pgap,bw,pband); } }
     if(showP){ x.strokeStyle="#2a313c";x.strokeRect(padL,y+band+pgap,plotW,pband); }
   }
@@ -711,6 +732,9 @@ function initCompare(){
     renderCmp(); };
   $("cmpProbBtn").onclick=()=>{ SC.showProb=!SC.showProb;
     $("cmpProbBtn").classList.toggle("on",SC.showProb); renderCmp(); };
+  $("cmpProbCtrBtn").onclick=()=>{ S.probContrast=!S.probContrast;
+    $("cmpProbCtrBtn").classList.toggle("on",S.probContrast);
+    $("probCtrBtn").classList.toggle("on",S.probContrast); renderCmp(); };
   wireZoom($("cmpPca"), CZ, drawCmpPca);
   updatePcaModeAvail();
   updateCmpAvail();
