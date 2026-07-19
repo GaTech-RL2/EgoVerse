@@ -26,6 +26,7 @@ import torch
 import torch.nn as nn
 
 from egomimic.models.hnet.isotropic_builder import build_isotropic
+from egomimic.models.hnet.ttt_layer import TTTLinearLayer
 from egomimic.models.hnet.multi_stream_trunk import MultiStreamTrunk
 from egomimic.models.hnet.per_emb import per_emb, pick
 from egomimic.models.hnet.residual_mixer import build_residual_mixer
@@ -73,7 +74,8 @@ class DualTrunkLevel(Stage):
                  embodiments: Optional[List[str]] = None,
                  allow_agnostic_cross: bool = False, decoder_layout=None,
                  adaln_cond: Optional[str] = None, adaln_dim: Optional[int] = None,
-                 ffn_dropout: float = 0.0, attn_window: Optional[int] = None):
+                 ffn_dropout: float = 0.0, attn_window: Optional[int] = None,
+                 ttt: Optional[dict] = None):
         super().__init__()
         streams_cfg = [dict(s) for s in streams_cfg]
         N = len(streams_cfg)
@@ -86,6 +88,13 @@ class DualTrunkLevel(Stage):
         # the encode and decode trunks (None = full within-episode history).
         # Apex stays full-history — set this only on non-apex levels.
         self.attn_window = int(attn_window) if attn_window is not None else None
+        # RoboTTT-style across-time fast-weight layers, one per stream, gated
+        # ~identity at init (tanh(1e-3)); None => byte-identical to baseline.
+        self.ttt_A = self.ttt_S = None
+        if ttt:
+            _tk = dict(ttt)
+            self.ttt_A = TTTLinearLayer(int(streams_cfg[0]["d_model"]), **_tk)
+            self.ttt_S = TTTLinearLayer(int(streams_cfg[1]["d_model"]), **_tk)
         self.adaln_cond = str(adaln_cond) if adaln_cond else None
         ad = int(adaln_dim) if (adaln_cond and adaln_dim) else None
         self.trunk = MultiStreamTrunk(streams_cfg, adjacency, n_layers, rotary_emb_dim,
@@ -124,7 +133,11 @@ class DualTrunkLevel(Stage):
             # every pyramid level: z is episode-constant, cu is this level's).
             cond = packed.broadcast_per_episode(batch[self.adaln_cond], cu)
         tops = self.trunk([A, S], mask, rope, emb, cond=cond)
-        batch["A"], batch["S"] = tops[0], tops[1]
+        a_out, s_out = tops[0], tops[1]
+        if self.ttt_A is not None:
+            a_out = self.ttt_A(a_out, cu)
+            s_out = self.ttt_S(s_out, cu)
+        batch["A"], batch["S"] = a_out, s_out
         if self.inner is not None:
             batch = self.inner(batch)
         if self.decoder_trunk is not None:
