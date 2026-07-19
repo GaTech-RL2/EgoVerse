@@ -1023,6 +1023,9 @@ class HPT(Algo):
         # nav/manip phase split for validation metrics: a val sample counts as
         # "manip" when the GT chunk's total base |dx|+|dy| is below this (meters)
         self.manip_base_disp_thresh = kwargs.get("manip_base_disp_thresh", 0.05)
+        # concise validation logging (default ON): keep ~10 curated Valid/ keys and
+        # skip frechet + reverse-KL computation; set false in yaml for the full set
+        self.concise_val_metrics = kwargs.get("concise_val_metrics", True)
 
         model = HPTModel(**trunk)
         model.auxiliary_ac_keys = self.auxiliary_ac_keys
@@ -1388,18 +1391,19 @@ class HPT(Algo):
                             sample_mask=~manip_mask,
                         )
                     )
-                fd = frechet_gaussian_over_time(
-                    preds[f"{embodiment_name}_{ac_key}"], _batch[ac_key]
-                )
-                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_avg"] = (
-                    fd.mean().item()
-                )
-                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_min"] = (
-                    fd.min().item()
-                )
-                metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_max"] = (
-                    fd.max().item()
-                )
+                if not getattr(self, "concise_val_metrics", True):
+                    fd = frechet_gaussian_over_time(
+                        preds[f"{embodiment_name}_{ac_key}"], _batch[ac_key]
+                    )
+                    metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_avg"] = (
+                        fd.mean().item()
+                    )
+                    metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_min"] = (
+                        fd.min().item()
+                    )
+                    metrics[f"Valid/{embodiment_name}_{ac_key}_frechet_gauss_max"] = (
+                        fd.max().item()
+                    )
 
             if embodiment_name in self.auxiliary_ac_keys:
                 for aux_key in self.auxiliary_ac_keys[embodiment_name]:
@@ -1411,14 +1415,15 @@ class HPT(Algo):
                         metrics[f"Valid/{pred_key}_final_mse_avg"] = mse(
                             preds[pred_key][:, -1].cpu(), _batch[aux_key][:, -1].cpu()
                         )
-                        fd = frechet_gaussian_over_time(
-                            preds[pred_key], _batch[aux_key]
-                        )
-                        metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = (
-                            fd.mean().item()
-                        )
-                        metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
-                        metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
+                        if not getattr(self, "concise_val_metrics", True):
+                            fd = frechet_gaussian_over_time(
+                                preds[pred_key], _batch[aux_key]
+                            )
+                            metrics[f"Valid/{pred_key}_frechet_gauss_avg"] = (
+                                fd.mean().item()
+                            )
+                            metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
+                            metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
 
             if (
                 self.shared_ac_key
@@ -1439,7 +1444,9 @@ class HPT(Algo):
                 metrics[f"Valid/{pred_key}_frechet_gauss_min"] = fd.min().item()
                 metrics[f"Valid/{pred_key}_frechet_gauss_max"] = fd.max().item()
 
-            if self.rkl_samples and self.rkl_samples > 1:
+            if (
+                not getattr(self, "concise_val_metrics", True)
+            ) and self.rkl_samples and self.rkl_samples > 1:
                 hpt_batch = {
                     "domain": embodiment_name,
                     "data": self._robomimic_to_hpt_data(
@@ -1501,6 +1508,23 @@ class HPT(Algo):
             ):
                 ims = self.visualize_preds(preds, _batch)
                 images_dict[embodiment_id] = ims
+
+        if getattr(self, "concise_val_metrics", True):
+            keep = set()
+            for embodiment_id in batch:
+                emb = get_embodiment(embodiment_id).lower()
+                ac_names = {self.ac_keys[embodiment_id], self.shared_ac_key} - {None}
+                for acp in ac_names:
+                    p = f"Valid/{emb}_{acp}"
+                    keep.update({
+                        f"{p}_mae_avg", f"{p}_nav_mae_avg", f"{p}_manip_mae_avg",
+                        f"{p}_nav_base_mae_avg", f"{p}_manip_r_hand_mae_avg",
+                        f"{p}_manip_r_arm_mae_avg", f"{p}_manip_l_hand_mae_avg",
+                        f"{p}_head_mae_avg", f"{p}_r_hand_mae_avg", f"{p}_manip_frac",
+                    })
+                for aux_key in self.auxiliary_ac_keys.get(emb, []):
+                    keep.add(f"Valid/{emb}_{aux_key}_paired_mse_avg")
+            metrics = {k: v for k, v in metrics.items() if k in keep}
         return metrics, images_dict
 
     @override
