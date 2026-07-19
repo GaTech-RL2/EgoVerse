@@ -39,7 +39,7 @@ data:
     dataset1:
       datasets:
         eth_lab:
-          folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val
+          folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val_rgb
           mode: train
           valid_ratio: 0.0
 

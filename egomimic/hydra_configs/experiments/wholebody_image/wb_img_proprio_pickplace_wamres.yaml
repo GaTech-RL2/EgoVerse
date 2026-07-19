@@ -3,7 +3,7 @@
 # Same as wb_img_proprio_pickplace_v1 plus the aux world-model machinery.
 # Requires the *_wam dataset copy (add_dino_wm_target.py) as DATASET_NAME.
 # Launch:
-#   sbatch --export=ALL,DATASET_NAME=aria_pickplace_wam,RAW_DATA_PATH=/nonexistent,TRAIN_CONFIG=experiments/wholebody_image/wb_img_proprio_pickplace_wamres,DESCRIPTION=pp_wamres_2k,VAL_DATASET_DIR=.../datasets/rby1_teleop_pickplace_val submit_wb_img_training.sbatch
+#   sbatch --export=ALL,DATASET_NAME=aria_pickplace_wam,RAW_DATA_PATH=/nonexistent,TRAIN_CONFIG=experiments/wholebody_image/wb_img_proprio_pickplace_wamres,DESCRIPTION=pp_wamres_2k,VAL_DATASET_DIR=.../datasets/rby1_teleop_pickplace_val_rgb submit_wb_img_training.sbatch
 # NOTE: valid (teleop) dataset has NO obs.dino_wm — the dino_wm delta_timestamp is
 # added ONLY to the train dataset below; the aux head is skipped when the key is absent.
 defaults:
@@ -50,7 +50,7 @@ data:
     dataset1:
       datasets:
         eth_lab:
-          folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val
+          folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val_rgb
           mode: train
           valid_ratio: 0.0
 

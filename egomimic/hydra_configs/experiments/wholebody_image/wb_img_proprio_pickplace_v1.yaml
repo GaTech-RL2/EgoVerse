@@ -1,7 +1,7 @@
 # @package _global_
 # PICKPLACE V1: whole-body 49-D policy on the nav_pick_and_place human data,
 # crop100 recipe + full training diagnostics:
-#   * VALIDATION = the 5-demo REAL-ROBOT teleop set (datasets/rby1_teleop_pickplace_val),
+#   * VALIDATION = the 5-demo REAL-ROBOT teleop set (datasets/rby1_teleop_pickplace_val_rgb),
 #     never trained on. Real measured proprio -> honest val, unlike human data
 #     where proprio == action. Val every 50 epochs.
 #   * per-block train losses (Train/rby1_loss/<block>) + per-block val MAE
@@ -10,7 +10,7 @@
 #     epochs -> <run>/aug_debug/ + one small WandB image (quota-frugal)
 # Launch (once final data is ready):
 #   sbatch --exclude=puma,deebot,qt-1,sonny,cyborg,crushinator,ig-88 \
-#     --export=ALL,DATASET_NAME=aria_pickplace,RAW_DATA_PATH=<final_cut.hdf5>,TRAIN_CONFIG=experiments/wholebody_image/wb_img_proprio_pickplace_v1,DESCRIPTION=pickplace_v1_2k,VAL_DATASET_DIR=/coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val \
+#     --export=ALL,DATASET_NAME=aria_pickplace,RAW_DATA_PATH=<final_cut.hdf5>,TRAIN_CONFIG=experiments/wholebody_image/wb_img_proprio_pickplace_v1,DESCRIPTION=pickplace_v1_2k,VAL_DATASET_DIR=/coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val_rgb \
 #     submit_wb_img_training.sbatch
 defaults:
   - /train
@@ -51,7 +51,7 @@ data:
         eth_lab:
           # External teleop validation set: use ALL its episodes (no split).
           # folder_path is overridden by the sbatch via VAL_DATASET_DIR.
-          folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val
+          folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_pickplace_val_rgb
           mode: train
           valid_ratio: 0.0
 

@@ -8,14 +8,24 @@
 ## 1. What was built
 
 ### 1.1 Real-robot validation set (the 5 teleop demos)
-`datasets/rby1_teleop_pickplace_val` — LeRobot conversion of
-`mobile_generalist/data/0717_unified/fix_head_base_0717_merged.hdf5`
-(the 5 verified teleop demos, images resized 640→224 to match the training
-contract, standard Step1+2 pipeline). Used as `valid_datasets` during training —
-**never trained on**. Why it's the right val set: real robot images from the
-robot's head + REAL measured proprio. On human-retargeted train data
-proprio ≡ action, so a proprio-leaking policy looks falsely perfect;
-the teleop set breaks that degeneracy.
+**CURRENT: `datasets/rby1_teleop_pickplace_val_rgb`** — LeRobot conversion of
+the 5 verified teleop demos (640→224 resize, standard Step1+2 pipeline),
+**with the BGR→RGB channel fix applied**. Used as `valid_datasets` during
+training — **never trained on**. Real robot images + REAL measured proprio
+(on human-retargeted train data proprio ≡ action, so this set breaks that
+degeneracy).
+
+> ⚠️ **BGR DISCOVERY (2026-07-19, found by the user from basket colors):** the
+> robot-side teleop recorder stores cv2-style **BGR** frames; the human Aria
+> pipeline stores RGB. The original `rby1_teleop_pickplace_val` set therefore
+> fed channel-swapped images — costing a measured **+0.021 val MAE** (crop100:
+> 0.181 swapped → 0.159 corrected). Deployment was never affected
+> (`EgoVersePolicy` does bgr_to_rgb). The pp2 fleet's logged Valid curves used
+> the swapped set (internally consistent; do not compare their absolute values
+> against _rgb numbers). ALL future rounds and offline evals use `_rgb`
+> (configs + eval defaults updated; the _rgb set also fixes the episode split —
+> all 5 episodes visible, no hidden ep-3). Any consumer of raw teleop HDF5s
+> (`fix_head_base_*`, `0717_unified/*`) must channel-flip images.
 
 Design decision: **all 5 episodes go to validation** (`mode: train,
 valid_ratio: 0.0` on that folder). Norm stats come from the TRAIN dataset only

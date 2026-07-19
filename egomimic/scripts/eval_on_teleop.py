@@ -8,7 +8,7 @@ Usage (from repo root, emimic venv):
   python egomimic/scripts/eval_on_teleop.py \
       --ckpt crop100=logs/aria_egoposer_firm/crop100_2k/checkpoints/last.ckpt \
       --ckpt pickplace_v1=logs/aria_pickplace/pickplace_v1_2k/checkpoints/last.ckpt \
-      [--dataset datasets/rby1_teleop_pickplace_val] [--frames-per-ep 40]
+      [--dataset datasets/rby1_teleop_pickplace_val_rgb] [--frames-per-ep 40]
       [--proprio real|zero] [--out /path/out_dir]
 
 Outputs: printed table, <out>/results.json, <out>/blocks_chart.png, and a
@@ -60,7 +60,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", action="append", required=True,
                     help="label=path/to/last.ckpt (repeatable)")
-    ap.add_argument("--dataset", default="datasets/rby1_teleop_pickplace_val")
+    ap.add_argument("--dataset", default="datasets/rby1_teleop_pickplace_val_rgb")
     ap.add_argument("--frames-per-ep", type=int, default=40)
     ap.add_argument("--proprio", choices=["real", "zero"], default="real")
     ap.add_argument("--manip-thresh", type=float, default=0.05,
