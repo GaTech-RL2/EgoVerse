@@ -88,6 +88,12 @@ def main():
     manip = np.abs(gts[:, :, 0:2]).sum(axis=(1, 2)) < args.manip_thresh
     print(f"dataset={args.dataset}  frames={len(samples)}  episodes={sorted(set(eps.tolist()))}")
     print(f"manip-phase frames: {manip.sum()}/{len(manip)} (thresh {args.manip_thresh} m)")
+    # freeze-baseline reference for the shape metrics (constant prediction):
+    # centered -> GT's own centered magnitude; velocity -> GT's velocity magnitude
+    gc = np.abs(gts - gts.mean(axis=1, keepdims=True)).mean()
+    gv = np.abs(np.diff(gts, axis=1)).mean()
+    print(f"freeze-baseline shape reference: centered={gc:.4f}  velocity={gv:.4f} "
+          "(a policy must be BELOW these to beat 'stand still' on shape)")
 
     results = {}
     first_preds = None
@@ -103,12 +109,22 @@ def main():
         if first_preds is None:
             first_preds = preds
         err = np.abs(preds - gts)
+        # shape metrics: offset-invariant (centered) and pose-invariant (velocity)
+        cent_p = preds - preds.mean(axis=1, keepdims=True)
+        cent_g = gts - gts.mean(axis=1, keepdims=True)
+        cerr = np.abs(cent_p - cent_g)
+        verr = np.abs(np.diff(preds, axis=1) - np.diff(gts, axis=1))
         r = {"overall_mae": float(err.mean()),
              "manip_mae": float(err[manip].mean()) if manip.any() else None,
              "nav_mae": float(err[~manip].mean()) if (~manip).any() else None,
-             "blocks": {}, "blocks_manip": {}, "per_episode_mae": {}}
+             "centered_mae": float(cerr.mean()),
+             "velocity_mae": float(verr.mean()),
+             "blocks": {}, "blocks_manip": {}, "blocks_centered": {}, "blocks_velocity": {},
+             "per_episode_mae": {}}
         for bn, a, b in BLOCKS:
             r["blocks"][bn] = float(err[:, :, a:b].mean())
+            r["blocks_centered"][bn] = float(cerr[:, :, a:b].mean())
+            r["blocks_velocity"][bn] = float(verr[:, :, a:b].mean())
             if manip.any():
                 r["blocks_manip"][bn] = float(err[manip][:, :, a:b].mean())
         for e in sorted(set(eps.tolist())):
@@ -116,10 +132,13 @@ def main():
         results[label] = r
         del m, policy
         print(f"\n=== {label} (proprio={args.proprio}) ===")
-        print(f"  overall={r['overall_mae']:.4f}  nav={r['nav_mae']}  manip={r['manip_mae']}")
+        print(f"  overall={r['overall_mae']:.4f}  nav={r['nav_mae']}  manip={r['manip_mae']}"
+              f"  centered={r['centered_mae']:.4f}  velocity={r['velocity_mae']:.4f}")
         print("  blocks:        " + "  ".join(f"{bn}={r['blocks'][bn]:.4f}" for bn, _, _ in BLOCKS))
         if r["blocks_manip"]:
             print("  blocks(manip): " + "  ".join(f"{bn}={r['blocks_manip'][bn]:.4f}" for bn, _, _ in BLOCKS))
+        print("  blocks(cent):  " + "  ".join(f"{bn}={r['blocks_centered'][bn]:.4f}" for bn, _, _ in BLOCKS))
+        print("  blocks(vel):   " + "  ".join(f"{bn}={r['blocks_velocity'][bn]:.4f}" for bn, _, _ in BLOCKS))
         print("  per-episode:   " + "  ".join(f"ep{e}={v:.4f}" for e, v in r["per_episode_mae"].items()))
 
     with open(os.path.join(out_dir, "results.json"), "w") as f:
