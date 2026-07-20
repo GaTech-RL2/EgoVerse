@@ -108,6 +108,19 @@ def rby1_joint49_block_metrics(pred, target, metric_prefix, sample_mask=None):
     return metrics
 
 
+def rby1_horizon_metrics(pred, target, metric_prefix):
+    """One-step and short-horizon (0.8 s) MAE — the receding-horizon executor
+    consumes the near steps, so these are the deploy-relevant slices of the
+    full-chunk MAE."""
+    if pred.shape[-1] != 49 or target.shape[-1] != 49:
+        return {}
+    e = (pred - target).abs()
+    return {
+        f"{metric_prefix}_t1_mae": e[:, 0].mean(),
+        f"{metric_prefix}_short8_mae": e[:, : min(8, e.shape[1])].mean(),
+    }
+
+
 def rby1_manip_phase_mask(gt_actions, base_disp_thresh):
     """(B,) bool: True where the GT chunk is a 'manipulation phase' sample —
     the base barely moves over the action horizon. gt_actions must be the
@@ -1368,6 +1381,11 @@ class HPT(Algo):
                         _pred49, _gt49, f"Valid/{embodiment_name}_{ac_key}"
                     )
                 )
+                metrics.update(
+                    rby1_horizon_metrics(
+                        _pred49, _gt49, f"Valid/{embodiment_name}_{ac_key}"
+                    )
+                )
                 manip_mask = rby1_manip_phase_mask(
                     _gt49, getattr(self, "manip_base_disp_thresh", 0.05)
                 )
@@ -1521,6 +1539,7 @@ class HPT(Algo):
                         f"{p}_nav_base_mae_avg", f"{p}_manip_r_hand_mae_avg",
                         f"{p}_manip_r_arm_mae_avg", f"{p}_manip_l_hand_mae_avg",
                         f"{p}_head_mae_avg", f"{p}_r_hand_mae_avg", f"{p}_manip_frac",
+                        f"{p}_t1_mae", f"{p}_short8_mae",
                     })
                 for aux_key in self.auxiliary_ac_keys.get(emb, []):
                     keep.add(f"Valid/{emb}_{aux_key}_paired_mse_avg")

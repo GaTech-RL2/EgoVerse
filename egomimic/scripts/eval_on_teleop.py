@@ -117,6 +117,8 @@ def main():
         r = {"overall_mae": float(err.mean()),
              "manip_mae": float(err[manip].mean()) if manip.any() else None,
              "nav_mae": float(err[~manip].mean()) if (~manip).any() else None,
+             "t1_mae": float(err[:, 0].mean()),
+             "short8_mae": float(err[:, :8].mean()),
              "centered_mae": float(cerr.mean()),
              "velocity_mae": float(verr.mean()),
              "blocks": {}, "blocks_manip": {}, "blocks_centered": {}, "blocks_velocity": {},
@@ -133,6 +135,7 @@ def main():
         del m, policy
         print(f"\n=== {label} (proprio={args.proprio}) ===")
         print(f"  overall={r['overall_mae']:.4f}  nav={r['nav_mae']}  manip={r['manip_mae']}"
+              f"  t1={r['t1_mae']:.4f}  short8={r['short8_mae']:.4f}"
               f"  centered={r['centered_mae']:.4f}  velocity={r['velocity_mae']:.4f}")
         print("  blocks:        " + "  ".join(f"{bn}={r['blocks'][bn]:.4f}" for bn, _, _ in BLOCKS))
         if r["blocks_manip"]:
