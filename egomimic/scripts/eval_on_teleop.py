@@ -73,8 +73,7 @@ def main():
         c.split("=")[0] for c in args.ckpt))
     os.makedirs(out_dir, exist_ok=True)
 
-    ds = FolderRLDBDataset(folder_path=args.dataset, embodiment="rby1", mode="train",
-                           valid_ratio=0.0, local_files_only=True, delta_timestamps=DT)
+    ds = FolderRLDBDataset(folder_path=args.dataset, embodiment="rby1", mode="total", local_files_only=True, delta_timestamps=DT)
     # evenly sample the flat index space, recording episode ids as we go
     idxs = np.linspace(0, len(ds) - 1, min(len(ds), args.frames_per_ep * 8)).astype(int)
     samples, gts, eps = [], [], []

@@ -45,6 +45,11 @@ logger:
     resume: "allow"
 
 data:
+  train_datasets:
+    dataset1:
+      datasets:
+        rl2_lab:
+          mode: total   # train on ALL episodes (default mode:train held out 20%)
   valid_datasets:
     dataset1:
       datasets:
@@ -52,8 +57,7 @@ data:
           # External teleop validation set: use ALL its episodes (no split).
           # folder_path is overridden by the sbatch via VAL_DATASET_DIR.
           folder_path: /coc/flash7/czhang883/Documents/EgoVerse/datasets/rby1_teleop_val_v2
-          mode: train
-          valid_ratio: 0.0
+          mode: total   # loader forces a 1-episode holdout in mode:train even at valid_ratio 0 — total sees all 5
 
 data_schematic:
   _target_: egomimic.rldb.utils.DataSchematic
