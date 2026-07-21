@@ -14,7 +14,7 @@ confirmed (reliance = proprio-zero MAE ÷ clean MAE; ×1.0 = pure vision):
 | priority | tag | checkpoint (under `/coc/flash7/czhang883/Documents/EgoVerse/`) | clean | reliance |
 |---|---|---|---|---|
 | **A** | hd_wam3@899 | `logs/aria_fullpp_wam3/fpp_hd_wam3_2k/checkpoints/epoch_epoch=899.ckpt` | 0.029 | **×1.00** |
-| **B** | hd_resnet@1199 | `logs/aria_fullpp/fpp_hd_resnet_2k/checkpoints/epoch_epoch=1199.ckpt` | 0.026 | **×1.00** |
+| **B** | hd_resnet@1499 | `logs/aria_fullpp/fpp_hd_resnet_2k/checkpoints/epoch_epoch=1499.ckpt` | 0.024 | **×1.00** |
 | later | hd_nvs3dneck@~1599 | training now (`fpp_hd_nvs3dneck_2k`) — gate-check before use | — | — |
 
 Runs still training: later snapshots (~ep1599 region, historically the optimum)
