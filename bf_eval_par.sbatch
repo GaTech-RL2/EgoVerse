@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu:a40:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=96G
-#SBATCH --exclude=ig-88,voltron,sonny,cyborg,hk47,spd-13,crushinator,heistotron,baymax,deebot,kitt,cheetah
+#SBATCH --exclude=ig-88,voltron,sonny,cyborg,hk47,spd-13,crushinator,heistotron,baymax,deebot,kitt,cheetah,megazord
 #SBATCH --requeue
 # BATCHFLOW parallel 40-seed eval. args: NAME CK CFG. tasks 0-3=emb15 circle, 4-7=emb17 small.
 set -uo pipefail
@@ -25,4 +25,4 @@ $PY -m egomimic.eval.core.ckpt_loading --ckpt "$CK" --config-path "$CFG" \
   --embodiment-name pushshapes_sim --only-emb "$EMB" --pusher "$PU" \
   --init-mode seeds --init-seed-base "$BASE" --rng-pairing \
   --out-dir "$OUT" > "${OUT}.log" 2>&1
-echo "BF_PAR_${NAME}_e${EMB}_s${BASE}_rc=$?"
+rc=$?; echo "BF_PAR_${NAME}_e${EMB}_s${BASE}_rc=$rc"; exit $rc

@@ -152,12 +152,14 @@ class FlowHead(Stage):
                  d_model_a: int = 256, d_model_s: int = 128,
                  n_layers: int = 4, n_heads: int = 4, ffn_mult: int = 4,
                  mask_mode: str = "asym", num_inference_steps: int = 20,
-                 time_dist: str = "beta"):
+                 time_dist: str = "beta", denoiser_arch: str = "additive"):
         super().__init__()
         self.C, self.D = int(chunk_len), int(action_dim)
         self.N = int(num_inference_steps)
         self.time_dist = str(time_dist)
-        self.net = DualStreamDenoiser(
+        _cls = (DualStreamDenoiserV2 if str(denoiser_arch) == "adaln"
+                else DualStreamDenoiser)
+        self.net = _cls(
             d_a_in=d_a, d_s_in=d_s, action_dim=action_dim, chunk_len=chunk_len,
             embodiments=list(embodiments) if embodiments else ["shared"],
             d_model_a=d_model_a, d_model_s=d_model_s, n_layers=n_layers,
@@ -240,6 +242,7 @@ class SDPHead(Stage):
                  n_layers: int = 4, n_heads: int = 4, ffn_mult: int = 4,
                  mask_mode: str = "asym", end_mode: str = "masked",
                  denoiser_arch: str = "additive",
+                 detach_offregime: bool = False,
                  action_dims: Optional[dict] = None, latent_dim: Optional[int] = None,
                  dual_stream: bool = True, enc_hidden: int = 256):
         super().__init__()
@@ -250,6 +253,7 @@ class SDPHead(Stage):
         assert self.S % self.K == 0, "num_inference_steps must divide by buffer_chunks"
         self.rw = list(regime_weights) if regime_weights else [0.7, 0.15, 0.15]
         self.end_mode = str(end_mode)
+        self.detach_offregime = bool(detach_offregime)
         if self.end_mode == "pusher_hold":
             assert self.D == 2, "pusher_hold pad assumes 2D xy actions"
         self.register_buffer("abar", _cosine_alphas_cumprod(self.N))
@@ -306,7 +310,7 @@ class SDPHead(Stage):
         rand = torch.randint(0, N, (T, K), device=device)
         lv = torch.where(pick[:, None] == 0, diag,
                          torch.where(pick[:, None] == 1, const, rand))
-        return lv.clamp(0, N - 1)                               # (T, K)
+        return lv.clamp(0, N - 1), pick                          # (T,K),(T,)
 
     # ---------------- packed multi-chunk targets ---------------- #
     def _buffer_targets(self, target, cu, state=None):
@@ -377,13 +381,19 @@ class SDPHead(Stage):
             tgt, valid = self._buffer_targets(
                 batch["target"], cu, batch.get("obs/state_agent_obj"))  # (T,K,C,D)
             Dd = tgt.shape[-1]                                  # per-emb action dim
-            lv = self._sample_levels(T, dev)                    # (T,K)
+            lv, pick = self._sample_levels(T, dev)              # (T,K),(T,)
             noise = torch.randn_like(tgt)
             ab = self.abar[lv][..., None, None]                 # (T,K,1,1)
             x_t = ab.sqrt() * tgt + (1 - ab).sqrt() * noise
             t_pos = lv.repeat_interleave(self.C, dim=1).float() # (T,L)
+            if self.detach_offregime:
+                infm = (pick == 0).float()[:, None]          # (T,1) inference-regime mask
+                a_cond = a_top * infm + a_top.detach() * (1 - infm)
+                s_cond = s * infm + s.detach() * (1 - infm)
+            else:
+                a_cond, s_cond = a_top, s
             eps, e_a, e_s = self.net(x_t.reshape(T, self.L, Dd),
-                                     t_pos, a_top, s, emb)
+                                     t_pos, a_cond, s_cond, emb)
             eps = eps.reshape(T, self.K, self.C, Dd)
             m = valid[..., None, None].float()
             loss = ((eps - noise).pow(2) * m).sum() / (

@@ -35,5 +35,5 @@ srun .venv/bin/python -m egomimic.trainHydra --config-name=train_zarr_cartesian 
   trainer.check_val_every_n_epoch=250 \
   +model.scheduler_interval=epoch model.scheduler.max_steps=3000 model.scheduler.warmup_steps=150 \
   callbacks.model_checkpoint.save_last=true callbacks.model_checkpoint.save_top_k=-1 \
-  callbacks.model_checkpoint.every_n_epochs=500 ++callbacks.model_checkpoint.save_on_train_epoch_end=true \
+  callbacks.model_checkpoint.every_n_epochs=250 ++callbacks.model_checkpoint.save_on_train_epoch_end=true \
   $EXTRA
