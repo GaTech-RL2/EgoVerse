@@ -131,6 +131,7 @@ class NVS3DEncoder(PolicyStem):
         px: int = 16,
         py: int = 16,
         freeze_backbone: bool = True,
+        conv_neck_blocks: int = 0,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
@@ -158,7 +159,14 @@ class NVS3DEncoder(PolicyStem):
             self.net.eval()
 
         model_dim = self.net.backbone.norm.weight.shape[0]
-        self.proj = nn.Linear(model_dim, output_dim)
+        if conv_neck_blocks > 0:
+            # capacity knob: ConvNeck consumes (B, N, C) square-grid tokens, same
+            # contract as the Linear it replaces (9 blocks ~= ResNet-18 budget)
+            from egomimic.models.hpt_nets import ConvNeck
+
+            self.proj = ConvNeck(model_dim, output_dim, conv_neck_blocks)
+        else:
+            self.proj = nn.Linear(model_dim, output_dim)
         self.out_dim = output_dim
 
         # ImageNet stats used by train/eval_image_augs upstream; needed to map
