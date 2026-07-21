@@ -13,10 +13,27 @@ clipped-release demos dropped). Also: `exp1_glove` (56), `exp1_bare` (56, balanc
 ## RUNNING NOW (check `squeue -u czhang883`)
 | jobs | what | note |
 |---|---|---|
-| 3543202-08 | original 7-run fleet (glove/resnet/d3conv/d3lora/bare/navonly/wam3) | most near/at ep1999; navonly finishes 07-21 AM |
-| 3544361/62 | **fpp_hd_resnet_2k / fpp_hd_wam3_2k** — NEW after hardware feedback | dropout **0.9** + noise 0.03 (0.6 caused proprio over-reliance on robot); OLD-method val (train-split holdout, NOT teleop) |
-| 3544366 | gate eval (old method: clean/shift/pzero/noise on human data) of the 6 best snapshots | results → report pzero column = proprio-reliance quantification |
-Watcher: `tmp/wall_watcher5.sh` (disk-guarded) covers 3543202-08; HD runs NOT covered — resubmit manually on wall (template below).
+| 3543202-08 | original 7-run fleet | glove/resnet/bare COMPLETED @ep1999 07-20 night; d3conv/d3lora/navonly/wam3 still running |
+| 3544361/62 | **fpp_hd_resnet_2k / fpp_hd_wam3_2k** | dropout **0.9** + noise 0.03; OLD-method val (train-split holdout, NOT teleop) |
+| 3544419 | **fpp_hd_nvs3d_2k** — Dennis's NVS-3D encoder, 3rd HD twin | frozen 3D-aware ViT (DINOv3-B + rotary context transformer, 233M) + trainable proj; assets `/coc/flash7/czhang883/pretrained/nvs3d/`; smoke-tested; watch epoch time (fp32 backbone) |
+| 3544366 | gate eval of the 6 best snapshots | DONE — see table below |
+Watchers: `tmp/wall_watcher5.sh` covers 3543202-08 (teleop-val resubmits); `tmp/wall_watcher6.sh` covers the 3 HD runs (NO VAL_DATASET_DIR on resubmit, successor-tracking, disk-guarded).
+
+## GATE-EVAL RESULTS (3544366, old method, aria_fullpp, DONE 07-20 ~23:00)
+| ckpt | clean | shift20 | pzero | pzero/clean |
+|---|---|---|---|---|
+| resnet_1599 | 0.0127 | 0.0107 | 0.0193 | 1.52× |
+| wam3_999 | 0.0150 | 0.0134 | 0.0195 | 1.30× |
+| d3conv_399 | 0.0296 | 0.0279 | 0.0715 | **2.42×** |
+| bare_1399* | 0.0609 | 0.0629 | 0.0612 | 1.00× |
+| glove_699* | 0.0774 | 0.0788 | 0.0779 | 1.01× |
+| d3lora_99 | 0.0995 | 0.1051 | 0.1850 | **1.86×** |
+
+*bare/glove trained on 56-demo subsets → cross-corpus numbers, not directly comparable.
+READ: old-method ranking INVERTS teleop-val (resnet/wam3 best; d3lora worst). The teleop-val
+"winners" (d3lora/d3conv = hardware priorities A/B) have the WORST proprio reliance — matches
+the user's hardware observation exactly. Snapshot-epoch confound: these were teleop-val-selected
+epochs; re-derive best epochs per run under old method (queue item 4).
 
 ## USER DIRECTIVES (latest, override earlier)
 - **Teleop val (val_v2 AND predecessors) declared NOT REFERENCEABLE** after hardware
