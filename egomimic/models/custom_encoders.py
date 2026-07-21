@@ -101,6 +101,20 @@ def _load_nvs3d_module(asset_dir: str):
     return module
 
 
+# Cold-load support: Lightning checkpoints pickle the encoder object graph, and
+# the frozen net's classes live in the dynamically-loaded module 'nvs3d_model'.
+# Unpickling imports THIS module first (for NVS3DEncoder), so registering
+# nvs3d_model here lets ModelWrapper.load_from_checkpoint work without any
+# pre-import. NVS3D_DIR env wins; the flash7 staging dir is the cluster default.
+for _cand in (_NVS3D_DIR, "/coc/flash7/czhang883/pretrained/nvs3d"):
+    if os.path.isfile(os.path.join(_cand, "model.py")):
+        try:
+            _load_nvs3d_module(_cand)
+        except Exception:
+            pass
+        break
+
+
 class NVS3DEncoder(PolicyStem):
     """Frozen NVS-3D (multiview 3D-aware ViT) + trainable linear projection.
 
