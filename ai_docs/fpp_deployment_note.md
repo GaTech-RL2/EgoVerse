@@ -1,27 +1,31 @@
-# FPP Round — Real-Robot Deployment Note (2026-07-20)
+# FPP Round — Real-Robot Deployment Note (updated 2026-07-21, HD era)
 
 > Serving basics unchanged: `deployment_plan.md` §1–§6 · debugging: `deployment_debug_guide.md`
 > · session protocol/scoring: `deployment_test_protocol_r6.md` §2.
-> **Code: pull branch `rby1_aria_policy` @ `dd74911d` or later** — the new checkpoints
-> reference this round's classes (`egomimic/utils/image_augs.py` etc.) and will NOT
-> unpickle on older checkouts.
+> **Code: pull branch `rby1_aria_policy` LATEST** — needs this round's classes
+> (`egomimic/utils/image_augs.py`, `egomimic/models/custom_encoders.py` incl. the
+> nvs3d cold-load fix). Older checkouts will NOT unpickle these checkpoints.
 
-## 1. Checkpoints to test (best available snapshot per run, ranked)
+## 1. Checkpoints to test (2026-07-21 HD shortlist)
 
-| priority | tag | checkpoint (abs path under `/coc/flash7/czhang883/Documents/EgoVerse/`) | val (overall/nav/manip) |
-|---|---|---|---|
-| **A** | d3lora@99 | `logs/aria_fullpp/fpp_d3lora_2k/checkpoints/epoch_epoch=99.ckpt` | 0.161 / 0.156 / 0.180 |
-| **B** | d3conv@399 | `logs/aria_fullpp/fpp_d3conv_2k/checkpoints/epoch_epoch=399.ckpt` | 0.165 / 0.160 / 0.180 |
-| **C** | wam3@999 | `logs/aria_fullpp_wam3/fpp_wam3_2k/checkpoints/epoch_epoch=999.ckpt` | 0.185 / 0.180 / 0.205 |
-| **D** | resnet@1599 | `logs/aria_fullpp/fpp_resnet_2k/checkpoints/epoch_epoch=1599.ckpt` | 0.189 / 0.181 / 0.212 |
-| opt E | bare@1399 | `logs/exp1_bare/fpp_bare_2k/checkpoints/epoch_epoch=1399.ckpt` | 0.197 / 0.190 / 0.214 |
-| opt F | glove@699 | `logs/exp1_glove/fpp_glove_2k/checkpoints/epoch_epoch=699.ckpt` | 0.203 / 0.196 / 0.232 |
+Hardware showed the 07-20 list (dropout 0.6) over-attends proprio; gate probes
+confirmed (reliance = proprio-zero MAE ÷ clean MAE; ×1.0 = pure vision):
 
-A vs D = encoder question on hardware. C vs D = world-model question. E vs F = the
-glove appearance A/B (only if time; offline says bare ≥ glove).
-Note d3lora@99: yes, epoch 99 — DINOv3+LoRA transfers essentially immediately and
-only degrades with more training. If it feels undertrained at the table, fall back
-to `epoch_epoch=399.ckpt` (val 0.164).
+| priority | tag | checkpoint (under `/coc/flash7/czhang883/Documents/EgoVerse/`) | clean | reliance |
+|---|---|---|---|---|
+| **A** | hd_wam3@899 | `logs/aria_fullpp_wam3/fpp_hd_wam3_2k/checkpoints/epoch_epoch=899.ckpt` | 0.029 | **×1.00** |
+| **B** | hd_resnet@1199 | `logs/aria_fullpp/fpp_hd_resnet_2k/checkpoints/epoch_epoch=1199.ckpt` | 0.026 | **×1.00** |
+| later | hd_nvs3dneck@~1599 | training now (`fpp_hd_nvs3dneck_2k`) — gate-check before use | — | — |
+
+Runs still training: later snapshots (~ep1599 region, historically the optimum)
+supersede A/B when they land — same paths, higher epoch numbers; re-gate first.
+**Do NOT deploy**: `hd_nvs3d` (linear probe) — reliance ×2.9, same proprio trap as
+before (readout capacity too small to go vision-only); all 07-20 dropout-0.6
+checkpoints (d3lora ×6.9, d3conv ×4.4 at maturity). 0.6-era fallback if HD
+disappoints at the table: `wam3@1599` (`logs/aria_fullpp_wam3/fpp_wam3_2k/...=1599.ckpt`,
+clean 0.013, ×1.28 — best balanced of that era).
+NVS-3D serving needs `NVS3D_DIR` env → folder holding `model.py` + `0981at.pt`
+(cluster copy: `/coc/flash7/czhang883/pretrained/nvs3d/`).
 
 ## 2. Serve
 
