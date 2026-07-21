@@ -1,0 +1,90 @@
+# Latent-extraction variant for the KNN viz (Claude 2026-07-06).
+# valid_datasets = the run's OWN train datasets (sortpp_aria_fixed + sortpp_eva_new,
+# keymap cartesian_pi + transforms cartesian_wristframe_6d -- copied literally from the
+# resolved config of sortpp_wf6d_stack/aria_fixed_cosmin_stack_2026-07-04) with:
+#   mode: total            -> all episodes, no train/val split
+#   build_even_stride(15)  -> every 15th frame (KNN bank; front_1 is the only camera)
+# The nulled resolver/filters/mode/valid_ratio keys neutralize the parent entry's
+# keys that OmegaConf merges in (build_even_stride ignores leftovers).
+#
+# WARNING (audit 2026-07-17): every episode in sortpp_aria_fixed has an EMPTY
+# `annotations` array — the July-7 fulldata bank's aria half therefore has no
+# annotation coverage at all. With annotated_frames_only: true this config
+# now fails loudly on that folder (AnnotatedFramesDataset drops everything).
+# Annotated aria variants in the same datasets dir: sortpp_aria_new (flat
+# `annotations`) and sortpp_aria_rolekeys (flat + annotations_task /
+# annotations_subtask). Point human_bimanual folder_path at one of those.
+defaults:
+- cotrain_sort_pp_lang_6d
+- _self_
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.eval.latent_dataset.build_even_stride
+    stride: 15
+    frames_per_episode: null
+    # Drop frames outside every annotation span BEFORE the stride, so the
+    # latent bank (and hence the precomputed KNN) has no unannotated rows.
+    annotated_frames_only: true
+    base:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/sortpp_eva_new
+        key_map:
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+          keymap_mode: cartesian_pi
+          annotation_key: annotations
+        transform_list:
+          _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+          mode: cartesian_wristframe_6d
+      filters:
+        _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+        project_name: dense-language
+        filter_lambdas:
+        - 'lambda row: row.get(''task'') == ''pick_place'' and row.get(''embodiment'') in (''eva'', ''eva_bimanual'')
+          and (row.get(''zarr_processed_path'') or '''') != '''' and ''alignment'' not in ((row.get(''task_description'')
+          or '''').lower()) and (row.get(''episode_hash'') or '''') != ''2026-04-22-02-30-32-296000''
+          and not (isinstance(row.get(''processing_error''), str) and row.get(''processing_error'').strip())
+          and not (isinstance(row.get(''zarr_processing_error''), str) and row.get(''zarr_processing_error'').strip())'
+      mode: total
+      valid_ratio: 0.05
+    resolver: null
+    filters: null
+    mode: null
+    valid_ratio: null
+  human_bimanual:
+    _target_: egomimic.eval.latent_dataset.build_even_stride
+    stride: 15
+    frames_per_episode: null
+    # Drop frames outside every annotation span BEFORE the stride, so the
+    # latent bank (and hence the precomputed KNN) has no unannotated rows.
+    annotated_frames_only: true
+    base:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+      resolver:
+        _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+        folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/sortpp_aria_fixed
+        key_map:
+          _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+          keymap_mode: cartesian_pi
+          annotation_key: annotations
+        transform_list:
+          _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+          mode: cartesian_wristframe_6d
+          stride: 3
+      filters:
+        _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+        project_name: dense-language
+        filter_lambdas:
+        - 'lambda row: row.get(''embodiment'') in (''aria'', ''aria_bimanual'') and (row.get(''zarr_processed_path'')
+          or '''') != '''' and (row.get(''episode_hash'') or '''') not in (''2026-04-26-00-17-53-000000'',
+          ''2026-04-26-00-27-26-000000'', ''2026-05-01-02-52-58-000000'') and (row.get(''task'') == ''sort''
+          or (row.get(''task'') == ''pick_place'' and any(s in ((row.get(''task_description'') or '''').lower())
+          for s in (''base'',)))) and not (isinstance(row.get(''processing_error''), str) and row.get(''processing_error'').strip())
+          and not (isinstance(row.get(''zarr_processing_error''), str) and row.get(''zarr_processing_error'').strip())'
+      mode: total
+      valid_ratio: 0.05
+    resolver: null
+    filters: null
+    mode: null
+    valid_ratio: null

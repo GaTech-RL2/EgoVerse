@@ -338,10 +338,16 @@ class PI(Algo):
                 if key_name is not None:
                     processed_batch[embodiment_id][key_name] = value
 
-            # Carry forward episode_hash from the data dict (other keys are
-            # built inline below via _tokenize_prompts).
+            # Carry forward episode_hash + frame_idx from the data dict
+            # (other keys are built inline below via _tokenize_prompts).
+            # frame_idx is the per-sample SOURCE frame index — latent capture
+            # (PILatentEvalVideo) needs it to label bank rows so they can be
+            # mapped back to annotation spans; without it the CSV falls back
+            # to a per-run counter that cannot be span-filtered.
             if "episode_hash" in _batch:
                 processed_batch[embodiment_id]["episode_hash"] = _batch["episode_hash"]
+            if "frame_idx" in _batch:
+                processed_batch[embodiment_id]["frame_idx"] = _batch["frame_idx"]
 
             ac_key = self.ac_keys[embodiment_id]
             if ac_key not in processed_batch[embodiment_id]:

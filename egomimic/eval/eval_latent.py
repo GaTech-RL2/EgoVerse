@@ -13,6 +13,11 @@ from torchmetrics import MeanSquaredError
 
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment
+from egomimic.utils.action_utils import (
+    PI05_CARTESIAN_ACTION_ENCODING_LEGACY,
+    PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D,
+    PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +65,19 @@ class PILatentEvalVideo(EvalVideo):
         pca_for_downstream: bool = False,
         emit_combined: bool = True,
         color_by: str = "embodiment",  # "embodiment" or "hash"
+        layer_subset: list | None = None,  # e.g. [paligemma_layer_00, ...]; None = all
+        front_tokens_only: bool = False,  # keep only camera slot 0 (front) img tokens
+        capture_lang: bool = True,  # False: skip _lang slices (2.5x img size, mostly pad)
     ):
         super().__init__(limit_val_batches=limit_val_batches)
+        # Optional whitelist of layer names to capture (huge RAM/disk savings:
+        # all 36 layers is ~12x the June-standard 3-layer subset).
+        self.layer_subset = set(layer_subset) if layer_subset else None
+        # PI pads the prefix to len(pi_cam_keys) camera slots; missing
+        # cameras are zero images whose tokens are attention-masked but
+        # still produce k_proj rows. front_tokens_only drops those slots.
+        self.front_tokens_only = front_tokens_only
+        self.capture_lang = capture_lang
         self.compute_umap = compute_umap
         self.compute_tsne_2d = compute_tsne_2d
         self.compute_tsne_3d = compute_tsne_3d
@@ -98,6 +114,7 @@ class PILatentEvalVideo(EvalVideo):
         self._layer_keys = {}  # layer_name -> list[np.ndarray (B, S, D)]
         self._row_hashes = []  # one entry per sample (replicated by S at write time)
         self._row_embodiments = []
+        self._row_frames = []  # source frame index per sample (None-safe)
         self._hook_handles = []
         # per-step buffer; each layer is recorded only on its FIRST forward
         # call within a capture window (prefix pass for PaliGemma, first
@@ -109,6 +126,7 @@ class PILatentEvalVideo(EvalVideo):
         # to slice image tokens vs language tokens.
         self._n_img_tokens = None
         self._n_lang_tokens = None
+        self._n_images = None
         self._orig_embed_prefix = None
         self.save_plots = save_plots
 
@@ -124,9 +142,13 @@ class PILatentEvalVideo(EvalVideo):
         paligemma = pi_model.paligemma_with_expert.paligemma.language_model
         expert = pi_model.paligemma_with_expert.gemma_expert.model
         for idx, layer in enumerate(paligemma.layers):
-            yield f"paligemma_layer_{idx:02d}", layer.self_attn.k_proj, True
+            name = f"paligemma_layer_{idx:02d}"
+            if self.layer_subset is None or name in self.layer_subset:
+                yield name, layer.self_attn.k_proj, True
         for idx, layer in enumerate(expert.layers):
-            yield f"expert_layer_{idx:02d}", layer.self_attn.k_proj, False
+            name = f"expert_layer_{idx:02d}"
+            if self.layer_subset is None or name in self.layer_subset:
+                yield name, layer.self_attn.k_proj, False
 
     def _register_hooks(self):
         self._hook_handles = []
@@ -143,6 +165,10 @@ class PILatentEvalVideo(EvalVideo):
             if self._capture_active:
                 self._n_lang_tokens = int(lang_masks.shape[1])
                 self._n_img_tokens = int(embs.shape[1]) - self._n_lang_tokens
+                try:
+                    self._n_images = len(images)
+                except TypeError:
+                    self._n_images = None
             return embs, pad, att
 
         pi_model.embed_prefix = wrapped_embed_prefix
@@ -155,8 +181,8 @@ class PILatentEvalVideo(EvalVideo):
                     img_key = f"{layer_name}_img"
                     lang_key = f"{layer_name}_lang"
                     combined_key = f"{layer_name}_combined"
-                    already = (
-                        img_key in self._step_capture and lang_key in self._step_capture
+                    already = img_key in self._step_capture and (
+                        not self.capture_lang or lang_key in self._step_capture
                     )
                     if self.emit_combined:
                         already = already and combined_key in self._step_capture
@@ -165,8 +191,19 @@ class PILatentEvalVideo(EvalVideo):
                     if self._n_img_tokens is None or self._n_lang_tokens is None:
                         return
                     n_img = self._n_img_tokens
+                    if (
+                        self.front_tokens_only
+                        and getattr(self, "_n_images", None)
+                        and n_img % self._n_images == 0
+                    ):
+                        # keep only camera slot 0 (front); the rest are
+                        # zero-padded wrist slots.
+                        n_img = n_img // self._n_images
                     self._step_capture[img_key] = out[:, :n_img].detach()
-                    self._step_capture[lang_key] = out[:, n_img:].detach()
+                    if self.capture_lang:
+                        self._step_capture[lang_key] = out[
+                            :, self._n_img_tokens :
+                        ].detach()
                     if self.emit_combined:
                         self._step_capture[combined_key] = out.detach()
                 else:
@@ -205,6 +242,22 @@ class PILatentEvalVideo(EvalVideo):
             return [str(v) for v in val.cpu().tolist()]
         return [str(val)] * batch_size
 
+    @staticmethod
+    def _extract_frame_indices(_batch, batch_size):
+        """Per-sample SOURCE frame index, surfaced by ZarrDataset.__getitem__.
+        Returns None when the batch predates this field, so the caller can
+        fall back to the legacy per-run counter."""
+        val = _batch.get("frame_idx")
+        if val is None:
+            return None
+        if torch.is_tensor(val):
+            return [int(v) for v in val.cpu().tolist()]
+        if isinstance(val, np.ndarray):
+            return [int(v) for v in val.tolist()]
+        if isinstance(val, (list, tuple)):
+            return [int(v) for v in val]
+        return [int(val)] * batch_size
+
     # ------------------------------------------------------------------
     # Validation lifecycle
     # ------------------------------------------------------------------
@@ -213,6 +266,7 @@ class PILatentEvalVideo(EvalVideo):
         self._layer_keys = {}
         self._row_hashes = []
         self._row_embodiments = []
+        self._row_frames = []
         self._n_rows = 0
         self._register_hooks()
         if self.trainer.is_global_zero:
@@ -249,6 +303,7 @@ class PILatentEvalVideo(EvalVideo):
                 self._step_capture = {}
                 self._n_img_tokens = None
                 self._n_lang_tokens = None
+                self._n_images = None
                 self._capture_active = True
                 pred_actions = algo.nets["policy"].sample_actions(
                     device=algo.device,
@@ -258,16 +313,46 @@ class PILatentEvalVideo(EvalVideo):
                 )
                 self._capture_active = False
 
-                # Mirror PI's post-processing for metrics + viz.
+                # sample_actions returns a static CUDA-graph buffer that the
+                # next embodiment's forward overwrites — clone before use
+                # (mirrors PI.forward_eval).
+                pred_actions = pred_actions.clone()
+
+                # Mirror PI.forward_eval post-processing for metrics + viz,
+                # branching on the action encoding so the 6D-rotation models
+                # unpack the 20-D xyz+6D(+g) action (not the legacy 14-D ypr).
                 ref = _batch[ac_key]
                 B, T, D = ref.shape
                 converter = algo.action_registry.get(embodiment_id, ac_key)
-                pred_actions_orig = converter.from32(pred_actions)
-                pred = pred_actions_orig[:, :T, :D]
+                action_encoding = getattr(
+                    algo, "action_encoding", PI05_CARTESIAN_ACTION_ENCODING_LEGACY
+                )
 
                 predictions = OrderedDict()
-                predictions[ac_key] = pred
-                unnorm_actions = algo.norm_stats.unnormalize(predictions, embodiment_id)
+                if action_encoding == PI05_CARTESIAN_ACTION_ENCODING_RAW_ROT_6D:
+                    pred_actions_orig = converter.from32_raw_rotation(
+                        pred_actions,
+                        stats=algo._action_stats(embodiment_id, ac_key),
+                        norm_mode=algo.norm_stats.norm_mode,
+                        unnormalize_non_rotation=True,
+                    )
+                    unnorm_actions = {ac_key: pred_actions_orig[:, :T, :D]}
+                elif action_encoding == PI05_CARTESIAN_ACTION_ENCODING_NORM_ROT_6D:
+                    pred_6d = converter.from32_norm_6d(pred_actions)
+                    predictions[ac_key] = pred_6d[:, :T, :D]
+                    unnorm_actions = algo.norm_stats.unnormalize(
+                        predictions, embodiment_id
+                    )
+                elif action_encoding == PI05_CARTESIAN_ACTION_ENCODING_LEGACY:
+                    pred_actions_orig = converter.from32(pred_actions)
+                    predictions[ac_key] = pred_actions_orig[:, :T, :D]
+                    unnorm_actions = algo.norm_stats.unnormalize(
+                        predictions, embodiment_id
+                    )
+                else:
+                    raise ValueError(
+                        f"Unsupported PI0.5 action_encoding: {action_encoding!r}"
+                    )
                 for k in unnorm_actions:
                     unnorm_preds[f"{embodiment_name}_{k}"] = unnorm_actions[k]
 
@@ -290,6 +375,10 @@ class PILatentEvalVideo(EvalVideo):
                 hashes = self._extract_hashes(_batch, B, embodiment_name)
                 self._row_hashes.extend(hashes)
                 self._row_embodiments.extend([embodiment_name] * B)
+                frames = self._extract_frame_indices(_batch, B)
+                # -1 sentinel marks "no source index in batch"; if ANY sample
+                # is sentinel the writer falls back to the per-run counter.
+                self._row_frames.extend(frames if frames is not None else [-1] * B)
                 for layer_name, key_tensor in self._step_capture.items():
                     keys_bsd = key_tensor.to(torch.float32).cpu().numpy()
                     self._layer_keys.setdefault(layer_name, []).append(keys_bsd)
@@ -330,6 +419,7 @@ class PILatentEvalVideo(EvalVideo):
                 keys = keys_bsd.reshape(N * S, D)
                 sample_hashes = self._row_hashes
                 sample_embs = self._row_embodiments
+                sample_frames = self._row_frames
                 if N != len(sample_hashes):
                     n = min(N, len(sample_hashes))
                     logger.warning(
@@ -342,14 +432,27 @@ class PILatentEvalVideo(EvalVideo):
                     keys = keys_bsd[:n].reshape(n * S, D)
                     sample_hashes = sample_hashes[:n]
                     sample_embs = sample_embs[:n]
+                    sample_frames = sample_frames[:n]
                 # Replicate per-sample metadata across the S tokens.
-                # frame_idx is the per-run sample index (0..N-1) — tokens of
-                # the same frame share it, so meanpool.py can group on
-                # (video_hash, frame_idx). token_idx is the position within
-                # the sequence, useful for token-type slicing later.
+                # frame_idx is the SOURCE frame index per sample (from
+                # ZarrDataset.__getitem__) so tokens of the same frame share it
+                # and the inspector can fetch the right image / annotation.
+                # Falls back to a per-run counter (0..N-1) only for legacy
+                # datasets that don't surface frame_idx (sentinel -1 present).
                 hashes = [h for h in sample_hashes for _ in range(S)]
                 embs = [e for e in sample_embs for _ in range(S)]
-                frame_idx = [i for i in range(len(sample_hashes)) for _ in range(S)]
+                use_source_frames = len(sample_frames) == len(sample_hashes) and all(
+                    fi >= 0 for fi in sample_frames
+                )
+                if use_source_frames:
+                    frame_idx = [fi for fi in sample_frames for _ in range(S)]
+                else:
+                    logger.warning(
+                        "%s: source frame_idx unavailable for some/all samples; "
+                        "falling back to per-run sample counter for frame_idx.",
+                        layer_name,
+                    )
+                    frame_idx = [i for i in range(len(sample_hashes)) for _ in range(S)]
                 token_idx = list(range(S)) * len(sample_hashes)
 
             # Optional PCA: fit on raw `keys`, log explained variance, and

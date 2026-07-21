@@ -49,6 +49,7 @@ datasets/
 **/datasets/
 apikey.txt
 slurm-*.out
+*.out
 slurmoutputs/
 *.log
 .inductor_cache/
