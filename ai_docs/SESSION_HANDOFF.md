@@ -1,81 +1,76 @@
-# Session Handoff — 2026-07-14 (pre-compact snapshot)
+# Session Handoff — 2026-07-20 late (pre-compact snapshot)
 
-> Read this + `policy_training_status.md` (full round history R0–R7, all checkpoints,
-> all measured numbers) to resume work. Other docs: `policy_model_card.md`
-> (architecture/params), `deployment_plan.md` + `deployment_test_protocol_r6.md`
-> (deploy + sim/real protocol), `deployment_debug_guide.md` (hardware debugging),
-> `presentation_rollout_0707.md` (slides source).
+> Read this + `ai_docs/fpp_deployment_note.md` (hardware shortlist + contract) +
+> `ai_docs/pickplace_training_infra.md` (val instrumentation history). Dashboards:
+> `deliverables_0707/pp_dashboard.html` (regen: `python /coc/flash7/czhang883/tmp/build_dashboard_v3.py`).
+> Branch `rby1_aria_policy` pushed through `14eb1224`.
 
-## RUNNING NOW (Round 7 — check with `squeue -u czhang883`)
-| job | run | what | ETA |
-|---|---|---|---|
-| 3487737 | `d3_lora_2k` | frozen DINOv3-S + LoRA r16 (0.54M vision-trainable) | ~tonight 07-14 |
-| 3492749 | `d3_convneck_2k` | frozen DINOv3-S + 9 ResNet BasicBlocks (10.8M = ResNet budget) | ~tonight 07-14 |
-| 3492750 | `lingbot_convneck_2k` | frozen LingBot-L + 9 ResNet BasicBlocks (11.2M) | **will hit 24h wall ~ep1550 → needs ONE resubmit** (auto-resumes from last.ckpt), done 07-15 midday |
+## CURRENT TASK: nav_pick_and_place (penguin → blue basket), FPP round
+Corpus `datasets/aria_fullpp` = 135 demos / 53.7k frames (4 new datasets merged, 10
+clipped-release demos dropped). Also: `exp1_glove` (56), `exp1_bare` (56, balanced),
+`exp1_navonly` (29, ablation), `aria_fullpp_wam3` (DINOv3-B world targets).
 
-Logs: `logs/aria_egoposer_firm/<desc>/checkpoints/`. All plain BC, crop100 recipe,
-`datasets/aria_egoposer_firm`, batch 32, 2000 epochs (100 steps/epoch).
+## RUNNING NOW (check `squeue -u czhang883`)
+| jobs | what | note |
+|---|---|---|
+| 3543202-08 | original 7-run fleet (glove/resnet/d3conv/d3lora/bare/navonly/wam3) | most near/at ep1999; navonly finishes 07-21 AM |
+| 3544361/62 | **fpp_hd_resnet_2k / fpp_hd_wam3_2k** — NEW after hardware feedback | dropout **0.9** + noise 0.03 (0.6 caused proprio over-reliance on robot); OLD-method val (train-split holdout, NOT teleop) |
+| 3544366 | gate eval (old method: clean/shift/pzero/noise on human data) of the 6 best snapshots | results → report pzero column = proprio-reliance quantification |
+Watcher: `tmp/wall_watcher5.sh` (disk-guarded) covers 3543202-08; HD runs NOT covered — resubmit manually on wall (template below).
 
-## WHEN THEY FINISH (the queued task)
-1. Gate-eval all three `last.ckpt`s: copy `/coc/flash7/czhang883/tmp/eval_r5_final.py`,
-   swap the CKPTS dict paths, run from repo root with emimic venv +
-   `HF_HUB_OFFLINE=1` env (see any prior eval invocation in tmp scripts).
-   Conditions: clean / shift10+20 / pzero / noise σ=.01-.05. ~8 min/ckpt on CPU, background it.
-2. Extend the bar chart (template `/coc/flash7/czhang883/tmp/results_chart.py`,
-   palette + layout already validated) with the 3 new bars next to crop100/dino_full;
-   save to `/coc/flash7/czhang883/deliverables_0707/`, SendUserFile it.
-3. Update `policy_training_status.md` ROUND 7 section + commit.
+## USER DIRECTIVES (latest, override earlier)
+- **Teleop val (val_v2 AND predecessors) declared NOT REFERENCEABLE** after hardware
+  testing — ignore those numbers for decisions. Analysis = OLD method: human-data
+  gate evals (clean / proprio-zero / shift / noise) + hardware.
+- Hardware finding: dropout-0.6 policies attend proprio too much → HD runs revert to 0.9.
+- Subagents: 1-2 allowed for verification pushes (rule relaxed 07-19). No login-node
+  compute (sbatch everything; template `tmp/eval_jobs_cpu.sbatch`). Monitoring wakeups authorized.
+- 2000 epochs, batch 32 unchanged. Snapshot-select deployables (fleet optima ~ep400-1000).
 
-Reference numbers to compare against (MAE rad): crop100 clean .0126/pzero .0155;
-dino_full .0119/.067; dino_lora(v2) .0177/.122. Vision-only gate ≤ 0.03.
-R7 hypothesis being tested: is it capacity, conv prior, or features? (convneck runs
-= ResNet-budget conv head on frozen features).
+## KEY RESULTS SO FAR (FPP round)
+- Best-snapshot ranking (teleop-val era, now downgraded to secondary): d3lora@99
+  0.161 < d3conv@399 0.165 < wam3@999 0.185 < resnet@1599 0.189 < bare@1399 0.197 <
+  glove@699 0.203. DINOv3 leads big-data regime; glove hypothesis trending negative;
+  navonly ablation unfinished.
+- t1-anchoring NEGATIVE result: dropout 0.6 did not make policies anchor at proprio
+  (t1 ≈ full-chunk MAE throughout) — and hardware showed it *worsened* proprio reliance.
+- Nav proven learned by ep~100-200 (heading cosine 0.92, 100% turn signs), drives at
+  human pace 1.3-1.9× teleop.
+- 07-20 17:04 flash7 100%-full incident killed the fleet; recovered (210 GB reclaimed,
+  resumed from snapshots, ~1h lost/run). Old rounds trimmed to last/best ckpts only.
 
-## RESUBMIT TEMPLATE (dead-GPU "No CUDA GPUs available" lottery or wall TIMEOUT)
+## INSTRUMENTATION FACTS (keep honoring)
+- Robot-side recordings are cv2-BGR (deploy path flips; datasets need channel fix).
+- Loader `mode: train` FORCE-holds-out ≥1 episode (max(1,...)); `mode: total` = all.
+  fpp fleet trained mode:total; HD runs deliberately mode:train (holdout = old-method val).
+- Norm quantile fallback handles sparse dims (dim 39 r_hand grasp joint; firm_grasp
+  still False in all exports — standing question to the data agent).
+- Concise val logging + t1/short8 horizon metrics live in hpt.py (concise_val_metrics).
+- Old-method gate eval pattern: `tmp/eval_fpp_gate.py` (sampled human frames,
+  clean/shift10/20/pzero/pnoise .01/.03/.05).
+
+## RESUBMIT TEMPLATE (wall timeout / dead GPU)
 ```
 cd /coc/flash7/czhang883/Documents/EgoVerse
-sbatch --job-name="wbimg_<DESC>" \
-  --exclude=puma,deebot,qt-1,sonny,cyborg,crushinator,ig-88 \
-  --export=ALL,DATASET_NAME=aria_egoposer_firm,RAW_DATA_PATH=/coc/flash7/czhang883/__skip__.hdf5,TRAIN_CONFIG=experiments/wholebody_image/wb_img_proprio_<NAME>,DESCRIPTION=<DESC> \
+sbatch --job-name=wbimg_<DESC> --exclude=puma,deebot,qt-1,sonny,cyborg,crushinator,ig-88,spd-13 \
+  --export=ALL,DATASET_NAME=<DS>,RAW_DATA_PATH=/coc/flash7/czhang883/__skip__.hdf5,TRAIN_CONFIG=<CFG>,DESCRIPTION=<DESC>[,EXTRA_HYDRA_OVERRIDES=model=...] \
   submit_wb_img_training.sbatch
 ```
-Auto-resumes from `logs/<DATASET>/<DESC>/checkpoints/last.ckpt` if present.
-(WAM runs use DATASET_NAME=aria_egoposer_firm_wam.)
+HD runs: DS=aria_fullpp CFG=experiments/wholebody_image/wb_img_proprio_fpp_hd DESC=fpp_hd_resnet_2k;
+wam: DS=aria_fullpp_wam3 CFG=...fpp_hd_wam DESC=fpp_hd_wam3_2k. Auto-resumes from last.ckpt.
 
-## STANDING USER INSTRUCTIONS (do not violate)
-- **NO subagents / workflows** (Agent, Workflow tools) — quota. Work inline, sequential.
-- **NO monitoring wakeup loops** — quota. User pings "check jobs" instead.
-- Always 2000 epochs. Batch 32. Same recipe for comparability.
-- Minimize Bash calls (auto-mode classifier costs per command).
+## NEXT STEPS QUEUE
+1. Gate-eval results (3544366) → report table; pzero column quantifies proprio reliance
+   per checkpoint (crop100-old reference: clean 0.013 / pzero 0.016).
+2. navonly finishes 07-21 AM → same gate eval → manip-data ablation verdict.
+3. HD runs finish 07-21 → gate eval → compare vs dropout-0.6 twins (pzero gap should
+   shrink dramatically) → new hardware shortlist.
+4. Glove/bare + structure verdicts re-derived under the old method.
+5. Deferred ideas: delta-action space (anchoring fix), teleop co-training, dense-grid
+   PCA world targets, per-image ColorJitter vectorization.
 
-## ENVIRONMENT ESSENTIALS
-- venv: `source emimic/bin/activate` (or `emimic/bin/python`); repo root = cwd for evals.
-- env for anything HF/torch: `XDG_CACHE_HOME=/coc/flash7/czhang883/.cache
-  HF_HOME=/coc/flash7/czhang883/.cache/huggingface HF_HUB_OFFLINE=1
-  TMPDIR=/coc/flash7/czhang883/tmp` (login-node /tmp is unreliable; heredocs need TMPDIR).
-- HF token installed at `$HF_HOME/token` (user czhang883); Meta DINOv3 official-repo
-  access request pending (not needed — timm mirror ungated, weights cached).
-- LingBot: `lingbot-vision` pip-installed -e from `/coc/flash7/czhang883/Documents/lingbot-vision`;
-  weights cached (`robbyant/lingbot-vision-vit-large`).
-- Login node has tight RAM: big-model CPU smokes get OOM-killed (exit 137) at/after
-  "Starting training!" — that's a smoke artifact, GPU jobs are fine.
-- Git: branch `rby1_aria_policy` (fork of record: ZhangChuye/EgoVerse, pushed through
-  `e9aff88e`; local ahead — push when user asks). Commit style: msg file via
-  `git commit -F` (heredocs break when /tmp full) + Co-Authored-By footer.
-- Teammate fork: `ZhangChuye/EgoVerse` branch `rby1_encoder_dev` + ENCODER_QUICKSTART.md;
-  dataset zip at `/coc/flash7/czhang883/deliverables_0707/aria_egoposer_firm_dataset.zip`.
-
-## DELIVERABLES DIR
-`/coc/flash7/czhang883/deliverables_0707/` — charts, GIFs, attention maps, arch diagrams,
-dataset zip. Attention-map method: policy's own stem cross-attention (16 latents × heads
-averaged), captured via forward hook — NOT Grad-CAM.
-
-## OPEN THREADS (beyond the queued eval)
-- Hardware session pending: A/B/C protocol in `deployment_test_protocol_r6.md`
-  (crop100 vs dino_full vs wam_dinofull; money comparison = wam_dinofull vs dino_full
-  at the table for task-progress).
-- User's own storage cleanup candidates (second tier) listed in chat 07-09: dp3 data
-  208G, depth_human2any 212G, im2Flow2Act/data 167G, miniconda 76G, EgoVerse superseded
-  epoch snapshots ~20G (needs user OK per cleanup-checkpoints skill).
-- Rotating the HF token eventually (it was pasted in chat).
-- Presentation deck: TOC + per-slide speech delivered 07-08; deck itself is user's.
+## ENVIRONMENT
+venv `source emimic/bin/activate`; caches XDG/HF on flash (`/coc/flash7/czhang883/.cache`),
+HF_HUB_OFFLINE=1 for training; TMPDIR=/coc/flash7/czhang883/tmp; wandb personal (entity
+null) project sew_policy; flash7 had 294 GB free after cleanup — watch it (external
+writers filled it once). Bad-node exclude list in the template above.
