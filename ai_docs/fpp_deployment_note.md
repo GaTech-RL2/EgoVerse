@@ -35,9 +35,12 @@ functionally **vision-driven policies**. Practical consequences for rollouts:
   this); any 07-20 dropout-0.6 DINOv3 checkpoint (d3conv ×4.4, d3lora ×6.9).
 - **hd_nvs3dneck**: reliance PLATEAUED ×1.5–1.8 (599/799/999) — better than linear
   (×3.4) but does NOT reach ×1.0; val also plateaus above leaders. NOT cleared.
-- **hd_d3conv (HD twin)**: ×1.38 @899 (was ×4.4 at drop 0.6) and still training —
-  best frozen-feature variant; candidate for the list at maturity (~ep1500+, re-gate).
-- **hd_d3lora (HD twin)**: ×1.89 @799 (was ×6.9) — improved, still elevated.
+- **hd_d3conv@1399 = optional priority D**: clean 0.0249 (matches A/B), reliance
+  ×1.44 — best DINOv3-family policy to date. Hardware test answers whether ×1.4
+  vs ×1.0 matters in practice (0.6-sibling failure was lateral-stray).
+  `logs/aria_fullpp/fpp_hd_d3conv_2k/checkpoints/epoch_epoch=1399.ckpt`
+- **hd_d3lora**: ×2.05 @1199 (worsening; was ×1.89@799) — closed, negative result
+  (0.44M LoRA below the capacity needed to go vision-driven).
 - avoid `hd_wam3 epoch_epoch=1599.ckpt` — transient bad snapshot (post-resume);
   finals 1899/1999 are clean ×1.0 but @1399 remains wam3's best fit.
 
