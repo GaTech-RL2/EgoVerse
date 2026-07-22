@@ -35,6 +35,19 @@ READ: old-method ranking INVERTS teleop-val (resnet/wam3 best; d3lora worst). Th
 the user's hardware observation exactly. Snapshot-epoch confound: these were teleop-val-selected
 epochs; re-derive best epochs per run under old method (queue item 4).
 
+## HARDWARE RESULTS 07-21/22 (user's sim→real log; detail in their robot-side md)
+- **A hd_wam3@1399 = only policy that cleanly reaches + GRASPS** (near-success ×2,
+  from distance); best HD-era policy, strong candidate. Run 1 ended by Aria USB
+  drop (not policy); --hold-on-stale-frame added robot-side.
+- B hd_resnet@1499: stops short of table, never in grasp range. C wam3@1599 (0.6):
+  poor. d3lora@1699 retry: grasp-attempt but over-rotates → collision. d3conv@1299
+  retry: lateral stray → side-table hit. glove/bare (0.6, near-table): proprio-trap.
+- **NEAR-TABLE (skip-nav) discovery: ALL fail up close** — HD pair mis-reads the
+  large hand/object view (near-field OOD); 0.6-era can't act without nav proprio
+  ramp. → NEXT-ROUND DATA FIX: add near-table / hand-in-view frames to training.
+- World-model aux = the differentiator on hardware (A > B with same recipe).
+- Diagram: deliverables_0707/arch_hw_variants.png (regen: tmp/arch_hw_variants.py).
+
 ## USER DIRECTIVES (latest, override earlier)
 - **Teleop val (val_v2 AND predecessors) declared NOT REFERENCEABLE** after hardware
   testing — ignore those numbers for decisions. Analysis = OLD method: human-data
