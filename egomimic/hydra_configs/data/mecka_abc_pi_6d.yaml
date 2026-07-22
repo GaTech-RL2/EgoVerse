@@ -1,0 +1,135 @@
+# MECKA_ABC_PI_6D — combined pretrain corpus: ALL mecka human episodes
+# (lab=mecka, 41.6k, human_bimanual) + the abc EVA robot collection
+# (embodiment='eva_bimanual', /abc/ paths, 18.5k). Both blocks are verbatim
+# copies of mecka_all_pi_6d / abc_eva_pi_6d — same shared mirror, same
+# transforms — only the batch sizes change (see below).
+#
+# Both corpora use WRIST-frame cartesian actions with continuous 6D rotation:
+# human is 18D (no gripper; proprio zero-padded to 20D so State: bins align
+# with the robot layout), eva is 20D native with grippers. The 32D pi packing
+# absorbs both widths; per-embodiment converters live in
+# model=pi0.5_bc_mecka_abc_6d.
+#
+# Mixing: CombinedLoader("max_size_cycle") draws ONE batch per key per step,
+# so every step is a 1:1 human/eva mix regardless of corpus size (the smaller
+# abc set just recycles ~2.2x more often). Batch is 32 per key (vs 64 in the
+# single-corpus configs) so the per-step sample count per GPU stays 64 — the
+# proven memory profile — and the global batch stays 512 at 8 GPUs.
+#
+# Norm stats: /storage/project/r-dxu345-0/agao81/norm_stats/mecka_abc_6d —
+# the union of the mecka_all_6d (id 3) and abc_eva_6d (id 6) jsons. Stats are
+# computed per embodiment id independently, so the merge is exactly
+# equivalent to recomputing on this combined config.
+
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      # Shared PACE mirror of processed_v3; both corpora are already synced
+      # here (mecka by the original pretrain, abc by sync_abc_eva.py).
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian_wristframe_6d
+        stride: 1
+        # processed_v3 mecka zarrs predate the mecka_to_zarr rot_left fix.
+        fix_mecka_left_wrist: true
+        # 18 -> 20-dim proprio (zero grip slots at 9/19).
+        pad_proprio_gripper: true
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('lab', '')).lower() == 'mecka'"
+    mode: train
+    valid_ratio: 0.05
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/egoverseS3ZarrDatasets
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian_pi
+        annotation_key: annotations
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian_wristframe_6d
+        # ABC top-camera calibration for the base->cam proprio bake (matches
+        # the remote wristframe-6d runs). The default x5Dec13_2 is the rl2
+        # lab rig's hand-eye calib — wrong frame for ABC data: proprio/State
+        # bins land in a frame unrelated to the abc camera and the eval viz
+        # throws the right arm off-screen. Requires norm stats computed with
+        # this same key (norm_stats/mecka_abc_6d is the foldviz recompute).
+        extrinsics_key: abc_fold_viz
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: str(row.get('embodiment', '')) == 'eva_bimanual'"
+        - "lambda row: '/abc/' in str(row.get('zarr_processed_path', ''))"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+# Train-set spot check for the TrainVizEvalVideo head (train_viz/ metrics,
+# videos_train_viz/). No shuffle -> same leading slice every val.
+train_viz_datasets:
+  human_bimanual:
+    _target_: ${...train_datasets.human_bimanual._target_}
+    resolver: ${...train_datasets.human_bimanual.resolver}
+    filters: ${...train_datasets.human_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.human_bimanual.valid_ratio}
+  eva_bimanual:
+    _target_: ${...train_datasets.eva_bimanual._target_}
+    resolver: ${...train_datasets.eva_bimanual.resolver}
+    filters: ${...train_datasets.eva_bimanual.filters}
+    mode: train
+    valid_ratio: ${...train_datasets.eva_bimanual.valid_ratio}
+
+train_viz_dataloader_params:
+  human_bimanual:
+    batch_size: 16
+    num_workers: 2
+    shuffle: false
+  eva_bimanual:
+    batch_size: 16
+    num_workers: 2
+    shuffle: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+    shuffle: false
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+    shuffle: false

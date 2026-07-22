@@ -21,12 +21,18 @@ class EvalVideo(Eval):
         viz_func: dict = None,
         transform_lists: dict | None = None,
         viz_every_n_epochs: int = 1,
+        viz_max_batches: int | None = None,
     ):
         super().__init__()
         self.trainer = None
         self.model = None
         self.viz_func = viz_func
         self.viz_every_n_epochs = viz_every_n_epochs
+        # On viz epochs, render overlay frames for only the first N val
+        # batches (None = all). Rendering is CPU-bound (~1s/frame) and
+        # dominates viz-epoch wall time (~2h at 80 batches x 2 embodiments);
+        # metrics are still computed on EVERY batch regardless.
+        self.viz_max_batches = viz_max_batches
         # Per-embodiment list[Transform] applied once during eval to project
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
@@ -116,7 +122,9 @@ class EvalVideo(Eval):
             self.val_image_buffer[key] = []
 
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
-        do_viz = self._should_viz()
+        do_viz = self._should_viz() and (
+            self.viz_max_batches is None or batch_idx < self.viz_max_batches
+        )
         metrics, images_dict = self.compute_metrics_and_viz(batch, do_viz=do_viz)
 
         device = self.trainer.lightning_module.device
@@ -157,4 +165,6 @@ class EvalVideo(Eval):
                     self.val_image_buffer[key].clear()
                     self.val_counter[key] += 1
 
-        self.trainer.lightning_module.log_dict(metrics, sync_dist=True)
+        self.trainer.lightning_module.log_dict(
+            metrics, sync_dist=True, add_dataloader_idx=False
+        )

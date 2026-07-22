@@ -8,6 +8,11 @@ _target_: egomimic.eval.eval_pi.PIEvalVideo
 # this (see eval_pi.yaml); without it the EvalVideo default of 1 renders
 # video on every validation pass.
 viz_every_n_epochs: 100
+# On viz epochs, render only the first N val batches per rank (~1s/frame
+# CPU draw; unbounded rendering added ~2h per viz epoch on the combined
+# pretrain). Metrics still run on every batch. The train_viz wrapper
+# inherits this cap.
+viz_max_batches: 10
 
 # Wrist-frame 6D-rotation variant: use with a data config that applies the
 # `cartesian_wristframe_6d` transform mode (e.g. obj_gen_pi_lang_wristframe_6d).
