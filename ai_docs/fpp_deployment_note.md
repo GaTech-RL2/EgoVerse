@@ -33,9 +33,13 @@ functionally **vision-driven policies**. Practical consequences for rollouts:
 - **Do NOT roll out**: `hd_nvs3d` linear (reliance ×3.4 at maturity — same proprio
   trap as July despite good-looking val; val is scored WITH real proprio and hides
   this); any 07-20 dropout-0.6 DINOv3 checkpoint (d3conv ×4.4, d3lora ×6.9).
-- **hd_nvs3dneck** (3D encoder + 10.9M conv neck): still training; @399 gated at
-  clean 0.042 / reliance ×1.49 — trending toward passing (linear twin was ×2.9–3.4)
-  but NOT yet deployable. Ask before serving it.
+- **hd_nvs3dneck**: reliance PLATEAUED ×1.5–1.8 (599/799/999) — better than linear
+  (×3.4) but does NOT reach ×1.0; val also plateaus above leaders. NOT cleared.
+- **hd_d3conv (HD twin)**: ×1.38 @899 (was ×4.4 at drop 0.6) and still training —
+  best frozen-feature variant; candidate for the list at maturity (~ep1500+, re-gate).
+- **hd_d3lora (HD twin)**: ×1.89 @799 (was ×6.9) — improved, still elevated.
+- avoid `hd_wam3 epoch_epoch=1599.ckpt` — transient bad snapshot (post-resume);
+  finals 1899/1999 are clean ×1.0 but @1399 remains wam3's best fit.
 
 ## 2. Serve (one port per checkpoint)
 
