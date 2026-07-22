@@ -5,7 +5,6 @@ from typing import Literal
 import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
-from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
@@ -26,10 +25,21 @@ from egomimic.utils.pose_utils import (
     _matrix_to_xyzwxyz,
 )
 
-
-class Eva(Embodiment):
-    INTRINSICS = ARIA_INTRINSICS
-    EXTRINSICS = {
+# Per-rig extrinsics registry (camera pose; the frame transforms invert
+# internally via target_world semantics). Mirrors the remote wristframe-6d
+# repo's egomimicUtils EXTRINSICS registry.
+#   x5Dec13_2:    per-arm hand-eye calib of the rl2 lab x5 eva rig (Dec 13) —
+#                 the physical robot the rollout stack drives (its rollout
+#                 configs bake this key). WRONG for ABC data: the right matrix
+#                 throws the right arm off-screen on abc episodes.
+#   abc_fold_viz: ABC-130k top camera — solvePnP least-squares fit over 112
+#                 clicked EE points across 60 episodes / 7 tasks (~26px
+#                 median, 41px RMSE, 99% in-frame). One SHARED world->cam
+#                 matrix for both arms (single top camera over one world
+#                 frame). ABC is multi-station, so this is a best-effort
+#                 global average; crisp overlays need per-episode calibration.
+EVA_EXTRINSICS = {
+    "x5Dec13_2": {
         "left": np.array(
             [
                 [0.01329544, -0.71757193, 0.69635749, -0.04409191],
@@ -46,7 +56,37 @@ class Eva(Embodiment):
                 [0.0, 0.0, 0.0, 1.0],
             ]
         ),
-    }
+    },
+}
+_ABC_FOLD_VIZ = np.array(
+    [
+        [-0.00540728648402, -0.91864395735192, 0.39504941573641, -0.07230219027034],
+        [-0.99924104589933, -0.01027605228132, -0.03757306135427, -0.23692835817344],
+        [0.03857581422213, -0.39495275966919, -0.91789118319482, 0.97783070025080],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+)
+EVA_EXTRINSICS["abc_fold_viz"] = {"left": _ABC_FOLD_VIZ, "right": _ABC_FOLD_VIZ}
+
+# ABC-130k RealSense top camera K (640x480 space). Replaces the old
+# ARIA_INTRINSICS fallback (fx=266.5), which mis-scaled the eva eval overlay
+# ~1.6x — same fix as the remote repo's Eva.VIZ_INTRINSICS_KEY="eva". Only
+# consulted when an episode carries no per-episode K (NaN sentinel in
+# batch["intrinsics"]).
+EVA_INTRINSICS = np.array(
+    [
+        [436.26, 0.0, 310.10, 0.0],
+        [0.0, 435.13, 241.93, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+    ]
+)
+
+
+class Eva(Embodiment):
+    INTRINSICS = EVA_INTRINSICS
+    # Legacy default (rollout rig calib); data configs for ABC data should
+    # pass extrinsics_key="abc_fold_viz" to get_transform_list instead.
+    EXTRINSICS = EVA_EXTRINSICS["x5Dec13_2"]
 
     @staticmethod
     def get_transform_list(
@@ -57,9 +97,16 @@ class Eva(Embodiment):
             "cartesian_wristframe_6d",
             "cartesian_wristframe_quat",
         ],
+        extrinsics_key: str = "x5Dec13_2",
     ) -> list[Transform]:
+        # extrinsics_key selects the cam<-base transform baked into the
+        # cartesian conversion — it sets ONLY the cam frame the proprio/obs
+        # live in (and hence the eval-viz revert frame); wrist-relative action
+        # targets are invariant to it. ABC data must use "abc_fold_viz".
         if mode == "cartesian":
-            return _build_eva_bimanual_transform_list(is_quat=True)
+            return _build_eva_bimanual_transform_list(
+                is_quat=True, extrinsics_key=extrinsics_key
+            )
         elif mode == "cartesian_6d":
             # Camera-frame cartesian (14D xyz+ypr+gripper per arm) with the
             # rotation re-expressed as the continuous 6D representation
@@ -67,12 +114,16 @@ class Eva(Embodiment):
             # The proprio ee_pose is 6D-encoded too: normalized YPR proprio
             # saturates yaw/roll at ±π (wraparound), so per-dim normalization
             # is only meaningful on the continuous rep — same fix as actions.
-            return _build_eva_bimanual_transform_list(is_quat=True) + [
+            return _build_eva_bimanual_transform_list(
+                is_quat=True, extrinsics_key=extrinsics_key
+            ) + [
                 CartesianYPRToRot6D(action_key="actions_cartesian"),
                 CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
             ]
         elif mode == "cartesian_wristframe_ypr":
-            return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
+            return _build_eva_bimanual_eef_frame_transform_list(
+                is_quat=False, extrinsics_key=extrinsics_key
+            )
         elif mode == "cartesian_wristframe_6d":
             # Wrist-frame cartesian (14D xyz+ypr+gripper per arm) with the
             # rotation re-expressed as the continuous 6D representation
@@ -80,12 +131,16 @@ class Eva(Embodiment):
             # ee_pose is 6D-encoded too (see cartesian_6d) — extra important
             # here since the proprio is the only cam-frame signal the model
             # sees with wrist-relative action targets.
-            return _build_eva_bimanual_eef_frame_transform_list(is_quat=False) + [
+            return _build_eva_bimanual_eef_frame_transform_list(
+                is_quat=False, extrinsics_key=extrinsics_key
+            ) + [
                 CartesianYPRToRot6D(action_key="actions_cartesian"),
                 CartesianYPRToRot6D(action_key="observations.state.ee_pose"),
             ]
         elif mode == "cartesian_wristframe_quat":
-            return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+            return _build_eva_bimanual_eef_frame_transform_list(
+                is_quat=True, extrinsics_key=extrinsics_key
+            )
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
@@ -316,10 +371,11 @@ def _build_eva_bimanual_eef_frame_transform_list(
     chunk_length: int = 100,
     stride: int = 1,
     is_quat: bool = True,
+    extrinsics_key: str = "x5Dec13_2",
 ) -> list[Transform]:
     """EVA bimanual transform pipeline with actions expressed relative to the
     current EEF pose (wrist frame), analogous to keypoints relative to wrist pose."""
-    extrinsics = Eva.EXTRINSICS
+    extrinsics = EVA_EXTRINSICS[extrinsics_key]
     left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
     right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
     left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}
@@ -480,9 +536,10 @@ def _build_eva_bimanual_transform_list(
     chunk_length: int = 100,
     stride: int = 1,
     is_quat: bool = True,
+    extrinsics_key: str = "x5Dec13_2",
 ) -> list[Transform]:
     """Canonical EVA bimanual transform pipeline used by tests and notebooks."""
-    extrinsics = Eva.EXTRINSICS
+    extrinsics = EVA_EXTRINSICS[extrinsics_key]
     left_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["left"][None, :])[0]
     right_extrinsics_pose = _matrix_to_xyzwxyz(extrinsics["right"][None, :])[0]
     left_extra_batch_key = {"left_extrinsics_pose": left_extrinsics_pose}

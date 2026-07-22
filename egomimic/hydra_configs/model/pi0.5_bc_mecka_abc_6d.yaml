@@ -1,0 +1,36 @@
+defaults:
+  - pi0.5_base
+  - _self_
+
+# pi0.5 combined pretrain: mecka human (human_bimanual, 18D wristframe-6D,
+# no gripper) + abc EVA robot (eva_bimanual, 20D native with grippers) in one
+# run, 1:1 mixed per step by the CombinedLoader. Both encodings pack into the
+# 32D action vector; the per-embodiment converters below handle the width
+# difference. Pairs with data=mecka_abc_pi_6d and
+# evaluator=eval_pi_wristframe_6d (its transform_lists already cover both
+# embodiments).
+robomimic_model:
+  camera_transforms: {}
+  config:
+    # M-sample val metrics (reverse KL, best/mean/worst-of-M, diversity).
+    reverse_kl_samples: 4
+  ac_keys:
+    human_bimanual: "actions_cartesian"
+    eva_bimanual: "actions_cartesian"
+  domains: ["human_bimanual", "eva_bimanual"]
+
+  action_encoding: "cartesian_normalized_rot6d"
+  # Keep the discretized-proprio "State: <bins>" prompt block; the padded
+  # 20D human proprio aligns positionally with eva's native 20D. No
+  # embodiment label in the prompt — same as the single-corpus runs, so the
+  # model must infer embodiment from images + State bins.
+  embodiment_label: false
+
+  action_converters:
+    rules:
+      HUMAN_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+      EVA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter

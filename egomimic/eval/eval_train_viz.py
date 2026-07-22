@@ -27,6 +27,7 @@ class TrainVizEvalVideo(EvalVideo):
             viz_func=base.viz_func,
             transform_lists=base.transform_lists,
             viz_every_n_epochs=base.viz_every_n_epochs,
+            viz_max_batches=base.viz_max_batches,
         )
 
     @property
