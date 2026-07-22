@@ -22,7 +22,7 @@ functionally **vision-driven policies**. Practical consequences for rollouts:
 
 | priority | tag | checkpoint (under `/coc/flash7/czhang883/Documents/EgoVerse/`) | clean | reliance |
 |---|---|---|---|---|
-| **A** | hd_wam3@899 | `logs/aria_fullpp_wam3/fpp_hd_wam3_2k/checkpoints/epoch_epoch=899.ckpt` | 0.029 | **×1.00** |
+| **A** | hd_wam3@1399 | `logs/aria_fullpp_wam3/fpp_hd_wam3_2k/checkpoints/epoch_epoch=1399.ckpt` | 0.025 | **×1.03** |
 | **B** | hd_resnet@1499 | `logs/aria_fullpp/fpp_hd_resnet_2k/checkpoints/epoch_epoch=1499.ckpt` | 0.024 | **×1.00** |
 | C (baseline) | wam3@1599 (0.6-era) | `logs/aria_fullpp_wam3/fpp_wam3_2k/checkpoints/epoch_epoch=1599.ckpt` | 0.013 | ×1.28 |
 
@@ -33,9 +33,9 @@ functionally **vision-driven policies**. Practical consequences for rollouts:
 - **Do NOT roll out**: `hd_nvs3d` linear (reliance ×3.4 at maturity — same proprio
   trap as July despite good-looking val; val is scored WITH real proprio and hides
   this); any 07-20 dropout-0.6 DINOv3 checkpoint (d3conv ×4.4, d3lora ×6.9).
-- **hd_nvs3dneck** (3D encoder + 10.9M conv neck): still training and improving;
-  gate pending. If a snapshot passes ×~1.0 before your session ends I'll flag it —
-  ask before serving it.
+- **hd_nvs3dneck** (3D encoder + 10.9M conv neck): still training; @399 gated at
+  clean 0.042 / reliance ×1.49 — trending toward passing (linear twin was ×2.9–3.4)
+  but NOT yet deployable. Ask before serving it.
 
 ## 2. Serve (one port per checkpoint)
 
