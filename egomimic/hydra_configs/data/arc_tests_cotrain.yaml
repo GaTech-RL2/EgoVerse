@@ -1,21 +1,10 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
-# Arc-tokenized variant of arc_tests_cotrain.yaml. Same population — 290
-# eva_bimanual + 580 human_bimanual staged in /storage/project/r-dxu345-0/shared/arc_tests
-# — but every leaf uses ``arc_tokenizer_cartesian`` so ``get_item`` returns
-# ``actions_cartesian`` already shaped ``(M+1, 8) = (16, 8)`` — 15 waypoints
-# + 1 velocity token per bimanual chunk, each 8-dim
-# ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``.
-#
-# Arc knobs (shared by both embodiments):
-#   D = 20 cm = 0.20 m per-arm arc length span of one token (min_distance_unit)
-#   M = 15 waypoints  (sequence has M+1 = 16 rows once velocity is appended)
-#
-# The arc_tokenizer_cartesian keymap widens the raw read horizon so joint
-# arc length has room to reach D within the raw window: eva 45 -> 200
-# frames, human 30 -> 600 raw frames at stride=3 (200 subsampled). Padding
-# beyond the true episode end zeros Δxyz and the tokenizer degrades
-# gracefully into zero-vel tokens for the affected samples.
+# Cotrain mixture staged in a single folder at /storage/project/r-dxu345-0/shared/arc_tests.
+# LocalFolderEpisodeResolver enumerates every zarr in that folder and splits by the
+# zarr's own `embodiment` attribute — no SQL, no lab/task filters. Actual mix at
+# time of writing: 290 eva_bimanual + 580 human_bimanual (task_name for the human
+# side is 'debug', not 'fold_clothes', but the trajectories are folding).
 train_datasets:
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
@@ -25,13 +14,11 @@ train_datasets:
       embodiment: human_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: arc_tokenizer_cartesian
+        keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: arc_tokenizer_cartesian
+        mode: cartesian
         stride: 3
-        min_distance_unit: 0.20
-        resampled_vector_length: 15
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -44,12 +31,10 @@ train_datasets:
       embodiment: eva_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
-        keymap_mode: arc_tokenizer_cartesian
+        keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: arc_tokenizer_cartesian
-        min_distance_unit: 0.20
-        resampled_vector_length: 15
+        mode: cartesian
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -65,13 +50,11 @@ valid_datasets:
       embodiment: human_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
-        keymap_mode: arc_tokenizer_cartesian
+        keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
-        mode: arc_tokenizer_cartesian
+        mode: cartesian
         stride: 3
-        min_distance_unit: 0.20
-        resampled_vector_length: 15
     mode: valid
     valid_ratio: 0.2
     bounds_check: false
@@ -83,12 +66,10 @@ valid_datasets:
       embodiment: eva_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
-        keymap_mode: arc_tokenizer_cartesian
+        keymap_mode: cartesian
       transform_list:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
-        mode: arc_tokenizer_cartesian
-        min_distance_unit: 0.20
-        resampled_vector_length: 15
+        mode: cartesian
     mode: valid
     valid_ratio: 0.2
     bounds_check: false

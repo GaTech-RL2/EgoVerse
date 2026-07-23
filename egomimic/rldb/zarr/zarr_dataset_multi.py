@@ -903,6 +903,7 @@ class MultiDataset(torch.utils.data.Dataset):
         valid_ratio: float = 0.2,
         norm_mode: str = "zscore",
         state: dict | None = None,
+        bounds_check: bool = True,
         **kwargs,
     ):
         """
@@ -939,6 +940,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self._global_indices_by_dataset: dict[str, list[int]] = {}
         # Dedup bounds-check warnings: keyed by f"bounds:{episode}:{zarr_key}"
         self._warned_violations: set[str] = set()
+        self.bounds_check = bounds_check
         self.train_collections: set = set()
         self.valid_collections: set = set()
 
@@ -1102,7 +1104,11 @@ class MultiDataset(torch.utils.data.Dataset):
             if isinstance(dataset, MultiDataset):
                 return data
 
-            violation = self._check_bounds(data, dataset, local_idx, dataset_name)
+            violation = (
+                self._check_bounds(data, dataset, local_idx, dataset_name)
+                if self.bounds_check
+                else None
+            )
             if violation is not None and not self.skip_bounds_check:
                 next_idx, attempts = self._next_after_failure(
                     idx,

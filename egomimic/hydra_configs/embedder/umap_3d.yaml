@@ -1,0 +1,28 @@
+method: umap
+n_components: 3
+params:
+  n_neighbors: 15
+  min_dist: 0.1
+  metric: euclidean
+
+tokenizer:
+  min_distance_unit: 0.20  # 20 cm of per-arm EEF travel per token
+  resampled_vector_length: 15
+  mode: mean_scalar
+  dt: 0.03333333333333333
+  zero_dist_epsilon: 1.0e-6
+  max_steps_per_chunk: 200
+
+feature: positions_delta
+include_zero_tokens: false
+
+max_samples_per_dataset: 5000
+shuffle: true
+seed: 42
+
+# Embed the state camera image at the start of each arc chunk into the HTML
+# so you can click a point and see it. Turn off to keep the HTML small.
+include_state_image: true
+image_key: null            # null = auto-detect (observations.images.front_img_1 etc)
+image_max_side: 224
+jpeg_quality: 60

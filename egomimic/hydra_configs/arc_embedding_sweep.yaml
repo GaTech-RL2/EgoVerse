@@ -1,0 +1,56 @@
+defaults:
+  - data: aria_eva_fold_clothes_rl2
+  - paths: default
+  - _self_
+
+output_html: ./out/arc_embedding_sweep.html
+title: "Arc token sweep"
+split: train
+action_key: actions_cartesian
+
+# Sweep grid. joint_distance_cm is combined arc length across both arms
+# (i.e. left arc length + right arc length). Per-arm min_distance_unit is set
+# to joint_distance_cm / 2 / 100 (meters), which is exact when both arms move
+# equally and approximate otherwise.
+sweep:
+  joint_distance_cm: [20, 40, 60, 80]
+  waypoints: [5, 10, 15, 20, 25, 30]
+
+# Fixed tokenizer settings for all sweep points.
+tokenizer:
+  mode: mean_scalar
+  dt: 0.03333333333333333
+  zero_dist_epsilon: 1.0e-6
+  max_steps_per_chunk: 500
+
+feature: positions_delta_only
+include_zero_tokens: false
+
+max_samples_per_dataset: 1500
+shuffle: true
+seed: 42
+
+# State image + click-to-view panel (shared JS array so 24 tabs don't
+# duplicate images 24x).
+include_state_image: true
+image_key: null
+image_max_side: 224
+jpeg_quality: 60
+
+# When true, the JS overlay renders every raw frame from t=0 up to the
+# timestep where cumulative joint arc reaches D, instead of the M-waypoint
+# post-interpolation trajectory. Purely a visualization toggle; the feature
+# vector fed to t-SNE always uses the M-waypoint tokenization.
+overlay_pre_interp: false
+
+# t-SNE params for every sweep point.
+tsne_params:
+  perplexity: 30
+  learning_rate: auto
+  init: pca
+  max_iter: 1000
+
+hydra:
+  run:
+    dir: ./logs/arc_embedding_sweep/${now:%Y-%m-%d_%H-%M-%S}
+  output_subdir: null

@@ -1,0 +1,74 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# All RL2-lab fold_clothes episodes, both embodiments.
+# - aria data is post-collapse embodiment='human_bimanual'
+# - eva data is embodiment='eva_bimanual'
+# Both filtered on lab='rl2' and task='fold_clothes', SQL-backed via
+# S3EpisodeResolver; missing episodes lazy-download into paths.dataset_dir.
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: cartesian
+        stride: 3
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.05
+
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.05
+
+valid_datasets:
+  human_bimanual:
+    _target_: ${train_datasets.human_bimanual._target_}
+    resolver: ${train_datasets.human_bimanual.resolver}
+    filters: ${train_datasets.human_bimanual.filters}
+    mode: valid
+    valid_ratio: ${train_datasets.human_bimanual.valid_ratio}
+  eva_bimanual:
+    _target_: ${train_datasets.eva_bimanual._target_}
+    resolver: ${train_datasets.eva_bimanual.resolver}
+    filters: ${train_datasets.eva_bimanual.filters}
+    mode: valid
+    valid_ratio: ${train_datasets.eva_bimanual.valid_ratio}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
