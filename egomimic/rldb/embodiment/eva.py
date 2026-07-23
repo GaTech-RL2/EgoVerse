@@ -49,23 +49,67 @@ class Eva(Embodiment):
     @staticmethod
     def get_transform_list(
         mode: Literal[
-            "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
+            "cartesian",
+            "cartesian_world",
+            "cartesian_wristframe_ypr",
+            "cartesian_wristframe_quat",
+            "arc_tokenizer_cartesian",
         ],
+        # Arc-tokenizer args (only consulted when mode="arc_tokenizer_cartesian").
+        # min_distance_unit = D in meters (per-arm arc length span of one token),
+        # resampled_vector_length = M (number of waypoints per token). The
+        # emitted sequence has M+1 rows: M waypoints followed by 1 velocity
+        # token, each 8-dim [Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip].
+        min_distance_unit: float = 0.60,
+        resampled_vector_length: int = 20,
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_eva_bimanual_transform_list(is_quat=True)
+        elif mode == "cartesian_world":
+            # World / front-cam frame: skip the wrist-cam extrinsic transform so
+            # actions_cartesian stays in the raw base frame. Base ≡ front camera
+            # on eva (the zarr stores no separate front-cam extrinsic), so
+            # projection with the front K needs no additional frame math.
+            return _build_eva_bimanual_worldframe_transform_list(is_quat=True)
         elif mode == "cartesian_wristframe_ypr":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
         elif mode == "cartesian_wristframe_quat":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+        elif mode == "arc_tokenizer_cartesian":
+            # Standard cam-frame cartesian pipeline, then append the arc
+            # tokenizer that rewrites actions_cartesian to (M+1, 8).
+            from egomimic.rldb.zarr.arc_length_tokenizer import (
+                TokenizeBimanualArcLengthCartesian,
+            )
+
+            base = _build_eva_bimanual_transform_list(is_quat=True)
+            # Insert the tokenizer BEFORE the final NumpyToTensor step (which
+            # is the last entry in the base list). This keeps the pipeline
+            # working on numpy arrays through the tokenize step and lets
+            # NumpyToTensor cast the (M+1, 8) result to a torch tensor.
+            tokenize = TokenizeBimanualArcLengthCartesian(
+                action_key="actions_cartesian",
+                output_action_key="actions_cartesian",
+                min_distance_unit=float(min_distance_unit),
+                resampled_vector_length=int(resampled_vector_length),
+            )
+            # Splice: everything before final NumpyToTensor + tokenize + final
+            # NumpyToTensor.
+            for i in range(len(base) - 1, -1, -1):
+                if isinstance(base[i], NumpyToTensor):
+                    return base[:i] + [tokenize] + base[i:]
+            return base + [tokenize]
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
         # Camera key naming differs by algo:
-        #   "cartesian"     -> dataset-style names (HPT and friends)
-        #   "cartesian_pi"  -> PI/PaliGemma-style names (base_0_rgb, *_wrist_0_rgb)
+        #   "cartesian"                -> dataset-style names (HPT and friends)
+        #   "cartesian_pi"             -> PI/PaliGemma-style names (base_0_rgb, ...)
+        #   "arc_tokenizer_cartesian"  -> same names as "cartesian" but with a
+        #                                 wider action horizon so the arc-length
+        #                                 integration has room to reach D.
         # Everything else (proprio + action) stays identical so the same
-        # transform_list ("cartesian") works either way.
+        # transform_list works either way.
         if keymap_mode == "cartesian_pi":
             front_key = "base_0_rgb"
             right_wrist_key = "right_wrist_0_rgb"
@@ -74,6 +118,13 @@ class Eva(Embodiment):
             front_key = cls.VIZ_IMAGE_KEY
             right_wrist_key = "observations.images.right_wrist_img"
             left_wrist_key = "observations.images.left_wrist_img"
+
+        # Arc-tokenizer mode needs a wider raw window so per-arm joint arc
+        # length has room to reach ``min_distance_unit`` (D) before the
+        # padded tail kicks in. 200 raw frames ≈ 6.7 s of eva motion at
+        # 30 fps — plenty of budget for D up to ~2 m of per-arm travel at
+        # a brisk 30 cm/s wrist speed.
+        action_horizon = 200 if keymap_mode == "arc_tokenizer_cartesian" else 45
 
         key_map = {
             front_key: {
@@ -107,22 +158,22 @@ class Eva(Embodiment):
             "right.cmd_gripper": {
                 "key_type": "action_keys",
                 "zarr_key": "right.cmd_gripper",
-                "horizon": 45,
+                "horizon": action_horizon,
             },
             "left.cmd_gripper": {
                 "key_type": "action_keys",
                 "zarr_key": "left.cmd_gripper",
-                "horizon": 45,
+                "horizon": action_horizon,
             },
             "right.cmd_ee_pose": {
                 "key_type": "action_keys",
                 "zarr_key": "right.cmd_ee_pose",
-                "horizon": 45,
+                "horizon": action_horizon,
             },
             "left.cmd_ee_pose": {
                 "key_type": "action_keys",
                 "zarr_key": "left.cmd_ee_pose",
-                "horizon": 45,
+                "horizon": action_horizon,
             },
         }
 
@@ -521,6 +572,108 @@ def _build_eva_bimanual_transform_list(
                     obs_key,
                 ]
             ),
+        ]
+    )
+    return transform_list
+
+
+def _build_eva_bimanual_worldframe_transform_list(
+    *,
+    left_cmd_world: str = "left.cmd_ee_pose",
+    right_cmd_world: str = "right.cmd_ee_pose",
+    left_obs_pose: str = "left.obs_ee_pose",
+    right_obs_pose: str = "right.obs_ee_pose",
+    left_obs_gripper: str = "left.obs_gripper",
+    right_obs_gripper: str = "right.obs_gripper",
+    left_cmd_gripper: str = "left.cmd_gripper",
+    right_cmd_gripper: str = "right.cmd_gripper",
+    actions_key: str = "actions_cartesian",
+    obs_key: str = "observations.state.ee_pose",
+    chunk_length: int = 100,
+    stride: int = 1,
+    is_quat: bool = True,
+) -> list[Transform]:
+    """World / front-camera frame EVA bimanual pipeline.
+
+    Structurally mirrors ``_build_human_cartesian_bimanual_transform_list``
+    (interpolate → ypr conversion → concat), but WITHOUT the
+    ``ActionChunkCoordinateFrameTransform`` step because eva's raw
+    ``cmd_ee_pose`` is already in the robot base frame, and the front camera
+    on eva is static at the base (the zarr stores no separate front-camera
+    extrinsic — this is the implicit convention). Human's pipeline needs the
+    coord transform because aria stores poses in an aria-device frame that
+    must be re-expressed relative to ``obs_head_pose`` (== front camera).
+
+    Result: ``actions_cartesian`` shape ``(chunk_length, 14)`` with per-arm
+    layout ``[xyz(3), ypr(3), grip(1)]`` in the base/front-cam frame — a
+    single shared frame across both arms (analogous to how human actions
+    live in the head frame across both arms). This makes eva and human
+    action features directly comparable and lets the overlay project each
+    xyz through the front-cam K without any additional frame math.
+    """
+    mode = "xyzwxyz" if is_quat else "xyzypr"
+    transform_list: list[Transform] = [
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=left_cmd_world,
+            output_action_key=left_cmd_world,
+            stride=stride,
+            mode=mode,
+        ),
+        InterpolatePose(
+            new_chunk_length=chunk_length,
+            action_key=right_cmd_world,
+            output_action_key=right_cmd_world,
+            stride=stride,
+            mode=mode,
+        ),
+        InterpolateLinear(
+            new_chunk_length=chunk_length,
+            action_key=left_cmd_gripper,
+            output_action_key=left_cmd_gripper,
+            stride=stride,
+        ),
+        InterpolateLinear(
+            new_chunk_length=chunk_length,
+            action_key=right_cmd_gripper,
+            output_action_key=right_cmd_gripper,
+            stride=stride,
+        ),
+    ]
+    if is_quat:
+        transform_list.append(
+            XYZWXYZ_to_XYZYPR(
+                keys=[
+                    left_cmd_world,
+                    right_cmd_world,
+                    left_obs_pose,
+                    right_obs_pose,
+                ]
+            )
+        )
+    transform_list.extend(
+        [
+            ConcatKeys(
+                key_list=[
+                    left_cmd_world,
+                    left_cmd_gripper,
+                    right_cmd_world,
+                    right_cmd_gripper,
+                ],
+                new_key_name=actions_key,
+                delete_old_keys=True,
+            ),
+            ConcatKeys(
+                key_list=[
+                    left_obs_pose,
+                    left_obs_gripper,
+                    right_obs_pose,
+                    right_obs_gripper,
+                ],
+                new_key_name=obs_key,
+                delete_old_keys=True,
+            ),
+            NumpyToTensor(keys=[actions_key, obs_key]),
         ]
     )
     return transform_list

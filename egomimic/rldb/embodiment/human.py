@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from typing import Literal
 
 import numpy as np
@@ -25,7 +24,6 @@ from egomimic.utils.viz_utils import (
     _viz_gaze,
     _viz_keypoints,
 )
-
 
 ARIA_INTRINSICS = np.array(
     [
@@ -80,14 +78,32 @@ ARIA_T_RGB_CPF = np.array(
 # Aria's raw 21-keypoint layout (0-4 fingertips, 5 palm root) — NOT MANO. Used
 # only for the opt-in raw-Aria-keypoint viz; the canonical keypoints are MANO.
 ARIA_FINGER_EDGES = [
-    (5, 6), (6, 7), (7, 0),                # thumb
-    (5, 8), (8, 9), (9, 10), (10, 1),      # index
-    (5, 11), (11, 12), (12, 13), (13, 2),  # middle
-    (5, 14), (14, 15), (15, 16), (16, 3),  # ring
-    (5, 17), (17, 18), (18, 19), (19, 4),  # pinky
+    (5, 6),
+    (6, 7),
+    (7, 0),  # thumb
+    (5, 8),
+    (8, 9),
+    (9, 10),
+    (10, 1),  # index
+    (5, 11),
+    (11, 12),
+    (12, 13),
+    (13, 2),  # middle
+    (5, 14),
+    (14, 15),
+    (15, 16),
+    (16, 3),  # ring
+    (5, 17),
+    (17, 18),
+    (18, 19),
+    (19, 4),  # pinky
 ]
 ARIA_FINGER_EDGE_RANGES = [
-    ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
+    ("thumb", 0, 3),
+    ("index", 3, 7),
+    ("middle", 7, 11),
+    ("ring", 11, 15),
+    ("pinky", 15, 19),
 ]
 
 
@@ -103,19 +119,40 @@ class Human(Embodiment):
     zarr.json); ``cls.INTRINSICS`` is only a fallback for legacy episodes that
     lack them. The canonical keypoints are MANO for every vendor.
     """
+
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
+    # Wider horizon used specifically by arc_tokenizer_cartesian keymap.
+    # Human data at stride=3 subsamples 3× more raw frames, so 600 raw frames
+    # yields 200 subsampled samples — matches the eva arc-tok raw window in
+    # physical time (≈6.7 s at 30 fps).
+    ARC_TOK_ACTION_HORIZON = 600
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
     # Pi's _fill_missing_images auto-duplicates the absent wrist keys.
     PI_FRONT_KEY = "base_0_rgb"
     T_RGB_CPF = ARIA_T_RGB_CPF  # for the opt-in aria gaze viz
     # Canonical MANO 21-keypoint topology: 0=wrist, 1-4 thumb, 5-8 index, ...
     FINGER_EDGES = [
-        (0, 1), (1, 2), (2, 3), (3, 4),         # thumb
-        (0, 5), (5, 6), (6, 7), (7, 8),         # index
-        (0, 9), (9, 10), (10, 11), (11, 12),    # middle
-        (0, 13), (13, 14), (14, 15), (15, 16),  # ring
-        (0, 17), (17, 18), (18, 19), (19, 20),  # pinky
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 4),  # thumb
+        (0, 5),
+        (5, 6),
+        (6, 7),
+        (7, 8),  # index
+        (0, 9),
+        (9, 10),
+        (10, 11),
+        (11, 12),  # middle
+        (0, 13),
+        (13, 14),
+        (14, 15),
+        (15, 16),  # ring
+        (0, 17),
+        (17, 18),
+        (18, 19),
+        (19, 20),  # pinky
     ]
     FINGER_COLORS = {
         "thumb": (255, 100, 100),
@@ -230,7 +267,16 @@ class Human(Embodiment):
         is_pi = keymap_mode.endswith("_pi")
         base_mode = keymap_mode[: -len("_pi")] if is_pi else keymap_mode
         front_key = cls.PI_FRONT_KEY if is_pi else cls.VIZ_IMAGE_KEY
-        horizon = cls.ACTION_HORIZON
+        # Arc-tokenizer mode uses a wider raw window so per-arm arc length
+        # has room to reach D before hitting the padded tail. Everything
+        # else uses the standard ACTION_HORIZON.
+        if base_mode == "arc_tokenizer_cartesian":
+            horizon = cls.ARC_TOK_ACTION_HORIZON
+            base_mode = (
+                "cartesian"  # rest of the keymap is identical to plain cartesian
+            )
+        else:
+            horizon = cls.ACTION_HORIZON
 
         if base_mode == "cartesian":
             key_map = {
@@ -333,8 +379,13 @@ class Human(Embodiment):
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
             "keypoints_wristframe_quat",
+            "arc_tokenizer_cartesian",
         ],
         stride: int = 3,
+        # Arc-tokenizer args (only consulted when mode="arc_tokenizer_cartesian").
+        # See eva.py for the layout description.
+        min_distance_unit: float = 0.60,
+        resampled_vector_length: int = 20,
     ) -> list[Transform]:
         """Transform pipeline. ``stride`` is the per-vendor action stride
         (Aria/LightWheel=3, Scale/Mecka=1), supplied by the data config.
@@ -342,9 +393,9 @@ class Human(Embodiment):
         if mode == "cartesian":
             return _build_human_cartesian_bimanual_transform_list(stride=stride)
         if mode == "cartesian_padded":
-            return _build_human_cartesian_bimanual_transform_list(
-                stride=stride
-            ) + [PadGripperZeros(action_key="actions_cartesian")]
+            return _build_human_cartesian_bimanual_transform_list(stride=stride) + [
+                PadGripperZeros(action_key="actions_cartesian")
+            ]
         if mode == "cartesian_wristframe_ypr":
             return _build_human_cartesian_eef_frame_transform_list(stride=stride)
         if mode == "keypoints_headframe_ypr":
@@ -363,6 +414,24 @@ class Human(Embodiment):
             return _build_human_keypoints_eef_frame_transform_list(
                 stride=stride, is_quat=True
             )
+        if mode == "arc_tokenizer_cartesian":
+            # Cartesian pipeline -> zero-pad gripper columns (aria has none)
+            # so the (T, 14) shape matches eva -> arc-tokenize to (M+1, 8).
+            from egomimic.rldb.zarr.arc_length_tokenizer import (
+                TokenizeBimanualArcLengthCartesian,
+            )
+
+            base = _build_human_cartesian_bimanual_transform_list(stride=stride)
+            tokenize = TokenizeBimanualArcLengthCartesian(
+                action_key="actions_cartesian",
+                output_action_key="actions_cartesian",
+                min_distance_unit=float(min_distance_unit),
+                resampled_vector_length=int(resampled_vector_length),
+            )
+            return base + [
+                PadGripperZeros(action_key="actions_cartesian"),
+                tokenize,
+            ]
         raise ValueError(f"Unsupported transform_list mode '{mode}' for {cls.__name__}")
 
 
