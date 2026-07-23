@@ -1,0 +1,13 @@
+defaults:
+  - hpt_cotrain_mecka_flow_shared_head_arc
+
+# Overrides for the arc_tests_cotrain.yaml data pipeline (D=20cm, M=15).
+# Sequence length = M+1 = 16 slots (15 waypoints + 1 velocity token),
+# each 8-dim [Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]. Total action tensor
+# shape per sample: (16, 8).
+robomimic_model:
+  head_specs:
+    shared:
+      action_horizon: 16
+      model:
+        act_seq: 16
