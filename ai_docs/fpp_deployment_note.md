@@ -39,6 +39,7 @@ functionally **vision-driven policies**. Practical consequences for rollouts:
   ×1.44 — best DINOv3-family policy to date. Hardware test answers whether ×1.4
   vs ×1.0 matters in practice (0.6-sibling failure was lateral-stray).
   `logs/aria_fullpp/fpp_hd_d3conv_2k/checkpoints/epoch_epoch=1399.ckpt`
+  (alternate: @1999 clean 0.0291 / ×1.19 — worse fit, lower reliance)
 - **hd_d3lora**: ×2.05 @1199 (worsening; was ×1.89@799) — closed, negative result
   (0.44M LoRA below the capacity needed to go vision-driven).
 - avoid `hd_wam3 epoch_epoch=1599.ckpt` — transient bad snapshot (post-resume);
