@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+from torchmetrics import MeanSquaredError
 
 from egomimic.eval.eval_hpt import HPTEvalVideo
 from egomimic.rldb.embodiment.embodiment import get_embodiment
@@ -143,3 +144,76 @@ class ArcTokEvalVideo(HPTEvalVideo):
             batch_viz[ac_key] = self._detokenize_batch(batch[ac_key])
 
         return self.viz_func[embodiment_name](preds_viz, batch_viz)
+
+    def compute_metrics_and_viz(self, batch):
+        """Extends the base HPTEvalVideo pass with DETOKENIZED-space MSE
+        metrics — the arc-token-space MSE inherited from HPTEvalVideo
+        (see eval_hpt.py:50-56) is the training loss space, but it's in
+        arc-token units (meters/second for vel, meters for waypoints) and
+        hard to compare against the non-arc cotrain baseline directly.
+
+        We add, per embodiment:
+          * ``Valid/{emb}_actions_cartesian_detok_paired_mse_avg`` —
+            MSE over the full (H, 8) detokenized chunk (waypoint-derived
+            xyz + gripper reconstructed via the predicted vel token).
+          * ``Valid/{emb}_actions_cartesian_detok_final_mse_avg`` — MSE
+            at the last reconstructed frame (t = H-1).
+          * ``Valid/{emb}_actions_cartesian_detok_xyz_mse_avg`` — MSE
+            over just the 6 xyz dims (Lxyz + Rxyz), dropping grippers.
+          * ``Valid/{emb}_actions_cartesian_detok_gripper_mse_avg`` —
+            MSE over just the 2 gripper dims (L_grip + R_grip).
+
+        The detokenized MSE directly measures "how close is the
+        reconstructed trajectory to the target" in physical units, which
+        is the metric that transfers to open-loop deployment quality.
+        """
+        metrics, images_dict = super().compute_metrics_and_viz(batch)
+
+        algo = self.model
+        # Reuse the algo's forward pass output; it was already unnormalized
+        # by super().compute_metrics_and_viz upstream. We re-run
+        # forward_eval to get preds again (super doesn't hand them back),
+        # and unnormalize the batch the same way super did.
+        preds = algo.forward_eval(batch)
+        mse = MeanSquaredError()
+        for embodiment_id, _batch in batch.items():
+            _batch = algo.norm_stats.unnormalize(_batch, embodiment_id)
+            embodiment_name = get_embodiment(embodiment_id).lower()
+            ac_key = algo.ac_keys[embodiment_id]
+            pred_key = f"{embodiment_name}_{ac_key}"
+            if pred_key not in preds or ac_key not in _batch:
+                continue
+            pred_arc = preds[pred_key]
+            gt_arc = _batch[ac_key]
+            if pred_arc is None or gt_arc is None:
+                continue
+            # Detokenize to (B, H, 14) then take only the xyz + gripper
+            # slots the arc variant actually supervises (rotation is
+            # zero-padded so including it would inflate MSE with pure
+            # zeros — mislead the metric).
+            pred_det = self._detokenize_batch(pred_arc).cpu().contiguous()
+            gt_det = self._detokenize_batch(gt_arc).cpu().contiguous()
+            xyzg = [0, 1, 2, 6, 7, 8, 9, 13]  # Lxyz, L_grip, Rxyz, R_grip
+            pred_slice = pred_det[..., xyzg]
+            gt_slice = gt_det[..., xyzg]
+
+            metrics[f"Valid/{pred_key}_detok_paired_mse_avg"] = mse(
+                pred_slice, gt_slice
+            )
+            metrics[f"Valid/{pred_key}_detok_final_mse_avg"] = mse(
+                pred_slice[:, -1], gt_slice[:, -1]
+            )
+            # After the ``xyzg`` slice above, the 8 columns are laid out
+            # as ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``. Splitting
+            # into xyz vs gripper lets us tell a "position drift" story
+            # apart from a "gripper-timing" story in wandb.
+            xyz_slots = [0, 1, 2, 4, 5, 6]
+            grip_slots = [3, 7]
+            metrics[f"Valid/{pred_key}_detok_xyz_mse_avg"] = mse(
+                pred_slice[..., xyz_slots], gt_slice[..., xyz_slots]
+            )
+            metrics[f"Valid/{pred_key}_detok_gripper_mse_avg"] = mse(
+                pred_slice[..., grip_slots], gt_slice[..., grip_slots]
+            )
+
+        return metrics, images_dict
