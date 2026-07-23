@@ -953,3 +953,194 @@ class TokenizeBimanualArcLength:
         if self.right_joint_key:
             batch[self.output_right_joint_key] = joints_right_rs
         return batch
+
+
+# Canonical layout for the (M+1, 8) arc-token variant used by the FM policy
+# head (see hpt_cotrain_mecka_flow_shared_head_arc.yaml). Per-slot dims:
+#   [Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]
+# Rows: 0..M-1 = waypoints, row M = velocity token (per-action-dim mean rate).
+ARC_TOK_PER_ARM_DIM = 4  # xyz(3) + gripper(1)
+ARC_TOK_BIMANUAL_DIM = 2 * ARC_TOK_PER_ARM_DIM  # 8
+
+
+class TokenizeBimanualArcLengthCartesian:
+    """Transform: (T, 14) actions_cartesian -> (M+1, 8) arc-tokenized layout.
+
+    Layout per row:
+        [Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]
+    Rows 0..M-1 are the M waypoints uniform in each arm's arc length over
+    the first ``min_distance_unit`` meters of that arm's travel; row M is a
+    per-action-dim mean-velocity token computed as
+        vel[d] = (waypoints[M-1, d] - waypoints[0, d]) / duration_arm[d]
+    where duration_arm is derived per-arm from the underlying tokenizer's
+    MEAN_PER_DIM xyz velocity (duration = ||chord_xyz|| / ||vel_xyz||).
+    Gripper columns of the velocity token use the same per-arm duration.
+
+    Assumes the input chunk is already in the model's target cam frame
+    (post InterpolatePose + ActionChunkCoordinateFrameTransform + XYZWXYZ_
+    to_XYZYPR + ConcatKeys). Rotation (dims 3-5, 10-12) is intentionally
+    dropped from the output — this variant carries xyz+gripper only.
+
+    Args:
+        action_key: input batch key holding the (T, 14) chunk.
+        output_action_key: where to write the (M+1, 8) tokenized chunk.
+        min_distance_unit: per-arm arc length span of the token, in meters
+            (i.e. the D parameter in the sweep script; the tokenizer covers
+            the first ``min_distance_unit`` meters of each arm's travel).
+        resampled_vector_length: number of waypoints M (the sequence has
+            M+1 rows once the velocity token is appended).
+        dt: seconds per raw timestep (control period).
+        zero_dist_epsilon: below-this-arc-length chunks are treated as
+            stationary; the vel token comes out as zeros in that case so
+            downstream (loss, detokenize) doesn't NaN.
+    """
+
+    def __init__(
+        self,
+        action_key: str = "actions_cartesian",
+        output_action_key: str = "actions_cartesian",
+        min_distance_unit: float = 0.60,
+        resampled_vector_length: int = 20,
+        dt: float = 1.0 / 30.0,
+        zero_dist_epsilon: float = 1e-6,
+    ):
+        self.action_key = action_key
+        self.output_action_key = output_action_key
+        # MEAN_PER_DIM velocity mode: we consume the per-axis xyz velocity
+        # directly. Gripper velocity is computed here (the base tokenizer
+        # doesn't track gripper velocity).
+        cfg = BimanualArcLengthConfig(
+            min_distance_unit=float(min_distance_unit),
+            resampled_vector_length=int(resampled_vector_length),
+            mode=VelocityMode.MEAN_PER_DIM.value,
+            dt=float(dt),
+            zero_dist_epsilon=float(zero_dist_epsilon),
+        )
+        self.tokenizer = BimanualArcLengthTokenizer(cfg)
+        self.zero_dist_epsilon = float(zero_dist_epsilon)
+
+    @property
+    def M(self) -> int:
+        return self.tokenizer.M
+
+    def transform(self, batch: dict) -> dict:
+        arc = self.tokenizer.tokenize(
+            np.asarray(batch[self.action_key], dtype=np.float64)
+        )
+        # Per-arm block: [xyz(3), ypr(3), grip(1), vel_xyz(3)] = 10 dims.
+        # Bimanual concat: 20 dims total.
+        M = arc.shape[0]
+        L_xyz = arc[:, 0:3]
+        L_grip = arc[:, 6:7]
+        L_vel = arc[0, 7:10]
+        R_xyz = arc[:, 10:13]
+        R_grip = arc[:, 16:17]
+        R_vel = arc[0, 17:20]
+
+        waypoints = np.concatenate([L_xyz, L_grip, R_xyz, R_grip], axis=-1)
+
+        # Per-arm duration from mean_per_dim xyz vel: duration = chord / speed.
+        # Guard for degenerate arms (no motion or below the tokenizer's
+        # zero_dist_epsilon) by falling back to (M-1)*dt so gripper vel is
+        # well-defined and equals mean gripper rate over the token span.
+        L_chord = float(np.linalg.norm(L_xyz[-1] - L_xyz[0]))
+        R_chord = float(np.linalg.norm(R_xyz[-1] - R_xyz[0]))
+        L_speed = float(np.linalg.norm(L_vel))
+        R_speed = float(np.linalg.norm(R_vel))
+        default_dur = max(M - 1, 1) * self.tokenizer.config.dt
+        L_dur = (L_chord / L_speed) if L_speed > 1e-8 else default_dur
+        R_dur = (R_chord / R_speed) if R_speed > 1e-8 else default_dur
+        # Gripper velocity per arm — same "mean rate over the token" formula
+        # as xyz's mean_per_dim, using the arm's derived duration.
+        L_grip_vel = float(L_grip[-1, 0] - L_grip[0, 0]) / max(L_dur, 1e-8)
+        R_grip_vel = float(R_grip[-1, 0] - R_grip[0, 0]) / max(R_dur, 1e-8)
+
+        # Assemble (1, 8) velocity token: [Lx_v, Ly_v, Lz_v, L_grip_v,
+        # Rx_v, Ry_v, Rz_v, R_grip_v]. Stationary tokens end up all zeros.
+        vel_token = np.array(
+            [
+                [
+                    L_vel[0],
+                    L_vel[1],
+                    L_vel[2],
+                    L_grip_vel,
+                    R_vel[0],
+                    R_vel[1],
+                    R_vel[2],
+                    R_grip_vel,
+                ]
+            ],
+            dtype=np.float64,
+        )
+        out = np.concatenate([waypoints, vel_token], axis=0)  # (M+1, 8)
+        batch[self.output_action_key] = out
+        return batch
+
+    def detokenize(
+        self,
+        arc_actions: np.ndarray,
+        action_horizon: int,
+    ) -> np.ndarray:
+        """Inverse of ``transform`` — take a (M+1, 8) arc token back to a
+        time-parameterized (H, 8) chunk at the control period.
+
+        Semantics:
+          - Read the vel token (row M) to derive per-arm duration:
+              duration_arm = D / ||vel_xyz_arm||   (D = min_distance_unit)
+          - Uniformly sample H timesteps over [0, min(H*dt, duration)] and,
+            for each, linearly interpolate the M waypoints against that
+            arm's own cumulative arc length. Gripper interpolates linearly
+            on the same arc-length axis (the arc tokenizer keeps gripper
+            waypoints co-located with pos waypoints — same schedule).
+          - When ||vel_xyz|| is degenerate for an arm, hold the first
+            waypoint for all H timesteps (mirrors the tokenize side).
+
+        Output layout (H, 8): same as the waypoint layout, one row per
+        control step. Used by the val-video eval to project a stream of
+        setpoints at 30 Hz through the front camera.
+        """
+        arc_actions = np.asarray(arc_actions, dtype=np.float64)
+        if arc_actions.ndim != 2 or arc_actions.shape[1] != ARC_TOK_BIMANUAL_DIM:
+            raise ValueError(
+                f"detokenize expects (M+1, {ARC_TOK_BIMANUAL_DIM}), got "
+                f"{arc_actions.shape}"
+            )
+        M_plus_1 = arc_actions.shape[0]
+        M = M_plus_1 - 1
+        if M < 2:
+            raise ValueError(f"Need M >= 2 waypoints, got M+1={M_plus_1}")
+
+        waypoints = arc_actions[:M]  # (M, 8)
+        vel_token = arc_actions[M]  # (8,)
+        dt = self.tokenizer.config.dt
+        h = int(action_horizon)
+
+        arms_out = []
+        for xyz_off, grip_off, vel_slice in (
+            (0, 3, slice(0, 3)),  # left
+            (4, 7, slice(4, 7)),  # right
+        ):
+            xyz_wp = waypoints[:, xyz_off : xyz_off + 3]  # (M, 3)
+            grip_wp = waypoints[:, grip_off : grip_off + 1]  # (M, 1)
+            vel_xyz = vel_token[vel_slice]  # (3,)
+            speed = float(np.linalg.norm(vel_xyz))
+
+            cumdist = cumulative_arc_length(xyz_wp)
+            total = float(cumdist[-1])
+            if total < 1e-9 or speed < 1e-8:
+                # Degenerate: hold first waypoint for the whole horizon.
+                pos_t = np.repeat(xyz_wp[:1], h, axis=0)
+                grip_t = np.repeat(grip_wp[:1], h, axis=0)
+            else:
+                # Same reconstruction as BimanualArcLengthTokenizer.detoken-
+                # ize: s(k) = min(v * k * dt, total). Interpolate xyz and
+                # gripper against cumdist at each s(k).
+                s = np.minimum(speed * np.arange(h, dtype=np.float64) * dt, total)
+                pos_t = np.stack(
+                    [_interp_pos_at_s(xyz_wp, cumdist, float(sk)) for sk in s]
+                )
+                grip_t = np.stack(
+                    [_interp_linear_at_s(grip_wp, cumdist, float(sk)) for sk in s]
+                )
+            arms_out.append(np.concatenate([pos_t, grip_t], axis=-1))
+        return np.concatenate(arms_out, axis=-1)  # (H, 8)
