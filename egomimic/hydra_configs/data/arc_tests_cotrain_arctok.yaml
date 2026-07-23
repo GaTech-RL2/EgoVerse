@@ -1,0 +1,106 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Arc-tokenized variant of arc_tests_cotrain.yaml. Same population — 290
+# eva_bimanual + 580 human_bimanual staged in /storage/project/r-dxu345-0/shared/arc_tests
+# — but every leaf uses ``arc_tokenizer_cartesian`` so ``get_item`` returns
+# ``actions_cartesian`` already shaped ``(M+1, 8) = (16, 8)`` — 15 waypoints
+# + 1 velocity token per bimanual chunk, each 8-dim
+# ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``.
+#
+# Arc knobs (shared by both embodiments):
+#   D = 20 cm = 0.20 m per-arm arc length span of one token (min_distance_unit)
+#   M = 15 waypoints  (sequence has M+1 = 16 rows once velocity is appended)
+#
+# The arc_tokenizer_cartesian keymap widens the raw read horizon so joint
+# arc length has room to reach D within the raw window: eva 45 -> 200
+# frames, human 30 -> 600 raw frames at stride=3 (200 subsampled). Padding
+# beyond the true episode end zeros Δxyz and the tokenizer degrades
+# gracefully into zero-vel tokens for the affected samples.
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      embodiment: human_bimanual
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: arc_tokenizer_cartesian
+        stride: 3
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+    mode: train
+    valid_ratio: 0.2
+
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      embodiment: eva_bimanual
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: arc_tokenizer_cartesian
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+    mode: train
+    valid_ratio: 0.2
+
+# Duplicated (not interpolated) so hydra.utils.instantiate can resolve without
+# needing to walk up to `train_datasets` after it's been mutated in place.
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      embodiment: human_bimanual
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: arc_tokenizer_cartesian
+        stride: 3
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+    mode: valid
+    valid_ratio: 0.2
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      embodiment: eva_bimanual
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: arc_tokenizer_cartesian
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+    mode: valid
+    valid_ratio: 0.2
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
