@@ -1,0 +1,42 @@
+defaults:
+  - data: human_mecka_eva_rl2_fold_clothes
+  - paths: default
+  - _self_
+
+output_html: ./out/arc_embedding_baseline.html
+title: "Baseline (classic time-window)"
+split: train
+action_key: actions_cartesian
+
+# Classic time-based action chunk baseline: no arc-length tokenizer, just take
+# the first H frames of the post-transform actions_cartesian chunk and embed
+# positions_delta directly. Default H=100 matches the ``chunk_length`` the
+# cotraining model actually consumes (Eva/Human ``get_transform_list`` both
+# ship (100, 14) tensors), so this baseline embeds the exact same action
+# representation the cotrain model sees. Add smaller H values here if you
+# want partial-window comparisons in the same HTML.
+sweep:
+  horizons: [100]
+
+feature: positions_delta
+include_zero_tokens: false
+
+max_samples_per_dataset: 1500
+shuffle: true
+seed: 42
+
+include_state_image: true
+image_key: null
+image_max_side: 224
+jpeg_quality: 60
+
+tsne_params:
+  perplexity: 30
+  learning_rate: auto
+  init: pca
+  max_iter: 1000
+
+hydra:
+  run:
+    dir: ./logs/arc_embedding_baseline/${now:%Y-%m-%d_%H-%M-%S}
+  output_subdir: null

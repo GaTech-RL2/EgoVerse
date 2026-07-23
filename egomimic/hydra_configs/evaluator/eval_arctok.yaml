@@ -2,6 +2,21 @@ defaults:
   - viz@viz_func: cartesian
   - _self_
 
+# Strip ``annotation_key`` from every viz_func entry — the base
+# viz/cartesian sets ``annotation_key: sampled_prompt`` which
+# viz_gt_preds then tries to read from the batch. The arc-tok data
+# pipeline doesn't produce annotations, so leaving it wired crashes
+# validation at the first step.
+viz_func:
+  eva_bimanual:
+    annotation_key: null
+  human_bimanual:
+    annotation_key: null
+  human_right_arm:
+    annotation_key: null
+  human_left_arm:
+    annotation_key: null
+
 # Val-video eval for arc-tokenized action policies.
 #
 # Model output shape: (B, M+1, 8). Before viz, the class detokenizes both
