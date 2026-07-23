@@ -1,0 +1,13 @@
+defaults:
+  - arc_embedding_sweep
+  - _self_
+
+# Extended-range sweep with pre-interpolation overlay. Same fold_clothes /
+# velappend config as arc_embedding_sweep_extended.yaml, but with a slightly
+# smaller D grid and coarser W grid (3 × 3 = 9 tabs) and the JS overlay set
+# to draw every raw frame from t=0 to the timestep where joint_cum hits D.
+sweep:
+  joint_distance_cm: [100, 160, 280]
+  waypoints: [15, 30, 60]
+
+overlay_pre_interp: true
