@@ -1,0 +1,113 @@
+defaults:
+  - hpt_cotrain_enc_dec_base
+
+# Arc-token variant of hpt_cotrain_mecka_flow_shared_head.yaml.
+#
+# Assumes the dataloader (get_item) already returns arc-tokenized actions
+# under the same ``actions_cartesian`` key. Per-sample action tensor shape:
+#   (M+1, 8)   where M = 20 waypoints (arc-length parameterized) plus one
+#              trailing velocity token, and 8 dims per token = [Lx, Ly, Lz,
+#              L_gripper, Rx, Ry, Rz, R_gripper]. xyz + 1-scalar gripper per
+#              arm, arms concatenated. Rotation (ypr) is intentionally
+#              excluded here — add via act_dim=14 if needed later.
+#
+# Sequence layout:
+#   slots 0..M-1 (0..19) : waypoint tokens in arc-length-uniform order.
+#                          waypoint[k] = wrist+gripper pose at k/(M-1) of
+#                          the chunk's joint arc length.
+#   slot M       (20)    : velocity token = per-dim mean rate across the
+#                          chunk: (waypoint[M-1] - waypoint[0]) / duration_s
+#                          for xyz and gripper alike (so the last two of
+#                          the 8 dims are gripper-open-rate per arm). Used
+#                          at rollout to reconstruct the time schedule:
+#                          duration_s = D / ||mean_xyz_vel||, then linear
+#                          resample of the M waypoints uniformly over
+#                          [0, duration_s] at the 30 Hz control rate.
+#
+# Gripper handling: the tokenizer keys the gripper opening to arc-length
+# position (see ``arc_length_tokenizer.py:230-236``) so gripper[k] means
+# "the wrist should be at gripper opening X when it has traveled k/(M-1)
+# of the chunk arc length." Under zero-token conditions (grasp/hold, wrist
+# not moving) gripper still linearly ramps across the M waypoints so the
+# grasp event is preserved as supervision.
+#
+# Assumes human_bimanual samples arrive pre-padded with zero gripper
+# columns (aria data has no gripper commands). No masking in the loss —
+# the model will learn "human ⇒ gripper ≈ 0" as a domain feature. The
+# velocity token's gripper columns are likewise zero for human samples
+# (rate of a zero signal is zero).
+robomimic_model:
+  domains: ["eva_bimanual", "human_bimanual"]
+
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+    human_bimanual: "actions_cartesian"
+  shared_ac_key: "actions_cartesian"
+
+  camera_transforms: {}
+
+  6dof: true
+  diffusion: true
+  stem_specs:
+    human_bimanual:
+      state_ee_pose:
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        input_dim: 12
+        output_dim: 256
+        widths: [256]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 8
+            crossattn_dim_head: 64
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 256
+
+  head_specs:
+    human_bimanual: null
+    eva_bimanual: null
+    shared:
+      _target_: egomimic.models.fm_policy.FMPolicy
+      # 20 waypoint tokens + 1 trailing per-action-dim velocity token = 21
+      # sequence slots per bimanual arc-tokenized chunk (was 100 time frames
+      # in the non-arc variant).
+      action_horizon: 21
+      num_inference_steps: 50
+      pooling: null
+      padding: "zero"
+      time_dist: "beta"
+      # Per-token dim = 8 (Lx, Ly, Lz, L_gripper, Rx, Ry, Rz, R_gripper).
+      # Same value for both embodiments since human gripper columns are
+      # zero-padded upstream in the dataloader.
+      infer_ac_dims:
+        eva_bimanual: 8
+        human_bimanual: 8
+      model:
+        _target_: egomimic.models.denoising_nets.CrossTransformer
+        nblocks: 6
+        cond_dim: 256
+        hidden_dim: 128
+        # Sequence of 20 waypoint tokens + 1 vel token appended at the end
+        # (= 21 slots), each 8-dim (xyz + gripper per arm). The vel token
+        # holds the per-action-dim mean rate across the chunk, one scalar
+        # per action dim, packed into the same 8-slot layout as a waypoint:
+        # [Lx_vel, Ly_vel, Lz_vel, L_grip_vel, Rx_vel, Ry_vel, Rz_vel, R_grip_vel].
+        act_dim: 8
+        act_seq: 21
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  _partial_: true
+  T_max: 1400
+  eta_min: 1e-5
