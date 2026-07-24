@@ -44,3 +44,6 @@ checkpoints/
 dataset/
 base_pose_plots/
 tmux-client-*.log
+# NVS-related code stays offline (collaborator's unpublished work) — never commit
+egomimic/models/custom_encoders.py
+egomimic/hydra_configs/**/*nvs3d*.yaml
