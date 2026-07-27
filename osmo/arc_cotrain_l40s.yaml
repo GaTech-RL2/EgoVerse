@@ -20,7 +20,12 @@
 # rpunamiya/arc-length-tokenizer branch — no override needed.
 
 workflow:
-  name: egoverse-arc-cotrain
+  # Set per submission so the two variants are distinguishable in
+  # `osmo workflow list` without cross-referencing the trailing counter.
+  # Convention: arc-<variant>-<hardware>, e.g.
+  #   arc-baseline-cart-8xl40s
+  #   arc-tok-d20m15-8xl40s
+  name: "{{job_name}}"
 
   tasks:
   - name: train
