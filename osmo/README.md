@@ -60,11 +60,26 @@ osmo credential set egoverse-aws --type GENERIC \
 # GitHub PAT with read access to GaTech-RL2/EgoVerse
 osmo credential set egoverse-github --type GENERIC --payload github_token=ghp_...
 
-# wandb — logger/wandb.yaml logs to entity rl2-group
+# wandb — the key MUST have access to whatever you pass as wandb_entity
 osmo credential set egoverse-wandb --type GENERIC --payload wandb_api_key=...
 ```
 
-Verify with `osmo credential list`.
+Verify with `osmo credential list`. `credential set` does not overwrite — it
+fails with `duplicate key value violates unique constraint`, so
+`osmo credential delete <name>` first when rotating one.
+
+Check which entities a wandb key can actually reach before using it:
+
+```bash
+curl -s -H "Content-Type: application/json" -u "api:$WANDB_API_KEY" \
+  -d '{"query":"{viewer{username entity teams(first:50){edges{node{name}}}}}"}' \
+  https://api.wandb.ai/graphql
+```
+
+`logger/wandb.yaml` hardcodes `entity: rl2-group`; the workflow overrides it
+with `logger.wandb.entity={{wandb_entity}}`. A mismatch between key and entity
+fails at `wandb.init()` in phase 2 — after the dataset pull and norm stats,
+~2.5h in — which is why the entry script preflights entity access up front.
 
 ## Submitting
 
@@ -77,6 +92,7 @@ distinguishable by the trailing counter. Convention: `arc-<variant>-<hardware>`.
 osmo workflow submit osmo/arc_cotrain_l40s.yaml --pool groot-l40s-03 --set \
   branch=arc-length-nv \
   job_name=arc-baseline-cart-8xl40s \
+  wandb_entity=rl2-group \
   num_gpu=8 batch_size=4 num_workers=4 \
   run_name=arc_tests_cotrain \
   run_desc=full_8xl40s_constlr3e4_nobounds \
@@ -87,6 +103,7 @@ osmo workflow submit osmo/arc_cotrain_l40s.yaml --pool groot-l40s-03 --set \
 osmo workflow submit osmo/arc_cotrain_l40s.yaml --pool groot-l40s-03 --set \
   branch=arc-length-nv \
   job_name=arc-tok-d20m15-8xl40s \
+  wandb_entity=rl2-group \
   num_gpu=8 batch_size=4 num_workers=4 \
   run_name=arc_tests_cotrain_arctok \
   run_desc=D20_M15_8xl40s_constlr3e4_nobounds \
