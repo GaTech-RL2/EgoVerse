@@ -68,10 +68,15 @@ Verify with `osmo credential list`.
 
 ## Submitting
 
+`job_name` becomes the OSMO workflow name, so pick something that identifies
+the variant — both runs otherwise land under one name and are only
+distinguishable by the trailing counter. Convention: `arc-<variant>-<hardware>`.
+
 ```bash
 # Baseline cartesian cotrain (no-bounds, const lr 3e-4)
 osmo workflow submit osmo/arc_cotrain_l40s.yaml --pool groot-l40s-03 --set \
-  branch=rpunamiya/arc-length-tokenizer \
+  branch=arc-length-nv \
+  job_name=arc-baseline-cart-8xl40s \
   num_gpu=8 batch_size=4 num_workers=4 \
   run_name=arc_tests_cotrain \
   run_desc=full_8xl40s_constlr3e4_nobounds \
@@ -80,13 +85,17 @@ osmo workflow submit osmo/arc_cotrain_l40s.yaml --pool groot-l40s-03 --set \
 
 # Arc-tok D20/M15 cotrain (no-bounds, const lr 3e-4)
 osmo workflow submit osmo/arc_cotrain_l40s.yaml --pool groot-l40s-03 --set \
-  branch=rpunamiya/arc-length-tokenizer \
+  branch=arc-length-nv \
+  job_name=arc-tok-d20m15-8xl40s \
   num_gpu=8 batch_size=4 num_workers=4 \
   run_name=arc_tests_cotrain_arctok \
   run_desc=D20_M15_8xl40s_constlr3e4_nobounds \
   data_cfg=arc_tests_cotrain_arctok \
   model_cfg=hpt_cotrain_mecka_flow_shared_head_arc_D20_M15
 ```
+
+Workflow names are immutable after submit, and `osmo workflow tag` returns 403
+for this profile — so get `job_name` right at submit time.
 
 The workflow clones `$branch` from GitHub, so config changes must be pushed
 before submitting.
