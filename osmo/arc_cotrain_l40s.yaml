@@ -119,7 +119,7 @@ workflow:
           norm_stats.save_cache_dir="$NORM_DIR" \
           trainer.max_epochs=1 trainer.min_epochs=1 \
           trainer.limit_train_batches=1 trainer.limit_val_batches=0 \
-          logger=null callbacks=null \
+          ~logger ~callbacks \
           name="$RUN_NAME" description="${RUN_DESC}_normstats"
 
         echo "staged $(find "$DATASET_DIR" -maxdepth 1 -mindepth 1 -type d | wc -l) episode dirs"
