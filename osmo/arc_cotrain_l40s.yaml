@@ -121,10 +121,13 @@ workflow:
         import os, sys, wandb
         entity = os.environ["WANDB_ENTITY"]
         api = wandb.Api()
-        ents = {api.default_entity, *(t.name for t in getattr(api.viewer, "teams", []) or [])}
-        print(f"wandb user={api.viewer.username} default={api.default_entity} teams={sorted(e for e in ents if e)}")
+        # api.viewer.teams is a list of plain strings, not objects.
+        teams = [t if isinstance(t, str) else getattr(t, "name", str(t))
+                 for t in (getattr(api.viewer, "teams", None) or [])]
+        ents = sorted({e for e in (api.default_entity, *teams) if e})
+        print(f"wandb user={api.viewer.username} default={api.default_entity} entities={ents}")
         if entity not in ents:
-            sys.exit(f"FATAL: wandb key has no access to entity '{entity}'. Accessible: {sorted(e for e in ents if e)}")
+            sys.exit(f"FATAL: wandb key has no access to entity '{entity}'. Accessible: {ents}")
         print(f"wandb entity '{entity}' OK")
         PY
 
@@ -181,10 +184,12 @@ workflow:
   # rather than only the emptiest. 862 episodes x ~180MB is ~155GB of zarr;
   # 400Gi leaves room for the uv env, checkpoints and logs.
   # num_workers=4 keeps dataloader workers at 8 ranks x 2 embodiments x 4 = 64,
-  # inside the 100 CPU request (the config default of 6 would need ~120).
+  # which fits the 80 CPU request (the config default of 6 would need ~120).
+  # cpu was 100, but most nodes in this pool sit at 84/126 free, so that only
+  # matched the emptiest few and cost ~6-8 min of queueing per submission.
   resources:
     default:
-      cpu: 100
+      cpu: 80
       gpu: {{num_gpu}}
       memory: 700Gi
       storage: 400Gi
