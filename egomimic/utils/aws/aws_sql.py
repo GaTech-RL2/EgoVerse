@@ -92,9 +92,17 @@ def create_default_engine():
     return engine
 
 
+def _episodes_table_name():
+    """The app-schema table the episode helpers read/write. Defaults to
+    ``episodes``; override with EGOVERSE_EPISODES_TABLE to point the dataset
+    resolver at a staging table (e.g. ``staging_microagi``) without merging into
+    the production table — used for validating a staged folder before merge."""
+    return os.environ.get("EGOVERSE_EPISODES_TABLE", "episodes")
+
+
 def _episodes_table(engine):
     md = MetaData()
-    return Table("episodes", md, autoload_with=engine, schema="app")
+    return Table(_episodes_table_name(), md, autoload_with=engine, schema="app")
 
 
 def add_episode(engine, episode) -> bool:
@@ -183,11 +191,11 @@ def delete_all_episodes(engine):
 
 
 def episode_table_to_df(engine):
-    """
-    Prints all rows in the 'episodes' table in a nicely formatted table.
-    """
+    """Return all rows of the episode table (see ``EGOVERSE_EPISODES_TABLE``)."""
     metadata = MetaData()
-    episodes_tbl = Table("episodes", metadata, autoload_with=engine, schema="app")
+    episodes_tbl = Table(
+        _episodes_table_name(), metadata, autoload_with=engine, schema="app"
+    )
 
     import pandas as pd
 
