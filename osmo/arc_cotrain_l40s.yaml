@@ -54,6 +54,11 @@ workflow:
       NUM_GPU: "{{num_gpu}}"
       BATCH_SIZE: "{{batch_size}}"
       NUM_WORKERS: "{{num_workers}}"
+      # logger/wandb.yaml hardcodes entity rl2-group (the Georgia Tech team).
+      # An API key that lacks access to it fails at wandb.init() with
+      # "CommError: permission denied" — after the dataset pull and norm-stats
+      # phase have already run, so get this right before submitting.
+      WANDB_ENTITY: "{{wandb_entity}}"
       WORKDIR: /workspace
       DATASET_DIR: /workspace/arc_tests
       NCCL_DEBUG: WARN
@@ -107,6 +112,22 @@ workflow:
         bash ./egomimic/utils/aws/setup_secret.sh
         test -s "$HOME/.egoverse_env"
 
+        # ---------------------------------------------------------- preflight
+        # wandb.init() is not reached until phase 2, i.e. after the ~155GB pull
+        # and the norm-stats phase (~2.5h). A key without access to
+        # $WANDB_ENTITY fails there and throws all of it away, so check the
+        # entity is writable up front and fail in seconds instead.
+        python - <<'PY'
+        import os, sys, wandb
+        entity = os.environ["WANDB_ENTITY"]
+        api = wandb.Api()
+        ents = {api.default_entity, *(t.name for t in getattr(api.viewer, "teams", []) or [])}
+        print(f"wandb user={api.viewer.username} default={api.default_entity} teams={sorted(e for e in ents if e)}")
+        if entity not in ents:
+            sys.exit(f"FATAL: wandb key has no access to entity '{entity}'. Accessible: {sorted(e for e in ents if e)}")
+        print(f"wandb entity '{entity}' OK")
+        PY
+
         mkdir -p "$DATASET_DIR"
 
         # --------------------------------------------- phase 1: norm stats (1 GPU)
@@ -152,6 +173,7 @@ workflow:
           data.train_dataloader_params.eva_bimanual.num_workers="$NUM_WORKERS" \
           data.valid_dataloader_params.human_bimanual.num_workers="$NUM_WORKERS" \
           data.valid_dataloader_params.eva_bimanual.num_workers="$NUM_WORKERS" \
+          logger.wandb.entity="$WANDB_ENTITY" \
           name="$RUN_NAME" description="$RUN_DESC"
 
   # groot-l40s-03 nodes are 126 CPU / 988Gi mem / 3163Gi storage / 8 GPU, but
