@@ -1,0 +1,166 @@
+# EgoVerse arc-tokenizer cotrain on OSMO — 1 node x 8 L40S, no submitit.
+#
+# Differences vs the PACE commands:
+#   * no `-m` / `hydra/launcher=submitit_pace_l40s` — Lightning DDP runs the 8
+#     ranks directly inside this container (`launch_params.gpus_per_node=8`
+#     feeds `trainer/ddp.yaml`'s `devices`).
+#   * per-GPU batch_size 32 -> 4 (32/8) on both train and valid dataloaders.
+#   * no pre-staged dataset. data/arc_tests_cotrain*.yaml use S3EpisodeResolver,
+#     which resolves the episode set from SQL and syncs it from R2 into
+#     ${paths.dataset_dir} on its own — /storage/project/r-dxu345-0 (PACE) does
+#     not exist on OSMO, so the configs do the download.
+#   * norm stats are computed ONCE on 1 GPU, then the 8-GPU run consumes the
+#     JSON. trainHydra.py:127 computes stats unguarded by rank, so letting all
+#     8 DDP ranks do it would be 8x redundant work over 862 episodes plus a
+#     write race on norm_stats.json. This also means the dataset download
+#     happens once, in a single process, before the 8-rank run starts.
+#
+# `bounds_check: false` (no-bounds) and `lr: 3e-4` + `scheduler: null`
+# (constant LR) are already baked into the data/model configs on the
+# rpunamiya/arc-length-tokenizer branch — no override needed.
+
+workflow:
+  name: egoverse-arc-cotrain
+
+  tasks:
+  - name: train
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    # egoverse-aws is what setup_secret.sh needs to pull the R2 keys and
+    # SECRETS_ARN (the DB password S3EpisodeResolver reads through
+    # create_default_engine) out of Secrets Manager.
+    # See osmo/README.md for the `osmo credential set` commands.
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+      egoverse-wandb:
+        WANDB_API_KEY: wandb_api_key
+
+    environment:
+      BRANCH: "{{branch}}"
+      DATA_CFG: "{{data_cfg}}"
+      MODEL_CFG: "{{model_cfg}}"
+      RUN_NAME: "{{run_name}}"
+      RUN_DESC: "{{run_desc}}"
+      NUM_GPU: "{{num_gpu}}"
+      BATCH_SIZE: "{{batch_size}}"
+      NUM_WORKERS: "{{num_workers}}"
+      WORKDIR: /workspace
+      DATASET_DIR: /workspace/arc_tests
+      NCCL_DEBUG: WARN
+      TOKENIZERS_PARALLELISM: "false"
+      HYDRA_FULL_ERROR: "1"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        # ---------------------------------------------------------------- deps
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        # uv (EgoVerse ships a uv.lock; torch 2.7.1 comes from the lock, so the
+        # base image only needs a working CUDA driver + glibc)
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+
+        # s5cmd — what S3EpisodeResolver._sync_s3_to_local shells out to
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+
+        # awscli — setup_secret.sh calls `aws secretsmanager`
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        # --------------------------------------------------------------- clone
+        mkdir -p "$WORKDIR" && cd "$WORKDIR"
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd "$WORKDIR/EgoVerse"
+        git rev-parse HEAD
+
+        uv sync --frozen
+        source .venv/bin/activate
+
+        # --------------------------------------------------------- credentials
+        # Writes ~/.egoverse_env with R2_* (for the s5cmd sync) and SECRETS_ARN
+        # (for the SQL episode table). Both are what S3EpisodeResolver needs.
+        bash ./egomimic/utils/aws/setup_secret.sh
+        test -s "$HOME/.egoverse_env"
+
+        mkdir -p "$DATASET_DIR"
+
+        # --------------------------------------------- phase 1: norm stats (1 GPU)
+        # Also does the dataset download: S3EpisodeResolver.resolve() syncs into
+        # paths.dataset_dir, and phase 2 then finds every episode already present.
+        NORM_DIR="$WORKDIR/norm_stats/${RUN_NAME}"
+        mkdir -p "$NORM_DIR"
+
+        CUDA_VISIBLE_DEVICES=0 python egomimic/trainHydra.py \
+          data="$DATA_CFG" \
+          model="$MODEL_CFG" \
+          ~evaluator \
+          paths.dataset_dir="$DATASET_DIR" \
+          launch_params.nodes=1 launch_params.gpus_per_node=1 \
+          norm_stats.save_cache_dir="$NORM_DIR" \
+          trainer.max_epochs=1 trainer.min_epochs=1 \
+          trainer.limit_train_batches=1 trainer.limit_val_batches=0 \
+          logger=null callbacks=null \
+          name="$RUN_NAME" description="${RUN_DESC}_normstats"
+
+        echo "staged $(find "$DATASET_DIR" -maxdepth 1 -mindepth 1 -type d | wc -l) episode dirs"
+        du -sh "$DATASET_DIR"
+
+        # cache_stats() appends a norm_stats/ subdir (zarr_dataset_multi.py:1323),
+        # which is why the PACE paths ended in .../norm_stats/norm_stats.json
+        NORM_JSON="$NORM_DIR/norm_stats/norm_stats.json"
+        test -s "$NORM_JSON"
+
+        # ------------------------------------------ phase 2: training (8 GPUs)
+        python egomimic/trainHydra.py \
+          data="$DATA_CFG" \
+          model="$MODEL_CFG" \
+          ~evaluator \
+          trainer.strategy=ddp_find_unused_parameters_true \
+          norm_stats.precomputed_norm_path="$NORM_JSON" \
+          paths.dataset_dir="$DATASET_DIR" \
+          launch_params.nodes=1 launch_params.gpus_per_node="$NUM_GPU" \
+          data.train_dataloader_params.human_bimanual.batch_size="$BATCH_SIZE" \
+          data.train_dataloader_params.eva_bimanual.batch_size="$BATCH_SIZE" \
+          data.valid_dataloader_params.human_bimanual.batch_size="$BATCH_SIZE" \
+          data.valid_dataloader_params.eva_bimanual.batch_size="$BATCH_SIZE" \
+          data.train_dataloader_params.human_bimanual.num_workers="$NUM_WORKERS" \
+          data.train_dataloader_params.eva_bimanual.num_workers="$NUM_WORKERS" \
+          data.valid_dataloader_params.human_bimanual.num_workers="$NUM_WORKERS" \
+          data.valid_dataloader_params.eva_bimanual.num_workers="$NUM_WORKERS" \
+          name="$RUN_NAME" description="$RUN_DESC"
+
+  # groot-l40s-03 nodes are 126 CPU / 988Gi mem / 3163Gi storage / 8 GPU, but
+  # per-node free capacity varies a lot, so these are sized to fit most nodes
+  # rather than only the emptiest. 862 episodes x ~180MB is ~155GB of zarr;
+  # 400Gi leaves room for the uv env, checkpoints and logs.
+  # num_workers=4 keeps dataloader workers at 8 ranks x 2 embodiments x 4 = 64,
+  # inside the 100 CPU request (the config default of 6 would need ~120).
+  resources:
+    default:
+      cpu: 100
+      gpu: {{num_gpu}}
+      memory: 700Gi
+      storage: 400Gi
+
+  timeout:
+    queue_timeout: 1d
