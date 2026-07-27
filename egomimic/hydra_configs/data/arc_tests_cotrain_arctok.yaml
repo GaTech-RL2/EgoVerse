@@ -1,11 +1,12 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 # Arc-tokenized variant of arc_tests_cotrain.yaml. Same population — 290
-# eva_bimanual + 580 human_bimanual staged in /storage/project/r-dxu345-0/shared/arc_tests
-# — but every leaf uses ``arc_tokenizer_cartesian`` so ``get_item`` returns
-# ``actions_cartesian`` already shaped ``(M+1, 8) = (16, 8)`` — 15 waypoints
-# + 1 velocity token per bimanual chunk, each 8-dim
-# ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``.
+# eva_bimanual + 572 human_bimanual, resolved from SQL (lab=rl2,
+# task=fold_clothes) and auto-synced from R2 into ${paths.dataset_dir} by
+# S3EpisodeResolver — but every leaf uses ``arc_tokenizer_cartesian`` so
+# ``get_item`` returns ``actions_cartesian`` already shaped
+# ``(M+1, 8) = (16, 8)`` — 15 waypoints + 1 velocity token per bimanual chunk,
+# each 8-dim ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``.
 #
 # Arc knobs (shared by both embodiments):
 #   D = 20 cm = 0.20 m per-arm arc length span of one token (min_distance_unit)
@@ -20,9 +21,8 @@ train_datasets:
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}
-      embodiment: human_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: arc_tokenizer_cartesian
@@ -32,6 +32,10 @@ train_datasets:
         stride: 3
         min_distance_unit: 0.20
         resampled_vector_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -39,9 +43,8 @@ train_datasets:
   eva_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}
-      embodiment: eva_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
         keymap_mode: arc_tokenizer_cartesian
@@ -50,6 +53,10 @@ train_datasets:
         mode: arc_tokenizer_cartesian
         min_distance_unit: 0.20
         resampled_vector_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
     mode: train
     valid_ratio: 0.2
     bounds_check: false
@@ -60,9 +67,8 @@ valid_datasets:
   human_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}
-      embodiment: human_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.human.Human.get_keymap
         keymap_mode: arc_tokenizer_cartesian
@@ -72,15 +78,18 @@ valid_datasets:
         stride: 3
         min_distance_unit: 0.20
         resampled_vector_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
     mode: valid
     valid_ratio: 0.2
     bounds_check: false
   eva_bimanual:
     _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalFolderEpisodeResolver
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
       folder_path: ${paths.dataset_dir}
-      embodiment: eva_bimanual
       key_map:
         _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
         keymap_mode: arc_tokenizer_cartesian
@@ -89,6 +98,10 @@ valid_datasets:
         mode: arc_tokenizer_cartesian
         min_distance_unit: 0.20
         resampled_vector_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
     mode: valid
     valid_ratio: 0.2
     bounds_check: false
