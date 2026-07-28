@@ -119,6 +119,12 @@ workflow:
         # 862 episodes into DATASET_DIR.
         mkdir -p "$DATASET_DIR"
 
+        # viz/cartesian.yaml sets annotation_key: sampled_prompt for every
+        # embodiment, and eval_hpt inherits it. arc_tests produces no
+        # annotations, so viz_gt_preds raises KeyError('sampled_prompt') at the
+        # first validation step. eval_arctok.yaml already nulls these; eval_hpt
+        # does not, so the overrides above do it on the command line.
+
         RESULTS=/workspace/eval_results
         mkdir -p "$RESULTS"
 
@@ -164,6 +170,10 @@ workflow:
             data="$DATA_CFG" \
             model="$MODEL_CFG" \
             evaluator="$EVALUATOR_CFG" \
+            'evaluator.viz_func.eva_bimanual.annotation_key=null' \
+            'evaluator.viz_func.human_bimanual.annotation_key=null' \
+            'evaluator.viz_func.human_right_arm.annotation_key=null' \
+            'evaluator.viz_func.human_left_arm.annotation_key=null' \
             mode=eval \
             ckpt_path="$SAFE" \
             norm_stats.precomputed_norm_path="$CKPT_DIR/norm_stats.json" \
