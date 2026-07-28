@@ -122,6 +122,17 @@ workflow:
         RESULTS=/workspace/eval_results
         mkdir -p "$RESULTS"
 
+        # trainHydra computes norm stats (lines ~108-141) BEFORE branching on
+        # mode, so eval pays for it too. At sample_frac=1.0 over 862 episodes
+        # that is ~1.33M samples at ~350/s -- about 63 minutes PER CHECKPOINT.
+        # The training run's own norm_stats.json rides along in the checkpoint
+        # sync, so pass it and the step collapses to a load.
+        test -s "$CKPT_DIR/norm_stats.json" || {
+          echo "FATAL: norm_stats.json missing from $CKPT_DIR -- every checkpoint would"
+          echo "recompute stats for ~1h. Check the training run's sync loop."
+          exit 1
+        }
+
         # Evaluate FIRST_CKPT first (the latest epoch both runs share, so the
         # matched comparison lands without waiting for the whole sweep), then
         # the remaining epoch checkpoints newest-first, then last.ckpt.
@@ -147,6 +158,7 @@ workflow:
             evaluator="$EVALUATOR_CFG" \
             mode=eval \
             ckpt_path="$CKPT" \
+            norm_stats.precomputed_norm_path="$CKPT_DIR/norm_stats.json" \
             paths.dataset_dir="$DATASET_DIR" \
             launch_params.nodes=1 launch_params.gpus_per_node=1 \
             data.valid_dataloader_params.human_bimanual.batch_size=8 \
