@@ -111,7 +111,10 @@ workflow:
 
         # Sort so epoch_199 < epoch_399 < ... and last.ckpt runs at the end.
         for CKPT in $(find "$CKPT_DIR" -name 'epoch_*.ckpt' | sort -V) $(find "$CKPT_DIR" -name 'last.ckpt'); do
-          TAG=$(basename "$CKPT" .ckpt | tr -cd '[:alnum:]_=-')
+          # Lightning names these "epoch_epoch=199.ckpt". The '=' must go or
+          # hydra parses description=epoch_epoch=199 as a malformed override
+          # ("mismatched input '=' expecting <EOF>").
+          TAG=$(basename "$CKPT" .ckpt | tr '=' '_' | tr -cd '[:alnum:]_-')
           echo "=================== evaluating $TAG ==================="
           set +e
           python egomimic/trainHydra.py \
@@ -130,7 +133,10 @@ workflow:
           RC=$?
           set -e
           # trainHydra writes eval_metrics.json into the hydra run dir.
-          FOUND=$(find /workspace/EgoVerse/logs -name eval_metrics.json -newer "$CKPT" 2>/dev/null | head -1)
+          # `|| true` matters: under `set -e` a failing find inside a command
+          # substitution aborts the whole sweep, which is exactly what happens
+          # when the python step died before creating logs/.
+          FOUND=$(find /workspace/EgoVerse/logs -name eval_metrics.json -newer "$CKPT" 2>/dev/null | head -1 || true)
           if [ -n "$FOUND" ]; then
             cp "$FOUND" "$RESULTS/${TAG}.json"
             echo "captured metrics for $TAG"
