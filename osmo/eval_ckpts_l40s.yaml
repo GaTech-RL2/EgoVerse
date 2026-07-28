@@ -48,6 +48,9 @@ workflow:
       DATA_CFG: "{{data_cfg}}"
       MODEL_CFG: "{{model_cfg}}"
       EVALUATOR_CFG: "{{evaluator_cfg}}"
+      # Latest epoch present in BOTH runs' checkpoint sets, so the matched
+      # comparison lands first instead of at the end of the sweep.
+      FIRST_CKPT: "{{first_ckpt}}"
       WORKDIR: /workspace
       DATASET_DIR: /workspace/arc_tests
       HYDRA_FULL_ERROR: "1"
@@ -87,15 +90,25 @@ workflow:
 
         bash ./egomimic/utils/aws/setup_secret.sh
         set -a; source "$HOME/.egoverse_env"; set +a
-        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
-        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
-        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+
+        # NOTE: do NOT export AWS_*/AWS_DEFAULT_REGION=auto globally here.
+        # The R2 creds need region "auto", but boto3 uses the same variables
+        # to reach Secrets Manager for the DB password, and region=auto sends
+        # it to secretsmanager.auto.amazonaws.com -> EndpointConnectionError,
+        # which kills S3EpisodeResolver before any eval runs. Scope the R2
+        # creds to the s5cmd calls that actually need them; the ambient
+        # credentials from egoverse-aws (us-east-2) stay intact for python.
+        r2() {
+          AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" \
+          AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+          AWS_DEFAULT_REGION=auto AWS_REGION=auto \
+          s5cmd --endpoint-url "$R2_ENDPOINT_URL" "$@"
+        }
 
         # ------------------------------------------------- pull checkpoints
         CKPT_DIR=/workspace/ckpts
         mkdir -p "$CKPT_DIR"
-        s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
-          sync "s3://rldb/staged/arc_ckpts/${SRC_RUN}/*" "$CKPT_DIR/"
+        r2 --numworkers 32 sync "s3://rldb/staged/arc_ckpts/${SRC_RUN}/*" "$CKPT_DIR/"
         find "$CKPT_DIR" -name '*.ckpt' | sort
         NCK=$(find "$CKPT_DIR" -name '*.ckpt' | wc -l)
         echo "found $NCK checkpoints for $SRC_RUN"
@@ -109,8 +122,19 @@ workflow:
         RESULTS=/workspace/eval_results
         mkdir -p "$RESULTS"
 
-        # Sort so epoch_199 < epoch_399 < ... and last.ckpt runs at the end.
-        for CKPT in $(find "$CKPT_DIR" -name 'epoch_*.ckpt' | sort -V) $(find "$CKPT_DIR" -name 'last.ckpt'); do
+        # Evaluate FIRST_CKPT first (the latest epoch both runs share, so the
+        # matched comparison lands without waiting for the whole sweep), then
+        # the remaining epoch checkpoints newest-first, then last.ckpt.
+        ORDER=""
+        if [ -n "${FIRST_CKPT:-}" ]; then
+          HIT=$(find "$CKPT_DIR" -name "$FIRST_CKPT" | head -1 || true)
+          [ -n "$HIT" ] && ORDER="$HIT" && echo "priority checkpoint: $HIT"
+        fi
+        REST=$(find "$CKPT_DIR" -name 'epoch_*.ckpt' | sort -Vr)
+        for CKPT in $ORDER $REST $(find "$CKPT_DIR" -name 'last.ckpt'); do
+          # skip the priority checkpoint when the descending list reaches it
+          if [ -n "$ORDER" ] && [ "$CKPT" = "$ORDER" ] && [ -n "${SEEN_FIRST:-}" ]; then continue; fi
+          [ "$CKPT" = "$ORDER" ] && SEEN_FIRST=1
           # Lightning names these "epoch_epoch=199.ckpt". The '=' must go or
           # hydra parses description=epoch_epoch=199 as a malformed override
           # ("mismatched input '=' expecting <EOF>").
@@ -139,13 +163,13 @@ workflow:
           FOUND=$(find /workspace/EgoVerse/logs -name eval_metrics.json -newer "$CKPT" 2>/dev/null | head -1 || true)
           if [ -n "$FOUND" ]; then
             cp "$FOUND" "$RESULTS/${TAG}.json"
+            NCAPTURED=$((${NCAPTURED:-0} + 1))
             echo "captured metrics for $TAG"
           else
             echo "WARNING: no eval_metrics.json for $TAG (rc=$RC)"
           fi
           # Push after each checkpoint so a later failure keeps earlier results.
-          s5cmd --endpoint-url "$R2_ENDPOINT_URL" \
-            sync "$RESULTS/" "s3://rldb/staged/arc_evals/${SRC_RUN}/" || true
+          r2 sync "$RESULTS/" "s3://rldb/staged/arc_evals/${SRC_RUN}/" || true
         done
 
         echo "=========================== SUMMARY ==========================="
@@ -168,6 +192,12 @@ workflow:
         if not rows:
             print("NO RESULTS CAPTURED")
         PY
+
+        # Without this the trailing summary's exit 0 makes OSMO report
+        # COMPLETED even when every checkpoint failed, which is how an earlier
+        # run "succeeded" while producing nothing.
+        echo "captured ${NCAPTURED:-0} checkpoint result(s)"
+        test "${NCAPTURED:-0}" -gt 0
 
   # eval forces devices=1 (trainHydra.py:183), and OSMO requires the rest of
   # the request to be proportional: asking for 1 of 8 GPUs caps CPU at
