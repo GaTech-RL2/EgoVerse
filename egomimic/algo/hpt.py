@@ -995,9 +995,19 @@ class HPT(Algo):
             embodiment_id = get_embodiment_id(embodiment_name)
             processed_batch[embodiment_id] = {}
             for key, value in _batch.items():
-                key_name = self.norm_stats.zarr_key_to_keyname(key, embodiment_id)
-                if key is not None:
-                    processed_batch[embodiment_id][key_name] = value
+                # zarr_key_to_keyname returns None for any batch key that isn't
+                # a registered action/proprio zarr key (e.g. ``intrinsics``,
+                # ``episode_hash``, image keys). Fall back to the original key
+                # in that case so downstream (viz, per-episode K) still has it.
+                # Previously this stripped every non-registered key by writing
+                # them all under a single ``None`` slot that clobbered each
+                # other, so ``_intrinsics_from_batch`` returned None and viz
+                # fell back to the hardcoded ARIA_INTRINSICS — misaligning
+                # dots by the CPF/mecka focal difference.
+                key_name = (
+                    self.norm_stats.zarr_key_to_keyname(key, embodiment_id) or key
+                )
+                processed_batch[embodiment_id][key_name] = value
 
             ac_key = self.ac_keys[embodiment_id]
             if len(processed_batch[embodiment_id][ac_key].shape) != 3:
