@@ -1,0 +1,175 @@
+# Offline eval sweep: run the matching evaluator over every checkpoint a
+# training run produced, and report Valid/* metrics in CARTESIAN space.
+#
+# Why this exists: the training runs carry `~evaluator`, so validation_step
+# (pl_model.py:209) returns immediately and no Valid/* metric is ever logged.
+# This job re-attaches the evaluator offline.
+#
+# The comparable pair across the two variants is:
+#   baseline (eval_hpt)             Valid/{emb}_actions_cartesian_paired_mse_avg
+#   arctok   (eval_arctok_D20_M15)  Valid/{emb}_actions_cartesian_detok_paired_mse_avg
+#
+# ArcTokEvalVideo detokenizes prediction and GT back to (B, 100, 14) using the
+# model-predicted velocity token, and drops the zero-padded rotation columns,
+# so its MSE is in the same physical units as the baseline's. That is the only
+# apples-to-apples comparison between the two action spaces.
+#
+# Checkpoints are read from s3://rldb/staged/arc_ckpts/<run>/, where the
+# training containers sync them (node-local /workspace is ephemeral and the
+# training workflow declares no outputs).
+#
+# trainHydra.py eval mode forces devices=1, so this needs 1 GPU, not 8.
+#
+#   osmo workflow submit osmo/eval_ckpts_l40s.yaml --pool groot-l40s-03 --set \
+#     branch=arc-length-nv job_name=eval-baseline-cart \
+#     src_run=arc-baseline-cart-8xl40s-2 \
+#     data_cfg=arc_tests_cotrain \
+#     model_cfg=hpt_cotrain_mecka_flow_shared_head \
+#     evaluator_cfg=eval_hpt
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: eval
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+
+    environment:
+      BRANCH: "{{branch}}"
+      SRC_RUN: "{{src_run}}"
+      DATA_CFG: "{{data_cfg}}"
+      MODEL_CFG: "{{model_cfg}}"
+      EVALUATOR_CFG: "{{evaluator_cfg}}"
+      WORKDIR: /workspace
+      DATASET_DIR: /workspace/arc_tests
+      HYDRA_FULL_ERROR: "1"
+      TOKENIZERS_PARALLELISM: "false"
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        mkdir -p "$WORKDIR" && cd "$WORKDIR"
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd "$WORKDIR/EgoVerse"
+        git rev-parse HEAD
+        uv sync --frozen
+        source .venv/bin/activate
+
+        bash ./egomimic/utils/aws/setup_secret.sh
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+
+        # ------------------------------------------------- pull checkpoints
+        CKPT_DIR=/workspace/ckpts
+        mkdir -p "$CKPT_DIR"
+        s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
+          sync "s3://rldb/staged/arc_ckpts/${SRC_RUN}/*" "$CKPT_DIR/"
+        find "$CKPT_DIR" -name '*.ckpt' | sort
+        NCK=$(find "$CKPT_DIR" -name '*.ckpt' | wc -l)
+        echo "found $NCK checkpoints for $SRC_RUN"
+        test "$NCK" -gt 0
+
+        # The val split must match training: same data config, same
+        # valid_ratio (0.2), same seed. S3EpisodeResolver re-pulls the same
+        # 862 episodes into DATASET_DIR.
+        mkdir -p "$DATASET_DIR"
+
+        RESULTS=/workspace/eval_results
+        mkdir -p "$RESULTS"
+
+        # Sort so epoch_199 < epoch_399 < ... and last.ckpt runs at the end.
+        for CKPT in $(find "$CKPT_DIR" -name 'epoch_*.ckpt' | sort -V) $(find "$CKPT_DIR" -name 'last.ckpt'); do
+          TAG=$(basename "$CKPT" .ckpt | tr -cd '[:alnum:]_=-')
+          echo "=================== evaluating $TAG ==================="
+          set +e
+          python egomimic/trainHydra.py \
+            data="$DATA_CFG" \
+            model="$MODEL_CFG" \
+            evaluator="$EVALUATOR_CFG" \
+            mode=eval \
+            ckpt_path="$CKPT" \
+            paths.dataset_dir="$DATASET_DIR" \
+            launch_params.nodes=1 launch_params.gpus_per_node=1 \
+            data.valid_dataloader_params.human_bimanual.batch_size=8 \
+            data.valid_dataloader_params.eva_bimanual.batch_size=8 \
+            data.valid_dataloader_params.human_bimanual.num_workers=4 \
+            data.valid_dataloader_params.eva_bimanual.num_workers=4 \
+            name="eval_${SRC_RUN}" description="$TAG"
+          RC=$?
+          set -e
+          # trainHydra writes eval_metrics.json into the hydra run dir.
+          FOUND=$(find /workspace/EgoVerse/logs -name eval_metrics.json -newer "$CKPT" 2>/dev/null | head -1)
+          if [ -n "$FOUND" ]; then
+            cp "$FOUND" "$RESULTS/${TAG}.json"
+            echo "captured metrics for $TAG"
+          else
+            echo "WARNING: no eval_metrics.json for $TAG (rc=$RC)"
+          fi
+          # Push after each checkpoint so a later failure keeps earlier results.
+          s5cmd --endpoint-url "$R2_ENDPOINT_URL" \
+            sync "$RESULTS/" "s3://rldb/staged/arc_evals/${SRC_RUN}/" || true
+        done
+
+        echo "=========================== SUMMARY ==========================="
+        python - <<'PY'
+        import json, glob, os
+        rows = []
+        for p in sorted(glob.glob("/workspace/eval_results/*.json")):
+            d = json.load(open(p))
+            cm = d.get("callback_metrics", {})
+            keep = {k: v for k, v in cm.items()
+                    if "mse" in k.lower() or "loss" in k.lower()}
+            rows.append((os.path.basename(p), keep))
+        for name, keep in rows:
+            print(f"--- {name}")
+            for k in sorted(keep):
+                try:
+                    print(f"    {k:70s} {float(keep[k]):.6f}")
+                except (TypeError, ValueError):
+                    print(f"    {k:70s} {keep[k]}")
+        if not rows:
+            print("NO RESULTS CAPTURED")
+        PY
+
+  # eval forces devices=1 (trainHydra.py:183). Dataset is the same ~141GB pull.
+  resources:
+    default:
+      cpu: 24
+      gpu: 1
+      memory: 200Gi
+      storage: 400Gi
+
+  timeout:
+    queue_timeout: 1d
