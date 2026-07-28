@@ -1,0 +1,127 @@
+# Diagnostic: which parameters are actually unused in the cotrain graph?
+#
+# The training commands carry `trainer.strategy=ddp_find_unused_parameters_true`.
+# That flag costs an autograd-graph traversal every step AND suppresses the
+# error that would tell you a parameter is silently not training, so it is
+# worth knowing whether it is needed at all.
+#
+# This runs the real model on a handful of episodes with plain `ddp`. If any
+# parameter gets no gradient, DDP raises and NAMES them:
+#   "Parameters which did not receive grad for rank 0: <names>"
+# If it trains instead, the flag is unnecessary and can be dropped.
+#
+# 2 GPUs (minimum for DDP) and debug=4 episodes per embodiment, so the pull is
+# ~1.5GB instead of 141GB and this finishes in minutes.
+#
+#   osmo workflow submit osmo/diag_unused_params.yaml --pool groot-l40s-03 --set \
+#     branch=arc-length-nv job_name=diag-unused-params \
+#     data_cfg=arc_tests_cotrain model_cfg=hpt_cotrain_mecka_flow_shared_head
+
+workflow:
+  name: "{{job_name}}"
+
+  tasks:
+  - name: diag
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+
+    environment:
+      BRANCH: "{{branch}}"
+      DATA_CFG: "{{data_cfg}}"
+      MODEL_CFG: "{{model_cfg}}"
+      WORKDIR: /workspace
+      DATASET_DIR: /workspace/arc_tests_diag
+      HYDRA_FULL_ERROR: "1"
+      TORCH_DISTRIBUTED_DEBUG: "DETAIL"   # makes DDP name the unused params
+
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential \
+          libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+        unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+
+        mkdir -p "$WORKDIR" && cd "$WORKDIR"
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd "$WORKDIR/EgoVerse"
+        uv sync --frozen
+        source .venv/bin/activate
+
+        bash ./egomimic/utils/aws/setup_secret.sh
+        mkdir -p "$DATASET_DIR"
+
+        # Plain `ddp` (not ddp_find_unused_parameters_true) on 2 GPUs. Exit code
+        # is captured rather than aborting so the log always shows the verdict.
+        set +e
+        python egomimic/trainHydra.py \
+          data="$DATA_CFG" \
+          model="$MODEL_CFG" \
+          ~evaluator ~logger ~callbacks \
+          trainer.strategy=ddp \
+          paths.dataset_dir="$DATASET_DIR" \
+          launch_params.nodes=1 launch_params.gpus_per_node=2 \
+          data.train_datasets.human_bimanual.resolver.debug=4 \
+          data.train_datasets.eva_bimanual.resolver.debug=4 \
+          data.valid_datasets.human_bimanual.resolver.debug=4 \
+          data.valid_datasets.eva_bimanual.resolver.debug=4 \
+          data.train_dataloader_params.human_bimanual.batch_size=2 \
+          data.train_dataloader_params.eva_bimanual.batch_size=2 \
+          data.valid_dataloader_params.human_bimanual.batch_size=2 \
+          data.valid_dataloader_params.eva_bimanual.batch_size=2 \
+          data.train_dataloader_params.human_bimanual.num_workers=2 \
+          data.train_dataloader_params.eva_bimanual.num_workers=2 \
+          data.valid_dataloader_params.human_bimanual.num_workers=2 \
+          data.valid_dataloader_params.eva_bimanual.num_workers=2 \
+          trainer.max_epochs=1 trainer.min_epochs=1 \
+          trainer.limit_train_batches=3 trainer.limit_val_batches=0 \
+          name=diag description=unused_params 2>&1 | tee /tmp/diag.log
+        RC=${PIPESTATUS[0]}
+        set -e
+
+        echo "============================================================"
+        echo "VERDICT (exit=$RC)"
+        echo "============================================================"
+        if grep -qi "did not receive grad\|Expected to have finished reduction" /tmp/diag.log; then
+          echo "UNUSED PARAMETERS FOUND -> the flag is required. Names:"
+          grep -iA40 "Parameters which did not receive grad\|did not receive grad" /tmp/diag.log | head -60
+        elif [ "$RC" -eq 0 ]; then
+          echo "NO UNUSED PARAMETERS -> plain ddp trains fine, the flag can be dropped."
+        else
+          echo "Run failed for an unrelated reason; inspect the traceback above."
+          tail -40 /tmp/diag.log
+        fi
+
+  resources:
+    default:
+      cpu: 24
+      gpu: 2
+      memory: 200Gi
+      storage: 120Gi
+
+  timeout:
+    queue_timeout: 1d
