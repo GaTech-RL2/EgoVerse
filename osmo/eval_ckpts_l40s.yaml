@@ -150,6 +150,14 @@ workflow:
           # hydra parses description=epoch_epoch=199 as a malformed override
           # ("mismatched input '=' expecting <EOF>").
           TAG=$(basename "$CKPT" .ckpt | tr '=' '_' | tr -cd '[:alnum:]_-')
+          # hydra's override grammar rejects a second '=' anywhere in an
+          # override, and that includes the VALUE. Lightning writes
+          # "epoch_epoch=1599.ckpt", so ckpt_path=<that> fails to parse and
+          # every epoch checkpoint errored instantly -- only last.ckpt (no '=')
+          # ever ran. Sanitizing the description was not enough; the path
+          # itself has to be '='-free.
+          SAFE="$CKPT_DIR/safe_${TAG}.ckpt"
+          ln -sf "$CKPT" "$SAFE"
           echo "=================== evaluating $TAG ==================="
           set +e
           python egomimic/trainHydra.py \
@@ -157,7 +165,7 @@ workflow:
             model="$MODEL_CFG" \
             evaluator="$EVALUATOR_CFG" \
             mode=eval \
-            ckpt_path="$CKPT" \
+            ckpt_path="$SAFE" \
             norm_stats.precomputed_norm_path="$CKPT_DIR/norm_stats.json" \
             paths.dataset_dir="$DATASET_DIR" \
             launch_params.nodes=1 launch_params.gpus_per_node=1 \
