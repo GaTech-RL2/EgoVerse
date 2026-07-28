@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import signal
 from typing import Any, Dict, List, Optional, Tuple
@@ -361,7 +362,27 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
                 model.load_state_dict(checkpoint["state_dict"], strict=False)
                 log.info(f"Loaded weights from {ckpt_path}")
             log.info("Starting evaluation!")
-            trainer.validate(model=model, datamodule=datamodule)
+            results = trainer.validate(model=model, datamodule=datamodule)
+
+            # Eval mode sets cfg.logger = None above, so the Valid/* metrics
+            # the evaluator computes via log_dict have nowhere to go. Persist
+            # them next to the run so an offline eval sweep can collect them.
+            eval_out = {
+                "ckpt_path": ckpt_path,
+                "evaluator": OmegaConf.select(cfg, "evaluator._target_", default=None),
+                "data": OmegaConf.select(cfg, "data._target_", default=None),
+                "name": cfg.get("name"),
+                "description": cfg.get("description"),
+                "results": results,
+                "callback_metrics": {
+                    k: (v.item() if torch.is_tensor(v) else v)
+                    for k, v in trainer.callback_metrics.items()
+                },
+            }
+            out_path = os.path.join(trainer.default_root_dir, "eval_metrics.json")
+            with open(out_path, "w") as f:
+                json.dump(eval_out, f, indent=2, default=str)
+            log.info(f"Wrote eval metrics to {out_path}")
     else:
         raise ValueError(f"Invalid mode: {mode}")
 
