@@ -163,13 +163,16 @@ workflow:
             print("NO RESULTS CAPTURED")
         PY
 
-  # eval forces devices=1 (trainHydra.py:183). Dataset is the same ~141GB pull.
+  # eval forces devices=1 (trainHydra.py:183), and OSMO requires the rest of
+  # the request to be proportional: asking for 1 of 8 GPUs caps CPU at
+  # floor(127/8)=15, memory at ~989/8 and storage at ~3164/8. The ~141GB
+  # dataset plus ~3GB of checkpoints fits comfortably in 380Gi.
   resources:
     default:
-      cpu: 24
+      cpu: 15
       gpu: 1
-      memory: 200Gi
-      storage: 400Gi
+      memory: 120Gi
+      storage: 380Gi
 
   timeout:
     queue_timeout: 1d
