@@ -57,6 +57,13 @@ workflow:
       # trainer.validate -> eval_metrics.json -> R2 push before paying for a
       # real sweep. Set 0 for the real run.
       DEBUG_EPISODES: "{{debug_episodes}}"
+      # EvalVideo defaults limit_val_batches=400 and renders validation video
+      # frames per batch (~45s/batch observed), i.e. ~5h PER CHECKPOINT. It is
+      # a CONSTRUCTOR arg that lands in override_dict, and trainHydra applies
+      # override_dict AFTER the CLI (trainHydra.py:181) -- so
+      # trainer.limit_val_batches on the command line is silently clobbered and
+      # this must be set on the evaluator instead.
+      EVAL_BATCHES: "{{eval_batches}}"
       WORKDIR: /workspace
       DATASET_DIR: /workspace/arc_tests
       HYDRA_FULL_ERROR: "1"
@@ -189,6 +196,7 @@ workflow:
             data="$DATA_CFG" \
             model="$MODEL_CFG" \
             evaluator="$EVALUATOR_CFG" \
+            evaluator.limit_val_batches="$EVAL_BATCHES" \
             'evaluator.viz_func.eva_bimanual.annotation_key=null' \
             'evaluator.viz_func.human_bimanual.annotation_key=null' \
             'evaluator.viz_func.human_right_arm.annotation_key=null' \
