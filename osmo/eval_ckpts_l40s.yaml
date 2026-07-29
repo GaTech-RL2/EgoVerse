@@ -183,14 +183,17 @@ workflow:
             data.valid_dataloader_params.eva_bimanual.batch_size=8 \
             data.valid_dataloader_params.human_bimanual.num_workers=4 \
             data.valid_dataloader_params.eva_bimanual.num_workers=4 \
+            hydra.run.dir="/workspace/evalruns/$TAG" \
             name="eval_${SRC_RUN}" description="$TAG"
           RC=$?
           set -e
-          # trainHydra writes eval_metrics.json into the hydra run dir.
-          # `|| true` matters: under `set -e` a failing find inside a command
-          # substitution aborts the whole sweep, which is exactly what happens
-          # when the python step died before creating logs/.
-          FOUND=$(find /workspace/EgoVerse/logs -name eval_metrics.json -newer "$CKPT" 2>/dev/null | head -1 || true)
+          # Read the exact path this checkpoint's run wrote to. The previous
+          # `find -newer "$CKPT" | head -1` matched ANY recent eval_metrics.json,
+          # so when a checkpoint failed to write one it silently copied the
+          # PREVIOUS checkpoint's result under the new tag -- 5 of 7 results in
+          # an earlier sweep were duplicates of two real evals.
+          FOUND="/workspace/evalruns/$TAG/eval_metrics.json"
+          [ -s "$FOUND" ] || FOUND=""
           if [ -n "$FOUND" ]; then
             cp "$FOUND" "$RESULTS/${TAG}.json"
             NCAPTURED=$((${NCAPTURED:-0} + 1))
