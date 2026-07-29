@@ -62,7 +62,10 @@ workflow:
       # a CONSTRUCTOR arg that lands in override_dict, and trainHydra applies
       # override_dict AFTER the CLI (trainHydra.py:181) -- so
       # trainer.limit_val_batches on the command line is silently clobbered and
-      # this must be set on the evaluator instead.
+      # this must be set on the evaluator instead. It is a constructor arg and
+      # not a key in any evaluator yaml, so like `debug` it needs a leading
+      # '+' to be ADDED -- plain override raises "Key 'limit_val_batches' is
+      # not in struct".
       EVAL_BATCHES: "{{eval_batches}}"
       WORKDIR: /workspace
       DATASET_DIR: /workspace/arc_tests
@@ -196,7 +199,7 @@ workflow:
             data="$DATA_CFG" \
             model="$MODEL_CFG" \
             evaluator="$EVALUATOR_CFG" \
-            evaluator.limit_val_batches="$EVAL_BATCHES" \
+            +evaluator.limit_val_batches="$EVAL_BATCHES" \
             'evaluator.viz_func.eva_bimanual.annotation_key=null' \
             'evaluator.viz_func.human_bimanual.annotation_key=null' \
             'evaluator.viz_func.human_right_arm.annotation_key=null' \
