@@ -194,14 +194,19 @@ class ArcTokEvalVideo(HPTEvalVideo):
             pred_det = self._detokenize_batch(pred_arc).cpu().contiguous()
             gt_det = self._detokenize_batch(gt_arc).cpu().contiguous()
             xyzg = [0, 1, 2, 6, 7, 8, 9, 13]  # Lxyz, L_grip, Rxyz, R_grip
-            pred_slice = pred_det[..., xyzg]
-            gt_slice = gt_det[..., xyzg]
+            # ``.contiguous()`` after every advanced-index slice: the
+            # ``.contiguous()`` on pred_det/gt_det above does not survive
+            # ``[..., xyzg]``, and torchmetrics' MSE calls ``.view()``
+            # internally, which raises "view size is not compatible with input
+            # tensor's size and stride" on a non-contiguous tensor.
+            pred_slice = pred_det[..., xyzg].contiguous()
+            gt_slice = gt_det[..., xyzg].contiguous()
 
             metrics[f"Valid/{pred_key}_detok_paired_mse_avg"] = mse(
                 pred_slice, gt_slice
             )
             metrics[f"Valid/{pred_key}_detok_final_mse_avg"] = mse(
-                pred_slice[:, -1], gt_slice[:, -1]
+                pred_slice[:, -1].contiguous(), gt_slice[:, -1].contiguous()
             )
             # After the ``xyzg`` slice above, the 8 columns are laid out
             # as ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``. Splitting
@@ -210,10 +215,12 @@ class ArcTokEvalVideo(HPTEvalVideo):
             xyz_slots = [0, 1, 2, 4, 5, 6]
             grip_slots = [3, 7]
             metrics[f"Valid/{pred_key}_detok_xyz_mse_avg"] = mse(
-                pred_slice[..., xyz_slots], gt_slice[..., xyz_slots]
+                pred_slice[..., xyz_slots].contiguous(),
+                gt_slice[..., xyz_slots].contiguous(),
             )
             metrics[f"Valid/{pred_key}_detok_gripper_mse_avg"] = mse(
-                pred_slice[..., grip_slots], gt_slice[..., grip_slots]
+                pred_slice[..., grip_slots].contiguous(),
+                gt_slice[..., grip_slots].contiguous(),
             )
 
         return metrics, images_dict
