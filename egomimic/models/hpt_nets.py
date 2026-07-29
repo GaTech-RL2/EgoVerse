@@ -187,9 +187,9 @@ class BlockWithMasking(nn.Module):
     ):
         super().__init__()
 
-        assert not isinstance(attn_target, nn.Module), (
-            "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
-        )
+        assert not isinstance(
+            attn_target, nn.Module
+        ), "attn_target should be a Callable. Otherwise attn_target is shared across blocks!"
         self.attn = attn_target()
         if drop_path > 0.0:
             self.drop_path = DropPath(drop_path)
@@ -540,10 +540,17 @@ class MLPPolicyStem(PolicyStem):
         tanh_end: bool = False,
         ln: bool = True,
         num_of_copy: int = 1,
+        input_slice=None,
         **kwargs,
     ) -> None:
         """vanilla MLP class"""
         super().__init__(**kwargs)
+        # input_slice [start,end]: use only a feature sub-range (e.g.
+        # [0,2] = pusher xy, dropping object pose). input_dim == end-start.
+        self.input_slice = (
+            slice(int(input_slice[0]), int(input_slice[1]))
+            if input_slice is not None else None
+        )
         modules = [nn.Linear(input_dim, widths[0]), nn.SiLU()]
 
         for i in range(len(widths) - 1):
@@ -571,6 +578,8 @@ class MLPPolicyStem(PolicyStem):
         Returns:
             Flatten tensor with shape [B, M, 512]
         """
+        if getattr(self, "input_slice", None) is not None:
+            x = x[..., self.input_slice]
         if self.num_of_copy > 1:
             out = []
             iter_num = min(self.num_of_copy, x.shape[1])
@@ -650,10 +659,10 @@ class ResNet(PolicyStem):
                 out.append(net(input))
             feat = torch.stack(out, dim=1)
         else:
-            x = x.view(-1, 3, H, W)
+            x = x.reshape(-1, 3, H, W)
             feat = self.net(x)
         # concat along time
-        feat = feat.view(B, feat.shape[1], -1).transpose(1, 2)
+        feat = feat.reshape(B, feat.shape[1], -1).transpose(1, 2)
         feat = self.proj(feat)
         return feat
 
