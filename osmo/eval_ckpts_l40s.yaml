@@ -51,6 +51,12 @@ workflow:
       # Latest epoch present in BOTH runs' checkpoint sets, so the matched
       # comparison lands first instead of at the end of the sweep.
       FIRST_CKPT: "{{first_ckpt}}"
+      # Smoke mode: N>0 caps each resolver at N episodes, so the pull is
+      # seconds instead of ~60min for 141GB. The metric is meaningless at
+      # N=4 -- the point is to exercise checkpoint load -> evaluator ->
+      # trainer.validate -> eval_metrics.json -> R2 push before paying for a
+      # real sweep. Set 0 for the real run.
+      DEBUG_EPISODES: "{{debug_episodes}}"
       WORKDIR: /workspace
       DATASET_DIR: /workspace/arc_tests
       HYDRA_FULL_ERROR: "1"
@@ -125,6 +131,19 @@ workflow:
         # first validation step. eval_arctok.yaml already nulls these; eval_hpt
         # does not, so the overrides above do it on the command line.
 
+        # `debug` is not a key in the resolver config block, so it must be
+        # ADDED with a leading '+'. Without it hydra raises
+        # "Key 'debug' is not in struct".
+        DBG=""
+        if [ "${DEBUG_EPISODES:-0}" -gt 0 ] 2>/dev/null; then
+          for split in train valid; do
+            for emb in human_bimanual eva_bimanual; do
+              DBG="$DBG +data.${split}_datasets.${emb}.resolver.debug=${DEBUG_EPISODES}"
+            done
+          done
+          echo "SMOKE MODE: capping each resolver at ${DEBUG_EPISODES} episodes"
+        fi
+
         RESULTS=/workspace/eval_results
         mkdir -p "$RESULTS"
 
@@ -184,6 +203,7 @@ workflow:
             data.valid_dataloader_params.human_bimanual.num_workers=4 \
             data.valid_dataloader_params.eva_bimanual.num_workers=4 \
             hydra.run.dir="/workspace/evalruns/$TAG" \
+            $DBG \
             name="eval_${SRC_RUN}" description="$TAG"
           RC=$?
           set -e
