@@ -422,11 +422,19 @@ class Human(Embodiment):
             )
 
             base = _build_human_cartesian_bimanual_transform_list(stride=stride)
+            # dt MUST reflect the stride: the action chunk is subsampled by
+            # ``actions[::stride]`` (action_chunk_transforms.py:78), so
+            # consecutive samples are stride/30 s apart, not 1/30. Leaving the
+            # tokenizer's 1/30 default inflates the velocity channel by exactly
+            # ``stride`` (measured 3.00x on real stride=3 data). It cancels
+            # inside tokenize->detokenize, but it is what the model learns and
+            # what a deployed policy would command, so it must be right.
             tokenize = TokenizeBimanualArcLengthCartesian(
                 action_key="actions_cartesian",
                 output_action_key="actions_cartesian",
                 min_distance_unit=float(min_distance_unit),
                 resampled_vector_length=int(resampled_vector_length),
+                dt=float(stride) / 30.0,
             )
             return base + [
                 PadGripperZeros(action_key="actions_cartesian"),
