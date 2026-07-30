@@ -1,0 +1,12 @@
+defaults:
+  - hpt_cotrain_mecka_flow_shared_head_arc
+
+# D x M sweep: M=15 waypoints + 1 velocity token = 16 sequence slots,
+# each 8-dim [Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]. act_seq MUST equal M+1
+# or ArcTokEvalVideo._detokenize_batch raises on the token-count check.
+robomimic_model:
+  head_specs:
+    shared:
+      action_horizon: 16
+      model:
+        act_seq: 16
