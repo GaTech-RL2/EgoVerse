@@ -54,6 +54,8 @@ workflow:
       NUM_GPU: "{{num_gpu}}"
       BATCH_SIZE: "{{batch_size}}"
       NUM_WORKERS: "{{num_workers}}"
+      # Sweep runs cap epochs to rank configs without paying the full 2000.
+      MAX_EPOCHS: "{{max_epochs}}"
       # logger/wandb.yaml hardcodes entity rl2-group (the Georgia Tech team).
       # An API key that lacks access to it fails at wandb.init() with
       # "CommError: permission denied" — after the dataset pull and norm-stats
@@ -177,6 +179,7 @@ workflow:
           data.valid_dataloader_params.human_bimanual.num_workers="$NUM_WORKERS" \
           data.valid_dataloader_params.eva_bimanual.num_workers="$NUM_WORKERS" \
           logger.wandb.entity="$WANDB_ENTITY" \
+          trainer.max_epochs="$MAX_EPOCHS" trainer.min_epochs="$MAX_EPOCHS" \
           name="$RUN_NAME" description="$RUN_DESC"
 
   # groot-l40s-03 nodes are 126 CPU / 988Gi mem / 3163Gi storage / 8 GPU, but
@@ -189,10 +192,10 @@ workflow:
   # matched the emptiest few and cost ~6-8 min of queueing per submission.
   resources:
     default:
-      cpu: 80
+      cpu: {{cpu}}
       gpu: {{num_gpu}}
-      memory: 700Gi
-      storage: 400Gi
+      memory: {{memory}}
+      storage: {{storage}}
 
   timeout:
     queue_timeout: 1d
