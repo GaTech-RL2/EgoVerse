@@ -1,0 +1,13 @@
+defaults:
+  - hpt_cotrain_mecka_flow_shared_head_arc
+
+# Overrides for the arc_tests_cotrain_arctok_D40_M25.yaml data pipeline
+# (D=40cm, M=25). Sequence length = M+1 = 26 slots (25 waypoints + 1 velocity
+# token), each 8-dim [Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]. Total action
+# tensor shape per sample: (26, 8).
+robomimic_model:
+  head_specs:
+    shared:
+      action_horizon: 26
+      model:
+        act_seq: 26
