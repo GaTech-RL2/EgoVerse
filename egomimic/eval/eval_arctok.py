@@ -122,6 +122,17 @@ class ArcTokEvalVideo(HPTEvalVideo):
             # dims for mode='traj'.
         return torch.from_numpy(out).to(arc_tensor.device, dtype=arc_tensor.dtype)
 
+    def _arc_match_source(self, tensor):
+        """Arc tokens are (B, M+1, 8); detokenize to the canonical (B, H, 14)
+        cartesian chunk so the inherited arc-matched metric resamples the same
+        representation the baseline does."""
+        if tensor is None:
+            return None
+        t = tensor if isinstance(tensor, torch.Tensor) else torch.as_tensor(tensor)
+        if t.ndim == 3 and t.shape[-1] == ARC_TOK_BIMANUAL_DIM:
+            return self._detokenize_batch(t)
+        return t
+
     def _visualize_preds(self, predictions, batch):
         if self.viz_func is None:
             raise ValueError("viz_func is not set")
