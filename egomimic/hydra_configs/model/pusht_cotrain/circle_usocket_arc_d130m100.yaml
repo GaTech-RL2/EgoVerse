@@ -1,0 +1,64 @@
+defaults:
+  - pusht_arc/base@_here_
+
+# D=130 px / M=100 arc-tok cotrain across TWO PushShapes pushers:
+#   pushshapes_sim            -> circle,   tokens (101, 3) with theta = 0
+#   pushshapes_sim_u_socket   -> u_socket, tokens (101, 3)
+#
+# Sequence = M+1 = 101 slots (100 arc waypoints + 1 velocity token), each 3-D.
+# Circle is zero-padded to 3-D BEFORE tokenizing (see the data config), so its
+# theta column is zero in both the waypoints and the velocity token. After
+# normalization that constant column has zero variance and contributes no
+# gradient to the shared head's theta output — theta is learned from u_socket
+# alone. State is NOT padded: the domains keep separate proprio stems (5-D
+# circle, 6-D u_socket); only the trunk and head are shared.
+#
+# D=130 and M=100 must match data/pushshapes/cotrain/circle_usocket_arc_d130m100
+# and evaluator/hpt/pusht_cotrain_arc_d130m100. These numbers are NOT comparable
+# to the D=100/M=40 cotrain run — different arc span, different resolution.
+eef_name: "circle+u_socket"
+
+robomimic_model:
+  arc_tok:
+    min_distance_unit: 130.0
+
+  domains: ["pushshapes_sim", "pushshapes_sim_u_socket"]
+
+  ac_keys:
+    pushshapes_sim: "actions"
+    pushshapes_sim_u_socket: "actions"
+  shared_ac_key: "actions"
+
+  trunk:
+    action_horizon: 101
+
+  stem_specs:
+    pushshapes_sim:
+      state_agent_obj:
+        input_dim: 5
+    pushshapes_sim_u_socket:
+      state_agent_obj:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 6
+        output_dim: 128
+        widths: [128]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 128
+
+  head_specs:
+    pushshapes_sim: null
+    pushshapes_sim_u_socket: null
+    shared:
+      action_horizon: 101
+      infer_ac_dims:
+        pushshapes_sim: 3
+        pushshapes_sim_u_socket: 3
+      model:
+        act_dim: 3
+        act_seq: 101

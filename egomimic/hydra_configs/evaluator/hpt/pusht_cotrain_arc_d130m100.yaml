@@ -1,0 +1,25 @@
+# Val-batch overlay + arc-matched metric for the D=130 px / M=100 cotrain run.
+#
+# Per-domain viz_func entries are REQUIRED: viz_func is keyed by embodiment
+# name, so a cotrain run without both entries raises a KeyError on the first
+# validation pass. viz_gt_preds_arc infers M from the chunk (M+1 slots), so it
+# needs no per-grid wiring.
+#
+# All three values track the tokenizer in
+# data/pushshapes/cotrain/circle_usocket_arc_d130m100.yaml:
+#   arc_match_distance <- min_distance_unit       (130.0)
+#   arc_match_points   <- resampled_vector_length (100)
+#   arc_tok_points     <- resampled_vector_length (100)  [velocity-token strip]
+_target_: egomimic.eval.hpt.eval_hpt.PushShapesArcEvalVideo
+limit_val_batches: 4
+max_videos: 2
+arc_match_distance: 130.0
+arc_match_points: 100
+arc_tok_points: 100
+viz_func:
+  pushshapes_sim:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds_arc
+  pushshapes_sim_u_socket:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds_arc

@@ -107,6 +107,7 @@ def _append_arc_tokenizer(
     *,
     min_distance_unit: float,
     resampled_vector_length: int,
+    dt: float | None = None,
     action_key: str = "actions_cartesian",
 ) -> list[Transform]:
     """Splice the arc-length tokenizer in before the final NumpyToTensor.
@@ -118,11 +119,13 @@ def _append_arc_tokenizer(
         TokenizeBimanualArcLengthCartesian,
     )
 
+    kwargs = {} if dt is None else {"dt": float(dt)}
     tokenize = TokenizeBimanualArcLengthCartesian(
         action_key=action_key,
         output_action_key=action_key,
         min_distance_unit=float(min_distance_unit),
         resampled_vector_length=int(resampled_vector_length),
+        **kwargs,
     )
     for i in range(len(transform_list) - 1, -1, -1):
         if isinstance(transform_list[i], NumpyToTensor):

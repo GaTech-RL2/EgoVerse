@@ -1,0 +1,38 @@
+# Closed-loop sim rollout for the TIME-CHUNKED (non-arc) HPT baseline.
+#
+# Unlike evaluator/hpt/pusht.yaml (a teacher-forced overlay on GT frames), this
+# one drives PushShapesEnv: predict a 32-action chunk, execute it one action per
+# env step, re-plan, repeat. Metrics are Valid/emb*_sim_coverage (goal IoU) and
+# Valid/emb*_sim_success_rate.
+#
+# pusher_shape MUST match the run's dataset: circle | circle_small | u_socket.
+# For u_socket the evaluator switches itself to the 6-D state / 3-D action
+# layout (state_layout=auto reads pusher_shape).
+_target_: egomimic.eval.core.eval_sim.HPTSimEval
+
+# One rollout per val-batch row; 25 rollouts estimates coverage well enough
+# without the val pass dominating training time.
+limit_val_batches: 25
+max_videos: 4
+embodiment_name: pushshapes_sim
+
+# seeds: identical inits across runs (arc vs nonarc), which replay cannot
+# guarantee — each run replays its OWN val episodes.
+init_mode: seeds
+init_seeds: [1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008, 1009,
+             1010, 1011, 1012, 1013, 1014, 1015, 1016, 1017, 1018, 1019,
+             1020, 1021, 1022, 1023, 1024]
+
+max_steps: 600
+rollout_timeout_s: 600
+report_max_coverage: true       # peak IoU: "did it ever align?"
+coverage_threshold: 0.95
+run_full_horizon: true          # uniform-length rollouts -> uncapped true peak
+video_fps: 30
+viz_func: null
+
+env_kwargs:
+  object_shape: T
+  pusher_shape: circle
+  obstacle_level: 0
+  image_size: 96
