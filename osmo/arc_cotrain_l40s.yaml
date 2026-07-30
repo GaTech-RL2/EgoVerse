@@ -56,6 +56,7 @@ workflow:
       NUM_WORKERS: "{{num_workers}}"
       # Sweep runs cap epochs to rank configs without paying the full 2000.
       MAX_EPOCHS: "{{max_epochs}}"
+      JOB_NAME: "{{job_name}}"
       # logger/wandb.yaml hardcodes entity rl2-group (the Georgia Tech team).
       # An API key that lacks access to it fails at wandb.init() with
       # "CommError: permission denied" — after the dataset pull and norm-stats
@@ -135,6 +136,35 @@ workflow:
 
         mkdir -p "$DATASET_DIR"
 
+        # ------------------------------------------------ checkpoint persistence
+        # ModelCheckpoint writes to ${paths.output_dir}/checkpoints inside
+        # /workspace, which is node-local and ephemeral, and this workflow
+        # declares no outputs -- so checkpoints die with the container. Two
+        # completed 20h runs were lost that way. Push them to R2 continuously.
+        cat > /tmp/ckpt_sync.sh <<'CSEOF'
+        #!/bin/bash
+        set -a; source "$HOME/.egoverse_env"; set +a
+        export AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
+        export AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
+        export AWS_DEFAULT_REGION=auto AWS_REGION=auto
+        DEST="s3://rldb/staged/arc_ckpts/$1"
+        while true; do
+          for d in $(find /workspace/EgoVerse/logs -type d -name checkpoints 2>/dev/null); do
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 sync "$d/" "$DEST/checkpoints/" >>/tmp/ckpt_sync.log 2>&1
+          done
+          for f in $(find /workspace/EgoVerse/logs -name norm_stats.json 2>/dev/null); do
+            s5cmd --endpoint-url "$R2_ENDPOINT_URL" cp "$f" "$DEST/norm_stats.json" >>/tmp/ckpt_sync.log 2>&1
+          done
+          sleep 420
+        done
+        CSEOF
+        chmod +x /tmp/ckpt_sync.sh
+        (setsid nohup /tmp/ckpt_sync.sh "$JOB_NAME" >/dev/null 2>&1 &)
+
+        # DataLoader workers exhaust the default FD limit under load; two sweep
+        # cells died with "Too many open files" in the norm-stats phase.
+        ulimit -n 65536 || true
+
         # --------------------------------------------- phase 1: norm stats (1 GPU)
         # Also does the dataset download: S3EpisodeResolver.resolve() syncs into
         # paths.dataset_dir, and phase 2 then finds every episode already present.
@@ -181,6 +211,13 @@ workflow:
           logger.wandb.entity="$WANDB_ENTITY" \
           trainer.max_epochs="$MAX_EPOCHS" trainer.min_epochs="$MAX_EPOCHS" \
           name="$RUN_NAME" description="$RUN_DESC"
+
+        # Final flush: the periodic loop may be mid-sleep when training ends.
+        bash -c 'set -a; source "$HOME/.egoverse_env"; set +a
+          AWS_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" AWS_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY" \
+          AWS_DEFAULT_REGION=auto s5cmd --endpoint-url "$R2_ENDPOINT_URL" --numworkers 32 \
+          sync /workspace/EgoVerse/logs/*/*/checkpoints/ "s3://rldb/staged/arc_ckpts/'"$JOB_NAME"'/checkpoints/"' || true
+        echo "final checkpoint flush done"
 
   # groot-l40s-03 nodes are 126 CPU / 988Gi mem / 3163Gi storage / 8 GPU, but
   # per-node free capacity varies a lot, so these are sized to fit most nodes
