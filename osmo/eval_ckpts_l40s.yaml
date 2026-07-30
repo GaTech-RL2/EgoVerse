@@ -67,6 +67,13 @@ workflow:
       # '+' to be ADDED -- plain override raises "Key 'limit_val_batches' is
       # not in struct".
       EVAL_BATCHES: "{{eval_batches}}"
+      # Arc-matched metric: compare only the sub-trajectory covering the same
+      # DISTANCE on both sides. A baseline 100-step chunk travels ~10x further
+      # than an arc token's span (measured 1.89m vs 0.19m on real human data),
+      # so the default per-timestep MSE scores the two over different amounts
+      # of motion. Set the SAME values for baseline and arc-tok.
+      ARC_MATCH_D: "{{arc_match_d}}"
+      ARC_MATCH_M: "{{arc_match_m}}"
       WORKDIR: /workspace
       DATASET_DIR: /workspace/arc_tests
       HYDRA_FULL_ERROR: "1"
@@ -200,6 +207,8 @@ workflow:
             model="$MODEL_CFG" \
             evaluator="$EVALUATOR_CFG" \
             +evaluator.limit_val_batches="$EVAL_BATCHES" \
+            +evaluator.arc_match_distance="$ARC_MATCH_D" \
+            +evaluator.arc_match_points="$ARC_MATCH_M" \
             'evaluator.viz_func.eva_bimanual.annotation_key=null' \
             'evaluator.viz_func.human_bimanual.annotation_key=null' \
             'evaluator.viz_func.human_right_arm.annotation_key=null' \
