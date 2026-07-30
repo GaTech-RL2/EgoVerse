@@ -1,14 +1,83 @@
 import copy
 
+import numpy as np
 import torch
 from torchmetrics import MeanSquaredError
 
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
+from egomimic.rldb.zarr.arc_length_tokenizer import (
+    cumulative_arc_length,
+    resample_by_distance,
+)
 from egomimic.utils.egomimicUtils import (
     frechet_gaussian_over_time,
     reverse_kl_from_samples,
 )
+
+# Canonical (T, 14) bimanual cartesian layout: [L xyz ypr grip | R xyz ypr grip]
+_ARM_SLOTS = ((0, 3, 6), (7, 10, 13))  # (xyz_start, ypr_start, grip_idx) per arm
+
+
+def arc_matched_resample(traj: np.ndarray, distance: float, num_points: int):
+    """Resample one (T, 14) cartesian chunk to ``num_points`` samples spaced
+    uniformly in ARC LENGTH over the first ``distance`` metres of travel.
+
+    This is the comparison the arc-token variant is implicitly making: its M
+    waypoints already are "where is the arm after travelling s metres". A
+    time-indexed baseline predicting 100 steps covers a different amount of
+    motion (measured: 0.67m for human vs the arc variant's 0.20m), so a raw
+    per-timestep MSE compares the two over different distances and is not
+    meaningful. Resampling both onto the same (distance, num_points) arc grid
+    makes them directly comparable.
+
+    Each arm uses its OWN cumulative arc length, matching the tokenizer, which
+    gives each arm an independent arc parameterisation. When an arm travels
+    less than ``distance`` in the chunk, the grid is clamped to what it did
+    travel, so a short trajectory is compared over its full extent rather than
+    being padded with a held endpoint.
+
+    Returns (num_points, 8): [Lxyz, Lgrip, Rxyz, Rgrip].
+    """
+    traj = np.asarray(traj, dtype=np.float64)
+    out = np.zeros((num_points, 8), dtype=np.float64)
+    for arm, (xs, ys, gi) in enumerate(_ARM_SLOTS):
+        pos = traj[:, xs : xs + 3]
+        ypr = traj[:, ys : ys + 3]
+        grip = traj[:, gi : gi + 1]
+        cum = cumulative_arc_length(pos)
+        end_s = float(min(distance, cum[-1]))
+        p, _, g = resample_by_distance(
+            pos, ypr, grip, cum, 0.0, end_s, num_points, start_idx=0
+        )
+        out[:, arm * 4 : arm * 4 + 3] = p
+        out[:, arm * 4 + 3] = g[:, 0]
+    return out
+
+
+def arc_matched_mse(pred, gt, distance: float, num_points: int, mse):
+    """Batched arc-matched MSE between two (B, T, 14) cartesian chunks.
+
+    Returns (paired_mse, xyz_mse) or (None, None) when nothing is comparable.
+    """
+    pred = pred.detach().cpu().numpy() if torch.is_tensor(pred) else np.asarray(pred)
+    gt = gt.detach().cpu().numpy() if torch.is_tensor(gt) else np.asarray(gt)
+    if pred.ndim != 3 or gt.ndim != 3 or pred.shape[-1] < 14 or gt.shape[-1] < 14:
+        return None, None
+    B = min(pred.shape[0], gt.shape[0])
+    ps, gs = [], []
+    for b in range(B):
+        ps.append(arc_matched_resample(pred[b], distance, num_points))
+        gs.append(arc_matched_resample(gt[b], distance, num_points))
+    if not ps:
+        return None, None
+    P = torch.from_numpy(np.stack(ps)).float().contiguous()
+    G = torch.from_numpy(np.stack(gs)).float().contiguous()
+    xyz = [0, 1, 2, 4, 5, 6]
+    return (
+        mse(P, G),
+        mse(P[..., xyz].contiguous(), G[..., xyz].contiguous()),
+    )
 
 
 class HPTEvalVideo(EvalVideo):
@@ -22,6 +91,15 @@ class HPTEvalVideo(EvalVideo):
     The revert transform is applied once and reused by both the cam-frame MSE
     and the viz video.
     """
+
+    def _arc_match_source(self, tensor):
+        """Cartesian (B, T, 14) chunk the arc-matched metric resamples.
+
+        Time-indexed models already emit that layout. ArcTokEvalVideo overrides
+        this to detokenize its (B, M+1, 8) arc tokens first, so both variants
+        feed the SAME function and the comparison is like for like.
+        """
+        return tensor
 
     def compute_metrics_and_viz(self, batch):
         algo = self.model
@@ -45,6 +123,24 @@ class HPTEvalVideo(EvalVideo):
                     total_loss = torch.zeros_like(loss_val)
                 total_loss = total_loss + loss_val
                 n_loss_embodiments += 1
+
+            # Arc-matched MSE: compare only the sub-trajectory covering the
+            # same distance the arc variant's tokens span. See
+            # arc_matched_resample() for why raw per-timestep MSE is not
+            # comparable across the two action spaces.
+            if self.arc_match_distance:
+                pk = f"{embodiment_name}_{ac_key}"
+                if pk in preds and preds[pk] is not None and ac_key in _batch:
+                    am_p, am_x = arc_matched_mse(
+                        self._arc_match_source(preds[pk]),
+                        self._arc_match_source(_batch[ac_key]),
+                        self.arc_match_distance,
+                        self.arc_match_points,
+                        mse,
+                    )
+                    if am_p is not None:
+                        metrics[f"Valid/{pk}_arcmatch_paired_mse_avg"] = am_p
+                        metrics[f"Valid/{pk}_arcmatch_xyz_mse_avg"] = am_x
 
             if f"{embodiment_name}_{ac_key}" in preds and ac_key != algo.shared_ac_key:
                 metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(

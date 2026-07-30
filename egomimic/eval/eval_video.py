@@ -20,11 +20,24 @@ class EvalVideo(Eval):
         limit_val_batches: int = 400,
         viz_func: dict = None,
         transform_lists: dict | None = None,
+        arc_match_distance: float | None = None,
+        arc_match_points: int = 15,
     ):
         super().__init__()
         self.trainer = None
         self.model = None
         self.viz_func = viz_func
+        # When set, additionally report MSE over the sub-trajectory covering
+        # the first ``arc_match_distance`` metres of travel, resampled to
+        # ``arc_match_points`` samples spaced uniformly in arc length. A
+        # time-indexed baseline's 100 steps and an arc variant's M waypoints
+        # cover different distances (0.67m vs 0.20m for human), so the default
+        # per-timestep MSE compares them over different amounts of motion.
+        # Set the SAME values on both evaluators to compare like for like.
+        self.arc_match_distance = (
+            float(arc_match_distance) if arc_match_distance else None
+        )
+        self.arc_match_points = int(arc_match_points)
         # Per-embodiment list[Transform] applied once during eval to project
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
