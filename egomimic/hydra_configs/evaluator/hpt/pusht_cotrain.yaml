@@ -1,0 +1,23 @@
+# Val-batch overlay for the circle + u_socket cotrain run (time-chunked).
+#
+# viz_func is keyed by EMBODIMENT NAME, so a cotrain run needs one entry per
+# domain or the second domain raises a KeyError at the first validation pass.
+# Both use viz_gt_preds, which branches on the action's last dim: the circle
+# domain is zero-padded to 3-D so it draws heading ticks that all point the
+# same way (theta = 0) — expected, and a useful visual confirmation that the
+# padding really is constant rather than leaking a learned angle.
+#
+# The arc-matched metric is on with the same D/M as every other pusht run, so
+# cotrain numbers sit on the same axis as the single-pusher baselines.
+_target_: egomimic.eval.hpt.eval_hpt.HPTEvalVideo
+limit_val_batches: 4
+max_videos: 2
+arc_match_distance: 100.0
+arc_match_points: 40
+viz_func:
+  pushshapes_sim:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+  pushshapes_sim_u_socket:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds

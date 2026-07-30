@@ -435,10 +435,19 @@ class Human(Embodiment):
         if action_mode == "arc_tokenizer_cartesian":
             from egomimic.rldb.embodiment.eva import _append_arc_tokenizer
 
+            # dt MUST reflect the stride: the action chunk is subsampled by
+            # ``actions[::stride]`` (action_chunk_transforms.py), so consecutive
+            # samples are stride/30 s apart, not 1/30. Leaving the tokenizer's
+            # 1/30 default inflates the velocity channel by exactly ``stride``
+            # (measured 3.00x on real stride=3 data). It cancels inside
+            # tokenize->detokenize, but it is what the model learns and what a
+            # deployed policy would command, so it must be right. Eva is
+            # unstrided and keeps the 1/30 default.
             return _append_arc_tokenizer(
                 transform_list,
                 min_distance_unit=min_distance_unit,
                 resampled_vector_length=resampled_vector_length,
+                dt=float(stride) / 30.0,
             )
         return transform_list
 
