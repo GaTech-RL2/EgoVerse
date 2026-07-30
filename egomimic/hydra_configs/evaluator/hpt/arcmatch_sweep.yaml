@@ -1,0 +1,26 @@
+# Checkpoint sweep that rescores a finished pushshapes run under the
+# arc-matched metric (see egomimic/eval/hpt/eval_arcmatch_sweep.py).
+#
+# D and M MUST match the arc run's tokenizer (data/pushshapes/pusht/circle_arc
+# uses min_distance_unit=100.0, resampled_vector_length=40) — otherwise the
+# baseline gets tokenized onto a different grid than the arc variant's targets
+# and the comparison breaks in the same way it did before.
+#
+# Set checkpoint_dir + wandb_run_name per launch. Used with mode=eval, which
+# routes through the evaluator's run() hook and nulls the hydra logger.
+_target_: egomimic.eval.hpt.eval_arcmatch_sweep.ArcMatchSweepEval
+
+# Full val pass per checkpoint. 80 batches x 128 = ~10k samples.
+limit_val_batches: 80
+max_videos: 0
+viz_func: null
+
+arc_match_distance: 100.0
+arc_match_points: 40
+arc_tok_points: 40
+
+checkpoint_dir: ???
+wandb_project: arc
+wandb_entity: rl2-group
+wandb_run_name: null
+include_last: false
