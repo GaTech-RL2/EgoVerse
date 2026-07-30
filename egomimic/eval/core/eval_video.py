@@ -22,6 +22,8 @@ class EvalVideo(Eval):
         viz_func: dict = None,
         transform_lists: dict | None = None,
         max_videos: int | None = None,
+        arc_match_distance: float | None = None,
+        arc_match_points: int = 15,
         video_chunk_frames: int = 1000,
         max_episode_frames: int = 6000,
     ):
@@ -31,6 +33,17 @@ class EvalVideo(Eval):
         # = no cap. Each sub-eval reads this in its per-episode loop to
         # truncate B -> min(B, max_videos) so output panels stay short.
         self.max_videos = int(max_videos) if max_videos is not None else None
+        # When set, additionally report MSE over the sub-trajectory covering
+        # the first ``arc_match_distance`` metres of travel, resampled to
+        # ``arc_match_points`` samples spaced uniformly in arc length. A
+        # time-indexed baseline's 100 steps and an arc variant's M waypoints
+        # cover different distances (0.67m vs 0.20m for human), so the default
+        # per-timestep MSE compares them over different amounts of motion.
+        # Set the SAME values on both evaluators to compare like for like.
+        self.arc_match_distance = (
+            float(arc_match_distance) if arc_match_distance else None
+        )
+        self.arc_match_points = int(arc_match_points)
         # Frames per file on the LEGACY path only -- batches that arrive
         # without `episode_hash` still flush a fresh file every this many
         # frames. Episode-aware batches ignore it and cut on episode
