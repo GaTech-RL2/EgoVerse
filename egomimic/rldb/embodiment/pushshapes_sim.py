@@ -38,8 +38,25 @@ def _env_to_zarr_pushshapes(obs_env: dict, device: torch.device) -> dict:
     }
 
 
+def _env_to_zarr_pushshapes_usocket(obs_env: dict, device: torch.device) -> dict:
+    """u_socket variant: state_agent_obj (1, 6) = concat(pusher_xy, pusher_angle,
+    obj_xyangle) -- matches the u_socket training zarr layout, where the emb-19
+    obs spec slices [0:3] = pusher (x, y, theta). The generic 5-dim converter
+    would silently feed (x, y, obj_x) into that slice."""
+    state_6 = np.concatenate(
+        [obs_env["agent_pos"], obs_env["agent_angle"], obs_env["object_pose"]],
+        axis=0,
+    ).astype(np.float32)
+    image_chw = np.transpose(obs_env["image"], (2, 0, 1)).astype(np.float32) / 255.0
+    return {
+        "state_agent_obj": torch.from_numpy(state_6).unsqueeze(0).to(device),
+        "front_img_1": torch.from_numpy(image_chw).unsqueeze(0).to(device),
+    }
+
+
 _ENV_TO_ZARR = {
     "pushshapes_sim": _env_to_zarr_pushshapes,
+    "pushshapes_sim:u_socket": _env_to_zarr_pushshapes_usocket,
 }
 
 
