@@ -45,6 +45,8 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.zarr._common import (
     decode_jpeg_single,
     decode_jpeg_window,
+    decode_jpeg_window_strided,
+    decode_video_span,
     decode_json_array,
     tag_embodiment,
     tensorize_float32,
@@ -219,11 +221,24 @@ class EpisodeResolver:
         key_map: dict | None = None,
         transform_list: list | None = None,
     ):
-        self.folder_path = Path(folder_path)
+        # folder_path accepts a SINGLE path (legacy, unchanged) or a LIST.
+        # Multi-folder lets a data yaml point at the real, separate source
+        # folders (in-domain + gen) rather than a merged symlink view.
+        if isinstance(folder_path, (list, tuple)) or type(folder_path).__name__ == "ListConfig":
+            self.folder_paths = [Path(p) for p in folder_path]
+        else:
+            self.folder_paths = [Path(folder_path)]
+        if not self.folder_paths:
+            raise ValueError("folder_path resolved to an empty list of folders.")
+        self.multi_folder = len(self.folder_paths) > 1
+        # Legacy attribute (first folder) so existing readers of .folder_path
+        # keep working untouched.
+        self.folder_path = self.folder_paths[0]
         self.key_map = key_map
         self.transform_list = transform_list
 
-    def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str]):
+    def _load_zarr_datasets(self, search_path: Path, valid_folder_names: set[str],
+                            key_prefix: str = ""):
         """
         Loads multiple Zarr datasets from the specified folder path, filtering only those whose hashes
         are present in the valid_folder_names set.
@@ -255,7 +270,7 @@ class EpisodeResolver:
                     key_map=self.key_map,
                     transform_list=self.transform_list,
                 )
-                datasets[name] = ds_obj
+                datasets[key_prefix + name] = ds_obj
             except Exception as e:
                 logger.error(f"Failed to load dataset at {p}: {e}")
                 skipped.append(p.name)
@@ -575,7 +590,16 @@ class LocalEpisodeResolver(EpisodeResolver):
                 logger.info("Debug mode: limiting to %d datasets.", k)
             filtered = filtered[:k]
 
-        logger.info("Local filtered paths: %s", filtered)
+        # Log the COUNT, not the list. Dumping every episode path wrote tens of
+        # MB per job start; across ~113k SLURM .out files that reached ~385 GB.
+        # Set EGOMIMIC_LOG_EPISODE_PATHS=1 to restore the full dump for debugging.
+        if os.environ.get("EGOMIMIC_LOG_EPISODE_PATHS"):
+            logger.info("Local filtered paths: %s", filtered)
+        else:
+            logger.info("Local filtered paths: %d episodes (first=%s, last=%s)",
+                        len(filtered),
+                        filtered[0][1] if filtered else "-",
+                        filtered[-1][1] if filtered else "-")
         return filtered
 
     def resolve(
@@ -593,21 +617,43 @@ class LocalEpisodeResolver(EpisodeResolver):
 
         filters = _ensure_dataset_filter(filters)
 
-        filtered_paths = self._get_local_filtered_paths(
-            self.folder_path, filters, debug=self.debug
-        )
-
-        valid_folder_names = {folder_name for _, folder_name in filtered_paths}
-        logger.info(f"Valid folder names: {valid_folder_names}")
-        if not valid_folder_names:
-            raise ValueError(
-                "No valid collection names from local filtering: "
-                "filters matched no episodes in the local directory."
+        datasets: dict = {}
+        per_folder_counts = []
+        for folder in self.folder_paths:
+            filtered_paths = self._get_local_filtered_paths(
+                folder, filters, debug=self.debug
             )
+            valid_folder_names = {folder_name for _, folder_name in filtered_paths}
+            if not valid_folder_names:
+                raise ValueError(
+                    "No valid collection names from local filtering: filters "
+                    f"matched no episodes in {folder}."
+                )
+            # Namespace keys per folder ONLY when merging several folders, so
+            # single-folder runs keep byte-identical bare keys.
+            key_prefix = f"{folder.name}__" if self.multi_folder else ""
+            found = self._load_zarr_datasets(
+                search_path=folder,
+                valid_folder_names=valid_folder_names,
+                key_prefix=key_prefix,
+            )
+            collisions = set(found) & set(datasets)
+            if collisions:
+                raise ValueError(
+                    f"Episode key collision across folders for {folder}: "
+                    f"{sorted(collisions)[:5]} -- namespacing failed."
+                )
+            datasets.update(found)
+            per_folder_counts.append((str(folder), len(found)))
 
-        datasets = self._load_zarr_datasets(
-            search_path=self.folder_path, valid_folder_names=valid_folder_names
-        )
+        if self.multi_folder:
+            logger.info(
+                "Multi-folder resolve: %s -> %d episodes total",
+                ", ".join(f"{p}={n}" for p, n in per_folder_counts),
+                len(datasets),
+            )
+        else:
+            logger.info(f"Valid folder names: {len(datasets)} episodes")
 
         return datasets
 
@@ -1434,6 +1480,21 @@ class ZarrDataset(torch.utils.data.Dataset):
         features = self.metadata.get("features", {})
         return {key for key, info in features.items() if info.get("dtype") == "jpeg"}
 
+    @property
+    def _video_keys(self) -> set:
+        """Image keys stored as CHUNKED H264 rather than per-frame JPEG.
+
+        These arrays are indexed by CHUNK, not frame -- a frame-range slice
+        would read the wrong elements entirely, so they need their own path.
+        """
+        features = self.metadata.get("features", {})
+        return {key for key, info in features.items()
+                if info.get("dtype") in ("h264", "avc", "video")}
+
+    def _video_meta(self, zarr_key: str) -> dict:
+        return (self.metadata.get("features", {})
+                .get(zarr_key, {}).get("video", {}) or {})
+
     def _detect_json_keys(self) -> set[str]:
         """
         Detect keys containing JSON-encoded bytes from metadata.
@@ -1458,21 +1519,63 @@ class ZarrDataset(torch.utils.data.Dataset):
             return json.loads(value)
         return value
 
-    def _load_annotations(self) -> list[dict]:
+    def _annotation_zarr_keys(self) -> list[str]:
+        """All LANGUAGE annotation arrays present in this episode.
+
+        The annotation ROLE is encoded in the key NAME (``annotations``,
+        ``annotations_task``, ``annotations_subtask``) — entries are plain
+        ``{"text", "start_idx", "end_idx"}`` spans with no level field.
+
+        Listed from the actual zarr STORE, not the ``features`` attrs: arrays
+        injected post-hoc (``ZarrWriter.append_annotations``) never updated
+        ``features``, so a metadata listing would silently miss them.
+
+        STRUCTURAL span keys that do NOT start with ``annotations`` (e.g.
+        ``fold_segments``) are deliberately EXCLUDED — they define training
+        windows, not language, and must not reach the batch as a text role.
         """
-        Load and cache decoded language annotations.
+        if getattr(self, "_annotation_keys_cache", None) is None:
+            try:
+                names = list(self.episode_reader._store.array_keys())
+            except Exception:
+                names = list(getattr(self, "keys_dict", []) or [])
+            self._annotation_keys_cache = sorted(
+                k for k in names if k.startswith("annotations")
+            )
+        return self._annotation_keys_cache
+
+    def _load_annotations(self, zarr_key: str = "annotations") -> list[dict]:
+        """
+        Load and cache decoded span annotations for ``zarr_key``.
 
         Expected format per entry:
             {"text": str, "start_idx": int, "end_idx": int}
+
+        ``zarr_key`` defaults to ``"annotations"`` so every pre-existing caller
+        is byte-identical. Cache is PER-KEY: the previous single-slot cache
+        would alias, returning the first-loaded key's spans for every other key.
+        An absent array yields ``[]`` rather than raising, so a structural key
+        missing on some episodes degrades to "no spans" instead of a crash.
         """
-        if self._annotations is not None:
+        cache = getattr(self, "_annotations_by_key", None)
+        if cache is None:
+            cache = self._annotations_by_key = {}
+        if zarr_key in cache:
+            return cache[zarr_key]
+        if zarr_key == "annotations" and self._annotations is not None:
+            cache[zarr_key] = self._annotations
             return self._annotations
-
-        raw = self.episode_reader._store["annotations"][:]
-
+        try:
+            raw = self.episode_reader._store[zarr_key][:]
+        except (KeyError, IndexError):
+            cache[zarr_key] = []
+            return cache[zarr_key]
         decoded = [self._decode_json_entry(x) for x in raw]
-        self._annotations = [d for d in decoded if isinstance(d, dict)]
-        return self._annotations
+        out = [d for d in decoded if isinstance(d, dict)]
+        cache[zarr_key] = out
+        if zarr_key == "annotations":
+            self._annotations = out
+        return out
 
     def _annotation_text_for_frame(self, frame_idx: int) -> str:
         """
@@ -1535,6 +1638,7 @@ class ZarrDataset(torch.utils.data.Dataset):
         end: int,
         *,
         episode_idx: int | None = None,
+        img_decode_stride: int = 1,
     ) -> dict:
         """Read a variable-length span ``[start, end)`` for every key in ``key_map``.
 
@@ -1581,10 +1685,23 @@ class ZarrDataset(torch.utils.data.Dataset):
             if key_type == "metadata_keys":
                 continue
 
+            if zarr_key in self._video_keys:
+                # Chunk-indexed: resolve frames -> chunks BEFORE any slice.
+                data[k] = decode_video_span(
+                    self.episode_reader._store[zarr_key],
+                    self._video_meta(zarr_key),
+                    start, end, stride=img_decode_stride,
+                )
+                continue
+
             arr = self.episode_reader.read({zarr_key: (start, end)})[zarr_key]
 
             if zarr_key in self._image_keys:
-                arr = decode_jpeg_window(arr)
+                # img_decode_stride>1: decode only the kept (every-stride-th)
+                # frames the strided model consumes; the rest are zero
+                # placeholders TargetBuilder discards. stride==1 == verbatim
+                # decode_jpeg_window (byte-identical default-OFF behaviour).
+                arr = decode_jpeg_window_strided(arr, img_decode_stride)
             elif zarr_key in self._json_keys:
                 arr = decode_json_array(arr, self._decode_json_entry)
 

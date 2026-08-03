@@ -17,11 +17,14 @@ ARCH runs + loss descends, which is the smoke's only goal):
 
   eva  : actions_cartesian (14) = [left.cmd_ee_pose(7), right.cmd_ee_pose(7)]
          observations.state.ee_pose (14) = [left.obs_ee_pose(7), right.obs_ee_pose(7)]
-  human: actions_keypoints (138) = [left wrist_ypr(6), left kp(63),
-                                     right wrist_ypr(6), right kp(63)]
-         observations.keypoints (138) = same as the action (teacher-forced)
+  human: actions_keypoints (132) = [left wrist_xyz(3), left kp(63),
+                                     right wrist_xyz(3), right kp(63)]
+         observations.keypoints (132) = same as the action (teacher-forced)
+         (was 138 with wrist ypr; dropped -- see HeadFrameWristPos)
          obs_head_pose (7) = raw head pose
 """
+
+import os
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -117,6 +120,38 @@ class HeadFrameWristYPR(Transform):
         return batch
 
 
+class HeadFrameWristPos(Transform):
+    """Head-frame wrist POSITION only -- xyz, no orientation (option B).
+
+    ``wrist`` (T,7) [or (7,)] xyz+quat(wxyz) -> (T,3) [or (3,)]:
+        t_wh = R_head^T @ (t_wrist - t_head)
+
+    Deliberately drops the ZYX-euler orientation that HeadFrameWristYPR emits:
+    those 3 dims/wrist are discontinuous (wrap at +-pi, gimbal lock at pitch
+    +-pi/2) and a diffusion model cannot represent the branch cut, which showed
+    up as ~80%% of the human action error concentrated in 12 of 138 dims.
+    Orientation remains recoverable from the 21 head-frame keypoints.
+    """
+
+    def __init__(self, head_key: str, wrist_key: str, out_key: str):
+        self.head_key = head_key
+        self.wrist_key = wrist_key
+        self.out_key = out_key
+
+    def transform(self, batch: dict) -> dict:
+        head = np.asarray(batch[self.head_key], dtype=np.float64)
+        wr = np.asarray(batch[self.wrist_key], dtype=np.float64)
+        single = head.ndim == 1
+        if single:
+            head, wr = head[None, :], wr[None, :]
+        t_head = head[:, :3]
+        R_head = _wxyz_to_matrix(head[:, 3:7])
+        R_headT = np.transpose(R_head, (0, 2, 1))
+        t_wh = np.einsum("tij,tj->ti", R_headT, wr[:, :3] - t_head)   # (T,3)
+        batch[self.out_key] = t_wh[0] if single else t_wh
+        return batch
+
+
 # --------------------------------------------------------------------------- #
 # eva_bimanual
 # --------------------------------------------------------------------------- #
@@ -176,28 +211,43 @@ def human_span_keymap(norm_mode: bool = False, annotation_key=None):
     return _drop_camera_keys(km) if norm_mode else km
 
 
+_WRIST_MODE = os.environ.get("RH_WRIST_MODE", "pos").lower()
+#: "ypr" -> 138 (legacy, wrist xyz+ypr) | "pos" -> 132 (wrist xyz) |
+#: "none" -> 126 (KEYPOINTS ONLY, no wrist pose)
+_WRIST = (HeadFrameWristYPR if _WRIST_MODE == "ypr"
+          else (None if _WRIST_MODE == "none" else HeadFrameWristPos))
+
+
 def human_span_transforms():
     # SPAN-SAFE HEAD-FRAME (fold2 FIX 2): keypoints + wrist expressed in each
     # frame's head frame (relative to obs_head_pose), matching the canonical
     # Aria "keypoints_headframe_ypr" representation but computed PER-FRAME so it
     # works on variable-length span reads AND the single-frame windowed probe.
-    #   action_keypoints (138) = [Lwrist_ypr(6), Lkp_hf(63), Rwrist_ypr(6), Rkp_hf(63)]
+    #   action_keypoints (132) = [Lwrist_xyz(3), Lkp_hf(63), Rwrist_xyz(3), Rkp_hf(63)]
     # (order matches _build_aria_keypoints_bimanual_transform_list). The action
     # is the teacher-forced per-frame head-frame state (obs == action here).
+    # RH_WRIST_MODE: ypr -> 138 (legacy wrist xyz+ypr) | pos -> 132 (wrist xyz)
+    # | none -> 126 (KEYPOINTS ONLY). 138 is needed to load pre-2026-07-30
+    # checkpoints, whose norm stats and per-emb codecs are keyed to it.
+    _wrist_ops = ([] if _WRIST is None else [
+        _WRIST("obs_head_pose", "left.obs_wrist_pose", "L_wrist_hf"),
+        _WRIST("obs_head_pose", "right.obs_wrist_pose", "R_wrist_hf"),
+    ])
+    _keys = (["L_kp_hf", "R_kp_hf"] if _WRIST is None
+             else ["L_wrist_hf", "L_kp_hf", "R_wrist_hf", "R_kp_hf"])
     return [
-        HeadFrameWristYPR("obs_head_pose", "left.obs_wrist_pose", "L_wrist_hf"),
-        HeadFrameWristYPR("obs_head_pose", "right.obs_wrist_pose", "R_wrist_hf"),
+        *_wrist_ops,
         HeadFrameKeypoints("obs_head_pose", "left.obs_keypoints", "L_kp_hf"),
         HeadFrameKeypoints("obs_head_pose", "right.obs_keypoints", "R_kp_hf"),
-        # action target (138): head-frame wrist-ypr + head-frame keypoints per hand.
+        # action target (132): head-frame wrist-xyz + head-frame keypoints per hand.
         ConcatKeys(
-            key_list=["L_wrist_hf", "L_kp_hf", "R_wrist_hf", "R_kp_hf"],
+            key_list=_keys,
             new_key_name="actions_keypoints",
             delete_old_keys=False,
         ),
-        # proprio obs (138): same head-frame layout; consumes the components.
+        # proprio obs (132): same head-frame layout; consumes the components.
         ConcatKeys(
-            key_list=["L_wrist_hf", "L_kp_hf", "R_wrist_hf", "R_kp_hf"],
+            key_list=_keys,
             new_key_name="state_keypoints",
             delete_old_keys=True,
         ),

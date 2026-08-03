@@ -76,6 +76,9 @@ class ZarrEpisodePackedDataset(Dataset):
         min_seq_len: int = 1,
         chunking: ChunkingMode = "sequential",
         max_resample_attempts: int | None = None,
+        img_decode_stride: int = 1,
+        annotation_key: str = "annotations",
+        span_indices: list[int] | None = None,
     ):
         if not datasets:
             raise ValueError("ZarrEpisodePackedDataset received an empty datasets dict")
@@ -83,12 +86,30 @@ class ZarrEpisodePackedDataset(Dataset):
             raise ValueError(f"min_seq_len must be >= 1, got {min_seq_len}")
         if chunking not in ("sequential", "none"):
             raise ValueError(f"Unknown chunking mode: {chunking}")
+        if int(img_decode_stride) < 1:
+            raise ValueError(
+                f"img_decode_stride must be >= 1, got {img_decode_stride}")
 
         self.datasets = datasets
         self.max_seq_len = max_seq_len
         self.min_seq_len = min_seq_len
         self.chunking = chunking
         self.max_resample_attempts = max_resample_attempts
+        # FREE decode-waste elimination: decode only every `img_decode_stride`-th
+        # frame per span (the frames a stride-`img_decode_stride` TargetBuilder
+        # keeps). 1 == OFF (decode all; byte-identical to the un-strided reader).
+        # MUST equal the pipeline TargetBuilder.stride for the fullep configs.
+        self.img_decode_stride = int(img_decode_stride)
+        # Which zarr array holds the span index. Default "annotations" keeps
+        # every pre-existing config byte-identical. STRUCTURAL segmentations
+        # (fold_segments) live outside the annotations* namespace so they never
+        # reach the batch as a language role -- they only define train windows.
+        self.annotation_key = str(annotation_key)
+        # Keep only these spans (per episode, in span order). None => all.
+        # Lets an overfit target ONE segmented demonstration out of an episode
+        # that holds many, without touching the shared zarr.
+        self.span_indices = (None if span_indices is None
+                             else sorted({int(i) for i in span_indices}))
 
         # Stable episode-index assignment: sorted by key.
         self._episode_keys: list[str] = sorted(datasets.keys())
@@ -146,6 +167,9 @@ class ZarrEpisodePackedDataset(Dataset):
         min_seq_len: int = 1,
         chunking: ChunkingMode = "sequential",
         max_resample_attempts: int | None = None,
+        img_decode_stride: int = 1,
+        annotation_key: str = "annotations",
+        span_indices: list[int] | None = None,
         **resolve_kwargs,
     ) -> "ZarrEpisodePackedDataset":
         """Build from an ``EpisodeResolver`` (mirrors ``MultiDataset._from_resolver``)."""
@@ -159,6 +183,9 @@ class ZarrEpisodePackedDataset(Dataset):
             min_seq_len=min_seq_len,
             chunking=chunking,
             max_resample_attempts=max_resample_attempts,
+            img_decode_stride=img_decode_stride,
+            annotation_key=annotation_key,
+            span_indices=span_indices,
         )
 
     @classmethod
@@ -173,6 +200,9 @@ class ZarrEpisodePackedDataset(Dataset):
         min_seq_len: int = 1,
         chunking: ChunkingMode = "sequential",
         max_resample_attempts: int | None = None,
+        img_decode_stride: int = 1,
+        annotation_key: str = "annotations",
+        span_indices: list[int] | None = None,
         filters=None,
     ) -> "ZarrEpisodePackedDataset":
         """Convenience factory that discovers all episodes under a local folder.
@@ -192,6 +222,9 @@ class ZarrEpisodePackedDataset(Dataset):
             min_seq_len=min_seq_len,
             chunking=chunking,
             max_resample_attempts=max_resample_attempts,
+            img_decode_stride=img_decode_stride,
+            annotation_key=annotation_key,
+            span_indices=span_indices,
             filters=filters,
         )
 
@@ -233,6 +266,7 @@ class ZarrEpisodePackedDataset(Dataset):
                     start,
                     end,
                     episode_idx=self._episode_idx_by_key[key],
+                    img_decode_stride=self.img_decode_stride,
                 )
             except Exception as e:
                 attempts += 1
@@ -282,12 +316,14 @@ class ZarrAnnotationSpanPackedDataset(ZarrEpisodePackedDataset):
         for key in self._episode_keys:
             ds = self.datasets[key]
             try:
-                anns = ds._load_annotations()
+                anns = ds._load_annotations(self.annotation_key)
             except Exception as e:
                 logger.warning(
                     "episode %s: annotations load failed (%s); skipping", key, e)
                 continue
             total_frames = int(ds.total_frames)
+            if self.span_indices is not None:
+                anns = [a for i, a in enumerate(anns) if i in set(self.span_indices)]
             for ann in anns:
                 start = max(int(ann.get("start_idx", -1)), 0)
                 end = min(int(ann.get("end_idx", -1)), total_frames)
