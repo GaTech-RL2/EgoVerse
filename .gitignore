@@ -55,6 +55,13 @@ sample_data/
 external_ckpts/
 external/MANO/
 
+# macOS
+.DS_Store
+# Downloaded eval artifacts (large binaries; source of truth is
+# s3://rldb/staged/arc_eval_videos/)
+osmo/val_videos/
+osmo/val_videos_v2/
+
 # Run artifacts. These land in the repo root because that is the working dir
 # slurm jobs are submitted from; none of it belongs in git. wandb/ especially:
 # it is where every run's local state accumulates, so an unguarded `git add -A`
