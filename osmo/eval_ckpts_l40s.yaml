@@ -243,6 +243,14 @@ workflow:
           fi
           # Push after each checkpoint so a later failure keeps earlier results.
           r2 sync "$RESULTS/" "s3://rldb/staged/arc_evals/${SRC_RUN}/" || true
+          # Validation videos live in the hydra run dir on ephemeral node-local
+          # disk. EvalVideo writes them per embodiment; without this they die
+          # with the container, same as the checkpoints did.
+          VID="/workspace/evalruns/$TAG/videos"
+          if [ -d "$VID" ]; then
+            r2 --numworkers 16 sync "$VID/" "s3://rldb/staged/arc_eval_videos/${SRC_RUN}/${TAG}/" || true
+            echo "synced $(find "$VID" -name '*.mp4' | wc -l) videos for $TAG"
+          fi
         done
 
         echo "=========================== SUMMARY ==========================="
