@@ -15,8 +15,16 @@ from egomimic.utils.egomimicUtils import (
     reverse_kl_from_samples,
 )
 
-# Canonical (T, 14) bimanual cartesian layout: [L xyz ypr grip | R xyz ypr grip]
-_ARM_SLOTS = ((0, 3, 6), (7, 10, 13))  # (xyz_start, ypr_start, grip_idx) per arm
+# Per-arm slot layouts, keyed by the chunk's last dim.
+#   14 = [L xyz ypr grip | R xyz ypr grip]  (eva, and the arc pipeline, which
+#        zero-pads gripper columns via PadGripperZeros)
+#   12 = [L xyz ypr | R xyz ypr]            (human under the plain cartesian
+#        pipeline — aria has no gripper and nothing pads it)
+# grip_idx is None when the layout carries no gripper.
+_ARM_SLOTS_BY_DIM = {
+    14: ((0, 3, 6), (7, 10, 13)),
+    12: ((0, 3, None), (6, 9, None)),
+}
 
 
 def arc_matched_resample(traj: np.ndarray, distance: float, num_points: int):
@@ -40,11 +48,20 @@ def arc_matched_resample(traj: np.ndarray, distance: float, num_points: int):
     Returns (num_points, 8): [Lxyz, Lgrip, Rxyz, Rgrip].
     """
     traj = np.asarray(traj, dtype=np.float64)
+    slots = _ARM_SLOTS_BY_DIM.get(traj.shape[-1])
+    if slots is None:
+        return None
     out = np.zeros((num_points, 8), dtype=np.float64)
-    for arm, (xs, ys, gi) in enumerate(_ARM_SLOTS):
+    for arm, (xs, ys, gi) in enumerate(slots):
         pos = traj[:, xs : xs + 3]
         ypr = traj[:, ys : ys + 3]
-        grip = traj[:, gi : gi + 1]
+        # Gripper-less layouts (human cartesian) resample a zero column so the
+        # output stays 8-dim and the two embodiments share a metric shape.
+        grip = (
+            traj[:, gi : gi + 1]
+            if gi is not None
+            else np.zeros((len(traj), 1), dtype=np.float64)
+        )
         cum = cumulative_arc_length(pos)
         end_s = float(min(distance, cum[-1]))
         p, _, g = resample_by_distance(
@@ -62,13 +79,22 @@ def arc_matched_mse(pred, gt, distance: float, num_points: int, mse):
     """
     pred = pred.detach().cpu().numpy() if torch.is_tensor(pred) else np.asarray(pred)
     gt = gt.detach().cpu().numpy() if torch.is_tensor(gt) else np.asarray(gt)
-    if pred.ndim != 3 or gt.ndim != 3 or pred.shape[-1] < 14 or gt.shape[-1] < 14:
+    if (
+        pred.ndim != 3
+        or gt.ndim != 3
+        or pred.shape[-1] not in _ARM_SLOTS_BY_DIM
+        or gt.shape[-1] not in _ARM_SLOTS_BY_DIM
+    ):
         return None, None
     B = min(pred.shape[0], gt.shape[0])
     ps, gs = [], []
     for b in range(B):
-        ps.append(arc_matched_resample(pred[b], distance, num_points))
-        gs.append(arc_matched_resample(gt[b], distance, num_points))
+        rp = arc_matched_resample(pred[b], distance, num_points)
+        rg = arc_matched_resample(gt[b], distance, num_points)
+        if rp is None or rg is None:
+            continue
+        ps.append(rp)
+        gs.append(rg)
     if not ps:
         return None, None
     P = torch.from_numpy(np.stack(ps)).float().contiguous()
