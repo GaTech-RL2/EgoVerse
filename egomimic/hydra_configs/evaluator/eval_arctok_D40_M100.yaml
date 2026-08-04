@@ -1,0 +1,9 @@
+defaults:
+  - eval_arctok
+  - _self_
+
+# Val eval matched to arc_sweep_D40_M100.yaml: D=40cm, M=100.
+# These MUST match the values the data pipeline used or the detokenizer
+# reconstructs at the wrong speed (see eval_arctok.yaml).
+min_distance_unit: 0.40
+resampled_vector_length: 100
