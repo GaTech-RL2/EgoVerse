@@ -65,11 +65,16 @@ class ArcTokEvalVideo(HPTEvalVideo):
         resampled_vector_length: int = 20,
         rollout_horizon: int = 100,
         dt: float = 1.0 / 30.0,
+        **kwargs,
     ):
+        # **kwargs forwards the base class's arc_match_distance /
+        # arc_match_points. Without it hydra instantiation dies with
+        # "ArcTokEvalVideo.__init__() got an unexpected keyword argument".
         super().__init__(
             limit_val_batches=limit_val_batches,
             viz_func=viz_func,
             transform_lists=transform_lists,
+            **kwargs,
         )
         # Reuse the tokenizer's ``detokenize`` — same reconstruction algebra
         # as an open-loop rollout, so val videos are faithful to deploy.
