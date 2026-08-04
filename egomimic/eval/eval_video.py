@@ -22,6 +22,7 @@ class EvalVideo(Eval):
         transform_lists: dict | None = None,
         arc_match_distance: float | None = None,
         arc_match_points: int = 15,
+        video_chunk_frames: int = 1000,
     ):
         super().__init__()
         self.trainer = None
@@ -38,6 +39,11 @@ class EvalVideo(Eval):
             float(arc_match_distance) if arc_match_distance else None
         )
         self.arc_match_points = int(arc_match_points)
+        # Frames buffered per embodiment before a video is flushed to disk.
+        # At 30fps the default 1000 is ~33s per clip; raise it for longer
+        # videos, and raise limit_val_batches to get more clips overall (total
+        # frames / video_chunk_frames = number of files per embodiment).
+        self.video_chunk_frames = int(video_chunk_frames)
         # Per-embodiment list[Transform] applied once during eval to project
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
@@ -124,7 +130,7 @@ class EvalVideo(Eval):
                 self.val_image_buffer[key] = []
                 self.val_counter[key] = 0
             self.val_image_buffer[key].extend(torch.from_numpy(images))
-            if len(self.val_image_buffer[key]) >= 1000:
+            if len(self.val_image_buffer[key]) >= self.video_chunk_frames:
                 frames = torch.stack(self.val_image_buffer[key])
                 path = os.path.join(
                     self.video_dir(),
