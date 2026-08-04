@@ -74,6 +74,12 @@ workflow:
       # of motion. Set the SAME values for baseline and arc-tok.
       ARC_MATCH_D: "{{arc_match_d}}"
       ARC_MATCH_M: "{{arc_match_m}}"
+      # Evaluate only the newest N checkpoints (0 = all). The late ones are
+      # what matter for val videos; sweeping all 10 mostly burns time.
+      LAST_N_CKPTS: "{{last_n_ckpts}}"
+      # Frames per video file. 30fps, so 1000 ~= 33s. Raise for longer clips;
+      # number of clips per embodiment = total frames / this.
+      VIDEO_CHUNK_FRAMES: "{{video_chunk_frames}}"
       WORKDIR: /workspace
       DATASET_DIR: /workspace/arc_tests
       HYDRA_FULL_ERROR: "1"
@@ -178,6 +184,15 @@ workflow:
         # Evaluate FIRST_CKPT first (the latest epoch both runs share, so the
         # matched comparison lands without waiting for the whole sweep), then
         # the remaining epoch checkpoints newest-first, then last.ckpt.
+        # Keep only the newest N checkpoints when LAST_N_CKPTS > 0.
+        if [ "${LAST_N_CKPTS:-0}" -gt 0 ] 2>/dev/null; then
+          KEEP=$( { find "$CKPT_DIR" -name 'epoch_*.ckpt' | sort -V; find "$CKPT_DIR" -name 'last.ckpt'; } | tail -n "$LAST_N_CKPTS")
+          echo "limiting to newest $LAST_N_CKPTS checkpoints:"; echo "$KEEP"
+          for f in $(find "$CKPT_DIR" -name '*.ckpt'); do
+            echo "$KEEP" | grep -qxF "$f" || rm -f "$f"
+          done
+        fi
+
         ORDER=""
         if [ -n "${FIRST_CKPT:-}" ]; then
           HIT=$(find "$CKPT_DIR" -name "$FIRST_CKPT" | head -1 || true)
@@ -209,6 +224,7 @@ workflow:
             +evaluator.limit_val_batches="$EVAL_BATCHES" \
             +evaluator.arc_match_distance="$ARC_MATCH_D" \
             +evaluator.arc_match_points="$ARC_MATCH_M" \
+            +evaluator.video_chunk_frames="$VIDEO_CHUNK_FRAMES" \
             'evaluator.viz_func.eva_bimanual.annotation_key=null' \
             'evaluator.viz_func.human_bimanual.annotation_key=null' \
             'evaluator.viz_func.human_right_arm.annotation_key=null' \
