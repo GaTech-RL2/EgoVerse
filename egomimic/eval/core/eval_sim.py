@@ -87,6 +87,7 @@ class SimRolloutEval(EvalVideo):
         transform_lists: dict | None = None,
         rng_pairing: bool = False,
         run_full_horizon: bool = False,
+        fixed_goal: tuple[float, float, float] | None = None,
     ):
         super().__init__(
             limit_val_batches=limit_val_batches,
@@ -116,6 +117,9 @@ class SimRolloutEval(EvalVideo):
         self.report_max_coverage = bool(report_max_coverage)  # peak vs final IoU
         self.coverage_threshold = float(coverage_threshold)
         self.run_full_horizon = bool(run_full_horizon)
+        self.fixed_goal = (
+            tuple(float(x) for x in fixed_goal) if fixed_goal is not None else None
+        )
         self.video_fps = int(video_fps)
         self.limit_val_batches = int(limit_val_batches)
         # Reseed the sampler RNG per episode (inside fork_rng, so any outer
@@ -134,7 +138,12 @@ class SimRolloutEval(EvalVideo):
         if self._env is None:
             kwargs = dict(self.env_kwargs)
             kwargs.setdefault("render_mode", "rgb_array")
-            from Tsimulation.pushshapes import PushShapesEnv
+            import importlib, os
+            # one resolver for every spelling, incl. PUSHSHAPES_SIM=Tsimulation_legacy -> v1
+
+            from Tsimulation.pushshapes import get_env, version_from_env
+
+            PushShapesEnv = get_env(version_from_env())
 
             self._env = PushShapesEnv(**kwargs)
         return self._env
@@ -163,9 +172,17 @@ class SimRolloutEval(EvalVideo):
                 object_pose=env_init_dict["object_pose"],
                 goal_pose=env_init_dict.get("goal_pose"),
             )
+        if self.fixed_goal is not None:
+            # Preserve the seeded/replayed object and pusher state; only pin the
+            # goal. This lets heterogeneous policies share the exact DP
+            # fixed-goal evaluation distribution.
+            env.set_state(goal_pose=self.fixed_goal)
 
     def _env_to_zarr_dict(self, obs_env: dict, device: torch.device) -> dict:
-        return _ENV_TO_ZARR[self.embodiment_name](obs_env, device)
+        key = self.embodiment_name
+        if str(self.env_kwargs.get("pusher_shape", "")) == "u_socket":
+            key = f"{self.embodiment_name}:u_socket"
+        return _ENV_TO_ZARR[key](obs_env, device)
 
     def batch_to_env_init(self, batch: Dict[str, Any], b_idx: int, emb_id: int) -> dict | None:
         raise NotImplementedError("subclass me")
@@ -253,6 +270,13 @@ class SimRolloutEval(EvalVideo):
 
         frames: List[np.ndarray] = []
         action_history: List[np.ndarray] = []
+        # ADDITIVE (rollout capture, default OFF): per-step policy-obs record
+        _cap = [] if getattr(self, 'capture_rollout', False) else None
+        if _cap is not None:
+            try:
+                self._cap_epinit = env.get_episode_init()
+            except Exception:
+                self._cap_epinit = None
         coverage = 0.0
         max_coverage = 0.0  # peak IoU over the rollout (for report_max_coverage)
         # Per-rollout SIGALRM watchdog: a single env.step() can wedge inside the
@@ -269,7 +293,42 @@ class SimRolloutEval(EvalVideo):
                 obs_env = env._get_obs()
                 obs_zarr = self._env_to_zarr_dict(obs_env, device)
                 action_xy = algo.inference_step(obs_zarr, t, emb_id, T_max=self.max_steps)
-                action_xy = np.asarray(action_xy, dtype=np.float32).reshape(-1)[:2]
+                action_xy = np.asarray(action_xy, dtype=np.float32).reshape(-1)
+                # u3rv-decode-early (2026-08-05): model outputs 4-dim (x,y,cos,sin);
+                # the config-detected revert is not firing for this eval, so decode
+                # HERE (before the width check) when U3RV_DECODE is set.
+                import os as _os3
+                if _os3.environ.get('U3RV_DECODE') and action_xy.shape[0] == 4:
+                    _th = float(np.arctan2(action_xy[3], action_xy[2]))
+                    if t < 6:
+                        print('[u3rv-decode] t=%d cos=%.3f sin=%.3f -> theta=%.4f' % (t, action_xy[2], action_xy[3], _th), flush=True)
+                    action_xy = np.array([action_xy[0], action_xy[1], _th], dtype=np.float32)
+                # REVERT the load-time action transforms before touching width:
+                # the model predicts in the TRAINING action space (e.g. u_socket
+                # (x,y,cos,sin) under ThetaToRotVec) while env.step wants the raw
+                # space (x,y,theta). Truncating first would silently feed cos(th)
+                # as the angle, so this must run BEFORE the [:_ad] slice.
+                # DEBUG ONLY: EVAL_LEGACY_ACTION_SLICE=1 reproduces the pre-fix
+                # behaviour (skip the revert, slice to env width -> cos(theta)
+                # fed as the angle). Exists solely to generate before/after
+                # comparisons; never set it for a real eval.
+                import os as _os_dbg
+                _legacy = _os_dbg.environ.get("EVAL_LEGACY_ACTION_SLICE")
+                _rev = None if _legacy else (self.transform_lists or {}).get(self.embodiment_name)
+                if _legacy:
+                    action_xy = action_xy[: int(getattr(env.action_space, "shape", (2,))[0])]
+                if _rev:
+                    _b = {"actions": action_xy[None, :]}
+                    for _t in _rev:
+                        _b = _t.transform(_b)
+                    action_xy = np.asarray(_b["actions"], dtype=np.float32).reshape(-1)
+                _ad = int(getattr(env.action_space, "shape", (2,))[0])
+                if action_xy.shape[0] != _ad:
+                    raise ValueError(
+                        "action width %d != env action_space %d for emb=%r. A "
+                        "revert transform_list is probably missing (model action "
+                        "space differs from the env's)."
+                        % (action_xy.shape[0], _ad, self.embodiment_name))
                 if not np.all(np.isfinite(action_xy)):
                     # Non-finite action (late-training instability) poisons the
                     # pymunk solver — np.clip does NOT sanitize NaN, so a NaN
@@ -281,6 +340,14 @@ class SimRolloutEval(EvalVideo):
                     coverage = 0.0
                     break
                 action_history.append(action_xy.copy())
+                if _cap is not None:
+                    _cap.append({
+                        'image': np.asarray(obs_env['image'], dtype=np.uint8),
+                        'agent_pos': np.asarray(obs_env['agent_pos'], dtype=np.float32),
+                        'object_pose': np.asarray(obs_env['object_pose'], dtype=np.float32),
+                        'action': action_xy.astype(np.float32).copy(),
+                        'goal_pose': np.asarray(env.goal_pose, dtype=np.float32),
+                    })
                 _, _, terminated, _, info = env.step(action_xy)
                 coverage = float(info.get("coverage", 0.0))
                 max_coverage = max(max_coverage, coverage)
@@ -290,6 +357,8 @@ class SimRolloutEval(EvalVideo):
                     frames.append(np.ascontiguousarray(frame))
                 if terminated and not self.run_full_horizon:
                     break
+            if _cap is not None:
+                self._cap_current = _cap
         except _RolloutTimeout:
             print(
                 f"[sim] WATCHDOG: rollout emb{emb_id} ep{ep_idx} exceeded "
@@ -301,6 +370,19 @@ class SimRolloutEval(EvalVideo):
                 _signal.alarm(0)
                 if prev_handler is not None:
                     _signal.signal(_signal.SIGALRM, prev_handler)
+        # --- action-trace dump (2026-08-01, smoothness/OOD probe) ------------
+        # Additive: the full commanded-action sequence per episode, saved next
+        # to the videos. Enables jitter metrics (mean |da|, HF power) offline.
+        try:
+            if action_history:
+                import numpy as _np
+                _d = self.video_dir()
+                os.makedirs(_d, exist_ok=True)
+                _np.savez_compressed(
+                    os.path.join(_d, "actions_emb%s_ep%d.npz" % (emb_id, ep_idx)),
+                    actions=_np.asarray(action_history, dtype=_np.float32))
+        except Exception as _e:
+            print("[acttrace] skip: %r" % (_e,))
         # report_max_coverage: peak IoU over the rollout ("did it ever align?"),
         # vs the default final-step IoU which penalizes post-alignment overshoot.
         return (max_coverage if self.report_max_coverage else coverage), frames
@@ -328,6 +410,7 @@ class SimRolloutEval(EvalVideo):
             ep_successes: List[float] = []
             ep_frames: List[np.ndarray] = []
             per_ep_frames: List[np.ndarray] = []
+            per_ep_rollout: List[list] = []
 
             for b in range(B_render):
                 env_init = (
@@ -335,7 +418,13 @@ class SimRolloutEval(EvalVideo):
                     if self.init_mode == "replay"
                     else None
                 )
+                self._cap_current = None
                 cov, frames = self._rollout_one(env_init, emb_id, b)
+                if getattr(self, 'capture_rollout', False):
+                    per_ep_rollout.append({
+                        'steps': self._cap_current or [],
+                        'episode_init': getattr(self, '_cap_epinit', None),
+                    })
                 ep_coverages.append(cov)
                 ep_successes.append(float(cov >= self.coverage_threshold))
                 if frames:
@@ -355,6 +444,10 @@ class SimRolloutEval(EvalVideo):
                     + ",".join(f"{c:.4f}" for c in ep_coverages)
                 )
             self._last_per_ep_frames[emb_id] = per_ep_frames
+            if getattr(self, 'capture_rollout', False):
+                if not hasattr(self, '_last_per_ep_rollout'):
+                    self._last_per_ep_rollout = {}
+                self._last_per_ep_rollout[emb_id] = per_ep_rollout
             self._last_per_ep_coverages[emb_id] = list(ep_coverages)
             mean_cov = float(np.mean(ep_coverages)) if ep_coverages else 0.0
             success_rate = float(np.mean(ep_successes)) if ep_successes else 0.0

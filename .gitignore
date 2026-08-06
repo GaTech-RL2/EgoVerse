@@ -7,3 +7,11 @@ wandb/
 __pycache__/
 bf_viz/
 chunkviz_bf/
+eval_snaps/
+layerdump/
+probes/
+quarantine_apexflag_void/
+sim_v2_verification/
+tools_smooth/
+v2_atlas/
+*.bak*
