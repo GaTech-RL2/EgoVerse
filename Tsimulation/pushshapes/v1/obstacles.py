@@ -15,6 +15,10 @@ reachability.
 
 from __future__ import annotations
 
+# FROZEN v1 snapshot -- git HEAD of Tsimulation/pushshapes.
+# Do NOT edit: reproduces pre-rewrite obstacle geometry exactly.
+# New work goes in v3/.
+
 from typing import Iterable
 
 import pymunk

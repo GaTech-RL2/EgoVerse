@@ -12,6 +12,7 @@ Run with::
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 from pathlib import Path
@@ -20,6 +21,15 @@ import numpy as np
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 
+from Tsimulation.collect.replay_init import (
+    REPLAY_SOURCE_KEY,
+    collected_resume_keys,
+    collected_seed_keys,
+    init_pose_key,
+    load_replay_inits,
+    load_replay_manifest,
+    reset_to_init,
+)
 from Tsimulation.collect.scripted_collect import (
     APPROACH_OFFSET,
     scripted_action,
@@ -35,7 +45,7 @@ def test_scripted_action_clipped_and_finite():
         world_size=512.0,
     )
     assert action.shape == (2,)
-    assert action.dtype == np.float32
+    assert action.dtype == np.float64
     assert np.all(action >= 0.0)
     assert np.all(action <= 512.0)
     assert np.all(np.isfinite(action))
@@ -110,6 +120,16 @@ def test_scripted_collector_runs_end_to_end():
         )
         # rc may be 0 or 1; we only assert it didn't raise.
         scripted_collect.run(args)
+
+
+def test_mouse_collector_accepts_replay_margin_threshold():
+    from Tsimulation.collect import mouse_collect
+
+    args = mouse_collect.build_parser().parse_args(
+        ["--output", "unused", "--success-threshold", "0.97"]
+    )
+
+    assert args.success_threshold == 0.97
 
 
 def _add_step(
@@ -196,3 +216,136 @@ def test_visualize_episode_save_mp4(tmp_path):
     assert rc == 0
     assert out_mp4.exists()
     assert out_mp4.stat().st_size > 0
+
+
+def _example_episode_init(*, obstacle_level: int = 3) -> dict:
+    return {
+        "agent_pos": [100.0, 110.0],
+        "object_pose": [200.0, 210.0, 0.25],
+        "goal_pose": [300.0, 310.0, -0.5],
+        "obstacle_level": obstacle_level,
+    }
+
+
+def test_replay_manifest_normalizes_source_marker(tmp_path):
+    manifest_path = tmp_path / "replay.json"
+    manifest_path.write_text(
+        json.dumps(
+            {"episodes": [{**_example_episode_init(), "source": "original.zarr"}]}
+        )
+    )
+
+    episodes = load_replay_manifest(manifest_path)
+
+    assert len(episodes) == 1
+    assert episodes[0][REPLAY_SOURCE_KEY] == "original.zarr"
+
+
+def test_reset_to_init_restores_recorded_obstacle_geometry():
+    """Replay geometry must not depend on the current obstacle-level catalog."""
+    from Tsimulation.pushshapes.env import PushShapesEnv
+
+    recorded_obstacles = [[[41.0, 73.0], [419.0, 73.0]]]
+    episode_init = {
+        **_example_episode_init(obstacle_level=2),
+        "agent_angle": 0.0,
+        "obstacles": recorded_obstacles,
+        "reset_seed": 17,
+    }
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape="circle",
+        obstacle_level=2,
+        image_size=16,
+        solid_pusher=True,
+    )
+    env._skip_obs_render = True
+    try:
+        reset_to_init(env, episode_init)
+        assert env.get_episode_init()["obstacles"] == recorded_obstacles
+    finally:
+        env.close()
+
+
+def test_pose_resume_key_rounds_jitter_and_separates_obstacle_levels():
+    original = _example_episode_init(obstacle_level=2)
+    jittered = {
+        **original,
+        "agent_pos": [100.0000001, 109.9999999],
+    }
+    other_level = {**original, "obstacle_level": 4}
+
+    assert init_pose_key(jittered) == init_pose_key(original)
+    assert init_pose_key(other_level) != init_pose_key(original)
+
+
+def test_replay_zarr_loading_and_resume_keys(tmp_path):
+    episode_init = {
+        **_example_episode_init(obstacle_level=0),
+        REPLAY_SOURCE_KEY: "source_episode.zarr",
+    }
+    writer = ZarrDemoWriter(
+        path=tmp_path,
+        env_args={
+            "object_shape": "T",
+            "pusher_shape": "circle",
+            "obstacle_level": 0,
+        },
+        image_size=8,
+    )
+    writer.start_episode(init_state=episode_init)
+    _add_step(writer, np.random.default_rng(12))
+    writer.commit_episode()
+    writer.close()
+
+    loaded = load_replay_inits(tmp_path)
+    source_names, pose_keys = collected_resume_keys(tmp_path)
+
+    assert len(loaded) == 1
+    assert loaded[0][REPLAY_SOURCE_KEY].endswith(".zarr")
+    assert source_names == {"source_episode.zarr"}
+    assert pose_keys == set()
+
+
+def test_resume_pose_fallback_is_only_used_without_source_marker(tmp_path):
+    legacy_init = _example_episode_init(obstacle_level=0)
+    writer = ZarrDemoWriter(
+        path=tmp_path,
+        env_args={
+            "object_shape": "T",
+            "pusher_shape": "circle",
+            "obstacle_level": 0,
+        },
+        image_size=8,
+    )
+    writer.start_episode(init_state=legacy_init)
+    _add_step(writer, np.random.default_rng(13))
+    writer.commit_episode()
+    writer.close()
+
+    source_names, pose_keys = collected_resume_keys(tmp_path)
+
+    assert source_names == set()
+    assert pose_keys == {init_pose_key(legacy_init)}
+
+
+def test_collected_seed_keys_include_obstacle_level(tmp_path):
+    episode_init = {
+        **_example_episode_init(obstacle_level=7),
+        "reset_seed": 123,
+    }
+    writer = ZarrDemoWriter(
+        path=tmp_path,
+        env_args={
+            "object_shape": "T",
+            "pusher_shape": "circle",
+            "obstacle_level": 7,
+        },
+        image_size=8,
+    )
+    writer.start_episode(init_state=episode_init)
+    _add_step(writer, np.random.default_rng(14))
+    writer.commit_episode()
+    writer.close()
+
+    assert collected_seed_keys(tmp_path) == {(7, 123)}

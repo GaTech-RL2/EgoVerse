@@ -15,13 +15,18 @@ import argparse
 import numpy as np
 
 from Tsimulation.pushshapes.env import PushShapesEnv
+from Tsimulation.pushshapes.obstacles import all_levels
 
 
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--object", default="T", choices=["T", "U", "Z"])
-    p.add_argument("--pusher", default="circle", choices=["circle", "stick"])
-    p.add_argument("--obstacles", type=int, default=0, choices=[0, 1, 2, 3])
+    p.add_argument(
+        "--pusher",
+        default="circle",
+        choices=["circle", "circle_small", "stick", "L", "u_socket"],
+    )
+    p.add_argument("--obstacles", type=int, default=0, choices=list(all_levels()))
     p.add_argument("--steps", type=int, default=100)
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args()
@@ -39,7 +44,17 @@ def main() -> int:
     steps_taken = 0
     for i in range(args.steps):
         steps_taken = i + 1
-        action = rng.uniform(0.0, env.WORLD_SIZE, size=(2,)).astype(np.float32)
+        if args.pusher == "u_socket":
+            action = np.array(
+                [
+                    rng.uniform(0.0, env.WORLD_SIZE),
+                    rng.uniform(0.0, env.WORLD_SIZE),
+                    rng.uniform(-np.pi, np.pi),
+                ],
+                dtype=np.float32,
+            )
+        else:
+            action = rng.uniform(0.0, env.WORLD_SIZE, size=(2,)).astype(np.float32)
         _, _, terminated, truncated, info = env.step(action)
         coverage = info["coverage"]
         if terminated or truncated:

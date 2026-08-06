@@ -41,9 +41,19 @@ python -m Tsimulation.collect.mouse_collect \
     --num-episodes 50 --image-size 96
 ```
 
-Window hotkeys: **SPACE** record/pause, **S** commit + reset, **R** abort
-+ reset, **Q** quit. Each committed episode becomes
+Window hotkeys: **SPACE** record/pause, **R** abort + reset, **Q** quit.
+Successful episodes are saved automatically and become
 `data/pushshapes_demos/episode_NNNNNN.zarr/`.
+
+### T-stem socket pusher
+
+Use `--pusher u_socket --object T` to test the narrow U-shaped socket. Its
+32-unit opening leaves 1 unit of clearance on each side of the T's 30-unit
+stem. The mouse controls socket XY; hold **A**/**D** to rotate it
+counterclockwise/clockwise. When any T face inside the socket touches the inner
+face of the rear crossbar, a rigid contact latch engages and the T translates
+and rotates with the socket until the episode resets. Contact against the
+outside/back of the crossbar does not latch.
 
 ## Collect scripted demos (headless)
 
@@ -108,6 +118,9 @@ each episode is its own Zarr v3 store with:
 Metadata in `store.attrs`: `embodiment="pushshapes_sim"`,
 `task_name="pushshapes"`, `task_description` (JSON of env args),
 `total_frames`, `fps`, `features`.
+
+New bulk-written collections use the compact one-chunk-per-array Zarr layout,
+matching the output of `scripts/rechunk_zarr_dataset.py`.
 
 Full schema rationale is in [`SCHEMA_NOTES.md`](SCHEMA_NOTES.md).
 

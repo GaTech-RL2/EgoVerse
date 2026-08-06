@@ -1,14 +1,12 @@
-"""Replay a recorded episode's actions in a fresh env and report state drift.
-
-End-to-end consistency check: physics are deterministic given a seed and the
-writer round-trips actions/state. We can't re-derive the random spawn (no
-seed is saved), so we instead force the env to the first recorded state via
-set_state() and replay action-by-action, comparing recorded vs live state.
+"""Replay a recorded episode's actions in a fresh env and verify determinism.
 
 Usage::
 
-    python -m Tsimulation.examples.replay_zarr \\
+    python -m Tsimulation.examples.replay_zarr \
         --dataset data/pushshapes_demos --episode 0
+
+    python -m Tsimulation.examples.replay_zarr \
+        --dataset data/pushshapes_demos --all
 """
 
 from __future__ import annotations
@@ -22,11 +20,9 @@ import numpy as np
 import zarr
 
 from Tsimulation.collect.zarr_writer import ACTION_KEY, GOAL_KEY, STATE_KEY
-from Tsimulation.pushshapes.env import PushShapesEnv
+from Tsimulation.pushshapes import get_env
 
-# Match both new-style `episode_<obj>_<pusher>_obs<N>_<idx>.zarr` and the
-# older flat `episode_NNNNNN.zarr` naming.
-_NEW_EPISODE_RE = re.compile(r"^episode_[A-Za-z0-9]+_[A-Za-z0-9]+_obs\d+_(\d+)\.zarr$")
+_NEW_EPISODE_RE = re.compile(r"^episode_.+?_obs\d+_(\d+)\.zarr$")
 _OLD_EPISODE_RE = re.compile(r"^episode_(\d+)\.zarr$")
 
 
@@ -39,57 +35,234 @@ def _resolve_episode_path(dataset: Path, episode: int) -> Path:
     raise FileNotFoundError(f"no episode with index {episode} in {dataset}")
 
 
-def main() -> int:
-    p = argparse.ArgumentParser()
-    p.add_argument(
-        "--dataset",
-        required=True,
-        help="directory containing episode_*.zarr stores",
+def _all_episode_paths(dataset: Path) -> list[Path]:
+    eps = []
+    for entry in sorted(dataset.iterdir()):
+        if not entry.is_dir():
+            continue
+        for regex in (_NEW_EPISODE_RE, _OLD_EPISODE_RE):
+            if regex.match(entry.name):
+                eps.append(entry)
+                break
+    return eps
+
+
+
+def _save_video(frames: list[np.ndarray], path: Path, fps: int = 30) -> None:
+    import cv2
+
+    if not frames:
+        raise ValueError("cannot save an empty replay video")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    height, width = frames[0].shape[:2]
+    writer = cv2.VideoWriter(
+        str(path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height)
     )
-    p.add_argument("--episode", type=int, default=0)
-    p.add_argument("--tol", type=float, default=1e-3)
-    args = p.parse_args()
+    if not writer.isOpened():
+        raise RuntimeError(f"could not open video writer for {path}")
+    try:
+        for frame in frames:
+            writer.write(cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+    finally:
+        writer.release()
 
-    episode_path = _resolve_episode_path(Path(args.dataset), args.episode)
+
+def replay_one(
+    episode_path: Path,
+    tol: float,
+    *,
+    action_only: bool = False,
+    save_path: Path | None = None,
+    sim_version: str | None = None,
+) -> dict:
     store = zarr.open_group(str(episode_path), mode="r")
+    attrs = dict(store.attrs)
+    total_frames = attrs.get("total_frames", None)
     actions = np.asarray(store[ACTION_KEY][:])
-    states = np.asarray(store[STATE_KEY][:])
-    goal_pose = np.asarray(store[GOAL_KEY][0])
-    env_args = json.loads(dict(store.attrs)["task_description"])["env_args"]
+    states = None if action_only else np.asarray(store[STATE_KEY][:])
+    ep_init = json.loads(attrs["episode_init"]) if "episode_init" in attrs else None
+    if action_only and ep_init is None:
+        raise ValueError("action-only replay requires attrs['episode_init']")
+    goal_pose = (
+        np.asarray(ep_init["goal_pose"])
+        if ep_init is not None
+        else np.asarray(store[GOAL_KEY][0])
+    )
+    reward = (
+        np.asarray(store["reward"][:]).squeeze()
+        if "reward" in store
+        else np.zeros(len(actions), dtype=np.float64)
+    )
+    env_args = json.loads(attrs["task_description"])["env_args"]
 
-    print(f"loaded {episode_path.name}: {len(actions)} steps")
-    print(f"env_args: {env_args}")
+    if total_frames is not None and total_frames < len(actions):
+        actions = actions[:total_frames]
+        if states is not None:
+            states = states[:total_frames]
+        reward = reward[:total_frames]
 
-    env = PushShapesEnv(
+    env = get_env(sim_version)(
         object_shape=env_args["object_shape"],
         pusher_shape=env_args["pusher_shape"],
-        obstacle_level=env_args["obstacle_level"],
+        obstacle_level=env_args.get("obstacle_level", 0),
         image_size=env_args.get("image_size", 96),
+        render_mode="rgb_array" if save_path is not None else None,
     )
-    env.reset()
+    env._skip_obs_render = save_path is None
+    reset_seed = ep_init.get("reset_seed") if ep_init else None
+    env.reset(seed=reset_seed)
 
-    # Force env to the recorded initial state: agent_pos = state[0:2],
-    # object_pose = state[2:5], goal_pose from the per-frame goal array.
-    s0 = states[0]
-    env.set_state(
-        agent_pos=(float(s0[0]), float(s0[1])),
-        object_pose=(float(s0[2]), float(s0[3]), float(s0[4])),
-        goal_pose=(float(goal_pose[0]), float(goal_pose[1]), float(goal_pose[2])),
-    )
-
-    drift = []
-    for i, action in enumerate(actions[:-1]):
-        obs, _, _, _, _ = env.step(action)
-        live_next = np.concatenate([obs["agent_pos"], obs["object_pose"]])
-        drift.append(float(np.linalg.norm(states[i + 1] - live_next)))
-
-    drift = np.asarray(drift)
-    print(
-        f"trajectory drift: mean={drift.mean():.4f}  max={drift.max():.4f}  "
-        f"(tol={args.tol})"
-    )
+    if ep_init is not None:
+        ap = tuple(ep_init["agent_pos"])
+        aa = float(ep_init.get("agent_angle", 0.0))
+        op = tuple(ep_init["object_pose"])
+        gp = tuple(ep_init["goal_pose"])
+    else:
+        s0 = states[0]
+        ap = (float(s0[0]), float(s0[1]))
+        if env_args["pusher_shape"] == "u_socket" and s0.shape[0] >= 6:
+            aa = float(s0[2])
+            op = (float(s0[3]), float(s0[4]), float(s0[5]))
+        else:
+            aa = 0.0
+            op = (float(s0[2]), float(s0[3]), float(s0[4]))
+        gp = (float(goal_pose[0]), float(goal_pose[1]), float(goal_pose[2]))
+    env.set_state(agent_pos=ap, agent_angle=aa, object_pose=op, goal_pose=gp)
+    metrics = _replay_step_loop(env, actions, states, collect_frames=save_path is not None)
     env.close()
-    return 0
+    if save_path is not None:
+        _save_video(metrics["frames"], save_path)
+    stored_max = float(reward.max()) if len(reward) else metrics["replay_cov"]
+    return {
+        "name": episode_path.name,
+        "T": len(actions),
+        "stored_cov": stored_max,
+        "replay_cov": metrics["replay_cov"],
+        "drift_mean": metrics["drift_mean"],
+        "drift_max": metrics["drift_max"],
+        "final_object_pose": metrics["final_object_pose"],
+        "final_coverage": metrics["final_coverage"],
+        "socket_latched": metrics["socket_latched"],
+        "ok": action_only or metrics["replay_cov"] >= stored_max - tol,
+        "video": str(save_path) if save_path is not None else None,
+    }
+
+
+def _replay_step_loop(
+    env,
+    actions: np.ndarray,
+    recorded_states: np.ndarray | None,
+    *,
+    early_stop_drift: float | None = None,
+    collect_frames: bool = False,
+) -> dict:
+    """Step ``actions`` through ``env`` (already reset + set_state'd) and
+    track per-step drift between the post-step env state and
+    ``recorded_states[t+1]`` (L2 norm on the 5-vec
+    ``[pusher_xy, obj_xy, obj_theta]``).
+
+    Optional ``early_stop_drift`` short-circuits the loop on the first
+    frame where drift exceeds the threshold — used by the collector's
+    pre-commit validation.
+
+    Returns ``{drift_max, drift_mean, replay_cov, early_stop_frame}``.
+    """
+    drifts: list[float] = []
+    frames: list[np.ndarray] = []
+    max_cov = 0.0
+    early_stop_frame: int | None = None
+    final_obs: dict[str, np.ndarray] | None = None
+    final_coverage = 0.0
+    for i in range(len(actions)):
+        if collect_frames:
+            frames.append(env.render())
+        obs, _, term, _, info = env.step(actions[i])
+        max_cov = max(max_cov, info["coverage"])
+        final_obs = obs
+        final_coverage = float(info["coverage"])
+        if recorded_states is not None and i + 1 < len(recorded_states):
+            live_parts = [obs["agent_pos"]]
+            if recorded_states.shape[1] >= 6:
+                live_parts.append(obs["agent_angle"])
+            live_parts.append(obs["object_pose"])
+            live = np.concatenate(live_parts)
+            d = float(np.linalg.norm(recorded_states[i + 1] - live))
+            drifts.append(d)
+            if early_stop_drift is not None and d > early_stop_drift:
+                early_stop_frame = i
+                break
+        if term:
+            break
+    drift_arr = np.asarray(drifts) if drifts else np.zeros(1)
+    return {
+        "drift_max": float(drift_arr.max()),
+        "drift_mean": float(drift_arr.mean()),
+        "replay_cov": float(max_cov),
+        "early_stop_frame": early_stop_frame,
+        "frames": frames,
+        "final_object_pose": (
+            final_obs["object_pose"].tolist() if final_obs is not None else None
+        ),
+        "final_coverage": final_coverage,
+        "socket_latched": bool(env.socket_latched),
+    }
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--dataset", required=True, help="directory containing episode_*.zarr")
+    p.add_argument("--episode", type=int, default=0)
+    p.add_argument(
+        "--sim-version",
+        default=None,
+        help=(
+            "sim version to replay under (v1/v2/v3); default = current. "
+            "PIN THIS TO THE VERSION THAT COLLECTED THE DATA: a v2 u_socket "
+            "episode replays to coverage 0.000 under v3 pocket friction."
+        ),
+    )
+    p.add_argument("--all", action="store_true", help="replay every episode in the dataset")
+    p.add_argument("--tol", type=float, default=0.05)
+    p.add_argument(
+        "--action-only",
+        action="store_true",
+        help="replay from episode_init and actions without loading observations.state",
+    )
+    p.add_argument("--save", type=Path, help="save an env-rendered replay video to this MP4")
+    args = p.parse_args()
+
+    dataset = Path(args.dataset)
+
+    if args.all:
+        episodes = _all_episode_paths(dataset)
+        print(f"Replaying {len(episodes)} episodes from {dataset}\n")
+        results = []
+        for ep in episodes:
+            r = replay_one(ep, args.tol, action_only=args.action_only)
+            results.append(r)
+            status = "OK" if r["ok"] else "FAIL"
+            print(f"  {r['name']}: T={r['T']:4d} stored={r['stored_cov']:.3f} "
+                  f"replay={r['replay_cov']:.3f} drift_max={r['drift_max']:.4f} {status}")
+        n_ok = sum(1 for r in results if r["ok"])
+        print(f"\n{n_ok}/{len(results)} episodes replayed within tolerance ({args.tol})")
+        return 0 if n_ok == len(results) else 1
+    else:
+        ep_path = _resolve_episode_path(dataset, args.episode)
+        r = replay_one(
+            ep_path,
+            args.tol,
+            action_only=args.action_only,
+            save_path=args.save,
+            sim_version=args.sim_version,
+        )
+        status = "OK" if r["ok"] else "FAIL"
+        print(f"{r['name']}: T={r['T']} stored={r['stored_cov']:.3f} "
+              f"replay={r['replay_cov']:.3f} drift_mean={r['drift_mean']:.4f} "
+              f"drift_max={r['drift_max']:.4f} final_cov={r['final_coverage']:.3f} "
+              f"latched={r['socket_latched']} final_obj={r['final_object_pose']} {status}")
+        if r["video"] is not None:
+            print(f"video: {r['video']}")
+        return 0 if r["ok"] else 1
 
 
 if __name__ == "__main__":

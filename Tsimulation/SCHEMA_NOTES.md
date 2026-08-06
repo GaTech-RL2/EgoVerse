@@ -46,13 +46,13 @@ Each `episode_{idx}.zarr/` is opened as a Zarr v3 group. Two kinds of arrays:
 
 1. **Numeric arrays** — one per feature, shape `(T, ...)`. Examples used in
    the repo: `observations.state`, `actions`, `actions_joints`,
-   `actions_cartesian`. Chunks `(chunk_timesteps, ...)` (default 100), with
-   sharding aligned to the padded length.
+   `actions_cartesian`. Bulk-written episodes are stored as one chunk per
+   array so new collections match the compact rechunked layout.
 2. **Image arrays** — one per camera, shape `(T,)` of
    `zarr.core.dtype.VariableLengthBytes`. Each element is a JPEG-encoded
    frame produced by `simplejpeg.encode_jpeg(img, quality=85, colorspace="RGB")`.
-   Chunks are `(1,)` so frames can be decoded independently. Image keys are
-   prefixed `observations.images.{cam}` by convention.
+   Bulk-written episodes are stored as one chunk for the whole image array.
+   Image keys are prefixed `observations.images.{cam}` by convention.
 
 ## Required metadata (store.attrs)
 
@@ -71,7 +71,8 @@ self.metadata["features"]`, so every store must populate:
 ## Image format
 
 - Encoding: JPEG via `simplejpeg.encode_jpeg(..., quality=85, colorspace="RGB")`.
-- Storage: `zarr.core.dtype.VariableLengthBytes()` dtype, one frame per chunk.
+- Storage: `zarr.core.dtype.VariableLengthBytes()` dtype, one chunk per
+  episode for bulk-written collections.
 - Shape recorded in `features[key]["shape"]` as `[H, W, 3]`, dimension names
   `["height", "width", "channel"]`, `dtype` string `"jpeg"`.
 - Most EgoVerse data is high-resolution (e.g. 480x640); for PushShapes we use
@@ -81,11 +82,9 @@ self.metadata["features"]`, so every store must populate:
 
 ## Compression
 
-EgoVerse uses **Zarr v3 sharding** plus JPEG for images. The task prompt
-called for `numcodecs.Blosc(cname='lz4')` — that is a Zarr v2 convention and
-does not apply here. The existing `ZarrWriter` already picks the right
-codecs by relying on Zarr v3's defaults; we delegate to it rather than
-re-deciding.
+EgoVerse uses Zarr v3 plus JPEG for images. The compact bulk-write path now
+matches the layout produced by `scripts/rechunk_zarr_dataset.py`, which keeps
+per-episode file counts low while preserving the same data values.
 
 ## Embodiment
 

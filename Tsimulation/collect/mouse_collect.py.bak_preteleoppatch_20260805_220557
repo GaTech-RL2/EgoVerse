@@ -65,7 +65,6 @@ from Tsimulation.collect.replay_init import (
     reset_to_init as _reset_to_init,
 )
 from Tsimulation.collect.zarr_writer import ZarrDemoWriter
-from Tsimulation.pushshapes import get_env, get_module
 from Tsimulation.pushshapes.env import SIM_VERSION, PushShapesEnv
 from Tsimulation.pushshapes.obstacles import all_levels
 
@@ -76,7 +75,7 @@ _MODE_ON_TARGET = "on-target"
 _DEFAULT_ONTARGET_TAG = "ontarget"
 
 WORLD_SIZE = 512
-WINDOW_SCALE = 2      # overridden by --window-scale
+WINDOW_SCALE = 2
 WINDOW_SIZE = WORLD_SIZE * WINDOW_SCALE
 OVERLAY_COLOR = (20, 20, 20)
 RECORDING_COLOR = (210, 60, 60)
@@ -502,16 +501,11 @@ def run(args: argparse.Namespace) -> int:
         f"PushShapes Sim V{SIM_VERSION} "
         f"[{args.object}/{args.pusher}/obs={args.obstacles}]"
     )
-    global WINDOW_SCALE, WINDOW_SIZE
-    WINDOW_SCALE = float(args.window_scale)
-    WINDOW_SIZE = int(WORLD_SIZE * WINDOW_SCALE)
-    print(f"[teleop] window {WINDOW_SIZE}x{WINDOW_SIZE} px "
-          f"(scale {WINDOW_SCALE}; 1 screen px = {1.0/WINDOW_SCALE:.3f} world units)")
     screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 22)
 
-    env = get_env(args.sim_version)(
+    env = PushShapesEnv(
         object_shape=args.object,
         pusher_shape=args.pusher,
         obstacle_level=args.obstacles,
@@ -632,48 +626,6 @@ def run(args: argparse.Namespace) -> int:
                     running = False
                 elif event.key == pygame.K_SPACE:
                     recording = not recording
-                elif event.key == pygame.K_s:
-                    # FORCE-SAVE (added 2026-08-05, user request): commit the
-                    # current episode even though coverage < SUCCESS_THRESHOLD.
-                    # Used to record configurations that are IMPOSSIBLE for this
-                    # pusher -- the episode is real teleop data, it just never
-                    # reaches 0.95. Logged to forced_saves.jsonl so these are
-                    # never mistaken for successes downstream.
-                    if writer.steps_in_episode > 0:
-                        _cov = float(coverage)
-                        _idx = writer.commit_episode()
-                        if _idx >= 0:
-                            saved += 1
-                            if tracker is not None:
-                                tracker.increment(current_bucket)
-                            sequence.advance()
-                            try:
-                                import json as _json
-                                import os as _os
-                                import time as _time
-                                with open(_os.path.join(str(output_dir), "forced_saves.jsonl"), "a") as _fh:
-                                    _fh.write(_json.dumps({
-                                        "episode_idx": int(_idx),
-                                        "coverage": _cov,
-                                        "success_threshold": float(args.success_threshold),
-                                        "pusher": args.pusher,
-                                        "obstacle_level": int(args.obstacles),
-                                        "reason": "impossible_or_substandard",
-                                        "ts": _time.strftime("%Y-%m-%dT%H:%M:%S"),
-                                    }) + "\n")
-                            except Exception as _e:
-                                print(f"WARNING: could not log forced save: {_e}")
-                            print(
-                                f"FORCE-SAVED episode {_idx:06d}  coverage={_cov:.4f} "
-                                f"(< {float(args.success_threshold):.2f})  ({saved}/{target_total})"
-                            )
-                            obs, info, current_bucket = initializer.reset()
-                            coverage = info.get("coverage", 0.0)
-                            socket_angle_target = env.pusher_angle
-                            writer.start_episode(init_state=initializer.episode_init())
-                            recording = True
-                    else:
-                        print("nothing recorded yet -- press SPACE to start")
                 elif event.key == pygame.K_r:
                     writer.abort_episode()
                     # Replay mode: stay on the same init so the user can retry.
@@ -803,12 +755,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--object", default="T", choices=["T", "U", "Z"])
     p.add_argument(
-        "--sim-version",
-        default=None,
-        help="sim version to COLLECT under (v1/v2/v3); default = current. "
-             "Recorded into episode_init as sim_version.",
-    )
-    p.add_argument(
         "--pusher",
         default="circle",
         choices=["circle", "circle_small", "stick", "L", "u_socket"],
@@ -820,13 +766,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=50,
         help="target total for this exact object/pusher/obstacle setup inside "
         "the output dir; existing matching episodes count toward the target",
-    )
-    p.add_argument(
-        "--window-scale", type=float, default=2.0,
-        help="teleop window = 512 * this (default 2.0 -> 1024px). Lower it if the\n"
-             "window does not fit the screen. ACTION RESOLUTION SCALES WITH IT:\n"
-             "one screen pixel = 1/scale world units, so 2.0 gives 0.5-unit\n"
-             "sub-pixel control and 1.0 gives only 1.0-unit steps.",
     )
     p.add_argument("--image-size", type=int, default=96)
     p.add_argument("--fps", type=int, default=30)

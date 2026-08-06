@@ -9,6 +9,10 @@ until terminated, the caller stops it, or set_state() resets things).
 
 from __future__ import annotations
 
+# FROZEN v1 snapshot -- git HEAD of Tsimulation/pushshapes.
+# Do NOT edit: reproduces pre-rewrite obstacle geometry exactly.
+# New work goes in v3/.
+
 import hashlib
 import json
 import math
@@ -23,17 +27,17 @@ from gymnasium import spaces
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import unary_union
 
-from Tsimulation.pushshapes.obstacles import (
+from .obstacles import (
     OBSTACLE_LEVELS,
     WALL_RADIUS,
     build_obstacles,
 )
-from Tsimulation.pushshapes.render import (
+from .render import (
     draw_arena,
     surface_to_rgb_array,
     to_image_obs,
 )
-from Tsimulation.pushshapes.shapes import (
+from .shapes import (
     PUSHER_RADII,
     PUSHER_RADIUS,
     SHAPES,

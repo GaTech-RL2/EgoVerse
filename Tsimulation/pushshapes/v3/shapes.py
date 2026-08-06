@@ -56,19 +56,85 @@ SHAPES: dict[str, list[tuple[float, float, float, float]]] = {
 OBJECT_DENSITY = 0.30
 OBJECT_FRICTION = 0.6
 PUSHER_RADIUS = 15.0
+PUSHER_RADIUS_SMALL = 5.0  # circle_small: 3x smaller than the standard circle
 STICK_HALF_LEN = 30.0
 STICK_HALF_THICK = 5.0
 
-# Per-variant circle-pusher radii (world units). The default "circle" keeps the
-# canonical PUSHER_RADIUS so all existing behaviour is byte-identical. The
-# "circle_small" radius (5.0) was determined empirically from the
-# new_circle_small__3 dataset: the firm-contact center-to-object-surface gap
-# floors at ~4.82 world, calibrated against the big "circle" set whose floor
-# (~14.82) sits ~0.18 under the known PUSHER_RADIUS=15.0 -> small ~= 5.0.
-PUSHER_RADII = {
+# T-stem socket pusher. Its local +X axis points through the open end, so an
+# oriented controller can aim the socket simply by rotating +X toward travel.
+# The 32-unit opening leaves 1 unit of clearance on either side of the
+# standard T's 30-unit stem.
+U_SOCKET_INNER_GAP = 32.0
+U_SOCKET_PRONG_THICK = 10.0
+U_SOCKET_PRONG_LENGTH = 30.0
+U_SOCKET_CROSSBAR_THICK = 10.0
+U_SOCKET_OUTER_WIDTH = U_SOCKET_INNER_GAP + 2 * U_SOCKET_PRONG_THICK
+U_SOCKET_CROSSBAR_INNER_X = (
+    -U_SOCKET_PRONG_LENGTH / 2 + U_SOCKET_CROSSBAR_THICK / 2
+)
+U_SOCKET_RECTS: list[tuple[float, float, float, float]] = [
+    (
+        5.0,
+        -(U_SOCKET_INNER_GAP + U_SOCKET_PRONG_THICK) / 2,
+        U_SOCKET_PRONG_LENGTH,
+        U_SOCKET_PRONG_THICK,
+    ),
+    (
+        5.0,
+        (U_SOCKET_INNER_GAP + U_SOCKET_PRONG_THICK) / 2,
+        U_SOCKET_PRONG_LENGTH,
+        U_SOCKET_PRONG_THICK,
+    ),
+    (
+        -U_SOCKET_PRONG_LENGTH / 2,
+        0.0,
+        U_SOCKET_CROSSBAR_THICK,
+        U_SOCKET_OUTER_WIDTH,
+    ),
+]
+
+# Pocket interior in socket-local coords -- the open region bounded by the
+# crossbar's inner face (x_min) and the two prong tips (x_max), spanning the
+# inner gap in y. pymunk friction is per-shape rather than per-face, so this
+# rectangle is what lets a contact be classified as inside vs outside.
+U_SOCKET_POCKET_X_MIN = U_SOCKET_CROSSBAR_INNER_X
+U_SOCKET_POCKET_X_MAX = max(cx + w / 2 for cx, _cy, w, _h in U_SOCKET_RECTS[:2])
+U_SOCKET_POCKET_Y_HALF = U_SOCKET_INNER_GAP / 2
+
+# L pusher: two axis-aligned rects sharing a corner. Body origin sits at the
+# geometric centroid so pymunk's rotation-around-CoG matches the visual pivot.
+# Rect centers are the closed-form centroid-shifted positions:
+#   vertical stem @ ((t-L)/4, (t-L)/4), dims (t, L+t)
+#   horizontal foot @ ((L-t)/4, (L+t)/4), dims (L, t)
+L_ARM = 45.0
+L_THICK = 15.0
+L_RECTS: list[tuple[float, float, float, float]] = [
+    ((L_THICK - L_ARM) / 4, (L_THICK - L_ARM) / 4, L_THICK, L_ARM + L_THICK),
+    ((L_ARM - L_THICK) / 4, (L_ARM + L_THICK) / 4, L_ARM, L_THICK),
+]
+
+# Per-shape effective pusher radius — used by env spawn-clearance and renderer.
+# Stick uses its end-cap radius (the largest contact circle on its body).
+_PUSHER_RADII: dict[str, float] = {
     "circle": PUSHER_RADIUS,
-    "circle_small": 5.0,
+    "circle_small": PUSHER_RADIUS_SMALL,
+    "stick": STICK_HALF_THICK,
+    "L": L_THICK / 2.0,
+    "u_socket": (
+        (U_SOCKET_PRONG_LENGTH / 2 + U_SOCKET_CROSSBAR_THICK) ** 2
+        + (U_SOCKET_OUTER_WIDTH / 2) ** 2
+    )
+    ** 0.5,
 }
+
+
+def pusher_radius(shape: str) -> float:
+    """Effective contact radius for ``shape``. Raises on unknown shapes."""
+    if shape not in _PUSHER_RADII:
+        raise ValueError(
+            f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"
+        )
+    return _PUSHER_RADII[shape]
 
 
 def _rect_verts(cx: float, cy: float, w: float, h: float) -> list[tuple[float, float]]:
@@ -107,22 +173,22 @@ def make_object(
 
 
 def make_pusher(
-    shape: Literal["circle", "circle_small", "stick"],
+    shape: Literal["circle", "circle_small", "stick", "L", "u_socket"],
     space: pymunk.Space,
     position: tuple[float, float],
-    radius: float = PUSHER_RADIUS,
 ) -> tuple[pymunk.Body, list[pymunk.Shape]]:
     """Create a KINEMATIC pusher whose position/velocity is driven by env.step().
 
-    ``radius`` controls the circle-pusher disk size (default PUSHER_RADIUS=15.0,
-    so the default ``shape='circle'`` path is byte-identical to before). The
-    "circle_small" shape is a circle with the smaller PUSHER_RADII radius.
+    Kinematic means infinite mass and no contact response, so the pusher is
+    never deflected by the object -- that is deliberate. Keeping it out of
+    walls is handled separately by ``PushShapesEnv._clamp_pusher_to_static``
+    so that free-space motion stays byte-identical to the original sim.
     """
     body = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
     body.position = position
 
     if shape in ("circle", "circle_small"):
-        s = pymunk.Circle(body, radius)
+        s = pymunk.Circle(body, pusher_radius(shape))
         s.friction = OBJECT_FRICTION
         space.add(body, s)
         return body, [s]
@@ -141,8 +207,22 @@ def make_pusher(
         space.add(body, rect, end_a, end_b)
         return body, [rect, end_a, end_b]
 
+    if shape == "L":
+        polys = [pymunk.Poly(body, _rect_verts(*r)) for r in L_RECTS]
+        for p in polys:
+            p.friction = OBJECT_FRICTION
+        space.add(body, *polys)
+        return body, list(polys)
+
+    if shape == "u_socket":
+        polys = [pymunk.Poly(body, _rect_verts(*r)) for r in U_SOCKET_RECTS]
+        for p in polys:
+            p.friction = OBJECT_FRICTION
+        space.add(body, *polys)
+        return body, list(polys)
+
     raise ValueError(
-        f"unknown pusher shape '{shape}', valid: ['circle', 'circle_small', 'stick']"
+        f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"
     )
 
 

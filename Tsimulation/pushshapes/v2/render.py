@@ -7,6 +7,10 @@ surface can be downsampled with `to_image_obs()` for the agent observation.
 
 from __future__ import annotations
 
+# FROZEN v2 snapshot -- sim_v2_backup_pre_v3_20260806_011326.
+# Do NOT edit: reproduces solid-pusher-era physics exactly.
+# New work goes in v3/.
+
 import math
 from typing import Iterable
 
@@ -15,11 +19,13 @@ import numpy as np
 import pygame
 import pymunk
 
-from Tsimulation.pushshapes.shapes import (
-    PUSHER_RADIUS,
+from .shapes import (
+    L_RECTS,
     SHAPES,
     STICK_HALF_LEN,
     STICK_HALF_THICK,
+    U_SOCKET_RECTS,
+    pusher_radius,
 )
 
 BG_COLOR = (240, 240, 240)
@@ -84,7 +90,6 @@ def draw_arena(
     pusher_pos: tuple[float, float],
     pusher_angle: float,
     obstacle_segments: Iterable[pymunk.Segment],
-    pusher_radius: float = PUSHER_RADIUS,
 ) -> None:
     """Composite the full scene onto `surface` (in-place)."""
     surface.fill(BG_COLOR)
@@ -121,7 +126,7 @@ def draw_arena(
         )
 
     # Pusher.
-    _draw_pusher(surface, pusher_shape, pusher_pos, pusher_angle, pusher_radius)
+    _draw_pusher(surface, pusher_shape, pusher_pos, pusher_angle)
 
 
 def _draw_pusher(
@@ -129,11 +134,33 @@ def _draw_pusher(
     pusher_shape: str,
     pos: tuple[float, float],
     angle: float,
-    radius: float = PUSHER_RADIUS,
 ) -> None:
     px, py = pos
     if pusher_shape in ("circle", "circle_small"):
-        pygame.draw.circle(surface, PUSHER_COLOR, (int(px), int(py)), int(radius))
+        pygame.draw.circle(
+            surface,
+            PUSHER_COLOR,
+            (int(px), int(py)),
+            max(1, int(round(pusher_radius(pusher_shape)))),
+        )
+        return
+
+    if pusher_shape == "L":
+        for cx, cy, w, h in L_RECTS:
+            _draw_polygon(
+                surface,
+                PUSHER_COLOR,
+                _rect_world_verts(cx, cy, w, h, (px, py), angle),
+            )
+        return
+
+    if pusher_shape == "u_socket":
+        for cx, cy, w, h in U_SOCKET_RECTS:
+            _draw_polygon(
+                surface,
+                PUSHER_COLOR,
+                _rect_world_verts(cx, cy, w, h, (px, py), angle),
+            )
         return
 
     # stick: rectangle body + two end-cap circles, drawn at current angle.
