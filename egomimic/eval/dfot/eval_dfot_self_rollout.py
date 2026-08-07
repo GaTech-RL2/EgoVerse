@@ -161,12 +161,7 @@ class DFoTSelfRolloutEval(EvalVideo):
         if self._env is not None:
             return self._env
         try:
-            import importlib, os
-            # one resolver for every spelling, incl. PUSHSHAPES_SIM=Tsimulation_legacy -> v1
-
-            from Tsimulation.pushshapes import get_env, version_from_env
-
-            PushShapesEnv = get_env(version_from_env())
+            from Tsimulation.pushshapes import PushShapesEnv
         except Exception:
             return None
         kw = dict(self.env_kwargs)

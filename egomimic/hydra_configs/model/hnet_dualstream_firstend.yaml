@@ -1,0 +1,175 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  # v2 full dual-stream firstend: dual obs encoder (shared agnostic A + per-emb
+  # specific S) -> DualStreamChunkerStage (route on A, shared boundary, chunk A+S)
+  # -> agnostic-only apex ComputeStage (A only) -> per-stream dechunk -> partitioned
+  # GMM head consumes (A_top, S). chunk_len 4 / obs_stride 4.
+  obs_stride: 4
+  d_cond: 128
+  domains:
+  - pushshapes_sim
+  - pushshapes_sim_small_circle
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_small_circle: actions
+  loss:
+    _target_: egomimic.algo.hnet.GMMLoss
+  outer_stage:
+    _target_: egomimic.algo.hnet.dual_stream_chunked_outer.DualStreamChunkedOuterStage
+    action_dim: 2
+    action_horizon: 2560
+    d_model: 128          # d_a (agnostic width == outer)
+    action_head_type: gmm
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 128
+      output_key: fused_cond
+      obs_specs: {}
+      img_encoders: {}
+    # SPECIFIC stream S: per-embodiment obs encoder (width d_s = 128).
+    input_modules:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 128
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          pushshapes_sim:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 128
+            output_key: fused_cond
+            cond_proj_widths: [128, 128]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+          pushshapes_sim_small_circle:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 128
+            output_key: fused_cond
+            cond_proj_widths: [128, 128]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+    # AGNOSTIC stream A: a SINGLE shared CondEncoderModule (width d_a = 128).
+    agnostic_obs_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 128
+      output_key: fused_cond
+      cond_proj_widths: [128, 128]
+      obs_specs:
+        state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 86
+          crop_width: 86
+          crop_eval_mode: random
+          crop_sample_mode: v02
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+      # Dual-stream seam: route on A (shared boundary), chunk A+S (128), apex sees
+      # only A (lifted to 256); S bypasses, rejoins at dechunk + head.
+      - _target_: egomimic.models.hnet.dual_stream_chunker.DualStreamChunkerStage
+        input_hidden_dim: 128
+        s_hidden_dim: 128
+        output_hidden_dim: 256
+        target_compression_ratio: 8.0
+        ratio_loss_weight: 0.03
+        down_interface: first_token
+        up_interface: duplicate
+        router_interface: cossim
+        grab_prev_end: true
+        residual_mixer: mlp
+        residual_mixer_kwargs: {n_layers: 4}
+        a_to_s_inject: false
+        cond_key: null
+      # AGNOSTIC-ONLY APEX (ordinary single-stream ComputeStage, width 256).
+      - _target_: egomimic.models.hnet.stages.ComputeStage
+        input_hidden_dim: 256
+        output_hidden_dim: 256
+        cond_key: null
+        d_cond: 0
+        causal: true
+        main_network:
+          arch_layout: T6
+          d_model: 256
+          d_intermediate: 768
+          num_heads: 8
+          cond: false
+          rotary_emb_dim: 32
+          dropout: 0.0
+          resid_dropout: 0.0
+    # Partitioned GMM heads (per-emb): a_top at d_a=128, s at d_s=128.
+    gmm_heads:
+      pushshapes_sim:
+        _target_: egomimic.models.heads.partitioned_gmm_head.PartitionedGMMActionHead
+        d_model: 128
+        d_model_a: 128
+        d_model_s: 128
+        action_dim: 2
+        k_agnostic: 20
+        k_specific: 12
+        chunk_len: 4
+        min_std: 0.0001
+        std_activation: softplus
+        low_noise_eval: true
+        head_hidden_dim: 512
+        head_n_layers: 3
+      pushshapes_sim_small_circle:
+        _target_: egomimic.models.heads.partitioned_gmm_head.PartitionedGMMActionHead
+        d_model: 128
+        d_model_a: 128
+        d_model_s: 128
+        action_dim: 2
+        k_agnostic: 20
+        k_specific: 12
+        chunk_len: 4
+        min_std: 0.0001
+        std_activation: softplus
+        low_noise_eval: true
+        head_hidden_dim: 512
+        head_n_layers: 3
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 2000
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

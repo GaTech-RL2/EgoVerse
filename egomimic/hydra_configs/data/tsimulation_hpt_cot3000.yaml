@@ -1,0 +1,77 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# HPT cotrain on two pushshapes embodiments: big circle (circle_3000,
+# pushshapes_sim) + small circle (small_circle_3000,
+# pushshapes_sim_small_circle). Cloned from tsimulation_hpt_nc3.yaml and
+# extended with a second embodiment, following the per-embodiment
+# dataloader_params structure of gmm_cotrain.yaml.
+#
+# Both embodiments use the HPT per-frame loader (get_keymap_hpt): SINGLE-frame
+# obs (front_img_1 + state_agent_obj) + an action_horizon-long action chunk.
+# This is required by HPT's "one current obs -> predict next action_horizon
+# actions" contract (see pushshapes.get_keymap_hpt docstring).
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/small_circle_3000
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/small_circle_3000
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+  pushshapes_sim_small_circle:
+    batch_size: 128
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+  pushshapes_sim_small_circle:
+    batch_size: 128
+    num_workers: 4
