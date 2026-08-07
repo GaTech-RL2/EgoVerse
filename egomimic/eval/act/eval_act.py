@@ -1,7 +1,7 @@
 import numpy as np
 from torchmetrics import MeanSquaredError
 
-from egomimic.eval.eval_video import EvalVideo
+from egomimic.eval.core.eval_video import EvalVideo
 from egomimic.utils.viz_utils import draw_actions
 
 
