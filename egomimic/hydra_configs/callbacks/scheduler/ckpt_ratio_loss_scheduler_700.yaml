@@ -3,7 +3,7 @@
 # ckpt_ratio_loss_scheduler which is 0.25 => ep500). Used for the first_token
 # grab_prev_end runs (user asked 2026-06-21 to push reg-off 500 -> 700).
 defaults:
-  - defaults
+  - /callbacks/base/defaults
   - _self_
 
 model_checkpoint:

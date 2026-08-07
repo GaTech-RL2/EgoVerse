@@ -1,5 +1,5 @@
 defaults:
-  - checkpoints
+  - /callbacks/checkpoint/checkpoints
   - _self_
 
 ema:

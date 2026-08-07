@@ -12,7 +12,7 @@ defaults:
   - override /model: hnet/hnet_firstend_cotrain_cossim_2stage_128_256_512_peremb_pyramid
   - override /data: pusht/indomain_c4_small
   - override /evaluator: pusht/gmm_eval_firstend
-  - override /logger: csv_wandb
+  - override /logger: composite/csv_wandb
 
 name: indomain_c4
 description: hnet_bc_small

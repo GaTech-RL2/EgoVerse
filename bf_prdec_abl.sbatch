@@ -26,7 +26,7 @@ RES=""; [ -n "$LAST" ] && RES="ckpt_path=$LAST"; echo "[${LAST:+RESUME}${LAST:-F
 srun .venv/bin/python -m egomimic.trainHydra --config-name=train_zarr_cartesian $RES ++model.log_per_layer_grad_norms=true \
   +experiment=pusht/indomain_c4/dualstream_cotrain_2trunk_d16_200m \
   model=$MODEL \
-  trainer=ddp_pi description=$CELL \
+  trainer=distributed/ddp_pi description=$CELL \
   launch_params.gpus_per_node=1 launch_params.nodes=1 ++trainer.strategy=auto \
   model.enable_grad_norm=false \
   norm_stats.precomputed_norm_path=/coc/flash7/paphiwetsa3/datasets/pushshapes_norm_stats_ws512.json \

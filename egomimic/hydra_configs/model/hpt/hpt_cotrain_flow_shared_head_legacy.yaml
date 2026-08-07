@@ -1,5 +1,5 @@
 defaults:
-  - hpt_cotrain_enc_dec_base
+  - /model/hpt/hpt_cotrain_enc_dec_base
 
 robomimic_model:
   ac_keys:

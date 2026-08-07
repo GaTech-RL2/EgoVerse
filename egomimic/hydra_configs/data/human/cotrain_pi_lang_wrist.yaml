@@ -1,5 +1,5 @@
 defaults:
-  - cotrain_pi_lang
+  - /data/human/cotrain_pi_lang
   - _self_
 
 train_datasets:

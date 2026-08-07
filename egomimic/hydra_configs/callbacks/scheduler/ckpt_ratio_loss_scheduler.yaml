@@ -5,9 +5,9 @@
 # uses switch_fraction=0.5 => ep1000, so we override it here explicitly).
 #
 # For the real (non-smoke) transformer-router configs: use THIS callbacks group
-# (callbacks=ckpt_ratio_loss_scheduler) at max_epochs=2000 to get reg-off@500.
+# (callbacks=scheduler/ckpt_ratio_loss_scheduler) at max_epochs=2000 to get reg-off@500.
 defaults:
-  - defaults
+  - /callbacks/base/defaults
   - _self_
 
 model_checkpoint:

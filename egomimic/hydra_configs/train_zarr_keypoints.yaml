@@ -1,6 +1,6 @@
 defaults:
   - train_zarr_cartesian
   - override model: hpt/hpt_bc_keypoints_base
-  - override data: human/human/aria_keypoints_wrist
+  - override data: human/aria_keypoints_wrist
   - override evaluator/viz@evaluator.viz_func: eva_cartesian_aria_keypoints_wrist
   - _self_

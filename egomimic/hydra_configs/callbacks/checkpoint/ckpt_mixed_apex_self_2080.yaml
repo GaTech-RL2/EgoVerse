@@ -9,7 +9,7 @@
 # regime while keeping a full-history minority so the apex still sees long
 # context occasionally.
 defaults:
-  - defaults
+  - /callbacks/base/defaults
   - _self_
 
 model_checkpoint:

@@ -1,5 +1,5 @@
 defaults:
-  - ddp
+  - /trainer/distributed/ddp
 
 strategy: ddp_find_unused_parameters_true
 limit_train_batches: 2

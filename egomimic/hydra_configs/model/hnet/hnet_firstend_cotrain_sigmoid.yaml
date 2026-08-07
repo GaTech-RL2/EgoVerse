@@ -23,7 +23,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 #   forgets the override cannot silently train a broken GMM. The launcher
 #   (regdown_msub_smoke.sh) passes norm_stats.norm_mode=minmax.
 # FIX #3: transformer-router runs need the ratio_loss_scheduler (reg-off) wired
-#   in via callbacks=ckpt_ratio_loss_scheduler (switch_fraction=0.25 => ep500 at
+#   in via callbacks=scheduler/ckpt_ratio_loss_scheduler (switch_fraction=0.25 => ep500 at
 #   max_epochs=2000). Every prior transformer-router config omitted it.
 robomimic_model:
   _target_: egomimic.algo.hnet.PackedAlgoBase

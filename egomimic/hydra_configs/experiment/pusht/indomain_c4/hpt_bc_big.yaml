@@ -12,7 +12,7 @@ defaults:
   - override /model: hpt/hpt_cotrain_pushshapes_flow_shared_head_c4_big
   - override /data: pusht/indomain_c4_hpt_big
   - override /evaluator: pusht/gmm_eval_firstend
-  - override /logger: csv_wandb
+  - override /logger: composite/csv_wandb
 
 name: indomain_c4
 description: hpt_bc_big

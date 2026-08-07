@@ -19,7 +19,7 @@ defaults:
   - override /model: hnet/hnet_dualstream_2trunk_d16_200m
   - override /data: pusht/circle_3kgen_v2_usocket3000
   - override /evaluator: pusht/gmm_eval_firstend
-  - override /logger: csv_wandb
+  - override /logger: composite/csv_wandb
 
 name: indomain_c4
 description: dualstream_cotrain_2trunk_d16_200m_4500gen

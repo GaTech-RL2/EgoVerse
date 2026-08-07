@@ -1,5 +1,5 @@
 defaults:
-  - checkpoints
+  - /callbacks/checkpoint/checkpoints
   - _self_
 
 # THIN ckpt policy (user, 2026-07-18: save_top_k=-1 at every-100 wastes ~50GB/run).

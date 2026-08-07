@@ -12,7 +12,7 @@ defaults:
   - override /model: bc/bc_rnn_pushshapes_paperexact_tx_cotrain_c4_big
   - override /data: pusht/indomain_c4_small
   - override /evaluator: pusht/gmm_eval_firstend
-  - override /logger: csv_wandb
+  - override /logger: composite/csv_wandb
 
 name: indomain_c4
 description: tx_bc_small

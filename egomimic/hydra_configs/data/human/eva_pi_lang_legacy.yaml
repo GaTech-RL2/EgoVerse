@@ -1,5 +1,5 @@
 defaults:
-  - cotrain_pi_base
+  - /data/cotrain/cotrain_pi_base
   - _self_
 
 train_datasets:

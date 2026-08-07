@@ -2,7 +2,7 @@
 # training (epoch >= switch_fraction * max_epochs). ON value = the configured
 # ratio_loss_weight (0.03); OFF = 0.0. Probes whether the learned chunking
 # survives once the regularizer is removed. Compose via Hydra list:
-#   callbacks=[checkpoints, ratio_loss_scheduler]
+#   callbacks=[checkpoint/checkpoints, ratio_loss_scheduler]
 ratio_loss_scheduler:
   _target_: egomimic.pl_utils.callbacks.ratio_loss_scheduler.RatioLossScheduler
   on_value: 0.03

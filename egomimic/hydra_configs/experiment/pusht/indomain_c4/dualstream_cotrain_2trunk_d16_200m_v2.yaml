@@ -12,7 +12,7 @@ defaults:
   - override /model: hnet/hnet_dualstream_2trunk_d16_200m
   - override /data: pusht/indomain_c4_cotrain_v2
   - override /evaluator: pusht/gmm_eval_firstend
-  - override /logger: csv_wandb
+  - override /logger: composite/csv_wandb
 
 name: indomain_c4
 description: dualstream_cotrain_2trunk_d16_200m_4500gen

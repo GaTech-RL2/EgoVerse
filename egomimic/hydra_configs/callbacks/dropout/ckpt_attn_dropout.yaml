@@ -2,7 +2,7 @@
 # Use for DFoT runs where we want to kill the long-sequence copy-from-clean-
 # neighbor shortcut by training the attn under a mix of dropout regimes.
 defaults:
-  - defaults
+  - /callbacks/base/defaults
   - _self_
 
 model_checkpoint:

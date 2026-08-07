@@ -25,7 +25,7 @@ def load_config(
     Args:
         config_name: Name of the config file (without .yaml extension).
             Can also be a config group path like "data/human/cotrain_pi_lang".
-        overrides: Optional list of Hydra overrides (e.g. ["+trainer=debug"]).
+        overrides: Optional list of Hydra overrides (e.g. ["+trainer=debug/debug"]).
         config_dir: Optional override of the Hydra config search directory.
             Defaults to the ``egomimic/hydra_configs`` dir of the *installed*
             ``egomimic`` package. Pass an explicit dir when the caller wants

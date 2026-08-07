@@ -1,5 +1,5 @@
 defaults:
-  - checkpoints
+  - /callbacks/checkpoint/checkpoints
   - _self_
 
 # Warm-start the aligned STRUCTURE (router+chunker+apex, 144.9M) from a donor,

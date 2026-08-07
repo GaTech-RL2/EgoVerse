@@ -19,14 +19,14 @@
 # language annotation field on disk are skipped.
 #
 # Examples:
-#   data=human/human/cotrain_pi_latent latent_mode=random  +n_latents=64
-#   data=human/human/cotrain_pi_latent latent_mode=pairs
-#   data=human/human/cotrain_pi_latent latent_mode=custom \
+#   data=human/cotrain_pi_latent latent_mode=random  +n_latents=64
+#   data=human/cotrain_pi_latent latent_mode=pairs
+#   data=human/cotrain_pi_latent latent_mode=custom \
 #       'data.custom_hashes.eva=["2026-04-21-21-56-58-170000"]' \
 #       'data.custom_hashes.aria=["2026-03-17-02-35-26-000000"]'
 
 defaults:
-  - cotrain_pi_base
+  - /data/cotrain/cotrain_pi_base
   - _self_
 
 # Override the base config's _target_ with a thin wrapper that drops our
