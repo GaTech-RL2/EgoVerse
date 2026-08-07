@@ -1,4 +1,0 @@
-Tsimulation
-assets
-egomimic
-external
