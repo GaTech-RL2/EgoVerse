@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from egomimic.models.denoising_nets import ConditionalUnet1D
+from egomimic.models.diffusion.denoising_nets import ConditionalUnet1D
 
 
 class DenoisingPolicy(nn.Module):
