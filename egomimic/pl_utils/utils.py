@@ -4,7 +4,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from omegaconf import DictConfig
 
-from egomimic.utils import pylogger, rich_utils
+from egomimic.pl_utils import rich_utils
+from egomimic.utils import pylogger
 
 log = pylogger.RankedLogger(__name__, rank_zero_only=True)
 
@@ -86,7 +87,11 @@ def task_wrapper(task_func: Callable) -> Callable:
             if find_spec("wandb"):  # check if wandb is installed
                 import wandb
 
-                if wandb.run:
+                # getattr guard: a broken/partial wandb install (no .run
+                # attribute) must not crash the post-fit teardown of csv-only
+                # runs — bit the s1c1/hireg smokes 2026-06-10 (exit 1 AFTER a
+                # fully successful fit).
+                if getattr(wandb, "run", None):
                     log.info("Closing wandb!")
                     wandb.finish()
 
