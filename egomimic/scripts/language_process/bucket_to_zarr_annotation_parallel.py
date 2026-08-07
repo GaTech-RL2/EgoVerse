@@ -8,7 +8,7 @@ Episodes that already have ``annotation_key`` in their Zarr are skipped (unless 
 
 Example usage:
 python egomimic/scripts/language_process/bucket_to_zarr_annotation_parallel.py \
---dataset-config-path egomimic/hydra_configs/data/human/human/human/eva_pi_lang.yaml \
+--dataset-config-path egomimic/hydra_configs/data/human/eva_pi_lang.yaml \
 --bucket s3://rldb/scale_annotations
 """
 
