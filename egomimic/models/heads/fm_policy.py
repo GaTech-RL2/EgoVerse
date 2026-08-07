@@ -3,8 +3,8 @@ from typing import Tuple
 import torch
 from overrides import override
 
-from egomimic.models.denoising_nets import ConditionalUnet1D
-from egomimic.models.denoising_policy import DenoisingPolicy
+from egomimic.models.diffusion.denoising_nets import ConditionalUnet1D
+from egomimic.models.heads.denoising_policy import DenoisingPolicy
 
 
 class FMPolicy(DenoisingPolicy):
