@@ -3,12 +3,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import torch
-import torchvision.transforms.functional as TF
+from egomimic.utils.egomimicUtils import cam_frame_to_cam_pixels, ee_pose_to_cam_frame
 
-from egomimic.utils.egomimicUtils import (
-    INTRINSICS,
-    cam_frame_to_cam_pixels,
-    ee_pose_to_cam_frame,
+# Simulator episodes use a synthetic camera model; real datasets provide metadata.
+INTRINSICS = {"base": np.eye(3, 4, dtype=np.float32)}
 )
 from egomimic.utils.pose_utils import _split_action_pose, _split_keypoints
 
