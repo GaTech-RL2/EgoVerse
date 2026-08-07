@@ -1,0 +1,11 @@
+# Teacher-forced sanity check for the spatial_rh closed-loop controller.
+_target_: egomimic.eval.core.eval_composite.EvalList
+evals:
+  - _target_: egomimic.eval.tf.eval_dfot_controller_tf.DFoTControllerTFEval
+    n_steps_eval: 40
+    max_episodes: 4
+    embodiment_name: "pushshapes_sim"
+    image_key: "front_img_1"
+    limit_val_batches: 4
+    max_videos: 2
+    video_subdir: "videos_ctrl_tf"

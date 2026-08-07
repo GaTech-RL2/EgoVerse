@@ -1,0 +1,11 @@
+_target_: egomimic.eval.core.eval_composite.EvalList
+evals:
+  - _target_: egomimic.eval.dfot.eval_dfot_bundle_anchored.DFoTBundleAnchoredEval
+    n_context_frames: 4
+    rollout_steps: 32
+    n_chunk_steps: 50
+    embodiment_name: "pushshapes_sim"
+    image_key: "front_img_1"
+    recon_loss_n_frames: 20
+    max_videos: 2
+    limit_val_batches: 4

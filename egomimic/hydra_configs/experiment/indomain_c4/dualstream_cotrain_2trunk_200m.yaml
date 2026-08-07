@@ -1,0 +1,27 @@
+# @package _global_
+# In-domain chunk-4 table cell: dualstream_cotrain (v2 TWO-TRUNK).
+# Two separate-weight trunks (agnostic ‖ specific) + per-layer channel-aware
+# cross-attention. Option-2 sizing: d_model 1024 / 8 layers each, the two
+# trunks together ~190M = baseline core (bc_rnn_..._tx_cotrain_c4_200M). Only
+# swaps the model vs tx_cotrain -> direct head-to-head. (Width may be re-tuned
+# if the baseline config changes.)
+defaults:
+  - override /model: hnet_dualstream_2trunk_200m
+  - override /data: indomain_c4_cotrain
+  - override /evaluator: gmm_eval_firstend
+  - override /logger: csv_wandb
+
+name: indomain_c4
+description: dualstream_cotrain_2trunk_200m
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+# GMM head requires minmax (quantile×tanh is broken) — mirrors tx_cotrain.
+norm_stats:
+  norm_mode: minmax

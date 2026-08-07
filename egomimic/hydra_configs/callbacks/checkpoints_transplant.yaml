@@ -1,0 +1,26 @@
+defaults:
+  - checkpoints
+  - _self_
+
+# Warm-start the aligned STRUCTURE (router+chunker+apex, 144.9M) from a donor,
+# leave encoder+trunk+head (94.6M) fresh; then hard-freeze the structure until
+# freeze_until_epoch, after which it moves only via slow EMA copy-back.
+warm_start:
+  _target_: egomimic.pl_utils.warm_start_callback.WarmStartCallback
+  donor_ckpt: ${oc.env:DONOR_CKPT}   # launcher exports DONOR_CKPT (path has '=', can't be an interp default)
+  load_groups: [structure]
+  param_groups: &pg
+    encoder:   ["*.stages.1.*"]
+    trunk:     ["*.stages.2.levels.0.*", "*.stages.2.levels.2.*"]
+    chunker:   ["*.stages.2.levels.1.*", "*.stages.2.levels.3.*"]
+    apex:      ["*.stages.2.levels.4.*"]
+    head:      ["*.stages.3.*"]
+    structure: ["@chunker", "@apex"]
+    fresh:     ["@encoder", "@trunk", "@head"]
+
+struct_ema:
+  _target_: egomimic.pl_utils.structure_ema_callback.StructureEMACallback
+  target_group: structure
+  freeze_until_epoch: ${oc.env:FREEZE_UNTIL,499}
+  decay: ${oc.env:STRUCT_DECAY,0.999}
+  param_groups: *pg
