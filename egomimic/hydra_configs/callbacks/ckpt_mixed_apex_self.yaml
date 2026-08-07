@@ -1,0 +1,22 @@
+defaults:
+  - defaults
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch}"
+  save_last: true
+  save_top_k: -1
+  every_n_epochs: 250
+  save_on_train_epoch_end: true
+
+mixed_apex_attention:
+  _target_: egomimic.pl_utils.callbacks.apex_attention_regime.MixedApexAttentionCallback
+  schedule:
+    _target_: egomimic.pl_utils.callbacks.apex_attention_regime.AlternatingApexSchedule
+    full_steps: 1
+    windowed_steps: 1
+    windowed_mode: self
+    window_size: null
+    offset: 0

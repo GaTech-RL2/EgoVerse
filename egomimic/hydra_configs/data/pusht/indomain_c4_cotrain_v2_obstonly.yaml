@@ -1,0 +1,85 @@
+# D1-obstacle data config: copy of indomain_c4_cotrain_v2.yaml with e15's
+# VALIDATION folder swapped to circle_v2_obstonly (720 real obstacle
+# episodes, levels 1-30, sim_v2-verified). Only valid_datasets is used by
+# the probe (dm.setup(stage="validate")) -- train_datasets is included
+# unmodified only because MultiDataModuleWrapper expects the key to exist.
+# e17/small_circle stays on its normal in-domain data: no obstacle data
+# exists for it, so that's the only e17 data available, not a shortcut.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_4500_plus_gen_v2
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_4500_v2
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+valid_datasets:
+  pushshapes_sim:                       # <-- OBSTACLE-ONLY, the swap
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_v2_obstonly
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_small_circle:          # unchanged: no obstacle data exists for e17
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_4500_v2
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: false
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: false
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: false
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: false

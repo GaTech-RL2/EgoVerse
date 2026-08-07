@@ -1,0 +1,30 @@
+# @package _global_
+# In-domain chunk-4 cell: hnet_bc_big with a DINOv3 image encoder (orientation-
+# perception test). Identical to hnet_bc_big.yaml EXCEPT the model points at the
+# *_200M_dino variant, whose front_img_1 encoder is DinoVisualCore (FROZEN DINOv3 ViT-S/16,
+# 224 interp, SPATIAL grid7 7x7 patch-pool, Linear(49*384->96)+LN) instead of the
+# resnet18+SpatialSoftmax VisualCore. 2026-06-24 encoder sweep (object-pose linear probe):
+# ResNet 70.4deg/130px -> DINOv3-S/16 grid7 15.3deg/59px (B/16 12.6deg, L/16 11.9deg better
+# still). S/16 chosen for THROUGHPUT: B/16 fwd_s=2.17s = ~16x the ResNet twin -> epoch too
+# slow to reach ep1499 in the 7-day alloc; S/16 (~4x fewer FLOPs, frozen=no backward) lands
+# near twin speed. B/L need frozen-feature PRECOMPUTE to be feasible (future). Spatial-grid
+# ~halves error vs mean-pool; mean-pool is worst.
+defaults:
+  - override /model: hnet/hnet_cotrain_cossim_encdec_trunk_200M_dino
+  - override /data: pusht/indomain_c4_big
+  - override /evaluator: pusht/gmm_eval_firstend
+  - override /logger: csv_wandb
+
+name: indomain_c4
+description: hnet_ed_bc_big_dino
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

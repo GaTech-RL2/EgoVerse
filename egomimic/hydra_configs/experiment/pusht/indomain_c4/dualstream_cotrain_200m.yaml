@@ -1,0 +1,27 @@
+# @package _global_
+# In-domain chunk-4 table cell: dualstream_cotrain
+# Dual-stream H-Net (shared-agnostic + per-emb-specific), capacity-matched to
+# the tx_cotrain baseline (trunk 52.7M = TransformerCore core +0.012%, excl.
+# obs encoders). Mirrors tx_cotrain EXACTLY (same data feed, evaluator, logger,
+# wandb project, epochs) and only swaps the model -> direct head-to-head.
+# Launch: python -m egomimic.trainHydra --config-name=train_zarr_cartesian +experiment=pusht/indomain_c4/dualstream_cotrain
+defaults:
+  - override /model: hnet/hnet_dualstream_txar_200m
+  - override /data: pusht/indomain_c4_cotrain
+  - override /evaluator: pusht/gmm_eval_firstend
+  - override /logger: csv_wandb
+
+name: indomain_c4
+description: dualstream_cotrain_200m
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+# GMM head requires minmax (quantile×tanh is broken) — mirrors tx_cotrain.
+norm_stats:
+  norm_mode: minmax

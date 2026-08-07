@@ -1,0 +1,28 @@
+defaults:
+  - pi0.5_base
+  - _self_
+
+robomimic_model:
+  camera_transforms:
+    mecka_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "mecka" # change to base_half if using half res
+      extrinsics_key: "mecka"
+    scale_bimanual:
+      _target_: egomimic.utils.egomimicUtils.CameraTransforms
+      intrinsics_key: "scale" # change to base_half if using half res
+      extrinsics_key: "scale"
+  ac_keys:
+    mecka_bimanual: "actions_cartesian"
+    scale_bimanual: "actions_cartesian"
+  domains: ["mecka_bimanual", "scale_bimanual"]
+
+  action_converters:
+    rules:
+      MECKA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+      SCALE_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+    # optional fallback if no match is found
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter

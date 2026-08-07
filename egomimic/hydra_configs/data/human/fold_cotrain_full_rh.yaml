@@ -1,0 +1,123 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# ROBOT-HUMAN hetero-action-dim FULL COTRAIN (span-as-episode, all episodes).
+# Pairs with model configs bf_rh_sdp_dual.yaml / bf_rh_sdp_nodual.yaml.
+# Derived from fold_overfit_rh.yaml but pointed at the FULL fold datasets:
+#   eva  : ALL /coc/flash7/scratch/paphiwetsa3/eva_fold/*.zarr       (~590, single full-span "annotations")
+#   human: ALL /coc/flash7/scratch/paphiwetsa3/fold_data_new/*.zarr  (~572, per-fold "annotations" spans)
+#
+# Loader = ZarrAnnotationSpanPackedDataset (one packed sample per annotation
+# span; reads the hardcoded `annotations` zarr key via _load_annotations).
+# Span-safe per-frame keymaps/transforms from
+# egomimic.rldb.embodiment.fold_span_transforms:
+#   eva  : actions_cartesian(14)  = [left.cmd_ee_pose(7), right.cmd_ee_pose(7)];
+#          state_ee_pose(14)
+#   human: actions_keypoints(138) = head-frame [Lwrist_ypr(6), Lkp_hf(63),
+#          Rwrist_ypr(6), Rkp_hf(63)]; state_keypoints(138); obs_head_pose(7)
+#
+# In-domain cotrain: valid == train (no holdout).
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/eva_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: True"
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/fold_data_new
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: True"
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+
+# valid == train (in-domain, no holdout).
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/eva_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: True"
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/fold_data_new
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: True"
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+
+# HOST-RAM NOTE: two emb loaders run concurrently -> total workers =
+# 2 * num_workers. 480x480 image seqs (up to 128 frames * batch 4) make each
+# prefetch buffer large. Measured in the dry-run: 12 workers/emb * prefetch 4
+# (=24 workers, 96 buffers) OOM-SIGKILLs host RAM at --mem=64G; 4 workers/emb *
+# prefetch 2 (=8 workers, 16 buffers) ran the full dry-run to completion (finite
+# loss on both embs) at --mem=112G with wide headroom. These 4/2 values are the
+# PROVEN default paired with rh_real.sbatch's --cpus-per-task=12 --mem=112G.
+# To raise throughput, bump both together AND raise sbatch --mem proportionally
+# (8/emb*pf2 needs ~128G; 12/emb*pf4 needs ~256G+).
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  human_bimanual:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  human_bimanual:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2

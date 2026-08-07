@@ -1,7 +1,7 @@
 """Keymap helper and validation-time visualization for the pushshapes_sim
 embodiment.
 
-`get_keymap()` is referenced from `egomimic/hydra_configs/data/tsimulation.yaml`
+`get_keymap()` is referenced from `egomimic/hydra_configs/data/pusht/tsimulation.yaml`
 so it sets the shape of every training batch. `viz_gt_preds()` is referenced
 from `egomimic/hydra_configs/visualization/cartesian.yaml` and is called
 during validation to render the GT/predicted trajectories overlaid on each
@@ -109,7 +109,7 @@ def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
         action_horizon: number of future actions returned per sample. Must
             match the model's ``trunk.action_horizon`` / head ``act_seq``.
             Wire it from the data config (see
-            ``egomimic/hydra_configs/data/tsimulation.yaml``) so there's one
+            ``egomimic/hydra_configs/data/pusht/tsimulation.yaml``) so there's one
             source of truth shared with the model config.
 
     Extra kwargs (e.g. ``norm_mode=True`` injected by trainHydra) are accepted

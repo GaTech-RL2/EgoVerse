@@ -1,0 +1,94 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# Exact circle-only A/B mate of bc_transformer_sdp. Only the temporal mixer is
+# changed: T8 -> M8. Width and layer count stay fixed; the Mamba FFN width 1612
+# parameter-matches its Transformer mate's 33,579,520-param temporal backbone
+# within 5,760 parameters (Mamba 33,573,760; -0.0172%).
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 2560
+  domains: [pushshapes_sim]
+  ac_keys:
+    pushshapes_sim: actions
+  stages:
+  - _target_: egomimic.pipeline.stages_io.TargetBuilder
+    chunk_len: 4
+    stride: 4
+
+  - _target_: egomimic.pipeline.stages_single.SingleObsEncoder
+    encoder:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 512
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 512
+        output_key: fused_cond
+        cond_proj_widths: [512, 512]
+        obs_specs:
+          state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 86
+            crop_width: 86
+            crop_eval_mode: random
+            crop_sample_mode: v02
+
+  - _target_: egomimic.pipeline.stages_single.SingleStreamTrunk
+    init_range: 0.02
+    levels:
+    - _target_: egomimic.pipeline.stages_single.SingleTrunkLevel
+      causal: true
+      decoder_layout: null
+      attn_window: null
+      main_network:
+        arch_layout: M8
+        d_model: 512
+        d_intermediate: 1612
+        num_heads: 8
+        cond: false
+        rotary_emb_dim: 64
+        dropout: 0.0
+        resid_dropout: 0.0
+        ssm_cfg:
+          d_state: 128
+          d_conv: 4
+          expand: 2
+          headdim: 64
+          chunk_size: 256
+
+  - _target_: egomimic.pipeline.stages_single.SingleSDPHead
+    d_h: 512
+    action_dim: 2
+    chunk_len: 4
+    embodiments: [pushshapes_sim]
+    buffer_chunks: 4
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    detach_offregime: true
+    regime_weights: [0.7, 0.15, 0.15]
+    end_mode: pusher_hold
+    d_model: 256
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3000
+  warmup_steps: 150
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

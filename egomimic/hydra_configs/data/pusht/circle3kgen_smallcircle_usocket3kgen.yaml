@@ -1,0 +1,138 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# PUSHSHAPES THREE-EMBODIMENT COTRAIN (circle+gen / small-circle / u_socket+gen).
+#
+# Feeds three domains from separate on-disk dirs:
+#   pushshapes_sim              -> circle_3000_plus_gen     (2D xy action,       3760 episodes)
+#   pushshapes_sim_small_circle -> small_circle_3000        (2D xy action,       3040 episodes)
+#   pushshapes_sim_u_socket     -> u_socket_3000_plus_gen   (3D xy-theta action, 3720 episodes)
+# Packed full-episode teacher forcing (chunking="none"); action chunking
+# (chunk-4) is handled by TargetBuilder / SDPHead, not here.
+#
+# Small-circle and u-socket files are tagged "pushshapes_sim" on disk, so the
+# resolver override is mandatory for both to keep separate normalization, state
+# encoder, router, and action head dispatch. CombinedLoader max_size_cycle gives
+# one batch from each embodiment per optimizer step.
+#
+# u_socket_3000_plus_gen = u_socket_3000 (3000 obstacle-free) + u_socket_cotrain
+# (720 gen, 24 per obstacle level 0-29, symlinked with an "ncc_" prefix), mirroring
+# the circle_3000_plus_gen convention.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000_plus_gen
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_with_pusher_cmd
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_3000
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_with_pusher_cmd
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/u_socket_3000_plus_gen
+      embodiment_override: "pushshapes_sim_u_socket"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_with_pusher_cmd
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000_plus_gen
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_with_pusher_cmd
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_3000
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_with_pusher_cmd
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/u_socket_3000_plus_gen
+      embodiment_override: "pushshapes_sim_u_socket"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_with_pusher_cmd
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  pushshapes_sim_u_socket:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  pushshapes_sim_u_socket:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4

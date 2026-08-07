@@ -1,0 +1,65 @@
+# SINGLE segmented human demonstration (fold 0), no cotrain.
+#
+# Same data change as fold_overfit_rh_1fold but WITHOUT eva, so it isolates the
+# variable the phase-ambiguity hypothesis is about: does a model that sees ONE
+# complete fold (instead of 28 arbitrary 128-frame windows with no phase signal)
+# fit materially better?
+#
+# eva was 81% of the cotrain batch's decode cost (1296 of 1594 frames) and one
+# batch per epoch cannot spread that across workers -- dropping it buys ~4x the
+# gradient updates per wall-clock hour.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/rh_overfit/human
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    chunking: none
+    min_seq_len: 16
+    max_seq_len: null
+    annotation_key: fold_segments
+    span_indices:
+    - 0
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/rh_overfit/human
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    chunking: none
+    min_seq_len: 16
+    max_seq_len: null
+    annotation_key: fold_segments
+    span_indices:
+    - 0
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 2
+    num_workers: 2
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 2
+    num_workers: 1
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2

@@ -1,0 +1,24 @@
+# @package _global_
+# sim_v2 data (2026-07-31).
+# ABLATION B -- sdp_noattn trained on new_circle_cotrain ONLY (720 obstacle
+# eps), swept on obstacle levels 0-29 (e15). Tests whether obstacle data alone
+# suffices without the in-domain 3K. Volume confound accepted.
+defaults:
+  - override /model: hnet/hnet_dualstream_2trunk_d16_200m
+  - override /data: pusht/indomain_c4_obstonly_v2
+  - override /evaluator: pusht/gmm_eval_firstend
+  - override /logger: csv_wandb
+
+name: indomain_c4
+description: sdpnoattn_abl_B_obstonly
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

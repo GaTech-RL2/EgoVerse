@@ -13,14 +13,14 @@ Bundled transforms:
 Examples:
     python egomimic/scripts/embedding_process/zarr_embedding.py \\
         --transform dinov3 \\
-        --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \\
+        --dataset-config-path egomimic/hydra_configs/data/human/human/human/eva_pi_lang.yaml \\
         --input-keys observations.images.front_1 \\
         --output-keys observations.embeddings.dinov3.front_1 \\
         --batch-size 64
 
     python egomimic/scripts/embedding_process/zarr_embedding.py \\
         --transform qwen3 \\
-        --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \\
+        --dataset-config-path egomimic/hydra_configs/data/human/human/human/eva_pi_lang.yaml \\
         --input-keys annotations \\
         --output-keys observations.embeddings.qwen3.annotations
 """

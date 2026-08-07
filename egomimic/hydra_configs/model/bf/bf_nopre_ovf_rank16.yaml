@@ -1,0 +1,194 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+# EARN ARM (2026-07-19): the combined demand+supply+search fix at the seam.
+# res_scale=0.1 (bypass narrowed -> chunk path must carry ~90%),
+# recon_loss_weight=1.0 (dsup information scaffold), router_sample=true
+# (Bernoulli boundary exploration; eval stays argmax). Seam only; bottom
+# untouched; standard ratio reg kept. Twin pair earn03/earn01 differs ONLY
+# in res_scale. Pre-registered: slower early loss; watch boundary_rate +
+# the dossier ablation multiplier (target: seam >= x1.3 like do1).
+# BATCHFLOW flat config — prenet_decoder dualstream (gate arm 2):
+# sym_w1 + param-neutral encoder->decoder split (4L enc + T4 dec per trunk
+# level) + T4 causal router prenet in both chunkers. The model IS the
+# stages list: TargetBuilder -> ObsEncoders -> DualstreamTrunk -> GMMHead ->
+# RatioLoss. Dims byte-copied from hnet_dualstream_firstend_tapered_200m_sym_w1.
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 2560
+  domains: [pushshapes_sim, pushshapes_sim_small_circle]
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_small_circle: actions
+  stages:
+  # --- stride + targets as data (was obs_stride: 4) ---
+  - _target_: egomimic.pipeline.stages_io.TargetBuilder
+    chunk_len: 4
+    stride: 4
+  # --- A (shared) + S (per-emb) obs encoders ---
+  - _target_: egomimic.pipeline.stages_io.ObsEncoders
+    agnostic:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 256
+        output_key: fused_cond
+        cond_proj_widths: [256, 256]
+        obs_specs:
+          state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: false
+            crop_height: 86
+            crop_width: 86
+            crop_eval_mode: center
+            crop_sample_mode: v02
+    specific:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 64
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          pushshapes_sim:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 64
+            output_key: fused_cond
+            cond_proj_widths: [64, 64]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: false
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: center
+                crop_sample_mode: v02
+          pushshapes_sim_small_circle:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 64
+            output_key: fused_cond
+            cond_proj_widths: [64, 64]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: false
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: center
+                crop_sample_mode: v02
+  # --- the pyramid (one pipeline stage; levels nest internally) ---
+  - _target_: egomimic.pipeline.stages_hnet.DualstreamTrunk
+    init_range: 0.02
+    levels:
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L0 A256/S64 x8
+      mask_mode: sym
+      allow_agnostic_cross: true
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+      streams_cfg:
+      - {d_model: 256, num_heads: 4, d_intermediate: 1024}
+      - {d_model: 64, num_heads: 2, d_intermediate: 256}
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel  # 256->512 / 64->128, dual
+      d_a: 256
+      d_s: 64
+      apex_a: 512
+      apex_s: 128
+      dual_inner: true
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.0
+      grab_prev_end: true
+      residual_mixer: mlp
+      residual_mixer_kwargs: {n_layers: 4}
+      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+      router_per_emb: true
+      router_fusion: mlp
+      residual_rank: 16
+      res_dropout: false
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L1 A512/S128 x8
+      mask_mode: sym
+      allow_agnostic_cross: true
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+      streams_cfg:
+      - {d_model: 512, num_heads: 8, d_intermediate: 2048}
+      - {d_model: 128, num_heads: 4, d_intermediate: 512}
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel  # 512->1024 SEAM (A only)
+      d_a: 512
+      d_s: 128
+      apex_a: 1024
+      dual_inner: false
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.0
+      grab_prev_end: true
+      residual_mixer: mlp
+      residual_mixer_kwargs: {n_layers: 4}
+      embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+      router_per_emb: true
+      router_fusion: mlp
+      residual_rank: 16
+      res_dropout: false
+    - _target_: egomimic.pipeline.stages_hnet.ApexLevel        # 1024 T10 agnostic-only
+      causal: true
+      main_network:
+        arch_layout: T10
+        d_model: 1024
+        d_intermediate: 1536
+        num_heads: 16
+        cond: false
+        rotary_emb_dim: 64
+        dropout: 0.0
+        resid_dropout: 0.0
+  # --- head (24 agnostic + 8 specific modes, matching the old sym_w1) ---
+  - _target_: egomimic.pipeline.stages_io.GMMHead
+    d_a: 256
+    d_s: 64
+    action_dim: 2
+    chunk_len: 4
+    k_agnostic: 24
+    k_specific: 8
+    embodiments: [pushshapes_sim, pushshapes_sim_small_circle]
+    head_hidden_dim: 512
+    head_n_layers: 3
+    gate_n_layers: 3
+    min_std: 0.0001
+    low_noise_eval: true
+    squash_means: false
+  # --- losses are stages ---
+  - _target_: egomimic.pipeline.stages_io.RatioLoss
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 2000
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

@@ -1,0 +1,24 @@
+defaults:
+  - cotrain_pi_base
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian_pi
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
+      filter_lambdas:
+        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
+  aria_bimanual: null
+
+valid_datasets:
+  eva_bimanual:
+    filters:
+      _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
+      project_name: "dense-language"
+      filter_lambdas:
+        - "lambda row: row['robot_name'] == 'eva_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"
+  aria_bimanual: null

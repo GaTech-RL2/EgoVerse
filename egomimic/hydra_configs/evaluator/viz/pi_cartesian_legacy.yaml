@@ -1,0 +1,18 @@
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
+  _partial_: true
+  image_key: base_0_rgb
+  action_key: actions_cartesian
+  mode: traj
+aria_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Aria.viz_gt_preds
+  _partial_: true
+  image_key: base_0_rgb
+  action_key: actions_cartesian
+  mode: traj
+scale_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Scale.viz_gt_preds
+  _partial_: true
+  image_key: base_0_rgb
+  action_key: actions_cartesian
+  mode: traj

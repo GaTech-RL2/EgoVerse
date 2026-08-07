@@ -15,7 +15,7 @@ source .venv/bin/activate && export PATH="/storage/project/r-dxu345-0/paphiwetsa
 # --num-cpus-per-task defaults to 1, meaning 24 episodes process at the same time.
 python egomimic/scripts/language_process/scale_to_zarr_annotation_parallel.py \
     --scale-annotation-dir annotations_test \
-    --dataset-config-path egomimic/hydra_configs/data/cotrain_pi_lang.yaml \
+    --dataset-config-path egomimic/hydra_configs/data/human/human/human/cotrain_pi_lang.yaml \
     --conversion-mode pick_place_llm \
     --prompt-filepath egomimic/scripts/language_process/prompt.txt \
     --augment-prompt-filepath egomimic/scripts/language_process/augment_prompt.txt \

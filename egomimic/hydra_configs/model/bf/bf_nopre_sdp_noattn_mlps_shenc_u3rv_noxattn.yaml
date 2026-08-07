@@ -1,0 +1,257 @@
+# ROTATION-VECTOR twin of bf_nopre_sdp_noattn_mlps_u3 (2026-08-01):
+# u_socket actions theta -> (cos,sin) via ThetaToRotVec transform_list
+# (data cfg circle_v2_usocket3000_rotvec). action_dims 19: 3 -> 4.
+# NORM: pushshapes_norm_stats_ws512_u3rv.json (4d action stats).
+# /!\\ rollout eval needs atan2 decode before env.step -- not wired yet.
+# u_socket arm of the history-free-S MLP design (2026-07-31).
+#
+# Two deltas vs bf_nopre_sdp_noattn_mlps:
+#   1. embodiment pair  = pushshapes_sim (circle) + pushshapes_sim_u_socket
+#   2. S stream widened 128 -> 256 (d_hidden 512 -> 1024): 2x width, 4x params
+#
+# WHY WIDER: circle vs small-circle differ by ONE scalar (PUSHER_RADII 15 vs 5),
+# so a 128-wide S sufficed. u_socket differs structurally -- theta is a LIVE
+# action DOF for it and a padded zero for circle; its geometry is non-convex and
+# oriented (two prongs + crossbar, INNER_GAP 32, OUTER_WIDTH 52) against a
+# rotationally symmetric disc; and it has latch/weld contact physics a circle
+# never sees. S is the ONLY per-embodiment pathway, so it must carry all of that.
+#
+# SIZING: S 128 -> 256 (user, 2026-07-31). Per-block cost is 8d^2+7d, so over
+# the 16 blocks: d=128 -> 2.11M | d=256 -> 8.42M | d=576 -> 42.53M.
+# A full-parity d=576 build (S == A trunk 41.98M) was measured and REJECTED:
+# d_s threads into the chunker routers and the head denoiser as well, so it
+# cost +112M active (216M -> 328M) while S itself gained only +40M. At 256 the
+# downstream inflation stays small, so head/router need no decoupling.
+# /!\ u_socket is 3-DOF (x, y, theta) where circle is 2-DOF -- circle theta is a
+# padded zero (see the DP converter). So the u_socket per-emb encoder takes
+# input_dim 3 / slice [0,3] and action_dims[u_socket]=3, while every circle-side
+# block stays at 2. Getting this wrong crashes at the first forward with
+# "mat1 and mat2 shapes cannot be multiplied (Nx3 and 2x256)".
+# S is PER-EMBODIMENT: total S is 2x active. Active is the compared number
+# (active-param matching is the house rule for swap-param models).
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 2560
+  domains:
+  - pushshapes_sim
+  - pushshapes_sim_u_socket
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_u_socket: actions
+  stages:
+  - _target_: egomimic.pipeline.stages_io.TargetBuilder
+    chunk_len: 4
+    stride: 4
+  # --- SINGLE shared obs encoder -> projected into BOTH A and S ---
+  # A = vision only (agnostic). S = per-emb projection of the SAME shared
+  # visual feature + per-emb proprio. One VisualCore total (base had three:
+  # one agnostic + one per embodiment).
+  - _target_: egomimic.pipeline.stages_io.SharedObsEncoders
+    shared:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 256
+        output_key: fused_cond
+        cond_proj_widths: [256, 256]
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 86
+            crop_width: 86
+            crop_eval_mode: random
+            crop_sample_mode: v02
+    proj_a:
+      _target_: torch.nn.Linear
+      in_features: 256
+      out_features: 256
+    proj_s:
+      pushshapes_sim:
+        _target_: torch.nn.Linear
+        in_features: 256
+        out_features: 256
+      pushshapes_sim_u_socket:
+        _target_: torch.nn.Linear
+        in_features: 256
+        out_features: 256
+    proprio:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          pushshapes_sim:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 256
+            output_key: fused_cond
+            cond_proj_widths: [256, 256]
+            obs_specs:
+              state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 256}
+          pushshapes_sim_u_socket:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 256
+            output_key: fused_cond
+            cond_proj_widths: [256, 256]
+            obs_specs:
+              state_agent_obj: {input_dim: 3, input_slice: [0, 3], embed_dim: 256}
+  - _target_: egomimic.pipeline.stages_hnet.DualstreamTrunk
+    init_range: 0.02
+    levels:
+    # --- L0: A transformer (256) and S MLP (128) as SEPARATE levels ---
+    # stream_keys [A] runs the level on the A stream alone, so the S stream is
+    # composed as its own StreamMLP level rather than riding along as a
+    # degenerate window-1 transformer.
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel
+      stream_keys: [A]
+      adjacency: [[]]
+      mask_mode: sym
+      attn_window: 1               # same local attention as the noattn baseline
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+      streams_cfg:
+      - d_model: 256
+        num_heads: 4
+        d_intermediate: 1024
+    - _target_: egomimic.pipeline.stages_hnet.StreamMLP
+      stream: S
+      d_model: 256
+      d_hidden: 1024                # 4x d_s (parity sizing, see header)
+      n_layers: 4                  # encoder side
+      decoder_layers: 4            # decoder side, mirrors decoder_layout T4
+      activation: gelu
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel
+      d_a: 256
+      d_s: 256
+      apex_a: 512
+      dual_inner: true
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.0005
+      grab_prev_end: true
+      flat_s: true                 # S bypasses this chunker entirely
+      residual_mixer: mlp
+      residual_mixer_kwargs:
+        n_layers: 4
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+      router_per_emb: true
+      router_fusion: mlp
+    # --- L1: same split, A widens to 512, S stays 128 ---
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel
+      stream_keys: [A]
+      adjacency: [[]]
+      mask_mode: sym
+      attn_window: 1
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+      streams_cfg:
+      - d_model: 512
+        num_heads: 8
+        d_intermediate: 2048
+    - _target_: egomimic.pipeline.stages_hnet.StreamMLP
+      stream: S
+      d_model: 256
+      d_hidden: 1024
+      n_layers: 4
+      decoder_layers: 4
+      activation: gelu
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel
+      d_a: 512
+      d_s: 256
+      apex_a: 1024
+      dual_inner: false
+      # A arrives chunked here while S is still at frame rate (flat_s), so the
+      # streams are on different grids and fusion is undefined -> agnostic
+      # boundary, read off A alone.
+      route_on: a
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.0005
+      grab_prev_end: true
+      flat_s: true                 # S bypasses this chunker entirely
+      residual_mixer: mlp
+      residual_mixer_kwargs:
+        n_layers: 4
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.ApexLevel
+      causal: true
+      main_network:
+        arch_layout: T10
+        d_model: 1024
+        d_intermediate: 1536
+        num_heads: 16
+        cond: false
+        rotary_emb_dim: 64
+        dropout: 0.0
+        resid_dropout: 0.0
+  - _target_: egomimic.pipeline.stages_flow.SDPHead
+    d_a: 256
+    d_s: 256
+    action_dim: 2
+    action_dims:
+      pushshapes_sim: 2
+      pushshapes_sim_u_socket: 4
+    dual_stream: true
+    chunk_len: 4
+    embodiments:
+    - pushshapes_sim
+    - pushshapes_sim_u_socket
+    buffer_chunks: 2
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    detach_offregime: true
+    regime_weights:
+    - 0.7
+    - 0.15
+    - 0.15
+    end_mode: pusher_hold
+    denoiser_arch: adaln
+    d_model_a: 256
+    d_model_s: 256
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+    mask_mode: asym
+    head_adapter: direct
+    adapter_layers: 4
+  - _target_: egomimic.pipeline.stages_io.RatioLoss
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 2000
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

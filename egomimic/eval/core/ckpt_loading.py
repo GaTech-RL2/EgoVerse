@@ -354,7 +354,7 @@ def main():
     _torch.manual_seed(int(args.seed))
 
     # Build the dataset from the full hydra .hydra/config.yaml (the ckpt's
-    # config_tree only contains the model subtree — no data/evaluator).
+    # config_tree only contains the model subtree — no data/robot/evaluator).
     if args.config_path is None:
         raise SystemExit(
             "Pass --config-path to point at the original run's .hydra/config.yaml "

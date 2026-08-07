@@ -1,0 +1,237 @@
+# bf_rh_nc3k_d138_sym + NO CROPPING. crop_aug=False, native 480x640, image_width=640.
+#
+# The 128x128 crop was an inherited robomimic augmentation default (76 of 84 =
+# 90% of the side) that became a 5.3% field-of-view amputation on real 480x640
+# Aria frames. Removed entirely -- train and eval both see the whole frame.
+#
+# SpatialSoftmax grid: 4x4 = 16 cells -> 15x20 = 300 cells. num_kp stays 32.
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 2560
+  domains:
+  - eva_bimanual
+  - human_bimanual
+  ac_keys:
+    eva_bimanual: actions_cartesian
+    human_bimanual: actions_keypoints
+  stages:
+  - _target_: egomimic.pipeline.stages_io.TargetBuilder
+    chunk_len: 4
+    stride: 4
+  - _target_: egomimic.pipeline.stages_io.ObsEncoders
+    agnostic:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 256
+        output_key: fused_cond
+        cond_proj_widths:
+        - 256
+        - 256
+        obs_specs: {}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 480
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: false
+            image_width: 640
+    specific:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 64
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          eva_bimanual:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 64
+            output_key: fused_cond
+            cond_proj_widths:
+            - 64
+            - 64
+            obs_specs:
+              state_ee_pose:
+                input_dim: 14
+                input_slice:
+                - 0
+                - 14
+                embed_dim: 64
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 480
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: false
+                image_width: 640
+          human_bimanual:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 64
+            output_key: fused_cond
+            cond_proj_widths:
+            - 64
+            - 64
+            obs_specs:
+              state_keypoints:
+                input_dim: 138
+                input_slice:
+                - 0
+                - 138
+                embed_dim: 64
+              obs_head_pose:
+                input_dim: 7
+                input_slice:
+                - 0
+                - 7
+                embed_dim: 64
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 480
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: false
+                image_width: 640
+  - _target_: egomimic.pipeline.stages_hnet.DualstreamTrunk
+    init_range: 0.02
+    levels:
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel
+      mask_mode: sym
+      attn_window: 1
+      allow_agnostic_cross: true
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments:
+      - eva_bimanual
+      - human_bimanual
+      streams_cfg:
+      - d_model: 256
+        num_heads: 4
+        d_intermediate: 1024
+      - d_model: 64
+        num_heads: 2
+        d_intermediate: 256
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel
+      d_a: 256
+      d_s: 64
+      apex_a: 512
+      apex_s: 128
+      dual_inner: true
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.001
+      grab_prev_end: true
+      residual_mixer: mlp
+      residual_mixer_kwargs:
+        n_layers: 4
+      embodiments:
+      - eva_bimanual
+      - human_bimanual
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel
+      mask_mode: sym
+      attn_window: 1
+      allow_agnostic_cross: true
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments:
+      - eva_bimanual
+      - human_bimanual
+      streams_cfg:
+      - d_model: 512
+        num_heads: 8
+        d_intermediate: 2048
+      - d_model: 128
+        num_heads: 4
+        d_intermediate: 512
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel
+      d_a: 512
+      d_s: 128
+      apex_a: 1024
+      dual_inner: false
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.001
+      grab_prev_end: true
+      residual_mixer: mlp
+      residual_mixer_kwargs:
+        n_layers: 4
+      embodiments:
+      - eva_bimanual
+      - human_bimanual
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.ApexLevel
+      causal: true
+      main_network:
+        arch_layout: T10
+        d_model: 1024
+        d_intermediate: 1536
+        num_heads: 16
+        cond: false
+        rotary_emb_dim: 64
+        dropout: 0.0
+        resid_dropout: 0.0
+  - _target_: egomimic.pipeline.stages_flow.SDPHead
+    d_a: 256
+    d_s: 64
+    action_dim: 14
+    action_dims:
+      eva_bimanual: 14
+      human_bimanual: 138
+    latent_dim: 768
+    dual_stream: true
+    enc_hidden:
+      eva_bimanual: 768
+      human_bimanual: 1024
+    enc_layers:
+      eva_bimanual: 5
+      human_bimanual: 8
+    enc_residual:
+      eva_bimanual: true
+      human_bimanual: true
+    chunk_len: 4
+    embodiments:
+    - eva_bimanual
+    - human_bimanual
+    buffer_chunks: 4
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    regime_weights:
+    - 0.7
+    - 0.15
+    - 0.15
+    end_mode: masked
+    denoiser_arch: adaln
+    d_model_a: 768
+    d_model_s: 768
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+    mask_mode: sym
+  - _target_: egomimic.pipeline.stages_io.RatioLoss
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0005
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 30000
+  warmup_steps: 40
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

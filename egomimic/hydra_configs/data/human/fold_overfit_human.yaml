@@ -1,0 +1,54 @@
+# SINGLE-EMBODIMENT overfit: human_bimanual ONLY (no cotrain).
+# Same episode + same transforms as fold_overfit_rh; the ONLY change is
+# that the other embodiment is removed. Model config is left untouched
+# (both embodiments still declared) so the architecture is identical and
+# the comparison isolates cross-embodiment sharing/interference.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/rh_overfit/human
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/rh_overfit/human
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 2
+    num_workers: 2
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 2
+    num_workers: 1
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2

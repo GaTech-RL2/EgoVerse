@@ -1,0 +1,107 @@
+# Full fold-clothes COTRAIN reading the STRUCTURAL fold_segments key
+# (FoldHardCodedConverter -> s3://rldb/fold_seg_annotations -> bucket_to_zarr),
+# not the legacy `annotations` key written by the one-off local script.
+# fold_segments sits outside the annotations* glob, so it never enters the
+# batch as a language role -- it only defines training windows.
+# 571 human eps (8560 fold spans) + 590 eva eps (1 span each) = 9150 spans.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/eva_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: null
+    img_decode_stride: 4
+    annotation_key: fold_segments
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/fold_data_new
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: null
+    img_decode_stride: 4
+    annotation_key: fold_segments
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/eva_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: null
+    img_decode_stride: 4
+    annotation_key: fold_segments
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/fold_data_new
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: null
+    img_decode_stride: 4
+    annotation_key: fold_segments
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 12
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  human_bimanual:
+    batch_size: 32
+    num_workers: 12
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 12
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  human_bimanual:
+    batch_size: 32
+    num_workers: 12
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4

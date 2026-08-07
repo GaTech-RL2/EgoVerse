@@ -1,0 +1,91 @@
+# D1-obstacle data config: SYMMETRIC obstacle-vs-obstacle. Both e15 and e17
+# validation folders point at obj_gen_v2_alignment (user-collected 2026-08-03,
+# 5 episodes/side spanning obstacle levels 1/7/11/15/23, flattened via
+# circle_flat/circle_small_flat symlink views since the resolver does a flat
+# iterdir() and the source data is nested per-level). Unlike
+# indomain_c4_cotrain_v2_obstonly.yaml (e15-obstacle vs e17-in-domain, the
+# only thing possible before this data existed), this tests whether e15 and
+# e17's obstacle-handling gradients conflict with EACH OTHER, not just
+# whether obstacle-handling conflicts with e17's normal behavior.
+# train_datasets unused by the probe (dm.setup(stage="validate")) -- present
+# only because MultiDataModuleWrapper expects the key to exist.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_4500_plus_gen_v2
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_4500_v2
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+valid_datasets:
+  pushshapes_sim:                       # <-- OBJ_GEN, e15 side
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/obj_gen_v2_alignment/circle_flat
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_small_circle:          # <-- OBJ_GEN, e17 side (the new part)
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/obj_gen_v2_alignment/circle_small_flat
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: false
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: false
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 1   # only 5 episodes total -- keep small so we get a real
+                     # per-batch distribution (up to 5 batches) instead of
+                     # one combined mega-batch (batch_size 16 would give N=1)
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: false
+  pushshapes_sim_small_circle:
+    batch_size: 1
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: false
