@@ -21,6 +21,7 @@ Each episode is self-contained with its own metadata, enabling:
 from __future__ import annotations
 
 import copy
+from collections import OrderedDict
 import json
 import logging
 import math
@@ -43,6 +44,13 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
+from egomimic.rldb.zarr.video_codec import (
+    decode_chunk,
+    decode_video_span,
+    frames_per_chunk_from_data,
+    normalize_dtype,
+    resolve_encoding,
+)
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.aws.aws_sql import (
     create_default_engine,
@@ -1524,6 +1532,10 @@ class ZarrDataset(torch.utils.data.Dataset):
     Base Zarr Dataset object, Just intializes as pass through to read from zarr episode
     """
 
+    #: (key, declared_dtype, detected_dtype) triples already logged, so a
+    #: dataset that mislabels every episode reports once instead of per episode.
+    _ENCODING_MISMATCHES: set = set()
+
     def __init__(
         self,
         Episode_path: Path,
@@ -1538,7 +1550,12 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         self.episode_path = Episode_path
         self.metadata = None
-        self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
+        self._image_keys = None  # Detected set of per-frame JPEG keys
+        self._video_keys = set()  # Detected set of chunked-H264 keys
+        self._video_meta_cache = {}  # Per-key video params, incl. detected ones
+        # (zarr_key, chunk_idx) -> decoded frames, for readers that fetch single
+        # frames rather than spans. See _video_frame for why this must exist.
+        self._video_chunk_cache: "OrderedDict[tuple, np.ndarray]" = OrderedDict()
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
         self.init_episode()
@@ -1556,7 +1573,10 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.total_frames = self.metadata["total_frames"]
         self.embodiment = self.metadata["embodiment"]
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
-        self._image_keys = self._detect_image_keys()
+        # Split image keys into per-frame JPEG vs chunked H264 by DETECTION,
+        # not by trusting the declared dtype alone.
+        self._image_keys, self._video_keys, self._video_meta_cache = (
+            self._classify_image_keys())
         self._json_keys = self._detect_json_keys()
 
     @property
@@ -1564,15 +1584,140 @@ class ZarrDataset(torch.utils.data.Dataset):
         """Pass-through to ZarrEpisode.intrinsics (read from zarr metadata)."""
         return self.episode_reader.intrinsics
 
-    def _detect_image_keys(self) -> set[str]:
-        """
-        Detect which keys contain JPEG-encoded image data from metadata.
+    def _classify_image_keys(self):
+        """Detect the real encoding of every image key.
 
-        Returns:
-            Set of keys containing JPEG data
+        Returns ``(jpeg_keys, video_keys, video_meta)``. The decision itself
+        lives in :func:`resolve_encoding` -- codec knowledge belongs with the
+        codec, and keeping it pure makes it testable without a zarr episode.
+        This method supplies the per-key inputs and records the outcome.
+
+        A key that is declared but missing from the store, or whose payload is
+        neither JPEG nor H264, keeps its declared classification: this recovers
+        from bad metadata, it does not silently drop data.
         """
-        features = self.metadata.get("features", {})
-        return {key for key, info in features.items() if info.get("dtype") == "jpeg"}
+        features = self.metadata.get("features", {}) or {}
+        store = getattr(self.episode_reader, "_store", None)
+        jpeg_keys: set[str] = set()
+        video_keys: set[str] = set()
+        video_meta: dict[str, dict] = {}
+
+        for key, info in features.items():
+            info = info or {}
+            declared = info.get("dtype")
+            if normalize_dtype(declared) is None:
+                continue
+
+            arr = None
+            if store is not None:
+                try:
+                    arr = store[key]
+                except (KeyError, TypeError, IndexError):
+                    arr = None
+
+            # zarr v3 Arrays are not sized -- len() raises, so read shape[0].
+            n = None
+            if arr is not None:
+                shape = getattr(arr, "shape", None)
+                if shape:
+                    n = int(shape[0])
+
+            verdict, sniffed = resolve_encoding(
+                declared, n, self.total_frames,
+                read_first=(lambda a=arr: a[0]) if arr is not None else None,
+            )
+            if sniffed:
+                self._warn_encoding_mismatch(key, declared, sniffed)
+
+            if verdict == "h264":
+                video_keys.add(key)
+                video_meta[key] = self._resolve_video_meta(info, arr, n)
+            else:
+                jpeg_keys.add(key)
+
+        return jpeg_keys, video_keys, video_meta
+
+    def _warn_encoding_mismatch(self, key, declared, detected) -> None:
+        """Report a metadata/payload disagreement once per distinct mismatch.
+
+        Deduped: a systematically mislabelled dataset would otherwise log this
+        once per episode, thousands of times.
+        """
+        sig = (key, declared, detected)
+        if sig in ZarrDataset._ENCODING_MISMATCHES:
+            return
+        ZarrDataset._ENCODING_MISMATCHES.add(sig)
+        logger.warning(
+            "zarr key %r declares dtype=%r but its bytes are %s; decoding as %s "
+            "(first seen in %s)", key, declared, detected, detected, self.episode_path)
+
+    @staticmethod
+    def _resolve_video_meta(info: dict, arr, n_elements) -> dict:
+        """Video params for a key, recovering frames_per_chunk when absent.
+
+        It is not derivable from counts -- 1000 frames over 4 chunks admits any
+        fpc in (250, 333] -- so fall back to decoding chunk 0, which is exact.
+        """
+        meta = dict(info.get("video") or {})
+        if not meta.get("frames_per_chunk") and arr is not None and n_elements:
+            meta["frames_per_chunk"] = frames_per_chunk_from_data(arr)
+            meta["n_chunks"] = n_elements
+            meta["inferred"] = True
+        return meta
+
+    #: Decoded chunks held for single-frame access. Must exceed the number of
+    #: distinct chunks one sample touches (ZarrActionExpertDataset reads BOS, t
+    #: and EOS = up to 3) or the cache thrashes and every read decodes a chunk.
+    VIDEO_CHUNK_CACHE_SIZE = int(os.environ.get("EGOVERSE_VIDEO_CHUNK_CACHE", 4))
+
+    def _video_frame(self, zarr_key: str, frame_idx: int):
+        """Decode ONE frame from a chunked video key, caching the covering chunk.
+
+        Callers that fetch frames individually (rather than as a span) would
+        otherwise pay a whole-chunk decode per frame -- at the default
+        frames_per_chunk=300 and ~1.68 ms/frame that is ~500 ms for a single
+        image. Caching the decoded chunk makes sequential access amortise to one
+        decode per frames_per_chunk frames.
+
+        The cache is bounded because a decoded chunk is large: 300 frames at
+        640x480x3 is ~276 MB, so an unbounded cache would blow a dataloader
+        worker's memory budget. Note the tension -- frames_per_chunk=300 is
+        tuned for SPAN reads; datasets consumed a frame at a time are better
+        written with a smaller chunk (EGOVERSE_VIDEO_FRAMES_PER_CHUNK).
+
+        Returns (3, H, W) float in [0,1], matching the JPEG path.
+        """
+        meta = self._video_meta(zarr_key)
+        fpc = int(meta.get("frames_per_chunk") or 0)
+        if fpc <= 0:
+            raise ValueError(
+                f"{zarr_key}: video key has no frames_per_chunk; cannot locate "
+                f"frame {frame_idx}"
+            )
+        chunk_idx, offset = divmod(int(frame_idx), fpc)
+        ck = (zarr_key, chunk_idx)
+        frames = self._video_chunk_cache.get(ck)
+        if frames is None:
+            frames = decode_chunk(self.episode_reader._store[zarr_key][chunk_idx])
+            self._video_chunk_cache[ck] = frames
+            while len(self._video_chunk_cache) > self.VIDEO_CHUNK_CACHE_SIZE:
+                self._video_chunk_cache.popitem(last=False)
+        else:
+            self._video_chunk_cache.move_to_end(ck)
+        if offset >= len(frames):
+            raise IndexError(
+                f"{zarr_key}: frame {frame_idx} is offset {offset} in chunk "
+                f"{chunk_idx}, which holds {len(frames)} frames"
+            )
+        return np.transpose(frames[offset], (2, 0, 1)) / 255.0
+
+    def _video_meta(self, zarr_key: str) -> dict:
+        """Video parameters for a key, including any recovered by detection."""
+        cached = getattr(self, "_video_meta_cache", None)
+        if cached is not None and zarr_key in cached:
+            return cached[zarr_key]
+        return (self.metadata.get("features", {})
+                .get(zarr_key, {}).get("video", {}) or {})
 
     def _detect_json_keys(self) -> set[str]:
         """
@@ -1696,6 +1841,29 @@ class ZarrDataset(torch.utils.data.Dataset):
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
+                    continue
+
+                if zarr_key in self._video_keys:
+                    # Chunk-indexed, so a frame-range read would pull the wrong
+                    # elements entirely -- resolve frames -> chunks first and
+                    # skip the frame read below.
+                    end_idx = (self._chunk_end_idx(idx, horizon, key_type)
+                               if horizon is not None else idx + 1)
+                    try:
+                        span = decode_video_span(
+                            self.episode_reader._store[zarr_key],
+                            self._video_meta(zarr_key), idx, end_idx)
+                    except Exception:
+                        idx = _next("video decode failed", key=k)
+                        retry = True
+                        break
+                    if horizon is None:
+                        span = span[0]  # match the JPEG path: (3, H, W)
+                    elif len(span) < horizon:
+                        # Same rule as _pad_sequences: repeat the last frame.
+                        span = np.concatenate(
+                            [span, np.repeat(span[-1:], horizon - len(span), axis=0)])
+                    data[k] = span
                     continue
 
                 if horizon is not None:

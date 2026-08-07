@@ -442,6 +442,15 @@ def main():
         "R2_SECRET_ACCESS_KEY",
         "R2_SESSION_TOKEN",  # optional
         "R2_ENDPOINT_URL",  # optional; include if your helper expects it
+        # Image-codec knobs. These MUST be forwarded: the encoding decision is
+        # made inside the worker, so an unforwarded var means the worker falls
+        # back to the default (h264) and silently ignores what the driver asked
+        # for -- including EGOVERSE_IMAGE_CODEC=jpeg.
+        "EGOVERSE_IMAGE_CODEC",
+        "EGOVERSE_VIDEO_CRF",
+        "EGOVERSE_VIDEO_GOP",
+        "EGOVERSE_VIDEO_PIXFMT",
+        "EGOVERSE_VIDEO_FRAMES_PER_CHUNK",
     ]:
         v = os.environ.get(k)
         if v:
