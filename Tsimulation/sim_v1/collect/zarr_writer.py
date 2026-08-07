@@ -153,6 +153,7 @@ class ZarrDemoWriter:
             task_name=self.task_name,
             task_description=self.task_description,
             chunk_timesteps=self.chunk_timesteps,
+            intrinsics={"front_1": np.eye(3, 4, dtype=np.float32)},
         )
 
         idx = self._episode_idx
