@@ -4,7 +4,7 @@ from abc import abstractmethod
 import torch
 import torchvision.io as tvio
 
-from egomimic.eval.eval import Eval
+from egomimic.eval.core.eval import Eval
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
@@ -20,11 +20,14 @@ class EvalVideo(Eval):
         limit_val_batches: int = 400,
         viz_func: dict = None,
         transform_lists: dict | None = None,
+        max_videos: int | None = None,
     ):
-        super().__init__()
-        self.trainer = None
-        self.model = None
+        super().__init__()  # initializes self.trainer = self.model = None
         self.viz_func = viz_func
+        # Cap on number of episodes rendered per validation pass. None
+        # = no cap. Each sub-eval reads this in its per-episode loop to
+        # truncate B -> min(B, max_videos) so output panels stay short.
+        self.max_videos = int(max_videos) if max_videos is not None else None
         # Per-embodiment list[Transform] applied once during eval to project
         # the model's wrist-frame actions back into cam (head) frame. Reused for
         # both cam-frame MSE and the viz video so we don't transform twice.
