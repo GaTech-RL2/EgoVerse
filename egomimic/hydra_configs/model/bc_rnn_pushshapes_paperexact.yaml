@@ -1,0 +1,103 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# BC-RNN PAPER-EXACT v2 — robomimic v0.2.0 BC_RNN_GMM as configured by the PAPER
+# config generator (scripts/generate_paper_configs.py, IMAGE experiment path).
+# Clone of bc_rnn_pushshapes_minmax_crop with EVERY audit-confirmed deviation
+# fixed. All paper-exact behavior is config-gated; defaults preserve the prior
+# (minmax_crop) behavior byte-identically.
+#
+# Audit-confirmed paper settings applied here (cite = v0.2 source):
+#  1. actor_layer_dims = ()        generate_paper_configs.py:397  -> actor_mlp_dims: []
+#  2. rnn.hidden_dim = 1000 (image) generate_paper_configs.py:405-411 -> lstm.hidden_dim: 1000
+#  3. paper-exact obs encoder       obs_nets.py:230-235
+#       (a) low-dim fed RAW (2 dims, no MLP)
+#       (b) image VisualCore output gets ReLU (feature_activation=nn.ReLU)
+#       (c) NO fusion MLP -> concat (64+2=66) feeds LSTM directly
+#  4. eval-time RANDOM crop + v0.2 off-by-one  base_nets.py:1351 + obs_utils.py:686-687
+#  5. window pad = repeat last frame, unmasked NLL  dataset.py:519 + bc.py:623
+#  6. fp32 (set in launcher: trainer.precision=32)
+#  7. no grad-spike clip (enable_grad_norm: false below)
+robomimic_model:
+  _target_: egomimic.algo.bc.WindowedBC
+
+  action_dim: 2
+  action_horizon: 1024
+  rnn_horizon: 10
+  max_windows_per_batch: 256
+  # FIX 1: actor_layer_dims = () -> empty actor MLP (identity). gmm_head.d_model
+  # then equals the LSTM hidden_dim (1000).
+  actor_mlp_dims: []
+  # FIX 5: repeat-pad window tails (obs AND action) + include pad steps in the
+  # NLL with NO mask (robomimic pad_same=True, plain-mean loss).
+  pad_mode: repeat_unmasked
+
+  obs_encoder:
+    _target_: egomimic.models.stems.obs_encoder.ObsEncoder
+    # FIX 3: paper-exact mode -> embed_dim is IGNORED (becomes the concat sum
+    # 64+2=66); low-dim raw (no MLP), ReLU on image, no fusion MLP.
+    embed_dim: 66
+    paper_exact: true
+    obs_specs:
+      state_agent_obj:
+        input_dim: 2
+        input_slice: [0, 2]   # agent xy out of the 5-dim state_agent_obj
+        embed_dim: 64         # ignored in paper_exact (raw 2-dim fed through)
+    img_encoders:
+      front_img_1:
+        _target_: egomimic.models.stems.visual_core.VisualCore
+        in_channels: 3
+        image_size: 96
+        num_kp: 32
+        feature_dimension: 64
+        pretrained: false
+        # FIX 4: crop 86x86 (round(96*76/84)), random at TRAIN, RANDOM at EVAL
+        # too (crop_eval_mode=random, robomimic CropRandomizer.forward_in has no
+        # train/eval branch), corner sampled via v0.2 off-by-one
+        # (floor(rand*(H-crop_h)), exclusive upper).
+        crop_aug: true
+        crop_height: 86
+        crop_width: 86
+        crop_eval_mode: random
+        crop_sample_mode: v02
+
+  core_net:
+    _target_: egomimic.models.cores.lstm_core.LSTMCore
+    input_dim: 66             # FIX 3c: = obs_encoder concat (64 img + 2 raw)
+    hidden_dim: 1000          # FIX 2: image datasets use RNN dim 1000
+    num_layers: 2
+    dropout: 0.0
+
+  gmm_head:
+    _target_: egomimic.models.heads.gmm_head.GMMActionHead
+    d_model: 1000             # FIX 1+2: = lstm.hidden_dim (no actor MLP)
+    action_dim: 2
+    num_modes: 5
+    min_std: 1.0e-4
+    std_activation: softplus
+    low_noise_eval: true
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+# FIX 7: disable the MAD-based grad-spike clip (robomimic never clips).
+enable_grad_norm: false
+
+# robomimic optimizer: Adam, lr 1e-4, L2=0 (no weight decay), CONSTANT lr.
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+# Constant-LR schedule (robomimic exact-replica): LambdaLR factor 1.0.
+scheduler:
+  _target_: egomimic.utils.schedulers.constant_scheduler
+  _partial_: true
+
+# ----- DELIBERATE TASK ADAPTATIONS (kept, not from robomimic) -----
+# * MIN-MAX action normalization (norm_stats.norm_mode=minmax, set in launcher):
+#   maps [min,max] -> [-1,+1] exactly so the GMM's tanh'd mode means can reach
+#   every target. Fresh full-data stats (sample_frac=1.0, no precomputed path).
+# * obs keys = agent xy (slice 0:2) + front_img_1; ar rollout eval path; packed
+#   pipeline cut into 10-step windows (repeat-pad in paper-exact mode).

@@ -1,0 +1,48 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# Stage 1 of the obs+action+image diffusion-forcing pipeline:
+# ConvVAE pre-training on PushShapes 96x96 frames.
+#
+# v2: wider channels [64,128,256,512] + latent_dim 128 + LPIPS perceptual
+# loss + lower beta -> sharper reconstructions. v1 (channels
+# [32,64,128,256], latent 64, beta 1e-3, no LPIPS) gave semantically
+# correct but blurry recons by 200ep.
+
+robomimic_model:
+  _target_: egomimic.algo.diffusion.VAE
+  image_key: "front_img_1"
+  # Lower beta lets the encoder use more latent capacity for high-freq
+  # edge info instead of compressing toward N(0, I). We don't need a
+  # generative posterior here -- downstream is diffusion forcing, which
+  # works fine with deterministic latents.
+  beta: 1.0e-4
+  # LPIPS perceptual loss. 0.5 weight is the standard VAE-LPIPS mix.
+  # 'alex' is the smallest backbone (~6M params, frozen). Use 'vgg' if
+  # the recon looks "noisy" instead of "blurry".
+  lpips_weight: 0.5
+  lpips_net: "alex"
+  domains: ["pushshapes_sim"]
+
+  vae:
+    _target_: egomimic.models.diffusion.image_vae.ImageVAE
+    in_channels: 3
+    image_size: 96
+    latent_dim: 128
+    # 4x decoder capacity vs v1 ([32,64,128,256] -> [64,128,256,512]).
+    # 96 -> 48 -> 24 -> 12 -> 6 bottleneck, ~22M params.
+    channels: [64, 128, 256, 512]
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0
+
+scheduler:
+  # Warmup -> cosine. Defaults: 400ep x 8 = 3200 steps; override at launch.
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

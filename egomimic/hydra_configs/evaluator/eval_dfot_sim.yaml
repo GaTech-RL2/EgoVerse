@@ -1,0 +1,22 @@
+# Closed-loop sim eval for DFoT. Uses the algo-agnostic PackedSimEval
+# class with PushShapesEnv; the model side runs ``DFoT.inference_step``
+# (driven by the model config's ``inference_mode`` — "ar" by default,
+# i.e. rolling causal-AR staircase).
+
+_target_: egomimic.eval.core.eval_sim.PackedSimEval
+
+env_kwargs:
+  object_shape: "T"
+  pusher_shape: "circle"
+  obstacle_level: 0
+  image_size: 96
+
+init_mode: "replay"
+init_seeds: [0, 1, 2, 3]
+max_steps: 1200
+coverage_threshold: 0.7
+video_fps: 30
+limit_val_batches: 4
+max_videos: 2
+viz_func: null
+transform_lists: null

@@ -1,0 +1,48 @@
+# DFoT obs+action evaluator. Two independent sub-evals, each writes
+# its own mp4 (no composite/side-by-side panel).
+#
+#   1. DFoTSelfRolloutEval — world-model self-rollout. Renders the
+#      model's predicted state at each future tick via the pushshapes
+#      env. Output: ``<output_dir>/videos_self_rollout/epoch_N/
+#      PUSHSHAPES_SIM/validation_video_*.mp4`` ("video prediction
+#      quality" for the obs portion of the bundle).
+#
+#   2. DFoTValEval — teacher-forced full-chunk + AR overlay. Renders GT
+#      env frames with GT/chunk/AR action dots. Output:
+#      ``<output_dir>/videos/epoch_N/PUSHSHAPES_SIM/
+#      validation_video_*.mp4``.
+#
+# Sub-evals namespace their own output via ``video_dir()`` so two mp4s
+# land per val pass without filename clashes.
+
+_target_: egomimic.eval.core.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.dfot.eval_dfot_self_rollout.DFoTSelfRolloutEval
+    rollout_steps: 64
+    world_size: 512.0
+    image_key: "front_img_1"
+    agent_state_slice: [0, 2]
+    cfg_scale: 1.0
+    upscale_to: 512
+    max_videos: 2
+    limit_val_batches: 4
+    embodiment_name: "pushshapes_sim"
+    video_subdir: "videos_self_rollout"
+    env_kwargs:
+      object_shape: T
+      pusher_shape: circle
+      obstacle_level: 0
+      image_size: 96
+
+  - _target_: egomimic.eval.tf.eval_dfot_val.DFoTValEval
+    do_full_chunk: true
+    do_ar: true
+    n_chunk_steps: 50
+    ar_chunk_size: 1
+    ar_step_size: 1
+    cfg_scale: 1.0
+    world_size: 512.0
+    limit_val_batches: 4
+    max_videos: 2
+    embodiment_name: "pushshapes_sim"

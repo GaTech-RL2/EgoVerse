@@ -1,0 +1,10 @@
+# Anneals ChunkerStage.residual_scale over training steps so the inner
+# trunk must do real work early (skip path disabled), and the residual
+# can then re-engage in the second half. Composable with other callbacks
+# via Hydra list syntax: ``callbacks=[checkpoints, chunker_residual_scheduler]``.
+chunker_residual_scheduler:
+  _target_: egomimic.pl_utils.callbacks.chunker_residual_scheduler.ChunkerResidualScheduler
+  schedule:
+    - [0, 0.0]
+    - [319, 0.0]
+    - [320, 1.0]

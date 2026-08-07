@@ -1,0 +1,26 @@
+# @package _global_
+# In-domain chunk-4 table cell: dualstream_cotrain (v2 TWO-TRUNK, DEPTH 16).
+# Two separate-weight trunks (agnostic ‖ specific) + per-layer channel-aware
+# cross-attention. DEPTH variant: 16 layers/trunk, d_model 704, d_int 1646 ->
+# TOTAL ACTIVE = 200.0M (trunk 174.8M + agnostic enc 11.5M + 1 specific enc
+# 11.5M + 1 head 2.2M). Sibling of the depth-8 dualstream_cotrain_2trunk_200m.
+# Baseline target may still change (see HNet Active Experiment.md).
+defaults:
+  - override /model: hnet_dualstream_2trunk_d16_200m
+  - override /data: indomain_c4_cotrain
+  - override /evaluator: gmm_eval_firstend
+  - override /logger: csv_wandb
+
+name: indomain_c4
+description: dualstream_cotrain_2trunk_d16_200m
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

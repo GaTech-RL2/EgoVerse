@@ -1,0 +1,48 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Per-frame loader for HPT-style training on pushshapes_sim. Each sample
+# is one frame with obs (image + state) and an action chunk of length
+# ``action_horizon`` (32 by default). Unlike ``tsimulation.yaml`` which
+# packs full episodes into a single varlen stream, this returns
+# (B, T_chunk, ...) tensors that fit HPT's chunked-action head directly.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/new_circle_3
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
+                              # (per-frame loader + reused norm stats causes
+                              # ~1-2% of frames to fail bounds; resampling
+                              # each one stalls data loading).
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/new_circle_3
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    skip_bounds_check: true   # accept slightly-out-of-quantile frames as-is
+                              # (per-frame loader + reused norm stats causes
+                              # ~1-2% of frames to fail bounds; resampling
+                              # each one stalls data loading).
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
