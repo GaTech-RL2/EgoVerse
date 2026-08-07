@@ -80,6 +80,7 @@ def _manifest_path(cfg: DictConfig) -> Path:
 
 
 def _base_manifest(cfg: DictConfig) -> dict[str, Any]:
+    checkpoint = cfg.get("ckpt_path", None) or os.environ.get("EVAL_CHECKPOINT")
     return {
         "schema_version": 1,
         "status": "running",
@@ -90,12 +91,15 @@ def _base_manifest(cfg: DictConfig) -> dict[str, Any]:
         "git_commit": _git("rev-parse", "HEAD"),
         "git_dirty": bool(_git("status", "--porcelain")),
         "simulator": _simulator_fingerprint(),
-        "checkpoint": cfg.get("ckpt_path", cfg.get("checkpoint", None)),
+        "checkpoint": checkpoint or cfg.get("checkpoint", None),
         "attempt": OmegaConf.select(cfg, "eval_metadata.attempt", default=1),
         "supersedes": OmegaConf.select(cfg, "eval_metadata.supersedes", default=None),
         "rerun_of": OmegaConf.select(cfg, "eval_metadata.rerun_of", default=None),
-        "dataset": _jsonable(OmegaConf.to_container(cfg.get("data"), resolve=True)),
-        "config": _jsonable(OmegaConf.to_container(cfg, resolve=True)),
+        # Keep interpolation expressions intact. Archived Hydra configs can
+        # reference runtime-only keys such as `${paths.root_dir}` that are not
+        # available until the training process composes its final config.
+        "dataset": _jsonable(OmegaConf.to_container(cfg.get("data"), resolve=False)),
+        "config": _jsonable(OmegaConf.to_container(cfg, resolve=False)),
     }
 
 
@@ -117,6 +121,8 @@ def main(cfg: DictConfig) -> None:
         cfg.mode = "eval"
         cfg.train = False
         cfg.eval = True
+        if os.environ.get("EVAL_CHECKPOINT") and not cfg.get("ckpt_path"):
+            cfg.ckpt_path = os.environ["EVAL_CHECKPOINT"]
 
     manifest_path = _manifest_path(cfg)
     manifest = _base_manifest(cfg)
