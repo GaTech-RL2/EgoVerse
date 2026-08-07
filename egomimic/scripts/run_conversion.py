@@ -118,24 +118,6 @@ def _is_oom_exception(e: Exception) -> bool:
     return ("outofmemory" in s) or ("out of memory" in s) or ("oom" in s)
 
 
-class _Tee:
-    def __init__(self, *streams):
-        self._streams = streams
-
-    def write(self, data: str) -> int:
-        for s in self._streams:
-            s.write(data)
-            s.flush()
-        return len(data)
-
-    def flush(self) -> None:
-        for s in self._streams:
-            s.flush()
-
-    def isatty(self) -> bool:
-        return False
-
-
 # --- Ray task ----------------------------------------------------------------
 def submit_convert(embodiment_ray: EmbodimentRay, size: str, **kwargs):
     embodiment_ray_cls = embodiment_ray.__class__

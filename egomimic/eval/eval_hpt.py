@@ -3,6 +3,7 @@ import copy
 import torch
 from torchmetrics import MeanSquaredError
 
+from egomimic.eval.eval_helpers import visualize_predictions
 from egomimic.eval.eval_video import EvalVideo
 from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
 from egomimic.utils.egomimicUtils import (
@@ -200,11 +201,7 @@ class HPTEvalVideo(EvalVideo):
         return metrics, images_dict
 
     def _visualize_preds(self, predictions, batch):
-        if self.viz_func is None:
-            raise ValueError("viz_func is not set")
-        embodiment_id = batch["embodiment"][0].item()
-        embodiment_name = get_embodiment(embodiment_id).lower()
-        return self.viz_func[embodiment_name](predictions, batch)
+        return visualize_predictions(self.viz_func, predictions, batch)
 
     @torch.no_grad()
     def _collect_policy_samples(self, hpt_batch, ref, key_name, M):

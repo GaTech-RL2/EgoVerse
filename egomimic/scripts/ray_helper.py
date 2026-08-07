@@ -23,6 +23,7 @@ from egomimic.utils.aws.aws_data_utils import (
     s3_sync_to_local,
     upload_dir_to_s3,
 )
+from egomimic.utils.stream_utils import TeeStream
 
 
 def ensure_path_ready(p: S3Path, retries: int = 30) -> bool:
@@ -91,22 +92,7 @@ def _cleanup_existing_processed_outputs(
     print("[CLEANUP] Remote cleanup complete; continuing upload", flush=True)
 
 
-class _Tee:
-    def __init__(self, *streams):
-        self._streams = streams
-
-    def write(self, data: str) -> int:
-        for s in self._streams:
-            s.write(data)
-            s.flush()
-        return len(data)
-
-    def flush(self) -> None:
-        for s in self._streams:
-            s.flush()
-
-    def isatty(self) -> bool:
-        return False
+_Tee = TeeStream
 
 
 class EmbodimentRay:

@@ -26,6 +26,7 @@ from egomimic.models.preprocess_pi_obs import (
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.action_utils import ConverterRegistry
+from egomimic.utils.batch_utils import clone_batch, extract_xyz
 
 logger = logging.getLogger(__name__)
 # Ensure logger propagates to root logger and has appropriate level
@@ -600,47 +601,8 @@ class PI(Algo):
         return observation, action32
 
     def _clone_batch(self, batch):
-        """Recursively clones all tensors inside a nested dictionary."""
-        if isinstance(batch, dict):
-            return {key: self._clone_batch(val) for key, val in batch.items()}
-        elif isinstance(batch, torch.Tensor):
-            return batch.clone()
-        else:
-            return batch  # Return as is for non-tensor types
+        return clone_batch(batch)
 
-    def _extract_xyz(self, x):
-        """
-        Extract xyz (3D position) and rotation from 6DoF or 6DoF+gripper actions.
-
-        Supports:
-        - 6: 6DoF (single arm)
-        - 7: 6DoF + gripper (single arm)
-        - 12: 2 arms × 6DoF
-        - 14: 2 arms × (6DoF + gripper)
-
-        Returns:
-            xyz: Tensor with only xyz per arm (shape: ..., 3) or (..., 6) for dual-arm.
-            rot: Tensor with only rotation per arm (shape: ..., 3) or (..., 6) for dual-arm.
-        """
-        if x.shape[-1] == 6:
-            return x[..., :3], x[..., 3:6]
-        elif x.shape[-1] == 7:
-            return x[..., :3], x[..., 3:6]
-        elif x.shape[-1] == 12:
-            xyz_right = x[..., :3]
-            rot_right = x[..., 3:6]
-            xyz_left = x[..., 6:9]
-            rot_left = x[..., 9:12]
-            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
-                [rot_right, rot_left], dim=-1
-            )
-        elif x.shape[-1] == 14:
-            xyz_right = x[..., :3]
-            rot_right = x[..., 3:6]
-            xyz_left = x[..., 7:10]
-            rot_left = x[..., 10:13]
-            return torch.cat([xyz_right, xyz_left], dim=-1), torch.cat(
-                [rot_right, rot_left], dim=-1
-            )
-        else:
-            raise ValueError(f"Unexpected shape for 6DoF input: {x.shape}")
+    @staticmethod
+    def _extract_xyz(x):
+        return extract_xyz(x)
