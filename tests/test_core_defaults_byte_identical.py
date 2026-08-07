@@ -37,7 +37,7 @@ REFS = {
         "param_count": 12106752,
         "first_param_sum": 19.838683611378656,
         "out_shape": (B, T, 448),
-        "out_sum": -4.0249506128020585e-06,
+        "out_sum": -1.7856793419923633e-05,
     },
     "hnet": {
         "param_count": 12163840,

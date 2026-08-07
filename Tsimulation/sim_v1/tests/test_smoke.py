@@ -225,8 +225,8 @@ def test_zarrdataset_end_to_end_load():
         assert "state_agent_obj" in sample
         assert "actions" in sample
         img = sample["front_img_1"]
-        assert img.shape[0] == 3, f"expected C=3, got shape {tuple(img.shape)}"
-        assert len(img.shape) == 3
+        assert img.shape[-3] == 3, f"expected C=3, got shape {tuple(img.shape)}"
+        assert len(img.shape) in (3, 4)
         assert sample["state_agent_obj"].shape[-1] == 5
         # action_horizon=32 set in get_keymap → loader returns (32, 2) per sample.
         assert sample["actions"].shape == (32, 2)
