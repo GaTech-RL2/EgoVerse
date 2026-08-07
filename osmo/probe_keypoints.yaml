@@ -1,0 +1,111 @@
+# Smoke probe: what does the human keypoints pipeline actually emit?
+#
+# Answers, empirically, the things that block wiring the 21-keypoint arc
+# tokenizer in: which keys exist post-transform, their shapes, the wrist
+# pose dimensionality (6 vs 7), the effective chunk length, and whether a
+# (T, 140) [L kp63 | L wrist7 | R kp63 | R wrist7] chunk can be assembled.
+# Also runs the tokenizer on one real batch end to end.
+#
+# 2 episodes, no GPU work -- minutes, not the ~60min full dataset pull.
+workflow:
+  name: "{{job_name}}"
+  tasks:
+  - name: probe
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    credentials:
+      egoverse-github:
+        GITHUB_TOKEN: github_token
+      egoverse-aws:
+        AWS_ACCESS_KEY_ID: aws_access_key_id
+        AWS_SECRET_ACCESS_KEY: aws_secret_access_key
+        AWS_DEFAULT_REGION: aws_region
+    environment:
+      BRANCH: "{{branch}}"
+      HYDRA_FULL_ERROR: "1"
+    command: ["bash"]
+    args: ["/tmp/entry.sh"]
+    files:
+    - path: /tmp/entry.sh
+      contents: |
+        #!/usr/bin/env bash
+        exec > >(tee /tmp/entry_script.log) 2>&1
+        set -euxo pipefail
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update && apt-get install -y --no-install-recommends \
+          git curl unzip ca-certificates build-essential libgl1 libglib2.0-0 libegl1 libosmesa6 ffmpeg
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        export PATH="$HOME/.local/bin:$PATH"
+        curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+          | tar xz -C /usr/local/bin s5cmd
+        curl -sSfL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/a.zip
+        unzip -q /tmp/a.zip -d /tmp && /tmp/aws/install --update && rm -rf /tmp/a.zip /tmp/aws
+        mkdir -p /workspace && cd /workspace
+        git clone --depth 1 --branch "$BRANCH" --single-branch \
+          "https://x-access-token:${GITHUB_TOKEN}@github.com/GaTech-RL2/EgoVerse.git" EgoVerse
+        cd /workspace/EgoVerse && uv sync --frozen && source .venv/bin/activate
+        bash ./egomimic/utils/aws/setup_secret.sh
+        mkdir -p /workspace/kp_probe
+        python /tmp/probe.py 2>&1 | tail -80
+    - path: /tmp/probe.py
+      contents: |
+        import os, sys, numpy as np, torch, hydra
+        os.chdir("/workspace/EgoVerse"); sys.path.insert(0, "/workspace/EgoVerse")
+        from hydra import initialize_config_dir, compose
+        import egomimic.utils.hydra_resolvers  # noqa
+
+        with initialize_config_dir(config_dir="/workspace/EgoVerse/egomimic/hydra_configs",
+                                   version_base="1.3"):
+            cfg = compose(config_name="train_zarr_keypoints", overrides=[
+                "data=aria_keypoints",
+                "paths.dataset_dir=/workspace/kp_probe",
+                "+data.train_datasets.human_bimanual.resolver.debug=2",
+            ])
+        ds = hydra.utils.instantiate(cfg.data.train_datasets.human_bimanual)
+        print(f"\ndataset len = {len(ds)}")
+        s = ds[0]
+        print("\n=== ALL KEYS AND SHAPES IN ONE SAMPLE ===")
+        for k in sorted(s):
+            v = s[k]
+            try: shp = tuple(v.shape)
+            except Exception: shp = type(v).__name__
+            print(f"  {k:<52} {shp}")
+
+        print("\n=== can we assemble (T, 140)? ===")
+        def arr(k):
+            v = s.get(k)
+            if v is None: return None
+            return v.numpy() if torch.is_tensor(v) else np.asarray(v)
+        cands_kp = [k for k in s if "keypoint" in k and "action" in k]
+        cands_wr = [k for k in s if "wrist" in k and "action" in k]
+        print(f"  action keypoint keys: {cands_kp}")
+        print(f"  action wrist keys   : {cands_wr}")
+        for k in cands_kp + cands_wr:
+            a = arr(k)
+            if a is not None:
+                print(f"    {k:<50} shape={a.shape} last_dim={a.shape[-1]}")
+
+        print("\n=== tokenizer on a real assembled chunk (if possible) ===")
+        try:
+            from egomimic.rldb.zarr.keypoint_arc_tokenizer import (
+                TokenizeBimanualArcLengthKeypoints as TK, BIMANUAL_DIM)
+            main = arr(cfg.model.robomimic_model.ac_keys.human_bimanual) if hasattr(cfg,"model") else None
+            print(f"  configured ac_key array: {None if main is None else main.shape}")
+            # try the concatenated action key the pipeline produced
+            for k in sorted(s):
+                a = arr(k)
+                if a is not None and a.ndim == 2 and a.shape[-1] in (126, 140, 132):
+                    print(f"  candidate chunk key {k} shape={a.shape}")
+                    if a.shape[-1] == BIMANUAL_DIM:
+                        t = TK(min_distance_unit=0.45, resampled_vector_length=30).tokenize(a)
+                        print(f"    -> tokenized OK: {t.shape}, vel={t[30,0]:.4f}")
+        except Exception as e:
+            print(f"  tokenizer step: {type(e).__name__}: {e}")
+        print("\n=== done ===")
+  resources:
+    default:
+      cpu: 8
+      gpu: 1
+      memory: 64Gi
+      storage: 120Gi
+  timeout:
+    queue_timeout: 1d
