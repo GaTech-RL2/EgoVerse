@@ -1,0 +1,53 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.HNetFused
+  # Fused tokens variant with lower LR.
+
+  d_cond: 128
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  outer_stage:
+    _target_: egomimic.algo.flat_fused_outer_stage.FlatFusedOuterStage
+    action_dim: 2
+    action_horizon: 1024
+    d_model: 128
+    d_cond: 128
+
+    cond_encoder:
+      _target_: egomimic.models.hnet_nets.cond_encoders.CondEncoderModule
+      d_cond: 128
+      output_key: "fused_cond"
+      cond_proj_widths: [128, 128]
+      obs_specs:
+        state_agent_obj:
+          input_dim: 5
+          embed_dim: 64
+          widths: [128]
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.hnet_nets.image_encoders.SimpleConv
+          in_channels: 3
+          channels: [32, 64, 128, 256]
+          kernel_size: 3
+          stride: 2
+          embed_dim: 128
+          norm_groups: 8
+
+    arch_layout: "T8"
+    num_heads: 4
+    d_intermediate: 512
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5.0e-5
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1

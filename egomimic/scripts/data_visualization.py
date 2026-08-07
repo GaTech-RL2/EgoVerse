@@ -9,8 +9,8 @@ from egomimic.rldb.utils import RLDBDataset
 from egomimic.utils.egomimicUtils import (
     CameraTransforms,
     cam_frame_to_base_frame,
-    draw_actions,
 )
+from egomimic.utils.viz_utils import draw_actions
 
 # Load dataset
 root = "/home/robot/robot_ws/lerobot_data/lerobot_test"

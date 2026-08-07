@@ -14,7 +14,7 @@ from torch.utils.data import default_collate
 from robot_utils import RateLoop
 from scipy.spatial.transform import Rotation as R
 
-from egomimic.models.denoising_policy import DenoisingPolicy
+from egomimic.models.heads.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.pl_utils.pl_data_utils import build_tokenized_collate
 from egomimic.rldb.embodiment.embodiment import get_embodiment
@@ -23,10 +23,10 @@ from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 from egomimic.utils.egomimicUtils import (
     CameraTransforms,
     cam_frame_to_base_frame,
-    draw_actions,
     interpolate_arr,
     interpolate_arr_euler,
 )
+from egomimic.utils.viz_utils import draw_actions
 from egomimic.utils.pose_utils import xyzw_to_wxyz
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))

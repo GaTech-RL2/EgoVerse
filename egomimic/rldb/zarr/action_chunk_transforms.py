@@ -366,6 +366,30 @@ class DeleteKeys(Transform):
         return batch
 
 
+class DeltaAction(Transform):
+    """Per-step delta: ``out[t] = arr[t] - arr[t-1]``, with ``out[0] = 0``.
+
+    Operates on any tensor-like ``(T, ...)`` value where time is the leading
+    dim. Used to convert absolute action targets into velocity-style targets
+    so the model learns small smooth quantities. To recover absolute actions
+    at inference, integrate (cumulative sum) the predicted deltas and add the
+    initial state.
+    """
+
+    def __init__(self, input_key: str, output_key: str | None = None):
+        self.input_key = input_key
+        self.output_key = output_key or input_key
+
+    def transform(self, batch: dict) -> dict:
+        arr = np.asarray(batch[self.input_key])
+        delta = np.empty_like(arr)
+        delta[0] = 0
+        if arr.shape[0] > 1:
+            delta[1:] = arr[1:] - arr[:-1]
+        batch[self.output_key] = delta
+        return batch
+
+
 class XYZWXYZ_to_XYZYPR(Transform):
     """Convert listed keys from xyz+quat(wxyz) to xyz+ypr in-place."""
 
@@ -542,4 +566,38 @@ class NumpyToTensor(Transform):
                 raise ValueError(
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
+        return batch
+
+
+
+class ThetaToRotVec(Transform):
+    """Replace a trailing angle column with its (cos, sin) rotation vector.
+
+    ``(T, D)`` with the angle at ``angle_col`` -> ``(T, D+1)`` where the angle
+    column is replaced by ``cos(theta), sin(theta)``. Removes the 2*pi wrap
+    discontinuity from regression/diffusion targets (u_socket theta actions).
+    Applied at load time, BEFORE NormStats -- provide (D+1)-dim stats.
+
+    ``keys`` lists every batch key to convert; keys absent from an episode are
+    skipped (leaf key naming differs between keymap name and zarr path, so
+    list both spellings where unsure).
+    """
+
+    def __init__(self, keys, angle_col: int = 2):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+
+    def transform(self, batch: dict) -> dict:
+        for k in self.keys:
+            if k not in batch:
+                continue
+            a = np.asarray(batch[k])
+            if a.ndim != 2 or a.shape[1] <= self.angle_col:
+                continue
+            th = a[:, self.angle_col]
+            batch[k] = np.concatenate(
+                [a[:, : self.angle_col],
+                 np.cos(th)[:, None].astype(a.dtype),
+                 np.sin(th)[:, None].astype(a.dtype),
+                 a[:, self.angle_col + 1:]], axis=1)
         return batch
