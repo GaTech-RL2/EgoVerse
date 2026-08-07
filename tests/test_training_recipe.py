@@ -563,17 +563,20 @@ class TestAlgoWiring:
         use_parameter_groups=False,
         weight_decay=0.0,
     ):
-        from egomimic.algo.hnet import PackedAlgoBase as HNetAlgo
+        from egomimic.algo.hnet import HNetOuterStage, PackedAlgoBase as HNetAlgo
         from egomimic.models.stems.cond_encoders import CondEncoderModule
 
-        return HNetAlgo(
+        outer_stage = HNetOuterStage(
             action_dim=2,
             action_horizon=64,
             d_model=32,
-            d_cond=0,
             cond_encoder=CondEncoderModule(d_cond=0),
-            hnet=_build_tree(),  # fresh 3-stage tree per algo
+            hnet=_build_tree(),
+        )
+        return HNetAlgo(
+            outer_stage=outer_stage,
             norm_stats=norm_stats,
+            d_cond=0,
             domains=["pushshapes_sim"],
             ac_keys={"pushshapes_sim": "actions"},
             device=torch.device("cpu"),

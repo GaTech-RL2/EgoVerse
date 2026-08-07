@@ -205,6 +205,7 @@ def chunk_stats_from_aux(aux: List[dict]) -> dict:
         out[f"avg_chunk_len_{i}"] = avg_len
         rates.append(f)
     out["boundary_rate"] = sum(rates) / len(rates)
+    out["avg_chunk_len"] = sum(out[f"avg_chunk_len_{i}"] for i in range(len(aux))) / len(aux)
     return out
 
 
