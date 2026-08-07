@@ -23,7 +23,9 @@ The reader learns everything it needs from ``_features[key]``::
         "total_frames", "n_chunks"}}
 
 ``dtype`` stays "jpeg" for JPEG episodes, so existing data and readers are
-untouched -- dispatch on it.
+untouched. Readers should not trust it blindly though: see :func:`sniff_encoding`
+and ``ZarrDataset._classify_image_keys``, which detect the real encoding from the
+stored bytes so an episode with stale or absent metadata still loads.
 """
 from __future__ import annotations
 
@@ -125,6 +127,62 @@ def decode_chunk(blob: bytes, n_expected: int | None = None) -> np.ndarray:
     if n_expected is not None and len(arr) != n_expected:
         raise ValueError(f"chunk decoded {len(arr)} frames, expected {n_expected}")
     return arr
+
+
+VIDEO_DTYPES = ("h264", "avc", "video")
+_JPEG_SOI = b"\xff\xd8\xff"
+
+
+def _as_bytes(blob):
+    """Unwrap a zarr VLenBytes element to real ``bytes``, or None if it isn't."""
+    while isinstance(blob, np.ndarray):
+        if blob.shape == ():
+            blob = blob.item()
+        elif len(blob):
+            blob = blob[0]
+        else:
+            return None
+    if isinstance(blob, memoryview):
+        blob = blob.tobytes()
+    if isinstance(blob, bytearray):
+        blob = bytes(blob)
+    return blob if isinstance(blob, bytes) else None
+
+
+def sniff_encoding(blob) -> str | None:
+    """Identify a stored image element from its leading magic bytes.
+
+    Returns ``"jpeg"``, ``"h264"``, or None when the payload is neither (e.g. a
+    plain numeric array). This is the ground truth: ``dtype`` in the metadata is
+    a claim, and a claim can be stale -- episodes converted before the codec
+    switch, or whose metadata was copied from a sibling, declare "jpeg" over
+    real mp4 payloads. Handing that to simplejpeg raises deep in the decoder,
+    far from the actual cause.
+    """
+    b = _as_bytes(blob)
+    if not b or len(b) < 4:
+        return None
+    if b[:3] == _JPEG_SOI:
+        return "jpeg"
+    # ISO-BMFF (what encode_chunk writes): a 4-byte size then the 'ftyp' box.
+    if len(b) >= 8 and b[4:8] == b"ftyp":
+        return "h264"
+    # Bare Annex-B elementary stream, in case a writer ever skips the container.
+    if b[:4] == b"\x00\x00\x00\x01" or b[:3] == b"\x00\x00\x01":
+        return "h264"
+    return None
+
+
+def frames_per_chunk_from_data(store_array) -> int:
+    """Recover ``frames_per_chunk`` by decoding chunk 0 and counting frames.
+
+    Used when an array is detected as video but carries no ``video`` metadata
+    block. It cannot be derived arithmetically from the element count: with
+    ``total_frames=1000`` and 4 chunks, every fpc in (250, 333] yields 4 chunks,
+    so the count alone is ambiguous. Decoding chunk 0 is exact, since all chunks
+    but the last are full.
+    """
+    return int(len(decode_chunk(store_array[0])))
 
 
 def build_feature_entry(img_shape, settings: dict, total_frames: int, fps: int) -> dict:

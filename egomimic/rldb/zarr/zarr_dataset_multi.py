@@ -51,6 +51,11 @@ from egomimic.rldb.zarr._common import (
     tag_embodiment,
     tensorize_float32,
 )
+from egomimic.rldb.zarr.video_codec import (
+    VIDEO_DTYPES,
+    frames_per_chunk_from_data,
+    sniff_encoding,
+)
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
@@ -1433,6 +1438,10 @@ class ZarrDataset(torch.utils.data.Dataset):
     Base Zarr Dataset object, Just intializes as pass through to read from zarr episode
     """
 
+    #: (key, declared_dtype, detected_dtype) triples already logged, so a
+    #: dataset that mislabels every episode reports once instead of per episode.
+    _ENCODING_MISMATCHES: set = set()
+
     def __init__(
         self,
         Episode_path: Path,
@@ -1447,7 +1456,9 @@ class ZarrDataset(torch.utils.data.Dataset):
         """
         self.episode_path = Episode_path
         self.metadata = None
-        self._image_keys = None  # Lazy-loaded set of JPEG-encoded keys
+        self._image_keys = None  # Detected set of per-frame JPEG keys
+        self._video_keys = set()  # Detected set of chunked-H264 keys
+        self._video_meta_cache = {}  # Per-key video params, incl. detected ones
         self._json_keys = None  # Lazy-loaded set of JSON-encoded keys
         self._annotations = None
         self.init_episode()
@@ -1466,32 +1477,114 @@ class ZarrDataset(torch.utils.data.Dataset):
         self.embodiment = self.metadata["embodiment"]
         self.keys_dict = {k: (0, None) for k in self.episode_reader._collect_keys()}
 
-        # Detect JPEG-encoded image keys from metadata
-        self._image_keys = self._detect_image_keys()
+        # Split image keys into per-frame JPEG vs chunked H264 by DETECTION,
+        # not by trusting the declared dtype alone.
+        self._image_keys, self._video_keys, self._video_meta_cache = (
+            self._classify_image_keys())
         self._json_keys = self._detect_json_keys()
 
-    def _detect_image_keys(self) -> set[str]:
-        """
-        Detect which keys contain JPEG-encoded image data from metadata.
+    def _classify_image_keys(self):
+        """Detect the real image encoding of every image key.
 
-        Returns:
-            Set of keys containing JPEG data
-        """
-        features = self.metadata.get("features", {})
-        return {key for key, info in features.items() if info.get("dtype") == "jpeg"}
+        Returns ``(jpeg_keys, video_keys, video_meta)``. Three signals are used,
+        cheapest first, and a later one only runs when the earlier ones are
+        absent or disagree:
 
-    @property
-    def _video_keys(self) -> set:
-        """Image keys stored as CHUNKED H264 rather than per-frame JPEG.
+        1. the declared ``features[key]["dtype"]``;
+        2. the ELEMENT COUNT. Per-frame JPEG stores one element per frame, while
+           chunked video stores one mp4 per ``frames_per_chunk`` frames, so
+           ``len(arr) == total_frames`` vs ``len(arr) << total_frames`` separates
+           them without reading a single chunk;
+        3. the MAGIC BYTES of element 0, read only to break a tie.
 
-        These arrays are indexed by CHUNK, not frame -- a frame-range slice
-        would read the wrong elements entirely, so they need their own path.
+        When the bytes are read they WIN, because ``dtype`` is a claim and the
+        payload is the fact. Episodes converted before the codec switch, or whose
+        metadata was copied from a sibling, declare "jpeg" over real mp4 -- which
+        used to surface as an inscrutable simplejpeg error rather than a wrong
+        dtype. Detection lets those episodes load unchanged.
+
+        A key that is declared but missing from the store, or whose payload is
+        neither JPEG nor H264, keeps its declared classification: this routine
+        recovers from bad metadata, it does not silently drop data.
         """
-        features = self.metadata.get("features", {})
-        return {key for key, info in features.items()
-                if info.get("dtype") in ("h264", "avc", "video")}
+        features = self.metadata.get("features", {}) or {}
+        store = getattr(self.episode_reader, "_store", None)
+        jpeg_keys: set[str] = set()
+        video_keys: set[str] = set()
+        video_meta: dict[str, dict] = {}
+
+        for key, info in features.items():
+            info = info or {}
+            declared = info.get("dtype")
+            if declared != "jpeg" and declared not in VIDEO_DTYPES:
+                continue
+            verdict = "h264" if declared in VIDEO_DTYPES else "jpeg"
+
+            arr = None
+            if store is not None:
+                try:
+                    arr = store[key]
+                except (KeyError, TypeError, IndexError):
+                    arr = None
+
+            # zarr v3 Arrays are not sized -- len() raises, so read shape[0].
+            n = None
+            if arr is not None:
+                shape = getattr(arr, "shape", None)
+                if shape:
+                    n = int(shape[0])
+
+            if n:
+                # One element per frame is JPEG, one mp4 per frames_per_chunk is
+                # video -- so an array at least as long as the episode is JPEG,
+                # and a much shorter one is video. It is ">=" and not "==":
+                # writers pad the array past total_frames (a 290-frame episode
+                # is stored in 300 slots), so equality would never hold and
+                # every episode would fall through to a byte read.
+                # Only a 1-frame episode is genuinely ambiguous, since both
+                # layouts then hold exactly one element.
+                by_count = None
+                if self.total_frames and self.total_frames > 1:
+                    by_count = "jpeg" if n >= self.total_frames else "h264"
+                # Only touch the payload when the cheap signals fail to agree --
+                # for video, element 0 is a whole mp4 chunk.
+                if by_count is None or by_count != verdict:
+                    sniffed = sniff_encoding(arr[0])
+                    if sniffed and sniffed != verdict:
+                        # Deduped: a systematically mislabelled dataset would
+                        # otherwise log this once per episode, thousands of times.
+                        seen = ZarrDataset._ENCODING_MISMATCHES
+                        sig = (key, declared, sniffed)
+                        if sig not in seen:
+                            seen.add(sig)
+                            logger.warning(
+                                "zarr key %r declares dtype=%r but its bytes are "
+                                "%s; decoding as %s (first seen in %s)",
+                                key, declared, sniffed, sniffed, self.episode_path)
+                        verdict = sniffed
+                    elif not sniffed and by_count and by_count != verdict:
+                        verdict = by_count
+
+            if verdict == "h264":
+                video_keys.add(key)
+                meta = dict(info.get("video") or {})
+                if not meta.get("frames_per_chunk") and arr is not None and n:
+                    # Not derivable from counts: total=1000 over 4 chunks admits
+                    # any fpc in (250, 333]. Decoding chunk 0 is exact.
+                    meta["frames_per_chunk"] = frames_per_chunk_from_data(arr)
+                    meta["n_chunks"] = n
+                    meta["inferred"] = True
+                video_meta[key] = meta
+            else:
+                jpeg_keys.add(key)
+
+        return jpeg_keys, video_keys, video_meta
 
     def _video_meta(self, zarr_key: str) -> dict:
+        """Video parameters for a key, including any recovered by detection."""
+        cached = getattr(self, "_video_meta_cache", None)
+        if cached is not None and zarr_key in cached:
+            return cached[zarr_key]
         return (self.metadata.get("features", {})
                 .get(zarr_key, {}).get("video", {}) or {})
 
@@ -1761,6 +1854,29 @@ class ZarrDataset(torch.utils.data.Dataset):
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
+                    continue
+
+                if zarr_key in self._video_keys:
+                    # Chunk-indexed, so a frame-range read would pull the wrong
+                    # elements entirely -- resolve frames -> chunks first, the
+                    # same way _read_span does, and skip the frame read below.
+                    end_idx = (self._chunk_end_idx(idx, horizon, key_type)
+                               if horizon is not None else idx + 1)
+                    try:
+                        span = decode_video_span(
+                            self.episode_reader._store[zarr_key],
+                            self._video_meta(zarr_key), idx, end_idx)
+                    except Exception:
+                        idx = _next("video decode failed", key=k)
+                        retry = True
+                        break
+                    if horizon is None:
+                        span = span[0]  # match decode_jpeg_single: (3, H, W)
+                    elif len(span) < horizon:
+                        # Same rule as _pad_sequences: repeat the last frame.
+                        span = np.concatenate(
+                            [span, np.repeat(span[-1:], horizon - len(span), axis=0)])
+                    data[k] = span
                     continue
 
                 if horizon is not None:
