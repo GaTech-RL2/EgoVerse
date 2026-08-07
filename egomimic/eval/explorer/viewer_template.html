@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Chunkviz Explorer</title>
+<style>
+  :root{
+    --bg:#0b0e14; --bg2:#0a0d12; --panel:#141a22; --panel2:#1b222d;
+    --border:#283139; --border-soft:#1f262f;
+    --ink:#e9eff6; --ink2:#b3bdc9; --muted:#7e8893;
+    --accent:#4c8dff; --accent-press:#3b7af0;
+    --gold:#f5c518; --red:#dc2626; --blue:#4c9aff; --orange:#ff9d3b;
+    --elev:0 1px 2px rgba(0,0,0,.45), 0 6px 20px rgba(0,0,0,.30);
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font:13.5px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  ::selection{background:rgba(76,141,255,.35)}
+  /* scrollbars */
+  *::-webkit-scrollbar{width:10px;height:10px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-thumb{background:#2c3743;border-radius:6px;border:2px solid var(--panel)}
+  *::-webkit-scrollbar-thumb:hover{background:#3a4654}
+  #app{display:grid;grid-template-rows:auto 1fr;height:100%}
+  /* ---- header: title · mode · grouped context controls ---- */
+  header{display:flex;gap:12px;align-items:center;padding:11px 18px;
+    background:linear-gradient(180deg,#161d26,#121821);
+    border-bottom:1px solid var(--border);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+  header h1{font-size:14.5px;margin:0;font-weight:700;letter-spacing:.2px;white-space:nowrap;
+    display:flex;align-items:center;gap:9px;color:var(--ink)}
+  header h1::before{content:"";width:9px;height:9px;border-radius:50%;
+    background:var(--accent);box-shadow:0 0 10px rgba(76,141,255,.8)}
+  .sp{flex:1}
+  .vdiv{width:1px;align-self:stretch;background:var(--border);margin:2px 4px}
+  .grp{display:flex;align-items:center;gap:7px}
+  .lbl{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.7px;font-weight:600}
+  select,button,input[type=range]{font:inherit;color:var(--ink)}
+  select{appearance:none;-webkit-appearance:none;background:var(--panel2)
+      url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" fill="none" stroke="%237e8893" stroke-width="1.5" stroke-linecap="round"/></svg>')
+      no-repeat right 9px center;
+    border:1px solid var(--border);border-radius:7px;padding:5px 26px 5px 10px;cursor:pointer;
+    transition:border-color .12s,box-shadow .12s}
+  select:hover{border-color:#3a4654}
+  select:focus-visible,.btn:focus-visible{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(76,141,255,.25)}
+  .btn{background:var(--panel2);border:1px solid var(--border);border-radius:7px;
+    padding:5px 11px;cursor:pointer;transition:background .12s,border-color .12s,color .12s}
+  .btn:hover{border-color:#3a4654;background:#222b37}
+  .btn:active{transform:translateY(.5px)}
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;
+    box-shadow:0 1px 6px rgba(76,141,255,.4)}
+  .btn.on:hover{background:var(--accent-press);border-color:var(--accent-press)}
+  .seg{display:flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;
+    background:var(--panel2)}
+  .seg .btn{border:0;border-radius:0;border-right:1px solid var(--border);background:transparent}
+  .seg .btn:last-child{border-right:0}
+  /* range sliders */
+  input[type=range]{-webkit-appearance:none;appearance:none;height:18px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:3px;
+    background:#2c3743}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;margin-top:-5px;
+    width:15px;height:15px;border-radius:50%;background:var(--accent);border:2px solid #0b0e14;
+    box-shadow:0 1px 4px rgba(0,0,0,.5)}
+  input[type=range]::-moz-range-track{height:5px;border-radius:3px;background:#2c3743}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:var(--accent);border:2px solid #0b0e14}
+  /* single: video | PCA (square) | clips ; full-width timeline below */
+  main{display:grid;grid-template-columns:1.3fr 1fr 0.74fr;
+    grid-template-rows:minmax(360px,1fr) auto;gap:12px;padding:12px;height:100%;min-height:0}
+  .card{background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);
+    padding:13px;min-height:0;display:flex;flex-direction:column;box-shadow:var(--elev)}
+  .card h2{margin:0 0 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--muted);font-weight:700;display:flex;align-items:center;gap:8px}
+  #videoCard{grid-column:1;grid-row:1}
+  #pcaCard{grid-column:2;grid-row:1;min-height:0}
+  #clipCard{grid-column:3;grid-row:1;min-height:0}
+  #timelineCard{grid-column:1/4;grid-row:2}
+  #videoWrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;
+    background:var(--bg2);border:1px solid var(--border-soft);border-radius:9px;overflow:hidden;min-height:300px;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+  #video{max-width:100%;max-height:100%;image-rendering:auto}
+  #transport{display:flex;gap:9px;align-items:center;margin-top:11px}
+  #transport .time{color:var(--ink2);font-variant-numeric:tabular-nums;min-width:78px;text-align:center;font-size:12px}
+  #cliplist{overflow:auto;flex:1;border:1px solid var(--border-soft);border-radius:9px;background:var(--bg2)}
+  .clip{display:flex;align-items:center;gap:9px;padding:7px 11px;cursor:pointer;
+    border-bottom:1px solid var(--border-soft);transition:background .1s}
+  .clip:hover{background:var(--panel2)}
+  .clip.active{background:#1d2c40;box-shadow:inset 3px 0 0 var(--accent)}
+  .clip .nm{color:var(--ink2)}
+  .clip .sw{width:11px;height:20px;border-radius:3px;flex:0 0 auto}
+  .clip .rng{font-variant-numeric:tabular-nums;color:var(--muted);min-width:74px}
+  .clip .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  canvas{display:block;width:100%}
+  #timeline{cursor:crosshair}
+  .hint{color:var(--muted);font-size:11px}
+  input[type=range]{accent-color:var(--accent)}
+  /* ---- compare / alignment view (hidden until toggled) ---- */
+  #compareView{grid-row:2;grid-column:1;min-height:0;overflow:auto;padding:12px;
+    flex-direction:column;gap:12px}
+  .grpA{color:var(--blue);font-weight:700}
+  .grpB{color:var(--orange);font-weight:700}
+  .cmpToolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:12px}
+  .cmpGrp{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:9px;
+    background:var(--panel2);border:1px solid var(--border)}
+  .cmpGrp.a{box-shadow:inset 3px 0 0 var(--blue)}
+  .cmpGrp.b{box-shadow:inset 3px 0 0 var(--orange)}
+  .cmpGrp .tag{font-weight:800;font-size:13px}
+  .playGrp{display:flex;align-items:center;gap:10px;padding:6px 12px;border-radius:9px;
+    background:var(--panel2);border:1px solid var(--border)}
+  #aPhase,#bPhase{width:220px}
+  .tGrp{display:flex;align-items:center;gap:7px}
+  .tlbl{color:var(--ink);font-variant-numeric:tabular-nums;min-width:74px;font-size:12px}
+  .cmpGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .cmpCol{gap:10px}
+  .cmpTraj{background:var(--bg2);border:1px solid var(--border-soft);border-radius:9px;
+    height:340px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+  #pca,#cmpPca{cursor:grab}
+  #pca:active,#cmpPca:active{cursor:grabbing}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Chunkviz Explorer</h1>
+    <span class="grp" id="modelGrp" style="display:none"><span class="lbl">model</span><select id="modelSel"></select></span>
+    <span class="seg" id="modeSeg">
+      <button class="btn on" data-mode="single">single</button>
+      <button class="btn" data-mode="compare">compare</button>
+    </span>
+    <span class="vdiv" id="ctxDiv"></span>
+    <span class="grp" id="ctxSingle">
+      <span class="lbl">emb</span><select id="embSel"></select>
+      <span class="lbl" style="margin-left:6px">episode</span><select id="epSel"></select>
+      <span class="lbl" style="margin-left:10px">layer</span>
+      <span class="seg" id="layerSeg">
+        <button class="btn on" data-layer="chunks">colored chunks</button>
+        <button class="btn" data-layer="crisp">crisp</button>
+      </span>
+      <button class="btn on" id="probBtn" title="show a P(boundary) band under each stage band">P(boundary)</button>
+      <button class="btn" id="probCtrBtn" title="auto-contrast the P(boundary) band: per-strip min-max stretch (forced 1.0 start-boundaries excluded, still black); true range printed at right">P-contrast</button>
+    </span>
+    <span class="sp"></span>
+    <span class="hint" id="ctxHint">space play · ←/→ step · click/drag timeline to seek</span>
+  </header>
+  <main id="singleMain">
+    <section class="card" id="videoCard">
+      <h2>Rollout</h2>
+      <div id="videoWrap"><canvas id="video"></canvas></div>
+      <div id="transport">
+        <button class="btn" id="toStart">⏮</button>
+        <button class="btn" id="playBtn">▶</button>
+        <button class="btn" id="stepB">◀</button>
+        <button class="btn" id="stepF">▶|</button>
+        <button class="btn" id="ovBtn" title="overlay: per-frame dot / full-episode TF path / off (key: o)">ov: dot</button>
+        <input type="range" id="scrub" min="0" value="0" style="flex:1"/>
+        <span class="time" id="timeLbl">0 / 0</span>
+        <label class="hint">fps <input type="range" id="fps" min="2" max="30" value="12" style="width:80px"></label>
+      </div>
+    </section>
+
+    <section class="card" id="clipCard">
+      <h2 style="display:flex;align-items:center;gap:8px">
+        <span>Chunks — click to jump</span>
+        <select id="clipStageSel" style="margin-left:auto;text-transform:none;letter-spacing:0"></select>
+      </h2>
+      <div id="cliplist"></div>
+    </section>
+
+    <section class="card" id="timelineCard">
+      <h2>Boundary timeline</h2>
+      <canvas id="timeline" height="150"></canvas>
+    </section>
+
+    <section class="card" id="pcaCard">
+      <h2>PCA — high-level chunk tokens (grey all · blue this episode · orange recent · red current) · wheel zoom · drag pan · dblclick reset</h2>
+      <canvas id="pca"></canvas>
+    </section>
+  </main>
+
+  <section id="compareView" style="display:none">
+    <div class="cmpToolbar">
+      <div class="cmpGrp a"><span class="tag grpA">A</span>
+        <span class="lbl">emb</span><select id="aEmb"></select></div>
+      <div class="cmpGrp b"><span class="tag grpB">B</span>
+        <span class="lbl">emb</span><select id="bEmb"></select></div>
+      <div class="cmpGrp"><span class="lbl">episode</span><select id="cmpEp"></select></div>
+      <span class="sp"></span>
+      <div class="playGrp">
+        <button class="btn" id="cmpPlay">▶ play</button>
+        <div class="tGrp"><span class="lbl grpA">A time</span>
+          <input type="range" id="aPhase" min="0" max="1000" value="0">
+          <span id="aTimeLbl" class="tlbl"></span></div>
+        <div class="tGrp"><span class="lbl grpB">B time</span>
+          <input type="range" id="bPhase" min="0" max="1000" value="0">
+          <span id="bTimeLbl" class="tlbl"></span></div>
+        <span class="vdiv"></span>
+        <span class="lbl">fps</span><input type="range" id="cmpFps" min="2" max="40" value="10" style="width:80px">
+        <span class="vdiv"></span>
+        <span class="lbl">PCA</span>
+        <span class="seg" id="pcaModeSeg">
+          <button class="btn on" data-pca="raw">raw</button>
+          <button class="btn" data-pca="meandiff">−emb mean</button>
+          <button class="btn" data-pca="lda">−emb LDA</button>
+        </span>
+        <span class="vdiv"></span>
+        <button class="btn on" id="cmpProbBtn" title="show a P(boundary) band under each stage band">P(boundary)</button>
+        <button class="btn" id="cmpProbCtrBtn" title="auto-contrast the P(boundary) band: per-strip min-max stretch (forced 1.0 start-boundaries excluded); true range printed at right">P-contrast</button>
+        <button class="btn on" id="cmpOvBtn" title="overlay: per-frame dot / full-episode TF path / off (key: o)">ov: dot</button>
+      </div>
+    </div>
+    <div class="cmpGrid">
+      <section class="card cmpCol">
+        <h2><span class="grpA">A</span> — rollout + chunk strips (all stages)</h2>
+        <div class="cmpTraj"><canvas id="aTraj"></canvas></div>
+        <canvas id="aStrip" height="84"></canvas>
+      </section>
+      <section class="card cmpCol">
+        <h2><span class="grpB">B</span> — rollout + chunk strips (all stages)</h2>
+        <div class="cmpTraj"><canvas id="bTraj"></canvas></div>
+        <canvas id="bStrip" height="84"></canvas>
+      </section>
+    </div>
+    <section class="card">
+      <h2>Shared PCA — chunk tokens in one cross-embodiment basis &nbsp;·&nbsp;
+        <span style="color:#8b949e">grey = all episodes</span> &nbsp;·&nbsp;
+        <span class="grpA">A blue</span> &nbsp;·&nbsp; <span class="grpB">B orange</span>
+        &nbsp;·&nbsp; <span style="color:#8b949e">faint = full path, bold = up to current phase, ring = now</span>
+        &nbsp;·&nbsp; <span style="color:#8b949e">wheel zoom · drag pan · dblclick reset</span></h2>
+      <canvas id="cmpPca" height="380"></canvas>
+    </section>
+  </section>
+</div>
+
+<script>
+const PALETTE = [
+  [31,119,180],[255,127,14],[44,160,44],[214,39,40],[148,103,189],
+  [140,86,75],[227,119,194],[23,190,207],[188,189,34],[120,120,120]
+];
+const rgb = a => `rgb(${a[0]},${a[1]},${a[2]})`;
+const MODELS = /*__CHUNKVIZ_DATA__*/;
+const MODEL_NAMES = Object.keys(MODELS);
+let DATA = MODELS[MODEL_NAMES[0]];   // active model; swapped by the model dropdown
+
+const S = { emb:null, ep:0, frame:0, layer:"chunks", playing:false, fps:12,
+            frames:[], _raf:null, _acc:0, _last:0, drag:false, clipStage:0, mode:"single",
+            overlay:"dot",     // "dot" per-frame | "path" full-episode TF | "off"
+            showProb:true, probContrast:false };   // extra P(boundary) band under each stage band
+// pan/zoom state for the two PCA canvases (screen-space affine: p' = p*k + o).
+const PZ = { k:1, ox:0, oy:0, drag:null };   // single-view #pca
+const CZ = { k:1, ox:0, oy:0, drag:null };   // compare #cmpPca
+function resetZoom(z){ z.k=1; z.ox=0; z.oy=0; z.drag=null; }
+function wireZoom(canvas, z, redraw){
+  canvas.addEventListener("wheel", e=>{ e.preventDefault();
+    const r=canvas.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+    const f=Math.exp(-e.deltaY*0.0015);
+    z.ox=mx-(mx-z.ox)*f; z.oy=my-(my-z.oy)*f; z.k*=f; redraw(); }, {passive:false});
+  canvas.addEventListener("mousedown", e=>{ z.drag=[e.clientX,e.clientY]; e.preventDefault(); });
+  window.addEventListener("mousemove", e=>{ if(!z.drag) return;
+    z.ox+=e.clientX-z.drag[0]; z.oy+=e.clientY-z.drag[1];
+    z.drag=[e.clientX,e.clientY]; redraw(); });
+  window.addEventListener("mouseup", ()=>{ z.drag=null; });
+  canvas.addEventListener("dblclick", ()=>{ resetZoom(z); redraw(); });
+}
+
+const $ = id => document.getElementById(id);
+
+function embObj(){ return DATA.embs[S.emb]; }
+function epObj(){ return embObj().episodes[S.ep]; }
+function T(){ return epObj().topcid.length; }
+
+// ---- chunk runs (contiguous chunk ids for the chosen stage) ----
+function chunkRuns(stage){
+  const row = epObj().cid[stage], runs=[]; let st=0;
+  for(let t=1;t<=row.length;t++){
+    if(t===row.length || row[t]!==row[st]){ runs.push({a:st,b:t-1,id:row[st]}); st=t; }
+  }
+  return runs;
+}
+
+// ---- selectors ----
+function fillSelectors(){
+  const e=$("embSel"); e.innerHTML="";
+  DATA.emb_ids.forEach(id=>{ const o=document.createElement("option");
+    o.value=id;o.textContent="emb "+id;e.appendChild(o); });
+  e.value=S.emb;
+  const ep=$("epSel"); ep.innerHTML="";
+  embObj().episodes.forEach((_,i)=>{ const o=document.createElement("option");
+    o.value=i;o.textContent="ep "+i;ep.appendChild(o); });
+  ep.value=S.ep;
+  // chunk-list stage dropdown (last stage = most-compressed / high-level)
+  const labels=embObj().labels, cs=$("clipStageSel"); cs.innerHTML="";
+  labels.forEach((nm,i)=>{ const o=document.createElement("option");
+    o.value=i; o.textContent = nm + (i===labels.length-1?" (high-level)":"");
+    cs.appendChild(o); });
+  if(S.clipStage>=labels.length) S.clipStage=labels.length-1;
+  cs.value=S.clipStage;
+}
+
+// ---- video frames ----
+function loadFrames(){
+  S.frames = (epObj().frames||[]).map(src=>{ if(!src) return null;
+    const im=new Image(); im.src=src; return im; });
+}
+// GT (green) / teacher-forced pred (red) overlay, drawn client-side over the
+// frame rect. Modes: "dot" = per-frame position (+ short trail), "path" =
+// full-episode TF trajectory polyline + current position, "off".
+function drawOverlay(x, ep, f, rx, ry, rw, rh){
+  if(S.overlay==="off" || !ep) return;
+  const one=(pts,col)=>{
+    if(!pts || !pts.length) return;
+    const PX=p=>rx+(p[0]+1)*0.5*(rw-1), PY=p=>ry+(p[1]+1)*0.5*(rh-1);
+    if(S.overlay==="path"){
+      x.globalAlpha=.8; x.strokeStyle=col; x.lineWidth=1.5; x.beginPath();
+      for(let i=0;i<pts.length;i++){ const X=PX(pts[i]),Y=PY(pts[i]);
+        i?x.lineTo(X,Y):x.moveTo(X,Y); }
+      x.stroke(); x.globalAlpha=1;
+    } else {  // dot: 12-frame trail behind the current position
+      x.globalAlpha=.5; x.strokeStyle=col; x.lineWidth=1.2; x.beginPath();
+      let st=false;
+      for(let i=Math.max(0,f-12);i<=Math.min(f,pts.length-1);i++){
+        const X=PX(pts[i]),Y=PY(pts[i]); st?x.lineTo(X,Y):x.moveTo(X,Y); st=true; }
+      x.stroke(); x.globalAlpha=1;
+    }
+    const p=pts[Math.min(f,pts.length-1)];
+    x.fillStyle=col; x.beginPath();
+    x.arc(PX(p),PY(p),S.overlay==="path"?3:4,0,6.283); x.fill();
+  };
+  one(ep.gt,"#22c55e"); one(ep.pred,"#f43f5e");
+}
+function drawVideo(){
+  const c=$("video"), w=c.parentElement.clientWidth, h=c.parentElement.clientHeight;
+  c.width=w; c.height=h; const x=c.getContext("2d");
+  x.fillStyle="#000"; x.fillRect(0,0,w,h);
+  const im=S.frames[S.frame];
+  if(im && im.complete && im.naturalWidth){
+    const s=Math.min(w/im.naturalWidth,h/im.naturalHeight);
+    const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
+    x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh);
+    drawOverlay(x, epObj(), S.frame, (w-dw)/2, (h-dh)/2, dw, dh);
+  } else {
+    x.fillStyle="#444"; x.font="13px sans-serif"; x.textAlign="center";
+    x.fillText(im?"loading…":"no trajectory frames",w/2,h/2);
+  }
+}
+
+// ---- clip list ----
+function buildClips(){
+  const box=$("cliplist"); box.innerHTML="";
+  chunkRuns(S.clipStage).forEach(r=>{
+    const d=document.createElement("div"); d.className="clip"; d.dataset.a=r.a; d.dataset.b=r.b;
+    const sw=document.createElement("div"); sw.className="sw";
+    sw.style.background=rgb(PALETTE[r.id%PALETTE.length]);
+    const rng=document.createElement("div"); rng.className="rng"; rng.textContent=`${r.a}–${r.b}`;
+    const nm=document.createElement("div"); nm.className="nm";
+    nm.textContent=`chunk ${r.id}  ·  ${r.b-r.a+1} frames`;
+    d.append(sw,rng,nm);
+    d.onclick=()=>seek(r.a);
+    box.appendChild(d);
+  });
+}
+function highlightClip(){
+  document.querySelectorAll(".clip").forEach(d=>{
+    const a=+d.dataset.a,b=+d.dataset.b;
+    const on=S.frame>=a&&S.frame<=b; d.classList.toggle("active",on);
+    if(on && !d._seen){ d.scrollIntoView({block:"nearest"}); }
+    d._seen=on;
+  });
+}
+
+// ---- timeline ----
+const LABW=78, BAND=30, PBAND=13, GAP=6, RULER=22;
+function tlGeom(){
+  const c=$("timeline"); const w=c.parentElement.clientWidth-20;
+  const ep=epObj(), ns=embObj().labels.length;
+  const rowH=BAND+(S.showProb?PBAND+2:0);
+  const h=RULER+ns*(rowH+GAP);
+  c.width=w; c.height=h; return {c,w,h,ns,rowH,plotW:w-LABW};
+}
+function fx(f,plotW){ return LABW + (T()<=1?0:f/(T()-1))*plotW; }
+function drawTimeline(){
+  const {c,w,h,ns,rowH,plotW}=tlGeom(); const x=c.getContext("2d");
+  const ep=epObj(), labels=embObj().labels;
+  x.fillStyle="#0a0d12"; x.fillRect(0,0,w,h);
+  // ruler
+  x.fillStyle="#8b949e"; x.font="10px sans-serif"; x.textAlign="center";
+  const step=niceStep(T(),plotW);
+  for(let f=0;f<T();f+=step){ const px=fx(f,plotW);
+    x.fillRect(px,RULER-6,1,6); x.fillText(f,px,RULER-9);
+  }
+  // tracks: chunk/crisp band + (optional) P(boundary) band per stage
+  for(let s=0;s<ns;s++){
+    const y=RULER+s*(rowH+GAP);
+    x.fillStyle="#cbd5e1"; x.textAlign="left"; x.font="11px sans-serif";
+    x.fillText(labels[s], 6, y+BAND/2+4);
+    const cid=ep.cid[s], prob=ep.prob[s];
+    let pmn=0,pmx=1;
+    if(S.probContrast && prob){ pmn=1;pmx=0;
+      for(let f=0;f<T();f++){ const v=prob[f]; if(v<0.99){ if(v<pmn)pmn=v; if(v>pmx)pmx=v; } }
+      if(pmx<=pmn){ pmn=0; pmx=1; } }
+    for(let f=0;f<T();f++){
+      const px=fx(f,plotW), px2=fx(f+1,plotW), bw=Math.max(1,px2-px+0.5);
+      let col;
+      if(S.layer==="chunks"){ col=rgb(PALETTE[cid[f]%PALETTE.length]); }
+      else { const crisp = f===0 || cid[f]!==cid[f-1]; col = crisp?"#dc2626":"#f3f4f6"; }
+      x.fillStyle=col; x.fillRect(px,y,bw,BAND);
+      if(S.showProb && prob){
+        let pv=Math.min(1,Math.max(0,prob[f]));
+        if(S.probContrast) pv = prob[f]>=0.99 ? 1 : Math.min(1,Math.max(0,(prob[f]-pmn)/(pmx-pmn)));
+        const g=Math.round(255*(1-pv));
+        x.fillStyle=`rgb(${g},${g},${g})`; x.fillRect(px,y+BAND+2,bw,PBAND);
+      }
+    }
+    x.strokeStyle="#2a313c"; x.strokeRect(LABW,y,plotW,BAND);
+    if(S.showProb) x.strokeRect(LABW,y+BAND+2,plotW,PBAND);
+    if(S.showProb && S.probContrast && prob){ x.fillStyle="#8aa0b8"; x.font="9px sans-serif"; x.textAlign="right";
+      x.fillText("["+pmn.toFixed(3)+"\u2013"+pmx.toFixed(3)+"]", LABW+plotW-3, y+BAND+2+PBAND-3); x.textAlign="left"; }
+  }
+  // playhead
+  const ph=fx(S.frame,plotW);
+  x.fillStyle="#f5c518"; x.fillRect(ph-1,RULER-4,2,h-RULER+4);
+  x.beginPath(); x.moveTo(ph-5,RULER-4); x.lineTo(ph+5,RULER-4); x.lineTo(ph,RULER+3);
+  x.closePath(); x.fill();
+}
+function niceStep(n,plotW){
+  const target=Math.max(40, plotW/12); // ~12 ticks
+  const raw=n*target/plotW; const pw=Math.pow(10,Math.floor(Math.log10(raw)));
+  for(const m of [1,2,5,10]) if(pw*m>=raw) return Math.max(1,Math.round(pw*m));
+  return Math.max(1,Math.round(pw*10));
+}
+function timelineSeek(ev){
+  const {plotW}=tlGeom(); const r=$("timeline").getBoundingClientRect();
+  const rel=ev.clientX-r.left-LABW; if(rel<0) return;
+  seek(Math.round(rel/plotW*(T()-1)));
+}
+
+// ---- PCA ----
+function drawPCA(){
+  const c=$("pca"); const w=c.parentElement.clientWidth-20;
+  const h=Math.max(200,c.parentElement.clientHeight-30); c.width=w;c.height=h;
+  const x=c.getContext("2d"); x.fillStyle="#0a0d12"; x.fillRect(0,0,w,h);
+  const pts=embObj().pca; if(!pts.length) return;
+  let xmin=1e9,xmax=-1e9,ymin=1e9,ymax=-1e9;
+  for(const p of pts){ xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);
+    ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]); }
+  // EQUAL ASPECT: PC1/PC2 share units, so one scale for both axes (a square
+  // data mapping centered in the canvas) — never stretch to fill the rect.
+  const pad=24, dw=(xmax-xmin)||1, dh=(ymax-ymin)||1;
+  const sc=Math.min((w-2*pad)/dw,(h-2*pad)/dh);
+  const ox=(w-dw*sc)/2, oy=(h-dh*sc)/2;
+  const sx=v=>(ox+(v-xmin)*sc)*PZ.k+PZ.ox, sy=v=>(h-oy-(v-ymin)*sc)*PZ.k+PZ.oy;
+  // all
+  x.fillStyle="rgba(150,150,150,.5)";
+  for(const p of pts){ x.beginPath();x.arc(sx(p[0]),sy(p[1]),2,0,7);x.fill(); }
+  // this episode
+  const tc=epObj().topcid, uniq=[...new Set(tc)];
+  x.fillStyle="#4c9aff";
+  for(const id of uniq){ const p=pts[id]; if(!p)continue;
+    x.beginPath();x.arc(sx(p[0]),sy(p[1]),3.5,0,7);x.fill(); }
+  // recent trail (dedup consecutive over last 40 frames)
+  const lo=Math.max(0,S.frame-40); const seq=[];
+  for(let f=lo;f<=S.frame;f++){ const id=tc[f]; if(!seq.length||seq[seq.length-1]!==id)seq.push(id); }
+  x.strokeStyle="#ff9d3b"; x.lineWidth=2; x.beginPath();
+  seq.forEach((id,i)=>{ const p=pts[id]; if(!p)return;
+    const X=sx(p[0]),Y=sy(p[1]); i?x.lineTo(X,Y):x.moveTo(X,Y); }); x.stroke();
+  x.fillStyle="#ff9d3b";
+  for(const id of seq){ const p=pts[id]; if(!p)continue;
+    x.beginPath();x.arc(sx(p[0]),sy(p[1]),3,0,7);x.fill(); }
+  // current
+  const cp=pts[tc[S.frame]];
+  if(cp){ x.fillStyle="#dc2626"; x.beginPath();x.arc(sx(cp[0]),sy(cp[1]),7,0,7);x.fill();
+    x.strokeStyle="#fff";x.lineWidth=2;x.stroke(); }
+}
+
+// ---- render / state ----
+function renderAll(){ drawVideo(); drawTimeline(); drawPCA(); highlightClip();
+  const t=T(); $("scrub").max=t-1; $("scrub").value=S.frame; $("timeLbl").textContent=`${S.frame} / ${t-1}`; }
+function seek(f){ S.frame=Math.max(0,Math.min(T()-1,f|0)); renderAll(); }
+function setEmb(e){ S.emb=String(e); S.ep=0; resetZoom(PZ); fillSelectors(); changeEp(0); }
+function changeEp(i){ S.ep=+i; S.frame=0; loadFrames(); buildClips(); renderAll();
+  // redraw video as frames decode
+  S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; }); }
+
+// ---- playback ----
+function tick(ts){ if(!S.playing){return;} if(!S._last)S._last=ts;
+  S._acc+=(ts-S._last)/1000; S._last=ts;
+  const dt=1/S.fps;
+  while(S._acc>=dt){ S._acc-=dt; S.frame=(S.frame+1)%T(); }
+  renderAll(); S._raf=requestAnimationFrame(tick);
+}
+function play(on){ S.playing=on; $("playBtn").textContent=on?"⏸":"▶";
+  $("playBtn").classList.toggle("on",on);
+  if(on){ S._last=0; S._raf=requestAnimationFrame(tick); } else cancelAnimationFrame(S._raf); }
+
+// ---- wire up ----
+function init(){
+  S.emb=String(DATA.emb_ids[0]);
+  S.clipStage=embObj().labels.length-1;   // default = high-level (last stage)
+  fillSelectors(); loadFrames(); buildClips(); renderAll();
+  S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; });
+
+  $("embSel").onchange=e=>setEmb(e.target.value);
+  $("epSel").onchange=e=>changeEp(e.target.value);
+  $("clipStageSel").onchange=e=>{ S.clipStage=+e.target.value; buildClips(); highlightClip(); };
+  $("layerSeg").onclick=e=>{ const b=e.target.closest("[data-layer]"); if(!b)return;
+    S.layer=b.dataset.layer;
+    document.querySelectorAll("#layerSeg .btn").forEach(x=>x.classList.toggle("on",x===b));
+    drawTimeline(); };
+  $("probBtn").onclick=()=>{ S.showProb=!S.showProb;
+    $("probBtn").classList.toggle("on",S.showProb); drawTimeline(); };
+  $("probCtrBtn").onclick=()=>{ S.probContrast=!S.probContrast;
+    $("probCtrBtn").classList.toggle("on",S.probContrast); drawTimeline(); };
+  wireZoom($("pca"), PZ, drawPCA);
+  $("playBtn").onclick=()=>play(!S.playing);
+  $("toStart").onclick=()=>{play(false);seek(0);};
+  $("stepB").onclick=()=>{play(false);seek(S.frame-1);};
+  $("stepF").onclick=()=>{play(false);seek(S.frame+1);};
+  $("scrub").oninput=e=>{play(false);seek(+e.target.value);};
+  $("fps").oninput=e=>S.fps=+e.target.value;
+
+  const tl=$("timeline");
+  tl.onmousedown=e=>{S.drag=true;play(false);timelineSeek(e);};
+  window.addEventListener("mousemove",e=>{if(S.drag)timelineSeek(e);});
+  window.addEventListener("mouseup",()=>S.drag=false);
+
+  const cycleOverlay=()=>{
+    S.overlay = S.overlay==="dot" ? "path" : (S.overlay==="path" ? "off" : "dot");
+    $("ovBtn").textContent = "ov: "+S.overlay;
+    $("ovBtn").classList.toggle("on", S.overlay!=="off");
+    $("cmpOvBtn").textContent = "ov: "+S.overlay;
+    $("cmpOvBtn").classList.toggle("on", S.overlay!=="off");
+    S.mode==="compare" ? renderCmp() : drawVideo();
+  };
+  $("ovBtn").onclick=cycleOverlay;
+  $("cmpOvBtn").onclick=cycleOverlay;
+  window.addEventListener("keydown",e=>{
+    if(e.code==="KeyO"){ cycleOverlay(); return; }
+    if(S.mode==="compare"){ if(e.code==="Space"){e.preventDefault();cmpPlay(!SC.playing);} return; }
+    if(e.code==="Space"){e.preventDefault();play(!S.playing);}
+    else if(e.code==="ArrowRight"){play(false);seek(S.frame+1);}
+    else if(e.code==="ArrowLeft"){play(false);seek(S.frame-1);}
+    else if(e.code==="Home"){play(false);seek(0);}
+  });
+  window.addEventListener("resize",()=>{ S.mode==="compare"?renderCmp():renderAll(); });
+
+  // model selector (only shown when the file holds >1 model)
+  const _ms=$("modelSel"); _ms.innerHTML="";
+  MODEL_NAMES.forEach(nm=>{ const o=document.createElement("option");
+    o.value=nm; o.textContent=nm; _ms.appendChild(o); });
+  _ms.value=MODEL_NAMES[0];
+  $("modelGrp").style.display=MODEL_NAMES.length>1?"":"none";
+  _ms.onchange=e=>switchModel(e.target.value);
+
+  initCompare();
+  $("modeSeg").onclick=e=>{ const b=e.target.closest("[data-mode]");
+    if(!b||b.disabled) return; setMode(b.dataset.mode); };
+}
+
+// ===== compare / alignment mode (self-contained; single view untouched) =====
+// LINKED episode (SC.ep drives BOTH embs — we only ever compare aligned
+// pairs) + INDEPENDENT per-emb time (SC.aPhase / SC.bPhase in [0,1]) so each
+// timeline scrubs its own episode's frames/PCA-highlight separately.
+const SC = { aEmb:null, bEmb:null, ep:0, aPhase:0, bPhase:0, playing:false,
+             fps:10, _raf:null, _last:0, pcaMode:"raw", showProb:true };
+function cmpEnabled(){ return !!(DATA.pca_shared && DATA.pca_shared.length); }
+function sharedPca(){
+  if(SC.pcaMode==="meandiff" && DATA.pca_shared_meandiff) return DATA.pca_shared_meandiff;
+  if(SC.pcaMode==="lda" && DATA.pca_shared_lda) return DATA.pca_shared_lda;
+  return DATA.pca_shared;
+}
+function updatePcaModeAvail(){
+  ["meandiff","lda"].forEach(m=>{ const b=document.querySelector('[data-pca="'+m+'"]');
+    if(!b) return; const has=!!(DATA["pca_shared_"+m] && DATA["pca_shared_"+m].length);
+    b.disabled=!has; b.style.opacity=has?1:.4; });
+  if(SC.pcaMode!=="raw" && !((DATA["pca_shared_"+SC.pcaMode]||[]).length)){
+    SC.pcaMode="raw";
+    document.querySelectorAll("#pcaModeSeg .btn").forEach(x=>x.classList.toggle("on",x.dataset.pca==="raw"));
+  }
+}
+
+function epOf(emb,ep){ return DATA.embs[emb].episodes[ep]; }
+function offOf(emb){ const o=DATA.embs[emb].pca_offset; return o==null?0:o; }
+function cmpFrames(emb,ep){ const e=epOf(emb,ep);
+  if(!e._imgs){ e._imgs=(e.frames||[]).map(s=>{ if(!s)return null;
+    const im=new Image(); im.src=s; return im; }); }
+  return e._imgs; }
+function phaseFrame(emb,ep,phase){ const T=epOf(emb,ep).topcid.length; return Math.round(phase*(T-1)); }
+
+function cmpFillSel(){
+  for(const [sel,val] of [["aEmb",SC.aEmb],["bEmb",SC.bEmb]]){
+    const el=$(sel); el.innerHTML="";
+    DATA.emb_ids.forEach(id=>{ const o=document.createElement("option");
+      o.value=id;o.textContent="emb "+id;el.appendChild(o); }); el.value=val;
+  }
+  // ONE shared episode selector — same index for both embs (aligned pairs).
+  const nEp=Math.min(DATA.embs[SC.aEmb].episodes.length,
+                     DATA.embs[SC.bEmb].episodes.length);
+  if(SC.ep>=nEp) SC.ep=0;
+  const ce=$("cmpEp"); ce.innerHTML="";
+  for(let i=0;i<nEp;i++){ const o=document.createElement("option");
+    o.value=i;o.textContent="ep "+i;ce.appendChild(o); }
+  ce.value=SC.ep;
+}
+function drawCmpTraj(canvasId,emb,ep,phase){
+  const c=$(canvasId),w=c.parentElement.clientWidth,h=c.parentElement.clientHeight;
+  c.width=w;c.height=h;const x=c.getContext("2d");x.fillStyle="#000";x.fillRect(0,0,w,h);
+  const f=phaseFrame(emb,ep,phase), im=cmpFrames(emb,ep)[f];
+  if(im&&im.complete&&im.naturalWidth){ const s=Math.min(w/im.naturalWidth,h/im.naturalHeight);
+    const dw=im.naturalWidth*s, dh=im.naturalHeight*s;
+    x.drawImage(im,(w-dw)/2,(h-dh)/2,dw,dh);
+    drawOverlay(x, epOf(emb,ep), f, (w-dw)/2, (h-dh)/2, dw, dh);
+  } else { x.fillStyle="#444";x.font="12px sans-serif";x.textAlign="center";
+    x.fillText(im?"loading…":"no frames",w/2,h/2); }
+}
+function drawCmpStrip(canvasId,emb,ep,accent,phase){
+  const c=$(canvasId),w=c.parentElement.clientWidth;const e=epOf(emb,ep);
+  const showP=SC.showProb&&!!e.prob;
+  const ns=e.cid.length, band=20, pband=showP?12:0, pgap=showP?2:0, gap=5, padL=54;
+  const rowH=band+pband+pgap, H=ns*(rowH+gap)+2;
+  c.width=w;c.height=H;const x=c.getContext("2d");const T=e.cid[0].length;
+  x.fillStyle="#0a0d12";x.fillRect(0,0,w,H);
+  const plotW=w-padL;
+  for(let s=0;s<ns;s++){
+    const y=s*(rowH+gap)+2,row=e.cid[s],prow=e.prob?e.prob[s]:null;
+    let pmn=0,pmx=1; if(S.probContrast&&prow){ pmn=1;pmx=0;
+      for(let f=0;f<T;f++){ const v=prow[f]; if(v<0.99){ if(v<pmn)pmn=v; if(v>pmx)pmx=v; } }
+      if(pmx<=pmn){ pmn=0; pmx=1; } }
+    x.fillStyle="#cbd5e1";x.font="10px sans-serif";x.textAlign="left";
+    x.fillText("Stage "+s,4,y+band/2+3);
+    for(let f=0;f<T;f++){ const px=padL+f/T*plotW,px2=padL+(f+1)/T*plotW,bw=Math.max(1,px2-px+0.5);
+      x.fillStyle=rgb(PALETTE[row[f]%PALETTE.length]);x.fillRect(px,y,bw,band);
+      if(showP&&prow){ let pv=Math.min(1,Math.max(0,prow[f]));
+        if(S.probContrast) pv=prow[f]>=0.99?1:Math.min(1,Math.max(0,(prow[f]-pmn)/(pmx-pmn)));
+        const g=Math.round(255*(1-pv));
+        x.fillStyle=`rgb(${g},${g},${g})`;x.fillRect(px,y+band+pgap,bw,pband); } }
+    if(showP){ x.strokeStyle="#2a313c";x.strokeRect(padL,y+band+pgap,plotW,pband); }
+  }
+  const ph=padL+phase*plotW;x.fillStyle=accent;x.fillRect(ph-1,0,2,H);
+}
+function drawSideTrail(x,sx,sy,emb,ep,col,phase){
+  const pts=sharedPca(),e=epOf(emb,ep),tc=e.topcid,off=offOf(emb),f=phaseFrame(emb,ep,phase);
+  // ordered sequence of visited chunks + per-frame index into it (collapses only
+  // consecutive repeats, so a revisited chunk is a distinct polyline vertex).
+  const useq=[],f2u=new Array(tc.length);
+  for(let i=0;i<tc.length;i++){ if(!useq.length||tc[i]!==tc[i-1]) useq.push(tc[i]); f2u[i]=useq.length-1; }
+  const C=i=>pts[off+useq[i]];
+  // faint full polyline over every visited chunk centroid
+  let st=false;x.globalAlpha=.22;x.strokeStyle=col;x.lineWidth=1.5;x.beginPath();
+  for(let i=0;i<useq.length;i++){const p=C(i);if(!p)continue;const X=sx(p[0]),Y=sy(p[1]);st?x.lineTo(X,Y):x.moveTo(X,Y);st=true;}x.stroke();
+  // CURRENT position, interpolated along the polyline so it glides frame-by-frame.
+  // Apex tokens are per-chunk, so lerp the marker between the current chunk's
+  // centroid and the next by how far the frame sits through the chunk's run —
+  // otherwise the marker only jumps at chunk boundaries and looks frozen.
+  const ui=f2u[f]; let cs=f;while(cs>0&&tc[cs-1]===tc[f])cs--; let ce=f;while(ce<tc.length-1&&tc[ce+1]===tc[f])ce++;
+  const a=C(ui), b=(ui+1<useq.length)?C(ui+1):a, frac=ce>cs?(f-cs)/(ce-cs):0;
+  const cx=a?a[0]+((b||a)[0]-a[0])*frac:null, cy=a?a[1]+((b||a)[1]-a[1])*frac:null;
+  // bright trail up to the current chunk, extended to the moving dot
+  st=false;x.globalAlpha=1;x.strokeStyle=col;x.lineWidth=2.5;x.beginPath();
+  for(let i=0;i<=ui;i++){const p=C(i);if(!p)continue;const X=sx(p[0]),Y=sy(p[1]);st?x.lineTo(X,Y):x.moveTo(X,Y);st=true;}
+  if(cx!=null){st?x.lineTo(sx(cx),sy(cy)):x.moveTo(sx(cx),sy(cy));}x.stroke();
+  // visited centroid dots
+  x.fillStyle=col;for(let i=0;i<=ui;i++){const p=C(i);if(!p)continue;x.beginPath();x.arc(sx(p[0]),sy(p[1]),3,0,7);x.fill();}
+  // moving current-frame marker (interpolated)
+  if(cx!=null){x.fillStyle=col;x.beginPath();x.arc(sx(cx),sy(cy),7,0,7);x.fill();
+    x.strokeStyle="#fff";x.lineWidth=2;x.stroke();}
+}
+function drawCmpPca(){
+  const c=$("cmpPca"),w=c.parentElement.clientWidth-20,h=360;c.width=w;c.height=h;
+  const x=c.getContext("2d");x.fillStyle="#0a0d12";x.fillRect(0,0,w,h);
+  const pts=sharedPca();if(!pts||!pts.length)return;
+  let xmin=1e9,xmax=-1e9,ymin=1e9,ymax=-1e9;
+  for(const p of pts){xmin=Math.min(xmin,p[0]);xmax=Math.max(xmax,p[0]);ymin=Math.min(ymin,p[1]);ymax=Math.max(ymax,p[1]);}
+  const pad=24,dw=(xmax-xmin)||1,dh=(ymax-ymin)||1,sc=Math.min((w-2*pad)/dw,(h-2*pad)/dh);
+  const ox=(w-dw*sc)/2,oy=(h-dh*sc)/2;
+  const sx=v=>(ox+(v-xmin)*sc)*CZ.k+CZ.ox,sy=v=>(h-oy-(v-ymin)*sc)*CZ.k+CZ.oy;
+  x.fillStyle="rgba(150,150,150,.4)";
+  for(const p of pts){x.beginPath();x.arc(sx(p[0]),sy(p[1]),1.8,0,7);x.fill();}
+  drawSideTrail(x,sx,sy,SC.aEmb,SC.ep,"#4c9aff",SC.aPhase);
+  drawSideTrail(x,sx,sy,SC.bEmb,SC.ep,"#ff9d3b",SC.bPhase);
+}
+function renderCmp(){
+  drawCmpTraj("aTraj",SC.aEmb,SC.ep,SC.aPhase); drawCmpTraj("bTraj",SC.bEmb,SC.ep,SC.bPhase);
+  drawCmpStrip("aStrip",SC.aEmb,SC.ep,"#4c9aff",SC.aPhase);
+  drawCmpStrip("bStrip",SC.bEmb,SC.ep,"#ff9d3b",SC.bPhase);
+  drawCmpPca();
+  $("aPhase").value=Math.round(SC.aPhase*1000);
+  $("bPhase").value=Math.round(SC.bPhase*1000);
+  $("aTimeLbl").textContent=`f${phaseFrame(SC.aEmb,SC.ep,SC.aPhase)} / ${epOf(SC.aEmb,SC.ep).topcid.length-1}`;
+  $("bTimeLbl").textContent=`f${phaseFrame(SC.bEmb,SC.ep,SC.bPhase)} / ${epOf(SC.bEmb,SC.ep).topcid.length-1}`;
+}
+// play advances BOTH timelines independently, each at its own episode's rate;
+// stops once both have reached their end.
+function cmpTick(ts){ if(!SC.playing)return; if(!SC._last)SC._last=ts;
+  const dt=(ts-SC._last)/1000;SC._last=ts;
+  const Ta=epOf(SC.aEmb,SC.ep).topcid.length, Tb=epOf(SC.bEmb,SC.ep).topcid.length;
+  SC.aPhase=Math.min(1,SC.aPhase+SC.fps*dt/Math.max(1,Ta-1));
+  SC.bPhase=Math.min(1,SC.bPhase+SC.fps*dt/Math.max(1,Tb-1));
+  renderCmp();
+  if(SC.aPhase>=1 && SC.bPhase>=1){cmpPlay(false);return;}
+  SC._raf=requestAnimationFrame(cmpTick);
+}
+function cmpPlay(on){ SC.playing=on;$("cmpPlay").textContent=on?"⏸":"▶";$("cmpPlay").classList.toggle("on",on);
+  if(on){ if(SC.aPhase>=1&&SC.bPhase>=1){SC.aPhase=0;SC.bPhase=0;} SC._last=0; SC._raf=requestAnimationFrame(cmpTick); } else cancelAnimationFrame(SC._raf); }
+function updateCmpAvail(){
+  const cb=document.querySelector('[data-mode=compare]'); const ok=cmpEnabled();
+  cb.disabled=!ok; cb.style.opacity=ok?1:.45;
+  cb.title= ok ? "" : "needs a cross-emb export (this model has no shared PCA)";
+}
+function initCompare(){
+  if(cmpEnabled()){
+    SC.aEmb=String(DATA.emb_ids[0]);
+    SC.bEmb=String(DATA.emb_ids[DATA.emb_ids.length>1?1:0]);
+    SC.ep=0; SC.aPhase=0; SC.bPhase=0;
+    cmpFillSel();
+  }
+  $("aEmb").onchange=e=>{SC.aEmb=e.target.value;cmpFillSel();renderCmp();};
+  $("bEmb").onchange=e=>{SC.bEmb=e.target.value;cmpFillSel();renderCmp();};
+  // ONE shared episode selector drives BOTH embs; reset both time sliders.
+  $("cmpEp").onchange=e=>{SC.ep=+e.target.value;SC.aPhase=0;SC.bPhase=0;renderCmp();};
+  // two INDEPENDENT time sliders, one per emb.
+  $("aPhase").oninput=e=>{cmpPlay(false);SC.aPhase=+e.target.value/1000;renderCmp();};
+  $("bPhase").oninput=e=>{cmpPlay(false);SC.bPhase=+e.target.value/1000;renderCmp();};
+  $("cmpPlay").onclick=()=>cmpPlay(!SC.playing);
+  $("cmpFps").oninput=e=>SC.fps=+e.target.value;
+  $("pcaModeSeg").onclick=e=>{ const b=e.target.closest("[data-pca]"); if(!b||b.disabled) return;
+    SC.pcaMode=b.dataset.pca;
+    document.querySelectorAll("#pcaModeSeg .btn").forEach(x=>x.classList.toggle("on",x===b));
+    renderCmp(); };
+  $("cmpProbBtn").onclick=()=>{ SC.showProb=!SC.showProb;
+    $("cmpProbBtn").classList.toggle("on",SC.showProb); renderCmp(); };
+  $("cmpProbCtrBtn").onclick=()=>{ S.probContrast=!S.probContrast;
+    $("cmpProbCtrBtn").classList.toggle("on",S.probContrast);
+    $("probCtrBtn").classList.toggle("on",S.probContrast); renderCmp(); };
+  wireZoom($("cmpPca"), CZ, drawCmpPca);
+  updatePcaModeAvail();
+  updateCmpAvail();
+}
+function switchModel(name){
+  if(!(name in MODELS)) return;
+  DATA = MODELS[name];
+  resetZoom(PZ); resetZoom(CZ);
+  // reset + rebuild single view
+  S.emb=String(DATA.emb_ids[0]); S.ep=0; S.frame=0;
+  S.clipStage=embObj().labels.length-1;
+  fillSelectors(); loadFrames(); buildClips();
+  S.frames.forEach(im=>{ if(im) im.onload=()=>{ if(S.frames[S.frame]===im) drawVideo(); }; });
+  // reset compare view (if this model supports it)
+  if(cmpEnabled()){
+    SC.aEmb=String(DATA.emb_ids[0]);
+    SC.bEmb=String(DATA.emb_ids[DATA.emb_ids.length>1?1:0]);
+    SC.ep=0; SC.aPhase=0; SC.bPhase=0; cmpFillSel();
+  }
+  updatePcaModeAvail();
+  updateCmpAvail();
+  if(S.mode==="compare" && !cmpEnabled()) setMode("single");
+  else if(S.mode==="compare") renderCmp();
+  else renderAll();
+}
+function setMode(m){
+  S.mode=m; const single=m==="single";
+  if(!single) play(false); else cmpPlay(false);
+  $("singleMain").style.display=single?"":"none";
+  $("compareView").style.display=single?"none":"flex";
+  document.querySelectorAll("#modeSeg .btn").forEach(b=>b.classList.toggle("on",b.dataset.mode===m));
+  $("ctxSingle").style.display=single?"":"none";
+  $("ctxDiv").style.display=single?"":"none";
+  $("ctxHint").textContent=single
+    ? "space play · ←/→ step · click/drag timeline to seek"
+    : "pick A & B embs + one shared episode · drag A/B time sliders independently (space plays both)";
+  if(single) renderAll(); else renderCmp();
+}
+init();
+</script>
+</body>
+</html>

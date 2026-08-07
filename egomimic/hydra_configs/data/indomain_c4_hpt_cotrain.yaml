@@ -1,0 +1,96 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# PUSHSHAPES TABLE FEED -- HPT BOTH / COTRAIN  (in-domain, chunk-4).
+#
+# HPT-correct sibling of indomain_c4_cotrain.yaml. HPT does NOT use the packed
+# ZarrEpisodePackedDataset loader + windowed get_keymap that the H-Net /
+# TransformerAR cells use. HPT's contract is "one CURRENT obs -> predict the
+# next action_horizon actions", so it must consume:
+#   - MultiDataset._from_resolver  (per-frame, not packed full-episode)
+#   - get_keymap_hpt               (SINGLE-frame obs front_img_1 +
+#                                   state_agent_obj, action_horizon-long
+#                                   action chunk, NO per-token obs horizon)
+#   - mode: total  +  skip_bounds_check: true
+# Feeding HPT the packed/windowed configs trains it out-of-distribution (see
+# pushshapes.get_keymap_hpt docstring, diagnosed 2026-05-19).
+#
+# Feeds BOTH domains from SEPARATE on-disk dirs:
+#   pushshapes_sim              -> circle_3000_plus_gen  (big + generated)
+#   pushshapes_sim_small_circle -> small_circle_3000     (small)
+# The HPT algo iterates per-embodiment so the per-emb cond encoder / stems /
+# shared flow head route correctly.
+#
+# circle_3000_plus_gen is tagged embodiment="pushshapes_sim" (includes ncc_*
+# generated episodes) -> plain LocalEpisodeResolver. small_circle_3000 is ALSO
+# tagged "pushshapes_sim" on disk, so it uses
+# LocalEpisodeResolverWithEmbodimentOverride to re-tag to
+# "pushshapes_sim_small_circle" at resolve time.
+#
+# action_horizon=4 matches the chunk-4 HPT model
+# (hpt_cotrain_pushshapes_flow_shared_head_c4_big.yaml: trunk.action_horizon=4,
+# head act_seq=4). Schema cloned from tsimulation_hpt_cot3000.yaml.
+
+train_datasets:
+  pushshapes_sim:                       # big circle + generated
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000_plus_gen
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 4
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+  pushshapes_sim_small_circle:          # small circle
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_3000
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 4
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000_plus_gen
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 4
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_3000
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 4
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+  pushshapes_sim_small_circle:
+    batch_size: 128
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+  pushshapes_sim_small_circle:
+    batch_size: 128
+    num_workers: 4

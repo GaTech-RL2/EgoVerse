@@ -1,0 +1,136 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  d_cond: 896
+  domains:
+  - pushshapes_sim
+  - pushshapes_sim_small_circle
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_small_circle: actions
+  loss:
+    _target_: egomimic.algo.hnet.GMMLoss
+  outer_stage:
+    _target_: egomimic.algo.hnet.HNetOuterStage
+    action_dim: 2
+    action_horizon: 2560
+    d_model: 896
+    action_head_type: gmm
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 896
+      output_key: fused_cond
+      obs_specs: {}
+      img_encoders: {}
+    input_modules:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 896
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          pushshapes_sim:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 896
+            output_key: fused_cond
+            cond_proj_widths:
+            - 896
+            - 896
+            obs_specs:
+              state_agent_obj:
+                input_dim: 5
+                embed_dim: 96
+                widths:
+                - 192
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 48
+                feature_dimension: 96
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+          pushshapes_sim_small_circle:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 896
+            output_key: fused_cond
+            cond_proj_widths:
+            - 896
+            - 896
+            obs_specs:
+              state_agent_obj:
+                input_dim: 5
+                embed_dim: 96
+                widths:
+                - 192
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 48
+                feature_dimension: 96
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+      - _target_: egomimic.models.hnet.stages.ComputeStage
+        input_hidden_dim: 896
+        output_hidden_dim: 896
+        cond_key: null
+        d_cond: 0
+        causal: true
+        main_network:
+          arch_layout: T18
+          d_model: 896
+          d_intermediate: 2688
+          num_heads: 14
+          cond: false
+          rotary_emb_dim: 64
+          dropout: 0.0
+          resid_dropout: 0.0
+    gmm_heads:
+      pushshapes_sim:
+        _target_: egomimic.models.heads.gmm_head.GMMActionHead
+        d_model: 896
+        action_dim: 2
+        num_modes: 32
+        chunk_len: 4
+        min_std: 0.0001
+        std_activation: softplus
+        low_noise_eval: true
+        head_hidden_dim: 512
+        head_n_layers: 3
+      pushshapes_sim_small_circle:
+        _target_: egomimic.models.heads.gmm_head.GMMActionHead
+        d_model: 896
+        action_dim: 2
+        num_modes: 32
+        chunk_len: 4
+        min_std: 0.0001
+        std_activation: softplus
+        low_noise_eval: true
+        head_hidden_dim: 512
+        head_n_layers: 3
+enable_grad_norm: true
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 300000
+  warmup_steps: 15000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

@@ -1,0 +1,182 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  # Re-plan cadence: the obs-token stream is decimated by obs_stride and each
+  # kept token predicts the next chunk_len actions. MUST equal the GMM head
+  # chunk_len (=4) so the rollout queue tiles the episode exactly (mirrors the
+  # Tx cotrain config). Omitting this silently defaulted to 1 (dense, re-observe
+  # every frame); the guard only fires for obs_stride>1, so (1, chunk_len=4)
+  # passed unnoticed and broke stride-4 closed-loop eval.
+  obs_stride: 4
+  # Two-trunk dual-stream (v2): A and S each get their OWN weights. Option-2
+  # sizing = shrink width so the TWO trunks together (~190M) match the 200M
+  # baseline core (bc_rnn_..._tx_cotrain_c4_200M: d1408/8L = ~190M). d_cond
+  # tracks the trunk width d_model=1024. NOTE: width may be re-tuned if the
+  # baseline config changes.
+  d_cond: 1024
+  domains:
+  - pushshapes_sim
+  - pushshapes_sim_small_circle
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_small_circle: actions
+  loss:
+    _target_: egomimic.algo.hnet.GMMLoss
+  outer_stage:
+    _target_: egomimic.algo.hnet.dual_stream_outer.DualStreamOuterStage
+    action_dim: 2
+    action_horizon: 2560
+    d_model: 1024
+    action_head_type: gmm
+    # Policy AdaLN cond path — unused (trunk takes no cond). Empty encoder.
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 1024
+      output_key: fused_cond
+      obs_specs: {}
+      img_encoders: {}
+    # SPECIFIC stream: per-embodiment obs encoder (one per domain).
+    input_modules:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 1024
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          pushshapes_sim:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 1024
+            output_key: fused_cond
+            cond_proj_widths:
+            - 256
+            - 256
+            obs_specs:
+              state_agent_obj:
+                input_dim: 2
+                input_slice: [0, 2]
+                embed_dim: 64
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+          pushshapes_sim_small_circle:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 1024
+            output_key: fused_cond
+            cond_proj_widths:
+            - 256
+            - 256
+            obs_specs:
+              state_agent_obj:
+                input_dim: 2
+                input_slice: [0, 2]
+                embed_dim: 64
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+    # AGNOSTIC stream: a SINGLE shared CondEncoderModule (weight-shared across
+    # embodiments). Same obs_specs / img_encoders shape as one per-emb encoder.
+    agnostic_obs_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 1024
+      output_key: fused_cond
+      cond_proj_widths:
+      - 256
+      - 256
+      obs_specs:
+        state_agent_obj:
+          input_dim: 2
+          input_slice: [0, 2]
+          embed_dim: 64
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.visual_core.VisualCore
+          in_channels: 3
+          image_size: 96
+          num_kp: 32
+          feature_dimension: 64
+          pretrained: false
+          crop_aug: true
+          crop_height: 86
+          crop_width: 86
+          crop_eval_mode: random
+          crop_sample_mode: v02
+    # NoChunk: a SINGLE DualStreamComputeStage (no PerEmbodimentStage/ChunkerStage).
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+      # v2 TWO-TRUNK stage. Each stream is a full d_model=1024 / 8-layer trunk
+      # with SwiGLU MLP; the two together are the ~190M capacity-matched core.
+      # Per-layer channel-aware cross-attention (asym). head_dim 1024/8=128;
+      # rotary_emb_dim 128 (full head). d_intermediate tuned to hit ~190M.
+      - _target_: egomimic.models.hnet.dual_stream_stage.DualStreamComputeStage
+        input_hidden_dim: 1024
+        output_hidden_dim: 1024
+        cond_key: null
+        d_cond: 0
+        causal: true
+        mask_mode: asym
+        depth_split_k: null
+        d_model: 1024
+        num_heads: 8
+        d_intermediate: 2500
+        n_layers: 8
+        rotary_emb_dim: 128
+        dropout: 0.0
+    # Partitioned-mode GMM heads (per embodiment). Input width = trunk d_model.
+    gmm_heads:
+      pushshapes_sim:
+        _target_: egomimic.models.heads.partitioned_gmm_head.PartitionedGMMActionHead
+        d_model: 1024
+        action_dim: 2
+        k_agnostic: 20
+        k_specific: 12
+        chunk_len: 4
+        min_std: 0.0001
+        std_activation: softplus
+        low_noise_eval: true
+        head_hidden_dim: 512
+        head_n_layers: 3
+      pushshapes_sim_small_circle:
+        _target_: egomimic.models.heads.partitioned_gmm_head.PartitionedGMMActionHead
+        d_model: 1024
+        action_dim: 2
+        k_agnostic: 20
+        k_specific: 12
+        chunk_len: 4
+        min_std: 0.0001
+        std_activation: softplus
+        low_noise_eval: true
+        head_hidden_dim: 512
+        head_n_layers: 3
+enable_grad_norm: false   # MAD clamper freezes median->starves grads (2026-06-25); no-clip default
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 300000
+  warmup_steps: 15000
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06
