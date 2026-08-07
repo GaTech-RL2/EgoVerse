@@ -1,8 +1,6 @@
 import os
-import random
 from collections import OrderedDict
 from functools import partial
-from typing import Literal
 
 import einops
 import numpy as np
@@ -14,13 +12,15 @@ from termcolor import cprint
 from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
-from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
+from egomimic.models.cores.hpt_transformer import MultiheadAttention, SimpleTransformer
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
+from egomimic.models.cores.model_utils import (
+    EinOpsRearrange,
+    get_sinusoid_encoding_table,
+)
 from egomimic.utils.egomimicUtils import (
     STD_SCALE,
-    EinOpsRearrange,
     download_from_huggingface,
-    get_sinusoid_encoding_table,
 )
 
 
@@ -358,23 +358,25 @@ class HPTModel(nn.Module):
         feat_dict = {}
         for modality in self.modalities.get(domain, []) + self.shared_keys:
             if modality not in data:
-                continue
+                # A registered modality missing from the batch is a wiring bug,
+                # not a benign skip: the silent `continue` here is what let the
+                # "state_state_agent_obj" double-prefix drop ALL proprio
+                # unnoticed for an entire training run (the only symptom was a
+                # DDP unused-parameters crash, which got masked by
+                # find_unused_parameters_true). Fail loudly instead.
+                raise KeyError(
+                    f"stem_process: registered modality {modality!r} for domain "
+                    f"{domain!r} is missing from data (available: "
+                    f"{sorted(data.keys())}). A registered stem would receive "
+                    f"no input — check the key translation in "
+                    f"_robomimic_to_hpt_data."
+                )
             if modality in self.shared_keys:
                 domain = "shared"
 
             stem = self.stems[f"{domain}_{modality}"]
             if modality in self.encoders:
                 data[modality] = self.encoders[modality](data[modality])
-
-            # Text-prompt modality: input is a list of raw strings (one per
-            # batch item). Skip positional embedding / horizon handling — the
-            # stem (e.g. QwenPooledEncoder) owns tokenization and produces its
-            # own contextual feature for cross-attention.
-            if isinstance(data[modality], list):
-                stem_token = stem.compute_latent(data[modality])
-                feats.append(stem_token)
-                feat_dict[modality] = stem_token
-                continue
 
             data_shape = data[modality].shape
             data_horizon = data_shape[1]
@@ -813,24 +815,14 @@ class HPT(Algo):
         pretrained: bool = False,
         pretrained_checkpoint: str = "",
         # ---------------------------
-        # Annotation prompt sampling (consumed by the optional Qwen stem)
-        # ---------------------------
-        annotation_key: str | None = None,
-        annotation_sampling_mode: Literal["random", "first"] = "random",
-        annotation_modality: str = "annotation",
-        default_prompt: str = "",
-        # ---------------------------
         # Catch-all kwargs
         # ---------------------------
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
         self.norm_stats = norm_stats
-        self.annotation_key = annotation_key
-        self.annotation_sampling_mode = annotation_sampling_mode
-        self.annotation_modality = annotation_modality
-        self.default_prompt = default_prompt
 
+        self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
         self.eval_image_augs = eval_image_augs
         self.stem_specs = stem_specs
@@ -955,22 +947,6 @@ class HPT(Algo):
 
         self.training_step = 0
 
-    def _build_prompts(self, _batch, batch_size: int) -> list[str]:
-        """Sample one annotation per batch item, falling back to default_prompt
-        on empty / missing annotations. Mirrors the Pi algo flow.
-        """
-        if self.annotation_key is None or self.annotation_key not in _batch:
-            return [self.default_prompt] * batch_size
-        prompts = []
-        for sample in _batch[self.annotation_key]:
-            if not sample:
-                prompts.append(self.default_prompt)
-            elif self.annotation_sampling_mode == "random":
-                prompts.append(sample[random.randint(0, len(sample) - 1)])
-            else:  # "first"
-                prompts.append(sample[0])
-        return prompts
-
     @override
     def process_batch_for_training(self, batch):
         """
@@ -1008,13 +984,6 @@ class HPT(Algo):
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(
                 B, S, 1, device=device
             )
-
-            # Sample one annotation per item (random/first, default fallback for
-            # empty). Stays as list[str]; the Qwen stem owns tokenization.
-            if self.annotation_key is not None:
-                processed_batch[embodiment_id]["sampled_prompt"] = self._build_prompts(
-                    _batch, B
-                )
 
             # Samples are already normalized by MultiDataset.__getitem__.
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
@@ -1117,16 +1086,29 @@ class HPT(Algo):
             # so keep a fresh copy for the forward() call below.
             forward_data = self._clone_batch(hpt_batch["data"])
 
+            # ``stem_process`` mutates the data dict in place (each modality
+            # gets replaced by its encoder output). compute_loss and forward
+            # both run ``forward_features`` and would each re-encode; the
+            # second call would feed already-encoded tokens (e.g. shape
+            # (B, seq, embed_dim)) back into the image encoder and crash on
+            # the ``view(B, -1, 3, H, W)`` reshape inside ResNet.forward.
+            # Pass independent clones so each call starts from raw obs.
+            loss_data = self._clone_batch(hpt_batch["data"])
+            fwd_data = self._clone_batch(hpt_batch["data"])
+
             # BC val loss — same call as forward_training.
             if self.freeze_repr:
                 val_loss = self.nets["policy"].compute_loss_depth(
-                    hpt_batch, depth=self.freeze_depth
+                    {"domain": hpt_batch["domain"], "data": loss_data},
+                    depth=self.freeze_depth,
                 )
             else:
-                val_loss = self.nets["policy"].compute_loss(hpt_batch)
+                val_loss = self.nets["policy"].compute_loss(
+                    {"domain": hpt_batch["domain"], "data": loss_data}
+                )
             unnorm_preds[f"{embodiment_name}_loss"] = val_loss
 
-            actions = self.nets["policy"].forward(hpt_batch["domain"], forward_data)
+            actions = self.nets["policy"].forward(hpt_batch["domain"], fwd_data)
             predictions = OrderedDict()
 
             for key in actions:
@@ -1207,6 +1189,108 @@ class HPT(Algo):
             log[loss_key] = loss.item()
         return log
 
+    # ----- Sim eval hooks (SimRolloutEval calls these) ----- #
+    # HPT is a chunk-based diffusion policy: ``forward`` predicts
+    # ``action_horizon`` actions per inference. The closed-loop rollout
+    # therefore re-plans every ``action_horizon`` steps and executes one
+    # action per step from the most recent chunk.
+
+    @torch.no_grad()
+    def inference_step(
+        self, obs_zarr: dict, t: int, emb_id: int, T_max=None
+    ) -> "np.ndarray":
+        """One closed-loop sim step. Chunk-aware: HPT predicts a chunk
+        of ``action_horizon`` actions per forward; we buffer and pop one
+        per call. Re-plans when the chunk is fully consumed.
+
+        Args:
+            obs_zarr: env obs in canonical zarr-key dict (already on device).
+            t: timestep within the rollout. t=0 resets state.
+            emb_id: embodiment id.
+
+        Returns:
+            absolute-frame action as np.float32 of shape (action_dim,).
+        """
+        import numpy as np
+        policy_module = self.nets["policy"]
+        embodiment_name = get_embodiment(emb_id).lower()
+        chunk_size = int(policy_module.action_horizon)
+
+        if t == 0:
+            device = next(self.nets["policy"].parameters()).device
+            self._sim_state = {
+                "action_chunk": None,
+                "chunk_idx": 0,
+                "batch_size": 1,
+                "device": device,
+            }
+        state = self._sim_state
+
+        # Replan cadence: by default consume the full action_horizon chunk
+        # open-loop (chunk_size steps between looks). ``self.replan_every``
+        # (eval-time knob, settable by the standalone evaluator) re-plans after
+        # only the first N actions of each chunk — receding-horizon execution.
+        # replan_every=1 = re-plan every env step (the cadence the 0.323
+        # reference HPT used); the chunk positions executed (0..N-1) are the
+        # best-trained ones, so no retrain is needed.
+        replan_every = min(
+            int(getattr(self, "replan_every", 0) or chunk_size), chunk_size
+        )
+        if state["action_chunk"] is None or state["chunk_idx"] >= replan_every:
+            cam_keys = self.camera_keys[emb_id]
+            proprio_keys = self.proprio_keys[emb_id]
+            ac_key = self.ac_keys[embodiment_name]
+            B = state["batch_size"]
+            dev = state["device"]
+
+            # Determine action_dim. FMPolicy exposes infer_ac_dims;
+            # MLPPolicyHead and other heads expose output_dim. Default 2 (pushshapes).
+            action_dim = 2
+            if hasattr(policy_module, "heads") and embodiment_name in policy_module.heads:
+                _h = policy_module.heads[embodiment_name]
+                if hasattr(_h, "infer_ac_dims"):
+                    action_dim = _h.infer_ac_dims[embodiment_name]
+                elif hasattr(_h, "output_dim"):
+                    action_dim = int(_h.output_dim)
+
+            obs_norm = self.norm_stats.normalize(obs_zarr, emb_id)
+            robo_batch = dict(obs_norm)
+            robo_batch[ac_key] = torch.zeros(B, chunk_size, action_dim, device=dev)
+            robo_batch["pad_mask"] = torch.ones(B, chunk_size, 1, device=dev)
+            robo_batch["embodiment"] = torch.tensor(
+                [emb_id], device=dev, dtype=torch.int64
+            )
+            data = self._robomimic_to_hpt_data(
+                robo_batch, cam_keys, proprio_keys, [], ac_key, [],
+            )
+            actions = policy_module.forward(embodiment_name, data)
+            chunk = actions.get(embodiment_name)
+            if chunk is None and "shared" in actions: chunk = actions["shared"]  # cotrain shared-head keys output as shared, not embodiment name
+            if chunk is None:
+                raise RuntimeError(
+                    f"policy.forward did not return key {embodiment_name!r}"
+                )
+            # Store the normalized chunk for reference, but ALSO compute the
+            # world-frame chunk immediately. Action norm stats are
+            # (chunk_size, action_dim) per-position (this is the
+            # intended training convention — each chunk position has its
+            # own stats). Unnormalizing a (1, 32, D) tensor against
+            # (32, D) broadcasts per-position correctly. Doing this once
+            # at replan time avoids the position-broadcasting bug that
+            # would otherwise happen if we tried to unnormalize a
+            # (action_dim,) extracted entry against (32, action_dim) stats.
+            state["action_chunk"] = chunk[:, :chunk_size, :action_dim]
+            chunk_world = self.norm_stats.unnormalize(
+                {ac_key: state["action_chunk"].squeeze(0)}, emb_id,  # (32, action_dim) world frame
+            )[ac_key]
+            state["action_chunk_world"] = chunk_world.detach()
+            state["chunk_idx"] = 0
+
+        idx = state["chunk_idx"]
+        action_world = state["action_chunk_world"][idx]  # (action_dim,) world frame
+        state["chunk_idx"] = idx + 1
+        return action_world.cpu().numpy().reshape(-1).astype(np.float32)
+
     def _forward_ot(self, batch, embodiment1_id, embodiment2_id):
         hpt_batch_1 = batch[embodiment1_id]
         hpt_batch_2 = batch[embodiment2_id]
@@ -1227,11 +1311,18 @@ class HPT(Algo):
 
         # MultiDataset emits dotted batch keys (e.g. "observations.state.ee_pose"),
         # but HPT stems are registered under the last segment ("state_ee_pose",
-        # "front_img_1"). Translate via rsplit; no-op on already-flat keys.
+        # "front_img_1"). Translate via rsplit. Keys that are already flat AND
+        # already carry the "state_" prefix (e.g. pushshapes "state_agent_obj")
+        # must NOT be prefixed again: the old unconditional f"state_{short}"
+        # produced "state_state_agent_obj", which matches no registered stem and
+        # silently dropped ALL proprio from the trunk (train + eval) — the
+        # policy trained image-only. Found 2026-06-09.
         for key in proprio_keys:
             if key in batch:
                 short = key.rsplit(".", 1)[-1]
-                data[f"state_{short}"] = batch[key].unsqueeze(1)
+                if not short.startswith("state_"):
+                    short = f"state_{short}"
+                data[short] = batch[key].unsqueeze(1)
 
         for key in cam_keys:
             if key in batch:
@@ -1248,10 +1339,6 @@ class HPT(Algo):
         for key in lang_keys:
             if key in batch:
                 data[key] = batch[key]
-
-        # Raw-string annotation prompt; consumed by Qwen text stem (if wired).
-        if "sampled_prompt" in batch:
-            data[self.annotation_modality] = batch["sampled_prompt"]
 
         data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]
