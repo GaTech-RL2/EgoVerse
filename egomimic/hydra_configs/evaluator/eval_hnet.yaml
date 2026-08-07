@@ -1,0 +1,11 @@
+defaults:
+  - viz@viz_func: cartesian
+  - _self_
+
+_target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
+
+# H-Net validation can be slow because each episode rolls out
+# autoregressively via ``policy.generate``. Cap the number of val batches
+# the evaluator visits per epoch so a 30-batch val loader doesn't take
+# 90 minutes. Tune up once kernels are installed.
+limit_val_batches: 4
