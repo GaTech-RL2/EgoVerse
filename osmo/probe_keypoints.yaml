@@ -55,7 +55,11 @@ workflow:
 
         with initialize_config_dir(config_dir="/workspace/EgoVerse/egomimic/hydra_configs",
                                    version_base="1.3"):
+            # train_zarr_keypoints' default evaluator chain references a viz
+            # config that does not exist (evaluator/viz/eva_cartesian_aria_keypoints_wrist);
+            # not needed for a shape probe.
             cfg = compose(config_name="train_zarr_keypoints", overrides=[
+                "~evaluator",
                 "data=aria_keypoints",
                 "paths.dataset_dir=/workspace/kp_probe",
                 "+data.train_datasets.human_bimanual.resolver.debug=2",
