@@ -374,7 +374,7 @@ class PushShapesEnv(gym.Env):
         obj = self._object_body
         surface = self._render_world()
         return {
-            "agent_pos": np.array([pos.x, pos.y], dtype=np.float64),
+            "agent_pos": np.array([pos.x, pos.y], dtype=np.float32),
             "object_pose": np.array(
                 [obj.position.x, obj.position.y, obj.angle], dtype=np.float64
             ),

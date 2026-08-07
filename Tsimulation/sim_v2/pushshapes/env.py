@@ -1158,7 +1158,7 @@ class PushShapesEnv(gym.Env):
             else to_image_obs(self._render_world(), self.image_size)
         )
         return {
-            "agent_pos": np.array([pos.x, pos.y], dtype=np.float64),
+            "agent_pos": np.array([pos.x, pos.y], dtype=np.float32),
             "agent_angle": np.array([self._pusher_body.angle], dtype=np.float64),
             "object_pose": np.array(
                 [obj.position.x, obj.position.y, obj.angle], dtype=np.float64
