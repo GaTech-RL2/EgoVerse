@@ -4,7 +4,7 @@ from abc import abstractmethod
 import torch
 import torchvision.io as tvio
 
-from egomimic.eval.eval import Eval
+from egomimic.eval.core.eval import Eval
 from egomimic.pl_utils.pl_data_utils import DEFAULT_VALID_GROUP
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 
@@ -21,13 +21,16 @@ class EvalVideo(Eval):
         limit_val_batches: int = 400,
         viz_func: dict = None,
         transform_lists: dict | None = None,
+        max_videos: int | None = None,
         video_chunk_frames: int = 1000,
         max_episode_frames: int = 6000,
     ):
-        super().__init__()
-        self.trainer = None
-        self.model = None
+        super().__init__()  # initializes self.trainer = self.model = None
         self.viz_func = viz_func
+        # Cap on number of episodes rendered per validation pass. None
+        # = no cap. Each sub-eval reads this in its per-episode loop to
+        # truncate B -> min(B, max_videos) so output panels stay short.
+        self.max_videos = int(max_videos) if max_videos is not None else None
         # Frames per file on the LEGACY path only -- batches that arrive
         # without `episode_hash` still flush a fresh file every this many
         # frames. Episode-aware batches ignore it and cut on episode

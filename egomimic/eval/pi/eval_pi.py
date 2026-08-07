@@ -1,10 +1,9 @@
-import copy
-
 import torch
 from torchmetrics import MeanSquaredError
 
-from egomimic.eval.eval_video import EvalVideo
-from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
+from egomimic.eval.core._viz_shared import cam_frame_mse_and_viz_batches
+from egomimic.eval.core.eval_video import EvalVideo
+from egomimic.rldb.embodiment.embodiment import get_embodiment
 
 
 class PIEvalVideo(EvalVideo):
@@ -50,33 +49,15 @@ class PIEvalVideo(EvalVideo):
                     preds[pred_key][:, -1].cpu(), _batch[ac_key][:, -1].cpu()
                 )
 
-            transform_list = self.transform_lists.get(embodiment_name)
-            gt_batch_viz = _batch
-            preds_for_viz = preds
-            if transform_list is not None and pred_key in preds:
-                pred_batch = copy.deepcopy(_batch)
-                pred_batch[ac_key] = preds[pred_key]
-                gt_t = Embodiment.apply_transform(_batch, transform_list)
-                pred_t = Embodiment.apply_transform(pred_batch, transform_list)
-                # apply_transform drops keys whose shape[0] != batch_size
-                # (e.g. ``embodiment``, ``annotations``). Merge to preserve them.
-                gt_batch_viz = {**_batch, **gt_t}
-                pred_batch_viz = {**_batch, **pred_t}
-
-                # ``.contiguous()`` because ``apply_transform`` returns CPU tensors,
-                # so ``.cpu()`` here is a no-op and ``[:, -1]`` leaves a non-contiguous
-                # view that torchmetrics' MSE doesn't accept.
-                metrics[f"Valid/{pred_key}_cam_paired_mse_avg"] = mse(
-                    pred_batch_viz[ac_key].cpu().contiguous(),
-                    gt_batch_viz[ac_key].cpu().contiguous(),
-                )
-                metrics[f"Valid/{pred_key}_cam_final_mse_avg"] = mse(
-                    pred_batch_viz[ac_key][:, -1].cpu().contiguous(),
-                    gt_batch_viz[ac_key][:, -1].cpu().contiguous(),
-                )
-
-                preds_for_viz = dict(preds)
-                preds_for_viz[pred_key] = pred_batch_viz[ac_key]
+            gt_batch_viz, preds_for_viz = cam_frame_mse_and_viz_batches(
+                transform_list=self.transform_lists.get(embodiment_name),
+                pred_key=pred_key,
+                ac_key=ac_key,
+                _batch=_batch,
+                preds=preds,
+                metrics=metrics,
+                mse=mse,
+            )
 
             ims = self._visualize_preds(preds_for_viz, gt_batch_viz)
             images_dict[embodiment_id] = ims

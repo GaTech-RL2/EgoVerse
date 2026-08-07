@@ -1,10 +1,9 @@
-import copy
-
 import torch
 from torchmetrics import MeanSquaredError
 
-from egomimic.eval.eval_video import EvalVideo
-from egomimic.rldb.embodiment.embodiment import Embodiment, get_embodiment
+from egomimic.eval.core._viz_shared import cam_frame_mse_and_viz_batches
+from egomimic.eval.core.eval_video import EvalVideo
+from egomimic.rldb.embodiment.embodiment import get_embodiment
 from egomimic.utils.metrics import frechet_gaussian_over_time, reverse_kl_from_samples
 
 
@@ -159,34 +158,16 @@ class HPTEvalVideo(EvalVideo):
                     rkl = reverse_kl_from_samples(samples, gt_tensor)
                     metrics[f"Valid/{pred_key_name}_reverse_kl_M{M}"] = rkl.item()
 
-            transform_list = self.transform_lists.get(embodiment_name)
             main_pred_key = f"{embodiment_name}_{ac_key}"
-            gt_batch_viz = _batch
-            preds_for_viz = preds
-            if transform_list is not None and main_pred_key in preds:
-                pred_batch = copy.deepcopy(_batch)
-                pred_batch[ac_key] = preds[main_pred_key]
-                gt_t = Embodiment.apply_transform(_batch, transform_list)
-                pred_t = Embodiment.apply_transform(pred_batch, transform_list)
-                # apply_transform drops keys whose shape[0] != batch_size
-                # (e.g. ``embodiment``, ``annotations``). Merge to preserve them.
-                gt_batch_viz = {**_batch, **gt_t}
-                pred_batch_viz = {**_batch, **pred_t}
-
-                # ``.contiguous()`` because ``apply_transform`` returns CPU tensors,
-                # so ``.cpu()`` here is a no-op and ``[:, -1]`` leaves a non-contiguous
-                # view that torchmetrics' MSE doesn't accept.
-                metrics[f"Valid/{main_pred_key}_cam_paired_mse_avg"] = mse(
-                    pred_batch_viz[ac_key].cpu().contiguous(),
-                    gt_batch_viz[ac_key].cpu().contiguous(),
-                )
-                metrics[f"Valid/{main_pred_key}_cam_final_mse_avg"] = mse(
-                    pred_batch_viz[ac_key][:, -1].cpu().contiguous(),
-                    gt_batch_viz[ac_key][:, -1].cpu().contiguous(),
-                )
-
-                preds_for_viz = dict(preds)
-                preds_for_viz[main_pred_key] = pred_batch_viz[ac_key]
+            gt_batch_viz, preds_for_viz = cam_frame_mse_and_viz_batches(
+                transform_list=self.transform_lists.get(embodiment_name),
+                pred_key=main_pred_key,
+                ac_key=ac_key,
+                _batch=_batch,
+                preds=preds,
+                metrics=metrics,
+                mse=mse,
+            )
 
             ims = self._visualize_preds(preds_for_viz, gt_batch_viz)
             images_dict[embodiment_id] = ims
@@ -212,7 +193,7 @@ class HPTEvalVideo(EvalVideo):
         was_training = algo.nets.training
         algo.nets.eval()
         for _ in range(M):
-            out = algo.nets["policy"].forward(
+            out = algo.policy.forward(
                 hpt_batch["domain"], algo._clone_batch(hpt_batch["data"])
             )
             if key_name in out:
