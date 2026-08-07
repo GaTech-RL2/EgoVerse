@@ -1,0 +1,61 @@
+# DFoT obs+action+image evaluator: video self-rollout only.
+#
+# DFoTVideoRolloutEval picks the first ``max_videos`` val episodes,
+# takes only the t=0 image, runs a chunk-mode rollout, and decodes the
+# predicted image latents back to pixels via the frozen VAE. Output is
+# one mp4 per episode showing the predicted video.
+#
+# (DFoTValEval was considered but dropped: with empty cond_encoder its
+# sampler runs unconditionally, so the action MSE it reports would be
+# "sample from learned prior" quality — not strict teacher-forced
+# semantics. A proper teacher-forced action eval needs inpainting the
+# GT obs/latent dims during denoising, which is a v2 follow-up.)
+
+_target_: egomimic.eval.core.eval_composite.EvalList
+
+evals:
+  - _target_: egomimic.eval.dfot.eval_dfot_video_rollout.DFoTVideoRolloutEval
+    rollout_steps: 64
+    upscale_to: 384
+    max_videos: 2
+    limit_val_batches: 4
+    embodiment_name: "pushshapes_sim"
+    image_key: "front_img_1"
+    video_subdir: "videos_video_rollout_chunk"
+    mode: "chunk"
+    n_chunk_steps: 50
+
+  - _target_: egomimic.eval.dfot.eval_dfot_video_rollout.DFoTVideoRolloutEval
+    rollout_steps: 64
+    upscale_to: 384
+    max_videos: 2
+    limit_val_batches: 4
+    embodiment_name: "pushshapes_sim"
+    image_key: "front_img_1"
+    video_subdir: "videos_video_rollout_ar"
+    mode: "ar"
+    ar_chunk_size: 1
+    ar_step_size: 1
+
+  # Closed-loop sim rollout. PackedSimEval / HNetSimEval (same class)
+  # drives the PushShapesEnv with actions from algo.inference_step,
+  # records frames + coverage. Mp4 lives under videos/epoch_*/...
+  #
+  # CAVEAT: this variant's cond_encoder is empty, so DFoT's AR
+  # inference rollout runs unconditioned -- the action committed at
+  # each env tick is sampled from the learned joint prior without
+  # anchoring to the current env obs. Expect random-ish behaviour
+  # until we add obs/latent anchoring to inference_step. Useful as a
+  # smoke + visual sanity check.
+  - _target_: egomimic.eval.core.eval_sim.HNetSimEval
+    limit_val_batches: 4
+    max_videos: 2
+    embodiment_name: pushshapes_sim
+    init_mode: replay
+    max_steps: 1200
+    coverage_threshold: 0.7
+    env_kwargs:
+      object_shape: T
+      pusher_shape: circle
+      obstacle_level: 0
+      image_size: 96
