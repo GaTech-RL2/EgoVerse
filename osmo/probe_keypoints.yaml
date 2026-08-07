@@ -55,11 +55,14 @@ workflow:
 
         with initialize_config_dir(config_dir="/workspace/EgoVerse/egomimic/hydra_configs",
                                    version_base="1.3"):
-            # train_zarr_keypoints' default evaluator chain references a viz
-            # config that does not exist (evaluator/viz/eva_cartesian_aria_keypoints_wrist);
-            # not needed for a shape probe.
+            # train_zarr_keypoints.yaml overrides
+            # evaluator/viz@evaluator.viz_func to 'eva_cartesian_aria_keypoints_wrist',
+            # which does not exist in the repo -- the config cannot compose as
+            # committed. Point it at a real viz config instead. (Deleting the
+            # evaluator with ~evaluator does NOT work: the override is in the
+            # defaults list, so hydra still tries to resolve it.)
             cfg = compose(config_name="train_zarr_keypoints", overrides=[
-                "~evaluator",
+                "evaluator/viz@evaluator.viz_func=keypoints_wrist",
                 "data=aria_keypoints",
                 "paths.dataset_dir=/workspace/kp_probe",
                 "+data.train_datasets.human_bimanual.resolver.debug=2",
