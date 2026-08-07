@@ -1,0 +1,21 @@
+# Checkpoints + ratio-loss reg-off scheduler, reg-off @ ep700.
+# switch_fraction=0.35 => reg-off at epoch 700 when max_epochs=2000 (variant of
+# ckpt_ratio_loss_scheduler which is 0.25 => ep500). Used for the first_token
+# grab_prev_end runs (user asked 2026-06-21 to push reg-off 500 -> 700).
+defaults:
+  - defaults
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch}"
+  save_last: true
+  save_top_k: -1
+  every_n_epochs: 100
+
+ratio_loss_scheduler:
+  _target_: egomimic.pl_utils.callbacks.ratio_loss_scheduler.RatioLossScheduler
+  on_value: 0.03
+  off_value: 0.0
+  switch_fraction: 0.35   # reg-off @ ep700 for max_epochs=2000

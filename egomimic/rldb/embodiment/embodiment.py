@@ -25,6 +25,13 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # PushShapes simulator embodiments. The IDs are pinned at 15/16/17 because
+    # trained checkpoints and collected datasets encode them; renumbering would
+    # silently re-route every existing pushshapes result. The gap from 6 is
+    # deliberate -- it leaves room for real embodiments without ever colliding.
+    PUSHSHAPES_SIM = 15
+    PUSHSHAPES_SIM_STICK = 16
+    PUSHSHAPES_SIM_SMALL_CIRCLE = 17
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
