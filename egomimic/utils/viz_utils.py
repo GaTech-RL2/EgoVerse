@@ -7,7 +7,6 @@ from egomimic.utils.egomimicUtils import cam_frame_to_cam_pixels, ee_pose_to_cam
 
 # Simulator episodes use a synthetic camera model; real datasets provide metadata.
 INTRINSICS = {"base": np.eye(3, 4, dtype=np.float32)}
-)
 from egomimic.utils.pose_utils import _split_action_pose, _split_keypoints
 
 
