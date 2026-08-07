@@ -439,6 +439,30 @@ class DeleteKeys(Transform):
         return batch
 
 
+class DeltaAction(Transform):
+    """Per-step delta: ``out[t] = arr[t] - arr[t-1]``, with ``out[0] = 0``.
+
+    Operates on any tensor-like ``(T, ...)`` value where time is the leading
+    dim. Used to convert absolute action targets into velocity-style targets
+    so the model learns small smooth quantities. To recover absolute actions
+    at inference, integrate (cumulative sum) the predicted deltas and add the
+    initial state.
+    """
+
+    def __init__(self, input_key: str, output_key: str | None = None):
+        self.input_key = input_key
+        self.output_key = output_key or input_key
+
+    def transform(self, batch: dict) -> dict:
+        arr = np.asarray(batch[self.input_key])
+        delta = np.empty_like(arr)
+        delta[0] = 0
+        if arr.shape[0] > 1:
+            delta[1:] = arr[1:] - arr[:-1]
+        batch[self.output_key] = delta
+        return batch
+
+
 class XYZWXYZ_to_XYZYPR(Transform):
     """Convert listed keys from xyz+quat(wxyz) to xyz+ypr in-place."""
 
@@ -668,3 +692,4 @@ class NumpyToTensor(Transform):
                     f"NumpyToTensor expects key '{key}' to be a numpy array or torch tensor, got {type(batch[key])}"
                 )
         return batch
+

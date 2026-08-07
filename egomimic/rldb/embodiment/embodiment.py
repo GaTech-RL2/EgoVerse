@@ -27,8 +27,16 @@ class EMBODIMENT(Enum):
     EVA_BIMANUAL = 6
     # ABC-130k's two-arm YAM teleoperation station (see egomimic/scripts/abc_process).
     # A parallel-jaw robot in a station-anchored world frame -- NOT egocentric human
-    # data, so it carries no obs_head_pose/obs_keypoints and no extrinsics.
+    # data, so it carries no obs_head_pose/obs_keypoints.
     YAM_BIMANUAL = 7
+    # PushShapes simulator embodiments. The IDs are pinned at 15/16/17 because
+    # trained checkpoints and collected datasets encode them; renumbering would
+    # silently re-route every existing pushshapes result. The gap below the real
+    # embodiments is deliberate -- it leaves room for more of them (YAM took 7)
+    # without ever colliding.
+    PUSHSHAPES_SIM = 15
+    PUSHSHAPES_SIM_STICK = 16
+    PUSHSHAPES_SIM_SMALL_CIRCLE = 17
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
