@@ -59,3 +59,6 @@ scaleapi
 openai
 decord
 scale_sensor_fusion_io
+pymunk
+pygame
+shapely
