@@ -6,6 +6,9 @@
 # # path to data directory
 # data_dir: ${paths.root_dir}/data/
 
+# default folder containing zarr episode datasets
+dataset_dir: /coc/flash7/scratch/egoverseS3ZarrDataset
+
 # path to logging directory
 log_dir: ${paths.root_dir}/logs/
 

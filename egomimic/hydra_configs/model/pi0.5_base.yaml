@@ -18,8 +18,8 @@ robomimic_model:
   #   proprio_in_prompt — append "State: <bins>" (pi0.5 discretized proprio)
   #   embodiment_label  — append "Embodiment: <name>"
   #   control_mode      — append "Control mode: <descriptor>" (per-embodiment dict
-  #                       or null to omit; falls back to "cam frame xyzypr ..."
-  #                       defaults if a key isn't matched)
+  #                       or null to omit; every embodiment in the run MUST have
+  #                       a matching key — no fallback, an unmatched one raises)
   #
   # If any of these is active, the prompt is rendered as
   #   "Task: {prompt}, <blocks>;\nAction: "
@@ -28,7 +28,7 @@ robomimic_model:
   # Override per-run for lang / wristframe variants, e.g.
   #   model.robomimic_model.annotation_key=annotations
   #   model.robomimic_model.default_prompt="this is a bad action"
-  #   model.robomimic_model.control_mode='{aria: "wrist frame xyzypr per arm", eva: "wrist frame xyzypr gripper per arm"}'
+  #   model.robomimic_model.control_mode='{human: "wrist frame xyzypr per arm", eva: "wrist frame xyzypr gripper per arm"}'
   tokenizer_model_name: "google/paligemma-3b-mix-224"
   tokenizer_max_length: 128
   sampling_mode: "random"

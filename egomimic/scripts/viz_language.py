@@ -19,7 +19,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
 from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.embodiment.human import Aria, Mecka, Scale
+from egomimic.rldb.embodiment.human import Human
 from egomimic.utils.aws.aws_data_utils import load_env
 from egomimic.utils.viz_utils import _prepare_viz_image
 
@@ -29,15 +29,9 @@ _EMBODIMENT_CLASSES: dict[str, type[Embodiment]] = {
     "eva_bimanual": Eva,
     "eva_right_arm": Eva,
     "eva_left_arm": Eva,
-    "aria_bimanual": Aria,
-    "aria_right_arm": Aria,
-    "aria_left_arm": Aria,
-    "scale_bimanual": Scale,
-    "scale_right_arm": Scale,
-    "scale_left_arm": Scale,
-    "mecka_bimanual": Mecka,
-    "mecka_right_arm": Mecka,
-    "mecka_left_arm": Mecka,
+    "human_bimanual": Human,
+    "human_right_arm": Human,
+    "human_left_arm": Human,
 }
 
 

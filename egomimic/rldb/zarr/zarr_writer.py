@@ -15,6 +15,20 @@ import zarr
 from zarr.core.dtype import VariableLengthBytes
 
 
+def _intrinsics_to_jsonable(
+    intrinsics: np.ndarray | list | dict,
+) -> list | dict:
+    """Coerce intrinsics into a JSON-serializable form for zarr.json attrs."""
+    if isinstance(intrinsics, np.ndarray):
+        return intrinsics.tolist()
+    if isinstance(intrinsics, dict):
+        return {
+            k: (v.tolist() if isinstance(v, np.ndarray) else v)
+            for k, v in intrinsics.items()
+        }
+    return intrinsics
+
+
 class _IncrementalHandle:
     """Context manager handle for incremental frame-by-frame Zarr writing."""
 
@@ -298,6 +312,8 @@ class ZarrWriter:
         task_description: str = "",
         annotations: list[tuple[str, int, int]] | None = None,
         chunk_timesteps: int = 100,
+        intrinsics: dict | None = None,
+        extrinsics: dict | None = None,
         verbose: bool = False,
     ):
         """
@@ -311,6 +327,15 @@ class ZarrWriter:
             task_description: Task description.
             annotations: List of (text, start_idx, end_idx) tuples describing language annotations.
             chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
+            intrinsics: Camera intrinsics as a {camera_key: 3x4 K matrix} dict
+                (single-camera = one entry, e.g. {"front_1": K}). Stored under the
+                "intrinsics" key in zarr.json metadata. Optional in this low-level
+                constructor; create_and_write requires it.
+            extrinsics: Optional camera extrinsics. None (egocentric human data) or
+                a dict mapping a key to its transform matrix; robots key per-arm
+                (e.g. {"left": world<-cam, "right": world<-cam}). Stored under the
+                "extrinsics" key in zarr.json metadata. create_and_write enforces
+                the None-or-non-empty-dict contract.
         """
         self.episode_path = Path(episode_path)
 
@@ -321,6 +346,8 @@ class ZarrWriter:
         self.task_description = task_description
         self.annotations = annotations if annotations is not None else []
         self.chunk_timesteps = chunk_timesteps
+        self.intrinsics = intrinsics
+        self.extrinsics = extrinsics
         self.verbose = verbose
         # Track image shapes for metadata
         self._features: dict[str, dict[str, Any]] = {}
@@ -688,9 +715,24 @@ class ZarrWriter:
             "features": self._features,
         }
 
-        # Apply overrides
+        if self.intrinsics is not None:
+            metadata["intrinsics"] = _intrinsics_to_jsonable(self.intrinsics)
+
+        if self.extrinsics is not None:
+            metadata["extrinsics"] = _intrinsics_to_jsonable(self.extrinsics)
+
+        # Apply overrides — but NEVER let them clobber the validated camera
+        # metadata. intrinsics/extrinsics are validated in create_and_write; a
+        # converter's metadata_override that happens to carry a stale or empty
+        # "intrinsics"/"extrinsics" key must not silently overwrite the validated
+        # values (this was the Mecka clobber bug → empty intrinsics in zarr.json).
         if metadata_override:
-            metadata.update(metadata_override)
+            override = {
+                k: v
+                for k, v in metadata_override.items()
+                if k not in ("intrinsics", "extrinsics")
+            }
+            metadata.update(override)
 
         return metadata
 
@@ -706,6 +748,9 @@ class ZarrWriter:
         task_description: str = "",
         annotations: list[tuple[str, int, int]] | None = None,
         chunk_timesteps: int = 100,
+        *,
+        intrinsics: dict,
+        extrinsics: dict | None = None,
         metadata_override: dict[str, Any] | None = None,
     ) -> Path:
         """
@@ -723,14 +768,71 @@ class ZarrWriter:
             task_description: Task description.
             annotations: List of (text, start_idx, end_idx) tuples describing language annotations.
             chunk_timesteps: Number of timesteps per chunk for numeric arrays (default: 100).
+            intrinsics: REQUIRED {camera_key: 3x4 K matrix} dict (single-camera =
+                one entry, e.g. {"front_1": K}). Stored in zarr.json metadata.
+            extrinsics: Optional camera extrinsics. Either None (e.g. egocentric
+                human data) or a non-empty dict mapping a key to its transform
+                matrix (robots key per-arm, e.g. {"left": T, "right": T}). Stored
+                in zarr.json metadata.
             metadata_override: Optional metadata overrides.
 
         Returns:
             Path to created episode.
 
         Raises:
-            ValueError: If no data is provided.
+            ValueError: If no data is provided, if embodiment is not a valid
+                identifier (see §9), if intrinsics is not a non-empty
+                {camera_key: 3x4 K matrix} dict, or if extrinsics is neither None
+                nor a non-empty {key: 4x4 transform} dict.
         """
+        # Validate the embodiment up front (it is guaranteed to be consumed by
+        # the reader via get_embodiment_id) so a bad/empty/typo'd value fails
+        # here with an actionable message instead of an opaque KeyError at load.
+        from egomimic.rldb.embodiment.embodiment import EMBODIMENT
+
+        if not embodiment or embodiment.upper() not in EMBODIMENT.__members__:
+            raise ValueError(
+                "embodiment must be one of "
+                f"{[m.name.lower() for m in EMBODIMENT]}, got {embodiment!r}. "
+                "See CONTRIBUTING_DATA.md §9."
+            )
+        if not isinstance(intrinsics, dict) or not intrinsics:
+            raise ValueError(
+                "Camera intrinsics must be a non-empty {camera_key: 3x4 K matrix} "
+                'dict for a contributed zarr episode, e.g. {"front_1": K}. '
+                "See CONTRIBUTING_DATA.md §6.4."
+            )
+        for cam_key, K in intrinsics.items():
+            try:
+                K_arr = np.asarray(K, dtype=np.float64)
+            except (TypeError, ValueError):
+                K_arr = None
+            if K_arr is None or K_arr.shape != (3, 4):
+                raise ValueError(
+                    f"intrinsics[{cam_key!r}] must be a 3x4 K matrix (the 3x3 "
+                    "pinhole K with a zero last column; pad a bare 3x3 with "
+                    "np.hstack([K, np.zeros((3, 1))])), got "
+                    f"{getattr(K_arr, 'shape', type(K).__name__)}. "
+                    "See CONTRIBUTING_DATA.md §6.4."
+                )
+        if extrinsics is not None and (not isinstance(extrinsics, dict) or not extrinsics):
+            raise ValueError(
+                "Camera extrinsics must be None or a non-empty dict mapping a key "
+                'to its transform matrix (robots key per-arm, e.g. {"left": T, '
+                '"right": T}). See CONTRIBUTING_DATA.md §6.3.'
+            )
+        if extrinsics is not None:
+            for ext_key, T in extrinsics.items():
+                try:
+                    T_arr = np.asarray(T, dtype=np.float64)
+                except (TypeError, ValueError):
+                    T_arr = None
+                if T_arr is None or T_arr.shape != (4, 4):
+                    raise ValueError(
+                        f"extrinsics[{ext_key!r}] must be a 4x4 transform matrix, "
+                        f"got {getattr(T_arr, 'shape', type(T).__name__)}. "
+                        "See CONTRIBUTING_DATA.md §6.3."
+                    )
         writer = ZarrWriter(
             episode_path=episode_path,
             embodiment=embodiment,
@@ -739,6 +841,8 @@ class ZarrWriter:
             task_description=task_description,
             annotations=annotations,
             chunk_timesteps=chunk_timesteps,
+            intrinsics=intrinsics,
+            extrinsics=extrinsics,
         )
 
         writer.write(

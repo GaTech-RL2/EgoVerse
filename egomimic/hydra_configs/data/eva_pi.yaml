@@ -5,8 +5,8 @@ defaults:
 train_datasets:
   eva_bimanual:
     resolver:
-      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalAnnotationCutoffEpisodeResolver
-      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/pick_place_diverse
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
       key_map:
         keymap_mode: cartesian_pi
     filters:
@@ -14,8 +14,8 @@ train_datasets:
       filter_lambdas:
         - "lambda row: row.get('embodiment') == 'eva_bimanual'"
     mode: total
-  aria_bimanual: null
+  human_bimanual: null
 
 valid_datasets:
   eva_bimanual: ${train_datasets.eva_bimanual}
-  aria_bimanual: null
+  human_bimanual: null

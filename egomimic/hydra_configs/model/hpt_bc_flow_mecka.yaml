@@ -1,17 +1,14 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.hpt.algo.HPT
-  camera_transforms:
-    mecka_bimanual:
-      _target_: egomimic.utils.egomimicUtils.CameraTransforms
-      intrinsics_key: "mecka" # change to base_half if using half res 
-      extrinsics_key: "mecka"
-    
+  _target_: egomimic.algo.hpt.HPT
+  camera_transforms: {}
+
+
   diffusion: true 
   6dof: true
 
   ac_keys:
-    mecka_bimanual: "actions_cartesian"
+    human_bimanual: "actions_cartesian"
 
   trunk:
     embed_dim: 256
@@ -30,12 +27,12 @@ robomimic_model:
   pretrained_checkpoint: "" # TODO
   reverse_kl_samples: 8
   
-  domains: ["mecka_bimanual"]
+  domains: ["human_bimanual"]
   shared_obs_keys: ["front_img_1"]
 
   shared_stem_specs:
     front_img_1:
-      _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+      _target_: egomimic.models.hpt_nets.MLPPolicyStem
       input_dim: 256
       output_dim: 256
       widths: [256]
@@ -49,9 +46,9 @@ robomimic_model:
           modality_embed_dim: 256
   
   stem_specs:
-    mecka_bimanual:
+    human_bimanual:
       state_ee_pose:
-        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        _target_: egomimic.models.hpt_nets.MLPPolicyStem
         input_dim: 12
         output_dim: 256
         widths: [256]
@@ -65,16 +62,16 @@ robomimic_model:
             modality_embed_dim: 256
 
   head_specs:
-    mecka_bimanual: 
-      _target_: egomimic.models.heads.fm_policy.FMPolicy
+    human_bimanual: 
+      _target_: egomimic.models.fm_policy.FMPolicy
       action_horizon: 100
       num_inference_steps: 50
       pooling: null
       time_dist: "beta"
       infer_ac_dims:
-        mecka_bimanual: 12
+        human_bimanual: 12
       model:
-        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
+        _target_: egomimic.models.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
@@ -87,7 +84,7 @@ robomimic_model:
 
   encoder_specs:
     front_img_1:
-      _target_: egomimic.models.stems.hpt_stems.ResNet
+      _target_: egomimic.models.hpt_nets.ResNet
       output_dim: 256
 
   train_image_augs:

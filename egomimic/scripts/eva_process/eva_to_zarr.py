@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
+from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.scripts.eva_process.eva_utils import EvaHD5Extractor
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
@@ -194,6 +195,8 @@ def convert_episode(
         task_name=task_name,
         task_description=task_description,
         chunk_timesteps=chunk_timesteps,
+        intrinsics={"front_1": Eva.INTRINSICS},
+        extrinsics=Eva.EXTRINSICS,
     )
 
     logger.info("Wrote zarr episode: %s", zarr_path)

@@ -1,6 +1,8 @@
 import os
+import random
 from collections import OrderedDict
 from functools import partial
+from typing import Literal
 
 import einops
 import numpy as np
@@ -377,6 +379,16 @@ class HPTModel(nn.Module):
             stem = self.stems[f"{domain}_{modality}"]
             if modality in self.encoders:
                 data[modality] = self.encoders[modality](data[modality])
+
+            # Text-prompt modality: input is a list of raw strings (one per
+            # batch item). Skip positional embedding / horizon handling — the
+            # stem (e.g. QwenPooledEncoder) owns tokenization and produces its
+            # own contextual feature for cross-attention.
+            if isinstance(data[modality], list):
+                stem_token = stem.compute_latent(data[modality])
+                feats.append(stem_token)
+                feat_dict[modality] = stem_token
+                continue
 
             data_shape = data[modality].shape
             data_horizon = data_shape[1]
@@ -815,14 +827,24 @@ class HPT(Algo):
         pretrained: bool = False,
         pretrained_checkpoint: str = "",
         # ---------------------------
+        # Annotation prompt sampling (consumed by the optional Qwen stem)
+        # ---------------------------
+        annotation_key: str | None = None,
+        annotation_sampling_mode: Literal["random", "first"] = "random",
+        annotation_modality: str = "annotation",
+        default_prompt: str = "",
+        # ---------------------------
         # Catch-all kwargs
         # ---------------------------
         **kwargs,
     ):
         self.nets = nn.ModuleDict()
         self.norm_stats = norm_stats
+        self.annotation_key = annotation_key
+        self.annotation_sampling_mode = annotation_sampling_mode
+        self.annotation_modality = annotation_modality
+        self.default_prompt = default_prompt
 
-        self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
         self.eval_image_augs = eval_image_augs
         self.stem_specs = stem_specs
@@ -947,6 +969,22 @@ class HPT(Algo):
 
         self.training_step = 0
 
+    def _build_prompts(self, _batch, batch_size: int) -> list[str]:
+        """Sample one annotation per batch item, falling back to default_prompt
+        on empty / missing annotations. Mirrors the Pi algo flow.
+        """
+        if self.annotation_key is None or self.annotation_key not in _batch:
+            return [self.default_prompt] * batch_size
+        prompts = []
+        for sample in _batch[self.annotation_key]:
+            if not sample:
+                prompts.append(self.default_prompt)
+            elif self.annotation_sampling_mode == "random":
+                prompts.append(sample[random.randint(0, len(sample) - 1)])
+            else:  # "first"
+                prompts.append(sample[0])
+        return prompts
+
     @override
     def process_batch_for_training(self, batch):
         """
@@ -984,6 +1022,13 @@ class HPT(Algo):
             processed_batch[embodiment_id]["pad_mask"] = torch.ones(
                 B, S, 1, device=device
             )
+
+            # Sample one annotation per item (random/first, default fallback for
+            # empty). Stays as list[str]; the Qwen stem owns tokenization.
+            if self.annotation_key is not None:
+                processed_batch[embodiment_id]["sampled_prompt"] = self._build_prompts(
+                    _batch, B
+                )
 
             # Samples are already normalized by MultiDataset.__getitem__.
             processed_batch[embodiment_id]["embodiment"] = torch.tensor(
@@ -1339,6 +1384,10 @@ class HPT(Algo):
         for key in lang_keys:
             if key in batch:
                 data[key] = batch[key]
+
+        # Raw-string annotation prompt; consumed by Qwen text stem (if wired).
+        if "sampled_prompt" in batch:
+            data[self.annotation_modality] = batch["sampled_prompt"]
 
         data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]

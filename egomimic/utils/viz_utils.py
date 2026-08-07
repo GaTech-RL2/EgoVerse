@@ -2,13 +2,12 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import torch
-import torchvision.transforms.functional as TF
 
 from egomimic.utils.egomimicUtils import (
-    INTRINSICS,
     cam_frame_to_cam_pixels,
-    ee_pose_to_cam_frame,
+    draw_actions,
+    draw_dot_on_frame,
+    get_gaze_endpoint,
 )
 from egomimic.utils.pose_utils import _split_action_pose, _split_keypoints
 
@@ -141,14 +140,13 @@ def _viz_rotation_txt(image, actions, **kwargs):
     return vis
 
 
-def _viz_traj(image, actions, intrinsics_key, **kwargs):
+def _viz_traj(image, actions, intrinsics, **kwargs):
     color = kwargs.get("color", "Blues")
     alpha = kwargs.get("alpha", 1.0)
     if not ColorPalette.is_valid(color):
         raise ValueError(f"Invalid color palette: {color}")
 
     image = _prepare_viz_image(image)
-    intrinsics = INTRINSICS[intrinsics_key]
     left_xyz, _, right_xyz, _ = _split_action_pose(actions)
 
     base = image.copy()
@@ -177,10 +175,9 @@ def _viz_traj(image, actions, intrinsics_key, **kwargs):
     return vis
 
 
-def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
+def _viz_axes(image, actions, intrinsics, axis_len_m=0.04, **kwargs):
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
-    intrinsics = INTRINSICS[intrinsics_key]
     left_xyz, left_ypr, right_xyz, right_ypr = _split_action_pose(actions)
     base = image.copy()
     vis = base.copy()
@@ -243,12 +240,16 @@ def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
             return frame
 
         cv2.circle(frame, (x0, y0), 4, anchor_color, -1)
+        # Painter's algorithm: draw the axes far->near (by each tip's camera-z
+        # depth) so the axis closest to the camera ends up on top, instead of a
+        # fixed x->y->z order that can hide a near axis behind a far one.
         axis_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-        for i, color in enumerate(axis_colors, start=1):
+        draw_order = sorted((1, 2, 3), key=lambda i: -float(axis_points_cam[i][2]))
+        for i in draw_order:
             x1, y1 = pts[i]
             if 0 <= x1 < w and 0 <= y1 < h:
-                cv2.line(frame, (x0, y0), (x1, y1), color, 2)
-                cv2.circle(frame, (x1, y1), 2, color, -1)
+                cv2.line(frame, (x0, y0), (x1, y1), axis_colors[i - 1], 2)
+                cv2.circle(frame, (x1, y1), 2, axis_colors[i - 1], -1)
 
         cv2.putText(
             frame,
@@ -270,10 +271,34 @@ def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
     return vis
 
 
+def _viz_gaze(
+    image,
+    gaze_data,
+    intrinsics,
+    t_rgb_cpf,
+    palette="Purples",
+    dot_size=8,
+    no_gaze_sentinel=-100,
+    **kwargs,
+):
+    """Project the gaze endpoint (yaw, pitch, depth in CPF) onto the image."""
+    image = _prepare_viz_image(image)
+    gaze = np.asarray(gaze_data).reshape(-1)
+    if gaze.size < 3 or float(gaze[0]) == float(no_gaze_sentinel):
+        return image.copy()
+
+    yaw, pitch, depth = float(gaze[0]), float(gaze[1]), float(gaze[2])
+    endpoint_cam = get_gaze_endpoint(yaw, pitch, depth, t_rgb_cpf)[None, :]
+    pixel = cam_frame_to_cam_pixels(endpoint_cam, intrinsics)
+    return draw_dot_on_frame(
+        image.copy(), pixel, show=False, palette=palette, dot_size=dot_size
+    )
+
+
 def _viz_keypoints(
     image,
     actions,
-    intrinsics_key,
+    intrinsics,
     edges,
     colors,
     edge_ranges,
@@ -283,8 +308,6 @@ def _viz_keypoints(
     """Visualize all 21 MANO keypoints per hand, projected onto the image."""
     alpha = kwargs.get("alpha", 1.0)
     image = _prepare_viz_image(image)
-
-    intrinsics = INTRINSICS[intrinsics_key]
 
     base = image.copy()
     vis = base.copy()
@@ -425,271 +448,3 @@ def _viz_annotations(image, annotations: list[str], **kwargs):
 
 def save_image(image: np.ndarray, path: str) -> None:
     cv2.imwrite(path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-
-
-# ---------------------------------------------------------------------------
-# Drawing helpers relocated here from egomimic/utils/egomimicUtils.py
-# (hierarchy pass: utils/ junk-drawer split). Bodies byte-identical to the
-# originals; dependency flipped so viz_utils owns the drawing fns and pulls
-# only geometry/constants (INTRINSICS, cam_frame_to_cam_pixels,
-# ee_pose_to_cam_frame) from egomimicUtils.
-# ---------------------------------------------------------------------------
-
-def fmt(v):
-    # Convert to flat list of floats no matter the input shape/type
-    if isinstance(v, torch.Tensor):
-        v = v.flatten().tolist()
-    elif isinstance(v, np.ndarray):
-        v = v.flatten().tolist()
-    return ", ".join(f"{f:.2f}" for f in v)
-
-
-def draw_annotation_text(
-    image: np.ndarray,
-    annotation: str,
-    font_scale: float = 0.45,
-    color: tuple = (255, 255, 255),
-    thickness: int = 1,
-) -> np.ndarray:
-    """
-    Draws annotation text on an image.
-
-    Args:
-        image (np.ndarray): Image of shape (H, W, 3) in uint8 format.
-        annotation (str): Annotation text to draw.
-        font_scale (float): Font size.
-        color (tuple): Text color (B, G, R).
-        thickness (int): Line thickness.
-
-    Returns:
-        image (np.ndarray): Annotated image.
-    """
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    text = f"Annotation: {annotation}"
-    text_size, baseline = cv2.getTextSize(text, font, font_scale, thickness)
-    x, y = 10, image.shape[0] - baseline - 10
-
-    image = np.ascontiguousarray(image.copy())
-
-    image = cv2.putText(
-        image,
-        text,
-        (x, y),
-        font,
-        font_scale,
-        color,
-        thickness,
-    )
-
-    return image
-
-
-def draw_rotation_text(
-    image: np.ndarray,
-    gt_rot: torch.Tensor,
-    pred_rot: torch.Tensor,
-    position: tuple = (340, 20),
-    font_scale: float = 0.45,
-    color: tuple = (255, 255, 255),
-    thickness: int = 1,
-) -> np.ndarray:
-    """
-    Draws ground truth and predicted rotation vectors on an image.
-
-    Args:
-        image (np.ndarray): Image of shape (H, W, 3) in uint8 format.
-        gt_rot (torch.Tensor): Rotation vector, shape (3,) or (6,) (dual arm).
-        pred_rot (torch.Tensor): Same shape as gt_rot.
-        position (tuple): Top-left corner (x, y) for drawing text.
-        font_scale (float): Font size.
-        color (tuple): Text color (B, G, R).
-        thickness (int): Line thickness.
-
-    Returns:
-        image (np.ndarray): Annotated image.
-    """
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    x, y = position
-
-    image = np.ascontiguousarray(image.copy())
-
-    if gt_rot.shape[-1] == 3:
-        image = cv2.putText(
-            image,
-            f"GT rot:    [{fmt(gt_rot)}]",
-            (x, y),
-            font,
-            font_scale,
-            color,
-            thickness,
-        )
-        image = cv2.putText(
-            image,
-            f"Pred rot:  [{fmt(pred_rot)}]",
-            (x, y + 20),
-            font,
-            font_scale,
-            color,
-            thickness,
-        )
-    elif gt_rot.shape[-1] == 6:
-        image = cv2.putText(
-            image,
-            f"L GT rot:  [{fmt(gt_rot[0:3])}]",
-            (x, y),
-            font,
-            font_scale,
-            color,
-            thickness,
-        )
-        image = cv2.putText(
-            image,
-            f"L Pred rot:[{fmt(pred_rot[0:3])}]",
-            (x, y + 20),
-            font,
-            font_scale,
-            color,
-            thickness,
-        )
-        image = cv2.putText(
-            image,
-            f"R GT rot:  [{fmt(gt_rot[3:6])}]",
-            (x, y + 40),
-            font,
-            font_scale,
-            color,
-            thickness,
-        )
-        image = cv2.putText(
-            image,
-            f"R Pred rot:[{fmt(pred_rot[3:6])}]",
-            (x, y + 60),
-            font,
-            font_scale,
-            color,
-            thickness,
-        )
-    else:
-        raise ValueError(f"Unsupported rotation shape: {gt_rot.shape}")
-
-    return image
-
-
-def draw_actions(
-    im, type, color, actions, extrinsics, intrinsics, arm="both", kinematics_solver=None
-):
-    """
-    args:
-        im: (H, W, C)
-        type: "joints" or "xyz"
-        color: ex) "Purples", "Blues", "Greens"
-        actions: (N, 6) or (N, 3) if type is "xyz" or (N, 7) or (N, 14) if type is "joints"
-        extrinsics: dict with keys "left" and "right" with values (4, 4)
-        intrinsics: (3, 4)
-        arm: "both", "left", "right"
-    returns
-        im: (H, W, C)
-    """
-    if type == "joints" and kinematics_solver is None:
-        raise ValueError("kinematics_solver is required for joints actions")
-    if type == "joints":
-        if arm == "both":
-            right_actions = kinematics_solver.fk_pos(actions[:, 7:13])
-            right_actions_drawable = ee_pose_to_cam_frame(
-                right_actions, extrinsics["right"]
-            )
-            left_actions = kinematics_solver.fk_pos(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(
-                left_actions, extrinsics["left"]
-            )
-            actions_drawable = np.concatenate(
-                (left_actions_drawable, right_actions_drawable), axis=0
-            )
-        elif arm == "right":
-            right_actions = kinematics_solver.fk_pos(actions[:, 7:13])
-            right_actions_drawable = ee_pose_to_cam_frame(
-                right_actions, extrinsics["right"]
-            )
-            actions_drawable = right_actions_drawable
-        elif arm == "left":
-            left_actions = kinematics_solver.fk_pos(actions[:, :6])
-            left_actions_drawable = ee_pose_to_cam_frame(
-                left_actions, extrinsics["left"]
-            )
-            actions_drawable = left_actions_drawable
-    else:
-        actions = actions.reshape(-1, 3)
-        actions_drawable = actions
-
-    actions_drawable = cam_frame_to_cam_pixels(actions_drawable, intrinsics)
-    im = draw_dot_on_frame(im, actions_drawable, show=False, palette=color)
-
-    return im
-
-
-def draw_dot_on_frame(frame, pixel_vals, show=True, palette="Purples", dot_size=5):
-    """
-    frame: (H, W, C) numpy array
-    pixel_vals: (N, 2) numpy array of pixel values to draw on frame
-    Drawn in light to dark order
-    """
-    frame = frame.astype(np.uint8).copy()
-    if isinstance(pixel_vals, tuple):
-        pixel_vals = [pixel_vals]
-
-    # get purples color palette, and color the circles accordingly
-    color_palette = plt.get_cmap(palette)
-    color_palette = color_palette(np.linspace(0, 1, len(pixel_vals)))
-    color_palette = (color_palette[:, :3] * 255).astype(np.uint8)
-    color_palette = color_palette.tolist()
-
-    for i, pixel_val in enumerate(pixel_vals):
-        try:
-            frame = cv2.circle(
-                frame,
-                (int(pixel_val[0]), int(pixel_val[1])),
-                dot_size,
-                color_palette[i],
-                -1,
-            )
-        except Exception:
-            print("Got bad pixel_val: ", pixel_val)
-        if show:
-            plt.imshow(frame)
-            plt.show()
-
-    return frame
-
-
-def miniviewer(frame, goal_frame, location="top_right"):
-    """
-    overlay goal_frame in a corner of frame
-    frame: (H, W, C) numpy array
-    goal_frame: (H, W, C) numpy array
-    location: "top_right", "top_left", "bottom_left", "bottom_right"
-
-    return frame with goal_frame in top right corner (1/4 original size)
-
-    resize using TF
-    """
-    frame = frame.copy()
-    goal_frame = goal_frame.copy()
-    if isinstance(frame, np.ndarray):
-        frame = torch.from_numpy(frame)
-    if isinstance(goal_frame, np.ndarray):
-        goal_frame = torch.from_numpy(goal_frame)
-
-    goal_frame = goal_frame.permute((2, 0, 1))
-    frame = frame.permute((2, 0, 1))
-
-    goal_frame = TF.resize(goal_frame, (frame.shape[1] // 4, frame.shape[2] // 4))
-    if location == "top_right":
-        frame[:, : goal_frame.shape[1], -goal_frame.shape[2] :] = goal_frame
-    elif location == "top_left":
-        frame[:, : goal_frame.shape[1], : goal_frame.shape[2]] = goal_frame
-    elif location == "bottom_left":
-        frame[:, -goal_frame.shape[1] :, : goal_frame.shape[2]] = goal_frame
-    elif location == "bottom_right":
-        frame[:, -goal_frame.shape[1] :, -goal_frame.shape[2] :] = goal_frame
-    # frame[:, :goal_frame.shape[1], -goal_frame.shape[2]:] = goal_frame
-    return frame.permute((1, 2, 0)).numpy()

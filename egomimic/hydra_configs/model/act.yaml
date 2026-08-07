@@ -1,18 +1,15 @@
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
-  _target_: egomimic.algo.act.algo.ACT
-  camera_transforms:
-    _target_: egomimic.utils.egomimicUtils.CameraTransforms
-    intrinsics_key: "base" # change to base_half if using half res images
-    extrinsics_key: "ariaJul29"
+  _target_: egomimic.algo.act.ACT
+  camera_transforms: {}
   backbones: # Directly instantiate the backbones, there must be same number of backbones as there are cam_keys
-    - _target_: egomimic.models.stems.resnet_conv.ResNet18Conv
+    - _target_: egomimic.models.act_nets.ResNet18Conv
       pretrained: true
       input_coord_conv: false
-    - _target_: egomimic.models.stems.resnet_conv.ResNet18Conv
+    - _target_: egomimic.models.act_nets.ResNet18Conv
       pretrained: true
       input_coord_conv: false
-    - _target_: egomimic.models.stems.resnet_conv.ResNet18Conv
+    - _target_: egomimic.models.act_nets.ResNet18Conv
       pretrained: true
       input_coord_conv: false
   
@@ -36,7 +33,7 @@ robomimic_model:
         mean: [0.485, 0.456, 0.406]
         std: [0.229, 0.224, 0.225]
   transformer:
-    _target_: egomimic.models.cores.act_transformer.Transformer
+    _target_: egomimic.models.act_nets.Transformer
     d: 512 # hidden_dim
     h: 8 # num_heads
     d_ff: 3200 # dim_feedforward
@@ -44,7 +41,7 @@ robomimic_model:
     dropout: 0.1
 
   style_encoder:
-    _target_: egomimic.models.cores.act_transformer.StyleEncoder
+    _target_: egomimic.models.act_nets.StyleEncoder
     act_len: ${model.robomimic_model.chunk_size}
     hidden_dim: ${model.robomimic_model.transformer.d}
     latent_dim: 32

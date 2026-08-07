@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Any
 
 import pandas as pd
@@ -11,7 +12,32 @@ _SEQUENCE_ID_COL = "SEQUENCE_ID"
 _STATUS_COL = "STATUS"
 _ID_COL = "_ID"
 
-REQUEST_TIMEOUT_S = 60
+REQUEST_TIMEOUT_S = 180  # generous; api.scale.com has been flaky
+_MAX_RETRIES = 5
+_RETRY_BACKOFF_S = 5.0
+
+
+def _requests_get_with_retry(*args, **kwargs):
+    """``requests.get`` with retries on transient ReadTimeout / ConnectionError.
+
+    api.scale.com routinely 60s-times-out under load. Each task-list page hits
+    the API once, so a long-running launch will trip a retry several times.
+    """
+    last_exc = None
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            return requests.get(*args, **kwargs)
+        except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
+            last_exc = e
+            if attempt == _MAX_RETRIES:
+                raise
+            wait = _RETRY_BACKOFF_S * attempt
+            print(
+                f"[scale_utils] {type(e).__name__} on attempt {attempt}/{_MAX_RETRIES}; "
+                f"retrying in {wait:.1f}s"
+            )
+            time.sleep(wait)
+    raise last_exc  # pragma: no cover
 
 
 def get_tasks(project_name: str, api_key: str) -> list[dict[str, Any]]:
@@ -31,7 +57,7 @@ def get_tasks(project_name: str, api_key: str) -> list[dict[str, Any]]:
         if next_token:
             params["next_token"] = next_token
 
-        response = requests.get(
+        response = _requests_get_with_retry(
             base_url,
             headers=headers,
             params=params,
@@ -119,7 +145,7 @@ def get_completed_tasks(project_name: str, api_key: str) -> list[dict[str, Any]]
         if next_token:
             params["next_token"] = next_token
 
-        response = requests.get(
+        response = _requests_get_with_retry(
             base_url,
             headers=headers,
             params=params,

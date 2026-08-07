@@ -13,6 +13,6 @@ transform_lists:
   eva_bimanual:
     _target_: egomimic.rldb.embodiment.eva._build_eva_bimanual_revert_eef_frame_transform_list
     is_quat: false
-  aria_bimanual:
-    _target_: egomimic.rldb.embodiment.human._build_aria_cartesian_revert_eef_frame_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_cartesian_revert_eef_frame_transform_list
     is_quat: false

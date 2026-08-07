@@ -536,6 +536,38 @@ class ConcatKeys(Transform):
         return batch
 
 
+class PadGripperZeros(Transform):
+    """Pad a 12D bimanual cartesian action chunk to 14D by inserting a zero
+    gripper slot at position 6 (end of left arm) and position 13 (end of right
+    arm), matching the canonical [L xyz ypr g, R xyz ypr g] layout used by Eva.
+
+    Used so aria (which has no gripper signal) can share an FM denoiser head
+    sized for 14D actions without needing in-model padding branches.
+    """
+
+    def __init__(self, action_key: str = "actions_cartesian"):
+        self.action_key = action_key
+
+    def transform(self, batch: dict) -> dict:
+        actions = batch[self.action_key]
+        is_tensor = isinstance(actions, torch.Tensor)
+        arr = actions.cpu().numpy() if is_tensor else np.asarray(actions)
+        if arr.shape[-1] != 12:
+            raise ValueError(
+                f"PadGripperZeros expects last-dim 12, got {arr.shape} for "
+                f"'{self.action_key}'"
+            )
+        pad_shape = (*arr.shape[:-1], 1)
+        pad = np.zeros(pad_shape, dtype=arr.dtype)
+        padded = np.concatenate(
+            (arr[..., :6], pad, arr[..., 6:], pad), axis=-1
+        )
+        batch[self.action_key] = (
+            torch.from_numpy(padded) if is_tensor else padded
+        )
+        return batch
+
+
 class Reshape(Transform):
     def __init__(self, input_key: str, output_key: str, shape: tuple):
         self.input_key = input_key

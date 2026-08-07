@@ -7,17 +7,18 @@
 ## Table of Contents
 
 1. [Overview](#1-overview)
-2. [Prerequisites](#2-prerequisites)
-3. [Episode Hash Convention](#3-episode-hash-convention)
-4. [Database Registry](#4-database-registry)
-5. [Zarr v3 Episode Format](#5-zarr-v3-episode-format)
-6. [Coordinate Frame Conventions](#6-coordinate-frame-conventions)
-7. [Language Annotations](#7-language-annotations)
-8. [Embodiment Identifiers](#8-embodiment-identifiers)
-9. [Uploading to S3](#9-uploading-to-s3)
-10. [Validation and Verification](#10-validation-and-verification)
-11. [Pre-Submission Checklist](#11-pre-submission-checklist)
-12. [Getting Access and Contact](#12-getting-access-and-contact)
+2. [Dataset Practices](#2-dataset-practices)
+3. [Prerequisites](#3-prerequisites)
+4. [Episode Hash Convention](#4-episode-hash-convention)
+5. [Database Registry](#5-database-registry)
+6. [Zarr v3 Episode Format](#6-zarr-v3-episode-format)
+7. [Coordinate Frame Conventions](#7-coordinate-frame-conventions)
+8. [Language Annotations](#8-language-annotations)
+9. [Embodiment Identifiers](#9-embodiment-identifiers)
+10. [Uploading to S3](#10-uploading-to-s3)
+11. [Validation and Verification](#11-validation-and-verification)
+12. [Pre-Submission Checklist](#12-pre-submission-checklist)
+13. [Getting Access and Contact](#13-getting-access-and-contact)
 
 ---
 
@@ -32,7 +33,7 @@ Every contributed episode must satisfy these check lists:
 | **File format** | Zarr v3 store with specific key names, dtypes, and shapes |
 | **Coordinate frame** | All poses expressed in a consistent reference frame |
 | **Database record** | Consistent one row per episode registered in the PostgreSQL episode registry before upload |
-| **Dataset Practices** | Example: reducing idle times, check for data flaws |
+| **[Dataset Practices](#2-dataset-practices)** | Example: reducing idle times, check for data flaws |
 
 The pipeline at a glance:
 
@@ -46,9 +47,65 @@ Your raw data
 
 ---
 
-## 2. Prerequisites
+## 2. Dataset Practices
 
-### 2.1 Hardware
+*What to capture, and how to keep it clean.*
+
+We want to capture **economically useful work performed by a proficient demonstrator**.
+
+### 2.1 Target Data Composition
+
+A rough heuristic for the data **in aggregate**:
+
+| Dimension | Target mix |
+|---|---|
+| **Task type** | no more than ~5% navigation · ~10% mobile manipulation · ~85% manipulation |
+| **Gripper** | ~60% doable with a parallel-jaw gripper · ~40% doable by either a parallel-jaw gripper or a dexterous hand |
+| **Setting** | ~70% tabletop · ~30% non-tabletop |
+
+### 2.2 Capture Settings
+
+Data can range from **staged studios** (realistic work captured in a controlled setting) all the way to **in the wild** — people doing tasks at home or in factory settings. If you are capturing real labor in the wild, it is **especially important to trim down to the relevant portions.**
+
+### 2.3 Quality — Avoid These Failure Modes
+
+A common failure mode is the demonstrator **randomly stalling, inspecting an item, patting clothes**, etc. Capture proficient, purposeful execution — not idle filler.
+
+### 2.4 Trimming Rules
+
+- **Trim out aggressive head movements.**
+- **Hand tracking must be visible in all frames** — trim out any frames without hands.
+- In-the-wild captures: **trim down to the task-relevant portions** (drop setup, breaks, wandering).
+
+### 2.5 Example Tasks
+
+Some example tasks we would prefer:
+
+| # | Task | What it covers |
+|---|---|---|
+| 1 | **Sorting** | Sort parts/components into bins by type, color, or size (factory); sort utensils into a cutlery tray, or sort a cluttered table by category (food / tool / toy), color, or shape (home). |
+| 2 | **Packing** | Place items into a box, bin, or bag with room to spare (loose packing, not tight-fit). |
+| 3 | **Opening & closing containers** | Drawers, cabinet doors, box lids/flaps, bags (ziploc, drawstring). |
+| 4 | **Tidying a cluttered table** | Return scattered objects to their places / into containers (dry, no wiping). |
+| 5 | **Spatial arrangement** | Arrange objects into an approximate target layout: line up, group by type, set out in roughly canonical positions (exact spacing not required). |
+| 6 | **Stacking** | Stack wide, stable items (plates, bowls, books) or nest bowls; no precise tall towers. |
+| 7 | **Folding** | Rough-fold towels / cloth / clothing in half or thirds; crisp creases not required. |
+| 8 | **Capping & uncapping** | Place or remove loose lids on boxes/jars, or large-thread caps; no fine threading. |
+| 9 | **Hanging** | Drape a cloth/towel over a rod, or hang a bag/mug on a large hook; generous targets. |
+| 10 | **Shelving** | Place books/boxes onto an open shelf with free space; no tight insertion. |
+| 11 | **Loading & unloading** | Load items into a tray, caddy, or dish rack with generous slots; unload onto the table. |
+| 12 | **Buttons & switches** | Press large buttons, flip switches, toggle controls. |
+| 13 | **Retrieval by description** | Pick a specified item from a mixed set and bring it to a drop zone — e.g. "the red mug," "the biggest book," "the metal one." Delivery to a zone, not a precise pose. |
+| 14 | **Relational placement** | Place an object relative to another by instruction: to the left of, behind, between, or on top of a reference object. Approximate positions are fine. |
+| 15 | **Matching & pairing** | Pair like items (socks, gloves, shoes), match lids to their containers, or match an object to its printed outline. Forgiving placement. |
+| 16 | **Reorientation & flipping** | Turn objects to a target pose: stand cups upright, flip cards face-up, or rotate items so labels face front. Forgiving rotation, no exact angle. |
+| 17 | **Search & retrieve** | Open a drawer/box, find a specified item inside, and take it out (combines opening, selection, and extraction). |
+
+---
+
+## 3. Prerequisites
+
+### 3.1 Hardware
 
 EgoVerse is hardware-agnostic. Any egocentric camera with a SLAM system that provides 6-DOF pose tracking is supported. The minimum requirements are:
 
@@ -58,13 +115,13 @@ EgoVerse is hardware-agnostic. Any egocentric camera with a SLAM system that pro
 | SLAM / pose tracking | A system that outputs 6-DOF device pose in a consistent metric world frame at ≥ 30 fps, synchronized with the RGB stream. Examples: Aria MPS, ZED SDK positional tracking, ORB-SLAM3, OpenVINS, RealSense tracking firmware. |
 | Hand tracking | Per-frame 3D hand landmark estimates (21 keypoints per hand) synchronized to the RGB stream, expressed in the same SLAM world frame. Examples: Aria MPS hand tracking, MediaPipe + depth unprojection, OAK-D depthai hand tracker, Ultraleap. If your setup does not produce hand keypoints, omit `*.obs_keypoints` and `*.obs_wrist_pose` and use only `*.obs_ee_pose` (e.g. derived from a robot's FK or a wrist-worn IMU). |
 | Wrist cameras | Optional. Include as `images.left_wrist` / `images.right_wrist` if present. |
-| Robot | Any bimanual arm or single-arm platform. See §8 for embodiment identifiers. |
+| Robot | Any bimanual arm or single-arm platform. See §9 for embodiment identifiers. |
 
 **Minimum viable setup (no robot):** egocentric camera + SLAM + hand tracking → contributes `images.front_1`, `obs_head_pose`, `left/right.obs_ee_pose`, `left/right.obs_wrist_pose`, `left/right.obs_keypoints`.
 
 **If your SLAM system does not run at 30 fps**, ensure you upsample or interpolate pose tracks to match the RGB frame rate before writing. The training pipeline assumes all arrays are frame-aligned.
 
-### 2.2 Software
+### 3.2 Software
 
 ```bash
 # Clone and install EgoVerse
@@ -75,7 +132,7 @@ source .venv/bin/activate
 uv pip install -e .
 ```
 
-### 2.3 Credentials
+### 3.3 Credentials
 
 You need two things: AWS credentials for the episode registry (PostgreSQL via Secrets Manager) and Cloudflare R2 credentials for the data bucket.
 
@@ -106,7 +163,7 @@ engine = create_default_engine()   # should print: Tables in schema 'app': ['epi
 
 ---
 
-## 3. Episode Hash Convention
+## 4. Episode Hash Convention
 
 Every episode is identified by a **UTC timestamp** rendered as:
 
@@ -143,23 +200,23 @@ ts_ms = episode_hash_to_timestamp_ms("2026-01-12-03-47-29-664000")
 
 ---
 
-## 4. Database Registry
+## 5. Database Registry
 
 Every episode must be registered in the PostgreSQL `app.episodes` table **before** its Zarr store is uploaded. The registry is the authoritative index used by all download and training tooling.
 
-### 4.1 Schema
+### 5.1 Schema
 
 The authoritative schema is the `TableRow` dataclass defined in [egomimic/utils/aws/aws_sql.py](egomimic/utils/aws/aws_sql.py). Refer to that file for the exact set of fields, defaults, and types — this guide may drift if the schema changes.
 
 Key field notes:
-- `episode_hash`: PRIMARY KEY, must match the `.zarr` directory name exactly (see §3).
+- `episode_hash`: PRIMARY KEY, must match the `.zarr` directory name exactly (see §4).
 - `operator`: **hashed** operator ID (e.g. SHA-256 hex digest). MUST be hashed before insertion — never store raw names/emails.
 - `lab`: short, stable, lowercase string. Once set, do not change it (used in filters).
 - `task`: high-level `task_name` that groups related episodes. Before inventing a new name, check the existing tasks in the episode registry via [`sql_tutorial.ipynb`](egomimic/scripts/tutorials/sql_tutorial.ipynb) (`df.groupby("task").size()`) and reuse one if your episode fits. If no existing task matches, canonicalize your new `task_name` to a short, stable, lowercase string that names a semantically meaningful category (e.g. `fold_clothes`, `object_in_container`) — not a one-off trial description. Put trial-specific detail in `task_description`, `scene`, and `objects`.
-- `embodiment`: must be one of the strings in §8.
-- `robot_name`: finer-grained variant; use the format `<platform>_<config>` (e.g. `aria_bimanual`, `aria_right_arm`).
+- `embodiment`: must be one of the strings in §9.
+- `robot_name`: the same `human_*` / `eva_*` string as `embodiment` (there is no per-platform variant — record your lab/hardware in the `lab` field, not here).
 
-### 4.2 Inserting a Row
+### 5.2 Inserting a Row
 
 ```python
 from egomimic.utils.aws.aws_sql import TableRow, add_episode, create_default_engine
@@ -178,8 +235,8 @@ row = TableRow(
     operator       = operator_hash,
     lab            = "rl2",
     task           = "fold_clothes",
-    embodiment     = "aria",
-    robot_name     = "aria_bimanual",
+    embodiment     = "human_bimanual",
+    robot_name     = "human_bimanual",
     task_description = "folding a 2T baby shirt on a blue table",
     scene          = "kitchen_A",
     objects        = "baby_shirt_2T",
@@ -191,23 +248,23 @@ add_episode(engine, row)
 
 `add_episode` raises `RuntimeError` on a duplicate `episode_hash`. Check for collisions before inserting.
 
-### 4.3 Updating a Row After Upload
+### 5.3 Updating a Row After Upload
 
 ```python
 from egomimic.utils.aws.aws_sql import update_episode
 
-row.zarr_processed_path = "s3://rldb/processed_v3/aria/2026-03-15-14-22-10-000000.zarr"
+row.zarr_processed_path = "s3://rldb/processed_v3/human/2026-03-15-14-22-10-000000.zarr"
 row.num_frames = 2712
 update_episode(engine, row)
 ```
 
 ---
 
-## 5. Zarr v3 Episode Format
+## 6. Zarr v3 Episode Format
 
 Each episode is a **Zarr v3 group** (a directory ending in `.zarr`) containing arrays and top-level attributes.
 
-### 5.1 Directory Structure
+### 6.1 Directory Structure
 
 ```
 <episode_hash>.zarr/
@@ -239,7 +296,7 @@ Each episode is a **Zarr v3 group** (a directory ending in `.zarr`) containing a
 └── obs_rgb_timestamps_ns/          ← per-frame capture timestamps
 ```
 
-### 5.2 Required Arrays
+### 6.2 Required Arrays
 
 All arrays are indexed along axis 0 by frame index. Every array must have **exactly `total_frames` entries** along axis 0 (matching the value in `zarr.attrs["total_frames"]`).
 
@@ -263,8 +320,8 @@ Provide these if your setup produces 3D hand estimates. Omit the entire key (do 
 
 | Key | Shape | Dtype | Frame | Notes |
 |---|---|---|---|---|
-| `left.obs_ee_pose` | `(T, 7)` | `float64` | SLAM world frame | Left hand end-effector (fingertip centroid or palm center) pose as XYZWXYZ |
-| `right.obs_ee_pose` | `(T, 7)` | `float64` | SLAM world frame | Right hand end-effector pose as XYZWXYZ |
+| `left.obs_ee_pose` | `(T, 7)` | `float64` | SLAM world frame | Left hand end-effector (fingertip centroid or palm center) pose as XYZWXYZ. If you have keypoints, derive this from them — see [Deriving `obs_ee_pose` from MANO keypoints](#deriving-obs_ee_pose-from-mano-keypoints-recommended) |
+| `right.obs_ee_pose` | `(T, 7)` | `float64` | SLAM world frame | Right hand end-effector pose as XYZWXYZ (same derivation guidance as the left) |
 | `left.obs_wrist_pose` | `(T, 7)` | `float64` | SLAM world frame | Left wrist origin pose as XYZWXYZ |
 | `right.obs_wrist_pose` | `(T, 7)` | `float64` | SLAM world frame | Right wrist origin pose as XYZWXYZ |
 | `left.obs_keypoints` | `(T, 63)` | `float64` | SLAM world frame | 21 hand landmarks × 3 (x, y, z); flattened row-major (see ordering below) |
@@ -280,6 +337,28 @@ Use the keypoints convention of MANO.
 ![MANO keypoints](mano_keypoints.png)
 
 If you need to convert your proprietary keypoints to MANO, try using [otaheri/MANO](https://github.com/otaheri/MANO).
+
+##### Deriving `obs_ee_pose` from MANO keypoints (recommended)
+
+**Derive `*.obs_ee_pose` from your fitted MANO keypoints.** The frame is built
+directly from the landmarks: the translation is a palm-center stand-in — the
+centroid of the wrist and the index/middle/ring MCPs (joints `0, 5, 9, 13`) —
+and the orientation is built from the wrist→palm direction plus a palm normal
+taken as `(index_MCP − wrist) × (pinky_MCP − wrist)`, sign-flipped for the left
+hand so the normal points out of the palm on both sides. Frames with missing or
+degenerate keypoints carry the `1e9` sentinel. Output is `(T, 7)` `XYZWXYZ`,
+the same layout as every other pose key. EgoVerse provides this as
+`mano_keypoints_to_cartesian` in
+[`egomimic/scripts/aria_process/aria_utils.py`](egomimic/scripts/aria_process/aria_utils.py):
+
+```python
+from egomimic.scripts.aria_process.aria_utils import mano_keypoints_to_cartesian
+
+# mano_kp: (T, 63) canonical-MANO keypoints in the SLAM world frame,
+#          i.e. exactly what you store in <side>.obs_keypoints
+ee_pose = mano_keypoints_to_cartesian(mano_kp, is_rhand=True)   # -> (T, 7)
+```
+
 
 #### Robot Arm Poses (if operating alongside a robot)
 
@@ -301,17 +380,23 @@ If you need to convert your proprietary keypoints to MANO, try using [otaheri/MA
 | `obs_rgb_timestamps_ns` | `(T,)` | `int64` | UTC nanoseconds for each RGB frame |
 | `obs_eye_gaze` | `(T, 3)` | `float64` | Unit gaze direction vector in SLAM world frame (x, y, z) |
 
-### 5.3 Top-Level Attributes (`zarr.attrs`)
+### 6.3 Top-Level Attributes (`zarr.attrs`)
 
 The root group's `.attrs` dictionary is the **episode metadata**. It is written as JSON and is the primary indexing surface.
 
 ```python
 {
-    "embodiment":        str,   # e.g. "aria_bimanual"  (must match DB row)
+    "embodiment":        str,   # e.g. "human_bimanual"  (must match DB row)
     "total_frames":      int,   # number of valid frames (not padded)
     "fps":               int,   # capture frame rate (typically 30)
     "task_name":         str,   # e.g. "fold_clothes"  (must match DB row)
     "task_description":  str,   # free-text description of the trial
+    "intrinsics":        dict,  # MANDATORY: {camera_key: 3x4 K matrix} dict (single-camera =
+                                #   one entry, e.g. {"front_1": K}; 3x4 = the 3x3 pinhole K
+                                #   with a zero last column). Projection uses the "front" entry.
+    "extrinsics":  dict | None, # None, or a non-empty dict of 4x4 world<-cam transforms.
+                                #   Robots key per-arm, e.g. {"left": T, "right": T}.
+                                #   Egocentric human contributors omit it (None).
     "features": {
         "<key>": {
             "dtype":  str,        # numpy dtype string, or "jpeg" for images, "json" for annotations
@@ -332,8 +417,10 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 - `fps` must be the actual capture rate of `images.front_1`. Do not set to a target rate if the actual rate differs.
 - `features` must have one entry per array key present in the store.
 - `embodiment` and `task_name` must exactly match the values in the DB row for this episode.
+- `intrinsics` is **mandatory** and is always a `{camera_key: 3×4 K matrix}` dict in `zarr.attrs` (single-camera = one entry, e.g. `{"front_1": K}`). `ZarrWriter.create_and_write` raises if it is not a non-empty dict.
+- `extrinsics` is **either `None` or a non-empty `dict`** of 4×4 world↔cam transforms (robots key per-arm, e.g. `{"left": T, "right": T}`); egocentric human contributors omit it (`None`). `ZarrWriter.create_and_write` raises if it is anything other than `None` or a non-empty dict.
 
-### 5.4 Storage / Chunking
+### 6.4 Storage / Chunking
 
 > # ⚠️ **USE THE [`ZarrWriter`](egomimic/rldb/zarr/zarr_writer.py) CLASS** ⚠️
 > # **This is the only supported way to produce EgoVerse Zarr stores. It guarantees sharding and chunking match the rest of the dataset — do NOT roll your own writer.**
@@ -345,7 +432,40 @@ The root group's `.attrs` dictionary is the **episode metadata**. It is written 
 
 See example usage in eva_to_zarr.py and aria_to_zarr.py.
 
-### 5.5 Episode Preview MP4 (sibling artifact)
+#### Camera intrinsics & extrinsics — **how to store them**
+
+Do **not** hand-write these into `zarr.attrs` yourself. Pass them to `ZarrWriter.create_and_write` (or the `ZarrWriter(...)` constructor) via the `intrinsics=` / `extrinsics=` arguments; the writer serializes them into `zarr.attrs` under the `"intrinsics"` / `"extrinsics"` keys (§6.3).
+
+- **`intrinsics` is a REQUIRED `dict`** of the form `{camera_key: 3x4 K matrix}` — `create_and_write` raises a `ValueError` if it is not a non-empty dict. **Single-camera setups still use a dict — just one entry**, e.g. `{"front_1": K}`. (Always a dict, so downstream code has one clear structure to handle.)
+- Each value is a **3×4** K matrix: the standard 3×3 pinhole matrix with an appended **zero column** (i.e. `[K | 0]`). A bare 3×3 is rejected on the projection path — pad it with `np.hstack([K_3x3, np.zeros((3, 1))])`.
+- **Multi-camera rigs:** add one entry per camera, e.g. `{"front_1": K_front, "left_wrist": K_lw, "right_wrist": K_rw}`. The training/viz projection uses the **front-camera** entry (the key containing `front`), so make sure that one is present and correct.
+- **`extrinsics`** is **`None` or a non-empty `dict`** of 4×4 world↔cam transforms — `create_and_write` raises on anything else. **Robots** key it **per-arm**, e.g. `{"left": T_left, "right": T_right}`; egocentric **human** contributors pass `None` (omit it).
+
+```python
+import numpy as np
+from egomimic.rldb.zarr.zarr_writer import ZarrWriter
+
+# fx=fy=248.57, cx=320, cy=180  ->  3x4 K (note the zero last column)
+K_front = np.array([
+    [248.57,   0.0,   320.0, 0.0],
+    [  0.0,  248.57,  180.0, 0.0],
+    [  0.0,    0.0,     1.0, 0.0],
+])
+
+ZarrWriter.create_and_write(
+    episode_path="path/to/<episode_hash>.zarr",
+    embodiment="human_bimanual",
+    numeric_data=numeric_arrays,        # left/right.obs_ee_pose, obs_head_pose, ...
+    image_data=image_arrays,            # images.front_1, ...
+    intrinsics={"front_1": K_front},    # REQUIRED — always a {camera_key: 3x4} dict
+    # extrinsics=...,                   # REQUIRED for robot embodiments only
+    fps=30,
+    task_name="...",
+    task_description="...",
+)
+```
+
+### 6.5 Episode Preview MP4 (sibling artifact)
 
 Alongside each `<episode_hash>.zarr` store, write a preview video of the egocentric RGB stream named **`<episode_hash>.mp4`** (e.g. `2026-03-15-14-22-10-000000.mp4`). The Mecka AI dataset viz looks previews up by this exact filename, so any deviation from the `<episode_hash>.mp4` convention will break it.
 
@@ -353,9 +473,9 @@ Any standard MP4 encoder works. If it's convenient, the [`save_preview_mp4`](ego
 
 ---
 
-## 6. Coordinate Frame Conventions
+## 7. Coordinate Frame Conventions
 
-### 6.1 SLAM World Frame (storage frame)
+### 7.1 SLAM World Frame (storage frame)
 
 All poses are stored in the **SLAM world frame** produced by your pose-tracking system (e.g. Aria MPS, ZED SDK, ORB-SLAM3). This is an arbitrary fixed Euclidean frame that is consistent within a single recording session but **not** consistent across sessions or between different hardware setups.
 
@@ -363,9 +483,9 @@ All poses are stored in the **SLAM world frame** produced by your pose-tracking 
 - Axes: right-handed, metric (meters).
 - **This is what you write into the Zarr arrays.** Do not pre-transform poses to any other frame before writing.
 
-The SLAM world frame origin and orientation will differ between labs and hardware. That is expected and fine — the training-time head-frame normalization (§6.2) cancels out any global offset or rotation.
+The SLAM world frame origin and orientation will differ between labs and hardware. That is expected and fine — the training-time head-frame normalization (§7.2) cancels out any global offset or rotation.
 
-### 6.2 Head Frame (training frame)
+### 7.2 Head Frame (training frame)
 
 At training time, the pipeline automatically re-expresses all poses **relative to the current egocentric device pose** (`obs_head_pose`) using `ActionChunkCoordinateFrameTransform`. You do **not** need to do this conversion yourself; it is applied on-the-fly by the data loader.
 
@@ -379,11 +499,11 @@ The end-effector frame uses the same convention (+X right, +Y down, +Z forward).
 
 ![End-effector frame convention](convention.png)
 
-### 6.3 Wrist Frame (optional training frame)
+### 7.3 Wrist Frame (optional training frame)
 
 For keypoint-based models, keypoints can optionally be further expressed relative to the wrist frame via `PoseCoordinateFrameTransform`. Again, this is a training-time transform; store everything in the SLAM world frame.
 
-### 6.4 Frame Summary
+### 7.4 Frame Summary
 
 | Array | Written in | Re-expressed at train time |
 |---|---|---|
@@ -399,11 +519,11 @@ For keypoint-based models, keypoints can optionally be further expressed relativ
 
 ---
 
-## 7. Language Annotations
+## 8. Language Annotations
 
 Language annotations are **optional but strongly encouraged**. They are stored as a span-based structure: each annotation covers a contiguous range of frames.
 
-### 7.1 Format (`annotation_v1`)
+### 8.1 Format (`annotation_v1`)
 
 The `annotations` array in the Zarr store contains `N` entries, where `N` is the total number of annotation spans in the episode (not the number of frames). Each entry is a UTF-8-encoded JSON string:
 
@@ -425,7 +545,7 @@ The `annotations` array in the Zarr store contains `N` entries, where `N` is the
 - Do **not** encode task-level descriptions here (those go in `task_description`). Use annotations for sub-step descriptions.
 - An empty `annotations` array (shape `(0,)`) is valid when no annotation is available.
 
-### 7.2 Annotation Granularity
+### 8.2 Annotation Granularity
 
 Use at minimum one annotation per task phase. For `fold_clothes`, for example:
 
@@ -437,7 +557,7 @@ Use at minimum one annotation per task phase. For `fold_clothes`, for example:
 | Fold right sleeve | "folding the right sleeve towards the center" |
 | Fold body | "folding the bottom half up to complete the fold" |
 
-### 7.3 Writing Annotations
+### 8.3 Writing Annotations
 
 Via `ZarrWriter`:
 ```python
@@ -453,7 +573,7 @@ annotations = [
 
 writer = ZarrWriter(
     episode_path="path/to/<episode_hash>.zarr",
-    embodiment="aria_bimanual",
+    embodiment="human_bimanual",
     fps=30,
     task_name="fold_clothes",
     task_description="folding a 2T baby shirt",
@@ -471,38 +591,49 @@ writer.append_annotations(
 )
 ```
 
-### 7.4 Scale AI Annotation Format
+### 8.4 Scale AI Annotation Format
 
 If you are delivering data through Scale AI, annotations are generated via the Scale annotation API. The `ScaleAnnotationDatasetFilter` class can be used to filter episodes to only those with completed Scale annotations. Set `SCALE_API_KEY` in your environment.
 
 ---
 
-## 8. Embodiment Identifiers
+## 9. Embodiment Identifiers
 
-The `embodiment` field in the DB row and in `zarr.attrs` must be one of the following strings. The `robot_name` field is the same string (fine-grained variant names are allowed in `robot_name` but `embodiment` must match this list exactly).
+The `embodiment` field in the DB row and in `zarr.attrs` must be exactly one of the strings below. **All human demonstration data is a single `human` embodiment — there is no per-vendor or per-hardware embodiment.** The lab / hardware that produced the data is recorded separately in the SQL `lab` field, never in `embodiment`. Only the robot **Eva** is a distinct non-human embodiment.
 
-| `embodiment` string | Integer ID | Description |
+| `embodiment` string | Integer id | Description |
 |---|---|---|
-| `aria_bimanual` | 5 | Project Aria glasses + two-arm human demonstration |
-| `aria_right_arm` | 3 | Project Aria glasses + right arm only |
-| `aria_left_arm` | 4 | Project Aria glasses + left arm only |
-| `eva_bimanual` | 8 | Eva camera + bimanual robot |
-| `eva_right_arm` | 6 | Eva camera + right arm robot |
-| `eva_left_arm` | 7 | Eva camera + left arm robot |
-| `mecka_bimanual` | 9 | Mecka AI hardware + bimanual |
-| `mecka_right_arm` | 10 | Mecka AI hardware + right arm |
-| `mecka_left_arm` | 11 | Mecka AI hardware + left arm |
-| `scale_bimanual` | 12 | Scale AI EgoDex + bimanual |
-| `scale_right_arm` | 13 | Scale AI EgoDex + right arm |
-| `scale_left_arm` | 14 | Scale AI EgoDex + left arm |
+| `human_right_arm` | 1 | Egocentric human demonstration, right arm only |
+| `human_left_arm` | 2 | Egocentric human demonstration, left arm only |
+| `human_bimanual` | 3 | Egocentric human demonstration, two-arm |
+| `eva_right_arm` | 4 | Eva camera + right-arm robot |
+| `eva_left_arm` | 5 | Eva camera + left-arm robot |
+| `eva_bimanual` | 6 | Eva camera + bimanual robot |
 
-**If your hardware is not in this list**, contact the consortium leads to register a new embodiment identifier before submitting data.
+If you are contributing egocentric human data, you use `human_bimanual` (or the single-arm variants) regardless of your hardware — set the `lab` field (e.g. `lab="microagi"`) to identify your source.
+
+### 9.1 Using the `Human` embodiment (no subclass, no per-vendor identifier)
+
+There is a **single concrete `Human` embodiment class** ([`egomimic/rldb/embodiment/human.py`](egomimic/rldb/embodiment/human.py)) shared by all human data. You do **not** write a per-vendor subclass, and there is **no per-vendor embodiment identifier** — every human contributor uses `human_*` and records their source in the `lab` field. Camera intrinsics travel with the data (`zarr.attrs`, §6.3 / §6.4); per-vendor structural choices are passed as explicit arguments from the data config:
+
+- `Human.get_keymap(keymap_mode="cartesian"|"keypoints", has_head_pose=<bool>, include_aria_keypoints=<bool>)`
+- `Human.get_transform_list(mode="cartesian"|"keypoints_headframe_ypr"|..., stride=<int>)`
+
+Onboarding human data is just two steps:
+
+1. Write `embodiment="human_bimanual"` (or `human_left_arm` / `human_right_arm`) in the DB row and in `zarr.attrs`; record your lab/hardware in the `lab` field.
+2. Add a data config under [`egomimic/hydra_configs/data/`](egomimic/hydra_configs/data/) whose `key_map` / `transform_list` point at `Human.get_keymap` / `Human.get_transform_list` with the args your data needs. Copy `aria.yaml` (head-mounted, `stride: 3`) or `scale.yaml` (no head pose: `has_head_pose: false`, `stride: 1`).
+
+Notes:
+- Camera **intrinsics are MANDATORY** and live in `zarr.attrs` as a `{camera_key: 3x4}` dict (§6.4). You no longer declare an `INTRINSICS` constant in code.
+- `has_head_pose=False` if your data has no `obs_head_pose`; `stride` is the action-chunk stride (`3` for ~30 fps egocentric, `1` for already-downsampled data).
+- **Robots** subclass `Embodiment` directly and keep their own intrinsics/extrinsics + pipeline — see `Eva` in [`egomimic/rldb/embodiment/eva.py`](egomimic/rldb/embodiment/eva.py).
 
 ---
 
-## 9. Uploading to S3
+## 10. Uploading to S3
 
-### 9.1 S3 Path Convention
+### 10.1 S3 Path Convention
 
 ```
 s3://rldb/processed_v3/<embodiment_prefix>/<episode_hash>.zarr/
@@ -510,18 +641,16 @@ s3://rldb/processed_v3/<embodiment_prefix>/<episode_hash>.zarr/
 
 | Embodiment | `<embodiment_prefix>` |
 |---|---|
-| `aria_*` | `aria` |
+| `human_*` | `human` |
 | `eva_*` | `eva` |
-| `mecka_*` | `mecka` |
-| `scale_*` | `scale` |
 
 Examples:
 ```
-s3://rldb/processed_v3/aria/2026-03-15-14-22-10-000000.zarr/
+s3://rldb/processed_v3/human/2026-03-15-14-22-10-000000.zarr/
 s3://rldb/processed_v3/eva/2025-11-04-09-30-00-000000.zarr/
 ```
 
-### 9.2 Upload with `s5cmd`
+### 10.2 Upload with `s5cmd`
 
 `s5cmd` is the recommended upload tool (installed as part of the Python environment).
 
@@ -529,7 +658,7 @@ s3://rldb/processed_v3/eva/2025-11-04-09-30-00-000000.zarr/
 # Upload a local .zarr directory
 s5cmd --endpoint-url $AWS_ENDPOINT_URL_S3 \
       sync "/local/processed/2026-03-15-14-22-10-000000.zarr/*" \
-           "s3://rldb/processed_v3/aria/2026-03-15-14-22-10-000000.zarr/"
+           "s3://rldb/processed_v3/human/2026-03-15-14-22-10-000000.zarr/"
 ```
 
 Or using the Python utility:
@@ -540,11 +669,11 @@ load_env()
 upload_dir_to_s3(
     local_dir = "/local/processed/2026-03-15-14-22-10-000000.zarr",
     bucket    = "rldb",
-    prefix    = "processed_v3/aria/2026-03-15-14-22-10-000000.zarr",
+    prefix    = "processed_v3/human/2026-03-15-14-22-10-000000.zarr",
 )
 ```
 
-### 9.3 Bulk Upload with Ray
+### 10.3 Bulk Upload with Ray
 
 For batch uploads of many episodes, use Ray to parallelize:
 
@@ -562,7 +691,7 @@ def upload_one(local_zarr_path: str, s3_prefix: str):
 tasks = [
     upload_one.remote(
         f"/local/processed/{h}.zarr",
-        f"processed_v3/aria/{h}.zarr"
+        f"processed_v3/human/{h}.zarr"
     )
     for h in episode_hashes
 ]
@@ -571,9 +700,9 @@ ray.get(tasks)
 
 ---
 
-## 10. Validation and Verification
+## 11. Validation and Verification
 
-### 10.1 Automated Checks
+### 11.1 Automated Checks
 
 Run these checks on every episode before uploading:
 
@@ -604,6 +733,35 @@ def validate_episode(zarr_path: str) -> tuple[list[str], list[str]]:
         errors.append(f"Unexpected fps={meta['fps']}. Expected 30 or 60.")
     else:
         successes.append(f"fps={meta['fps']} is valid")
+
+    # ── Embodiment identifier (must resolve to a valid id; see §9) ──────────
+    from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+    try:
+        get_embodiment_id(meta.get("embodiment", ""))
+        successes.append(f"embodiment={meta.get('embodiment')} is a valid identifier")
+    except (KeyError, AttributeError):
+        errors.append(f"embodiment={meta.get('embodiment')!r} is not a valid identifier (see §9)")
+
+    # ── Camera intrinsics (MANDATORY; {camera_key: 3x4 K matrix} dict) ──────
+    intr = meta.get("intrinsics")
+    if not isinstance(intr, dict) or not intr:
+        errors.append("intrinsics: missing or not a non-empty {camera_key: 3x4} dict")
+    else:
+        if not any("front" in str(k).lower() for k in intr):
+            errors.append(f"intrinsics: no front-camera entry (keys: {list(intr)})")
+        for cam, K in intr.items():
+            if np.asarray(K, dtype=float).shape != (3, 4):
+                errors.append(f"intrinsics['{cam}']: expected 3x4 K, got shape {np.asarray(K).shape}")
+            else:
+                successes.append(f"intrinsics['{cam}']: 3x4 OK")
+
+    # ── Camera extrinsics (OPTIONAL; None, or a non-empty dict of transforms) ─
+    if "extrinsics" in meta and meta["extrinsics"] is not None:
+        extr = meta["extrinsics"]
+        if not isinstance(extr, dict) or not extr:
+            errors.append("extrinsics: present but not a non-empty dict (must be None or a dict)")
+        else:
+            successes.append(f"extrinsics: non-empty dict OK (keys: {list(extr)})")
 
     # ── Frame counts ────────────────────────────────────────────────────────
     features = meta.get("features", {})
@@ -729,7 +887,7 @@ else:
     print("All checks passed.")
 ```
 
-### 10.2 End-to-End Load Test
+### 11.2 End-to-End Load Test
 
 Verify the episode loads correctly through the full training pipeline before uploading:
 
@@ -737,11 +895,20 @@ Verify the episode loads correctly through the full training pipeline before upl
 from pathlib import Path
 from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
 from egomimic.rldb.filters import DatasetFilter
-from egomimic.rldb.embodiment.human import Aria
+from egomimic.rldb.embodiment.human import Human
 import torch
 
-key_map = Aria.get_keymap(keymap_mode="cartesian")
-transform_list = Aria.get_transform_list(mode="cartesian")
+# cartesian mode re-expresses every pose relative to obs_head_pose, so the
+# cartesian transform REQUIRES a head pose. Head-mounted (Aria) data uses it
+# directly; head-pose-less data (e.g. Scale/Mecka — scale.yaml sets
+# has_head_pose: false) cannot run the cartesian transform, so load it with
+# transform_list=None to validate the raw episode (the §11.1 checks are the
+# primary validation in that case).
+HAS_HEAD_POSE = True   # set False for head-pose-less data (e.g. Scale/Mecka)
+key_map = Human.get_keymap(keymap_mode="cartesian", has_head_pose=HAS_HEAD_POSE)
+transform_list = (
+    Human.get_transform_list(mode="cartesian", stride=3) if HAS_HEAD_POSE else None
+)
 
 resolver = LocalEpisodeResolver(
     folder_path    = Path("/local/processed"),
@@ -762,14 +929,50 @@ for batch in loader:
     pass
 ```
 
-Expected output for a valid Aria bimanual episode in cartesian mode:
+Expected output for a valid human bimanual episode in cartesian mode:
 - `actions_cartesian`: `(B, 100, 12)` — 100-step action chunk, 6 DOF × 2 arms
 - `observations.state.ee_pose`: `(B, 12)` — current EEF poses, 6 DOF × 2 arms
 - `observations.images.front_img_1`: `(B, 3, H, W)` — normalized RGB in `[0, 1]`
 
+### 11.3 Visual Verification
+
+After the load test passes, render a quick trajectory overlay on a local episode — it projects the action chunk onto the egocentric image using the per-episode intrinsics from `zarr.attrs`, so a wrong K matrix or coordinate frame shows up immediately as an overlay floating off the hands. (This step uses the cartesian `actions_cartesian` chunk, so it applies to head-mounted data with a head pose; head-pose-less data has no cartesian chunk to project — rely on §11.1 + the §11.2 raw load for those.)
+
+```python
+import imageio, torch
+from egomimic.rldb.embodiment.human import Human
+from egomimic.rldb.zarr.zarr_dataset_multi import LocalEpisodeResolver, MultiDataset
+from egomimic.rldb.filters import DatasetFilter
+
+resolver = LocalEpisodeResolver(
+    folder_path    = "/local/processed",
+    key_map        = Human.get_keymap(keymap_mode="cartesian"),
+    transform_list = Human.get_transform_list(mode="cartesian", stride=3),
+)
+filters = DatasetFilter(filter_lambdas=[
+    "lambda row: row['episode_hash'] == '2026-03-15-14-22-10-000000'"
+])
+ds = MultiDataset._from_resolver(resolver, filters=filters, mode="total")
+loader = torch.utils.data.DataLoader(ds, batch_size=1)
+
+frames = [
+    Human.viz_transformed_batch(b, mode="traj", viz_batch_key="actions_cartesian")
+    for b in loader
+]
+imageio.mimsave("overlay_check.mp4", frames, fps=30)
+```
+
+Then confirm:
+
+- Trajectories project onto the hands/end-effectors in-frame (not floating off-screen or stuck at the principal point).
+- Left/right arms are not swapped.
+- Keypoints (if present) form anatomically plausible hand skeletons.
+
+Do not upload an episode whose visualization is visibly misaligned.
+
 ---
 
-## 11. Pre-Submission Checklist
+## 12. Pre-Submission Checklist
 
 Complete every item before considering an episode ready for upload.
 
@@ -784,7 +987,11 @@ Complete every item before considering an episode ready for upload.
 - [ ] All `obs_keypoints` arrays have shape `(T, 63)`.
 - [ ] `features` dict in `zarr.attrs` has one entry per array key.
 - [ ] `embodiment` and `task_name` in `zarr.attrs` match the DB row values.
+- [ ] `intrinsics` is present in `zarr.attrs` as a `{camera_key: 3×4}` dict (single-camera = one entry) — **mandatory**.
+- [ ] `extrinsics` is present in `zarr.attrs` for robot embodiments.
 - [ ] All episode succeeds on zarr validation check code
+- [ ] An embodiment class is registered in `egomimic/rldb/embodiment/` (§9.1).
+- [ ] A sample episode has been visually verified via `zarr_data_viz.ipynb` (§11.3).
 
 **Coordinate frames**
 - [ ] All poses are in the SLAM world frame (not head frame, not camera frame).
@@ -805,7 +1012,7 @@ Complete every item before considering an episode ready for upload.
 - [ ] DB row inserted before upload.
 - [ ] `zarr_processed_path` updated to the correct S3 path after upload.
 - [ ] `num_frames` in DB row matches `total_frames` in `zarr.attrs`.
-- [ ] `embodiment` in DB row exactly matches the embodiment enum string (§8).
+- [ ] `embodiment` in DB row exactly matches the embodiment enum string (§9).
 
 **Upload**
 - [ ] Episode is accessible at `s3://rldb/processed_v3/<prefix>/<episode_hash>.zarr/`.
@@ -813,7 +1020,7 @@ Complete every item before considering an episode ready for upload.
 
 ---
 
-## 12. Getting Access and Contact
+## 13. Getting Access and Contact
 
 ### Access Request
 

@@ -74,10 +74,10 @@ def _map_processed_local_to_remote(p: str | Path, processed_remote_prefix: str) 
 
 def infer_arm_from_row(row: TableRow) -> str:
     """
-    Infer arm from SQL row.robot_name (e.g., 'aria_left', 'aria_right', 'aria_bimanual').
+    Infer arm from SQL row.embodiment (e.g., 'aria_left', 'aria_right', 'aria_bimanual').
     Falls back to 'bimanual'.
     """
-    emb = (row.robot_name or "").lower()
+    emb = (row.embodiment or "").lower()
     if "left" in emb:
         return "left"
     if "right" in emb:
@@ -418,6 +418,21 @@ def main():
         help="Episode hashes to process. Separate multiple hashes with spaces.",
     )
     p.add_argument("--debug", action="store_true")
+    p.add_argument(
+        "--working-dir",
+        default="/home/ubuntu/EgoVerse",
+        help="Repo checkout shipped to ray workers as runtime_env working_dir "
+        "(only used with --debug). Lets a non-default checkout (e.g. a worktree "
+        "on a feature branch) drive the conversion fleet.",
+    )
+    p.add_argument(
+        "--py-modules",
+        nargs="+",
+        default=None,
+        help="Extra python package dirs shipped to workers via runtime_env "
+        "py_modules (e.g. mano + patched chumpy + trimesh for the MANO "
+        "keypoint conversion).",
+    )
     args = p.parse_args()
 
     env_vars = {}
@@ -434,7 +449,7 @@ def main():
 
     if args.debug:
         runtime_env = {
-            "working_dir": "/home/ubuntu/EgoVerse",
+            "working_dir": args.working_dir,
             "excludes": [
                 "**/.git/**",
                 "external/openpi/third_party/aloha/**",
@@ -446,6 +461,8 @@ def main():
         }
     else:
         runtime_env = {}
+    if args.py_modules:
+        runtime_env["py_modules"] = list(args.py_modules)
     runtime_env["env_vars"] = env_vars
     ray.init(address=args.ray_address, runtime_env=runtime_env)
     launch(

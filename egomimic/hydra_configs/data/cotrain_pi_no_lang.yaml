@@ -10,9 +10,9 @@ train_datasets:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
-  aria_bimanual:
+        - "lambda row: (row['embodiment'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
+  human_bimanual:
     filters:
       _target_: egomimic.rldb.filters.DatasetFilter
       filter_lambdas:
-        - "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
+        - "lambda row: (row['embodiment'] == 'human_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"

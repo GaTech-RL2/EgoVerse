@@ -199,9 +199,11 @@ class PI(Algo):
             for key, val in self.control_mode.items():
                 if key.lower() in emb_name:
                     return val
-        if emb_name is not None and "aria" in emb_name:
-            return "cam frame xyzypr per arm"
-        return "cam frame xyzypr gripper per arm"
+        raise ValueError(
+            f"control_mode has no entry matching embodiment {emb_name!r} "
+            f"(declared keys: {sorted(self.control_mode or {})}). Control modes "
+            "are declared per-embodiment in the model yaml; there is no fallback."
+        )
 
     def _discretize_state_for_sample(self, _batch, sample_idx: int) -> str | None:
         """Pick the latest proprio timestep for sample i, clip to [-1, 1],
@@ -234,8 +236,8 @@ class PI(Algo):
         """Sample one prompt per item from the raw annotation lists and
         splice in any of the active blocks. Returns ``batch_size`` strings.
 
-        Mirrors the prompt assembly previously done in
-        ``build_tokenized_collate``. Embodiment is known per-batch (one
+        Prompt assembly lives here rather than in a collate_fn because the
+        template is model-specific. Embodiment is known per-batch (one
         DataLoader per embodiment), so we don't re-derive it per sample.
         """
         if self.annotation_key is None or self.annotation_key not in _batch:
@@ -311,6 +313,11 @@ class PI(Algo):
                 key_name = self.norm_stats.zarr_key_to_keyname(key, embodiment_id)
                 if key_name is not None:
                     processed_batch[embodiment_id][key_name] = value
+
+            # Carry forward episode_hash from the data dict (other keys are
+            # built inline below via _tokenize_prompts).
+            if "episode_hash" in _batch:
+                processed_batch[embodiment_id]["episode_hash"] = _batch["episode_hash"]
 
             ac_key = self.ac_keys[embodiment_id]
             if ac_key not in processed_batch[embodiment_id]:

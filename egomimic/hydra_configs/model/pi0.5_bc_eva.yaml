@@ -3,10 +3,7 @@ defaults:
   - _self_
 
 robomimic_model:
-  camera_transforms:
-    _target_: egomimic.utils.egomimicUtils.CameraTransforms
-    intrinsics_key: "base" # change to base_half if using half res
-    extrinsics_key: "x5Dec13_2"
+  camera_transforms: {}
   ac_keys:
     eva_bimanual: "actions_cartesian"
   domains: ["eva_bimanual"]

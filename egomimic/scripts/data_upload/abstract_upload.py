@@ -10,7 +10,7 @@ from egomimic.utils.aws.aws_sql import TableRow
 
 
 class Uploader:
-    def __init__(self, embodiment, datatype, collect_files):
+    def __init__(self, embodiment, datatype, collect_files, defaults=None):
         """Initialize upload template with S3 configuration and metadata settings."""
 
         self.embodiment = embodiment
@@ -20,6 +20,9 @@ class Uploader:
         self.s3_base_prefix = f"raw_v2/{embodiment}/"
 
         self.collect_files = collect_files
+        # Per-uploader metadata defaults, e.g. {"rig_name": "aria_gen1"}.
+        # Offered as the bracketed default at the prompt; Enter accepts it.
+        self.defaults = defaults or {}
         self.local_dir = None
         self.directory_prompted = False
 
@@ -99,7 +102,9 @@ class Uploader:
                 }
 
                 for key in self.metadata_keys:
-                    value = self._collect_metadata_value(key)
+                    value = self._collect_metadata_value(
+                        key, self.defaults.get(key, "")
+                    )
                     self.batch_metadata[key] = value
 
                 print(
@@ -271,7 +276,9 @@ class Uploader:
                 )
 
             for key in self.metadata_keys:
-                previous_value = self.previous_inputs.get(key, "")
+                previous_value = self.previous_inputs.get(
+                    key, ""
+                ) or self.defaults.get(key, "")
 
                 value = self._collect_metadata_value(key, previous_value)
                 submitted_metadata[key] = value

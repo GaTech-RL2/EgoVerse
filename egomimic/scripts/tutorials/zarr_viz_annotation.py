@@ -2,7 +2,7 @@ import imageio
 import torch
 
 from egomimic.pl_utils.pl_data_utils import annotation_collate
-from egomimic.rldb.embodiment.human import Scale
+from egomimic.rldb.embodiment.human import Human
 from egomimic.rldb.filters import DatasetFilter
 from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset, S3EpisodeResolver
 from egomimic.utils.aws.aws_data_utils import load_env
@@ -12,7 +12,9 @@ load_env()
 
 intrinsics_key = "base"
 
-key_map = Scale.get_keymap(keymap_mode="cartesian", annotation_key="annotations")
+key_map = Human.get_keymap(
+    keymap_mode="cartesian", has_head_pose=False, annotation_key="annotations"
+)
 transform_list = None
 
 resolver = S3EpisodeResolver(
@@ -35,7 +37,7 @@ loader = torch.utils.data.DataLoader(
 
 ims_annotations = []
 for i, batch in enumerate(loader):
-    vis = Scale.viz_transformed_batch(
+    vis = Human.viz_transformed_batch(
         batch, mode="annotations", viz_batch_key="annotations"
     )
     ims_annotations.append(vis)

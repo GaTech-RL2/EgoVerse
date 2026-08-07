@@ -11,13 +11,13 @@ train_datasets:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
       filter_lambdas:
-        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
-  aria_bimanual:
+        - "lambda row: (row['embodiment'] == 'eva_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
+  human_bimanual:
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
       filter_lambdas:
-        - "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
+        - "lambda row: (row['embodiment'] == 'human_bimanual') & (row['task'] == 'pick_place') & (row['zarr_processed_path'] != '')"
 
 valid_datasets:
   eva_bimanual:
@@ -25,10 +25,10 @@ valid_datasets:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
       filter_lambdas:
-        - "lambda row: row['robot_name'] == 'eva_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"
-  aria_bimanual:
+        - "lambda row: row['embodiment'] == 'eva_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"
+  human_bimanual:
     filters:
       _target_: egomimic.rldb.filters.ScaleAnnotationDatasetFilter
       project_name: "dense-language"
       filter_lambdas:
-        - "lambda row: row['robot_name'] == 'aria_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['task'] == 'pick_place' and row['zarr_processed_path'] != '' and 'alignment' not in (row.get('task_description') or '')"

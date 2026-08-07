@@ -89,7 +89,6 @@ def register_in_sql(
         lab="scale",
         task=task_desc,
         embodiment="scale",
-        robot_name="scale_bimanual",
         num_frames=total_frames,
         task_description=task_desc,
         scene="unknown",

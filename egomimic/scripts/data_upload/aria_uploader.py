@@ -28,6 +28,7 @@ def aria_uploader():
         embodiment="aria",  # Embodiment name
         datatype=".vrs",  # Main data file extension
         collect_files=collect_files,
+        defaults={"rig_name": "aria_gen1"},
     )
 
     return uploader

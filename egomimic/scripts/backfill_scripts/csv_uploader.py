@@ -148,7 +148,6 @@ class CSVGroupUploader(Uploader):
 
         # Hardcode task/robot/task_description as requested
         submitted_metadata["task_description"] = "sorting utensils"
-        submitted_metadata["robot_name"] = "aria_bimanual"
         submitted_metadata["task"] = "sort utensils"
 
         # Write JSON tempfile

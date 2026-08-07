@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import os
 import sys
 import time
@@ -10,18 +11,16 @@ import cv2
 import h5py
 import numpy as np
 import torch
-from torch.utils.data import default_collate
 from robot_utils import RateLoop
 from scipy.spatial.transform import Rotation as R
+from torch.utils.data import default_collate
 
 from egomimic.models.heads.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.pl_utils.pl_data_utils import build_tokenized_collate
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 from egomimic.rldb.embodiment.eva import Eva
-from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
+from egomimic.rldb.embodiment.human import Human
 from egomimic.utils.egomimicUtils import (
-    CameraTransforms,
     cam_frame_to_base_frame,
     interpolate_arr,
     interpolate_arr_euler,
@@ -127,14 +126,11 @@ def viz_rot_ee_pose(image, eepose, action_image_path, rot_image_path):
         right_xyz = arr[:, 6:9]
     action_xyz = np.hstack([left_xyz, right_xyz]).astype(np.float32, copy=False)
 
-    camera_transforms = CameraTransforms(
-        intrinsics_key="base", extrinsics_key="x5Dec13_2"
-    )
     im_action = visualize_actions(
         img.copy(),
         action_xyz,
-        camera_transforms.extrinsics,
-        camera_transforms.intrinsics,
+        Eva.EXTRINSICS,
+        Human.INTRINSICS,
         arm="both",
     )
     cv2.imwrite(action_image_path, im_action)
@@ -243,7 +239,6 @@ class PolicyRollout(Rollout):
         policy_path,
         query_frequency,
         cartesian,
-        extrinsics_key,
         resampled_action_len=None,
         debug=False,
         annotation_path=None,
@@ -255,9 +250,7 @@ class PolicyRollout(Rollout):
         self.cartesian = cartesian
         self.embodiment_id = EMBODIMENT_MAP[self.arm]
         self.embodiment_name = get_embodiment(self.embodiment_id)
-        self.extrinsics = CameraTransforms(
-            intrinsics_key="base", extrinsics_key=extrinsics_key
-        ).extrinsics
+        self.extrinsics = Eva.EXTRINSICS
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.policy_device = self.device
         print(f"[rollout] Loading policy from {self.policy_path}")
@@ -271,26 +264,24 @@ class PolicyRollout(Rollout):
         self.collate_fn = default_collate
         if annotation_path is not None:
             if not os.path.isfile(annotation_path):
-                print(f"[rollout] WARNING: annotation file not found: {annotation_path}  (continuing without annotation)")
+                print(
+                    f"[rollout] WARNING: annotation file not found: {annotation_path}  (continuing without annotation)"
+                )
             else:
                 with open(annotation_path, "r") as f:
                     self.annotation = f.read().strip()
-                self.collate_fn = build_tokenized_collate(
-                    max_length=128,
-                    model_name="google/paligemma-3b-mix-224",
-                    sampling_mode="first",
-                    annotation_key="annotations",
-                    default_prompt=self.annotation,
-                )
 
-    LOCAL_WEIGHT_PATH = "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
+    LOCAL_WEIGHT_PATH = (
+        "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
+    )
 
     @classmethod
     def _patch_checkpoint_paths(cls, ckpt_path):
         """Rewrite pytorch_weight_path in the checkpoint's saved config
         to point to the local base model weights."""
         import torch as _torch
-        from omegaconf import OmegaConf, DictConfig
+        from omegaconf import DictConfig, OmegaConf
+
         ckpt = _torch.load(ckpt_path, map_location="cpu", weights_only=False)
         ht = ckpt.get("hyper_parameters", {}).get("config_tree")
         if ht is None:
@@ -305,7 +296,9 @@ class PolicyRollout(Rollout):
         old_path = config.get("pytorch_weight_path")
         if old_path is None or old_path == cls.LOCAL_WEIGHT_PATH:
             return ckpt_path
-        print(f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}")
+        print(
+            f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}"
+        )
         config["pytorch_weight_path"] = cls.LOCAL_WEIGHT_PATH
         ckpt["hyper_parameters"]["config_tree"] = OmegaConf.create(cfg)
         patched_path = ckpt_path + ".patched"
@@ -329,14 +322,18 @@ class PolicyRollout(Rollout):
         pi0 = policy.model.nets["policy"]
         if "sample_actions" in vars(pi0):
             del pi0.sample_actions
-            print("[rollout] Disabled torch.compile on sample_actions for rollout inference")
+            print(
+                "[rollout] Disabled torch.compile on sample_actions for rollout inference"
+            )
 
         # Verify model is on GPU
         try:
             p = next(pi0.parameters())
             print(f"[rollout] Model device: {p.device}, dtype: {p.dtype}")
             if not p.is_cuda:
-                print("[rollout] WARNING: model is NOT on GPU — inference will be very slow!")
+                print(
+                    "[rollout] WARNING: model is NOT on GPU — inference will be very slow!"
+                )
         except StopIteration:
             pass
 
@@ -435,7 +432,7 @@ class PolicyRollout(Rollout):
 
         act_i = i % self.query_frequency
         return self.actions[act_i]
-        
+
     def process_obs_for_transform_list(self, obs):
         # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
         front = torch.from_numpy(obs["front_img_1"][None, ...])  # [1, H, W, 3]
@@ -459,9 +456,7 @@ class PolicyRollout(Rollout):
                 obs["right_wrist_img"][None, ...]
             )  # [1, H, W, 3] BGR
             right = right[..., [2, 1, 0]]  # BGR -> RGB
-            right = (
-                right.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
-            )
+            right = right.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
             data["right_wrist_img"] = right.squeeze()
             data["right_wrist_0_rgb"] = data["right_wrist_img"]
             data["observations.images.right_wrist_img"] = data["right_wrist_img"]
@@ -501,18 +496,15 @@ class PolicyRollout(Rollout):
             data["left.cmd_ee_pose"] = left_cmd_ee_pose
 
         if self.arm == "both":
-            data["embodiment"] = "eva_bimanual"
-            data["metadata.robot_name"] = "eva_bimanual"
+            data["embodiment"] = ["eva_bimanual"]
         elif self.arm == "right":
-            data["embodiment"] = "eva_right_arm"
-            data["metadata.robot_name"] = "eva_right_arm"
+            data["embodiment"] = ["eva_right_arm"]
         elif self.arm == "left":
             data["embodiment"] = "eva_left_arm"
-            data["metadata.robot_name"] = "eva_left_arm"
-        
+
         if self.annotation is not None:
             data["annotations"] = [self.annotation]
-        
+
         return data
 
     def load_annotation(self, annotation_path):
@@ -530,15 +522,9 @@ class PolicyRollout(Rollout):
             return False
         with open(annotation_path, "r") as f:
             self.annotation = f.read().strip()
-        if self.collate_fn is default_collate:
-            self.collate_fn = build_tokenized_collate(
-                max_length=128,
-                model_name="google/paligemma-3b-mix-224",
-                sampling_mode="first",
-                annotation_key="annotations",
-                default_prompt=self.annotation,
-            )
-        print(f"[rollout] Loaded new annotation from {annotation_path}: '{self.annotation}'")
+        print(
+            f"[rollout] Loaded new annotation from {annotation_path}: '{self.annotation}'"
+        )
         return True
 
     def reset(self):
@@ -547,9 +533,7 @@ class PolicyRollout(Rollout):
         self.policy.eval()
 
 
-def debug_policy(
-    actions, front_img, step_i
-):
+def debug_policy(actions, front_img, step_i):
     os.makedirs("debug", exist_ok=True)
 
     if isinstance(front_img, torch.Tensor):
@@ -630,7 +614,6 @@ def main(
             policy_path=policy_path,
             query_frequency=query_frequency,
             cartesian=cartesian,
-            extrinsics_key="x5Dec13_2",
             resampled_action_len=resampled_action_len,
             debug=debug,
             annotation_path=annotation_path,
@@ -644,11 +627,6 @@ def main(
         )
 
     print(f"Cartesian value {cartesian}")
-
-    camera_transforms = CameraTransforms(
-        intrinsics_key="base", extrinsics_key="x5Dec13_2"
-    )
-    kinematics_solver = EvaMinkKinematicsSolver(model_path=_get_model_xml_path())
 
     def _enter_intervention(kp, policy, rollout_type):
         """Pause rollout and wait for user command.
@@ -753,7 +731,11 @@ def main(
                                 reset_rollout(ri, policy)
                             break
 
-                        if debug and rollout_type == "policy" and step_i % query_frequency == 0:
+                        if (
+                            debug
+                            and rollout_type == "policy"
+                            and step_i % query_frequency == 0
+                        ):
                             debug_actions = policy.debug_actions
                             front_img = obs["front_img_1"]
                             debug_policy(
