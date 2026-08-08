@@ -1,0 +1,15 @@
+# @package _global_
+# Shared runtime settings for the in-domain chunk-4 experiment matrix.
+
+name: indomain_c4
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

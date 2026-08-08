@@ -101,7 +101,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     assert device.type == "cuda", "Packed training smoke needs CUDA."
 
-    # 1. Build the packed dataset + dataloader (what tsimulation.yaml resolves to).
+# 1. Build the packed dataset + dataloader (what tsimulation/base.yaml resolves to).
     t0 = time.perf_counter()
     dataset = ZarrEpisodePackedDataset.from_local_folder(
         folder_path=FOLDER,

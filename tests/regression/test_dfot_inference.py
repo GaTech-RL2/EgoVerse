@@ -35,7 +35,7 @@ _emb.get_embodiment = lambda i: "pushshapes_sim" if i == 0 else orig_get_name(i)
 
 cfg = OmegaConf.load(
     "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3/"
-    "egomimic/hydra_configs/model/dfot_pushshapes.yaml"
+    "egomimic/hydra_configs/model/dfot/base.yaml"
 )
 dfot = instantiate(cfg.robomimic_model, norm_stats=MockNormStats(), _recursive_=True)
 dfot.nets = dfot.nets.cpu()

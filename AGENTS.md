@@ -100,7 +100,7 @@ can be added later without rework.
 Wired up since this section was first written:
 
 - Hydra config wiring for the packed dataset:
-  `egomimic/hydra_configs/data/tsimulation.yaml` now targets
+  `egomimic/hydra_configs/data/pushshapes/packed_episode/simulation/base.yaml` now targets
   `ZarrEpisodePackedDataset.from_resolver` with `chunking="none"`,
   `min_seq_len=64`, `batch_size=8`.
 - Model-side `cu_seqlens` plumbing — see the "stage-based architecture +
@@ -137,7 +137,7 @@ shape: `circle/` (61 episodes, lengths 245–958 frames, median ~410) and
 `stick/`. Each subfolder contains flat `.zarr` episode directories and is
 what `LocalEpisodeResolver` should be pointed at directly (the resolver
 does not recurse one level). The training data config
-(`egomimic/hydra_configs/data/tsimulation.yaml`) and
+(`egomimic/hydra_configs/data/pushshapes/packed_episode/simulation/base.yaml`) and
 `tests/regression/smoke_packed_dataset.py` currently target `circle/`.
 
 ## hnet_nets — kernel availability + fallback paths
@@ -414,8 +414,8 @@ moved to ``self.norm_stats.normalize(...)`` /
   valid index. Builds the viz batch by slicing each episode's frame-0
   image and feeding it to the configured ``viz_func``
   (``pushshapes.viz_gt_preds``).
-- `egomimic/hydra_configs/evaluator/eval_hnet.yaml` pulls in
-  ``viz/cartesian.yaml`` and caps ``limit_val_batches: 4`` because AR
+- `egomimic/hydra_configs/evaluator/hnet/base.yaml` pulls in
+  ``viz/cartesian/base.yaml`` and caps ``limit_val_batches: 4`` because AR
   rollout at ``action_horizon=1024`` is slow.
 
 ### Bug fixes uncovered while wiring this up
@@ -512,13 +512,13 @@ Working invocation for the pushshapes packed run (debug-sized — 4 epochs,
 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=hnet_smoke description=trainhydra_test mode=train \
-  data=tsimulation model=hnet_pushshapes evaluator=eval_hnet \
-  trainer=debug logger=debug '~callbacks'
+  data=pushshapes/packed_episode/simulation/base model=hnet_pushshapes/base evaluator=hnet/base \
+  trainer=ddp/debug logger=debug/base '~callbacks'
 ```
 
 Notes:
 
-- `logger=debug` resolves to ``egomimic/hydra_configs/logger/debug.yaml``
+- `logger=debug/base` resolves to ``egomimic/hydra_configs/logger/debug/base.yaml``
   which is intentionally empty (no logger, no wandb). Older
   ``logger=null`` syntax doesn't work — Hydra rejects ``=null`` for
   config-group overrides.
@@ -527,11 +527,11 @@ Notes:
 - The norm-stats step iterates ~28k frames at ~500 sample/s ≈ 1 min on
   first run; subsequent runs can use
   ``norm_stats.precomputed_norm_path=/coc/.../norm_stats`` to skip it.
-- ``trainer=debug`` extends ``trainer/ddp.yaml`` and sets:
+- ``trainer=ddp/debug`` extends ``trainer/ddp/base.yaml`` and sets:
   ``limit_train_batches=2``, ``limit_val_batches=3``,
   ``check_val_every_n_epoch=2``, ``max_epochs=4``, ``profiler=simple``.
 - ``action_horizon`` is hard-coded as ``1024`` in **both** the data
-  YAML (``tsimulation.yaml`` ``get_keymap`` call) **and** the model
+  YAML (``tsimulation/base.yaml`` ``get_keymap`` call) **and** the model
   YAML (``hnet_pushshapes.yaml``). Hydra's
   ``hydra.utils.instantiate(cfg.data, ...)`` passes every top-level key
   to ``MultiDataModuleWrapper.__init__``, which doesn't accept

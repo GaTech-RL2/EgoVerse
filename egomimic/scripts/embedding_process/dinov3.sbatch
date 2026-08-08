@@ -20,7 +20,7 @@ source .venv/bin/activate && export PATH="/storage/project/r-dxu345-0/paphiwetsa
 
 python egomimic/scripts/embedding_process/zarr_embedding.py \
     --transform dinov3 \
-    --dataset-config-path egomimic/hydra_configs/data/cotrain_pi_lang.yaml \
+    --dataset-config-path egomimic/hydra_configs/data/cotrain_pi/lang.yaml \
     --input-keys images.front_1 \
     --batch-size 512 \
     --overwrite

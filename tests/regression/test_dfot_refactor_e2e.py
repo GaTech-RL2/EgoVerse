@@ -52,7 +52,7 @@ _emb.get_embodiment_id = lambda n: 0 if n == "pushshapes_sim" else orig_get_id(n
 
 cfg = OmegaConf.load(
     "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3/"
-    "egomimic/hydra_configs/model/dfot_pushshapes.yaml"
+    "egomimic/hydra_configs/model/dfot/base.yaml"
 )
 model_wrapper_cfg = cfg.robomimic_model
 
