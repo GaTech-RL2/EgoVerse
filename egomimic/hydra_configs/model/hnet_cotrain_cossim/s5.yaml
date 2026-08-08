@@ -1,0 +1,13 @@
+# s5 -- see hnet_cotrain_cossim_base.yaml for the shared skeleton.
+defaults:
+  - hnet_cotrain_cossim/base@_here_
+  - _self_
+
+l0_enc_arch: T3
+l0_dec_arch: T3
+l1_enc_arch: T4
+l1_dec_arch: T4
+apex_arch: T18
+apex_width: 768
+apex_d_intermediate: 2400
+apex_num_heads: 12

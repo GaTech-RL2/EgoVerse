@@ -1,5 +1,5 @@
 defaults:
-  - pi0.5_base
+  - pi05/base@_here_
   - _self_
 
 robomimic_model:

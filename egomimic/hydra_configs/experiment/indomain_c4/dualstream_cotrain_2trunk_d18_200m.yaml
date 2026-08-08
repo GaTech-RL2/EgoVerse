@@ -6,7 +6,7 @@
 # 11.5M + 1 head 2.2M). Sibling of the depth-8 dualstream_cotrain_2trunk_200m.
 # Baseline target may still change (see HNet Active Experiment.md).
 defaults:
-  - override /model: hnet_dualstream_2trunk_d18_200m
+  - override /model: hnet_dualstream/2trunk_d18_200m
   - override /data: indomain_c4_cotrain
   - override /evaluator: gmm_eval_firstend
   - override /logger: csv_wandb
