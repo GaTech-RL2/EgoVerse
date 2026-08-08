@@ -23,6 +23,7 @@ from gymnasium import spaces
 from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import unary_union
 
+from .agents import make_agent
 from .obstacles import (
     OBSTACLE_LEVELS,
     WALL_RADIUS,
@@ -60,38 +61,25 @@ _GOAL_OBJECT_MIN_DIST = 120.0  # goal pose must be visibly different from object
 _SPAWN_MAX_TRIES = 50  # rejection-sampling budget per spawn
 SIM_VERSION = 2  # v2 = v2 geometry + pocket-bottom-only socket friction (the FIX;
                  # the all-faces-grip intermediate was a bug, never a release)
-_SOCKET_LATCH_FACE_TOL = 2.0
 # Slack on the pocket test, so solver jitter at the mouth does not flicker a
 # genuine inside contact to frictionless for a substep.
-_SOCKET_POCKET_PAD = 1.0
 # A contact exactly on a prong tip is at the open mouth, not inside the
 # pocket.  Keep a small inward margin so diagonal outside contacts cannot use
 # the shared tip/inner-face corner to retain friction.
-_SOCKET_POCKET_MOUTH_INSET = 2.0
 # Corners belong to an inner face and an outer/tip face at the same time. Keep
 # them frictionless so only an unambiguous inner-face contact can grip.
-_SOCKET_INNER_CORNER_INSET = 0.5
-_SOCKET_INNER_FACE_TOL = 1.0
 _CT_PUSHER = 1
 _CT_OBJECT = 2
 # Maximum static penetration tolerated before rolling a latched pair back to
 # its previous substep pose. This is twice pymunk's default collision slop:
 # ordinary resting contact remains untouched, while a kinematic socket cannot
 # drag its welded object through a wall.
-_LATCH_STATIC_MAX_DEPTH = 0.2
 # Maximum penetration allowed by the compatibility-gated solid-contact guard.
 # The static limit is twice pymunk's collision slop. The pusher/object limit
 # permits normal pushing contact while rejecting a kinematic pusher tunnelling
 # through an unlatched object.
-_SOLID_OBJECT_STATIC_MAX_DEPTH = 0.2
-_SOLID_PUSHER_OBJECT_MAX_DEPTH = 0.5
 # Preserve the original breakaway behavior when replaying datasets collected
 # before solid-pusher physics existed.
-_LEGACY_SOCKET_UNLATCH_DEPTH = 0.5
-_SOCKET_RELATCH_BLOCK = 20
-_LATCH_DEPTH_EPSILON = 1e-9
-_UNLATCHED_EDGE_MAX_DEPTH = 0.5
-_UNLATCHED_EDGE_GUARD_DISTANCE = 1.0
 # NOTE: capping the socket weld's max_force does stop the latched object being
 # dragged through walls (measured: <= 3e6 no longer tunnels), but it also lets
 # the weld slip during ordinary dragging, which broke 256 of 263 sampled
@@ -156,13 +144,22 @@ class PushShapesEnv(gym.Env):
 
         self.object_shape = object_shape
         self.pusher_shape = pusher_shape
+        # The agent owns its action space, body and contact model, so the env
+        # never branches on pusher_shape again.
+        self.agent = make_agent(
+            pusher_shape,
+            **({"solid_pusher": self.SOLID_PUSHER,
+                "socket_inside_friction_only": self.SOCKET_INSIDE_FRICTION_ONLY,
+                "solid_contact_guard": self.SOLID_CONTACT_GUARD}
+               if pusher_shape == "u_socket" else {}),
+        )
         self.obstacle_level = obstacle_level
         self.render_mode = render_mode
         self.image_size = int(image_size)
         # Replay/coverage checks can disable image rendering while retaining
         # the same physics and numeric observations.
         self._skip_obs_render = False
-        if self.pusher_shape == "u_socket":
+        if self.agent.action_dim == 3:
             self.action_space = spaces.Box(
                 low=np.array([0.0, 0.0, -math.pi], dtype=np.float64),
                 high=np.array(
@@ -198,10 +195,6 @@ class PushShapesEnv(gym.Env):
         self._pusher_body: pymunk.Body | None = None
         self._object_shapes: list[pymunk.Shape] = []
         self._pusher_shapes: list[pymunk.Shape] = []
-        self._socket_constraints: tuple[pymunk.Constraint, ...] | None = None
-        self._socket_latch_local_object_pos: tuple[float, float] | None = None
-        self._socket_latch_angle_offset: float | None = None
-        self._socket_relatch_block = 0
         self._obstacle_segments: list[pymunk.Segment] = []
         self._goal_pose: tuple[float, float, float] = (0.0, 0.0, 0.0)
         self._goal_polygon: Polygon | None = None
@@ -209,12 +202,13 @@ class PushShapesEnv(gym.Env):
     @property
     def solid_pusher(self) -> bool:
         """Fixed Sim V2 collision behavior (read-only)."""
-        return self.SOLID_PUSHER
+        return bool(getattr(self.agent, "solid_pusher", self.SOLID_PUSHER))
 
     @property
     def socket_inside_friction_only(self) -> bool:
         """Fixed Sim V2 U-socket friction behavior (read-only)."""
-        return self.SOCKET_INSIDE_FRICTION_ONLY
+        return bool(getattr(self.agent, "socket_inside_friction_only",
+                            self.SOCKET_INSIDE_FRICTION_ONLY))
 
     @property
     def solid_contact_guard(self) -> bool:
@@ -251,7 +245,7 @@ class PushShapesEnv(gym.Env):
     @property
     def socket_latched(self) -> bool:
         """Whether the T stem is rigidly latched to a ``u_socket`` pusher."""
-        return self._socket_constraints is not None
+        return bool(getattr(self.agent, "socket_latched", False))
 
     def get_episode_init(self) -> dict:
         """Capture full episode init state for deterministic replay."""
@@ -298,10 +292,6 @@ class PushShapesEnv(gym.Env):
         self._space = pymunk.Space()
         self._space.gravity = (0.0, 0.0)
         self._space.damping = self.DAMPING
-        self._socket_constraints = None
-        self._socket_latch_local_object_pos = None
-        self._socket_latch_angle_offset = None
-        self._socket_relatch_block = 0
 
         self._build_boundary_walls()
         self._obstacle_segments = build_obstacles(self._space, self.obstacle_level)
@@ -317,11 +307,12 @@ class PushShapesEnv(gym.Env):
         self._object_body, self._object_shapes = make_object(
             self.object_shape, self._space, object_pos, object_angle
         )
-        self._pusher_body, self._pusher_shapes = make_pusher(
-            self.pusher_shape, self._space, pusher_pos
+        self.agent.on_reset(self)
+        self._pusher_body, self._pusher_shapes = self.agent.build(
+            self._space, pusher_pos
         )
         # Space is rebuilt per episode, so the handler is re-registered here.
-        if self.socket_inside_friction_only and self.pusher_shape == "u_socket":
+        if getattr(self.agent, "socket_inside_friction_only", False):
             for shape in self._pusher_shapes:
                 # Outside contacts are frictionless by construction. The
                 # pre-solve callback restores the original combined friction
@@ -333,7 +324,7 @@ class PushShapesEnv(gym.Env):
             self._space.on_collision(
                 _CT_PUSHER,
                 _CT_OBJECT,
-                pre_solve=self._socket_friction_pre_solve,
+                pre_solve=lambda a, sp, d: self.agent._socket_friction_pre_solve(self, a, sp, d),
             )
 
         self._goal_pose = (float(goal_pos[0]), float(goal_pos[1]), float(goal_angle))
@@ -349,7 +340,7 @@ class PushShapesEnv(gym.Env):
         self, action: np.ndarray
     ) -> tuple[dict[str, np.ndarray], float, bool, bool, dict[str, Any]]:
         action = np.asarray(action, dtype=np.float64).reshape(-1)
-        expected_shape = (3,) if self.pusher_shape == "u_socket" else (2,)
+        expected_shape = (self.agent.action_dim,)
         if action.shape != expected_shape:
             raise ValueError(
                 f"action must be shape {expected_shape} for "
@@ -359,31 +350,17 @@ class PushShapesEnv(gym.Env):
         # Action = desired pusher XY in world coords. Walk toward it at
         # PUSHER_SPEED via kinematic velocity commands; pymunk's solver still
         # resolves contact forces against the object.
-        tx = float(np.clip(action[0], 0.0, self.WORLD_SIZE))
-        ty = float(np.clip(action[1], 0.0, self.WORLD_SIZE))
-        target_angle = (
-            (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
-            if self.pusher_shape == "u_socket"
-            else None
-        )
+        tx, ty, target_angle = self.agent.target_pose(action)
+        tx = float(np.clip(tx, 0.0, self.WORLD_SIZE))
+        ty = float(np.clip(ty, 0.0, self.WORLD_SIZE))
 
         dt_sub = self.DT / self.SUBSTEPS
         for _ in range(self.SUBSTEPS):
-            solid_contact_pose = self._capture_solid_contact_guard_pose()
-            unlatched_edge_pose = self._capture_solid_unlatched_edge_pose()
-            latched_pose = (
-                self._capture_latched_pair_pose()
-                if self.solid_pusher and self.socket_latched
-                else None
-            )
+            captured = self.agent.pre_substep(self)
             self._drive_pusher_toward(tx, ty, dt_sub, target_angle)
             self._space.step(dt_sub)
             self._clamp_pusher_to_static()
-            self._maybe_latch_socket()
-            self._enforce_solid_socket_latch()
-            self._guard_socket_penetration(latched_pose)
-            self._guard_solid_unlatched_object_at_arena_edge(unlatched_edge_pose)
-            self._guard_solid_contact_penetration(solid_contact_pose)
+            self.agent.post_substep(self, captured)
 
         # Zero pusher velocity (and angular velocity) between outer steps so
         # stale motion doesn't drift contacts when no new action comes in.
@@ -421,7 +398,7 @@ class PushShapesEnv(gym.Env):
         if (
             agent_pos is not None or agent_angle is not None or object_pose is not None
         ) and self.socket_latched:
-            self._release_socket_latch()
+            self.agent._release_socket_latch(self)
 
         if agent_pos is not None:
             self._pusher_body.position = (float(agent_pos[0]), float(agent_pos[1]))
@@ -506,174 +483,12 @@ class PushShapesEnv(gym.Env):
         self._pusher_body = None
         self._object_shapes = []
         self._pusher_shapes = []
-        self._socket_constraints = None
-        self._socket_latch_local_object_pos = None
-        self._socket_latch_angle_offset = None
         self._obstacle_segments = []
         self._goal_polygon = None
 
     # ------------------------------------------------------------------ #
     # internals
     # ------------------------------------------------------------------ #
-
-    def _socket_contact_is_on_inner_face(
-        self,
-        pusher_shape: pymunk.Shape,
-        pusher_local: pymunk.Vec2d,
-        object_local: pymunk.Vec2d,
-    ) -> bool:
-        """Whether a contact lies on the U pocket's sticky bottom face."""
-        px, py = float(pusher_local.x), float(pusher_local.y)
-        ox, oy = float(object_local.x), float(object_local.y)
-
-        object_is_in_pocket = (
-            U_SOCKET_POCKET_X_MIN - _SOCKET_POCKET_PAD
-            <= ox
-            <= U_SOCKET_POCKET_X_MAX - _SOCKET_POCKET_MOUTH_INSET
-            and abs(oy) <= U_SOCKET_POCKET_Y_HALF + _SOCKET_POCKET_PAD
-        )
-        if not object_is_in_pocket:
-            return False
-
-        # Shape order is fixed by make_pusher(): two prongs, then crossbar.
-        # The prong side walls are deliberately frictionless, including their
-        # inward-facing sides. Only the crossbar face at the closed bottom of
-        # the pocket can grip the T.
-        crossbar = self._pusher_shapes[-1]
-        return (
-            pusher_shape is crossbar
-            and abs(px - U_SOCKET_POCKET_X_MIN) <= _SOCKET_INNER_FACE_TOL
-            and abs(py)
-            <= U_SOCKET_POCKET_Y_HALF - _SOCKET_INNER_CORNER_INSET
-        )
-
-    def _socket_friction_pre_solve(self, arbiter, space, data) -> None:
-        """Enable friction only on the U pocket's inward bottom surface.
-
-        Every V3 socket shape starts frictionless. This callback restores the
-        V2 combined friction only for the crossbar's unambiguous inward face.
-        The two pocket side walls stay frictionless. Geometry and normal push
-        forces are unchanged.
-        """
-        pusher = self._pusher_body
-        pusher_first = arbiter.shapes[0].body is pusher
-        pusher_shape = arbiter.shapes[0] if pusher_first else arbiter.shapes[1]
-        arbiter.friction = 0.0
-
-        for point in arbiter.contact_point_set.points:
-            pusher_world = point.point_a if pusher_first else point.point_b
-            object_world = point.point_b if pusher_first else point.point_a
-            pusher_local = pusher.world_to_local(pusher_world)
-            object_local = pusher.world_to_local(object_world)
-            if self._socket_contact_is_on_inner_face(
-                pusher_shape, pusher_local, object_local
-            ):
-                # Pymunk combines two 0.6 shape frictions as 0.36. The V3
-                # socket shapes start at zero, so restore that value here.
-                arbiter.friction = 0.36
-                return
-
-    def _maybe_latch_socket(self) -> None:
-        """Rigidly attach any T face touching the socket's inner crossbar.
-
-        Contact on the crossbar's outer/back face is deliberately ignored.
-        A pivot plus a 1:1 gear joint acts as a planar weld while still letting
-        the dynamic T collide with walls and obstacles.
-        """
-        if (
-            self.socket_latched
-            or self.pusher_shape != "u_socket"
-            or self.object_shape != "T"
-        ):
-            return
-        if self._socket_relatch_block > 0:
-            self._socket_relatch_block -= 1
-            return
-
-        pusher = self._pusher_body
-        obj = self._object_body
-        crossbar = self._pusher_shapes[-1]
-        latch_points: list[pymunk.Vec2d] = []
-
-        c, s = math.cos(float(pusher.angle)), math.sin(float(pusher.angle))
-        for query in self._space.shape_query(crossbar):
-            if query.shape.body is not obj:
-                continue
-            normal = query.contact_point_set.normal
-            normal_local_x = c * float(normal.x) + s * float(normal.y)
-            if normal_local_x <= 0.5:
-                continue
-            for point in query.contact_point_set.points:
-                contact_local = pusher.world_to_local(point.point_a)
-                if (
-                    abs(float(contact_local.x) - U_SOCKET_CROSSBAR_INNER_X)
-                    <= _SOCKET_LATCH_FACE_TOL
-                    and abs(float(contact_local.y))
-                    <= U_SOCKET_POCKET_Y_HALF - _SOCKET_INNER_CORNER_INSET
-                ):
-                    latch_points.append(point.point_a)
-
-        if not latch_points:
-            return
-
-        contact_world = sum(latch_points, pymunk.Vec2d(0.0, 0.0)) / len(latch_points)
-        pivot = pymunk.PivotJoint(pusher, obj, tuple(contact_world))
-        gear = pymunk.GearJoint(
-            pusher,
-            obj,
-            phase=float(obj.angle) - float(pusher.angle),
-            ratio=1.0,
-        )
-        # Keep the socket and the T colliding while welded. With collisions
-        # off, any slip in the weld let the T sink bodily into the prongs
-        # (measured up to 306 units^2 of overlap on real episodes) because
-        # nothing was left to push it back out.
-        pivot.collide_bodies = True
-        gear.collide_bodies = True
-        # Correct positional drift in the weld immediately instead of bleeding
-        # it off over ~a second, which is what allowed the slip to accumulate.
-        pivot.error_bias = 0.0
-        gear.error_bias = 0.0
-        self._space.add(pivot, gear)
-        self._socket_constraints = (pivot, gear)
-        local_object_pos = pusher.world_to_local(obj.position)
-        self._socket_latch_local_object_pos = (
-            float(local_object_pos.x),
-            float(local_object_pos.y),
-        )
-        self._socket_latch_angle_offset = float(obj.angle) - float(pusher.angle)
-
-    def _enforce_solid_socket_latch(self) -> None:
-        """Keep a solid-physics latch at its exact captured relative pose.
-
-        Pymunk constraints alone can stretch when a kinematic body drives a
-        welded dynamic body against an immovable wall. For new solid-pusher
-        collection, make the intended rigid attachment explicit after every
-        substep. The penetration guard can then stop the complete rigid pair.
-        """
-        if (
-            not self.solid_pusher
-            or not self.socket_latched
-            or self._socket_latch_local_object_pos is None
-            or self._socket_latch_angle_offset is None
-        ):
-            return
-
-        pusher = self._pusher_body
-        obj = self._object_body
-        object_position = pusher.local_to_world(self._socket_latch_local_object_pos)
-        obj.angle = float(pusher.angle) + self._socket_latch_angle_offset
-        obj.position = object_position
-
-        # Match the instantaneous rigid-body velocity at the object's center.
-        offset = object_position - pusher.position
-        omega = float(pusher.angular_velocity)
-        obj.velocity = (
-            float(pusher.velocity.x) - omega * float(offset.y),
-            float(pusher.velocity.y) + omega * float(offset.x),
-        )
-        obj.angular_velocity = omega
-        self._space.reindex_shapes_for_body(obj)
 
     def _clamp_pusher_to_static(self) -> None:
         """Keep the kinematic pusher out of walls and obstacles.
@@ -750,189 +565,6 @@ class PushShapesEnv(gym.Env):
                     depths.append(abs(float(point.distance)))
         return max(depths, default=0.0)
 
-    def _capture_solid_unlatched_edge_pose(
-        self,
-    ) -> tuple[
-        tuple[float, float, float],
-        tuple[float, float, float],
-        float,
-        float,
-    ] | None:
-        if not self.solid_pusher or self.socket_latched:
-            return None
-        pusher = self._pusher_body
-        obj = self._object_body
-        overflow, _clearance = self._object_arena_metrics()
-        return (
-            (float(pusher.position.x), float(pusher.position.y), float(pusher.angle)),
-            (float(obj.position.x), float(obj.position.y), float(obj.angle)),
-            overflow,
-            self._pusher_object_penetration_depth(),
-        )
-
-    def _guard_solid_unlatched_object_at_arena_edge(
-        self,
-        previous_pose: tuple[
-            tuple[float, float, float],
-            tuple[float, float, float],
-            float,
-            float,
-        ]
-        | None,
-    ) -> None:
-        """Roll back unsafe pusher/object motion at the arena boundary.
-
-        The solid socket is kinematic, so it can otherwise bulldoze an
-        unlatched T through a wall or keep advancing inside a T whose position
-        was merely projected back in bounds.  Restore both bodies to their
-        last valid substep when the silhouette leaves the arena, or when
-        pusher/object penetration grows beyond normal resting contact while
-        the T is at an edge. Free-space, insertion, and legacy motion remain
-        untouched.
-        """
-        if previous_pose is None:
-            return
-
-        pusher_pose, object_pose, previous_overflow, previous_depth = previous_pose
-        overflow, clearance = self._object_arena_metrics()
-        depth = self._pusher_object_penetration_depth()
-        allowed_depth = max(_UNLATCHED_EDGE_MAX_DEPTH, previous_depth)
-        escaped_farther = overflow > previous_overflow + _LATCH_DEPTH_EPSILON
-        excessive_overlap = (
-            clearance <= _UNLATCHED_EDGE_GUARD_DISTANCE
-            and depth > allowed_depth + _LATCH_DEPTH_EPSILON
-        )
-        if not escaped_farther and not excessive_overlap:
-            return
-
-        # A latch created during this substep may have captured an already
-        # invalid, deeply overlapping pose. Drop it before restoring the last
-        # unlatched valid configuration.
-        if self.socket_latched:
-            self._release_socket_latch()
-        pusher = self._pusher_body
-        obj = self._object_body
-        pusher.position = pusher_pose[:2]
-        pusher.angle = pusher_pose[2]
-        pusher.velocity = (0.0, 0.0)
-        pusher.angular_velocity = 0.0
-
-        # Angle first because the T has a non-zero center-of-gravity offset.
-        obj.angle = object_pose[2]
-        obj.position = object_pose[:2]
-        obj.velocity = (0.0, 0.0)
-        obj.angular_velocity = 0.0
-        self._space.reindex_shapes_for_body(pusher)
-        self._space.reindex_shapes_for_body(obj)
-
-    def _capture_latched_pair_pose(
-        self,
-    ) -> tuple[
-        tuple[float, float, float],
-        tuple[float, float, float],
-        float,
-    ]:
-        """Capture both poses and their static penetration before a substep."""
-        pusher = self._pusher_body
-        obj = self._object_body
-        return (
-            (float(pusher.position.x), float(pusher.position.y), float(pusher.angle)),
-            (float(obj.position.x), float(obj.position.y), float(obj.angle)),
-            self._object_static_penetration_depth(),
-        )
-
-    def _capture_solid_contact_guard_pose(
-        self,
-    ) -> tuple[
-        tuple[float, float, float],
-        tuple[float, float, float],
-        float,
-        float,
-        bool,
-    ] | None:
-        """Capture the last safe pair pose for solid-contact guarding."""
-        if not self.solid_pusher or not self.solid_contact_guard:
-            return None
-        pusher = self._pusher_body
-        obj = self._object_body
-        return (
-            (float(pusher.position.x), float(pusher.position.y), float(pusher.angle)),
-            (float(obj.position.x), float(obj.position.y), float(obj.angle)),
-            self._object_static_penetration_depth(),
-            self._pusher_object_penetration_depth(),
-            self.socket_latched,
-        )
-
-    def _guard_solid_contact_penetration(
-        self,
-        previous_pose: tuple[
-            tuple[float, float, float],
-            tuple[float, float, float],
-            float,
-            float,
-            bool,
-        ] | None,
-    ) -> None:
-        """Stop unsafe solid contact while preserving normal pushing.
-
-        Pymunk normally resolves dynamic-object/static contacts, but the
-        kinematic pusher has effectively infinite mass and can create a deep
-        pusher/object or object/static overlap before the solver separates the
-        bodies. Roll back only when penetration grows beyond normal contact.
-        A pose that begins slightly embedded may still move outward, avoiding
-        trapping manually restored states at an obstacle.
-        """
-        if previous_pose is None:
-            return
-        (
-            pusher_pose,
-            object_pose,
-            previous_static_depth,
-            previous_pusher_depth,
-            was_latched,
-        ) = previous_pose
-        current_static_depth = self._object_static_penetration_depth()
-        current_pusher_depth = self._pusher_object_penetration_depth()
-        static_is_unsafe = current_static_depth > max(
-            _SOLID_OBJECT_STATIC_MAX_DEPTH,
-            previous_static_depth,
-        ) + _LATCH_DEPTH_EPSILON
-        # A latched U-socket intentionally contains the T and can report deep
-        # polygon overlap. Only guard direct pusher/object tunnelling while the
-        # pair remained unlatched for the whole substep.
-        pusher_is_unsafe = (
-            not was_latched
-            and not self.socket_latched
-            and current_pusher_depth
-            > max(_SOLID_PUSHER_OBJECT_MAX_DEPTH, previous_pusher_depth)
-            + _LATCH_DEPTH_EPSILON
-        )
-        if not static_is_unsafe and not pusher_is_unsafe:
-            return
-
-        # A latch created during the unsafe substep captured an invalid pose.
-        # Drop only that new latch; a pre-existing latch remains valid at its
-        # restored rigid-pair pose.
-        if self.socket_latched and not was_latched:
-            self._release_socket_latch()
-            self._socket_relatch_block = _SOCKET_RELATCH_BLOCK
-
-        pusher = self._pusher_body
-        obj = self._object_body
-        pusher.position = pusher_pose[:2]
-        pusher.angle = pusher_pose[2]
-        pusher.velocity = (0.0, 0.0)
-        pusher.angular_velocity = 0.0
-
-        # Angle first because the T's non-zero center-of-gravity offset means
-        # setting it second would shift the restored world-space position.
-        obj.angle = object_pose[2]
-        obj.position = object_pose[:2]
-        obj.velocity = (0.0, 0.0)
-        obj.angular_velocity = 0.0
-        self._space.reindex_shapes_for_body(pusher)
-        self._space.reindex_shapes_for_body(obj)
-
     def _shapes_static_penetration_depth(
         self,
         body: pymunk.Body,
@@ -964,135 +596,6 @@ class PushShapesEnv(gym.Env):
                 self._pusher_shapes,
             ),
         )
-
-    def _set_solid_latched_pair_pose(
-        self,
-        position: tuple[float, float],
-        angle: float,
-    ) -> None:
-        """Set the socket pose and restore the captured rigid attachment."""
-        self._pusher_body.position = position
-        self._pusher_body.angle = angle
-        self._space.reindex_shapes_for_body(self._pusher_body)
-        self._enforce_solid_socket_latch()
-
-    def _guard_socket_penetration(
-        self,
-        previous_pose: tuple[
-            tuple[float, float, float],
-            tuple[float, float, float],
-            float,
-        ]
-        | None,
-    ) -> None:
-        """Keep a welded socket/object pair out of static geometry.
-
-        A kinematic pusher has effectively infinite mass, so pymunk contact
-        impulses cannot stop its weld from dragging the dynamic T through a
-        wall. If a substep creates meaningful static penetration, restore both
-        bodies to their last valid poses and stop their motion. The weld stays
-        intact: pushing harder cannot tear the T out of the socket.
-        """
-        if self._socket_constraints is None:
-            return
-
-        penetration_depths: list[float] = []
-        if previous_pose is None:
-            # Legacy replay uses live arbiters to preserve the old breakaway
-            # path exactly.
-            def _measure(arbiter: pymunk.Arbiter, depths: list[float]) -> None:
-                if not any(
-                    shape.body.body_type == pymunk.Body.STATIC
-                    for shape in arbiter.shapes
-                ):
-                    return
-                for point in arbiter.contact_point_set.points:
-                    depths.append(max(0.0, -float(point.distance)))
-
-            self._object_body.each_arbiter(_measure, penetration_depths)
-        else:
-            # Solid-physics object poses are explicitly locked after the space
-            # step, so query their current geometry rather than stale arbiters.
-            # object-only (2026-08-05): freeze ONLY when the *inserted T* is
-            # driven into static geometry. The socket's own body touching an
-            # obstacle from OUTSIDE is handled softly by _clamp_pusher_to_static
-            # (slide out), so a socketed pair no longer sticks against a wall
-            # unless the T itself would tunnel through it.
-            penetration_depths.append(self._object_static_penetration_depth())
-        if not penetration_depths:
-            return
-        max_depth = max(penetration_depths)
-
-        if previous_pose is None:
-            if not self.solid_pusher and max_depth > _LEGACY_SOCKET_UNLATCH_DEPTH:
-                self._release_socket_latch()
-                self._socket_relatch_block = _SOCKET_RELATCH_BLOCK
-            return
-        pusher_pose, object_pose, previous_depth = previous_pose
-        allowed_depth = max(_LATCH_STATIC_MAX_DEPTH, previous_depth)
-        if max_depth <= allowed_depth + _LATCH_DEPTH_EPSILON:
-            # Crucially, a pair that begins slightly embedded may move outward.
-            # Only increasing penetration is blocked; otherwise it can become
-            # permanently trapped at the wall by its own safety guard.
-            return
-
-        candidate_position = (
-            float(self._pusher_body.position.x),
-            float(self._pusher_body.position.y),
-        )
-        candidate_angle = float(self._pusher_body.angle)
-        candidate_velocity = (
-            float(self._pusher_body.velocity.x),
-            float(self._pusher_body.velocity.y),
-        )
-        candidate_angular_velocity = float(self._pusher_body.angular_velocity)
-
-        # If only rotation presses into the wall, preserve the safe outward
-        # translation and temporarily block angular motion.
-        self._pusher_body.velocity = candidate_velocity
-        self._pusher_body.angular_velocity = 0.0
-        self._set_solid_latched_pair_pose(candidate_position, pusher_pose[2])
-        if (
-            self._object_static_penetration_depth()
-            <= allowed_depth + _LATCH_DEPTH_EPSILON
-        ):
-            return
-
-        # Conversely, allow a safe rotation in place when translation is the
-        # component trying to move deeper into static geometry.
-        self._pusher_body.velocity = (0.0, 0.0)
-        self._pusher_body.angular_velocity = candidate_angular_velocity
-        self._set_solid_latched_pair_pose(pusher_pose[:2], candidate_angle)
-        if (
-            self._object_static_penetration_depth()
-            <= allowed_depth + _LATCH_DEPTH_EPSILON
-        ):
-            return
-
-        self._pusher_body.position = pusher_pose[:2]
-        self._pusher_body.angle = pusher_pose[2]
-        self._pusher_body.velocity = (0.0, 0.0)
-        self._pusher_body.angular_velocity = 0.0
-
-        # Angle first for the T: its non-zero center of gravity means changing
-        # angle after position would shift the body's world-space position.
-        self._object_body.angle = object_pose[2]
-        self._object_body.position = object_pose[:2]
-        self._object_body.velocity = (0.0, 0.0)
-        self._object_body.angular_velocity = 0.0
-
-        self._space.reindex_shapes_for_body(self._pusher_body)
-        self._space.reindex_shapes_for_body(self._object_body)
-
-    def _release_socket_latch(self) -> None:
-        """Remove the current socket weld, if any."""
-        if self._socket_constraints is None:
-            return
-        if self._space is not None:
-            self._space.remove(*self._socket_constraints)
-        self._socket_constraints = None
-        self._socket_latch_local_object_pos = None
-        self._socket_latch_angle_offset = None
 
     def _drive_pusher_toward(
         self,
