@@ -9,7 +9,7 @@
 # no gradient.
 
 defaults:
-  - override /model: hpt_cotrain_pushshapes_flow_shared_head_c4_big
+  - override /model: hpt/cotrain_flow_shared_head_c4_big
   - override /data: indomain_c4_hpt_cotrain
   - override /evaluator: gmm_eval_firstend
   - override /logger: csv_wandb
