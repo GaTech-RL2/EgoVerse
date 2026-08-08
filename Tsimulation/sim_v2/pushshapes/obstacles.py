@@ -9,7 +9,8 @@ Level 0 is the empty arena. Levels 1..6 are the edge-wall family, levels
 7..10 are wall-anchored L shapes, levels 11..14 are wide gates, and levels
 15..18 are four rotations of a floating L copied from the hand-drawn layout,
 and 19..22 are middle sticks—two diagonal, one horizontal, and one vertical—
-while 27..30 are four open-U rotations with generous gaps (see
+23..24 are radial room partitions, 25 is a larger floating plus, while 27..30
+are four open-U rotations (see
 :data:`SKETCH_FAMILY_NAMES`).
 
 ``scripts/plot_obstacle_levels.py`` renders any range of levels into one
@@ -353,6 +354,64 @@ def _middle_axis_levels() -> list[list[Segment]]:
     ]
 
 
+def _radial_room_level(room_count: int) -> list[Segment]:
+    """Room partitions meeting at center/edge, with 150 px doors."""
+    import math
+
+    center = _W / 2.0
+    inner = 80.0
+    outer = 230.0
+    segments: list[Segment] = []
+    for i in range(room_count):
+        theta = math.pi / 2.0 + 2.0 * math.pi * i / room_count
+        dx, dy = math.cos(theta), math.sin(theta)
+        candidates = []
+        if dx > 1e-9:
+            candidates.append((_W - center) / dx)
+        elif dx < -1e-9:
+            candidates.append((0.0 - center) / dx)
+        if dy > 1e-9:
+            candidates.append((_W - center) / dy)
+        elif dy < -1e-9:
+            candidates.append((0.0 - center) / dy)
+        edge = min(value for value in candidates if value > 0.0)
+        center_point = (center, center)
+        inner_point = (center + inner * dx, center + inner * dy)
+        outer_point = (center + outer * dx, center + outer * dy)
+        edge_point = (center + edge * dx, center + edge * dy)
+        segments.extend([(center_point, inner_point), (outer_point, edge_point)])
+    return segments
+
+
+def _radial_room_levels() -> list[list[Segment]]:
+    return [_radial_room_level(3), _radial_room_level(4)]
+
+
+def _middle_plus_level() -> list[Segment]:
+    """A larger floating plus sign, clear of all four arena edges."""
+    d = 144.0
+    c = _W / 2.0
+    return [((d, c), (_W - d, c)), ((c, d), (c, _W - d))]
+
+
+def _middle_three_way_level() -> list[Segment]:
+    """Larger central three-way partition, with no edge-reaching walls."""
+    import math
+
+    center = _W / 2.0
+    radius = 120.0
+    return [
+        (
+            (center, center),
+            (
+                center + radius * math.cos(math.pi / 2.0 + 2.0 * math.pi * i / 3.0),
+                center + radius * math.sin(math.pi / 2.0 + 2.0 * math.pi * i / 3.0),
+            ),
+        )
+        for i in range(3)
+    ]
+
+
 def _open_u_levels() -> list[list[Segment]]:
     """Four open-U pockets with a 212 px opening and wide outer routes."""
     return _quarter_turn_levels(
@@ -510,7 +569,7 @@ def _spiral_levels() -> list[list[Segment]]:
 
 
 def _collection_levels() -> dict[int, list[Segment]]:
-    """Active collection levels 1..22 and 27..30, in family order."""
+    """Active collection levels 1..24 and 27..30, in family order."""
     base_families = (
         _edge_wall_levels()
         + _edge_l_levels()
@@ -518,9 +577,12 @@ def _collection_levels() -> dict[int, list[Segment]]:
         + _floating_backward_l_levels()
         + _middle_diagonal_levels()
         + _middle_axis_levels()
+        + _radial_room_levels()
+        + [_middle_plus_level()]
+        + [_middle_three_way_level()]
     )
     u_families = _open_u_levels()
-    assert len(base_families) == 22, len(base_families)
+    assert len(base_families) == 26, len(base_families)
     assert len(u_families) == 4, len(u_families)
     return {
         **{1 + i: segs for i, segs in enumerate(base_families)},
@@ -536,6 +598,10 @@ SKETCH_FAMILY_NAMES: dict[int, str] = {
     **{15 + i: "floating_l" for i in range(4)},
     **{19 + i: "middle_diagonal" for i in range(2)},
     **{21 + i: "middle_axis" for i in range(2)},
+    23: "radial_3room",
+    24: "radial_4room",
+    25: "middle_plus",
+    26: "middle_three_way",
     **{27 + i: "open_u" for i in range(4)},
 }
 
