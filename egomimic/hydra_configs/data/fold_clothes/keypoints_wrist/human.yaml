@@ -1,0 +1,24 @@
+defaults:
+  - /data/debug/single_episode/human_cartesian@_here_
+  - _self_
+
+train_datasets:
+  human_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: keypoints
+      transform_list:
+        action_mode: keypoints
+        coord_frame: eef_frame
+        rotation_mode: euler
+    filters:
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['task'] == 'fold_clothes_indomain'"
+
+train_dataloader_params:
+  human_bimanual:
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    num_workers: 6

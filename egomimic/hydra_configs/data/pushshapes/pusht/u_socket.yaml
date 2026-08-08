@@ -1,0 +1,55 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# HPT chunked dataloader for pushshapes_sim on the U-socket set
+# (3000 T-shape episodes pushed by the orientation-controlled u_socket).
+#
+# Same layout as circle.yaml — actions (T, 2), state (T, 5) — so it runs
+# against model=pusht/u_socket with no stem changes. Episodes are 343
+# frames (vs circle_3000's shorter runs): the smaller contact patch needs
+# more steps to seat the T, which matters for the arc-matched metric because
+# a 32-step chunk covers LESS arc length here than it does for circle.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v1/u_socket_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    # bounds_check=false: skip the per-sample quantile bounds scan entirely.
+    # skip_bounds_check only suppressed the RESAMPLE on a violation -- the scan
+    # still ran on every __getitem__ and logged, which is pure overhead once we
+    # have decided to keep out-of-quantile samples.
+    skip_bounds_check: true
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v1/u_socket_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    # bounds_check=false: skip the per-sample quantile bounds scan entirely.
+    # skip_bounds_check only suppressed the RESAMPLE on a violation -- the scan
+    # still ran on every __getitem__ and logged, which is pure overhead once we
+    # have decided to keep out-of-quantile samples.
+    skip_bounds_check: true
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4

@@ -24,7 +24,7 @@ from egomimic.models.hnet.context import HNetContext
 
 cfg = OmegaConf.load(
     "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3/"
-    "egomimic/hydra_configs/model/hnet_pushshapes_mamba_encdec.yaml"
+    "egomimic/hydra_configs/model/hnet_pushshapes/mamba_encdec.yaml"
 )
 rcfg = cfg.robomimic_model.outer_stage  # mamba lives under outer_stage now
 

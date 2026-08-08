@@ -1,4 +1,4 @@
-# s6 -- see hnet_cotrain_cossim_base.yaml for the shared skeleton.
+# s6 -- see hnet_cotrain_cossim/base.yaml for the shared skeleton.
 defaults:
   - hnet_cotrain_cossim/base@_here_
   - _self_

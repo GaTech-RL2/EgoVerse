@@ -1,8 +1,8 @@
 """
 Language visualization script.
 
-Reads a data config (e.g. cotrain_pi_lang.yaml) to load datasets and a
-visualization config (e.g. pi_cartesian_lang.yaml) to determine per-embodiment
+Reads a data config (e.g. cotrain_pi/lang.yaml) to load datasets and a
+visualization config (e.g. pi/cartesian_lang.yaml) to determine per-embodiment
 image/action keys. For each dataset, iterates batches and writes MP4 videos of
 GT trajectories with language annotation overlays, following the same buffering
 logic as EvalVideo.

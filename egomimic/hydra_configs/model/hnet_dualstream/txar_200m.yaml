@@ -1,4 +1,4 @@
-# txar_200m -- shared skeleton in hnet_dualstream_txar_base.yaml
+# txar_200m -- shared skeleton in hnet_dualstream/txar_base.yaml
 defaults:
   - hnet_dualstream/txar_base@_here_
   - _self_

@@ -1,0 +1,113 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Cotrain dataloader: circle + u_socket, time-chunked (no arc-tok).
+#
+# EQUAL AMOUNTS: MultiDataModuleWrapper wraps the per-domain loaders in
+# CombinedLoader(..., "max_size_cycle"), which yields one batch from EVERY
+# domain per step and cycles whichever is shorter. With the SAME batch_size on
+# both domains, each optimizer step therefore sees exactly 64 circle and 64
+# u_socket samples — a 1:1 mix by construction, independent of the two sets'
+# differing episode lengths. Keep the two batch_size values equal or the ratio
+# silently shifts.
+#
+# 64 + 64 = 128 samples/step, matching the single-pusher runs' batch of 128, so
+# the optimizer sees the same number of samples per step as the baselines.
+#
+# u_socket episodes carry the same ``pushshapes_sim`` embodiment tag on disk as
+# circle, so the resolver re-stamps them as pushshapes_sim_u_socket (id 18);
+# without the override both domains would collapse to one and the per-domain
+# proprio stems could not be dispatched.
+#
+# The circle domain is padded 2-D -> 3-D so both share the act_dim=3 head. The
+# u_socket domain needs no transform: it is already 3-D.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/rco3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_transform_list
+        mode: pad_only
+        pad_action_dim: 3
+    mode: total
+    # bounds_check=false: skip the per-sample quantile bounds scan entirely.
+    # skip_bounds_check only suppressed the RESAMPLE on a violation -- the scan
+    # still ran on every __getitem__ and logged, which is pure overhead once we
+    # have decided to keep out-of-quantile samples.
+    skip_bounds_check: true
+    bounds_check: false
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v1/u_socket_3000
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    # bounds_check=false: skip the per-sample quantile bounds scan entirely.
+    # skip_bounds_check only suppressed the RESAMPLE on a violation -- the scan
+    # still ran on every __getitem__ and logged, which is pure overhead once we
+    # have decided to keep out-of-quantile samples.
+    skip_bounds_check: true
+    bounds_check: false
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/rco3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_transform_list
+        mode: pad_only
+        pad_action_dim: 3
+    mode: total
+    # bounds_check=false: skip the per-sample quantile bounds scan entirely.
+    # skip_bounds_check only suppressed the RESAMPLE on a violation -- the scan
+    # still ran on every __getitem__ and logged, which is pure overhead once we
+    # have decided to keep out-of-quantile samples.
+    skip_bounds_check: true
+    bounds_check: false
+  pushshapes_sim_u_socket:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v1/u_socket_3000
+      embodiment_override: pushshapes_sim_u_socket
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 32
+      transform_list: null
+    mode: total
+    # bounds_check=false: skip the per-sample quantile bounds scan entirely.
+    # skip_bounds_check only suppressed the RESAMPLE on a violation -- the scan
+    # still ran on every __getitem__ and logged, which is pure overhead once we
+    # have decided to keep out-of-quantile samples.
+    skip_bounds_check: true
+    bounds_check: false
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 64
+    num_workers: 3
+  pushshapes_sim_u_socket:
+    batch_size: 64
+    num_workers: 3
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 64
+    num_workers: 3
+  pushshapes_sim_u_socket:
+    batch_size: 64
+    num_workers: 3

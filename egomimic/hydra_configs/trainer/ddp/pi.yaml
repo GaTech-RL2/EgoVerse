@@ -1,0 +1,5 @@
+defaults:
+  - /trainer/ddp/base@_here_
+  - _self_
+
+strategy: ddp_find_unused_parameters_true
