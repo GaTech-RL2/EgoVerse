@@ -12,7 +12,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # instead of LSTMCore, and ``core: transformer`` guards that the config + algo
 # agree. Default ``core: lstm`` everywhere else stays byte-identical.
 #
-# Inherited paper settings (unchanged from bc_rnn_pushshapes_paperexact):
+# Inherited paper settings (unchanged from base):
 #  1. actor_layer_dims = ()  -> actor_mlp_dims: [] (head reads core.hidden_dim)
 #  3. paper-exact obs encoder (raw 2-dim low-dim + ReLU image + no fusion MLP,
 #       concat 64+2=66 feeds the core directly)

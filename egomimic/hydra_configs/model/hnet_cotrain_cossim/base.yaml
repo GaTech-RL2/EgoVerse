@@ -1,3 +1,25 @@
+# Base for the hnet_cotrain_cossim capacity-allocation sweep.
+#
+# Every variant in this family is this exact 5-stage skeleton with a
+# different split of transformer depth between the per-embodiment levels
+# (l0/l1) and the shared apex. The six knobs below are the whole sweep;
+# variants set them and inherit everything else.
+#
+# NOTE: outer_stage.hnet.stages is a YAML *list*, and OmegaConf replaces
+# lists wholesale on merge -- a variant cannot override one element. That
+# is why the knobs are top-level scalars referenced by interpolation
+# rather than overridden in place.
+
+# ---- sweep knobs (override these in variants) ----
+l0_enc_arch: T1
+l0_dec_arch: T1
+l1_enc_arch: T1
+l1_dec_arch: T1
+apex_arch: T12
+apex_width: 1024
+apex_d_intermediate: 3168
+apex_num_heads: 16
+
 _target_: egomimic.pl_utils.pl_model.ModelWrapper
 robomimic_model:
   _target_: egomimic.algo.hnet.PackedAlgoBase
@@ -93,7 +115,7 @@ robomimic_model:
             d_cond: 0
             causal: true
             encoder:
-              arch_layout: T3
+              arch_layout: ${model.l0_enc_arch}
               d_model: 256
               d_intermediate: 768
               num_heads: 4
@@ -102,7 +124,7 @@ robomimic_model:
               dropout: 0.0
               resid_dropout: 0.0
             decoder:
-              arch_layout: T3
+              arch_layout: ${model.l0_dec_arch}
               d_model: 256
               d_intermediate: 768
               num_heads: 4
@@ -118,7 +140,7 @@ robomimic_model:
             d_cond: 0
             causal: true
             encoder:
-              arch_layout: T3
+              arch_layout: ${model.l0_enc_arch}
               d_model: 256
               d_intermediate: 768
               num_heads: 4
@@ -127,7 +149,7 @@ robomimic_model:
               dropout: 0.0
               resid_dropout: 0.0
             decoder:
-              arch_layout: T3
+              arch_layout: ${model.l0_dec_arch}
               d_model: 256
               d_intermediate: 768
               num_heads: 4
@@ -177,7 +199,7 @@ robomimic_model:
             d_cond: 0
             causal: true
             encoder:
-              arch_layout: T3
+              arch_layout: ${model.l1_enc_arch}
               d_model: 512
               d_intermediate: 1536
               num_heads: 8
@@ -186,7 +208,7 @@ robomimic_model:
               dropout: 0.0
               resid_dropout: 0.0
             decoder:
-              arch_layout: T3
+              arch_layout: ${model.l1_dec_arch}
               d_model: 512
               d_intermediate: 1536
               num_heads: 8
@@ -202,7 +224,7 @@ robomimic_model:
             d_cond: 0
             causal: true
             encoder:
-              arch_layout: T3
+              arch_layout: ${model.l1_enc_arch}
               d_model: 512
               d_intermediate: 1536
               num_heads: 8
@@ -211,7 +233,7 @@ robomimic_model:
               dropout: 0.0
               resid_dropout: 0.0
             decoder:
-              arch_layout: T3
+              arch_layout: ${model.l1_dec_arch}
               d_model: 512
               d_intermediate: 1536
               num_heads: 8
@@ -224,7 +246,7 @@ robomimic_model:
           pushshapes_sim:
             _target_: egomimic.models.hnet.stages.ChunkerStage
             input_hidden_dim: 512
-            output_hidden_dim: 1024
+            output_hidden_dim: ${model.apex_width}
             target_compression_ratio: 3.0
             ratio_loss_weight: 1.0
             cond_key: null
@@ -239,7 +261,7 @@ robomimic_model:
           pushshapes_sim_small_circle:
             _target_: egomimic.models.hnet.stages.ChunkerStage
             input_hidden_dim: 512
-            output_hidden_dim: 1024
+            output_hidden_dim: ${model.apex_width}
             target_compression_ratio: 3.0
             ratio_loss_weight: 1.0
             cond_key: null
@@ -252,16 +274,16 @@ robomimic_model:
               n_layers: 2
             prev_end_combine_n_layers: 3
       - _target_: egomimic.models.hnet.stages.ComputeStage
-        input_hidden_dim: 1024
-        output_hidden_dim: 1024
+        input_hidden_dim: ${model.apex_width}
+        output_hidden_dim: ${model.apex_width}
         cond_key: null
         d_cond: 0
         causal: true
         main_network:
-          arch_layout: T11
-          d_model: 1024
-          d_intermediate: 3072
-          num_heads: 16
+          arch_layout: ${model.apex_arch}
+          d_model: ${model.apex_width}
+          d_intermediate: ${model.apex_d_intermediate}
+          num_heads: ${model.apex_num_heads}
           cond: false
           rotary_emb_dim: 64
           dropout: 0.0

@@ -6,7 +6,7 @@
 # swaps the model vs tx_cotrain -> direct head-to-head. (Width may be re-tuned
 # if the baseline config changes.)
 defaults:
-  - override /model: hnet_dualstream_2trunk_200m
+  - override /model: hnet_dualstream/2trunk_200m
   - override /data: indomain_c4_cotrain
   - override /evaluator: gmm_eval_firstend
   - override /logger: csv_wandb

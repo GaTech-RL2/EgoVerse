@@ -9,7 +9,7 @@
 # no gradient.
 
 defaults:
-  - override /model: bc_rnn_pushshapes_paperexact_tx_cotrain_c4_big
+  - override /model: bc_rnn/tx_cotrain_c4_big
   - override /data: indomain_c4_cotrain
   - override /evaluator: gmm_eval_firstend
   - override /logger: csv_wandb
