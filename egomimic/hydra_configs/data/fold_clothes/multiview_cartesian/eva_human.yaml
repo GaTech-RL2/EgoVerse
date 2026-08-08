@@ -1,0 +1,18 @@
+defaults:
+  - /data/generic/cartesian/eva_human_annotations@_here_
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian_pi
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: (row['embodiment'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
+  human_bimanual:
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: (row['embodiment'] == 'human_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"

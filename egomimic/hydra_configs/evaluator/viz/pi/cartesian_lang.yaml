@@ -1,0 +1,8 @@
+defaults:
+  - /evaluator/viz/pi/cartesian@_here_
+  - _self_
+
+eva_bimanual:
+  annotation_key: sampled_prompt
+human_bimanual:
+  annotation_key: sampled_prompt

@@ -1,0 +1,10 @@
+# Checkpointing plus the standard chunker-residual and attention-dropout
+# schedules.
+defaults:
+  - /callbacks/checkpoint/base@_here_
+  - /callbacks/scheduler/chunker_residual@_here_
+  - /callbacks/dropout/random_attn@_here_
+  - _self_
+
+model_checkpoint:
+  every_n_epochs: 20

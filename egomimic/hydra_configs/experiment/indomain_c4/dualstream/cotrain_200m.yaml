@@ -1,0 +1,11 @@
+# @package _global_
+# dualstream_cotrain_200m in-domain chunk-4 experiment.
+defaults:
+  - /experiment/indomain_c4/base@_here_
+  - override /model: hnet_dualstream/txar_200m
+  - override /data: pushshapes/packed_episode/indomain/cotrain
+  - override /evaluator: gmm/firstend
+  - override /logger: combined/csv_wandb
+  - _self_
+
+description: dualstream_cotrain_200m

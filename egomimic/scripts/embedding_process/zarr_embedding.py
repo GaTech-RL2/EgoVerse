@@ -13,14 +13,14 @@ Bundled transforms:
 Examples:
     python egomimic/scripts/embedding_process/zarr_embedding.py \\
         --transform dinov3 \\
-        --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \\
+        --dataset-config-path egomimic/hydra_configs/data/pick_place/multiview_cartesian/eva_language.yaml \\
         --input-keys observations.images.front_1 \\
         --output-keys observations.embeddings.dinov3.front_1 \\
         --batch-size 64
 
     python egomimic/scripts/embedding_process/zarr_embedding.py \\
         --transform qwen3 \\
-        --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \\
+        --dataset-config-path egomimic/hydra_configs/data/pick_place/multiview_cartesian/eva_language.yaml \\
         --input-keys annotations \\
         --output-keys observations.embeddings.qwen3.annotations
 """
@@ -93,7 +93,7 @@ def main():
         required=True,
         help=(
             "Path to a Hydra dataset config (e.g. egomimic/hydra_configs/data/"
-            "eva_pi_lang.yaml). The full ``defaults:`` chain is resolved via "
+            "eva/pi_lang.yaml). The full ``defaults:`` chain is resolved via "
             "egomimic.utils.hydra_utils.load_config_from_path; every train + "
             "valid MultiDataset is instantiated and the union of their "
             "episodes is processed."
