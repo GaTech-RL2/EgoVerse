@@ -1,0 +1,19 @@
+defaults:
+  - /data/pick_place/cartesian/eva_human_qwen@_here_
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      transform_list:
+        mode: cartesian_wristframe_ypr
+  human_bimanual:
+    resolver:
+      transform_list:
+        mode: cartesian_wristframe_ypr
+
+valid_datasets:
+  eva_bimanual:
+    resolver:
+      transform_list:
+        mode: cartesian_wristframe_ypr

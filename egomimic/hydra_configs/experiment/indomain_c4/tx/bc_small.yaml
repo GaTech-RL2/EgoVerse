@@ -1,0 +1,11 @@
+# @package _global_
+# tx_bc_small in-domain chunk-4 experiment.
+defaults:
+  - /experiment/indomain_c4/base@_here_
+  - override /model: bc_rnn/tx_cotrain_c4_big
+  - override /data: pushshapes/packed_episode/indomain/small
+  - override /evaluator: gmm/firstend
+  - override /logger: combined/csv_wandb
+  - _self_
+
+description: tx_bc_small

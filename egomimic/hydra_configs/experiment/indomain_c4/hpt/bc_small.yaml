@@ -1,0 +1,11 @@
+# @package _global_
+# hpt_bc_small in-domain chunk-4 experiment.
+defaults:
+  - /experiment/indomain_c4/base@_here_
+  - override /model: hpt/cotrain_flow_shared_head_c4_big
+  - override /data: pushshapes/single_obs_action_chunk/indomain/small
+  - override /evaluator: gmm/firstend
+  - override /logger: combined/csv_wandb
+  - _self_
+
+description: hpt_bc_small

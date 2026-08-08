@@ -48,7 +48,7 @@ For most use cases, you only need to modify the data YAML.
 
 Open:
 
-    hydra_configs/data/aria.yaml
+    hydra_configs/data/debug/single_episode/human_cartesian.yaml
 
 Modify:
 
@@ -64,7 +64,7 @@ Reference run: - `batch_size = 32`\
 ## 2. Launch training
 
 ``` bash
-/python trainHydra.py   --config-name=train_zarr_cartesian   data=aria model=hpt_bc_flow_aria
+/python trainHydra.py   --config-name=train_zarr_cartesian   data=debug/single_episode/human_cartesian model=hpt_bc_flow_aria
 ```
 
 ------------------------------------------------------------------------
@@ -86,7 +86,7 @@ Match this to your `sbatch` configuration: - partition\
 ## 2. Submit job
 
 ``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=aria model=hpt_bc_flow_aria   -m
+python trainHydra.py   --config-name=train_zarr_cartesian   data=debug/single_episode/human_cartesian model=hpt_bc_flow_aria   -m
 ```
 
 The `-m` flag enables Hydra multirun mode and triggers the Submitit
@@ -238,7 +238,7 @@ Controls how dataset units are sampled.
 Example:
 
 ``` bash
-python trainHydra.py   --config-name=train_zarr_cartesian   data=aria   train.batch_size=64   train.num_workers=8
+python trainHydra.py   --config-name=train_zarr_cartesian   data=debug/single_episode/human_cartesian   train.batch_size=64   train.num_workers=8
 ```
 
 
@@ -251,7 +251,7 @@ By default in `train_zarr_cartesian.yaml` norm stats are computed over the whole
 
 -   Always verify `folder_path` exists and has enough disk space.\
 -   Large datasets will auto-download from S3 if not present locally.\
--   For debugging small runs, filter by a single `episode_hash`.  You can also set logger=debug trainer=debug to run fewer epochs.
+-   For debugging small runs, filter by a single `episode_hash`.  You can also set logger=debug/base trainer=ddp/debug to run fewer epochs.
 
 ------------------------------------------------------------------------
 
@@ -262,8 +262,8 @@ By default in `train_zarr_cartesian.yaml` norm stats are computed over the whole
 ``` bash
 python egomimic/trainHydra.py \
     --config-name=train_zarr_cartesian_pi \
-    trainer=debug \
-    logger=debug \
+    trainer=ddp/debug \
+    logger=debug/base \
     norm_stats.sample_frac=0.001
 ```
 

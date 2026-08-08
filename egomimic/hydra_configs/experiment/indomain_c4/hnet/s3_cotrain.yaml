@@ -1,0 +1,11 @@
+# @package _global_
+# hnet_s3_cotrain in-domain chunk-4 experiment.
+defaults:
+  - /experiment/indomain_c4/base@_here_
+  - override /model: hnet_cotrain_cossim/s3
+  - override /data: pushshapes/packed_episode/indomain/cotrain
+  - override /evaluator: gmm/firstend
+  - override /logger: combined/csv_wandb
+  - _self_
+
+description: hnet_s3_cotrain

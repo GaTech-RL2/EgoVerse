@@ -450,5 +450,5 @@ class PackedSimEval(SimRolloutEval):
 
 # Backward-compat alias — old configs / docs may reference HNetSimEval;
 # the class is algo-agnostic so the rename to PackedSimEval is purely
-# cosmetic. Existing eval_hnet_sim.yaml and downstream callers keep working.
+        # cosmetic. Existing evaluator/hnet/sim.yaml and downstream callers keep working.
 HNetSimEval = PackedSimEval
