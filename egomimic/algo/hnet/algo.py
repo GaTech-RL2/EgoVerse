@@ -490,7 +490,10 @@ class HNetPolicy(nn.Module):
         }
 
     @torch.no_grad()
-    def step(self, state: dict, obs_norm: dict, t: int) -> torch.Tensor:
+    def step(
+        self, state: dict, obs_norm: dict, t: int,
+        embodiment_id: Optional[str] = None,
+    ) -> torch.Tensor:
         """Single AR step. Returns normalized action ``(B, 1, action_dim)``.
 
         ``obs_norm`` is a dict of single-frame, normalized obs tensors
