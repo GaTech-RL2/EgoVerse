@@ -8,7 +8,7 @@ Episodes that already have ``annotation_key`` in their Zarr are skipped (unless 
 
 Example usage:
 python egomimic/scripts/language_process/bucket_to_zarr_annotation_parallel.py \
---dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \
+--dataset-config-path egomimic/hydra_configs/data/pick_place/multiview_cartesian/eva_language.yaml \
 --bucket s3://rldb/scale_annotations
 """
 
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     # --- Instantiate datasets (sequential, needs SQL / S3 sync) ---
     # Use hydra's compose API so `defaults:` inheritance from base configs
-    # (e.g. cotrain_pi_base.yaml) is resolved — OmegaConf.load alone leaves
+    # (e.g. cotrain_pi/base.yaml) is resolved — OmegaConf.load alone leaves
     # `_target_` unset and instantiate returns a bare DictConfig.
     from egomimic.utils.hydra_utils import HYDRA_CONFIG_DIR, load_config
 

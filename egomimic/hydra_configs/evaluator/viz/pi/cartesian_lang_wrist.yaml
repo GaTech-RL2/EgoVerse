@@ -1,0 +1,10 @@
+defaults:
+  - /evaluator/viz/cartesian/wrist@_here_
+  - _self_
+
+eva_bimanual:
+  image_key: base_0_rgb
+  annotation_key: sampled_prompt
+human_bimanual:
+  image_key: base_0_rgb
+  annotation_key: sampled_prompt

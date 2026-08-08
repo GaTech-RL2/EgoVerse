@@ -1,0 +1,25 @@
+defaults:
+  - /data/pick_place/cartesian/eva_human_qwen@_here_
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      transform_list:
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+  human_bimanual:
+    resolver:
+      transform_list:
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler
+
+valid_datasets:
+  eva_bimanual:
+    resolver:
+      transform_list:
+        action_mode: cartesian
+        coord_frame: eef_frame
+        rotation_mode: euler

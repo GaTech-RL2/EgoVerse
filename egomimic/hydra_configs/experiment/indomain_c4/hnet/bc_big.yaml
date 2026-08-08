@@ -1,0 +1,11 @@
+# @package _global_
+# hnet_bc_big in-domain chunk-4 experiment.
+defaults:
+  - /experiment/indomain_c4/base@_here_
+  - override /model: hnet_firstend/pyramid_2stage
+  - override /data: pushshapes/packed_episode/indomain/big
+  - override /evaluator: gmm/firstend
+  - override /logger: combined/csv_wandb
+  - _self_
+
+description: hnet_bc_big

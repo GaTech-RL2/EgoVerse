@@ -13,7 +13,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 #      encoders/heads (unlike the H-Net firstend pyramid). Both embodiments share
 #      ALL weights; the only per-embodiment thing is the action/obs norm-stats
 #      (norm_stats.normalize/unnormalize keyed by emb_id). Pair with data config
-#      tsimulation_cotrain_small_circle.yaml.
+#      tsimulation/cotrain_small_circle.yaml.
 #   2. chunk_len 8 -> 4 (predict 4, execute 4, re-predict; n_action_steps=4).
 #      gmm_head.chunk_len matched to 4 (the algo guards they agree).
 #   3. obs_stride 8 -> 4 (kept == chunk_len so the rollout queue never drains

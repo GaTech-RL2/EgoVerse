@@ -1,0 +1,11 @@
+# @package _global_
+# tx_cotrain_m16 in-domain chunk-4 experiment.
+defaults:
+  - /experiment/indomain_c4/base@_here_
+  - override /model: bc_rnn/tx_cotrain_c4_big_m16
+  - override /data: pushshapes/packed_episode/indomain/cotrain
+  - override /evaluator: gmm/firstend
+  - override /logger: combined/csv_wandb
+  - _self_
+
+description: tx_cotrain_m16

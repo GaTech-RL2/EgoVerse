@@ -29,7 +29,7 @@ torch.manual_seed(0)
 
 cfg = OmegaConf.load(
     "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3/"
-    "egomimic/hydra_configs/model/hnet_pushshapes.yaml"
+    "egomimic/hydra_configs/model/hnet_pushshapes/base.yaml"
 )
 rcfg = cfg.robomimic_model
 action_dim = int(rcfg.action_dim)

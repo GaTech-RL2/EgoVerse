@@ -7,7 +7,7 @@ effect on the next forward.
 
 Wire via:
     callbacks=[..., random_attn_dropout]
-with the YAML at hydra_configs/callbacks/random_attn_dropout.yaml.
+with the YAML at hydra_configs/callbacks/dropout/random_attn.yaml.
 
 Logs the per-step rate as ``train/attn_dropout`` for wandb visibility.
 """

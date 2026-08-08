@@ -1,0 +1,13 @@
+defaults:
+  - /data/pushshapes/single_obs_action_chunk/simulation/base@_here_
+  - _self_
+
+train_datasets:
+  pushshapes_sim:
+    resolver:
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/new_circle_3
+
+valid_datasets:
+  pushshapes_sim:
+    resolver:
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/new_circle_3

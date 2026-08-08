@@ -1,0 +1,8 @@
+# Checkpoints + ratio-loss reg-off scheduler, reg-off at epoch 700 for a
+# 2,000-epoch run.
+defaults:
+  - /callbacks/bundle/ratio_loss@_here_
+  - _self_
+
+ratio_loss_scheduler:
+  switch_fraction: 0.35
