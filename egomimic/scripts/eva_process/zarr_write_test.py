@@ -22,7 +22,9 @@ import numpy as np
 
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.scripts.eva_process.eva_utils import EvaHD5Extractor
-from egomimic.utils.egomimicUtils import EXTRINSICS
+from egomimic.rldb.embodiment.eva import Eva
+
+EXTRINSICS = Eva.EXTRINSICS
 
 
 def is_image_array(arr) -> bool:
