@@ -14,11 +14,8 @@ from tslearn.metrics import SoftDTWLossPyTorch
 from egomimic.algo.algo import Algo
 from egomimic.models.cores.hpt_transformer import MultiheadAttention, SimpleTransformer
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.models.cores.model_utils import (
-    EinOpsRearrange,
-    get_sinusoid_encoding_table,
-)
-from egomimic.utils.egomimicUtils import download_from_huggingface
+from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
+from egomimic.utils.hf_utils import download_from_huggingface
 
 
 # moved from the deleted egomimicUtils
