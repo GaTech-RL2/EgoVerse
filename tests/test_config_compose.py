@@ -26,37 +26,37 @@ _CONFIG_DIR = os.path.join(_REPO_ROOT, "egomimic", "hydra_configs")
 _PARENT = "train_zarr_cartesian"
 
 BC_RNN_CONFIGS = [
-    "bc_rnn_pushshapes_paperexact",
-    "bc_rnn_pushshapes_paperexact_hnet",
-    "bc_rnn_pushshapes_paperexact_tx",
-    "bc_rnn_pushshapes_paperexact_tx_chunk8",
-    "bc_rnn_pushshapes_paperexact_tx_chunk8_q",
-    "bc_rnn_pushshapes_paperexact_tx_cos",
-    "bc_rnn_pushshapes_paperexact_tx_cos_lowlr",
+    "bc_rnn/base",
+    "bc_rnn/hnet",
+    "bc_rnn/tx",
+    "bc_rnn/tx_chunk8",
+    "bc_rnn/tx_chunk8_q",
+    "bc_rnn/tx_cos",
+    "bc_rnn/tx_cos_lowlr",
 ]
 
 DFOT_CONFIGS = [
-    "dfot_pixel_video",
-    "dfot_pushshapes",
-    "dfot_pushshapes_image_spatial",
-    "dfot_pushshapes_image_spatial_continuous",
-    "dfot_pushshapes_image_spatial_cont_sigmoid",
-    "dfot_pushshapes_image_spatial_policy",
-    "dfot_pushshapes_obs_action",
-    "dfot_pushshapes_obs_action_image",
-    "dfot_pushshapes_obs_action_image_wm",
-    "dfot_pushshapes_pixel",
-    "dfot_pushshapes_pixel_decoupled",
-    "dfot_pushshapes_pixel_policy",
-    "dfot_pushshapes_pixel_regress",
+    "dfot/pixel_video",
+    "dfot/base",
+    "dfot/image_spatial",
+    "dfot/image_spatial_continuous",
+    "dfot/image_spatial_cont_sigmoid",
+    "dfot/image_spatial_policy",
+    "dfot/obs_action",
+    "dfot/obs_action_image",
+    "dfot/obs_action_image_wm",
+    "dfot/pixel",
+    "dfot/pixel_decoupled",
+    "dfot/pixel_policy",
+    "dfot/pixel_regress",
 ]
 
 VAE_CONFIGS = [
-    "vae_pushshapes",
-    "vae_pushshapes_v3",
-    "vae_pushshapes_v4",
-    "vae_pushshapes_v5",
-    "vae_pushshapes_v6",
+    "vae/base",
+    "vae/v3",
+    "vae/v4",
+    "vae/v5",
+    "vae/v6",
 ]
 
 

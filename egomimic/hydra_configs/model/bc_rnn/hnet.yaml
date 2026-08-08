@@ -26,7 +26,7 @@ _target_: egomimic.pl_utils.pl_model.ModelWrapper
 # the chunk-boundary decisions. Rollout step() replays the SAME forward over a
 # rolling buffer (TX pattern), so train == rollout (prefix-consistency ~1e-6).
 #
-# Inherited paper settings (unchanged from bc_rnn_pushshapes_paperexact):
+# Inherited paper settings (unchanged from base):
 #  1. actor_layer_dims = ()  -> actor_mlp_dims: [] (head reads core.hidden_dim)
 #  3. paper-exact obs encoder (raw 2-dim low-dim + ReLU image + no fusion MLP,
 #       concat 64+2=66 feeds the core directly)

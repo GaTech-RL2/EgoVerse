@@ -10,7 +10,7 @@
 # near twin speed. B/L need frozen-feature PRECOMPUTE to be feasible (future). Spatial-grid
 # ~halves error vs mean-pool; mean-pool is worst.
 defaults:
-  - override /model: hnet_cotrain_cossim_encdec_trunk_200M_dino
+  - override /model: hnet_cotrain_cossim/encdec_dino
   - override /data: indomain_c4_big
   - override /evaluator: gmm_eval_firstend
   - override /logger: csv_wandb
