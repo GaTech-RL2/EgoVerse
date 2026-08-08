@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
+import simplejpeg
 import torch
 import zarr
 from tqdm import tqdm
