@@ -24,6 +24,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import importlib
 import json
 import math
 import sys
@@ -430,6 +431,9 @@ def run(args: argparse.Namespace) -> int:
     if not args.output and not args.output_dir:
         print("error: provide either --output or --output-dir", file=sys.stderr)
         return 2
+    if not math.isfinite(args.speed_factor) or args.speed_factor <= 0:
+        print("error: --speed-factor must be a finite positive number", file=sys.stderr)
+        return 2
 
     try:
         replay_inits = _load_replay_source(args)
@@ -480,6 +484,9 @@ def run(args: argparse.Namespace) -> int:
         "mode": args.mode,
         "solid_pusher": True,
         "solid_contact_guard": True,
+        "speed_factor": float(args.speed_factor),
+        "pusher_color": args.pusher_color,
+        "embodiment_variant": args.variant_name,
     }
     if args.pusher == "u_socket":
         env_args["action_mode"] = "mouse_xy_keyboard_theta"
@@ -501,7 +508,8 @@ def run(args: argparse.Namespace) -> int:
     pygame.font.init()
     pygame.display.set_caption(
         f"PushShapes Sim V{SIM_VERSION} "
-        f"[{args.object}/{args.pusher}/obs={args.obstacles}]"
+        f"[{args.object}/{args.pusher}/obs={args.obstacles}/"
+        f"{args.speed_factor:g}x/{args.pusher_color}]"
     )
     global WINDOW_SCALE, WINDOW_SIZE
     WINDOW_SCALE = float(args.window_scale)
@@ -512,6 +520,12 @@ def run(args: argparse.Namespace) -> int:
     clock = pygame.time.Clock()
     font = pygame.font.Font(None, 22)
 
+    sim_module = get_module(args.sim_version)
+    render_module = importlib.import_module(f"{sim_module.__name__}.render")
+    render_module.PUSHER_COLOR = (
+        (210, 60, 60) if args.pusher_color == "red" else (60, 60, 210)
+    )
+
     env = get_env(args.sim_version)(
         object_shape=args.object,
         pusher_shape=args.pusher,
@@ -520,6 +534,8 @@ def run(args: argparse.Namespace) -> int:
         image_size=args.image_size,
         seed=args.seed,
     )
+    env.PUSHER_SPEED = type(env).PUSHER_SPEED * float(args.speed_factor)
+    env.STICK_TURN_RATE = type(env).STICK_TURN_RATE * float(args.speed_factor)
     # A higher collection threshold can provide replay margin for physics
     # paths (notably U-socket contact) that vary slightly across processes.
     env.SUCCESS_THRESHOLD = float(args.success_threshold)
@@ -530,6 +546,11 @@ def run(args: argparse.Namespace) -> int:
         image_size=args.image_size,
         fps=args.fps,
         tag=mode.writer_tag,
+        metadata_override={
+            "speed_factor": float(args.speed_factor),
+            "pusher_color": args.pusher_color,
+            "embodiment_variant": args.variant_name,
+        },
     )
 
     tracker: BucketTracker | None = None
@@ -829,6 +850,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--image-size", type=int, default=96)
     p.add_argument("--fps", type=int, default=30)
+    p.add_argument(
+        "--speed-factor",
+        type=float,
+        default=1.0,
+        help="scale physical pusher and turn speed (default: 1.0)",
+    )
+    p.add_argument(
+        "--pusher-color",
+        choices=("red", "blue"),
+        default="red",
+        help="rendered pusher color stored in observations (default: red)",
+    )
+    p.add_argument(
+        "--variant-name",
+        default="standard",
+        help="logical variant recorded in episode metadata",
+    )
     p.add_argument(
         "--success-threshold",
         type=float,
