@@ -18,18 +18,33 @@ Reuses ``egomimic.models.stems.image_encoders`` (``SimpleConv`` /
 code is imported.
 """
 
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional
 
 import torch
 import torch.nn as nn
 
 
-def _mlp(in_dim: int, out_dim: int, widths: Optional[List[int]] = None) -> nn.Sequential:
+def build_mlp(
+    in_dim: int,
+    out_dim: int,
+    widths: Optional[List[int]] = None,
+    *,
+    act: Callable[[], nn.Module],
+) -> nn.Sequential:
+    """``widths`` hidden layers, each followed by ``act()``, then a final Linear.
+
+    ``act`` is keyword-only and deliberately has no default. Two copies of this
+    builder used to sit side by side in this package with *different*
+    activations -- ObsEncoder used ReLU, CondEncoderModule used GELU -- and
+    because activations hold no parameters, a checkpoint trained under one loads
+    silently into the other and simply produces different numbers. Forcing the
+    choice at the call site keeps that from recurring.
+    """
     widths = widths or []
     layers: List[nn.Module] = []
     prev = in_dim
     for w in widths:
-        layers += [nn.Linear(prev, w), nn.ReLU()]
+        layers += [nn.Linear(prev, w), act()]
         prev = w
     layers.append(nn.Linear(prev, out_dim))
     return nn.Sequential(*layers)
@@ -94,8 +109,11 @@ class ObsEncoder(nn.Module):
                 self.obs_raw_dims[key] = raw_dim
                 fused_dim += raw_dim
             else:
-                self.obs_encoders[key] = _mlp(
-                    spec["input_dim"], spec["embed_dim"], spec.get("widths", [])
+                self.obs_encoders[key] = build_mlp(
+                    spec["input_dim"],
+                    spec["embed_dim"],
+                    spec.get("widths", []),
+                    act=nn.ReLU,
                 )
                 fused_dim += int(spec["embed_dim"])
 
@@ -124,7 +142,9 @@ class ObsEncoder(nn.Module):
                 if fuse_widths is not None
                 else [max(self.embed_dim, fused_dim)]
             )
-            self.fuse = _mlp(fused_dim, self.embed_dim, widths=list(widths))
+            self.fuse = build_mlp(
+                fused_dim, self.embed_dim, widths=list(widths), act=nn.ReLU
+            )
 
     def forward(self, obs: Dict[str, torch.Tensor]) -> torch.Tensor:
         """obs dict -> per-frame embedding ``(B, T, embed_dim)``.
