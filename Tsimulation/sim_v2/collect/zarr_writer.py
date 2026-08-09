@@ -48,6 +48,7 @@ class ZarrDemoWriter:
         embodiment: str = "pushshapes_sim",
         chunk_timesteps: int = 100,
         tag: str | None = None,
+        metadata_override: dict[str, Any] | None = None,
     ):
         self.path = Path(path)
         self.path.mkdir(parents=True, exist_ok=True)
@@ -56,6 +57,7 @@ class ZarrDemoWriter:
         self.task_name = task_name
         self.embodiment = embodiment
         self.chunk_timesteps = chunk_timesteps
+        self.metadata_override = dict(metadata_override or {})
         self._object_shape = env_args.get("object_shape", "obj")
         self._pusher_shape = env_args.get("pusher_shape", "pusher")
         self._obstacle_level = env_args.get("obstacle_level", 0)
@@ -178,20 +180,22 @@ class ZarrDemoWriter:
             GOAL_KEY: np.stack(self._buffer[GOAL_KEY], axis=0),
         }
 
-        metadata_override = None
+        metadata_override = dict(self.metadata_override)
         if self._episode_init is not None:
-            metadata_override = {"episode_init": json.dumps(self._episode_init)}
+            metadata_override["episode_init"] = json.dumps(self._episode_init)
 
-        ZarrWriter.create_and_write(
+        writer = ZarrWriter(
             episode_path=ep_path,
-            numeric_data=numeric,
-            image_data={IMAGE_KEY: images},
             embodiment=self.embodiment,
             fps=self.fps,
             task_name=self.task_name,
             task_description=self.task_description,
             chunk_timesteps=self.chunk_timesteps,
-            metadata_override=metadata_override,
+        )
+        writer.write(
+            numeric_data=numeric,
+            image_data={IMAGE_KEY: images},
+            metadata_override=metadata_override or None,
         )
 
         idx = self._episode_idx
