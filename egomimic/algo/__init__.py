@@ -4,5 +4,4 @@
 #   from egomimic.algo.hpt import HPT
 #   from egomimic.algo.act import ACT
 #   from egomimic.algo.pi import PI    # requires openpi
-#   from egomimic.algo.diffusion import DFoT, VAE
 #   from egomimic.algo.algo import Algo
