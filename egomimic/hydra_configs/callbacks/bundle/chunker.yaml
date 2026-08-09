@@ -1,0 +1,22 @@
+# Checkpoints + chunker residual scheduler, no random_attn_dropout.
+# Used for obs_ar variants where the AR shortcut doesn't exist, so dropout
+# isn't needed — but we still want to keep the chunker's skip path gated
+# off for the first half of training so the chunker is forced to learn
+# meaningful boundaries instead of relying on the residual passthrough.
+defaults:
+  - /callbacks/scheduler/chunker_residual@_here_
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${hydra:runtime.output_dir}/checkpoints
+  filename: "epoch_{epoch}"
+  every_n_epochs: 60
+  save_top_k: -1
+  save_last: true
+
+chunker_residual_scheduler:
+  schedule:
+    - [0, 0.0]
+    - [959, 0.0]
+    - [960, 1.0]

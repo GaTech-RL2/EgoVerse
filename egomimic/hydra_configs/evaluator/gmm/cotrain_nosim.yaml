@@ -1,0 +1,40 @@
+# Teacher-forced-only cotrain eval (NO closed-loop sim). Phase-1 evaluator for
+# the scan/spline (B/A) interface runs, whose autoregressive step() path isn't
+# built yet. Gives the dense teacher-forced overlay (GT-vs-pred) + chunking
+# health (PCA, boundary strip) — the cheap-signal eval to iterate on FIRST per
+# the debugging-methodology rule. Swap back to gmm_eval_cotrain once AR step()
+# lands so closed-loop sim coverage logs again.
+_target_: egomimic.eval.core.eval_composite.EvalList
+evals:
+  - _target_: egomimic.eval.core.eval_composite.EvalVideoList
+    pad_h: max
+    below_indices: [2]
+    limit_val_batches: 2
+    evals:
+      - _target_: egomimic.eval.core.eval_hnet.HNetEvalVideo
+        limit_val_batches: 2
+        max_videos: 2
+        viz_func:
+          pushshapes_sim:
+            _target_: hydra.utils.get_method
+            path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+          pushshapes_sim_small_circle:
+            _target_: hydra.utils.get_method
+            path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
+      - _target_: egomimic.eval.probes.eval_pca_tokens.PCATokenEval
+        limit_val_batches: 2
+        max_videos: 2
+        panel_h: 384
+        panel_w: 384
+        n_components: 2
+      - _target_: egomimic.eval.probes.eval_boundary_strip.BoundaryStripEval
+        limit_val_batches: 2
+        max_videos: 2
+        window: 256
+        strip_width: 24
+        pixels_per_step: 1
+  # Per-emb shared-trunk health: HF (per-token variation) of trunk(up) vs residual.
+  # hf_ratio<1 => that emb bypasses the trunk; watch the two embs converge.
+  # (metric-only; EvalList aggregates its metrics, discards the empty viz.)
+  - _target_: egomimic.eval.probes.eval_trunk_hf.TrunkHFEval
+    limit_val_batches: 2

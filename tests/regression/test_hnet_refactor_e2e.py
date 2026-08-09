@@ -33,7 +33,7 @@ _emb.get_embodiment_id = lambda n: 0 if n == "pushshapes_sim" else orig(n)
 
 cfg = OmegaConf.load(
     "/storage/project/r-dxu345-0/paphiwetsa3/projects/EgoVerse-clone-3/"
-    "egomimic/hydra_configs/model/hnet_pushshapes.yaml"
+    "egomimic/hydra_configs/model/hnet_pushshapes/base.yaml"
 )
 hnet = instantiate(cfg.robomimic_model, norm_stats=MockNormStats(), _recursive_=True)
 hnet.nets = hnet.nets.cpu()

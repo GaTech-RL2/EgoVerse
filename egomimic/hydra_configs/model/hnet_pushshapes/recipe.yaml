@@ -1,0 +1,101 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+
+  # Baseline arch + the H-Net paper's 3 training recipe tricks + lower LR.
+  # Changes vs hnet_pushshapes.yaml:
+  #   - init_weights_range: 0.02         (residual-stream-aware Linear init)
+  #   - lr_multipliers: [3.0, 1.7, 0.9]  (outer encoder->chunker->inner)
+  #   - use_parameter_groups: true       (WD=0 on bias / norm weights)
+  #   - weight_decay: 0.01               (used by parameter_groups)
+  #   - optimizer.lr: 5e-5               (half of baseline 1e-4)
+
+  d_cond: 128
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  outer_stage:
+    _target_: egomimic.algo.hnet.HNetOuterStage
+    action_dim: 2
+    action_horizon: 400
+    d_model: 128
+    action_head_type: linear
+
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 128
+      output_key: "fused_cond"
+      cond_proj_widths: [128, 128]
+      obs_specs:
+        state_agent_obj:
+          input_dim: 5
+          embed_dim: 64
+          widths: [128]
+      img_encoders:
+        front_img_1:
+          _target_: egomimic.models.stems.image_encoders.SimpleConv
+          in_channels: 3
+          channels: [32, 64, 128, 256]
+          kernel_size: 3
+          stride: 2
+          embed_dim: 128
+          norm_groups: 8
+
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+        - _target_: egomimic.models.hnet.stages.EncoderDecoderStage
+          input_hidden_dim: 128
+          output_hidden_dim: 128
+          cond_key: "fused_cond"
+          d_cond: 128
+          causal: true
+          encoder:
+            arch_layout: "T4"
+            d_model: 128
+            d_intermediate: 512
+            num_heads: 4
+            cond: true
+          decoder:
+            arch_layout: "T4"
+            d_model: 128
+            d_intermediate: 512
+            num_heads: 4
+            cond: true
+        - _target_: egomimic.models.hnet.stages.ChunkerStage
+          input_hidden_dim: 128
+          output_hidden_dim: 192
+          target_compression_ratio: 8.0
+          ratio_loss_weight: 0.03
+          cond_key: "fused_cond"
+        - _target_: egomimic.models.hnet.stages.ComputeStage
+          input_hidden_dim: 192
+          output_hidden_dim: 192
+          cond_key: "fused_cond"
+          d_cond: 128
+          causal: true
+          main_network:
+            arch_layout: "T4"
+            d_model: 192
+            d_intermediate: 768
+            num_heads: 4
+            cond: false
+
+  init_weights_range: 0.02
+  lr_multipliers: [3.0, 1.7, 0.9]
+  use_parameter_groups: true
+  weight_decay: 0.01
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 5.0e-5
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1

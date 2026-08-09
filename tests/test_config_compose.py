@@ -1,5 +1,4 @@
-"""Hydra config-composition invariant (DESIGN.md amendment 6.5 + step-6/§5
-invariant: "the 7 BC-RNN configs compose; DFoT/zoo import").
+"""Hydra config-composition invariants.
 
 Distilled from the session's ``--cfg job`` compose sweeps. Composes each config
 THROUGH the real parent ``train_zarr_cartesian`` defaults tree (the same path
@@ -8,9 +7,10 @@ THROUGH the real parent ``train_zarr_cartesian`` defaults tree (the same path
 test failure. Composition only RESOLVES the config (it does not instantiate the
 torch model), so this runs fast on CPU or GPU.
 
-The 7 BC-RNN configs are the MANDATORY invariant. The DFoT/VAE configs are
-included so the relocation is shown not to have disturbed the wider model tree
-(DESIGN.md "DFoT/zoo import" half of the invariant).
+The model checks retain the original BC-RNN/DFoT/VAE coverage.  The family
+checks compose every data, evaluator, callback, trainer, logger, schematic,
+visualization, and experiment choice through the real training root so nested
+renames and ``@_here_`` package mistakes cannot land silently.
 """
 from __future__ import annotations
 
@@ -26,37 +26,37 @@ _CONFIG_DIR = os.path.join(_REPO_ROOT, "egomimic", "hydra_configs")
 _PARENT = "train_zarr_cartesian"
 
 BC_RNN_CONFIGS = [
-    "bc_rnn_pushshapes_paperexact",
-    "bc_rnn_pushshapes_paperexact_hnet",
-    "bc_rnn_pushshapes_paperexact_tx",
-    "bc_rnn_pushshapes_paperexact_tx_chunk8",
-    "bc_rnn_pushshapes_paperexact_tx_chunk8_q",
-    "bc_rnn_pushshapes_paperexact_tx_cos",
-    "bc_rnn_pushshapes_paperexact_tx_cos_lowlr",
+    "bc_rnn/base",
+    "bc_rnn/hnet",
+    "bc_rnn/tx",
+    "bc_rnn/tx_chunk8",
+    "bc_rnn/tx_chunk8_q",
+    "bc_rnn/tx_cos",
+    "bc_rnn/tx_cos_lowlr",
 ]
 
 DFOT_CONFIGS = [
-    "dfot_pixel_video",
-    "dfot_pushshapes",
-    "dfot_pushshapes_image_spatial",
-    "dfot_pushshapes_image_spatial_continuous",
-    "dfot_pushshapes_image_spatial_cont_sigmoid",
-    "dfot_pushshapes_image_spatial_policy",
-    "dfot_pushshapes_obs_action",
-    "dfot_pushshapes_obs_action_image",
-    "dfot_pushshapes_obs_action_image_wm",
-    "dfot_pushshapes_pixel",
-    "dfot_pushshapes_pixel_decoupled",
-    "dfot_pushshapes_pixel_policy",
-    "dfot_pushshapes_pixel_regress",
+    "dfot/pixel_video",
+    "dfot/base",
+    "dfot/image_spatial",
+    "dfot/image_spatial_continuous",
+    "dfot/image_spatial_cont_sigmoid",
+    "dfot/image_spatial_policy",
+    "dfot/obs_action",
+    "dfot/obs_action_image",
+    "dfot/obs_action_image_wm",
+    "dfot/pixel",
+    "dfot/pixel_decoupled",
+    "dfot/pixel_policy",
+    "dfot/pixel_regress",
 ]
 
 VAE_CONFIGS = [
-    "vae_pushshapes",
-    "vae_pushshapes_v3",
-    "vae_pushshapes_v4",
-    "vae_pushshapes_v5",
-    "vae_pushshapes_v6",
+    "vae/base",
+    "vae/v3",
+    "vae/v4",
+    "vae/v5",
+    "vae/v6",
 ]
 
 
@@ -69,6 +69,42 @@ def _compose(model_name: str):
         cfg = compose(config_name=_PARENT, overrides=[f"model={model_name}"])
     assert cfg.model is not None, f"{model_name}: composed cfg has no model node"
     return cfg
+
+
+def _compose_overrides(*overrides: str):
+    if GlobalHydra.instance().is_initialized():
+        GlobalHydra.instance().clear()
+    with initialize_config_dir(config_dir=_CONFIG_DIR, version_base=None):
+        return compose(config_name=_PARENT, overrides=list(overrides))
+
+
+def _choices(group: str, *, exclude_dirs: tuple[str, ...] = ()) -> list[str]:
+    root = os.path.join(_CONFIG_DIR, *group.split("/"))
+    choices = []
+    for dirpath, _, filenames in os.walk(root):
+        rel_dir = os.path.relpath(dirpath, root)
+        first = rel_dir.split(os.sep, 1)[0]
+        if rel_dir != "." and first in exclude_dirs:
+            continue
+        for filename in filenames:
+            if filename.endswith(".yaml"):
+                rel = os.path.relpath(os.path.join(dirpath, filename), root)
+                choices.append(os.path.splitext(rel)[0].replace(os.sep, "/"))
+    return sorted(choices)
+
+
+GROUP_CHOICES = [
+    *[("data", name) for name in _choices("data")],
+    *[("evaluator", name) for name in _choices("evaluator", exclude_dirs=("viz",))],
+    *[("callbacks", name) for name in _choices("callbacks")],
+    *[("trainer", name) for name in _choices("trainer")],
+    *[("logger", name) for name in _choices("logger")],
+]
+
+VIZ_CHOICES = _choices("evaluator/viz")
+EXPERIMENT_CHOICES = [
+    name for name in _choices("experiment/indomain_c4") if name != "base"
+]
 
 
 @pytest.mark.parametrize("name", BC_RNN_CONFIGS)
@@ -98,6 +134,33 @@ def test_dfot_config_composes(name):
 @pytest.mark.parametrize("name", VAE_CONFIGS)
 def test_vae_config_composes(name):
     _compose(name)
+
+
+@pytest.mark.parametrize("group,name", GROUP_CHOICES)
+def test_config_group_choice_composes(group, name):
+    _compose_overrides(f"{group}={name}")
+
+
+@pytest.mark.parametrize("name", VIZ_CHOICES)
+def test_viz_choice_composes(name):
+    _compose_overrides(f"evaluator/viz@evaluator.viz_func={name}")
+
+
+@pytest.mark.parametrize("name", EXPERIMENT_CHOICES)
+def test_indomain_experiment_composes(name):
+    _compose_overrides(f"+experiment=indomain_c4/{name}")
+
+
+def test_large_config_groups_have_no_flat_variants():
+    """Keep family variants nested; only a group-wide base may stay at root."""
+    for group in ("data", "evaluator", "callbacks", "trainer", "logger"):
+        root = os.path.join(_CONFIG_DIR, group)
+        flat = sorted(
+            filename
+            for filename in os.listdir(root)
+            if filename.endswith(".yaml") and filename != "base.yaml"
+        )
+        assert not flat, f"{group} has flat config variants: {flat}"
 
 
 def _collect_targets(node):

@@ -1,0 +1,4 @@
+# Use both CSV (local, inspectable) and W&B (remote viewing) loggers.
+defaults:
+  - /logger/csv/base@_here_
+  - /logger/wandb/base@_here_
