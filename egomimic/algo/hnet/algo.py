@@ -169,6 +169,42 @@ def _moe_aux_from_ctx(ctx, ref: torch.Tensor) -> torch.Tensor:
     return torch.stack([e["aux_loss"].to(ref.dtype) for e in entries]).sum()
 
 
+def _init_ar_state(module, cache_owner, batch_size: int, T_max: int, device,
+                   dtype=None) -> dict:
+    """Allocate the opaque AR inference state shared by the H-Net policies.
+
+    ``module`` supplies the dtype when the caller does not pin one;
+    ``cache_owner`` is whichever submodule owns the KV cache (``self.hnet`` for
+    HNetPolicy, ``self.inner_stage`` for HNetOuterStage).
+
+    ``T_max`` is not clamped by ``action_horizon`` (F6) -- RoPE handles arbitrary
+    positions -- but it still sizes the KV cache allocation. The per-step token is
+    assembled by ``input_modules.step()`` on each call, so the state carries only
+    the previous prediction (for ActionInToken) plus the dtype/T_max contract.
+
+    The dtype line matters: allocating this state at a fixed dtype rather than the
+    model's own silently produced a bf16 state under fp32 weights, which
+    under-measured H-Net closed-loop coverage ~2-2.6x and read as the policy
+    failing closed-loop. Keep it derived, and keep it in one place.
+    """
+    T_max = int(T_max)
+    dtype = dtype or next(module.parameters()).dtype
+    params = cache_owner.allocate_inference_cache(
+        batch_size=batch_size,
+        max_seqlen=T_max,
+        device=device,
+        dtype=dtype,
+    )
+    return {
+        "params": params,
+        "prev_action": None,
+        "batch_size": int(batch_size),
+        "device": device,
+        "dtype": dtype,
+        "T_max": T_max,
+    }
+
+
 class HNetPolicy(nn.Module):
     """
     action-tokenizer → stage-based H-Net → action-detokenizer.
@@ -466,28 +502,9 @@ class HNetPolicy(nn.Module):
         rollouts of at most ``T_max`` steps. The state is opaque to the
         caller; pass it back to :meth:`step` along with the current obs.
         """
-        # F6: T_max is no longer clamped by self.action_horizon — RoPE
-        # handles arbitrary positions. We still need ``T_max`` to size the
-        # KV cache allocations.
-        T_max = int(T_max)
-        dtype = dtype or next(self.parameters()).dtype
-        params = self.hnet.allocate_inference_cache(
-            batch_size=batch_size,
-            max_seqlen=T_max,
-            device=device,
-            dtype=dtype,
+        return _init_ar_state(
+            self, self.hnet, batch_size, T_max, device, dtype
         )
-        # Per-step token is now assembled by input_modules.step() each call;
-        # state only carries the previous prediction (for ActionInToken) and
-        # the dtype/T_max contract.
-        return {
-            "params": params,
-            "prev_action": None,
-            "batch_size": int(batch_size),
-            "device": device,
-            "dtype": dtype,
-            "T_max": T_max,
-        }
 
     @torch.no_grad()
     def step(
@@ -811,22 +828,9 @@ class HNetOuterStage(nn.Module):
     def init_step_state(self, batch_size: int, T_max: int, device, dtype=None) -> dict:
         """Allocate the AR inference state. Returns an opaque dict for
         :meth:`step`."""
-        T_max = int(T_max)
-        dtype = dtype or next(self.parameters()).dtype
-        params = self.inner_stage.allocate_inference_cache(
-            batch_size=batch_size,
-            max_seqlen=T_max,
-            device=device,
-            dtype=dtype,
+        return _init_ar_state(
+            self, self.inner_stage, batch_size, T_max, device, dtype
         )
-        return {
-            "params": params,
-            "prev_action": None,
-            "batch_size": int(batch_size),
-            "device": device,
-            "dtype": dtype,
-            "T_max": T_max,
-        }
 
     @torch.no_grad()
     def step(
