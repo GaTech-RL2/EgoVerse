@@ -100,7 +100,7 @@ can be added later without rework.
 Wired up since this section was first written:
 
 - Hydra config wiring for the packed dataset:
-  `egomimic/hydra_configs/data/tsimulation.yaml` now targets
+  `egomimic/hydra_configs/data/pushshapes/packed_episode/simulation/base.yaml` now targets
   `ZarrEpisodePackedDataset.from_resolver` with `chunking="none"`,
   `min_seq_len=64`, `batch_size=8`.
 - Model-side `cu_seqlens` plumbing — see the "stage-based architecture +
@@ -137,12 +137,12 @@ shape: `circle/` (61 episodes, lengths 245–958 frames, median ~410) and
 `stick/`. Each subfolder contains flat `.zarr` episode directories and is
 what `LocalEpisodeResolver` should be pointed at directly (the resolver
 does not recurse one level). The training data config
-(`egomimic/hydra_configs/data/tsimulation.yaml`) and
+(`egomimic/hydra_configs/data/pushshapes/packed_episode/simulation/base.yaml`) and
 `tests/regression/smoke_packed_dataset.py` currently target `circle/`.
 
-## hnet_nets — kernel availability + fallback paths
+## hnet — kernel availability + fallback paths
 
-The vendored H-Net stack at `egomimic/models/hnet_nets/` is written so the
+The vendored H-Net stack at `egomimic/models/hnet/` is written so the
 optional CUDA kernels are detected at import time and silently swapped for
 pure-PyTorch fallbacks when absent. Detection helpers live in:
 
@@ -260,8 +260,8 @@ Total wall time on an A40: ~25-40 min (flash-attn is the long pole).
 
 ```bash
 .venv/bin/python -c "
-from egomimic.models.hnet_nets.blocks import has_flash_attn, has_mamba
-from egomimic.models.hnet_nets.routing import has_mamba_scan
+from egomimic.models.hnet.blocks import has_flash_attn, has_mamba
+from egomimic.models.hnet.routing import has_mamba_scan
 print('has_flash_attn :', has_flash_attn())
 print('has_mamba      :', has_mamba())
 print('has_mamba_scan :', has_mamba_scan())
@@ -283,10 +283,10 @@ the recovery is in `scripts/recover_torch_cu124.sh`:
 # then re-run build_cuda_exts.sh with --no-deps.
 ```
 
-## hnet_nets — stage-based architecture + packed mode
+## hnet — stage-based architecture + packed mode
 
 The H-Net is built as a flat list of stages that `HNet.__init__`
-(`hnet_nets/hnet.py`) wires into a recursive chain via
+(`models/hnet/hnet.py`) wires into a recursive chain via
 `stages[i].inner_stage = stages[i+1]`. Three stage types exist:
 
 - `EncoderDecoderStage` — Isotropic encoder + inner_stage + closure-residual
@@ -314,7 +314,7 @@ use `cu_seqlens` — packed mode only matters during training.
 Both of those have since been wired — see the algo + data-config sections
 below.
 
-## hnet_nets — pushshapes obs alignment
+## hnet — pushshapes obs alignment
 
 `egomimic/rldb/embodiment/pushshapes.get_keymap` now sets `horizon:
 action_horizon` on `front_img_1` and `state_agent_obj` (not just on
@@ -342,9 +342,9 @@ pushshapes arch (5.71M params, fp32, B=1).
 
 A40 has 44.4 GiB. Plenty of headroom — easily fits B>>1 packed batches.
 
-## hnet_nets — algo-level packed training
+## hnet — algo-level packed training
 
-`egomimic/algo/hnet.py` is the Lightning-side algo. The legacy
+`egomimic/algo/hnet/algo.py` is the Lightning-side algo. The legacy
 ``data_schematic`` constructor argument has been **removed** entirely — it
 referenced a class that didn't exist in this repo and the algo's
 ``normalize_data`` / ``unnormalize_data`` calls used method names that
@@ -403,7 +403,7 @@ moved to ``self.norm_stats.normalize(...)`` /
   ``T`` parameter (defaults to ``action_horizon``) so per-episode rollout
   doesn't always walk all 1024 pos_emb slots.
 
-### Eval class (`egomimic/eval/eval_hnet.py`) + config
+### Eval class (`egomimic/eval/core/eval_hnet.py`) + config
 
 - `HNetEvalVideo` is a stripped-down version of ``HPTEvalVideo`` without
   HPT-specific machinery (no ``shared_ac_key``, no ``auxiliary_ac_keys``,
@@ -414,8 +414,8 @@ moved to ``self.norm_stats.normalize(...)`` /
   valid index. Builds the viz batch by slicing each episode's frame-0
   image and feeding it to the configured ``viz_func``
   (``pushshapes.viz_gt_preds``).
-- `egomimic/hydra_configs/evaluator/eval_hnet.yaml` pulls in
-  ``viz/cartesian.yaml`` and caps ``limit_val_batches: 4`` because AR
+- `egomimic/hydra_configs/evaluator/hnet/base.yaml` pulls in
+  ``viz/cartesian/base.yaml`` and caps ``limit_val_batches: 4`` because AR
   rollout at ``action_horizon=1024`` is slow.
 
 ### Bug fixes uncovered while wiring this up
@@ -455,12 +455,12 @@ moved to ``self.norm_stats.normalize(...)`` /
   None`` so unrelated batch keys (e.g. ``metadata.robot_name``) don't end
   up bucketed under the ``None`` key.
 
-## hnet_nets — training recipe (init + LR + WD)
+## hnet — training recipe (init + LR + WD)
 
 Ported from upstream ``hnet/models/hnet.py`` + ``hnet/utils/train.py``,
 adapted to the flat stage list:
 
-- `apply_optimization_params(param, **kwargs)` (in `hnet_nets/hnet.py`):
+- `apply_optimization_params(param, **kwargs)` (in `models/hnet/hnet.py`):
   stamps a parameter with an ``_optim`` dict (merges on repeat).
 - `HNet.init_weights(initializer_range=0.02)`: walks the stage chain
   applying residual-stream-aware Linear init. ``out_proj`` (attention)
@@ -512,13 +512,13 @@ Working invocation for the pushshapes packed run (debug-sized — 4 epochs,
 python -m egomimic.trainHydra \
   --config-name=train_zarr_cartesian \
   name=hnet_smoke description=trainhydra_test mode=train \
-  data=tsimulation model=hnet_pushshapes evaluator=eval_hnet \
-  trainer=debug logger=debug '~callbacks'
+  data=pushshapes/packed_episode/simulation/base model=hnet_pushshapes/base evaluator=hnet/base \
+  trainer=ddp/debug logger=debug/base '~callbacks'
 ```
 
 Notes:
 
-- `logger=debug` resolves to ``egomimic/hydra_configs/logger/debug.yaml``
+- `logger=debug/base` resolves to ``egomimic/hydra_configs/logger/debug/base.yaml``
   which is intentionally empty (no logger, no wandb). Older
   ``logger=null`` syntax doesn't work — Hydra rejects ``=null`` for
   config-group overrides.
@@ -527,11 +527,11 @@ Notes:
 - The norm-stats step iterates ~28k frames at ~500 sample/s ≈ 1 min on
   first run; subsequent runs can use
   ``norm_stats.precomputed_norm_path=/coc/.../norm_stats`` to skip it.
-- ``trainer=debug`` extends ``trainer/ddp.yaml`` and sets:
+- ``trainer=ddp/debug`` extends ``trainer/ddp/base.yaml`` and sets:
   ``limit_train_batches=2``, ``limit_val_batches=3``,
   ``check_val_every_n_epoch=2``, ``max_epochs=4``, ``profiler=simple``.
 - ``action_horizon`` is hard-coded as ``1024`` in **both** the data
-  YAML (``tsimulation.yaml`` ``get_keymap`` call) **and** the model
+  YAML (``tsimulation/base.yaml`` ``get_keymap`` call) **and** the model
   YAML (``hnet_pushshapes.yaml``). Hydra's
   ``hydra.utils.instantiate(cfg.data, ...)`` passes every top-level key
   to ``MultiDataModuleWrapper.__init__``, which doesn't accept
