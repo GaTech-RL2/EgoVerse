@@ -40,35 +40,12 @@ class DualStreamChunkedOuterStage(DualStreamOuterStage):
     # encode: build A (agnostic) + S (specific) -> StreamBundle.
     # ------------------------------------------------------------------
     def encode(self, batch: dict, ctx: HNetContext) -> StreamBundle:  # type: ignore[override]
-        if not ctx.packed:
-            raise NotImplementedError(
-                "DualStreamChunkedOuterStage supports the PACKED path only."
-            )
-        actions_packed = batch["actions"]  # (T_total, A)
-        obs_packed = batch["__obs"]
-        T_total = actions_packed.shape[0]
-        device = actions_packed.device
-        dtype = actions_packed.dtype
-        cu_seqlens = ctx.cu_seqlens.to(device=device, dtype=torch.long)
-
-        # SPECIFIC stream S: sum the per-embodiment input_modules.
-        S = None
-        for mod in self.input_modules:
-            contrib = mod.forward_packed(
-                actions_packed=actions_packed, obs_packed=obs_packed,
-                cu_seqlens=cu_seqlens, T_total=T_total, device=device, dtype=dtype,
-                embodiment_id=ctx.embodiment_id,
-            )
-            S = contrib if S is None else S + contrib
-        if S is None:
-            raise RuntimeError("input_modules produced no specific tokens")
-
-        # AGNOSTIC stream A: the shared ObsToken (encoder ignores embodiment_id).
-        A = self.agnostic_input.forward_packed(
-            actions_packed=actions_packed, obs_packed=obs_packed,
-            cu_seqlens=cu_seqlens, T_total=T_total, device=device, dtype=dtype,
-            embodiment_id=ctx.embodiment_id,
-        )
+        pk = self._packed_inputs(batch, ctx, "DualStreamChunkedOuterStage")
+        cu_seqlens, T_total = pk["cu_seqlens"], pk["T_total"]
+        device = pk["device"]
+        obs_packed = pk["obs_packed"]
+        S = self._specific_stream(pk, ctx)
+        A = self._agnostic_stream(pk, ctx)
 
         time_pos = self._within_episode_time_pos(cu_seqlens, T_total, device)
         ctx.extras["dual_mode"] = True  # cheap assert/logging flag (not source of truth)

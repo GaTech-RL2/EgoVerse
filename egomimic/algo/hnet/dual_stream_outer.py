@@ -78,47 +78,54 @@ class DualStreamOuterStage(HNetOuterStage):
             starts[cu[b] : cu[b + 1]] = cu[b]
         return t - starts
 
-    def encode(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
+
+    # ---- shared packed-encode primitives -------------------------------- #
+    # DualStreamChunkedOuterStage and MultiStreamOuterStage subclass this and
+    # opened encode() with byte-identical copies of the three blocks below.
+    # They are packed-sequence boundary handling: a cu_seqlens device/dtype fix
+    # applied to one copy silently missed the others.
+
+    def _packed_inputs(self, batch: dict, ctx: HNetContext, who: str) -> dict:
+        """Unpack + validate a packed batch. Returns the kwargs every
+        ``forward_packed`` call in this family takes."""
         if not ctx.packed:
-            raise NotImplementedError(
-                "DualStreamOuterStage v1 supports the PACKED path only."
-            )
+            raise NotImplementedError(f"{who} supports the PACKED path only.")
         actions_packed = batch["actions"]  # (T_total, A)
         obs_packed = batch["__obs"]
-        T_total = actions_packed.shape[0]
         device = actions_packed.device
         dtype = actions_packed.dtype
-        cu_seqlens = ctx.cu_seqlens.to(device=device, dtype=torch.long)
+        return {
+            "actions_packed": actions_packed,
+            "obs_packed": obs_packed,
+            "T_total": actions_packed.shape[0],
+            "device": device,
+            "dtype": dtype,
+            "cu_seqlens": ctx.cu_seqlens.to(device=device, dtype=torch.long),
+        }
 
-        # SPECIFIC stream: sum the existing input_modules' packed contributions
-        # (mirrors HNetOuterStage._encode_packed). Routed per-embodiment by
-        # ctx.embodiment_id inside the MultiEmbodimentCondEncoder.
+    def _specific_stream(self, pk: dict, ctx: HNetContext):
+        """SPECIFIC stream: sum the per-embodiment input_modules. Routed by
+        ctx.embodiment_id inside the MultiEmbodimentCondEncoder."""
         S = None
         for mod in self.input_modules:
-            contrib = mod.forward_packed(
-                actions_packed=actions_packed,
-                obs_packed=obs_packed,
-                cu_seqlens=cu_seqlens,
-                T_total=T_total,
-                device=device,
-                dtype=dtype,
-                embodiment_id=ctx.embodiment_id,
-            )
+            contrib = mod.forward_packed(**pk, embodiment_id=ctx.embodiment_id)
             S = contrib if S is None else S + contrib
         if S is None:
             raise RuntimeError("input_modules produced no specific tokens")
+        return S
 
-        # AGNOSTIC stream: the shared ObsToken (its encoder ignores
-        # embodiment_id, so weights are shared across embodiments).
-        A = self.agnostic_input.forward_packed(
-            actions_packed=actions_packed,
-            obs_packed=obs_packed,
-            cu_seqlens=cu_seqlens,
-            T_total=T_total,
-            device=device,
-            dtype=dtype,
-            embodiment_id=ctx.embodiment_id,
-        )
+    def _agnostic_stream(self, pk: dict, ctx: HNetContext):
+        """AGNOSTIC stream: the shared ObsToken (its encoder ignores
+        embodiment_id, so weights are shared across embodiments)."""
+        return self.agnostic_input.forward_packed(**pk, embodiment_id=ctx.embodiment_id)
+
+    def encode(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
+        pk = self._packed_inputs(batch, ctx, "DualStreamOuterStage v1")
+        cu_seqlens, T_total = pk["cu_seqlens"], pk["T_total"]
+        device = pk["device"]
+        obs_packed = pk["obs_packed"]
+        S = self._specific_stream(pk, ctx)
+        A = self._agnostic_stream(pk, ctx)
 
         # Concat along the packed token axis: A first, then S.
         x = torch.cat([A, S], dim=0)  # (2*T_total, d_model)
@@ -323,33 +330,12 @@ class MultiStreamOuterStage(DualStreamOuterStage):
     """
 
     def encode(self, batch: dict, ctx: HNetContext) -> torch.Tensor:
-        if not ctx.packed:
-            raise NotImplementedError("MultiStreamOuterStage supports the PACKED path only.")
-        actions_packed = batch["actions"]
-        obs_packed = batch["__obs"]
-        T_total = actions_packed.shape[0]
-        device = actions_packed.device
-        dtype = actions_packed.dtype
-        cu_seqlens = ctx.cu_seqlens.to(device=device, dtype=torch.long)
-
-        # SPECIFIC stream S (width d_S): sum the per-embodiment input_modules.
-        S = None
-        for mod in self.input_modules:
-            contrib = mod.forward_packed(
-                actions_packed=actions_packed, obs_packed=obs_packed,
-                cu_seqlens=cu_seqlens, T_total=T_total, device=device, dtype=dtype,
-                embodiment_id=ctx.embodiment_id,
-            )
-            S = contrib if S is None else S + contrib
-        if S is None:
-            raise RuntimeError("input_modules produced no specific tokens")
-
-        # AGNOSTIC stream A (width d_A): the shared ObsToken.
-        A = self.agnostic_input.forward_packed(
-            actions_packed=actions_packed, obs_packed=obs_packed,
-            cu_seqlens=cu_seqlens, T_total=T_total, device=device, dtype=dtype,
-            embodiment_id=ctx.embodiment_id,
-        )
+        pk = self._packed_inputs(batch, ctx, "MultiStreamOuterStage")
+        cu_seqlens, T_total = pk["cu_seqlens"], pk["T_total"]
+        device = pk["device"]
+        obs_packed = pk["obs_packed"]
+        S = self._specific_stream(pk, ctx)
+        A = self._agnostic_stream(pk, ctx)
 
         time_pos = self._within_episode_time_pos(cu_seqlens, T_total, device)
         # Keep A, S SEPARATE (different widths) -> list for MultiStreamComputeStage.
