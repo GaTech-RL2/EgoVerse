@@ -5,6 +5,7 @@ import time
 
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+from egomimic.utils.pose_utils import safe_rot3_from_T
 
 # Make sure we can import oculus_reader from repo root:
 # egomimic/robot/calibrate_utils.py  ->  ../../oculus_reader
@@ -12,16 +13,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "oculus_read
 from oculus_reader import OculusReader  # type: ignore
 
 
-def safe_rot3_from_T(T, ortho_tol=1e-3, det_tol=1e-3):
-    Rm = np.asarray(T, dtype=float)[:3, :3]
-    if Rm.shape != (3, 3) or not np.all(np.isfinite(Rm)):
-        return np.eye(3)
-    det = np.linalg.det(Rm)
-    if det <= 0 or abs(det - 1.0) > det_tol:
-        return np.eye(3)
-    if np.linalg.norm(Rm.T @ Rm - np.eye(3), ord="fro") > ortho_tol:
-        return np.eye(3)
-    return Rm
 
 
 def quat_xyzw_to_wxyz(qxyzw: np.ndarray) -> np.ndarray:

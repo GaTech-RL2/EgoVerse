@@ -124,6 +124,24 @@ def _reconstruct_R_from_cols(c1: torch.Tensor, c2: torch.Tensor) -> torch.Tensor
 
 
 # ---------- base interface ----------
+def _decode_arm_block(actions32: torch.Tensor, start: int):
+    """Decode one 10-wide arm block of a 32-pack into ``(xyz, ypr, gripper)``.
+
+    The four single-arm converters differ only in where their block starts
+    (left at 0, right at 10) and in whether they keep the gripper channel:
+    robot actions are 7-dim (xyz+ypr+gripper), human actions 6-dim.
+    """
+    actions32 = _ensure_bsd(actions32)
+    block = actions32[..., start : start + 10]
+    xyz = block[..., 0:3]
+    c1 = block[..., 3:6]
+    c2 = block[..., 6:9]
+    g = block[..., 9:10]
+    R = _reconstruct_R_from_cols(c1, c2)
+    ypr = _matrix_to_ypr(R)
+    return xyz, ypr, g
+
+
 class BaseActionConverter:
     """
     Implement both directions:
@@ -162,14 +180,7 @@ class RobotLeftCartesianEuler(BaseActionConverter):
         return _pad32(block)
 
     def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 0:10]  # left block
-        xyz = block[..., 0:3]
-        c1 = block[..., 3:6]
-        c2 = block[..., 6:9]
-        g = block[..., 9:10]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
+        xyz, ypr, g = _decode_arm_block(actions32, 0)
         return torch.cat([xyz, ypr, g], dim=-1)  # (B,S,7)
 
 
@@ -193,14 +204,7 @@ class RobotRightCartesianEuler(BaseActionConverter):
         return _pad32(torch.cat([zeros, right], dim=-1))  # (B,S,20) -> pad 32
 
     def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 10:20]  # right block
-        xyz = block[..., 0:3]
-        c1 = block[..., 3:6]
-        c2 = block[..., 6:9]
-        g = block[..., 9:10]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
+        xyz, ypr, g = _decode_arm_block(actions32, 10)
         return torch.cat([xyz, ypr, g], dim=-1)  # (B,S,7)
 
 
@@ -273,12 +277,8 @@ class HumanLeftCartesianEuler(BaseActionConverter):
         return _pad32(block)
 
     def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 0:10]
-        xyz, c1, c2 = block[..., 0:3], block[..., 3:6], block[..., 6:9]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr], dim=-1)  # (B,S,6)
+        xyz, ypr, _ = _decode_arm_block(actions32, 0)
+        return torch.cat([xyz, ypr], dim=-1)  # (B,S,6) -- human has no gripper
 
 
 class HumanRightCartesianEuler(BaseActionConverter):
@@ -300,12 +300,8 @@ class HumanRightCartesianEuler(BaseActionConverter):
         return _pad32(torch.cat([zeros, block], dim=-1))
 
     def from32(self, actions32: torch.Tensor) -> torch.Tensor:
-        actions32 = _ensure_bsd(actions32)
-        block = actions32[..., 10:20]
-        xyz, c1, c2 = block[..., 0:3], block[..., 3:6], block[..., 6:9]
-        R = _reconstruct_R_from_cols(c1, c2)
-        ypr = _matrix_to_ypr(R)
-        return torch.cat([xyz, ypr], dim=-1)  # (B,S,6)
+        xyz, ypr, _ = _decode_arm_block(actions32, 10)
+        return torch.cat([xyz, ypr], dim=-1)  # (B,S,6) -- human has no gripper
 
 
 class HumanBimanualCartesianEuler(BaseActionConverter):

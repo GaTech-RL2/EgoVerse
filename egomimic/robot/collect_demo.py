@@ -23,6 +23,7 @@ from oculus_reader import OculusReader
 
 # Import local modules
 from egomimic.robot.robot_utils import RateLoop
+from egomimic.utils.pose_utils import safe_rot3_from_T
 
 # Add path to robot_interface
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
@@ -125,16 +126,6 @@ def flip_roll_only(R_i, up=np.array([0.0, 0.0, 1.0]), add_pi=True):
     return R_out
 
 
-def safe_rot3_from_T(T, ortho_tol=1e-3, det_tol=1e-3):
-    Rm = np.asarray(T, dtype=float)[:3, :3]
-    if Rm.shape != (3, 3) or not np.all(np.isfinite(Rm)):
-        return np.eye(3)
-    det = np.linalg.det(Rm)
-    if det <= 0 or abs(det - 1.0) > det_tol:
-        return np.eye(3)
-    if np.linalg.norm(Rm.T @ Rm - np.eye(3), ord="fro") > ortho_tol:
-        return np.eye(3)
-    return Rm
 
 
 def normalize_quat_xyzw(q: np.ndarray) -> np.ndarray:
