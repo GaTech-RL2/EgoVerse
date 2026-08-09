@@ -685,6 +685,34 @@ def test_writer_round_trip():
             assert cmd_arr.shape == (ep_len, 2)
 
 
+def test_writer_preserves_direct_variant_metadata():
+    with tempfile.TemporaryDirectory() as tmp:
+        env_args = {"object_shape": "T", "pusher_shape": "circle", "obstacle_level": 0}
+        writer = ZarrDemoWriter(
+            path=tmp,
+            env_args=env_args,
+            image_size=8,
+            metadata_override={
+                "speed_factor": 0.5,
+                "pusher_color": "blue",
+                "embodiment_variant": "blue_circle",
+            },
+        )
+        writer.start_episode(init_state={"agent_pos": [10.0, 20.0]})
+        _add_fake_step(writer, np.random.default_rng(10))
+        idx = writer.commit_episode()
+        writer.close()
+
+        store = zarr.open_group(
+            os.path.join(tmp, _episode_filename(env_args, idx)), mode="r"
+        )
+        attrs = dict(store.attrs)
+        assert attrs["speed_factor"] == 0.5
+        assert attrs["pusher_color"] == "blue"
+        assert attrs["embodiment_variant"] == "blue_circle"
+        assert json.loads(attrs["episode_init"])["agent_pos"] == [10.0, 20.0]
+
+
 def test_writer_resumes_index_after_reopen():
     with tempfile.TemporaryDirectory() as tmp:
         env_args = {"object_shape": "T", "pusher_shape": "circle", "obstacle_level": 0}
