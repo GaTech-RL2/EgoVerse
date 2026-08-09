@@ -1,6 +1,6 @@
 """Backward-compat FACADE — ``egomimic/eval`` was CURATED into role buckets in
 DESIGN.md step 8 (the ``zoo`` bucket later dissolved into per-algo eval
- folders ``eval/{hpt,pi,act}/`` — see DESIGN.md): ``eval/{core,tf,dfot,probes,hpt,pi,act}/``.
+ folders ``eval/{hpt,pi,act}/`` — see DESIGN.md): ``eval/{core,probes,hpt,pi,act}/``.
 
 Every evaluator module moved (via ``git mv``, no behaviour change) from the flat
 ``egomimic/eval/eval_*.py`` layout into role buckets:
@@ -47,23 +47,13 @@ _MODULE_HOMES = {
     "eval_hnet": "egomimic.eval.core.eval_hnet",
     "eval_vae_recon": "egomimic.eval.core.eval_vae_recon",
     # tf/
-    "eval_dfot_val": "egomimic.eval.tf.eval_dfot_val",
-    "eval_dfot_controller_tf": "egomimic.eval.tf.eval_dfot_controller_tf",
     # dfot/
-    "eval_dfot_self_rollout": "egomimic.eval.dfot.eval_dfot_self_rollout",
-    "eval_dfot_video_rollout": "egomimic.eval.dfot.eval_dfot_video_rollout",
     # COMBINE A: the pixel/spatial video-rollout modules were collapsed into
     # the family-agnostic eval_dfot_video_rollout (which exports the compat
     # aliases). Keep the legacy import names pointing at the unified module.
-    "eval_dfot_pixel_video_rollout": "egomimic.eval.dfot.eval_dfot_video_rollout",  # noqa: E501
-    "eval_dfot_spatial_video_rollout": "egomimic.eval.dfot.eval_dfot_video_rollout",  # noqa: E501
     # COMBINE B: the policy-action + receding-horizon modules were merged into
     # eval_dfot_policy (they share _rollout / _ddim_from_v). Keep the legacy
     # import names pointing at the merged module.
-    "eval_dfot_policy": "egomimic.eval.dfot.eval_dfot_policy",
-    "eval_dfot_policy_action": "egomimic.eval.dfot.eval_dfot_policy",
-    "eval_dfot_policy_receding_horizon": "egomimic.eval.dfot.eval_dfot_policy",  # noqa: E501
-    "eval_dfot_bundle_anchored": "egomimic.eval.dfot.eval_dfot_bundle_anchored",
     # probes/
     "eval_boundary_strip": "egomimic.eval.probes.eval_boundary_strip",
     "eval_pca_tokens": "egomimic.eval.probes.eval_pca_tokens",
