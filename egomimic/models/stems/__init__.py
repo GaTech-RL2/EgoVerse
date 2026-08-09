@@ -15,11 +15,12 @@ logic change.
 
 from egomimic.models.stems.cond_encoders import CondEncoderModule
 from egomimic.models.stems.image_encoders import SimpleConv
-from egomimic.models.stems.obs_encoder import ObsEncoder
+from egomimic.models.stems.obs_encoder import ObsEncoder, build_mlp
 from egomimic.models.stems.visual_core import SpatialSoftmax, VisualCore
 
 __all__ = [
     "ObsEncoder",
+    "build_mlp",
     "VisualCore",
     "SpatialSoftmax",
     "SimpleConv",
