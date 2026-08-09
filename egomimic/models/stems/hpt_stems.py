@@ -96,7 +96,7 @@ class MLPPolicyStem(PolicyStem):
         self,
         input_dim: int = 10,
         output_dim: int = 10,
-        widths: List[int] = [512],
+        widths: Optional[List[int]] = None,
         tanh_end: bool = False,
         ln: bool = True,
         num_of_copy: int = 1,
@@ -106,6 +106,8 @@ class MLPPolicyStem(PolicyStem):
         """vanilla MLP class. ``input_slice=[start, end]`` picks ``x[..., start:end]``
         in forward, letting a multi-component proprio tensor feed only a subset
         into the stem without resaving the zarr."""
+        if widths is None:
+            widths = [512]
         super().__init__(**kwargs)
         self.input_slice = (
             slice(int(input_slice[0]), int(input_slice[1])) if input_slice else None
