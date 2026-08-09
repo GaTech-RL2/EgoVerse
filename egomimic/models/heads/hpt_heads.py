@@ -10,7 +10,7 @@ byte-identical) in the models/ hierarchy pass; the ``Attention`` /
 """
 
 from functools import partial
-from typing import List
+from typing import Optional, List
 
 import torch
 import torch.nn as nn
@@ -80,13 +80,15 @@ class MLPPolicyHead(PolicyHead):
         self,
         input_dim: int = 10,
         output_dim: int = 10,
-        widths: List[int] = [512],
+        widths: Optional[List[int]] = None,
         dropout: bool = False,
         tanh_end: bool = False,
         ln: bool = True,
         **kwargs,
     ) -> None:
         """vanilla MLP head on the pooled feature"""
+        if widths is None:
+            widths = [512]
         super().__init__()
         self.input = input
         modules = [nn.Linear(input_dim, widths[0]), nn.SiLU()]
