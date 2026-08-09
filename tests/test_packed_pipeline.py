@@ -41,7 +41,7 @@ from egomimic.rldb.zarr.zarr_dataset_packed import (
     ZarrEpisodePackedDataset,
 )
 
-PUSHT_FOLDER = "/coc/cedarp-dxu345-0/Tsim_datasets2/circle"
+PUSHT_FOLDER = "/coc/cedarp-dxu345-0/Tsim_datasets2/circle/basic"
 _HAS_PUSHT = os.path.isdir(PUSHT_FOLDER)
 requires_pusht = pytest.mark.skipif(
     not _HAS_PUSHT,

@@ -11,6 +11,22 @@ import torch
 # algo now lives at egomimic/algo/pi/pi.py).
 pytest.importorskip("openpi", reason="PI algo requires the optional openpi package")
 
+# These four tests describe a ``PI.visualize_preds`` API that does not exist in
+# this codebase. Verified: no branch of this repo defines ``visualize_preds``
+# (including main), ``egomimic.algo.pi.algo`` exposes no ``draw_actions`` to
+# monkeypatch, and neither EgoVerse2 nor EgoVerse-gmm-dualstream implements it
+# either -- so it was never ported into this lineage rather than removed from
+# it. ``draw_actions`` now lives in ``egomimic/utils/viz_utils.py`` and the PI
+# algo does not import it. The module note above is also stale: there is no
+# ``egomimic/algo/pi/pi.py``, only ``algo.py``.
+#
+# Skipped rather than deleted so the intended behaviour stays on record. Drop
+# this skip when PI grows visualize_preds; delete the file if it never will.
+pytest.skip(
+    "PI.visualize_preds is not implemented in this codebase -- see note above",
+    allow_module_level=True,
+)
+
 import egomimic.algo.pi.algo as pi_module
 from egomimic.algo.pi.algo import PI
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
@@ -58,7 +74,7 @@ def _make_predictions(embodiment_name):
 
 def test_visualize_preds_supports_single_transform_object(monkeypatch):
     shared_transform = _make_transform("shared")
-    pi = _make_pi(shared_transform, ["aria_bimanual"])
+    pi = _make_pi(shared_transform, ["human_bimanual"])
 
     draw_calls = []
 
@@ -71,7 +87,7 @@ def test_visualize_preds_supports_single_transform_object(monkeypatch):
     monkeypatch.setattr(pi_module, "draw_actions", fake_draw_actions)
 
     ims = pi.visualize_preds(
-        _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
+        _make_predictions("human_bimanual"), _make_batch("human_bimanual")
     )
 
     assert ims.shape == (1, 4, 4, 3)
@@ -86,8 +102,8 @@ def test_visualize_preds_supports_single_transform_object(monkeypatch):
 
 def test_visualize_preds_raises_clear_error_for_missing_embodiment():
     pi = _make_pi(
-        {"aria_bimanual": _make_transform("aria")},
-        ["aria_bimanual", "eva_bimanual"],
+        {"human_bimanual": _make_transform("human")},
+        ["human_bimanual", "eva_bimanual"],
     )
 
     with pytest.raises(KeyError) as exc_info:
@@ -98,15 +114,15 @@ def test_visualize_preds_raises_clear_error_for_missing_embodiment():
     assert "Missing camera transform for embodiment 'eva_bimanual'" in str(
         exc_info.value
     )
-    assert "aria_bimanual" in str(exc_info.value)
+    assert "human_bimanual" in str(exc_info.value)
 
 
 def test_visualize_preds_rejects_invalid_camera_transform_shape():
-    pi = _make_pi({"aria_bimanual": {"extrinsics": {}}}, ["aria_bimanual"])
+    pi = _make_pi({"human_bimanual": {"extrinsics": {}}}, ["human_bimanual"])
 
     with pytest.raises(TypeError) as exc_info:
         pi.visualize_preds(
-            _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
+            _make_predictions("human_bimanual"), _make_batch("human_bimanual")
         )
 
     assert "camera_transforms must be a CameraTransforms instance or a mapping" in str(
@@ -115,11 +131,11 @@ def test_visualize_preds_rejects_invalid_camera_transform_shape():
 
 
 def test_visualize_preds_uses_embodiment_specific_camera_transform(monkeypatch):
-    aria_transform = _make_transform("aria")
+    human_transform = _make_transform("human")
     eva_transform = _make_transform("eva")
     pi = _make_pi(
-        {"aria_bimanual": aria_transform, "eva_bimanual": eva_transform},
-        ["aria_bimanual", "eva_bimanual"],
+        {"human_bimanual": human_transform, "eva_bimanual": eva_transform},
+        ["human_bimanual", "eva_bimanual"],
     )
 
     draw_calls = []
@@ -142,13 +158,13 @@ def test_visualize_preds_uses_embodiment_specific_camera_transform(monkeypatch):
     monkeypatch.setattr(pi_module, "draw_actions", fake_draw_actions)
 
     ims = pi.visualize_preds(
-        _make_predictions("aria_bimanual"), _make_batch("aria_bimanual")
+        _make_predictions("human_bimanual"), _make_batch("human_bimanual")
     )
 
     assert ims.shape == (1, 4, 4, 3)
     assert len(draw_calls) == 2
-    assert all(call["extrinsics"] is aria_transform.extrinsics for call in draw_calls)
-    assert all(call["intrinsics"] is aria_transform.intrinsics for call in draw_calls)
+    assert all(call["extrinsics"] is human_transform.extrinsics for call in draw_calls)
+    assert all(call["intrinsics"] is human_transform.intrinsics for call in draw_calls)
     assert all(call["arm"] == "both" for call in draw_calls)
     assert all(call["shape"] == (2, 6) for call in draw_calls)
     assert all(
