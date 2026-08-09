@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pymunk
 
 from .shapes import (
@@ -57,15 +56,23 @@ _UNLATCHED_EDGE_MAX_DEPTH = 0.5
 
 
 class Agent:
-    """Base agent: a pusher with a 2-DOF (x, y) target-position action."""
+    """Base 2-DOF pusher with the fixed Sim V2 solid-contact guard."""
 
     action_dim = 2
     #: physics knobs an agent contributes to episode_init, so a replay can
     #: reconstruct the exact contact model it was collected under.
     init_fields: tuple[str, ...] = ()
 
-    def __init__(self, shape: str):
+    def __init__(
+        self,
+        shape: str,
+        *,
+        solid_pusher: bool = True,
+        solid_contact_guard: bool = True,
+    ):
         self.shape = shape
+        self.solid_pusher = bool(solid_pusher)
+        self.solid_contact_guard = bool(solid_contact_guard)
 
     def build(self, space: pymunk.Space, position):
         """Create the pusher body/shapes in ``space``."""
@@ -80,10 +87,86 @@ class Agent:
 
     def pre_substep(self, env):
         """Capture whatever post_substep needs to compare against."""
-        return None
+        return self._capture_solid_contact_guard_pose(env)
 
     def post_substep(self, env, captured) -> None:
-        """Latch/guard hooks. No-op for a stateless agent."""
+        """Reject a substep that tunnels through the object or static geometry."""
+        self._guard_solid_contact_penetration(env, captured)
+
+    def _capture_solid_contact_guard_pose(
+        self,
+        env,
+    ) -> tuple[
+        tuple[float, float, float],
+        tuple[float, float, float],
+        float,
+        float,
+    ] | None:
+        """Capture the current pair pose and penetration before a substep."""
+        if not self.solid_pusher or not self.solid_contact_guard:
+            return None
+        pusher = env._pusher_body
+        obj = env._object_body
+        return (
+            (float(pusher.position.x), float(pusher.position.y), float(pusher.angle)),
+            (float(obj.position.x), float(obj.position.y), float(obj.angle)),
+            env._object_static_penetration_depth(),
+            env._pusher_object_penetration_depth(),
+        )
+
+    def _guard_solid_contact_penetration(
+        self,
+        env,
+        previous_pose: tuple[
+            tuple[float, float, float],
+            tuple[float, float, float],
+            float,
+            float,
+        ] | None,
+    ) -> None:
+        """Restore the last safe pose if a solid contact tunnels deeply.
+
+        The comparison includes the previous penetration so a manually
+        restored pose that starts slightly embedded can still move outward.
+        """
+        if previous_pose is None:
+            return
+        pusher_pose, object_pose, previous_static_depth, previous_pusher_depth = (
+            previous_pose
+        )
+        static_is_unsafe = env._object_static_penetration_depth() > max(
+            _SOLID_OBJECT_STATIC_MAX_DEPTH,
+            previous_static_depth,
+        ) + _LATCH_DEPTH_EPSILON
+        pusher_is_unsafe = env._pusher_object_penetration_depth() > max(
+            _SOLID_PUSHER_OBJECT_MAX_DEPTH,
+            previous_pusher_depth,
+        ) + _LATCH_DEPTH_EPSILON
+        if static_is_unsafe or pusher_is_unsafe:
+            self._restore_pair_pose(env, pusher_pose, object_pose)
+
+    @staticmethod
+    def _restore_pair_pose(
+        env,
+        pusher_pose: tuple[float, float, float],
+        object_pose: tuple[float, float, float],
+    ) -> None:
+        """Restore both bodies after an unsafe physics substep."""
+        pusher = env._pusher_body
+        obj = env._object_body
+        pusher.position = pusher_pose[:2]
+        pusher.angle = pusher_pose[2]
+        pusher.velocity = (0.0, 0.0)
+        pusher.angular_velocity = 0.0
+
+        # Angle first because the T's non-zero center-of-gravity offset means
+        # setting it second would shift the restored world-space position.
+        obj.angle = object_pose[2]
+        obj.position = object_pose[:2]
+        obj.velocity = (0.0, 0.0)
+        obj.angular_velocity = 0.0
+        env._space.reindex_shapes_for_body(pusher)
+        env._space.reindex_shapes_for_body(obj)
 
     def episode_init(self) -> dict:
         return {name: getattr(self, name) for name in self.init_fields}
@@ -99,13 +182,15 @@ class USocketAgent(Agent):
     action_dim = 3
     init_fields = ("solid_pusher", "socket_inside_friction_only")
 
-    def __init__(self, shape: str = "u_socket", *, solid_pusher: bool = False,
+    def __init__(self, shape: str = "u_socket", *, solid_pusher: bool = True,
                  socket_inside_friction_only: bool = False,
                  solid_contact_guard: bool = True):
-        super().__init__(shape)
-        self.solid_pusher = bool(solid_pusher)
+        super().__init__(
+            shape,
+            solid_pusher=solid_pusher,
+            solid_contact_guard=solid_contact_guard,
+        )
         self.socket_inside_friction_only = bool(socket_inside_friction_only)
-        self.solid_contact_guard = bool(solid_contact_guard)
         self._socket_constraints = None
         self._socket_relatch_block = 0
         self._socket_latch_angle_offset = None
@@ -370,7 +455,7 @@ class USocketAgent(Agent):
         # invalid, deeply overlapping pose. Drop it before restoring the last
         # unlatched valid configuration.
         if self.socket_latched:
-            self._release_socket_latch()
+            self._release_socket_latch(env)
         pusher = env._pusher_body
         obj = env._object_body
         pusher.position = pusher_pose[:2]
@@ -481,24 +566,10 @@ class USocketAgent(Agent):
         # Drop only that new latch; a pre-existing latch remains valid at its
         # restored rigid-pair pose.
         if self.socket_latched and not was_latched:
-            self._release_socket_latch()
+            self._release_socket_latch(env)
             self._socket_relatch_block = _SOCKET_RELATCH_BLOCK
 
-        pusher = env._pusher_body
-        obj = env._object_body
-        pusher.position = pusher_pose[:2]
-        pusher.angle = pusher_pose[2]
-        pusher.velocity = (0.0, 0.0)
-        pusher.angular_velocity = 0.0
-
-        # Angle first because the T's non-zero center-of-gravity offset means
-        # setting it second would shift the restored world-space position.
-        obj.angle = object_pose[2]
-        obj.position = object_pose[:2]
-        obj.velocity = (0.0, 0.0)
-        obj.angular_velocity = 0.0
-        env._space.reindex_shapes_for_body(pusher)
-        env._space.reindex_shapes_for_body(obj)
+        self._restore_pair_pose(env, pusher_pose, object_pose)
 
 
     def _set_solid_latched_pair_pose(
@@ -511,7 +582,7 @@ class USocketAgent(Agent):
         env._pusher_body.position = position
         env._pusher_body.angle = angle
         env._space.reindex_shapes_for_body(env._pusher_body)
-        self._enforce_solid_socket_latch()
+        self._enforce_solid_socket_latch(env)
 
 
     def _guard_socket_penetration(
@@ -564,7 +635,7 @@ class USocketAgent(Agent):
 
         if previous_pose is None:
             if not self.solid_pusher and max_depth > _LEGACY_SOCKET_UNLATCH_DEPTH:
-                self._release_socket_latch()
+                self._release_socket_latch(env)
                 self._socket_relatch_block = _SOCKET_RELATCH_BLOCK
             return
         pusher_pose, object_pose, previous_depth = previous_pose
@@ -590,7 +661,7 @@ class USocketAgent(Agent):
         # translation and temporarily block angular motion.
         env._pusher_body.velocity = candidate_velocity
         env._pusher_body.angular_velocity = 0.0
-        self._set_solid_latched_pair_pose(candidate_position, pusher_pose[2])
+        self._set_solid_latched_pair_pose(env, candidate_position, pusher_pose[2])
         if (
             env._object_static_penetration_depth()
             <= allowed_depth + _LATCH_DEPTH_EPSILON
@@ -601,7 +672,7 @@ class USocketAgent(Agent):
         # component trying to move deeper into static geometry.
         env._pusher_body.velocity = (0.0, 0.0)
         env._pusher_body.angular_velocity = candidate_angular_velocity
-        self._set_solid_latched_pair_pose(pusher_pose[:2], candidate_angle)
+        self._set_solid_latched_pair_pose(env, pusher_pose[:2], candidate_angle)
         if (
             env._object_static_penetration_depth()
             <= allowed_depth + _LATCH_DEPTH_EPSILON
@@ -647,7 +718,7 @@ def make_agent(pusher_shape: str, **kwargs) -> Agent:
     if pusher_shape == "u_socket":
         return USocketAgent(pusher_shape, **kwargs)
     if pusher_shape in _SIMPLE:
-        return Agent(pusher_shape)
+        return Agent(pusher_shape, **kwargs)
     raise ValueError(
         "unknown pusher_shape %r; known: %s"
         % (pusher_shape, ("u_socket",) + _SIMPLE)
