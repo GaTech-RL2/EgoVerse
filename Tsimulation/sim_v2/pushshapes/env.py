@@ -38,12 +38,7 @@ from .render import (
 )
 from .shapes import (
     SHAPES,
-    U_SOCKET_CROSSBAR_INNER_X,
-    U_SOCKET_POCKET_X_MAX,
-    U_SOCKET_POCKET_X_MIN,
-    U_SOCKET_POCKET_Y_HALF,
     make_object,
-    make_pusher,
     pusher_radius,
 )
 
@@ -146,13 +141,15 @@ class PushShapesEnv(gym.Env):
         self.pusher_shape = pusher_shape
         # The agent owns its action space, body and contact model, so the env
         # never branches on pusher_shape again.
-        self.agent = make_agent(
-            pusher_shape,
-            **({"solid_pusher": self.SOLID_PUSHER,
-                "socket_inside_friction_only": self.SOCKET_INSIDE_FRICTION_ONLY,
-                "solid_contact_guard": self.SOLID_CONTACT_GUARD}
-               if pusher_shape == "u_socket" else {}),
-        )
+        agent_options = {
+            "solid_pusher": self.SOLID_PUSHER,
+            "solid_contact_guard": self.SOLID_CONTACT_GUARD,
+        }
+        if pusher_shape == "u_socket":
+            agent_options["socket_inside_friction_only"] = (
+                self.SOCKET_INSIDE_FRICTION_ONLY
+            )
+        self.agent = make_agent(pusher_shape, **agent_options)
         self.obstacle_level = obstacle_level
         self.render_mode = render_mode
         self.image_size = int(image_size)
