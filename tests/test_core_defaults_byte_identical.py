@@ -32,18 +32,21 @@ REFS = {
         "first_param_sum": 2.926531295090129,
         "out_shape": (B, T, 1000),
         "out_sum": -2.0081596536934967,
+        "out_abs_sum": 244.220398,
     },
     "tx": {
         "param_count": 12106752,
         "first_param_sum": 19.838683611378656,
         "out_shape": (B, T, 448),
         "out_sum": -4.0249506128020585e-06,
+        "out_abs_sum": 7163.81734,
     },
     "hnet": {
         "param_count": 12163840,
         "first_param_sum": 8.620598287103348,
         "out_shape": (B, T, 256),
         "out_sum": -72.63621407691971,
+        "out_abs_sum": 4101.591158,
     },
 }
 
@@ -132,10 +135,22 @@ def _assert_matches_reference(name: str):
     assert tuple(out.shape) == ref["out_shape"], (
         f"{name}: out shape {tuple(out.shape)} != {ref['out_shape']}"
     )
+    # Primary forward guard: the ABSOLUTE sum. It does not cancel, so it is
+    # stable to ~1e-8 relative across thread counts and BLAS reduction orders,
+    # while remaining sensitive to any real change in the forward.
+    out_abs_sum = float(out.detach().double().abs().sum().item())
+    assert abs(out_abs_sum - ref["out_abs_sum"]) <= 1e-7 * ref["out_abs_sum"], (
+        f"{name}: forward abs-checksum {out_abs_sum!r} != reference "
+        f"{ref['out_abs_sum']!r}"
+    )
+    # Secondary: the SIGNED sum, tolerance scaled to the magnitude actually
+    # summed. A fixed ~1e-6 bound is meaningless for a near-zero cancelling sum
+    # -- tx cancels from abs-sum 7163 down to ~1e-5, so its signed sum moves
+    # with thread count alone (-1.21e-05 at 1 thread vs -4.43e-05 at 2) and the
+    # old absolute bound made this test fail on any machine but the one the
+    # reference was recorded on.
     out_sum = float(out.detach().double().sum().item())
-    # Deterministic CPU forward: exact in practice, tiny rtol guards across
-    # torch patch versions / BLAS reduction order.
-    assert abs(out_sum - ref["out_sum"]) <= 1e-6 + 1e-6 * abs(ref["out_sum"]), (
+    assert abs(out_sum - ref["out_sum"]) <= 1e-8 * ref["out_abs_sum"], (
         f"{name}: forward checksum {out_sum!r} != reference {ref['out_sum']!r}"
     )
 
