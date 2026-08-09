@@ -16,6 +16,7 @@ from egomimic.models.cores.hpt_transformer import MultiheadAttention, SimpleTran
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
 from egomimic.utils.hf_utils import download_from_huggingface
+from typing import Optional
 
 
 # moved from the deleted egomimicUtils
@@ -806,7 +807,7 @@ class HPT(Algo):
         shared_obs_keys: list = None,
         encoder_specs: dict = None,
         domains: list = None,
-        auxiliary_ac_keys: dict = {},
+        auxiliary_ac_keys: Optional[dict] = None,
         # ---------------------------
         # Pretrained
         # ---------------------------
@@ -834,7 +835,7 @@ class HPT(Algo):
         self.pretrained_checkpoint = pretrained_checkpoint
 
         self.domains = domains.copy()
-        self.auxiliary_ac_keys = auxiliary_ac_keys.copy()
+        self.auxiliary_ac_keys = dict(auxiliary_ac_keys or {})
         self.shared_ac_key = kwargs.get("shared_ac_key", None)
         self.is_6dof = kwargs.get("6dof", False)
         self.kinematics_solver = kwargs.get("kinematics_solver", None)
@@ -1300,7 +1301,7 @@ class HPT(Algo):
         )
 
     def _robomimic_to_hpt_data(
-        self, batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys=[]
+        self, batch, cam_keys, proprio_keys, lang_keys, ac_key, aux_ac_keys=None
     ):
         """
         helper method that returns data in the format required for the HPT model
@@ -1341,6 +1342,8 @@ class HPT(Algo):
         data["is_6dof"] = self.is_6dof
         data["pad_mask"] = batch["pad_mask"]
         data["embodiment"] = batch["embodiment"]
+
+        aux_ac_keys = aux_ac_keys or []
 
         for aux_ac_key in aux_ac_keys:
             data[aux_ac_key] = batch[aux_ac_key]
