@@ -8,10 +8,28 @@ from lightning import LightningDataModule
 from lightning.pytorch.utilities.combined_loader import CombinedLoader
 from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
+
+from egomimic.rldb.zarr.zarr_dataset_packed import (
+    ZarrEpisodePackedDataset,
+    pack_collate,
+)
 from transformers import AutoTokenizer
 
 logger = logging.getLogger(__name__)
 
+
+
+def _collate_fn_for(dataset):
+    """Pick a collate fn based on the dataset type.
+
+    Packed datasets (variable-length samples flattened along time) need
+    ``pack_collate`` to emit ``cu_seqlens``; everything else falls back to
+    ``annotation_collate``, whose ``default_collate`` would try to stack
+    ragged rows and raise "Trying to resize storage that is not resizable".
+    """
+    if isinstance(dataset, ZarrEpisodePackedDataset):
+        return pack_collate
+    return annotation_collate
 
 
 class MultiDataModuleWrapper(LightningDataModule):
@@ -63,7 +81,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=True,
-                collate_fn=self.collate_fn,
+                collate_fn=_collate_fn_for(dataset),
                 **dataset_params,
             )
 
@@ -82,7 +100,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=shuffle,
-                collate_fn=self.collate_fn,
+                collate_fn=_collate_fn_for(dataset),
                 **dataset_params,
             )
 
