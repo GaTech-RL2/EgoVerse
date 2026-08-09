@@ -197,13 +197,13 @@ def test_v3_u_socket_mouth_corner_is_frictionless():
     )
     env._skip_obs_render = True
     observed_friction = []
-    original_callback = env._socket_friction_pre_solve
+    original_callback = env.agent._socket_friction_pre_solve
 
-    def record_friction(arbiter, space, data):
-        original_callback(arbiter, space, data)
+    def record_friction(agent_env, arbiter, space, data):
+        original_callback(agent_env, arbiter, space, data)
         observed_friction.append(float(arbiter.friction))
 
-    env._socket_friction_pre_solve = record_friction
+    env.agent._socket_friction_pre_solve = record_friction
     try:
         env.reset(seed=1)
         pusher_position = (131.42, 155.13)
@@ -237,13 +237,13 @@ def test_v3_u_socket_inner_crossbar_keeps_friction():
     )
     env._skip_obs_render = True
     observed_friction = []
-    original_callback = env._socket_friction_pre_solve
+    original_callback = env.agent._socket_friction_pre_solve
 
-    def record_friction(arbiter, space, data):
-        original_callback(arbiter, space, data)
+    def record_friction(agent_env, arbiter, space, data):
+        original_callback(agent_env, arbiter, space, data)
         observed_friction.append(float(arbiter.friction))
 
-    env._socket_friction_pre_solve = record_friction
+    env.agent._socket_friction_pre_solve = record_friction
     try:
         env.reset(seed=9)
         env.set_state(
@@ -276,8 +276,8 @@ def test_v3_u_socket_friction_is_limited_to_pocket_bottom():
         point = pymunk.Vec2d
 
         # Only the closed bottom of the U pocket retains friction.
-        assert env._socket_contact_is_on_inner_face(
-            crossbar, point(-10.0, 0.0), point(-10.0, 0.0)
+        assert env.agent._socket_contact_is_on_inner_face(
+            env, crossbar, point(-10.0, 0.0), point(-10.0, 0.0)
         )
 
         # Both inner side walls, tips, outer sides, the back, and ambiguous
@@ -294,7 +294,9 @@ def test_v3_u_socket_friction_is_limited_to_pocket_bottom():
             (negative_prong, point(-10.0, -16.0), point(-10.0, -16.0)),
         ]
         assert all(
-            not env._socket_contact_is_on_inner_face(shape, pusher_pt, object_pt)
+            not env.agent._socket_contact_is_on_inner_face(
+                env, shape, pusher_pt, object_pt
+            )
             for shape, pusher_pt, object_pt in outside_contacts
         )
 
@@ -431,6 +433,47 @@ def test_solid_pusher_cannot_bulldoze_object_through_obstacle(pusher_shape):
         assert max_depth <= 0.2 + 1e-6
         assert max_unlatched_depth <= 0.5 + 1e-6
         assert env.object_pose[1] < 180.0
+    finally:
+        env.close()
+
+
+@pytest.mark.parametrize("pusher_shape", ["circle", "circle_small", "stick", "L"])
+def test_every_simple_pusher_uses_solid_contact_guard_by_default(pusher_shape):
+    """Every non-socket embodiment must roll back a tunnelling substep."""
+    env = PushShapesEnv(
+        object_shape="T",
+        pusher_shape=pusher_shape,
+        obstacle_level=0,
+        image_size=32,
+        seed=1,
+    )
+    env._skip_obs_render = True
+    try:
+        env.reset(seed=1)
+        env.set_obstacles([])
+        env.set_state(
+            agent_pos=(120.0, 120.0),
+            agent_angle=0.0,
+            object_pose=(300.0, 300.0, 0.0),
+            goal_pose=(400.0, 400.0, 0.0),
+        )
+        assert env.agent.solid_pusher
+        assert env.agent.solid_contact_guard
+
+        safe_agent_pose = (*env.agent_pos, env.pusher_angle)
+        safe_object_pose = env.object_pose
+        captured = env.agent.pre_substep(env)
+
+        # Simulate one high-speed substep placing the pusher deeply inside the
+        # object. The normal step loop invokes this same post-substep hook.
+        env._pusher_body.position = env._object_body.position
+        env._space.reindex_shapes_for_body(env._pusher_body)
+        assert env._pusher_object_penetration_depth() > 0.5
+        env.agent.post_substep(env, captured)
+
+        assert (*env.agent_pos, env.pusher_angle) == pytest.approx(safe_agent_pose)
+        assert env.object_pose == pytest.approx(safe_object_pose)
+        assert env._pusher_object_penetration_depth() <= 0.5 + 1e-6
     finally:
         env.close()
 
@@ -575,8 +618,8 @@ def test_solid_object_arena_containment_is_noop_in_free_space():
         before_pose = np.asarray(env.object_pose, dtype=np.float64)
         before_velocity = np.asarray(env._object_body.velocity, dtype=np.float64)
 
-        previous_pose = env._capture_solid_unlatched_edge_pose()
-        env._guard_solid_unlatched_object_at_arena_edge(previous_pose)
+        previous_pose = env.agent._capture_solid_unlatched_edge_pose(env)
+        env.agent._guard_solid_unlatched_object_at_arena_edge(env, previous_pose)
 
         np.testing.assert_array_equal(
             np.asarray(env.object_pose, dtype=np.float64), before_pose
