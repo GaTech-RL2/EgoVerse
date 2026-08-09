@@ -18,18 +18,7 @@ from typing import Dict, List, Optional
 import torch
 import torch.nn as nn
 
-
-def _mlp(
-    in_dim: int, out_dim: int, widths: Optional[List[int]] = None
-) -> nn.Sequential:
-    widths = widths or []
-    layers: List[nn.Module] = []
-    prev = in_dim
-    for w in widths:
-        layers += [nn.Linear(prev, w), nn.GELU()]
-        prev = w
-    layers.append(nn.Linear(prev, out_dim))
-    return nn.Sequential(*layers)
+from egomimic.models.stems.obs_encoder import build_mlp
 
 
 class CondEncoderModule(nn.Module):
@@ -70,8 +59,11 @@ class CondEncoderModule(nn.Module):
         fused_dim = 0
         for key in self.obs_keys:
             spec = obs_specs[key]
-            self.obs_encoders[key] = _mlp(
-                spec["input_dim"], spec["embed_dim"], spec.get("widths", [])
+            self.obs_encoders[key] = build_mlp(
+                spec["input_dim"],
+                spec["embed_dim"],
+                spec.get("widths", []),
+                act=nn.GELU,
             )
             if "input_slice" in spec:
                 start, end = spec["input_slice"]
@@ -96,7 +88,9 @@ class CondEncoderModule(nn.Module):
             widths = cond_proj_widths
             if widths is None:
                 widths = [max(self.d_cond, fused_dim)]
-            self.cond_proj = _mlp(fused_dim, self.d_cond, widths=list(widths))
+            self.cond_proj = build_mlp(
+                fused_dim, self.d_cond, widths=list(widths), act=nn.GELU
+            )
 
     def encode(
         self,
