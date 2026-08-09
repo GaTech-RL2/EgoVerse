@@ -214,7 +214,7 @@ class ConditionalUnet1D(nn.Module):
         cond_dim=None,
         diffusion_step_embed_dim=256,
         ac_latent_seq=8,
-        down_dims=[256, 512, 1024],
+        down_dims=None,
         kernel_size=3,
         n_groups=8,
         cond_predict_scale=False,
@@ -223,6 +223,8 @@ class ConditionalUnet1D(nn.Module):
         """
         local conditioning and global conditioning scheme
         """
+        if down_dims is None:
+            down_dims = [256, 512, 1024]
         super().__init__()
         all_dims = [input_dim] + list(down_dims)
         start_dim = down_dims[0]
