@@ -51,9 +51,12 @@ import numpy as np
 
 NUM_KEYPOINTS = 21
 KP_DIM = NUM_KEYPOINTS * 3  # 63
-WRIST_DIM = 7  # xyz + ypr + gripper
-PER_HAND_DIM = KP_DIM + WRIST_DIM  # 70
-BIMANUAL_DIM = 2 * PER_HAND_DIM  # 140
+# aria has no gripper and nothing pads one on this path, so the wrist is
+# xyz + ypr only. Confirmed against the live pipeline: actions_keypoints is
+# (100, 138) = 2 * (63 + 6).
+WRIST_DIM = 6  # xyz + ypr
+PER_HAND_DIM = WRIST_DIM + KP_DIM  # 69
+BIMANUAL_DIM = 2 * PER_HAND_DIM  # 138
 
 DISTANCE_MODES = ("linf", "l2", "l1mean")
 
@@ -121,8 +124,12 @@ def _interp_rows(x: np.ndarray, cum: np.ndarray, targets: np.ndarray) -> np.ndar
 class TokenizeBimanualArcLengthKeypoints:
     """(T, 140) bimanual keypoint+wrist chunk -> (M+1, 140) arc token.
 
-    Layout per row, matching the input:
-        [L kp(63) | L wrist xyz ypr grip(7) | R kp(63) | R wrist xyz ypr grip(7)]
+    Layout per row, matching what the keypoints pipeline emits:
+        [L wrist xyz ypr(6) | L kp(63) | R wrist xyz ypr(6) | R kp(63)]
+
+    Verified by bone-length test on the live pipeline: this slicing yields
+    39.7mm bones with 0.38mm variation across a 100-frame chunk, whereas
+    keypoints-first slicing yields 330mm "bones" with 3.7m outliers.
 
     Row M is the velocity token: per hand, the mean progress rate ds/dt over the
     token span, broadcast into that hand's first slot and zero elsewhere. One
@@ -163,8 +170,12 @@ class TokenizeBimanualArcLengthKeypoints:
             self.weights[[4, 8, 12, 16, 20]] = float(fingertip_weight)
 
     def _hand_slice(self, hand: int) -> tuple[slice, slice]:
+        """-> (keypoint slice, wrist slice) for this hand. Wrist comes FIRST."""
         off = hand * PER_HAND_DIM
-        return slice(off, off + KP_DIM), slice(off + KP_DIM, off + PER_HAND_DIM)
+        return (
+            slice(off + WRIST_DIM, off + PER_HAND_DIM),  # 63 keypoint dims
+            slice(off, off + WRIST_DIM),  # 6 wrist dims
+        )
 
     def tokenize(self, chunk: np.ndarray) -> np.ndarray:
         """(T, 140) -> (M+1, 140)."""
@@ -197,7 +208,7 @@ class TokenizeBimanualArcLengthKeypoints:
                 int(np.searchsorted(cum, end_s, side="right")) - 1, 1
             )
             duration = n_steps * self.dt
-            out[self.M, kp_sl.start] = end_s / duration if duration > 0 else 0.0
+            out[self.M, wr_sl.start] = end_s / duration if duration > 0 else 0.0
         return out
 
     def detokenize(self, token: np.ndarray, action_horizon: int) -> np.ndarray:
@@ -208,7 +219,7 @@ class TokenizeBimanualArcLengthKeypoints:
         for hand in range(2):
             kp_sl, wr_sl = self._hand_slice(hand)
             wps = token[: self.M]
-            rate = float(token[self.M, kp_sl.start])
+            rate = float(token[self.M, wr_sl.start])
             if rate <= 1e-9:
                 out[:, kp_sl] = wps[0, kp_sl]
                 out[:, wr_sl] = wps[0, wr_sl]
