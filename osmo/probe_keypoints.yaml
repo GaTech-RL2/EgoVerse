@@ -77,36 +77,39 @@ workflow:
             except Exception: shp = type(v).__name__
             print(f"  {k:<52} {shp}")
 
-        print("\n=== can we assemble (T, 140)? ===")
-        def arr(k):
-            v = s.get(k)
-            if v is None: return None
-            return v.numpy() if torch.is_tensor(v) else np.asarray(v)
-        cands_kp = [k for k in s if "keypoint" in k and "action" in k]
-        cands_wr = [k for k in s if "wrist" in k and "action" in k]
-        print(f"  action keypoint keys: {cands_kp}")
-        print(f"  action wrist keys   : {cands_wr}")
-        for k in cands_kp + cands_wr:
-            a = arr(k)
-            if a is not None:
-                print(f"    {k:<50} shape={a.shape} last_dim={a.shape[-1]}")
-
-        print("\n=== tokenizer on a real assembled chunk (if possible) ===")
-        try:
-            from egomimic.rldb.zarr.keypoint_arc_tokenizer import (
-                TokenizeBimanualArcLengthKeypoints as TK, BIMANUAL_DIM)
-            main = arr(cfg.model.robomimic_model.ac_keys.human_bimanual) if hasattr(cfg,"model") else None
-            print(f"  configured ac_key array: {None if main is None else main.shape}")
-            # try the concatenated action key the pipeline produced
-            for k in sorted(s):
-                a = arr(k)
-                if a is not None and a.ndim == 2 and a.shape[-1] in (126, 140, 132):
-                    print(f"  candidate chunk key {k} shape={a.shape}")
-                    if a.shape[-1] == BIMANUAL_DIM:
-                        t = TK(min_distance_unit=0.45, resampled_vector_length=30).tokenize(a)
-                        print(f"    -> tokenized OK: {t.shape}, vel={t[30,0]:.4f}")
-        except Exception as e:
-            print(f"  tokenizer step: {type(e).__name__}: {e}")
+        print("\n=== CONFIRM COLUMN LAYOUT of actions_keypoints (T,138) ===")
+        import numpy as np
+        A = s["actions_keypoints"]
+        A = A.numpy() if torch.is_tensor(A) else np.asarray(A)
+        print(f"  chunk {A.shape};  138 = 2 x (21*3 + 6) -> wrist is 6-dim (xyz+ypr), no gripper")
+        EDGES=[(0,1),(1,2),(2,3),(3,4),(0,5),(5,6),(6,7),(7,8),(0,9),(9,10),(10,11),(11,12),
+               (0,13),(13,14),(14,15),(15,16),(0,17),(17,18),(18,19),(19,20)]
+        def score(kp):
+            """kp (T,21,3) -> bone length stats. Correct slicing => plausible and near-constant."""
+            L=np.stack([np.linalg.norm(kp[:,u]-kp[:,v],axis=1) for u,v in EDGES],1)  # (T,20)
+            return L.mean(), L.std(0).mean(), L.mean(0).min(), L.mean(0).max()
+        CAND={
+          "A: [Lwrist6|Lkp63|Rwrist6|Rkp63]": (slice(6,69),   slice(75,138)),
+          "B: [Lkp63|Lwrist6|Rkp63|Rwrist6]": (slice(0,63),   slice(69,132)),
+          "C: [Lkp63|Rkp63|Lwrist6|Rwrist6]": (slice(0,63),   slice(63,126)),
+        }
+        print(f"\n  {'candidate layout':<36} {'mean bone':>10} {'std over t':>11} {'min':>8} {'max':>8}  verdict")
+        print("  "+"-"*88)
+        for name,(sl_l,sl_r) in CAND.items():
+            try:
+                kl=A[:,sl_l].reshape(len(A),21,3); kr=A[:,sl_r].reshape(len(A),21,3)
+                m1,sd1,mn1,mx1=score(kl); m2,sd2,mn2,mx2=score(kr)
+                m,sd,mn,mx=(m1+m2)/2,(sd1+sd2)/2,min(mn1,mn2),max(mx1,mx2)
+                # human finger bones ~15-50mm, and rigid => std over time near 0
+                good = (0.005<m<0.06) and (sd < 0.2*m) and (mx<0.12)
+                print(f"  {name:<36} {m*1000:>9.1f}mm {sd*1000:>10.2f}mm {mn*1000:>7.1f} {mx*1000:>7.1f}  {'PLAUSIBLE' if good else 'no'}")
+            except Exception as e:
+                print(f"  {name:<36} FAILED: {type(e).__name__}")
+        print("\n  (correct layout = anatomically sized bones that stay rigid over the chunk)")
+        print("\n=== wrist block sanity (candidate A: cols 0:6 and 69:75) ===")
+        for lbl,sl in (("L wrist",slice(0,6)),("R wrist",slice(69,75))):
+            w=A[:,sl]
+            print(f"  {lbl}: xyz range {np.ptp(w[:,:3],axis=0).round(3)}  ypr range {np.ptp(w[:,3:6],axis=0).round(3)} rad")
         print("\n=== done ===")
   resources:
     default:
