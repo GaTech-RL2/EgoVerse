@@ -57,11 +57,9 @@ robomimic_model:
 optimizer:
   _target_: torch.optim.AdamW
   _partial_: true
-  lr: 1e-4
+  lr: 3e-4
   weight_decay: 0.0001
 
-scheduler:
-  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
-  _partial_: true
-  T_max: 1400
-  eta_min: 1e-5
+# Constant LR — no scheduler (pl_model.configure_optimizers skips scheduling
+# when `scheduler` is absent/null).
+scheduler: null

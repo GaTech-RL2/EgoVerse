@@ -29,6 +29,29 @@ class EMBODIMENT(Enum):
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
 
+# Legacy embodiment aliases from before the human-source collapse. Pre-collapse
+# episodes still carry vendor-specific embodiment strings in their zarr.json
+# (mecka_bimanual, aria_bimanual, scale_bimanual, lightwheel_bimanual, etc.);
+# post-collapse everything human is human_*. Aliasing on read means we can load
+# those legacy caches without re-downloading — the vendor identity now lives
+# only in the SQL `lab` field, so nothing downstream needs to know about it.
+_LEGACY_EMBODIMENT_ALIASES: dict[str, str] = {
+    # bimanual
+    "aria_bimanual": "human_bimanual",
+    "mecka_bimanual": "human_bimanual",
+    "scale_bimanual": "human_bimanual",
+    "lightwheel_bimanual": "human_bimanual",
+    # per-arm
+    "aria_right_arm": "human_right_arm",
+    "aria_left_arm": "human_left_arm",
+    "mecka_right_arm": "human_right_arm",
+    "mecka_left_arm": "human_left_arm",
+    "scale_right_arm": "human_right_arm",
+    "scale_left_arm": "human_left_arm",
+    "lightwheel_right_arm": "human_right_arm",
+    "lightwheel_left_arm": "human_left_arm",
+}
+
 
 def _intrinsics_from_batch(batch, i: int):
     """Return per-sample intrinsics from batch, or None if missing/NaN sentinel."""
@@ -51,7 +74,9 @@ def get_embodiment(index):
 
 
 def get_embodiment_id(embodiment_name):
-    return EMBODIMENT[embodiment_name.upper()].value
+    name = embodiment_name.lower()
+    name = _LEGACY_EMBODIMENT_ALIASES.get(name, name)
+    return EMBODIMENT[name.upper()].value
 
 
 class Embodiment(ABC):
@@ -199,12 +224,22 @@ class Embodiment(ABC):
             pred_action = pred_actions[i]
             K_i = _intrinsics_from_batch(batch, i)
             ims = cls.viz(
-                image, action, mode=mode, color="Greens", alpha=gt_alpha,
-                intrinsics=K_i, **kwargs
+                image,
+                action,
+                mode=mode,
+                color="Greens",
+                alpha=gt_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             ims = cls.viz(
-                ims, pred_action, mode=mode, color="Reds", alpha=pred_alpha,
-                intrinsics=K_i, **kwargs
+                ims,
+                pred_action,
+                mode=mode,
+                color="Reds",
+                alpha=pred_alpha,
+                intrinsics=K_i,
+                **kwargs,
             )
             if annotation_key is not None:
                 ims = cls.viz(ims, [annotations[i]], mode="annotations", **kwargs)

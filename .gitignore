@@ -42,6 +42,11 @@ external/scale/scripts/scale_data/
 .codex
 annotations/**
 annotations_test/**
+# Generated arc-embedding / arc-sweep HTMLs from ``egomimic.scripts.arc_*``
+out/
+arc_embedding_tsne_2d_*.html
+arc_sweep_*.html
+arc_baseline_*.html
 log_conversion/**
 debug_model_inputs/**
 temp_dir/**
