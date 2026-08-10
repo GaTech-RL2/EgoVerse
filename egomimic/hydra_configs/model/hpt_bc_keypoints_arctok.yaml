@@ -1,0 +1,11 @@
+defaults:
+  - hpt_bc_keypoints_base
+
+# Arc-tokenized keypoints: sequence is M+1 = 31 rows (30 waypoints + 1
+# velocity token) of the same 138-dim layout. act_seq MUST equal M+1.
+robomimic_model:
+  head_specs:
+    human_bimanual:
+      action_horizon: 31
+      model:
+        act_seq: 31

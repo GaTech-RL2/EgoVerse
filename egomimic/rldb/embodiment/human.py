@@ -374,6 +374,7 @@ class Human(Embodiment):
             "cartesian_gripper_padded",
             "arc_tokenizer_cartesian",
             "keypoints",
+            "arc_tokenizer_keypoints",
         ] = "cartesian",
         coord_frame: Literal[
             "camframe",
@@ -385,10 +386,13 @@ class Human(Embodiment):
             "6D",
         ] = "euler",
         stride: int = 3,
-        # Arc-tokenizer args, only consulted when
-        # action_mode="arc_tokenizer_cartesian". See eva.py for the layout.
+        # Arc-tokenizer args, only consulted by the arc_tokenizer_* action
+        # modes. See eva.py for the cartesian layout description.
         min_distance_unit: float = 0.60,
         resampled_vector_length: int = 20,
+        # Keypoint arc-tokenizer only.
+        distance_mode: str = "linf",
+        lambda_rot: float = 0.0,
     ) -> list[Transform]:
         """``action_mode`` is the action layout; ``coord_frame`` is where poses
         live; ``rotation_mode`` is how rotation is stored.
@@ -400,7 +404,8 @@ class Human(Embodiment):
         zero gripper per arm so the layout matches Eva/Yam (14D euler, 16D quat,
         20D Zhou 6D). ``arc_tokenizer_cartesian`` is that padded layout plus the
         arc-length tokenizer, so human and Eva arc tokens are the same 8-dim
-        [Lxyz, L_grip, Rxyz, R_grip] rows.
+        [Lxyz, L_grip, Rxyz, R_grip] rows. ``arc_tokenizer_keypoints`` is the
+        keypoint layout arc-tokenized the same way, (T, 138) -> (M+1, 138).
         """
         if action_mode in (
             "cartesian",
@@ -411,7 +416,7 @@ class Human(Embodiment):
                 "camframe": _build_human_cartesian_bimanual_transform_list,
                 "eef_frame": _build_human_cartesian_eef_frame_transform_list,
             }
-        elif action_mode == "keypoints":
+        elif action_mode in ("keypoints", "arc_tokenizer_keypoints"):
             builders = {
                 "camframe": _build_human_keypoints_bimanual_transform_list,
                 "eef_frame": _build_human_keypoints_eef_frame_transform_list,
@@ -432,6 +437,25 @@ class Human(Embodiment):
             transform_list = _pad_human_cartesian_gripper(
                 transform_list, rotation_mode=rotation_mode
             )
+        if action_mode == "arc_tokenizer_keypoints":
+            # Same keypoint pipeline, then arc-tokenize the (T, 138) chunk to
+            # (M+1, 138). dt tracks stride for the same reason as the cartesian
+            # arc path below.
+            from egomimic.rldb.zarr.keypoint_arc_tokenizer import (
+                TokenizeBimanualArcLengthKeypoints,
+            )
+
+            return transform_list + [
+                TokenizeBimanualArcLengthKeypoints(
+                    action_key="actions_keypoints",
+                    output_action_key="actions_keypoints",
+                    min_distance_unit=float(min_distance_unit),
+                    resampled_vector_length=int(resampled_vector_length),
+                    dt=float(stride) / 30.0,
+                    distance_mode=str(distance_mode),
+                    lambda_rot=float(lambda_rot),
+                )
+            ]
         if action_mode == "arc_tokenizer_cartesian":
             from egomimic.rldb.embodiment.eva import _append_arc_tokenizer
 
