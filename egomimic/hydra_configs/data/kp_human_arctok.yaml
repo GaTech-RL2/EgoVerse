@@ -1,0 +1,67 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Human-only 21-keypoint hand pose, ARC-uniform: (31, 138) = 30 waypoints + 1 velocity token.
+#
+# Same population as the cartesian runs (lab=rl2, task=fold_clothes) so the
+# two action spaces are trained on identical episodes, and stride=1 because
+# an arc-length model can only reconstruct on the sample grid.
+#
+# Action space is 138 = 2 x (21*3 + 6): per hand, wrist xyz+ypr then 21 MANO
+# keypoints. Confirmed against the live pipeline; aria has no gripper.
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: keypoints
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: keypoints_wristframe_ypr_arctok
+        stride: 1
+        min_distance_unit: 0.45
+        resampled_vector_length: 30
+        distance_mode: linf
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.2
+    bounds_check: false
+
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: keypoints
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: keypoints_wristframe_ypr_arctok
+        stride: 1
+        min_distance_unit: 0.45
+        resampled_vector_length: 30
+        distance_mode: linf
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: valid
+    valid_ratio: 0.2
+    bounds_check: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
