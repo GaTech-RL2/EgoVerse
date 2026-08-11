@@ -54,6 +54,10 @@ workflow:
       NUM_GPU: "{{num_gpu}}"
       BATCH_SIZE: "{{batch_size}}"
       NUM_WORKERS: "{{num_workers}}"
+      # Space-separated embodiments present in the data config. Human-only
+      # keypoint configs have no eva_bimanual, and overriding a key that is
+      # not in the struct is a hard hydra error.
+      EMBODIMENTS: "{{embodiments}}"
       # Sweep runs cap epochs to rank configs without paying the full 2000.
       MAX_EPOCHS: "{{max_epochs}}"
       JOB_NAME: "{{job_name}}"
@@ -168,6 +172,16 @@ workflow:
         # --------------------------------------------- phase 1: norm stats (1 GPU)
         # Also does the dataset download: S3EpisodeResolver.resolve() syncs into
         # paths.dataset_dir, and phase 2 then finds every episode already present.
+        # Build dataloader overrides only for embodiments this config has.
+        DL_OVERRIDES=""
+        for emb in $EMBODIMENTS; do
+          for split in train valid; do
+            DL_OVERRIDES="$DL_OVERRIDES data.${split}_dataloader_params.${emb}.batch_size=$BATCH_SIZE"
+            DL_OVERRIDES="$DL_OVERRIDES data.${split}_dataloader_params.${emb}.num_workers=$NUM_WORKERS"
+          done
+        done
+        echo "dataloader overrides: $DL_OVERRIDES"
+
         NORM_DIR="$WORKDIR/norm_stats/${RUN_NAME}"
         mkdir -p "$NORM_DIR"
 
@@ -200,14 +214,7 @@ workflow:
           norm_stats.precomputed_norm_path="$NORM_JSON" \
           paths.dataset_dir="$DATASET_DIR" \
           launch_params.nodes=1 launch_params.gpus_per_node="$NUM_GPU" \
-          data.train_dataloader_params.human_bimanual.batch_size="$BATCH_SIZE" \
-          data.train_dataloader_params.eva_bimanual.batch_size="$BATCH_SIZE" \
-          data.valid_dataloader_params.human_bimanual.batch_size="$BATCH_SIZE" \
-          data.valid_dataloader_params.eva_bimanual.batch_size="$BATCH_SIZE" \
-          data.train_dataloader_params.human_bimanual.num_workers="$NUM_WORKERS" \
-          data.train_dataloader_params.eva_bimanual.num_workers="$NUM_WORKERS" \
-          data.valid_dataloader_params.human_bimanual.num_workers="$NUM_WORKERS" \
-          data.valid_dataloader_params.eva_bimanual.num_workers="$NUM_WORKERS" \
+          $DL_OVERRIDES \
           logger.wandb.entity="$WANDB_ENTITY" \
           trainer.max_epochs="$MAX_EPOCHS" trainer.min_epochs="$MAX_EPOCHS" \
           name="$RUN_NAME" description="$RUN_DESC"
