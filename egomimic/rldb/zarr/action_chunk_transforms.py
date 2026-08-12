@@ -600,3 +600,66 @@ class NumpyToTensor(Transform):
                 )
         return batch
 
+
+
+class ThetaToRotVec(Transform):
+    """Replace a trailing angle column with its (cos, sin) rotation vector.
+
+    ``(T, D)`` with the angle at ``angle_col`` -> ``(T, D+1)`` where the angle
+    column is replaced by ``cos(theta), sin(theta)``. Removes the 2*pi wrap
+    discontinuity from regression/diffusion targets (u_socket theta actions).
+    Applied at load time, BEFORE NormStats -- provide (D+1)-dim stats.
+
+    ``keys`` lists every batch key to convert; keys absent from an episode are
+    skipped (leaf key naming differs between keymap name and zarr path, so
+    list both spellings where unsure).
+    """
+
+    def __init__(self, keys, angle_col: int = 2):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+
+    def transform(self, batch: dict) -> dict:
+        for k in self.keys:
+            if k not in batch:
+                continue
+            a = np.asarray(batch[k])
+            if a.ndim != 2 or a.shape[1] <= self.angle_col:
+                continue
+            th = a[:, self.angle_col]
+            batch[k] = np.concatenate(
+                [a[:, : self.angle_col],
+                 np.cos(th)[:, None].astype(a.dtype),
+                 np.sin(th)[:, None].astype(a.dtype),
+                 a[:, self.angle_col + 1:]], axis=1)
+        return batch
+
+
+class RotVecToTheta(Transform):
+    """Revert of :class:`ThetaToRotVec`: ``(cos, sin)`` -> angle.
+
+    ``(T, D+1)`` with ``cos`` at ``angle_col`` and ``sin`` at ``angle_col+1``
+    -> ``(T, D)`` with ``atan2(sin, cos)`` in their place. Used to turn a model
+    prediction back into the env's ``(x, y, theta)`` action before ``env.step``.
+
+    atan2 handles the un-normalised case too: the model's cos/sin need not lie
+    on the unit circle, and only their RATIO matters for the angle, so no
+    renormalisation is required.
+    """
+
+    def __init__(self, keys, angle_col: int = 2):
+        self.keys = list(keys)
+        self.angle_col = int(angle_col)
+
+    def transform(self, batch: dict) -> dict:
+        c = self.angle_col
+        for k in self.keys:
+            if k not in batch:
+                continue
+            a = np.asarray(batch[k])
+            if a.ndim != 2 or a.shape[1] <= c + 1:
+                continue
+            th = np.arctan2(a[:, c + 1], a[:, c])
+            batch[k] = np.concatenate(
+                [a[:, :c], th[:, None].astype(a.dtype), a[:, c + 2:]], axis=1)
+        return batch
