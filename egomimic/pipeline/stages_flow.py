@@ -30,6 +30,18 @@ from egomimic.models.diffusion.denoising_nets import SinusoidalPosEmb
 from egomimic.pipeline.core import Stage
 
 
+class _ResidualMLPBlock(nn.Module):
+    """Pre-norm residual hidden block for deeper per-embodiment adapters."""
+
+    def __init__(self, width: int):
+        super().__init__()
+        self.norm = nn.LayerNorm(int(width))
+        self.proj = nn.Linear(int(width), int(width))
+
+    def forward(self, x):
+        return x + self.proj(F.silu(self.norm(x)))
+
+
 class _DualStreamBlock(nn.Module):
     """One denoiser block: joint masked attention over [A-tokens | S-tokens]
     (separate per-stream QKV/out to a shared attention dim, trunk idiom) +
@@ -82,7 +94,7 @@ class DualStreamDenoiser(nn.Module):
     def __init__(self, d_a_in: int, d_s_in: int, action_dim: int, chunk_len: int,
                  embodiments: List[str], d_model_a: int = 256, d_model_s: int = 128,
                  n_layers: int = 4, n_heads: int = 4, ffn_mult: int = 4,
-                 mask_mode: str = "asym", n_positions: Optional[int] = None):
+                 mask_mode: str = "sym", n_positions: Optional[int] = None):
         super().__init__()
         C, D = int(chunk_len), int(action_dim)
         L = int(n_positions) if n_positions else C
@@ -151,13 +163,15 @@ class FlowHead(Stage):
                  embodiments: Optional[List[str]] = None,
                  d_model_a: int = 256, d_model_s: int = 128,
                  n_layers: int = 4, n_heads: int = 4, ffn_mult: int = 4,
-                 mask_mode: str = "asym", num_inference_steps: int = 20,
-                 time_dist: str = "beta"):
+                 mask_mode: str = "sym", num_inference_steps: int = 20,
+                 time_dist: str = "beta", denoiser_arch: str = "additive"):
         super().__init__()
         self.C, self.D = int(chunk_len), int(action_dim)
         self.N = int(num_inference_steps)
         self.time_dist = str(time_dist)
-        self.net = DualStreamDenoiser(
+        _cls = (DualStreamDenoiserV2 if str(denoiser_arch) == "adaln"
+                else DualStreamDenoiser)
+        self.net = _cls(
             d_a_in=d_a, d_s_in=d_s, action_dim=action_dim, chunk_len=chunk_len,
             embodiments=list(embodiments) if embodiments else ["shared"],
             d_model_a=d_model_a, d_model_s=d_model_s, n_layers=n_layers,
@@ -238,10 +252,14 @@ class SDPHead(Stage):
                  regime_weights: Optional[List[float]] = None,  # [chunkwise, constant, random]
                  d_model_a: int = 256, d_model_s: int = 128,
                  n_layers: int = 4, n_heads: int = 4, ffn_mult: int = 4,
-                 mask_mode: str = "asym", end_mode: str = "masked",
+                 mask_mode: str = "sym", end_mode: str = "masked",
                  denoiser_arch: str = "additive",
+                 detach_offregime: bool = False,
                  action_dims: Optional[dict] = None, latent_dim: Optional[int] = None,
-                 dual_stream: bool = True, enc_hidden: int = 256):
+                 dual_stream: bool = True, enc_hidden=256, enc_layers=3,
+                 enc_residual=False, head_adapter: str = "latent",
+                 adapter_layers: int = 4, adapter_hidden: Optional[int] = None,
+                 enc_per_stream: bool = False):
         super().__init__()
         self.C, self.D, self.K = int(chunk_len), int(action_dim), int(buffer_chunks)
         self.L = self.K * self.C
@@ -250,8 +268,7 @@ class SDPHead(Stage):
         assert self.S % self.K == 0, "num_inference_steps must divide by buffer_chunks"
         self.rw = list(regime_weights) if regime_weights else [0.7, 0.15, 0.15]
         self.end_mode = str(end_mode)
-        if self.end_mode == "pusher_hold":
-            assert self.D == 2, "pusher_hold pad assumes 2D xy actions"
+        self.detach_offregime = bool(detach_offregime)
         self.register_buffer("abar", _cosine_alphas_cumprod(self.N))
         # inference sub-ladder: index j in [0, S) -> train level (descending)
         self.register_buffer(
@@ -263,7 +280,20 @@ class SDPHead(Stage):
         self.Dmap = {e: int((action_dims or {}).get(e, action_dim)) for e in embs}
         self.dual_stream = bool(dual_stream)
         self.rh = action_dims is not None or latent_dim is not None
-        if self.rh:
+        if self.rh and str(head_adapter) == "direct":
+            # DIRECT hetero adapters: per-emb MLPs straight to/from the trunk
+            # width, no common action-width waist. See DualStreamDenoiserHetero.
+            assert self.dual_stream, "head_adapter=direct requires dual_stream"
+            assert str(denoiser_arch) == "adaln", \
+                "head_adapter=direct is implemented on the adaln core only"
+            self.net = DualStreamDenoiserHetero(
+                d_a_in=d_a, d_s_in=d_s, action_dims=self.Dmap,
+                chunk_len=chunk_len, embodiments=embs,
+                d_model_a=d_model_a, d_model_s=d_model_s, n_layers=n_layers,
+                n_heads=n_heads, ffn_mult=ffn_mult, mask_mode=mask_mode,
+                n_positions=self.L, adapter_layers=adapter_layers,
+                adapter_hidden=adapter_hidden)
+        elif self.rh:
             # hetero-action-dim: noise/x_t/loss stay in the ORIGINAL per-emb dim;
             # per-emb 3-layer SiLU E_e (dim_e -> latent) / D_e (latent -> dim_e)
             # wrap a SHARED denoiser core that runs entirely in the latent.
@@ -274,7 +304,8 @@ class SDPHead(Stage):
                 d_model_a=d_model_a, d_model_s=d_model_s, n_layers=n_layers,
                 n_heads=n_heads, ffn_mult=ffn_mult, mask_mode=mask_mode,
                 n_positions=self.L, dual_stream=self.dual_stream,
-                enc_hidden=int(enc_hidden),
+                enc_hidden=enc_hidden, enc_layers=enc_layers,
+                enc_residual=enc_residual, enc_per_stream=enc_per_stream,
                 dual_arch=("adaln" if str(denoiser_arch) == "adaln" else "v1"))
         else:
             net_cls = (DualStreamDenoiserV2 if str(denoiser_arch) == "adaln"
@@ -306,7 +337,7 @@ class SDPHead(Stage):
         rand = torch.randint(0, N, (T, K), device=device)
         lv = torch.where(pick[:, None] == 0, diag,
                          torch.where(pick[:, None] == 1, const, rand))
-        return lv.clamp(0, N - 1)                               # (T, K)
+        return lv.clamp(0, N - 1), pick                          # (T,K),(T,)
 
     # ---------------- packed multi-chunk targets ---------------- #
     def _buffer_targets(self, target, cu, state=None):
@@ -380,16 +411,28 @@ class SDPHead(Stage):
 
         if "target" in batch:                                   # ---- train loss
             cu = batch["cu_seqlens"].to(device=dev, dtype=torch.long)
+            # New PushShapes datasets expose the commanded pusher pose, which
+            # is in the exact same coordinate system as actions. Prefer it for
+            # tail HOLD padding; legacy datasets fall back to actual state.
+            hold_pose = batch.get(
+                "obs/pusher_cmd_pose", batch.get("obs/state_agent_obj")
+            )
             tgt, valid = self._buffer_targets(
-                batch["target"], cu, batch.get("obs/state_agent_obj"))  # (T,K,C,D)
+                batch["target"], cu, hold_pose)                  # (T,K,C,D)
             Dd = tgt.shape[-1]                                  # per-emb action dim
-            lv = self._sample_levels(T, dev)                    # (T,K)
+            lv, pick = self._sample_levels(T, dev)              # (T,K),(T,)
             noise = torch.randn_like(tgt)
             ab = self.abar[lv][..., None, None]                 # (T,K,1,1)
             x_t = ab.sqrt() * tgt + (1 - ab).sqrt() * noise
             t_pos = lv.repeat_interleave(self.C, dim=1).float() # (T,L)
+            if self.detach_offregime:
+                infm = (pick == 0).float()[:, None]          # (T,1) inference-regime mask
+                a_cond = a_top * infm + a_top.detach() * (1 - infm)
+                s_cond = s * infm + s.detach() * (1 - infm)
+            else:
+                a_cond, s_cond = a_top, s
             eps, e_a, e_s = self.net(x_t.reshape(T, self.L, Dd),
-                                     t_pos, a_top, s, emb)
+                                     t_pos, a_cond, s_cond, emb)
             eps = eps.reshape(T, self.K, self.C, Dd)
             m = valid[..., None, None].float()
             loss = ((eps - noise).pow(2) * m).sum() / (
@@ -475,7 +518,7 @@ class DiffusionHead(Stage):
                  num_train_timesteps: int = 100, num_inference_steps: int = 16,
                  d_model_a: int = 256, d_model_s: int = 128,
                  n_layers: int = 4, n_heads: int = 4, ffn_mult: int = 4,
-                 mask_mode: str = "asym"):
+                 mask_mode: str = "sym"):
         super().__init__()
         self.C, self.D = int(chunk_len), int(action_dim)
         self.N, self.S = int(num_train_timesteps), int(num_inference_steps)
@@ -594,18 +637,85 @@ class DualStreamDenoiserV2(DualStreamDenoiser):
             nn.init.zeros_(m.weight)
             nn.init.zeros_(m.bias)
 
-    def forward(self, x_t, t, a_top, s, emb: str):
+    def forward(self, x_t, t, a_top, s, emb: str, x_s=None):
+        # x_s: optional SEPARATE input for the S stream (per-stream codec).
+        # None -> both streams read x_t, the original shared-codec behaviour.
         T, L, _ = x_t.shape
         e = emb if emb in self.in_s else next(iter(self.in_s))
         cA = self.cond_a(a_top)[:, None, :] + self._temb(self.temb_a, t, T, L)
         cS = self.cond_s[e](s)[:, None, :] + self._temb(self.temb_s, t, T, L)
         A = self.in_a(x_t) + self.pos_a[None, :L]
-        S = self.in_s[e](x_t) + self.pos_s[None, :L]
+        S = self.in_s[e](x_t if x_s is None else x_s) + self.pos_s[None, :L]
         allow = self._allow(L, x_t.device)
         for blk in self.blocks:
             A, S = blk(A, S, allow, cA, cS)
         sh, sc = self.fmod_a(cA).chunk(2, -1)
         v_a = self.vout_a(self.norm_fa(A) * (1 + sc) + sh)
+        sh, sc = self.fmod_s(cS).chunk(2, -1)
+        v_s = self.vout_s[e](self.norm_fs(S) * (1 + sc) + sh)
+        return v_a + v_s, v_a, v_s
+
+
+class DualStreamDenoiserHetero(DualStreamDenoiserV2):
+    """Hetero-action-dim denoiser with DIRECT per-embodiment projections.
+
+    Alternative to LatentRHDenoiser. That wrapper keeps the core homogeneous by
+    squeezing every embodiment through a common action-width waist L:
+
+        act_dim_e -> [E_e: 64] -> L -> [core in: d_model] -> L -> [D_e: 64] -> act_dim_e
+
+    with L pinned to max(action_dims), so the adapters' hidden width cannot
+    carry more than L dimensions of information and the per-emb capacity sits
+    behind a choke. Here the adapters instead map STRAIGHT to the trunk width:
+
+        act_dim_e -> [in_a[e] / in_s[e]: MLP] -> d_model_a / d_model_s
+        d_model_* -> [vout_a[e] / vout_s[e]: MLP] -> act_dim_e
+
+    so per-emb capacity is spent against the 256/128-wide trunk and there is no
+    waist. Consequence to be aware of: `in_a` and `vout_a` become PER-EMB (a
+    single Linear cannot span different input widths), so the A stream's input
+    and output projections are no longer shared across embodiments -- only the
+    transformer blocks are. The latent variant kept those two shared.
+    """
+
+    def __init__(self, *args, action_dims: dict, adapter_layers: int = 4,
+                 adapter_hidden: Optional[int] = None, **kw):
+        Dmap = {str(e): int(d) for e, d in dict(action_dims).items()}
+        # build the parent at the widest dim so every non-projection shape is
+        # valid, then replace all four projection banks with per-emb MLPs
+        super().__init__(*args, action_dim=max(Dmap.values()), **kw)
+        dA, dS = self.pos_a.shape[1], self.pos_s.shape[1]
+        self.Dmap = Dmap
+
+        def mlp(d_in: int, d_out: int, hidden: int) -> nn.Sequential:
+            n = max(1, int(adapter_layers))
+            if n == 1:
+                return nn.Sequential(nn.Linear(int(d_in), int(d_out)))
+            layers = [nn.Linear(int(d_in), hidden), nn.SiLU()]
+            for _ in range(n - 2):
+                layers += [nn.Linear(hidden, hidden), nn.SiLU()]
+            layers.append(nn.Linear(hidden, int(d_out)))
+            return nn.Sequential(*layers)
+
+        hA = int(adapter_hidden) if adapter_hidden else dA
+        hS = int(adapter_hidden) if adapter_hidden else dS
+        self.in_a = nn.ModuleDict({e: mlp(Dmap[e], dA, hA) for e in Dmap})
+        self.in_s = nn.ModuleDict({e: mlp(Dmap[e], dS, hS) for e in Dmap})
+        self.vout_a = nn.ModuleDict({e: mlp(dA, Dmap[e], hA) for e in Dmap})
+        self.vout_s = nn.ModuleDict({e: mlp(dS, Dmap[e], hS) for e in Dmap})
+
+    def forward(self, x_t, t, a_top, s, emb: str):
+        T, L, _ = x_t.shape
+        e = emb if emb in self.in_s else next(iter(self.in_s))
+        cA = self.cond_a(a_top)[:, None, :] + self._temb(self.temb_a, t, T, L)
+        cS = self.cond_s[e](s)[:, None, :] + self._temb(self.temb_s, t, T, L)
+        A = self.in_a[e](x_t) + self.pos_a[None, :L]
+        S = self.in_s[e](x_t) + self.pos_s[None, :L]
+        allow = self._allow(L, x_t.device)
+        for blk in self.blocks:
+            A, S = blk(A, S, allow, cA, cS)
+        sh, sc = self.fmod_a(cA).chunk(2, -1)
+        v_a = self.vout_a[e](self.norm_fa(A) * (1 + sc) + sh)
         sh, sc = self.fmod_s(cS).chunk(2, -1)
         v_s = self.vout_s[e](self.norm_fs(S) * (1 + sc) + sh)
         return v_a + v_s, v_a, v_s
@@ -696,12 +806,14 @@ class SingleStreamDenoiserV2(nn.Module):
 
 
 class LatentRHDenoiser(nn.Module):
-    """Hetero-action-dim wrapper: per-embodiment 3-layer SiLU ENCODER E_e
-    (action_dim_e -> latent L) + DECODER D_e (latent L -> action_dim_e) around a
-    SHARED denoiser core that runs ENTIRELY in the latent. Noise, x_t and the
-    loss stay in the ORIGINAL per-emb dim (the head owns that); the core only
-    ever sees the common latent L (RAE: L must be >= the max per-emb noise dim,
-    else the core cannot denoise the largest embodiment).
+    """Hetero-action-dim wrapper: per-embodiment ENCODER E_e
+    (action_dim_e -> latent L) + DECODER D_e (latent L -> action_dim_e) around
+    a SHARED denoiser core that runs ENTIRELY in the latent. Adapter width,
+    depth, and residual mode may be scalars (legacy/same for every embodiment)
+    or mappings keyed by embodiment. Noise, x_t and the loss stay in the
+    ORIGINAL per-emb dim (the head owns that); the core only ever sees the
+    common latent L (RAE: L must be >= the max per-emb noise dim, else the core
+    cannot denoise the largest embodiment).
 
     dual_stream=True  : core = DualStreamDenoiserV2 (A shared / S per-emb, additive
         v = v_a + v_s in the latent, vA_frac probe). E_e feeds in_a AND in_s[e];
@@ -717,27 +829,52 @@ class LatentRHDenoiser(nn.Module):
                  chunk_len: int, embodiments: List[str],
                  d_model_a: int = 256, d_model_s: int = 192,
                  n_layers: int = 4, n_heads: int = 4, ffn_mult: int = 4,
-                 mask_mode: str = "asym", n_positions: Optional[int] = None,
-                 dual_stream: bool = True, enc_hidden: int = 256,
-                 dual_arch: str = "adaln"):
+                 mask_mode: str = "sym", n_positions: Optional[int] = None,
+                 dual_stream: bool = True, enc_hidden=256,
+                 dual_arch: str = "adaln", enc_layers=3,
+                 enc_residual=False, enc_per_stream: bool = False):
         super().__init__()
         self.dual_stream = bool(dual_stream)
+        self.enc_per_stream = bool(enc_per_stream)
         self.latent = int(latent_dim)
         embs = [str(e) for e in embodiments] if embodiments else ["shared"]
         Dmap = {str(e): int(d) for e, d in dict(action_dims).items()}
         assert self.latent >= max(Dmap.values()), (
             f"latent_dim {self.latent} < max action_dim {max(Dmap.values())} "
             f"(RAE: latent must cover the largest per-emb noise dim)")
-        H, L = int(enc_hidden), self.latent
+        L = self.latent
 
-        def _mlp3(d_in, d_out):                  # 3-layer SiLU MLP
-            return nn.Sequential(
-                nn.Linear(int(d_in), H), nn.SiLU(),
-                nn.Linear(H, H), nn.SiLU(),
-                nn.Linear(H, int(d_out)))
+        def _emb_value(value, emb, name, cast):
+            if hasattr(value, "items"):
+                default = value.get("default") if hasattr(value, "get") else None
+                picked = value.get(emb, default)
+                if picked is None:
+                    raise ValueError(f"{name} has no value for embodiment {emb!r}")
+                return cast(picked)
+            return cast(value)
 
-        self.enc = nn.ModuleDict({e: _mlp3(Dmap[e], L) for e in embs})   # E_e
-        self.dec = nn.ModuleDict({e: _mlp3(L, Dmap[e]) for e in embs})   # D_e
+        def _mlp(emb, d_in, d_out):
+            H = _emb_value(enc_hidden, emb, "enc_hidden", int)
+            n_mlp = max(2, _emb_value(enc_layers, emb, "enc_layers", int))
+            residual = _emb_value(enc_residual, emb, "enc_residual", bool)
+            layers = [nn.Linear(int(d_in), H), nn.SiLU()]
+            for _ in range(n_mlp - 2):
+                if residual:
+                    layers.append(_ResidualMLPBlock(H))
+                else:
+                    layers += [nn.Linear(H, H), nn.SiLU()]
+            layers.append(nn.Linear(H, int(d_out)))
+            return nn.Sequential(*layers)
+
+        self.enc = nn.ModuleDict({e: _mlp(e, Dmap[e], L) for e in embs})  # E_e
+        self.dec = nn.ModuleDict({e: _mlp(e, L, Dmap[e]) for e in embs})  # D_e
+        # PER-STREAM codec: each stream gets its own view of the action instead
+        # of sharing one z. enc/dec above are then used for the A stream only.
+        if self.enc_per_stream:
+            if not self.dual_stream:
+                raise ValueError("enc_per_stream requires dual_stream=True")
+            self.enc_s_codec = nn.ModuleDict({e: _mlp(e, Dmap[e], L) for e in embs})
+            self.dec_s_codec = nn.ModuleDict({e: _mlp(e, L, Dmap[e]) for e in embs})
 
         if self.dual_stream:
             core_cls = (DualStreamDenoiserV2 if str(dual_arch) == "adaln"
@@ -755,6 +892,14 @@ class LatentRHDenoiser(nn.Module):
 
     def forward(self, x_t, t, a_top, s, emb: str):
         e = emb if emb in self.enc else next(iter(self.enc))
+        if self.enc_per_stream:
+            z_a = self.enc[e](x_t)                     # A-stream view
+            z_s = self.enc_s_codec[e](x_t)             # S-stream view
+            _, v_a, v_s = self.core(z_a, t, a_top, s, emb, x_s=z_s)
+            # decode EACH stream with its own decoder, sum in ACTION space
+            d_a = self.dec[e](v_a)
+            d_s = self.dec_s_codec[e](v_s)
+            return d_a + d_s, d_a, d_s
         z = self.enc[e](x_t)                     # (T, L_pos, latent)
         v_lat, v_a, v_s = self.core(z, t, a_top, s, emb)
         v = self.dec[e](v_lat)                   # (T, L_pos, action_dim_e)

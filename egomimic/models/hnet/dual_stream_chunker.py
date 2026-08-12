@@ -65,7 +65,9 @@ class DualStreamRouter(nn.Module):
     def __init__(self, d_a, d_s, d_router=None, n_layers=4, fusion="residual_mlp",
                  router_pre_layout=None, router_pre_detach=False,
                  hidden_mult=4.0, router_core="cossim", router_temp: float = 1.0,
-                 router_sample: bool = False):
+                 router_sample: bool = False,
+                 separate_boundaries: bool = False,
+                 route_on: str = "fused"):
         super().__init__()
         d_router = int(d_router) if d_router else int(d_a)
         self.d_a, self.d_s, self.d_router = int(d_a), int(d_s), d_router
@@ -132,6 +134,45 @@ class DualStreamRouter(nn.Module):
         else:
             raise ValueError(f"router_core must be 'cossim'|'sigmoid', got {router_core!r}")
 
+        # --- ROUTE-ON MODE ------------------------------------------------------
+        # Each router instance emits exactly ONE boundary. `route_on` selects what
+        # enters the cossim core:
+        #   "fused" (legacy) : h = fuse(A, S)
+        #   "a"              : h = solo_a(A) -- AGNOSTIC boundary. Reads only the
+        #                      SHARED stream, so this router can itself be shared
+        #                      across embodiments with no per-emb contamination.
+        #   "s"              : h = solo_s(S) -- SPECIFIC boundary (per-emb).
+        # "fused" auto-falls back to "a" when the streams are already on different
+        # grids (a chunker below split them), where elementwise fusion is undefined.
+        self.route_on = str(route_on)
+        self.separate_boundaries = bool(separate_boundaries)
+        if self.route_on in ("a", "s"):
+            self.solo_a = nn.Linear(d_a, d_router, bias=False)
+            if d_router == int(d_a):
+                with torch.no_grad():
+                    self.solo_a.weight.copy_(torch.eye(d_router))    # exact route-on-A
+                self.solo_a.weight._no_reinit = True
+            else:
+                nn.init.normal_(self.solo_a.weight, mean=0.0, std=0.02)
+            # S needs a REAL init here (the fused path's proj_s is zero-init, which
+            # would make a solo-S router read a constant zero signal).
+            self.solo_s = nn.Linear(d_s, d_router, bias=False)
+            nn.init.normal_(self.solo_s.weight, mean=0.0, std=0.02)
+
+    def _fuse(self, A, S, s_side: bool = False):
+        """Fuse A+S into the router's working representation.
+
+        ``s_side=True`` uses the SPECIFIC-stream head's own (initially identical)
+        parameters. Factored out so both heads share one code path.
+        """
+        if self.fusion == "residual_mlp":
+            if s_side:
+                return self.mixer_s2(self.proj_a_s2(A), self.proj_s_s2(S))
+            return self.mixer(self.proj_a(A), self.proj_s(S))
+        if s_side:
+            return self.fuse_s2(torch.cat([A, S], dim=-1))
+        return self.fuse(torch.cat([A, S], dim=-1))
+
     @staticmethod
     def _build_mlp(d_in, d_out, n_layers, hidden):
         layers = [nn.Linear(d_in, hidden), nn.GELU()]
@@ -140,17 +181,35 @@ class DualStreamRouter(nn.Module):
         layers += [nn.Linear(hidden, d_out)]
         return nn.Sequential(*layers)
 
-    def forward(self, A, S, cu_seqlens=None, max_seqlen=None):
-        if self.fusion == "residual_mlp":
-            h = self.mixer(self.proj_a(A), self.proj_s(S))   # <- enters the cosine
-        else:  # "mlp": pure MLP over concat[A, S]
-            h = self.fuse(torch.cat([A, S], dim=-1))
+    def forward(self, A, S, cu_seqlens=None, max_seqlen=None, cu_seqlens_s=None):
+        """Emit ONE boundary; ``route_on`` picks what enters the cossim core."""
+        mode = self.route_on
+        if mode == "fused" and A.shape[0] != S.shape[0]:
+            # Grids already split -> elementwise fusion is undefined. Routing on
+            # A alone is the right semantics, but solo_a only EXISTS when the
+            # caller asked for it: constructing it here would add parameters
+            # after the optimizer was built and change the state_dict.
+            if not hasattr(self, "solo_a"):
+                raise ValueError(
+                    "DualStreamRouter: streams are on different grids "
+                    "(A has %d tokens, S has %d) so route_on='fused' cannot "
+                    "fuse them, but this router was built without solo_a. "
+                    "Set route_on='a' on this chunker level -- e.g. a flat_s "
+                    "chunker below another chunker, where A is chunked and S "
+                    "is still at frame rate." % (A.shape[0], S.shape[0]))
+            mode = "a"
+        if mode == "a":
+            h, cu_use = self.solo_a(A), cu_seqlens
+        elif mode == "s":
+            h = self.solo_s(S)
+            cu_use = cu_seqlens_s if cu_seqlens_s is not None else cu_seqlens
+        else:
+            h, cu_use = self._fuse(A, S), cu_seqlens
         if self.router_pre is not None:
-            # Private causal transform of the fused stream for the router only.
             if self.router_pre_detach:
                 h = h.detach()
-            h = self.router_pre(h, cu_seqlens=cu_seqlens, max_seqlen=max_seqlen)
-        return self.router(h, cu_seqlens=cu_seqlens)
+            h = self.router_pre(h, cu_seqlens=cu_use, max_seqlen=max_seqlen)
+        return self.router(h, cu_seqlens=cu_use)
 
 
 class DualStreamChunkerStage(_BaseStage):
@@ -173,6 +232,7 @@ class DualStreamChunkerStage(_BaseStage):
         cond_key: Optional[str] = None,
         embodiments: Optional[List[str]] = None,
         dual_router: bool = True,
+        separate_boundaries: bool = False,
         router_per_emb: bool = True,
         router_fusion: str = "residual_mlp",
         d_router: Optional[int] = None,
@@ -205,6 +265,15 @@ class DualStreamChunkerStage(_BaseStage):
         #     ("emb-specific"); else ONE shared router ("combined"). chunk/dechunk
         #     ops are parameterless + shared. ---
         self.dual_router = bool(dual_router)
+        # NOTE: per-stream boundaries are implemented in the LIVE pyramid class
+        # ``stages_hnet.DualChunkerLevel``. This older stage does not implement the
+        # two-grid chunk/dechunk, so fail loudly rather than silently ignoring it.
+        if separate_boundaries:
+            raise NotImplementedError(
+                "separate_boundaries is implemented in stages_hnet.DualChunkerLevel, "
+                "not DualStreamChunkerStage. Use the DualChunkerLevel pyramid."
+            )
+        self.separate_boundaries = bool(separate_boundaries)
         self.router_per_emb = bool(router_per_emb)
         if self.dual_router:
             router_embs = self._embs if self.router_per_emb else None
@@ -214,7 +283,8 @@ class DualStreamChunkerStage(_BaseStage):
                                          router_pre_detach=router_pre_detach,
                                          n_layers=router_mixer_n_layers,
                                          fusion=router_fusion,
-                                         hidden_mult=router_hidden_mult),
+                                         hidden_mult=router_hidden_mult,
+                                         separate_boundaries=separate_boundaries),
                 router_embs,
             )
         else:

@@ -11,7 +11,7 @@ old raw-params + head.decode() indirection is gone.
 """
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
@@ -70,6 +70,155 @@ class ObsEncoders(Stage):
         batch["A"] = self.agnostic.forward_packed(**kw)
         batch["S"] = S
         batch["time_pos"] = packed.frame_idx(cu)
+        return batch
+
+
+class SharedObsEncoders(Stage):
+    """ONE shared obs encoder feeding BOTH streams (vs ``ObsEncoders``, which
+    builds two fully independent encoders each with its own VisualCore).
+
+    Layout::
+
+        shared encoder (images only, 1 copy)
+              |
+              +-- proj_a   (SHARED)     -> A
+              +-- proj_s   (per-emb)  \\
+              +-- proprio  (per-emb)  /  + -> S
+
+    A is vision-only and embodiment-agnostic. S stays embodiment-specific
+    through a per-embodiment projection of the shared feature PLUS a per-
+    embodiment proprio encoder; the two are summed at width ``d_s``.
+
+    Args:
+        shared:   InputModule (ObsToken) over IMAGES ONLY, width d_shared.
+        proj_a:   Module d_shared -> d_a, shared across embodiments.
+        proj_s:   dict[emb_name -> Module d_shared -> d_s], per embodiment.
+        proprio:  optional InputModule (ObsToken wrapping a
+                  MultiEmbodimentCondEncoder) over PROPRIO ONLY at width d_s.
+                  None disables the proprio path (S = projected vision only).
+
+    Writes the same keys as ``ObsEncoders`` so every downstream stage is
+    unchanged and the two are drop-in swappable in YAML.
+    """
+
+    reads = ["obs/*", "cu_seqlens", "embodiment"]   # actions NOT required (rollout)
+    writes = ["A", "S", "time_pos"]
+
+    def __init__(
+        self,
+        shared: nn.Module,
+        proj_a: nn.Module,
+        proj_s: Dict[str, nn.Module],
+        proprio: Optional[nn.Module] = None,
+    ):
+        super().__init__()
+        if not proj_s:
+            raise ValueError("SharedObsEncoders needs a non-empty proj_s dict "
+                             "(one entry per embodiment).")
+        self.shared = shared
+        self.proj_a = proj_a
+        self.proj_s = nn.ModuleDict(proj_s)
+        self.proprio = proprio
+
+    def forward(self, batch: dict) -> dict:
+        obs_packed = {k.split("/", 1)[1]: v for k, v in batch.items()
+                      if k.startswith("obs/")}
+        ref = next(v for v in obs_packed.values() if torch.is_tensor(v))
+        T, dev = ref.shape[0], ref.device
+        dt = torch.float32 if not ref.is_floating_point() else ref.dtype
+        actions = batch.get("actions")
+        if actions is None:
+            actions = torch.zeros((T, 1), device=dev, dtype=dt)
+        cu = batch["cu_seqlens"].to(device=dev, dtype=torch.long)
+        emb = batch["embodiment"]
+        # episode-consistent crop support (identical to ObsEncoders)
+        for m in self.modules():
+            if getattr(m, "crop_scope", None) == "episode":
+                m._episode_cu = cu
+        kw = dict(actions_packed=actions, obs_packed=obs_packed, cu_seqlens=cu,
+                  T_total=T, device=dev, dtype=actions.dtype,
+                  embodiment_id=emb)
+
+        feat = self.shared.forward_packed(**kw)          # (T, d_shared)
+
+        if emb not in self.proj_s:
+            raise KeyError(
+                f"SharedObsEncoders has no proj_s entry for embodiment {emb!r}; "
+                f"available: {list(self.proj_s.keys())}."
+            )
+        A = self.proj_a(feat)                            # (T, d_a)
+        S = self.proj_s[emb](feat)                       # (T, d_s)
+        if self.proprio is not None:
+            p = self.proprio.forward_packed(**kw)        # (T, d_s)
+            if p.shape != S.shape:
+                raise ValueError(
+                    f"SharedObsEncoders: proprio output {tuple(p.shape)} does not "
+                    f"match projected-vision S {tuple(S.shape)}; set the proprio "
+                    f"encoder's d_cond equal to proj_s out_features."
+                )
+            S = S + p
+
+        batch["A"] = A
+        batch["S"] = S
+        batch["time_pos"] = packed.frame_idx(cu)
+        return batch
+
+
+class DeriveVelocity(Stage):
+    """Finite-difference velocity as a DERIVED obs key (velocity-ablation arm 2).
+
+    v[t] = x[t] - x[t-1] within an episode, v[0] = 0. Written as a new
+    ``obs/<out_key>`` so the obs encoders can consume it like any other proprio
+    input.
+
+    WHY derived instead of a new zarr key: ``state_agent_obj`` is already
+    emitted by BOTH the training keymap and the eval env->zarr converters
+    (``_env_to_zarr_pushshapes`` / ``_usocket``), so deriving from it means
+    train and eval cannot disagree about the key -- the failure mode the
+    handoff doc warns about. It also needs no norm-stats recompute: this stage
+    runs AFTER normalization, so v is a difference of normalized coordinates
+    and is already on a sane scale.
+
+    Place it AFTER ``TargetBuilder`` so the difference is taken between
+    consecutive TOKENS (stride-decimated), which is the same grid the L0
+    attention window sees -- a w=2 window and this key then carry the same
+    information, which is the whole point of the ablation.
+
+    Args:
+        source:  obs key to difference (default ``state_agent_obj``).
+        out_key: obs key to write (default ``agent_vel``).
+        dims:    how many leading components of ``source`` to difference
+                 (2 = pusher xy; 3 = u_socket pusher x,y,theta).
+    """
+
+    reads = ["obs/*", "cu_seqlens"]
+    writes = []          # obs/<out_key>; declared dynamically in __init__
+
+    def __init__(self, source: str = "state_agent_obj",
+                 out_key: str = "agent_vel", dims: int = 2):
+        super().__init__()
+        self.source = str(source)
+        self.out_key = str(out_key)
+        self.dims = int(dims)
+        self.reads = [f"obs/{self.source}", "cu_seqlens"]
+        self.writes = [f"obs/{self.out_key}"]
+
+    def forward(self, batch: dict) -> dict:
+        src = batch.get(f"obs/{self.source}")
+        if src is None:
+            raise KeyError(
+                f"DeriveVelocity: obs/{self.source} not in batch (have "
+                f"{[k for k in batch if k.startswith('obs/')]})")
+        x = src[..., : self.dims]
+        cu = batch["cu_seqlens"].to(device=x.device, dtype=torch.long)
+        v = torch.zeros_like(x)
+        # packed layout: episodes are contiguous spans [cu[i], cu[i+1]).
+        # Difference INSIDE each span so the first token of an episode is 0
+        # and no velocity leaks across an episode boundary.
+        v[1:] = x[1:] - x[:-1]
+        starts = cu[:-1].clamp(min=0, max=max(x.shape[0] - 1, 0))
+        v[starts] = 0.0
+        batch[f"obs/{self.out_key}"] = v
         return batch
 
 
@@ -466,22 +615,108 @@ class CVAEHead(Stage):
 # --------------------------------------------------------------------------- #
 # Regularizer stage
 # --------------------------------------------------------------------------- #
+#: emb id (Embodiment enum) <-> config-friendly name, for per-emb loss targets
+_EMB_ALIAS = {"eva_bimanual": "8", "human_bimanual": "18"}
+
+
 class RatioLoss(Stage):
-    """H-Net chunker ratio loss from the accumulated aux/chunker records."""
+    """H-Net chunker ratio loss from the accumulated aux/chunker records.
+
+    The compression TARGET is loss policy and lives HERE, not on the chunker:
+    the chunker only routes and publishes b_t/p_t. ``target_ratio`` accepts
+
+      * ``None``  -- use the value the chunker recorded (legacy default, exactly
+        reproduces every pre-existing run),
+      * a float   -- one override for all levels,
+      * a dict    -- per embodiment, keyed by id ("8"/"18") or name
+        ("eva_bimanual"/"human_bimanual"), falling back to the recorded value
+        for any embodiment not listed.
+
+    Per-emb targets exist because the streams run at very different speeds: a
+    human fold is 156 frames (5.2 s) and the same robot fold is 1151 frames
+    (38.4 s) at a shared 30 fps, so one ratio gives 17 apex tokens for human and
+    128 for eva -- a 7.4x mismatch on the axis DTW alignment compares.
+    """
 
     reads = ["aux/chunker"]
     writes = ["loss/ratio", "loss/dec", "loss/seam_recon", "loss/cons",
-              "loss/topk", "loss/softrate", "log/*"]
+              "loss/topk", "loss/softrate", "loss/confidence", "log/*"]
+
+    def __init__(self, target_ratio=None, target_ratio_s=None):
+        super().__init__()
+        self.target_ratio = target_ratio
+        self.target_ratio_s = target_ratio_s
+
+    @staticmethod
+    def _is_seq(x):
+        """list / tuple / omegaconf ListConfig -- NOT str, NOT a scalar.
+
+        hydra passes ListConfig and DictConfig, for which isinstance against the
+        native types is False; duck-type instead of enumerating classes."""
+        return (not isinstance(x, (str, bytes, int, float))
+                and hasattr(x, "__len__") and hasattr(x, "__getitem__")
+                and not hasattr(x, "keys"))
+
+    @classmethod
+    def _pick_level(cls, val, level, recorded):
+        """A per-emb entry may be a scalar (all levels) or a per-level sequence."""
+        if cls._is_seq(val):
+            if level is None or level >= len(val):
+                return recorded
+            return float(val[level])
+        return float(val)
+
+    def _target(self, cfg, recorded, batch, level=None):
+        """Resolve the target for this record: loss config wins, else the value
+        the chunker recorded (so an unconfigured stage is byte-identical).
+
+        ``level`` is the chunker's index in aux/chunker (0 = first stage). It
+        matters because the two stages COMPOUND -- 3.0 twice is 9x, not 3x."""
+        if cfg is None:
+            # TODO(remove-chunker-target): DEPRECATED fallback to the chunker-recorded target. Once
+            # every model yaml sets RatioLoss(target_ratio=...), drop this
+            # branch and make the argument required -- a silent fallback is how
+            # a config that MEANT to set a per-emb target but mistyped the key
+            # would quietly train on the old shared 3.0 instead.
+            return recorded
+        if isinstance(cfg, (int, float)):
+            return float(cfg)
+        if self._is_seq(cfg):
+            return self._pick_level(cfg, level, recorded)
+        key = str(batch.get("embodiment", ""))
+        if key in cfg:
+            return self._pick_level(cfg[key], level, recorded)
+        for name, idx in _EMB_ALIAS.items():
+            if idx == key and name in cfg:
+                return self._pick_level(cfg[name], level, recorded)
+        return recorded
 
     def forward(self, batch: dict) -> dict:
-        aux = [{"bpred": _B(rec), "target_ratio": rec["target_ratio"],
+        aux = [{"bpred": _B(rec),
+                "target_ratio": self._target(self.target_ratio,
+                                             rec["target_ratio"], batch, _i),
                 "weight": rec["ratio_weight"], "cu_seqlens": rec["cu_seqlens"]}
-               for rec in batch.get("aux/chunker", [])]
+               for _i, rec in enumerate(batch.get("aux/chunker", []))]
         dev = None
         for rec in batch.get("aux/chunker", []):
             dev = rec["boundary_prob"].device
             break
         batch["loss/ratio"] = ratio_loss_from_aux(aux, device=dev)
+        # PER-STREAM BOUNDARIES: the SPECIFIC stream has its own boundary, so it
+        # needs its own compression regulariser. Only levels that actually enabled
+        # separate_boundaries contribute; otherwise this key is never written and
+        # the loss dict is byte-identical to before.
+        aux_s = [{"bpred": _BS(rec),
+                  "target_ratio": self._target(self.target_ratio_s,
+                                               rec["target_ratio_s"], batch, _i),
+                  # S boundaries live on S's grid; fall back to A's cu for old
+                  # records (pre-fix) where the streams were never split.
+                  "weight": rec["ratio_weight_s"],
+                  "cu_seqlens": rec.get("cu_seqlens_s", rec["cu_seqlens"])}
+                 for rec in batch.get("aux/chunker", [])
+                 if rec.get("separate_boundaries", False)]
+        if aux_s:
+            batch["loss/ratio_s"] = ratio_loss_from_aux(aux_s, device=dev)
         # Decisiveness term: L_dec = mean(1-(2p-1)^2) is 1.0 at p=0.5, 0 at
         # p in {0,1}. Closes the ratio loss's threshold-riding loophole (a
         # point-mass at p=0.5 scores 0.75 < the honest optimum 1.0); with
@@ -491,6 +726,7 @@ class RatioLoss(Stage):
         cons_total = None
         tk_total = None
         srate_total = None
+        confidence_total = None
         _rates = []
         for i, rec in enumerate(batch.get("aux/chunker", [])):
             # Deep-supervision recon term (computed inside DualChunkerLevel —
@@ -514,6 +750,29 @@ class RatioLoss(Stage):
                 batch[f"log/L{i}_cons"] = float(rl_cons)
                 cons_total = (w_cons * rl_cons if cons_total is None
                               else cons_total + w_cons * rl_cons)
+            # Confidence-side predictive supervision is computed inside the
+            # chunker so its graph remains attached to the selected-confidence
+            # STE. Assemble it before the empty-valid continue, as short
+            # episodes can have no unforced tokens while still producing a
+            # well-defined auxiliary result.
+            confidence_losses = rec.get("confidence_ssl_losses")
+            confidence_weights = rec.get("confidence_ssl_weights", {})
+            if confidence_losses is not None:
+                batch[f"log/L{i}_conf_chunks"] = float(
+                    confidence_losses["n_chunks"])
+                batch[f"log/L{i}_conf_pairs"] = float(
+                    confidence_losses["n_pairs"])
+                for name in ("pred", "id", "vic"):
+                    value = confidence_losses[name]
+                    weight = float(confidence_weights.get(name, 0.0))
+                    if weight <= 0:
+                        continue
+                    batch[f"log/L{i}_conf_{name}"] = float(value)
+                    weighted = weight * value
+                    confidence_total = (
+                        weighted if confidence_total is None
+                        else confidence_total + weighted
+                    )
             p_b = rec["boundary_prob"][..., -1]
             valid = torch.ones_like(p_b, dtype=torch.bool)
             valid[rec["cu_seqlens"][:-1]] = False  # exclude forced subseq starts
@@ -531,6 +790,53 @@ class RatioLoss(Stage):
             batch[f"log/L{i}_boundary_rate"] = f_hard
             batch[f"log/L{i}_avg_chunk_len"] = n_tok / max(n_b, 1)
             _rates.append(f_hard)
+            # --- FENCING diagnostics (prob distribution, not the rate) ------
+            # A fenced router and an honest one have the SAME boundary rate;
+            # only the spread of p distinguishes them. Cheap to log, and the
+            # failure is otherwise invisible until a run is wasted.
+            if pv.numel() > 1:
+                # PRIMARY fencing signal (user, 2026-08-01): mean |p - 0.5|.
+                # Distance from the fence, not spread and not a thresholded
+                # count -- a router pinned at 0.5 has absdev ~0 no matter what
+                # boundary RATE it produces, and rate alone cannot see it.
+                batch[f"log/L{i}_prob_absdev"] = float((pv - 0.5).abs().mean())
+                batch[f"log/L{i}_prob_mean"] = float(pv.mean())
+                batch[f"log/L{i}_prob_std"] = float(pv.std())
+                batch[f"log/L{i}_prob_range"] = float(pv.max() - pv.min())
+                batch[f"log/L{i}_fenced_frac"] = float(
+                    ((pv - 0.5).abs() < 0.02).float().mean())
+            # --- SPECIFIC stream: same semantics, own grid ---------------
+            # With separate_boundaries the S router chunks on its OWN grid, so
+            # the A stats above say nothing about it. Without these, a
+            # collapsed or runaway S router is silent until it crashes (the
+            # ratio-loss index OOB) or quietly wastes the run.
+            p_bs = rec.get("boundary_prob_s")
+            if p_bs is not None:
+                p_bs = p_bs[..., -1]
+                cu_s = rec.get("cu_seqlens_s")
+                if cu_s is None:
+                    cu_s = rec["cu_seqlens"]
+                bms = (p_bs > 0.5).clone()
+                if int(cu_s[:-1].max()) < bms.numel():
+                    bms[cu_s[:-1]] = True
+                n_tok_s = max(bms.numel(), 1)
+                n_b_s = int(bms.sum().item())
+                batch[f"log/L{i}_boundary_rate_s"] = n_b_s / n_tok_s
+                batch[f"log/L{i}_avg_chunk_len_s"] = n_tok_s / max(n_b_s, 1)
+                valid_s = torch.ones_like(p_bs, dtype=torch.bool)
+                if int(cu_s[:-1].max()) < valid_s.numel():
+                    valid_s[cu_s[:-1]] = False
+                pvs = p_bs[valid_s]
+                if pvs.numel() > 1:
+                    batch[f"log/L{i}_prob_absdev_s"] = float((pvs - 0.5).abs().mean())
+                    batch[f"log/L{i}_prob_mean_s"] = float(pvs.mean())
+                    batch[f"log/L{i}_prob_std_s"] = float(pvs.std())
+                    batch[f"log/L{i}_fenced_frac_s"] = float(
+                        ((pvs - 0.5).abs() < 0.02).float().mean())
+                # 1.0 => S boundaries identical to A's (streams not independent)
+                if bms.shape == bm.shape:
+                    batch[f"log/L{i}_as_overlap"] = float(
+                        (bms == bm).float().mean())
             w = float(rec.get("dec_weight", 0.0))
             if w > 0:
                 dec_i = (1.0 - (2.0 * pv - 1.0).pow(2)).mean()
@@ -684,6 +990,8 @@ class RatioLoss(Stage):
             batch["loss/topk"] = tk_total
         if srate_total is not None:
             batch["loss/softrate"] = srate_total
+        if confidence_total is not None:
+            batch["loss/confidence"] = confidence_total
         return batch
 
 
@@ -694,3 +1002,12 @@ class _B:
         self.boundary_mask = rec["boundary_mask"]
         self.boundary_prob = rec["boundary_prob"]
         self.selected_probs = rec["selected_probs"]
+
+
+class _BS:
+    """Same adapter for the SPECIFIC stream's own boundary (separate_boundaries)."""
+
+    def __init__(self, rec):
+        self.boundary_mask = rec["boundary_mask_s"]
+        self.boundary_prob = rec["boundary_prob_s"]
+        self.selected_probs = rec["selected_probs_s"]
