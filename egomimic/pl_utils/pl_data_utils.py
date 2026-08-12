@@ -10,6 +10,11 @@ from termcolor import cprint
 from torch.utils.data import DataLoader, default_collate
 from transformers import AutoTokenizer
 
+from egomimic.rldb.zarr.zarr_dataset_packed import (
+    ZarrEpisodePackedDataset,
+    pack_collate,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,6 +57,13 @@ class MultiDataModuleWrapper(LightningDataModule):
         self.valid_dataloader_params = valid_dataloader_params
         self.collate_fn = annotation_collate
 
+    def _collate_for(self, dataset):
+        """Packed datasets need ``pack_collate`` (it emits ``cu_seqlens``);
+        everything else uses the configured ``self.collate_fn``."""
+        if isinstance(dataset, ZarrEpisodePackedDataset):
+            return pack_collate
+        return self.collate_fn
+
     def train_dataloader(self):
         iterables = dict()
         for dataset_name, dataset in self.train_datasets.items():
@@ -63,7 +75,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=True,
-                collate_fn=self.collate_fn,
+                collate_fn=self._collate_for(dataset),
                 **dataset_params,
             )
 
@@ -82,7 +94,7 @@ class MultiDataModuleWrapper(LightningDataModule):
             iterables[dataset_name] = DataLoader(
                 dataset,
                 shuffle=shuffle,
-                collate_fn=self.collate_fn,
+                collate_fn=self._collate_for(dataset),
                 **dataset_params,
             )
 

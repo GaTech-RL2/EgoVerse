@@ -32,6 +32,10 @@ class EMBODIMENT(Enum):
     PUSHSHAPES_SIM = 15
     PUSHSHAPES_SIM_STICK = 16
     PUSHSHAPES_SIM_SMALL_CIRCLE = 17
+    # 19, not 18: 18 was HUMAN_BIMANUAL under the pre-collapse numbering,
+    # and u_socket datasets/checkpoints (bf_*_u3*, the 2026-08 lineage)
+    # already encode 19. Pinned for the same reason as 15/16/17 above.
+    PUSHSHAPES_SIM_U_SOCKET = 19
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}

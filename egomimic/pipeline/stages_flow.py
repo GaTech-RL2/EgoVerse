@@ -315,11 +315,12 @@ class SDPHead(Stage):
         end_mode="masked" (legacy): batch-clamped gather; overrun positions
         masked from the loss (content may be foreign-episode junk in packs).
         end_mode="pusher_hold": per-episode clamp (no cross-episode content)
-        and beyond-end targets = HOLD at the episode's final PUSHER xy (state
-        xy shares the ws512 action bounds, so normalized state values are
-        directly action-space); tail positions are TRAINED (explicit endgame
-        semantics)."""
+        and beyond-end targets = HOLD at the episode's final pusher pose. The
+        first D state coordinates must match the D-dimensional action pose
+        (e.g. xy for a circle pusher, xy-theta for a U-socket); tail positions
+        are TRAINED (explicit endgame semantics)."""
         T = target.shape[0]
+        Dd = target.shape[-1]
         dev = target.device
         ep_end = torch.empty(T, dtype=torch.long, device=dev)
         for b in range(len(cu) - 1):
@@ -327,10 +328,15 @@ class SDPHead(Stage):
         idx = torch.arange(T, device=dev)[:, None] + torch.arange(self.K, device=dev)[None, :]
         valid = idx < ep_end[:, None]                           # (T,K)
         if self.end_mode == "pusher_hold" and state is not None:
+            if state.shape[-1] < Dd:
+                raise ValueError(
+                    f"pusher_hold needs at least {Dd} state coordinates for "
+                    f"a {Dd}D action, got state shape {tuple(state.shape)}"
+                )
             idx_c = torch.minimum(idx, (ep_end - 1)[:, None])
             tgt = target[idx_c]                                 # same-episode only
-            pad = state[(ep_end - 1), :2].to(tgt.dtype)         # (T,2) final pusher xy
-            pad = pad[:, None, None, :].expand(T, self.K, self.C, self.D)
+            pad = state[(ep_end - 1), :Dd].to(tgt.dtype)        # (T,D) final pusher pose
+            pad = pad[:, None, None, :].expand(T, self.K, self.C, Dd)
             tgt = torch.where(valid[..., None, None], tgt, pad)
             valid = torch.ones_like(valid)                      # tail trained
         else:
