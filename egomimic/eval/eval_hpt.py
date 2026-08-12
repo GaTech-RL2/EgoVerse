@@ -21,10 +21,45 @@ from egomimic.utils.egomimicUtils import (
 #   12 = [L xyz ypr | R xyz ypr]            (human under the plain cartesian
 #        pipeline — aria has no gripper and nothing pads it)
 # grip_idx is None when the layout carries no gripper.
+#   138 = [L wrist xyz ypr(6) | L kp(63) | R wrist xyz ypr(6) | R kp(63)]
+#         the keypoint action space. Arc-matching runs on the WRIST pose so the
+#         number is directly comparable to the cartesian runs, which arc-match
+#         the same wrist trajectory; per-keypoint accuracy is reported
+#         separately by keypoint_mse() rather than folded in here.
 _ARM_SLOTS_BY_DIM = {
     14: ((0, 3, 6), (7, 10, 13)),
     12: ((0, 3, None), (6, 9, None)),
+    138: ((0, 3, None), (69, 72, None)),
 }
+
+# Per-hand keypoint blocks in the 138-dim layout (after the 6-dim wrist).
+_KP_SLOTS_138 = (slice(6, 69), slice(75, 138))
+_NUM_KP = 21
+
+
+def keypoint_mse(pred, gt, mse):
+    """Mean per-keypoint L2 error between two (B, T, 138) chunks.
+
+    The arc-matched metric above scores the wrist so it lines up with the
+    cartesian runs; this scores what a keypoint model is actually predicting.
+    Returns (mean_l2_metres, per_timestep_mse) or (None, None).
+    """
+    pred = pred.detach().cpu().numpy() if torch.is_tensor(pred) else np.asarray(pred)
+    gt = gt.detach().cpu().numpy() if torch.is_tensor(gt) else np.asarray(gt)
+    if pred.ndim != 3 or pred.shape[-1] != 138 or gt.shape[-1] != 138:
+        return None, None
+    n = min(pred.shape[0], gt.shape[0]), min(pred.shape[1], gt.shape[1])
+    ps, gs = [], []
+    for sl in _KP_SLOTS_138:
+        ps.append(pred[: n[0], : n[1], sl].reshape(n[0], n[1], _NUM_KP, 3))
+        gs.append(gt[: n[0], : n[1], sl].reshape(n[0], n[1], _NUM_KP, 3))
+    P = np.concatenate(ps, axis=2)
+    G = np.concatenate(gs, axis=2)
+    l2 = float(np.linalg.norm(P - G, axis=-1).mean())
+    return l2, mse(
+        torch.from_numpy(P.reshape(-1, 3)).float().contiguous(),
+        torch.from_numpy(G.reshape(-1, 3)).float().contiguous(),
+    )
 
 
 def arc_matched_resample(traj: np.ndarray, distance: float, num_points: int):
@@ -167,6 +202,17 @@ class HPTEvalVideo(EvalVideo):
                     if am_p is not None:
                         metrics[f"Valid/{pk}_arcmatch_paired_mse_avg"] = am_p
                         metrics[f"Valid/{pk}_arcmatch_xyz_mse_avg"] = am_x
+                    # Keypoint models: also report per-keypoint error, which is
+                    # what they actually predict. arcmatch above scores only the
+                    # wrist, for comparability with the cartesian runs.
+                    kp_l2, kp_mse = keypoint_mse(
+                        self._arc_match_source(preds[pk]),
+                        self._arc_match_source(_batch[ac_key]),
+                        mse,
+                    )
+                    if kp_l2 is not None:
+                        metrics[f"Valid/{pk}_keypoint_l2_m"] = kp_l2
+                        metrics[f"Valid/{pk}_keypoint_mse"] = kp_mse
 
             if f"{embodiment_name}_{ac_key}" in preds and ac_key != algo.shared_ac_key:
                 metrics[f"Valid/{embodiment_name}_{ac_key}_paired_mse_avg"] = mse(
