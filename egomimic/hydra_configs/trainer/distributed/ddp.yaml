@@ -1,5 +1,5 @@
 defaults:
-  - /trainer/base/default
+  - /trainer/base/default@_here_
 
 strategy: ddp
 
