@@ -67,6 +67,16 @@ def _sdpa(q, k, v, mask, dropout, training):
 _pick = pick  # backward-compatible alias
 
 
+def _per_stream(x, i):
+    """Return the per-stream element when ``x`` is a list/tuple, else ``x`` itself.
+
+    Lets ``mask``/``rope_positions`` be EITHER one shared tensor (legacy: every
+    stream on the same token grid) OR one per stream (per-stream chunk
+    boundaries, where A and S have different lengths).
+    """
+    return x[i] if isinstance(x, (list, tuple)) else x
+
+
 class IntraStreamModule(nn.Module):
     """Self-attention + SwiGLU MLP within ONE stream (its own d_model)."""
 
@@ -205,12 +215,27 @@ class MultiStreamBlock(nn.Module):
         })
 
     def forward(self, xs: List[torch.Tensor], mask, rope_positions, emb_id: Optional[str] = None):
-        xs = [pick(self.intra[i], emb_id)(xs[i], mask, rope_positions) for i in range(len(xs))]
+        xs = [pick(self.intra[i], emb_id)(xs[i], _per_stream(mask, i),
+                                          _per_stream(rope_positions, i))
+              for i in range(len(xs))]
         post_intra = list(xs)  # snapshot -> order-independent comm
         for i, srcs in enumerate(self.adjacency):
             if srcs:
+                # Cross-stream attention is only defined when the source and query
+                # streams live on the SAME token grid. With per-stream chunk
+                # boundaries (separate_boundaries) the grids differ, so the model
+                # must be configured with no inter-stream comm at chunk resolution.
+                if any(post_intra[j].shape[0] != post_intra[i].shape[0] for j in srcs):
+                    raise ValueError(
+                        "cross-stream attention needs equal stream lengths "
+                        f"(stream {i}: {post_intra[i].shape[0]}, sources: "
+                        f"{[post_intra[j].shape[0] for j in srcs]}). With per-stream "
+                        "boundaries set adjacency=[[], []] so the streams stay "
+                        "independent while chunked and rejoin after dechunk."
+                    )
                 inter = pick(self.inter[str(i)], emb_id)
-                xs[i] = inter(post_intra[i], [post_intra[j] for j in srcs], mask, rope_positions)
+                xs[i] = inter(post_intra[i], [post_intra[j] for j in srcs],
+                              _per_stream(mask, i), _per_stream(rope_positions, i))
         return xs
 
 
@@ -267,14 +292,25 @@ class MultiStreamTrunk(nn.Module):
 
     def forward(self, xs: List[torch.Tensor], mask, rope_positions,
                 emb_id: Optional[str] = None,
-                cond: Optional[torch.Tensor] = None) -> List[torch.Tensor]:
+                cond: Optional[torch.Tensor] = None,
+                layer_masks: Optional[List] = None) -> List[torch.Tensor]:
+        """layer_masks: optional ONE MASK PER BLOCK (len == n_layers) so a level
+        can give block 0 a narrow window and the rest full history. None
+        (default) => every block uses `mask`, byte-identical to before. Each
+        entry follows the same convention as `mask` (one tensor, or one per
+        stream)."""
+        if layer_masks is not None and len(layer_masks) != len(self.blocks):
+            raise ValueError(
+                "layer_masks has %d entries but the trunk has %d blocks -- "
+                "one mask per block." % (len(layer_masks), len(self.blocks)))
         for li, blk in enumerate(self.blocks):
             if cond is not None and self.adaln_dim:
                 for i in range(1, len(xs)):
                     g, b = self.adaln[li][i - 1](cond).chunk(2, -1)
                     xs = list(xs)
                     xs[i] = xs[i] * (1 + g) + b
-            xs = blk(xs, mask, rope_positions, emb_id)
+            xs = blk(xs, mask if layer_masks is None else layer_masks[li],
+                     rope_positions, emb_id)
         return [pick(self.norm_f[i], emb_id)(xs[i]) for i in range(len(xs))]
 
 

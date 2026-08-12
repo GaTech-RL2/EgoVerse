@@ -51,6 +51,7 @@ class CondEncoderModule(nn.Module):
         d_cond: int,
         obs_specs: Optional[Dict[str, dict]] = None,
         img_encoders: Optional[Dict[str, nn.Module]] = None,
+        strict_keys: bool = True,
         cond_proj_widths: Optional[List[int]] = None,
         output_key: str = "fused_cond",
         per_obs_keys: bool = False,
@@ -61,6 +62,7 @@ class CondEncoderModule(nn.Module):
         self.per_obs_keys = per_obs_keys
 
         obs_specs = obs_specs or {}
+        self.strict_keys = bool(strict_keys)
         self.obs_keys = sorted(obs_specs.keys())
         self.obs_encoders = nn.ModuleDict()
         # Optional per-key input slice: spec["input_slice"] = [start, end] picks
@@ -118,6 +120,15 @@ class CondEncoderModule(nn.Module):
 
         for key in self.obs_keys:
             if key not in obs:
+                if self.strict_keys:
+                    raise KeyError(
+                        f"CondEncoderModule: declared obs key {key!r} is not in "
+                        f"the batch (have: {sorted(obs)[:12]}). Silently skipping "
+                        f"it would train this encoder on the remaining inputs "
+                        f"only -- e.g. vision with no proprio -- with no error. "
+                        f"Check the KEY_MAP ALIAS (transforms and encoders see "
+                        f"aliases, not zarr paths), or pass strict_keys=False if "
+                        f"the key really is optional.")
                 continue
             x = obs[key]
             if key in self.obs_input_slices:

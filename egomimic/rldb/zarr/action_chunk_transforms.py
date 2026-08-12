@@ -615,13 +615,22 @@ class ThetaToRotVec(Transform):
     list both spellings where unsure).
     """
 
-    def __init__(self, keys, angle_col: int = 2):
+    def __init__(self, keys, angle_col: int = 2, strict: bool = True):
         self.keys = list(keys)
         self.angle_col = int(angle_col)
+        self.strict = bool(strict)
 
     def transform(self, batch: dict) -> dict:
         for k in self.keys:
             if k not in batch:
+                if self.strict:
+                    raise KeyError(
+                        f"{type(self).__name__}: key {k!r} not in batch "
+                        f"(have: {sorted(batch)[:12]}). A wrong key here is "
+                        f"a NO-OP that leaves the angle un-encoded while "
+                        f"downstream still slices for (cos, sin). Transforms "
+                        f"see KEY_MAP ALIASES, not zarr paths. Pass "
+                        f"strict=False for genuinely optional keys.")
                 continue
             a = np.asarray(batch[k])
             if a.ndim != 2 or a.shape[1] <= self.angle_col:
@@ -647,14 +656,23 @@ class RotVecToTheta(Transform):
     renormalisation is required.
     """
 
-    def __init__(self, keys, angle_col: int = 2):
+    def __init__(self, keys, angle_col: int = 2, strict: bool = True):
         self.keys = list(keys)
         self.angle_col = int(angle_col)
+        self.strict = bool(strict)
 
     def transform(self, batch: dict) -> dict:
         c = self.angle_col
         for k in self.keys:
             if k not in batch:
+                if self.strict:
+                    raise KeyError(
+                        f"{type(self).__name__}: key {k!r} not in batch "
+                        f"(have: {sorted(batch)[:12]}). A wrong key here is "
+                        f"a NO-OP that leaves the angle un-encoded while "
+                        f"downstream still slices for (cos, sin). Transforms "
+                        f"see KEY_MAP ALIASES, not zarr paths. Pass "
+                        f"strict=False for genuinely optional keys.")
                 continue
             a = np.asarray(batch[k])
             if a.ndim != 2 or a.shape[1] <= c + 1:
@@ -662,4 +680,58 @@ class RotVecToTheta(Transform):
             th = np.arctan2(a[:, c + 1], a[:, c])
             batch[k] = np.concatenate(
                 [a[:, :c], th[:, None].astype(a.dtype), a[:, c + 2:]], axis=1)
+        return batch
+
+class SplitPusherObject(Transform):
+    """Split PushShapes ``state_agent_obj`` into NAMED pusher / object poses.
+
+    PushShapes packs both bodies into one array whose LAYOUT DIFFERS by
+    embodiment::
+
+        circle    (T, 5) = [px, py     | ox, oy, otheta]
+        u_socket  (T, 6) = [px, py, pt | ox, oy, otheta]
+
+    Consumers previously had to slice this by offset, which is how object_x
+    once ended up inside the proprio: the offset of the object block moves
+    with the pusher's arity, so one ``input_slice`` cannot be right for both.
+    Emitting explicit keys removes the guess entirely --
+
+        ``pusher_pose``   the EMBODIMENT-specific body  -> the S stream
+        ``object_pose``   the task object, 3-D for BOTH -> the A stream
+
+    Angles are NOT touched here: chain :class:`ThetaToRotVec` afterwards on
+    whichever keys need it. Splitting and rotation-encoding are separate
+    concerns, and rotvec has several other call sites (actions, cmd pose).
+
+    Args:
+        pusher_dim: columns belonging to the pusher (2 circle, 3 u_socket).
+            Everything after them is the object block.
+        src: source key. NOTE this is the KEY_MAP ALIAS as it appears in the
+            loaded dict (``state_agent_obj``), not the zarr path
+            (``observations.state``) -- transforms run AFTER the key_map has
+            already renamed things.
+    """
+
+    def __init__(self, pusher_dim: int, src: str = "state_agent_obj",
+                 pusher_key: str = "pusher_pose",
+                 object_key: str = "object_pose"):
+        self.pusher_dim = int(pusher_dim)
+        self.src = str(src)
+        self.pusher_key = str(pusher_key)
+        self.object_key = str(object_key)
+
+    def transform(self, batch: dict) -> dict:
+        a = batch.get(self.src)
+        if a is None:
+            raise KeyError(
+                f"SplitPusherObject: {self.src!r} not in batch (have: "
+                f"{sorted(batch)[:12]}). Transforms see KEY_MAP aliases, not "
+                f"zarr paths.")
+        a = np.asarray(a)
+        if a.ndim != 2 or a.shape[1] <= self.pusher_dim:
+            raise ValueError(
+                f"SplitPusherObject: {self.src!r} has shape {a.shape}, expected "
+                f"2-D with more than pusher_dim={self.pusher_dim} columns.")
+        batch[self.pusher_key] = a[:, :self.pusher_dim]
+        batch[self.object_key] = a[:, self.pusher_dim:]
         return batch
