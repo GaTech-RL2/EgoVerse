@@ -79,6 +79,10 @@ workflow:
       # annotations, but the keypoint viz has no such key and no eva entry --
       # overriding a key that is not in the struct is a hard hydra error.
       ANNOT_EMBODIMENTS: "{{annot_embodiments}}"
+      # Embodiments present in the data config. Drives the valid dataloader
+      # overrides; a human-only config has no eva_bimanual and overriding a
+      # key that is not in the struct is a hard hydra error.
+      EMBODIMENTS: "{{embodiments}}"
       # Evaluate only the newest N checkpoints (0 = all). The late ones are
       # what matter for val videos; sweeping all 10 mostly burns time.
       LAST_N_CKPTS: "{{last_n_ckpts}}"
@@ -172,6 +176,13 @@ workflow:
           echo "SMOKE MODE: capping each resolver at ${DEBUG_EPISODES} episodes"
         fi
 
+        DL_OVERRIDES=""
+        for emb in $EMBODIMENTS; do
+          DL_OVERRIDES="$DL_OVERRIDES data.valid_dataloader_params.${emb}.batch_size=8"
+          DL_OVERRIDES="$DL_OVERRIDES data.valid_dataloader_params.${emb}.num_workers=4"
+        done
+        echo "dataloader overrides: $DL_OVERRIDES"
+
         ANNOT_OVERRIDES=""
         for emb in $ANNOT_EMBODIMENTS; do
           ANNOT_OVERRIDES="$ANNOT_OVERRIDES evaluator.viz_func.${emb}.annotation_key=null"
@@ -242,10 +253,7 @@ workflow:
             norm_stats.precomputed_norm_path="$CKPT_DIR/norm_stats.json" \
             paths.dataset_dir="$DATASET_DIR" \
             launch_params.nodes=1 launch_params.gpus_per_node=1 \
-            data.valid_dataloader_params.human_bimanual.batch_size=8 \
-            data.valid_dataloader_params.eva_bimanual.batch_size=8 \
-            data.valid_dataloader_params.human_bimanual.num_workers=4 \
-            data.valid_dataloader_params.eva_bimanual.num_workers=4 \
+            $DL_OVERRIDES \
             hydra.run.dir="/workspace/evalruns/$TAG" \
             $DBG \
             name="eval_${SRC_RUN}" description="$TAG"
