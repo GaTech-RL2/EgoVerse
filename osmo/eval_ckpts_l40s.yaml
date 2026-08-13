@@ -169,7 +169,7 @@ workflow:
         DBG=""
         if [ "${DEBUG_EPISODES:-0}" -gt 0 ] 2>/dev/null; then
           for split in train valid; do
-            for emb in human_bimanual eva_bimanual; do
+            for emb in $EMBODIMENTS; do
               DBG="$DBG +data.${split}_datasets.${emb}.resolver.debug=${DEBUG_EPISODES}"
             done
           done
