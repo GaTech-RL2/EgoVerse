@@ -74,6 +74,11 @@ workflow:
       # of motion. Set the SAME values for baseline and arc-tok.
       ARC_MATCH_D: "{{arc_match_d}}"
       ARC_MATCH_M: "{{arc_match_m}}"
+      # viz_func entries whose annotation_key must be nulled. The cartesian
+      # viz sets annotation_key: sampled_prompt and arc_tests has no
+      # annotations, but the keypoint viz has no such key and no eva entry --
+      # overriding a key that is not in the struct is a hard hydra error.
+      ANNOT_EMBODIMENTS: "{{annot_embodiments}}"
       # Evaluate only the newest N checkpoints (0 = all). The late ones are
       # what matter for val videos; sweeping all 10 mostly burns time.
       LAST_N_CKPTS: "{{last_n_ckpts}}"
@@ -167,6 +172,12 @@ workflow:
           echo "SMOKE MODE: capping each resolver at ${DEBUG_EPISODES} episodes"
         fi
 
+        ANNOT_OVERRIDES=""
+        for emb in $ANNOT_EMBODIMENTS; do
+          ANNOT_OVERRIDES="$ANNOT_OVERRIDES evaluator.viz_func.${emb}.annotation_key=null"
+        done
+        echo "annotation overrides: ${ANNOT_OVERRIDES:-<none>}"
+
         RESULTS=/workspace/eval_results
         mkdir -p "$RESULTS"
 
@@ -225,10 +236,7 @@ workflow:
             +evaluator.arc_match_distance="$ARC_MATCH_D" \
             +evaluator.arc_match_points="$ARC_MATCH_M" \
             +evaluator.video_chunk_frames="$VIDEO_CHUNK_FRAMES" \
-            'evaluator.viz_func.eva_bimanual.annotation_key=null' \
-            'evaluator.viz_func.human_bimanual.annotation_key=null' \
-            'evaluator.viz_func.human_right_arm.annotation_key=null' \
-            'evaluator.viz_func.human_left_arm.annotation_key=null' \
+            $ANNOT_OVERRIDES \
             mode=eval \
             ckpt_path="$SAFE" \
             norm_stats.precomputed_norm_path="$CKPT_DIR/norm_stats.json" \
