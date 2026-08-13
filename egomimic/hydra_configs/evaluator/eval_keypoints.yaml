@@ -1,0 +1,9 @@
+defaults:
+  - viz@viz_func: keypoints_human
+  - _self_
+
+# Evaluator for the human-only 21-keypoint runs. HPTEvalVideo reports, per
+# embodiment: val loss, paired/final MSE, Frechet, plus -- when
+# arc_match_distance is set -- arc-matched wrist MSE (comparable to the
+# cartesian runs) and keypoint_l2_m over all 42 joints.
+_target_: egomimic.eval.eval_hpt.HPTEvalVideo
