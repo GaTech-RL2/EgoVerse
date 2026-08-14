@@ -2,8 +2,17 @@ defaults:
   - viz@viz_func: keypoints_human
   - _self_
 
-# Evaluator for the human-only 21-keypoint runs. HPTEvalVideo reports, per
-# embodiment: val loss, paired/final MSE, Frechet, plus -- when
-# arc_match_distance is set -- arc-matched wrist MSE (comparable to the
-# cartesian runs) and keypoint_l2_m over all 42 joints.
+# Evaluator for the human-only 21-keypoint runs.
 _target_: egomimic.eval.eval_hpt.HPTEvalVideo
+
+# REQUIRED for these runs. data/kp_human_*.yaml use keypoints_wristframe_ypr,
+# which transforms keypoints head-frame -> WRIST-frame, so actions_keypoints
+# are coordinates relative to each wrist (~±10cm about the origin). But
+# _viz_keypoints projects through the camera intrinsics K, which needs
+# head/cam-frame points -- so without this revert every skeleton lands in a
+# fixed blob near the principal point instead of on the hands, for GT as well
+# as prediction. HPTEvalVideo applies this once and reuses it for both the
+# cam-frame MSE and the viz video (eval_hpt.py:333).
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_eef_frame_transform_list
