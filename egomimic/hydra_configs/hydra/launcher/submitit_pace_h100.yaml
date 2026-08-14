@@ -1,0 +1,20 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE H100 launcher — gpu-h100 partition, account gts-dxu345-rl2, QoS inferno.
+# H100 has 94GB HBM per GPU + ~256GB CPU RAM/node with much lighter queue than
+# gpu-l40s at the time of writing.
+name: ${hydra.job.name}
+partition: "gpu-h100"
+account: "gts-dxu345-rl2"
+cpus_per_task: 8
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:h100:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}"
+qos: "inferno"
+mem_per_gpu: 160G
+timeout_min: 2880
+additional_parameters:
+  requeue: true
