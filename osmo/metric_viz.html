@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<title>Joint distance metric — how a scalar step is computed</title><style>
+.viz-root{color-scheme:light;--surface-1:#fcfcfb;--surface-2:#f3f3f1;--text-primary:#0b0b0b;--text-secondary:#52514e;
+ --text-muted:#78776f;--grid:#e4e4e0;--axis:#c9c9c3;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;
+ font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--surface-1);color:var(--text-primary);
+ padding:26px 30px 36px;max-width:1160px;margin:0 auto}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .viz-root{color-scheme:dark;
+ --surface-1:#1a1a19;--surface-2:#242422;--text-primary:#fff;--text-secondary:#c3c2b7;--text-muted:#94938a;
+ --grid:#2e2e2b;--axis:#3d3d39;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181}}
+:root[data-theme="dark"] .viz-root{color-scheme:dark;--surface-1:#1a1a19;--surface-2:#242422;--text-primary:#fff;
+ --text-secondary:#c3c2b7;--text-muted:#94938a;--grid:#2e2e2b;--axis:#3d3d39;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181}
+body{margin:0;background:var(--surface-1)}h1{font-size:20px;font-weight:600;margin:0 0 4px}
+.sub{font-size:13px;color:var(--text-secondary);margin:0 0 14px}
+h2{font-size:14px;font-weight:600;margin:26px 0 2px}
+.note{font-size:12.5px;color:var(--text-muted);margin:4px 0 12px;line-height:1.55;max-width:80ch}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+svg{display:block;width:100%;height:auto;overflow:visible}
+.tk{font-size:10.5px;fill:var(--text-muted)}.lb{font-size:11px;fill:var(--text-secondary)}
+.gl{stroke:var(--grid);stroke-width:1}.ax{stroke:var(--axis);stroke-width:1}
+.eq{background:var(--surface-2);border-radius:8px;padding:13px 16px;font-size:13.5px;margin:10px 0;line-height:1.9;
+ font-family:ui-monospace,SFMono-Regular,Menlo,monospace;overflow-x:auto}
+.eq b{color:var(--s2)}.eq i{color:var(--s1);font-style:normal}
+table{border-collapse:collapse;font-size:12.5px;margin-top:8px;width:100%}
+th,td{padding:7px 12px;text-align:right;border-bottom:1px solid var(--grid);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}th{color:var(--text-secondary);font-weight:600}
+tr.hi td{background:color-mix(in oklab,var(--s1) 10%,transparent);font-weight:600}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--text-secondary);margin:6px 0 0;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}.sw{width:13px;height:3px;border-radius:2px}
+.tip{position:fixed;pointer-events:none;opacity:0;background:var(--surface-1);border:1px solid var(--grid);
+ border-radius:7px;padding:7px 10px;font-size:11.5px;box-shadow:0 4px 14px rgba(0,0,0,.14);z-index:9;transition:opacity .1s}
+</style></head><body><div class="viz-root">
+<h1>How the joint distance becomes one scalar step</h1>
+<p class="sub">Real left-hand MANO keypoints, two frames 200 ms apart &middot; the step that gets accumulated into arc length</p>
+
+<h2>1 &middot; Two hand poses, and what each joint did</h2>
+<p class="note">Pose at <b>t</b> (blue) and <b>t+&Delta;</b> (orange), projected on the two most informative axes.
+Grey lines connect the same joint across frames &mdash; their length is d<sub>i</sub>. Hover any joint.</p>
+<div class="row"><div id="pane_xy"></div><div id="pane_xz"></div></div>
+<div class="legend">
+  <span><i class="sw" style="background:var(--s1)"></i> pose at t</span>
+  <span><i class="sw" style="background:var(--s2)"></i> pose at t+&Delta;</span>
+  <span><i class="sw" style="background:var(--axis)"></i> per-joint displacement d<sub>i</sub></span>
+</div>
+
+<h2>2 &middot; The 21 per-joint distances</h2>
+<p class="note">Every joint gives one number. The metric's whole job is turning this 21-vector into one scalar &mdash;
+and <i>which</i> reduction you pick is the design choice.</p>
+<div id="bars"></div>
+
+<h2>3 &middot; Reducing the vector to a scalar</h2>
+<div class="eq">
+d = ( &#8214;&Delta;p<sub>1</sub>&#8214;, &#8214;&Delta;p<sub>2</sub>&#8214;, &hellip;, &#8214;&Delta;p<sub>21</sub>&#8214; )
+&nbsp;&nbsp;&larr; the bars above<br>
+<b>L&infin;</b> = max<sub>i</sub> d<sub>i</sub> = <i>37.87 mm</i> &nbsp;&nbsp;&mdash; token advances once ANY joint moved D &rarr; bounds per-joint error<br>
+<b>L2</b>&nbsp;&nbsp; = &#8730;&Sigma; d<sub>i</sub>&sup2; = <i>79.12 mm</i><br>
+<b>L1-mean</b> = (1/21) &Sigma; d<sub>i</sub> = <i>14.90 mm</i><br>
+<b>L1-sum</b> = &Sigma; d<sub>i</sub> = <i>313.0 mm</i> &nbsp;&nbsp;&mdash; the E<sub>pose</sub> form; ~21&times; inflated because joints move together
+</div>
+<div id="normtable"></div>
+
+<h2>4 &middot; Optional rotation term</h2>
+<p class="note">The wrist also rotated by &theta; = 15.4&deg; over this step. E<sub>pose</sub> adds a rotation
+distance per part; &mu; is a true metric on SO(3), so the sum is still a valid arc length.</p>
+<div class="eq">
+&mu;(R, R&#770;) = &frac12; &#8214;(R<sup>T</sup>R&#770;)<sup>1/2</sup> &minus; I&#8214;<sub>F</sub>
+ = &#8730;2&nbsp;sin(&theta;/4) = <i>0.09475</i> &nbsp;(dimensionless)<br>
+&lambda;&middot;&mu; with &lambda; = 2&#8730;2&middot;r, r = 8cm &rarr; <i>21.44 mm</i>
+ &nbsp;&mdash; the arc a point 8cm from the wrist would trace<br>
+step = &#8214;d&#8214;<sub>&infin;</sub> + &lambda;&mu; = 37.87 + 21.44 = <b>59.31 mm</b>
+</div>
+
+<h2>5 &middot; Steps accumulate into arc length; every D metres cuts a token</h2>
+<p class="note">Cumulative L&infin; distance over the next few seconds. Horizontal lines are token boundaries at
+multiples of D = 0.45 m; each token is resampled to M = 30 waypoints, so spacing h = D/(M&minus;1) = 15.5 mm.</p>
+<div id="cumplot"></div>
+<div class="tip" id="tip"></div></div>
+<script>
+const D={"A":[[0.13943660259246826,-0.1736241579055786,-0.6503921747207642],[0.11583301424980164,-0.1442210078239441,-0.6585080027580261],[0.09600003063678741,-0.1332869827747345,-0.6793649196624756],[0.07724587619304657,-0.12937988340854645,-0.6985253095626831],[0.0540020614862442,-0.12064143270254135,-0.7242956757545471],[0.05159500241279602,-0.15403342247009277,-0.6611831784248352],[0.022835195064544678,-0.15112906694412231,-0.677101194858551],[0.01078970730304718,-0.1447359025478363,-0.6946122646331787],[0.0015999972820281982,-0.13683798909187317,-0.7179483771324158],[0.04644337296485901,-0.17774200439453125,-0.6679915189743042],[0.02050262689590454,-0.17660465836524963,-0.6862383484840393],[0.009030133485794067,-0.17059244215488434,-0.7055776119232178],[0.0006761103868484497,-0.16114921867847443,-0.7286614179611206],[0.0613398551940918,-0.19804352521896362,-0.677087664604187],[0.035385116934776306,-0.19773562252521515,-0.6896679401397705],[0.020571798086166382,-0.1904367208480835,-0.7081518769264221],[0.012697175145149231,-0.17857997119426727,-0.7291406393051147],[0.07622718811035156,-0.21073764562606812,-0.6867894530296326],[0.05703473091125488,-0.21358856558799744,-0.6951106786727905],[0.04433140158653259,-0.20971015095710754,-0.7086228728294373],[0.036363810300827026,-0.19393858313560486,-0.7280876636505127]],"B":[[0.14606769382953644,-0.17660748958587646,-0.6593359112739563],[0.12175068259239197,-0.14868441224098206,-0.6701307892799377],[0.09824512898921967,-0.14357593655586243,-0.6893481612205505],[0.07694663107395172,-0.14697203040122986,-0.705747663974762],[0.05146054923534393,-0.1579049676656723,-0.7279261350631714],[0.057654306292533875,-0.15692618489265442,-0.66280597448349],[0.02995695173740387,-0.15881836414337158,-0.6806445121765137],[0.026956766843795776,-0.15561768412590027,-0.7024012207984924],[0.03535871207714081,-0.15175789594650269,-0.7264326810836792],[0.05157226324081421,-0.1813471019268036,-0.6640795469284058],[0.025963932275772095,-0.18203771114349365,-0.6828116178512573],[0.02056269347667694,-0.17774023115634918,-0.7050405740737915],[0.022105425596237183,-0.17107996344566345,-0.730167806148529],[0.06509718298912048,-0.20347106456756592,-0.6707435250282288],[0.03997871279716492,-0.20226949453353882,-0.684872031211853],[0.029868483543395996,-0.1956125646829605,-0.7065013647079468],[0.030951976776123047,-0.18486039340496063,-0.7300146818161011],[0.07856911420822144,-0.2182576209306717,-0.6795049905776978],[0.05986006557941437,-0.21860681474208832,-0.6892809271812439],[0.04954741895198822,-0.21398307383060455,-0.7044882774353027],[0.047737181186676025,-0.19895495474338531,-0.7260663509368896]],"d":[0.011526580691683738,0.0137851348973037,0.014510966491903822,0.01901934769404979,0.03752613165863936,0.0069077279179464235,0.011063444632734013,0.020987015572776924,0.037871332940708595,0.007389571636290883,0.008431275216300422,0.013578631639620045,0.02366652588246858,0.009155533982196838,0.008041011178930997,0.010767632538168983,0.019324736377032057,0.010728375442879497,0.00819459230302691,0.007909461809300744,0.012593778404461374],"theta_deg":15.36632290002829,"mu":0.09474949145424667,"linf":0.037871332940708595,"l2":0.07911809262692576,"l1":0.3129788089084237,"l1mean":0.014903752805163034,"argmax":8,"gap_ms":200.0,"cum":[0.0,0.025780886393675928,0.05648425979202898,0.08813459245381239,0.10925644594126993,0.13536461766933883,0.15040306342078225,0.20237477466393727,0.24418711106297053,0.2721414993840199,0.3282233484877537,0.40438277825528246,0.5268004056740949,0.6019294742445283,0.6400621737061272,0.7176004651147281,0.7886088907631574,0.8161415558972323,0.8554103952845651,0.891439553520101,0.9511956177606464,0.9930713480073337,1.0435712866185156,1.071342170868931,1.092968780289283,1.1121863821081632,1.1259562310171987,1.1506088639459762,1.1679129975954794,1.1774616122488055,1.1876645633327456,1.1945181982395638,1.2048206078193857,1.2333422139850398,1.2807047612893,1.3568829682810843,1.405898887286014,1.5010889352752486,1.5711091477473218],"edges":[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[0,9],[9,10],[10,11],[11,12],[0,13],[13,14],[14,15],[15,16],[0,17],[17,18],[18,19],[19,20]],"fingers":{"thumb":[1,2,3,4],"index":[5,6,7,8],"middle":[9,10,11,12],"ring":[13,14,15,16],"pinky":[17,18,19,20]}};
+const tip=document.getElementById("tip");
+const FING={thumb:"var(--s2)",index:"var(--s3)",middle:"var(--s1)",ring:"var(--s4)",pinky:"var(--s5)"};
+function fingerOf(i){for(const[k,v]of Object.entries(D.fingers))if(v.includes(i))return k;return null}
+function pane(el,ax0,ax1,label){
+  const A=D.A,B=D.B,W=520,H=380,M={t:14,r:14,b:34,l:40};
+  const pts=[...A,...B];
+  const xs=pts.map(p=>p[ax0]),ys=pts.map(p=>p[ax1]);
+  const pad=0.02,x0=Math.min(...xs)-pad,x1=Math.max(...xs)+pad,y0=Math.min(...ys)-pad,y1=Math.max(...ys)+pad;
+  const sx=v=>M.l+(v-x0)/(x1-x0)*(W-M.l-M.r), sy=v=>H-M.b-(v-y0)/(y1-y0)*(H-M.t-M.b);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  s+=`<text class="lb" x="${M.l}" y="12">${label}</text>`;
+  // displacement connectors
+  A.forEach((p,i)=>{s+=`<line class="ax" x1="${sx(p[ax0])}" y1="${sy(p[ax1])}" x2="${sx(B[i][ax0])}" y2="${sy(B[i][ax1])}" stroke-dasharray="2 2" opacity=".55"/>`});
+  // skeletons
+  [[A,"var(--s1)",.95],[B,"var(--s2)",.95]].forEach(([P,c,op])=>{
+    D.edges.forEach(([u,v])=>{s+=`<line x1="${sx(P[u][ax0])}" y1="${sy(P[u][ax1])}" x2="${sx(P[v][ax0])}" y2="${sy(P[v][ax1])}" stroke="${c}" stroke-width="2" opacity="${op}" stroke-linecap="round"/>`});
+    P.forEach((p,i)=>{const r=i===D.argmax?5.5:3;s+=`<circle class="jt" data-i="${i}" cx="${sx(p[ax0])}" cy="${sy(p[ax1])}" r="${r}" fill="${c}" stroke="var(--surface-1)" stroke-width="1.5"/>`});
+  });
+  const mp=A[D.argmax];
+  s+=`<text class="tk" x="${sx(mp[ax0])+8}" y="${sy(mp[ax1])-7}" style="font-weight:600;fill:var(--s3)">j${D.argmax} &mdash; largest, ${(D.d[D.argmax]*1000).toFixed(1)}mm</text>`;
+  s+=`</svg>`;
+  document.getElementById(el).innerHTML=s;
+  document.querySelectorAll(`#${el} .jt`).forEach(c=>{
+    c.addEventListener("mousemove",e=>{const i=+c.dataset.i;
+      tip.innerHTML=`<b>joint ${i}</b> ${fingerOf(i)||"wrist"}<br>d<sub>i</sub> = ${(D.d[i]*1000).toFixed(2)} mm`;
+      tip.style.opacity=1;tip.style.left=(e.clientX+14)+"px";tip.style.top=(e.clientY-10)+"px"});
+    c.addEventListener("mouseleave",()=>tip.style.opacity=0)});
+}
+pane("pane_xy",0,1,"x – y");
+pane("pane_xz",0,2,"x – z");
+
+(function bars(){
+  const W=1100,H=250,M={t:14,r:80,b:44,l:52},iw=W-M.l-M.r,ih=H-M.t-M.b;
+  const mx=Math.max(...D.d)*1.12,bw=iw/21*0.66;
+  const X=i=>M.l+(i+0.5)*iw/21, Y=v=>M.t+ih-v/mx*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  for(let g=0;g<=4;g++){const v=mx*g/4;s+=`<line class="gl" x1="${M.l}" x2="${M.l+iw}" y1="${Y(v)}" y2="${Y(v)}"/><text class="tk" x="${M.l-7}" y="${Y(v)+3.5}" text-anchor="end">${(v*1000).toFixed(0)}</text>`}
+  s+=`<text class="tk" x="${M.l-34}" y="${M.t+ih/2}" transform="rotate(-90 ${M.l-34} ${M.t+ih/2})" text-anchor="middle">dᵢ (mm)</text>`;
+  D.d.forEach((v,i)=>{const c=i===0?"var(--text-muted)":FING[fingerOf(i)];
+    s+=`<rect class="bar" data-i="${i}" x="${X(i)-bw/2}" y="${Y(v)}" width="${bw}" height="${M.t+ih-Y(v)}" rx="3" fill="${c}" opacity="${i===D.argmax?1:.82}"/>`;
+    s+=`<text class="tk" x="${X(i)}" y="${M.t+ih+15}" text-anchor="middle">${i}</text>`});
+  const marks=[["L∞",D.linf,"var(--s2)"],["L2",D.l2,null],["L1-mean",D.l1mean,"var(--s1)"]];
+  marks.forEach(([lb,v,c])=>{if(v>mx)return;
+    s+=`<line x1="${M.l}" x2="${M.l+iw}" y1="${Y(v)}" y2="${Y(v)}" stroke="${c||"var(--axis)"}" stroke-width="2" stroke-dasharray="6 4"/>`;
+    s+=`<text class="tk" x="${M.l+iw+8}" y="${Y(v)+4}" style="fill:${c||"var(--text-secondary)"};font-weight:600">${lb} = ${(v*1000).toFixed(1)}mm</text>`});
+  s+=`<text class="tk" x="${M.l+iw/2}" y="${M.t+ih+34}" text-anchor="middle">joint index (0 = wrist)</text></svg>`;
+  document.getElementById("bars").innerHTML=s;
+  document.querySelectorAll("#bars .bar").forEach(b=>{
+    b.addEventListener("mousemove",e=>{const i=+b.dataset.i;
+      tip.innerHTML=`<b>joint ${i}</b> ${fingerOf(i)||"wrist"}<br>d<sub>i</sub> = ${(D.d[i]*1000).toFixed(2)} mm`;
+      tip.style.opacity=1;tip.style.left=(e.clientX+14)+"px";tip.style.top=(e.clientY-10)+"px"});
+    b.addEventListener("mouseleave",()=>tip.style.opacity=0)});
+})();
+
+(function tbl(){
+  const rows=[["L∞ (max joint)",D.linf,"bounds per-joint error; D stays in metres","yes"],
+              ["L2",D.l2,"intermediate",""],
+              ["L1-mean (Σ/21)",D.l1mean,"E_pose form, normalised",""],
+              ["L1-sum (Σ)",D.l1,"~21× inflated — D becomes uninterpretable",""]];
+  let t=`<table><thead><tr><th>reduction</th><th>this step</th><th>vs L∞</th><th style="text-align:left">note</th></tr></thead><tbody>`;
+  rows.forEach(([n,v,note,hi])=>{t+=`<tr class="${hi?'hi':''}"><td>${n}</td><td>${(v*1000).toFixed(2)} mm</td><td>${(v/D.linf).toFixed(2)}×</td><td style="text-align:left;color:var(--text-muted)">${note}</td></tr>`});
+  document.getElementById("normtable").innerHTML=t+`</tbody></table>`;
+})();
+
+(function cum(){
+  const W=1100,H=260,M={t:14,r:60,b:38,l:60},iw=W-M.l-M.r,ih=H-M.t-M.b;
+  const c=D.cum,n=c.length,mx=Math.max(...c)*1.05;
+  const X=i=>M.l+i/(n-1)*iw, Y=v=>M.t+ih-v/mx*ih;
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  for(let k=0;k*0.45<=mx;k++){const v=k*0.45;
+    s+=`<line x1="${M.l}" x2="${M.l+iw}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--s2)" stroke-width="1.5" stroke-dasharray="5 4" opacity=".7"/>`;
+    s+=`<text class="tk" x="${M.l+iw+7}" y="${Y(v)+4}" style="fill:var(--s2)">${k===0?"start":"token "+k}</text>`}
+  s+=`<path fill="none" stroke="var(--s1)" stroke-width="2.5" d="${c.map((v,i)=>(i?'L':'M')+X(i).toFixed(1)+' '+Y(v).toFixed(1)).join(' ')}"/>`;
+  for(let g=0;g<=4;g++){const v=mx*g/4;s+=`<text class="tk" x="${M.l-7}" y="${Y(v)+3.5}" text-anchor="end">${v.toFixed(2)}</text>`}
+  s+=`<text class="tk" x="${M.l-42}" y="${M.t+ih/2}" transform="rotate(-90 ${M.l-42} ${M.t+ih/2})" text-anchor="middle">cumulative L∞ (m)</text>`;
+  s+=`<text class="tk" x="${M.l+iw/2}" y="${M.t+ih+30}" text-anchor="middle">frames (2× subsampled)</text></svg>`;
+  document.getElementById("cumplot").innerHTML=s;
+})();
+</script></body></html>
