@@ -16,3 +16,8 @@ _target_: egomimic.eval.eval_hpt.HPTEvalVideo
 transform_lists:
   human_bimanual:
     _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_eef_frame_transform_list
+    # is_quat: false -> the wrist block is 6-dim xyz+ypr, not 7-dim xyz+quat.
+    # The default (True) splits the 138-wide chunk on 7-dim wrists, so the
+    # right keypoints land at 77:138 = 61 values and the reshape to (21,3)
+    # fails with "cannot reshape array of size 6100 into shape (100,21,3)".
+    is_quat: false
