@@ -1,0 +1,19 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE A100 launcher — gpu-a100 partition, account gts-dxu345-rl2, QoS inferno.
+# A100 has 40GB HBM per GPU. Some A100 nodes are 2-GPU, others 8-GPU.
+name: ${hydra.job.name}
+partition: "gpu-a100"
+account: "gts-dxu345-rl2"
+cpus_per_task: 8
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:a100:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}"
+qos: "inferno"
+mem_per_gpu: 160G
+timeout_min: 2880
+additional_parameters:
+  requeue: true

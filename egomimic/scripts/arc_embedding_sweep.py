@@ -1251,7 +1251,7 @@ def _emit_tabbed_html(
 {"".join(panels)}
 </div>
 <div id="egoverse-img-panel">
-  <button id="egoverse-img-close" title="close">×</button>
+  <button id="egoverse-img-close" type="button" title="close" onclick="var p=document.getElementById('egoverse-img-panel'); if(p) p.classList.remove('open');">×</button>
   <div class="hint">state image (with green GT overlay)</div>
   <div id="egoverse-img-body"></div>
 </div>

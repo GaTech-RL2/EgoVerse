@@ -1,0 +1,21 @@
+defaults:
+  - submitit_slurm
+
+_target_: hydra_plugins.hydra_submitit_launcher.submitit_launcher.SlurmLauncher
+
+# PACE Blackwell launcher — gpu-rtxpro-blackwell partition, RTX PRO 6000
+# Blackwell edition (~96GB HBM per GPU), account gts-dxu345-rl2, QoS inferno.
+# ~20% more HBM than H100 -> can push batch size a bit higher (see the
+# corresponding launch script).
+name: ${hydra.job.name}
+partition: "gpu-rtxpro-blackwell"
+account: "gts-dxu345-rl2"
+cpus_per_task: 8
+nodes: ${launch_params.nodes}
+tasks_per_node: ${launch_params.gpus_per_node}
+gres: "gpu:rtx_pro_6000_blackwell:${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}"
+qos: "inferno"
+mem_per_gpu: 160G
+timeout_min: 2880
+additional_parameters:
+  requeue: true
