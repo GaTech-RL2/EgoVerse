@@ -1,0 +1,69 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Cross-domain arc-tok generalization run:
+#   * TRAIN: local aria fold_clothes cache
+#       - path:  /storage/project/r-dxu345-0/shared/aria_fold (~950 zarr episodes)
+#       - resolver: LocalEpisodeResolver  (aria data isn't in SQL — filter by
+#         zarr.attrs.task_name == 'fold_clothes')
+#   * VALID: mecka fold_clothes via SQL
+#       - path:  ${paths.dataset_dir}  (typically /storage/project/r-dxu345-0/shared/arc_tests)
+#       - resolver: S3EpisodeResolver   (filter by SQL row.lab == 'mecka' and
+#         row.task == 'fold_clothes')
+# Same arc-tok pipeline as arc_tests_cotrain_arctok.yaml (D/M from arc_tokenizer
+# group). No eva. stride=1 on the human transform to match the humanstride1
+# arctok run's semantics.
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/aria_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: arc_tokenizer_cartesian
+        stride: 1
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'human_bimanual' and row.get('task_name') == 'fold_clothes'"
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: arc_tokenizer_cartesian
+        stride: 1
+        min_distance_unit: 0.20
+        resampled_vector_length: 15
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.0
+    bounds_check: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 128
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 128
+    num_workers: 6
