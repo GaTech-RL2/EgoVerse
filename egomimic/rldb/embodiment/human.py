@@ -384,6 +384,8 @@ class Human(Embodiment):
         stride: int = 3,
         distance_mode: str = "linf",
         lambda_rot: float = 0.0,
+        min_distance_unit_eef: float = 0.45,
+        min_distance_unit_kp: float = 0.41,
         # Arc-tokenizer args (only consulted when mode="arc_tokenizer_cartesian").
         # See eva.py for the layout description.
         min_distance_unit: float = 0.60,
@@ -433,6 +435,29 @@ class Human(Embodiment):
                     dt=float(stride) / 30.0,
                     distance_mode=str(distance_mode),
                     lambda_rot=float(lambda_rot),
+                )
+            ]
+        if mode == "keypoints_wristframe_ypr_hybrid":
+            # Two-stream hybrid: eef (wrist, head frame) and keypoints (wrist
+            # frame = pure hand shape) each get their own D and distance
+            # function, both resampled to the same M. See
+            # keypoint_arc_tokenizer.TokenizeBimanualHybridArcKeypoints.
+            from egomimic.rldb.zarr.keypoint_arc_tokenizer import (
+                TokenizeBimanualHybridArcKeypoints,
+            )
+
+            base = _build_human_keypoints_eef_frame_transform_list(
+                stride=stride, is_quat=False
+            )
+            return base + [
+                TokenizeBimanualHybridArcKeypoints(
+                    action_key="actions_keypoints",
+                    output_action_key="actions_keypoints",
+                    min_distance_unit_eef=float(min_distance_unit_eef),
+                    min_distance_unit_kp=float(min_distance_unit_kp),
+                    resampled_vector_length=int(resampled_vector_length),
+                    dt=float(stride) / 30.0,
+                    kp_distance_mode=str(distance_mode),
                 )
             ]
         if mode == "keypoints_wristframe_quat":

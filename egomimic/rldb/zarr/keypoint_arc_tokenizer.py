@@ -104,6 +104,13 @@ def keypoint_step_distance(
     return step
 
 
+def cumulative_arc_length_3d(pos: np.ndarray) -> np.ndarray:
+    """(T, 3) -> (T,) cumulative translational arc length for one 3D point."""
+    pos = np.asarray(pos, dtype=np.float64)
+    step = np.linalg.norm(np.diff(pos, axis=0), axis=-1)
+    return np.concatenate([np.array([0.0]), np.cumsum(step)])
+
+
 def cumulative_keypoint_distance(kp: np.ndarray, **kwargs) -> np.ndarray:
     """(T, 21, 3) -> (T,) cumulative joint distance, starting at 0."""
     step = keypoint_step_distance(kp, **kwargs)
@@ -239,6 +246,149 @@ class TokenizeBimanualArcLengthKeypoints:
             batch[self.output_action_key] = np.stack(
                 [self.tokenize(c) for c in chunk]
             )
+        else:
+            batch[self.output_action_key] = self.tokenize(chunk)
+        return batch
+
+
+# ---------------------------------------------------------------------------
+# Hybrid two-stream arc tokenizer
+# ---------------------------------------------------------------------------
+
+# Per hand the 138-dim layout splits into two SEMANTIC streams:
+#   eef       cols o..o+6   wrist xyz + ypr, in head frame -> global motion
+#   keypoints cols o+6..o+69  21 MANO joints, in WRIST frame -> hand shape only
+# Because the keypoints are wrist-relative, the wrist's motion is already
+# removed from them, so the two streams measure genuinely independent things
+# and each deserves its own D and its own distance function.
+STREAM_EEF, STREAM_KP = "eef", "keypoints"
+
+
+class TokenizeBimanualHybridArcKeypoints:
+    """Two-stream arc tokenizer: eef and keypoints parameterised independently.
+
+    Each stream accumulates its own arc length with its own distance function
+    and its own ``D``, is resampled to the SAME M waypoints, and carries its own
+    velocity. The token stays (M+1, 138); row M holds four velocities (2 hands x
+    2 streams) written into each stream's first column.
+
+    Independent parameterisation would normally desynchronise the streams --
+    waypoint index k means a different time for eef than for keypoints. The
+    rollout assumption fixes it: only the window over which EVERY stream is
+    still inside its token is emitted,
+
+        duration_s = D_s / v_s        per stream
+        H_valid    = min_s duration_s
+
+    so within [0, H_valid] every stream interpolates at s(t) = v_s * t <= D_s,
+    i.e. inside its own waypoints, and the reconstruction stays time-consistent.
+
+    Choosing the two D values: they should be set so the streams emit
+    comparable token counts, otherwise one stream's tokens are chronically
+    truncated by the other's. Measured on a real 94s episode, total path is
+    48.71m for eef and 44.51m for wrist-frame keypoint L-inf, so
+    ``D_kp ~ 0.91 * D_eef``.
+
+    M is free and can be denser than the scalar variant: reconstruction error
+    depends on spacing D_s/(M-1) per stream, so raising M refines both.
+    """
+
+    def __init__(
+        self,
+        action_key: str = "actions_keypoints",
+        output_action_key: str = "actions_keypoints",
+        min_distance_unit_eef: float = 0.45,
+        min_distance_unit_kp: float = 0.41,
+        resampled_vector_length: int = 30,
+        dt: float = 1.0 / 30.0,
+        kp_distance_mode: str = "linf",
+        rollout_fraction: float = 1.0,
+    ):
+        if kp_distance_mode not in DISTANCE_MODES:
+            raise ValueError(f"kp_distance_mode must be one of {DISTANCE_MODES}")
+        self.action_key = action_key
+        self.output_action_key = output_action_key
+        self.D_eef = float(min_distance_unit_eef)
+        self.D_kp = float(min_distance_unit_kp)
+        self.M = int(resampled_vector_length)
+        self.dt = float(dt)
+        self.kp_distance_mode = kp_distance_mode
+        # < 1.0 shrinks the common window below min_s duration_s, so no stream
+        # is ever extrapolated past its last waypoint.
+        self.rollout_fraction = float(rollout_fraction)
+
+    def _streams(self, hand: int):
+        """-> (eef_slice, kp_slice, eef_vel_col, kp_vel_col) for this hand."""
+        o = hand * PER_HAND_DIM
+        return (
+            slice(o, o + WRIST_DIM),
+            slice(o + WRIST_DIM, o + PER_HAND_DIM),
+            o,
+            o + WRIST_DIM,
+        )
+
+    def tokenize(self, chunk: np.ndarray) -> np.ndarray:
+        chunk = np.asarray(chunk, dtype=np.float64)
+        if chunk.ndim != 2 or chunk.shape[1] != BIMANUAL_DIM:
+            raise ValueError(f"expected (T, {BIMANUAL_DIM}), got {chunk.shape}")
+        T = len(chunk)
+        out = np.zeros((self.M + 1, BIMANUAL_DIM), dtype=np.float64)
+        for hand in range(2):
+            eef_sl, kp_sl, eef_v, kp_v = self._streams(hand)
+            # --- eef stream: translational arc length of the wrist point
+            wrist = chunk[:, eef_sl]
+            cum_e = cumulative_arc_length_3d(wrist[:, :3])
+            end_e = float(min(self.D_eef, cum_e[-1]))
+            out[: self.M, eef_sl] = _interp_rows(
+                wrist, cum_e, np.linspace(0.0, end_e, self.M)
+            )
+            n_e = max(int(np.searchsorted(cum_e, end_e, side="right")) - 1, 1)
+            out[self.M, eef_v] = end_e / (n_e * self.dt)
+            # --- keypoint stream: joint distance over the 21 wrist-frame points
+            kp = chunk[:, kp_sl].reshape(T, NUM_KEYPOINTS, 3)
+            cum_k = cumulative_keypoint_distance(kp, mode=self.kp_distance_mode)
+            end_k = float(min(self.D_kp, cum_k[-1]))
+            out[: self.M, kp_sl] = _interp_rows(
+                kp.reshape(T, -1), cum_k, np.linspace(0.0, end_k, self.M)
+            )
+            n_k = max(int(np.searchsorted(cum_k, end_k, side="right")) - 1, 1)
+            out[self.M, kp_v] = end_k / (n_k * self.dt)
+        return out
+
+    def common_horizon(self, token: np.ndarray) -> float:
+        """Seconds over which BOTH streams of BOTH hands remain in-token."""
+        durs = []
+        for hand in range(2):
+            _, _, eef_v, kp_v = self._streams(hand)
+            for v, D in ((token[self.M, eef_v], self.D_eef), (token[self.M, kp_v], self.D_kp)):
+                if float(v) > 1e-9:
+                    durs.append(D / float(v))
+        if not durs:
+            return 0.0
+        return self.rollout_fraction * min(durs)
+
+    def detokenize(self, token: np.ndarray, action_horizon: int) -> np.ndarray:
+        token = np.asarray(token, dtype=np.float64)
+        H = int(action_horizon)
+        out = np.zeros((H, BIMANUAL_DIM), dtype=np.float64)
+        span = self.common_horizon(token)
+        if span <= 0.0:
+            out[:] = token[0]
+            return out
+        t_grid = np.linspace(0.0, min(span, H * self.dt), H)
+        for hand in range(2):
+            eef_sl, kp_sl, eef_v, kp_v = self._streams(hand)
+            for sl, vcol, D in ((eef_sl, eef_v, self.D_eef), (kp_sl, kp_v, self.D_kp)):
+                v = float(token[self.M, vcol])
+                s = np.clip(v * t_grid, 0.0, D)          # each stream at its OWN rate
+                wp_s = np.linspace(0.0, D, self.M)
+                out[:, sl] = _interp_rows(token[: self.M, sl], wp_s, s)
+        return out
+
+    def transform(self, batch: dict) -> dict:
+        chunk = np.asarray(batch[self.action_key])
+        if chunk.ndim == 3:
+            batch[self.output_action_key] = np.stack([self.tokenize(c) for c in chunk])
         else:
             batch[self.output_action_key] = self.tokenize(chunk)
         return batch
