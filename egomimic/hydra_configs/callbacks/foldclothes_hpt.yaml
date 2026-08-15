@@ -1,0 +1,9 @@
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "step_{step}"
+  monitor: Valid/action_loss
+  mode: min
+  save_top_k: 1
+  save_last: true
+  every_n_train_steps: 500

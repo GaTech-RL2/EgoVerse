@@ -1,0 +1,36 @@
+defaults:
+  - model: hpt_bc_flow_human
+  - paths: default
+  - trainer: foldclothes_hpt
+  - logger: csv
+  - data: foldclothes_hpt
+  - callbacks: foldclothes_hpt
+  - evaluator: eval_hpt_loss
+  - _self_
+
+name: foldclothes-v1
+description: ${run_id}
+run_id: random-774
+ckpt_path: null
+mode: train
+seed: 42
+
+hydra:
+  run:
+    dir: ${oc.env:FOLDCLOTHES_OUTPUT_DIR,./logs}/${name}/${description}
+
+launch_params:
+  gpus_per_node: 1
+  nodes: 1
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.2
+  num_workers: 4
+  save_cache_dir: ${hydra:runtime.output_dir}
+  precomputed_norm_path: null
+reject_outliers: true
+
+model:
+  scheduler:
+    T_max: 2000

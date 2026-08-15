@@ -1,0 +1,3 @@
+9e47194b6b62c4e6ac5bca4f3d276b502bbe2565834cc1395ba9978ca66c8c08  artifacts/foldclothes-v1/manifests/curation_variants/random-774.csv
+60513d2d188424d27402f77fcf72345938d12dd9ebac9173bb542c189ce6ada3  artifacts/foldclothes-v1/manifests/curation_variants/duration-balanced-774.csv
+dd438636443971b6fe3d6220c7db663296c90ccc91cfb95fd07f3916879b356a  artifacts/foldclothes-v1/manifests/curation_variants/diversity-774.csv

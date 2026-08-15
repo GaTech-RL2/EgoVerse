@@ -1,0 +1,2 @@
+_target_: egomimic.eval.eval_hpt_loss.HPTLossEval
+limit_val_batches: 40

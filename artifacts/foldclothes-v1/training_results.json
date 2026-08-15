@@ -1,0 +1,24 @@
+{
+  "experiment": "foldclothes-v1-curation",
+  "model": "hpt_bc_flow_human",
+  "status": "smoke_passed_full_runs_pending",
+  "invariants": {
+    "seed": 42,
+    "batch_size": 16,
+    "max_steps": 2000,
+    "val_check_interval": 500,
+    "checkpoint_metric": "Valid/action_loss"
+  },
+  "diversity_scores": {
+    "random-774": 50.3,
+    "duration-balanced-774": 50.3,
+    "diversity-774": 52.1
+  },
+  "smoke": {
+    "run_id": "random-774",
+    "val_action_loss": 139.40756225585938,
+    "wall_clock_s": 132.4,
+    "note": "4-step plumbing check on 24/6 smoke episodes. Not a real comparison."
+  },
+  "runs": []
+}
