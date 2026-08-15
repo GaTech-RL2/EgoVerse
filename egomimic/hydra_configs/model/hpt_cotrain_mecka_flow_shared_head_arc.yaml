@@ -51,7 +51,7 @@ robomimic_model:
   stem_specs:
     human_bimanual:
       state_ee_pose:
-        _target_: egomimic.models.hpt_nets.MLPPolicyStem
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
         input_dim: 12
         output_dim: 256
         widths: [256]
@@ -68,7 +68,7 @@ robomimic_model:
     human_bimanual: null
     eva_bimanual: null
     shared:
-      _target_: egomimic.models.fm_policy.FMPolicy
+      _target_: egomimic.models.heads.fm_policy.FMPolicy
       # 20 waypoint tokens + 1 trailing per-action-dim velocity token = 21
       # sequence slots per bimanual arc-tokenized chunk (was 100 time frames
       # in the non-arc variant).
@@ -84,7 +84,7 @@ robomimic_model:
         eva_bimanual: 8
         human_bimanual: 8
       model:
-        _target_: egomimic.models.denoising_nets.CrossTransformer
+        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128

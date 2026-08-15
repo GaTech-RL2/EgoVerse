@@ -1,5 +1,5 @@
 defaults:
-  - viz@viz_func: cartesian
+  - viz@viz_func: cartesian/base
   - _self_
 
 # Strip ``annotation_key`` from every viz_func entry — the base

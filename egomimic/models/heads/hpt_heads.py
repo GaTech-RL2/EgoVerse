@@ -229,3 +229,69 @@ class MultiBlockTransformerDecoder(PolicyHead):
             tokens = self.last_layer_norm(tokens)
 
         return self.out_proj(tokens)
+
+
+class MLPVelocityDecoder(nn.Module):
+    """MLP that pools stem tokens into a single velocity token.
+
+    Input: stem tokens (B, N, input_dim) -- or the raw list of per-modality
+    stem tokens from `stem_process`, which is concatenated along the token dim.
+    Pooling over N means domains with different modality counts (and therefore
+    different N) share the same decoder.
+    Output: velocity token (B, 1, output_dim).
+
+    Cotraining: pass `domains` to get a shared MLP trunk plus a per-domain
+    output projection, mirroring HPT's shared-trunk / per-domain-head layout.
+    Velocity scales differ across embodiments (human motion is faster than
+    teleoped robot motion), so the last layer is where they are allowed to
+    diverge. A "shared" projection is always kept as the fallback for domains
+    that were not configured (and for the single-domain case).
+    """
+
+    def __init__(
+        self,
+        input_dim: int = 256,
+        output_dim: int = 8,
+        widths: List[int] = [16, 32, 16],
+        dropout: bool = False,
+        ln: bool = True,
+        pool: str = "mean",
+        domains: Optional[List[str]] = None,
+        **kwargs,
+    ):
+        super().__init__()
+        assert pool in ("mean", "max", "last"), f"Invalid pool: {pool}"
+        self.pool = pool
+        self.output_dim = output_dim
+
+        modules = [nn.Linear(input_dim, widths[0]), nn.SiLU()]
+        for i in range(len(widths) - 1):
+            modules.extend([nn.Linear(widths[i], widths[i + 1])])
+            if dropout:
+                modules.append(nn.Dropout(p=0.1))
+            if ln:
+                modules.append(nn.LayerNorm(widths[i + 1]))
+            modules.append(nn.SiLU())
+        self.net = nn.Sequential(*modules)
+
+        self.domains = list(domains) if domains else []
+        self.out_proj = nn.ModuleDict(
+            {d: nn.Linear(widths[-1], output_dim) for d in self.domains}
+        )
+        self.out_proj["shared"] = nn.Linear(widths[-1], output_dim)
+
+    def pool_tokens(self, x: torch.Tensor) -> torch.Tensor:
+        if self.pool == "mean":
+            return x.mean(dim=1)
+        elif self.pool == "max":
+            return x.max(dim=1)[0]
+        return x[:, -1]
+
+    def forward(self, x, domain: Optional[str] = None):
+        if isinstance(x, (list, tuple)):
+            x = torch.cat(x, dim=-2)
+        if x.dim() == 3:
+            x = self.pool_tokens(x)
+        feat = self.net(x)
+        proj = self.out_proj[domain] if domain in self.out_proj else self.out_proj["shared"]
+        return proj(feat).unsqueeze(1)

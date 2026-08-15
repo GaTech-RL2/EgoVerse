@@ -28,6 +28,13 @@ launch_params:
 
 seed: 42
 
+# Arc-length tokenizer defaults. Data configs read ${arc_tokenizer.*} to keep
+# tokenization params consistent between train and eval — override per-run to
+# retokenize (e.g. arc_tokenizer.min_distance_unit=0.4 for D40).
+arc_tokenizer:
+  min_distance_unit: 0.20
+  resampled_vector_length: 15
+
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
   norm_mode: quantile

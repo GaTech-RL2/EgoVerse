@@ -1,0 +1,52 @@
+defaults:
+  - hpt_cotrain_mecka_flow_shared_head_arc
+
+# Arc-tok D=40cm, M=100 with a SEPARATE MLPVelocityDecoder for the trailing
+# velocity token. The flow-matching head predicts only the M=100 waypoint
+# tokens (shape); the vel decoder pools the trunk-output stem tokens and
+# emits the (1, 8) velocity token; the wrapper concats them into the
+# canonical (M+1, 8) = (101, 8) arc-tok action layout.
+#
+# Two losses propagate in parallel:
+#   - flow-matching MSE on waypoints (trunk + stems + flow head)
+#   - direct MSE on velocity (trunk + stems + MLPVelocityDecoder)
+# Both share the trunk + stems, so all decoder pieces get gradient.
+#
+# Single shared MLP for velocity (no per-domain projections); domain=None
+# in the decoder falls back to the ``shared`` projection for both eva and
+# human batches. Same weights regardless of embodiment.
+robomimic_model:
+  head_specs:
+    shared:
+      _target_: egomimic.models.heads.fm_policy.FMPolicyWithVelDecoder
+      num_waypoints: 100
+      vel_loss_weight: 1.0
+      fm_policy:
+        _target_: egomimic.models.heads.fm_policy.FMPolicy
+        # M=100 waypoints only (velocity handled by vel_decoder below)
+        action_horizon: 100
+        num_inference_steps: 50
+        pooling: null
+        padding: "zero"
+        time_dist: "beta"
+        infer_ac_dims:
+          eva_bimanual: 8
+          human_bimanual: 8
+        model:
+          _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
+          nblocks: 6
+          cond_dim: 256
+          hidden_dim: 128
+          act_dim: 8
+          act_seq: 100
+          n_heads: 4
+          dropout: 0.1
+          mlp_layers: 4
+          mlp_ratio: 4
+      vel_decoder:
+        _target_: egomimic.models.heads.hpt_heads.MLPVelocityDecoder
+        input_dim: 256
+        output_dim: 8
+        widths: [128, 64, 32]
+        ln: true
+        pool: mean
