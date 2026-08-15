@@ -1,0 +1,8 @@
+defaults:
+  - pusht_arc/base@_here_
+
+# HPT arc-tok config for PushShapes with the standard circle pusher.
+#   D = 100 px, M = 40, sequence = (M+1, 2) = (41, 2)
+#   Pusher (end-effector): "circle", contact radius 15 px.
+#   Action = 2-D target (target_x, target_y) in world pixels.
+eef_name: "circle"

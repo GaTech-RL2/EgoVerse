@@ -1,0 +1,9 @@
+defaults:
+  - pusht/base@_here_
+
+# HPT (time-chunked, no arc-tok) for PushShapes with the L pusher.
+#   Chunk = 32 frames of pusher targets at 30 Hz, shape (32, 2).
+#   Pusher (end-effector): "L", axis-aligned L (arm 45 px, thickness 15
+#   px). The L stays fixed at its spawn angle -- rigid axis-aligned tool.
+#   Action = 2-D target (target_x, target_y) in world pixels.
+eef_name: "L"

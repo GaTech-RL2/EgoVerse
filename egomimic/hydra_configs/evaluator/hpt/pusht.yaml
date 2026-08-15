@@ -1,0 +1,14 @@
+# Val-batch overlay for HPT on pushshapes_sim (no arc-tok).
+#
+# Runs HPTEvalVideo, which takes the val batch (GT obs frames + GT action
+# chunks), asks the model to predict a chunk for each sample, and calls
+# viz_gt_preds to draw green (GT) + red (pred) dots on the GT obs frame.
+# No sim rollout — the pusher/object motion you see IS the ground-truth
+# episode, not a closed-loop policy trace.
+_target_: egomimic.eval.hpt.eval_hpt.HPTEvalVideo
+limit_val_batches: 4
+max_videos: 2
+viz_func:
+  pushshapes_sim:
+    _target_: hydra.utils.get_method
+    path: egomimic.rldb.embodiment.pushshapes.viz_gt_preds
