@@ -1238,6 +1238,20 @@ class Mecka(Human):
                 "key_type": "proprio_keys",
                 "zarr_key": "obs_head_pose",
             },
+            # Chunked read of the same zarr key so the batch also carries the
+            # per-raw-frame head pose across the whole camera-clip window.
+            # ``key_type=metadata_keys`` keeps it out of the algo's
+            # ``proprio_keys[eid]`` list (so WAM._to_wam_data doesn't append it
+            # to ``data["state"]`` and change model input) and out of norm
+            # inference. Used at viz time to project each action onto the
+            # camera pose CURRENT at the displayed pixel — otherwise the
+            # single-pose head reference at frame 0 drifts as the head moves
+            # and the overlay walks off the hand.
+            "obs_head_pose_chunk": {
+                "key_type": "metadata_keys",
+                "zarr_key": "obs_head_pose",
+                "horizon": raw_cam_horizon,
+            },
         }
         if norm_mode:
             for k in [
@@ -1253,9 +1267,15 @@ class Mecka(Human):
             # Prepended: slice the raw camera clip [::video_stride] to the
             # semantic cam_horizon count. Must run BEFORE the coordinate-frame
             # transforms which don't touch the camera key but expect the batch
-            # dict to have the right shapes.
+            # dict to have the right shapes. Also downsample the head-pose
+            # chunk so it carries one pose per displayed pixel (used by
+            # WAMEvalVideo to re-project the overlay per-frame instead of
+            # anchoring everything to the frame-0 head pose).
             transforms.append(
-                SubsampleKeys(keys=[cls.VIZ_IMAGE_KEY], stride=int(video_stride))
+                SubsampleKeys(
+                    keys=[cls.VIZ_IMAGE_KEY, "obs_head_pose_chunk"],
+                    stride=int(video_stride),
+                )
             )
         transforms += [
             ActionChunkCoordinateFrameTransform(

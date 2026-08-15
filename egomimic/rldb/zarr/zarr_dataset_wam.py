@@ -32,6 +32,7 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
     get_fallback_idx,
     logger,
 )
+from egomimic.utils.pose_utils import _matrix_to_xyzwxyz
 
 __all__ = [
     "ZarrWamDataset",
@@ -54,10 +55,48 @@ class WamMultiDataset(MultiDataset):
 class ZarrWamDataset(ZarrDataset):
     """ZarrDataset that decodes windowed camera reads into a clip (T, C, H, W)."""
 
+    _QUAT_ZERO_EPS = 1e-6
+
     @staticmethod
     def _decode_one(buf) -> np.ndarray:
         d = simplejpeg.decode_jpeg(buf, colorspace="RGB")
         return np.transpose(d, (2, 0, 1)) / 255.0  # (C, H, W) in [0,1]
+
+    @classmethod
+    def _validate_arrays(cls, data: dict) -> str | None:
+        """Scan loaded arrays for NaN/Inf and zero-quaternion rows.
+
+        Why: ``WamMultiDataset._check_bounds`` is a no-op for WAM, so the
+        MultiDataset-level NaN/quantile check is skipped. A single bad row —
+        NaN in a state chunk, or an all-zero quaternion in ``obs_head_pose`` /
+        ``{left,right}_extrinsics_pose`` — crashes ``ActionChunkCoordinateFrameTransform``
+        because ``SE3.from_matrix(_xyzwxyz_to_matrix(...))`` on a degenerate quat
+        yields a NaN matrix whose ``.inverse()`` propagates NaN into every
+        subsequent chunk. In a DDP dataloader worker that failure can wedge the
+        rank silently (worker stalls or spins in a retry loop), causing GPU util
+        to drop to 0% on that rank while the other ranks time out on the next
+        NCCL collective. Catching these here lets us log the defect and resample
+        a fresh idx cleanly.
+
+        Returns a one-line reason string on the first defect, or None if clean.
+        """
+        for k, v in data.items():
+            if not isinstance(v, np.ndarray):
+                continue
+            if v.dtype.kind not in "fc":
+                continue
+            if not np.all(np.isfinite(v)):
+                return f"NaN/Inf in key={k}"
+            # xyzwxyz layout: last dim 7 means [x, y, z, qw, qx, qy, qz].
+            # All last-dim-7 arrays in the WAM keymap are poses.
+            if v.shape and v.shape[-1] == 7:
+                quat = v[..., 3:7].reshape(-1, 4)
+                norms = np.linalg.norm(quat, axis=-1)
+                if np.any(norms < cls._QUAT_ZERO_EPS):
+                    return (
+                        f"Zero-quat in key={k} " f"(min |q|={float(norms.min()):.2e})"
+                    )
+        return None
 
     def __getitem__(self, idx, _fallback_origin=None, _attempts=None):
         origin = _fallback_origin if _fallback_origin is not None else idx
@@ -122,9 +161,42 @@ class ZarrWamDataset(ZarrDataset):
             if retry:
                 continue
 
+            # --- Per-episode camera calibration into the batch (BEFORE
+            # transforms) so downstream steps that operate in camera frame —
+            # e.g. ``Eva.get_wam_transform_list`` — can pull per-episode
+            # ``{left,right}_extrinsics_pose`` instead of hardcoding
+            # ``Eva.EXTRINSICS``. Intrinsics mirror the base ZarrDataset plumbing
+            # so viz/projection picks up the zarr-stored K.
+            extr = self.episode_reader.extrinsics
+            if isinstance(extr, dict):
+                for arm_key, se3 in extr.items():
+                    arr = np.asarray(se3, dtype=np.float32)
+                    if arr.shape == (4, 4):
+                        xyzq = _matrix_to_xyzwxyz(arr[None, :])[0].astype(np.float32)
+                        data[f"{arm_key}_extrinsics_pose"] = xyzq
+
+            # Pre-transform validation: catch NaN/Inf and zero-quats before
+            # they blow up the SE3 coord-frame transform (see _validate_arrays).
+            bad = self._validate_arrays(data)
+            if bad is not None:
+                idx = _next(bad)
+                continue
+
             if self.transform:
-                for transform in self.transform or []:
-                    data = transform.transform(data)
+                try:
+                    for transform in self.transform or []:
+                        data = transform.transform(data)
+                except Exception as e:
+                    idx = _next(f"Transform failed ({type(e).__name__}: {e})")
+                    continue
+
+            # Post-transform validation: transforms (interpolation, SE3
+            # inverse, unwrap) can introduce NaN on near-degenerate inputs
+            # that pass the pre-check.
+            bad = self._validate_arrays(data)
+            if bad is not None:
+                idx = _next(f"post-transform: {bad}")
+                continue
 
             for k, v in data.items():
                 if isinstance(v, np.ndarray):
@@ -135,6 +207,22 @@ class ZarrWamDataset(ZarrDataset):
             data["episode_hash"] = (
                 ep_name[:-5] if ep_name.endswith(".zarr") else ep_name
             )
+
+            K = self.episode_reader.intrinsics
+            if isinstance(K, dict):
+                K = next(
+                    (v for k, v in K.items() if "front" in str(k).lower()),
+                    next(iter(K.values()), None) if K else None,
+                )
+            if K is not None:
+                K = np.asarray(K, dtype=np.float32)
+                if K.shape == (3, 3):
+                    K = np.concatenate([K, np.zeros((3, 1), dtype=np.float32)], axis=1)
+                if K.shape != (3, 4):
+                    K = np.full((3, 4), np.nan, dtype=np.float32)
+            else:
+                K = np.full((3, 4), np.nan, dtype=np.float32)
+            data["intrinsics"] = torch.from_numpy(np.ascontiguousarray(K))
             _ = origin
             return data
 
