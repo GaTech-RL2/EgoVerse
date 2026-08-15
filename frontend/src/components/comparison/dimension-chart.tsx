@@ -42,7 +42,10 @@ export function DimensionChart({
           >
             <span className="profile-label">
               <strong>{dimension.shortLabel ?? dimension.label}</strong>
-              <small>{guide?.definition ?? dimension.description}</small>
+              <small>
+                <span>What it measures</span>
+                {guide?.definition ?? dimension.description}
+              </small>
             </span>
 
             <span className="profile-plot">

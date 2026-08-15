@@ -56,19 +56,19 @@ export type DimensionGuide = {
 
 export const DIMENSION_GUIDES: Record<DimensionId, DimensionGuide> = {
   behavior: {
-    definition: "How many semantic task groups appear, and how evenly episodes are distributed across them.",
+    definition: "How many semantic task groups are represented, and how evenly episodes are spread across those groups.",
     input: "Episode task labels · MiniLM semantic clusters",
     score: "Behavior-cluster coverage × normalized evenness",
     boundary: "Not action quality or motion extracted from the video.",
   },
   visual: {
-    definition: "How visually dissimilar the sampled episode videos are from one another.",
+    definition: "How visually different 100 sampled episode videos are from one another.",
     input: "100 videos / subset · 5 frames each · DINOv2-small",
     score: "Mean pairwise cosine distance ÷ reference distance",
     boundary: "Not named scene categories, PCA, or proof of which visual factor caused the difference.",
   },
   embodiment: {
-    definition: "How many embodiment categories appear, and how evenly episodes are distributed across them.",
+    definition: "How many embodiment categories are represented, and how evenly episodes are spread across them.",
     input: "The dataset's embodiment metadata field",
     score: "Embodiment-category coverage × normalized evenness",
     boundary: "Not robot performance. A zero can mean every episode uses one embodiment category.",
