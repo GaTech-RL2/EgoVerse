@@ -242,7 +242,14 @@ class WAMModel(nn.Module):
 
         state, _ = self._prep_state_action(data)
         context = self._zero_context(B, device, dtype)
-        emb = torch.zeros(B, dtype=torch.long, device=device)
+        # Cross-embodiment conditioning: the cotrained DiT has a per-embodiment
+        # embedding, so use the real id from ``data`` (3 for HUMAN_BIMANUAL, 6
+        # for EVA_BIMANUAL) rather than 0. Zero was fine when only aria trained,
+        # but for cotrain it maps to an untrained slot → degenerate predictions
+        # (especially for eva, the minority split). Same fix as the offline
+        # eval ``eval_dreamzero._rolling_setup``.
+        eid = int(data.get("embodiment_id", 0))
+        emb = torch.full((B,), eid, dtype=torch.long, device=device)
 
         # num_action_per_block = actions the DiT allocates to one block. Per
         # rolling step we take the actions from the LAST block (aligned with
@@ -431,7 +438,17 @@ class WAM(Algo):
             eid = get_embodiment_id(embodiment_name)
             processed[eid] = {}
             for key, value in _batch.items():
-                processed[eid][self.norm_stats.zarr_key_to_keyname(key, eid)] = value
+                # zarr_key_to_keyname returns None for any batch key that isn't
+                # a registered action/proprio zarr key (e.g. ``intrinsics``,
+                # ``episode_hash``, image keys). Fall back to the original key
+                # in that case — otherwise every non-registered key gets
+                # written under a single ``None`` slot that clobbers each
+                # other, and ``_intrinsics_from_batch`` returns None so viz
+                # falls back to the hardcoded ARIA_INTRINSICS (mismatched
+                # focal / principal-point → visible action-overlay drift).
+                # Mirrors the fix in ``hpt.py`` (commit 532e288d).
+                key_name = self.norm_stats.zarr_key_to_keyname(key, eid) or key
+                processed[eid][key_name] = value
             ac_key = self.ac_keys[eid]
             B, S, _ = processed[eid][ac_key].shape
             processed[eid]["pad_mask"] = torch.ones(B, S, 1, device=self.device)
@@ -480,21 +497,27 @@ class WAM(Algo):
 
     @torch.no_grad()
     def val_rollout(self, eid, batch):
-        """DreamZero-style rolling-window val rollout.
+        """DreamZero-style rolling-window val rollout using ``sample_rolling``.
 
-        Passes the FULL GT val clip (B, T, C, H, W) to ``sample_rolling`` so it
-        can encode all T pixel frames -> F_gt latents and slide a 4-frame GT
-        history window across them, denoising one new latent at a time (Fig 14
-        of DreamZero: KV-cache of conditional frames = GT observations).
-
-        The model predicts num_video_frames-1 = 4 future latents (via 4 rolling
-        DiT forwards). VAE-decoding [GT_cond_0 | pred_1..4] with the 4x temporal
-        expansion gives 17 pixel frames; dropping frame 0 leaves 16 predicted
-        future pixel frames.
+        Passes the FULL GT val clip (B, T, C, H, W) — NOT just the first frame
+        — so ``sample_rolling`` can encode all T pixel frames → F_gt latents
+        and slide a K-frame GT history window across them (DreamZero Fig 14a:
+        each new chunk of K latents conditions on the PREVIOUS chunk's GT
+        latents, not on the model's own prior predictions). Before this change
+        ``val_rollout`` called ``model.sample()`` which conditions ONLY on the
+        first frame and generates the full clip in a single denoising pass —
+        which is why the training val_videos showed the "recondition on old
+        frames" artifact (predicted frames didn't reset to GT at chunk
+        boundaries, so drift accumulated). This aligns the training val loop
+        with the offline TF eval (``eval_dreamzero._sample_rolling_tf``).
 
         Returns:
-          pred_actions (B, action_horizon, action_dim) — last rolling step's actions
-          viz_video    (B, C, 16, H_img, W_img) — predicted future pixel frames only
+          pred_actions (B, action_horizon, action_dim) — concatenated actions
+                                                        from each rolling step
+                                                        (num_action_per_block
+                                                        per step from the last
+                                                        DiT block).
+          viz_video    (B, C, T_pred, H, W) — predicted future pixel frames.
         """
         model = self.nets["policy"]
 
@@ -503,13 +526,6 @@ class WAM(Algo):
             if key in batch:
                 video_clip = batch[key]
                 break
-        # sample() expects a single conditioning frame — it encodes → 1 latent
-        # → repeats to num_video_frames slots as clean anchor, then predicts.
-        # Use the first frame of the val clip as the anchor.
-        if video_clip is not None and video_clip.dim() == 5:
-            cond_frame = video_clip[:, 0]
-        else:
-            cond_frame = video_clip
 
         states = []
         for key in self.proprio_keys[eid]:
@@ -519,15 +535,13 @@ class WAM(Algo):
         full_state = torch.cat(states, dim=-1) if states else None
 
         step_data = {
-            "video": cond_frame,
+            "video": video_clip,  # FULL clip → sample_rolling encodes all frames
             "state": full_state,
             "action": batch[self.ac_keys[eid]],
+            "embodiment_id": eid,  # DiT emb-table conditioning per batch
         }
-        # B (paper Fig 14a training pattern): single DiT forward denoises all
-        # M chunks jointly, conditioned on the initial GT anchor only. ~4x
-        # faster than sample_rolling (which is A: chunk-by-chunk with KV chain).
-        pred_actions, pred_frames = model.sample(step_data)
-        viz_video = pred_frames[:, :, 1:]  # drop VAE recon of the GT cond at idx 0
+        pred_actions, pred_frames = model.sample_rolling(step_data)
+        viz_video = pred_frames[:, :, 1:]  # drop VAE recon of the GT anchor at idx 0
         return pred_actions, viz_video
 
     @override
@@ -551,8 +565,12 @@ class WAM(Algo):
                 viz_video  # (B,C,T,H,W): GT+pred interleaved per block
             )
             ref = _batch[ac_key]
-            B, T, D = ref.shape
-            preds = OrderedDict({ac_key: pred_actions[:, :T, :D]})
+            _, _, D = ref.shape
+            # Keep FULL rolled pred (sample_rolling produces num_steps*num_action_per_block
+            # actions, which can exceed ref's dataset action_horizon). Truncation to
+            # ref's length was killing the val_video overlay past the 6.4 s mark.
+            # ``compute_metrics_and_viz`` slices to ref's length internally for MSE.
+            preds = OrderedDict({ac_key: pred_actions[:, :, :D]})
             for key, val in self.norm_stats.unnormalize(preds, eid).items():
                 unnorm_preds[f"{name}_{key}"] = val
         return unnorm_preds
