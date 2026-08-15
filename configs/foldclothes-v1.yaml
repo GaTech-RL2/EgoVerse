@@ -1,0 +1,22 @@
+dataset_name: foldclothes-v1
+canonical_task: fold_clothes
+
+source_tasks:
+  - fold_black_t-shirt
+  - fold_blue_jeans
+  - fold_clothes
+  - fold_laundry
+  - fold_shirt
+  - fold_white_shirt
+
+audit:
+  method: stratified_visual_audit
+  samples_per_task: 4
+  decision: keep_all
+
+splits:
+  unit: episode
+  seed: 42
+  train_fraction: 0.80
+  val_fraction: 0.10
+  test_fraction: 0.10
