@@ -2,6 +2,7 @@
 
 import { ArrowLeft, ArrowRight } from "lucide-react";
 
+import { getDimensionGuide } from "@/lib/backend-config";
 import type { AnalysisResult } from "@/lib/contracts";
 
 export function DimensionChart({
@@ -25,6 +26,7 @@ export function DimensionChart({
       </div>
 
       {result.dimensions.map((dimension) => {
+        const guide = getDimensionGuide(dimension.id);
         const a = subsetA.dimensions[dimension.id].display;
         const b = subsetB.dimensions[dimension.id].display;
         const delta = b - a;
@@ -40,7 +42,7 @@ export function DimensionChart({
           >
             <span className="profile-label">
               <strong>{dimension.shortLabel ?? dimension.label}</strong>
-              <small>{dimension.description}</small>
+              <small>{guide?.definition ?? dimension.description}</small>
             </span>
 
             <span className="profile-plot">

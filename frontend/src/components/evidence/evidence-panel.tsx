@@ -1,6 +1,49 @@
 "use client";
 
+import { Info } from "lucide-react";
+
+import { getDimensionGuide } from "@/lib/backend-config";
 import type { AnalysisResult } from "@/lib/contracts";
+
+function DimensionGuidePanel({
+  dimensionId,
+  label,
+}: {
+  dimensionId: string;
+  label: string;
+}) {
+  const guide = getDimensionGuide(dimensionId);
+
+  if (!guide) {
+    return null;
+  }
+
+  return (
+    <div className="dimension-guide" aria-label={`How to read ${label}`}>
+      <div className="dimension-guide-definition">
+        <Info aria-hidden="true" />
+        <div>
+          <span>What it measures</span>
+          <p>{guide.definition}</p>
+        </div>
+      </div>
+      <dl className="dimension-guide-details">
+        <div>
+          <dt>Input</dt>
+          <dd>{guide.input}</dd>
+        </div>
+        <div>
+          <dt>Score</dt>
+          <dd>{guide.score}</dd>
+        </div>
+        <div>
+          <dt>Does not mean</dt>
+          <dd>{guide.boundary}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
 
 function MetricBar({
   label,
@@ -162,11 +205,18 @@ export function EvidencePanel({
               className={selectedDimension === dimension.id ? "is-active" : ""}
               onClick={() => onSelect(dimension.id)}
             >
-              {dimension.shortLabel}
+              {dimension.shortLabel ?? dimension.label}
             </button>
           ))}
         </div>
       </div>
+
+      {selectedDefinition ? (
+        <DimensionGuidePanel
+          dimensionId={selectedDimension}
+          label={selectedDefinition.label}
+        />
+      ) : null}
 
       <div key={selectedDimension} role="tabpanel">
         {selectedDimension === "behavior" && hasBehaviorEvidence ? <BehaviorEvidence result={result} /> : null}

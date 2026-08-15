@@ -342,7 +342,7 @@ export function AnalysisConsole({ initialSnapshot }: { initialSnapshot: DatasetS
               <p className="section-kicker">Diversity profile</p>
               <h2 id="profile-title">{dimensionDefinitions.length} measurements, one ranking</h2>
             </div>
-            <p>Select a dimension to inspect its backend evidence.</p>
+            <p>Select a dimension to see what it measures and inspect its backend evidence.</p>
           </div>
 
           {result ? (

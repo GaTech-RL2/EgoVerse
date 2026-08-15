@@ -28,21 +28,53 @@ export const DIMENSIONS = [
     id: "behavior" as const,
     label: "Behavior Diversity",
     shortLabel: "Behavior",
-    description: "Semantic task-cluster coverage × evenness",
+    description: "Variety and balance of semantic task groups",
   },
   {
     id: "visual" as const,
     label: "Context / Visual Diversity",
     shortLabel: "Visual",
-    description: "Calibrated mean pairwise DINOv2 distance",
+    description: "Visual dissimilarity across sampled episodes",
   },
   {
     id: "embodiment" as const,
     label: "Embodiment Diversity",
     shortLabel: "Embodiment",
-    description: "Embodiment-category coverage × evenness",
+    description: "Variety and balance of embodiment categories",
   },
 ] as const;
 
 export type SubsetId = (typeof BACKEND_CONFIGURATION.subsets)[number]["id"];
 export type DimensionId = (typeof DIMENSIONS)[number]["id"];
+
+export type DimensionGuide = {
+  definition: string;
+  input: string;
+  score: string;
+  boundary: string;
+};
+
+export const DIMENSION_GUIDES: Record<DimensionId, DimensionGuide> = {
+  behavior: {
+    definition: "How many semantic task groups appear, and how evenly episodes are distributed across them.",
+    input: "Episode task labels · MiniLM semantic clusters",
+    score: "Behavior-cluster coverage × normalized evenness",
+    boundary: "Not action quality or motion extracted from the video.",
+  },
+  visual: {
+    definition: "How visually dissimilar the sampled episode videos are from one another.",
+    input: "200 videos / subset · 5 frames each · DINOv2-small",
+    score: "Mean pairwise cosine distance ÷ reference distance",
+    boundary: "Not named scene categories, PCA, or proof of which visual factor caused the difference.",
+  },
+  embodiment: {
+    definition: "How many embodiment categories appear, and how evenly episodes are distributed across them.",
+    input: "The dataset's embodiment metadata field",
+    score: "Embodiment-category coverage × normalized evenness",
+    boundary: "Not robot performance. A zero can mean every episode uses one embodiment category.",
+  },
+};
+
+export function getDimensionGuide(id: string): DimensionGuide | undefined {
+  return DIMENSION_GUIDES[id as DimensionId];
+}
