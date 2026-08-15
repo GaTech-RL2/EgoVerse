@@ -1,0 +1,22 @@
+# DDP trainer preset for WAM (5B DiT + VAE) — same as ddp.yaml but with
+# ``accumulate_grad_batches`` set. WAM's per-GPU physical batch is 1
+# (VRAM-bound by the 5B backbone + VAE); accumulation multiplies the
+# effective batch so the flow-matching gradient sees more diverse noise
+# levels / action chunks per step without spilling VRAM. Adjust via
+# ``trainer.accumulate_grad_batches=<N>`` on the command line if you
+# want a different effective batch.
+defaults:
+  - default
+
+strategy: ddp
+accelerator: gpu
+devices: ${eval:'${launch_params.gpus_per_node} * ${launch_params.nodes}'}
+num_nodes: ${launch_params.nodes}
+sync_batchnorm: True
+check_val_every_n_epoch: 200
+num_sanity_val_steps: 0
+
+# Effective batch = devices * per_gpu_batch_size * accumulate_grad_batches.
+# At 4 GPUs × per-GPU-bs 4 × 2 accumulation = effective 32 (this run's target).
+# Override on the command line for a different multiplier.
+accumulate_grad_batches: 2

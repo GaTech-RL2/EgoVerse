@@ -1,0 +1,39 @@
+# WAM data — eva_bimanual eval slice from ``/storage/.../shared/arc_tests``
+# (the updated eva/human_bimanual data staged locally; 290 eva_bimanual
+# episodes as of this run). Uses ``LocalWamEpisodeResolver`` so we filter
+# against each zarr's own metadata (lab/task fields are None in the arc_tests
+# staging, so we filter by embodiment only). The 14D bimanual actions/state
+# from Eva.get_wam_transform_list are trimmed to 12D via ``DropGripperDims``
+# so the human_bimanual-trained WAM (12D interface) can consume them.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_wam.WamMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_wam.LocalWamEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/arc_tests
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_wam_keymap
+        cam_horizon: 17
+        action_horizon: 16
+        state_horizon: 4
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_wam_transform_list
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual'"
+    mode: total
+
+valid_datasets:
+  eva_bimanual: ${data.train_datasets.eva_bimanual}
+
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 10
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 10

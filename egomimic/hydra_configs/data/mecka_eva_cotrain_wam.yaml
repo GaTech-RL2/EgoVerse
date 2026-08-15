@@ -1,0 +1,64 @@
+# WAM data — 50/50 cotrain of MECKA folding_clothes (human_bimanual, S3-backed
+# via mecka_fold folder; filtered lab=mecka + task=folding_clothes) + EVA
+# fold_clothes (eva_bimanual, local arc_tests folder). Mirrors
+# aria_eva_cotrain_wam.yaml but swaps the human_bimanual source from
+# lab=rl2/aria to lab=mecka. Same universal WAM pipeline; equal batch_size on
+# each loader → CombinedLoader("max_size_cycle") yields one mecka batch + one
+# eva batch per training step for balanced cross-embodiment gradient flow.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_wam.WamMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_wam.S3WamEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/mecka_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_keymap
+        cam_horizon: 17
+        action_horizon: 16
+        state_horizon: 4
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_wam_transform_list
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'mecka' and row['task'] == 'folding_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: total
+
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_wam.WamMultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_wam.LocalWamEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/shared/arc_tests
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_wam_keymap
+        cam_horizon: 17
+        action_horizon: 16
+        state_horizon: 4
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_wam_transform_list
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual'"
+    mode: total
+
+valid_datasets:
+  human_bimanual: ${data.train_datasets.human_bimanual}
+  eva_bimanual: ${data.train_datasets.eva_bimanual}
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 4
+    num_workers: 10
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 10
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 4
+    num_workers: 10
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 10

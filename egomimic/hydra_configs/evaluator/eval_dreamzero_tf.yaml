@@ -1,0 +1,15 @@
+# WAM evaluator, dreamzero offline eval — GT teacher-forced rolling mode
+# (matches ``WAMModel.sample_rolling`` and dreamzero Fig-14a). At each rolling
+# step the sliding history is refilled with GT latents
+# (``gt_latents[:, :, step*K+1 : step*K+K+1]``) instead of the model's own K
+# predictions. i.e. we recondition on GT every K latents ≈ every K*4 pixel
+# frames (with K=2 this is every 8 pixel frames). Right for short-horizon
+# forecasting quality — drift can't accumulate because the model is re-
+# anchored to GT each chunk; the trade-off is visible "seams" at chunk
+# boundaries whenever the model's just-predicted K latents differ from GT.
+defaults:
+  - viz@viz_func: wam_cartesian
+  - _self_
+
+_target_: egomimic.eval.eval_wam.WAMEvalVideo
+teacher_force_rolling: true
