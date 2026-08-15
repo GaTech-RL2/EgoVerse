@@ -75,3 +75,11 @@ artifacts/hackathon_manifest.parquet
 artifacts/smoke_test_manifest.csv
 catalog_inspection.txt
 download_manifest.log
+
+# Local raw dataset and derived processing artifacts
+data/
+artifacts/*.tar
+artifacts/*.parquet
+artifacts/*.csv
+artifacts/clip_v1/
+*.log
