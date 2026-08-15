@@ -8,41 +8,102 @@ This fork (`hackathon/diversity-dashboard`) adds **EgoSpectrum**: a visual inter
 
 ## EgoSpectrum
 
-Robot datasets can look balanced on task labels and still be the same demo twice. EgoSpectrum measures **visual** diversity — no captions, no LLM-as-a-judge — then trains comparable HPT policies on subsets that differ only in which clips they keep.
+Are you training on 100 distinct experiences, or repeated footage?
 
-### Method
+Robot datasets can look balanced on task labels and still be the same demo twice. EgoSpectrum turns **visual interaction diversity** into a number — no captions, no LLM-as-a-judge — then trains comparable HPT policies on subsets that differ only in which clips they keep. The dashboard is the public writeup; this section is the same argument with the math and protocol attached.
 
-1. Sample 8 evenly spaced egocentric frames per episode.
-2. Embed them with frozen CLIP ViT-B/32 (`openai/clip-vit-base-patch32`) on Modal.
-3. Mean-pool and L2-normalize to a 512-D episode vector.
-4. Select a subset with greedy farthest-first in that space (seed 42).
-5. Score the subset on two quantities, computed in the original 512-D space (PCA is only a map):
-   - **Coverage** — mean similarity of every corpus clip to its nearest selected neighbor. Higher means the subset still stands in for the population.
-   - **Repetition** — mean pairwise similarity inside the subset. Lower means fewer lookalikes.
-6. Index the score so a typical random subset of the same size lands near **50**:
+### Representation
+
+Each episode is a single 512-D vector in CLIP image space.
+
+1. Decode the preview MP4 and take **8 frames** at `linspace(0, T-1, 8)`.
+2. Run frozen **CLIP ViT-B/32** (`openai/clip-vit-base-patch32`) on Modal T4s. Text tower is unused.
+3. L2-normalize each frame feature, mean-pool, L2-normalize again. That mean is the episode.
 
 ```
-score = 50 + 500 * (0.5 * coverage_delta + 0.5 * repetition_delta)
+x_i = normalize( (1/8) Σ_t normalize( CLIP_image(frame_{i,t}) ) ) ∈ R^{512}
 ```
 
-`coverage_delta` and `repetition_delta` are relative to the mean of 20 random subsets. Random can score a hair above 50 on a single draw; that is expected.
+Cosine similarity is then a dot product. The same embedding is used for selection and for scoring. PCA to 2-D is computed afterward for the dashboard map only; it is not an input to either step.
 
-This is **not** within-task label balance. A set can keep 129 fold-shirt clips and still be the same table, the same fold, and the same camera angle. CLIP sees the interaction, not the task string.
+Implementations: [`modal_embed.py`](./modal_embed.py) (mixed 400-clip corpus, version `clip_v1_8frames`) and [`modal_embed_foldclothes_train.py`](./modal_embed_foldclothes_train.py) (fold-clothes train pool, version `foldclothes_train_clip_v1_8frames`).
 
-### Headline result: mixed EgoVerse, 400 → 100
+### Scoring: coverage and repetition
 
-`analyze_diversity.py` compares two 100-episode subsets of a 400-clip mixed corpus (25 task types).
+A subset \(S\) of size \(k\) is judged against the full corpus \(C\) (\(|C|=n\)) by two cosine statistics.
+
+**Coverage.** For every corpus episode, take similarity to its nearest selected neighbor, then average:
+
+```
+coverage(S) = (1/n) Σ_{i ∈ C} max_{j ∈ S} ⟨x_i, x_j⟩
+```
+
+High coverage means the subset still stands in for the population. Once \(k/n\) is large, almost any fair subset covers well. Random can even win this term by keeping a lot of typical footage.
+
+**Repetition.** Mean pairwise similarity inside the subset (upper triangle, no diagonal):
+
+```
+repetition(S) = (2 / (k(k-1))) Σ_{a < b, a,b ∈ S} ⟨x_a, x_b⟩
+```
+
+Low repetition means fewer lookalikes in the clips you would actually train on. This is the term EgoSpectrum is trying to move.
+
+Percentiles (`nearest_similarity_p10/p50/p90`, `pairwise_similarity_p95`) are logged for inspection. They are not in the score.
+
+### Visual Interaction Diversity Score
+
+Raw cosine deltas on this data are small — ego videos already sit in a tight CLIP blob (hands, rooms, objects, same camera). The published number is indexed so a typical random subset of the same size lands near **50**.
+
+Let \(\bar{c}\) and \(\bar{r}\) be the mean coverage and repetition of **20** uniform random subsets of size \(k\) (seeds `0..19`):
+
+```
+Δ_c = (coverage(S) − c̄) / c̄
+Δ_r = (r̄ − repetition(S)) / r̄
+score(S) = clip( 50 + 500 · (0.5 Δ_c + 0.5 Δ_r), 0, 100 )
+```
+
+Equal weight on “represent the population” and “don’t keep clones.” A single random draw can land a hair above 50; that is expected. The seed-42 random subset shown on the dashboard is one such draw, not the 20-trial mean.
+
+Code: [`analyze_diversity.py`](./analyze_diversity.py) (mixed corpus) and [`score_foldclothes_curation_variants.py`](./score_foldclothes_curation_variants.py) (fold-clothes). Same formula, different \(n\) and \(k\).
+
+### Selection: farthest-first, not one distance per video
+
+EgoSpectrum does not score a video in isolation. It builds a subset by greedy farthest-first in the normalized CLIP sphere.
+
+Mixed-corpus version ([`analyze_diversity.py`](./analyze_diversity.py)): start from a seed-42 random episode. Repeatedly add the corpus point whose **max cosine to the set so far is smallest** (least covered so far). After each add, update
+
+```
+best_sim[i] ← max(best_sim[i], ⟨x_i, x_new⟩)
+```
+
+and pick `argmin(best_sim)` next. That is the standard greedy 1-center / farthest-first traversal of a cosine k-center heuristic.
+
+Fold-clothes version ([`make_foldclothes_curation_variants.py`](./make_foldclothes_curation_variants.py)) is the same idea **within each task**: start at the first episode by `episode_hash` sort, then repeatedly add the point with largest `min (1 − ⟨x, x_chosen⟩)` to the set so far, 129 times per task. Task counts stay balanced by construction; visual clones inside a label do not.
+
+### How to read the headline: similar coverage is not a tie
+
+Mixed EgoVerse, 400 clips → two 100-clip subsets, 25 task types in the corpus.
 
 | Subset | Score | Coverage | Repetition |
 |---|---:|---:|---:|
 | EgoSpectrum (farthest-first) | **62.8** | 0.9210 | 0.7442 |
 | Random (seed 42) | 50.3 | 0.9278 | 0.7897 |
 
-Coverage is essentially tied (EgoSpectrum keeps 99.3% of random coverage). Both subsets still hit 24 of 25 task labels. The win is **5.8% fewer lookalikes** in the 100 clips you would actually train on. Similar coverage is not a tie.
+Coverage retained: \(0.9210 / 0.9278 = 99.3\%\). Lookalikes down: \((0.7897 - 0.7442) / 0.7897 = 5.8\%\). Both subsets still hit **24 of 25** task labels.
 
-### Training experiment: fold-clothes, 1,304 → 774
+These ego videos already look related to CLIP. Once you keep 100 of 400, almost any fair subset covers the population. Random even covers a hair more, because it keeps typical footage. EgoSpectrum is not trying to cover more. It is trying to cover about as much with fewer repeats: keep the unusual angles, drop the near-duplicates. **62.8 vs 50.3 is that trade — same coverage, less wasted footage.**
 
-Fold-clothes is the stress test: six garment tasks, one activity family, so visual clones are the default.
+The dashboard PCA map is a picture of the same 512-D cloud. Gray = corpus, warm = random, lime = EgoSpectrum. It is not the scoring engine.
+
+### Why visual, not “within-task,” diversity
+
+A common curation move is within-task diversity: keep 129 fold-shirt clips, 129 fold-jeans clips, and call the set diverse. That only proves the **labels** are balanced. It does not tell you whether those 129 shirts are the same table, the same fold, the same camera angle.
+
+We treat **visual diversification** as the thing you can actually measure. CLIP sees the interaction, not the task string. Two subsets can have identical task counts and still waste the budget on lookalikes. That is a tangible difference, and it is why we train a policy at all: if visual spread is real, held-out action loss should move; if it is not, the score said so before the GPU hours.
+
+### Fold-clothes: same metric, a real training corpus
+
+Stress test: one activity family, six garment tasks, frozen EgoVerse split.
 
 | Split | Episodes | Manifest | SHA-256 |
 |---|---:|---|---|
@@ -50,40 +111,51 @@ Fold-clothes is the stress test: six garment tasks, one activity family, so visu
 | Val (frozen) | 163 | `artifacts/foldclothes-v1/manifests/val.csv` | `4e41651a2f09f4b98c506dca9780809da5786d6186250e0cc3e866e76511ff3c` |
 | Test (frozen) | 164 | `artifacts/foldclothes-v1/manifests/test.csv` | `5f7781b3d2c7bd5f784a843d0bebbc63bc2c62e31486ffe0113c29d6d8462d35` |
 
-Curation is **train-only**. Val and test never change. `train.csv` is byte-identical to `train_embedding_manifest.csv`.
+80/10/10 on the candidate pool, seed 42. Curation is **train-only**. Val and test are never touched. `train.csv` is byte-identical to `train_embedding_manifest.csv`. There are no val/test embedding manifests; embeddings exist only to select training episodes.
 
-Three 774-episode variants, 129 episodes per source task, seed 42:
+Three 774-episode variants (129 per source task, seed 42):
 
-| Run | How it is chosen | Manifest SHA-256 | Score | Coverage | Repetition |
+| Run | Selector | Manifest SHA-256 | Score | Coverage | Repetition |
 |---|---|---|---:|---:|---:|
-| `random-774` | Seeded random within task | `9e47194b6b62c4e6ac5bca4f3d276b502bbe2565834cc1395ba9978ca66c8c08` | 50.3 | 0.9793 | 0.8076 |
-| `duration-balanced-774` | Seeded duration tertiles within task | `60513d2d188424d27402f77fcf72345938d12dd9ebac9173bb542c189ce6ada3` | 50.3 | 0.9786 | 0.8071 |
-| `diversity-774` | Farthest-first in CLIP space within task | `dd438636443971b6fe3d6220c7db663296c90ccc91cfb95fd07f3916879b356a` | **52.1** | 0.9824 | 0.8044 |
+| `random-774` | `DataFrame.sample(n=129, random_state=42)` within task | `9e47194b6b62c4e6ac5bca4f3d276b502bbe2565834cc1395ba9978ca66c8c08` | 50.3 | 0.9793 | 0.8076 |
+| `duration-balanced-774` | Sort by `num_frames`, split into tertiles, sample 43/43/43 per task | `60513d2d188424d27402f77fcf72345938d12dd9ebac9173bb542c189ce6ada3` | 50.3 | 0.9786 | 0.8071 |
+| `diversity-774` | Within-task farthest-first in CLIP | `dd438636443971b6fe3d6220c7db663296c90ccc91cfb95fd07f3916879b356a` | **52.1** | 0.9824 | 0.8044 |
 
-All three sets are label-balanced. Duration-balanced covers length, not vision. EgoSpectrum still wins, but the gap is small because every clip is already garment folding. That is the point: the score reports a redundant pool instead of inventing a large map. Full 1,304-episode training is recorded as `full-1304` and is out of scope for v1.
+Source tasks: `fold_black_t-shirt`, `fold_blue_jeans`, `fold_clothes`, `fold_laundry`, `fold_shirt`, `fold_white_shirt`. All three variants have the same label histogram. Duration-balanced covers **length**, not vision. Scored against the 1,304 train pool with the same metric (random-774-sized 20-trial baseline ≈ 50; baseline coverage 0.9808, baseline repetition 0.8098).
 
-### Equal-update HPT protocol
+Farthest-first still wins, but the gap is small because every clip is already garment folding. 774/1304 already covers the population; random can match coverage by keeping typical folds. EgoSpectrum’s edge is fewer lookalikes, not a bigger map. The score is doing its job: it reports a redundant pool instead of inventing a large win. `full-1304` is hashed and not trained in v1.
 
-The diversity number is not the efficacy test. Held-out action loss is. We train EgoVerse’s HPT “copy the hands” policy (`hpt_bc_flow_human`) on each 774-clip set with everything else locked.
+### From score to policy: equal-update HPT
 
-Held fixed:
+Task-balanced subsets can still be visual clones. The only way to find out if visual diversification changes learning is to train. We run EgoVerse’s HPT “copy the hands” policy on each frozen 774-clip subset. Same model, same budget, only the 774 clips change.
 
-- Human bimanual cartesian, stride 3
-- Seed 42, batch size 16, AdamW, bf16
-- **2,000 optimizer steps** for every run (`max_steps: 2000`, `max_epochs: -1`)
-- Val every 500 steps, `limit_val_batches: 40`
-- Frozen val (163) and test (164) manifests
-- Checkpoint only by `Valid/action_loss`
-- Test evaluated once on the chosen checkpoint
-- Manifest-backed loader: `egomimic/rldb/zarr/manifest_resolver.py` (CSV, no SQL)
+**Model.** `hpt_bc_flow_human` — HPT flow-matching, human bimanual cartesian, image/action stride 3 (`Human.get_keymap` / `get_transform_list`, `keymap_mode: cartesian`). Not π0.5.
 
-Allowed to change: which 774 train episodes are in the manifest.
+**Data.** [`ManifestEpisodeResolver`](./egomimic/rldb/zarr/manifest_resolver.py) reads `episode_hash` + `zarr_processed_path` from a CSV and syncs those zarrs from R2. No SQL. Env vars `FOLDCLOTHES_TRAIN_MANIFEST` and `FOLDCLOTHES_VAL_MANIFEST` select the variant. Val is always the frozen 163-episode `val.csv` (or `smoke_val.csv` for plumbing).
 
-Eval writes `val_metrics.json` via `egomimic/eval/eval_hpt_loss.py` (action loss only, no videos).
+**Equal update budget.** Every 774-episode run gets the same optimizer trajectory, not the same number of epochs:
+
+| Knob | Value |
+|---|---|
+| Seed | 42 |
+| Batch size | 16 (train and val) |
+| `max_steps` | **2000** (`max_epochs: -1`) |
+| Precision | bf16 |
+| Val interval | every 500 steps, `limit_val_batches: 40` |
+| Checkpoint | `Valid/action_loss`, `mode: min`, `save_top_k: 1`, every 500 steps |
+| Test | once, on the chosen checkpoint |
+| Scheduler | `T_max: 2000` |
+| Norm stats | quantile, `sample_frac: 0.2`, `reject_outliers: true` |
+
+A weaker result cannot be blamed on fewer gradient steps. Full 1,304-episode training is out of scope; the question is whether the 774-clip selection changes held-out action loss.
+
+**Eval.** [`HPTLossEval`](./egomimic/eval/eval_hpt_loss.py) runs `forward_training` / `compute_losses` and logs `Valid/action_loss` only. No videos. Metrics are written to `val_metrics.json` because Lightning eval mode does not keep the CSV logger.
+
+**Compute.** [`modal_train_foldclothes.py`](./modal_train_foldclothes.py), app `egoverse-foldclothes-hpt`, volume `egoverse-hackathon-data`, secret `egoverse-r2`. Sync listed zarrs with s5cmd, then train `random-774` → `duration-balanced-774` → `diversity-774` sequentially. `modal deploy` + spawn so the job survives a laptop disconnect.
 
 ### Status
 
-A 4-step smoke run on 24 train / 6 val episodes completed on Modal (`val_action_loss ≈ 139`, ~132s). That is plumbing, not a comparison. The three full equal-budget jobs are launched from `modal_train_foldclothes.py` against R2 zarrs. Do not treat any number as a policy win until `artifacts/foldclothes-v1/training_results.json` has finished runs.
+A 4-step smoke run on 24 train / 6 val episodes completed on Modal (`val_action_loss ≈ 139.41`, 132.4s). That is a plumbing check, not a comparison. The three full equal-budget jobs are in flight. Do not treat any number as a policy win until [`artifacts/foldclothes-v1/training_results.json`](./artifacts/foldclothes-v1/training_results.json) has finished `runs`.
 
 ### Reproduce
 
@@ -110,23 +182,9 @@ modal run modal_train_foldclothes.py --smoke
 modal deploy modal_train_foldclothes.py
 ```
 
-Local training uses `FOLDCLOTHES_TRAIN_MANIFEST` and `FOLDCLOTHES_VAL_MANIFEST` with `egomimic/hydra_configs/train_foldclothes_hpt.yaml`.
+Local training: `python egomimic/trainHydra.py --config-name=train_foldclothes_hpt` with `FOLDCLOTHES_TRAIN_MANIFEST` / `FOLDCLOTHES_VAL_MANIFEST` pointing at the CSVs.
 
-### Key files
-
-| Path | Role |
-|---|---|
-| [analyze_diversity.py](./analyze_diversity.py) | Mixed-corpus farthest-first + Visual Interaction Diversity Score |
-| [modal_embed.py](./modal_embed.py) | CLIP embeddings for the 400-clip headline set |
-| [modal_embed_foldclothes_train.py](./modal_embed_foldclothes_train.py) | CLIP embeddings for the 1,304 train pool |
-| [make_foldclothes_curation_variants.py](./make_foldclothes_curation_variants.py) | random / duration / diversity 774 manifests |
-| [score_foldclothes_curation_variants.py](./score_foldclothes_curation_variants.py) | Same metric on the three training subsets |
-| [modal_train_foldclothes.py](./modal_train_foldclothes.py) | Modal HPT trainer, smoke + three equal-budget runs |
-| [egomimic/hydra_configs/train_foldclothes_hpt.yaml](./egomimic/hydra_configs/train_foldclothes_hpt.yaml) | Hydra entry (HPT, 2000 steps, CSV logger) |
-| [egomimic/rldb/zarr/manifest_resolver.py](./egomimic/rldb/zarr/manifest_resolver.py) | Episode-hash CSV resolver |
-| [egomimic/eval/eval_hpt_loss.py](./egomimic/eval/eval_hpt_loss.py) | Val/test action-loss eval |
-| [artifacts/foldclothes-v1/curation_experiment_plan.md](./artifacts/foldclothes-v1/curation_experiment_plan.md) | Frozen hashes and invariants |
-| [artifacts/foldclothes-v1/PRESENTATION.md](./artifacts/foldclothes-v1/PRESENTATION.md) | 5-minute talk track |
+Frozen hashes: [`artifacts/foldclothes-v1/manifests/SPLIT_SHA256SUMS.txt`](./artifacts/foldclothes-v1/manifests/SPLIT_SHA256SUMS.txt) and [`artifacts/foldclothes-v1/curation_experiment_plan.md`](./artifacts/foldclothes-v1/curation_experiment_plan.md). Talk track: [`artifacts/foldclothes-v1/PRESENTATION.md`](./artifacts/foldclothes-v1/PRESENTATION.md).
 
 ---
 
