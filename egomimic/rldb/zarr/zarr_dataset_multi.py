@@ -762,6 +762,8 @@ class MultiDataset(torch.utils.data.Dataset):
         self._global_indices_by_dataset: dict[str, list[int]] = {}
         # Dedup bounds-check warnings: keyed by f"bounds:{episode}:{zarr_key}"
         self._warned_violations: set[str] = set()
+        # Episodes whose JPEG/action payload is entirely unreadable.
+        self._bad_episodes: set[str] = set()
         self.train_collections: set = set()
         self.valid_collections: set = set()
 
@@ -906,10 +908,21 @@ class MultiDataset(torch.utils.data.Dataset):
         attempts = _attempts
         while True:
             dataset_name, local_idx = self.index_map[idx]
+            if dataset_name in self._bad_episodes:
+                idx = self._index_outside_bad_episodes()
+                continue
             dataset = self.datasets[dataset_name]
             try:
                 data = dataset[local_idx]
             except Exception as e:
+                if "Entire episode bad" in str(e):
+                    self._bad_episodes.add(dataset_name)
+                    logger.warning(
+                        f"Skipping unreadable episode {dataset_name} "
+                        f"({len(self._bad_episodes)} skipped)"
+                    )
+                    idx = self._index_outside_bad_episodes()
+                    continue
                 next_idx, attempts = self._next_after_failure(
                     idx,
                     dataset_name,
@@ -940,6 +953,20 @@ class MultiDataset(torch.utils.data.Dataset):
             if self.norm_stats and data.get("embodiment") in self.norm_stats:
                 data = self.normalize(data, data["embodiment"])
             return data
+
+    def _index_outside_bad_episodes(self) -> int:
+        candidates = [
+            global_idx
+            for name, indices in self._global_indices_by_dataset.items()
+            if name not in self._bad_episodes
+            for global_idx in indices
+        ]
+        if not candidates:
+            raise RuntimeError(
+                "Entire dataset bad (no readable episodes remain): "
+                f"skipped={sorted(self._bad_episodes)[:8]}"
+            )
+        return random.choice(candidates)
 
     def _next_after_failure(
         self, idx: int, dataset_name: str, attempts: int | None, *, reason: str
