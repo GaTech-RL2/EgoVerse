@@ -14,6 +14,14 @@ export const datasetSummaryCsvRowSchema = z.object({
   unique_video_paths: nonNegativeInteger,
 });
 
+export const datasetManifestCsvRowSchema = z.object({
+  task: z.string().min(1),
+  lab: z.string().min(1),
+  embodiment: z.string().min(1),
+  duration_hours: nonNegativeNumber,
+  zarr_mp4_path: z.string().min(1),
+});
+
 export const diversityResultCsvRowSchema = z.object({
   rank: z.coerce.number().int().positive(),
   subset: z.string().min(1),
@@ -148,6 +156,7 @@ export const jobStatusSchema = z.object({
 });
 
 export type DatasetSummaryCsvRow = z.infer<typeof datasetSummaryCsvRowSchema>;
+export type DatasetManifestCsvRow = z.infer<typeof datasetManifestCsvRowSchema>;
 export type DiversityResultCsvRow = z.infer<typeof diversityResultCsvRowSchema>;
 export type AnalysisResult = z.infer<typeof analysisResultSchema>;
 export type SubsetResult = z.infer<typeof subsetResultSchema>;

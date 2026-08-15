@@ -8,7 +8,7 @@ does not implement or alter diversity scoring.
 `POST /api/jobs` starts the unchanged Track 2 command with a resolved Python:
 
 ```text
-<resolved Python> -m track2.run_track2
+<resolved Python> -m track2.run_lab_random_120h_single
 ```
 
 The process runs from the EgoVerse repository root and inherits the web
@@ -20,8 +20,9 @@ The bridge resolves Python in this order: `PYTHON_EXECUTABLE`, the repository's
 missing the Track 2 runtime dependencies before a job starts.
 
 ```text
-track2/results/final_dataset_summary.csv
-track2/results/final_two_dataset_results.csv
+track2/results/single_random_120h/single_random_120h_results.csv
+track2/results/single_random_120h/manifests/mecka_seed_42.csv
+track2/results/single_random_120h/manifests/scale_seed_42.csv
 ```
 
 The adapter writes a per-job JSON result under `frontend/data/jobs/{jobId}`.
@@ -61,8 +62,8 @@ npm run build
 ## Product constraints reflected in the UI
 
 - Fixed Dataset A / Mecka and Dataset B / Scale configuration
-- Existing deterministic oldest-first, 120-hour subset preparation
+- Existing single-seed random-within-lab, 120-hour subset preparation
 - Existing Behavior, Context / Visual, and Embodiment dimensions
 - Raw 0–1 scores converted to 0–100 only in the adapter
 - Frontend-only weights that always rebalance to 100%
-- Aggregate CSV evidence only; no PCA, distributions, or episode-level claims
+- Aggregate result and manifest-derived metadata only; no PCA, distributions, or episode-level claims

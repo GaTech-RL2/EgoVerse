@@ -5,10 +5,10 @@ import { parse } from "csv-parse/sync";
 import { BACKEND_CONFIGURATION, DIMENSIONS, type SubsetId } from "@/lib/backend-config";
 import {
   analysisResultSchema,
-  datasetSummaryCsvRowSchema,
+  datasetManifestCsvRowSchema,
   diversityResultCsvRowSchema,
   type AnalysisResult,
-  type DatasetSummaryCsvRow,
+  type DatasetManifestCsvRow,
   type DiversityResultCsvRow,
 } from "@/lib/contracts";
 
@@ -16,10 +16,15 @@ export const REPO_ROOT = path.resolve(
   process.env.EGOVERSE_REPO_ROOT ?? path.join(process.cwd(), ".."),
 );
 
+const RANDOM_RESULTS_ROOT = path.join(REPO_ROOT, "track2/results/single_random_120h");
+
 export const RESULT_PATHS = {
-  summary: path.join(REPO_ROOT, "track2/results/final_dataset_summary.csv"),
-  scores: path.join(REPO_ROOT, "track2/results/final_two_dataset_results.csv"),
-};
+  scores: path.join(RANDOM_RESULTS_ROOT, "single_random_120h_results.csv"),
+  manifests: {
+    "subset-a": path.join(RANDOM_RESULTS_ROOT, "manifests/mecka_seed_42.csv"),
+    "subset-b": path.join(RANDOM_RESULTS_ROOT, "manifests/scale_seed_42.csv"),
+  },
+} as const;
 
 function parseCsv<T>(contents: string, rowParser: (row: unknown) => T): T[] {
   const rows = parse(contents, {
@@ -40,14 +45,27 @@ function score(raw: number) {
   return { raw, display: raw * 100 };
 }
 
+function summarizeManifest(
+  rows: DatasetManifestCsvRow[],
+): AnalysisResult["subsets"][number]["dataset"] {
+  if (rows.length === 0) throw new Error("Track 2 produced an empty dataset manifest.");
+
+  return {
+    episodeCount: rows.length,
+    estimatedHours: rows.reduce((total, row) => total + row.duration_hours, 0),
+    rawUniqueTasks: new Set(rows.map((row) => row.task)).size,
+    labCount: new Set(rows.map((row) => row.lab)).size,
+    embodimentCount: new Set(rows.map((row) => row.embodiment)).size,
+    uniqueVideoPaths: new Set(rows.map((row) => row.zarr_mp4_path)).size,
+  };
+}
+
 function adaptSubset(
-  summary: DatasetSummaryCsvRow,
+  id: SubsetId,
+  dataset: AnalysisResult["subsets"][number]["dataset"],
   result: DiversityResultCsvRow,
 ): AnalysisResult["subsets"][number] {
-  const id = subsetIdForLabel(summary.dataset);
-  if (subsetIdForLabel(result.subset) !== id) {
-    throw new Error(`Summary/result subset mismatch for ${summary.dataset}`);
-  }
+  if (subsetIdForLabel(result.subset) !== id) throw new Error(`Manifest/result subset mismatch for ${id}`);
   const configured = BACKEND_CONFIGURATION.subsets.find((subset) => subset.id === id);
   if (!configured) throw new Error(`Missing frontend configuration for ${id}`);
 
@@ -63,14 +81,7 @@ function adaptSubset(
       visual: score(result.context_visual_diversity),
       embodiment: score(result.embodiment_diversity),
     },
-    dataset: {
-      episodeCount: summary.episodes,
-      estimatedHours: summary.hours,
-      rawUniqueTasks: summary.raw_unique_tasks,
-      labCount: summary.labs,
-      embodimentCount: summary.embodiments,
-      uniqueVideoPaths: summary.unique_video_paths,
-    },
+    dataset,
     evidence: {
       behavior: {
         richness: result.behavior_richness,
@@ -95,57 +106,72 @@ function adaptSubset(
 }
 
 export async function readArtifactMtimes() {
-  const [summary, scores] = await Promise.all([
-    stat(/* turbopackIgnore: true */ RESULT_PATHS.summary).catch(() => null),
+  const [scores, manifestA, manifestB] = await Promise.all([
     stat(/* turbopackIgnore: true */ RESULT_PATHS.scores).catch(() => null),
+    stat(/* turbopackIgnore: true */ RESULT_PATHS.manifests["subset-a"]).catch(() => null),
+    stat(/* turbopackIgnore: true */ RESULT_PATHS.manifests["subset-b"]).catch(() => null),
   ]);
   return {
-    summary: summary?.mtimeMs ?? null,
     scores: scores?.mtimeMs ?? null,
+    manifestA: manifestA?.mtimeMs ?? null,
+    manifestB: manifestB?.mtimeMs ?? null,
   };
 }
 
 export async function adaptCurrentCsvResult(jobId: string): Promise<AnalysisResult> {
-  const [summaryContents, scoreContents, mtimes] = await Promise.all([
-    readFile(/* turbopackIgnore: true */ RESULT_PATHS.summary, "utf8"),
+  const [manifestAContents, manifestBContents, scoreContents, mtimes] = await Promise.all([
+    readFile(/* turbopackIgnore: true */ RESULT_PATHS.manifests["subset-a"], "utf8"),
+    readFile(/* turbopackIgnore: true */ RESULT_PATHS.manifests["subset-b"], "utf8"),
     readFile(/* turbopackIgnore: true */ RESULT_PATHS.scores, "utf8"),
     readArtifactMtimes(),
   ]);
 
-  const artifactGeneratedAt = Math.max(mtimes.summary ?? 0, mtimes.scores ?? 0);
-  return adaptCsvContents(
+  const artifactGeneratedAt = Math.max(
+    mtimes.scores ?? 0,
+    mtimes.manifestA ?? 0,
+    mtimes.manifestB ?? 0,
+  );
+  return adaptRandomCsvContents(
     jobId,
-    summaryContents,
+    manifestAContents,
+    manifestBContents,
     scoreContents,
     new Date(artifactGeneratedAt || Date.now()).toISOString(),
   );
 }
 
-export function adaptCsvContents(
+export function adaptRandomCsvContents(
   jobId: string,
-  summaryContents: string,
+  manifestAContents: string,
+  manifestBContents: string,
   scoreContents: string,
   generatedAt: string,
 ): AnalysisResult {
-  const summaries = parseCsv(summaryContents, (row) => datasetSummaryCsvRowSchema.parse(row));
+  const manifestById = new Map<SubsetId, DatasetManifestCsvRow[]>([
+    [
+      "subset-a",
+      parseCsv(manifestAContents, (row) => datasetManifestCsvRowSchema.parse(row)),
+    ],
+    [
+      "subset-b",
+      parseCsv(manifestBContents, (row) => datasetManifestCsvRowSchema.parse(row)),
+    ],
+  ]);
   const results = parseCsv(scoreContents, (row) => diversityResultCsvRowSchema.parse(row));
-  if (summaries.length !== 2 || results.length !== 2) {
-    throw new Error("Expected exactly two subset rows in each Track 2 CSV output.");
-  }
+  if (results.length !== 2) throw new Error("Expected exactly two rows in the Track 2 result CSV.");
 
   const resultById = new Map(results.map((row) => [subsetIdForLabel(row.subset), row]));
-  const summaryById = new Map(summaries.map((row) => [subsetIdForLabel(row.dataset), row]));
   const subsets = (["subset-a", "subset-b"] as const).map((id) => {
-    const summary = summaryById.get(id);
+    const manifest = manifestById.get(id);
     const result = resultById.get(id);
-    if (!summary || !result) throw new Error(`Missing backend output for ${id}`);
-    return adaptSubset(summary, result);
+    if (!manifest || !result) throw new Error(`Missing backend output for ${id}`);
+    return adaptSubset(id, summarizeManifest(manifest), result);
   });
 
   const warnings = [
     "Subset duration is estimated from num_frames at a fixed 30 FPS.",
-    "The backend uses fixed Mecka and Scale subsets selected oldest-first within each lab.",
-    "Visual diversity is calculated from a matched sample of 200 unique episode videos per subset.",
+    "Each lab is randomly shuffled with seed 42, then episodes are selected until cumulative duration reaches 120 hours.",
+    "Visual diversity is calculated from a random sample of 100 unique episode videos per subset using seed 42.",
   ];
   for (const subset of subsets) {
     const visualEvidence = subset.evidence.visual;
@@ -182,20 +208,29 @@ export function adaptCsvContents(
 
 export async function readCurrentDatasetSnapshot() {
   try {
-    const contents = await readFile(
-      /* turbopackIgnore: true */ RESULT_PATHS.summary,
-      "utf8",
-    );
-    const rows = parseCsv(contents, (row) => datasetSummaryCsvRowSchema.parse(row));
+    const [manifestAContents, manifestBContents] = await Promise.all([
+      readFile(/* turbopackIgnore: true */ RESULT_PATHS.manifests["subset-a"], "utf8"),
+      readFile(/* turbopackIgnore: true */ RESULT_PATHS.manifests["subset-b"], "utf8"),
+    ]);
+    const manifests = new Map<SubsetId, DatasetManifestCsvRow[]>([
+      ["subset-a", parseCsv(manifestAContents, (row) => datasetManifestCsvRowSchema.parse(row))],
+      ["subset-b", parseCsv(manifestBContents, (row) => datasetManifestCsvRowSchema.parse(row))],
+    ]);
+
     return Object.fromEntries(
-      rows.map((row) => [
-        subsetIdForLabel(row.dataset),
-        {
-          label: row.dataset,
-          episodeCount: row.episodes,
-          estimatedHours: row.hours,
-        },
-      ]),
+      BACKEND_CONFIGURATION.subsets.map((subset) => {
+        const manifest = manifests.get(subset.id);
+        if (!manifest) throw new Error(`Missing manifest for ${subset.id}`);
+        const summary = summarizeManifest(manifest);
+        return [
+          subset.id,
+          {
+            label: subset.label,
+            episodeCount: summary.episodeCount,
+            estimatedHours: summary.estimatedHours,
+          },
+        ];
+      }),
     );
   } catch {
     return null;

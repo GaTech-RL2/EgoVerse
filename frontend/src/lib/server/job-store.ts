@@ -19,7 +19,7 @@ const JOB_ID_PATTERN = /^[0-9a-f-]{36}$/;
 
 type InternalJob = JobStatus & {
   pid?: number;
-  artifactMtimesBefore?: { summary: number | null; scores: number | null };
+  artifactMtimesBefore?: Awaited<ReturnType<typeof readArtifactMtimes>>;
 };
 
 export class ActiveJobError extends Error {
@@ -130,10 +130,11 @@ async function updateJob(jobId: string, patch: Partial<InternalJob>) {
 async function artifactsAreFresh(status: InternalJob) {
   const after = await readArtifactMtimes();
   const before = status.artifactMtimesBefore;
-  if (!after.summary || !after.scores || !before) return false;
+  if (!after.scores || !after.manifestA || !after.manifestB || !before) return false;
   return (
-    (before.summary === null || after.summary > before.summary) &&
-    (before.scores === null || after.scores > before.scores)
+    (before.scores === null || after.scores > before.scores) &&
+    (before.manifestA === null || after.manifestA > before.manifestA) &&
+    (before.manifestB === null || after.manifestB > before.manifestB)
   );
 }
 
@@ -165,12 +166,16 @@ async function completeJob(jobId: string, exitCode?: number | null) {
     await Promise.all([
       writeJson(path.join(directory, "result.json"), result),
       copyFile(
-        /* turbopackIgnore: true */ RESULT_PATHS.summary,
-        path.join(directory, "final_dataset_summary.csv"),
+        /* turbopackIgnore: true */ RESULT_PATHS.scores,
+        path.join(directory, "single_random_120h_results.csv"),
       ),
       copyFile(
-        /* turbopackIgnore: true */ RESULT_PATHS.scores,
-        path.join(directory, "final_two_dataset_results.csv"),
+        /* turbopackIgnore: true */ RESULT_PATHS.manifests["subset-a"],
+        path.join(directory, "mecka_seed_42.csv"),
+      ),
+      copyFile(
+        /* turbopackIgnore: true */ RESULT_PATHS.manifests["subset-b"],
+        path.join(directory, "scale_seed_42.csv"),
       ),
     ]);
     await updateJob(jobId, {
@@ -229,11 +234,15 @@ export async function createAnalysisJob(): Promise<JobStatus> {
   await writeJson(path.join(directory, "status.json"), status);
 
   const log = createWriteStream(path.join(directory, "worker.log"), { flags: "a" });
-  const child = spawn(/* turbopackIgnore: true */ python, ["-m", "track2.run_track2"], {
+  const child = spawn(
+    /* turbopackIgnore: true */ python,
+    ["-m", "track2.run_lab_random_120h_single"],
+    {
     cwd: REPO_ROOT,
     env: process.env,
     stdio: ["ignore", "pipe", "pipe"],
-  });
+    },
+  );
   child.stdout.pipe(log);
   child.stderr.pipe(log);
 

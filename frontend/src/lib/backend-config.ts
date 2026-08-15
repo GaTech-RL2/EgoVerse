@@ -1,12 +1,12 @@
 export const BACKEND_CONFIGURATION = {
   track: "Track 2 · Quantitative Diversity Measurement",
-  command: "python -m track2.run_track2",
+  command: "python -m track2.run_lab_random_120h_single",
   targetHours: 120,
-  visualSampleSize: 200,
+  visualSampleSize: 100,
   visualFramesPerEpisode: 5,
   randomState: 42,
   durationMethod: "num_frames / 30 FPS",
-  selectionStrategy: "Deterministic oldest-first within each configured lab",
+  selectionStrategy: "Single-seed random shuffle within each configured lab",
   subsets: [
     {
       id: "subset-a" as const,
@@ -63,7 +63,7 @@ export const DIMENSION_GUIDES: Record<DimensionId, DimensionGuide> = {
   },
   visual: {
     definition: "How visually dissimilar the sampled episode videos are from one another.",
-    input: "200 videos / subset · 5 frames each · DINOv2-small",
+    input: "100 videos / subset · 5 frames each · DINOv2-small",
     score: "Mean pairwise cosine distance ÷ reference distance",
     boundary: "Not named scene categories, PCA, or proof of which visual factor caused the difference.",
   },
