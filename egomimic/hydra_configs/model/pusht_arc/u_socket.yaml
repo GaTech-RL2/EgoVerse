@@ -1,0 +1,20 @@
+defaults:
+  - pusht_arc/base@_here_
+
+# HPT arc-tok config for PushShapes with the U-socket pusher.
+#   D = 100 px, M = 40, sequence = (M+1, 3) = (41, 3)
+#   Pusher (end-effector): "u_socket", U-shaped socket (32 px inner gap,
+#   10 px prongs) that grips T-stems for oriented pushing.
+#   Action = 3-D target (target_x, target_y, target_theta): the socket
+#   needs a commanded orientation (env.py:171-176, _VALID_PUSHERS =
+#   "u_socket" branch), so per-token action dim = 3, NOT 2 like the other
+#   pushers. The velocity token holds [x_vel, y_vel, theta_vel].
+eef_name: "u_socket"
+
+robomimic_model:
+  head_specs:
+    shared:
+      infer_ac_dims:
+        pushshapes_sim: 3
+      model:
+        act_dim: 3

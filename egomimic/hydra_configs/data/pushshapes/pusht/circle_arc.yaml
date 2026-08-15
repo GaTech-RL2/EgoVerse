@@ -1,0 +1,54 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# HPT + arc-tok dataloader for pushshapes_sim on the circle_3000 clean set
+# (3040 T-shape + circle-pusher episodes at obstacle level 0).
+#
+# Raw window: 100 pusher-target frames from the zarr per sample. The
+# transform_list rewrites this to (M+1, 2) = (41, 2) arc-length tokens
+# (40 waypoints + 1 velocity token) via TokenizePushShapesArcLength.
+#
+# D = 100 px chunk arc length, M = 40 waypoints. Must match
+# model=pusht_arc/circle and the model's ``arc_tok.min_distance_unit``.
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_arc
+        action_horizon: 100
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_transform_list
+        mode: arc_tokenizer
+        min_distance_unit: 100.0
+        resampled_vector_length: 40
+    mode: total
+    skip_bounds_check: true
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /storage/project/r-dxu345-0/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt_arc
+        action_horizon: 100
+      transform_list:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_transform_list
+        mode: arc_tokenizer
+        min_distance_unit: 100.0
+        resampled_vector_length: 40
+    mode: total
+    skip_bounds_check: true
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4

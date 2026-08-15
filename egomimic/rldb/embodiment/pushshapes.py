@@ -133,6 +133,66 @@ def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
     }
 
 
+def get_keymap_hpt_arc(action_horizon: int = 100, **kwargs) -> dict:
+    """HPT + arc-tok keymap for pushshapes_sim.
+
+    Reads a wider raw action window than ``get_keymap_hpt`` (default 100
+    frames vs 32) so the arc tokenizer has room to reach D pixels of pusher
+    motion before the window ends. The transform_list rewrites this raw
+    (T, 2) window into (M+1, 2) arc-length tokens; see ``model=pusht_arc/*``
+    for M and D. Single-frame obs is preserved (HPT contract), same as
+    ``get_keymap_hpt``.
+
+    Extra kwargs (e.g. ``norm_mode=True`` injected by trainHydra during
+    norm-stat collection) are accepted and ignored.
+    """
+    return {
+        "front_img_1": {
+            "key_type": "camera_keys",
+            "zarr_key": "observations.images.front_img_1",
+        },
+        "state_agent_obj": {
+            "key_type": "proprio_keys",
+            "zarr_key": "observations.state",
+        },
+        "actions": {
+            "key_type": "action_keys",
+            "zarr_key": "actions",
+            "horizon": int(action_horizon),
+        },
+    }
+
+
+def get_transform_list(
+    mode: str = "arc_tokenizer",
+    min_distance_unit: float = 100.0,
+    resampled_vector_length: int = 40,
+    dt: float = 1.0 / 30.0,
+    **_unused_kwargs,
+) -> list:
+    """Return the ``transform_list`` for pushshapes_sim dataloading.
+
+    mode="arc_tokenizer": append TokenizePushShapesArcLength to rewrite
+    (T, 2) time-indexed actions into (M+1, 2) arc-length tokens (M
+    waypoints + 1 velocity token). Wire from a data config; see
+    ``egomimic/hydra_configs/data/pushshapes/pusht/circle_arc.yaml``.
+    """
+    if mode == "arc_tokenizer":
+        from egomimic.rldb.zarr.pushshapes_arc_tokenizer import (
+            TokenizePushShapesArcLength,
+        )
+
+        return [
+            TokenizePushShapesArcLength(
+                action_key="actions",
+                min_distance_unit=float(min_distance_unit),
+                resampled_vector_length=int(resampled_vector_length),
+                dt=float(dt),
+            )
+        ]
+    raise ValueError(f"unknown transform_list mode: {mode!r}")
+
+
 def get_keymap_eval(action_horizon: int = 32, **kwargs) -> dict:
     """``get_keymap`` plus a ``goal_pose`` passthrough for closed-loop sim eval.
 
@@ -163,6 +223,49 @@ def get_keymap_eval(action_horizon: int = 32, **kwargs) -> dict:
 # ---------------------------------------------------------------------- #
 # Validation viz
 # ---------------------------------------------------------------------- #
+
+
+def viz_gt_preds_arc(
+    predictions: dict,
+    batch: dict,
+    image_key: str = "front_img_1",
+    action_key: str = "actions",
+    M: int = 40,
+    **kwargs: Any,
+) -> np.ndarray:
+    """Arc-tok val-batch overlay: drop the trailing velocity token before viz.
+
+    Arc-tok chunks are ``(B, M+1, 2)`` — ``M`` arc-uniform waypoints followed
+    by 1 velocity token whose components are px/sec, NOT a spatial position.
+    Rendering that row as a dot places a stray marker at raw pixel ``(vx, vy)``,
+    which appears as a floating dot near the top-left corner of every frame.
+    This wrapper slices the last row off both GT and pred before delegating
+    to :func:`viz_gt_preds`, so the overlay shows the ``M`` spatial waypoints
+    only. Set ``M`` to match the tokenizer's ``resampled_vector_length``.
+    """
+    def _slice_last(x):
+        if x is None:
+            return None
+        if isinstance(x, torch.Tensor):
+            return x[:, :M, :] if x.dim() >= 3 else x[:M, :]
+        arr = np.asarray(x)
+        return arr[:, :M, :] if arr.ndim >= 3 else arr[:M, :]
+
+    batch_sliced = dict(batch)
+    if action_key in batch_sliced:
+        batch_sliced[action_key] = _slice_last(batch_sliced[action_key])
+    embodiment_name = get_embodiment(int(batch["embodiment"][0].item())).lower()
+    pred_key = f"{embodiment_name}_{action_key}"
+    predictions_sliced = dict(predictions)
+    if pred_key in predictions_sliced:
+        predictions_sliced[pred_key] = _slice_last(predictions_sliced[pred_key])
+    return viz_gt_preds(
+        predictions_sliced,
+        batch_sliced,
+        image_key=image_key,
+        action_key=action_key,
+        **kwargs,
+    )
 
 
 def _as_numpy(arr: Any) -> np.ndarray:
