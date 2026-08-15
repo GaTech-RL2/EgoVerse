@@ -1,0 +1,9 @@
+defaults:
+  - pusht/base@_here_
+
+# HPT (time-chunked, no arc-tok) for PushShapes with the standard circle
+# pusher.
+#   Chunk = 32 frames of pusher targets at 30 Hz, shape (32, 2).
+#   Pusher (end-effector): "circle", contact radius 15 px.
+#   Action = 2-D target (target_x, target_y) in world pixels.
+eef_name: "circle"

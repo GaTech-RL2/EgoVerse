@@ -1,0 +1,165 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# HPT model for the PushShapes (push-T) sim environment with arc-length
+# tokenized actions.
+#
+# Unit convention: the PushShapes arena is 512x512 PIXELS (env.py:88,
+# WORLD_SIZE = 512.0). Actions and xy state are all in pixels. D is fed to
+# the arc tokenizer in the same units as the action stream, so here D is
+# in pixels (not meters). No pixel<->cm mapping is applied.
+#
+# Arc knobs (must be matched by the data config's transform_list):
+#   D = 100 px    per-chunk arc-length span (min_distance_unit)
+#   M = 40        waypoints uniformly spaced along that arc span
+#
+# Sequence layout per sample (produced by the arc tokenizer at dataloader
+# time):
+#   slots 0..M-1 (0..39) : waypoint tokens in arc-length-uniform order.
+#                          waypoint[k] = pusher target (x, y) at k/(M-1) of
+#                          the chunk's arc length.
+#   slot M       (40)    : velocity token = per-dim mean rate across the
+#                          chunk: (waypoint[M-1] - waypoint[0]) / duration_s.
+#                          Used at rollout to reconstruct the time schedule:
+#                          duration_s = D / ||mean_xy_vel||, then linear
+#                          resample of the M waypoints uniformly over
+#                          [0, duration_s] at the 30 Hz control rate.
+#
+# Per-sample action tensor shape: (M+1, 2) = (41, 2).
+# PushShapes has no gripper, so tokens carry only [target_x, target_y].
+#
+# Pair with a data config that sets:
+#   min_distance_unit: 100.0
+#   resampled_vector_length: 40
+# on the pushshapes_sim transform_list (arc_tokenizer_cartesian mode).
+robomimic_model:
+  _target_: egomimic.algo.hpt.algo.HPT
+
+  camera_transforms: null
+
+  diffusion: true
+  6dof: false
+
+  # Arc-tok inference: expand the (M+1, 2) chunk output into a time-uniform
+  # buffer at 30 Hz before executing against the env. Must match the D used
+  # by the dataloader's TokenizePushShapesArcLength transform (in pixels).
+  arc_tok:
+    min_distance_unit: 100.0
+    dt: 0.033333
+    max_frames: 200
+
+  ac_keys:
+    pushshapes_sim: "actions"
+  shared_ac_key: "actions"
+
+  trunk:
+    embed_dim: 128
+    num_blocks: 6
+    num_heads: 4
+    token_postprocessing: "action_token"
+    observation_horizon: 1
+    action_horizon: 41
+    no_trunk: false
+    use_domain_embedding: false
+    drop_path: 0.1
+    weight_init_style: "pytorch"
+
+  multitask: false
+  pretrained: false
+  pretrained_checkpoint: ""
+  reverse_kl_samples: 8
+
+  domains: ["pushshapes_sim"]
+  shared_obs_keys: ["front_img_1"]
+
+  shared_stem_specs:
+    front_img_1:
+      _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+      input_dim: 128
+      output_dim: 128
+      widths: [128]
+      specs:
+        random_horizon_masking: false
+        cross_attn:
+          crossattn_latent: 16
+          crossattn_heads: 4
+          crossattn_dim_head: 32
+          crossattn_modality_dropout: 0.1
+          modality_embed_dim: 128
+
+  stem_specs:
+    pushshapes_sim:
+      state_agent_obj:
+        _target_: egomimic.models.stems.hpt_stems.MLPPolicyStem
+        input_dim: 5
+        output_dim: 128
+        widths: [128]
+        specs:
+          random_horizon_masking: false
+          cross_attn:
+            crossattn_latent: 16
+            crossattn_heads: 4
+            crossattn_dim_head: 32
+            crossattn_modality_dropout: 0.1
+            modality_embed_dim: 128
+
+  head_specs:
+    pushshapes_sim: null
+    shared:
+      _target_: egomimic.models.heads.fm_policy.FMPolicy
+      # M + 1 = 41 sequence slots per arc-tokenized chunk (40 waypoints +
+      # 1 trailing velocity token).
+      action_horizon: 41
+      num_inference_steps: 50
+      pooling: null
+      padding: "zero"
+      time_dist: "beta"
+      # PushShapes action is 2-dim (target_x, target_y). Velocity token uses
+      # the same 2-slot layout: [x_vel, y_vel].
+      infer_ac_dims:
+        pushshapes_sim: 2
+      model:
+        _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
+        nblocks: 4
+        cond_dim: 128
+        hidden_dim: 64
+        act_dim: 2
+        act_seq: 41
+        n_heads: 4
+        dropout: 0.1
+        mlp_layers: 4
+        mlp_ratio: 4
+
+  encoder_specs:
+    front_img_1:
+      _target_: egomimic.models.stems.hpt_stems.ResNet
+      output_dim: 128
+
+  train_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.ColorJitter
+        brightness: 0.1
+        contrast: 0.1
+        saturation: 0.1
+        hue: 0.05
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+  eval_image_augs:
+    _target_: torchvision.transforms.Compose
+    transforms:
+      - _target_: torchvision.transforms.Normalize
+        mean: [0.485, 0.456, 0.406]
+        std: [0.229, 0.224, 0.225]
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.LinearLR
+  _partial_: true
+  start_factor: 1
+  end_factor: 1

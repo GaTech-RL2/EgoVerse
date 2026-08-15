@@ -852,6 +852,14 @@ class HPT(Algo):
         self.diffusion = kwargs.get("diffusion", False)
         model.diffusion = self.diffusion
 
+        # Arc-length tokenizer settings for closed-loop inference (pushshapes
+        # only for now). When set, ``inference_step`` treats the model's
+        # (M+1, action_dim) chunk output as an arc-tok chunk (M waypoints +
+        # 1 velocity token) and expands it to a time-uniform buffer via
+        # ``expand_arc_chunk_to_time`` before executing it against the env.
+        # None = classic time-indexed chunk behaviour.
+        self.arc_tok = kwargs.get("arc_tok", None)
+
         if self.diffusion:
             if self.norm_stats.norm_mode == "zscore":
                 cprint(
@@ -1242,10 +1250,11 @@ class HPT(Algo):
         # replan_every=1 = re-plan every env step (the cadence the 0.323
         # reference HPT used); the chunk positions executed (0..N-1) are the
         # best-trained ones, so no retrain is needed.
-        replan_every = min(
-            int(getattr(self, "replan_every", 0) or chunk_size), chunk_size
-        )
-        if state["action_chunk"] is None or state["chunk_idx"] >= replan_every:
+        # ``replan_at`` tracks the effective consumable length of the current
+        # buffer. For non-arc HPT this equals ``chunk_size``; for arc-tok it
+        # equals the time-expanded buffer's length (variable per replan).
+        replan_at = int(state.get("replan_at", chunk_size))
+        if state["action_chunk"] is None or state["chunk_idx"] >= replan_at:
             cam_keys = self.camera_keys[emb_id]
             proprio_keys = self.proprio_keys[emb_id]
             ac_key = self.ac_keys[embodiment_name]
@@ -1292,8 +1301,29 @@ class HPT(Algo):
             chunk_world = self.norm_stats.unnormalize(
                 {ac_key: state["action_chunk"].squeeze(0)}, emb_id,  # (32, action_dim) world frame
             )[ac_key]
+            # Arc-tok: expand (M+1, D) -> (T_frames, D) time-uniform buffer.
+            # Non-arc: passthrough (chunk_size, D) time-uniform buffer.
+            if self.arc_tok is not None:
+                from egomimic.rldb.zarr.pushshapes_arc_tokenizer import (
+                    expand_arc_chunk_to_time,
+                )
+                chunk_world_np = chunk_world.detach().cpu().numpy()
+                time_chunk = expand_arc_chunk_to_time(
+                    chunk_world_np,
+                    min_distance_unit=float(self.arc_tok["min_distance_unit"]),
+                    dt=float(self.arc_tok.get("dt", 1.0 / 30.0)),
+                    max_frames=int(self.arc_tok.get("max_frames", 200)),
+                )
+                chunk_world = torch.from_numpy(time_chunk).to(chunk_world.device).float()
             state["action_chunk_world"] = chunk_world.detach()
             state["chunk_idx"] = 0
+            # Open-loop consume the full buffer by default; ``self.replan_every``
+            # (eval-time knob) can shorten this to receding-horizon.
+            buffer_len = int(state["action_chunk_world"].shape[0])
+            state["replan_at"] = min(
+                int(getattr(self, "replan_every", 0) or buffer_len),
+                buffer_len,
+            )
 
         idx = state["chunk_idx"]
         action_world = state["action_chunk_world"][idx]  # (action_dim,) world frame
