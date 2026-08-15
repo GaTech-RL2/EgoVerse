@@ -50,3 +50,5 @@ scratch/
 sample_data/
 external_ckpts/
 external/MANO/
+wandb/
+.claude/
