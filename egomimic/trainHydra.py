@@ -222,6 +222,66 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
         cfg.ckpt_path = last_ckpt_path
 
+    # ``load_weights_only``: pre-load model state_dict from ``ckpt_path``, then
+    # pass ``ckpt_path=None`` to ``trainer.fit()`` so Lightning skips the
+    # optimizer/scheduler/epoch-state restore. Fixes a DDP-wide hang where
+    # ``restore_optimizers`` sits on a size-1 ALLREDUCE that only some ranks
+    # post (torch's ``load_optimizer_state_dict`` traversal diverges on 5B-param
+    # ckpts under find_unused_parameters_true). Trade-off: AdamW moments start
+    # fresh — sub-optimal for a resume but preserves training continuity better
+    # than a fully-fresh run.
+    #
+    # WANDB CONTINUITY: after skipping Lightning's ckpt restore the trainer's
+    # ``global_step`` counter starts at 0, but the existing wandb run already
+    # has data through the ckpt's global_step. Logging with step<max_step causes
+    # visible backtracking in the wandb UI. We extract ``global_step`` from the
+    # ckpt and monkey-patch each ``WandbLogger.log_metrics`` to add that offset
+    # so future metrics land at ``ckpt_step + trainer.global_step`` — same
+    # wandb run, monotonically increasing step, no backtracking.
+    if cfg.get("load_weights_only", False) and cfg.get("ckpt_path"):
+        _ckpt_path = cfg.ckpt_path
+        log.info(f"[load_weights_only] Pre-loading state_dict from {_ckpt_path}")
+        _ckpt = torch.load(_ckpt_path, map_location="cpu", weights_only=False)
+        _missing, _unexpected = model.load_state_dict(_ckpt["state_dict"], strict=False)
+        _ckpt_global_step = int(_ckpt.get("global_step", 0))
+        _ckpt_epoch = int(_ckpt.get("epoch", 0))
+        log.info(
+            f"[load_weights_only] state_dict loaded: "
+            f"{len(_missing)} missing / {len(_unexpected)} unexpected keys | "
+            f"ckpt.global_step={_ckpt_global_step} ckpt.epoch={_ckpt_epoch}"
+        )
+        del _ckpt
+        import gc as _gc
+
+        _gc.collect()
+        cfg.ckpt_path = None  # skip Lightning's full-ckpt restore
+
+        # Patch WandbLogger(s) so metrics get offset by ckpt_global_step. Have
+        # to walk both ``logger`` (list of Loggers) and ``trainer.loggers`` since
+        # Lightning may re-wrap them. Also set ``WANDB_STEP_OFFSET`` env var so
+        # any code that opens wandb.log directly can pick it up.
+        os.environ["WANDB_STEP_OFFSET"] = str(_ckpt_global_step)
+        from lightning.pytorch.loggers.wandb import WandbLogger as _WL
+
+        for _lg in list(logger or []) + list(getattr(trainer, "loggers", []) or []):
+            if isinstance(_lg, _WL) and not getattr(_lg, "_step_offset_patched", False):
+                _lg._wandb_step_offset = _ckpt_global_step
+                _orig_log_metrics = _lg.log_metrics
+
+                def _offset_log_metrics(
+                    metrics, step=None, _orig=_orig_log_metrics, _lg=_lg
+                ):
+                    if step is not None:
+                        step = int(step) + int(_lg._wandb_step_offset)
+                    return _orig(metrics, step=step)
+
+                _lg.log_metrics = _offset_log_metrics
+                _lg._step_offset_patched = True
+                log.info(
+                    f"[load_weights_only] Patched WandbLogger with "
+                    f"step_offset={_ckpt_global_step}"
+                )
+
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
     if mode == "train":
@@ -231,12 +291,39 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
             eval_obj.model = model.model
             model.evaluator = eval_obj
         log.info("Starting training!")
-        trainer.fit(
-            model=model,
-            datamodule=datamodule,
-            ckpt_path=cfg.get("ckpt_path"),
-            weights_only=False,
+
+        _dbg_rank = int(os.environ.get("SLURM_PROCID", os.environ.get("RANK", -1)))
+        _dbg_local = int(
+            os.environ.get("SLURM_LOCALID", os.environ.get("LOCAL_RANK", -1))
         )
+        _dbg_ws = int(os.environ.get("SLURM_NTASKS", os.environ.get("WORLD_SIZE", -1)))
+        _dbg_node = os.environ.get("SLURMD_NODENAME", "?")
+        print(
+            f"[DBG BEFORE_FIT] rank={_dbg_rank} local={_dbg_local} ws={_dbg_ws} node={_dbg_node}",
+            flush=True,
+        )
+        try:
+            trainer.fit(
+                model=model,
+                datamodule=datamodule,
+                ckpt_path=cfg.get("ckpt_path"),
+                weights_only=False,
+            )
+        except BaseException as _dbg_e:
+            print(
+                f"[DBG FIT_EXCEPTION] rank={_dbg_rank} type={type(_dbg_e).__name__} "
+                f"msg={_dbg_e!r}",
+                flush=True,
+            )
+            raise
+        finally:
+            print(
+                f"[DBG AFTER_FIT] rank={_dbg_rank} "
+                f"global_step={getattr(trainer, 'global_step', '?')} "
+                f"current_epoch={getattr(trainer, 'current_epoch', '?')} "
+                f"state={getattr(trainer, 'state', '?')}",
+                flush=True,
+            )
     elif mode == "eval":
         eval_obj.trainer = trainer
         eval_obj.model = model.model
