@@ -242,6 +242,7 @@ class PolicyRollout(Rollout):
         resampled_action_len=None,
         debug=False,
         annotation_path=None,
+        action_frame="base",
     ):
         super().__init__()
         self.arm = arm
@@ -264,6 +265,15 @@ class PolicyRollout(Rollout):
             query_frequency=self.query_frequency,
             requested_resampled_len=resampled_action_len,
         )
+        # "base": the policy emits ABSOLUTE base-frame poses (the fold pipeline
+        #         applies no frame transform in training).
+        # "cam" : the policy emits cam-frame poses, undone here with the
+        #         extrinsics (Eva.get_transform_list "cartesian" /
+        #         "cartesian_wristframe_ypr"). Kept for older checkpoints.
+        if action_frame not in ("base", "cam"):
+            raise ValueError(f"action_frame must be base|cam, got {action_frame!r}")
+        self.action_frame = action_frame
+        print(f"[rollout] action_frame={self.action_frame}")
         self.debug = debug
         transform_mode = (
             getattr(self.policy.model, "rollout_transform_mode", None)
@@ -453,14 +463,18 @@ class PolicyRollout(Rollout):
                     left_actions = self.actions[:, :7]
                     right_actions = self.actions[:, 7:]
 
-                    transformed_left = cam_frame_to_base_frame(
-                        left_actions[:, :6].copy(), self.extrinsics["left"]
-                    )
-                    transformed_right = cam_frame_to_base_frame(
-                        right_actions[:, :6].copy(), self.extrinsics["right"]
-                    )
-                    transformed_left = rot_ee_frame_to_ee_pose_batch(transformed_left)
-                    transformed_right = rot_ee_frame_to_ee_pose_batch(transformed_right)
+                    if self.action_frame == "cam":
+                        transformed_left = cam_frame_to_base_frame(
+                            left_actions[:, :6].copy(), self.extrinsics["left"]
+                        )
+                        transformed_right = cam_frame_to_base_frame(
+                            right_actions[:, :6].copy(), self.extrinsics["right"]
+                        )
+                        transformed_left = rot_ee_frame_to_ee_pose_batch(transformed_left)
+                        transformed_right = rot_ee_frame_to_ee_pose_batch(transformed_right)
+                    else:   # base: already absolute base-frame, nothing to undo
+                        transformed_left = left_actions[:, :6].copy()
+                        transformed_right = right_actions[:, :6].copy()
                     gripper_left = left_actions[:, 6:7]
                     gripper_right = right_actions[:, 6:7]
                     if left_actions.shape[1] == 7:
@@ -473,11 +487,14 @@ class PolicyRollout(Rollout):
                         right_actions = transformed_right
                     self.actions = np.hstack([left_actions, right_actions])
                 else:
-                    eepose = rot_ee_frame_to_ee_pose_batch(self.actions[:, :6].copy())
-                    self.actions[:, :6] = eepose
-                    transformed_6dof = cam_frame_to_base_frame(
-                        self.actions[:, :6].copy(), self.extrinsics[self.arm]
-                    )
+                    if self.action_frame == "cam":
+                        eepose = rot_ee_frame_to_ee_pose_batch(self.actions[:, :6].copy())
+                        self.actions[:, :6] = eepose
+                        transformed_6dof = cam_frame_to_base_frame(
+                            self.actions[:, :6].copy(), self.extrinsics[self.arm]
+                        )
+                    else:   # base: already absolute base-frame
+                        transformed_6dof = self.actions[:, :6].copy()
                     # Preserve gripper if present (7th value)
                     gripper = self.actions[:, 6:7]
                     if self.actions.shape[1] == 7:
@@ -842,6 +859,15 @@ def build_arg_parser(description="Rollout robot model."):
         type=int,
         default=QUERY_FREQUENCY,
         help="Frames which model does inference",
+    )
+    parser.add_argument(
+        "--action-frame",
+        type=str,
+        default="base",
+        choices=["base", "cam"],
+        help="Frame the POLICY emits actions in. base = absolute base-frame "
+             "(fold pipeline, no frame transform in training). cam = cam-frame, "
+             "undone here with the extrinsics (older checkpoints).",
     )
     parser.add_argument("--policy-path", type=str, help="policy checkpoint path")
     parser.add_argument("--dataset-path", type=str, help="dataset path for replay")
