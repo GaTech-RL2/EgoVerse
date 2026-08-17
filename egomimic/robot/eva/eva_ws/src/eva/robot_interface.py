@@ -348,8 +348,12 @@ class ARXInterface(Robot_Interface):
 class OfflineARXInterface:
     DEFAULT_IMAGE_SHAPE = (480, 640, 3)
 
-    def __init__(self, arms, dataset_path=None):
+    def __init__(self, arms, dataset_path=None, keymap_mode="cartesian"):
         self.arms = arms
+        # Eva.get_keymap REQUIRES keymap_mode; calling it bare raised TypeError
+        # and --offline-debug never produced an observation. Parameterised
+        # because this interface is shared across rollouts.
+        self.keymap_mode = keymap_mode
         self.recorders = {}
         self._joint_positions = {
             arm: np.zeros(7, dtype=np.float64) for arm in ("left", "right")
@@ -371,7 +375,7 @@ class OfflineARXInterface:
             raise FileNotFoundError(f"Offline episode path not found: {dataset_path}")
         return ZarrDataset(
             episode_path,
-            key_map=Eva.get_keymap(),
+            key_map=Eva.get_keymap(self.keymap_mode),
             transform_list=None,
         )
 
