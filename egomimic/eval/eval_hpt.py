@@ -162,6 +162,16 @@ class HPTEvalVideo(EvalVideo):
         """
         return tensor
 
+    def _transform_source(self, tensor):
+        """Action chunk handed to the configured revert ``transform_list``.
+
+        Revert transforms are written against the untokenized action layout
+        (fixed horizon, per-timestep rows). A model predicting in a tokenized
+        space must reconstruct that layout first, or the transform's reshape
+        fails. Time-indexed models need no change, so the default is identity.
+        """
+        return tensor
+
     def compute_metrics_and_viz(self, batch):
         algo = self.model
         preds = algo.forward_eval(batch)
@@ -335,9 +345,16 @@ class HPTEvalVideo(EvalVideo):
             gt_batch_viz = _batch
             preds_for_viz = preds
             if transform_list is not None and main_pred_key in preds:
+                # Revert transforms assume the *untokenized* action layout —
+                # e.g. the keypoint revert reshapes to (H, 21, 3), which a
+                # (M+1, 138) arc token cannot satisfy. Subclasses that predict
+                # in a tokenized space override ``_transform_source`` to
+                # reconstruct a time-indexed chunk first. Default: identity.
+                gt_batch = copy.deepcopy(_batch)
+                gt_batch[ac_key] = self._transform_source(_batch[ac_key])
                 pred_batch = copy.deepcopy(_batch)
-                pred_batch[ac_key] = preds[main_pred_key]
-                gt_t = Embodiment.apply_transform(_batch, transform_list)
+                pred_batch[ac_key] = self._transform_source(preds[main_pred_key])
+                gt_t = Embodiment.apply_transform(gt_batch, transform_list)
                 pred_t = Embodiment.apply_transform(pred_batch, transform_list)
                 # apply_transform drops keys whose shape[0] != batch_size
                 # (e.g. ``embodiment``, ``annotations``). Merge to preserve them.

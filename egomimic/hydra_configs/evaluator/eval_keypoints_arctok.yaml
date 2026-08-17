@@ -1,0 +1,28 @@
+defaults:
+  - viz@viz_func: keypoints_human
+  - _self_
+
+# Evaluator for the ARC-TOKENIZED human-only 21-keypoint runs.
+#
+# The model emits (B, M+1, 138) arc tokens. Both the revert transform below
+# and the viz overlay assume a time-indexed chunk, so this evaluator
+# detokenizes first -- see egomimic/eval/eval_kp_arctok.py. Without that the
+# revert dies with "cannot reshape array of size 1953 into shape (100,21,3)"
+# (1953 = 31 rows x 63 keypoint dims).
+_target_: egomimic.eval.eval_kp_arctok.KeypointArcTokEvalVideo
+
+hybrid: false
+# MUST match data/kp_human_arctok.yaml. Detokenizing with a different D
+# silently rescales the reconstruction rather than erroring.
+min_distance_unit: 0.45
+resampled_vector_length: 30
+kp_distance_mode: linf
+rollout_horizon: 100
+
+# Same wrist-frame -> cam-frame revert as the baseline evaluator; applied to
+# the DETOKENIZED chunk, so both arms of the comparison end up in the same
+# frame and the cam-frame metrics are directly comparable.
+transform_lists:
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human._build_human_keypoints_revert_eef_frame_transform_list
+    is_quat: false

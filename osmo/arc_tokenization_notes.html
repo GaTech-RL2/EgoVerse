@@ -47,7 +47,16 @@ pre.code{background:var(--surface-2);border-radius:8px;padding:15px 18px;margin:
 </style></head><body><div class="viz-root">
 
 <h1>Arc-Length Action Tokenization</h1>
-<p class="byline">Working notes &middot; EgoVerse / <code>arc-length-nv-eval</code> &middot; results current as of the runs listed in &sect;7</p>
+<p class="byline">Working notes &middot; EgoVerse / <code>arc-length-nv-eval</code></p>
+<div class="callout warn" style="margin-top:0"><b>Read the numbers with these caveats.</b>
+Every reconstruction measurement in &sect;3 comes from a <em>single</em> 94&nbsp;s
+<code>fold_clothes</code> episode, and folding is transport-dominated (only 3.4% of hand-shape motion
+happens while the wrist is nearly still) &mdash; the regime <em>least</em> favourable to the keypoint
+hypothesis. The keypoint models in &sect;5.2 both show 0.19&ndash;0.35&nbsp;m mean per-joint error,
+larger than a hand, so arc-tok there is <em>less bad</em>, not good, and the absolute number is
+unexplained. The D&times;M sweep has no validation (14 of 16 cells lost their checkpoints). And
+arc-matched MSE is timing-blind by construction, so nothing here measures whether the velocity token
+reconstructs speed correctly.</div>
 
 <p class="lede">Behaviour-cloning policies normally predict actions on a <em>time</em> grid: N control
 steps ahead, uniformly spaced in seconds. This note evaluates re-parameterizing that chunk by
