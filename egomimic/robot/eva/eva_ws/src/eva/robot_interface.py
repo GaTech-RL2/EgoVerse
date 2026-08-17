@@ -369,10 +369,51 @@ class OfflineARXInterface:
             if len(self.dataset) == 0:
                 raise ValueError(f"Offline dataset is empty: {self.dataset_path}")
 
+    @staticmethod
+    def _assert_per_frame_images(episode_path):
+        """Reject a chunk-indexed (h264) episode with an actionable message.
+
+        This reader indexes images per FRAME. An h264 episode stores them
+        chunk-indexed (e.g. images.front_1 shape [5] = 5 chunks x 300 frames),
+        so reads past the chunk count fail with an opaque IndexError from the
+        zarr layer. Compare the image array length against total_frames and say
+        what to use instead.
+        """
+        import json
+
+        attrs = episode_path / "zarr.json"
+        if not attrs.is_file():
+            return
+        try:
+            total = int(json.loads(attrs.read_text())
+                        .get("attributes", {}).get("total_frames", 0))
+        except Exception:
+            return
+        if total <= 0:
+            return
+        for img in sorted(episode_path.glob("images.*")):
+            meta = img / "zarr.json"
+            if not meta.is_file():
+                continue
+            try:
+                shape = json.loads(meta.read_text()).get("shape") or []
+            except Exception:
+                continue
+            if shape and int(shape[0]) < total:
+                raise ValueError(
+                    f"Offline episode {episode_path.name} is CHUNK-INDEXED "
+                    f"(h264): {img.name} has length {shape[0]} for "
+                    f"{total} frames. This interface reads images per FRAME, so "
+                    f"it needs the per-frame JPEG copy of the same episode "
+                    f"(e.g. datasets/fold_rh_jpeg/... rather than "
+                    f"datasets/fold_rh/...). Same episode hashes, same "
+                    f"total_frames -- only the image encoding differs.")
+
     def _build_dataset(self, dataset_path):
         episode_path = Path(dataset_path)
         if not episode_path.exists():
             raise FileNotFoundError(f"Offline episode path not found: {dataset_path}")
+        self._assert_per_frame_images(episode_path)
         return ZarrDataset(
             episode_path,
             key_map=Eva.get_keymap(self.keymap_mode),
