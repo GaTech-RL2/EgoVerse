@@ -113,6 +113,24 @@ L_RECTS: list[tuple[float, float, float, float]] = [
     ((L_ARM - L_THICK) / 4, (L_ARM + L_THICK) / 4, L_ARM, L_THICK),
 ]
 
+# --- geometry for the behaviourally-distinct agents (see agents.py) -------
+# Kept here with the other shape constants so make_pusher stays the one place
+# that knows how a body is built.
+
+GRIPPER_PALM_HALF_W = 22.0   # palm spans the jaw travel
+GRIPPER_PALM_HALF_H = 6.0
+GRIPPER_JAW_HALF_W = 5.0
+GRIPPER_JAW_HALF_H = 20.0
+GRIPPER_JAW_MAX_GAP = 46.0   # fully open, outer face to outer face
+GRIPPER_JAW_MIN_GAP = 8.0    # fully closed
+
+SUCTION_RADIUS = 9.0
+TWO_POINT_RADIUS = 7.0
+TETHER_RADIUS = 8.0
+MAGNET_RADIUS = 11.0
+TAPPER_HALF_LEN = 14.0
+TAPPER_HALF_THICK = 4.0
+
 # Per-shape effective pusher radius — used by env spawn-clearance and renderer.
 # Stick uses its end-cap radius (the largest contact circle on its body).
 _PUSHER_RADII: dict[str, float] = {
@@ -125,6 +143,15 @@ _PUSHER_RADII: dict[str, float] = {
         + (U_SOCKET_OUTER_WIDTH / 2) ** 2
     )
     ** 0.5,
+    # Spawn clearance uses the widest extent the body can reach, so the
+    # gripper reports its OPEN half-span rather than its palm.
+    "gripper": (GRIPPER_JAW_MAX_GAP / 2 + 2 * GRIPPER_JAW_HALF_W),
+    "suction": SUCTION_RADIUS,
+    "two_point": TWO_POINT_RADIUS,
+    "tether": TETHER_RADIUS,
+    "magnet": MAGNET_RADIUS,
+    "compliant": PUSHER_RADIUS,
+    "tapper": TAPPER_HALF_LEN,
 }
 
 
@@ -220,6 +247,50 @@ def make_pusher(
             p.friction = OBJECT_FRICTION
         space.add(body, *polys)
         return body, list(polys)
+
+    if shape in ("magnet", "tapper_unused"):
+        # NON-CONTACT. A magnet that still collides is just a circle pusher
+        # with extra force, which defeats the point of the embodiment: its
+        # whole character is that there is no surface to push against.
+        # sensor=True keeps the body in the space (visible, still clamped out
+        # of walls by the env) while generating no contact response.
+        s = pymunk.Circle(body, pusher_radius(shape))
+        s.sensor = True
+        space.add(body, s)
+        return body, [s]
+
+    if shape in ("suction", "two_point", "tether", "compliant"):
+        # All round contact primitives. They differ in their CONTACT MODEL
+        # (agents.py), not their geometry, which is the point: behaviour comes
+        # from the agent, not from carving a new polygon.
+        s = pymunk.Circle(body, pusher_radius(shape))
+        s.friction = OBJECT_FRICTION
+        space.add(body, s)
+        return body, [s]
+
+    if shape == "tapper":
+        # A short bar that acts ONLY through the impulses its agent applies.
+        # sensor=True for the same reason as the magnet: if the bar also
+        # pushed continuously, the ballistic character -- the entire point --
+        # would be replaced by ordinary pushing between strikes.
+        rect = pymunk.Poly(
+            body, _rect_verts(0.0, 0.0, 2 * TAPPER_HALF_LEN, 2 * TAPPER_HALF_THICK)
+        )
+        rect.sensor = True
+        space.add(body, rect)
+        return body, [rect]
+
+    if shape == "gripper":
+        # Palm only. The two jaws are separate bodies owned by GripperAgent,
+        # because their gap is commanded per-step and the env drives exactly
+        # one body.
+        palm = pymunk.Poly(
+            body,
+            _rect_verts(0.0, 0.0, 2 * GRIPPER_PALM_HALF_W, 2 * GRIPPER_PALM_HALF_H),
+        )
+        palm.friction = OBJECT_FRICTION
+        space.add(body, palm)
+        return body, [palm]
 
     raise ValueError(
         f"unknown pusher shape '{shape}', valid: {list(_PUSHER_RADII)}"

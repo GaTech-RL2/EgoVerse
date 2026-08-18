@@ -42,7 +42,9 @@ from .shapes import (
     pusher_radius,
 )
 
-_VALID_PUSHERS = ("circle", "circle_small", "stick", "L", "u_socket")
+# Single source of truth: the agent registry. Adding an agent to
+# agents.make_agent is enough to make it constructible here.
+from .agents import VALID_PUSHERS as _VALID_PUSHERS  # noqa: E402
 # non-symmetric pushers that re-orient toward velocity. The L stays fixed at
 # its spawn angle instead — pushing with a rigid axis-aligned tool.
 _ORIENTED_PUSHERS = ("stick",)
@@ -622,9 +624,10 @@ class PushShapesEnv(gym.Env):
             body.velocity = (ux * speed, uy * speed)
 
         desired: float | None = None
-        if self.pusher_shape == "u_socket":
+        if self.agent.controls_angle:
+            # The agent commands orientation explicitly (3-DOF and up).
             desired = target_angle
-        elif self.pusher_shape in _ORIENTED_PUSHERS and dist > _MIN_STICK_TURN_DIST:
+        elif self.agent.auto_orients and dist > _MIN_STICK_TURN_DIST:
             # Shortest signed angle diff to the velocity direction, capped at
             # STICK_TURN_RATE so oriented pushers ease into a new heading
             # rather than rotating instantly through contacts.
