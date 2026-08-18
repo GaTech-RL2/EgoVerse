@@ -60,11 +60,15 @@ SCALE = 1.6
 WIN = int(WORLD * SCALE)
 HUD_H = 116
 
-COL_PUSHER = (235, 235, 235)
-COL_EXTRA = (150, 205, 255)      # agent-owned extra bodies (jaws, 2nd point)
-COL_ENGAGED = (120, 240, 150)    # mechanism currently latched/attached
-COL_SENSOR = (255, 190, 90)      # non-contact body (magnet, tapper)
+# The arena background is (240, 240, 240) -- near white. These must be DARK
+# to read against it; the first version used (235, 235, 235) for the pusher,
+# one step off the background, which made it effectively invisible.
+COL_PUSHER = (200, 40, 40)       # matches render.PUSHER_COLOR
+COL_EXTRA = (225, 110, 20)       # agent-owned extra bodies (jaws, 2nd point)
+COL_ENGAGED = (0, 150, 60)       # mechanism currently latched/attached
+COL_SENSOR = (170, 90, 0)        # non-contact body (magnet, tapper)
 COL_TEXT = (228, 228, 228)
+COL_HUD_OK = (110, 230, 140)     # green on the DARK hud panel, not the arena
 COL_DIM = (140, 140, 140)
 
 # What SPACE means, per agent -- shown in the HUD so the control is discoverable.
@@ -112,7 +116,7 @@ def _draw_space(surf, env, engaged: bool) -> None:
             pygame.draw.circle(
                 surf, colour, (int(c.x * SCALE), int(c.y * SCALE)),
                 max(2, int(shape.radius * SCALE)),
-                0 if not getattr(shape, "sensor", False) else 2,
+                0 if not getattr(shape, "sensor", False) else 3,
             )
         elif isinstance(shape, pymunk.Poly):
             pts = [body.local_to_world(v) for v in shape.get_vertices()]
@@ -120,7 +124,7 @@ def _draw_space(surf, env, engaged: bool) -> None:
             if len(pts) >= 3:
                 pygame.draw.polygon(
                     surf, colour, pts,
-                    0 if not getattr(shape, "sensor", False) else 2,
+                    0 if not getattr(shape, "sensor", False) else 3,
                 )
         elif isinstance(shape, pymunk.Segment):
             pygame.draw.line(
@@ -391,11 +395,11 @@ def main() -> int:
         if terminated:
             cov += "   SOLVED"
         screen.blit(big.render(cov, True,
-                    COL_ENGAGED if terminated else COL_TEXT), (WIN - 240, y))
+                    COL_HUD_OK if terminated else COL_TEXT), (WIN - 240, y))
         y += 26
         if label:
             screen.blit(font.render(label, True,
-                        COL_ENGAGED if engaged else COL_DIM), (10, y))
+                        COL_HUD_OK if engaged else COL_DIM), (10, y))
         hint = ENGAGE_LABEL.get(name, "")
         if name == "two_point":
             hint = f"W/S spread {spread:.0f}   Q/E orbit {math.degrees(orbit):3.0f}deg"
@@ -431,7 +435,7 @@ def main() -> int:
         if all_done:
             banner = big.render(
                 f"ALL {len(agents)} EMBODIMENTS x {args.per_agent} COLLECTED",
-                True, COL_ENGAGED)
+                True, COL_HUD_OK)
             screen.blit(banner, (WIN // 2 - banner.get_width() // 2, WIN // 2))
 
         pygame.display.flip()
