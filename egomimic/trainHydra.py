@@ -11,6 +11,9 @@ from omegaconf import DictConfig, OmegaConf
 
 OmegaConf.register_new_resolver("eval", eval)
 
+# A40/A100 have TF32 tensor cores; enables faster matmuls at negligible precision cost.
+torch.set_float32_matmul_precision("high")
+
 from egomimic.utils.instantiators import instantiate_callbacks, instantiate_loggers
 from egomimic.utils.logging_utils import log_hyperparameters
 from egomimic.utils.pylogger import RankedLogger

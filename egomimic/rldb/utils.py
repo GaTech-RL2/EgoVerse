@@ -208,6 +208,14 @@ class RLDBDataset(LeRobotDataset):
         if self.use_task_string:
             self.task_string = kwargs.get("task_string", "")
 
+        # Optional in-RAM cache of the (deterministic) __getitem__ output. The image is
+        # stored as uint8 and rebuilt to float CHW on access (byte-identical to the live
+        # path); everything else (delta_ts action window, pad mask, proprio) is memoized
+        # verbatim. Eliminates the per-sample PNG decode (~98 ms) that starves the GPU.
+        self.cache_in_memory = bool(kwargs.get("cache_in_memory", False))
+        self._mem_img = None
+        self._mem_rest = None
+
         self.slow_down_factor = float(kwargs.get("slow_down_factor", 1.0))
         raw_keys = kwargs.get("slow_down_ac_keys", None)
         raw_rot_specs = kwargs.get("slow_down_rot_specs", None)
@@ -338,6 +346,29 @@ class RLDBDataset(LeRobotDataset):
                 repo_id=repo_id, root=root, local_files_only=local_files_only, **lerobot_kwargs
             )
 
+        # Build the cache in the main process (before DataLoader workers fork) so the big
+        # uint8 image buffer is copy-on-write shared across workers instead of duplicated.
+        if self.cache_in_memory:
+            self._build_mem_cache()
+
+    def _build_mem_cache(self):
+        self.cache_in_memory = False  # use the real path while populating
+        try:
+            n = len(self)
+            first = self.__getitem__(0)
+            c, h, w = first["obs.aria_image"].shape
+            imgs = np.empty((n, h, w, c), dtype=np.uint8)
+            rest = [None] * n
+            for i in range(n):
+                item = self.__getitem__(i)
+                img = item.pop("obs.aria_image")  # CHW float in [0,1]
+                imgs[i] = np.rint(img.permute(1, 2, 0).numpy() * 255.0).astype(np.uint8)
+                rest[i] = item
+            self._mem_img = imgs
+            self._mem_rest = rest
+        finally:
+            self.cache_in_memory = True
+
     def __len__(self):
         """Return the total number of sampled frames if in 'percent' mode, otherwise the full dataset size."""
         if self.sampled_indices is not None:
@@ -346,6 +377,12 @@ class RLDBDataset(LeRobotDataset):
 
     def __getitem__(self, idx):
         """Fetch frames based on sampled indices in 'percent' mode, otherwise default to full dataset."""
+        if self.cache_in_memory and self._mem_img is not None:
+            item = dict(self._mem_rest[idx])
+            item["obs.aria_image"] = (
+                torch.from_numpy(self._mem_img[idx]).permute(2, 0, 1).float() / 255.0
+            )
+            return item
         if self.sampled_indices is not None:
             idx = self.sampled_indices[idx]  # Map index to sampled frames
         item = super().__getitem__(idx)
@@ -363,8 +400,11 @@ class RLDBDataset(LeRobotDataset):
             self.sampled_indices[idx] if self.sampled_indices is not None else idx
         )
 
-        frame_item = self.hf_dataset[frame_idx]
-        frame_time = float(frame_item["timestamp"])
+        # Read frame timestamp from a cached column (avoids a second full-row decode
+        # of the PNG image per __getitem__, which dominated dataloader latency).
+        if getattr(self, "_ts_np", None) is None:
+            self._ts_np = np.asarray(self.hf_dataset["timestamp"], dtype=np.float64)
+        frame_time = float(self._ts_np[frame_idx])
 
         # Use item from super() (preserves delta_timestamps-stacked keys like actions); only add extras.
         item["annotations"] = self._get_frame_annotation(
@@ -373,10 +413,6 @@ class RLDBDataset(LeRobotDataset):
         )
         if "metadata.embodiment" not in item:
             item["metadata.embodiment"] = self.embodiment
-
-        # Ensure every batch has metadata.embodiment (required by DataSchematic); inject if missing.
-        if "metadata.embodiment" not in frame_item:
-            frame_item["metadata.embodiment"] = self.embodiment
 
         return item
 

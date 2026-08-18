@@ -55,7 +55,19 @@ def main() -> None:
     args = _parse_args()
 
     logging.info("Loading policy from %s", args.checkpoint)
-    model = ModelWrapper.load_from_checkpoint(args.checkpoint, weights_only=False)
+    try:
+        model = ModelWrapper.load_from_checkpoint(args.checkpoint, weights_only=False)
+    except ModuleNotFoundError as e:
+        if e.name != "dinov2":
+            raise
+        # weights_only=False unpickles the full object graph, including any nested
+        # DINOv2 ViT instance (Adapt3R3DEncoder). Its class lives in the `dinov2`
+        # module, which torch.hub only makes importable as a side effect of calling
+        # torch.hub.load() (it patches sys.path). Trigger that once, then retry.
+        import torch
+        logging.info("Checkpoint references DINOv2; loading it once to fix sys.path, then retrying")
+        torch.hub.load("facebookresearch/dinov2", "dinov2_vits14", pretrained=False)
+        model = ModelWrapper.load_from_checkpoint(args.checkpoint, weights_only=False)
 
     if getattr(model.model, "diffusion", False):
         for head in model.model.nets["policy"].heads.values():
