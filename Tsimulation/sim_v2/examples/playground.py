@@ -30,6 +30,8 @@ Controls::
     1..9, 0, -, =  jump straight to an agent
     TAB            cycle object shape  T -> U -> Z
     ENTER          start / stop recording (with --output)
+                   (--auto re-arms automatically after each save and moves to
+                    the next embodiment once --per-agent is reached)
     BACKSPACE      discard the take in progress
     R              reset episode (new layout)
     ESC            quit
@@ -154,6 +156,11 @@ def main() -> int:
     ap.add_argument("--output", default=None,
                     help="record episodes to <output>/<agent>/<object>/*.zarr")
     ap.add_argument("--image-size", type=int, default=96)
+    ap.add_argument("--per-agent", type=int, default=10,
+                    help="episodes to collect per embodiment before advancing")
+    ap.add_argument("--auto", action="store_true",
+                    help="re-arm recording after every save and advance to the "
+                         "next embodiment once --per-agent is reached")
     args = ap.parse_args()
 
     pygame.init()
@@ -187,7 +194,6 @@ def main() -> int:
         apply_gap(e)
         return e
 
-    env = build()
     out_root = Path(args.output) if args.output else None
     writer = None
     writer_key = [None]
@@ -198,6 +204,16 @@ def main() -> int:
     # ONE writer per output dir, not per episode: the writer owns episode
     # naming and index resumption (episode_<obj>_<pusher>_obs<N>_NNNNNN.zarr).
     # Handing it a file path instead produced a directory zarr could not open.
+    def saved_here() -> int:
+        """Episodes already on disk for this (agent, object).
+
+        Counted from disk rather than a session counter so relaunching resumes
+        where you stopped instead of collecting a second set of ten.
+        """
+        if out_root is None:
+            return 0
+        return get_writer().existing_episode_count()
+
     def get_writer():
         nonlocal writer
         key = (agents[ai], objects[oi])
@@ -217,6 +233,18 @@ def main() -> int:
         )
         writer_key[0] = key
         return writer
+
+    def advance_agent() -> bool:
+        """Move to the next embodiment that still needs episodes.
+
+        Returns False when every embodiment has met the quota.
+        """
+        nonlocal ai
+        for _ in range(len(agents)):
+            ai = (ai + 1) % len(agents)
+            if saved_here() < args.per_agent:
+                return True
+        return False
 
     def start_recording():
         nonlocal recording, steps_rec
@@ -243,10 +271,19 @@ def main() -> int:
             saved += 1
         recording, steps_rec = False, 0
 
+    all_done = False
     angle = 0.0
     spread = 34.0
     orbit = math.pi / 2
     running = True
+
+    env = build()
+    if args.auto and out_root is not None:
+        if saved_here() >= args.per_agent and not advance_agent():
+            all_done = True
+        env = build()
+        if not all_done:
+            start_recording()
 
     while running:
         for ev in pygame.event.get():
@@ -328,6 +365,12 @@ def main() -> int:
         # press ENTER, and immediately reset for the next one.
         if recording and terminated:
             stop_recording()
+            if args.auto and out_root is not None:
+                if saved_here() >= args.per_agent and not advance_agent():
+                    all_done = True
+                if not all_done:
+                    env = build()
+                    start_recording()
         terr = info.get("tracking_error", 0.0)
         cgap = info.get("command_gap", 0.0)
         label, engaged = _agent_state(env)
@@ -361,11 +404,20 @@ def main() -> int:
         screen.blit(font.render(hint, True, COL_DIM), (170, y))
         y += 20
         if out_root is not None:
+            here = saved_here()
             rec = f"REC {steps_rec:4d}" if recording else "idle    "
             rcol = (255, 110, 110) if recording else COL_DIM
             screen.blit(font.render(
-                f"{rec}   saved {saved}   ENTER rec/stop  BKSP discard",
-                True, rcol), (WIN - 380, y - 26))
+                f"{rec}   {here}/{args.per_agent} this agent   {saved} this run",
+                True, rcol), (WIN - 400, y - 26))
+            remaining = sum(
+                1 for a in agents
+                if len(list((out_root / a / objects[oi]).glob("*.zarr")))
+                < args.per_agent
+            )
+            screen.blit(font.render(
+                f"{remaining} embodiment(s) still short of {args.per_agent}",
+                True, COL_DIM), (WIN - 400, y - 6))
         gname = gaps[gi]
         gcol = COL_TEXT if gname == "ideal" else COL_SENSOR
         screen.blit(font.render(
@@ -375,6 +427,12 @@ def main() -> int:
         screen.blit(font.render(
             "[ ] agent   1-9,0,-,= jump   G gap   TAB object   R reset   ESC quit",
             True, COL_DIM), (10, y))
+
+        if all_done:
+            banner = big.render(
+                f"ALL {len(agents)} EMBODIMENTS x {args.per_agent} COLLECTED",
+                True, COL_ENGAGED)
+            screen.blit(banner, (WIN // 2 - banner.get_width() // 2, WIN // 2))
 
         pygame.display.flip()
         clock.tick(60)
