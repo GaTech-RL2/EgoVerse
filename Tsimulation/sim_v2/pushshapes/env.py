@@ -89,6 +89,9 @@ class PushShapesEnv(gym.Env):
 
     WORLD_SIZE: float = 512.0
     PUSHER_SPEED: float = 200.0
+    #: Control-fidelity preset (agents.CONTROL_GAPS). "ideal" = perfect
+    #: tracking, which is what every pre-existing dataset was collected under.
+    CONTROL_GAP: str = "ideal"
     DT: float = 1.0 / 30.0
     SUBSTEPS: int = 20
     DAMPING: float = 0
@@ -146,6 +149,10 @@ class PushShapesEnv(gym.Env):
         agent_options = {
             "solid_pusher": self.SOLID_PUSHER,
             "solid_contact_guard": self.SOLID_CONTACT_GUARD,
+            # How faithfully this embodiment executes its commands. A name
+            # from agents.CONTROL_GAPS, or a ControlGap. Default "ideal"
+            # keeps every existing dataset bit-identical.
+            "control_gap": self.CONTROL_GAP,
         }
         if pusher_shape == "u_socket":
             agent_options["socket_inside_friction_only"] = (
@@ -306,6 +313,11 @@ class PushShapesEnv(gym.Env):
         self._object_body, self._object_shapes = make_object(
             self.object_shape, self._space, object_pos, object_angle
         )
+        # Before on_reset: subclasses override on_reset and do not call
+        # super(), so doing this inside Agent.on_reset would be skipped by
+        # every agent that has its own -- leaking the latency queue and
+        # leaving the noise RNG unreseeded across episodes.
+        self.agent.reset_control_gap(self)
         self.agent.on_reset(self)
         self._pusher_body, self._pusher_shapes = self.agent.build(
             self._space, pusher_pos
@@ -379,6 +391,11 @@ class PushShapesEnv(gym.Env):
             {
                 "coverage": coverage,
                 "socket_latched": self.socket_latched,
+                # Gap between the command and where the body actually is.
+                # 0.0 for an ideal agent; non-zero is the embodiment's
+                # execution error, which teleop should surface to the operator.
+                "tracking_error": self.agent.tracking_error(self),
+                "command_gap": self.agent.command_gap(),
             },
         )
 

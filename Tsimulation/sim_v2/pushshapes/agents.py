@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pymunk
 
 from .shapes import (
@@ -62,6 +63,119 @@ _UNLATCHED_EDGE_MAX_DEPTH = 0.5
 
 
 
+class ControlGap:
+    """How badly an embodiment executes what it was told.
+
+    The seven contact models make agents differ in WHAT they can do. This
+    makes them differ in HOW WELL they do it, which is an independent axis:
+    two agents with identical geometry and action space still demand different
+    policies if one tracks its command exactly and the other lags, drifts and
+    ignores small motions.
+
+    Every term is a distinct failure mode, because they are not
+    interchangeable -- a policy compensates for each differently:
+
+      latency_steps  the command that lands is the one from N steps ago, so
+                     the policy must predict rather than react;
+      lag            first-order servo lag: the target eases toward the
+                     command instead of jumping, so fast strokes undershoot;
+      deadband       commands moving less than this are ignored, which makes
+                     fine positioning impossible and forces overshoot-and-
+                     return strategies;
+      gain           systematic scale error about the body's current position;
+                     a constant, learnable bias rather than noise;
+      noise_std      zero-mean jitter -- the only term that cannot be
+                     compensated, and so sets an error floor.
+
+    Noise is drawn from a per-episode RNG seeded in ``Agent.on_reset`` from the
+    env's own generator, so a replayed episode reproduces the same gap.
+    """
+
+    __slots__ = ("latency_steps", "lag", "deadband", "gain", "noise_std")
+
+    def __init__(self, *, latency_steps: int = 0, lag: float = 0.0,
+                 deadband: float = 0.0, gain: float = 1.0,
+                 noise_std: float = 0.0):
+        if not 0.0 <= lag < 1.0:
+            raise ValueError(f"lag must be in [0, 1), got {lag}")
+        if latency_steps < 0:
+            raise ValueError("latency_steps must be >= 0")
+        self.latency_steps = int(latency_steps)
+        self.lag = float(lag)
+        self.deadband = float(deadband)
+        self.gain = float(gain)
+        self.noise_std = float(noise_std)
+
+    @property
+    def is_ideal(self) -> bool:
+        return (
+            self.latency_steps == 0 and self.lag == 0.0 and self.deadband == 0.0
+            and self.gain == 1.0 and self.noise_std == 0.0
+        )
+
+    def as_dict(self) -> dict:
+        return {k: getattr(self, k) for k in self.__slots__}
+
+    def apply(self, agent, tx, ty, ang):
+        if self.is_ideal:
+            agent._last_target = (tx, ty)
+            return tx, ty, ang
+
+        # latency: FIFO of raw commands, so the servo chases a stale target
+        if self.latency_steps:
+            agent._cmd_queue.append((tx, ty))
+            if len(agent._cmd_queue) > self.latency_steps:
+                tx, ty = agent._cmd_queue.pop(0)
+            else:
+                tx, ty = agent._cmd_queue[0]
+
+        prev = agent._gap_state
+        if prev is None:
+            prev = (tx, ty)
+
+        # deadband: ignore sub-threshold motion entirely
+        if self.deadband > 0.0:
+            if math.hypot(tx - prev[0], ty - prev[1]) < self.deadband:
+                tx, ty = prev
+
+        # first-order lag toward the command
+        if self.lag > 0.0:
+            k = 1.0 - self.lag
+            tx = prev[0] + (tx - prev[0]) * k
+            ty = prev[1] + (ty - prev[1]) * k
+
+        # systematic gain error, measured about the previous target
+        if self.gain != 1.0:
+            tx = prev[0] + (tx - prev[0]) * self.gain
+            ty = prev[1] + (ty - prev[1]) * self.gain
+
+        if self.noise_std > 0.0:
+            tx += float(agent._rng.normal(0.0, self.noise_std))
+            ty += float(agent._rng.normal(0.0, self.noise_std))
+
+        agent._gap_state = (tx, ty)
+        agent._last_target = (tx, ty)
+        return tx, ty, ang
+
+
+#: Named presets, so a dataset can sweep control fidelity as a factor rather
+#: than hand-tuning five numbers per run.
+CONTROL_GAPS: dict[str, ControlGap] = {
+    "ideal": ControlGap(),
+    # A good servo: barely perceptible, but enough that exact tracking fails.
+    "tight": ControlGap(lag=0.25, noise_std=0.3),
+    # A cheap one: visible lag, a little stiction, slight undershoot.
+    "loose": ControlGap(latency_steps=2, lag=0.55, deadband=1.5, gain=0.95,
+                        noise_std=0.8),
+    # Teleop over a bad link: the operator is always behind.
+    "laggy": ControlGap(latency_steps=6, lag=0.35, noise_std=0.4),
+    # Worn mechanics: large stiction band, consistent undershoot.
+    "sticky": ControlGap(deadband=4.0, gain=0.88, lag=0.15),
+    # Noisy sensing: no bias to learn, just an irreducible floor.
+    "jittery": ControlGap(noise_std=2.5),
+}
+
+
 class Agent:
     """Base 2-DOF pusher with the fixed Sim V2 solid-contact guard."""
 
@@ -82,7 +196,21 @@ class Agent:
         *,
         solid_pusher: bool = True,
         solid_contact_guard: bool = True,
+        control_gap: "ControlGap | str | None" = None,
     ):
+        if isinstance(control_gap, str):
+            if control_gap not in CONTROL_GAPS:
+                raise ValueError(
+                    f"unknown control_gap {control_gap!r}; "
+                    f"known: {sorted(CONTROL_GAPS)}"
+                )
+            control_gap = CONTROL_GAPS[control_gap]
+        self.control_gap = control_gap or CONTROL_GAPS["ideal"]
+        self._gap_state = None
+        self._cmd_queue: list[tuple[float, float]] = []
+        self._last_target = None
+        self._last_command = None
+        self._rng = np.random.default_rng(0)
         self.shape = shape
         self.solid_pusher = bool(solid_pusher)
         self.solid_contact_guard = bool(solid_contact_guard)
@@ -94,9 +222,67 @@ class Agent:
         """Create the pusher body/shapes in ``space``."""
         return make_pusher(self.shape, space, position)
 
-    def target_pose(self, action):
-        """(target_x, target_y, target_angle|None) from a raw action."""
+    def _target_pose(self, action):
+        """RAW (target_x, target_y, target_angle|None) from an action.
+
+        Subclasses override THIS, not ``target_pose`` -- the base wraps it so
+        the control gap cannot be forgotten by a new agent.
+        """
         return float(action[0]), float(action[1]), None
+
+    def target_pose(self, action):
+        """The target the environment actually servos toward.
+
+        Raw command in, DEGRADED command out. See ControlGap: this is where an
+        embodiment stops being a perfect position source.
+        """
+        tx, ty, ang = self._target_pose(action)
+        self._last_command = (tx, ty)
+        return self.control_gap.apply(self, tx, ty, ang)
+
+    def tracking_error(self, env) -> float:
+        """Distance from the body to the RAW command.
+
+        Measured against the raw command, never the degraded target. Measuring
+        against the degraded one inverts the metric: an agent whose lag holds
+        the target back sits closer to it, so `laggy` scored 6.29 against
+        `ideal`'s 14.00 -- reporting the worst servo as the best. This number
+        includes the inherent speed limit (the body cannot teleport), so it is
+        non-zero even for an ideal agent; `command_gap` isolates the
+        ControlGap on its own.
+        """
+        if self._last_command is None:
+            return 0.0
+        p = env._pusher_body.position
+        return float(
+            math.hypot(p.x - self._last_command[0], p.y - self._last_command[1])
+        )
+
+    def command_gap(self) -> float:
+        """Distance between the raw command and the target actually servoed to.
+
+        Purely the ControlGap's doing -- zero for an ideal agent regardless of
+        how fast the body can move.
+        """
+        if self._last_command is None or self._last_target is None:
+            return 0.0
+        return float(math.hypot(
+            self._last_target[0] - self._last_command[0],
+            self._last_target[1] - self._last_command[1],
+        ))
+
+    def reset_control_gap(self, env) -> None:
+        """Clear per-episode gap state and reseed the noise RNG.
+
+        Seeded from the env's generator so a replay with the same reset seed
+        reproduces the identical noise sequence.
+        """
+        self._gap_state = None
+        self._cmd_queue = []
+        self._last_target = None
+        self._last_command = None
+        seed = int(env._np_random.integers(0, 2**31 - 1))
+        self._rng = np.random.default_rng(seed)
 
     def on_reset(self, env) -> None:
         """Per-episode state reset. No-op for a stateless agent."""
@@ -201,11 +387,12 @@ class USocketAgent(Agent):
 
     def __init__(self, shape: str = "u_socket", *, solid_pusher: bool = True,
                  socket_inside_friction_only: bool = False,
-                 solid_contact_guard: bool = True):
+                 solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
         super().__init__(
             shape,
             solid_pusher=solid_pusher,
             solid_contact_guard=solid_contact_guard,
+            control_gap=control_gap,
         )
         self.socket_inside_friction_only = bool(socket_inside_friction_only)
         self._socket_constraints = None
@@ -219,7 +406,7 @@ class USocketAgent(Agent):
         so it cannot drift out of sync with the constraints themselves."""
         return self._socket_constraints is not None
 
-    def target_pose(self, action):
+    def _target_pose(self, action):
         angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         return float(action[0]), float(action[1]), angle
 
@@ -798,9 +985,10 @@ class GripperAgent(Agent):
     init_fields = ("grip_force_scale",)
 
     def __init__(self, shape: str = "gripper", *, grip_force_scale: float = 1.0,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True):
+                 solid_pusher: bool = True, solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard)
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
         self.grip_force_scale = float(grip_force_scale)
         self._jaw_bodies: list[pymunk.Body] = []
         self._jaw_cmd = 1.0
@@ -821,7 +1009,7 @@ class GripperAgent(Agent):
             self._jaw_bodies.append(jaw)
         return body, shapes
 
-    def target_pose(self, action):
+    def _target_pose(self, action):
         angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         self._jaw_cmd = min(1.0, max(0.0, float(action[3])))
         return float(action[0]), float(action[1]), angle
@@ -952,15 +1140,16 @@ class SuctionAgent(Agent):
     init_fields = ("suction_max_force",)
 
     def __init__(self, shape: str = "suction", *, suction_max_force: float = 4.0e7,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True):
+                 solid_pusher: bool = True, solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard)
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
         self.suction_max_force = float(suction_max_force)
         self._joint = None
         self._engage = 0.0
         self._block = 0
 
-    def target_pose(self, action):
+    def _target_pose(self, action):
         self._engage = float(action[2])
         return float(action[0]), float(action[1]), None
 
@@ -1006,9 +1195,10 @@ class TwoPointAgent(Agent):
     action_dim = 4
 
     def __init__(self, shape: str = "two_point", *, solid_pusher: bool = True,
-                 solid_contact_guard: bool = True):
+                 solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard)
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
         self._second: pymunk.Body | None = None
         self._t2 = (0.0, 0.0)
 
@@ -1023,7 +1213,7 @@ class TwoPointAgent(Agent):
         self._t2 = (float(second.position.x), float(second.position.y))
         return body, shapes
 
-    def target_pose(self, action):
+    def _target_pose(self, action):
         self._t2 = (float(action[2]), float(action[3]))
         return float(action[0]), float(action[1]), None
 
@@ -1072,14 +1262,15 @@ class TetherAgent(Agent):
     init_fields = ("tether_length",)
 
     def __init__(self, shape: str = "tether", *, tether_length: float = _TETHER_MAX_LEN,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True):
+                 solid_pusher: bool = True, solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard)
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
         self.tether_length = float(tether_length)
         self._joint = None
         self._hook = 0.0
 
-    def target_pose(self, action):
+    def _target_pose(self, action):
         self._hook = float(action[2])
         return float(action[0]), float(action[1]), None
 
@@ -1129,17 +1320,18 @@ class MagnetAgent(Agent):
     init_fields = ("magnet_gain", "space_damping")
 
     def __init__(self, shape: str = "magnet", *, magnet_gain: float = _MAGNET_ACCEL,
-                 solid_pusher: bool = False, solid_contact_guard: bool = False):
+                 solid_pusher: bool = False, solid_contact_guard: bool = False, control_gap: "ControlGap | str | None" = None):
         # solid_* default False: the body is a sensor, so there is no contact
         # for the penetration guard to police and enabling it would restore
         # poses based on a penetration depth that is always zero.
         super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard)
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
         self.magnet_gain = float(magnet_gain)
         self.space_damping = _MAGNET_DAMPING
         self._strength = 0.0
 
-    def target_pose(self, action):
+    def _target_pose(self, action):
         self._strength = max(-1.0, min(1.0, float(action[2])))
         return float(action[0]), float(action[1]), None
 
@@ -1187,9 +1379,10 @@ class CompliantAgent(Agent):
 
     def __init__(self, shape: str = "compliant", *,
                  loaded_speed_frac: float = _COMPLIANT_LOADED_SPEED_FRAC,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True):
+                 solid_pusher: bool = True, solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard)
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
         self.loaded_speed_frac = float(loaded_speed_frac)
         self._pos_before = None
 
@@ -1236,12 +1429,13 @@ class TapperAgent(Agent):
     init_fields = ("impulse_scale", "space_damping")
 
     def __init__(self, shape: str = "tapper", *, impulse_scale: float = 1.0,
-                 solid_pusher: bool = False, solid_contact_guard: bool = False):
+                 solid_pusher: bool = False, solid_contact_guard: bool = False, control_gap: "ControlGap | str | None" = None):
         # solid_* default False: the body is a sensor, so there is no contact
         # for the penetration guard to police and enabling it would restore
         # poses based on a penetration depth that is always zero.
         super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard)
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
         self.impulse_scale = float(impulse_scale)
         self.space_damping = _TAPPER_DAMPING
         self._strike = 0.0
@@ -1249,7 +1443,7 @@ class TapperAgent(Agent):
         self._cool = 0
         self._angle = 0.0
 
-    def target_pose(self, action):
+    def _target_pose(self, action):
         self._strike = min(1.0, max(0.0, float(action[2])))
         # The bar points along its travel direction; angle is derived from the
         # strike vector rather than commanded separately, keeping this 3-DOF.
