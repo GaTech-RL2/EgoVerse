@@ -1014,6 +1014,16 @@ class HPT(Algo):
     ):
         self.nets = nn.ModuleDict()
         self.data_schematic = data_schematic
+        # Maps an RGB cam_key -> its paired depth batch key. When set,
+        # _robomimic_to_hpt_data concatenates depth onto RGB (-> 4-ch RGBD) before
+        # passing to the encoder. Populated from the model YAML via kwargs.
+        # Empty by default => behaviour identical to before for all RGB-only configs.
+        self._depth_key_map = kwargs.get("depth_key_map", {})
+        # Optional per-frame encoder extrinsics (eef-frame Adapt3R): maps a camera
+        # key to a batch key holding a flattened 4x4 cam->target transform per row
+        # (e.g. {front_img_1: eef_T}). Same restore-safety pattern as depth_key_map:
+        # absent from old checkpoints -> getattr default {} -> identical behaviour.
+        self._extrinsics_key_map = kwargs.get("extrinsics_key_map", {})
 
         self.camera_transforms = camera_transforms
         self.train_image_augs = train_image_augs
@@ -1726,7 +1736,44 @@ class HPT(Algo):
         for key in cam_keys:
             if key in batch:
                 _data = batch[key]
-                if not torch.all(_data == 0):
+                # Concatenate paired depth to form 4-channel RGBD if configured via
+                # depth_key_map (e.g. {front_img_1: aria_depth}) in the model YAML.
+                # getattr default: checkpoints trained before depth support restore
+                # without this attribute; treat them as RGB-only.
+                depth_key = getattr(self, "_depth_key_map", {}).get(key)
+                if depth_key is not None:
+                    if depth_key in batch:
+                        depth = batch[depth_key]
+                        if depth.dim() == 2:
+                            # LeRobot only stores 1-D non-image features, so depth is
+                            # persisted flattened; restore it to the image grid here.
+                            H, W = _data.shape[-2], _data.shape[-1]
+                            depth = depth.reshape(depth.shape[0], 1, H, W)
+                        elif depth.dim() == 3:  # [B, H, W] -> [B, 1, H, W]
+                            depth = depth.unsqueeze(1)
+                    else:
+                        # Depth key configured but absent (RGB-only dataset): zero
+                        # placeholder; the encoder overwrites it via `dummy_depth`.
+                        depth = torch.zeros(
+                            (_data.shape[0], 1, _data.shape[-2], _data.shape[-1]),
+                            dtype=_data.dtype, device=_data.device,
+                        )
+                    # TODO(aug): image augs are skipped on the RGBD path. Applying the
+                    # existing Compose here would either (a) transform RGB but not depth,
+                    # breaking the pixel correspondence the Adapt3R encoder relies on, or
+                    # (b) feed 4 channels to ColorJitter, which expects 3. Fix before the
+                    # first real depth training run by splitting geometric augs (applied
+                    # to all 4 channels) from photometric augs (RGB only).
+                    _data = torch.cat([_data, depth], dim=1)  # [B, 4, H, W]
+                    # Per-frame extrinsics for the encoder (eef-frame Adapt3R).
+                    # Set on the encoder just before its forward; encoders without
+                    # the hook (or rows without the key) keep their static E.
+                    ext_key = getattr(self, "_extrinsics_key_map", {}).get(key)
+                    if ext_key is not None and ext_key in batch and key in self.encoders:
+                        enc = self.encoders[key]
+                        if hasattr(enc, "set_batch_extrinsics"):
+                            enc.set_batch_extrinsics(batch[ext_key])
+                elif not torch.all(_data == 0):
                     if self.nets.training and key in self.encoders:
                         _data = self.train_image_augs(_data)
                     elif self.eval_image_augs and key in self.encoders:

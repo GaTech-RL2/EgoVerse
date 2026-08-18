@@ -1,0 +1,97 @@
+# @package _global_
+# HUMAN RGB+D -- EEF-FRAME Adapt3R (the A/B vs adapt3r_human_2k: same data rows,
+# same recipe, same seed; ONLY the cloud frame differs -- camera vs right-eef).
+# Dataset: datasets/human_fullpp_rgbd_eef (= human_fullpp_rgbd + obs.eef_T).
+# Gate that had to pass before this exists: eef chain vs on-device handtracking,
+# per-demo Kabsch holdout ~2 cm (tmp/eef_gate_report.json).
+defaults:
+  - /train
+  - override /model: experiments/wholebody_image/rby1_adapt3r_human_eef
+  - override /data: experiments/wholebody_image/rby1_wb_img_act32
+  - _self_
+
+name: RBY1_adapt3r_human_eef
+description: "adapt3r_human_eef_2k"
+
+hydra:
+  run:
+    dir: ./logs/${name}/${description}
+  sweep:
+    dir: ./logs/${name}/${description}
+
+trainer:
+  max_epochs: 2000
+  check_val_every_n_epoch: 50
+  strategy: auto   # single GPU: drop DDP + find_unused_parameters overhead
+
+callbacks:
+  aug_image_logger:
+    _target_: egomimic.pl_utils.aug_image_logger.AugImageLogger
+    every_n_epochs: 100
+    n_images: 8
+
+logger:
+  wandb:
+    entity: null
+    project: sew_policy
+    id: "${name}_${description}"
+    resume: "allow"
+
+data:
+  train_datasets:
+    dataset1:
+      datasets:
+        rl2_lab:
+          mode: train   # OLD-method: default 20% episode holdout becomes the val split
+  valid_datasets:
+    dataset1:
+      datasets:
+        eth_lab:
+          mode: valid
+  # No cache_in_memory here: 53,664 rows of image+depth is ~19 GB, vs 7k rows on teleop.
+  train_dataloader_params:
+    dataset1:
+      num_workers: 8
+      persistent_workers: true
+      pin_memory: true
+      prefetch_factor: 4
+  valid_dataloader_params:
+    dataset1:
+      num_workers: 2
+      persistent_workers: true
+      pin_memory: true
+
+data_schematic:
+  _target_: egomimic.rldb.utils.DataSchematic
+  norm_mode: quantile
+  schematic_dict:
+    rby1:
+      front_img_1:
+        key_type: camera_keys
+        lerobot_key: obs.aria_image
+      # REAL depth, metres, pixel-aligned to the image by construction.
+      # metadata_keys => passed through unnormalized (the encoder needs metric units).
+      aria_depth:
+        key_type: metadata_keys
+        lerobot_key: obs.aria_depth
+      # Per-row right-eef extrinsic (flattened 4x4 T_eefR_rect), unnormalized.
+      eef_T:
+        key_type: metadata_keys
+        lerobot_key: obs.eef_T
+      hand_left_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_left_qpos
+      hand_right_qpos:
+        key_type: proprio_keys
+        lerobot_key: obs.hand_right_qpos
+      robot0_joint_pos:
+        key_type: proprio_keys
+        lerobot_key: obs.robot0_joint_pos_no_wheel
+      actions_joint_base_torso_head_arm_hand:
+        key_type: action_keys
+        lerobot_key: actions.joint_base_torso_head_arm_hand
+      embodiment:
+        key_type: metadata_keys
+        lerobot_key: metadata.embodiment
+  viz_img_key:
+    rby1: front_img_1
