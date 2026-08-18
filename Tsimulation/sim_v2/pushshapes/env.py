@@ -273,6 +273,11 @@ class PushShapesEnv(gym.Env):
             "solid_contact_guard": self.solid_contact_guard,
             "obstacles": obstacles,
             "reset_seed": getattr(self, "_last_reset_seed", None),
+            # The compliance actually realised this episode. With
+            # CONTROL_GAP="random" this differs per episode, so it has to be
+            # stored or the data cannot be replayed or stratified by it.
+            "control_gap": self.agent.control_gap.as_dict(),
+            "control_gap_randomized": bool(getattr(self.agent, "randomize_gap", False)),
         }
         init["config_hash"] = hashlib.sha256(
             json.dumps(init, sort_keys=True).encode()

@@ -29,6 +29,8 @@ Controls::
     [ / ]          previous / next agent
     1..9, 0, -, =  jump straight to an agent
     TAB            cycle object shape  T -> U -> Z
+    ENTER          start / stop recording (with --output)
+    BACKSPACE      discard the take in progress
     R              reset episode (new layout)
     ESC            quit
 """
@@ -38,6 +40,7 @@ from __future__ import annotations
 import argparse
 import math
 import sys
+from pathlib import Path
 
 import numpy as np
 import pygame
@@ -46,7 +49,9 @@ import pymunk
 from Tsimulation.sim_v2.pushshapes.agents import CONTROL_GAPS, VALID_PUSHERS
 from Tsimulation.sim_v2.pushshapes.env import PushShapesEnv
 from Tsimulation.sim_v2.pushshapes.render import BG_COLOR, GOAL_COLOR, OBJECT_COLOR
+from Tsimulation.sim_v2.pushshapes.render import to_image_obs
 from Tsimulation.sim_v2.pushshapes.shapes import SHAPES
+from Tsimulation.sim_v2.collect.zarr_writer import ZarrDemoWriter
 
 WORLD = 512
 SCALE = 1.6
@@ -143,7 +148,12 @@ def main() -> int:
     ap.add_argument("--agent", default="circle", choices=list(VALID_PUSHERS))
     ap.add_argument("--object", default="T", choices=list(SHAPES))
     ap.add_argument("--obstacles", type=int, default=0)
-    ap.add_argument("--gap", default="ideal", choices=list(CONTROL_GAPS))
+    ap.add_argument("--gap", default="ideal",
+                    choices=list(CONTROL_GAPS) + ["random"],
+                    help="'random' draws a fresh compliance every episode")
+    ap.add_argument("--output", default=None,
+                    help="record episodes to <output>/<agent>/<object>/*.zarr")
+    ap.add_argument("--image-size", type=int, default=96)
     args = ap.parse_args()
 
     pygame.init()
@@ -152,24 +162,87 @@ def main() -> int:
     big = pygame.font.SysFont("menlo,dejavusansmono,monospace", 19, bold=True)
     clock = pygame.time.Clock()
 
-    gaps = list(CONTROL_GAPS)
+    gaps = list(CONTROL_GAPS) + ["random"]
     gi = gaps.index(args.gap)
     agents = list(VALID_PUSHERS)
     ai = agents.index(args.agent)
     objects = list(SHAPES)
     oi = objects.index(args.object)
 
+    def apply_gap(e):
+        name = gaps[gi]
+        e.agent.randomize_gap = name == "random"
+        if not e.agent.randomize_gap:
+            e.agent.control_gap = CONTROL_GAPS[name]
+
     def build():
         e = PushShapesEnv(
             object_shape=objects[oi], pusher_shape=agents[ai],
-            obstacle_level=args.obstacles,
+            obstacle_level=args.obstacles, image_size=args.image_size,
         )
-        e.agent.control_gap = CONTROL_GAPS[gaps[gi]]
-        e.reset(seed=np.random.randint(0, 10_000))
-        e.agent.control_gap = CONTROL_GAPS[gaps[gi]]
+        apply_gap(e)
+        # Seed explicitly: it is the only thing needed to reproduce BOTH the
+        # layout and the sampled compliance, and it goes into episode_init.
+        e.reset(seed=int(np.random.randint(0, 10_000)))
+        apply_gap(e)
         return e
 
     env = build()
+    out_root = Path(args.output) if args.output else None
+    writer = None
+    writer_key = [None]
+    recording = False
+    saved = 0
+    steps_rec = 0
+
+    # ONE writer per output dir, not per episode: the writer owns episode
+    # naming and index resumption (episode_<obj>_<pusher>_obs<N>_NNNNNN.zarr).
+    # Handing it a file path instead produced a directory zarr could not open.
+    def get_writer():
+        nonlocal writer
+        key = (agents[ai], objects[oi])
+        if writer is not None and writer_key[0] == key:
+            return writer
+        if writer is not None:
+            writer.close()
+        d = out_root / agents[ai] / objects[oi]
+        d.mkdir(parents=True, exist_ok=True)
+        writer = ZarrDemoWriter(
+            path=d,
+            env_args={
+                "object_shape": objects[oi], "pusher_shape": agents[ai],
+                "obstacle_level": args.obstacles,
+            },
+            image_size=args.image_size,
+        )
+        writer_key[0] = key
+        return writer
+
+    def start_recording():
+        nonlocal recording, steps_rec
+        if out_root is None:
+            return
+        stop_recording(discard=True)
+        w = get_writer()
+        # episode_init carries the sampled compliance, so a recorded demo can
+        # be replayed under the exact gap it was collected with.
+        w.start_episode(init_state=env.get_episode_init())
+        recording, steps_rec = True, 0
+
+    def stop_recording(discard=False):
+        nonlocal recording, saved, steps_rec
+        if writer is None or not writer.is_recording:
+            recording, steps_rec = False, 0
+            return
+        if discard or steps_rec == 0:
+            writer.abort_episode()
+        else:
+            # commit_episode, NOT close: close() calls abort_episode() and
+            # silently discards the take.
+            writer.commit_episode()
+            saved += 1
+        recording, steps_rec = False, 0
+
     angle = 0.0
     spread = 34.0
     orbit = math.pi / 2
@@ -183,19 +256,27 @@ def main() -> int:
                 if ev.key == pygame.K_ESCAPE:
                     running = False
                 elif ev.key == pygame.K_r:
-                    env = build()
+                    stop_recording(discard=True); env = build()
+                elif ev.key == pygame.K_RETURN:
+                    if recording:
+                        stop_recording()
+                    else:
+                        start_recording()
+                elif ev.key == pygame.K_BACKSPACE:
+                    stop_recording(discard=True)
                 elif ev.key == pygame.K_g:
-                    gi = (gi + 1) % len(gaps); env = build()
+                    stop_recording(discard=True); gi = (gi + 1) % len(gaps); env = build()
                 elif ev.key == pygame.K_TAB:
-                    oi = (oi + 1) % len(objects); env = build()
+                    stop_recording(discard=True); oi = (oi + 1) % len(objects); env = build()
                 elif ev.key == pygame.K_LEFTBRACKET:
-                    ai = (ai - 1) % len(agents); env = build()
+                    stop_recording(discard=True); ai = (ai - 1) % len(agents); env = build()
                 elif ev.key == pygame.K_RIGHTBRACKET:
-                    ai = (ai + 1) % len(agents); env = build()
+                    stop_recording(discard=True); ai = (ai + 1) % len(agents); env = build()
                 else:
                     keys = "1234567890-="
                     ch = pygame.key.name(ev.key)
                     if ch in keys and keys.index(ch) < len(agents):
+                        stop_recording(discard=True)
                         ai = keys.index(ch); env = build()
 
         held = pygame.key.get_pressed()
@@ -229,7 +310,24 @@ def main() -> int:
         elif dim == 3:
             act[2] = angle if agents[ai] == "u_socket" else engage
 
-        _obs, reward, terminated, _trunc, info = env.step(act)
+        obs, reward, terminated, _trunc, info = env.step(act)
+        if recording and writer is not None:
+            px, py = env.agent_pos
+            ox, oy, oth = env.object_pose
+            writer.add_step(
+                image=obs["image"] if "image" in obs else to_image_obs(
+                    pygame.display.get_surface(), args.image_size),
+                pusher_obs_pose=np.array([px, py, env.pusher_angle]),
+                object_obs_pose=np.array([ox, oy, oth]),
+                pusher_cmd_pose=np.array([act[0], act[1],
+                                          act[2] if dim >= 3 else 0.0]),
+                action=act, reward=reward, goal_pose=np.array(env.goal_pose),
+            )
+            steps_rec += 1
+        # Auto-stop on success so a solved demo is never lost by forgetting to
+        # press ENTER, and immediately reset for the next one.
+        if recording and terminated:
+            stop_recording()
         terr = info.get("tracking_error", 0.0)
         cgap = info.get("command_gap", 0.0)
         label, engaged = _agent_state(env)
@@ -262,6 +360,12 @@ def main() -> int:
             hint = f"{hint}   A/D angle {math.degrees(angle):4.0f}deg"
         screen.blit(font.render(hint, True, COL_DIM), (170, y))
         y += 20
+        if out_root is not None:
+            rec = f"REC {steps_rec:4d}" if recording else "idle    "
+            rcol = (255, 110, 110) if recording else COL_DIM
+            screen.blit(font.render(
+                f"{rec}   saved {saved}   ENTER rec/stop  BKSP discard",
+                True, rcol), (WIN - 380, y - 26))
         gname = gaps[gi]
         gcol = COL_TEXT if gname == "ideal" else COL_SENSOR
         screen.blit(font.render(
@@ -275,6 +379,11 @@ def main() -> int:
         pygame.display.flip()
         clock.tick(60)
 
+    stop_recording(discard=True)
+    if writer is not None:
+        writer.close()
+    if out_root is not None:
+        print(f"[playground] saved {saved} episode(s) under {out_root}")
     pygame.quit()
     return 0
 

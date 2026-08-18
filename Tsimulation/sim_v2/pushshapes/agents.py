@@ -158,6 +158,61 @@ class ControlGap:
         return tx, ty, ang
 
 
+#: Per-embodiment compliance ranges, sampled per episode when control_gap is
+#: "random". These are NOT uniform across agents on purpose: a dataset whose
+#: only variation is the contact model teaches that every embodiment executes
+#: equally well, which is the one thing no real hardware does. The ranges
+#: encode a plausible character per mechanism --
+#:
+#:   magnet/tapper  act at a distance or in bursts, so their effective command
+#:                  is the sloppiest;
+#:   gripper        a heavier, geared wrist: lag and backlash, little noise;
+#:   two_point      two servos, so noise dominates over any single bias;
+#:   compliant      already force-limited, kept near-clean so the two axes
+#:                  (authority vs fidelity) stay separable in analysis.
+#:
+#: Each entry is (low, high) per ControlGap term; latency is integer steps.
+_DEFAULT_GAP_RANGE = {
+    "latency_steps": (0, 2), "lag": (0.0, 0.45), "deadband": (0.0, 2.0),
+    "gain": (0.93, 1.0), "noise_std": (0.0, 1.0),
+}
+AGENT_GAP_RANGES: dict[str, dict[str, tuple]] = {
+    "gripper": {"latency_steps": (1, 4), "lag": (0.2, 0.6), "deadband": (1.0, 4.0),
+                "gain": (0.9, 1.0), "noise_std": (0.0, 0.5)},
+    "suction": {"latency_steps": (0, 2), "lag": (0.1, 0.4), "deadband": (0.0, 1.5),
+                "gain": (0.95, 1.0), "noise_std": (0.0, 0.8)},
+    "two_point": {"latency_steps": (0, 3), "lag": (0.1, 0.5), "deadband": (0.0, 2.0),
+                  "gain": (0.93, 1.0), "noise_std": (0.5, 2.5)},
+    "tether": {"latency_steps": (1, 4), "lag": (0.2, 0.6), "deadband": (0.0, 3.0),
+               "gain": (0.9, 1.0), "noise_std": (0.0, 1.2)},
+    "magnet": {"latency_steps": (2, 6), "lag": (0.3, 0.7), "deadband": (0.0, 2.0),
+               "gain": (0.88, 1.0), "noise_std": (0.5, 3.0)},
+    "tapper": {"latency_steps": (2, 6), "lag": (0.2, 0.6), "deadband": (1.0, 5.0),
+               "gain": (0.9, 1.0), "noise_std": (0.5, 2.5)},
+    "compliant": {"latency_steps": (0, 1), "lag": (0.0, 0.25), "deadband": (0.0, 1.0),
+                  "gain": (0.97, 1.0), "noise_std": (0.0, 0.5)},
+}
+
+
+def sample_control_gap(rng, shape: str | None = None) -> ControlGap:
+    """Draw a ControlGap for one episode from ``shape``'s range.
+
+    ``rng`` must be the agent's per-episode generator (seeded from the env's),
+    so the draw is reproducible from the reset seed alone -- otherwise a
+    recorded episode could never be replayed under the compliance it was
+    collected with.
+    """
+    r = dict(_DEFAULT_GAP_RANGE)
+    r.update(AGENT_GAP_RANGES.get(shape or "", {}))
+    return ControlGap(
+        latency_steps=int(rng.integers(r["latency_steps"][0],
+                                       r["latency_steps"][1] + 1)),
+        lag=float(rng.uniform(*r["lag"])),
+        deadband=float(rng.uniform(*r["deadband"])),
+        gain=float(rng.uniform(*r["gain"])),
+        noise_std=float(rng.uniform(*r["noise_std"])),
+    )
+
 #: Named presets, so a dataset can sweep control fidelity as a factor rather
 #: than hand-tuning five numbers per run.
 CONTROL_GAPS: dict[str, ControlGap] = {
@@ -198,13 +253,16 @@ class Agent:
         solid_contact_guard: bool = True,
         control_gap: "ControlGap | str | None" = None,
     ):
-        if isinstance(control_gap, str):
+        self.randomize_gap = control_gap == "random"
+        if isinstance(control_gap, str) and not self.randomize_gap:
             if control_gap not in CONTROL_GAPS:
                 raise ValueError(
                     f"unknown control_gap {control_gap!r}; "
-                    f"known: {sorted(CONTROL_GAPS)}"
+                    f"known: {sorted(CONTROL_GAPS)} or 'random'"
                 )
             control_gap = CONTROL_GAPS[control_gap]
+        if self.randomize_gap:
+            control_gap = None  # drawn per episode in reset_control_gap
         self.control_gap = control_gap or CONTROL_GAPS["ideal"]
         self._gap_state = None
         self._cmd_queue: list[tuple[float, float]] = []
@@ -283,6 +341,10 @@ class Agent:
         self._last_command = None
         seed = int(env._np_random.integers(0, 2**31 - 1))
         self._rng = np.random.default_rng(seed)
+        if self.randomize_gap:
+            # Drawn from the SAME episode RNG, so the reset seed alone
+            # determines both the compliance and the noise realised under it.
+            self.control_gap = sample_control_gap(self._rng, self.shape)
 
     def on_reset(self, env) -> None:
         """Per-episode state reset. No-op for a stateless agent."""
