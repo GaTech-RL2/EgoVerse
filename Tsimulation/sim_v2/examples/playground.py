@@ -60,7 +60,9 @@ from Tsimulation.sim_v2.pushshapes.shapes import SHAPES
 from Tsimulation.sim_v2.collect.zarr_writer import ZarrDemoWriter
 
 WORLD = 512
-SCALE = 1.6
+# 1.6 made the window 935 px tall, so the HUD fell off the bottom of a laptop
+# screen. 1.25 keeps the whole thing (640 + 116) inside a 13" display.
+SCALE = 1.25
 WIN = int(WORLD * SCALE)
 HUD_H = 116
 
@@ -164,8 +166,12 @@ def main() -> int:
     ap.add_argument("--output", default=None,
                     help="record episodes to <output>/<agent>/<object>/*.zarr")
     ap.add_argument("--image-size", type=int, default=96)
+    ap.add_argument("--min-frames", type=int, default=60,
+                    help="takes shorter than this are discarded, not committed")
     ap.add_argument("--per-agent", type=int, default=10,
                     help="episodes to collect per embodiment before advancing")
+    ap.add_argument("--scale", type=float, default=SCALE,
+                    help="window scale; lower it if the HUD is off-screen")
     ap.add_argument("--agents", default="all",
                     help="'all', 'new' (the 7 behaviourally-distinct ones), or a "
                          "comma-separated list. Restricts both the [ ] cycle and "
@@ -174,6 +180,10 @@ def main() -> int:
                     help="re-arm recording after every save and advance to the "
                          "next embodiment once --per-agent is reached")
     args = ap.parse_args()
+
+    global SCALE, WIN
+    SCALE = float(args.scale)
+    WIN = int(WORLD * SCALE)
 
     pygame.init()
     screen = pygame.display.set_mode((WIN, WIN + HUD_H))
@@ -284,7 +294,10 @@ def main() -> int:
         if writer is None or not writer.is_recording:
             recording, steps_rec = False, 0
             return
-        if discard or steps_rec == 0:
+        if discard or steps_rec < args.min_frames:
+            # Too short to be a demonstration -- a stray ENTER produced a
+            # 1-frame episode that would pollute training as surely as a
+            # runaway does.
             writer.abort_episode()
         else:
             # commit_episode, NOT close: close() calls abort_episode() and
