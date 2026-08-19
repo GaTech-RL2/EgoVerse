@@ -85,6 +85,7 @@ ENGAGE_LABEL = {
     "magnet": "SPACE magnetise",
     "tapper": "SPACE strike",
     "wrench": "auto-couples in range",
+    "towbar": "SPACE hitch / unhitch",
     "u_socket": "SPACE (n/a)",
 }
 
@@ -436,6 +437,11 @@ def main() -> int:
         # happens to drag things.
         # The rope is real bodies now, so it draws itself in _draw_space; only
         # the final hook link -> object attachment needs a line.
+        if getattr(env.agent, "hitched", False):
+            px, py = env.agent_pos
+            ox, oy, _ = env.object_pose
+            pygame.draw.line(arena, COL_EXTRA,
+                             (px * SCALE, py * SCALE), (ox * SCALE, oy * SCALE), 5)
         if getattr(env.agent, "hooked", False):
             pts = env.agent.rope_points()
             ox, oy, _ = env.object_pose

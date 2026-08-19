@@ -181,6 +181,10 @@ SCOOP_R = 20.0
 SCOOP_THICK = 4.0
 SCOOP_SEGMENTS = 5
 
+# Tow bar: a hitch ball. The bar itself is a PinJoint, drawn as a line.
+TOWBAR_R = 9.0
+TOWBAR_LENGTH = 70.0
+
 # Wrench: an open spanner head. Rotational intent should be legible at a
 # glance -- it is the only agent whose whole job is angle.
 WRENCH_R = 15.0
@@ -244,6 +248,8 @@ _PUSHER_RADII: dict[str, float] = {
     "scoop": SCOOP_R,
     "soft": SOFT_SPAN / 2 + SOFT_NODE_R,
     "wrench": WRENCH_R,
+    "towbar": TOWBAR_R,
+    "compliant": COMPLIANT_R,
 }
 
 
@@ -425,6 +431,12 @@ def make_pusher(
             x.friction = OBJECT_FRICTION
         space.add(body, *parts)
         return body, parts
+
+    if shape == "towbar":
+        sh = pymunk.Circle(body, TOWBAR_R)
+        sh.friction = OBJECT_FRICTION
+        space.add(body, sh)
+        return body, [sh]
 
     if shape == "wrench":
         # Sensor: the wrench acts through a GearJoint, never through contact.

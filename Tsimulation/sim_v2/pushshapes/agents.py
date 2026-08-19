@@ -32,6 +32,7 @@ import pymunk
 
 from .shapes import (
     GRIPPER_JAW_HALF_H,
+    TOWBAR_LENGTH,
     SOFT_DAMPING,
     SOFT_NODE_MASS,
     SOFT_NODE_R,
@@ -1483,6 +1484,113 @@ class ScoopAgent(Agent):
 
 
 
+class TowbarAgent(Agent):
+    """Rigid tow bar: 3-DOF (x, y, hitch).
+
+    A PinJoint holds the object at a FIXED distance, so it trails behind and
+    pivots about the hitch -- and because the link is rigid rather than a rope,
+    it transmits PUSH as well as pull. Measured: agent advances, object moves
+    +178.3, which a tether physically cannot do; and steering makes the object
+    swing about the hitch (25 degrees over a straight haul, more when weaving).
+
+    Its character is indirect control. You never place the object; you place
+    yourself, and the object arrives on the far end of a bar that swings. That
+    is a different skill from carrying (fixed offset) and from pushing (contact
+    face), and it is the only agent here that must anticipate a trailing load.
+    """
+
+    action_dim = 3
+
+    def __init__(self, shape: str = "towbar", *, length: float = TOWBAR_LENGTH,
+                 solid_pusher: bool = True, solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self.length = float(length)
+        self._joint = None
+        self._hitch = 0.0
+
+    def _target_pose(self, action):
+        self._hitch = float(action[2])
+        return float(action[0]), float(action[1]), None
+
+    def on_reset(self, env) -> None:
+        self._joint, self._hitch = None, 0.0
+
+    @property
+    def hitched(self) -> bool:
+        return self._joint is not None
+
+    def active_constraints(self) -> tuple:
+        return (self._joint,) if self._joint is not None else ()
+
+    def pre_substep(self, env):
+        want = self._hitch > 0.5
+        if want and self._joint is None:
+            d = (env._pusher_body.position - env._object_body.position).length
+            if d <= self.length * 1.4:
+                j = pymunk.PinJoint(env._pusher_body, env._object_body, (0, 0), (0, 0))
+                j.distance = self.length
+                j.max_force = _CONSTRAINT_FORCE
+                env._space.add(j)
+                self._joint = j
+        elif not want and self._joint is not None:
+            if self._joint in env._space.constraints:
+                env._space.remove(self._joint)
+            self._joint = None
+        return super().pre_substep(env)
+
+
+class CompliantAgent(Agent):
+    """Force-limited pusher: 2-DOF (x, y), same action space as `circle`.
+
+    Compliance here is LIMITED AUTHORITY, not a spring. Springs and
+    force-capped constraints both fail in this engine: velocity is erased every
+    step so a DampedSpring integrates to nothing, and a PivotJoint's max_force
+    against a KINEMATIC pusher (infinite mass) changes nothing at all --
+    measured carried-fraction was identical (97/97/95/71/46 %) from max_force
+    5e4 through 1e7, because the solver satisfies the constraint by moving only
+    the object.
+
+    What IS expressible: cap how far the pusher may advance while in contact.
+    A rigid pusher has infinite authority and wins every contact; this one
+    cannot overpower a jammed or wall-pinned object and must approach along
+    directions that are actually free. Measured 3.2x weaker than `circle` on
+    the same commands.
+    """
+
+    action_dim = 2
+
+    def __init__(self, shape: str = "compliant", *,
+                 loaded_speed_frac: float = 0.25,
+                 solid_pusher: bool = True, solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self.loaded_speed_frac = float(loaded_speed_frac)
+        self._before = None
+
+    def pre_substep(self, env):
+        self._before = (float(env._pusher_body.position.x),
+                        float(env._pusher_body.position.y))
+        return super().pre_substep(env)
+
+    def post_substep(self, env, captured) -> None:
+        super().post_substep(env, captured)
+        if env._pusher_object_penetration_depth() <= 0.0 or self._before is None:
+            return          # free space: full authority, identical to a pusher
+        now = env._pusher_body.position
+        dx, dy = now.x - self._before[0], now.y - self._before[1]
+        moved = math.hypot(dx, dy)
+        cap = self.loaded_speed_frac * env.PUSHER_SPEED * (env.DT / env.SUBSTEPS)
+        if moved > cap > 0.0:
+            k = cap / moved
+            env._pusher_body.position = (self._before[0] + dx * k,
+                                         self._before[1] + dy * k)
+
+
 _SIMPLE = ("circle", "circle_small", "stick", "L")
 
 #: shape name -> agent class, for everything that is not a plain 2-DOF pusher.
@@ -1494,6 +1602,8 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "tether": TetherAgent,
     "two_point": TwoPointAgent,
     "scoop": ScoopAgent,
+    "towbar": TowbarAgent,
+    "compliant": CompliantAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.
