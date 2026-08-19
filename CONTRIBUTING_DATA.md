@@ -372,7 +372,7 @@ directly from the landmarks: the translation is a palm-center stand-in — the
 centroid of the wrist and the index/middle/ring MCPs (joints `0, 5, 9, 13`) —
 and the orientation is built from the wrist→palm direction plus a palm normal
 taken as `(index_MCP − wrist) × (pinky_MCP − wrist)`, sign-flipped for the left
-hand so the normal points out of the palm on both sides. Frames with missing or
+hand so the normal points out of the palm on both sides. **Orthogonalization order matters:** the two seed directions (the palm normal and the wrist→palm/forward axis) are not exactly perpendicular (they sit ~2–3° off 90° on a real hand), so building an orthonormal frame requires choosing which one is kept exact. Keep the **palm normal** as the primary axis (`z`), held exact: set `y = normalize((wrist→palm) × z)` then `x = normalize(z × y)`, so the forward/wrist→palm axis is re-derived last and absorbs the small non-orthogonality. (Holding the forward axis exact and projecting the normal instead yields a frame rotated by that ~2–3° — a common divergence — so use this order to stay bit-consistent with the reference and other datasets.) Frames with missing or
 degenerate keypoints carry the `1e9` sentinel. Output is `(T, 7)` `XYZWXYZ`,
 the same layout as every other pose key. EgoVerse provides this as
 `mano_keypoints_to_cartesian` in
