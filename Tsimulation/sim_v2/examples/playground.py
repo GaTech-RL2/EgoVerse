@@ -156,6 +156,12 @@ def _draw_shape_polys(surf, shape_name, pose, colour, width=0):
 
 
 def main() -> int:
+    # Declared up front: `global` must precede every use of the name in this
+    # scope, and argparse's default=SCALE reads it near the top. ast.parse()
+    # accepts the wrong order -- it is a compile error, not a parse error --
+    # so validate with compile(), not ast.parse().
+    global SCALE, WIN
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--agent", default="circle", choices=list(VALID_PUSHERS))
     ap.add_argument("--object", default="T", choices=list(SHAPES))
@@ -181,7 +187,6 @@ def main() -> int:
                          "next embodiment once --per-agent is reached")
     args = ap.parse_args()
 
-    global SCALE, WIN
     SCALE = float(args.scale)
     WIN = int(WORLD * SCALE)
 
