@@ -181,6 +181,12 @@ SCOOP_R = 20.0
 SCOOP_THICK = 4.0
 SCOOP_SEGMENTS = 5
 
+# Wrench: an open spanner head. Rotational intent should be legible at a
+# glance -- it is the only agent whose whole job is angle.
+WRENCH_R = 15.0
+WRENCH_THICK = 5.0
+WRENCH_OPENING = 1.15   # radians of missing arc (the jaw gap)
+
 # Soft body: a deformable pad. Unlike every other end effector this one is not
 # a rigid outline -- SOFT_NODES dynamic discs are sprung to a kinematic root,
 # so the contact face CHANGES SHAPE against the object instead of transmitting
@@ -237,6 +243,7 @@ _PUSHER_RADII: dict[str, float] = {
     "roller": ROLLER_HALF_H,
     "scoop": SCOOP_R,
     "soft": SOFT_SPAN / 2 + SOFT_NODE_R,
+    "wrench": WRENCH_R,
 }
 
 
@@ -416,6 +423,24 @@ def make_pusher(
                 2 * RAKE_TOOTH_HALF_W, 2 * RAKE_TOOTH_HALF_H)))
         for x in parts:
             x.friction = OBJECT_FRICTION
+        space.add(body, *parts)
+        return body, parts
+
+    if shape == "wrench":
+        # Sensor: the wrench acts through a GearJoint, never through contact.
+        # A colliding wrench would just be another pusher.
+        parts = []
+        n = 7
+        span = 2 * math.pi - WRENCH_OPENING
+        for i in range(n):
+            a0 = WRENCH_OPENING / 2 + i * (span / n)
+            a1 = a0 + (span / n) * 0.92
+            seg = pymunk.Segment(
+                body,
+                (WRENCH_R * math.cos(a0), WRENCH_R * math.sin(a0)),
+                (WRENCH_R * math.cos(a1), WRENCH_R * math.sin(a1)),
+                WRENCH_THICK / 2)
+            parts.append(seg)
         space.add(body, *parts)
         return body, parts
 

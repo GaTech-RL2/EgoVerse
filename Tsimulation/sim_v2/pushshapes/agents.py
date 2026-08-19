@@ -187,16 +187,14 @@ AGENT_GAP_RANGES: dict[str, dict[str, tuple]] = {
                 "gain": (0.9, 1.0), "noise_std": (0.0, 0.5)},
     "suction": {"latency_steps": (0, 2), "lag": (0.1, 0.4), "deadband": (0.0, 1.5),
                 "gain": (0.95, 1.0), "noise_std": (0.0, 0.8)},
+    "wrench": {"latency_steps": (1, 4), "lag": (0.2, 0.5), "deadband": (0.0, 2.0),
+               "gain": (0.92, 1.0), "noise_std": (0.0, 1.0)},
+    "scoop": {"latency_steps": (0, 3), "lag": (0.15, 0.5), "deadband": (0.0, 2.5),
+              "gain": (0.92, 1.0), "noise_std": (0.0, 1.2)},
     "two_point": {"latency_steps": (0, 3), "lag": (0.1, 0.5), "deadband": (0.0, 2.0),
                   "gain": (0.93, 1.0), "noise_std": (0.5, 2.5)},
     "tether": {"latency_steps": (1, 4), "lag": (0.2, 0.6), "deadband": (0.0, 3.0),
                "gain": (0.9, 1.0), "noise_std": (0.0, 1.2)},
-    "magnet": {"latency_steps": (2, 6), "lag": (0.3, 0.7), "deadband": (0.0, 2.0),
-               "gain": (0.88, 1.0), "noise_std": (0.5, 3.0)},
-    "tapper": {"latency_steps": (2, 6), "lag": (0.2, 0.6), "deadband": (1.0, 5.0),
-               "gain": (0.9, 1.0), "noise_std": (0.5, 2.5)},
-    "compliant": {"latency_steps": (0, 1), "lag": (0.0, 0.25), "deadband": (0.0, 1.0),
-                  "gain": (0.97, 1.0), "noise_std": (0.0, 0.5)},
 }
 
 
@@ -355,12 +353,33 @@ class Agent:
     def on_reset(self, env) -> None:
         """Per-episode state reset. No-op for a stateless agent."""
 
+    def active_constraints(self) -> tuple:
+        """Constraints this agent currently holds against the object.
+
+        The solid-contact guard MUST be skipped while any of these exist --
+        see post_substep.
+        """
+        return ()
+
     def pre_substep(self, env):
         """Capture whatever post_substep needs to compare against."""
+        if self.active_constraints():
+            return None
         return self._capture_solid_contact_guard_pose(env)
 
     def post_substep(self, env, captured) -> None:
-        """Reject a substep that tunnels through the object or static geometry."""
+        """Reject a substep that tunnels through the object or static geometry.
+
+        SKIPPED while the agent holds a constraint. The guard restores the
+        pusher's pose when penetration grows, which is right for a pusher
+        tunnelling through the object and catastrophically wrong for one that
+        is BOUND to it: constraint-driven motion reads as tunnelling and the
+        agent is pinned in place. That silently disabled three agents before
+        this rule existed -- the gripper travelled 0.00 instead of -94, and the
+        wrench sat at its spawn for 600 steps while reporting coupled=True.
+        """
+        if captured is None or self.active_constraints():
+            return
         self._guard_solid_contact_penetration(env, captured)
 
     def _capture_solid_contact_guard_pose(
@@ -982,306 +1001,435 @@ class USocketAgent(Agent):
 # Behaviourally-distinct agents
 # =====================================================================
 #
-# These exist to make the DATA diverse, not the geometry. A policy that
-# solves `circle` transfers almost unchanged to `stick` or `L` -- all three
-# are 2-DOF position-controlled pushers and differ only in contact patch.
-# Each agent below breaks a different assumption, so a policy has to change
-# strategy rather than just re-fit contact offsets:
+# DESIGNED AROUND WHAT THIS ENGINE CAN ACTUALLY DO. space.damping is 0, i.e.
+# pymunk erases ALL velocity every step, so the sim is quasi-static: the
+# object moves only while something is actively resolving against it inside
+# the solver. Measured, pusher held 90 units away so it never touches:
 #
-#   gripper    can CARRY      -- transport decouples from contact geometry
-#   suction    attaches, free spin -- position is controllable, angle is not
-#   two_point  two contacts   -- caging/pinching, no attachment
-#   tether     can only PULL  -- must reposition to change force direction
-#   magnet     no contact     -- force at a distance, nothing to push against
-#   compliant  force-limited  -- cannot overpower; must use momentum
-#   tapper     impulsive      -- ballistic object motion, open-loop between hits
+#   PivotJoint, pusher recedes ....... object follows 118.1   <- works
+#   SlideJoint, pusher recedes ....... object follows 118.3   <- works
+#   GearJoint only, pusher rotates ... rotates 156.7 deg, moves 8.4  <- works
+#   apply_force  (accel 4e5) ......... 67.3, and only by drifting into contact
+#   apply_impulse (dv 210) ........... 1.8  -- i.e. nothing
 #
-# All of them use the same three hooks as the socket, so env.step is
-# untouched by any of this.
+# So forces and impulses are the WRONG PRIMITIVE here: a magnet or a ballistic
+# tapper cannot work without changing world physics, and changing space.damping
+# per agent (the earlier approach) both made the object bounce and turned the
+# embodiment into a confound, since it alters the OBJECT rather than the
+# end effector. Every agent below is built from contact geometry plus hard
+# constraints, which the solver handles exactly and without jitter.
+#
+# The set is chosen so each one holds an affordance no other has:
+#
+#   agent      translate  rotate  pull  remote  holds   the thing only it does
+#   suction    yes        NO      yes   no      yes     position without orientation
+#   gripper    yes        yes     yes   no      yes     full rigid control, if grasped
+#   wrench     NO         yes     no    YES     no      orient at a distance
+#   tether     pull only  weak    yes   no      yes     cannot push at all
+#   two_point  yes        yes     no    no      no      rotate with nothing attached
+#   scoop      yes        yes     no    no      loose   carry, droppable by tilting
 
-_SUCTION_GRIP_RADIUS = 26.0      # how close the pad must be to grab
-_SUCTION_RELEASE_BLOCK = 10      # substeps before re-grip after a release
-_TETHER_MAX_LEN = 150.0          # rope length; beyond this it goes taut
-_TETHER_GRAB_RADIUS = 30.0
-# Expressed as an ACCELERATION (units/s^2 at r = _MAGNET_MIN_R), not a force:
-# the object's mass is 1890, so a force-valued constant silently becomes a
-# no-op if the density ever changes. The agent multiplies by mass at use.
-_MAGNET_ACCEL = 4.0e5
-_MAGNET_MIN_R = 28.0             # clamp so the force cannot blow up at r->0
-_MAGNET_MAX_R = 260.0            # beyond this the magnet does nothing
-# Measured: a normal circle push runs at penetration mean 0.08 / max 0.31.
-# The threshold has to sit INSIDE that band or the agent never yields at all
-# (2.0 fired on 0/40 steps and made this a no-op).
-# Fraction of PUSHER_SPEED the compliant agent may advance while in contact.
-_COMPLIANT_LOADED_SPEED_FRAC = 0.25
-# Expressed as a DELTA-V (units/s) imparted at strike=1, for the same reason.
-# The old force-valued 900 gave dv = 900/1890 = 0.48, i.e. nothing.
-_TAPPER_DELTA_V = 210.0
-_TAPPER_REACH = 34.0             # must be this close to connect
-_TAPPER_COOLDOWN = 6             # substeps between strikes
-
-# env.DAMPING is 0, i.e. pymunk kills ALL velocity every step: the sim is
-# quasi-static and the object moves only while something kinematically pushes
-# it. Verified directly -- a 900-unit impulse under damping=0 displaces the
-# body by 0.002 and leaves v=0. Force- and impulse-driven agents are therefore
-# impossible in that world, so they set their own damping in on_reset (the env
-# assigns space.damping BEFORE calling on_reset, so this is a supported
-# override, and it is recorded in init_fields so replays reproduce it).
-_MAGNET_DAMPING = 0.15
-_TAPPER_DAMPING = 0.35
-
-#: Any non-zero group; pymunk skips collisions between shapes sharing one.
-_SOFT_COLLISION_GROUP = 0x50F7
-
-
-def _object_local_point(env, world_xy):
-    """World XY -> the object body's local frame."""
-    return env._object_body.world_to_local(pymunk.Vec2d(*world_xy))
+_SUCTION_GRIP_RADIUS = 30.0
+_SUCTION_RELEASE_BLOCK = 10
+#: Two orders below _CONSTRAINT_FORCE: enough to reorient a settled object,
+#: not enough to stop a fast drag twisting it. This is the pad slipping.
+_SUCTION_TWIST_FORCE = 6.0e5
+_WRENCH_RANGE = 150.0
+_TETHER_LINKS = 10
+_TETHER_LINK_LEN = 14.0
+_TETHER_GRAB_RADIUS = 34.0
+_CONSTRAINT_FORCE = 5.0e7
+#: Any non-zero group; pymunk skips collisions between shapes sharing one, so
+#: the rope cannot snag on itself or on the pusher that is dragging it.
+_ROPE_GROUP = 0x50F7
 
 
 class GripperAgent(Agent):
     """Parallel-jaw gripper: 4-DOF (x, y, angle, jaw).
 
-    The only agent that can CARRY. Closing the jaws on the object pins it, so
-    transport stops depending on maintaining a push direction -- the policy can
-    grasp, move anywhere, rotate, and release. That is a different task
-    structure, not a different contact patch.
+    Pivot + Gear once closed, so the object becomes rigidly attached: full
+    translation AND orientation authority, but only while grasped. Everything
+    else here gives up one of the two.
 
-    jaw in [0, 1]: 0 = closed, 1 = open. The jaws are separate kinematic
-    bodies parented to the palm, because env drives exactly one body.
+    jaw in [0, 1]: 0 closed, 1 open.
     """
 
     action_dim = 4
     controls_angle = True
-    init_fields = ("grip_force_scale",)
 
-    def __init__(self, shape: str = "gripper", *, grip_force_scale: float = 1.0,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
+    def __init__(self, shape: str = "gripper", *, solid_pusher: bool = True,
+                 solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
-        self.grip_force_scale = float(grip_force_scale)
-        self._jaw_bodies: list[pymunk.Body] = []
+        self._jaws: list[pymunk.Body] = []
         self._jaw_cmd = 1.0
         self._grasp = None
 
     def build(self, space, position):
         body, shapes = super().build(space, position)
-        self._jaw_bodies = []
+        self._jaws = []
         for sign in (-1.0, 1.0):
             jaw = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
             jaw.position = (position[0] + sign * GRIPPER_JAW_MAX_GAP / 2, position[1])
-            poly = pymunk.Poly(
-                jaw,
-                _rect_verts(0.0, 0.0, 2 * GRIPPER_JAW_HALF_W, 2 * GRIPPER_JAW_HALF_H),
-            )
+            poly = pymunk.Poly(jaw, _rect_verts(
+                0.0, 0.0, 2 * GRIPPER_JAW_HALF_W, 2 * GRIPPER_JAW_HALF_H))
             poly.friction = OBJECT_FRICTION
             space.add(jaw, poly)
-            self._jaw_bodies.append(jaw)
+            self._jaws.append(jaw)
         return body, shapes
 
     def _target_pose(self, action):
-        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         self._jaw_cmd = min(1.0, max(0.0, float(action[3])))
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         return float(action[0]), float(action[1]), angle
 
     def on_reset(self, env) -> None:
-        self._jaw_cmd = 1.0
-        self._release(env)
-
-    def _gap(self, env=None) -> float:
-        """Commanded gap, floored by the object's width along the jaw axis.
-
-        Without the floor the jaws close to GRIPPER_JAW_MIN_GAP (8 units)
-        straight THROUGH an object far wider than that, so the solid-contact
-        guard spends every substep fighting the penetration and the grasp
-        never transports anything. Real jaws stop where they touch.
-        """
-        gap = GRIPPER_JAW_MIN_GAP + self._jaw_cmd * (
-            GRIPPER_JAW_MAX_GAP - GRIPPER_JAW_MIN_GAP
-        )
-        if env is not None and self._grasp is not None:
-            gap = max(gap, 2.0 * self._object_half_width(env) + 1.0)
-        return min(gap, GRIPPER_JAW_MAX_GAP)
-
-    def _object_half_width(self, env) -> float:
-        """Object half-extent projected on the palm's jaw axis."""
-        palm = env._pusher_body
-        ca, sa = math.cos(-palm.angle), math.sin(-palm.angle)
-        best = 0.0
-        for shape in env._object_shapes:
-            for v in shape.get_vertices():
-                w = v.rotated(env._object_body.angle) + env._object_body.position
-                rel = w - palm.position
-                lx = rel.x * ca - rel.y * sa
-                best = max(best, abs(lx))
-        return best
-
-    def _sync_jaws(self, env) -> None:
-        """Keep the jaws rigidly parented to the palm at the commanded gap."""
-        palm = env._pusher_body
-        half = self._gap(env) / 2.0
-        ca, sa = math.cos(palm.angle), math.sin(palm.angle)
-        for sign, jaw in zip((-1.0, 1.0), self._jaw_bodies):
-            ox = sign * half
-            jaw.position = (
-                palm.position.x + ox * ca,
-                palm.position.y + ox * sa,
-            )
-            jaw.angle = palm.angle
-            jaw.velocity = palm.velocity
-            jaw.angular_velocity = palm.angular_velocity
-
-    def _jaws_span_object(self, env) -> bool:
-        """True when the object centre lies between the jaws and close to the
-        palm axis -- the cheap stand-in for 'the pinch would actually hold'."""
-        palm = env._pusher_body
-        rel = env._object_body.position - palm.position
-        ca, sa = math.cos(-palm.angle), math.sin(-palm.angle)
-        lx = rel.x * ca - rel.y * sa
-        ly = rel.x * sa + rel.y * ca
-        # Capture width is the OPEN span, not the current gap: the object is
-        # grasped if it lies between the jaws as they close. Using the closed
-        # gap (4 units) demanded the object centre sit on the palm centre, so
-        # a grasp essentially never fired.
-        return (
-            abs(lx) <= GRIPPER_JAW_MAX_GAP / 2.0
-            and abs(ly) <= GRIPPER_JAW_HALF_H
-        )
-
-    def post_substep(self, env, captured) -> None:
-        """Skip the solid-contact guard while grasped.
-
-        The guard restores the last safe pose when pusher-object penetration
-        grows, which is the right call for a pusher tunnelling through the
-        object. A GRASPED object is legitimately interpenetrating the jaws and
-        travelling with them, so the guard reads normal transport as tunnelling
-        and pins the palm: measured palm dx = 0.00 with the guard on versus
-        -94.00 with it off, i.e. it disabled carrying entirely.
-        """
-        if self._grasp is not None:
-            return
-        super().post_substep(env, captured)
-
-    def pre_substep(self, env):
-        self._sync_jaws(env)
-        closing = self._jaw_cmd <= 0.35
-        if closing and self._grasp is None and self._jaws_span_object(env):
-            self._attach(env)
-        elif not closing and self._grasp is not None:
-            self._release(env)
-        return super().pre_substep(env)
-
-    def _attach(self, env) -> None:
-        palm, obj = env._pusher_body, env._object_body
-        pivot = pymunk.PivotJoint(palm, obj, obj.position)
-        gear = pymunk.GearJoint(palm, obj, obj.angle - palm.angle, 1.0)
-        for c in (pivot, gear):
-            c.max_force = 8.0e7 * self.grip_force_scale
-            env._space.add(c)
-        self._grasp = (pivot, gear)
-
-    def _release(self, env) -> None:
-        if self._grasp is None:
-            return
-        for c in self._grasp:
-            if c in env._space.constraints:
-                env._space.remove(c)
-        self._grasp = None
+        self._jaw_cmd, self._grasp = 1.0, None
 
     @property
     def grasped(self) -> bool:
         return self._grasp is not None
 
+    def active_constraints(self) -> tuple:
+        return tuple(self._grasp) if self._grasp else ()
+
+    def _gap(self, env) -> float:
+        gap = GRIPPER_JAW_MIN_GAP + self._jaw_cmd * (
+            GRIPPER_JAW_MAX_GAP - GRIPPER_JAW_MIN_GAP)
+        if self._grasp is not None:
+            # Jaws stop where they touch. Closing to the bare minimum drives
+            # them THROUGH an object wider than the gap.
+            gap = max(gap, 2.0 * self._obj_half_width(env) + 1.0)
+        return min(gap, GRIPPER_JAW_MAX_GAP)
+
+    def _obj_half_width(self, env) -> float:
+        palm = env._pusher_body
+        ca, sa = math.cos(-palm.angle), math.sin(-palm.angle)
+        best = 0.0
+        for sh in env._object_shapes:
+            for v in sh.get_vertices():
+                w = v.rotated(env._object_body.angle) + env._object_body.position
+                rel = w - palm.position
+                best = max(best, abs(rel.x * ca - rel.y * sa))
+        return best
+
+    def _sync(self, env):
+        palm = env._pusher_body
+        half = self._gap(env) / 2.0
+        ca, sa = math.cos(palm.angle), math.sin(palm.angle)
+        for sign, jaw in zip((-1.0, 1.0), self._jaws):
+            jaw.position = (palm.position.x + sign * half * ca,
+                            palm.position.y + sign * half * sa)
+            jaw.angle = palm.angle
+            jaw.velocity = palm.velocity
+            jaw.angular_velocity = palm.angular_velocity
+
+    def _spans(self, env) -> bool:
+        """Is there object MATERIAL between the jaws?
+
+        Not "is the centroid between the jaws" -- that was the first version
+        and it made grasping the T impossible. The T spans 120x120 but its
+        limbs are only 30 wide, so a 46-unit gripper grasps a LIMB; the
+        centroid sits at the junction, where approaching drives the jaws into
+        the crossbar and shoves the object away (measured: it flew to x=451
+        and was never grasped).
+        """
+        palm = env._pusher_body
+        half = GRIPPER_JAW_MAX_GAP / 2 * 0.7
+        for lx in (-half, 0.0, half):
+            for ly in (-GRIPPER_JAW_HALF_H * 0.5, 0.0, GRIPPER_JAW_HALF_H * 0.5):
+                w = palm.local_to_world((lx, ly))
+                for sh in env._object_shapes:
+                    if sh.point_query(w).distance <= 0.0:
+                        return True
+        return False
+
+    def pre_substep(self, env):
+        self._sync(env)
+        closing = self._jaw_cmd <= 0.35
+        if closing and self._grasp is None and self._spans(env):
+            palm, obj = env._pusher_body, env._object_body
+            cs = (pymunk.PivotJoint(palm, obj, obj.position),
+                  pymunk.GearJoint(palm, obj, obj.angle - palm.angle, 1.0))
+            for c in cs:
+                c.max_force = _CONSTRAINT_FORCE
+                env._space.add(c)
+            self._grasp = cs
+        elif not closing and self._grasp is not None:
+            for c in self._grasp:
+                if c in env._space.constraints:
+                    env._space.remove(c)
+            self._grasp = None
+        return super().pre_substep(env)
+
+
+
 
 class SuctionAgent(Agent):
     """Suction pad: 3-DOF (x, y, engage).
 
-    Attaches anywhere on the object surface with a PIVOT ONLY -- no gear
-    joint, so the object is free to SPIN about the contact point. Position
-    becomes directly controllable while orientation does not: the policy has
-    to induce rotation by dragging along arcs, or by letting contact with a
-    wall spin the object. That is the opposite trade from the u_socket, which
-    fixes angle rigidly.
+    Pivot plus a DELIBERATELY WEAK gear: position is locked to the pad, but
+    orientation is only held by pad friction, so it slips under load. You can
+    reorient, slowly, and a fast drag will twist the object out of alignment.
 
-    engage > 0.5 grabs when within reach; dropping below releases.
+    A bare pivot (the first version) has zero rotational stiffness: the object
+    free-spun to 89.9 degrees while being dragged and IoU capped at 0.286 no
+    matter how exactly position was solved. And the pad cannot reach the
+    centroid to avoid the torque -- it collides with the object's surface --
+    so some rotational stiffness is required for this to be an embodiment
+    rather than a partial one.
+
+    Distinct from the gripper, which holds angle rigidly and cannot slip.
     """
 
-    action_dim = 3
-    init_fields = ("suction_max_force",)
+    action_dim = 4
+    controls_angle = True
 
-    def __init__(self, shape: str = "suction", *, suction_max_force: float = 4.0e7,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
+    def __init__(self, shape: str = "suction", *, solid_pusher: bool = True,
+                 solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
-        self.suction_max_force = float(suction_max_force)
         self._joint = None
         self._engage = 0.0
         self._block = 0
 
     def _target_pose(self, action):
         self._engage = float(action[2])
-        return float(action[0]), float(action[1]), None
+        # Angle is commanded but only weakly enforced (see the gear's
+        # max_force): the pad twists the object rather than locking it.
+        return float(action[0]), float(action[1]), float(action[3]) if len(action) > 3 else None
 
     def on_reset(self, env) -> None:
-        self._joint = None
-        self._engage = 0.0
-        self._block = 0
+        self._joint, self._engage, self._block = None, 0.0, 0
 
     @property
     def attached(self) -> bool:
         return self._joint is not None
 
+    def active_constraints(self) -> tuple:
+        return tuple(self._joint) if self._joint else ()
+
     def pre_substep(self, env):
-        if self._block > 0:
+        if self._block:
             self._block -= 1
         want = self._engage > 0.5
-        if want and self._joint is None and self._block == 0:
+        if want and self._joint is None and not self._block:
             pad = env._pusher_body.position
             if (pad - env._object_body.position).length <= _SUCTION_GRIP_RADIUS:
-                j = pymunk.PivotJoint(env._pusher_body, env._object_body, pad)
-                j.max_force = self.suction_max_force
-                env._space.add(j)
-                self._joint = j
+                pu, obj = env._pusher_body, env._object_body
+                j = pymunk.PivotJoint(pu, obj, pad)
+                j.max_force = _CONSTRAINT_FORCE
+                g = pymunk.GearJoint(pu, obj, obj.angle - pu.angle, 1.0)
+                g.max_force = _SUCTION_TWIST_FORCE   # slips well before the pivot does
+                env._space.add(j, g)
+                self._joint = (j, g)
+        elif not want and self._joint is not None:
+            for c in self._joint:
+                if c in env._space.constraints:
+                    env._space.remove(c)
+            self._joint, self._block = None, _SUCTION_RELEASE_BLOCK
+        return super().pre_substep(env)
+
+
+class WrenchAgent(Agent):
+    """Remote orienter: 3-DOF (x, y, angle).
+
+    A GearJoint and nothing else, engaged whenever the agent is within range --
+    NO CONTACT REQUIRED. The object's orientation follows the agent's, while
+    its position is left completely free.
+
+    Measured in isolation: 156.7 degrees of rotation for 8.4 units of drift.
+    That inverts every other embodiment here, which buy position and struggle
+    for angle. Since the goal pose has an orientation, an agent that can only
+    supply angle is genuinely useful and genuinely incomplete -- it has to be
+    paired with something that translates, which is the point of a diverse set.
+
+    The head is SOLID, so translation comes from ordinary pushing while
+    orientation comes from the remote gear. That split -- push for position,
+    reach for angle -- is its own strategy: it can fix the angle from across
+    the arena before it ever arrives.
+
+    This replaces the old force-based magnet, which could not work: applying
+    force in a world that erases velocity every step moved the object 1.8-67
+    units where a constraint moves it 118.
+    """
+
+    action_dim = 3
+    controls_angle = True
+
+    def __init__(self, shape: str = "wrench", *, solid_pusher: bool = True,
+                 solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self._joint = None
+        self._engage = 0.0
+
+    def _target_pose(self, action):
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        self._engage = 1.0
+        return float(action[0]), float(action[1]), angle
+
+    def on_reset(self, env) -> None:
+        self._joint = None
+
+    @property
+    def coupled(self) -> bool:
+        return self._joint is not None
+
+    def active_constraints(self) -> tuple:
+        return (self._joint,) if self._joint is not None else ()
+
+    def in_range(self, env) -> bool:
+        return (env._pusher_body.position
+                - env._object_body.position).length <= _WRENCH_RANGE
+
+    def pre_substep(self, env):
+        want = self.in_range(env)
+        if want and self._joint is None:
+            pu, obj = env._pusher_body, env._object_body
+            j = pymunk.GearJoint(pu, obj, obj.angle - pu.angle, 1.0)
+            j.max_force = _CONSTRAINT_FORCE
+            env._space.add(j)
+            self._joint = j
         elif not want and self._joint is not None:
             if self._joint in env._space.constraints:
                 env._space.remove(self._joint)
             self._joint = None
-            self._block = _SUCTION_RELEASE_BLOCK
+        return super().pre_substep(env)
+
+
+class TetherAgent(Agent):
+    """Rope tether: 3-DOF (x, y, hook).
+
+    An ACTUAL ROPE: ten dynamic links pinned end to end, the last of which
+    pins to the object when hooked. Not a distance constraint pretending to be
+    one -- the chain exists in the space, drapes, and is drawn from real body
+    positions.
+
+    Pull only. Slack rope transmits nothing, so pushing the agent at the object
+    does nothing at all; to change the direction of force you must physically
+    travel around it. Approach angle stops being a detail and becomes the plan.
+    """
+
+    action_dim = 3
+
+    def __init__(self, shape: str = "tether", *, solid_pusher: bool = True,
+                 solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self._links: list[pymunk.Body] = []
+        self._link_joints: list[pymunk.Constraint] = []
+        self._hook_joint = None
+        self._hook = 0.0
+
+    def build(self, space, position):
+        body, shapes = super().build(space, position)
+        self._links, self._link_joints, self._hook_joint = [], [], None
+        prev = body
+        for i in range(_TETHER_LINKS):
+            lb = pymunk.Body(1.0, pymunk.moment_for_segment(
+                1.0, (0, 0), (_TETHER_LINK_LEN, 0), 2.0))
+            lb.position = (position[0] + (i + 1) * _TETHER_LINK_LEN, position[1])
+            sh = pymunk.Segment(lb, (0, 0), (_TETHER_LINK_LEN, 0), 2.0)
+            sh.friction = OBJECT_FRICTION
+            # Rope must not snag on itself or on the pusher; only the object
+            # and the walls should ever stop it.
+            sh.filter = pymunk.ShapeFilter(group=_ROPE_GROUP)
+            space.add(lb, sh)
+            anchor_prev = (0.0, 0.0) if prev is body else (_TETHER_LINK_LEN, 0.0)
+            j = pymunk.PivotJoint(prev, lb, anchor_prev, (0.0, 0.0))
+            space.add(j)
+            self._link_joints.append(j)
+            self._links.append(lb)
+            prev = lb
+        return body, shapes
+
+    def _target_pose(self, action):
+        self._hook = float(action[2])
+        return float(action[0]), float(action[1]), None
+
+    def on_reset(self, env) -> None:
+        self._links, self._link_joints, self._hook_joint = [], [], None
+        self._hook = 0.0
+
+    @property
+    def hooked(self) -> bool:
+        return self._hook_joint is not None
+
+    def active_constraints(self) -> tuple:
+        return (self._hook_joint,) if self._hook_joint is not None else ()
+
+    def rope_points(self) -> list[tuple[float, float]]:
+        """World polyline of the rope, for rendering."""
+        pts = []
+        for lb in self._links:
+            a = lb.local_to_world((0.0, 0.0))
+            pts.append((float(a.x), float(a.y)))
+        if self._links:
+            b = self._links[-1].local_to_world((_TETHER_LINK_LEN, 0.0))
+            pts.append((float(b.x), float(b.y)))
+        return pts
+
+    def pre_substep(self, env):
+        want = self._hook > 0.5
+        if want and self._hook_joint is None and self._links:
+            tip = self._links[-1].local_to_world((_TETHER_LINK_LEN, 0.0))
+            if (tip - env._object_body.position).length <= _TETHER_GRAB_RADIUS:
+                # Anchor where the rope actually TOUCHES, not at the centroid.
+                # An off-centre hook turns a pull into a pull plus a torque, so
+                # WHERE you attach chooses how the object turns -- the tether's
+                # only means of controlling angle.
+                local = env._object_body.world_to_local(tip)
+                j = pymunk.PivotJoint(
+                    self._links[-1], env._object_body,
+                    (_TETHER_LINK_LEN, 0.0), (float(local.x), float(local.y)))
+                j.max_force = _CONSTRAINT_FORCE
+                env._space.add(j)
+                self._hook_joint = j
+        elif not want and self._hook_joint is not None:
+            if self._hook_joint in env._space.constraints:
+                env._space.remove(self._hook_joint)
+            self._hook_joint = None
         return super().pre_substep(env)
 
 
 class TwoPointAgent(Agent):
-    """Two independent point contacts: 4-DOF (x1, y1, x2, y2).
+    """Two independent contacts: 4-DOF (x1, y1, x2, y2).
 
-    No attachment of any kind. Everything is achieved by CAGING -- closing two
-    contacts around the object so it cannot escape, then translating both. It
-    can rotate the object by moving the two points differentially, which no
-    single-contact pusher can do without relying on friction moments.
-
-    env drives point 1; the agent drives point 2 itself in pre_substep.
+    Nothing attaches. Everything is caging: close two contacts around the
+    object and translate, or move them differentially to spin it. The only
+    agent that can rotate the object with NO constraint binding it, which also
+    means it can drop it at any instant.
     """
 
     action_dim = 4
 
     def __init__(self, shape: str = "two_point", *, solid_pusher: bool = True,
-                 solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
+                 solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
-        self._second: pymunk.Body | None = None
+        self._second = None
         self._t2 = (0.0, 0.0)
 
     def build(self, space, position):
         body, shapes = super().build(space, position)
-        second = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-        second.position = (position[0] + 3 * TWO_POINT_RADIUS, position[1])
-        s = pymunk.Circle(second, TWO_POINT_RADIUS)
-        s.friction = OBJECT_FRICTION
-        space.add(second, s)
-        self._second = second
-        self._t2 = (float(second.position.x), float(second.position.y))
+        b2 = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+        b2.position = (position[0] + 3 * TWO_POINT_RADIUS, position[1])
+        sh = pymunk.Circle(b2, TWO_POINT_RADIUS)
+        sh.friction = OBJECT_FRICTION
+        space.add(b2, sh)
+        self._second = b2
+        self._t2 = (float(b2.position.x), float(b2.position.y))
         return body, shapes
 
     def _target_pose(self, action):
@@ -1290,20 +1438,25 @@ class TwoPointAgent(Agent):
 
     def on_reset(self, env) -> None:
         if self._second is not None:
-            self._t2 = (float(self._second.position.x), float(self._second.position.y))
+            self._t2 = (float(self._second.position.x),
+                        float(self._second.position.y))
+
+    @property
+    def second_pos(self):
+        if self._second is None:
+            return (0.0, 0.0)
+        return (float(self._second.position.x), float(self._second.position.y))
 
     def pre_substep(self, env):
-        # Drive the second contact with the same speed cap the env applies to
-        # the first, so neither point can outrun the other.
         if self._second is not None:
             pos = self._second.position
             dx, dy = self._t2[0] - pos.x, self._t2[1] - pos.y
-            dist = math.hypot(dx, dy)
-            if dist < 1e-9:
+            d = math.hypot(dx, dy)
+            if d < 1e-9:
                 self._second.velocity = (0.0, 0.0)
             else:
-                speed = min(env.PUSHER_SPEED, dist / (env.DT / env.SUBSTEPS))
-                self._second.velocity = (dx / dist * speed, dy / dist * speed)
+                sp = min(env.PUSHER_SPEED, d / (env.DT / env.SUBSTEPS))
+                self._second.velocity = (dx / d * sp, dy / d * sp)
         return super().pre_substep(env)
 
     def post_substep(self, env, captured) -> None:
@@ -1311,313 +1464,14 @@ class TwoPointAgent(Agent):
         if self._second is not None:
             self._second.velocity = (0.0, 0.0)
 
-    @property
-    def second_pos(self) -> tuple[float, float]:
-        if self._second is None:
-            return (0.0, 0.0)
-        return (float(self._second.position.x), float(self._second.position.y))
-
-
-class TetherAgent(Agent):
-    """Rope tether: 3-DOF (x, y, hook).
-
-    Can only PULL. A SlideJoint with min=0 resists lengthening past the rope
-    length but does nothing in compression, so pushing the tether toward the
-    object just goes slack. To change the direction of force the policy must
-    physically travel around the object -- there is no way to "push from the
-    other side" without repositioning. Approach angle stops being a detail and
-    becomes the whole plan.
-    """
-
-    action_dim = 3
-    init_fields = ("tether_length",)
-
-    def __init__(self, shape: str = "tether", *, tether_length: float = _TETHER_MAX_LEN,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
-        super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard,
-                         control_gap=control_gap)
-        self.tether_length = float(tether_length)
-        self._joint = None
-        self._hook = 0.0
-
-    def _target_pose(self, action):
-        self._hook = float(action[2])
-        return float(action[0]), float(action[1]), None
-
-    def on_reset(self, env) -> None:
-        self._joint = None
-        self._hook = 0.0
-
-    @property
-    def hooked(self) -> bool:
-        return self._joint is not None
-
-    def pre_substep(self, env):
-        want = self._hook > 0.5
-        if want and self._joint is None:
-            d = (env._pusher_body.position - env._object_body.position).length
-            if d <= _TETHER_GRAB_RADIUS:
-                j = pymunk.SlideJoint(
-                    env._pusher_body, env._object_body,
-                    (0.0, 0.0), (0.0, 0.0),
-                    0.0, self.tether_length,
-                )
-                j.max_force = 3.0e7
-                env._space.add(j)
-                self._joint = j
-        elif not want and self._joint is not None:
-            if self._joint in env._space.constraints:
-                env._space.remove(self._joint)
-            self._joint = None
-        return super().pre_substep(env)
-
-
-class MagnetAgent(Agent):
-    """Magnetic dipole: 3-DOF (x, y, strength).
-
-    Applies an inverse-square attractive force at a distance and NEVER needs
-    to touch. With no contact there is no normal direction to push along, so
-    the object is steered by where the field is placed rather than by where it
-    is struck -- and because the force is always toward the magnet, "push it
-    left" means "get to its left first". Force is applied at the object's
-    centre of gravity, so this agent has essentially no direct torque
-    authority.
-
-    strength in [-1, 1]: positive attracts, negative repels.
-    """
-
-    action_dim = 3
-    init_fields = ("magnet_gain", "space_damping")
-
-    def __init__(self, shape: str = "magnet", *, magnet_gain: float = _MAGNET_ACCEL,
-                 solid_pusher: bool = False, solid_contact_guard: bool = False, control_gap: "ControlGap | str | None" = None):
-        # solid_* default False: the body is a sensor, so there is no contact
-        # for the penetration guard to police and enabling it would restore
-        # poses based on a penetration depth that is always zero.
-        super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard,
-                         control_gap=control_gap)
-        self.magnet_gain = float(magnet_gain)
-        self.space_damping = _MAGNET_DAMPING
-        self._strength = 0.0
-
-    def _target_pose(self, action):
-        self._strength = max(-1.0, min(1.0, float(action[2])))
-        return float(action[0]), float(action[1]), None
-
-    def on_reset(self, env) -> None:
-        self._strength = 0.0
-        # Without this the applied force integrates to nothing. See the
-        # _MAGNET_DAMPING note above.
-        env._space.damping = self.space_damping
-
-    def pre_substep(self, env):
-        if abs(self._strength) > 1e-6:
-            obj = env._object_body
-            d = env._pusher_body.position - obj.position
-            r = d.length
-            if 1e-9 < r <= _MAGNET_MAX_R:
-                r_eff = max(r, _MAGNET_MIN_R)
-                # accel * mass = force; inverse-square falloff normalised so
-                # magnet_gain IS the acceleration at r = _MAGNET_MIN_R.
-                accel = self.magnet_gain * self._strength * (
-                    _MAGNET_MIN_R * _MAGNET_MIN_R
-                ) / (r_eff * r_eff)
-                mag = accel * obj.mass
-                obj.apply_force_at_world_point(
-                    (d.x / r * mag, d.y / r * mag), obj.position
-                )
-        return super().pre_substep(env)
-
-
-class CompliantAgent(Agent):
-    """Force-limited pusher: 2-DOF (x, y), same action space as `circle`.
-
-    Identical commands, different physics. A kinematic pusher has infinite
-    authority -- it wins every contact and can shove the object through
-    anything. This one YIELDS: once it is more than a shallow depth into the
-    object it backs off, so it cannot overpower a jammed or wall-pinned
-    object. The policy has to build momentum and approach along directions
-    that are actually free, instead of leaning on infinite force.
-
-    This is the control pair for the whole set: it isolates the effect of
-    contact AUTHORITY with geometry and action space held constant.
-    """
-
-    action_dim = 2
-    init_fields = ("loaded_speed_frac",)
-
-    def __init__(self, shape: str = "compliant", *,
-                 loaded_speed_frac: float = _COMPLIANT_LOADED_SPEED_FRAC,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True, control_gap: "ControlGap | str | None" = None):
-        super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard,
-                         control_gap=control_gap)
-        self.loaded_speed_frac = float(loaded_speed_frac)
-        self._pos_before = None
-
-    def pre_substep(self, env):
-        self._pos_before = tuple(env._pusher_body.position)
-        return super().pre_substep(env)
-
-    def post_substep(self, env, captured) -> None:
-        super().post_substep(env, captured)
-        if env._pusher_object_penetration_depth() <= 0.0:
-            return  # free space: full authority, identical to a plain pusher
-        # LOADED. Cap the distance advanced this substep. Nudging the position
-        # back by the penetration excess (the first attempt) did nothing: the
-        # pusher is position-driven and simply re-advanced next substep, so
-        # the net effect was under 0.2 units over a whole episode. Capping the
-        # advance is what actually limits authority.
-        before = getattr(self, "_pos_before", None)
-        if before is None:
-            return
-        now = env._pusher_body.position
-        dx, dy = now.x - before[0], now.y - before[1]
-        moved = math.hypot(dx, dy)
-        cap = self.loaded_speed_frac * env.PUSHER_SPEED * (env.DT / env.SUBSTEPS)
-        if moved > cap > 0.0:
-            k = cap / moved
-            env._pusher_body.position = (before[0] + dx * k, before[1] + dy * k)
-
-
-class TapperAgent(Agent):
-    """Impulsive tapper: 3-DOF (x, y, strike).
-
-    Does not push continuously. A strike delivers a single impulse and then
-    the object travels BALLISTICALLY, decelerating under friction, with no
-    contact to correct it mid-flight. Control is open-loop between hits, so
-    the policy has to aim and meter force in advance rather than servo
-    continuously -- the one agent here whose errors cannot be fixed by
-    pressing harder.
-
-    strike in [0, 1]; fires on a rising edge past 0.5, then cools down.
-    """
-
-    action_dim = 3
-    controls_angle = True
-    init_fields = ("impulse_scale", "space_damping")
-
-    def __init__(self, shape: str = "tapper", *, impulse_scale: float = 1.0,
-                 solid_pusher: bool = False, solid_contact_guard: bool = False, control_gap: "ControlGap | str | None" = None):
-        # solid_* default False: the body is a sensor, so there is no contact
-        # for the penetration guard to police and enabling it would restore
-        # poses based on a penetration depth that is always zero.
-        super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard,
-                         control_gap=control_gap)
-        self.impulse_scale = float(impulse_scale)
-        self.space_damping = _TAPPER_DAMPING
-        self._strike = 0.0
-        self._prev_strike = 0.0
-        self._cool = 0
-        self._angle = 0.0
-
-    def _target_pose(self, action):
-        self._strike = min(1.0, max(0.0, float(action[2])))
-        # The bar points along its travel direction; angle is derived from the
-        # strike vector rather than commanded separately, keeping this 3-DOF.
-        return float(action[0]), float(action[1]), self._angle
-
-    def on_reset(self, env) -> None:
-        self._strike = self._prev_strike = 0.0
-        self._cool = 0
-        self._angle = 0.0
-        # Ballistic travel between strikes requires momentum to survive the
-        # step; env.DAMPING=0 would erase it. See _TAPPER_DAMPING above.
-        env._space.damping = self.space_damping
-
-    def pre_substep(self, env):
-        if self._cool > 0:
-            self._cool -= 1
-        rising = self._strike > 0.5 >= self._prev_strike
-        self._prev_strike = self._strike
-        if rising and self._cool == 0:
-            obj = env._object_body
-            d = obj.position - env._pusher_body.position
-            r = d.length
-            if 1e-9 < r <= _TAPPER_REACH:
-                self._angle = math.atan2(d.y, d.x)
-                # delta-v * mass = impulse.
-                mag = _TAPPER_DELTA_V * self.impulse_scale * self._strike * obj.mass
-                # Applied at the contact point, not the CoG, so an off-centre
-                # tap imparts spin -- that is the agent's only torque authority.
-                contact = env._pusher_body.position + d / r * (r - 1.0)
-                obj.apply_impulse_at_world_point(
-                    (d.x / r * mag, d.y / r * mag), contact
-                )
-                self._cool = _TAPPER_COOLDOWN
-        return super().pre_substep(env)
-
-
-class RakeAgent(Agent):
-    """Four-pronged rake: 3-DOF (x, y, angle).
-
-    Wide sweep, but the gaps between teeth mean it cannot concentrate force on
-    a point -- a narrow feature slips between the prongs instead of being
-    driven. Good at gathering, bad at precise placement, which inverts the
-    tradeoff every single-contact pusher makes.
-    """
-
-    action_dim = 3
-    controls_angle = True
-
-    def _target_pose(self, action):
-        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
-        return float(action[0]), float(action[1]), angle
-
-
-class RollerAgent(Agent):
-    """Powered roller: 3-DOF (x, y, spin).
-
-    Drives the object by ROLLING against it rather than pushing a face into
-    it. The barrel spins at the commanded rate, so contact imparts a tangential
-    force -- the object is dragged along the barrel surface, and reversing spin
-    reverses that force without moving the body at all. A pusher must travel to
-    exert force; this one need not.
-
-    spin in [-1, 1], scaled to ROLLER_MAX_SPIN rad/s.
-    """
-
-    action_dim = 3
-    controls_angle = True
-    init_fields = ("max_spin",)
-
-    def __init__(self, shape: str = "roller", *, max_spin: float = 14.0,
-                 solid_pusher: bool = True, solid_contact_guard: bool = True,
-                 control_gap: "ControlGap | str | None" = None):
-        super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard,
-                         control_gap=control_gap)
-        self.max_spin = float(max_spin)
-        self._spin = 0.0
-
-    def _target_pose(self, action):
-        self._spin = max(-1.0, min(1.0, float(action[2])))
-        # Angle is driven by the spin command, not commanded directly, so the
-        # env's angular servo does not fight the roll.
-        return float(action[0]), float(action[1]), None
-
-    def on_reset(self, env) -> None:
-        self._spin = 0.0
-
-    def post_substep(self, env, captured) -> None:
-        super().post_substep(env, captured)
-        # Set angular velocity AFTER the env zeroed/─drove it, so the barrel
-        # keeps spinning even when the body is stationary. This is the whole
-        # point: force without travel.
-        env._pusher_body.angular_velocity = self._spin * self.max_spin
-
 
 class ScoopAgent(Agent):
     """Concave scoop: 3-DOF (x, y, angle).
 
-    Cradles the object inside its arc and carries it -- transport WITHOUT a
-    grasp. Nothing attaches, so the hold is pure geometry and friction: rotate
-    the opening away from the direction of travel and the object rolls out.
-    It sits between the pushers (no transport) and the gripper (transport that
-    cannot be dropped by accident).
+    Carries the object inside its arc with NOTHING attached -- transport held
+    by geometry and friction alone. Rotate the opening away from travel and
+    the object leaves. It sits between the pushers, which cannot transport,
+    and the gripper, which cannot drop by accident.
     """
 
     action_dim = 3
@@ -1627,115 +1481,6 @@ class ScoopAgent(Agent):
         angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         return float(action[0]), float(action[1]), angle
 
-
-class SoftBodyAgent(Agent):
-    """Deformable pad: 2-DOF (x, y), same action space as `circle`.
-
-    The only agent whose CONTACT SURFACE IS NOT RIGID. Seven dynamic discs are
-    sprung to a kinematic root; on contact they are pushed out of line, so the
-    pad wraps the object instead of transmitting force through a fixed face.
-
-    That changes what a policy can rely on. A rigid pusher's contact normal is
-    a function of its pose, so where the object goes follows from where you
-    put the pusher. Here the surface reshapes under load: force spreads across
-    whichever nodes touch, concentrated pushes are impossible, and the same
-    approach pose gives a different normal depending on how deep you are and
-    how fast you got there. It is compliant like CompliantAgent, but compliant
-    in SHAPE rather than in authority -- the two are separable, and having both
-    lets a dataset tell them apart.
-    """
-
-    action_dim = 2
-    # Auto-yaw to face the direction of travel, like the stick. Without it the
-    # pad kept a fixed world orientation and pushing along its own long axis
-    # presented the NARROW EDGE -- it moved the object 5.3 units against a
-    # circle's 195.
-    auto_orients = True
-    init_fields = ("stiffness", "space_damping")
-
-    def __init__(self, shape: str = "soft", *, stiffness: float = SOFT_STIFFNESS,
-                 solid_pusher: bool = False, solid_contact_guard: bool = False,
-                 control_gap: "ControlGap | str | None" = None):
-        # solid_* off: the guard restores the ROOT's pose from penetration
-        # readings, but the root is a sensor and never touches anything --
-        # the nodes do. Leaving it on would police a depth that is always 0.
-        super().__init__(shape, solid_pusher=solid_pusher,
-                         solid_contact_guard=solid_contact_guard,
-                         control_gap=control_gap)
-        self.stiffness = float(stiffness)
-        # Springs need velocity to survive the step; env.DAMPING=0 erases it,
-        # which would freeze the pad rigid and defeat the entire embodiment.
-        self.space_damping = 0.6
-        self._nodes: list[pymunk.Body] = []
-        self._springs: list[pymunk.Constraint] = []
-        self._root: pymunk.Body | None = None
-
-    def build(self, space, position):
-        body, shapes = super().build(space, position)
-        self._root = body
-        self._nodes, self._springs = [], []
-        n = SOFT_NODES
-        for i in range(n):
-            # Laid out along the body's LOCAL Y so the pad spans ACROSS the
-            # heading (auto_orients points local +X at the travel direction),
-            # presenting a broad face to whatever it is pushing.
-            off = (i - (n - 1) / 2.0) * (SOFT_SPAN / (n - 1))
-            nb = pymunk.Body(SOFT_NODE_MASS, pymunk.moment_for_circle(
-                SOFT_NODE_MASS, 0.0, SOFT_NODE_R))
-            nb.position = (position[0], position[1] + off)
-            sh = pymunk.Circle(nb, SOFT_NODE_R)
-            sh.friction = OBJECT_FRICTION
-            # Shared non-zero group => nodes never collide with EACH OTHER,
-            # only with the object and the walls. Without this the pad's own
-            # discs fight and it explodes instead of deforming.
-            sh.filter = pymunk.ShapeFilter(group=_SOFT_COLLISION_GROUP)
-            space.add(nb, sh)
-            self._nodes.append(nb)
-            # Anchored to the root at its rest offset: this is what pulls the
-            # pad back into shape once contact is released.
-            sp = pymunk.DampedSpring(
-                body, nb, (0.0, off), (0.0, 0.0), 0.0,
-                self.stiffness, SOFT_DAMPING)
-            space.add(sp)
-            self._springs.append(sp)
-        # Neighbour springs keep the pad a surface rather than seven
-        # independent blobs.
-        for a, b in zip(self._nodes, self._nodes[1:]):
-            sp = pymunk.DampedSpring(
-                a, b, (0.0, 0.0), (0.0, 0.0),
-                SOFT_SPAN / (n - 1), self.stiffness * 0.5, SOFT_DAMPING)
-            space.add(sp)
-            self._springs.append(sp)
-        return body, shapes
-
-    def on_reset(self, env) -> None:
-        self._nodes, self._springs, self._root = [], [], None
-        env._space.damping = self.space_damping
-
-    @property
-    def deformation(self) -> float:
-        """How far the pad is bent out of its rest line, in world units.
-
-        Measured in the ROOT's frame along the heading axis, so travelling
-        does not read as deformation -- the earlier world-Y version reported
-        44 units on an undeformed pad purely because the pad was rotated.
-        """
-        if not self._nodes:
-            return 0.0
-        root = self._nodes[0].space.static_body if False else None
-        return float(max(self._node_offsets()) - min(self._node_offsets()))
-
-    def _node_offsets(self) -> list[float]:
-        """Per-node deflection along the pad's normal, in the root frame."""
-        if self._root is None:
-            return [0.0]
-        ca = math.cos(-self._root.angle)
-        sa = math.sin(-self._root.angle)
-        out = []
-        for nb in self._nodes:
-            rel = nb.position - self._root.position
-            out.append(rel.x * ca - rel.y * sa)   # local X = normal direction
-        return out
 
 
 _SIMPLE = ("circle", "circle_small", "stick", "L")
@@ -1745,15 +1490,10 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "u_socket": USocketAgent,
     "gripper": GripperAgent,
     "suction": SuctionAgent,
-    "two_point": TwoPointAgent,
+    "wrench": WrenchAgent,
     "tether": TetherAgent,
-    "magnet": MagnetAgent,
-    "compliant": CompliantAgent,
-    "tapper": TapperAgent,
-    "rake": RakeAgent,
-    "roller": RollerAgent,
+    "two_point": TwoPointAgent,
     "scoop": ScoopAgent,
-    "soft": SoftBodyAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.

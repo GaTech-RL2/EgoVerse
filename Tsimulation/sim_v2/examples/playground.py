@@ -84,7 +84,7 @@ ENGAGE_LABEL = {
     "tether": "SPACE hook rope",
     "magnet": "SPACE magnetise",
     "tapper": "SPACE strike",
-    "roller": "SPACE spin barrel",
+    "wrench": "auto-couples in range",
     "u_socket": "SPACE (n/a)",
 }
 
@@ -434,11 +434,15 @@ def main() -> int:
         # The tether's rope is a constraint, not a body, so nothing in the
         # space draws it -- without this the agent looks like a hook that
         # happens to drag things.
+        # The rope is real bodies now, so it draws itself in _draw_space; only
+        # the final hook link -> object attachment needs a line.
         if getattr(env.agent, "hooked", False):
-            px, py = env.agent_pos
+            pts = env.agent.rope_points()
             ox, oy, _ = env.object_pose
-            pygame.draw.line(arena, COL_ENGAGED,
-                             (px * SCALE, py * SCALE), (ox * SCALE, oy * SCALE), 3)
+            if pts:
+                pygame.draw.line(arena, COL_ENGAGED,
+                                 (pts[-1][0] * SCALE, pts[-1][1] * SCALE),
+                                 (ox * SCALE, oy * SCALE), 3)
         screen.blit(arena, (0, 0))
 
         y = WIN + 8
