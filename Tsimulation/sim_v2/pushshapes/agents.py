@@ -32,6 +32,12 @@ import pymunk
 
 from .shapes import (
     GRIPPER_JAW_HALF_H,
+    SOFT_DAMPING,
+    SOFT_NODE_MASS,
+    SOFT_NODE_R,
+    SOFT_NODES,
+    SOFT_SPAN,
+    SOFT_STIFFNESS,
     GRIPPER_JAW_HALF_W,
     GRIPPER_JAW_MAX_GAP,
     GRIPPER_JAW_MIN_GAP,
@@ -1024,6 +1030,9 @@ _TAPPER_COOLDOWN = 6             # substeps between strikes
 _MAGNET_DAMPING = 0.15
 _TAPPER_DAMPING = 0.35
 
+#: Any non-zero group; pymunk skips collisions between shapes sharing one.
+_SOFT_COLLISION_GROUP = 0x50F7
+
 
 def _object_local_point(env, world_xy):
     """World XY -> the object body's local frame."""
@@ -1619,6 +1628,116 @@ class ScoopAgent(Agent):
         return float(action[0]), float(action[1]), angle
 
 
+class SoftBodyAgent(Agent):
+    """Deformable pad: 2-DOF (x, y), same action space as `circle`.
+
+    The only agent whose CONTACT SURFACE IS NOT RIGID. Seven dynamic discs are
+    sprung to a kinematic root; on contact they are pushed out of line, so the
+    pad wraps the object instead of transmitting force through a fixed face.
+
+    That changes what a policy can rely on. A rigid pusher's contact normal is
+    a function of its pose, so where the object goes follows from where you
+    put the pusher. Here the surface reshapes under load: force spreads across
+    whichever nodes touch, concentrated pushes are impossible, and the same
+    approach pose gives a different normal depending on how deep you are and
+    how fast you got there. It is compliant like CompliantAgent, but compliant
+    in SHAPE rather than in authority -- the two are separable, and having both
+    lets a dataset tell them apart.
+    """
+
+    action_dim = 2
+    # Auto-yaw to face the direction of travel, like the stick. Without it the
+    # pad kept a fixed world orientation and pushing along its own long axis
+    # presented the NARROW EDGE -- it moved the object 5.3 units against a
+    # circle's 195.
+    auto_orients = True
+    init_fields = ("stiffness", "space_damping")
+
+    def __init__(self, shape: str = "soft", *, stiffness: float = SOFT_STIFFNESS,
+                 solid_pusher: bool = False, solid_contact_guard: bool = False,
+                 control_gap: "ControlGap | str | None" = None):
+        # solid_* off: the guard restores the ROOT's pose from penetration
+        # readings, but the root is a sensor and never touches anything --
+        # the nodes do. Leaving it on would police a depth that is always 0.
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self.stiffness = float(stiffness)
+        # Springs need velocity to survive the step; env.DAMPING=0 erases it,
+        # which would freeze the pad rigid and defeat the entire embodiment.
+        self.space_damping = 0.6
+        self._nodes: list[pymunk.Body] = []
+        self._springs: list[pymunk.Constraint] = []
+        self._root: pymunk.Body | None = None
+
+    def build(self, space, position):
+        body, shapes = super().build(space, position)
+        self._root = body
+        self._nodes, self._springs = [], []
+        n = SOFT_NODES
+        for i in range(n):
+            # Laid out along the body's LOCAL Y so the pad spans ACROSS the
+            # heading (auto_orients points local +X at the travel direction),
+            # presenting a broad face to whatever it is pushing.
+            off = (i - (n - 1) / 2.0) * (SOFT_SPAN / (n - 1))
+            nb = pymunk.Body(SOFT_NODE_MASS, pymunk.moment_for_circle(
+                SOFT_NODE_MASS, 0.0, SOFT_NODE_R))
+            nb.position = (position[0], position[1] + off)
+            sh = pymunk.Circle(nb, SOFT_NODE_R)
+            sh.friction = OBJECT_FRICTION
+            # Shared non-zero group => nodes never collide with EACH OTHER,
+            # only with the object and the walls. Without this the pad's own
+            # discs fight and it explodes instead of deforming.
+            sh.filter = pymunk.ShapeFilter(group=_SOFT_COLLISION_GROUP)
+            space.add(nb, sh)
+            self._nodes.append(nb)
+            # Anchored to the root at its rest offset: this is what pulls the
+            # pad back into shape once contact is released.
+            sp = pymunk.DampedSpring(
+                body, nb, (0.0, off), (0.0, 0.0), 0.0,
+                self.stiffness, SOFT_DAMPING)
+            space.add(sp)
+            self._springs.append(sp)
+        # Neighbour springs keep the pad a surface rather than seven
+        # independent blobs.
+        for a, b in zip(self._nodes, self._nodes[1:]):
+            sp = pymunk.DampedSpring(
+                a, b, (0.0, 0.0), (0.0, 0.0),
+                SOFT_SPAN / (n - 1), self.stiffness * 0.5, SOFT_DAMPING)
+            space.add(sp)
+            self._springs.append(sp)
+        return body, shapes
+
+    def on_reset(self, env) -> None:
+        self._nodes, self._springs, self._root = [], [], None
+        env._space.damping = self.space_damping
+
+    @property
+    def deformation(self) -> float:
+        """How far the pad is bent out of its rest line, in world units.
+
+        Measured in the ROOT's frame along the heading axis, so travelling
+        does not read as deformation -- the earlier world-Y version reported
+        44 units on an undeformed pad purely because the pad was rotated.
+        """
+        if not self._nodes:
+            return 0.0
+        root = self._nodes[0].space.static_body if False else None
+        return float(max(self._node_offsets()) - min(self._node_offsets()))
+
+    def _node_offsets(self) -> list[float]:
+        """Per-node deflection along the pad's normal, in the root frame."""
+        if self._root is None:
+            return [0.0]
+        ca = math.cos(-self._root.angle)
+        sa = math.sin(-self._root.angle)
+        out = []
+        for nb in self._nodes:
+            rel = nb.position - self._root.position
+            out.append(rel.x * ca - rel.y * sa)   # local X = normal direction
+        return out
+
+
 _SIMPLE = ("circle", "circle_small", "stick", "L")
 
 #: shape name -> agent class, for everything that is not a plain 2-DOF pusher.
@@ -1634,6 +1753,7 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "rake": RakeAgent,
     "roller": RollerAgent,
     "scoop": ScoopAgent,
+    "soft": SoftBodyAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.

@@ -134,11 +134,20 @@ def _draw_space(surf, env, engaged: bool) -> None:
                     0 if not getattr(shape, "sensor", False) else 3,
                 )
         elif isinstance(shape, pymunk.Segment):
+            # MUST go through local_to_world. shape.a/.b are BODY-LOCAL, so
+            # drawing them raw put the tether hook, the compliant ring and the
+            # scoop arc at coordinates like (6, 6) -- the top-left corner --
+            # while the body was at (300, 300). They were invisible, not
+            # missing: the physics worked the whole time. It looked correct
+            # only for the arena walls, whose static body sits at the origin
+            # with zero rotation, where local and world happen to coincide.
+            wa = body.local_to_world(shape.a)
+            wb = body.local_to_world(shape.b)
+            wall = body is env._space.static_body
             pygame.draw.line(
-                surf, (110, 110, 120),
-                (shape.a.x * SCALE, shape.a.y * SCALE),
-                (shape.b.x * SCALE, shape.b.y * SCALE),
-                max(2, int(shape.radius * 2 * SCALE)),
+                surf, (110, 110, 120) if wall else colour,
+                (wa.x * SCALE, wa.y * SCALE), (wb.x * SCALE, wb.y * SCALE),
+                max(3, int(shape.radius * 2 * SCALE)),
             )
 
 

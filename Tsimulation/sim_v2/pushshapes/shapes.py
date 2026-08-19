@@ -181,6 +181,32 @@ SCOOP_R = 20.0
 SCOOP_THICK = 4.0
 SCOOP_SEGMENTS = 5
 
+# Soft body: a deformable pad. Unlike every other end effector this one is not
+# a rigid outline -- SOFT_NODES dynamic discs are sprung to a kinematic root,
+# so the contact face CHANGES SHAPE against the object instead of transmitting
+# force through a fixed geometry.
+SOFT_NODES = 7
+# Span must leave the nodes non-overlapping: 34/6 = 5.7 spacing against a
+# 12-wide node meant every disc was embedded in its neighbours, and the
+# contact solver blew the pad apart -- 51.8 units of "deformation" with
+# nothing touching it. Nodes also get a shared collision group so they
+# cannot push each other at all; only the object may deform the pad.
+SOFT_SPAN = 60.0
+SOFT_NODE_R = 5.0
+# Tuned by sweep, not guessed. The pad has to do two things at once and the
+# window is narrow, and NOT monotonic -- tuning by intuition would miss it:
+#   2e4  deflect 10.2  push 181   <- chosen
+#   5e4  deflect 20.1  push  24   (too soft; also pushes WORSE than 2e4)
+#   1e5  deflect  1.0  push 206   (rigid bar with extra steps)
+#   2e5  deflect  0.9  push 101
+# Measured through the real constructor path. An earlier sweep that
+# monkeypatched these module globals reported 7.9 deflection at 2e5, which
+# the actual code path then produced 0.49 for -- patch the object, not the
+# module, when tuning.
+SOFT_STIFFNESS = 2.0e4
+SOFT_DAMPING = 4.53e2      # 0.8x critical for (k=2e4, m=4)
+SOFT_NODE_MASS = 4.0
+
 # Per-shape effective pusher radius — used by env spawn-clearance and renderer.
 # Stick uses its end-cap radius (the largest contact circle on its body).
 _PUSHER_RADII: dict[str, float] = {
@@ -205,6 +231,7 @@ _PUSHER_RADII: dict[str, float] = {
     "rake": RAKE_SPINE_HALF_W,
     "roller": ROLLER_HALF_H,
     "scoop": SCOOP_R,
+    "soft": SOFT_SPAN / 2 + SOFT_NODE_R,
 }
 
 
@@ -386,6 +413,15 @@ def make_pusher(
             x.friction = OBJECT_FRICTION
         space.add(body, *parts)
         return body, parts
+
+    if shape == "soft":
+        # Root only -- the deformable nodes are dynamic bodies owned by
+        # SoftBodyAgent, because the env drives exactly one kinematic body and
+        # these must be free to be pushed OUT OF SHAPE by contact.
+        root = pymunk.Circle(body, 3.0)
+        root.sensor = True
+        space.add(body, root)
+        return body, [root]
 
     if shape == "roller":
         barrel = pymunk.Poly(body, _rect_verts(
