@@ -1559,6 +1559,13 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
 #: Every constructible pusher. env imports this so the two lists cannot drift.
 VALID_PUSHERS: tuple[str, ...] = _SIMPLE + tuple(_AGENT_CLASSES)
 
+#: The behaviourally-distinct agents added on top of the original five
+#: position-controlled pushers (circle/circle_small/stick/L) and u_socket.
+#: Derived, not hand-listed, so adding an agent class cannot leave it out.
+NEW_AGENTS: tuple[str, ...] = tuple(
+    a for a in _AGENT_CLASSES if a != "u_socket"
+)
+
 
 def make_agent(pusher_shape: str, **kwargs) -> Agent:
     """Build the agent for ``pusher_shape``.

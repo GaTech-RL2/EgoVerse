@@ -48,7 +48,11 @@ import numpy as np
 import pygame
 import pymunk
 
-from Tsimulation.sim_v2.pushshapes.agents import CONTROL_GAPS, VALID_PUSHERS
+from Tsimulation.sim_v2.pushshapes.agents import (
+    CONTROL_GAPS,
+    NEW_AGENTS,
+    VALID_PUSHERS,
+)
 from Tsimulation.sim_v2.pushshapes.env import PushShapesEnv
 from Tsimulation.sim_v2.pushshapes.render import BG_COLOR, GOAL_COLOR, OBJECT_COLOR
 from Tsimulation.sim_v2.pushshapes.render import to_image_obs
@@ -162,6 +166,10 @@ def main() -> int:
     ap.add_argument("--image-size", type=int, default=96)
     ap.add_argument("--per-agent", type=int, default=10,
                     help="episodes to collect per embodiment before advancing")
+    ap.add_argument("--agents", default="all",
+                    help="'all', 'new' (the 7 behaviourally-distinct ones), or a "
+                         "comma-separated list. Restricts both the [ ] cycle and "
+                         "--auto advancement.")
     ap.add_argument("--auto", action="store_true",
                     help="re-arm recording after every save and advance to the "
                          "next embodiment once --per-agent is reached")
@@ -175,8 +183,18 @@ def main() -> int:
 
     gaps = list(CONTROL_GAPS) + ["random"]
     gi = gaps.index(args.gap)
-    agents = list(VALID_PUSHERS)
-    ai = agents.index(args.agent)
+    if args.agents == "all":
+        agents = list(VALID_PUSHERS)
+    elif args.agents == "new":
+        agents = list(NEW_AGENTS)
+    else:
+        agents = [a.strip() for a in args.agents.split(",") if a.strip()]
+        unknown = [a for a in agents if a not in VALID_PUSHERS]
+        if unknown:
+            ap.error(f"unknown agent(s) {unknown}; known: {list(VALID_PUSHERS)}")
+    if not agents:
+        ap.error("--agents selected nothing")
+    ai = agents.index(args.agent) if args.agent in agents else 0
     objects = list(SHAPES)
     oi = objects.index(args.object)
 
