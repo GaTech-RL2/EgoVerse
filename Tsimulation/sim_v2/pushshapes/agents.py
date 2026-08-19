@@ -1542,6 +1542,83 @@ class TapperAgent(Agent):
         return super().pre_substep(env)
 
 
+class RakeAgent(Agent):
+    """Four-pronged rake: 3-DOF (x, y, angle).
+
+    Wide sweep, but the gaps between teeth mean it cannot concentrate force on
+    a point -- a narrow feature slips between the prongs instead of being
+    driven. Good at gathering, bad at precise placement, which inverts the
+    tradeoff every single-contact pusher makes.
+    """
+
+    action_dim = 3
+    controls_angle = True
+
+    def _target_pose(self, action):
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
+
+
+class RollerAgent(Agent):
+    """Powered roller: 3-DOF (x, y, spin).
+
+    Drives the object by ROLLING against it rather than pushing a face into
+    it. The barrel spins at the commanded rate, so contact imparts a tangential
+    force -- the object is dragged along the barrel surface, and reversing spin
+    reverses that force without moving the body at all. A pusher must travel to
+    exert force; this one need not.
+
+    spin in [-1, 1], scaled to ROLLER_MAX_SPIN rad/s.
+    """
+
+    action_dim = 3
+    controls_angle = True
+    init_fields = ("max_spin",)
+
+    def __init__(self, shape: str = "roller", *, max_spin: float = 14.0,
+                 solid_pusher: bool = True, solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self.max_spin = float(max_spin)
+        self._spin = 0.0
+
+    def _target_pose(self, action):
+        self._spin = max(-1.0, min(1.0, float(action[2])))
+        # Angle is driven by the spin command, not commanded directly, so the
+        # env's angular servo does not fight the roll.
+        return float(action[0]), float(action[1]), None
+
+    def on_reset(self, env) -> None:
+        self._spin = 0.0
+
+    def post_substep(self, env, captured) -> None:
+        super().post_substep(env, captured)
+        # Set angular velocity AFTER the env zeroed/─drove it, so the barrel
+        # keeps spinning even when the body is stationary. This is the whole
+        # point: force without travel.
+        env._pusher_body.angular_velocity = self._spin * self.max_spin
+
+
+class ScoopAgent(Agent):
+    """Concave scoop: 3-DOF (x, y, angle).
+
+    Cradles the object inside its arc and carries it -- transport WITHOUT a
+    grasp. Nothing attaches, so the hold is pure geometry and friction: rotate
+    the opening away from the direction of travel and the object rolls out.
+    It sits between the pushers (no transport) and the gripper (transport that
+    cannot be dropped by accident).
+    """
+
+    action_dim = 3
+    controls_angle = True
+
+    def _target_pose(self, action):
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
+
+
 _SIMPLE = ("circle", "circle_small", "stick", "L")
 
 #: shape name -> agent class, for everything that is not a plain 2-DOF pusher.
@@ -1554,6 +1631,9 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "magnet": MagnetAgent,
     "compliant": CompliantAgent,
     "tapper": TapperAgent,
+    "rake": RakeAgent,
+    "roller": RollerAgent,
+    "scoop": ScoopAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.

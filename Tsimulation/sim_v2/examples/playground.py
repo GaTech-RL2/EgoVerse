@@ -84,6 +84,7 @@ ENGAGE_LABEL = {
     "tether": "SPACE hook rope",
     "magnet": "SPACE magnetise",
     "tapper": "SPACE strike",
+    "roller": "SPACE spin barrel",
     "u_socket": "SPACE (n/a)",
 }
 
@@ -421,6 +422,14 @@ def main() -> int:
         _draw_shape_polys(arena, objects[oi], env.goal_pose, GOAL_COLOR, 3)
         _draw_shape_polys(arena, objects[oi], env.object_pose, OBJECT_COLOR, 0)
         _draw_space(arena, env, engaged)
+        # The tether's rope is a constraint, not a body, so nothing in the
+        # space draws it -- without this the agent looks like a hook that
+        # happens to drag things.
+        if getattr(env.agent, "hooked", False):
+            px, py = env.agent_pos
+            ox, oy, _ = env.object_pose
+            pygame.draw.line(arena, COL_ENGAGED,
+                             (px * SCALE, py * SCALE), (ox * SCALE, oy * SCALE), 3)
         screen.blit(arena, (0, 0))
 
         y = WIN + 8

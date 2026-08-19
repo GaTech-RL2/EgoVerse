@@ -30,6 +30,8 @@ from __future__ import annotations
 
 from typing import Literal
 
+import math
+
 import pymunk
 
 SHAPES: dict[str, list[tuple[float, float, float, float]]] = {
@@ -124,12 +126,60 @@ GRIPPER_JAW_HALF_H = 20.0
 GRIPPER_JAW_MAX_GAP = 46.0   # fully open, outer face to outer face
 GRIPPER_JAW_MIN_GAP = 8.0    # fully closed
 
-SUCTION_RADIUS = 9.0
-TWO_POINT_RADIUS = 7.0
-TETHER_RADIUS = 8.0
-MAGNET_RADIUS = 11.0
+# Each end effector gets its OWN silhouette. The first version made suction,
+# two_point, tether, magnet and compliant plain circles differing only in
+# radius -- compliant was r=15.0, identical to `circle`. The reasoning was
+# that behaviour lives in the agent, not the geometry, which is wrong twice
+# over: a teleoperator cannot tell them apart, and a vision policy cannot
+# identify which embodiment it is driving from pixels that match.
+
+# Suction: pad on a stem, so the contact face reads as a flat disc.
+SUCTION_PAD_HALF_W = 13.0
+SUCTION_PAD_HALF_H = 3.5
+SUCTION_STEM_HALF_W = 3.0
+SUCTION_STEM_HALF_H = 9.0
+SUCTION_RADIUS = 13.0
+
+TWO_POINT_RADIUS = 6.0
+
+# Tether: an open hook, not a disc -- it should look like something a rope
+# attaches to.
+TETHER_HOOK_R = 9.0
+TETHER_HOOK_THICK = 3.0
+TETHER_RADIUS = 9.0
+
+# Magnet: horseshoe. Two poles and a yoke, opening forward.
+MAGNET_HALF_W = 13.0
+MAGNET_POLE_HALF_H = 11.0
+MAGNET_POLE_THICK = 4.5
+MAGNET_RADIUS = 14.0
+
+# Compliant: a hollow ring, reading as springy rather than solid.
+COMPLIANT_R = 15.0
+COMPLIANT_THICK = 4.0
+
 TAPPER_HALF_LEN = 14.0
 TAPPER_HALF_THICK = 4.0
+
+# --- new end effectors ---------------------------------------------------
+# Rake: a spine with four prongs. Wide sweep, but the gaps mean it cannot
+# apply a concentrated force -- thin features slip between the teeth.
+RAKE_SPINE_HALF_W = 20.0
+RAKE_SPINE_HALF_H = 3.0
+RAKE_TOOTH_HALF_W = 2.5
+RAKE_TOOTH_HALF_H = 9.0
+RAKE_TOOTH_XS = (-15.0, -5.0, 5.0, 15.0)
+
+# Roller: a wide barrel that spins about its own axis, so it drives the object
+# by rolling friction rather than by pushing a face into it.
+ROLLER_HALF_W = 4.0
+ROLLER_HALF_H = 18.0
+
+# Scoop: a concave arc that cradles the object -- carries without grasping,
+# but only while the opening stays roughly upright relative to travel.
+SCOOP_R = 20.0
+SCOOP_THICK = 4.0
+SCOOP_SEGMENTS = 5
 
 # Per-shape effective pusher radius — used by env spawn-clearance and renderer.
 # Stick uses its end-cap radius (the largest contact circle on its body).
@@ -150,8 +200,11 @@ _PUSHER_RADII: dict[str, float] = {
     "two_point": TWO_POINT_RADIUS,
     "tether": TETHER_RADIUS,
     "magnet": MAGNET_RADIUS,
-    "compliant": PUSHER_RADIUS,
+    "compliant": COMPLIANT_R,
     "tapper": TAPPER_HALF_LEN,
+    "rake": RAKE_SPINE_HALF_W,
+    "roller": ROLLER_HALF_H,
+    "scoop": SCOOP_R,
 }
 
 
@@ -248,25 +301,117 @@ def make_pusher(
         space.add(body, *polys)
         return body, list(polys)
 
-    if shape in ("magnet", "tapper_unused"):
-        # NON-CONTACT. A magnet that still collides is just a circle pusher
-        # with extra force, which defeats the point of the embodiment: its
+    if shape == "magnet":
+        # NON-CONTACT (sensor=True): a magnet that still collides is just a
+        # circle pusher with extra force, which defeats the embodiment -- its
         # whole character is that there is no surface to push against.
-        # sensor=True keeps the body in the space (visible, still clamped out
-        # of walls by the env) while generating no contact response.
-        s = pymunk.Circle(body, pusher_radius(shape))
-        s.sensor = True
-        space.add(body, s)
-        return body, [s]
+        # Horseshoe silhouette so it is not yet another disc on screen.
+        yoke = pymunk.Poly(body, _rect_verts(
+            -MAGNET_POLE_HALF_H, 0.0,
+            2 * MAGNET_POLE_THICK, 2 * MAGNET_HALF_W))
+        poles = [
+            pymunk.Poly(body, _rect_verts(
+                0.0, sign * (MAGNET_HALF_W - MAGNET_POLE_THICK),
+                2 * MAGNET_POLE_HALF_H, 2 * MAGNET_POLE_THICK))
+            for sign in (-1.0, 1.0)
+        ]
+        parts = [yoke, *poles]
+        for x in parts:
+            x.sensor = True
+        space.add(body, *parts)
+        return body, parts
 
-    if shape in ("suction", "two_point", "tether", "compliant"):
-        # All round contact primitives. They differ in their CONTACT MODEL
-        # (agents.py), not their geometry, which is the point: behaviour comes
-        # from the agent, not from carving a new polygon.
-        s = pymunk.Circle(body, pusher_radius(shape))
+    if shape == "two_point":
+        # Deliberately the only round one left: it reads as a PAIR of small
+        # points (the agent owns the second body), which is its signature.
+        s = pymunk.Circle(body, TWO_POINT_RADIUS)
         s.friction = OBJECT_FRICTION
         space.add(body, s)
         return body, [s]
+
+    if shape == "suction":
+        pad = pymunk.Poly(body, _rect_verts(
+            0.0, 0.0, 2 * SUCTION_PAD_HALF_W, 2 * SUCTION_PAD_HALF_H))
+        stem = pymunk.Poly(body, _rect_verts(
+            0.0, -SUCTION_PAD_HALF_H - SUCTION_STEM_HALF_H,
+            2 * SUCTION_STEM_HALF_W, 2 * SUCTION_STEM_HALF_H))
+        for x in (pad, stem):
+            x.friction = OBJECT_FRICTION
+        space.add(body, pad, stem)
+        return body, [pad, stem]
+
+    if shape == "tether":
+        # Open hook: an arc of segments with a gap, so it is visibly not a disc.
+        parts = []
+        for i in range(6):
+            a0 = math.pi * 0.25 + i * (math.pi * 1.5 / 6)
+            a1 = a0 + (math.pi * 1.5 / 6) * 0.85
+            seg = pymunk.Segment(
+                body,
+                (TETHER_HOOK_R * math.cos(a0), TETHER_HOOK_R * math.sin(a0)),
+                (TETHER_HOOK_R * math.cos(a1), TETHER_HOOK_R * math.sin(a1)),
+                TETHER_HOOK_THICK / 2,
+            )
+            seg.friction = OBJECT_FRICTION
+            parts.append(seg)
+        space.add(body, *parts)
+        return body, parts
+
+    if shape == "compliant":
+        # Hollow ring -- same footprint as `circle` on purpose (it is the
+        # control for contact AUTHORITY) but unmistakable on screen.
+        parts = []
+        for i in range(8):
+            a0 = i * (2 * math.pi / 8)
+            a1 = a0 + (2 * math.pi / 8) * 0.9
+            seg = pymunk.Segment(
+                body,
+                (COMPLIANT_R * math.cos(a0), COMPLIANT_R * math.sin(a0)),
+                (COMPLIANT_R * math.cos(a1), COMPLIANT_R * math.sin(a1)),
+                COMPLIANT_THICK / 2,
+            )
+            seg.friction = OBJECT_FRICTION
+            parts.append(seg)
+        space.add(body, *parts)
+        return body, parts
+
+    if shape == "rake":
+        parts = [pymunk.Poly(body, _rect_verts(
+            0.0, 0.0, 2 * RAKE_SPINE_HALF_W, 2 * RAKE_SPINE_HALF_H))]
+        for tx in RAKE_TOOTH_XS:
+            parts.append(pymunk.Poly(body, _rect_verts(
+                tx, RAKE_SPINE_HALF_H + RAKE_TOOTH_HALF_H,
+                2 * RAKE_TOOTH_HALF_W, 2 * RAKE_TOOTH_HALF_H)))
+        for x in parts:
+            x.friction = OBJECT_FRICTION
+        space.add(body, *parts)
+        return body, parts
+
+    if shape == "roller":
+        barrel = pymunk.Poly(body, _rect_verts(
+            0.0, 0.0, 2 * ROLLER_HALF_W, 2 * ROLLER_HALF_H))
+        # High friction: the roller works by gripping and rolling, so a
+        # slippery barrel would just slide past the object.
+        barrel.friction = 2.0
+        space.add(body, barrel)
+        return body, [barrel]
+
+    if shape == "scoop":
+        parts = []
+        span = math.pi * 1.1
+        for i in range(SCOOP_SEGMENTS):
+            a0 = -span / 2 + i * (span / SCOOP_SEGMENTS)
+            a1 = a0 + span / SCOOP_SEGMENTS
+            seg = pymunk.Segment(
+                body,
+                (SCOOP_R * math.cos(a0), SCOOP_R * math.sin(a0)),
+                (SCOOP_R * math.cos(a1), SCOOP_R * math.sin(a1)),
+                SCOOP_THICK / 2,
+            )
+            seg.friction = OBJECT_FRICTION
+            parts.append(seg)
+        space.add(body, *parts)
+        return body, parts
 
     if shape == "tapper":
         # A short bar that acts ONLY through the impulses its agent applies.
