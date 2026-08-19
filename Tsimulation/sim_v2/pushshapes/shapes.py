@@ -204,7 +204,12 @@ SOFT_NODE_R = 5.0
 # the actual code path then produced 0.49 for -- patch the object, not the
 # module, when tuning.
 SOFT_STIFFNESS = 2.0e4
-SOFT_DAMPING = 4.53e2      # 0.8x critical for (k=2e4, m=4)
+# 2.5x CRITICAL, deliberately over-damped. The trial that produced the chosen
+# (deflect 10.2 / push 181) ran at this value; recomputing it to 0.8x critical
+# for the new stiffness -- the "principled" move -- turned the same pad into
+# deflect 18.0 / push 30. Over-damping is what lets the pad deform without
+# bouncing, so it stiffens under load and still transmits force.
+SOFT_DAMPING = 1.43e3
 SOFT_NODE_MASS = 4.0
 
 # Per-shape effective pusher radius — used by env spawn-clearance and renderer.
