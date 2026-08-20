@@ -31,8 +31,12 @@ import numpy as np
 import pymunk
 
 from .shapes import (
+    GRIPPER_FINGER_LEN,
+    GRIPPER_HINGE_SPAN,
     GRIPPER_JAW_HALF_H,
     UMI_FINGER_HALF_H,
+    UMI_FINGER_LEN,
+    UMI_HINGE_SPAN,
     UMI_FINGER_HALF_W,
     UMI_MAX_GAP,
     UMI_MIN_GAP,
@@ -1128,9 +1132,13 @@ class GripperAgent(Agent):
         self._jaws = []
         for sign in (-1.0, 1.0):
             jaw = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-            jaw.position = (position[0] + sign * GRIPPER_JAW_MAX_GAP / 2, position[1])
+            jaw.position = (position[0] + sign * GRIPPER_HINGE_SPAN, position[1])
+            # Runs FORWARD from the hinge, same as umi. Centred jaws sliding
+            # in parallel rendered as two blocks either side of the palm --
+            # a bolt, not a gripper.
             poly = pymunk.Poly(jaw, _rect_verts(
-                0.0, 0.0, 2 * GRIPPER_JAW_HALF_W, 2 * GRIPPER_JAW_HALF_H))
+                0.0, GRIPPER_FINGER_LEN / 2,
+                2 * GRIPPER_JAW_HALF_W, GRIPPER_FINGER_LEN))
             poly.friction = OBJECT_FRICTION
             space.add(jaw, poly)
             self._jaws.append(jaw)
@@ -1175,14 +1183,20 @@ class GripperAgent(Agent):
                 best = max(best, abs(rel.x * ca - rel.y * sa))
         return best
 
+    def _finger_angle(self, env) -> float:
+        """Splay per jaw: 90 deg fully open, 0 deg fully closed."""
+        span = max(0.0, self._gap(env) - GRIPPER_JAW_MIN_GAP) / max(
+            1e-9, GRIPPER_JAW_MAX_GAP - GRIPPER_JAW_MIN_GAP)
+        return span * (math.pi / 2)
+
     def _sync(self, env):
         palm = env._pusher_body
-        half = self._gap(env) / 2.0
+        phi = self._finger_angle(env)
         ca, sa = math.cos(palm.angle), math.sin(palm.angle)
         for sign, jaw in zip((-1.0, 1.0), self._jaws):
-            jaw.position = (palm.position.x + sign * half * ca,
-                            palm.position.y + sign * half * sa)
-            jaw.angle = palm.angle
+            hx = sign * GRIPPER_HINGE_SPAN
+            jaw.position = (palm.position.x + hx * ca, palm.position.y + hx * sa)
+            jaw.angle = palm.angle - sign * phi     # splay OUTWARD, never cross
             jaw.velocity = palm.velocity
             jaw.angular_velocity = palm.angular_velocity
 
@@ -1211,6 +1225,9 @@ class GripperAgent(Agent):
 
     def pre_substep(self, env):
         self._sync(env)
+        # HOLD once grasped: only a command to OPEN releases it. Re-testing
+        # _spans every substep would drop the object the moment it shifted in
+        # the jaws.
         closing = self._jaw_cmd <= 0.35
         if closing and self._grasp is None and self._spans(env):
             palm, obj = env._pusher_body, env._object_body
@@ -1724,9 +1741,14 @@ class UmiAgent(Agent):
         self._fingers = []
         for sign in (-1.0, 1.0):
             f = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-            f.position = (position[0] + sign * UMI_MAX_GAP / 2, position[1])
+            f.position = (position[0] + sign * UMI_HINGE_SPAN, position[1])
+            # Rectangle offset so it runs FORWARD from the hinge at the body
+            # origin. Centring it on the hinge (the first version) put half
+            # the finger behind the pivot and made swinging it invisible --
+            # open, half and closed all rendered identically.
             poly = pymunk.Poly(f, _rect_verts(
-                0.0, 0.0, 2 * UMI_FINGER_HALF_W, 2 * UMI_FINGER_HALF_H))
+                0.0, UMI_FINGER_LEN / 2,
+                2 * UMI_FINGER_HALF_W, UMI_FINGER_LEN))
             poly.friction = OBJECT_FRICTION
             space.add(f, poly)
             self._fingers.append(f)
@@ -1774,29 +1796,31 @@ class UmiAgent(Agent):
         return best
 
     def _finger_angle(self, env) -> float:
-        """Half-angle the fingers are splayed open, radians.
+        """Splay angle per finger: 90 deg fully open, 0 deg fully closed.
 
-        Closing is REVOLUTE: the fingers pivot about hinges at the wrist and
-        swing together, like a pincer, rather than sliding in parallel. The
-        commanded gap maps to a hinge angle via the finger length.
+        REVOLUTE closing -- the fingers hinge at the wrist and swing together
+        like a pincer. Straight from the commanded grip so the visual and the
+        physical gap cannot disagree.
         """
-        half_gap = self._gap(env) / 2.0
-        return math.asin(min(1.0, half_gap / UMI_FINGER_HALF_H))
+        span = max(0.0, self._gap(env) - UMI_MIN_GAP) / max(
+            1e-9, UMI_MAX_GAP - UMI_MIN_GAP)
+        return span * (math.pi / 2)
 
     def _sync(self, env):
         wr = env._pusher_body
         phi = self._finger_angle(env)
+        ca, sa = math.cos(wr.angle), math.sin(wr.angle)
         for sign, f in zip((-1.0, 1.0), self._fingers):
-            # Hinge sits at the wrist; the finger swings through phi and its
-            # body centre rides on that arc, so the tips converge as it closes.
-            a = wr.angle + sign * phi
-            f.angle = a
-            f.position = (
-                wr.position.x + math.sin(a) * sign * UMI_HINGE_OFFSET
-                + math.cos(a) * 0.0,
-                wr.position.y - math.cos(a) * sign * UMI_HINGE_OFFSET
-                + math.sin(a) * 0.0,
-            )
+            hx = sign * UMI_HINGE_SPAN
+            # Hinge rides with the wrist; the finger runs forward from it,
+            # rotated outward by phi. phi = 0 leaves both fingers parallel and
+            # pointing ahead (closed); phi = 90 deg splays them flat (open).
+            f.position = (wr.position.x + hx * ca, wr.position.y + hx * sa)
+            # MINUS sign: the left finger (sign -1) must swing toward -X and
+            # the right toward +X, i.e. outward. Using +sign rotated each one
+            # across the centreline, so at half-closed they crossed into an X
+            # instead of opening.
+            f.angle = wr.angle - sign * phi
             f.velocity = wr.velocity
             f.angular_velocity = wr.angular_velocity
 

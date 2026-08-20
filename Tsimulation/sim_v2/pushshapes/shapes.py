@@ -119,11 +119,15 @@ L_RECTS: list[tuple[float, float, float, float]] = [
 # Kept here with the other shape constants so make_pusher stays the one place
 # that knows how a body is built.
 
+# Hinged pincer, like umi but shorter and stubbier -- an industrial jaw next
+# to umi's long handheld fingers, so the two read differently at a glance.
+GRIPPER_FINGER_LEN = 34.0
+GRIPPER_HINGE_SPAN = 13.0
 GRIPPER_PALM_HALF_W = 22.0   # palm spans the jaw travel
 GRIPPER_PALM_HALF_H = 6.0
 GRIPPER_JAW_HALF_W = 5.0
 GRIPPER_JAW_HALF_H = 20.0
-GRIPPER_JAW_MAX_GAP = 46.0   # fully open, outer face to outer face
+GRIPPER_JAW_MAX_GAP = 2 * GRIPPER_HINGE_SPAN + 2 * GRIPPER_FINGER_LEN * 0.9
 GRIPPER_JAW_MIN_GAP = 8.0    # fully closed
 
 # Each end effector gets its OWN silhouette. The first version made suction,
@@ -183,12 +187,18 @@ SCOOP_SEGMENTS = 5
 
 # UMI-style rotary gripper: two fingers on a rotating wrist. Slimmer and
 # longer-fingered than `gripper` so the two read differently on screen.
-UMI_WRIST_R = 7.0
-UMI_FINGER_HALF_W = 3.5
-UMI_FINGER_HALF_H = 26.0
-UMI_MAX_GAP = 52.0
-UMI_MIN_GAP = 6.0
-UMI_HINGE_OFFSET = 4.0   # hinge stand-off from the wrist centre
+# Sized against the T, which is 120 wide with 30-wide limbs: fingers must be
+# long enough to close around a limb and be legible next to it. The first
+# version was 26 long on a 4-unit hinge stand-off and rendered as a couple of
+# specks.
+UMI_WRIST_R = 10.0
+UMI_FINGER_HALF_W = 4.5
+UMI_FINGER_LEN = 46.0        # measured from the hinge, extending FORWARD
+UMI_HINGE_SPAN = 15.0        # hinge stand-off either side of the wrist
+UMI_MAX_GAP = 2 * UMI_HINGE_SPAN + 2 * UMI_FINGER_LEN * 0.9
+UMI_MIN_GAP = 8.0
+UMI_HINGE_OFFSET = UMI_HINGE_SPAN
+UMI_FINGER_HALF_H = UMI_FINGER_LEN / 2
 
 # Triangle: an equilateral pusher whose CONTACT PATCH depends on its
 # orientation -- a flat face or a single vertex.
