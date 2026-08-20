@@ -36,6 +36,7 @@ from .shapes import (
     UMI_FINGER_HALF_W,
     UMI_MAX_GAP,
     UMI_MIN_GAP,
+    UMI_HINGE_OFFSET,
     UMI_WRIST_R,
     TOWBAR_LENGTH,
     SOFT_DAMPING,
@@ -1061,6 +1062,22 @@ _TETHER_LINKS = 10
 _TETHER_LINK_LEN = 14.0
 _TETHER_GRAB_RADIUS = 16.0    # agent body -> object SURFACE
 _CONSTRAINT_FORCE = 5.0e7
+#: GearJoints are LEFT UNLIMITED. _CONSTRAINT_FORCE is sized for a LINEAR
+#: pivot against the object's mass (1890); the same number on an ANGULAR
+#: constraint is fought by its moment of inertia (3.65e6) and does essentially
+#: nothing -- measured 1.0 deg of object rotation for 172 deg of wrist
+#: rotation, i.e. a "rigid" clamp transmitting no angle at all. 5e9 recovers
+#: 152 deg; unlimited tracks exactly.
+_GEAR_FORCE = None
+
+
+def _add_gear(space, a, b, phase):
+    """GearJoint with no force cap. See _GEAR_FORCE."""
+    g = pymunk.GearJoint(a, b, phase, 1.0)
+    if _GEAR_FORCE is not None:
+        g.max_force = _GEAR_FORCE
+    space.add(g)
+    return g
 
 
 def _surface_distance(env, point) -> float:
@@ -1197,12 +1214,11 @@ class GripperAgent(Agent):
         closing = self._jaw_cmd <= 0.35
         if closing and self._grasp is None and self._spans(env):
             palm, obj = env._pusher_body, env._object_body
-            cs = (pymunk.PivotJoint(palm, obj, obj.position),
-                  pymunk.GearJoint(palm, obj, obj.angle - palm.angle, 1.0))
-            for c in cs:
-                c.max_force = _CONSTRAINT_FORCE
-                env._space.add(c)
-            self._grasp = cs
+            pj = pymunk.PivotJoint(palm, obj, obj.position)
+            pj.max_force = _CONSTRAINT_FORCE
+            env._space.add(pj)
+            gj = _add_gear(env._space, palm, obj, obj.angle - palm.angle)
+            self._grasp = (pj, gj)
         elif not closing and self._grasp is not None:
             for c in self._grasp:
                 if c in env._space.constraints:
@@ -1757,14 +1773,30 @@ class UmiAgent(Agent):
                 best = max(best, abs(rel.x * ca - rel.y * sa))
         return best
 
+    def _finger_angle(self, env) -> float:
+        """Half-angle the fingers are splayed open, radians.
+
+        Closing is REVOLUTE: the fingers pivot about hinges at the wrist and
+        swing together, like a pincer, rather than sliding in parallel. The
+        commanded gap maps to a hinge angle via the finger length.
+        """
+        half_gap = self._gap(env) / 2.0
+        return math.asin(min(1.0, half_gap / UMI_FINGER_HALF_H))
+
     def _sync(self, env):
         wr = env._pusher_body
-        half = self._gap(env) / 2.0
-        ca, sa = math.cos(wr.angle), math.sin(wr.angle)
+        phi = self._finger_angle(env)
         for sign, f in zip((-1.0, 1.0), self._fingers):
-            f.position = (wr.position.x + sign * half * ca,
-                          wr.position.y + sign * half * sa)
-            f.angle = wr.angle
+            # Hinge sits at the wrist; the finger swings through phi and its
+            # body centre rides on that arc, so the tips converge as it closes.
+            a = wr.angle + sign * phi
+            f.angle = a
+            f.position = (
+                wr.position.x + math.sin(a) * sign * UMI_HINGE_OFFSET
+                + math.cos(a) * 0.0,
+                wr.position.y - math.cos(a) * sign * UMI_HINGE_OFFSET
+                + math.sin(a) * 0.0,
+            )
             f.velocity = wr.velocity
             f.angular_velocity = wr.angular_velocity
 
@@ -1797,12 +1829,12 @@ class UmiAgent(Agent):
             self._detach(env)
             if want != "released" and self._between(env):
                 wr, obj = env._pusher_body, env._object_body
-                cs = [pymunk.PivotJoint(wr, obj, obj.position)]
+                pj = pymunk.PivotJoint(wr, obj, obj.position)
+                pj.max_force = _CONSTRAINT_FORCE
+                env._space.add(pj)
+                cs = [pj]
                 if want == "clamped":
-                    cs.append(pymunk.GearJoint(wr, obj, obj.angle - wr.angle, 1.0))
-                for c in cs:
-                    c.max_force = _CONSTRAINT_FORCE
-                    env._space.add(c)
+                    cs.append(_add_gear(env._space, wr, obj, obj.angle - wr.angle))
                 self._cs = tuple(cs)
                 self._mode = want
             else:

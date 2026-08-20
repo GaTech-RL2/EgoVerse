@@ -188,6 +188,7 @@ UMI_FINGER_HALF_W = 3.5
 UMI_FINGER_HALF_H = 26.0
 UMI_MAX_GAP = 52.0
 UMI_MIN_GAP = 6.0
+UMI_HINGE_OFFSET = 4.0   # hinge stand-off from the wrist centre
 
 # Triangle: an equilateral pusher whose CONTACT PATCH depends on its
 # orientation -- a flat face or a single vertex.

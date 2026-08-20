@@ -86,7 +86,7 @@ ENGAGE_LABEL = {
     "tapper": "SPACE strike",
     "towbar": "SPACE hitch / unhitch",
     "triangle": "A/D picks face vs vertex",
-    "umi": "W/S jaw width (open/pinch/clamp)",
+    "umi": "SPACE clamp | W/S grade width",
     "u_socket": "SPACE (n/a)",
 }
 
@@ -399,7 +399,9 @@ def main() -> int:
             "angle": angle,
             "engage": engage,
             "jaw": 0.0 if engage else 1.0,       # SPACE closes the jaws
-            "grip": grip,                        # W/S sets UMI jaw width
+            # SPACE clamps shut; W/S grades the resting width when
+            # SPACE is not held, so the pinched regime stays reachable.
+            "grip": 0.0 if engage else grip,
             "x2": wx + math.cos(orbit) * spread,
             "y2": wy + math.sin(orbit) * spread,
         }
