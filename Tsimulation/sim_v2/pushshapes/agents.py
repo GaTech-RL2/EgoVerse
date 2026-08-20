@@ -249,6 +249,17 @@ CONTROL_GAPS: dict[str, ControlGap] = {
 class Agent:
     """Base 2-DOF pusher with the fixed Sim V2 solid-contact guard."""
 
+    #: CANONICAL LAYOUT: ("x", "y", "angle") or ("x", "y", "angle", "grip").
+    #: GRIP SEMANTICS, one meaning for every agent: 1.0 = holding on (jaws
+    #: closed, suction on, hitch made), 0.0 = released. The grippers used to
+    #: read 0 as "closed" while suction read 1 as "on", so a single UI mapping
+    #: engaged half the roster and released the other half.
+    #: Slot 2 is ALWAYS orientation and slot 3 is ALWAYS the grip/engage
+    #: scalar, for every embodiment. Previously each agent chose its own
+    #: order -- suction read slot 2 as engage while everything else read it as
+    #: angle -- which meant a policy or UI could not address them uniformly
+    #: and mis-wiring was silent.
+    #:
     #: Named channels, one per action slot. The UI and any scripted policy
     #: build actions from THIS, never from action_dim -- encoding by dimension
     #: silently mis-wired three agents at once: suction read slot 2 as
@@ -1056,7 +1067,10 @@ class USocketAgent(Agent):
 # Measured: with the pad flush against the object the BODY CENTRE sits 15.0
 # from the surface, because the pad is 26 wide. A radius tighter than that can
 # never be satisfied no matter how the operator drives.
-_SUCTION_GRIP_RADIUS = 18.0
+# Measured: driving the pad onto the object plateaus at 21.6 from the surface
+# because the pad's STEM leads on approach and holds the face off. A threshold
+# below that can never be met however hard the operator pushes.
+_SUCTION_GRIP_RADIUS = 24.0
 _SUCTION_RELEASE_BLOCK = 10
 #: Two orders below _CONSTRAINT_FORCE: enough to reorient a settled object,
 #: not enough to stop a fast drag twisting it. This is the pad slipping.
@@ -1116,7 +1130,7 @@ class GripperAgent(Agent):
     jaw in [0, 1]: 0 closed, 1 open.
     """
 
-    action_spec = ("x", "y", "angle", "jaw")
+    action_spec = ("x", "y", "angle", "grip")
     action_dim = 4
     controls_angle = True
 
@@ -1149,7 +1163,8 @@ class GripperAgent(Agent):
         return body, shapes
 
     def _target_pose(self, action):
-        self._jaw_cmd = min(1.0, max(0.0, float(action[3])))
+        # grip 1 = closed, so jaw_cmd (0 closed .. 1 open) is its complement.
+        self._jaw_cmd = 1.0 - min(1.0, max(0.0, float(action[3])))
         angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         return float(action[0]), float(action[1]), angle
 
@@ -1305,7 +1320,7 @@ class SuctionAgent(Agent):
     Distinct from the gripper, which holds angle rigidly and cannot slip.
     """
 
-    action_spec = ("x", "y", "engage", "angle")
+    action_spec = ("x", "y", "angle", "grip")
     action_dim = 4
     controls_angle = True
 
@@ -1320,10 +1335,11 @@ class SuctionAgent(Agent):
         self._block = 0
 
     def _target_pose(self, action):
-        self._engage = float(action[2])
-        # Angle is commanded but only weakly enforced (see the gear's
-        # max_force): the pad twists the object rather than locking it.
-        return float(action[0]), float(action[1]), float(action[3]) if len(action) > 3 else None
+        # Canonical order: angle in slot 2, grip in slot 3. Angle is commanded
+        # but only weakly enforced (see the gear's max_force) -- the pad twists
+        # the object rather than locking it.
+        self._engage = float(action[3])
+        return float(action[0]), float(action[1]), float(action[2])
 
     def on_reset(self, env) -> None:
         self._joint, self._engage, self._block = None, 0.0, 0
@@ -1642,8 +1658,9 @@ class TowbarAgent(Agent):
     face), and it is the only agent here that must anticipate a trailing load.
     """
 
-    action_spec = ("x", "y", "engage")
-    action_dim = 3
+    action_spec = ("x", "y", "angle", "grip")
+    action_dim = 4
+    controls_angle = True
 
     def __init__(self, shape: str = "towbar", *, length: float = TOWBAR_LENGTH,
                  solid_pusher: bool = True, solid_contact_guard: bool = True,
@@ -1656,8 +1673,9 @@ class TowbarAgent(Agent):
         self._hitch = 0.0
 
     def _target_pose(self, action):
-        self._hitch = float(action[2])
-        return float(action[0]), float(action[1]), None
+        self._hitch = float(action[3])
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
 
     def on_reset(self, env) -> None:
         self._joint, self._hitch = None, 0.0
@@ -1798,7 +1816,8 @@ class UmiAgent(Agent):
         return body, shapes
 
     def _target_pose(self, action):
-        self._grip = min(1.0, max(0.0, float(action[3])))
+        # grip 1 = clamped; _grip stays "how open" internally.
+        self._grip = 1.0 - min(1.0, max(0.0, float(action[3])))
         angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         return float(action[0]), float(action[1]), angle
 

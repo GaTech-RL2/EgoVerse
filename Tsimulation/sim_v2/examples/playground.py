@@ -84,9 +84,6 @@ ENGAGE_LABEL = {
     "tether": "SPACE hook rope",
     "magnet": "SPACE magnetise",
     "tapper": "SPACE strike",
-    "towbar": "SPACE hitch / unhitch",
-    "triangle": "A/D picks face vs vertex",
-    "umi": "SPACE clamp | W/S grade width",
     "u_socket": "SPACE (n/a)",
 }
 
@@ -326,7 +323,7 @@ def main() -> int:
     all_done = False
     angle = 0.0
     spread = 34.0
-    grip = 1.0
+    grip = 0.0
     orbit = math.pi / 2
     running = True
 
@@ -397,13 +394,9 @@ def main() -> int:
         chan = {
             "x": wx, "y": wy,
             "angle": angle,
-            "engage": engage,
-            "jaw": 0.0 if engage else 1.0,       # SPACE closes the jaws
-            # SPACE clamps shut; W/S grades the resting width when
-            # SPACE is not held, so the pinched regime stays reachable.
-            "grip": 0.0 if engage else grip,
-            "x2": wx + math.cos(orbit) * spread,
-            "y2": wy + math.sin(orbit) * spread,
+            # ONE meaning everywhere: SPACE = grip/engage/close/hitch, and
+            # W/S grades it for the agents that accept a continuous value.
+            "grip": 1.0 if engage else grip,
         }
         act = np.array([chan[c] for c in spec], dtype=np.float64)
         dim = len(spec)
@@ -481,9 +474,8 @@ def main() -> int:
             bits.append(f"A/D angle {math.degrees(angle):4.0f}deg")
         if "grip" in spec:
             m = getattr(env.agent, "mode", "")
-            bits.append(f"W/S grip {grip:.2f} [{m}]")
-        if "x2" in spec:
-            bits.append(f"W/S spread {spread:.0f}  Q/E orbit {math.degrees(orbit):3.0f}deg")
+            shown = 1.0 if held[pygame.K_SPACE] else grip
+            bits.append(f"SPACE/WS grip {shown:.2f}" + (f" [{m}]" if m else ""))
         hint = "   ".join(bits)
         screen.blit(font.render(hint, True, COL_DIM), (170, y))
         y += 20
