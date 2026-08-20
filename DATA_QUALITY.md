@@ -4,13 +4,12 @@ The EgoVerse project aims to capture a **diverse set of economically useful work
 
 # Diversity
 
-In aggregate, the EgoVerse project aims for the following mix along 3 axes: 
+In aggregate, the EgoVerse project aims for the following mix along 2 axes: 
 
 | **Dimension** | **Target Mix** | **Notes/Examples** |
 | --- | --- | --- |
-| Task Type | no more than ~5% navigation · ~10% mobile manipulation · ~85% manipulation | **Navigation:** walking, running, biking<br/>**Mobile Manipulation:** moving dishes from dining room to kitchen **** |
-| Dexterity | ~60% doable with a parallel-jaw gripper · ~40% doable by either a parallel-jaw gripper or a dexterous hand | **Parallel Gripper:** pick and place, laundry folding<br/>**Dexterous Hand:** screwing on/off a bottle cap, |
-| Environment | X% Kitchen, Y% Industrial, Z% bedroom | TODO |
+| Task Type | ~15% mobile manipulation · ~85% manipulation | **Navigation:** walking, running, biking<br/>**Mobile Manipulation:** moving dishes from dining room to kitchen |
+| Dexterity | ~60% doable with a parallel-jaw gripper · ~40% doable by either a parallel-jaw gripper or a dexterous hand | **Parallel Gripper:** pick and place, laundry folding<br/>**Dexterous Hand:** screwing on/off a bottle cap|
 
 > **NOTE**: While annotations are optional, having episode level annotations for task type, dexterity, and environment increase the likelihood of acceptance
 
@@ -23,7 +22,7 @@ We measure per-episode quality across operator, task, and technical proficiency.
 
 The operator completing the task should abide by the following behavior, regardless of the task, environment, or collection device:
 
-- Hands must be visible in all frames
+- Hands must be visible in 90% of frames
 - No aggressive head movements
 - No unnecessarily aggressive hand movements
 - No idle time
