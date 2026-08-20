@@ -119,16 +119,19 @@ L_RECTS: list[tuple[float, float, float, float]] = [
 # Kept here with the other shape constants so make_pusher stays the one place
 # that knows how a body is built.
 
-# Hinged pincer, like umi but shorter and stubbier -- an industrial jaw next
-# to umi's long handheld fingers, so the two read differently at a glance.
-GRIPPER_FINGER_LEN = 34.0
-GRIPPER_HINGE_SPAN = 11.0   # min tip gap 22 < the T's 30-wide limb
+# LINEAR parallel-jaw, deliberately NOT a pincer: umi is the revolute one, so
+# this closes by SLIDING two parallel jaws along a back plate. Different
+# mechanism, different silhouette, different failure mode -- parallel jaws
+# keep full contact along the whole face where a pincer only touches at the
+# tips as it opens.
+GRIPPER_FINGER_LEN = 34.0      # jaw depth (along the approach)
+GRIPPER_RAIL_HALF = 34.0       # back plate half-width; jaws slide on it
 GRIPPER_PALM_HALF_W = 22.0   # palm spans the jaw travel
 GRIPPER_PALM_HALF_H = 6.0
 GRIPPER_JAW_HALF_W = 5.0
 GRIPPER_JAW_HALF_H = 20.0
-GRIPPER_JAW_MAX_GAP = 2 * GRIPPER_HINGE_SPAN + 2 * GRIPPER_FINGER_LEN * 0.9
-GRIPPER_JAW_MIN_GAP = 2 * GRIPPER_HINGE_SPAN  # parallel jaws
+GRIPPER_JAW_MAX_GAP = 2 * GRIPPER_RAIL_HALF - 2 * GRIPPER_JAW_HALF_W
+GRIPPER_JAW_MIN_GAP = 8.0      # jaws can close nearly flush
 
 # Each end effector gets its OWN silhouette. The first version made suction,
 # two_point, tether, magnet and compliant plain circles differing only in
@@ -555,7 +558,7 @@ def make_pusher(
         # one body.
         palm = pymunk.Poly(
             body,
-            _rect_verts(0.0, 0.0, 2 * GRIPPER_PALM_HALF_W, 2 * GRIPPER_PALM_HALF_H),
+            _rect_verts(0.0, 0.0, 2 * GRIPPER_RAIL_HALF, 2 * GRIPPER_PALM_HALF_H),
         )
         palm.friction = OBJECT_FRICTION
         space.add(body, palm)

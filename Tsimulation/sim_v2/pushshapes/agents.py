@@ -32,7 +32,7 @@ import pymunk
 
 from .shapes import (
     GRIPPER_FINGER_LEN,
-    GRIPPER_HINGE_SPAN,
+    GRIPPER_RAIL_HALF,
     GRIPPER_JAW_HALF_H,
     UMI_FINGER_HALF_H,
     UMI_FINGER_LEN,
@@ -1106,8 +1106,11 @@ _ROPE_GROUP = 0x50F7
 class GripperAgent(Agent):
     """Parallel-jaw gripper: 4-DOF (x, y, angle, jaw).
 
-    Pivot + Gear once closed, so the object becomes rigidly attached: full
-    translation AND orientation authority, but only while grasped. Everything
+    LINEAR parallel jaws sliding on a back plate -- the counterpart to umi's
+    revolute pincer. Because the jaws stay parallel, they contact along their
+    whole face at any opening, where a pincer touches only at the tips as it
+    splays. Pivot + Gear once closed, so the object becomes rigidly attached:
+    full translation AND orientation authority, but only while grasped. Everything
     else here gives up one of the two.
 
     jaw in [0, 1]: 0 closed, 1 open.
@@ -1133,7 +1136,7 @@ class GripperAgent(Agent):
         self._jaws = []
         for sign in (-1.0, 1.0):
             jaw = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-            jaw.position = (position[0] + sign * GRIPPER_HINGE_SPAN, position[1])
+            jaw.position = (position[0] + sign * GRIPPER_JAW_MAX_GAP / 2, position[1])
             # Runs FORWARD from the hinge, same as umi. Centred jaws sliding
             # in parallel rendered as two blocks either side of the palm --
             # a bolt, not a gripper.
@@ -1202,20 +1205,21 @@ class GripperAgent(Agent):
                     best = max(best, abs(lx))
         return best if best > 0.0 else GRIPPER_JAW_MIN_GAP / 2
 
-    def _finger_angle(self, env) -> float:
-        """Splay per jaw: 90 deg fully open, 0 deg fully closed."""
-        half = self._gap(env) / 2.0
-        return math.asin(min(1.0, max(0.0,
-            (half - GRIPPER_HINGE_SPAN) / GRIPPER_FINGER_LEN)))
-
     def _sync(self, env):
+        """Slide the jaws along the back plate, always PARALLEL.
+
+        No hinge and no splay: the gap IS the jaw separation, so contact is a
+        flat face at every opening. umi is the revolute one; keeping this
+        linear is what makes the two mechanically different rather than two
+        drawings of the same pincer.
+        """
         palm = env._pusher_body
-        phi = self._finger_angle(env)
+        half = self._gap(env) / 2.0
         ca, sa = math.cos(palm.angle), math.sin(palm.angle)
         for sign, jaw in zip((-1.0, 1.0), self._jaws):
-            hx = sign * GRIPPER_HINGE_SPAN
+            hx = sign * half
             jaw.position = (palm.position.x + hx * ca, palm.position.y + hx * sa)
-            jaw.angle = palm.angle - sign * phi     # splay OUTWARD, never cross
+            jaw.angle = palm.angle          # parallel, always
             jaw.velocity = palm.velocity
             jaw.angular_velocity = palm.angular_velocity
 
