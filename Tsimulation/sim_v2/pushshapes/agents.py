@@ -32,6 +32,11 @@ import pymunk
 
 from .shapes import (
     GRIPPER_FINGER_LEN,
+    PLOW_BLADE_HALF_W,
+    PLOW_BLADE_LEN,
+    PLOW_HINGE_SPAN,
+    PLOW_MAX_HALF_ANGLE,
+    PLOW_MIN_HALF_ANGLE,
     GRIPPER_RAIL_HALF,
     GRIPPER_JAW_HALF_H,
     UMI_FINGER_HALF_H,
@@ -2005,6 +2010,87 @@ class TriangleAgent(Agent):
         return float(action[0]), float(action[1]), angle
 
 
+class PlowAgent(Agent):
+    """Adjustable V-plow: 4-DOF (x, y, angle, grip).
+
+    A PUSHER with a shape you articulate, not a gripper. Two blades hinge at
+    the wrist and `grip` sets the wedge:
+
+        grip 0.0  ->  FLAT blade, a straight bar. Sweeps broadside; the object
+                      slides off the ends and nothing is captured.
+        grip 1.0  ->  closed V. The object is cupped between the blades and
+                      travels with the plow.
+
+    Nothing ever attaches -- capture is pure geometry and friction, so the
+    hold is only as good as the wedge you are holding and the object leaves
+    the moment you open up or turn away. That places it between the fixed-arc
+    scoop, whose cup you cannot change, and the grippers, which bind with a
+    constraint and cannot drop by accident.
+    """
+
+    action_spec = ("x", "y", "angle", "grip")
+    action_dim = 4
+    controls_angle = True
+
+    def __init__(self, shape: str = "plow", *, solid_pusher: bool = True,
+                 solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self._blades: list[pymunk.Body] = []
+        self._grip = 0.0
+
+    def build(self, space, position):
+        body, shapes = super().build(space, position)
+        self._blades = []
+        for sign in (-1.0, 1.0):
+            b = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+            b.position = (position[0] + sign * PLOW_HINGE_SPAN, position[1])
+            # Blades run in -Y, i.e. AHEAD of the hub along the approach, so
+            # the V opens toward whatever you are pushing. Extending +Y put
+            # the cup behind the hub and nothing was ever captured -- the
+            # object was carried 0.0 at every wedge angle.
+            poly = pymunk.Poly(b, _rect_verts(
+                0.0, -PLOW_BLADE_LEN / 2,
+                2 * PLOW_BLADE_HALF_W, PLOW_BLADE_LEN))
+            poly.friction = OBJECT_FRICTION
+            space.add(b, poly)
+            self._blades.append(b)
+        return body, shapes
+
+    def _target_pose(self, action):
+        self._grip = min(1.0, max(0.0, float(action[3])))
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
+
+    def on_reset(self, env) -> None:
+        self._grip = 0.0
+
+    @property
+    def half_angle(self) -> float:
+        """Blade half-angle: MAX (flat) at grip 0, MIN (closed V) at grip 1."""
+        return PLOW_MAX_HALF_ANGLE + self._grip * (
+            PLOW_MIN_HALF_ANGLE - PLOW_MAX_HALF_ANGLE)
+
+    @property
+    def mode(self) -> str:
+        return "flat" if self._grip < 0.33 else (
+            "wedge" if self._grip < 0.75 else "closed")
+
+    def pre_substep(self, env):
+        wr = env._pusher_body
+        phi = self.half_angle
+        ca, sa = math.cos(wr.angle), math.sin(wr.angle)
+        for sign, b in zip((-1.0, 1.0), self._blades):
+            hx = sign * PLOW_HINGE_SPAN
+            b.position = (wr.position.x + hx * ca, wr.position.y + hx * sa)
+            b.angle = wr.angle - sign * phi
+            b.velocity = wr.velocity
+            b.angular_velocity = wr.angular_velocity
+        return super().pre_substep(env)
+
+
 _SIMPLE = ("circle", "circle_small", "stick", "L")
 
 #: shape name -> agent class, for everything that is not a plain 2-DOF pusher.
@@ -2015,7 +2101,7 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "triangle": TriangleAgent,
     "umi": UmiAgent,
     "scoop": ScoopAgent,
-    "towbar": TowbarAgent,
+    "plow": PlowAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.

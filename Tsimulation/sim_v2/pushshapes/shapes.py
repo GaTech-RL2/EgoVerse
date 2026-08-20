@@ -207,6 +207,15 @@ UMI_FINGER_HALF_H = UMI_FINGER_LEN / 2
 # orientation -- a flat face or a single vertex.
 TRI_R = 24.0
 
+# V-plow: two blades hinged at the wrist. `grip` sets the wedge angle, from a
+# flat blade (sweeps broadside, nothing is captured) to a closed V (cups the
+# object and carries it by geometry alone).
+PLOW_BLADE_LEN = 42.0
+PLOW_BLADE_HALF_W = 4.0
+PLOW_HINGE_SPAN = 5.0
+PLOW_MIN_HALF_ANGLE = 0.42   # closed V
+PLOW_MAX_HALF_ANGLE = 1.57   # flat blade
+
 # Tow bar: a hitch ball. The bar itself is a PinJoint, drawn as a line.
 TOWBAR_R = 9.0
 TOWBAR_LENGTH = 70.0
@@ -275,6 +284,7 @@ _PUSHER_RADII: dict[str, float] = {
     "soft": SOFT_SPAN / 2 + SOFT_NODE_R,
     "wrench": WRENCH_R,
     "towbar": TOWBAR_R,
+    "plow": PLOW_BLADE_LEN,
     "triangle": TRI_R,
     "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
     "compliant": COMPLIANT_R,
@@ -475,6 +485,14 @@ def make_pusher(
         w.friction = OBJECT_FRICTION
         space.add(body, w)
         return body, [w]
+
+    if shape == "plow":
+        # Hub only; the two blades are separate bodies owned by PlowAgent
+        # because their angle is commanded per step.
+        hub = pymunk.Circle(body, PLOW_HINGE_SPAN)
+        hub.friction = OBJECT_FRICTION
+        space.add(body, hub)
+        return body, [hub]
 
     if shape == "towbar":
         # Hitch ball plus a drawbar stub, so it does not read as yet another
