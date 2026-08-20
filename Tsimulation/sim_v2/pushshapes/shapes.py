@@ -181,6 +181,14 @@ SCOOP_R = 20.0
 SCOOP_THICK = 4.0
 SCOOP_SEGMENTS = 5
 
+# UMI-style rotary gripper: two fingers on a rotating wrist. Slimmer and
+# longer-fingered than `gripper` so the two read differently on screen.
+UMI_WRIST_R = 7.0
+UMI_FINGER_HALF_W = 3.5
+UMI_FINGER_HALF_H = 26.0
+UMI_MAX_GAP = 52.0
+UMI_MIN_GAP = 6.0
+
 # Tow bar: a hitch ball. The bar itself is a PinJoint, drawn as a line.
 TOWBAR_R = 9.0
 TOWBAR_LENGTH = 70.0
@@ -249,6 +257,7 @@ _PUSHER_RADII: dict[str, float] = {
     "soft": SOFT_SPAN / 2 + SOFT_NODE_R,
     "wrench": WRENCH_R,
     "towbar": TOWBAR_R,
+    "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
     "compliant": COMPLIANT_R,
 }
 
@@ -431,6 +440,14 @@ def make_pusher(
             x.friction = OBJECT_FRICTION
         space.add(body, *parts)
         return body, parts
+
+    if shape == "umi":
+        # Wrist only; the two fingers are separate bodies owned by UmiAgent
+        # because their gap is commanded continuously.
+        w = pymunk.Circle(body, UMI_WRIST_R)
+        w.friction = OBJECT_FRICTION
+        space.add(body, w)
+        return body, [w]
 
     if shape == "towbar":
         # Hitch ball plus a drawbar stub, so it does not read as yet another

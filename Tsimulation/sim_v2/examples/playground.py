@@ -86,6 +86,7 @@ ENGAGE_LABEL = {
     "tapper": "SPACE strike",
     "wrench": "auto-couples in range",
     "towbar": "SPACE hitch / unhitch",
+    "umi": "W/S jaw width (open/pinch/clamp)",
     "u_socket": "SPACE (n/a)",
 }
 
@@ -325,6 +326,7 @@ def main() -> int:
     all_done = False
     angle = 0.0
     spread = 34.0
+    grip = 1.0
     orbit = math.pi / 2
     running = True
 
@@ -373,9 +375,9 @@ def main() -> int:
         if held[pygame.K_d]:
             angle += 0.06
         if held[pygame.K_w]:
-            spread = min(160.0, spread + 1.5)
+            spread = min(160.0, spread + 1.5); grip = min(1.0, grip + 0.02)
         if held[pygame.K_s]:
-            spread = max(12.0, spread - 1.5)
+            spread = max(12.0, spread - 1.5); grip = max(0.0, grip - 0.02)
         if held[pygame.K_q]:
             orbit -= 0.05
         if held[pygame.K_e]:
@@ -397,6 +399,7 @@ def main() -> int:
             "angle": angle,
             "engage": engage,
             "jaw": 0.0 if engage else 1.0,       # SPACE closes the jaws
+            "grip": grip,                        # W/S sets UMI jaw width
             "x2": wx + math.cos(orbit) * spread,
             "y2": wy + math.sin(orbit) * spread,
         }
@@ -474,6 +477,9 @@ def main() -> int:
             bits.append(ENGAGE_LABEL.get(name, "SPACE engage"))
         if "angle" in spec:
             bits.append(f"A/D angle {math.degrees(angle):4.0f}deg")
+        if "grip" in spec:
+            m = getattr(env.agent, "mode", "")
+            bits.append(f"W/S grip {grip:.2f} [{m}]")
         if "x2" in spec:
             bits.append(f"W/S spread {spread:.0f}  Q/E orbit {math.degrees(orbit):3.0f}deg")
         hint = "   ".join(bits)

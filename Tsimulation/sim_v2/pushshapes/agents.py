@@ -32,6 +32,11 @@ import pymunk
 
 from .shapes import (
     GRIPPER_JAW_HALF_H,
+    UMI_FINGER_HALF_H,
+    UMI_FINGER_HALF_W,
+    UMI_MAX_GAP,
+    UMI_MIN_GAP,
+    UMI_WRIST_R,
     TOWBAR_LENGTH,
     SOFT_DAMPING,
     SOFT_NODE_MASS,
@@ -1659,6 +1664,152 @@ class CompliantAgent(Agent):
                                          self._before[1] + dy * k)
 
 
+class UmiAgent(Agent):
+    """UMI-style rotary gripper: 4-DOF (x, y, wrist, grip).
+
+    Continuous jaw width and a free-spinning wrist, in the spirit of the
+    handheld UMI gripper. What makes it distinct from `gripper` is that grip is
+    GRADED, with three physical regimes rather than open/closed:
+
+        grip > 0.66   RELEASED  -- fingers clear, object free
+        0.33-0.66     PINCHED   -- pivot only: the object is held in position
+                                   but free to SPIN between the fingers, so it
+                                   can settle or be turned by contact
+        grip < 0.33   CLAMPED   -- pivot + gear: rigid, wrist rotation drives
+                                   the object's orientation directly
+
+    Grading it this way rather than by constraint strength is deliberate:
+    max_force cannot grade anything against a kinematic body -- measured
+    identical carried-fraction (97/97/95/71/46 %) from max_force 5e4 through
+    1e7 -- so "how hard you squeeze" has to be expressed as WHICH DEGREES OF
+    FREEDOM are constrained, which the solver does handle exactly.
+
+    The pinched regime is the affordance nothing else here has: hold position
+    while deliberately surrendering orientation, then clamp to lock it.
+    """
+
+    action_spec = ("x", "y", "angle", "grip")
+    action_dim = 4
+    controls_angle = True
+
+    def __init__(self, shape: str = "umi", *, solid_pusher: bool = True,
+                 solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self._fingers: list[pymunk.Body] = []
+        self._grip = 1.0
+        self._cs = None
+        self._mode = "released"
+
+    def build(self, space, position):
+        body, shapes = super().build(space, position)
+        self._fingers = []
+        for sign in (-1.0, 1.0):
+            f = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+            f.position = (position[0] + sign * UMI_MAX_GAP / 2, position[1])
+            poly = pymunk.Poly(f, _rect_verts(
+                0.0, 0.0, 2 * UMI_FINGER_HALF_W, 2 * UMI_FINGER_HALF_H))
+            poly.friction = OBJECT_FRICTION
+            space.add(f, poly)
+            self._fingers.append(f)
+        return body, shapes
+
+    def _target_pose(self, action):
+        self._grip = min(1.0, max(0.0, float(action[3])))
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
+
+    def on_reset(self, env) -> None:
+        self._grip, self._cs, self._mode = 1.0, None, "released"
+
+    @property
+    def grasped(self) -> bool:
+        return self._cs is not None
+
+    @property
+    def mode(self) -> str:
+        return self._mode
+
+    def active_constraints(self) -> tuple:
+        return tuple(self._cs) if self._cs else ()
+
+    def _gap(self, env) -> float:
+        gap = UMI_MIN_GAP + self._grip * (UMI_MAX_GAP - UMI_MIN_GAP)
+        # Floor at the object's width whenever it is BETWEEN the fingers, not
+        # only once already grasped. Gating on _cs was circular: the fingers
+        # closed straight through the limb and shoved it away, so the grasp
+        # could never form, so the floor never applied. Fingers stop where
+        # they touch.
+        if self._cs is not None or self._between(env):
+            gap = max(gap, 2.0 * self._half_width(env) + 1.0)
+        return min(gap, UMI_MAX_GAP)
+
+    def _half_width(self, env) -> float:
+        wr = env._pusher_body
+        ca, sa = math.cos(-wr.angle), math.sin(-wr.angle)
+        best = 0.0
+        for sh in env._object_shapes:
+            for v in sh.get_vertices():
+                w = v.rotated(env._object_body.angle) + env._object_body.position
+                rel = w - wr.position
+                best = max(best, abs(rel.x * ca - rel.y * sa))
+        return best
+
+    def _sync(self, env):
+        wr = env._pusher_body
+        half = self._gap(env) / 2.0
+        ca, sa = math.cos(wr.angle), math.sin(wr.angle)
+        for sign, f in zip((-1.0, 1.0), self._fingers):
+            f.position = (wr.position.x + sign * half * ca,
+                          wr.position.y + sign * half * sa)
+            f.angle = wr.angle
+            f.velocity = wr.velocity
+            f.angular_velocity = wr.angular_velocity
+
+    def _between(self, env) -> bool:
+        wr = env._pusher_body
+        half = UMI_MAX_GAP / 2 * 0.8
+        # Sample BOTH sides of the wrist: the fingers extend +/-26 in local Y,
+        # so an object entering from the negative side is just as grasped.
+        # Sampling only positive ly missed it entirely and the grip never
+        # formed regardless of how the operator closed the fingers.
+        for lx in (-half, -half / 2, 0.0, half / 2, half):
+            for ly in (-UMI_FINGER_HALF_H * 0.9, -UMI_FINGER_HALF_H * 0.45, 0.0,
+                       UMI_FINGER_HALF_H * 0.45, UMI_FINGER_HALF_H * 0.9):
+                if _surface_distance(env, wr.local_to_world((lx, ly))) <= 0.0:
+                    return True
+        return False
+
+    def _detach(self, env):
+        if self._cs:
+            for c in self._cs:
+                if c in env._space.constraints:
+                    env._space.remove(c)
+        self._cs = None
+
+    def pre_substep(self, env):
+        self._sync(env)
+        want = ("released" if self._grip > 0.66
+                else "pinched" if self._grip > 0.33 else "clamped")
+        if want != self._mode:
+            self._detach(env)
+            if want != "released" and self._between(env):
+                wr, obj = env._pusher_body, env._object_body
+                cs = [pymunk.PivotJoint(wr, obj, obj.position)]
+                if want == "clamped":
+                    cs.append(pymunk.GearJoint(wr, obj, obj.angle - wr.angle, 1.0))
+                for c in cs:
+                    c.max_force = _CONSTRAINT_FORCE
+                    env._space.add(c)
+                self._cs = tuple(cs)
+                self._mode = want
+            else:
+                self._mode = "released" if want == "released" else self._mode
+        return super().pre_substep(env)
+
+
 _SIMPLE = ("circle", "circle_small", "stick", "L")
 
 #: shape name -> agent class, for everything that is not a plain 2-DOF pusher.
@@ -1667,10 +1818,9 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "gripper": GripperAgent,
     "suction": SuctionAgent,
     "wrench": WrenchAgent,
-    "tether": TetherAgent,
+    "umi": UmiAgent,
     "scoop": ScoopAgent,
     "towbar": TowbarAgent,
-    "compliant": CompliantAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.
