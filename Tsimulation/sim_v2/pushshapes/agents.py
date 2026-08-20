@@ -1646,9 +1646,16 @@ class ScoopAgent(Agent):
 class TowbarAgent(Agent):
     """Rigid tow bar: 3-DOF (x, y, hitch).
 
-    A PinJoint holds the object at a FIXED distance, so it trails behind and
-    pivots about the hitch -- and because the link is rigid rather than a rope,
-    it transmits PUSH as well as pull. Measured: agent advances, object moves
+    The object is pinned to a TOW POINT the agent carries at distance L on a
+    commanded BEARING, so `angle` steers where the load sits relative to you --
+    swing it around yourself, or hold it out to one side while you travel.
+
+    Angle used to spin a near-symmetric hitch ball, which did nothing:
+    measured -14.6 degrees of object rotation for 172 degrees of command,
+    against 172.0 for the gripper. Same action slot, no effect -- so the
+    embodiment silently had one fewer usable DOF than its action space claimed.
+
+    The link is rigid rather than a rope, so it transmits PUSH as well as pull. Measured: agent advances, object moves
     +178.3, which a tether physically cannot do; and steering makes the object
     swing about the hitch (25 degrees over a straight haul, more when weaving).
 
@@ -1671,14 +1678,18 @@ class TowbarAgent(Agent):
         self.length = float(length)
         self._joint = None
         self._hitch = 0.0
+        self._bearing = 0.0
+        self._tow = None
 
     def _target_pose(self, action):
         self._hitch = float(action[3])
-        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
-        return float(action[0]), float(action[1]), angle
+        # Angle is the BEARING of the tow point, not the hitch body's spin.
+        self._bearing = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), self._bearing
 
     def on_reset(self, env) -> None:
         self._joint, self._hitch = None, 0.0
+        self._bearing, self._tow = 0.0, None
 
     @property
     def hitched(self) -> bool:
@@ -1691,13 +1702,24 @@ class TowbarAgent(Agent):
     def active_constraints(self) -> tuple:
         return (self._joint,) if self._joint is not None else ()
 
+    def _tow_point(self, env):
+        p = env._pusher_body.position
+        return (p.x + math.cos(self._bearing) * self.length,
+                p.y + math.sin(self._bearing) * self.length)
+
     def pre_substep(self, env):
         want = self._hitch > 0.5
+        if self._tow is None:
+            self._tow = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+            self._tow.position = self._tow_point(env)
+            env._space.add(self._tow)
+        # The tow point rides at the commanded bearing every substep; the
+        # object is pinned to IT, so steering the bearing swings the load.
+        self._tow.position = self._tow_point(env)
         if want and self._joint is None:
-            if _surface_distance(env, env._pusher_body.position) <= self.length:
-                j = pymunk.PinJoint(env._pusher_body, env._object_body, (0, 0), (0, 0))
-                j.distance = self.length
-                j.max_force = _CONSTRAINT_FORCE
+            if _surface_distance(env, env._object_body.position) <= self.length:
+                j = pymunk.PivotJoint(self._tow, env._object_body,
+                                      env._object_body.position)
                 env._space.add(j)
                 self._joint = j
         elif not want and self._joint is not None:
