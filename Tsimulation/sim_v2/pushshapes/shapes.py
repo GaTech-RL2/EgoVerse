@@ -207,14 +207,12 @@ UMI_FINGER_HALF_H = UMI_FINGER_LEN / 2
 # orientation -- a flat face or a single vertex.
 TRI_R = 24.0
 
-# V-plow: two blades hinged at the wrist. `grip` sets the wedge angle, from a
-# flat blade (sweeps broadside, nothing is captured) to a closed V (cups the
-# object and carries it by geometry alone).
-PLOW_BLADE_LEN = 42.0
-PLOW_BLADE_HALF_W = 4.0
-PLOW_HINGE_SPAN = 5.0
-PLOW_MIN_HALF_ANGLE = 0.42   # closed V
-PLOW_MAX_HALF_ANGLE = 1.57   # flat blade
+# Flipper: a bar hinged at the wrist, like a pinball flipper. `grip` swings
+# it through its arc, so the tip sweeps even when the base is stationary.
+FLIPPER_LEN = 62.0
+FLIPPER_HALF_W = 5.0
+FLIPPER_PIVOT_R = 7.0
+FLIPPER_SWING = 2.0        # radians from retracted to fully swung
 
 # Tow bar: a hitch ball. The bar itself is a PinJoint, drawn as a line.
 TOWBAR_R = 9.0
@@ -284,7 +282,7 @@ _PUSHER_RADII: dict[str, float] = {
     "soft": SOFT_SPAN / 2 + SOFT_NODE_R,
     "wrench": WRENCH_R,
     "towbar": TOWBAR_R,
-    "plow": PLOW_BLADE_LEN,
+    "flipper": FLIPPER_LEN,
     "triangle": TRI_R,
     "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
     "compliant": COMPLIANT_R,
@@ -486,10 +484,10 @@ def make_pusher(
         space.add(body, w)
         return body, [w]
 
-    if shape == "plow":
-        # Hub only; the two blades are separate bodies owned by PlowAgent
-        # because their angle is commanded per step.
-        hub = pymunk.Circle(body, PLOW_HINGE_SPAN)
+    if shape == "flipper":
+        # Pivot hub only; the bar is a separate body owned by FlipperAgent
+        # because its swing is commanded per step.
+        hub = pymunk.Circle(body, FLIPPER_PIVOT_R)
         hub.friction = OBJECT_FRICTION
         space.add(body, hub)
         return body, [hub]
