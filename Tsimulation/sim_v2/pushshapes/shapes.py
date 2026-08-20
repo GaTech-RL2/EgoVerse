@@ -189,6 +189,10 @@ UMI_FINGER_HALF_H = 26.0
 UMI_MAX_GAP = 52.0
 UMI_MIN_GAP = 6.0
 
+# Triangle: an equilateral pusher whose CONTACT PATCH depends on its
+# orientation -- a flat face or a single vertex.
+TRI_R = 24.0
+
 # Tow bar: a hitch ball. The bar itself is a PinJoint, drawn as a line.
 TOWBAR_R = 9.0
 TOWBAR_LENGTH = 70.0
@@ -257,6 +261,7 @@ _PUSHER_RADII: dict[str, float] = {
     "soft": SOFT_SPAN / 2 + SOFT_NODE_R,
     "wrench": WRENCH_R,
     "towbar": TOWBAR_R,
+    "triangle": TRI_R,
     "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
     "compliant": COMPLIANT_R,
 }
@@ -440,6 +445,14 @@ def make_pusher(
             x.friction = OBJECT_FRICTION
         space.add(body, *parts)
         return body, parts
+
+    if shape == "triangle":
+        verts = [(TRI_R * math.cos(a), TRI_R * math.sin(a))
+                 for a in (math.pi / 2, math.pi * 7 / 6, math.pi * 11 / 6)]
+        poly = pymunk.Poly(body, verts)
+        poly.friction = OBJECT_FRICTION
+        space.add(body, poly)
+        return body, [poly]
 
     if shape == "umi":
         # Wrist only; the two fingers are separate bodies owned by UmiAgent

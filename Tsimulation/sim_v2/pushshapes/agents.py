@@ -193,8 +193,8 @@ AGENT_GAP_RANGES: dict[str, dict[str, tuple]] = {
                 "gain": (0.9, 1.0), "noise_std": (0.0, 0.5)},
     "suction": {"latency_steps": (0, 2), "lag": (0.1, 0.4), "deadband": (0.0, 1.5),
                 "gain": (0.95, 1.0), "noise_std": (0.0, 0.8)},
-    "wrench": {"latency_steps": (1, 4), "lag": (0.2, 0.5), "deadband": (0.0, 2.0),
-               "gain": (0.92, 1.0), "noise_std": (0.0, 1.0)},
+    "triangle": {"latency_steps": (0, 3), "lag": (0.1, 0.45), "deadband": (0.0, 2.0),
+                 "gain": (0.93, 1.0), "noise_std": (0.0, 1.0)},
     "scoop": {"latency_steps": (0, 3), "lag": (0.15, 0.5), "deadband": (0.0, 2.5),
               "gain": (0.92, 1.0), "noise_std": (0.0, 1.2)},
     "two_point": {"latency_steps": (0, 3), "lag": (0.1, 0.5), "deadband": (0.0, 2.0),
@@ -1810,6 +1810,42 @@ class UmiAgent(Agent):
         return super().pre_substep(env)
 
 
+class TriangleAgent(Agent):
+    """Equilateral triangle pusher: 3-DOF (x, y, angle).
+
+    Pure contact, no constraints, no action at a distance. Its affordance is
+    that YOU CHOOSE THE CONTACT PATCH by rotating it, and that patch sets both
+    the SIGN and the SIZE of the spin you induce. Measured on an identical
+    straight push:
+
+        flat face into the object  ->  moved 123.9, rotated -33.8 deg
+        vertex into the object     ->  moved 136.5, rotated +30.0 deg
+        edge at 90 deg             ->  moved 139.7, rotated +54.9 deg
+
+    So the SAME command yields ~90 degrees of spread in induced rotation
+    depending only on how the pusher is held. Note a flat face is NOT
+    spin-free -- the torque comes from where contact lands relative to the
+    object's centre of mass, not from the pusher's face alone -- so the skill
+    is picking an orientation for the turn you want, not avoiding turning.
+
+    A circle offers no such choice, and stick/L auto-orient to their heading
+    rather than letting you pick.
+
+    This replaces the wrench, which coupled a GearJoint on PROXIMITY with no
+    engage channel: it was already coupled at spawn from 136 units away, so
+    the object's orientation was silently locked to the agent across most of
+    the arena with no way to release it.
+    """
+
+    action_spec = ("x", "y", "angle")
+    action_dim = 3
+    controls_angle = True
+
+    def _target_pose(self, action):
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
+
+
 _SIMPLE = ("circle", "circle_small", "stick", "L")
 
 #: shape name -> agent class, for everything that is not a plain 2-DOF pusher.
@@ -1817,7 +1853,7 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "u_socket": USocketAgent,
     "gripper": GripperAgent,
     "suction": SuctionAgent,
-    "wrench": WrenchAgent,
+    "triangle": TriangleAgent,
     "umi": UmiAgent,
     "scoop": ScoopAgent,
     "towbar": TowbarAgent,

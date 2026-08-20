@@ -84,8 +84,8 @@ ENGAGE_LABEL = {
     "tether": "SPACE hook rope",
     "magnet": "SPACE magnetise",
     "tapper": "SPACE strike",
-    "wrench": "auto-couples in range",
     "towbar": "SPACE hitch / unhitch",
+    "triangle": "A/D picks face vs vertex",
     "umi": "W/S jaw width (open/pinch/clamp)",
     "u_socket": "SPACE (n/a)",
 }
