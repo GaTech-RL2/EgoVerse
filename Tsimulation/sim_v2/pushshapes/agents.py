@@ -1126,6 +1126,7 @@ class GripperAgent(Agent):
         self._jaws: list[pymunk.Body] = []
         self._jaw_cmd = 1.0
         self._grasp = None
+        self._held_gap = GRIPPER_JAW_MIN_GAP
 
     def build(self, space, position):
         body, shapes = super().build(space, position)
@@ -1171,7 +1172,12 @@ class GripperAgent(Agent):
         # minimum against a 30-wide stem, so they never straddled it, so the
         # grasp never formed, so the floor never applied. Same bug as umi's,
         # fixed there and not carried across.
-        if self._grasp is not None or self._spans(env):
+        if self._grasp is not None:
+            # FROZEN at grasp time. Recomputing while held made the fingers
+            # drift open and shut as the object shifted, so a holding gripper
+            # visibly let go and re-gripped every few frames.
+            return self._held_gap
+        if self._spans(env):
             gap = max(gap, 2.0 * self._obj_half_width(env) + 1.0)
         return min(gap, GRIPPER_JAW_MAX_GAP)
 
@@ -1252,10 +1258,21 @@ class GripperAgent(Agent):
         graspable = 2.0 * self._obj_half_width(env) <= GRIPPER_JAW_MAX_GAP * 0.95
         if closing and self._grasp is None and graspable and self._spans(env):
             palm, obj = env._pusher_body, env._object_body
-            pj = pymunk.PivotJoint(palm, obj, obj.position)
-            pj.max_force = _CONSTRAINT_FORCE
+            # Anchor WHERE THE JAWS ARE, not at the object's centre of mass.
+            # Anchoring at obj.position pinned a point ~60 units away from the
+            # contact, so the T hung off the gripper at that radius and swung
+            # about it -- on screen the gripper was plainly not touching the
+            # object it was "holding".
+            pj = pymunk.PivotJoint(palm, obj, palm.position)
+            # UNCAPPED, like the gear. Capping the pivot at _CONSTRAINT_FORCE
+            # while the gear ran unlimited let the gear win: the object rotated
+            # about its own centre and dragged the anchor off the jaws, so the
+            # palm-to-surface distance grew from 6 at grasp to 45 mid-carry --
+            # a grasp that visibly stopped touching the thing it held.
             env._space.add(pj)
             gj = _add_gear(env._space, palm, obj, obj.angle - palm.angle)
+            self._held_gap = max(GRIPPER_JAW_MIN_GAP,
+                                 2.0 * self._obj_half_width(env) + 1.0)
             self._grasp = (pj, gj)
         elif not closing and self._grasp is not None:
             for c in self._grasp:
@@ -1755,6 +1772,7 @@ class UmiAgent(Agent):
         self._fingers: list[pymunk.Body] = []
         self._grip = 1.0
         self._cs = None
+        self._held_gap = UMI_MIN_GAP
         self._mode = "released"
 
     def build(self, space, position):
@@ -1801,7 +1819,9 @@ class UmiAgent(Agent):
         # closed straight through the limb and shoved it away, so the grasp
         # could never form, so the floor never applied. Fingers stop where
         # they touch.
-        if self._cs is not None or self._between(env):
+        if self._cs is not None:
+            return self._held_gap          # frozen at grasp -- see GripperAgent
+        if self._between(env):
             gap = max(gap, 2.0 * self._half_width(env) + 1.0)
         return min(gap, UMI_MAX_GAP)
 
@@ -1888,9 +1908,12 @@ class UmiAgent(Agent):
             graspable = 2.0 * self._half_width(env) <= UMI_MAX_GAP * 0.95
             if want != "released" and graspable and self._between(env):
                 wr, obj = env._pusher_body, env._object_body
-                pj = pymunk.PivotJoint(wr, obj, obj.position)
-                pj.max_force = _CONSTRAINT_FORCE
-                env._space.add(pj)
+                # Anchor at the wrist (between the fingers), not the object's
+                # centre of mass -- see GripperAgent.
+                pj = pymunk.PivotJoint(wr, obj, wr.position)
+                env._space.add(pj)   # uncapped -- see GripperAgent
+                self._held_gap = max(UMI_MIN_GAP,
+                                     2.0 * self._half_width(env) + 1.0)
                 cs = [pj]
                 if want == "clamped":
                     cs.append(_add_gear(env._space, wr, obj, obj.angle - wr.angle))
