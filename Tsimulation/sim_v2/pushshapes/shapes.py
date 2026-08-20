@@ -433,10 +433,15 @@ def make_pusher(
         return body, parts
 
     if shape == "towbar":
-        sh = pymunk.Circle(body, TOWBAR_R)
-        sh.friction = OBJECT_FRICTION
-        space.add(body, sh)
-        return body, [sh]
+        # Hitch ball plus a drawbar stub, so it does not read as yet another
+        # circle. The bar to the object is a PinJoint and is drawn separately.
+        ball = pymunk.Circle(body, TOWBAR_R)
+        arm = pymunk.Poly(body, _rect_verts(TOWBAR_R + 9.0, 0.0, 22.0, 6.0))
+        yoke = pymunk.Poly(body, _rect_verts(TOWBAR_R + 20.0, 0.0, 5.0, 20.0))
+        for x in (ball, arm, yoke):
+            x.friction = OBJECT_FRICTION
+        space.add(body, ball, arm, yoke)
+        return body, [ball, arm, yoke]
 
     if shape == "wrench":
         # Sensor: the wrench acts through a GearJoint, never through contact.

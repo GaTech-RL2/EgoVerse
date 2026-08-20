@@ -386,17 +386,22 @@ def main() -> int:
         wx = float(np.clip(mx / SCALE, 0, WORLD))
         wy = float(np.clip(my / SCALE, 0, WORLD))
 
-        dim = env.agent.action_dim
-        act = np.zeros(dim, dtype=np.float64)
-        act[0], act[1] = wx, wy
-        if agents[ai] == "two_point":
-            act[2] = wx + math.cos(orbit) * spread
-            act[3] = wy + math.sin(orbit) * spread
-        elif dim == 4:                      # gripper: x, y, angle, jaw
-            act[2] = angle
-            act[3] = 0.0 if engage else 1.0  # SPACE closes
-        elif dim == 3:
-            act[2] = angle if agents[ai] == "u_socket" else engage
+        # Build the action FROM THE AGENT'S OWN SPEC. Encoding by dimension
+        # (the previous approach) mis-wired three agents at once: suction
+        # never suctioned because the angle landed in its engage slot, and
+        # wrench/scoop had their orientation pinned to 0-or-1 radians because
+        # engage landed in their angle slot -- 3-DOF in name only.
+        spec = env.agent.action_spec
+        chan = {
+            "x": wx, "y": wy,
+            "angle": angle,
+            "engage": engage,
+            "jaw": 0.0 if engage else 1.0,       # SPACE closes the jaws
+            "x2": wx + math.cos(orbit) * spread,
+            "y2": wy + math.sin(orbit) * spread,
+        }
+        act = np.array([chan[c] for c in spec], dtype=np.float64)
+        dim = len(spec)
 
         obs, reward, terminated, _trunc, info = env.step(act)
         if recording and writer is not None:
@@ -454,7 +459,7 @@ def main() -> int:
         y = WIN + 8
         name = agents[ai]
         screen.blit(big.render(
-            f"[{ai + 1}] {name}   {dim}-DOF   {objects[oi]}", True, COL_TEXT), (10, y))
+            f"[{ai + 1}] {name}   {'+'.join(spec)}   {objects[oi]}", True, COL_TEXT), (10, y))
         cov = f"coverage {reward:5.3f}"
         if terminated:
             cov += "   SOLVED"
@@ -464,11 +469,14 @@ def main() -> int:
         if label:
             screen.blit(font.render(label, True,
                         COL_HUD_OK if engaged else COL_DIM), (10, y))
-        hint = ENGAGE_LABEL.get(name, "")
-        if name == "two_point":
-            hint = f"W/S spread {spread:.0f}   Q/E orbit {math.degrees(orbit):3.0f}deg"
-        elif name in ("u_socket", "gripper"):
-            hint = f"{hint}   A/D angle {math.degrees(angle):4.0f}deg"
+        bits = []
+        if "engage" in spec or "jaw" in spec:
+            bits.append(ENGAGE_LABEL.get(name, "SPACE engage"))
+        if "angle" in spec:
+            bits.append(f"A/D angle {math.degrees(angle):4.0f}deg")
+        if "x2" in spec:
+            bits.append(f"W/S spread {spread:.0f}  Q/E orbit {math.degrees(orbit):3.0f}deg")
+        hint = "   ".join(bits)
         screen.blit(font.render(hint, True, COL_DIM), (170, y))
         y += 20
         if out_root is not None:

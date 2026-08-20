@@ -239,6 +239,14 @@ CONTROL_GAPS: dict[str, ControlGap] = {
 class Agent:
     """Base 2-DOF pusher with the fixed Sim V2 solid-contact guard."""
 
+    #: Named channels, one per action slot. The UI and any scripted policy
+    #: build actions from THIS, never from action_dim -- encoding by dimension
+    #: silently mis-wired three agents at once: suction read slot 2 as
+    #: `engage` while the UI sent an angle there (so it never suctioned), and
+    #: wrench and scoop read slot 2 as `angle` while the UI sent 0/1 engage
+    #: (so their orientation was pinned and they were 3-DOF in name only).
+    action_spec: tuple[str, ...] = ("x", "y")
+
     action_dim = 2
     #: True when the agent commands its own orientation (3-DOF and up), so
     #: env._drive_pusher_toward uses target_pose()'s angle verbatim.
@@ -353,6 +361,10 @@ class Agent:
 
     def on_reset(self, env) -> None:
         """Per-episode state reset. No-op for a stateless agent."""
+
+    @property
+    def dim(self) -> int:
+        return len(self.action_spec)
 
     def active_constraints(self) -> tuple:
         """Constraints this agent currently holds against the object.
@@ -469,6 +481,7 @@ class USocketAgent(Agent):
     that keep a latched pair from tunnelling through the object or the arena.
     """
 
+    action_spec = ("x", "y", "angle")
     action_dim = 3
     controls_angle = True
     init_fields = ("solid_pusher", "socket_inside_friction_only")
@@ -1030,7 +1043,10 @@ class USocketAgent(Agent):
 #   two_point  yes        yes     no    no      no      rotate with nothing attached
 #   scoop      yes        yes     no    no      loose   carry, droppable by tilting
 
-_SUCTION_GRIP_RADIUS = 30.0
+# Measured: with the pad flush against the object the BODY CENTRE sits 15.0
+# from the surface, because the pad is 26 wide. A radius tighter than that can
+# never be satisfied no matter how the operator drives.
+_SUCTION_GRIP_RADIUS = 18.0
 _SUCTION_RELEASE_BLOCK = 10
 #: Two orders below _CONSTRAINT_FORCE: enough to reorient a settled object,
 #: not enough to stop a fast drag twisting it. This is the pad slipping.
@@ -1038,8 +1054,24 @@ _SUCTION_TWIST_FORCE = 6.0e5
 _WRENCH_RANGE = 150.0
 _TETHER_LINKS = 10
 _TETHER_LINK_LEN = 14.0
-_TETHER_GRAB_RADIUS = 34.0
+_TETHER_GRAB_RADIUS = 16.0    # agent body -> object SURFACE
 _CONSTRAINT_FORCE = 5.0e7
+
+
+def _surface_distance(env, point) -> float:
+    """Distance from `point` to the object's SURFACE (negative inside).
+
+    Grip conditions must use this, not the distance to the centroid. The T
+    spans 120x120, so a pad resting against its surface still sits ~45 units
+    from the centre -- a centroid-based radius of 30 can never be satisfied
+    and the mechanism simply never fires. That bug silently disabled suction
+    and the tether, and had already been fixed once for the gripper without
+    being carried across.
+    """
+    best = float("inf")
+    for sh in env._object_shapes:
+        best = min(best, float(sh.point_query(point).distance))
+    return best
 #: Any non-zero group; pymunk skips collisions between shapes sharing one, so
 #: the rope cannot snag on itself or on the pusher that is dragging it.
 _ROPE_GROUP = 0x50F7
@@ -1055,6 +1087,7 @@ class GripperAgent(Agent):
     jaw in [0, 1]: 0 closed, 1 open.
     """
 
+    action_spec = ("x", "y", "angle", "jaw")
     action_dim = 4
     controls_angle = True
 
@@ -1092,6 +1125,10 @@ class GripperAgent(Agent):
     @property
     def grasped(self) -> bool:
         return self._grasp is not None
+
+    @property
+    def dim(self) -> int:
+        return len(self.action_spec)
 
     def active_constraints(self) -> tuple:
         return tuple(self._grasp) if self._grasp else ()
@@ -1138,13 +1175,16 @@ class GripperAgent(Agent):
         and was never grasped).
         """
         palm = env._pusher_body
-        half = GRIPPER_JAW_MAX_GAP / 2 * 0.7
-        for lx in (-half, 0.0, half):
-            for ly in (-GRIPPER_JAW_HALF_H * 0.5, 0.0, GRIPPER_JAW_HALF_H * 0.5):
+        half = GRIPPER_JAW_MAX_GAP / 2 * 0.8
+        # Sample the pocket BETWEEN and IN FRONT OF the jaws. Sampling at the
+        # palm itself never fires: the jaws stick out 23 units and stop the
+        # palm ~21 from the surface, so nothing at the palm is ever inside the
+        # object even when a limb is squarely between the jaws.
+        for lx in (-half, -half / 2, 0.0, half / 2, half):
+            for ly in (0.0, GRIPPER_JAW_HALF_H * 0.6, GRIPPER_JAW_HALF_H * 1.1):
                 w = palm.local_to_world((lx, ly))
-                for sh in env._object_shapes:
-                    if sh.point_query(w).distance <= 0.0:
-                        return True
+                if _surface_distance(env, w) <= 0.0:
+                    return True
         return False
 
     def pre_substep(self, env):
@@ -1185,6 +1225,7 @@ class SuctionAgent(Agent):
     Distinct from the gripper, which holds angle rigidly and cannot slip.
     """
 
+    action_spec = ("x", "y", "engage", "angle")
     action_dim = 4
     controls_angle = True
 
@@ -1211,6 +1252,10 @@ class SuctionAgent(Agent):
     def attached(self) -> bool:
         return self._joint is not None
 
+    @property
+    def dim(self) -> int:
+        return len(self.action_spec)
+
     def active_constraints(self) -> tuple:
         return tuple(self._joint) if self._joint else ()
 
@@ -1220,7 +1265,7 @@ class SuctionAgent(Agent):
         want = self._engage > 0.5
         if want and self._joint is None and not self._block:
             pad = env._pusher_body.position
-            if (pad - env._object_body.position).length <= _SUCTION_GRIP_RADIUS:
+            if _surface_distance(env, pad) <= _SUCTION_GRIP_RADIUS:
                 pu, obj = env._pusher_body, env._object_body
                 j = pymunk.PivotJoint(pu, obj, pad)
                 j.max_force = _CONSTRAINT_FORCE
@@ -1259,6 +1304,7 @@ class WrenchAgent(Agent):
     units where a constraint moves it 118.
     """
 
+    action_spec = ("x", "y", "angle")
     action_dim = 3
     controls_angle = True
 
@@ -1282,6 +1328,10 @@ class WrenchAgent(Agent):
     @property
     def coupled(self) -> bool:
         return self._joint is not None
+
+    @property
+    def dim(self) -> int:
+        return len(self.action_spec)
 
     def active_constraints(self) -> tuple:
         return (self._joint,) if self._joint is not None else ()
@@ -1318,6 +1368,7 @@ class TetherAgent(Agent):
     travel around it. Approach angle stops being a detail and becomes the plan.
     """
 
+    action_spec = ("x", "y", "engage")
     action_dim = 3
 
     def __init__(self, shape: str = "tether", *, solid_pusher: bool = True,
@@ -1365,6 +1416,10 @@ class TetherAgent(Agent):
     def hooked(self) -> bool:
         return self._hook_joint is not None
 
+    @property
+    def dim(self) -> int:
+        return len(self.action_spec)
+
     def active_constraints(self) -> tuple:
         return (self._hook_joint,) if self._hook_joint is not None else ()
 
@@ -1382,8 +1437,14 @@ class TetherAgent(Agent):
     def pre_substep(self, env):
         want = self._hook > 0.5
         if want and self._hook_joint is None and self._links:
-            tip = self._links[-1].local_to_world((_TETHER_LINK_LEN, 0.0))
-            if (tip - env._object_body.position).length <= _TETHER_GRAB_RADIUS:
+            # Hook when the AGENT reaches the object, not when the rope TIP
+            # does: the chain trails BEHIND the agent, so its tip points away
+            # from whatever you walk towards -- measured 58.2 units off while
+            # the agent itself was already 8.4 from the surface. Distance is
+            # to the SURFACE, since the T spans 120 and a centroid radius can
+            # never be met. Once pinned, the links straighten into the gap.
+            tip = env._pusher_body.position
+            if _surface_distance(env, tip) <= _TETHER_GRAB_RADIUS:
                 # Anchor where the rope actually TOUCHES, not at the centroid.
                 # An off-centre hook turns a pull into a pull plus a torque, so
                 # WHERE you attach chooses how the object turns -- the tether's
@@ -1411,6 +1472,7 @@ class TwoPointAgent(Agent):
     means it can drop it at any instant.
     """
 
+    action_spec = ("x", "y", "x2", "y2")
     action_dim = 4
 
     def __init__(self, shape: str = "two_point", *, solid_pusher: bool = True,
@@ -1475,6 +1537,7 @@ class ScoopAgent(Agent):
     and the gripper, which cannot drop by accident.
     """
 
+    action_spec = ("x", "y", "angle")
     action_dim = 3
     controls_angle = True
 
@@ -1499,6 +1562,7 @@ class TowbarAgent(Agent):
     face), and it is the only agent here that must anticipate a trailing load.
     """
 
+    action_spec = ("x", "y", "engage")
     action_dim = 3
 
     def __init__(self, shape: str = "towbar", *, length: float = TOWBAR_LENGTH,
@@ -1522,14 +1586,17 @@ class TowbarAgent(Agent):
     def hitched(self) -> bool:
         return self._joint is not None
 
+    @property
+    def dim(self) -> int:
+        return len(self.action_spec)
+
     def active_constraints(self) -> tuple:
         return (self._joint,) if self._joint is not None else ()
 
     def pre_substep(self, env):
         want = self._hitch > 0.5
         if want and self._joint is None:
-            d = (env._pusher_body.position - env._object_body.position).length
-            if d <= self.length * 1.4:
+            if _surface_distance(env, env._pusher_body.position) <= self.length:
                 j = pymunk.PinJoint(env._pusher_body, env._object_body, (0, 0), (0, 0))
                 j.distance = self.length
                 j.max_force = _CONSTRAINT_FORCE
@@ -1560,6 +1627,7 @@ class CompliantAgent(Agent):
     the same commands.
     """
 
+    action_spec = ("x", "y")
     action_dim = 2
 
     def __init__(self, shape: str = "compliant", *,
@@ -1600,7 +1668,6 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "suction": SuctionAgent,
     "wrench": WrenchAgent,
     "tether": TetherAgent,
-    "two_point": TwoPointAgent,
     "scoop": ScoopAgent,
     "towbar": TowbarAgent,
     "compliant": CompliantAgent,
