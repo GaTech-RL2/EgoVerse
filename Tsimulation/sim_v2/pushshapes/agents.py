@@ -1166,13 +1166,23 @@ class GripperAgent(Agent):
     def _gap(self, env) -> float:
         gap = GRIPPER_JAW_MIN_GAP + self._jaw_cmd * (
             GRIPPER_JAW_MAX_GAP - GRIPPER_JAW_MIN_GAP)
-        if self._grasp is not None:
-            # Jaws stop where they touch. Closing to the bare minimum drives
-            # them THROUGH an object wider than the gap.
+        # Floor whenever the object is in the pocket, not only once grasped.
+        # Gating on _grasp was circular -- the jaws closed to their 26-unit
+        # minimum against a 30-wide stem, so they never straddled it, so the
+        # grasp never formed, so the floor never applied. Same bug as umi's,
+        # fixed there and not carried across.
+        if self._grasp is not None or self._spans(env):
             gap = max(gap, 2.0 * self._obj_half_width(env) + 1.0)
         return min(gap, GRIPPER_JAW_MAX_GAP)
 
     def _obj_half_width(self, env) -> float:
+        """Half-width of the object material INSIDE THE JAW POCKET.
+
+        Restricted to vertices lying within the fingers' reach. Taking the max
+        over every vertex returned the whole T's half-extent -- 60.0 when the
+        jaws were closing on a 15-wide limb -- so the gap floored at ~121 and
+        the jaws never came near the object they were supposedly holding.
+        """
         palm = env._pusher_body
         ca, sa = math.cos(-palm.angle), math.sin(-palm.angle)
         best = 0.0
@@ -1180,14 +1190,17 @@ class GripperAgent(Agent):
             for v in sh.get_vertices():
                 w = v.rotated(env._object_body.angle) + env._object_body.position
                 rel = w - palm.position
-                best = max(best, abs(rel.x * ca - rel.y * sa))
-        return best
+                lx = rel.x * ca - rel.y * sa
+                ly = rel.x * sa + rel.y * ca
+                if -GRIPPER_FINGER_LEN * 0.25 <= ly <= GRIPPER_FINGER_LEN:
+                    best = max(best, abs(lx))
+        return best if best > 0.0 else GRIPPER_JAW_MIN_GAP / 2
 
     def _finger_angle(self, env) -> float:
         """Splay per jaw: 90 deg fully open, 0 deg fully closed."""
-        span = max(0.0, self._gap(env) - GRIPPER_JAW_MIN_GAP) / max(
-            1e-9, GRIPPER_JAW_MAX_GAP - GRIPPER_JAW_MIN_GAP)
-        return span * (math.pi / 2)
+        half = self._gap(env) / 2.0
+        return math.asin(min(1.0, max(0.0,
+            (half - GRIPPER_HINGE_SPAN) / GRIPPER_FINGER_LEN)))
 
     def _sync(self, env):
         palm = env._pusher_body
@@ -1212,12 +1225,16 @@ class GripperAgent(Agent):
         """
         palm = env._pusher_body
         half = GRIPPER_JAW_MAX_GAP / 2 * 0.8
+        # Sample the FULL finger length. Using JAW_HALF_H (20) checked a
+        # pocket shorter than the fingers actually are (34), so a limb sitting
+        # between them registered as absent.
         # Sample the pocket BETWEEN and IN FRONT OF the jaws. Sampling at the
         # palm itself never fires: the jaws stick out 23 units and stop the
         # palm ~21 from the surface, so nothing at the palm is ever inside the
         # object even when a limb is squarely between the jaws.
         for lx in (-half, -half / 2, 0.0, half / 2, half):
-            for ly in (0.0, GRIPPER_JAW_HALF_H * 0.6, GRIPPER_JAW_HALF_H * 1.1):
+            for ly in (-GRIPPER_FINGER_LEN * 0.2, 0.0, GRIPPER_FINGER_LEN * 0.35,
+                       GRIPPER_FINGER_LEN * 0.7, GRIPPER_FINGER_LEN * 0.95):
                 w = palm.local_to_world((lx, ly))
                 if _surface_distance(env, w) <= 0.0:
                     return True
@@ -1229,7 +1246,11 @@ class GripperAgent(Agent):
         # _spans every substep would drop the object the moment it shifted in
         # the jaws.
         closing = self._jaw_cmd <= 0.35
-        if closing and self._grasp is None and self._spans(env):
+        # A gripper cannot hold what it cannot close around. Without this the
+        # jaws "grasped" the T's 120-wide crossbar, floored fully open, and
+        # sat there visibly not touching it.
+        graspable = 2.0 * self._obj_half_width(env) <= GRIPPER_JAW_MAX_GAP * 0.95
+        if closing and self._grasp is None and graspable and self._spans(env):
             palm, obj = env._pusher_body, env._object_body
             pj = pymunk.PivotJoint(palm, obj, obj.position)
             pj.max_force = _CONSTRAINT_FORCE
@@ -1785,6 +1806,12 @@ class UmiAgent(Agent):
         return min(gap, UMI_MAX_GAP)
 
     def _half_width(self, env) -> float:
+        """Half-width of the object material INSIDE THE FINGER POCKET.
+
+        See GripperAgent._obj_half_width -- taking the max over all vertices
+        measured the entire object (60.0 against a 15-wide limb) and floored
+        the gap wide open.
+        """
         wr = env._pusher_body
         ca, sa = math.cos(-wr.angle), math.sin(-wr.angle)
         best = 0.0
@@ -1792,8 +1819,11 @@ class UmiAgent(Agent):
             for v in sh.get_vertices():
                 w = v.rotated(env._object_body.angle) + env._object_body.position
                 rel = w - wr.position
-                best = max(best, abs(rel.x * ca - rel.y * sa))
-        return best
+                lx = rel.x * ca - rel.y * sa
+                ly = rel.x * sa + rel.y * ca
+                if -UMI_FINGER_LEN * 0.25 <= ly <= UMI_FINGER_LEN:
+                    best = max(best, abs(lx))
+        return best if best > 0.0 else UMI_MIN_GAP / 2
 
     def _finger_angle(self, env) -> float:
         """Splay angle per finger: 90 deg fully open, 0 deg fully closed.
@@ -1802,9 +1832,13 @@ class UmiAgent(Agent):
         like a pincer. Straight from the commanded grip so the visual and the
         physical gap cannot disagree.
         """
-        span = max(0.0, self._gap(env) - UMI_MIN_GAP) / max(
-            1e-9, UMI_MAX_GAP - UMI_MIN_GAP)
-        return span * (math.pi / 2)
+        # Invert the real geometry: tip separation = 2*(hinge + len*sin(phi)).
+        # The previous linear map treated gap as a fraction of travel, so a
+        # commanded gap of 31 (to hold a 30-wide stem) put the tips 61 apart
+        # -- the fingers sat splayed in a V around an object they were
+        # supposedly gripping.
+        half = self._gap(env) / 2.0
+        return math.asin(min(1.0, max(0.0, (half - UMI_HINGE_SPAN) / UMI_FINGER_LEN)))
 
     def _sync(self, env):
         wr = env._pusher_body
@@ -1851,7 +1885,8 @@ class UmiAgent(Agent):
                 else "pinched" if self._grip > 0.33 else "clamped")
         if want != self._mode:
             self._detach(env)
-            if want != "released" and self._between(env):
+            graspable = 2.0 * self._half_width(env) <= UMI_MAX_GAP * 0.95
+            if want != "released" and graspable and self._between(env):
                 wr, obj = env._pusher_body, env._object_body
                 pj = pymunk.PivotJoint(wr, obj, obj.position)
                 pj.max_force = _CONSTRAINT_FORCE

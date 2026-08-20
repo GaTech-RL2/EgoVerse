@@ -122,13 +122,13 @@ L_RECTS: list[tuple[float, float, float, float]] = [
 # Hinged pincer, like umi but shorter and stubbier -- an industrial jaw next
 # to umi's long handheld fingers, so the two read differently at a glance.
 GRIPPER_FINGER_LEN = 34.0
-GRIPPER_HINGE_SPAN = 13.0
+GRIPPER_HINGE_SPAN = 11.0   # min tip gap 22 < the T's 30-wide limb
 GRIPPER_PALM_HALF_W = 22.0   # palm spans the jaw travel
 GRIPPER_PALM_HALF_H = 6.0
 GRIPPER_JAW_HALF_W = 5.0
 GRIPPER_JAW_HALF_H = 20.0
 GRIPPER_JAW_MAX_GAP = 2 * GRIPPER_HINGE_SPAN + 2 * GRIPPER_FINGER_LEN * 0.9
-GRIPPER_JAW_MIN_GAP = 8.0    # fully closed
+GRIPPER_JAW_MIN_GAP = 2 * GRIPPER_HINGE_SPAN  # parallel jaws
 
 # Each end effector gets its OWN silhouette. The first version made suction,
 # two_point, tether, magnet and compliant plain circles differing only in
@@ -196,7 +196,7 @@ UMI_FINGER_HALF_W = 4.5
 UMI_FINGER_LEN = 46.0        # measured from the hinge, extending FORWARD
 UMI_HINGE_SPAN = 15.0        # hinge stand-off either side of the wrist
 UMI_MAX_GAP = 2 * UMI_HINGE_SPAN + 2 * UMI_FINGER_LEN * 0.9
-UMI_MIN_GAP = 8.0
+UMI_MIN_GAP = 2 * UMI_HINGE_SPAN
 UMI_HINGE_OFFSET = UMI_HINGE_SPAN
 UMI_FINGER_HALF_H = UMI_FINGER_LEN / 2
 
