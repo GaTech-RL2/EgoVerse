@@ -31,10 +31,10 @@ import numpy as np
 import pymunk
 
 from .shapes import (
+    CLUTCH_PIN_HALF_W,
+    CLUTCH_PIN_LEN,
+    CLUTCH_R,
     FLIPPER_HALF_W,
-    POKER_REACH,
-    POKER_ROD_HALF_W,
-    POKER_ROD_LEN,
     FLIPPER_LEN,
     FLIPPER_SWING,
     GRIPPER_FINGER_LEN,
@@ -2078,73 +2078,105 @@ class FlipperAgent(Agent):
         return super().pre_substep(env)
 
 
-class PokerAgent(Agent):
-    """Extending poker: 4-DOF (x, y, angle, grip).
+class ClutchAgent(Agent):
+    """Clutch head: 4-DOF (x, y, angle, grip). Articulation is MANDATORY.
 
-    A rod that slides out of its housing, with `grip` setting the extension.
-    REACH IS A COMMANDED DOF, so the contact point moves without the base
-    moving: you can touch an object without approaching it, nudge it, and
-    retract to break contact without backing away.
+    The head has two mutually exclusive modes and neither can finish the task:
 
-    That decouples two things every other embodiment here ties together --
-    where the agent is, and where it touches. The gripper and umi must bring
-    the base to the object; the flipper can act from a standstill but only
-    along an arc; the poker reaches in a straight line and can hold station
-    while doing it, which is the useful case when the base has nowhere to go.
+        grip 0  SLIDE -- a near-frictionless roller face. It pushes the object
+                         around freely but transmits almost no torque, so it
+                         can place the object anywhere and cannot aim it.
+        grip 1  TURN  -- a pin drops and bites. Pivot + gear pin the object to
+                         the head, so the wrist drives its ORIENTATION exactly,
+                         and translation now moves the pair rigidly rather than
+                         sliding the object over the face.
+
+    Since the goal is a POSE, position and orientation both have to be solved,
+    and no single mode does both. You slide to place, clutch in to aim, and
+    repeat. That is the difference from the poker this replaces, whose
+    extension was optional -- you could ignore the DOF and use it as a long
+    stick. Here ignoring the DOF means never fixing the angle.
     """
 
     action_spec = ("x", "y", "angle", "grip")
     action_dim = 4
     controls_angle = True
 
-    def __init__(self, shape: str = "poker", *, solid_pusher: bool = True,
+    def __init__(self, shape: str = "clutch", *, solid_pusher: bool = True,
                  solid_contact_guard: bool = True,
                  control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
-        self._rod = None
-        self._ext = 0.0
+        self._pin = None
+        self._cs = None
+        self._grip = 0.0
 
     def build(self, space, position):
         body, shapes = super().build(space, position)
-        rod = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-        rod.position = position
-        poly = pymunk.Poly(rod, _rect_verts(
-            0.0, -POKER_ROD_LEN / 2, 2 * POKER_ROD_HALF_W, POKER_ROD_LEN))
+        pin = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+        pin.position = position
+        poly = pymunk.Poly(pin, _rect_verts(
+            0.0, -CLUTCH_PIN_LEN / 2, 2 * CLUTCH_PIN_HALF_W, CLUTCH_PIN_LEN))
         poly.friction = OBJECT_FRICTION
-        space.add(rod, poly)
-        self._rod = rod
+        poly.sensor = True          # visual + engagement cue; the constraint holds
+        space.add(pin, poly)
+        self._pin = pin
         return body, shapes
 
     def _target_pose(self, action):
-        self._ext = min(1.0, max(0.0, float(action[3])))
+        self._grip = min(1.0, max(0.0, float(action[3])))
         angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         return float(action[0]), float(action[1]), angle
 
     def on_reset(self, env) -> None:
-        self._ext = 0.0
-
-    @property
-    def extension(self) -> float:
-        return self._ext * POKER_REACH
+        self._grip, self._cs = 0.0, None
 
     @property
     def mode(self) -> str:
-        return ("retracted" if self._ext < 0.2
-                else "extending" if self._ext < 0.85 else "extended")
+        return "turn" if self._grip > 0.5 else "slide"
+
+    @property
+    def engaged(self) -> bool:
+        return self._cs is not None
+
+    def active_constraints(self) -> tuple:
+        return tuple(self._cs) if self._cs else ()
+
+    def _detach(self, env):
+        if self._cs:
+            for c in self._cs:
+                if c in env._space.constraints:
+                    env._space.remove(c)
+        self._cs = None
 
     def pre_substep(self, env):
         wr = env._pusher_body
-        if self._rod is not None:
-            # Slide along the housing axis (-Y is forward, as for the flipper).
-            d = self.extension
+        if self._pin is not None:
+            # The pin extends while clutched, retracts while sliding.
+            d = CLUTCH_PIN_LEN * (0.15 + 0.85 * self._grip)
             ca, sa = math.cos(wr.angle), math.sin(wr.angle)
-            self._rod.position = (wr.position.x + sa * d,
-                                  wr.position.y - ca * d)
-            self._rod.angle = wr.angle
-            self._rod.velocity = wr.velocity
-            self._rod.angular_velocity = wr.angular_velocity
+            self._pin.position = (wr.position.x + sa * d, wr.position.y - ca * d)
+            self._pin.angle = wr.angle
+            self._pin.velocity = wr.velocity
+            self._pin.angular_velocity = wr.angular_velocity
+        want = self._grip > 0.5
+        if want and self._cs is None:
+            if _surface_distance(env, wr.position) <= CLUTCH_R + 6.0:
+                obj = env._object_body
+                # Pin to the STATIC body, not to the wrist. Pinning to the
+                # wrist made turn mode a rigid grasp that both translated and
+                # rotated (moved 218, rotated 160), so the clutch was
+                # optional -- one mode did the whole task. Anchored to the
+                # world the object cannot translate at all while clutched;
+                # the gear still drives its angle. Position and orientation
+                # now genuinely require different modes.
+                pj = pymunk.PivotJoint(env._space.static_body, obj, obj.position)
+                env._space.add(pj)
+                gj = _add_gear(env._space, wr, obj, obj.angle - wr.angle)
+                self._cs = (pj, gj)
+        elif not want and self._cs is not None:
+            self._detach(env)
         return super().pre_substep(env)
 
 
@@ -2159,7 +2191,7 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "umi": UmiAgent,
     "scoop": ScoopAgent,
     "flipper": FlipperAgent,
-    "poker": PokerAgent,
+    "clutch": ClutchAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.

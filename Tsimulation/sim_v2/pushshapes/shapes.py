@@ -209,13 +209,12 @@ UMI_FINGER_HALF_H = UMI_FINGER_LEN / 2
 # orientation -- a flat face or a single vertex.
 TRI_R = 24.0
 
-# Poker: a rod that SLIDES out of its housing. `grip` sets how far it
-# extends, so the contact point moves without the base moving.
-POKER_ROD_LEN = 40.0
-POKER_ROD_HALF_W = 4.5
-POKER_HOUSING_LEN = 26.0
-POKER_HOUSING_HALF_W = 8.0
-POKER_REACH = 52.0          # travel from retracted to fully extended
+# Clutch head: a smooth roller face for sliding, and a pin that drops to bite
+# the object for turning. `grip` swaps between them -- the two modes are
+# mutually exclusive by construction.
+CLUTCH_R = 17.0
+CLUTCH_PIN_LEN = 22.0
+CLUTCH_PIN_HALF_W = 3.5
 
 # Flipper: a bar hinged at the wrist, like a pinball flipper. `grip` swings
 # it through its arc, so the tip sweeps even when the base is stationary.
@@ -293,7 +292,7 @@ _PUSHER_RADII: dict[str, float] = {
     "wrench": WRENCH_R,
     "towbar": TOWBAR_R,
     "flipper": FLIPPER_LEN,
-    "poker": POKER_HOUSING_LEN,
+    "clutch": CLUTCH_R,
     "triangle": TRI_R,
     "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
     "compliant": COMPLIANT_R,
@@ -498,13 +497,15 @@ def make_pusher(
         space.add(body, w)
         return body, [w]
 
-    if shape == "poker":
-        # Housing only; the sliding rod is a separate body owned by PokerAgent.
-        hs = pymunk.Poly(body, _rect_verts(
-            0.0, 0.0, 2 * POKER_HOUSING_HALF_W, POKER_HOUSING_LEN))
-        hs.friction = OBJECT_FRICTION
-        space.add(body, hs)
-        return body, [hs]
+    if shape == "clutch":
+        head = pymunk.Circle(body, CLUTCH_R)
+        # Slippery on purpose: in slide mode it must translate the object
+        # WITHOUT torquing it, so friction is what has to go.
+        # Normal friction: at 0.02 the head was so slippery that slide mode
+        # moved the object 0.0 -- it could not do its own job.
+        head.friction = OBJECT_FRICTION
+        space.add(body, head)
+        return body, [head]
 
     if shape == "flipper":
         # Pivot hub only; the bar is a separate body owned by FlipperAgent
