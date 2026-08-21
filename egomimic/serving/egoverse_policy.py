@@ -99,7 +99,7 @@ class EgoVersePolicy:
         for key in self._cam_keys:
             if key in obs:
                 img = obs[key]
-                if isinstance(img, np.ndarray) and img.ndim == 2 and img.shape[-1] == 3 and img.dtype != np.uint8:
+                if isinstance(img, np.ndarray) and img.ndim == 2 and img.shape[-1] in (3, 6) and img.dtype != np.uint8:
                     # Point-cloud "camera" key (N,3) float metres — e.g. the DP3
                     # policy's front_pcd_1. Must NOT go through _prepare_image:
                     # its BGR flip would swap xyz->zyx and /255 would rescale
