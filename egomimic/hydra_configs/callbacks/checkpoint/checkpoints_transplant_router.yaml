@@ -1,0 +1,23 @@
+defaults:
+  - /callbacks/checkpoint/checkpoints
+  - _self_
+
+# ROUTER-ONLY transplant: warm-start ONLY the boundary-decision routers
+# (levels.1 bottom per-emb 5.64M + levels.3 seam 22.56M = 28.2M) from a donor;
+# leave encoder + trunk + APEX + chunker projections/dechunk + head FRESH.
+# Then hard-freeze the routers until FREEZE_UNTIL, after which they move only
+# via slow-EMA copy-back. Tests whether aligned BOUNDARY PLACEMENT transfers
+# while the representation (apex) adapts fresh on top of the frozen boundaries.
+warm_start:
+  _target_: egomimic.pl_utils.warm_start_callback.WarmStartCallback
+  donor_ckpt: ${oc.env:DONOR_CKPT}   # launcher exports DONOR_CKPT (path has '=', can't be an interp default)
+  load_groups: [router]
+  param_groups: &pg
+    router: ["*.stages.2.levels.1._router.*", "*.stages.2.levels.3._router.*"]
+
+struct_ema:
+  _target_: egomimic.pl_utils.structure_ema_callback.StructureEMACallback
+  target_group: router
+  freeze_until_epoch: ${oc.env:FREEZE_UNTIL,700}
+  decay: ${oc.env:STRUCT_DECAY,0.999}
+  param_groups: *pg

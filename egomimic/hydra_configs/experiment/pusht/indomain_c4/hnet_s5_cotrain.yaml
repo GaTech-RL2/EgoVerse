@@ -1,0 +1,29 @@
+# @package _global_
+# In-domain chunk-4 table cell: hnet_cotrain
+# Self-contained per-run config. Launch with:
+#   python -m egomimic.trainHydra --config-name=train_zarr_cartesian +experiment=pusht/indomain_c4/hnet_cotrain
+# Overrides the train_zarr_cartesian defaults: pins model + data feed +
+# family-correct evaluator + csv_wandb logger (wandb project
+# pushshapes-indomain-c4), 2000 epochs. All three model families keep BOTH
+# domains/heads (~63.9M); the BC cells feed ONE domain so the unfed head gets
+# no gradient.
+
+defaults:
+  - override /model: hnet/hnet_cotrain_cossim_s5_trunk_200M
+  - override /data: pusht/indomain_c4_cotrain
+  - override /evaluator: pusht/gmm_eval_firstend
+  - override /logger: composite/csv_wandb
+
+name: indomain_c4
+description: hnet_s5_cotrain
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

@@ -50,19 +50,12 @@ def _draw_chunk(
 ) -> np.ndarray:
     """Draw an action chunk as palette-graded dots on ``frame``.
 
-    ``actions`` is (N, D) with world xy in the first two coordinates; optional
-    extra coordinates (for example U-socket theta) are ignored by this xy
-    trajectory overlay. ``scale`` maps world→pixel.
+    ``actions`` is (N, 2) in world (0–512) coords; ``scale`` maps world→pixel.
     Uses ``draw_dot_on_frame`` (main-branch pattern) so consecutive dots are
     colored along a perceptual gradient — viewer can see chunk ordering at a
     glance. Returns the modified frame (draw_dot_on_frame returns a copy).
     """
-    arr = np.asarray(actions, dtype=np.float32)
-    if arr.ndim == 1:
-        arr = arr[None, :]
-    if arr.shape[-1] < 2:
-        raise ValueError(f"PushShapes visualization needs xy actions, got {arr.shape}")
-    pix = arr.reshape(-1, arr.shape[-1])[:, :2] * float(scale)
+    pix = np.asarray(actions, dtype=np.float32).reshape(-1, 2) * float(scale)
     return draw_dot_on_frame(
         frame, pix.tolist(), show=False, palette=palette, dot_size=dot_size
     )
@@ -138,24 +131,6 @@ def get_keymap(action_horizon: int = 32, **kwargs) -> dict:
             "horizon": int(action_horizon),
         },
     }
-
-
-def get_keymap_with_pusher_cmd(action_horizon: int = 32, **kwargs) -> dict:
-    """Training keymap plus the commanded pusher pose used for SDP tail HOLD.
-
-    ``observations.pusher_cmd_pose`` is identical to ``actions`` in the
-    circle/U-socket collector, including the U-socket theta coordinate. It is
-    kept out of the observation encoders and consumed only by ``SDPHead`` for
-    episode-tail padding, avoiding a coordinate/normalization mismatch with
-    the lagging actual pusher state.
-    """
-    key_map = get_keymap(action_horizon=action_horizon, **kwargs)
-    key_map["pusher_cmd_pose"] = {
-        "key_type": "proprio_keys",
-        "zarr_key": "observations.pusher_cmd_pose",
-        "horizon": int(action_horizon),
-    }
-    return key_map
 
 
 def get_keymap_eval(action_horizon: int = 32, **kwargs) -> dict:
@@ -299,17 +274,3 @@ def viz_gt_preds(
             frame = _draw_chunk(frame, pred_actions[i], scale, _PRED_PALETTE)
         frames.append(frame)
     return np.stack(frames, axis=0)
-
-
-def get_rotvec_transform_list():
-    """u_socket theta -> (cos, sin) on actions + commanded pose (load-time,
-    pre-NormStats). Pair with 4-dim action norm stats (ws512_u3rv json) and
-    ``action_dims: {pushshapes_sim_u_socket: 4}``. Rollout eval needs an
-    atan2 decode before env.step -- NOT yet wired (2026-08-01); offline TF
-    training/val only until it is.
-    """
-    from egomimic.rldb.zarr.action_chunk_transforms import ThetaToRotVec
-    return [ThetaToRotVec(keys=["actions",
-                                "pusher_cmd_pose",
-                                "observations.pusher_cmd_pose"],
-                          angle_col=2)]

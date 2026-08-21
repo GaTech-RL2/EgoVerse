@@ -1,0 +1,21 @@
+defaults:
+  - /data/cotrain/cotrain_pi_base
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        keymap_mode: cartesian_pi
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('embodiment') == 'eva_bimanual'"
+    mode: total
+  human_bimanual: null
+
+valid_datasets:
+  eva_bimanual: ${train_datasets.eva_bimanual}
+  human_bimanual: null

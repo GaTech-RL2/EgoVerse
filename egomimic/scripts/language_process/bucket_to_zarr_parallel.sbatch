@@ -14,6 +14,6 @@ source .venv/bin/activate && export PATH="/storage/project/r-dxu345-0/paphiwetsa
 
 # --num-cpus-per-task defaults to 1, meaning 12 episodes process at the same time.
 python egomimic/scripts/language_process/bucket_to_zarr_annotation_parallel.py \
-    --dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \
+    --dataset-config-path egomimic/hydra_configs/data/human/eva_pi_lang.yaml \
     --bucket s3://rldb/processed_annotations \
     --overwrite

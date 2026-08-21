@@ -1,0 +1,176 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.algo.hnet.PackedAlgoBase
+  # SINGLE-STREAM Mixture-of-Experts ablation of the dual-stream sym_w1.
+  #   Everything shared (NO specific S stream):
+  #   shared obs encoder (256)
+  #   -> ComputeStage(d256, 8L, MoE FFN)                [level 0]
+  #   -> ChunkerStage(256->512, cossim, SHARED)         [taper]
+  #   -> ComputeStage(d512, 8L, MoE FFN)                [level 1]
+  #   -> ChunkerStage(512->1024, cossim, SHARED)        [taper]
+  #   -> ComputeStage(d1024 apex, 10L, MoE FFN)         [apex]
+  #   -> SHARED GMMActionHead (one head both embs, 32 modes, chunk_len 4)
+  # Dims/layers/chunker settings copied EXACTLY from sym_w1's A path. Every
+  # ComputeStage block's dense SwiGLU FFN is replaced by an 8-expert top-3 MoE
+  # (attention stays dense/shared); per-expert inner width = A-path
+  # d_intermediate / 2 so TOTAL ACTIVE (top-3) ~= sym_w1's 207M (measured
+  # 208.2M). (base/3 would active-match the dense A-path FFN at 168.9M active,
+  # ~38M short because the single stream drops sym_w1's specific-S stream; the
+  # experts are widened to base/2 to recover the ~207M active budget.)
+  obs_stride: 4
+  d_cond: 256
+  # MUST be set or PackedAlgoBase never calls hnet.init_weights -> raw default
+  # init. Matches sym_w1 / the standard configs.
+  init_weights_range: 0.02
+  domains:
+  - pushshapes_sim
+  - pushshapes_sim_small_circle
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_small_circle: actions
+  loss:
+    _target_: egomimic.algo.hnet.GMMLoss
+  outer_stage:
+    _target_: egomimic.algo.hnet.HNetOuterStage
+    action_dim: 2
+    action_horizon: 2560
+    d_model: 256          # trunk root/outer dim == shared encoder out
+    action_head_type: gmm
+    # Vestigial AdaLN cond encoder (ComputeStages use cond_key=null / d_cond=0),
+    # kept empty to satisfy the HNetOuterStage contract.
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 256
+      output_key: fused_cond
+      obs_specs: {}
+      img_encoders: {}
+    # SHARED obs encoder (one CondEncoderModule; ignores embodiment_id so BOTH
+    # embs use the same weights). Copied from sym_w1's AGNOSTIC obs encoder.
+    input_modules:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 256
+        output_key: fused_cond
+        cond_proj_widths: [256, 256]
+        obs_specs:
+          state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 86
+            crop_width: 86
+            crop_eval_mode: random
+            crop_sample_mode: v02
+    hnet:
+      _target_: egomimic.models.hnet.hnet.HNet
+      stages:
+      # --- level 0: ComputeStage d256 x8L, MoE FFN (per-expert 512 = 1024/2) ---
+      - _target_: egomimic.models.hnet.stages.ComputeStage
+        input_hidden_dim: 256
+        output_hidden_dim: 256
+        cond_key: null
+        d_cond: 0
+        causal: true
+        main_network:
+          arch_layout: T8
+          d_model: 256
+          d_intermediate: 512       # PER-EXPERT SwiGLU inner width (1024/2)
+          num_heads: 4
+          cond: false
+          rotary_emb_dim: 64
+          dropout: 0.0
+          resid_dropout: 0.0
+          moe: {num_experts: 8, top_k: 3, aux_weight: 0.01}
+      # --- chunker 0: taper 256->512, cossim, SHARED ---
+      - _target_: egomimic.models.hnet.stages.ChunkerStage
+        input_hidden_dim: 256
+        output_hidden_dim: 512
+        target_compression_ratio: 3.0
+        ratio_loss_weight: 1.0
+        cond_key: null
+        down_interface: first_token
+        up_interface: duplicate
+        router_interface: cossim
+        grab_prev_end: true
+        residual_mixer: mlp
+        residual_mixer_kwargs: {n_layers: 4}
+      # --- level 1: ComputeStage d512 x8L, MoE FFN (per-expert 1024 = 2048/2) ---
+      - _target_: egomimic.models.hnet.stages.ComputeStage
+        input_hidden_dim: 512
+        output_hidden_dim: 512
+        cond_key: null
+        d_cond: 0
+        causal: true
+        main_network:
+          arch_layout: T8
+          d_model: 512
+          d_intermediate: 1024      # PER-EXPERT SwiGLU inner width (2048/2)
+          num_heads: 8
+          cond: false
+          rotary_emb_dim: 64
+          dropout: 0.0
+          resid_dropout: 0.0
+          moe: {num_experts: 8, top_k: 3, aux_weight: 0.01}
+      # --- chunker 1: taper 512->1024, cossim, SHARED ---
+      - _target_: egomimic.models.hnet.stages.ChunkerStage
+        input_hidden_dim: 512
+        output_hidden_dim: 1024
+        target_compression_ratio: 3.0
+        ratio_loss_weight: 1.0
+        cond_key: null
+        down_interface: first_token
+        up_interface: duplicate
+        router_interface: cossim
+        grab_prev_end: true
+        residual_mixer: mlp
+        residual_mixer_kwargs: {n_layers: 4}
+      # --- apex: ComputeStage d1024 x10L, MoE FFN (per-expert 768 = 1536/2) ---
+      - _target_: egomimic.models.hnet.stages.ComputeStage
+        input_hidden_dim: 1024
+        output_hidden_dim: 1024
+        cond_key: null
+        d_cond: 0
+        causal: true
+        main_network:
+          arch_layout: T10
+          d_model: 1024
+          d_intermediate: 768       # PER-EXPERT SwiGLU inner width (1536/2)
+          num_heads: 16
+          cond: false
+          rotary_emb_dim: 64
+          dropout: 0.0
+          resid_dropout: 0.0
+          moe: {num_experts: 8, top_k: 3, aux_weight: 0.01}
+    # SHARED GMM head (ONE module both embs). 32 modes == sym_w1's 24+8 total.
+    gmm_head:
+      _target_: egomimic.models.heads.gmm_head.GMMActionHead
+      d_model: 256
+      action_dim: 2
+      num_modes: 32
+      chunk_len: 4
+      min_std: 0.0001
+      std_activation: softplus
+      low_noise_eval: true
+      head_hidden_dim: 512
+      head_n_layers: 3
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3000
+  warmup_steps: 150
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

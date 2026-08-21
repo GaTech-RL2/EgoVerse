@@ -7,7 +7,7 @@ Each episode is processed as an independent Ray task:
 Example usage:
 python egomimic/scripts/language_process/scale_to_zarr_annotation_parallel.py \
 --scale-annotation-dir annotations_test \
---dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \
+--dataset-config-path egomimic/hydra_configs/data/human/eva_pi_lang.yaml \
 --conversion-mode pick_place_llm \
 --prompt-filepath egomimic/scripts/language_process/prompt.txt \
 --augment-prompt-filepath egomimic/scripts/language_process/augment_prompt.txt \
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     # --- Instantiate datasets (sequential, needs SQL / S3 sync) ---
     from egomimic.utils.hydra_utils import HYDRA_CONFIG_DIR, load_config
 
-    # Derive config name relative to hydra_configs dir (e.g. "data/cotrain_pi_lang")
+    # Derive config name relative to hydra_configs dir (e.g. "data/human/cotrain_pi_lang")
     abs_cfg_path = os.path.abspath(args.dataset_config_path)
     rel_path = os.path.relpath(abs_cfg_path, HYDRA_CONFIG_DIR)
     config_name = os.path.splitext(rel_path)[0]

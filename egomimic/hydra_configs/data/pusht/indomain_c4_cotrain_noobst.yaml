@@ -1,0 +1,111 @@
+# ABLATION ARM C: cotrain with ZERO obstacle data anywhere.
+#   pushshapes_sim              -> circle_3000        (3040 eps, all obs0)
+#   pushshapes_sim_small_circle -> small_circle_3000  (3040 eps, all obs0)
+# Identical structure to the baseline cotrain but with the 720 ncc_ obstacle
+# episodes removed (circle_3000 instead of circle_3000_plus_gen). Isolates
+# COTRAINING from OBSTACLE EXPOSURE: vs arm A it adds a second stream, vs the
+# baseline it removes obstacle data.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# PUSHSHAPES TABLE FEED -- BOTH / COTRAIN  (in-domain, chunk-4 families).
+#
+# Feeds BOTH domains from SEPARATE on-disk dirs (no name filter):
+#   pushshapes_sim              -> circle_3000_plus_gen  (big + generated, 3760 ep)
+#   pushshapes_sim_small_circle -> small_circle_3000     (small, 3040 ep)
+# Packed full-episode teacher forcing (chunking="none"); action chunking
+# (chunk-4) is handled in the model head / GMMLoss, NOT here.
+#
+# For the H-Net firstend pyramid + Tx WindowedBC families. The algo's
+# forward_training iterates per-embodiment and sets ctx.embodiment_id so the
+# per-emb cond encoder + PerEmbodimentStage outer levels (H-Net) / per-emb
+# norm-stats (Tx shared policy) route correctly.
+#
+# circle_3000_plus_gen is tagged embodiment="pushshapes_sim" (includes ncc_*
+# generated episodes) -> plain LocalEpisodeResolver. small_circle_3000 is ALSO
+# tagged "pushshapes_sim" on disk, so it uses
+# LocalEpisodeResolverWithEmbodimentOverride to re-tag to
+# "pushshapes_sim_small_circle" at resolve time.
+#
+# action_horizon=2560 matches the firstend model's outer_stage.action_horizon.
+# Longest episode ~500 frames; 2560 leaves headroom.
+
+train_datasets:
+  pushshapes_sim:                       # big circle + generated
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_small_circle:          # small circle
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_3000
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_3000
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4

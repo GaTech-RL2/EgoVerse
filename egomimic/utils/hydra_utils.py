@@ -18,14 +18,14 @@ def load_config(
     """
     Load a Hydra config by name, resolving the full defaults chain.
 
-    For config group paths (e.g. "data/cotrain_pi_lang"), the returned
+    For config group paths (e.g. "data/human/cotrain_pi_lang"), the returned
     DictConfig contains the group contents directly (not nested under
     the group key).
 
     Args:
         config_name: Name of the config file (without .yaml extension).
-            Can also be a config group path like "data/cotrain_pi_lang".
-        overrides: Optional list of Hydra overrides (e.g. ["+trainer=debug"]).
+            Can also be a config group path like "data/human/cotrain_pi_lang".
+        overrides: Optional list of Hydra overrides (e.g. ["+trainer=debug/debug"]).
         config_dir: Optional override of the Hydra config search directory.
             Defaults to the ``egomimic/hydra_configs`` dir of the *installed*
             ``egomimic`` package. Pass an explicit dir when the caller wants

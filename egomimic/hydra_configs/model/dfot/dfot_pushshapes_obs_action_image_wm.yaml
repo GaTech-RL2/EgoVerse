@@ -1,0 +1,98 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# 1D WORLD MODEL variant of obs+action+image diffusion forcing.
+# Action is NOT in the bundle: it is fed as AdaLN conditioning (external_cond).
+# The diffused bundle is obs-only: concat([state, vae_latent_flat]).
+#
+# Bundle layout per step:
+#   state_agent_obj (5D) || vae_latent_flat (4*6*6 = 144D) = 149D   (target)
+#   actions (2D)                                            -> external_cond
+#
+# This is the action-conditioned video predictor (df_video-style): given the
+# action sequence, predict the future obs/frames. Contrast with the POLICY
+# variant (dfot_pushshapes_obs_action_image.yaml) where action_in_bundle=True
+# so the action is jointly predicted.
+
+robomimic_model:
+  _target_: egomimic.algo.diffusion.DFoT
+  action_dim: 2
+  action_horizon: 32
+
+  sampler: "ddim"
+  sampler_n_steps: 50
+  sampler_eta: 0.0
+
+  inference_mode: "ar"
+  ar_inference_chunk_size: 1
+  ar_inference_step_size: 1
+  cfg_scale: 1.0
+
+  domains: ["pushshapes_sim"]
+  ac_keys:
+    pushshapes_sim: "actions"
+
+  outer_stage:
+    _target_: egomimic.algo.diffusion.ObsActionImageDFoTOuterStage
+    action_dim: 2
+    cond_output_key: "fused_cond"
+    action_in_bundle: false      # <-- world model: act/action is conditioning
+
+    bundle_obs_keys: ["state_agent_obj"]
+    bundle_obs_dims: [5]
+    image_key: "front_img_1"
+    vae_checkpoint_path: /coc/flash7/paphiwetsa3/projects/EgoVerse-pact/external_ckpts/vae_v5_last.ckpt
+
+    # cond_encoder stays empty -- the image is in the bundle, and the action
+    # is supplied directly as external_cond by the outer stage's encode().
+    cond_encoder:
+      _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+      d_cond: 512
+      output_key: "fused_cond"
+      cond_proj_widths: [512, 512]
+      obs_specs: {}
+      img_encoders: {}
+
+    # Bundle width = 5 + 144 = 149 (no action). Action (2D) -> external_cond.
+    backbone:
+      _target_: egomimic.models.diffusion.DFoTBackbone
+      action_dim: 149
+      action_horizon: 32
+      d_model: 512
+      d_cond: 512
+      cond_dim: 2                # <-- action width fed as external_cond
+      cond_emb_dim: 128
+      cond_dropout_prob: 0.0     # set >0 to enable action CFG
+      time_embed_dim: 512
+      use_fourier_time: true
+      stochastic_time_p: 0.0
+      arch_layout: "T12"
+      num_heads: 8
+      d_intermediate: 2048
+      rotary_emb_dim: 64
+      dropout: 0.1
+      resid_dropout: 0.1
+      causal: true
+
+    diffusion:
+      _target_: egomimic.models.diffusion.diffusion.continuous_diffusion.ContinuousDiffusion
+      action_dim: 149
+      precond_scale: 0.25
+      sigmoid_bias: -1.0
+      clip_noise: 20.0
+      logsnr_min: -15.0
+      logsnr_max: 15.0
+      shift: 1.0
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1.0e-4
+  weight_decay: 0.0001
+
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3200
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-5

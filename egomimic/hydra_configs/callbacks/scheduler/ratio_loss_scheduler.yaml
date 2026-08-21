@@ -1,0 +1,11 @@
+# Turns the ChunkerStage ratio-loss regularizer OFF at the halfway point of
+# training (epoch >= switch_fraction * max_epochs). ON value = the configured
+# ratio_loss_weight (0.03); OFF = 0.0. Probes whether the learned chunking
+# survives once the regularizer is removed. Compose via Hydra list:
+#   callbacks=[checkpoint/checkpoints, ratio_loss_scheduler]
+ratio_loss_scheduler:
+  _target_: egomimic.pl_utils.callbacks.ratio_loss_scheduler.RatioLossScheduler
+  on_value: 0.03
+  off_value: 0.0
+  switch_fraction: 0.5
+  # switch_epoch: 1000   # optional explicit override of switch_fraction*max_epochs

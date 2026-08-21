@@ -1,0 +1,20 @@
+defaults:
+  - /model/pi05/pi0.5_base
+  - _self_
+
+robomimic_model:
+  camera_transforms: {}
+  ac_keys:
+    eva_bimanual: "actions_cartesian"
+    human_bimanual: "actions_cartesian"
+  domains: ["eva_bimanual", "human_bimanual"]
+
+  action_converters:
+    rules:
+      EVA_BIMANUAL:
+        _target_: egomimic.utils.action_utils.RobotBimanualCartesianEuler
+      HUMAN_BIMANUAL:
+        _target_: egomimic.utils.action_utils.HumanBimanualCartesianEuler
+    # optional fallback if no match is found
+    fallback:
+      _target_: egomimic.utils.action_utils.BaseActionConverter

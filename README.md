@@ -77,7 +77,7 @@ Default output format:
 
 ### Other Settings
 Set `git config --global submodule.recurse true` if you want `git pull` to automatically update the submodule as well.
-Set your wandb project in ``egomimic/hydra_configs/logger/wandb.yaml``
+Set your wandb project in ``egomimic/hydra_configs/logger/wandb/wandb.yaml``
 
 ## Submitit modification
 For the integrated hydra submitit plugin to work, make the following modification...

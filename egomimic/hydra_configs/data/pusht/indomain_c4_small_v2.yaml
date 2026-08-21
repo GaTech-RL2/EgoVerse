@@ -1,0 +1,66 @@
+# sim_v2 datasets (2026-07-31). Auto-derived from indomain_c4_small.yaml.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# PUSHSHAPES TABLE FEED -- SMALL-ONLY  (in-domain, chunk-4 families).
+#
+# Feeds ONE domain: pushshapes_sim_small_circle -> small_circle_3000 (small
+# circle, 3040 ep). Packed full-episode teacher forcing (chunking="none");
+# action chunking (chunk-4) is handled in the model head / GMMLoss, NOT here.
+#
+# For the H-Net firstend pyramid + Tx WindowedBC families. The model keeps BOTH
+# heads; this feed only provides small-circle data, so the big-circle head gets
+# no gradient.
+#
+# IMPORTANT: small_circle_3000 episodes are tagged embodiment="pushshapes_sim"
+# on disk (same tag as the big circle). LocalEpisodeResolverWithEmbodimentOverride
+# re-tags them to "pushshapes_sim_small_circle" at resolve time (no zarr
+# rewriting) so the per-emb cond encoder + cotrain dispatch route to the
+# small-circle head.
+#
+# action_horizon=2560 matches the firstend model's outer_stage.action_horizon.
+# Longest episode ~500 frames; 2560 leaves headroom.
+
+train_datasets:
+  pushshapes_sim_small_circle:          # small circle
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_4500_v2
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+valid_datasets:
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrEpisodePackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/small_circle_4500_v2
+      embodiment_override: "pushshapes_sim_small_circle"
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap
+        action_horizon: 2560
+      transform_list: null
+    chunking: "none"
+    min_seq_len: 64
+    max_seq_len: 2560
+
+train_dataloader_params:
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4
+valid_dataloader_params:
+  pushshapes_sim_small_circle:
+    batch_size: 16
+    num_workers: 8
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 4

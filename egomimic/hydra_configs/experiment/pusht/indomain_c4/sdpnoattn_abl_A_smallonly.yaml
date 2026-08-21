@@ -1,0 +1,25 @@
+# @package _global_
+# ABLATION A -- sdp_noattn trained on small_circle_3000 ONLY (no obstacles),
+# swept on obstacle levels 0-29 (e17). "Primitive/BC data applied to the gen
+# setting." Compare to the baseline's e17 obstacle number, which is ITSELF a
+# cross-embodiment transfer number (the baseline's small stream also has zero
+# obstacle data -- only its circle stream saw the 720).
+defaults:
+  - override /model: hnet/hnet_dualstream_2trunk_d16_200m
+  - override /data: pusht/indomain_c4_small
+  - override /evaluator: pusht/gmm_eval_firstend
+  - override /logger: composite/csv_wandb
+
+name: indomain_c4
+description: sdpnoattn_abl_A_smallonly
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

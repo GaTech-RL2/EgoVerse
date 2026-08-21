@@ -1,0 +1,62 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# PUSHSHAPES TABLE FEED -- HPT BIG-ONLY  (in-domain, chunk-4).
+#
+# HPT-correct sibling of indomain_c4_big.yaml. HPT does NOT use the packed
+# ZarrEpisodePackedDataset loader + windowed get_keymap that the H-Net /
+# TransformerAR cells use. HPT's contract is "one CURRENT obs -> predict the
+# next action_horizon actions", so it must consume:
+#   - MultiDataset._from_resolver  (per-frame, not packed full-episode)
+#   - get_keymap_hpt               (SINGLE-frame obs front_img_1 +
+#                                   state_agent_obj, action_horizon-long
+#                                   action chunk, NO per-token obs horizon)
+#   - mode: total  +  skip_bounds_check: true
+# Feeding HPT the packed/windowed configs trains it out-of-distribution (the
+# model would read future obs out of context at train time, then go wildly OOD
+# in closed-loop rollout where only the current obs exists). See the
+# pushshapes.get_keymap_hpt docstring (diagnosed 2026-05-19).
+#
+# Feeds ONE domain: pushshapes_sim -> circle_3000 (big circle). circle_3000
+# episodes are tagged embodiment="pushshapes_sim" on disk, so the plain
+# LocalEpisodeResolver routes them correctly (no override needed). The model
+# keeps BOTH heads (pushshapes_sim + pushshapes_sim_small_circle); this feed
+# only provides big-circle data, so the small-circle head gets no gradient.
+#
+# action_horizon=4 matches the chunk-4 HPT model
+# (hpt_cotrain_pushshapes_flow_shared_head_c4_big.yaml: trunk.action_horizon=4,
+# head act_seq=4). Schema cloned from tsimulation_hpt_cot3000.yaml.
+
+train_datasets:
+  pushshapes_sim:                       # big circle
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 4
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/circle_3000
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 4
+      transform_list: null
+    mode: total
+    skip_bounds_check: true
+
+train_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4
+valid_dataloader_params:
+  pushshapes_sim:
+    batch_size: 128
+    num_workers: 4

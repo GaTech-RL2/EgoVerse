@@ -1,0 +1,207 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+# BATCHFLOW flat config — HETERO-ACTION-DIM robot-human SDP (DUAL variant).
+#   * SDP-fix2ada arch (adaLN-Zero denoiser, end_mode=masked, TEDi streaming
+#     buffer, no prev-action proprio), same tapered dualstream trunk as
+#     bf_nopre_sdp_fix2ada_r001.
+#   * domains eva_bimanual (action_dim 14, cartesian) + human_bimanual
+#     (action_dim 132, head-frame keypoints) — DIFFERENT action dims.
+#   * hetero-D handled by per-emb 3-layer SiLU E_e (dim_e -> latent 192) / D_e
+#     (latent 192 -> dim_e); the SHARED denoiser core runs entirely in the
+#     latent. Noise/x_t/loss stay in the ORIGINAL per-emb dim.
+#   * DUAL: A(shared)/S(per-emb) split + additive v = v_a + v_s (in latent) +
+#     vA_frac probe. d_model_a=256, d_model_s=192, latent 192.
+#   * per-emb SPECIFIC obs encoders (eva: front_1 + state_ee_pose(14);
+#     human: front_1 + state_keypoints(132) + obs_head_pose(7)) + SHARED
+#     image-only AGNOSTIC encoder (front_1). No prev-action proprio.
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 2560
+  domains: [eva_bimanual, human_bimanual]
+  ac_keys:
+    eva_bimanual: actions_cartesian
+    human_bimanual: actions_keypoints
+  stages:
+  # --- stride + targets as data ---
+  - _target_: egomimic.pipeline.stages_io.TargetBuilder
+    chunk_len: 4
+    stride: 4
+  # --- A (shared, image-only) + S (per-emb) obs encoders ---
+  - _target_: egomimic.pipeline.stages_io.ObsEncoders
+    agnostic:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 256
+        output_key: fused_cond
+        cond_proj_widths: [256, 256]
+        obs_specs: {}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 480
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 128
+            crop_width: 128
+            crop_eval_mode: center
+            crop_sample_mode: v02
+    specific:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 64
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          eva_bimanual:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 64
+            output_key: fused_cond
+            cond_proj_widths: [64, 64]
+            obs_specs:
+              state_ee_pose: {input_dim: 14, input_slice: [0, 14], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 480
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 128
+                crop_width: 128
+                crop_eval_mode: center
+                crop_sample_mode: v02
+          human_bimanual:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 64
+            output_key: fused_cond
+            cond_proj_widths: [64, 64]
+            obs_specs:
+              state_keypoints: {input_dim: 132, input_slice: [0, 132], embed_dim: 64}
+              obs_head_pose: {input_dim: 7, input_slice: [0, 7], embed_dim: 64}
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 480
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 128
+                crop_width: 128
+                crop_eval_mode: center
+                crop_sample_mode: v02
+  # --- the pyramid (same tapered dualstream topology as bf_nopre_sdp_fix2ada) ---
+  - _target_: egomimic.pipeline.stages_hnet.DualstreamTrunk
+    init_range: 0.02
+    levels:
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L0 A256/S64 x4
+      mask_mode: sym
+      allow_agnostic_cross: true
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments: [eva_bimanual, human_bimanual]
+      streams_cfg:
+      - {d_model: 256, num_heads: 4, d_intermediate: 1024}
+      - {d_model: 64, num_heads: 2, d_intermediate: 256}
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel  # 256->512 / 64->128, dual
+      d_a: 256
+      d_s: 64
+      apex_a: 512
+      apex_s: 128
+      dual_inner: true
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.001
+      grab_prev_end: true
+      residual_mixer: mlp
+      residual_mixer_kwargs: {n_layers: 4}
+      embodiments: [eva_bimanual, human_bimanual]
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel   # L1 A512/S128 x4
+      mask_mode: sym
+      allow_agnostic_cross: true
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments: [eva_bimanual, human_bimanual]
+      streams_cfg:
+      - {d_model: 512, num_heads: 8, d_intermediate: 2048}
+      - {d_model: 128, num_heads: 4, d_intermediate: 512}
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel  # 512->1024 SEAM (A only)
+      d_a: 512
+      d_s: 128
+      apex_a: 1024
+      dual_inner: false
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.001
+      grab_prev_end: true
+      residual_mixer: mlp
+      residual_mixer_kwargs: {n_layers: 4}
+      embodiments: [eva_bimanual, human_bimanual]
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.ApexLevel        # 1024 T10 agnostic-only
+      causal: true
+      main_network:
+        arch_layout: T10
+        d_model: 1024
+        d_intermediate: 1536
+        num_heads: 16
+        cond: false
+        rotary_emb_dim: 64
+        dropout: 0.0
+        resid_dropout: 0.0
+  # --- HETERO-D SDP head: dual_stream + per-emb E_e/D_e + latent core ---
+  - _target_: egomimic.pipeline.stages_flow.SDPHead
+    d_a: 256
+    d_s: 64
+    action_dim: 14                 # nominal scalar (per-emb dims live in action_dims)
+    action_dims: {eva_bimanual: 14, human_bimanual: 132}
+    latent_dim: 768                # RAE: >= max action_dim (132)
+    dual_stream: true
+    enc_hidden: 1024                # E_e / D_e hidden width (unchanged)
+    # SINGLE DELTA vs bf_rh_sdp_dual_big2: HUMAN adapter deeper + residual.
+    # eva keeps the class defaults (3 layers, non-residual); only human changes.
+    # Rationale: human maps 132D <-> 768 latent (10x eva 14D) through the same
+    # 3-layer MLP; r5h8 (8-layer residual human adapter) is the only arm that
+    # gave that map more depth.
+    enc_layers: {eva_bimanual: 3, human_bimanual: 8}
+    enc_residual: {eva_bimanual: false, human_bimanual: true}
+    chunk_len: 4
+    embodiments: [eva_bimanual, human_bimanual]
+    buffer_chunks: 4
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    regime_weights: [0.7, 0.15, 0.15]
+    end_mode: masked
+    denoiser_arch: adaln
+    d_model_a: 768
+    d_model_s: 768
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+    mask_mode: sym
+  # --- losses are stages ---
+  - _target_: egomimic.pipeline.stages_io.RatioLoss
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 2000
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

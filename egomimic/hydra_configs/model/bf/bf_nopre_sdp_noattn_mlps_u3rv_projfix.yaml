@@ -1,0 +1,258 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 2560
+  domains:
+  - pushshapes_sim
+  - pushshapes_sim_u_socket
+  ac_keys:
+    pushshapes_sim: actions
+    pushshapes_sim_u_socket: actions
+  stages:
+  - _target_: egomimic.pipeline.stages_io.TargetBuilder
+    chunk_len: 4
+    stride: 4
+  - _target_: egomimic.pipeline.stages_io.ObsEncoders
+    agnostic:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 256
+        output_key: fused_cond
+        cond_proj_widths:
+        - 256
+        - 256
+        obs_specs:
+          state_agent_obj:
+            input_dim: 2
+            input_slice:
+            - 0
+            - 2
+            embed_dim: 64
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 86
+            crop_width: 86
+            crop_eval_mode: random
+            crop_sample_mode: v02
+    specific:
+    - _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 256
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.MultiEmbodimentCondEncoder
+        encoders:
+          pushshapes_sim:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 256
+            output_key: fused_cond
+            cond_proj_widths:
+            - 256
+            - 256
+            obs_specs:
+              state_agent_obj:
+                input_dim: 2
+                input_slice:
+                - 0
+                - 2
+                embed_dim: 64
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+          pushshapes_sim_u_socket:
+            _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+            d_cond: 256
+            output_key: fused_cond
+            cond_proj_widths:
+            - 256
+            - 256
+            obs_specs:
+              state_agent_obj:
+                input_dim: 3
+                input_slice:
+                - 0
+                - 3
+                embed_dim: 64
+            img_encoders:
+              front_img_1:
+                _target_: egomimic.models.stems.visual_core.VisualCore
+                in_channels: 3
+                image_size: 96
+                num_kp: 32
+                feature_dimension: 64
+                pretrained: false
+                crop_aug: true
+                crop_height: 86
+                crop_width: 86
+                crop_eval_mode: random
+                crop_sample_mode: v02
+  - _target_: egomimic.pipeline.stages_hnet.DualstreamTrunk
+    init_range: 0.02
+    levels:
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel
+      stream_keys:
+      - A
+      - S
+      mask_mode: sym
+      attn_window: 1
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+      streams_cfg:
+      - d_model: 256
+        num_heads: 4
+        d_intermediate: 1024
+      - d_model: 256
+        num_heads: 4
+        d_intermediate: 1024
+      allow_agnostic_cross: true
+    - _target_: egomimic.pipeline.stages_hnet.StreamMLP
+      stream: S
+      d_model: 256
+      d_hidden: 1024
+      n_layers: 4
+      decoder_layers: 4
+      activation: gelu
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel
+      d_a: 256
+      d_s: 256
+      apex_a: 512
+      dual_inner: true
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.0005
+      grab_prev_end: true
+      flat_s: true
+      residual_mixer: mlp
+      residual_mixer_kwargs:
+        n_layers: 4
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.DualTrunkLevel
+      stream_keys:
+      - A
+      adjacency:
+      - []
+      mask_mode: sym
+      attn_window: 1
+      causal: true
+      n_layers: 4
+      decoder_layout: T4
+      rotary_emb_dim: 64
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+      streams_cfg:
+      - d_model: 512
+        num_heads: 8
+        d_intermediate: 2048
+    - _target_: egomimic.pipeline.stages_hnet.StreamMLP
+      stream: S
+      d_model: 256
+      d_hidden: 1024
+      n_layers: 4
+      decoder_layers: 4
+      activation: gelu
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+    - _target_: egomimic.pipeline.stages_hnet.DualChunkerLevel
+      d_a: 512
+      d_s: 256
+      apex_a: 1024
+      dual_inner: false
+      route_on: a
+      target_compression_ratio: 3.0
+      ratio_loss_weight: 0.0005
+      grab_prev_end: true
+      flat_s: true
+      residual_mixer: mlp
+      residual_mixer_kwargs:
+        n_layers: 4
+      embodiments:
+      - pushshapes_sim
+      - pushshapes_sim_u_socket
+      router_per_emb: true
+      router_fusion: mlp
+    - _target_: egomimic.pipeline.stages_hnet.ApexLevel
+      causal: true
+      main_network:
+        arch_layout: T10
+        d_model: 1024
+        d_intermediate: 1536
+        num_heads: 16
+        cond: false
+        rotary_emb_dim: 64
+        dropout: 0.0
+        resid_dropout: 0.0
+  - _target_: egomimic.pipeline.stages_flow.SDPHead
+    d_a: 256
+    d_s: 256
+    action_dim: 2
+    action_dims:
+      pushshapes_sim: 2
+      pushshapes_sim_u_socket: 4
+    dual_stream: true
+    chunk_len: 4
+    embodiments:
+    - pushshapes_sim
+    - pushshapes_sim_u_socket
+    buffer_chunks: 2
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    detach_offregime: true
+    regime_weights:
+    - 0.7
+    - 0.15
+    - 0.15
+    end_mode: pusher_hold
+    denoiser_arch: adaln
+    d_model_a: 256
+    d_model_s: 256
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+    mask_mode: asym
+    head_adapter: direct
+    adapter_layers: 4
+  - _target_: egomimic.pipeline.stages_io.RatioLoss
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 2000
+  warmup_steps: 100
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06
+per_emb_grad_scale: 2.0

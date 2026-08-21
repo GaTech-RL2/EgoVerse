@@ -1,0 +1,110 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# ROBOT-HUMAN hetero-action-dim IN-DOMAIN (span-as-episode).
+# EXACT copy of fold_cotrain_full_rh.yaml with ONE narrowing: the eva stream is
+# restricted to the 300 success-labeled episodes.
+#   eva  : /coc/flash7/scratch/paphiwetsa3/eva_fold/*.zarr filtered to
+#          task_name == 'fold_clothes_success_1'  (300 of 590; drops the 290 plain 'fold_clothes').
+#          NOTE: the SQL `task` column is stored in the local zarr as attr `task_name`
+#          (LocalEpisodeResolver builds the filter row from dict(zarr.attrs)); `task` attr is None.
+#   human: ALL /coc/flash7/scratch/paphiwetsa3/fold_data_new/*.zarr (572, unchanged from cotrain).
+# Everything else (transforms, chunking, max_seq_len, dataloader params) identical to cotrain.
+# In-domain: valid == train (no holdout).
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/eva_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('task_name') == 'fold_clothes_success_1'"
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/fold_data_new
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: True"
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+
+# valid == train (in-domain, no holdout).
+valid_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/eva_fold
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row.get('task_name') == 'fold_clothes_success_1'"
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_packed.ZarrAnnotationSpanPackedDataset.from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/scratch/paphiwetsa3/fold_data_new
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.human_span_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: True"
+    chunking: sequential
+    min_seq_len: 16
+    max_seq_len: 128
+
+# HOST-RAM NOTE: identical dataloader params to cotrain (4 workers/emb * prefetch 2,
+# paired with rh_real.sbatch --cpus-per-task=12 --mem=112G). See fold_cotrain_full_rh.yaml.
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  human_bimanual:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2
+  human_bimanual:
+    batch_size: 4
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2

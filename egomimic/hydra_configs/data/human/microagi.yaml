@@ -1,0 +1,51 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Single-microagi-episode overfit sourced from the STAGING table. Set
+# EGOVERSE_EPISODES_TABLE=staging_microagi so the resolver reads the episode from
+# app.staging_microagi (built by stage_processed_folder.py) WITHOUT merging into
+# app.episodes. microagi data is human_bimanual / front_1 / cartesian ee_pose —
+# same format as mecka — so the Mecka keymap + hpt_bc_flow_mecka train it
+# unchanged. Keep the embodiment key 'human_bimanual' to match the model's
+# per-embodiment heads (camera_transforms.human_bimanual etc.).
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/microagi_overfit_data
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] == '2025-05-08-02-34-47-172880'"
+    mode: total
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/microagi_overfit_data
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_keymap
+        mode: cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Mecka.get_transform_list
+        mode: cartesian
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['episode_hash'] == '2025-05-08-02-34-47-172880'"
+    mode: total
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 10
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 10

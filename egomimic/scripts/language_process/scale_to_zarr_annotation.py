@@ -2,7 +2,7 @@
 Example usage:
 python egomimic/scripts/language_process/scale_to_zarr_annotation.py \
 --scale-annotation-dir annotations_test \
---dataset-config-path egomimic/hydra_configs/data/eva_pi_lang.yaml \
+--dataset-config-path egomimic/hydra_configs/data/human/eva_pi_lang.yaml \
 --conversion-mode pick_place_llm \
 --prompt-filepath egomimic/scripts/language_process/prompt.txt \
 --augment-prompt-filepath egomimic/scripts/language_process/augment_prompt.txt \

@@ -1,0 +1,87 @@
+_target_: egomimic.pl_utils.pl_model.ModelWrapper
+
+# Circle-only flat BC baseline. Observations -> one causal Transformer sequence
+# backbone -> one streaming diffusion (SDP) action head. There is no hierarchy,
+# chunk router, dual stream, second encoder, action-history input, or GMM head.
+robomimic_model:
+  _target_: egomimic.pipeline.algo.PipelineAlgo
+  action_horizon: 2560
+  domains: [pushshapes_sim]
+  ac_keys:
+    pushshapes_sim: actions
+  stages:
+  - _target_: egomimic.pipeline.stages_io.TargetBuilder
+    chunk_len: 4
+    stride: 4
+
+  - _target_: egomimic.pipeline.stages_single.SingleObsEncoder
+    encoder:
+      _target_: egomimic.models.stems.input_modules.ObsToken
+      d_model: 512
+      obs_encoder:
+        _target_: egomimic.models.stems.cond_encoders.CondEncoderModule
+        d_cond: 512
+        output_key: fused_cond
+        cond_proj_widths: [512, 512]
+        obs_specs:
+          state_agent_obj: {input_dim: 2, input_slice: [0, 2], embed_dim: 64}
+        img_encoders:
+          front_img_1:
+            _target_: egomimic.models.stems.visual_core.VisualCore
+            in_channels: 3
+            image_size: 96
+            num_kp: 32
+            feature_dimension: 64
+            pretrained: false
+            crop_aug: true
+            crop_height: 86
+            crop_width: 86
+            crop_eval_mode: random
+            crop_sample_mode: v02
+
+  - _target_: egomimic.pipeline.stages_single.SingleStreamTrunk
+    init_range: 0.02
+    levels:
+    - _target_: egomimic.pipeline.stages_single.SingleTrunkLevel
+      causal: true
+      decoder_layout: null
+      attn_window: null
+      main_network:
+        arch_layout: T8
+        d_model: 512
+        d_intermediate: 2048
+        num_heads: 8
+        cond: false
+        rotary_emb_dim: 64
+        dropout: 0.0
+        resid_dropout: 0.0
+
+  - _target_: egomimic.pipeline.stages_single.SingleSDPHead
+    d_h: 512
+    action_dim: 2
+    chunk_len: 4
+    embodiments: [pushshapes_sim]
+    buffer_chunks: 4
+    num_train_timesteps: 100
+    num_inference_steps: 16
+    detach_offregime: true
+    regime_weights: [0.7, 0.15, 0.15]
+    end_mode: pusher_hold
+    d_model: 256
+    n_layers: 4
+    n_heads: 4
+    ffn_mult: 4
+
+enable_grad_norm: false
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 0.0001
+  weight_decay: 0.0
+scheduler:
+  _target_: egomimic.utils.schedulers.warmup_cosine_scheduler
+  _partial_: true
+  max_steps: 3000
+  warmup_steps: 150
+  warmup_start_factor: 0.1
+  eta_min: 1.0e-06

@@ -1,0 +1,5 @@
+defaults:
+  - viz@viz_func: cartesian_human
+  - _self_
+
+_target_: egomimic.eval.hpt.eval_hpt.HPTEvalVideo

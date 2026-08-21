@@ -14,10 +14,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import simplejpeg
 import torch
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.zarr._common import decode_jpeg_single
 from egomimic.rldb.zarr.zarr_dataset_multi import (
     LocalEpisodeResolver,
     MultiDataset,
@@ -90,8 +90,7 @@ class ZarrActionExpertDataset(ZarrDataset):
         """Read a single obs key at one frame, decoding JPEG/JSON as needed."""
         val = self.episode_reader.read({zarr_key: (frame_idx, None)})[zarr_key]
         if zarr_key in self._image_keys:
-            decoded = simplejpeg.decode_jpeg(val, colorspace="RGB")
-            return np.transpose(decoded, (2, 0, 1)) / 255.0
+            return decode_jpeg_single(val)
         if zarr_key in self._json_keys:
             return self._decode_json_entry(val)
         return val

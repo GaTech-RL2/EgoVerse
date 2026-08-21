@@ -1,0 +1,32 @@
+# 20/80 apex schedule: 1 FULL step : 4 WINDOWED(self) steps => 20% full, 80% self.
+#
+# Rationale (2026-07-31): the 50/50 sibling (ckpt_mixed_apex_self) shows its
+# DEPLOYED branch falling further behind full history as training proceeds --
+# the self-vs-full teacher-forced loss ratio widened 1.276 -> 1.415 across
+# ep1749..2999 even though the self branch improved 20.7% in absolute terms.
+# apex1 deploys self (rollout_apex_mode=self), so half its gradient was spent
+# on a regime it never runs. This variant flips the budget toward the deployed
+# regime while keeping a full-history minority so the apex still sees long
+# context occasionally.
+defaults:
+  - /callbacks/base/defaults
+  - _self_
+
+model_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "epoch_{epoch}"
+  save_last: true
+  save_top_k: -1
+  every_n_epochs: 250
+  save_on_train_epoch_end: true
+
+mixed_apex_attention:
+  _target_: egomimic.pl_utils.callbacks.apex_attention_regime.MixedApexAttentionCallback
+  schedule:
+    _target_: egomimic.pl_utils.callbacks.apex_attention_regime.AlternatingApexSchedule
+    full_steps: 1
+    windowed_steps: 4
+    windowed_mode: self
+    window_size: null
+    offset: 0

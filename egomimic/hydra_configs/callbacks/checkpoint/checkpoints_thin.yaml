@@ -1,0 +1,20 @@
+defaults:
+  - /callbacks/checkpoint/checkpoints
+  - _self_
+
+# THIN ckpt policy (user, 2026-07-18: save_top_k=-1 at every-100 wastes ~50GB/run).
+# Milestones: keep every 500 forever (evals/chunkviz brackets use these).
+# Resume safety: rolling ckpt every 100, only the newest kept (+ last.ckpt).
+model_checkpoint:
+  every_n_epochs: 500
+  save_top_k: -1
+
+rolling_checkpoint:
+  _target_: lightning.pytorch.callbacks.ModelCheckpoint
+  dirpath: ${paths.output_dir}/checkpoints
+  filename: "rolling_{epoch}"
+  save_last: false
+  save_top_k: 1
+  monitor: null
+  every_n_epochs: 100
+  save_on_train_epoch_end: true

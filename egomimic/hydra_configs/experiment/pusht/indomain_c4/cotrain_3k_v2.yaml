@@ -1,0 +1,33 @@
+# @package _global_
+# 3k-scale v2 cotrain: circle_3000_plus_gen_v2 (3000 obs0 + ALL 720 obstacle
+# episodes, symlink view of circle_4500_plus_gen_v2) + small_circle_3000_v2sub
+# (3000 of small_circle_4500_v2). Volume-matched 3k/3k with obstacle exposure
+# on the circle side. Data paths live HERE, never in sbatch EXTRA.
+# sim_v2 data (2026-07-31).
+# 4500-scale twin of dualstream_cotrain_2trunk_d16_200m.
+# ONLY delta: data -> indomain_c4_cotrain_4500gen (circle_4500 + new_circle_cotrain, SEPARATE folders, +
+# small_circle_4500). Model/trainer/eval identical to the 3000-scale cell.
+#
+# Why the data lives in a config instead of sbatch EXTRA: the previous c4500
+# lineage set folder_path via EXTRA, the resume relaunch omitted it, and the
+# run silently switched datasets at ep2000 (circle_4500 -> circle_3000_plus_gen)
+# mid-training. Config-driven means every resume re-reads the same paths.
+defaults:
+  - override /model: hnet/hnet_dualstream_2trunk_d16_200m
+  - override /data: pusht/indomain_c4_cotrain_3k_v2
+  - override /evaluator: pusht/gmm_eval_firstend
+  - override /logger: composite/csv_wandb
+
+name: indomain_c4
+description: dualstream_cotrain_2trunk_d16_200m_4500gen
+
+trainer:
+  max_epochs: 3000
+  min_epochs: 3000
+
+logger:
+  wandb:
+    project: pushshapes-indomain-c4
+
+norm_stats:
+  norm_mode: minmax

@@ -1,12 +1,12 @@
 defaults:
-  - model: hpt_bc_flow_eva
-  - paths: default
-  - trainer: ddp
+  - model: hpt/hpt_bc_flow_eva
+  - paths: runtime/default
+  - trainer: distributed/ddp
   - debug: null
-  - logger: wandb
-  - data: eva
-  - callbacks: checkpoints
-  - evaluator: eval_hpt
+  - logger: wandb/wandb
+  - data: robot/eva
+  - callbacks: checkpoint/checkpoints
+  - evaluator: hpt/eval_hpt
   - override hydra/launcher: submitit
   - _self_
 

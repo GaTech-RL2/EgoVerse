@@ -1,0 +1,18 @@
+defaults:
+  - /data/cotrain/cotrain_pi_base
+  - _self_
+
+train_datasets:
+  eva_bimanual:
+    resolver:
+      key_map:
+        keymap_mode: cartesian_pi
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: (row['robot_name'] == 'eva_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
+  aria_bimanual:
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: (row['robot_name'] == 'aria_bimanual') & (row['task'] == 'fold_clothes') & (row['zarr_processed_path'] != '')"
