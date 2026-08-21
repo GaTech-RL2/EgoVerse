@@ -32,6 +32,9 @@ import pymunk
 
 from .shapes import (
     FLIPPER_HALF_W,
+    POKER_REACH,
+    POKER_ROD_HALF_W,
+    POKER_ROD_LEN,
     FLIPPER_LEN,
     FLIPPER_SWING,
     GRIPPER_FINGER_LEN,
@@ -2075,6 +2078,76 @@ class FlipperAgent(Agent):
         return super().pre_substep(env)
 
 
+class PokerAgent(Agent):
+    """Extending poker: 4-DOF (x, y, angle, grip).
+
+    A rod that slides out of its housing, with `grip` setting the extension.
+    REACH IS A COMMANDED DOF, so the contact point moves without the base
+    moving: you can touch an object without approaching it, nudge it, and
+    retract to break contact without backing away.
+
+    That decouples two things every other embodiment here ties together --
+    where the agent is, and where it touches. The gripper and umi must bring
+    the base to the object; the flipper can act from a standstill but only
+    along an arc; the poker reaches in a straight line and can hold station
+    while doing it, which is the useful case when the base has nowhere to go.
+    """
+
+    action_spec = ("x", "y", "angle", "grip")
+    action_dim = 4
+    controls_angle = True
+
+    def __init__(self, shape: str = "poker", *, solid_pusher: bool = True,
+                 solid_contact_guard: bool = True,
+                 control_gap: "ControlGap | str | None" = None):
+        super().__init__(shape, solid_pusher=solid_pusher,
+                         solid_contact_guard=solid_contact_guard,
+                         control_gap=control_gap)
+        self._rod = None
+        self._ext = 0.0
+
+    def build(self, space, position):
+        body, shapes = super().build(space, position)
+        rod = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+        rod.position = position
+        poly = pymunk.Poly(rod, _rect_verts(
+            0.0, -POKER_ROD_LEN / 2, 2 * POKER_ROD_HALF_W, POKER_ROD_LEN))
+        poly.friction = OBJECT_FRICTION
+        space.add(rod, poly)
+        self._rod = rod
+        return body, shapes
+
+    def _target_pose(self, action):
+        self._ext = min(1.0, max(0.0, float(action[3])))
+        angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
+        return float(action[0]), float(action[1]), angle
+
+    def on_reset(self, env) -> None:
+        self._ext = 0.0
+
+    @property
+    def extension(self) -> float:
+        return self._ext * POKER_REACH
+
+    @property
+    def mode(self) -> str:
+        return ("retracted" if self._ext < 0.2
+                else "extending" if self._ext < 0.85 else "extended")
+
+    def pre_substep(self, env):
+        wr = env._pusher_body
+        if self._rod is not None:
+            # Slide along the housing axis (-Y is forward, as for the flipper).
+            d = self.extension
+            ca, sa = math.cos(wr.angle), math.sin(wr.angle)
+            self._rod.position = (wr.position.x + sa * d,
+                                  wr.position.y - ca * d)
+            self._rod.angle = wr.angle
+            self._rod.velocity = wr.velocity
+            self._rod.angular_velocity = wr.angular_velocity
+        return super().pre_substep(env)
+
+
 _SIMPLE = ("circle", "circle_small", "stick", "L")
 
 #: shape name -> agent class, for everything that is not a plain 2-DOF pusher.
@@ -2086,6 +2159,7 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "umi": UmiAgent,
     "scoop": ScoopAgent,
     "flipper": FlipperAgent,
+    "poker": PokerAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.

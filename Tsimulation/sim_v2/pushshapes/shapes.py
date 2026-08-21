@@ -209,6 +209,14 @@ UMI_FINGER_HALF_H = UMI_FINGER_LEN / 2
 # orientation -- a flat face or a single vertex.
 TRI_R = 24.0
 
+# Poker: a rod that SLIDES out of its housing. `grip` sets how far it
+# extends, so the contact point moves without the base moving.
+POKER_ROD_LEN = 40.0
+POKER_ROD_HALF_W = 4.5
+POKER_HOUSING_LEN = 26.0
+POKER_HOUSING_HALF_W = 8.0
+POKER_REACH = 52.0          # travel from retracted to fully extended
+
 # Flipper: a bar hinged at the wrist, like a pinball flipper. `grip` swings
 # it through its arc, so the tip sweeps even when the base is stationary.
 FLIPPER_LEN = 62.0
@@ -285,6 +293,7 @@ _PUSHER_RADII: dict[str, float] = {
     "wrench": WRENCH_R,
     "towbar": TOWBAR_R,
     "flipper": FLIPPER_LEN,
+    "poker": POKER_HOUSING_LEN,
     "triangle": TRI_R,
     "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
     "compliant": COMPLIANT_R,
@@ -488,6 +497,14 @@ def make_pusher(
         w.friction = OBJECT_FRICTION
         space.add(body, w)
         return body, [w]
+
+    if shape == "poker":
+        # Housing only; the sliding rod is a separate body owned by PokerAgent.
+        hs = pymunk.Poly(body, _rect_verts(
+            0.0, 0.0, 2 * POKER_HOUSING_HALF_W, POKER_HOUSING_LEN))
+        hs.friction = OBJECT_FRICTION
+        space.add(body, hs)
+        return body, [hs]
 
     if shape == "flipper":
         # Pivot hub only; the bar is a separate body owned by FlipperAgent
