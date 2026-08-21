@@ -209,12 +209,15 @@ UMI_FINGER_HALF_H = UMI_FINGER_LEN / 2
 # orientation -- a flat face or a single vertex.
 TRI_R = 24.0
 
-# Clutch head: a smooth roller face for sliding, and a pin that drops to bite
-# the object for turning. `grip` swaps between them -- the two modes are
-# mutually exclusive by construction.
-CLUTCH_R = 17.0
-CLUTCH_PIN_LEN = 22.0
-CLUTCH_PIN_HALF_W = 3.5
+# Spring plunger: a tip on a sprung shaft inside a housing. The tip RETRACTS
+# into the housing under load, so contact is mediated by the spring rather
+# than by the base's position.
+SPRING_HOUSING_HALF_W = 11.0
+SPRING_HOUSING_LEN = 30.0
+SPRING_TIP_HALF_W = 7.0
+SPRING_TIP_LEN = 16.0
+SPRING_FREE_LEN = 34.0     # how far the tip stands off when unloaded
+SPRING_MAX_COMPRESS = 30.0 # bottoms out here
 
 # Flipper: a bar hinged at the wrist, like a pinball flipper. `grip` swings
 # it through its arc, so the tip sweeps even when the base is stationary.
@@ -292,7 +295,7 @@ _PUSHER_RADII: dict[str, float] = {
     "wrench": WRENCH_R,
     "towbar": TOWBAR_R,
     "flipper": FLIPPER_LEN,
-    "clutch": CLUTCH_R,
+    "spring": SPRING_HOUSING_HALF_W,
     "triangle": TRI_R,
     "umi": UMI_MAX_GAP / 2 + 2 * UMI_FINGER_HALF_W,
     "compliant": COMPLIANT_R,
@@ -497,15 +500,18 @@ def make_pusher(
         space.add(body, w)
         return body, [w]
 
-    if shape == "clutch":
-        head = pymunk.Circle(body, CLUTCH_R)
-        # Slippery on purpose: in slide mode it must translate the object
-        # WITHOUT torquing it, so friction is what has to go.
-        # Normal friction: at 0.02 the head was so slippery that slide mode
-        # moved the object 0.0 -- it could not do its own job.
-        head.friction = OBJECT_FRICTION
-        space.add(body, head)
-        return body, [head]
+    if shape == "spring":
+        # Housing only; the sprung tip is a separate body owned by
+        # SpringAgent because its stand-off changes with load.
+        hs = pymunk.Poly(body, _rect_verts(
+            0.0, 0.0, 2 * SPRING_HOUSING_HALF_W, SPRING_HOUSING_LEN))
+        # SENSOR: only the sprung tip may touch the object. A solid housing
+        # stopped on contact before the tip could ever be driven in, so the
+        # spring never compressed -- measured 0.0 compression at every
+        # stiffness, and every setting pushed the object identically.
+        hs.sensor = True
+        space.add(body, hs)
+        return body, [hs]
 
     if shape == "flipper":
         # Pivot hub only; the bar is a separate body owned by FlipperAgent

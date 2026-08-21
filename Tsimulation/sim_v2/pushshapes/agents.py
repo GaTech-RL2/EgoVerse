@@ -31,10 +31,11 @@ import numpy as np
 import pymunk
 
 from .shapes import (
-    CLUTCH_PIN_HALF_W,
-    CLUTCH_PIN_LEN,
-    CLUTCH_R,
     FLIPPER_HALF_W,
+    SPRING_FREE_LEN,
+    SPRING_MAX_COMPRESS,
+    SPRING_TIP_HALF_W,
+    SPRING_TIP_LEN,
     FLIPPER_LEN,
     FLIPPER_SWING,
     GRIPPER_FINGER_LEN,
@@ -2078,105 +2079,119 @@ class FlipperAgent(Agent):
         return super().pre_substep(env)
 
 
-class ClutchAgent(Agent):
-    """Clutch head: 4-DOF (x, y, angle, grip). Articulation is MANDATORY.
+class SpringAgent(Agent):
+    """Spring plunger: 4-DOF (x, y, angle, grip). Contact is mediated by a spring.
 
-    The head has two mutually exclusive modes and neither can finish the task:
+    The tip rides on a sprung shaft. When it meets the object it RETRACTS into
+    the housing instead of driving straight through, and how much force gets
+    past depends on how far the spring is compressed -- so what the object
+    feels is set by the spring's state, not by where the base is.
 
-        grip 0  SLIDE -- a near-frictionless roller face. It pushes the object
-                         around freely but transmits almost no torque, so it
-                         can place the object anywhere and cannot aim it.
-        grip 1  TURN  -- a pin drops and bites. Pivot + gear pin the object to
-                         the head, so the wrist drives its ORIENTATION exactly,
-                         and translation now moves the pair rigidly rather than
-                         sliding the object over the face.
+    `grip` sets the stiffness:
 
-    Since the goal is a POSE, position and orientation both have to be solved,
-    and no single mode does both. You slide to place, clutch in to aim, and
-    repeat. That is the difference from the poker this replaces, whose
-    extension was optional -- you could ignore the DOF and use it as a long
-    stick. Here ignoring the DOF means never fixing the angle.
+        grip 0  SOFT  -- the tip gives way almost immediately. Contact is
+                         gentle and the object barely moves however hard you
+                         drive the base; the spring swallows the stroke.
+        grip 1  STIFF -- the tip holds its stand-off and transmits the stroke,
+                         so the base's motion reaches the object.
+
+    Between those, the plunger visibly rides in and out as load changes: press
+    and it sinks, back off and it extends. That makes the compliance something
+    you can see and aim, rather than an invisible force limit -- soft to
+    approach without disturbing the object, stiff to actually move it.
+
+    Implemented as a kinematic spring (stand-off computed from measured
+    contact depth) rather than a DampedSpring, because this world erases
+    velocity every step: a real spring integrates to nothing here, and a
+    force-limited joint against a kinematic body does nothing at all.
     """
 
     action_spec = ("x", "y", "angle", "grip")
     action_dim = 4
     controls_angle = True
 
-    def __init__(self, shape: str = "clutch", *, solid_pusher: bool = True,
+    def __init__(self, shape: str = "spring", *, solid_pusher: bool = True,
                  solid_contact_guard: bool = True,
                  control_gap: "ControlGap | str | None" = None):
         super().__init__(shape, solid_pusher=solid_pusher,
                          solid_contact_guard=solid_contact_guard,
                          control_gap=control_gap)
-        self._pin = None
-        self._cs = None
-        self._grip = 0.0
+        self._tip = None
+        self._stiff = 0.0
+        self._compress = 0.0
+        self._prev_base = None
 
     def build(self, space, position):
         body, shapes = super().build(space, position)
-        pin = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
-        pin.position = position
-        poly = pymunk.Poly(pin, _rect_verts(
-            0.0, -CLUTCH_PIN_LEN / 2, 2 * CLUTCH_PIN_HALF_W, CLUTCH_PIN_LEN))
+        tip = pymunk.Body(body_type=pymunk.Body.KINEMATIC)
+        tip.position = position
+        poly = pymunk.Poly(tip, _rect_verts(
+            0.0, -SPRING_TIP_LEN / 2, 2 * SPRING_TIP_HALF_W, SPRING_TIP_LEN))
         poly.friction = OBJECT_FRICTION
-        poly.sensor = True          # visual + engagement cue; the constraint holds
-        space.add(pin, poly)
-        self._pin = pin
+        space.add(tip, poly)
+        self._tip = tip
         return body, shapes
 
     def _target_pose(self, action):
-        self._grip = min(1.0, max(0.0, float(action[3])))
+        self._stiff = min(1.0, max(0.0, float(action[3])))
         angle = (float(action[2]) + math.pi) % (2 * math.pi) - math.pi
         return float(action[0]), float(action[1]), angle
 
     def on_reset(self, env) -> None:
-        self._grip, self._cs = 0.0, None
+        self._stiff, self._compress, self._prev_base = 0.0, 0.0, None
+
+    @property
+    def compression(self) -> float:
+        """How far the plunger is pushed in, in world units."""
+        return self._compress
 
     @property
     def mode(self) -> str:
-        return "turn" if self._grip > 0.5 else "slide"
+        return "soft" if self._stiff < 0.35 else (
+            "medium" if self._stiff < 0.75 else "stiff")
 
-    @property
-    def engaged(self) -> bool:
-        return self._cs is not None
-
-    def active_constraints(self) -> tuple:
-        return tuple(self._cs) if self._cs else ()
-
-    def _detach(self, env):
-        if self._cs:
-            for c in self._cs:
-                if c in env._space.constraints:
-                    env._space.remove(c)
-        self._cs = None
+    def _standoff(self) -> float:
+        return SPRING_FREE_LEN - self._compress
 
     def pre_substep(self, env):
         wr = env._pusher_body
-        if self._pin is not None:
-            # The pin extends while clutched, retracts while sliding.
-            d = CLUTCH_PIN_LEN * (0.15 + 0.85 * self._grip)
-            ca, sa = math.cos(wr.angle), math.sin(wr.angle)
-            self._pin.position = (wr.position.x + sa * d, wr.position.y - ca * d)
-            self._pin.angle = wr.angle
-            self._pin.velocity = wr.velocity
-            self._pin.angular_velocity = wr.angular_velocity
-        want = self._grip > 0.5
-        if want and self._cs is None:
-            if _surface_distance(env, wr.position) <= CLUTCH_R + 6.0:
-                obj = env._object_body
-                # Pin to the STATIC body, not to the wrist. Pinning to the
-                # wrist made turn mode a rigid grasp that both translated and
-                # rotated (moved 218, rotated 160), so the clutch was
-                # optional -- one mode did the whole task. Anchored to the
-                # world the object cannot translate at all while clutched;
-                # the gear still drives its angle. Position and orientation
-                # now genuinely require different modes.
-                pj = pymunk.PivotJoint(env._space.static_body, obj, obj.position)
-                env._space.add(pj)
-                gj = _add_gear(env._space, wr, obj, obj.angle - wr.angle)
-                self._cs = (pj, gj)
-        elif not want and self._cs is not None:
-            self._detach(env)
+        ca, sa = math.cos(wr.angle), math.sin(wr.angle)
+
+        # Compression is driven by the BASE ADVANCING WHILE LOADED, not by
+        # geometric overlap. The tip is kinematic, so on contact it shoves the
+        # object rather than being driven into it and the overlap is always
+        # zero -- measured 0.0 compression at every stiffness, with all four
+        # settings pushing the object identically.
+        # Measure from the tip's FRONT FACE. The body origin sits at the back
+        # of the tip, so it reads ~16.4 from the surface while the front is
+        # actually touching at ~0.4 -- against a 9.6 threshold the spring
+        # never registered contact and never compressed.
+        if self._tip is not None:
+            b = self._tip.position
+            tip_pos = (b.x + sa * SPRING_TIP_LEN, b.y - ca * SPRING_TIP_LEN)
+        else:
+            tip_pos = (wr.position.x, wr.position.y)
+        loaded = _surface_distance(env, tip_pos) <= 3.0
+        base = np.array([wr.position.x, wr.position.y])
+        if self._prev_base is not None and loaded:
+            # Component of the base's travel along the facing direction.
+            step = base - self._prev_base
+            along = float(step[0] * sa - step[1] * ca)
+            if along > 0.0:
+                # A soft spring swallows the stroke; a stiff one passes it on.
+                swallow = (1.0 - self._stiff) ** 1.2
+                self._compress = min(SPRING_MAX_COMPRESS,
+                                     self._compress + along * swallow)
+        elif not loaded:
+            self._compress = max(0.0, self._compress - 1.2)   # extend when free
+        self._prev_base = base
+
+        if self._tip is not None:
+            d = self._standoff()
+            self._tip.position = (wr.position.x + sa * d, wr.position.y - ca * d)
+            self._tip.angle = wr.angle
+            self._tip.velocity = wr.velocity
+            self._tip.angular_velocity = wr.angular_velocity
         return super().pre_substep(env)
 
 
@@ -2191,7 +2206,7 @@ _AGENT_CLASSES: dict[str, type[Agent]] = {
     "umi": UmiAgent,
     "scoop": ScoopAgent,
     "flipper": FlipperAgent,
-    "clutch": ClutchAgent,
+    "spring": SpringAgent,
 }
 
 #: Every constructible pusher. env imports this so the two lists cannot drift.
