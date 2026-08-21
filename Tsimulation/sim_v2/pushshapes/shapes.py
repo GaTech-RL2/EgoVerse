@@ -184,9 +184,11 @@ ROLLER_HALF_H = 18.0
 
 # Scoop: a concave arc that cradles the object -- carries without grasping,
 # but only while the opening stays roughly upright relative to travel.
-SCOOP_R = 20.0
-SCOOP_THICK = 4.0
-SCOOP_SEGMENTS = 5
+# Sized to cradle the T's 30-wide limb, not a token arc: at R=20 the cup was
+# narrower than the thing it was meant to hold.
+SCOOP_R = 34.0
+SCOOP_THICK = 5.0
+SCOOP_SEGMENTS = 7
 
 # UMI-style rotary gripper: two fingers on a rotating wrist. Slimmer and
 # longer-fingered than `gripper` so the two read differently on screen.
@@ -413,8 +415,11 @@ def make_pusher(
     if shape == "suction":
         pad = pymunk.Poly(body, _rect_verts(
             0.0, 0.0, 2 * SUCTION_PAD_HALF_W, 2 * SUCTION_PAD_HALF_H))
+        # Stem BEHIND the pad. In front it led on approach and held the pad
+        # 21.6 units off the surface, so suction could only attach across a
+        # visible gap -- it looked like it was grabbing at a distance.
         stem = pymunk.Poly(body, _rect_verts(
-            0.0, -SUCTION_PAD_HALF_H - SUCTION_STEM_HALF_H,
+            0.0, SUCTION_PAD_HALF_H + SUCTION_STEM_HALF_H,
             2 * SUCTION_STEM_HALF_W, 2 * SUCTION_STEM_HALF_H))
         for x in (pad, stem):
             x.friction = OBJECT_FRICTION
@@ -542,8 +547,12 @@ def make_pusher(
     if shape == "scoop":
         parts = []
         span = math.pi * 1.1
+        # Centred on -Y so the cup opens ALONG THE APPROACH. Centred on +X it
+        # opened sideways, so driving the scoop at the object presented the
+        # back of the arc and nothing was ever cradled.
+        base = -math.pi / 2 - span / 2
         for i in range(SCOOP_SEGMENTS):
-            a0 = -span / 2 + i * (span / SCOOP_SEGMENTS)
+            a0 = base + i * (span / SCOOP_SEGMENTS)
             a1 = a0 + span / SCOOP_SEGMENTS
             seg = pymunk.Segment(
                 body,

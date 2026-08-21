@@ -1070,10 +1070,9 @@ class USocketAgent(Agent):
 # Measured: with the pad flush against the object the BODY CENTRE sits 15.0
 # from the surface, because the pad is 26 wide. A radius tighter than that can
 # never be satisfied no matter how the operator drives.
-# Measured: driving the pad onto the object plateaus at 21.6 from the surface
-# because the pad's STEM leads on approach and holds the face off. A threshold
-# below that can never be met however hard the operator pushes.
-_SUCTION_GRIP_RADIUS = 24.0
+# Measured: with the stem moved behind it, the pad face rests 3.75 from the
+# surface. It attaches on real contact now, not across a 21.6-unit gap.
+_SUCTION_GRIP_RADIUS = 6.0
 _SUCTION_RELEASE_BLOCK = 10
 #: Two orders below _CONSTRAINT_FORCE: enough to reorient a settled object,
 #: not enough to stop a fast drag twisting it. This is the pad slipping.
