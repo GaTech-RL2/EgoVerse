@@ -5,7 +5,6 @@ from typing import Literal
 import numpy as np
 
 from egomimic.rldb.embodiment.embodiment import Embodiment
-from egomimic.rldb.embodiment.human import ARIA_INTRINSICS
 from egomimic.rldb.zarr.action_chunk_transforms import (
     ActionChunkCoordinateFrameTransform,
     BatchQuaternionPoseToYPR,
@@ -22,6 +21,13 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 )
 from egomimic.utils.pose_utils import (
     _matrix_to_xyzwxyz,
+)
+
+ARIA_INTRINSICS = np.array(
+    [[266.50860444, 0.0, 320.0, 0.0],
+     [0.0, 266.50860444, 240.0, 0.0],
+     [0.0, 0.0, 1.0, 0.0]],
+    dtype=np.float64,
 )
 
 
@@ -149,6 +155,19 @@ class Eva(Embodiment):
                 "zarr_key": "annotations",
             },
         }
+
+
+def build_fold_cartesian_wristframe_revert_transform_list(
+    *,
+    action_key: str = "actions_cartesian",
+    state_key: str = "state_ee_pose",
+) -> list[Transform]:
+    """Decode a fold EVA wrist-frame chunk through the shared transforms."""
+    from egomimic.rldb.embodiment.fold_span_transforms import (
+        build_bimanual_rot6d_wrist_revert_transforms,
+    )
+
+    return build_bimanual_rot6d_wrist_revert_transforms(action_key, state_key)
 
 
 def _build_eva_bimanual_revert_eef_frame_transform_list(

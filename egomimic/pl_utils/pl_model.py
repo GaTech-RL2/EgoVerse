@@ -10,7 +10,7 @@ from lightning import LightningModule
 from omegaconf import DictConfig, OmegaConf
 
 import egomimic.vendored.robomimic_tensor_utils as TensorUtils
-from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
+from egomimic.rldb.norm_stats import NormStats
 
 
 class ModelWrapper(LightningModule):
@@ -92,6 +92,14 @@ class ModelWrapper(LightningModule):
                     cfg, "model.log_per_layer_grad_norms", default=False
                 )
             )
+        # per_emb_grad_scale (2026-08-02): compensate the cotrain loss-average
+        # diluting per-emb branches by 1/len(embs). 1.0 = off (default).
+        self.per_emb_grad_scale = 1.0
+        if cfg is not None and OmegaConf.select(cfg, "model") is not None:
+            self.per_emb_grad_scale = float(
+                OmegaConf.select(cfg, "model.per_emb_grad_scale", default=1.0)
+            )
+        self._per_emb_param_ids = None  # lazily cached id set
 
         self.epoch_memory_stats = []  # Store memory stats per epoch
         self.evaluator = evaluator
@@ -106,9 +114,17 @@ class ModelWrapper(LightningModule):
 
     def _instantiate_model(self, config_tree, norm_stats_state):
         cfg = self._as_config(config_tree)
-        norm_stats = MultiDataset.from_state(norm_stats_state)
+        norm_stats = NormStats(norm_stats_state)
+        model_cfg = OmegaConf.create(OmegaConf.to_container(
+            cfg.model.robomimic_model, resolve=False))
+        inference_cfg = OmegaConf.select(
+            cfg, "inference_stages", default=None)
+        if (inference_cfg is not None and
+                "inference_stages" not in model_cfg):
+            model_cfg.inference_stages = OmegaConf.create(
+                OmegaConf.to_container(inference_cfg, resolve=False))
         return hydra.utils.instantiate(
-            cfg.model.robomimic_model,
+            model_cfg,
             norm_stats=norm_stats,
         )
 
@@ -170,7 +186,7 @@ class ModelWrapper(LightningModule):
         info = {}
         info["losses"] = TensorUtils.detach(losses)
         for k, v in self.model.log_info(info).items():
-            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
+            self.log("Train/" + k, v, sync_dist=True, on_step=True, on_epoch=True)
 
         return losses["action_loss"]
 
@@ -224,7 +240,36 @@ class ModelWrapper(LightningModule):
                 sync_dist=True,
             )
 
+    def _collect_per_emb_param_ids(self):
+        ids = set()
+        n = 0
+        for _, m in self.named_modules():
+            cn = type(m).__name__
+            if cn == "PerEmb":
+                src = m
+            elif cn == "MultiEmbodimentCondEncoder" and hasattr(m, "encoders"):
+                src = m.encoders
+            else:
+                continue
+            for p in src.parameters():
+                if id(p) not in ids:
+                    ids.add(id(p))
+                    n += p.numel()
+        print(f"[per_emb_grad_scale] x{self.per_emb_grad_scale} on "
+              f"{len(ids)} per-emb tensors ({n/1e6:.1f}M params)")
+        return ids
+
     def on_after_backward(self):
+        # per_emb_grad_scale: restore per-datapoint rate parity for per-emb
+        # branches (the cotrain loss-average divides their grads by len(embs)
+        # while they only receive their own embodiment's term). Applied BEFORE
+        # any clipping so downstream norms see the corrected gradients.
+        if self.per_emb_grad_scale != 1.0:
+            if self._per_emb_param_ids is None:
+                self._per_emb_param_ids = self._collect_per_emb_param_ids()
+            for p in self.parameters():
+                if p.grad is not None and id(p) in self._per_emb_param_ids:
+                    p.grad.mul_(self.per_emb_grad_scale)
         # Per-layer raw grad norms are gated by their own flag and taken here
         # (after backward, before any clipping) independent of the global
         # grad-norm/MAD machinery below.
@@ -344,9 +389,23 @@ class ModelWrapper(LightningModule):
                     # Method exists but doesn't accept base_lr — skip.
                     groups = None
 
-            params_arg = (
-                groups if groups is not None else self.trainer.model.parameters()
+            optimizer_target = str(
+                OmegaConf.select(cfg, "model.optimizer._target_", default="")
             )
+            if optimizer_target == (
+                "egomimic.utils.muon_factory."
+                "build_single_device_muon_with_aux_adam"
+            ):
+                if groups is not None:
+                    raise ValueError(
+                        "The Muon factory performs its own named-parameter routing "
+                        "and cannot be combined with model parameter_groups()."
+                    )
+                params_arg = self.trainer.model.named_parameters()
+            else:
+                params_arg = (
+                    groups if groups is not None else self.trainer.model.parameters()
+                )
             # When ``params_arg`` is a ``list[dict]`` of param groups, passing
             # it through ``hydra.utils.instantiate`` (a kwarg to a _partial_
             # target) wraps the dicts as OmegaConf ``DictConfig`` objects,
@@ -398,6 +457,75 @@ class ModelWrapper(LightningModule):
                 f"Rank {self.global_rank} on fit start, all ranks synchronized",
                 flush=True,
             )
+
+    def on_train_start(self):
+        # CosineAnnealingLR.state_dict() INCLUDES eta_min, so on any resume
+        # scheduler.load_state_dict() silently clobbers a config change to
+        # eta_min (2026-08 dfot_v3 attempt 3: the intended change never took
+        # effect). Re-assert eta_min from the LIVE config after Lightning has
+        # restored scheduler state, and log when the restored value differed.
+        # Recurses into SequentialLR children via ``_schedulers``.
+        want = None
+        cfg = self._as_config(getattr(self.hparams, "config_tree", None))
+        if cfg is not None:
+            want = OmegaConf.select(cfg, "model.scheduler.eta_min", default=None)
+        if want is None:
+            part = getattr(self.hparams, "scheduler", None)
+            keywords = getattr(part, "keywords", None)
+            if keywords:
+                want = keywords.get("eta_min")
+        if want is not None:
+            want = float(want)
+            for lrs_cfg in self.trainer.lr_scheduler_configs:
+                stack = [lrs_cfg.scheduler]
+                while stack:
+                    sch = stack.pop()
+                    stack.extend(list(getattr(sch, "_schedulers", []) or []))
+                    if hasattr(sch, "eta_min"):
+                        if sch.eta_min != want:
+                            print(
+                                f"[ETA_MIN_REASSERT] {type(sch).__name__}"
+                                f".eta_min {sch.eta_min} -> {want} "
+                                f"(checkpoint state had clobbered the live "
+                                f"config value)",
+                                flush=True,
+                            )
+                        sch.eta_min = want
+
+        # Same clobber applies to T_max: CosineAnnealingLR.state_dict()
+        # carries it, so EXTENDING a run (larger model.scheduler.max_steps on
+        # a resume) is silently inert without this. T_max spans the
+        # post-warmup window, matching ``warmup_cosine_scheduler``.
+        want_max, want_warm = None, None
+        if cfg is not None:
+            want_max = OmegaConf.select(
+                cfg, "model.scheduler.max_steps", default=None)
+            want_warm = OmegaConf.select(
+                cfg, "model.scheduler.warmup_steps", default=None)
+        if want_max is None:
+            part = getattr(self.hparams, "scheduler", None)
+            keywords = getattr(part, "keywords", None) or {}
+            want_max = keywords.get("max_steps")
+            want_warm = keywords.get("warmup_steps", want_warm)
+        if want_max is not None:
+            want_warm = int(want_warm) if want_warm is not None else 0
+            want_t = max(1, int(want_max) - want_warm)
+            for lrs_cfg in self.trainer.lr_scheduler_configs:
+                stack = [lrs_cfg.scheduler]
+                while stack:
+                    sch = stack.pop()
+                    stack.extend(list(getattr(sch, "_schedulers", []) or []))
+                    if hasattr(sch, "T_max"):
+                        if sch.T_max != want_t:
+                            print(
+                                f"[T_MAX_REASSERT] {type(sch).__name__}"
+                                f".T_max {sch.T_max} -> {want_t} "
+                                f"(checkpoint state had clobbered the live "
+                                f"config value)",
+                                flush=True,
+                            )
+                        sch.T_max = want_t
+        return super().on_train_start()
 
     def on_train_epoch_start(self):
         for i, param_group in enumerate(self.optimizers().param_groups):

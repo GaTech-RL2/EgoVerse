@@ -46,8 +46,12 @@ import torch
 import torch.nn as nn
 
 from egomimic.models.hnet.isotropic_builder import build_isotropic
-from egomimic.models.hnet.multi_stream_trunk import MultiStreamTrunk
-from egomimic.models.hnet.per_emb import per_emb, pick
+from egomimic.models.hnet.moe_ffn import MoEFFN
+from egomimic.models.hnet.multi_stream_trunk import (
+    MultiStreamTrunk,
+    init_multistream_trunk,
+)
+from egomimic.models.hnet.per_emb import PerEmb, per_emb, pick
 from egomimic.models.hnet.residual_mixer import build_residual_mixer
 from egomimic.models.hnet.routing import ChunkLayer, DeChunkLayer
 from egomimic.models.hnet.stages import _init_isotropic_linears
@@ -101,6 +105,50 @@ def per_emb_module(factory_or_mod, use_per_emb: bool, embodiments):
             "per_emb=True needs a factory, not an instantiated module: give each "
             "embodiment its own stage, or pass a _partial_ target.")
     return per_emb(factory_or_mod, embodiments)   # module-level helper, NOT the flag
+
+
+def _flat_modules(obj):
+    """Yield the real sub-modules behind a shared module / PerEmb / container.
+
+    Same idea as ``DualStreamChunkerStage._init_weights._members``
+    (dual_stream_chunker.py:462-469): a per-emb slot is a ``PerEmb`` holding one
+    copy per embodiment, and every copy needs initializing -- ``pick()`` only
+    returns one. Used by the ``_init_weights`` pass, never in forward.
+    """
+    if obj is None:
+        return
+    if isinstance(obj, PerEmb):
+        for m in obj.table.values():
+            yield from _flat_modules(m)
+    elif isinstance(obj, nn.ModuleDict):
+        for m in obj.values():
+            yield from _flat_modules(m)
+    elif isinstance(obj, nn.ModuleList):
+        for m in obj:
+            yield from _flat_modules(m)
+    elif isinstance(obj, nn.Module):
+        yield obj
+
+
+def _init_plain_linears(obj, rng: float):
+    """``normal_(0, rng)`` every Linear under ``obj``, honouring ``_no_reinit``.
+
+    For the NON-residual-stream params of a stage (down/up projections, fusion
+    heads): they do not feed a residual add, so they take the unscaled range --
+    the same treatment ``_init_isotropic_linears`` gives a non-``out_proj``
+    Linear, and the same rule ``DualStreamChunkerStage._init_weights`` applies
+    to its combine/proj list.
+    """
+    if not isinstance(obj, nn.Module):
+        return
+    for m in obj.modules():
+        if not isinstance(m, nn.Linear):
+            continue
+        if getattr(m.weight, "_no_reinit", False):
+            continue
+        nn.init.normal_(m.weight, mean=0.0, std=rng)
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
 
 
 class StreamTrunk(Stage):
@@ -168,7 +216,13 @@ class StreamTrunk(Stage):
         return batch
 
     def _init_weights(self, rng: float, parent_residuals: int) -> int:
-        return _init_isotropic_linears(self.trunk, rng, parent_residuals)
+        # REUSES the nested path's rule verbatim (MultiStreamComputeStage):
+        # this trunk ADDS 2 residual adds per layer, and its own residual-out
+        # projections are scaled by 1/sqrt(cumulative depth). The old body
+        # called `_init_isotropic_linears`, which (a) never added the trunk's
+        # height so the depth scale was frozen at the parent's value, and
+        # (b) returned None, breaking the chain for every later stage.
+        return init_multistream_trunk(self.trunk, rng, parent_residuals)
 
 
 class Framewise(Stage):
@@ -226,6 +280,108 @@ class Framewise(Stage):
                     _write_grid(batch, ok, batch[ck], batch[mk], batch[tk])
         return batch
 
+    def _init_weights(self, rng: float, parent_residuals: int) -> int:
+        # `_MLPBlocks` does `x = x + fc2(act(fc1(norm(x))))` per block, so each
+        # block is ONE residual add and `fc2` is the residual-out projection
+        # (`_init_isotropic_linears` matches it by name). Streams are parallel,
+        # not stacked, so the depth added is one stream's block count.
+        depth = max((len(m.blocks) for m in _flat_modules(self.blocks)), default=0)
+        n = parent_residuals + depth
+        return _init_isotropic_linears(self, rng, n)
+
+
+class FramewiseMoE(Stage):
+    """Framewise, but the two streams are FUSED and routed through MoE experts.
+
+    ``Framewise`` gives A one shared MLP and S one MLP per embodiment: the
+    per-embodiment capacity is HAND-WIRED. This stage concatenates the streams
+    and runs the fused token through ``n_layers`` pre-norm residual blocks whose
+    FFN is a :class:`MoEFFN` (top-k over ``num_experts`` SwiGLU experts), then
+    projects back to the original per-stream widths. Expert choice is learned
+    from token CONTENT ONLY -- the gate never sees the embodiment id -- so the
+    question this arm answers is whether per-embodiment specialisation is
+    DISCOVERED rather than declared. ``log/moe_expert_frac_<emb>`` is the readout.
+
+    Fusing A with S means ``A_p`` is no longer embodiment-agnostic. That is not a
+    new leak in the arms this replaces: their final trunk already runs
+    ``mask_mode="sym"`` with ``allow_agnostic_cross=True`` over [A_mix, S_out],
+    so A already attends to S. This only moves the mixing earlier.
+
+    Sizing note: match on ACTIVE params, not total. Active per token is
+    ``n_layers * top_k * 3 * d_total * d_expert`` (SwiGLU is 3 matrices), so the
+    dense Framewise it replaces sets ``d_expert``, while ``num_experts`` buys
+    total capacity for free at fixed compute.
+    """
+
+    def __init__(self, in_keys: List[str], dims: List[int],
+                 out_keys: Optional[List[str]] = None,
+                 n_layers: int = 4, num_experts: int = 8, top_k: int = 2,
+                 d_expert: int = 288, aux_weight: float = 0.01,
+                 embodiments: Optional[List[str]] = None,
+                 final_norm: bool = True):
+        super().__init__()
+        self.in_keys = [str(k) for k in in_keys]
+        self.out_keys = [str(k) for k in (out_keys or in_keys)]
+        if len(self.in_keys) != len(dims):
+            raise ValueError("FramewiseMoE: one dim per in_key.")
+        if len(self.out_keys) != len(self.in_keys):
+            raise ValueError("FramewiseMoE: out_keys must match in_keys in length.")
+        self.dims = [int(d) for d in dims]
+        self.d_total = sum(self.dims)
+        self.reads = list(self.in_keys) + ["embodiment"]
+        self.writes = list(self.out_keys) + ["loss/moe_lb", "log/*"]
+
+        self.norms = nn.ModuleList(
+            [nn.LayerNorm(self.d_total) for _ in range(int(n_layers))])
+        self.moes = nn.ModuleList([
+            MoEFFN(self.d_total, int(d_expert), num_experts=int(num_experts),
+                   top_k=int(top_k), aux_weight=float(aux_weight))
+            for _ in range(int(n_layers))])
+        self.final = nn.LayerNorm(self.d_total) if final_norm else None
+        # One head per output stream: the fused token carries both, and the
+        # downstream Mix/trunk still expect the original per-stream widths.
+        self.heads = nn.ModuleList(
+            [nn.Linear(self.d_total, d) for d in self.dims])
+
+    def forward(self, batch: dict) -> dict:
+        x = torch.cat([batch[k] for k in self.in_keys], dim=-1)   # (T, d_total)
+        for norm, moe in zip(self.norms, self.moes):
+            x = x + moe(norm(x))
+        if self.final is not None:
+            x = self.final(x)
+
+        for ik, ok, head in zip(self.in_keys, self.out_keys, self.heads):
+            batch[ok] = head(x)
+            if ok != ik:
+                ck, mk, tk = _grid_keys(ik)
+                if ck in batch:
+                    _write_grid(batch, ok, batch[ck], batch[mk], batch[tk])
+
+        # Load balance: without it the router collapses onto one expert and the
+        # arm silently degenerates into a (smaller) dense MLP.
+        aux = [m.last_aux_loss for m in self.moes if m.last_aux_loss is not None]
+        if aux:
+            batch["loss/moe_lb"] = torch.stack(aux).sum()
+
+        emb = str(batch["embodiment"])
+        fracs = [m.last_expert_frac for m in self.moes
+                 if m.last_expert_frac is not None]
+        if fracs:
+            # Per-embodiment, because the whole point is whether a content-only
+            # gate partitions experts BY embodiment on its own.
+            f = torch.stack(fracs).mean(0)
+            for e in range(f.numel()):
+                batch[f"log/moe_expert_frac_{emb}_e{e}"] = f[e]
+            batch[f"log/moe_gate_entropy_{emb}"] = torch.stack(
+                [m.last_gate_entropy for m in self.moes
+                 if m.last_gate_entropy is not None]).mean()
+        return batch
+
+    def _init_weights(self, rng: float, parent_residuals: int) -> int:
+        # `x = x + moe(norm(x))` once per layer -> n_layers residual adds.
+        n = parent_residuals + len(self.moes)
+        return _init_isotropic_linears(self, rng, n)
+
 
 class Chunk(Stage):
     """Router + compress, over a LIST of streams sharing one boundary.
@@ -260,7 +416,12 @@ class Chunk(Stage):
                  router_mixer_n_layers: int = 4,
                  router_hidden_mult: float = 4.0,
                  router_temp: float = 1.0, router_sample: bool = False,
-                 res_scale: Optional[float] = None):
+                 router_pre_layout: Optional[str] = None,
+                 router_pre_detach: bool = False,
+                 res_scale: Optional[float] = None,
+                 # "default" = pre-2026-08-18 behaviour. Opt in with "zero" per config,
+        # so a config that never enabled init_range is untouched.
+        residual_proj_init: str = "default"):
         super().__init__()
         self.in_keys = [str(k) for k in in_keys]
         self.out_keys = [str(k) for k in out_keys]
@@ -279,22 +440,32 @@ class Chunk(Stage):
         # target_ratio by position, so stamping the level makes per-level
         # targets/schedules unambiguous instead of order-dependent.
         self.level = None if level is None else int(level)
+        # Stable full-resolution confidence diagnostic. ``selected_probs`` is
+        # exactly c_t = max(p_t, 1-p_t), but previously it was only reachable
+        # through the internal route / aux records. Publishing it gives
+        # checkpoint diagnostics and histogram evaluators a durable batch key.
+        self.ct_key = f"diag/L{self.level}_c_t"
         if n == 1 and self.route_on != "a":
             raise ValueError(
                 "Chunk: a single-stream in_keys has no S to fuse; "
                 "set route_on='a'.")
         self.reads = list(self.in_keys) + ["embodiment", "cu_seqlens", "max_seq_len", "time_pos"]
         self.writes = (list(self.out_keys) + [f"{k}@res" for k in self.in_keys]
-                       + [self.route_key, "aux/chunker"])
+                       + [self.route_key, "aux/chunker", self.ct_key])
         self.target_compression_ratio = float(target_compression_ratio)
         self.ratio_loss_weight = float(ratio_loss_weight)
         # MATCHES DualChunkerLevel (stages_hnet.py:471): an unset `_s` weight
-        # falls back to the A weight. With one shared boundary that applies the
-        # ratio term TWICE on the same b_t -- i.e. the effective weight is 2x
-        # the configured value. That looks accidental upstream, but every
-        # existing baseline trained under it, so reproducing it is required for
-        # the sequential baseline to be comparable. Pass ratio_loss_weight_s=0
-        # explicitly to opt out.
+        # falls back to the A weight.
+        #
+        # NOTE (verified 2026-08-18, audit): on THIS stage that fallback is
+        # INERT -- there is no 2x double-count. The value is stamped into the
+        # aux record as `ratio_weight_s` below, but this stage always emits
+        # `separate_boundaries: False`, and `stages_io.RatioLoss` builds its S
+        # term ONLY from records with `separate_boundaries` True
+        # (stages_io.py:716-717). `ratio_weight_s` has no other consumer, so
+        # `loss/ratio_s` is never written and the effective ratio weight is
+        # exactly the configured `ratio_loss_weight`, applied once per level.
+        # (The 2x DOES apply on the nested path when separate_boundaries is on.)
         self.ratio_loss_weight_s = (float(ratio_loss_weight_s)
                                     if ratio_loss_weight_s
                                     else float(ratio_loss_weight))
@@ -311,7 +482,10 @@ class Chunk(Stage):
             n_layers=int(router_mixer_n_layers), fusion=str(router_fusion),
             hidden_mult=float(router_hidden_mult),
             router_temp=float(router_temp),
-            router_sample=bool(router_sample), route_on=self.route_on)
+            router_sample=bool(router_sample),
+            router_pre_layout=router_pre_layout,
+            router_pre_detach=bool(router_pre_detach),
+            route_on=self.route_on)
         self._router = per_emb(mk_router, self._embs) if router_per_emb else mk_router()
 
         self.chunk_layer = ChunkLayer()
@@ -319,8 +493,41 @@ class Chunk(Stage):
         def _mk(fac, i):
             return per_emb(fac, self._embs) if self._per_emb[i] else fac()
 
+        # U-NET SKIP PROJECTION. Upstream H-Net and BOTH nested ports here
+        # ZERO-init this and mark it _no_reinit (models/hnet/stages.py
+        # `_mk_res_proj` equivalent at :1004-1007, dual_stream_chunker.py
+        # :305-310): the skip must start CLOSED so the model has to earn the
+        # bypass around the compressed path. The flat rewrite silently left it
+        # at PyTorch's default kaiming init, i.e. a full-rank random dense
+        # bypass live from step 0 -- exactly the trunk-bypass loophole
+        # residual_mixer.py says the mixer exists to close.
+        # ``residual_proj_init="default"`` restores the old (pre-2026-08-18)
+        # behaviour for reproducing runs launched before this fix.
+        if str(residual_proj_init) not in ("zero", "default"):
+            raise ValueError(
+                "Chunk: residual_proj_init must be 'zero' (paper/nested "
+                f"parity, default) or 'default', got {residual_proj_init!r}")
+        self.residual_proj_init = str(residual_proj_init)
+
+        def _mk_res_proj(d, a):
+            # Reference parity (dual_stream_chunker.py:305-310, stages.py:1004-1007):
+            # a ZERO Linear is built UNCONDITIONALLY so the U-net skip starts
+            # CLOSED. The old `nn.Identity()` shortcut fired whenever
+            # apex_dims[i] == dims[i] and left the skip FULLY OPEN -- an
+            # accidental identity init, and the trunk-bypass loophole the
+            # residual mixer exists to close.
+            if self.residual_proj_init == "zero":
+                m = nn.Linear(d, d)
+                nn.init.zeros_(m.weight)
+                nn.init.zeros_(m.bias)
+                m.weight._no_reinit = True
+                return m
+            # "default" == pre-2026-08-18 behaviour, kept so existing runs
+            # resume with an unchanged state_dict.
+            return nn.Identity() if a == d else nn.Linear(d, d)
+
         self.residual_proj = nn.ModuleList([
-            _mk((lambda d=d: nn.Identity() if a == d else nn.Linear(d, d)), i)
+            _mk((lambda d=d, a=a: _mk_res_proj(d, a)), i)
             for i, (d, a) in enumerate(zip(self.dims, self.apex_dims))])
         if self.grab_prev_end:
             self.prev_end_combine = nn.ModuleList([
@@ -377,6 +584,9 @@ class Chunk(Stage):
                                         cu_seqlens_s=cu_s)
         bmask, bprob, sprob = (bpred.boundary_mask, bpred.boundary_prob,
                                bpred.selected_probs)
+        # Keep gradients intact: consumers may use c_t diagnostically during
+        # training, while plotting code can detach at its own boundary.
+        batch[self.ct_key] = sprob
 
         residuals, next_cu, next_max = [], None, None
         for i, (ik, ok, d) in enumerate(zip(self.in_keys, self.out_keys, self.dims)):
@@ -473,6 +683,22 @@ class Chunk(Stage):
         return batch
 
     def _init_weights(self, rng: float, parent_residuals: int) -> int:
+        # Mirrors DualStreamChunkerStage._init_weights (dual_stream_chunker.py
+        # :461-500) exactly:
+        #   * the combine / proj Linears take the UNSCALED range,
+        #   * the ROUTER is left alone -- it self-inits in its ctor (proj_a
+        #     identity, proj_s zero, `fuse` normal(0,0.02)); re-initing it here
+        #     would destroy the warm start,
+        #   * `residual_proj` is left alone -- zero-init IS its init,
+        #   * a router pre-net is an isotropic stack scaled by its OWN depth,
+        #   * the chunker adds NO residual-stream depth.
+        for attr in ("prev_end_combine", "proj_in"):
+            for m in _flat_modules(getattr(self, attr, None)):
+                _init_plain_linears(m, rng)
+        for r in _flat_modules(self._router):
+            rp = getattr(r, "router_pre", None)
+            if rp is not None:
+                _init_isotropic_linears(rp, rng, rp.height)
         return parent_residuals
 
 
@@ -547,6 +773,12 @@ class Dechunk(Stage):
         return batch
 
     def _init_weights(self, rng: float, parent_residuals: int) -> int:
+        # `proj_out` is a plain up/down projection -> unscaled range. The
+        # `mixers` are NOT touched: their output layer is zero-init (that is
+        # what makes Dechunk start as `up + residual`) and now carries
+        # `_no_reinit`. Dechunk contributes ONE residual add.
+        for m in _flat_modules(self.proj_out):
+            _init_plain_linears(m, rng)
         return parent_residuals + 1
 
 
@@ -573,7 +805,12 @@ class Apex(Stage):
         return batch
 
     def _init_weights(self, rng: float, parent_residuals: int) -> int:
-        return _init_isotropic_linears(self.net, rng, parent_residuals)
+        # `Isotropic.height` counts 2 residual adds per transformer layer
+        # (blocks.py:1034,1066) -- T10 -> 20. Adding it here is what makes the
+        # apex's out_proj/fc2 scale by 1/sqrt(depth-through-the-apex) instead
+        # of the parent's (much smaller) count.
+        n = parent_residuals + int(getattr(self.net, "height", 0))
+        return _init_isotropic_linears(self.net, rng, n)
 
 
 class Mix(Stage):
@@ -853,6 +1090,74 @@ class Fuse(Stage):
         batch[self.out_key] = out
         return batch
 
+
+
+class ObsStack(Stage):
+    """Concatenate the last ``n_obs_steps`` frames per token (DP's obs history).
+
+    Diffusion Policy conditions on a short observation window, not a single
+    frame: ``global_cond`` is the per-frame feature repeated over
+    ``n_obs_steps`` and concatenated, so ``global_cond_dim = feat * n_obs_steps``.
+
+    Lookback is clamped WITHIN the episode, so the first frames of an episode
+    repeat themselves rather than reaching into the previous episode's tail --
+    the same thing DP's ``pad_before`` does at a buffer boundary. Getting this
+    wrong is silent: it leaks across episode seams and only shows up as slightly
+    better-than-real validation.
+    """
+
+    def __init__(self, in_keys: List[str], out_keys: List[str],
+                 n_obs_steps: int = 2):
+        super().__init__()
+        self.in_keys = [str(k) for k in in_keys]
+        self.out_keys = [str(k) for k in out_keys]
+        if len(self.in_keys) != len(self.out_keys):
+            raise ValueError("ObsStack: one out_key per in_key.")
+        self.n = int(n_obs_steps)
+        self.reads = list(self.in_keys) + ["cu_seqlens"]
+        self.writes = list(self.out_keys)
+
+    def forward(self, batch: dict) -> dict:
+        ref = batch[self.in_keys[0]]
+        T, dev = ref.shape[0], ref.device
+        cu = batch["cu_seqlens"].to(device=dev, dtype=torch.long)
+        pos = _within_episode_time_pos(cu, T, dev)          # (T,) index in episode
+        idx = torch.arange(T, device=dev)
+        # frame t-k, but never before this episode's first frame
+        gathers = [idx - torch.minimum(torch.full_like(pos, k), pos)
+                   for k in range(self.n - 1, -1, -1)]
+        for ik, ok in zip(self.in_keys, self.out_keys):
+            x = batch[ik]
+            batch[ok] = torch.cat([x.index_select(0, g) for g in gathers], dim=-1)
+            ck, mk, tk = _grid_keys(ik)
+            if ok != ik and ck in batch:
+                _write_grid(batch, ok, batch[ck], batch[mk], batch[tk])
+        return batch
+
+
+class Concat(Stage):
+    """Plain concatenation along the feature axis -- no projection, no MLP.
+
+    ``Fuse`` puts a learned MLP between the encoders and the trunk. Diffusion
+    Policy does not: its obs feature is the spatial-softmax keypoints
+    concatenated with proprio (32*2 + 2 = 66 for PushShapes), fed straight to
+    the UNet. This exists so a DP replica can be exact rather than
+    approximately-DP.
+    """
+
+    def __init__(self, in_keys: List[str], out_key: str):
+        super().__init__()
+        self.in_keys = [str(k) for k in in_keys]
+        self.out_key = str(out_key)
+        self.reads = list(self.in_keys)
+        self.writes = [self.out_key]
+
+    def forward(self, batch: dict) -> dict:
+        batch[self.out_key] = torch.cat([batch[k] for k in self.in_keys], dim=-1)
+        ck, mk, tk = _grid_keys(self.in_keys[0])
+        if ck in batch:
+            _write_grid(batch, self.out_key, batch[ck], batch[mk], batch[tk])
+        return batch
 
 class TimePos(Stage):
     """Publish ``time_pos`` -- the within-episode frame index from cu_seqlens.

@@ -26,7 +26,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from egomimic.models.diffusion.denoising_nets import SinusoidalPosEmb
+from egomimic.models.hnet.moe_ffn import MoEFFN
+from egomimic.models.diffusion.denoising_nets import (
+    ConditionalUnet1D,
+    SinusoidalPosEmb,
+)
 from egomimic.pipeline.core import Stage
 
 
@@ -203,15 +207,34 @@ class FlowHead(Stage):
         if not self.training:
             with torch.no_grad():
                 T = a_top.shape[0]
-                x = torch.randn(T, self.C, self.D, device=a_top.device,
+                # ROLLOUT FAST PATH (2026-08-13). algo.py:375 consumes only
+                # pred_action[T-1], but this loop denoised ALL T rows at full
+                # sampler depth -> cost quadratic in episode length (~199x
+                # wasted on a 397-step episode; one episode cost ~66 min and no
+                # dn_* sim eval ever completed a single episode). T is a pure
+                # batch dim in these denoisers -- blocks attend over the chunk
+                # axis, never across T -- so row -1 is identical whether or not
+                # the other rows are computed. Mirrors SDPHead's rollout_t
+                # branch (stages_flow.py:453-455 slice, :495-497 scatter).
+                _stream = "rollout_t" in batch
+                _a = a_top[-1:] if _stream else a_top
+                _s = (s[-1:] if s is not None else None) if _stream else s
+                Tc = _a.shape[0]
+                x = torch.randn(Tc, self.C, self.D, device=a_top.device,
                                 dtype=a_top.dtype)
                 dt = 1.0 / self.N
                 for i in range(self.N):                        # t: 1 -> 0
-                    tt = torch.full((T,), 1.0 - i * dt, device=x.device,
+                    tt = torch.full((Tc,), 1.0 - i * dt, device=x.device,
                                     dtype=x.dtype)
-                    v, _, _ = self.net(x, tt, a_top, s, emb)
+                    v, _, _ = self.net(x, tt, _a, _s, emb)
                     x = x - dt * v
-                batch["pred_action"] = x.clamp(-1.0, 1.0)
+                x = x.clamp(-1.0, 1.0)
+                if _stream:
+                    _out = torch.zeros(T, self.C, self.D,
+                                       device=a_top.device, dtype=a_top.dtype)
+                    _out[-1] = x[0]
+                    x = _out
+                batch["pred_action"] = x
         return batch
 
 
@@ -510,30 +533,104 @@ class DiffusionHead(Stage):
     objective; no streaming buffer). Stateless -> TF-val and the rollout
     step() path are the same computation."""
 
-    reads = ["a_top", "s", "embodiment"]
-    writes = ["pred_action", "loss/ddpm", "log/ddpm", "log/vA_frac"]
+    reads = ["a_top", "s", "embodiment"]      # narrowed in __init__ when d_s is None
+    writes = ["pred_action", "loss/ddpm", "log/ddpm", "log/vA_frac",
+              "loss/moe_lb", "log/*"]
 
     def __init__(self, d_a: int, d_s: int, action_dim: int, chunk_len: int,
                  embodiments: Optional[List[str]] = None,
                  num_train_timesteps: int = 100, num_inference_steps: int = 16,
                  d_model_a: int = 256, d_model_s: int = 128,
                  n_layers: int = 4, n_heads: int = 4, ffn_mult: int = 4,
-                 mask_mode: str = "sym"):
+                 mask_mode: str = "sym",
+                 denoiser: str = "dual",
+                 denoiser_arch: str = "adaln",
+                 moe_experts: int = 0, moe_top_k: int = 4,
+                 moe_d_expert: Optional[int] = None,
+                 moe_aux_weight: float = 0.01,
+                 action_dims: Optional[dict] = None,
+                 latent_dim: Optional[int] = None,
+                 enc_hidden=256, enc_layers=3, enc_residual=False,
+                 enc_per_stream: bool = False,
+                 emit_loss: bool = True,
+                 loss_space: str = "eps"):
         super().__init__()
+        self.emit_loss = bool(emit_loss)
+        # loss_space (OBJECTIVE ABLATION, user 2026-08-18): "eps" (default,
+        # unchanged) scores MSE in NOISE space -- the DDPM eps objective.
+        # "action" recovers x0 from eps and scores MSE in ACTION space:
+        #   x0 = (x_t - sqrt(1-abar)*eps)/sqrt(abar), clamped to [-1,1] to match
+        #   the sampler's clip_sample and bound the 1/sqrt(abar) blow-up at high
+        #   noise. Published under the SAME aux keys so MaskedActionLoss /
+        #   emit_loss score it unchanged. Isolates the objective (pooled
+        #   conditioning + head unchanged).
+        if str(loss_space) not in ("eps", "action"):
+            raise ValueError(f"loss_space must be eps|action, got {loss_space!r}")
+        self.loss_space = str(loss_space)
         self.C, self.D = int(chunk_len), int(action_dim)
         self.N, self.S = int(num_train_timesteps), int(num_inference_steps)
         self.register_buffer("abar", _cosine_alphas_cumprod(self.N))
         self.register_buffer(
             "inf_levels", torch.linspace(self.N - 1, 0, self.S).round().long())
-        self.net = DualStreamDenoiser(
-            d_a_in=d_a, d_s_in=d_s, action_dim=action_dim, chunk_len=chunk_len,
-            embodiments=list(embodiments) if embodiments else ["shared"],
-            d_model_a=d_model_a, d_model_s=d_model_s, n_layers=n_layers,
-            n_heads=n_heads, ffn_mult=ffn_mult, mask_mode=mask_mode,
-            n_positions=int(chunk_len))
+        if denoiser not in ("dual", "single"):
+            raise ValueError(f"denoiser must be dual|single, got {denoiser!r}")
+        self.denoiser_kind = str(denoiser)
+        # HETERO action dims (robot-human): the SAME construction SDPHead uses
+        # -- per-emb E_e/D_e MLP codec wrapped around a SHARED denoiser core
+        # that runs entirely in a common latent, so eva(14) and human(132) can
+        # cotrain on one core. Configs that pass neither action_dims nor
+        # latent_dim keep the homogeneous path byte-for-byte.
+        embs_ = [str(e) for e in embodiments] if embodiments else ["shared"]
+        self.Dmap = {e: int((action_dims or {}).get(e, action_dim)) for e in embs_}
+        self.rh = action_dims is not None or latent_dim is not None
+        if not d_s:
+            # single-stream on a replica-style obs path: no S key exists
+            self.reads = ["a_top", "embodiment"]
+        if self.rh:
+            L_lat = int(latent_dim if latent_dim is not None
+                        else max(self.Dmap.values()))
+            self.net = LatentRHDenoiser(
+                d_a_in=d_a, d_s_in=d_s, action_dims=self.Dmap, latent_dim=L_lat,
+                chunk_len=chunk_len, embodiments=embs_,
+                d_model_a=d_model_a, d_model_s=d_model_s, n_layers=n_layers,
+                n_heads=n_heads, ffn_mult=ffn_mult, mask_mode=mask_mode,
+                n_positions=int(chunk_len), dual_stream=(denoiser == "dual"),
+                enc_hidden=enc_hidden, enc_layers=enc_layers,
+                enc_residual=enc_residual, enc_per_stream=enc_per_stream,
+                dual_arch="adaln",
+                moe_experts=moe_experts, moe_top_k=moe_top_k,
+                moe_d_expert=moe_d_expert, moe_aux_weight=moe_aux_weight)
+        elif denoiser == "single":
+            # One denoiser stream; A/S survive only as conditioning projections.
+            # MoE (when moe_experts > 0) swaps this block's FFN for experts.
+            self.net = SingleStreamDenoiserV2(
+                d_a_in=d_a, d_s_in=d_s, action_dim=action_dim,
+                chunk_len=chunk_len, d_model=d_model_a, n_layers=n_layers,
+                n_heads=n_heads, ffn_mult=ffn_mult, n_positions=int(chunk_len),
+                moe_experts=moe_experts, moe_top_k=moe_top_k,
+                moe_d_expert=moe_d_expert, moe_aux_weight=moe_aux_weight)
+        else:
+            # adaLN-Zero by default: the v1 core injects conditioning once, and
+            # every OTHER cell in this fleet is adaLN. Leaving v1 as the
+            # homogeneous default made "no latent_dim" silently mean "older
+            # architecture" and confounded dual-vs-MoE.
+            _cls = (DualStreamDenoiserV2 if str(denoiser_arch) == "adaln"
+                    else DualStreamDenoiser)
+            self.net = _cls(
+                d_a_in=d_a, d_s_in=d_s, action_dim=action_dim, chunk_len=chunk_len,
+                embodiments=list(embodiments) if embodiments else ["shared"],
+                d_model_a=d_model_a, d_model_s=d_model_s, n_layers=n_layers,
+                n_heads=n_heads, ffn_mult=ffn_mult, mask_mode=mask_mode,
+                n_positions=int(chunk_len))
+
+    def _D(self, emb) -> int:
+        """Per-embodiment action dim (== the scalar D when homogeneous)."""
+        return self.Dmap.get(str(emb), self.D)
 
     def forward(self, batch: dict) -> dict:
-        a_top, s, emb = batch["a_top"], batch["s"], str(batch["embodiment"])
+        a_top = batch["a_top"]
+        s = batch.get("s")
+        emb = str(batch["embodiment"])
         if "target" in batch:
             x0 = batch["target"]                                # (T,C,D)
             T = x0.shape[0]
@@ -542,23 +639,55 @@ class DiffusionHead(Stage):
             noise = torch.randn_like(x0)
             x_t = ab.sqrt() * x0 + (1 - ab).sqrt() * noise
             eps, e_a, e_s = self.net(x_t, t.float(), a_top, s, emb)
-            loss = F.mse_loss(eps, noise)
-            batch["loss/ddpm"] = loss
-            batch["log/ddpm"] = float(loss)
-            with torch.no_grad():
-                na = e_a.norm(dim=-1).mean()
-                ns = e_s.norm(dim=-1).mean()
-                batch["log/vA_frac"] = float(na / (na + ns + 1e-8))
+            # Publish the eps prediction/target so a downstream loss STAGE can
+            # score them (e.g. MaskedActionLoss, which drops the gripper dims
+            # for an embodiment that has no gripper). emit_loss=False hands the
+            # objective entirely to that stage.
+            if self.loss_space == "action":
+                x0_pred = ((x_t - (1 - ab).sqrt() * eps)
+                           / ab.sqrt().clamp_min(1e-4)).clamp(-1.0, 1.0)
+                batch["aux/eps_pred"] = x0_pred
+                batch["aux/eps_target"] = x0
+            else:
+                batch["aux/eps_pred"] = eps
+                batch["aux/eps_target"] = noise
+            # t is needed to bin the loss by noise level: the uniform-t
+            # average hides whether the model solves the LOW-t regime,
+            # which is the one that decides action fidelity.
+            # (DiffusionDiagnosticEval)
+            batch["aux/ddpm_t"] = t
+            if self.emit_loss:
+                loss = F.mse_loss(batch["aux/eps_pred"], batch["aux/eps_target"])
+                batch["loss/ddpm"] = loss
+                batch["log/ddpm"] = float(loss)
+            if e_a is not None and e_s is not None:
+                with torch.no_grad():
+                    na = e_a.norm(dim=-1).mean()
+                    ns = e_s.norm(dim=-1).mean()
+                    batch["log/vA_frac"] = float(na / (na + ns + 1e-8))
         if not self.training:
             with torch.no_grad():
                 T = a_top.shape[0]
-                x = torch.randn(T, self.C, self.D, device=a_top.device,
+                # ROLLOUT FAST PATH (2026-08-13). algo.py:375 consumes only
+                # pred_action[T-1], but this loop denoised ALL T rows at full
+                # sampler depth -> cost quadratic in episode length (~199x
+                # wasted on a 397-step episode; one episode cost ~66 min and no
+                # dn_* sim eval ever completed a single episode). T is a pure
+                # batch dim in these denoisers -- blocks attend over the chunk
+                # axis, never across T -- so row -1 is identical whether or not
+                # the other rows are computed. Mirrors SDPHead's rollout_t
+                # branch (stages_flow.py:453-455 slice, :495-497 scatter).
+                _stream = "rollout_t" in batch
+                _a = a_top[-1:] if _stream else a_top
+                _s = (s[-1:] if s is not None else None) if _stream else s
+                Tc = _a.shape[0]
+                x = torch.randn(Tc, self.C, self._D(emb), device=a_top.device,
                                 dtype=a_top.dtype)
                 for j in range(self.S):                          # DDIM eta=0
                     tl = int(self.inf_levels[j])
-                    tt = torch.full((T,), float(tl), device=x.device,
+                    tt = torch.full((Tc,), float(tl), device=x.device,
                                     dtype=x.dtype)
-                    eps, _, _ = self.net(x, tt, a_top, s, emb)
+                    eps, _, _ = self.net(x, tt, _a, _s, emb)
                     ab_t = self.abar[tl]
                     x0p = ((x - (1 - ab_t).sqrt() * eps) / ab_t.sqrt())
                     x0p = x0p.clamp(-1.0, 1.0)
@@ -567,13 +696,159 @@ class DiffusionHead(Stage):
                         x = ab_n.sqrt() * x0p + (1 - ab_n).sqrt() * eps
                     else:
                         x = x0p
-                batch["pred_action"] = x.clamp(-1.0, 1.0)
+                x = x.clamp(-1.0, 1.0)
+                if _stream:
+                    _out = torch.zeros(T, self.C, self._D(emb),
+                                       device=a_top.device, dtype=a_top.dtype)
+                    _out[-1] = x[0]
+                    x = _out
+                batch["pred_action"] = x
+        moes = [m for m in self.net.modules() if isinstance(m, MoEFFN)]
+        aux = [m.last_aux_loss for m in moes if m.last_aux_loss is not None]
+        if aux:
+            batch["loss/moe_lb"] = torch.stack(aux).sum()
+            e = str(batch["embodiment"])
+            f = torch.stack([m.last_expert_frac for m in moes
+                             if m.last_expert_frac is not None]).mean(0)
+            for i_ in range(f.numel()):
+                batch[f"log/moe_expert_frac_{e}_e{i_}"] = f[i_]
+            batch[f"log/moe_gate_entropy_{e}"] = torch.stack(
+                [m.last_gate_entropy for m in moes
+                 if m.last_gate_entropy is not None]).mean()
         return batch
 
 
 # --------------------------------------------------------------------------- #
 # Cursor/prev-action proprio (copycat-vs-smoothness experiment, user 2026-07-18)
 # --------------------------------------------------------------------------- #
+
+def _dp_alphas_cumprod(N: int, max_beta: float = 0.999, s: float = 0.008):
+    """diffusers' squaredcos_cap_v2 alphas_cumprod, EXACTLY.
+
+    betas_for_alpha_bar caps each beta at 0.999 before the cumprod; forming
+    abar = f(t)/f(0) directly (what _cosine_alphas_cumprod does) skips that cap
+    and bottoms out at the clamp instead. Identical in the middle, ~24x apart at
+    the last level, which matters because x0_hat divides by sqrt(abar).
+    """
+    ab = lambda u: math.cos((u + s) / (1 + s) * math.pi / 2) ** 2
+    betas = [min(1.0 - ab((i + 1) / N) / ab(i / N), max_beta) for i in range(N)]
+    alphas = 1.0 - torch.tensor(betas, dtype=torch.float64)
+    return torch.cumprod(alphas, dim=0).float()
+
+
+class DPUNetHead(Stage):
+    """Diffusion Policy's denoiser as a pipeline head.
+
+    Wraps :class:`ConditionalUnet1D` in ``dp_exact`` mode -- proven bit-identical
+    to stock Diffusion Policy's UNet by ``unet_equiv.py`` (same param count, same
+    state_dict, 0.0 output difference). DDPM eps-prediction on the cosine
+    (``squaredcos_cap_v2``) ladder, which matches diffusers' schedule to 2.3e-07.
+
+    Conditioning is whatever keys ``cond_keys`` names, concatenated:
+
+      ``[a_top]``       -- the DP replica: one global conditioning vector
+      ``[a_top, s]``    -- dual-stream DP: the specific stream conditions too
+
+    so the dual-stream and MoE variants are a one-line config change rather than
+    a different head. One conditioning vector per token, and the UNet denoises
+    that token's ``chunk_len`` action window, so batch = tokens.
+    """
+
+    writes = ["pred_action", "loss/dp", "log/dp"]
+
+    def __init__(self, cond_keys: List[str], cond_dims: List[int],
+                 action_dim: int, chunk_len: int,
+                 num_train_timesteps: int = 100, num_inference_steps: int = 100,
+                 down_dims: Optional[List[int]] = None, kernel_size: int = 5,
+                 n_groups: int = 8, diffusion_step_embed_dim: int = 128,
+                 cond_predict_scale: bool = True, clip_sample: bool = True,
+                 sampler: str = "ddpm",
+                 embodiments: Optional[List[str]] = None,
+                 emit_loss: bool = True):
+        super().__init__()
+        self.emit_loss = bool(emit_loss)
+        if len(cond_keys) != len(cond_dims):
+            raise ValueError("DPUNetHead: one cond_dim per cond_key.")
+        self.cond_keys = [str(k) for k in cond_keys]
+        self.reads = list(self.cond_keys) + ["embodiment"]
+        self.C, self.D = int(chunk_len), int(action_dim)
+        self.N, self.S = int(num_train_timesteps), int(num_inference_steps)
+        self.clip_sample = bool(clip_sample)
+        if sampler not in ("ddpm", "ddim"):
+            raise ValueError(f"sampler must be ddpm|ddim, got {sampler!r}")
+        self.sampler = str(sampler)
+        G = int(sum(cond_dims))
+        self.net = ConditionalUnet1D(
+            input_dim=self.D, cond_dim=G,
+            diffusion_step_embed_dim=int(diffusion_step_embed_dim),
+            down_dims=list(down_dims or [512, 1024, 2048]),
+            kernel_size=int(kernel_size), n_groups=int(n_groups),
+            cond_predict_scale=bool(cond_predict_scale),
+            dp_exact=True)
+        self.register_buffer("abar", _dp_alphas_cumprod(self.N))
+        self.register_buffer(
+            "inf_levels", torch.linspace(self.N - 1, 0, self.S).round().long())
+
+    def _cond(self, batch: dict) -> torch.Tensor:
+        return torch.cat([batch[k] for k in self.cond_keys], dim=-1)   # (T, G)
+
+    def forward(self, batch: dict) -> dict:
+        g = self._cond(batch)
+        T, dev = g.shape[0], g.device
+
+        if "target" in batch:
+            x0 = batch["target"]                                  # (T,C,D)
+            t = torch.randint(0, self.N, (T,), device=dev)
+            ab = self.abar[t][:, None, None]
+            noise = torch.randn_like(x0)
+            x_t = ab.sqrt() * x0 + (1 - ab).sqrt() * noise
+            eps = self.net(x_t, t, global_cond=g)
+            batch["aux/eps_pred"] = eps
+            batch["aux/eps_target"] = noise
+            # t is needed to bin the loss by noise level: the uniform-t
+            # average hides whether the model solves the LOW-t regime,
+            # which is the one that decides action fidelity.
+            # (DiffusionDiagnosticEval)
+            batch["aux/ddpm_t"] = t
+            if self.emit_loss:
+                loss = F.mse_loss(eps, noise)
+                batch["loss/dp"] = loss
+                batch["log/dp"] = loss.detach()
+
+        # Sampling is for ROLLOUT/EVAL only. Without this guard the loop ran on
+        # every training step -- 100 extra UNet forwards, all discarded (2.16s
+        # of a 2.27s step). DiffusionHead has had this guard all along.
+        if self.training:
+            return batch
+        with torch.no_grad():
+            x = torch.randn(T, self.C, self.D, device=dev, dtype=g.dtype)
+            for i in range(self.S):
+                lv = self.inf_levels[i]
+                tt = torch.full((T,), int(lv), device=dev, dtype=torch.long)
+                eps = self.net(x, tt, global_cond=g)
+                ab = self.abar[lv]
+                x0_hat = (x - (1 - ab).sqrt() * eps) / ab.sqrt()
+                if self.clip_sample:                    # DP sets clip_sample=True
+                    x0_hat = x0_hat.clamp(-1.0, 1.0)
+                if i + 1 >= self.S:
+                    x = x0_hat
+                elif self.sampler == "ddim":
+                    ab_prev = self.abar[self.inf_levels[i + 1]]
+                    x = ab_prev.sqrt() * x0_hat + (1 - ab_prev).sqrt() * eps
+                else:
+                    # DDPM ancestral, variance_type="fixed_small" -- what DP
+                    # actually samples with. posterior mean from (x0_hat, x_t)
+                    # plus noise scaled by the posterior variance.
+                    ab_prev = self.abar[self.inf_levels[i + 1]]
+                    beta = 1.0 - ab / ab_prev
+                    coef_x0 = ab_prev.sqrt() * beta / (1.0 - ab)
+                    coef_xt = (ab / ab_prev).sqrt() * (1.0 - ab_prev) / (1.0 - ab)
+                    mean = coef_x0 * x0_hat + coef_xt * x
+                    var = beta * (1.0 - ab_prev) / (1.0 - ab)
+                    x = mean + var.clamp_min(1e-20).sqrt() * torch.randn_like(x)
+            batch["pred_action"] = x
+        return batch
+
 class _DualStreamBlockAdaLN(_DualStreamBlock):
     """AdaLN-Zero variant of _DualStreamBlock: identical joint masked attention
     and per-stream FFNs, but each branch input is modulated per-position by
@@ -730,7 +1005,10 @@ class _SingleStreamBlockAdaLN(nn.Module):
     conditioning c (shift, scale, gate) x2. Zero-init modulation => identity at
     init."""
 
-    def __init__(self, d: int, n_heads: int, ffn_mult: int = 4):
+    def __init__(self, d: int, n_heads: int, ffn_mult: int = 4,
+                 moe_experts: int = 0, moe_top_k: int = 4,
+                 moe_d_expert: Optional[int] = None,
+                 moe_aux_weight: float = 0.01):
         super().__init__()
         self.h, self.d = int(n_heads), int(d)
         assert self.d % self.h == 0
@@ -738,8 +1016,17 @@ class _SingleStreamBlockAdaLN(nn.Module):
         self.qkv = nn.Linear(d, 3 * d)
         self.out = nn.Linear(d, d)
         self.norm2 = nn.LayerNorm(d)
-        self.ffn = nn.Sequential(nn.Linear(d, ffn_mult * d), nn.GELU(),
-                                 nn.Linear(ffn_mult * d, d))
+        # MoE swaps ONLY the FFN -- attention, adaLN modulation and the
+        # residual structure are untouched, which is the standard way experts
+        # enter a transformer block.
+        if moe_experts:
+            self.ffn = MoEFFN(d, int(moe_d_expert or ffn_mult * d),
+                              num_experts=int(moe_experts),
+                              top_k=int(moe_top_k),
+                              aux_weight=float(moe_aux_weight))
+        else:
+            self.ffn = nn.Sequential(nn.Linear(d, ffn_mult * d), nn.GELU(),
+                                     nn.Linear(ffn_mult * d, d))
         self.mod = nn.Sequential(nn.SiLU(), nn.Linear(d, 6 * d))
         nn.init.zeros_(self.mod[1].weight)
         nn.init.zeros_(self.mod[1].bias)
@@ -765,9 +1052,13 @@ class SingleStreamDenoiserV2(nn.Module):
     denoiser stream and no per-emb in/out (E_e/D_e own the per-emb mapping).
     Returns (v, None, None): no v_a/v_s partition => no vA_frac probe."""
 
-    def __init__(self, d_a_in: int, d_s_in: int, action_dim: int, chunk_len: int,
+    def __init__(self, d_a_in: int, d_s_in: Optional[int], action_dim: int,
+                 chunk_len: int,
                  d_model: int = 256, n_layers: int = 4, n_heads: int = 4,
-                 ffn_mult: int = 4, n_positions: Optional[int] = None):
+                 ffn_mult: int = 4, n_positions: Optional[int] = None,
+                 moe_experts: int = 0, moe_top_k: int = 4,
+                 moe_d_expert: Optional[int] = None,
+                 moe_aux_weight: float = 0.01):
         super().__init__()
         C, D = int(chunk_len), int(action_dim)
         L = int(n_positions) if n_positions else C
@@ -775,14 +1066,21 @@ class SingleStreamDenoiserV2(nn.Module):
         self.C, self.D, self.L = C, D, L
         self.in_x = nn.Linear(D, d)
         self.cond_a = nn.Linear(int(d_a_in), d)
-        self.cond_s = nn.Linear(int(d_s_in), d)
+        # d_s_in None -> no S conditioning at all (the DP-replica obs path
+        # produces a_top only). Otherwise A/S enter as two summed projections.
+        self.cond_s = nn.Linear(int(d_s_in), d) if d_s_in else None
         self.temb = nn.Sequential(SinusoidalPosEmb(d),
                                   nn.Linear(d, d), nn.GELU(), nn.Linear(d, d))
         self.pos = nn.Parameter(torch.zeros(L, d))
         nn.init.trunc_normal_(self.pos, std=0.02)
         self.vout = nn.Linear(d, D)
         self.blocks = nn.ModuleList(
-            _SingleStreamBlockAdaLN(d, n_heads, ffn_mult) for _ in range(int(n_layers)))
+            _SingleStreamBlockAdaLN(d, n_heads, ffn_mult,
+                                    moe_experts=moe_experts,
+                                    moe_top_k=moe_top_k,
+                                    moe_d_expert=moe_d_expert,
+                                    moe_aux_weight=moe_aux_weight)
+            for _ in range(int(n_layers)))
         self.norm_f = nn.LayerNorm(d)
         self.fmod = nn.Sequential(nn.SiLU(), nn.Linear(d, 2 * d))
         nn.init.zeros_(self.fmod[1].weight)
@@ -795,8 +1093,9 @@ class SingleStreamDenoiserV2(nn.Module):
 
     def forward(self, x_t, t, a_top, s, emb: Optional[str] = None):
         T, L, _ = x_t.shape
-        c = (self.cond_a(a_top)[:, None, :] + self.cond_s(s)[:, None, :]
-             + self._temb(t, T, L))
+        c = self.cond_a(a_top)[:, None, :] + self._temb(t, T, L)
+        if self.cond_s is not None and s is not None:
+            c = c + self.cond_s(s)[:, None, :]
         X = self.in_x(x_t) + self.pos[None, :L]
         for blk in self.blocks:
             X = blk(X, c)
@@ -832,7 +1131,10 @@ class LatentRHDenoiser(nn.Module):
                  mask_mode: str = "sym", n_positions: Optional[int] = None,
                  dual_stream: bool = True, enc_hidden=256,
                  dual_arch: str = "adaln", enc_layers=3,
-                 enc_residual=False, enc_per_stream: bool = False):
+                 enc_residual=False, enc_per_stream: bool = False,
+                 moe_experts: int = 0, moe_top_k: int = 4,
+                 moe_d_expert: Optional[int] = None,
+                 moe_aux_weight: float = 0.01):
         super().__init__()
         self.dual_stream = bool(dual_stream)
         self.enc_per_stream = bool(enc_per_stream)
@@ -888,7 +1190,9 @@ class LatentRHDenoiser(nn.Module):
             self.core = SingleStreamDenoiserV2(
                 d_a_in=d_a_in, d_s_in=d_s_in, action_dim=L, chunk_len=chunk_len,
                 d_model=d_model_a, n_layers=n_layers, n_heads=n_heads,
-                ffn_mult=ffn_mult, n_positions=n_positions)
+                ffn_mult=ffn_mult, n_positions=n_positions,
+                moe_experts=moe_experts, moe_top_k=moe_top_k,
+                moe_d_expert=moe_d_expert, moe_aux_weight=moe_aux_weight)
 
     def forward(self, x_t, t, a_top, s, emb: str):
         e = emb if emb in self.enc else next(iter(self.enc))
@@ -904,3 +1208,202 @@ class LatentRHDenoiser(nn.Module):
         v_lat, v_a, v_s = self.core(z, t, a_top, s, emb)
         v = self.dec[e](v_lat)                   # (T, L_pos, action_dim_e)
         return v, v_a, v_s
+
+
+class MaskedActionLoss(Stage):
+    """DDPM eps-MSE with per-embodiment action dims EXCLUDED from the score.
+
+    Reads ``aux/eps_pred`` / ``aux/eps_target`` (published by DiffusionHead when
+    a loss stage owns the objective) and writes ``loss/<name>``.
+
+    ``exclude_dims`` maps an embodiment to the action-dim indices that must not
+    be scored. The motivating case: with the gripper included the action is
+    20-D per the layout [L xyz(3) rot6d(6) grip(1), R xyz(3) rot6d(6) grip(1)],
+    so the gripper slots are dims 9 and 19. eva has both; Aria has neither, and
+    scoring its unpopulated gripper columns would train the model to regress a
+    constant and pollute the reported MSE. The action space stays MATCHED at 20
+    -- this is a masked loss, not a hetero head.
+
+    Excluding a dim for EVERY embodiment would silently make it untrained while
+    still being emitted at rollout, so that is refused.
+    """
+
+    reads = ["aux/eps_pred", "aux/eps_target", "embodiment"]
+
+    def __init__(self, exclude_dims: Optional[dict] = None,
+                 name: str = "ddpm", embodiments: Optional[List[str]] = None,
+                 weights: Optional[dict] = None):
+        super().__init__()
+        self.name = str(name)
+        # Per-embodiment loss weight. Scales that stream's gradient into the
+        # SHARED core as well as its own encoders -- which per-param-group LRs
+        # cannot do, since the shared trunk is one tensor set. Default 1.0
+        # leaves every existing run byte-identical.
+        self.weights = {str(k): float(v) for k, v in (weights or {}).items()}
+        self.writes = [f"loss/{self.name}", f"log/{self.name}"]
+        self.exclude = {str(k): [int(i) for i in v]
+                        for k, v in (exclude_dims or {}).items()}
+        embs = [str(e) for e in (embodiments or [])]
+        if embs and self.exclude:
+            common = set.intersection(*[set(self.exclude.get(e, [])) for e in embs]) \
+                if all(e in self.exclude for e in embs) else set()
+            if common:
+                raise ValueError(
+                    f"MaskedActionLoss: dims {sorted(common)} are excluded for "
+                    f"EVERY embodiment {embs} -- they would never be trained yet "
+                    f"still be emitted at rollout. Drop them from the action "
+                    f"space instead.")
+
+    def forward(self, batch: dict) -> dict:
+        pred = batch.get("aux/eps_pred")
+        if pred is None:                      # rollout / eval: nothing to score
+            return batch
+        tgt = batch["aux/eps_target"]
+        emb = str(batch["embodiment"])
+        drop = self.exclude.get(emb)
+        if drop:
+            D = pred.shape[-1]
+            bad = [d for d in drop if d >= D]
+            if bad:
+                raise IndexError(
+                    f"MaskedActionLoss: exclude_dims {bad} out of range for "
+                    f"embodiment {emb!r} with action_dim {D}. The gripper dims "
+                    f"are only valid on the 20-D cartesian layout.")
+            keep = torch.ones(D, dtype=torch.bool, device=pred.device)
+            keep[torch.tensor(drop, device=pred.device)] = False
+            pred, tgt = pred[..., keep], tgt[..., keep]
+        loss = F.mse_loss(pred, tgt)
+        w = self.weights.get(emb, 1.0)
+        batch[f"loss/{self.name}"] = loss * w
+        # LOG THE UNWEIGHTED loss on purpose: the weight changes the gradient,
+        # not the quantity we compare across cells. Logging loss*w would make
+        # a down-weighted run look better than an unweighted one for free.
+        batch[f"log/{self.name}"] = float(loss)
+        batch[f"log/{self.name}_weight"] = float(w)
+        batch[f"log/{self.name}_dims_scored"] = float(pred.shape[-1])
+        return batch
+
+
+# ------------------------------------------------------------------------- #
+# TOKEN-CONDITIONING ABLATION (user, 2026-08-18)
+# The DP failure survives every head (UNet/single/dual/MoE) and every encoder
+# (VisualCore/HPTVisualEncoder), and cond_gain ~= 0.3%: the model ignores its
+# observation. Common factor = the obs is POOLED into one a_top/s vector and
+# injected via AdaLN. HPT instead keeps per-modality TOKENS and ATTENDS to
+# them. This head is the single-variable test: same DDPM eps head, but the
+# action chunk CROSS-ATTENDS to obs_tokens (from ObsEncoders.expose_tokens)
+# instead of AdaLN on the pooled vector.
+# ------------------------------------------------------------------------- #
+class _XAttnBlock(nn.Module):
+    """DiT-ish block: self-attn over the chunk positions + cross-attn to obs
+    tokens + FFN. Self-contained MHA so shapes are unambiguous."""
+    def __init__(self, d: int, n_heads: int, ffn_mult: int = 4, dropout: float = 0.1):
+        super().__init__()
+        assert d % n_heads == 0
+        self.h, self.d = int(n_heads), int(d)
+        self.n1 = nn.LayerNorm(d); self.sq = nn.Linear(d, d); self.sk = nn.Linear(d, d)
+        self.sv = nn.Linear(d, d); self.so = nn.Linear(d, d)
+        self.nc = nn.LayerNorm(d); self.cq = nn.Linear(d, d); self.ck = nn.Linear(d, d)
+        self.cv = nn.Linear(d, d); self.co = nn.Linear(d, d)
+        self.n2 = nn.LayerNorm(d)
+        self.ff = nn.Sequential(nn.Linear(d, d * ffn_mult), nn.GELU(),
+                                nn.Linear(d * ffn_mult, d))
+        self.drop = nn.Dropout(dropout)
+
+    def _mha(self, q, k, v):                       # (T,Nq,d),(T,Nk,d),(T,Nk,d)
+        T, Nq, d = q.shape; h = self.h; hd = d // h
+        q = q.view(T, Nq, h, hd).transpose(1, 2)
+        k = k.view(T, -1, h, hd).transpose(1, 2)
+        v = v.view(T, -1, h, hd).transpose(1, 2)
+        a = (q @ k.transpose(-1, -2)) * (hd ** -0.5)
+        a = a.softmax(-1)
+        o = (a @ v).transpose(1, 2).reshape(T, Nq, d)
+        return o
+
+    def forward(self, x, ctx):                     # x (T,C,d)  ctx (T,K,d)
+        s = self.n1(x); x = x + self.so(self._mha(self.sq(s), self.sk(s), self.sv(s)))
+        q = self.nc(x); x = x + self.co(self._mha(self.cq(q), self.ck(ctx), self.cv(ctx)))
+        x = x + self.ff(self.n2(x))
+        return x
+
+
+class XAttnDiffusionHead(Stage):
+    """DDPM eps head whose action chunk cross-attends to obs_tokens.
+
+    reads obs_tokens (T,K,d_token) + target (train). No a_top/s AdaLN -- the
+    ONLY conditioning is cross-attention to the per-modality tokens. This is
+    the pooled-vs-token ablation; everything else (DDPM ladder, chunk, DDIM
+    sampling) mirrors DiffusionHead.
+    """
+    reads = ["obs_tokens", "embodiment"]
+    writes = ["pred_action", "aux/eps_pred", "aux/eps_target", "loss/ddpm"]
+
+    def __init__(self, action_dim: int, chunk_len: int, d_token: int,
+                 embodiments=None, d_model: int = 384, n_layers: int = 6,
+                 n_heads: int = 6, ffn_mult: int = 4, dropout: float = 0.1,
+                 num_train_timesteps: int = 100, num_inference_steps: int = 16,
+                 emit_loss: bool = True):
+        super().__init__()
+        self.C, self.D = int(chunk_len), int(action_dim)
+        self.N, self.S = int(num_train_timesteps), int(num_inference_steps)
+        self.emit_loss = bool(emit_loss)
+        self.register_buffer("abar", _cosine_alphas_cumprod(self.N))
+        self.register_buffer("inf_levels",
+                             torch.linspace(self.N - 1, 0, self.S).round().long())
+        self.in_proj = nn.Linear(self.D, d_model)
+        self.ctx_proj = nn.Linear(int(d_token), d_model)
+        self.pos = nn.Parameter(torch.zeros(self.C, d_model))
+        nn.init.trunc_normal_(self.pos, std=0.02)
+        self.temb = nn.Sequential(SinusoidalPosEmb(d_model), nn.Linear(d_model, d_model),
+                                  nn.SiLU(), nn.Linear(d_model, d_model))
+        self.blocks = nn.ModuleList(
+            _XAttnBlock(d_model, n_heads, ffn_mult, dropout) for _ in range(int(n_layers)))
+        self.norm_f = nn.LayerNorm(d_model)
+        self.out = nn.Linear(d_model, self.D)
+
+    def _denoise(self, x_t, t, ctx):               # (T,C,D),(T,),(T,K,d)
+        h = self.in_proj(x_t) + self.pos[None]
+        h = h + self.temb(t.float())[:, None, :]
+        for blk in self.blocks:
+            h = blk(h, ctx)
+        return self.out(self.norm_f(h))
+
+    def forward(self, batch: dict) -> dict:
+        ot = batch.get("obs_tokens")
+        if ot is None:
+            raise KeyError("XAttnDiffusionHead needs batch['obs_tokens'] -- set "
+                           "ObsEncoders.expose_tokens=True and the specific "
+                           "obs_encoder per_obs_keys=True.")
+        ctx = self.ctx_proj(ot)                    # (T,K,d_model)
+        if "target" in batch:
+            x0 = batch["target"]                   # (T,C,D)
+            T = x0.shape[0]
+            t = torch.randint(0, self.N, (T,), device=x0.device)
+            ab = self.abar[t][:, None, None]
+            noise = torch.randn_like(x0)
+            x_t = ab.sqrt() * x0 + (1 - ab).sqrt() * noise
+            eps = self._denoise(x_t, t, ctx)
+            batch["aux/eps_pred"] = eps
+            batch["aux/eps_target"] = noise
+            batch["aux/ddpm_t"] = t
+            if self.emit_loss:
+                loss = F.mse_loss(eps, noise)
+                batch["loss/ddpm"] = loss
+                batch["log/ddpm"] = float(loss)
+        if not self.training:
+            with torch.no_grad():
+                T = ctx.shape[0]
+                x = torch.randn(T, self.C, self.D, device=ctx.device, dtype=ctx.dtype)
+                for j in range(self.S):
+                    tl = int(self.inf_levels[j])
+                    tt = torch.full((T,), float(tl), device=x.device, dtype=x.dtype)
+                    eps = self._denoise(x, tt, ctx)
+                    ab_t = self.abar[tl]
+                    x0p = ((x - (1 - ab_t).sqrt() * eps) / ab_t.sqrt()).clamp(-1.0, 1.0)
+                    if j + 1 < self.S:
+                        ab_n = self.abar[int(self.inf_levels[j + 1])]
+                        x = ab_n.sqrt() * x0p + (1 - ab_n).sqrt() * eps
+                    else:
+                        x = x0p
+                batch["pred_action"] = x.clamp(-1.0, 1.0)
+        return batch

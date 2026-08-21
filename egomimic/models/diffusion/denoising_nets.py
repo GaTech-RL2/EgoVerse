@@ -219,6 +219,7 @@ class ConditionalUnet1D(nn.Module):
         n_groups=8,
         cond_predict_scale=False,
         feature_concatenate=False,
+        dp_exact=False,
     ):
         """
         local conditioning and global conditioning scheme
@@ -228,15 +229,27 @@ class ConditionalUnet1D(nn.Module):
         start_dim = down_dims[0]
 
         dsed = diffusion_step_embed_dim
-        diffusion_step_encoder = nn.Sequential(
-            SinusoidalPosEmb(dsed // 2),
-            nn.Linear(dsed // 2, dsed * 2),
-            nn.Mish(),
-            nn.Linear(dsed * 2, dsed // 2),
-        )
-        self.proj_cond = nn.Linear(ac_latent_seq * cond_dim, dsed // 2)
-
-        cond_dim = dsed
+        self.dp_exact = bool(dp_exact)
+        if self.dp_exact:
+            # Stock Diffusion Policy: full-width step embedding, conditioning
+            # concatenated UNPROJECTED, so every residual block sees dsed + G.
+            diffusion_step_encoder = nn.Sequential(
+                SinusoidalPosEmb(dsed),
+                nn.Linear(dsed, dsed * 4),
+                nn.Mish(),
+                nn.Linear(dsed * 4, dsed),
+            )
+            self.proj_cond = None
+            cond_dim = dsed + (cond_dim or 0)
+        else:
+            diffusion_step_encoder = nn.Sequential(
+                SinusoidalPosEmb(dsed // 2),
+                nn.Linear(dsed // 2, dsed * 2),
+                nn.Mish(),
+                nn.Linear(dsed * 2, dsed // 2),
+            )
+            self.proj_cond = nn.Linear(ac_latent_seq * cond_dim, dsed // 2)
+            cond_dim = dsed
 
         in_out = list(zip(all_dims[:-1], all_dims[1:]))
 
@@ -395,7 +408,7 @@ class ConditionalUnet1D(nn.Module):
         timesteps = timesteps.expand(sample.shape[0])
         global_feature = self.diffusion_step_encoder(timesteps)
 
-        cond = self.proj_cond(global_cond)
+        cond = global_cond if self.proj_cond is None else self.proj_cond(global_cond)
         if global_cond is not None:
             global_feature = torch.cat([global_feature, cond], axis=-1)
 
