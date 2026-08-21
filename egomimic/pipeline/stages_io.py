@@ -34,12 +34,24 @@ class ObsEncoders(Stage):
     Writes A, S, time_pos."""
 
     reads = ["obs/*", "cu_seqlens", "embodiment"]   # actions NOT required (rollout)
-    writes = ["A", "S", "time_pos"]
+    writes = ["A", "S", "time_pos"]   # (+ "obs_tokens" when expose_tokens)
 
-    def __init__(self, agnostic: nn.Module, specific: List[nn.Module]):
+    def __init__(self, agnostic: nn.Module, specific: List[nn.Module],
+                 expose_tokens: bool = False):
         super().__init__()
         self.agnostic = agnostic
         self.specific = nn.ModuleList(specific)
+        # expose_tokens (token-conditioning ablation, 2026-08-18): when True,
+        # ALSO write batch["obs_tokens"] = per-modality feature tokens
+        # (T, K, d) from the specific encoder, so a cross-attention head can
+        # attend to modalities instead of the pooled S vector. Default False =>
+        # byte-identical to before (A/S only).
+        self.expose_tokens = bool(expose_tokens)
+        if self.expose_tokens:
+            # Declare the extra key dynamically so the routing graph
+            # (tools/config_graph.py) sees the ObsEncoders -> head edge;
+            # a written-but-undeclared key reads as a dangling input.
+            self.writes = list(type(self).writes) + ["obs_tokens"]
 
     def forward(self, batch: dict) -> dict:
         obs_packed = {k.split("/", 1)[1]: v for k, v in batch.items()
@@ -63,6 +75,28 @@ class ObsEncoders(Stage):
         kw = dict(actions_packed=actions, obs_packed=obs_packed, cu_seqlens=cu,
                   T_total=T, device=dev, dtype=actions.dtype,
                   embodiment_id=emb)
+        if self.expose_tokens:
+            # SINGLE-ENCODE path: one encode per stream yields fused (A/S) AND
+            # tokens, so the ResNets run ONCE (not twice). Mirrors HPT's
+            # encode-once cost.
+            token_sets = []
+            a_fused, a_tok = self.agnostic.forward_packed_both(
+                obs_packed=obs_packed, T_total=T, embodiment_id=emb)
+            batch["A"] = a_fused.to(actions.dtype)
+            if a_tok is not None:
+                token_sets.append(a_tok)
+            S = None
+            for mod in self.specific:
+                s_fused, s_tok = mod.forward_packed_both(
+                    obs_packed=obs_packed, T_total=T, embodiment_id=emb)
+                S = s_fused if S is None else S + s_fused
+                if s_tok is not None:
+                    token_sets.append(s_tok)
+            batch["S"] = S.to(actions.dtype)
+            batch["time_pos"] = packed.frame_idx(cu)
+            if token_sets:
+                batch["obs_tokens"] = torch.cat(token_sets, dim=1).to(actions.dtype)
+            return batch
         S = None
         for mod in self.specific:
             c = mod.forward_packed(**kw)
@@ -70,6 +104,24 @@ class ObsEncoders(Stage):
         batch["A"] = self.agnostic.forward_packed(**kw)
         batch["S"] = S
         batch["time_pos"] = packed.frame_idx(cu)
+        if False:
+            # collect per-modality tokens from BOTH streams so no encoder is
+            # left unused (the agnostic front encoder would otherwise get no
+            # gradient -> DDP unused-param crash). All per-key features share
+            # the encoder feature_dimension, so they concat along the token
+            # axis into (T, K_total, d).
+            token_sets = []
+            at = self.agnostic.encode_tokens_packed(
+                obs_packed=obs_packed, T_total=T, embodiment_id=emb)
+            if at is not None:
+                token_sets.append(at)
+            for mod in self.specific:
+                stk = mod.encode_tokens_packed(
+                    obs_packed=obs_packed, T_total=T, embodiment_id=emb)
+                if stk is not None:
+                    token_sets.append(stk)
+            if token_sets:
+                batch["obs_tokens"] = torch.cat(token_sets, dim=1)   # (T, K, d)
         return batch
 
 
@@ -1011,3 +1063,100 @@ class _BS:
         self.boundary_mask = rec["boundary_mask_s"]
         self.boundary_prob = rec["boundary_prob_s"]
         self.selected_probs = rec["selected_probs_s"]
+
+
+# --------------------------------------------------------------------------- #
+# Normal (per-sample) dataloader adapters
+#
+# The standard MultiDataset reader returns ONE SAMPLE PER FRAME: obs keys carry
+# an (B, N_OBS, ...) history and the action chunk is already fixed-size
+# (B, C, D). Everything downstream in this graph speaks the packed token
+# contract (T flat tokens + cu_seqlens). These two stages bridge the two, so no
+# other stage needs a second code path:
+#
+#   NormalObsExpand    (B,N,...) -> T=B*N tokens, one N-frame "episode" per
+#                      sample. ObsEncoders and ObsStack's within-episode
+#                      lookback clamp then work verbatim.
+#   NormalObsCollapse  keep the LAST frame of each episode (the current one),
+#                      restore a 1-token-per-sample grid, install the dataset's
+#                      action chunk as "target".
+#
+# Put NormalObsExpand first in the stage list and NormalObsCollapse immediately
+# after ObsStack. TargetBuilder is NOT used on this path -- the chunk comes from
+# the dataset, which is the whole point of using the standard reader.
+# --------------------------------------------------------------------------- #
+class NormalObsExpand(Stage):
+    """Flatten the per-sample obs history into packed tokens.
+
+    During training ``actions`` is required and preserved as the target chunk.
+    Rollout sends the same ``(1, n_obs, ...)`` observation shape with a
+    ``rollout_t`` marker and intentionally has no target.  Supporting both
+    modes here keeps the encoder/stack/head path identical at train and deploy
+    time; only the dataset target is absent.
+    """
+
+    # ``actions`` is deliberately not a declared read: an observation-only
+    # rollout must be able to select this stage.  forward() still requires it
+    # unless the explicit rollout marker is present.
+    reads = ["obs/*"]
+    writes = ["cu_seqlens", "max_seq_len", "_normal_target"]
+
+    def __init__(self, n_obs_steps: int = 2):
+        super().__init__()
+        self.n = int(n_obs_steps)
+        self.rollout_obs_steps = self.n
+
+    def forward(self, batch: dict) -> dict:
+        n = self.n
+        obs_keys = [k for k in batch
+                    if k.startswith("obs/") and torch.is_tensor(batch[k])]
+        if not obs_keys:
+            raise ValueError("NormalObsExpand: no obs/* tensors in batch.")
+        ref = batch[obs_keys[0]]
+        B = ref.shape[0]
+        for k in obs_keys:
+            v = batch[k]
+            if v.ndim < 2 or v.shape[1] != n:
+                raise ValueError(
+                    f"NormalObsExpand: {k} has shape {tuple(v.shape)}; expected "
+                    f"(B, {n}, ...). Every obs key must be fetched with "
+                    f"horizon=n_obs_steps={n} in the keymap.")
+            batch[k] = v.reshape(B * n, *v.shape[2:])
+        dev = ref.device
+        target = batch.pop("actions", None)
+        if target is None and "rollout_t" not in batch:
+            raise ValueError(
+                "NormalObsExpand: batch has no 'actions' chunk outside rollout.")
+        # Keep the key present so the stage contract remains literal. Collapse
+        # consumes it and installs ``target`` only for a real training chunk.
+        batch["_normal_target"] = target                       # (B, C, D) | None
+        batch["cu_seqlens"] = torch.arange(0, B * n + 1, n,
+                                           device=dev, dtype=torch.long)
+        batch["max_seq_len"] = n
+        return batch
+
+
+class NormalObsCollapse(Stage):
+    """Keep the current frame per sample; restore a 1-token-per-sample grid."""
+
+    writes = ["target", "cu_seqlens", "max_seq_len", "frame_idx", "time_pos"]
+
+    def __init__(self, keys: List[str]):
+        super().__init__()
+        self.keys = [str(k) for k in keys]
+        self.reads = list(self.keys) + ["cu_seqlens", "_normal_target"]
+
+    def forward(self, batch: dict) -> dict:
+        cu = batch["cu_seqlens"]
+        last = (cu[1:] - 1).to(dtype=torch.long)               # current frame
+        for k in self.keys:
+            batch[k] = batch[k].index_select(0, last.to(batch[k].device))
+        B, dev = last.numel(), last.device
+        batch["cu_seqlens"] = torch.arange(0, B + 1, device=dev, dtype=torch.long)
+        batch["max_seq_len"] = 1
+        batch["frame_idx"] = torch.zeros(B, dtype=torch.long, device=dev)
+        batch["time_pos"] = torch.zeros(B, dtype=torch.long, device=dev)
+        target = batch.pop("_normal_target")
+        if target is not None:
+            batch["target"] = target
+        return batch

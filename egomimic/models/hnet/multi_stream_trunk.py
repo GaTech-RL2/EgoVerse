@@ -408,18 +408,32 @@ class MultiStreamComputeStage(_BaseStage):
         return None
 
     def _init_weights(self, initializer_range: float, parent_residuals: int) -> int:
-        n_residuals = parent_residuals + self.trunk.height
-        scaled_std = initializer_range / max(n_residuals, 1) ** 0.5
-        for name, m in self.trunk.named_modules():
-            if not isinstance(m, nn.Linear):
-                continue
-            if getattr(m.weight, "_no_reinit", False):
-                continue
-            # residual-out projections (attn .out + SwiGLU down-proj) get scaled
-            if name.endswith("out") or "w2" in name or "fc2" in name or "down" in name:
-                nn.init.normal_(m.weight, mean=0.0, std=scaled_std)
-            else:
-                nn.init.normal_(m.weight, mean=0.0, std=initializer_range)
-            if m.bias is not None:
-                nn.init.zeros_(m.bias)
-        return n_residuals
+        return init_multistream_trunk(self.trunk, initializer_range, parent_residuals)
+
+
+def init_multistream_trunk(trunk, initializer_range: float,
+                           parent_residuals: int) -> int:
+    """Residual-stream-aware Linear init for ONE ``MultiStreamTrunk``.
+
+    Extracted from ``MultiStreamComputeStage._init_weights`` (math UNCHANGED)
+    so the flat ``pipeline.stages_seq.StreamTrunk`` can reuse it instead of
+    copying the rule. Returns the cumulative residual depth AFTER this trunk,
+    so callers can thread it into the next stage.
+
+    ``trunk.height`` is 2 per layer (attention + FFN residual adds).
+    """
+    n_residuals = parent_residuals + trunk.height
+    scaled_std = initializer_range / max(n_residuals, 1) ** 0.5
+    for name, m in trunk.named_modules():
+        if not isinstance(m, nn.Linear):
+            continue
+        if getattr(m.weight, "_no_reinit", False):
+            continue
+        # residual-out projections (attn .out + SwiGLU down-proj) get scaled
+        if name.endswith("out") or "w2" in name or "fc2" in name or "down" in name:
+            nn.init.normal_(m.weight, mean=0.0, std=scaled_std)
+        else:
+            nn.init.normal_(m.weight, mean=0.0, std=initializer_range)
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+    return n_residuals

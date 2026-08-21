@@ -166,6 +166,39 @@ class ObsToken(InputModule):
         c = self._encode(obs, T, embodiment_id)  # (B, T, d_model)
         return c.to(dtype)
 
+
+    def forward_packed_both(self, *, obs_packed, T_total, embodiment_id=None):
+        """SINGLE encode -> (fused pooled vector, per-modality tokens).
+
+        Avoids the double-encode: the wrapped CondEncoderModule.encode() with
+        per_obs_keys=True produces the fused output_key AND every per-key
+        feature in ONE forward (one ResNet pass per camera). Returns
+        (fused (T, d_model), tokens (T, K, d) or None). The old
+        encode_tokens_packed re-ran the encoders; this replaces it so the
+        token path costs nothing beyond forward_packed.
+        """
+        import torch as _t
+        enc = self.obs_encoder
+        if hasattr(enc, "encoders"):                    # per-embodiment dispatch
+            sub = (enc.encoders.get(str(embodiment_id))
+                   if hasattr(enc.encoders, "get") else enc.encoders[str(embodiment_id)])
+            if sub is None:
+                fused = self._encode(
+                    {k: v.unsqueeze(0) for k, v in obs_packed.items()},
+                    T_total, embodiment_id).squeeze(0)
+                return fused, None
+            enc_use = sub
+        else:
+            enc_use = enc
+        out = enc_use.encode({k: v.unsqueeze(0) for k, v in obs_packed.items()},
+                             T_action=T_total, embodiment_id=embodiment_id)
+        fused = out[enc_use.output_key].squeeze(0)      # (T, d_model)
+        tokens = None
+        if getattr(enc_use, "per_obs_keys", False):
+            keys = [k for k in out.keys() if k != enc_use.output_key]
+            if keys:
+                tokens = _t.stack([out[k].squeeze(0) for k in keys], dim=1)  # (T,K,d)
+        return fused, tokens
     def forward_packed(
         self, *, actions_packed, obs_packed, cu_seqlens, T_total, device, dtype,
         embodiment_id=None,
