@@ -1,39 +1,32 @@
-# ruff: noqa: E402
 import os
+import select
 import sys
+import termios
 import time
-import warnings
+import tty
 from abc import ABC, abstractmethod
-
-warnings.filterwarnings("ignore", message="Can't initialize NVML")
 
 import cv2
 import h5py
 import numpy as np
 import torch
-from robot_utils import RateLoop
 from scipy.spatial.transform import Rotation as R
-from torch.utils.data import default_collate
 
-from egomimic.models.denoising_policy import DenoisingPolicy
+from egomimic.models.heads.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.embodiment.embodiment import get_embodiment
-from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.embodiment.human import Human
-from egomimic.utils.egomimicUtils import (
-    cam_frame_to_base_frame,
-    draw_actions,
-    interpolate_arr,
-    interpolate_arr_euler,
+from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.embodiment.eva import (
+    Eva,
+    build_fold_cartesian_wristframe_revert_transform_list,
 )
+from egomimic.rldb.embodiment.fold_span_transforms import (
+    eva_rollout_obs_transforms,
+)
+from egomimic.robot.robot_utils import RateLoop
 from egomimic.utils.pose_utils import xyzw_to_wxyz
+from egomimic.utils.viz_utils import draw_actions
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
-
-import select
-import sys
-import termios
-import tty
 
 
 def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
@@ -49,46 +42,6 @@ def visualize_actions(ims, actions, extrinsics, intrinsics, arm="both"):
     )
 
     return ims
-
-
-R_t_e = np.array(
-    [
-        [0, 0, 1],
-        [-1, 0, 0],
-        [0, -1, 0],
-    ],
-    dtype=float,
-)
-
-inv_R_t_e = np.linalg.inv(R_t_e)
-
-
-def ee_pose_to_rot_ee_frame_batch(pose):
-    pose = np.asarray(pose)
-    xyz = pose[..., :3]
-    ypr = pose[..., 3:6]
-    R_ee = R.from_euler("ZYX", ypr).as_matrix()
-    R_rot = R_t_e @ R_ee
-    ypr_rot = R.from_matrix(R_rot).as_euler("ZYX")
-    return np.concatenate([xyz, ypr_rot], axis=-1)
-
-
-def rot_ee_frame_to_ee_pose_batch(pose_rot):
-    pose_rot = np.asarray(pose_rot)
-    xyz = pose_rot[..., :3]
-    ypr = pose_rot[..., 3:6]
-    R_rot = R.from_euler("ZYX", ypr).as_matrix()
-    R_ee = inv_R_t_e @ R_rot
-    ypr_ee = R.from_matrix(R_ee).as_euler("ZYX")
-    return np.concatenate([xyz, ypr_ee], axis=-1)
-
-
-def ee_pose_to_rot_ee_frame(pose):
-    return ee_pose_to_rot_ee_frame_batch(pose[None, ...])[0]
-
-
-def rot_ee_frame_to_ee_pose(pose_rot):
-    return rot_ee_frame_to_ee_pose_batch(pose_rot[None, ...])[0]
 
 
 def viz_rot_ee_pose(image, eepose, action_image_path, rot_image_path):
@@ -130,7 +83,7 @@ def viz_rot_ee_pose(image, eepose, action_image_path, rot_image_path):
         img.copy(),
         action_xyz,
         Eva.EXTRINSICS,
-        Human.INTRINSICS,
+        Eva.INTRINSICS,
         arm="both",
     )
     cv2.imwrite(action_image_path, im_action)
@@ -148,15 +101,14 @@ GRIPPER_WIDTH = 0.09
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
 QUERY_FREQUENCY = 30
-DEFAULT_RESAMPLE_LENGTH = 45
 
 RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
 
 EMBODIMENT_MAP = {
-    "both": 8,
-    "left": 7,
-    "right": 6,
+    "both": "EVA_BIMANUAL",
+    "left": "EVA_LEFT_ARM",
+    "right": "EVA_RIGHT_ARM",
 }
 
 TEMP_DIR = "/home/robot/temp_dir"
@@ -171,19 +123,6 @@ def _build_robot_interface(arms_list, offline_debug=False, offline_episode_path=
     from robot_interface import ARXInterface
 
     return ARXInterface(arms=arms_list)
-
-
-def _get_model_xml_path():
-    candidates = [
-        "/home/robot/robot_ws/egomimic/resources/model_x5.xml",
-        os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "resources", "model_x5.xml")
-        ),
-    ]
-    for candidate in candidates:
-        if os.path.exists(candidate):
-            return candidate
-    return candidates[-1]
 
 
 class _KeyPoll:
@@ -239,7 +178,6 @@ class PolicyRollout(Rollout):
         policy_path,
         query_frequency,
         cartesian,
-        resampled_action_len=None,
         debug=False,
         annotation_path=None,
     ):
@@ -248,32 +186,66 @@ class PolicyRollout(Rollout):
         self.policy_path = policy_path
         self.query_frequency = query_frequency
         self.cartesian = cartesian
-        self.embodiment_id = EMBODIMENT_MAP[self.arm]
-        self.embodiment_name = get_embodiment(self.embodiment_id)
-        self.extrinsics = Eva.EXTRINSICS
+        if not self.cartesian or self.arm != "both":
+            raise NotImplementedError(
+                "the unified graph rollout currently requires "
+                "--cartesian --arms both"
+            )
+        self.embodiment_name = EMBODIMENT_MAP[self.arm]
+        self.embodiment_id = get_embodiment_id(self.embodiment_name)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.policy_device = self.device
         print(f"[rollout] Loading policy from {self.policy_path}")
         self.policy = self._load_policy()
         self.debug_actions = None
-        self.resampled_action_len = resampled_action_len
         self.debug = debug
-        self.transform_list = Eva.get_transform_list(mode="cartesian_wristframe_ypr")
+        self.obs_transform_list = eva_rollout_obs_transforms()
+        self.action_revert_list = (
+            build_fold_cartesian_wristframe_revert_transform_list()
+        )
+        self._query_state_ee_pose = None
         self.annotation = None
-        self._tokenizer = None
-        self.collate_fn = default_collate
         if annotation_path is not None:
             if not os.path.isfile(annotation_path):
-                print(
-                    f"[rollout] WARNING: annotation file not found: {annotation_path}  (continuing without annotation)"
-                )
+                print(f"[rollout] WARNING: annotation file not found: {annotation_path}  (continuing without annotation)")
             else:
                 with open(annotation_path, "r") as f:
                     self.annotation = f.read().strip()
+        self.inference_policy = self._build_inference_policy()
 
-    LOCAL_WEIGHT_PATH = (
-        "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
-    )
+    def _build_inference_policy(self):
+        """Bind the checkpoint to its model-family inference node.
+
+        Both returned objects expose the same
+        ``inference_step(obs, t, emb_id) -> committed action`` contract.  The
+        robot loop never owns a second action queue or replan modulo.
+        """
+        algo = self.policy.model
+        stages = list(getattr(getattr(algo, "policy", None), "stages", []))
+        is_dfot = any(type(stage).__name__.startswith("DFoTNoise")
+                      for stage in stages)
+        if is_dfot:
+            from egomimic.eval.dfot.dfot_rollout_policy import make_rollout_policy
+            inference_policy = make_rollout_policy(
+                algo,
+                inference_stages=getattr(algo, "inference_stages", None),
+                obs_adapter=self._preprocess_robot_obs,
+            )
+            print(f"[rollout] inference graph: {type(inference_policy).__name__}")
+            return inference_policy
+        if not hasattr(algo, "inference_step"):
+            raise TypeError(
+                f"{type(algo).__name__} has no inference_step; robot rollout "
+                "requires the shared inference graph contract.")
+        algo.inference_obs_adapter = self._preprocess_robot_obs
+        algo.inference_cache_overrides = {
+            "n_keep": max(1, int(self.query_frequency or 1)),
+        }
+        print(f"[rollout] inference graph: {type(algo).__name__} "
+              f"n_keep={algo.inference_cache_overrides['n_keep']}")
+        return algo
+
+    LOCAL_WEIGHT_PATH = "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
 
     @classmethod
     def _patch_checkpoint_paths(cls, ckpt_path):
@@ -281,7 +253,6 @@ class PolicyRollout(Rollout):
         to point to the local base model weights."""
         import torch as _torch
         from omegaconf import DictConfig, OmegaConf
-
         ckpt = _torch.load(ckpt_path, map_location="cpu", weights_only=False)
         ht = ckpt.get("hyper_parameters", {}).get("config_tree")
         if ht is None:
@@ -296,9 +267,7 @@ class PolicyRollout(Rollout):
         old_path = config.get("pytorch_weight_path")
         if old_path is None or old_path == cls.LOCAL_WEIGHT_PATH:
             return ckpt_path
-        print(
-            f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}"
-        )
+        print(f"[rollout] Patching pytorch_weight_path: {old_path} -> {cls.LOCAL_WEIGHT_PATH}")
         config["pytorch_weight_path"] = cls.LOCAL_WEIGHT_PATH
         ckpt["hyper_parameters"]["config_tree"] = OmegaConf.create(cfg)
         patched_path = ckpt_path + ".patched"
@@ -322,18 +291,14 @@ class PolicyRollout(Rollout):
         pi0 = policy.model.nets["policy"]
         if "sample_actions" in vars(pi0):
             del pi0.sample_actions
-            print(
-                "[rollout] Disabled torch.compile on sample_actions for rollout inference"
-            )
+            print("[rollout] Disabled torch.compile on sample_actions for rollout inference")
 
         # Verify model is on GPU
         try:
             p = next(pi0.parameters())
             print(f"[rollout] Model device: {p.device}, dtype: {p.dtype}")
             if not p.is_cuda:
-                print(
-                    "[rollout] WARNING: model is NOT on GPU — inference will be very slow!"
-                )
+                print("[rollout] WARNING: model is NOT on GPU — inference will be very slow!")
         except StopIteration:
             pass
 
@@ -343,95 +308,68 @@ class PolicyRollout(Rollout):
                     policy.model.nets.policy.heads[head].num_inference_steps = 10
         return policy
 
-    def _downsample_chunk(self, chunk: np.ndarray, target_len: int) -> np.ndarray:
-        if target_len is None or target_len <= 0 or chunk.shape[0] == target_len:
-            return chunk.astype(np.float32, copy=False)
-
-        # chunk: (T, D) -> (1, T, D) and back
-        if self.cartesian:
-            if self.arm == "both":
-                left = chunk[:, :7]
-                right = chunk[:, 7:14]
-                left_r = interpolate_arr_euler(left[None, ...], target_len)[0]
-                right_r = interpolate_arr_euler(right[None, ...], target_len)[0]
-                out = np.hstack([left_r, right_r])
-            else:
-                out = interpolate_arr_euler(chunk[None, ...], target_len)[0]
-        else:
-            out = interpolate_arr(chunk[None, ...], target_len)[0]
-
-        return out.astype(np.float32, copy=False)
-
     def rollout_step(self, i, obs):
-        if i % self.query_frequency == 0:
-            start_infer_t = time.time()
-            transform_list_batch = self.process_obs_for_transform_list(obs)
-            for transform in self.transform_list:
-                transform_list_batch = transform.transform(transform_list_batch)
-            transform_list_batch = self.collate_fn([transform_list_batch])
-            if self.arm == "both":
-                embodiment_name = "eva_bimanual"
-            elif self.arm == "right":
-                embodiment_name = "eva_right_arm"
+        start_t = time.time()
+        model_action = self.inference_policy.inference_step(
+            obs, i, self.embodiment_id)
+        command = self._model_action_to_robot(model_action)
+        # Debug/overlay consumes the exact command returned to hardware.
+        self.debug_actions = command[None, :].copy()
+        self.actions = self.debug_actions
+        print(f"Inference graph step: {(time.time() - start_t):.4f}s")
+        return command
 
-            elif self.arm == "left":
-                embodiment_name = "eva_left_arm"
-            batch = {
-                embodiment_name: transform_list_batch,
-            }
-            processed_batch = self.policy.model.process_batch_for_training(batch)
-            preds = self.policy.model.forward_eval(processed_batch)[
-                f"{embodiment_name}_actions_cartesian"
-            ]
-            self.actions = preds.detach().cpu().numpy().squeeze()
-            self.debug_actions = self.actions.copy()
-            if self.cartesian:
-                if self.arm == "both":
-                    left_actions = self.actions[:, :7]
-                    right_actions = self.actions[:, 7:]
+    def _preprocess_robot_obs(self, obs):
+        """Raw robot observation -> the fold models' canonical obs schema.
 
-                    transformed_left = cam_frame_to_base_frame(
-                        left_actions[:, :6].copy(), self.extrinsics["left"]
-                    )
-                    transformed_right = cam_frame_to_base_frame(
-                        right_actions[:, :6].copy(), self.extrinsics["right"]
-                    )
-                    transformed_left = rot_ee_frame_to_ee_pose_batch(transformed_left)
-                    transformed_right = rot_ee_frame_to_ee_pose_batch(transformed_right)
-                    gripper_left = left_actions[:, 6:7]
-                    gripper_right = right_actions[:, 6:7]
-                    if left_actions.shape[1] == 7:
-                        left_actions = np.hstack([transformed_left, gripper_left])
-                    else:
-                        left_actions = transformed_left
-                    if right_actions.shape[1] == 7:
-                        right_actions = np.hstack([transformed_right, gripper_right])
-                    else:
-                        right_actions = transformed_right
-                    self.actions = np.hstack([left_actions, right_actions])
-                else:
-                    eepose = rot_ee_frame_to_ee_pose_batch(self.actions[:, :6].copy())
-                    self.actions[:, :6] = eepose
-                    transformed_6dof = cam_frame_to_base_frame(
-                        self.actions[:, :6].copy(), self.extrinsics[self.arm]
-                    )
-                    # Preserve gripper if present (7th value)
-                    gripper = self.actions[:, 6:7]
-                    if self.actions.shape[1] == 7:
-                        self.actions = np.hstack([transformed_6dof, gripper])
-                    else:
-                        self.actions = transformed_6dof
+        This callback runs inside ``inference_preprocess``. Cache hits exit the
+        graph before invoking it, which is why it is not performed in
+        ``rollout_step``.
+        """
+        batch = self.process_obs_for_transform_list(obs)
+        for transform in self.obs_transform_list:
+            batch = transform.transform(batch)
+        self._query_state_ee_pose = np.asarray(
+            batch["state_ee_pose"], dtype=np.float32
+        ).reshape(1, -1).copy()
+        keep = ("front_img_1", "left_wrist_img", "right_wrist_img",
+                "state_ee_pose", "annotations")
+        out = {key: batch[key] for key in keep if key in batch}
+        for key, value in list(out.items()):
+            if not torch.is_tensor(value):
+                if key == "annotations":
+                    continue
+                value = torch.as_tensor(value)
+            if value.ndim in (1, 3):
+                value = value.unsqueeze(0)
+            out[key] = value
+        return out
 
-            if self.resampled_action_len is not None:
-                self.actions = self._downsample_chunk(
-                    self.actions, self.resampled_action_len
-                )
-            # print(f"actions: {self.actions[6:7]}, debug_actions: {self.debug_actions[6:7]}")
-
-            print(f"Inference time: {(time.time() - start_infer_t)}s")
-
-        act_i = i % self.query_frequency
-        return self.actions[act_i]
+    def _model_action_to_robot(self, model_action):
+        if not self.cartesian or self.arm != "both":
+            raise NotImplementedError(
+                "the unified DF/DP robot path currently requires "
+                "--cartesian --arms both")
+        if self._query_state_ee_pose is None:
+            raise RuntimeError(
+                "no query-time state is available for wrist-frame action decoding"
+            )
+        batch = {
+            "actions_cartesian": np.asarray(
+                model_action, dtype=np.float32
+            ).reshape(1, -1),
+            "state_ee_pose": self._query_state_ee_pose,
+        }
+        for transform in self.action_revert_list:
+            batch = transform.transform(batch)
+        command = np.asarray(
+            batch["actions_cartesian"], dtype=np.float32
+        ).reshape(-1)
+        if command.shape != (14,):
+            raise ValueError(f"robot command must be 14-D, got {command.shape}")
+        if not np.isfinite(command).all():
+            raise FloatingPointError("non-finite robot command from inference graph")
+        return command
 
     def process_obs_for_transform_list(self, obs):
         # front camera: obs["front_img_1"] is BGR, shape [H, W, 3]
@@ -440,13 +378,7 @@ class PolicyRollout(Rollout):
         front = front.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
         front = front.squeeze()
         data = {
-            # Keep rollout-local keys, PI schematic aliases, and canonical
-            # dataset zarr keys so checkpoints with different data schematics
-            # can all resolve the same image tensor.
             "front_img_1": front,
-            "base_0_rgb": front,
-            "observations.images.front_img_1": front,
-            "pad_mask": torch.ones((1, 100, 1), dtype=torch.bool),
         }
 
         eepose = obs["ee_poses"]
@@ -456,22 +388,16 @@ class PolicyRollout(Rollout):
                 obs["right_wrist_img"][None, ...]
             )  # [1, H, W, 3] BGR
             right = right[..., [2, 1, 0]]  # BGR -> RGB
-            right = right.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
+            right = (
+                right.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
+            )
             data["right_wrist_img"] = right.squeeze()
-            data["right_wrist_0_rgb"] = data["right_wrist_img"]
-            data["observations.images.right_wrist_img"] = data["right_wrist_img"]
-            right_ee_pose = eepose[7:13]
-            right_ee_pose = ee_pose_to_rot_ee_frame(right_ee_pose)
-            right_ypr = right_ee_pose[..., 3:6]
+            right_ypr = eepose[10:13]
             right_xyzw = R.from_euler("ZYX", right_ypr).as_quat()
             right_wxyz = xyzw_to_wxyz(right_xyzw)
             right_xyzwxyz = np.concatenate([eepose[7:10], right_wxyz], axis=-1)
             data["right.obs_ee_pose"] = torch.from_numpy(right_xyzwxyz).reshape(-1)
             data["right.obs_gripper"] = torch.from_numpy(eepose[13:14]).reshape(-1)
-            right_gripper = torch.from_numpy(eepose[13:14]).view(1, 1).repeat(45, 1)
-            data["right.cmd_gripper"] = right_gripper
-            right_cmd_ee_pose = torch.from_numpy(right_xyzwxyz).view(1, 7).repeat(45, 1)
-            data["right.cmd_ee_pose"] = right_cmd_ee_pose
 
         if self.arm in ["left", "both"]:
             left = torch.from_numpy(
@@ -480,25 +406,17 @@ class PolicyRollout(Rollout):
             left = left[..., [2, 1, 0]]  # BGR -> RGB
             left = left.permute(0, 3, 1, 2).to(dtype=torch.float32) / 255.0
             data["left_wrist_img"] = left.squeeze()
-            data["left_wrist_0_rgb"] = data["left_wrist_img"]
-            data["observations.images.left_wrist_img"] = data["left_wrist_img"]
-            left_ee_pose = eepose[0:6]
-            left_ee_pose = ee_pose_to_rot_ee_frame(left_ee_pose)
-            left_ypr = left_ee_pose[..., 3:6]
+            left_ypr = eepose[3:6]
             left_xyzw = R.from_euler("ZYX", left_ypr).as_quat()
             left_wxyz = xyzw_to_wxyz(left_xyzw)
             left_xyzwxyz = np.concatenate([eepose[:3], left_wxyz], axis=-1)
             data["left.obs_ee_pose"] = torch.from_numpy(left_xyzwxyz).reshape(-1)
             data["left.obs_gripper"] = torch.from_numpy(eepose[6:7]).reshape(-1)
-            left_gripper = torch.from_numpy(eepose[6:7]).view(1, 1).repeat(45, 1)
-            data["left.cmd_gripper"] = left_gripper
-            left_cmd_ee_pose = torch.from_numpy(left_xyzwxyz).view(1, 7).repeat(45, 1)
-            data["left.cmd_ee_pose"] = left_cmd_ee_pose
 
         if self.arm == "both":
-            data["embodiment"] = ["eva_bimanual"]
+            data["embodiment"] = "eva_bimanual"
         elif self.arm == "right":
-            data["embodiment"] = ["eva_right_arm"]
+            data["embodiment"] = "eva_right_arm"
         elif self.arm == "left":
             data["embodiment"] = "eva_left_arm"
 
@@ -508,32 +426,28 @@ class PolicyRollout(Rollout):
         return data
 
     def load_annotation(self, annotation_path):
-        """Load a new annotation file, building the tokenized collate only if needed.
-
-        The annotation text flows through data["annotations"] at each inference
-        step, so updating self.annotation is sufficient when the tokenized
-        collate already exists.  We only build it when the collate is still the
-        plain default_collate (i.e. no annotation was provided at init time).
-
-        Returns True on success, False if the file could not be loaded.
-        """
+        """Load annotation text passed through the model observation schema."""
         if not os.path.isfile(annotation_path):
             print(f"[rollout] WARNING: annotation file not found: {annotation_path}")
             return False
         with open(annotation_path, "r") as f:
             self.annotation = f.read().strip()
-        print(
-            f"[rollout] Loaded new annotation from {annotation_path}: '{self.annotation}'"
-        )
+        print(f"[rollout] Loaded new annotation from {annotation_path}: '{self.annotation}'")
         return True
 
     def reset(self):
         self.actions = None
         self.debug_actions = None
+        self._query_state_ee_pose = None
         self.policy.eval()
+        if hasattr(self, "inference_policy") and hasattr(
+                self.inference_policy, "reset"):
+            self.inference_policy.reset()
 
 
-def debug_policy(actions, front_img, step_i):
+def debug_policy(
+    actions, front_img, step_i
+):
     os.makedirs("debug", exist_ok=True)
 
     if isinstance(front_img, torch.Tensor):
@@ -582,7 +496,6 @@ def main(
     policy_path=None,
     dataset_path=None,
     debug=False,
-    resampled_action_len=None,
     offline_debug=False,
     offline_episode_path=None,
     annotation_path=None,
@@ -614,7 +527,6 @@ def main(
             policy_path=policy_path,
             query_frequency=query_frequency,
             cartesian=cartesian,
-            resampled_action_len=resampled_action_len,
             debug=debug,
             annotation_path=annotation_path,
         )
@@ -731,11 +643,7 @@ def main(
                                 reset_rollout(ri, policy)
                             break
 
-                        if (
-                            debug
-                            and rollout_type == "policy"
-                            and step_i % query_frequency == 0
-                        ):
+                        if debug and rollout_type == "policy" and step_i % query_frequency == 0:
                             debug_actions = policy.debug_actions
                             front_img = obs["front_img_1"]
                             debug_policy(
@@ -798,12 +706,6 @@ def build_arg_parser(description="Rollout robot model."):
         help="control in cartesian space instead of joint space",
     )
     parser.add_argument(
-        "--resampled-action-len",
-        type=int,
-        default=DEFAULT_RESAMPLE_LENGTH,
-        help="Resample each predicted action chunk to this length (e.g., 100 -> 45). Euler if --cartesian.",
-    )
-    parser.add_argument(
         "--debug",
         action="store_true",
         help="enable debug visualization of actions on images",
@@ -817,7 +719,6 @@ def build_arg_parser(description="Rollout robot model."):
 
 
 def run_from_args(args):
-    print(f"Resampling actions to {args.resampled_action_len}")
     return main(
         arms=args.arms,
         frequency=args.frequency,
@@ -826,7 +727,6 @@ def run_from_args(args):
         dataset_path=args.dataset_path,
         cartesian=args.cartesian,
         debug=args.debug,
-        resampled_action_len=args.resampled_action_len,
         offline_debug=args.offline_debug,
         offline_episode_path=args.offline_episode_path,
         annotation_path=args.annotation_path,
