@@ -135,11 +135,21 @@ def retarget(demo: SourceDemo, new_object: tuple, new_goal: tuple) -> np.ndarray
 
 def replay(demo: SourceDemo, new_object: tuple, new_goal: tuple,
            new_agent: tuple | None = None, extra_steps: int = 120):
-    """Retarget and roll out. Returns (success, coverage, actions_played)."""
+    """Retarget and roll out.
+
+    Returns (success, coverage, actions_played, start_pos). The START POSITION
+    is returned because it is part of the demo: it is derived from the object
+    transform, so a caller that re-runs the trajectory from the SOURCE demo's
+    start will not reproduce the result -- measured 2 of 9 generated demos
+    surviving a re-replay before this was threaded through.
+    """
     env = PushShapesEnv(object_shape=demo.object_shape,
                         pusher_shape=demo.agent,
                         obstacle_level=demo.obstacle_level)
     env.reset(seed=0)
+    # Generation never looks at the pixels, only at coverage, and rendering is
+    # 3.3x of the step cost (266 -> 890 steps/sec with it off).
+    env._skip_obs_render = True
     f_obj, _ = _frame_delta(demo.object_pose, new_object)
     start = new_agent or f_obj(*demo.agent_pos)
     env.set_state(object_pose=new_object, goal_pose=new_goal,
@@ -152,7 +162,7 @@ def replay(demo: SourceDemo, new_object: tuple, new_goal: tuple,
         _o, _r, term, _tr, info = env.step(np.asarray(a, dtype=np.float64))
         best = max(best, info["coverage"])
         if term:
-            return True, best, np.array(played)
+            return True, best, np.array(played), start
     # Let the last command settle -- the retargeted stroke can land slightly
     # short of the threshold even when the pose is essentially right.
     hold = acts[-1]
@@ -161,8 +171,8 @@ def replay(demo: SourceDemo, new_object: tuple, new_goal: tuple,
         _o, _r, term, _tr, info = env.step(np.asarray(hold, dtype=np.float64))
         best = max(best, info["coverage"])
         if term:
-            return True, best, np.array(played)
-    return False, best, np.array(played)
+            return True, best, np.array(played), start
+    return False, best, np.array(played), start
 
 
 def sample_layout(rng, world: float = 512.0, margin: float = 110.0):
@@ -186,11 +196,11 @@ def generate(sources: list, n_attempts: int, seed: int = 0) -> GenResult:
         src = sources[i % len(sources)]
         obj, goal = sample_layout(rng)
         res.attempts += 1
-        ok, cov, played = replay(src, obj, goal)
+        ok, cov, played, start = replay(src, obj, goal)
         if ok:
             res.demos.append(SourceDemo(
                 agent=src.agent, actions=played, object_pose=obj,
-                goal_pose=goal, agent_pos=src.agent_pos,
+                goal_pose=goal, agent_pos=(float(start[0]), float(start[1])),
                 object_shape=src.object_shape,
                 obstacle_level=src.obstacle_level))
     return res

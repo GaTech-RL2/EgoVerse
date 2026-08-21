@@ -163,6 +163,7 @@ def generate(agent: str, n: int, *, object_shape: str = "T",
         env = PushShapesEnv(object_shape=object_shape, pusher_shape=agent,
                             obstacle_level=obstacle_level)
         env.reset(seed=seed0 + i)
+        env._skip_obs_render = True      # 3.3x faster; only coverage is read
         init = env.get_episode_init()
         p = plan_for(agent)(env, max_steps)
         p.init = init
