@@ -1,13 +1,12 @@
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-import time
 import numpy as np
 import yaml
 from scipy.spatial.transform import Rotation as R
 
 from egomimic.rldb.embodiment.eva import Eva
-from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
 
 try:
@@ -348,8 +347,12 @@ class ARXInterface(Robot_Interface):
 class OfflineARXInterface:
     DEFAULT_IMAGE_SHAPE = (480, 640, 3)
 
-    def __init__(self, arms, dataset_path=None):
+    def __init__(self, arms, dataset_path=None, keymap_mode="cartesian"):
         self.arms = arms
+        # Eva.get_keymap REQUIRES keymap_mode; calling it bare raised TypeError
+        # and --offline-debug never produced an observation. Parameterised
+        # because this interface is shared across rollouts.
+        self.keymap_mode = keymap_mode
         self.recorders = {}
         self._joint_positions = {
             arm: np.zeros(7, dtype=np.float64) for arm in ("left", "right")
@@ -366,12 +369,16 @@ class OfflineARXInterface:
                 raise ValueError(f"Offline dataset is empty: {self.dataset_path}")
 
     def _build_dataset(self, dataset_path):
+        # Zarr is only needed by offline replay. Keep it out of the live robot
+        # import path so the Python 3.10 rollout image does not need zarr 3.
+        from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
+
         episode_path = Path(dataset_path)
         if not episode_path.exists():
             raise FileNotFoundError(f"Offline episode path not found: {dataset_path}")
         return ZarrDataset(
             episode_path,
-            key_map=Eva.get_keymap(),
+            key_map=Eva.get_keymap(self.keymap_mode),
             transform_list=None,
         )
 

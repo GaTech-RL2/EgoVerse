@@ -1,0 +1,26 @@
+# Python 3.10 live-robot inference dependencies for PipelineAlgo checkpoints.
+# Training, Slurm, data-processing, and evaluator-only packages belong in
+# requirements-training.txt.
+torch==2.6.0
+torchvision==0.21.0
+numpy<2
+scipy
+einops
+lightning
+hydra-core
+omegaconf
+pyyaml
+packaging
+h5py
+opencv-python-headless<4.12
+matplotlib
+pytorch-kinematics
+termcolor
+pyquaternion
+positional-encodings[pytorch]
+transformers==4.57.3
+timm
+projectaria-tools==2.0.0
+
+# Offline Zarr replay is a data/evaluation workflow and uses the training
+# requirements. The live robot import and checkpoint path are dataset-free.

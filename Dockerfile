@@ -50,7 +50,8 @@ WORKDIR /home/robot
 RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
     | tar -xvj -C /usr/local/bin/ --strip-components=1 bin/micromamba
 
-# 3) install newer git + Homebrew + graphite (kept together)
+# 3) install newer git + Homebrew + graphite. Authenticate Graphite at runtime;
+# credentials must never be baked into an image layer.
 RUN add-apt-repository ppa:git-core/ppa -y && \
     apt-get update && \
     apt-get install -y git && \
@@ -60,8 +61,7 @@ RUN add-apt-repository ppa:git-core/ppa -y && \
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
     brew update && \
     brew tap withgraphite/tap && \
-    brew install withgraphite/tap/graphite && \
-    gt auth --token SX4r5gXXW83uNr4x1USeYFcc2VUEzp5YfBOGJVP7xXiGUk4vhEYEnPObeTY8
+    brew install withgraphite/tap/graphite
 
 # 4) create workspace dir early
 RUN mkdir -p /home/robot/robot_ws
@@ -70,7 +70,7 @@ WORKDIR /home/robot/robot_ws
 # 5) copy only the env + requirements first (so pip/mamba stays cached)
 # adjust paths below to match your repo layout on host
 COPY egomimic/robot/eva/stanford_repo/conda_environments/py310_environment.yaml /tmp/py310_environment.yaml
-COPY requirements.txt /tmp/requirements.txt
+COPY requirements-rollout.txt /tmp/requirements-rollout.txt
 
 # 6) create mamba env (its own layer)
 RUN micromamba create -y -f /tmp/py310_environment.yaml -n arx-py310 && \
@@ -108,8 +108,8 @@ RUN echo 'source /opt/ros/humble/setup.bash' >> /root/.bashrc && \
 WORKDIR /home/robot/robot_ws
 
 # 11) python deps (outside mamba, your original flow)
-RUN pip install -r /tmp/requirements.txt && \
-    pip install -e . && \
+RUN pip install -r /tmp/requirements-rollout.txt && \
+    pip install --no-deps -e . && \
     pip install -e egomimic/robot/oculus_reader/. && \
     pip install pybullet pybind11 h5py
 
@@ -127,7 +127,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     pip install projectaria_client_sdk==1.1.0 && \
     pip uninstall -y numpy opencv-python opencv-contrib-python opencv-python-headless && \
-    pip install --no-cache-dir numpy opencv-python-headless && \
+    pip install --no-cache-dir 'numpy<2' 'opencv-python-headless<4.12' && \
     pip install pyrealsense2
 
 WORKDIR /home/robot/robot_ws
