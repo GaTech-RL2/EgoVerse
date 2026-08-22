@@ -177,8 +177,19 @@ def _viz_traj(image, actions, intrinsics_key, **kwargs):
     return vis
 
 
+def _rotation_axis_sample_indices(chunk_length, axis_count=5):
+    """Evenly sample orientation anchors, including both chunk endpoints."""
+    if chunk_length <= 0 or axis_count <= 0:
+        return np.empty((0,), dtype=np.int64)
+    count = min(int(axis_count), int(chunk_length))
+    return np.unique(
+        np.rint(np.linspace(0, chunk_length - 1, count)).astype(np.int64)
+    )
+
+
 def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
     alpha = kwargs.get("alpha", 1.0)
+    axis_count = kwargs.get("rotation_axis_count", 5)
     image = _prepare_viz_image(image)
     intrinsics = INTRINSICS[intrinsics_key]
     left_xyz, left_ypr, right_xyz, right_ypr = _split_action_pose(actions)
@@ -219,47 +230,46 @@ def _viz_axes(image, actions, intrinsics_key, axis_len_m=0.04, **kwargs):
         if len(xyz_seq) == 0 or len(ypr_seq) == 0:
             return frame
 
-        palm_xyz = xyz_seq[0]
-        palm_ypr = ypr_seq[0]
-        rot = R.from_euler("ZYX", palm_ypr, degrees=False).as_matrix()
-
-        axis_points_cam = np.vstack(
-            [
-                palm_xyz,
-                palm_xyz + rot[:, 0] * axis_len_m,
-                palm_xyz + rot[:, 1] * axis_len_m,
-                palm_xyz + rot[:, 2] * axis_len_m,
-            ]
+        sample_indices = _rotation_axis_sample_indices(
+            min(len(xyz_seq), len(ypr_seq)), axis_count
         )
-
-        px = cam_frame_to_cam_pixels(axis_points_cam, intrinsics)[:, :2]
-        if not np.isfinite(px).all():
-            return frame
-        pts = np.round(px).astype(np.int32)
-
         h, w = frame.shape[:2]
-        x0, y0 = pts[0]
-        if not (0 <= x0 < w and 0 <= y0 < h):
-            return frame
-
-        cv2.circle(frame, (x0, y0), 4, anchor_color, -1)
         axis_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-        for i, color in enumerate(axis_colors, start=1):
-            x1, y1 = pts[i]
-            if 0 <= x1 < w and 0 <= y1 < h:
+        for sample_number, chunk_index in enumerate(sample_indices, start=1):
+            palm_xyz = xyz_seq[chunk_index]
+            palm_ypr = ypr_seq[chunk_index]
+            rot = R.from_euler("ZYX", palm_ypr, degrees=False).as_matrix()
+            axis_points_cam = np.vstack(
+                [
+                    palm_xyz,
+                    palm_xyz + rot[:, 0] * axis_len_m,
+                    palm_xyz + rot[:, 1] * axis_len_m,
+                    palm_xyz + rot[:, 2] * axis_len_m,
+                ]
+            )
+            px = cam_frame_to_cam_pixels(axis_points_cam, intrinsics)[:, :2]
+            if not np.isfinite(px).all():
+                continue
+            pts = np.round(px).astype(np.int32)
+            x0, y0 = pts[0]
+            if not (0 <= x0 < w and 0 <= y0 < h):
+                continue
+
+            cv2.circle(frame, (x0, y0), 4, anchor_color, -1)
+            for i, color in enumerate(axis_colors, start=1):
+                x1, y1 = pts[i]
                 cv2.line(frame, (x0, y0), (x1, y1), color, 2)
                 cv2.circle(frame, (x1, y1), 2, color, -1)
-
-        cv2.putText(
-            frame,
-            label,
-            (x0 + 6, max(12, y0 - 8)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.4,
-            anchor_color,
-            1,
-            cv2.LINE_AA,
-        )
+            cv2.putText(
+                frame,
+                f"{label} {sample_number}/{len(sample_indices)}",
+                (x0 + 6, max(12, y0 - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.35,
+                anchor_color,
+                1,
+                cv2.LINE_AA,
+            )
         return frame
 
     vis = _draw_rotation_at_anchor(vis, left_xyz, left_ypr, "L rot", (255, 180, 80))

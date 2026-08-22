@@ -54,6 +54,7 @@ class Human(Embodiment):
         mode=Literal[
             "traj",
             "traj+rotation",
+            "traj+axes",
             "axes",
             "annotations",
             "keypoints",

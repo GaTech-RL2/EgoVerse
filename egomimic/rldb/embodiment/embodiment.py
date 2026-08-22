@@ -63,7 +63,7 @@ class Embodiment(ABC):
     def viz_transformed_batch(
         cls,
         batch,
-        mode=Literal["traj", "traj+rotation", "axes", "annotations"],
+        mode=Literal["traj", "traj+rotation", "traj+axes", "axes", "annotations"],
         viz_batch_key="actions_cartesian",
         image_key=None,
         transform_list=None,
@@ -97,7 +97,7 @@ class Embodiment(ABC):
         cls,
         image,
         viz_data,
-        mode=Literal["traj", "traj+rotation", "axes", "annotations"],
+        mode=Literal["traj", "traj+rotation", "traj+axes", "axes", "annotations"],
         intrinsics_key=None,
         **kwargs,
     ):
@@ -121,6 +121,21 @@ class Embodiment(ABC):
                 actions=viz_data,
                 **kwargs,
             )
+        if mode == "traj+axes":
+            vis = _viz_traj(
+                image=image,
+                actions=viz_data,
+                intrinsics_key=intrinsics_key,
+                **kwargs,
+            )
+            axes_kwargs = dict(kwargs)
+            axes_kwargs["alpha"] = 1.0
+            return _viz_axes(
+                image=vis,
+                actions=viz_data,
+                intrinsics_key=intrinsics_key,
+                **axes_kwargs,
+            )
         if mode == "axes":
             return _viz_axes(
                 image=image,
@@ -135,7 +150,8 @@ class Embodiment(ABC):
                 **kwargs,
             )
         raise ValueError(
-            f"Unsupported mode '{mode}'. Expected one of: ('traj', 'traj+rotation', 'axes', 'annotations')."
+            f"Unsupported mode '{mode}'. Expected one of: ('traj', 'traj+rotation', "
+            "'traj+axes', 'axes', 'annotations')."
         )
 
     @classmethod
