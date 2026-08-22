@@ -352,6 +352,135 @@ def _viz_keypoints(
     return vis
 
 
+def _split_hand_keypoint_chunks(actions):
+    """Split one bimanual action chunk into ``(T, 21, 3)`` hand arrays."""
+    actions = np.asarray(actions)
+    if actions.ndim == 1:
+        actions = actions[None]
+    if actions.ndim != 2:
+        raise ValueError(
+            "Expected one keypoint action chunk shaped (horizon, action_dim), "
+            f"got {actions.shape}."
+        )
+
+    action_dim = actions.shape[-1]
+    if action_dim == 140:
+        _, _, left, _, _, right = _split_keypoints(actions, wrist_in_data=True)
+    elif action_dim == 138:
+        _, _, left, _, _, right = _split_keypoints(
+            actions, wrist_in_data=True, is_quat=False
+        )
+    elif action_dim == 132:
+        left, right = actions[..., 3:66], actions[..., 69:132]
+    else:
+        left, right = _split_keypoints(actions, wrist_in_data=False)
+
+    return {
+        "left": np.asarray(left).reshape(-1, 21, 3),
+        "right": np.asarray(right).reshape(-1, 21, 3),
+    }
+
+
+def _cv_point(point):
+    """Convert a finite projected point to a safe OpenCV coordinate."""
+    xy = np.clip(np.asarray(point)[:2], -1_000_000, 1_000_000)
+    return tuple(np.rint(xy).astype(int))
+
+
+def _draw_clipped_line(image, p1, p2, color, thickness=2):
+    """Draw the visible portion of a segment with possibly off-screen ends."""
+    height, width = image.shape[:2]
+    visible, clipped_p1, clipped_p2 = cv2.clipLine(
+        (0, 0, width, height), _cv_point(p1), _cv_point(p2)
+    )
+    if visible:
+        cv2.line(
+            image,
+            clipped_p1,
+            clipped_p2,
+            color,
+            thickness,
+            lineType=cv2.LINE_AA,
+        )
+
+
+def _viz_keypoint_traj(
+    image,
+    actions,
+    intrinsics_key,
+    landmark_indices,
+    **kwargs,
+):
+    """Draw wrist/fingertip trajectories without the full hand skeleton."""
+    color = kwargs.get("color", "Blues")
+    alpha = kwargs.get("alpha", 1.0)
+    if not ColorPalette.is_valid(color):
+        raise ValueError(f"Invalid color palette: {color}")
+
+    requested_steps = int(kwargs.get("keypoint_traj_steps", 20))
+    if requested_steps < 1:
+        raise ValueError("keypoint_traj_steps must be positive")
+
+    image = _prepare_viz_image(image)
+    intrinsics = kwargs.get("intrinsics")
+    if intrinsics is None:
+        intrinsics = INTRINSICS[intrinsics_key]
+    intrinsics = np.asarray(intrinsics)
+    base = image.copy()
+    vis = base.copy()
+    chunks = _split_hand_keypoint_chunks(actions)
+
+    for hand in ("left", "right"):
+        chunk = chunks[hand][:requested_steps]
+        for landmark_num, (_, keypoint_index) in enumerate(landmark_indices):
+            points_cam = chunk[:, keypoint_index]
+            points_px = cam_frame_to_cam_pixels(points_cam, intrinsics)
+            projectable = points_cam[:, 2] > 0.01
+            projectable &= np.isfinite(points_cam).all(axis=1)
+            projectable &= np.isfinite(points_px[:, :2]).all(axis=1)
+            path_color = ColorPalette.to_rgb(
+                color, value=(landmark_num + 1) / (len(landmark_indices) + 1)
+            )
+
+            for step in range(len(points_px) - 1):
+                if projectable[step] and projectable[step + 1]:
+                    _draw_clipped_line(
+                        vis,
+                        points_px[step],
+                        points_px[step + 1],
+                        path_color,
+                    )
+
+            if len(points_px) and projectable[0]:
+                start = _cv_point(points_px[0])
+                cv2.circle(vis, start, 5, path_color, -1, lineType=cv2.LINE_AA)
+                cv2.circle(vis, start, 5, (255, 255, 255), 1, lineType=cv2.LINE_AA)
+
+            if len(points_px) and projectable[-1]:
+                end_x, end_y = _cv_point(points_px[-1])
+                triangle = np.asarray(
+                    [
+                        (end_x, end_y - 6),
+                        (end_x - 6, end_y + 5),
+                        (end_x + 6, end_y + 5),
+                    ],
+                    dtype=np.int32,
+                )
+                cv2.fillConvexPoly(vis, triangle, path_color, lineType=cv2.LINE_AA)
+                cv2.polylines(
+                    vis,
+                    [triangle],
+                    True,
+                    (255, 255, 255),
+                    1,
+                    lineType=cv2.LINE_AA,
+                )
+
+    if alpha < 1.0:
+        vis = cv2.addWeighted(vis, alpha, base, 1.0 - alpha, 0)
+    return vis
+
+
 def _wrap_text(text, font, font_scale, thickness, max_width):
     """Word-wrap *text* so each line fits within *max_width* pixels."""
     words = text.split()

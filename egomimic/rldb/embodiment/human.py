@@ -19,24 +19,60 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 )
 from egomimic.utils.viz_utils import (
     ColorPalette,
+    _viz_keypoint_traj,
     _viz_keypoints,
 )
 
 
+ARIA_TRAJECTORY_LANDMARKS = [
+    ("wrist", 5),
+    ("thumb_tip", 0),
+    ("index_tip", 1),
+    ("middle_tip", 2),
+    ("ring_tip", 3),
+    ("pinky_tip", 4),
+]
+MANO_TRAJECTORY_LANDMARKS = [
+    ("wrist", 0),
+    ("thumb_tip", 4),
+    ("index_tip", 8),
+    ("middle_tip", 12),
+    ("ring_tip", 16),
+    ("pinky_tip", 20),
+]
+
+
 class Human(Embodiment):
     ACTION_STRIDE = 3
+    TRAJECTORY_LANDMARKS = MANO_TRAJECTORY_LANDMARKS
 
     @classmethod
     def viz(
         cls,
         image,
         viz_data,
-        mode=Literal["traj", "traj+rotation", "axes", "annotations", "keypoints"],
+        mode=Literal[
+            "traj",
+            "traj+rotation",
+            "axes",
+            "annotations",
+            "keypoints",
+            "keypoint_traj",
+        ],
         intrinsics_key=None,
         **kwargs,
     ):
-        if mode == "keypoints":
+        if mode in ("keypoints", "keypoint_traj"):
             intrinsics_key = intrinsics_key or cls.VIZ_INTRINSICS_KEY
+            if mode == "keypoint_traj":
+                return _viz_keypoint_traj(
+                    image=image,
+                    actions=viz_data,
+                    intrinsics_key=intrinsics_key,
+                    landmark_indices=cls.TRAJECTORY_LANDMARKS,
+                    **kwargs,
+                )
+
             color = kwargs.get("color", None)
             if color is not None and ColorPalette.is_valid(color):
                 n = len(cls.FINGER_COLORS)
@@ -79,6 +115,7 @@ class Human(Embodiment):
 class Aria(Human):
     VIZ_INTRINSICS_KEY = "base"
     ACTION_STRIDE = 3
+    TRAJECTORY_LANDMARKS = ARIA_TRAJECTORY_LANDMARKS
     FINGER_EDGES = [
         (
             5,

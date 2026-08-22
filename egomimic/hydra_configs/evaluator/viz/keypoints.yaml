@@ -9,16 +9,19 @@ aria_bimanual:
   _partial_: true
   image_key: front_img_1
   action_key: actions_keypoints
-  mode: keypoints
+  mode: keypoint_traj
+  keypoint_traj_steps: 20
 mecka_bimanual:
   _target_: egomimic.rldb.embodiment.human.Mecka.viz_gt_preds
   _partial_: true
   image_key: front_img_1
   action_key: actions_keypoints
-  mode: keypoints
+  mode: keypoint_traj
+  keypoint_traj_steps: 20
 scale_bimanual:
   _target_: egomimic.rldb.embodiment.human.Scale.viz_gt_preds
   _partial_: true
   image_key: front_img_1
   action_key: actions_keypoints
-  mode: keypoints
+  mode: keypoint_traj
+  keypoint_traj_steps: 20
