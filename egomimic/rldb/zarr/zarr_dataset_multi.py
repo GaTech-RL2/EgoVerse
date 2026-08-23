@@ -104,6 +104,16 @@ def _ensure_dataset_filter(filters: DatasetFilter | None) -> DatasetFilter:
     )
 
 
+def resolve_metadata_value(metadata: Mapping[str, Any], path: str) -> Any:
+    """Resolve a dotted path from episode metadata without exposing mutable attrs."""
+    value: Any = metadata
+    for part in path.split("."):
+        if not isinstance(value, Mapping) or part not in value:
+            raise KeyError(f"Metadata path {path!r} not found at component {part!r}")
+        value = value[part]
+    return copy.deepcopy(value)
+
+
 def _is_missing_filter_value(value: object) -> bool:
     if value is None:
         return True
@@ -1697,6 +1707,10 @@ class ZarrDataset(torch.utils.data.Dataset):
 
                 if key_type == "annotation_keys":
                     data[k] = self._annotation_text_for_frame(idx)
+                    continue
+
+                if key_type == "metadata_keys":
+                    data[k] = np.asarray(resolve_metadata_value(self.metadata, zarr_key))
                     continue
 
                 if horizon is not None:

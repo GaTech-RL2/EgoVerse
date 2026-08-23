@@ -25,6 +25,7 @@ from egomimic.rldb.zarr.zarr_dataset_multi import (
     ZarrDataset,
     ZarrEpisode,
     get_fallback_idx,
+    resolve_metadata_value,
 )
 
 __all__ = [
@@ -158,6 +159,8 @@ class ZarrActionExpertDataset(ZarrDataset):
                     data[bos_key] = self._annotation_text_for_frame(bos)
                     data[t_key] = self._annotation_text_for_frame(t)
                     data[eos_key] = self._annotation_text_for_frame(eos)
+                elif key_type == "metadata_keys":
+                    data[k] = np.asarray(resolve_metadata_value(self.metadata, zarr_key))
                 elif key_type == "action_keys":
                     data[k] = self._load_actions(zarr_key, t, eos, spec.get("horizon"))
                 else:  # camera_keys / proprio_keys: sample BOS, t, and EOS.
