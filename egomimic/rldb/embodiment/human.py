@@ -23,6 +23,7 @@ from egomimic.rldb.zarr.action_chunk_transforms import (
 from egomimic.utils.viz_utils import (
     ColorPalette,
     _viz_gaze,
+    _viz_keypoint_traj,
     _viz_keypoints,
 )
 
@@ -89,6 +90,22 @@ ARIA_FINGER_EDGES = [
 ARIA_FINGER_EDGE_RANGES = [
     ("thumb", 0, 3), ("index", 3, 7), ("middle", 7, 11), ("ring", 11, 15), ("pinky", 15, 19),
 ]
+MANO_TRAJECTORY_LANDMARKS = [
+    ("wrist", 0),
+    ("thumb_tip", 4),
+    ("index_tip", 8),
+    ("middle_tip", 12),
+    ("ring_tip", 16),
+    ("pinky_tip", 20),
+]
+ARIA_TRAJECTORY_LANDMARKS = [
+    ("wrist", 5),
+    ("thumb_tip", 0),
+    ("index_tip", 1),
+    ("middle_tip", 2),
+    ("ring_tip", 3),
+    ("pinky_tip", 4),
+]
 
 
 class Human(Embodiment):
@@ -139,7 +156,13 @@ class Human(Embodiment):
         image,
         viz_data,
         mode=Literal[
-            "traj", "traj+rotation", "axes", "annotations", "keypoints", "gaze"
+            "traj",
+            "traj+rotation",
+            "axes",
+            "annotations",
+            "keypoints",
+            "keypoint_traj",
+            "gaze",
         ],
         intrinsics=None,
         finger_edges=None,
@@ -153,6 +176,21 @@ class Human(Embodiment):
                 gaze_data=viz_data,
                 intrinsics=K,
                 t_rgb_cpf=cls.T_RGB_CPF,
+                **kwargs,
+            )
+        if mode == "keypoint_traj":
+            layout = kwargs.pop("keypoint_layout", "mano")
+            if layout == "mano":
+                landmarks = MANO_TRAJECTORY_LANDMARKS
+            elif layout in {"aria", "native"}:
+                landmarks = ARIA_TRAJECTORY_LANDMARKS
+            else:
+                raise ValueError(f"Unsupported keypoint layout: {layout!r}")
+            return _viz_keypoint_traj(
+                image=image,
+                actions=viz_data,
+                intrinsics=K,
+                landmark_indices=landmarks,
                 **kwargs,
             )
         if mode == "keypoints":
@@ -1149,3 +1187,27 @@ def _build_human_cartesian_bimanual_transform_list(
         ]
     )
     return transform_list
+
+
+def build_fold_cartesian_wristframe_revert_transform_list(
+    *, action_key="actions_cartesian", state_key="state_ee_pose"
+):
+    """Re-express Fold's 20-D wrist-frame action in the head-camera frame."""
+    from egomimic.rldb.embodiment.fold_span_transforms import (
+        build_bimanual_rot6d_wrist_revert_transforms,
+    )
+
+    return build_bimanual_rot6d_wrist_revert_transforms(action_key, state_key)
+
+
+def build_fold_keypoint_wristframe_revert_transform_list(
+    *, action_key="actions_keypoints", wrist_pose_key="viz_current_wrist_poses"
+):
+    """Re-express Fold's canonical 126-D keypoints in the head-camera frame."""
+    from egomimic.rldb.embodiment.fold_span_transforms import (
+        build_bimanual_keypoint_wrist_revert_transforms,
+    )
+
+    return build_bimanual_keypoint_wrist_revert_transforms(
+        action_key, wrist_pose_key
+    )
