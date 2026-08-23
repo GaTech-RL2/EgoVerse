@@ -155,11 +155,16 @@ def submit_convert(embodiment_ray: EmbodimentRay, size: str, **kwargs):
 
 
 # --- Driver ------------------------------------------------------------------
+class _NoSqlSkip(Exception):
+    """Internal: skip the SQL write without taking the error path."""
+
+
 def launch(
     embodiment: str,
     dry: bool = False,
     skip_if_done: bool = False,
     episode_hashes: list[str] | None = None,
+    no_sql: bool = False,
 ):
     embodiment_ray = None
     if embodiment == "aria":
@@ -315,9 +320,16 @@ def launch(
                 row.zarr_mp4_path = ""
                 row.zarr_processing_error = "Conversion Failed Unhandled Error"
 
-            update_episode(engine, row)
+            if no_sql:
+                print(
+                    f"[NO-SQL] would have set zarr_processed_path="
+                    f"{row.zarr_processed_path!r} for {episode_key} -- SKIPPED",
+                    flush=True,
+                )
+            else:
+                update_episode(engine, row)
             print(
-                f"[OK] Updated SQL for {episode_key}: "
+                f"[OK] {'(NO-SQL, not written) ' if no_sql else 'Updated SQL for '}{episode_key}: "
                 f"zarr_processed_path={row.zarr_processed_path}, num_frames={row.num_frames}, "
                 f"duration_sec={duration_sec:.2f}",
                 flush=True,
@@ -362,11 +374,21 @@ def launch(
             row.zarr_mp4_path = ""
             row.zarr_processing_error = f"{type(e).__name__}: {e}"
             try:
+                if no_sql:
+                    print(
+                        f"[NO-SQL] would have MARKED FAILED + cleared "
+                        f"zarr_processed_path for {episode_key} -- SKIPPED "
+                        f"(that row may point at production data)",
+                        flush=True,
+                    )
+                    raise _NoSqlSkip()
                 update_episode(engine, row)
                 print(
                     f"[FAIL] Marked SQL failed for {episode_key} (cleared zarr_processed_path)",
                     flush=True,
                 )
+            except _NoSqlSkip:
+                pass
             except Exception as ee:
                 print(
                     f"[ERR] SQL update failed for failed episode {episode_key}: {ee}",
@@ -419,6 +441,15 @@ def main():
     )
     p.add_argument("--debug", action="store_true")
     p.add_argument(
+        "--no-sql",
+        action="store_true",
+        help="Never write to app.episodes. Required when writing to a "
+        "non-production prefix (e.g. processed_temp) with DUPLICATE episode "
+        "hashes: the success path would register the temp path, and the "
+        "failure path would CLEAR zarr_processed_path on a row pointing at "
+        "real production data.",
+    )
+    p.add_argument(
         "--working-dir",
         default="/home/ubuntu/EgoVerse",
         help="Repo checkout shipped to ray workers as runtime_env working_dir "
@@ -435,6 +466,34 @@ def main():
     )
     args = p.parse_args()
 
+    # --- import-provenance gate ------------------------------------------
+    # Guards live in imported modules; if those resolve outside --working-dir
+    # the driver runs UNGUARDED production code. Fail now, loudly.
+    if args.working_dir:
+        import egomimic
+        import egomimic.scripts.ray_helper as _rh
+
+        _wd = os.path.realpath(args.working_dir)
+        for _name, _mod in (("egomimic", egomimic), ("ray_helper", _rh)):
+            _f = os.path.realpath(getattr(_mod, "__file__", "") or "")
+            if not _f.startswith(_wd):
+                raise RuntimeError(
+                    f"IMPORT PROVENANCE MISMATCH: {_name} loaded from {_f}, "
+                    f"which is OUTSIDE --working-dir {_wd}. Running a script by "
+                    f"path puts the SCRIPT's dir on sys.path[0], not the cwd, so "
+                    f"imports fall through to the pip-installed production "
+                    f"package -- the driver would run WITHOUT the protected-"
+                    f"prefix guards. Fix: PYTHONPATH={_wd}"
+                )
+        if not hasattr(_rh, "_assert_not_protected"):
+            raise RuntimeError(
+                "ray_helper is missing _assert_not_protected -- the "
+                "protected-prefix guard is absent. Refusing to run."
+            )
+        print(f"[PROVENANCE] egomimic + ray_helper loaded from {_wd} (guards present)",
+              flush=True)
+
+
     env_vars = {}
     load_env()
     for k in [
@@ -442,6 +501,20 @@ def main():
         "R2_SECRET_ACCESS_KEY",
         "R2_SESSION_TOKEN",  # optional
         "R2_ENDPOINT_URL",  # optional; include if your helper expects it
+        # Output/input routing MUST reach the workers. ray_helper reads these
+        # via os.environ.get(...) INSIDE the remote task, so exporting them on
+        # the head alone is silently ignored and workers fall back to the
+        # s3://rldb/processed_v3 default -- i.e. they would write to PRODUCTION.
+        "PROCESSED_REMOTE_PREFIX",
+        "RAW_REMOTE_PREFIX",
+        # video-encode knobs (read by the zarr writer on the worker)
+        "EGOVERSE_IMAGE_CODEC",
+        "EGOVERSE_VIDEO_CRF",
+        "EGOVERSE_VIDEO_GOP",
+        "EGOVERSE_VIDEO_PIXFMT",
+        # segmentation toggle. Evaluated driver-side today (baked into the args
+        # dict), forwarded too so it still works if that ever moves worker-side.
+        "EGOVERSE_EMIT_FOLD_SEGMENTS",
     ]:
         v = os.environ.get(k)
         if v:
@@ -470,6 +543,7 @@ def main():
         dry=args.dry_run,
         skip_if_done=args.skip_if_done,
         episode_hashes=args.episode_hashes,
+        no_sql=args.no_sql,
     )
 
 

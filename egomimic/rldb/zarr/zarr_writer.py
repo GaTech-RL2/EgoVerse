@@ -11,6 +11,8 @@ from typing import Any, Literal
 
 import numpy as np
 import simplejpeg
+
+from egomimic.rldb.zarr import video_codec as _vc
 import zarr
 from zarr.core.dtype import VariableLengthBytes
 
@@ -47,6 +49,11 @@ class _IncrementalHandle:
         self._initialized = False
         self._numeric_info: dict[str, dict] = {}
         self._image_info: dict[str, dict] = {}
+        # h264 path: frames buffered per key until a full chunk exists
+        self._video_on = _vc.image_codec_enabled()
+        self._video_settings = _vc.codec_settings_from_env() if self._video_on else None
+        self._video_buf: dict[str, list] = {}
+        self._video_nchunks: dict[str, int] = {}
 
     @property
     def frames_written(self) -> int:
@@ -124,32 +131,68 @@ class _IncrementalHandle:
                 )
             self._image_info[key] = {"shape": img.shape}
 
-            shape = (padded,)
-            chunk_shape = (1,)
-
-            if not dynamic_length:
+            if self._video_on:
+                # One mp4 per group of frames_per_chunk -- NOT one blob per
+                # episode, which would force a span read to pull the whole
+                # episode. Array is (n_chunks,), grown as chunks are flushed.
+                self._video_buf[key] = []
+                self._video_nchunks[key] = 0
                 self._store.create_array(
-                    key,
-                    shape=shape,
-                    chunks=chunk_shape,
-                    shards=shape,
-                    dtype=VariableLengthBytes(),
+                    key, shape=(0,), chunks=(1,), dtype=VariableLengthBytes()
+                )
+                w._features[key] = _vc.build_feature_entry(
+                    img.shape, self._video_settings,
+                    total_frames=(self._total_frames or 0), fps=w.fps
                 )
             else:
-                self._store.create_array(
-                    key,
-                    shape=shape,
-                    chunks=chunk_shape,
-                    dtype=VariableLengthBytes(),
-                )
+                shape = (padded,)
+                chunk_shape = (1,)
 
-            w._features[key] = {
-                "dtype": "jpeg",
-                "shape": list(img.shape),
-                "names": ["height", "width", "channel"],
-            }
+                if not dynamic_length:
+                    self._store.create_array(
+                        key,
+                        shape=shape,
+                        chunks=chunk_shape,
+                        shards=shape,
+                        dtype=VariableLengthBytes(),
+                    )
+                else:
+                    self._store.create_array(
+                        key,
+                        shape=shape,
+                        chunks=chunk_shape,
+                        dtype=VariableLengthBytes(),
+                    )
+
+                w._features[key] = {
+                    "dtype": "jpeg",
+                    "shape": list(img.shape),
+                    "names": ["height", "width", "channel"],
+                }
 
         self._initialized = True
+
+    def _flush_video_chunks(self, key: str, *, final: bool) -> None:
+        """Encode buffered frames into whole mp4 chunks (tail only when final)."""
+        fpc = self._video_settings["frames_per_chunk"]
+        buf = self._video_buf[key]
+        while len(buf) >= fpc or (final and buf):
+            take = buf[:fpc]
+            del buf[:len(take)]
+            blob = _vc.encode_chunk(
+                np.stack(take, axis=0), self._video_settings, fps=self._writer.fps
+            )
+            idx = self._video_nchunks[key]
+            self._store[key].resize((idx + 1,))
+            # VLenBytes wants an object-array SLICE assignment; a scalar index
+            # makes zarr hand the codec an ndarray ("Expected bytes, got
+            # numpy.ndarray"). Same pattern the JPEG batch write uses.
+            cell = np.empty((1,), dtype=object)
+            cell[0] = blob
+            self._store[key][idx : idx + 1] = cell
+            self._video_nchunks[key] = idx + 1
+            if final and not buf:
+                break
 
     def _ensure_capacity(self, target_size: int) -> None:
         if self._total_frames is not None:
@@ -242,6 +285,10 @@ class _IncrementalHandle:
             self._store[key][self._cursor : end] = arr
 
         for key, img_batch in images.items():
+            if self._video_on:
+                self._video_buf[key].extend(np.asarray(img_batch))
+                self._flush_video_chunks(key, final=False)
+                continue
             encoded = np.empty((batch_size,), dtype=object)
             for i in range(batch_size):
                 encoded[i] = simplejpeg.encode_jpeg(
@@ -269,11 +316,16 @@ class _IncrementalHandle:
             # Unknown-length mode grows arrays dynamically; trim slack at close.
             for key, info in self._numeric_info.items():
                 self._store[key].resize((self._cursor,) + info["shape"])
-            for key in self._image_info:
-                self._store[key].resize((self._cursor,))
+            if not self._video_on:
+                for key in self._image_info:
+                    self._store[key].resize((self._cursor,))
         else:
             # Pad image arrays for sharding alignment (numeric arrays use fill_value=0)
             padded = self._padded_frames
+            # Video arrays are chunk-indexed, not frame-indexed: JPEG's
+            # duplicate-last-frame padding would corrupt the chunk arithmetic.
+            if self._video_on:
+                padded = self._total_frames
             if padded > self._total_frames and self._image_info:
                 pad_len = padded - self._total_frames
                 for key in self._image_info:
@@ -281,6 +333,15 @@ class _IncrementalHandle:
                     padding = np.empty((pad_len,), dtype=object)
                     padding[:] = last_jpeg
                     self._store[key][self._total_frames : padded] = padding
+
+        # Flush any partial tail chunk and record the true frame count.
+        if self._video_on:
+            for key in list(self._video_buf):
+                self._flush_video_chunks(key, final=True)
+                fe = self._writer._features.get(key, {})
+                if "video" in fe:
+                    fe["video"]["total_frames"] = int(self._cursor)
+                    fe["video"]["n_chunks"] = int(self._video_nchunks[key])
 
         # Write language annotations
         if self._writer.annotations is not None:
@@ -536,6 +597,32 @@ class ZarrWriter:
 
         # Encode each frame as JPEG
         num_frames = len(image_arr)
+
+        if _vc.image_codec_enabled():
+            # VIDEO PATH: one mp4 per frames_per_chunk group. No duplicate-last-
+            # frame padding -- the array is chunk-indexed, and padding would
+            # corrupt the frame->chunk arithmetic the reader relies on.
+            settings = _vc.codec_settings_from_env()
+            fpc = settings["frames_per_chunk"]
+            real = image_arr[:num_frames]
+            blobs = []
+            for start in range(0, num_frames, fpc):
+                block = np.ascontiguousarray(real[start : start + fpc])
+                blobs.append(_vc.encode_chunk(block, settings, fps=self.fps))
+            enc = np.empty((len(blobs),), dtype=object)
+            for i, b in enumerate(blobs):
+                enc[i] = b
+            store.create_array(
+                key,
+                shape=enc.shape,
+                chunks=(1,),
+                dtype=VariableLengthBytes(),
+            )
+            store[key][:] = enc
+            self._features[key] = _vc.build_feature_entry(
+                image_arr.shape[1:], settings, total_frames=num_frames, fps=self.fps
+            )
+            return
 
         # Encode to padded_frames length (pad with duplicate of last frame if needed)
         encoded = np.empty((padded_frames,), dtype=object)

@@ -25,6 +25,14 @@ from egomimic.utils.aws.aws_data_utils import (
 )
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    """Env toggle whose DEFAULT reproduces existing production behaviour."""
+    v = os.environ.get(name)
+    if v is None:
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "on")
+
+
 def ensure_path_ready(p: S3Path, retries: int = 30) -> bool:
     if not isinstance(p, S3Path):
         raise ValueError(f"Expected S3Path, got {type(p)}")
@@ -56,12 +64,36 @@ def _parse_s3_uri(uri: str, *, default_bucket: str | None = None) -> tuple[str, 
     return default_bucket, uri.strip("/")
 
 
+#: Prefixes that must NEVER be deleted or overwritten. EgoVerse is a public
+#: dataset; the reprocessed episodes reuse the SAME hashes, so a missing
+#: PROCESSED_REMOTE_PREFIX override would resolve to the production path and
+#: delete real episodes before uploading. Fail loudly instead of trusting env.
+PROTECTED_S3_PREFIXES = ("processed_v3", "raw_v2")
+
+
+def _assert_not_protected(bucket: str, *keys: str | None) -> None:
+    for k in keys:
+        if not k:
+            continue
+        low = f"{bucket}/{k}".lower()
+        for bad in PROTECTED_S3_PREFIXES:
+            if bad in low:
+                raise RuntimeError(
+                    f"REFUSING destructive write to protected prefix: "
+                    f"s3://{bucket}/{k} contains '{bad}'. "
+                    f"Set PROCESSED_REMOTE_PREFIX to a non-production path "
+                    f"(e.g. s3://rldb/processed_temp/aria) and ensure it is in "
+                    f"the runtime_env env_vars allowlist so WORKERS see it."
+                )
+
+
 def _cleanup_existing_processed_outputs(
     *,
     bucket: str,
     zarr_prefix: str,
     mp4_key: str | None,
 ) -> None:
+    _assert_not_protected(bucket, zarr_prefix, mp4_key)
     deleted_zarr_objects = delete_s3_prefix(bucket, zarr_prefix)
     if deleted_zarr_objects > 0:
         print(
@@ -145,6 +177,10 @@ class AriaRay(EmbodimentRay):
         self.processed_remote_prefix = os.environ.get(
             "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v3/aria"
         ).rstrip("/")
+        # Fail NOW, on every worker, if the output would land in production --
+        # not after download+convert+encode. Duplicate hashes mean the delete
+        # step would otherwise remove real public episodes.
+        _assert_not_protected("", self.processed_remote_prefix)
         self.bucket = os.environ.get("BUCKET", "rldb")
         self.resources_small = {"aria_small": 1}  # TODO: change to aria_small
         self.resources_big = {"aria_big": 1}  # TODO: change to aria_big
@@ -251,7 +287,14 @@ class AriaRay(EmbodimentRay):
                     "out_dir": str(self.processed_local_root),
                     "fps": 30,
                     "chunk_timesteps": 100,
-                    "save_mp4": True,
+                    "save_mp4": _env_bool("EGOVERSE_SAVE_MP4", True),
+                    # MANO defaults ON in DatasetConverter (convert_mano=True);
+                    # it costs 2400 Adam iters/chunk and needs license-gated
+                    # models shipped via --py-modules.
+                    "convert_mano": _env_bool("EGOVERSE_CONVERT_MANO", True),
+                    # SE(3) fold segmenter -> zarr `fold_segments`. Opt-in: off
+                    # keeps conversion byte-identical to production behaviour.
+                    "emit_fold_segments": _env_bool("EGOVERSE_EMIT_FOLD_SEGMENTS", False),
                     "image_compressed": False,
                 }
                 name = vrs_by_name[filename].stem
@@ -275,6 +318,8 @@ class AriaRay(EmbodimentRay):
         chunk_timesteps: int,
         image_compressed: bool,
         save_mp4: bool,
+        convert_mano: bool = True,
+        emit_fold_segments: bool = False,
     ) -> tuple[str, str, int]:
         """
         Perform conversion for a single episode.
@@ -347,6 +392,20 @@ class AriaRay(EmbodimentRay):
                 vrs_path = tmp_dir / vrs.name
 
                 try:
+                    import sys as _sys
+                    from egomimic.rldb.zarr import zarr_writer as _zw
+                    try:
+                        from egomimic.rldb.zarr import video_codec as _vcmod
+                        _vcf = _vcmod.__file__
+                        _on = _vcmod.image_codec_enabled()
+                    except Exception as _e:
+                        _vcf = f"<IMPORT FAILED: {type(_e).__name__}>"
+                        _on = None
+                    print(f"[WPROV] zarr_writer={_zw.__file__}", flush=True)
+                    print(f"[WPROV] video_codec={_vcf} enabled={_on} "
+                          f"CODEC={os.environ.get('EGOVERSE_IMAGE_CODEC')!r} "
+                          f"CRF={os.environ.get('EGOVERSE_VIDEO_CRF')!r}", flush=True)
+                    print(f"[WPROV] sys.path[:3]={_sys.path[:3]}", flush=True)
                     zarr_path, mp4_path = AriaRay.zarr_job(
                         raw_path=str(vrs_path),
                         output_dir=str(ds_parent),
@@ -357,6 +416,8 @@ class AriaRay(EmbodimentRay):
                         chunk_timesteps=chunk_timesteps,
                         image_compressed=image_compressed,
                         save_mp4=save_mp4,
+                        convert_mano=convert_mano,
+                        emit_fold_segments=emit_fold_segments,
                     )
                     frames = -1
                     zarr_store_path = zarr_path
@@ -402,6 +463,7 @@ class AriaRay(EmbodimentRay):
                             zarr_prefix=ds_s3_prefix,
                             mp4_key=mp4_s3_key,
                         )
+                        _assert_not_protected(out_bucket, ds_s3_prefix)
                         upload_dir_to_s3(
                             str(zarr_store_path), out_bucket, prefix=ds_s3_prefix
                         )
@@ -445,6 +507,8 @@ class AriaRay(EmbodimentRay):
         chunk_timesteps: int = 100,
         image_compressed: bool = False,
         save_mp4: bool = True,
+        convert_mano: bool = True,
+        emit_fold_segments: bool = False,
     ) -> None:
         args = SimpleNamespace(
             raw_path=raw_path,
@@ -456,6 +520,8 @@ class AriaRay(EmbodimentRay):
             chunk_timesteps=chunk_timesteps,
             image_compressed=image_compressed,
             save_mp4=save_mp4,
+            convert_mano=convert_mano,
+            emit_fold_segments=emit_fold_segments,
             debug=False,
         )
 
@@ -478,6 +544,10 @@ class EvaRay(EmbodimentRay):
         self.processed_remote_prefix = os.environ.get(
             "PROCESSED_REMOTE_PREFIX", "s3://rldb/processed_v3/eva"
         ).rstrip("/")
+        # Fail NOW, on every worker, if the output would land in production --
+        # not after download+convert+encode. Duplicate hashes mean the delete
+        # step would otherwise remove real public episodes.
+        _assert_not_protected("", self.processed_remote_prefix)
         self.bucket = os.environ.get("BUCKET", "rldb")
         self.resources_small = {"eva_small": 1}
         self.resources_big = {"eva_big": 1}
@@ -506,7 +576,7 @@ class EvaRay(EmbodimentRay):
                 "out_dir": str(self.processed_local_root),
                 "fps": 30,
                 "chunk_timesteps": 100,
-                "save_mp4": True,
+                "save_mp4": _env_bool("EGOVERSE_SAVE_MP4", True),
             }
             name = hdf5.stem
             yield name, args
@@ -631,6 +701,7 @@ class EvaRay(EmbodimentRay):
                             zarr_prefix=zarr_s3_key,
                             mp4_key=mp4_s3_key,
                         )
+                        _assert_not_protected(out_bucket, zarr_s3_key)
                         upload_dir_to_s3(
                             str(zarr_store_path), out_bucket, prefix=zarr_s3_key
                         )

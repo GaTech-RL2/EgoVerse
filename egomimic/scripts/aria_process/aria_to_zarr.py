@@ -59,6 +59,7 @@ class DatasetConverter:
         mano_lr: float = 0.05,
         mano_beta_reg: float = 0.01,
         mano_chunk_size: int = 512,
+        emit_fold_segments: bool = False,
     ):
         self.raw_path = raw_path if isinstance(raw_path, Path) else Path(raw_path)
         self.fps = fps
@@ -74,6 +75,7 @@ class DatasetConverter:
         self.mano_lr = mano_lr
         self.mano_beta_reg = mano_beta_reg
         self.mano_chunk_size = mano_chunk_size
+        self.emit_fold_segments = emit_fold_segments
 
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.setLevel(logging.INFO)
@@ -181,6 +183,9 @@ class DatasetConverter:
             chunk_timesteps=chunk_timesteps,
             intrinsics={"front_1": ARIA_INTRINSICS},
         )
+        if self.emit_fold_segments:
+            self._write_fold_segments(zarr_path, numeric_data)
+
         if self.save_mp4:
             mp4_path = output_dir / f"{episode_name}.mp4"
             images_tchw = np.asarray(image_data["images.front_1"]).transpose(0, 3, 1, 2)
@@ -188,6 +193,44 @@ class DatasetConverter:
         else:
             mp4_path = None
         return zarr_path, mp4_path
+
+
+    def _write_fold_segments(self, zarr_path, numeric_data):
+        """Derive fold spans from the head pose and store them as `fold_segments`.
+
+        Structural, not language: the key sits outside the `annotations*` glob so
+        the spans define training windows without entering the batch as text.
+        Non-fatal by design -- a segmentation failure must not lose a converted
+        episode, so it warns and leaves the key absent (exactly how an
+        unsegmented episode already looks downstream).
+        """
+        from egomimic.rldb.zarr.fold_segmenter import (
+            segment_head_pose,
+            spans_to_annotations,
+        )
+
+        head = numeric_data.get("obs_head_pose")
+        if head is None:
+            self.logger.warning("[FOLD_SEG] no obs_head_pose; skipping %s", zarr_path)
+            return
+        try:
+            res = segment_head_pose(head)
+            segs = res["segs"]
+            if not segs:
+                self.logger.warning("[FOLD_SEG] no spans for %s (%s)", zarr_path, res["info"])
+                return
+            ZarrWriter(episode_path=zarr_path, verbose=False).append_annotations(
+                annotation_key="fold_segments",
+                annotations=spans_to_annotations(segs),
+                mode="w",
+            )
+            self.logger.info(
+                "[FOLD_SEG] %d spans (raw %d, flagged=%s) -> %s",
+                len(segs), res["info"].get("n_raw", -1),
+                res["info"].get("flagged"), zarr_path,
+            )
+        except Exception as exc:  # noqa: BLE001 - never lose an episode over this
+            self.logger.warning("[FOLD_SEG] failed for %s: %s", zarr_path, exc)
 
 
 def main(args) -> None:
@@ -218,6 +261,7 @@ def main(args) -> None:
             mano_lr=getattr(args, "mano_lr", 0.05),
             mano_beta_reg=getattr(args, "mano_beta_reg", 0.01),
             mano_chunk_size=getattr(args, "mano_chunk_size", 512),
+            emit_fold_segments=getattr(args, "emit_fold_segments", False),
         )
 
         gc.collect()
@@ -321,6 +365,13 @@ def argument_parse():
     parser.add_argument("--mano-lr", type=float, default=0.05, help="MANO fit learning rate.")
     parser.add_argument(
         "--mano-beta-reg", type=float, default=0.01, help="L2 regularization on MANO shape betas."
+    )
+    parser.add_argument(
+        "--emit-fold-segments",
+        type=str2bool,
+        default=False,
+        help="Derive fold spans from obs_head_pose (SE(3) segmenter) and write them "
+        "to the zarr's `fold_segments` key. Opt-in; off leaves conversion unchanged.",
     )
     parser.add_argument(
         "--mano-chunk-size",
