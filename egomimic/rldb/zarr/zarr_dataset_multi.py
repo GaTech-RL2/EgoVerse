@@ -40,6 +40,7 @@ import zarr
 from tqdm import tqdm
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rldb.zarr._common import decode_jpeg_single, decode_jpeg_window
 
 # from action_chunk_transforms import Transform
 from egomimic.rldb.filters import DatasetFilter
@@ -1711,12 +1712,14 @@ class ZarrDataset(torch.utils.data.Dataset):
                 if zarr_key in self._image_keys:
                     jpeg_bytes = data[k]
                     try:
-                        decoded = simplejpeg.decode_jpeg(jpeg_bytes, colorspace="RGB")
+                        if horizon is not None and horizon > 1:
+                            data[k] = decode_jpeg_window(jpeg_bytes)
+                        else:
+                            data[k] = decode_jpeg_single(jpeg_bytes)
                     except Exception:
                         idx = _next("JPEG decode failed", key=k)
                         retry = True
                         break
-                    data[k] = np.transpose(decoded, (2, 0, 1)) / 255.0
                 elif zarr_key in self._json_keys:
                     if isinstance(data[k], np.ndarray):
                         data[k] = [self._decode_json_entry(v) for v in data[k]]
