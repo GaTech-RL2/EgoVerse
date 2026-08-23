@@ -73,8 +73,18 @@ RUN micromamba create -y -f /tmp/environment-robot-py311.yaml && \
 ENV PATH=/root/.local/share/mamba/envs/egomimic-py311/bin:$PATH
 SHELL ["micromamba", "run", "-n", "egomimic-py311", "/bin/bash", "-c"]
 
+# Install the large, stable Python dependency set before copying source code.
+# The temporary package carries the real project metadata but no application
+# modules; the source tree is installed editable in a later, cheap layer.
+WORKDIR /tmp/egomimic-deps
+COPY pyproject.toml /tmp/egomimic-deps/pyproject.toml
+RUN mkdir -p egomimic && \
+    touch egomimic/__init__.py && \
+    python -m pip install . && \
+    python -m pip install pybullet pybind11 h5py \
+        projectaria_client_sdk==2.0.0 pyrealsense2
+
 WORKDIR /home/robot/robot_ws
-# we need the source to build, so copy now
 COPY . /home/robot/robot_ws
 
 # The wheel is produced by scripts/build_arx5_py311_wheel.sh on Linux x86_64.
@@ -93,10 +103,9 @@ RUN echo 'alias wsbuild="cd /home/robot/robot_ws/egomimic/robot/eva/eva_ws && so
 
 WORKDIR /home/robot/robot_ws
 
-# 11) python deps (outside mamba, your original flow)
-RUN python -m pip install -e . && \
-    python -m pip install -e egomimic/robot/oculus_reader/. && \
-    python -m pip install pybullet pybind11 h5py
+# 11) install application source without re-resolving the cached dependencies
+RUN python -m pip install --no-deps -e . && \
+    python -m pip install -e egomimic/robot/oculus_reader/.
 
 # 13) camera / GUI libs + realsense (once)
 RUN apt-get update && \
@@ -109,10 +118,7 @@ RUN apt-get update && \
     libusb-1.0-0 \
     libegl1 \
     libegl1-mesa && \
-    rm -rf /var/lib/apt/lists/* && \
-    python -m pip install projectaria_client_sdk==1.1.0 && \
-    python -m pip uninstall -y opencv-python opencv-contrib-python && \
-    python -m pip install --no-cache-dir opencv-python-headless pyrealsense2
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/robot/robot_ws
 

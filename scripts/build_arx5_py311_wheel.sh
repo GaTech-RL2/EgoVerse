@@ -5,10 +5,6 @@ ARX5_COMMIT="a8890c9bae94464abd1cb7c5e4da7c4a62104a3a"
 OUTPUT_DIR="${1:-dist/arx5}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ "$(uname -s)" != "Linux" || "$(uname -m)" != "x86_64" ]]; then
-    echo "ARX5 production wheels must be built on Linux x86_64; current host is $(uname -s) $(uname -m)." >&2
-    exit 2
-fi
 if ! command -v docker >/dev/null 2>&1; then
     echo "Docker is required to build the manylinux ARX5 wheel." >&2
     exit 2
@@ -27,6 +23,7 @@ git -C "${BUILD_DIR}/arx5-sdk" apply \
     "${REPO_ROOT}/egomimic/robot/eva/arx5_patches/0001-wait-for-gripper-calibration-readback.patch"
 
 docker build \
+    --platform linux/amd64 \
     --file "${BUILD_DIR}/arx5-sdk/wheels/Dockerfile.single_ver_x86_64" \
     --build-arg PYTHON_VERSION=cp311-cp311 \
     --tag egomimic-arx5-py311 \
@@ -44,4 +41,8 @@ if [[ -z "${WHEEL}" ]]; then
     exit 1
 fi
 echo "Built ${WHEEL}"
-sha256sum "${WHEEL}"
+if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "${WHEEL}"
+else
+    shasum -a 256 "${WHEEL}"
+fi
