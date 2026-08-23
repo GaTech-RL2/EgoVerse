@@ -106,15 +106,15 @@ class ModelWrapper(LightningModule):
         self.log(
             "Timing/Forward_Pass_Sec",
             t2 - t1,
-            on_step=False,
-            on_epoch=True,
+            on_step=True,
+            on_epoch=False,
             sync_dist=True,
         )
         self.log(
             "Timing/Compute_Losses_Sec",
             t3 - t2,
-            on_step=False,
-            on_epoch=True,
+            on_step=True,
+            on_epoch=False,
             sync_dist=True,
         )
 
@@ -139,8 +139,12 @@ class ModelWrapper(LightningModule):
 
         info = {}
         info["losses"] = TensorUtils.detach(losses)
-        for k, v in self.model.log_info(info).items():
-            self.log("Train/" + k, v, sync_dist=True, on_step=False, on_epoch=True)
+        self.log_dict(
+            {"Train/" + k: v for k, v in self.model.log_info(info).items()},
+            sync_dist=True,
+            on_step=True,
+            on_epoch=False,
+        )
 
         return losses["action_loss"]
 
@@ -178,8 +182,12 @@ class ModelWrapper(LightningModule):
 
         if not grad_norm_flagged:
             self.grad_norm_history.append(grad_norm_val)
-        for k, v in info.items():
-            self.log("Train/" + k, v, on_step=False, on_epoch=True, sync_dist=True)
+        self.log_dict(
+            {"Train/" + k: v for k, v in info.items()},
+            on_step=True,
+            on_epoch=False,
+            sync_dist=True,
+        )
 
     def on_before_optimizer_step(self, optimizer):
         if not self.enable_grad_norm:
@@ -190,8 +198,8 @@ class ModelWrapper(LightningModule):
         self.log(
             "Train/policy_grad_norms_clipped",
             float(grad_norm),
-            on_step=False,
-            on_epoch=True,
+            on_step=True,
+            on_epoch=False,
             sync_dist=True,
         )
 
