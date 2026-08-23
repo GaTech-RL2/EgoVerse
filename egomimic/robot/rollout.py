@@ -94,21 +94,9 @@ def viz_rot_ee_pose(image, eepose, action_image_path, rot_image_path):
     return im_action, im_rot
 
 
-GRIPPER_WIDTH = 0.09
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
 QUERY_FREQUENCY = 30
-
-RIGHT_CAM_SERIAL = ""
-LEFT_CAM_SERIAL = ""
-
-EMBODIMENT_MAP = {
-    "both": 8,
-    "left": 7,
-    "right": 6,
-}
-
-TEMP_DIR = "/home/robot/temp_dir"
 
 
 def _build_robot_interface(arms_list, offline_debug=False, offline_episode_path=None):

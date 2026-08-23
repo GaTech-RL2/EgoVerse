@@ -61,6 +61,15 @@ docker build --platform linux/amd64 -t egomimic-eva:py311 .
 ./run_eva_docker.sh both
 ```
 
+The launcher exposes the full USB bus so RealSense, Quest, and Aria devices can
+re-enumerate without making a running container stale. It stores Aria pairing
+and streaming certificates in
+`${EVA_ARIA_AUTH_DIR:-~/.config/egomimic/aria}`, mounted at `/root/.aria` in
+the container. The directory is created with mode `0700`. The container is
+named `egomimic-eva-live` by default; override it with
+`EVA_ROLLOUT_CONTAINER`. A 512 MiB private shared-memory allocation avoids the
+FastDDS shared-memory fallback warning without exposing host IPC.
+
 The build pins Stanford SDK commit
 `a8890c9bae94464abd1cb7c5e4da7c4a62104a3a` and carries one reviewed local
 patch: a 200 ms wait before reading the gripper calibration result. Record the
@@ -73,10 +82,16 @@ docker run --rm --platform linux/amd64 --entrypoint /bin/bash \
   egomimic-eva:py311 -lc '
     python --version
     python -m pip check
+    command -v adb
     python -c "import arx5_interface, aria.sdk, pyrealsense2; import egomimic.robot.rollout"
     pytest -q tests
   '
 ```
+
+If Aria reports error 915 (`UsbNcmConnectionFailed`) while ADB and pairing still
+work, fully restart the glasses rather than only reconnecting USB. This can
+clear a stale device-side NetworkBoss service; no Aria network interface exists
+on the host until that service successfully enables USB NCM.
 
 The rollout and native ARX process are Python 3.11-only. ROS Humble on Ubuntu
 22.04 retains its distribution-owned Python 3.10 for optional ROS helper nodes;

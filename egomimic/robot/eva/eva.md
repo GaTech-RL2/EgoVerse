@@ -46,7 +46,8 @@ From your EgoVerse repo:
 ```bash
 cd path/to/your/EgoVerse/repo
 git pull        # or `gt sync`
-docker build -t robot-env:latest .
+./scripts/build_arx5_py311_wheel.sh
+docker build -t egomimic-eva:py311 .
 ```
 
 You only need to do this initially and whenever you pull/modify code.
@@ -80,6 +81,10 @@ With Aria connected to the companion app:
 ```bash
 aria auth pair
 ```
+
+Pairing persists on the host under `~/.config/egomimic/aria` by default, even
+though the interactive container is disposable. Set `EVA_ARIA_AUTH_DIR` before
+running `run_eva_docker.sh` to use a different host directory.
 
 ### 4.2. Check VR + Aria from host
 

@@ -97,7 +97,7 @@ SHELL ["/bin/bash", "-c"]
 # 10) Keep ROS's Python 3.10 paths out of the default rollout shell. ROS is
 # sourced only inside commands that actually build or run ROS-owned processes.
 RUN echo 'alias wsbuild="cd /home/robot/robot_ws/egomimic/robot/eva/eva_ws && source /opt/ros/humble/setup.bash && colcon build && source install/setup.bash"' >> /root/.bashrc && \
-    echo 'source /root/.local/share/mamba/etc/profile.d/micromamba.sh && micromamba activate egomimic-py311' >> /root/.bashrc && \
+    echo 'eval "$(micromamba shell hook --shell bash)" && micromamba activate egomimic-py311' >> /root/.bashrc && \
     echo 'alias rhome="cd /home/robot/robot_ws/egomimic/robot"' >> /root/.bashrc && \
     echo 'cd /home/robot/robot_ws' >> /root/.bashrc
 
@@ -117,7 +117,8 @@ RUN apt-get update && \
     libxrender1 \
     libusb-1.0-0 \
     libegl1 \
-    libegl1-mesa && \
+    libegl1-mesa \
+    adb && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /home/robot/robot_ws

@@ -47,6 +47,21 @@ def test_robot_launcher_uses_the_validated_python311_image():
     assert "robot-env:latest" not in source
 
 
+def test_robot_launcher_preserves_hotplugged_usb_and_aria_auth():
+    source = (ROOT / "run_eva_docker.sh").read_text()
+    assert "/dev/bus/usb:/dev/bus/usb" in source
+    assert 'c 189:* rmw' in source
+    assert "/root/.aria" in source
+    assert "/dev/aria_usb" not in source
+    assert "--shm-size" in source
+
+
+def test_robot_image_contains_runtime_shell_and_device_tools():
+    source = (ROOT / "Dockerfile").read_text()
+    assert "micromamba shell hook --shell bash" in source
+    assert "    adb &&" in source
+
+
 def test_checkpoint_target_dispatches_to_algorithm_class():
     checkpoint = {
         "hyper_parameters": {
