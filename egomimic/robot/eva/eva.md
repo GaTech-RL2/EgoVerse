@@ -162,6 +162,36 @@ python -m egomimic.robot.collect_demo \
 - Left / right triggers: engage robot motion  
 - Left / right front triggers: control gripper
 
+### 6.3. Gripper close calibration
+
+The direct Python collection and rollout paths map each normalized gripper
+command from `[0, 1]` into the `close` and `open` endpoints in
+`eva_ws/src/config/configs.yaml`: `0` is closed and `1` is open. Both X5A close
+endpoints are currently `-0.012 m` because the calibrated zero does not fully
+close these grippers. The application maps `1` to the calibrated YAML open
+endpoint, but the native X5 controller clips that command to its `0.088 m`
+maximum.
+
+The pinned Stanford wheel carries an X5-only command floor of `-0.012 m` and a
+measured-state emergency floor of `-0.017 m`, preserving 5 mm of feedback
+tolerance. Its velocity and torque protections remain active. The YAML is read
+once when `ARXInterface` starts, so restart collection after an edit. Edits
+inside the disposable container are not persisted: change the host YAML,
+rebuild the image, and recreate the container. A native-floor change also
+requires rebuilding the wheel before the image. Changing YAML alone cannot
+bypass the wheel's floor.
+
+The legacy calibration example's `--override-configs` option writes the
+nominal calibrated close value `0.0` and therefore erases the attended
+`-0.012 m` close offset. Do not use that option without restoring and
+revalidating the per-arm close endpoint.
+
+Validate one gripper at a time with the physical E-stop available before
+bimanual teleoperation. The optional ROS helper is outside this acceptance
+path: it reads the colcon install/share config, ignores these `gripper`
+endpoints, imports the legacy binding, and applies its own fixed `-0.018 m`
+offset.
+
 ---
 
 ## 7. Common errors

@@ -36,6 +36,11 @@ exception or normal exit commands the measured joint state and stops camera
 recorders. These are fail-closed rollout guards, not replacements for attended
 hardware testing or the controller's internal limits.
 
+Policy and teleoperation gripper values remain normalized: `0` is closed and
+`1` is open. The calibrated negative close offset exists only after
+`ARXInterface` converts that value into the hardware command space; do not
+change a model's gripper output range to include negative values.
+
 ## Laptop/offline setup
 
 ```bash
@@ -72,9 +77,13 @@ container and created with mode `0700`. The container is named
 fallback warning without exposing host IPC.
 
 The build pins Stanford SDK commit
-`a8890c9bae94464abd1cb7c5e4da7c4a62104a3a` and carries one reviewed local
-patch: a 200 ms wait before reading the gripper calibration result. Record the
-printed wheel SHA-256 with the deployed container digest.
+`a8890c9bae94464abd1cb7c5e4da7c4a62104a3a` and carries two reviewed local
+patches: a 200 ms wait before reading the gripper calibration result, and an
+X5-only `-0.012 m` command floor for the calibrated X5A grippers. The latter
+derives its measured-state emergency floor from the same constant with the
+upstream 5 mm tolerance (`-0.017 m`). Other Stanford model keys retain the
+upstream `0 m` floor, and velocity limiting plus torque protection are
+unchanged. Record the printed wheel SHA-256 with the deployed container digest.
 
 Validate the built image without touching hardware:
 

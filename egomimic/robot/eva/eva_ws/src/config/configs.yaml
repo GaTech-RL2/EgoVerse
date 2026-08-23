@@ -6,12 +6,14 @@ interfaces:
   right: can2
 ts_offset: 0.4
 gripper:
+  # Native meters: normalized 0 -> close and 1 -> open. The patched X5
+  # controller does not permit commands below -0.012 m.
   left:
     open: 0.09445506587172998
-    close: -0.008
+    close: -0.012
   right:
     open: 0.09594861425534644
-    close: -0.001
+    close: -0.012
 cameras:
   front_img_1:
     type: aria

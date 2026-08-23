@@ -1,0 +1,65 @@
+diff --git a/src/app/controller_base.cpp b/src/app/controller_base.cpp
+index 9ed5149..4bcf8a2 100644
+--- a/src/app/controller_base.cpp
++++ b/src/app/controller_base.cpp
+@@ -7,6 +7,18 @@
+ #include <sys/types.h>
+ using namespace arx;
+ 
++namespace
++{
++constexpr double kX5GripperPositionMinM = -0.012;
++constexpr double kGripperPositionToleranceM = 0.005;
++
++double gripper_position_min_m(const RobotConfig &robot_config)
++{
++    // EgoMimic's X5A hardware intentionally uses Stanford's X5 model key.
++    return robot_config.robot_model == "X5" ? kX5GripperPositionMinM : 0.0;
++}
++} // namespace
++
+ Arx5ControllerBase::Arx5ControllerBase(RobotConfig robot_config, ControllerConfig controller_config,
+                                        std::string interface_name)
+     : can_handle_(interface_name),
+@@ -320,15 +332,17 @@ void Arx5ControllerBase::check_joint_state_sanity_()
+             enter_emergency_state_();
+         }
+     }
+-    // Gripper should be around 0~robot_config_.gripper_width
+-    double gripper_width_tolerance = 0.005; // m
+-    if (joint_state_.gripper_pos < -gripper_width_tolerance ||
+-        joint_state_.gripper_pos > robot_config_.gripper_width + gripper_width_tolerance)
++    // The calibrated X5 closed position can be slightly negative. Keep the
++    // same 5 mm state tolerance below the accepted command floor.
++    const double gripper_position_min = gripper_position_min_m(robot_config_);
++    if (joint_state_.gripper_pos < gripper_position_min - kGripperPositionToleranceM ||
++        joint_state_.gripper_pos > robot_config_.gripper_width + kGripperPositionToleranceM)
+     {
+-        logger_->error("Gripper position error: got {:.3f} but should be in 0~{:.3f} (m). Please close the gripper "
++        logger_->error("Gripper position error: got {:.3f} but should be in {:.3f}~{:.3f} (m). Please close the gripper "
+                        "before turning on the arm; change robot_config.gripper_open_readout to a negative number (a "
+                        "common value is -3.4 for some recent robots); or recalibrate gripper home and width.",
+-                       joint_state_.gripper_pos, robot_config_.gripper_width);
++                       joint_state_.gripper_pos, gripper_position_min - kGripperPositionToleranceM,
++                       robot_config_.gripper_width + kGripperPositionToleranceM);
+         enter_emergency_state_();
+     }
+ }
+@@ -514,11 +528,13 @@ void Arx5ControllerBase::update_output_cmd_()
+     }
+ 
+     // Gripper pos clipping
+-    if (output_joint_cmd_.gripper_pos < 0)
++    const double gripper_position_min = gripper_position_min_m(robot_config_);
++    if (output_joint_cmd_.gripper_pos < gripper_position_min)
+     {
+-        if (output_joint_cmd_.gripper_pos < -0.005)
+-            logger_->debug("Gripper pos cmd clipped from {:.3f} to min: {:.3f}", output_joint_cmd_.gripper_pos, 0.0);
+-        output_joint_cmd_.gripper_pos = 0;
++        if (output_joint_cmd_.gripper_pos < gripper_position_min - kGripperPositionToleranceM)
++            logger_->debug("Gripper pos cmd clipped from {:.3f} to min: {:.3f}", output_joint_cmd_.gripper_pos,
++                           gripper_position_min);
++        output_joint_cmd_.gripper_pos = gripper_position_min;
+     }
+     else if (output_joint_cmd_.gripper_pos > robot_config_.gripper_width)
+     {

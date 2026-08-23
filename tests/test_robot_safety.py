@@ -1,7 +1,12 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
-from egomimic.robot.eva.eva_ws.src.eva.robot_interface import OfflineARXInterface
+from egomimic.robot.eva.eva_ws.src.eva.robot_interface import (
+    ARXInterface,
+    OfflineARXInterface,
+)
 from egomimic.robot.safety import (
     validate_action_vector,
     validate_cartesian_command,
@@ -31,6 +36,11 @@ def test_joint_command_enforces_gripper_limits_and_maximum_delta():
         )
     command = current.copy()
     command[6] = 1.1
+    with pytest.raises(ValueError, match="gripper"):
+        validate_joint_command(
+            command, current, -np.ones(6), np.ones(6), np.ones(6) * 0.2
+        )
+    command[6] = -1e-6
     with pytest.raises(ValueError, match="gripper"):
         validate_joint_command(
             command, current, -np.ones(6), np.ones(6), np.ones(6) * 0.2
@@ -69,3 +79,33 @@ def test_offline_home_resets_state_and_episode_cursor():
     for arm in ("left", "right"):
         np.testing.assert_array_equal(interface._joint_positions[arm], np.zeros(7))
         np.testing.assert_array_equal(interface._ee_pose[arm], np.zeros(7))
+
+
+def test_live_joint_command_maps_normalized_gripper_to_configured_endpoints():
+    sent = []
+    controller = SimpleNamespace(
+        get_joint_state=lambda: SimpleNamespace(timestamp=2.0),
+        set_joint_cmd=sent.append,
+    )
+    interface = ARXInterface.__new__(ARXInterface)
+    interface.controller = {"left": controller}
+    interface.arx_joint_state = lambda pos, vel, torque, timestamp: SimpleNamespace(
+        pos=pos,
+        vel=vel,
+        torque=torque,
+        timestamp=timestamp,
+    )
+    interface.gripper_close = {"left": -0.012}
+    configured_open = 0.09445506587172998
+    interface.gripper_width = {"left": configured_open + 0.012}
+    interface.ts_offset = 0.2
+    interface.validate_joints_command = lambda command, arm: np.asarray(command)
+
+    interface.set_joints(np.zeros(7), "left")
+    open_command = np.zeros(7)
+    open_command[6] = 1.0
+    interface.set_joints(open_command, "left")
+
+    assert len(sent) == 2
+    assert sent[0].gripper_pos == pytest.approx(-0.012)
+    assert sent[1].gripper_pos == pytest.approx(configured_open)

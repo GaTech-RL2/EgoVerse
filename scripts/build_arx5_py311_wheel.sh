@@ -20,7 +20,8 @@ trap cleanup EXIT
 git clone https://github.com/real-stanford/arx5-sdk.git "${BUILD_DIR}/arx5-sdk"
 git -C "${BUILD_DIR}/arx5-sdk" checkout --detach "${ARX5_COMMIT}"
 git -C "${BUILD_DIR}/arx5-sdk" apply \
-    "${REPO_ROOT}/egomimic/robot/eva/arx5_patches/0001-wait-for-gripper-calibration-readback.patch"
+    "${REPO_ROOT}/egomimic/robot/eva/arx5_patches/0001-wait-for-gripper-calibration-readback.patch" \
+    "${REPO_ROOT}/egomimic/robot/eva/arx5_patches/0002-allow-bounded-x5-negative-gripper-close.patch"
 
 docker build \
     --platform linux/amd64 \

@@ -69,8 +69,9 @@ class Robot_Interface(ABC):
         self.robot_config.eef_link_name = "link6"
         # Raise gripper torque limit so the torque protection (triggered at
         # gripper_torque_max/2) doesn't freeze the close command before the
-        # gripper reaches position zero.  Default 1.5 Nm gives only a 0.75 Nm
-        # threshold — lower than the ~1 Nm the motor draws closing from open.
+        # gripper reaches its configured closed position. Default 1.5 Nm gives
+        # only a 0.75 Nm threshold — lower than the ~1 Nm the motor draws
+        # closing from open.
         self.robot_config.gripper_torque_max = 4.0
 
         self.controller_config = (
