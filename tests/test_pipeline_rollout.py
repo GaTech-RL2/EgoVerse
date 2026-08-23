@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 import torch
 
 from egomimic.pipeline.algo import PipelineAlgo
@@ -137,3 +138,27 @@ def test_pipeline_algo_rollout_normalizes_raw_observation_exactly_once():
     )
     assert stats.normalize_calls == 1
     torch.testing.assert_close(prediction, torch.full((1, 1, 1), 2.0))
+
+
+def test_pipeline_policy_rejects_cadence_longer_than_action_horizon():
+    from types import SimpleNamespace
+
+    stats = _FakeNormStats()
+    algo = PipelineAlgo(
+        stages=[_RolloutStage()],
+        norm_stats=stats,
+        domains=["eva_bimanual"],
+        ac_keys={"eva_bimanual": "actions_cartesian"},
+        action_horizon=1,
+        device=torch.device("cpu"),
+    )
+    config = SimpleNamespace(
+        arm="both",
+        cartesian=True,
+        action_frame="base",
+        query_frequency=2,
+        annotation_path=None,
+        embodiment_id=get_embodiment_id("eva_bimanual"),
+    )
+    with pytest.raises(ValueError, match="action_horizon"):
+        algo.create_rollout_policy(config)

@@ -278,6 +278,11 @@ class Policy:
             )
         if config.action_frame != "base":
             raise ValueError("Pipeline actions use the canonical wrist-to-base codec")
+        if config.query_frequency > algo.action_horizon:
+            raise ValueError(
+                f"query_frequency={config.query_frequency} exceeds the trained "
+                f"action_horizon={algo.action_horizon}; this would hold a stale action"
+            )
         self.algo = algo
         self.config = config
         self.debug_actions = None

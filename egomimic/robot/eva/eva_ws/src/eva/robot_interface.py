@@ -10,6 +10,10 @@ from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.zarr.zarr_dataset_multi import ZarrDataset
 from egomimic.robot.backends.arx5 import Arx5Unavailable, load_arx5_api
 from egomimic.robot.eva.eva_kinematics import EvaMinkKinematicsSolver
+from egomimic.robot.safety import (
+    validate_cartesian_command,
+    validate_joint_command,
+)
 
 try:
     from stream_aria import AriaRecorder
@@ -119,16 +123,23 @@ class Robot_Interface(ABC):
 
 
 class ARXInterface(Robot_Interface):
+    MAX_TRANSLATION_STEP_M = 0.08
+    MAX_ROTATION_STEP_RAD = 0.50
+
     def __init__(self, arms):
         super().__init__()
 
         self.arms = arms
         self.controller = dict()
-        self._create_controllers(self.cfg)
-        self.__create_cam_recorders(self.cfg["cameras"])
-        self.kinematics_solver = EvaMinkKinematicsSolver(
-            model_path=_get_model_xml_path()
-        )
+        try:
+            self._create_controllers(self.cfg)
+            self.__create_cam_recorders(self.cfg["cameras"])
+            self.kinematics_solver = EvaMinkKinematicsSolver(
+                model_path=_get_model_xml_path()
+            )
+        except BaseException:
+            self.close()
+            raise
 
     def _create_controllers(self, cfg):
         interfaces_cfg = cfg.get("interfaces", {})
@@ -143,7 +154,6 @@ class ARXInterface(Robot_Interface):
             self.controller[arm] = self.arx_joint_controller(
                 self.robot_config, self.controller_config, selected_interface
             )
-            self.controller[arm].reset_to_home()
 
             gain = self.controller[arm].get_gain()
 
@@ -203,16 +213,22 @@ class ARXInterface(Robot_Interface):
                 raise ValueError("Invalid value in the config")
             self.camera_res[name] = (cam_cfg["height"], cam_cfg["width"])
 
-    def set_joints(self, desired_position, arm):
-        """
+    def validate_joints_command(self, desired_position, arm):
+        current = self.get_joints(arm)
+        max_delta = np.asarray(self.robot_config.joint_vel_max, dtype=np.float64)[
+            :6
+        ] * float(self.ts_offset)
+        return validate_joint_command(
+            desired_position,
+            current,
+            np.asarray(self.robot_config.joint_pos_min)[:6],
+            np.asarray(self.robot_config.joint_pos_max)[:6],
+            max_delta,
+        )
 
-        Args:
-            desired_position (np.array): 6 joints + gripper values (0 to 1)
-        """
-        if desired_position.shape != (7,):
-            raise ValueError(
-                "For Eva, desired position must be of shape (7,) for single arm"
-            )
+    def set_joints(self, desired_position, arm):
+        """Send six joint positions plus a normalized gripper command."""
+        desired_position = self.validate_joints_command(desired_position, arm)
 
         gripper_cmd = desired_position[6]
         desired_position = desired_position[:6]
@@ -242,12 +258,20 @@ class ARXInterface(Robot_Interface):
 
         self.controller[arm].set_joint_cmd(requested)
 
+    def validate_pose_command(self, pose, arm):
+        current_pose = np.concatenate(
+            [self.get_pose_6d(arm), [self.get_joints(arm)[6]]]
+        )
+        return validate_cartesian_command(
+            pose,
+            current_pose,
+            max_translation_step_m=self.MAX_TRANSLATION_STEP_M,
+            max_rotation_step_rad=self.MAX_ROTATION_STEP_RAD,
+        )
+
     # x,y,z,y,p,r
     def set_pose(self, pose, arm):
-        if pose.shape != (7,):
-            raise ValueError(
-                f"For Eva, target position must be of shape (7,), current shape: {pose.shape}"
-            )
+        pose = self.validate_pose_command(pose, arm)
         arm_joints = self.solve_ik(pose[:6], arm)
         joints = np.concatenate([arm_joints, [pose[6]]])
         self.set_joints(joints, arm)
@@ -346,6 +370,33 @@ class ARXInterface(Robot_Interface):
             self.set_joints(joints, arm)
             time.sleep(1)
             self.controller[arm].reset_to_home()
+
+    def hold_position(self):
+        """Command the measured state so an exit does not leave a stale target."""
+        for arm in self.controller:
+            current = self.get_joints(arm)
+            current[6] = np.clip(current[6], 0.0, 1.0)
+            self.set_joints(current, arm)
+
+    def close(self):
+        errors = []
+        for arm in self.controller:
+            try:
+                current = self.get_joints(arm)
+                current[6] = np.clip(current[6], 0.0, 1.0)
+                self.set_joints(current, arm)
+            except Exception as error:
+                errors.append(f"{arm} hold failed: {error}")
+        for name, recorder in getattr(self, "recorders", {}).items():
+            stop = getattr(recorder, "stop", None)
+            if stop is None:
+                continue
+            try:
+                stop()
+            except Exception as error:
+                errors.append(f"{name} stop failed: {error}")
+        if errors:
+            print("[robot] Cleanup warnings: " + "; ".join(errors))
 
 
 class OfflineARXInterface:
@@ -562,6 +613,12 @@ class OfflineARXInterface:
             self._joint_positions[arm] = np.zeros(7, dtype=np.float64)
             self._ee_pose[arm] = np.zeros(7, dtype=np.float64)
         self.frame_idx = 0
+
+    def hold_position(self):
+        return None
+
+    def close(self):
+        return None
 
 
 if __name__ == "__main__":

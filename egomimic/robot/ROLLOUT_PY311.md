@@ -21,6 +21,21 @@ checkpoint dispatch, and legacy EVA observation/action adaptation. Embodiment
 IDs are resolved through the canonical enum rather than duplicated in robot
 code.
 
+## Live safety gates
+
+Live policy rollout requires CUDA unless `--allow-cpu-policy` is explicitly
+passed for diagnostics. Controller construction does not home the robot. The
+first intervention prompt authorizes homing, followed by one shadow inference
+whose output is validated but never sent to the motors.
+
+Every command then passes application-level checks before the ARX controller:
+exact action shape, finite values, normalized gripper range, configured joint
+limits, a joint delta bounded by the controller's 200 ms preview window, an
+8 cm Cartesian translation bound, and a 0.5 rad Cartesian rotation bound. Any
+exception or normal exit commands the measured joint state and stops camera
+recorders. These are fail-closed rollout guards, not replacements for attended
+hardware testing or the controller's internal limits.
+
 ## Laptop/offline setup
 
 ```bash
@@ -43,6 +58,7 @@ Silicon with Colima's VZ/Rosetta support:
 ```bash
 ./scripts/build_arx5_py311_wheel.sh
 docker build --platform linux/amd64 -t egomimic-eva:py311 .
+./run_eva_docker.sh both
 ```
 
 The build pins Stanford SDK commit

@@ -14,6 +14,7 @@ import torch
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
 from egomimic.robot.robot_utils import RateLoop
+from egomimic.robot.safety import validate_action_vector
 from egomimic.rollout.policy import RolloutPolicyConfig, load_rollout_policy
 from egomimic.utils.viz_utils import draw_actions
 
@@ -207,13 +208,10 @@ def debug_policy(actions, front_img, step_i):
     im_viz = Eva.viz_transformed_batch(eva_viz_batch, mode="traj+rotation")
 
     cv2.imwrite(f"debug/debug_{step_i}.png", im_viz)
-    breakpoint()
 
 
 def reset_rollout(ri, policy):
     print("Resetting rollout: going home + clearing policy state")
-    if isinstance(policy, ReplayRollout):
-        return
     ri.set_home()
     if hasattr(policy, "reset"):
         policy.reset()
@@ -221,6 +219,31 @@ def reset_rollout(ri, policy):
         policy.actions = None
     if hasattr(policy, "debug_actions"):
         policy.debug_actions = None
+
+
+def validate_rollout_action(ri, actions, arms, arms_list, cartesian):
+    expected_dim = 14 if arms == "both" else 7
+    actions = validate_action_vector(actions, expected_dim)
+    for arm in arms_list:
+        offset = 7 if (arm == "right" and arms == "both") else 0
+        arm_action = actions[offset : offset + 7]
+        validator_name = (
+            "validate_pose_command" if cartesian else "validate_joints_command"
+        )
+        validator = getattr(ri, validator_name, None)
+        if validator is not None:
+            validator(arm_action, arm)
+    return actions
+
+
+def warmup_policy(ri, policy, arms, arms_list, cartesian):
+    """Run one observed inference and safety validation without commanding motors."""
+    print("[rollout] Running pre-motion shadow inference")
+    observation = ri.get_obs()
+    actions = policy.act(observation)
+    validate_rollout_action(ri, actions, arms, arms_list, cartesian)
+    policy.reset()
+    print("[rollout] Shadow inference passed; no command was sent")
 
 
 def main(
@@ -236,6 +259,7 @@ def main(
     offline_episode_path=None,
     annotation_path=None,
     action_frame="base",
+    allow_cpu_policy=False,
 ):
     if arms == "both":
         arms_list = ["right", "left"]
@@ -257,26 +281,33 @@ def main(
         offline_episode_path=offline_episode_path,
     )
 
-    if policy_path is not None:
-        rollout_type = "policy"
-        policy = load_rollout_policy(
-            policy_path,
-            RolloutPolicyConfig(
-                arm=arms,
-                query_frequency=query_frequency,
-                cartesian=cartesian,
-                resampled_action_len=resampled_action_len,
-                annotation_path=annotation_path,
-                action_frame=action_frame,
-            ),
-        )
-    elif dataset_path is not None:
-        rollout_type = "replay"
-        policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
-    else:
-        raise ValueError(
-            "Must provide either --policy-path or --dataset-path (and optionally --repo-id)."
-        )
+    try:
+        if policy_path is not None:
+            rollout_type = "policy"
+            policy = load_rollout_policy(
+                policy_path,
+                RolloutPolicyConfig(
+                    arm=arms,
+                    query_frequency=query_frequency,
+                    cartesian=cartesian,
+                    resampled_action_len=resampled_action_len,
+                    annotation_path=annotation_path,
+                    action_frame=action_frame,
+                    require_cuda=not offline_debug and not allow_cpu_policy,
+                ),
+            )
+        elif dataset_path is not None:
+            rollout_type = "replay"
+            policy = ReplayRollout(dataset_path=dataset_path, cartesian=cartesian)
+        else:
+            raise ValueError(
+                "Must provide either --policy-path or --dataset-path (and optionally --repo-id)."
+            )
+    except BaseException:
+        close = getattr(ri, "close", None)
+        if close is not None:
+            close()
+        raise
 
     print(f"Cartesian value {cartesian}")
 
@@ -330,14 +361,18 @@ def main(
 
     try:
         with _KeyPoll() as kp:
-            reset_rollout(ri, policy)
             # Enter intervention at startup so the user decides when to begin
+            print(
+                "[robot] Controllers are initialized without homing. "
+                "Continuing authorizes homing and shadow inference."
+            )
             result = _enter_intervention(kp, policy, rollout_type)
             if result == "quit":
                 print("Quit requested.")
                 return
-            if result == "restart":
-                reset_rollout(ri, policy)
+            reset_rollout(ri, policy)
+            if rollout_type == "policy":
+                warmup_policy(ri, policy, arms, arms_list, cartesian)
 
             while True:  # restartable
                 with RateLoop(frequency=frequency, verbose=True) as loop:
@@ -375,13 +410,15 @@ def main(
 
                         if actions is None:
                             print("Finish rollout.")
-                            reset_rollout(ri, policy)
                             result = _enter_intervention(kp, policy, rollout_type)
                             if result == "quit":
                                 return
-                            if result == "restart":
-                                reset_rollout(ri, policy)
+                            reset_rollout(ri, policy)
                             break
+
+                        actions = validate_rollout_action(
+                            ri, actions, arms, arms_list, cartesian
+                        )
 
                         if debug and rollout_type == "policy" and policy.just_queried:
                             debug_actions = policy.debug_actions
@@ -403,6 +440,10 @@ def main(
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected, exiting rollout.")
         return
+    finally:
+        close = getattr(ri, "close", None)
+        if close is not None:
+            close()
 
 
 def build_arg_parser(description="Rollout robot model."):
@@ -466,6 +507,11 @@ def build_arg_parser(description="Rollout robot model."):
         help="enable debug visualization of actions on images",
     )
     parser.add_argument(
+        "--allow-cpu-policy",
+        action="store_true",
+        help="allow live policy inference without CUDA (diagnostics only)",
+    )
+    parser.add_argument(
         "--annotation-path",
         type=str,
         help="path to the annotation file",
@@ -489,6 +535,7 @@ def run_from_args(args):
         offline_episode_path=args.offline_episode_path,
         annotation_path=args.annotation_path,
         action_frame=args.action_frame,
+        allow_cpu_policy=args.allow_cpu_policy,
     )
 
 

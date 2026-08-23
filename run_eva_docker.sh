@@ -2,6 +2,7 @@
 set -euo pipefail
 
 mode="${1:-}"
+image="${EVA_ROLLOUT_IMAGE:-egomimic-eva:py311}"
 
 if [[ "${mode}" != "left" && "${mode}" != "right" && "${mode}" != "both" ]]; then
   echo "Usage: $0 {left|right|both}"
@@ -24,6 +25,12 @@ case "${mode}" in
     ;;
 esac
 echo "Using CAN devices: ${CAN_DEVICES[*]}"
+for ((i = 1; i < ${#CAN_DEVICES[@]}; i += 2)); do
+  if [ ! -e "${CAN_DEVICES[$i]}" ]; then
+    echo "Error: required CAN device ${CAN_DEVICES[$i]} is missing."
+    exit 1
+  fi
+done
 
 # Collect all /dev/video* devices
 VIDEO_NODES=()
@@ -78,8 +85,11 @@ for p in "${RS_DEVICES[@]}"; do
   RS_DEVICE_ARGS+=(--device "${p}:${p}")
 done
 
+ARIA_DEVICE_ARGS=()
 if [ ! -e /dev/aria_usb ]; then
   echo "Warning: /dev/aria_usb not found; Aria passthrough may fail."
+else
+  ARIA_DEVICE_ARGS+=(--device /dev/aria_usb:/dev/aria_usb)
 fi
 
 echo
@@ -87,13 +97,14 @@ echo "Running docker with:"
 echo "  ${CAN_DEVICES[*]}"
 echo "  ${VIDEO_DEVICES[*]}"
 echo "  ${RS_DEVICE_ARGS[*]}"
-echo "  -v /dev/aria_usb:/dev/aria_usb"
+echo "  ${ARIA_DEVICE_ARGS[*]}"
+echo "  image: ${image}"
 echo
 
-docker run -it --network host \
-    --gpus all \
+docker run --rm -it --network host \
+  --gpus all \
   "${CAN_DEVICES[@]}" \
   "${VIDEO_DEVICES[@]}" \
   "${RS_DEVICE_ARGS[@]}" \
-  -v /dev/aria_usb:/dev/aria_usb \
-  robot-env:latest
+  "${ARIA_DEVICE_ARGS[@]}" \
+  "${image}"

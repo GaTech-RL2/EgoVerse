@@ -40,6 +40,7 @@ class RolloutPolicyConfig:
     resampled_action_len: int | None = None
     annotation_path: str | None = None
     action_frame: str = "base"
+    require_cuda: bool = False
 
     def __post_init__(self):
         if self.arm not in EMBODIMENT_NAME_BY_ARM:
@@ -92,6 +93,11 @@ def load_rollout_policy(checkpoint_path: str, config: RolloutPolicyConfig):
     print(f"[rollout] Loading policy from {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     algo_cls = _checkpoint_algo_class(checkpoint)
+    if config.require_cuda and not torch.cuda.is_available():
+        raise RuntimeError(
+            "Live policy rollout requires CUDA. Check Docker --gpus/device setup, "
+            "or pass --allow-cpu-policy only for an intentional diagnostic run."
+        )
     prepared_path = algo_cls.prepare_rollout_checkpoint(checkpoint_path)
     wrapper = ModelWrapper.load_from_checkpoint(
         prepared_path, weights_only=False, map_location="cpu"
@@ -111,8 +117,8 @@ def _report_model_device(algo) -> None:
     except StopIteration:
         return
     print(f"[rollout] Model device: {parameter.device}, dtype: {parameter.dtype}")
-    if torch.cuda.is_available() and not parameter.is_cuda:
-        print("[rollout] WARNING: model is not on GPU")
+    if not parameter.is_cuda:
+        print("[rollout] WARNING: model is running on CPU")
 
 
 def _ee_pose_to_rotated_frame(pose: np.ndarray) -> np.ndarray:
