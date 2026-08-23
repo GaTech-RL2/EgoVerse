@@ -88,6 +88,22 @@ class EvalVideo(Eval):
             self.val_counter[key] = 0
             self.val_image_buffer[key] = []
 
+    @staticmethod
+    def validate_metric_values(metrics: dict[str, torch.Tensor]) -> str:
+        """Reject non-finite evaluator output and return a compact scalar summary."""
+        non_finite = [
+            name for name, value in metrics.items() if not torch.isfinite(value).all()
+        ]
+        if non_finite:
+            raise FloatingPointError(
+                "Validation evaluator produced non-finite metrics: "
+                + ", ".join(sorted(non_finite))
+            )
+        return " ".join(
+            f"{name}={value.detach().float().mean().item():.6g}"
+            for name, value in sorted(metrics.items())
+        )
+
     def on_validation_step(self, batch, batch_idx, dataloader_idx=0):
         metrics, images_dict = self.compute_metrics_and_viz(batch)
 
@@ -96,6 +112,9 @@ class EvalVideo(Eval):
             k: (v.to(device) if torch.is_tensor(v) else torch.tensor(v, device=device))
             for k, v in metrics.items()
         }
+        metric_summary = self.validate_metric_values(metrics)
+        if self.trainer.is_global_zero:
+            print(f"[VAL_METRICS] {metric_summary}", flush=True)
 
         ## images is now a dict
         for key, images in images_dict.items():

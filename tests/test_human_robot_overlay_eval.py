@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 
 from egomimic.eval.human_robot_overlay_eval import HumanRobotOverlayEval
@@ -43,6 +44,18 @@ def test_metrics_score_the_full_unnormalized_denoised_chunk():
     assert metrics[f"{prefix}_squared_error_max"].item() == 4.0
     assert metrics[f"Valid/emb{emb_id}_{action_key}_copybaseline_mse"] == 0.0
     assert images == {}
+
+
+def test_validation_metric_gate_prints_finite_values_and_rejects_nan():
+    summary = HumanRobotOverlayEval.validate_metric_values(
+        {"Valid/action_mse": torch.tensor(1.25)}
+    )
+    assert summary == "Valid/action_mse=1.25"
+
+    with pytest.raises(FloatingPointError, match="Valid/action_mse"):
+        HumanRobotOverlayEval.validate_metric_values(
+            {"Valid/action_mse": torch.tensor(float("nan"))}
+        )
 
 
 def test_frame_limit_is_cumulative_across_validation_batches():
