@@ -1,0 +1,76 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Same episode roots and 98/2 episode split as the cotrain DP baseline. Unlike
+# DP's pooled replay, the two domain loaders are balanced per optimizer step.
+# The native reader respects metadata.total_frames and therefore excludes
+# fixed-array terminal padding that the historical DP stager accidentally
+# copied into its replay (9,609 repeated/sentinel circle frames).
+
+train_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/circle_3000_plus_gen_v2
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+      transform_list: null
+    mode: train
+    valid_ratio: 0.02
+    skip_bounds_check: true
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/small_circle_3000_v2sub
+      embodiment_override: pushshapes_sim_small_circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+      transform_list: null
+    mode: train
+    valid_ratio: 0.02
+    skip_bounds_check: true
+
+valid_datasets:
+  pushshapes_sim:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/circle_3000_plus_gen_v2
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+      transform_list: null
+    mode: valid
+    valid_ratio: 0.02
+    skip_bounds_check: true
+  pushshapes_sim_small_circle:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride
+      folder_path: /coc/flash7/paphiwetsa3/datasets/Tsim_v2/small_circle_3000_v2sub
+      embodiment_override: pushshapes_sim_small_circle
+      key_map:
+        _target_: egomimic.rldb.embodiment.pushshapes.get_keymap_hpt
+        action_horizon: 16
+      transform_list: null
+    mode: valid
+    valid_ratio: 0.02
+    skip_bounds_check: true
+
+train_dataloader_params:
+  pushshapes_sim: &train_loader
+    batch_size: 16
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 3
+  pushshapes_sim_small_circle: *train_loader
+valid_dataloader_params:
+  pushshapes_sim: &valid_loader
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+  pushshapes_sim_small_circle: *valid_loader

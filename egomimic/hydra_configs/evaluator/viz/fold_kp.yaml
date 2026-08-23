@@ -1,0 +1,27 @@
+# Action overlay for the KEYPOINTS robot-human fold cells (GT green / pred red).
+#
+# human_bimanual -> Aria, NOT Mecka. The existing viz/cartesian_human.yaml maps
+# human_bimanual to Mecka, whose VIZ_INTRINSICS_KEY is "mecka"
+# (MECKA_INTRINSICS) -- projecting Aria data through Mecka's calibration is the
+# documented ~1.8x mis-scale that makes overlays "look sus" with no error.
+#
+# Camera calibration comes from each episode's zarr.json through explicit
+# metadata keys; the renderer never assumes a global calibration.
+eva_bimanual:
+  _target_: egomimic.rldb.embodiment.eva.Eva.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_cartesian
+  mode: traj
+  intrinsics_batch_key: front_intrinsics
+  extrinsics_batch_keys:
+    left: left_camera_extrinsics
+    right: right_camera_extrinsics
+human_bimanual:
+  _target_: egomimic.rldb.embodiment.human.Human.viz_gt_preds
+  _partial_: true
+  image_key: front_img_1
+  action_key: actions_keypoints
+  mode: keypoint_traj
+  keypoint_layout: aria
+  intrinsics_batch_key: front_intrinsics

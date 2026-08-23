@@ -25,6 +25,9 @@ class EMBODIMENT(Enum):
     EVA_RIGHT_ARM = 4
     EVA_LEFT_ARM = 5
     EVA_BIMANUAL = 6
+    # Established simulator IDs used by datasets, checkpoints, and eval jobs.
+    PUSHSHAPES_SIM = 15
+    PUSHSHAPES_SIM_SMALL_CIRCLE = 17
 
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
