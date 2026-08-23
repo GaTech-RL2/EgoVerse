@@ -165,13 +165,13 @@ class DP3PointNetEncoder(nn.Module):
         if x.dim() == 4:
             B, T, I, D = x.shape
             N_frames = T * I
-            pc = x.reshape(B * N_frames, -1, self.in_dim)
-        elif x.dim() == 3 and x.shape[-1] == self.in_dim:
+            pc = x.reshape(B * N_frames, -1, getattr(self, "in_dim", 3))
+        elif x.dim() == 3 and x.shape[-1] == getattr(self, "in_dim", 3):
             B, N_frames = x.shape[0], 1
             pc = x
         elif x.dim() == 2:
             B, N_frames = x.shape[0], 1
-            pc = x.reshape(B, -1, self.in_dim)
+            pc = x.reshape(B, -1, getattr(self, "in_dim", 3))
         else:
             raise ValueError(f"Unsupported input shape {tuple(x.shape)}")
 
