@@ -52,6 +52,8 @@ def test_robot_launcher_preserves_hotplugged_usb_and_aria_auth():
     assert "/dev/bus/usb:/dev/bus/usb" in source
     assert 'c 189:* rmw' in source
     assert "/root/.aria" in source
+    assert "/home/robot/robot_ws/external_ckpts,readonly" in source
+    assert "EVA_CHECKPOINT_DIR" in source
     assert "/dev/aria_usb" not in source
     assert "--shm-size" in source
 

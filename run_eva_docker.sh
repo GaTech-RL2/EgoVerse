@@ -5,6 +5,8 @@ mode="${1:-}"
 image="${EVA_ROLLOUT_IMAGE:-egomimic-eva:py311}"
 container_name="${EVA_ROLLOUT_CONTAINER:-egomimic-eva-live}"
 shm_size="${EVA_ROLLOUT_SHM_SIZE:-512m}"
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+checkpoint_dir="${EVA_CHECKPOINT_DIR:-${repo_root}/external_ckpts}"
 
 if [ -n "${EVA_ARIA_AUTH_DIR:-}" ]; then
   aria_auth_dir="${EVA_ARIA_AUTH_DIR}"
@@ -109,12 +111,22 @@ ARIA_AUTH_ARGS=(
   --mount "type=bind,source=${aria_auth_dir},target=/root/.aria"
 )
 
+# Checkpoints are too large for the image and must survive container
+# recreation. Keep the host directory gitignored and expose it read-only to
+# the robot runtime.
+install -d -m 0755 "${checkpoint_dir}"
+checkpoint_dir="$(cd -- "${checkpoint_dir}" && pwd -P)"
+CHECKPOINT_ARGS=(
+  --mount "type=bind,source=${checkpoint_dir},target=/home/robot/robot_ws/external_ckpts,readonly"
+)
+
 echo
 echo "Running docker with:"
 echo "  ${CAN_DEVICES[*]}"
 echo "  ${VIDEO_DEVICES[*]}"
 echo "  ${USB_DEVICE_ARGS[*]}"
 echo "  Aria auth: ${aria_auth_dir}"
+echo "  checkpoints: ${checkpoint_dir} (read-only)"
 echo "  shared memory: ${shm_size}"
 echo "  container: ${container_name}"
 echo "  image: ${image}"
@@ -127,4 +139,5 @@ docker run --rm -it --name "${container_name}" --network host \
   "${VIDEO_DEVICES[@]}" \
   "${USB_DEVICE_ARGS[@]}" \
   "${ARIA_AUTH_ARGS[@]}" \
+  "${CHECKPOINT_ARGS[@]}" \
   "${image}"

@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 import random
@@ -54,18 +55,24 @@ class PI(Algo):
     )
 
     @classmethod
-    def prepare_rollout_checkpoint(cls, checkpoint_path):
+    def prepare_rollout_checkpoint(cls, checkpoint_path, checkpoint=None):
         """Point the serialized PI config at the robot-local base weights."""
         from omegaconf import DictConfig, OmegaConf
 
-        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        if checkpoint is None:
+            checkpoint = torch.load(
+                checkpoint_path,
+                map_location="cpu",
+                weights_only=False,
+                mmap=True,
+            )
         tree = checkpoint.get("hyper_parameters", {}).get("config_tree")
         if tree is None:
             return checkpoint_path
         config = (
             OmegaConf.to_container(tree, resolve=True)
             if isinstance(tree, DictConfig)
-            else tree
+            else copy.deepcopy(tree)
         )
         pi_config = config.get("model", {}).get("robomimic_model", {}).get("config", {})
         old_path = pi_config.get("pytorch_weight_path")

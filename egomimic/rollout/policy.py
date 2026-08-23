@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import os
 import time
 from dataclasses import dataclass
@@ -91,14 +92,24 @@ def load_rollout_policy(checkpoint_path: str, config: RolloutPolicyConfig):
     from egomimic.pl_utils.pl_model import ModelWrapper
 
     print(f"[rollout] Loading policy from {checkpoint_path}")
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    checkpoint = torch.load(
+        checkpoint_path,
+        map_location="cpu",
+        weights_only=False,
+        mmap=True,
+    )
     algo_cls = _checkpoint_algo_class(checkpoint)
     if config.require_cuda and not torch.cuda.is_available():
         raise RuntimeError(
             "Live policy rollout requires CUDA. Check Docker --gpus/device setup, "
             "or pass --allow-cpu-policy only for an intentional diagnostic run."
         )
-    prepared_path = algo_cls.prepare_rollout_checkpoint(checkpoint_path)
+    prepared_path = algo_cls.prepare_rollout_checkpoint(
+        checkpoint_path,
+        checkpoint=checkpoint,
+    )
+    del checkpoint
+    gc.collect()
     wrapper = ModelWrapper.load_from_checkpoint(
         prepared_path, weights_only=False, map_location="cpu"
     )

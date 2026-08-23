@@ -7,8 +7,13 @@ class Algo:
         pass
 
     @classmethod
-    def prepare_rollout_checkpoint(cls, checkpoint_path):
-        """Return a loadable checkpoint path after algorithm-specific preparation."""
+    def prepare_rollout_checkpoint(cls, checkpoint_path, checkpoint=None):
+        """Return a loadable checkpoint path after algorithm-specific preparation.
+
+        ``load_rollout_policy`` supplies its already-loaded checkpoint so an
+        algorithm does not need to deserialize a multi-gigabyte file twice.
+        Implementations may ignore it when no migration is required.
+        """
         return checkpoint_path
 
     def create_rollout_policy(self, config):

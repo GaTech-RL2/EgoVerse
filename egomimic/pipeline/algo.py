@@ -42,6 +42,18 @@ class PipelineAlgo(Algo):
     every ``loss/*`` value produced by explicit loss nodes.
     """
 
+    @classmethod
+    def prepare_rollout_checkpoint(cls, checkpoint_path, checkpoint=None):
+        """Migrate the one verified pre-consolidation Fold graph, if present."""
+        from egomimic.pipeline.checkpoint_compat import (
+            prepare_legacy_fold_rollout_checkpoint,
+        )
+
+        return prepare_legacy_fold_rollout_checkpoint(
+            checkpoint_path,
+            checkpoint=checkpoint,
+        )
+
     def __init__(
         self,
         stages: Iterable[Stage],

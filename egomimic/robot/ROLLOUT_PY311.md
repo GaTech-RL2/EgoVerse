@@ -21,6 +21,60 @@ checkpoint dispatch, and legacy EVA observation/action adaptation. Embodiment
 IDs are resolved through the canonical enum rather than duplicated in robot
 code.
 
+## Pinned Fold 28-to-100 checkpoint
+
+The rollout artifact below is an immutable copy of the pre-consolidation Fold
+Diffusion Policy checkpoint at epoch 3 / global step 133665. Its provenance is:
+
+- Training config:
+  `/coc/flash7/paphiwetsa3/experiments/rh_fold_speed28_20260821/source/egomimic_stack/egomimic/hydra_configs/experiment/fold/rh/dn_single_cart.yaml`
+- Source checkpoint at capture time:
+  `/coc/flash7/paphiwetsa3/experiments/rh_fold_speed28_20260821/source/egomimic_stack/logs/rh_fold_dp_wrist/dn_single_cart_h28to100_2026-08-21_21-47-00/checkpoints/last.ckpt`
+- SHA-256:
+  `f2052d92e0296e6d1a6bb7e2c1ddbc7756d5d192fe6ed9b7291d1eb547af211e`
+- Immutable container source:
+  `/home/robot/robot_ws/external_ckpts/fold28to100/dn_single_cart_h28to100_step133665_epoch3.source.ckpt`
+- Stripped rollout artifact:
+  `/home/robot/robot_ws/external_ckpts/fold28to100/dn_single_cart_h28to100_step133665_epoch3.rollout.ckpt`
+- Rollout-artifact SHA-256:
+  `94487041b570d9299f352dd12def55e4c3553f24605cbeea4fad3763e380de4e`
+
+The training run can rewrite both `last.ckpt` and an epoch-named checkpoint
+when it resumes within that epoch. Treat the step-numbered local copy plus its
+SHA as immutable; do not rely on either run-directory alias remaining stable.
+The compatibility loader is intentionally limited to this pre-consolidation
+Pipeline schema: it restores the serialized Fold stage
+classes needed for strict weight loading, without making the deleted legacy
+Pipeline modules an active second stack. It retains both saved model branches
+for strict loading, remaps the saved normalization IDs from EVA bimanual `8`
+to canonical ID `6` and human bimanual `18` to canonical ID `3`, and exposes
+only the EVA branch to live rollout.
+
+The launcher bind-mounts the gitignored host `external_ckpts/` directory
+read-only at `/home/robot/robot_ws/external_ckpts`, so checkpoints persist
+across container recreation without being copied into the Docker image. Set
+`EVA_CHECKPOINT_DIR` only when that host directory intentionally lives outside
+the repository.
+
+The saved policy uses a 100-step DDIM sampling schedule and emits a 100-action
+chunk. The rollout artifact passed strict loading of all 335,564,596 model
+parameters on CUDA and a no-hardware synthetic observation-to-command shadow
+test. That test produced a finite `(100, 20)` normalized action chunk and a
+finite 14-D decoded EVA command in 0.667 seconds; it did not initialize or
+command the robot. Run it from inside the live container with:
+
+```bash
+python -m egomimic.robot.rollout \
+  --arms both \
+  --cartesian \
+  --policy-path /home/robot/robot_ws/external_ckpts/fold28to100/dn_single_cart_h28to100_step133665_epoch3.rollout.ckpt \
+  --query_frequency 30
+```
+
+Do not pass `--resampled-action-len`; this checkpoint already has its trained
+100-action chunk. The shadow gate proves software compatibility and finite
+decoding only; it is not a physical-motion safety acceptance.
+
 ## Live safety gates
 
 Live policy rollout requires CUDA unless `--allow-cpu-policy` is explicitly
@@ -37,9 +91,12 @@ recorders. These are fail-closed rollout guards, not replacements for attended
 hardware testing or the controller's internal limits.
 
 Policy and teleoperation gripper values remain normalized: `0` is closed and
-`1` is open. The calibrated negative close offset exists only after
-`ARXInterface` converts that value into the hardware command space; do not
-change a model's gripper output range to include negative values.
+`1` is open. Only after `ARXInterface` denormalizes that command does closed
+become the native `-0.012 m` X5A endpoint. Do not change a model's gripper
+output range to include negative values. Running the Stanford
+`calibrate.py --override-configs` path writes the nominal `0.0 m` close value
+and erases this attended offset; restore and revalidate `-0.012 m` before
+restarting collection or rollout.
 
 ## Laptop/offline setup
 

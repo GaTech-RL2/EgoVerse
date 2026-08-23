@@ -164,13 +164,14 @@ python -m egomimic.robot.collect_demo \
 
 ### 6.3. Gripper close calibration
 
-The direct Python collection and rollout paths map each normalized gripper
-command from `[0, 1]` into the `close` and `open` endpoints in
-`eva_ws/src/config/configs.yaml`: `0` is closed and `1` is open. Both X5A close
-endpoints are currently `-0.012 m` because the calibrated zero does not fully
-close these grippers. The application maps `1` to the calibrated YAML open
-endpoint, but the native X5 controller clips that command to its `0.088 m`
-maximum.
+The direct Python collection and rollout paths keep each gripper command
+normalized at the policy/application boundary: `0` is closed and `1` is open.
+Only `ARXInterface` denormalizes that value into the `close` and `open`
+endpoints in `eva_ws/src/config/configs.yaml`. Both X5A close endpoints are
+currently `-0.012 m` because the calibrated zero does not fully close these
+grippers. The application maps `1` to the calibrated YAML open endpoint, but
+the native X5 controller clips that command to its `0.088 m` maximum. Never
+emit `-0.012` from a policy; it is a native post-denormalization endpoint.
 
 The pinned Stanford wheel carries an X5-only command floor of `-0.012 m` and a
 measured-state emergency floor of `-0.017 m`, preserving 5 mm of feedback
@@ -181,10 +182,10 @@ rebuild the image, and recreate the container. A native-floor change also
 requires rebuilding the wheel before the image. Changing YAML alone cannot
 bypass the wheel's floor.
 
-The legacy calibration example's `--override-configs` option writes the
-nominal calibrated close value `0.0` and therefore erases the attended
-`-0.012 m` close offset. Do not use that option without restoring and
-revalidating the per-arm close endpoint.
+The legacy `calibrate.py --override-configs` path writes the nominal calibrated
+close value `0.0 m` and therefore erases the attended `-0.012 m` close offset.
+Do not use that option without restoring and revalidating the per-arm close
+endpoint.
 
 Validate one gripper at a time with the physical E-stop available before
 bimanual teleoperation. The optional ROS helper is outside this acceptance
