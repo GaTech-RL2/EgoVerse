@@ -524,3 +524,14 @@ def _build_eva_bimanual_transform_list(
         ]
     )
     return transform_list
+
+
+def build_fold_cartesian_wristframe_revert_transform_list(
+    *, action_key="actions_cartesian", state_key="state_ee_pose"
+):
+    """Re-express Fold's 20-D wrist-frame action in the robot base frame."""
+    from egomimic.rldb.embodiment.fold_span_transforms import (
+        build_bimanual_rot6d_wrist_revert_transforms,
+    )
+
+    return build_bimanual_rot6d_wrist_revert_transforms(action_key, state_key)

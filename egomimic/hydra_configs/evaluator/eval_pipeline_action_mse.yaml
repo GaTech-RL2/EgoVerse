@@ -1,0 +1,6 @@
+_target_: egomimic.eval.human_robot_overlay_eval.HumanRobotOverlayEval
+limit_val_batches: 8
+viz_func: null
+transform_lists: {}
+frame_stride: 1
+max_frames: 0

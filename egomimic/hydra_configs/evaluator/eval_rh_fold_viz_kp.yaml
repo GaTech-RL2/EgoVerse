@@ -1,0 +1,21 @@
+# Action-overlay eval for the robot-human fold kp cells (GT green / pred red).
+#
+# HumanRobotOverlayEval, not HNetEvalVideo: the latter assumes per-frame padded
+# predictions and silently skips PipelineAlgo's chunked output, producing an
+# empty videos/ dir at exit 0. See eval/core/human_robot_overlay_eval.py.
+# Fold has NO simulator, so this is teacher-forced overlay + chunk MSE.
+defaults:
+  - viz@viz_func: fold_kp
+  - _self_
+
+_target_: egomimic.eval.human_robot_overlay_eval.HumanRobotOverlayEval
+transform_lists:
+  eva_bimanual:
+    _target_: egomimic.rldb.embodiment.eva.build_fold_cartesian_wristframe_revert_transform_list
+  human_bimanual:
+    _target_: egomimic.rldb.embodiment.human.build_fold_keypoint_wristframe_revert_transform_list
+limit_val_batches: 2
+chunk_len: 100
+image_key: front_img_1
+frame_stride: 10
+max_frames: 120
