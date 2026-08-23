@@ -11,18 +11,35 @@ import cv2
 import h5py
 import numpy as np
 import torch
-from egomimic.robot.robot_utils import RateLoop
 from scipy.spatial.transform import Rotation as R
 from torch.utils.data import default_collate
 
 from egomimic.models.denoising_policy import DenoisingPolicy
+from egomimic.pipeline.algo import PipelineAlgo
 from egomimic.pl_utils.pl_model import ModelWrapper
 from egomimic.rldb.embodiment.embodiment import get_embodiment
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
-from egomimic.utils.pose_utils import cam_frame_to_base_frame, interpolate_arr, interpolate_arr_euler
+from egomimic.robot.robot_utils import RateLoop
+from egomimic.rollout.core import RolloutPipeline
+from egomimic.rollout.eva import (
+    EvaActionCodec,
+    EvaObservationCodec,
+    EvaObservationWindow,
+)
+from egomimic.rollout.nodes import (
+    ActionDequeue,
+    ChunkCommit,
+    ObsCadence,
+    PolicyStep,
+)
+from egomimic.utils.pose_utils import (
+    cam_frame_to_base_frame,
+    interpolate_arr,
+    interpolate_arr_euler,
+    xyzw_to_wxyz,
+)
 from egomimic.utils.viz_utils import draw_actions
-from egomimic.utils.pose_utils import xyzw_to_wxyz
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 
@@ -144,7 +161,6 @@ GRIPPER_WIDTH = 0.09
 # Control parameters
 DEFAULT_FREQUENCY = 30  # Hz
 QUERY_FREQUENCY = 30
-DEFAULT_RESAMPLE_LENGTH = 45
 
 RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
@@ -238,6 +254,7 @@ class PolicyRollout(Rollout):
         resampled_action_len=None,
         debug=False,
         annotation_path=None,
+        action_frame="base",
     ):
         super().__init__()
         self.arm = arm
@@ -253,6 +270,13 @@ class PolicyRollout(Rollout):
         self.policy = self._load_policy()
         self.debug_actions = None
         self.resampled_action_len = resampled_action_len
+        # Pipeline checkpoints use their canonical wrist-frame codec and always
+        # produce base-frame robot commands. This option remains for legacy
+        # checkpoints whose frame convention was encoded outside the model.
+        if action_frame not in ("base", "cam"):
+            raise ValueError(f"action_frame must be base|cam, got {action_frame!r}")
+        self.action_frame = action_frame
+        print(f"[rollout] action_frame={self.action_frame}")
         self.debug = debug
         self.transform_list = Eva.get_transform_list(mode="cartesian_wristframe_ypr")
         self.annotation = None
@@ -266,6 +290,47 @@ class PolicyRollout(Rollout):
             else:
                 with open(annotation_path, "r") as f:
                     self.annotation = f.read().strip()
+        self.rollout_pipeline = self._build_pipeline_rollout()
+        self.rollout_state = (
+            self.rollout_pipeline.reset() if self.rollout_pipeline is not None else None
+        )
+
+    def _build_pipeline_rollout(self):
+        algo = self.policy.model
+        if not isinstance(algo, PipelineAlgo):
+            return None
+        if self.arm != "both":
+            raise ValueError(
+                "The consolidated Fold Pipeline checkpoint is bimanual; use "
+                "--arms both."
+            )
+        if not self.cartesian:
+            raise ValueError(
+                "The consolidated Fold Pipeline checkpoint emits Cartesian actions; "
+                "pass --cartesian."
+            )
+        if self.action_frame != "base":
+            raise ValueError(
+                "Pipeline Fold actions are decoded from the learned wrist frame "
+                "to the robot base frame by the rollout codec; --action-frame cam "
+                "is only valid for legacy checkpoints."
+            )
+        print("[rollout] Using PipelineAlgo observation/action codecs")
+        return RolloutPipeline(
+            [
+                EvaObservationWindow(n_obs_steps=2),
+                ObsCadence(mode="every_n", every_n=self.query_frequency),
+                EvaObservationCodec(),
+                PolicyStep(algo, "eva_bimanual"),
+                ChunkCommit(n_keep=self.query_frequency),
+                ActionDequeue(on_empty="hold"),
+                EvaActionCodec(
+                    algo.norm_stats,
+                    self.embodiment_id,
+                    ac_key=algo.ac_keys["eva_bimanual"],
+                ),
+            ]
+        )
 
     LOCAL_WEIGHT_PATH = (
         "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
@@ -359,6 +424,15 @@ class PolicyRollout(Rollout):
         return out.astype(np.float32, copy=False)
 
     def rollout_step(self, i, obs):
+        if self.rollout_pipeline is not None:
+            if int(self.rollout_state["t"]) != int(i):
+                raise RuntimeError(
+                    f"Rollout step desynchronized: state={self.rollout_state['t']} "
+                    f"caller={i}"
+                )
+            self.rollout_state = self.rollout_pipeline.step(self.rollout_state, obs)
+            self.debug_actions = self.rollout_state.get("chunk")
+            return self.rollout_state["command"]
         if i % self.query_frequency == 0:
             start_infer_t = time.time()
             transform_list_batch = self.process_obs_for_transform_list(obs)
@@ -386,14 +460,22 @@ class PolicyRollout(Rollout):
                     left_actions = self.actions[:, :7]
                     right_actions = self.actions[:, 7:]
 
-                    transformed_left = cam_frame_to_base_frame(
-                        left_actions[:, :6].copy(), self.extrinsics["left"]
-                    )
-                    transformed_right = cam_frame_to_base_frame(
-                        right_actions[:, :6].copy(), self.extrinsics["right"]
-                    )
-                    transformed_left = rot_ee_frame_to_ee_pose_batch(transformed_left)
-                    transformed_right = rot_ee_frame_to_ee_pose_batch(transformed_right)
+                    if self.action_frame == "cam":
+                        transformed_left = cam_frame_to_base_frame(
+                            left_actions[:, :6].copy(), self.extrinsics["left"]
+                        )
+                        transformed_right = cam_frame_to_base_frame(
+                            right_actions[:, :6].copy(), self.extrinsics["right"]
+                        )
+                        transformed_left = rot_ee_frame_to_ee_pose_batch(
+                            transformed_left
+                        )
+                        transformed_right = rot_ee_frame_to_ee_pose_batch(
+                            transformed_right
+                        )
+                    else:  # base: already absolute base-frame, nothing to undo
+                        transformed_left = left_actions[:, :6].copy()
+                        transformed_right = right_actions[:, :6].copy()
                     gripper_left = left_actions[:, 6:7]
                     gripper_right = right_actions[:, 6:7]
                     if left_actions.shape[1] == 7:
@@ -406,11 +488,16 @@ class PolicyRollout(Rollout):
                         right_actions = transformed_right
                     self.actions = np.hstack([left_actions, right_actions])
                 else:
-                    eepose = rot_ee_frame_to_ee_pose_batch(self.actions[:, :6].copy())
-                    self.actions[:, :6] = eepose
-                    transformed_6dof = cam_frame_to_base_frame(
-                        self.actions[:, :6].copy(), self.extrinsics[self.arm]
-                    )
+                    if self.action_frame == "cam":
+                        eepose = rot_ee_frame_to_ee_pose_batch(
+                            self.actions[:, :6].copy()
+                        )
+                        self.actions[:, :6] = eepose
+                        transformed_6dof = cam_frame_to_base_frame(
+                            self.actions[:, :6].copy(), self.extrinsics[self.arm]
+                        )
+                    else:  # base: already absolute base-frame
+                        transformed_6dof = self.actions[:, :6].copy()
                     # Preserve gripper if present (7th value)
                     gripper = self.actions[:, 6:7]
                     if self.actions.shape[1] == 7:
@@ -526,6 +613,8 @@ class PolicyRollout(Rollout):
     def reset(self):
         self.actions = None
         self.debug_actions = None
+        if self.rollout_pipeline is not None:
+            self.rollout_state = self.rollout_pipeline.reset()
         self.policy.eval()
 
 
@@ -776,6 +865,14 @@ def build_arg_parser(description="Rollout robot model."):
         default=QUERY_FREQUENCY,
         help="Frames which model does inference",
     )
+    parser.add_argument(
+        "--action-frame",
+        type=str,
+        default="base",
+        choices=["base", "cam"],
+        help="Legacy-checkpoint frame convention. Pipeline Fold checkpoints "
+        "always use their canonical wrist-frame-to-base-frame codec.",
+    )
     parser.add_argument("--policy-path", type=str, help="policy checkpoint path")
     parser.add_argument("--dataset-path", type=str, help="dataset path for replay")
     parser.add_argument(
@@ -796,8 +893,9 @@ def build_arg_parser(description="Rollout robot model."):
     parser.add_argument(
         "--resampled-action-len",
         type=int,
-        default=DEFAULT_RESAMPLE_LENGTH,
-        help="Resample each predicted action chunk to this length (e.g., 100 -> 45). Euler if --cartesian.",
+        default=None,
+        help="Legacy checkpoints only: resample each predicted action chunk to "
+        "this length. Pipeline checkpoints retain their trained horizon.",
     )
     parser.add_argument(
         "--debug",
@@ -813,7 +911,8 @@ def build_arg_parser(description="Rollout robot model."):
 
 
 def run_from_args(args):
-    print(f"Resampling actions to {args.resampled_action_len}")
+    if args.resampled_action_len is not None:
+        print(f"Resampling legacy actions to {args.resampled_action_len}")
     return main(
         arms=args.arms,
         frequency=args.frequency,

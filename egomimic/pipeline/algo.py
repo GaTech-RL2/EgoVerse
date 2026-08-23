@@ -95,7 +95,9 @@ class PipelineAlgo(Algo):
                 )
             self.resolved_ac_keys[emb_id] = requested
 
-    def _prepare_loader_batch(self, batch: dict, emb_id: int) -> dict:
+    def _prepare_loader_batch(
+        self, batch: dict, emb_id: int, *, normalize_raw: bool = False
+    ) -> dict:
         """Map zarr keys once, normalizing only packed/raw batches.
 
         Standard ``MultiDataset`` samples are normalized in ``__getitem__``.
@@ -114,8 +116,18 @@ class PipelineAlgo(Algo):
                 out[mapped] = value
             elif key in _VIZ_PASSTHROUGH_KEYS:
                 out[key] = value
-        if is_packed:
+        if is_packed or normalize_raw:
             out = self.norm_stats.normalize(out, emb_id)
+        return out
+
+    def _move_batch_to_device(self, batch: dict) -> dict:
+        out = dict(batch)
+        for key, value in out.items():
+            if torch.is_tensor(value):
+                value = value.to(self.device)
+                if value.is_floating_point():
+                    value = value.float()
+                out[key] = value
         return out
 
     def _build_obs(self, batch: dict, emb_id: int) -> dict:
@@ -147,14 +159,59 @@ class PipelineAlgo(Algo):
             if emb_id not in self.domain_by_id:
                 raise KeyError(f"Unexpected embodiment batch {domain!r}")
             out = self._prepare_loader_batch(loader_batch, emb_id)
-            for key, value in out.items():
-                if torch.is_tensor(value):
-                    value = value.to(self.device)
-                    if value.is_floating_point():
-                        value = value.float()
-                    out[key] = value
-            processed[emb_id] = out
+            processed[emb_id] = self._move_batch_to_device(out)
         return processed
+
+    @torch.no_grad()
+    def forward_rollout(
+        self,
+        domain: str,
+        observation: dict,
+        *,
+        rollout_t: int = 0,
+        observation_is_normalized: bool = False,
+    ) -> torch.Tensor:
+        """Sample an action chunk from an observation-only loader batch.
+
+        Live observations bypass ``MultiDataset.__getitem__`` and therefore
+        must be normalized here exactly once. Callers that deliberately pass
+        an already-normalized batch must opt out explicitly.
+        """
+
+        emb_id = get_embodiment_id(domain)
+        if emb_id not in self.domain_by_id:
+            raise KeyError(f"Unexpected rollout embodiment {domain!r}")
+        prepared = self._prepare_loader_batch(
+            observation,
+            emb_id,
+            normalize_raw=not observation_is_normalized,
+        )
+        prepared = self._move_batch_to_device(prepared)
+        seed = {
+            "embodiment": domain,
+            "rollout_t": int(rollout_t),
+            **{
+                f"obs/{key}": value
+                for key, value in self._build_obs(prepared, emb_id).items()
+            },
+        }
+        runnable, excluded = self.policy.plan(seed.keys(), mode="rollout")
+        invalid = [
+            (stage, missing)
+            for stage, missing in excluded
+            if not getattr(stage, "train_only", False)
+        ]
+        if invalid:
+            details = "; ".join(
+                f"{type(stage).__name__}: {missing}" for stage, missing in invalid
+            )
+            raise RuntimeError(f"Pipeline rollout plan is incomplete: {details}")
+        result = seed
+        for stage in runnable:
+            result = stage(result)
+        if "pred_action" not in result:
+            raise RuntimeError("Pipeline rollout produced no pred_action")
+        return result["pred_action"]
 
     def forward_training(self, batch: dict) -> OrderedDict:
         predictions = OrderedDict()

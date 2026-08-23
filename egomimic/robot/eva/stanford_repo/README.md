@@ -1,5 +1,11 @@
 # C++ && Python Controller for ARX5 Robot Arm
 
+> **Legacy snapshot — not the rollout build source.** EgoMimic now builds a
+> pinned Python 3.11 wheel from upstream using
+> `scripts/build_arx5_py311_wheel.sh`; see `egomimic/robot/ROLLOUT_PY311.md`.
+> This directory remains temporarily because the MuJoCo kinematics model still
+> references its mesh assets. Do not use its Python 3.10 environment files.
+
 ## Safety-Related Configs
 
  - The safety checks in this controller are implemented through joint position, velocity, and torque limits. However, there is a trade-off between safety and reactiveness when setting these limits. To achieve a reasonable precision for our experiements, **the default values are insufficient to guarantee safety when the robot is close to singluarity or the input control signal includes a lot of noise**.

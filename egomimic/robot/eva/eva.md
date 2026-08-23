@@ -162,13 +162,18 @@ Then rerun:
 python3 collect_demo.py
 ```
 
-### 7.2. `ModuleNotFoundError: No module named 'arx5'`
+### 7.2. `ModuleNotFoundError: No module named 'arx5_interface'`
 
-Inside the container:
+The live controller now uses the pinned CPython 3.11 wheel. Rebuild it and then
+rebuild the robot image:
 
 ```bash
-source /opt/ros/humble/setup.bash
+./scripts/build_arx5_py311_wheel.sh
+docker build -t egomimic-eva:py311 .
 ```
+
+See [`../ROLLOUT_PY311.md`](../ROLLOUT_PY311.md). Sourcing ROS does not install
+the ARX binding and must not add ROS's Python 3.10 site-packages to rollout.
 
 ### 7.3. `CXXABI_1.3.15` / `libstdc++.so.6` error
 
@@ -178,11 +183,8 @@ Example:
 ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `CXXABI_1.3.15' not found
 ```
 
-Fix:
-
-```bash
-export LD_LIBRARY_PATH=/root/.local/share/mamba/envs/arx-py310/lib:$LD_LIBRARY_PATH
-```
+Rebuild the manylinux wheel using `scripts/build_arx5_py311_wheel.sh`. Do not
+work around an ABI mismatch by exporting a Python 3.10 conda library path.
 
 ### 7.4. VR debug mode popup missing (host)
 
