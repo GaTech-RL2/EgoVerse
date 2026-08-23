@@ -4,6 +4,23 @@ EgoMimic rollout and the ARX controller run in one Python 3.11 environment.
 ROS Humble retains its system Python 3.10 for ROS-owned processes, but the live
 rollout process must not import from `/opt/ros/humble/lib/python3.10`.
 
+## Policy ownership
+
+`egomimic.robot.rollout` owns only robot/replay execution. For policy rollout it
+reads the checkpoint's saved Hydra `_target_`, loads that `Algo`, and calls its
+`create_rollout_policy` method. Each algorithm module owns its live `Policy`:
+
+- `algo/pi.py`: PI checkpoint preparation and PI inference behavior.
+- `algo/hpt.py`: HPT inference and diffusion-step setup.
+- `pipeline/algo.py`: the dependency-aware rollout graph and EVA codecs.
+- `algo/act.py`: an explicit unsupported-live-EVA boundary until ACT defines a
+  safe observation/action codec.
+
+Shared code in `rollout/policy.py` is limited to the policy contract,
+checkpoint dispatch, and legacy EVA observation/action adaptation. Embodiment
+IDs are resolved through the canonical enum rather than duplicated in robot
+code.
+
 ## Laptop/offline setup
 
 ```bash

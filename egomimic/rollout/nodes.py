@@ -11,10 +11,8 @@ import torch
 
 from egomimic.rollout.core import RolloutNode
 
-# Mirrors egomimic/robot/rollout.py:154 (QUERY_FREQUENCY = 30, DEFAULT_FREQUENCY
-# = 30 Hz) so the rollout nodes have the robot's real cadence as their default
-# off-robot too. Stated once, here, so a change on the robot side shows up as a
-# visible mismatch rather than two silently different replan rates.
+# Default live EVA cadence. Hardware config passes its explicit cadence when it
+# assembles the graph, so this mainly serves off-robot graph construction.
 QUERY_FREQUENCY = 30  # frames between inferences (30 Hz loop -> 1 Hz)
 
 
@@ -34,7 +32,7 @@ class ObsCadence(RolloutNode):
                        num_inference_steps=100 this is ~100 denoiser passes per
                        env step, which is why episodes took ~66 min).
 
-    DEFAULTS come from the live robot loop (egomimic/robot/rollout.py:153-154):
+    The live robot defaults are:
         DEFAULT_FREQUENCY = 30 Hz      # control loop
         QUERY_FREQUENCY   = 30 frames  # `if i % query_frequency == 0`
     i.e. ONE inference per second, 30 actions executed per plan. mode="every_n"
@@ -139,8 +137,8 @@ class ChunkCommit(RolloutNode):
                 already forecast this window at rows [n_keep : 2*n_keep], so
                     commit[j] = blend*prev[n_keep+j] + (1-blend)*new[j]
                 which directly attacks replan-seam discontinuity. This was a
-                PUSHSHAPES_PLAN_BLEND env var read inside inference_step; here
-                it is a declared parameter that lands in the run config.
+                a former implicit blend setting; here it is a declared graph
+                parameter that lands in the run config.
     """
 
     reads = ("should_query", "chunk", "chunk_t", "prev_chunk", "queue")

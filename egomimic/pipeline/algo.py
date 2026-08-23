@@ -11,6 +11,13 @@ import torch.nn as nn
 from egomimic.algo.algo import Algo
 from egomimic.pipeline.core import Pipeline, Stage, sum_losses
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
+from egomimic.rollout.core import RolloutPipeline
+from egomimic.rollout.eva import (
+    EvaActionCodec,
+    EvaObservationCodec,
+    EvaObservationWindow,
+)
+from egomimic.rollout.nodes import ActionDequeue, ChunkCommit, ObsCadence, PolicyStep
 
 _PACKED_META_KEYS = frozenset(
     {"cu_seqlens", "max_seq_len", "seq_lens", "batch_size", "embodiment"}
@@ -64,6 +71,9 @@ class PipelineAlgo(Algo):
     @property
     def policy(self) -> Pipeline:
         return self.nets["policy"]
+
+    def create_rollout_policy(self, config):
+        return Policy(self, config)
 
     def _resolve_keys(self) -> None:
         self.proprio_keys = {}
@@ -256,3 +266,55 @@ class PipelineAlgo(Algo):
         logged = OrderedDict(Loss=losses["action_loss"].item())
         logged.update((key, value.item()) for key, value in losses.items())
         return logged
+
+
+class Policy:
+    """Live EVA rollout owned by PipelineAlgo and composed from rollout nodes."""
+
+    def __init__(self, algo: PipelineAlgo, config):
+        if config.arm != "both" or not config.cartesian:
+            raise ValueError(
+                "The Fold Pipeline policy requires --arms both --cartesian"
+            )
+        if config.action_frame != "base":
+            raise ValueError("Pipeline actions use the canonical wrist-to-base codec")
+        self.algo = algo
+        self.config = config
+        self.debug_actions = None
+        self.just_queried = False
+        self.graph = RolloutPipeline(
+            [
+                EvaObservationWindow(n_obs_steps=2),
+                ObsCadence(mode="every_n", every_n=config.query_frequency),
+                EvaObservationCodec(),
+                PolicyStep(algo, "eva_bimanual"),
+                ChunkCommit(n_keep=config.query_frequency),
+                ActionDequeue(on_empty="hold"),
+                EvaActionCodec(
+                    algo.norm_stats,
+                    config.embodiment_id,
+                    ac_key=algo.ac_keys["eva_bimanual"],
+                ),
+            ]
+        )
+        self.state = self.graph.reset()
+        print("[rollout] Using PipelineAlgo observation/action codecs")
+        if config.annotation_path:
+            self.load_annotation(config.annotation_path)
+
+    def act(self, obs: dict):
+        previous_chunk_t = self.state.get("chunk_t")
+        self.state = self.graph.step(self.state, obs)
+        self.just_queried = self.state.get("chunk_t") != previous_chunk_t
+        self.debug_actions = self.state.get("chunk")
+        return self.state["command"]
+
+    def reset(self):
+        self.state = self.graph.reset()
+        self.debug_actions = None
+        self.just_queried = False
+        self.algo.nets.eval()
+
+    def load_annotation(self, annotation_path: str) -> bool:
+        print("[rollout] Pipeline policy has no language-condition input")
+        return False

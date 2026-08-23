@@ -14,15 +14,28 @@ from termcolor import cprint
 from tslearn.metrics import SoftDTWLossPyTorch
 
 from egomimic.algo.algo import Algo
+from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.models.hpt_nets import MultiheadAttention, SimpleTransformer
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
-from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
+from egomimic.rollout.policy import EvaLegacyPolicy
 from egomimic.utils.hf_utils import download_from_huggingface
-
+from egomimic.utils.tensor_utils import EinOpsRearrange, get_sinusoid_encoding_table
 
 # Init scale for the HPT action tokens (was a shared constant in utils.py;
 # it has exactly one consumer, below).
 STD_SCALE = 0.02
+
+
+class Policy(EvaLegacyPolicy):
+    """HPT-specific EVA inference policy."""
+
+    def __init__(self, algo, config):
+        super().__init__(algo, config)
+        if not getattr(algo, "diffusion", False):
+            return
+        for head in algo.nets["policy"].heads.values():
+            if isinstance(head, DenoisingPolicy):
+                head.num_inference_steps = 10
 
 
 class HPTModel(nn.Module):
@@ -510,9 +523,9 @@ class HPTModel(nn.Module):
         tokens1 = tokens1[:, : self.action_horizon]
         tokens2 = tokens2[:, : self.action_horizon]
 
-        assert (
-            tokens1.shape[1] == tokens2.shape[1]
-        ), "input tokens must be of the same sequence length"
+        assert tokens1.shape[1] == tokens2.shape[1], (
+            "input tokens must be of the same sequence length"
+        )
 
         emb1_actions = batch1["data"]["action"]
         emb2_actions = batch2["data"]["action"]
@@ -784,6 +797,9 @@ class HPTModel(nn.Module):
 
 class HPT(Algo):
     """ """
+
+    def create_rollout_policy(self, config):
+        return Policy(self, config)
 
     def __init__(
         self,

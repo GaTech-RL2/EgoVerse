@@ -12,6 +12,15 @@ from overrides import override
 from egomimic.algo.algo import Algo
 
 
+class Policy:
+    """ACT owns its rollout boundary; live EVA adaptation is not implemented."""
+
+    def __init__(self, algo, config):
+        raise NotImplementedError(
+            "ACT checkpoints do not yet define a safe live EVA observation/action codec"
+        )
+
+
 class ACTModel(nn.Module):
     """
     ACT Model closely following DETRVAE from ACT but using standard torch.nn components
@@ -182,6 +191,9 @@ class ACTModel(nn.Module):
 
 class ACT(Algo):
     """
+
+    def create_rollout_policy(self, config):
+        return Policy(self, config)
     BC training with a VAE policy.
     # TODO (Simar): Add type checking on these params
     """

@@ -1,17 +1,9 @@
 """Rollout as a PIPELINE OF NODES, mirroring the training graph.
 
-WHY: rollout policy -- when to query the model, how many predicted actions to
-commit, whether to blend overlapping plans -- is currently imperative code in
-two divergent places:
-
-  * sim   : PipelineAlgo.inference_step  (action queue + PUSHSHAPES_PLAN_BLEND
-            read from an ENV VAR mid-function)
-  * robot : PolicyRollout.rollout_step   (`if i % query_frequency == 0`, then
-            hardcoded 14-D action slicing)
-
-Neither is configurable and they disagree. Training already solved this shape:
-an ordered list of stages over one dict, where the list IS the control flow.
-This applies the same contract to rollout.
+Rollout policy -- when to query the model, how many predicted actions to
+commit, and whether to blend overlapping plans -- is represented as an ordered
+list of nodes over one state dictionary. PipelineAlgo's module-local Policy
+assembles these generic nodes with embodiment-specific codecs.
 
 CONTRACT (identical to pipeline.core.Stage):
     node(state: dict) -> state: dict
@@ -28,7 +20,7 @@ The rollout STATE dict is the single carrier, exactly as `batch` is in training:
     queue          list     committed actions not yet executed     (ChunkCommit)
     action         (D,)     the action to execute THIS step        (ActionDequeue)
     command        Any      env/robot-native command               (ActionDecode)
-    policy_state   dict     PipelineAlgo.step's persistent state
+    policy_state   dict     optional algorithm-owned persistent state
 
 Nodes declare ``reads``/``writes`` so a missing producer is caught at build
 time instead of surfacing as a None halfway through an episode on hardware.

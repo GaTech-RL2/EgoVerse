@@ -25,6 +25,7 @@ from egomimic.models.preprocess_pi_obs import (
     _to_minus1_1,
 )
 from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
+from egomimic.rollout.policy import EvaLegacyPolicy
 from egomimic.utils.action_utils import ConverterRegistry
 
 logger = logging.getLogger(__name__)
@@ -34,8 +35,53 @@ logger.setLevel(logging.INFO)
 logger.propagate = True  # Explicitly enable propagation (default, but ensures it works)
 
 
+class Policy(EvaLegacyPolicy):
+    """PI-specific EVA inference policy."""
+
+    def __init__(self, algo, config):
+        super().__init__(algo, config)
+        pi_model = algo.nets["policy"]
+        if "sample_actions" in vars(pi_model):
+            del pi_model.sample_actions
+            print("[rollout] Disabled torch.compile on PI sample_actions")
+
+
 class PI(Algo):
     """ """
+
+    LOCAL_ROLLOUT_WEIGHT_PATH = (
+        "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
+    )
+
+    @classmethod
+    def prepare_rollout_checkpoint(cls, checkpoint_path):
+        """Point the serialized PI config at the robot-local base weights."""
+        from omegaconf import DictConfig, OmegaConf
+
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+        tree = checkpoint.get("hyper_parameters", {}).get("config_tree")
+        if tree is None:
+            return checkpoint_path
+        config = (
+            OmegaConf.to_container(tree, resolve=True)
+            if isinstance(tree, DictConfig)
+            else tree
+        )
+        pi_config = config.get("model", {}).get("robomimic_model", {}).get("config", {})
+        old_path = pi_config.get("pytorch_weight_path")
+        if old_path is None or old_path == cls.LOCAL_ROLLOUT_WEIGHT_PATH:
+            return checkpoint_path
+        pi_config["pytorch_weight_path"] = cls.LOCAL_ROLLOUT_WEIGHT_PATH
+        checkpoint["hyper_parameters"]["config_tree"] = OmegaConf.create(config)
+        patched_path = checkpoint_path + ".patched"
+        torch.save(checkpoint, patched_path)
+        print(
+            f"[rollout] PI base weights: {old_path} -> {cls.LOCAL_ROLLOUT_WEIGHT_PATH}"
+        )
+        return patched_path
+
+    def create_rollout_policy(self, config):
+        return Policy(self, config)
 
     def __init__(
         self,
