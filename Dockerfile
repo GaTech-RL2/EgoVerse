@@ -96,7 +96,7 @@ SHELL ["/bin/bash", "-c"]
 
 # 10) Keep ROS's Python 3.10 paths out of the default rollout shell. ROS is
 # sourced only inside commands that actually build or run ROS-owned processes.
-RUN echo 'alias wsbuild="cd /home/robot/robot_ws/egomimic/robot/eva/eva_ws && source /opt/ros/humble/setup.bash && colcon build && source install/setup.bash"' >> /root/.bashrc && \
+RUN echo 'wsbuild() { (source /opt/ros/humble/setup.bash && cd /home/robot/robot_ws/egomimic/robot/eva/eva_ws && colcon build); }' >> /root/.bashrc && \
     echo 'eval "$(micromamba shell hook --shell bash)" && micromamba activate egomimic-py311' >> /root/.bashrc && \
     echo 'alias rhome="cd /home/robot/robot_ws/egomimic/robot"' >> /root/.bashrc && \
     echo 'cd /home/robot/robot_ws' >> /root/.bashrc
@@ -107,7 +107,7 @@ WORKDIR /home/robot/robot_ws
 RUN python -m pip install --no-deps -e . && \
     python -m pip install -e egomimic/robot/oculus_reader/.
 
-# 13) camera / GUI libs + realsense (once)
+# 12) camera / GUI libs + realsense (once)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libgl1 \

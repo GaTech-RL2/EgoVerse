@@ -4,6 +4,12 @@ This repository provides the tool to read the position and pressed button from t
 
 Oculus reader consits of two elements: python script which receives the readings from the APK and the APK itself. Currently the pose of the controllers and pressed buttons are transfered from the APK. This behavior can be extended using provided APK [source code](app_source).
 
+> **EgoVerse deployment note:** this is the upstream standalone setup guide.
+> The `egomimic-eva:py311` image already includes ADB and the reader package.
+> Run ADB and teleoperation commands inside `egomimic-eva-live` and follow
+> [`../eva/eva.md`](../eva/eva.md); do not install a separate host runtime for
+> the normal robot workflow.
+
 ## Clone the repository
 
 To pull the APK correctly, Git LFS has to be configured before cloning the repository. The installation is described here https://git-lfs.github.com. On Ubuntu follow these steps:

@@ -57,8 +57,13 @@ def test_robot_launcher_preserves_hotplugged_usb_and_aria_auth():
 
 
 def test_robot_image_contains_runtime_shell_and_device_tools():
-    source = (ROOT / "Dockerfile").read_text()
+    dockerfile = ROOT / "Dockerfile"
+    if not dockerfile.is_file():
+        pytest.skip("Dockerfile is not copied into the packaged robot image")
+    source = dockerfile.read_text()
     assert "micromamba shell hook --shell bash" in source
+    assert "wsbuild() { (source /opt/ros/humble/setup.bash" in source
+    assert "colcon build); }" in source
     assert "    adb &&" in source
 
 

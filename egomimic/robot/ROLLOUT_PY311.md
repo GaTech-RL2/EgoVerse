@@ -63,12 +63,13 @@ docker build --platform linux/amd64 -t egomimic-eva:py311 .
 
 The launcher exposes the full USB bus so RealSense, Quest, and Aria devices can
 re-enumerate without making a running container stale. It stores Aria pairing
-and streaming certificates in
-`${EVA_ARIA_AUTH_DIR:-~/.config/egomimic/aria}`, mounted at `/root/.aria` in
-the container. The directory is created with mode `0700`. The container is
-named `egomimic-eva-live` by default; override it with
-`EVA_ROLLOUT_CONTAINER`. A 512 MiB private shared-memory allocation avoids the
-FastDDS shared-memory fallback warning without exposing host IPC.
+and streaming certificates at the first configured location: the
+`EVA_ARIA_AUTH_DIR` override, `$XDG_CONFIG_HOME/egomimic/aria`, or
+`$HOME/.config/egomimic/aria`. That directory is mounted at `/root/.aria` in the
+container and created with mode `0700`. The container is named
+`egomimic-eva-live` by default; override it with `EVA_ROLLOUT_CONTAINER`. A
+512 MiB private shared-memory allocation avoids the FastDDS shared-memory
+fallback warning without exposing host IPC.
 
 The build pins Stanford SDK commit
 `a8890c9bae94464abd1cb7c5e4da7c4a62104a3a` and carries one reviewed local
@@ -96,9 +97,35 @@ on the host until that service successfully enables USB NCM.
 The rollout and native ARX process are Python 3.11-only. ROS Humble on Ubuntu
 22.04 retains its distribution-owned Python 3.10 for optional ROS helper nodes;
 the rollout path imports the EVA interfaces directly and does not source the
-ROS Python path.
+ROS Python path. The `wsbuild` shell function runs the optional ROS build in a
+subshell so those paths do not leak into the active rollout environment.
 
 Do not install the wheel on macOS and do not command robot hardware from the
 laptop. Hardware acceptance proceeds through import/CAN discovery, read-only
 state, one-arm low-gain, gripper, bimanual, shadow-policy, then attended rollout
 gates.
+
+## Live acceptance checklist
+
+Automated and read-only checks:
+
+- Python 3.11, `pip check`, all tests, CUDA, and native ARX/Aria/RealSense
+  imports.
+- Both D405 serials produce frames.
+- Container ADB selects the Quest rather than Aria, and receives finite left
+  and right controller transforms plus buttons.
+- Aria authentication/device info and a start-frame-stop RGB stream.
+- Both CAN links are `ERROR-ACTIVE` with zero bus errors, followed by read-only
+  state from each arm.
+
+Attended hardware gates, in order:
+
+- One-arm low-gain movement, then gripper and bimanual movement.
+- Load the intended checkpoint and run shadow inference; validate the output
+  without commanding motors.
+- Run an attended policy rollout with the physical E-stop available.
+
+On `bonjour` on 2026-08-23, all automated/read-only checks, the Quest input
+path, and an attended right-arm upward movement passed. Gripper, bimanual
+teleoperation, checkpoint shadow inference, and policy rollout remain for the
+next attended robot session.

@@ -47,7 +47,7 @@ From your EgoVerse repo:
 cd path/to/your/EgoVerse/repo
 git pull        # or `gt sync`
 ./scripts/build_arx5_py311_wheel.sh
-docker build -t egomimic-eva:py311 .
+docker build --platform linux/amd64 -t egomimic-eva:py311 .
 ```
 
 You only need to do this initially and whenever you pull/modify code.
@@ -62,13 +62,22 @@ From the repo root (or wherever `run_eva_docker.sh` lives):
 ./run_eva_docker.sh {left | right | both}
 ```
 
-Once the container appears in Cursor / VS Code, attach a terminal to it and run:
+The launcher owns the foreground terminal and creates a disposable (`--rm`)
+container. Keep that terminal open while using the robot; attach from a second
+terminal or through Cursor / VS Code. The container disappears when its shell
+exits, so rerun the launcher to create the next session.
+
+The running container is named `egomimic-eva-live` by default. Attach through
+Cursor / VS Code or from the host with:
 
 ```bash
-cd /home/robot/robot_ws
-wsbuild
-cd ../..
+docker exec -it egomimic-eva-live bash
 ```
+
+The shell opens in `/home/robot/robot_ws` with the Python 3.11 environment
+active. Rollout does not require a ROS workspace build. If you need the
+optional ROS helper nodes, run `wsbuild`; it builds in an isolated subshell so
+ROS Humble's Python 3.10 paths do not leak into the rollout shell.
 
 ---
 
@@ -86,9 +95,9 @@ Pairing persists on the host under `~/.config/egomimic/aria` by default, even
 though the interactive container is disposable. Set `EVA_ARIA_AUTH_DIR` before
 running `run_eva_docker.sh` to use a different host directory.
 
-### 4.2. Check VR + Aria from host
+### 4.2. Check VR + Aria inside the container
 
-On the host machine:
+Inside `egomimic-eva-live`:
 
 ```bash
 adb start-server
@@ -119,7 +128,7 @@ This brings up `can1` and `can2` for the left and right arms.
 Inside the container, from `/home/robot/robot_ws`:
 
 ```bash
-python3 collect_demo.py
+python -m egomimic.robot.collect_demo
 ```
 
 Defaults:
@@ -130,20 +139,25 @@ Defaults:
 ### 6.1. Useful arguments
 
 ```bash
-python3 collect_demo.py   --auto-episode-start {episode_idx}   --demo-dir /path/to/demo/directory   --arms {right | left | both}   --calibrate
+python -m egomimic.robot.collect_demo \
+  --auto-episode-start {episode_idx} \
+  --demo-dir /path/to/demo/directory \
+  --arms {right | left | both} \
+  --calibrate
 ```
 
 - `--auto-episode-start {episode_idx}`: auto-increments episode index starting at `episode_idx`
 - `--demo-dir`: custom demo output directory
 - `--arms`: choose `right`, `left`, or `both`
-- `--calibrate`: run Quest Pro controller orientation calibration
+- `--calibrate`: run Quest controller orientation calibration
 
 ### 6.2. Quick controls (Quest controller)
 
 - **Y**: reset robot to home
 - **B**: start / stop episode recording
 - **X**: delete current episode buffer
-- **A**: ESTOP
+- **A**: exit the collection loop. This is not a hardware E-stop; use the
+  physical emergency stop for an unsafe robot condition.
 
 - Left / right triggers: engage robot motion  
 - Left / right front triggers: control gripper
@@ -164,7 +178,7 @@ kill -9 {pid_of_previous_collect_demo.py}
 Then rerun:
 
 ```bash
-python3 collect_demo.py
+python -m egomimic.robot.collect_demo
 ```
 
 ### 7.2. `ModuleNotFoundError: No module named 'arx5_interface'`
@@ -174,7 +188,7 @@ rebuild the robot image:
 
 ```bash
 ./scripts/build_arx5_py311_wheel.sh
-docker build -t egomimic-eva:py311 .
+docker build --platform linux/amd64 -t egomimic-eva:py311 .
 ```
 
 See [`../ROLLOUT_PY311.md`](../ROLLOUT_PY311.md). Sourcing ROS does not install
@@ -191,15 +205,22 @@ ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: version `CXXABI_1.3.15' not f
 Rebuild the manylinux wheel using `scripts/build_arx5_py311_wheel.sh`. Do not
 work around an ABI mismatch by exporting a Python 3.10 conda library path.
 
-### 7.4. VR debug mode popup missing (host)
+### 7.4. VR debug mode popup missing
 
-On the host:
+Inside `egomimic-eva-live`:
 
 ```bash
 adb kill-server
 adb start-server
 adb devices
 ```
+
+### 7.5. Aria error 915 (`UsbNcmConnectionFailed`)
+
+Fully restart the glasses; unplugging/reconnecting USB or repeating pairing is
+not a full reboot. On `bonjour`, error 915 came from a stale device-side
+NetworkBoss service even though ADB and authentication worked, and a full
+glasses reboot restored USB streaming.
 
 ---
 
@@ -208,5 +229,5 @@ adb devices
 After you are done collecting data:
 
 ```bash
-python3 eva_uploader.py
+python egomimic/scripts/data_upload/eva_uploader.py
 ```
