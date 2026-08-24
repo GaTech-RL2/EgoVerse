@@ -77,6 +77,7 @@ def test_usocket_recipe_uses_rotvec_actions_and_pinned_embodiment():
     assert train_data.resolver.key_map.action_horizon == 16
     assert train_data.bounds_check is False
     assert cfg.norm_stats.norm_mode == "minmax"
+    assert cfg.norm_stats.reduce_all_but_last is True
 
     # Instantiate the resolver target itself without touching the remote data
     # directory. This catches stale Hydra target paths and verifies that the
@@ -114,6 +115,7 @@ def test_arc_length_recipe_keeps_tokenizer_model_and_rollout_horizons_aligned():
     assert eva_data.transform_list.min_distance_unit == 0.40
     assert human_data.transform_list.resampled_vector_length == 25
     assert eva_data.transform_list.resampled_vector_length == 25
+    assert cfg.norm_stats.reduce_all_but_last is False
 
 
 def test_pusht_dataset_schema_is_registered_and_leak_free():

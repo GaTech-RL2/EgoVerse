@@ -766,6 +766,7 @@ class MultiDataset(torch.utils.data.Dataset):
         percent: float = 0.1,
         valid_ratio: float = 0.2,
         norm_mode: str = "zscore",
+        reduce_all_but_last: bool = False,
         bounds_check: bool = True,
         state: dict | None = None,
         **kwargs,
@@ -777,6 +778,8 @@ class MultiDataset(torch.utils.data.Dataset):
             percent: Fraction (when mode="percent").
             valid_ratio: Train/valid split ratio.
             norm_mode: One of "zscore", "minmax", "quantile".
+            reduce_all_but_last: Pool normalization statistics over every
+                sample dimension except the final feature dimension.
             bounds_check: Whether to reject samples outside inferred bounds.
             state: If provided, populate stats fields from this dict (deploy mode).
         """
@@ -784,6 +787,7 @@ class MultiDataset(torch.utils.data.Dataset):
 
         # ---- Stats fields (always present, may be empty) ----
         self.norm_mode = norm_mode
+        self.reduce_all_but_last = bool(reduce_all_but_last)
         self.bounds_check = bool(bounds_check)
         self.embodiments: set[int] = set()
         self.key_types: dict[int, dict[str, str]] = {}
@@ -866,6 +870,7 @@ class MultiDataset(torch.utils.data.Dataset):
         self.shapes = source.shapes
         self.embodiments = source.embodiments
         self.norm_mode = source.norm_mode
+        self.reduce_all_but_last = source.reduce_all_but_last
         # Each MultiDataset keeps its own warning-dedup state.
         self._warned_violations = set()
         for ds in self.datasets.values():
@@ -1167,7 +1172,11 @@ class MultiDataset(torch.utils.data.Dataset):
                         "embodiment collapse — recompute norm stats instead of "
                         "reusing a pre-collapse norm_stats.json."
                     )
-                self.norm_stats[embodiment] = payload["stats"][str(embodiment)]
+                self.norm_stats[embodiment] = self._validate_precomputed_stats(
+                    payload=payload,
+                    embodiment=embodiment,
+                    precomputed_file=precomputed_file,
+                )
                 self._norm_run_metadata = payload.get("norm_run_metadata", None)
                 logger.info(
                     f"[MultiDataset] Loaded precomputed stats for embodiment={embodiment}"
@@ -1257,18 +1266,78 @@ class MultiDataset(torch.utils.data.Dataset):
                 pbar.update(take)
         return collected
 
-    @staticmethod
-    def _compute_stats_for_array(X):
+    def _validate_precomputed_stats(
+        self, payload: Mapping, embodiment: int, precomputed_file: str
+    ) -> dict[str, dict[str, np.ndarray]]:
+        """Validate cache reduction semantics and return float32 arrays.
+
+        Older cache files did not record ``reduce_all_but_last``. Their array
+        shapes still distinguish slotwise ``(H, D)`` statistics from pooled
+        ``(D,)`` statistics, so reject an incompatible legacy cache instead of
+        silently training with different normalization semantics.
+        """
+        cached_reduction = payload.get("reduce_all_but_last")
+        if cached_reduction is not None:
+            if not isinstance(cached_reduction, bool):
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} has non-boolean "
+                    f"reduce_all_but_last={cached_reduction!r}; recompute norm stats."
+                )
+            if cached_reduction != self.reduce_all_but_last:
+                raise ValueError(
+                    f"norm_stats file {precomputed_file} was computed with "
+                    f"reduce_all_but_last={cached_reduction}, but this run requests "
+                    f"{self.reduce_all_but_last}; recompute norm stats."
+                )
+
+        loaded: dict[str, dict[str, np.ndarray]] = {}
+        per_embodiment = payload["stats"][str(embodiment)]
+        for key, stats in per_embodiment.items():
+            sample_shape = self.shapes.get(embodiment, {}).get(key)
+            if sample_shape is None and cached_reduction is None:
+                raise ValueError(
+                    f"Legacy norm_stats file {precomputed_file} does not record "
+                    "reduce_all_but_last and no inferred sample shape is available "
+                    f"for embodiment={embodiment} key={key!r}; recompute norm stats."
+                )
+
+            expected_shape = None
+            if sample_shape is not None:
+                expected_shape = tuple(sample_shape)
+                if self.reduce_all_but_last and len(expected_shape) > 1:
+                    expected_shape = (expected_shape[-1],)
+
+            loaded[key] = {}
+            for stat_name, value in stats.items():
+                array = np.asarray(value, dtype=np.float32)
+                if expected_shape is not None and array.shape != expected_shape:
+                    cache_kind = (
+                        "legacy " if cached_reduction is None else ""
+                    ) + "norm_stats"
+                    raise ValueError(
+                        f"{cache_kind} file {precomputed_file} has shape "
+                        f"{array.shape} for embodiment={embodiment} key={key!r} "
+                        f"stat={stat_name!r}, expected {expected_shape} with "
+                        "reduce_all_but_last="
+                        f"{self.reduce_all_but_last}; recompute norm stats."
+                    )
+                loaded[key][stat_name] = array
+        return loaded
+
+    def _compute_stats_for_array(self, X):
+        reduction_axis: int | tuple[int, ...] = 0
+        if self.reduce_all_but_last and X.ndim > 1:
+            reduction_axis = tuple(range(X.ndim - 1))
         return {
-            "mean": np.mean(X, axis=0),
-            "std": np.std(X, axis=0),
-            "min": np.min(X, axis=0),
-            "max": np.max(X, axis=0),
-            "median": np.median(X, axis=0),
-            "quantile_1": np.percentile(X, 1, axis=0),
-            "quantile_99": np.percentile(X, 99, axis=0),
-            "quantile_0_01": np.percentile(X, 0.01, axis=0),
-            "quantile_99_99": np.percentile(X, 99.99, axis=0),
+            "mean": np.mean(X, axis=reduction_axis),
+            "std": np.std(X, axis=reduction_axis),
+            "min": np.min(X, axis=reduction_axis),
+            "max": np.max(X, axis=reduction_axis),
+            "median": np.median(X, axis=reduction_axis),
+            "quantile_1": np.percentile(X, 1, axis=reduction_axis),
+            "quantile_99": np.percentile(X, 99, axis=reduction_axis),
+            "quantile_0_01": np.percentile(X, 0.01, axis=reduction_axis),
+            "quantile_99_99": np.percentile(X, 99.99, axis=reduction_axis),
         }
 
     def cache_stats(self, save_cache_dir: str):
@@ -1284,6 +1353,9 @@ class MultiDataset(torch.utils.data.Dataset):
             }
         payload = {
             "stats": stats_out,
+            "norm_mode": self.norm_mode,
+            "reduce_all_but_last": self.reduce_all_but_last,
+            "norm_run_metadata": copy.deepcopy(self._norm_run_metadata),
             "loading_time": None,
             "computing_time": None,
             "frames": None,
@@ -1441,6 +1513,7 @@ class MultiDataset(torch.utils.data.Dataset):
         """Serialize stats only (not the dataset graph). Suitable for checkpoint."""
         return {
             "norm_mode": self.norm_mode,
+            "reduce_all_but_last": self.reduce_all_but_last,
             "embodiments": sorted(self.embodiments),
             "key_types": copy.deepcopy(self.key_types),
             "zarr_keys": copy.deepcopy(self.zarr_keys),
@@ -1458,6 +1531,9 @@ class MultiDataset(torch.utils.data.Dataset):
     def _load_state(self, state: dict) -> None:
         """Populate stats fields from a state dict. Used by state-only construction."""
         self.norm_mode = state.get("norm_mode", self.norm_mode)
+        self.reduce_all_but_last = bool(
+            state.get("reduce_all_but_last", self.reduce_all_but_last)
+        )
         self.embodiments = set(state.get("embodiments", []))
         self.key_types = copy.deepcopy(state.get("key_types", {}))
         self.zarr_keys = copy.deepcopy(state.get("zarr_keys", {}))
