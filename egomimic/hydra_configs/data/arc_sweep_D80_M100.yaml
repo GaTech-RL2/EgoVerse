@@ -1,7 +1,7 @@
 _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 
 # D x M sweep cell: D=0.80m, M=100, stride=1.
-# Sequence is M+1 = 101 rows of 8-dim [Lxyz, Lgrip, Rxyz, Rgrip];
+# Sequence is M+1 = 101 rows of 14-dim (xyz + ypr + grip per arm);
 # pair with model=hpt_cotrain_mecka_flow_shared_head_arc_M100 (act_seq 101).
 # See arc_tests_cotrain_arctok_s1.yaml for why stride=1 for arc models.
 
@@ -25,8 +25,8 @@ _target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
 # task=fold_clothes) and auto-synced from R2 into ${paths.dataset_dir} by
 # S3EpisodeResolver — but every leaf uses ``arc_tokenizer_cartesian`` so
 # ``get_item`` returns ``actions_cartesian`` already shaped
-# ``(M+1, 8) = (16, 8)`` — 15 waypoints + 1 velocity token per bimanual chunk,
-# each 8-dim ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``.
+# ``(M+1, 14) = (16, 14)`` — 15 waypoints + 1 velocity token per bimanual chunk,
+# each 14-dim (xyz + ypr + grip per arm) ``[L xyz(3), L ypr(3), L grip(1), R xyz(3), R ypr(3), R grip(1)]``.
 #
 # Arc knobs (shared by both embodiments):
 #   D = 20 cm = 0.20 m per-arm arc length span of one token (min_distance_unit)

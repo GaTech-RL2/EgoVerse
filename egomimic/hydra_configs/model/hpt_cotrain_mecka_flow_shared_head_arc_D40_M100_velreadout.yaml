@@ -6,10 +6,11 @@ defaults:
 # MLP). The HPT trunk is configured with ``action_horizon = M + 1 = 101``
 # so ``postprocess_tokens`` emits (B, 101, 256). The wrapper splits:
 #     slots 0..99  -> shape context   (FM head cross-attn context)
-#     slot 100     -> velocity readout (Linear(256, 8) -> vel token)
+#     slot 100     -> velocity readout (Linear(256, 14) -> vel token)
 # The FM head denoises only the M=100 shape waypoints; the wrapper
-# concats the vel token to produce the canonical (101, 8) arc-tok
-# action layout.
+# concats the vel token to produce the canonical (101, 14) arc-tok
+# action layout (xyz + ypr + grip per arm; rotation is unconditionally
+# supervised).
 #
 # Two losses propagate in parallel:
 #   - flow-matching MSE on waypoints (trunk + stems + flow head)
@@ -28,7 +29,8 @@ robomimic_model:
     shared:
       _target_: egomimic.models.heads.fm_policy.FMPolicyWithVelReadout
       num_waypoints: 100
-      act_dim: 8
+      # 14 dims (xyz + ypr + grip per arm) — rotation unconditionally supervised.
+      act_dim: 14
       vel_readout_dim: 256
       vel_loss_weight: 1.0
       fm_policy:
@@ -40,14 +42,15 @@ robomimic_model:
         padding: "zero"
         time_dist: "beta"
         infer_ac_dims:
-          eva_bimanual: 8
-          human_bimanual: 8
+          eva_bimanual: 14
+          human_bimanual: 14
         model:
           _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
           nblocks: 6
           cond_dim: 256
           hidden_dim: 128
-          act_dim: 8
+          # 14 dims (xyz + ypr + grip per arm).
+          act_dim: 14
           act_seq: 100
           n_heads: 4
           dropout: 0.1

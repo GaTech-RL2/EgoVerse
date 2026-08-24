@@ -3,8 +3,8 @@ defaults:
 
 # Overrides for the arc_tests_cotrain_arctok_D40_M25.yaml data pipeline
 # (D=40cm, M=25). Sequence length = M+1 = 26 slots (25 waypoints + 1 velocity
-# token), each 8-dim [Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]. Total action
-# tensor shape per sample: (26, 8).
+# token), each 14-dim (xyz + ypr + grip per arm). Total action tensor
+# shape per sample: (26, 14).
 robomimic_model:
   head_specs:
     shared:

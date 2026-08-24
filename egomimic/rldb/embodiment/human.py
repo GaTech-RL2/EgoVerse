@@ -403,8 +403,10 @@ class Human(Embodiment):
         Human cartesian has no gripper. ``cartesian_gripper_padded`` inserts a
         zero gripper per arm so the layout matches Eva/Yam (14D euler, 16D quat,
         20D Zhou 6D). ``arc_tokenizer_cartesian`` is that padded layout plus the
-        arc-length tokenizer, so human and Eva arc tokens are the same 8-dim
-        [Lxyz, L_grip, Rxyz, R_grip] rows. ``arc_tokenizer_keypoints`` is the
+        arc-length tokenizer, so human and Eva arc tokens are the same 14-dim
+        [Lxyz, Lypr, L_grip, Rxyz, Rypr, R_grip] rows -- the gripper padding is
+        an intentional embodiment-level transform (aria has no gripper signal)
+        and survives the tokenizer, which routes gripper into slot 6 per arm. ``arc_tokenizer_keypoints`` is the
         keypoint layout arc-tokenized the same way, (T, 138) -> (M+1, 138).
         """
         if action_mode in (

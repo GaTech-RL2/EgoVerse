@@ -5,24 +5,25 @@ defaults:
 #
 # Assumes the dataloader (get_item) already returns arc-tokenized actions
 # under the same ``actions_cartesian`` key. Per-sample action tensor shape:
-#   (M+1, 8)   where M = 20 waypoints (arc-length parameterized) plus one
-#              trailing velocity token, and 8 dims per token = [Lx, Ly, Lz,
-#              L_gripper, Rx, Ry, Rz, R_gripper]. xyz + 1-scalar gripper per
-#              arm, arms concatenated. Rotation (ypr) is intentionally
-#              excluded here — add via act_dim=14 if needed later.
+#   (M+1, 14)  where M = 20 waypoints (arc-length parameterized) plus one
+#              trailing velocity token, and 14 dims per token (xyz + ypr +
+#              grip per arm) = [L xyz(3), L ypr(3), L grip(1), R xyz(3),
+#              R ypr(3), R grip(1)]. Rotation is unconditionally supervised.
 #
 # Sequence layout:
 #   slots 0..M-1 (0..19) : waypoint tokens in arc-length-uniform order.
-#                          waypoint[k] = wrist+gripper pose at k/(M-1) of
-#                          the chunk's joint arc length.
+#                          waypoint[k] = wrist pose + gripper at k/(M-1) of
+#                          the chunk's joint arc length (SLERP for ypr,
+#                          linear for xyz + gripper).
 #   slot M       (20)    : velocity token = per-dim mean rate across the
 #                          chunk: (waypoint[M-1] - waypoint[0]) / duration_s
-#                          for xyz and gripper alike (so the last two of
-#                          the 8 dims are gripper-open-rate per arm). Used
-#                          at rollout to reconstruct the time schedule:
-#                          duration_s = D / ||mean_xyz_vel||, then linear
-#                          resample of the M waypoints uniformly over
-#                          [0, duration_s] at the 30 Hz control rate.
+#                          per axis for xyz / ypr / gripper. Used at rollout
+#                          to reconstruct the time schedule from the xyz
+#                          slots: duration_s = D / ||mean_xyz_vel||, then
+#                          resample the M waypoints uniformly over
+#                          [0, duration_s] at the 30 Hz control rate
+#                          (SLERP over ypr waypoints, linear over xyz +
+#                          gripper).
 #
 # Gripper handling: the tokenizer keys the gripper opening to arc-length
 # position (see ``arc_length_tokenizer.py:230-236``) so gripper[k] means
@@ -77,23 +78,25 @@ robomimic_model:
       pooling: null
       padding: "zero"
       time_dist: "beta"
-      # Per-token dim = 8 (Lx, Ly, Lz, L_gripper, Rx, Ry, Rz, R_gripper).
-      # Same value for both embodiments since human gripper columns are
-      # zero-padded upstream in the dataloader.
+      # Per-token dim = 14 (xyz + ypr + grip per arm): [L xyz(3), L ypr(3),
+      # L grip(1), R xyz(3), R ypr(3), R grip(1)]. Same value for both
+      # embodiments since human gripper columns are zero-padded upstream
+      # in the dataloader.
       infer_ac_dims:
-        eva_bimanual: 8
-        human_bimanual: 8
+        eva_bimanual: 14
+        human_bimanual: 14
       model:
         _target_: egomimic.models.diffusion.denoising_nets.CrossTransformer
         nblocks: 6
         cond_dim: 256
         hidden_dim: 128
         # Sequence of 20 waypoint tokens + 1 vel token appended at the end
-        # (= 21 slots), each 8-dim (xyz + gripper per arm). The vel token
-        # holds the per-action-dim mean rate across the chunk, one scalar
-        # per action dim, packed into the same 8-slot layout as a waypoint:
-        # [Lx_vel, Ly_vel, Lz_vel, L_grip_vel, Rx_vel, Ry_vel, Rz_vel, R_grip_vel].
-        act_dim: 8
+        # (= 21 slots), each 14-dim (xyz + ypr + grip per arm). The vel
+        # token holds the per-action-dim mean rate across the chunk, one
+        # scalar per action dim, packed into the same 14-slot layout as a
+        # waypoint: [Lx_v, Ly_v, Lz_v, L_yaw_v, L_pitch_v, L_roll_v,
+        # L_grip_v, Rx_v, Ry_v, Rz_v, R_yaw_v, R_pitch_v, R_roll_v, R_grip_v].
+        act_dim: 14
         act_seq: 21
         n_heads: 4
         dropout: 0.1

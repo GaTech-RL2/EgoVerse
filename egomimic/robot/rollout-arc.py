@@ -9,16 +9,17 @@ What's different from ``rollout.py``:
       send to robot" step for policies trained with the arc-length tokenizer
       (see ``egomimic/rldb/zarr/arc_length_tokenizer.py`` and the model
       configs ``hpt_cotrain_mecka_flow_shared_head_arc_D40_M100*.yaml``).
-    * Arc-tok models output ``(B, M+1, 8)`` per sample: M waypoints uniform
-      in each arm's arc length + 1 velocity token, each 8-dim
-      ``[Lx, Ly, Lz, L_grip, Rx, Ry, Rz, R_grip]``.
+    * Arc-tok models output ``(B, M+1, 14)`` per sample: M waypoints uniform
+      in each arm's arc length + 1 velocity token, each 14-dim
+      ``[L xyz, L ypr, L grip, R xyz, R ypr, R grip]``. Rotation is
+      unconditionally supervised (no drop-rotation option).
     * Before the raw prediction goes to the controller, we DETOKENIZE it
-      into a canonical ``(H, 14)`` cartesian chunk (zero-padded rotation
-      columns, xyz + gripper carried through) via
+      into a canonical ``(H, 14)`` cartesian chunk via
       ``TokenizeBimanualArcLengthCartesian.detokenize`` -- the exact same
       reconstruction algebra ``egomimic/eval/eval_arctok.py`` uses for val
-      videos. Duration is derived from the velocity token; degenerate arms
-      hold pose (matching the tokenizer/eval behaviour).
+      videos (xyz linear, ypr SLERP, gripper linear along per-arm xyz
+      cumdist). Duration is derived from the velocity token's xyz slots;
+      degenerate arms hold pose (matching the tokenizer/eval behaviour).
     * Everything else (obs-batch construction, embodiment routing, control
       loop, safety limits, interventions, resampling, cam-to-base
       transforms) is preserved unchanged from ``rollout.py`` so the two
@@ -29,7 +30,7 @@ Borrowed from:
       structure, obs preprocessing, cartesian rot/frame handling, safety
       resampling, terminal intervention loop, argparse.
     * ``egomimic/eval/eval_arctok.py`` (``ArcTokEvalVideo._detokenize_batch``)
-      -- the (B, M+1, 8) -> (B, H, 14) detokenization pass wrapped around
+      -- the (B, M+1, 14) -> (B, H, 14) detokenization pass wrapped around
       ``TokenizeBimanualArcLengthCartesian.detokenize``.
     * ``egomimic/rldb/zarr/arc_length_tokenizer.py``
       (``TokenizeBimanualArcLengthCartesian``) -- the underlying detokenize
@@ -89,12 +90,9 @@ class ArcTokPolicyRollout(PolicyRollout):
     ACTION side is different), and then wraps the base-class prediction
     step with a detokenize pass:
 
-        raw model out  (B, M+1, 8)   <- forward_eval
+        raw model out  (B, M+1, 14)  <- forward_eval
                 v                     TokenizeBimanualArcLengthCartesian.detokenize
-        detok chunk    (B, H, 8)      [Lxyz, L_grip, Rxyz, R_grip]
-                v                     splice into canonical 14-dim layout with
-                                      zero rotation columns (dims 3:6, 10:13)
-        canonical      (B, H, 14)     [L xyz ypr grip | R xyz ypr grip]
+        detok chunk    (B, H, 14)     canonical [L xyz ypr grip | R xyz ypr grip]
                 v                     hand to rollout.py's cam->base + safety
                                       resample path unchanged
         controller     (H, 14)        row-per-control-step, arm-split before
@@ -185,19 +183,18 @@ class ArcTokPolicyRollout(PolicyRollout):
         return None
 
     def _detokenize_arc_output(self, arc_out):
-        """(B, M+1, 8) -> (B, H, 14) with zero rotation columns.
+        """(B, M+1, 14) -> (B, H, 14) canonical bimanual cartesian.
 
-        This is the exact same splice ``ArcTokEvalVideo._detokenize_batch``
-        does (see ``eval_arctok.py``): per-arm ``[xyz, grip]`` from the
-        arc detokenize, rotation columns held at zero (the arc-tok variant
-        does not carry orientation -- downstream code that reads ypr will
-        see zeros, matching what viz sees).
+        The arc-tok head now unconditionally supervises orientation, so
+        the detokenizer returns the full 14-dim ``[L xyz ypr grip | R xyz
+        ypr grip]`` layout directly -- no zero-padding of rotation columns
+        is needed. This mirrors ``ArcTokEvalVideo._detokenize_batch``.
         """
         if not isinstance(arc_out, torch.Tensor):
             arc_out = torch.as_tensor(arc_out)
         arc_np = arc_out.detach().cpu().numpy().astype(np.float64)
         if arc_np.ndim == 2:
-            arc_np = arc_np[None, ...]  # (M+1, 8) -> (1, M+1, 8)
+            arc_np = arc_np[None, ...]  # (M+1, 14) -> (1, M+1, 14)
         if arc_np.ndim != 3 or arc_np.shape[-1] != ARC_TOK_BIMANUAL_DIM:
             raise ValueError(
                 f"[rollout-arc] Expected arc output (B, M+1, "
@@ -212,16 +209,9 @@ class ArcTokPolicyRollout(PolicyRollout):
         H = self._arc_rollout_horizon
         out = np.zeros((B, H, 14), dtype=np.float64)
         for b in range(B):
-            det = self._arc_detokenizer.detokenize(
-                arc_np[b], action_horizon=H
-            )  # (H, 8)
-            # Canonical 14-dim splice: [L xyz ypr grip | R xyz ypr grip].
-            # Rotation slots (3:6, 10:13) stay zero -- the arc-tok head
-            # doesn't supervise orientation.
-            out[b, :, 0:3] = det[:, 0:3]  # L xyz
-            out[b, :, 6:7] = det[:, 3:4]  # L gripper
-            out[b, :, 7:10] = det[:, 4:7]  # R xyz
-            out[b, :, 13:14] = det[:, 7:8]  # R gripper
+            # (H, 14) directly -- rotation is unconditionally supervised
+            # and returned from the detokenizer, so no post-splice is needed.
+            out[b] = self._arc_detokenizer.detokenize(arc_np[b], action_horizon=H)
         return out
 
     def rollout_step(self, i, obs):
@@ -255,10 +245,10 @@ class ArcTokPolicyRollout(PolicyRollout):
                 f"{embodiment_name}_actions_cartesian"
             ]
 
-            # -- ARC-TOK DIFF: raw preds here are (B, M+1, 8) instead of the
-            # non-arc (B, H, 14). Detokenize BEFORE any downstream safety /
-            # cam-frame / resample step so those operate on the same shape
-            # rollout.py assumes.
+            # -- ARC-TOK DIFF: raw preds here are (B, M+1, 14) instead of
+            # the non-arc (B, H, 14). Detokenize BEFORE any downstream
+            # safety / cam-frame / resample step so those operate on the
+            # same shape rollout.py assumes.
             raw_arc = preds.detach().cpu().numpy()
             print(
                 f"[rollout-arc] raw arc preds shape={raw_arc.shape}  "
@@ -537,7 +527,7 @@ def build_arc_arg_parser():
         type=int,
         default=DEFAULT_ARC_RESAMPLED_VECTOR_LENGTH,
         help=(
-            "M -- number of arc waypoints (model must emit (M+1, 8) per "
+            "M -- number of arc waypoints (model must emit (M+1, 14) per "
             "sample; must match training-time value)."
         ),
     )

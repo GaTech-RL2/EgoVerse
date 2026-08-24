@@ -17,6 +17,9 @@ class FMPolicyWithVelDecoder(nn.Module):
     velocity token (row M) is predicted by a dedicated MLP fed by pooled
     stem/trunk tokens. Both losses (FM MSE on waypoints, direct MSE on vel)
     propagate through the shared trunk+stems.
+
+    ``act_dim`` (via the vel_decoder's ``output_dim``) defaults to 14
+    (xyz + ypr + grip per arm, 2 arms). Rotation is always supervised.
     """
 
     def __init__(
@@ -25,6 +28,7 @@ class FMPolicyWithVelDecoder(nn.Module):
         vel_decoder: nn.Module,
         num_waypoints: int,
         vel_loss_weight: float = 1.0,
+        act_dim: int = 14,
         **kwargs,
     ):
         super().__init__()
@@ -80,6 +84,9 @@ class FMPolicyWithVelReadout(nn.Module):
         shape_ctx = global_cond[:, :-1]      -> FM head cross-attn context
         vel_slot  = global_cond[:, -1]       -> Linear -> (B, 1, act_dim)
     The FM head is configured to denoise M waypoints only.
+
+    ``act_dim`` defaults to 14 (xyz + ypr + grip per arm, 2 arms).
+    Rotation is always supervised.
     """
 
     def __init__(
@@ -87,7 +94,7 @@ class FMPolicyWithVelReadout(nn.Module):
         fm_policy: "FMPolicy",
         num_waypoints: int,
         vel_readout_dim: int,
-        act_dim: int,
+        act_dim: int = 14,
         vel_loss_weight: float = 1.0,
         **kwargs,
     ):
