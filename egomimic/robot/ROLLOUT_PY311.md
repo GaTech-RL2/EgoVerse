@@ -61,8 +61,9 @@ The rollout path strict-loads that original persistent schedule and all
 335,564,596 model parameters, then installs a nonpersistent 16-step schedule
 on the exact frozen Fold compatibility head. The checkpoint and 100-action
 horizon remain unchanged. On Bonjour's RTX 4090, a no-hardware warm benchmark
-measured median query times of 0.535 seconds at 100 steps and 0.0978 seconds at
-16 steps, a 5.48x speedup. The 16-step query is still longer than one 33 ms
+measured median query times of 0.535 seconds at 100 steps and 0.102 seconds at
+16 steps, about a 5.2x speedup; the first 16-step query took 0.276 seconds. The
+16-step query is still longer than one 33 ms
 control period, so synchronous replanning can still cause a smaller periodic
 rate dip; uninterrupted 30 Hz control requires a separate asynchronous design.
 
@@ -121,6 +122,12 @@ limits, a joint delta bounded by the controller's 200 ms preview window, an
 exception or normal exit commands the measured joint state and stops camera
 recorders. These are fail-closed rollout guards, not replacements for attended
 hardware testing or the controller's internal limits.
+
+Quantile unnormalization's range epsilon plus float32 rounding can leave a
+decoded gripper endpoint up to `1e-6` outside `[0, 1]`. The Pipeline EVA codec
+clips only that numerical residue to the exact endpoint before strict robot
+validation; larger excursions, including the saved right-gripper lower
+quantile `-0.018`, remain errors and stop rollout.
 
 Policy and teleoperation gripper values remain normalized: `0` is closed and
 `1` is open. Only after `ARXInterface` denormalizes that command does closed

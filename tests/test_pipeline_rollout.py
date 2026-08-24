@@ -290,6 +290,64 @@ def test_eva_action_codec_reverts_dataset_pose_to_hardware_convention():
     assert stats.unnormalize_calls == 1
 
 
+def test_eva_action_codec_canonicalizes_only_numerical_gripper_residue():
+    current = np.zeros(6, dtype=np.float64)
+    native_state = np.concatenate(
+        [
+            _dataset_state_arm(current, 0.5),
+            _dataset_state_arm(current, 0.5),
+        ]
+    )
+    action = np.concatenate(
+        [
+            _relative_dataset_action(current, current, 1.0000009536743164),
+            _relative_dataset_action(current, current, -0.0000009536743164),
+        ]
+    )
+    stats = _IdentityStats()
+    state = {
+        "action": torch.from_numpy(action).float(),
+        "native_state_ee_pose": np.stack([native_state, native_state]),
+    }
+
+    EvaActionCodec(stats, get_embodiment_id("eva_bimanual"))(state)
+
+    np.testing.assert_array_equal(state["command"][[6, 13]], [1.0, 0.0])
+    np.testing.assert_allclose(
+        state["command"][[0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12]],
+        0.0,
+        atol=1e-6,
+    )
+    assert stats.unnormalize_calls == 1
+
+
+@pytest.mark.parametrize("gripper", [1.000002, -0.000002, -0.018, np.nan, np.inf])
+def test_eva_action_codec_rejects_gripper_beyond_numerical_tolerance(gripper):
+    current = np.zeros(6, dtype=np.float64)
+    native_state = np.concatenate(
+        [
+            _dataset_state_arm(current, 0.5),
+            _dataset_state_arm(current, 0.5),
+        ]
+    )
+    action = np.concatenate(
+        [
+            _relative_dataset_action(current, current, gripper),
+            _relative_dataset_action(current, current, 0.5),
+        ]
+    )
+    stats = _IdentityStats()
+    state = {
+        "action": torch.from_numpy(action).float(),
+        "native_state_ee_pose": np.stack([native_state, native_state]),
+    }
+
+    with pytest.raises(ValueError, match="gripper command exceeds"):
+        EvaActionCodec(stats, get_embodiment_id("eva_bimanual"))(state)
+    assert "command" not in state
+    assert stats.unnormalize_calls == 1
+
+
 def test_eva_live_codecs_roundtrip_exact_training_transform():
     left_obs = np.asarray(
         [
