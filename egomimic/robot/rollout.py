@@ -17,6 +17,7 @@ from egomimic.rldb.embodiment.human import Human
 from egomimic.robot.robot_utils import RateLoop
 from egomimic.robot.safety import (
     CartesianTranslationConfirmationRequired,
+    CartesianTranslationHardLimitExceeded,
     validate_action_vector,
 )
 from egomimic.rollout.policy import RolloutPolicyConfig, load_rollout_policy
@@ -180,6 +181,18 @@ def _confirm_cartesian_action(kp, confirmations) -> bool:
             print("Please enter y/yes or n/no.")
 
 
+def _report_cartesian_hard_pause(error, sent_arms=()) -> None:
+    print("\n--- CARTESIAN SAFETY PAUSE ---")
+    if sent_arms:
+        print(f"Dispatch stopped after commanding: {', '.join(sent_arms)}.")
+    else:
+        print("No command was sent.")
+    print(
+        f"Requested translation jump {error.translation_step_m:.4f} m reached "
+        f"the {error.hard_limit_m:.4f} m hard limit."
+    )
+
+
 def _run_intervention_loop(
     enter_intervention,
     restart_rollout,
@@ -318,14 +331,18 @@ def authorize_rollout_action(kp, ri, actions, arms, arms_list, cartesian):
     """Validate all arms, then optionally authorize exactly one soft jump."""
     approved_arms = frozenset()
     while True:
-        actions, confirmations = validate_rollout_action(
-            ri,
-            actions,
-            arms,
-            arms_list,
-            cartesian,
-            allowed_soft_translation_arms=approved_arms,
-        )
+        try:
+            actions, confirmations = validate_rollout_action(
+                ri,
+                actions,
+                arms,
+                arms_list,
+                cartesian,
+                allowed_soft_translation_arms=approved_arms,
+            )
+        except CartesianTranslationHardLimitExceeded as error:
+            _report_cartesian_hard_pause(error)
+            return None
         if not confirmations:
             return actions, approved_arms
         if not _confirm_cartesian_action(kp, confirmations):
@@ -344,34 +361,45 @@ def dispatch_rollout_action(
 ):
     """Send one fully authorized rollout action to the selected arm(s)."""
     allowed_soft_translation_arms = frozenset(allowed_soft_translation_arms or ())
-    _, confirmations = validate_rollout_action(
-        ri,
-        actions,
-        arms,
-        arms_list,
-        cartesian,
-        allowed_soft_translation_arms=allowed_soft_translation_arms,
-    )
+    try:
+        _, confirmations = validate_rollout_action(
+            ri,
+            actions,
+            arms,
+            arms_list,
+            cartesian,
+            allowed_soft_translation_arms=allowed_soft_translation_arms,
+        )
+    except CartesianTranslationHardLimitExceeded as error:
+        _report_cartesian_hard_pause(error)
+        return False
     if confirmations:
         arms_requiring_confirmation = [arm for arm, _ in confirmations]
         raise RuntimeError(
             "Cartesian command changed before dispatch; new confirmation is "
             f"required for {arms_requiring_confirmation}"
         )
+    sent_arms = []
     for arm in arms_list:
         arm_offset = 7 if (arm == "right" and arms == "both") else 0
         arm_action = actions[arm_offset : arm_offset + 7]
-        if cartesian:
-            if arm in allowed_soft_translation_arms:
-                ri.set_pose(
-                    arm_action,
-                    arm,
-                    allow_soft_translation_jump=True,
-                )
+        try:
+            if cartesian:
+                if arm in allowed_soft_translation_arms:
+                    ri.set_pose(
+                        arm_action,
+                        arm,
+                        allow_soft_translation_jump=True,
+                    )
+                else:
+                    ri.set_pose(arm_action, arm)
             else:
-                ri.set_pose(arm_action, arm)
-        else:
-            ri.set_joints(arm_action, arm)
+                ri.set_joints(arm_action, arm)
+        except CartesianTranslationHardLimitExceeded as error:
+            _report_cartesian_hard_pause(error, sent_arms)
+            return False
+        sent_arms.append(arm)
+    return True
 
 
 def warmup_policy(ri, policy, arms, arms_list, cartesian):
@@ -379,13 +407,18 @@ def warmup_policy(ri, policy, arms, arms_list, cartesian):
     print("[rollout] Running pre-motion shadow inference")
     observation = ri.get_obs()
     actions = policy.act(observation)
-    _, confirmations = validate_rollout_action(
-        ri,
-        actions,
-        arms,
-        arms_list,
-        cartesian,
-    )
+    try:
+        _, confirmations = validate_rollout_action(
+            ri,
+            actions,
+            arms,
+            arms_list,
+            cartesian,
+        )
+    except CartesianTranslationHardLimitExceeded as error:
+        _report_cartesian_hard_pause(error)
+        policy.reset()
+        return False
     for arm, warning in confirmations:
         print(
             f"[rollout] Shadow-only {arm} translation "
@@ -394,6 +427,7 @@ def warmup_policy(ri, policy, arms, arms_list, cartesian):
         )
     policy.reset()
     print("[rollout] Shadow inference passed; no command was sent")
+    return True
 
 
 def main(
@@ -537,7 +571,10 @@ def main(
                 print("Quit requested.")
                 return
             if rollout_type == "policy":
-                warmup_policy(ri, policy, arms, arms_list, cartesian)
+                while not warmup_policy(ri, policy, arms, arms_list, cartesian):
+                    result = _intervene_until_continue(kp, policy, rollout_type)
+                    if result == "quit":
+                        return
 
             while True:  # restartable
                 with RateLoop(frequency=frequency, verbose=True) as loop:
@@ -602,7 +639,7 @@ def main(
                                 step_i,
                             )
 
-                        dispatch_rollout_action(
+                        dispatched = dispatch_rollout_action(
                             ri,
                             actions,
                             arms,
@@ -612,6 +649,13 @@ def main(
                                 allowed_soft_translation_arms
                             ),
                         )
+                        if not dispatched:
+                            if rollout_type == "policy" and hasattr(policy, "reset"):
+                                policy.reset()
+                            result = _intervene_until_continue(kp, policy, rollout_type)
+                            if result == "quit":
+                                return
+                            break
                         commit_step = getattr(policy, "commit_step", None)
                         if commit_step is not None:
                             commit_step()

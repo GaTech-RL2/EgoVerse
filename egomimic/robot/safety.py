@@ -26,6 +26,18 @@ class CartesianTranslationConfirmationRequired(ValueError):
         )
 
 
+class CartesianTranslationHardLimitExceeded(ValueError):
+    """A Cartesian command must not be sent because it reached the hard limit."""
+
+    def __init__(self, translation_step_m: float, hard_limit_m: float):
+        self.translation_step_m = float(translation_step_m)
+        self.hard_limit_m = float(hard_limit_m)
+        super().__init__(
+            f"Cartesian translation jump {self.translation_step_m:.4f} m reaches "
+            f"or exceeds the hard limit {self.hard_limit_m:.4f} m"
+        )
+
+
 def validate_action_vector(action, expected_dim: int) -> np.ndarray:
     action = np.asarray(action, dtype=np.float64)
     if action.shape != (expected_dim,):
@@ -98,9 +110,9 @@ def validate_cartesian_command(
         hard_max_translation_step_m is not None
         and translation_step >= hard_max_translation_step_m
     ):
-        raise ValueError(
-            f"Cartesian translation jump {translation_step:.4f} m reaches or "
-            f"exceeds the hard limit {hard_max_translation_step_m:.4f} m"
+        raise CartesianTranslationHardLimitExceeded(
+            translation_step,
+            hard_max_translation_step_m,
         )
     if (
         hard_max_translation_step_m is None

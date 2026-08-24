@@ -75,7 +75,7 @@ def test_bimanual_preflight_aggregates_soft_jumps_before_any_send():
     assert interface.sent == []
 
 
-def test_hard_violation_on_either_arm_never_prompts_or_sends(monkeypatch):
+def test_hard_violation_pauses_without_prompting_or_sending(monkeypatch, capsys):
     interface = _FakeLiveInterface()
     action = _bimanual_action(left_x=0.15, right_x=0.09)
     prompts = []
@@ -85,18 +85,19 @@ def test_hard_violation_on_either_arm_never_prompts_or_sends(monkeypatch):
         lambda *args: prompts.append(args) or True,
     )
 
-    with pytest.raises(ValueError, match="hard limit"):
-        rollout.authorize_rollout_action(
-            object(),
-            interface,
-            action,
-            "both",
-            ["right", "left"],
-            True,
-        )
+    authorization = rollout.authorize_rollout_action(
+        object(),
+        interface,
+        action,
+        "both",
+        ["right", "left"],
+        True,
+    )
 
+    assert authorization is None
     assert prompts == []
     assert interface.sent == []
+    assert "CARTESIAN SAFETY PAUSE" in capsys.readouterr().out
 
 
 def test_explicit_confirmation_authorizes_only_one_action(monkeypatch):
@@ -180,16 +181,67 @@ def test_dispatch_preflights_every_arm_before_sending_any_command():
     interface = _FakeLiveInterface()
     action = _bimanual_action(left_x=0.15, right_x=0.07)
 
-    with pytest.raises(ValueError, match="hard limit"):
-        rollout.dispatch_rollout_action(
-            interface,
-            action,
-            "both",
-            ["right", "left"],
-            True,
-        )
+    dispatched = rollout.dispatch_rollout_action(
+        interface,
+        action,
+        "both",
+        ["right", "left"],
+        True,
+    )
 
+    assert dispatched is False
     assert interface.sent == []
+
+
+def test_dispatch_revalidation_hard_jump_pauses_instead_of_raising(capsys):
+    class MovingInterface(_FakeLiveInterface):
+        def set_pose(self, pose, arm, *, allow_soft_translation_jump=False):
+            self.current[arm][0] = -0.15
+            return super().set_pose(
+                pose,
+                arm,
+                allow_soft_translation_jump=allow_soft_translation_jump,
+            )
+
+    interface = MovingInterface()
+
+    dispatched = rollout.dispatch_rollout_action(
+        interface,
+        _bimanual_action(),
+        "both",
+        ["right", "left"],
+        True,
+    )
+
+    assert dispatched is False
+    assert interface.sent == []
+    assert "CARTESIAN SAFETY PAUSE" in capsys.readouterr().out
+
+
+def test_dispatch_reports_an_arm_sent_before_second_arm_revalidation_pause(capsys):
+    class MovingLeftInterface(_FakeLiveInterface):
+        def set_pose(self, pose, arm, *, allow_soft_translation_jump=False):
+            if arm == "left":
+                self.current[arm][0] = -0.15
+            return super().set_pose(
+                pose,
+                arm,
+                allow_soft_translation_jump=allow_soft_translation_jump,
+            )
+
+    interface = MovingLeftInterface()
+
+    dispatched = rollout.dispatch_rollout_action(
+        interface,
+        _bimanual_action(),
+        "both",
+        ["right", "left"],
+        True,
+    )
+
+    assert dispatched is False
+    assert [arm for arm, *_ in interface.sent] == ["right"]
+    assert "after commanding: right" in capsys.readouterr().out
 
 
 def test_safe_action_dispatches_without_prompt_or_override(monkeypatch):
@@ -243,7 +295,7 @@ def test_shadow_warmup_reports_soft_jump_without_prompt_or_send(capsys):
 
     policy = Policy()
 
-    rollout.warmup_policy(
+    assert rollout.warmup_policy(
         interface,
         policy,
         "both",
@@ -258,6 +310,34 @@ def test_shadow_warmup_reports_soft_jump_without_prompt_or_send(capsys):
     assert "no command was sent" in output
 
 
+def test_shadow_warmup_hard_jump_pauses_without_sending(capsys):
+    interface = _FakeLiveInterface()
+    interface.get_obs = lambda: {"observation": True}
+
+    class Policy:
+        def __init__(self):
+            self.reset_calls = 0
+
+        def act(self, obs):
+            return _bimanual_action(right_x=0.15)
+
+        def reset(self):
+            self.reset_calls += 1
+
+    policy = Policy()
+
+    assert not rollout.warmup_policy(
+        interface,
+        policy,
+        "both",
+        ["right", "left"],
+        True,
+    )
+    assert policy.reset_calls == 1
+    assert interface.sent == []
+    assert "CARTESIAN SAFETY PAUSE" in capsys.readouterr().out
+
+
 def test_confirmation_revalidates_hard_limit_against_latest_pose(monkeypatch):
     interface = _FakeLiveInterface()
     action = _bimanual_action(right_x=0.09)
@@ -268,15 +348,15 @@ def test_confirmation_revalidates_hard_limit_against_latest_pose(monkeypatch):
 
     monkeypatch.setattr(rollout, "_confirm_cartesian_action", move_while_paused)
 
-    with pytest.raises(ValueError, match="hard limit"):
-        rollout.authorize_rollout_action(
-            object(),
-            interface,
-            action,
-            "both",
-            ["right", "left"],
-            True,
-        )
+    authorization = rollout.authorize_rollout_action(
+        object(),
+        interface,
+        action,
+        "both",
+        ["right", "left"],
+        True,
+    )
+    assert authorization is None
     assert interface.sent == []
 
 

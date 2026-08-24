@@ -121,9 +121,14 @@ limits, a joint delta bounded by the controller's 200 ms preview window, an
 non-overridable 15 cm hard translation bound. The live soft translation prompt
 and per-step Cartesian rotation-jump gate are currently disabled; finite-value,
 IK, and joint checks remain active. A translation at or above 15 cm remains a
-hard error. Any exception or normal exit commands the measured joint state and
-stops camera recorders. These are fail-closed rollout guards, not replacements
-for attended hardware testing or the controller's internal limits.
+non-overridable pause condition: rollout enters the intervention menu instead
+of exiting with a traceback. The all-arm preflight blocks the action before any
+send. Each arm is also revalidated immediately before its command; if the live
+pose crosses the limit between those checks, remaining dispatch stops and the
+prompt reports any arm already updated. Any other exception or normal exit
+commands the measured joint state and stops camera recorders. These are
+fail-closed rollout guards, not replacements for attended hardware testing or
+the controller's internal limits.
 
 Quantile unnormalization can produce finite decoded gripper values outside the
 robot-facing normalized range, including the saved right-gripper lower quantile
