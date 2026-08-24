@@ -28,6 +28,32 @@ OmegaConf.register_new_resolver("eval", eval)
 log = RankedLogger(__name__, rank_zero_only=True)
 
 
+def _resolve_slurm_requeue_checkpoint(
+    default_root_dir: str, configured_ckpt_path: Optional[str]
+) -> Optional[str]:
+    """Use ``last.ckpt`` on a real Slurm restart only when it exists.
+
+    Preemptible jobs can be requeued before their first periodic checkpoint. In
+    that case, preserve the configured checkpoint (often ``None`` for a fresh
+    run) instead of replacing it with a path that Lightning cannot load.
+    """
+    if not os.environ.get("SLURM_JOB_ID") or os.environ.get(
+        "SLURM_RESTART_COUNT", "0"
+    ) == "0":
+        return configured_ckpt_path
+
+    last_ckpt_path = os.path.join(default_root_dir, "checkpoints", "last.ckpt")
+    if os.path.isfile(last_ckpt_path):
+        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
+        return last_ckpt_path
+
+    log.warning(
+        f"Detected SLURM requeue, but '{last_ckpt_path}' does not exist; "
+        f"keeping configured ckpt_path={configured_ckpt_path!r}"
+    )
+    return configured_ckpt_path
+
+
 def _build_model_config_tree(cfg: DictConfig) -> DictConfig:
     model_cfg = copy.deepcopy(cfg.model)
     if (
@@ -212,15 +238,9 @@ def train(cfg: DictConfig) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         log.info("Logging hyperparameters!")
         log_hyperparameters(object_dict)
 
-    if (
-        os.environ.get("SLURM_JOB_ID")
-        and os.environ.get("SLURM_RESTART_COUNT", "0") != "0"
-    ):
-        last_ckpt_path = os.path.join(
-            trainer.default_root_dir, "checkpoints", "last.ckpt"
-        )
-        log.info("Detected SLURM requeue — resuming from 'last.ckpt'")
-        cfg.ckpt_path = last_ckpt_path
+    cfg.ckpt_path = _resolve_slurm_requeue_checkpoint(
+        trainer.default_root_dir, cfg.get("ckpt_path")
+    )
 
     os.makedirs(os.path.join(trainer.default_root_dir, "videos"), exist_ok=True)
 
