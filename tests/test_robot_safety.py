@@ -68,6 +68,12 @@ def test_cartesian_command_uses_geodesic_rotation_delta():
             max_translation_step_m=0.05,
             max_rotation_step_rad=0.2,
         )
+    validate_cartesian_command(
+        command,
+        current,
+        max_translation_step_m=0.05,
+        max_rotation_step_rad=None,
+    )
 
 
 def test_cartesian_translation_confirmation_and_hard_limit_boundaries():
@@ -162,6 +168,11 @@ def test_live_pose_validation_requires_one_shot_soft_jump_override():
         allow_soft_translation_jump=True,
     )
 
+    command[0] = 0.0
+    command[3] = 1.0
+    interface.validate_pose_command(command, "right")
+
+    command[3] = 0.0
     command[0] = 0.15
     with pytest.raises(ValueError, match="hard limit"):
         interface.validate_pose_command(

@@ -74,7 +74,7 @@ def validate_cartesian_command(
     current_pose,
     *,
     max_translation_step_m: float,
-    max_rotation_step_rad: float,
+    max_rotation_step_rad: float | None,
     hard_max_translation_step_m: float | None = None,
     allow_soft_translation_jump: bool = False,
 ) -> np.ndarray:
@@ -105,14 +105,15 @@ def validate_cartesian_command(
             f"Cartesian translation jump {translation_step:.4f} m exceeds "
             f"{max_translation_step_m:.4f} m"
         )
-    current_rotation = Rotation.from_euler("ZYX", current_pose[3:6])
-    target_rotation = Rotation.from_euler("ZYX", command[3:6])
-    rotation_step = float((target_rotation * current_rotation.inv()).magnitude())
-    if rotation_step > max_rotation_step_rad:
-        raise ValueError(
-            f"Cartesian rotation jump {rotation_step:.4f} rad exceeds "
-            f"{max_rotation_step_rad:.4f} rad"
-        )
+    if max_rotation_step_rad is not None:
+        current_rotation = Rotation.from_euler("ZYX", current_pose[3:6])
+        target_rotation = Rotation.from_euler("ZYX", command[3:6])
+        rotation_step = float((target_rotation * current_rotation.inv()).magnitude())
+        if rotation_step > max_rotation_step_rad:
+            raise ValueError(
+                f"Cartesian rotation jump {rotation_step:.4f} rad exceeds "
+                f"{max_rotation_step_rad:.4f} rad"
+            )
     if (
         hard_max_translation_step_m is not None
         and translation_step > max_translation_step_m

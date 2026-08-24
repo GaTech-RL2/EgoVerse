@@ -119,7 +119,8 @@ Every command then passes application-level checks before the ARX controller:
 exact action shape, finite values, normalized gripper range, configured joint
 limits, a joint delta bounded by the controller's 200 ms preview window, an
 8 cm automatic Cartesian translation bound, a non-overridable 15 cm hard
-translation bound, and a 0.5 rad Cartesian rotation bound. A finite translation
+translation bound. The live per-step Cartesian rotation-jump gate is currently
+disabled; finite-value, IK, and joint checks remain active. A finite translation
 strictly above 8 cm but below 15 cm pauses before either arm is commanded and
 requires `y`/`yes` to authorize that one action vector. Rejecting it clears the
 queued policy plan and enters the intervention menu; continuing replans from a

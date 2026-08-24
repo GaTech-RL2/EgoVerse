@@ -126,7 +126,7 @@ class Robot_Interface(ABC):
 class ARXInterface(Robot_Interface):
     MAX_TRANSLATION_STEP_M = 0.08
     HARD_MAX_TRANSLATION_STEP_M = 0.15
-    MAX_ROTATION_STEP_RAD = 0.50
+    MAX_ROTATION_STEP_RAD = None
 
     def __init__(self, arms):
         super().__init__()
