@@ -7,7 +7,7 @@ defaults:
   - override /evaluator: eval_rh_fold_viz_kp
 
 name: fold_robot_dense_bc
-description: pipeline_sampler_bc_robot_only_cartesian_h100
+description: pipeline_sampler_robot_bc_robot_only_cartesian_h100
 
 trainer:
   max_steps: 240000
