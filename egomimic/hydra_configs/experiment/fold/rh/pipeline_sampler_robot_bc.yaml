@@ -1,5 +1,5 @@
-# Robot-only BC control for the Fold Dense Pipeline parent.
 # @package _global_
+# Robot-only BC control for the Fold Dense Pipeline parent.
 defaults:
   - override /model: bf/bf_pipeline_sampler_robot_bc
   - override /data: fold_robot_normal_bc
