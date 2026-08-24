@@ -72,10 +72,17 @@ class HumanRobotOverlayEval(EvalVideo):
         return unnormalized, packed.chunk_targets(target, cu_seqlens, self.chunk_len)
 
     def _unnormalize_prediction(self, prediction, emb_id, action_key):
-        batch_size, horizon, action_dim = prediction.shape
-        flat = prediction.reshape(batch_size * horizon, action_dim)
-        flat = self.model.norm_stats.unnormalize({action_key: flat}, emb_id)[action_key]
-        return flat.reshape(batch_size, horizon, action_dim)
+        if prediction.ndim != 3:
+            raise ValueError(
+                "Expected prediction shaped (batch, horizon, action_dim), got "
+                f"{tuple(prediction.shape)}"
+            )
+        # Keep the horizon axis intact. MultiDataset statistics may be either
+        # per-dimension (D,) or slotwise (H, D); both broadcast correctly into
+        # (B, H, D), while flattening B and H breaks slotwise arc-token stats.
+        return self.model.norm_stats.unnormalize(
+            {action_key: prediction}, emb_id
+        )[action_key]
 
     def compute_metrics_and_viz(
         self, batch: dict[int, dict[str, Any]]

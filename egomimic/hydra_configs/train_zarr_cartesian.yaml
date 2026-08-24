@@ -31,6 +31,8 @@ seed: 42
 # Normalization and norm-stat cache settings (override per-run as needed).
 norm_stats:
   norm_mode: quantile
+  # Pool across time/sequence axes while retaining the final feature axis.
+  reduce_all_but_last: false
   sample_frac: 1.0
   num_workers: 4
   save_cache_dir: ${hydra:runtime.output_dir}

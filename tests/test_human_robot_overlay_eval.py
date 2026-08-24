@@ -8,6 +8,7 @@ from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.human import (
     build_fold_keypoint_wristframe_revert_transform_list,
 )
+from egomimic.rldb.zarr.zarr_dataset_multi import MultiDataset
 
 
 class IdentityNorm:
@@ -43,6 +44,39 @@ def test_metrics_score_the_full_unnormalized_denoised_chunk():
     assert metrics[f"{prefix}_squared_error_max"].item() == 4.0
     assert metrics[f"Valid/emb{emb_id}_{action_key}_copybaseline_mse"] == 0.0
     assert images == {}
+
+
+def test_prediction_unnormalize_preserves_slotwise_arc_token_stats():
+    emb_id = get_embodiment_id("eva_bimanual")
+    action_key = "actions_cartesian"
+    horizon, action_dim = 4, 3
+    stats = {
+        "quantile_1": np.zeros((horizon, action_dim), dtype=np.float32),
+        "quantile_99": np.arange(
+            1, horizon * action_dim + 1, dtype=np.float32
+        ).reshape(horizon, action_dim),
+    }
+    norm_stats = MultiDataset.from_state(
+        {
+            "norm_mode": "quantile",
+            "embodiments": [emb_id],
+            "key_types": {emb_id: {action_key: "action_keys"}},
+            "zarr_keys": {emb_id: {action_key: action_key}},
+            "shapes": {emb_id: {action_key: (horizon, action_dim)}},
+            "norm_stats": {emb_id: {action_key: stats}},
+        }
+    )
+    evaluator = HumanRobotOverlayEval(viz_func=None)
+    evaluator.model = SimpleNamespace(norm_stats=norm_stats)
+
+    actual = evaluator._unnormalize_prediction(
+        torch.zeros(2, horizon, action_dim), emb_id, action_key
+    )
+
+    expected = torch.from_numpy(stats["quantile_99"]) * 0.5 + 0.5e-6
+    assert actual.shape == (2, horizon, action_dim)
+    assert torch.allclose(actual[0], expected)
+    assert torch.allclose(actual[1], expected)
 
 
 def test_frame_limit_is_cumulative_across_validation_batches():

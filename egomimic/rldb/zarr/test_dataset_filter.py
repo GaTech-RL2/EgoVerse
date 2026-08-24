@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pandas as pd
 import pytest
 import zarr
@@ -120,6 +122,26 @@ def test_local_resolver_filters_local_metadata_with_dataset_filter(tmp_path) -> 
     )
 
     assert [episode_hash for _, episode_hash in paths] == ["episode_a"]
+
+
+def test_local_resolver_can_override_historical_embodiment(
+    tmp_path, monkeypatch
+) -> None:
+    leaf = SimpleNamespace(embodiment="pushshapes_sim")
+    monkeypatch.setattr(
+        zarr_dataset_multi.LocalEpisodeResolver,
+        "resolve",
+        lambda self, *args, **kwargs: {"episode": leaf},
+    )
+    resolver = zarr_dataset_multi.LocalEpisodeResolverWithEmbodimentOverride(
+        folder_path=tmp_path,
+        key_map={},
+        embodiment_override="pushshapes_sim_u_socket",
+    )
+
+    resolved = resolver.resolve()
+
+    assert resolved["episode"].embodiment == "pushshapes_sim_u_socket"
 
 
 def test_sync_s3_parser_accepts_named_filter_key() -> None:

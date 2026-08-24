@@ -1,0 +1,40 @@
+# @package _global_
+defaults:
+  - override /model: bf/bf_pipeline_sampler_arc_length_nv
+  - override /data: fold_rh_arc_length_nv_D40_M25
+  - override /logger: wandb
+  - override /evaluator: eval_pipeline_action_mse
+
+name: rh_fold_pipeline_sampler_arc_length_nv_D40_M25
+description: pipeline_arc_length_nv_25_waypoints_plus_velocity_token
+
+trainer:
+  max_steps: 240000
+  max_epochs: -1
+  min_epochs: null
+  limit_train_batches: 1.0
+  val_check_interval: 10000
+  limit_val_batches: 8
+  num_sanity_val_steps: 0
+  check_val_every_n_epoch: 1
+  accumulate_grad_batches: 1
+  log_every_n_steps: 1
+
+logger:
+  wandb:
+    project: human-robot-hnet
+
+norm_stats:
+  norm_mode: quantile
+  sample_frac: 0.05
+
+callbacks:
+  model_checkpoint:
+    every_n_epochs: null
+    every_n_train_steps: null
+    train_time_interval:
+      _target_: datetime.timedelta
+      hours: 6
+    save_top_k: 1
+    save_last: true
+    save_on_train_epoch_end: true

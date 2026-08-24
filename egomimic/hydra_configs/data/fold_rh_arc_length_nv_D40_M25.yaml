@@ -1,0 +1,112 @@
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+# Fold robot-human arc-length-nv input pipeline. Each target is M+1 = 26 rows
+# of 8-D [L xyz, L grip, R xyz, R grip]: 25 waypoints plus one velocity row.
+# The widened 30 Hz windows (EVA 200, human 600 at stride 1) are interpolated
+# to 100 rows before tokenization. Their tokenizer dt is therefore derived from
+# the full physical span (199/30 and 599/30 seconds), fixing the source branch's
+# post-interpolation velocity inflation while retaining D=0.40 m and M=25.
+train_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: arc_tokenizer_cartesian
+        stride: 1
+        min_distance_unit: 0.40
+        resampled_vector_length: 25
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.2
+    bounds_check: false
+
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: arc_tokenizer_cartesian
+        min_distance_unit: 0.40
+        resampled_vector_length: 25
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: train
+    valid_ratio: 0.2
+    bounds_check: false
+
+# Duplicated (not interpolated) so hydra.utils.instantiate can resolve without
+# needing to walk up to `train_datasets` after it's been mutated in place.
+valid_datasets:
+  human_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.human.Human.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.human.Human.get_transform_list
+        mode: arc_tokenizer_cartesian
+        stride: 1
+        min_distance_unit: 0.40
+        resampled_vector_length: 25
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'human_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: valid
+    valid_ratio: 0.2
+    bounds_check: false
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.S3EpisodeResolver
+      folder_path: ${paths.dataset_dir}
+      key_map:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_keymap
+        keymap_mode: arc_tokenizer_cartesian
+      transform_list:
+        _target_: egomimic.rldb.embodiment.eva.Eva.get_transform_list
+        mode: arc_tokenizer_cartesian
+        min_distance_unit: 0.40
+        resampled_vector_length: 25
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+        - "lambda row: row['embodiment'] == 'eva_bimanual' and row['lab'] == 'rl2' and row['task'] == 'fold_clothes' and row['zarr_processed_path'] != '' and row['is_deleted'] == False"
+    mode: valid
+    valid_ratio: 0.2
+    bounds_check: false
+
+train_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+
+valid_dataloader_params:
+  human_bimanual:
+    batch_size: 32
+    num_workers: 6
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
