@@ -1,0 +1,15 @@
+# @package _global_
+# Width ablation of the robot-only Dense BC control. All data, optimizer,
+# schedule, evaluator, and architecture settings inherit from the 128-wide run.
+defaults:
+  - /experiment/fold/rh/pipeline_sampler_robot_bc
+  - _self_
+
+name: fold_robot_dense_bc_latent64
+description: pipeline_sampler_robot_bc_robot_only_cartesian_h100_latent64
+
+dense_latent_dim: 64
+
+logger:
+  wandb:
+    tags: [fold, robot_only, bc, dense_pipeline, latent64, "${oc.env:SOURCE_COMMIT_TAG,source_unset}"]
