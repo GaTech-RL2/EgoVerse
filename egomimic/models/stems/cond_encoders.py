@@ -32,6 +32,19 @@ def _mlp(
     return nn.Sequential(*layers)
 
 
+def _module_key(logical_key: str) -> str:
+    """Return a stable PyTorch-safe registration name for a data key.
+
+    Dataset aliases can contain dots (for example
+    ``observations.images.front_img_1``), while ``nn.ModuleDict`` reserves
+    dots for state-dict hierarchy. Keep legacy undotted names unchanged for
+    checkpoint compatibility and encode only dotted logical keys.
+    """
+    if "." not in logical_key:
+        return logical_key
+    return "__dotted_" + logical_key.encode("utf-8").hex()
+
+
 class CondEncoderModule(nn.Module):
     """
     Args:
@@ -64,6 +77,7 @@ class CondEncoderModule(nn.Module):
         obs_specs = obs_specs or {}
         self.strict_keys = bool(strict_keys)
         self.obs_keys = sorted(obs_specs.keys())
+        self._obs_module_keys = {key: _module_key(key) for key in self.obs_keys}
         self.obs_encoders = nn.ModuleDict()
         # Optional per-key input slice: spec["input_slice"] = [start, end] picks
         # x[..., start:end] before the MLP. Lets a multi-component proprio
@@ -72,7 +86,7 @@ class CondEncoderModule(nn.Module):
         fused_dim = 0
         for key in self.obs_keys:
             spec = obs_specs[key]
-            self.obs_encoders[key] = _mlp(
+            self.obs_encoders[self._obs_module_keys[key]] = _mlp(
                 spec["input_dim"], spec["embed_dim"], spec.get("widths", [])
             )
             if "input_slice" in spec:
@@ -82,9 +96,12 @@ class CondEncoderModule(nn.Module):
 
         img_encoders = img_encoders or {}
         self.img_keys = sorted(img_encoders.keys())
-        self.img_encoders = nn.ModuleDict({k: img_encoders[k] for k in self.img_keys})
+        self._img_module_keys = {key: _module_key(key) for key in self.img_keys}
+        self.img_encoders = nn.ModuleDict(
+            {self._img_module_keys[key]: img_encoders[key] for key in self.img_keys}
+        )
         for key in self.img_keys:
-            enc = self.img_encoders[key]
+            enc = self.img_encoders[self._img_module_keys[key]]
             if not hasattr(enc, "embed_dim"):
                 raise AttributeError(
                     f"img_encoders['{key}'] must expose `.embed_dim` (got "
@@ -136,7 +153,9 @@ class CondEncoderModule(nn.Module):
                 x = x[..., self.obs_input_slices[key]]
             if x.dim() == 2:  # (B, D) -> (B, T, D)
                 x = x.unsqueeze(1).expand(-1, T_action, -1)
-            emb = self.obs_encoders[key](x)  # (B, T, embed_dim)
+            emb = self.obs_encoders[self._obs_module_keys[key]](
+                x
+            )  # (B, T, embed_dim)
             feats.append(emb)
             if self.per_obs_keys:
                 out[key] = emb
@@ -147,7 +166,9 @@ class CondEncoderModule(nn.Module):
             x = obs[key]
             if x.dim() == 4:  # (B, C, H, W) -> (B, T, ...)
                 x = x.unsqueeze(1).expand(-1, T_action, -1, -1, -1)
-            emb = self.img_encoders[key](x)  # (B, T, embed_dim)
+            emb = self.img_encoders[self._img_module_keys[key]](
+                x
+            )  # (B, T, embed_dim)
             feats.append(emb)
             if self.per_obs_keys:
                 out[key] = emb

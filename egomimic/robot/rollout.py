@@ -11,18 +11,22 @@ import cv2
 import h5py
 import numpy as np
 import torch
-from egomimic.robot.robot_utils import RateLoop
 from scipy.spatial.transform import Rotation as R
 from torch.utils.data import default_collate
 
 from egomimic.models.denoising_policy import DenoisingPolicy
 from egomimic.pl_utils.pl_model import ModelWrapper
-from egomimic.rldb.embodiment.embodiment import get_embodiment
+from egomimic.rldb.embodiment.embodiment import get_embodiment, get_embodiment_id
 from egomimic.rldb.embodiment.eva import Eva
 from egomimic.rldb.embodiment.human import Human
-from egomimic.utils.pose_utils import cam_frame_to_base_frame, interpolate_arr, interpolate_arr_euler
+from egomimic.robot.robot_utils import RateLoop
+from egomimic.utils.pose_utils import (
+    cam_frame_to_base_frame,
+    interpolate_arr,
+    interpolate_arr_euler,
+    xyzw_to_wxyz,
+)
 from egomimic.utils.viz_utils import draw_actions
-from egomimic.utils.pose_utils import xyzw_to_wxyz
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "eva/eva_ws/src/eva"))
 
@@ -150,9 +154,9 @@ RIGHT_CAM_SERIAL = ""
 LEFT_CAM_SERIAL = ""
 
 EMBODIMENT_MAP = {
-    "both": 8,
-    "left": 7,
-    "right": 6,
+    "both": get_embodiment_id("eva_bimanual"),
+    "left": get_embodiment_id("eva_left_arm"),
+    "right": get_embodiment_id("eva_right_arm"),
 }
 
 TEMP_DIR = "/home/robot/temp_dir"
@@ -245,16 +249,27 @@ class PolicyRollout(Rollout):
         self.query_frequency = query_frequency
         self.cartesian = cartesian
         self.embodiment_id = EMBODIMENT_MAP[self.arm]
-        self.embodiment_name = get_embodiment(self.embodiment_id)
+        self.embodiment_name = get_embodiment(self.embodiment_id).lower()
         self.extrinsics = Eva.EXTRINSICS
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.policy_device = self.device
         print(f"[rollout] Loading policy from {self.policy_path}")
         self.policy = self._load_policy()
         self.debug_actions = None
-        self.resampled_action_len = resampled_action_len
+        self.resampled_action_len = self._resolve_action_chunk_contract(
+            model=self.policy.model,
+            embodiment_name=self.embodiment_name,
+            arm=self.arm,
+            cartesian=self.cartesian,
+            query_frequency=self.query_frequency,
+            requested_resampled_len=resampled_action_len,
+        )
         self.debug = debug
-        self.transform_list = Eva.get_transform_list(mode="cartesian_wristframe_ypr")
+        transform_mode = (
+            getattr(self.policy.model, "rollout_transform_mode", None)
+            or "cartesian_wristframe_ypr"
+        )
+        self.transform_list = Eva.get_transform_list(mode=transform_mode)
         self.annotation = None
         self._tokenizer = None
         self.collate_fn = default_collate
@@ -266,6 +281,51 @@ class PolicyRollout(Rollout):
             else:
                 with open(annotation_path, "r") as f:
                     self.annotation = f.read().strip()
+
+    @staticmethod
+    def _resolve_action_chunk_contract(
+        *,
+        model,
+        embodiment_name: str,
+        arm: str,
+        cartesian: bool,
+        query_frequency: int,
+        requested_resampled_len: int | None,
+    ) -> int | None:
+        adapter = getattr(model, "rollout_adapter", None)
+        if adapter is not None:
+            if getattr(adapter, "requires_bimanual", False) and arm != "both":
+                raise ValueError("Arc-length rollout requires --arms both")
+            if getattr(adapter, "requires_cartesian", False) and not cartesian:
+                raise ValueError("Arc-length rollout requires --cartesian")
+
+        domains = {str(domain).lower() for domain in getattr(model, "domains", [])}
+        if domains and embodiment_name.lower() not in domains:
+            raise ValueError(
+                f"Checkpoint does not support {embodiment_name!r}; "
+                f"configured domains={sorted(domains)}"
+            )
+        if query_frequency <= 0:
+            raise ValueError("query_frequency must be positive")
+
+        if adapter is None:
+            return requested_resampled_len
+
+        decoded_horizon = int(adapter.action_horizon)
+        if query_frequency > decoded_horizon:
+            raise ValueError(
+                f"query_frequency={query_frequency} exceeds the decoded action "
+                f"horizon {decoded_horizon}"
+            )
+        if getattr(adapter, "preserves_decoded_timing", False):
+            if requested_resampled_len not in (None, decoded_horizon):
+                print(
+                    "[rollout] Ignoring legacy resampled action length "
+                    f"{requested_resampled_len}; arc-token timing requires "
+                    f"{decoded_horizon} decoded steps"
+                )
+            return decoded_horizon
+        return requested_resampled_len
 
     LOCAL_WEIGHT_PATH = (
         "/home/robot/robot_ws/egomimic/algo/pi_checkpoints/pi05_base_pytorch"
@@ -375,10 +435,17 @@ class PolicyRollout(Rollout):
             batch = {
                 embodiment_name: transform_list_batch,
             }
-            processed_batch = self.policy.model.process_batch_for_training(batch)
-            preds = self.policy.model.forward_eval(processed_batch)[
-                f"{embodiment_name}_actions_cartesian"
-            ]
+            model = self.policy.model
+            if getattr(model, "rollout_adapter", None) is not None:
+                processed_batch = model.process_batch_for_rollout(batch)
+                preds = model.forward_rollout(processed_batch, rollout_t=i)[
+                    f"{embodiment_name}_actions_cartesian"
+                ]
+            else:
+                processed_batch = model.process_batch_for_training(batch)
+                preds = model.forward_eval(processed_batch)[
+                    f"{embodiment_name}_actions_cartesian"
+                ]
             self.actions = preds.detach().cpu().numpy().squeeze()
             self.debug_actions = self.actions.copy()
             if self.cartesian:

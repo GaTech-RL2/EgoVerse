@@ -52,6 +52,34 @@ def test_pusht_recipe_keeps_horizon_16_and_matching_optimizer_recipe():
     assert cfg.data.train_dataloader_params.pushshapes_sim_small_circle.batch_size == 16
 
 
+def test_arc_length_recipe_keeps_tokenizer_model_and_rollout_horizons_aligned():
+    cfg = _compose("fold/rh/pipeline_sampler_arc_length_nv")
+    noise = cfg.model.robomimic_model.stages[1]
+    sampler = cfg.model.robomimic_model.stages[2]
+    adapter = cfg.model.robomimic_model.rollout_adapter
+    human_data = cfg.data.train_datasets.human_bimanual.resolver
+    eva_data = cfg.data.train_datasets.eva_bimanual.resolver
+
+    assert cfg.model.robomimic_model.action_horizon == 26
+    assert noise.action_horizon == 26
+    assert sampler.action_horizon == 26
+    assert sampler.denoising_module.act_seq == 26
+    assert dict(sampler.action_dims) == {"eva_bimanual": 8, "human_bimanual": 8}
+    shared_images = cfg.model.robomimic_model.stages[0].encoder.shared_encoder
+    assert list(shared_images.obs_encoder.img_encoders) == [
+        "observations.images.front_img_1"
+    ]
+    assert adapter.min_distance_unit == 0.40
+    assert adapter.resampled_vector_length == 25
+    assert adapter.action_horizon == 100
+    assert human_data.key_map.keymap_mode == "arc_tokenizer_cartesian"
+    assert eva_data.key_map.keymap_mode == "arc_tokenizer_cartesian"
+    assert human_data.transform_list.min_distance_unit == 0.40
+    assert eva_data.transform_list.min_distance_unit == 0.40
+    assert human_data.transform_list.resampled_vector_length == 25
+    assert eva_data.transform_list.resampled_vector_length == 25
+
+
 def test_pusht_dataset_schema_is_registered_and_leak_free():
     assert get_embodiment_id("pushshapes_sim") == 15
     assert get_embodiment_id("pushshapes_sim_small_circle") == 17
@@ -59,3 +87,9 @@ def test_pusht_dataset_schema_is_registered_and_leak_free():
     assert "horizon" not in keymap["front_img_1"]
     assert "horizon" not in keymap["state_agent_obj"]
     assert keymap["actions"]["horizon"] == 16
+
+
+def test_legacy_human_episode_embodiments_resolve_to_collapsed_ids():
+    human_bimanual = get_embodiment_id("human_bimanual")
+    for vendor in ("aria", "mecka", "scale", "lightwheel"):
+        assert get_embodiment_id(f"{vendor}_bimanual") == human_bimanual

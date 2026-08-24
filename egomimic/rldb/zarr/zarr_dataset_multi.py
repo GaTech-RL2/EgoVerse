@@ -733,6 +733,7 @@ class MultiDataset(torch.utils.data.Dataset):
         percent: float = 0.1,
         valid_ratio: float = 0.2,
         norm_mode: str = "zscore",
+        bounds_check: bool = True,
         state: dict | None = None,
         **kwargs,
     ):
@@ -743,12 +744,14 @@ class MultiDataset(torch.utils.data.Dataset):
             percent: Fraction (when mode="percent").
             valid_ratio: Train/valid split ratio.
             norm_mode: One of "zscore", "minmax", "quantile".
+            bounds_check: Whether to reject samples outside inferred bounds.
             state: If provided, populate stats fields from this dict (deploy mode).
         """
         super().__init__()
 
         # ---- Stats fields (always present, may be empty) ----
         self.norm_mode = norm_mode
+        self.bounds_check = bool(bounds_check)
         self.embodiments: set[int] = set()
         self.key_types: dict[int, dict[str, str]] = {}
         self.zarr_keys: dict[int, dict[str, str]] = {}
@@ -925,7 +928,11 @@ class MultiDataset(torch.utils.data.Dataset):
             if isinstance(dataset, MultiDataset):
                 return data
 
-            violation = self._check_bounds(data, dataset, local_idx, dataset_name)
+            violation = (
+                self._check_bounds(data, dataset, local_idx, dataset_name)
+                if self.bounds_check
+                else None
+            )
             if violation is not None:
                 next_idx, attempts = self._next_after_failure(
                     idx,

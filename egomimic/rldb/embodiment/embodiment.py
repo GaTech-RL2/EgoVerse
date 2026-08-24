@@ -32,6 +32,24 @@ class EMBODIMENT(Enum):
 
 EMBODIMENT_ID_TO_KEY = {member.value: member.name for member in EMBODIMENT}
 
+# Legacy cached episodes still carry the pre-collapse human vendor in their
+# embodiment metadata. Vendor identity now lives in SQL's ``lab`` field, so
+# normalize those old names at the read boundary.
+_LEGACY_EMBODIMENT_ALIASES: dict[str, str] = {
+    "aria_bimanual": "human_bimanual",
+    "mecka_bimanual": "human_bimanual",
+    "scale_bimanual": "human_bimanual",
+    "lightwheel_bimanual": "human_bimanual",
+    "aria_right_arm": "human_right_arm",
+    "aria_left_arm": "human_left_arm",
+    "mecka_right_arm": "human_right_arm",
+    "mecka_left_arm": "human_left_arm",
+    "scale_right_arm": "human_right_arm",
+    "scale_left_arm": "human_left_arm",
+    "lightwheel_right_arm": "human_right_arm",
+    "lightwheel_left_arm": "human_left_arm",
+}
+
 
 def _intrinsics_from_batch(batch, i: int):
     """Return per-sample intrinsics from batch, or None if missing/NaN sentinel."""
@@ -54,7 +72,9 @@ def get_embodiment(index):
 
 
 def get_embodiment_id(embodiment_name):
-    return EMBODIMENT[embodiment_name.upper()].value
+    name = str(embodiment_name).lower()
+    name = _LEGACY_EMBODIMENT_ALIASES.get(name, name)
+    return EMBODIMENT[name.upper()].value
 
 
 class Embodiment(ABC):

@@ -139,6 +139,9 @@ class Human(Embodiment):
 
     INTRINSICS = ARIA_INTRINSICS  # fallback only — real value comes from the batch
     ACTION_HORIZON = 30
+    # 600 raw frames preserve the source branch's physical arc-length window.
+    ARC_TOK_ACTION_HORIZON = 600
+    ARC_TOK_INTERPOLATED_HORIZON = 100
     # Front-image key for Pi/PaliGemma-style naming (any "_pi"-suffixed mode);
     # Pi's _fill_missing_images auto-duplicates the absent wrist keys.
     PI_FRONT_KEY = "base_0_rgb"
@@ -300,7 +303,11 @@ class Human(Embodiment):
         is_pi = keymap_mode.endswith("_pi")
         base_mode = keymap_mode[: -len("_pi")] if is_pi else keymap_mode
         front_key = cls.PI_FRONT_KEY if is_pi else cls.VIZ_IMAGE_KEY
-        horizon = cls.ACTION_HORIZON
+        if base_mode == "arc_tokenizer_cartesian":
+            horizon = cls.ARC_TOK_ACTION_HORIZON
+            base_mode = "cartesian"
+        else:
+            horizon = cls.ACTION_HORIZON
 
         if base_mode == "cartesian":
             key_map = {
@@ -403,8 +410,11 @@ class Human(Embodiment):
             "keypoints_headframe_quat",
             "keypoints_wristframe_ypr",
             "keypoints_wristframe_quat",
+            "arc_tokenizer_cartesian",
         ],
         stride: int = 3,
+        min_distance_unit: float = 0.60,
+        resampled_vector_length: int = 20,
     ) -> list[Transform]:
         """Transform pipeline. ``stride`` is the per-vendor action stride
         (Aria/LightWheel=3, Scale/Mecka=1), supplied by the data config.
@@ -433,6 +443,30 @@ class Human(Embodiment):
             return _build_human_keypoints_eef_frame_transform_list(
                 stride=stride, is_quat=True
             )
+        if mode == "arc_tokenizer_cartesian":
+            from egomimic.rldb.zarr.arc_length_tokenizer import (
+                TokenizeBimanualArcLengthCartesian,
+            )
+
+            base = _build_human_cartesian_bimanual_transform_list(stride=stride)
+            # InterpolatePose downsamples by stride and then stretches the
+            # remaining raw span over 100 rows. Token dt must describe those
+            # interpolated rows, not the pre-interpolation 30 Hz samples.
+            tokenize = TokenizeBimanualArcLengthCartesian(
+                action_key="actions_cartesian",
+                output_action_key="actions_cartesian",
+                min_distance_unit=float(min_distance_unit),
+                resampled_vector_length=int(resampled_vector_length),
+                dt=(
+                    ((cls.ARC_TOK_ACTION_HORIZON - 1) // int(stride))
+                    * int(stride)
+                )
+                / (30.0 * (cls.ARC_TOK_INTERPOLATED_HORIZON - 1)),
+            )
+            return base + [
+                PadGripperZeros(action_key="actions_cartesian"),
+                tokenize,
+            ]
         raise ValueError(f"Unsupported transform_list mode '{mode}' for {cls.__name__}")
 
 

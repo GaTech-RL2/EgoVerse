@@ -45,12 +45,19 @@ class Eva(Embodiment):
             ]
         ),
     }
+    ARC_TOK_ACTION_HORIZON = 200
+    ARC_TOK_INTERPOLATED_HORIZON = 100
 
     @staticmethod
     def get_transform_list(
         mode: Literal[
-            "cartesian", "cartesian_wristframe_ypr", "cartesian_wristframe_quat"
+            "cartesian",
+            "cartesian_wristframe_ypr",
+            "cartesian_wristframe_quat",
+            "arc_tokenizer_cartesian",
         ],
+        min_distance_unit: float = 0.60,
+        resampled_vector_length: int = 20,
     ) -> list[Transform]:
         if mode == "cartesian":
             return _build_eva_bimanual_transform_list(is_quat=True)
@@ -58,12 +65,34 @@ class Eva(Embodiment):
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=False)
         elif mode == "cartesian_wristframe_quat":
             return _build_eva_bimanual_eef_frame_transform_list(is_quat=True)
+        elif mode == "arc_tokenizer_cartesian":
+            from egomimic.rldb.zarr.arc_length_tokenizer import (
+                TokenizeBimanualArcLengthCartesian,
+            )
+
+            base = _build_eva_bimanual_transform_list(is_quat=True)
+            # The 200 raw 30 Hz rows are interpolated to 100 before tokenizing;
+            # preserve their physical 199/30-second span in the velocity token.
+            tokenize = TokenizeBimanualArcLengthCartesian(
+                action_key="actions_cartesian",
+                output_action_key="actions_cartesian",
+                min_distance_unit=float(min_distance_unit),
+                resampled_vector_length=int(resampled_vector_length),
+                dt=(Eva.ARC_TOK_ACTION_HORIZON - 1)
+                / (30.0 * (Eva.ARC_TOK_INTERPOLATED_HORIZON - 1)),
+            )
+            for index in range(len(base) - 1, -1, -1):
+                if isinstance(base[index], NumpyToTensor):
+                    return base[:index] + [tokenize] + base[index:]
+            return base + [tokenize]
+        raise ValueError(f"Unsupported transform_list mode {mode!r} for Eva")
 
     @classmethod
     def _get_keymap(cls, keymap_mode: str):
         # Camera key naming differs by algo:
-        #   "cartesian"     -> dataset-style names (HPT and friends)
-        #   "cartesian_pi"  -> PI/PaliGemma-style names (base_0_rgb, *_wrist_0_rgb)
+        #   "cartesian"                -> dataset-style names (HPT and friends)
+        #   "cartesian_pi"             -> PI/PaliGemma-style names
+        #   "arc_tokenizer_cartesian"  -> cartesian names with a wider action window
         # Everything else (proprio + action) stays identical so the same
         # transform_list ("cartesian") works either way.
         if keymap_mode == "cartesian_pi":
@@ -74,6 +103,12 @@ class Eva(Embodiment):
             front_key = cls.VIZ_IMAGE_KEY
             right_wrist_key = "observations.images.right_wrist_img"
             left_wrist_key = "observations.images.left_wrist_img"
+
+        action_horizon = (
+            cls.ARC_TOK_ACTION_HORIZON
+            if keymap_mode == "arc_tokenizer_cartesian"
+            else 45
+        )
 
         key_map = {
             front_key: {
@@ -107,22 +142,22 @@ class Eva(Embodiment):
             "right.cmd_gripper": {
                 "key_type": "action_keys",
                 "zarr_key": "right.cmd_gripper",
-                "horizon": 45,
+                "horizon": action_horizon,
             },
             "left.cmd_gripper": {
                 "key_type": "action_keys",
                 "zarr_key": "left.cmd_gripper",
-                "horizon": 45,
+                "horizon": action_horizon,
             },
             "right.cmd_ee_pose": {
                 "key_type": "action_keys",
                 "zarr_key": "right.cmd_ee_pose",
-                "horizon": 45,
+                "horizon": action_horizon,
             },
             "left.cmd_ee_pose": {
                 "key_type": "action_keys",
                 "zarr_key": "left.cmd_ee_pose",
-                "horizon": 45,
+                "horizon": action_horizon,
             },
         }
 
