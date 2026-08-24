@@ -17,6 +17,10 @@ from torch.utils.data import default_collate
 
 from egomimic.rldb.embodiment.embodiment import get_embodiment_id
 from egomimic.rldb.embodiment.eva import Eva
+from egomimic.rldb.embodiment.eva_frames import (
+    dataset_ypr_pose_to_hardware_ypr,
+    hardware_ypr_pose_to_dataset_ypr,
+)
 from egomimic.utils.pose_utils import (
     cam_frame_to_base_frame,
     interpolate_arr,
@@ -29,8 +33,6 @@ EMBODIMENT_NAME_BY_ARM = {
     "left": "eva_left_arm",
     "right": "eva_right_arm",
 }
-_R_TOOL_TO_EE = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]], dtype=float)
-_R_EE_TO_TOOL = np.linalg.inv(_R_TOOL_TO_EE)
 
 
 @dataclass(frozen=True)
@@ -133,21 +135,11 @@ def _report_model_device(algo) -> None:
 
 
 def _ee_pose_to_rotated_frame(pose: np.ndarray) -> np.ndarray:
-    pose = np.asarray(pose)
-    rotation = Rotation.from_euler("ZYX", pose[..., 3:6]).as_matrix()
-    rotated = _R_TOOL_TO_EE @ rotation
-    return np.concatenate(
-        [pose[..., :3], Rotation.from_matrix(rotated).as_euler("ZYX")], axis=-1
-    )
+    return hardware_ypr_pose_to_dataset_ypr(pose)
 
 
 def _rotated_frame_to_ee_pose_batch(pose: np.ndarray) -> np.ndarray:
-    pose = np.asarray(pose)
-    rotation = Rotation.from_euler("ZYX", pose[..., 3:6]).as_matrix()
-    ee_rotation = _R_EE_TO_TOOL @ rotation
-    return np.concatenate(
-        [pose[..., :3], Rotation.from_matrix(ee_rotation).as_euler("ZYX")], axis=-1
-    )
+    return dataset_ypr_pose_to_hardware_ypr(pose)
 
 
 class EvaLegacyPolicy:

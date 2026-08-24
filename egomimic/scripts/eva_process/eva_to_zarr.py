@@ -11,14 +11,15 @@ import traceback
 from pathlib import Path
 
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 
 from egomimic.rldb.embodiment.eva import Eva
+from egomimic.rldb.embodiment.eva_frames import (
+    hardware_ypr_pose_to_dataset_wxyz,
+)
 from egomimic.rldb.zarr.zarr_writer import ZarrWriter
 from egomimic.scripts.eva_process.eva_utils import EvaHD5Extractor
 from egomimic.utils.aws.aws_sql import timestamp_ms_to_episode_hash
 from egomimic.utils.type_utils import str2bool
-from egomimic.utils.pose_utils import xyzw_to_wxyz
 from egomimic.utils.video_utils import resize_video_thwc, save_preview_mp4
 
 logger = logging.getLogger(__name__)
@@ -34,21 +35,6 @@ DATASET_KEY_MAPPINGS = {
     "images.right_wrist_img": "images.right_wrist",
     "images.left_wrist_img": "images.left_wrist",
 }
-
-R_t_e = np.array(
-    [
-        [0, 0, 1],
-        [-1, 0, 0],
-        [0, -1, 0],
-    ],
-    dtype=float,
-)
-
-
-def rot_orientation(quat: np.ndarray) -> np.ndarray:
-    rotation = R.from_quat(quat).as_matrix()
-    rotation = R_t_e @ rotation
-    return R.from_matrix(rotation).as_quat()
 
 
 def _arm_to_embodiment(arm: str) -> str:
@@ -133,14 +119,9 @@ def _split_per_arm(numeric_data: dict, arm: str) -> dict:
                 else:
                     raise ValueError(f"Unknown gripper key: {base_key}")
             else:
-                translation = arr[:, offset : offset + 3]
-                quat = rot_orientation(
-                    R.from_euler(
-                        "ZYX", arr[:, offset + 3 : offset + 6], degrees=False
-                    ).as_quat()
+                out[f"{side}.{base_key}"] = hardware_ypr_pose_to_dataset_wxyz(
+                    arr[:, offset : offset + 6]
                 )
-                quat = xyzw_to_wxyz(quat)
-                out[f"{side}.{base_key}"] = np.concatenate([translation, quat], axis=-1)
     return out
 
 

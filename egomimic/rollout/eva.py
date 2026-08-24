@@ -7,9 +7,12 @@ from typing import Any
 
 import numpy as np
 import torch
-from scipy.spatial.transform import Rotation
 from torch.utils.data import default_collate
 
+from egomimic.rldb.embodiment.eva_frames import (
+    dataset_ypr_pose_to_hardware_ypr,
+    hardware_ypr_pose_to_dataset_wxyz,
+)
 from egomimic.rldb.embodiment.fold_span_transforms import (
     build_bimanual_rot6d_wrist_revert_transforms,
     eva_rollout_obs_transforms,
@@ -18,10 +21,7 @@ from egomimic.rollout.core import RolloutNode
 
 
 def _ypr_pose_to_wxyz(pose: np.ndarray) -> np.ndarray:
-    pose = np.asarray(pose, dtype=np.float64)
-    xyzw = Rotation.from_euler("ZYX", pose[..., 3:6]).as_quat()
-    wxyz = np.concatenate([xyzw[..., 3:4], xyzw[..., :3]], axis=-1)
-    return np.concatenate([pose[..., :3], wxyz], axis=-1).astype(np.float32)
+    return hardware_ypr_pose_to_dataset_wxyz(pose).astype(np.float32)
 
 
 class EvaObservationWindow(RolloutNode):
@@ -128,7 +128,15 @@ class EvaActionCodec(RolloutNode):
         }
         for transform in self.transforms:
             batch = transform.transform(batch)
-        command = np.asarray(batch[self.ac_key], dtype=np.float32)[0]
+        encoded = np.asarray(batch[self.ac_key], dtype=np.float64)
+        if encoded.ndim != 2 or encoded.shape[-1] != 14:
+            raise ValueError(f"Invalid encoded EVA command shape: {encoded.shape}")
+        left = dataset_ypr_pose_to_hardware_ypr(encoded[:, :6])
+        right = dataset_ypr_pose_to_hardware_ypr(encoded[:, 7:13])
+        commands = np.concatenate(
+            [left, encoded[:, 6:7], right, encoded[:, 13:14]], axis=-1
+        )
+        command = commands.astype(np.float32, copy=False)[0]
         if command.shape != (14,) or not np.all(np.isfinite(command)):
             raise ValueError(f"Invalid EVA command shape/value: {command.shape}")
         state["command"] = command

@@ -61,7 +61,10 @@ chunk. The rollout artifact passed strict loading of all 335,564,596 model
 parameters on CUDA and a no-hardware synthetic observation-to-command shadow
 test. That test produced a finite `(100, 20)` normalized action chunk and a
 finite 14-D decoded EVA command in 0.667 seconds; it did not initialize or
-command the robot. Run it from inside the live container with:
+command the robot. Shape and finiteness alone do not validate the pose-frame
+contract, so the maintained tests also exercise a nontrivial two-arm
+hardware-to-training-to-hardware round trip. Run it from inside the live
+container with:
 
 ```bash
 python -m egomimic.robot.rollout \
@@ -74,6 +77,25 @@ python -m egomimic.robot.rollout \
 Do not pass `--resampled-action-len`; this checkpoint already has its trained
 100-action chunk. The shadow gate proves software compatibility and finite
 decoding only; it is not a physical-motion safety acceptance.
+
+## EVA pose-frame contract
+
+Fold Zarr conversion changes the orientation convention of every observed and
+commanded EVA pose while leaving translation unchanged:
+
+```text
+R_dataset = [[0, 0, 1], [-1, 0, 0], [0, -1, 0]] @ R_hardware
+```
+
+Live Pipeline rollout must apply this conversion before constructing
+`state_ee_pose`. After unnormalization and wrist-relative-to-base reversion, it
+must apply the transpose/inverse matrix to each arm's output orientation before
+calling the hardware interface. Applying only one side is invalid; omitting
+both can make rotations appear plausible while rotating relative translations
+into the wrong base direction and conditioning the model outside its training
+distribution. The shared source of truth is
+`egomimic/rldb/embodiment/eva_frames.py`, which is also used by
+`eva_to_zarr.py`. Do not duplicate this matrix in rollout code.
 
 ## Live safety gates
 
@@ -105,7 +127,7 @@ uv venv --python 3.11 emimic
 source emimic/bin/activate
 uv sync --active --frozen
 python -c 'from egomimic.robot.backends.arx5 import optional_arx5_api; assert optional_arx5_api() is None'
-pytest -q tests/test_arx5_backend.py tests/test_pipeline_rollout.py
+pytest -q tests/test_arx5_backend.py tests/test_eva_frames.py tests/test_pipeline_rollout.py
 ```
 
 The native ARX wheel is intentionally absent on macOS. Offline rollout and all
@@ -192,6 +214,8 @@ Attended hardware gates, in order:
 - Run an attended policy rollout with the physical E-stop available.
 
 On `bonjour` on 2026-08-23, all automated/read-only checks, the Quest input
-path, and an attended right-arm upward movement passed. Gripper, bimanual
-teleoperation, checkpoint shadow inference, and policy rollout remain for the
-next attended robot session.
+path, an attended right-arm upward movement, gripper close, and bimanual
+teleoperation passed. The first checkpoint rollout attempt exposed and was
+stopped for a missing live EVA pose-convention boundary; the paired conversion
+is now covered by offline regression tests. Attended policy rollout after
+deploying that fix remains pending.
