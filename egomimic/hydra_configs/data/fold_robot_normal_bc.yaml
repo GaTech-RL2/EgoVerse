@@ -1,0 +1,41 @@
+# Robot-only Fold control on the same standard per-frame JPEG contract used by
+# the robot arm of fold_rh_normal_cotrain_kp.yaml.
+_target_: egomimic.pl_utils.pl_data_utils.MultiDataModuleWrapper
+
+train_datasets:
+  eva_bimanual:
+    _target_: egomimic.rldb.zarr.zarr_dataset_multi.MultiDataset._from_resolver
+    resolver:
+      _target_: egomimic.rldb.zarr.zarr_dataset_multi.LocalEpisodeResolver
+      folder_path: ${oc.env:FOLD_RH_ROOT,/coc/flash7/paphiwetsa3/datasets/fold_rh_jpeg}/eva
+      key_map:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_normal_keymap
+      transform_list:
+        _target_: egomimic.rldb.embodiment.fold_span_transforms.eva_normal_transforms
+    filters:
+      _target_: egomimic.rldb.filters.DatasetFilter
+      filter_lambdas:
+      - 'lambda row: True'
+    # Keep the full robot action distribution, including quantile-tail reaches.
+    bounds_check: false
+    mode: total
+
+valid_datasets:
+  eva_bimanual: ${train_datasets.eva_bimanual}
+
+# Two DDP ranks x 32 samples/rank = 64 robot samples per optimizer step,
+# matching the robot batch in the cotrain Dense parent.
+train_dataloader_params:
+  eva_bimanual:
+    batch_size: 32
+    num_workers: 6
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 1
+valid_dataloader_params:
+  eva_bimanual:
+    batch_size: 16
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 1
