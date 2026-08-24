@@ -7,19 +7,6 @@ from egomimic.models.denoising_nets import CrossBlock, CrossTransformer
 from egomimic.models.moe_ffn import MoEFFN
 
 
-class DDPSafeMoEFFN(MoEFFN):
-    """Keep every expert parameter in the DDP graph on sparse-routing steps."""
-
-    def forward(self, x):
-        output = super().forward(x)
-        anchor = sum(
-            parameter.reshape(-1)[0] * 0.0
-            for expert in self.experts
-            for parameter in expert.parameters()
-        )
-        return output + anchor.to(output)
-
-
 class SharedResidualMoEFFN(nn.Module):
     """Retain the dense shared FFN and add a scaled expert residual."""
 
@@ -35,7 +22,7 @@ class SharedResidualMoEFFN(nn.Module):
     ):
         super().__init__()
         self.shared_ffn = shared_ffn
-        self.expert_ffn = DDPSafeMoEFFN(
+        self.expert_ffn = MoEFFN(
             d_model=int(d_model),
             d_intermediate=int(moe_d_expert),
             num_experts=int(moe_experts),

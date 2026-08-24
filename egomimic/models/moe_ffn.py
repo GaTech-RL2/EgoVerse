@@ -21,7 +21,7 @@ class SwiGLU(nn.Module):
 
 
 class MoEFFN(nn.Module):
-    """Content-routed top-k experts with Switch-style load balancing."""
+    """Content-routed top-k experts with batched expert execution."""
 
     def __init__(
         self,
@@ -61,19 +61,35 @@ class MoEFFN(nn.Module):
 
         routed_weights = torch.zeros_like(probabilities)
         routed_weights.scatter_(1, top_indices, top_weights)
-        output = torch.zeros_like(tokens)
-        for expert_index, expert in enumerate(self.experts):
-            selected = routed_weights[:, expert_index] > 0
-            if not bool(selected.any()):
-                continue
-            token_indices = selected.nonzero(as_tuple=True)[0]
-            expert_output = expert(tokens.index_select(0, token_indices))
-            weights = routed_weights[token_indices, expert_index].unsqueeze(-1)
-            output.index_add_(
-                0,
-                token_indices,
-                (weights.to(expert_output.dtype) * expert_output).to(output.dtype),
-            )
+
+        # Evaluate the experts as two batched matrix products. Computing every
+        # expert and gathering the routed top-k outputs is intentionally dense:
+        # it avoids a Python expert loop, per-expert CUDA synchronizations, and
+        # DDP-only parameter anchors while preserving the routed result and the
+        # checkpoint's ModuleList parameter names.
+        gate_value_weight = torch.stack(
+            [expert.gate_value.weight for expert in self.experts]
+        )
+        gate_value_bias = torch.stack(
+            [expert.gate_value.bias for expert in self.experts]
+        )
+        gate_value = torch.einsum("nd,ehd->neh", tokens, gate_value_weight)
+        gate_value = gate_value + gate_value_bias.unsqueeze(0)
+        gate, value = gate_value.chunk(2, dim=-1)
+        hidden = F.silu(gate) * value
+
+        output_weight = torch.stack([expert.output.weight for expert in self.experts])
+        output_bias = torch.stack([expert.output.bias for expert in self.experts])
+        expert_outputs = torch.einsum("neh,edh->ned", hidden, output_weight)
+        expert_outputs = expert_outputs + output_bias.unsqueeze(0)
+        selected_outputs = expert_outputs.gather(
+            1,
+            top_indices.unsqueeze(-1).expand(-1, -1, self.d_model),
+        )
+        output = torch.sum(
+            selected_outputs * top_weights.to(selected_outputs).unsqueeze(-1),
+            dim=1,
+        ).to(tokens)
 
         dispatch = (routed_weights > 0).to(probabilities.dtype)
         denominator = max(tokens.shape[0] * self.top_k, 1)
